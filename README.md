@@ -41,7 +41,7 @@ A systemd sample [service](https://github.com/drakkan/sftpgo/tree/master/init/sf
 
 Alternately you can use distro packages:
 
-- Arch Linux PKGBUILD is available on [AUR](https://aur.archlinux.org/sftpgo-git "SFTPGo")
+- Arch Linux PKGBUILD is available on [AUR](https://aur.archlinux.org/packages/sftpgo-git/ "SFTPGo")
 
 ## Configuration
 
