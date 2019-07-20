@@ -1,0 +1,654 @@
+openapi: 3.0.1
+info:
+  title: SFTPGo
+  description: 'SFTPGo REST API'
+  version: 1.0.0
+  
+servers:
+- url: /api/v1
+paths:
+  /sftp_connection:
+    get:
+      tags:
+      - connections
+      summary: Get the active sftp users and info about their uploads/downloads
+      operationId: get_connections
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref : '#/components/schemas/ConnectionStatus'
+  /sftp_connection/{connectionID}:
+    delete:
+      tags:
+      - connections
+      summary: Terminate an active SFTP connection
+      operationId: close_connection
+      parameters: 
+      - name: connectionID
+        in: path
+        description: ID of the connection to close
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 200
+                message: "Connection closed"
+                error: ""
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 400
+                message: ""
+                error: "Error description if any"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 404
+                message: ""
+                error: "Error description if any"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 500
+                message: ""
+                error: "Error description if any"
+  /quota_scan:
+    get:
+      tags:
+      - quota
+      summary: Get the active quota scans
+      operationId: get_quota_scan
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref : '#/components/schemas/QuotaScan'
+    post:
+      tags:
+      - quota
+      summary: start a new quota scan
+      description: A quota scan update the number of files and their total size for the given user
+      operationId: start_quota_scan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref : '#/components/schemas/User'
+      responses:
+        201:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 201
+                message: "Scan started"
+                error: ""
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 400
+                message: ""
+                error: "Error description if any"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 403
+                message: ""
+                error: "Error description if any"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 404
+                message: ""
+                error: "Error description if any"
+        409:
+          description: Another scan is already in progress for this user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 409
+                message: "Another scan is already in progress"
+                error: "Error description if any" 
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 500
+                message: ""
+                error: "Error description if any"
+  /user:
+    get:
+      tags:
+      - users
+      summary: Returns an array with one or more SFTP users
+      description: For security reasons password and public key are empty in the response
+      operationId: get_users
+      parameters:
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          required: false
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+          required: false
+          description: The maximum number of items to return. Max value is 500, default is 100
+        - in: query
+          name: order
+          required: false
+          description: Ordering users by username
+          schema:
+             type: string
+             enum:
+                - ASC
+                - DESC
+             example: ASC
+        - in: query
+          name: username
+          required: false
+          description: Filter by username, extact match case sensitive
+          schema:
+             type: string
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref : '#/components/schemas/User'
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 400
+                message: ""
+                error: "Error description if any"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 403
+                message: ""
+                error: "Error description if any"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 500
+                message: ""
+                error: "Error description if any"
+    post:
+      tags:
+      - users
+      summary: Adds a new SFTP user
+      operationId: add_user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref : '#/components/schemas/User'
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref : '#/components/schemas/User'
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 400
+                message: ""
+                error: "Error description if any"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 403
+                message: ""
+                error: "Error description if any"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 500
+                message: ""
+                error: "Error description if any"
+  /user/{userID}:
+    get:
+      tags:
+      - users
+      summary: Find user by ID
+      description: For security reasons password and public key are empty in the response
+      operationId: getUserByID
+      parameters: 
+      - name: userID
+        in: path
+        description: ID of the user to retrieve
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref : '#/components/schemas/User'
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 400
+                message: ""
+                error: "Error description if any"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 403
+                message: ""
+                error: "Error description if any"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 404
+                message: ""
+                error: "Error description if any"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 500
+                message: ""
+                error: "Error description if any"
+    put:
+      tags:
+      - users
+      summary: Update an user
+      operationId: updateUser
+      parameters: 
+      - name: userID
+        in: path
+        description: ID of the user to update
+        required: true
+        schema:
+          type: integer
+          format: int32
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref : '#/components/schemas/User'
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref : '#/components/schemas/ApiResponse'
+              example: 
+                status: 200
+                message: "User updated"
+                error: ""
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 400
+                message: ""
+                error: "Error description if any"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 403
+                message: ""
+                error: "Error description if any"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 404
+                message: ""
+                error: "Error description if any"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 500
+                message: ""
+                error: "Error description if any"
+    delete:
+      tags:
+      - users
+      summary: Delete an user
+      operationId: deleteUser
+      parameters: 
+      - name: userID
+        in: path
+        description: ID of the user to delete
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref : '#/components/schemas/ApiResponse'
+              example: 
+                status: 200
+                message: "User deleted"
+                error: ""
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 400
+                message: ""
+                error: "Error description if any"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 403
+                message: ""
+                error: "Error description if any"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 404
+                message: ""
+                error: "Error description if any"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example: 
+                status: 500
+                message: ""
+                error: "Error description if any"
+components:
+  schemas:
+    Permission:
+      type: string
+      enum:
+        - '*'
+        - list
+        - download
+        - upload
+        - delete
+        - rename
+        - create_dirs
+        - create_symlinks
+      description: >
+        Permissions:
+          * `*` - all permission are granted
+          * `list` - list items is allowed
+          * `download` - download files is allowed
+          * `upload` - upload files is allowed
+          * `delete` - delete files or directories is allowed
+          * `rename` - rename files or directories is allowed
+          * `create_dirs` - create directories is allowed
+          * `create_symlinks` - create links is allowed
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+        username:
+          type: string
+        password:
+          type: string
+          nullable: true
+          description: password or public key are mandatory. For security reasons this field is omitted when you search/get users
+        public_key:
+          type: string
+          nullable: true
+          description: password or public key are mandatory. For security reasons this field is omitted when you search/get users
+        home_dir:
+          type: string
+          description: path to the user home directory. The user cannot upload or download files outside this directory. SFTPGo tries to automatically create this folder if missing. Must be an absolute path
+        uid:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 65535
+          description: if you run sftpgo as root user the created files and directories will be assigned to this uid. 0 means no change, the owner will be the user that runs sftpgo. Ignored on windows
+        gid:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 65535
+          description: if you run sftpgo as root user the created files and directories will be assigned to this gid. 0 means no change, the group will be the one of the user that runs sftpgo. Ignored on windows
+        max_sessions:
+          type: integer
+          format: int32
+          description: limit the sessions that an sftp user can open. 0 means unlimited
+        quota_size:
+          type: integer
+          format: int64
+          description: quota as size. 0 menas unlimited. Please note that quota is updated if files are added/removed via sftp otherwise a quota scan is needed
+        quota_files:
+          type: integer
+          format: int32
+          description: quota as number of files. 0 menas unlimited. Please note that quota is updated if files are added/removed via sftp otherwise a quota scan is needed
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Permission'
+          minItems: 1
+        used_quota_size:
+          type: integer
+          format: int64
+        used_quota_file:
+          type: integer
+          format: int32
+        last_quota_scan:
+          type: integer
+          format: int64
+          description: last quota scan as unix timestamp
+        upload_bandwidth:
+          type: integer
+          format: int32
+          description: Maximum upload bandwidth as KB/s, 0 means unlimited
+        download_bandwidth:
+          type: integer
+          format: int32
+          description: Maximum download bandwidth as KB/s, 0 means unlimited
+    SFTPTransfer:
+      type: object
+      properties:
+        operation_type:
+          type: string
+          enum: 
+            - upload
+            - download
+        start_time:
+          type: integer
+          format: int64
+          description: start time as unix timestamp
+        size:
+          type: integer
+          format: int64
+          description: bytes transferred
+        last_activity:
+          type: integer
+          format: int64
+          description: last transfer activity as unix timestamp  
+    ConnectionStatus:
+      type: object
+      properties:
+        username:
+          type: string
+          description: connected username
+        connection_id:
+          type: string
+          description: unique sftp connection identifier
+        client_version:
+          type: string
+          description: SFTP client version
+        remote_address:
+          type: string
+          description: Remote address for the connected SFTP client
+        connection_time:
+          type: integer
+          format: int64
+          description: connection time as unix timestamp
+        last_activity:
+          type: integer
+          format: int64
+          description: last client activity as unix timestamp
+        active_transfers:
+          type: array
+          items:
+            $ref : '#/components/schemas/SFTPTransfer'
+    QuotaScan:
+      type: object
+      properties:
+        username:
+          type: string
+          description: username with an active scan
+        start_time:
+          type: integer
+          format: int64
+          description: scan start time as unix timestamp
+    ApiResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          format: int32
+          minimum: 200
+          maximum: 500
+          example: 200
+          description: HTTP Status code, for example 200 OK, 400 Bad request and so on
+        message:
+          type: string
+          nullable: true
+          description: additional message if any
+        error:
+          type: string
+          nullable: true
+          description: error description if any

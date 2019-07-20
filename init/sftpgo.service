@@ -1,0 +1,16 @@
+[Unit]
+Description=SFTPGo sftp server
+After=network.target
+
+[Service]
+User=root
+Group=root
+Type=simple
+WorkingDirectory=/etc/sftpgo
+ExecStart=/usr/bin/sftpgo -config-dir /etc/sftpgo -log-file-path /var/log/sftpgo.log
+KillMode=mixed
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
