@@ -106,19 +106,10 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 			}
 		}
 
-		dirsToCreate, err := c.findNonexistentDirs(p)
+		err = c.createMissingDirs(p)
 		if err != nil {
+			logger.Error(logSender, "error making missing dir for path %v: %v", p, err)
 			return nil, sftp.ErrSshFxFailure
-		}
-
-		last := len(dirsToCreate) - 1
-		for i := range dirsToCreate {
-			d := dirsToCreate[last-i]
-			if err := os.Mkdir(d, 0777); err != nil {
-				logger.Error(logSender, "error making path for file, dir: %v, path: %v", d, p)
-				return nil, sftp.ErrSshFxFailure
-			}
-			utils.SetPathPermissions(d, c.User.GetUID(), c.User.GetGID())
 		}
 
 		file, err := os.Create(p)
@@ -162,24 +153,7 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 		return nil, sftp.ErrSshFxOpUnsupported
 	}
 
-	var osFlags int
-	trunc := false
-	sftpFileOpenFlags := request.Pflags()
-	if sftpFileOpenFlags.Read && sftpFileOpenFlags.Write {
-		osFlags |= os.O_RDWR
-	} else if sftpFileOpenFlags.Write {
-		osFlags |= os.O_WRONLY
-	}
-	if sftpFileOpenFlags.Append {
-		osFlags |= os.O_APPEND
-	}
-	if sftpFileOpenFlags.Creat {
-		osFlags |= os.O_CREATE
-	}
-	if sftpFileOpenFlags.Trunc {
-		osFlags |= os.O_TRUNC
-		trunc = true
-	}
+	osFlags, trunc := getOSOpenFlags(request.Pflags())
 
 	if !trunc {
 		// see https://github.com/pkg/sftp/issues/295
@@ -228,109 +202,44 @@ func (c Connection) Filecmd(request *sftp.Request) error {
 		return sftp.ErrSshFxNoSuchFile
 	}
 
-	var target string
-	// If a target is provided in this request validate that it is going to the correct
-	// location for the server. If it is not, return an operation unsupported error. This
-	// is maybe not the best error response, but its not wrong either.
-	if request.Target != "" {
-		target, err = c.buildPath(request.Target)
-		if err != nil {
-			return sftp.ErrSshFxOpUnsupported
-		}
+	target, err := c.getSFTPCmdTargetPath(request.Target)
+	if err != nil {
+		return sftp.ErrSshFxOpUnsupported
 	}
 
-	logger.Debug(logSender, "new cmd, method: %v user: %v", request.Method, c.User.Username)
+	logger.Debug(logSender, "new cmd, method: %v user: %v sourcePath: %v, targetPath: %v", request.Method, c.User.Username,
+		p, target)
 
 	switch request.Method {
 	case "Setstat":
 		return nil
 	case "Rename":
-		if !c.User.HasPerm(dataprovider.PermRename) {
-			return sftp.ErrSshFxPermissionDenied
-		}
-
-		logger.CommandLog(sftpdRenameLogSender, p, target, c.User.Username, c.ID)
-		if err := os.Rename(p, target); err != nil {
-			logger.Error("failed to rename file, source: %v target: %v: %v", p, target, err)
-			return sftp.ErrSshFxFailure
+		err = c.handleSFTPRename(p, target)
+		if err != nil {
+			return err
 		}
 
 		break
 	case "Rmdir":
-		if !c.User.HasPerm(dataprovider.PermDelete) {
-			return sftp.ErrSshFxPermissionDenied
-		}
+		return c.handleSFTPRmdir(p)
 
-		logger.CommandLog(sftpdRmdirLogSender, p, target, c.User.Username, c.ID)
-		numFiles, size, err := utils.ScanDirContents(p)
-		if err != nil {
-			logger.Error("failed to remove directory %v, scanning error: %v", p, err)
-			return sftp.ErrSshFxFailure
-		}
-		if err := os.RemoveAll(p); err != nil {
-			logger.Error("failed to remove directory %v: %v", p, err)
-			return sftp.ErrSshFxFailure
-		}
-
-		dataprovider.UpdateUserQuota(dataProvider, c.User.Username, -numFiles, -size, false)
-
-		return sftp.ErrSshFxOk
 	case "Mkdir":
-		if !c.User.HasPerm(dataprovider.PermCreateDirs) {
-			return sftp.ErrSshFxPermissionDenied
-		}
-
-		logger.CommandLog(sftpdMkdirLogSender, p, target, c.User.Username, c.ID)
-		dirsToCreate, err := c.findNonexistentDirs(filepath.Join(p, "testfile"))
+		err = c.handleSFTPMkdir(p)
 		if err != nil {
-			return sftp.ErrSshFxFailure
+			return err
 		}
 
-		last := len(dirsToCreate) - 1
-		for i := range dirsToCreate {
-			d := dirsToCreate[last-i]
-			if err := os.Mkdir(d, 0777); err != nil {
-				logger.Error(logSender, "error making path dir: %v, full path: %v", d, p)
-				return sftp.ErrSshFxFailure
-			}
-			utils.SetPathPermissions(d, c.User.GetUID(), c.User.GetGID())
-		}
 		break
 	case "Symlink":
-		if !c.User.HasPerm(dataprovider.PermCreateSymlinks) {
-			return sftp.ErrSshFxPermissionDenied
-		}
-
-		logger.CommandLog(sftpdSymlinkLogSender, p, target, c.User.Username, c.ID)
-		if err := os.Symlink(p, target); err != nil {
-			logger.Warn("failed to create symlink %v->%v: %v", p, target, err)
-			return sftp.ErrSshFxFailure
+		err = c.handleSFTPSymlink(p, target)
+		if err != nil {
+			return err
 		}
 
 		break
 	case "Remove":
-		if !c.User.HasPerm(dataprovider.PermDelete) {
-			return sftp.ErrSshFxPermissionDenied
-		}
+		return c.handleSFTPRemove(p)
 
-		logger.CommandLog(sftpdRemoveLogSender, p, target, c.User.Username, c.ID)
-		var size int64
-		var fi os.FileInfo
-		if fi, err = os.Lstat(p); err != nil {
-			logger.Error(logSender, "failed to remove a file %v: stat error: %v", p, err)
-			return sftp.ErrSshFxFailure
-		}
-		size = fi.Size()
-		if err := os.Remove(p); err != nil {
-			logger.Error(logSender, "failed to remove a file %v: %v", p, err)
-			return sftp.ErrSshFxFailure
-		}
-
-		if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
-			dataprovider.UpdateUserQuota(dataProvider, c.User.Username, -1, -size, false)
-		}
-
-		return sftp.ErrSshFxOk
 	default:
 		return sftp.ErrSshFxOpUnsupported
 	}
@@ -340,6 +249,7 @@ func (c Connection) Filecmd(request *sftp.Request) error {
 		fileLocation = target
 	}
 
+	// we return if we remove a file or a dir so source path or target path always exists here
 	utils.SetPathPermissions(fileLocation, c.User.GetUID(), c.User.GetGID())
 
 	return sftp.ErrSshFxOk
@@ -387,6 +297,106 @@ func (c Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 	default:
 		return nil, sftp.ErrSshFxOpUnsupported
 	}
+}
+
+func (c Connection) getSFTPCmdTargetPath(requestTarget string) (string, error) {
+	var target string
+	// If a target is provided in this request validate that it is going to the correct
+	// location for the server. If it is not, return an operation unsupported error. This
+	// is maybe not the best error response, but its not wrong either.
+	if requestTarget != "" {
+		var err error
+		target, err = c.buildPath(requestTarget)
+		if err != nil {
+			return target, sftp.ErrSshFxOpUnsupported
+		}
+	}
+	return target, nil
+}
+
+func (c Connection) handleSFTPRename(sourcePath string, targetPath string) error {
+	if !c.User.HasPerm(dataprovider.PermRename) {
+		return sftp.ErrSshFxPermissionDenied
+	}
+	if err := os.Rename(sourcePath, targetPath); err != nil {
+		logger.Error(logSender, "failed to rename file, source: %v target: %v: %v", sourcePath, targetPath, err)
+		return sftp.ErrSshFxFailure
+	}
+	logger.CommandLog(sftpdRenameLogSender, sourcePath, targetPath, c.User.Username, c.ID)
+	return nil
+}
+
+func (c Connection) handleSFTPRmdir(path string) error {
+	if !c.User.HasPerm(dataprovider.PermDelete) {
+		return sftp.ErrSshFxPermissionDenied
+	}
+
+	numFiles, size, err := utils.ScanDirContents(path)
+	if err != nil {
+		logger.Error(logSender, "failed to remove directory %v, scanning error: %v", path, err)
+		return sftp.ErrSshFxFailure
+	}
+	if err := os.RemoveAll(path); err != nil {
+		logger.Error(logSender, "failed to remove directory %v: %v", path, err)
+		return sftp.ErrSshFxFailure
+	}
+
+	logger.CommandLog(sftpdRmdirLogSender, path, "", c.User.Username, c.ID)
+	dataprovider.UpdateUserQuota(dataProvider, c.User.Username, -numFiles, -size, false)
+
+	return sftp.ErrSshFxOk
+}
+
+func (c Connection) handleSFTPSymlink(sourcePath string, targetPath string) error {
+	if !c.User.HasPerm(dataprovider.PermCreateSymlinks) {
+		return sftp.ErrSshFxPermissionDenied
+	}
+	if err := os.Symlink(sourcePath, targetPath); err != nil {
+		logger.Warn(logSender, "failed to create symlink %v -> %v: %v", sourcePath, targetPath, err)
+		return sftp.ErrSshFxFailure
+	}
+
+	logger.CommandLog(sftpdSymlinkLogSender, sourcePath, targetPath, c.User.Username, c.ID)
+	return nil
+}
+
+func (c Connection) handleSFTPMkdir(path string) error {
+	if !c.User.HasPerm(dataprovider.PermCreateDirs) {
+		return sftp.ErrSshFxPermissionDenied
+	}
+
+	if err := c.createMissingDirs(filepath.Join(path, "testfile")); err != nil {
+		logger.Error(logSender, "error making missing dir for path %v: %v", path, err)
+		return sftp.ErrSshFxFailure
+	}
+	logger.CommandLog(sftpdMkdirLogSender, path, "", c.User.Username, c.ID)
+	return nil
+}
+
+func (c Connection) handleSFTPRemove(path string) error {
+	if !c.User.HasPerm(dataprovider.PermDelete) {
+		return sftp.ErrSshFxPermissionDenied
+	}
+
+	var size int64
+	var fi os.FileInfo
+	var err error
+	if fi, err = os.Lstat(path); err != nil {
+		logger.Error(logSender, "failed to remove a file %v: stat error: %v", path, err)
+		return sftp.ErrSshFxFailure
+	}
+	size = fi.Size()
+	if err := os.Remove(path); err != nil {
+		logger.Error(logSender, "failed to remove a file/symlink %v: %v", path, err)
+		return sftp.ErrSshFxFailure
+	}
+
+	logger.CommandLog(sftpdRemoveLogSender, path, "", c.User.Username, c.ID)
+	if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
+		dataprovider.UpdateUserQuota(dataProvider, c.User.Username, -1, -size, false)
+	}
+
+	return sftp.ErrSshFxOk
 }
 
 func (c Connection) hasSpace(checkFiles bool) bool {
@@ -504,4 +514,45 @@ func (c Connection) isSubDir(sub string) error {
 		return fmt.Errorf("dir %v is not inside: %v", sub, parent)
 	}
 	return nil
+}
+
+func (c Connection) createMissingDirs(filePath string) error {
+	dirsToCreate, err := c.findNonexistentDirs(filePath)
+	if err != nil {
+		return err
+	}
+	last := len(dirsToCreate) - 1
+	for i := range dirsToCreate {
+		d := dirsToCreate[last-i]
+		if err := os.Mkdir(d, 0777); err != nil {
+			logger.Error(logSender, "error creating missing dir: %v", d)
+			return err
+		}
+		utils.SetPathPermissions(d, c.User.GetUID(), c.User.GetGID())
+	}
+	return nil
+}
+
+func getOSOpenFlags(requestFlags sftp.FileOpenFlags) (flags int, trunc bool) {
+	var osFlags int
+	truncateFile := false
+	if requestFlags.Read && requestFlags.Write {
+		osFlags |= os.O_RDWR
+	} else if requestFlags.Write {
+		osFlags |= os.O_WRONLY
+	}
+	if requestFlags.Append {
+		osFlags |= os.O_APPEND
+	}
+	if requestFlags.Creat {
+		osFlags |= os.O_CREATE
+	}
+	if requestFlags.Trunc {
+		osFlags |= os.O_TRUNC
+		truncateFile = true
+	}
+	if requestFlags.Excl {
+		osFlags |= os.O_EXCL
+	}
+	return osFlags, truncateFile
 }

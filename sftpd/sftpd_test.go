@@ -23,7 +23,7 @@ import (
 
 const (
 	sftpServerAddr  = "127.0.0.1:2022"
-	defaultUsername = "test_user"
+	defaultUsername = "test_user_sftp"
 	defaultPassword = "test_password"
 	testPubKey      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"
 	testPrivateKey  = `-----BEGIN OPENSSH PRIVATE KEY-----
@@ -193,14 +193,6 @@ func TestBasicSFTPHandling(t *testing.T) {
 		t.Errorf("unable to create sftp client: %v", err)
 	} else {
 		defer client.Close()
-		_, err := client.Getwd()
-		if err != nil {
-			t.Errorf("unable to get working dir: %v", err)
-		}
-		_, err = client.ReadDir(".")
-		if err != nil {
-			t.Errorf("unable to read remote dir: %v", err)
-		}
 		testFileName := "test_file.dat"
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(65535)
@@ -213,14 +205,6 @@ func TestBasicSFTPHandling(t *testing.T) {
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		if err != nil {
 			t.Errorf("file upload error: %v", err)
-		}
-		err = client.Symlink(testFileName, testFileName+".link")
-		if err != nil {
-			t.Errorf("error creating symlink: %v", err)
-		}
-		err = client.Remove(testFileName + ".link")
-		if err != nil {
-			t.Errorf("error removing symlink: %v", err)
 		}
 		localDownloadPath := filepath.Join(homeBasePath, "test_download.dat")
 		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
@@ -255,6 +239,32 @@ func TestBasicSFTPHandling(t *testing.T) {
 		if (expectedQuotaSize - testFileSize) != user.UsedQuotaSize {
 			t.Errorf("quota size does not match, expected: %v, actual: %v", expectedQuotaSize-testFileSize, user.UsedQuotaSize)
 		}
+	}
+	err = api.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+}
+
+func TestDirCommands(t *testing.T) {
+	usePubKey := false
+	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		_, err := client.Getwd()
+		if err != nil {
+			t.Errorf("unable to get working dir: %v", err)
+		}
+		_, err = client.ReadDir(".")
+		if err != nil {
+			t.Errorf("unable to read remote dir: %v", err)
+		}
 		err = client.Mkdir("test")
 		if err != nil {
 			t.Errorf("error mkdir: %v", err)
@@ -278,6 +288,47 @@ func TestBasicSFTPHandling(t *testing.T) {
 		_, err = client.Lstat("/test")
 		if err == nil {
 			t.Errorf("stat for deleted dir must not succeed")
+		}
+	}
+	err = api.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+}
+
+func TestSymlink(t *testing.T) {
+	usePubKey := false
+	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		if err != nil {
+			t.Errorf("unable to create test file: %v", err)
+		}
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		if err != nil {
+			t.Errorf("file upload error: %v", err)
+		}
+		err = client.Symlink(testFileName, testFileName+".link")
+		if err != nil {
+			t.Errorf("error creating symlink: %v", err)
+		}
+		err = client.Remove(testFileName + ".link")
+		if err != nil {
+			t.Errorf("error removing symlink: %v", err)
+		}
+		err = client.Remove(testFileName)
+		if err != nil {
+			t.Errorf("error removing uploaded file: %v", err)
 		}
 	}
 	err = api.RemoveUser(user, http.StatusOK)

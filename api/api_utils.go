@@ -197,6 +197,15 @@ func checkUser(expected dataprovider.User, actual dataprovider.User) error {
 			return errors.New("user ID mismatch")
 		}
 	}
+	for _, v := range expected.Permissions {
+		if !utils.IsStringInSlice(v, actual.Permissions) {
+			return errors.New("Permissions contents mismatch")
+		}
+	}
+	return compareEqualsUserFields(expected, actual)
+}
+
+func compareEqualsUserFields(expected dataprovider.User, actual dataprovider.User) error {
 	if expected.Username != actual.Username {
 		return errors.New("Username mismatch")
 	}
@@ -220,11 +229,6 @@ func checkUser(expected dataprovider.User, actual dataprovider.User) error {
 	}
 	if len(expected.Permissions) != len(actual.Permissions) {
 		return errors.New("Permissions mismatch")
-	}
-	for _, v := range expected.Permissions {
-		if !utils.IsStringInSlice(v, actual.Permissions) {
-			return errors.New("Permissions contents mismatch")
-		}
 	}
 	if expected.UploadBandwidth != actual.UploadBandwidth {
 		return errors.New("UploadBandwidth mismatch")
