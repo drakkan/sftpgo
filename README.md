@@ -25,7 +25,7 @@ Other UNIX variants such as *BSD should work too.
 ## Requirements
 
 - Go 1.12 or higher
-- A suitable SQL server to use as data provider: MySQL (4.1+) or SQLite 3.x or PostreSQL (10+)
+- A suitable SQL server to use as data provider: MySQL (4.1+) or SQLite 3.x or PostreSQL (9+)
 
 ## Installation
 
