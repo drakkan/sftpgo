@@ -310,7 +310,7 @@ func TestEscapeHomeDir(t *testing.T) {
 		}
 		_, err = client.ReadDir(testDir)
 		if err == nil {
-			t.Errorf("reading a symbolic link outside home dir should not suceeded")
+			t.Errorf("reading a symbolic link outside home dir should not succeeded")
 		}
 		os.Remove(linkPath)
 		testFileName := "test_file.dat"
