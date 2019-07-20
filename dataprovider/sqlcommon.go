@@ -37,7 +37,7 @@ func sqlCommonValidateUserAndPass(username string, password string) (User, error
 	if err != nil {
 		logger.Warn(logSender, "error authenticating user: %v, error: %v", username, err)
 	} else {
-		match := false
+		var match bool
 		if strings.HasPrefix(user.Password, argonPwdPrefix) {
 			match, err = argon2id.ComparePasswordAndHash(password, user.Password)
 			if err != nil {
@@ -63,19 +63,20 @@ func sqlCommonValidateUserAndPubKey(username string, pubKey string) (User, error
 	user, err := getUserByUsername(username)
 	if err != nil {
 		logger.Warn(logSender, "error authenticating user: %v, error: %v", username, err)
-	} else {
-		if len(user.PublicKey) > 0 {
-			storedPubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(user.PublicKey))
-			if err != nil {
-				logger.Warn(logSender, "error parsing stored public key for user %v: %v", username, err)
-				return user, err
-			}
-			if string(storedPubKey.Marshal()) != pubKey {
-				err = errors.New("Invalid credentials")
-			}
-		} else {
-			err = errors.New("Invalid credentials")
+		return user, err
+	}
+	if len(user.PublicKey) > 0 {
+		storedPubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(user.PublicKey))
+		if err != nil {
+			logger.Warn(logSender, "error parsing stored public key for user %v: %v", username, err)
+			return user, err
 		}
+		if string(storedPubKey.Marshal()) != pubKey {
+			err = errors.New("Invalid credentials")
+			return user, err
+		}
+	} else {
+		err = errors.New("Invalid credentials")
 	}
 	return user, err
 }

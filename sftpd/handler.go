@@ -394,7 +394,7 @@ func (c Connection) hasSpace(checkFiles bool) bool {
 		numFile, size, err := dataprovider.GetUsedQuota(c.dataProvider, c.User.Username)
 		if err != nil {
 			if _, ok := err.(*dataprovider.MethodDisabledError); ok {
-				logger.Warn(logSender, "quota enforcement not possibile for user %v: %v", c.User.Username, err)
+				logger.Warn(logSender, "quota enforcement not possible for user %v: %v", c.User.Username, err)
 				return true
 			}
 			logger.Warn(logSender, "error getting used quota for %v: %v", c.User.Username, err)

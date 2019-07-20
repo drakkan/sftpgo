@@ -153,7 +153,7 @@ func TestUpdateUserNoCredentials(t *testing.T) {
 	}
 	user.Password = ""
 	user.PublicKey = ""
-	// password and public key will be ommitted from json serialization if empty and so they will remain unchanged
+	// password and public key will be omitted from json serialization if empty and so they will remain unchanged
 	// and no validation error will be raised
 	_, err = api.UpdateUser(user, http.StatusOK)
 	if err != nil {
@@ -252,10 +252,16 @@ func TestGetUsers(t *testing.T) {
 		t.Errorf("at least 2 users are expected")
 	}
 	users, err = api.GetUsers(1, 0, "", http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to get users: %v", err)
+	}
 	if len(users) != 1 {
 		t.Errorf("1 user are expected")
 	}
 	users, err = api.GetUsers(1, 1, "", http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to get users: %v", err)
+	}
 	if len(users) != 1 {
 		t.Errorf("1 user are expected")
 	}

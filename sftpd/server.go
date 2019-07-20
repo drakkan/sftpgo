@@ -33,8 +33,8 @@ type Configuration struct {
 	Umask       string `json:"umask"`
 }
 
-// Initalize the SFTP server and add a persistent listener to handle inbound SFTP connections.
-func (c Configuration) Initalize(configDir string) error {
+// Initialize the SFTP server and add a persistent listener to handle inbound SFTP connections.
+func (c Configuration) Initialize(configDir string) error {
 	umask, err := strconv.ParseUint(c.Umask, 8, 8)
 	if err == nil {
 		utils.SetUmask(int(umask), c.Umask)

@@ -58,7 +58,7 @@ func main() {
 
 	go func() {
 		logger.Debug(logSender, "initializing SFTP server with config %+v", sftpdConf)
-		if err := sftpdConf.Initalize(configDir); err != nil {
+		if err := sftpdConf.Initialize(configDir); err != nil {
 			logger.Error(logSender, "could not start SFTP server: %v", err)
 		}
 		shutdown <- true
