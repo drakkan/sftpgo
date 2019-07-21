@@ -19,5 +19,6 @@ script:
   - go test -v api/api_test.go
   - go test -v sftpd/sftpd_test.go
 
-after_success:
-  - bash <(curl -s https://codecov.io/bash)
+#test cases run against a real server and the coverage is not detected
+#after_success:
+#  - bash <(curl -s https://codecov.io/bash)
