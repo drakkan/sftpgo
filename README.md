@@ -61,6 +61,7 @@ The `sftpgo.conf` configuration file contains the following sections:
     - `bind_port`, integer the port used for serving SFTP requests. Default: 2022
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: ""
     - `idle_timeout`, integer. Time in minutes after which an idle client will be disconnected. Default: 15
+    - `max_auth_tries` integer. Maximum number of authentication attempts permitted per connection. If set to a negative number, the number of attempts are unlimited. If set to zero, the number of attempts are limited to 6.
     - `umask`, string. Umask for the new files and directories. This setting has no effect on Windows. Default: "0022"
 - **"data_provider"**, the configuration for the data provider
     - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`

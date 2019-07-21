@@ -28,10 +28,11 @@ func init() {
 	// create a default configuration to use if no config file is provided
 	globalConf = globalConfig{
 		SFTPD: sftpd.Configuration{
-			BindPort:    2022,
-			BindAddress: "",
-			IdleTimeout: 15,
-			Umask:       "0022",
+			BindPort:     2022,
+			BindAddress:  "",
+			IdleTimeout:  15,
+			MaxAuthTries: 0,
+			Umask:        "0022",
 		},
 		ProviderConf: dataprovider.Config{
 			Driver:           "sqlite",
@@ -74,13 +75,13 @@ func LoadConfig(configPath string) error {
 	//globalConf.basePath = basePath
 	file, err := os.Open(configPath)
 	if err != nil {
-		logger.Warn(logSender, "error loading configuration file: %v. Default configuration will be used", err)
+		logger.Warn(logSender, "error loading configuration file: %v. Default configuration will be used: %+v", err, globalConf)
 		return err
 	}
 	defer file.Close()
 	err = json.NewDecoder(file).Decode(&globalConf)
 	if err != nil {
-		logger.Warn(logSender, "error parsing config file: %v", err)
+		logger.Warn(logSender, "error parsing config file: %v. Default configuration will be used: %+v", err, globalConf)
 		return err
 	}
 	logger.Debug(logSender, "config loaded: %+v", globalConf)

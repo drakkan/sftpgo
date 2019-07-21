@@ -138,7 +138,7 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 	}
 
 	if statErr != nil {
-		logger.Error("error performing file stat %v: %v", p, statErr)
+		logger.Error(logSender, "error performing file stat %v: %v", p, statErr)
 		return nil, sftp.ErrSshFxFailure
 	}
 
@@ -149,7 +149,7 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 
 	// Not sure this would ever happen, but lets not find out.
 	if stat.IsDir() {
-		logger.Warn("attempted to open a directory for writing to: %v", p)
+		logger.Warn(logSender, "attempted to open a directory for writing to: %v", p)
 		return nil, sftp.ErrSshFxOpUnsupported
 	}
 

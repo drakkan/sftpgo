@@ -27,10 +27,11 @@ import (
 
 // Configuration server configuration
 type Configuration struct {
-	BindPort    int    `json:"bind_port"`
-	BindAddress string `json:"bind_address"`
-	IdleTimeout int    `json:"idle_timeout"`
-	Umask       string `json:"umask"`
+	BindPort     int    `json:"bind_port"`
+	BindAddress  string `json:"bind_address"`
+	IdleTimeout  int    `json:"idle_timeout"`
+	MaxAuthTries int    `json:"max_auth_tries"`
+	Umask        string `json:"umask"`
 }
 
 // Initialize the SFTP server and add a persistent listener to handle inbound SFTP connections.
@@ -43,7 +44,7 @@ func (c Configuration) Initialize(configDir string) error {
 	}
 	serverConfig := &ssh.ServerConfig{
 		NoClientAuth: false,
-		MaxAuthTries: 10,
+		MaxAuthTries: c.MaxAuthTries,
 		PasswordCallback: func(conn ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
 			sp, err := c.validatePasswordCredentials(conn, pass)
 			if err != nil {
