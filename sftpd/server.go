@@ -88,7 +88,7 @@ func (c Configuration) Initialize(configDir string) error {
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", c.BindAddress, c.BindPort))
 	if err != nil {
-		logger.Warn(logSender, "error starting listener on address %v: %v", listener.Addr().String(), err)
+		logger.Warn(logSender, "error starting listener on address %s:%d: %v", c.BindAddress, c.BindPort, err)
 		return err
 	}
 

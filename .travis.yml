@@ -13,12 +13,7 @@ install:
   - go get -v -t ./...
 
 script:
-  - sftpgo &
-  # Wait some seconds to be sure that sftpgo is started and listening 
-  - sleep 2
-  - go test -v api/api_test.go
-  - go test -v sftpd/sftpd_test.go
+  - go test -v ./... -coverprofile=coverage.txt -covermode=atomic
 
-#test cases run against a real server and the coverage is not detected
-#after_success:
-#  - bash <(curl -s https://codecov.io/bash)
+after_success:
+  - bash <(curl -s https://codecov.io/bash)

@@ -11,17 +11,25 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
+
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
+	_ "github.com/mattn/go-sqlite3"
 
 	"golang.org/x/crypto/ssh"
 
 	"github.com/drakkan/sftpgo/api"
+	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/pkg/sftp"
+	"github.com/rs/zerolog"
 )
 
-// To run test cases you need to manually start sftpgo using port 2022 for sftp and 8080 for http API
-
 const (
+	logSender       = "sftpdTesting"
 	sftpServerAddr  = "127.0.0.1:2022"
 	defaultUsername = "test_user_sftp"
 	defaultPassword = "test_password"
@@ -71,11 +79,72 @@ var (
 	homeBasePath string
 )
 
-func init() {
+func TestMain(m *testing.M) {
 	if runtime.GOOS == "windows" {
 		homeBasePath = "C:\\"
 	} else {
 		homeBasePath = "/tmp"
+	}
+	configDir := ".."
+	logfilePath := filepath.Join(configDir, "sftpgo_sftpd_test.log")
+	confName := "sftpgo.conf"
+	logger.InitLogger(logfilePath, zerolog.DebugLevel)
+	configFilePath := filepath.Join(configDir, confName)
+	config.LoadConfig(configFilePath)
+	providerConf := config.GetProviderConf()
+
+	err := dataprovider.Initialize(providerConf, configDir)
+	if err != nil {
+		logger.Warn(logSender, "error initializing data provider: %v", err)
+		os.Exit(1)
+	}
+	dataProvider := dataprovider.GetProvider()
+	sftpdConf := config.GetSFTPDConfig()
+	httpdConf := config.GetHTTPDConfig()
+	router := api.GetHTTPRouter()
+
+	sftpd.SetDataProvider(dataProvider)
+	api.SetDataProvider(dataProvider)
+
+	go func() {
+		logger.Debug(logSender, "initializing SFTP server with config %+v", sftpdConf)
+		if err := sftpdConf.Initialize(configDir); err != nil {
+			logger.Error(logSender, "could not start SFTP server: %v", err)
+		}
+	}()
+
+	go func() {
+		logger.Debug(logSender, "initializing HTTP server with config %+v", httpdConf)
+		s := &http.Server{
+			Addr:           fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort),
+			Handler:        router,
+			ReadTimeout:    300 * time.Second,
+			WriteTimeout:   300 * time.Second,
+			MaxHeaderBytes: 1 << 20, // 1MB
+		}
+		if err := s.ListenAndServe(); err != nil {
+			logger.Error(logSender, "could not start HTTP server: %v", err)
+		}
+	}()
+
+	waitTCPListening(fmt.Sprintf("%s:%d", sftpdConf.BindAddress, sftpdConf.BindPort))
+	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
+
+	exitCode := m.Run()
+	os.Remove(logfilePath)
+	os.Exit(exitCode)
+}
+
+func waitTCPListening(address string) {
+	for {
+		conn, err := net.Dial("tcp", address)
+		if err != nil {
+			fmt.Printf("tcp server %v not listening: %v\n", address, err)
+			continue
+		}
+		fmt.Printf("tcp server %v now listening\n", address)
+		defer conn.Close()
+		break
 	}
 }
 

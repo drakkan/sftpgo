@@ -24,11 +24,11 @@ func initializePGSQLProvider() error {
 	dbHandle, err = sql.Open("postgres", connectionString)
 	if err == nil {
 		numCPU := runtime.NumCPU()
-		logger.Debug(logSender, "postgres database handle created, connection string: %v, connections: %v", connectionString, numCPU)
+		logger.Debug(logSender, "postgres database handle created, connection string: \"%v\", pool size: %v", connectionString, numCPU)
 		dbHandle.SetMaxIdleConns(numCPU)
 		dbHandle.SetMaxOpenConns(numCPU)
 	} else {
-		logger.Warn(logSender, "error creating postgres database handler, connection string: %v, error: %v", connectionString, err)
+		logger.Warn(logSender, "error creating postgres database handler, connection string: \"%v\", error: %v", connectionString, err)
 	}
 	return err
 }

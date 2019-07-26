@@ -15,13 +15,15 @@ import (
 	"github.com/go-chi/render"
 )
 
-const (
-	httpBaseURL = "http://127.0.0.1:8080"
-)
-
 var (
 	defaultPerms = []string{dataprovider.PermAny}
+	httpBaseURL  = "http://127.0.0.1:8080"
 )
+
+// SetBaseURL sets the url to use for HTTP request, default is "http://127.0.0.1:8080"
+func SetBaseURL(url string) {
+	httpBaseURL = url
+}
 
 // AddUser add a new user, useful for tests
 func AddUser(user dataprovider.User, expectedStatusCode int) (dataprovider.User, error) {
@@ -170,7 +172,7 @@ func checkResponse(actual int, expected int, resp *http.Response) error {
 	if expected != actual {
 		return fmt.Errorf("wrong status code: got %v want %v", actual, expected)
 	}
-	if expected != http.StatusOK {
+	if expected != http.StatusOK && resp != nil {
 		b, err := ioutil.ReadAll(resp.Body)
 		if err == nil {
 			fmt.Printf("request: %v, response body: %v", resp.Request.URL, string(b))
@@ -189,8 +191,6 @@ func checkUser(expected dataprovider.User, actual dataprovider.User) error {
 	if expected.ID <= 0 {
 		if actual.ID <= 0 {
 			return errors.New("actual user ID must be > 0")
-		} else if actual.ID <= 0 {
-			return errors.New("user ID must be >=0")
 		}
 	} else {
 		if actual.ID != expected.ID {

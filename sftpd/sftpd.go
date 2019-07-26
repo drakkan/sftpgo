@@ -247,7 +247,6 @@ func removeTransfer(transfer *Transfer) {
 		}
 	}
 	if indexToRemove >= 0 {
-		//logger.Debug(logSender, "remove index %v from active transfer, size: %v", indexToRemove, len(activeTransfers))
 		activeTransfers[indexToRemove] = activeTransfers[len(activeTransfers)-1]
 		activeTransfers = activeTransfers[:len(activeTransfers)-1]
 	} else {
@@ -259,29 +258,7 @@ func updateConnectionActivity(id string) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	if c, ok := openConnections[id]; ok {
-		//logger.Debug(logSender, "update connection activity, id: %v", id)
 		c.lastActivity = time.Now()
 		openConnections[id] = c
-	}
-	//logger.Debug(logSender, "connection activity updated: %+v", openConnections)
-}
-
-func logConnections() {
-	mutex.RLock()
-	defer mutex.RUnlock()
-	for _, c := range openConnections {
-		logger.Debug(logSender, "active connection %+v", c)
-	}
-}
-
-func logTransfers() {
-	mutex.RLock()
-	defer mutex.RUnlock()
-	if len(activeTransfers) > 0 {
-		for _, v := range activeTransfers {
-			logger.Debug(logSender, "active transfer: %+v", v)
-		}
-	} else {
-		logger.Debug(logSender, "no active transfer")
 	}
 }
