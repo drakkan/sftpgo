@@ -10,6 +10,8 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/alexedwards/argon2id"
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 )
@@ -43,6 +45,15 @@ func sqlCommonValidateUserAndPass(username string, password string) (User, error
 			if err != nil {
 				logger.Warn(logSender, "error comparing password with argon hash: %v", err)
 				return user, err
+			}
+
+		} else if strings.HasPrefix(user.Password, bcryptPwdPrefix){
+			err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+			if err != nil {
+				logger.Warn(logSender, "error comparing password with bcrypt hash: %v", err)
+				return user, err
+			}else{
+				match = true
 			}
 		} else {
 			// clear text password match
