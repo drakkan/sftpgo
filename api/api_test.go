@@ -101,6 +101,7 @@ func waitTCPListening(address string) {
 		conn, err := net.Dial("tcp", address)
 		if err != nil {
 			fmt.Printf("tcp server %v not listening: %v\n", address, err)
+			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 		fmt.Printf("tcp server %v now listening\n", address)
