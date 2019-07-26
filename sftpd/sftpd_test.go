@@ -159,10 +159,6 @@ func TestBasicSFTPHandling(t *testing.T) {
 		if err != nil {
 			t.Errorf("file upload error: %v", err)
 		}
-		err = client.Chown(testFileName, 1000, 1000)
-		if err != nil {
-			t.Errorf("chown error: %v", err)
-		}
 		localDownloadPath := filepath.Join(homeBasePath, "test_download.dat")
 		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
 		if err != nil {
@@ -287,6 +283,58 @@ func TestSymlink(t *testing.T) {
 		err = client.Remove(testFileName + ".link")
 		if err != nil {
 			t.Errorf("error removing symlink: %v", err)
+		}
+		err = client.Remove(testFileName)
+		if err != nil {
+			t.Errorf("error removing uploaded file: %v", err)
+		}
+	}
+	err = api.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+}
+
+func TestSetStat(t *testing.T) {
+	usePubKey := false
+	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		if err != nil {
+			t.Errorf("unable to create test file: %v", err)
+		}
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		if err != nil {
+			t.Errorf("file upload error: %v", err)
+		}
+		fi, err := client.Lstat(testFileName)
+		if err != nil {
+			t.Errorf("stat error: %v", err)
+		}
+		err = client.Chown(testFileName, 1000, 1000)
+		if err != nil {
+			t.Errorf("chown error: %v", err)
+		}
+		err = client.Chmod(testFileName, 0600)
+		if err != nil {
+			t.Errorf("chmod error: %v", err)
+		}
+		newFi, err := client.Lstat(testFileName)
+		if err != nil {
+			t.Errorf("stat error: %v", err)
+		}
+		if fi.Mode().Perm() != newFi.Mode().Perm() {
+			t.Errorf("stat must remain unchanged")
 		}
 		err = client.Remove(testFileName)
 		if err != nil {
