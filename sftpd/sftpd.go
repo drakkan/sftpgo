@@ -41,7 +41,7 @@ type connectionTransfer struct {
 
 // ActiveQuotaScan username and start data for a quota scan
 type ActiveQuotaScan struct {
-	Username  string `json:"usernane"`
+	Username  string `json:"username"`
 	StartTime int64  `json:"start_time"`
 }
 
