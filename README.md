@@ -113,10 +113,10 @@ Here is a full example showing the default config:
 For each account the following properties can be configured:
 
 - `username` 
-- `password` used for password authentication. The password with be stored using argon2id hashing algo
+- `password` used for password authentication. The password will be stored using argon2id hashing algo
 - `public_key` used for public key authentication. At least one between password and public key is mandatory
 - `home_dir` The user cannot upload or download files outside this directory. Must be an absolute path
-- `uid`, `gid`. If sftpgo runs as root then the created files and directories will be assigned to this system uid/gid. Ignored on windows and if sftpgo runs as non root user: in this case files and directories for all SFTP users will be owned by the system user that runs sftpgo
+- `uid`, `gid`. If sftpgo runs as root then the created files and directories will be assigned to this system uid/gid. Ignored on windows and if sftpgo runs as non root user: in this case files and directories for all SFTP users will be owned by the system user that runs sftpgo.
 - `max_sessions` maximum concurrent sessions. 0 means unlimited
 - `quota_size` maximum size allowed. 0 means unlimited
 - `quota_files` maximum number of files allowed. 0 means unlimited
@@ -132,13 +132,13 @@ For each account the following properties can be configured:
 - `upload_bandwidth` maximum upload bandwidth as KB/s, 0 means unlimited
 - `download_bandwidth` maximum download bandwidth as KB/s, 0 means unlimited
 
-These properties are stored inside the data provider. If you want to use your existing accounts you can create a database view. Since a view is read only you have to disable user management and quota tracking so sftpgo will never try to write to the view.
+These properties are stored inside the data provider. If you want to use your existing accounts, you can create a database view. Since a view is read only, you have to disable user management and quota tracking so sftpgo will never try to write to the view.
 
 ## REST API
 
 SFTPGo exposes REST API to manage users and quota and to get real time reports for the active connections with possibility of forcibly closing a connection.
 
-If quota tracking is enabled in `sftpgo.conf` configuration file then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP you can rescan the user home dir and update the used quota using the REST API.
+If quota tracking is enabled in `sftpgo.conf` configuration file, then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP, you can rescan the user home dir and update the used quota using the REST API.
 
 REST API is designed to run on localhost or on a trusted network, if you need https or authentication you can setup a reverse proxy using an HTTP Server such as Apache or NGNIX.
 
