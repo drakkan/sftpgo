@@ -159,6 +159,10 @@ func TestBasicSFTPHandling(t *testing.T) {
 		if err != nil {
 			t.Errorf("file upload error: %v", err)
 		}
+		err = client.Chown(testFileName, 1000, 1000)
+		if err != nil {
+			t.Errorf("chown error: %v", err)
+		}
 		localDownloadPath := filepath.Join(homeBasePath, "test_download.dat")
 		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
 		if err != nil {
@@ -204,6 +208,11 @@ func TestDirCommands(t *testing.T) {
 	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
+	}
+	// remove the home dir to test auto creation
+	_, err = os.Stat(user.HomeDir)
+	if err == nil {
+		os.RemoveAll(user.HomeDir)
 	}
 	client, err := getSftpClient(user, usePubKey)
 	if err != nil {
@@ -709,6 +718,10 @@ func TestPermList(t *testing.T) {
 		if err == nil {
 			t.Errorf("read remote dir without permission should not succeed")
 		}
+		_, err = client.Stat("test_file")
+		if err == nil {
+			t.Errorf("stat remote file without permission should not succeed")
+		}
 	}
 	err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -883,6 +896,17 @@ func TestPermCreateDirs(t *testing.T) {
 		if err == nil {
 			t.Errorf("mkdir without permission should not succeed")
 		}
+		testFileName := "test_file.dat"
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		if err != nil {
+			t.Errorf("unable to create test file: %v", err)
+		}
+		err = sftpUploadFile(testFilePath, "/dir/subdir/test_file.dat", testFileSize, client)
+		if err == nil {
+			t.Errorf("mkdir without permission should not succeed")
+		}
 	}
 	err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -930,6 +954,22 @@ func TestPermSymlink(t *testing.T) {
 	}
 }
 
+func TestSSHConnection(t *testing.T) {
+	usePubKey := false
+	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	err = doSSH(user, usePubKey)
+	if err == nil {
+		t.Errorf("ssh connection must fail: %v", err)
+	}
+	err = api.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+}
+
 func waitTCPListening(address string) {
 	for {
 		conn, err := net.Dial("tcp", address)
@@ -942,6 +982,50 @@ func waitTCPListening(address string) {
 		defer conn.Close()
 		break
 	}
+}
+
+func getTestUser(usePubKey bool) dataprovider.User {
+	user := dataprovider.User{
+		Username:    defaultUsername,
+		Password:    defaultPassword,
+		HomeDir:     filepath.Join(homeBasePath, defaultUsername),
+		Permissions: allPerms,
+	}
+	if usePubKey {
+		user.PublicKey = testPubKey
+		user.Password = ""
+	}
+	return user
+}
+
+func doSSH(user dataprovider.User, usePubKey bool) error {
+	var sshSession *ssh.Session
+	config := &ssh.ClientConfig{
+		User: defaultUsername,
+		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+			return nil
+		},
+	}
+	if usePubKey {
+		key, err := ssh.ParsePrivateKey([]byte(testPrivateKey))
+		if err != nil {
+			return err
+		}
+		config.Auth = []ssh.AuthMethod{ssh.PublicKeys(key)}
+	} else {
+		config.Auth = []ssh.AuthMethod{ssh.Password(defaultPassword)}
+	}
+	conn, err := ssh.Dial("tcp", sftpServerAddr, config)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	sshSession, err = conn.NewSession()
+	if err != nil {
+		return err
+	}
+	_, err = sshSession.CombinedOutput("ls")
+	return err
 }
 
 func getSftpClient(user dataprovider.User, usePubKey bool) (*sftp.Client, error) {
@@ -976,20 +1060,6 @@ func createTestFile(path string, size int64) error {
 		return err
 	}
 	return ioutil.WriteFile(path, content, 0666)
-}
-
-func getTestUser(usePubKey bool) dataprovider.User {
-	user := dataprovider.User{
-		Username:    defaultUsername,
-		Password:    defaultPassword,
-		HomeDir:     filepath.Join(homeBasePath, defaultUsername),
-		Permissions: allPerms,
-	}
-	if usePubKey {
-		user.PublicKey = testPubKey
-		user.Password = ""
-	}
-	return user
 }
 
 func sftpUploadFile(localSourcePath string, remoteDestPath string, expectedSize int64, client *sftp.Client) error {
