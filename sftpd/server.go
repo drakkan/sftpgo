@@ -27,6 +27,7 @@ import (
 
 // Configuration server configuration
 type Configuration struct {
+	Banner       string  `json:"banner"`
 	BindPort     int     `json:"bind_port"`
 	BindAddress  string  `json:"bind_address"`
 	IdleTimeout  int     `json:"idle_timeout"`
@@ -63,7 +64,7 @@ func (c Configuration) Initialize(configDir string) error {
 
 			return sp, nil
 		},
-		ServerVersion: "SSH-2.0-SFTPServer",
+		ServerVersion: "SSH-2.0-" + c.Banner,
 	}
 
 	if _, err := os.Stat(filepath.Join(configDir, "id_rsa")); os.IsNotExist(err) {

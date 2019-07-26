@@ -28,6 +28,7 @@ func init() {
 	// create a default configuration to use if no config file is provided
 	globalConf = globalConfig{
 		SFTPD: sftpd.Configuration{
+			Banner:       "SFTPServer",
 			BindPort:     2022,
 			BindAddress:  "",
 			IdleTimeout:  15,
