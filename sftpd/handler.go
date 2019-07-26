@@ -30,7 +30,6 @@ type Connection struct {
 	lastActivity  time.Time
 	lock          *sync.Mutex
 	sshConn       *ssh.ServerConn
-	dataProvider  dataprovider.Provider
 }
 
 // Fileread creates a reader for a file on the system and returns the reader back.
@@ -401,7 +400,7 @@ func (c Connection) handleSFTPRemove(path string) error {
 
 func (c Connection) hasSpace(checkFiles bool) bool {
 	if (checkFiles && c.User.QuotaFiles > 0) || c.User.QuotaSize > 0 {
-		numFile, size, err := dataprovider.GetUsedQuota(c.dataProvider, c.User.Username)
+		numFile, size, err := dataprovider.GetUsedQuota(dataProvider, c.User.Username)
 		if err != nil {
 			if _, ok := err.(*dataprovider.MethodDisabledError); ok {
 				logger.Warn(logSender, "quota enforcement not possible for user %v: %v", c.User.Username, err)
