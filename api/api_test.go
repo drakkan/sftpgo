@@ -96,50 +96,6 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
-func waitTCPListening(address string) {
-	for {
-		conn, err := net.Dial("tcp", address)
-		if err != nil {
-			fmt.Printf("tcp server %v not listening: %v\n", address, err)
-			time.Sleep(100 * time.Millisecond)
-			continue
-		}
-		fmt.Printf("tcp server %v now listening\n", address)
-		defer conn.Close()
-		break
-	}
-}
-
-func getTestUser() dataprovider.User {
-	return dataprovider.User{
-		Username:    defaultUsername,
-		Password:    defaultPassword,
-		HomeDir:     filepath.Join(homeBasePath, defaultUsername),
-		Permissions: defaultPerms,
-	}
-}
-
-func getUserAsJSON(t *testing.T, user dataprovider.User) []byte {
-	json, err := json.Marshal(user)
-	if err != nil {
-		t.Errorf("error get user as json: %v", err)
-		return []byte("{}")
-	}
-	return json
-}
-
-func executeRequest(req *http.Request) *httptest.ResponseRecorder {
-	rr := httptest.NewRecorder()
-	testServer.Config.Handler.ServeHTTP(rr, req)
-	return rr
-}
-
-func checkResponseCode(t *testing.T, expected, actual int) {
-	if expected != actual {
-		t.Errorf("Expected response code %d. Got %d", expected, actual)
-	}
-}
-
 func TestBasicUserHandling(t *testing.T) {
 	user, err := api.AddUser(getTestUser(), http.StatusOK)
 	if err != nil {
@@ -668,4 +624,48 @@ func TestMethodNotAllowedMock(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, activeConnectionsPath, nil)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusMethodNotAllowed, rr.Code)
+}
+
+func waitTCPListening(address string) {
+	for {
+		conn, err := net.Dial("tcp", address)
+		if err != nil {
+			fmt.Printf("tcp server %v not listening: %v\n", address, err)
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+		fmt.Printf("tcp server %v now listening\n", address)
+		defer conn.Close()
+		break
+	}
+}
+
+func getTestUser() dataprovider.User {
+	return dataprovider.User{
+		Username:    defaultUsername,
+		Password:    defaultPassword,
+		HomeDir:     filepath.Join(homeBasePath, defaultUsername),
+		Permissions: defaultPerms,
+	}
+}
+
+func getUserAsJSON(t *testing.T, user dataprovider.User) []byte {
+	json, err := json.Marshal(user)
+	if err != nil {
+		t.Errorf("error get user as json: %v", err)
+		return []byte("{}")
+	}
+	return json
+}
+
+func executeRequest(req *http.Request) *httptest.ResponseRecorder {
+	rr := httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	return rr
+}
+
+func checkResponseCode(t *testing.T, expected, actual int) {
+	if expected != actual {
+		t.Errorf("Expected response code %d. Got %d", expected, actual)
+	}
 }

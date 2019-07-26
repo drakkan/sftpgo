@@ -185,12 +185,13 @@ func startIdleTimer(maxIdleTime time.Duration) {
 	go func() {
 		for t := range idleConnectionTicker.C {
 			logger.Debug(logSender, "idle connections check ticker %v", t)
-			checkIdleConnections()
+			CheckIdleConnections()
 		}
 	}()
 }
 
-func checkIdleConnections() {
+// CheckIdleConnections disconnects idle clients
+func CheckIdleConnections() {
 	mutex.RLock()
 	defer mutex.RUnlock()
 	for _, c := range openConnections {
