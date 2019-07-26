@@ -21,12 +21,12 @@ func initializeSQLiteProvider(basePath string) error {
 		dbPath := filepath.Join(basePath, config.Name)
 		fi, err := os.Stat(dbPath)
 		if err != nil {
-			logger.Warn(logSender, "sqlite database file does not exists, please be sure to create and inizialiaze"+
+			logger.Warn(logSender, "sqlite database file does not exists, please be sure to create and initialize"+
 				" a database before starting sftpgo")
 			return err
 		}
 		if fi.Size() == 0 {
-			return errors.New("sqlite database file is invalid, please be sure to create and inizialiaze" +
+			return errors.New("sqlite database file is invalid, please be sure to create and initialize" +
 				" a database before starting sftpgo")
 		}
 		connectionString = fmt.Sprintf("file:%v?cache=shared", dbPath)
