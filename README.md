@@ -7,7 +7,7 @@ Full featured and highly configurable SFTP server software
 
 - Each account is chrooted to his Home Dir
 - SFTP accounts are virtual accounts stored in a "data provider" 
-- SQLite, MySQL and PostgreSQL data providers are supported. The `Provider` interface could be extented to support non SQL backends too
+- SQLite, MySQL and PostgreSQL data providers are supported. The `Provider` interface could be extended to support non SQL backends too
 - Public key and password authentication
 - Quota support: accounts can have individual quota expressed as max number of files and max total size
 - Bandwidth throttling is supported, with distinct settings for upload and download
