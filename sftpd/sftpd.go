@@ -3,6 +3,7 @@ package sftpd
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -304,24 +305,31 @@ func executeAction(operation string, username string, path string, target string
 		}
 	}
 	if len(actions.HTTPNotificationURL) > 0 {
-		var req *http.Request
-		req, err = http.NewRequest(http.MethodGet, actions.HTTPNotificationURL, nil)
+		var url *url.URL
+		url, err = url.Parse(actions.HTTPNotificationURL)
 		if err == nil {
-			q := req.URL.Query()
+			q := url.Query()
 			q.Add("action", operation)
 			q.Add("username", username)
 			q.Add("path", path)
 			if len(target) > 0 {
 				q.Add("target_path", target)
 			}
-			req.URL.RawQuery = q.Encode()
-			resp, err := http.DefaultClient.Do(req)
-			respCode := 0
-			if err == nil {
-				respCode = resp.StatusCode
-				resp.Body.Close()
-			}
-			logger.Debug(logSender, "notified action to URL: %v status code: %v err: %v", req.URL.RequestURI(), respCode, err)
+			url.RawQuery = q.Encode()
+			go func() {
+				startTime := time.Now()
+				httpClient := &http.Client{
+					Timeout: 15 * time.Second,
+				}
+				resp, err := httpClient.Get(url.String())
+				respCode := 0
+				if err == nil {
+					respCode = resp.StatusCode
+					resp.Body.Close()
+				}
+				logger.Debug(logSender, "notified action to URL: %v status code: %v, elapsed: %v err: %v",
+					url.String(), respCode, time.Since(startTime), err)
+			}()
 		} else {
 			logger.Warn(logSender, "Invalid http_notification_url \"%v\" : %v", actions.HTTPNotificationURL, err)
 		}
