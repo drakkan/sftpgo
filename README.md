@@ -21,8 +21,8 @@ Full featured and highly configurable SFTP server software
 
 ## Platforms
 
-SFTPGo is developed and tested on Linux, regularly the test cases are executed and pass on macOS and Windows.
-Other UNIX variants such as *BSD should work too.
+SFTPGo is developed and tested on Linux. After each commit the code is automatically built and tested on Linux and macOS using Travis CI. 
+Regularly the test cases are manually executed and pass on Windows. Other UNIX variants such as *BSD should work too.
 
 ## Requirements
 
