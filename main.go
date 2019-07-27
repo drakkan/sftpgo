@@ -49,10 +49,8 @@ func main() {
 	dataProvider := dataprovider.GetProvider()
 	sftpdConf := config.GetSFTPDConfig()
 	httpdConf := config.GetHTTPDConfig()
-	router := api.GetHTTPRouter()
 
 	sftpd.SetDataProvider(dataProvider)
-	api.SetDataProvider(dataProvider)
 
 	shutdown := make(chan bool)
 
@@ -64,20 +62,27 @@ func main() {
 		shutdown <- true
 	}()
 
-	go func() {
-		logger.Debug(logSender, "initializing HTTP server with config %+v", httpdConf)
-		s := &http.Server{
-			Addr:           fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort),
-			Handler:        router,
-			ReadTimeout:    300 * time.Second,
-			WriteTimeout:   300 * time.Second,
-			MaxHeaderBytes: 1 << 20, // 1MB
-		}
-		if err := s.ListenAndServe(); err != nil {
-			logger.Error(logSender, "could not start HTTP server: %v", err)
-		}
-		shutdown <- true
-	}()
+	if httpdConf.BindPort > 0 {
+		router := api.GetHTTPRouter()
+		api.SetDataProvider(dataProvider)
+
+		go func() {
+			logger.Debug(logSender, "initializing HTTP server with config %+v", httpdConf)
+			s := &http.Server{
+				Addr:           fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort),
+				Handler:        router,
+				ReadTimeout:    300 * time.Second,
+				WriteTimeout:   300 * time.Second,
+				MaxHeaderBytes: 1 << 20, // 1MB
+			}
+			if err := s.ListenAndServe(); err != nil {
+				logger.Error(logSender, "could not start HTTP server: %v", err)
+			}
+			shutdown <- true
+		}()
+	} else {
+		logger.Debug(logSender, "HTTP server not started, disabled in config file")
+	}
 
 	<-shutdown
 }

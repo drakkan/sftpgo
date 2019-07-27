@@ -59,7 +59,7 @@ Sample SQL scripts to create the required database structure can be found insite
 The `sftpgo.conf` configuration file contains the following sections:
 
 - **"sftpd"**, the configuration for the SFTP server
-    - `bind_port`, integer the port used for serving SFTP requests. Default: 2022
+    - `bind_port`, integer. The port used for serving SFTP requests. Default: 2022
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: ""
     - `idle_timeout`, integer. Time in minutes after which an idle client will be disconnected. Default: 15
     - `max_auth_tries` integer. Maximum number of authentication attempts permitted per connection. If set to a negative number, the number of attempts are unlimited. If set to zero, the number of attempts are limited to 6.
@@ -89,7 +89,7 @@ The `sftpgo.conf` configuration file contains the following sections:
     - `manage_users`, integer. Set to 0 to disable users management, 1 to enable
     - `track_quota`, integer. Set to 0 to disable quota tracking, 1 to update the used quota each time a user upload or delete a file
 - **"httpd"**, the configuration for the HTTP server used to serve REST API
-    - `bind_port`, integer the port used for serving HTTP requests. Default: 8080
+    - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 8080
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"
 
 Here is a full example showing the default config:
