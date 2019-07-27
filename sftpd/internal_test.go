@@ -1,14 +1,19 @@
 package sftpd
 
 import (
+	"runtime"
 	"testing"
 )
 
 func TestWrongActions(t *testing.T) {
 	actionsCopy := actions
+	badCommand := "/bad/command"
+	if runtime.GOOS == "windows" {
+		badCommand = "C:\\bad\\command"
+	}
 	actions = Actions{
 		ExecuteOn:           []string{operationDownload},
-		Command:             "/bad/command",
+		Command:             badCommand,
 		HTTPNotificationURL: "",
 	}
 	err := executeAction(operationDownload, "username", "path", "")

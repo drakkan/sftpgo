@@ -737,7 +737,7 @@ func TestBandwidthAndConnections(t *testing.T) {
 			t.Errorf("download bandwidth throttling not respected, elapsed: %v, wanted: %v", elapsed, wantedDownloadElapsed)
 		}
 		// test disconnection
-		c = sftpUploadNonBlocking(testFilePath, testFileName, testFileSize, client)
+		c = sftpUploadNonBlocking(testFilePath, testFileName+"_partial", testFileSize, client)
 		waitForActiveTransfer()
 		time.Sleep(100 * time.Millisecond)
 		sftpd.CheckIdleConnections()
