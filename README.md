@@ -14,6 +14,7 @@ Full featured and highly configurable SFTP server software
 - Per user maximum concurrent sessions
 - Per user permissions: list directories content, upload, download, delete, rename, create directories, create symlinks can be enabled or disabled
 - Per user files/folders ownership: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (*NIX only) 
+- Configurable custom commands and/or HTTP notifications on SFTP upload, download, delete or rename
 - REST API for users and quota management and real time reports for the active connections with possibility of forcibly closing a connection  
 - Log files are accurate and they are saved in the easily parsable JSON format
 - Automatically terminating idle connections
@@ -63,6 +64,18 @@ The `sftpgo.conf` configuration file contains the following sections:
     - `idle_timeout`, integer. Time in minutes after which an idle client will be disconnected. Default: 15
     - `max_auth_tries` integer. Maximum number of authentication attempts permitted per connection. If set to a negative number, the number of attempts are unlimited. If set to zero, the number of attempts are limited to 6.
     - `umask`, string. Umask for the new files and directories. This setting has no effect on Windows. Default: "0022"
+    - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions
+        - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`. Leave empty to disable actions.
+        - `command`, string. Absolute path to the command to execute. Leave empty to disable. The command is invoked with the following arguments: 
+            - `action`, any valid `execute_on` string
+            - `username`, user who did the action
+            - `path` to the affected file. For `rename` action this is the old file name
+            - `target_path`, non empty for `rename` action, this is the new file name
+        - `http_notification_url`, a valid URL. An HTTP GET request will be executed to this URL. Leave empty to disable. The query string will contain the following parameters that have the same meaning of the command's arguments:
+            - `action`
+            - `username`
+            - `path`
+            - `target_path`, added for `rename` action only
 - **"data_provider"**, the configuration for the data provider
     - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`
     - `name`, string. Database name
@@ -83,28 +96,34 @@ Here is a full example showing the default config:
 
 ```{
    "sftpd":{
-       "bind_port":2022,
-       "bind_address": "",
-       "idle_timeout": 15,
-       "umask": "0022"
+        "bind_port":2022,
+        "bind_address":"",
+        "idle_timeout":15,
+        "max_auth_tries":0,
+        "umask":"0022",
+        "actions":{
+            "execute_on":["upload"],
+            "command":"/usr/bin/uploadscript",
+            "http_notification_url":""
+        }
    },
-   "data_provider": {
-       "driver": "sqlite",
-       "name": "sftpgo.db",
-       "host": "",
-       "port": 5432,
-       "username": "",
-       "password": "",
-       "sslmode": 0,
-       "connection_string": "",
-       "users_table": "users",
-       "manage_users": 1,
-       "track_quota": 1
-   },
-   "httpd":{
-       "bind_port":8080,
-       "bind_address": "127.0.0.1"
-   }
+   "data_provider":{
+        "driver":"sqlite",
+        "name":"sftpgo.db",
+        "host":"",
+        "port":5432,
+        "username":"",
+        "password":"",
+        "sslmode":0,
+        "connection_string":"",
+        "users_table":"users",
+        "manage_users":1,
+        "track_quota":1
+    },
+    "httpd":{
+        "bind_port":8080,
+        "bind_address":"127.0.0.1"
+    }
 }
 ```
 

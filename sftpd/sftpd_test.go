@@ -80,11 +80,6 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	if runtime.GOOS == "windows" {
-		homeBasePath = "C:\\"
-	} else {
-		homeBasePath = "/tmp"
-	}
 	configDir := ".."
 	logfilePath := filepath.Join(configDir, "sftpgo_sftpd_test.log")
 	confName := "sftpgo.conf"
@@ -102,6 +97,14 @@ func TestMain(m *testing.M) {
 	sftpdConf := config.GetSFTPDConfig()
 	httpdConf := config.GetHTTPDConfig()
 	router := api.GetHTTPRouter()
+	if runtime.GOOS == "windows" {
+		homeBasePath = "C:\\"
+	} else {
+		homeBasePath = "/tmp"
+		sftpdConf.Actions.ExecuteOn = []string{"download", "upload", "delete"}
+		sftpdConf.Actions.Command = "/bin/true"
+		sftpdConf.Actions.HTTPNotificationURL = "http://127.0.0.1:8080/"
+	}
 
 	sftpd.SetDataProvider(dataProvider)
 	api.SetDataProvider(dataProvider)
@@ -721,6 +724,10 @@ func TestBandwidthAndConnections(t *testing.T) {
 		localDownloadPath := filepath.Join(homeBasePath, "test_download.dat")
 		c := sftpDownloadNonBlocking(testFileName, localDownloadPath, testFileSize, client)
 		waitForActiveTransfer()
+		// wait some additional arbitrary time to wait for transfer activity to happen
+		// it is need to reach all the code in CheckIdleConnections
+		time.Sleep(100 * time.Millisecond)
+		sftpd.CheckIdleConnections()
 		err = <-c
 		if err != nil {
 			t.Errorf("file download error: %v", err)
@@ -732,6 +739,7 @@ func TestBandwidthAndConnections(t *testing.T) {
 		// test disconnection
 		c = sftpUploadNonBlocking(testFilePath, testFileName, testFileSize, client)
 		waitForActiveTransfer()
+		time.Sleep(100 * time.Millisecond)
 		sftpd.CheckIdleConnections()
 		stats := sftpd.GetConnectionsStats()
 		for _, stat := range stats {

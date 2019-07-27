@@ -27,11 +27,12 @@ import (
 
 // Configuration server configuration
 type Configuration struct {
-	BindPort     int    `json:"bind_port"`
-	BindAddress  string `json:"bind_address"`
-	IdleTimeout  int    `json:"idle_timeout"`
-	MaxAuthTries int    `json:"max_auth_tries"`
-	Umask        string `json:"umask"`
+	BindPort     int     `json:"bind_port"`
+	BindAddress  string  `json:"bind_address"`
+	IdleTimeout  int     `json:"idle_timeout"`
+	MaxAuthTries int     `json:"max_auth_tries"`
+	Umask        string  `json:"umask"`
+	Actions      Actions `json:"actions"`
 }
 
 // Initialize the SFTP server and add a persistent listener to handle inbound SFTP connections.
@@ -42,6 +43,7 @@ func (c Configuration) Initialize(configDir string) error {
 	} else {
 		logger.Warn(logSender, "error reading umask, please fix your config file: %v", err)
 	}
+	actions = c.Actions
 	serverConfig := &ssh.ServerConfig{
 		NoClientAuth: false,
 		MaxAuthTries: c.MaxAuthTries,

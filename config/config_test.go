@@ -29,7 +29,7 @@ func TestLoadConfigTest(t *testing.T) {
 		t.Errorf("error loading provider conf")
 	}
 	emptySFTPDConf := sftpd.Configuration{}
-	if config.GetSFTPDConfig() == emptySFTPDConf {
+	if config.GetSFTPDConfig().BindPort == emptySFTPDConf.BindPort {
 		t.Errorf("error loading SFTPD conf")
 	}
 	confName = "sftpgo.conf.missing"

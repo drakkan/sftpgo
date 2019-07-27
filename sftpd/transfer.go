@@ -29,18 +29,18 @@ type Transfer struct {
 
 // ReadAt update sent bytes
 func (t *Transfer) ReadAt(p []byte, off int64) (n int, err error) {
+	t.lastActivity = time.Now()
 	readed, e := t.file.ReadAt(p, off)
 	t.bytesSent += int64(readed)
-	t.lastActivity = time.Now()
 	t.handleThrottle()
 	return readed, e
 }
 
 // WriteAt update received bytes
 func (t *Transfer) WriteAt(p []byte, off int64) (n int, err error) {
+	t.lastActivity = time.Now()
 	written, e := t.file.WriteAt(p, off)
 	t.bytesReceived += int64(written)
-	t.lastActivity = time.Now()
 	t.handleThrottle()
 	return written, e
 }
@@ -50,15 +50,15 @@ func (t *Transfer) Close() error {
 	elapsed := time.Since(t.start).Nanoseconds() / 1000000
 	if t.transferType == transferDownload {
 		logger.TransferLog(sftpdDownloadLogSender, t.path, elapsed, t.bytesSent, t.user.Username, t.connectionID)
+		executeAction(operationDownload, t.user.Username, t.path, "")
 	} else {
 		logger.TransferLog(sftpUploadLogSender, t.path, elapsed, t.bytesReceived, t.user.Username, t.connectionID)
+		executeAction(operationUpload, t.user.Username, t.path, "")
 	}
 	removeTransfer(t)
-	if t.transferType == transferUpload && t.bytesReceived > 0 {
+	if t.transferType == transferUpload && t.bytesReceived > 0 && t.isNewFile {
 		numFiles := 0
-		if t.isNewFile {
-			numFiles++
-		}
+		numFiles++
 		dataprovider.UpdateUserQuota(dataProvider, t.user.Username, numFiles, t.bytesReceived, false)
 	}
 	return t.file.Close()
@@ -77,6 +77,7 @@ func (t *Transfer) handleThrottle() {
 	if wantedBandwidth > 0 {
 		// real and wanted elapsed as milliseconds, bytes as kilobytes
 		realElapsed := time.Since(t.start).Nanoseconds() / 1000000
+		// trasferredBytes / 1000 = KB/s, we multiply for 1000 to get milliseconds
 		wantedElapsed := 1000 * (trasferredBytes / 1000) / wantedBandwidth
 		if wantedElapsed > realElapsed {
 			toSleep := time.Duration(wantedElapsed - realElapsed)

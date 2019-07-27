@@ -27,9 +27,10 @@ func GetTimeAsMsSinceEpoch(t time.Time) int64 {
 }
 
 // ScanDirContents returns the number of files contained in a directory and their size
-func ScanDirContents(path string) (int, int64, error) {
+func ScanDirContents(path string) (int, int64, []string, error) {
 	var numFiles int
 	var size int64
+	var fileList []string
 	var err error
 	numFiles = 0
 	size = 0
@@ -42,13 +43,13 @@ func ScanDirContents(path string) (int, int64, error) {
 			if info != nil && info.Mode().IsRegular() {
 				size += info.Size()
 				numFiles++
+				fileList = append(fileList, path)
 			}
-
 			return err
 		})
 	}
 
-	return numFiles, size, err
+	return numFiles, size, fileList, err
 }
 
 func isDirectory(path string) (bool, error) {

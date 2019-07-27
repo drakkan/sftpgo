@@ -29,7 +29,7 @@ func startQuotaScan(w http.ResponseWriter, r *http.Request) {
 	if sftpd.AddQuotaScan(user.Username) {
 		sendAPIResponse(w, r, err, "Scan started", http.StatusCreated)
 		go func() {
-			numFiles, size, err := utils.ScanDirContents(user.HomeDir)
+			numFiles, size, _, err := utils.ScanDirContents(user.HomeDir)
 			if err != nil {
 				logger.Warn(logSender, "error scanning user home dir %v: %v", user.HomeDir, err)
 			} else {

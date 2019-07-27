@@ -1,6 +1,11 @@
 package sftpd
 
 import (
+	"fmt"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -20,6 +25,8 @@ const (
 	sftpdRemoveLogSender   = "SFTPRemove"
 	operationDownload      = "download"
 	operationUpload        = "upload"
+	operationDelete        = "delete"
+	operationRename        = "rename"
 )
 
 var (
@@ -30,6 +37,7 @@ var (
 	idleTimeout          time.Duration
 	activeQuotaScans     []ActiveQuotaScan
 	dataProvider         dataprovider.Provider
+	actions              Actions
 )
 
 type connectionTransfer struct {
@@ -45,6 +53,14 @@ type ActiveQuotaScan struct {
 	StartTime int64  `json:"start_time"`
 }
 
+// Actions configuration for external script to execute on create, download, delete.
+// A rename trigger delete script for the old file and create script for the new one
+type Actions struct {
+	ExecuteOn           []string `json:"execute_on"`
+	Command             string   `json:"command"`
+	HTTPNotificationURL string   `json:"http_notification_url"`
+}
+
 // ConnectionStatus status for an active connection
 type ConnectionStatus struct {
 	Username       string               `json:"username"`
@@ -58,6 +74,7 @@ type ConnectionStatus struct {
 
 func init() {
 	openConnections = make(map[string]Connection)
+	idleConnectionTicker = time.NewTicker(5 * time.Minute)
 }
 
 // SetDataProvider sets the data provider
@@ -104,9 +121,10 @@ func AddQuotaScan(username string) bool {
 }
 
 // RemoveQuotaScan remove and user from the ones with active quota scans
-func RemoveQuotaScan(username string) {
+func RemoveQuotaScan(username string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
+	var err error
 	indexToRemove := -1
 	for i, s := range activeQuotaScans {
 		if s.Username == username {
@@ -117,7 +135,11 @@ func RemoveQuotaScan(username string) {
 	if indexToRemove >= 0 {
 		activeQuotaScans[indexToRemove] = activeQuotaScans[len(activeQuotaScans)-1]
 		activeQuotaScans = activeQuotaScans[:len(activeQuotaScans)-1]
+	} else {
+		logger.Warn(logSender, "quota scan to remove not found for user: %v", username)
+		err = fmt.Errorf("quota scan to remove not found for user: %v", username)
 	}
+	return err
 }
 
 // CloseActiveConnection close an active SFTP connection, returns true on success
@@ -180,7 +202,6 @@ func GetConnectionsStats() []ConnectionStatus {
 }
 
 func startIdleTimer(maxIdleTime time.Duration) {
-	idleConnectionTicker = time.NewTicker(5 * time.Minute)
 	idleTimeout = maxIdleTime
 	go func() {
 		for t := range idleConnectionTicker.C {
@@ -237,9 +258,10 @@ func addTransfer(transfer *Transfer) {
 	activeTransfers = append(activeTransfers, transfer)
 }
 
-func removeTransfer(transfer *Transfer) {
+func removeTransfer(transfer *Transfer) error {
 	mutex.Lock()
 	defer mutex.Unlock()
+	var err error
 	indexToRemove := -1
 	for i, v := range activeTransfers {
 		if v == transfer {
@@ -252,7 +274,9 @@ func removeTransfer(transfer *Transfer) {
 		activeTransfers = activeTransfers[:len(activeTransfers)-1]
 	} else {
 		logger.Warn(logSender, "transfer to remove not found!")
+		err = fmt.Errorf("transfer to remove not found")
 	}
+	return err
 }
 
 func updateConnectionActivity(id string) {
@@ -262,4 +286,45 @@ func updateConnectionActivity(id string) {
 		c.lastActivity = time.Now()
 		openConnections[id] = c
 	}
+}
+
+func executeAction(operation string, username string, path string, target string) error {
+	if !utils.IsStringInSlice(operation, actions.ExecuteOn) {
+		return nil
+	}
+	var err error
+	if len(actions.Command) > 0 && filepath.IsAbs(actions.Command) {
+		if _, err = os.Stat(actions.Command); err == nil {
+			command := exec.Command(actions.Command, operation, username, path, target)
+			err = command.Start()
+			logger.Debug(logSender, "executed command \"%v\" with arguments: %v, %v, %v, error: %v",
+				actions.Command, operation, path, target, err)
+		} else {
+			logger.Warn(logSender, "Invalid action command \"%v\" : %v", actions.Command, err)
+		}
+	}
+	if len(actions.HTTPNotificationURL) > 0 {
+		var req *http.Request
+		req, err = http.NewRequest(http.MethodGet, actions.HTTPNotificationURL, nil)
+		if err == nil {
+			q := req.URL.Query()
+			q.Add("action", operation)
+			q.Add("username", username)
+			q.Add("path", path)
+			if len(target) > 0 {
+				q.Add("target_path", target)
+			}
+			req.URL.RawQuery = q.Encode()
+			resp, err := http.DefaultClient.Do(req)
+			respCode := 0
+			if err == nil {
+				respCode = resp.StatusCode
+				resp.Body.Close()
+			}
+			logger.Debug(logSender, "notified action to URL: %v status code: %v err: %v", req.URL.RequestURI(), respCode, err)
+		} else {
+			logger.Warn(logSender, "Invalid http_notification_url \"%v\" : %v", actions.HTTPNotificationURL, err)
+		}
+	}
+	return err
 }

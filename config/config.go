@@ -33,6 +33,11 @@ func init() {
 			IdleTimeout:  15,
 			MaxAuthTries: 0,
 			Umask:        "0022",
+			Actions: sftpd.Actions{
+				ExecuteOn:           []string{},
+				Command:             "",
+				HTTPNotificationURL: "",
+			},
 		},
 		ProviderConf: dataprovider.Config{
 			Driver:           "sqlite",

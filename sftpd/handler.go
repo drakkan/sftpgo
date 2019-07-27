@@ -322,6 +322,7 @@ func (c Connection) handleSFTPRename(sourcePath string, targetPath string) error
 		return sftp.ErrSshFxFailure
 	}
 	logger.CommandLog(sftpdRenameLogSender, sourcePath, targetPath, c.User.Username, c.ID)
+	executeAction(operationRename, c.User.Username, sourcePath, targetPath)
 	return nil
 }
 
@@ -330,7 +331,7 @@ func (c Connection) handleSFTPRmdir(path string) error {
 		return sftp.ErrSshFxPermissionDenied
 	}
 
-	numFiles, size, err := utils.ScanDirContents(path)
+	numFiles, size, fileList, err := utils.ScanDirContents(path)
 	if err != nil {
 		logger.Error(logSender, "failed to remove directory %v, scanning error: %v", path, err)
 		return sftp.ErrSshFxFailure
@@ -342,7 +343,9 @@ func (c Connection) handleSFTPRmdir(path string) error {
 
 	logger.CommandLog(sftpdRmdirLogSender, path, "", c.User.Username, c.ID)
 	dataprovider.UpdateUserQuota(dataProvider, c.User.Username, -numFiles, -size, false)
-
+	for _, p := range fileList {
+		executeAction(operationDelete, c.User.Username, p, "")
+	}
 	return sftp.ErrSshFxOk
 }
 
@@ -394,6 +397,7 @@ func (c Connection) handleSFTPRemove(path string) error {
 	if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
 		dataprovider.UpdateUserQuota(dataProvider, c.User.Username, -1, -size, false)
 	}
+	executeAction(operationDelete, c.User.Username, path, "")
 
 	return sftp.ErrSshFxOk
 }
