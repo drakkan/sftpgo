@@ -47,6 +47,7 @@ func (t *Transfer) WriteAt(p []byte, off int64) (n int, err error) {
 
 // Close method called when the transfer is completed, we log the transfer info
 func (t *Transfer) Close() error {
+	err := t.file.Close()
 	elapsed := time.Since(t.start).Nanoseconds() / 1000000
 	if t.transferType == transferDownload {
 		logger.TransferLog(sftpdDownloadLogSender, t.path, elapsed, t.bytesSent, t.user.Username, t.connectionID)
@@ -61,7 +62,7 @@ func (t *Transfer) Close() error {
 		numFiles++
 		dataprovider.UpdateUserQuota(dataProvider, t.user.Username, numFiles, t.bytesReceived, false)
 	}
-	return t.file.Close()
+	return err
 }
 
 func (t *Transfer) handleThrottle() {
