@@ -167,8 +167,7 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 
 	if trunc {
 		// the file is truncated so we need to decrease quota size but not quota files
-		logger.Debug(logSender, "file truncation requested update quota for user %v", c.User.Username)
-		dataprovider.UpdateUserQuota(dataProvider, c.User.Username, 0, -stat.Size(), false)
+		dataprovider.UpdateUserQuota(dataProvider, c.User, 0, -stat.Size(), false)
 	}
 
 	utils.SetPathPermissions(p, c.User.GetUID(), c.User.GetGID())
@@ -339,7 +338,7 @@ func (c Connection) handleSFTPRmdir(path string) error {
 	}
 
 	logger.CommandLog(sftpdRmdirLogSender, path, "", c.User.Username, c.ID)
-	dataprovider.UpdateUserQuota(dataProvider, c.User.Username, -numFiles, -size, false)
+	dataprovider.UpdateUserQuota(dataProvider, c.User, -numFiles, -size, false)
 	for _, p := range fileList {
 		executeAction(operationDelete, c.User.Username, p, "")
 	}
@@ -392,7 +391,7 @@ func (c Connection) handleSFTPRemove(path string) error {
 
 	logger.CommandLog(sftpdRemoveLogSender, path, "", c.User.Username, c.ID)
 	if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
-		dataprovider.UpdateUserQuota(dataProvider, c.User.Username, -1, -size, false)
+		dataprovider.UpdateUserQuota(dataProvider, c.User, -1, -size, false)
 	}
 	executeAction(operationDelete, c.User.Username, path, "")
 
@@ -410,7 +409,8 @@ func (c Connection) hasSpace(checkFiles bool) bool {
 			logger.Warn(logSender, "error getting used quota for %v: %v", c.User.Username, err)
 			return false
 		}
-		if (checkFiles && numFile >= c.User.QuotaFiles) || size >= c.User.QuotaSize {
+		if (checkFiles && c.User.QuotaFiles > 0 && numFile >= c.User.QuotaFiles) ||
+			(c.User.QuotaSize > 0 && size >= c.User.QuotaSize) {
 			logger.Debug(logSender, "quota exceed for user %v, num files: %v/%v, size: %v/%v check files: %v",
 				c.User.Username, numFile, c.User.QuotaFiles, size, c.User.QuotaSize, checkFiles)
 			return false

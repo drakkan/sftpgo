@@ -62,7 +62,7 @@ func (t *Transfer) Close() error {
 		if t.isNewFile {
 			numFiles = 1
 		}
-		dataprovider.UpdateUserQuota(dataProvider, t.user.Username, numFiles, t.bytesReceived, false)
+		dataprovider.UpdateUserQuota(dataProvider, t.user, numFiles, t.bytesReceived, false)
 	}
 	return err
 }

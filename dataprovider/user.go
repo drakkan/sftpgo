@@ -82,3 +82,9 @@ func (u *User) GetGID() int {
 func (u *User) GetHomeDir() string {
 	return filepath.Clean(u.HomeDir)
 }
+
+// HasQuotaRestrictions returns true if there is a quota restriction on number of files
+// or size or both
+func (u *User) HasQuotaRestrictions() bool {
+	return u.QuotaFiles > 0 || u.QuotaSize > 0
+}

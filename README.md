@@ -87,7 +87,10 @@ The `sftpgo.conf` configuration file contains the following sections:
     - `connectionstring`, string. Provide a custom database connection string. If not empty this connection string will be used instead of build one using the previous parameters
     - `users_table`, string. Database table for SFTP users
     - `manage_users`, integer. Set to 0 to disable users management, 1 to enable
-    - `track_quota`, integer. Set to 0 to disable quota tracking, 1 to update the used quota each time a user upload or delete a file
+    - `track_quota`, integer. Set the preferred way to track users quota between the following choices:
+        - 0, disable quota tracking. REST API to scan user dir and update quota will do nothing
+        - 1, quota is updated each time a user upload or delete a file even if the user has no quota restrictions
+        - 2, quota is updated each time a user upload or delete a file but only for users with quota restrictions. With this configuration you can still use the "quota scan" REST API to periodically update space usage for users without quota restrictions
 - **"httpd"**, the configuration for the HTTP server used to serve REST API
     - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 8080
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"
@@ -157,7 +160,7 @@ These properties are stored inside the data provider. If you want to use your ex
 
 SFTPGo exposes REST API to manage users and quota and to get real time reports for the active connections with possibility of forcibly closing a connection.
 
-If quota tracking is enabled in `sftpgo.conf` configuration file, then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP, you can rescan the user home dir and update the used quota using the REST API.
+If quota tracking is enabled in `sftpgo.conf` configuration file, then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP or if you change `track_quota` from `2` to `1`, you can rescan the user home dir and update the used quota using the REST API.
 
 REST API is designed to run on localhost or on a trusted network, if you need https or authentication you can setup a reverse proxy using an HTTP Server such as Apache or NGNIX.
 

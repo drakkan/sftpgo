@@ -23,7 +23,7 @@ const (
 	logSender                = "dataProvider"
 	argonPwdPrefix           = "$argon2id$"
 	manageUsersDisabledError = "please set manage_users to 1 in sftpgo.conf to enable this method"
-	trackQuotaDisabledError  = "please set track_quota to 1 in sftpgo.conf to enable this method"
+	trackQuotaDisabledError  = "please enable track_quota in sftpgo.conf to use this method"
 )
 
 var (
@@ -117,11 +117,13 @@ func CheckUserAndPubKey(p Provider, username string, pubKey string) (User, error
 }
 
 // UpdateUserQuota update the quota for the given user
-func UpdateUserQuota(p Provider, username string, filesAdd int, sizeAdd int64, reset bool) error {
+func UpdateUserQuota(p Provider, user User, filesAdd int, sizeAdd int64, reset bool) error {
 	if config.TrackQuota == 0 {
 		return &MethodDisabledError{err: trackQuotaDisabledError}
+	} else if config.TrackQuota == 2 && !reset && !user.HasQuotaRestrictions() {
+		return nil
 	}
-	return p.updateQuota(username, filesAdd, sizeAdd, reset)
+	return p.updateQuota(user.Username, filesAdd, sizeAdd, reset)
 }
 
 // GetUsedQuota returns the used quota for the given user
