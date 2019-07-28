@@ -298,8 +298,8 @@ func executeAction(operation string, username string, path string, target string
 		if _, err = os.Stat(actions.Command); err == nil {
 			command := exec.Command(actions.Command, operation, username, path, target)
 			err = command.Start()
-			logger.Debug(logSender, "executed command \"%v\" with arguments: %v, %v, %v, error: %v",
-				actions.Command, operation, path, target, err)
+			logger.Debug(logSender, "executed command \"%v\" with arguments: %v, %v, %v, %v, error: %v",
+				actions.Command, operation, username, path, target, err)
 		} else {
 			logger.Warn(logSender, "Invalid action command \"%v\" : %v", actions.Command, err)
 		}

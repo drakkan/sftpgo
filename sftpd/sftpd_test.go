@@ -574,6 +574,66 @@ func TestMaxSessions(t *testing.T) {
 	}
 }
 
+func TestQuotaFileReplace(t *testing.T) {
+	usePubKey := false
+	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		testFileSize := int64(65535)
+		expectedQuotaSize := user.UsedQuotaSize + testFileSize
+		expectedQuotaFiles := user.UsedQuotaFiles + 1
+		testFileName := "test_file.dat"
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		if err != nil {
+			t.Errorf("unable to create test file: %v", err)
+		}
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		if err != nil {
+			t.Errorf("file upload error: %v", err)
+		}
+		user, err = api.GetUserByID(user.ID, http.StatusOK)
+		if err != nil {
+			t.Errorf("error getting user: %v", err)
+		}
+		if expectedQuotaFiles != user.UsedQuotaFiles {
+			t.Errorf("quota files does not match, expected: %v, actual: %v", expectedQuotaFiles, user.UsedQuotaFiles)
+		}
+		if expectedQuotaSize != user.UsedQuotaSize {
+			t.Errorf("quota size does not match, expected: %v, actual: %v", expectedQuotaSize, user.UsedQuotaSize)
+		}
+		// now replace the same file, the quota must not change
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		if err != nil {
+			t.Errorf("file upload error: %v", err)
+		}
+		user, err = api.GetUserByID(user.ID, http.StatusOK)
+		if err != nil {
+			t.Errorf("error getting user: %v", err)
+		}
+		if expectedQuotaFiles != user.UsedQuotaFiles {
+			t.Errorf("quota files does not match, expected: %v, actual: %v", expectedQuotaFiles, user.UsedQuotaFiles)
+		}
+		if expectedQuotaSize != user.UsedQuotaSize {
+			t.Errorf("quota size does not match, expected: %v, actual: %v", expectedQuotaSize, user.UsedQuotaSize)
+		}
+		err = client.Remove(testFileName)
+		if err != nil {
+			t.Errorf("error removing uploaded file: %v", err)
+		}
+	}
+	err = api.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+}
+
 func TestQuotaScan(t *testing.T) {
 	usePubKey := false
 	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
@@ -670,13 +730,17 @@ func TestQuotaSize(t *testing.T) {
 		if err != nil {
 			t.Errorf("unable to create test file: %v", err)
 		}
-		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		err = sftpUploadFile(testFilePath, testFileName+".quota", testFileSize, client)
 		if err != nil {
 			t.Errorf("file upload error: %v", err)
 		}
-		err = sftpUploadFile(testFilePath, testFileName+".1", testFileSize, client)
+		err = sftpUploadFile(testFilePath, testFileName+".quota.1", testFileSize, client)
 		if err == nil {
 			t.Errorf("user is over quota file upload must fail")
+		}
+		err = client.Remove(testFileName + ".quota")
+		if err != nil {
+			t.Errorf("error removing uploaded file: %v", err)
 		}
 	}
 	err = api.RemoveUser(user, http.StatusOK)

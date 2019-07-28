@@ -36,8 +36,12 @@ func getUsersQuery(order string, username string) string {
 		order, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
-func getUpdateQuotaQuery() string {
-	return fmt.Sprintf(`UPDATE %v SET used_quota_size = %v,used_quota_files = %v,last_quota_scan = %v 
+func getUpdateQuotaQuery(reset bool) string {
+	if reset {
+		return fmt.Sprintf(`UPDATE %v SET used_quota_size = %v,used_quota_files = %v,last_quota_scan = %v 
+			WHERE username = %v`, config.UsersTable, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
+	}
+	return fmt.Sprintf(`UPDATE %v SET used_quota_size = used_quota_size + %v,used_quota_files = used_quota_files + %v,last_quota_scan = %v 
 		WHERE username = %v`, config.UsersTable, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
 }
 

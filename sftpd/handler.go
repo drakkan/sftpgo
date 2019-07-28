@@ -168,8 +168,9 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 	}
 
 	if trunc {
+		// the file is truncated so we need to decrease quota size but not quota files
 		logger.Debug(logSender, "file truncation requested update quota for user %v", c.User.Username)
-		dataprovider.UpdateUserQuota(dataProvider, c.User.Username, -1, -stat.Size(), false)
+		dataprovider.UpdateUserQuota(dataProvider, c.User.Username, 0, -stat.Size(), false)
 	}
 
 	utils.SetPathPermissions(p, c.User.GetUID(), c.User.GetGID())
@@ -185,7 +186,7 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 		user:          c.User,
 		connectionID:  c.ID,
 		transferType:  transferUpload,
-		isNewFile:     trunc,
+		isNewFile:     !trunc,
 	}
 	addTransfer(&transfer)
 	return &transfer, nil

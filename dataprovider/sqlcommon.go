@@ -96,39 +96,17 @@ func sqlCommonGetUserByID(ID int64) (User, error) {
 }
 
 func sqlCommonUpdateQuota(username string, filesAdd int, sizeAdd int64, reset bool, p Provider) error {
-	var usedFiles int
-	var usedSize int64
-	var err error
-	if reset {
-		usedFiles = 0
-		usedSize = 0
-	} else {
-		usedFiles, usedSize, err = p.getUsedQuota(username)
-		if err != nil {
-			return err
-		}
-	}
-	usedFiles += filesAdd
-	usedSize += sizeAdd
-	if usedFiles < 0 {
-		logger.Warn(logSender, "used files is negative, probably some files were added and not tracked, please rescan quota!")
-		usedFiles = 0
-	}
-	if usedSize < 0 {
-		logger.Warn(logSender, "used files is negative, probably some files were added and not tracked, please rescan quota!")
-		usedSize = 0
-	}
-
-	q := getUpdateQuotaQuery()
+	q := getUpdateQuotaQuery(reset)
 	stmt, err := dbHandle.Prepare(q)
 	if err != nil {
 		logger.Debug(logSender, "error preparing database query %v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
-	_, err = stmt.Exec(usedSize, usedFiles, utils.GetTimeAsMsSinceEpoch(time.Now()), username)
+	_, err = stmt.Exec(sizeAdd, filesAdd, utils.GetTimeAsMsSinceEpoch(time.Now()), username)
 	if err == nil {
-		logger.Debug(logSender, "quota updated for user %v, new files: %v new size: %v", username, usedFiles, usedSize)
+		logger.Debug(logSender, "quota updated for user %v, files increment: %v size increment: %v is reset? %v",
+			username, filesAdd, sizeAdd, reset)
 	} else {
 		logger.Warn(logSender, "error updating quota for username %v: %v", username, err)
 	}

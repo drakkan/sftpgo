@@ -57,9 +57,11 @@ func (t *Transfer) Close() error {
 		executeAction(operationUpload, t.user.Username, t.path, "")
 	}
 	removeTransfer(t)
-	if t.transferType == transferUpload && t.bytesReceived > 0 && t.isNewFile {
+	if t.transferType == transferUpload {
 		numFiles := 0
-		numFiles++
+		if t.isNewFile {
+			numFiles = 1
+		}
 		dataprovider.UpdateUserQuota(dataProvider, t.user.Username, numFiles, t.bytesReceived, false)
 	}
 	return err
