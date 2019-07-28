@@ -119,8 +119,6 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 
 		utils.SetPathPermissions(p, c.User.GetUID(), c.User.GetGID())
 
-		logger.Debug(logSender, "file upload/replace started for path \"%v\" user: %v", p, c.User.Username)
-
 		transfer := Transfer{
 			file:          file,
 			path:          p,
@@ -175,8 +173,6 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 
 	utils.SetPathPermissions(p, c.User.GetUID(), c.User.GetGID())
 
-	logger.Debug(logSender, "file upload started for path \"%v\" user: %v", p, c.User.Username)
-
 	transfer := Transfer{
 		file:          file,
 		path:          p,
@@ -186,7 +182,7 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 		user:          c.User,
 		connectionID:  c.ID,
 		transferType:  transferUpload,
-		isNewFile:     !trunc,
+		isNewFile:     false,
 	}
 	addTransfer(&transfer)
 	return &transfer, nil
