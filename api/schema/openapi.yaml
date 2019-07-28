@@ -565,10 +565,10 @@ components:
         used_quota_file:
           type: integer
           format: int32
-        last_quota_scan:
+        last_quota_update:
           type: integer
           format: int64
-          description: last quota scan as unix timestamp
+          description: last quota update as unix timestamp in milliseconds
         upload_bandwidth:
           type: integer
           format: int32
@@ -588,7 +588,7 @@ components:
         start_time:
           type: integer
           format: int64
-          description: start time as unix timestamp
+          description: start time as unix timestamp in milliseconds
         size:
           type: integer
           format: int64
@@ -596,7 +596,7 @@ components:
         last_activity:
           type: integer
           format: int64
-          description: last transfer activity as unix timestamp  
+          description: last transfer activity as unix timestamp in milliseconds
     ConnectionStatus:
       type: object
       properties:
@@ -615,11 +615,11 @@ components:
         connection_time:
           type: integer
           format: int64
-          description: connection time as unix timestamp
+          description: connection time as unix timestamp in milliseconds
         last_activity:
           type: integer
           format: int64
-          description: last client activity as unix timestamp
+          description: last client activity as unix timestamp in milliseconds
         active_transfers:
           type: array
           items:
@@ -633,7 +633,7 @@ components:
         start_time:
           type: integer
           format: int64
-          description: scan start time as unix timestamp
+          description: scan start time as unix timestamp in milliseconds
     ApiResponse:
       type: object
       properties:

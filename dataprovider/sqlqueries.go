@@ -4,7 +4,7 @@ import "fmt"
 
 const (
 	selectUserFields = "id,username,password,public_key,home_dir,uid,gid,max_sessions,quota_size,quota_files,permissions," +
-		"used_quota_size,used_quota_files,last_quota_scan,upload_bandwidth,download_bandwidth"
+		"used_quota_size,used_quota_files,last_quota_update,upload_bandwidth,download_bandwidth"
 )
 
 func getSQLPlaceholders() []string {
@@ -38,10 +38,10 @@ func getUsersQuery(order string, username string) string {
 
 func getUpdateQuotaQuery(reset bool) string {
 	if reset {
-		return fmt.Sprintf(`UPDATE %v SET used_quota_size = %v,used_quota_files = %v,last_quota_scan = %v 
+		return fmt.Sprintf(`UPDATE %v SET used_quota_size = %v,used_quota_files = %v,last_quota_update = %v 
 			WHERE username = %v`, config.UsersTable, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
 	}
-	return fmt.Sprintf(`UPDATE %v SET used_quota_size = used_quota_size + %v,used_quota_files = used_quota_files + %v,last_quota_scan = %v 
+	return fmt.Sprintf(`UPDATE %v SET used_quota_size = used_quota_size + %v,used_quota_files = used_quota_files + %v,last_quota_update = %v 
 		WHERE username = %v`, config.UsersTable, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
 }
 
@@ -52,7 +52,7 @@ func getQuotaQuery() string {
 
 func getAddUserQuery() string {
 	return fmt.Sprintf(`INSERT INTO %v (username,password,public_key,home_dir,uid,gid,max_sessions,quota_size,quota_files,permissions,
-		used_quota_size,used_quota_files,last_quota_scan,upload_bandwidth,download_bandwidth) 
+		used_quota_size,used_quota_files,last_quota_update,upload_bandwidth,download_bandwidth) 
 		VALUES (%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,0,0,0,%v,%v)`, config.UsersTable, sqlPlaceholders[0], sqlPlaceholders[1],
 		sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7],
 		sqlPlaceholders[8], sqlPlaceholders[9], sqlPlaceholders[10], sqlPlaceholders[11])

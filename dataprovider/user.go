@@ -34,7 +34,7 @@ type User struct {
 	Permissions       []string `json:"permissions"`
 	UsedQuotaSize     int64    `json:"used_quota_size"`
 	UsedQuotaFiles    int      `json:"used_quota_files"`
-	LastQuotaScan     int64    `json:"last_quota_scan"`
+	LastQuotaUpdate   int64    `json:"last_quota_update"`
 	UploadBandwidth   int64    `json:"upload_bandwidth"`
 	DownloadBandwidth int64    `json:"download_bandwidth"`
 }

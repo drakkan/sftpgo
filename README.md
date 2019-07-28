@@ -54,7 +54,7 @@ The `sftpgo` executable supports the following command line flags:
 
 Before starting `sftpgo` a dataprovider must be configured.
 
-Sample SQL scripts to create the required database structure can be found insite the source tree [sql](https://github.com/drakkan/sftpgo/tree/master/sql "sql") directory.
+Sample SQL scripts to create the required database structure can be found insite the source tree [sql](https://github.com/drakkan/sftpgo/tree/master/sql "sql") directory. The SQL scripts filename's is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190706.sql` must be applied before `20190728.sql` and so on.
 
 The `sftpgo.conf` configuration file contains the following sections:
 
