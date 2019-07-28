@@ -100,7 +100,7 @@ func Initialize(cnf Config, basePath string) error {
 		provider = PGSQLProvider{}
 		return initializePGSQLProvider()
 	} else if config.Driver == MySQLDataProviderName {
-		provider = SQLiteProvider{}
+		provider = MySQLProvider{}
 		return initializeMySQLProvider()
 	}
 	return fmt.Errorf("Unsupported data provider: %v", config.Driver)
