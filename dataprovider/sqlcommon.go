@@ -46,15 +46,12 @@ func sqlCommonValidateUserAndPass(username string, password string) (User, error
 				logger.Warn(logSender, "error comparing password with argon hash: %v", err)
 				return user, err
 			}
-
-		} else if strings.HasPrefix(user.Password, bcryptPwdPrefix){
-			err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
-			if err != nil {
+		} else if strings.HasPrefix(user.Password, bcryptPwdPrefix) {
+			if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
 				logger.Warn(logSender, "error comparing password with bcrypt hash: %v", err)
 				return user, err
-			}else{
-				match = true
 			}
+			match = true
 		} else {
 			// clear text password match
 			match = (user.Password == password)
