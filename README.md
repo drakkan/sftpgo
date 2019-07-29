@@ -64,6 +64,7 @@ The `sftpgo.conf` configuration file contains the following sections:
     - `idle_timeout`, integer. Time in minutes after which an idle client will be disconnected. Default: 15
     - `max_auth_tries` integer. Maximum number of authentication attempts permitted per connection. If set to a negative number, the number of attempts are unlimited. If set to zero, the number of attempts are limited to 6.
     - `umask`, string. Umask for the new files and directories. This setting has no effect on Windows. Default: "0022"
+    - `banner`, string. Identification string used by the server. Default "SFTPGo"
     - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions
         - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`. On folder deletion a `delete` notification will be sent for each deleted file. Leave empty to disable actions.
         - `command`, string. Absolute path to the command to execute. Leave empty to disable. The command is invoked with the following arguments: 
@@ -104,6 +105,7 @@ Here is a full example showing the default config:
         "idle_timeout":15,
         "max_auth_tries":0,
         "umask":"0022",
+        "banner":"SFTPGo",
         "actions":{
             "execute_on":[],
             "command":"",

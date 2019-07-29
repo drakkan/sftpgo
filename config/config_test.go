@@ -1,9 +1,11 @@
 package config_test
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/drakkan/sftpgo/api"
@@ -42,6 +44,28 @@ func TestLoadConfigTest(t *testing.T) {
 	err = config.LoadConfig(configFilePath)
 	if err == nil {
 		t.Errorf("loading an invalid config file must fail")
+	}
+	os.Remove(configFilePath)
+}
+
+func TestEmptyBanner(t *testing.T) {
+	configDir := ".."
+	confName := "temp.conf"
+	configFilePath := filepath.Join(configDir, confName)
+	config.LoadConfig(configFilePath)
+	sftpdConf := config.GetSFTPDConfig()
+	sftpdConf.Banner = " "
+	c := make(map[string]sftpd.Configuration)
+	c["sftpd"] = sftpdConf
+	jsonConf, _ := json.Marshal(c)
+	err := ioutil.WriteFile(configFilePath, jsonConf, 0666)
+	if err != nil {
+		t.Errorf("error saving temporary configuration")
+	}
+	config.LoadConfig(configFilePath)
+	sftpdConf = config.GetSFTPDConfig()
+	if strings.TrimSpace(sftpdConf.Banner) == "" {
+		t.Errorf("SFTPD banner cannot be empty")
 	}
 	os.Remove(configFilePath)
 }

@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"os"
+	"strings"
 
 	"github.com/drakkan/sftpgo/api"
 	"github.com/drakkan/sftpgo/dataprovider"
@@ -11,7 +12,8 @@ import (
 )
 
 const (
-	logSender = "config"
+	logSender     = "config"
+	defaultBanner = "SFTPGo"
 )
 
 var (
@@ -28,7 +30,7 @@ func init() {
 	// create a default configuration to use if no config file is provided
 	globalConf = globalConfig{
 		SFTPD: sftpd.Configuration{
-			Banner:       "SFTPServer",
+			Banner:       defaultBanner,
 			BindPort:     2022,
 			BindAddress:  "",
 			IdleTimeout:  15,
@@ -78,7 +80,6 @@ func GetProviderConf() dataprovider.Config {
 // LoadConfig loads configuration from sftpgo.conf
 func LoadConfig(configPath string) error {
 	logger.Debug(logSender, "load config from path: %v", configPath)
-	//globalConf.basePath = basePath
 	file, err := os.Open(configPath)
 	if err != nil {
 		logger.Warn(logSender, "error loading configuration file: %v. Default configuration will be used: %+v", err, globalConf)
@@ -89,6 +90,9 @@ func LoadConfig(configPath string) error {
 	if err != nil {
 		logger.Warn(logSender, "error parsing config file: %v. Default configuration will be used: %+v", err, globalConf)
 		return err
+	}
+	if strings.TrimSpace(globalConf.SFTPD.Banner) == "" {
+		globalConf.SFTPD.Banner = defaultBanner
 	}
 	logger.Debug(logSender, "config loaded: %+v", globalConf)
 	return err
