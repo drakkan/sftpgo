@@ -1,3 +1,6 @@
+// Package dataprovider provides data access.
+// It abstract different data providers and exposes a common API.
+// Currently the supported data providers are: PostreSQL (9+), MySQL (4.1+) and SQLite 3.x
 package dataprovider
 
 import (
@@ -28,7 +31,7 @@ const (
 )
 
 var (
-	// SupportedProviders data provider in config file must be one of these strings
+	// SupportedProviders data provider configured in the sftpgo.conf file must match of these strings
 	SupportedProviders = []string{SQLiteDataProviderName, PGSSQLDataProviderName, MySQLDataProviderName}
 	dbHandle           *sql.DB
 	config             Config
@@ -40,17 +43,38 @@ var (
 
 // Config provider configuration
 type Config struct {
-	Driver           string `json:"driver"`
-	Name             string `json:"name"`
-	Host             string `json:"host"`
-	Port             int    `json:"port"`
-	Username         string `json:"username"`
-	Password         string `json:"password"`
+	// Driver name, must be one of the SupportedProviders
+	Driver string `json:"driver"`
+	// Database name
+	Name string `json:"name"`
+	// Database host
+	Host string `json:"host"`
+	// Database port
+	Port int `json:"port"`
+	// Database username
+	Username string `json:"username"`
+	// Database password
+	Password string `json:"password"`
+	// Used for drivers mysql and postgresql.
+	// 0 disable SSL/TLS connections.
+	// 1 require ssl.
+	// 2 set ssl mode to verify-ca for driver postgresql and skip-verify for driver mysql.
+	// 3 set ssl mode to verify-full for driver postgresql and preferred for driver mysql.
+	SSLMode int `json:"sslmode"`
+	// Custom database connection string.
+	// If not empty this connection string will be used instead of build one using the previous parameters
 	ConnectionString string `json:"connection_string"`
-	UsersTable       string `json:"users_table"`
-	ManageUsers      int    `json:"manage_users"`
-	SSLMode          int    `json:"sslmode"`
-	TrackQuota       int    `json:"track_quota"`
+	// Database table for SFTP users
+	UsersTable string `json:"users_table"`
+	// Set to 0 to disable users management, 1 to enable
+	ManageUsers int `json:"manage_users"`
+	// Set the preferred way to track users quota between the following choices:
+	// 0, disable quota tracking. REST API to scan user dir and update quota will do nothing
+	// 1, quota is updated each time a user upload or delete a file even if the user has no quota restrictions
+	// 2, quota is updated each time a user upload or delete a file but only for users with quota restrictions.
+	//    With this configuration the "quota scan" REST API can still be used to periodically update space usage
+	//    for users without quota restrictions
+	TrackQuota int `json:"track_quota"`
 }
 
 // ValidationError raised if input data is not valid
@@ -58,25 +82,29 @@ type ValidationError struct {
 	err string
 }
 
+// Validation error details
 func (e *ValidationError) Error() string {
 	return fmt.Sprintf("Validation error: %s", e.err)
 }
 
-// MethodDisabledError raised if a method is disable in config file
+// MethodDisabledError raised if a method is disabled in config file.
+// For example, if user management is disabled, this error is raised
+// every time an user operation is done using the REST API
 type MethodDisabledError struct {
 	err string
 }
 
+// Method disabled error details
 func (e *MethodDisabledError) Error() string {
 	return fmt.Sprintf("Method disabled error: %s", e.err)
 }
 
-// GetProvider get the configured provider
+// GetProvider returns the configured provider
 func GetProvider() Provider {
 	return provider
 }
 
-// Provider interface for data providers
+// Provider interface that data providers must implement.
 type Provider interface {
 	validateUserAndPass(username string, password string) (User, error)
 	validateUserAndPubKey(username string, pubKey string) (User, error)
@@ -90,7 +118,8 @@ type Provider interface {
 	getUserByID(ID int64) (User, error)
 }
 
-// Initialize auth provider
+// Initialize the data provider.
+// An error is returned if the configured driver is invalid or if the data provider cannot be initialized
 func Initialize(cnf Config, basePath string) error {
 	config = cnf
 	sqlPlaceholders = getSQLPlaceholders()
@@ -107,17 +136,18 @@ func Initialize(cnf Config, basePath string) error {
 	return fmt.Errorf("Unsupported data provider: %v", config.Driver)
 }
 
-// CheckUserAndPass returns the user with the given username and password if exists
+// CheckUserAndPass retrieves the SFTP user with the given username and password if a match is found or an error
 func CheckUserAndPass(p Provider, username string, password string) (User, error) {
 	return p.validateUserAndPass(username, password)
 }
 
-// CheckUserAndPubKey returns the user with the given username and public key if exists
+// CheckUserAndPubKey retrieves the SFTP user with the given username and public key if a match is found or an error
 func CheckUserAndPubKey(p Provider, username string, pubKey string) (User, error) {
 	return p.validateUserAndPubKey(username, pubKey)
 }
 
-// UpdateUserQuota update the quota for the given user
+// UpdateUserQuota updates the quota for the given SFTP user adding filesAdd and sizeAdd.
+// If reset is true filesAdd and sizeAdd indicates the total files and the total size instead of the difference.
 func UpdateUserQuota(p Provider, user User, filesAdd int, sizeAdd int64, reset bool) error {
 	if config.TrackQuota == 0 {
 		return &MethodDisabledError{err: trackQuotaDisabledError}
@@ -127,7 +157,8 @@ func UpdateUserQuota(p Provider, user User, filesAdd int, sizeAdd int64, reset b
 	return p.updateQuota(user.Username, filesAdd, sizeAdd, reset)
 }
 
-// GetUsedQuota returns the used quota for the given user
+// GetUsedQuota returns the used quota for the given SFTP user.
+// TrackQuota must be >=1 to enable this method
 func GetUsedQuota(p Provider, username string) (int, int64, error) {
 	if config.TrackQuota == 0 {
 		return 0, 0, &MethodDisabledError{err: trackQuotaDisabledError}
@@ -135,12 +166,13 @@ func GetUsedQuota(p Provider, username string) (int, int64, error) {
 	return p.getUsedQuota(username)
 }
 
-// UserExists checks if the given username exists
+// UserExists checks if the given SFTP username exists, returns an error if no match is found
 func UserExists(p Provider, username string) (User, error) {
 	return p.userExists(username)
 }
 
-// AddUser adds a new user, ManageUsers configuration must be set to 1 to enable this method
+// AddUser adds a new SFTP user.
+// ManageUsers configuration must be set to 1 to enable this method
 func AddUser(p Provider, user User) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
@@ -148,7 +180,8 @@ func AddUser(p Provider, user User) error {
 	return p.addUser(user)
 }
 
-// UpdateUser updates an existing user, ManageUsers configuration must be set to 1 to enable this method
+// UpdateUser updates an existing SFTP user.
+// ManageUsers configuration must be set to 1 to enable this method
 func UpdateUser(p Provider, user User) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
@@ -156,7 +189,8 @@ func UpdateUser(p Provider, user User) error {
 	return p.updateUser(user)
 }
 
-// DeleteUser deletes an existing user, ManageUsers configuration must be set to 1 to enable this method
+// DeleteUser deletes an existing SFTP user.
+// ManageUsers configuration must be set to 1 to enable this method
 func DeleteUser(p Provider, user User) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
@@ -164,12 +198,12 @@ func DeleteUser(p Provider, user User) error {
 	return p.deleteUser(user)
 }
 
-// GetUsers returns an array of users respecting limit and offset
+// GetUsers returns an array of users respecting limit and offset and filtered by username exact match if not empty
 func GetUsers(p Provider, limit int, offset int, order string, username string) ([]User, error) {
 	return p.getUsers(limit, offset, order, username)
 }
 
-// GetUserByID returns the user with the given ID
+// GetUserByID returns the user with the given database ID if a match is found or an error
 func GetUserByID(p Provider, ID int64) (User, error) {
 	return p.getUserByID(ID)
 }

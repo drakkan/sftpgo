@@ -1,3 +1,8 @@
+// Package config manages the configuration.
+// Configuration is loaded from sftpgo.conf file.
+// If sftpgo.conf is not found or cannot be readed or decoded as json the default configuration is used.
+// The default configuration an be found inside the source tree:
+// https://github.com/drakkan/sftpgo/blob/master/sftpgo.conf
 package config
 
 import (
@@ -62,22 +67,22 @@ func init() {
 	}
 }
 
-// GetSFTPDConfig returns sftpd configuration
+// GetSFTPDConfig returns the configuration for the SFTP server
 func GetSFTPDConfig() sftpd.Configuration {
 	return globalConf.SFTPD
 }
 
-// GetHTTPDConfig returns httpd configuration
+// GetHTTPDConfig returns the configuration for the HTTP server
 func GetHTTPDConfig() api.HTTPDConf {
 	return globalConf.HTTPDConfig
 }
 
-//GetProviderConf returns data provider configuration
+//GetProviderConf returns the configuration for the data provider
 func GetProviderConf() dataprovider.Config {
 	return globalConf.ProviderConf
 }
 
-// LoadConfig loads configuration from sftpgo.conf
+// LoadConfig loads the configuration from sftpgo.conf or use the default configuration.
 func LoadConfig(configPath string) error {
 	logger.Debug(logSender, "load config from path: %v", configPath)
 	file, err := os.Open(configPath)

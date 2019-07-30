@@ -1,3 +1,4 @@
+// Package utils provides some common utility methods
 package utils
 
 import (
@@ -11,7 +12,7 @@ import (
 
 const logSender = "utils"
 
-// IsStringInSlice search a string in a slice
+// IsStringInSlice searches a string in a slice and returns true if the string is found
 func IsStringInSlice(obj string, list []string) bool {
 	for _, v := range list {
 		if v == obj {
@@ -26,7 +27,7 @@ func GetTimeAsMsSinceEpoch(t time.Time) int64 {
 	return t.UnixNano() / 1000000
 }
 
-// ScanDirContents returns the number of files contained in a directory and their size
+// ScanDirContents returns the number of files contained in a directory, their size and a slice with the file paths
 func ScanDirContents(path string) (int, int64, []string, error) {
 	var numFiles int
 	var size int64
@@ -60,7 +61,7 @@ func isDirectory(path string) (bool, error) {
 	return fileInfo.IsDir(), err
 }
 
-// SetPathPermissions call os.Chown on unix does nothing on windows
+// SetPathPermissions call os.Chown on unix, it does nothing on windows
 func SetPathPermissions(path string, uid int, gid int) {
 	if runtime.GOOS != "windows" {
 		if err := os.Chown(path, uid, gid); err != nil {

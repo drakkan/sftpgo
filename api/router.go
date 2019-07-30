@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/render"
 )
 
-// GetHTTPRouter returns the configured HTTP router
+// GetHTTPRouter returns the configured HTTP handler
 func GetHTTPRouter() http.Handler {
 	return router
 }

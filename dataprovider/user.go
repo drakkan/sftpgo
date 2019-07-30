@@ -7,36 +7,64 @@ import (
 	"github.com/drakkan/sftpgo/utils"
 )
 
-// Permissions
+// Available permissions for SFTP users
 const (
-	PermAny            = "*"
-	PermListItems      = "list"
-	PermDownload       = "download"
-	PermUpload         = "upload"
-	PermDelete         = "delete"
-	PermRename         = "rename"
-	PermCreateDirs     = "create_dirs"
+	// All permissions are granted
+	PermAny = "*"
+	// List items such as files and directories is allowed
+	PermListItems = "list"
+	// download files is allowed
+	PermDownload = "download"
+	// upload files is allowed
+	PermUpload = "upload"
+	// delete files or directories is allowed
+	PermDelete = "delete"
+	// rename files or directories is allowed
+	PermRename = "rename"
+	// create directories is allowed
+	PermCreateDirs = "create_dirs"
+	// create symbolic links is allowed
 	PermCreateSymlinks = "create_symlinks"
 )
 
 // User defines an SFTP user
 type User struct {
-	ID                int64    `json:"id"`
-	Username          string   `json:"username"`
-	Password          string   `json:"password,omitempty"`
-	PublicKey         string   `json:"public_key,omitempty"`
-	HomeDir           string   `json:"home_dir"`
-	UID               int      `json:"uid"`
-	GID               int      `json:"gid"`
-	MaxSessions       int      `json:"max_sessions"`
-	QuotaSize         int64    `json:"quota_size"`
-	QuotaFiles        int      `json:"quota_files"`
-	Permissions       []string `json:"permissions"`
-	UsedQuotaSize     int64    `json:"used_quota_size"`
-	UsedQuotaFiles    int      `json:"used_quota_files"`
-	LastQuotaUpdate   int64    `json:"last_quota_update"`
-	UploadBandwidth   int64    `json:"upload_bandwidth"`
-	DownloadBandwidth int64    `json:"download_bandwidth"`
+	// Database unique identifier
+	ID int64 `json:"id"`
+	// Username
+	Username string `json:"username"`
+	// Password used for password authentication.
+	// For users created using SFTPGo REST API the password is be stored using argon2id hashing algo.
+	// Checking passwords stored with bcrypt is supported too.
+	// Currently, as fallback, there is a clear text password checking but you should not store passwords
+	// as clear text and this support could be removed at any time, so please don't depend on it.
+	Password string `json:"password,omitempty"`
+	// PublicKey used for public key authentication. At least one between password and public key is mandatory
+	PublicKey string `json:"public_key,omitempty"`
+	// The user cannot upload or download files outside this directory. Must be an absolute path
+	HomeDir string `json:"home_dir"`
+	// If sftpgo runs as root system user then the created files and directories will be assigned to this system UID
+	UID int `json:"uid"`
+	// If sftpgo runs as root system user then the created files and directories will be assigned to this system GID
+	GID int `json:"gid"`
+	// Maximum concurrent sessions. 0 means unlimited
+	MaxSessions int `json:"max_sessions"`
+	// Maximum size allowed as bytes. 0 means unlimited
+	QuotaSize int64 `json:"quota_size"`
+	// Maximum number of files allowed. 0 means unlimited
+	QuotaFiles int `json:"quota_files"`
+	// List of the granted permissions
+	Permissions []string `json:"permissions"`
+	// Used quota as bytes
+	UsedQuotaSize int64 `json:"used_quota_size"`
+	// Used quota as number of files
+	UsedQuotaFiles int `json:"used_quota_files"`
+	// Last quota update as unix timestamp in milliseconds
+	LastQuotaUpdate int64 `json:"last_quota_update"`
+	// Maximum upload bandwidth as KB/s, 0 means unlimited
+	UploadBandwidth int64 `json:"upload_bandwidth"`
+	// Maximum download bandwidth as KB/s, 0 means unlimited
+	DownloadBandwidth int64 `json:"download_bandwidth"`
 }
 
 // HasPerm returns true if the user has the given permission or any permission
@@ -47,22 +75,12 @@ func (u *User) HasPerm(permission string) bool {
 	return utils.IsStringInSlice(permission, u.Permissions)
 }
 
-// HasOption returns true if the user has the give option
-/*func (u *User) HasOption(option string) bool {
-	return utils.IsStringInSlice(option, u.Options)
-}*/
-
-// GetPermissionsAsJSON returns the permission as json byte array
+// GetPermissionsAsJSON returns the permissions as json byte array
 func (u *User) GetPermissionsAsJSON() ([]byte, error) {
 	return json.Marshal(u.Permissions)
 }
 
-// GetOptionsAsJSON returns the permission as json byte array
-/*func (u *User) GetOptionsAsJSON() ([]byte, error) {
-	return json.Marshal(u.Options)
-}*/
-
-// GetUID returns a validate uid
+// GetUID returns a validate uid, suitable for use with os.Chown
 func (u *User) GetUID() int {
 	if u.UID <= 0 || u.UID > 65535 {
 		return -1
@@ -70,7 +88,7 @@ func (u *User) GetUID() int {
 	return u.UID
 }
 
-// GetGID returns a validate gid
+// GetGID returns a validate gid, suitable for use with os.Chown
 func (u *User) GetGID() int {
 	if u.GID <= 0 || u.GID > 65535 {
 		return -1
@@ -78,13 +96,12 @@ func (u *User) GetGID() int {
 	return u.GID
 }
 
-// GetHomeDir returns user home dir cleaned
+// GetHomeDir returns the shortest path name equivalent to the user's home directory
 func (u *User) GetHomeDir() string {
 	return filepath.Clean(u.HomeDir)
 }
 
-// HasQuotaRestrictions returns true if there is a quota restriction on number of files
-// or size or both
+// HasQuotaRestrictions returns true if there is a quota restriction on number of files or size or both
 func (u *User) HasQuotaRestrictions() bool {
 	return u.QuotaFiles > 0 || u.QuotaSize > 0
 }

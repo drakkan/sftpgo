@@ -1,3 +1,9 @@
+// Package logger provides logging capabilities.
+// It is a wrapper around zerolog for logging and lumberjack for log rotation.
+// It provides a request logger to log the HTTP requests for REST API too.
+// The request logger uses chi.middleware.RequestLogger,
+// chi.middleware.LogFormatter and chi.middleware.LogEntry to build a structured
+// logger using zerlog
 package logger
 
 import (
@@ -15,12 +21,13 @@ var (
 	logger zerolog.Logger
 )
 
-// GetLogger get the logger instance
+// GetLogger get the configured logger instance
 func GetLogger() *zerolog.Logger {
 	return &logger
 }
 
-// InitLogger initialize loggers
+// InitLogger configures the logger.
+// It sets the log file path and the log level
 func InitLogger(logFilePath string, level zerolog.Level) {
 	logMaxSize := 10 // MB
 	logMaxBackups := 5
@@ -36,22 +43,22 @@ func InitLogger(logFilePath string, level zerolog.Level) {
 	}).With().Timestamp().Logger().Level(level)
 }
 
-// Debug log at debug level for sender
+// Debug logs at debug level for the specified sender
 func Debug(sender string, format string, v ...interface{}) {
 	logger.Debug().Str("sender", sender).Msg(fmt.Sprintf(format, v...))
 }
 
-// Info log at info level for sender
+// Info logs at info level for the specified sender
 func Info(sender string, format string, v ...interface{}) {
 	logger.Info().Str("sender", sender).Msg(fmt.Sprintf(format, v...))
 }
 
-// Warn log at warn level for sender
+// Warn logs at warn level for the specified sender
 func Warn(sender string, format string, v ...interface{}) {
 	logger.Warn().Str("sender", sender).Msg(fmt.Sprintf(format, v...))
 }
 
-// Error log at error level for sender
+// Error logs at error level for the specified sender
 func Error(sender string, format string, v ...interface{}) {
 	logger.Error().Str("sender", sender).Msg(fmt.Sprintf(format, v...))
 }
@@ -68,7 +75,7 @@ func TransferLog(operation string, path string, elapsed int64, size int64, user 
 		Msg("")
 }
 
-// CommandLog log an SFTP command
+// CommandLog logs an SFTP command
 func CommandLog(command string, path string, target string, user string, connectionID string) {
 	logger.Info().
 		Str("sender", command).

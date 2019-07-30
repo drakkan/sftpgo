@@ -1,3 +1,6 @@
+// Package sftpd implements the SSH File Transfer Protocol as described in https://tools.ietf.org/html/draft-ietf-secsh-filexfer-02.
+// It uses pkg/sftp library:
+// https://github.com/pkg/sftp
 package sftpd
 
 import (
@@ -48,29 +51,41 @@ type connectionTransfer struct {
 	LastActivity  int64  `json:"last_activity"`
 }
 
-// ActiveQuotaScan username and start data for a quota scan
+// ActiveQuotaScan defines an active quota scan
 type ActiveQuotaScan struct {
-	Username  string `json:"username"`
-	StartTime int64  `json:"start_time"`
+	// Username to which the quota scan refers
+	Username string `json:"username"`
+	// quota scan start time as unix timestamp in milliseconds
+	StartTime int64 `json:"start_time"`
 }
 
-// Actions configuration for external script to execute on create, download, delete.
-// A rename trigger delete script for the old file and create script for the new one
+// Actions to execute on SFTP create, download, delete and rename.
+// An external command can be executed and/or an HTTP notification can be fired
 type Actions struct {
-	ExecuteOn           []string `json:"execute_on"`
-	Command             string   `json:"command"`
-	HTTPNotificationURL string   `json:"http_notification_url"`
+	// Valid values are download, upload, delete, rename. Empty slice to disable
+	ExecuteOn []string `json:"execute_on"`
+	// Absolute path to the command to execute, empty to disable
+	Command string `json:"command"`
+	// The URL to notify using an HTTP GET, empty to disable
+	HTTPNotificationURL string `json:"http_notification_url"`
 }
 
 // ConnectionStatus status for an active connection
 type ConnectionStatus struct {
-	Username       string               `json:"username"`
-	ConnectionID   string               `json:"connection_id"`
-	ClientVersion  string               `json:"client_version"`
-	RemoteAddress  string               `json:"remote_address"`
-	ConnectionTime int64                `json:"connection_time"`
-	LastActivity   int64                `json:"last_activity"`
-	Transfers      []connectionTransfer `json:"active_transfers"`
+	// Logged in username
+	Username string `json:"username"`
+	// Unique identifier for the connection
+	ConnectionID string `json:"connection_id"`
+	// client's version string
+	ClientVersion string `json:"client_version"`
+	// Remote address for this connection
+	RemoteAddress string `json:"remote_address"`
+	// Connection time as unix timestamp in milliseconds
+	ConnectionTime int64 `json:"connection_time"`
+	// Last activity as unix timestamp in milliseconds
+	LastActivity int64 `json:"last_activity"`
+	// active uploads/downloads
+	Transfers []connectionTransfer `json:"active_transfers"`
 }
 
 func init() {
@@ -78,7 +93,7 @@ func init() {
 	idleConnectionTicker = time.NewTicker(5 * time.Minute)
 }
 
-// SetDataProvider sets the data provider
+// SetDataProvider sets the data provider to use to authenticate users and to get/update their disk quota
 func SetDataProvider(provider dataprovider.Provider) {
 	dataProvider = provider
 }
@@ -121,7 +136,7 @@ func AddQuotaScan(username string) bool {
 	return true
 }
 
-// RemoveQuotaScan remove and user from the ones with active quota scans
+// RemoveQuotaScan removes an user from the ones with active quota scans
 func RemoveQuotaScan(username string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -143,7 +158,8 @@ func RemoveQuotaScan(username string) error {
 	return err
 }
 
-// CloseActiveConnection close an active SFTP connection, returns true on success
+// CloseActiveConnection closes an active SFTP connection.
+// It returns true on success
 func CloseActiveConnection(connectionID string) bool {
 	result := false
 	mutex.RLock()
@@ -212,7 +228,7 @@ func startIdleTimer(maxIdleTime time.Duration) {
 	}()
 }
 
-// CheckIdleConnections disconnects idle clients
+// CheckIdleConnections disconnects clients idle for too long, based on IdleTimeout setting
 func CheckIdleConnections() {
 	mutex.RLock()
 	defer mutex.RUnlock()

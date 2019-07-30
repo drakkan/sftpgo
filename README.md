@@ -27,7 +27,7 @@ Regularly the test cases are manually executed and pass on Windows. Other UNIX v
 ## Requirements
 
 - Go 1.12 or higher
-- A suitable SQL server to use as data provider: MySQL (4.1+) or SQLite 3.x or PostreSQL (9+)
+- A suitable SQL server to use as data provider: PostreSQL (9+) or MySQL (4.1+) or SQLite 3.x 
 
 ## Installation
 
@@ -91,7 +91,7 @@ The `sftpgo.conf` configuration file contains the following sections:
     - `track_quota`, integer. Set the preferred way to track users quota between the following choices:
         - 0, disable quota tracking. REST API to scan user dir and update quota will do nothing
         - 1, quota is updated each time a user upload or delete a file even if the user has no quota restrictions
-        - 2, quota is updated each time a user upload or delete a file but only for users with quota restrictions. With this configuration you can still use the "quota scan" REST API to periodically update space usage for users without quota restrictions
+        - 2, quota is updated each time a user upload or delete a file but only for users with quota restrictions. With this configuration the "quota scan" REST API can still be used to periodically update space usage for users without quota restrictions
 - **"httpd"**, the configuration for the HTTP server used to serve REST API
     - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 8080
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"
@@ -140,9 +140,9 @@ For each account the following properties can be configured:
 - `password` used for password authentication. For users created using SFTPGo REST API the password will be stored using argon2id hashing algo. SFTPGo supports checking passwords stored with bcrypt too. Currently, as fallback, there is a clear text password checking but you should not store passwords as clear text and this support could be removed at any time, so please don't depend on it. 
 - `public_key` used for public key authentication. At least one between password and public key is mandatory
 - `home_dir` The user cannot upload or download files outside this directory. Must be an absolute path
-- `uid`, `gid`. If sftpgo runs as root then the created files and directories will be assigned to this system uid/gid. Ignored on windows and if sftpgo runs as non root user: in this case files and directories for all SFTP users will be owned by the system user that runs sftpgo.
+- `uid`, `gid`. If sftpgo runs as root system user then the created files and directories will be assigned to this system uid/gid. Ignored on windows and if sftpgo runs as non root user: in this case files and directories for all SFTP users will be owned by the system user that runs sftpgo.
 - `max_sessions` maximum concurrent sessions. 0 means unlimited
-- `quota_size` maximum size allowed. 0 means unlimited
+- `quota_size` maximum size allowed as bytes. 0 means unlimited
 - `quota_files` maximum number of files allowed. 0 means unlimited
 - `permissions` the following permissions are supported:
     - `*` all permission are granted
@@ -152,7 +152,7 @@ For each account the following properties can be configured:
     - `delete` delete files or directories is allowed
     - `rename` rename files or directories is allowed
     - `create_dirs` create directories is allowed
-    - `create_symlinks` create links is allowed
+    - `create_symlinks` create symbolic links is allowed
 - `upload_bandwidth` maximum upload bandwidth as KB/s, 0 means unlimited
 - `download_bandwidth` maximum download bandwidth as KB/s, 0 means unlimited
 

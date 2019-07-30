@@ -22,14 +22,20 @@ import (
 
 // Connection details for an authenticated user
 type Connection struct {
-	ID            string
-	User          dataprovider.User
+	// Unique identifier for the connection
+	ID string
+	// logged in user's details
+	User dataprovider.User
+	// client's version string
 	ClientVersion string
-	RemoteAddr    net.Addr
-	StartTime     time.Time
-	lastActivity  time.Time
-	lock          *sync.Mutex
-	sshConn       *ssh.ServerConn
+	// Remote address for this connection
+	RemoteAddr net.Addr
+	// start time for this connection
+	StartTime time.Time
+	// last activity for this connection
+	lastActivity time.Time
+	lock         *sync.Mutex
+	sshConn      *ssh.ServerConn
 }
 
 // Fileread creates a reader for a file on the system and returns the reader back.
@@ -273,7 +279,7 @@ func (c Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 			return nil, sftp.ErrSshFxFailure
 		}
 
-		return ListerAt(files), nil
+		return listerAt(files), nil
 	case "Stat":
 		if !c.User.HasPerm(dataprovider.PermListItems) {
 			return nil, sftp.ErrSshFxPermissionDenied
@@ -288,7 +294,7 @@ func (c Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 			return nil, sftp.ErrSshFxFailure
 		}
 
-		return ListerAt([]os.FileInfo{s}), nil
+		return listerAt([]os.FileInfo{s}), nil
 	default:
 		return nil, sftp.ErrSshFxOpUnsupported
 	}

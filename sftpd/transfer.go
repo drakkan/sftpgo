@@ -13,7 +13,8 @@ const (
 	transferDownload
 )
 
-// Transfer struct, it contains the transfer details for an upload or a download
+// Transfer contains the transfer details for an upload or a download.
+// It implements the io Reader and Writer interface to handle files downloads and uploads
 type Transfer struct {
 	file          *os.File
 	path          string
@@ -27,7 +28,8 @@ type Transfer struct {
 	isNewFile     bool
 }
 
-// ReadAt update sent bytes
+// ReadAt reads len(p) bytes from the File to download starting at byte offset off and updates the bytes sent.
+// It handles download bandwidth throttling too
 func (t *Transfer) ReadAt(p []byte, off int64) (n int, err error) {
 	t.lastActivity = time.Now()
 	readed, e := t.file.ReadAt(p, off)
@@ -36,7 +38,8 @@ func (t *Transfer) ReadAt(p []byte, off int64) (n int, err error) {
 	return readed, e
 }
 
-// WriteAt update received bytes
+// WriteAt writes len(p) bytes to the uploaded file starting at byte offset off and updates the bytes received.
+// It handles upload bandwidth throttling too
 func (t *Transfer) WriteAt(p []byte, off int64) (n int, err error) {
 	t.lastActivity = time.Now()
 	written, e := t.file.WriteAt(p, off)
@@ -45,7 +48,8 @@ func (t *Transfer) WriteAt(p []byte, off int64) (n int, err error) {
 	return written, e
 }
 
-// Close method called when the transfer is completed, we log the transfer info
+// Close it is called when the transfer is completed.
+// It closes the underlying file, log the transfer info, update the user quota, for uploads, and execute any defined actions.
 func (t *Transfer) Close() error {
 	err := t.file.Close()
 	elapsed := time.Since(t.start).Nanoseconds() / 1000000

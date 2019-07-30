@@ -10,7 +10,7 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 )
 
-// SQLiteProvider auth provider for sqlite database
+// SQLiteProvider auth provider for SQLite database
 type SQLiteProvider struct {
 }
 

@@ -22,18 +22,19 @@ var (
 	httpBaseURL  = "http://127.0.0.1:8080"
 )
 
-// SetBaseURL sets the url to use for HTTP request, default is "http://127.0.0.1:8080"
+// SetBaseURL sets the base url to use for HTTP requests, default is "http://127.0.0.1:8080"
 func SetBaseURL(url string) {
 	httpBaseURL = url
 }
 
+// gets an HTTP Client with a timeout
 func getHTTPClient() *http.Client {
 	return &http.Client{
 		Timeout: 15 * time.Second,
 	}
 }
 
-// AddUser add a new user, useful for tests
+// AddUser adds a new user and checks the received HTTP Status code against expectedStatusCode.
 func AddUser(user dataprovider.User, expectedStatusCode int) (dataprovider.User, error) {
 	var newUser dataprovider.User
 	userAsJSON, err := json.Marshal(user)
@@ -58,7 +59,7 @@ func AddUser(user dataprovider.User, expectedStatusCode int) (dataprovider.User,
 	return newUser, err
 }
 
-// UpdateUser update an user, useful for tests
+// UpdateUser updates an existing user and checks the received HTTP Status code against expectedStatusCode.
 func UpdateUser(user dataprovider.User, expectedStatusCode int) (dataprovider.User, error) {
 	var newUser dataprovider.User
 	userAsJSON, err := json.Marshal(user)
@@ -87,7 +88,7 @@ func UpdateUser(user dataprovider.User, expectedStatusCode int) (dataprovider.Us
 	return newUser, err
 }
 
-// RemoveUser remove user, useful for tests
+// RemoveUser removes an existing user and checks the received HTTP Status code against expectedStatusCode.
 func RemoveUser(user dataprovider.User, expectedStatusCode int) error {
 	req, err := http.NewRequest(http.MethodDelete, httpBaseURL+userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	if err != nil {
@@ -101,7 +102,7 @@ func RemoveUser(user dataprovider.User, expectedStatusCode int) error {
 	return checkResponse(resp.StatusCode, expectedStatusCode, resp)
 }
 
-// GetUserByID get user by id, useful for tests
+// GetUserByID gets an user by database id and checks the received HTTP Status code against expectedStatusCode.
 func GetUserByID(userID int64, expectedStatusCode int) (dataprovider.User, error) {
 	var user dataprovider.User
 	resp, err := getHTTPClient().Get(httpBaseURL + userPath + "/" + strconv.FormatInt(userID, 10))
@@ -116,7 +117,10 @@ func GetUserByID(userID int64, expectedStatusCode int) (dataprovider.User, error
 	return user, err
 }
 
-// GetUsers useful for tests
+// GetUsers allows to get a list of users and checks the received HTTP Status code against expectedStatusCode.
+// The number of results can be limited specifying a limit.
+// Some results can be skipped specifying an offset.
+// The results can be filtered specifying an username, the username filter is an exact match
 func GetUsers(limit int64, offset int64, username string, expectedStatusCode int) ([]dataprovider.User, error) {
 	var users []dataprovider.User
 	url, err := url.Parse(httpBaseURL + userPath)
@@ -146,7 +150,7 @@ func GetUsers(limit int64, offset int64, username string, expectedStatusCode int
 	return users, err
 }
 
-// GetQuotaScans get active quota scans, useful for tests
+// GetQuotaScans gets active quota scans and checks the received HTTP Status code against expectedStatusCode.
 func GetQuotaScans(expectedStatusCode int) ([]sftpd.ActiveQuotaScan, error) {
 	var quotaScans []sftpd.ActiveQuotaScan
 	resp, err := getHTTPClient().Get(httpBaseURL + quotaScanPath)
@@ -161,7 +165,7 @@ func GetQuotaScans(expectedStatusCode int) ([]sftpd.ActiveQuotaScan, error) {
 	return quotaScans, err
 }
 
-// StartQuotaScan start a new quota scan
+// StartQuotaScan start a new quota scan for the given user and checks the received HTTP Status code against expectedStatusCode.
 func StartQuotaScan(user dataprovider.User, expectedStatusCode int) error {
 	userAsJSON, err := json.Marshal(user)
 	if err != nil {

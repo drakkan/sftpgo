@@ -25,15 +25,24 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// Configuration server configuration
+// Configuration for the SFTP server
 type Configuration struct {
-	Banner       string  `json:"banner"`
-	BindPort     int     `json:"bind_port"`
-	BindAddress  string  `json:"bind_address"`
-	IdleTimeout  int     `json:"idle_timeout"`
-	MaxAuthTries int     `json:"max_auth_tries"`
-	Umask        string  `json:"umask"`
-	Actions      Actions `json:"actions"`
+	// Identification string used by the server
+	Banner string `json:"banner"`
+	// The port used for serving SFTP requests
+	BindPort int `json:"bind_port"`
+	// The address to listen on. A blank value means listen on all available network interfaces.
+	BindAddress string `json:"bind_address"`
+	// Maximum idle timeout as minutes. If a client is idle for a time that exceeds this setting it will be disconnected
+	IdleTimeout int `json:"idle_timeout"`
+	// Maximum number of authentication attempts permitted per connection.
+	// If set to a negative number, the number of attempts are unlimited.
+	// If set to zero, the number of attempts are limited to 6.
+	MaxAuthTries int `json:"max_auth_tries"`
+	// Umask for new files
+	Umask string `json:"umask"`
+	// Actions to execute on SFTP create, download, delete and rename
+	Actions Actions `json:"actions"`
 }
 
 // Initialize the SFTP server and add a persistent listener to handle inbound SFTP connections.
@@ -108,7 +117,7 @@ func (c Configuration) Initialize(configDir string) error {
 	}
 }
 
-// AcceptInboundConnection handles an inbound connection to the instance and determines if we should serve the request or not.
+// AcceptInboundConnection handles an inbound connection to the server instance and determines if the request should be served or not.
 func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.ServerConfig) {
 	defer conn.Close()
 

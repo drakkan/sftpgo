@@ -9,7 +9,7 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 )
 
-// MySQLProvider auth provider for sqlite database
+// MySQLProvider auth provider for MySQL/MariaDB database
 type MySQLProvider struct {
 }
 

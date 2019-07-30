@@ -9,23 +9,28 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// StructuredLogger that uses zerolog
+// StructuredLogger defines a simple wrapper around zerolog logger.
+// It implements chi.middleware.LogFormatter interface
 type StructuredLogger struct {
 	Logger *zerolog.Logger
 }
 
-// StructuredLoggerEntry using zerolog logger
+// StructuredLoggerEntry defines a log entry.
+// It implements chi.middleware.LogEntry interface
 type StructuredLoggerEntry struct {
+	// The zerolog logger
 	Logger *zerolog.Logger
+	// fields to write in the log
 	fields map[string]interface{}
 }
 
-// NewStructuredLogger returns RequestLogger
+// NewStructuredLogger returns a chi.middleware.RequestLogger using our StructuredLogger.
+// This structured logger is called by the chi.middleware.Logger handler to log each HTTP request
 func NewStructuredLogger(logger *zerolog.Logger) func(next http.Handler) http.Handler {
 	return middleware.RequestLogger(&StructuredLogger{logger})
 }
 
-// NewLogEntry creates a new log entry
+// NewLogEntry creates a new log entry for an HTTP request
 func (l *StructuredLogger) NewLogEntry(r *http.Request) middleware.LogEntry {
 	scheme := "http"
 	if r.TLS != nil {
@@ -47,7 +52,7 @@ func (l *StructuredLogger) NewLogEntry(r *http.Request) middleware.LogEntry {
 	return &StructuredLoggerEntry{Logger: l.Logger, fields: fields}
 }
 
-// Write a new entry
+// Write logs a new entry at the end of the HTTP request
 func (l *StructuredLoggerEntry) Write(status, bytes int, elapsed time.Duration) {
 	l.Logger.Info().Fields(l.fields).Int(
 		"resp_status", status).Int(
