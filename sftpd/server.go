@@ -52,6 +52,7 @@ func (c Configuration) Initialize(configDir string) error {
 		utils.SetUmask(int(umask), c.Umask)
 	} else {
 		logger.Warn(logSender, "error reading umask, please fix your config file: %v", err)
+		logger.WarnToConsole("error reading umask, please fix your config file: %v", err)
 	}
 	actions = c.Actions
 	serverConfig := &ssh.ServerConfig{
@@ -78,6 +79,7 @@ func (c Configuration) Initialize(configDir string) error {
 
 	if _, err := os.Stat(filepath.Join(configDir, "id_rsa")); os.IsNotExist(err) {
 		logger.Info(logSender, "creating new private key for server")
+		logger.InfoToConsole("id_rsa does not exist, creating new private key for server")
 		if err := c.generatePrivateKey(configDir); err != nil {
 			return err
 		}

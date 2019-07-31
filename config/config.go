@@ -88,12 +88,14 @@ func LoadConfig(configPath string) error {
 	file, err := os.Open(configPath)
 	if err != nil {
 		logger.Warn(logSender, "error loading configuration file: %v. Default configuration will be used: %+v", err, globalConf)
+		logger.WarnToConsole("error loading configuration file: %v. Default configuration will be used.", err)
 		return err
 	}
 	defer file.Close()
 	err = json.NewDecoder(file).Decode(&globalConf)
 	if err != nil {
-		logger.Warn(logSender, "error parsing config file: %v. Default configuration will be used: %+v", err, globalConf)
+		logger.Warn(logSender, "error parsing configuration file: %v. Default configuration will be used: %+v", err, globalConf)
+		logger.WarnToConsole("error parsing configuration file: %v. Default configuration will be used.", err)
 		return err
 	}
 	if strings.TrimSpace(globalConf.SFTPD.Banner) == "" {

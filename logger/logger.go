@@ -1,6 +1,8 @@
 // Package logger provides logging capabilities.
 // It is a wrapper around zerolog for logging and lumberjack for log rotation.
-// It provides a request logger to log the HTTP requests for REST API too.
+// Logs are written to the specified log file.
+// Logging on the console is provided to print initialization info, errors and warnings.
+// The package provides a request logger to log the HTTP requests for REST API too.
 // The request logger uses chi.middleware.RequestLogger,
 // chi.middleware.LogFormatter and chi.middleware.LogEntry to build a structured
 // logger using zerlog
@@ -8,6 +10,7 @@ package logger
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/rs/zerolog"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
@@ -18,7 +21,8 @@ const (
 )
 
 var (
-	logger zerolog.Logger
+	logger        zerolog.Logger
+	consoleLogger zerolog.Logger
 )
 
 // GetLogger get the configured logger instance
@@ -41,6 +45,13 @@ func InitLogger(logFilePath string, level zerolog.Level) {
 		MaxAge:     logMaxAge,
 		Compress:   false,
 	}).With().Timestamp().Logger().Level(level)
+
+	consoleOutput := zerolog.ConsoleWriter{
+		Out:        os.Stdout,
+		TimeFormat: dateFormat,
+		NoColor:    true,
+	}
+	consoleLogger = zerolog.New(consoleOutput).With().Timestamp().Logger()
 }
 
 // Debug logs at debug level for the specified sender
@@ -61,6 +72,26 @@ func Warn(sender string, format string, v ...interface{}) {
 // Error logs at error level for the specified sender
 func Error(sender string, format string, v ...interface{}) {
 	logger.Error().Str("sender", sender).Msg(fmt.Sprintf(format, v...))
+}
+
+// DebugToConsole logs at debug level to stdout
+func DebugToConsole(format string, v ...interface{}) {
+	consoleLogger.Debug().Msg(fmt.Sprintf(format, v...))
+}
+
+// InfoToConsole logs at info level to stdout
+func InfoToConsole(format string, v ...interface{}) {
+	consoleLogger.Info().Msg(fmt.Sprintf(format, v...))
+}
+
+// WarnToConsole logs at info level to stdout
+func WarnToConsole(format string, v ...interface{}) {
+	consoleLogger.Warn().Msg(fmt.Sprintf(format, v...))
+}
+
+// ErrorToConsole logs at error level to stdout
+func ErrorToConsole(format string, v ...interface{}) {
+	consoleLogger.Error().Msg(fmt.Sprintf(format, v...))
 }
 
 // TransferLog logs an SFTP upload or download

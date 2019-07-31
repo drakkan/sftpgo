@@ -45,7 +45,8 @@ func main() {
 
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
-		logger.Warn(logSender, "error initializing data provider: %v", err)
+		logger.Error(logSender, "error initializing data provider: %v", err)
+		logger.ErrorToConsole("error initializing data provider: %v", err)
 		os.Exit(1)
 	}
 
@@ -61,6 +62,7 @@ func main() {
 		logger.Debug(logSender, "initializing SFTP server with config %+v", sftpdConf)
 		if err := sftpdConf.Initialize(configDir); err != nil {
 			logger.Error(logSender, "could not start SFTP server: %v", err)
+			logger.ErrorToConsole("could not start SFTP server: %v", err)
 		}
 		shutdown <- true
 	}()
@@ -80,11 +82,13 @@ func main() {
 			}
 			if err := s.ListenAndServe(); err != nil {
 				logger.Error(logSender, "could not start HTTP server: %v", err)
+				logger.ErrorToConsole("could not start HTTP server: %v", err)
 			}
 			shutdown <- true
 		}()
 	} else {
 		logger.Debug(logSender, "HTTP server not started, disabled in config file")
+		logger.DebugToConsole("HTTP server not started, disabled in config file")
 	}
 
 	<-shutdown
