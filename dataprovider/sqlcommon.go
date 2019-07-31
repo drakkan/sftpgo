@@ -73,20 +73,21 @@ func sqlCommonValidateUserAndPubKey(username string, pubKey string) (User, error
 		logger.Warn(logSender, "error authenticating user: %v, error: %v", username, err)
 		return user, err
 	}
-	if len(user.PublicKey) > 0 {
-		storedPubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(user.PublicKey))
-		if err != nil {
-			logger.Warn(logSender, "error parsing stored public key for user %v: %v", username, err)
-			return user, err
-		}
-		if string(storedPubKey.Marshal()) != pubKey {
-			err = errors.New("Invalid credentials")
-			return user, err
-		}
-	} else {
-		err = errors.New("Invalid credentials")
+	if len(user.PublicKey) == 0 {
+		return user, errors.New("Invalid credentials")
 	}
-	return user, err
+
+	for i, k := range strings.Split(user.PublicKey, "\n") {
+		storedPubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
+		if err != nil {
+			logger.Warn(logSender, "error parsing stored public key %d for user %v: %v", i, username, err)
+			return user, err
+		}
+		if string(storedPubKey.Marshal()) == pubKey {
+			return user, nil
+		}
+	}
+	return user, errors.New("Invalid credentials")
 }
 
 func sqlCommonGetUserByID(ID int64) (User, error) {

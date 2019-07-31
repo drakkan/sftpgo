@@ -234,11 +234,14 @@ func validateUser(user *User) error {
 		user.Password = pwd
 	}
 	if len(user.PublicKey) > 0 {
-		_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(user.PublicKey))
-		if err != nil {
-			return err
+		for i, k := range strings.Split(user.PublicKey, "\n") {
+			_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
+			if err != nil {
+				return &ValidationError{err: fmt.Sprintf("Could not parse key nr. %d: %s", i, err)}
+			}
 		}
 	}
+
 	return nil
 }
 
