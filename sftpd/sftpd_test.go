@@ -637,12 +637,6 @@ func TestQuotaFileReplace(t *testing.T) {
 		if err != nil {
 			t.Errorf("error getting user: %v", err)
 		}
-		if expectedQuotaFiles != user.UsedQuotaFiles {
-			t.Errorf("quota files does not match, expected: %v, actual: %v", expectedQuotaFiles, user.UsedQuotaFiles)
-		}
-		if expectedQuotaSize != user.UsedQuotaSize {
-			t.Errorf("quota size does not match, expected: %v, actual: %v", expectedQuotaSize, user.UsedQuotaSize)
-		}
 		// now replace the same file, the quota must not change
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		if err != nil {
