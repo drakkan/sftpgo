@@ -526,7 +526,7 @@ components:
         public_key:
           type: string
           nullable: true
-          description: password or public key are mandatory. For security reasons this field is omitted when you search/get users
+          description: password or public key are mandatory. For security reasons this field is omitted when you search/get users. Multiple public keys are supported, newline delimited, when adding or modifying an user
         home_dir:
           type: string
           description: path to the user home directory. The user cannot upload or download files outside this directory. SFTPGo tries to automatically create this folder if missing. Must be an absolute path

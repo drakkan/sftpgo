@@ -178,6 +178,36 @@ func TestAddUserInvalidPerms(t *testing.T) {
 	}
 }
 
+func TestUserPublicKey(t *testing.T) {
+	u := getTestUser()
+	invalidPubKey := "invalid"
+	validPubKey := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"
+	u.PublicKey = invalidPubKey
+	_, err := api.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid pub key: %v", err)
+	}
+	u.PublicKey = validPubKey
+	user, err := api.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	user.PublicKey = validPubKey + "\n" + invalidPubKey
+	_, err = api.UpdateUser(user, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("update user with invalid public key must fail: %v", err)
+	}
+	user.PublicKey = validPubKey + "\n" + validPubKey + "\n" + validPubKey
+	_, err = api.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	err = api.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove: %v", err)
+	}
+}
+
 func TestUpdateUser(t *testing.T) {
 	user, err := api.AddUser(getTestUser(), http.StatusOK)
 	if err != nil {
