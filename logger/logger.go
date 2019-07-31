@@ -30,20 +30,15 @@ func GetLogger() *zerolog.Logger {
 	return &logger
 }
 
-// InitLogger configures the logger.
-// It sets the log file path and the log level
-func InitLogger(logFilePath string, level zerolog.Level) {
-	logMaxSize := 10 // MB
-	logMaxBackups := 5
-	logMaxAge := 28 // days
-
+// InitLogger configures the logger using the given parameters
+func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge int, logCompress bool, level zerolog.Level) {
 	zerolog.TimeFieldFormat = dateFormat
 	logger = zerolog.New(&lumberjack.Logger{
 		Filename:   logFilePath,
 		MaxSize:    logMaxSize,
 		MaxBackups: logMaxBackups,
 		MaxAge:     logMaxAge,
-		Compress:   false,
+		Compress:   logCompress,
 	}).With().Timestamp().Logger().Level(level)
 
 	consoleOutput := zerolog.ConsoleWriter{
@@ -51,7 +46,7 @@ func InitLogger(logFilePath string, level zerolog.Level) {
 		TimeFormat: dateFormat,
 		NoColor:    true,
 	}
-	consoleLogger = zerolog.New(consoleOutput).With().Timestamp().Logger()
+	consoleLogger = zerolog.New(consoleOutput).With().Timestamp().Logger().Level(level)
 }
 
 // Debug logs at debug level for the specified sender
