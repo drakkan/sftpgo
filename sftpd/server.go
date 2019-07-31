@@ -54,7 +54,6 @@ func (c Configuration) Initialize(configDir string) error {
 		logger.Warn(logSender, "error reading umask, please fix your config file: %v", err)
 		logger.WarnToConsole("error reading umask, please fix your config file: %v", err)
 	}
-	actions = c.Actions
 	serverConfig := &ssh.ServerConfig{
 		NoClientAuth: false,
 		MaxAuthTries: c.MaxAuthTries,
@@ -106,6 +105,7 @@ func (c Configuration) Initialize(configDir string) error {
 		return err
 	}
 
+	actions = c.Actions
 	logger.Info(logSender, "server listener registered address: %v", listener.Addr().String())
 	if c.IdleTimeout > 0 {
 		startIdleTimer(time.Duration(c.IdleTimeout) * time.Minute)

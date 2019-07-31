@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/go-chi/render"
@@ -186,7 +187,7 @@ func checkResponse(actual int, expected int, resp *http.Response) error {
 	if expected != http.StatusOK && resp != nil {
 		b, err := ioutil.ReadAll(resp.Body)
 		if err == nil {
-			fmt.Printf("request: %v, response body: %v", resp.Request.URL, string(b))
+			logger.InfoToConsole("request: %v, response body: %v", resp.Request.URL, string(b))
 		}
 	}
 	return nil

@@ -29,12 +29,13 @@ import (
 )
 
 const (
-	logSender       = "sftpdTesting"
-	sftpServerAddr  = "127.0.0.1:2022"
-	defaultUsername = "test_user_sftp"
-	defaultPassword = "test_password"
-	testPubKey      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"
-	testPrivateKey  = `-----BEGIN OPENSSH PRIVATE KEY-----
+	logSender            = "sftpdTesting"
+	sftpServerAddr       = "127.0.0.1:2022"
+	defaultUsername      = "test_user_sftp"
+	defaultPassword      = "test_password"
+	testPubKey           = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"
+	testInvalidPublicKey = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCd60+/j+y8f0tLftihWV1YN9RSahMI9btQMDIMqts/jeNbD8jgoogM3nhF7KxfcaMKURuD47KC4Ey6iAJUJ0sWkSNNxOcIYuvA+5MlspfZDsa8Ag76Fe1vyz72WeHMHMeh/hwFo2TeIeIXg480T1VI6mzfDrVp2GzUx0SS0dMsQBjftXkuVR8YOiOwMCAH2a//M1OrvV7d/NBk6kBN0WnuIBb2jKm15PAA7+jQQG7tzwk2HedNH3jeL5GH31xkSRwlBczRK0xsCQXehAlx6cT/e/s44iJcJTHfpPKoSk6UAhPJYe7Z1QnuoawY9P9jQaxpyeImBZxxUEowhjpj2avBxKdRGBVK8R7EL8tSOeLbhdyWe5Mwc1+foEbq9Zz5j5Kd+hn3Wm1UnsGCrXUUUoZp1jnlNl0NakCto+5KmqnT9cHxaY+ix2RLUWAZyVFlRq71OYux1UHJnEJPiEI1/tr4jFBSL46qhQZv/TfpkfVW8FLz0lErfqu0gQEZnNHr3Fc= nicola@p1"
+	testPrivateKey       = `-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABlwAAAAdzc2gtcn
 NhAAAAAwEAAQAAAYEAtN449A/nY5O6cSH/9Doa8a3ISU0WZJaHydTaCLuO+dkqtNpnV5mq
 zFbKidXAI1eSwVctw9ReVOl1uK6aZF3lbXdOD8W9PXobR9KUUT2qBx5QC4ibfAqDKWymDA
@@ -72,19 +73,19 @@ NbbCNsVroqKlChT5wyPNGS+phi2bPARBno7WSDvshTZ7dAVEP2c9MJW0XwoSevwKlhgSdt
 RLFFQ/5nclJSdzPBOmQouC0OBcMFSrYtMeknJ4VvueVvve5HcHFaEsaMc7ABAGaLYaBQOm
 iixITGvaNZh/tjAAAACW5pY29sYUBwMQE=
 -----END OPENSSH PRIVATE KEY-----`
+	configDir = ".."
+	confName  = "sftpgo.conf"
 )
 
 var (
-	allPerms     = []string{dataprovider.PermAny}
-	homeBasePath string
+	allPerms       = []string{dataprovider.PermAny}
+	homeBasePath   string
+	configFilePath = filepath.Join(configDir, confName)
 )
 
 func TestMain(m *testing.M) {
-	configDir := ".."
 	logfilePath := filepath.Join(configDir, "sftpgo_sftpd_test.log")
-	confName := "sftpgo.conf"
-	logger.InitLogger(logfilePath, zerolog.DebugLevel)
-	configFilePath := filepath.Join(configDir, confName)
+	logger.InitLogger(logfilePath, 5, 1, 28, false, zerolog.DebugLevel)
 	config.LoadConfig(configFilePath)
 	providerConf := config.GetProviderConf()
 
@@ -101,7 +102,7 @@ func TestMain(m *testing.M) {
 		homeBasePath = "C:\\"
 	} else {
 		homeBasePath = "/tmp"
-		sftpdConf.Actions.ExecuteOn = []string{"download", "upload", "delete"}
+		sftpdConf.Actions.ExecuteOn = []string{"download", "upload", "rename"}
 		sftpdConf.Actions.Command = "/bin/true"
 		sftpdConf.Actions.HTTPNotificationURL = "http://127.0.0.1:8080/"
 	}
@@ -136,6 +137,16 @@ func TestMain(m *testing.M) {
 	exitCode := m.Run()
 	os.Remove(logfilePath)
 	os.Exit(exitCode)
+}
+
+func TestInitialization(t *testing.T) {
+	config.LoadConfig(configFilePath)
+	sftpdConf := config.GetSFTPDConfig()
+	sftpdConf.Umask = "invalid umask"
+	err := sftpdConf.Initialize(configDir)
+	if err == nil {
+		t.Errorf("Inizialize must fail, a SFTP server should be already running")
+	}
 }
 
 func TestBasicSFTPHandling(t *testing.T) {
@@ -450,25 +461,49 @@ func TestHomeSpecialChars(t *testing.T) {
 	}
 }
 
-func TestLoginPubKey(t *testing.T) {
-	usePubKey := true
-	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
+func TestLogin(t *testing.T) {
+	u := getTestUser(false)
+	u.PublicKey = testPubKey
+	user, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
-	client, err := getSftpClient(user, usePubKey)
+	client, err := getSftpClient(user, false)
 	if err != nil {
 		t.Errorf("unable to create sftp client: %v", err)
 	} else {
 		defer client.Close()
 		_, err := client.Getwd()
 		if err != nil {
-			t.Errorf("unable to get working dir: %v", err)
+			t.Errorf("sftp client with valid password must work")
 		}
-		_, err = client.ReadDir(".")
+	}
+	client, err = getSftpClient(user, true)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		_, err := client.Getwd()
 		if err != nil {
-			t.Errorf("unable to read remote dir: %v", err)
+			t.Errorf("sftp client with valid public key must work")
 		}
+	}
+	user.Password = "invalid password"
+	client, err = getSftpClient(user, false)
+	if err == nil {
+		t.Errorf("login with invalid password must fail")
+		defer client.Close()
+	}
+	user.PublicKey = testInvalidPublicKey
+	user.Password = ""
+	_, err = api.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	client, err = getSftpClient(user, true)
+	if err == nil {
+		t.Errorf("login with invalid public key must fail")
+		defer client.Close()
 	}
 	err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -580,16 +615,16 @@ func TestQuotaFileReplace(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
+	testFileSize := int64(65535)
+	testFileName := "test_file.dat"
+	testFilePath := filepath.Join(homeBasePath, testFileName)
 	client, err := getSftpClient(user, usePubKey)
 	if err != nil {
 		t.Errorf("unable to create sftp client: %v", err)
 	} else {
 		defer client.Close()
-		testFileSize := int64(65535)
 		expectedQuotaSize := user.UsedQuotaSize + testFileSize
 		expectedQuotaFiles := user.UsedQuotaFiles + 1
-		testFileName := "test_file.dat"
-		testFilePath := filepath.Join(homeBasePath, testFileName)
 		err = createTestFile(testFilePath, testFileSize)
 		if err != nil {
 			t.Errorf("unable to create test file: %v", err)
@@ -622,6 +657,21 @@ func TestQuotaFileReplace(t *testing.T) {
 		}
 		if expectedQuotaSize != user.UsedQuotaSize {
 			t.Errorf("quota size does not match, expected: %v, actual: %v", expectedQuotaSize, user.UsedQuotaSize)
+		}
+	}
+	// now set a quota size restriction and upload the same fail, upload should fail for space limit exceeded
+	user.QuotaSize = testFileSize - 1
+	user, err = api.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("error updating user: %v", err)
+	}
+	client, err = getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		if err == nil {
+			t.Errorf("quota size exceeded, file upload must fail")
 		}
 		err = client.Remove(testFileName)
 		if err != nil {
@@ -1094,11 +1144,11 @@ func waitTCPListening(address string) {
 	for {
 		conn, err := net.Dial("tcp", address)
 		if err != nil {
-			fmt.Printf("tcp server %v not listening: %v\n", address, err)
+			logger.WarnToConsole("tcp server %v not listening: %v\n", address, err)
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
-		fmt.Printf("tcp server %v now listening\n", address)
+		logger.InfoToConsole("tcp server %v now listening\n", address)
 		defer conn.Close()
 		break
 	}
@@ -1148,10 +1198,21 @@ func doSSH(user dataprovider.User, usePubKey bool) error {
 	return err
 }
 
+func modifyConf(sftpdConf sftpd.Configuration) {
+	if runtime.GOOS == "windows" {
+		homeBasePath = "C:\\"
+	} else {
+		homeBasePath = "/tmp"
+		sftpdConf.Actions.ExecuteOn = []string{"download", "upload", "rename"}
+		sftpdConf.Actions.Command = "/bin/true"
+		sftpdConf.Actions.HTTPNotificationURL = "http://127.0.0.1:8080/"
+	}
+}
+
 func getSftpClient(user dataprovider.User, usePubKey bool) (*sftp.Client, error) {
 	var sftpClient *sftp.Client
 	config := &ssh.ClientConfig{
-		User: defaultUsername,
+		User: user.Username,
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			return nil
 		},
@@ -1163,7 +1224,11 @@ func getSftpClient(user dataprovider.User, usePubKey bool) (*sftp.Client, error)
 		}
 		config.Auth = []ssh.AuthMethod{ssh.PublicKeys(key)}
 	} else {
-		config.Auth = []ssh.AuthMethod{ssh.Password(defaultPassword)}
+		if len(user.Password) > 0 {
+			config.Auth = []ssh.AuthMethod{ssh.Password(user.Password)}
+		} else {
+			config.Auth = []ssh.AuthMethod{ssh.Password(defaultPassword)}
+		}
 	}
 	conn, err := ssh.Dial("tcp", sftpServerAddr, config)
 	if err != nil {

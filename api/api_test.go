@@ -52,7 +52,7 @@ func TestMain(m *testing.M) {
 	configDir := ".."
 	logfilePath := filepath.Join(configDir, "sftpgo_api_test.log")
 	confName := "sftpgo.conf"
-	logger.InitLogger(logfilePath, zerolog.DebugLevel)
+	logger.InitLogger(logfilePath, 5, 1, 28, false, zerolog.DebugLevel)
 	configFilePath := filepath.Join(configDir, confName)
 	config.LoadConfig(configFilePath)
 	providerConf := config.GetProviderConf()
@@ -630,11 +630,11 @@ func waitTCPListening(address string) {
 	for {
 		conn, err := net.Dial("tcp", address)
 		if err != nil {
-			fmt.Printf("tcp server %v not listening: %v\n", address, err)
+			logger.WarnToConsole("tcp server %v not listening: %v\n", address, err)
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
-		fmt.Printf("tcp server %v now listening\n", address)
+		logger.InfoToConsole("tcp server %v now listening\n", address)
 		defer conn.Close()
 		break
 	}
