@@ -18,7 +18,10 @@ func initializeSQLiteProvider(basePath string) error {
 	var err error
 	var connectionString string
 	if len(config.ConnectionString) == 0 {
-		dbPath := filepath.Join(basePath, config.Name)
+		dbPath := config.Name
+		if !filepath.IsAbs(dbPath) {
+			dbPath = filepath.Join(basePath, dbPath)
+		}
 		fi, err := os.Stat(dbPath)
 		if err != nil {
 			logger.Warn(logSender, "sqlite database file does not exists, please be sure to create and initialize"+
