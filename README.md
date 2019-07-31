@@ -103,7 +103,8 @@ The `sftpgo.conf` configuration file contains the following sections:
 
 Here is a full example showing the default config:
 
-```{
+```json
+{
    "sftpd":{
         "bind_port":2022,
         "bind_address":"",
