@@ -4,7 +4,6 @@
 package main // import "github.com/drakkan/sftpgo"
 
 import (
-	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,6 +13,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/drakkan/sftpgo/api"
 	"github.com/drakkan/sftpgo/config"
@@ -28,35 +28,29 @@ func main() {
 	confName := "sftpgo.conf"
 	logSender := "main"
 	var (
-		configDir     string
-		logFilePath   string
-		logMaxSize    int
-		logMaxBackups int
-		logMaxAge     int
-		logCompress   bool
-		logVerbose    bool
+		configDir = kingpin.Flag("config-dir", "Location for SFTPGo config dir. It must contain sftpgo.conf "+
+			"and is used as the base for files with a relative path (eg. the private keys for the SFTP server, "+
+			"the SQLite database if you use SQLite as data provider).").Default(".").String()
+		logFilePath   = kingpin.Flag("log-file-path", "Location for the log file").Default("sftpgo.log").String()
+		logMaxSize    = kingpin.Flag("log-max-size", "Maximum size in megabytes of the log file before it gets rotated.").Default("10").Int()
+		logMaxBackups = kingpin.Flag("log-max-backups", "Maximum number of old log files to retain").Default("5").Int()
+		logMaxAge     = kingpin.Flag("log-max-age", "Maximum number of days to retain old log files").Default("28").Int()
+		logCompress   = kingpin.Flag("log-compress", "Determine if the rotated log files should be compressed using gzip").Bool()
+		logVerbose    = kingpin.Flag("log-verbose", "Enable verbose logs").Default("true").Bool()
 	)
-	flag.StringVar(&configDir, "config-dir", ".", "Location for SFTPGo config dir. It must contain sftpgo.conf "+
-		"and is used as the base for files with a relative path (eg. the private keys for the SFTP server, the SQLite database if you use SQLite as data provider).")
-	flag.StringVar(&logFilePath, "log-file-path", "sftpgo.log", "Location for the log file")
-	flag.IntVar(&logMaxSize, "log-max-size", 10, "Maximum size in megabytes of the log file before it gets rotated.")
-	flag.IntVar(&logMaxBackups, "log-max-backups", 5, "Maximum number of old log files to retain")
-	flag.IntVar(&logMaxAge, "log-max-age", 28, "Maximum number of days to retain old log files")
-	flag.BoolVar(&logCompress, "log-compress", false, "Determine if the rotated log files should be compressed using gzip")
-	flag.BoolVar(&logVerbose, "log-verbose", true, "Enable verbose logs")
-	flag.Parse()
+	kingpin.Parse()
 
-	configFilePath := filepath.Join(configDir, confName)
+	configFilePath := filepath.Join(*configDir, confName)
 	logLevel := zerolog.DebugLevel
-	if !logVerbose {
+	if !*logVerbose {
 		logLevel = zerolog.InfoLevel
 	}
-	logger.InitLogger(logFilePath, logMaxSize, logMaxBackups, logMaxAge, logCompress, logLevel)
-	logger.Info(logSender, "starting SFTPGo, config dir: %v", configDir)
+	logger.InitLogger(*logFilePath, *logMaxSize, *logMaxBackups, *logMaxAge, *logCompress, logLevel)
+	logger.Info(logSender, "starting SFTPGo, config dir: %v", *configDir)
 	config.LoadConfig(configFilePath)
 	providerConf := config.GetProviderConf()
 
-	err := dataprovider.Initialize(providerConf, configDir)
+	err := dataprovider.Initialize(providerConf, *configDir)
 	if err != nil {
 		logger.Error(logSender, "error initializing data provider: %v", err)
 		logger.ErrorToConsole("error initializing data provider: %v", err)
@@ -73,7 +67,7 @@ func main() {
 
 	go func() {
 		logger.Debug(logSender, "initializing SFTP server with config %+v", sftpdConf)
-		if err := sftpdConf.Initialize(configDir); err != nil {
+		if err := sftpdConf.Initialize(*configDir); err != nil {
 			logger.Error(logSender, "could not start SFTP server: %v", err)
 			logger.ErrorToConsole("could not start SFTP server: %v", err)
 		}
