@@ -84,8 +84,8 @@ The `sftpgo.conf` configuration file contains the following sections:
             - `username`
             - `path`
             - `target_path`, added for `rename` action only
-    - `keys`, struct array. It contains the daemon's private keys
-        - `private_key`, path to the private key file
+    - `keys`, struct array. It contains the daemon's private keys. If empty or missing the daemon will search or try to generate `id_rsa` in the configuration directory.
+        - `private_key`, path to the private key file. It can be a path relative to the config dir or an absolute one.
 - **"data_provider"**, the configuration for the data provider
     - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`
     - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database.
@@ -121,14 +121,7 @@ Here is a full example showing the default config:
       "command": "",
       "http_notification_url": ""
     },
-    "keys": [
-      {
-        "private_key": "id_rsa"
-      },
-      {
-        "private_key": "id_ecdsa"
-      }
-    ]
+    "keys": []
   },
   "data_provider": {
     "driver": "sqlite",
@@ -148,6 +141,19 @@ Here is a full example showing the default config:
     "bind_address": "127.0.0.1"
   }
 }
+```
+
+If you want to use a private key that use an algorithm different from RSA or more than one private key then replace the empty `keys` array with something like this:
+
+```json
+"keys": [
+  {
+    "private_key": "id_rsa"
+  },
+  {
+    "private_key": "id_ecdsa"
+  }
+]
 ```
 
 ## Account's configuration properties

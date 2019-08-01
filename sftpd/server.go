@@ -49,9 +49,9 @@ type Configuration struct {
 	Keys []Key `json:"keys"`
 }
 
-// Struct containing information about host keys
+// Key contains information about host keys
 type Key struct {
-	// The private key
+	// The private key path relative to the configuration directory or absolute
 	PrivateKey string `json:"private_key"`
 }
 
@@ -118,7 +118,7 @@ func (c Configuration) Initialize(configDir string) error {
 			return err
 		}
 
-		// Add our private key to the server configuration.
+		// Add private key to the server configuration.
 		serverConfig.AddHostKey(private)
 	}
 
