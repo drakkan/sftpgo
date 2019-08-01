@@ -49,13 +49,13 @@ Alternately you can use distro packages:
 
 The `sftpgo` executable supports the following command line flags:
 
-- `-config-dir` string. Location of the config dir. This directory should contain the `sftpgo.conf` configuration file and is used as the base for files with a relative path (eg. the private keys for the SFTP server, the SQLite database if you use SQLite as data provider). The default value is "."
-- `-log-file-path` string. Location for the log file, default "sftpgo.log"
-- `-log-max-size` int. Maximum size in megabytes of the log file before it gets rotated. Default 10
-- `-log-max-backups` int. Maximum number of old log files to retain. Default 5
-- `-log-max-age` int. Maximum number of days to retain old log files. Default 28
-- `-log-compress` boolean. Determine if the rotated log files should be compressed using gzip
-- `-log-verbose` boolean. Enable verbose logs. Default `true`
+- `--config-dir` string. Location of the config dir. This directory should contain the `sftpgo.conf` configuration file and is used as the base for files with a relative path (eg. the private keys for the SFTP server, the SQLite database if you use SQLite as data provider). The default value is "."
+- `--log-file-path` string. Location for the log file, default "sftpgo.log"
+- `--log-max-size` int. Maximum size in megabytes of the log file before it gets rotated. Default 10
+- `--log-max-backups` int. Maximum number of old log files to retain. Default 5
+- `--log-max-age` int. Maximum number of days to retain old log files. Default 28
+- `--log-compress` boolean. Determine if the rotated log files should be compressed using gzip
+- `--log-verbose` boolean. Enable verbose logs. Default `true`
 
 If you don't configure any private host keys, the daemon will use `id_rsa` in the configuration directory. If that file doesn't exist, the daemon will attempt to autogenerate it (if the user that executes SFTPGo has write access to the config-dir). The server supports any private key format supported by [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/keys.go#L32).
 
@@ -192,7 +192,7 @@ REST API is designed to run on localhost or on a trusted network, if you need ht
 
 The OpenAPI 3 schema for the exposed API can be found inside the source tree: [openapi.yaml](https://github.com/drakkan/sftpgo/tree/master/api/schema/openapi.yaml "OpenAPI 3 specs").
 
-A sample cli client for the REST API can be find inside the source tree: [scripts](https://github.com/drakkan/sftpgo/tree/master/scripts "scripts") directory.
+A sample CLI client for the REST API can be find inside the source tree: [scripts](https://github.com/drakkan/sftpgo/tree/master/scripts "scripts") directory.
 
 ## Logs
 
