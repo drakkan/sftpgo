@@ -8,7 +8,8 @@ You can see the usage with the following command:
 python sftpgo_api_cli.py --help
 ```
 
-Basically there is a subcommand for each REST API and a two global arguments 
+Basically there is a subcommand for each REST API and a two global arguments:
+
  - `debug`, default disabled, print useful debug info.
  - `base_url`, default `http://127.0.0.1:8080`. Base URL for SFTPGo REST API 
 
@@ -16,7 +17,7 @@ For each subcommand `--help` shows the required arguments, try for example:
 
 ```python sftpgo_api_cli.py add_user --help```
 
-Let's a sample usage for each REST API.
+Let's see a sample usage for each REST API.
 
 ### Add user
 
