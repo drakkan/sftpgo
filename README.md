@@ -84,7 +84,7 @@ The `sftpgo.conf` configuration file contains the following sections:
             - `target_path`, added for `rename` action only
 - **"data_provider"**, the configuration for the data provider
     - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`
-    - `name`, string. Database name
+    - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database.
     - `host`, string. Database host. Leave empty for driver `sqlite`
     - `port`, integer. Database port. Leave empty for driver `sqlite`
     - `username`, string. Database user. Leave empty for driver `sqlite`
@@ -129,7 +129,7 @@ Here is a full example showing the default config:
         "connection_string":"",
         "users_table":"users",
         "manage_users":1,
-        "track_quota":1
+        "track_quota":2
     },
     "httpd":{
         "bind_port":8080,

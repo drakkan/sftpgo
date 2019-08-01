@@ -151,7 +151,9 @@ func TestInitialization(t *testing.T) {
 
 func TestBasicSFTPHandling(t *testing.T) {
 	usePubKey := false
-	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
+	u := getTestUser(usePubKey)
+	u.QuotaSize = 6553600
+	user, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -629,7 +631,9 @@ func TestMaxSessions(t *testing.T) {
 
 func TestQuotaFileReplace(t *testing.T) {
 	usePubKey := false
-	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
+	u := getTestUser(usePubKey)
+	u.QuotaFiles = 1000
+	user, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
