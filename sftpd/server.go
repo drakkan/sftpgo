@@ -25,6 +25,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+const defaultPrivateKeyName = "id_rsa"
+
 // Configuration for the SFTP server
 type Configuration struct {
 	// Identification string used by the server
@@ -43,6 +45,14 @@ type Configuration struct {
 	Umask string `json:"umask"`
 	// Actions to execute on SFTP create, download, delete and rename
 	Actions Actions `json:"actions"`
+	// Keys are a list of host keys
+	Keys []Key `json:"keys"`
+}
+
+// Struct containing information about host keys
+type Key struct {
+	// The private key
+	PrivateKey string `json:"private_key"`
 }
 
 // Initialize the SFTP server and add a persistent listener to handle inbound SFTP connections.
@@ -76,28 +86,41 @@ func (c Configuration) Initialize(configDir string) error {
 		ServerVersion: "SSH-2.0-" + c.Banner,
 	}
 
-	if _, err := os.Stat(filepath.Join(configDir, "id_rsa")); os.IsNotExist(err) {
-		logger.Info(logSender, "creating new private key for server")
-		logger.InfoToConsole("id_rsa does not exist, creating new private key for server")
-		if err := c.generatePrivateKey(configDir); err != nil {
+	if len(c.Keys) == 0 {
+		autoFile := filepath.Join(configDir, defaultPrivateKeyName)
+		if _, err := os.Stat(autoFile); os.IsNotExist(err) {
+			logger.Info(logSender, "No host keys configured and %s does not exist; creating new private key for server", autoFile)
+			logger.InfoToConsole("No host keys configured and %s does not exist; creating new private key for server", autoFile)
+			if err := c.generatePrivateKey(autoFile); err != nil {
+				return err
+			}
+		} else if err != nil {
 			return err
 		}
-	} else if err != nil {
-		return err
+
+		c.Keys = append(c.Keys, Key{PrivateKey: defaultPrivateKeyName})
 	}
 
-	privateBytes, err := ioutil.ReadFile(filepath.Join(configDir, "id_rsa"))
-	if err != nil {
-		return err
-	}
+	for _, k := range c.Keys {
+		privateFile := k.PrivateKey
+		if !filepath.IsAbs(privateFile) {
+			privateFile = filepath.Join(configDir, privateFile)
+		}
+		logger.Info(logSender, "Loading private key: %s", privateFile)
 
-	private, err := ssh.ParsePrivateKey(privateBytes)
-	if err != nil {
-		return err
-	}
+		privateBytes, err := ioutil.ReadFile(privateFile)
+		if err != nil {
+			return err
+		}
 
-	// Add our private key to the server configuration.
-	serverConfig.AddHostKey(private)
+		private, err := ssh.ParsePrivateKey(privateBytes)
+		if err != nil {
+			return err
+		}
+
+		// Add our private key to the server configuration.
+		serverConfig.AddHostKey(private)
+	}
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", c.BindAddress, c.BindPort))
 	if err != nil {
@@ -273,13 +296,13 @@ func (c Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass [
 }
 
 // Generates a private key that will be used by the SFTP server.
-func (c Configuration) generatePrivateKey(configDir string) error {
+func (c Configuration) generatePrivateKey(file string) error {
 	key, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return err
 	}
 
-	o, err := os.OpenFile(filepath.Join(configDir, "id_rsa"), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	o, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
