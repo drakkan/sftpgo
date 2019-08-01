@@ -12,7 +12,7 @@ paths:
       tags:
       - connections
       summary: Get the active sftp users and info about their uploads/downloads
-      operationId: get_connections
+      operationId: get_sftp_connections
       responses:
         200:
           description: successful operation
@@ -27,7 +27,7 @@ paths:
       tags:
       - connections
       summary: Terminate an active SFTP connection
-      operationId: close_connection
+      operationId: close_sftp_connection
       parameters: 
       - name: connectionID
         in: path
@@ -81,7 +81,7 @@ paths:
       tags:
       - quota
       summary: Get the active quota scans
-      operationId: get_quota_scan
+      operationId: get_quota_scans
       responses:
         200:
           description: successful operation
@@ -297,7 +297,7 @@ paths:
       - users
       summary: Find user by ID
       description: For security reasons password and public key are empty in the response
-      operationId: getUserByID
+      operationId: get_user_by_id
       parameters: 
       - name: userID
         in: path
@@ -356,8 +356,8 @@ paths:
     put:
       tags:
       - users
-      summary: Update an user
-      operationId: updateUser
+      summary: Update an existing user
+      operationId: update_user
       parameters: 
       - name: userID
         in: path
@@ -426,8 +426,8 @@ paths:
     delete:
       tags:
       - users
-      summary: Delete an user
-      operationId: deleteUser
+      summary: Delete an existing user
+      operationId: delete_user
       parameters: 
       - name: userID
         in: path
@@ -524,9 +524,11 @@ components:
           nullable: true
           description: password or public key are mandatory. For security reasons this field is omitted when you search/get users
         public_key:
-          type: string
+          type: array
+          items:
+            type: string
           nullable: true
-          description: password or public key are mandatory. For security reasons this field is omitted when you search/get users. Multiple public keys are supported, newline delimited, when adding or modifying an user
+          description: a password or at least one public key are mandatory. For security reasons this field is omitted when you search/get users.
         home_dir:
           type: string
           description: path to the user home directory. The user cannot upload or download files outside this directory. SFTPGo tries to automatically create this folder if missing. Must be an absolute path

@@ -46,6 +46,7 @@ func init() {
 				Command:             "",
 				HTTPNotificationURL: "",
 			},
+			Keys: []sftpd.Key{},
 		},
 		ProviderConf: dataprovider.Config{
 			Driver:           "sqlite",

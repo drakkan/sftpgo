@@ -465,7 +465,7 @@ func TestHomeSpecialChars(t *testing.T) {
 
 func TestLogin(t *testing.T) {
 	u := getTestUser(false)
-	u.PublicKey = testPubKey
+	u.PublicKey = []string{testPubKey}
 	user, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
@@ -497,7 +497,7 @@ func TestLogin(t *testing.T) {
 		defer client.Close()
 	}
 	// testPubKey1 is not authorized
-	user.PublicKey = testPubKey1
+	user.PublicKey = []string{testPubKey1}
 	user.Password = ""
 	_, err = api.UpdateUser(user, http.StatusOK)
 	if err != nil {
@@ -509,7 +509,7 @@ func TestLogin(t *testing.T) {
 		defer client.Close()
 	}
 	// login a user with multiple public keys, only the second one is valid
-	user.PublicKey = testPubKey1 + "\n" + testPubKey
+	user.PublicKey = []string{testPubKey1, testPubKey}
 	user.Password = ""
 	_, err = api.UpdateUser(user, http.StatusOK)
 	if err != nil {
@@ -538,7 +538,7 @@ func TestLoginAfterUserUpdateEmptyPwd(t *testing.T) {
 		t.Errorf("unable to add user: %v", err)
 	}
 	user.Password = ""
-	user.PublicKey = ""
+	user.PublicKey = []string{}
 	// password and public key should remain unchanged
 	_, err = api.UpdateUser(user, http.StatusOK)
 	if err != nil {
@@ -571,7 +571,7 @@ func TestLoginAfterUserUpdateEmptyPubKey(t *testing.T) {
 		t.Errorf("unable to add user: %v", err)
 	}
 	user.Password = ""
-	user.PublicKey = ""
+	user.PublicKey = []string{}
 	// password and public key should remain unchanged
 	_, err = api.UpdateUser(user, http.StatusOK)
 	if err != nil {
@@ -1178,7 +1178,7 @@ func getTestUser(usePubKey bool) dataprovider.User {
 		Permissions: allPerms,
 	}
 	if usePubKey {
-		user.PublicKey = testPubKey
+		user.PublicKey = []string{testPubKey}
 		user.Password = ""
 	}
 	return user

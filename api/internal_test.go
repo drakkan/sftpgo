@@ -42,12 +42,12 @@ func TestCheckUser(t *testing.T) {
 		t.Errorf("actual password must be nil")
 	}
 	actual.Password = ""
-	actual.PublicKey = "pub key"
+	actual.PublicKey = []string{"pub key"}
 	err = checkUser(expected, actual)
 	if err == nil {
 		t.Errorf("actual public key must be nil")
 	}
-	actual.PublicKey = ""
+	actual.PublicKey = []string{}
 	err = checkUser(expected, actual)
 	if err == nil {
 		t.Errorf("actual ID must be > 0")

@@ -162,7 +162,7 @@ For each account the following properties can be configured:
 
 - `username`
 - `password` used for password authentication. For users created using SFTPGo REST API the password will be stored using argon2id hashing algo. SFTPGo supports checking passwords stored with bcrypt too. Currently, as fallback, there is a clear text password checking but you should not store passwords as clear text and this support could be removed at any time, so please don't depend on it.
-- `public_key` used for public key authentication. At least one between password and public key is mandatory. Multiple public keys are supported, newline delimited (unix line break unescaped).
+- `public_key` array of public keys. At least one public key or the password is mandatory.
 - `home_dir` The user cannot upload or download files outside this directory. Must be an absolute path
 - `uid`, `gid`. If sftpgo runs as root system user then the created files and directories will be assigned to this system uid/gid. Ignored on windows and if sftpgo runs as non root user: in this case files and directories for all SFTP users will be owned by the system user that runs sftpgo.
 - `max_sessions` maximum concurrent sessions. 0 means unlimited

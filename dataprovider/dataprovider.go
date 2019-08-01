@@ -226,22 +226,19 @@ func validateUser(user *User) error {
 			return &ValidationError{err: fmt.Sprintf("Invalid permission: %v", p)}
 		}
 	}
-	if !strings.HasPrefix(user.Password, argonPwdPrefix) {
+	if len(user.Password) > 0 && !strings.HasPrefix(user.Password, argonPwdPrefix) {
 		pwd, err := argon2id.CreateHash(user.Password, argon2id.DefaultParams)
 		if err != nil {
 			return err
 		}
 		user.Password = pwd
 	}
-	if len(user.PublicKey) > 0 {
-		for i, k := range strings.Split(user.PublicKey, "\n") {
-			_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
-			if err != nil {
-				return &ValidationError{err: fmt.Sprintf("Could not parse key nr. %d: %s", i, err)}
-			}
+	for i, k := range user.PublicKey {
+		_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
+		if err != nil {
+			return &ValidationError{err: fmt.Sprintf("Could not parse key nr. %d: %s", i, err)}
 		}
 	}
-
 	return nil
 }
 

@@ -39,6 +39,11 @@ func sqlCommonValidateUserAndPass(username string, password string) (User, error
 	if err != nil {
 		logger.Warn(logSender, "error authenticating user: %v, error: %v", username, err)
 	} else {
+		// even if the password is empty inside the database an empty user password
+		// will be refused anyway so it cannot match, additional check to be paranoid
+		if len(user.Password) == 0 {
+			return user, errors.New("Credentials cannot be null or empty")
+		}
 		var match bool
 		if strings.HasPrefix(user.Password, argonPwdPrefix) {
 			match, err = argon2id.ComparePasswordAndHash(password, user.Password)
@@ -77,7 +82,7 @@ func sqlCommonValidateUserAndPubKey(username string, pubKey string) (User, error
 		return user, errors.New("Invalid credentials")
 	}
 
-	for i, k := range strings.Split(user.PublicKey, "\n") {
+	for i, k := range user.PublicKey {
 		storedPubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
 		if err != nil {
 			logger.Warn(logSender, "error parsing stored public key %d for user %v: %v", i, username, err)
@@ -170,7 +175,11 @@ func sqlCommonAddUser(user User) error {
 	if err != nil {
 		return err
 	}
-	_, err = stmt.Exec(user.Username, user.Password, user.PublicKey, user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
+	publicKeys, err := user.GetPublicKeysAsJSON()
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(user.Username, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
 		user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth)
 	return err
 }
@@ -191,8 +200,12 @@ func sqlCommonUpdateUser(user User) error {
 	if err != nil {
 		return err
 	}
-	_, err = stmt.Exec(user.Password, user.PublicKey, user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
-		user.QuotaFiles, permissions, user.UploadBandwidth, user.DownloadBandwidth, user.ID)
+	publicKeys, err := user.GetPublicKeysAsJSON()
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
+		user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.ID)
 	return err
 }
 
@@ -229,7 +242,7 @@ func sqlCommonGetUsers(limit int, offset int, order string, username string) ([]
 			u, err := getUserFromDbRow(nil, rows)
 			// hide password and public key
 			u.Password = ""
-			u.PublicKey = ""
+			u.PublicKey = []string{}
 			if err == nil {
 				users = append(users, u)
 			} else {
@@ -264,7 +277,17 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 		user.Password = password.String
 	}
 	if publicKey.Valid {
-		user.PublicKey = publicKey.String
+		var list []string
+		err = json.Unmarshal([]byte(publicKey.String), &list)
+		if err == nil {
+			user.PublicKey = list
+		} else {
+			// compatibility layer: initially we store public keys as string newline delimited
+			// we need to remove this code in future
+			user.PublicKey = strings.Split(publicKey.String, "\n")
+			logger.Warn(logSender, "public keys loaded using compatibility mode, this will not work in future versions! "+
+				"Number of public keys loaded: %v, username: %v", len(user.PublicKey), user.Username)
+		}
 	}
 	if permissions.Valid {
 		var list []string
