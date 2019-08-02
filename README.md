@@ -193,7 +193,7 @@ REST API is designed to run on localhost or on a trusted network, if you need ht
 
 The OpenAPI 3 schema for the exposed API can be found inside the source tree: [openapi.yaml](https://github.com/drakkan/sftpgo/tree/master/api/schema/openapi.yaml "OpenAPI 3 specs").
 
-A sample CLI client for the REST API can be find inside the source tree: [scripts](https://github.com/drakkan/sftpgo/tree/master/scripts "scripts") directory.
+A sample CLI client for the REST API can be found inside the source tree: [scripts](https://github.com/drakkan/sftpgo/tree/master/scripts "scripts") directory.
 
 ## Logs
 

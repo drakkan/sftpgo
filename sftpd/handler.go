@@ -75,6 +75,7 @@ func (c Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 		user:          c.User,
 		connectionID:  c.ID,
 		transferType:  transferDownload,
+		lastActivity:  time.Now(),
 		isNewFile:     false,
 	}
 	addTransfer(&transfer)
@@ -134,6 +135,7 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 			user:          c.User,
 			connectionID:  c.ID,
 			transferType:  transferUpload,
+			lastActivity:  time.Now(),
 			isNewFile:     true,
 		}
 		addTransfer(&transfer)
@@ -187,6 +189,7 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 		user:          c.User,
 		connectionID:  c.ID,
 		transferType:  transferUpload,
+		lastActivity:  time.Now(),
 		isNewFile:     false,
 	}
 	addTransfer(&transfer)
