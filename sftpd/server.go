@@ -86,19 +86,9 @@ func (c Configuration) Initialize(configDir string) error {
 		ServerVersion: "SSH-2.0-" + c.Banner,
 	}
 
-	if len(c.Keys) == 0 {
-		autoFile := filepath.Join(configDir, defaultPrivateKeyName)
-		if _, err := os.Stat(autoFile); os.IsNotExist(err) {
-			logger.Info(logSender, "No host keys configured and %s does not exist; creating new private key for server", autoFile)
-			logger.InfoToConsole("No host keys configured and %s does not exist; creating new private key for server", autoFile)
-			if err := c.generatePrivateKey(autoFile); err != nil {
-				return err
-			}
-		} else if err != nil {
-			return err
-		}
-
-		c.Keys = append(c.Keys, Key{PrivateKey: defaultPrivateKeyName})
+	err = c.checkHostKeys(configDir)
+	if err != nil {
+		return err
 	}
 
 	for _, k := range c.Keys {
@@ -273,6 +263,22 @@ func loginUser(user dataprovider.User) (*ssh.Permissions, error) {
 	p.Extensions = make(map[string]string)
 	p.Extensions["user"] = string(json)
 	return p, nil
+}
+
+// If no host keys are defined we try to use or generate the default one.
+func (c *Configuration) checkHostKeys(configDir string) error {
+	var err error
+	if len(c.Keys) == 0 {
+		autoFile := filepath.Join(configDir, defaultPrivateKeyName)
+		if _, err = os.Stat(autoFile); os.IsNotExist(err) {
+			logger.Info(logSender, "No host keys configured and %s does not exist; creating new private key for server", autoFile)
+			logger.InfoToConsole("No host keys configured and %s does not exist; creating new private key for server", autoFile)
+			err = c.generatePrivateKey(autoFile)
+		}
+
+		c.Keys = append(c.Keys, Key{PrivateKey: defaultPrivateKeyName})
+	}
+	return err
 }
 
 func (c Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKey string) (*ssh.Permissions, error) {
