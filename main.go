@@ -20,33 +20,40 @@ import (
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
+	"github.com/drakkan/sftpgo/utils"
 
 	"github.com/rs/zerolog"
 )
 
 func main() {
-	confName := "sftpgo.conf"
 	logSender := "main"
 	var (
-		configDir     string
-		logFilePath   string
-		logMaxSize    int
-		logMaxBackups int
-		logMaxAge     int
-		logCompress   bool
-		logVerbose    bool
+		configDir      string
+		configFileName string
+		logFilePath    string
+		logMaxSize     int
+		logMaxBackups  int
+		logMaxAge      int
+		logCompress    bool
+		logVerbose     bool
 	)
-	flag.StringVar(&configDir, "config-dir", ".", "Location for SFTPGo config dir. It must contain sftpgo.conf "+
-		"and is used as the base for files with a relative path (eg. the private keys for the SFTP server, the SQLite database if you use SQLite as data provider).")
-	flag.StringVar(&logFilePath, "log-file-path", "sftpgo.log", "Location for the log file")
-	flag.IntVar(&logMaxSize, "log-max-size", 10, "Maximum size in megabytes of the log file before it gets rotated.")
-	flag.IntVar(&logMaxBackups, "log-max-backups", 5, "Maximum number of old log files to retain")
-	flag.IntVar(&logMaxAge, "log-max-age", 28, "Maximum number of days to retain old log files")
-	flag.BoolVar(&logCompress, "log-compress", false, "Determine if the rotated log files should be compressed using gzip")
-	flag.BoolVar(&logVerbose, "log-verbose", true, "Enable verbose logs")
+	flag.StringVar(&configDir, "config-dir", utils.GetEnvVar("SFTPGO_CONFIG_DIR", "."), "Location for SFTPGo config dir. It must contain "+
+		"sftpgo.conf or the configured config-file-name and it is used as the base for files with a relative path (eg. the private "+
+		"keys for the SFTP server, the SQLite database if you use SQLite as data provider).")
+	flag.StringVar(&configFileName, "config-file-name", utils.GetEnvVar("SFTPGO_CONFIG_FILE_NAME", "sftpgo.conf"), "Name for SFTPGo "+
+		"configuration file. It must be the name of a file stored in config-dir not the absolute path to the configuration file")
+	flag.StringVar(&logFilePath, "log-file-path", utils.GetEnvVar("SFTPGO_LOG_FILE_PATH", "sftpgo.log"), "Location for the log file")
+	flag.IntVar(&logMaxSize, "log-max-size", utils.GetEnvVarAsInt("SFTPGO_LOG_MAX_SIZE", 10), "Maximum size in megabytes of the log file "+
+		"before it gets rotated.")
+	flag.IntVar(&logMaxBackups, "log-max-backups", utils.GetEnvVarAsInt("SFTPGO_LOG_MAX_BACKUPS", 5), "Maximum number of old log files "+
+		"to retain")
+	flag.IntVar(&logMaxAge, "log-max-age", utils.GetEnvVarAsInt("SFTPGO_LOG_MAX_AGE", 28), "Maximum number of days to retain old log files")
+	flag.BoolVar(&logCompress, "log-compress", utils.GetEnvVarAsInt("SFTPGO_LOG_COMPRESS", 0) > 0, "Determine if the rotated log files "+
+		"should be compressed using gzip")
+	flag.BoolVar(&logVerbose, "log-verbose", utils.GetEnvVarAsInt("SFTPGO_LOG_VERBOSE", 1) > 0, "Enable verbose logs")
 	flag.Parse()
 
-	configFilePath := filepath.Join(configDir, confName)
+	configFilePath := filepath.Join(configDir, configFileName)
 	logLevel := zerolog.DebugLevel
 	if !logVerbose {
 		logLevel = zerolog.InfoLevel

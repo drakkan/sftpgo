@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/drakkan/sftpgo/logger"
@@ -68,4 +69,24 @@ func SetPathPermissions(path string, uid int, gid int) {
 			logger.Warn(logSender, "error chowning path %v: %v", path, err)
 		}
 	}
+}
+
+// GetEnvVar retrieves the value of the environment variable named
+// by the key. If the variable is present in the environment the it
+// returns the fallback value
+func GetEnvVar(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
+// GetEnvVarAsInt retrieves the value of the environment variable named
+// by the key and returns its value or fallback
+func GetEnvVarAsInt(key string, fallback int) int {
+	stringValue := GetEnvVar(key, strconv.Itoa(fallback))
+	if value, err := strconv.Atoi(stringValue); err == nil {
+		return value
+	}
+	return fallback
 }
