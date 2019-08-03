@@ -8,6 +8,11 @@ import (
 	"github.com/drakkan/sftpgo/dataprovider"
 )
 
+const (
+	invalidURL  = "http://foo\x7f.com/"
+	inactiveURL = "http://127.0.0.1:12345"
+)
+
 func TestGetRespStatus(t *testing.T) {
 	var err error
 	err = &dataprovider.MethodDisabledError{}
@@ -135,4 +140,66 @@ func TestCompareUserFields(t *testing.T) {
 	if err == nil {
 		t.Errorf("DownloadBandwidth does not match")
 	}
+}
+
+func TestApiCallsWithBadURL(t *testing.T) {
+	oldBaseURL := httpBaseURL
+	SetBaseURL(invalidURL)
+	u := dataprovider.User{}
+	_, err := UpdateUser(u, http.StatusBadRequest)
+	if err == nil {
+		t.Errorf("request with invalid URL must fail")
+	}
+	err = RemoveUser(u, http.StatusNotFound)
+	if err == nil {
+		t.Errorf("request with invalid URL must fail")
+	}
+	err = CloseSFTPConnection("non_existent_id", http.StatusNotFound)
+	if err == nil {
+		t.Errorf("request with invalid URL must fail")
+	}
+	SetBaseURL(oldBaseURL)
+}
+
+func TestApiCallToNotListeningServer(t *testing.T) {
+	oldBaseURL := httpBaseURL
+	SetBaseURL(inactiveURL)
+	u := dataprovider.User{}
+	_, err := AddUser(u, http.StatusBadRequest)
+	if err == nil {
+		t.Errorf("request to an inactive URL must fail")
+	}
+	_, err = UpdateUser(u, http.StatusNotFound)
+	if err == nil {
+		t.Errorf("request to an inactive URL must fail")
+	}
+	err = RemoveUser(u, http.StatusNotFound)
+	if err == nil {
+		t.Errorf("request to an inactive URL must fail")
+	}
+	_, err = GetUserByID(-1, http.StatusNotFound)
+	if err == nil {
+		t.Errorf("request to an inactive URL must fail")
+	}
+	_, err = GetUsers(100, 0, "", http.StatusOK)
+	if err == nil {
+		t.Errorf("request to an inactive URL must fail")
+	}
+	_, err = GetQuotaScans(http.StatusOK)
+	if err == nil {
+		t.Errorf("request to an inactive URL must fail")
+	}
+	err = StartQuotaScan(u, http.StatusNotFound)
+	if err == nil {
+		t.Errorf("request to an inactive URL must fail")
+	}
+	_, err = GetSFTPConnections(http.StatusOK)
+	if err == nil {
+		t.Errorf("request to an inactive URL must fail")
+	}
+	err = CloseSFTPConnection("non_existent_id", http.StatusNotFound)
+	if err == nil {
+		t.Errorf("request to an inactive URL must fail")
+	}
+	SetBaseURL(oldBaseURL)
 }

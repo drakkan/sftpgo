@@ -180,6 +180,35 @@ func StartQuotaScan(user dataprovider.User, expectedStatusCode int) error {
 	return checkResponse(resp.StatusCode, expectedStatusCode, resp)
 }
 
+// GetSFTPConnections returns status and stats for active SFTP connections
+func GetSFTPConnections(expectedStatusCode int) ([]sftpd.ConnectionStatus, error) {
+	var connections []sftpd.ConnectionStatus
+	resp, err := getHTTPClient().Get(httpBaseURL + activeConnectionsPath)
+	if err != nil {
+		return connections, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode, resp)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &connections)
+	}
+	return connections, err
+}
+
+// CloseSFTPConnection closes an active SFTP connection identified by connectionID
+func CloseSFTPConnection(connectionID string, expectedStatusCode int) error {
+	req, err := http.NewRequest(http.MethodDelete, httpBaseURL+activeConnectionsPath+"/"+connectionID, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := getHTTPClient().Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return checkResponse(resp.StatusCode, expectedStatusCode, resp)
+}
+
 func checkResponse(actual int, expected int, resp *http.Response) error {
 	if expected != actual {
 		return fmt.Errorf("wrong status code: got %v want %v", actual, expected)

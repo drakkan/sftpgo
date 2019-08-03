@@ -383,6 +383,20 @@ func TestStartQuotaScan(t *testing.T) {
 	}
 }
 
+func TestGetSFTPConnections(t *testing.T) {
+	_, err := api.GetSFTPConnections(http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to get sftp connections: %v", err)
+	}
+}
+
+func TestCloseActiveSFTPConnection(t *testing.T) {
+	err := api.CloseSFTPConnection("non_existent_id", http.StatusNotFound)
+	if err != nil {
+		t.Errorf("unexpected error closing non existent sftp connection: %v", err)
+	}
+}
+
 // test using mock http server
 
 func TestBasicUserHandlingMock(t *testing.T) {
