@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/pkg/sftp"
 )
 
@@ -68,5 +69,41 @@ func TestUploadResume(t *testing.T) {
 	_, err := c.handleSFTPUploadToExistingFile(flags, "", "", 0)
 	if err != sftp.ErrSshFxOpUnsupported {
 		t.Errorf("file resume is not supported")
+	}
+}
+
+func TestUploadFiles(t *testing.T) {
+	oldUploadMode := uploadMode
+	uploadMode = uploadModeAtomic
+	c := Connection{}
+	var flags sftp.FileOpenFlags
+	flags.Write = true
+	flags.Trunc = true
+	_, err := c.handleSFTPUploadToExistingFile(flags, "missing_path", "other_missing_path", 0)
+	if err == nil {
+		t.Errorf("upload to existing file must fail if one or both paths are invalid")
+	}
+	uploadMode = uploadModeStandard
+	_, err = c.handleSFTPUploadToExistingFile(flags, "missing_path", "other_missing_path", 0)
+	if err == nil {
+		t.Errorf("upload to existing file must fail if one or both paths are invalid")
+	}
+	missingFile := "missing/relative/file.txt"
+	if runtime.GOOS == "windows" {
+		missingFile = "missing\\relative\\file.txt"
+	}
+	_, err = c.handleSFTPUploadToNewFile(".", missingFile)
+	if err == nil {
+		t.Errorf("upload new file in missing path must fail")
+	}
+	uploadMode = oldUploadMode
+}
+
+func TestLoginWithInvalidHome(t *testing.T) {
+	u := dataprovider.User{}
+	u.HomeDir = "home_rel_path"
+	_, err := loginUser(u)
+	if err == nil {
+		t.Errorf("login a user with an invalid home_dir must fail")
 	}
 }
