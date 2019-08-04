@@ -385,11 +385,12 @@ func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, re
 		return nil, sftp.ErrSshFxFailure
 	}
 
-	osFlags, trunc := getOSOpenFlags(pflags)
+	osFlags := getOSOpenFlags(pflags)
 
-	if !trunc {
+	if osFlags&os.O_TRUNC == 0 {
 		// see https://github.com/pkg/sftp/issues/295
-		logger.Info(logSender, "upload resume is not supported, returning error")
+		logger.Info(logSender, "upload resume is not supported, returning error for file: %v user: %v", requestPath,
+			c.User.Username)
 		return nil, sftp.ErrSshFxOpUnsupported
 	}
 
@@ -565,9 +566,8 @@ func (c Connection) createMissingDirs(filePath string) error {
 	return nil
 }
 
-func getOSOpenFlags(requestFlags sftp.FileOpenFlags) (flags int, trunc bool) {
+func getOSOpenFlags(requestFlags sftp.FileOpenFlags) (flags int) {
 	var osFlags int
-	truncateFile := false
 	if requestFlags.Read && requestFlags.Write {
 		osFlags |= os.O_RDWR
 	} else if requestFlags.Write {
@@ -581,12 +581,11 @@ func getOSOpenFlags(requestFlags sftp.FileOpenFlags) (flags int, trunc bool) {
 	}
 	if requestFlags.Trunc {
 		osFlags |= os.O_TRUNC
-		truncateFile = true
 	}
 	if requestFlags.Excl {
 		osFlags |= os.O_EXCL
 	}
-	return osFlags, truncateFile
+	return osFlags
 }
 
 func getUploadTempFilePath(path string) string {

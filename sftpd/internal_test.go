@@ -56,7 +56,7 @@ func TestGetOSOpenFlags(t *testing.T) {
 	flags.Write = true
 	flags.Append = true
 	flags.Excl = true
-	osFlags, _ := getOSOpenFlags(flags)
+	osFlags := getOSOpenFlags(flags)
 	if osFlags&os.O_WRONLY == 0 || osFlags&os.O_APPEND == 0 || osFlags&os.O_EXCL == 0 {
 		t.Errorf("error getting os flags from sftp file open flags")
 	}
