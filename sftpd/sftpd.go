@@ -42,6 +42,7 @@ var (
 	activeQuotaScans     []ActiveQuotaScan
 	dataProvider         dataprovider.Provider
 	actions              Actions
+	uploadMode           int
 )
 
 type connectionTransfer struct {

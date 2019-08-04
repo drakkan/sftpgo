@@ -98,11 +98,15 @@ func TestMain(m *testing.M) {
 	sftpdConf := config.GetSFTPDConfig()
 	httpdConf := config.GetHTTPDConfig()
 	router := api.GetHTTPRouter()
+	// we run the test cases with UploadMode atomic. The non atomic code path
+	// simply does not execute some code so if it works in atomic mode will
+	// work in non atomic mode too
+	sftpdConf.UploadMode = 1
 	if runtime.GOOS == "windows" {
 		homeBasePath = "C:\\"
 	} else {
 		homeBasePath = "/tmp"
-		sftpdConf.Actions.ExecuteOn = []string{"download", "upload", "rename"}
+		sftpdConf.Actions.ExecuteOn = []string{"download", "upload", "rename", "delete"}
 		sftpdConf.Actions.Command = "/bin/true"
 		sftpdConf.Actions.HTTPNotificationURL = "http://127.0.0.1:8080/"
 	}
@@ -231,14 +235,6 @@ func TestDirCommands(t *testing.T) {
 		t.Errorf("unable to create sftp client: %v", err)
 	} else {
 		defer client.Close()
-		_, err := client.Getwd()
-		if err != nil {
-			t.Errorf("unable to get working dir: %v", err)
-		}
-		_, err = client.ReadDir(".")
-		if err != nil {
-			t.Errorf("unable to read remote dir: %v", err)
-		}
 		err = client.Mkdir("test")
 		if err != nil {
 			t.Errorf("error mkdir: %v", err)
@@ -251,10 +247,24 @@ func TestDirCommands(t *testing.T) {
 		if err != nil {
 			t.Errorf("error rmdir: %v", err)
 		}
-		err = client.MkdirAll("/test/test")
+		err = client.Mkdir("/test/test1")
 		if err != nil {
 			t.Errorf("error mkdir all: %v", err)
 		}
+		testFileName := "/test_file.dat"
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		if err != nil {
+			t.Errorf("unable to create test file: %v", err)
+		}
+		err = sftpUploadFile(testFilePath, filepath.Join("/test", testFileName), testFileSize, client)
+		if err != nil {
+			t.Errorf("file upload error: %v", err)
+		}
+		// internally client.Remove will call RemoveDirectory on failure
+		// the first remove will fail since test directory is not empty
+		// the RemoveDirectory called internally by client.Remove will succeed
 		err = client.Remove("/test")
 		if err != nil {
 			t.Errorf("error rmdir all: %v", err)
@@ -262,6 +272,10 @@ func TestDirCommands(t *testing.T) {
 		_, err = client.Lstat("/test")
 		if err == nil {
 			t.Errorf("stat for deleted dir must not succeed")
+		}
+		err = client.Remove("/test")
+		if err == nil {
+			t.Errorf("remove missing path must fail")
 		}
 	}
 	err = api.RemoveUser(user, http.StatusOK)
@@ -311,7 +325,7 @@ func TestSymlink(t *testing.T) {
 	}
 }
 
-func TestSetStat(t *testing.T) {
+func TestStat(t *testing.T) {
 	usePubKey := false
 	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
 	if err != nil {
@@ -351,6 +365,10 @@ func TestSetStat(t *testing.T) {
 		}
 		if fi.Mode().Perm() != newFi.Mode().Perm() {
 			t.Errorf("stat must remain unchanged")
+		}
+		_, err = client.ReadLink(testFileName)
+		if err == nil {
+			t.Errorf("readlink is not supported and must fail")
 		}
 		err = client.Remove(testFileName)
 		if err != nil {
@@ -410,6 +428,24 @@ func TestEscapeHomeDir(t *testing.T) {
 		if err != nil {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
+		linkPath = filepath.Join(homeBasePath, defaultUsername, testFileName)
+		err = os.Symlink(homeBasePath, linkPath)
+		if err != nil {
+			t.Errorf("error making local symlink: %v", err)
+		}
+		err = sftpDownloadFile(testFileName, testFilePath, 0, client)
+		if err == nil {
+			t.Errorf("download file outside home dir must fail")
+		}
+		err = sftpUploadFile(testFilePath, remoteDestPath, testFileSize, client)
+		if err == nil {
+			t.Errorf("overwrite a file outside home dir must fail")
+		}
+		err = client.Chmod(remoteDestPath, 0644)
+		if err == nil {
+			t.Errorf("setstat on a file outside home dir must fail")
+		}
+		os.Remove(linkPath)
 	}
 	err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -886,6 +922,81 @@ func TestBandwidthAndConnections(t *testing.T) {
 	}
 }
 
+func TestMissingFile(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	user, err := api.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		localDownloadPath := filepath.Join(homeBasePath, "test_download.dat")
+		err = sftpDownloadFile("missing_file", localDownloadPath, 0, client)
+		if err == nil {
+			t.Errorf("download missing file must fail")
+		}
+	}
+	err = api.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+}
+
+func TestOverwriteDirWithFile(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	user, err := api.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		testFileSize := int64(65535)
+		testFileName := "test_file.dat"
+		testDirName := "test_dir"
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		if err != nil {
+			t.Errorf("unable to create test file: %v", err)
+		}
+		err = client.Mkdir(testDirName)
+		if err != nil {
+			t.Errorf("mkdir error: %v", err)
+		}
+		err = sftpUploadFile(testFilePath, testDirName, testFileSize, client)
+		if err == nil {
+			t.Errorf("copying a file over an existing dir must fail")
+		}
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		if err != nil {
+			t.Errorf("file upload error: %v", err)
+		}
+		err = client.Rename(testFileName, testDirName)
+		if err == nil {
+			t.Errorf("rename a file over an existing dir must fail")
+		}
+		err = client.RemoveDirectory(testDirName)
+		if err != nil {
+			t.Errorf("dir remove error: %v", err)
+		}
+		err = client.Remove(testFileName)
+		if err != nil {
+			t.Errorf("error removing uploaded file: %v", err)
+		}
+	}
+	err = api.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+}
+
 func TestPermList(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
@@ -1262,8 +1373,14 @@ func sftpUploadFile(localSourcePath string, remoteDestPath string, expectedSize 
 	if err != nil {
 		return err
 	}
-	defer destFile.Close()
 	_, err = io.Copy(destFile, srcFile)
+	if err != nil {
+		destFile.Close()
+		return err
+	}
+	// we need to close the file to trigger the close method on server
+	// we cannot defer closing or Lstat will fail for upload atomic mode
+	destFile.Close()
 	if expectedSize > 0 {
 		fi, err := client.Lstat(remoteDestPath)
 		if err != nil {

@@ -13,6 +13,11 @@ const (
 	transferDownload
 )
 
+const (
+	uploadModeStandard = iota
+	uploadModeAtomic
+)
+
 // Transfer contains the transfer details for an upload or a download.
 // It implements the io Reader and Writer interface to handle files downloads and uploads
 type Transfer struct {
@@ -52,6 +57,11 @@ func (t *Transfer) WriteAt(p []byte, off int64) (n int, err error) {
 // It closes the underlying file, log the transfer info, update the user quota, for uploads, and execute any defined actions.
 func (t *Transfer) Close() error {
 	err := t.file.Close()
+	if t.transferType == transferUpload && t.file.Name() != t.path {
+		err = os.Rename(t.file.Name(), t.path)
+		logger.Debug(logSender, "atomic upload completed, rename: \"%v\" -> \"%v\", error: %v",
+			t.file.Name(), t.path, err)
+	}
 	elapsed := time.Since(t.start).Nanoseconds() / 1000000
 	if t.transferType == transferDownload {
 		logger.TransferLog(sftpdDownloadLogSender, t.path, elapsed, t.bytesSent, t.user.Username, t.connectionID)

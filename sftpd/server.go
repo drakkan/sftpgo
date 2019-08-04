@@ -43,6 +43,11 @@ type Configuration struct {
 	MaxAuthTries int `json:"max_auth_tries"`
 	// Umask for new files
 	Umask string `json:"umask"`
+	// UploadMode 0 means standard, the files are uploaded directly to the requested path.
+	// 1 means atomic: the files are uploaded to a temporary path and renamed to the requested path
+	// when the client ends the upload. Atomic mode avoid problems such as a web server that
+	// serves partial files when the files are being uploaded.
+	UploadMode int `json:"upload_mode"`
 	// Actions to execute on SFTP create, download, delete and rename
 	Actions Actions `json:"actions"`
 	// Keys are a list of host keys
@@ -119,6 +124,7 @@ func (c Configuration) Initialize(configDir string) error {
 	}
 
 	actions = c.Actions
+	uploadMode = c.UploadMode
 	logger.Info(logSender, "server listener registered address: %v", listener.Addr().String())
 	if c.IdleTimeout > 0 {
 		startIdleTimer(time.Duration(c.IdleTimeout) * time.Minute)

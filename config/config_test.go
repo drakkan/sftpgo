@@ -69,3 +69,24 @@ func TestEmptyBanner(t *testing.T) {
 	}
 	os.Remove(configFilePath)
 }
+
+func TestInvalidUploadMode(t *testing.T) {
+	configDir := ".."
+	confName := "temp.conf"
+	configFilePath := filepath.Join(configDir, confName)
+	config.LoadConfig(configFilePath)
+	sftpdConf := config.GetSFTPDConfig()
+	sftpdConf.UploadMode = 10
+	c := make(map[string]sftpd.Configuration)
+	c["sftpd"] = sftpdConf
+	jsonConf, _ := json.Marshal(c)
+	err := ioutil.WriteFile(configFilePath, jsonConf, 0666)
+	if err != nil {
+		t.Errorf("error saving temporary configuration")
+	}
+	err = config.LoadConfig(configFilePath)
+	if err == nil {
+		t.Errorf("Loading configuration with invalid upload_mode must fail")
+	}
+	os.Remove(configFilePath)
+}

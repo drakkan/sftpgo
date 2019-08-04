@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/rs/xid"
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
@@ -94,6 +95,11 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 		return nil, sftp.ErrSshFxNoSuchFile
 	}
 
+	filePath := p
+	if uploadMode == uploadModeAtomic {
+		filePath = getUploadTempFilePath(p)
+	}
+
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -101,45 +107,7 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 	// If the file doesn't exist we need to create it, as well as the directory pathway
 	// leading up to where that file will be created.
 	if os.IsNotExist(statErr) {
-		if !c.hasSpace(true) {
-			logger.Info(logSender, "denying file write due to space limit")
-			return nil, sftp.ErrSshFxFailure
-		}
-
-		if _, err := os.Stat(filepath.Dir(p)); os.IsNotExist(err) {
-			if !c.User.HasPerm(dataprovider.PermCreateDirs) {
-				return nil, sftp.ErrSshFxPermissionDenied
-			}
-		}
-
-		err = c.createMissingDirs(p)
-		if err != nil {
-			logger.Error(logSender, "error making missing dir for path %v: %v", p, err)
-			return nil, sftp.ErrSshFxFailure
-		}
-
-		file, err := os.Create(p)
-		if err != nil {
-			logger.Error(logSender, "error creating file %v: %v", p, err)
-			return nil, sftp.ErrSshFxFailure
-		}
-
-		utils.SetPathPermissions(p, c.User.GetUID(), c.User.GetGID())
-
-		transfer := Transfer{
-			file:          file,
-			path:          p,
-			start:         time.Now(),
-			bytesSent:     0,
-			bytesReceived: 0,
-			user:          c.User,
-			connectionID:  c.ID,
-			transferType:  transferUpload,
-			lastActivity:  time.Now(),
-			isNewFile:     true,
-		}
-		addTransfer(&transfer)
-		return &transfer, nil
+		return c.handleSFTPUploadToNewFile(p, filePath)
 	}
 
 	if statErr != nil {
@@ -147,53 +115,13 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 		return nil, sftp.ErrSshFxFailure
 	}
 
-	if !c.hasSpace(false) {
-		logger.Info(logSender, "denying file write due to space limit")
-		return nil, sftp.ErrSshFxFailure
-	}
-
-	// Not sure this would ever happen, but lets not find out.
+	// This happen if we upload a file that has the same name of an existing directory
 	if stat.IsDir() {
 		logger.Warn(logSender, "attempted to open a directory for writing to: %v", p)
 		return nil, sftp.ErrSshFxOpUnsupported
 	}
 
-	osFlags, trunc := getOSOpenFlags(request.Pflags())
-
-	if !trunc {
-		// see https://github.com/pkg/sftp/issues/295
-		logger.Info(logSender, "upload resume is not supported, returning error")
-		return nil, sftp.ErrSshFxOpUnsupported
-	}
-
-	// we use 0666 so the umask is applied
-	file, err := os.OpenFile(p, osFlags, 0666)
-	if err != nil {
-		logger.Error(logSender, "error opening existing file, flags: %v, source: %v, err: %v", request.Flags, p, err)
-		return nil, sftp.ErrSshFxFailure
-	}
-
-	if trunc {
-		// the file is truncated so we need to decrease quota size but not quota files
-		dataprovider.UpdateUserQuota(dataProvider, c.User, 0, -stat.Size(), false)
-	}
-
-	utils.SetPathPermissions(p, c.User.GetUID(), c.User.GetGID())
-
-	transfer := Transfer{
-		file:          file,
-		path:          p,
-		start:         time.Now(),
-		bytesSent:     0,
-		bytesReceived: 0,
-		user:          c.User,
-		connectionID:  c.ID,
-		transferType:  transferUpload,
-		lastActivity:  time.Now(),
-		isNewFile:     false,
-	}
-	addTransfer(&transfer)
-	return &transfer, nil
+	return c.handleSFTPUploadToExistingFile(request.Pflags(), p, filePath, stat.Size())
 }
 
 // Filecmd hander for basic SFTP system calls related to files, but not anything to do with reading
@@ -407,6 +335,101 @@ func (c Connection) handleSFTPRemove(path string) error {
 	return sftp.ErrSshFxOk
 }
 
+func (c Connection) handleSFTPUploadToNewFile(requestPath, filePath string) (io.WriterAt, error) {
+	if !c.hasSpace(true) {
+		logger.Info(logSender, "denying file write due to space limit")
+		return nil, sftp.ErrSshFxFailure
+	}
+
+	if _, err := os.Stat(filepath.Dir(requestPath)); os.IsNotExist(err) {
+		if !c.User.HasPerm(dataprovider.PermCreateDirs) {
+			return nil, sftp.ErrSshFxPermissionDenied
+		}
+	}
+
+	err := c.createMissingDirs(requestPath)
+	if err != nil {
+		logger.Error(logSender, "error making missing dir for path %v: %v", requestPath, err)
+		return nil, sftp.ErrSshFxFailure
+	}
+
+	file, err := os.Create(filePath)
+	if err != nil {
+		logger.Error(logSender, "error creating file %v: %v", requestPath, err)
+		return nil, sftp.ErrSshFxFailure
+	}
+
+	utils.SetPathPermissions(filePath, c.User.GetUID(), c.User.GetGID())
+
+	transfer := Transfer{
+		file:          file,
+		path:          requestPath,
+		start:         time.Now(),
+		bytesSent:     0,
+		bytesReceived: 0,
+		user:          c.User,
+		connectionID:  c.ID,
+		transferType:  transferUpload,
+		lastActivity:  time.Now(),
+		isNewFile:     true,
+	}
+	addTransfer(&transfer)
+	return &transfer, nil
+}
+
+func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, requestPath, filePath string,
+	fileSize int64) (io.WriterAt, error) {
+	var err error
+	if !c.hasSpace(false) {
+		logger.Info(logSender, "denying file write due to space limit")
+		return nil, sftp.ErrSshFxFailure
+	}
+
+	osFlags, trunc := getOSOpenFlags(pflags)
+
+	if !trunc {
+		// see https://github.com/pkg/sftp/issues/295
+		logger.Info(logSender, "upload resume is not supported, returning error")
+		return nil, sftp.ErrSshFxOpUnsupported
+	}
+
+	if uploadMode == uploadModeAtomic {
+		err = os.Rename(requestPath, filePath)
+		if err != nil {
+			logger.Error(logSender, "error renaming existing file for atomic upload, source: %v, dest: %v, err: %v",
+				requestPath, filePath, err)
+			return nil, sftp.ErrSshFxFailure
+		}
+	}
+	// we use 0666 so the umask is applied
+	file, err := os.OpenFile(filePath, osFlags, 0666)
+	if err != nil {
+		logger.Error(logSender, "error opening existing file, flags: %v, source: %v, err: %v", pflags, filePath, err)
+		return nil, sftp.ErrSshFxFailure
+	}
+
+	// FIXME: this need to be changed when we add upload resume support
+	// the file is truncated so we need to decrease quota size but not quota files
+	dataprovider.UpdateUserQuota(dataProvider, c.User, 0, -fileSize, false)
+
+	utils.SetPathPermissions(filePath, c.User.GetUID(), c.User.GetGID())
+
+	transfer := Transfer{
+		file:          file,
+		path:          requestPath,
+		start:         time.Now(),
+		bytesSent:     0,
+		bytesReceived: 0,
+		user:          c.User,
+		connectionID:  c.ID,
+		transferType:  transferUpload,
+		lastActivity:  time.Now(),
+		isNewFile:     false,
+	}
+	addTransfer(&transfer)
+	return &transfer, nil
+}
+
 func (c Connection) hasSpace(checkFiles bool) bool {
 	if (checkFiles && c.User.QuotaFiles > 0) || c.User.QuotaSize > 0 {
 		numFile, size, err := dataprovider.GetUsedQuota(dataProvider, c.User.Username)
@@ -564,4 +587,10 @@ func getOSOpenFlags(requestFlags sftp.FileOpenFlags) (flags int, trunc bool) {
 		osFlags |= os.O_EXCL
 	}
 	return osFlags, truncateFile
+}
+
+func getUploadTempFilePath(path string) string {
+	dir := filepath.Dir(path)
+	guid := xid.New().String()
+	return filepath.Join(dir, ".sftpgo-upload."+guid+"."+filepath.Base(path))
 }

@@ -7,6 +7,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 
@@ -41,6 +42,7 @@ func init() {
 			IdleTimeout:  15,
 			MaxAuthTries: 0,
 			Umask:        "0022",
+			UploadMode:   0,
 			Actions: sftpd.Actions{
 				ExecuteOn:           []string{},
 				Command:             "",
@@ -101,6 +103,13 @@ func LoadConfig(configPath string) error {
 	}
 	if strings.TrimSpace(globalConf.SFTPD.Banner) == "" {
 		globalConf.SFTPD.Banner = defaultBanner
+	}
+	if globalConf.SFTPD.UploadMode < 0 || globalConf.SFTPD.UploadMode > 1 {
+		err = fmt.Errorf("Invalid upload_mode 0 and 1 are supported, configured: %v reset upload_mode to 0",
+			globalConf.SFTPD.UploadMode)
+		globalConf.SFTPD.UploadMode = 0
+		logger.Warn(logSender, "Configuration error: %v", err)
+		logger.WarnToConsole("Configuration error: %v", err)
 	}
 	logger.Debug(logSender, "config loaded: %+v", globalConf)
 	return err

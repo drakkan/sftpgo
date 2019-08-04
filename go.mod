@@ -12,6 +12,7 @@ require (
 	github.com/lib/pq v1.1.1
 	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/pkg/sftp v1.10.0
+	github.com/rs/xid v1.2.1
 	github.com/rs/zerolog v1.14.3
 	github.com/stretchr/testify v1.3.0 // indirect
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4

@@ -1,8 +1,11 @@
 package sftpd
 
 import (
+	"os"
 	"runtime"
 	"testing"
+
+	"github.com/pkg/sftp"
 )
 
 func TestWrongActions(t *testing.T) {
@@ -19,6 +22,10 @@ func TestWrongActions(t *testing.T) {
 	err := executeAction(operationDownload, "username", "path", "")
 	if err == nil {
 		t.Errorf("action with bad command must fail")
+	}
+	err = executeAction(operationDelete, "username", "path", "")
+	if err != nil {
+		t.Errorf("action not configured must silently fail")
 	}
 	actions.Command = ""
 	actions.HTTPNotificationURL = "http://foo\x7f.com/"
@@ -41,5 +48,25 @@ func TestRemoveNonexistentQuotaScan(t *testing.T) {
 	err := RemoveQuotaScan("username")
 	if err == nil {
 		t.Errorf("remove nonexistent transfer must fail")
+	}
+}
+
+func TestGetOSOpenFlags(t *testing.T) {
+	var flags sftp.FileOpenFlags
+	flags.Write = true
+	flags.Append = true
+	flags.Excl = true
+	osFlags, _ := getOSOpenFlags(flags)
+	if osFlags&os.O_WRONLY == 0 || osFlags&os.O_APPEND == 0 || osFlags&os.O_EXCL == 0 {
+		t.Errorf("error getting os flags from sftp file open flags")
+	}
+}
+
+func TestUploadResume(t *testing.T) {
+	c := Connection{}
+	var flags sftp.FileOpenFlags
+	_, err := c.handleSFTPUploadToExistingFile(flags, "", "", 0)
+	if err != sftp.ErrSshFxOpUnsupported {
+		t.Errorf("file resume is not supported")
 	}
 }
