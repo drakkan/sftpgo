@@ -97,7 +97,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestBasicUserHandling(t *testing.T) {
-	user, err := api.AddUser(getTestUser(), http.StatusOK)
+	user, _, err := api.AddUser(getTestUser(), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -106,18 +106,18 @@ func TestBasicUserHandling(t *testing.T) {
 	user.QuotaFiles = 2
 	user.UploadBandwidth = 128
 	user.DownloadBandwidth = 64
-	user, err = api.UpdateUser(user, http.StatusOK)
+	user, _, err = api.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
 	}
-	users, err := api.GetUsers(0, 0, defaultUsername, http.StatusOK)
+	users, _, err := api.GetUsers(0, 0, defaultUsername, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to get users: %v", err)
 	}
 	if len(users) != 1 {
 		t.Errorf("number of users mismatch, expected: 1, actual: %v", len(users))
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestAddUserNoCredentials(t *testing.T) {
 	u := getTestUser()
 	u.Password = ""
 	u.PublicKey = []string{}
-	_, err := api.AddUser(u, http.StatusBadRequest)
+	_, _, err := api.AddUser(u, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error adding user with no credentials: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestAddUserNoCredentials(t *testing.T) {
 func TestAddUserNoUsername(t *testing.T) {
 	u := getTestUser()
 	u.Username = ""
-	_, err := api.AddUser(u, http.StatusBadRequest)
+	_, _, err := api.AddUser(u, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error adding user with no home dir: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestAddUserNoUsername(t *testing.T) {
 func TestAddUserNoHomeDir(t *testing.T) {
 	u := getTestUser()
 	u.HomeDir = ""
-	_, err := api.AddUser(u, http.StatusBadRequest)
+	_, _, err := api.AddUser(u, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error adding user with no home dir: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestAddUserNoHomeDir(t *testing.T) {
 func TestAddUserInvalidHomeDir(t *testing.T) {
 	u := getTestUser()
 	u.HomeDir = "relative_path"
-	_, err := api.AddUser(u, http.StatusBadRequest)
+	_, _, err := api.AddUser(u, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error adding user with invalid home dir: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestAddUserInvalidHomeDir(t *testing.T) {
 func TestAddUserNoPerms(t *testing.T) {
 	u := getTestUser()
 	u.Permissions = []string{}
-	_, err := api.AddUser(u, http.StatusBadRequest)
+	_, _, err := api.AddUser(u, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error adding user with no perms: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestAddUserNoPerms(t *testing.T) {
 func TestAddUserInvalidPerms(t *testing.T) {
 	u := getTestUser()
 	u.Permissions = []string{"invalidPerm"}
-	_, err := api.AddUser(u, http.StatusBadRequest)
+	_, _, err := api.AddUser(u, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error adding user with no perms: %v", err)
 	}
@@ -183,33 +183,33 @@ func TestUserPublicKey(t *testing.T) {
 	invalidPubKey := "invalid"
 	validPubKey := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"
 	u.PublicKey = []string{invalidPubKey}
-	_, err := api.AddUser(u, http.StatusBadRequest)
+	_, _, err := api.AddUser(u, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error adding user with invalid pub key: %v", err)
 	}
 	u.PublicKey = []string{validPubKey}
-	user, err := api.AddUser(u, http.StatusOK)
+	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
 	user.PublicKey = []string{validPubKey, invalidPubKey}
-	_, err = api.UpdateUser(user, http.StatusBadRequest)
+	_, _, err = api.UpdateUser(user, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("update user with invalid public key must fail: %v", err)
 	}
 	user.PublicKey = []string{validPubKey, validPubKey, validPubKey}
-	_, err = api.UpdateUser(user, http.StatusOK)
+	_, _, err = api.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove: %v", err)
 	}
 }
 
 func TestUpdateUser(t *testing.T) {
-	user, err := api.AddUser(getTestUser(), http.StatusOK)
+	user, _, err := api.AddUser(getTestUser(), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -222,18 +222,18 @@ func TestUpdateUser(t *testing.T) {
 	user.Permissions = []string{dataprovider.PermCreateDirs, dataprovider.PermDelete, dataprovider.PermDownload}
 	user.UploadBandwidth = 1024
 	user.DownloadBandwidth = 512
-	user, err = api.UpdateUser(user, http.StatusOK)
+	user, _, err = api.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove: %v", err)
 	}
 }
 
 func TestUpdateUserNoCredentials(t *testing.T) {
-	user, err := api.AddUser(getTestUser(), http.StatusOK)
+	user, _, err := api.AddUser(getTestUser(), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -241,157 +241,173 @@ func TestUpdateUserNoCredentials(t *testing.T) {
 	user.PublicKey = []string{}
 	// password and public key will be omitted from json serialization if empty and so they will remain unchanged
 	// and no validation error will be raised
-	_, err = api.UpdateUser(user, http.StatusOK)
+	_, _, err = api.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unexpected error updating user with no credentials: %v", err)
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove: %v", err)
 	}
 }
 
 func TestUpdateUserEmptyHomeDir(t *testing.T) {
-	user, err := api.AddUser(getTestUser(), http.StatusOK)
+	user, _, err := api.AddUser(getTestUser(), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
 	user.HomeDir = ""
-	_, err = api.UpdateUser(user, http.StatusBadRequest)
+	_, _, err = api.UpdateUser(user, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error updating user with empty home dir: %v", err)
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove: %v", err)
 	}
 }
 
 func TestUpdateUserInvalidHomeDir(t *testing.T) {
-	user, err := api.AddUser(getTestUser(), http.StatusOK)
+	user, _, err := api.AddUser(getTestUser(), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
 	user.HomeDir = "relative_path"
-	_, err = api.UpdateUser(user, http.StatusBadRequest)
+	_, _, err = api.UpdateUser(user, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error updating user with empty home dir: %v", err)
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove: %v", err)
 	}
 }
 
 func TestUpdateNonExistentUser(t *testing.T) {
-	_, err := api.UpdateUser(getTestUser(), http.StatusNotFound)
+	_, _, err := api.UpdateUser(getTestUser(), http.StatusNotFound)
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
 	}
 }
 
 func TestGetNonExistentUser(t *testing.T) {
-	_, err := api.GetUserByID(0, http.StatusNotFound)
+	_, _, err := api.GetUserByID(0, http.StatusNotFound)
 	if err != nil {
 		t.Errorf("unable to get user: %v", err)
 	}
 }
 
 func TestDeleteNonExistentUser(t *testing.T) {
-	err := api.RemoveUser(getTestUser(), http.StatusNotFound)
+	_, err := api.RemoveUser(getTestUser(), http.StatusNotFound)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
 }
 
 func TestAddDuplicateUser(t *testing.T) {
-	user, err := api.AddUser(getTestUser(), http.StatusOK)
+	user, _, err := api.AddUser(getTestUser(), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
-	_, err = api.AddUser(getTestUser(), http.StatusInternalServerError)
+	_, _, err = api.AddUser(getTestUser(), http.StatusInternalServerError)
 	if err != nil {
 		t.Errorf("unable to add second user: %v", err)
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, _, err = api.AddUser(getTestUser(), http.StatusOK)
+	if err == nil {
+		t.Errorf("adding a duplicate user must fail")
+	}
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
 }
 
 func TestGetUsers(t *testing.T) {
-	user1, err := api.AddUser(getTestUser(), http.StatusOK)
+	user1, _, err := api.AddUser(getTestUser(), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
 	u := getTestUser()
 	u.Username = defaultUsername + "1"
-	user2, err := api.AddUser(u, http.StatusOK)
+	user2, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add second user: %v", err)
 	}
-	users, err := api.GetUsers(0, 0, "", http.StatusOK)
+	users, _, err := api.GetUsers(0, 0, "", http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to get users: %v", err)
 	}
 	if len(users) < 2 {
 		t.Errorf("at least 2 users are expected")
 	}
-	users, err = api.GetUsers(1, 0, "", http.StatusOK)
+	users, _, err = api.GetUsers(1, 0, "", http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to get users: %v", err)
 	}
 	if len(users) != 1 {
 		t.Errorf("1 user is expected")
 	}
-	users, err = api.GetUsers(1, 1, "", http.StatusOK)
+	users, _, err = api.GetUsers(1, 1, "", http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to get users: %v", err)
 	}
 	if len(users) != 1 {
 		t.Errorf("1 user is expected")
 	}
-	err = api.RemoveUser(user1, http.StatusOK)
+	_, _, err = api.GetUsers(1, 1, "", http.StatusInternalServerError)
+	if err == nil {
+		t.Errorf("get users must succeed, we requested a fail for a good request")
+	}
+	_, err = api.RemoveUser(user1, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
-	err = api.RemoveUser(user2, http.StatusOK)
+	_, err = api.RemoveUser(user2, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
 }
 
 func TestGetQuotaScans(t *testing.T) {
-	_, err := api.GetQuotaScans(http.StatusOK)
+	_, _, err := api.GetQuotaScans(http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to get quota scans: %v", err)
+	}
+	_, _, err = api.GetQuotaScans(http.StatusInternalServerError)
+	if err == nil {
+		t.Errorf("quota scan request must succeed, we requested to check a wrong status code")
 	}
 }
 
 func TestStartQuotaScan(t *testing.T) {
-	user, err := api.AddUser(getTestUser(), http.StatusOK)
+	user, _, err := api.AddUser(getTestUser(), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
-	err = api.StartQuotaScan(user, http.StatusCreated)
+	_, err = api.StartQuotaScan(user, http.StatusCreated)
 	if err != nil {
 		t.Errorf("unable to start quota scan: %v", err)
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
 }
 
 func TestGetSFTPConnections(t *testing.T) {
-	_, err := api.GetSFTPConnections(http.StatusOK)
+	_, _, err := api.GetSFTPConnections(http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to get sftp connections: %v", err)
+	}
+	_, _, err = api.GetSFTPConnections(http.StatusInternalServerError)
+	if err == nil {
+		t.Errorf("get sftp connections request must succeed, we requested to check a wrong status code")
 	}
 }
 
 func TestCloseActiveSFTPConnection(t *testing.T) {
-	err := api.CloseSFTPConnection("non_existent_id", http.StatusNotFound)
+	_, err := api.CloseSFTPConnection("non_existent_id", http.StatusNotFound)
 	if err != nil {
 		t.Errorf("unexpected error closing non existent sftp connection: %v", err)
 	}
@@ -597,6 +613,14 @@ func TestStartQuotaScanMock(t *testing.T) {
 	if err == nil {
 		os.Remove(user.HomeDir)
 	}
+	// simulate a duplicate quota scan
+	userAsJSON = getUserAsJSON(t, user)
+	sftpd.AddQuotaScan(user.Username)
+	req, _ = http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer(userAsJSON))
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusConflict, rr.Code)
+	sftpd.RemoveQuotaScan(user.Username)
+
 	userAsJSON = getUserAsJSON(t, user)
 	req, _ = http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer(userAsJSON))
 	rr = executeRequest(req)

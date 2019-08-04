@@ -28,11 +28,11 @@ func TestGetRespStatus(t *testing.T) {
 }
 
 func TestCheckResponse(t *testing.T) {
-	err := checkResponse(200, 201, nil)
+	err := checkResponse(http.StatusOK, http.StatusCreated)
 	if err == nil {
 		t.Errorf("check must fail")
 	}
-	err = checkResponse(400, 400, nil)
+	err = checkResponse(http.StatusBadRequest, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("test must succeed, error: %v", err)
 	}
@@ -146,15 +146,19 @@ func TestApiCallsWithBadURL(t *testing.T) {
 	oldBaseURL := httpBaseURL
 	SetBaseURL(invalidURL)
 	u := dataprovider.User{}
-	_, err := UpdateUser(u, http.StatusBadRequest)
+	_, _, err := UpdateUser(u, http.StatusBadRequest)
 	if err == nil {
 		t.Errorf("request with invalid URL must fail")
 	}
-	err = RemoveUser(u, http.StatusNotFound)
+	_, err = RemoveUser(u, http.StatusNotFound)
 	if err == nil {
 		t.Errorf("request with invalid URL must fail")
 	}
-	err = CloseSFTPConnection("non_existent_id", http.StatusNotFound)
+	_, _, err = GetUsers(1, 0, "", http.StatusBadRequest)
+	if err == nil {
+		t.Errorf("request with invalid URL must fail")
+	}
+	_, err = CloseSFTPConnection("non_existent_id", http.StatusNotFound)
 	if err == nil {
 		t.Errorf("request with invalid URL must fail")
 	}
@@ -165,39 +169,39 @@ func TestApiCallToNotListeningServer(t *testing.T) {
 	oldBaseURL := httpBaseURL
 	SetBaseURL(inactiveURL)
 	u := dataprovider.User{}
-	_, err := AddUser(u, http.StatusBadRequest)
+	_, _, err := AddUser(u, http.StatusBadRequest)
 	if err == nil {
 		t.Errorf("request to an inactive URL must fail")
 	}
-	_, err = UpdateUser(u, http.StatusNotFound)
+	_, _, err = UpdateUser(u, http.StatusNotFound)
 	if err == nil {
 		t.Errorf("request to an inactive URL must fail")
 	}
-	err = RemoveUser(u, http.StatusNotFound)
+	_, err = RemoveUser(u, http.StatusNotFound)
 	if err == nil {
 		t.Errorf("request to an inactive URL must fail")
 	}
-	_, err = GetUserByID(-1, http.StatusNotFound)
+	_, _, err = GetUserByID(-1, http.StatusNotFound)
 	if err == nil {
 		t.Errorf("request to an inactive URL must fail")
 	}
-	_, err = GetUsers(100, 0, "", http.StatusOK)
+	_, _, err = GetUsers(100, 0, "", http.StatusOK)
 	if err == nil {
 		t.Errorf("request to an inactive URL must fail")
 	}
-	_, err = GetQuotaScans(http.StatusOK)
+	_, _, err = GetQuotaScans(http.StatusOK)
 	if err == nil {
 		t.Errorf("request to an inactive URL must fail")
 	}
-	err = StartQuotaScan(u, http.StatusNotFound)
+	_, err = StartQuotaScan(u, http.StatusNotFound)
 	if err == nil {
 		t.Errorf("request to an inactive URL must fail")
 	}
-	_, err = GetSFTPConnections(http.StatusOK)
+	_, _, err = GetSFTPConnections(http.StatusOK)
 	if err == nil {
 		t.Errorf("request to an inactive URL must fail")
 	}
-	err = CloseSFTPConnection("non_existent_id", http.StatusNotFound)
+	_, err = CloseSFTPConnection("non_existent_id", http.StatusNotFound)
 	if err == nil {
 		t.Errorf("request to an inactive URL must fail")
 	}

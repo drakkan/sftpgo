@@ -157,7 +157,7 @@ func TestBasicSFTPHandling(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.QuotaSize = 6553600
-	user, err := api.AddUser(u, http.StatusOK)
+	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestBasicSFTPHandling(t *testing.T) {
 		if err != nil {
 			t.Errorf("file download error: %v", err)
 		}
-		user, err = api.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = api.GetUserByID(user.ID, http.StatusOK)
 		if err != nil {
 			t.Errorf("error getting user: %v", err)
 		}
@@ -202,7 +202,7 @@ func TestBasicSFTPHandling(t *testing.T) {
 		if err == nil {
 			t.Errorf("stat for deleted file must not succeed")
 		}
-		user, err = api.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = api.GetUserByID(user.ID, http.StatusOK)
 		if err != nil {
 			t.Errorf("error getting user: %v", err)
 		}
@@ -213,7 +213,7 @@ func TestBasicSFTPHandling(t *testing.T) {
 			t.Errorf("quota size does not match, expected: %v, actual: %v", expectedQuotaSize-testFileSize, user.UsedQuotaSize)
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -221,7 +221,7 @@ func TestBasicSFTPHandling(t *testing.T) {
 
 func TestDirCommands(t *testing.T) {
 	usePubKey := false
-	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -278,7 +278,7 @@ func TestDirCommands(t *testing.T) {
 			t.Errorf("remove missing path must fail")
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -286,7 +286,7 @@ func TestDirCommands(t *testing.T) {
 
 func TestSymlink(t *testing.T) {
 	usePubKey := false
-	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -319,7 +319,7 @@ func TestSymlink(t *testing.T) {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -327,7 +327,7 @@ func TestSymlink(t *testing.T) {
 
 func TestStat(t *testing.T) {
 	usePubKey := false
-	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -375,7 +375,7 @@ func TestStat(t *testing.T) {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -384,7 +384,7 @@ func TestStat(t *testing.T) {
 // basic tests to verify virtual chroot, should be improved to cover more cases ...
 func TestEscapeHomeDir(t *testing.T) {
 	usePubKey := true
-	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -447,7 +447,7 @@ func TestEscapeHomeDir(t *testing.T) {
 		}
 		os.Remove(linkPath)
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -457,7 +457,7 @@ func TestHomeSpecialChars(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	u.HomeDir = filepath.Join(homeBasePath, "abc açà#&%lk")
-	user, err := api.AddUser(u, http.StatusOK)
+	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -493,7 +493,7 @@ func TestHomeSpecialChars(t *testing.T) {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -502,7 +502,7 @@ func TestHomeSpecialChars(t *testing.T) {
 func TestLogin(t *testing.T) {
 	u := getTestUser(false)
 	u.PublicKey = []string{testPubKey}
-	user, err := api.AddUser(u, http.StatusOK)
+	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -535,7 +535,7 @@ func TestLogin(t *testing.T) {
 	// testPubKey1 is not authorized
 	user.PublicKey = []string{testPubKey1}
 	user.Password = ""
-	_, err = api.UpdateUser(user, http.StatusOK)
+	_, _, err = api.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
 	}
@@ -547,7 +547,7 @@ func TestLogin(t *testing.T) {
 	// login a user with multiple public keys, only the second one is valid
 	user.PublicKey = []string{testPubKey1, testPubKey}
 	user.Password = ""
-	_, err = api.UpdateUser(user, http.StatusOK)
+	_, _, err = api.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
 	}
@@ -561,7 +561,7 @@ func TestLogin(t *testing.T) {
 			t.Errorf("sftp client with multiple public key must work if at least one public key is valid")
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -569,14 +569,14 @@ func TestLogin(t *testing.T) {
 
 func TestLoginAfterUserUpdateEmptyPwd(t *testing.T) {
 	usePubKey := false
-	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
 	user.Password = ""
 	user.PublicKey = []string{}
 	// password and public key should remain unchanged
-	_, err = api.UpdateUser(user, http.StatusOK)
+	_, _, err = api.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
 	}
@@ -594,7 +594,7 @@ func TestLoginAfterUserUpdateEmptyPwd(t *testing.T) {
 			t.Errorf("unable to read remote dir: %v", err)
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -602,14 +602,14 @@ func TestLoginAfterUserUpdateEmptyPwd(t *testing.T) {
 
 func TestLoginAfterUserUpdateEmptyPubKey(t *testing.T) {
 	usePubKey := true
-	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
 	user.Password = ""
 	user.PublicKey = []string{}
 	// password and public key should remain unchanged
-	_, err = api.UpdateUser(user, http.StatusOK)
+	_, _, err = api.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
 	}
@@ -627,7 +627,7 @@ func TestLoginAfterUserUpdateEmptyPubKey(t *testing.T) {
 			t.Errorf("unable to read remote dir: %v", err)
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -637,7 +637,7 @@ func TestMaxSessions(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.MaxSessions = 1
-	user, err := api.AddUser(u, http.StatusOK)
+	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -659,7 +659,7 @@ func TestMaxSessions(t *testing.T) {
 			t.Errorf("max sessions exceeded, new login should not succeed")
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -669,7 +669,7 @@ func TestQuotaFileReplace(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 1000
-	user, err := api.AddUser(u, http.StatusOK)
+	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -691,7 +691,7 @@ func TestQuotaFileReplace(t *testing.T) {
 		if err != nil {
 			t.Errorf("file upload error: %v", err)
 		}
-		user, err = api.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = api.GetUserByID(user.ID, http.StatusOK)
 		if err != nil {
 			t.Errorf("error getting user: %v", err)
 		}
@@ -700,7 +700,7 @@ func TestQuotaFileReplace(t *testing.T) {
 		if err != nil {
 			t.Errorf("file upload error: %v", err)
 		}
-		user, err = api.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = api.GetUserByID(user.ID, http.StatusOK)
 		if err != nil {
 			t.Errorf("error getting user: %v", err)
 		}
@@ -713,7 +713,7 @@ func TestQuotaFileReplace(t *testing.T) {
 	}
 	// now set a quota size restriction and upload the same fail, upload should fail for space limit exceeded
 	user.QuotaSize = testFileSize - 1
-	user, err = api.UpdateUser(user, http.StatusOK)
+	user, _, err = api.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("error updating user: %v", err)
 	}
@@ -730,7 +730,7 @@ func TestQuotaFileReplace(t *testing.T) {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -738,7 +738,7 @@ func TestQuotaFileReplace(t *testing.T) {
 
 func TestQuotaScan(t *testing.T) {
 	usePubKey := false
-	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -761,31 +761,31 @@ func TestQuotaScan(t *testing.T) {
 			t.Errorf("file upload error: %v", err)
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
 	// create user with the same home dir, so there is at least an untracked file
-	user, err = api.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err = api.AddUser(getTestUser(usePubKey), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
-	err = api.StartQuotaScan(user, http.StatusCreated)
+	_, err = api.StartQuotaScan(user, http.StatusCreated)
 	if err != nil {
 		t.Errorf("error starting quota scan: %v", err)
 	}
-	scans, err := api.GetQuotaScans(http.StatusOK)
+	scans, _, err := api.GetQuotaScans(http.StatusOK)
 	if err != nil {
 		t.Errorf("error getting active quota scans: %v", err)
 	}
 	for len(scans) > 0 {
-		scans, err = api.GetQuotaScans(http.StatusOK)
+		scans, _, err = api.GetQuotaScans(http.StatusOK)
 		if err != nil {
 			t.Errorf("error getting active quota scans: %v", err)
 			break
 		}
 	}
-	user, err = api.GetUserByID(user.ID, http.StatusOK)
+	user, _, err = api.GetUserByID(user.ID, http.StatusOK)
 	if err != nil {
 		t.Errorf("error getting user: %v", err)
 	}
@@ -795,7 +795,7 @@ func TestQuotaScan(t *testing.T) {
 	if expectedQuotaSize != user.UsedQuotaSize {
 		t.Errorf("quota size does not match after scan, expected: %v, actual: %v", expectedQuotaSize, user.UsedQuotaSize)
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -817,7 +817,7 @@ func TestQuotaSize(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 1
 	u.QuotaSize = testFileSize - 1
-	user, err := api.AddUser(u, http.StatusOK)
+	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -845,7 +845,7 @@ func TestQuotaSize(t *testing.T) {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -862,7 +862,7 @@ func TestBandwidthAndConnections(t *testing.T) {
 	// 100 ms tolerance
 	wantedUploadElapsed -= 100
 	wantedDownloadElapsed -= 100
-	user, err := api.AddUser(u, http.StatusOK)
+	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -916,7 +916,7 @@ func TestBandwidthAndConnections(t *testing.T) {
 			t.Errorf("connection closed upload must fail")
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -925,7 +925,7 @@ func TestBandwidthAndConnections(t *testing.T) {
 func TestMissingFile(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
-	user, err := api.AddUser(u, http.StatusOK)
+	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -940,7 +940,7 @@ func TestMissingFile(t *testing.T) {
 			t.Errorf("download missing file must fail")
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -949,7 +949,7 @@ func TestMissingFile(t *testing.T) {
 func TestOverwriteDirWithFile(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
-	user, err := api.AddUser(u, http.StatusOK)
+	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -991,7 +991,7 @@ func TestOverwriteDirWithFile(t *testing.T) {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -1002,7 +1002,7 @@ func TestPermList(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete, dataprovider.PermRename,
 		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
-	user, err := api.AddUser(u, http.StatusOK)
+	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -1020,7 +1020,7 @@ func TestPermList(t *testing.T) {
 			t.Errorf("stat remote file without permission should not succeed")
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -1031,7 +1031,7 @@ func TestPermDownload(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermUpload, dataprovider.PermDelete, dataprovider.PermRename,
 		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
-	user, err := api.AddUser(u, http.StatusOK)
+	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -1061,7 +1061,7 @@ func TestPermDownload(t *testing.T) {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -1072,7 +1072,7 @@ func TestPermUpload(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermDelete, dataprovider.PermRename,
 		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
-	user, err := api.AddUser(u, http.StatusOK)
+	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -1093,7 +1093,7 @@ func TestPermUpload(t *testing.T) {
 			t.Errorf("file upload without permission should not succeed")
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -1104,7 +1104,7 @@ func TestPermDelete(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermRename,
 		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
-	user, err := api.AddUser(u, http.StatusOK)
+	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -1129,7 +1129,7 @@ func TestPermDelete(t *testing.T) {
 			t.Errorf("delete without permission should not succeed")
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -1140,7 +1140,7 @@ func TestPermRename(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
 		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
-	user, err := api.AddUser(u, http.StatusOK)
+	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -1169,7 +1169,7 @@ func TestPermRename(t *testing.T) {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -1180,7 +1180,7 @@ func TestPermCreateDirs(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
 		dataprovider.PermRename, dataprovider.PermCreateSymlinks}
-	user, err := api.AddUser(u, http.StatusOK)
+	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -1205,7 +1205,7 @@ func TestPermCreateDirs(t *testing.T) {
 			t.Errorf("mkdir without permission should not succeed")
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -1216,7 +1216,7 @@ func TestPermSymlink(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
 		dataprovider.PermRename, dataprovider.PermCreateDirs}
-	user, err := api.AddUser(u, http.StatusOK)
+	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -1245,7 +1245,7 @@ func TestPermSymlink(t *testing.T) {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
@@ -1253,7 +1253,7 @@ func TestPermSymlink(t *testing.T) {
 
 func TestSSHConnection(t *testing.T) {
 	usePubKey := false
-	user, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
@@ -1261,7 +1261,7 @@ func TestSSHConnection(t *testing.T) {
 	if err == nil {
 		t.Errorf("ssh connection must fail: %v", err)
 	}
-	err = api.RemoveUser(user, http.StatusOK)
+	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
