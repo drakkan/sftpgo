@@ -202,6 +202,16 @@ Command:
 python sftpgo_api_cli.py start_quota_scan test_username
 ```
 
+Output:
+
+```json
+{
+  "status": 201, 
+  "message": "Scan started", 
+  "error": ""
+}
+```
+
 ### Delete user
 
 Command:

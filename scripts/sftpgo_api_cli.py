@@ -1,10 +1,13 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 import argparse
 import json
 
 import requests
 
-import urllib.parse as urlparse
+try:
+	import urllib.parse as urlparse
+except ImportError:
+	import urlparse
 
 
 class SFTPGoApiRequests:
@@ -116,7 +119,7 @@ if __name__ == '__main__':
 	subparsers = parser.add_subparsers(dest="command", help='sub-command --help')
 	subparsers.required = True
 
-	parserAddUser = subparsers.add_parser("add_user", help="Adds a new SFTP user")
+	parserAddUser = subparsers.add_parser("add_user", help="Add a new SFTP user")
 	addCommonUserArguments(parserAddUser)
 
 	parserUpdateUser = subparsers.add_parser("update_user", help="Update an existing user")
