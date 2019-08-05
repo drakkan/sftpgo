@@ -8,7 +8,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/drakkan/sftpgo/dataprovider"
@@ -33,6 +35,13 @@ func getHTTPClient() *http.Client {
 	}
 }
 
+func buildURLRelativeToBase(paths ...string) string {
+	// we need to use path.Join and not filepath.Join
+	// since filepath.Join will use backslash separator on Windows
+	p := path.Join(paths...)
+	return fmt.Sprintf("%s/%s", strings.TrimRight(httpBaseURL, "/"), strings.TrimLeft(p, "/"))
+}
+
 // AddUser adds a new user and checks the received HTTP Status code against expectedStatusCode.
 func AddUser(user dataprovider.User, expectedStatusCode int) (dataprovider.User, []byte, error) {
 	var newUser dataprovider.User
@@ -41,7 +50,7 @@ func AddUser(user dataprovider.User, expectedStatusCode int) (dataprovider.User,
 	if err != nil {
 		return newUser, body, err
 	}
-	resp, err := getHTTPClient().Post(httpBaseURL+userPath, "application/json", bytes.NewBuffer(userAsJSON))
+	resp, err := getHTTPClient().Post(buildURLRelativeToBase(userPath), "application/json", bytes.NewBuffer(userAsJSON))
 	if err != nil {
 		return newUser, body, err
 	}
@@ -70,7 +79,8 @@ func UpdateUser(user dataprovider.User, expectedStatusCode int) (dataprovider.Us
 	if err != nil {
 		return user, body, err
 	}
-	req, err := http.NewRequest(http.MethodPut, httpBaseURL+userPath+"/"+strconv.FormatInt(user.ID, 10), bytes.NewBuffer(userAsJSON))
+	req, err := http.NewRequest(http.MethodPut, buildURLRelativeToBase(userPath, strconv.FormatInt(user.ID, 10)),
+		bytes.NewBuffer(userAsJSON))
 	if err != nil {
 		return user, body, err
 	}
@@ -96,7 +106,7 @@ func UpdateUser(user dataprovider.User, expectedStatusCode int) (dataprovider.Us
 // RemoveUser removes an existing user and checks the received HTTP Status code against expectedStatusCode.
 func RemoveUser(user dataprovider.User, expectedStatusCode int) ([]byte, error) {
 	var body []byte
-	req, err := http.NewRequest(http.MethodDelete, httpBaseURL+userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
+	req, err := http.NewRequest(http.MethodDelete, buildURLRelativeToBase(userPath, strconv.FormatInt(user.ID, 10)), nil)
 	if err != nil {
 		return body, err
 	}
@@ -113,7 +123,7 @@ func RemoveUser(user dataprovider.User, expectedStatusCode int) ([]byte, error) 
 func GetUserByID(userID int64, expectedStatusCode int) (dataprovider.User, []byte, error) {
 	var user dataprovider.User
 	var body []byte
-	resp, err := getHTTPClient().Get(httpBaseURL + userPath + "/" + strconv.FormatInt(userID, 10))
+	resp, err := getHTTPClient().Get(buildURLRelativeToBase(userPath, strconv.FormatInt(userID, 10)))
 	if err != nil {
 		return user, body, err
 	}
@@ -134,7 +144,7 @@ func GetUserByID(userID int64, expectedStatusCode int) (dataprovider.User, []byt
 func GetUsers(limit int64, offset int64, username string, expectedStatusCode int) ([]dataprovider.User, []byte, error) {
 	var users []dataprovider.User
 	var body []byte
-	url, err := url.Parse(httpBaseURL + userPath)
+	url, err := url.Parse(buildURLRelativeToBase(userPath))
 	if err != nil {
 		return users, body, err
 	}
@@ -167,7 +177,7 @@ func GetUsers(limit int64, offset int64, username string, expectedStatusCode int
 func GetQuotaScans(expectedStatusCode int) ([]sftpd.ActiveQuotaScan, []byte, error) {
 	var quotaScans []sftpd.ActiveQuotaScan
 	var body []byte
-	resp, err := getHTTPClient().Get(httpBaseURL + quotaScanPath)
+	resp, err := getHTTPClient().Get(buildURLRelativeToBase(quotaScanPath))
 	if err != nil {
 		return quotaScans, body, err
 	}
@@ -188,7 +198,7 @@ func StartQuotaScan(user dataprovider.User, expectedStatusCode int) ([]byte, err
 	if err != nil {
 		return body, err
 	}
-	resp, err := getHTTPClient().Post(httpBaseURL+quotaScanPath, "application/json", bytes.NewBuffer(userAsJSON))
+	resp, err := getHTTPClient().Post(buildURLRelativeToBase(quotaScanPath), "application/json", bytes.NewBuffer(userAsJSON))
 	if err != nil {
 		return body, err
 	}
@@ -201,7 +211,7 @@ func StartQuotaScan(user dataprovider.User, expectedStatusCode int) ([]byte, err
 func GetSFTPConnections(expectedStatusCode int) ([]sftpd.ConnectionStatus, []byte, error) {
 	var connections []sftpd.ConnectionStatus
 	var body []byte
-	resp, err := getHTTPClient().Get(httpBaseURL + activeConnectionsPath)
+	resp, err := getHTTPClient().Get(buildURLRelativeToBase(activeConnectionsPath))
 	if err != nil {
 		return connections, body, err
 	}
@@ -218,7 +228,7 @@ func GetSFTPConnections(expectedStatusCode int) ([]sftpd.ConnectionStatus, []byt
 // CloseSFTPConnection closes an active SFTP connection identified by connectionID
 func CloseSFTPConnection(connectionID string, expectedStatusCode int) ([]byte, error) {
 	var body []byte
-	req, err := http.NewRequest(http.MethodDelete, httpBaseURL+activeConnectionsPath+"/"+connectionID, nil)
+	req, err := http.NewRequest(http.MethodDelete, buildURLRelativeToBase(activeConnectionsPath, connectionID), nil)
 	if err != nil {
 		return body, err
 	}
