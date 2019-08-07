@@ -3,7 +3,6 @@ import argparse
 import json
 
 import requests
-from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 
 try:
 	import urllib.parse as urlparse
@@ -13,17 +12,18 @@ except ImportError:
 
 class SFTPGoApiRequests:
 
-	def __init__(self, debug, baseUrl, authType, authUser, authPassword):
+	def __init__(self, debug, baseUrl, authType, authUser, authPassword, verify):
 		self.userPath = urlparse.urljoin(baseUrl, "/api/v1/user")
 		self.quotaScanPath = urlparse.urljoin(baseUrl, "/api/v1/quota_scan")
 		self.activeConnectionsPath = urlparse.urljoin(baseUrl, "/api/v1/sftp_connection")
 		self.debug = debug
 		if authType == "basic":
-			self.auth = HTTPBasicAuth(authUser, authPassword)
+			self.auth = requests.auth.HTTPBasicAuth(authUser, authPassword)
 		elif authType == "digest":
-			self.auth = HTTPDigestAuth(authUser, authPassword)
+			self.auth = requests.auth.HTTPDigestAuth(authUser, authPassword)
 		else:
 			self.auth = None
+		self.verify = verify
 
 	def formatAsJSON(self, text):
 		if not text:
@@ -55,18 +55,18 @@ class SFTPGoApiRequests:
 
 	def getUsers(self, limit=100, offset=0, order="ASC", username=""):
 		r = requests.get(self.userPath, params={"limit":limit, "offset":offset, "order":order,
-											"username":username}, auth=self.auth)
+											"username":username}, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
 	def getUserByID(self, user_id):
-		r = requests.get(urlparse.urljoin(self.userPath, "user/" + str(user_id)), auth=self.auth)
+		r = requests.get(urlparse.urljoin(self.userPath, "user/" + str(user_id)), auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
 	def addUser(self, username="", password="", public_key="", home_dir="", uid=0, gid=0, max_sessions=0,
 		quota_size=0, quota_files=0, permissions=[], upload_bandwidth=0, download_bandwidth=0):
 		u = self.buildUserObject(0, username, password, public_key, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, permissions, upload_bandwidth, download_bandwidth)
-		r = requests.post(self.userPath, json=u, auth=self.auth)
+		r = requests.post(self.userPath, json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
 	def updateUser(self, user_id, username="", password="", public_key="", home_dir="", uid=0, gid=0,
@@ -74,15 +74,15 @@ class SFTPGoApiRequests:
 				download_bandwidth=0):
 		u = self.buildUserObject(user_id, username, password, public_key, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, permissions, upload_bandwidth, download_bandwidth)
-		r = requests.put(urlparse.urljoin(self.userPath, "user/" + str(user_id)), json=u, auth=self.auth)
+		r = requests.put(urlparse.urljoin(self.userPath, "user/" + str(user_id)), json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
 	def deleteUser(self, user_id):
-		r = requests.delete(urlparse.urljoin(self.userPath, "user/" + str(user_id)), auth=self.auth)
+		r = requests.delete(urlparse.urljoin(self.userPath, "user/" + str(user_id)), auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
 	def getSFTPConnections(self):
-		r = requests.get(self.activeConnectionsPath, auth=self.auth)
+		r = requests.get(self.activeConnectionsPath, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
 	def closeSFTPConnection(self, connectionID):
@@ -90,12 +90,12 @@ class SFTPGoApiRequests:
 		self.printResponse(r)
 
 	def getQuotaScans(self):
-		r = requests.get(self.quotaScanPath, auth=self.auth)
+		r = requests.get(self.quotaScanPath, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
 	def startQuotaScan(self, username):
 		u = self.buildUserObject(0, username)
-		r = requests.post(self.quotaScanPath, json=u, auth=self.auth)
+		r = requests.post(self.quotaScanPath, json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
 
@@ -120,7 +120,7 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	parser.add_argument("--base_url", type=str, default="http://127.0.0.1:8080",
 					help="Base URL for SFTPGo REST API. Default: %(default)s")
-	parser.add_argument("--auth_type", type=str, default="", choices=["", "basic", "digest"],
+	parser.add_argument("--auth_type", type=str, default=None, choices=["basic", "digest"],
 					help="Authentication type to use. Default: %(default)s")
 	parser.add_argument("--auth_user", type=str, default="",
 					help="User to use for authentication. Default: %(default)s")
@@ -128,6 +128,9 @@ if __name__ == '__main__':
 					help="Password to use for authentication. Default: %(default)s")
 	parser.add_argument("--debug", dest='debug', action='store_true')
 	parser.set_defaults(debug=False)
+	parser.add_argument("--verify", dest='verify', action='store_true',
+					help="Set to false to ignore verifying the SSL certificate")
+	parser.set_defaults(verify=True)
 
 	subparsers = parser.add_subparsers(dest="command", help='sub-command --help')
 	subparsers.required = True
@@ -164,7 +167,7 @@ if __name__ == '__main__':
 
 	args = parser.parse_args()
 
-	api = SFTPGoApiRequests(args.debug, args.base_url, args.auth_type, args.auth_user, args.auth_password)
+	api = SFTPGoApiRequests(args.debug, args.base_url, args.auth_type, args.auth_user, args.auth_password, args.verify)
 
 	if args.command == "add_user":
 		api.addUser(args.username, args.password, args.public_key, args.home_dir,

@@ -174,9 +174,9 @@ If you want to use a private key that use an algorithm different from RSA or mor
 ]
 ```
 
-The configuration can be read from JSON, TOML, YAML, HCL, envfile and Java properties config files, if your config-file flag is set to `sftpgo` (default value) you need to create a configuration file called `sftpgo.json` or `sftpgo.yaml` and so on inside `config-dir`.
+The configuration can be read from JSON, TOML, YAML, HCL, envfile and Java properties config files, if your `config-file` flag is set to `sftpgo` (default value) you need to create a configuration file called `sftpgo.json` or `sftpgo.yaml` and so on inside `config-dir`.
 
-You can also configure all the available options using environment variables, sftpgo will check for a environment variable with a name matching the key uppercased and prefixed with the `SFTPGO_`. You need to use `__` to traverse a struct. 
+You can also configure all the available options using environment variables, sftpgo will check for environment variables with a name matching the key uppercased and prefixed with the `SFTPGO_`. You need to use `__` to traverse a struct.
 
 Let's see some examples:
 
@@ -234,7 +234,7 @@ and you can add authentication with something like this:
 
 ```
 <Location /api/v1>
-	AuthType Digest 
+	AuthType Digest
 	AuthName "Private"
 	AuthBasicProvider file
 	AuthUserFile "/etc/httpd/conf/auth_digest"

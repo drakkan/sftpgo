@@ -11,7 +11,11 @@ python sftpgo_api_cli.py --help
 Basically there is a subcommand for each REST API and a two global arguments:
 
  - `debug`, default disabled, print useful debug info.
- - `base_url`, default `http://127.0.0.1:8080`. Base URL for SFTPGo REST API 
+ - `base_url`, default `http://127.0.0.1:8080`. Base URL for SFTPGo REST API
+ - `auth_type` supported auth type are `basic` and `digest`. Default none
+ - `auth_user`
+ - `auth_password`
+ - `verify`, disable to ignore verifying the SSL certificate. Default enabled
 
 For each subcommand `--help` shows the required arguments, try for example:
 
@@ -206,8 +210,8 @@ Output:
 
 ```json
 {
-  "status": 201, 
-  "message": "Scan started", 
+  "status": 201,
+  "message": "Scan started",
   "error": ""
 }
 ```
