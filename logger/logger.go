@@ -11,6 +11,7 @@ package logger
 import (
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/rs/zerolog"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
@@ -44,7 +45,7 @@ func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge
 	consoleOutput := zerolog.ConsoleWriter{
 		Out:        os.Stdout,
 		TimeFormat: dateFormat,
-		NoColor:    true,
+		NoColor:    runtime.GOOS == "windows",
 	}
 	consoleLogger = zerolog.New(consoleOutput).With().Timestamp().Logger().Level(level)
 }

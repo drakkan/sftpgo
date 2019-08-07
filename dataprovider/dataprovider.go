@@ -44,37 +44,37 @@ var (
 // Config provider configuration
 type Config struct {
 	// Driver name, must be one of the SupportedProviders
-	Driver string `json:"driver"`
+	Driver string `json:"driver" mapstructure:"driver"`
 	// Database name
-	Name string `json:"name"`
+	Name string `json:"name" mapstructure:"name"`
 	// Database host
-	Host string `json:"host"`
+	Host string `json:"host" mapstructure:"host"`
 	// Database port
-	Port int `json:"port"`
+	Port int `json:"port" mapstructure:"port"`
 	// Database username
-	Username string `json:"username"`
+	Username string `json:"username" mapstructure:"username"`
 	// Database password
-	Password string `json:"password"`
+	Password string `json:"password" mapstructure:"password"`
 	// Used for drivers mysql and postgresql.
 	// 0 disable SSL/TLS connections.
 	// 1 require ssl.
 	// 2 set ssl mode to verify-ca for driver postgresql and skip-verify for driver mysql.
 	// 3 set ssl mode to verify-full for driver postgresql and preferred for driver mysql.
-	SSLMode int `json:"sslmode"`
+	SSLMode int `json:"sslmode" mapstructure:"sslmode"`
 	// Custom database connection string.
 	// If not empty this connection string will be used instead of build one using the previous parameters
-	ConnectionString string `json:"connection_string"`
+	ConnectionString string `json:"connection_string" mapstructure:"connection_string"`
 	// Database table for SFTP users
-	UsersTable string `json:"users_table"`
+	UsersTable string `json:"users_table" mapstructure:"users_table"`
 	// Set to 0 to disable users management, 1 to enable
-	ManageUsers int `json:"manage_users"`
+	ManageUsers int `json:"manage_users" mapstructure:"manage_users"`
 	// Set the preferred way to track users quota between the following choices:
 	// 0, disable quota tracking. REST API to scan user dir and update quota will do nothing
 	// 1, quota is updated each time a user upload or delete a file even if the user has no quota restrictions
 	// 2, quota is updated each time a user upload or delete a file but only for users with quota restrictions.
 	//    With this configuration the "quota scan" REST API can still be used to periodically update space usage
 	//    for users without quota restrictions
-	TrackQuota int `json:"track_quota"`
+	TrackQuota int `json:"track_quota" mapstructure:"track_quota"`
 }
 
 // ValidationError raised if input data is not valid

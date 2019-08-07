@@ -28,9 +28,9 @@ var (
 // HTTPDConf httpd daemon configuration
 type HTTPDConf struct {
 	// The port used for serving HTTP requests. 0 disable the HTTP server. Default: 8080
-	BindPort int `json:"bind_port"`
+	BindPort int `json:"bind_port" mapstructure:"bind_port"`
 	// The address to listen on. A blank value means listen on all available network interfaces. Default: "127.0.0.1"
-	BindAddress string `json:"bind_address"`
+	BindAddress string `json:"bind_address" mapstructure:"bind_address"`
 }
 
 type apiResponse struct {

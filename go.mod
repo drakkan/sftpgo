@@ -14,6 +14,8 @@ require (
 	github.com/pkg/sftp v1.10.0
 	github.com/rs/xid v1.2.1
 	github.com/rs/zerolog v1.14.3
+	github.com/spf13/cobra v0.0.5
+	github.com/spf13/viper v1.4.0
 	github.com/stretchr/testify v1.3.0 // indirect
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0

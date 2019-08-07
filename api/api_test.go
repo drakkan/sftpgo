@@ -51,10 +51,8 @@ func TestMain(m *testing.M) {
 	}
 	configDir := ".."
 	logfilePath := filepath.Join(configDir, "sftpgo_api_test.log")
-	confName := "sftpgo.conf"
 	logger.InitLogger(logfilePath, 5, 1, 28, false, zerolog.DebugLevel)
-	configFilePath := filepath.Join(configDir, confName)
-	config.LoadConfig(configFilePath)
+	config.LoadConfig(configDir, "")
 	providerConf := config.GetProviderConf()
 
 	err := dataprovider.Initialize(providerConf, configDir)

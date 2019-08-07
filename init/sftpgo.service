@@ -10,7 +10,7 @@ WorkingDirectory=/etc/sftpgo
 Environment=SFTPGO_CONFIG_DIR=/etc/sftpgo/
 Environment=SFTPGO_LOG_FILE_PATH=/var/log/sftpgo.log
 EnvironmentFile=-/etc/sftpgo/sftpgo.env
-ExecStart=/usr/bin/sftpgo
+ExecStart=/usr/bin/sftpgo serve
 KillMode=mixed
 Restart=always
 RestartSec=10s

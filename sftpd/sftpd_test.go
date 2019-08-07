@@ -74,19 +74,17 @@ RLFFQ/5nclJSdzPBOmQouC0OBcMFSrYtMeknJ4VvueVvve5HcHFaEsaMc7ABAGaLYaBQOm
 iixITGvaNZh/tjAAAACW5pY29sYUBwMQE=
 -----END OPENSSH PRIVATE KEY-----`
 	configDir = ".."
-	confName  = "sftpgo.conf"
 )
 
 var (
-	allPerms       = []string{dataprovider.PermAny}
-	homeBasePath   string
-	configFilePath = filepath.Join(configDir, confName)
+	allPerms     = []string{dataprovider.PermAny}
+	homeBasePath string
 )
 
 func TestMain(m *testing.M) {
 	logfilePath := filepath.Join(configDir, "sftpgo_sftpd_test.log")
 	logger.InitLogger(logfilePath, 5, 1, 28, false, zerolog.DebugLevel)
-	config.LoadConfig(configFilePath)
+	config.LoadConfig(configDir, "")
 	providerConf := config.GetProviderConf()
 
 	err := dataprovider.Initialize(providerConf, configDir)
@@ -144,7 +142,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestInitialization(t *testing.T) {
-	config.LoadConfig(configFilePath)
+	config.LoadConfig(configDir, "")
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.Umask = "invalid umask"
 	err := sftpdConf.Initialize(configDir)

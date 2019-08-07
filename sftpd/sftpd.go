@@ -64,11 +64,11 @@ type ActiveQuotaScan struct {
 // An external command can be executed and/or an HTTP notification can be fired
 type Actions struct {
 	// Valid values are download, upload, delete, rename. Empty slice to disable
-	ExecuteOn []string `json:"execute_on"`
+	ExecuteOn []string `json:"execute_on" mapstructure:"execute_on"`
 	// Absolute path to the command to execute, empty to disable
-	Command string `json:"command"`
+	Command string `json:"command" mapstructure:"command"`
 	// The URL to notify using an HTTP GET, empty to disable
-	HTTPNotificationURL string `json:"http_notification_url"`
+	HTTPNotificationURL string `json:"http_notification_url" mapstructure:"http_notification_url"`
 }
 
 // ConnectionStatus status for an active connection

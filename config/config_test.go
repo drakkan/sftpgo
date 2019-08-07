@@ -14,11 +14,13 @@ import (
 	"github.com/drakkan/sftpgo/sftpd"
 )
 
+const (
+	tempConfigName = "temp"
+)
+
 func TestLoadConfigTest(t *testing.T) {
 	configDir := ".."
-	confName := "sftpgo.conf"
-	configFilePath := filepath.Join(configDir, confName)
-	err := config.LoadConfig(configFilePath)
+	err := config.LoadConfig(configDir, "")
 	if err != nil {
 		t.Errorf("error loading config")
 	}
@@ -34,25 +36,30 @@ func TestLoadConfigTest(t *testing.T) {
 	if config.GetSFTPDConfig().BindPort == emptySFTPDConf.BindPort {
 		t.Errorf("error loading SFTPD conf")
 	}
-	confName = "sftpgo.conf.missing"
-	configFilePath = filepath.Join(configDir, confName)
-	err = config.LoadConfig(configFilePath)
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+	err = config.LoadConfig(configDir, tempConfigName)
 	if err == nil {
 		t.Errorf("loading a non existent config file must fail")
 	}
 	ioutil.WriteFile(configFilePath, []byte("{invalid json}"), 0666)
-	err = config.LoadConfig(configFilePath)
+	err = config.LoadConfig(configDir, tempConfigName)
 	if err == nil {
 		t.Errorf("loading an invalid config file must fail")
+	}
+	ioutil.WriteFile(configFilePath, []byte("{\"sftpd\": {\"bind_port\": \"a\"}}"), 0666)
+	err = config.LoadConfig(configDir, tempConfigName)
+	if err == nil {
+		t.Errorf("loading a config with an invalid bond_port must fail")
 	}
 	os.Remove(configFilePath)
 }
 
 func TestEmptyBanner(t *testing.T) {
 	configDir := ".."
-	confName := "temp.conf"
+	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
-	config.LoadConfig(configFilePath)
+	config.LoadConfig(configDir, "")
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.Banner = " "
 	c := make(map[string]sftpd.Configuration)
@@ -62,7 +69,7 @@ func TestEmptyBanner(t *testing.T) {
 	if err != nil {
 		t.Errorf("error saving temporary configuration")
 	}
-	config.LoadConfig(configFilePath)
+	config.LoadConfig(configDir, tempConfigName)
 	sftpdConf = config.GetSFTPDConfig()
 	if strings.TrimSpace(sftpdConf.Banner) == "" {
 		t.Errorf("SFTPD banner cannot be empty")
@@ -72,9 +79,9 @@ func TestEmptyBanner(t *testing.T) {
 
 func TestInvalidUploadMode(t *testing.T) {
 	configDir := ".."
-	confName := "temp.conf"
+	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
-	config.LoadConfig(configFilePath)
+	config.LoadConfig(configDir, "")
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.UploadMode = 10
 	c := make(map[string]sftpd.Configuration)
@@ -84,7 +91,7 @@ func TestInvalidUploadMode(t *testing.T) {
 	if err != nil {
 		t.Errorf("error saving temporary configuration")
 	}
-	err = config.LoadConfig(configFilePath)
+	err = config.LoadConfig(configDir, tempConfigName)
 	if err == nil {
 		t.Errorf("Loading configuration with invalid upload_mode must fail")
 	}

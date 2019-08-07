@@ -25,12 +25,12 @@ func initializeMySQLProvider() error {
 	dbHandle, err = sql.Open("mysql", connectionString)
 	if err == nil {
 		numCPU := runtime.NumCPU()
-		logger.Debug(logSender, "mysql database handle created, connection string: \"%v\", pool size: %v", connectionString, numCPU)
+		logger.Debug(logSender, "mysql database handle created, connection string: '%v', pool size: %v", connectionString, numCPU)
 		dbHandle.SetMaxIdleConns(numCPU)
 		dbHandle.SetMaxOpenConns(numCPU)
 		dbHandle.SetConnMaxLifetime(1800 * time.Second)
 	} else {
-		logger.Warn(logSender, "error creating mysql database handler, connection string: \"%v\", error: %v", connectionString, err)
+		logger.Warn(logSender, "error creating mysql database handler, connection string: '%v', error: %v", connectionString, err)
 	}
 	return err
 }

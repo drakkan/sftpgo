@@ -48,16 +48,31 @@ Alternately you can use distro packages:
 
 ## Configuration
 
-The `sftpgo` executable supports the following command line flags:
+The `sftpgo` executable can be used this way:
 
-- `--config-dir` string. Location of the config dir. This directory should contain the `sftpgo.conf` configuration file and is used as the base for files with a relative path (eg. the private keys for the SFTP server, the SQLite database if you use SQLite as data provider). The default value is "." or the value of `SFTPGO_CONFIG_DIR` environment variable
-- `--config-file-name` string. Name of the configuration file. It must be the name of a file stored in config-dir not the absolute path to the configuration file. The default value is "sftpgo.conf" or the value of `SFTPGO_CONFIG_FILE_NAME` environment variable
+```bash
+Usage:
+  sftpgo [command]
+
+Available Commands:
+  help        Help about any command
+  serve       Start the SFTP Server
+
+Flags:
+  -h, --help      help for sftpgo
+  -v, --version
+```
+
+The `serve` subcommand supports the following flags:
+
+- `--config-dir` string. Location of the config dir. This directory should contain the `sftpgo` configuration file and is used as the base for files with a relative path (eg. the private keys for the SFTP server, the SQLite database if you use SQLite as data provider). The default value is "." or the value of `SFTPGO_CONFIG_DIR` environment variable.
+- `--config-file` string. Name of the configuration file. It must be the name of a file stored in config-dir not the absolute path to the configuration file. The specified file name must have no extension we automatically load JSON, YAML, TOML, HCL and Java properties. The default value is "sftpgo" (and therefore `sftpgo.json`, `sftpgo.yaml` and so on are searched) or the value of `SFTPGO_CONFIG_FILE` environment variable
+- `--log-compress` boolean. Determine if the rotated log files should be compressed using gzip. Default `false` or the value of `SFTPGO_LOG_COMPRESS` environment variable (1 or `true`, 0 or `false`)
 - `--log-file-path` string. Location for the log file, default "sftpgo.log" or the value of `SFTPGO_LOG_FILE_PATH` environment variable
-- `--log-max-size` int. Maximum size in megabytes of the log file before it gets rotated. Default 10 or the value of `SFTPGO_LOG_MAX_SIZE` environment variable
-- `--log-max-backups` int. Maximum number of old log files to retain. Default 5 or the value of `SFTPGO_LOG_MAX_BACKUPS` environment variable
 - `--log-max-age` int. Maximum number of days to retain old log files. Default 28 or the value of `SFTPGO_LOG_MAX_AGE` environment variable
-- `--log-compress` boolean. Determine if the rotated log files should be compressed using gzip. Default `false` or the integer value of `SFTPGO_LOG_COMPRESS` environment variable (> 0 is `true`, 0 or invalid integer is `false`)
-- `--log-verbose` boolean. Enable verbose logs. Default `true` or the integer value of `SFTPGO_LOG_VERBOSE` environment variable (> 0 is `true`, 0 or invalid integer is `false`)
+- `--log-max-backups` int. Maximum number of old log files to retain. Default 5 or the value of `SFTPGO_LOG_MAX_BACKUPS` environment variable
+- `--log-max-size` int. Maximum size in megabytes of the log file before it gets rotated. Default 10 or the value of `SFTPGO_LOG_MAX_SIZE` environment variable
+- `--log-verbose` boolean. Enable verbose logs. Default `true` or the value of `SFTPGO_LOG_VERBOSE` environment variable (1 or `true`, 0 or `false`)
 
 If you don't configure any private host keys, the daemon will use `id_rsa` in the configuration directory. If that file doesn't exist, the daemon will attempt to autogenerate it (if the user that executes SFTPGo has write access to the config-dir). The server supports any private key format supported by [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/keys.go#L32).
 
@@ -65,7 +80,7 @@ Before starting `sftpgo` a dataprovider must be configured.
 
 Sample SQL scripts to create the required database structure can be found insite the source tree [sql](https://github.com/drakkan/sftpgo/tree/master/sql "sql") directory. The SQL scripts filename's is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190706.sql` must be applied before `20190728.sql` and so on.
 
-The `sftpgo.conf` configuration file contains the following sections:
+The `sftpgo` configuration file contains the following sections:
 
 - **"sftpd"**, the configuration for the SFTP server
     - `bind_port`, integer. The port used for serving SFTP requests. Default: 2022
@@ -108,7 +123,7 @@ The `sftpgo.conf` configuration file contains the following sections:
     - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 8080
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"
 
-Here is a full example showing the default config:
+Here is a full example showing the default config in json format:
 
 ```json
 {
@@ -159,6 +174,21 @@ If you want to use a private key that use an algorithm different from RSA or mor
 ]
 ```
 
+The configuration can be read from JSON, TOML, YAML, HCL, envfile and Java properties config files, if your config-file flag is set to `sftpgo` (default value) you need to create a configuration file called `sftpgo.json` or `sftpgo.yaml` and so on inside `config-dir`.
+
+You can also configure all the available options using environment variables, sftpgo will check for a environment variable with a name matching the key uppercased and prefixed with the `SFTPGO_`. You need to use `__` to traverse a struct. 
+
+Let's see some examples:
+
+- To set sftpd `bind_port` you need to define the env var `SFTPGO_SFTPD__BIND_PORT`
+- To set the `execute_on` actions you need to define the env var `SFTPGO_SFTPD__ACTIONS__EXECUTE_ON` for example `SFTPGO_SFTPD__ACTIONS__EXECUTE_ON=upload,download`
+
+To start the SFTP Server with the default values for the command line flags simply use:
+
+```bash
+sftpgo serve
+```
+
 ## Account's configuration properties
 
 For each account the following properties can be configured:
@@ -183,19 +213,42 @@ For each account the following properties can be configured:
 - `upload_bandwidth` maximum upload bandwidth as KB/s, 0 means unlimited
 - `download_bandwidth` maximum download bandwidth as KB/s, 0 means unlimited
 
-These properties are stored inside the data provider. If you want to use your existing accounts, you can create a database view. Since a view is read only, you have to disable user management and quota tracking so sftpgo will never try to write to the view.
+These properties are stored inside the data provider. If you want to use your existing accounts, you can create a database view. Since a view is read only, you have to disable user management and quota tracking so SFTPGo will never try to write to the view.
 
 ## REST API
 
 SFTPGo exposes REST API to manage users and quota and to get real time reports for the active connections with possibility of forcibly closing a connection.
 
-If quota tracking is enabled in `sftpgo.conf` configuration file, then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP or if you change `track_quota` from `2` to `1`, you can rescan the user home dir and update the used quota using the REST API.
+If quota tracking is enabled in `sftpgo` configuration file, then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP or if you change `track_quota` from `2` to `1`, you can rescan the user home dir and update the used quota using the REST API.
 
-REST API is designed to run on localhost or on a trusted network, if you need https or authentication you can setup a reverse proxy using an HTTP Server such as Apache or NGNIX.
+REST API is designed to run on localhost or on a trusted network, if you need HTTPS or authentication you can setup a reverse proxy using an HTTP Server such as Apache or NGNIX.
+
+For example you can setup a reverse proxy using apache this way:
+
+```
+ProxyPass /api/v1 http://127.0.0.1:8080/api/v1
+ProxyPassReverse /api/v1 http://127.0.0.1:8080/api/v1
+```
+
+and you can add authentication with something like this:
+
+```
+<Location /api/v1>
+	AuthType Digest 
+	AuthName "Private"
+	AuthBasicProvider file
+	AuthUserFile "/etc/httpd/conf/auth_digest"
+	Require valid-user
+</Location>
+```
+
+and, of course, you can configure the web server to use HTTPS.
 
 The OpenAPI 3 schema for the exposed API can be found inside the source tree: [openapi.yaml](https://github.com/drakkan/sftpgo/tree/master/api/schema/openapi.yaml "OpenAPI 3 specs").
 
 A sample CLI client for the REST API can be found inside the source tree [scripts](https://github.com/drakkan/sftpgo/tree/master/scripts "scripts") directory.
+
+You can also generate your own REST client using an OpenAPI generator such as [swagger-codegen](https://github.com/swagger-api/swagger-codegen) or [OpenAPI Generator](https://openapi-generator.tech/)
 
 ## Logs
 
@@ -247,6 +300,8 @@ The logs can be divided into the following categories:
 - [go-sqlite3](https://github.com/mattn/go-sqlite3)
 - [go-sql-driver/mysql](https://github.com/go-sql-driver/mysql)
 - [lib/pq](https://github.com/lib/pq)
+- [viper](https://github.com/spf13/viper)
+- [cobra](https://github.com/spf13/cobra)
 
 Some code was initially taken from [Pterodactyl sftp server](https://github.com/pterodactyl/sftp-server)
 

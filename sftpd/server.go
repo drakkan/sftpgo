@@ -30,34 +30,34 @@ const defaultPrivateKeyName = "id_rsa"
 // Configuration for the SFTP server
 type Configuration struct {
 	// Identification string used by the server
-	Banner string `json:"banner"`
+	Banner string `json:"banner" mapstructure:"banner"`
 	// The port used for serving SFTP requests
-	BindPort int `json:"bind_port"`
+	BindPort int `json:"bind_port" mapstructure:"bind_port"`
 	// The address to listen on. A blank value means listen on all available network interfaces.
-	BindAddress string `json:"bind_address"`
+	BindAddress string `json:"bind_address" mapstructure:"bind_address"`
 	// Maximum idle timeout as minutes. If a client is idle for a time that exceeds this setting it will be disconnected
-	IdleTimeout int `json:"idle_timeout"`
+	IdleTimeout int `json:"idle_timeout" mapstructure:"idle_timeout"`
 	// Maximum number of authentication attempts permitted per connection.
 	// If set to a negative number, the number of attempts are unlimited.
 	// If set to zero, the number of attempts are limited to 6.
-	MaxAuthTries int `json:"max_auth_tries"`
+	MaxAuthTries int `json:"max_auth_tries" mapstructure:"max_auth_tries"`
 	// Umask for new files
-	Umask string `json:"umask"`
+	Umask string `json:"umask" mapstructure:"umask"`
 	// UploadMode 0 means standard, the files are uploaded directly to the requested path.
 	// 1 means atomic: the files are uploaded to a temporary path and renamed to the requested path
 	// when the client ends the upload. Atomic mode avoid problems such as a web server that
 	// serves partial files when the files are being uploaded.
-	UploadMode int `json:"upload_mode"`
+	UploadMode int `json:"upload_mode" mapstructure:"upload_mode"`
 	// Actions to execute on SFTP create, download, delete and rename
-	Actions Actions `json:"actions"`
+	Actions Actions `json:"actions" mapstructure:"actions"`
 	// Keys are a list of host keys
-	Keys []Key `json:"keys"`
+	Keys []Key `json:"keys" mapstructure:"keys"`
 }
 
 // Key contains information about host keys
 type Key struct {
 	// The private key path relative to the configuration directory or absolute
-	PrivateKey string `json:"private_key"`
+	PrivateKey string `json:"private_key" mapstructure:"private_key"`
 }
 
 // Initialize the SFTP server and add a persistent listener to handle inbound SFTP connections.

@@ -5,13 +5,18 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"time"
 
 	"github.com/drakkan/sftpgo/logger"
 )
 
 const logSender = "utils"
+
+var (
+	version = "dev"
+	commit  = ""
+	date    = ""
+)
 
 // IsStringInSlice searches a string in a slice and returns true if the string is found
 func IsStringInSlice(obj string, list []string) bool {
@@ -71,22 +76,14 @@ func SetPathPermissions(path string, uid int, gid int) {
 	}
 }
 
-// GetEnvVar retrieves the value of the environment variable named
-// by the key. If the variable is present in the environment the it
-// returns the fallback value
-func GetEnvVar(key, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
+// GetAppVersion returns the app version
+func GetAppVersion() string {
+	v := version
+	if len(commit) > 0 {
+		v += "-" + commit
 	}
-	return fallback
-}
-
-// GetEnvVarAsInt retrieves the value of the environment variable named
-// by the key and returns its value or fallback
-func GetEnvVarAsInt(key string, fallback int) int {
-	stringValue := GetEnvVar(key, strconv.Itoa(fallback))
-	if value, err := strconv.Atoi(stringValue); err == nil {
-		return value
+	if len(date) > 0 {
+		v += "-" + date
 	}
-	return fallback
+	return v
 }

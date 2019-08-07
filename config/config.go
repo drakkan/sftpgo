@@ -6,20 +6,26 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
+	"runtime"
 	"strings"
 
 	"github.com/drakkan/sftpgo/api"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
+	"github.com/spf13/viper"
 )
 
 const (
 	logSender     = "config"
 	defaultBanner = "SFTPGo"
+	// DefaultConfigName defines the name for the default config file.
+	// This is the file name without extension, we use viper and so we
+	// support all the config files format supported by viper
+	DefaultConfigName = "sftpgo"
+	// ConfigEnvPrefix defines a prefix that ENVIRONMENT variables will use
+	configEnvPrefix = "sftpgo"
 )
 
 var (
@@ -27,9 +33,9 @@ var (
 )
 
 type globalConfig struct {
-	SFTPD        sftpd.Configuration `json:"sftpd"`
-	ProviderConf dataprovider.Config `json:"data_provider"`
-	HTTPDConfig  api.HTTPDConf       `json:"httpd"`
+	SFTPD        sftpd.Configuration `json:"sftpd" mapstructure:"sftpd"`
+	ProviderConf dataprovider.Config `json:"data_provider" mapstructure:"data_provider"`
+	HTTPDConfig  api.HTTPDConf       `json:"httpd" mapstructure:"httpd"`
 }
 
 func init() {
@@ -68,6 +74,17 @@ func init() {
 			BindAddress: "127.0.0.1",
 		},
 	}
+
+	viper.SetEnvPrefix(configEnvPrefix)
+	replacer := strings.NewReplacer(".", "__")
+	viper.SetEnvKeyReplacer(replacer)
+	viper.SetConfigName(DefaultConfigName)
+	if runtime.GOOS == "linux" {
+		viper.AddConfigPath("$HOME/.config/sftpgo")
+		viper.AddConfigPath("/etc/sftpgo")
+	}
+	viper.AddConfigPath(".")
+	viper.AutomaticEnv()
 }
 
 // GetSFTPDConfig returns the configuration for the SFTP server
@@ -85,17 +102,21 @@ func GetProviderConf() dataprovider.Config {
 	return globalConf.ProviderConf
 }
 
-// LoadConfig loads the configuration from sftpgo.conf or use the default configuration.
-func LoadConfig(configPath string) error {
-	logger.Debug(logSender, "load config from path: %v", configPath)
-	file, err := os.Open(configPath)
-	if err != nil {
+// LoadConfig loads the configuration
+// configDir will be added to the configuration search paths.
+// The search path contains by default the current directory and on linux it contains
+// $HOME/.config/sftpgo and /etc/sftpgo too.
+// configName is the name of the configuration to search without extension
+func LoadConfig(configDir, configName string) error {
+	var err error
+	viper.AddConfigPath(configDir)
+	viper.SetConfigName(configName)
+	if err = viper.ReadInConfig(); err != nil {
 		logger.Warn(logSender, "error loading configuration file: %v. Default configuration will be used: %+v", err, globalConf)
 		logger.WarnToConsole("error loading configuration file: %v. Default configuration will be used.", err)
 		return err
 	}
-	defer file.Close()
-	err = json.NewDecoder(file).Decode(&globalConf)
+	err = viper.Unmarshal(&globalConf)
 	if err != nil {
 		logger.Warn(logSender, "error parsing configuration file: %v. Default configuration will be used: %+v", err, globalConf)
 		logger.WarnToConsole("error parsing configuration file: %v. Default configuration will be used.", err)
@@ -111,6 +132,6 @@ func LoadConfig(configPath string) error {
 		logger.Warn(logSender, "Configuration error: %v", err)
 		logger.WarnToConsole("Configuration error: %v", err)
 	}
-	logger.Debug(logSender, "config loaded: %+v", globalConf)
+	logger.Debug(logSender, "config file used: '%v', config loaded: %+v", viper.ConfigFileUsed(), globalConf)
 	return err
 }
