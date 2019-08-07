@@ -39,8 +39,8 @@ type User struct {
 	// Currently, as fallback, there is a clear text password checking but you should not store passwords
 	// as clear text and this support could be removed at any time, so please don't depend on it.
 	Password string `json:"password,omitempty"`
-	// PublicKey used for public key authentication. At least one between password and a public key is mandatory
-	PublicKey []string `json:"public_key,omitempty"`
+	// PublicKeys used for public key authentication. At least one between password and a public key is mandatory
+	PublicKeys []string `json:"public_keys,omitempty"`
 	// The user cannot upload or download files outside this directory. Must be an absolute path
 	HomeDir string `json:"home_dir"`
 	// If sftpgo runs as root system user then the created files and directories will be assigned to this system UID
@@ -82,7 +82,7 @@ func (u *User) GetPermissionsAsJSON() ([]byte, error) {
 
 // GetPublicKeysAsJSON returns the public keys as json byte array
 func (u *User) GetPublicKeysAsJSON() ([]byte, error) {
-	return json.Marshal(u.PublicKey)
+	return json.Marshal(u.PublicKeys)
 }
 
 // GetUID returns a validate uid, suitable for use with os.Chown

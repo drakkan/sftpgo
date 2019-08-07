@@ -78,11 +78,11 @@ func sqlCommonValidateUserAndPubKey(username string, pubKey string) (User, error
 		logger.Warn(logSender, "error authenticating user: %v, error: %v", username, err)
 		return user, err
 	}
-	if len(user.PublicKey) == 0 {
+	if len(user.PublicKeys) == 0 {
 		return user, errors.New("Invalid credentials")
 	}
 
-	for i, k := range user.PublicKey {
+	for i, k := range user.PublicKeys {
 		storedPubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
 		if err != nil {
 			logger.Warn(logSender, "error parsing stored public key %d for user %v: %v", i, username, err)
@@ -242,7 +242,7 @@ func sqlCommonGetUsers(limit int, offset int, order string, username string) ([]
 			u, err := getUserFromDbRow(nil, rows)
 			// hide password and public key
 			u.Password = ""
-			u.PublicKey = []string{}
+			u.PublicKeys = []string{}
 			if err == nil {
 				users = append(users, u)
 			} else {
@@ -280,13 +280,7 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 		var list []string
 		err = json.Unmarshal([]byte(publicKey.String), &list)
 		if err == nil {
-			user.PublicKey = list
-		} else {
-			// compatibility layer: initially we store public keys as string newline delimited
-			// we need to remove this code in future
-			user.PublicKey = strings.Split(publicKey.String, "\n")
-			logger.Warn(logSender, "public keys loaded using compatibility mode, this will not work in future versions! "+
-				"Number of public keys loaded: %v, username: %v", len(user.PublicKey), user.Username)
+			user.PublicKeys = list
 		}
 	}
 	if permissions.Valid {

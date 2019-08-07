@@ -124,7 +124,7 @@ func TestBasicUserHandling(t *testing.T) {
 func TestAddUserNoCredentials(t *testing.T) {
 	u := getTestUser()
 	u.Password = ""
-	u.PublicKey = []string{}
+	u.PublicKeys = []string{}
 	_, _, err := api.AddUser(u, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error adding user with no credentials: %v", err)
@@ -180,22 +180,22 @@ func TestUserPublicKey(t *testing.T) {
 	u := getTestUser()
 	invalidPubKey := "invalid"
 	validPubKey := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"
-	u.PublicKey = []string{invalidPubKey}
+	u.PublicKeys = []string{invalidPubKey}
 	_, _, err := api.AddUser(u, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error adding user with invalid pub key: %v", err)
 	}
-	u.PublicKey = []string{validPubKey}
+	u.PublicKeys = []string{validPubKey}
 	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
-	user.PublicKey = []string{validPubKey, invalidPubKey}
+	user.PublicKeys = []string{validPubKey, invalidPubKey}
 	_, _, err = api.UpdateUser(user, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("update user with invalid public key must fail: %v", err)
 	}
-	user.PublicKey = []string{validPubKey, validPubKey, validPubKey}
+	user.PublicKeys = []string{validPubKey, validPubKey, validPubKey}
 	_, _, err = api.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
@@ -236,7 +236,7 @@ func TestUpdateUserNoCredentials(t *testing.T) {
 		t.Errorf("unable to add user: %v", err)
 	}
 	user.Password = ""
-	user.PublicKey = []string{}
+	user.PublicKeys = []string{}
 	// password and public key will be omitted from json serialization if empty and so they will remain unchanged
 	// and no validation error will be raised
 	_, _, err = api.UpdateUser(user, http.StatusOK)

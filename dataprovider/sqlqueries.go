@@ -3,7 +3,7 @@ package dataprovider
 import "fmt"
 
 const (
-	selectUserFields = "id,username,password,public_key,home_dir,uid,gid,max_sessions,quota_size,quota_files,permissions," +
+	selectUserFields = "id,username,password,public_keys,home_dir,uid,gid,max_sessions,quota_size,quota_files,permissions," +
 		"used_quota_size,used_quota_files,last_quota_update,upload_bandwidth,download_bandwidth"
 )
 
@@ -51,7 +51,7 @@ func getQuotaQuery() string {
 }
 
 func getAddUserQuery() string {
-	return fmt.Sprintf(`INSERT INTO %v (username,password,public_key,home_dir,uid,gid,max_sessions,quota_size,quota_files,permissions,
+	return fmt.Sprintf(`INSERT INTO %v (username,password,public_keys,home_dir,uid,gid,max_sessions,quota_size,quota_files,permissions,
 		used_quota_size,used_quota_files,last_quota_update,upload_bandwidth,download_bandwidth) 
 		VALUES (%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,0,0,0,%v,%v)`, config.UsersTable, sqlPlaceholders[0], sqlPlaceholders[1],
 		sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7],
@@ -59,7 +59,7 @@ func getAddUserQuery() string {
 }
 
 func getUpdateUserQuery() string {
-	return fmt.Sprintf(`UPDATE %v SET password=%v,public_key=%v,home_dir=%v,uid=%v,gid=%v,max_sessions=%v,quota_size=%v,
+	return fmt.Sprintf(`UPDATE %v SET password=%v,public_keys=%v,home_dir=%v,uid=%v,gid=%v,max_sessions=%v,quota_size=%v,
 		quota_files=%v,permissions=%v,upload_bandwidth=%v,download_bandwidth=%v WHERE id = %v`, config.UsersTable,
 		sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5],
 		sqlPlaceholders[6], sqlPlaceholders[7], sqlPlaceholders[8], sqlPlaceholders[9], sqlPlaceholders[10], sqlPlaceholders[11])

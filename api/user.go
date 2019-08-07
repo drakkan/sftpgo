@@ -65,7 +65,7 @@ func getUserByID(w http.ResponseWriter, r *http.Request) {
 	user, err := dataprovider.GetUserByID(dataProvider, userID)
 	if err == nil {
 		user.Password = ""
-		user.PublicKey = []string{}
+		user.PublicKeys = []string{}
 		render.JSON(w, r, user)
 	} else if err == sql.ErrNoRows {
 		sendAPIResponse(w, r, err, "", http.StatusNotFound)
@@ -86,7 +86,7 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 		user, err = dataprovider.UserExists(dataProvider, user.Username)
 		if err == nil {
 			user.Password = ""
-			user.PublicKey = []string{}
+			user.PublicKeys = []string{}
 			render.JSON(w, r, user)
 		} else {
 			sendAPIResponse(w, r, err, "", http.StatusInternalServerError)

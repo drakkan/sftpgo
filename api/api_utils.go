@@ -257,8 +257,8 @@ func checkUser(expected dataprovider.User, actual dataprovider.User) error {
 	if len(actual.Password) > 0 {
 		return errors.New("User password must not be visible")
 	}
-	if len(actual.PublicKey) > 0 {
-		return errors.New("User public key must not be visible")
+	if len(actual.PublicKeys) > 0 {
+		return errors.New("User public keys must not be visible")
 	}
 	if expected.ID <= 0 {
 		if actual.ID <= 0 {

@@ -40,7 +40,7 @@ class SFTPGoApiRequests:
 		else:
 			print(r.text)
 
-	def buildUserObject(self, user_id=0, username="", password="", public_key="", home_dir="", uid=0,
+	def buildUserObject(self, user_id=0, username="", password="", public_keys="", home_dir="", uid=0,
 					gid=0, max_sessions=0, quota_size=0, quota_files=0, permissions=[], upload_bandwidth=0,
 					download_bandwidth=0):
 		user = {"id":user_id, "username":username, "home_dir":home_dir, "uid":uid, "gid":gid,
@@ -49,8 +49,8 @@ class SFTPGoApiRequests:
 			"download_bandwidth":download_bandwidth}
 		if password:
 			user.update({"password":password})
-		if public_key:
-			user.update({"public_key":public_key})
+		if public_keys:
+			user.update({"public_keys":public_keys})
 		return user
 
 	def getUsers(self, limit=100, offset=0, order="ASC", username=""):
@@ -62,17 +62,17 @@ class SFTPGoApiRequests:
 		r = requests.get(urlparse.urljoin(self.userPath, "user/" + str(user_id)), auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
-	def addUser(self, username="", password="", public_key="", home_dir="", uid=0, gid=0, max_sessions=0,
+	def addUser(self, username="", password="", public_keys="", home_dir="", uid=0, gid=0, max_sessions=0,
 		quota_size=0, quota_files=0, permissions=[], upload_bandwidth=0, download_bandwidth=0):
-		u = self.buildUserObject(0, username, password, public_key, home_dir, uid, gid, max_sessions,
+		u = self.buildUserObject(0, username, password, public_keys, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, permissions, upload_bandwidth, download_bandwidth)
 		r = requests.post(self.userPath, json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
-	def updateUser(self, user_id, username="", password="", public_key="", home_dir="", uid=0, gid=0,
+	def updateUser(self, user_id, username="", password="", public_keys="", home_dir="", uid=0, gid=0,
 				max_sessions=0, quota_size=0, quota_files=0, permissions=[], upload_bandwidth=0,
 				download_bandwidth=0):
-		u = self.buildUserObject(user_id, username, password, public_key, home_dir, uid, gid, max_sessions,
+		u = self.buildUserObject(user_id, username, password, public_keys, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, permissions, upload_bandwidth, download_bandwidth)
 		r = requests.put(urlparse.urljoin(self.userPath, "user/" + str(user_id)), json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
@@ -102,7 +102,7 @@ class SFTPGoApiRequests:
 def addCommonUserArguments(parser):
 	parser.add_argument('username', type=str)
 	parser.add_argument('--password', type=str, default="", help="default: %(default)s")
-	parser.add_argument('--public_key', type=str, nargs='+', default=[], help="default: %(default)s")
+	parser.add_argument('--public_keys', type=str, nargs='+', default=[], help="default: %(default)s")
 	parser.add_argument('--home_dir', type=str, default="", help="default: %(default)s")
 	parser.add_argument('--uid', type=int, default=0, help="default: %(default)s")
 	parser.add_argument('--gid', type=int, default=0, help="default: %(default)s")
@@ -170,11 +170,11 @@ if __name__ == '__main__':
 	api = SFTPGoApiRequests(args.debug, args.base_url, args.auth_type, args.auth_user, args.auth_password, args.verify)
 
 	if args.command == "add_user":
-		api.addUser(args.username, args.password, args.public_key, args.home_dir,
+		api.addUser(args.username, args.password, args.public_keys, args.home_dir,
 					args.uid, args.gid, args.max_sessions, args.quota_size, args.quota_files,
 					args.permissions, args.upload_bandwidth, args.download_bandwidth)
 	elif args.command == "update_user":
-		api.updateUser(args.id, args.username, args.password, args.public_key, args.home_dir,
+		api.updateUser(args.id, args.username, args.password, args.public_keys, args.home_dir,
 					args.uid, args.gid, args.max_sessions, args.quota_size, args.quota_files,
 					args.permissions, args.upload_bandwidth, args.download_bandwidth)
 	elif args.command == "delete_user":

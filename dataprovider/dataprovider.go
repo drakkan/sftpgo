@@ -212,8 +212,8 @@ func validateUser(user *User) error {
 	if len(user.Username) == 0 || len(user.HomeDir) == 0 {
 		return &ValidationError{err: "Mandatory parameters missing"}
 	}
-	if len(user.Password) == 0 && len(user.PublicKey) == 0 {
-		return &ValidationError{err: "Please set password or public_key"}
+	if len(user.Password) == 0 && len(user.PublicKeys) == 0 {
+		return &ValidationError{err: "Please set password or at least a public_key"}
 	}
 	if len(user.Permissions) == 0 {
 		return &ValidationError{err: "Please grant some permissions to this user"}
@@ -233,7 +233,7 @@ func validateUser(user *User) error {
 		}
 		user.Password = pwd
 	}
-	for i, k := range user.PublicKey {
+	for i, k := range user.PublicKeys {
 		_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
 		if err != nil {
 			return &ValidationError{err: fmt.Sprintf("Could not parse key nr. %d: %s", i, err)}

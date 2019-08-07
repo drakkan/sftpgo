@@ -523,7 +523,7 @@ components:
           type: string
           nullable: true
           description: password or public key are mandatory. For security reasons this field is omitted when you search/get users
-        public_key:
+        public_keys:
           type: array
           items:
             type: string
