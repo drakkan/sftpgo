@@ -45,10 +45,17 @@ Version info can be embedded populating the following variables at build time:
 - `github.com/drakkan/sftpgo/utils.commit`
 - `github.com/drakkan/sftpgo/utils.date`
 
-For example on Linux you can build using the following ldflags:
+For example you can build using the following command:
 
 ```bash
--ldflags "-s -w -X github.com/drakkan/sftpgo/utils.commit=`git describe --tags --always --dirty` -X github.com/drakkan/sftpgo/utils.date=`date --utc +%FT%TZ`"
+go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/utils.commit=`git describe --tags --always --dirty` -X github.com/drakkan/sftpgo/utils.date=`date --utc +%FT%TZ`" -o sftpgo
+```
+
+and you will get a version that includes git commit and build date like this one:
+
+```bash
+./sftpgo -v
+SFTPGo version: 0.9.0-dev-90607d4-dirty-2019-08-08T19:28:36Z
 ```
 
 A systemd sample [service](https://github.com/drakkan/sftpgo/tree/master/init/sftpgo.service "systemd service") can be found inside the source tree.

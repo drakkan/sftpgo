@@ -310,6 +310,10 @@ func TestSymlink(t *testing.T) {
 		if err != nil {
 			t.Errorf("error creating symlink: %v", err)
 		}
+		err = client.Symlink(testFileName, testFileName+".link")
+		if err == nil {
+			t.Errorf("creating a symlink to an existing one must fail")
+		}
 		err = client.Remove(testFileName + ".link")
 		if err != nil {
 			t.Errorf("error removing symlink: %v", err)

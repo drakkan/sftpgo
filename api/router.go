@@ -40,16 +40,7 @@ func initializeRouter() {
 	})
 
 	router.Delete(activeConnectionsPath+"/{connectionID}", func(w http.ResponseWriter, r *http.Request) {
-		connectionID := chi.URLParam(r, "connectionID")
-		if connectionID == "" {
-			sendAPIResponse(w, r, nil, "connectionID is mandatory", http.StatusBadRequest)
-			return
-		}
-		if sftpd.CloseActiveConnection(connectionID) {
-			sendAPIResponse(w, r, nil, "Connection closed", http.StatusOK)
-		} else {
-			sendAPIResponse(w, r, nil, "Not Found", http.StatusNotFound)
-		}
+		handleCloseSFTPConnection(w, r)
 	})
 
 	router.Get(quotaScanPath, func(w http.ResponseWriter, r *http.Request) {
@@ -79,4 +70,17 @@ func initializeRouter() {
 	router.Delete(userPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
 		deleteUser(w, r)
 	})
+}
+
+func handleCloseSFTPConnection(w http.ResponseWriter, r *http.Request) {
+	connectionID := chi.URLParam(r, "connectionID")
+	if connectionID == "" {
+		sendAPIResponse(w, r, nil, "connectionID is mandatory", http.StatusBadRequest)
+		return
+	}
+	if sftpd.CloseActiveConnection(connectionID) {
+		sendAPIResponse(w, r, nil, "Connection closed", http.StatusOK)
+	} else {
+		sendAPIResponse(w, r, nil, "Not Found", http.StatusNotFound)
+	}
 }

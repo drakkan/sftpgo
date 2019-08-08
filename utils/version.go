@@ -1,7 +1,8 @@
 package utils
 
+const version = "0.9.0-dev"
+
 var (
-	version     = "0.9.0-dev"
 	commit      = ""
 	date        = ""
 	versionInfo VersionInfo

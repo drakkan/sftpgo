@@ -1,11 +1,14 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/go-chi/chi"
 )
 
 const (
@@ -210,4 +213,16 @@ func TestApiCallToNotListeningServer(t *testing.T) {
 		t.Errorf("request to an inactive URL must fail")
 	}
 	SetBaseURL(oldBaseURL)
+}
+
+func TestCloseSFTPConnectionHandler(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodDelete, activeConnectionsPath+"/connectionID", nil)
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("connectionID", "")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	rr := httptest.NewRecorder()
+	handleCloseSFTPConnection(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("Expected response code 400. Got %d", rr.Code)
+	}
 }
