@@ -1,6 +1,12 @@
 ## REST API CLI client
 
-`sftpgo_api_cli.py` is a very simple command line client for `SFTPGo` REST API written in python. It requires python3 and the python HTTP library [Requests](https://2.python-requests.org/en/master/ "Requests") to run.
+`sftpgo_api_cli.py` is a very simple command line client for `SFTPGo` REST API written in python.
+
+It has the following requirements:
+
+- python3 or python2
+- python [Requests](https://2.python-requests.org/en/master/ "Requests") module
+- Optionally, if the python module [Pygments](http://pygments.org/ "Pygments") 1.5 or above is installed, the JSON responses will be highlighted with colors.
 
 You can see the usage with the following command:
 
@@ -14,14 +20,15 @@ and
 python sftpgo_api_cli.py [sub-command] --help
 ```
 
-Basically there is a subcommand for each REST API and a some global arguments:
+Basically there is a sub command for each REST API and the following global arguments:
 
  - `--debug`, default disabled, print useful debug info.
  - `--base-url`, default `http://127.0.0.1:8080`. Base URL for SFTPGo REST API
  - `--auth-type`, HTTP auth type. Supported HTTP auth type are `basic` and `digest`. Default none
  - `--auth-user`, user for HTTP authentication
  - `--auth-password`, password for HTTP authentication
- - `--secure`, disable to ignore verifying the SSL certificate. Default enabled
+ - `--insecure`, enable to ignore verifying the SSL certificate. Default disabled
+ - `--no-color`, disable color highligth for JSON responses. You need python pygments module 1.5 or above for this to work. Default disabled if pygments is found, enabled if not found
 
 For each subcommand `--help` shows the available arguments, try for example:
 
@@ -119,7 +126,7 @@ Output:
 Command:
 
 ```
-python sftpgo_api_cli.py get_users --limit 1 --offset 0 --username test_username --order DESC
+python sftpgo_api_cli.py get-users --limit 1 --offset 0 --username test_username --order DESC
 ```
 
 Output:

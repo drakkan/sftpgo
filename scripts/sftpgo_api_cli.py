@@ -9,10 +9,17 @@ try:
 except ImportError:
 	import urlparse
 
+try:
+	import pygments
+	from pygments.lexers import JsonLexer
+	from pygments.formatters import TerminalFormatter
+except ImportError:
+	pygments = None
+
 
 class SFTPGoApiRequests:
 
-	def __init__(self, debug, baseUrl, authType, authUser, authPassword, secure):
+	def __init__(self, debug, baseUrl, authType, authUser, authPassword, secure, no_color):
 		self.userPath = urlparse.urljoin(baseUrl, '/api/v1/user')
 		self.quotaScanPath = urlparse.urljoin(baseUrl, '/api/v1/quota_scan')
 		self.activeConnectionsPath = urlparse.urljoin(baseUrl, '/api/v1/sftp_connection')
@@ -25,18 +32,27 @@ class SFTPGoApiRequests:
 		else:
 			self.auth = None
 		self.verify = secure
+		self.no_color = no_color
 
 	def formatAsJSON(self, text):
 		if not text:
 			return ""
-		return json.dumps(json.loads(text), indent=2)
+		json_string = json.dumps(json.loads(text), sort_keys=True, indent=2)
+		if not self.no_color and pygments:
+			return pygments.highlight(json_string, JsonLexer(), TerminalFormatter())
+		return json_string
 
 	def printResponse(self, r):
 		if "content-type" in r.headers and "application/json" in r.headers["content-type"]:
 			if self.debug:
-				print("executed request: {} {} - status code: {} request body: {}".format(
-					r.request.method, r.url, r.status_code, self.formatAsJSON(r.request.body)))
-				print("got response, status code: {} body:".format(r.status_code))
+				if pygments is None:
+					print('')
+					print('Response color highlight is not available: you need pygments 1.5 or above.')
+				print('')
+				print("Executed request: {} {} - request body: {}".format(
+					r.request.method, r.url, self.formatAsJSON(r.request.body)))
+				print('')
+				print("Got response, status code: {} body:".format(r.status_code))
 			print(self.formatAsJSON(r.text))
 		else:
 			print(r.text)
@@ -132,14 +148,17 @@ if __name__ == '__main__':
 	parser.add_argument('-a', '--auth-type', type=str, default=None, choices=['basic', 'digest'],
 					help='HTTP authentication type. Default: %(default)s')
 	parser.add_argument("-u", "--auth-user", type=str, default="",
-					help='User to use for HTTP authentication. Default: %(default)s')
+					help='User for HTTP authentication. Default: %(default)s')
 	parser.add_argument('-p', '--auth-password', type=str, default='',
-					help='Password to use for HTTP authentication. Default: %(default)s')
+					help='Password for HTTP authentication. Default: %(default)s')
 	parser.add_argument('-d', '--debug', dest='debug', action='store_true')
 	parser.set_defaults(debug=False)
-	parser.add_argument('-s', '--secure', dest='secure', action='store_true',
+	parser.add_argument('-i', '--insecure', dest='secure', action='store_false',
 					help='Set to false to ignore verifying the SSL certificate')
 	parser.set_defaults(secure=True)
+	parser.add_argument('-t', '--no-color', dest='no_color', action='store_true',
+					help='Disable color highlight for JSON responses. You need python pygments module 1.5 or above to have highlighted output')
+	parser.set_defaults(no_color=(pygments is None))
 
 	subparsers = parser.add_subparsers(dest='command', help='sub-command --help')
 	subparsers.required = True
@@ -180,7 +199,8 @@ if __name__ == '__main__':
 
 	args = parser.parse_args()
 
-	api = SFTPGoApiRequests(args.debug, args.base_url, args.auth_type, args.auth_user, args.auth_password, args.secure)
+	api = SFTPGoApiRequests(args.debug, args.base_url, args.auth_type, args.auth_user, args.auth_password, args.secure,
+						 args.no_color)
 
 	if args.command == 'add-user':
 		api.addUser(args.username, args.password, args.public_keys, args.home_dir,
