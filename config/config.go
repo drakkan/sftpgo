@@ -7,7 +7,6 @@ package config
 
 import (
 	"fmt"
-	"runtime"
 	"strings"
 
 	"github.com/drakkan/sftpgo/api"
@@ -79,10 +78,7 @@ func init() {
 	replacer := strings.NewReplacer(".", "__")
 	viper.SetEnvKeyReplacer(replacer)
 	viper.SetConfigName(DefaultConfigName)
-	if runtime.GOOS == "linux" {
-		viper.AddConfigPath("$HOME/.config/sftpgo")
-		viper.AddConfigPath("/etc/sftpgo")
-	}
+	setViperAdditionalConfigPaths()
 	viper.AddConfigPath(".")
 	viper.AutomaticEnv()
 }

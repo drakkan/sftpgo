@@ -16,6 +16,7 @@ class SFTPGoApiRequests:
 		self.userPath = urlparse.urljoin(baseUrl, "/api/v1/user")
 		self.quotaScanPath = urlparse.urljoin(baseUrl, "/api/v1/quota_scan")
 		self.activeConnectionsPath = urlparse.urljoin(baseUrl, "/api/v1/sftp_connection")
+		self.versionPath = urlparse.urljoin(baseUrl, "/api/v1/version")
 		self.debug = debug
 		if authType == "basic":
 			self.auth = requests.auth.HTTPBasicAuth(authUser, authPassword)
@@ -98,6 +99,10 @@ class SFTPGoApiRequests:
 		r = requests.post(self.quotaScanPath, json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
+	def getVersion(self):
+		r = requests.get(self.versionPath, auth=self.auth, verify=self.verify)
+		self.printResponse(r)
+
 
 def addCommonUserArguments(parser):
 	parser.add_argument('username', type=str)
@@ -165,6 +170,8 @@ if __name__ == '__main__':
 	parserStartQuotaScans = subparsers.add_parser("start_quota_scan", help="Start a new quota scan")
 	addCommonUserArguments(parserStartQuotaScans)
 
+	parserGetVersion = subparsers.add_parser("get_version", help="Get version details")
+
 	args = parser.parse_args()
 
 	api = SFTPGoApiRequests(args.debug, args.base_url, args.auth_type, args.auth_user, args.auth_password, args.verify)
@@ -191,4 +198,6 @@ if __name__ == '__main__':
 		api.getQuotaScans()
 	elif args.command == "start_quota_scan":
 		api.startQuotaScan(args.username)
+	elif args.command == "get_version":
+		api.getVersion()
 

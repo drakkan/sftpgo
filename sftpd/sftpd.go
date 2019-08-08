@@ -193,7 +193,7 @@ func GetConnectionsStats() []ConnectionStatus {
 		}
 		for _, t := range activeTransfers {
 			if t.connectionID == c.ID {
-				if utils.GetTimeAsMsSinceEpoch(t.lastActivity) > conn.LastActivity {
+				if t.lastActivity.UnixNano() > c.lastActivity.UnixNano() {
 					conn.LastActivity = utils.GetTimeAsMsSinceEpoch(t.lastActivity)
 				}
 				var operationType string

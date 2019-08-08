@@ -35,6 +35,7 @@ const (
 	userPath              = "/api/v1/user"
 	activeConnectionsPath = "/api/v1/sftp_connection"
 	quotaScanPath         = "/api/v1/quota_scan"
+	versionPath           = "/api/v1/version"
 )
 
 var (
@@ -393,6 +394,17 @@ func TestStartQuotaScan(t *testing.T) {
 	}
 }
 
+func TestGetVersion(t *testing.T) {
+	_, _, err := api.GetVersion(http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to get sftp version: %v", err)
+	}
+	_, _, err = api.GetVersion(http.StatusInternalServerError)
+	if err == nil {
+		t.Errorf("get version request must succeed, we requested to check a wrong status code")
+	}
+}
+
 func TestGetSFTPConnections(t *testing.T) {
 	_, _, err := api.GetSFTPConnections(http.StatusOK)
 	if err != nil {
@@ -666,6 +678,12 @@ func TestStartQuotaScanNonExistentUserMock(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer([]byte("invalid json")))
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr.Code)
+}
+
+func TestGetVersionMock(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, versionPath, nil)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
 }
 
 func TestGetSFTPConnectionsMock(t *testing.T) {

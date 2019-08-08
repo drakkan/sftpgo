@@ -5,6 +5,7 @@ import (
 
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
+	"github.com/drakkan/sftpgo/utils"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
@@ -29,6 +30,10 @@ func initializeRouter() {
 	router.MethodNotAllowed(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, "Method not allowed", http.StatusMethodNotAllowed)
 	}))
+
+	router.Get(versionPath, func(w http.ResponseWriter, r *http.Request) {
+		render.JSON(w, r, utils.GetAppVersion())
+	})
 
 	router.Get(activeConnectionsPath, func(w http.ResponseWriter, r *http.Request) {
 		render.JSON(w, r, sftpd.GetConnectionsStats())

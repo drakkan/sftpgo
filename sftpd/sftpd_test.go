@@ -96,6 +96,7 @@ func TestMain(m *testing.M) {
 	sftpdConf := config.GetSFTPDConfig()
 	httpdConf := config.GetHTTPDConfig()
 	router := api.GetHTTPRouter()
+	sftpdConf.BindPort = 2022
 	// we run the test cases with UploadMode atomic. The non atomic code path
 	// simply does not execute some code so if it works in atomic mode will
 	// work in non atomic mode too
@@ -105,7 +106,7 @@ func TestMain(m *testing.M) {
 	} else {
 		homeBasePath = "/tmp"
 		sftpdConf.Actions.ExecuteOn = []string{"download", "upload", "rename", "delete"}
-		sftpdConf.Actions.Command = "/bin/true"
+		sftpdConf.Actions.Command = "/usr/bin/true"
 		sftpdConf.Actions.HTTPNotificationURL = "http://127.0.0.1:8080/"
 	}
 
@@ -145,6 +146,7 @@ func TestInitialization(t *testing.T) {
 	config.LoadConfig(configDir, "")
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.Umask = "invalid umask"
+	sftpdConf.BindPort = 2022
 	err := sftpdConf.Initialize(configDir)
 	if err == nil {
 		t.Errorf("Inizialize must fail, a SFTP server should be already running")

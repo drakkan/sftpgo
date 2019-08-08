@@ -242,6 +242,24 @@ func CloseSFTPConnection(connectionID string, expectedStatusCode int) ([]byte, e
 	return body, err
 }
 
+// GetVersion returns version details
+func GetVersion(expectedStatusCode int) (utils.VersionInfo, []byte, error) {
+	var version utils.VersionInfo
+	var body []byte
+	resp, err := getHTTPClient().Get(buildURLRelativeToBase(versionPath))
+	if err != nil {
+		return version, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &version)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return version, body, err
+}
+
 func checkResponse(actual int, expected int) error {
 	if expected != actual {
 		return fmt.Errorf("wrong status code: got %v want %v", actual, expected)

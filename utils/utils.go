@@ -12,12 +12,6 @@ import (
 
 const logSender = "utils"
 
-var (
-	version = "dev"
-	commit  = ""
-	date    = ""
-)
-
 // IsStringInSlice searches a string in a slice and returns true if the string is found
 func IsStringInSlice(obj string, list []string) bool {
 	for _, v := range list {
@@ -76,14 +70,7 @@ func SetPathPermissions(path string, uid int, gid int) {
 	}
 }
 
-// GetAppVersion returns the app version
-func GetAppVersion() string {
-	v := version
-	if len(commit) > 0 {
-		v += "-" + commit
-	}
-	if len(date) > 0 {
-		v += "-" + date
-	}
-	return v
+// GetAppVersion returns VersionInfo struct
+func GetAppVersion() VersionInfo {
+	return versionInfo
 }

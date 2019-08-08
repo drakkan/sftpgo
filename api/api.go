@@ -18,6 +18,7 @@ const (
 	activeConnectionsPath = "/api/v1/sftp_connection"
 	quotaScanPath         = "/api/v1/quota_scan"
 	userPath              = "/api/v1/user"
+	versionPath           = "/api/v1/version"
 )
 
 var (

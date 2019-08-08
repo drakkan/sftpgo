@@ -40,6 +40,17 @@ $ go get -u github.com/drakkan/sftpgo
 
 Make sure [Git is installed](https://git-scm.com/downloads) on your machine and in your system's `PATH`.
 
+Version info can be embedded populating the following variables at build time:
+
+- `github.com/drakkan/sftpgo/utils.commit`
+- `github.com/drakkan/sftpgo/utils.date`
+
+For example on Linux you can build using the following ldflags:
+
+```bash
+-ldflags "-s -w -X github.com/drakkan/sftpgo/utils.commit=`git describe --tags --always --dirty` -X github.com/drakkan/sftpgo/utils.date=`date --utc +%FT%TZ`"
+```
+
 A systemd sample [service](https://github.com/drakkan/sftpgo/tree/master/init/sftpgo.service "systemd service") can be found inside the source tree.
 
 Alternately you can use distro packages:
@@ -195,7 +206,7 @@ For each account the following properties can be configured:
 
 - `username`
 - `password` used for password authentication. For users created using SFTPGo REST API the password will be stored using argon2id hashing algo. SFTPGo supports checking passwords stored with bcrypt too. Currently, as fallback, there is a clear text password checking but you should not store passwords as clear text and this support could be removed at any time, so please don't depend on it.
-- `public_key` array of public keys. At least one public key or the password is mandatory.
+- `public_keys` array of public keys. At least one public key or the password is mandatory.
 - `home_dir` The user cannot upload or download files outside this directory. Must be an absolute path
 - `uid`, `gid`. If sftpgo runs as root system user then the created files and directories will be assigned to this system uid/gid. Ignored on windows and if sftpgo runs as non root user: in this case files and directories for all SFTP users will be owned by the system user that runs sftpgo.
 - `max_sessions` maximum concurrent sessions. 0 means unlimited
@@ -223,7 +234,7 @@ If quota tracking is enabled in `sftpgo` configuration file, then the used size 
 
 REST API is designed to run on localhost or on a trusted network, if you need HTTPS or authentication you can setup a reverse proxy using an HTTP Server such as Apache or NGNIX.
 
-For example you can setup a reverse proxy using apache this way:
+For example you can keep SFTPGo listening on localhost and expose it externally configuring a reverse proxy using Apache HTTP Server this way:
 
 ```
 ProxyPass /api/v1 http://127.0.0.1:8080/api/v1
@@ -236,7 +247,8 @@ and you can add authentication with something like this:
 <Location /api/v1>
 	AuthType Digest
 	AuthName "Private"
-	AuthBasicProvider file
+  AuthDigestDomain "/api/v1"
+	AuthDigestProvider file
 	AuthUserFile "/etc/httpd/conf/auth_digest"
 	Require valid-user
 </Location>
@@ -248,7 +260,7 @@ The OpenAPI 3 schema for the exposed API can be found inside the source tree: [o
 
 A sample CLI client for the REST API can be found inside the source tree [scripts](https://github.com/drakkan/sftpgo/tree/master/scripts "scripts") directory.
 
-You can also generate your own REST client using an OpenAPI generator such as [swagger-codegen](https://github.com/swagger-api/swagger-codegen) or [OpenAPI Generator](https://openapi-generator.tech/)
+You can also generate your own REST client, in your preferred programming language or even bash scripts, using an OpenAPI generator such as [swagger-codegen](https://github.com/swagger-api/swagger-codegen) or [OpenAPI Generator](https://openapi-generator.tech/)
 
 ## Logs
 
