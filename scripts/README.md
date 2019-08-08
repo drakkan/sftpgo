@@ -8,16 +8,22 @@ You can see the usage with the following command:
 python sftpgo_api_cli.py --help
 ```
 
-Basically there is a subcommand for each REST API and a two global arguments:
+and
 
- - `debug`, default disabled, print useful debug info.
- - `base_url`, default `http://127.0.0.1:8080`. Base URL for SFTPGo REST API
- - `auth_type` supported auth type are `basic` and `digest`. Default none
- - `auth_user`
- - `auth_password`
- - `verify`, disable to ignore verifying the SSL certificate. Default enabled
+```
+python sftpgo_api_cli.py [sub-command] --help
+```
 
-For each subcommand `--help` shows the required arguments, try for example:
+Basically there is a subcommand for each REST API and a some global arguments:
+
+ - `--debug`, default disabled, print useful debug info.
+ - `--base-url`, default `http://127.0.0.1:8080`. Base URL for SFTPGo REST API
+ - `--auth-type`, HTTP auth type. Supported HTTP auth type are `basic` and `digest`. Default none
+ - `--auth-user`, user for HTTP authentication
+ - `--auth-password`, password for HTTP authentication
+ - `--secure`, disable to ignore verifying the SSL certificate. Default enabled
+
+For each subcommand `--help` shows the available arguments, try for example:
 
 ```python sftpgo_api_cli.py add_user --help```
 
@@ -28,7 +34,7 @@ Let's see a sample usage for each REST API.
 Command:
 
 ```
-python sftpgo_api_cli.py add_user test_username --password "test_pwd" --home_dir="/tmp/test_home_dir" --uid 33 --gid 1000 --max_sessions 2 --quota_size 0 --quota_files 3 --permissions "list" "download" "upload" "delete" "rename" "create_dirs" --upload_bandwidth 100 --download_bandwidth 60
+python sftpgo_api_cli.py add-user test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 33 --gid 1000 --max-sessions 2 --quota-size 0 --quota-files 3 --permissions "list" "download" "upload" "delete" "rename" "create_dirs" --upload-bandwidth 100 --download-bandwidth 60
 ```
 
 Output:
@@ -64,7 +70,7 @@ Output:
 Command:
 
 ```
-python sftpgo_api_cli.py update_user 5140 test_username --password "test_pwd" --home_dir="/tmp/test_home_dir" --uid 0 --gid 33 --max_sessions 2 --quota_size 0 --quota_files 4 --permissions "*" --upload_bandwidth 90 --download_bandwidth 80
+python sftpgo_api_cli.py update-user 5140 test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 0 --gid 33 --max-sessions 3 --quota-size 0 --quota-files 4 --permissions "*" --upload-bandwidth 90 --download-bandwidth 80
 ```
 
 Output:
@@ -82,7 +88,7 @@ Output:
 Command:
 
 ```
-python sftpgo_api_cli.py get_user_by_id 5140
+python sftpgo_api_cli.py get-user-by-id 5140
 ```
 
 Output:
@@ -146,7 +152,7 @@ Output:
 Command:
 
 ```
-python sftpgo_api_cli.py get_sftp_connections
+python sftpgo_api_cli.py get-sftp-connections
 ```
 
 Output:
@@ -177,7 +183,7 @@ Output:
 Command:
 
 ```
-python sftpgo_api_cli.py close_sftp_connection 76a11b22260ee4249328df28bef34dc64c70f7c097db52159fc24049eeb0e32c
+python sftpgo_api_cli.py close-sftp-connection 76a11b22260ee4249328df28bef34dc64c70f7c097db52159fc24049eeb0e32c
 ```
 
 Output:
@@ -195,7 +201,7 @@ Output:
 Command:
 
 ```
-python sftpgo_api_cli.py get_quota_scans
+python sftpgo_api_cli.py get-quota-scans
 ```
 
 ### Start quota scan
@@ -203,7 +209,7 @@ python sftpgo_api_cli.py get_quota_scans
 Command:
 
 ```
-python sftpgo_api_cli.py start_quota_scan test_username
+python sftpgo_api_cli.py start-quota-scan test_username
 ```
 
 Output:
@@ -221,7 +227,7 @@ Output:
 Command:
 
 ```
-python sftpgo_api_cli.py delete_user 5140
+python sftpgo_api_cli.py delete-user 5140
 ```
 
 Output:
@@ -239,7 +245,7 @@ Output:
 Command:
 
 ```
-python sftpgo_api_cli.py get_version
+python sftpgo_api_cli.py get-version
 ```
 
 Output:
