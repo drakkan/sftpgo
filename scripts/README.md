@@ -233,3 +233,21 @@ Output:
   "status": 200
 }
 ```
+
+### Get version
+
+Command:
+
+```
+python sftpgo_api_cli.py get_version
+```
+
+Output:
+
+```json
+{
+  "version": "0.9.0-dev",
+  "build_date": "2019-08-08T08:11:34Z",
+  "commit_hash": "4f4489d-dirty"
+}
+```

@@ -247,7 +247,7 @@ and you can add authentication with something like this:
 <Location /api/v1>
 	AuthType Digest
 	AuthName "Private"
-  AuthDigestDomain "/api/v1"
+	AuthDigestDomain "/api/v1"
 	AuthDigestProvider file
 	AuthUserFile "/etc/httpd/conf/auth_digest"
 	Require valid-user
