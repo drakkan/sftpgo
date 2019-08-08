@@ -110,3 +110,13 @@ func (u *User) GetHomeDir() string {
 func (u *User) HasQuotaRestrictions() bool {
 	return u.QuotaFiles > 0 || u.QuotaSize > 0
 }
+
+// GetRelativePath returns the path for a file relative to the user's home dir.
+// This is the path as seen by SFTP users
+func (u *User) GetRelativePath(path string) string {
+	rel, err := filepath.Rel(u.GetHomeDir(), path)
+	if err != nil {
+		return ""
+	}
+	return "/" + filepath.ToSlash(rel)
+}

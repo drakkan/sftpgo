@@ -602,6 +602,9 @@ components:
           enum: 
             - upload
             - download
+        path:
+          type: string
+          description: SFTP file path for the upload/download
         start_time:
           type: integer
           format: int64

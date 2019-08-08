@@ -50,6 +50,7 @@ type connectionTransfer struct {
 	StartTime     int64  `json:"start_time"`
 	Size          int64  `json:"size"`
 	LastActivity  int64  `json:"last_activity"`
+	Path          string `json:"path"`
 }
 
 // ActiveQuotaScan defines an active quota scan
@@ -210,6 +211,7 @@ func GetConnectionsStats() []ConnectionStatus {
 					StartTime:     utils.GetTimeAsMsSinceEpoch(t.start),
 					Size:          size,
 					LastActivity:  utils.GetTimeAsMsSinceEpoch(t.lastActivity),
+					Path:          c.User.GetRelativePath(t.path),
 				}
 				conn.Transfers = append(conn.Transfers, connTransfer)
 			}

@@ -28,7 +28,7 @@ Regularly the test cases are manually executed and pass on Windows. Other UNIX v
 ## Requirements
 
 - Go 1.12 or higher
-- A suitable SQL server to use as data provider: PostreSQL (9+) or MySQL (4.1+) or SQLite 3.x
+- A suitable SQL server to use as data provider: PostreSQL (9+) or MySQL (5.6+) or SQLite 3.x
 
 ## Installation
 
@@ -89,7 +89,7 @@ If you don't configure any private host keys, the daemon will use `id_rsa` in th
 
 Before starting `sftpgo` a dataprovider must be configured.
 
-Sample SQL scripts to create the required database structure can be found insite the source tree [sql](https://github.com/drakkan/sftpgo/tree/master/sql "sql") directory. The SQL scripts filename's is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190706.sql` must be applied before `20190728.sql` and so on.
+Sample SQL scripts to create the required database structure can be found inside the source tree [sql](https://github.com/drakkan/sftpgo/tree/master/sql "sql") directory. The SQL scripts filename's is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190706.sql` must be applied before `20190728.sql` and so on.
 
 The `sftpgo` configuration file contains the following sections:
 
