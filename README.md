@@ -40,7 +40,14 @@ $ go get -u github.com/drakkan/sftpgo
 
 Make sure [Git is installed](https://git-scm.com/downloads) on your machine and in your system's `PATH`.
 
-Version info can be embedded populating the following variables at build time:
+SFTPGo depends on [go-sqlite3](https://github.com/mattn/go-sqlite3) that is a CGO package and so it requires a `C` compiler at build time.
+On Linux and macOS a compiler is easy to install or already installed, on Windows you need to download [MinGW-w64](https://sourceforge.net/projects/mingw-w64/files/) and build SFTPGo from it's command prompt.
+
+The compiler is a build time only dependency, it is not not required at runtime.
+
+If you don't need SQLite, you can also get/build SFTPGo setting the environment variable `GCO_ENABLED` to 0, this way SQLite support will be disabled but PostgreSQL and MySQL will work and you don't need a `C` compiler for building.
+
+Version info, such as git commit and build date, can be embedded setting the following string variables at build time:
 
 - `github.com/drakkan/sftpgo/utils.commit`
 - `github.com/drakkan/sftpgo/utils.date`
@@ -54,11 +61,11 @@ go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/utils.commit=`git descr
 and you will get a version that includes git commit and build date like this one:
 
 ```bash
-./sftpgo -v
+sftpgo -v
 SFTPGo version: 0.9.0-dev-90607d4-dirty-2019-08-08T19:28:36Z
 ```
 
-A systemd sample [service](https://github.com/drakkan/sftpgo/tree/master/init/sftpgo.service "systemd service") can be found inside the source tree.
+For Linux, a systemd sample [service](https://github.com/drakkan/sftpgo/tree/master/init/sftpgo.service "systemd service") can be found inside the source tree.
 
 Alternately you can use distro packages:
 

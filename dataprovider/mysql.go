@@ -11,6 +11,7 @@ import (
 
 // MySQLProvider auth provider for MySQL/MariaDB database
 type MySQLProvider struct {
+	dbHandle *sql.DB
 }
 
 func initializeMySQLProvider() error {
@@ -22,13 +23,14 @@ func initializeMySQLProvider() error {
 	} else {
 		connectionString = config.ConnectionString
 	}
-	dbHandle, err = sql.Open("mysql", connectionString)
+	dbHandle, err := sql.Open("mysql", connectionString)
 	if err == nil {
 		numCPU := runtime.NumCPU()
 		logger.Debug(logSender, "mysql database handle created, connection string: '%v', pool size: %v", connectionString, numCPU)
 		dbHandle.SetMaxIdleConns(numCPU)
 		dbHandle.SetMaxOpenConns(numCPU)
 		dbHandle.SetConnMaxLifetime(1800 * time.Second)
+		provider = MySQLProvider{dbHandle: dbHandle}
 	} else {
 		logger.Warn(logSender, "error creating mysql database handler, connection string: '%v', error: %v", connectionString, err)
 	}
@@ -36,24 +38,24 @@ func initializeMySQLProvider() error {
 }
 
 func (p MySQLProvider) validateUserAndPass(username string, password string) (User, error) {
-	return sqlCommonValidateUserAndPass(username, password)
+	return sqlCommonValidateUserAndPass(username, password, p.dbHandle)
 }
 
 func (p MySQLProvider) validateUserAndPubKey(username string, publicKey string) (User, error) {
-	return sqlCommonValidateUserAndPubKey(username, publicKey)
+	return sqlCommonValidateUserAndPubKey(username, publicKey, p.dbHandle)
 }
 
 func (p MySQLProvider) getUserByID(ID int64) (User, error) {
-	return sqlCommonGetUserByID(ID)
+	return sqlCommonGetUserByID(ID, p.dbHandle)
 }
 
 func (p MySQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
-	tx, err := dbHandle.Begin()
+	tx, err := p.dbHandle.Begin()
 	if err != nil {
 		logger.Warn(logSender, "error starting transaction to update quota for user %v: %v", username, err)
 		return err
 	}
-	err = sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p)
+	err = sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
 	if err == nil {
 		err = tx.Commit()
 	} else {
@@ -66,25 +68,25 @@ func (p MySQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64,
 }
 
 func (p MySQLProvider) getUsedQuota(username string) (int, int64, error) {
-	return sqlCommonGetUsedQuota(username)
+	return sqlCommonGetUsedQuota(username, p.dbHandle)
 }
 
 func (p MySQLProvider) userExists(username string) (User, error) {
-	return sqlCommonCheckUserExists(username)
+	return sqlCommonCheckUserExists(username, p.dbHandle)
 }
 
 func (p MySQLProvider) addUser(user User) error {
-	return sqlCommonAddUser(user)
+	return sqlCommonAddUser(user, p.dbHandle)
 }
 
 func (p MySQLProvider) updateUser(user User) error {
-	return sqlCommonUpdateUser(user)
+	return sqlCommonUpdateUser(user, p.dbHandle)
 }
 
 func (p MySQLProvider) deleteUser(user User) error {
-	return sqlCommonDeleteUser(user)
+	return sqlCommonDeleteUser(user, p.dbHandle)
 }
 
 func (p MySQLProvider) getUsers(limit int, offset int, order string, username string) ([]User, error) {
-	return sqlCommonGetUsers(limit, offset, order, username)
+	return sqlCommonGetUsers(limit, offset, order, username, p.dbHandle)
 }

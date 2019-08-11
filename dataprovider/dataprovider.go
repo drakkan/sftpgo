@@ -4,7 +4,6 @@
 package dataprovider
 
 import (
-	"database/sql"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -33,7 +32,6 @@ const (
 var (
 	// SupportedProviders data provider configured in the sftpgo.conf file must match of these strings
 	SupportedProviders = []string{SQLiteDataProviderName, PGSSQLDataProviderName, MySQLDataProviderName}
-	dbHandle           *sql.DB
 	config             Config
 	provider           Provider
 	sqlPlaceholders    []string
@@ -124,13 +122,10 @@ func Initialize(cnf Config, basePath string) error {
 	config = cnf
 	sqlPlaceholders = getSQLPlaceholders()
 	if config.Driver == SQLiteDataProviderName {
-		provider = SQLiteProvider{}
 		return initializeSQLiteProvider(basePath)
 	} else if config.Driver == PGSSQLDataProviderName {
-		provider = PGSQLProvider{}
 		return initializePGSQLProvider()
 	} else if config.Driver == MySQLDataProviderName {
-		provider = MySQLProvider{}
 		return initializeMySQLProvider()
 	}
 	return fmt.Errorf("Unsupported data provider: %v", config.Driver)
@@ -226,7 +221,8 @@ func validateUser(user *User) error {
 			return &ValidationError{err: fmt.Sprintf("Invalid permission: %v", p)}
 		}
 	}
-	if len(user.Password) > 0 && !strings.HasPrefix(user.Password, argonPwdPrefix) {
+	if len(user.Password) > 0 && !strings.HasPrefix(user.Password, argonPwdPrefix) &&
+		!strings.HasPrefix(user.Password, bcryptPwdPrefix) {
 		pwd, err := argon2id.CreateHash(user.Password, argon2id.DefaultParams)
 		if err != nil {
 			return err

@@ -12,6 +12,7 @@ import (
 
 // SQLiteProvider auth provider for SQLite database
 type SQLiteProvider struct {
+	dbHandle *sql.DB
 }
 
 func initializeSQLiteProvider(basePath string) error {
@@ -36,10 +37,11 @@ func initializeSQLiteProvider(basePath string) error {
 	} else {
 		connectionString = config.ConnectionString
 	}
-	dbHandle, err = sql.Open("sqlite3", connectionString)
+	dbHandle, err := sql.Open("sqlite3", connectionString)
 	if err == nil {
 		logger.Debug(logSender, "sqlite database handle created, connection string: '%v'", connectionString)
 		dbHandle.SetMaxOpenConns(1)
+		provider = SQLiteProvider{dbHandle: dbHandle}
 	} else {
 		logger.Warn(logSender, "error creating sqlite database handler, connection string: '%v', error: %v", connectionString, err)
 	}
@@ -47,43 +49,43 @@ func initializeSQLiteProvider(basePath string) error {
 }
 
 func (p SQLiteProvider) validateUserAndPass(username string, password string) (User, error) {
-	return sqlCommonValidateUserAndPass(username, password)
+	return sqlCommonValidateUserAndPass(username, password, p.dbHandle)
 }
 
 func (p SQLiteProvider) validateUserAndPubKey(username string, publicKey string) (User, error) {
-	return sqlCommonValidateUserAndPubKey(username, publicKey)
+	return sqlCommonValidateUserAndPubKey(username, publicKey, p.dbHandle)
 }
 
 func (p SQLiteProvider) getUserByID(ID int64) (User, error) {
-	return sqlCommonGetUserByID(ID)
+	return sqlCommonGetUserByID(ID, p.dbHandle)
 }
 
 func (p SQLiteProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
 	// we keep only 1 open connection (SetMaxOpenConns(1)) so a transaction is not needed and it could block
 	// the database access since it will try to open a new connection
-	return sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p)
+	return sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
 }
 
 func (p SQLiteProvider) getUsedQuota(username string) (int, int64, error) {
-	return sqlCommonGetUsedQuota(username)
+	return sqlCommonGetUsedQuota(username, p.dbHandle)
 }
 
 func (p SQLiteProvider) userExists(username string) (User, error) {
-	return sqlCommonCheckUserExists(username)
+	return sqlCommonCheckUserExists(username, p.dbHandle)
 }
 
 func (p SQLiteProvider) addUser(user User) error {
-	return sqlCommonAddUser(user)
+	return sqlCommonAddUser(user, p.dbHandle)
 }
 
 func (p SQLiteProvider) updateUser(user User) error {
-	return sqlCommonUpdateUser(user)
+	return sqlCommonUpdateUser(user, p.dbHandle)
 }
 
 func (p SQLiteProvider) deleteUser(user User) error {
-	return sqlCommonDeleteUser(user)
+	return sqlCommonDeleteUser(user, p.dbHandle)
 }
 
 func (p SQLiteProvider) getUsers(limit int, offset int, order string, username string) ([]User, error) {
-	return sqlCommonGetUsers(limit, offset, order, username)
+	return sqlCommonGetUsers(limit, offset, order, username, p.dbHandle)
 }

@@ -10,6 +10,7 @@ import (
 
 // PGSQLProvider auth provider for PostgreSQL database
 type PGSQLProvider struct {
+	dbHandle *sql.DB
 }
 
 func initializePGSQLProvider() error {
@@ -21,12 +22,13 @@ func initializePGSQLProvider() error {
 	} else {
 		connectionString = config.ConnectionString
 	}
-	dbHandle, err = sql.Open("postgres", connectionString)
+	dbHandle, err := sql.Open("postgres", connectionString)
 	if err == nil {
 		numCPU := runtime.NumCPU()
 		logger.Debug(logSender, "postgres database handle created, connection string: '%v', pool size: %v", connectionString, numCPU)
 		dbHandle.SetMaxIdleConns(numCPU)
 		dbHandle.SetMaxOpenConns(numCPU)
+		provider = PGSQLProvider{dbHandle: dbHandle}
 	} else {
 		logger.Warn(logSender, "error creating postgres database handler, connection string: '%v', error: %v", connectionString, err)
 	}
@@ -34,24 +36,24 @@ func initializePGSQLProvider() error {
 }
 
 func (p PGSQLProvider) validateUserAndPass(username string, password string) (User, error) {
-	return sqlCommonValidateUserAndPass(username, password)
+	return sqlCommonValidateUserAndPass(username, password, p.dbHandle)
 }
 
 func (p PGSQLProvider) validateUserAndPubKey(username string, publicKey string) (User, error) {
-	return sqlCommonValidateUserAndPubKey(username, publicKey)
+	return sqlCommonValidateUserAndPubKey(username, publicKey, p.dbHandle)
 }
 
 func (p PGSQLProvider) getUserByID(ID int64) (User, error) {
-	return sqlCommonGetUserByID(ID)
+	return sqlCommonGetUserByID(ID, p.dbHandle)
 }
 
 func (p PGSQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
-	tx, err := dbHandle.Begin()
+	tx, err := p.dbHandle.Begin()
 	if err != nil {
 		logger.Warn(logSender, "error starting transaction to update quota for user %v: %v", username, err)
 		return err
 	}
-	err = sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p)
+	err = sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
 	if err == nil {
 		err = tx.Commit()
 	} else {
@@ -64,25 +66,25 @@ func (p PGSQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64,
 }
 
 func (p PGSQLProvider) getUsedQuota(username string) (int, int64, error) {
-	return sqlCommonGetUsedQuota(username)
+	return sqlCommonGetUsedQuota(username, p.dbHandle)
 }
 
 func (p PGSQLProvider) userExists(username string) (User, error) {
-	return sqlCommonCheckUserExists(username)
+	return sqlCommonCheckUserExists(username, p.dbHandle)
 }
 
 func (p PGSQLProvider) addUser(user User) error {
-	return sqlCommonAddUser(user)
+	return sqlCommonAddUser(user, p.dbHandle)
 }
 
 func (p PGSQLProvider) updateUser(user User) error {
-	return sqlCommonUpdateUser(user)
+	return sqlCommonUpdateUser(user, p.dbHandle)
 }
 
 func (p PGSQLProvider) deleteUser(user User) error {
-	return sqlCommonDeleteUser(user)
+	return sqlCommonDeleteUser(user, p.dbHandle)
 }
 
 func (p PGSQLProvider) getUsers(limit int, offset int, order string, username string) ([]User, error) {
-	return sqlCommonGetUsers(limit, offset, order, username)
+	return sqlCommonGetUsers(limit, offset, order, username, p.dbHandle)
 }

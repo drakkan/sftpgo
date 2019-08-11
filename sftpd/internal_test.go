@@ -99,11 +99,18 @@ func TestUploadFiles(t *testing.T) {
 	uploadMode = oldUploadMode
 }
 
-func TestLoginWithInvalidHome(t *testing.T) {
+func TestWithInvalidHome(t *testing.T) {
 	u := dataprovider.User{}
 	u.HomeDir = "home_rel_path"
 	_, err := loginUser(u)
 	if err == nil {
 		t.Errorf("login a user with an invalid home_dir must fail")
+	}
+	c := Connection{
+		User: u,
+	}
+	err = c.isSubDir("dir_rel_path")
+	if err == nil {
+		t.Errorf("tested path is not a home subdir")
 	}
 }
