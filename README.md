@@ -7,7 +7,7 @@ Full featured and highly configurable SFTP server software
 
 - Each account is chrooted to his Home Dir
 - SFTP accounts are virtual accounts stored in a "data provider"
-- SQLite, MySQL and PostgreSQL data providers are supported. The `Provider` interface could be extended to support non SQL backends too
+- SQLite, MySQL, PostgreSQL and bbolt (key/value store in pure Go) data providers are supported
 - Public key and password authentication
 - Quota support: accounts can have individual quota expressed as max number of files and max total size
 - Bandwidth throttling is supported, with distinct settings for upload and download
@@ -28,7 +28,7 @@ Regularly the test cases are manually executed and pass on Windows. Other UNIX v
 ## Requirements
 
 - Go 1.12 or higher
-- A suitable SQL server to use as data provider: PostreSQL (9+) or MySQL (5.6+) or SQLite 3.x
+- A suitable SQL server to use as data provider: PostreSQL (9+) or MySQL (5.6+) or SQLite 3.x or bbolt 1.3.x
 
 ## Installation
 
@@ -45,7 +45,7 @@ On Linux and macOS a compiler is easy to install or already installed, on Window
 
 The compiler is a build time only dependency, it is not not required at runtime.
 
-If you don't need SQLite, you can also get/build SFTPGo setting the environment variable `GCO_ENABLED` to 0, this way SQLite support will be disabled but PostgreSQL and MySQL will work and you don't need a `C` compiler for building.
+If you don't need SQLite, you can also get/build SFTPGo setting the environment variable `GCO_ENABLED` to 0, this way SQLite support will be disabled but PostgreSQL, MySQL and bbolt will work and you don't need a `C` compiler for building.
 
 Version info, such as git commit and build date, can be embedded setting the following string variables at build time:
 
@@ -90,7 +90,7 @@ Flags:
 
 The `serve` subcommand supports the following flags:
 
-- `--config-dir` string. Location of the config dir. This directory should contain the `sftpgo` configuration file and is used as the base for files with a relative path (eg. the private keys for the SFTP server, the SQLite database if you use SQLite as data provider). The default value is "." or the value of `SFTPGO_CONFIG_DIR` environment variable.
+- `--config-dir` string. Location of the config dir. This directory should contain the `sftpgo` configuration file and is used as the base for files with a relative path (eg. the private keys for the SFTP server, the SQLite or bblot database if you use SQLite or bbolt as data provider). The default value is "." or the value of `SFTPGO_CONFIG_DIR` environment variable.
 - `--config-file` string. Name of the configuration file. It must be the name of a file stored in config-dir not the absolute path to the configuration file. The specified file name must have no extension we automatically load JSON, YAML, TOML, HCL and Java properties. The default value is "sftpgo" (and therefore `sftpgo.json`, `sftpgo.yaml` and so on are searched) or the value of `SFTPGO_CONFIG_FILE` environment variable
 - `--log-compress` boolean. Determine if the rotated log files should be compressed using gzip. Default `false` or the value of `SFTPGO_LOG_COMPRESS` environment variable (1 or `true`, 0 or `false`)
 - `--log-file-path` string. Location for the log file, default "sftpgo.log" or the value of `SFTPGO_LOG_FILE_PATH` environment variable
@@ -130,14 +130,14 @@ The `sftpgo` configuration file contains the following sections:
     - `keys`, struct array. It contains the daemon's private keys. If empty or missing the daemon will search or try to generate `id_rsa` in the configuration directory.
         - `private_key`, path to the private key file. It can be a path relative to the config dir or an absolute one.
 - **"data_provider"**, the configuration for the data provider
-    - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`
+    - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`
     - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database.
-    - `host`, string. Database host. Leave empty for driver `sqlite`
-    - `port`, integer. Database port. Leave empty for driver `sqlite`
-    - `username`, string. Database user. Leave empty for driver `sqlite`
-    - `password`, string. Database password. Leave empty for driver `sqlite`
+    - `host`, string. Database host. Leave empty for driver `sqlite` and `bolt`
+    - `port`, integer. Database port. Leave empty for driver `sqlite` and `bolt`
+    - `username`, string. Database user. Leave empty for driver `sqlite` and `bolt`
+    - `password`, string. Database password. Leave empty for driver `sqlite` and `bolt`
     - `sslmode`, integer. Used for drivers `mysql` and `postgresql`. 0 disable SSL/TLS connections, 1 require ssl, 2 set ssl mode to `verify-ca` for driver `postgresql` and `skip-verify` for driver `mysql`, 3 set ssl mode to `verify-full` for driver `postgresql` and `preferred` for driver `mysql`
-    - `connectionstring`, string. Provide a custom database connection string. If not empty this connection string will be used instead of build one using the previous parameters
+    - `connectionstring`, string. Provide a custom database connection string. If not empty this connection string will be used instead of build one using the previous parameters. Leave empty for driver `bolt`
     - `users_table`, string. Database table for SFTP users
     - `manage_users`, integer. Set to 0 to disable users management, 1 to enable
     - `track_quota`, integer. Set the preferred way to track users quota between the following choices:
@@ -325,6 +325,7 @@ The logs can be divided into the following categories:
 - [argon2id](https://github.com/alexedwards/argon2id)
 - [go-sqlite3](https://github.com/mattn/go-sqlite3)
 - [go-sql-driver/mysql](https://github.com/go-sql-driver/mysql)
+- [bbolt](https://github.com/etcd-io/bbolt)
 - [lib/pq](https://github.com/lib/pq)
 - [viper](https://github.com/spf13/viper)
 - [cobra](https://github.com/spf13/cobra)

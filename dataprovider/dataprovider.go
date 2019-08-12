@@ -4,23 +4,28 @@
 package dataprovider
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 
 	"github.com/alexedwards/argon2id"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 )
 
 const (
-	// SQLiteDataProviderName name for sqlite db provider
+	// SQLiteDataProviderName name for SQLite database provider
 	SQLiteDataProviderName = "sqlite"
-	// PGSSQLDataProviderName name for postgresql db provider
+	// PGSSQLDataProviderName name for PostgreSQL database provider
 	PGSSQLDataProviderName = "postgresql"
-	// MySQLDataProviderName name for mysql db provider
+	// MySQLDataProviderName name for MySQL database provider
 	MySQLDataProviderName = "mysql"
+	// BoltDataProviderName name for bbolt key/value store provider
+	BoltDataProviderName = "bolt"
 
 	logSender                = "dataProvider"
 	argonPwdPrefix           = "$argon2id$"
@@ -31,7 +36,7 @@ const (
 
 var (
 	// SupportedProviders data provider configured in the sftpgo.conf file must match of these strings
-	SupportedProviders = []string{SQLiteDataProviderName, PGSSQLDataProviderName, MySQLDataProviderName}
+	SupportedProviders = []string{SQLiteDataProviderName, PGSSQLDataProviderName, MySQLDataProviderName, BoltDataProviderName}
 	config             Config
 	provider           Provider
 	sqlPlaceholders    []string
@@ -97,6 +102,15 @@ func (e *MethodDisabledError) Error() string {
 	return fmt.Sprintf("Method disabled error: %s", e.err)
 }
 
+// RecordNotFoundError raised if a requested user is not found
+type RecordNotFoundError struct {
+	err string
+}
+
+func (e *RecordNotFoundError) Error() string {
+	return fmt.Sprintf("Not found: %s", e.err)
+}
+
 // GetProvider returns the configured provider
 func GetProvider() Provider {
 	return provider
@@ -127,6 +141,8 @@ func Initialize(cnf Config, basePath string) error {
 		return initializePGSQLProvider()
 	} else if config.Driver == MySQLDataProviderName {
 		return initializeMySQLProvider()
+	} else if config.Driver == BoltDataProviderName {
+		return initializeBoltProvider(basePath)
 	}
 	return fmt.Errorf("Unsupported data provider: %v", config.Driver)
 }
@@ -236,6 +252,51 @@ func validateUser(user *User) error {
 		}
 	}
 	return nil
+}
+
+func checkUserAndPass(user User, password string) (User, error) {
+	var err error
+	if len(user.Password) == 0 {
+		return user, errors.New("Credentials cannot be null or empty")
+	}
+	var match bool
+	if strings.HasPrefix(user.Password, argonPwdPrefix) {
+		match, err = argon2id.ComparePasswordAndHash(password, user.Password)
+		if err != nil {
+			logger.Warn(logSender, "error comparing password with argon hash: %v", err)
+			return user, err
+		}
+	} else if strings.HasPrefix(user.Password, bcryptPwdPrefix) {
+		if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
+			logger.Warn(logSender, "error comparing password with bcrypt hash: %v", err)
+			return user, err
+		}
+		match = true
+	} else {
+		// clear text password match
+		match = (user.Password == password)
+	}
+	if !match {
+		err = errors.New("Invalid credentials")
+	}
+	return user, err
+}
+
+func checkUserAndPubKey(user User, pubKey string) (User, error) {
+	if len(user.PublicKeys) == 0 {
+		return user, errors.New("Invalid credentials")
+	}
+	for i, k := range user.PublicKeys {
+		storedPubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
+		if err != nil {
+			logger.Warn(logSender, "error parsing stored public key %d for user %v: %v", i, user.Username, err)
+			return user, err
+		}
+		if string(storedPubKey.Marshal()) == pubKey {
+			return user, nil
+		}
+	}
+	return user, errors.New("Invalid credentials")
 }
 
 func getSSLMode() string {

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"database/sql"
 	"errors"
 	"net/http"
 	"strconv"
@@ -67,7 +66,7 @@ func getUserByID(w http.ResponseWriter, r *http.Request) {
 		user.Password = ""
 		user.PublicKeys = []string{}
 		render.JSON(w, r, user)
-	} else if err == sql.ErrNoRows {
+	} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
 		sendAPIResponse(w, r, err, "", http.StatusNotFound)
 	} else {
 		sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
@@ -104,7 +103,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, err := dataprovider.GetUserByID(dataProvider, userID)
-	if err == sql.ErrNoRows {
+	if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
 		sendAPIResponse(w, r, err, "", http.StatusNotFound)
 		return
 	} else if err != nil {
@@ -136,7 +135,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, err := dataprovider.GetUserByID(dataProvider, userID)
-	if err == sql.ErrNoRows {
+	if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
 		sendAPIResponse(w, r, err, "", http.StatusNotFound)
 		return
 	} else if err != nil {

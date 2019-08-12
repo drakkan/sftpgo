@@ -4,13 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"strings"
 	"time"
-
-	"golang.org/x/crypto/ssh"
-
-	"github.com/alexedwards/argon2id"
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
@@ -38,34 +32,9 @@ func sqlCommonValidateUserAndPass(username string, password string, dbHandle *sq
 	user, err := getUserByUsername(username, dbHandle)
 	if err != nil {
 		logger.Warn(logSender, "error authenticating user: %v, error: %v", username, err)
-	} else {
-		// even if the password is empty inside the database an empty user password
-		// will be refused anyway so it cannot match, additional check to be paranoid
-		if len(user.Password) == 0 {
-			return user, errors.New("Credentials cannot be null or empty")
-		}
-		var match bool
-		if strings.HasPrefix(user.Password, argonPwdPrefix) {
-			match, err = argon2id.ComparePasswordAndHash(password, user.Password)
-			if err != nil {
-				logger.Warn(logSender, "error comparing password with argon hash: %v", err)
-				return user, err
-			}
-		} else if strings.HasPrefix(user.Password, bcryptPwdPrefix) {
-			if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
-				logger.Warn(logSender, "error comparing password with bcrypt hash: %v", err)
-				return user, err
-			}
-			match = true
-		} else {
-			// clear text password match
-			match = (user.Password == password)
-		}
-		if !match {
-			err = errors.New("Invalid credentials")
-		}
+		return user, err
 	}
-	return user, err
+	return checkUserAndPass(user, password)
 }
 
 func sqlCommonValidateUserAndPubKey(username string, pubKey string, dbHandle *sql.DB) (User, error) {
@@ -78,21 +47,7 @@ func sqlCommonValidateUserAndPubKey(username string, pubKey string, dbHandle *sq
 		logger.Warn(logSender, "error authenticating user: %v, error: %v", username, err)
 		return user, err
 	}
-	if len(user.PublicKeys) == 0 {
-		return user, errors.New("Invalid credentials")
-	}
-
-	for i, k := range user.PublicKeys {
-		storedPubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
-		if err != nil {
-			logger.Warn(logSender, "error parsing stored public key %d for user %v: %v", i, username, err)
-			return user, err
-		}
-		if string(storedPubKey.Marshal()) == pubKey {
-			return user, nil
-		}
-	}
-	return user, errors.New("Invalid credentials")
+	return checkUserAndPubKey(user, pubKey)
 }
 
 func sqlCommonGetUserByID(ID int64, dbHandle *sql.DB) (User, error) {
@@ -241,9 +196,9 @@ func sqlCommonGetUsers(limit int, offset int, order string, username string, dbH
 		for rows.Next() {
 			u, err := getUserFromDbRow(nil, rows)
 			// hide password and public key
-			u.Password = ""
-			u.PublicKeys = []string{}
 			if err == nil {
+				u.Password = ""
+				u.PublicKeys = []string{}
 				users = append(users, u)
 			} else {
 				break
@@ -271,6 +226,9 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 			&user.UploadBandwidth, &user.DownloadBandwidth)
 	}
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return user, &RecordNotFoundError{err: err.Error()}
+		}
 		return user, err
 	}
 	if password.Valid {

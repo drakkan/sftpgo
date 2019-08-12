@@ -17,6 +17,7 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/viper v1.4.0
 	github.com/stretchr/testify v1.3.0 // indirect
+	go.etcd.io/bbolt v1.3.2
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
