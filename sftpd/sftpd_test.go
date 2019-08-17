@@ -1001,6 +1001,134 @@ func TestOverwriteDirWithFile(t *testing.T) {
 	}
 }
 
+func TestPasswordsHashPbkdf2Sha1(t *testing.T) {
+	pbkdf2Pwd := "$pbkdf2-sha1$150000$DveVjgYUD05R$X6ydQZdyMeOvpgND2nqGR/0GGic="
+	pbkdf2ClearPwd := "password"
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Password = pbkdf2Pwd
+	user, _, err := api.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	user.Password = pbkdf2ClearPwd
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to login with pkkdf2 sha1 password: %v", err)
+	} else {
+		defer client.Close()
+		_, err = client.Getwd()
+		if err != nil {
+			t.Errorf("unable to get working dir with pkkdf2 sha1 password: %v", err)
+		}
+	}
+	user.Password = pbkdf2Pwd
+	_, err = getSftpClient(user, usePubKey)
+	if err == nil {
+		t.Errorf("login with wrong password must fail")
+	}
+	_, err = api.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+}
+
+func TestPasswordsHashPbkdf2Sha256(t *testing.T) {
+	pbkdf2Pwd := "$pbkdf2-sha256$150000$E86a9YMX3zC7$R5J62hsSq+pYw00hLLPKBbcGXmq7fj5+/M0IFoYtZbo="
+	pbkdf2ClearPwd := "password"
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Password = pbkdf2Pwd
+	user, _, err := api.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	user.Password = pbkdf2ClearPwd
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to login with pkkdf2 sha1 password: %v", err)
+	} else {
+		defer client.Close()
+		_, err = client.Getwd()
+		if err != nil {
+			t.Errorf("unable to get working dir with pkkdf2 sha1 password: %v", err)
+		}
+	}
+	user.Password = pbkdf2Pwd
+	_, err = getSftpClient(user, usePubKey)
+	if err == nil {
+		t.Errorf("login with wrong password must fail")
+	}
+	_, err = api.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+}
+
+func TestPasswordsHashPbkdf2Sha512(t *testing.T) {
+	pbkdf2Pwd := "$pbkdf2-sha512$150000$dsu7T5R3IaVQ$1hFXPO1ntRBcoWkSLKw+s4sAP09Xtu4Ya7CyxFq64jM9zdUg8eRJVr3NcR2vQgb0W9HHvZaILHsL4Q/Vr6arCg=="
+	pbkdf2ClearPwd := "password"
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Password = pbkdf2Pwd
+	user, _, err := api.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	user.Password = pbkdf2ClearPwd
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to login with pkkdf2 sha1 password: %v", err)
+	} else {
+		defer client.Close()
+		_, err = client.Getwd()
+		if err != nil {
+			t.Errorf("unable to get working dir with pkkdf2 sha1 password: %v", err)
+		}
+	}
+	user.Password = pbkdf2Pwd
+	_, err = getSftpClient(user, usePubKey)
+	if err == nil {
+		t.Errorf("login with wrong password must fail")
+	}
+	_, err = api.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+}
+
+func TestPasswordsHashBcrypt(t *testing.T) {
+	bcryptPwd := "$2a$14$ajq8Q7fbtFRQvXpdCq7Jcuy.Rx1h/L4J60Otx.gyNLbAYctGMJ9tK"
+	bcryptClearPwd := "secret"
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Password = bcryptPwd
+	user, _, err := api.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	user.Password = bcryptClearPwd
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to login with bcrypt password: %v", err)
+	} else {
+		defer client.Close()
+		_, err = client.Getwd()
+		if err != nil {
+			t.Errorf("unable to get working dir with bcrypt password: %v", err)
+		}
+	}
+	user.Password = bcryptPwd
+	_, err = getSftpClient(user, usePubKey)
+	if err == nil {
+		t.Errorf("login with wrong password must fail")
+	}
+	_, err = api.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+}
+
 func TestPermList(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
