@@ -272,9 +272,6 @@ func checkUserAndPass(user User, password string) (User, error) {
 			return user, err
 		}
 		match = true
-	} else {
-		// clear text password match
-		match = (user.Password == password)
 	}
 	if !match {
 		err = errors.New("Invalid credentials")
