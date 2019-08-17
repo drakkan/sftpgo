@@ -60,14 +60,17 @@ class SFTPGoApiRequests:
 	def buildUserObject(self, user_id=0, username="", password="", public_keys="", home_dir="", uid=0,
 					gid=0, max_sessions=0, quota_size=0, quota_files=0, permissions=[], upload_bandwidth=0,
 					download_bandwidth=0):
-		user = {"id":user_id, "username":username, "home_dir":home_dir, "uid":uid, "gid":gid,
+		user = {"id":user_id, "username":username, "uid":uid, "gid":gid,
 			"max_sessions":max_sessions, "quota_size":quota_size, "quota_files":quota_files,
-			"permissions":permissions, "upload_bandwidth":upload_bandwidth,
-			"download_bandwidth":download_bandwidth}
+			"upload_bandwidth":upload_bandwidth,"download_bandwidth":download_bandwidth}
 		if password:
 			user.update({"password":password})
 		if public_keys:
 			user.update({"public_keys":public_keys})
+		if home_dir:
+			user.update({"home_dir":home_dir})
+		if permissions:
+			user.update({"permissions":permissions})
 		return user
 
 	def getUsers(self, limit=100, offset=0, order="ASC", username=""):

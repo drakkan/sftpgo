@@ -4,13 +4,21 @@
 package dataprovider
 
 import (
+	"crypto/sha1"
+	"crypto/sha256"
+	"crypto/sha512"
+	"crypto/subtle"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"hash"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/alexedwards/argon2id"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/drakkan/sftpgo/logger"
@@ -30,6 +38,9 @@ const (
 	logSender                = "dataProvider"
 	argonPwdPrefix           = "$argon2id$"
 	bcryptPwdPrefix          = "$2a$"
+	pbkdf2SHA1Prefix         = "$pbkdf2-sha1$"
+	pbkdf2SHA256Prefix       = "$pbkdf2-sha256$"
+	pbkdf2SHA512Prefix       = "$pbkdf2-sha512$"
 	manageUsersDisabledError = "please set manage_users to 1 in sftpgo.conf to enable this method"
 	trackQuotaDisabledError  = "please enable track_quota in sftpgo.conf to use this method"
 )
@@ -42,6 +53,8 @@ var (
 	sqlPlaceholders    []string
 	validPerms         = []string{PermAny, PermListItems, PermDownload, PermUpload, PermDelete, PermRename,
 		PermCreateDirs, PermCreateSymlinks}
+	hashPwdPrefixes  = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
+	pbkdfPwdPrefixes = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
 )
 
 // Config provider configuration
@@ -237,8 +250,7 @@ func validateUser(user *User) error {
 			return &ValidationError{err: fmt.Sprintf("Invalid permission: %v", p)}
 		}
 	}
-	if len(user.Password) > 0 && !strings.HasPrefix(user.Password, argonPwdPrefix) &&
-		!strings.HasPrefix(user.Password, bcryptPwdPrefix) {
+	if len(user.Password) > 0 && !utils.IsStringPrefixInSlice(user.Password, hashPwdPrefixes) {
 		pwd, err := argon2id.CreateHash(user.Password, argon2id.DefaultParams)
 		if err != nil {
 			return err
@@ -272,6 +284,12 @@ func checkUserAndPass(user User, password string) (User, error) {
 			return user, err
 		}
 		match = true
+	} else if utils.IsStringPrefixInSlice(user.Password, pbkdfPwdPrefixes) {
+		match, err = comparePbkdf2PasswordAndHash(password, user.Password)
+		if err != nil {
+			logger.Warn(logSender, "error comparing password with pbkdf2 sha256 hash: %v", err)
+			return user, err
+		}
 	}
 	if !match {
 		err = errors.New("Invalid credentials")
@@ -294,6 +312,37 @@ func checkUserAndPubKey(user User, pubKey string) (User, error) {
 		}
 	}
 	return user, errors.New("Invalid credentials")
+}
+
+func comparePbkdf2PasswordAndHash(password, hashedPassword string) (bool, error) {
+	vals := strings.Split(hashedPassword, "$")
+	if len(vals) != 5 {
+		return false, fmt.Errorf("pbkdf2: hash is not in the correct format")
+	}
+	var hashFunc func() hash.Hash
+	var hashSize int
+	if strings.HasPrefix(hashedPassword, pbkdf2SHA256Prefix) {
+		hashSize = sha256.Size
+		hashFunc = sha256.New
+	} else if strings.HasPrefix(hashedPassword, pbkdf2SHA512Prefix) {
+		hashSize = sha512.Size
+		hashFunc = sha512.New
+	} else if strings.HasPrefix(hashedPassword, pbkdf2SHA1Prefix) {
+		hashSize = sha1.Size
+		hashFunc = sha1.New
+	} else {
+		return false, fmt.Errorf("pbkdf2: invalid or unsupported hash format %v", vals[1])
+	}
+	iterations, err := strconv.Atoi(vals[2])
+	if err != nil {
+		return false, err
+	}
+	salt := vals[3]
+	expected := vals[4]
+	df := pbkdf2.Key([]byte(password), []byte(salt), iterations, hashSize, hashFunc)
+	buf := make([]byte, base64.StdEncoding.EncodedLen(len(df)))
+	base64.StdEncoding.Encode(buf, df)
+	return subtle.ConstantTimeCompare(buf, []byte(expected)) == 1, nil
 }
 
 func getSSLMode() string {

@@ -219,7 +219,7 @@ sftpgo serve
 For each account the following properties can be configured:
 
 - `username`
-- `password` used for password authentication. For users created using SFTPGo REST API the password will be stored using argon2id hashing algo. SFTPGo supports checking passwords stored with bcrypt too.
+- `password` used for password authentication. For users created using SFTPGo REST API the password will be stored using argon2id hashing algo. SFTPGo supports checking passwords stored with bcrypt and pbkdf2 too. For pbkdf2 the supported format is `$<algo>$<iterations>$<salt>$<hashed pwd base64 encoded>`, where algo is `pbkdf2-sha1` or `pbkdf2-sha256` or `pbkdf2-sha512`. For example the `pbkdf2-sha256` of the word `password` using 150000 iterations and `E86a9YMX3zC7` as salt must be stored as `$pbkdf2-sha256$150000$E86a9YMX3zC7$R5J62hsSq+pYw00hLLPKBbcGXmq7fj5+/M0IFoYtZbo=`. For bcrypt the format must be the one supported by golang's [crypto/bcrypt](https://godoc.org/golang.org/x/crypto/bcrypt) package, for example the password `secret` with cost `14` must be stored as `$2a$14$ajq8Q7fbtFRQvXpdCq7Jcuy.Rx1h/L4J60Otx.gyNLbAYctGMJ9tK`
 - `public_keys` array of public keys. At least one public key or the password is mandatory.
 - `home_dir` The user cannot upload or download files outside this directory. Must be an absolute path
 - `uid`, `gid`. If sftpgo runs as root system user then the created files and directories will be assigned to this system uid/gid. Ignored on windows and if sftpgo runs as non root user: in this case files and directories for all SFTP users will be owned by the system user that runs sftpgo.

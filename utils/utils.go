@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/drakkan/sftpgo/logger"
@@ -16,6 +17,17 @@ const logSender = "utils"
 func IsStringInSlice(obj string, list []string) bool {
 	for _, v := range list {
 		if v == obj {
+			return true
+		}
+	}
+	return false
+}
+
+// IsStringPrefixInSlice searches a string prefix in a slice and returns true
+// if a matching prefix is found
+func IsStringPrefixInSlice(obj string, list []string) bool {
+	for _, v := range list {
+		if strings.HasPrefix(obj, v) {
 			return true
 		}
 	}
