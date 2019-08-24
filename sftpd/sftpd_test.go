@@ -275,6 +275,10 @@ func TestDirCommands(t *testing.T) {
 		if err != nil {
 			t.Errorf("error mkdir all: %v", err)
 		}
+		_, err = client.ReadDir("/this/dir/does/not/exist")
+		if err == nil {
+			t.Errorf("reading a missing dir must fail")
+		}
 		testFileName := "/test_file.dat"
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(65535)
@@ -333,6 +337,10 @@ func TestSymlink(t *testing.T) {
 		err = client.Symlink(testFileName, testFileName+".link")
 		if err != nil {
 			t.Errorf("error creating symlink: %v", err)
+		}
+		_, err = client.ReadLink(testFileName + ".link")
+		if err == nil {
+			t.Errorf("readlink is currently not implemented so must fail")
 		}
 		err = client.Symlink(testFileName, testFileName+".link")
 		if err == nil {

@@ -436,7 +436,7 @@ func TestSCPCommandHandleErrors(t *testing.T) {
 	}
 }
 
-func TestRecursiveDownloadErrors(t *testing.T) {
+func TestSCPRecursiveDownloadErrors(t *testing.T) {
 	connection := Connection{}
 	buf := make([]byte, 65535)
 	stdErrBuf := make([]byte, 65535)
@@ -475,7 +475,7 @@ func TestRecursiveDownloadErrors(t *testing.T) {
 	os.Remove(path)
 }
 
-func TestRecursiveUploadErrors(t *testing.T) {
+func TestSCPRecursiveUploadErrors(t *testing.T) {
 	connection := Connection{}
 	buf := make([]byte, 65535)
 	stdErrBuf := make([]byte, 65535)

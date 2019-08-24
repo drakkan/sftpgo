@@ -101,32 +101,16 @@ func (c *scpCommand) handleRecursiveUpload() error {
 			if err != nil {
 				return err
 			}
-			objPath := path.Join(destPath, name)
 			if strings.HasPrefix(command, "D") {
 				numDirs++
-				err = c.handleCreateDir(objPath)
+				destPath = path.Join(destPath, name)
+				err = c.handleCreateDir(destPath)
 				if err != nil {
 					return err
 				}
-				destPath = objPath
 				logger.Debug(logSenderSCP, "received start dir command, num dirs: %v destPath: %v", numDirs, destPath)
 			} else if strings.HasPrefix(command, "C") {
-				// if the upload is not recursive and the destination path does not end with "/"
-				// then this is the wanted filename ...
-				if !c.isRecursive() {
-					if !strings.HasSuffix(destPath, "/") {
-						objPath = destPath
-						// ... but if the requested path is an existing directory then put the uploaded file inside that directory
-						if p, err := c.connection.buildPath(objPath); err == nil {
-							if stat, err := os.Stat(p); err == nil {
-								if stat.IsDir() {
-									objPath = path.Join(destPath, name)
-								}
-							}
-						}
-					}
-				}
-				err = c.handleUpload(objPath, sizeToRead)
+				err = c.handleUpload(c.getFileUploadDestPath(destPath, name), sizeToRead)
 				if err != nil {
 					return err
 				}
@@ -688,6 +672,31 @@ func (c *scpCommand) parseUploadMessage(command string) (int64, string, error) {
 		return size, name, err
 	}
 	return size, name, err
+}
+
+func (c *scpCommand) getFileUploadDestPath(scpDestPath, fileName string) string {
+	if !c.isRecursive() {
+		// if the upload is not recursive and the destination path does not end with "/"
+		// then scpDestPath is the wanted filename, for example:
+		// scp fileName.txt user@127.0.0.1:/newFileName.txt
+		// or
+		// scp fileName.txt user@127.0.0.1:/fileName.txt
+		if !strings.HasSuffix(scpDestPath, "/") {
+			// but if scpDestPath is an existing directory then we put the uploaded file
+			// inside that directory this is as scp command works, for example:
+			// scp fileName.txt user@127.0.0.1:/existing_dir
+			if p, err := c.connection.buildPath(scpDestPath); err == nil {
+				if stat, err := os.Stat(p); err == nil {
+					if stat.IsDir() {
+						return path.Join(scpDestPath, fileName)
+					}
+				}
+			}
+			return scpDestPath
+		}
+	}
+	// if the upload is recursive then the destination file is relative to the current scpDestPath
+	return path.Join(scpDestPath, fileName)
 }
 
 func getFileModeAsString(fileMode os.FileMode, isDir bool) string {
