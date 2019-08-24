@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -52,6 +53,15 @@ type Configuration struct {
 	Actions Actions `json:"actions" mapstructure:"actions"`
 	// Keys are a list of host keys
 	Keys []Key `json:"keys" mapstructure:"keys"`
+	// IsSCPEnabled determines if experimental SCP support is enabled.
+	// We have our own SCP implementation since we can't rely on scp system
+	// command to properly handle permissions, quota and user's home dir restrictions.
+	// The SCP protocol is quite simple but there is no official docs about it,
+	// so we need more testing and feedbacks before enabling it by default.
+	// We may not handle some borderline cases or have sneaky bugs.
+	// Please do accurate tests yourself before enabling SCP and let us known
+	// if something does not work as expected for your use cases
+	IsSCPEnabled bool `json:"enable_scp" mapstructure:"enable_scp"`
 }
 
 // Key contains information about host keys
@@ -152,6 +162,28 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 
 	logger.Debug(logSender, "accepted inbound connection, ip: %v", conn.RemoteAddr().String())
 
+	var user dataprovider.User
+
+	err = json.Unmarshal([]byte(sconn.Permissions.Extensions["user"]), &user)
+
+	if err != nil {
+		logger.Warn(logSender, "Unable to deserialize user info, cannot serve connection: %v", err)
+		return
+	}
+
+	connectionID := hex.EncodeToString(sconn.SessionID())
+
+	connection := Connection{
+		ID:            connectionID,
+		User:          user,
+		ClientVersion: string(sconn.ClientVersion()),
+		RemoteAddr:    conn.RemoteAddr(),
+		StartTime:     time.Now(),
+		lastActivity:  time.Now(),
+		lock:          new(sync.Mutex),
+		sshConn:       sconn,
+	}
+
 	go ssh.DiscardRequests(reqs)
 
 	for newChannel := range chans {
@@ -179,55 +211,54 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 				case "subsystem":
 					if string(req.Payload[4:]) == "sftp" {
 						ok = true
+						connection.protocol = protocolSFTP
+						go c.handleSftpConnection(channel, connection)
+					}
+				case "exec":
+					if c.IsSCPEnabled {
+						var msg execMsg
+						if err := ssh.Unmarshal(req.Payload, &msg); err == nil {
+							name, scpArgs, err := parseCommandPayload(msg.Command)
+							logger.Debug(logSender, "new exec command: %v args: %v user: %v, error: %v", name, scpArgs,
+								connection.User.Username, err)
+							if err == nil && name == "scp" && len(scpArgs) >= 2 {
+								ok = true
+								connection.protocol = protocolSCP
+								scpCommand := scpCommand{
+									connection: connection,
+									args:       scpArgs,
+									channel:    channel,
+								}
+								go scpCommand.handle()
+							}
+						}
 					}
 				}
-
 				req.Reply(ok, nil)
 			}
 		}(requests)
-
-		var user dataprovider.User
-
-		err = json.Unmarshal([]byte(sconn.Permissions.Extensions["user"]), &user)
-
-		if err != nil {
-			logger.Warn(logSender, "Unable to deserialize user info, cannot serve connection: %v", err)
-			return
-		}
-
-		connectionID := hex.EncodeToString(sconn.SessionID())
-
-		// Create a new handler for the currently logged in user's server.
-		handler := c.createHandler(sconn, user, connectionID)
-
-		// Create the server instance for the channel using the handler we created above.
-		server := sftp.NewRequestServer(channel, handler)
-
-		if err := server.Serve(); err == io.EOF {
-			logger.Debug(logSender, "connection closed, id: %v", connectionID)
-			server.Close()
-		} else if err != nil {
-			logger.Error(logSender, "sftp connection closed with error id %v: %v", connectionID, err)
-		}
-
-		removeConnection(connectionID)
 	}
 }
 
-func (c Configuration) createHandler(conn *ssh.ServerConn, user dataprovider.User, connectionID string) sftp.Handlers {
+func (c Configuration) handleSftpConnection(channel io.ReadWriteCloser, connection Connection) {
+	addConnection(connection.ID, connection)
+	// Create a new handler for the currently logged in user's server.
+	handler := c.createHandler(connection)
 
-	connection := Connection{
-		ID:            connectionID,
-		User:          user,
-		ClientVersion: string(conn.ClientVersion()),
-		RemoteAddr:    conn.RemoteAddr(),
-		StartTime:     time.Now(),
-		lastActivity:  time.Now(),
-		lock:          new(sync.Mutex),
-		sshConn:       conn,
+	// Create the server instance for the channel using the handler we created above.
+	server := sftp.NewRequestServer(channel, handler)
+
+	if err := server.Serve(); err == io.EOF {
+		logger.Debug(logSender, "connection closed, id: %v", connection.ID)
+		server.Close()
+	} else if err != nil {
+		logger.Error(logSender, "sftp connection closed with error id %v: %v", connection.ID, err)
 	}
 
-	addConnection(connectionID, connection)
+	removeConnection(connection.ID)
+}
+
+func (c Configuration) createHandler(connection Connection) sftp.Handlers {
 
 	return sftp.Handlers{
 		FileGet:  connection,
@@ -330,4 +361,12 @@ func (c Configuration) generatePrivateKey(file string) error {
 	}
 
 	return nil
+}
+
+func parseCommandPayload(command string) (string, []string, error) {
+	parts := strings.Split(command, " ")
+	if len(parts) < 2 {
+		return parts[0], []string{}, nil
+	}
+	return parts[0], parts[1:], nil
 }

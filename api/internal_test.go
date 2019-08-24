@@ -161,7 +161,7 @@ func TestApiCallsWithBadURL(t *testing.T) {
 	if err == nil {
 		t.Errorf("request with invalid URL must fail")
 	}
-	_, err = CloseSFTPConnection("non_existent_id", http.StatusNotFound)
+	_, err = CloseConnection("non_existent_id", http.StatusNotFound)
 	if err == nil {
 		t.Errorf("request with invalid URL must fail")
 	}
@@ -200,11 +200,11 @@ func TestApiCallToNotListeningServer(t *testing.T) {
 	if err == nil {
 		t.Errorf("request to an inactive URL must fail")
 	}
-	_, _, err = GetSFTPConnections(http.StatusOK)
+	_, _, err = GetConnections(http.StatusOK)
 	if err == nil {
 		t.Errorf("request to an inactive URL must fail")
 	}
-	_, err = CloseSFTPConnection("non_existent_id", http.StatusNotFound)
+	_, err = CloseConnection("non_existent_id", http.StatusNotFound)
 	if err == nil {
 		t.Errorf("request to an inactive URL must fail")
 	}
@@ -215,13 +215,13 @@ func TestApiCallToNotListeningServer(t *testing.T) {
 	SetBaseURL(oldBaseURL)
 }
 
-func TestCloseSFTPConnectionHandler(t *testing.T) {
+func TestCloseConnectionHandler(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodDelete, activeConnectionsPath+"/connectionID", nil)
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("connectionID", "")
 	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 	rr := httptest.NewRecorder()
-	handleCloseSFTPConnection(rr, req)
+	handleCloseConnection(rr, req)
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("Expected response code 400. Got %d", rr.Code)
 	}

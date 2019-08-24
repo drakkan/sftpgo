@@ -12,7 +12,8 @@
       "command": "",
       "http_notification_url": ""
     },
-    "keys": []
+    "keys": [],
+    "enable_scp": false
   },
   "data_provider": {
     "driver": "sqlite",

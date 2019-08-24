@@ -207,8 +207,8 @@ func StartQuotaScan(user dataprovider.User, expectedStatusCode int) ([]byte, err
 	return body, checkResponse(resp.StatusCode, expectedStatusCode)
 }
 
-// GetSFTPConnections returns status and stats for active SFTP connections
-func GetSFTPConnections(expectedStatusCode int) ([]sftpd.ConnectionStatus, []byte, error) {
+// GetConnections returns status and stats for active SFTP/SCP connections
+func GetConnections(expectedStatusCode int) ([]sftpd.ConnectionStatus, []byte, error) {
 	var connections []sftpd.ConnectionStatus
 	var body []byte
 	resp, err := getHTTPClient().Get(buildURLRelativeToBase(activeConnectionsPath))
@@ -225,8 +225,8 @@ func GetSFTPConnections(expectedStatusCode int) ([]sftpd.ConnectionStatus, []byt
 	return connections, body, err
 }
 
-// CloseSFTPConnection closes an active SFTP connection identified by connectionID
-func CloseSFTPConnection(connectionID string, expectedStatusCode int) ([]byte, error) {
+// CloseConnection closes an active  connection identified by connectionID
+func CloseConnection(connectionID string, expectedStatusCode int) ([]byte, error) {
 	var body []byte
 	req, err := http.NewRequest(http.MethodDelete, buildURLRelativeToBase(activeConnectionsPath, connectionID), nil)
 	if err != nil {

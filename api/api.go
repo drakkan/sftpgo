@@ -15,7 +15,7 @@ import (
 
 const (
 	logSender             = "api"
-	activeConnectionsPath = "/api/v1/sftp_connection"
+	activeConnectionsPath = "/api/v1/connection"
 	quotaScanPath         = "/api/v1/quota_scan"
 	userPath              = "/api/v1/user"
 	versionPath           = "/api/v1/version"

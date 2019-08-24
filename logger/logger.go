@@ -90,8 +90,8 @@ func ErrorToConsole(format string, v ...interface{}) {
 	consoleLogger.Error().Msg(fmt.Sprintf(format, v...))
 }
 
-// TransferLog logs an SFTP upload or download
-func TransferLog(operation string, path string, elapsed int64, size int64, user string, connectionID string) {
+// TransferLog logs an SFTP/SCP upload or download
+func TransferLog(operation string, path string, elapsed int64, size int64, user string, connectionID string, protocol string) {
 	logger.Info().
 		Str("sender", operation).
 		Int64("elapsed_ms", elapsed).
@@ -99,16 +99,18 @@ func TransferLog(operation string, path string, elapsed int64, size int64, user 
 		Str("username", user).
 		Str("file_path", path).
 		Str("connection_id", connectionID).
+		Str("protocol", protocol).
 		Msg("")
 }
 
-// CommandLog logs an SFTP command
-func CommandLog(command string, path string, target string, user string, connectionID string) {
+// CommandLog logs an SFTP/SCP command
+func CommandLog(command string, path string, target string, user string, connectionID string, protocol string) {
 	logger.Info().
 		Str("sender", command).
 		Str("username", user).
 		Str("file_path", path).
 		Str("target_path", target).
 		Str("connection_id", connectionID).
+		Str("protocol", protocol).
 		Msg("")
 }

@@ -19,18 +19,21 @@ import (
 )
 
 const (
-	logSender              = "sftpd"
-	sftpUploadLogSender    = "SFTPUpload"
-	sftpdDownloadLogSender = "SFTPDownload"
-	sftpdRenameLogSender   = "SFTPRename"
-	sftpdRmdirLogSender    = "SFTPRmdir"
-	sftpdMkdirLogSender    = "SFTPMkdir"
-	sftpdSymlinkLogSender  = "SFTPSymlink"
-	sftpdRemoveLogSender   = "SFTPRemove"
-	operationDownload      = "download"
-	operationUpload        = "upload"
-	operationDelete        = "delete"
-	operationRename        = "rename"
+	logSender         = "sftpd"
+	logSenderSCP      = "scp"
+	uploadLogSender   = "Upload"
+	downloadLogSender = "Download"
+	renameLogSender   = "Rename"
+	rmdirLogSender    = "Rmdir"
+	mkdirLogSender    = "Mkdir"
+	symlinkLogSender  = "Symlink"
+	removeLogSender   = "Remove"
+	operationDownload = "download"
+	operationUpload   = "upload"
+	operationDelete   = "delete"
+	operationRename   = "rename"
+	protocolSFTP      = "SFTP"
+	protocolSCP       = "SCP"
 )
 
 var (
@@ -86,6 +89,8 @@ type ConnectionStatus struct {
 	ConnectionTime int64 `json:"connection_time"`
 	// Last activity as unix timestamp in milliseconds
 	LastActivity int64 `json:"last_activity"`
+	// Protocol for this connection: SFTP or SCP
+	Protocol string `json:"protocol"`
 	// active uploads/downloads
 	Transfers []connectionTransfer `json:"active_transfers"`
 }
@@ -190,6 +195,7 @@ func GetConnectionsStats() []ConnectionStatus {
 			RemoteAddress:  c.RemoteAddr.String(),
 			ConnectionTime: utils.GetTimeAsMsSinceEpoch(c.StartTime),
 			LastActivity:   utils.GetTimeAsMsSinceEpoch(c.lastActivity),
+			Protocol:       c.protocol,
 			Transfers:      []connectionTransfer{},
 		}
 		for _, t := range activeTransfers {
@@ -250,9 +256,7 @@ func CheckIdleConnections() {
 		if idleTime > idleTimeout {
 			logger.Debug(logSender, "close idle connection id: %v idle time: %v", c.ID, idleTime)
 			err := c.sshConn.Close()
-			if err != nil {
-				logger.Warn(logSender, "error closing idle connection: %v", err)
-			}
+			logger.Debug(logSender, "idle connection closed id: %v, err: %v", c.ID, err)
 		}
 	}
 	logger.Debug(logSender, "check idle connections ended")

@@ -40,7 +40,7 @@ func initializeRouter() {
 	})
 
 	router.Delete(activeConnectionsPath+"/{connectionID}", func(w http.ResponseWriter, r *http.Request) {
-		handleCloseSFTPConnection(w, r)
+		handleCloseConnection(w, r)
 	})
 
 	router.Get(quotaScanPath, func(w http.ResponseWriter, r *http.Request) {
@@ -72,7 +72,7 @@ func initializeRouter() {
 	})
 }
 
-func handleCloseSFTPConnection(w http.ResponseWriter, r *http.Request) {
+func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
 	connectionID := chi.URLParam(r, "connectionID")
 	if connectionID == "" {
 		sendAPIResponse(w, r, nil, "connectionID is mandatory", http.StatusBadRequest)

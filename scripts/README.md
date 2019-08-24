@@ -154,12 +154,12 @@ Output:
 ]
 ```
 
-### Get SFTP connections
+### Get active connections
 
 Command:
 
 ```
-python sftpgo_api_cli.py get-sftp-connections
+python sftpgo_api_cli.py get-connections
 ```
 
 Output:
@@ -173,9 +173,11 @@ Output:
     "remote_address": "127.0.0.1:41622",
     "connection_time": 1564696137971,
     "last_activity": 1564696159605,
+    "protocol": "SFTP",
     "active_transfers": [
       {
         "operation_type": "upload",
+        "path": "/test_upload.gz",
         "start_time": 1564696149783,
         "size": 1146880,
         "last_activity": 1564696159605
@@ -185,12 +187,12 @@ Output:
 ]
 ```
 
-### Close SFTP connection
+### Close connection
 
 Command:
 
 ```
-python sftpgo_api_cli.py close-sftp-connection 76a11b22260ee4249328df28bef34dc64c70f7c097db52159fc24049eeb0e32c
+python sftpgo_api_cli.py close-connection 76a11b22260ee4249328df28bef34dc64c70f7c097db52159fc24049eeb0e32c
 ```
 
 Output:

@@ -35,6 +35,7 @@ type Connection struct {
 	StartTime time.Time
 	// last activity for this connection
 	lastActivity time.Time
+	protocol     string
 	lock         *sync.Mutex
 	sshConn      *ssh.ServerConn
 }
@@ -78,6 +79,7 @@ func (c Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 		transferType:  transferDownload,
 		lastActivity:  time.Now(),
 		isNewFile:     false,
+		protocol:      c.protocol,
 	}
 	addTransfer(&transfer)
 	return &transfer, nil
@@ -254,7 +256,7 @@ func (c Connection) handleSFTPRename(sourcePath string, targetPath string) error
 		logger.Error(logSender, "failed to rename file, source: %v target: %v: %v", sourcePath, targetPath, err)
 		return sftp.ErrSshFxFailure
 	}
-	logger.CommandLog(sftpdRenameLogSender, sourcePath, targetPath, c.User.Username, c.ID)
+	logger.CommandLog(renameLogSender, sourcePath, targetPath, c.User.Username, c.ID, c.protocol)
 	executeAction(operationRename, c.User.Username, sourcePath, targetPath)
 	return nil
 }
@@ -274,7 +276,7 @@ func (c Connection) handleSFTPRmdir(path string) error {
 		return sftp.ErrSshFxFailure
 	}
 
-	logger.CommandLog(sftpdRmdirLogSender, path, "", c.User.Username, c.ID)
+	logger.CommandLog(rmdirLogSender, path, "", c.User.Username, c.ID, c.protocol)
 	dataprovider.UpdateUserQuota(dataProvider, c.User, -numFiles, -size, false)
 	for _, p := range fileList {
 		executeAction(operationDelete, c.User.Username, p, "")
@@ -291,7 +293,7 @@ func (c Connection) handleSFTPSymlink(sourcePath string, targetPath string) erro
 		return sftp.ErrSshFxFailure
 	}
 
-	logger.CommandLog(sftpdSymlinkLogSender, sourcePath, targetPath, c.User.Username, c.ID)
+	logger.CommandLog(symlinkLogSender, sourcePath, targetPath, c.User.Username, c.ID, c.protocol)
 	return nil
 }
 
@@ -304,7 +306,7 @@ func (c Connection) handleSFTPMkdir(path string) error {
 		logger.Error(logSender, "error making missing dir for path %v: %v", path, err)
 		return sftp.ErrSshFxFailure
 	}
-	logger.CommandLog(sftpdMkdirLogSender, path, "", c.User.Username, c.ID)
+	logger.CommandLog(mkdirLogSender, path, "", c.User.Username, c.ID, c.protocol)
 	return nil
 }
 
@@ -326,7 +328,7 @@ func (c Connection) handleSFTPRemove(path string) error {
 		return sftp.ErrSshFxFailure
 	}
 
-	logger.CommandLog(sftpdRemoveLogSender, path, "", c.User.Username, c.ID)
+	logger.CommandLog(removeLogSender, path, "", c.User.Username, c.ID, c.protocol)
 	if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
 		dataprovider.UpdateUserQuota(dataProvider, c.User, -1, -size, false)
 	}
@@ -372,6 +374,7 @@ func (c Connection) handleSFTPUploadToNewFile(requestPath, filePath string) (io.
 		transferType:  transferUpload,
 		lastActivity:  time.Now(),
 		isNewFile:     true,
+		protocol:      c.protocol,
 	}
 	addTransfer(&transfer)
 	return &transfer, nil
@@ -426,6 +429,7 @@ func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, re
 		transferType:  transferUpload,
 		lastActivity:  time.Now(),
 		isNewFile:     false,
+		protocol:      c.protocol,
 	}
 	addTransfer(&transfer)
 	return &transfer, nil

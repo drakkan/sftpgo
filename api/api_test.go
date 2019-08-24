@@ -33,7 +33,7 @@ const (
 	testPubKey            = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"
 	logSender             = "APITesting"
 	userPath              = "/api/v1/user"
-	activeConnectionsPath = "/api/v1/sftp_connection"
+	activeConnectionsPath = "/api/v1/connection"
 	quotaScanPath         = "/api/v1/quota_scan"
 	versionPath           = "/api/v1/version"
 )
@@ -405,19 +405,19 @@ func TestGetVersion(t *testing.T) {
 	}
 }
 
-func TestGetSFTPConnections(t *testing.T) {
-	_, _, err := api.GetSFTPConnections(http.StatusOK)
+func TestGetConnections(t *testing.T) {
+	_, _, err := api.GetConnections(http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to get sftp connections: %v", err)
 	}
-	_, _, err = api.GetSFTPConnections(http.StatusInternalServerError)
+	_, _, err = api.GetConnections(http.StatusInternalServerError)
 	if err == nil {
 		t.Errorf("get sftp connections request must succeed, we requested to check a wrong status code")
 	}
 }
 
-func TestCloseActiveSFTPConnection(t *testing.T) {
-	_, err := api.CloseSFTPConnection("non_existent_id", http.StatusNotFound)
+func TestCloseActiveConnection(t *testing.T) {
+	_, err := api.CloseConnection("non_existent_id", http.StatusNotFound)
 	if err != nil {
 		t.Errorf("unexpected error closing non existent sftp connection: %v", err)
 	}
@@ -686,7 +686,7 @@ func TestGetVersionMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr.Code)
 }
 
-func TestGetSFTPConnectionsMock(t *testing.T) {
+func TestGetConnectionsMock(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, activeConnectionsPath, nil)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)

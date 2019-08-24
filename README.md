@@ -19,6 +19,7 @@ Full featured and highly configurable SFTP server software
 - Log files are accurate and they are saved in the easily parsable JSON format
 - Automatically terminating idle connections
 - Atomic uploads are supported
+- Optional SCP support
 
 ## Platforms
 
@@ -55,7 +56,7 @@ Version info, such as git commit and build date, can be embedded setting the fol
 For example you can build using the following command:
 
 ```bash
-go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/utils.commit=`git describe --tags --always --dirty` -X github.com/drakkan/sftpgo/utils.date=`date --utc +%FT%TZ`" -o sftpgo
+go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/utils.commit=`git describe --tags --always --dirty` -X github.com/drakkan/sftpgo/utils.date=`date -u +%FT%TZ`" -o sftpgo
 ```
 
 and you will get a version that includes git commit and build date like this one:
@@ -129,6 +130,7 @@ The `sftpgo` configuration file contains the following sections:
             - `target_path`, added for `rename` action only
     - `keys`, struct array. It contains the daemon's private keys. If empty or missing the daemon will search or try to generate `id_rsa` in the configuration directory.
         - `private_key`, path to the private key file. It can be a path relative to the config dir or an absolute one.
+    - `enable_scp`, boolean. Default disabled. Set to `true` to enable SCP support. SCP is an experimental feature, we have our own SCP implementation since we can't rely on `scp` system command to proper handle permissions, quota and user's home dir restrictions. The SCP protocol is quite simple but there is no official docs about it, so we need more testing and feedbacks before enabling it by default. We may not handle some borderline cases or have sneaky bugs. Please do accurate tests yourself before enabling SCP and let us known if something does not work as expected for your use cases.
 - **"data_provider"**, the configuration for the data provider
     - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`
     - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database.
@@ -164,7 +166,8 @@ Here is a full example showing the default config in json format:
       "command": "",
       "http_notification_url": ""
     },
-    "keys": []
+    "keys": [],
+    "enable_scp": false
   },
   "data_provider": {
     "driver": "sqlite",
@@ -287,22 +290,24 @@ The logs can be divided into the following categories:
     - `time` string. Date/time with millisecond precision
     - `level` string
     - `message` string
-- **"transfer logs"**, SFTP transfer logs:
-    - `sender` string. `SFTPUpload` or `SFTPDownload`
+- **"transfer logs"**, SFTP/SCP transfer logs:
+    - `sender` string. `Upload` or `Download`
     - `time` string. Date/time with millisecond precision
     - `level` string
     - `elapsed_ms`, int64. Elapsed time, as milliseconds, for the upload/download
     - `size_bytes`, int64. Size, as bytes, of the download/upload
     - `username`, string
     - `file_path` string
-    - `connection_id` string. Unique SFTP connection identifier
-- **"command logs"**, SFTP command logs:
-    - `sender` string. `SFTPRename`, `SFTPRmdir`, `SFTPMkdir`, `SFTPSymlink`, `SFTPRemove`
+    - `connection_id` string. Unique connection identifier
+    - `protocol` string. `SFTP` or `SCP`
+- **"command logs"**, SFTP/SCP command logs:
+    - `sender` string. `Rename`, `Rmdir`, `Mkdir`, `Symlink`, `Remove`
     - `level` string
     - `username`, string
     - `file_path` string
     - `target_path` string
-    - `connection_id` string. Unique SFTP connection identifier
+    - `connection_id` string. Unique connection identifier
+    - `protocol` string. `SFTP` or `SCP`
 - **"http logs"**, REST API logs:
     - `sender` string. `httpd`
     - `level` string
@@ -329,6 +334,7 @@ The logs can be divided into the following categories:
 - [lib/pq](https://github.com/lib/pq)
 - [viper](https://github.com/spf13/viper)
 - [cobra](https://github.com/spf13/cobra)
+- [xid](https://github.com/rs/xid)
 
 Some code was initially taken from [Pterodactyl sftp server](https://github.com/pterodactyl/sftp-server)
 

@@ -31,6 +31,7 @@ type Transfer struct {
 	transferType  int
 	lastActivity  time.Time
 	isNewFile     bool
+	protocol      string
 }
 
 // ReadAt reads len(p) bytes from the File to download starting at byte offset off and updates the bytes sent.
@@ -64,10 +65,10 @@ func (t *Transfer) Close() error {
 	}
 	elapsed := time.Since(t.start).Nanoseconds() / 1000000
 	if t.transferType == transferDownload {
-		logger.TransferLog(sftpdDownloadLogSender, t.path, elapsed, t.bytesSent, t.user.Username, t.connectionID)
+		logger.TransferLog(downloadLogSender, t.path, elapsed, t.bytesSent, t.user.Username, t.connectionID, t.protocol)
 		executeAction(operationDownload, t.user.Username, t.path, "")
 	} else {
-		logger.TransferLog(sftpUploadLogSender, t.path, elapsed, t.bytesReceived, t.user.Username, t.connectionID)
+		logger.TransferLog(uploadLogSender, t.path, elapsed, t.bytesReceived, t.user.Username, t.connectionID, t.protocol)
 		executeAction(operationUpload, t.user.Username, t.path, "")
 	}
 	removeTransfer(t)

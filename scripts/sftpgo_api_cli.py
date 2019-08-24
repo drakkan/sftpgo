@@ -22,7 +22,7 @@ class SFTPGoApiRequests:
 	def __init__(self, debug, baseUrl, authType, authUser, authPassword, secure, no_color):
 		self.userPath = urlparse.urljoin(baseUrl, '/api/v1/user')
 		self.quotaScanPath = urlparse.urljoin(baseUrl, '/api/v1/quota_scan')
-		self.activeConnectionsPath = urlparse.urljoin(baseUrl, '/api/v1/sftp_connection')
+		self.activeConnectionsPath = urlparse.urljoin(baseUrl, '/api/v1/connection')
 		self.versionPath = urlparse.urljoin(baseUrl, '/api/v1/version')
 		self.debug = debug
 		if authType == 'basic':
@@ -101,12 +101,12 @@ class SFTPGoApiRequests:
 		r = requests.delete(urlparse.urljoin(self.userPath, "user/" + str(user_id)), auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
-	def getSFTPConnections(self):
+	def getConnections(self):
 		r = requests.get(self.activeConnectionsPath, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
-	def closeSFTPConnection(self, connectionID):
-		r = requests.delete(urlparse.urljoin(self.userPath, "sftp_connection/" + str(connectionID)), auth=self.auth)
+	def closeConnection(self, connectionID):
+		r = requests.delete(urlparse.urljoin(self.activeConnectionsPath, "connection/" + str(connectionID)), auth=self.auth)
 		self.printResponse(r)
 
 	def getQuotaScans(self):
@@ -187,11 +187,11 @@ if __name__ == '__main__':
 	parserGetUserByID = subparsers.add_parser('get-user-by-id', help='Find user by ID')
 	parserGetUserByID.add_argument('id', type=int)
 
-	parserGetSFTPConnections = subparsers.add_parser('get-sftp-connections',
-													help='Get the active sftp users and info about their uploads/downloads')
+	parserGetConnections = subparsers.add_parser('get-connections',
+													help='Get the active users and info about their uploads/downloads')
 
-	parserCloseSFTPConnection = subparsers.add_parser('close-sftp-connection', help='Terminate an active SFTP connection')
-	parserCloseSFTPConnection.add_argument('connectionID', type=str)
+	parserCloseConnection = subparsers.add_parser('close-connection', help='Terminate an active SFTP/SCP connection')
+	parserCloseConnection.add_argument('connectionID', type=str)
 
 	parserGetQuotaScans = subparsers.add_parser('get-quota-scans', help='Get the active quota scans')
 
@@ -219,10 +219,10 @@ if __name__ == '__main__':
 		api.getUsers(args.limit, args.offset, args.order, args.username)
 	elif args.command == 'get-user-by-id':
 		api.getUserByID(args.id)
-	elif args.command == 'get-sftp-connections':
-		api.getSFTPConnections()
-	elif args.command == 'close-sftp-connection':
-		api.closeSFTPConnection(args.connectionID)
+	elif args.command == 'get-connections':
+		api.getConnections()
+	elif args.command == 'close-connection':
+		api.closeConnection(args.connectionID)
 	elif args.command == 'get-quota-scans':
 		api.getQuotaScans()
 	elif args.command == 'start-quota-scan':
