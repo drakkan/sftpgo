@@ -1460,7 +1460,7 @@ func TestSCPBasicHandling(t *testing.T) {
 	if err == nil {
 		t.Errorf("downloading a missing file via scp must fail")
 	}
-	err = scpUpload(testFilePath, remoteUpPath, false)
+	err = scpUpload(testFilePath, remoteUpPath, false, false)
 	if err != nil {
 		t.Errorf("error uploading file via scp: %v", err)
 	}
@@ -1515,12 +1515,12 @@ func TestSCPUploadFileOverwrite(t *testing.T) {
 		t.Errorf("unable to create test file: %v", err)
 	}
 	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, filepath.Join("/", testFileName))
-	err = scpUpload(testFilePath, remoteUpPath, true)
+	err = scpUpload(testFilePath, remoteUpPath, true, false)
 	if err != nil {
 		t.Errorf("error uploading file via scp: %v", err)
 	}
 	// test a new upload that must overwrite the existing file
-	err = scpUpload(testFilePath, remoteUpPath, true)
+	err = scpUpload(testFilePath, remoteUpPath, true, false)
 	if err != nil {
 		t.Errorf("error uploading existing file via scp: %v", err)
 	}
@@ -1576,7 +1576,7 @@ func TestSCPRecursive(t *testing.T) {
 		t.Errorf("downloading a missing dir via scp must fail")
 	}
 	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/")
-	err = scpUpload(testBaseDirPath, remoteUpPath, true)
+	err = scpUpload(testBaseDirPath, remoteUpPath, true, false)
 	if err != nil {
 		t.Errorf("error uploading dir via scp: %v", err)
 	}
@@ -1607,7 +1607,7 @@ func TestSCPRecursive(t *testing.T) {
 	}
 	// upload to a non existent dir
 	remoteUpPath = fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/non_existent_dir")
-	err = scpUpload(testBaseDirPath, remoteUpPath, true)
+	err = scpUpload(testBaseDirPath, remoteUpPath, true, false)
 	if err == nil {
 		t.Errorf("uploading via scp to a non existent dir must fail")
 	}
@@ -1649,11 +1649,11 @@ func TestSCPPermCreateDirs(t *testing.T) {
 		t.Errorf("unable to create test file: %v", err)
 	}
 	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/tmp/")
-	err = scpUpload(testFilePath, remoteUpPath, true)
+	err = scpUpload(testFilePath, remoteUpPath, true, false)
 	if err == nil {
 		t.Errorf("scp upload must fail, the user cannot create new dirs")
 	}
-	err = scpUpload(testBaseDirPath, remoteUpPath, true)
+	err = scpUpload(testBaseDirPath, remoteUpPath, true, false)
 	if err == nil {
 		t.Errorf("scp upload must fail, the user cannot create new dirs")
 	}
@@ -1691,7 +1691,7 @@ func TestSCPPermUpload(t *testing.T) {
 		t.Errorf("unable to create test file: %v", err)
 	}
 	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/tmp")
-	err = scpUpload(testFilePath, remoteUpPath, true)
+	err = scpUpload(testFilePath, remoteUpPath, true, false)
 	if err == nil {
 		t.Errorf("scp upload must fail, the user cannot upload")
 	}
@@ -1728,7 +1728,7 @@ func TestSCPPermDownload(t *testing.T) {
 		t.Errorf("unable to create test file: %v", err)
 	}
 	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "tmp")
-	err = scpUpload(testFilePath, remoteUpPath, true)
+	err = scpUpload(testFilePath, remoteUpPath, true, false)
 	if err != nil {
 		t.Errorf("error uploading existing file via scp: %v", err)
 	}
@@ -1772,11 +1772,11 @@ func TestSCPQuotaSize(t *testing.T) {
 		t.Errorf("unable to create test file: %v", err)
 	}
 	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join("/", testFileName))
-	err = scpUpload(testFilePath, remoteUpPath, true)
+	err = scpUpload(testFilePath, remoteUpPath, true, false)
 	if err != nil {
 		t.Errorf("error uploading existing file via scp: %v", err)
 	}
-	err = scpUpload(testFilePath, remoteUpPath+".quota", true)
+	err = scpUpload(testFilePath, remoteUpPath+".quota", true, false)
 	if err == nil {
 		t.Errorf("user is over quota scp upload must fail")
 	}
@@ -1818,7 +1818,7 @@ func TestSCPEscapeHomeDir(t *testing.T) {
 		t.Errorf("unable to create test file: %v", err)
 	}
 	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join(testDir, testDir))
-	err = scpUpload(testFilePath, remoteUpPath, false)
+	err = scpUpload(testFilePath, remoteUpPath, false, false)
 	if err == nil {
 		t.Errorf("uploading to a dir with a symlink outside home dir must fail")
 	}
@@ -1869,7 +1869,7 @@ func TestSCPUploadPaths(t *testing.T) {
 	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, testDirName)
 	remoteDownPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join(testDirName, testFileName))
 	localPath := filepath.Join(homeBasePath, "scp_download.dat")
-	err = scpUpload(testFilePath, remoteUpPath, false)
+	err = scpUpload(testFilePath, remoteUpPath, false, false)
 	if err != nil {
 		t.Errorf("scp upload error: %v", err)
 	}
@@ -1879,7 +1879,7 @@ func TestSCPUploadPaths(t *testing.T) {
 	}
 	// upload a file to a missing dir
 	remoteUpPath = fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join(testDirName, testDirName, testFileName))
-	err = scpUpload(testFilePath, remoteUpPath, false)
+	err = scpUpload(testFilePath, remoteUpPath, false, false)
 	if err == nil {
 		t.Errorf("scp upload to a missing dir must fail")
 	}
@@ -1912,7 +1912,7 @@ func TestSCPOverwriteDirWithFile(t *testing.T) {
 		t.Errorf("unable to create test file: %v", err)
 	}
 	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/")
-	err = scpUpload(testFilePath, remoteUpPath, false)
+	err = scpUpload(testFilePath, remoteUpPath, false, false)
 	if err == nil {
 		t.Errorf("copying a file over an existing dir must fail")
 	}
@@ -1923,6 +1923,57 @@ func TestSCPOverwriteDirWithFile(t *testing.T) {
 	_, err = api.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
+	}
+}
+
+func TestSCPRemoteToRemote(t *testing.T) {
+	if len(scpPath) == 0 {
+		t.Skip("scp command not found, unable to execute this test")
+	}
+	usePubKey := true
+	user, _, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	u := getTestUser(usePubKey)
+	u.Username += "1"
+	u.HomeDir += "1"
+	user1, _, err := api.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	testFileName := "test_file.dat"
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	if err != nil {
+		t.Errorf("unable to create test file: %v", err)
+	}
+	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join("/", testFileName))
+	remote1UpPath := fmt.Sprintf("%v@127.0.0.1:%v", user1.Username, path.Join("/", testFileName))
+	err = scpUpload(testFilePath, remoteUpPath, false, false)
+	if err != nil {
+		t.Errorf("scp upload error: %v", err)
+	}
+	err = scpUpload(remoteUpPath, remote1UpPath, false, true)
+	if err != nil {
+		t.Errorf("scp upload remote to remote error: %v", err)
+	}
+	err = os.RemoveAll(user.GetHomeDir())
+	if err != nil {
+		t.Errorf("error removing uploaded files")
+	}
+	_, err = api.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	err = os.RemoveAll(user1.GetHomeDir())
+	if err != nil {
+		t.Errorf("error removing uploaded files for user1")
+	}
+	_, err = api.RemoveUser(user1, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user1: %v", err)
 	}
 }
 
@@ -2105,8 +2156,11 @@ func sftpDownloadNonBlocking(remoteSourcePath string, localDestPath string, expe
 	return c
 }
 
-func scpUpload(localPath, remotePath string, preserveTime bool) error {
+func scpUpload(localPath, remotePath string, preserveTime, remoteToRemote bool) error {
 	var args []string
+	if remoteToRemote {
+		args = append(args, "-3")
+	}
 	if preserveTime {
 		args = append(args, "-p")
 	}

@@ -14,7 +14,7 @@ Full featured and highly configurable SFTP server software
 - Per user maximum concurrent sessions
 - Per user permissions: list directories content, upload, download, delete, rename, create directories, create symlinks can be enabled or disabled
 - Per user files/folders ownership: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (*NIX only)
-- Configurable custom commands and/or HTTP notifications on SFTP upload, download, delete or rename
+- Configurable custom commands and/or HTTP notifications on upload, download, delete or rename
 - REST API for users and quota management and real time reports for the active connections with possibility of forcibly closing a connection
 - Log files are accurate and they are saved in the easily parsable JSON format
 - Automatically terminating idle connections
@@ -29,7 +29,7 @@ Regularly the test cases are manually executed and pass on Windows. Other UNIX v
 ## Requirements
 
 - Go 1.12 or higher
-- A suitable SQL server to use as data provider: PostreSQL (9+) or MySQL (5.6+) or SQLite 3.x or bbolt 1.3.x
+- A suitable SQL server or key/value store to use as data provider: PostreSQL 9+ or MySQL 5.6+ or SQLite 3.x or bbolt 1.3.x
 
 ## Installation
 
@@ -42,7 +42,7 @@ $ go get -u github.com/drakkan/sftpgo
 Make sure [Git is installed](https://git-scm.com/downloads) on your machine and in your system's `PATH`.
 
 SFTPGo depends on [go-sqlite3](https://github.com/mattn/go-sqlite3) that is a CGO package and so it requires a `C` compiler at build time.
-On Linux and macOS a compiler is easy to install or already installed, on Windows you need to download [MinGW-w64](https://sourceforge.net/projects/mingw-w64/files/) and build SFTPGo from it's command prompt.
+On Linux and macOS a compiler is easy to install or already installed, on Windows you need to download [MinGW-w64](https://sourceforge.net/projects/mingw-w64/files/) and build SFTPGo from its command prompt.
 
 The compiler is a build time only dependency, it is not not required at runtime.
 
@@ -115,7 +115,7 @@ The `sftpgo` configuration file contains the following sections:
     - `max_auth_tries` integer. Maximum number of authentication attempts permitted per connection. If set to a negative number, the number of attempts are unlimited. If set to zero, the number of attempts are limited to 6.
     - `umask`, string. Umask for the new files and directories. This setting has no effect on Windows. Default: "0022"
     - `banner`, string. Identification string used by the server. Default "SFTPGo"
-    - `upload_mode` int. 0 means standard, the files are uploaded directly to the requested path. 1 means atomic: the files are uploaded to a temporary path and renamed to the requested path when the client ends the upload. Atomic mode avoid problems such as a web server that serves partial files when the files are being uploaded
+    - `upload_mode` integer. 0 means standard, the files are uploaded directly to the requested path. 1 means atomic: the files are uploaded to a temporary path and renamed to the requested path when the client ends the upload. Atomic mode avoid problems such as a web server that serves partial files when the files are being uploaded
     - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions
         - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`. On folder deletion a `delete` notification will be sent for each deleted file. Leave empty to disable actions.
         - `command`, string. Absolute path to the command to execute. Leave empty to disable. The command is invoked with the following arguments:
@@ -130,7 +130,7 @@ The `sftpgo` configuration file contains the following sections:
             - `target_path`, added for `rename` action only
     - `keys`, struct array. It contains the daemon's private keys. If empty or missing the daemon will search or try to generate `id_rsa` in the configuration directory.
         - `private_key`, path to the private key file. It can be a path relative to the config dir or an absolute one.
-    - `enable_scp`, boolean. Default disabled. Set to `true` to enable SCP support. SCP is an experimental feature, we have our own SCP implementation since we can't rely on `scp` system command to proper handle permissions, quota and user's home dir restrictions. The SCP protocol is quite simple but there is no official docs about it, so we need more testing and feedbacks before enabling it by default. We may not handle some borderline cases or have sneaky bugs. Please do accurate tests yourself before enabling SCP and let us known if something does not work as expected for your use cases.
+    - `enable_scp`, boolean. Default disabled. Set to `true` to enable SCP support. SCP is an experimental feature, we have our own SCP implementation since we can't rely on `scp` system command to proper handle permissions, quota and user's home dir restrictions. The SCP protocol is quite simple but there is no official docs about it, so we need more testing and feedbacks before enabling it by default. We may not handle some borderline cases or have sneaky bugs. Please do accurate tests yourself before enabling SCP and let us known if something does not work as expected for your use cases. SCP between two remote hosts is supported using the `-3` scp option.
 - **"data_provider"**, the configuration for the data provider
     - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`
     - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database.
@@ -222,7 +222,7 @@ sftpgo serve
 For each account the following properties can be configured:
 
 - `username`
-- `password` used for password authentication. For users created using SFTPGo REST API if the password has no known hashing algo prefix it will be stored using argon2id. SFTPGo supports checking passwords stored with bcrypt and pbkdf2 too. For pbkdf2 the supported format is `$<algo>$<iterations>$<salt>$<hashed pwd base64 encoded>`, where algo is `pbkdf2-sha1` or `pbkdf2-sha256` or `pbkdf2-sha512`. For example the `pbkdf2-sha256` of the word `password` using 150000 iterations and `E86a9YMX3zC7` as salt must be stored as `$pbkdf2-sha256$150000$E86a9YMX3zC7$R5J62hsSq+pYw00hLLPKBbcGXmq7fj5+/M0IFoYtZbo=`. For bcrypt the format must be the one supported by golang's [crypto/bcrypt](https://godoc.org/golang.org/x/crypto/bcrypt) package, for example the password `secret` with cost `14` must be stored as `$2a$14$ajq8Q7fbtFRQvXpdCq7Jcuy.Rx1h/L4J60Otx.gyNLbAYctGMJ9tK`. Using the REST API you can send a password as bcrypt or pbkdf2 and it will be stored as is.
+- `password` used for password authentication. For users created using SFTPGo REST API if the password has no known hashing algo prefix it will be stored using argon2id. SFTPGo supports checking passwords stored with bcrypt and pbkdf2 too. For pbkdf2 the supported format is `$<algo>$<iterations>$<salt>$<hashed pwd base64 encoded>`, where algo is `pbkdf2-sha1` or `pbkdf2-sha256` or `pbkdf2-sha512`. For example the `pbkdf2-sha256` of the word `password` using 150000 iterations and `E86a9YMX3zC7` as salt must be stored as `$pbkdf2-sha256$150000$E86a9YMX3zC7$R5J62hsSq+pYw00hLLPKBbcGXmq7fj5+/M0IFoYtZbo=`. For bcrypt the format must be the one supported by golang's [crypto/bcrypt](https://godoc.org/golang.org/x/crypto/bcrypt) package, for example the password `secret` with cost `14` must be stored as `$2a$14$ajq8Q7fbtFRQvXpdCq7Jcuy.Rx1h/L4J60Otx.gyNLbAYctGMJ9tK`. Using the REST API you can send a password hashed as bcrypt or pbkdf2 and it will be stored as is.
 - `public_keys` array of public keys. At least one public key or the password is mandatory.
 - `home_dir` The user cannot upload or download files outside this directory. Must be an absolute path
 - `uid`, `gid`. If sftpgo runs as root system user then the created files and directories will be assigned to this system uid/gid. Ignored on windows and if sftpgo runs as non root user: in this case files and directories for all SFTP users will be owned by the system user that runs sftpgo.

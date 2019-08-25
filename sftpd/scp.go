@@ -695,7 +695,8 @@ func (c *scpCommand) getFileUploadDestPath(scpDestPath, fileName string) string 
 			return scpDestPath
 		}
 	}
-	// if the upload is recursive then the destination file is relative to the current scpDestPath
+	// if the upload is recursive or scpDestPath has the "/" suffix then the destination
+	// file is relative to scpDestPath
 	return path.Join(scpDestPath, fileName)
 }
 
