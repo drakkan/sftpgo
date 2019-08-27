@@ -15,11 +15,11 @@ Full featured and highly configurable SFTP server software
 - Per user permissions: list directories content, upload, download, delete, rename, create directories, create symlinks can be enabled or disabled
 - Per user files/folders ownership: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (*NIX only)
 - Configurable custom commands and/or HTTP notifications on upload, download, delete or rename
-- REST API for users and quota management and real time reports for the active connections with possibility of forcibly closing a connection
-- Log files are accurate and they are saved in the easily parsable JSON format
 - Automatically terminating idle connections
 - Atomic uploads are supported
 - Optional SCP support
+- REST API for users and quota management and real time reports for the active connections with possibility of forcibly closing a connection
+- Log files are accurate and they are saved in the easily parsable JSON format
 
 ## Platforms
 
@@ -29,7 +29,7 @@ Regularly the test cases are manually executed and pass on Windows. Other UNIX v
 ## Requirements
 
 - Go 1.12 or higher
-- A suitable SQL server or key/value store to use as data provider: PostreSQL 9+ or MySQL 5.6+ or SQLite 3.x or bbolt 1.3.x
+- A suitable SQL server or key/value store to use as data provider: PostreSQL 9.4+ or MySQL 5.6+ or SQLite 3.x or bbolt 1.3.x
 
 ## Installation
 
@@ -115,7 +115,7 @@ The `sftpgo` configuration file contains the following sections:
     - `max_auth_tries` integer. Maximum number of authentication attempts permitted per connection. If set to a negative number, the number of attempts are unlimited. If set to zero, the number of attempts are limited to 6.
     - `umask`, string. Umask for the new files and directories. This setting has no effect on Windows. Default: "0022"
     - `banner`, string. Identification string used by the server. Default "SFTPGo"
-    - `upload_mode` integer. 0 means standard, the files are uploaded directly to the requested path. 1 means atomic: the files are uploaded to a temporary path and renamed to the requested path when the client ends the upload. Atomic mode avoid problems such as a web server that serves partial files when the files are being uploaded
+    - `upload_mode` integer. 0 means standard, the files are uploaded directly to the requested path. 1 means atomic: files are uploaded to a temporary path and renamed to the requested path when the client ends the upload. Atomic mode avoids problems such as a web server that serves partial files when the files are being uploaded
     - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions
         - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`. On folder deletion a `delete` notification will be sent for each deleted file. Leave empty to disable actions.
         - `command`, string. Absolute path to the command to execute. Leave empty to disable. The command is invoked with the following arguments:
