@@ -1,25 +1,25 @@
 # SFTPGo
 [![Build Status](https://travis-ci.org/drakkan/sftpgo.svg?branch=master)](https://travis-ci.org/drakkan/sftpgo) [![Code Coverage](https://codecov.io/gh/drakkan/sftpgo/branch/master/graph/badge.svg)](https://codecov.io/gh/drakkan/sftpgo/branch/master) [![Go Report Card](https://goreportcard.com/badge/github.com/drakkan/sftpgo)](https://goreportcard.com/report/github.com/drakkan/sftpgo) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
-Full featured and highly configurable SFTP server software
+Full featured and highly configurable SFTP server
 
 ## Features
 
-- Each account is chrooted to his Home Dir
-- SFTP accounts are virtual accounts stored in a "data provider"
-- SQLite, MySQL, PostgreSQL and bbolt (key/value store in pure Go) data providers are supported
-- Public key and password authentication
-- Quota support: accounts can have individual quota expressed as max number of files and max total size
-- Bandwidth throttling is supported, with distinct settings for upload and download
-- Per user maximum concurrent sessions
-- Per user permissions: list directories content, upload, download, delete, rename, create directories, create symlinks can be enabled or disabled
-- Per user files/folders ownership: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (*NIX only)
-- Configurable custom commands and/or HTTP notifications on upload, download, delete or rename
-- Automatically terminating idle connections
-- Atomic uploads are supported
-- Optional SCP support
-- REST API for users and quota management and real time reports for the active connections with possibility of forcibly closing a connection
-- Log files are accurate and they are saved in the easily parsable JSON format
+- Each account is chrooted to his Home Dir.
+- SFTP accounts are virtual accounts stored in a "data provider".
+- SQLite, MySQL, PostgreSQL and bbolt (key/value store in pure Go) data providers are supported.
+- Public key and password authentication. Multiple public keys per user are supported.
+- Quota support: accounts can have individual quota expressed as max number of files and/or max total size.
+- Bandwidth throttling is supported, with distinct settings for upload and download.
+- Per user maximum concurrent sessions.
+- Per user permissions: list directories content, upload, download, delete, rename, create directories, create symlinks can be enabled or disabled.
+- Per user files/folders ownership: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (*NIX only).
+- Configurable custom commands and/or HTTP notifications on upload, download, delete or rename.
+- Automatically terminating idle connections.
+- Atomic uploads are configurable.
+- Optional SCP support.
+- REST API for users and quota management and real time reports for the active connections with possibility of forcibly closing a connection.
+- Log files are accurate and they are saved in the easily parsable JSON format.
 
 ## Platforms
 
@@ -28,7 +28,7 @@ Regularly the test cases are manually executed and pass on Windows. Other UNIX v
 
 ## Requirements
 
-- Go 1.12 or higher
+- Go 1.12 or higher.
 - A suitable SQL server or key/value store to use as data provider: PostreSQL 9.4+ or MySQL 5.6+ or SQLite 3.x or bbolt 1.3.x
 
 ## Installation
@@ -92,13 +92,13 @@ Flags:
 The `serve` subcommand supports the following flags:
 
 - `--config-dir` string. Location of the config dir. This directory should contain the `sftpgo` configuration file and is used as the base for files with a relative path (eg. the private keys for the SFTP server, the SQLite or bblot database if you use SQLite or bbolt as data provider). The default value is "." or the value of `SFTPGO_CONFIG_DIR` environment variable.
-- `--config-file` string. Name of the configuration file. It must be the name of a file stored in config-dir not the absolute path to the configuration file. The specified file name must have no extension we automatically load JSON, YAML, TOML, HCL and Java properties. The default value is "sftpgo" (and therefore `sftpgo.json`, `sftpgo.yaml` and so on are searched) or the value of `SFTPGO_CONFIG_FILE` environment variable
-- `--log-compress` boolean. Determine if the rotated log files should be compressed using gzip. Default `false` or the value of `SFTPGO_LOG_COMPRESS` environment variable (1 or `true`, 0 or `false`)
-- `--log-file-path` string. Location for the log file, default "sftpgo.log" or the value of `SFTPGO_LOG_FILE_PATH` environment variable
-- `--log-max-age` int. Maximum number of days to retain old log files. Default 28 or the value of `SFTPGO_LOG_MAX_AGE` environment variable
-- `--log-max-backups` int. Maximum number of old log files to retain. Default 5 or the value of `SFTPGO_LOG_MAX_BACKUPS` environment variable
-- `--log-max-size` int. Maximum size in megabytes of the log file before it gets rotated. Default 10 or the value of `SFTPGO_LOG_MAX_SIZE` environment variable
-- `--log-verbose` boolean. Enable verbose logs. Default `true` or the value of `SFTPGO_LOG_VERBOSE` environment variable (1 or `true`, 0 or `false`)
+- `--config-file` string. Name of the configuration file. It must be the name of a file stored in config-dir not the absolute path to the configuration file. The specified file name must have no extension we automatically load JSON, YAML, TOML, HCL and Java properties. The default value is "sftpgo" (and therefore `sftpgo.json`, `sftpgo.yaml` and so on are searched) or the value of `SFTPGO_CONFIG_FILE` environment variable.
+- `--log-compress` boolean. Determine if the rotated log files should be compressed using gzip. Default `false` or the value of `SFTPGO_LOG_COMPRESS` environment variable (1 or `true`, 0 or `false`).
+- `--log-file-path` string. Location for the log file, default "sftpgo.log" or the value of `SFTPGO_LOG_FILE_PATH` environment variable.
+- `--log-max-age` int. Maximum number of days to retain old log files. Default 28 or the value of `SFTPGO_LOG_MAX_AGE` environment variable.
+- `--log-max-backups` int. Maximum number of old log files to retain. Default 5 or the value of `SFTPGO_LOG_MAX_BACKUPS` environment variable.
+- `--log-max-size` int. Maximum size in megabytes of the log file before it gets rotated. Default 10 or the value of `SFTPGO_LOG_MAX_SIZE` environment variable.
+- `--log-verbose` boolean. Enable verbose logs. Default `true` or the value of `SFTPGO_LOG_VERBOSE` environment variable (1 or `true`, 0 or `false`).
 
 If you don't configure any private host keys, the daemon will use `id_rsa` in the configuration directory. If that file doesn't exist, the daemon will attempt to autogenerate it (if the user that executes SFTPGo has write access to the config-dir). The server supports any private key format supported by [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/keys.go#L32).
 

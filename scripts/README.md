@@ -22,13 +22,13 @@ python sftpgo_api_cli.py [sub-command] --help
 
 Basically there is a sub command for each REST API and the following global arguments:
 
- - `--debug`, default disabled, print useful debug info.
- - `--base-url`, default `http://127.0.0.1:8080`. Base URL for SFTPGo REST API
- - `--auth-type`, HTTP auth type. Supported HTTP auth type are `basic` and `digest`. Default none
- - `--auth-user`, user for HTTP authentication
- - `--auth-password`, password for HTTP authentication
- - `--insecure`, enable to ignore verifying the SSL certificate. Default disabled
- - `--no-color`, disable color highligth for JSON responses. You need python pygments module 1.5 or above for this to work. Default disabled if pygments is found, enabled if not found
+ - `-d`, `--debug`, default disabled, print useful debug info.
+ - `-b`, `--base-url`, default `http://127.0.0.1:8080`. Base URL for SFTPGo REST API
+ - `-a`, `--auth-type`, HTTP auth type. Supported HTTP auth type are `basic` and `digest`. Default none
+ - `-u`, `--auth-user`, user for HTTP authentication
+ - `-p`, `--auth-password`, password for HTTP authentication
+ - `-i`, `--insecure`, enable to ignore verifying the SSL certificate. Default disabled
+ - `-t`, `--no-color`, disable color highligth for JSON responses. You need python pygments module 1.5 or above for this to work. Default disabled if pygments is found, enabled if not found. Please read the note at the end of this doc for colors in Windows command prompt.
 
 For each subcommand `--help` shows the available arguments, try for example:
 
@@ -266,3 +266,8 @@ Output:
   "commit_hash": "4f4489d-dirty"
 }
 ```
+
+### Colors highlight for Windows command prompt
+
+If your Windows command prompt does not recognize ANSI/VT100 escape sequences you can download [ANSICON](https://github.com/adoxa/ansicon "ANSICON") extract proper files depending on your Windows OS, and install them using `ansicon -i`.
+Thats all. From now on, your Windows command prompt will be aware of ANSI colors.
