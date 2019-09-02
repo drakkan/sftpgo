@@ -9,7 +9,7 @@ Full featured and highly configurable SFTP server
 - SFTP accounts are virtual accounts stored in a "data provider".
 - SQLite, MySQL, PostgreSQL and bbolt (key/value store in pure Go) data providers are supported.
 - Public key and password authentication. Multiple public keys per user are supported.
-- Quota support: accounts can have individual quota expressed as max number of files and/or max total size.
+- Quota support: accounts can have individual quota expressed as max total size and/or max number of files.
 - Bandwidth throttling is supported, with distinct settings for upload and download.
 - Per user maximum concurrent sessions.
 - Per user permissions: list directories content, upload, download, delete, rename, create directories, create symlinks can be enabled or disabled.
@@ -19,6 +19,7 @@ Full featured and highly configurable SFTP server
 - Atomic uploads are configurable.
 - Optional SCP support.
 - REST API for users and quota management and real time reports for the active connections with possibility of forcibly closing a connection.
+- Configuration is a your choice: JSON, TOML, YAML, HCL, envfile are supported.
 - Log files are accurate and they are saved in the easily parsable JSON format.
 
 ## Platforms
@@ -150,7 +151,7 @@ The `sftpgo` configuration file contains the following sections:
     - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 8080
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"
 
-Here is a full example showing the default config in json format:
+Here is a full example showing the default config in JSON format:
 
 ```json
 {
