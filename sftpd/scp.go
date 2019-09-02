@@ -188,8 +188,7 @@ func (c *scpCommand) getUploadFileData(sizeToRead int64, transfer *Transfer) err
 	return c.sendConfirmationMessage()
 }
 
-func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead int64) error {
-	logger.Debug(logSenderSCP, "upload to new file: %v", filePath)
+func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead int64, isNewFile bool) error {
 	if !c.connection.hasSpace(true) {
 		err := fmt.Errorf("denying file write due to space limit")
 		logger.Warn(logSenderSCP, "error uploading file: %v, err: %v", filePath, err)
@@ -225,7 +224,7 @@ func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead i
 		connectionID:  c.connection.ID,
 		transferType:  transferUpload,
 		lastActivity:  time.Now(),
-		isNewFile:     true,
+		isNewFile:     isNewFile,
 		protocol:      c.connection.protocol,
 	}
 	addTransfer(&transfer)
@@ -256,7 +255,7 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 	}
 	stat, statErr := os.Stat(p)
 	if os.IsNotExist(statErr) {
-		return c.handleUploadFile(p, filePath, sizeToRead)
+		return c.handleUploadFile(p, filePath, sizeToRead, true)
 	}
 
 	if statErr != nil {
@@ -284,7 +283,7 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 
 	dataprovider.UpdateUserQuota(dataProvider, c.connection.User, 0, -stat.Size(), false)
 
-	return c.handleUploadFile(p, filePath, sizeToRead)
+	return c.handleUploadFile(p, filePath, sizeToRead, false)
 }
 
 func (c *scpCommand) sendDownloadProtocolMessages(dirPath string, stat os.FileInfo) error {

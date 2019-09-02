@@ -57,7 +57,7 @@ Version info, such as git commit and build date, can be embedded setting the fol
 For example you can build using the following command:
 
 ```bash
-go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/utils.commit=`git describe --tags --always --dirty` -X github.com/drakkan/sftpgo/utils.date=`date -u +%FT%TZ`" -o sftpgo
+go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/utils.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/utils.date=`date -u +%FT%TZ`" -o sftpgo
 ```
 
 and you will get a version that includes git commit and build date like this one:
@@ -71,7 +71,7 @@ For Linux, a systemd sample [service](https://github.com/drakkan/sftpgo/tree/mas
 
 Alternately you can use distro packages:
 
-- Arch Linux PKGBUILD is available on [AUR](https://aur.archlinux.org/packages/sftpgo-git/ "SFTPGo")
+- Arch Linux PKGBUILD is available on [AUR](https://aur.archlinux.org/packages/sftpgo/ "SFTPGo")
 
 ## Configuration
 

@@ -1503,10 +1503,12 @@ func TestSCPUploadFileOverwrite(t *testing.T) {
 	}
 	usePubKey := true
 	u := getTestUser(usePubKey)
+	u.QuotaFiles = 1000
 	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 	testFileName := "test_file.dat"
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	testFileSize := int64(32760)
@@ -1523,6 +1525,14 @@ func TestSCPUploadFileOverwrite(t *testing.T) {
 	err = scpUpload(testFilePath, remoteUpPath, true, false)
 	if err != nil {
 		t.Errorf("error uploading existing file via scp: %v", err)
+	}
+	user, _, err = api.GetUserByID(user.ID, http.StatusOK)
+	if err != nil {
+		t.Errorf("error getting user: %v", err)
+	}
+	if user.UsedQuotaSize != testFileSize || user.UsedQuotaFiles != 1 {
+		t.Errorf("update quota error on file overwrite, actual size: %v, expected: %v actual files: %v, expected: 1",
+			user.UsedQuotaSize, testFileSize, user.UsedQuotaFiles)
 	}
 	remoteDownPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join("/", testFileName))
 	localPath := filepath.Join(homeBasePath, "scp_download.dat")
