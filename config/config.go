@@ -86,6 +86,7 @@ func init() {
 	setViperAdditionalConfigPaths()
 	viper.AddConfigPath(".")
 	viper.AutomaticEnv()
+	viper.AllowEmptyEnv(true)
 }
 
 // GetSFTPDConfig returns the configuration for the SFTP server

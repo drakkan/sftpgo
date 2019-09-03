@@ -82,32 +82,36 @@ func init() {
 	viper.SetDefault(logFilePathKey, "sftpgo.log")
 	viper.BindEnv(logFilePathKey, "SFTPGO_LOG_FILE_PATH")
 	serveCmd.Flags().StringVarP(&logFilePath, logFilePathFlag, "l", viper.GetString(logFilePathKey),
-		"Location for the log file. This flag can be set using SFTPGO_LOG_FILE_PATH env var too.")
+		"Location for the log file. Leave empty to write logs to the standard output. This flag can be set using SFTPGO_LOG_FILE_PATH "+
+			"env var too.")
 	viper.BindPFlag(logFilePathKey, serveCmd.Flags().Lookup(logFilePathFlag))
 
 	viper.SetDefault(logMaxSizeKey, 10)
 	viper.BindEnv(logMaxSizeKey, "SFTPGO_LOG_MAX_SIZE")
 	serveCmd.Flags().IntVarP(&logMaxSize, logMaxSizeFlag, "s", viper.GetInt(logMaxSizeKey),
 		"Maximum size in megabytes of the log file before it gets rotated. This flag can be set using SFTPGO_LOG_MAX_SIZE "+
-			"env var too.")
+			"env var too. It is unused if log-file-path is empty.")
 	viper.BindPFlag(logMaxSizeKey, serveCmd.Flags().Lookup(logMaxSizeFlag))
 
 	viper.SetDefault(logMaxBackupKey, 5)
 	viper.BindEnv(logMaxBackupKey, "SFTPGO_LOG_MAX_BACKUPS")
 	serveCmd.Flags().IntVarP(&logMaxBackups, "log-max-backups", "b", viper.GetInt(logMaxBackupKey),
-		"Maximum number of old log files to retain. This flag can be set using SFTPGO_LOG_MAX_BACKUPS env var too.")
+		"Maximum number of old log files to retain. This flag can be set using SFTPGO_LOG_MAX_BACKUPS env var too. "+
+			"It is unused if log-file-path is empty.")
 	viper.BindPFlag(logMaxBackupKey, serveCmd.Flags().Lookup(logMaxBackupFlag))
 
 	viper.SetDefault(logMaxAgeKey, 28)
 	viper.BindEnv(logMaxAgeKey, "SFTPGO_LOG_MAX_AGE")
 	serveCmd.Flags().IntVarP(&logMaxAge, "log-max-age", "a", viper.GetInt(logMaxAgeKey),
-		"Maximum number of days to retain old log files. This flag can be set using SFTPGO_LOG_MAX_AGE env var too.")
+		"Maximum number of days to retain old log files. This flag can be set using SFTPGO_LOG_MAX_AGE env var too. "+
+			"It is unused if log-file-path is empty.")
 	viper.BindPFlag(logMaxAgeKey, serveCmd.Flags().Lookup(logMaxAgeFlag))
 
 	viper.SetDefault(logCompressKey, false)
 	viper.BindEnv(logCompressKey, "SFTPGO_LOG_COMPRESS")
 	serveCmd.Flags().BoolVarP(&logCompress, logCompressFlag, "z", viper.GetBool(logCompressKey), "Determine if the rotated "+
-		"log files should be compressed using gzip. This flag can be set using SFTPGO_LOG_COMPRESS env var too.")
+		"log files should be compressed using gzip. This flag can be set using SFTPGO_LOG_COMPRESS env var too. "+
+		"It is unused if log-file-path is empty.")
 	viper.BindPFlag(logCompressKey, serveCmd.Flags().Lookup(logCompressFlag))
 
 	viper.SetDefault(logVerboseKey, true)

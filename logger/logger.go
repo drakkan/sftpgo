@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sync"
 
 	"github.com/rs/zerolog"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
@@ -34,20 +35,27 @@ func GetLogger() *zerolog.Logger {
 // InitLogger configures the logger using the given parameters
 func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge int, logCompress bool, level zerolog.Level) {
 	zerolog.TimeFieldFormat = dateFormat
-	logger = zerolog.New(&lumberjack.Logger{
-		Filename:   logFilePath,
-		MaxSize:    logMaxSize,
-		MaxBackups: logMaxBackups,
-		MaxAge:     logMaxAge,
-		Compress:   logCompress,
-	}).With().Timestamp().Logger().Level(level)
-
-	consoleOutput := zerolog.ConsoleWriter{
-		Out:        os.Stdout,
-		TimeFormat: dateFormat,
-		NoColor:    runtime.GOOS == "windows",
+	if len(logFilePath) > 0 {
+		logger = zerolog.New(&lumberjack.Logger{
+			Filename:   logFilePath,
+			MaxSize:    logMaxSize,
+			MaxBackups: logMaxBackups,
+			MaxAge:     logMaxAge,
+			Compress:   logCompress,
+		})
+		consoleOutput := zerolog.ConsoleWriter{
+			Out:        os.Stdout,
+			TimeFormat: dateFormat,
+			NoColor:    runtime.GOOS == "windows",
+		}
+		consoleLogger = zerolog.New(consoleOutput).With().Timestamp().Logger().Level(level)
+	} else {
+		logger = zerolog.New(logSyncWrapper{
+			output: os.Stdout,
+			lock:   new(sync.Mutex)})
+		consoleLogger = zerolog.Nop()
 	}
-	consoleLogger = zerolog.New(consoleOutput).With().Timestamp().Logger().Level(level)
+	logger = logger.With().Timestamp().Logger().Level(level)
 }
 
 // Debug logs at debug level for the specified sender
