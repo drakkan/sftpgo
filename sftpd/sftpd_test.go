@@ -88,6 +88,9 @@ var (
 
 func TestMain(m *testing.M) {
 	logfilePath := filepath.Join(configDir, "sftpgo_sftpd_test.log")
+	loginBannerFileName := "login_banner"
+	loginBannerFile := filepath.Join(configDir, loginBannerFileName)
+	ioutil.WriteFile(loginBannerFile, []byte("simple login banner\n"), 0777)
 	logger.InitLogger(logfilePath, 5, 1, 28, false, zerolog.DebugLevel)
 	config.LoadConfig(configDir, "")
 	providerConf := config.GetProviderConf()
@@ -102,6 +105,12 @@ func TestMain(m *testing.M) {
 	httpdConf := config.GetHTTPDConfig()
 	router := api.GetHTTPRouter()
 	sftpdConf.BindPort = 2022
+	sftpdConf.KexAlgorithms = []string{"curve25519-sha256@libssh.org", "ecdh-sha2-nistp256",
+		"ecdh-sha2-nistp384"}
+	sftpdConf.Ciphers = []string{"chacha20-poly1305@openssh.com", "aes128-gcm@openssh.com",
+		"aes256-ctr"}
+	sftpdConf.MACs = []string{"hmac-sha2-256-etm@openssh.com", "hmac-sha2-256"}
+	sftpdConf.LoginBannerFile = loginBannerFileName
 	// we need to test SCP support
 	sftpdConf.IsSCPEnabled = true
 	// we run the test cases with UploadMode atomic. The non atomic code path
@@ -163,6 +172,7 @@ func TestMain(m *testing.M) {
 
 	exitCode := m.Run()
 	os.Remove(logfilePath)
+	os.Remove(loginBannerFile)
 	os.Exit(exitCode)
 }
 
@@ -171,6 +181,7 @@ func TestInitialization(t *testing.T) {
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.Umask = "invalid umask"
 	sftpdConf.BindPort = 2022
+	sftpdConf.LoginBannerFile = "invalid_file"
 	err := sftpdConf.Initialize(configDir)
 	if err == nil {
 		t.Errorf("Inizialize must fail, a SFTP server should be already running")

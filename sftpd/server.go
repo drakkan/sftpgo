@@ -62,6 +62,17 @@ type Configuration struct {
 	// Please do accurate tests yourself before enabling SCP and let us known
 	// if something does not work as expected for your use cases
 	IsSCPEnabled bool `json:"enable_scp" mapstructure:"enable_scp"`
+	// KexAlgorithms specifies the available KEX (Key Exchange) algorithms in
+	// preference order.
+	KexAlgorithms []string `json:"kex_algorithms" mapstructure:"kex_algorithms"`
+	// Ciphers specifies the ciphers allowed
+	Ciphers []string `json:"ciphers" mapstructure:"ciphers"`
+	// MACs Specifies the available MAC (message authentication code) algorithms
+	// in preference order
+	MACs []string `json:"macs" mapstructure:"macs"`
+	// LoginBannerFile the contents of the specified file, if any, are sent to
+	// the remote user before authentication is allowed.
+	LoginBannerFile string `json:"login_banner_file" mapstructure:"login_banner_file"`
 }
 
 // Key contains information about host keys
@@ -127,6 +138,9 @@ func (c Configuration) Initialize(configDir string) error {
 		serverConfig.AddHostKey(private)
 	}
 
+	c.configureSecurityOptions(serverConfig)
+	c.configureLoginBanner(serverConfig, configDir)
+
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", c.BindAddress, c.BindPort))
 	if err != nil {
 		logger.Warn(logSender, "error starting listener on address %s:%d: %v", c.BindAddress, c.BindPort, err)
@@ -146,6 +160,39 @@ func (c Configuration) Initialize(configDir string) error {
 			go c.AcceptInboundConnection(conn, serverConfig)
 		}
 	}
+}
+
+func (c Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig) {
+	if len(c.KexAlgorithms) > 0 {
+		serverConfig.KeyExchanges = c.KexAlgorithms
+	}
+	if len(c.Ciphers) > 0 {
+		serverConfig.Ciphers = c.Ciphers
+	}
+	if len(c.MACs) > 0 {
+		serverConfig.MACs = c.MACs
+	}
+}
+
+func (c Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, configDir string) error {
+	var err error
+	if len(c.LoginBannerFile) > 0 {
+		bannerFilePath := c.LoginBannerFile
+		if !filepath.IsAbs(bannerFilePath) {
+			bannerFilePath = filepath.Join(configDir, bannerFilePath)
+		}
+		var banner []byte
+		banner, err = ioutil.ReadFile(bannerFilePath)
+		if err == nil {
+			serverConfig.BannerCallback = func(conn ssh.ConnMetadata) string {
+				return string(banner)
+			}
+		} else {
+			logger.WarnToConsole("unable to read login banner file: %v", err)
+			logger.Warn(logSender, "unable to read login banner file: %v", err)
+		}
+	}
+	return err
 }
 
 // AcceptInboundConnection handles an inbound connection to the server instance and determines if the request should be served or not.

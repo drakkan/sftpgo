@@ -13,7 +13,11 @@
       "http_notification_url": ""
     },
     "keys": [],
-    "enable_scp": false
+    "enable_scp": false,
+    "kex_algorithms": [],
+    "ciphers": [],
+    "macs": [],
+    "login_banner_file": ""
   },
   "data_provider": {
     "driver": "sqlite",
