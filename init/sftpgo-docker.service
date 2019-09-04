@@ -1,0 +1,29 @@
+[Unit]
+Description=SFTPGo sftp server
+After=docker.service
+
+[Service]
+User=root
+Group=root
+WorkingDirectory=/etc/sftpgo
+Environment=PUID=1003
+Environment=GUID=1003
+EnvironmentFile=-/etc/sysconfig/sftpgo.conf
+ExecStartPre=-docker kill sftpgo
+ExecStartPre=-docker rm sftpgo
+ExecStart=docker run --name sftpgo \
+  --env-file sftpgo-${PUID}.env \
+  -e PUID=${PUID} \
+  -e GUID=${GUID} \
+  -p 8080:8080 \
+  -p 2022:2022 \
+  -v /home/sftpuser/conf/:/etc/sftpgo/ \
+  -v /home/sftpuser/data:/data \
+  sftpgo
+ExecStop=docker stop sftpgo
+SyslogIdentifier=sftpgo
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
