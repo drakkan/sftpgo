@@ -209,12 +209,14 @@ If you want to use a private key that use an algorithm different from RSA or mor
 
 The configuration can be read from JSON, TOML, YAML, HCL, envfile and Java properties config files, if your `config-file` flag is set to `sftpgo` (default value) you need to create a configuration file called `sftpgo.json` or `sftpgo.yaml` and so on inside `config-dir`.
 
-You can also configure all the available options using environment variables, sftpgo will check for environment variables with a name matching the key uppercased and prefixed with the `SFTPGO_`. You need to use `__` to traverse a struct.
+You can also override all the available configuration options using environment variables, sftpgo will check for environment variables with a name matching the key uppercased and prefixed with the `SFTPGO_`. You need to use `__` to traverse a struct.
 
 Let's see some examples:
 
 - To set sftpd `bind_port` you need to define the env var `SFTPGO_SFTPD__BIND_PORT`
 - To set the `execute_on` actions you need to define the env var `SFTPGO_SFTPD__ACTIONS__EXECUTE_ON` for example `SFTPGO_SFTPD__ACTIONS__EXECUTE_ON=upload,download`
+
+Please note that to override configuration options with environment variables a configuration file containing the options to override is required. You can, for example, deploy the default configuration file and then override the options you need to customize using environment variables.
 
 To start the SFTP Server with the default values for the command line flags simply use:
 
