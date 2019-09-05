@@ -159,7 +159,7 @@ func RemoveQuotaScan(username string) error {
 		activeQuotaScans[indexToRemove] = activeQuotaScans[len(activeQuotaScans)-1]
 		activeQuotaScans = activeQuotaScans[:len(activeQuotaScans)-1]
 	} else {
-		logger.Warn(logSender, "quota scan to remove not found for user: %v", username)
+		logger.Warn(logSender, "", "quota scan to remove not found for user: %v", username)
 		err = fmt.Errorf("quota scan to remove not found for user: %v", username)
 	}
 	return err
@@ -173,7 +173,7 @@ func CloseActiveConnection(connectionID string) bool {
 	defer mutex.RUnlock()
 	for _, c := range openConnections {
 		if c.ID == connectionID {
-			logger.Debug(logSender, "closing connection with id: %v", connectionID)
+			logger.Debug(logSender, "", "closing connection with id: %v", connectionID)
 			c.sshConn.Close()
 			result = true
 			break
@@ -231,7 +231,7 @@ func startIdleTimer(maxIdleTime time.Duration) {
 	idleTimeout = maxIdleTime
 	go func() {
 		for t := range idleConnectionTicker.C {
-			logger.Debug(logSender, "idle connections check ticker %v", t)
+			logger.Debug(logSender, "", "idle connections check ticker %v", t)
 			CheckIdleConnections()
 		}
 	}()
@@ -247,33 +247,33 @@ func CheckIdleConnections() {
 			if t.connectionID == c.ID {
 				transferIdleTime := time.Since(t.lastActivity)
 				if transferIdleTime < idleTime {
-					logger.Debug(logSender, "idle time: %v setted to transfer idle time: %v connection id: %v",
+					logger.Debug(logSender, "", "idle time: %v setted to transfer idle time: %v connection id: %v",
 						idleTime, transferIdleTime, c.ID)
 					idleTime = transferIdleTime
 				}
 			}
 		}
 		if idleTime > idleTimeout {
-			logger.Debug(logSender, "close idle connection id: %v idle time: %v", c.ID, idleTime)
+			logger.Debug(logSender, "", "close idle connection id: %v idle time: %v", c.ID, idleTime)
 			err := c.sshConn.Close()
-			logger.Debug(logSender, "idle connection closed id: %v, err: %v", c.ID, err)
+			logger.Debug(logSender, "", "idle connection closed id: %v, err: %v", c.ID, err)
 		}
 	}
-	logger.Debug(logSender, "check idle connections ended")
+	logger.Debug(logSender, "", "check idle connections ended")
 }
 
 func addConnection(id string, conn Connection) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	openConnections[id] = conn
-	logger.Debug(logSender, "connection added, num open connections: %v", len(openConnections))
+	logger.Debug(logSender, id, "connection added, num open connections: %v", len(openConnections))
 }
 
 func removeConnection(id string) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	delete(openConnections, id)
-	logger.Debug(logSender, "connection removed, num open connections: %v", len(openConnections))
+	logger.Debug(logSender, id, "connection removed, num open connections: %v", len(openConnections))
 }
 
 func addTransfer(transfer *Transfer) {
@@ -297,7 +297,7 @@ func removeTransfer(transfer *Transfer) error {
 		activeTransfers[indexToRemove] = activeTransfers[len(activeTransfers)-1]
 		activeTransfers = activeTransfers[:len(activeTransfers)-1]
 	} else {
-		logger.Warn(logSender, "transfer to remove not found!")
+		logger.Warn(logSender, "", "transfer to remove not found!")
 		err = fmt.Errorf("transfer to remove not found")
 	}
 	return err
@@ -321,13 +321,13 @@ func executeAction(operation string, username string, path string, target string
 		if _, err = os.Stat(actions.Command); err == nil {
 			command := exec.Command(actions.Command, operation, username, path, target)
 			err = command.Start()
-			logger.Debug(logSender, "start command \"%v\" with arguments: %v, %v, %v, %v, error: %v",
+			logger.Debug(logSender, "", "start command \"%v\" with arguments: %v, %v, %v, %v, error: %v",
 				actions.Command, operation, username, path, target, err)
 			if err == nil {
 				go command.Wait()
 			}
 		} else {
-			logger.Warn(logSender, "Invalid action command \"%v\" : %v", actions.Command, err)
+			logger.Warn(logSender, "", "Invalid action command \"%v\" : %v", actions.Command, err)
 		}
 	}
 	if len(actions.HTTPNotificationURL) > 0 {
@@ -353,11 +353,11 @@ func executeAction(operation string, username string, path string, target string
 					respCode = resp.StatusCode
 					resp.Body.Close()
 				}
-				logger.Debug(logSender, "notified action to URL: %v status code: %v, elapsed: %v err: %v",
+				logger.Debug(logSender, "", "notified action to URL: %v status code: %v, elapsed: %v err: %v",
 					url.String(), respCode, time.Since(startTime), err)
 			}()
 		} else {
-			logger.Warn(logSender, "Invalid http_notification_url \"%v\" : %v", actions.HTTPNotificationURL, err)
+			logger.Warn(logSender, "", "Invalid http_notification_url \"%v\" : %v", actions.HTTPNotificationURL, err)
 		}
 	}
 	return err

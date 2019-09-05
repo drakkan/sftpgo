@@ -77,7 +77,7 @@ func isDirectory(path string) (bool, error) {
 func SetPathPermissions(path string, uid int, gid int) {
 	if runtime.GOOS != "windows" {
 		if err := os.Chown(path, uid, gid); err != nil {
-			logger.Warn(logSender, "error chowning path %v: %v", path, err)
+			logger.Warn(logSender, "", "error chowning path %v: %v", path, err)
 		}
 	}
 }

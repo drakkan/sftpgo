@@ -59,23 +59,23 @@ func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge
 }
 
 // Debug logs at debug level for the specified sender
-func Debug(sender string, format string, v ...interface{}) {
-	logger.Debug().Str("sender", sender).Msg(fmt.Sprintf(format, v...))
+func Debug(sender string, connectionID string, format string, v ...interface{}) {
+	logger.Debug().Str("sender", sender).Str("connection_id", connectionID).Msg(fmt.Sprintf(format, v...))
 }
 
 // Info logs at info level for the specified sender
-func Info(sender string, format string, v ...interface{}) {
-	logger.Info().Str("sender", sender).Msg(fmt.Sprintf(format, v...))
+func Info(sender string, connectionID string, format string, v ...interface{}) {
+	logger.Info().Str("sender", sender).Str("connection_id", connectionID).Msg(fmt.Sprintf(format, v...))
 }
 
 // Warn logs at warn level for the specified sender
-func Warn(sender string, format string, v ...interface{}) {
-	logger.Warn().Str("sender", sender).Msg(fmt.Sprintf(format, v...))
+func Warn(sender string, connectionID string, format string, v ...interface{}) {
+	logger.Warn().Str("sender", sender).Str("connection_id", connectionID).Msg(fmt.Sprintf(format, v...))
 }
 
 // Error logs at error level for the specified sender
-func Error(sender string, format string, v ...interface{}) {
-	logger.Error().Str("sender", sender).Msg(fmt.Sprintf(format, v...))
+func Error(sender string, connectionID string, format string, v ...interface{}) {
+	logger.Error().Str("sender", sender).Str("connection_id", connectionID).Msg(fmt.Sprintf(format, v...))
 }
 
 // DebugToConsole logs at debug level to stdout

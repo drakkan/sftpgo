@@ -97,7 +97,7 @@ func TestMain(m *testing.M) {
 
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
-		logger.Warn(logSender, "error initializing data provider: %v", err)
+		logger.Warn(logSender, "", "error initializing data provider: %v", err)
 		os.Exit(1)
 	}
 	dataProvider := dataprovider.GetProvider()
@@ -141,20 +141,20 @@ func TestMain(m *testing.M) {
 
 	scpPath, err = exec.LookPath("scp")
 	if err != nil {
-		logger.Warn(logSender, "unable to get scp command. SCP tests will be skipped, err: %v", err)
+		logger.Warn(logSender, "", "unable to get scp command. SCP tests will be skipped, err: %v", err)
 		logger.WarnToConsole("unable to get scp command. SCP tests will be skipped, err: %v", err)
 		scpPath = ""
 	}
 
 	go func() {
-		logger.Debug(logSender, "initializing SFTP server with config %+v", sftpdConf)
+		logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
 		if err := sftpdConf.Initialize(configDir); err != nil {
-			logger.Error(logSender, "could not start SFTP server: %v", err)
+			logger.Error(logSender, "", "could not start SFTP server: %v", err)
 		}
 	}()
 
 	go func() {
-		logger.Debug(logSender, "initializing HTTP server with config %+v", httpdConf)
+		logger.Debug(logSender, "", "initializing HTTP server with config %+v", httpdConf)
 		s := &http.Server{
 			Addr:           fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort),
 			Handler:        router,
@@ -163,7 +163,7 @@ func TestMain(m *testing.M) {
 			MaxHeaderBytes: 1 << 20, // 1MB
 		}
 		if err := s.ListenAndServe(); err != nil {
-			logger.Error(logSender, "could not start HTTP server: %v", err)
+			logger.Error(logSender, "", "could not start HTTP server: %v", err)
 		}
 	}()
 

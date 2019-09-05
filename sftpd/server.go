@@ -87,7 +87,7 @@ func (c Configuration) Initialize(configDir string) error {
 	if err == nil {
 		utils.SetUmask(int(umask), c.Umask)
 	} else {
-		logger.Warn(logSender, "error reading umask, please fix your config file: %v", err)
+		logger.Warn(logSender, "", "error reading umask, please fix your config file: %v", err)
 		logger.WarnToConsole("error reading umask, please fix your config file: %v", err)
 	}
 	serverConfig := &ssh.ServerConfig{
@@ -122,7 +122,7 @@ func (c Configuration) Initialize(configDir string) error {
 		if !filepath.IsAbs(privateFile) {
 			privateFile = filepath.Join(configDir, privateFile)
 		}
-		logger.Info(logSender, "Loading private key: %s", privateFile)
+		logger.Info(logSender, "", "Loading private key: %s", privateFile)
 
 		privateBytes, err := ioutil.ReadFile(privateFile)
 		if err != nil {
@@ -143,13 +143,13 @@ func (c Configuration) Initialize(configDir string) error {
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", c.BindAddress, c.BindPort))
 	if err != nil {
-		logger.Warn(logSender, "error starting listener on address %s:%d: %v", c.BindAddress, c.BindPort, err)
+		logger.Warn(logSender, "", "error starting listener on address %s:%d: %v", c.BindAddress, c.BindPort, err)
 		return err
 	}
 
 	actions = c.Actions
 	uploadMode = c.UploadMode
-	logger.Info(logSender, "server listener registered address: %v", listener.Addr().String())
+	logger.Info(logSender, "", "server listener registered address: %v", listener.Addr().String())
 	if c.IdleTimeout > 0 {
 		startIdleTimer(time.Duration(c.IdleTimeout) * time.Minute)
 	}
@@ -189,7 +189,7 @@ func (c Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, conf
 			}
 		} else {
 			logger.WarnToConsole("unable to read login banner file: %v", err)
-			logger.Warn(logSender, "unable to read login banner file: %v", err)
+			logger.Warn(logSender, "", "unable to read login banner file: %v", err)
 		}
 	}
 	return err
@@ -202,19 +202,19 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 	// Before beginning a handshake must be performed on the incoming net.Conn
 	sconn, chans, reqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
-		logger.Warn(logSender, "failed to accept an incoming connection: %v", err)
+		logger.Warn(logSender, "", "failed to accept an incoming connection: %v", err)
 		return
 	}
 	defer sconn.Close()
 
-	logger.Debug(logSender, "accepted inbound connection, ip: %v", conn.RemoteAddr().String())
+	logger.Debug(logSender, "", "accepted inbound connection, ip: %v", conn.RemoteAddr().String())
 
 	var user dataprovider.User
 
 	err = json.Unmarshal([]byte(sconn.Permissions.Extensions["user"]), &user)
 
 	if err != nil {
-		logger.Warn(logSender, "Unable to deserialize user info, cannot serve connection: %v", err)
+		logger.Warn(logSender, "", "Unable to deserialize user info, cannot serve connection: %v", err)
 		return
 	}
 
@@ -237,14 +237,14 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		// If its not a session channel we just move on because its not something we
 		// know how to handle at this point.
 		if newChannel.ChannelType() != "session" {
-			logger.Debug(logSender, "received an unknown channel type: %v", newChannel.ChannelType())
+			logger.Debug(logSender, connectionID, "received an unknown channel type: %v", newChannel.ChannelType())
 			newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
 			continue
 		}
 
 		channel, requests, err := newChannel.Accept()
 		if err != nil {
-			logger.Warn(logSender, "could not accept a channel: %v", err)
+			logger.Warn(logSender, connectionID, "could not accept a channel: %v", err)
 			continue
 		}
 
@@ -266,7 +266,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 						var msg execMsg
 						if err := ssh.Unmarshal(req.Payload, &msg); err == nil {
 							name, scpArgs, err := parseCommandPayload(msg.Command)
-							logger.Debug(logSender, "new exec command: %v args: %v user: %v, error: %v", name, scpArgs,
+							logger.Debug(logSender, connectionID, "new exec command: %v args: %v user: %v, error: %v", name, scpArgs,
 								connection.User.Username, err)
 							if err == nil && name == "scp" && len(scpArgs) >= 2 {
 								ok = true
@@ -296,10 +296,10 @@ func (c Configuration) handleSftpConnection(channel io.ReadWriteCloser, connecti
 	server := sftp.NewRequestServer(channel, handler)
 
 	if err := server.Serve(); err == io.EOF {
-		logger.Debug(logSender, "connection closed, id: %v", connection.ID)
+		logger.Debug(logSender, connection.ID, "connection closed, id: %v", connection.ID)
 		server.Close()
 	} else if err != nil {
-		logger.Error(logSender, "sftp connection closed with error id %v: %v", connection.ID, err)
+		logger.Error(logSender, connection.ID, "sftp connection closed with error id %v: %v", connection.ID, err)
 	}
 
 	removeConnection(connection.ID)
@@ -317,12 +317,12 @@ func (c Configuration) createHandler(connection Connection) sftp.Handlers {
 
 func loginUser(user dataprovider.User) (*ssh.Permissions, error) {
 	if !filepath.IsAbs(user.HomeDir) {
-		logger.Warn(logSender, "user %v has invalid home dir: %v. Home dir must be an absolute path, login not allowed",
+		logger.Warn(logSender, "", "user %v has invalid home dir: %v. Home dir must be an absolute path, login not allowed",
 			user.Username, user.HomeDir)
 		return nil, fmt.Errorf("Cannot login user with invalid home dir: %v", user.HomeDir)
 	}
 	if _, err := os.Stat(user.HomeDir); os.IsNotExist(err) {
-		logger.Debug(logSender, "home directory \"%v\" for user %v does not exist, try to create", user.HomeDir, user.Username)
+		logger.Debug(logSender, "", "home directory \"%v\" for user %v does not exist, try to create", user.HomeDir, user.Username)
 		err := os.MkdirAll(user.HomeDir, 0777)
 		if err == nil {
 			utils.SetPathPermissions(user.HomeDir, user.GetUID(), user.GetGID())
@@ -332,7 +332,7 @@ func loginUser(user dataprovider.User) (*ssh.Permissions, error) {
 	if user.MaxSessions > 0 {
 		activeSessions := getActiveSessions(user.Username)
 		if activeSessions >= user.MaxSessions {
-			logger.Debug(logSender, "authentication refused for user: %v, too many open sessions: %v/%v", user.Username,
+			logger.Debug(logSender, "", "authentication refused for user: %v, too many open sessions: %v/%v", user.Username,
 				activeSessions, user.MaxSessions)
 			return nil, fmt.Errorf("Too many open sessions: %v", activeSessions)
 		}
@@ -340,7 +340,7 @@ func loginUser(user dataprovider.User) (*ssh.Permissions, error) {
 
 	json, err := json.Marshal(user)
 	if err != nil {
-		logger.Warn(logSender, "error serializing user info: %v, authentication rejected", err)
+		logger.Warn(logSender, "", "error serializing user info: %v, authentication rejected", err)
 		return nil, err
 	}
 	p := &ssh.Permissions{}
@@ -355,8 +355,8 @@ func (c *Configuration) checkHostKeys(configDir string) error {
 	if len(c.Keys) == 0 {
 		autoFile := filepath.Join(configDir, defaultPrivateKeyName)
 		if _, err = os.Stat(autoFile); os.IsNotExist(err) {
-			logger.Info(logSender, "No host keys configured and %s does not exist; creating new private key for server", autoFile)
-			logger.InfoToConsole("No host keys configured and %s does not exist; creating new private key for server", autoFile)
+			logger.Info(logSender, "", "No host keys configured and %#v does not exist; creating new private key for server", autoFile)
+			logger.InfoToConsole("No host keys configured and %#v does not exist; creating new private key for server", autoFile)
 			err = c.generatePrivateKey(autoFile)
 		}
 

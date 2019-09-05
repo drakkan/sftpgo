@@ -25,12 +25,12 @@ func initializePGSQLProvider() error {
 	dbHandle, err := sql.Open("postgres", connectionString)
 	if err == nil {
 		numCPU := runtime.NumCPU()
-		logger.Debug(logSender, "postgres database handle created, connection string: '%v', pool size: %v", connectionString, numCPU)
+		logger.Debug(logSender, "", "postgres database handle created, connection string: '%v', pool size: %v", connectionString, numCPU)
 		dbHandle.SetMaxIdleConns(numCPU)
 		dbHandle.SetMaxOpenConns(numCPU)
 		provider = PGSQLProvider{dbHandle: dbHandle}
 	} else {
-		logger.Warn(logSender, "error creating postgres database handler, connection string: '%v', error: %v", connectionString, err)
+		logger.Warn(logSender, "", "error creating postgres database handler, connection string: '%v', error: %v", connectionString, err)
 	}
 	return err
 }
@@ -50,7 +50,7 @@ func (p PGSQLProvider) getUserByID(ID int64) (User, error) {
 func (p PGSQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
 	tx, err := p.dbHandle.Begin()
 	if err != nil {
-		logger.Warn(logSender, "error starting transaction to update quota for user %v: %v", username, err)
+		logger.Warn(logSender, "", "error starting transaction to update quota for user %v: %v", username, err)
 		return err
 	}
 	err = sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
@@ -60,7 +60,7 @@ func (p PGSQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64,
 		err = tx.Rollback()
 	}
 	if err != nil {
-		logger.Warn(logSender, "error closing transaction to update quota for user %v: %v", username, err)
+		logger.Warn(logSender, "", "error closing transaction to update quota for user %v: %v", username, err)
 	}
 	return err
 }

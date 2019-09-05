@@ -127,7 +127,7 @@ func startServe() {
 		logLevel = zerolog.InfoLevel
 	}
 	logger.InitLogger(logFilePath, logMaxSize, logMaxBackups, logMaxAge, logCompress, logLevel)
-	logger.Info(logSender, "starting SFTPGo, config dir: %v, config file: %v, log max size: %v log max backups: %v "+
+	logger.Info(logSender, "", "starting SFTPGo, config dir: %v, config file: %v, log max size: %v log max backups: %v "+
 		"log max age: %v log verbose: %v, log compress: %v", configDir, configFile, logMaxSize, logMaxBackups, logMaxAge,
 		logVerbose, logCompress)
 	config.LoadConfig(configDir, configFile)
@@ -135,7 +135,7 @@ func startServe() {
 
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
-		logger.Error(logSender, "error initializing data provider: %v", err)
+		logger.Error(logSender, "", "error initializing data provider: %v", err)
 		logger.ErrorToConsole("error initializing data provider: %v", err)
 		os.Exit(1)
 	}
@@ -149,9 +149,9 @@ func startServe() {
 	shutdown := make(chan bool)
 
 	go func() {
-		logger.Debug(logSender, "initializing SFTP server with config %+v", sftpdConf)
+		logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
 		if err := sftpdConf.Initialize(configDir); err != nil {
-			logger.Error(logSender, "could not start SFTP server: %v", err)
+			logger.Error(logSender, "", "could not start SFTP server: %v", err)
 			logger.ErrorToConsole("could not start SFTP server: %v", err)
 		}
 		shutdown <- true
@@ -162,7 +162,7 @@ func startServe() {
 		api.SetDataProvider(dataProvider)
 
 		go func() {
-			logger.Debug(logSender, "initializing HTTP server with config %+v", httpdConf)
+			logger.Debug(logSender, "", "initializing HTTP server with config %+v", httpdConf)
 			s := &http.Server{
 				Addr:           fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort),
 				Handler:        router,
@@ -171,13 +171,13 @@ func startServe() {
 				MaxHeaderBytes: 1 << 20, // 1MB
 			}
 			if err := s.ListenAndServe(); err != nil {
-				logger.Error(logSender, "could not start HTTP server: %v", err)
+				logger.Error(logSender, "", "could not start HTTP server: %v", err)
 				logger.ErrorToConsole("could not start HTTP server: %v", err)
 			}
 			shutdown <- true
 		}()
 	} else {
-		logger.Debug(logSender, "HTTP server not started, disabled in config file")
+		logger.Debug(logSender, "", "HTTP server not started, disabled in config file")
 		logger.DebugToConsole("HTTP server not started, disabled in config file")
 	}
 
