@@ -60,7 +60,7 @@ func (t *Transfer) Close() error {
 	err := t.file.Close()
 	if t.transferType == transferUpload && t.file.Name() != t.path {
 		err = os.Rename(t.file.Name(), t.path)
-		logger.Debug(logSender, "atomic upload completed, rename: \"%v\" -> \"%v\", error: %v",
+		logger.Debug(logSender, t.connectionID, "atomic upload completed, rename: \"%v\" -> \"%v\", error: %v",
 			t.file.Name(), t.path, err)
 	}
 	elapsed := time.Since(t.start).Nanoseconds() / 1000000

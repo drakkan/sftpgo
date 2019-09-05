@@ -114,13 +114,13 @@ func LoadConfig(configDir, configName string) error {
 	viper.AddConfigPath(configDir)
 	viper.SetConfigName(configName)
 	if err = viper.ReadInConfig(); err != nil {
-		logger.Warn(logSender, "error loading configuration file: %v. Default configuration will be used: %+v", err, globalConf)
+		logger.Warn(logSender, "", "error loading configuration file: %v. Default configuration will be used: %+v", err, globalConf)
 		logger.WarnToConsole("error loading configuration file: %v. Default configuration will be used.", err)
 		return err
 	}
 	err = viper.Unmarshal(&globalConf)
 	if err != nil {
-		logger.Warn(logSender, "error parsing configuration file: %v. Default configuration will be used: %+v", err, globalConf)
+		logger.Warn(logSender, "", "error parsing configuration file: %v. Default configuration will be used: %+v", err, globalConf)
 		logger.WarnToConsole("error parsing configuration file: %v. Default configuration will be used.", err)
 		return err
 	}
@@ -131,9 +131,9 @@ func LoadConfig(configDir, configName string) error {
 		err = fmt.Errorf("Invalid upload_mode 0 and 1 are supported, configured: %v reset upload_mode to 0",
 			globalConf.SFTPD.UploadMode)
 		globalConf.SFTPD.UploadMode = 0
-		logger.Warn(logSender, "Configuration error: %v", err)
+		logger.Warn(logSender, "", "Configuration error: %v", err)
 		logger.WarnToConsole("Configuration error: %v", err)
 	}
-	logger.Debug(logSender, "config file used: '%v', config loaded: %+v", viper.ConfigFileUsed(), globalConf)
+	logger.Debug(logSender, "", "config file used: '%v', config loaded: %+v", viper.ConfigFileUsed(), globalConf)
 	return err
 }

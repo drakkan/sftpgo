@@ -10,6 +10,6 @@ import (
 
 // SetUmask sets umask on unix systems
 func SetUmask(umask int, configValue string) {
-	logger.Debug(logSender, "set umask to %v (%v)", configValue, umask)
+	logger.Debug(logSender, "", "set umask to %v (%v)", configValue, umask)
 	syscall.Umask(umask)
 }

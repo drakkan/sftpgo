@@ -44,7 +44,7 @@ func (c *scpCommand) handle() error {
 	defer removeConnection(c.connection.ID)
 	destPath := c.getDestPath()
 	commandType := c.getCommandType()
-	logger.Debug(logSenderSCP, "handle scp command, args: %v user: %v command type: %v, dest path: %v",
+	logger.Debug(logSenderSCP, c.connection.ID, "handle scp command, args: %v user: %v command type: %v, dest path: %#v",
 		c.args, c.connection.User.Username, commandType, destPath)
 	if commandType == "-t" {
 		// -t means "to", so upload
@@ -85,7 +85,7 @@ func (c *scpCommand) handleRecursiveUpload() error {
 		}
 		if strings.HasPrefix(command, "E") {
 			numDirs--
-			logger.Debug(logSenderSCP, "received end dir command, num dirs: %v", numDirs)
+			logger.Debug(logSenderSCP, c.connection.ID, "received end dir command, num dirs: %v", numDirs)
 			if numDirs == 0 {
 				// upload is now complete send confirmation message
 				err = c.sendConfirmationMessage()
@@ -108,7 +108,7 @@ func (c *scpCommand) handleRecursiveUpload() error {
 				if err != nil {
 					return err
 				}
-				logger.Debug(logSenderSCP, "received start dir command, num dirs: %v destPath: %v", numDirs, destPath)
+				logger.Debug(logSenderSCP, c.connection.ID, "received start dir command, num dirs: %v destPath: %v", numDirs, destPath)
 			} else if strings.HasPrefix(command, "C") {
 				err = c.handleUpload(c.getFileUploadDestPath(destPath, name), sizeToRead)
 				if err != nil {
@@ -127,14 +127,14 @@ func (c *scpCommand) handleCreateDir(dirPath string) error {
 	updateConnectionActivity(c.connection.ID)
 	if !c.connection.User.HasPerm(dataprovider.PermCreateDirs) {
 		err := fmt.Errorf("Permission denied")
-		logger.Warn(logSenderSCP, "error creating dir: %v, permission denied", dirPath)
+		logger.Warn(logSenderSCP, c.connection.ID, "error creating dir: %v, permission denied", dirPath)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
 
 	p, err := c.connection.buildPath(dirPath)
 	if err != nil {
-		logger.Warn(logSenderSCP, "error creating dir: %v, invalid file path, err: %v", dirPath, err)
+		logger.Warn(logSenderSCP, c.connection.ID, "error creating dir: %v, invalid file path, err: %v", dirPath, err)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
@@ -191,7 +191,7 @@ func (c *scpCommand) getUploadFileData(sizeToRead int64, transfer *Transfer) err
 func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead int64, isNewFile bool) error {
 	if !c.connection.hasSpace(true) {
 		err := fmt.Errorf("denying file write due to space limit")
-		logger.Warn(logSenderSCP, "error uploading file: %v, err: %v", filePath, err)
+		logger.Warn(logSenderSCP, c.connection.ID, "error uploading file: %v, err: %v", filePath, err)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
@@ -199,7 +199,7 @@ func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead i
 	if _, err := os.Stat(filepath.Dir(requestPath)); os.IsNotExist(err) {
 		if !c.connection.User.HasPerm(dataprovider.PermCreateDirs) {
 			err := fmt.Errorf("Permission denied")
-			logger.Warn(logSenderSCP, "error uploading file: %v, permission denied", requestPath)
+			logger.Warn(logSenderSCP, c.connection.ID, "error uploading file: %v, permission denied", requestPath)
 			c.sendErrorMessage(err.Error())
 			return err
 		}
@@ -238,14 +238,14 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 	updateConnectionActivity(c.connection.ID)
 	if !c.connection.User.HasPerm(dataprovider.PermUpload) {
 		err := fmt.Errorf("Permission denied")
-		logger.Warn(logSenderSCP, "error uploading file: %v, permission denied", uploadFilePath)
+		logger.Warn(logSenderSCP, c.connection.ID, "error uploading file: %v, permission denied", uploadFilePath)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
 
 	p, err := c.connection.buildPath(uploadFilePath)
 	if err != nil {
-		logger.Warn(logSenderSCP, "error uploading file: %v, err: %v", uploadFilePath, err)
+		logger.Warn(logSenderSCP, c.connection.ID, "error uploading file: %v, err: %v", uploadFilePath, err)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
@@ -265,7 +265,7 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 	}
 
 	if stat.IsDir() {
-		logger.Warn(logSenderSCP, "attempted to open a directory for writing to: %v", p)
+		logger.Warn(logSenderSCP, c.connection.ID, "attempted to open a directory for writing to: %v", p)
 		err = fmt.Errorf("Attempted to open a directory for writing: %v", p)
 		c.sendErrorMessage(err.Error())
 		return err
@@ -315,7 +315,7 @@ func (c *scpCommand) sendDownloadProtocolMessages(dirPath string, stat os.FileIn
 func (c *scpCommand) handleRecursiveDownload(dirPath string, stat os.FileInfo) error {
 	var err error
 	if c.isRecursive() {
-		logger.Debug(logSenderSCP, "recursive download, dir path: %v", dirPath)
+		logger.Debug(logSenderSCP, c.connection.ID, "recursive download, dir path: %v", dirPath)
 		err = c.sendDownloadProtocolMessages(dirPath, stat)
 		if err != nil {
 			return err
@@ -425,21 +425,21 @@ func (c *scpCommand) handleDownload(filePath string) error {
 
 	if !c.connection.User.HasPerm(dataprovider.PermDownload) {
 		err := fmt.Errorf("Permission denied")
-		logger.Warn(logSenderSCP, "error downloading file: %v, permission denied", filePath)
+		logger.Warn(logSenderSCP, c.connection.ID, "error downloading file: %v, permission denied", filePath)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
 	p, err := c.connection.buildPath(filePath)
 	if err != nil {
 		err := fmt.Errorf("Invalid file path")
-		logger.Warn(logSenderSCP, "error downloading file: %v, invalid file path", filePath)
+		logger.Warn(logSenderSCP, c.connection.ID, "error downloading file: %v, invalid file path", filePath)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
 
 	var stat os.FileInfo
 	if stat, err = os.Stat(p); os.IsNotExist(err) {
-		logger.Warn(logSenderSCP, "error downloading file: %v, err: %v", p, err)
+		logger.Warn(logSenderSCP, c.connection.ID, "error downloading file: %v, err: %v", p, err)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
@@ -579,7 +579,7 @@ func (c *scpCommand) sendConfirmationMessage() error {
 func (c *scpCommand) sendProtocolMessage(message string) error {
 	_, err := c.channel.Write([]byte(message))
 	if err != nil {
-		logger.Warn(logSenderSCP, "error sending protocol message: %v, err: %v", message, err)
+		logger.Warn(logSenderSCP, c.connection.ID, "error sending protocol message: %v, err: %v", message, err)
 		c.channel.Close()
 	}
 	return err
@@ -594,7 +594,7 @@ func (c *scpCommand) sendExitStatus(err error) {
 	ex := exitStatusMsg{
 		Status: status,
 	}
-	logger.Debug(logSenderSCP, "send exit status for command with args: %v user: %v err: %v",
+	logger.Debug(logSenderSCP, c.connection.ID, "send exit status for command with args: %v user: %v err: %v",
 		c.args, c.connection.User.Username, err)
 	c.channel.SendRequest("exit-status", false, ssh.Marshal(&ex))
 	c.channel.Close()
@@ -645,7 +645,7 @@ func (c *scpCommand) parseUploadMessage(command string) (int64, string, error) {
 	if !strings.HasPrefix(command, "C") && !strings.HasPrefix(command, "D") {
 		err = fmt.Errorf("unknown or invalid upload message: %v args: %v user: %v",
 			command, c.args, c.connection.User.Username)
-		logger.Warn(logSenderSCP, "error: %v", err)
+		logger.Warn(logSenderSCP, c.connection.ID, "error: %v", err)
 		c.sendErrorMessage(err.Error())
 		return size, name, err
 	}
@@ -653,20 +653,20 @@ func (c *scpCommand) parseUploadMessage(command string) (int64, string, error) {
 	if len(parts) == 3 {
 		size, err = strconv.ParseInt(parts[1], 10, 64)
 		if err != nil {
-			logger.Warn(logSenderSCP, "error getting size from upload message: %v", err)
+			logger.Warn(logSenderSCP, c.connection.ID, "error getting size from upload message: %v", err)
 			c.sendErrorMessage(fmt.Sprintf("Error getting size: %v", err))
 			return size, name, err
 		}
 		name = parts[2]
 		if len(name) == 0 {
 			err = fmt.Errorf("error getting name from upload message, cannot be empty")
-			logger.Warn(logSenderSCP, "error: %v", err)
+			logger.Warn(logSenderSCP, c.connection.ID, "error: %v", err)
 			c.sendErrorMessage(err.Error())
 			return size, name, err
 		}
 	} else {
 		err = fmt.Errorf("Error splitting upload message: %v", command)
-		logger.Warn(logSenderSCP, "error: %v", err)
+		logger.Warn(logSenderSCP, c.connection.ID, "error: %v", err)
 		c.sendErrorMessage(err.Error())
 		return size, name, err
 	}

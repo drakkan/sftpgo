@@ -25,7 +25,7 @@ func initializeSQLiteProvider(basePath string) error {
 		}
 		fi, err := os.Stat(dbPath)
 		if err != nil {
-			logger.Warn(logSender, "sqlite database file does not exists, please be sure to create and initialize"+
+			logger.Warn(logSender, "", "sqlite database file does not exists, please be sure to create and initialize"+
 				" a database before starting sftpgo")
 			return err
 		}
@@ -39,11 +39,11 @@ func initializeSQLiteProvider(basePath string) error {
 	}
 	dbHandle, err := sql.Open("sqlite3", connectionString)
 	if err == nil {
-		logger.Debug(logSender, "sqlite database handle created, connection string: '%v'", connectionString)
+		logger.Debug(logSender, "", "sqlite database handle created, connection string: '%v'", connectionString)
 		dbHandle.SetMaxOpenConns(1)
 		provider = SQLiteProvider{dbHandle: dbHandle}
 	} else {
-		logger.Warn(logSender, "error creating sqlite database handler, connection string: '%v', error: %v", connectionString, err)
+		logger.Warn(logSender, "", "error creating sqlite database handler, connection string: '%v', error: %v", connectionString, err)
 	}
 	return err
 }
