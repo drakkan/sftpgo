@@ -71,15 +71,15 @@ func (p BoltProvider) validateUserAndPass(username string, password string) (Use
 	return checkUserAndPass(user, password)
 }
 
-func (p BoltProvider) validateUserAndPubKey(username string, pubKey string) (User, error) {
+func (p BoltProvider) validateUserAndPubKey(username string, pubKey string) (User, string, error) {
 	var user User
 	if len(pubKey) == 0 {
-		return user, errors.New("Credentials cannot be null or empty")
+		return user, "", errors.New("Credentials cannot be null or empty")
 	}
 	user, err := p.userExists(username)
 	if err != nil {
 		logger.Warn(logSender, "", "error authenticating user: %v, error: %v", username, err)
-		return user, err
+		return user, "", err
 	}
 	return checkUserAndPubKey(user, pubKey)
 }

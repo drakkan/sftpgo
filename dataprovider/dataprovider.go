@@ -132,7 +132,7 @@ func GetProvider() Provider {
 // Provider interface that data providers must implement.
 type Provider interface {
 	validateUserAndPass(username string, password string) (User, error)
-	validateUserAndPubKey(username string, pubKey string) (User, error)
+	validateUserAndPubKey(username string, pubKey string) (User, string, error)
 	updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error
 	getUsedQuota(username string) (int, int64, error)
 	userExists(username string) (User, error)
@@ -166,7 +166,7 @@ func CheckUserAndPass(p Provider, username string, password string) (User, error
 }
 
 // CheckUserAndPubKey retrieves the SFTP user with the given username and public key if a match is found or an error
-func CheckUserAndPubKey(p Provider, username string, pubKey string) (User, error) {
+func CheckUserAndPubKey(p Provider, username string, pubKey string) (User, string, error) {
 	return p.validateUserAndPubKey(username, pubKey)
 }
 
@@ -297,21 +297,22 @@ func checkUserAndPass(user User, password string) (User, error) {
 	return user, err
 }
 
-func checkUserAndPubKey(user User, pubKey string) (User, error) {
+func checkUserAndPubKey(user User, pubKey string) (User, string, error) {
 	if len(user.PublicKeys) == 0 {
-		return user, errors.New("Invalid credentials")
+		return user, "", errors.New("Invalid credentials")
 	}
 	for i, k := range user.PublicKeys {
-		storedPubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
+		storedPubKey, comment, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
 		if err != nil {
 			logger.Warn(logSender, "", "error parsing stored public key %d for user %v: %v", i, user.Username, err)
-			return user, err
+			return user, "", err
 		}
 		if string(storedPubKey.Marshal()) == pubKey {
-			return user, nil
+			fp := ssh.FingerprintSHA256(storedPubKey)
+			return user, fp + ":" + comment, nil
 		}
 	}
-	return user, errors.New("Invalid credentials")
+	return user, "", errors.New("Invalid credentials")
 }
 
 func comparePbkdf2PasswordAndHash(password, hashedPassword string) (bool, error) {

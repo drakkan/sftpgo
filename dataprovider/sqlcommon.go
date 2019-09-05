@@ -37,15 +37,15 @@ func sqlCommonValidateUserAndPass(username string, password string, dbHandle *sq
 	return checkUserAndPass(user, password)
 }
 
-func sqlCommonValidateUserAndPubKey(username string, pubKey string, dbHandle *sql.DB) (User, error) {
+func sqlCommonValidateUserAndPubKey(username string, pubKey string, dbHandle *sql.DB) (User, string, error) {
 	var user User
 	if len(pubKey) == 0 {
-		return user, errors.New("Credentials cannot be null or empty")
+		return user, "", errors.New("Credentials cannot be null or empty")
 	}
 	user, err := getUserByUsername(username, dbHandle)
 	if err != nil {
 		logger.Warn(logSender, "", "error authenticating user: %v, error: %v", username, err)
-		return user, err
+		return user, "", err
 	}
 	return checkUserAndPubKey(user, pubKey)
 }

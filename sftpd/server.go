@@ -210,6 +210,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 	logger.Debug(logSender, "", "accepted inbound connection, ip: %v", conn.RemoteAddr().String())
 
 	var user dataprovider.User
+	var loginType string
 
 	err = json.Unmarshal([]byte(sconn.Permissions.Extensions["user"]), &user)
 
@@ -217,6 +218,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		logger.Warn(logSender, "", "Unable to deserialize user info, cannot serve connection: %v", err)
 		return
 	}
+	loginType = sconn.Permissions.Extensions["login_type"]
 
 	connectionID := hex.EncodeToString(sconn.SessionID())
 
@@ -230,8 +232,8 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		lock:          new(sync.Mutex),
 		sshConn:       sconn,
 	}
-	logger.Info(logSender, connectionID, "User id: %d, name: %#v, home_dir: %#v",
-		user.ID, user.Username, user.HomeDir)
+	logger.Info(logSender, connectionID, "User id: %d, logged in with: %#v, name: %#v, home_dir: %#v",
+		user.ID, loginType, user.Username, user.HomeDir)
 
 	go ssh.DiscardRequests(reqs)
 
@@ -317,7 +319,7 @@ func (c Configuration) createHandler(connection Connection) sftp.Handlers {
 	}
 }
 
-func loginUser(user dataprovider.User) (*ssh.Permissions, error) {
+func loginUser(user dataprovider.User, loginType string) (*ssh.Permissions, error) {
 	if !filepath.IsAbs(user.HomeDir) {
 		logger.Warn(logSender, "", "user %v has invalid home dir: %v. Home dir must be an absolute path, login not allowed",
 			user.Username, user.HomeDir)
@@ -348,6 +350,7 @@ func loginUser(user dataprovider.User) (*ssh.Permissions, error) {
 	p := &ssh.Permissions{}
 	p.Extensions = make(map[string]string)
 	p.Extensions["user"] = string(json)
+	p.Extensions["login_type"] = loginType
 	return p, nil
 }
 
@@ -370,9 +373,10 @@ func (c *Configuration) checkHostKeys(configDir string) error {
 func (c Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKey string) (*ssh.Permissions, error) {
 	var err error
 	var user dataprovider.User
+	var keyID string
 
-	if user, err = dataprovider.CheckUserAndPubKey(dataProvider, conn.User(), pubKey); err == nil {
-		return loginUser(user)
+	if user, keyID, err = dataprovider.CheckUserAndPubKey(dataProvider, conn.User(), pubKey); err == nil {
+		return loginUser(user, "public_key:"+keyID)
 	}
 	return nil, err
 }
@@ -382,7 +386,7 @@ func (c Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass [
 	var user dataprovider.User
 
 	if user, err = dataprovider.CheckUserAndPass(dataProvider, conn.User(), string(pass)); err == nil {
-		return loginUser(user)
+		return loginUser(user, "password")
 	}
 	return nil, err
 }
