@@ -41,7 +41,7 @@ func (p MySQLProvider) validateUserAndPass(username string, password string) (Us
 	return sqlCommonValidateUserAndPass(username, password, p.dbHandle)
 }
 
-func (p MySQLProvider) validateUserAndPubKey(username string, publicKey string) (User, error) {
+func (p MySQLProvider) validateUserAndPubKey(username string, publicKey string) (User, string, error) {
 	return sqlCommonValidateUserAndPubKey(username, publicKey, p.dbHandle)
 }
 
