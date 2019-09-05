@@ -230,6 +230,8 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		lock:          new(sync.Mutex),
 		sshConn:       sconn,
 	}
+	logger.Info(logSender, connectionID, "User id: %d, name: %#v, home_dir: %#v",
+		user.ID, user.Username, user.HomeDir)
 
 	go ssh.DiscardRequests(reqs)
 
@@ -296,10 +298,10 @@ func (c Configuration) handleSftpConnection(channel io.ReadWriteCloser, connecti
 	server := sftp.NewRequestServer(channel, handler)
 
 	if err := server.Serve(); err == io.EOF {
-		logger.Debug(logSender, connection.ID, "connection closed, id: %v", connection.ID)
+		logger.Debug(logSender, connection.ID, "connection closed")
 		server.Close()
 	} else if err != nil {
-		logger.Error(logSender, connection.ID, "sftp connection closed with error id %v: %v", connection.ID, err)
+		logger.Error(logSender, connection.ID, "sftp connection closed with error: %v", err)
 	}
 
 	removeConnection(connection.ID)
