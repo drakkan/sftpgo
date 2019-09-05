@@ -10,8 +10,10 @@ RUN  apk add --no-cache ca-certificates su-exec \
 
 COPY --from=builder /go/bin/sftpgo /bin/
 COPY docker-entrypoint.sh /bin/entrypoint.sh
+RUN chmod +x /bin/entrypoint.sh
 
 VOLUME /data
 EXPOSE 2022 8080
 
-CMD ["/bin/entrypoint.sh"]
+ENTRYPOINT ["/bin/entrypoint.sh"]
+CMD []
