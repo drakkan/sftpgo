@@ -39,11 +39,11 @@ func initializeSQLiteProvider(basePath string) error {
 	}
 	dbHandle, err := sql.Open("sqlite3", connectionString)
 	if err == nil {
-		logger.Debug(logSender, "", "sqlite database handle created, connection string: '%v'", connectionString)
+		logger.Debug(logSender, "", "sqlite database handle created, connection string: %#v", connectionString)
 		dbHandle.SetMaxOpenConns(1)
 		provider = SQLiteProvider{dbHandle: dbHandle}
 	} else {
-		logger.Warn(logSender, "", "error creating sqlite database handler, connection string: '%v', error: %v", connectionString, err)
+		logger.Warn(logSender, "", "error creating sqlite database handler, connection string: %#v, error: %v", connectionString, err)
 	}
 	return err
 }

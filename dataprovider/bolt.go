@@ -140,7 +140,7 @@ func (p BoltProvider) updateQuota(username string, filesAdd int, sizeAdd int64, 
 func (p BoltProvider) getUsedQuota(username string) (int, int64, error) {
 	user, err := p.userExists(username)
 	if err != nil {
-		logger.Warn(logSender, "", "unable to get quota for user '%v' error: %v", username, err)
+		logger.Warn(logSender, "", "unable to get quota for user %v error: %v", username, err)
 		return 0, 0, err
 	}
 	return user.UsedQuotaFiles, user.UsedQuotaSize, err
@@ -173,7 +173,7 @@ func (p BoltProvider) addUser(user User) error {
 			return err
 		}
 		if u := bucket.Get([]byte(user.Username)); u != nil {
-			return fmt.Errorf("username '%v' already exists", user.Username)
+			return fmt.Errorf("username %v already exists", user.Username)
 		}
 		id, err := bucket.NextSequence()
 		if err != nil {
@@ -204,7 +204,7 @@ func (p BoltProvider) updateUser(user User) error {
 			return err
 		}
 		if u := bucket.Get([]byte(user.Username)); u == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("username '%v' does not exist", user.Username)}
+			return &RecordNotFoundError{err: fmt.Sprintf("username %v does not exist", user.Username)}
 		}
 		buf, err := json.Marshal(user)
 		if err != nil {

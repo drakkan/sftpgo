@@ -15,7 +15,7 @@ func getUserByUsername(username string, dbHandle *sql.DB) (User, error) {
 	q := getUserByUsernameQuery()
 	stmt, err := dbHandle.Prepare(q)
 	if err != nil {
-		logger.Debug(logSender, "", "error preparing database query %v: %v", q, err)
+		logger.Warn(logSender, "", "error preparing database query %#v: %v", q, err)
 		return user, err
 	}
 	defer stmt.Close()
@@ -55,7 +55,7 @@ func sqlCommonGetUserByID(ID int64, dbHandle *sql.DB) (User, error) {
 	q := getUserByIDQuery()
 	stmt, err := dbHandle.Prepare(q)
 	if err != nil {
-		logger.Debug(logSender, "", "error preparing database query %v: %v", q, err)
+		logger.Debug(logSender, "", "error preparing database query %#v: %v", q, err)
 		return user, err
 	}
 	defer stmt.Close()
@@ -68,7 +68,7 @@ func sqlCommonUpdateQuota(username string, filesAdd int, sizeAdd int64, reset bo
 	q := getUpdateQuotaQuery(reset)
 	stmt, err := dbHandle.Prepare(q)
 	if err != nil {
-		logger.Debug(logSender, "", "error preparing database query %v: %v", q, err)
+		logger.Debug(logSender, "", "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -86,7 +86,7 @@ func sqlCommonGetUsedQuota(username string, dbHandle *sql.DB) (int, int64, error
 	q := getQuotaQuery()
 	stmt, err := dbHandle.Prepare(q)
 	if err != nil {
-		logger.Warn(logSender, "", "error preparing database query %v: %v", q, err)
+		logger.Warn(logSender, "", "error preparing database query %#v: %v", q, err)
 		return 0, 0, err
 	}
 	defer stmt.Close()
@@ -95,7 +95,7 @@ func sqlCommonGetUsedQuota(username string, dbHandle *sql.DB) (int, int64, error
 	var usedSize int64
 	err = stmt.QueryRow(username).Scan(&usedSize, &usedFiles)
 	if err != nil {
-		logger.Warn(logSender, "", "error getting user quota: %v, error: %v", username, err)
+		logger.Warn(logSender, "", "error getting quota for user: %v, error: %v", username, err)
 		return 0, 0, err
 	}
 	return usedFiles, usedSize, err
@@ -106,7 +106,7 @@ func sqlCommonCheckUserExists(username string, dbHandle *sql.DB) (User, error) {
 	q := getUserByUsernameQuery()
 	stmt, err := dbHandle.Prepare(q)
 	if err != nil {
-		logger.Warn(logSender, "", "error preparing database query %v: %v", q, err)
+		logger.Warn(logSender, "", "error preparing database query %#v: %v", q, err)
 		return user, err
 	}
 	defer stmt.Close()
@@ -122,7 +122,7 @@ func sqlCommonAddUser(user User, dbHandle *sql.DB) error {
 	q := getAddUserQuery()
 	stmt, err := dbHandle.Prepare(q)
 	if err != nil {
-		logger.Warn(logSender, "", "error preparing database query %v: %v", q, err)
+		logger.Warn(logSender, "", "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -147,7 +147,7 @@ func sqlCommonUpdateUser(user User, dbHandle *sql.DB) error {
 	q := getUpdateUserQuery()
 	stmt, err := dbHandle.Prepare(q)
 	if err != nil {
-		logger.Warn(logSender, "", "error preparing database query %v: %v", q, err)
+		logger.Warn(logSender, "", "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -168,7 +168,7 @@ func sqlCommonDeleteUser(user User, dbHandle *sql.DB) error {
 	q := getDeleteUserQuery()
 	stmt, err := dbHandle.Prepare(q)
 	if err != nil {
-		logger.Warn(logSender, "", "error preparing database query %v: %v", q, err)
+		logger.Warn(logSender, "", "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -181,7 +181,7 @@ func sqlCommonGetUsers(limit int, offset int, order string, username string, dbH
 	q := getUsersQuery(order, username)
 	stmt, err := dbHandle.Prepare(q)
 	if err != nil {
-		logger.Warn(logSender, "", "error preparing database query %v: %v", q, err)
+		logger.Warn(logSender, "", "error preparing database query %#v: %v", q, err)
 		return nil, err
 	}
 	defer stmt.Close()

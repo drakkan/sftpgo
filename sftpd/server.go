@@ -321,12 +321,12 @@ func (c Configuration) createHandler(connection Connection) sftp.Handlers {
 
 func loginUser(user dataprovider.User, loginType string) (*ssh.Permissions, error) {
 	if !filepath.IsAbs(user.HomeDir) {
-		logger.Warn(logSender, "", "user %v has invalid home dir: %v. Home dir must be an absolute path, login not allowed",
+		logger.Warn(logSender, "", "user %v has invalid home dir: %#v. Home dir must be an absolute path, login not allowed",
 			user.Username, user.HomeDir)
 		return nil, fmt.Errorf("Cannot login user with invalid home dir: %v", user.HomeDir)
 	}
 	if _, err := os.Stat(user.HomeDir); os.IsNotExist(err) {
-		logger.Debug(logSender, "", "home directory \"%v\" for user %v does not exist, try to create", user.HomeDir, user.Username)
+		logger.Debug(logSender, "", "home directory %#v for user %v does not exist, try to create", user.HomeDir, user.Username)
 		err := os.MkdirAll(user.HomeDir, 0777)
 		if err == nil {
 			utils.SetPathPermissions(user.HomeDir, user.GetUID(), user.GetGID())

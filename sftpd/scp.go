@@ -108,7 +108,7 @@ func (c *scpCommand) handleRecursiveUpload() error {
 				if err != nil {
 					return err
 				}
-				logger.Debug(logSenderSCP, c.connection.ID, "received start dir command, num dirs: %v destPath: %v", numDirs, destPath)
+				logger.Debug(logSenderSCP, c.connection.ID, "received start dir command, num dirs: %v destPath: %#v", numDirs, destPath)
 			} else if strings.HasPrefix(command, "C") {
 				err = c.handleUpload(c.getFileUploadDestPath(destPath, name), sizeToRead)
 				if err != nil {
@@ -127,14 +127,14 @@ func (c *scpCommand) handleCreateDir(dirPath string) error {
 	updateConnectionActivity(c.connection.ID)
 	if !c.connection.User.HasPerm(dataprovider.PermCreateDirs) {
 		err := fmt.Errorf("Permission denied")
-		logger.Warn(logSenderSCP, c.connection.ID, "error creating dir: %v, permission denied", dirPath)
+		logger.Warn(logSenderSCP, c.connection.ID, "error creating dir: %#v, permission denied", dirPath)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
 
 	p, err := c.connection.buildPath(dirPath)
 	if err != nil {
-		logger.Warn(logSenderSCP, c.connection.ID, "error creating dir: %v, invalid file path, err: %v", dirPath, err)
+		logger.Warn(logSenderSCP, c.connection.ID, "error creating dir: %#v, invalid file path, err: %v", dirPath, err)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
@@ -191,7 +191,7 @@ func (c *scpCommand) getUploadFileData(sizeToRead int64, transfer *Transfer) err
 func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead int64, isNewFile bool) error {
 	if !c.connection.hasSpace(true) {
 		err := fmt.Errorf("denying file write due to space limit")
-		logger.Warn(logSenderSCP, c.connection.ID, "error uploading file: %v, err: %v", filePath, err)
+		logger.Warn(logSenderSCP, c.connection.ID, "error uploading file: %#v, err: %v", filePath, err)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
@@ -199,7 +199,7 @@ func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead i
 	if _, err := os.Stat(filepath.Dir(requestPath)); os.IsNotExist(err) {
 		if !c.connection.User.HasPerm(dataprovider.PermCreateDirs) {
 			err := fmt.Errorf("Permission denied")
-			logger.Warn(logSenderSCP, c.connection.ID, "error uploading file: %v, permission denied", requestPath)
+			logger.Warn(logSenderSCP, c.connection.ID, "error uploading file: %#v, permission denied", requestPath)
 			c.sendErrorMessage(err.Error())
 			return err
 		}
@@ -207,7 +207,7 @@ func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead i
 
 	file, err := os.Create(filePath)
 	if err != nil {
-		logger.Error(logSenderSCP, "error creating file %v: %v", requestPath, err)
+		logger.Error(logSenderSCP, "error creating file %#v: %v", requestPath, err)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
@@ -238,14 +238,14 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 	updateConnectionActivity(c.connection.ID)
 	if !c.connection.User.HasPerm(dataprovider.PermUpload) {
 		err := fmt.Errorf("Permission denied")
-		logger.Warn(logSenderSCP, c.connection.ID, "error uploading file: %v, permission denied", uploadFilePath)
+		logger.Warn(logSenderSCP, c.connection.ID, "error uploading file: %#v, permission denied", uploadFilePath)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
 
 	p, err := c.connection.buildPath(uploadFilePath)
 	if err != nil {
-		logger.Warn(logSenderSCP, c.connection.ID, "error uploading file: %v, err: %v", uploadFilePath, err)
+		logger.Warn(logSenderSCP, c.connection.ID, "error uploading file: %#v, err: %v", uploadFilePath, err)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
@@ -259,14 +259,14 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 	}
 
 	if statErr != nil {
-		logger.Error(logSenderSCP, "error performing file stat %v: %v", p, statErr)
+		logger.Error(logSenderSCP, "error performing file stat %#v: %v", p, statErr)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
 
 	if stat.IsDir() {
-		logger.Warn(logSenderSCP, c.connection.ID, "attempted to open a directory for writing to: %v", p)
-		err = fmt.Errorf("Attempted to open a directory for writing: %v", p)
+		logger.Warn(logSenderSCP, c.connection.ID, "attempted to open a directory for writing to: %#v", p)
+		err = fmt.Errorf("Attempted to open a directory for writing: %#v", p)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
@@ -274,7 +274,7 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 	if uploadMode == uploadModeAtomic {
 		err = os.Rename(p, filePath)
 		if err != nil {
-			logger.Error(logSenderSCP, "error renaming existing file for atomic upload, source: %v, dest: %v, err: %v",
+			logger.Error(logSenderSCP, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %v",
 				p, filePath, err)
 			c.sendErrorMessage(err.Error())
 			return err
@@ -315,7 +315,7 @@ func (c *scpCommand) sendDownloadProtocolMessages(dirPath string, stat os.FileIn
 func (c *scpCommand) handleRecursiveDownload(dirPath string, stat os.FileInfo) error {
 	var err error
 	if c.isRecursive() {
-		logger.Debug(logSenderSCP, c.connection.ID, "recursive download, dir path: %v", dirPath)
+		logger.Debug(logSenderSCP, c.connection.ID, "recursive download, dir path: %#v", dirPath)
 		err = c.sendDownloadProtocolMessages(dirPath, stat)
 		if err != nil {
 			return err
@@ -425,21 +425,21 @@ func (c *scpCommand) handleDownload(filePath string) error {
 
 	if !c.connection.User.HasPerm(dataprovider.PermDownload) {
 		err := fmt.Errorf("Permission denied")
-		logger.Warn(logSenderSCP, c.connection.ID, "error downloading file: %v, permission denied", filePath)
+		logger.Warn(logSenderSCP, c.connection.ID, "error downloading file: %#v, permission denied", filePath)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
 	p, err := c.connection.buildPath(filePath)
 	if err != nil {
 		err := fmt.Errorf("Invalid file path")
-		logger.Warn(logSenderSCP, c.connection.ID, "error downloading file: %v, invalid file path", filePath)
+		logger.Warn(logSenderSCP, c.connection.ID, "error downloading file: %#v, invalid file path", filePath)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
 
 	var stat os.FileInfo
 	if stat, err = os.Stat(p); os.IsNotExist(err) {
-		logger.Warn(logSenderSCP, c.connection.ID, "error downloading file: %v, err: %v", p, err)
+		logger.Warn(logSenderSCP, c.connection.ID, "error downloading file: %#v, err: %v", p, err)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
@@ -451,7 +451,7 @@ func (c *scpCommand) handleDownload(filePath string) error {
 
 	file, err := os.Open(p)
 	if err != nil {
-		logger.Error(logSenderSCP, "could not open file \"%v\" for reading: %v", p, err)
+		logger.Error(logSenderSCP, "could not open file %#v for reading: %v", p, err)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
