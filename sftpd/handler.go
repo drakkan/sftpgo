@@ -66,7 +66,7 @@ func (c Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 		return nil, sftp.ErrSshFxFailure
 	}
 
-	logger.Debug(logSender, c.ID, "fileread requested for path: %#v, user: %v", p, c.User.Username)
+	logger.Debug(logSender, c.ID, "fileread requested for path: %#v", p)
 
 	transfer := Transfer{
 		file:          file,
@@ -141,7 +141,7 @@ func (c Connection) Filecmd(request *sftp.Request) error {
 		return sftp.ErrSshFxOpUnsupported
 	}
 
-	logger.Debug(logSender, c.ID, "new cmd, method: %v user: %v sourcePath: %#v, targetPath: %#v", request.Method, c.User.Username,
+	logger.Debug(logSender, c.ID, "new cmd, method: %v, sourcePath: %#v, targetPath: %#v", request.Method,
 		p, target)
 
 	switch request.Method {
@@ -204,7 +204,7 @@ func (c Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 			return nil, sftp.ErrSshFxPermissionDenied
 		}
 
-		logger.Debug(logSender, c.ID, "requested list file for dir: %#v user: %v", p, c.User.Username)
+		logger.Debug(logSender, c.ID, "requested list file for dir: %#v", p)
 
 		files, err := ioutil.ReadDir(p)
 		if err != nil {
@@ -218,7 +218,7 @@ func (c Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 			return nil, sftp.ErrSshFxPermissionDenied
 		}
 
-		logger.Debug(logSender, c.ID, "requested stat for file: %#v user: %v", p, c.User.Username)
+		logger.Debug(logSender, c.ID, "requested stat for file: %#v", p)
 		s, err := os.Stat(p)
 		if os.IsNotExist(err) {
 			return nil, sftp.ErrSshFxNoSuchFile
@@ -392,8 +392,7 @@ func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, re
 
 	if osFlags&os.O_TRUNC == 0 {
 		// see https://github.com/pkg/sftp/issues/295
-		logger.Info(logSender, c.ID, "upload resume is not supported, returning error for file: %#v user: %v", requestPath,
-			c.User.Username)
+		logger.Info(logSender, c.ID, "upload resume is not supported, returning error for file: %#v", requestPath)
 		return nil, sftp.ErrSshFxOpUnsupported
 	}
 
