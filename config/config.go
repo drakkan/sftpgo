@@ -83,8 +83,6 @@ func init() {
 	replacer := strings.NewReplacer(".", "__")
 	viper.SetEnvKeyReplacer(replacer)
 	viper.SetConfigName(DefaultConfigName)
-	setViperAdditionalConfigPaths()
-	viper.AddConfigPath(".")
 	viper.AutomaticEnv()
 	viper.AllowEmptyEnv(true)
 }
@@ -112,6 +110,8 @@ func GetProviderConf() dataprovider.Config {
 func LoadConfig(configDir, configName string) error {
 	var err error
 	viper.AddConfigPath(configDir)
+	setViperAdditionalConfigPaths()
+	viper.AddConfigPath(".")
 	viper.SetConfigName(configName)
 	if err = viper.ReadInConfig(); err != nil {
 		logger.Warn(logSender, "error loading configuration file: %v. Default configuration will be used: %+v", err, globalConf)
