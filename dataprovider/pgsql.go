@@ -4,8 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"runtime"
-
-	"github.com/drakkan/sftpgo/logger"
 )
 
 // PGSQLProvider auth provider for PostgreSQL database
@@ -16,6 +14,7 @@ type PGSQLProvider struct {
 func initializePGSQLProvider() error {
 	var err error
 	var connectionString string
+	provider = PGSQLProvider{}
 	if len(config.ConnectionString) == 0 {
 		connectionString = fmt.Sprintf("host='%v' port=%v dbname='%v' user='%v' password='%v' sslmode=%v connect_timeout=10",
 			config.Host, config.Port, config.Name, config.Username, config.Password, getSSLMode())
@@ -25,12 +24,12 @@ func initializePGSQLProvider() error {
 	dbHandle, err := sql.Open("postgres", connectionString)
 	if err == nil {
 		numCPU := runtime.NumCPU()
-		logger.Debug(logSender, "", "postgres database handle created, connection string: %#v, pool size: %v", connectionString, numCPU)
+		provider.log(Debug, "postgres database handle created, connection string: %#v, pool size: %v", connectionString, numCPU)
 		dbHandle.SetMaxIdleConns(numCPU)
 		dbHandle.SetMaxOpenConns(numCPU)
 		provider = PGSQLProvider{dbHandle: dbHandle}
 	} else {
-		logger.Warn(logSender, "", "error creating postgres database handler, connection string: %#v, error: %v", connectionString, err)
+		provider.log(Warn, "error creating postgres database handler, connection string: %#v, error: %v", connectionString, err)
 	}
 	return err
 }
@@ -50,7 +49,7 @@ func (p PGSQLProvider) getUserByID(ID int64) (User, error) {
 func (p PGSQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
 	tx, err := p.dbHandle.Begin()
 	if err != nil {
-		logger.Warn(logSender, "", "error starting transaction to update quota for user %v: %v", username, err)
+		p.log(Warn, "error starting transaction to update quota for user %v: %v", username, err)
 		return err
 	}
 	err = sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
@@ -60,7 +59,7 @@ func (p PGSQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64,
 		err = tx.Rollback()
 	}
 	if err != nil {
-		logger.Warn(logSender, "", "error closing transaction to update quota for user %v: %v", username, err)
+		p.log(Warn, "error closing transaction to update quota for user %v: %v", username, err)
 	}
 	return err
 }
@@ -87,4 +86,12 @@ func (p PGSQLProvider) deleteUser(user User) error {
 
 func (p PGSQLProvider) getUsers(limit int, offset int, order string, username string) ([]User, error) {
 	return sqlCommonGetUsers(limit, offset, order, username, p.dbHandle)
+}
+
+func (p PGSQLProvider) log(level string, format string, v ...interface{}) {
+	sqlCommonLog(level, p.providerName(), format, v...)
+}
+
+func (p PGSQLProvider) providerName() string {
+	return PGSQLDataProviderName
 }

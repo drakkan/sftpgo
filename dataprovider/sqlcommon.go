@@ -250,3 +250,16 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 	}
 	return user, err
 }
+
+func sqlCommonLog(level string, sender string, format string, v ...interface{}) {
+	switch level {
+	case "info":
+		logger.Info(sender, "", format, v...)
+	case "warn":
+		logger.Warn(sender, "", format, v...)
+	case "error":
+		logger.Error(sender, "", format, v...)
+	default:
+		logger.Debug(sender, "", format, v...)
+	}
+}

@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 	bolt "go.etcd.io/bbolt"
 )
@@ -25,6 +24,7 @@ type BoltProvider struct {
 
 func initializeBoltProvider(basePath string) error {
 	var err error
+	provider = BoltProvider{}
 	dbPath := config.Name
 	if !filepath.IsAbs(dbPath) {
 		dbPath = filepath.Join(basePath, dbPath)
@@ -34,13 +34,13 @@ func initializeBoltProvider(basePath string) error {
 		FreelistType: bolt.FreelistArrayType,
 		Timeout:      5 * time.Second})
 	if err == nil {
-		logger.Debug(logSender, "", "bolt key store handle created")
+		provider.log(Debug, "bolt key store handle created")
 		err = dbHandle.Update(func(tx *bolt.Tx) error {
 			_, e := tx.CreateBucketIfNotExists(usersBucket)
 			return e
 		})
 		if err != nil {
-			logger.Warn(logSender, "", "error creating users bucket: %v", err)
+			provider.log(Warn, "error creating users bucket: %v", err)
 			return err
 		}
 		err = dbHandle.Update(func(tx *bolt.Tx) error {
@@ -48,12 +48,12 @@ func initializeBoltProvider(basePath string) error {
 			return e
 		})
 		if err != nil {
-			logger.Warn(logSender, "", "error creating username idx bucket: %v", err)
+			provider.log(Warn, "error creating username idx bucket: %v", err)
 			return err
 		}
 		provider = BoltProvider{dbHandle: dbHandle}
 	} else {
-		logger.Warn(logSender, "", "error creating bolt key/value store handler: %v", err)
+		provider.log(Warn, "error creating bolt key/value store handler: %v", err)
 	}
 	return err
 }
@@ -65,7 +65,7 @@ func (p BoltProvider) validateUserAndPass(username string, password string) (Use
 	}
 	user, err := p.userExists(username)
 	if err != nil {
-		logger.Warn(logSender, "", "error authenticating user: %v, error: %v", username, err)
+		p.log(Warn, "error authenticating user: %v, error: %v", username, err)
 		return user, err
 	}
 	return checkUserAndPass(user, password)
@@ -78,7 +78,7 @@ func (p BoltProvider) validateUserAndPubKey(username string, pubKey string) (Use
 	}
 	user, err := p.userExists(username)
 	if err != nil {
-		logger.Warn(logSender, "", "error authenticating user: %v, error: %v", username, err)
+		p.log(Warn, "error authenticating user: %v, error: %v", username, err)
 		return user, "", err
 	}
 	return checkUserAndPubKey(user, pubKey)
@@ -140,7 +140,7 @@ func (p BoltProvider) updateQuota(username string, filesAdd int, sizeAdd int64, 
 func (p BoltProvider) getUsedQuota(username string) (int, int64, error) {
 	user, err := p.userExists(username)
 	if err != nil {
-		logger.Warn(logSender, "", "unable to get quota for user %v error: %v", username, err)
+		p.log(Warn, "unable to get quota for user %v error: %v", username, err)
 		return 0, 0, err
 	}
 	return user.UsedQuotaFiles, user.UsedQuotaSize, err
@@ -312,4 +312,12 @@ func getBuckets(tx *bolt.Tx) (*bolt.Bucket, *bolt.Bucket, error) {
 		err = fmt.Errorf("Unable to find required buckets, bolt database structure not correcly defined")
 	}
 	return bucket, idxBucket, err
+}
+
+func (p BoltProvider) log(level string, format string, v ...interface{}) {
+	sqlCommonLog(level, p.providerName(), format, v...)
+}
+
+func (p BoltProvider) providerName() string {
+	return BoltDataProviderName
 }

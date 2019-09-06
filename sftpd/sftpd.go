@@ -34,6 +34,11 @@ const (
 	operationRename   = "rename"
 	protocolSFTP      = "SFTP"
 	protocolSCP       = "SCP"
+
+	Debug = "debug"
+	Info  = "info"
+	Warn  = "warn"
+	Error = "error"
 )
 
 var (
@@ -173,7 +178,7 @@ func CloseActiveConnection(connectionID string) bool {
 	defer mutex.RUnlock()
 	for _, c := range openConnections {
 		if c.ID == connectionID {
-			logger.Debug(logSender, connectionID, "closing connection")
+			c.Log(Debug, logSender, "closing connection")
 			c.sshConn.Close()
 			result = true
 			break
@@ -247,33 +252,36 @@ func CheckIdleConnections() {
 			if t.connectionID == c.ID {
 				transferIdleTime := time.Since(t.lastActivity)
 				if transferIdleTime < idleTime {
-					logger.Debug(logSender, c.ID, "idle time: %v setted to transfer idle time: %v",
+					c.Log(Debug, logSender, "idle time: %v setted to transfer idle time: %v",
 						idleTime, transferIdleTime)
 					idleTime = transferIdleTime
 				}
 			}
 		}
 		if idleTime > idleTimeout {
-			logger.Debug(logSender, c.ID, "close idle connection, idle time: %v", idleTime)
+			c.Log(Info, logSender, "close idle connection, idle time: %v", idleTime)
 			err := c.sshConn.Close()
-			logger.Debug(logSender, c.ID, "idle connection closed, err: %v", err)
+			if err != nil {
+				c.Log(Warn, logSender, "idle connection close failed: %v", err)
+			}
 		}
 	}
 	logger.Debug(logSender, "", "check idle connections ended")
 }
 
-func addConnection(id string, conn Connection) {
+func addConnection(id string, c Connection) {
 	mutex.Lock()
 	defer mutex.Unlock()
-	openConnections[id] = conn
-	logger.Debug(logSender, id, "connection added, num open connections: %v", len(openConnections))
+	openConnections[id] = c
+	c.Log(Debug, logSender, "connection added, num open connections: %v", len(openConnections))
 }
 
 func removeConnection(id string) {
 	mutex.Lock()
 	defer mutex.Unlock()
+	c := openConnections[id]
 	delete(openConnections, id)
-	logger.Debug(logSender, id, "connection removed, num open connections: %v", len(openConnections))
+	c.Log(Debug, logSender, "connection removed, num open connections: %v", len(openConnections))
 }
 
 func addTransfer(transfer *Transfer) {

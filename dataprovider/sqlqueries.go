@@ -10,7 +10,7 @@ const (
 func getSQLPlaceholders() []string {
 	var placeholders []string
 	for i := 1; i <= 20; i++ {
-		if config.Driver == PGSSQLDataProviderName {
+		if config.Driver == PGSQLDataProviderName {
 			placeholders = append(placeholders, fmt.Sprintf("$%v", i))
 		} else {
 			placeholders = append(placeholders, "?")
