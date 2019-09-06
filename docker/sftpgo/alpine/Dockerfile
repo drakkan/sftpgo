@@ -12,6 +12,7 @@ RUN  apk add --no-cache ca-certificates su-exec \
   && mkdir -p /data /etc/sftpgo
 
 COPY --from=builder /go/bin/sftpgo /bin/
+COPY --from=builder /go/src/github.com/drakkan/sftpgo/sftpgo.json /etc/sftpgo/sftpgo.json
 COPY docker-entrypoint.sh /bin/entrypoint.sh
 RUN chmod +x /bin/entrypoint.sh
 
