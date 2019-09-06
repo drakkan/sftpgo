@@ -22,6 +22,17 @@ const (
 	dateFormat = "2006-01-02T15:04.05.000" // YYYY-MM-DDTHH:MM.SS.ZZZ
 )
 
+// LogLevel defines log levels.
+type LogLevel uint8
+
+// defines our own log level, just in case we'll change logger in future
+const (
+	LevelDebug LogLevel = iota
+	LevelInfo
+	LevelWarn
+	LevelError
+)
+
 var (
 	logger        zerolog.Logger
 	consoleLogger zerolog.Logger
@@ -56,6 +67,21 @@ func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge
 		consoleLogger = zerolog.Nop()
 	}
 	logger = logger.With().Timestamp().Logger().Level(level)
+}
+
+// Log logs at the specified level for the specified sender
+func Log(level LogLevel, sender string, connectionID string, format string, v ...interface{}) {
+	switch level {
+	case LevelDebug:
+		Debug(sender, connectionID, format, v...)
+	case LevelInfo:
+		Info(sender, connectionID, format, v...)
+	case LevelWarn:
+		Warn(sender, connectionID, format, v...)
+	default:
+		Error(sender, connectionID, format, v...)
+	}
+
 }
 
 // Debug logs at debug level for the specified sender

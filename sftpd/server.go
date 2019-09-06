@@ -232,7 +232,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		lock:          new(sync.Mutex),
 		sshConn:       sconn,
 	}
-	connection.Log(Info, logSender, "User id: %d, logged in with: %#v, name: %#v, home_dir: %#v",
+	connection.Log(logger.LevelInfo, logSender, "User id: %d, logged in with: %#v, name: %#v, home_dir: %#v",
 		user.ID, loginType, user.Username, user.HomeDir)
 
 	go ssh.DiscardRequests(reqs)
@@ -241,14 +241,14 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		// If its not a session channel we just move on because its not something we
 		// know how to handle at this point.
 		if newChannel.ChannelType() != "session" {
-			connection.Log(Debug, logSender, "received an unknown channel type: %v", newChannel.ChannelType())
+			connection.Log(logger.LevelDebug, logSender, "received an unknown channel type: %v", newChannel.ChannelType())
 			newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
 			continue
 		}
 
 		channel, requests, err := newChannel.Accept()
 		if err != nil {
-			connection.Log(Warn, logSender, "could not accept a channel: %v", err)
+			connection.Log(logger.LevelWarn, logSender, "could not accept a channel: %v", err)
 			continue
 		}
 
@@ -270,7 +270,8 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 						var msg execMsg
 						if err := ssh.Unmarshal(req.Payload, &msg); err == nil {
 							name, scpArgs, err := parseCommandPayload(msg.Command)
-							connection.Log(Debug, logSender, "new exec command: %v args: %v user: %v, error: %v", name, scpArgs,
+							connection.Log(logger.LevelDebug, logSender, "new exec command: %v args: %v user: %v, error: %v",
+								name, scpArgs,
 								connection.User.Username, err)
 							if err == nil && name == "scp" && len(scpArgs) >= 2 {
 								ok = true
@@ -300,10 +301,10 @@ func (c Configuration) handleSftpConnection(channel io.ReadWriteCloser, connecti
 	server := sftp.NewRequestServer(channel, handler)
 
 	if err := server.Serve(); err == io.EOF {
-		connection.Log(Debug, logSenderSCP, "connection closed")
+		connection.Log(logger.LevelDebug, logSenderSCP, "connection closed")
 		server.Close()
 	} else if err != nil {
-		connection.Log(Error, logSenderSCP, "sftp connection closed with error: %v", err)
+		connection.Log(logger.LevelError, logSenderSCP, "sftp connection closed with error: %v", err)
 	}
 
 	removeConnection(connection.ID)

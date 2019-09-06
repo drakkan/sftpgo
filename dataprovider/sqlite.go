@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/drakkan/sftpgo/logger"
 )
 
 // SQLiteProvider auth provider for SQLite database
@@ -16,7 +18,7 @@ type SQLiteProvider struct {
 func initializeSQLiteProvider(basePath string) error {
 	var err error
 	var connectionString string
-	provider = SQLiteProvider{}
+	logSender = SQLiteDataProviderName
 	if len(config.ConnectionString) == 0 {
 		dbPath := config.Name
 		if !filepath.IsAbs(dbPath) {
@@ -24,7 +26,7 @@ func initializeSQLiteProvider(basePath string) error {
 		}
 		fi, err := os.Stat(dbPath)
 		if err != nil {
-			provider.log(Warn, "sqlite database file does not exists, please be sure to create and initialize"+
+			providerLog(logger.LevelWarn, "sqlite database file does not exists, please be sure to create and initialize"+
 				" a database before starting sftpgo")
 			return err
 		}
@@ -38,11 +40,12 @@ func initializeSQLiteProvider(basePath string) error {
 	}
 	dbHandle, err := sql.Open("sqlite3", connectionString)
 	if err == nil {
-		provider.log(Debug, "sqlite database handle created, connection string: %#v", connectionString)
+		providerLog(logger.LevelDebug, "sqlite database handle created, connection string: %#v", connectionString)
 		dbHandle.SetMaxOpenConns(1)
 		provider = SQLiteProvider{dbHandle: dbHandle}
 	} else {
-		provider.log(Warn, "error creating sqlite database handler, connection string: %#v, error: %v", connectionString, err)
+		providerLog(logger.LevelWarn, "error creating sqlite database handler, connection string: %#v, error: %v",
+			connectionString, err)
 	}
 	return err
 }
@@ -87,12 +90,4 @@ func (p SQLiteProvider) deleteUser(user User) error {
 
 func (p SQLiteProvider) getUsers(limit int, offset int, order string, username string) ([]User, error) {
 	return sqlCommonGetUsers(limit, offset, order, username, p.dbHandle)
-}
-
-func (p SQLiteProvider) log(level string, format string, v ...interface{}) {
-	sqlCommonLog(level, p.providerName(), format, v...)
-}
-
-func (p SQLiteProvider) providerName() string {
-	return SQLiteDataProviderName
 }

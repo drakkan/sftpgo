@@ -35,7 +35,6 @@ const (
 	// BoltDataProviderName name for bbolt key/value store provider
 	BoltDataProviderName = "bolt"
 
-	logSender                = "dataProvider"
 	argonPwdPrefix           = "$argon2id$"
 	bcryptPwdPrefix          = "$2a$"
 	pbkdf2SHA1Prefix         = "$pbkdf2-sha1$"
@@ -43,11 +42,6 @@ const (
 	pbkdf2SHA512Prefix       = "$pbkdf2-sha512$"
 	manageUsersDisabledError = "please set manage_users to 1 in sftpgo.conf to enable this method"
 	trackQuotaDisabledError  = "please enable track_quota in sftpgo.conf to use this method"
-
-	Debug = "debug"
-	Info  = "info"
-	Warn  = "warn"
-	Error = "error"
 )
 
 var (
@@ -60,6 +54,7 @@ var (
 		PermCreateDirs, PermCreateSymlinks}
 	hashPwdPrefixes  = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
 	pbkdfPwdPrefixes = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
+	logSender        = "dataProvider"
 )
 
 // Config provider configuration
@@ -146,8 +141,6 @@ type Provider interface {
 	deleteUser(user User) error
 	getUsers(limit int, offset int, order string, username string) ([]User, error)
 	getUserByID(ID int64) (User, error)
-	log(level string, format string, v ...interface{})
-	providerName() string
 }
 
 // Initialize the data provider.
@@ -282,19 +275,19 @@ func checkUserAndPass(user User, password string) (User, error) {
 	if strings.HasPrefix(user.Password, argonPwdPrefix) {
 		match, err = argon2id.ComparePasswordAndHash(password, user.Password)
 		if err != nil {
-			logger.Warn(logSender, "", "error comparing password with argon hash: %v", err)
+			providerLog(logger.LevelWarn, "error comparing password with argon hash: %v", err)
 			return user, err
 		}
 	} else if strings.HasPrefix(user.Password, bcryptPwdPrefix) {
 		if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
-			logger.Warn(logSender, "", "error comparing password with bcrypt hash: %v", err)
+			providerLog(logger.LevelWarn, "error comparing password with bcrypt hash: %v", err)
 			return user, err
 		}
 		match = true
 	} else if utils.IsStringPrefixInSlice(user.Password, pbkdfPwdPrefixes) {
 		match, err = comparePbkdf2PasswordAndHash(password, user.Password)
 		if err != nil {
-			logger.Warn(logSender, "", "error comparing password with pbkdf2 sha256 hash: %v", err)
+			providerLog(logger.LevelWarn, "error comparing password with pbkdf2 sha256 hash: %v", err)
 			return user, err
 		}
 	}
@@ -311,7 +304,7 @@ func checkUserAndPubKey(user User, pubKey string) (User, string, error) {
 	for i, k := range user.PublicKeys {
 		storedPubKey, comment, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
 		if err != nil {
-			logger.Warn(logSender, "", "error parsing stored public key %d for user %v: %v", i, user.Username, err)
+			providerLog(logger.LevelWarn, "error parsing stored public key %d for user %v: %v", i, user.Username, err)
 			return user, "", err
 		}
 		if string(storedPubKey.Marshal()) == pubKey {
@@ -376,4 +369,8 @@ func getSSLMode() string {
 		}
 	}
 	return ""
+}
+
+func providerLog(level logger.LogLevel, format string, v ...interface{}) {
+	logger.Log(level, logSender, "", format, v...)
 }

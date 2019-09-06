@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"runtime"
 	"time"
+
+	"github.com/drakkan/sftpgo/logger"
 )
 
 // MySQLProvider auth provider for MySQL/MariaDB database
@@ -15,7 +17,7 @@ type MySQLProvider struct {
 func initializeMySQLProvider() error {
 	var err error
 	var connectionString string
-	provider = MySQLProvider{}
+	logSender = MySQLDataProviderName
 	if len(config.ConnectionString) == 0 {
 		connectionString = fmt.Sprintf("%v:%v@tcp([%v]:%v)/%v?charset=utf8&interpolateParams=true&timeout=10s&tls=%v",
 			config.Username, config.Password, config.Host, config.Port, config.Name, getSSLMode())
@@ -25,13 +27,13 @@ func initializeMySQLProvider() error {
 	dbHandle, err := sql.Open("mysql", connectionString)
 	if err == nil {
 		numCPU := runtime.NumCPU()
-		provider.log(Debug, "mysql database handle created, connection string: %#v, pool size: %v", connectionString, numCPU)
+		providerLog(logger.LevelDebug, "mysql database handle created, connection string: %#v, pool size: %v", connectionString, numCPU)
 		dbHandle.SetMaxIdleConns(numCPU)
 		dbHandle.SetMaxOpenConns(numCPU)
 		dbHandle.SetConnMaxLifetime(1800 * time.Second)
 		provider = MySQLProvider{dbHandle: dbHandle}
 	} else {
-		provider.log(Warn, "error creating mysql database handler, connection string: %#v, error: %v", connectionString, err)
+		providerLog(logger.LevelWarn, "error creating mysql database handler, connection string: %#v, error: %v", connectionString, err)
 	}
 	return err
 }
@@ -51,7 +53,7 @@ func (p MySQLProvider) getUserByID(ID int64) (User, error) {
 func (p MySQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
 	tx, err := p.dbHandle.Begin()
 	if err != nil {
-		p.log(Warn, "error starting transaction to update quota for user %v: %v", username, err)
+		providerLog(logger.LevelWarn, "error starting transaction to update quota for user %v: %v", username, err)
 		return err
 	}
 	err = sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
@@ -61,7 +63,7 @@ func (p MySQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64,
 		err = tx.Rollback()
 	}
 	if err != nil {
-		p.log(Warn, "error closing transaction to update quota for user %v: %v", username, err)
+		providerLog(logger.LevelWarn, "error closing transaction to update quota for user %v: %v", username, err)
 	}
 	return err
 }
@@ -88,12 +90,4 @@ func (p MySQLProvider) deleteUser(user User) error {
 
 func (p MySQLProvider) getUsers(limit int, offset int, order string, username string) ([]User, error) {
 	return sqlCommonGetUsers(limit, offset, order, username, p.dbHandle)
-}
-
-func (p MySQLProvider) log(level string, format string, v ...interface{}) {
-	sqlCommonLog(level, p.providerName(), format, v...)
-}
-
-func (p MySQLProvider) providerName() string {
-	return MySQLDataProviderName
 }
