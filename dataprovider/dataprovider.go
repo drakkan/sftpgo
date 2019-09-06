@@ -28,8 +28,8 @@ import (
 const (
 	// SQLiteDataProviderName name for SQLite database provider
 	SQLiteDataProviderName = "sqlite"
-	// PGSSQLDataProviderName name for PostgreSQL database provider
-	PGSSQLDataProviderName = "postgresql"
+	// PGSQLDataProviderName name for PostgreSQL database provider
+	PGSQLDataProviderName = "postgresql"
 	// MySQLDataProviderName name for MySQL database provider
 	MySQLDataProviderName = "mysql"
 	// BoltDataProviderName name for bbolt key/value store provider
@@ -43,11 +43,16 @@ const (
 	pbkdf2SHA512Prefix       = "$pbkdf2-sha512$"
 	manageUsersDisabledError = "please set manage_users to 1 in sftpgo.conf to enable this method"
 	trackQuotaDisabledError  = "please enable track_quota in sftpgo.conf to use this method"
+
+	Debug = "debug"
+	Info  = "info"
+	Warn  = "warn"
+	Error = "error"
 )
 
 var (
 	// SupportedProviders data provider configured in the sftpgo.conf file must match of these strings
-	SupportedProviders = []string{SQLiteDataProviderName, PGSSQLDataProviderName, MySQLDataProviderName, BoltDataProviderName}
+	SupportedProviders = []string{SQLiteDataProviderName, PGSQLDataProviderName, MySQLDataProviderName, BoltDataProviderName}
 	config             Config
 	provider           Provider
 	sqlPlaceholders    []string
@@ -141,6 +146,8 @@ type Provider interface {
 	deleteUser(user User) error
 	getUsers(limit int, offset int, order string, username string) ([]User, error)
 	getUserByID(ID int64) (User, error)
+	log(level string, format string, v ...interface{})
+	providerName() string
 }
 
 // Initialize the data provider.
@@ -150,7 +157,7 @@ func Initialize(cnf Config, basePath string) error {
 	sqlPlaceholders = getSQLPlaceholders()
 	if config.Driver == SQLiteDataProviderName {
 		return initializeSQLiteProvider(basePath)
-	} else if config.Driver == PGSSQLDataProviderName {
+	} else if config.Driver == PGSQLDataProviderName {
 		return initializePGSQLProvider()
 	} else if config.Driver == MySQLDataProviderName {
 		return initializeMySQLProvider()
@@ -347,7 +354,7 @@ func comparePbkdf2PasswordAndHash(password, hashedPassword string) (bool, error)
 }
 
 func getSSLMode() string {
-	if config.Driver == PGSSQLDataProviderName {
+	if config.Driver == PGSQLDataProviderName {
 		if config.SSLMode == 0 {
 			return "disable"
 		} else if config.SSLMode == 1 {
