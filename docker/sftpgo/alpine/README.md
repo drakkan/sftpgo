@@ -1,11 +1,11 @@
 # SFTPGo with Docker and Alpine
 
-This DockerFile is made to build image to host multiple instances of SFTPgo started with different users.
+This DockerFile is made to build image to host multiple instances of SFTPGo started with different users.
 
-The volume for the configuration is not mandatory, but it will be necessary to configure SFTPgo with environment variables.
+The volume for the configuration is not mandatory, but it will be necessary to configure SFTPGo with environment variables.
 
 ### Example
-> 1003 is a custom uid:gid for this instance of SFTPgo
+> 1003 is a custom uid:gid for this instance of SFTPGo
 ```bash
 # Prereq on docker host
 sudo groupadd -g 1003 sftpgrp && \
@@ -14,7 +14,7 @@ sudo groupadd -g 1003 sftpgrp && \
   curl https://raw.githubusercontent.com/drakkan/sftpgo/master/sql/sqlite/20190828.sql | sqlite3 /home/sftpuser/conf/sftpgo.db && \
   curl https://raw.githubusercontent.com/drakkan/sftpgo/master/sftpgo.json -o /home/sftpuser/conf/sftpgo.json
 
-# Get and build SFTPgo image
+# Get and build SFTPGo image
 git clone https://github.com/drakkan/sftpgo.git && \
   cd sftpgo && \
   sudo docker build -t sftpgo docker/sftpgo/alpine/
