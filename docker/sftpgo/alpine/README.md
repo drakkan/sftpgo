@@ -36,8 +36,6 @@ The script `entrypoint.sh` makes sure to correct the permissions of directories 
 Several images can be run with another parameters.
 
 ### Custom systemd script
-An example of systemd script is present [here](sftpgo-docker.service), with `Environment` parameter to set `PUID` and `GUID`
+An example of systemd script is present [here](sftpgo.service), with `Environment` parameter to set `PUID` and `GUID`
 
-`WorkingDirectory` parameter must be exist with one file in this directory like `sftpgo-${PUID}.env` corresponding to the variable file for SFTPgo instance.
-
-Enjoy
+`WorkingDirectory` parameter must be exist with one file in this directory like `sftpgo-${PUID}.env` corresponding to the variable file for SFTPGo instance.

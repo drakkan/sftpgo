@@ -85,6 +85,8 @@ func (c Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 		lastActivity:  time.Now(),
 		isNewFile:     false,
 		protocol:      c.protocol,
+		transferError: nil,
+		isFinished:    false,
 	}
 	addTransfer(&transfer)
 	return &transfer, nil
@@ -380,6 +382,8 @@ func (c Connection) handleSFTPUploadToNewFile(requestPath, filePath string) (io.
 		lastActivity:  time.Now(),
 		isNewFile:     true,
 		protocol:      c.protocol,
+		transferError: nil,
+		isFinished:    false,
 	}
 	addTransfer(&transfer)
 	return &transfer, nil
@@ -434,6 +438,8 @@ func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, re
 		lastActivity:  time.Now(),
 		isNewFile:     false,
 		protocol:      c.protocol,
+		transferError: nil,
+		isFinished:    false,
 	}
 	addTransfer(&transfer)
 	return &transfer, nil

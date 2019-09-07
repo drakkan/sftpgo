@@ -32,6 +32,16 @@ type Transfer struct {
 	lastActivity  time.Time
 	isNewFile     bool
 	protocol      string
+	transferError error
+	isFinished    bool
+}
+
+// TransferError is called if there is an unexpected error.
+// For example network or client issues
+func (t *Transfer) TransferError(err error) {
+	t.transferError = err
+	logger.Warn(logSender, t.connectionID, "Unexpected error for transfer, path: %#v, error: %v bytes sent: %v,"+
+		"bytes received: %v", t.path, t.transferError, t.bytesSent, t.bytesReceived)
 }
 
 // ReadAt reads len(p) bytes from the File to download starting at byte offset off and updates the bytes sent.
@@ -58,18 +68,23 @@ func (t *Transfer) WriteAt(p []byte, off int64) (n int, err error) {
 // It closes the underlying file, log the transfer info, update the user quota, for uploads, and execute any defined actions.
 func (t *Transfer) Close() error {
 	err := t.file.Close()
+	if t.isFinished {
+		return err
+	}
 	if t.transferType == transferUpload && t.file.Name() != t.path {
 		err = os.Rename(t.file.Name(), t.path)
 		logger.Debug(logSender, t.connectionID, "atomic upload completed, rename: %#v -> %#v, error: %v",
 			t.file.Name(), t.path, err)
 	}
 	elapsed := time.Since(t.start).Nanoseconds() / 1000000
-	if t.transferType == transferDownload {
-		logger.TransferLog(downloadLogSender, t.path, elapsed, t.bytesSent, t.user.Username, t.connectionID, t.protocol)
-		executeAction(operationDownload, t.user.Username, t.path, "")
-	} else {
-		logger.TransferLog(uploadLogSender, t.path, elapsed, t.bytesReceived, t.user.Username, t.connectionID, t.protocol)
-		executeAction(operationUpload, t.user.Username, t.path, "")
+	if t.transferError == nil {
+		if t.transferType == transferDownload {
+			logger.TransferLog(downloadLogSender, t.path, elapsed, t.bytesSent, t.user.Username, t.connectionID, t.protocol)
+			executeAction(operationDownload, t.user.Username, t.path, "")
+		} else {
+			logger.TransferLog(uploadLogSender, t.path, elapsed, t.bytesReceived, t.user.Username, t.connectionID, t.protocol)
+			executeAction(operationUpload, t.user.Username, t.path, "")
+		}
 	}
 	removeTransfer(t)
 	if t.transferType == transferUpload {
@@ -79,6 +94,7 @@ func (t *Transfer) Close() error {
 		}
 		dataprovider.UpdateUserQuota(dataProvider, t.user, numFiles, t.bytesReceived, false)
 	}
+	t.isFinished = true
 	return err
 }
 

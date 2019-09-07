@@ -151,6 +151,7 @@ func (c *scpCommand) handleCreateDir(dirPath string) error {
 func (c *scpCommand) getUploadFileData(sizeToRead int64, transfer *Transfer) error {
 	err := c.sendConfirmationMessage()
 	if err != nil {
+		transfer.TransferError(err)
 		transfer.Close()
 		return err
 	}
@@ -162,6 +163,7 @@ func (c *scpCommand) getUploadFileData(sizeToRead int64, transfer *Transfer) err
 			n, err := c.channel.Read(buf)
 			if err != nil {
 				c.sendErrorMessage(err.Error())
+				transfer.TransferError(err)
 				transfer.Close()
 				return err
 			}
@@ -177,6 +179,7 @@ func (c *scpCommand) getUploadFileData(sizeToRead int64, transfer *Transfer) err
 	}
 	err = c.readConfirmationMessage()
 	if err != nil {
+		transfer.TransferError(err)
 		transfer.Close()
 		return err
 	}
@@ -226,6 +229,8 @@ func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead i
 		lastActivity:  time.Now(),
 		isNewFile:     isNewFile,
 		protocol:      c.connection.protocol,
+		transferError: nil,
+		isFinished:    false,
 	}
 	addTransfer(&transfer)
 
@@ -468,6 +473,8 @@ func (c *scpCommand) handleDownload(filePath string) error {
 		lastActivity:  time.Now(),
 		isNewFile:     false,
 		protocol:      c.connection.protocol,
+		transferError: nil,
+		isFinished:    false,
 	}
 	addTransfer(&transfer)
 
@@ -477,6 +484,7 @@ func (c *scpCommand) handleDownload(filePath string) error {
 	if err == nil {
 		err = transfer.Close()
 	} else {
+		transfer.TransferError(err)
 		transfer.Close()
 	}
 	return err

@@ -1998,6 +1998,68 @@ func TestSCPRemoteToRemote(t *testing.T) {
 	}
 }
 
+func TestSCPErrors(t *testing.T) {
+	if len(scpPath) == 0 {
+		t.Skip("scp command not found, unable to execute this test")
+	}
+	u := getTestUser(true)
+	u.UploadBandwidth = 4096
+	u.DownloadBandwidth = 4096
+	user, _, err := api.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	testFileSize := int64(524288)
+	testFileName := "test_file.dat"
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	err = createTestFile(testFilePath, testFileSize)
+	if err != nil {
+		t.Errorf("unable to create test file: %v", err)
+	}
+	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/")
+	remoteDownPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join("/", testFileName))
+	localPath := filepath.Join(homeBasePath, "scp_download.dat")
+	err = scpUpload(testFilePath, remoteUpPath, false, false)
+	if err != nil {
+		t.Errorf("error uploading file via scp: %v", err)
+	}
+	cmd := getScpDownloadCommand(localPath, remoteDownPath, false, false)
+	go func() {
+		if cmd.Run() == nil {
+			t.Errorf("SCP download must fail")
+		}
+	}()
+	waitForActiveTransfer()
+	// wait some additional arbitrary time to wait for transfer activity to happen
+	// it is need to reach all the code in CheckIdleConnections
+	time.Sleep(100 * time.Millisecond)
+	cmd.Process.Kill()
+
+	cmd = getScpUploadCommand(testFilePath, remoteUpPath, false, false)
+	go func() {
+		if cmd.Run() == nil {
+			t.Errorf("SCP upload must fail")
+		}
+	}()
+	waitForActiveTransfer()
+	// wait some additional arbitrary time to wait for transfer activity to happen
+	// it is need to reach all the code in CheckIdleConnections
+	time.Sleep(100 * time.Millisecond)
+	cmd.Process.Kill()
+	err = os.Remove(testFilePath)
+	if err != nil {
+		t.Errorf("error removing test file")
+	}
+	err = os.RemoveAll(user.GetHomeDir())
+	if err != nil {
+		t.Errorf("error removing uploaded files")
+	}
+	_, err = api.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+}
+
 // End SCP tests
 
 func waitTCPListening(address string) {
@@ -2178,6 +2240,35 @@ func sftpDownloadNonBlocking(remoteSourcePath string, localDestPath string, expe
 }
 
 func scpUpload(localPath, remotePath string, preserveTime, remoteToRemote bool) error {
+	cmd := getScpUploadCommand(localPath, remotePath, preserveTime, remoteToRemote)
+	return cmd.Run()
+}
+
+func scpDownload(localPath, remotePath string, preserveTime, recursive bool) error {
+	cmd := getScpDownloadCommand(localPath, remotePath, preserveTime, recursive)
+	return cmd.Run()
+}
+
+func getScpDownloadCommand(localPath, remotePath string, preserveTime, recursive bool) *exec.Cmd {
+	var args []string
+	if preserveTime {
+		args = append(args, "-p")
+	}
+	if recursive {
+		args = append(args, "-r")
+	}
+	args = append(args, "-P")
+	args = append(args, "2022")
+	args = append(args, "-o")
+	args = append(args, "StrictHostKeyChecking=no")
+	args = append(args, "-i")
+	args = append(args, privateKeyPath)
+	args = append(args, remotePath)
+	args = append(args, localPath)
+	return exec.Command(scpPath, args...)
+}
+
+func getScpUploadCommand(localPath, remotePath string, preserveTime, remoteToRemote bool) *exec.Cmd {
 	var args []string
 	if remoteToRemote {
 		args = append(args, "-3")
@@ -2199,28 +2290,7 @@ func scpUpload(localPath, remotePath string, preserveTime, remoteToRemote bool) 
 	args = append(args, privateKeyPath)
 	args = append(args, localPath)
 	args = append(args, remotePath)
-	cmd := exec.Command(scpPath, args...)
-	return cmd.Run()
-}
-
-func scpDownload(localPath, remotePath string, preserveTime, recursive bool) error {
-	var args []string
-	if preserveTime {
-		args = append(args, "-p")
-	}
-	if recursive {
-		args = append(args, "-r")
-	}
-	args = append(args, "-P")
-	args = append(args, "2022")
-	args = append(args, "-o")
-	args = append(args, "StrictHostKeyChecking=no")
-	args = append(args, "-i")
-	args = append(args, privateKeyPath)
-	args = append(args, remotePath)
-	args = append(args, localPath)
-	cmd := exec.Command(scpPath, args...)
-	return cmd.Run()
+	return exec.Command(scpPath, args...)
 }
 
 func waitForActiveTransfer() {

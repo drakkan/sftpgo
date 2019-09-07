@@ -620,6 +620,8 @@ func TestSCPUploadFiledata(t *testing.T) {
 		lastActivity:  time.Now(),
 		isNewFile:     true,
 		protocol:      connection.protocol,
+		transferError: nil,
+		isFinished:    false,
 	}
 	addTransfer(&transfer)
 	err := scpCommand.getUploadFileData(2, &transfer)
