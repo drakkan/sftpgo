@@ -40,7 +40,7 @@ type Transfer struct {
 // For example network or client issues
 func (t *Transfer) TransferError(err error) {
 	t.transferError = err
-	logger.Warn(logSender, t.connectionID, "Unexpected error for transfer, path: %#v, error: %v bytes sent: %v,"+
+	logger.Warn(logSender, t.connectionID, "Unexpected error for transfer, path: %#v, error: %#v bytes sent: %v, "+
 		"bytes received: %v", t.path, t.transferError, t.bytesSent, t.bytesReceived)
 }
 
