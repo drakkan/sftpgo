@@ -301,10 +301,10 @@ func (c Configuration) handleSftpConnection(channel io.ReadWriteCloser, connecti
 	server := sftp.NewRequestServer(channel, handler)
 
 	if err := server.Serve(); err == io.EOF {
-		connection.Log(logger.LevelDebug, logSenderSCP, "connection closed")
+		connection.Log(logger.LevelDebug, logSender, "connection closed")
 		server.Close()
 	} else if err != nil {
-		connection.Log(logger.LevelError, logSenderSCP, "sftp connection closed with error: %v", err)
+		connection.Log(logger.LevelWarn, logSender, "connection closed with error: %v", err)
 	}
 
 	removeConnection(connection.ID)

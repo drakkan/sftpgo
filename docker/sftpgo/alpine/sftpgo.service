@@ -17,7 +17,7 @@ ExecStart=docker run --name sftpgo \
   -e GUID=${GUID} \
   -p 8080:8080 \
   -p 2022:2022 \
-  -v /home/sftpuser/conf/:/etc/sftpgo/ \
+  -v /home/sftpuser/conf/:/srv/sftpgo/config \
   -v /home/sftpuser/data:/data \
   sftpgo
 ExecStop=docker stop sftpgo
