@@ -327,8 +327,9 @@ func loginUser(user dataprovider.User, loginType string) (*ssh.Permissions, erro
 		return nil, fmt.Errorf("Cannot login user with invalid home dir: %v", user.HomeDir)
 	}
 	if _, err := os.Stat(user.HomeDir); os.IsNotExist(err) {
-		logger.Debug(logSender, "", "home directory %#v for user %v does not exist, try to create", user.HomeDir, user.Username)
 		err := os.MkdirAll(user.HomeDir, 0777)
+		logger.Debug(logSender, "", "home directory %#v for user %v does not exist, try to create, mkdir error: %v",
+			user.HomeDir, user.Username, err)
 		if err == nil {
 			utils.SetPathPermissions(user.HomeDir, user.GetUID(), user.GetGID())
 		}

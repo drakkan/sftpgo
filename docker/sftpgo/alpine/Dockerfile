@@ -1,4 +1,4 @@
-FROM golang:1.13-alpine3.10 as builder
+FROM golang:alpine as builder
 
 RUN apk add --no-cache git gcc g++ ca-certificates \
   && go get -d github.com/drakkan/sftpgo
@@ -7,7 +7,7 @@ WORKDIR /go/src/github.com/drakkan/sftpgo
 #RUN git checkout `git rev-list --tags --max-count=1`
 RUN go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/utils.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/utils.date=`date -u +%FT%TZ`" -o /go/bin/sftpgo
 
-FROM alpine:3.10
+FROM alpine:latest
 
 RUN  apk add --no-cache ca-certificates su-exec \
   && mkdir -p /data /etc/sftpgo /srv/sftpgo/config
