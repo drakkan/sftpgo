@@ -2,8 +2,6 @@
 
 This DockerFile is made to build image to host multiple instances of SFTPGo started with different users.
 
-The volume for the configuration is not mandatory, but it will be necessary to configure SFTPGo with environment variables.
-
 ### Example
 > 1003 is a custom uid:gid for this instance of SFTPGo
 ```bash
@@ -33,7 +31,7 @@ sudo docker run --name sftpgo \
 ```
 The script `entrypoint.sh` makes sure to correct the permissions of directories and start the process with the right user
 
-Several images can be run with another parameters.
+Several images can be run with different parameters.
 
 ### Custom systemd script
 An example of systemd script is present [here](sftpgo.service), with `Environment` parameter to set `PUID` and `GUID`
