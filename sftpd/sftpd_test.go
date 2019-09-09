@@ -2003,8 +2003,6 @@ func TestSCPErrors(t *testing.T) {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	u := getTestUser(true)
-	u.UploadBandwidth = 4096
-	u.DownloadBandwidth = 4096
 	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
@@ -2022,6 +2020,12 @@ func TestSCPErrors(t *testing.T) {
 	err = scpUpload(testFilePath, remoteUpPath, false, false)
 	if err != nil {
 		t.Errorf("error uploading file via scp: %v", err)
+	}
+	user.UploadBandwidth = 512
+	user.DownloadBandwidth = 512
+	_, _, err = api.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
 	}
 	cmd := getScpDownloadCommand(localPath, remoteDownPath, false, false)
 	go func() {
