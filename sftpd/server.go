@@ -232,7 +232,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		lock:          new(sync.Mutex),
 		sshConn:       sconn,
 	}
-	connection.Log(logger.LevelInfo, logSender, "User id: %d, logged in with: %#v, name: %#v, home_dir: %#v",
+	connection.Log(logger.LevelInfo, logSender, "User id: %d, logged in with: %#v, username: %#v, home_dir: %#v",
 		user.ID, loginType, user.Username, user.HomeDir)
 
 	go ssh.DiscardRequests(reqs)
@@ -270,7 +270,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 						var msg execMsg
 						if err := ssh.Unmarshal(req.Payload, &msg); err == nil {
 							name, scpArgs, err := parseCommandPayload(msg.Command)
-							connection.Log(logger.LevelDebug, logSender, "new exec command: %v args: %v user: %v, error: %v",
+							connection.Log(logger.LevelDebug, logSender, "new exec command: %#v args: %v user: %v, error: %v",
 								name, scpArgs,
 								connection.User.Username, err)
 							if err == nil && name == "scp" && len(scpArgs) >= 2 {

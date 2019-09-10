@@ -674,3 +674,44 @@ func TestSCPUploadFiledata(t *testing.T) {
 	}
 	os.Remove(testfile)
 }
+
+func TestUploadError(t *testing.T) {
+	connection := Connection{
+		User: dataprovider.User{
+			Username: "testuser",
+		},
+		protocol: protocolSCP,
+	}
+	testfile := "testfile"
+	fileTempName := "temptestfile"
+	file, _ := os.Create(fileTempName)
+	transfer := Transfer{
+		file:          file,
+		path:          testfile,
+		start:         time.Now(),
+		bytesSent:     0,
+		bytesReceived: 100,
+		user:          connection.User,
+		connectionID:  "",
+		transferType:  transferUpload,
+		lastActivity:  time.Now(),
+		isNewFile:     true,
+		protocol:      connection.protocol,
+		transferError: nil,
+		isFinished:    false,
+	}
+	addTransfer(&transfer)
+	transfer.TransferError(fmt.Errorf("fake error"))
+	transfer.Close()
+	if transfer.bytesReceived > 0 {
+		t.Errorf("byte sent should be 0 for a failed transfer: %v", transfer.bytesSent)
+	}
+	_, err := os.Stat(testfile)
+	if !os.IsNotExist(err) {
+		t.Errorf("file uploaded must be deleted after an error: %v", err)
+	}
+	_, err = os.Stat(fileTempName)
+	if !os.IsNotExist(err) {
+		t.Errorf("file uploaded must be deleted after an error: %v", err)
+	}
+}

@@ -252,6 +252,7 @@ func TestBasicSFTPHandling(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestDirCommands(t *testing.T) {
@@ -321,6 +322,7 @@ func TestDirCommands(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestSymlink(t *testing.T) {
@@ -370,6 +372,7 @@ func TestSymlink(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestStat(t *testing.T) {
@@ -426,6 +429,7 @@ func TestStat(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 // basic tests to verify virtual chroot, should be improved to cover more cases ...
@@ -498,6 +502,7 @@ func TestEscapeHomeDir(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestHomeSpecialChars(t *testing.T) {
@@ -544,6 +549,7 @@ func TestHomeSpecialChars(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestLogin(t *testing.T) {
@@ -612,6 +618,7 @@ func TestLogin(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestLoginAfterUserUpdateEmptyPwd(t *testing.T) {
@@ -645,6 +652,7 @@ func TestLoginAfterUserUpdateEmptyPwd(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestLoginAfterUserUpdateEmptyPubKey(t *testing.T) {
@@ -678,6 +686,7 @@ func TestLoginAfterUserUpdateEmptyPubKey(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestMaxSessions(t *testing.T) {
@@ -710,6 +719,7 @@ func TestMaxSessions(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestQuotaFileReplace(t *testing.T) {
@@ -781,6 +791,7 @@ func TestQuotaFileReplace(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestQuotaScan(t *testing.T) {
@@ -846,6 +857,7 @@ func TestQuotaScan(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestMultipleQuotaScans(t *testing.T) {
@@ -896,6 +908,7 @@ func TestQuotaSize(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestBandwidthAndConnections(t *testing.T) {
@@ -967,6 +980,7 @@ func TestBandwidthAndConnections(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestMissingFile(t *testing.T) {
@@ -991,6 +1005,7 @@ func TestMissingFile(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestOverwriteDirWithFile(t *testing.T) {
@@ -1042,6 +1057,7 @@ func TestOverwriteDirWithFile(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestPasswordsHashPbkdf2Sha1(t *testing.T) {
@@ -1074,6 +1090,7 @@ func TestPasswordsHashPbkdf2Sha1(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestPasswordsHashPbkdf2Sha256(t *testing.T) {
@@ -1106,6 +1123,7 @@ func TestPasswordsHashPbkdf2Sha256(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestPasswordsHashPbkdf2Sha512(t *testing.T) {
@@ -1138,6 +1156,7 @@ func TestPasswordsHashPbkdf2Sha512(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestPasswordsHashBcrypt(t *testing.T) {
@@ -1170,6 +1189,7 @@ func TestPasswordsHashBcrypt(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestPermList(t *testing.T) {
@@ -1199,6 +1219,7 @@ func TestPermList(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestPermDownload(t *testing.T) {
@@ -1240,6 +1261,7 @@ func TestPermDownload(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestPermUpload(t *testing.T) {
@@ -1272,6 +1294,7 @@ func TestPermUpload(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestPermDelete(t *testing.T) {
@@ -1308,6 +1331,7 @@ func TestPermDelete(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestPermRename(t *testing.T) {
@@ -1348,6 +1372,7 @@ func TestPermRename(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestPermCreateDirs(t *testing.T) {
@@ -1384,6 +1409,7 @@ func TestPermCreateDirs(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestPermSymlink(t *testing.T) {
@@ -1424,6 +1450,7 @@ func TestPermSymlink(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestSSHConnection(t *testing.T) {
@@ -2038,7 +2065,7 @@ func TestSCPErrors(t *testing.T) {
 	// it is need to reach all the code in CheckIdleConnections
 	time.Sleep(100 * time.Millisecond)
 	cmd.Process.Kill()
-
+	waitForNoActiveTransfer()
 	cmd = getScpUploadCommand(testFilePath, remoteUpPath, false, false)
 	go func() {
 		if cmd.Run() == nil {
@@ -2050,6 +2077,7 @@ func TestSCPErrors(t *testing.T) {
 	// it is need to reach all the code in CheckIdleConnections
 	time.Sleep(100 * time.Millisecond)
 	cmd.Process.Kill()
+	waitForNoActiveTransfer()
 	err = os.Remove(testFilePath)
 	if err != nil {
 		t.Errorf("error removing test file")
@@ -2295,6 +2323,12 @@ func getScpUploadCommand(localPath, remotePath string, preserveTime, remoteToRem
 	args = append(args, localPath)
 	args = append(args, remotePath)
 	return exec.Command(scpPath, args...)
+}
+
+func waitForNoActiveTransfer() {
+	for len(sftpd.GetConnectionsStats()) > 0 {
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 func waitForActiveTransfer() {
