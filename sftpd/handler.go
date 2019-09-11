@@ -579,6 +579,10 @@ func (c Connection) createMissingDirs(filePath string) error {
 	return nil
 }
 
+func (c Connection) close() error {
+	return c.netConn.Close()
+}
+
 func getOSOpenFlags(requestFlags sftp.FileOpenFlags) (flags int) {
 	var osFlags int
 	if requestFlags.Read && requestFlags.Write {
