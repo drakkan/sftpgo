@@ -229,6 +229,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		lastActivity:  time.Now(),
 		lock:          new(sync.Mutex),
 		netConn:       conn,
+		channel:       nil,
 	}
 	connection.Log(logger.LevelInfo, logSender, "User id: %d, logged in with: %#v, username: %#v, home_dir: %#v",
 		user.ID, loginType, user.Username, user.HomeDir)
@@ -261,6 +262,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 					if string(req.Payload[4:]) == "sftp" {
 						ok = true
 						connection.protocol = protocolSFTP
+						connection.channel = channel
 						go c.handleSftpConnection(channel, connection)
 					}
 				case "exec":
@@ -274,10 +276,10 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 							if err == nil && name == "scp" && len(scpArgs) >= 2 {
 								ok = true
 								connection.protocol = protocolSCP
+								connection.channel = channel
 								scpCommand := scpCommand{
 									connection: connection,
 									args:       scpArgs,
-									channel:    channel,
 								}
 								go scpCommand.handle()
 							}
@@ -290,7 +292,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 	}
 }
 
-func (c Configuration) handleSftpConnection(channel io.ReadWriteCloser, connection Connection) {
+func (c Configuration) handleSftpConnection(channel ssh.Channel, connection Connection) {
 	addConnection(connection.ID, connection)
 	// Create a new handler for the currently logged in user's server.
 	handler := c.createHandler(connection)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/rs/xid"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
@@ -37,6 +38,7 @@ type Connection struct {
 	protocol     string
 	lock         *sync.Mutex
 	netConn      net.Conn
+	channel      ssh.Channel
 }
 
 // Log outputs a log entry to the configured logger
@@ -580,6 +582,10 @@ func (c Connection) createMissingDirs(filePath string) error {
 }
 
 func (c Connection) close() error {
+	if c.channel != nil {
+		err := c.channel.Close()
+		c.Log(logger.LevelInfo, logSender, "channel close, err: %v", err)
+	}
 	return c.netConn.Close()
 }
 
