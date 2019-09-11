@@ -197,7 +197,6 @@ func (c Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, conf
 
 // AcceptInboundConnection handles an inbound connection to the server instance and determines if the request should be served or not.
 func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.ServerConfig) {
-	defer conn.Close()
 
 	// Before beginning a handshake must be performed on the incoming net.Conn
 	sconn, chans, reqs, err := ssh.NewServerConn(conn, config)
@@ -205,7 +204,6 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		logger.Warn(logSender, "", "failed to accept an incoming connection: %v", err)
 		return
 	}
-	defer sconn.Close()
 
 	logger.Debug(logSender, "", "accepted inbound connection, ip: %v", conn.RemoteAddr().String())
 
@@ -230,7 +228,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		StartTime:     time.Now(),
 		lastActivity:  time.Now(),
 		lock:          new(sync.Mutex),
-		sshConn:       sconn,
+		netConn:       conn,
 	}
 	connection.Log(logger.LevelInfo, logSender, "User id: %d, logged in with: %#v, username: %#v, home_dir: %#v",
 		user.ID, loginType, user.Username, user.HomeDir)

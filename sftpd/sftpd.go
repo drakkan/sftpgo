@@ -173,8 +173,8 @@ func CloseActiveConnection(connectionID string) bool {
 	defer mutex.RUnlock()
 	for _, c := range openConnections {
 		if c.ID == connectionID {
-			c.Log(logger.LevelDebug, logSender, "closing connection")
-			c.sshConn.Close()
+			err := c.netConn.Close()
+			c.Log(logger.LevelDebug, logSender, "close connection requested, err: %v", err)
 			result = true
 			break
 		}
@@ -255,7 +255,7 @@ func CheckIdleConnections() {
 		}
 		if idleTime > idleTimeout {
 			c.Log(logger.LevelInfo, logSender, "close idle connection, idle time: %v", idleTime)
-			err := c.sshConn.Close()
+			err := c.netConn.Close()
 			if err != nil {
 				c.Log(logger.LevelWarn, logSender, "idle connection close failed: %v", err)
 			}

@@ -16,7 +16,6 @@ import (
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
-	"golang.org/x/crypto/ssh"
 
 	"github.com/pkg/sftp"
 )
@@ -37,7 +36,7 @@ type Connection struct {
 	lastActivity time.Time
 	protocol     string
 	lock         *sync.Mutex
-	sshConn      *ssh.ServerConn
+	netConn      net.Conn
 }
 
 // Log outputs a log entry to the configured logger
