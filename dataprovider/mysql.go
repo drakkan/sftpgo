@@ -19,7 +19,7 @@ func initializeMySQLProvider() error {
 	var connectionString string
 	logSender = MySQLDataProviderName
 	if len(config.ConnectionString) == 0 {
-		connectionString = fmt.Sprintf("%v:%v@tcp([%v]:%v)/%v?charset=utf8&interpolateParams=true&timeout=10s&tls=%v",
+		connectionString = fmt.Sprintf("%v:%v@tcp([%v]:%v)/%v?charset=utf8&interpolateParams=true&timeout=10s&tls=%v&writeTimeout=10s&readTimeout=10s",
 			config.Username, config.Password, config.Host, config.Port, config.Name, getSSLMode())
 	} else {
 		connectionString = config.ConnectionString
