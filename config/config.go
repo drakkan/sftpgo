@@ -13,12 +13,12 @@ import (
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
+	"github.com/drakkan/sftpgo/utils"
 	"github.com/spf13/viper"
 )
 
 const (
-	logSender     = "config"
-	defaultBanner = "SFTPGo"
+	logSender = "config"
 	// DefaultConfigName defines the name for the default config file.
 	// This is the file name without extension, we use viper and so we
 	// support all the config files format supported by viper
@@ -28,7 +28,8 @@ const (
 )
 
 var (
-	globalConf globalConfig
+	globalConf    globalConfig
+	defaultBanner = fmt.Sprintf("SFTPGo_%v", utils.GetAppVersion().Version)
 )
 
 type globalConfig struct {
