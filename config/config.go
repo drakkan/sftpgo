@@ -136,6 +136,8 @@ func LoadConfig(configDir, configName string) error {
 		logger.Warn(logSender, "", "Configuration error: %v", err)
 		logger.WarnToConsole("Configuration error: %v", err)
 	}
-	logger.Debug(logSender, "", "config file used: '%v', config loaded: %+v", viper.ConfigFileUsed(), globalConf)
+	configString := fmt.Sprintf("%+v", globalConf)
+	configString = strings.Replace(configString, globalConf.ProviderConf.Password, "[redacted]", -1)
+	logger.Debug(logSender, "", "config file used: '%v', config loaded: %s", viper.ConfigFileUsed(), configString)
 	return err
 }
