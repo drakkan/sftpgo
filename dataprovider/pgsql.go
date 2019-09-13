@@ -3,7 +3,6 @@ package dataprovider
 import (
 	"database/sql"
 	"fmt"
-	"strings"
 
 	"github.com/drakkan/sftpgo/logger"
 )
@@ -15,24 +14,37 @@ type PGSQLProvider struct {
 
 func initializePGSQLProvider() error {
 	var err error
-	var connectionString string
 	logSender = PGSQLDataProviderName
-	if len(config.ConnectionString) == 0 {
-		connectionString = fmt.Sprintf("host='%v' port=%v dbname='%v' user='%v' password='%v' sslmode=%v connect_timeout=10",
-			config.Host, config.Port, config.Name, config.Username, config.Password, getSSLMode())
-	} else {
-		connectionString = config.ConnectionString
-	}
-	saveConnectionString := strings.Replace(connectionString, config.Password, "[redacted]", -1)
-	dbHandle, err := sql.Open("postgres", connectionString)
+	dbHandle, err := sql.Open("postgres", getPGSQLConnectionString(false))
 	if err == nil {
-		providerLog(logger.LevelDebug, "postgres database handle created, connection string: %#v, pool size: %v", saveConnectionString, config.PoolSize)
+		providerLog(logger.LevelDebug, "postgres database handle created, connection string: %#v, pool size: %v",
+			getPGSQLConnectionString(true), config.PoolSize)
 		dbHandle.SetMaxOpenConns(config.PoolSize)
 		provider = PGSQLProvider{dbHandle: dbHandle}
 	} else {
-		providerLog(logger.LevelWarn, "error creating postgres database handler, connection string: %#v, error: %v", saveConnectionString, err)
+		providerLog(logger.LevelWarn, "error creating postgres database handler, connection string: %#v, error: %v",
+			getPGSQLConnectionString(true), err)
 	}
 	return err
+}
+
+func getPGSQLConnectionString(redactedPwd bool) string {
+	var connectionString string
+	if len(config.ConnectionString) == 0 {
+		password := config.Password
+		if redactedPwd {
+			password = "[redacted]"
+		}
+		connectionString = fmt.Sprintf("host='%v' port=%v dbname='%v' user='%v' password='%v' sslmode=%v connect_timeout=10",
+			config.Host, config.Port, config.Name, config.Username, password, getSSLMode())
+	} else {
+		connectionString = config.ConnectionString
+	}
+	return connectionString
+}
+
+func (p PGSQLProvider) checkAvailability() error {
+	return sqlCommonCheckAvailability(p.dbHandle)
 }
 
 func (p PGSQLProvider) validateUserAndPass(username string, password string) (User, error) {
