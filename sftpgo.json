@@ -30,7 +30,8 @@
     "connection_string": "",
     "users_table": "users",
     "manage_users": 1,
-    "track_quota": 2
+    "track_quota": 2,
+    "pool_size": 0
   },
   "httpd": {
     "bind_port": 8080,

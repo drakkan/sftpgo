@@ -3,7 +3,6 @@ package dataprovider
 import (
 	"database/sql"
 	"fmt"
-	"runtime"
 	"time"
 
 	"github.com/drakkan/sftpgo/logger"
@@ -26,10 +25,8 @@ func initializeMySQLProvider() error {
 	}
 	dbHandle, err := sql.Open("mysql", connectionString)
 	if err == nil {
-		numCPU := runtime.NumCPU()
-		providerLog(logger.LevelDebug, "mysql database handle created, connection string: %#v, pool size: %v", connectionString, numCPU)
-		dbHandle.SetMaxIdleConns(numCPU)
-		dbHandle.SetMaxOpenConns(numCPU)
+		providerLog(logger.LevelDebug, "mysql database handle created, connection string: %#v, pool size: %v", connectionString, config.PoolSize)
+		dbHandle.SetMaxOpenConns(config.PoolSize)
 		dbHandle.SetConnMaxLifetime(1800 * time.Second)
 		provider = MySQLProvider{dbHandle: dbHandle}
 	} else {
@@ -51,21 +48,7 @@ func (p MySQLProvider) getUserByID(ID int64) (User, error) {
 }
 
 func (p MySQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
-	tx, err := p.dbHandle.Begin()
-	if err != nil {
-		providerLog(logger.LevelWarn, "error starting transaction to update quota for user %v: %v", username, err)
-		return err
-	}
-	err = sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
-	if err == nil {
-		err = tx.Commit()
-	} else {
-		err = tx.Rollback()
-	}
-	if err != nil {
-		providerLog(logger.LevelWarn, "error closing transaction to update quota for user %v: %v", username, err)
-	}
-	return err
+	return sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
 }
 
 func (p MySQLProvider) getUsedQuota(username string) (int, int64, error) {

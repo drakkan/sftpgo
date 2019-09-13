@@ -91,6 +91,9 @@ type Config struct {
 	//    With this configuration the "quota scan" REST API can still be used to periodically update space usage
 	//    for users without quota restrictions
 	TrackQuota int `json:"track_quota" mapstructure:"track_quota"`
+	// Sets the maximum number of open connections for mysql and postgresql driver.
+	// Default 0 (unlimited)
+	PoolSize int `json:"pool_size" mapstructure:"pool_size"`
 }
 
 // ValidationError raised if input data is not valid

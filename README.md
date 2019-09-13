@@ -153,6 +153,7 @@ The `sftpgo` configuration file contains the following sections:
         - 0, disable quota tracking. REST API to scan user dir and update quota will do nothing
         - 1, quota is updated each time a user upload or delete a file even if the user has no quota restrictions
         - 2, quota is updated each time a user upload or delete a file but only for users with quota restrictions. With this configuration the "quota scan" REST API can still be used to periodically update space usage for users without quota restrictions
+    - `pool_size`, integer. Sets the maximum number of open connections for mysql and postgresql driver. Default 0 (unlimited)
 - **"httpd"**, the configuration for the HTTP server used to serve REST API
     - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 8080
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"

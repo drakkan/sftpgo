@@ -3,7 +3,6 @@ package dataprovider
 import (
 	"database/sql"
 	"fmt"
-	"runtime"
 
 	"github.com/drakkan/sftpgo/logger"
 )
@@ -25,10 +24,8 @@ func initializePGSQLProvider() error {
 	}
 	dbHandle, err := sql.Open("postgres", connectionString)
 	if err == nil {
-		numCPU := runtime.NumCPU()
-		providerLog(logger.LevelDebug, "postgres database handle created, connection string: %#v, pool size: %v", connectionString, numCPU)
-		dbHandle.SetMaxIdleConns(numCPU)
-		dbHandle.SetMaxOpenConns(numCPU)
+		providerLog(logger.LevelDebug, "postgres database handle created, connection string: %#v, pool size: %v", connectionString, config.PoolSize)
+		dbHandle.SetMaxOpenConns(config.PoolSize)
 		provider = PGSQLProvider{dbHandle: dbHandle}
 	} else {
 		providerLog(logger.LevelWarn, "error creating postgres database handler, connection string: %#v, error: %v", connectionString, err)
@@ -49,21 +46,7 @@ func (p PGSQLProvider) getUserByID(ID int64) (User, error) {
 }
 
 func (p PGSQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
-	tx, err := p.dbHandle.Begin()
-	if err != nil {
-		providerLog(logger.LevelWarn, "error starting transaction to update quota for user %v: %v", username, err)
-		return err
-	}
-	err = sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
-	if err == nil {
-		err = tx.Commit()
-	} else {
-		err = tx.Rollback()
-	}
-	if err != nil {
-		providerLog(logger.LevelWarn, "error closing transaction to update quota for user %v: %v", username, err)
-	}
-	return err
+	return sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
 }
 
 func (p PGSQLProvider) getUsedQuota(username string) (int, int64, error) {
