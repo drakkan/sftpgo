@@ -104,6 +104,12 @@ func GetProviderConf() dataprovider.Config {
 	return globalConf.ProviderConf
 }
 
+func getLoggableGlobalConf() globalConfig {
+	conf := globalConf
+	conf.ProviderConf.Password = "[redacted]"
+	return conf
+}
+
 // LoadConfig loads the configuration
 // configDir will be added to the configuration search paths.
 // The search path contains by default the current directory and on linux it contains
@@ -116,13 +122,15 @@ func LoadConfig(configDir, configName string) error {
 	viper.AddConfigPath(".")
 	viper.SetConfigName(configName)
 	if err = viper.ReadInConfig(); err != nil {
-		logger.Warn(logSender, "", "error loading configuration file: %v. Default configuration will be used: %+v", err, globalConf)
+		logger.Warn(logSender, "", "error loading configuration file: %v. Default configuration will be used: %+v",
+			err, getLoggableGlobalConf())
 		logger.WarnToConsole("error loading configuration file: %v. Default configuration will be used.", err)
 		return err
 	}
 	err = viper.Unmarshal(&globalConf)
 	if err != nil {
-		logger.Warn(logSender, "", "error parsing configuration file: %v. Default configuration will be used: %+v", err, globalConf)
+		logger.Warn(logSender, "", "error parsing configuration file: %v. Default configuration will be used: %+v",
+			err, getLoggableGlobalConf())
 		logger.WarnToConsole("error parsing configuration file: %v. Default configuration will be used.", err)
 		return err
 	}
@@ -136,8 +144,6 @@ func LoadConfig(configDir, configName string) error {
 		logger.Warn(logSender, "", "Configuration error: %v", err)
 		logger.WarnToConsole("Configuration error: %v", err)
 	}
-	configString := fmt.Sprintf("%+v", globalConf)
-	configString = strings.Replace(configString, globalConf.ProviderConf.Password, "[redacted]", -1)
-	logger.Debug(logSender, "", "config file used: '%v', config loaded: %s", viper.ConfigFileUsed(), configString)
+	logger.Debug(logSender, "", "config file used: '%v', config loaded: %+v", viper.ConfigFileUsed(), getLoggableGlobalConf())
 	return err
 }
