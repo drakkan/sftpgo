@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // GetHTTPRouter returns the configured HTTP handler
@@ -30,6 +31,8 @@ func initializeRouter() {
 	router.MethodNotAllowed(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, "Method not allowed", http.StatusMethodNotAllowed)
 	}))
+
+	router.Handle(metricsPath, promhttp.Handler())
 
 	router.Get(versionPath, func(w http.ResponseWriter, r *http.Request) {
 		render.JSON(w, r, utils.GetAppVersion())

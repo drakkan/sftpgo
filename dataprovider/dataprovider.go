@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/alexedwards/argon2id"
 	"golang.org/x/crypto/bcrypt"
@@ -22,6 +23,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
 )
 
@@ -52,9 +54,10 @@ var (
 	sqlPlaceholders    []string
 	validPerms         = []string{PermAny, PermListItems, PermDownload, PermUpload, PermDelete, PermRename,
 		PermCreateDirs, PermCreateSymlinks}
-	hashPwdPrefixes  = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
-	pbkdfPwdPrefixes = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
-	logSender        = "dataProvider"
+	hashPwdPrefixes    = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
+	pbkdfPwdPrefixes   = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
+	logSender          = "dataProvider"
+	availabilityTicker *time.Ticker
 )
 
 // Config provider configuration
@@ -144,23 +147,34 @@ type Provider interface {
 	deleteUser(user User) error
 	getUsers(limit int, offset int, order string, username string) ([]User, error)
 	getUserByID(ID int64) (User, error)
+	checkAvailability() error
+}
+
+func init() {
+	availabilityTicker = time.NewTicker(30 * time.Second)
 }
 
 // Initialize the data provider.
 // An error is returned if the configured driver is invalid or if the data provider cannot be initialized
 func Initialize(cnf Config, basePath string) error {
+	var err error
 	config = cnf
 	sqlPlaceholders = getSQLPlaceholders()
 	if config.Driver == SQLiteDataProviderName {
-		return initializeSQLiteProvider(basePath)
+		err = initializeSQLiteProvider(basePath)
 	} else if config.Driver == PGSQLDataProviderName {
-		return initializePGSQLProvider()
+		err = initializePGSQLProvider()
 	} else if config.Driver == MySQLDataProviderName {
-		return initializeMySQLProvider()
+		err = initializeMySQLProvider()
 	} else if config.Driver == BoltDataProviderName {
-		return initializeBoltProvider(basePath)
+		err = initializeBoltProvider(basePath)
+	} else {
+		err = fmt.Errorf("Unsupported data provider: %v", config.Driver)
 	}
-	return fmt.Errorf("Unsupported data provider: %v", config.Driver)
+	if err == nil {
+		startAvailabilityTimer()
+	}
+	return err
 }
 
 // CheckUserAndPass retrieves the SFTP user with the given username and password if a match is found or an error
@@ -372,6 +386,23 @@ func getSSLMode() string {
 		}
 	}
 	return ""
+}
+
+func startAvailabilityTimer() {
+	checkDataprovider()
+	go func() {
+		for range availabilityTicker.C {
+			checkDataprovider()
+		}
+	}()
+}
+
+func checkDataprovider() {
+	err := provider.checkAvailability()
+	if err != nil {
+		providerLog(logger.LevelWarn, "check availability error: %v", err)
+	}
+	metrics.UpdateDataProviderAvailability(err)
 }
 
 func providerLog(level logger.LogLevel, format string, v ...interface{}) {

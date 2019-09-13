@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/drakkan/sftpgo/metrics"
 	"github.com/go-chi/chi/middleware"
 	"github.com/rs/zerolog"
 )
@@ -54,6 +55,7 @@ func (l *StructuredLogger) NewLogEntry(r *http.Request) middleware.LogEntry {
 
 // Write logs a new entry at the end of the HTTP request
 func (l *StructuredLoggerEntry) Write(status, bytes int, elapsed time.Duration) {
+	metrics.HTTPRequestServed(status)
 	l.Logger.Info().Fields(l.fields).Int(
 		"resp_status", status).Int(
 		"resp_size", bytes).Int64(

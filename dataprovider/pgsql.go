@@ -33,6 +33,10 @@ func initializePGSQLProvider() error {
 	return err
 }
 
+func (p PGSQLProvider) checkAvailability() error {
+	return sqlCommonCheckAvailability(p.dbHandle)
+}
+
 func (p PGSQLProvider) validateUserAndPass(username string, password string) (User, error) {
 	return sqlCommonValidateUserAndPass(username, password, p.dbHandle)
 }

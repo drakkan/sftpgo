@@ -59,6 +59,11 @@ func initializeBoltProvider(basePath string) error {
 	return err
 }
 
+func (p BoltProvider) checkAvailability() error {
+	_, err := p.getUsers(1, 0, "ASC", "")
+	return err
+}
+
 func (p BoltProvider) validateUserAndPass(username string, password string) (User, error) {
 	var user User
 	if len(password) == 0 {
