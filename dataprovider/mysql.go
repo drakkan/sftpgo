@@ -3,6 +3,7 @@ package dataprovider
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/drakkan/sftpgo/logger"
@@ -23,14 +24,15 @@ func initializeMySQLProvider() error {
 	} else {
 		connectionString = config.ConnectionString
 	}
+	saveConnectionString := strings.Replace(connectionString, config.Password, "[redacted]", -1)
 	dbHandle, err := sql.Open("mysql", connectionString)
 	if err == nil {
-		providerLog(logger.LevelDebug, "mysql database handle created, connection string: %#v, pool size: %v", connectionString, config.PoolSize)
+		providerLog(logger.LevelDebug, "mysql database handle created, connection string: %#v, pool size: %v", saveConnectionString, config.PoolSize)
 		dbHandle.SetMaxOpenConns(config.PoolSize)
 		dbHandle.SetConnMaxLifetime(1800 * time.Second)
 		provider = MySQLProvider{dbHandle: dbHandle}
 	} else {
-		providerLog(logger.LevelWarn, "error creating mysql database handler, connection string: %#v, error: %v", connectionString, err)
+		providerLog(logger.LevelWarn, "error creating mysql database handler, connection string: %#v, error: %v", saveConnectionString, err)
 	}
 	return err
 }

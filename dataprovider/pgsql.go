@@ -3,6 +3,7 @@ package dataprovider
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/drakkan/sftpgo/logger"
 )
@@ -22,13 +23,14 @@ func initializePGSQLProvider() error {
 	} else {
 		connectionString = config.ConnectionString
 	}
+	saveConnectionString := strings.Replace(connectionString, config.Password, "[redacted]", -1)
 	dbHandle, err := sql.Open("postgres", connectionString)
 	if err == nil {
-		providerLog(logger.LevelDebug, "postgres database handle created, connection string: %#v, pool size: %v", connectionString, config.PoolSize)
+		providerLog(logger.LevelDebug, "postgres database handle created, connection string: %#v, pool size: %v", saveConnectionString, config.PoolSize)
 		dbHandle.SetMaxOpenConns(config.PoolSize)
 		provider = PGSQLProvider{dbHandle: dbHandle}
 	} else {
-		providerLog(logger.LevelWarn, "error creating postgres database handler, connection string: %#v, error: %v", connectionString, err)
+		providerLog(logger.LevelWarn, "error creating postgres database handler, connection string: %#v, error: %v", saveConnectionString, err)
 	}
 	return err
 }
