@@ -15,24 +15,33 @@ type MySQLProvider struct {
 
 func initializeMySQLProvider() error {
 	var err error
-	var connectionString string
 	logSender = MySQLDataProviderName
-	if len(config.ConnectionString) == 0 {
-		connectionString = fmt.Sprintf("%v:%v@tcp([%v]:%v)/%v?charset=utf8&interpolateParams=true&timeout=10s&tls=%v&writeTimeout=10s&readTimeout=10s",
-			config.Username, config.Password, config.Host, config.Port, config.Name, getSSLMode())
-	} else {
-		connectionString = config.ConnectionString
-	}
-	dbHandle, err := sql.Open("mysql", connectionString)
+	dbHandle, err := sql.Open("mysql", getMySQLConnectionString(false))
 	if err == nil {
-		providerLog(logger.LevelDebug, "mysql database handle created, connection string: %#v, pool size: %v", connectionString, config.PoolSize)
+		providerLog(logger.LevelDebug, "mysql database handle created, connection string: %#v, pool size: %v",
+			getMySQLConnectionString(true), config.PoolSize)
 		dbHandle.SetMaxOpenConns(config.PoolSize)
 		dbHandle.SetConnMaxLifetime(1800 * time.Second)
 		provider = MySQLProvider{dbHandle: dbHandle}
 	} else {
-		providerLog(logger.LevelWarn, "error creating mysql database handler, connection string: %#v, error: %v", connectionString, err)
+		providerLog(logger.LevelWarn, "error creating mysql database handler, connection string: %#v, error: %v",
+			getMySQLConnectionString(true), err)
 	}
 	return err
+}
+func getMySQLConnectionString(redactedPwd bool) string {
+	var connectionString string
+	if len(config.ConnectionString) == 0 {
+		password := config.Password
+		if redactedPwd {
+			password = "[redacted]"
+		}
+		connectionString = fmt.Sprintf("%v:%v@tcp([%v]:%v)/%v?charset=utf8&interpolateParams=true&timeout=10s&tls=%v&writeTimeout=10s&readTimeout=10s",
+			config.Username, password, config.Host, config.Port, config.Name, getSSLMode())
+	} else {
+		connectionString = config.ConnectionString
+	}
+	return connectionString
 }
 
 func (p MySQLProvider) checkAvailability() error {

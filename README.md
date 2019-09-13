@@ -74,7 +74,7 @@ Alternately you can use distro packages:
 
 - Arch Linux PKGBUILD is available on [AUR](https://aur.archlinux.org/packages/sftpgo/ "SFTPGo")
 
-For macOS a `launchd` sample [service](https://github.com/drakkan/sftpgo/tree/master/init/com.github.drakkan.sftpgo.plist "launchd plist") can be found inside the source tree. The `launchd` plist assumes that `sftpgo` has `/usr/local/opt/sftpgo` as base directory. 
+For macOS a `launchd` sample [service](https://github.com/drakkan/sftpgo/tree/master/init/com.github.drakkan.sftpgo.plist "launchd plist") can be found inside the source tree. The `launchd` plist assumes that `sftpgo` has `/usr/local/opt/sftpgo` as base directory.
 
 ## Configuration
 
