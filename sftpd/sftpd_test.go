@@ -325,7 +325,7 @@ func TestDirCommands(t *testing.T) {
 	os.RemoveAll(user.GetHomeDir())
 }
 
-func TestSymlink(t *testing.T) {
+func TestLink(t *testing.T) {
 	usePubKey := false
 	user, _, err := api.AddUser(getTestUser(usePubKey), http.StatusOK)
 	if err != nil {
@@ -358,6 +358,10 @@ func TestSymlink(t *testing.T) {
 		err = client.Symlink(testFileName, testFileName+".link")
 		if err == nil {
 			t.Errorf("creating a symlink to an existing one must fail")
+		}
+		err = client.Link(testFileName, testFileName+".hlink")
+		if err == nil {
+			t.Errorf("hard link is not supported and must fail")
 		}
 		err = client.Remove(testFileName + ".link")
 		if err != nil {
