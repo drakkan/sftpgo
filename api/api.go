@@ -19,6 +19,7 @@ const (
 	quotaScanPath         = "/api/v1/quota_scan"
 	userPath              = "/api/v1/user"
 	versionPath           = "/api/v1/version"
+	metricsPath           = "/metrics"
 )
 
 var (

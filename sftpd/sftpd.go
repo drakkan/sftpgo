@@ -15,6 +15,7 @@ import (
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
 )
 
@@ -265,6 +266,7 @@ func addConnection(id string, c Connection) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	openConnections[id] = c
+	metrics.UpdateActiveConnectionsSize(len(openConnections))
 	c.Log(logger.LevelDebug, logSender, "connection added, num open connections: %v", len(openConnections))
 }
 
@@ -273,6 +275,7 @@ func removeConnection(id string) {
 	defer mutex.Unlock()
 	c := openConnections[id]
 	delete(openConnections, id)
+	metrics.UpdateActiveConnectionsSize(len(openConnections))
 	c.Log(logger.LevelDebug, logSender, "connection removed, num open connections: %v", len(openConnections))
 }
 

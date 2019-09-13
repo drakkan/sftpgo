@@ -19,6 +19,7 @@ Full featured and highly configurable SFTP server
 - Atomic uploads are configurable.
 - Optional SCP support.
 - REST API for users and quota management and real time reports for the active connections with possibility of forcibly closing a connection.
+- Prometheus metrics are exposed.
 - Configuration is a your choice: JSON, TOML, YAML, HCL, envfile are supported.
 - Log files are accurate and they are saved in the easily parsable JSON format.
 
@@ -288,6 +289,23 @@ The OpenAPI 3 schema for the exposed API can be found inside the source tree: [o
 A sample CLI client for the REST API can be found inside the source tree [scripts](https://github.com/drakkan/sftpgo/tree/master/scripts "scripts") directory.
 
 You can also generate your own REST client, in your preferred programming language or even bash scripts, using an OpenAPI generator such as [swagger-codegen](https://github.com/swagger-api/swagger-codegen) or [OpenAPI Generator](https://openapi-generator.tech/)
+
+## Metrics
+
+SFTPGo exposes [Prometheus](https://prometheus.io/) metrics at the `/metrics` HTTP endpoint.
+Several counters and gauges are available, for example:
+
+- Total uploads and downloads
+- Total uploads and downloads size
+- Total uploads and downloads errors
+- Number of active connections
+- Data provider availability
+- Total successful and failed logins using a password or a public key
+- Total HTTP requests served and totals for response code
+- Go's runtime like details about GC, number of gouroutines and OS threads
+- Process information like CPU, memory, file descriptor usage and start time
+
+Please check the `/metrics` page for more details.
 
 ## Logs
 

@@ -50,6 +50,10 @@ func initializeSQLiteProvider(basePath string) error {
 	return err
 }
 
+func (p SQLiteProvider) checkAvailability() error {
+	return sqlCommonCheckAvailability(p.dbHandle)
+}
+
 func (p SQLiteProvider) validateUserAndPass(username string, password string) (User, error) {
 	return sqlCommonValidateUserAndPass(username, password, p.dbHandle)
 }

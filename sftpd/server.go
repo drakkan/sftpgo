@@ -21,6 +21,7 @@ import (
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
@@ -376,21 +377,27 @@ func (c Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKe
 	var err error
 	var user dataprovider.User
 	var keyID string
+	var sshPerm *ssh.Permissions
 
+	metrics.AddLoginAttempt(true)
 	if user, keyID, err = dataprovider.CheckUserAndPubKey(dataProvider, conn.User(), pubKey); err == nil {
-		return loginUser(user, "public_key:"+keyID)
+		sshPerm, err = loginUser(user, "public_key:"+keyID)
 	}
-	return nil, err
+	metrics.AddLoginResult(true, err)
+	return sshPerm, err
 }
 
 func (c Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
 	var err error
 	var user dataprovider.User
+	var sshPerm *ssh.Permissions
 
+	metrics.AddLoginAttempt(false)
 	if user, err = dataprovider.CheckUserAndPass(dataProvider, conn.User(), string(pass)); err == nil {
-		return loginUser(user, "password")
+		sshPerm, err = loginUser(user, "password")
 	}
-	return nil, err
+	metrics.AddLoginResult(false, err)
+	return sshPerm, err
 }
 
 // Generates a private key that will be used by the SFTP server.

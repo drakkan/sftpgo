@@ -36,6 +36,7 @@ const (
 	activeConnectionsPath = "/api/v1/connection"
 	quotaScanPath         = "/api/v1/quota_scan"
 	versionPath           = "/api/v1/version"
+	metricsPath           = "/metrics"
 )
 
 var (
@@ -708,6 +709,12 @@ func TestMethodNotAllowedMock(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, activeConnectionsPath, nil)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusMethodNotAllowed, rr.Code)
+}
+
+func TestMetricsMock(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, metricsPath, nil)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
 }
 
 func waitTCPListening(address string) {

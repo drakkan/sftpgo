@@ -6,6 +6,7 @@ import (
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/metrics"
 )
 
 const (
@@ -105,6 +106,7 @@ func (t *Transfer) Close() error {
 			executeAction(operationUpload, t.user.Username, t.path, "")
 		}
 	}
+	metrics.TransferCompleted(t.bytesSent, t.bytesReceived, t.transferType, t.transferError)
 	removeTransfer(t)
 	if t.transferType == transferUpload && (numFiles != 0 || t.bytesReceived > 0) {
 		dataprovider.UpdateUserQuota(dataProvider, t.user, numFiles, t.bytesReceived, false)

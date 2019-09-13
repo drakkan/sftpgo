@@ -50,6 +50,10 @@ func sqlCommonValidateUserAndPubKey(username string, pubKey string, dbHandle *sq
 	return checkUserAndPubKey(user, pubKey)
 }
 
+func sqlCommonCheckAvailability(dbHandle *sql.DB) error {
+	return dbHandle.Ping()
+}
+
 func sqlCommonGetUserByID(ID int64, dbHandle *sql.DB) (User, error) {
 	var user User
 	q := getUserByIDQuery()
