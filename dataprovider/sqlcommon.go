@@ -1,6 +1,7 @@
 package dataprovider
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -51,7 +52,9 @@ func sqlCommonValidateUserAndPubKey(username string, pubKey string, dbHandle *sq
 }
 
 func sqlCommonCheckAvailability(dbHandle *sql.DB) error {
-	return dbHandle.Ping()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return dbHandle.PingContext(ctx)
 }
 
 func sqlCommonGetUserByID(ID int64, dbHandle *sql.DB) (User, error) {

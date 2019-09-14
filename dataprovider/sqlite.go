@@ -67,8 +67,6 @@ func (p SQLiteProvider) getUserByID(ID int64) (User, error) {
 }
 
 func (p SQLiteProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
-	// we keep only 1 open connection (SetMaxOpenConns(1)) so a transaction is not needed and it could block
-	// the database access since it will try to open a new connection
 	return sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
 }
 

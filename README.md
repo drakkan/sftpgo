@@ -137,7 +137,7 @@ The `sftpgo` configuration file contains the following sections:
     - `enable_scp`, boolean. Default disabled. Set to `true` to enable SCP support. SCP is an experimental feature, we have our own SCP implementation since we can't rely on `scp` system command to proper handle permissions, quota and user's home dir restrictions. The SCP protocol is quite simple but there is no official docs about it, so we need more testing and feedbacks before enabling it by default. We may not handle some borderline cases or have sneaky bugs. Please do accurate tests yourself before enabling SCP and let us known if something does not work as expected for your use cases. SCP between two remote hosts is supported using the `-3` scp option.
     - `kex_algorithms`, list of strings. Available KEX (Key Exchange) algorithms in preference order. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L46 "Supported kex algos")
     - `ciphers`, list of strings. Allowed ciphers. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L28 "Supported ciphers")
-    - `macs`, list of strings. available MAC (message authentication code) algorithms in preference order. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L76 "Supported MACs")
+    - `macs`, list of strings. available MAC (message authentication code) algorithms in preference order. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L84 "Supported MACs")
     - `login_banner_file`, path to the login banner file. The contents of the specified file, if any, are sent to the remote user before authentication is allowed. It can be a path relative to the config dir or an absolute one. Leave empty to send no login banner
 - **"data_provider"**, the configuration for the data provider
     - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`
@@ -154,7 +154,7 @@ The `sftpgo` configuration file contains the following sections:
         - 0, disable quota tracking. REST API to scan user dir and update quota will do nothing
         - 1, quota is updated each time a user upload or delete a file even if the user has no quota restrictions
         - 2, quota is updated each time a user upload or delete a file but only for users with quota restrictions. With this configuration the "quota scan" REST API can still be used to periodically update space usage for users without quota restrictions
-    - `pool_size`, integer. Sets the maximum number of open connections for mysql and postgresql driver. Default 0 (unlimited)
+    - `pool_size`, integer. Sets the maximum number of open connections for `mysql` and `postgresql` driver. Default 0 (unlimited)
 - **"httpd"**, the configuration for the HTTP server used to serve REST API
     - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 8080
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"
@@ -189,7 +189,8 @@ Here is a full example showing the default config in JSON format:
     "connection_string": "",
     "users_table": "users",
     "manage_users": 1,
-    "track_quota": 2
+    "track_quota": 2,
+    "pool_size": 0
   },
   "httpd": {
     "bind_port": 8080,
