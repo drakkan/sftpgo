@@ -60,10 +60,10 @@ var (
 		Help: "The total number of login attempts",
 	})
 
-	// totalLoginOK is the metric that reports the total number of successfull logins
+	// totalLoginOK is the metric that reports the total number of successful logins
 	totalLoginOK = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_login_ok_total",
-		Help: "The total number of successfull logins",
+		Help: "The total number of successful logins",
 	})
 
 	// totalLoginFailed is the metric that reports the total number of failed logins
@@ -79,11 +79,11 @@ var (
 		Help: "The total number of login attempts using a password",
 	})
 
-	// totalPasswordLoginOK is the metric that reports the total number of successfull logins
+	// totalPasswordLoginOK is the metric that reports the total number of successful logins
 	// using a password
 	totalPasswordLoginOK = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_password_login_ok_total",
-		Help: "The total number of successfull logins using a password",
+		Help: "The total number of successful logins using a password",
 	})
 
 	// totalPasswordLoginFailed is the metric that reports the total number of failed logins
@@ -100,11 +100,11 @@ var (
 		Help: "The total number of login attempts using a public key",
 	})
 
-	// totalKeyLoginOK is the metric that reports the total number of successfull logins
+	// totalKeyLoginOK is the metric that reports the total number of successful logins
 	// using a public key
 	totalKeyLoginOK = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_public_key_login_ok_total",
-		Help: "The total number of successfull logins using a public key",
+		Help: "The total number of successful logins using a public key",
 	})
 
 	// totalKeyLoginFailed is the metric that reports the total number of failed logins
