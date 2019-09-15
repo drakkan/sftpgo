@@ -25,6 +25,7 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
+	sha512crypt "github.com/nathanaelle/password"
 )
 
 const (
@@ -42,6 +43,7 @@ const (
 	pbkdf2SHA1Prefix         = "$pbkdf2-sha1$"
 	pbkdf2SHA256Prefix       = "$pbkdf2-sha256$"
 	pbkdf2SHA512Prefix       = "$pbkdf2-sha512$"
+	sha512cryptPwdPrefix     = "$6$"
 	manageUsersDisabledError = "please set manage_users to 1 in sftpgo.conf to enable this method"
 	trackQuotaDisabledError  = "please enable track_quota in sftpgo.conf to use this method"
 )
@@ -54,7 +56,8 @@ var (
 	sqlPlaceholders    []string
 	validPerms         = []string{PermAny, PermListItems, PermDownload, PermUpload, PermDelete, PermRename,
 		PermCreateDirs, PermCreateSymlinks}
-	hashPwdPrefixes    = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
+	hashPwdPrefixes = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
+		pbkdf2SHA512Prefix, sha512cryptPwdPrefix}
 	pbkdfPwdPrefixes   = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
 	logSender          = "dataProvider"
 	availabilityTicker *time.Ticker
@@ -307,6 +310,19 @@ func checkUserAndPass(user User, password string) (User, error) {
 			providerLog(logger.LevelWarn, "error comparing password with pbkdf2 sha256 hash: %v", err)
 			return user, err
 		}
+	} else if strings.HasPrefix(user.Password, sha512cryptPwdPrefix) {
+		crypter, ok := sha512crypt.SHA512.CrypterFound(user.Password)
+		if !ok {
+			err = errors.New("cannot found matching SHA512 crypter")
+			providerLog(logger.LevelWarn, "error comparing password with SHA512 hash: %v", err)
+			return user, err
+		}
+		if !crypter.Verify([]byte(password)) {
+			err = errors.New("password does not match")
+			providerLog(logger.LevelWarn, "error comparing password with SHA512 hash: %v", err)
+			return user, err
+		}
+		match = true
 	}
 	if !match {
 		err = errors.New("Invalid credentials")
