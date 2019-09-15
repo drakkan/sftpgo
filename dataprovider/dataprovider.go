@@ -44,8 +44,8 @@ const (
 	pbkdf2SHA256Prefix       = "$pbkdf2-sha256$"
 	pbkdf2SHA512Prefix       = "$pbkdf2-sha512$"
 	sha512cryptPwdPrefix     = "$6$"
-	manageUsersDisabledError = "please set manage_users to 1 in sftpgo.conf to enable this method"
-	trackQuotaDisabledError  = "please enable track_quota in sftpgo.conf to use this method"
+	manageUsersDisabledError = "please set manage_users to 1 in your configuration to enable this method"
+	trackQuotaDisabledError  = "please enable track_quota in your configuration to use this method"
 )
 
 var (

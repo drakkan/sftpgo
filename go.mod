@@ -10,6 +10,7 @@ require (
 	github.com/lib/pq v1.2.0
 	github.com/magiconair/properties v1.8.1 // indirect
 	github.com/mattn/go-sqlite3 v1.11.0
+	github.com/nathanaelle/password v1.0.0
 	github.com/pelletier/go-toml v1.4.0 // indirect
 	github.com/pkg/sftp v1.10.2-0.20190913011139-8fc59612f2b0
 	github.com/prometheus/client_golang v1.1.0
