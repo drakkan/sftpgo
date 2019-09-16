@@ -1,21 +1,18 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/drakkan/sftpgo/service"
 	"github.com/spf13/cobra"
 )
 
 var (
-	serveCmd = &cobra.Command{
-		Use:   "serve",
-		Short: "Start the SFTP Server",
-		Long: `To start the SFTPGo with the default values for the command line flags simply use:
-
-sftpgo serve
-
-Please take a look at the usage below to customize the startup options`,
+	startCmd = &cobra.Command{
+		Use:   "start",
+		Short: "Start SFTPGo Windows Service",
 		Run: func(cmd *cobra.Command, args []string) {
-			service := service.Service{
+			s := service.Service{
 				ConfigDir:     configDir,
 				ConfigFile:    configFile,
 				LogFilePath:   logFilePath,
@@ -26,14 +23,20 @@ Please take a look at the usage below to customize the startup options`,
 				LogVerbose:    logVerbose,
 				Shutdown:      make(chan bool),
 			}
-			if err := service.Start(); err == nil {
-				service.Wait()
+			winService := service.WindowsService{
+				Service: s,
+			}
+			err := winService.RunService()
+			if err != nil {
+				fmt.Printf("Error starting service: %v\r\n", err)
+			} else {
+				fmt.Printf("Service started!\r\n")
 			}
 		},
 	}
 )
 
 func init() {
-	rootCmd.AddCommand(serveCmd)
-	addServeFlags(serveCmd)
+	serviceCmd.AddCommand(startCmd)
+	addServeFlags(startCmd)
 }

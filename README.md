@@ -76,6 +76,13 @@ Alternately you can use distro packages:
 
 For macOS a `launchd` sample [service](https://github.com/drakkan/sftpgo/tree/master/init/com.github.drakkan.sftpgo.plist "launchd plist") can be found inside the source tree. The `launchd` plist assumes that `sftpgo` has `/usr/local/opt/sftpgo` as base directory.
 
+On Windows you can install and run `SFTPGo` as Windows Service, take a look at the CLI usage to learn how:
+
+```bash
+sftpgo.exe service --help
+sftpgo.exe service install --help
+```
+
 ## Configuration
 
 The `sftpgo` executable can be used this way:

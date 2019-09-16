@@ -1,0 +1,271 @@
+package service
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/drakkan/sftpgo/logger"
+
+	"golang.org/x/sys/windows/svc"
+	"golang.org/x/sys/windows/svc/eventlog"
+	"golang.org/x/sys/windows/svc/mgr"
+)
+
+const (
+	serviceName = "SFTPGo"
+	serviceDesc = "Full featured and highly configurable SFTP server"
+)
+
+// Status defines service status
+type Status uint8
+
+// Supported values for service status
+const (
+	StatusUnknown Status = iota
+	StatusRunning
+	StatusStopped
+	StatusPaused
+	StatusStartPending
+	StatusPausePending
+	StatusContinuePending
+	StatusStopPending
+)
+
+type WindowsService struct {
+	Service       Service
+	isInteractive bool
+}
+
+func (s Status) String() string {
+	switch s {
+	case StatusRunning:
+		return "running"
+	case StatusStopped:
+		return "stopped"
+	case StatusStartPending:
+		return "start pending"
+	case StatusPausePending:
+		return "pause pending"
+	case StatusPaused:
+		return "paused"
+	case StatusContinuePending:
+		return "continue pending"
+	case StatusStopPending:
+		return "stop pending"
+	default:
+		return "unknown"
+	}
+}
+
+func (s *WindowsService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
+	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
+	changes <- svc.Status{State: svc.StartPending}
+	if err := s.Service.Start(); err != nil {
+		return true, 1
+	}
+	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
+loop:
+	for {
+		c := <-r
+		switch c.Cmd {
+		case svc.Interrogate:
+			logger.Debug(logSender, "", "Received service interrogate request, current status: %v", c.CurrentStatus)
+			changes <- c.CurrentStatus
+		case svc.Stop, svc.Shutdown:
+			logger.Debug(logSender, "", "Received service stop request")
+			changes <- svc.Status{State: svc.StopPending}
+			s.Service.Stop()
+			break loop
+		default:
+			continue loop
+		}
+	}
+
+	return false, 0
+}
+
+func (s *WindowsService) RunService() error {
+	exepath, err := s.getExecPath()
+	if err != nil {
+		return err
+	}
+
+	isIntSess, err := svc.IsAnInteractiveSession()
+	if err != nil {
+		return err
+	}
+
+	s.isInteractive = isIntSess
+	dir := filepath.Dir(exepath)
+	if err = os.Chdir(dir); err != nil {
+		return err
+	}
+	if s.isInteractive {
+		return s.Start()
+	}
+	return svc.Run(serviceName, s)
+}
+
+func (s *WindowsService) Start() error {
+	m, err := mgr.Connect()
+	if err != nil {
+		return err
+	}
+	defer m.Disconnect()
+	service, err := m.OpenService(serviceName)
+	if err != nil {
+		return fmt.Errorf("could not access service: %v", err)
+	}
+	defer service.Close()
+	err = service.Start()
+	if err != nil {
+		return fmt.Errorf("could not start service: %v", err)
+	}
+	return nil
+}
+
+func (s *WindowsService) Install(args ...string) error {
+	exepath, err := s.getExecPath()
+	if err != nil {
+		return err
+	}
+	m, err := mgr.Connect()
+	if err != nil {
+		return err
+	}
+	defer m.Disconnect()
+	service, err := m.OpenService(serviceName)
+	if err == nil {
+		service.Close()
+		return fmt.Errorf("service %s already exists", serviceName)
+	}
+	config := mgr.Config{
+		DisplayName: serviceName,
+		Description: serviceDesc,
+		StartType:   mgr.StartAutomatic}
+	service, err = m.CreateService(serviceName, exepath, config, args...)
+	if err != nil {
+		return err
+	}
+	defer service.Close()
+	err = eventlog.InstallAsEventCreate(serviceName, eventlog.Error|eventlog.Warning|eventlog.Info)
+	if err != nil {
+		if !strings.Contains(err.Error(), "exists") {
+			service.Delete()
+			return fmt.Errorf("SetupEventLogSource() failed: %s", err)
+		}
+	}
+	recoveryActions := []mgr.RecoveryAction{
+		mgr.RecoveryAction{
+			Type:  mgr.ServiceRestart,
+			Delay: 0,
+		},
+		mgr.RecoveryAction{
+			Type:  mgr.ServiceRestart,
+			Delay: 60 * time.Second,
+		},
+		mgr.RecoveryAction{
+			Type:  mgr.ServiceRestart,
+			Delay: 90 * time.Second,
+		},
+	}
+	err = service.SetRecoveryActions(recoveryActions, uint32(86400))
+	if err != nil {
+		service.Delete()
+		return fmt.Errorf("unable to set recovery actions: %v", err)
+	}
+	return nil
+}
+
+func (s *WindowsService) Uninstall() error {
+	m, err := mgr.Connect()
+	if err != nil {
+		return err
+	}
+	defer m.Disconnect()
+	service, err := m.OpenService(serviceName)
+	if err != nil {
+		return fmt.Errorf("service %s is not installed", serviceName)
+	}
+	defer service.Close()
+	err = service.Delete()
+	if err != nil {
+		return err
+	}
+	err = eventlog.Remove(serviceName)
+	if err != nil {
+		return fmt.Errorf("RemoveEventLogSource() failed: %s", err)
+	}
+	return nil
+}
+
+func (s *WindowsService) Stop() error {
+	m, err := mgr.Connect()
+	if err != nil {
+		return err
+	}
+	defer m.Disconnect()
+	service, err := m.OpenService(serviceName)
+	if err != nil {
+		return fmt.Errorf("could not access service: %v", err)
+	}
+	defer service.Close()
+	status, err := service.Control(svc.Stop)
+	if err != nil {
+		return fmt.Errorf("could not send control=%d: %v", svc.Stop, err)
+	}
+	timeout := time.Now().Add(10 * time.Second)
+	for status.State != svc.Stopped {
+		if timeout.Before(time.Now()) {
+			return fmt.Errorf("timeout waiting for service to go to state=%d", svc.Stopped)
+		}
+		time.Sleep(300 * time.Millisecond)
+		status, err = service.Query()
+		if err != nil {
+			return fmt.Errorf("could not retrieve service status: %v", err)
+		}
+	}
+	return nil
+}
+
+func (s *WindowsService) Status() (Status, error) {
+	m, err := mgr.Connect()
+	if err != nil {
+		return StatusUnknown, err
+	}
+	defer m.Disconnect()
+	service, err := m.OpenService(serviceName)
+	if err != nil {
+		return StatusUnknown, fmt.Errorf("could not access service: %v", err)
+	}
+	defer service.Close()
+	status, err := service.Query()
+	if err != nil {
+		return StatusUnknown, fmt.Errorf("could not query service status: %v", err)
+	}
+	switch status.State {
+	case svc.StartPending:
+		return StatusStartPending, nil
+	case svc.Running:
+		return StatusRunning, nil
+	case svc.PausePending:
+		return StatusPausePending, nil
+	case svc.Paused:
+		return StatusPaused, nil
+	case svc.ContinuePending:
+		return StatusContinuePending, nil
+	case svc.StopPending:
+		return StatusStopPending, nil
+	case svc.Stopped:
+		return StatusStopped, nil
+	default:
+		return StatusUnknown, fmt.Errorf("unknown status %v", status)
+	}
+}
+
+func (s *WindowsService) getExecPath() (string, error) {
+	return os.Executable()
+}
