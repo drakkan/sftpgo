@@ -159,15 +159,15 @@ func (s *WindowsService) Install(args ...string) error {
 		}
 	}
 	recoveryActions := []mgr.RecoveryAction{
-		mgr.RecoveryAction{
+		{
 			Type:  mgr.ServiceRestart,
 			Delay: 0,
 		},
-		mgr.RecoveryAction{
+		{
 			Type:  mgr.ServiceRestart,
 			Delay: 60 * time.Second,
 		},
-		mgr.RecoveryAction{
+		{
 			Type:  mgr.ServiceRestart,
 			Delay: 90 * time.Second,
 		},

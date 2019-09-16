@@ -76,12 +76,7 @@ Alternately you can use distro packages:
 
 For macOS a `launchd` sample [service](https://github.com/drakkan/sftpgo/tree/master/init/com.github.drakkan.sftpgo.plist "launchd plist") can be found inside the source tree. The `launchd` plist assumes that `sftpgo` has `/usr/local/opt/sftpgo` as base directory.
 
-On Windows you can install and run `SFTPGo` as Windows Service, take a look at the CLI usage to learn how:
-
-```bash
-sftpgo.exe service --help
-sftpgo.exe service install --help
-```
+On Windows you can run `SFTPGo` as Windows Service read the "Configuration" section below for details.
 
 ## Configuration
 
@@ -98,6 +93,8 @@ Available Commands:
 Flags:
   -h, --help      help for sftpgo
   -v, --version
+
+ Use "sftpgo [command] --help" for more information about a command 
 ```
 
 The `serve` subcommand supports the following flags:
@@ -235,6 +232,30 @@ To start the SFTP Server with the default values for the command line flags simp
 ```bash
 sftpgo serve
 ```
+
+On Windows you can register `SFTPGo` as Windows Service, take a look at the CLI usage to learn how:
+
+```bash
+sftpgo.exe service --help
+Install, Uninstall, Start, Stop and retrieve status for SFTPGo Windows Service
+
+Usage:
+  sftpgo service [command]
+
+Available Commands:
+  install     Install SFTPGo as Windows Service
+  start       Start SFTPGo Windows Service
+  status      Retrieve the status for the SFTPGo Windows Service
+  stop        Stop SFTPGo Windows Service
+  uninstall   Uninstall SFTPGo Windows Service
+
+Flags:
+  -h, --help   help for service
+
+Use "sftpgo service [command] --help" for more information about a command.
+```
+
+`install` subcommand accepts the same flags valid for `serve`.
 
 ## Account's configuration properties
 
