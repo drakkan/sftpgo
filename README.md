@@ -37,7 +37,7 @@ Regularly the test cases are manually executed and pass on Windows. Other UNIX v
 
 Simple install the package to your [$GOPATH](https://github.com/golang/go/wiki/GOPATH "GOPATH") with the [go tool](https://golang.org/cmd/go/ "go command") from shell:
 
-```bash
+```
 $ go get -u github.com/drakkan/sftpgo
 ```
 
@@ -57,13 +57,13 @@ Version info, such as git commit and build date, can be embedded setting the fol
 
 For example you can build using the following command:
 
-```bash
+```
 go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/utils.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/utils.date=`date -u +%FT%TZ`" -o sftpgo
 ```
 
 and you will get a version that includes git commit and build date like this one:
 
-```bash
+```
 sftpgo -v
 SFTPGo version: 0.9.0-dev-90607d4-dirty-2019-08-08T19:28:36Z
 ```
@@ -76,13 +76,13 @@ Alternately you can use distro packages:
 
 For macOS a `launchd` sample [service](https://github.com/drakkan/sftpgo/tree/master/init/com.github.drakkan.sftpgo.plist "launchd plist") can be found inside the source tree. The `launchd` plist assumes that `sftpgo` has `/usr/local/opt/sftpgo` as base directory.
 
-On Windows you can run `SFTPGo` as Windows Service read the "Configuration" section below for details.
+On Windows you can run `SFTPGo` as Windows Service, please read the "Configuration" section below for more details.
 
 ## Configuration
 
 The `sftpgo` executable can be used this way:
 
-```bash
+```
 Usage:
   sftpgo [command]
 
@@ -229,13 +229,13 @@ Please note that to override configuration options with environment variables a 
 
 To start the SFTP Server with the default values for the command line flags simply use:
 
-```bash
+```
 sftpgo serve
 ```
 
 On Windows you can register `SFTPGo` as Windows Service, take a look at the CLI usage to learn how:
 
-```bash
+```
 sftpgo.exe service --help
 Install, Uninstall, Start, Stop and retrieve status for SFTPGo Windows Service
 
@@ -256,6 +256,14 @@ Use "sftpgo service [command] --help" for more information about a command.
 ```
 
 `install` subcommand accepts the same flags valid for `serve`.
+
+After installing as Windows Service please remember to allow network access to the SFTPGo executable using something like this:
+
+```
+netsh advfirewall firewall add rule name="SFTPGo Service" dir=in action=allow program="C:\Program Files\SFTPGo\sftpgo.exe"
+```
+
+or through the Windows Firewall GUI.
 
 ## Account's configuration properties
 

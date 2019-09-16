@@ -88,7 +88,7 @@ loop:
 }
 
 func (s *WindowsService) RunService() error {
-	exepath, err := s.getExecPath()
+	exePath, err := s.getExePath()
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (s *WindowsService) RunService() error {
 	}
 
 	s.isInteractive = isIntSess
-	dir := filepath.Dir(exepath)
+	dir := filepath.Dir(exePath)
 	if err = os.Chdir(dir); err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func (s *WindowsService) Start() error {
 }
 
 func (s *WindowsService) Install(args ...string) error {
-	exepath, err := s.getExecPath()
+	exePath, err := s.getExePath()
 	if err != nil {
 		return err
 	}
@@ -146,7 +146,7 @@ func (s *WindowsService) Install(args ...string) error {
 		DisplayName: serviceName,
 		Description: serviceDesc,
 		StartType:   mgr.StartAutomatic}
-	service, err = m.CreateService(serviceName, exepath, config, args...)
+	service, err = m.CreateService(serviceName, exePath, config, args...)
 	if err != nil {
 		return err
 	}
@@ -266,6 +266,6 @@ func (s *WindowsService) Status() (Status, error) {
 	}
 }
 
-func (s *WindowsService) getExecPath() (string, error) {
+func (s *WindowsService) getExePath() (string, error) {
 	return os.Executable()
 }
