@@ -41,7 +41,7 @@ Let's see a sample usage for each REST API.
 Command:
 
 ```
-python sftpgo_api_cli.py add-user test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 33 --gid 1000 --max-sessions 2 --quota-size 0 --quota-files 3 --permissions "list" "download" "upload" "delete" "rename" "create_dirs" --upload-bandwidth 100 --download-bandwidth 60
+python sftpgo_api_cli.py add-user test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 33 --gid 1000 --max-sessions 2 --quota-size 0 --quota-files 3 --permissions "list" "download" "upload" "delete" "rename" "create_dirs" "overwrite" --upload-bandwidth 100 --download-bandwidth 60
 ```
 
 Output:
@@ -62,7 +62,8 @@ Output:
     "upload",
     "delete",
     "rename",
-    "create_dirs"
+    "create_dirs",
+    "overwrite"
   ],
   "used_quota_size": 0,
   "used_quota_files": 0,

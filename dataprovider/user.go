@@ -17,6 +17,9 @@ const (
 	PermDownload = "download"
 	// upload files is allowed
 	PermUpload = "upload"
+	// overwrite an existing file, while uploading, is allowed
+	// upload permission is required to allow file overwrite
+	PermOverwrite = "overwrite"
 	// delete files or directories is allowed
 	PermDelete = "delete"
 	// rename files or directories is allowed

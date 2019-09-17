@@ -282,6 +282,7 @@ For each account the following properties can be configured:
     - `list` list items is allowed
     - `download` download files is allowed
     - `upload` upload files is allowed
+    - `overwrite` overwrite an existing file, while uploading, is allowed. `upload` permission is required to allow file overwrite
     - `delete` delete files or directories is allowed
     - `rename` rename files or directories is allowed
     - `create_dirs` create directories is allowed
@@ -400,6 +401,7 @@ The logs can be divided into the following categories:
 - [viper](https://github.com/spf13/viper)
 - [cobra](https://github.com/spf13/cobra)
 - [xid](https://github.com/rs/xid)
+- [nathanaelle/password](https://github.com/nathanaelle/password)
 
 Some code was initially taken from [Pterodactyl sftp server](https://github.com/pterodactyl/sftp-server)
 

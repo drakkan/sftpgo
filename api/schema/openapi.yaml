@@ -511,6 +511,7 @@ components:
         - list
         - download
         - upload
+        - overwrite
         - delete
         - rename
         - create_dirs
@@ -521,6 +522,7 @@ components:
           * `list` - list items is allowed
           * `download` - download files is allowed
           * `upload` - upload files is allowed
+          * `overwrite` - overwrite an existing file, while uploading, is allowed. upload permission is required to allow file overwrite
           * `delete` - delete files or directories is allowed
           * `rename` - rename files or directories is allowed
           * `create_dirs` - create directories is allowed

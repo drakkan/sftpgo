@@ -131,6 +131,10 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 		return nil, sftp.ErrSshFxOpUnsupported
 	}
 
+	if !c.User.HasPerm(dataprovider.PermOverwrite) {
+		return nil, sftp.ErrSshFxPermissionDenied
+	}
+
 	return c.handleSFTPUploadToExistingFile(request.Pflags(), p, filePath, stat.Size())
 }
 

@@ -1233,7 +1233,7 @@ func TestPermList(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete, dataprovider.PermRename,
-		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
+		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite}
 	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
@@ -1263,7 +1263,7 @@ func TestPermDownload(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermUpload, dataprovider.PermDelete, dataprovider.PermRename,
-		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
+		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite}
 	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
@@ -1305,7 +1305,7 @@ func TestPermUpload(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermDelete, dataprovider.PermRename,
-		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
+		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite}
 	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
@@ -1334,11 +1334,48 @@ func TestPermUpload(t *testing.T) {
 	os.RemoveAll(user.GetHomeDir())
 }
 
+func TestPermOverwrite(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
+		dataprovider.PermRename, dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
+	user, _, err := api.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		if err != nil {
+			t.Errorf("unable to create test file: %v", err)
+		}
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		if err != nil {
+			t.Errorf("error uploading file: %v", err)
+		}
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		if err == nil {
+			t.Errorf("file overwrite without permission should not succeed")
+		}
+	}
+	_, err = api.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+}
+
 func TestPermDelete(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermRename,
-		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
+		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite}
 	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
@@ -1375,7 +1412,7 @@ func TestPermRename(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
-		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
+		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite}
 	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
@@ -1416,7 +1453,7 @@ func TestPermCreateDirs(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
-		dataprovider.PermRename, dataprovider.PermCreateSymlinks}
+		dataprovider.PermRename, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite}
 	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
@@ -1453,7 +1490,7 @@ func TestPermSymlink(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
-		dataprovider.PermRename, dataprovider.PermCreateDirs}
+		dataprovider.PermRename, dataprovider.PermCreateDirs, dataprovider.PermOverwrite}
 	user, _, err := api.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
@@ -1779,6 +1816,47 @@ func TestSCPPermUpload(t *testing.T) {
 	err = scpUpload(testFilePath, remoteUpPath, true, false)
 	if err == nil {
 		t.Errorf("scp upload must fail, the user cannot upload")
+	}
+	err = os.Remove(testFilePath)
+	if err != nil {
+		t.Errorf("error removing test file")
+	}
+	err = os.RemoveAll(user.GetHomeDir())
+	if err != nil {
+		t.Errorf("error removing uploaded files")
+	}
+	_, err = api.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+}
+
+func TestSCPPermOverwrite(t *testing.T) {
+	if len(scpPath) == 0 {
+		t.Skip("scp command not found, unable to execute this test")
+	}
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.Permissions = []string{dataprovider.PermUpload, dataprovider.PermCreateDirs}
+	user, _, err := api.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	testFileName := "test_file.dat"
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65536)
+	err = createTestFile(testFilePath, testFileSize)
+	if err != nil {
+		t.Errorf("unable to create test file: %v", err)
+	}
+	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/tmp")
+	err = scpUpload(testFilePath, remoteUpPath, true, false)
+	if err != nil {
+		t.Errorf("scp upload error: %v", err)
+	}
+	err = scpUpload(testFilePath, remoteUpPath, true, false)
+	if err == nil {
+		t.Errorf("scp upload must fail, the user cannot ovewrite existing files")
 	}
 	err = os.Remove(testFilePath)
 	if err != nil {

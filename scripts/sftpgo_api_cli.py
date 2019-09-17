@@ -62,7 +62,7 @@ class SFTPGoApiRequests:
 					download_bandwidth=0):
 		user = {"id":user_id, "username":username, "uid":uid, "gid":gid,
 			"max_sessions":max_sessions, "quota_size":quota_size, "quota_files":quota_files,
-			"upload_bandwidth":upload_bandwidth,"download_bandwidth":download_bandwidth}
+			"upload_bandwidth":upload_bandwidth, "download_bandwidth":download_bandwidth}
 		if password:
 			user.update({"password":password})
 		if public_keys:
@@ -136,7 +136,7 @@ def addCommonUserArguments(parser):
 					help='Maximum size allowed as bytes. 0 means unlimited. Default: %(default)s')
 	parser.add_argument('-F', '--quota-files', type=int, default=0, help="default: %(default)s")
 	parser.add_argument('-G', '--permissions', type=str, nargs='+', default=[],
-					choices=['*', 'list', 'download', 'upload', 'delete', 'rename', 'create_dirs',
+					choices=['*', 'list', 'download', 'upload', 'overwrite', 'delete', 'rename', 'create_dirs',
 							'create_symlinks'], help='Default: %(default)s')
 	parser.add_argument('-U', '--upload-bandwidth', type=int, default=0,
 					help='Maximum upload bandwidth as KB/s, 0 means unlimited. Default: %(default)s')

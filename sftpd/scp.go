@@ -242,7 +242,7 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 	updateConnectionActivity(c.connection.ID)
 	if !c.connection.User.HasPerm(dataprovider.PermUpload) {
 		err := fmt.Errorf("Permission denied")
-		c.connection.Log(logger.LevelWarn, logSenderSCP, "error uploading file: %#v, permission denied", uploadFilePath)
+		c.connection.Log(logger.LevelWarn, logSenderSCP, "cannot upload file: %#v, permission denied", uploadFilePath)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
@@ -271,6 +271,13 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 	if stat.IsDir() {
 		c.connection.Log(logger.LevelWarn, logSenderSCP, "attempted to open a directory for writing to: %#v", p)
 		err = fmt.Errorf("Attempted to open a directory for writing: %#v", p)
+		c.sendErrorMessage(err.Error())
+		return err
+	}
+
+	if !c.connection.User.HasPerm(dataprovider.PermOverwrite) {
+		err := fmt.Errorf("Permission denied")
+		c.connection.Log(logger.LevelWarn, logSenderSCP, "cannot overwrite file: %#v, permission denied", uploadFilePath)
 		c.sendErrorMessage(err.Error())
 		return err
 	}

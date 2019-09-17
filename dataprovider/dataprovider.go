@@ -55,7 +55,7 @@ var (
 	provider           Provider
 	sqlPlaceholders    []string
 	validPerms         = []string{PermAny, PermListItems, PermDownload, PermUpload, PermDelete, PermRename,
-		PermCreateDirs, PermCreateSymlinks}
+		PermCreateDirs, PermCreateSymlinks, PermOverwrite}
 	hashPwdPrefixes = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
 		pbkdf2SHA512Prefix, sha512cryptPwdPrefix}
 	pbkdfPwdPrefixes   = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
