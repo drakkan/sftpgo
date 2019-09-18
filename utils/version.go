@@ -1,6 +1,6 @@
 package utils
 
-const version = "0.9.1-dev"
+const version = "0.9.2"
 
 var (
 	commit      = ""

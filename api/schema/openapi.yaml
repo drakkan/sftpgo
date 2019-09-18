@@ -518,7 +518,7 @@ components:
         - create_symlinks
       description: >
         Permissions:
-          * `*` - all permission are granted
+          * `*` - all permissions are granted
           * `list` - list items is allowed
           * `download` - download files is allowed
           * `upload` - upload files is allowed

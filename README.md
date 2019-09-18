@@ -12,7 +12,7 @@ Full featured and highly configurable SFTP server
 - Quota support: accounts can have individual quota expressed as max total size and/or max number of files.
 - Bandwidth throttling is supported, with distinct settings for upload and download.
 - Per user maximum concurrent sessions.
-- Per user permissions: list directories content, upload, download, delete, rename, create directories, create symlinks can be enabled or disabled.
+- Per user permissions: list directories content, upload, overwrite, download, delete, rename, create directories, create symlinks can be enabled or disabled.
 - Per user files/folders ownership: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (*NIX only).
 - Configurable custom commands and/or HTTP notifications on upload, download, delete or rename.
 - Automatically terminating idle connections.
@@ -125,7 +125,7 @@ The `sftpgo` configuration file contains the following sections:
     - `banner`, string. Identification string used by the server. Leave empty to use the default banner. Default "SFTPGo_version"
     - `upload_mode` integer. 0 means standard, the files are uploaded directly to the requested path. 1 means atomic: files are uploaded to a temporary path and renamed to the requested path when the client ends the upload. Atomic mode avoids problems such as a web server that serves partial files when the files are being uploaded. In atomic mode if there is an upload error the temporary file is deleted and so the requested upload path will not contain a partial file.
     - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions
-        - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`. On folder deletion a `delete` notification will be sent for each deleted file. Actions will be not executed if an error is detected and so a partial file is uploaded or downloaded. Leave empty to disable actions.
+        - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`. On folder deletion a `delete` notification will be sent for each deleted file. Actions will be not executed if an error is detected and so a partial file is uploaded or downloaded. Leave empty to disable actions. The `upload` condition includes both uploads to new files and overwrite existing files 
         - `command`, string. Absolute path to the command to execute. Leave empty to disable. The command is invoked with the following arguments:
             - `action`, any valid `execute_on` string
             - `username`, user who did the action
@@ -278,7 +278,7 @@ For each account the following properties can be configured:
 - `quota_size` maximum size allowed as bytes. 0 means unlimited
 - `quota_files` maximum number of files allowed. 0 means unlimited
 - `permissions` the following permissions are supported:
-    - `*` all permission are granted
+    - `*` all permissions are granted
     - `list` list items is allowed
     - `download` download files is allowed
     - `upload` upload files is allowed
