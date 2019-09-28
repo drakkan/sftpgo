@@ -297,6 +297,10 @@ func (p BoltProvider) getUsers(limit int, offset int, order string, username str
 	return users, err
 }
 
+func (p BoltProvider) close() error {
+	return p.dbHandle.Close()
+}
+
 func getUserNoCredentials(user *User) User {
 	user.Password = ""
 	user.PublicKeys = []string{}

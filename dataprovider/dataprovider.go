@@ -58,9 +58,10 @@ var (
 		PermCreateDirs, PermCreateSymlinks, PermOverwrite}
 	hashPwdPrefixes = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
 		pbkdf2SHA512Prefix, sha512cryptPwdPrefix}
-	pbkdfPwdPrefixes   = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
-	logSender          = "dataProvider"
-	availabilityTicker *time.Ticker
+	pbkdfPwdPrefixes       = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
+	logSender              = "dataProvider"
+	availabilityTicker     *time.Ticker
+	availabilityTickerDone chan bool
 )
 
 // Config provider configuration
@@ -100,6 +101,11 @@ type Config struct {
 	// Sets the maximum number of open connections for mysql and postgresql driver.
 	// Default 0 (unlimited)
 	PoolSize int `json:"pool_size" mapstructure:"pool_size"`
+	// Users' default base directory.
+	// If no home dir is defined while adding a new user, and this value is
+	// a valid absolute path, then the user home dir will be automatically
+	// defined as the path obtained joining the base dir and the username
+	UsersBaseDir string `json:"users_base_dir" mapstructure:"users_base_dir"`
 }
 
 // ValidationError raised if input data is not valid
@@ -151,6 +157,7 @@ type Provider interface {
 	getUsers(limit int, offset int, order string, username string) ([]User, error)
 	getUserByID(ID int64) (User, error)
 	checkAvailability() error
+	close() error
 }
 
 func init() {
@@ -252,7 +259,19 @@ func GetUserByID(p Provider, ID int64) (User, error) {
 	return p.getUserByID(ID)
 }
 
+// Close releases all database resources
+func Close(p Provider) error {
+	availabilityTicker.Stop()
+	availabilityTickerDone <- true
+	return p.close()
+}
+
 func validateUser(user *User) error {
+	if len(user.HomeDir) == 0 {
+		if len(config.UsersBaseDir) > 0 {
+			user.HomeDir = filepath.Join(config.UsersBaseDir, user.Username)
+		}
+	}
 	if len(user.Username) == 0 || len(user.HomeDir) == 0 {
 		return &ValidationError{err: "Mandatory parameters missing"}
 	}
@@ -405,10 +424,16 @@ func getSSLMode() string {
 }
 
 func startAvailabilityTimer() {
+	availabilityTickerDone = make(chan bool)
 	checkDataprovider()
 	go func() {
-		for range availabilityTicker.C {
-			checkDataprovider()
+		for {
+			select {
+			case <-availabilityTickerDone:
+				return
+			case <-availabilityTicker.C:
+				checkDataprovider()
+			}
 		}
 	}()
 }

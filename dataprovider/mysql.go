@@ -87,3 +87,7 @@ func (p MySQLProvider) deleteUser(user User) error {
 func (p MySQLProvider) getUsers(limit int, offset int, order string, username string) ([]User, error) {
 	return sqlCommonGetUsers(limit, offset, order, username, p.dbHandle)
 }
+
+func (p MySQLProvider) close() error {
+	return p.dbHandle.Close()
+}

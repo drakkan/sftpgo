@@ -86,3 +86,7 @@ func (p PGSQLProvider) deleteUser(user User) error {
 func (p PGSQLProvider) getUsers(limit int, offset int, order string, username string) ([]User, error) {
 	return sqlCommonGetUsers(limit, offset, order, username, p.dbHandle)
 }
+
+func (p PGSQLProvider) close() error {
+	return p.dbHandle.Close()
+}

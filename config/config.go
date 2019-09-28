@@ -74,6 +74,7 @@ func init() {
 			SSLMode:          0,
 			TrackQuota:       1,
 			PoolSize:         0,
+			UsersBaseDir:     "",
 		},
 		HTTPDConfig: api.HTTPDConf{
 			BindPort:    8080,

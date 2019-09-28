@@ -37,6 +37,7 @@ const (
 	quotaScanPath         = "/api/v1/quota_scan"
 	versionPath           = "/api/v1/version"
 	metricsPath           = "/metrics"
+	configDir             = ".."
 )
 
 var (
@@ -51,7 +52,6 @@ func TestMain(m *testing.M) {
 	} else {
 		homeBasePath = "/tmp"
 	}
-	configDir := ".."
 	logfilePath := filepath.Join(configDir, "sftpgo_api_test.log")
 	logger.InitLogger(logfilePath, 5, 1, 28, false, zerolog.DebugLevel)
 	config.LoadConfig(configDir, "")
@@ -422,6 +422,71 @@ func TestCloseActiveConnection(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error closing non existent sftp connection: %v", err)
 	}
+}
+
+func TestUserBaseDir(t *testing.T) {
+	dataProvider := dataprovider.GetProvider()
+	dataprovider.Close(dataProvider)
+	config.LoadConfig(configDir, "")
+	providerConf := config.GetProviderConf()
+	providerConf.UsersBaseDir = homeBasePath
+	err := dataprovider.Initialize(providerConf, configDir)
+	if err != nil {
+		t.Errorf("error initializing data provider with users base dir")
+	}
+	api.SetDataProvider(dataprovider.GetProvider())
+	u := getTestUser()
+	u.HomeDir = ""
+	user, _, err := api.AddUser(getTestUser(), http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	if user.HomeDir != filepath.Join(providerConf.UsersBaseDir, u.Username) {
+		t.Errorf("invalid home dir: %v", user.HomeDir)
+	}
+	_, err = api.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove: %v", err)
+	}
+	dataProvider = dataprovider.GetProvider()
+	dataprovider.Close(dataProvider)
+	config.LoadConfig(configDir, "")
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir)
+	if err != nil {
+		t.Errorf("error initializing data provider")
+	}
+	api.SetDataProvider(dataprovider.GetProvider())
+	sftpd.SetDataProvider(dataprovider.GetProvider())
+}
+
+func TestProviderErrors(t *testing.T) {
+	dataProvider := dataprovider.GetProvider()
+	dataprovider.Close(dataProvider)
+	_, _, err := api.GetUserByID(0, http.StatusInternalServerError)
+	if err != nil {
+		t.Errorf("get user with provider closed must fail: %v", err)
+	}
+	_, _, err = api.GetUsers(0, 0, defaultUsername, http.StatusInternalServerError)
+	if err != nil {
+		t.Errorf("get users with provider closed must fail: %v", err)
+	}
+	_, _, err = api.UpdateUser(dataprovider.User{}, http.StatusInternalServerError)
+	if err != nil {
+		t.Errorf("update user with provider closed must fail: %v", err)
+	}
+	_, err = api.RemoveUser(dataprovider.User{}, http.StatusInternalServerError)
+	if err != nil {
+		t.Errorf("delete user with provider closed must fail: %v", err)
+	}
+	config.LoadConfig(configDir, "")
+	providerConf := config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir)
+	if err != nil {
+		t.Errorf("error initializing data provider")
+	}
+	api.SetDataProvider(dataprovider.GetProvider())
+	sftpd.SetDataProvider(dataprovider.GetProvider())
 }
 
 // test using mock http server
