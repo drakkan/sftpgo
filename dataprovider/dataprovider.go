@@ -266,12 +266,16 @@ func Close(p Provider) error {
 	return p.close()
 }
 
-func validateUser(user *User) error {
+func buildUserHomeDir(user *User) {
 	if len(user.HomeDir) == 0 {
 		if len(config.UsersBaseDir) > 0 {
 			user.HomeDir = filepath.Join(config.UsersBaseDir, user.Username)
 		}
 	}
+}
+
+func validateUser(user *User) error {
+	buildUserHomeDir(user)
 	if len(user.Username) == 0 || len(user.HomeDir) == 0 {
 		return &ValidationError{err: "Mandatory parameters missing"}
 	}
