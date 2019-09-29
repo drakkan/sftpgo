@@ -259,7 +259,9 @@ func GetUserByID(p Provider, ID int64) (User, error) {
 	return p.getUserByID(ID)
 }
 
-// Close releases all database resources
+// Close releases all provider resources.
+// This method is used in test cases.
+// Closing an uninitialized provider is not supported
 func Close(p Provider) error {
 	availabilityTicker.Stop()
 	availabilityTickerDone <- true
