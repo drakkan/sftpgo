@@ -202,10 +202,9 @@ func sqlCommonGetUsers(limit int, offset int, order string, username string, dbH
 		defer rows.Close()
 		for rows.Next() {
 			u, err := getUserFromDbRow(nil, rows)
-			// hide password and public key
+			// hide password
 			if err == nil {
 				u.Password = ""
-				u.PublicKeys = []string{}
 				users = append(users, u)
 			} else {
 				break

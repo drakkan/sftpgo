@@ -64,7 +64,6 @@ func getUserByID(w http.ResponseWriter, r *http.Request) {
 	user, err := dataprovider.GetUserByID(dataProvider, userID)
 	if err == nil {
 		user.Password = ""
-		user.PublicKeys = []string{}
 		render.JSON(w, r, user)
 	} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
 		sendAPIResponse(w, r, err, "", http.StatusNotFound)

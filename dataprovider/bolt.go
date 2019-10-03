@@ -303,7 +303,6 @@ func (p BoltProvider) close() error {
 
 func getUserNoCredentials(user *User) User {
 	user.Password = ""
-	user.PublicKeys = []string{}
 	return *user
 }
 

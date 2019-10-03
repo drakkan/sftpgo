@@ -184,7 +184,7 @@ paths:
       tags:
       - users
       summary: Returns an array with one or more users
-      description: For security reasons password and public key are empty in the response
+      description: For security reasons passwords are empty in the response
       operationId: get_users
       parameters:
         - in: query
@@ -311,7 +311,7 @@ paths:
       tags:
       - users
       summary: Find user by ID
-      description: For security reasons password and public key are empty in the response
+      description: For security reasons passwords are empty in the response
       operationId: get_user_by_id
       parameters: 
       - name: userID
@@ -545,7 +545,7 @@ components:
           items:
             type: string
           nullable: true
-          description: a password or at least one public key are mandatory. For security reasons this field is omitted when you search/get users.
+          description: a password or at least one public key are mandatory.
         home_dir:
           type: string
           description: path to the user home directory. The user cannot upload or download files outside this directory. SFTPGo tries to automatically create this folder if missing. Must be an absolute path
