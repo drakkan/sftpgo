@@ -10,6 +10,10 @@
         <string>/usr/local/opt/sftpgo/etc</string>
         <key>SFTPGO_LOG_FILE_PATH</key>
         <string>/usr/local/opt/sftpgo/log/sftpgo.log</string>
+        <key>SFTPGO_HTTPD__TEMPLATES_PATH</key>
+        <string>/usr/local/opt/sftpgo/templates</string>
+        <key>SFTPGO_HTTPD__STATIC_FILES_PATH</key>
+        <string>/usr/local/opt/sftpgo/static</string>
     </dict>
     <key>WorkingDirectory</key>
     <string>/usr/local/opt/sftpgo/etc</string>
