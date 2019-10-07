@@ -18,12 +18,17 @@ import (
 )
 
 const (
-	logSender             = "api"
+	logSender             = "httpd"
 	activeConnectionsPath = "/api/v1/connection"
 	quotaScanPath         = "/api/v1/quota_scan"
 	userPath              = "/api/v1/user"
 	versionPath           = "/api/v1/version"
 	metricsPath           = "/metrics"
+	webBasePath           = "/web"
+	webUsersPath          = "/web/users"
+	webUserPath           = "/web/user"
+	webConnectionsPath    = "/web/connections"
+	staticFileWebPath     = "/static"
 )
 
 var (

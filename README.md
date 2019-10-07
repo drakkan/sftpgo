@@ -18,8 +18,9 @@ Full featured and highly configurable SFTP server
 - Automatically terminating idle connections.
 - Atomic uploads are configurable.
 - Optional SCP support.
-- REST API for users and quota management and real time reports for the active connections with possibility of forcibly closing a connection.
 - Prometheus metrics are exposed.
+- REST API for users and quota management and real time reports for the active connections with possibility of forcibly closing a connection.
+- Web based interface to manage users and connections.
 - Configuration is a your choice: JSON, TOML, YAML, HCL, envfile are supported.
 - Log files are accurate and they are saved in the easily parsable JSON format.
 
@@ -416,6 +417,7 @@ The logs can be divided into the following categories:
 - [cobra](https://github.com/spf13/cobra)
 - [xid](https://github.com/rs/xid)
 - [nathanaelle/password](https://github.com/nathanaelle/password)
+- [SB Admin 2](https://github.com/BlackrockDigital/startbootstrap-sb-admin-2)
 
 Some code was initially taken from [Pterodactyl sftp server](https://github.com/pterodactyl/sftp-server)
 

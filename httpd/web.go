@@ -13,18 +13,11 @@ import (
 )
 
 const (
-	templateBase        = "base.html"
-	templateUsers       = "users.html"
-	templateUser        = "user.html"
-	templateConnections = "connections.html"
-	templateMessage     = "message.html"
-
-	webBasePath        = "/web"
-	webUsersPath       = "/web/users"
-	webUserPath        = "/web/user"
-	webConnectionsPath = "/web/connections"
-	staticFileWebPath  = "/static"
-
+	templateBase           = "base.html"
+	templateUsers          = "users.html"
+	templateUser           = "user.html"
+	templateConnections    = "connections.html"
+	templateMessage        = "message.html"
 	pageUsersTitle         = "Users"
 	pageConnectionsTitle   = "Connections"
 	page400Title           = "Bad request"
