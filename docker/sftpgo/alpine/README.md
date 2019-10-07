@@ -21,6 +21,8 @@ git clone https://github.com/drakkan/sftpgo.git && \
 sudo docker run --name sftpgo \
   -e SFTPGO_LOG_FILE_PATH= \
   -e SFTPGO_CONFIG_DIR=/srv/sftpgo/config \
+  -e SFTPGO_HTTPD__TEMPLATES_PATH=/srv/sftpgo/web/templates \
+  -e SFTPGO_HTTPD__STATIC_FILES_PATH=/srv/sftpgo/web/static \
   -p 8080:8080 \
   -p 2022:2022 \
   -e PUID=1003 \

@@ -15,6 +15,8 @@ ExecStart=docker run --name sftpgo \
   --env-file sftpgo-${PUID}.env \
   -e PUID=${PUID} \
   -e GUID=${GUID} \
+  -e SFTPGO_HTTPD__TEMPLATES_PATH=/srv/sftpgo/web/templates \
+  -e SFTPGO_HTTPD__STATIC_FILES_PATH=/srv/sftpgo/web/static \
   -p 8080:8080 \
   -p 2022:2022 \
   -v /home/sftpuser/conf/:/srv/sftpgo/config \

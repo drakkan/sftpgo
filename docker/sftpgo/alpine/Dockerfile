@@ -10,10 +10,12 @@ RUN go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/utils.commit=`git d
 FROM alpine:latest
 
 RUN  apk add --no-cache ca-certificates su-exec \
-  && mkdir -p /data /etc/sftpgo /srv/sftpgo/config
+  && mkdir -p /data /etc/sftpgo /srv/sftpgo/config /srv/sftpgo/web
 
 COPY --from=builder /go/bin/sftpgo /bin/
 COPY --from=builder /go/src/github.com/drakkan/sftpgo/sftpgo.json /etc/sftpgo/sftpgo.json
+COPY --from=builder /go/src/github.com/drakkan/sftpgo/templates /srv/sftpgo/web/templates
+COPY --from=builder /go/src/github.com/drakkan/sftpgo/static /srv/sftpgo/web/static
 COPY docker-entrypoint.sh /bin/entrypoint.sh
 RUN chmod +x /bin/entrypoint.sh
 
