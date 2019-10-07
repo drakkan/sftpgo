@@ -184,7 +184,7 @@ paths:
       tags:
       - users
       summary: Returns an array with one or more users
-      description: For security reasons passwords are empty in the response
+      description: For security reasons hashed passwords are omitted in the response
       operationId: get_users
       parameters:
         - in: query
@@ -311,7 +311,7 @@ paths:
       tags:
       - users
       summary: Find user by ID
-      description: For security reasons passwords are empty in the response
+      description: For security reasons the hashed password is omitted in the response
       operationId: get_user_by_id
       parameters: 
       - name: userID
@@ -568,7 +568,7 @@ components:
         quota_size:
           type: integer
           format: int64
-          description: quota as size. 0 menas unlimited. Please note that quota is updated if files are added/removed via SFTP/SCP otherwise a quota scan is needed
+          description: quota as size in bytes. 0 menas unlimited. Please note that quota is updated if files are added/removed via SFTP/SCP otherwise a quota scan is needed
         quota_files:
           type: integer
           format: int32

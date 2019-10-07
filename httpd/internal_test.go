@@ -1,4 +1,4 @@
-package api
+package httpd
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"text/template"
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/go-chi/chi"
@@ -224,5 +225,19 @@ func TestCloseConnectionHandler(t *testing.T) {
 	handleCloseConnection(rr, req)
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("Expected response code 400. Got %d", rr.Code)
+	}
+}
+
+func TestRenderInvalidTemplate(t *testing.T) {
+	tmpl, err := template.New("test").Parse("{{.Count}}")
+	if err != nil {
+		t.Errorf("error making test template: %v", err)
+	} else {
+		templates["no_match"] = tmpl
+		rw := httptest.NewRecorder()
+		renderTemplate(rw, "no_match", map[string]string{})
+		if rw.Code != http.StatusInternalServerError {
+			t.Errorf("invalid template rendering must fail")
+		}
 	}
 }

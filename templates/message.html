@@ -1,0 +1,19 @@
+{{template "base" .}}
+
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "page_body"}}
+<h1 class="h5 mb-4 text-gray-800">{{.Title}}</h1>
+{{if .Error}}
+<div class="card mb-4 border-left-warning">
+    <div class="card-body text-form-error">{{.Error}}</div>
+</div>
+{{end}}
+
+{{if .Success}}
+<div class="card mb-4 border-left-success">
+    <div class="card-body">{{.Success}}</div>
+</div>
+{{end}}
+
+{{end}}

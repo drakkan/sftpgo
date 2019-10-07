@@ -2,7 +2,9 @@ package dataprovider
 
 import (
 	"encoding/json"
+	"fmt"
 	"path/filepath"
+	"strconv"
 
 	"github.com/drakkan/sftpgo/utils"
 )
@@ -122,4 +124,68 @@ func (u *User) GetRelativePath(path string) string {
 		return ""
 	}
 	return "/" + filepath.ToSlash(rel)
+}
+
+// GetQuotaSummary returns used quota and limits if defined
+func (u *User) GetQuotaSummary() string {
+	var result string
+	result = "Files: " + strconv.Itoa(u.UsedQuotaFiles)
+	if u.QuotaFiles > 0 {
+		result += "/" + strconv.Itoa(u.QuotaFiles)
+	}
+	if u.UsedQuotaSize > 0 || u.QuotaSize > 0 {
+		result += ". Size: " + utils.ByteCountSI(u.UsedQuotaSize)
+		if u.QuotaSize > 0 {
+			result += "/" + utils.ByteCountSI(u.QuotaSize)
+		}
+	}
+	return result
+}
+
+// GetPermissionsAsString returns the user's permissions as comma separated string
+func (u *User) GetPermissionsAsString() string {
+	var result string
+	for _, p := range u.Permissions {
+		if len(result) > 0 {
+			result += ", "
+		}
+		result += p
+	}
+	return result
+}
+
+// GetBandwidthAsString returns bandwidth limits if defines
+func (u *User) GetBandwidthAsString() string {
+	result := "Download: "
+	if u.DownloadBandwidth > 0 {
+		result += utils.ByteCountSI(u.DownloadBandwidth*1000) + "/s."
+	} else {
+		result += "ulimited."
+	}
+	result += " Upload: "
+	if u.UploadBandwidth > 0 {
+		result += utils.ByteCountSI(u.UploadBandwidth*1000) + "/s."
+	} else {
+		result += "ulimited."
+	}
+	return result
+}
+
+// GetInfoString returns user's info as string.
+// Number of public keys, max sessions, uid and gid are returned
+func (u *User) GetInfoString() string {
+	var result string
+	if len(u.PublicKeys) > 0 {
+		result += fmt.Sprintf("Public keys: %v ", len(u.PublicKeys))
+	}
+	if u.MaxSessions > 0 {
+		result += fmt.Sprintf("Max sessions: %v ", u.MaxSessions)
+	}
+	if u.UID > 0 {
+		result += fmt.Sprintf("UID: %v ", u.UID)
+	}
+	if u.GID > 0 {
+		result += fmt.Sprintf("GID: %v ", u.GID)
+	}
+	return result
 }

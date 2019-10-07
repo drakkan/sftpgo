@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/drakkan/sftpgo/api"
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
@@ -35,7 +35,7 @@ var (
 type globalConfig struct {
 	SFTPD        sftpd.Configuration `json:"sftpd" mapstructure:"sftpd"`
 	ProviderConf dataprovider.Config `json:"data_provider" mapstructure:"data_provider"`
-	HTTPDConfig  api.HTTPDConf       `json:"httpd" mapstructure:"httpd"`
+	HTTPDConfig  httpd.Conf          `json:"httpd" mapstructure:"httpd"`
 }
 
 func init() {
@@ -76,9 +76,11 @@ func init() {
 			PoolSize:         0,
 			UsersBaseDir:     "",
 		},
-		HTTPDConfig: api.HTTPDConf{
-			BindPort:    8080,
-			BindAddress: "127.0.0.1",
+		HTTPDConfig: httpd.Conf{
+			BindPort:        8080,
+			BindAddress:     "127.0.0.1",
+			TemplatesPath:   "templates",
+			StaticFilesPath: "static",
 		},
 	}
 
@@ -96,7 +98,7 @@ func GetSFTPDConfig() sftpd.Configuration {
 }
 
 // GetHTTPDConfig returns the configuration for the HTTP server
-func GetHTTPDConfig() api.HTTPDConf {
+func GetHTTPDConfig() httpd.Conf {
 	return globalConf.HTTPDConfig
 }
 

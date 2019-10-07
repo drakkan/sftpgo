@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/utils"
 	"github.com/pkg/sftp"
 )
 
@@ -720,5 +721,47 @@ func TestUploadError(t *testing.T) {
 	_, err = os.Stat(fileTempName)
 	if !os.IsNotExist(err) {
 		t.Errorf("file uploaded must be deleted after an error: %v", err)
+	}
+}
+
+func TestConnectionStatusStruct(t *testing.T) {
+	var transfers []connectionTransfer
+	transferUL := connectionTransfer{
+		OperationType: operationUpload,
+		StartTime:     utils.GetTimeAsMsSinceEpoch(time.Now()),
+		Size:          123,
+		LastActivity:  utils.GetTimeAsMsSinceEpoch(time.Now()),
+		Path:          "/test.upload",
+	}
+	transferDL := connectionTransfer{
+		OperationType: operationDownload,
+		StartTime:     utils.GetTimeAsMsSinceEpoch(time.Now()),
+		Size:          123,
+		LastActivity:  utils.GetTimeAsMsSinceEpoch(time.Now()),
+		Path:          "/test.download",
+	}
+	transfers = append(transfers, transferUL)
+	transfers = append(transfers, transferDL)
+	c := ConnectionStatus{
+		Username:       "test",
+		ConnectionID:   "123",
+		ClientVersion:  "fakeClient-1.0.0",
+		RemoteAddress:  "127.0.0.1:1234",
+		ConnectionTime: utils.GetTimeAsMsSinceEpoch(time.Now()),
+		LastActivity:   utils.GetTimeAsMsSinceEpoch(time.Now()),
+		Protocol:       "SFTP",
+		Transfers:      transfers,
+	}
+	durationString := c.GetConnectionDuration()
+	if len(durationString) == 0 {
+		t.Errorf("error getting connection duration")
+	}
+	transfersString := c.GetTransfersAsString()
+	if len(transfersString) == 0 {
+		t.Errorf("error getting transfers as string")
+	}
+	connInfo := c.GetConnectionInfo()
+	if len(connInfo) == 0 {
+		t.Errorf("error getting connection info")
 	}
 }

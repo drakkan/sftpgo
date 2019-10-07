@@ -101,6 +101,47 @@ func init() {
 	idleConnectionTicker = time.NewTicker(5 * time.Minute)
 }
 
+// GetConnectionDuration returns the connection duration as string
+func (c ConnectionStatus) GetConnectionDuration() string {
+	elapsed := time.Since(utils.GetTimeFromMsecSinceEpoch(c.ConnectionTime))
+	return utils.GetDurationAsString(elapsed)
+}
+
+// GetConnectionInfo returns connection info.
+// Protocol,Client Version and RemoteAddress are returned
+func (c ConnectionStatus) GetConnectionInfo() string {
+	return fmt.Sprintf("%v. Client: %#v From: %#v", c.Protocol, c.ClientVersion, c.RemoteAddress)
+}
+
+// GetTransfersAsString returns the active transfers as string
+func (c ConnectionStatus) GetTransfersAsString() string {
+	result := ""
+	for _, t := range c.Transfers {
+		if len(result) > 0 {
+			result += ". "
+		}
+		result += t.getConnectionTransferAsString()
+	}
+	return result
+}
+
+func (t connectionTransfer) getConnectionTransferAsString() string {
+	result := ""
+	if t.OperationType == operationUpload {
+		result += "UL"
+	} else {
+		result += "DL"
+	}
+	result += fmt.Sprintf(" %#v ", t.Path)
+	if t.Size > 0 {
+		elapsed := time.Since(utils.GetTimeFromMsecSinceEpoch(t.StartTime))
+		speed := float64(t.Size) / float64(utils.GetTimeAsMsSinceEpoch(time.Now())-t.StartTime)
+		result += fmt.Sprintf("Size: %#v Elapsed: %#v Speed: \"%.1f KB/s\"", utils.ByteCountSI(t.Size),
+			utils.GetDurationAsString(elapsed), speed)
+	}
+	return result
+}
+
 // SetDataProvider sets the data provider to use to authenticate users and to get/update their disk quota
 func SetDataProvider(provider dataprovider.Provider) {
 	dataProvider = provider

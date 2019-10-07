@@ -2,6 +2,7 @@
 package utils
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -37,6 +38,11 @@ func IsStringPrefixInSlice(obj string, list []string) bool {
 // GetTimeAsMsSinceEpoch returns unix timestamp as milliseconds from a time struct
 func GetTimeAsMsSinceEpoch(t time.Time) int64 {
 	return t.UnixNano() / 1000000
+}
+
+// GetTimeFromMsecSinceEpoch return a time struct from a unix timestamp with millisecond precision
+func GetTimeFromMsecSinceEpoch(msec int64) time.Time {
+	return time.Unix(0, msec*1000000)
 }
 
 // ScanDirContents returns the number of files contained in a directory, their size and a slice with the file paths
@@ -85,4 +91,45 @@ func SetPathPermissions(path string, uid int, gid int) {
 // GetAppVersion returns VersionInfo struct
 func GetAppVersion() VersionInfo {
 	return versionInfo
+}
+
+// GetDurationAsString returns a string representation for a time.Duration
+func GetDurationAsString(d time.Duration) string {
+	d = d.Round(time.Second)
+	h := d / time.Hour
+	d -= h * time.Hour
+	m := d / time.Minute
+	d -= m * time.Minute
+	s := d / time.Second
+	if h > 0 {
+		return fmt.Sprintf("%02d:%02d:%02d", h, m, s)
+	}
+	return fmt.Sprintf("%02d:%02d", m, s)
+}
+
+// ByteCountSI returns humanized size in SI (decimal) format
+func ByteCountSI(b int64) string {
+	return byteCount(b, 1000)
+}
+
+// ByteCountIEC returns humanized size in IEC (binary) format
+func ByteCountIEC(b int64) string {
+	return byteCount(b, 1024)
+}
+
+func byteCount(b int64, unit int64) string {
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := unit, 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	if unit == 1000 {
+		return fmt.Sprintf("%.1f %cB",
+			float64(b)/float64(div), "KMGTPE"[exp])
+	}
+	return fmt.Sprintf("%.1f %ciB",
+		float64(b)/float64(div), "KMGTPE"[exp])
 }

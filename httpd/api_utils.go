@@ -1,4 +1,4 @@
-package api
+package httpd
 
 import (
 	"bytes"
@@ -40,6 +40,33 @@ func buildURLRelativeToBase(paths ...string) string {
 	// since filepath.Join will use backslash separator on Windows
 	p := path.Join(paths...)
 	return fmt.Sprintf("%s/%s", strings.TrimRight(httpBaseURL, "/"), strings.TrimLeft(p, "/"))
+}
+
+func sendAPIResponse(w http.ResponseWriter, r *http.Request, err error, message string, code int) {
+	var errorString string
+	if err != nil {
+		errorString = err.Error()
+	}
+	resp := apiResponse{
+		Error:      errorString,
+		Message:    message,
+		HTTPStatus: code,
+	}
+	if code != http.StatusOK {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(code)
+	}
+	render.JSON(w, r, resp)
+}
+
+func getRespStatus(err error) int {
+	if _, ok := err.(*dataprovider.ValidationError); ok {
+		return http.StatusBadRequest
+	}
+	if _, ok := err.(*dataprovider.MethodDisabledError); ok {
+		return http.StatusForbidden
+	}
+	return http.StatusInternalServerError
 }
 
 // AddUser adds a new user and checks the received HTTP Status code against expectedStatusCode.

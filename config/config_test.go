@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/drakkan/sftpgo/api"
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/sftpd"
 )
 
@@ -24,7 +24,7 @@ func TestLoadConfigTest(t *testing.T) {
 	if err != nil {
 		t.Errorf("error loading config")
 	}
-	emptyHTTPDConf := api.HTTPDConf{}
+	emptyHTTPDConf := httpd.Conf{}
 	if config.GetHTTPDConfig() == emptyHTTPDConf {
 		t.Errorf("error loading httpd conf")
 	}

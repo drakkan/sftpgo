@@ -36,6 +36,8 @@
   },
   "httpd": {
     "bind_port": 8080,
-    "bind_address": "127.0.0.1"
+    "bind_address": "127.0.0.1",
+    "templates_path": "templates",
+    "static_files_path": "static"
   }
 }

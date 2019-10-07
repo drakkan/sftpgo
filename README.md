@@ -94,7 +94,7 @@ Flags:
   -h, --help      help for sftpgo
   -v, --version
 
- Use "sftpgo [command] --help" for more information about a command 
+ Use "sftpgo [command] --help" for more information about a command
 ```
 
 The `serve` subcommand supports the following flags:
@@ -125,7 +125,7 @@ The `sftpgo` configuration file contains the following sections:
     - `banner`, string. Identification string used by the server. Leave empty to use the default banner. Default "SFTPGo_version"
     - `upload_mode` integer. 0 means standard, the files are uploaded directly to the requested path. 1 means atomic: files are uploaded to a temporary path and renamed to the requested path when the client ends the upload. Atomic mode avoids problems such as a web server that serves partial files when the files are being uploaded. In atomic mode if there is an upload error the temporary file is deleted and so the requested upload path will not contain a partial file.
     - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions
-        - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`. On folder deletion a `delete` notification will be sent for each deleted file. Actions will be not executed if an error is detected and so a partial file is uploaded or downloaded. Leave empty to disable actions. The `upload` condition includes both uploads to new files and overwrite existing files 
+        - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`. On folder deletion a `delete` notification will be sent for each deleted file. Actions will be not executed if an error is detected and so a partial file is uploaded or downloaded. Leave empty to disable actions. The `upload` condition includes both uploads to new files and overwrite existing files
         - `command`, string. Absolute path to the command to execute. Leave empty to disable. The command is invoked with the following arguments:
             - `action`, any valid `execute_on` string
             - `username`, user who did the action
@@ -163,6 +163,8 @@ The `sftpgo` configuration file contains the following sections:
 - **"httpd"**, the configuration for the HTTP server used to serve REST API
     - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 8080
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"
+    - `templates_path`, string. Path to the HTML web templates. This can be an absolute path or a path relative to the config dir
+    - `static_files_path`, string. Path to the static files for the web interface. This can be an absolute path or a path relative to the config dir
 
 Here is a full example showing the default config in JSON format:
 
@@ -199,7 +201,9 @@ Here is a full example showing the default config in JSON format:
   },
   "httpd": {
     "bind_port": 8080,
-    "bind_address": "127.0.0.1"
+    "bind_address": "127.0.0.1",
+    "templates_path": "templates",
+    "static_files_path": "static"
   }
 }
 ```
@@ -299,7 +303,7 @@ SFTPGo exposes REST API to manage users and quota and to get real time reports f
 
 If quota tracking is enabled in `sftpgo` configuration file, then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP or if you change `track_quota` from `2` to `1`, you can rescan the user home dir and update the used quota using the REST API.
 
-REST API is designed to run on localhost or on a trusted network, if you need HTTPS or authentication you can setup a reverse proxy using an HTTP Server such as Apache or NGNIX.
+REST API is designed to run on localhost or on a trusted network, if you need HTTPS and/or authentication you can setup a reverse proxy using an HTTP Server such as Apache or NGNIX.
 
 For example you can keep SFTPGo listening on localhost and expose it externally configuring a reverse proxy using Apache HTTP Server this way:
 
@@ -345,6 +349,15 @@ Several counters and gauges are available, for example:
 - Process information like CPU, memory, file descriptor usage and start time
 
 Please check the `/metrics` page for more details.
+
+## Web Admin
+
+You can easily build your own interface using the exposed REST API, anyway SFTPGo provides also a very basic builtin web interface that allows to manage users and connections.
+With the default `httpd` configuration, the web admin is available at the following URL:
+
+[http://127.0.0.1:8080/web](http://127.0.0.1:8080/web)
+
+If you need HTTPS and/or authentication you can setup a reverse proxy as explained for the REST API.
 
 ## Logs
 

@@ -1,13 +1,9 @@
 package service
 
 import (
-	"fmt"
-	"net/http"
-	"time"
-
-	"github.com/drakkan/sftpgo/api"
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/rs/zerolog"
@@ -66,19 +62,10 @@ func (s *Service) Start() error {
 	}()
 
 	if httpdConf.BindPort > 0 {
-		router := api.GetHTTPRouter()
-		api.SetDataProvider(dataProvider)
+		httpd.SetDataProvider(dataProvider)
 
 		go func() {
-			logger.Debug(logSender, "", "initializing HTTP server with config %+v", httpdConf)
-			httpServer := &http.Server{
-				Addr:           fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort),
-				Handler:        router,
-				ReadTimeout:    300 * time.Second,
-				WriteTimeout:   300 * time.Second,
-				MaxHeaderBytes: 1 << 20, // 1MB
-			}
-			if err := httpServer.ListenAndServe(); err != nil {
+			if err := httpdConf.Initialize(s.ConfigDir); err != nil {
 				logger.Error(logSender, "", "could not start HTTP server: %v", err)
 				logger.ErrorToConsole("could not start HTTP server: %v", err)
 			}

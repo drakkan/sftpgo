@@ -51,11 +51,12 @@ const (
 var (
 	// SupportedProviders data provider configured in the sftpgo.conf file must match of these strings
 	SupportedProviders = []string{SQLiteDataProviderName, PGSQLDataProviderName, MySQLDataProviderName, BoltDataProviderName}
-	config             Config
-	provider           Provider
-	sqlPlaceholders    []string
-	validPerms         = []string{PermAny, PermListItems, PermDownload, PermUpload, PermDelete, PermRename,
-		PermCreateDirs, PermCreateSymlinks, PermOverwrite}
+	// ValidPerms list that contains all the valid permissions for an user
+	ValidPerms = []string{PermAny, PermListItems, PermDownload, PermUpload, PermOverwrite, PermRename, PermDelete,
+		PermCreateDirs, PermCreateSymlinks}
+	config          Config
+	provider        Provider
+	sqlPlaceholders []string
 	hashPwdPrefixes = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
 		pbkdf2SHA512Prefix, sha512cryptPwdPrefix}
 	pbkdfPwdPrefixes       = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
@@ -276,13 +277,25 @@ func buildUserHomeDir(user *User) {
 	}
 }
 
+func validatePermissions(user *User) error {
+	for _, p := range user.Permissions {
+		if !utils.IsStringInSlice(p, ValidPerms) {
+			return &ValidationError{err: fmt.Sprintf("Invalid permission: %v", p)}
+		}
+	}
+	if utils.IsStringInSlice(PermAny, user.Permissions) {
+		user.Permissions = []string{PermAny}
+	}
+	return nil
+}
+
 func validateUser(user *User) error {
 	buildUserHomeDir(user)
 	if len(user.Username) == 0 || len(user.HomeDir) == 0 {
 		return &ValidationError{err: "Mandatory parameters missing"}
 	}
 	if len(user.Password) == 0 && len(user.PublicKeys) == 0 {
-		return &ValidationError{err: "Please set password or at least a public_key"}
+		return &ValidationError{err: "Please set a password or at least a public_key"}
 	}
 	if len(user.Permissions) == 0 {
 		return &ValidationError{err: "Please grant some permissions to this user"}
@@ -290,10 +303,8 @@ func validateUser(user *User) error {
 	if !filepath.IsAbs(user.HomeDir) {
 		return &ValidationError{err: fmt.Sprintf("home_dir must be an absolute path, actual value: %v", user.HomeDir)}
 	}
-	for _, p := range user.Permissions {
-		if !utils.IsStringInSlice(p, validPerms) {
-			return &ValidationError{err: fmt.Sprintf("Invalid permission: %v", p)}
-		}
+	if err := validatePermissions(user); err != nil {
+		return err
 	}
 	if len(user.Password) > 0 && !utils.IsStringPrefixInSlice(user.Password, hashPwdPrefixes) {
 		pwd, err := argon2id.CreateHash(user.Password, argon2id.DefaultParams)

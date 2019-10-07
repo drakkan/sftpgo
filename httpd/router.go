@@ -1,4 +1,4 @@
-package api
+package httpd
 
 import (
 	"net/http"
@@ -17,7 +17,7 @@ func GetHTTPRouter() http.Handler {
 	return router
 }
 
-func initializeRouter() {
+func initializeRouter(staticFilesPath string) {
 	router = chi.NewRouter()
 	router.Use(middleware.RequestID)
 	router.Use(middleware.RealIP)
@@ -31,6 +31,14 @@ func initializeRouter() {
 	router.MethodNotAllowed(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, "Method not allowed", http.StatusMethodNotAllowed)
 	}))
+
+	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, webUsersPath, http.StatusMovedPermanently)
+	})
+
+	router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, webUsersPath, http.StatusMovedPermanently)
+	})
 
 	router.Handle(metricsPath, promhttp.Handler())
 
@@ -73,6 +81,35 @@ func initializeRouter() {
 	router.Delete(userPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
 		deleteUser(w, r)
 	})
+
+	router.Get(webUsersPath, func(w http.ResponseWriter, r *http.Request) {
+		handleGetWebUsers(w, r)
+	})
+
+	router.Get(webUserPath, func(w http.ResponseWriter, r *http.Request) {
+		handleWebAddUserGet(w, r)
+	})
+
+	router.Get(webUserPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
+		handleWebUpdateUserGet(chi.URLParam(r, "userID"), w, r)
+	})
+
+	router.Post(webUserPath, func(w http.ResponseWriter, r *http.Request) {
+		handleWebAddUserPost(w, r)
+	})
+
+	router.Post(webUserPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
+		handleWebUpdateUserPost(chi.URLParam(r, "userID"), w, r)
+	})
+
+	router.Get(webConnectionsPath, func(w http.ResponseWriter, r *http.Request) {
+		handleWebGetConnections(w, r)
+	})
+
+	router.Group(func(router chi.Router) {
+		router.Use(middleware.DefaultCompress)
+		fileServer(router, staticFileWebPath, http.Dir(staticFilesPath))
+	})
 }
 
 func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
@@ -86,4 +123,18 @@ func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
 	} else {
 		sendAPIResponse(w, r, nil, "Not Found", http.StatusNotFound)
 	}
+}
+
+func fileServer(r chi.Router, path string, root http.FileSystem) {
+	fs := http.StripPrefix(path, http.FileServer(root))
+
+	if path != "/" && path[len(path)-1] != '/' {
+		r.Get(path, http.RedirectHandler(path+"/", http.StatusMovedPermanently).ServeHTTP)
+		path += "/"
+	}
+	path += "*"
+
+	r.Get(path, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fs.ServeHTTP(w, r)
+	}))
 }
