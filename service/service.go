@@ -1,3 +1,4 @@
+// Package service allows to start and stop the SFTPGo service
 package service
 
 import (
@@ -83,7 +84,7 @@ func (s *Service) Wait() {
 	<-s.Shutdown
 }
 
-// Stop terminates the service and unblocks the Wait method
+// Stop terminates the service unblocking the Wait method
 func (s *Service) Stop() {
 	close(s.Shutdown)
 	logger.Debug(logSender, "", "Service stopped")

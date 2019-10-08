@@ -5,7 +5,7 @@
 // The package provides a request logger to log the HTTP requests for REST API too.
 // The request logger uses chi.middleware.RequestLogger,
 // chi.middleware.LogFormatter and chi.middleware.LogEntry to build a structured
-// logger using zerlog
+// logger using zerolog
 package logger
 
 import (
