@@ -108,7 +108,7 @@ func initializeRouter(staticFilesPath string) {
 
 	router.Group(func(router chi.Router) {
 		router.Use(middleware.DefaultCompress)
-		fileServer(router, staticFileWebPath, http.Dir(staticFilesPath))
+		fileServer(router, webStaticFilesPath, http.Dir(staticFilesPath))
 	})
 }
 

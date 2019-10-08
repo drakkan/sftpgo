@@ -28,7 +28,7 @@ const (
 	webUsersPath          = "/web/users"
 	webUserPath           = "/web/user"
 	webConnectionsPath    = "/web/connections"
-	staticFileWebPath     = "/static"
+	webStaticFilesPath    = "/static"
 )
 
 var (
