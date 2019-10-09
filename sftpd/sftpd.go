@@ -35,6 +35,7 @@ const (
 	operationRename   = "rename"
 	protocolSFTP      = "SFTP"
 	protocolSCP       = "SCP"
+	handshakeTimeout  = 2 * time.Minute
 )
 
 const (

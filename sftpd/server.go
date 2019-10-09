@@ -205,25 +205,25 @@ func (c Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, conf
 func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.ServerConfig) {
 
 	// Before beginning a handshake must be performed on the incoming net.Conn
+	// we'll set a Deadline for handshake to complete, the default is 2 minutes as OpenSSH
+	conn.SetDeadline(time.Now().Add(handshakeTimeout))
 	sconn, chans, reqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
 		logger.Warn(logSender, "", "failed to accept an incoming connection: %v", err)
 		return
 	}
+	// handshake completed so remove the deadline, we'll use IdleTimeout configuration from now on
+	conn.SetDeadline(time.Time{})
 
 	logger.Debug(logSender, "", "accepted inbound connection, ip: %v", conn.RemoteAddr().String())
 
 	var user dataprovider.User
 	var loginType string
 
-	err = json.Unmarshal([]byte(sconn.Permissions.Extensions["user"]), &user)
+	// Unmarshal cannot fails here and even if it fails we'll have a user with no permissions
+	json.Unmarshal([]byte(sconn.Permissions.Extensions["user"]), &user)
 
-	if err != nil {
-		logger.Warn(logSender, "", "Unable to deserialize user info, cannot serve connection: %v", err)
-		return
-	}
 	loginType = sconn.Permissions.Extensions["login_type"]
-
 	connectionID := hex.EncodeToString(sconn.SessionID())
 
 	connection := Connection{
