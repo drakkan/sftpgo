@@ -98,21 +98,44 @@ func TestRemoveNonexistentQuotaScan(t *testing.T) {
 func TestGetOSOpenFlags(t *testing.T) {
 	var flags sftp.FileOpenFlags
 	flags.Write = true
-	flags.Append = true
 	flags.Excl = true
 	osFlags := getOSOpenFlags(flags)
-	if osFlags&os.O_WRONLY == 0 || osFlags&os.O_APPEND == 0 || osFlags&os.O_EXCL == 0 {
+	if osFlags&os.O_WRONLY == 0 || osFlags&os.O_EXCL == 0 {
+		t.Errorf("error getting os flags from sftp file open flags")
+	}
+	flags.Append = true
+	// append flag should be ignored to allow resume
+	if osFlags&os.O_WRONLY == 0 || osFlags&os.O_EXCL == 0 {
 		t.Errorf("error getting os flags from sftp file open flags")
 	}
 }
 
-func TestUploadResume(t *testing.T) {
-	c := Connection{}
-	var flags sftp.FileOpenFlags
-	_, err := c.handleSFTPUploadToExistingFile(flags, "", "", 0)
-	if err != sftp.ErrSshFxOpUnsupported {
-		t.Errorf("file resume is not supported")
+func TestUploadResumeInvalidOffset(t *testing.T) {
+	testfile := "testfile"
+	file, _ := os.Create(testfile)
+	transfer := Transfer{
+		file:          file,
+		path:          file.Name(),
+		start:         time.Now(),
+		bytesSent:     0,
+		bytesReceived: 0,
+		user: dataprovider.User{
+			Username: "testuser",
+		},
+		connectionID:   "",
+		transferType:   transferUpload,
+		lastActivity:   time.Now(),
+		isNewFile:      false,
+		protocol:       protocolSFTP,
+		transferError:  nil,
+		isFinished:     false,
+		minWriteOffset: 10,
 	}
+	_, err := transfer.WriteAt([]byte("test"), 0)
+	if err == nil {
+		t.Errorf("upload with invalid offset must fail")
+	}
+	os.Remove(testfile)
 }
 
 func TestUploadFiles(t *testing.T) {
@@ -617,19 +640,20 @@ func TestSCPUploadFiledata(t *testing.T) {
 	}
 	file, _ := os.Create(testfile)
 	transfer := Transfer{
-		file:          file,
-		path:          file.Name(),
-		start:         time.Now(),
-		bytesSent:     0,
-		bytesReceived: 0,
-		user:          scpCommand.connection.User,
-		connectionID:  "",
-		transferType:  transferDownload,
-		lastActivity:  time.Now(),
-		isNewFile:     true,
-		protocol:      connection.protocol,
-		transferError: nil,
-		isFinished:    false,
+		file:           file,
+		path:           file.Name(),
+		start:          time.Now(),
+		bytesSent:      0,
+		bytesReceived:  0,
+		user:           scpCommand.connection.User,
+		connectionID:   "",
+		transferType:   transferDownload,
+		lastActivity:   time.Now(),
+		isNewFile:      true,
+		protocol:       connection.protocol,
+		transferError:  nil,
+		isFinished:     false,
+		minWriteOffset: 0,
 	}
 	addTransfer(&transfer)
 	err := scpCommand.getUploadFileData(2, &transfer)
@@ -684,6 +708,8 @@ func TestSCPUploadFiledata(t *testing.T) {
 }
 
 func TestUploadError(t *testing.T) {
+	oldUploadMode := uploadMode
+	uploadMode = uploadModeAtomic
 	connection := Connection{
 		User: dataprovider.User{
 			Username: "testuser",
@@ -694,19 +720,20 @@ func TestUploadError(t *testing.T) {
 	fileTempName := "temptestfile"
 	file, _ := os.Create(fileTempName)
 	transfer := Transfer{
-		file:          file,
-		path:          testfile,
-		start:         time.Now(),
-		bytesSent:     0,
-		bytesReceived: 100,
-		user:          connection.User,
-		connectionID:  "",
-		transferType:  transferUpload,
-		lastActivity:  time.Now(),
-		isNewFile:     true,
-		protocol:      connection.protocol,
-		transferError: nil,
-		isFinished:    false,
+		file:           file,
+		path:           testfile,
+		start:          time.Now(),
+		bytesSent:      0,
+		bytesReceived:  100,
+		user:           connection.User,
+		connectionID:   "",
+		transferType:   transferUpload,
+		lastActivity:   time.Now(),
+		isNewFile:      true,
+		protocol:       connection.protocol,
+		transferError:  nil,
+		isFinished:     false,
+		minWriteOffset: 0,
 	}
 	addTransfer(&transfer)
 	transfer.TransferError(fmt.Errorf("fake error"))
@@ -722,6 +749,7 @@ func TestUploadError(t *testing.T) {
 	if !os.IsNotExist(err) {
 		t.Errorf("file uploaded must be deleted after an error: %v", err)
 	}
+	uploadMode = oldUploadMode
 }
 
 func TestConnectionStatusStruct(t *testing.T) {

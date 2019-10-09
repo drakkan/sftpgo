@@ -1,6 +1,7 @@
 package sftpd
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -14,27 +15,23 @@ const (
 	transferDownload
 )
 
-const (
-	uploadModeStandard = iota
-	uploadModeAtomic
-)
-
 // Transfer contains the transfer details for an upload or a download.
 // It implements the io Reader and Writer interface to handle files downloads and uploads
 type Transfer struct {
-	file          *os.File
-	path          string
-	start         time.Time
-	bytesSent     int64
-	bytesReceived int64
-	user          dataprovider.User
-	connectionID  string
-	transferType  int
-	lastActivity  time.Time
-	isNewFile     bool
-	protocol      string
-	transferError error
-	isFinished    bool
+	file           *os.File
+	path           string
+	start          time.Time
+	bytesSent      int64
+	bytesReceived  int64
+	user           dataprovider.User
+	connectionID   string
+	transferType   int
+	lastActivity   time.Time
+	isNewFile      bool
+	protocol       string
+	transferError  error
+	isFinished     bool
+	minWriteOffset int64
 }
 
 // TransferError is called if there is an unexpected error.
@@ -60,6 +57,10 @@ func (t *Transfer) ReadAt(p []byte, off int64) (n int, err error) {
 // It handles upload bandwidth throttling too
 func (t *Transfer) WriteAt(p []byte, off int64) (n int, err error) {
 	t.lastActivity = time.Now()
+	if off < t.minWriteOffset {
+		logger.Warn(logSender, t.connectionID, "Invalid write offset %v minimum valid value %v", off, t.minWriteOffset)
+		return 0, fmt.Errorf("Invalid write offset %v", off)
+	}
 	written, e := t.file.WriteAt(p, off)
 	t.bytesReceived += int64(written)
 	t.handleThrottle()
@@ -82,7 +83,7 @@ func (t *Transfer) Close() error {
 		numFiles = 1
 	}
 	if t.transferType == transferUpload && t.file.Name() != t.path {
-		if t.transferError == nil {
+		if t.transferError == nil || uploadMode == uploadModeAtomicWithResume {
 			err = os.Rename(t.file.Name(), t.path)
 			logger.Debug(logSender, t.connectionID, "atomic upload completed, rename: %#v -> %#v, error: %v",
 				t.file.Name(), t.path, err)

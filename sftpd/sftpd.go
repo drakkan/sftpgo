@@ -37,6 +37,12 @@ const (
 	protocolSCP       = "SCP"
 )
 
+const (
+	uploadModeStandard = iota
+	uploadModeAtomic
+	uploadModeAtomicWithResume
+)
+
 var (
 	mutex                sync.RWMutex
 	openConnections      map[string]Connection
@@ -354,6 +360,10 @@ func updateConnectionActivity(id string) {
 		c.lastActivity = time.Now()
 		openConnections[id] = c
 	}
+}
+
+func isAtomicUploadEnabled() bool {
+	return uploadMode == uploadModeAtomic || uploadMode == uploadModeAtomicWithResume
 }
 
 func executeAction(operation string, username string, path string, target string) error {

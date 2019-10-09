@@ -217,19 +217,20 @@ func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead i
 	utils.SetPathPermissions(filePath, c.connection.User.GetUID(), c.connection.User.GetGID())
 
 	transfer := Transfer{
-		file:          file,
-		path:          requestPath,
-		start:         time.Now(),
-		bytesSent:     0,
-		bytesReceived: 0,
-		user:          c.connection.User,
-		connectionID:  c.connection.ID,
-		transferType:  transferUpload,
-		lastActivity:  time.Now(),
-		isNewFile:     isNewFile,
-		protocol:      c.connection.protocol,
-		transferError: nil,
-		isFinished:    false,
+		file:           file,
+		path:           requestPath,
+		start:          time.Now(),
+		bytesSent:      0,
+		bytesReceived:  0,
+		user:           c.connection.User,
+		connectionID:   c.connection.ID,
+		transferType:   transferUpload,
+		lastActivity:   time.Now(),
+		isNewFile:      isNewFile,
+		protocol:       c.connection.protocol,
+		transferError:  nil,
+		isFinished:     false,
+		minWriteOffset: 0,
 	}
 	addTransfer(&transfer)
 
@@ -254,7 +255,7 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 		return err
 	}
 	filePath := p
-	if uploadMode == uploadModeAtomic {
+	if isAtomicUploadEnabled() {
 		filePath = getUploadTempFilePath(p)
 	}
 	stat, statErr := os.Stat(p)
@@ -282,7 +283,7 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 		return err
 	}
 
-	if uploadMode == uploadModeAtomic {
+	if isAtomicUploadEnabled() {
 		err = os.Rename(p, filePath)
 		if err != nil {
 			c.connection.Log(logger.LevelError, logSenderSCP, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %v",
@@ -468,19 +469,20 @@ func (c *scpCommand) handleDownload(filePath string) error {
 	}
 
 	transfer := Transfer{
-		file:          file,
-		path:          p,
-		start:         time.Now(),
-		bytesSent:     0,
-		bytesReceived: 0,
-		user:          c.connection.User,
-		connectionID:  c.connection.ID,
-		transferType:  transferDownload,
-		lastActivity:  time.Now(),
-		isNewFile:     false,
-		protocol:      c.connection.protocol,
-		transferError: nil,
-		isFinished:    false,
+		file:           file,
+		path:           p,
+		start:          time.Now(),
+		bytesSent:      0,
+		bytesReceived:  0,
+		user:           c.connection.User,
+		connectionID:   c.connection.ID,
+		transferType:   transferDownload,
+		lastActivity:   time.Now(),
+		isNewFile:      false,
+		protocol:       c.connection.protocol,
+		transferError:  nil,
+		isFinished:     false,
+		minWriteOffset: 0,
 	}
 	addTransfer(&transfer)
 

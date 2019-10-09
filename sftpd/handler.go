@@ -75,19 +75,20 @@ func (c Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 	c.Log(logger.LevelDebug, logSender, "fileread requested for path: %#v", p)
 
 	transfer := Transfer{
-		file:          file,
-		path:          p,
-		start:         time.Now(),
-		bytesSent:     0,
-		bytesReceived: 0,
-		user:          c.User,
-		connectionID:  c.ID,
-		transferType:  transferDownload,
-		lastActivity:  time.Now(),
-		isNewFile:     false,
-		protocol:      c.protocol,
-		transferError: nil,
-		isFinished:    false,
+		file:           file,
+		path:           p,
+		start:          time.Now(),
+		bytesSent:      0,
+		bytesReceived:  0,
+		user:           c.User,
+		connectionID:   c.ID,
+		transferType:   transferDownload,
+		lastActivity:   time.Now(),
+		isNewFile:      false,
+		protocol:       c.protocol,
+		transferError:  nil,
+		isFinished:     false,
+		minWriteOffset: 0,
 	}
 	addTransfer(&transfer)
 	return &transfer, nil
@@ -106,7 +107,7 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 	}
 
 	filePath := p
-	if uploadMode == uploadModeAtomic {
+	if isAtomicUploadEnabled() {
 		filePath = getUploadTempFilePath(p)
 	}
 
@@ -376,19 +377,20 @@ func (c Connection) handleSFTPUploadToNewFile(requestPath, filePath string) (io.
 	utils.SetPathPermissions(filePath, c.User.GetUID(), c.User.GetGID())
 
 	transfer := Transfer{
-		file:          file,
-		path:          requestPath,
-		start:         time.Now(),
-		bytesSent:     0,
-		bytesReceived: 0,
-		user:          c.User,
-		connectionID:  c.ID,
-		transferType:  transferUpload,
-		lastActivity:  time.Now(),
-		isNewFile:     true,
-		protocol:      c.protocol,
-		transferError: nil,
-		isFinished:    false,
+		file:           file,
+		path:           requestPath,
+		start:          time.Now(),
+		bytesSent:      0,
+		bytesReceived:  0,
+		user:           c.User,
+		connectionID:   c.ID,
+		transferType:   transferUpload,
+		lastActivity:   time.Now(),
+		isNewFile:      true,
+		protocol:       c.protocol,
+		transferError:  nil,
+		isFinished:     false,
+		minWriteOffset: 0,
 	}
 	addTransfer(&transfer)
 	return &transfer, nil
@@ -402,15 +404,10 @@ func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, re
 		return nil, sftp.ErrSshFxFailure
 	}
 
+	minWriteOffset := int64(0)
 	osFlags := getOSOpenFlags(pflags)
 
-	if osFlags&os.O_TRUNC == 0 {
-		// see https://github.com/pkg/sftp/issues/295
-		c.Log(logger.LevelInfo, logSender, "upload resume is not supported, returning error for file: %#v", requestPath)
-		return nil, sftp.ErrSshFxOpUnsupported
-	}
-
-	if uploadMode == uploadModeAtomic {
+	if isAtomicUploadEnabled() {
 		err = os.Rename(requestPath, filePath)
 		if err != nil {
 			c.Log(logger.LevelError, logSender, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %v",
@@ -425,26 +422,30 @@ func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, re
 		return nil, sftp.ErrSshFxFailure
 	}
 
-	// FIXME: this need to be changed when we add upload resume support
-	// the file is truncated so we need to decrease quota size but not quota files
-	dataprovider.UpdateUserQuota(dataProvider, c.User, 0, -fileSize, false)
+	if pflags.Append && osFlags&os.O_TRUNC == 0 {
+		c.Log(logger.LevelDebug, logSender, "upload resume requested, file path: %#v initial size: %v", filePath, fileSize)
+		minWriteOffset = fileSize
+	} else {
+		dataprovider.UpdateUserQuota(dataProvider, c.User, 0, -fileSize, false)
+	}
 
 	utils.SetPathPermissions(filePath, c.User.GetUID(), c.User.GetGID())
 
 	transfer := Transfer{
-		file:          file,
-		path:          requestPath,
-		start:         time.Now(),
-		bytesSent:     0,
-		bytesReceived: 0,
-		user:          c.User,
-		connectionID:  c.ID,
-		transferType:  transferUpload,
-		lastActivity:  time.Now(),
-		isNewFile:     false,
-		protocol:      c.protocol,
-		transferError: nil,
-		isFinished:    false,
+		file:           file,
+		path:           requestPath,
+		start:          time.Now(),
+		bytesSent:      0,
+		bytesReceived:  0,
+		user:           c.User,
+		connectionID:   c.ID,
+		transferType:   transferUpload,
+		lastActivity:   time.Now(),
+		isNewFile:      false,
+		protocol:       c.protocol,
+		transferError:  nil,
+		isFinished:     false,
+		minWriteOffset: minWriteOffset,
 	}
 	addTransfer(&transfer)
 	return &transfer, nil
@@ -600,9 +601,10 @@ func getOSOpenFlags(requestFlags sftp.FileOpenFlags) (flags int) {
 	} else if requestFlags.Write {
 		osFlags |= os.O_WRONLY
 	}
-	if requestFlags.Append {
+	// we ignore Append flag since pkg/sftp use WriteAt that cannot work with os.O_APPEND
+	/*if requestFlags.Append {
 		osFlags |= os.O_APPEND
-	}
+	}*/
 	if requestFlags.Creat {
 		osFlags |= os.O_CREATE
 	}

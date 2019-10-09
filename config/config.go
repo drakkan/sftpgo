@@ -140,7 +140,7 @@ func LoadConfig(configDir, configName string) error {
 	if strings.TrimSpace(globalConf.SFTPD.Banner) == "" {
 		globalConf.SFTPD.Banner = defaultBanner
 	}
-	if globalConf.SFTPD.UploadMode < 0 || globalConf.SFTPD.UploadMode > 1 {
+	if globalConf.SFTPD.UploadMode < 0 || globalConf.SFTPD.UploadMode > 2 {
 		err = fmt.Errorf("Invalid upload_mode 0 and 1 are supported, configured: %v reset upload_mode to 0",
 			globalConf.SFTPD.UploadMode)
 		globalConf.SFTPD.UploadMode = 0

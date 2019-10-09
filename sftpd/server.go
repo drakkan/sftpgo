@@ -49,6 +49,11 @@ type Configuration struct {
 	// 1 means atomic: the files are uploaded to a temporary path and renamed to the requested path
 	// when the client ends the upload. Atomic mode avoid problems such as a web server that
 	// serves partial files when the files are being uploaded.
+	// In atomic mode if there is an upload error the temporary file is deleted and so the requested
+	// upload path will not contain a partial file.
+	// 2 means atomic with resume support: as atomic but if there is an upload error the temporary
+	// file is renamed to the requested path and not deleted, this way a client can reconnect and resume
+	// the upload.
 	UploadMode int `json:"upload_mode" mapstructure:"upload_mode"`
 	// Actions to execute on SFTP create, download, delete and rename
 	Actions Actions `json:"actions" mapstructure:"actions"`
