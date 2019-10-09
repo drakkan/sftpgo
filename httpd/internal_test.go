@@ -3,10 +3,10 @@ package httpd
 import (
 	"context"
 	"fmt"
+	"html/template"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"text/template"
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/go-chi/chi"

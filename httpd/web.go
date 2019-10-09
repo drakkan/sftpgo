@@ -2,11 +2,11 @@ package httpd
 
 import (
 	"fmt"
+	"html/template"
 	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"text/template"
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/sftpd"
