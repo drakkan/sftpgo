@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"runtime"
 	"testing"
@@ -446,8 +447,12 @@ func TestSCPCommandHandleErrors(t *testing.T) {
 		ReadError:    readErr,
 		WriteError:   writeErr,
 	}
+	server, client := net.Pipe()
+	defer server.Close()
+	defer client.Close()
 	connection := Connection{
 		channel: &mockSSHChannel,
+		netConn: client,
 	}
 	scpCommand := scpCommand{
 		connection: connection,
@@ -475,8 +480,12 @@ func TestSCPRecursiveDownloadErrors(t *testing.T) {
 		ReadError:    readErr,
 		WriteError:   writeErr,
 	}
+	server, client := net.Pipe()
+	defer server.Close()
+	defer client.Close()
 	connection := Connection{
 		channel: &mockSSHChannel,
+		netConn: client,
 	}
 	scpCommand := scpCommand{
 		connection: connection,

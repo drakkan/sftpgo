@@ -39,8 +39,8 @@ type scpCommand struct {
 
 func (c *scpCommand) handle() error {
 	var err error
-	addConnection(c.connection.ID, c.connection)
-	defer removeConnection(c.connection.ID)
+	addConnection(c.connection)
+	defer removeConnection(c.connection)
 	destPath := c.getDestPath()
 	commandType := c.getCommandType()
 	c.connection.Log(logger.LevelDebug, logSenderSCP, "handle scp command, args: %v user: %v command type: %v, dest path: %#v",

@@ -299,7 +299,8 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 }
 
 func (c Configuration) handleSftpConnection(channel ssh.Channel, connection Connection) {
-	addConnection(connection.ID, connection)
+	addConnection(connection)
+	defer removeConnection(connection)
 	// Create a new handler for the currently logged in user's server.
 	handler := c.createHandler(connection)
 
@@ -312,8 +313,6 @@ func (c Configuration) handleSftpConnection(channel ssh.Channel, connection Conn
 	} else if err != nil {
 		connection.Log(logger.LevelWarn, logSender, "connection closed with error: %v", err)
 	}
-
-	removeConnection(connection.ID)
 }
 
 func (c Configuration) createHandler(connection Connection) sftp.Handlers {

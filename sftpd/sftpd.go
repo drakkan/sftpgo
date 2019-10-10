@@ -310,20 +310,27 @@ func CheckIdleConnections() {
 	logger.Debug(logSender, "", "check idle connections ended")
 }
 
-func addConnection(id string, c Connection) {
+func addConnection(c Connection) {
 	mutex.Lock()
 	defer mutex.Unlock()
-	openConnections[id] = c
+	openConnections[c.ID] = c
 	metrics.UpdateActiveConnectionsSize(len(openConnections))
 	c.Log(logger.LevelDebug, logSender, "connection added, num open connections: %v", len(openConnections))
 }
 
-func removeConnection(id string) {
+func removeConnection(c Connection) {
 	mutex.Lock()
 	defer mutex.Unlock()
-	c := openConnections[id]
-	delete(openConnections, id)
+	delete(openConnections, c.ID)
 	metrics.UpdateActiveConnectionsSize(len(openConnections))
+	// we have finished to send data here and most of the time the underlying network connection
+	// is already closed. Sometime a client can still be reading, the last sended data, from the
+	// connection so we set a deadline instead of directly closing the network connection.
+	// Setting a deadline on an already closed connection has no effect.
+	// We only need to ensure that a connection will not remain undefinitely open and so the
+	// underlying file descriptor is not released.
+	// This should protect us against buggy clients and edge cases.
+	c.netConn.SetDeadline(time.Now().Add(2 * time.Minute))
 	c.Log(logger.LevelDebug, logSender, "connection removed, num open connections: %v", len(openConnections))
 }
 
