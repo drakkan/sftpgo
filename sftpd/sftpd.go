@@ -220,13 +220,10 @@ func CloseActiveConnection(connectionID string) bool {
 	result := false
 	mutex.RLock()
 	defer mutex.RUnlock()
-	for _, c := range openConnections {
-		if c.ID == connectionID {
-			err := c.close()
-			c.Log(logger.LevelDebug, logSender, "close connection requested, close err: %v", err)
-			result = true
-			break
-		}
+	if c, ok := openConnections[connectionID]; ok {
+		err := c.close()
+		c.Log(logger.LevelDebug, logSender, "close connection requested, close err: %v", err)
+		result = true
 	}
 	return result
 }
@@ -324,10 +321,10 @@ func removeConnection(c Connection) {
 	delete(openConnections, c.ID)
 	metrics.UpdateActiveConnectionsSize(len(openConnections))
 	// we have finished to send data here and most of the time the underlying network connection
-	// is already closed. Sometime a client can still be reading, the last sended data, from the
-	// connection so we set a deadline instead of directly closing the network connection.
+	// is already closed. Sometime a client can still be reading the last sended data, so we set
+	// a deadline instead of directly closing the network connection.
 	// Setting a deadline on an already closed connection has no effect.
-	// We only need to ensure that a connection will not remain undefinitely open and so the
+	// We only need to ensure that a connection will not remain indefinitely open and so the
 	// underlying file descriptor is not released.
 	// This should protect us against buggy clients and edge cases.
 	c.netConn.SetDeadline(time.Now().Add(2 * time.Minute))
