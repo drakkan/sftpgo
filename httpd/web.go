@@ -39,6 +39,7 @@ type basePage struct {
 	UserURL           string
 	APIUserURL        string
 	APIConnectionsURL string
+	APIQuotaScanURL   string
 	ConnectionsURL    string
 	UsersTitle        string
 	ConnectionsTitle  string
@@ -104,6 +105,7 @@ func getBasePageData(title, currentURL string) basePage {
 		UserURL:           webUserPath,
 		APIUserURL:        userPath,
 		APIConnectionsURL: activeConnectionsPath,
+		APIQuotaScanURL:   quotaScanPath,
 		ConnectionsURL:    webConnectionsPath,
 		UsersTitle:        pageUsersTitle,
 		ConnectionsTitle:  pageConnectionsTitle,

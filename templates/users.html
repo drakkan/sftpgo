@@ -14,6 +14,10 @@
     <div id="errorTxt" class="card-body text-form-error"></div>
 </div>
 
+<div id="successMsg" class="card mb-4 border-left-success" style="display: none;">
+    <div id="successTxt" class="card-body"></div>
+</div>
+
 <div class="card shadow mb-4">
     <div class="card-header py-3">
         <h6 class="m-0 font-weight-bold text-primary">View and manage users</h6>
@@ -152,6 +156,47 @@
             enabled: false
         };
 
+        $.fn.dataTable.ext.buttons.quota_scan = {
+            text: 'Quota scan',
+            action: function (e, dt, node, config) {
+                table.button(3).enable(false);
+                var username = dt.row({ selected: true }).data()[1];
+                var path = '{{.APIQuotaScanURL}}'
+                $.ajax({
+                    url: path,
+                    type: 'POST',
+                    dataType: 'json',
+                    data: JSON.stringify({ "username": username }),
+                    timeout: 15000,
+                    success: function (result) {
+                        table.button(3).enable(true);
+                        $('#successTxt').text("Quota scan started for the selected user. Please reload the user's page to check when the scan ends");
+                        $('#successMsg').show();
+                        setTimeout(function () {
+                            $('#successMsg').hide();
+                        }, 5000);
+                    },
+                    error: function ($xhr, textStatus, errorThrown) {
+                        console.log("quota scan error")
+                        table.button(3).enable(true);
+                        var txt = "Unable to update quota for the selected user";
+                        if ($xhr) {
+                            var json = $xhr.responseJSON;
+                            if (json) {
+                                txt += ": " + json.error;
+                            }
+                        }
+                        $('#errorTxt').text(txt);
+                        $('#errorMsg').show();
+                        setTimeout(function () {
+                            $('#errorMsg').hide();
+                        }, 5000);
+                    }
+                });
+            },
+            enabled: false
+        };
+
         var table = $('#dataTable').DataTable({
             dom: "<'row'<'col-sm-12'B>>" +
                 "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
@@ -159,7 +204,7 @@
                 "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
             select: true,
             buttons: [
-                'add', 'edit', 'delete'
+                'add', 'edit', 'delete', 'quota_scan'
             ],
             "columnDefs": [
                 {
@@ -176,6 +221,7 @@
             var selectedRows = table.rows({ selected: true }).count();
             table.button(1).enable(selectedRows == 1);
             table.button(2).enable(selectedRows == 1);
+            table.button(3).enable(selectedRows == 1);
         });
     }); 
 </script>
