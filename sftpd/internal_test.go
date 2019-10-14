@@ -191,7 +191,7 @@ func TestSFTPCmdTargetPath(t *testing.T) {
 		User: u,
 	}
 	_, err := connection.getSFTPCmdTargetPath("invalid_path")
-	if err != sftp.ErrSshFxOpUnsupported {
+	if err != sftp.ErrSSHFxOpUnsupported {
 		t.Errorf("getSFTPCmdTargetPath must fal with the expected error: %v", err)
 	}
 }
