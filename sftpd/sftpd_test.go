@@ -399,7 +399,7 @@ func TestRemove(t *testing.T) {
 		if err != nil {
 			t.Errorf("unable to create test file: %v", err)
 		}
-		err = sftpUploadFile(testFilePath, filepath.Join("/test", testFileName), testFileSize, client)
+		err = sftpUploadFile(testFilePath, path.Join("/test", testFileName), testFileSize, client)
 		if err != nil {
 			t.Errorf("file upload error: %v", err)
 		}
@@ -407,15 +407,15 @@ func TestRemove(t *testing.T) {
 		if err == nil {
 			t.Errorf("remove non empty dir must fail")
 		}
-		err = client.RemoveDirectory(filepath.Join("/test", testFileName))
+		err = client.RemoveDirectory(path.Join("/test", testFileName))
 		if err == nil {
 			t.Errorf("remove directory as file must fail")
 		}
-		err = client.Remove(filepath.Join("/test", testFileName))
+		err = client.Remove(path.Join("/test", testFileName))
 		if err != nil {
 			t.Errorf("remove file error: %v", err)
 		}
-		err = client.Remove(filepath.Join("/test", testFileName))
+		err = client.Remove(path.Join("/test", testFileName))
 		if err == nil {
 			t.Errorf("remove missing file must fail")
 		}
@@ -580,7 +580,7 @@ func TestEscapeHomeDir(t *testing.T) {
 		if err != nil {
 			t.Errorf("unable to create test file: %v", err)
 		}
-		remoteDestPath := filepath.Join("..", "..", testFileName)
+		remoteDestPath := path.Join("..", "..", testFileName)
 		err = sftpUploadFile(testFilePath, remoteDestPath, testFileSize, client)
 		if err != nil {
 			t.Errorf("file upload error: %v", err)
@@ -1728,7 +1728,7 @@ func TestSCPUploadFileOverwrite(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to create test file: %v", err)
 	}
-	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, filepath.Join("/", testFileName))
+	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join("/", testFileName))
 	err = scpUpload(testFilePath, remoteUpPath, true, false)
 	if err != nil {
 		t.Errorf("error uploading file via scp: %v", err)
