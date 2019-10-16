@@ -279,21 +279,23 @@ func (c Connection) handleSFTPRmdir(path string) error {
 		return sftp.ErrSSHFxPermissionDenied
 	}
 
-	numFiles, size, fileList, err := utils.ScanDirContents(path)
-	if err != nil {
-		c.Log(logger.LevelError, logSender, "failed to remove directory %#v, scanning error: %v", path, err)
+	var fi os.FileInfo
+	var err error
+	if fi, err = os.Lstat(path); err != nil {
+		c.Log(logger.LevelError, logSender, "failed to remove a dir %#v: stat error: %v", path, err)
 		return sftp.ErrSSHFxFailure
 	}
-	if err := os.RemoveAll(path); err != nil {
+	if !fi.IsDir() || fi.Mode()&os.ModeSymlink == os.ModeSymlink {
+		c.Log(logger.LevelDebug, logSender, "cannot remove %#v is not a directory", path)
+		return sftp.ErrSSHFxFailure
+	}
+
+	if err = os.Remove(path); err != nil {
 		c.Log(logger.LevelError, logSender, "failed to remove directory %#v: %v", path, err)
 		return sftp.ErrSSHFxFailure
 	}
 
 	logger.CommandLog(rmdirLogSender, path, "", c.User.Username, c.ID, c.protocol)
-	dataprovider.UpdateUserQuota(dataProvider, c.User, -numFiles, -size, false)
-	for _, p := range fileList {
-		executeAction(operationDelete, c.User.Username, p, "")
-	}
 	return sftp.ErrSSHFxOk
 }
 
@@ -314,11 +316,12 @@ func (c Connection) handleSFTPMkdir(path string) error {
 	if !c.User.HasPerm(dataprovider.PermCreateDirs) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
-
-	if err := c.createMissingDirs(filepath.Join(path, "testfile")); err != nil {
-		c.Log(logger.LevelError, logSender, "error making missing dir for path %#v: %v", path, err)
+	if err := os.Mkdir(path, 0777); err != nil {
+		c.Log(logger.LevelError, logSender, "error creating missing dir: %#v error: %v", path, err)
 		return sftp.ErrSSHFxFailure
 	}
+	utils.SetPathPermissions(path, c.User.GetUID(), c.User.GetGID())
+
 	logger.CommandLog(mkdirLogSender, path, "", c.User.Username, c.ID, c.protocol)
 	return nil
 }
@@ -333,6 +336,10 @@ func (c Connection) handleSFTPRemove(path string) error {
 	var err error
 	if fi, err = os.Lstat(path); err != nil {
 		c.Log(logger.LevelError, logSender, "failed to remove a file %#v: stat error: %v", path, err)
+		return sftp.ErrSSHFxFailure
+	}
+	if fi.IsDir() && fi.Mode()&os.ModeSymlink != os.ModeSymlink {
+		c.Log(logger.LevelDebug, logSender, "cannot remove %#v is not a file/symlink", path)
 		return sftp.ErrSSHFxFailure
 	}
 	size = fi.Size()
@@ -353,18 +360,6 @@ func (c Connection) handleSFTPRemove(path string) error {
 func (c Connection) handleSFTPUploadToNewFile(requestPath, filePath string) (io.WriterAt, error) {
 	if !c.hasSpace(true) {
 		c.Log(logger.LevelInfo, logSender, "denying file write due to space limit")
-		return nil, sftp.ErrSSHFxFailure
-	}
-
-	if _, err := os.Stat(filepath.Dir(requestPath)); os.IsNotExist(err) {
-		if !c.User.HasPerm(dataprovider.PermCreateDirs) {
-			return nil, sftp.ErrSSHFxPermissionDenied
-		}
-	}
-
-	err := c.createMissingDirs(requestPath)
-	if err != nil {
-		c.Log(logger.LevelError, logSender, "error making missing dir for path %#v: %v", requestPath, err)
 		return nil, sftp.ErrSSHFxFailure
 	}
 
@@ -565,23 +560,6 @@ func (c Connection) isSubDir(sub string) error {
 	if !strings.HasPrefix(sub, parent) {
 		c.Log(logger.LevelWarn, logSender, "dir %#v is not inside: %#v ", sub, parent)
 		return fmt.Errorf("dir %#v is not inside: %#v", sub, parent)
-	}
-	return nil
-}
-
-func (c Connection) createMissingDirs(filePath string) error {
-	dirsToCreate, err := c.findNonexistentDirs(filePath)
-	if err != nil {
-		return err
-	}
-	last := len(dirsToCreate) - 1
-	for i := range dirsToCreate {
-		d := dirsToCreate[last-i]
-		if err := os.Mkdir(d, 0777); err != nil {
-			c.Log(logger.LevelError, logSender, "error creating missing dir: %#v", d)
-			return err
-		}
-		utils.SetPathPermissions(d, c.User.GetUID(), c.User.GetGID())
 	}
 	return nil
 }

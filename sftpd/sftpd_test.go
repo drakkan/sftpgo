@@ -201,8 +201,9 @@ func TestBasicSFTPHandling(t *testing.T) {
 		expectedQuotaSize := user.UsedQuotaSize + testFileSize
 		expectedQuotaFiles := user.UsedQuotaFiles + 1
 		err = createTestFile(testFilePath, testFileSize)
-		if err != nil {
-			t.Errorf("unable to create test file: %v", err)
+		err = sftpUploadFile(testFilePath, path.Join("/missing_dir", testFileName), testFileSize, client)
+		if err == nil {
+			t.Errorf("upload a file to a missing dir must fail")
 		}
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		if err != nil {
@@ -317,10 +318,7 @@ func TestDirCommands(t *testing.T) {
 		t.Errorf("unable to add user: %v", err)
 	}
 	// remove the home dir to test auto creation
-	_, err = os.Stat(user.HomeDir)
-	if err == nil {
-		os.RemoveAll(user.HomeDir)
-	}
+	os.RemoveAll(user.HomeDir)
 	client, err := getSftpClient(user, usePubKey)
 	if err != nil {
 		t.Errorf("unable to create sftp client: %v", err)
@@ -339,12 +337,60 @@ func TestDirCommands(t *testing.T) {
 			t.Errorf("error rmdir: %v", err)
 		}
 		err = client.Mkdir("/test/test1")
+		if err == nil {
+			t.Errorf("recursive mkdir must fail")
+		}
+		client.Mkdir("/test")
+		err = client.Mkdir("/test/test1")
 		if err != nil {
-			t.Errorf("error mkdir all: %v", err)
+			t.Errorf("mkdir dir error: %v", err)
 		}
 		_, err = client.ReadDir("/this/dir/does/not/exist")
 		if err == nil {
 			t.Errorf("reading a missing dir must fail")
+		}
+		err = client.RemoveDirectory("/test/test1")
+		if err != nil {
+			t.Errorf("remove dir error: %v", err)
+		}
+		err = client.RemoveDirectory("/test")
+		if err != nil {
+			t.Errorf("remove dir error: %v", err)
+		}
+		_, err = client.Lstat("/test")
+		if err == nil {
+			t.Errorf("stat for deleted dir must not succeed")
+		}
+		err = client.RemoveDirectory("/test")
+		if err == nil {
+			t.Errorf("remove missing path must fail")
+		}
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+}
+
+func TestRemove(t *testing.T) {
+	usePubKey := true
+	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		err = client.Mkdir("test")
+		if err != nil {
+			t.Errorf("error mkdir: %v", err)
+		}
+		err = client.Mkdir("/test/test1")
+		if err != nil {
+			t.Errorf("error mkdir subdir: %v", err)
 		}
 		testFileName := "/test_file.dat"
 		testFilePath := filepath.Join(homeBasePath, testFileName)
@@ -357,20 +403,29 @@ func TestDirCommands(t *testing.T) {
 		if err != nil {
 			t.Errorf("file upload error: %v", err)
 		}
-		// internally client.Remove will call RemoveDirectory on failure
-		// the first remove will fail since test directory is not empty
-		// the RemoveDirectory called internally by client.Remove will succeed
+		err = client.Remove("/test")
+		if err == nil {
+			t.Errorf("remove non empty dir must fail")
+		}
+		err = client.RemoveDirectory(filepath.Join("/test", testFileName))
+		if err == nil {
+			t.Errorf("remove directory as file must fail")
+		}
+		err = client.Remove(filepath.Join("/test", testFileName))
+		if err != nil {
+			t.Errorf("remove file error: %v", err)
+		}
+		err = client.Remove(filepath.Join("/test", testFileName))
+		if err == nil {
+			t.Errorf("remove missing file must fail")
+		}
+		err = client.Remove("/test/test1")
+		if err != nil {
+			t.Errorf("remove dir error: %v", err)
+		}
 		err = client.Remove("/test")
 		if err != nil {
-			t.Errorf("error rmdir all: %v", err)
-		}
-		_, err = client.Lstat("/test")
-		if err == nil {
-			t.Errorf("stat for deleted dir must not succeed")
-		}
-		err = client.Remove("/test")
-		if err == nil {
-			t.Errorf("remove missing path must fail")
+			t.Errorf("remove dir error: %v", err)
 		}
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
@@ -1520,17 +1575,6 @@ func TestPermCreateDirs(t *testing.T) {
 	} else {
 		defer client.Close()
 		err = client.Mkdir("testdir")
-		if err == nil {
-			t.Errorf("mkdir without permission should not succeed")
-		}
-		testFileName := "test_file.dat"
-		testFilePath := filepath.Join(homeBasePath, testFileName)
-		testFileSize := int64(65535)
-		err = createTestFile(testFilePath, testFileSize)
-		if err != nil {
-			t.Errorf("unable to create test file: %v", err)
-		}
-		err = sftpUploadFile(testFilePath, "/dir/subdir/test_file.dat", testFileSize, client)
 		if err == nil {
 			t.Errorf("mkdir without permission should not succeed")
 		}
