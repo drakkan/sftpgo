@@ -10,6 +10,7 @@ import (
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/sftpd"
+	"github.com/drakkan/sftpgo/utils"
 )
 
 const (
@@ -43,6 +44,7 @@ type basePage struct {
 	ConnectionsURL    string
 	UsersTitle        string
 	ConnectionsTitle  string
+	Version           string
 }
 
 type usersPage struct {
@@ -98,6 +100,7 @@ func loadTemplates(templatesPath string) {
 }
 
 func getBasePageData(title, currentURL string) basePage {
+	version := utils.GetAppVersion()
 	return basePage{
 		Title:             title,
 		CurrentURL:        currentURL,
@@ -109,6 +112,7 @@ func getBasePageData(title, currentURL string) basePage {
 		ConnectionsURL:    webConnectionsPath,
 		UsersTitle:        pageUsersTitle,
 		ConnectionsTitle:  pageConnectionsTitle,
+		Version:           version.GetVersionAsString(),
 	}
 }
 
