@@ -20,7 +20,7 @@ Full featured and highly configurable SFTP server
 - Optional SCP support.
 - Prometheus metrics are exposed.
 - REST API for users and quota management and real time reports for the active connections with possibility of forcibly closing a connection.
-- Web based interface to manage users and connections.
+- Web based interface to easily manage users and connections.
 - Easy migration from Unix system user accounts.
 - Configuration is a your choice: JSON, TOML, YAML, HCL, envfile are supported.
 - Log files are accurate and they are saved in the easily parsable JSON format.
@@ -74,7 +74,10 @@ For Linux, a `systemd` sample [service](https://github.com/drakkan/sftpgo/tree/m
 
 Alternately you can use distro packages:
 
-- Arch Linux PKGBUILD is available on [AUR](https://aur.archlinux.org/packages/sftpgo/ "SFTPGo")
+- Several Arch Linux packages are available on AUR:
+  - [sftpgo](https://aur.archlinux.org/packages/sftpgo/). This package follow stable releases. It requires `git`, `gcc` and `go` to build.
+  - [sftpgo-bin](https://aur.archlinux.org/packages/sftpgo-bin/). This package follow stable releases downloading the prebuilt linux binary from GitHub. It does not require `git`, `gcc` and `go` to build.
+  - [sftpgo-git](https://aur.archlinux.org/packages/sftpgo-git/). This package build and install the latest git master. It requires `git`, `gcc` and `go` to build.
 
 For macOS a `launchd` sample [service](https://github.com/drakkan/sftpgo/tree/master/init/com.github.drakkan.sftpgo.plist "launchd plist") can be found inside the source tree. The `launchd` plist assumes that `sftpgo` has `/usr/local/opt/sftpgo` as base directory.
 
