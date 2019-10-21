@@ -35,9 +35,10 @@ func (s *Service) Start() error {
 		logLevel = zerolog.InfoLevel
 	}
 	logger.InitLogger(s.LogFilePath, s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogCompress, logLevel)
-	logger.Info(logSender, "", "starting SFTPGo "+utils.GetAppVersion().Version+", config dir: %v, config file: %v, log max size: %v log max backups: %v "+
-		"log max age: %v log verbose: %v, log compress: %v", s.ConfigDir, s.ConfigFile, s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge,
-		s.LogVerbose, s.LogCompress)
+	version := utils.GetAppVersion()
+	logger.Info(logSender, "", "starting SFTPGo %v, config dir: %v, config file: %v, log max size: %v log max backups: %v "+
+		"log max age: %v log verbose: %v, log compress: %v", version.GetVersionAsString(), s.ConfigDir, s.ConfigFile, s.LogMaxSize,
+		s.LogMaxBackups, s.LogMaxAge, s.LogVerbose, s.LogCompress)
 	config.LoadConfig(s.ConfigDir, s.ConfigFile)
 	providerConf := config.GetProviderConf()
 

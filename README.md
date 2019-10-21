@@ -70,14 +70,14 @@ sftpgo -v
 SFTPGo version: 0.9.0-dev-90607d4-dirty-2019-08-08T19:28:36Z
 ```
 
-For Linux, a `systemd` sample [service](https://github.com/drakkan/sftpgo/tree/master/init/sftpgo.service "systemd service") can be found inside the source tree.
-
 Alternately you can use distro packages:
 
 - Several Arch Linux packages are available on AUR:
   - [sftpgo](https://aur.archlinux.org/packages/sftpgo/). This package follow stable releases. It requires `git`, `gcc` and `go` to build.
   - [sftpgo-bin](https://aur.archlinux.org/packages/sftpgo-bin/). This package follow stable releases downloading the prebuilt linux binary from GitHub. It does not require `git`, `gcc` and `go` to build.
   - [sftpgo-git](https://aur.archlinux.org/packages/sftpgo-git/). This package build and install the latest git master. It requires `git`, `gcc` and `go` to build.
+
+For Linux, a `systemd` sample [service](https://github.com/drakkan/sftpgo/tree/master/init/sftpgo.service "systemd service") can be found inside the source tree.
 
 For macOS a `launchd` sample [service](https://github.com/drakkan/sftpgo/tree/master/init/com.github.drakkan.sftpgo.plist "launchd plist") can be found inside the source tree. The `launchd` plist assumes that `sftpgo` has `/usr/local/opt/sftpgo` as base directory.
 
