@@ -7,6 +7,7 @@ import (
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
+	"github.com/drakkan/sftpgo/utils"
 	"github.com/rs/zerolog"
 )
 
@@ -34,7 +35,7 @@ func (s *Service) Start() error {
 		logLevel = zerolog.InfoLevel
 	}
 	logger.InitLogger(s.LogFilePath, s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogCompress, logLevel)
-	logger.Info(logSender, "", "starting SFTPGo, config dir: %v, config file: %v, log max size: %v log max backups: %v "+
+	logger.Info(logSender, "", "starting SFTPGo "+utils.GetAppVersion().Version+", config dir: %v, config file: %v, log max size: %v log max backups: %v "+
 		"log max age: %v log verbose: %v, log compress: %v", s.ConfigDir, s.ConfigFile, s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge,
 		s.LogVerbose, s.LogCompress)
 	config.LoadConfig(s.ConfigDir, s.ConfigFile)
