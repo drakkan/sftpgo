@@ -77,9 +77,9 @@ Alternately you can use distro packages:
   - [sftpgo-bin](https://aur.archlinux.org/packages/sftpgo-bin/). This package follow stable releases downloading the prebuilt linux binary from GitHub. It does not require `git`, `gcc` and `go` to build.
   - [sftpgo-git](https://aur.archlinux.org/packages/sftpgo-git/). This package build and install the latest git master. It requires `git`, `gcc` and `go` to build.
 
-For Linux, a `systemd` sample [service](https://github.com/drakkan/sftpgo/tree/master/init/sftpgo.service "systemd service") can be found inside the source tree.
+For Linux, a `systemd` sample [service](./init/sftpgo.service "systemd service") can be found inside the source tree.
 
-For macOS a `launchd` sample [service](https://github.com/drakkan/sftpgo/tree/master/init/com.github.drakkan.sftpgo.plist "launchd plist") can be found inside the source tree. The `launchd` plist assumes that `sftpgo` has `/usr/local/opt/sftpgo` as base directory.
+For macOS a `launchd` sample [service](./init/com.github.drakkan.sftpgo.plist "launchd plist") can be found inside the source tree. The `launchd` plist assumes that `sftpgo` has `/usr/local/opt/sftpgo` as base directory.
 
 On Windows you can run `SFTPGo` as Windows Service, please read the "Configuration" section below for more details.
 
@@ -117,7 +117,7 @@ If you don't configure any private host keys, the daemon will use `id_rsa` in th
 
 Before starting `sftpgo` a dataprovider must be configured.
 
-Sample SQL scripts to create the required database structure can be found inside the source tree [sql](https://github.com/drakkan/sftpgo/tree/master/sql "sql") directory. The SQL scripts filename's is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190706.sql` must be applied before `20190728.sql` and so on.
+Sample SQL scripts to create the required database structure can be found inside the source tree [sql](./sql "sql") directory. The SQL scripts filename's is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190706.sql` must be applied before `20190728.sql` and so on.
 
 The `sftpgo` configuration file contains the following sections:
 
@@ -333,9 +333,9 @@ and you can add authentication with something like this:
 
 and, of course, you can configure the web server to use HTTPS.
 
-The OpenAPI 3 schema for the exposed API can be found inside the source tree: [openapi.yaml](https://github.com/drakkan/sftpgo/tree/master/api/schema/openapi.yaml "OpenAPI 3 specs").
+The OpenAPI 3 schema for the exposed API can be found inside the source tree: [openapi.yaml](./httpd/schema/openapi.yaml "OpenAPI 3 specs").
 
-A sample CLI client for the REST API can be found inside the source tree [scripts](https://github.com/drakkan/sftpgo/tree/master/scripts "scripts") directory.
+A sample CLI client for the REST API can be found inside the source tree [scripts](./scripts "scripts") directory.
 
 You can also generate your own REST client, in your preferred programming language or even bash scripts, using an OpenAPI generator such as [swagger-codegen](https://github.com/swagger-api/swagger-codegen) or [OpenAPI Generator](https://openapi-generator.tech/)
 
