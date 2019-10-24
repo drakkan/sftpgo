@@ -180,7 +180,7 @@ func Initialize(cnf Config, basePath string) error {
 	} else if config.Driver == BoltDataProviderName {
 		err = initializeBoltProvider(basePath)
 	} else {
-		err = fmt.Errorf("Unsupported data provider: %v", config.Driver)
+		err = fmt.Errorf("unsupported data provider: %v", config.Driver)
 	}
 	if err == nil {
 		startAvailabilityTimer()

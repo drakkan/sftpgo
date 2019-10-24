@@ -97,3 +97,24 @@ func TestInvalidUploadMode(t *testing.T) {
 	}
 	os.Remove(configFilePath)
 }
+
+func TestSetGetConfig(t *testing.T) {
+	sftpdConf := config.GetSFTPDConfig()
+	sftpdConf.IdleTimeout = 3
+	config.SetSFTPDConfig(sftpdConf)
+	if config.GetSFTPDConfig().IdleTimeout != sftpdConf.IdleTimeout {
+		t.Errorf("set sftpd conf failed")
+	}
+	dataProviderConf := config.GetProviderConf()
+	dataProviderConf.Host = "test host"
+	config.SetProviderConf(dataProviderConf)
+	if config.GetProviderConf().Host != dataProviderConf.Host {
+		t.Errorf("set data provider conf failed")
+	}
+	httpdConf := config.GetHTTPDConfig()
+	httpdConf.BindAddress = "0.0.0.0"
+	config.SetHTTPDConfig(httpdConf)
+	if config.GetHTTPDConfig().BindAddress != httpdConf.BindAddress {
+		t.Errorf("set httpd conf failed")
+	}
+}

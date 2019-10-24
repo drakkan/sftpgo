@@ -59,7 +59,7 @@ func (t *Transfer) WriteAt(p []byte, off int64) (n int, err error) {
 	t.lastActivity = time.Now()
 	if off < t.minWriteOffset {
 		logger.Warn(logSender, t.connectionID, "Invalid write offset %v minimum valid value %v", off, t.minWriteOffset)
-		return 0, fmt.Errorf("Invalid write offset %v", off)
+		return 0, fmt.Errorf("invalid write offset %v", off)
 	}
 	written, e := t.file.WriteAt(p, off)
 	t.bytesReceived += int64(written)

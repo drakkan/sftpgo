@@ -318,7 +318,7 @@ func getBuckets(tx *bolt.Tx) (*bolt.Bucket, *bolt.Bucket, error) {
 	bucket := tx.Bucket(usersBucket)
 	idxBucket := tx.Bucket(usersIDIdxBucket)
 	if bucket == nil || idxBucket == nil {
-		err = fmt.Errorf("Unable to find required buckets, bolt database structure not correcly defined")
+		err = fmt.Errorf("unable to find required buckets, bolt database structure not correcly defined")
 	}
 	return bucket, idxBucket, err
 }

@@ -23,6 +23,7 @@ Full featured and highly configurable SFTP server
 - Web based interface to easily manage users and connections.
 - Easy migration from Unix system user accounts.
 - Configuration is a your choice: JSON, TOML, YAML, HCL, envfile are supported.
+- Portable mode: a convenient way to share a single directory on demand.
 - Log files are accurate and they are saved in the easily parsable JSON format.
 
 ## Platforms
@@ -93,6 +94,7 @@ Usage:
 
 Available Commands:
   help        Help about any command
+  portable    Serve a single directory
   serve       Start the SFTP Server
 
 Flags:
@@ -275,6 +277,30 @@ netsh advfirewall firewall add rule name="SFTPGo Service" dir=in action=allow pr
 ```
 
 or through the Windows Firewall GUI.
+
+SFTPGo allows to share a single directory on demand using the `portable` subcommand:
+
+```
+sftpgo portable --help
+To serve the current working directory with auto generated credentials simply use:
+
+sftpgo portable
+
+Please take a look at the usage below to customize the serving parameters
+
+Usage:
+  sftpgo portable [flags]
+
+Flags:
+  -d, --directory string      Path to the directory to serve. This can be an absolute path or a path relative to the current directory (default ".")
+  -h, --help                  help for portable
+  -p, --password string       Leave empty to use an auto generated value
+  -g, --permissions strings   User's permissions. "*" means any permission (default [list,download])
+  -k, --public-key strings
+      --scp                   Enable SCP
+  -s, --sftpd-port int        0 means a random non privileged port
+  -u, --username string       Leave empty to use an auto generated value
+```
 
 ## Account's configuration properties
 

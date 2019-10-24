@@ -97,14 +97,29 @@ func GetSFTPDConfig() sftpd.Configuration {
 	return globalConf.SFTPD
 }
 
+// SetSFTPDConfig sets the configuration for the SFTP server
+func SetSFTPDConfig(config sftpd.Configuration) {
+	globalConf.SFTPD = config
+}
+
 // GetHTTPDConfig returns the configuration for the HTTP server
 func GetHTTPDConfig() httpd.Conf {
 	return globalConf.HTTPDConfig
 }
 
+// SetHTTPDConfig sets the configuration for the HTTP server
+func SetHTTPDConfig(config httpd.Conf) {
+	globalConf.HTTPDConfig = config
+}
+
 //GetProviderConf returns the configuration for the data provider
 func GetProviderConf() dataprovider.Config {
 	return globalConf.ProviderConf
+}
+
+//SetProviderConf sets the configuration for the data provider
+func SetProviderConf(config dataprovider.Config) {
+	globalConf.ProviderConf = config
 }
 
 func getRedactedGlobalConf() globalConfig {
@@ -141,7 +156,7 @@ func LoadConfig(configDir, configName string) error {
 		globalConf.SFTPD.Banner = defaultBanner
 	}
 	if globalConf.SFTPD.UploadMode < 0 || globalConf.SFTPD.UploadMode > 2 {
-		err = fmt.Errorf("Invalid upload_mode 0 and 1 are supported, configured: %v reset upload_mode to 0",
+		err = fmt.Errorf("invalid upload_mode 0 and 1 are supported, configured: %v reset upload_mode to 0",
 			globalConf.SFTPD.UploadMode)
 		globalConf.SFTPD.UploadMode = 0
 		logger.Warn(logSender, "", "Configuration error: %v", err)

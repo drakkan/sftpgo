@@ -329,7 +329,7 @@ func loginUser(user dataprovider.User, loginType string) (*ssh.Permissions, erro
 	if !filepath.IsAbs(user.HomeDir) {
 		logger.Warn(logSender, "", "user %v has invalid home dir: %#v. Home dir must be an absolute path, login not allowed",
 			user.Username, user.HomeDir)
-		return nil, fmt.Errorf("Cannot login user with invalid home dir: %v", user.HomeDir)
+		return nil, fmt.Errorf("cannot login user with invalid home dir: %v", user.HomeDir)
 	}
 	if _, err := os.Stat(user.HomeDir); os.IsNotExist(err) {
 		err := os.MkdirAll(user.HomeDir, 0777)
@@ -345,7 +345,7 @@ func loginUser(user dataprovider.User, loginType string) (*ssh.Permissions, erro
 		if activeSessions >= user.MaxSessions {
 			logger.Debug(logSender, "", "authentication refused for user: %v, too many open sessions: %v/%v", user.Username,
 				activeSessions, user.MaxSessions)
-			return nil, fmt.Errorf("Too many open sessions: %v", activeSessions)
+			return nil, fmt.Errorf("too many open sessions: %v", activeSessions)
 		}
 	}
 
