@@ -277,8 +277,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 						if err := ssh.Unmarshal(req.Payload, &msg); err == nil {
 							name, scpArgs, err := parseCommandPayload(msg.Command)
 							connection.Log(logger.LevelDebug, logSender, "new exec command: %#v args: %v user: %v, error: %v",
-								name, scpArgs,
-								connection.User.Username, err)
+								name, scpArgs, connection.User.Username, err)
 							if err == nil && name == "scp" && len(scpArgs) >= 2 {
 								ok = true
 								connection.protocol = protocolSCP

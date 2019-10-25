@@ -143,11 +143,9 @@ func (s *Service) StartPortableMode(sftpdPort int, enableSCP bool) error {
 	}
 	tempDir := os.TempDir()
 	instanceID := xid.New().String()
-	databasePath := filepath.Join(tempDir, instanceID+".db")
 	s.LogFilePath = filepath.Join(tempDir, instanceID+".log")
 	dataProviderConf := config.GetProviderConf()
-	dataProviderConf.Driver = dataprovider.BoltDataProviderName
-	dataProviderConf.Name = databasePath
+	dataProviderConf.Driver = dataprovider.MemoryDataProviderName
 	config.SetProviderConf(dataProviderConf)
 	httpdConf := config.GetHTTPDConfig()
 	httpdConf.BindPort = 0

@@ -200,7 +200,7 @@ func TestBasicSFTPHandling(t *testing.T) {
 		testFileSize := int64(65535)
 		expectedQuotaSize := user.UsedQuotaSize + testFileSize
 		expectedQuotaFiles := user.UsedQuotaFiles + 1
-		err = createTestFile(testFilePath, testFileSize)
+		createTestFile(testFilePath, testFileSize)
 		err = sftpUploadFile(testFilePath, path.Join("/missing_dir", testFileName), testFileSize, client)
 		if err == nil {
 			t.Errorf("upload a file to a missing dir must fail")

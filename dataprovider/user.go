@@ -189,3 +189,28 @@ func (u *User) GetInfoString() string {
 	}
 	return result
 }
+
+func (u *User) getACopy() User {
+	pubKeys := make([]string, len(u.PublicKeys))
+	copy(pubKeys, u.PublicKeys)
+	permissions := make([]string, len(u.Permissions))
+	copy(permissions, u.Permissions)
+	return User{
+		ID:                u.ID,
+		Username:          u.Username,
+		Password:          u.Password,
+		PublicKeys:        pubKeys,
+		HomeDir:           u.HomeDir,
+		UID:               u.UID,
+		GID:               u.GID,
+		MaxSessions:       u.MaxSessions,
+		QuotaSize:         u.QuotaSize,
+		QuotaFiles:        u.QuotaFiles,
+		Permissions:       permissions,
+		UsedQuotaSize:     u.UsedQuotaSize,
+		UsedQuotaFiles:    u.UsedQuotaFiles,
+		LastQuotaUpdate:   u.LastQuotaUpdate,
+		UploadBandwidth:   u.UploadBandwidth,
+		DownloadBandwidth: u.DownloadBandwidth,
+	}
+}

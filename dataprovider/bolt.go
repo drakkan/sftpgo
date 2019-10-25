@@ -161,7 +161,7 @@ func (p BoltProvider) userExists(username string) (User, error) {
 		}
 		u := bucket.Get([]byte(username))
 		if u == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("username %v does not exist", user.Username)}
+			return &RecordNotFoundError{err: fmt.Sprintf("username %v does not exist", username)}
 		}
 		return json.Unmarshal(u, &user)
 	})
@@ -242,6 +242,9 @@ func (p BoltProvider) deleteUser(user User) error {
 func (p BoltProvider) getUsers(limit int, offset int, order string, username string) ([]User, error) {
 	users := []User{}
 	var err error
+	if limit <= 0 {
+		return users, err
+	}
 	if len(username) > 0 {
 		if offset == 0 {
 			user, err := p.userExists(username)
@@ -252,9 +255,6 @@ func (p BoltProvider) getUsers(limit int, offset int, order string, username str
 		return users, err
 	}
 	err = p.dbHandle.View(func(tx *bolt.Tx) error {
-		if limit <= 0 {
-			return nil
-		}
 		bucket, _, err := getBuckets(tx)
 		if err != nil {
 			return err
