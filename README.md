@@ -7,7 +7,7 @@ Full featured and highly configurable SFTP server
 
 - Each account is chrooted to his Home Dir.
 - SFTP accounts are virtual accounts stored in a "data provider".
-- SQLite, MySQL, PostgreSQL and bbolt (key/value store in pure Go) data providers are supported.
+- SQLite, MySQL, PostgreSQL, bbolt (key/value store in pure Go) and in memory data providers are supported.
 - Public key and password authentication. Multiple public keys per user are supported.
 - Quota support: accounts can have individual quota expressed as max total size and/or max number of files.
 - Bandwidth throttling is supported, with distinct settings for upload and download.
@@ -51,7 +51,7 @@ On Linux and macOS a compiler is easy to install or already installed, on Window
 
 The compiler is a build time only dependency, it is not not required at runtime.
 
-If you don't need SQLite, you can also get/build SFTPGo setting the environment variable `GCO_ENABLED` to 0, this way SQLite support will be disabled but PostgreSQL, MySQL and bbolt will work and you don't need a `C` compiler for building.
+If you don't need SQLite, you can also get/build SFTPGo setting the environment variable `GCO_ENABLED` to 0, this way SQLite support will be disabled but PostgreSQL, MySQL, bbolt and memory data providers will work and you don't need a `C` compiler for building.
 
 Version info, such as git commit and build date, can be embedded setting the following string variables at build time:
 
@@ -151,14 +151,14 @@ The `sftpgo` configuration file contains the following sections:
     - `macs`, list of strings. available MAC (message authentication code) algorithms in preference order. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L84 "Supported MACs")
     - `login_banner_file`, path to the login banner file. The contents of the specified file, if any, are sent to the remote user before authentication is allowed. It can be a path relative to the config dir or an absolute one. Leave empty to send no login banner
 - **"data_provider"**, the configuration for the data provider
-    - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`
+    - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`, `memory`
     - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database.
-    - `host`, string. Database host. Leave empty for driver `sqlite` and `bolt`
-    - `port`, integer. Database port. Leave empty for driver `sqlite` and `bolt`
-    - `username`, string. Database user. Leave empty for driver `sqlite` and `bolt`
-    - `password`, string. Database password. Leave empty for driver `sqlite` and `bolt`
+    - `host`, string. Database host. Leave empty for drivers `sqlite`, `bolt` and `memory`
+    - `port`, integer. Database port. Leave empty for drivers `sqlite`, `bolt` and `memory`
+    - `username`, string. Database user. Leave empty for drivers `sqlite`, `bolt` and `memory`
+    - `password`, string. Database password. Leave empty for drivers `sqlite`, `bolt` and `memory`
     - `sslmode`, integer. Used for drivers `mysql` and `postgresql`. 0 disable SSL/TLS connections, 1 require ssl, 2 set ssl mode to `verify-ca` for driver `postgresql` and `skip-verify` for driver `mysql`, 3 set ssl mode to `verify-full` for driver `postgresql` and `preferred` for driver `mysql`
-    - `connectionstring`, string. Provide a custom database connection string. If not empty this connection string will be used instead of build one using the previous parameters. Leave empty for driver `bolt`
+    - `connectionstring`, string. Provide a custom database connection string. If not empty this connection string will be used instead of build one using the previous parameters. Leave empty for drivers `bolt` and `memory`
     - `users_table`, string. Database table for SFTP users
     - `manage_users`, integer. Set to 0 to disable users management, 1 to enable
     - `track_quota`, integer. Set the preferred way to track users quota between the following choices:
