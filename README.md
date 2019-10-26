@@ -183,14 +183,19 @@ Here is a full example showing the default config in JSON format:
     "idle_timeout": 15,
     "max_auth_tries": 0,
     "umask": "0022",
-    "banner": "SFTPGo",
+    "banner": "",
+    "upload_mode": 0,
     "actions": {
       "execute_on": [],
       "command": "",
       "http_notification_url": ""
     },
     "keys": [],
-    "enable_scp": false
+    "enable_scp": false,
+    "kex_algorithms": [],
+    "ciphers": [],
+    "macs": [],
+    "login_banner_file": ""
   },
   "data_provider": {
     "driver": "sqlite",
