@@ -54,12 +54,7 @@ func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge
 			MaxAge:     logMaxAge,
 			Compress:   logCompress,
 		})
-		consoleOutput := zerolog.ConsoleWriter{
-			Out:        os.Stdout,
-			TimeFormat: dateFormat,
-			NoColor:    runtime.GOOS == "windows",
-		}
-		consoleLogger = zerolog.New(consoleOutput).With().Timestamp().Logger().Level(level)
+		EnableConsoleLogger(level)
 	} else {
 		logger = zerolog.New(logSyncWrapper{
 			output: os.Stdout,
@@ -67,6 +62,22 @@ func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge
 		consoleLogger = zerolog.Nop()
 	}
 	logger = logger.With().Timestamp().Logger().Level(level)
+}
+
+// DisableLogger disable the main logger.
+// ConsoleLogger will not be affected
+func DisableLogger() {
+	logger = zerolog.Nop()
+}
+
+// EnableConsoleLogger enables the console logger
+func EnableConsoleLogger(level zerolog.Level) {
+	consoleOutput := zerolog.ConsoleWriter{
+		Out:        os.Stdout,
+		TimeFormat: dateFormat,
+		NoColor:    runtime.GOOS == "windows",
+	}
+	consoleLogger = zerolog.New(consoleOutput).With().Timestamp().Logger().Level(level)
 }
 
 // Log logs at the specified level for the specified sender

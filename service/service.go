@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"path/filepath"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/drakkan/sftpgo/config"
@@ -15,7 +16,7 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
-	"github.com/rs/xid"
+	"github.com/grandcat/zeroconf"
 	"github.com/rs/zerolog"
 )
 
@@ -49,6 +50,12 @@ func (s *Service) Start() error {
 		logLevel = zerolog.InfoLevel
 	}
 	logger.InitLogger(s.LogFilePath, s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogCompress, logLevel)
+	if s.PortableMode == 1 {
+		logger.EnableConsoleLogger(logLevel)
+		if len(s.LogFilePath) == 0 {
+			logger.DisableLogger()
+		}
+	}
 	version := utils.GetAppVersion()
 	logger.Info(logSender, "", "starting SFTPGo %v, config dir: %v, config file: %v, log max size: %v log max backups: %v "+
 		"log max age: %v log verbose: %v, log compress: %v", version.GetVersionAsString(), s.ConfigDir, s.ConfigFile, s.LogMaxSize,
@@ -106,11 +113,6 @@ func (s *Service) Start() error {
 			logger.DebugToConsole("HTTP server not started, disabled in config file")
 		}
 	}
-	if s.PortableMode == 1 {
-		logger.InfoToConsole("Portable mode ready, SFTP port: %v, user: %#v, password: %#v, public keys: %v, directory: %#v, permissions: %v,"+
-			" SCP enabled: %v", sftpdConf.BindPort, s.PortableUser.Username, s.PortableUser.Password, s.PortableUser.PublicKeys,
-			s.PortableUser.HomeDir, s.PortableUser.Permissions, sftpdConf.IsSCPEnabled)
-	}
 	return nil
 }
 
@@ -126,11 +128,12 @@ func (s *Service) Stop() {
 }
 
 // StartPortableMode starts the service in portable mode
-func (s *Service) StartPortableMode(sftpdPort int, enableSCP bool) error {
-	rand.Seed(time.Now().UnixNano())
+func (s *Service) StartPortableMode(sftpdPort int, enableSCP, advertiseService, advertiseCredentials bool) error {
 	if s.PortableMode != 1 {
 		return fmt.Errorf("service is not configured for portable mode")
 	}
+	var err error
+	rand.Seed(time.Now().UnixNano())
 	if len(s.PortableUser.Username) == 0 {
 		s.PortableUser.Username = "user"
 	}
@@ -141,9 +144,6 @@ func (s *Service) StartPortableMode(sftpdPort int, enableSCP bool) error {
 		}
 		s.PortableUser.Password = b.String()
 	}
-	tempDir := os.TempDir()
-	instanceID := xid.New().String()
-	s.LogFilePath = filepath.Join(tempDir, instanceID+".log")
 	dataProviderConf := config.GetProviderConf()
 	dataProviderConf.Driver = dataprovider.MemoryDataProviderName
 	config.SetProviderConf(dataProviderConf)
@@ -161,5 +161,53 @@ func (s *Service) StartPortableMode(sftpdPort int, enableSCP bool) error {
 	sftpdConf.IsSCPEnabled = enableSCP
 	config.SetSFTPDConfig(sftpdConf)
 
-	return s.Start()
+	err = s.Start()
+	if err == nil {
+		var mDNSService *zeroconf.Server
+		var err error
+		if advertiseService {
+			version := utils.GetAppVersion()
+			meta := []string{
+				fmt.Sprintf("version=%v", version.GetVersionAsString()),
+			}
+			if advertiseCredentials {
+				logger.InfoToConsole("Advertising credentials via multicast DNS")
+				meta = append(meta, fmt.Sprintf("user=%v", s.PortableUser.Username))
+				if len(s.PortableUser.Password) > 0 {
+					meta = append(meta, fmt.Sprintf("password=%v", s.PortableUser.Password))
+				} else {
+					logger.InfoToConsole("Unable to advertise key based credentials via multicast DNS, we don't have the private key")
+				}
+			}
+			mDNSService, err = zeroconf.Register(
+				fmt.Sprintf("SFTPGo portable %v", sftpdConf.BindPort), // service instance name
+				"_sftp-ssh._tcp",   // service type and protocl
+				"local.",           // service domain
+				sftpdConf.BindPort, // service port
+				meta,               // service metadata
+				nil,                // register on all network interfaces
+			)
+			if err != nil {
+				mDNSService = nil
+				logger.WarnToConsole("Unable to advertise service via multicast DNS: %v", err)
+			} else {
+				logger.InfoToConsole("Service advertised via multicast DNS")
+			}
+
+		}
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+		go func() {
+			<-sig
+			if mDNSService != nil {
+				logger.InfoToConsole("unregistering multicast DNS service")
+				mDNSService.Shutdown()
+			}
+			s.Stop()
+		}()
+		logger.InfoToConsole("Portable mode ready, SFTP port: %v, user: %#v, password: %#v, public keys: %v, directory: %#v, "+
+			"permissions: %v, SCP enabled: %v", sftpdConf.BindPort, s.PortableUser.Username, s.PortableUser.Password,
+			s.PortableUser.PublicKeys, s.PortableUser.HomeDir, s.PortableUser.Permissions, sftpdConf.IsSCPEnabled)
+	}
+	return err
 }

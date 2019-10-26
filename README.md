@@ -292,14 +292,29 @@ Usage:
   sftpgo portable [flags]
 
 Flags:
-  -d, --directory string      Path to the directory to serve. This can be an absolute path or a path relative to the current directory (default ".")
-  -h, --help                  help for portable
-  -p, --password string       Leave empty to use an auto generated value
-  -g, --permissions strings   User's permissions. "*" means any permission (default [list,download])
+  -C, --advertise-credentials   If the service is advertised via multicast DNS this flag allows to put username/password inside the advertised TXT record
+  -S, --advertise-service       Advertise SFTP/SCP service using multicast DNS (default true)
+  -d, --directory string        Path to the directory to serve. This can be an absolute path or a path relative to the current directory (default ".")
+  -h, --help                    help for portable
+  -l, --log-file-path string    Leave empty to disable logging
+  -p, --password string         Leave empty to use an auto generated value
+  -g, --permissions strings     User's permissions. "*" means any permission (default [list,download])
   -k, --public-key strings
-      --scp                   Enable SCP
-  -s, --sftpd-port int        0 means a random non privileged port
-  -u, --username string       Leave empty to use an auto generated value
+      --scp                     Enable SCP
+  -s, --sftpd-port int          0 means a random non privileged port
+  -u, --username string         Leave empty to use an auto generated value
+```
+
+In portable mode SFTPGo can advertise the SFTP service and, optionally, the credentials via multicast DNS, so there is a standard way to discover the service and to automatically connect to it.
+
+Here is an example of the advertised service including credentials as seen using `avahi-browse`:
+
+```
+= enp0s31f6 IPv4 SFTPGo portable 53705                         SFTP File Transfer   local
+   hostname = [p1.local]
+   address = [192.168.1.230]
+   port = [53705]
+   txt = ["password=EWOo6pJe" "user=user" "version=0.9.3-dev-b409523-dirty-2019-10-26T13:43:32Z"]
 ```
 
 ## Account's configuration properties
@@ -448,6 +463,7 @@ The logs can be divided into the following categories:
 - [cobra](https://github.com/spf13/cobra)
 - [xid](https://github.com/rs/xid)
 - [nathanaelle/password](https://github.com/nathanaelle/password)
+- [ZeroConf](https://github.com/grandcat/zeroconf)
 - [SB Admin 2](https://github.com/BlackrockDigital/startbootstrap-sb-admin-2)
 
 Some code was initially taken from [Pterodactyl sftp server](https://github.com/pterodactyl/sftp-server)
