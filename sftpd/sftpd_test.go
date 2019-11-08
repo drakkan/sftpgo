@@ -324,13 +324,21 @@ func TestDirCommands(t *testing.T) {
 		t.Errorf("unable to create sftp client: %v", err)
 	} else {
 		defer client.Close()
-		err = client.Mkdir("test")
+		err = client.Mkdir("test1")
 		if err != nil {
 			t.Errorf("error mkdir: %v", err)
 		}
-		err = client.Rename("test", "test1")
+		err = client.Rename("test1", "test")
 		if err != nil {
 			t.Errorf("error rename: %v", err)
+		}
+		_, err = client.Lstat("/test1")
+		if err == nil {
+			t.Errorf("stat for renamed dir must not succeed")
+		}
+		err = client.PosixRename("test", "test1")
+		if err != nil {
+			t.Errorf("error posix rename: %v", err)
 		}
 		err = client.Remove("test1")
 		if err != nil {
@@ -366,10 +374,7 @@ func TestDirCommands(t *testing.T) {
 			t.Errorf("remove missing path must fail")
 		}
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove user: %v", err)
-	}
+	httpd.RemoveUser(user, http.StatusOK)
 	os.RemoveAll(user.GetHomeDir())
 }
 

@@ -71,7 +71,7 @@ func init() {
 	portableCmd.Flags().StringSliceVarP(&portablePermissions, "permissions", "g", []string{"list", "download"},
 		"User's permissions. \"*\" means any permission")
 	portableCmd.Flags().BoolVarP(&portableAdvertiseService, "advertise-service", "S", true,
-		"Advertise SFTP/SCP service using multicast DNS")
+		"Advertise SFTP service using multicast DNS")
 	portableCmd.Flags().BoolVarP(&portableAdvertiseCredentials, "advertise-credentials", "C", false,
 		"If the service is advertised via multicast DNS this flag allows to put username/password inside the advertised TXT record")
 	rootCmd.AddCommand(portableCmd)
