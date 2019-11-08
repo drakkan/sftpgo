@@ -181,7 +181,7 @@ func (s *Service) StartPortableMode(sftpdPort int, enableSCP, advertiseService, 
 			}
 			mDNSService, err = zeroconf.Register(
 				fmt.Sprintf("SFTPGo portable %v", sftpdConf.BindPort), // service instance name
-				"_sftp-ssh._tcp",   // service type and protocl
+				"_sftp-ssh._tcp",   // service type and protocol
 				"local.",           // service domain
 				sftpdConf.BindPort, // service port
 				meta,               // service metadata
