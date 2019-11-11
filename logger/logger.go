@@ -170,7 +170,7 @@ func ConnectionFailedLog(user, ip, loginType, errorString string) {
 	logger.Debug().
 		Timestamp().
 		Str("sender", "connection_failed").
-		Str("host", ip).
+		Str("client_ip", ip).
 		Str("username", user).
 		Str("login_type", loginType).
 		Str("error", errorString).

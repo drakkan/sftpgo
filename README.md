@@ -455,8 +455,8 @@ The logs can be divided into the following categories:
 - **"connection failed logs"**, logs for failed attempts to initialize a connection. A connection can fail for an authentication error or other errors such as a client abort or a time out if the login does not happen in two minutes
     - `sender` string. `connection_failed`
     - `level` string
-    - `username`, string. Can be empty if the client open the connection and don't try to login
-    - `host` string.
+    - `username`, string. Can be empty if the connection is closed before an authentication attempt
+    - `client_ip` string.
     - `login_type` string. Can be `public_key`, `password` or `no_auth_tryed`
     - `error` string. Optional error description
 
