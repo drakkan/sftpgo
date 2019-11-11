@@ -3,6 +3,7 @@ package utils
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -132,4 +133,14 @@ func byteCount(b int64, unit int64) string {
 	}
 	return fmt.Sprintf("%.1f %ciB",
 		float64(b)/float64(div), "KMGTPE"[exp])
+}
+
+// GetIPFromRemoteAddress returns the IP from the remote address.
+// If the given remote address cannot be parsed it will be returned unchanged
+func GetIPFromRemoteAddress(remoteAddress string) string {
+	ip, _, err := net.SplitHostPort(remoteAddress)
+	if err == nil {
+		return ip
+	}
+	return remoteAddress
 }

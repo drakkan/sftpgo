@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	dateFormat = "2006-01-02T15:04.05.000" // YYYY-MM-DDTHH:MM.SS.ZZZ
+	dateFormat = "2006-01-02T15:04:05.000" // YYYY-MM-DDTHH:MM:SS.ZZZ
 )
 
 // LogLevel defines log levels.
@@ -61,7 +61,7 @@ func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge
 			lock:   new(sync.Mutex)})
 		consoleLogger = zerolog.Nop()
 	}
-	logger = logger.With().Timestamp().Logger().Level(level)
+	logger.Level(level)
 }
 
 // DisableLogger disable the main logger.
@@ -97,22 +97,22 @@ func Log(level LogLevel, sender string, connectionID string, format string, v ..
 
 // Debug logs at debug level for the specified sender
 func Debug(sender string, connectionID string, format string, v ...interface{}) {
-	logger.Debug().Str("sender", sender).Str("connection_id", connectionID).Msg(fmt.Sprintf(format, v...))
+	logger.Debug().Timestamp().Str("sender", sender).Str("connection_id", connectionID).Msg(fmt.Sprintf(format, v...))
 }
 
 // Info logs at info level for the specified sender
 func Info(sender string, connectionID string, format string, v ...interface{}) {
-	logger.Info().Str("sender", sender).Str("connection_id", connectionID).Msg(fmt.Sprintf(format, v...))
+	logger.Info().Timestamp().Str("sender", sender).Str("connection_id", connectionID).Msg(fmt.Sprintf(format, v...))
 }
 
 // Warn logs at warn level for the specified sender
 func Warn(sender string, connectionID string, format string, v ...interface{}) {
-	logger.Warn().Str("sender", sender).Str("connection_id", connectionID).Msg(fmt.Sprintf(format, v...))
+	logger.Warn().Timestamp().Str("sender", sender).Str("connection_id", connectionID).Msg(fmt.Sprintf(format, v...))
 }
 
 // Error logs at error level for the specified sender
 func Error(sender string, connectionID string, format string, v ...interface{}) {
-	logger.Error().Str("sender", sender).Str("connection_id", connectionID).Msg(fmt.Sprintf(format, v...))
+	logger.Error().Timestamp().Str("sender", sender).Str("connection_id", connectionID).Msg(fmt.Sprintf(format, v...))
 }
 
 // DebugToConsole logs at debug level to stdout
@@ -138,6 +138,7 @@ func ErrorToConsole(format string, v ...interface{}) {
 // TransferLog logs an SFTP/SCP upload or download
 func TransferLog(operation string, path string, elapsed int64, size int64, user string, connectionID string, protocol string) {
 	logger.Info().
+		Timestamp().
 		Str("sender", operation).
 		Int64("elapsed_ms", elapsed).
 		Int64("size_bytes", size).
@@ -151,11 +152,27 @@ func TransferLog(operation string, path string, elapsed int64, size int64, user 
 // CommandLog logs an SFTP/SCP command
 func CommandLog(command string, path string, target string, user string, connectionID string, protocol string) {
 	logger.Info().
+		Timestamp().
 		Str("sender", command).
 		Str("username", user).
 		Str("file_path", path).
 		Str("target_path", target).
 		Str("connection_id", connectionID).
 		Str("protocol", protocol).
+		Msg("")
+}
+
+// ConnectionFailedLog logs failed attempts to initialize a connection.
+// A connection can fail for an authentication error or other errors such as
+// a client abort or a time out if the login does not happen in two minutes.
+// These logs are useful for better integration with Fail2ban and similar tools.
+func ConnectionFailedLog(user, ip, loginType, errorString string) {
+	logger.Debug().
+		Timestamp().
+		Str("sender", "connection_failed").
+		Str("host", ip).
+		Str("username", user).
+		Str("login_type", loginType).
+		Str("error", errorString).
 		Msg("")
 }

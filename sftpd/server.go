@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -87,6 +86,14 @@ type Key struct {
 	PrivateKey string `json:"private_key" mapstructure:"private_key"`
 }
 
+type authenticationError struct {
+	err string
+}
+
+func (e *authenticationError) Error() string {
+	return fmt.Sprintf("Authentication error: %s", e.err)
+}
+
 // Initialize the SFTP server and add a persistent listener to handle inbound SFTP connections.
 func (c Configuration) Initialize(configDir string) error {
 	umask, err := strconv.ParseUint(c.Umask, 8, 8)
@@ -102,7 +109,7 @@ func (c Configuration) Initialize(configDir string) error {
 		PasswordCallback: func(conn ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
 			sp, err := c.validatePasswordCredentials(conn, pass)
 			if err != nil {
-				return nil, errors.New("could not validate credentials")
+				return nil, &authenticationError{err: fmt.Sprintf("could not validate password credentials: %v", err)}
 			}
 
 			return sp, nil
@@ -110,7 +117,7 @@ func (c Configuration) Initialize(configDir string) error {
 		PublicKeyCallback: func(conn ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
 			sp, err := c.validatePublicKeyCredentials(conn, string(pubKey.Marshal()))
 			if err != nil {
-				return nil, errors.New("could not validate credentials")
+				return nil, &authenticationError{err: fmt.Sprintf("could not validate public key credentials: %v", err)}
 			}
 
 			return sp, nil
@@ -207,15 +214,17 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 	// Before beginning a handshake must be performed on the incoming net.Conn
 	// we'll set a Deadline for handshake to complete, the default is 2 minutes as OpenSSH
 	conn.SetDeadline(time.Now().Add(handshakeTimeout))
+	remoteAddr := conn.RemoteAddr()
 	sconn, chans, reqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
 		logger.Warn(logSender, "", "failed to accept an incoming connection: %v", err)
+		if _, ok := err.(*ssh.ServerAuthError); !ok {
+			logger.ConnectionFailedLog("", utils.GetIPFromRemoteAddress(remoteAddr.String()), "no_auth_tryed", err.Error())
+		}
 		return
 	}
 	// handshake completed so remove the deadline, we'll use IdleTimeout configuration from now on
 	conn.SetDeadline(time.Time{})
-
-	logger.Debug(logSender, "", "accepted inbound connection, ip: %v", conn.RemoteAddr().String())
 
 	var user dataprovider.User
 	var loginType string
@@ -230,15 +239,15 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		ID:            connectionID,
 		User:          user,
 		ClientVersion: string(sconn.ClientVersion()),
-		RemoteAddr:    conn.RemoteAddr(),
+		RemoteAddr:    remoteAddr,
 		StartTime:     time.Now(),
 		lastActivity:  time.Now(),
 		lock:          new(sync.Mutex),
 		netConn:       conn,
 		channel:       nil,
 	}
-	connection.Log(logger.LevelInfo, logSender, "User id: %d, logged in with: %#v, username: %#v, home_dir: %#v",
-		user.ID, loginType, user.Username, user.HomeDir)
+	connection.Log(logger.LevelInfo, logSender, "User id: %d, logged in with: %#v, username: %#v, home_dir: %#v remote addr: %#v",
+		user.ID, loginType, user.Username, user.HomeDir, remoteAddr.String())
 
 	go ssh.DiscardRequests(reqs)
 
@@ -385,6 +394,8 @@ func (c Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKe
 	metrics.AddLoginAttempt(true)
 	if user, keyID, err = dataprovider.CheckUserAndPubKey(dataProvider, conn.User(), pubKey); err == nil {
 		sshPerm, err = loginUser(user, "public_key:"+keyID)
+	} else {
+		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), "public_key", err.Error())
 	}
 	metrics.AddLoginResult(true, err)
 	return sshPerm, err
@@ -398,6 +409,8 @@ func (c Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass [
 	metrics.AddLoginAttempt(false)
 	if user, err = dataprovider.CheckUserAndPass(dataProvider, conn.User(), string(pass)); err == nil {
 		sshPerm, err = loginUser(user, "password")
+	} else {
+		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), "password", err.Error())
 	}
 	metrics.AddLoginResult(false, err)
 	return sshPerm, err

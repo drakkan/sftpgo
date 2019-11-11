@@ -56,17 +56,23 @@ func (l *StructuredLogger) NewLogEntry(r *http.Request) middleware.LogEntry {
 // Write logs a new entry at the end of the HTTP request
 func (l *StructuredLoggerEntry) Write(status, bytes int, elapsed time.Duration) {
 	metrics.HTTPRequestServed(status)
-	l.Logger.Info().Fields(l.fields).Int(
-		"resp_status", status).Int(
-		"resp_size", bytes).Int64(
-		"elapsed_ms", elapsed.Nanoseconds()/1000000).Str(
-		"sender", "httpd").Msg(
-		"")
+	l.Logger.Info().
+		Timestamp().
+		Str("sender", "httpd").
+		Fields(l.fields).
+		Int("resp_status", status).
+		Int("resp_size", bytes).
+		Int64("elapsed_ms", elapsed.Nanoseconds()/1000000).
+		Msg("")
 }
 
 // Panic logs panics
 func (l *StructuredLoggerEntry) Panic(v interface{}, stack []byte) {
-	l.Logger.Error().Fields(l.fields).Str(
-		"stack", string(stack)).Str(
-		"panic", fmt.Sprintf("%+v", v)).Msg("")
+	l.Logger.Error().
+		Timestamp().
+		Str("sender", "httpd").
+		Fields(l.fields).
+		Str("stack", string(stack)).
+		Str("panic", fmt.Sprintf("%+v", v)).
+		Msg("")
 }

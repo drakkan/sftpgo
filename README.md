@@ -452,6 +452,15 @@ The logs can be divided into the following categories:
     - `resp_size` integer. Size in bytes of the HTTP response
     - `elapsed_ms` int64. Elapsed time, as milliseconds, to complete the request
     - `request_id` string. Unique request identifier
+- **"connection_failed"**, logs failed attempts to initialize a connection. A connection can fail for an authentication error or other errors such as a client abort or a time out if the login does not happen in two minutes
+    - `sender` string. `connection_failed`
+    - `level` string
+    - `username`, string. Can be empty if the client open the connection and don't try to login
+    - `host` string.
+    - `login_type` string. Can be `public_key`, `password` or `no_auth_tryed`
+    - `error` string. Optional error description
+
+The `connection_failed` logs can be used for better integration in tools such as [Fail2ban](http://www.fail2ban.org/)
 
 ## Acknowledgements
 
