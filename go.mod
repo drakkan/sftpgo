@@ -14,7 +14,7 @@ require (
 	github.com/miekg/dns v1.1.22 // indirect
 	github.com/nathanaelle/password v1.0.0
 	github.com/pelletier/go-toml v1.6.0 // indirect
-	github.com/pkg/sftp v1.10.2-0.20191102210727-6d50bf4a2122
+	github.com/pkg/sftp v1.10.2-0.20191111234405-8488d36edee7
 	github.com/prometheus/client_golang v1.2.1
 	github.com/rs/xid v1.2.1
 	github.com/rs/zerolog v1.16.0

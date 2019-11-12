@@ -28,6 +28,8 @@ import (
 
 const defaultPrivateKeyName = "id_rsa"
 
+var sftpExtensions = []string{"posix-rename@openssh.com"}
+
 // Configuration for the SFTP server
 type Configuration struct {
 	// Identification string used by the server
@@ -153,6 +155,7 @@ func (c Configuration) Initialize(configDir string) error {
 
 	c.configureSecurityOptions(serverConfig)
 	c.configureLoginBanner(serverConfig, configDir)
+	c.configureSFTPExtensions()
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", c.BindAddress, c.BindPort))
 	if err != nil {
@@ -204,6 +207,15 @@ func (c Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, conf
 			logger.WarnToConsole("unable to read login banner file: %v", err)
 			logger.Warn(logSender, "", "unable to read login banner file: %v", err)
 		}
+	}
+	return err
+}
+
+func (c Configuration) configureSFTPExtensions() error {
+	err := sftp.SetSFTPExtensions(sftpExtensions...)
+	if err != nil {
+		logger.WarnToConsole("unable to configure SFTP extensions: %v", err)
+		logger.Warn(logSender, "", "unable to configure SFTP extensions: %v", err)
 	}
 	return err
 }

@@ -802,3 +802,18 @@ func TestConnectionStatusStruct(t *testing.T) {
 		t.Errorf("error getting connection info")
 	}
 }
+
+func TestSFTPExtensions(t *testing.T) {
+	initialSFTPExtensions := sftpExtensions
+	c := Configuration{}
+	err := c.configureSFTPExtensions()
+	if err != nil {
+		t.Errorf("error configuring SFTP extensions")
+	}
+	sftpExtensions = append(sftpExtensions, "invalid@example.com")
+	err = c.configureSFTPExtensions()
+	if err == nil {
+		t.Errorf("configuring invalid SFTP extensions must fail")
+	}
+	sftpExtensions = initialSFTPExtensions
+}
