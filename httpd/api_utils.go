@@ -350,5 +350,11 @@ func compareEqualsUserFields(expected dataprovider.User, actual dataprovider.Use
 	if expected.DownloadBandwidth != actual.DownloadBandwidth {
 		return errors.New("DownloadBandwidth mismatch")
 	}
+	if expected.Status != actual.Status {
+		return errors.New("Status mismatch")
+	}
+	if expected.ExpirationDate != actual.ExpirationDate {
+		return errors.New("ExpirationDate mismatch")
+	}
 	return nil
 }

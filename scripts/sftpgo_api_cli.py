@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+from datetime import datetime
 import json
 
 import requests
@@ -59,10 +60,11 @@ class SFTPGoApiRequests:
 
 	def buildUserObject(self, user_id=0, username="", password="", public_keys="", home_dir="", uid=0,
 					gid=0, max_sessions=0, quota_size=0, quota_files=0, permissions=[], upload_bandwidth=0,
-					download_bandwidth=0):
+					download_bandwidth=0, status=1, expiration_date=0):
 		user = {"id":user_id, "username":username, "uid":uid, "gid":gid,
 			"max_sessions":max_sessions, "quota_size":quota_size, "quota_files":quota_files,
-			"upload_bandwidth":upload_bandwidth, "download_bandwidth":download_bandwidth}
+			"upload_bandwidth":upload_bandwidth, "download_bandwidth":download_bandwidth,
+			"status":status, "expiration_date":expiration_date}
 		if password:
 			user.update({"password":password})
 		if public_keys:
@@ -83,17 +85,18 @@ class SFTPGoApiRequests:
 		self.printResponse(r)
 
 	def addUser(self, username="", password="", public_keys="", home_dir="", uid=0, gid=0, max_sessions=0,
-		quota_size=0, quota_files=0, permissions=[], upload_bandwidth=0, download_bandwidth=0):
+		quota_size=0, quota_files=0, permissions=[], upload_bandwidth=0, download_bandwidth=0, status=1,
+		expiration_date=0):
 		u = self.buildUserObject(0, username, password, public_keys, home_dir, uid, gid, max_sessions,
-			quota_size, quota_files, permissions, upload_bandwidth, download_bandwidth)
+			quota_size, quota_files, permissions, upload_bandwidth, download_bandwidth, status, expiration_date)
 		r = requests.post(self.userPath, json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
 	def updateUser(self, user_id, username="", password="", public_keys="", home_dir="", uid=0, gid=0,
 				max_sessions=0, quota_size=0, quota_files=0, permissions=[], upload_bandwidth=0,
-				download_bandwidth=0):
+				download_bandwidth=0, status=1, expiration_date=0):
 		u = self.buildUserObject(user_id, username, password, public_keys, home_dir, uid, gid, max_sessions,
-			quota_size, quota_files, permissions, upload_bandwidth, download_bandwidth)
+			quota_size, quota_files, permissions, upload_bandwidth, download_bandwidth, status, expiration_date)
 		r = requests.put(urlparse.urljoin(self.userPath, "user/" + str(user_id)), json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
@@ -123,6 +126,21 @@ class SFTPGoApiRequests:
 		self.printResponse(r)
 
 
+def validDate(s):
+	if not s:
+		return datetime.fromtimestamp(0)
+	try:
+		return datetime.strptime(s, "%Y-%m-%d")
+	except ValueError:
+		msg = "Not a valid date: '{0}'.".format(s)
+		raise argparse.ArgumentTypeError(msg)
+
+
+def getDatetimeAsMillisSinceEpoch(dt):
+	epoch = datetime.fromtimestamp(0)
+	return int((dt - epoch).total_seconds() * 1000)
+
+
 def addCommonUserArguments(parser):
 	parser.add_argument('username', type=str)
 	parser.add_argument('-P', '--password', type=str, default="", help='Default: %(default)s')
@@ -142,6 +160,10 @@ def addCommonUserArguments(parser):
 					help='Maximum upload bandwidth as KB/s, 0 means unlimited. Default: %(default)s')
 	parser.add_argument('-D', '--download-bandwidth', type=int, default=0,
 					help='Maximum download bandwidth as KB/s, 0 means unlimited. Default: %(default)s')
+	parser.add_argument('--status', type=int, choices=[0, 1], default=1,
+							help='User\'s status. 1 enabled, 0 disabled. Default: %(default)s')
+	parser.add_argument('-E', '--expiration-date', type=validDate, default="",
+					help='Expiration date as YYYY-MM-DD, empty string means no expiration. Default: %(default)s')
 
 
 if __name__ == '__main__':
@@ -206,13 +228,13 @@ if __name__ == '__main__':
 						 args.no_color)
 
 	if args.command == 'add-user':
-		api.addUser(args.username, args.password, args.public_keys, args.home_dir,
-					args.uid, args.gid, args.max_sessions, args.quota_size, args.quota_files,
-					args.permissions, args.upload_bandwidth, args.download_bandwidth)
+		api.addUser(args.username, args.password, args.public_keys, args.home_dir, args.uid, args.gid, args.max_sessions,
+				args.quota_size, args.quota_files, args.permissions, args.upload_bandwidth, args.download_bandwidth,
+				args.status, getDatetimeAsMillisSinceEpoch(args.expiration_date))
 	elif args.command == 'update-user':
-		api.updateUser(args.id, args.username, args.password, args.public_keys, args.home_dir,
-					args.uid, args.gid, args.max_sessions, args.quota_size, args.quota_files,
-					args.permissions, args.upload_bandwidth, args.download_bandwidth)
+		api.updateUser(args.id, args.username, args.password, args.public_keys, args.home_dir, args.uid, args.gid,
+					args.max_sessions, args.quota_size, args.quota_files, args.permissions, args.upload_bandwidth,
+					args.download_bandwidth, args.status, getDatetimeAsMillisSinceEpoch(args.expiration_date))
 	elif args.command == 'delete-user':
 		api.deleteUser(args.id)
 	elif args.command == 'get-users':

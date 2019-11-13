@@ -49,6 +49,7 @@ Please take a look at the usage below to customize the serving parameters`,
 					PublicKeys:  portablePublicKeys,
 					Permissions: portablePermissions,
 					HomeDir:     portableDir,
+					Status:      1,
 				},
 			}
 			if err := service.StartPortableMode(portableSFTPDPort, portableEnableSCP, portableAdvertiseService,

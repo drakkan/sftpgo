@@ -63,6 +63,10 @@ func (p PGSQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64,
 	return sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
 }
 
+func (p PGSQLProvider) updateLastLogin(username string) error {
+	return sqlCommonUpdateLastLogin(username, p.dbHandle)
+}
+
 func (p PGSQLProvider) getUsedQuota(username string) (int, int64, error) {
 	return sqlCommonGetUsedQuota(username, p.dbHandle)
 }

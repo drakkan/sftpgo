@@ -13,14 +13,24 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
+const (
+	databaseVersion = 2
+)
+
 var (
 	usersBucket      = []byte("users")
 	usersIDIdxBucket = []byte("users_id_idx")
+	dbVersionBucket  = []byte("db_version")
+	dbVersionKey     = []byte("version")
 )
 
 // BoltProvider auth provider for bolt key/value store
 type BoltProvider struct {
 	dbHandle *bolt.DB
+}
+
+type boltDatabaseVersion struct {
+	Version int
 }
 
 func initializeBoltProvider(basePath string) error {
@@ -52,7 +62,16 @@ func initializeBoltProvider(basePath string) error {
 			providerLog(logger.LevelWarn, "error creating username idx bucket: %v", err)
 			return err
 		}
+		err = dbHandle.Update(func(tx *bolt.Tx) error {
+			_, e := tx.CreateBucketIfNotExists(dbVersionBucket)
+			return e
+		})
+		if err != nil {
+			providerLog(logger.LevelWarn, "error creating database version bucket: %v", err)
+			return err
+		}
 		provider = BoltProvider{dbHandle: dbHandle}
+		err = checkBoltDatabaseVersion(dbHandle)
 	} else {
 		providerLog(logger.LevelWarn, "error creating bolt key/value store handler: %v", err)
 	}
@@ -104,12 +123,36 @@ func (p BoltProvider) getUserByID(ID int64) (User, error) {
 		}
 		u := bucket.Get(username)
 		if u == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("username %v and ID: %v does not exist", string(username), ID)}
+			return &RecordNotFoundError{err: fmt.Sprintf("username %#v and ID: %v does not exist", string(username), ID)}
 		}
 		return json.Unmarshal(u, &user)
 	})
 
 	return user, err
+}
+
+func (p BoltProvider) updateLastLogin(username string) error {
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, _, err := getBuckets(tx)
+		if err != nil {
+			return err
+		}
+		var u []byte
+		if u = bucket.Get([]byte(username)); u == nil {
+			return &RecordNotFoundError{err: fmt.Sprintf("username %#v does not exist, unable to update last login", username)}
+		}
+		var user User
+		err = json.Unmarshal(u, &user)
+		if err != nil {
+			return err
+		}
+		user.LastLogin = utils.GetTimeAsMsSinceEpoch(time.Now())
+		buf, err := json.Marshal(user)
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(username), buf)
+	})
 }
 
 func (p BoltProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
@@ -120,7 +163,7 @@ func (p BoltProvider) updateQuota(username string, filesAdd int, sizeAdd int64, 
 		}
 		var u []byte
 		if u = bucket.Get([]byte(username)); u == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("username %v does not exist, unable to update quota", username)}
+			return &RecordNotFoundError{err: fmt.Sprintf("username %#v does not exist, unable to update quota", username)}
 		}
 		var user User
 		err = json.Unmarshal(u, &user)
@@ -321,4 +364,91 @@ func getBuckets(tx *bolt.Tx) (*bolt.Bucket, *bolt.Bucket, error) {
 		err = fmt.Errorf("unable to find required buckets, bolt database structure not correcly defined")
 	}
 	return bucket, idxBucket, err
+}
+
+func checkBoltDatabaseVersion(dbHandle *bolt.DB) error {
+	dbVersion, err := getBoltDatabaseVersion(dbHandle)
+	if err != nil {
+		return err
+	}
+	if dbVersion.Version == databaseVersion {
+		providerLog(logger.LevelDebug, "bolt database updated, version: %v", dbVersion.Version)
+		return nil
+	}
+	if dbVersion.Version == 1 {
+		providerLog(logger.LevelInfo, "update bolt database version: 1 -> 2")
+		usernames, err := getBoltAvailableUsernames(dbHandle)
+		if err != nil {
+			return err
+		}
+		for _, u := range usernames {
+			user, err := provider.userExists(u)
+			if err != nil {
+				return err
+			}
+			user.Status = 1
+			err = provider.updateUser(user)
+			if err != nil {
+				return err
+			}
+			providerLog(logger.LevelInfo, "user %#v updated, \"status\" setted to 1", user.Username)
+		}
+		return updateBoltDatabaseVersion(dbHandle, 2)
+	}
+
+	return err
+}
+
+func getBoltAvailableUsernames(dbHandle *bolt.DB) ([]string, error) {
+	usernames := []string{}
+	err := dbHandle.View(func(tx *bolt.Tx) error {
+		_, idxBucket, err := getBuckets(tx)
+		if err != nil {
+			return err
+		}
+		cursor := idxBucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			usernames = append(usernames, string(v))
+		}
+		return nil
+	})
+
+	return usernames, err
+}
+
+func getBoltDatabaseVersion(dbHandle *bolt.DB) (boltDatabaseVersion, error) {
+	var dbVersion boltDatabaseVersion
+	err := dbHandle.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(dbVersionBucket)
+		if bucket == nil {
+			return fmt.Errorf("unable to find database version bucket")
+		}
+		v := bucket.Get(dbVersionKey)
+		if v == nil {
+			dbVersion = boltDatabaseVersion{
+				Version: 1,
+			}
+			return nil
+		}
+		return json.Unmarshal(v, &dbVersion)
+	})
+	return dbVersion, err
+}
+
+func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
+	err := dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(dbVersionBucket)
+		if bucket == nil {
+			return fmt.Errorf("unable to find database version bucket")
+		}
+		newDbVersion := boltDatabaseVersion{
+			Version: version,
+		}
+		buf, err := json.Marshal(newDbVersion)
+		if err != nil {
+			return err
+		}
+		return bucket.Put(dbVersionKey, buf)
+	})
+	return err
 }

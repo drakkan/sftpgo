@@ -81,10 +81,27 @@ func sqlCommonUpdateQuota(username string, filesAdd int, sizeAdd int64, reset bo
 	defer stmt.Close()
 	_, err = stmt.Exec(sizeAdd, filesAdd, utils.GetTimeAsMsSinceEpoch(time.Now()), username)
 	if err == nil {
-		providerLog(logger.LevelDebug, "quota updated for user %v, files increment: %v size increment: %v is reset? %v",
+		providerLog(logger.LevelDebug, "quota updated for user %#v, files increment: %v size increment: %v is reset? %v",
 			username, filesAdd, sizeAdd, reset)
 	} else {
-		providerLog(logger.LevelWarn, "error updating quota for username %v: %v", username, err)
+		providerLog(logger.LevelWarn, "error updating quota for user %#v: %v", username, err)
+	}
+	return err
+}
+
+func sqlCommonUpdateLastLogin(username string, dbHandle *sql.DB) error {
+	q := getUpdateLastLoginQuery()
+	stmt, err := dbHandle.Prepare(q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(utils.GetTimeAsMsSinceEpoch(time.Now()), username)
+	if err == nil {
+		providerLog(logger.LevelDebug, "last login updated for user %#v", username)
+	} else {
+		providerLog(logger.LevelWarn, "error updating last login for user %#v: %v", username, err)
 	}
 	return err
 }
@@ -142,7 +159,7 @@ func sqlCommonAddUser(user User, dbHandle *sql.DB) error {
 		return err
 	}
 	_, err = stmt.Exec(user.Username, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
-		user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth)
+		user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate)
 	return err
 }
 
@@ -167,7 +184,7 @@ func sqlCommonUpdateUser(user User, dbHandle *sql.DB) error {
 		return err
 	}
 	_, err = stmt.Exec(user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
-		user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.ID)
+		user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate, user.ID)
 	return err
 }
 
@@ -224,12 +241,12 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 	if row != nil {
 		err = row.Scan(&user.ID, &user.Username, &password, &publicKey, &user.HomeDir, &user.UID, &user.GID, &user.MaxSessions,
 			&user.QuotaSize, &user.QuotaFiles, &permissions, &user.UsedQuotaSize, &user.UsedQuotaFiles, &user.LastQuotaUpdate,
-			&user.UploadBandwidth, &user.DownloadBandwidth)
+			&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status)
 
 	} else {
 		err = rows.Scan(&user.ID, &user.Username, &password, &publicKey, &user.HomeDir, &user.UID, &user.GID, &user.MaxSessions,
 			&user.QuotaSize, &user.QuotaFiles, &permissions, &user.UsedQuotaSize, &user.UsedQuotaFiles, &user.LastQuotaUpdate,
-			&user.UploadBandwidth, &user.DownloadBandwidth)
+			&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status)
 	}
 	if err != nil {
 		if err == sql.ErrNoRows {

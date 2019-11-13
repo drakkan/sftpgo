@@ -119,7 +119,7 @@ If you don't configure any private host keys, the daemon will use `id_rsa` in th
 
 Before starting `sftpgo` a dataprovider must be configured.
 
-Sample SQL scripts to create the required database structure can be found inside the source tree [sql](./sql "sql") directory. The SQL scripts filename's is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190706.sql` must be applied before `20190728.sql` and so on.
+Sample SQL scripts to create the required database structure can be found inside the source tree [sql](./sql "sql") directory. The SQL scripts filename's is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190828.sql` must be applied before `20191112.sql` and so on.
 
 The `sftpgo` configuration file contains the following sections:
 
@@ -329,11 +329,13 @@ For each account the following properties can be configured:
 - `username`
 - `password` used for password authentication. For users created using SFTPGo REST API if the password has no known hashing algo prefix it will be stored using argon2id. SFTPGo supports checking passwords stored with bcrypt, pbkdf2 and sha512crypt too. For pbkdf2 the supported format is `$<algo>$<iterations>$<salt>$<hashed pwd base64 encoded>`, where algo is `pbkdf2-sha1` or `pbkdf2-sha256` or `pbkdf2-sha512`. For example the `pbkdf2-sha256` of the word `password` using 150000 iterations and `E86a9YMX3zC7` as salt must be stored as `$pbkdf2-sha256$150000$E86a9YMX3zC7$R5J62hsSq+pYw00hLLPKBbcGXmq7fj5+/M0IFoYtZbo=`. For bcrypt the format must be the one supported by golang's [crypto/bcrypt](https://godoc.org/golang.org/x/crypto/bcrypt) package, for example the password `secret` with cost `14` must be stored as `$2a$14$ajq8Q7fbtFRQvXpdCq7Jcuy.Rx1h/L4J60Otx.gyNLbAYctGMJ9tK`. For sha512crypt we support the format used in `/etc/shadow` with the `$6$` prefix, this is useful if you are migrating from Unix system user accounts.  Using the REST API you can send a password hashed as bcrypt, pbkdf2 or sha512crypt and it will be stored as is.
 - `public_keys` array of public keys. At least one public key or the password is mandatory.
-- `home_dir` The user cannot upload or download files outside this directory. Must be an absolute path
+- `status` 1 means "active", 0 "inactive". An inactive account cannot login.
+- `expiration_date` expiration date as unix timestamp in milliseconds. An expired account cannot login. 0 means no expiration.
+- `home_dir` The user cannot upload or download files outside this directory. Must be an absolute path.
 - `uid`, `gid`. If sftpgo runs as root system user then the created files and directories will be assigned to this system uid/gid. Ignored on windows and if sftpgo runs as non root user: in this case files and directories for all SFTP users will be owned by the system user that runs sftpgo.
-- `max_sessions` maximum concurrent sessions. 0 means unlimited
-- `quota_size` maximum size allowed as bytes. 0 means unlimited
-- `quota_files` maximum number of files allowed. 0 means unlimited
+- `max_sessions` maximum concurrent sessions. 0 means unlimited.
+- `quota_size` maximum size allowed as bytes. 0 means unlimited.
+- `quota_files` maximum number of files allowed. 0 means unlimited.
 - `permissions` the following permissions are supported:
     - `*` all permissions are granted
     - `list` list items is allowed
@@ -344,8 +346,8 @@ For each account the following properties can be configured:
     - `rename` rename files or directories is allowed
     - `create_dirs` create directories is allowed
     - `create_symlinks` create symbolic links is allowed
-- `upload_bandwidth` maximum upload bandwidth as KB/s, 0 means unlimited
-- `download_bandwidth` maximum download bandwidth as KB/s, 0 means unlimited
+- `upload_bandwidth` maximum upload bandwidth as KB/s, 0 means unlimited.
+- `download_bandwidth` maximum download bandwidth as KB/s, 0 means unlimited.
 
 These properties are stored inside the data provider. If you want to use your existing accounts, you can create a database view. Since a view is read only, you have to disable user management and quota tracking so SFTPGo will never try to write to the view.
 

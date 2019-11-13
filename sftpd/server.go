@@ -260,6 +260,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 	}
 	connection.Log(logger.LevelInfo, logSender, "User id: %d, logged in with: %#v, username: %#v, home_dir: %#v remote addr: %#v",
 		user.ID, loginType, user.Username, user.HomeDir, remoteAddr.String())
+	dataprovider.UpdateLastLogin(dataProvider, user)
 
 	go ssh.DiscardRequests(reqs)
 

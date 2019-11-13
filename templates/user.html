@@ -2,6 +2,10 @@
 
 {{define "title"}}{{.Title}}{{end}}
 
+{{define "extra_css"}}
+<link href="/static/vendor/tempusdominus/css/tempusdominus-bootstrap-4.min.css" rel="stylesheet">
+{{end}}
+
 {{define "page_body"}}
 
 <!-- Page Heading -->
@@ -11,13 +15,34 @@
     <div class="card-body text-form-error">{{.Error}}</div>
 </div>
 {{end}}
-<form action="{{.CurrentURL}}" method="POST" autocomplete="off">
+<form id="user_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
     <div class="form-group row">
         <label for="idUsername" class="col-sm-2 col-form-label">Username</label>
         <div class="col-sm-10">
             <input type="text" class="form-control" id="idUsername" name="username" placeholder=""
                 value="{{.User.Username}}" maxlength="255" autocomplete="nope" required
                 {{if not .IsAdd}}readonly{{end}}>
+        </div>
+    </div>
+
+    <div class="form-group row">
+        <label for="idStatus" class="col-sm-2 col-form-label">Status</label>
+        <div class="col-sm-10">
+            <select class="form-control" id="idStatus" name="status">
+                <option value="1" {{if eq .User.Status 1 }}selected{{end}}>Active</option>
+                <option value="0" {{if eq .User.Status 0 }}selected{{end}}>Inactive</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-group row">
+        <label for="idExpirationDate" class="col-sm-2 col-form-label">Expiration Date</label>
+        <div class="col-sm-10 input-group date" id="expirationDatePicker" data-target-input="nearest">
+            <input type="text" class="form-control datetimepicker-input" id="idExpirationDate"
+                data-target="#expirationDatePicker">
+            <div class="input-group-append" data-target="#expirationDatePicker" data-toggle="datetimepicker">
+                <div class="input-group-text"><i class="fas fa-calendar"></i></div>
+            </div>
         </div>
     </div>
 
@@ -129,7 +154,47 @@
         </div>
     </div>
 
+    <input type="hidden" name="expiration_date" id="hidden_start_datetime" value="">
     <button type="submit" class="btn btn-primary float-right mt-3 mb-5 px-5 px-3">Submit</button>
 </form>
+{{end}}
 
+{{define "extra_js"}}
+<script src="/static/vendor/moment/js/moment.min.js"></script>
+<script src="/static/vendor/tempusdominus/js/tempusdominus-bootstrap-4.min.js"></script>
+<script type="text/javascript">
+    $(document).ready(function () {
+
+        $('#expirationDatePicker').datetimepicker({
+            format: 'YYYY-MM-DD',
+            buttons: {
+                showClear: false,
+                showClose: true,
+                showToday: false
+            }
+        });
+
+        {{ if gt .User.ExpirationDate 0 }}
+        var input_dt = moment({{.User.ExpirationDate }}).format('YYYY-MM-DD');
+        $('#idExpirationDate').val(input_dt);
+        $('#expirationDatePicker').datetimepicker('viewDate', input_dt);
+        {{end}}
+
+        $("#user_form").submit(function( event ) {
+            var dt = $('#idExpirationDate').val();
+            if (dt){
+                var d = $('#expirationDatePicker').datetimepicker('viewDate');
+                if (d){
+                    var dateString = moment(d).format('YYYY-MM-DD HH:mm:ss');
+                    $('#hidden_start_datetime').val(dateString);
+                } else {
+                    $('#hidden_start_datetime').val("");
+                }
+            } else {
+                $('#hidden_start_datetime').val("");
+            }
+            return true;
+        });
+    });
+</script>
 {{end}}

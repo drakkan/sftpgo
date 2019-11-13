@@ -64,6 +64,10 @@ func (p MySQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64,
 	return sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
 }
 
+func (p MySQLProvider) updateLastLogin(username string) error {
+	return sqlCommonUpdateLastLogin(username, p.dbHandle)
+}
+
 func (p MySQLProvider) getUsedQuota(username string) (int, int64, error) {
 	return sqlCommonGetUsedQuota(username, p.dbHandle)
 }

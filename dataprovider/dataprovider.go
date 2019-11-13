@@ -160,6 +160,7 @@ type Provider interface {
 	deleteUser(user User) error
 	getUsers(limit int, offset int, order string, username string) ([]User, error)
 	getUserByID(ID int64) (User, error)
+	updateLastLogin(username string) error
 	checkAvailability() error
 	close() error
 }
@@ -203,6 +204,14 @@ func CheckUserAndPubKey(p Provider, username string, pubKey string) (User, strin
 	return p.validateUserAndPubKey(username, pubKey)
 }
 
+// UpdateLastLogin updates the last login fields for the given SFTP user
+func UpdateLastLogin(p Provider, user User) error {
+	if config.ManageUsers == 0 {
+		return &MethodDisabledError{err: manageUsersDisabledError}
+	}
+	return p.updateLastLogin(user.Username)
+}
+
 // UpdateUserQuota updates the quota for the given SFTP user adding filesAdd and sizeAdd.
 // If reset is true filesAdd and sizeAdd indicates the total files and the total size instead of the difference.
 func UpdateUserQuota(p Provider, user User, filesAdd int, sizeAdd int64, reset bool) error {
@@ -210,6 +219,9 @@ func UpdateUserQuota(p Provider, user User, filesAdd int, sizeAdd int64, reset b
 		return &MethodDisabledError{err: trackQuotaDisabledError}
 	} else if config.TrackQuota == 2 && !reset && !user.HasQuotaRestrictions() {
 		return nil
+	}
+	if config.ManageUsers == 0 {
+		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
 	return p.updateQuota(user.Username, filesAdd, sizeAdd, reset)
 }
@@ -311,6 +323,9 @@ func validateUser(user *User) error {
 	if err := validatePermissions(user); err != nil {
 		return err
 	}
+	if user.Status < 0 || user.Status > 1 {
+		return &ValidationError{err: fmt.Sprintf("invalid user status: %v", user.Status)}
+	}
 	if len(user.Password) > 0 && !utils.IsStringPrefixInSlice(user.Password, hashPwdPrefixes) {
 		pwd, err := argon2id.CreateHash(user.Password, argon2id.DefaultParams)
 		if err != nil {
@@ -327,8 +342,22 @@ func validateUser(user *User) error {
 	return nil
 }
 
+func checkLoginConditions(user User) error {
+	if user.Status < 1 {
+		return fmt.Errorf("user %#v is disabled", user.Username)
+	}
+	if user.ExpirationDate > 0 && user.ExpirationDate < utils.GetTimeAsMsSinceEpoch(time.Now()) {
+		return fmt.Errorf("user %#v is expired, expiration timestamp: %v current timestamp: %v", user.Username,
+			user.ExpirationDate, utils.GetTimeAsMsSinceEpoch(time.Now()))
+	}
+	return nil
+}
+
 func checkUserAndPass(user User, password string) (User, error) {
-	var err error
+	err := checkLoginConditions(user)
+	if err != nil {
+		return user, err
+	}
 	if len(user.Password) == 0 {
 		return user, errors.New("Credentials cannot be null or empty")
 	}
@@ -372,6 +401,10 @@ func checkUserAndPass(user User, password string) (User, error) {
 }
 
 func checkUserAndPubKey(user User, pubKey string) (User, string, error) {
+	err := checkLoginConditions(user)
+	if err != nil {
+		return user, "", err
+	}
 	if len(user.PublicKeys) == 0 {
 		return user, "", errors.New("Invalid credentials")
 	}

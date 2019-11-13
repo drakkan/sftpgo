@@ -101,6 +101,21 @@ func (p MemoryProvider) getUserByID(ID int64) (User, error) {
 	return User{}, &RecordNotFoundError{err: fmt.Sprintf("user with ID %v does not exist", ID)}
 }
 
+func (p MemoryProvider) updateLastLogin(username string) error {
+	p.dbHandle.lock.Lock()
+	defer p.dbHandle.lock.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	user, err := p.userExistsInternal(username)
+	if err != nil {
+		return err
+	}
+	user.LastLogin = utils.GetTimeAsMsSinceEpoch(time.Now())
+	p.dbHandle.users[user.Username] = user
+	return nil
+}
+
 func (p MemoryProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
 	p.dbHandle.lock.Lock()
 	defer p.dbHandle.lock.Unlock()

@@ -144,6 +144,18 @@ func TestCompareUserFields(t *testing.T) {
 	if err == nil {
 		t.Errorf("DownloadBandwidth does not match")
 	}
+	expected.DownloadBandwidth = 0
+	expected.Status = 1
+	err = compareEqualsUserFields(expected, actual)
+	if err == nil {
+		t.Errorf("Status does not match")
+	}
+	expected.Status = 0
+	expected.ExpirationDate = 123
+	err = compareEqualsUserFields(expected, actual)
+	if err == nil {
+		t.Errorf("Expiration date does not match")
+	}
 }
 
 func TestApiCallsWithBadURL(t *testing.T) {

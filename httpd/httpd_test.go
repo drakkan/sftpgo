@@ -108,6 +108,7 @@ func TestBasicUserHandling(t *testing.T) {
 	user.QuotaFiles = 2
 	user.UploadBandwidth = 128
 	user.DownloadBandwidth = 64
+	user.ExpirationDate = utils.GetTimeAsMsSinceEpoch(time.Now())
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
@@ -118,6 +119,34 @@ func TestBasicUserHandling(t *testing.T) {
 	}
 	if len(users) != 1 {
 		t.Errorf("number of users mismatch, expected: 1, actual: %v", len(users))
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove: %v", err)
+	}
+}
+
+func TestUserStatus(t *testing.T) {
+	u := getTestUser()
+	u.Status = 3
+	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with bad status: %v", err)
+	}
+	u.Status = 0
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	user.Status = 2
+	_, _, err = httpd.UpdateUser(user, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error updating user with bad status: %v", err)
+	}
+	user.Status = 1
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -875,6 +904,8 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("username", user.Username)
 	form.Set("home_dir", user.HomeDir)
 	form.Set("password", user.Password)
+	form.Set("status", strconv.Itoa(user.Status))
+	form.Set("expiration_date", "")
 	form.Set("permissions", "*")
 	// test invalid url escape
 	req, _ := http.NewRequest(http.MethodPost, webUserPath+"?a=%2", strings.NewReader(form.Encode()))
@@ -925,6 +956,20 @@ func TestWebUserAddMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	form.Set("download_bandwidth", strconv.FormatInt(user.DownloadBandwidth, 10))
+	form.Set("status", "a")
+	// test invalid status
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	form.Set("status", strconv.Itoa(user.Status))
+	form.Set("expiration_date", "123")
+	// test invalid expiration date
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	form.Set("expiration_date", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
@@ -988,6 +1033,8 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("upload_bandwidth", "0")
 	form.Set("download_bandwidth", "0")
 	form.Set("permissions", "*")
+	form.Set("status", strconv.Itoa(user.Status))
+	form.Set("expiration_date", "2020-01-01 00:00:00")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
@@ -1083,6 +1130,7 @@ func getTestUser() dataprovider.User {
 		Password:    defaultPassword,
 		HomeDir:     filepath.Join(homeBasePath, defaultUsername),
 		Permissions: defaultPerms,
+		Status:      1,
 	}
 }
 

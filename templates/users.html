@@ -29,6 +29,8 @@
                     <tr>
                         <th>ID</th>
                         <th>Username</th>
+                        <th>Status</th>
+                        <th>Expiration</th>
                         <th>Permissions</th>
                         <th>Bandwidth</th>
                         <th>Quota</th>
@@ -40,6 +42,8 @@
                     <tr>
                         <td>{{.ID}}</td>
                         <td>{{.Username}}</td>
+                        <td>{{if eq .Status 1 }}Active{{else}}Inactive{{end}}</td>
+                        <td>{{.GetExpirationDateAsString}}</td>
                         <td>{{.GetPermissionsAsString}}</td>
                         <td>{{.GetBandwidthAsString}}</td>
                         <td>{{.GetQuotaSummary}}</td>
@@ -227,6 +231,6 @@
             table.button(2).enable(selectedRows == 1);
             table.button(3).enable(selectedRows == 1);
         });
-    }); 
+    });
 </script>
 {{end}}

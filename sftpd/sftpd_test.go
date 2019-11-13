@@ -28,6 +28,7 @@ import (
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
+	"github.com/drakkan/sftpgo/utils"
 	"github.com/pkg/sftp"
 	"github.com/rs/zerolog"
 )
@@ -687,6 +688,13 @@ func TestLogin(t *testing.T) {
 		if err != nil {
 			t.Errorf("sftp client with valid password must work")
 		}
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		if err != nil {
+			t.Errorf("error getting user: %v", err)
+		}
+		if user.LastLogin <= 0 {
+			t.Errorf("last login must be updated after a successful login: %v", user.LastLogin)
+		}
 	}
 	client, err = getSftpClient(user, true)
 	if err != nil {
@@ -732,6 +740,97 @@ func TestLogin(t *testing.T) {
 		if err != nil {
 			t.Errorf("sftp client with multiple public key must work if at least one public key is valid")
 		}
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+}
+
+func TestLoginUserStatus(t *testing.T) {
+	usePubKey := true
+	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		_, err := client.Getwd()
+		if err != nil {
+			t.Errorf("sftp client with valid credentials must work")
+		}
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		if err != nil {
+			t.Errorf("error getting user: %v", err)
+		}
+		if user.LastLogin <= 0 {
+			t.Errorf("last login must be updated after a successful login: %v", user.LastLogin)
+		}
+	}
+	user.Status = 0
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	client, err = getSftpClient(user, usePubKey)
+	if err == nil {
+		t.Errorf("login for a disabled user must fail")
+		defer client.Close()
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+}
+
+func TestLoginUserExpiration(t *testing.T) {
+	usePubKey := true
+	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		_, err := client.Getwd()
+		if err != nil {
+			t.Errorf("sftp client with valid credentials must work")
+		}
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		if err != nil {
+			t.Errorf("error getting user: %v", err)
+		}
+		if user.LastLogin <= 0 {
+			t.Errorf("last login must be updated after a successful login: %v", user.LastLogin)
+		}
+	}
+	user.ExpirationDate = utils.GetTimeAsMsSinceEpoch(time.Now()) - 120000
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	client, err = getSftpClient(user, usePubKey)
+	if err == nil {
+		t.Errorf("login for an expired user must fail")
+		defer client.Close()
+	}
+	user.ExpirationDate = utils.GetTimeAsMsSinceEpoch(time.Now()) + 120000
+	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	client, err = getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("login for a non expired user must succeed: %v", err)
+	} else {
+		defer client.Close()
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -2330,10 +2429,12 @@ func waitTCPListening(address string) {
 
 func getTestUser(usePubKey bool) dataprovider.User {
 	user := dataprovider.User{
-		Username:    defaultUsername,
-		Password:    defaultPassword,
-		HomeDir:     filepath.Join(homeBasePath, defaultUsername),
-		Permissions: allPerms,
+		Username:       defaultUsername,
+		Password:       defaultPassword,
+		HomeDir:        filepath.Join(homeBasePath, defaultUsername),
+		Permissions:    allPerms,
+		Status:         1,
+		ExpirationDate: 0,
 	}
 	if usePubKey {
 		user.PublicKeys = []string{testPubKey}

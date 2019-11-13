@@ -36,13 +36,16 @@ const (
 type User struct {
 	// Database unique identifier
 	ID int64 `json:"id"`
+	// 1 enabled, 0 disabled (login is not allowed)
+	Status int `json:"status"`
 	// Username
 	Username string `json:"username"`
+	// Account expiration date as unix timestamp in milliseconds. An expired account cannot login.
+	// 0 means no expiration
+	ExpirationDate int64 `json:"expiration_date"`
 	// Password used for password authentication.
 	// For users created using SFTPGo REST API the password is be stored using argon2id hashing algo.
-	// Checking passwords stored with bcrypt is supported too.
-	// Currently, as fallback, there is a clear text password checking but you should not store passwords
-	// as clear text and this support could be removed at any time, so please don't depend on it.
+	// Checking passwords stored with bcrypt, pbkdf2 and sha512crypt is supported too.
 	Password string `json:"password,omitempty"`
 	// PublicKeys used for public key authentication. At least one between password and a public key is mandatory
 	PublicKeys []string `json:"public_keys,omitempty"`
@@ -70,6 +73,8 @@ type User struct {
 	UploadBandwidth int64 `json:"upload_bandwidth"`
 	// Maximum download bandwidth as KB/s, 0 means unlimited
 	DownloadBandwidth int64 `json:"download_bandwidth"`
+	// Last login as unix timestamp in milliseconds
+	LastLogin int64 `json:"last_login"`
 }
 
 // HasPerm returns true if the user has the given permission or any permission
@@ -175,6 +180,10 @@ func (u *User) GetBandwidthAsString() string {
 // Number of public keys, max sessions, uid and gid are returned
 func (u *User) GetInfoString() string {
 	var result string
+	if u.LastLogin > 0 {
+		t := utils.GetTimeFromMsecSinceEpoch(u.LastLogin)
+		result += fmt.Sprintf("Last login: %v ", t.Format("2006-01-02 15:04:05")) // YYYY-MM-DD HH:MM:SS
+	}
 	if len(u.PublicKeys) > 0 {
 		result += fmt.Sprintf("Public keys: %v ", len(u.PublicKeys))
 	}
@@ -188,6 +197,15 @@ func (u *User) GetInfoString() string {
 		result += fmt.Sprintf("GID: %v ", u.GID)
 	}
 	return result
+}
+
+// GetExpirationDateAsString returns expiration date formatted as YYYY-MM-DD
+func (u *User) GetExpirationDateAsString() string {
+	if u.ExpirationDate > 0 {
+		t := utils.GetTimeFromMsecSinceEpoch(u.ExpirationDate)
+		return t.Format("2006-01-02")
+	}
+	return ""
 }
 
 func (u *User) getACopy() User {
@@ -212,5 +230,8 @@ func (u *User) getACopy() User {
 		LastQuotaUpdate:   u.LastQuotaUpdate,
 		UploadBandwidth:   u.UploadBandwidth,
 		DownloadBandwidth: u.DownloadBandwidth,
+		Status:            u.Status,
+		ExpirationDate:    u.ExpirationDate,
+		LastLogin:         u.LastLogin,
 	}
 }

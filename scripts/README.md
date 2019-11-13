@@ -41,7 +41,7 @@ Let's see a sample usage for each REST API.
 Command:
 
 ```
-python sftpgo_api_cli.py add-user test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 33 --gid 1000 --max-sessions 2 --quota-size 0 --quota-files 3 --permissions "list" "download" "upload" "delete" "rename" "create_dirs" "overwrite" --upload-bandwidth 100 --download-bandwidth 60
+python sftpgo_api_cli.py add-user test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 33 --gid 1000 --max-sessions 2 --quota-size 0 --quota-files 3 --permissions "list" "download" "upload" "delete" "rename" "create_dirs" "overwrite" --upload-bandwidth 100 --download-bandwidth 60 --status 0 --expiration-date 2019-01-01
 ```
 
 Output:
@@ -68,6 +68,9 @@ Output:
   "used_quota_size": 0,
   "used_quota_files": 0,
   "last_quota_update": 0,
+  "last_login": 0,
+  "expiration_date": 1546297200000,
+  "status": 0,
   "upload_bandwidth": 100,
   "download_bandwidth": 60
 }
@@ -78,7 +81,7 @@ Output:
 Command:
 
 ```
-python sftpgo_api_cli.py update-user 5140 test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 0 --gid 33 --max-sessions 3 --quota-size 0 --quota-files 4 --permissions "*" --upload-bandwidth 90 --download-bandwidth 80
+python sftpgo_api_cli.py update-user 5140 test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 0 --gid 33 --max-sessions 3 --quota-size 0 --quota-files 4 --permissions "*" --upload-bandwidth 90 --download-bandwidth 80 --status 1 --expiration-date ""
 ```
 
 Output:
@@ -117,6 +120,9 @@ Output:
   "used_quota_size": 0,
   "used_quota_files": 0,
   "last_quota_update": 0,
+  "last_login": 0,
+  "expiration_date": 0,
+  "status": 1,
   "upload_bandwidth": 90,
   "download_bandwidth": 80
 }
@@ -149,6 +155,9 @@ Output:
     "used_quota_size": 0,
     "used_quota_files": 0,
     "last_quota_update": 0,
+    "last_login": 0,
+    "expiration_date": 0,
+    "status": 1,
     "upload_bandwidth": 90,
     "download_bandwidth": 80
   }

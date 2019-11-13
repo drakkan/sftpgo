@@ -2,8 +2,8 @@ openapi: 3.0.1
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 1.0.0
-  
+  version: 1.1.0
+
 servers:
 - url: /api/v1
 paths:
@@ -43,7 +43,7 @@ paths:
       - connections
       summary: Terminate an active connection
       operationId: close_connection
-      parameters: 
+      parameters:
       - name: connectionID
         in: path
         description: ID of the connection to close
@@ -57,7 +57,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 200
                 message: "Connection closed"
                 error: ""
@@ -67,7 +67,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 400
                 message: ""
                 error: "Error description if any"
@@ -77,7 +77,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 404
                 message: ""
                 error: "Error description if any"
@@ -87,7 +87,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 500
                 message: ""
                 error: "Error description if any"
@@ -125,7 +125,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 201
                 message: "Scan started"
                 error: ""
@@ -135,7 +135,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 400
                 message: ""
                 error: "Error description if any"
@@ -145,7 +145,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 403
                 message: ""
                 error: "Error description if any"
@@ -155,7 +155,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 404
                 message: ""
                 error: "Error description if any"
@@ -165,17 +165,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 409
                 message: "Another scan is already in progress"
-                error: "Error description if any" 
+                error: "Error description if any"
         500:
           description: Internal Server Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 500
                 message: ""
                 error: "Error description if any"
@@ -234,7 +234,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 400
                 message: ""
                 error: "Error description if any"
@@ -244,7 +244,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 403
                 message: ""
                 error: "Error description if any"
@@ -254,7 +254,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 500
                 message: ""
                 error: "Error description if any"
@@ -282,7 +282,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 400
                 message: ""
                 error: "Error description if any"
@@ -292,7 +292,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 403
                 message: ""
                 error: "Error description if any"
@@ -302,7 +302,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 500
                 message: ""
                 error: "Error description if any"
@@ -313,7 +313,7 @@ paths:
       summary: Find user by ID
       description: For security reasons the hashed password is omitted in the response
       operationId: get_user_by_id
-      parameters: 
+      parameters:
       - name: userID
         in: path
         description: ID of the user to retrieve
@@ -334,7 +334,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 400
                 message: ""
                 error: "Error description if any"
@@ -344,7 +344,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 403
                 message: ""
                 error: "Error description if any"
@@ -354,7 +354,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 404
                 message: ""
                 error: "Error description if any"
@@ -364,7 +364,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 500
                 message: ""
                 error: "Error description if any"
@@ -373,7 +373,7 @@ paths:
       - users
       summary: Update an existing user
       operationId: update_user
-      parameters: 
+      parameters:
       - name: userID
         in: path
         description: ID of the user to update
@@ -394,7 +394,7 @@ paths:
             application/json:
               schema:
                 $ref : '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 200
                 message: "User updated"
                 error: ""
@@ -404,7 +404,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 400
                 message: ""
                 error: "Error description if any"
@@ -414,7 +414,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 403
                 message: ""
                 error: "Error description if any"
@@ -424,7 +424,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 404
                 message: ""
                 error: "Error description if any"
@@ -434,7 +434,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 500
                 message: ""
                 error: "Error description if any"
@@ -443,7 +443,7 @@ paths:
       - users
       summary: Delete an existing user
       operationId: delete_user
-      parameters: 
+      parameters:
       - name: userID
         in: path
         description: ID of the user to delete
@@ -458,7 +458,7 @@ paths:
             application/json:
               schema:
                 $ref : '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 200
                 message: "User deleted"
                 error: ""
@@ -468,7 +468,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 400
                 message: ""
                 error: "Error description if any"
@@ -478,7 +478,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 403
                 message: ""
                 error: "Error description if any"
@@ -488,7 +488,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 404
                 message: ""
                 error: "Error description if any"
@@ -498,7 +498,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
-              example: 
+              example:
                 status: 500
                 message: ""
                 error: "Error description if any"
@@ -534,8 +534,21 @@ components:
           type: integer
           format: int32
           minimum: 1
+        status:
+          type: integer
+          enum:
+            - 0
+            - 1
+          description: >
+            status:
+              * `0` user is disabled, login is not allowed
+              * `1` user is enabled
         username:
           type: string
+        expiration_date:
+          type: integer
+          format: int64
+          description: expiration date as unix timestamp in milliseconds. An expired account cannot login. 0 means no expiration
         password:
           type: string
           nullable: true
@@ -596,12 +609,16 @@ components:
           type: integer
           format: int32
           description: Maximum download bandwidth as KB/s, 0 means unlimited
+        last_login:
+          type: integer
+          format: int64
+          description: last user login as unix timestamp in milliseconds
     Transfer:
       type: object
       properties:
         operation_type:
           type: string
-          enum: 
+          enum:
             - upload
             - download
         path:
@@ -688,4 +705,3 @@ components:
           type: string
         commit_hash:
           type: string
-        

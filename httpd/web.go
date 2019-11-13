@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/sftpd"
@@ -27,6 +28,7 @@ const (
 	page500Title           = "Internal Server Error"
 	page500Body            = "The server is unable to fulfill your request."
 	defaultUsersQueryLimit = 500
+	webDateTimeFormat      = "2006-01-02 15:04:05" // YYYY-MM-DD HH:MM:SS
 )
 
 var (
@@ -216,6 +218,19 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	if err != nil {
 		return user, err
 	}
+	status, err := strconv.Atoi(r.Form.Get("status"))
+	if err != nil {
+		return user, err
+	}
+	expirationDateMillis := int64(0)
+	expirationDateString := r.Form.Get("expiration_date")
+	if len(strings.TrimSpace(expirationDateString)) > 0 {
+		expirationDate, err := time.Parse(webDateTimeFormat, expirationDateString)
+		if err != nil {
+			return user, err
+		}
+		expirationDateMillis = utils.GetTimeAsMsSinceEpoch(expirationDate)
+	}
 	user = dataprovider.User{
 		Username:          r.Form.Get("username"),
 		Password:          r.Form.Get("password"),
@@ -229,6 +244,8 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 		QuotaFiles:        quotaFiles,
 		UploadBandwidth:   bandwidthUL,
 		DownloadBandwidth: bandwidthDL,
+		Status:            status,
+		ExpirationDate:    expirationDateMillis,
 	}
 	return user, err
 }
@@ -265,7 +282,7 @@ func handleGetWebUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
-	renderAddUserPage(w, dataprovider.User{}, "")
+	renderAddUserPage(w, dataprovider.User{Status: 1}, "")
 }
 
 func handleWebUpdateUserGet(userID string, w http.ResponseWriter, r *http.Request) {
