@@ -30,6 +30,10 @@ const defaultPrivateKeyName = "id_rsa"
 
 var sftpExtensions = []string{"posix-rename@openssh.com"}
 
+type exitStatusMsg struct {
+	Status uint32
+}
+
 // Configuration for the SFTP server
 type Configuration struct {
 	// Identification string used by the server
@@ -329,7 +333,12 @@ func (c Configuration) handleSftpConnection(channel ssh.Channel, connection Conn
 	server := sftp.NewRequestServer(channel, handler)
 
 	if err := server.Serve(); err == io.EOF {
-		connection.Log(logger.LevelDebug, logSender, "connection closed")
+		connection.Log(logger.LevelDebug, logSender, "connection closed, sending exit-status")
+		ex := exitStatusMsg{
+			Status: 0,
+		}
+		_, err = channel.SendRequest("exit-status", false, ssh.Marshal(&ex))
+		connection.Log(logger.LevelDebug, logSender, "send exit status error: %v", err)
 		server.Close()
 	} else if err != nil {
 		connection.Log(logger.LevelWarn, logSender, "connection closed with error: %v", err)

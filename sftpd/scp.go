@@ -28,10 +28,6 @@ type execMsg struct {
 	Command string
 }
 
-type exitStatusMsg struct {
-	Status uint32
-}
-
 type scpCommand struct {
 	connection Connection
 	args       []string
