@@ -134,7 +134,7 @@ type Config struct {
 	// defined as the path obtained joining the base dir and the username
 	UsersBaseDir string `json:"users_base_dir" mapstructure:"users_base_dir"`
 	// Actions to execute on user add, update, delete.
-	// Update action will not be fired for internal updates such as the last login fiels or the user quota.
+	// Update action will not be fired for internal updates such as the last login or the user quota fields.
 	Actions Actions `json:"actions" mapstructure:"actions"`
 }
 

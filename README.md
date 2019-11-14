@@ -168,7 +168,7 @@ The `sftpgo` configuration file contains the following sections:
     - `pool_size`, integer. Sets the maximum number of open connections for `mysql` and `postgresql` driver. Default 0 (unlimited)
     - `users_base_dir`, string. Users' default base directory. If no home dir is defined while adding a new user, and this value is a valid absolute path, then the user home dir will be automatically defined as the path obtained joining the base dir and the username
     - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions
-        - `execute_on`, list of strings. Valid values are `add`, `update`, `delete`.
+        - `execute_on`, list of strings. Valid values are `add`, `update`, `delete`. `update` action will not be fired for internal updates such as the last login or the user quota fields.
         - `command`, string. Absolute path to the command to execute. Leave empty to disable. The command is invoked with the following arguments that identify the user added, updated or deleted:
             - `action`, any valid `execute_on` string
             - `username`
