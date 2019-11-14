@@ -3,6 +3,7 @@ package httpd
 import (
 	"net/http"
 
+	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
@@ -44,6 +45,15 @@ func initializeRouter(staticFilesPath string) {
 
 	router.Get(versionPath, func(w http.ResponseWriter, r *http.Request) {
 		render.JSON(w, r, utils.GetAppVersion())
+	})
+
+	router.Get(providerStatusPath, func(w http.ResponseWriter, r *http.Request) {
+		err := dataprovider.GetProviderStatus(dataProvider)
+		if err != nil {
+			sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
+		} else {
+			sendAPIResponse(w, r, err, "Alive", http.StatusOK)
+		}
 	})
 
 	router.Get(activeConnectionsPath, func(w http.ResponseWriter, r *http.Request) {

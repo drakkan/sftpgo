@@ -23,6 +23,7 @@ const (
 	quotaScanPath         = "/api/v1/quota_scan"
 	userPath              = "/api/v1/user"
 	versionPath           = "/api/v1/version"
+	providerStatusPath    = "/api/v1/providerstatus"
 	metricsPath           = "/metrics"
 	webBasePath           = "/web"
 	webUsersPath          = "/web/users"
@@ -77,7 +78,7 @@ func (c Conf) Initialize(configDir string) error {
 		Handler:        router,
 		ReadTimeout:    300 * time.Second,
 		WriteTimeout:   300 * time.Second,
-		MaxHeaderBytes: 1 << 20, // 1MB
+		MaxHeaderBytes: 1 << 16, // 64KB
 	}
 	return httpServer.ListenAndServe()
 }

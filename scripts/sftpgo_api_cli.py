@@ -25,6 +25,7 @@ class SFTPGoApiRequests:
 		self.quotaScanPath = urlparse.urljoin(baseUrl, '/api/v1/quota_scan')
 		self.activeConnectionsPath = urlparse.urljoin(baseUrl, '/api/v1/connection')
 		self.versionPath = urlparse.urljoin(baseUrl, '/api/v1/version')
+		self.providerStatusPath = urlparse.urljoin(baseUrl, '/api/v1/providerstatus')
 		self.debug = debug
 		if authType == 'basic':
 			self.auth = requests.auth.HTTPBasicAuth(authUser, authPassword)
@@ -125,6 +126,10 @@ class SFTPGoApiRequests:
 		r = requests.get(self.versionPath, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
+	def getProviderStatus(self):
+		r = requests.get(self.providerStatusPath, auth=self.auth, verify=self.verify)
+		self.printResponse(r)
+
 
 def validDate(s):
 	if not s:
@@ -222,6 +227,8 @@ if __name__ == '__main__':
 
 	parserGetVersion = subparsers.add_parser('get-version', help='Get version details')
 
+	parserGetProviderStatus = subparsers.add_parser('get-provider-status', help='Get data provider status')
+
 	args = parser.parse_args()
 
 	api = SFTPGoApiRequests(args.debug, args.base_url, args.auth_type, args.auth_user, args.auth_password, args.secure,
@@ -251,4 +258,6 @@ if __name__ == '__main__':
 		api.startQuotaScan(args.username)
 	elif args.command == 'get-version':
 		api.getVersion()
+	elif args.command == 'get-provider-status':
+		api.getProviderStatus()
 

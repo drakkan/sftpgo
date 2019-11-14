@@ -315,6 +315,11 @@ func GetUserByID(p Provider, ID int64) (User, error) {
 	return p.getUserByID(ID)
 }
 
+// GetProviderStatus returns an error if the provider is not available
+func GetProviderStatus(p Provider) error {
+	return p.checkAvailability()
+}
+
 // Close releases all provider resources.
 // This method is used in test cases.
 // Closing an uninitialized provider is not supported

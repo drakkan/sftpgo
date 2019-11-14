@@ -277,6 +277,24 @@ Output:
 }
 ```
 
+### Get provider status
+
+Command:
+
+```
+python sftpgo_api_cli.py get-provider-status
+```
+
+Output:
+
+```json
+{
+  "error": "",
+  "message": "Alive",
+  "status": 200
+}
+```
+
 ### Colors highlight for Windows command prompt
 
 If your Windows command prompt does not recognize ANSI/VT100 escape sequences you can download [ANSICON](https://github.com/adoxa/ansicon "ANSICON") extract proper files depending on your Windows OS, and install them using `ansicon -i`.

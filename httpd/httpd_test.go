@@ -39,6 +39,7 @@ const (
 	activeConnectionsPath = "/api/v1/connection"
 	quotaScanPath         = "/api/v1/quota_scan"
 	versionPath           = "/api/v1/version"
+	providerStatusPath    = "/api/v1/providerstatus"
 	metricsPath           = "/metrics"
 	webBasePath           = "/web"
 	webUsersPath          = "/web/users"
@@ -429,11 +430,22 @@ func TestStartQuotaScan(t *testing.T) {
 func TestGetVersion(t *testing.T) {
 	_, _, err := httpd.GetVersion(http.StatusOK)
 	if err != nil {
-		t.Errorf("unable to get sftp version: %v", err)
+		t.Errorf("unable to get version: %v", err)
 	}
 	_, _, err = httpd.GetVersion(http.StatusInternalServerError)
 	if err == nil {
 		t.Errorf("get version request must succeed, we requested to check a wrong status code")
+	}
+}
+
+func TestGetProviderStatus(t *testing.T) {
+	_, _, err := httpd.GetProviderStatus(http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to get provider status: %v", err)
+	}
+	_, _, err = httpd.GetProviderStatus(http.StatusBadRequest)
+	if err == nil {
+		t.Errorf("get provider status request must succeed, we requested to check a wrong status code")
 	}
 }
 
@@ -512,6 +524,10 @@ func TestProviderErrors(t *testing.T) {
 	_, err = httpd.RemoveUser(dataprovider.User{}, http.StatusInternalServerError)
 	if err != nil {
 		t.Errorf("delete user with provider closed must fail: %v", err)
+	}
+	_, _, err = httpd.GetProviderStatus(http.StatusInternalServerError)
+	if err != nil {
+		t.Errorf("get provider status with provider closed must fail: %v", err)
 	}
 	config.LoadConfig(configDir, "")
 	providerConf := config.GetProviderConf()

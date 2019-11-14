@@ -287,6 +287,24 @@ func GetVersion(expectedStatusCode int) (utils.VersionInfo, []byte, error) {
 	return version, body, err
 }
 
+// GetProviderStatus returns provider status
+func GetProviderStatus(expectedStatusCode int) (map[string]interface{}, []byte, error) {
+	var response map[string]interface{}
+	var body []byte
+	resp, err := getHTTPClient().Get(buildURLRelativeToBase(providerStatusPath))
+	if err != nil {
+		return response, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && (expectedStatusCode == http.StatusOK || expectedStatusCode == http.StatusInternalServerError) {
+		err = render.DecodeJSON(resp.Body, &response)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return response, body, err
+}
+
 func checkResponse(actual int, expected int) error {
 	if expected != actual {
 		return fmt.Errorf("wrong status code: got %v want %v", actual, expected)

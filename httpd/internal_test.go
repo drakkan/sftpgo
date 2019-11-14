@@ -225,6 +225,10 @@ func TestApiCallToNotListeningServer(t *testing.T) {
 	if err == nil {
 		t.Errorf("request to an inactive URL must fail")
 	}
+	_, _, err = GetProviderStatus(http.StatusOK)
+	if err == nil {
+		t.Errorf("request to an inactive URL must fail")
+	}
 	SetBaseURL(oldBaseURL)
 }
 
