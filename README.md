@@ -314,7 +314,7 @@ Usage:
   sftpgo portable [flags]
 
 Flags:
-  -C, --advertise-credentials   If the service is advertised via multicast DNS this flag allows to put username/password inside the advertised TXT record
+  -C, --advertise-credentials   If the SFTP service is advertised via multicast DNS this flag allows to put username/password inside the advertised TXT record
   -S, --advertise-service       Advertise SFTP service using multicast DNS (default true)
   -d, --directory string        Path to the directory to serve. This can be an absolute path or a path relative to the current directory (default ".")
   -h, --help                    help for portable

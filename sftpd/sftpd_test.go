@@ -1227,6 +1227,67 @@ func TestMissingFile(t *testing.T) {
 	os.RemoveAll(user.GetHomeDir())
 }
 
+func TestOpenError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("this test is not available on Windows")
+	}
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		os.Chmod(user.GetHomeDir(), 0001)
+		_, err = client.ReadDir(".")
+		if err == nil {
+			t.Errorf("read dir must fail if we have no filesystem read permissions")
+		}
+		os.Chmod(user.GetHomeDir(), 0755)
+		testFileSize := int64(65535)
+		testFileName := "test_file.dat"
+		testFilePath := filepath.Join(user.GetHomeDir(), testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		if err != nil {
+			t.Errorf("unable to create test file: %v", err)
+		}
+		_, err = client.Stat(testFileName)
+		if err != nil {
+			t.Errorf("file stat error: %v", err)
+		}
+		localDownloadPath := filepath.Join(homeBasePath, "test_download.dat")
+		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
+		if err != nil {
+			t.Errorf("file download error: %v", err)
+		}
+		os.Chmod(testFilePath, 0001)
+		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
+		if err == nil {
+			t.Errorf("file download must fail if we have no filesystem read permissions")
+		}
+		err = sftpUploadFile(localDownloadPath, testFileName, testFileSize, client)
+		if err == nil {
+			t.Errorf("upload must fail if we have no filesystem write permissions")
+		}
+		os.Chmod(user.GetHomeDir(), 0000)
+		_, err = client.Lstat(testFileName)
+		if err == nil {
+			t.Errorf("file stat must fail if we have no filesystem read permissions")
+		}
+		os.Chmod(user.GetHomeDir(), 0755)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+}
+
 func TestOverwriteDirWithFile(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)

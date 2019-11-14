@@ -220,7 +220,9 @@ func (c Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 		c.Log(logger.LevelDebug, logSender, "requested list file for dir: %#v", p)
 
 		files, err := ioutil.ReadDir(p)
-		if err != nil {
+		if os.IsNotExist(err) {
+			return nil, sftp.ErrSSHFxNoSuchFile
+		} else if err != nil {
 			c.Log(logger.LevelError, logSender, "error listing directory: %#v", err)
 			return nil, sftp.ErrSSHFxFailure
 		}
