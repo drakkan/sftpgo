@@ -29,7 +29,7 @@ func TestLoadConfigTest(t *testing.T) {
 		t.Errorf("error loading httpd conf")
 	}
 	emptyProviderConf := dataprovider.Config{}
-	if config.GetProviderConf() == emptyProviderConf {
+	if config.GetProviderConf().Driver == emptyProviderConf.Driver {
 		t.Errorf("error loading provider conf")
 	}
 	emptySFTPDConf := sftpd.Configuration{}

@@ -371,6 +371,7 @@ func isAtomicUploadEnabled() bool {
 	return uploadMode == uploadModeAtomic || uploadMode == uploadModeAtomicWithResume
 }
 
+// executed in a goroutine
 func executeAction(operation string, username string, path string, target string) error {
 	if !utils.IsStringInSlice(operation, actions.ExecuteOn) {
 		return nil
@@ -383,10 +384,12 @@ func executeAction(operation string, username string, path string, target string
 			logger.Debug(logSender, "", "start command %#v with arguments: %v, %v, %v, %v, error: %v",
 				actions.Command, operation, username, path, target, err)
 			if err == nil {
+				// we are in a goroutine but we don't want to block here, this way we can send the
+				// HTTP notification, if configured, without waiting the end of the command
 				go command.Wait()
 			}
 		} else {
-			logger.Warn(logSender, "", "Invalid action command %#v : %v", actions.Command, err)
+			logger.Warn(logSender, "", "Invalid action command %#v for operation %#v: %v", actions.Command, operation, err)
 		}
 	}
 	if len(actions.HTTPNotificationURL) > 0 {
@@ -401,22 +404,21 @@ func executeAction(operation string, username string, path string, target string
 				q.Add("target_path", target)
 			}
 			url.RawQuery = q.Encode()
-			go func() {
-				startTime := time.Now()
-				httpClient := &http.Client{
-					Timeout: 15 * time.Second,
-				}
-				resp, err := httpClient.Get(url.String())
-				respCode := 0
-				if err == nil {
-					respCode = resp.StatusCode
-					resp.Body.Close()
-				}
-				logger.Debug(logSender, "", "notified action to URL: %v status code: %v, elapsed: %v err: %v",
-					url.String(), respCode, time.Since(startTime), err)
-			}()
+			startTime := time.Now()
+			httpClient := &http.Client{
+				Timeout: 15 * time.Second,
+			}
+			resp, err := httpClient.Get(url.String())
+			respCode := 0
+			if err == nil {
+				respCode = resp.StatusCode
+				resp.Body.Close()
+			}
+			logger.Debug(logSender, "", "notified operation %#v to URL: %v status code: %v, elapsed: %v err: %v",
+				operation, url.String(), respCode, time.Since(startTime), err)
 		} else {
-			logger.Warn(logSender, "", "Invalid http_notification_url %#v : %v", actions.HTTPNotificationURL, err)
+			logger.Warn(logSender, "", "Invalid http_notification_url %#v for operation %#v: %v", actions.HTTPNotificationURL,
+				operation, err)
 		}
 	}
 	return err

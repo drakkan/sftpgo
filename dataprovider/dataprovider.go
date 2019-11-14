@@ -4,14 +4,20 @@
 package dataprovider
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"hash"
+	"net/http"
+	"net/url"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -48,6 +54,9 @@ const (
 	sha512cryptPwdPrefix     = "$6$"
 	manageUsersDisabledError = "please set manage_users to 1 in your configuration to enable this method"
 	trackQuotaDisabledError  = "please enable track_quota in your configuration to use this method"
+	operationAdd             = "add"
+	operationUpdate          = "update"
+	operationDelete          = "delete"
 )
 
 var (
@@ -67,6 +76,20 @@ var (
 	availabilityTicker     *time.Ticker
 	availabilityTickerDone chan bool
 )
+
+// Actions to execute on user create, update, delete.
+// An external command can be executed and/or an HTTP notification can be fired
+type Actions struct {
+	// Valid values are add, update, delete. Empty slice to disable
+	ExecuteOn []string `json:"execute_on" mapstructure:"execute_on"`
+	// Absolute path to the command to execute, empty to disable
+	Command string `json:"command" mapstructure:"command"`
+	// The URL to notify using an HTTP POST.
+	// The action is added to the query string. For example <url>?action=update.
+	// The user is sent serialized as json inside the POST body.
+	// Empty to disable
+	HTTPNotificationURL string `json:"http_notification_url" mapstructure:"http_notification_url"`
+}
 
 // Config provider configuration
 type Config struct {
@@ -110,6 +133,9 @@ type Config struct {
 	// a valid absolute path, then the user home dir will be automatically
 	// defined as the path obtained joining the base dir and the username
 	UsersBaseDir string `json:"users_base_dir" mapstructure:"users_base_dir"`
+	// Actions to execute on user add, update, delete.
+	// Update action will not be fired for internal updates such as the last login fiels or the user quota.
+	Actions Actions `json:"actions" mapstructure:"actions"`
 }
 
 // ValidationError raised if input data is not valid
@@ -246,7 +272,11 @@ func AddUser(p Provider, user User) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
-	return p.addUser(user)
+	err := p.addUser(user)
+	if err == nil {
+		go executeAction(operationAdd, user)
+	}
+	return err
 }
 
 // UpdateUser updates an existing SFTP user.
@@ -255,7 +285,11 @@ func UpdateUser(p Provider, user User) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
-	return p.updateUser(user)
+	err := p.updateUser(user)
+	if err == nil {
+		go executeAction(operationUpdate, user)
+	}
+	return err
 }
 
 // DeleteUser deletes an existing SFTP user.
@@ -264,7 +298,11 @@ func DeleteUser(p Provider, user User) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
-	return p.deleteUser(user)
+	err := p.deleteUser(user)
+	if err == nil {
+		go executeAction(operationDelete, user)
+	}
+	return err
 }
 
 // GetUsers returns an array of users respecting limit and offset and filtered by username exact match if not empty
@@ -503,4 +541,66 @@ func checkDataprovider() {
 
 func providerLog(level logger.LogLevel, format string, v ...interface{}) {
 	logger.Log(level, logSender, "", format, v...)
+}
+
+// executed in a goroutine
+func executeAction(operation string, user User) {
+	if !utils.IsStringInSlice(operation, config.Actions.ExecuteOn) {
+		return
+	}
+	if operation != operationDelete {
+		var err error
+		user, err = provider.userExists(user.Username)
+		if err != nil {
+			providerLog(logger.LevelWarn, "unable to get the user to notify operation %#v: %v", operation, err)
+			return
+		}
+	}
+	// hide the hashed password
+	user.Password = ""
+	if len(config.Actions.Command) > 0 && filepath.IsAbs(config.Actions.Command) {
+		if _, err := os.Stat(config.Actions.Command); err == nil {
+			commandArgs := []string{operation}
+			commandArgs = append(commandArgs, user.getNotificationFieldsAsSlice()...)
+			command := exec.Command(config.Actions.Command, commandArgs...)
+			err = command.Start()
+			providerLog(logger.LevelDebug, "start command %#v with arguments: %+v, error: %v",
+				config.Actions.Command, commandArgs, err)
+			if err == nil {
+				// we are in a goroutine but we don't want to block here, this way we can send the
+				// HTTP notification, if configured, without waiting the end of the command
+				go command.Wait()
+			}
+		} else {
+			providerLog(logger.LevelWarn, "Invalid action command %#v for operation %#v: %v", config.Actions.Command, operation, err)
+		}
+	}
+	if len(config.Actions.HTTPNotificationURL) > 0 {
+		var url *url.URL
+		url, err := url.Parse(config.Actions.HTTPNotificationURL)
+		if err != nil {
+			providerLog(logger.LevelWarn, "Invalid http_notification_url %#v for operation %#v: %v", config.Actions.HTTPNotificationURL,
+				operation, err)
+			return
+		}
+		q := url.Query()
+		q.Add("action", operation)
+		url.RawQuery = q.Encode()
+		userAsJSON, err := json.Marshal(user)
+		if err != nil {
+			return
+		}
+		startTime := time.Now()
+		httpClient := &http.Client{
+			Timeout: 15 * time.Second,
+		}
+		resp, err := httpClient.Post(url.String(), "application/json", bytes.NewBuffer(userAsJSON))
+		respCode := 0
+		if err == nil {
+			respCode = resp.StatusCode
+			resp.Body.Close()
+		}
+		providerLog(logger.LevelDebug, "notified operation %#v to URL: %v status code: %v, elapsed: %v err: %v",
+			operation, url.String(), respCode, time.Since(startTime), err)
+	}
 }

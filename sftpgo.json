@@ -32,7 +32,12 @@
     "manage_users": 1,
     "track_quota": 2,
     "pool_size": 0,
-    "users_base_dir": ""
+    "users_base_dir": "",
+    "actions": {
+      "execute_on": [],
+      "command": "",
+      "http_notification_url": ""
+    }
   },
   "httpd": {
     "bind_port": 8080,

@@ -14,7 +14,7 @@ Full featured and highly configurable SFTP server
 - Per user maximum concurrent sessions.
 - Per user permissions: list directories content, upload, overwrite, download, delete, rename, create directories, create symlinks can be enabled or disabled.
 - Per user files/folders ownership: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (*NIX only).
-- Configurable custom commands and/or HTTP notifications on upload, download, delete or rename.
+- Configurable custom commands and/or HTTP notifications on files upload, download, delete, rename and on users add, update and delete.
 - Automatically terminating idle connections.
 - Atomic uploads are configurable.
 - Optional SCP support.
@@ -132,7 +132,7 @@ The `sftpgo` configuration file contains the following sections:
     - `banner`, string. Identification string used by the server. Leave empty to use the default banner. Default "SFTPGo_version"
     - `upload_mode` integer. 0 means standard, the files are uploaded directly to the requested path. 1 means atomic: files are uploaded to a temporary path and renamed to the requested path when the client ends the upload. Atomic mode avoids problems such as a web server that serves partial files when the files are being uploaded. In atomic mode if there is an upload error the temporary file is deleted and so the requested upload path will not contain a partial file. 2 means atomic with resume support: as atomic but if there is an upload error the temporary file is renamed to the requested path and not deleted, this way a client can reconnect and resume the upload.
     - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions
-        - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`. On folder deletion a `delete` notification will be sent for each deleted file. Actions will be not executed if an error is detected and so a partial file is uploaded or downloaded. Leave empty to disable actions. The `upload` condition includes both uploads to new files and overwrite existing files
+        - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`. Actions will be not executed if an error is detected and so a partial file is uploaded or downloaded. The `upload` condition includes both uploads to new files and overwrite of existing files. Leave empty to disable actions.
         - `command`, string. Absolute path to the command to execute. Leave empty to disable. The command is invoked with the following arguments:
             - `action`, any valid `execute_on` string
             - `username`, user who did the action
@@ -167,6 +167,18 @@ The `sftpgo` configuration file contains the following sections:
         - 2, quota is updated each time a user upload or delete a file but only for users with quota restrictions. With this configuration the "quota scan" REST API can still be used to periodically update space usage for users without quota restrictions
     - `pool_size`, integer. Sets the maximum number of open connections for `mysql` and `postgresql` driver. Default 0 (unlimited)
     - `users_base_dir`, string. Users' default base directory. If no home dir is defined while adding a new user, and this value is a valid absolute path, then the user home dir will be automatically defined as the path obtained joining the base dir and the username
+    - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions
+        - `execute_on`, list of strings. Valid values are `add`, `update`, `delete`.
+        - `command`, string. Absolute path to the command to execute. Leave empty to disable. The command is invoked with the following arguments that identify the user added, updated or deleted:
+            - `action`, any valid `execute_on` string
+            - `username`
+            - `ID`
+            - `status`
+            - `expiration_date`, as unix timestamp in milliseconds
+            - `home_dir`
+            - `uid`
+            - `gid`
+        - `http_notification_url`, a valid URL. The action is added to the query string. For example `<http_notification_url>?action=update`. An HTTP POST request will be executed to this URL. The user is sent serialized as json inside the POST body. Leave empty to disable.
 - **"httpd"**, the configuration for the HTTP server used to serve REST API
     - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 8080
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"
@@ -210,7 +222,12 @@ Here is a full example showing the default config in JSON format:
     "manage_users": 1,
     "track_quota": 2,
     "pool_size": 0,
-    "users_base_dir": ""
+    "users_base_dir": "",
+    "actions": {
+      "execute_on": [],
+      "command": "",
+      "http_notification_url": ""
+    }
   },
   "httpd": {
     "bind_port": 8080,

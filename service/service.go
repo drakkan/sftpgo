@@ -189,9 +189,9 @@ func (s *Service) StartPortableMode(sftpdPort int, enableSCP, advertiseService, 
 			)
 			if err != nil {
 				mDNSService = nil
-				logger.WarnToConsole("Unable to advertise service via multicast DNS: %v", err)
+				logger.WarnToConsole("Unable to advertise SFTP service via multicast DNS: %v", err)
 			} else {
-				logger.InfoToConsole("Service advertised via multicast DNS")
+				logger.InfoToConsole("SFTP service advertised via multicast DNS")
 			}
 
 		}

@@ -75,6 +75,11 @@ func init() {
 			TrackQuota:       1,
 			PoolSize:         0,
 			UsersBaseDir:     "",
+			Actions: dataprovider.Actions{
+				ExecuteOn:           []string{},
+				Command:             "",
+				HTTPNotificationURL: "",
+			},
 		},
 		HTTPDConfig: httpd.Conf{
 			BindPort:        8080,

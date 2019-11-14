@@ -101,10 +101,10 @@ func (t *Transfer) Close() error {
 		elapsed := time.Since(t.start).Nanoseconds() / 1000000
 		if t.transferType == transferDownload {
 			logger.TransferLog(downloadLogSender, t.path, elapsed, t.bytesSent, t.user.Username, t.connectionID, t.protocol)
-			executeAction(operationDownload, t.user.Username, t.path, "")
+			go executeAction(operationDownload, t.user.Username, t.path, "")
 		} else {
 			logger.TransferLog(uploadLogSender, t.path, elapsed, t.bytesReceived, t.user.Username, t.connectionID, t.protocol)
-			executeAction(operationUpload, t.user.Username, t.path, "")
+			go executeAction(operationUpload, t.user.Username, t.path, "")
 		}
 	}
 	metrics.TransferCompleted(t.bytesSent, t.bytesReceived, t.transferType, t.transferError)
