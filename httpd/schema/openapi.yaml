@@ -543,6 +543,8 @@ components:
         - rename
         - create_dirs
         - create_symlinks
+        - chmod
+        - chown
       description: >
         Permissions:
           * `*` - all permissions are granted
@@ -554,6 +556,8 @@ components:
           * `rename` - rename files or directories is allowed
           * `create_dirs` - create directories is allowed
           * `create_symlinks` - create links is allowed
+          * `chmod` changing file or directory permissions is allowed
+          * `chown` changing file or directory owner and group is allowed
     User:
       type: object
       properties:

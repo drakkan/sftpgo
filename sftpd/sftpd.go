@@ -29,6 +29,8 @@ const (
 	mkdirLogSender    = "Mkdir"
 	symlinkLogSender  = "Symlink"
 	removeLogSender   = "Remove"
+	chownLogSender    = "Chown"
+	chmodLogSender    = "Chmod"
 	operationDownload = "download"
 	operationUpload   = "upload"
 	operationDelete   = "delete"
@@ -54,6 +56,7 @@ var (
 	dataProvider         dataprovider.Provider
 	actions              Actions
 	uploadMode           int
+	setstatMode          int
 )
 
 type connectionTransfer struct {
@@ -101,6 +104,10 @@ type ConnectionStatus struct {
 	Protocol string `json:"protocol"`
 	// active uploads/downloads
 	Transfers []connectionTransfer `json:"active_transfers"`
+}
+
+type sshSubsystemExitStatus struct {
+	Status uint32
 }
 
 func init() {

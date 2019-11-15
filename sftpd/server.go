@@ -30,10 +30,6 @@ const defaultPrivateKeyName = "id_rsa"
 
 var sftpExtensions = []string{"posix-rename@openssh.com"}
 
-type exitStatusMsg struct {
-	Status uint32
-}
-
 // Configuration for the SFTP server
 type Configuration struct {
 	// Identification string used by the server
@@ -84,6 +80,9 @@ type Configuration struct {
 	// LoginBannerFile the contents of the specified file, if any, are sent to
 	// the remote user before authentication is allowed.
 	LoginBannerFile string `json:"login_banner_file" mapstructure:"login_banner_file"`
+	// SetstatMode 0 means "normal mode": requests for changing permissions and owner/group are executed.
+	// 1 means "ignore mode": requests for changing permissions and owner/group are silently ignored.
+	SetstatMode int `json:"setstat_mode" mapstructure:"setstat_mode"`
 }
 
 // Key contains information about host keys
@@ -169,6 +168,7 @@ func (c Configuration) Initialize(configDir string) error {
 
 	actions = c.Actions
 	uploadMode = c.UploadMode
+	setstatMode = c.SetstatMode
 	logger.Info(logSender, "", "server listener registered address: %v", listener.Addr().String())
 	if c.IdleTimeout > 0 {
 		startIdleTimer(time.Duration(c.IdleTimeout) * time.Minute)
@@ -333,12 +333,10 @@ func (c Configuration) handleSftpConnection(channel ssh.Channel, connection Conn
 	server := sftp.NewRequestServer(channel, handler)
 
 	if err := server.Serve(); err == io.EOF {
-		connection.Log(logger.LevelDebug, logSender, "connection closed, sending exit-status")
-		ex := exitStatusMsg{
-			Status: 0,
-		}
-		_, err = channel.SendRequest("exit-status", false, ssh.Marshal(&ex))
-		connection.Log(logger.LevelDebug, logSender, "send exit status error: %v", err)
+		connection.Log(logger.LevelDebug, logSender, "connection closed, sending exit status")
+		exitStatus := sshSubsystemExitStatus{Status: uint32(0)}
+		_, err = channel.SendRequest("exit-status", false, ssh.Marshal(&exitStatus))
+		connection.Log(logger.LevelDebug, logSender, "sent exit status %+v error: %v", exitStatus, err)
 		server.Close()
 	} else if err != nil {
 		connection.Log(logger.LevelWarn, logSender, "connection closed with error: %v", err)
@@ -357,13 +355,13 @@ func (c Configuration) createHandler(connection Connection) sftp.Handlers {
 
 func loginUser(user dataprovider.User, loginType string) (*ssh.Permissions, error) {
 	if !filepath.IsAbs(user.HomeDir) {
-		logger.Warn(logSender, "", "user %v has invalid home dir: %#v. Home dir must be an absolute path, login not allowed",
+		logger.Warn(logSender, "", "user %#v has an invalid home dir: %#v. Home dir must be an absolute path, login not allowed",
 			user.Username, user.HomeDir)
-		return nil, fmt.Errorf("cannot login user with invalid home dir: %v", user.HomeDir)
+		return nil, fmt.Errorf("cannot login user with invalid home dir: %#v", user.HomeDir)
 	}
 	if _, err := os.Stat(user.HomeDir); os.IsNotExist(err) {
 		err := os.MkdirAll(user.HomeDir, 0777)
-		logger.Debug(logSender, "", "home directory %#v for user %v does not exist, try to create, mkdir error: %v",
+		logger.Debug(logSender, "", "home directory %#v for user %#v does not exist, try to create, mkdir error: %v",
 			user.HomeDir, user.Username, err)
 		if err == nil {
 			utils.SetPathPermissions(user.HomeDir, user.GetUID(), user.GetGID())
@@ -373,7 +371,7 @@ func loginUser(user dataprovider.User, loginType string) (*ssh.Permissions, erro
 	if user.MaxSessions > 0 {
 		activeSessions := getActiveSessions(user.Username)
 		if activeSessions >= user.MaxSessions {
-			logger.Debug(logSender, "", "authentication refused for user: %v, too many open sessions: %v/%v", user.Username,
+			logger.Debug(logSender, "", "authentication refused for user: %#v, too many open sessions: %v/%v", user.Username,
 				activeSessions, user.MaxSessions)
 			return nil, fmt.Errorf("too many open sessions: %v", activeSessions)
 		}

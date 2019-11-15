@@ -601,14 +601,14 @@ func (c *scpCommand) sendProtocolMessage(message string) error {
 func (c *scpCommand) sendExitStatus(err error) {
 	status := uint32(0)
 	if err != nil {
-		status = 1
+		status = uint32(1)
 	}
-	ex := exitStatusMsg{
+	exitStatus := sshSubsystemExitStatus{
 		Status: status,
 	}
 	c.connection.Log(logger.LevelDebug, logSenderSCP, "send exit status for command with args: %v user: %v err: %v",
 		c.args, c.connection.User.Username, err)
-	c.connection.channel.SendRequest("exit-status", false, ssh.Marshal(&ex))
+	c.connection.channel.SendRequest("exit-status", false, ssh.Marshal(&exitStatus))
 	c.connection.channel.Close()
 }
 

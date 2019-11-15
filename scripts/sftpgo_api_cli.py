@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-import argparse
 from datetime import datetime
-import json
 
+import argparse
+import json
 import requests
 
 try:
@@ -160,7 +160,7 @@ def addCommonUserArguments(parser):
 	parser.add_argument('-F', '--quota-files', type=int, default=0, help="default: %(default)s")
 	parser.add_argument('-G', '--permissions', type=str, nargs='+', default=[],
 					choices=['*', 'list', 'download', 'upload', 'overwrite', 'delete', 'rename', 'create_dirs',
-							'create_symlinks'], help='Default: %(default)s')
+							'create_symlinks', 'chmod', 'chown'], help='Default: %(default)s')
 	parser.add_argument('-U', '--upload-bandwidth', type=int, default=0,
 					help='Maximum upload bandwidth as KB/s, 0 means unlimited. Default: %(default)s')
 	parser.add_argument('-D', '--download-bandwidth', type=int, default=0,

@@ -191,9 +191,37 @@ func TestSFTPCmdTargetPath(t *testing.T) {
 		User: u,
 	}
 	_, err := connection.getSFTPCmdTargetPath("invalid_path")
-	if err != sftp.ErrSSHFxOpUnsupported {
+	if err != sftp.ErrSSHFxNoSuchFile {
 		t.Errorf("getSFTPCmdTargetPath must fal with the expected error: %v", err)
 	}
+}
+
+func TestGetSFTPErrorFromOSError(t *testing.T) {
+	err := os.ErrNotExist
+	err = getSFTPErrorFromOSError(err)
+	if err != sftp.ErrSSHFxNoSuchFile {
+		t.Errorf("unexpected error: %v", err)
+	}
+	err = os.ErrPermission
+	err = getSFTPErrorFromOSError(err)
+	if err != sftp.ErrSSHFxPermissionDenied {
+		t.Errorf("unexpected error: %v", err)
+	}
+	err = getSFTPErrorFromOSError(nil)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestSetstatModeIgnore(t *testing.T) {
+	originalMode := setstatMode
+	setstatMode = 1
+	connection := Connection{}
+	err := connection.handleSFTPSetstat("invalid", nil)
+	if err != nil {
+		t.Errorf("unexpected error: %v setstat should be silently ignore in mode 1", err)
+	}
+	setstatMode = originalMode
 }
 
 func TestSFTPGetUsedQuota(t *testing.T) {

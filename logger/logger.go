@@ -150,13 +150,16 @@ func TransferLog(operation string, path string, elapsed int64, size int64, user 
 }
 
 // CommandLog logs an SFTP/SCP command
-func CommandLog(command string, path string, target string, user string, connectionID string, protocol string) {
+func CommandLog(command, path, target, user, fileMode, connectionID, protocol string, uid, gid int) {
 	logger.Info().
 		Timestamp().
 		Str("sender", command).
 		Str("username", user).
 		Str("file_path", path).
 		Str("target_path", target).
+		Str("filemode", fileMode).
+		Int("uid", uid).
+		Int("gid", gid).
 		Str("connection_id", connectionID).
 		Str("protocol", protocol).
 		Msg("")

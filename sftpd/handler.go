@@ -56,20 +56,20 @@ func (c Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 
 	p, err := c.buildPath(request.Filepath)
 	if err != nil {
-		return nil, sftp.ErrSSHFxNoSuchFile
+		return nil, getSFTPErrorFromOSError(err)
 	}
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if _, err := os.Stat(p); os.IsNotExist(err) {
-		return nil, sftp.ErrSSHFxNoSuchFile
+	if _, err := os.Stat(p); err != nil {
+		return nil, getSFTPErrorFromOSError(err)
 	}
 
 	file, err := os.Open(p)
 	if err != nil {
-		c.Log(logger.LevelError, logSender, "could not open file %#v for reading: %v", p, err)
-		return nil, sftp.ErrSSHFxFailure
+		c.Log(logger.LevelWarn, logSender, "could not open file %#v for reading: %v", p, err)
+		return nil, getSFTPErrorFromOSError(err)
 	}
 
 	c.Log(logger.LevelDebug, logSender, "fileread requested for path: %#v", p)
@@ -103,7 +103,7 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 
 	p, err := c.buildPath(request.Filepath)
 	if err != nil {
-		return nil, sftp.ErrSSHFxNoSuchFile
+		return nil, getSFTPErrorFromOSError(err)
 	}
 
 	filePath := p
@@ -123,7 +123,7 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 
 	if statErr != nil {
 		c.Log(logger.LevelError, logSender, "error performing file stat %#v: %v", p, statErr)
-		return nil, sftp.ErrSSHFxFailure
+		return nil, getSFTPErrorFromOSError(err)
 	}
 
 	// This happen if we upload a file that has the same name of an existing directory
@@ -146,12 +146,12 @@ func (c Connection) Filecmd(request *sftp.Request) error {
 
 	p, err := c.buildPath(request.Filepath)
 	if err != nil {
-		return sftp.ErrSSHFxNoSuchFile
+		return getSFTPErrorFromOSError(err)
 	}
 
 	target, err := c.getSFTPCmdTargetPath(request.Target)
 	if err != nil {
-		return sftp.ErrSSHFxOpUnsupported
+		return err
 	}
 
 	c.Log(logger.LevelDebug, logSender, "new cmd, method: %v, sourcePath: %#v, targetPath: %#v", request.Method,
@@ -159,10 +159,9 @@ func (c Connection) Filecmd(request *sftp.Request) error {
 
 	switch request.Method {
 	case "Setstat":
-		return nil
+		return c.handleSFTPSetstat(p, request)
 	case "Rename":
-		err = c.handleSFTPRename(p, target)
-		if err != nil {
+		if err = c.handleSFTPRename(p, target); err != nil {
 			return err
 		}
 
@@ -178,8 +177,7 @@ func (c Connection) Filecmd(request *sftp.Request) error {
 
 		break
 	case "Symlink":
-		err = c.handleSFTPSymlink(p, target)
-		if err != nil {
+		if err = c.handleSFTPSymlink(p, target); err != nil {
 			return err
 		}
 
@@ -208,7 +206,7 @@ func (c Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 	updateConnectionActivity(c.ID)
 	p, err := c.buildPath(request.Filepath)
 	if err != nil {
-		return nil, sftp.ErrSSHFxNoSuchFile
+		return nil, getSFTPErrorFromOSError(err)
 	}
 
 	switch request.Method {
@@ -220,11 +218,9 @@ func (c Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 		c.Log(logger.LevelDebug, logSender, "requested list file for dir: %#v", p)
 
 		files, err := ioutil.ReadDir(p)
-		if os.IsNotExist(err) {
-			return nil, sftp.ErrSSHFxNoSuchFile
-		} else if err != nil {
-			c.Log(logger.LevelError, logSender, "error listing directory: %#v", err)
-			return nil, sftp.ErrSSHFxFailure
+		if err != nil {
+			c.Log(logger.LevelWarn, logSender, "error listing directory: %#v", err)
+			return nil, getSFTPErrorFromOSError(err)
 		}
 
 		return listerAt(files), nil
@@ -233,13 +229,11 @@ func (c Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 			return nil, sftp.ErrSSHFxPermissionDenied
 		}
 
-		c.Log(logger.LevelDebug, logSender, "requested stat for file: %#v", p)
+		c.Log(logger.LevelDebug, logSender, "requested Stat for file: %#v", p)
 		s, err := os.Stat(p)
-		if os.IsNotExist(err) {
-			return nil, sftp.ErrSSHFxNoSuchFile
-		} else if err != nil {
-			c.Log(logger.LevelError, logSender, "error running STAT on file: %#v", err)
-			return nil, sftp.ErrSSHFxFailure
+		if err != nil {
+			c.Log(logger.LevelWarn, logSender, "error running Stat on file: %#v", err)
+			return nil, getSFTPErrorFromOSError(err)
 		}
 
 		return listerAt([]os.FileInfo{s}), nil
@@ -251,16 +245,47 @@ func (c Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 func (c Connection) getSFTPCmdTargetPath(requestTarget string) (string, error) {
 	var target string
 	// If a target is provided in this request validate that it is going to the correct
-	// location for the server. If it is not, return an operation unsupported error. This
-	// is maybe not the best error response, but its not wrong either.
-	if requestTarget != "" {
+	// location for the server. If it is not, return an error
+	if len(requestTarget) > 0 {
 		var err error
 		target, err = c.buildPath(requestTarget)
 		if err != nil {
-			return target, sftp.ErrSSHFxOpUnsupported
+			return target, getSFTPErrorFromOSError(err)
 		}
 	}
 	return target, nil
+}
+
+func (c Connection) handleSFTPSetstat(path string, request *sftp.Request) error {
+	if setstatMode == 1 {
+		return nil
+	}
+	attrFlags := request.AttrFlags()
+	if attrFlags.Permissions {
+		if !c.User.HasPerm(dataprovider.PermChmod) {
+			return sftp.ErrSSHFxPermissionDenied
+		}
+		fileMode := request.Attributes().FileMode()
+		if err := os.Chmod(path, fileMode); err != nil {
+			c.Log(logger.LevelWarn, logSender, "failed to chmod path %#v, mode: %v, err: %v", path, fileMode.String(), err)
+			return getSFTPErrorFromOSError(err)
+		}
+		logger.CommandLog(chmodLogSender, path, "", c.User.Username, fileMode.String(), c.ID, c.protocol, -1, -1)
+		return nil
+	} else if attrFlags.UidGid {
+		if !c.User.HasPerm(dataprovider.PermChown) {
+			return sftp.ErrSSHFxPermissionDenied
+		}
+		uid := int(request.Attributes().UID)
+		gid := int(request.Attributes().GID)
+		if err := os.Chown(path, uid, gid); err != nil {
+			c.Log(logger.LevelWarn, logSender, "failed to chown path %#v, uid: %v, gid: %v, err: %v", path, uid, gid, err)
+			return getSFTPErrorFromOSError(err)
+		}
+		logger.CommandLog(chownLogSender, path, "", c.User.Username, "", c.ID, c.protocol, uid, gid)
+		return nil
+	}
+	return nil
 }
 
 func (c Connection) handleSFTPRename(sourcePath string, targetPath string) error {
@@ -268,10 +293,10 @@ func (c Connection) handleSFTPRename(sourcePath string, targetPath string) error
 		return sftp.ErrSSHFxPermissionDenied
 	}
 	if err := os.Rename(sourcePath, targetPath); err != nil {
-		c.Log(logger.LevelError, logSender, "failed to rename file, source: %#v target: %#v: %v", sourcePath, targetPath, err)
-		return sftp.ErrSSHFxFailure
+		c.Log(logger.LevelWarn, logSender, "failed to rename file, source: %#v target: %#v: %v", sourcePath, targetPath, err)
+		return getSFTPErrorFromOSError(err)
 	}
-	logger.CommandLog(renameLogSender, sourcePath, targetPath, c.User.Username, c.ID, c.protocol)
+	logger.CommandLog(renameLogSender, sourcePath, targetPath, c.User.Username, "", c.ID, c.protocol, -1, -1)
 	go executeAction(operationRename, c.User.Username, sourcePath, targetPath)
 	return nil
 }
@@ -284,8 +309,8 @@ func (c Connection) handleSFTPRmdir(path string) error {
 	var fi os.FileInfo
 	var err error
 	if fi, err = os.Lstat(path); err != nil {
-		c.Log(logger.LevelError, logSender, "failed to remove a dir %#v: stat error: %v", path, err)
-		return sftp.ErrSSHFxFailure
+		c.Log(logger.LevelWarn, logSender, "failed to remove a dir %#v: stat error: %v", path, err)
+		return getSFTPErrorFromOSError(err)
 	}
 	if !fi.IsDir() || fi.Mode()&os.ModeSymlink == os.ModeSymlink {
 		c.Log(logger.LevelDebug, logSender, "cannot remove %#v is not a directory", path)
@@ -293,11 +318,11 @@ func (c Connection) handleSFTPRmdir(path string) error {
 	}
 
 	if err = os.Remove(path); err != nil {
-		c.Log(logger.LevelError, logSender, "failed to remove directory %#v: %v", path, err)
-		return sftp.ErrSSHFxFailure
+		c.Log(logger.LevelWarn, logSender, "failed to remove directory %#v: %v", path, err)
+		return getSFTPErrorFromOSError(err)
 	}
 
-	logger.CommandLog(rmdirLogSender, path, "", c.User.Username, c.ID, c.protocol)
+	logger.CommandLog(rmdirLogSender, path, "", c.User.Username, "", c.ID, c.protocol, -1, -1)
 	return sftp.ErrSSHFxOk
 }
 
@@ -307,10 +332,10 @@ func (c Connection) handleSFTPSymlink(sourcePath string, targetPath string) erro
 	}
 	if err := os.Symlink(sourcePath, targetPath); err != nil {
 		c.Log(logger.LevelWarn, logSender, "failed to create symlink %#v -> %#v: %v", sourcePath, targetPath, err)
-		return sftp.ErrSSHFxFailure
+		return getSFTPErrorFromOSError(err)
 	}
 
-	logger.CommandLog(symlinkLogSender, sourcePath, targetPath, c.User.Username, c.ID, c.protocol)
+	logger.CommandLog(symlinkLogSender, sourcePath, targetPath, c.User.Username, "", c.ID, c.protocol, -1, -1)
 	return nil
 }
 
@@ -319,12 +344,12 @@ func (c Connection) handleSFTPMkdir(path string) error {
 		return sftp.ErrSSHFxPermissionDenied
 	}
 	if err := os.Mkdir(path, 0777); err != nil {
-		c.Log(logger.LevelError, logSender, "error creating missing dir: %#v error: %v", path, err)
-		return sftp.ErrSSHFxFailure
+		c.Log(logger.LevelWarn, logSender, "error creating missing dir: %#v error: %v", path, err)
+		return getSFTPErrorFromOSError(err)
 	}
 	utils.SetPathPermissions(path, c.User.GetUID(), c.User.GetGID())
 
-	logger.CommandLog(mkdirLogSender, path, "", c.User.Username, c.ID, c.protocol)
+	logger.CommandLog(mkdirLogSender, path, "", c.User.Username, "", c.ID, c.protocol, -1, -1)
 	return nil
 }
 
@@ -337,8 +362,8 @@ func (c Connection) handleSFTPRemove(path string) error {
 	var fi os.FileInfo
 	var err error
 	if fi, err = os.Lstat(path); err != nil {
-		c.Log(logger.LevelError, logSender, "failed to remove a file %#v: stat error: %v", path, err)
-		return sftp.ErrSSHFxFailure
+		c.Log(logger.LevelWarn, logSender, "failed to remove a file %#v: stat error: %v", path, err)
+		return getSFTPErrorFromOSError(err)
 	}
 	if fi.IsDir() && fi.Mode()&os.ModeSymlink != os.ModeSymlink {
 		c.Log(logger.LevelDebug, logSender, "cannot remove %#v is not a file/symlink", path)
@@ -346,11 +371,11 @@ func (c Connection) handleSFTPRemove(path string) error {
 	}
 	size = fi.Size()
 	if err := os.Remove(path); err != nil {
-		c.Log(logger.LevelError, logSender, "failed to remove a file/symlink %#v: %v", path, err)
-		return sftp.ErrSSHFxFailure
+		c.Log(logger.LevelWarn, logSender, "failed to remove a file/symlink %#v: %v", path, err)
+		return getSFTPErrorFromOSError(err)
 	}
 
-	logger.CommandLog(removeLogSender, path, "", c.User.Username, c.ID, c.protocol)
+	logger.CommandLog(removeLogSender, path, "", c.User.Username, "", c.ID, c.protocol, -1, -1)
 	if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
 		dataprovider.UpdateUserQuota(dataProvider, c.User, -1, -size, false)
 	}
@@ -367,8 +392,8 @@ func (c Connection) handleSFTPUploadToNewFile(requestPath, filePath string) (io.
 
 	file, err := os.Create(filePath)
 	if err != nil {
-		c.Log(logger.LevelError, logSender, "error creating file %#v: %v", requestPath, err)
-		return nil, sftp.ErrSSHFxFailure
+		c.Log(logger.LevelWarn, logSender, "error creating file %#v: %v", requestPath, err)
+		return nil, getSFTPErrorFromOSError(err)
 	}
 
 	utils.SetPathPermissions(filePath, c.User.GetUID(), c.User.GetGID())
@@ -407,16 +432,16 @@ func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, re
 	if isAtomicUploadEnabled() {
 		err = os.Rename(requestPath, filePath)
 		if err != nil {
-			c.Log(logger.LevelError, logSender, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %v",
+			c.Log(logger.LevelWarn, logSender, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %v",
 				requestPath, filePath, err)
-			return nil, sftp.ErrSSHFxFailure
+			return nil, getSFTPErrorFromOSError(err)
 		}
 	}
 	// we use 0666 so the umask is applied
 	file, err := os.OpenFile(filePath, osFlags, 0666)
 	if err != nil {
-		c.Log(logger.LevelError, logSender, "error opening existing file, flags: %v, source: %#v, err: %v", pflags, filePath, err)
-		return nil, sftp.ErrSSHFxFailure
+		c.Log(logger.LevelWarn, logSender, "error opening existing file, flags: %v, source: %#v, err: %v", pflags, filePath, err)
+		return nil, getSFTPErrorFromOSError(err)
 	}
 
 	if pflags.Append && osFlags&os.O_TRUNC == 0 {
@@ -601,4 +626,15 @@ func getUploadTempFilePath(path string) string {
 	dir := filepath.Dir(path)
 	guid := xid.New().String()
 	return filepath.Join(dir, ".sftpgo-upload."+guid+"."+filepath.Base(path))
+}
+
+func getSFTPErrorFromOSError(err error) error {
+	if os.IsNotExist(err) {
+		return sftp.ErrSSHFxNoSuchFile
+	} else if os.IsPermission(err) {
+		return sftp.ErrSSHFxPermissionDenied
+	} else if err != nil {
+		return sftp.ErrSSHFxFailure
+	}
+	return nil
 }

@@ -17,7 +17,8 @@
     "kex_algorithms": [],
     "ciphers": [],
     "macs": [],
-    "login_banner_file": ""
+    "login_banner_file": "",
+    "setstat_mode": 0
   },
   "data_provider": {
     "driver": "sqlite",

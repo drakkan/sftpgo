@@ -30,6 +30,10 @@ const (
 	PermCreateDirs = "create_dirs"
 	// create symbolic links is allowed
 	PermCreateSymlinks = "create_symlinks"
+	// changing file or directory permissions is allowed
+	PermChmod = "chmod"
+	// changing file or directory owner is allowed
+	PermChown = "chown"
 )
 
 // User defines an SFTP user

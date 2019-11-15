@@ -14,6 +14,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -415,7 +416,7 @@ func TestRemove(t *testing.T) {
 		}
 		err = client.RemoveDirectory(path.Join("/test", testFileName))
 		if err == nil {
-			t.Errorf("remove directory as file must fail")
+			t.Errorf("remove a file with rmdir must fail")
 		}
 		err = client.Remove(path.Join("/test", testFileName))
 		if err != nil {
@@ -498,9 +499,6 @@ func TestLink(t *testing.T) {
 func TestStat(t *testing.T) {
 	usePubKey := false
 	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to add user: %v", err)
-	}
 	client, err := getSftpClient(user, usePubKey)
 	if err != nil {
 		t.Errorf("unable to create sftp client: %v", err)
@@ -517,15 +515,16 @@ func TestStat(t *testing.T) {
 		if err != nil {
 			t.Errorf("file upload error: %v", err)
 		}
-		fi, err := client.Lstat(testFileName)
+		_, err := client.Lstat(testFileName)
 		if err != nil {
 			t.Errorf("stat error: %v", err)
 		}
-		err = client.Chown(testFileName, 1000, 1000)
+		err = client.Chown(testFileName, os.Getuid(), os.Getgid())
 		if err != nil {
 			t.Errorf("chown error: %v", err)
 		}
-		err = client.Chmod(testFileName, 0600)
+		newPerm := os.FileMode(0600)
+		err = client.Chmod(testFileName, newPerm)
 		if err != nil {
 			t.Errorf("chmod error: %v", err)
 		}
@@ -533,8 +532,8 @@ func TestStat(t *testing.T) {
 		if err != nil {
 			t.Errorf("stat error: %v", err)
 		}
-		if fi.Mode().Perm() != newFi.Mode().Perm() {
-			t.Errorf("stat must remain unchanged")
+		if newPerm != newFi.Mode().Perm() {
+			t.Errorf("chown failed expected: %v, actual: %v", newPerm, newFi.Mode().Perm())
 		}
 		_, err = client.ReadLink(testFileName)
 		if err == nil {
@@ -544,11 +543,21 @@ func TestStat(t *testing.T) {
 		if err != nil {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
+		// l'errore viene riconvertito da sftp.ErrSSHFxNoSuchFile in os.ErrNotExist
+		err = client.Chmod(testFileName, newPerm)
+		if err != os.ErrNotExist {
+			t.Errorf("unexpected chmod error: %v expected: %v", err, os.ErrNotExist)
+		}
+		err = client.Chown(testFileName, os.Getuid(), os.Getgid())
+		if err != os.ErrNotExist {
+			t.Errorf("unexpected chown error: %v expected: %v", err, os.ErrNotExist)
+		}
+		err = client.Chtimes(testFileName, time.Now(), time.Now())
+		if err != nil {
+			t.Errorf("chtime must be silently ignored: %v", err)
+		}
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove user: %v", err)
-	}
 	os.RemoveAll(user.GetHomeDir())
 }
 
@@ -1274,12 +1283,22 @@ func TestOpenError(t *testing.T) {
 		if err == nil {
 			t.Errorf("upload must fail if we have no filesystem write permissions")
 		}
+		err = client.Mkdir("test")
+		if err != nil {
+			t.Errorf("error making dir: %v", err)
+		}
 		os.Chmod(user.GetHomeDir(), 0000)
 		_, err = client.Lstat(testFileName)
 		if err == nil {
 			t.Errorf("file stat must fail if we have no filesystem read permissions")
 		}
 		os.Chmod(user.GetHomeDir(), 0755)
+		os.Chmod(filepath.Join(user.GetHomeDir(), "test"), 0000)
+		err = client.Rename(testFileName, path.Join("test", testFileName))
+		if err == nil || !strings.Contains(err.Error(), sftp.ErrSSHFxPermissionDenied.Error()) {
+			t.Errorf("unexpected error: %v expected: %v", err, sftp.ErrSSHFxPermissionDenied)
+		}
+		os.Chmod(filepath.Join(user.GetHomeDir(), "test"), 0755)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -1509,7 +1528,7 @@ func TestPermList(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete, dataprovider.PermRename,
-		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite}
+		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite, dataprovider.PermChmod, dataprovider.PermChown}
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
@@ -1539,7 +1558,7 @@ func TestPermDownload(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermUpload, dataprovider.PermDelete, dataprovider.PermRename,
-		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite}
+		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite, dataprovider.PermChmod, dataprovider.PermChown}
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
@@ -1581,7 +1600,7 @@ func TestPermUpload(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermDelete, dataprovider.PermRename,
-		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite}
+		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite, dataprovider.PermChmod, dataprovider.PermChown}
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
@@ -1614,7 +1633,7 @@ func TestPermOverwrite(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
-		dataprovider.PermRename, dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
+		dataprovider.PermRename, dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermChmod, dataprovider.PermChown}
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
@@ -1651,7 +1670,7 @@ func TestPermDelete(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermRename,
-		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite}
+		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite, dataprovider.PermChmod, dataprovider.PermChown}
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
@@ -1688,7 +1707,7 @@ func TestPermRename(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
-		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite}
+		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite, dataprovider.PermChmod, dataprovider.PermChown}
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
@@ -1729,7 +1748,7 @@ func TestPermCreateDirs(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
-		dataprovider.PermRename, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite}
+		dataprovider.PermRename, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite, dataprovider.PermChmod, dataprovider.PermChown}
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
@@ -1755,7 +1774,7 @@ func TestPermSymlink(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
-		dataprovider.PermRename, dataprovider.PermCreateDirs, dataprovider.PermOverwrite}
+		dataprovider.PermRename, dataprovider.PermCreateDirs, dataprovider.PermOverwrite, dataprovider.PermChmod, dataprovider.PermChown}
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
@@ -1792,6 +1811,89 @@ func TestPermSymlink(t *testing.T) {
 	os.RemoveAll(user.GetHomeDir())
 }
 
+func TestPermChmod(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
+		dataprovider.PermRename, dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite,
+		dataprovider.PermChown}
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		if err != nil {
+			t.Errorf("unable to create test file: %v", err)
+		}
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		if err != nil {
+			t.Errorf("file upload error: %v", err)
+		}
+		err = client.Chmod(testFileName, 0666)
+		if err == nil {
+			t.Errorf("chmod without permission should not succeed")
+		}
+		err = client.Remove(testFileName)
+		if err != nil {
+			t.Errorf("error removing uploaded file: %v", err)
+		}
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+}
+
+func TestPermChown(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Permissions = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
+		dataprovider.PermRename, dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite,
+		dataprovider.PermChmod}
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		if err != nil {
+			t.Errorf("unable to create test file: %v", err)
+		}
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		if err != nil {
+			t.Errorf("file upload error: %v", err)
+		}
+		err = client.Chown(testFileName, 1000, 1000)
+		if err == nil {
+			t.Errorf("chown without permission should not succeed")
+		}
+		err = client.Remove(testFileName)
+		if err != nil {
+			t.Errorf("error removing uploaded file: %v", err)
+		}
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+}
 func TestSSHConnection(t *testing.T) {
 	usePubKey := false
 	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)

@@ -65,7 +65,7 @@ var (
 		BoltDataProviderName, MemoryDataProviderName}
 	// ValidPerms list that contains all the valid permissions for an user
 	ValidPerms = []string{PermAny, PermListItems, PermDownload, PermUpload, PermOverwrite, PermRename, PermDelete,
-		PermCreateDirs, PermCreateSymlinks}
+		PermCreateDirs, PermCreateSymlinks, PermChmod, PermChown}
 	config          Config
 	provider        Provider
 	sqlPlaceholders []string
