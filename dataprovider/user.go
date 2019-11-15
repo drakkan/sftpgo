@@ -32,7 +32,7 @@ const (
 	PermCreateSymlinks = "create_symlinks"
 	// changing file or directory permissions is allowed
 	PermChmod = "chmod"
-	// changing file or directory owner is allowed
+	// changing file or directory owner and group is allowed
 	PermChown = "chown"
 )
 

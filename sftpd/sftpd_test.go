@@ -499,6 +499,9 @@ func TestLink(t *testing.T) {
 func TestStat(t *testing.T) {
 	usePubKey := false
 	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
 	client, err := getSftpClient(user, usePubKey)
 	if err != nil {
 		t.Errorf("unable to create sftp client: %v", err)
@@ -507,10 +510,7 @@ func TestStat(t *testing.T) {
 		testFileName := "test_file.dat"
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(65535)
-		err = createTestFile(testFilePath, testFileSize)
-		if err != nil {
-			t.Errorf("unable to create test file: %v", err)
-		}
+		createTestFile(testFilePath, testFileSize)
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		if err != nil {
 			t.Errorf("file upload error: %v", err)
@@ -558,6 +558,9 @@ func TestStat(t *testing.T) {
 		}
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
 	os.RemoveAll(user.GetHomeDir())
 }
 
