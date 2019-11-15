@@ -229,7 +229,7 @@ func (c Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 			return nil, sftp.ErrSSHFxPermissionDenied
 		}
 
-		c.Log(logger.LevelDebug, logSender, "requested Stat for file: %#v", p)
+		c.Log(logger.LevelDebug, logSender, "requested stat for file: %#v", p)
 		s, err := os.Stat(p)
 		if err != nil {
 			c.Log(logger.LevelWarn, logSender, "error running Stat on file: %#v", err)

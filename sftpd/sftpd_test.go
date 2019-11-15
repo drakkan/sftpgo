@@ -519,6 +519,69 @@ func TestStat(t *testing.T) {
 		if err != nil {
 			t.Errorf("stat error: %v", err)
 		}
+		// mode 0666 and 0444 works on Windows too
+		newPerm := os.FileMode(0666)
+		err = client.Chmod(testFileName, newPerm)
+		if err != nil {
+			t.Errorf("chmod error: %v", err)
+		}
+		newFi, err := client.Lstat(testFileName)
+		if err != nil {
+			t.Errorf("stat error: %v", err)
+		}
+		if newPerm != newFi.Mode().Perm() {
+			t.Errorf("chmod failed expected: %v, actual: %v", newPerm, newFi.Mode().Perm())
+		}
+		newPerm = os.FileMode(0444)
+		err = client.Chmod(testFileName, newPerm)
+		if err != nil {
+			t.Errorf("chmod error: %v", err)
+		}
+		newFi, err = client.Lstat(testFileName)
+		if err != nil {
+			t.Errorf("stat error: %v", err)
+		}
+		if newPerm != newFi.Mode().Perm() {
+			t.Errorf("chmod failed expected: %v, actual: %v", newPerm, newFi.Mode().Perm())
+		}
+		_, err = client.ReadLink(testFileName)
+		if err == nil {
+			t.Errorf("readlink is not supported and must fail")
+		}
+		err = client.Chtimes(testFileName, time.Now(), time.Now())
+		if err != nil {
+			t.Errorf("chtime must be silently ignored: %v", err)
+		}
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+}
+
+func TestStatChownChmod(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chown is not supported on Windows, chmod is partially supported")
+	}
+	usePubKey := true
+	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		createTestFile(testFilePath, testFileSize)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		if err != nil {
+			t.Errorf("file upload error: %v", err)
+		}
 		err = client.Chown(testFileName, os.Getuid(), os.Getgid())
 		if err != nil {
 			t.Errorf("chown error: %v", err)
@@ -535,10 +598,6 @@ func TestStat(t *testing.T) {
 		if newPerm != newFi.Mode().Perm() {
 			t.Errorf("chown failed expected: %v, actual: %v", newPerm, newFi.Mode().Perm())
 		}
-		_, err = client.ReadLink(testFileName)
-		if err == nil {
-			t.Errorf("readlink is not supported and must fail")
-		}
 		err = client.Remove(testFileName)
 		if err != nil {
 			t.Errorf("error removing uploaded file: %v", err)
@@ -551,10 +610,6 @@ func TestStat(t *testing.T) {
 		err = client.Chown(testFileName, os.Getuid(), os.Getgid())
 		if err != os.ErrNotExist {
 			t.Errorf("unexpected chown error: %v expected: %v", err, os.ErrNotExist)
-		}
-		err = client.Chtimes(testFileName, time.Now(), time.Now())
-		if err != nil {
-			t.Errorf("chtime must be silently ignored: %v", err)
 		}
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)

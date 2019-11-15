@@ -365,8 +365,8 @@ For each account the following properties can be configured:
     - `rename` rename files or directories is allowed
     - `create_dirs` create directories is allowed
     - `create_symlinks` create symbolic links is allowed
-    - `chmod` changing file or directory permissions is allowed
-    - `chown` changing file or directory owner and group is allowed
+    - `chmod` changing file or directory permissions is allowed. On Windows, only the 0200 bit (owner writable) of mode is used; it controls whether the file's read-only attribute is set or cleared. The other bits are currently unused. Use mode 0400 for a read-only file and 0600 for a readable+writable file.
+    - `chown` changing file or directory owner and group is allowed. Changing owner and group is not supported on Windows.
 - `upload_bandwidth` maximum upload bandwidth as KB/s, 0 means unlimited.
 - `download_bandwidth` maximum download bandwidth as KB/s, 0 means unlimited.
 
