@@ -31,6 +31,7 @@ const (
 	removeLogSender   = "Remove"
 	chownLogSender    = "Chown"
 	chmodLogSender    = "Chmod"
+	chtimesLogSender  = "Chtimes"
 	operationDownload = "download"
 	operationUpload   = "upload"
 	operationDelete   = "delete"

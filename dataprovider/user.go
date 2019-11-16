@@ -34,6 +34,8 @@ const (
 	PermChmod = "chmod"
 	// changing file or directory owner and group is allowed
 	PermChown = "chown"
+	// changing file or directory access and modification time is allowed
+	PermChtimes = "chtimes"
 )
 
 // User defines an SFTP user

@@ -12,7 +12,7 @@ Full featured and highly configurable SFTP server
 - Quota support: accounts can have individual quota expressed as max total size and/or max number of files.
 - Bandwidth throttling is supported, with distinct settings for upload and download.
 - Per user maximum concurrent sessions.
-- Per user permissions: list directories content, upload, overwrite, download, delete, rename, create directories, create symlinks, changing owner/group and mode can be enabled or disabled.
+- Per user permissions: list directories content, upload, overwrite, download, delete, rename, create directories, create symlinks, changing owner/group and mode, changing access and modification times can be enabled or disabled.
 - Per user files/folders ownership: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (*NIX only).
 - Configurable custom commands and/or HTTP notifications on files upload, download, delete, rename and on users add, update and delete.
 - Automatically terminating idle connections.
@@ -150,7 +150,7 @@ The `sftpgo` configuration file contains the following sections:
     - `ciphers`, list of strings. Allowed ciphers. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L28 "Supported ciphers")
     - `macs`, list of strings. available MAC (message authentication code) algorithms in preference order. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L84 "Supported MACs")
     - `login_banner_file`, path to the login banner file. The contents of the specified file, if any, are sent to the remote user before authentication is allowed. It can be a path relative to the config dir or an absolute one. Leave empty to send no login banner
-    - `setstat_mode`, integer. 0 means "normal mode": requests for changing permissions and owner/group are executed. 1 means "ignore mode": requests for changing permissions and owner/group are silently ignored.
+    - `setstat_mode`, integer. 0 means "normal mode": requests for changing permissions, owner/group and access/modification times are executed. 1 means "ignore mode": requests for changing permissions, owner/group and access/modification times are silently ignored.
 - **"data_provider"**, the configuration for the data provider
     - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`, `memory`
     - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database.
@@ -367,6 +367,7 @@ For each account the following properties can be configured:
     - `create_symlinks` create symbolic links is allowed
     - `chmod` changing file or directory permissions is allowed. On Windows, only the 0200 bit (owner writable) of mode is used; it controls whether the file's read-only attribute is set or cleared. The other bits are currently unused. Use mode 0400 for a read-only file and 0600 for a readable+writable file.
     - `chown` changing file or directory owner and group is allowed. Changing owner and group is not supported on Windows.
+    - `chtimes` changing file or directory access and modification time is allowed
 - `upload_bandwidth` maximum upload bandwidth as KB/s, 0 means unlimited.
 - `download_bandwidth` maximum download bandwidth as KB/s, 0 means unlimited.
 
@@ -456,7 +457,7 @@ The logs can be divided into the following categories:
     - `connection_id` string. Unique connection identifier
     - `protocol` string. `SFTP` or `SCP`
 - **"command logs"**, SFTP/SCP command logs:
-    - `sender` string. `Rename`, `Rmdir`, `Mkdir`, `Symlink`, `Remove`, `Chmod`, `Chown`
+    - `sender` string. `Rename`, `Rmdir`, `Mkdir`, `Symlink`, `Remove`, `Chmod`, `Chown`, `Chtimes`
     - `level` string
     - `username`, string
     - `file_path` string
@@ -464,6 +465,8 @@ The logs can be divided into the following categories:
     - `filemode` string. Valid for sender `Chmod` otherwise empty
     - `uid` integer. Valid for sender `Chown` otherwise -1
     - `gid` integer. Valid for sender `Chown` otherwise -1
+    - `access_time` datetime as YYYY-MM-DDTHH:MM:SS. Valid for sender `Chtimes` otherwise empty
+    - `modification_time` datetime as YYYY-MM-DDTHH:MM:SS. Valid for sender `Chtimes` otherwise empty
     - `connection_id` string. Unique connection identifier
     - `protocol` string. `SFTP` or `SCP`
 - **"http logs"**, REST API logs:

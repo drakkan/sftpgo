@@ -229,10 +229,10 @@ func (c Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 			return nil, sftp.ErrSSHFxPermissionDenied
 		}
 
-		c.Log(logger.LevelDebug, logSender, "requested stat for file: %#v", p)
+		c.Log(logger.LevelDebug, logSender, "requested stat for path: %#v", p)
 		s, err := os.Stat(p)
 		if err != nil {
-			c.Log(logger.LevelWarn, logSender, "error running Stat on file: %#v", err)
+			c.Log(logger.LevelWarn, logSender, "error running stat on path: %#v", err)
 			return nil, getSFTPErrorFromOSError(err)
 		}
 
@@ -270,7 +270,7 @@ func (c Connection) handleSFTPSetstat(path string, request *sftp.Request) error 
 			c.Log(logger.LevelWarn, logSender, "failed to chmod path %#v, mode: %v, err: %v", path, fileMode.String(), err)
 			return getSFTPErrorFromOSError(err)
 		}
-		logger.CommandLog(chmodLogSender, path, "", c.User.Username, fileMode.String(), c.ID, c.protocol, -1, -1)
+		logger.CommandLog(chmodLogSender, path, "", c.User.Username, fileMode.String(), c.ID, c.protocol, -1, -1, "", "")
 		return nil
 	} else if attrFlags.UidGid {
 		if !c.User.HasPerm(dataprovider.PermChown) {
@@ -282,7 +282,24 @@ func (c Connection) handleSFTPSetstat(path string, request *sftp.Request) error 
 			c.Log(logger.LevelWarn, logSender, "failed to chown path %#v, uid: %v, gid: %v, err: %v", path, uid, gid, err)
 			return getSFTPErrorFromOSError(err)
 		}
-		logger.CommandLog(chownLogSender, path, "", c.User.Username, "", c.ID, c.protocol, uid, gid)
+		logger.CommandLog(chownLogSender, path, "", c.User.Username, "", c.ID, c.protocol, uid, gid, "", "")
+		return nil
+	} else if attrFlags.Acmodtime {
+		if !c.User.HasPerm(dataprovider.PermChtimes) {
+			return sftp.ErrSSHFxPermissionDenied
+		}
+		dateFormat := "2006-01-02T15:04:05" // YYYY-MM-DDTHH:MM:SS
+		accessTime := time.Unix(int64(request.Attributes().Atime), 0)
+		modificationTime := time.Unix(int64(request.Attributes().Mtime), 0)
+		accessTimeString := accessTime.Format(dateFormat)
+		modificationTimeString := modificationTime.Format(dateFormat)
+		if err := os.Chtimes(path, accessTime, modificationTime); err != nil {
+			c.Log(logger.LevelWarn, logSender, "failed to chtimes for path %#v, access time: %v, modification time: %v, err: %v",
+				path, accessTime, modificationTime, err)
+			return getSFTPErrorFromOSError(err)
+		}
+		logger.CommandLog(chtimesLogSender, path, "", c.User.Username, "", c.ID, c.protocol, -1, -1, accessTimeString,
+			modificationTimeString)
 		return nil
 	}
 	return nil
@@ -296,7 +313,7 @@ func (c Connection) handleSFTPRename(sourcePath string, targetPath string) error
 		c.Log(logger.LevelWarn, logSender, "failed to rename file, source: %#v target: %#v: %v", sourcePath, targetPath, err)
 		return getSFTPErrorFromOSError(err)
 	}
-	logger.CommandLog(renameLogSender, sourcePath, targetPath, c.User.Username, "", c.ID, c.protocol, -1, -1)
+	logger.CommandLog(renameLogSender, sourcePath, targetPath, c.User.Username, "", c.ID, c.protocol, -1, -1, "", "")
 	go executeAction(operationRename, c.User.Username, sourcePath, targetPath)
 	return nil
 }
@@ -322,7 +339,7 @@ func (c Connection) handleSFTPRmdir(path string) error {
 		return getSFTPErrorFromOSError(err)
 	}
 
-	logger.CommandLog(rmdirLogSender, path, "", c.User.Username, "", c.ID, c.protocol, -1, -1)
+	logger.CommandLog(rmdirLogSender, path, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "")
 	return sftp.ErrSSHFxOk
 }
 
@@ -335,7 +352,7 @@ func (c Connection) handleSFTPSymlink(sourcePath string, targetPath string) erro
 		return getSFTPErrorFromOSError(err)
 	}
 
-	logger.CommandLog(symlinkLogSender, sourcePath, targetPath, c.User.Username, "", c.ID, c.protocol, -1, -1)
+	logger.CommandLog(symlinkLogSender, sourcePath, targetPath, c.User.Username, "", c.ID, c.protocol, -1, -1, "", "")
 	return nil
 }
 
@@ -349,7 +366,7 @@ func (c Connection) handleSFTPMkdir(path string) error {
 	}
 	utils.SetPathPermissions(path, c.User.GetUID(), c.User.GetGID())
 
-	logger.CommandLog(mkdirLogSender, path, "", c.User.Username, "", c.ID, c.protocol, -1, -1)
+	logger.CommandLog(mkdirLogSender, path, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "")
 	return nil
 }
 
@@ -375,7 +392,7 @@ func (c Connection) handleSFTPRemove(path string) error {
 		return getSFTPErrorFromOSError(err)
 	}
 
-	logger.CommandLog(removeLogSender, path, "", c.User.Username, "", c.ID, c.protocol, -1, -1)
+	logger.CommandLog(removeLogSender, path, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "")
 	if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
 		dataprovider.UpdateUserQuota(dataProvider, c.User, -1, -size, false)
 	}
