@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/sha512"
 	"fmt"
+	"hash"
 	"io"
 	"io/ioutil"
 	"math"
@@ -115,8 +117,8 @@ func TestMain(m *testing.M) {
 		"aes256-ctr"}
 	sftpdConf.MACs = []string{"hmac-sha2-256-etm@openssh.com", "hmac-sha2-256"}
 	sftpdConf.LoginBannerFile = loginBannerFileName
-	// we need to test SCP support
-	sftpdConf.IsSCPEnabled = true
+	// we need to test all supported ssh commands
+	sftpdConf.EnabledSSHCommands = []string{"*"}
 	// we run the test cases with UploadMode atomic and resume support. The non atomic code path
 	// simply does not execute some code so if it works in atomic mode will
 	// work in non atomic mode too
@@ -178,6 +180,8 @@ func TestInitialization(t *testing.T) {
 	sftpdConf.Umask = "invalid umask"
 	sftpdConf.BindPort = 2022
 	sftpdConf.LoginBannerFile = "invalid_file"
+	sftpdConf.IsSCPEnabled = true
+	sftpdConf.EnabledSSHCommands = append(sftpdConf.EnabledSSHCommands, "ls")
 	err := sftpdConf.Initialize(configDir)
 	if err == nil {
 		t.Errorf("Inizialize must fail, a SFTP server should be already running")
@@ -291,11 +295,11 @@ func TestUploadResume(t *testing.T) {
 		if err != nil {
 			t.Errorf("file download error: %v", err)
 		}
-		initialHash, err := computeFileHash(localDownloadPath)
+		initialHash, err := computeHashForFile(sha256.New(), testFilePath)
 		if err != nil {
 			t.Errorf("error computing file hash: %v", err)
 		}
-		donwloadedFileHash, err := computeFileHash(localDownloadPath)
+		donwloadedFileHash, err := computeHashForFile(sha256.New(), localDownloadPath)
 		if err != nil {
 			t.Errorf("error computing downloaded file hash: %v", err)
 		}
@@ -2065,20 +2069,111 @@ func TestPermChtimes(t *testing.T) {
 	os.RemoveAll(user.GetHomeDir())
 }
 
-func TestSSHConnection(t *testing.T) {
+func TestSSHCommands(t *testing.T) {
 	usePubKey := false
 	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
-	err = doSSH(user, usePubKey)
+	_, err = runSSHCommand("ls", user, usePubKey)
 	if err == nil {
-		t.Errorf("ssh connection must fail: %v", err)
+		t.Errorf("unsupported ssh command must fail")
+	}
+	_, err = runSSHCommand("cd", user, usePubKey)
+	if err != nil {
+		t.Errorf("unexpected error for ssh cd command: %v", err)
+	}
+	out, err := runSSHCommand("pwd", user, usePubKey)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+		t.Fail()
+	}
+	if string(out) != "/\n" {
+		t.Errorf("invalid response for ssh pwd command: %v", string(out))
+	}
+	out, err = runSSHCommand("md5sum", user, usePubKey)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+		t.Fail()
+	}
+	// echo -n '' | md5sum
+	if !strings.Contains(string(out), "d41d8cd98f00b204e9800998ecf8427e") {
+		t.Errorf("invalid md5sum: %v", string(out))
+	}
+	out, err = runSSHCommand("sha1sum", user, usePubKey)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+		t.Fail()
+	}
+	if !strings.Contains(string(out), "da39a3ee5e6b4b0d3255bfef95601890afd80709") {
+		t.Errorf("invalid sha1sum: %v", string(out))
+	}
+	out, err = runSSHCommand("sha256sum", user, usePubKey)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+		t.Fail()
+	}
+	if !strings.Contains(string(out), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855") {
+		t.Errorf("invalid sha256sum: %v", string(out))
+	}
+	out, err = runSSHCommand("sha384sum", user, usePubKey)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+		t.Fail()
+	}
+	if !strings.Contains(string(out), "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b") {
+		t.Errorf("invalid sha384sum: %v", string(out))
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+}
+
+func TestSSHFileHash(t *testing.T) {
+	usePubKey := true
+	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		if err != nil {
+			t.Errorf("unable to create test file: %v", err)
+		}
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		if err != nil {
+			t.Errorf("file upload error: %v", err)
+		}
+		initialHash, err := computeHashForFile(sha512.New(), testFilePath)
+		if err != nil {
+			t.Errorf("error computing file hash: %v", err)
+		}
+		out, err := runSSHCommand("sha512sum "+testFileName, user, usePubKey)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+			t.Fail()
+		}
+		if !strings.Contains(string(out), initialHash) {
+			t.Errorf("invalid sha512sum: %v", string(out))
+		}
+		_, err = runSSHCommand("sha512sum invalid_path", user, usePubKey)
+		if err == nil {
+			t.Errorf("hash for an invalid path must fail")
+		}
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 // Start SCP tests
@@ -2777,8 +2872,9 @@ func getTestUser(usePubKey bool) dataprovider.User {
 	return user
 }
 
-func doSSH(user dataprovider.User, usePubKey bool) error {
+func runSSHCommand(command string, user dataprovider.User, usePubKey bool) ([]byte, error) {
 	var sshSession *ssh.Session
+	var output []byte
 	config := &ssh.ClientConfig{
 		User: defaultUsername,
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
@@ -2788,7 +2884,7 @@ func doSSH(user dataprovider.User, usePubKey bool) error {
 	if usePubKey {
 		key, err := ssh.ParsePrivateKey([]byte(testPrivateKey))
 		if err != nil {
-			return err
+			return output, err
 		}
 		config.Auth = []ssh.AuthMethod{ssh.PublicKeys(key)}
 	} else {
@@ -2796,15 +2892,21 @@ func doSSH(user dataprovider.User, usePubKey bool) error {
 	}
 	conn, err := ssh.Dial("tcp", sftpServerAddr, config)
 	if err != nil {
-		return err
+		return output, err
 	}
 	defer conn.Close()
 	sshSession, err = conn.NewSession()
 	if err != nil {
-		return err
+		return output, err
 	}
-	_, err = sshSession.CombinedOutput("ls")
-	return err
+	var stdout, stderr bytes.Buffer
+	sshSession.Stdout = &stdout
+	sshSession.Stderr = &stderr
+	err = sshSession.Run(command)
+	if err != nil {
+		return nil, fmt.Errorf("failed to run command %v: %v", command, stderr.Bytes())
+	}
+	return stdout.Bytes(), err
 }
 
 func getSftpClient(user dataprovider.User, usePubKey bool) (*sftp.Client, error) {
@@ -3047,18 +3149,17 @@ func getScpUploadCommand(localPath, remotePath string, preserveTime, remoteToRem
 	return exec.Command(scpPath, args...)
 }
 
-func computeFileHash(path string) (string, error) {
+func computeHashForFile(hasher hash.Hash, path string) (string, error) {
 	hash := ""
 	f, err := os.Open(path)
 	if err != nil {
 		return hash, err
 	}
 	defer f.Close()
-	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return hash, err
+	_, err = io.Copy(hasher, f)
+	if err == nil {
+		hash = fmt.Sprintf("%x", hasher.Sum(nil))
 	}
-	hash = fmt.Sprintf("%x", h.Sum(nil))
 	return hash, err
 }
 

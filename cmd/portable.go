@@ -5,13 +5,13 @@ import (
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/service"
+	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/spf13/cobra"
 )
 
 var (
 	directoryToServe             string
 	portableSFTPDPort            int
-	portableEnableSCP            bool
 	portableAdvertiseService     bool
 	portableAdvertiseCredentials bool
 	portableUsername             string
@@ -19,6 +19,7 @@ var (
 	portableLogFile              string
 	portablePublicKeys           []string
 	portablePermissions          []string
+	portableSSHCommands          []string
 	portableCmd                  = &cobra.Command{
 		Use:   "portable",
 		Short: "Serve a single directory",
@@ -52,7 +53,7 @@ Please take a look at the usage below to customize the serving parameters`,
 					Status:      1,
 				},
 			}
-			if err := service.StartPortableMode(portableSFTPDPort, portableEnableSCP, portableAdvertiseService,
+			if err := service.StartPortableMode(portableSFTPDPort, portableSSHCommands, portableAdvertiseService,
 				portableAdvertiseCredentials); err == nil {
 				service.Wait()
 			}
@@ -64,7 +65,8 @@ func init() {
 	portableCmd.Flags().StringVarP(&directoryToServe, "directory", "d", ".",
 		"Path to the directory to serve. This can be an absolute path or a path relative to the current directory")
 	portableCmd.Flags().IntVarP(&portableSFTPDPort, "sftpd-port", "s", 0, "0 means a random non privileged port")
-	portableCmd.Flags().BoolVar(&portableEnableSCP, "scp", false, "Enable SCP")
+	portableCmd.Flags().StringSliceVarP(&portableSSHCommands, "ssh-commands", "c", sftpd.GetDefaultSSHCommands(),
+		"SSH commands to enable. \"*\" means any supported SSH command including scp")
 	portableCmd.Flags().StringVarP(&portableUsername, "username", "u", "", "Leave empty to use an auto generated value")
 	portableCmd.Flags().StringVarP(&portablePassword, "password", "p", "", "Leave empty to use an auto generated value")
 	portableCmd.Flags().StringVarP(&portableLogFile, logFilePathFlag, "l", "", "Leave empty to disable logging")

@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -240,6 +241,107 @@ func TestSFTPGetUsedQuota(t *testing.T) {
 	}
 }
 
+func TestSupportedSSHCommands(t *testing.T) {
+	cmds := GetSupportedSSHCommands()
+	if len(cmds) != len(supportedSSHCommands) {
+		t.Errorf("supported ssh commands does not match")
+	}
+	for _, c := range cmds {
+		if !utils.IsStringInSlice(c, supportedSSHCommands) {
+			t.Errorf("invalid ssh command: %v", c)
+		}
+	}
+}
+
+func TestSSHCommandPath(t *testing.T) {
+	buf := make([]byte, 65535)
+	stdErrBuf := make([]byte, 65535)
+	mockSSHChannel := MockChannel{
+		Buffer:       bytes.NewBuffer(buf),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+		ReadError:    nil,
+	}
+	connection := Connection{
+		channel: &mockSSHChannel,
+	}
+	sshCommand := sshCommand{
+		command:    "test",
+		connection: connection,
+		args:       []string{},
+	}
+	path := sshCommand.getDestPath()
+	if path != "" {
+		t.Errorf("path must be empty")
+	}
+	sshCommand.args = []string{"-t", "/tmp/../path"}
+	path = sshCommand.getDestPath()
+	if path != "/path" {
+		t.Errorf("unexpected path: %v", path)
+	}
+	sshCommand.args = []string{"-t", "/tmp/"}
+	path = sshCommand.getDestPath()
+	if path != "/tmp/" {
+		t.Errorf("unexpected path: %v", path)
+	}
+	sshCommand.args = []string{"-t", "tmp/"}
+	path = sshCommand.getDestPath()
+	if path != "/tmp/" {
+		t.Errorf("unexpected path: %v", path)
+	}
+}
+
+func TestSSHCommandErrors(t *testing.T) {
+	buf := make([]byte, 65535)
+	stdErrBuf := make([]byte, 65535)
+	readErr := fmt.Errorf("test read error")
+	mockSSHChannel := MockChannel{
+		Buffer:       bytes.NewBuffer(buf),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+		ReadError:    readErr,
+	}
+	server, client := net.Pipe()
+	defer server.Close()
+	defer client.Close()
+	connection := Connection{
+		channel: &mockSSHChannel,
+		netConn: client,
+	}
+	cmd := sshCommand{
+		command:    "md5sum",
+		connection: connection,
+		args:       []string{},
+	}
+	err := cmd.handle()
+	if err == nil {
+		t.Errorf("ssh command must fail, we are sending a fake error")
+	}
+	cmd = sshCommand{
+		command:    "md5sum",
+		connection: connection,
+		args:       []string{"/../../test_file.dat"},
+	}
+	err = cmd.handle()
+	if err == nil {
+		t.Errorf("ssh command must fail, we are requesting an invalid path")
+	}
+}
+
+func TestGetConnectionInfo(t *testing.T) {
+	c := ConnectionStatus{
+		Username:      "test_user",
+		ConnectionID:  "123",
+		ClientVersion: "client",
+		RemoteAddress: "127.0.0.1:1234",
+		Protocol:      protocolSSH,
+		SSHCommand:    "sha1sum /test_file.dat",
+	}
+	info := c.GetConnectionInfo()
+	if !strings.Contains(info, "sha1sum /test_file.dat") {
+		t.Errorf("ssh command not found in connection info")
+	}
+
+}
+
 func TestSCPFileMode(t *testing.T) {
 	mode := getFileModeAsString(0, true)
 	if mode != "0755" {
@@ -316,8 +418,11 @@ func TestSCPParseUploadMessage(t *testing.T) {
 		channel: &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
-		connection: connection,
-		args:       []string{"-t", "/tmp"},
+		sshCommand: sshCommand{
+			command:    "scp",
+			connection: connection,
+			args:       []string{"-t", "/tmp"},
+		},
 	}
 	_, _, err := scpCommand.parseUploadMessage("invalid")
 	if err == nil {
@@ -352,8 +457,11 @@ func TestSCPProtocolMessages(t *testing.T) {
 		channel: &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
-		connection: connection,
-		args:       []string{"-t", "/tmp"},
+		sshCommand: sshCommand{
+			command:    "scp",
+			connection: connection,
+			args:       []string{"-t", "/tmp"},
+		},
 	}
 	_, err := scpCommand.readProtocolMessage()
 	if err == nil || err != readErr {
@@ -414,8 +522,11 @@ func TestSCPTestDownloadProtocolMessages(t *testing.T) {
 		channel: &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
-		connection: connection,
-		args:       []string{"-f", "-p", "/tmp"},
+		sshCommand: sshCommand{
+			command:    "scp",
+			connection: connection,
+			args:       []string{"-f", "-p", "/tmp"},
+		},
 	}
 	path := "testDir"
 	os.Mkdir(path, 0777)
@@ -483,8 +594,11 @@ func TestSCPCommandHandleErrors(t *testing.T) {
 		netConn: client,
 	}
 	scpCommand := scpCommand{
-		connection: connection,
-		args:       []string{"-f", "/tmp"},
+		sshCommand: sshCommand{
+			command:    "scp",
+			connection: connection,
+			args:       []string{"-f", "/tmp"},
+		},
 	}
 	err := scpCommand.handle()
 	if err == nil || err != readErr {
@@ -516,8 +630,11 @@ func TestSCPRecursiveDownloadErrors(t *testing.T) {
 		netConn: client,
 	}
 	scpCommand := scpCommand{
-		connection: connection,
-		args:       []string{"-r", "-f", "/tmp"},
+		sshCommand: sshCommand{
+			command:    "scp",
+			connection: connection,
+			args:       []string{"-r", "-f", "/tmp"},
+		},
 	}
 	path := "testDir"
 	os.Mkdir(path, 0777)
@@ -556,8 +673,11 @@ func TestSCPRecursiveUploadErrors(t *testing.T) {
 		channel: &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
-		connection: connection,
-		args:       []string{"-r", "-t", "/tmp"},
+		sshCommand: sshCommand{
+			command:    "scp",
+			connection: connection,
+			args:       []string{"-r", "-t", "/tmp"},
+		},
 	}
 	err := scpCommand.handleRecursiveUpload()
 	if err == nil {
@@ -594,8 +714,11 @@ func TestSCPCreateDirs(t *testing.T) {
 		channel: &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
-		connection: connection,
-		args:       []string{"-r", "-t", "/tmp"},
+		sshCommand: sshCommand{
+			command:    "scp",
+			connection: connection,
+			args:       []string{"-r", "-t", "/tmp"},
+		},
 	}
 	err := scpCommand.handleCreateDir("invalid_dir")
 	if err == nil {
@@ -625,8 +748,11 @@ func TestSCPDownloadFileData(t *testing.T) {
 		channel: &mockSSHChannelReadErr,
 	}
 	scpCommand := scpCommand{
-		connection: connection,
-		args:       []string{"-r", "-f", "/tmp"},
+		sshCommand: sshCommand{
+			command:    "scp",
+			connection: connection,
+			args:       []string{"-r", "-f", "/tmp"},
+		},
 	}
 	ioutil.WriteFile(testfile, []byte("test"), 0666)
 	stat, _ := os.Stat(testfile)
@@ -672,8 +798,11 @@ func TestSCPUploadFiledata(t *testing.T) {
 		channel:  &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
-		connection: connection,
-		args:       []string{"-r", "-t", "/tmp"},
+		sshCommand: sshCommand{
+			command:    "scp",
+			connection: connection,
+			args:       []string{"-r", "-t", "/tmp"},
+		},
 	}
 	file, _ := os.Create(testfile)
 	transfer := Transfer{

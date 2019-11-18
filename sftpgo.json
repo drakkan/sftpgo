@@ -18,7 +18,8 @@
     "ciphers": [],
     "macs": [],
     "login_banner_file": "",
-    "setstat_mode": 0
+    "setstat_mode": 0,
+    "enabled_ssh_commands": ["md5sum", "sha1sum", "cd", "pwd"]
   },
   "data_provider": {
     "driver": "sqlite",

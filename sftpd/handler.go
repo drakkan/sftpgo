@@ -39,6 +39,7 @@ type Connection struct {
 	lock         *sync.Mutex
 	netConn      net.Conn
 	channel      ssh.Channel
+	command      string
 }
 
 // Log outputs a log entry to the configured logger
@@ -511,8 +512,8 @@ func (c Connection) hasSpace(checkFiles bool) bool {
 	return true
 }
 
-// Normalizes a directory we get from the SFTP request to ensure the user is not able to escape
-// from their data directory. After normalization if the directory is still within their home
+// Normalizes a file/directory we get from the SFTP request to ensure the user is not able to escape
+// from their data directory. After normalization if the file/directory is still within their home
 // path it is returned. If they managed to "escape" an error will be returned.
 func (c Connection) buildPath(rawPath string) (string, error) {
 	r := filepath.Clean(filepath.Join(c.User.HomeDir, rawPath))
@@ -520,7 +521,7 @@ func (c Connection) buildPath(rawPath string) (string, error) {
 	if err != nil && !os.IsNotExist(err) {
 		return "", err
 	} else if os.IsNotExist(err) {
-		// The requested directory doesn't exist, so at this point we need to iterate up the
+		// The requested path doesn't exist, so at this point we need to iterate up the
 		// path chain until we hit a directory that _does_ exist and can be validated.
 		_, err = c.findFirstExistingDir(r)
 		if err != nil {
@@ -602,8 +603,8 @@ func (c Connection) isSubDir(sub string) error {
 		return err
 	}
 	if !strings.HasPrefix(sub, parent) {
-		c.Log(logger.LevelWarn, logSender, "dir %#v is not inside: %#v ", sub, parent)
-		return fmt.Errorf("dir %#v is not inside: %#v", sub, parent)
+		c.Log(logger.LevelWarn, logSender, "path %#v is not inside: %#v ", sub, parent)
+		return fmt.Errorf("path %#v is not inside: %#v", sub, parent)
 	}
 	return nil
 }

@@ -288,7 +288,7 @@ paths:
     post:
       tags:
       - users
-      summary: Adds a new SFTP/SCP user
+      summary: Adds a new user
       operationId: add_user
       requestBody:
         required: true
@@ -656,7 +656,7 @@ components:
             - download
         path:
           type: string
-          description: SFTP/SCP file path for the upload/download
+          description: file path for the upload/download
         start_time:
           type: integer
           format: int64
@@ -680,14 +680,17 @@ components:
           description: unique connection identifier
         client_version:
           type: string
-          description: SFTP/SCP client version
+          description: client version
         remote_address:
           type: string
-          description: Remote address for the connected SFTP/SCP client
+          description: Remote address for the connected client
         connection_time:
           type: integer
           format: int64
           description: connection time as unix timestamp in milliseconds
+        ssh_command:
+          type: string
+          description: SSH command. This is not empty for protocol SSH
         last_activity:
           type: integer
           format: int64
@@ -697,6 +700,7 @@ components:
           enum:
             - SFTP
             - SCP
+            - SSH
         active_transfers:
           type: array
           items:

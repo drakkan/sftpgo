@@ -14,7 +14,6 @@ import (
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
-	"golang.org/x/crypto/ssh"
 )
 
 var (
@@ -24,13 +23,8 @@ var (
 	newLine = []byte{0x0A}
 )
 
-type execMsg struct {
-	Command string
-}
-
 type scpCommand struct {
-	connection Connection
-	args       []string
+	sshCommand
 }
 
 func (c *scpCommand) handle() error {
@@ -494,16 +488,6 @@ func (c *scpCommand) handleDownload(filePath string) error {
 	return err
 }
 
-// returns the SCP destination path.
-// We ensure that the path is absolute and in SFTP (UNIX) format
-func (c *scpCommand) getDestPath() string {
-	destPath := filepath.ToSlash(c.args[len(c.args)-1])
-	if !filepath.IsAbs(destPath) {
-		destPath = "/" + destPath
-	}
-	return destPath
-}
-
 func (c *scpCommand) getCommandType() string {
 	return c.args[len(c.args)-2]
 }
@@ -595,21 +579,6 @@ func (c *scpCommand) sendProtocolMessage(message string) error {
 		c.connection.channel.Close()
 	}
 	return err
-}
-
-// sends the SCP command exit status
-func (c *scpCommand) sendExitStatus(err error) {
-	status := uint32(0)
-	if err != nil {
-		status = uint32(1)
-	}
-	exitStatus := sshSubsystemExitStatus{
-		Status: status,
-	}
-	c.connection.Log(logger.LevelDebug, logSenderSCP, "send exit status for command with args: %v user: %v err: %v",
-		c.args, c.connection.User.Username, err)
-	c.connection.channel.SendRequest("exit-status", false, ssh.Marshal(&exitStatus))
-	c.connection.channel.Close()
 }
 
 // get the next upload protocol message ignoring T command if any

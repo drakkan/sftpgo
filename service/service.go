@@ -128,7 +128,7 @@ func (s *Service) Stop() {
 }
 
 // StartPortableMode starts the service in portable mode
-func (s *Service) StartPortableMode(sftpdPort int, enableSCP, advertiseService, advertiseCredentials bool) error {
+func (s *Service) StartPortableMode(sftpdPort int, enabledSSHCommands []string, advertiseService, advertiseCredentials bool) error {
 	if s.PortableMode != 1 {
 		return fmt.Errorf("service is not configured for portable mode")
 	}
@@ -158,7 +158,11 @@ func (s *Service) StartPortableMode(sftpdPort int, enableSCP, advertiseService, 
 		// dynamic ports starts from 49152
 		sftpdConf.BindPort = 49152 + rand.Intn(15000)
 	}
-	sftpdConf.IsSCPEnabled = enableSCP
+	if utils.IsStringInSlice("*", enabledSSHCommands) {
+		sftpdConf.EnabledSSHCommands = sftpd.GetSupportedSSHCommands()
+	} else {
+		sftpdConf.EnabledSSHCommands = enabledSSHCommands
+	}
 	config.SetSFTPDConfig(sftpdConf)
 
 	err = s.Start()
@@ -206,8 +210,8 @@ func (s *Service) StartPortableMode(sftpdPort int, enableSCP, advertiseService, 
 			s.Stop()
 		}()
 		logger.InfoToConsole("Portable mode ready, SFTP port: %v, user: %#v, password: %#v, public keys: %v, directory: %#v, "+
-			"permissions: %v, SCP enabled: %v", sftpdConf.BindPort, s.PortableUser.Username, s.PortableUser.Password,
-			s.PortableUser.PublicKeys, s.PortableUser.HomeDir, s.PortableUser.Permissions, sftpdConf.IsSCPEnabled)
+			"permissions: %v, enabled ssh commands: %v", sftpdConf.BindPort, s.PortableUser.Username, s.PortableUser.Password,
+			s.PortableUser.PublicKeys, s.PortableUser.HomeDir, s.PortableUser.Permissions, sftpdConf.EnabledSSHCommands)
 	}
 	return err
 }

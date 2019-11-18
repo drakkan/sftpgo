@@ -184,6 +184,7 @@ Output:
     "connection_time": 1564696137971,
     "last_activity": 1564696159605,
     "protocol": "SFTP",
+    "ssh_command": "",
     "active_transfers": [
       {
         "operation_type": "upload",

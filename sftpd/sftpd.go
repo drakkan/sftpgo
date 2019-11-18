@@ -22,6 +22,7 @@ import (
 const (
 	logSender         = "sftpd"
 	logSenderSCP      = "scp"
+	logSenderSSH      = "ssh"
 	uploadLogSender   = "Upload"
 	downloadLogSender = "Download"
 	renameLogSender   = "Rename"
@@ -38,6 +39,7 @@ const (
 	operationRename   = "rename"
 	protocolSFTP      = "SFTP"
 	protocolSCP       = "SCP"
+	protocolSSH       = "SSH"
 	handshakeTimeout  = 2 * time.Minute
 )
 
@@ -58,6 +60,9 @@ var (
 	actions              Actions
 	uploadMode           int
 	setstatMode          int
+	supportedSSHCommands = []string{"scp", "md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum", "cd", "pwd"}
+	defaultSSHCommands   = []string{"md5sum", "sha1sum", "cd", "pwd"}
+	sshHashCommands      = []string{"md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum"}
 )
 
 type connectionTransfer struct {
@@ -101,19 +106,39 @@ type ConnectionStatus struct {
 	ConnectionTime int64 `json:"connection_time"`
 	// Last activity as unix timestamp in milliseconds
 	LastActivity int64 `json:"last_activity"`
-	// Protocol for this connection: SFTP or SCP
+	// Protocol for this connection: SFTP, SCP, SSH
 	Protocol string `json:"protocol"`
 	// active uploads/downloads
 	Transfers []connectionTransfer `json:"active_transfers"`
+	// for protocol SSH this is the issued command
+	SSHCommand string `json:"ssh_command"`
 }
 
 type sshSubsystemExitStatus struct {
 	Status uint32
 }
 
+type sshSubsystemExecMsg struct {
+	Command string
+}
+
 func init() {
 	openConnections = make(map[string]Connection)
 	idleConnectionTicker = time.NewTicker(5 * time.Minute)
+}
+
+// GetDefaultSSHCommands returns the SSH commands enabled as default
+func GetDefaultSSHCommands() []string {
+	result := make([]string, len(defaultSSHCommands))
+	copy(result, defaultSSHCommands)
+	return result
+}
+
+// GetSupportedSSHCommands returns the supported SSH commands
+func GetSupportedSSHCommands() []string {
+	result := make([]string, len(supportedSSHCommands))
+	copy(result, supportedSSHCommands)
+	return result
 }
 
 // GetConnectionDuration returns the connection duration as string
@@ -123,9 +148,14 @@ func (c ConnectionStatus) GetConnectionDuration() string {
 }
 
 // GetConnectionInfo returns connection info.
-// Protocol,Client Version and RemoteAddress are returned
+// Protocol,Client Version and RemoteAddress are returned.
+// For SSH commands the issued command is returned too.
 func (c ConnectionStatus) GetConnectionInfo() string {
-	return fmt.Sprintf("%v. Client: %#v From: %#v", c.Protocol, c.ClientVersion, c.RemoteAddress)
+	result := fmt.Sprintf("%v. Client: %#v From: %#v", c.Protocol, c.ClientVersion, c.RemoteAddress)
+	if c.Protocol == protocolSSH && len(c.SSHCommand) > 0 {
+		result += fmt.Sprintf(". Command: %#v", c.SSHCommand)
+	}
+	return result
 }
 
 // GetTransfersAsString returns the active transfers as string
@@ -251,6 +281,7 @@ func GetConnectionsStats() []ConnectionStatus {
 			LastActivity:   utils.GetTimeAsMsSinceEpoch(c.lastActivity),
 			Protocol:       c.protocol,
 			Transfers:      []connectionTransfer{},
+			SSHCommand:     c.command,
 		}
 		for _, t := range activeTransfers {
 			if t.connectionID == c.ID {

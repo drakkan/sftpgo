@@ -145,12 +145,16 @@ The `sftpgo` configuration file contains the following sections:
             - `target_path`, added for `rename` action only
     - `keys`, struct array. It contains the daemon's private keys. If empty or missing the daemon will search or try to generate `id_rsa` in the configuration directory.
         - `private_key`, path to the private key file. It can be a path relative to the config dir or an absolute one.
-    - `enable_scp`, boolean. Default disabled. Set to `true` to enable SCP support. SCP is an experimental feature, we have our own SCP implementation since we can't rely on `scp` system command to proper handle permissions, quota and user's home dir restrictions. The SCP protocol is quite simple but there is no official docs about it, so we need more testing and feedbacks before enabling it by default. We may not handle some borderline cases or have sneaky bugs. Please do accurate tests yourself before enabling SCP and let us known if something does not work as expected for your use cases. SCP between two remote hosts is supported using the `-3` scp option.
+    - `enable_scp`, boolean. Default disabled. Set to `true` to enable the experimental SCP support. This setting is deprecated and will be removed in future versions, please add `scp` to the `enabled_ssh_commands` list to enable it
     - `kex_algorithms`, list of strings. Available KEX (Key Exchange) algorithms in preference order. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L46 "Supported kex algos")
     - `ciphers`, list of strings. Allowed ciphers. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L28 "Supported ciphers")
     - `macs`, list of strings. available MAC (message authentication code) algorithms in preference order. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L84 "Supported MACs")
     - `login_banner_file`, path to the login banner file. The contents of the specified file, if any, are sent to the remote user before authentication is allowed. It can be a path relative to the config dir or an absolute one. Leave empty to send no login banner
     - `setstat_mode`, integer. 0 means "normal mode": requests for changing permissions, owner/group and access/modification times are executed. 1 means "ignore mode": requests for changing permissions, owner/group and access/modification times are silently ignored.
+    - `enabled_ssh_commands`, list of enabled SSH commands. These SSH commands are enabled by default: `md5sum`, `sha1sum`, `cd`, `pwd`. `*` enables all supported commands. We support the following SSH commands:
+      - `scp`, SCP is an experimental feature, we have our own SCP implementation since we can't rely on scp system command to proper handle permissions, quota and user's home dir restrictions. The SCP protocol is quite simple but there is no official docs about it, so we need more testing and feedbacks before enabling it by default. We may not handle some borderline cases or have sneaky bugs. Please do accurate tests yourself before enabling SCP and let us known if something does not work as expected for your use cases. SCP between two remote hosts is supported using the `-3` scp option.
+      - `md5sum`, `sha1sum`, `sha256sum`, `sha384sum`, `sha512sum`. Useful to check message digests for uploaded files. These commands are implemented inside SFTPGo so they work even if the matching system commands are not available, for example on Windows.
+      - `cd`, `pwd`. Some SFTP clients does not support the SFTP SSH_FXP_REALPATH and so they use `cd` and `pwd` SSH commands to get the initial directory. Currently `cd` do nothing and `pwd` always returns the `/` path.
 - **"data_provider"**, the configuration for the data provider
     - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`, `memory`
     - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database.
@@ -209,7 +213,8 @@ Here is a full example showing the default config in JSON format:
     "ciphers": [],
     "macs": [],
     "login_banner_file": "",
-    "setstat_mode": 0
+    "setstat_mode": 0,
+    "enabled_ssh_commands": ["md5sum", "sha1sum", "cd", "pwd"]
   },
   "data_provider": {
     "driver": "sqlite",
@@ -324,8 +329,8 @@ Flags:
   -p, --password string         Leave empty to use an auto generated value
   -g, --permissions strings     User's permissions. "*" means any permission (default [list,download])
   -k, --public-key strings
-      --scp                     Enable SCP
   -s, --sftpd-port int          0 means a random non privileged port
+  -c, --ssh-commands strings    SSH commands to enable. "*" means any supported SSH command including scp (default [md5sum,sha1sum,cd,pwd])
   -u, --username string         Leave empty to use an auto generated value
 ```
 

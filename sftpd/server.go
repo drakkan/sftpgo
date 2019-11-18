@@ -14,7 +14,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -61,13 +60,8 @@ type Configuration struct {
 	// Keys are a list of host keys
 	Keys []Key `json:"keys" mapstructure:"keys"`
 	// IsSCPEnabled determines if experimental SCP support is enabled.
-	// We have our own SCP implementation since we can't rely on scp system
-	// command to properly handle permissions, quota and user's home dir restrictions.
-	// The SCP protocol is quite simple but there is no official docs about it,
-	// so we need more testing and feedbacks before enabling it by default.
-	// We may not handle some borderline cases or have sneaky bugs.
-	// Please do accurate tests yourself before enabling SCP and let us known
-	// if something does not work as expected for your use cases
+	// This setting is deprecated and will be removed in future versions,
+	// please add "scp" to the EnabledSSHCommands list to enable it.
 	IsSCPEnabled bool `json:"enable_scp" mapstructure:"enable_scp"`
 	// KexAlgorithms specifies the available KEX (Key Exchange) algorithms in
 	// preference order.
@@ -83,6 +77,27 @@ type Configuration struct {
 	// SetstatMode 0 means "normal mode": requests for changing permissions and owner/group are executed.
 	// 1 means "ignore mode": requests for changing permissions and owner/group are silently ignored.
 	SetstatMode int `json:"setstat_mode" mapstructure:"setstat_mode"`
+	// List of enabled SSH commands.
+	// We support the following SSH commands:
+	// - "scp". SCP is an experimental feature, we have our own SCP implementation since
+	//      we can't rely on scp system command to proper handle permissions, quota and
+	//      user's home dir restrictions.
+	// 		The SCP protocol is quite simple but there is no official docs about it,
+	// 		so we need more testing and feedbacks before enabling it by default.
+	// 		We may not handle some borderline cases or have sneaky bugs.
+	// 		Please do accurate tests yourself before enabling SCP and let us known
+	// 		if something does not work as expected for your use cases.
+	//      SCP between two remote hosts is supported using the `-3` scp option.
+	// - "md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum". Useful to check message
+	//      digests for uploaded files. These commands are implemented inside SFTPGo so they
+	//      work even if the matching system commands are not available, for example on Windows.
+	// - "cd", "pwd". Some mobile SFTP clients does not support the SFTP SSH_FXP_REALPATH and so
+	//      they use "cd" and "pwd" SSH commands to get the initial directory.
+	//      Currently `cd` do nothing and `pwd` always returns the "/" path.
+	//
+	// The following SSH commands are enabled by default: "md5sum", "sha1sum", "cd", "pwd".
+	// "*" enables all supported SSH commands.
+	EnabledSSHCommands []string `json:"enabled_ssh_commands" mapstructure:"enabled_ssh_commands"`
 }
 
 // Key contains information about host keys
@@ -159,6 +174,7 @@ func (c Configuration) Initialize(configDir string) error {
 	c.configureSecurityOptions(serverConfig)
 	c.configureLoginBanner(serverConfig, configDir)
 	c.configureSFTPExtensions()
+	c.checkSSHCommands()
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", c.BindAddress, c.BindPort))
 	if err != nil {
@@ -298,24 +314,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 						go c.handleSftpConnection(channel, connection)
 					}
 				case "exec":
-					if c.IsSCPEnabled {
-						var msg execMsg
-						if err := ssh.Unmarshal(req.Payload, &msg); err == nil {
-							name, scpArgs, err := parseCommandPayload(msg.Command)
-							connection.Log(logger.LevelDebug, logSender, "new exec command: %#v args: %v user: %v, error: %v",
-								name, scpArgs, connection.User.Username, err)
-							if err == nil && name == "scp" && len(scpArgs) >= 2 {
-								ok = true
-								connection.protocol = protocolSCP
-								connection.channel = channel
-								scpCommand := scpCommand{
-									connection: connection,
-									args:       scpArgs,
-								}
-								go scpCommand.handle()
-							}
-						}
-					}
+					ok = processSSHCommand(req.Payload, &connection, channel, c.EnabledSSHCommands)
 				}
 				req.Reply(ok, nil)
 			}
@@ -389,6 +388,26 @@ func loginUser(user dataprovider.User, loginType string) (*ssh.Permissions, erro
 	return p, nil
 }
 
+func (c *Configuration) checkSSHCommands() {
+	if utils.IsStringInSlice("*", c.EnabledSSHCommands) {
+		c.EnabledSSHCommands = GetSupportedSSHCommands()
+		return
+	}
+	sshCommands := []string{}
+	if c.IsSCPEnabled {
+		sshCommands = append(sshCommands, "scp")
+	}
+	for _, command := range c.EnabledSSHCommands {
+		if utils.IsStringInSlice(command, supportedSSHCommands) {
+			sshCommands = append(sshCommands, command)
+		} else {
+			logger.Warn(logSender, "", "unsupported ssh command: %#v ignored", command)
+			logger.WarnToConsole("unsupported ssh command: %#v ignored", command)
+		}
+	}
+	c.EnabledSSHCommands = sshCommands
+}
+
 // If no host keys are defined we try to use or generate the default one.
 func (c *Configuration) checkHostKeys(configDir string) error {
 	var err error
@@ -459,12 +478,4 @@ func (c Configuration) generatePrivateKey(file string) error {
 	}
 
 	return nil
-}
-
-func parseCommandPayload(command string) (string, []string, error) {
-	parts := strings.Split(command, " ")
-	if len(parts) < 2 {
-		return parts[0], []string{}, nil
-	}
-	return parts[0], parts[1:], nil
 }
