@@ -140,12 +140,15 @@ func (c *sshCommand) sendExitStatus(err error) {
 	status := uint32(0)
 	if err != nil {
 		status = uint32(1)
+		c.connection.Log(logger.LevelWarn, logSenderSSH, "command failed: %#v args: %v user: %v err: %v",
+			c.command, c.args, c.connection.User.Username, err)
+	} else {
+		logger.CommandLog(sshCommandLogSender, c.getDestPath(), "", c.connection.User.Username, "", c.connection.ID,
+			protocolSSH, -1, -1, "", "", c.connection.command)
 	}
 	exitStatus := sshSubsystemExitStatus{
 		Status: status,
 	}
-	c.connection.Log(logger.LevelDebug, logSenderSSH, "send exit status for command %#v with args: %v user: %v err: %v",
-		c.command, c.args, c.connection.User.Username, err)
 	c.connection.channel.SendRequest("exit-status", false, ssh.Marshal(&exitStatus))
 	c.connection.channel.Close()
 }
