@@ -22,8 +22,8 @@ Full featured and highly configurable SFTP server
 - REST API for users and quota management and real time reports for the active connections with possibility of forcibly closing a connection.
 - Web based interface to easily manage users and connections.
 - Easy migration from Unix system user accounts.
-- Configuration is a your choice: JSON, TOML, YAML, HCL, envfile are supported.
 - Portable mode: a convenient way to share a single directory on demand.
+- Configuration is a your choice: JSON, TOML, YAML, HCL, envfile are supported.
 - Log files are accurate and they are saved in the easily parsable JSON format.
 
 ## Platforms
