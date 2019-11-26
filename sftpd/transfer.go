@@ -2,6 +2,7 @@ package sftpd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -101,10 +102,10 @@ func (t *Transfer) Close() error {
 		elapsed := time.Since(t.start).Nanoseconds() / 1000000
 		if t.transferType == transferDownload {
 			logger.TransferLog(downloadLogSender, t.path, elapsed, t.bytesSent, t.user.Username, t.connectionID, t.protocol)
-			go executeAction(operationDownload, t.user.Username, t.path, "")
+			go executeAction(operationDownload, t.user.Username, t.path, "", "")
 		} else {
 			logger.TransferLog(uploadLogSender, t.path, elapsed, t.bytesReceived, t.user.Username, t.connectionID, t.protocol)
-			go executeAction(operationUpload, t.user.Username, t.path, "")
+			go executeAction(operationUpload, t.user.Username, t.path, "", "")
 		}
 	}
 	metrics.TransferCompleted(t.bytesSent, t.bytesReceived, t.transferType, t.transferError)
@@ -135,4 +136,55 @@ func (t *Transfer) handleThrottle() {
 			time.Sleep(toSleep * time.Millisecond)
 		}
 	}
+}
+
+// used for ssh commands.
+// It reads from src until EOF so it does not treat an EOF from Read as an error to be reported.
+// EOF from Write is reported as error
+func (t *Transfer) copyFromReaderToWriter(dst io.Writer, src io.Reader, maxWriteSize int64) (int64, error) {
+	var written int64
+	var err error
+	if maxWriteSize < 0 {
+		return 0, errQuotaExceeded
+	}
+	buf := make([]byte, 32768)
+	for {
+		t.lastActivity = time.Now()
+		nr, er := src.Read(buf)
+		if nr > 0 {
+			nw, ew := dst.Write(buf[0:nr])
+			if nw > 0 {
+				written += int64(nw)
+				if t.transferType == transferDownload {
+					t.bytesSent = written
+				} else {
+					t.bytesReceived = written
+				}
+				if maxWriteSize > 0 && written > maxWriteSize {
+					err = errQuotaExceeded
+					break
+				}
+			}
+			if ew != nil {
+				err = ew
+				break
+			}
+			if nr != nw {
+				err = io.ErrShortWrite
+				break
+			}
+		}
+		if er != nil {
+			if er != io.EOF {
+				err = er
+			}
+			break
+		}
+		t.handleThrottle()
+	}
+	t.transferError = err
+	if t.bytesSent > 0 || t.bytesReceived > 0 || err != nil {
+		metrics.TransferCompleted(t.bytesSent, t.bytesReceived, t.transferType, t.transferError)
+	}
+	return written, err
 }

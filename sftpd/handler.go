@@ -315,7 +315,7 @@ func (c Connection) handleSFTPRename(sourcePath string, targetPath string) error
 		return getSFTPErrorFromOSError(err)
 	}
 	logger.CommandLog(renameLogSender, sourcePath, targetPath, c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "")
-	go executeAction(operationRename, c.User.Username, sourcePath, targetPath)
+	go executeAction(operationRename, c.User.Username, sourcePath, targetPath, "")
 	return nil
 }
 
@@ -397,7 +397,7 @@ func (c Connection) handleSFTPRemove(path string) error {
 	if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
 		dataprovider.UpdateUserQuota(dataProvider, c.User, -1, -size, false)
 	}
-	go executeAction(operationDelete, c.User.Username, path, "")
+	go executeAction(operationDelete, c.User.Username, path, "", "")
 
 	return sftp.ErrSSHFxOk
 }

@@ -787,6 +787,7 @@ func TestStartQuotaScanMock(t *testing.T) {
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestStartQuotaScanBadUserMock(t *testing.T) {

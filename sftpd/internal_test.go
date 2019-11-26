@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"os/exec"
 	"runtime"
 	"strings"
 	"testing"
@@ -18,10 +19,11 @@ import (
 )
 
 type MockChannel struct {
-	Buffer       *bytes.Buffer
-	StdErrBuffer *bytes.Buffer
-	ReadError    error
-	WriteError   error
+	Buffer        *bytes.Buffer
+	StdErrBuffer  *bytes.Buffer
+	ReadError     error
+	WriteError    error
+	ShortWriteErr bool
 }
 
 func (c *MockChannel) Read(data []byte) (int, error) {
@@ -34,6 +36,9 @@ func (c *MockChannel) Read(data []byte) (int, error) {
 func (c *MockChannel) Write(data []byte) (int, error) {
 	if c.WriteError != nil {
 		return 0, c.WriteError
+	}
+	if c.ShortWriteErr {
+		return 0, nil
 	}
 	return c.Buffer.Write(data)
 }
@@ -65,17 +70,17 @@ func TestWrongActions(t *testing.T) {
 		Command:             badCommand,
 		HTTPNotificationURL: "",
 	}
-	err := executeAction(operationDownload, "username", "path", "")
+	err := executeAction(operationDownload, "username", "path", "", "")
 	if err == nil {
 		t.Errorf("action with bad command must fail")
 	}
-	err = executeAction(operationDelete, "username", "path", "")
+	err = executeAction(operationDelete, "username", "path", "", "")
 	if err != nil {
 		t.Errorf("action not configured must silently fail")
 	}
 	actions.Command = ""
 	actions.HTTPNotificationURL = "http://foo\x7f.com/"
-	err = executeAction(operationDownload, "username", "path", "")
+	err = executeAction(operationDownload, "username", "path", "", "")
 	if err == nil {
 		t.Errorf("action with bad url must fail")
 	}
@@ -288,6 +293,16 @@ func TestSSHCommandPath(t *testing.T) {
 	if path != "/tmp/" {
 		t.Errorf("unexpected path: %v", path)
 	}
+	sshCommand.args = []string{"-t", "/tmp/../../../path"}
+	path = sshCommand.getDestPath()
+	if path != "/path" {
+		t.Errorf("unexpected path: %v", path)
+	}
+	sshCommand.args = []string{"-t", ".."}
+	path = sshCommand.getDestPath()
+	if path != "/" {
+		t.Errorf("unexpected path: %v", path)
+	}
 }
 
 func TestSSHCommandErrors(t *testing.T) {
@@ -305,6 +320,9 @@ func TestSSHCommandErrors(t *testing.T) {
 	connection := Connection{
 		channel: &mockSSHChannel,
 		netConn: client,
+		User: dataprovider.User{
+			Permissions: []string{dataprovider.PermAny},
+		},
 	}
 	cmd := sshCommand{
 		command:    "md5sum",
@@ -324,6 +342,170 @@ func TestSSHCommandErrors(t *testing.T) {
 	if err == nil {
 		t.Errorf("ssh command must fail, we are requesting an invalid path")
 	}
+	cmd = sshCommand{
+		command:    "git-receive-pack",
+		connection: connection,
+		args:       []string{"/../../testrepo"},
+	}
+	err = cmd.handle()
+	if err == nil {
+		t.Errorf("ssh command must fail, we are requesting an invalid path")
+	}
+	cmd.connection.User.HomeDir = os.TempDir()
+	cmd.connection.User.QuotaFiles = 1
+	cmd.connection.User.UsedQuotaFiles = 2
+	err = cmd.handle()
+	if err != errQuotaExceeded {
+		t.Errorf("unexpected error: %v", err)
+	}
+	cmd.connection.User.QuotaFiles = 0
+	cmd.connection.User.UsedQuotaFiles = 0
+	cmd.connection.User.Permissions = []string{dataprovider.PermListItems}
+	err = cmd.handle()
+	if err != errPermissionDenied {
+		t.Errorf("unexpected error: %v", err)
+	}
+	cmd.connection.User.Permissions = []string{dataprovider.PermAny}
+	cmd.command = "invalid_command"
+	command, err := cmd.getSystemCommand()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	err = cmd.executeSystemCommand(command)
+	if err == nil {
+		t.Errorf("invalid command must fail")
+	}
+	command, err = cmd.getSystemCommand()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	command.cmd.StderrPipe()
+	err = cmd.executeSystemCommand(command)
+	if err == nil {
+		t.Errorf("command must fail, pipe was already assigned")
+	}
+	err = cmd.executeSystemCommand(command)
+	if err == nil {
+		t.Errorf("command must fail, pipe was already assigned")
+	}
+	command, err = cmd.getSystemCommand()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	command.cmd.StdoutPipe()
+	err = cmd.executeSystemCommand(command)
+	if err == nil {
+		t.Errorf("command must fail, pipe was already assigned")
+	}
+}
+
+func TestSSHCommandQuotaScan(t *testing.T) {
+	buf := make([]byte, 65535)
+	stdErrBuf := make([]byte, 65535)
+	readErr := fmt.Errorf("test read error")
+	mockSSHChannel := MockChannel{
+		Buffer:       bytes.NewBuffer(buf),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+		ReadError:    readErr,
+	}
+	server, client := net.Pipe()
+	defer server.Close()
+	defer client.Close()
+	connection := Connection{
+		channel: &mockSSHChannel,
+		netConn: client,
+		User: dataprovider.User{
+			Permissions: []string{dataprovider.PermAny},
+			QuotaFiles:  1,
+			HomeDir:     "invalid_path",
+		},
+	}
+	cmd := sshCommand{
+		command:    "git-receive-pack",
+		connection: connection,
+		args:       []string{"/testrepo"},
+	}
+	err := cmd.rescanHomeDir()
+	if err == nil {
+		t.Errorf("scanning an invalid home dir must fail")
+	}
+}
+
+func TestSystemCommandErrors(t *testing.T) {
+	buf := make([]byte, 65535)
+	stdErrBuf := make([]byte, 65535)
+	readErr := fmt.Errorf("test read error")
+	writeErr := fmt.Errorf("test write error")
+	mockSSHChannel := MockChannel{
+		Buffer:       bytes.NewBuffer(buf),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+		ReadError:    nil,
+		WriteError:   writeErr,
+	}
+	server, client := net.Pipe()
+	defer server.Close()
+	defer client.Close()
+	connection := Connection{
+		channel: &mockSSHChannel,
+		netConn: client,
+		User: dataprovider.User{
+			Permissions: []string{dataprovider.PermAny},
+			HomeDir:     os.TempDir(),
+		},
+	}
+	sshCmd := sshCommand{
+		command:    "ls",
+		connection: connection,
+		args:       []string{},
+	}
+	systemCmd, err := sshCmd.getSystemCommand()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	systemCmd.cmd.Dir = os.TempDir()
+	// FIXME: the command completes but the fake client was unable to read the response
+	// no error is reported in this case
+	sshCmd.executeSystemCommand(systemCmd)
+
+	mockSSHChannel = MockChannel{
+		Buffer:       bytes.NewBuffer(buf),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+		ReadError:    readErr,
+		WriteError:   nil,
+	}
+	sshCmd.connection.channel = &mockSSHChannel
+	transfer := Transfer{transferType: transferDownload}
+	destBuff := make([]byte, 65535)
+	dst := bytes.NewBuffer(destBuff)
+	_, err = transfer.copyFromReaderToWriter(dst, sshCmd.connection.channel, 0)
+	if err != readErr {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	mockSSHChannel = MockChannel{
+		Buffer:       bytes.NewBuffer(buf),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+		ReadError:    nil,
+		WriteError:   nil,
+	}
+	sshCmd.connection.channel = &mockSSHChannel
+	_, err = transfer.copyFromReaderToWriter(dst, sshCmd.connection.channel, 1)
+	if err != errQuotaExceeded {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	mockSSHChannel = MockChannel{
+		Buffer:        bytes.NewBuffer(buf),
+		StdErrBuffer:  bytes.NewBuffer(stdErrBuf),
+		ReadError:     nil,
+		WriteError:    nil,
+		ShortWriteErr: true,
+	}
+	sshCmd.connection.channel = &mockSSHChannel
+	_, err = transfer.copyFromReaderToWriter(sshCmd.connection.channel, dst, 0)
+	if err != io.ErrShortWrite {
+		t.Errorf("unexpected error: %v", err)
+	}
 }
 
 func TestGetConnectionInfo(t *testing.T) {
@@ -339,7 +521,6 @@ func TestGetConnectionInfo(t *testing.T) {
 	if !strings.Contains(info, "sha1sum /test_file.dat") {
 		t.Errorf("ssh command not found in connection info")
 	}
-
 }
 
 func TestSCPFileMode(t *testing.T) {
@@ -973,4 +1154,18 @@ func TestSFTPExtensions(t *testing.T) {
 		t.Errorf("configuring invalid SFTP extensions must fail")
 	}
 	sftpExtensions = initialSFTPExtensions
+}
+
+func TestWrapCmd(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("executing a command as another uid/gid is not supported on Windows")
+	}
+	cmd := exec.Command("ls")
+	cmd = wrapCmd(cmd, 1000, 1001)
+	if cmd.SysProcAttr.Credential.Uid != 1000 {
+		t.Errorf("unexpected uid")
+	}
+	if cmd.SysProcAttr.Credential.Gid != 1001 {
+		t.Errorf("unexpected gid")
+	}
 }

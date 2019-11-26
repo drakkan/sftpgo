@@ -55,6 +55,18 @@ var (
 		Help: "The total download size as bytes",
 	})
 
+	// totalSSHCommands is the metric that reports the total number of executed SSH commands
+	totalSSHCommands = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_ssh_commands_total",
+		Help: "The total number of executed SSH commands",
+	})
+
+	// totalSSHCommandErrors is the metric that reports the total number of SSH command errors
+	totalSSHCommandErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_ssh_command_errors_total",
+		Help: "The total number of SSH command errors",
+	})
+
 	// totalLoginAttempts is the metric that reports the total number of login attempts
 	totalLoginAttempts = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_login_attempts_total",
@@ -154,6 +166,15 @@ func TransferCompleted(bytesSent, bytesReceived int64, transferKind int, err err
 		} else {
 			totalDownloadErrors.Inc()
 		}
+	}
+}
+
+// SSHCommandCompleted update metrics after an SSH command terminates
+func SSHCommandCompleted(err error) {
+	if err == nil {
+		totalSSHCommands.Inc()
+	} else {
+		totalSSHCommandErrors.Inc()
 	}
 }
 

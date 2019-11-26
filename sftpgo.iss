@@ -2,7 +2,7 @@
 ; You need to change the paths for the source files to match your environment
 
 #define MyAppName "SFTPGo"
-#define MyAppVersion "0.9.4"
+#define MyAppVersion "0.9.4-dev"
 #define MyAppURL "https://github.com/drakkan/sftpgo"
 #define MyAppExeName "sftpgo.exe"
 #define MyAppDir "C:\Users\vbox\Desktop\sftpgo_setup"

@@ -38,6 +38,7 @@ const (
 	operationUpload     = "upload"
 	operationDelete     = "delete"
 	operationRename     = "rename"
+	operationSSHCmd     = "ssh_cmd"
 	protocolSFTP        = "SFTP"
 	protocolSCP         = "SCP"
 	protocolSSH         = "SSH"
@@ -61,9 +62,11 @@ var (
 	actions              Actions
 	uploadMode           int
 	setstatMode          int
-	supportedSSHCommands = []string{"scp", "md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum", "cd", "pwd"}
-	defaultSSHCommands   = []string{"md5sum", "sha1sum", "cd", "pwd"}
-	sshHashCommands      = []string{"md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum"}
+	supportedSSHCommands = []string{"scp", "md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum", "cd", "pwd",
+		"git-receive-pack", "git-upload-pack", "git-upload-archive"}
+	defaultSSHCommands = []string{"md5sum", "sha1sum", "cd", "pwd"}
+	sshHashCommands    = []string{"md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum"}
+	gitCommands        = []string{"git-receive-pack", "git-upload-pack", "git-upload-archive"}
 )
 
 type connectionTransfer struct {
@@ -85,7 +88,7 @@ type ActiveQuotaScan struct {
 // Actions to execute on SFTP create, download, delete and rename.
 // An external command can be executed and/or an HTTP notification can be fired
 type Actions struct {
-	// Valid values are download, upload, delete, rename. Empty slice to disable
+	// Valid values are download, upload, delete, rename, ssh_cmd. Empty slice to disable
 	ExecuteOn []string `json:"execute_on" mapstructure:"execute_on"`
 	// Absolute path to the command to execute, empty to disable
 	Command string `json:"command" mapstructure:"command"`
@@ -412,17 +415,17 @@ func isAtomicUploadEnabled() bool {
 }
 
 // executed in a goroutine
-func executeAction(operation string, username string, path string, target string) error {
+func executeAction(operation, username, path, target, sshCmd string) error {
 	if !utils.IsStringInSlice(operation, actions.ExecuteOn) {
 		return nil
 	}
 	var err error
 	if len(actions.Command) > 0 && filepath.IsAbs(actions.Command) {
 		if _, err = os.Stat(actions.Command); err == nil {
-			command := exec.Command(actions.Command, operation, username, path, target)
+			command := exec.Command(actions.Command, operation, username, path, target, sshCmd)
 			err = command.Start()
-			logger.Debug(logSender, "", "start command %#v with arguments: %v, %v, %v, %v, error: %v",
-				actions.Command, operation, username, path, target, err)
+			logger.Debug(logSender, "", "start command %#v with arguments: %v, %v, %v, %v %v, error: %v",
+				actions.Command, operation, username, path, target, sshCmd, err)
 			if err == nil {
 				// we are in a goroutine but we don't want to block here, this way we can send the
 				// HTTP notification, if configured, without waiting the end of the command
@@ -442,6 +445,9 @@ func executeAction(operation string, username string, path string, target string
 			q.Add("path", path)
 			if len(target) > 0 {
 				q.Add("target_path", target)
+			}
+			if len(sshCmd) > 0 {
+				q.Add("ssh_cmd", sshCmd)
 			}
 			url.RawQuery = q.Encode()
 			startTime := time.Now()

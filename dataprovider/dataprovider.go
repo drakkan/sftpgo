@@ -174,6 +174,11 @@ func GetProvider() Provider {
 	return provider
 }
 
+// GetQuotaTracking returns the configured mode for user's quota tracking
+func GetQuotaTracking() int {
+	return config.TrackQuota
+}
+
 // Provider interface that data providers must implement.
 type Provider interface {
 	validateUserAndPass(username string, password string) (User, error)

@@ -89,8 +89,11 @@ var (
 	allPerms       = []string{dataprovider.PermAny}
 	homeBasePath   string
 	scpPath        string
+	gitPath        string
+	sshPath        string
 	pubKeyPath     string
 	privateKeyPath string
+	gitWrapPath    string
 )
 
 func TestMain(m *testing.M) {
@@ -123,16 +126,42 @@ func TestMain(m *testing.M) {
 	// simply does not execute some code so if it works in atomic mode will
 	// work in non atomic mode too
 	sftpdConf.UploadMode = 2
+	var scriptArgs string
 	if runtime.GOOS == "windows" {
 		homeBasePath = "C:\\"
+		scriptArgs = "%*"
 	} else {
 		homeBasePath = "/tmp"
-		sftpdConf.Actions.ExecuteOn = []string{"download", "upload", "rename", "delete"}
+		sftpdConf.Actions.ExecuteOn = []string{"download", "upload", "rename", "delete", "ssh_cmd"}
 		sftpdConf.Actions.Command = "/usr/bin/true"
 		sftpdConf.Actions.HTTPNotificationURL = "http://127.0.0.1:8080/"
+		scriptArgs = "$@"
 	}
+
+	scpPath, err = exec.LookPath("scp")
+	if err != nil {
+		logger.Warn(logSender, "", "unable to get scp command. SCP tests will be skipped, err: %v", err)
+		logger.WarnToConsole("unable to get scp command. SCP tests will be skipped, err: %v", err)
+		scpPath = ""
+	}
+
+	gitPath, err = exec.LookPath("git")
+	if err != nil {
+		logger.Warn(logSender, "", "unable to get git command. GIT tests will be skipped, err: %v", err)
+		logger.WarnToConsole("unable to get git command. GIT tests will be skipped, err: %v", err)
+		gitPath = ""
+	}
+
+	sshPath, err = exec.LookPath("ssh")
+	if err != nil {
+		logger.Warn(logSender, "", "unable to get ssh command. GIT tests will be skipped, err: %v", err)
+		logger.WarnToConsole("unable to get ssh command. GIT tests will be skipped, err: %v", err)
+		gitPath = ""
+	}
+
 	pubKeyPath = filepath.Join(homeBasePath, "ssh_key.pub")
 	privateKeyPath = filepath.Join(homeBasePath, "ssh_key")
+	gitWrapPath = filepath.Join(homeBasePath, "gitwrap.sh")
 	err = ioutil.WriteFile(pubKeyPath, []byte(testPubKey+"\n"), 0600)
 	if err != nil {
 		logger.WarnToConsole("unable to save public key to file: %v", err)
@@ -141,16 +170,14 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		logger.WarnToConsole("unable to save private key to file: %v", err)
 	}
+	err = ioutil.WriteFile(gitWrapPath, []byte(fmt.Sprintf("%v -i %v -oStrictHostKeyChecking=no %v\n",
+		sshPath, privateKeyPath, scriptArgs)), 0755)
+	if err != nil {
+		logger.WarnToConsole("unable to save gitwrap shell script: %v", err)
+	}
 
 	sftpd.SetDataProvider(dataProvider)
 	httpd.SetDataProvider(dataProvider)
-
-	scpPath, err = exec.LookPath("scp")
-	if err != nil {
-		logger.Warn(logSender, "", "unable to get scp command. SCP tests will be skipped, err: %v", err)
-		logger.WarnToConsole("unable to get scp command. SCP tests will be skipped, err: %v", err)
-		scpPath = ""
-	}
 
 	go func() {
 		logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
@@ -169,8 +196,11 @@ func TestMain(m *testing.M) {
 	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
 
 	exitCode := m.Run()
-	os.Remove(logfilePath)
+	//os.Remove(logfilePath)
 	os.Remove(loginBannerFile)
+	os.Remove(pubKeyPath)
+	os.Remove(privateKeyPath)
+	os.Remove(gitWrapPath)
 	os.Exit(exitCode)
 }
 
@@ -249,6 +279,8 @@ func TestBasicSFTPHandling(t *testing.T) {
 		if (expectedQuotaSize - testFileSize) != user.UsedQuotaSize {
 			t.Errorf("quota size does not match, expected: %v, actual: %v", expectedQuotaSize-testFileSize, user.UsedQuotaSize)
 		}
+		os.Remove(testFilePath)
+		os.Remove(localDownloadPath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -310,6 +342,8 @@ func TestUploadResume(t *testing.T) {
 		if err == nil {
 			t.Errorf("file upload resume with invalid offset must fail")
 		}
+		os.Remove(testFilePath)
+		os.Remove(localDownloadPath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -439,6 +473,7 @@ func TestRemove(t *testing.T) {
 		if err != nil {
 			t.Errorf("remove dir error: %v", err)
 		}
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -493,6 +528,7 @@ func TestLink(t *testing.T) {
 		if err != nil {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -557,6 +593,7 @@ func TestStat(t *testing.T) {
 		if err != nil {
 			t.Errorf("truncate must be silently ignored: %v", err)
 		}
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -616,6 +653,7 @@ func TestStatChownChmod(t *testing.T) {
 		if err != os.ErrNotExist {
 			t.Errorf("unexpected chown error: %v expected: %v", err, os.ErrNotExist)
 		}
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -677,6 +715,7 @@ func TestChtimes(t *testing.T) {
 		if diff > 1 {
 			t.Errorf("diff between wanted and real modification time too big: %v", diff)
 		}
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -750,6 +789,7 @@ func TestEscapeHomeDir(t *testing.T) {
 			t.Errorf("setstat on a file outside home dir must fail")
 		}
 		os.Remove(linkPath)
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -797,6 +837,7 @@ func TestHomeSpecialChars(t *testing.T) {
 		if err != nil {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -1120,7 +1161,7 @@ func TestQuotaFileReplace(t *testing.T) {
 			t.Errorf("quota size does not match, expected: %v, actual: %v", expectedQuotaSize, user.UsedQuotaSize)
 		}
 	}
-	// now set a quota size restriction and upload the same fail, upload should fail for space limit exceeded
+	// now set a quota size restriction and upload the same file, upload should fail for space limit exceeded
 	user.QuotaSize = testFileSize - 1
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
 	if err != nil {
@@ -1143,6 +1184,7 @@ func TestQuotaFileReplace(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.Remove(testFilePath)
 	os.RemoveAll(user.GetHomeDir())
 }
 
@@ -1170,6 +1212,7 @@ func TestQuotaScan(t *testing.T) {
 		if err != nil {
 			t.Errorf("file upload error: %v", err)
 		}
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -1184,16 +1227,9 @@ func TestQuotaScan(t *testing.T) {
 	if err != nil {
 		t.Errorf("error starting quota scan: %v", err)
 	}
-	scans, _, err := httpd.GetQuotaScans(http.StatusOK)
+	err = waitQuotaScans()
 	if err != nil {
-		t.Errorf("error getting active quota scans: %v", err)
-	}
-	for len(scans) > 0 {
-		scans, _, err = httpd.GetQuotaScans(http.StatusOK)
-		if err != nil {
-			t.Errorf("error getting active quota scans: %v", err)
-			break
-		}
+		t.Errorf("error waiting for active quota scans: %v", err)
 	}
 	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
 	if err != nil {
@@ -1219,7 +1255,11 @@ func TestMultipleQuotaScans(t *testing.T) {
 	if sftpd.AddQuotaScan(defaultUsername) {
 		t.Errorf("add quota must fail if another scan is already active")
 	}
-	sftpd.RemoveQuotaScan(defaultPassword)
+	sftpd.RemoveQuotaScan(defaultUsername)
+	activeScans := sftpd.GetQuotaScans()
+	if len(activeScans) > 0 {
+		t.Errorf("no quota scan must be active: %v", len(activeScans))
+	}
 }
 
 func TestQuotaSize(t *testing.T) {
@@ -1255,6 +1295,7 @@ func TestQuotaSize(t *testing.T) {
 		if err != nil {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -1327,6 +1368,8 @@ func TestBandwidthAndConnections(t *testing.T) {
 		if err == nil {
 			t.Errorf("connection closed upload must fail")
 		}
+		os.Remove(testFilePath)
+		os.Remove(localDownloadPath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -1423,6 +1466,8 @@ func TestOpenError(t *testing.T) {
 			t.Errorf("unexpected error: %v expected: %v", err, sftp.ErrSSHFxPermissionDenied)
 		}
 		os.Chmod(filepath.Join(user.GetHomeDir(), "test"), 0755)
+		os.Remove(testFilePath)
+		os.Remove(localDownloadPath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -1475,6 +1520,7 @@ func TestOverwriteDirWithFile(t *testing.T) {
 		if err != nil {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -1714,6 +1760,8 @@ func TestPermDownload(t *testing.T) {
 		if err != nil {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
+		os.Remove(testFilePath)
+		os.Remove(localDownloadPath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -1748,6 +1796,7 @@ func TestPermUpload(t *testing.T) {
 		if err == nil {
 			t.Errorf("file upload without permission should not succeed")
 		}
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -1786,6 +1835,7 @@ func TestPermOverwrite(t *testing.T) {
 		if err == nil {
 			t.Errorf("file overwrite without permission should not succeed")
 		}
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -1824,6 +1874,7 @@ func TestPermDelete(t *testing.T) {
 		if err == nil {
 			t.Errorf("delete without permission should not succeed")
 		}
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -1866,6 +1917,7 @@ func TestPermRename(t *testing.T) {
 		if err != nil {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -1935,6 +1987,7 @@ func TestPermSymlink(t *testing.T) {
 		if err != nil {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -1977,6 +2030,7 @@ func TestPermChmod(t *testing.T) {
 		if err != nil {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -2011,7 +2065,7 @@ func TestPermChown(t *testing.T) {
 		if err != nil {
 			t.Errorf("file upload error: %v", err)
 		}
-		err = client.Chown(testFileName, 1000, 1000)
+		err = client.Chown(testFileName, os.Getuid(), os.Getgid())
 		if err == nil {
 			t.Errorf("chown without permission should not succeed")
 		}
@@ -2019,6 +2073,7 @@ func TestPermChown(t *testing.T) {
 		if err != nil {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -2061,6 +2116,7 @@ func TestPermChtimes(t *testing.T) {
 		if err != nil {
 			t.Errorf("error removing uploaded file: %v", err)
 		}
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -2168,12 +2224,99 @@ func TestSSHFileHash(t *testing.T) {
 		if err == nil {
 			t.Errorf("hash for an invalid path must fail")
 		}
+		os.Remove(testFilePath)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
 	os.RemoveAll(user.GetHomeDir())
+}
+
+func TestBasicGitCommands(t *testing.T) {
+	if len(gitPath) == 0 || len(sshPath) == 0 {
+		t.Skip("git and/or ssh command not found, unable to execute this test")
+	}
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	repoName := "testrepo"
+	clonePath := filepath.Join(homeBasePath, repoName)
+	os.RemoveAll(user.GetHomeDir())
+	os.RemoveAll(filepath.Join(homeBasePath, repoName))
+	out, err := initGitRepo(filepath.Join(user.HomeDir, repoName))
+	if err != nil {
+		t.Errorf("unexpected error: %v out: %v", err, string(out))
+	}
+	out, err = cloneGitRepo(homeBasePath, "/"+repoName, user.Username)
+	if err != nil {
+		t.Errorf("unexpected error: %v out: %v", err, string(out))
+	}
+	out, err = addFileToGitRepo(clonePath, 128)
+	if err != nil {
+		t.Errorf("unexpected error: %v out: %v", err, string(out))
+	}
+	user.QuotaFiles = 100000
+	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	out, err = pushToGitRepo(clonePath)
+	if err != nil {
+		t.Errorf("unexpected error: %v out: %v", err, string(out))
+	}
+	err = waitQuotaScans()
+	if err != nil {
+		t.Errorf("error waiting for active quota scans: %v", err)
+	}
+	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to get user: %v", err)
+	}
+	user.QuotaSize = user.UsedQuotaSize - 1
+	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	out, err = pushToGitRepo(clonePath)
+	if err == nil {
+		t.Errorf("git push must fail if quota is exceeded, out: %v", string(out))
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+	os.RemoveAll(clonePath)
+}
+
+func TestGitErrors(t *testing.T) {
+	if len(gitPath) == 0 || len(sshPath) == 0 {
+		t.Skip("git and/or ssh command not found, unable to execute this test")
+	}
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	repoName := "testrepo"
+	clonePath := filepath.Join(homeBasePath, repoName)
+	os.RemoveAll(user.GetHomeDir())
+	os.RemoveAll(filepath.Join(homeBasePath, repoName))
+	out, err := cloneGitRepo(homeBasePath, "/"+repoName, user.Username)
+	if err == nil {
+		t.Errorf("cloning a missing repo must fail, out: %v", string(out))
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+	os.RemoveAll(clonePath)
 }
 
 // Start SCP tests
@@ -2240,6 +2383,7 @@ func TestSCPBasicHandling(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.Remove(testFilePath)
 }
 
 func TestSCPUploadFileOverwrite(t *testing.T) {
@@ -2294,6 +2438,7 @@ func TestSCPUploadFileOverwrite(t *testing.T) {
 		}
 	}
 	os.Remove(localPath)
+	os.Remove(testFilePath)
 	err = os.RemoveAll(user.GetHomeDir())
 	if err != nil {
 		t.Errorf("error removing uploaded files")
@@ -2683,6 +2828,7 @@ func TestSCPUploadPaths(t *testing.T) {
 	if err != nil {
 		t.Errorf("error removing uploaded files")
 	}
+	os.Remove(localPath)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
@@ -2830,6 +2976,7 @@ func TestSCPErrors(t *testing.T) {
 	if err != nil {
 		t.Errorf("error removing test file")
 	}
+	os.Remove(localPath)
 	err = os.RemoveAll(user.GetHomeDir())
 	if err != nil {
 		t.Errorf("error removing uploaded files")
@@ -3186,4 +3333,75 @@ func waitForActiveTransfer() {
 			}
 		}
 	}
+}
+
+func waitQuotaScans() error {
+	time.Sleep(100 * time.Millisecond)
+	scans, _, err := httpd.GetQuotaScans(http.StatusOK)
+	if err != nil {
+		return err
+	}
+	for len(scans) > 0 {
+		time.Sleep(100 * time.Millisecond)
+		scans, _, err = httpd.GetQuotaScans(http.StatusOK)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func initGitRepo(path string) ([]byte, error) {
+	os.MkdirAll(path, 0777)
+	args := []string{"init", "--bare"}
+	cmd := exec.Command(gitPath, args...)
+	cmd.Dir = path
+	return cmd.CombinedOutput()
+}
+
+func pushToGitRepo(repoPath string) ([]byte, error) {
+	cmd := exec.Command(gitPath, "push")
+	cmd.Dir = repoPath
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("GIT_SSH=%v", gitWrapPath))
+	return cmd.CombinedOutput()
+}
+
+func cloneGitRepo(basePath, remotePath, username string) ([]byte, error) {
+	remoteUrl := fmt.Sprintf("ssh://%v@127.0.0.1:2022%v", username, remotePath)
+	args := []string{"clone", remoteUrl}
+	cmd := exec.Command(gitPath, args...)
+	cmd.Dir = basePath
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("GIT_SSH=%v", gitWrapPath))
+	return cmd.CombinedOutput()
+}
+
+func addFileToGitRepo(repoPath string, fileSize int64) ([]byte, error) {
+	path := filepath.Join(repoPath, "test")
+	err := createTestFile(path, fileSize)
+	if err != nil {
+		return []byte(""), err
+	}
+	cmd := exec.Command(gitPath, "config", "user.email", "testuser@example.com")
+	cmd.Dir = repoPath
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return out, err
+	}
+	cmd = exec.Command(gitPath, "config", "user.name", "testuser")
+	cmd.Dir = repoPath
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		return out, err
+	}
+	cmd = exec.Command(gitPath, "add", "test")
+	cmd.Dir = repoPath
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		return out, err
+	}
+	cmd = exec.Command(gitPath, "commit", "-am", "test")
+	cmd.Dir = repoPath
+	return cmd.CombinedOutput()
 }

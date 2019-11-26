@@ -31,10 +31,10 @@ func startQuotaScan(w http.ResponseWriter, r *http.Request) {
 		go func() {
 			numFiles, size, _, err := utils.ScanDirContents(user.HomeDir)
 			if err != nil {
-				logger.Warn(logSender, "", "error scanning user home dir %v: %v", user.HomeDir, err)
+				logger.Warn(logSender, "", "error scanning user home dir %#v: %v", user.HomeDir, err)
 			} else {
 				err := dataprovider.UpdateUserQuota(dataProvider, user, numFiles, size, true)
-				logger.Debug(logSender, "", "user dir scanned, user: %v, dir: %v, error: %v", user.Username, user.HomeDir, err)
+				logger.Debug(logSender, "", "user home dir scanned, user: %#v, dir: %#v, error: %v", user.Username, user.HomeDir, err)
 			}
 			sftpd.RemoveQuotaScan(user.Username)
 		}()

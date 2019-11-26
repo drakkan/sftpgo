@@ -14,10 +14,11 @@ Full featured and highly configurable SFTP server
 - Per user maximum concurrent sessions.
 - Per user permissions: list directories content, upload, overwrite, download, delete, rename, create directories, create symlinks, changing owner/group and mode, changing access and modification times can be enabled or disabled.
 - Per user files/folders ownership: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (*NIX only).
-- Configurable custom commands and/or HTTP notifications on files upload, download, delete, rename and on users add, update and delete.
+- Configurable custom commands and/or HTTP notifications on file upload, download, delete, rename, on SSH commands and on user add, update and delete.
 - Automatically terminating idle connections.
 - Atomic uploads are configurable.
-- Optional SCP support.
+- Support for Git repository over SSH.
+- SCP is supported.
 - Prometheus metrics are exposed.
 - REST API for users and quota management and real time reports for the active connections with possibility of forcibly closing a connection.
 - Web based interface to easily manage users and connections.
@@ -132,17 +133,19 @@ The `sftpgo` configuration file contains the following sections:
     - `banner`, string. Identification string used by the server. Leave empty to use the default banner. Default "SFTPGo_version"
     - `upload_mode` integer. 0 means standard, the files are uploaded directly to the requested path. 1 means atomic: files are uploaded to a temporary path and renamed to the requested path when the client ends the upload. Atomic mode avoids problems such as a web server that serves partial files when the files are being uploaded. In atomic mode if there is an upload error the temporary file is deleted and so the requested upload path will not contain a partial file. 2 means atomic with resume support: as atomic but if there is an upload error the temporary file is renamed to the requested path and not deleted, this way a client can reconnect and resume the upload.
     - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions
-        - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`. Actions will be not executed if an error is detected and so a partial file is uploaded or downloaded. The `upload` condition includes both uploads to new files and overwrite of existing files. Leave empty to disable actions.
+        - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`, `ssh_cmd`. Actions will not be executed if an error is detected and so a partial file is uploaded or downloaded or an SSH command is not successfully completed. The `upload` condition includes both uploads to new files and overwrite of existing files. The `ssh_cmd` condition will be triggered after a command is successfully executed via SSH. `scp` will trigger the `download` and `upload` conditions and not `ssh_cmd`. Leave empty to disable actions.
         - `command`, string. Absolute path to the command to execute. Leave empty to disable. The command is invoked with the following arguments:
             - `action`, any valid `execute_on` string
             - `username`, user who did the action
             - `path` to the affected file. For `rename` action this is the old file name
             - `target_path`, non empty for `rename` action, this is the new file name
+            - `ssh_cmd`, non empty for `ssh_cmd` action
         - `http_notification_url`, a valid URL. An HTTP GET request will be executed to this URL. Leave empty to disable. The query string will contain the following parameters that have the same meaning of the command's arguments:
             - `action`
             - `username`
             - `path`
             - `target_path`, added for `rename` action only
+            - `ssh_cmd`, added for `ssh_cmd` action only
     - `keys`, struct array. It contains the daemon's private keys. If empty or missing the daemon will search or try to generate `id_rsa` in the configuration directory.
         - `private_key`, path to the private key file. It can be a path relative to the config dir or an absolute one.
     - `enable_scp`, boolean. Default disabled. Set to `true` to enable the experimental SCP support. This setting is deprecated and will be removed in future versions, please add `scp` to the `enabled_ssh_commands` list to enable it
@@ -154,7 +157,8 @@ The `sftpgo` configuration file contains the following sections:
     - `enabled_ssh_commands`, list of enabled SSH commands. These SSH commands are enabled by default: `md5sum`, `sha1sum`, `cd`, `pwd`. `*` enables all supported commands. We support the following SSH commands:
       - `scp`, SCP is an experimental feature, we have our own SCP implementation since we can't rely on scp system command to proper handle permissions, quota and user's home dir restrictions. The SCP protocol is quite simple but there is no official docs about it, so we need more testing and feedbacks before enabling it by default. We may not handle some borderline cases or have sneaky bugs. Please do accurate tests yourself before enabling SCP and let us known if something does not work as expected for your use cases. SCP between two remote hosts is supported using the `-3` scp option.
       - `md5sum`, `sha1sum`, `sha256sum`, `sha384sum`, `sha512sum`. Useful to check message digests for uploaded files. These commands are implemented inside SFTPGo so they work even if the matching system commands are not available, for example on Windows.
-      - `cd`, `pwd`. Some SFTP clients does not support the SFTP SSH_FXP_REALPATH and so they use `cd` and `pwd` SSH commands to get the initial directory. Currently `cd` do nothing and `pwd` always returns the `/` path.
+      - `cd`, `pwd`. Some SFTP clients does not support the SFTP SSH_FXP_REALPATH packet type and so they use `cd` and `pwd` SSH commands to get the initial directory. Currently `cd` do nothing and `pwd` always returns the `/` path.
+      - `git-receive-pack`, `git-upload-pack`, `git-upload-archive`. These commands enable `git` support, they need to be installed and in your system's `PATH`. Since we execute system commands we have no direct control on file creation/deletion and so quota check is suboptimal: if quota is enabled, the number of files is checked at the command begin and not while new files are created. The allowed size is calculated as the difference between the max quota and the used one. The command is aborted if it uploads more bytes than the remaining allowed size calculated at the command start. Quotas are recalculated at the command end with a full home directory scan, this could be heavy for big directories.
 - **"data_provider"**, the configuration for the data provider
     - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`, `memory`
     - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database.
@@ -166,7 +170,7 @@ The `sftpgo` configuration file contains the following sections:
     - `connectionstring`, string. Provide a custom database connection string. If not empty this connection string will be used instead of build one using the previous parameters. Leave empty for drivers `bolt` and `memory`
     - `users_table`, string. Database table for SFTP users
     - `manage_users`, integer. Set to 0 to disable users management, 1 to enable
-    - `track_quota`, integer. Set the preferred way to track users quota between the following choices:
+    - `track_quota`, integer. Set the preferred mode to track users quota between the following choices:
         - 0, disable quota tracking. REST API to scan user dir and update quota will do nothing
         - 1, quota is updated each time a user upload or delete a file even if the user has no quota restrictions
         - 2, quota is updated each time a user upload or delete a file but only for users with quota restrictions. With this configuration the "quota scan" REST API can still be used to periodically update space usage for users without quota restrictions
@@ -420,8 +424,10 @@ SFTPGo exposes [Prometheus](https://prometheus.io/) metrics at the `/metrics` HT
 Several counters and gauges are available, for example:
 
 - Total uploads and downloads
-- Total uploads and downloads size
-- Total uploads and downloads errors
+- Total upload and download size
+- Total upload and download errors
+- Total executed SSH commands
+- Total SSH command errors
 - Number of active connections
 - Data provider availability
 - Total successful and failed logins using a password or a public key

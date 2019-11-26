@@ -91,6 +91,19 @@ func (u *User) HasPerm(permission string) bool {
 	return utils.IsStringInSlice(permission, u.Permissions)
 }
 
+// HasPerms return true if the user has all the given permissions
+func (u *User) HasPerms(permissions []string) bool {
+	if utils.IsStringInSlice(PermAny, u.Permissions) {
+		return true
+	}
+	for _, permission := range permissions {
+		if !utils.IsStringInSlice(permission, u.Permissions) {
+			return false
+		}
+	}
+	return true
+}
+
 // GetPermissionsAsJSON returns the permissions as json byte array
 func (u *User) GetPermissionsAsJSON() ([]byte, error) {
 	return json.Marshal(u.Permissions)
