@@ -174,8 +174,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 		c.connection.channel.Close()
 	}
 	var once sync.Once
-	var wg sync.WaitGroup
-	wg.Add(2)
+	commandResponse := make(chan bool)
 
 	go func() {
 		defer stdin.Close()
@@ -207,7 +206,6 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 		if e != nil {
 			once.Do(closeCmdOnError)
 		}
-		wg.Done()
 	}()
 
 	go func() {
@@ -235,7 +233,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 		if e != nil {
 			once.Do(closeCmdOnError)
 		}
-		wg.Done()
+		commandResponse <- true
 	}()
 
 	go func() {
@@ -265,7 +263,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 		}
 	}()
 
-	wg.Wait()
+	<-commandResponse
 	err = command.cmd.Wait()
 	c.sendExitStatus(err)
 	c.rescanHomeDir()
@@ -290,7 +288,7 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 		args = args[:len(args)-1]
 		args = append(args, path)
 	}
-	c.connection.Log(logger.LevelDebug, logSenderSSH, "new system command: %v, with args: %v path: %v", c.command, args, path)
+	c.connection.Log(logger.LevelDebug, logSenderSSH, "new system command %#v, with args: %v path: %v", c.command, args, path)
 	cmd := exec.Command(c.command, args...)
 	uid := c.connection.User.GetUID()
 	gid := c.connection.User.GetGID()

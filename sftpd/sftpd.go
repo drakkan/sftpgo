@@ -424,7 +424,7 @@ func executeAction(operation, username, path, target, sshCmd string) error {
 		if _, err = os.Stat(actions.Command); err == nil {
 			command := exec.Command(actions.Command, operation, username, path, target, sshCmd)
 			err = command.Start()
-			logger.Debug(logSender, "", "start command %#v with arguments: %v, %v, %v, %v %v, error: %v",
+			logger.Debug(logSender, "", "start command %#v with arguments: %#v, %#v, %#v, %#v, %#v, error: %v",
 				actions.Command, operation, username, path, target, sshCmd, err)
 			if err == nil {
 				// we are in a goroutine but we don't want to block here, this way we can send the
