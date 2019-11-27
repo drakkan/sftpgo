@@ -10,6 +10,9 @@ RUN go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/utils.commit=`git d
 # now define the run environment
 FROM debian:latest
 
+# git is optional it allows to serve Git repositories over SSH
+RUN apt-get update && apt-get install -y git
+
 ARG BASE_DIR=/app
 ARG DATA_REL_DIR=data
 ARG CONFIG_REL_DIR=config

@@ -9,7 +9,8 @@ RUN go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/utils.commit=`git d
 
 FROM alpine:latest
 
-RUN  apk add --no-cache ca-certificates su-exec \
+# git is optional it allows to serve Git repositories over SSH
+RUN  apk add --no-cache ca-certificates su-exec git \
   && mkdir -p /data /etc/sftpgo /srv/sftpgo/config /srv/sftpgo/web
 
 COPY --from=builder /go/bin/sftpgo /bin/
