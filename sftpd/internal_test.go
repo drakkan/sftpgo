@@ -431,6 +431,46 @@ func TestSSHCommandQuotaScan(t *testing.T) {
 	}
 }
 
+func TestRsyncOptions(t *testing.T) {
+	conn := Connection{
+		User: dataprovider.User{
+			Permissions: []string{dataprovider.PermAny},
+			HomeDir:     os.TempDir(),
+		},
+	}
+	sshCmd := sshCommand{
+		command:    "rsync",
+		connection: conn,
+		args:       []string{"--server", "-vlogDtprze.iLsfxC", ".", "/"},
+	}
+	cmd, err := sshCmd.getSystemCommand()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !utils.IsStringInSlice("--safe-links", cmd.cmd.Args) {
+		t.Errorf("--safe-links must be added if the user has the create symlinks permission")
+	}
+	conn = Connection{
+		User: dataprovider.User{
+			Permissions: []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermCreateDirs,
+				dataprovider.PermListItems, dataprovider.PermOverwrite, dataprovider.PermDelete, dataprovider.PermRename},
+			HomeDir: os.TempDir(),
+		},
+	}
+	sshCmd = sshCommand{
+		command:    "rsync",
+		connection: conn,
+		args:       []string{"--server", "-vlogDtprze.iLsfxC", ".", "/"},
+	}
+	cmd, err = sshCmd.getSystemCommand()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !utils.IsStringInSlice("--munge-links", cmd.cmd.Args) {
+		t.Errorf("--munge-links must be added if the user has the create symlinks permission")
+	}
+}
+
 func TestSystemCommandErrors(t *testing.T) {
 	buf := make([]byte, 65535)
 	stdErrBuf := make([]byte, 65535)

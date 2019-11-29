@@ -84,7 +84,7 @@ func (c *sshCommand) handle() error {
 	updateConnectionActivity(c.connection.ID)
 	if utils.IsStringInSlice(c.command, sshHashCommands) {
 		return c.handleHashCommands()
-	} else if utils.IsStringInSlice(c.command, gitCommands) {
+	} else if utils.IsStringInSlice(c.command, systemCommands) {
 		command, err := c.getSystemCommand()
 		if err != nil {
 			return c.sendErrorResponse(err)
@@ -201,8 +201,8 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 		addTransfer(&transfer)
 		defer removeTransfer(&transfer)
 		w, e := transfer.copyFromReaderToWriter(stdin, c.connection.channel, remainingQuotaSize)
-		c.connection.Log(logger.LevelDebug, logSenderSSH, "command: %#v, copy to sdtin ended, written: %v, remaining quota: %v, err: %v",
-			c.connection.command, w, remainingQuotaSize, e)
+		c.connection.Log(logger.LevelDebug, logSenderSSH, "command: %#v, copy from remote command to sdtin ended, written: %v, "+
+			"initial remaining quota: %v, err: %v", c.connection.command, w, remainingQuotaSize, e)
 		if e != nil {
 			once.Do(closeCmdOnError)
 		}
@@ -228,7 +228,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 		addTransfer(&transfer)
 		defer removeTransfer(&transfer)
 		w, e := transfer.copyFromReaderToWriter(c.connection.channel, stdout, 0)
-		c.connection.Log(logger.LevelDebug, logSenderSSH, "command: %#v, copy from sdtout ended, written: %v err: %v",
+		c.connection.Log(logger.LevelDebug, logSenderSSH, "command: %#v, copy from sdtout to remote command ended, written: %v err: %v",
 			c.connection.command, w, e)
 		if e != nil {
 			once.Do(closeCmdOnError)
@@ -256,7 +256,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 		addTransfer(&transfer)
 		defer removeTransfer(&transfer)
 		w, e := transfer.copyFromReaderToWriter(c.connection.channel.Stderr(), stderr, 0)
-		c.connection.Log(logger.LevelDebug, logSenderSSH, "command: %#v, copy from sdterr ended, written: %v err: %v",
+		c.connection.Log(logger.LevelDebug, logSenderSSH, "command: %#v, copy from sdterr to remote command ended, written: %v err: %v",
 			c.connection.command, w, e)
 		if e != nil || w > 0 {
 			once.Do(closeCmdOnError)
@@ -277,6 +277,23 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 	}
 	args := make([]string, len(c.args))
 	copy(args, c.args)
+	if c.command == "rsync" {
+		// we cannot avoid that rsync create symlinks so if the user has the permission
+		// to create symlinks we add the option --safe-links to the received rsync command if
+		// it is not already set. This should prevent to create symlinks that point outside
+		// the home dir.
+		// If the user cannot create symlinks we add the option --munge-links, if it is not
+		// already set. This should make symlinks unusable (but manually recoverable)
+		if c.connection.User.HasPerm(dataprovider.PermCreateSymlinks) {
+			if !utils.IsStringInSlice("--safe-links", args) {
+				args = append([]string{"--safe-links"}, args...)
+			}
+		} else {
+			if !utils.IsStringInSlice("--munge-links", args) {
+				args = append([]string{"--munge-links"}, args...)
+			}
+		}
+	}
 	var path string
 	if len(c.args) > 0 {
 		var err error
