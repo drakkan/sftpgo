@@ -227,6 +227,12 @@ func TestSetstatModeIgnore(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v setstat should be silently ignore in mode 1", err)
 	}
+	setstatMode = 0
+	req := sftp.NewRequest("Setstat", "invalid")
+	err = connection.handleSFTPSetstat("invalid", req)
+	if err != sftp.ErrSSHFxBadMessage {
+		t.Errorf("unexpected error: %v", err)
+	}
 	setstatMode = originalMode
 }
 

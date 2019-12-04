@@ -261,6 +261,11 @@ func (c Connection) handleSFTPSetstat(path string, request *sftp.Request) error 
 	if setstatMode == 1 {
 		return nil
 	}
+	if len(request.Attrs) < 1 {
+		c.Log(logger.LevelInfo, logSender, "cannot handle Setstat request with no attrs, this is probably a buggy client: %v",
+			c.ClientVersion)
+		return sftp.ErrSSHFxBadMessage
+	}
 	attrFlags := request.AttrFlags()
 	if attrFlags.Permissions {
 		if !c.User.HasPerm(dataprovider.PermChmod) {
