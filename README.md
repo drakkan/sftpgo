@@ -312,6 +312,8 @@ netsh advfirewall firewall add rule name="SFTPGo Service" dir=in action=allow pr
 
 or through the Windows Firewall GUI.
 
+## Portable mode
+
 SFTPGo allows to share a single directory on demand using the `portable` subcommand:
 
 ```
