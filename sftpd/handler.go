@@ -111,8 +111,6 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 	defer c.lock.Unlock()
 
 	stat, statErr := os.Stat(p)
-	// If the file doesn't exist we need to create it, as well as the directory pathway
-	// leading up to where that file will be created.
 	if os.IsNotExist(statErr) {
 		if !c.User.HasPerm(dataprovider.PermUpload, filepath.Dir(p)) {
 			return nil, sftp.ErrSSHFxPermissionDenied
@@ -147,11 +145,12 @@ func (c Connection) Filecmd(request *sftp.Request) error {
 	if err != nil {
 		return getSFTPErrorFromOSError(err)
 	}
-
 	target, err := c.getSFTPCmdTargetPath(request.Target)
 	if err != nil {
 		return err
 	}
+
+	isHomeDir := c.User.GetRelativePath(p) == "/"
 
 	c.Log(logger.LevelDebug, logSender, "new cmd, method: %v, sourcePath: %#v, targetPath: %#v", request.Method,
 		p, target)
@@ -160,12 +159,19 @@ func (c Connection) Filecmd(request *sftp.Request) error {
 	case "Setstat":
 		return c.handleSFTPSetstat(p, request)
 	case "Rename":
+		if isHomeDir {
+			c.Log(logger.LevelWarn, logSender, "renaming root dir is not allowed")
+			return sftp.ErrSSHFxPermissionDenied
+		}
 		if err = c.handleSFTPRename(p, target); err != nil {
 			return err
 		}
-
 		break
 	case "Rmdir":
+		if isHomeDir {
+			c.Log(logger.LevelWarn, logSender, "removing root dir is not allowed")
+			return sftp.ErrSSHFxPermissionDenied
+		}
 		return c.handleSFTPRmdir(p)
 
 	case "Mkdir":
@@ -173,13 +179,15 @@ func (c Connection) Filecmd(request *sftp.Request) error {
 		if err != nil {
 			return err
 		}
-
 		break
 	case "Symlink":
+		if isHomeDir {
+			c.Log(logger.LevelWarn, logSender, "symlinking root dir is not allowed")
+			return sftp.ErrSSHFxPermissionDenied
+		}
 		if err = c.handleSFTPSymlink(p, target); err != nil {
 			return err
 		}
-
 		break
 	case "Remove":
 		return c.handleSFTPRemove(p)

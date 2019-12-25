@@ -2406,6 +2406,37 @@ func TestPermsSubDirsCommands(t *testing.T) {
 	os.RemoveAll(user.GetHomeDir())
 }
 
+func TestRootDirCommands(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.Permissions["/"] = []string{dataprovider.PermAny}
+	u.Permissions["/subdir"] = []string{dataprovider.PermDownload, dataprovider.PermUpload}
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		err = client.Rename("/", "rootdir")
+		if !strings.Contains(err.Error(), "Permission Denied") {
+			t.Errorf("unexpected error renaming root dir: %v", err)
+		}
+		err = client.Symlink("/", "rootdir")
+		if !strings.Contains(err.Error(), "Permission Denied") {
+			t.Errorf("unexpected error symlinking root dir: %v", err)
+		}
+		err = client.RemoveDirectory("/")
+		if !strings.Contains(err.Error(), "Permission Denied") {
+			t.Errorf("unexpected error removing root dir: %v", err)
+		}
+	}
+	httpd.RemoveUser(user, http.StatusOK)
+	os.RemoveAll(user.GetHomeDir())
+}
+
 func TestRelativePaths(t *testing.T) {
 	user := getTestUser(true)
 	path := filepath.Join(user.HomeDir, "/")
