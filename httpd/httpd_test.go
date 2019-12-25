@@ -194,8 +194,13 @@ func TestAddUserInvalidHomeDir(t *testing.T) {
 
 func TestAddUserNoPerms(t *testing.T) {
 	u := getTestUser()
-	u.Permissions = []string{}
+	u.Permissions = make(map[string][]string)
 	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with no perms: %v", err)
+	}
+	u.Permissions["/"] = []string{}
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error adding user with no perms: %v", err)
 	}
@@ -203,8 +208,14 @@ func TestAddUserNoPerms(t *testing.T) {
 
 func TestAddUserInvalidPerms(t *testing.T) {
 	u := getTestUser()
-	u.Permissions = []string{"invalidPerm"}
+	u.Permissions["/"] = []string{"invalidPerm"}
 	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with no perms: %v", err)
+	}
+	// permissions for root dir are mandatory
+	u.Permissions["/somedir"] = []string{dataprovider.PermAny}
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error adding user with no perms: %v", err)
 	}
@@ -251,7 +262,8 @@ func TestUpdateUser(t *testing.T) {
 	user.MaxSessions = 10
 	user.QuotaSize = 4096
 	user.QuotaFiles = 2
-	user.Permissions = []string{dataprovider.PermCreateDirs, dataprovider.PermDelete, dataprovider.PermDownload}
+	user.Permissions["/"] = []string{dataprovider.PermCreateDirs, dataprovider.PermDelete, dataprovider.PermDownload}
+	user.Permissions["/subdir"] = []string{dataprovider.PermListItems, dataprovider.PermUpload}
 	user.UploadBandwidth = 1024
 	user.DownloadBandwidth = 512
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
@@ -556,7 +568,7 @@ func TestBasicUserHandlingMock(t *testing.T) {
 	checkResponseCode(t, http.StatusInternalServerError, rr.Code)
 	user.MaxSessions = 10
 	user.UploadBandwidth = 128
-	user.Permissions = []string{dataprovider.PermAny, dataprovider.PermDelete, dataprovider.PermDownload}
+	user.Permissions["/"] = []string{dataprovider.PermAny, dataprovider.PermDelete, dataprovider.PermDownload}
 	userAsJSON = getUserAsJSON(t, user)
 	req, _ = http.NewRequest(http.MethodPut, userPath+"/"+strconv.FormatInt(user.ID, 10), bytes.NewBuffer(userAsJSON))
 	rr = executeRequest(req)
@@ -574,10 +586,10 @@ func TestBasicUserHandlingMock(t *testing.T) {
 	if user.MaxSessions != updatedUser.MaxSessions || user.UploadBandwidth != updatedUser.UploadBandwidth {
 		t.Errorf("Error modifying user actual: %v, %v", updatedUser.MaxSessions, updatedUser.UploadBandwidth)
 	}
-	if len(updatedUser.Permissions) != 1 {
+	if len(updatedUser.Permissions["/"]) != 1 {
 		t.Errorf("permissions other than any should be removed")
 	}
-	if !utils.IsStringInSlice(dataprovider.PermAny, updatedUser.Permissions) {
+	if !utils.IsStringInSlice(dataprovider.PermAny, updatedUser.Permissions["/"]) {
 		t.Errorf("permissions mismatch")
 	}
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
@@ -614,7 +626,7 @@ func TestAddUserInvalidHomeDirMock(t *testing.T) {
 
 func TestAddUserInvalidPermsMock(t *testing.T) {
 	user := getTestUser()
-	user.Permissions = []string{}
+	user.Permissions["/"] = []string{}
 	userAsJSON := getUserAsJSON(t, user)
 	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
 	rr := executeRequest(req)
@@ -625,6 +637,112 @@ func TestAddUserInvalidJsonMock(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer([]byte("invalid json")))
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr.Code)
+}
+
+func TestUpdateUserMock(t *testing.T) {
+	user := getTestUser()
+	userAsJSON := getUserAsJSON(t, user)
+	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	err := render.DecodeJSON(rr.Body, &user)
+	if err != nil {
+		t.Errorf("Error get user: %v", err)
+	}
+	// permissions should not change if empty or nil
+	permissions := user.Permissions
+	user.Permissions = make(map[string][]string)
+	userAsJSON = getUserAsJSON(t, user)
+	req, _ = http.NewRequest(http.MethodPut, userPath+"/"+strconv.FormatInt(user.ID, 10), bytes.NewBuffer(userAsJSON))
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	req, _ = http.NewRequest(http.MethodGet, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	var updatedUser dataprovider.User
+	err = render.DecodeJSON(rr.Body, &updatedUser)
+	if err != nil {
+		t.Errorf("Error decoding updated user: %v", err)
+	}
+	for dir, perms := range permissions {
+		if actualPerms, ok := updatedUser.Permissions[dir]; ok {
+			for _, v := range actualPerms {
+				if !utils.IsStringInSlice(v, perms) {
+					t.Error("Permissions contents mismatch")
+				}
+			}
+		} else {
+			t.Error("Permissions directories mismatch")
+		}
+	}
+	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+}
+
+func TestUserPermissionsMock(t *testing.T) {
+	user := getTestUser()
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/somedir"] = []string{dataprovider.PermAny}
+	userAsJSON := getUserAsJSON(t, user)
+	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr.Code)
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{dataprovider.PermAny}
+	user.Permissions[".."] = []string{dataprovider.PermAny}
+	userAsJSON = getUserAsJSON(t, user)
+	req, _ = http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr.Code)
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{dataprovider.PermAny}
+	userAsJSON = getUserAsJSON(t, user)
+	req, _ = http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	err := render.DecodeJSON(rr.Body, &user)
+	if err != nil {
+		t.Errorf("Error get user: %v", err)
+	}
+	user.Permissions["/somedir"] = []string{}
+	userAsJSON = getUserAsJSON(t, user)
+	req, _ = http.NewRequest(http.MethodPut, userPath+"/"+strconv.FormatInt(user.ID, 10), bytes.NewBuffer(userAsJSON))
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr.Code)
+	delete(user.Permissions, "/somedir")
+	user.Permissions["not_abs_path"] = []string{dataprovider.PermAny}
+	userAsJSON = getUserAsJSON(t, user)
+	req, _ = http.NewRequest(http.MethodPut, userPath+"/"+strconv.FormatInt(user.ID, 10), bytes.NewBuffer(userAsJSON))
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr.Code)
+	delete(user.Permissions, "not_abs_path")
+	user.Permissions["/somedir/../otherdir/"] = []string{dataprovider.PermListItems}
+	userAsJSON = getUserAsJSON(t, user)
+	req, _ = http.NewRequest(http.MethodPut, userPath+"/"+strconv.FormatInt(user.ID, 10), bytes.NewBuffer(userAsJSON))
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	req, _ = http.NewRequest(http.MethodGet, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	var updatedUser dataprovider.User
+	err = render.DecodeJSON(rr.Body, &updatedUser)
+	if err != nil {
+		t.Errorf("Error decoding updated user: %v", err)
+	}
+	if val, ok := updatedUser.Permissions["/otherdir"]; ok {
+		if !utils.IsStringInSlice(dataprovider.PermListItems, val) {
+			t.Error("expected permission list not found")
+		}
+		if len(val) != 1 {
+			t.Errorf("Unexpected number of permissions, expected 1, actual: %v", len(val))
+		}
+	} else {
+		t.Errorf("expected dir not found in permissions")
+	}
+	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
 }
 
 func TestUpdateUserInvalidJsonMock(t *testing.T) {
@@ -924,6 +1042,7 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("status", strconv.Itoa(user.Status))
 	form.Set("expiration_date", "")
 	form.Set("permissions", "*")
+	form.Set("sub_dirs_permissions", "/subdir:list,download")
 	// test invalid url escape
 	req, _ := http.NewRequest(http.MethodPost, webUserPath+"?a=%2", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -1050,6 +1169,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("upload_bandwidth", "0")
 	form.Set("download_bandwidth", "0")
 	form.Set("permissions", "*")
+	form.Set("sub_dirs_permissions", "/otherdir:list,upload")
 	form.Set("status", strconv.Itoa(user.Status))
 	form.Set("expiration_date", "2020-01-01 00:00:00")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), strings.NewReader(form.Encode()))
@@ -1142,13 +1262,15 @@ func waitTCPListening(address string) {
 }
 
 func getTestUser() dataprovider.User {
-	return dataprovider.User{
-		Username:    defaultUsername,
-		Password:    defaultPassword,
-		HomeDir:     filepath.Join(homeBasePath, defaultUsername),
-		Permissions: defaultPerms,
-		Status:      1,
+	user := dataprovider.User{
+		Username: defaultUsername,
+		Password: defaultPassword,
+		HomeDir:  filepath.Join(homeBasePath, defaultUsername),
+		Status:   1,
 	}
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = defaultPerms
+	return user
 }
 
 func getUserAsJSON(t *testing.T, user dataprovider.User) []byte {

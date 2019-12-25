@@ -76,10 +76,25 @@
             <select class="form-control" id="idPermissions" name="permissions" required multiple>
                 {{range $validPerm := .ValidPerms}}
                 <option value="{{$validPerm}}"
-                    {{range $perm := $.User.Permissions}}{{if eq $perm $validPerm}}selected{{end}}{{end}}>{{$validPerm}}
+                    {{range $perm := $.RootDirPerms }}{{if eq $perm $validPerm}}selected{{end}}{{end}}>{{$validPerm}}
                 </option>
                 {{end}}
             </select>
+        </div>
+    </div>
+
+    <div class="form-group row">
+        <label for="idSubDirsPermissions" class="col-sm-2 col-form-label">Sub dirs permissions</label>
+        <div class="col-sm-10">
+            <textarea class="form-control" id="idSubDirsPermissions" name="sub_dirs_permissions" rows="3"
+                aria-describedby="subDirsHelpBlock">{{range $dir, $perms := .User.Permissions -}}
+                {{if ne $dir "/" -}}
+                {{$dir}}:{{range $index, $p := $perms}}{{if $index}},{{end}}{{$p}}{{end}}&#10;
+                {{- end}}
+                {{- end}}</textarea>
+            <small id="subDirsHelpBlock" class="form-text text-muted">
+                One directory per line as dir:perms, for example /somedir:list,download
+            </small>
         </div>
     </div>
 

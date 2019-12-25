@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-from datetime import datetime
-
 import argparse
+from datetime import datetime
 import json
+
 import requests
 
 try:
@@ -60,7 +60,7 @@ class SFTPGoApiRequests:
 			print(r.text)
 
 	def buildUserObject(self, user_id=0, username="", password="", public_keys="", home_dir="", uid=0,
-					gid=0, max_sessions=0, quota_size=0, quota_files=0, permissions=[], upload_bandwidth=0,
+					gid=0, max_sessions=0, quota_size=0, quota_files=0, permissions={}, upload_bandwidth=0,
 					download_bandwidth=0, status=1, expiration_date=0):
 		user = {"id":user_id, "username":username, "uid":uid, "gid":gid,
 			"max_sessions":max_sessions, "quota_size":quota_size, "quota_files":quota_files,
@@ -76,6 +76,23 @@ class SFTPGoApiRequests:
 			user.update({"permissions":permissions})
 		return user
 
+	def build_permissions(self, root_perms, subdirs_perms):
+		permissions = {}
+		if root_perms:
+			permissions.update({"/":root_perms})
+		for p in subdirs_perms:
+			if ":" in p:
+				directory = None
+				values = []
+				for value in p.split(":"):
+					if directory is None:
+						directory = value
+					else:
+						values = [v.strip() for v in value.split(",") if v.strip()]
+				if directory and values:
+					permissions.update({directory:values})
+		return permissions
+
 	def getUsers(self, limit=100, offset=0, order="ASC", username=""):
 		r = requests.get(self.userPath, params={"limit":limit, "offset":offset, "order":order,
 											"username":username}, auth=self.auth, verify=self.verify)
@@ -86,18 +103,20 @@ class SFTPGoApiRequests:
 		self.printResponse(r)
 
 	def addUser(self, username="", password="", public_keys="", home_dir="", uid=0, gid=0, max_sessions=0,
-		quota_size=0, quota_files=0, permissions=[], upload_bandwidth=0, download_bandwidth=0, status=1,
-		expiration_date=0):
+		quota_size=0, quota_files=0, perms=[], upload_bandwidth=0, download_bandwidth=0, status=1,
+		expiration_date=0, subdirs_permissions=[]):
 		u = self.buildUserObject(0, username, password, public_keys, home_dir, uid, gid, max_sessions,
-			quota_size, quota_files, permissions, upload_bandwidth, download_bandwidth, status, expiration_date)
+			quota_size, quota_files, self.build_permissions(perms, subdirs_permissions), upload_bandwidth, download_bandwidth,
+			status, expiration_date)
 		r = requests.post(self.userPath, json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
 	def updateUser(self, user_id, username="", password="", public_keys="", home_dir="", uid=0, gid=0,
-				max_sessions=0, quota_size=0, quota_files=0, permissions=[], upload_bandwidth=0,
-				download_bandwidth=0, status=1, expiration_date=0):
+				max_sessions=0, quota_size=0, quota_files=0, perms=[], upload_bandwidth=0,
+				download_bandwidth=0, status=1, expiration_date=0, subdirs_permissions=[]):
 		u = self.buildUserObject(user_id, username, password, public_keys, home_dir, uid, gid, max_sessions,
-			quota_size, quota_files, permissions, upload_bandwidth, download_bandwidth, status, expiration_date)
+			quota_size, quota_files, self.build_permissions(perms, subdirs_permissions), upload_bandwidth, download_bandwidth,
+			status, expiration_date)
 		r = requests.put(urlparse.urljoin(self.userPath, "user/" + str(user_id)), json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
@@ -160,7 +179,10 @@ def addCommonUserArguments(parser):
 	parser.add_argument('-F', '--quota-files', type=int, default=0, help="default: %(default)s")
 	parser.add_argument('-G', '--permissions', type=str, nargs='+', default=[],
 					choices=['*', 'list', 'download', 'upload', 'overwrite', 'delete', 'rename', 'create_dirs',
-							'create_symlinks', 'chmod', 'chown', 'chtimes'], help='Default: %(default)s')
+							'create_symlinks', 'chmod', 'chown', 'chtimes'], help='Permissions for the root directory '
+							+'(/). Default: %(default)s')
+	parser.add_argument('--subdirs-permissions', type=str, nargs='*', default=[], help='Permissions for subdirs. '
+					+'For example: "/somedir:list,download" "/otherdir/subdir:*" Default: %(default)s')
 	parser.add_argument('-U', '--upload-bandwidth', type=int, default=0,
 					help='Maximum upload bandwidth as KB/s, 0 means unlimited. Default: %(default)s')
 	parser.add_argument('-D', '--download-bandwidth', type=int, default=0,
@@ -237,11 +259,12 @@ if __name__ == '__main__':
 	if args.command == 'add-user':
 		api.addUser(args.username, args.password, args.public_keys, args.home_dir, args.uid, args.gid, args.max_sessions,
 				args.quota_size, args.quota_files, args.permissions, args.upload_bandwidth, args.download_bandwidth,
-				args.status, getDatetimeAsMillisSinceEpoch(args.expiration_date))
+				args.status, getDatetimeAsMillisSinceEpoch(args.expiration_date), args.subdirs_permissions)
 	elif args.command == 'update-user':
 		api.updateUser(args.id, args.username, args.password, args.public_keys, args.home_dir, args.uid, args.gid,
 					args.max_sessions, args.quota_size, args.quota_files, args.permissions, args.upload_bandwidth,
-					args.download_bandwidth, args.status, getDatetimeAsMillisSinceEpoch(args.expiration_date))
+					args.download_bandwidth, args.status, getDatetimeAsMillisSinceEpoch(args.expiration_date),
+					args.subdirs_permissions)
 	elif args.command == 'delete-user':
 		api.deleteUser(args.id)
 	elif args.command == 'get-users':

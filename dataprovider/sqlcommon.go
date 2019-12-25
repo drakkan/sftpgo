@@ -265,10 +265,18 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 		}
 	}
 	if permissions.Valid {
-		var list []string
-		err = json.Unmarshal([]byte(permissions.String), &list)
+		perms := make(map[string][]string)
+		err = json.Unmarshal([]byte(permissions.String), &perms)
 		if err == nil {
-			user.Permissions = list
+			user.Permissions = perms
+		} else {
+			// compatibility layer: until version 0.9.4 permissions were a string list
+			var list []string
+			err = json.Unmarshal([]byte(permissions.String), &list)
+			if err == nil {
+				perms["/"] = list
+				user.Permissions = perms
+			}
 		}
 	}
 	return user, err

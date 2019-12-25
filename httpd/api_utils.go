@@ -329,9 +329,15 @@ func checkUser(expected dataprovider.User, actual dataprovider.User) error {
 			return errors.New("user ID mismatch")
 		}
 	}
-	for _, v := range expected.Permissions {
-		if !utils.IsStringInSlice(v, actual.Permissions) {
-			return errors.New("Permissions contents mismatch")
+	for dir, perms := range expected.Permissions {
+		if actualPerms, ok := actual.Permissions[dir]; ok {
+			for _, v := range actualPerms {
+				if !utils.IsStringInSlice(v, perms) {
+					return errors.New("Permissions contents mismatch")
+				}
+			}
+		} else {
+			return errors.New("Permissions directories mismatch")
 		}
 	}
 	return compareEqualsUserFields(expected, actual)

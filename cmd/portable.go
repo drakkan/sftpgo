@@ -33,6 +33,8 @@ Please take a look at the usage below to customize the serving parameters`,
 			if !filepath.IsAbs(portableDir) {
 				portableDir, _ = filepath.Abs(portableDir)
 			}
+			permissions := make(map[string][]string)
+			permissions["/"] = portablePermissions
 			service := service.Service{
 				ConfigDir:     defaultConfigDir,
 				ConfigFile:    defaultConfigName,
@@ -48,7 +50,7 @@ Please take a look at the usage below to customize the serving parameters`,
 					Username:    portableUsername,
 					Password:    portablePassword,
 					PublicKeys:  portablePublicKeys,
-					Permissions: portablePermissions,
+					Permissions: permissions,
 					HomeDir:     portableDir,
 					Status:      1,
 				},

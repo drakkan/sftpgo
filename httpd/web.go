@@ -61,10 +61,12 @@ type connectionsPage struct {
 
 type userPage struct {
 	basePage
-	IsAdd      bool
-	User       dataprovider.User
-	Error      string
-	ValidPerms []string
+	IsAdd        bool
+	User         dataprovider.User
+	RootPerms    []string
+	Error        string
+	ValidPerms   []string
+	RootDirPerms []string
 }
 
 type messagePage struct {
@@ -156,24 +158,52 @@ func renderNotFoundPage(w http.ResponseWriter, err error) {
 
 func renderAddUserPage(w http.ResponseWriter, user dataprovider.User, error string) {
 	data := userPage{
-		basePage:   getBasePageData("Add a new user", webUserPath),
-		IsAdd:      true,
-		Error:      error,
-		User:       user,
-		ValidPerms: dataprovider.ValidPerms,
+		basePage:     getBasePageData("Add a new user", webUserPath),
+		IsAdd:        true,
+		Error:        error,
+		User:         user,
+		ValidPerms:   dataprovider.ValidPerms,
+		RootDirPerms: user.GetPermissionsForPath("/"),
 	}
 	renderTemplate(w, templateUser, data)
 }
 
 func renderUpdateUserPage(w http.ResponseWriter, user dataprovider.User, error string) {
 	data := userPage{
-		basePage:   getBasePageData("Update user", fmt.Sprintf("%v/%v", webUserPath, user.ID)),
-		IsAdd:      false,
-		Error:      error,
-		User:       user,
-		ValidPerms: dataprovider.ValidPerms,
+		basePage:     getBasePageData("Update user", fmt.Sprintf("%v/%v", webUserPath, user.ID)),
+		IsAdd:        false,
+		Error:        error,
+		User:         user,
+		ValidPerms:   dataprovider.ValidPerms,
+		RootDirPerms: user.GetPermissionsForPath("/"),
 	}
 	renderTemplate(w, templateUser, data)
+}
+
+func getUserPermissionsFromPostFields(r *http.Request) map[string][]string {
+	permissions := make(map[string][]string)
+	permissions["/"] = r.Form["permissions"]
+	subDirsPermsValue := r.Form.Get("sub_dirs_permissions")
+	for _, v := range strings.Split(subDirsPermsValue, "\n") {
+		cleaned := strings.TrimSpace(v)
+		if len(cleaned) > 0 && strings.ContainsRune(cleaned, ':') {
+			dirPerms := strings.Split(cleaned, ":")
+			if len(dirPerms) > 1 {
+				dir := dirPerms[0]
+				perms := []string{}
+				for _, p := range strings.Split(dirPerms[1], ",") {
+					cleanedPerm := strings.TrimSpace(p)
+					if len(cleanedPerm) > 0 {
+						perms = append(perms, cleanedPerm)
+					}
+				}
+				if len(dir) > 0 && len(perms) > 0 {
+					permissions[dir] = perms
+				}
+			}
+		}
+	}
+	return permissions
 }
 
 func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
@@ -238,7 +268,7 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 		HomeDir:           r.Form.Get("home_dir"),
 		UID:               uid,
 		GID:               gid,
-		Permissions:       r.Form["permissions"],
+		Permissions:       getUserPermissionsFromPostFields(r),
 		MaxSessions:       maxSessions,
 		QuotaSize:         quotaSize,
 		QuotaFiles:        quotaFiles,

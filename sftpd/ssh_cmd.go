@@ -129,6 +129,9 @@ func (c *sshCommand) handleHashCommands() error {
 		if err != nil {
 			return c.sendErrorResponse(err)
 		}
+		if !c.connection.User.HasPerm(dataprovider.PermListItems, path) {
+			return c.sendErrorResponse(errPermissionDenied)
+		}
 		hash, err := computeHashForFile(h, path)
 		if err != nil {
 			return c.sendErrorResponse(err)
@@ -146,7 +149,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	}
 	perms := []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermCreateDirs, dataprovider.PermListItems,
 		dataprovider.PermOverwrite, dataprovider.PermDelete, dataprovider.PermRename}
-	if !c.connection.User.HasPerms(perms) {
+	if !c.connection.User.HasPerms(perms, command.realPath) {
 		return c.sendErrorResponse(errPermissionDenied)
 	}
 
@@ -277,23 +280,6 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 	}
 	args := make([]string, len(c.args))
 	copy(args, c.args)
-	if c.command == "rsync" {
-		// we cannot avoid that rsync create symlinks so if the user has the permission
-		// to create symlinks we add the option --safe-links to the received rsync command if
-		// it is not already set. This should prevent to create symlinks that point outside
-		// the home dir.
-		// If the user cannot create symlinks we add the option --munge-links, if it is not
-		// already set. This should make symlinks unusable (but manually recoverable)
-		if c.connection.User.HasPerm(dataprovider.PermCreateSymlinks) {
-			if !utils.IsStringInSlice("--safe-links", args) {
-				args = append([]string{"--safe-links"}, args...)
-			}
-		} else {
-			if !utils.IsStringInSlice("--munge-links", args) {
-				args = append([]string{"--munge-links"}, args...)
-			}
-		}
-	}
 	var path string
 	if len(c.args) > 0 {
 		var err error
@@ -304,6 +290,23 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 		}
 		args = args[:len(args)-1]
 		args = append(args, path)
+	}
+	if c.command == "rsync" {
+		// we cannot avoid that rsync create symlinks so if the user has the permission
+		// to create symlinks we add the option --safe-links to the received rsync command if
+		// it is not already set. This should prevent to create symlinks that point outside
+		// the home dir.
+		// If the user cannot create symlinks we add the option --munge-links, if it is not
+		// already set. This should make symlinks unusable (but manually recoverable)
+		if c.connection.User.HasPerm(dataprovider.PermCreateSymlinks, path) {
+			if !utils.IsStringInSlice("--safe-links", args) {
+				args = append([]string{"--safe-links"}, args...)
+			}
+		} else {
+			if !utils.IsStringInSlice("--munge-links", args) {
+				args = append([]string{"--munge-links"}, args...)
+			}
+		}
 	}
 	c.connection.Log(logger.LevelDebug, logSenderSSH, "new system command %#v, with args: %v path: %v", c.command, args, path)
 	cmd := exec.Command(c.command, args...)

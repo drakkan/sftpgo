@@ -102,6 +102,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, err := dataprovider.GetUserByID(dataProvider, userID)
+	oldPermissions := user.Permissions
+	user.Permissions = make(map[string][]string)
 	if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
 		sendAPIResponse(w, r, err, "", http.StatusNotFound)
 		return
@@ -113,6 +115,10 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
+	}
+	// we use new Permissions if passed otherwise the old ones
+	if len(user.Permissions) == 0 {
+		user.Permissions = oldPermissions
 	}
 	if user.ID != userID {
 		sendAPIResponse(w, r, err, "user ID in request body does not match user ID in path parameter", http.StatusBadRequest)

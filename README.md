@@ -12,7 +12,7 @@ Full featured and highly configurable SFTP server
 - Quota support: accounts can have individual quota expressed as max total size and/or max number of files.
 - Bandwidth throttling is supported, with distinct settings for upload and download.
 - Per user maximum concurrent sessions.
-- Per user permissions: list directories content, upload, overwrite, download, delete, rename, create directories, create symlinks, changing owner/group and mode, changing access and modification times can be enabled or disabled.
+- Per user and per directory permissions: list directories content, upload, overwrite, download, delete, rename, create directories, create symlinks, changing owner/group and mode, changing access and modification times can be enabled or disabled.
 - Per user files/folders ownership: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (*NIX only).
 - Configurable custom commands and/or HTTP notifications on file upload, download, delete, rename, on SSH commands and on user add, update and delete.
 - Automatically terminating idle connections.
@@ -367,7 +367,7 @@ For each account the following properties can be configured:
 - `max_sessions` maximum concurrent sessions. 0 means unlimited.
 - `quota_size` maximum size allowed as bytes. 0 means unlimited.
 - `quota_files` maximum number of files allowed. 0 means unlimited.
-- `permissions` the following permissions are supported:
+- `permissions` the following per directory permissions are supported:
     - `*` all permissions are granted
     - `list` list items is allowed
     - `download` download files is allowed

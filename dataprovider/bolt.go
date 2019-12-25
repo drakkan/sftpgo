@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	databaseVersion = 2
+	databaseVersion = 3
 )
 
 var (
@@ -31,6 +31,28 @@ type BoltProvider struct {
 
 type boltDatabaseVersion struct {
 	Version int
+}
+
+type compatUserV2 struct {
+	ID                int64    `json:"id"`
+	Username          string   `json:"username"`
+	Password          string   `json:"password,omitempty"`
+	PublicKeys        []string `json:"public_keys,omitempty"`
+	HomeDir           string   `json:"home_dir"`
+	UID               int      `json:"uid"`
+	GID               int      `json:"gid"`
+	MaxSessions       int      `json:"max_sessions"`
+	QuotaSize         int64    `json:"quota_size"`
+	QuotaFiles        int      `json:"quota_files"`
+	Permissions       []string `json:"permissions"`
+	UsedQuotaSize     int64    `json:"used_quota_size"`
+	UsedQuotaFiles    int      `json:"used_quota_files"`
+	LastQuotaUpdate   int64    `json:"last_quota_update"`
+	UploadBandwidth   int64    `json:"upload_bandwidth"`
+	DownloadBandwidth int64    `json:"download_bandwidth"`
+	ExpirationDate    int64    `json:"expiration_date"`
+	LastLogin         int64    `json:"last_login"`
+	Status            int      `json:"status"`
 }
 
 func initializeBoltProvider(basePath string) error {
@@ -376,27 +398,91 @@ func checkBoltDatabaseVersion(dbHandle *bolt.DB) error {
 		return nil
 	}
 	if dbVersion.Version == 1 {
-		providerLog(logger.LevelInfo, "update bolt database version: 1 -> 2")
-		usernames, err := getBoltAvailableUsernames(dbHandle)
+		err = updateDatabaseFrom1To2(dbHandle)
 		if err != nil {
 			return err
 		}
-		for _, u := range usernames {
-			user, err := provider.userExists(u)
-			if err != nil {
-				return err
-			}
-			user.Status = 1
-			err = provider.updateUser(user)
-			if err != nil {
-				return err
-			}
-			providerLog(logger.LevelInfo, "user %#v updated, \"status\" setted to 1", user.Username)
-		}
-		return updateBoltDatabaseVersion(dbHandle, 2)
+		return updateDatabaseFrom2To3(dbHandle)
+	} else if dbVersion.Version == 2 {
+		return updateDatabaseFrom2To3(dbHandle)
 	}
 
-	return err
+	return nil
+}
+
+func updateDatabaseFrom1To2(dbHandle *bolt.DB) error {
+	providerLog(logger.LevelInfo, "updating bolt database version: 1 -> 2")
+	usernames, err := getBoltAvailableUsernames(dbHandle)
+	if err != nil {
+		return err
+	}
+	for _, u := range usernames {
+		user, err := provider.userExists(u)
+		if err != nil {
+			return err
+		}
+		user.Status = 1
+		err = provider.updateUser(user)
+		if err != nil {
+			return err
+		}
+		providerLog(logger.LevelInfo, "user %#v updated, \"status\" setted to 1", user.Username)
+	}
+	return updateBoltDatabaseVersion(dbHandle, 2)
+}
+
+func updateDatabaseFrom2To3(dbHandle *bolt.DB) error {
+	providerLog(logger.LevelInfo, "updating bolt database version: 2 -> 3")
+	users := []User{}
+	err := dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, _, err := getBuckets(tx)
+		if err != nil {
+			return err
+		}
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var compatUser compatUserV2
+			err = json.Unmarshal(v, &compatUser)
+			if err == nil {
+				user := User{}
+				user.ID = compatUser.ID
+				user.Username = compatUser.Username
+				user.Password = compatUser.Password
+				user.PublicKeys = compatUser.PublicKeys
+				user.HomeDir = compatUser.HomeDir
+				user.UID = compatUser.UID
+				user.GID = compatUser.GID
+				user.MaxSessions = compatUser.MaxSessions
+				user.QuotaSize = compatUser.QuotaSize
+				user.QuotaFiles = compatUser.QuotaFiles
+				user.Permissions = make(map[string][]string)
+				user.Permissions["/"] = compatUser.Permissions
+				user.UsedQuotaSize = compatUser.UsedQuotaSize
+				user.UsedQuotaFiles = compatUser.UsedQuotaFiles
+				user.LastQuotaUpdate = compatUser.LastQuotaUpdate
+				user.UploadBandwidth = compatUser.UploadBandwidth
+				user.DownloadBandwidth = compatUser.DownloadBandwidth
+				user.ExpirationDate = compatUser.ExpirationDate
+				user.LastLogin = compatUser.LastLogin
+				user.Status = compatUser.Status
+				users = append(users, user)
+			}
+		}
+		return err
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, user := range users {
+		err = provider.updateUser(user)
+		if err != nil {
+			return err
+		}
+		providerLog(logger.LevelInfo, "user %#v updated, \"permissions\" setted to %+v", user.Username, user.Permissions)
+	}
+
+	return updateBoltDatabaseVersion(dbHandle, 3)
 }
 
 func getBoltAvailableUsernames(dbHandle *bolt.DB) ([]string, error) {

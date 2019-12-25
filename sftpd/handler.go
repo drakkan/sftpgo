@@ -51,13 +51,12 @@ func (c Connection) Log(level logger.LogLevel, sender string, format string, v .
 func (c Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 	updateConnectionActivity(c.ID)
 
-	if !c.User.HasPerm(dataprovider.PermDownload) {
-		return nil, sftp.ErrSSHFxPermissionDenied
-	}
-
 	p, err := c.buildPath(request.Filepath)
 	if err != nil {
 		return nil, getSFTPErrorFromOSError(err)
+	}
+	if !c.User.HasPerm(dataprovider.PermDownload, filepath.Dir(p)) {
+		return nil, sftp.ErrSSHFxPermissionDenied
 	}
 
 	c.lock.Lock()
@@ -98,10 +97,6 @@ func (c Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 // Filewrite handles the write actions for a file on the system.
 func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 	updateConnectionActivity(c.ID)
-	if !c.User.HasPerm(dataprovider.PermUpload) {
-		return nil, sftp.ErrSSHFxPermissionDenied
-	}
-
 	p, err := c.buildPath(request.Filepath)
 	if err != nil {
 		return nil, getSFTPErrorFromOSError(err)
@@ -119,6 +114,9 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 	// If the file doesn't exist we need to create it, as well as the directory pathway
 	// leading up to where that file will be created.
 	if os.IsNotExist(statErr) {
+		if !c.User.HasPerm(dataprovider.PermUpload, filepath.Dir(p)) {
+			return nil, sftp.ErrSSHFxPermissionDenied
+		}
 		return c.handleSFTPUploadToNewFile(p, filePath)
 	}
 
@@ -133,7 +131,7 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 		return nil, sftp.ErrSSHFxOpUnsupported
 	}
 
-	if !c.User.HasPerm(dataprovider.PermOverwrite) {
+	if !c.User.HasPerm(dataprovider.PermOverwrite, filepath.Dir(filePath)) {
 		return nil, sftp.ErrSSHFxPermissionDenied
 	}
 
@@ -212,7 +210,7 @@ func (c Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 
 	switch request.Method {
 	case "List":
-		if !c.User.HasPerm(dataprovider.PermListItems) {
+		if !c.User.HasPerm(dataprovider.PermListItems, p) {
 			return nil, sftp.ErrSSHFxPermissionDenied
 		}
 
@@ -226,7 +224,7 @@ func (c Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 
 		return listerAt(files), nil
 	case "Stat":
-		if !c.User.HasPerm(dataprovider.PermListItems) {
+		if !c.User.HasPerm(dataprovider.PermListItems, filepath.Dir(p)) {
 			return nil, sftp.ErrSSHFxPermissionDenied
 		}
 
@@ -266,9 +264,15 @@ func (c Connection) handleSFTPSetstat(path string, request *sftp.Request) error 
 			c.ClientVersion)
 		return sftp.ErrSSHFxBadMessage
 	}
+	pathForPerms := path
+	if fi, err := os.Lstat(path); err == nil {
+		if fi.IsDir() {
+			pathForPerms = filepath.Dir(path)
+		}
+	}
 	attrFlags := request.AttrFlags()
 	if attrFlags.Permissions {
-		if !c.User.HasPerm(dataprovider.PermChmod) {
+		if !c.User.HasPerm(dataprovider.PermChmod, pathForPerms) {
 			return sftp.ErrSSHFxPermissionDenied
 		}
 		fileMode := request.Attributes().FileMode()
@@ -279,7 +283,7 @@ func (c Connection) handleSFTPSetstat(path string, request *sftp.Request) error 
 		logger.CommandLog(chmodLogSender, path, "", c.User.Username, fileMode.String(), c.ID, c.protocol, -1, -1, "", "", "")
 		return nil
 	} else if attrFlags.UidGid {
-		if !c.User.HasPerm(dataprovider.PermChown) {
+		if !c.User.HasPerm(dataprovider.PermChown, pathForPerms) {
 			return sftp.ErrSSHFxPermissionDenied
 		}
 		uid := int(request.Attributes().UID)
@@ -291,7 +295,7 @@ func (c Connection) handleSFTPSetstat(path string, request *sftp.Request) error 
 		logger.CommandLog(chownLogSender, path, "", c.User.Username, "", c.ID, c.protocol, uid, gid, "", "", "")
 		return nil
 	} else if attrFlags.Acmodtime {
-		if !c.User.HasPerm(dataprovider.PermChtimes) {
+		if !c.User.HasPerm(dataprovider.PermChtimes, pathForPerms) {
 			return sftp.ErrSSHFxPermissionDenied
 		}
 		dateFormat := "2006-01-02T15:04:05" // YYYY-MM-DDTHH:MM:SS
@@ -312,7 +316,7 @@ func (c Connection) handleSFTPSetstat(path string, request *sftp.Request) error 
 }
 
 func (c Connection) handleSFTPRename(sourcePath string, targetPath string) error {
-	if !c.User.HasPerm(dataprovider.PermRename) {
+	if !c.User.HasPerm(dataprovider.PermRename, filepath.Dir(targetPath)) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
 	if err := os.Rename(sourcePath, targetPath); err != nil {
@@ -325,7 +329,7 @@ func (c Connection) handleSFTPRename(sourcePath string, targetPath string) error
 }
 
 func (c Connection) handleSFTPRmdir(path string) error {
-	if !c.User.HasPerm(dataprovider.PermDelete) {
+	if !c.User.HasPerm(dataprovider.PermDelete, filepath.Dir(path)) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
 
@@ -350,7 +354,7 @@ func (c Connection) handleSFTPRmdir(path string) error {
 }
 
 func (c Connection) handleSFTPSymlink(sourcePath string, targetPath string) error {
-	if !c.User.HasPerm(dataprovider.PermCreateSymlinks) {
+	if !c.User.HasPerm(dataprovider.PermCreateSymlinks, filepath.Dir(targetPath)) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
 	if err := os.Symlink(sourcePath, targetPath); err != nil {
@@ -363,7 +367,7 @@ func (c Connection) handleSFTPSymlink(sourcePath string, targetPath string) erro
 }
 
 func (c Connection) handleSFTPMkdir(path string) error {
-	if !c.User.HasPerm(dataprovider.PermCreateDirs) {
+	if !c.User.HasPerm(dataprovider.PermCreateDirs, filepath.Dir(path)) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
 	if err := os.Mkdir(path, 0777); err != nil {
@@ -377,7 +381,7 @@ func (c Connection) handleSFTPMkdir(path string) error {
 }
 
 func (c Connection) handleSFTPRemove(path string) error {
-	if !c.User.HasPerm(dataprovider.PermDelete) {
+	if !c.User.HasPerm(dataprovider.PermDelete, filepath.Dir(path)) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
 

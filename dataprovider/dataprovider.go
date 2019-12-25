@@ -18,6 +18,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -343,14 +344,33 @@ func buildUserHomeDir(user *User) {
 }
 
 func validatePermissions(user *User) error {
-	for _, p := range user.Permissions {
-		if !utils.IsStringInSlice(p, ValidPerms) {
-			return &ValidationError{err: fmt.Sprintf("Invalid permission: %v", p)}
+	permissions := make(map[string][]string)
+	if _, ok := user.Permissions["/"]; !ok {
+		return &ValidationError{err: fmt.Sprintf("Permissions for the root dir \"/\" must be set")}
+	}
+	for dir, perms := range user.Permissions {
+		if len(perms) == 0 {
+			return &ValidationError{err: fmt.Sprintf("No permissions granted for the directory: %#v", dir)}
+		}
+		for _, p := range perms {
+			if !utils.IsStringInSlice(p, ValidPerms) {
+				return &ValidationError{err: fmt.Sprintf("Invalid permission: %#v", p)}
+			}
+		}
+		cleanedDir := filepath.ToSlash(path.Clean(dir))
+		if cleanedDir != "/" {
+			cleanedDir = strings.TrimSuffix(cleanedDir, "/")
+		}
+		if !path.IsAbs(cleanedDir) {
+			return &ValidationError{err: fmt.Sprintf("Cannot set permissions for non absolute path: %#v", dir)}
+		}
+		if utils.IsStringInSlice(PermAny, perms) {
+			permissions[cleanedDir] = []string{PermAny}
+		} else {
+			permissions[cleanedDir] = perms
 		}
 	}
-	if utils.IsStringInSlice(PermAny, user.Permissions) {
-		user.Permissions = []string{PermAny}
-	}
+	user.Permissions = permissions
 	return nil
 }
 

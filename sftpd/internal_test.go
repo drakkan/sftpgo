@@ -192,7 +192,8 @@ func TestSFTPCmdTargetPath(t *testing.T) {
 	u := dataprovider.User{}
 	u.HomeDir = "home_rel_path"
 	u.Username = "test"
-	u.Permissions = []string{"*"}
+	u.Permissions = make(map[string][]string)
+	u.Permissions["/"] = []string{dataprovider.PermAny}
 	connection := Connection{
 		User: u,
 	}
@@ -242,7 +243,8 @@ func TestSFTPGetUsedQuota(t *testing.T) {
 	u.Username = "test_invalid_user"
 	u.QuotaSize = 4096
 	u.QuotaFiles = 1
-	u.Permissions = []string{"*"}
+	u.Permissions = make(map[string][]string)
+	u.Permissions["/"] = []string{dataprovider.PermAny}
 	connection := Connection{
 		User: u,
 	}
@@ -323,12 +325,13 @@ func TestSSHCommandErrors(t *testing.T) {
 	server, client := net.Pipe()
 	defer server.Close()
 	defer client.Close()
+	user := dataprovider.User{}
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{dataprovider.PermAny}
 	connection := Connection{
 		channel: &mockSSHChannel,
 		netConn: client,
-		User: dataprovider.User{
-			Permissions: []string{dataprovider.PermAny},
-		},
+		User:    user,
 	}
 	cmd := sshCommand{
 		command:    "md5sum",
@@ -366,12 +369,13 @@ func TestSSHCommandErrors(t *testing.T) {
 	}
 	cmd.connection.User.QuotaFiles = 0
 	cmd.connection.User.UsedQuotaFiles = 0
-	cmd.connection.User.Permissions = []string{dataprovider.PermListItems}
+	cmd.connection.User.Permissions = make(map[string][]string)
+	cmd.connection.User.Permissions["/"] = []string{dataprovider.PermListItems}
 	err = cmd.handle()
 	if err != errPermissionDenied {
 		t.Errorf("unexpected error: %v", err)
 	}
-	cmd.connection.User.Permissions = []string{dataprovider.PermAny}
+	cmd.connection.User.Permissions["/"] = []string{dataprovider.PermAny}
 	cmd.command = "invalid_command"
 	command, err := cmd.getSystemCommand()
 	if err != nil {
@@ -417,11 +421,13 @@ func TestSSHCommandQuotaScan(t *testing.T) {
 	server, client := net.Pipe()
 	defer server.Close()
 	defer client.Close()
+	permissions := make(map[string][]string)
+	permissions["/"] = []string{dataprovider.PermAny}
 	connection := Connection{
 		channel: &mockSSHChannel,
 		netConn: client,
 		User: dataprovider.User{
-			Permissions: []string{dataprovider.PermAny},
+			Permissions: permissions,
 			QuotaFiles:  1,
 			HomeDir:     "invalid_path",
 		},
@@ -438,9 +444,11 @@ func TestSSHCommandQuotaScan(t *testing.T) {
 }
 
 func TestRsyncOptions(t *testing.T) {
+	permissions := make(map[string][]string)
+	permissions["/"] = []string{dataprovider.PermAny}
 	conn := Connection{
 		User: dataprovider.User{
-			Permissions: []string{dataprovider.PermAny},
+			Permissions: permissions,
 			HomeDir:     os.TempDir(),
 		},
 	}
@@ -456,11 +464,12 @@ func TestRsyncOptions(t *testing.T) {
 	if !utils.IsStringInSlice("--safe-links", cmd.cmd.Args) {
 		t.Errorf("--safe-links must be added if the user has the create symlinks permission")
 	}
+	permissions["/"] = []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermCreateDirs,
+		dataprovider.PermListItems, dataprovider.PermOverwrite, dataprovider.PermDelete, dataprovider.PermRename}
 	conn = Connection{
 		User: dataprovider.User{
-			Permissions: []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermCreateDirs,
-				dataprovider.PermListItems, dataprovider.PermOverwrite, dataprovider.PermDelete, dataprovider.PermRename},
-			HomeDir: os.TempDir(),
+			Permissions: permissions,
+			HomeDir:     os.TempDir(),
 		},
 	}
 	sshCmd = sshCommand{
@@ -491,18 +500,20 @@ func TestSystemCommandErrors(t *testing.T) {
 	server, client := net.Pipe()
 	defer server.Close()
 	defer client.Close()
+	permissions := make(map[string][]string)
+	permissions["/"] = []string{dataprovider.PermAny}
 	connection := Connection{
 		channel: &mockSSHChannel,
 		netConn: client,
 		User: dataprovider.User{
-			Permissions: []string{dataprovider.PermAny},
+			Permissions: permissions,
 			HomeDir:     os.TempDir(),
 		},
 	}
 	sshCmd := sshCommand{
 		command:    "ls",
 		connection: connection,
-		args:       []string{},
+		args:       []string{"/"},
 	}
 	systemCmd, err := sshCmd.getSystemCommand()
 	if err != nil {
@@ -929,7 +940,8 @@ func TestSCPCreateDirs(t *testing.T) {
 	u := dataprovider.User{}
 	u.HomeDir = "home_rel_path"
 	u.Username = "test"
-	u.Permissions = []string{"*"}
+	u.Permissions = make(map[string][]string)
+	u.Permissions["/"] = []string{dataprovider.PermAny}
 	mockSSHChannel := MockChannel{
 		Buffer:       bytes.NewBuffer(buf),
 		StdErrBuffer: bytes.NewBuffer(stdErrBuf),

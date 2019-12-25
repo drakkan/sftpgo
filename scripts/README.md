@@ -41,38 +41,47 @@ Let's see a sample usage for each REST API.
 Command:
 
 ```
-python sftpgo_api_cli.py add-user test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 33 --gid 1000 --max-sessions 2 --quota-size 0 --quota-files 3 --permissions "list" "download" "upload" "delete" "rename" "create_dirs" "overwrite" --upload-bandwidth 100 --download-bandwidth 60 --status 0 --expiration-date 2019-01-01
+python sftpgo_api_cli.py add-user test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 33 --gid 1000 --max-sessions 2 --quota-size 0 --quota-files 3 --permissions "list" "download" "upload" "delete" "rename" "create_dirs" "overwrite" --subdirs-permissions "/dir1:list,download" "/dir2:*" --upload-bandwidth 100 --download-bandwidth 60 --status 0 --expiration-date 2019-01-01
 ```
 
 Output:
 
 ```json
 {
-  "id": 5140,
-  "username": "test_username",
-  "home_dir": "/tmp/test_home_dir",
-  "uid": 33,
-  "gid": 1000,
-  "max_sessions": 2,
-  "quota_size": 0,
-  "quota_files": 3,
-  "permissions": [
-    "list",
-    "download",
-    "upload",
-    "delete",
-    "rename",
-    "create_dirs",
-    "overwrite"
-  ],
-  "used_quota_size": 0,
-  "used_quota_files": 0,
-  "last_quota_update": 0,
-  "last_login": 0,
+  "download_bandwidth": 60,
   "expiration_date": 1546297200000,
+  "gid": 1000,
+  "home_dir": "/tmp/test_home_dir",
+  "id": 9576,
+  "last_login": 0,
+  "last_quota_update": 0,
+  "max_sessions": 2,
+  "permissions": {
+    "/": [
+      "list",
+      "download",
+      "upload",
+      "delete",
+      "rename",
+      "create_dirs",
+      "overwrite"
+    ],
+    "/dir1": [
+      "list",
+      "download"
+    ],
+    "/dir2": [
+      "*"
+    ]
+  },
+  "quota_files": 3,
+  "quota_size": 0,
   "status": 0,
+  "uid": 33,
   "upload_bandwidth": 100,
-  "download_bandwidth": 60
+  "used_quota_files": 0,
+  "used_quota_size": 0,
+  "username": "test_username"
 }
 ```
 
@@ -81,7 +90,7 @@ Output:
 Command:
 
 ```
-python sftpgo_api_cli.py update-user 5140 test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 0 --gid 33 --max-sessions 3 --quota-size 0 --quota-files 4 --permissions "*" --upload-bandwidth 90 --download-bandwidth 80 --status 1 --expiration-date ""
+python sftpgo_api_cli.py update-user 9576 test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 0 --gid 33 --max-sessions 3 --quota-size 0 --quota-files 4 --permissions "*" --subdirs-permissions "/dir1:list,download,create_symlinks" --upload-bandwidth 90 --download-bandwidth 80 --status 1 --expiration-date ""
 ```
 
 Output:
@@ -99,32 +108,39 @@ Output:
 Command:
 
 ```
-python sftpgo_api_cli.py get-user-by-id 5140
+python sftpgo_api_cli.py get-user-by-id 9576
 ```
 
 Output:
 
 ```json
 {
-  "id": 5140,
-  "username": "test_username",
-  "home_dir": "/tmp/test_home_dir",
-  "uid": 0,
-  "gid": 33,
-  "max_sessions": 2,
-  "quota_size": 0,
-  "quota_files": 4,
-  "permissions": [
-    "*"
-  ],
-  "used_quota_size": 0,
-  "used_quota_files": 0,
-  "last_quota_update": 0,
-  "last_login": 0,
+  "download_bandwidth": 80,
   "expiration_date": 0,
+  "gid": 33,
+  "home_dir": "/tmp/test_home_dir",
+  "id": 9576,
+  "last_login": 0,
+  "last_quota_update": 0,
+  "max_sessions": 3,
+  "permissions": {
+    "/": [
+      "*"
+    ],
+    "/dir1": [
+      "list",
+      "download",
+      "create_symlinks"
+    ]
+  },
+  "quota_files": 4,
+  "quota_size": 0,
   "status": 1,
+  "uid": 0,
   "upload_bandwidth": 90,
-  "download_bandwidth": 80
+  "used_quota_files": 0,
+  "used_quota_size": 0,
+  "username": "test_username"
 }
 ```
 
@@ -141,25 +157,32 @@ Output:
 ```json
 [
   {
-    "id": 5140,
-    "username": "test_username",
-    "home_dir": "/tmp/test_home_dir",
-    "uid": 0,
-    "gid": 33,
-    "max_sessions": 2,
-    "quota_size": 0,
-    "quota_files": 4,
-    "permissions": [
-      "*"
-    ],
-    "used_quota_size": 0,
-    "used_quota_files": 0,
-    "last_quota_update": 0,
-    "last_login": 0,
+    "download_bandwidth": 80,
     "expiration_date": 0,
+    "gid": 33,
+    "home_dir": "/tmp/test_home_dir",
+    "id": 9576,
+    "last_login": 0,
+    "last_quota_update": 0,
+    "max_sessions": 3,
+    "permissions": {
+      "/": [
+        "*"
+      ],
+      "/dir1": [
+        "list",
+        "download",
+        "create_symlinks"
+      ]
+    },
+    "quota_files": 4,
+    "quota_size": 0,
     "status": 1,
+    "uid": 0,
     "upload_bandwidth": 90,
-    "download_bandwidth": 80
+    "used_quota_files": 0,
+    "used_quota_size": 0,
+    "username": "test_username"
   }
 ]
 ```
@@ -177,23 +200,23 @@ Output:
 ```json
 [
   {
-    "username": "test_username",
-    "connection_id": "76a11b22260ee4249328df28bef34dc64c70f7c097db52159fc24049eeb0e32c",
-    "client_version": "SSH-2.0-OpenSSH_8.0",
-    "remote_address": "127.0.0.1:41622",
-    "connection_time": 1564696137971,
-    "last_activity": 1564696159605,
-    "protocol": "SFTP",
-    "ssh_command": "",
     "active_transfers": [
       {
+        "last_activity": 1577197485561,
         "operation_type": "upload",
-        "path": "/test_upload.gz",
-        "start_time": 1564696149783,
-        "size": 1146880,
-        "last_activity": 1564696159605
+        "path": "/test_upload.tar.gz",
+        "size": 1540096,
+        "start_time": 1577197471372
       }
-    ]
+    ],
+    "client_version": "SSH-2.0-OpenSSH_8.1",
+    "connection_id": "f82cfec6a391ad673edd4ae9a144f32ccb59456139f8e1185b070134fffbab7c",
+    "connection_time": 1577197433003,
+    "last_activity": 1577197485561,
+    "protocol": "SFTP",
+    "remote_address": "127.0.0.1:43714",
+    "ssh_command": "",
+    "username": "test_username"
   }
 ]
 ```
@@ -203,7 +226,7 @@ Output:
 Command:
 
 ```
-python sftpgo_api_cli.py close-connection 76a11b22260ee4249328df28bef34dc64c70f7c097db52159fc24049eeb0e32c
+python sftpgo_api_cli.py close-connection f82cfec6a391ad673edd4ae9a144f32ccb59456139f8e1185b070134fffbab7c
 ```
 
 Output:
@@ -247,7 +270,7 @@ Output:
 Command:
 
 ```
-python sftpgo_api_cli.py delete-user 5140
+python sftpgo_api_cli.py delete-user 9576
 ```
 
 Output:
@@ -272,9 +295,9 @@ Output:
 
 ```json
 {
-  "version": "0.9.0-dev",
-  "build_date": "2019-08-08T08:11:34Z",
-  "commit_hash": "4f4489d-dirty"
+  "build_date": "2019-12-24T14:17:47Z",
+  "commit_hash": "f8fd5c0-dirty",
+  "version": "0.9.4-dev"
 }
 ```
 

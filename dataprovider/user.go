@@ -3,8 +3,10 @@ package dataprovider
 import (
 	"encoding/json"
 	"fmt"
+	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/drakkan/sftpgo/utils"
 )
@@ -68,7 +70,7 @@ type User struct {
 	// Maximum number of files allowed. 0 means unlimited
 	QuotaFiles int `json:"quota_files"`
 	// List of the granted permissions
-	Permissions []string `json:"permissions"`
+	Permissions map[string][]string `json:"permissions"`
 	// Used quota as bytes
 	UsedQuotaSize int64 `json:"used_quota_size"`
 	// Used quota as number of files
@@ -83,21 +85,59 @@ type User struct {
 	LastLogin int64 `json:"last_login"`
 }
 
+// GetPermissionsForPath returns the permissions for the given path
+func (u *User) GetPermissionsForPath(p string) []string {
+	permissions := []string{}
+	if perms, ok := u.Permissions["/"]; ok {
+		// if only root permissions are defined returns them unconditionally
+		if len(u.Permissions) == 1 {
+			return perms
+		}
+		// fallback permissions
+		permissions = perms
+	}
+	relPath := u.GetRelativePath(p)
+	if len(relPath) == 0 {
+		relPath = "/"
+	}
+	dirsForPath := []string{relPath}
+	for {
+		if relPath == "/" {
+			break
+		}
+		relPath = path.Dir(relPath)
+		dirsForPath = append(dirsForPath, relPath)
+	}
+	// dirsForPath contains all the dirs for a given path in reverse order
+	// for example if the path is: /1/2/3/4 it contains:
+	// [ "/1/2/3/4", "/1/2/3", "/1/2", "/1", "/" ]
+	// so the first match is the one we are interested to
+	for _, val := range dirsForPath {
+		if perms, ok := u.Permissions[val]; ok {
+			permissions = perms
+			break
+		}
+	}
+	return permissions
+}
+
 // HasPerm returns true if the user has the given permission or any permission
-func (u *User) HasPerm(permission string) bool {
-	if utils.IsStringInSlice(PermAny, u.Permissions) {
+func (u *User) HasPerm(permission, path string) bool {
+	perms := u.GetPermissionsForPath(path)
+	if utils.IsStringInSlice(PermAny, perms) {
 		return true
 	}
-	return utils.IsStringInSlice(permission, u.Permissions)
+	return utils.IsStringInSlice(permission, perms)
 }
 
 // HasPerms return true if the user has all the given permissions
-func (u *User) HasPerms(permissions []string) bool {
-	if utils.IsStringInSlice(PermAny, u.Permissions) {
+func (u *User) HasPerms(permissions []string, path string) bool {
+	perms := u.GetPermissionsForPath(path)
+	if utils.IsStringInSlice(PermAny, perms) {
 		return true
 	}
 	for _, permission := range permissions {
-		if !utils.IsStringInSlice(permission, u.Permissions) {
+		if !utils.IsStringInSlice(permission, perms) {
 			return false
 		}
 	}
@@ -143,9 +183,12 @@ func (u *User) HasQuotaRestrictions() bool {
 // GetRelativePath returns the path for a file relative to the user's home dir.
 // This is the path as seen by SFTP users
 func (u *User) GetRelativePath(path string) string {
-	rel, err := filepath.Rel(u.GetHomeDir(), path)
+	rel, err := filepath.Rel(u.GetHomeDir(), filepath.Clean(path))
 	if err != nil {
 		return ""
+	}
+	if rel == "." || strings.HasPrefix(rel, "..") {
+		rel = ""
 	}
 	return "/" + filepath.ToSlash(rel)
 }
@@ -168,12 +211,28 @@ func (u *User) GetQuotaSummary() string {
 
 // GetPermissionsAsString returns the user's permissions as comma separated string
 func (u *User) GetPermissionsAsString() string {
-	var result string
-	for _, p := range u.Permissions {
-		if len(result) > 0 {
-			result += ", "
+	result := ""
+	for dir, perms := range u.Permissions {
+		var dirPerms string
+		for _, p := range perms {
+			if len(dirPerms) > 0 {
+				dirPerms += ", "
+			}
+			dirPerms += p
 		}
-		result += p
+		dp := fmt.Sprintf("%#v: %#v", dir, dirPerms)
+		if dir == "/" {
+			if len(result) > 0 {
+				result = dp + ", " + result
+			} else {
+				result = dp
+			}
+		} else {
+			if len(result) > 0 {
+				result += ", "
+			}
+			result += dp
+		}
 	}
 	return result
 }
@@ -230,8 +289,12 @@ func (u *User) GetExpirationDateAsString() string {
 func (u *User) getACopy() User {
 	pubKeys := make([]string, len(u.PublicKeys))
 	copy(pubKeys, u.PublicKeys)
-	permissions := make([]string, len(u.Permissions))
-	copy(permissions, u.Permissions)
+	permissions := make(map[string][]string)
+	for k, v := range u.Permissions {
+		perms := make([]string, len(v))
+		copy(perms, v)
+		permissions[k] = perms
+	}
 	return User{
 		ID:                u.ID,
 		Username:          u.Username,

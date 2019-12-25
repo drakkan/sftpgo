@@ -69,13 +69,23 @@ func TestCheckUser(t *testing.T) {
 	}
 	expected.ID = 2
 	actual.ID = 2
-	expected.Permissions = []string{dataprovider.PermCreateDirs, dataprovider.PermDelete, dataprovider.PermDownload}
-	actual.Permissions = []string{dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
+	expected.Permissions = make(map[string][]string)
+	expected.Permissions["/"] = []string{dataprovider.PermCreateDirs, dataprovider.PermDelete, dataprovider.PermDownload}
+	actual.Permissions = make(map[string][]string)
+	actual.Permissions["/"] = []string{dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
 	err = checkUser(expected, actual)
 	if err == nil {
 		t.Errorf("Permissions are not equal")
 	}
-	expected.Permissions = append(expected.Permissions, dataprovider.PermRename)
+	expected.Permissions["/"] = append(expected.Permissions["/"], dataprovider.PermRename)
+	err = checkUser(expected, actual)
+	if err == nil {
+		t.Errorf("Permissions are not equal")
+	}
+	expected.Permissions = make(map[string][]string)
+	expected.Permissions["/somedir"] = []string{dataprovider.PermAny}
+	actual.Permissions = make(map[string][]string)
+	actual.Permissions["/otherdir"] = []string{dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
 	err = checkUser(expected, actual)
 	if err == nil {
 		t.Errorf("Permissions are not equal")
@@ -85,6 +95,8 @@ func TestCheckUser(t *testing.T) {
 func TestCompareUserFields(t *testing.T) {
 	expected := dataprovider.User{}
 	actual := dataprovider.User{}
+	expected.Permissions = make(map[string][]string)
+	actual.Permissions = make(map[string][]string)
 	expected.Username = "test"
 	err := compareEqualsUserFields(expected, actual)
 	if err == nil {
@@ -127,7 +139,7 @@ func TestCompareUserFields(t *testing.T) {
 		t.Errorf("QuotaFiles do not match")
 	}
 	expected.QuotaFiles = 0
-	expected.Permissions = []string{dataprovider.PermCreateDirs}
+	expected.Permissions["/"] = []string{dataprovider.PermCreateDirs}
 	err = compareEqualsUserFields(expected, actual)
 	if err == nil {
 		t.Errorf("Permissions are not equal")
