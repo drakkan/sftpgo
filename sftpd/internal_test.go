@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"os/exec"
 	"runtime"
 	"strings"
 	"testing"
@@ -1212,18 +1211,4 @@ func TestSFTPExtensions(t *testing.T) {
 		t.Errorf("configuring invalid SFTP extensions must fail")
 	}
 	sftpExtensions = initialSFTPExtensions
-}
-
-func TestWrapCmd(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("executing a command as another uid/gid is not supported on Windows")
-	}
-	cmd := exec.Command("ls")
-	cmd = wrapCmd(cmd, 1000, 1001)
-	if cmd.SysProcAttr.Credential.Uid != 1000 {
-		t.Errorf("unexpected uid")
-	}
-	if cmd.SysProcAttr.Credential.Gid != 1001 {
-		t.Errorf("unexpected gid")
-	}
 }
