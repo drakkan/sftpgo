@@ -191,6 +191,7 @@ type Provider interface {
 	updateUser(user User) error
 	deleteUser(user User) error
 	getUsers(limit int, offset int, order string, username string) ([]User, error)
+	dumpUsers() ([]User, error)
 	getUserByID(ID int64) (User, error)
 	updateLastLogin(username string) error
 	checkAvailability() error
@@ -309,6 +310,11 @@ func DeleteUser(p Provider, user User) error {
 		go executeAction(operationDelete, user)
 	}
 	return err
+}
+
+// DumpUsers returns an array with all users including their hashed password
+func DumpUsers(p Provider) ([]User, error) {
+	return p.dumpUsers()
 }
 
 // GetUsers returns an array of users respecting limit and offset and filtered by username exact match if not empty

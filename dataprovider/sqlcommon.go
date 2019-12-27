@@ -200,6 +200,31 @@ func sqlCommonDeleteUser(user User, dbHandle *sql.DB) error {
 	return err
 }
 
+func sqlCommonDumpUsers(dbHandle *sql.DB) ([]User, error) {
+	users := []User{}
+	q := getDumpUsersQuery()
+	stmt, err := dbHandle.Prepare(q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return nil, err
+	}
+	defer stmt.Close()
+	rows, err := stmt.Query()
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			u, err := getUserFromDbRow(nil, rows)
+			if err == nil {
+				users = append(users, u)
+			} else {
+				break
+			}
+		}
+	}
+
+	return users, err
+}
+
 func sqlCommonGetUsers(limit int, offset int, order string, username string, dbHandle *sql.DB) ([]User, error) {
 	users := []User{}
 	q := getUsersQuery(order, username)

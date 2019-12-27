@@ -24,12 +24,14 @@ sudo docker run --name sftpgo \
   -e SFTPGO_CONFIG_DIR=/srv/sftpgo/config \
   -e SFTPGO_HTTPD__TEMPLATES_PATH=/srv/sftpgo/web/templates \
   -e SFTPGO_HTTPD__STATIC_FILES_PATH=/srv/sftpgo/web/static \
+  -e SFTPGO_HTTPD__BACKUPS_PATH=/srv/sftpgo/backups \
   -p 8080:8080 \
   -p 2022:2022 \
   -e PUID=1003 \
   -e GUID=1003 \
   -v /home/sftpuser/conf/:/srv/sftpgo/config \
   -v /home/sftpuser/data:/data \
+  -v /home/sftpuser/backups:/srv/sftpgo/backups \
   sftpgo
 ```
 The script `entrypoint.sh` makes sure to correct the permissions of directories and start the process with the right user

@@ -214,6 +214,21 @@ func (p MemoryProvider) deleteUser(user User) error {
 	return nil
 }
 
+func (p MemoryProvider) dumpUsers() ([]User, error) {
+	users := []User{}
+	var err error
+	p.dbHandle.lock.Lock()
+	defer p.dbHandle.lock.Unlock()
+	if p.dbHandle.isClosed {
+		return users, errMemoryProviderClosed
+	}
+	for _, username := range p.dbHandle.usernames {
+		user := p.dbHandle.users[username]
+		users = append(users, user)
+	}
+	return users, err
+}
+
 func (p MemoryProvider) getUsers(limit int, offset int, order string, username string) ([]User, error) {
 	users := []User{}
 	var err error

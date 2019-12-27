@@ -319,6 +319,42 @@ Output:
 }
 ```
 
+### Backup data
+
+Command:
+
+```
+python sftpgo_api_cli.py dumpdata backup.json
+```
+
+Output:
+
+```json
+{
+  "error": "",
+  "message": "Data saved",
+  "status": 200
+}
+```
+
+### Restore data
+
+Command:
+
+```
+python sftpgo_api_cli.py loaddata /app/data/backups/backup.json --scan-quota 2
+```
+
+Output:
+
+```json
+{
+  "error": "",
+  "message": "Data restored",
+  "status": 200
+}
+```
+
 ### Colors highlight for Windows command prompt
 
 If your Windows command prompt does not recognize ANSI/VT100 escape sequences you can download [ANSICON](https://github.com/adoxa/ansicon "ANSICON") extract proper files depending on your Windows OS, and install them using `ansicon -i`.

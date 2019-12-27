@@ -92,6 +92,14 @@ func initializeRouter(staticFilesPath string) {
 		deleteUser(w, r)
 	})
 
+	router.Get(dumpDataPath, func(w http.ResponseWriter, r *http.Request) {
+		dumpData(w, r)
+	})
+
+	router.Get(loadDataPath, func(w http.ResponseWriter, r *http.Request) {
+		loadData(w, r)
+	})
+
 	router.Get(webUsersPath, func(w http.ResponseWriter, r *http.Request) {
 		handleGetWebUsers(w, r)
 	})

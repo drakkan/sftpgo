@@ -34,18 +34,22 @@ Regularly the test cases are manually executed and pass on Windows. Other UNIX v
 
 ## Requirements
 
-- Go 1.12 or higher.
+- Go 1.12 or higher as build only dependency.
 - A suitable SQL server or key/value store to use as data provider: PostreSQL 9.4+ or MySQL 5.6+ or SQLite 3.x or bbolt 1.3.x
 
 ## Installation
 
-Simple install the package to your [$GOPATH](https://github.com/golang/go/wiki/GOPATH "GOPATH") with the [go tool](https://golang.org/cmd/go/ "go command") from shell:
+Binary releases for Linux, macOS and Windows are available, please visit the [releases](https://github.com/drakkan/sftpgo/releases "releases") page.
+
+Sample Dockerfiles for [Debian](https://www.debian.org "Debian") and [Alpine](https://alpinelinux.org "Alpine") are available inside the source tree [docker](./docker "docker") directory.
+
+Alternately you can install the package to your [$GOPATH](https://github.com/golang/go/wiki/GOPATH "GOPATH") with the [go tool](https://golang.org/cmd/go/ "go command") from shell:
 
 ```
 $ go get -u github.com/drakkan/sftpgo
 ```
 
-Make sure [Git is installed](https://git-scm.com/downloads) on your machine and in your system's `PATH`.
+Make sure [Git](https://git-scm.com/downloads) is installed on your machine and in your system's `PATH`.
 
 SFTPGo depends on [go-sqlite3](https://github.com/mattn/go-sqlite3) that is a CGO package and so it requires a `C` compiler at build time.
 On Linux and macOS a compiler is easy to install or already installed, on Windows you need to download [MinGW-w64](https://sourceforge.net/projects/mingw-w64/files/) and build SFTPGo from its command prompt.
@@ -194,6 +198,7 @@ The `sftpgo` configuration file contains the following sections:
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"
     - `templates_path`, string. Path to the HTML web templates. This can be an absolute path or a path relative to the config dir
     - `static_files_path`, string. Path to the static files for the web interface. This can be an absolute path or a path relative to the config dir
+    - `backups_path`, string. Path to the backup directory. This can be an absolute path or a path relative to the config dir
 
 Here is a full example showing the default config in JSON format:
 
@@ -245,7 +250,8 @@ Here is a full example showing the default config in JSON format:
     "bind_port": 8080,
     "bind_address": "127.0.0.1",
     "templates_path": "templates",
-    "static_files_path": "static"
+    "static_files_path": "static",
+    "backups_path": "backups"
   }
 }
 ```
@@ -387,7 +393,7 @@ These properties are stored inside the data provider. If you want to use your ex
 
 ## REST API
 
-SFTPGo exposes REST API to manage users and quota and to get real time reports for the active connections with possibility of forcibly closing a connection.
+SFTPGo exposes REST API to manage users and quota, to backup and restore users and to get real time reports for the active connections with possibility of forcibly closing a connection.
 
 If quota tracking is enabled in `sftpgo` configuration file, then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP or if you change `track_quota` from `2` to `1`, you can rescan the user home dir and update the used quota using the REST API.
 

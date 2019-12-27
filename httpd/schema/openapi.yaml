@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 1.3.0
+  version: 1.4.0
 
 servers:
 - url: /api/v1
@@ -517,6 +517,130 @@ paths:
                 $ref: '#/components/schemas/ApiResponse'
               example:
                 status: 404
+                message: ""
+                error: "Error description if any"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 500
+                message: ""
+                error: "Error description if any"
+  /dumpdata:
+    get:
+      tags:
+      - maintenance
+      summary: Backup SFTPGo data serializing them as JSON
+      description: The backup is saved to a local file to avoid to expose users hashed passwords over the network. The output of dumpdata can be used as input for loaddata
+      operationId: dumpdata
+      parameters:
+        - in: query
+          name: output_file
+          schema:
+            type: string
+          required: true
+          description: Path for the file to write the JSON serialized data to. This path is relative to the configured "backups_path". If this file already exists it will be overwritten
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref : '#/components/schemas/ApiResponse'
+              example:
+                status: 200
+                message: "Data saved"
+                error: ""
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 400
+                message: ""
+                error: "Error description if any"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 403
+                message: ""
+                error: "Error description if any"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 500
+                message: ""
+                error: "Error description if any"
+  /loaddata:
+    get:
+      tags:
+      - maintenance
+      summary: Restore SFTPGo data from a JSON backup
+      description: New users are added, existing users are updated. Users will be restored one by one and the restore is stopped if a user cannot be added/updated, so it could happen a partial restore
+      operationId: loaddata
+      parameters:
+        - in: query
+          name: input_file
+          schema:
+            type: string
+          required: true
+          description: Path for the file to read the JSON serialized data from. This can be an absolute path or a path relative to the configured "backups_path". The max allowed file size is 10MB
+        - in: query
+          name: scan_quota
+          schema:
+            type: integer
+            enum:
+              - 0
+              - 1
+              - 2
+          description: >
+            Quota scan:
+              * `0` no quota scan is done, the imported user will have used_quota_size and used_quota_file = 0 
+              * `1` scan quota
+              * `2` scan quota if the user has quota restrictions
+          required: false
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref : '#/components/schemas/ApiResponse'
+              example:
+                status: 200
+                message: "Data restored"
+                error: ""
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 400
+                message: ""
+                error: "Error description if any"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 403
                 message: ""
                 error: "Error description if any"
         500:

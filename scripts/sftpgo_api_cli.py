@@ -2,6 +2,7 @@
 import argparse
 from datetime import datetime
 import json
+import platform
 
 import requests
 
@@ -26,6 +27,8 @@ class SFTPGoApiRequests:
 		self.activeConnectionsPath = urlparse.urljoin(baseUrl, '/api/v1/connection')
 		self.versionPath = urlparse.urljoin(baseUrl, '/api/v1/version')
 		self.providerStatusPath = urlparse.urljoin(baseUrl, '/api/v1/providerstatus')
+		self.dumpDataPath = urlparse.urljoin(baseUrl, '/api/v1/dumpdata')
+		self.loadDataPath = urlparse.urljoin(baseUrl, '/api/v1/loaddata')
 		self.debug = debug
 		if authType == 'basic':
 			self.auth = requests.auth.HTTPBasicAuth(authUser, authPassword)
@@ -149,6 +152,16 @@ class SFTPGoApiRequests:
 		r = requests.get(self.providerStatusPath, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
+	def dumpData(self, output_file):
+		r = requests.get(self.dumpDataPath, params={"output_file":output_file}, auth=self.auth,
+						verify=self.verify)
+		self.printResponse(r)
+
+	def loadData(self, input_file, scan_quota):
+		r = requests.get(self.loadDataPath, params={"input_file":input_file, "scan_quota":scan_quota},
+						auth=self.auth, verify=self.verify)
+		self.printResponse(r)
+
 
 def validDate(s):
 	if not s:
@@ -210,7 +223,7 @@ if __name__ == '__main__':
 	parser.set_defaults(secure=True)
 	parser.add_argument('-t', '--no-color', dest='no_color', action='store_true',
 					help='Disable color highlight for JSON responses. You need python pygments module 1.5 or above to have highlighted output')
-	parser.set_defaults(no_color=(pygments is None))
+	parser.set_defaults(no_color=(pygments is None or platform.system() == "Windows"))
 
 	subparsers = parser.add_subparsers(dest='command', help='sub-command --help')
 	subparsers.required = True
@@ -251,6 +264,15 @@ if __name__ == '__main__':
 
 	parserGetProviderStatus = subparsers.add_parser('get-provider-status', help='Get data provider status')
 
+	parserDumpData = subparsers.add_parser('dumpdata', help='Backup SFTPGo data serializing them as JSON')
+	parserDumpData.add_argument('output_file', type=str)
+
+	parserLoadData = subparsers.add_parser('loaddata', help='Restore SFTPGo data from a JSON backup')
+	parserLoadData.add_argument('input_file', type=str)
+	parserLoadData.add_argument('-q', '--scan-quota', type=int, choices=[0, 1, 2], default=0,
+							help='0 means no quota scan after a user is added/updated. 1 means always scan quota. 2 ' +
+							'means scan quota if the user has quota restrictions. Default: %(default)s')
+
 	args = parser.parse_args()
 
 	api = SFTPGoApiRequests(args.debug, args.base_url, args.auth_type, args.auth_user, args.auth_password, args.secure,
@@ -283,4 +305,8 @@ if __name__ == '__main__':
 		api.getVersion()
 	elif args.command == 'get-provider-status':
 		api.getProviderStatus()
+	elif args.command == "dumpdata":
+		api.dumpData(args.output_file)
+	elif args.command == "loaddata":
+		api.loadData(args.input_file, args.scan_quota)
 

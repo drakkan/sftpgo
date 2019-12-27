@@ -126,12 +126,11 @@ func TestMain(m *testing.M) {
 	// simply does not execute some code so if it works in atomic mode will
 	// work in non atomic mode too
 	sftpdConf.UploadMode = 2
+	homeBasePath = os.TempDir()
 	var scriptArgs string
 	if runtime.GOOS == "windows" {
-		homeBasePath = "C:\\"
 		scriptArgs = "%*"
 	} else {
-		homeBasePath = "/tmp"
 		sftpdConf.Actions.ExecuteOn = []string{"download", "upload", "rename", "delete", "ssh_cmd"}
 		sftpdConf.Actions.Command = "/usr/bin/true"
 		sftpdConf.Actions.HTTPNotificationURL = "http://127.0.0.1:8080/"

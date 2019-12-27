@@ -11,10 +11,10 @@ docker build -t="drakkan/sftpgo" .
 and you can run the Dockerfile using something like this:
 
 ```bash
-docker run --name sftpgo -p 8080:8080 -p 2022:2022 --mount type=bind,source=/srv/sftpgo/data,target=/app/data --mount type=bind,source=/srv/sftpgo/config,target=/app/config drakkan/sftpgo
+docker run --name sftpgo -p 8080:8080 -p 2022:2022 --mount type=bind,source=/srv/sftpgo/data,target=/app/data --mount type=bind,source=/srv/sftpgo/config,target=/app/config --mount type=bind,source=/srv/sftpgo/backups,target=/app/backups drakkan/sftpgo
 ```
 
-where  `/srv/sftpgo/data` and `/srv/sftpgo/config` are two folders on the host system with write access for UID/GID defined inside the `Dockerfile`. You can choose to create a new user, on the host system, with a matching UID/GID pair or simply do something like:
+where  `/srv/sftpgo/data`, `/srv/sftpgo/config` and `/srv/sftpgo/backups` are folders on the host system with write access for UID/GID defined inside the `Dockerfile`. You can choose to create a new user, on the host system, with a matching UID/GID pair or simply do something like:
 
 
 ```bash

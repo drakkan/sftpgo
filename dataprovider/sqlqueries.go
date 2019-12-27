@@ -36,6 +36,10 @@ func getUsersQuery(order string, username string) string {
 		order, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
+func getDumpUsersQuery() string {
+	return fmt.Sprintf(`SELECT %v FROM %v`, selectUserFields, config.UsersTable)
+}
+
 func getUpdateQuotaQuery(reset bool) string {
 	if reset {
 		return fmt.Sprintf(`UPDATE %v SET used_quota_size = %v,used_quota_files = %v,last_quota_update = %v

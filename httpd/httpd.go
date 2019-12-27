@@ -24,17 +24,21 @@ const (
 	userPath              = "/api/v1/user"
 	versionPath           = "/api/v1/version"
 	providerStatusPath    = "/api/v1/providerstatus"
+	dumpDataPath          = "/api/v1/dumpdata"
+	loadDataPath          = "/api/v1/loaddata"
 	metricsPath           = "/metrics"
 	webBasePath           = "/web"
 	webUsersPath          = "/web/users"
 	webUserPath           = "/web/user"
 	webConnectionsPath    = "/web/connections"
 	webStaticFilesPath    = "/static"
+	maxRestoreSize        = 10485760 // 10 MB
 )
 
 var (
 	router       *chi.Mux
 	dataProvider dataprovider.Provider
+	backupsPath  string
 )
 
 // Conf httpd daemon configuration
@@ -47,6 +51,13 @@ type Conf struct {
 	TemplatesPath string `json:"templates_path" mapstructure:"templates_path"`
 	// Path to the static files for the web interface. This can be an absolute path or a path relative to the config dir
 	StaticFilesPath string `json:"static_files_path" mapstructure:"static_files_path"`
+	// Path to the backup directory. This can be an absolute path or a path relative to the config dir
+	BackupsPath string `json:"backups_path" mapstructure:"backups_path"`
+}
+
+// BackupData defines the structure for the backup/restore files
+type BackupData struct {
+	Users []dataprovider.User `json:"users"`
 }
 
 type apiResponse struct {
@@ -63,6 +74,10 @@ func SetDataProvider(provider dataprovider.Provider) {
 // Initialize the HTTP server
 func (c Conf) Initialize(configDir string) error {
 	logger.Debug(logSender, "", "initializing HTTP server with config %+v", c)
+	backupsPath = c.BackupsPath
+	if !filepath.IsAbs(backupsPath) {
+		backupsPath = filepath.Join(configDir, backupsPath)
+	}
 	staticFilesPath := c.StaticFilesPath
 	if !filepath.IsAbs(staticFilesPath) {
 		staticFilesPath = filepath.Join(configDir, staticFilesPath)

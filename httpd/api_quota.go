@@ -26,8 +26,16 @@ func startQuotaScan(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusNotFound)
 		return
 	}
-	if sftpd.AddQuotaScan(user.Username) {
+	if doQuotaScan(user) {
 		sendAPIResponse(w, r, err, "Scan started", http.StatusCreated)
+	} else {
+		sendAPIResponse(w, r, err, "Another scan is already in progress", http.StatusConflict)
+	}
+}
+
+func doQuotaScan(user dataprovider.User) bool {
+	result := sftpd.AddQuotaScan(user.Username)
+	if result {
 		go func() {
 			numFiles, size, _, err := utils.ScanDirContents(user.HomeDir)
 			if err != nil {
@@ -38,7 +46,6 @@ func startQuotaScan(w http.ResponseWriter, r *http.Request) {
 			}
 			sftpd.RemoveQuotaScan(user.Username)
 		}()
-	} else {
-		sendAPIResponse(w, r, err, "Another scan is already in progress", http.StatusConflict)
 	}
+	return result
 }

@@ -176,19 +176,27 @@ func TestApiCallsWithBadURL(t *testing.T) {
 	u := dataprovider.User{}
 	_, _, err := UpdateUser(u, http.StatusBadRequest)
 	if err == nil {
-		t.Errorf("request with invalid URL must fail")
+		t.Error("request with invalid URL must fail")
 	}
 	_, err = RemoveUser(u, http.StatusNotFound)
 	if err == nil {
-		t.Errorf("request with invalid URL must fail")
+		t.Error("request with invalid URL must fail")
 	}
 	_, _, err = GetUsers(1, 0, "", http.StatusBadRequest)
 	if err == nil {
-		t.Errorf("request with invalid URL must fail")
+		t.Error("request with invalid URL must fail")
 	}
 	_, err = CloseConnection("non_existent_id", http.StatusNotFound)
 	if err == nil {
-		t.Errorf("request with invalid URL must fail")
+		t.Error("request with invalid URL must fail")
+	}
+	_, _, err = Dumpdata("backup.json", http.StatusBadRequest)
+	if err == nil {
+		t.Error("request with invalid URL must fail")
+	}
+	_, _, err = Loaddata("/tmp/backup.json", "", http.StatusBadRequest)
+	if err == nil {
+		t.Error("request with invalid URL must fail")
 	}
 	SetBaseURL(oldBaseURL)
 }
@@ -238,6 +246,14 @@ func TestApiCallToNotListeningServer(t *testing.T) {
 		t.Errorf("request to an inactive URL must fail")
 	}
 	_, _, err = GetProviderStatus(http.StatusOK)
+	if err == nil {
+		t.Errorf("request to an inactive URL must fail")
+	}
+	_, _, err = Dumpdata("backup.json", http.StatusOK)
+	if err == nil {
+		t.Errorf("request to an inactive URL must fail")
+	}
+	_, _, err = Loaddata("/tmp/backup.json", "", http.StatusOK)
 	if err == nil {
 		t.Errorf("request to an inactive URL must fail")
 	}

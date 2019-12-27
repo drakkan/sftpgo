@@ -304,6 +304,28 @@ func (p BoltProvider) deleteUser(user User) error {
 	})
 }
 
+func (p BoltProvider) dumpUsers() ([]User, error) {
+	users := []User{}
+	var err error
+	err = p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, _, err := getBuckets(tx)
+		if err != nil {
+			return err
+		}
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var user User
+			err = json.Unmarshal(v, &user)
+			if err != nil {
+				return err
+			}
+			users = append(users, user)
+		}
+		return err
+	})
+	return users, err
+}
+
 func (p BoltProvider) getUsers(limit int, offset int, order string, username string) ([]User, error) {
 	users := []User{}
 	var err error

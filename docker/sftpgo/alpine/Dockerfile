@@ -10,7 +10,7 @@ RUN go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/utils.commit=`git d
 FROM alpine:latest
 
 RUN apk add --no-cache ca-certificates su-exec \
-  && mkdir -p /data /etc/sftpgo /srv/sftpgo/config /srv/sftpgo/web
+  && mkdir -p /data /etc/sftpgo /srv/sftpgo/config /srv/sftpgo/web /srv/sftpgo/backups
 
 # git and rsync are optional, uncomment the next line to add support for them if needed
 #RUN apk add --no-cache git rsync
@@ -22,7 +22,7 @@ COPY --from=builder /go/src/github.com/drakkan/sftpgo/static /srv/sftpgo/web/sta
 COPY docker-entrypoint.sh /bin/entrypoint.sh
 RUN chmod +x /bin/entrypoint.sh
 
-VOLUME [ "/data", "/srv/sftpgo/config" ]
+VOLUME [ "/data", "/srv/sftpgo/config", "/srv/sftpgo/backups" ]
 EXPOSE 2022 8080
 
 ENTRYPOINT ["/bin/entrypoint.sh"]

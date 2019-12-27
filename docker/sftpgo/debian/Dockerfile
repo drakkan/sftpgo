@@ -16,6 +16,7 @@ FROM debian:latest
 ARG BASE_DIR=/app
 ARG DATA_REL_DIR=data
 ARG CONFIG_REL_DIR=config
+ARG BACKUP_REL_DIR=backups
 ARG USERNAME=sftpgo
 ARG GROUPNAME=sftpgo
 ARG UID=515
@@ -28,9 +29,11 @@ ENV HOME_DIR=${BASE_DIR}/${USERNAME}
 ENV DATA_DIR=${BASE_DIR}/${DATA_REL_DIR}
 # CONFIG_DIR, this is a volume to persist the daemon private keys, configuration file ecc..
 ENV CONFIG_DIR=${BASE_DIR}/${CONFIG_REL_DIR}
+# BACKUPS_DIR, this is a volume to store backups done using "dumpdata" REST API
+ENV BACKUPS_DIR=${BASE_DIR}/${BACKUP_REL_DIR}
 ENV WEB_DIR=${BASE_DIR}/${WEB_REL_PATH}
 
-RUN mkdir -p ${DATA_DIR} ${CONFIG_DIR} ${WEB_DIR}
+RUN mkdir -p ${DATA_DIR} ${CONFIG_DIR} ${WEB_DIR} ${BACKUPS_DIR}
 RUN groupadd --system -g ${GID} ${GROUPNAME}
 RUN useradd --system --create-home --no-log-init --home-dir ${HOME_DIR} --comment "SFTPGo user" --shell /bin/false --gid ${GID} --uid ${UID} ${USERNAME}
 
@@ -43,7 +46,7 @@ COPY --from=buildenv /go/src/github.com/drakkan/sftpgo/sftpgo bin/sftpgo
 COPY --from=buildenv /go/src/github.com/drakkan/sftpgo/sftpgo.json .config/sftpgo/
 COPY --from=buildenv /go/src/github.com/drakkan/sftpgo/templates ${WEB_DIR}/templates
 COPY --from=buildenv /go/src/github.com/drakkan/sftpgo/static ${WEB_DIR}/static
-RUN chown -R ${UID}:${GID} ${DATA_DIR}
+RUN chown -R ${UID}:${GID} ${DATA_DIR} ${BACKUPS_DIR}
 
 # run as non root user
 USER ${USERNAME}
@@ -51,7 +54,7 @@ USER ${USERNAME}
 EXPOSE 2022 8080
 
 # the defined volumes must have write access for the UID and GID defined above
-VOLUME [ "$DATA_DIR", "$CONFIG_DIR" ]
+VOLUME [ "$DATA_DIR", "$CONFIG_DIR", "$BACKUPS_DIR" ]
 
 # override some default configuration options using env vars
 ENV SFTPGO_CONFIG_DIR=${CONFIG_DIR}
@@ -61,6 +64,7 @@ ENV SFTPGO_HTTPD__BIND_ADDRESS=""
 ENV SFTPGO_HTTPD__TEMPLATES_PATH=${WEB_DIR}/templates
 ENV SFTPGO_HTTPD__STATIC_FILES_PATH=${WEB_DIR}/static
 ENV SFTPGO_DATA_PROVIDER__USERS_BASE_DIR=${DATA_DIR}
+ENV SFTPGO_HTTPD__BACKUPS_PATH=${BACKUPS_DIR}
 
 ENTRYPOINT ["sftpgo"]
 CMD ["serve"]

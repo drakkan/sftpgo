@@ -2,8 +2,10 @@ package httpd_test
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -40,6 +42,8 @@ const (
 	quotaScanPath         = "/api/v1/quota_scan"
 	versionPath           = "/api/v1/version"
 	providerStatusPath    = "/api/v1/providerstatus"
+	dumpDataPath          = "/api/v1/dumpdata"
+	loadDataPath          = "/api/v1/loaddata"
 	metricsPath           = "/metrics"
 	webBasePath           = "/web"
 	webUsersPath          = "/web/users"
@@ -51,16 +55,13 @@ const (
 var (
 	defaultPerms       = []string{dataprovider.PermAny}
 	homeBasePath       string
+	backupsPath        string
 	testServer         *httptest.Server
 	providerDriverName string
 )
 
 func TestMain(m *testing.M) {
-	if runtime.GOOS == "windows" {
-		homeBasePath = "C:\\"
-	} else {
-		homeBasePath = "/tmp"
-	}
+	homeBasePath = os.TempDir()
 	logfilePath := filepath.Join(configDir, "sftpgo_api_test.log")
 	logger.InitLogger(logfilePath, 5, 1, 28, false, zerolog.DebugLevel)
 	config.LoadConfig(configDir, "")
@@ -77,6 +78,11 @@ func TestMain(m *testing.M) {
 
 	httpdConf.BindPort = 8081
 	httpd.SetBaseURL("http://127.0.0.1:8081")
+	httpdConf.BackupsPath = "test_backups"
+	currentPath, _ := os.Getwd()
+	backupsPath = filepath.Join(currentPath, "..", httpdConf.BackupsPath)
+	logger.DebugToConsole("aaa: %v", backupsPath)
+	os.MkdirAll(backupsPath, 0777)
 
 	sftpd.SetDataProvider(dataProvider)
 	httpd.SetDataProvider(dataProvider)
@@ -96,6 +102,7 @@ func TestMain(m *testing.M) {
 
 	exitCode := m.Run()
 	os.Remove(logfilePath)
+	os.RemoveAll(backupsPath)
 	os.Exit(exitCode)
 }
 
@@ -541,6 +548,22 @@ func TestProviderErrors(t *testing.T) {
 	if err != nil {
 		t.Errorf("get provider status with provider closed must fail: %v", err)
 	}
+	_, _, err = httpd.Dumpdata("backup.json", http.StatusInternalServerError)
+	if err != nil {
+		t.Errorf("get provider status with provider closed must fail: %v", err)
+	}
+	user := getTestUser()
+	user.ID = 1
+	backupData := httpd.BackupData{}
+	backupData.Users = append(backupData.Users, user)
+	backupContent, _ := json.Marshal(backupData)
+	backupFilePath := filepath.Join(backupsPath, "backup.json")
+	ioutil.WriteFile(backupFilePath, backupContent, 0666)
+	_, _, err = httpd.Loaddata(backupFilePath, "", http.StatusInternalServerError)
+	if err != nil {
+		t.Errorf("get provider status with provider closed must fail: %v", err)
+	}
+	os.Remove(backupFilePath)
 	config.LoadConfig(configDir, "")
 	providerConf := config.GetProviderConf()
 	err = dataprovider.Initialize(providerConf, configDir)
@@ -549,6 +572,100 @@ func TestProviderErrors(t *testing.T) {
 	}
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
+}
+
+func TestDumpdata(t *testing.T) {
+	_, _, err := httpd.Dumpdata("", http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	_, _, err = httpd.Dumpdata(filepath.Join(backupsPath, "backup.json"), http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	_, _, err = httpd.Dumpdata("../backup.json", http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	_, _, err = httpd.Dumpdata("backup.json", http.StatusOK)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	os.Remove(filepath.Join(backupsPath, "backup.json"))
+	if runtime.GOOS != "windows" {
+		os.Chmod(backupsPath, 0001)
+		_, _, err = httpd.Dumpdata("bck.json", http.StatusInternalServerError)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		os.Chmod(backupsPath, 0755)
+	}
+}
+
+func TestLoaddata(t *testing.T) {
+	user := getTestUser()
+	user.ID = 1
+	user.Username = "test_user_restore"
+	backupData := httpd.BackupData{}
+	backupData.Users = append(backupData.Users, user)
+	backupContent, _ := json.Marshal(backupData)
+	backupFilePath := filepath.Join(backupsPath, "backup.json")
+	ioutil.WriteFile(backupFilePath, backupContent, 0666)
+	_, _, err := httpd.Loaddata(backupFilePath, "a", http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	_, _, err = httpd.Loaddata("backup.json", "1", http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	_, _, err = httpd.Loaddata(backupFilePath+"a", "1", http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if runtime.GOOS != "windows" {
+		os.Chmod(backupFilePath, 0111)
+		_, _, err = httpd.Loaddata(backupFilePath, "1", http.StatusInternalServerError)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		os.Chmod(backupFilePath, 0644)
+	}
+	// add user from backup
+	_, _, err = httpd.Loaddata(backupFilePath, "1", http.StatusOK)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	// update user from backup
+	_, _, err = httpd.Loaddata(backupFilePath, "2", http.StatusOK)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	users, _, err := httpd.GetUsers(1, 0, user.Username, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to get users: %v", err)
+	}
+	if len(users) != 1 {
+		t.Error("Unable to get restored user")
+	}
+	user = users[0]
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.Remove(backupFilePath)
+	createTestFile(backupFilePath, 10485761)
+	_, _, err = httpd.Loaddata(backupFilePath, "1", http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	os.Remove(backupFilePath)
+	createTestFile(backupFilePath, 65535)
+	_, _, err = httpd.Loaddata(backupFilePath, "1", http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	os.Remove(backupFilePath)
 }
 
 // test using mock http server
@@ -1292,4 +1409,17 @@ func checkResponseCode(t *testing.T, expected, actual int) {
 	if expected != actual {
 		t.Errorf("Expected response code %d. Got %d", expected, actual)
 	}
+}
+
+func createTestFile(path string, size int64) error {
+	baseDir := filepath.Dir(path)
+	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
+		os.MkdirAll(baseDir, 0777)
+	}
+	content := make([]byte, size)
+	_, err := rand.Read(content)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(path, content, 0666)
 }

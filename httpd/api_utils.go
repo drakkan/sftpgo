@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -65,6 +66,9 @@ func getRespStatus(err error) int {
 	}
 	if _, ok := err.(*dataprovider.MethodDisabledError); ok {
 		return http.StatusForbidden
+	}
+	if os.IsNotExist(err) {
+		return http.StatusBadRequest
 	}
 	return http.StatusInternalServerError
 }
@@ -298,6 +302,62 @@ func GetProviderStatus(expectedStatusCode int) (map[string]interface{}, []byte, 
 	defer resp.Body.Close()
 	err = checkResponse(resp.StatusCode, expectedStatusCode)
 	if err == nil && (expectedStatusCode == http.StatusOK || expectedStatusCode == http.StatusInternalServerError) {
+		err = render.DecodeJSON(resp.Body, &response)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return response, body, err
+}
+
+// Dumpdata requests a backup to outputFile.
+// outputFile is relative to the configured backups_path
+func Dumpdata(outputFile string, expectedStatusCode int) (map[string]interface{}, []byte, error) {
+	var response map[string]interface{}
+	var body []byte
+	url, err := url.Parse(buildURLRelativeToBase(dumpDataPath))
+	if err != nil {
+		return response, body, err
+	}
+	q := url.Query()
+	q.Add("output_file", outputFile)
+	url.RawQuery = q.Encode()
+	resp, err := getHTTPClient().Get(url.String())
+	if err != nil {
+		return response, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &response)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return response, body, err
+}
+
+// Loaddata restores a backup.
+// New users are added, existing users are updated. Users will be restored one by one and the restore is stopped if a
+// user cannot be added/updated, so it could happen a partial restore
+func Loaddata(inputFile, scanQuota string, expectedStatusCode int) (map[string]interface{}, []byte, error) {
+	var response map[string]interface{}
+	var body []byte
+	url, err := url.Parse(buildURLRelativeToBase(loadDataPath))
+	if err != nil {
+		return response, body, err
+	}
+	q := url.Query()
+	q.Add("input_file", inputFile)
+	if len(scanQuota) > 0 {
+		q.Add("scan_quota", scanQuota)
+	}
+	url.RawQuery = q.Encode()
+	resp, err := getHTTPClient().Get(url.String())
+	if err != nil {
+		return response, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
 		err = render.DecodeJSON(resp.Body, &response)
 	} else {
 		body, _ = getResponseBody(resp)

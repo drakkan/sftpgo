@@ -87,6 +87,7 @@ func init() {
 			BindAddress:     "127.0.0.1",
 			TemplatesPath:   "templates",
 			StaticFilesPath: "static",
+			BackupsPath:     "backups",
 		},
 	}
 

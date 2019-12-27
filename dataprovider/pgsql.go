@@ -87,6 +87,10 @@ func (p PGSQLProvider) deleteUser(user User) error {
 	return sqlCommonDeleteUser(user, p.dbHandle)
 }
 
+func (p PGSQLProvider) dumpUsers() ([]User, error) {
+	return sqlCommonDumpUsers(p.dbHandle)
+}
+
 func (p PGSQLProvider) getUsers(limit int, offset int, order string, username string) ([]User, error) {
 	return sqlCommonGetUsers(limit, offset, order, username, p.dbHandle)
 }
