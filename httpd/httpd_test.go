@@ -81,7 +81,6 @@ func TestMain(m *testing.M) {
 	httpdConf.BackupsPath = "test_backups"
 	currentPath, _ := os.Getwd()
 	backupsPath = filepath.Join(currentPath, "..", httpdConf.BackupsPath)
-	logger.DebugToConsole("aaa: %v", backupsPath)
 	os.MkdirAll(backupsPath, 0777)
 
 	sftpd.SetDataProvider(dataProvider)

@@ -18,5 +18,5 @@ where  `/srv/sftpgo/data`, `/srv/sftpgo/config` and `/srv/sftpgo/backups` are fo
 
 
 ```bash
-chown -R <UID>:<GID> /srv/sftpgo/data /srv/sftpgo/config
+chown -R <UID>:<GID> /srv/sftpgo/data /srv/sftpgo/config /srv/sftpgo/backups
 ```
