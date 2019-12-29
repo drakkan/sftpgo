@@ -32,7 +32,7 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
-	sha512crypt "github.com/nathanaelle/password"
+	unixcrypt "github.com/nathanaelle/password"
 )
 
 const (
@@ -52,6 +52,7 @@ const (
 	pbkdf2SHA1Prefix         = "$pbkdf2-sha1$"
 	pbkdf2SHA256Prefix       = "$pbkdf2-sha256$"
 	pbkdf2SHA512Prefix       = "$pbkdf2-sha512$"
+	md5cryptPwdPrefix        = "$1$"
 	sha512cryptPwdPrefix     = "$6$"
 	manageUsersDisabledError = "please set manage_users to 1 in your configuration to enable this method"
 	trackQuotaDisabledError  = "please enable track_quota in your configuration to use this method"
@@ -71,11 +72,13 @@ var (
 	provider        Provider
 	sqlPlaceholders []string
 	hashPwdPrefixes = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
-		pbkdf2SHA512Prefix, sha512cryptPwdPrefix}
+		pbkdf2SHA512Prefix, md5cryptPwdPrefix, sha512cryptPwdPrefix}
 	pbkdfPwdPrefixes       = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
+	unixPwdPrefixes        = []string{md5cryptPwdPrefix, sha512cryptPwdPrefix}
 	logSender              = "dataProvider"
 	availabilityTicker     *time.Ticker
 	availabilityTickerDone chan bool
+	errWrongPassword       = errors.New("password does not match")
 )
 
 // Actions to execute on user create, update, delete.
@@ -435,7 +438,7 @@ func checkUserAndPass(user User, password string) (User, error) {
 	if len(user.Password) == 0 {
 		return user, errors.New("Credentials cannot be null or empty")
 	}
-	var match bool
+	match := false
 	if strings.HasPrefix(user.Password, argonPwdPrefix) {
 		match, err = argon2id.ComparePasswordAndHash(password, user.Password)
 		if err != nil {
@@ -451,22 +454,13 @@ func checkUserAndPass(user User, password string) (User, error) {
 	} else if utils.IsStringPrefixInSlice(user.Password, pbkdfPwdPrefixes) {
 		match, err = comparePbkdf2PasswordAndHash(password, user.Password)
 		if err != nil {
-			providerLog(logger.LevelWarn, "error comparing password with pbkdf2 sha256 hash: %v", err)
 			return user, err
 		}
-	} else if strings.HasPrefix(user.Password, sha512cryptPwdPrefix) {
-		crypter, ok := sha512crypt.SHA512.CrypterFound(user.Password)
-		if !ok {
-			err = errors.New("cannot found matching SHA512 crypter")
-			providerLog(logger.LevelWarn, "error comparing password with SHA512 hash: %v", err)
+	} else if utils.IsStringPrefixInSlice(user.Password, unixPwdPrefixes) {
+		match, err = compareUnixPasswordAndHash(user, password)
+		if err != nil {
 			return user, err
 		}
-		if !crypter.Verify([]byte(password)) {
-			err = errors.New("password does not match")
-			providerLog(logger.LevelWarn, "error comparing password with SHA512 hash: %v", err)
-			return user, err
-		}
-		match = true
 	}
 	if !match {
 		err = errors.New("Invalid credentials")
@@ -494,6 +488,37 @@ func checkUserAndPubKey(user User, pubKey string) (User, string, error) {
 		}
 	}
 	return user, "", errors.New("Invalid credentials")
+}
+
+func compareUnixPasswordAndHash(user User, password string) (bool, error) {
+	match := false
+	var err error
+	if strings.HasPrefix(user.Password, sha512cryptPwdPrefix) {
+		crypter, ok := unixcrypt.SHA512.CrypterFound(user.Password)
+		if !ok {
+			err = errors.New("cannot found matching SHA512 crypter")
+			providerLog(logger.LevelWarn, "error comparing password with SHA512 crypt hash: %v", err)
+			return match, err
+		}
+		if !crypter.Verify([]byte(password)) {
+			return match, errWrongPassword
+		}
+		match = true
+	} else if strings.HasPrefix(user.Password, md5cryptPwdPrefix) {
+		crypter, ok := unixcrypt.MD5.CrypterFound(user.Password)
+		if !ok {
+			err = errors.New("cannot found matching MD5 crypter")
+			providerLog(logger.LevelWarn, "error comparing password with MD5 crypt hash: %v", err)
+			return match, err
+		}
+		if !crypter.Verify([]byte(password)) {
+			return match, errWrongPassword
+		}
+		match = true
+	} else {
+		err = errors.New("unix crypt: invalid or unsupported hash format")
+	}
+	return match, err
 }
 
 func comparePbkdf2PasswordAndHash(password, hashedPassword string) (bool, error) {

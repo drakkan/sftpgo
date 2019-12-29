@@ -1694,6 +1694,39 @@ func TestPasswordsHashSHA512Crypt(t *testing.T) {
 	os.RemoveAll(user.GetHomeDir())
 }
 
+func TestPasswordsHashMD5Crypt(t *testing.T) {
+	md5CryptPwd := "$1$b5caebda$VODr/nyhGWgZaY8sJ4x05."
+	clearPwd := "password"
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Password = md5CryptPwd
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	user.Password = clearPwd
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to login with md5 crypt password: %v", err)
+	} else {
+		defer client.Close()
+		_, err = client.Getwd()
+		if err != nil {
+			t.Errorf("unable to get working dir with md5 crypt password: %v", err)
+		}
+	}
+	user.Password = md5CryptPwd
+	_, err = getSftpClient(user, usePubKey)
+	if err == nil {
+		t.Errorf("login with wrong password must fail")
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+}
+
 func TestPermList(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)

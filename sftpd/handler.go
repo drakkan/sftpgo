@@ -150,8 +150,6 @@ func (c Connection) Filecmd(request *sftp.Request) error {
 		return err
 	}
 
-	isHomeDir := c.User.GetRelativePath(p) == "/"
-
 	c.Log(logger.LevelDebug, logSender, "new cmd, method: %v, sourcePath: %#v, targetPath: %#v", request.Method,
 		p, target)
 
@@ -159,19 +157,11 @@ func (c Connection) Filecmd(request *sftp.Request) error {
 	case "Setstat":
 		return c.handleSFTPSetstat(p, request)
 	case "Rename":
-		if isHomeDir {
-			c.Log(logger.LevelWarn, logSender, "renaming root dir is not allowed")
-			return sftp.ErrSSHFxPermissionDenied
-		}
 		if err = c.handleSFTPRename(p, target); err != nil {
 			return err
 		}
 		break
 	case "Rmdir":
-		if isHomeDir {
-			c.Log(logger.LevelWarn, logSender, "removing root dir is not allowed")
-			return sftp.ErrSSHFxPermissionDenied
-		}
 		return c.handleSFTPRmdir(p)
 
 	case "Mkdir":
@@ -181,10 +171,6 @@ func (c Connection) Filecmd(request *sftp.Request) error {
 		}
 		break
 	case "Symlink":
-		if isHomeDir {
-			c.Log(logger.LevelWarn, logSender, "symlinking root dir is not allowed")
-			return sftp.ErrSSHFxPermissionDenied
-		}
 		if err = c.handleSFTPSymlink(p, target); err != nil {
 			return err
 		}
@@ -324,6 +310,10 @@ func (c Connection) handleSFTPSetstat(path string, request *sftp.Request) error 
 }
 
 func (c Connection) handleSFTPRename(sourcePath string, targetPath string) error {
+	if c.User.GetRelativePath(sourcePath) == "/" {
+		c.Log(logger.LevelWarn, logSender, "renaming root dir is not allowed")
+		return sftp.ErrSSHFxPermissionDenied
+	}
 	if !c.User.HasPerm(dataprovider.PermRename, filepath.Dir(targetPath)) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
@@ -337,6 +327,10 @@ func (c Connection) handleSFTPRename(sourcePath string, targetPath string) error
 }
 
 func (c Connection) handleSFTPRmdir(path string) error {
+	if c.User.GetRelativePath(path) == "/" {
+		c.Log(logger.LevelWarn, logSender, "removing root dir is not allowed")
+		return sftp.ErrSSHFxPermissionDenied
+	}
 	if !c.User.HasPerm(dataprovider.PermDelete, filepath.Dir(path)) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
@@ -362,6 +356,10 @@ func (c Connection) handleSFTPRmdir(path string) error {
 }
 
 func (c Connection) handleSFTPSymlink(sourcePath string, targetPath string) error {
+	if c.User.GetRelativePath(sourcePath) == "/" {
+		c.Log(logger.LevelWarn, logSender, "symlinking root dir is not allowed")
+		return sftp.ErrSSHFxPermissionDenied
+	}
 	if !c.User.HasPerm(dataprovider.PermCreateSymlinks, filepath.Dir(targetPath)) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
