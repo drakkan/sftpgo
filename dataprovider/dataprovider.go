@@ -353,6 +353,9 @@ func buildUserHomeDir(user *User) {
 }
 
 func validatePermissions(user *User) error {
+	if len(user.Permissions) == 0 {
+		return &ValidationError{err: "Please grant some permissions to this user"}
+	}
 	permissions := make(map[string][]string)
 	if _, ok := user.Permissions["/"]; !ok {
 		return &ValidationError{err: fmt.Sprintf("Permissions for the root dir \"/\" must be set")}
@@ -390,9 +393,6 @@ func validateUser(user *User) error {
 	}
 	if len(user.Password) == 0 && len(user.PublicKeys) == 0 {
 		return &ValidationError{err: "Please set a password or at least a public_key"}
-	}
-	if len(user.Permissions) == 0 {
-		return &ValidationError{err: "Please grant some permissions to this user"}
 	}
 	if !filepath.IsAbs(user.HomeDir) {
 		return &ValidationError{err: fmt.Sprintf("home_dir must be an absolute path, actual value: %v", user.HomeDir)}

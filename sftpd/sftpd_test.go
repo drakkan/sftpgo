@@ -1,6 +1,7 @@
 package sftpd_test
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
@@ -94,14 +95,15 @@ var (
 	pubKeyPath     string
 	privateKeyPath string
 	gitWrapPath    string
+	logFilePath    string
 )
 
 func TestMain(m *testing.M) {
-	logfilePath := filepath.Join(configDir, "sftpgo_sftpd_test.log")
+	logFilePath = filepath.Join(configDir, "sftpgo_sftpd_test.log")
 	loginBannerFileName := "login_banner"
 	loginBannerFile := filepath.Join(configDir, loginBannerFileName)
 	ioutil.WriteFile(loginBannerFile, []byte("simple login banner\n"), 0777)
-	logger.InitLogger(logfilePath, 5, 1, 28, false, zerolog.DebugLevel)
+	logger.InitLogger(logFilePath, 5, 1, 28, false, zerolog.DebugLevel)
 	config.LoadConfig(configDir, "")
 	providerConf := config.GetProviderConf()
 
@@ -195,7 +197,7 @@ func TestMain(m *testing.M) {
 	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
 
 	exitCode := m.Run()
-	os.Remove(logfilePath)
+	os.Remove(logFilePath)
 	os.Remove(loginBannerFile)
 	os.Remove(pubKeyPath)
 	os.Remove(privateKeyPath)
@@ -2736,6 +2738,9 @@ func TestBasicGitCommands(t *testing.T) {
 	out, err = pushToGitRepo(clonePath)
 	if err != nil {
 		t.Errorf("unexpected error: %v out: %v", err, string(out))
+		printLatestLogs(10)
+		out, err = pushToGitRepo(clonePath)
+		logger.DebugToConsole("new push out: %v, err: %v", string(out), err)
 	}
 	err = waitQuotaScans()
 	if err != nil {
@@ -3918,4 +3923,27 @@ func addFileToGitRepo(repoPath string, fileSize int64) ([]byte, error) {
 	cmd = exec.Command(gitPath, "commit", "-am", "test")
 	cmd.Dir = repoPath
 	return cmd.CombinedOutput()
+}
+
+func printLatestLogs(maxNumberOfLines int) {
+	var lines []string
+	f, err := os.Open(logFilePath)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text()+"\r\n")
+		for len(lines) > maxNumberOfLines {
+			lines = lines[1:]
+		}
+	}
+	if scanner.Err() != nil {
+		logger.WarnToConsole("Unable to print latest logs: %v", scanner.Err())
+		return
+	}
+	for _, line := range lines {
+		logger.DebugToConsole(line)
+	}
 }
