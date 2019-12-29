@@ -34,7 +34,7 @@ Regularly the test cases are manually executed and pass on Windows. Other UNIX v
 
 ## Requirements
 
-- Go 1.12 or higher as build only dependency.
+- Go 1.13 or higher as build only dependency.
 - A suitable SQL server or key/value store to use as data provider: PostreSQL 9.4+ or MySQL 5.6+ or SQLite 3.x or bbolt 1.3.x
 
 ## Installation

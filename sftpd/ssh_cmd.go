@@ -261,7 +261,8 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 		w, e := transfer.copyFromReaderToWriter(c.connection.channel.Stderr(), stderr, 0)
 		c.connection.Log(logger.LevelDebug, logSenderSSH, "command: %#v, copy from sdterr to remote command ended, written: %v err: %v",
 			c.connection.command, w, e)
-		if e != nil || w > 0 {
+		// os.ErrClosed means that the command is finished so we don't need to to nothing
+		if (e != nil && !errors.Is(e, os.ErrClosed)) || w > 0 {
 			once.Do(closeCmdOnError)
 		}
 	}()
