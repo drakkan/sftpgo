@@ -355,6 +355,38 @@ Output:
 }
 ```
 
+### Convert users from other stores
+
+You can convert users to the SFTPGo format from the following users stores:
+
+- Linux/Unix users stored in `shadow`/`passwd` files
+- Pure-FTPd virtual users generated using `pure-pw` CLI
+- ProFTPD users generated using `ftpasswd` CLI
+
+For details give a look at the `convert-users` subcommand usage:
+
+```
+python sftpgo_api_cli.py convert-users --help
+```
+
+Let's see some examples:
+
+```
+python sftpgo_api_cli.py convert-users "" unix-passwd unix_users.json --min-uid 500 --force-uid 1000 --force-gid 1000
+```
+
+```
+python sftpgo_api_cli.py convert-users pureftpd.passwd pure-ftpd pure_users.json --usernames "user1" "user2"
+```
+
+```
+python sftpgo_api_cli.py convert-users proftpd.passwd proftpd pro_users.json
+```
+
+The json file generated using the `convert-users` subcommand can be used as input for the `loaddata` subcommand.
+
+Please note that when importing Linux/Unix users the input file is not required: `/etc/passwd` and `/etc/shadow` are automatically parsed. `/etc/shadow` read permission is is typically granted to the `root` user, so you need to execute the `convert-users` subcommand as `root`.
+
 ### Colors highlight for Windows command prompt
 
 If your Windows command prompt does not recognize ANSI/VT100 escape sequences you can download [ANSICON](https://github.com/adoxa/ansicon "ANSICON") extract proper files depending on your Windows OS, and install them using `ansicon -i`.

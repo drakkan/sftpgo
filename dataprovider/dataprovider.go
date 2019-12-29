@@ -410,6 +410,9 @@ func validateUser(user *User) error {
 		}
 		user.Password = pwd
 	}
+	if len(user.PublicKeys) == 0 {
+		user.PublicKeys = []string{}
+	}
 	for i, k := range user.PublicKeys {
 		_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
 		if err != nil {
