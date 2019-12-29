@@ -69,10 +69,13 @@ class SFTPGoApiRequests:
 			"max_sessions":max_sessions, "quota_size":quota_size, "quota_files":quota_files,
 			"upload_bandwidth":upload_bandwidth, "download_bandwidth":download_bandwidth,
 			"status":status, "expiration_date":expiration_date}
-		if password:
+		if password is not None:
 			user.update({"password":password})
 		if public_keys:
-			user.update({"public_keys":public_keys})
+			if len(public_keys) == 1 and not public_keys[0]:
+				user.update({"public_keys":[]})
+			else:
+				user.update({"public_keys":public_keys})
 		if home_dir:
 			user.update({"home_dir":home_dir})
 		if permissions:
@@ -180,7 +183,7 @@ def getDatetimeAsMillisSinceEpoch(dt):
 
 def addCommonUserArguments(parser):
 	parser.add_argument('username', type=str)
-	parser.add_argument('-P', '--password', type=str, default="", help='Default: %(default)s')
+	parser.add_argument('-P', '--password', type=str, default=None, help='Default: %(default)s')
 	parser.add_argument('-K', '--public-keys', type=str, nargs='+', default=[], help='Default: %(default)s')
 	parser.add_argument('-H', '--home-dir', type=str, default="", help='Default: %(default)s')
 	parser.add_argument('--uid', type=int, default=0, help='Default: %(default)s')
@@ -269,7 +272,7 @@ if __name__ == '__main__':
 
 	parserLoadData = subparsers.add_parser('loaddata', help='Restore SFTPGo data from a JSON backup')
 	parserLoadData.add_argument('input_file', type=str)
-	parserLoadData.add_argument('-q', '--scan-quota', type=int, choices=[0, 1, 2], default=0,
+	parserLoadData.add_argument('-Q', '--scan-quota', type=int, choices=[0, 1, 2], default=0,
 							help='0 means no quota scan after a user is added/updated. 1 means always scan quota. 2 ' +
 							'means scan quota if the user has quota restrictions. Default: %(default)s')
 

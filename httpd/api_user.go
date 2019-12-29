@@ -74,6 +74,7 @@ func getUserByID(w http.ResponseWriter, r *http.Request) {
 
 func addUser(w http.ResponseWriter, r *http.Request) {
 	var user dataprovider.User
+	user.PublicKeys = []string{}
 	err := render.DecodeJSON(r.Body, &user)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
@@ -84,7 +85,6 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 		user, err = dataprovider.UserExists(dataProvider, user.Username)
 		if err == nil {
 			user.Password = ""
-			user.PublicKeys = []string{}
 			render.JSON(w, r, user)
 		} else {
 			sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
