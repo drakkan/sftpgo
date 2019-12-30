@@ -184,12 +184,12 @@ func getUserPermissionsFromPostFields(r *http.Request) map[string][]string {
 	permissions := make(map[string][]string)
 	permissions["/"] = r.Form["permissions"]
 	subDirsPermsValue := r.Form.Get("sub_dirs_permissions")
-	for _, v := range strings.Split(subDirsPermsValue, "\n") {
-		cleaned := strings.TrimSpace(v)
-		if len(cleaned) > 0 && strings.ContainsRune(cleaned, ':') {
+	for _, cleaned := range getSliceFromDelimitedValues(subDirsPermsValue, "\n") {
+		if strings.ContainsRune(cleaned, ':') {
 			dirPerms := strings.Split(cleaned, ":")
 			if len(dirPerms) > 1 {
 				dir := dirPerms[0]
+				dir = strings.TrimSpace(dir)
 				perms := []string{}
 				for _, p := range strings.Split(dirPerms[1], ",") {
 					cleanedPerm := strings.TrimSpace(p)
@@ -206,6 +206,24 @@ func getUserPermissionsFromPostFields(r *http.Request) map[string][]string {
 	return permissions
 }
 
+func getSliceFromDelimitedValues(values, delimiter string) []string {
+	result := []string{}
+	for _, v := range strings.Split(values, delimiter) {
+		cleaned := strings.TrimSpace(v)
+		if len(cleaned) > 0 {
+			result = append(result, cleaned)
+		}
+	}
+	return result
+}
+
+func getFiltersFromUserPostFields(r *http.Request) dataprovider.UserFilters {
+	var filters dataprovider.UserFilters
+	filters.AllowedIP = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")
+	filters.DeniedIP = getSliceFromDelimitedValues(r.Form.Get("denied_ip"), ",")
+	return filters
+}
+
 func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	var user dataprovider.User
 	err := r.ParseForm()
@@ -213,13 +231,7 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 		return user, err
 	}
 	publicKeysFormValue := r.Form.Get("public_keys")
-	publicKeys := []string{}
-	for _, v := range strings.Split(publicKeysFormValue, "\n") {
-		cleaned := strings.TrimSpace(v)
-		if len(cleaned) > 0 {
-			publicKeys = append(publicKeys, cleaned)
-		}
-	}
+	publicKeys := getSliceFromDelimitedValues(publicKeysFormValue, "\n")
 	uid, err := strconv.Atoi(r.Form.Get("uid"))
 	if err != nil {
 		return user, err
@@ -276,6 +288,7 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 		DownloadBandwidth: bandwidthDL,
 		Status:            status,
 		ExpirationDate:    expirationDateMillis,
+		Filters:           getFiltersFromUserPostFields(r),
 	}
 	return user, err
 }

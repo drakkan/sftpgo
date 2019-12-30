@@ -3,11 +3,13 @@ package dataprovider
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 )
 
@@ -39,6 +41,17 @@ const (
 	// changing file or directory access and modification time is allowed
 	PermChtimes = "chtimes"
 )
+
+// UserFilters defines additional restrictions for a user
+type UserFilters struct {
+	// only clients connecting from these IP/Mask are allowed.
+	// IP/Mask must be in CIDR notation as defined in RFC 4632 and RFC 4291
+	// for example "192.0.2.0/24" or "2001:db8::/32"
+	AllowedIP []string `json:"allowed_ip"`
+	// clients connecting from these IP/Mask are not allowed.
+	// Denied rules will be evaluated before allowed ones
+	DeniedIP []string `json:"denied_ip"`
+}
 
 // User defines an SFTP user
 type User struct {
@@ -83,6 +96,8 @@ type User struct {
 	DownloadBandwidth int64 `json:"download_bandwidth"`
 	// Last login as unix timestamp in milliseconds
 	LastLogin int64 `json:"last_login"`
+	// Additional restrictions
+	Filters UserFilters `json:"filters"`
 }
 
 // GetPermissionsForPath returns the permissions for the given path
@@ -144,6 +159,41 @@ func (u *User) HasPerms(permissions []string, path string) bool {
 	return true
 }
 
+// IsLoginAllowed return true if the login is allowed from the specified remoteAddr.
+// If AllowedIP is defined only the specified IP/Mask can login.
+// If DeniedIP is defined the specified IP/Mask cannot login.
+// If an IP is both allowed and denied then login will be denied
+func (u *User) IsLoginAllowed(remoteAddr string) bool {
+	if len(u.Filters.AllowedIP) == 0 && len(u.Filters.DeniedIP) == 0 {
+		return true
+	}
+	remoteIP := net.ParseIP(utils.GetIPFromRemoteAddress(remoteAddr))
+	// if remoteIP is invalid we allow login, this should never happen
+	if remoteIP == nil {
+		logger.Warn(logSender, "", "login allowed for invalid IP. remote address: %#v", remoteAddr)
+		return true
+	}
+	for _, IPMask := range u.Filters.DeniedIP {
+		_, IPNet, err := net.ParseCIDR(IPMask)
+		if err != nil {
+			return false
+		}
+		if IPNet.Contains(remoteIP) {
+			return false
+		}
+	}
+	for _, IPMask := range u.Filters.AllowedIP {
+		_, IPNet, err := net.ParseCIDR(IPMask)
+		if err != nil {
+			return false
+		}
+		if IPNet.Contains(remoteIP) {
+			return true
+		}
+	}
+	return len(u.Filters.AllowedIP) == 0
+}
+
 // GetPermissionsAsJSON returns the permissions as json byte array
 func (u *User) GetPermissionsAsJSON() ([]byte, error) {
 	return json.Marshal(u.Permissions)
@@ -152,6 +202,11 @@ func (u *User) GetPermissionsAsJSON() ([]byte, error) {
 // GetPublicKeysAsJSON returns the public keys as json byte array
 func (u *User) GetPublicKeysAsJSON() ([]byte, error) {
 	return json.Marshal(u.PublicKeys)
+}
+
+// GetFiltersAsJSON returns the filters as json byte array
+func (u *User) GetFiltersAsJSON() ([]byte, error) {
+	return json.Marshal(u.Filters)
 }
 
 // GetUID returns a validate uid, suitable for use with os.Chown
@@ -274,6 +329,12 @@ func (u *User) GetInfoString() string {
 	if u.GID > 0 {
 		result += fmt.Sprintf("GID: %v ", u.GID)
 	}
+	if len(u.Filters.DeniedIP) > 0 {
+		result += fmt.Sprintf("Denied IP/Mask: %v ", len(u.Filters.DeniedIP))
+	}
+	if len(u.Filters.AllowedIP) > 0 {
+		result += fmt.Sprintf("Allowed IP/Mask: %v ", len(u.Filters.AllowedIP))
+	}
 	return result
 }
 
@@ -286,6 +347,30 @@ func (u *User) GetExpirationDateAsString() string {
 	return ""
 }
 
+// GetAllowedIPAsString returns the allowed IP as comma separated string
+func (u User) GetAllowedIPAsString() string {
+	result := ""
+	for _, IPMask := range u.Filters.AllowedIP {
+		if len(result) > 0 {
+			result += ","
+		}
+		result += IPMask
+	}
+	return result
+}
+
+// GetDeniedIPAsString returns the denied IP as comma separated string
+func (u User) GetDeniedIPAsString() string {
+	result := ""
+	for _, IPMask := range u.Filters.DeniedIP {
+		if len(result) > 0 {
+			result += ","
+		}
+		result += IPMask
+	}
+	return result
+}
+
 func (u *User) getACopy() User {
 	pubKeys := make([]string, len(u.PublicKeys))
 	copy(pubKeys, u.PublicKeys)
@@ -295,6 +380,12 @@ func (u *User) getACopy() User {
 		copy(perms, v)
 		permissions[k] = perms
 	}
+	filters := UserFilters{}
+	filters.AllowedIP = make([]string, len(u.Filters.AllowedIP))
+	copy(filters.AllowedIP, u.Filters.AllowedIP)
+	filters.DeniedIP = make([]string, len(u.Filters.DeniedIP))
+	copy(filters.DeniedIP, u.Filters.DeniedIP)
+
 	return User{
 		ID:                u.ID,
 		Username:          u.Username,
@@ -315,6 +406,7 @@ func (u *User) getACopy() User {
 		Status:            u.Status,
 		ExpirationDate:    u.ExpirationDate,
 		LastLogin:         u.LastLogin,
+		Filters:           filters,
 	}
 }
 

@@ -14,6 +14,7 @@ Full featured and highly configurable SFTP server
 - Per user maximum concurrent sessions.
 - Per user and per directory permissions: list directories content, upload, overwrite, download, delete, rename, create directories, create symlinks, changing owner/group and mode, changing access and modification times can be enabled or disabled.
 - Per user files/folders ownership: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (*NIX only).
+- Per user IP filters are supported: login can be restricted to specific ranges of IP addresses or to a specific IP address.
 - Configurable custom commands and/or HTTP notifications on file upload, download, delete, rename, on SSH commands and on user add, update and delete.
 - Automatically terminating idle connections.
 - Atomic uploads are configurable.
@@ -388,6 +389,8 @@ For each account the following properties can be configured:
     - `chtimes` changing file or directory access and modification time is allowed
 - `upload_bandwidth` maximum upload bandwidth as KB/s, 0 means unlimited.
 - `download_bandwidth` maximum download bandwidth as KB/s, 0 means unlimited.
+- `allowed_ip`, List of IP/Mask allowed to login. Any IP address not contained in this list cannot login. IP/Mask must be in CIDR notation as defined in RFC 4632 and RFC 4291, for example "192.0.2.0/24" or "2001:db8::/32"
+- `denied_ip`, List of IP/Mask not allowed to login. If an IP address is both allowed and denied then login will be denied
 
 These properties are stored inside the data provider. If you want to use your existing accounts, you can create a database view. Since a view is read only, you have to disable user management and quota tracking so SFTPGo will never try to write to the view.
 

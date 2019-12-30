@@ -352,11 +352,23 @@ func (c Configuration) createHandler(connection Connection) sftp.Handlers {
 	}
 }
 
-func loginUser(user dataprovider.User, loginType string) (*ssh.Permissions, error) {
+func loginUser(user dataprovider.User, loginType string, remoteAddr string) (*ssh.Permissions, error) {
 	if !filepath.IsAbs(user.HomeDir) {
 		logger.Warn(logSender, "", "user %#v has an invalid home dir: %#v. Home dir must be an absolute path, login not allowed",
 			user.Username, user.HomeDir)
 		return nil, fmt.Errorf("cannot login user with invalid home dir: %#v", user.HomeDir)
+	}
+	if user.MaxSessions > 0 {
+		activeSessions := getActiveSessions(user.Username)
+		if activeSessions >= user.MaxSessions {
+			logger.Debug(logSender, "", "authentication refused for user: %#v, too many open sessions: %v/%v", user.Username,
+				activeSessions, user.MaxSessions)
+			return nil, fmt.Errorf("too many open sessions: %v", activeSessions)
+		}
+	}
+	if !user.IsLoginAllowed(remoteAddr) {
+		logger.Debug(logSender, "", "cannot login user %#v, remote address is not allowed: %v", user.Username, remoteAddr)
+		return nil, fmt.Errorf("Login is not allowed from this address: %v", remoteAddr)
 	}
 	if _, err := os.Stat(user.HomeDir); os.IsNotExist(err) {
 		err := os.MkdirAll(user.HomeDir, 0777)
@@ -364,15 +376,6 @@ func loginUser(user dataprovider.User, loginType string) (*ssh.Permissions, erro
 			user.HomeDir, user.Username, err)
 		if err == nil {
 			utils.SetPathPermissions(user.HomeDir, user.GetUID(), user.GetGID())
-		}
-	}
-
-	if user.MaxSessions > 0 {
-		activeSessions := getActiveSessions(user.Username)
-		if activeSessions >= user.MaxSessions {
-			logger.Debug(logSender, "", "authentication refused for user: %#v, too many open sessions: %v/%v", user.Username,
-				activeSessions, user.MaxSessions)
-			return nil, fmt.Errorf("too many open sessions: %v", activeSessions)
 		}
 	}
 
@@ -432,7 +435,7 @@ func (c Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKe
 
 	metrics.AddLoginAttempt(true)
 	if user, keyID, err = dataprovider.CheckUserAndPubKey(dataProvider, conn.User(), pubKey); err == nil {
-		sshPerm, err = loginUser(user, "public_key:"+keyID)
+		sshPerm, err = loginUser(user, "public_key:"+keyID, conn.RemoteAddr().String())
 	} else {
 		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), "public_key", err.Error())
 	}
@@ -447,7 +450,7 @@ func (c Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass [
 
 	metrics.AddLoginAttempt(false)
 	if user, err = dataprovider.CheckUserAndPass(dataProvider, conn.User(), string(pass)); err == nil {
-		sshPerm, err = loginUser(user, "password")
+		sshPerm, err = loginUser(user, "password", conn.RemoteAddr().String())
 	} else {
 		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), "password", err.Error())
 	}

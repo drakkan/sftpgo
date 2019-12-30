@@ -217,13 +217,28 @@ func TestAddUserInvalidPerms(t *testing.T) {
 	u.Permissions["/"] = []string{"invalidPerm"}
 	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
 	if err != nil {
-		t.Errorf("unexpected error adding user with no perms: %v", err)
+		t.Errorf("unexpected error adding user with invalid perms: %v", err)
 	}
 	// permissions for root dir are mandatory
 	u.Permissions["/somedir"] = []string{dataprovider.PermAny}
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	if err != nil {
-		t.Errorf("unexpected error adding user with no perms: %v", err)
+		t.Errorf("unexpected error adding user with no root dir perms: %v", err)
+	}
+}
+
+func TestAddUserInvalidFilters(t *testing.T) {
+	u := getTestUser()
+	u.Filters.AllowedIP = []string{"192.168.1.0/24", "192.168.2.0"}
+	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid filters: %v", err)
+	}
+	u.Filters.AllowedIP = []string{}
+	u.Filters.DeniedIP = []string{"192.168.3.0/16", "invalid"}
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid filters: %v", err)
 	}
 }
 
@@ -270,6 +285,8 @@ func TestUpdateUser(t *testing.T) {
 	user.QuotaFiles = 2
 	user.Permissions["/"] = []string{dataprovider.PermCreateDirs, dataprovider.PermDelete, dataprovider.PermDownload}
 	user.Permissions["/subdir"] = []string{dataprovider.PermListItems, dataprovider.PermUpload}
+	user.Filters.AllowedIP = []string{"192.168.1.0/24", "192.168.2.0/24"}
+	user.Filters.DeniedIP = []string{"192.168.3.0/24", "192.168.4.0/24"}
 	user.UploadBandwidth = 1024
 	user.DownloadBandwidth = 512
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
@@ -1010,6 +1027,7 @@ func TestStartQuotaScanMock(t *testing.T) {
 			t.Errorf("Error get active scans: %v", err)
 			break
 		}
+		time.Sleep(100 * time.Millisecond)
 	}
 	_, err = os.Stat(user.HomeDir)
 	if err != nil && os.IsNotExist(err) {
@@ -1018,6 +1036,26 @@ func TestStartQuotaScanMock(t *testing.T) {
 	req, _ = http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer(userAsJSON))
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr.Code)
+
+	req, _ = http.NewRequest(http.MethodGet, quotaScanPath, nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	err = render.DecodeJSON(rr.Body, &scans)
+	if err != nil {
+		t.Errorf("Error get active scans: %v", err)
+	}
+	for len(scans) > 0 {
+		req, _ = http.NewRequest(http.MethodGet, quotaScanPath, nil)
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusOK, rr.Code)
+		err = render.DecodeJSON(rr.Body, &scans)
+		if err != nil {
+			t.Errorf("Error get active scans: %v", err)
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
@@ -1158,7 +1196,7 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("status", strconv.Itoa(user.Status))
 	form.Set("expiration_date", "")
 	form.Set("permissions", "*")
-	form.Set("sub_dirs_permissions", "/subdir:list,download")
+	form.Set("sub_dirs_permissions", " /subdir:list ,download ")
 	// test invalid url escape
 	req, _ := http.NewRequest(http.MethodPost, webUserPath+"?a=%2", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -1222,6 +1260,20 @@ func TestWebUserAddMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	form.Set("expiration_date", "")
+	form.Set("allowed_ip", "invalid,ip")
+	// test invalid allowed_ip
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	form.Set("allowed_ip", "")
+	form.Set("denied_ip", "192.168.1.2") // it should be 192.168.1.2/32
+	// test invalid denied_ip
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	form.Set("denied_ip", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
@@ -1255,6 +1307,13 @@ func TestWebUserAddMock(t *testing.T) {
 	if !utils.IsStringInSlice(testPubKey, newUser.PublicKeys) {
 		t.Errorf("public_keys does not match")
 	}
+	if val, ok := newUser.Permissions["/subdir"]; ok {
+		if !utils.IsStringInSlice(dataprovider.PermListItems, val) || !utils.IsStringInSlice(dataprovider.PermDownload, val) {
+			t.Error("permssions for /subdir does not match")
+		}
+	} else {
+		t.Errorf("user permissions must contains /somedir, actual: %v", newUser.Permissions)
+	}
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(newUser.ID, 10), nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
@@ -1285,9 +1344,11 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("upload_bandwidth", "0")
 	form.Set("download_bandwidth", "0")
 	form.Set("permissions", "*")
-	form.Set("sub_dirs_permissions", "/otherdir:list,upload")
+	form.Set("sub_dirs_permissions", "/otherdir : list ,upload ")
 	form.Set("status", strconv.Itoa(user.Status))
 	form.Set("expiration_date", "2020-01-01 00:00:00")
+	form.Set("allowed_ip", " 192.168.1.3/32, 192.168.2.0/24 ")
+	form.Set("denied_ip", " 10.0.0.2/32 ")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
@@ -1318,6 +1379,19 @@ func TestWebUserUpdateMock(t *testing.T) {
 	}
 	if user.GID != updateUser.GID {
 		t.Errorf("gid does not match")
+	}
+	if val, ok := updateUser.Permissions["/otherdir"]; ok {
+		if !utils.IsStringInSlice(dataprovider.PermListItems, val) || !utils.IsStringInSlice(dataprovider.PermUpload, val) {
+			t.Error("permssions for /otherdir does not match")
+		}
+	} else {
+		t.Errorf("user permissions must contains /otherdir, actual: %v", updateUser.Permissions)
+	}
+	if !utils.IsStringInSlice("192.168.1.3/32", updateUser.Filters.AllowedIP) {
+		t.Errorf("Allowed IP/Mask does not match: %v", updateUser.Filters.AllowedIP)
+	}
+	if !utils.IsStringInSlice("10.0.0.2/32", updateUser.Filters.DeniedIP) {
+		t.Errorf("Denied IP/Mask does not match: %v", updateUser.Filters.DeniedIP)
 	}
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)

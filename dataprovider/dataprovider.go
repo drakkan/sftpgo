@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -386,6 +387,41 @@ func validatePermissions(user *User) error {
 	return nil
 }
 
+func validatePublicKeys(user *User) error {
+	if len(user.PublicKeys) == 0 {
+		user.PublicKeys = []string{}
+	}
+	for i, k := range user.PublicKeys {
+		_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
+		if err != nil {
+			return &ValidationError{err: fmt.Sprintf("Could not parse key nr. %d: %s", i, err)}
+		}
+	}
+	return nil
+}
+
+func validateFilters(user *User) error {
+	if len(user.Filters.AllowedIP) == 0 {
+		user.Filters.AllowedIP = []string{}
+	}
+	if len(user.Filters.DeniedIP) == 0 {
+		user.Filters.DeniedIP = []string{}
+	}
+	for _, IPMask := range user.Filters.DeniedIP {
+		_, _, err := net.ParseCIDR(IPMask)
+		if err != nil {
+			return &ValidationError{err: fmt.Sprintf("Could not parse denied IP/Mask %#v : %v", IPMask, err)}
+		}
+	}
+	for _, IPMask := range user.Filters.AllowedIP {
+		_, _, err := net.ParseCIDR(IPMask)
+		if err != nil {
+			return &ValidationError{err: fmt.Sprintf("Could not parse allowed IP/Mask %#v : %v", IPMask, err)}
+		}
+	}
+	return nil
+}
+
 func validateUser(user *User) error {
 	buildUserHomeDir(user)
 	if len(user.Username) == 0 || len(user.HomeDir) == 0 {
@@ -410,14 +446,11 @@ func validateUser(user *User) error {
 		}
 		user.Password = pwd
 	}
-	if len(user.PublicKeys) == 0 {
-		user.PublicKeys = []string{}
+	if err := validatePublicKeys(user); err != nil {
+		return err
 	}
-	for i, k := range user.PublicKeys {
-		_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
-		if err != nil {
-			return &ValidationError{err: fmt.Sprintf("Could not parse key nr. %d: %s", i, err)}
-		}
+	if err := validateFilters(user); err != nil {
+		return err
 	}
 	return nil
 }

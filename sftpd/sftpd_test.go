@@ -1014,6 +1014,60 @@ func TestLoginUserExpiration(t *testing.T) {
 	os.RemoveAll(user.GetHomeDir())
 }
 
+func TestLoginWithIPFilters(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.Filters.DeniedIP = []string{"192.167.0.0/24", "172.18.0.0/16"}
+	u.Filters.AllowedIP = []string{}
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		_, err := client.Getwd()
+		if err != nil {
+			t.Errorf("sftp client with valid credentials must work")
+		}
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		if err != nil {
+			t.Errorf("error getting user: %v", err)
+		}
+		if user.LastLogin <= 0 {
+			t.Errorf("last login must be updated after a successful login: %v", user.LastLogin)
+		}
+	}
+	user.Filters.AllowedIP = []string{"127.0.0.0/8"}
+	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	client, err = getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("login from an allowed IP must succeed: %v", err)
+	} else {
+		defer client.Close()
+	}
+	user.Filters.AllowedIP = []string{"172.19.0.0/16"}
+	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	client, err = getSftpClient(user, usePubKey)
+	if err == nil {
+		t.Errorf("login from an not allowed IP must fail")
+		client.Close()
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+}
+
 func TestLoginAfterUserUpdateEmptyPwd(t *testing.T) {
 	usePubKey := false
 	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
@@ -2581,6 +2635,60 @@ func TestUserPerms(t *testing.T) {
 	}
 }
 
+func TestUserFiltersIPMaskConditions(t *testing.T) {
+	user := getTestUser(true)
+	// with no filter login must be allowed even if the remoteIP is invalid
+	if !user.IsLoginAllowed("192.168.1.5") {
+		t.Error("unexpected login denied")
+	}
+	if !user.IsLoginAllowed("invalid") {
+		t.Error("unexpected login denied")
+	}
+	user.Filters.DeniedIP = append(user.Filters.DeniedIP, "192.168.1.0/24")
+	if user.IsLoginAllowed("192.168.1.5") {
+		t.Error("unexpected login allowed")
+	}
+	if !user.IsLoginAllowed("192.168.2.6") {
+		t.Error("unexpected login denied")
+	}
+	user.Filters.AllowedIP = append(user.Filters.AllowedIP, "192.168.1.5/32")
+	// if the same ip/mask is both denied and allowed then login must be denied
+	if user.IsLoginAllowed("192.168.1.5") {
+		t.Error("unexpected login allowed")
+	}
+	if user.IsLoginAllowed("192.168.3.6") {
+		t.Error("unexpected login allowed")
+	}
+	user.Filters.DeniedIP = []string{}
+	if !user.IsLoginAllowed("192.168.1.5") {
+		t.Error("unexpected login denied")
+	}
+	if user.IsLoginAllowed("192.168.1.6") {
+		t.Error("unexpected login allowed")
+	}
+	user.Filters.DeniedIP = []string{"192.168.0.0/16", "172.16.0.0/16"}
+	user.Filters.AllowedIP = []string{}
+	if user.IsLoginAllowed("192.168.5.255") {
+		t.Error("unexpected login allowed")
+	}
+	if user.IsLoginAllowed("172.16.1.2") {
+		t.Error("unexpected login allowed")
+	}
+	if !user.IsLoginAllowed("172.18.2.1") {
+		t.Error("unexpected login denied")
+	}
+	user.Filters.AllowedIP = []string{"10.4.4.0/24"}
+	if user.IsLoginAllowed("10.5.4.2") {
+		t.Error("unexpected login allowed")
+	}
+	if !user.IsLoginAllowed("10.4.4.2") {
+		t.Error("unexpected login denied")
+	}
+	if !user.IsLoginAllowed("invalid") {
+		t.Error("unexpected login denied")
+	}
+}
+
 func TestSSHCommands(t *testing.T) {
 	usePubKey := false
 	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
@@ -2739,8 +2847,6 @@ func TestBasicGitCommands(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v out: %v", err, string(out))
 		printLatestLogs(10)
-		out, err = pushToGitRepo(clonePath)
-		logger.DebugToConsole("new push out: %v, err: %v", string(out), err)
 	}
 	err = waitQuotaScans()
 	if err != nil {

@@ -41,7 +41,7 @@ Let's see a sample usage for each REST API.
 Command:
 
 ```
-python sftpgo_api_cli.py add-user test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 33 --gid 1000 --max-sessions 2 --quota-size 0 --quota-files 3 --permissions "list" "download" "upload" "delete" "rename" "create_dirs" "overwrite" --subdirs-permissions "/dir1:list,download" "/dir2:*" --upload-bandwidth 100 --download-bandwidth 60 --status 0 --expiration-date 2019-01-01
+python sftpgo_api_cli.py add-user test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 33 --gid 1000 --max-sessions 2 --quota-size 0 --quota-files 3 --permissions "list" "download" "upload" "delete" "rename" "create_dirs" "overwrite" --subdirs-permissions "/dir1:list,download" "/dir2:*" --upload-bandwidth 100 --download-bandwidth 60 --status 0 --expiration-date 2019-01-01 --allowed-ip "192.168.1.1/32"
 ```
 
 Output:
@@ -50,6 +50,12 @@ Output:
 {
   "download_bandwidth": 60,
   "expiration_date": 1546297200000,
+  "filters": {
+    "allowed_ip": [
+      "192.168.1.1/32"
+    ],
+    "denied_ip": []
+  },
   "gid": 1000,
   "home_dir": "/tmp/test_home_dir",
   "id": 9576,
@@ -90,7 +96,7 @@ Output:
 Command:
 
 ```
-python sftpgo_api_cli.py update-user 9576 test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 0 --gid 33 --max-sessions 3 --quota-size 0 --quota-files 4 --permissions "*" --subdirs-permissions "/dir1:list,download,create_symlinks" --upload-bandwidth 90 --download-bandwidth 80 --status 1 --expiration-date ""
+python sftpgo_api_cli.py update-user 9576 test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 0 --gid 33 --max-sessions 3 --quota-size 0 --quota-files 4 --permissions "*" --subdirs-permissions "/dir1:list,download,create_symlinks" --upload-bandwidth 90 --download-bandwidth 80 --status 1 --expiration-date "" --allowed-ip "" --denied-ip "192.168.1.0/24"
 ```
 
 Output:
@@ -117,6 +123,12 @@ Output:
 {
   "download_bandwidth": 80,
   "expiration_date": 0,
+  "filters": {
+    "allowed_ip": [],
+    "denied_ip": [
+      "192.168.1.0/24"
+    ]
+  },
   "gid": 33,
   "home_dir": "/tmp/test_home_dir",
   "id": 9576,
@@ -159,6 +171,12 @@ Output:
   {
     "download_bandwidth": 80,
     "expiration_date": 0,
+    "filters": {
+      "allowed_ip": [],
+      "denied_ip": [
+        "192.168.1.0/24"
+      ]
+    },
     "gid": 33,
     "home_dir": "/tmp/test_home_dir",
     "id": 9576,

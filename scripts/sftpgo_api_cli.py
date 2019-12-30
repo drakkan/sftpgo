@@ -70,9 +70,9 @@ class SFTPGoApiRequests:
 		else:
 			print(r.text)
 
-	def buildUserObject(self, user_id=0, username="", password="", public_keys="", home_dir="", uid=0,
+	def buildUserObject(self, user_id=0, username="", password="", public_keys=[], home_dir="", uid=0,
 					gid=0, max_sessions=0, quota_size=0, quota_files=0, permissions={}, upload_bandwidth=0,
-					download_bandwidth=0, status=1, expiration_date=0):
+					download_bandwidth=0, status=1, expiration_date=0, allowed_ip=[], denied_ip=[]):
 		user = {"id":user_id, "username":username, "uid":uid, "gid":gid,
 			"max_sessions":max_sessions, "quota_size":quota_size, "quota_files":quota_files,
 			"upload_bandwidth":upload_bandwidth, "download_bandwidth":download_bandwidth,
@@ -88,6 +88,8 @@ class SFTPGoApiRequests:
 			user.update({"home_dir":home_dir})
 		if permissions:
 			user.update({"permissions":permissions})
+		if allowed_ip or denied_ip:
+			user.update({"filters":self.buildFilters(allowed_ip, denied_ip)})
 		return user
 
 	def buildPermissions(self, root_perms, subdirs_perms):
@@ -107,6 +109,20 @@ class SFTPGoApiRequests:
 					permissions.update({directory:values})
 		return permissions
 
+	def buildFilters(self, allowed_ip, denied_ip):
+		filters = {}
+		if allowed_ip:
+			if len(allowed_ip) == 1 and not allowed_ip[0]:
+				filters.update({"allowed_ip":[]})
+			else:
+				filters.update({"allowed_ip":allowed_ip})
+		if denied_ip:
+			if len(denied_ip) == 1 and not denied_ip[0]:
+				filters.update({"denied_ip":[]})
+			else:
+				filters.update({"denied_ip":denied_ip})
+		return filters
+
 	def getUsers(self, limit=100, offset=0, order="ASC", username=""):
 		r = requests.get(self.userPath, params={"limit":limit, "offset":offset, "order":order,
 											"username":username}, auth=self.auth, verify=self.verify)
@@ -118,19 +134,20 @@ class SFTPGoApiRequests:
 
 	def addUser(self, username="", password="", public_keys="", home_dir="", uid=0, gid=0, max_sessions=0,
 		quota_size=0, quota_files=0, perms=[], upload_bandwidth=0, download_bandwidth=0, status=1,
-		expiration_date=0, subdirs_permissions=[]):
+		expiration_date=0, subdirs_permissions=[], allowed_ip=[], denied_ip=[]):
 		u = self.buildUserObject(0, username, password, public_keys, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, self.buildPermissions(perms, subdirs_permissions), upload_bandwidth, download_bandwidth,
-			status, expiration_date)
+			status, expiration_date, allowed_ip, denied_ip)
 		r = requests.post(self.userPath, json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
 	def updateUser(self, user_id, username="", password="", public_keys="", home_dir="", uid=0, gid=0,
 				max_sessions=0, quota_size=0, quota_files=0, perms=[], upload_bandwidth=0,
-				download_bandwidth=0, status=1, expiration_date=0, subdirs_permissions=[]):
+				download_bandwidth=0, status=1, expiration_date=0, subdirs_permissions=[],
+				allowed_ip=[], denied_ip=[]):
 		u = self.buildUserObject(user_id, username, password, public_keys, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, self.buildPermissions(perms, subdirs_permissions), upload_bandwidth, download_bandwidth,
-			status, expiration_date)
+			status, expiration_date, allowed_ip, denied_ip)
 		r = requests.put(urlparse.urljoin(self.userPath, "user/" + str(user_id)), json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
@@ -251,7 +268,7 @@ class ConvertUsers:
 				user_info = spwd.getspnam(username)
 				password = user_info.sp_pwdp
 				if not password or password == '!!':
-					print('cannot import user "{}" without password'.format(username))
+					print('cannot import user "{}" without a password'.format(username))
 					continue
 				if user_info.sp_inact > 0:
 					last_pwd_change_diff = days_from_epoch_time - user_info.sp_lstchg
@@ -283,11 +300,27 @@ class ConvertUsers:
 					self.addUser(self.SFTPGoRestAPI.buildUserObject(0, username, password, [], home_dir, uid, gid, 0, 0,
 																0, permissions, 0, 0, 1, 0))
 
+	def convertPureFTPDIP(self, fields):
+		result = []
+		if not fields:
+			return result
+		for v in fields.split(","):
+			ip_mask = v.strip()
+			if not ip_mask:
+				continue
+			if ip_mask.count(".") < 3 and ip_mask.count(":") < 3:
+				print("cannot import pure-ftpd IP: {}".format(ip_mask))
+				continue
+			if "/" not in ip_mask:
+				ip_mask += "/32"
+			result.append(ip_mask)
+		return result
+
 	def convertFromPureFTPD(self):
 		with open(self.input_file, 'r') as f:
 			for line in f:
 				fields = line.split(':')
-				if len(fields) > 13:
+				if len(fields) > 16:
 					username = fields[0]
 					password = fields[1]
 					uid = int(fields[2])
@@ -308,6 +341,8 @@ class ConvertUsers:
 					quota_size = 0
 					if fields[12]:
 						quota_size = int(fields[12])
+					allowed_ip = self.convertPureFTPDIP(fields[15])
+					denied_ip = self.convertPureFTPDIP(fields[16])
 					if not self.isUserValid(username, uid, gid):
 						continue
 					if self.force_uid >= 0:
@@ -317,7 +352,8 @@ class ConvertUsers:
 					permissions = self.SFTPGoRestAPI.buildPermissions(['*'], [])
 					self.addUser(self.SFTPGoRestAPI.buildUserObject(0, username, password, [], home_dir, uid, gid,
 																max_sessions, quota_size, quota_files, permissions,
-																upload_bandwidth, download_bandwidth, 1, 0))
+																upload_bandwidth, download_bandwidth, 1, 0, allowed_ip,
+																denied_ip))
 
 
 def validDate(s):
@@ -361,6 +397,10 @@ def addCommonUserArguments(parser):
 							help='User\'s status. 1 enabled, 0 disabled. Default: %(default)s')
 	parser.add_argument('-E', '--expiration-date', type=validDate, default="",
 					help='Expiration date as YYYY-MM-DD, empty string means no expiration. Default: %(default)s')
+	parser.add_argument('-Y', '--allowed-ip', type=str, nargs='+', default=[],
+					help='Allowed IP/Mask in CIDR notation. For example "192.168.2.0/24" or "2001:db8::/32". Default: %(default)s')
+	parser.add_argument('-N', '--denied-ip', type=str, nargs='+', default=[],
+					help='Denied IP/Mask in CIDR notation. For example "192.168.2.0/24" or "2001:db8::/32". Default: %(default)s')
 
 
 if __name__ == '__main__':
@@ -458,12 +498,13 @@ if __name__ == '__main__':
 	if args.command == 'add-user':
 		api.addUser(args.username, args.password, args.public_keys, args.home_dir, args.uid, args.gid, args.max_sessions,
 				args.quota_size, args.quota_files, args.permissions, args.upload_bandwidth, args.download_bandwidth,
-				args.status, getDatetimeAsMillisSinceEpoch(args.expiration_date), args.subdirs_permissions)
+				args.status, getDatetimeAsMillisSinceEpoch(args.expiration_date), args.subdirs_permissions, args.allowed_ip,
+				args.denied_ip)
 	elif args.command == 'update-user':
 		api.updateUser(args.id, args.username, args.password, args.public_keys, args.home_dir, args.uid, args.gid,
 					args.max_sessions, args.quota_size, args.quota_files, args.permissions, args.upload_bandwidth,
 					args.download_bandwidth, args.status, getDatetimeAsMillisSinceEpoch(args.expiration_date),
-					args.subdirs_permissions)
+					args.subdirs_permissions, args.allowed_ip, args.denied_ip)
 	elif args.command == 'delete-user':
 		api.deleteUser(args.id)
 	elif args.command == 'get-users':

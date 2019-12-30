@@ -97,7 +97,7 @@ func AddUser(user dataprovider.User, expectedStatusCode int) (dataprovider.User,
 		body, _ = getResponseBody(resp)
 	}
 	if err == nil {
-		err = checkUser(user, newUser)
+		err = checkUser(&user, &newUser)
 	}
 	return newUser, body, err
 }
@@ -129,7 +129,7 @@ func UpdateUser(user dataprovider.User, expectedStatusCode int) (dataprovider.Us
 		newUser, body, err = GetUserByID(user.ID, expectedStatusCode)
 	}
 	if err == nil {
-		err = checkUser(user, newUser)
+		err = checkUser(&user, &newUser)
 	}
 	return newUser, body, err
 }
@@ -376,7 +376,7 @@ func getResponseBody(resp *http.Response) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-func checkUser(expected dataprovider.User, actual dataprovider.User) error {
+func checkUser(expected *dataprovider.User, actual *dataprovider.User) error {
 	if len(actual.Password) > 0 {
 		return errors.New("User password must not be visible")
 	}
@@ -389,6 +389,9 @@ func checkUser(expected dataprovider.User, actual dataprovider.User) error {
 			return errors.New("user ID mismatch")
 		}
 	}
+	if len(expected.Permissions) != len(actual.Permissions) {
+		return errors.New("Permissions mismatch")
+	}
 	for dir, perms := range expected.Permissions {
 		if actualPerms, ok := actual.Permissions[dir]; ok {
 			for _, v := range actualPerms {
@@ -400,10 +403,34 @@ func checkUser(expected dataprovider.User, actual dataprovider.User) error {
 			return errors.New("Permissions directories mismatch")
 		}
 	}
+	if err := compareUserFilters(expected, actual); err != nil {
+		return err
+	}
+
 	return compareEqualsUserFields(expected, actual)
 }
 
-func compareEqualsUserFields(expected dataprovider.User, actual dataprovider.User) error {
+func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) error {
+	if len(expected.Filters.AllowedIP) != len(actual.Filters.AllowedIP) {
+		return errors.New("AllowedIP mismatch")
+	}
+	if len(expected.Filters.DeniedIP) != len(actual.Filters.DeniedIP) {
+		return errors.New("DeniedIP mismatch")
+	}
+	for _, IPMask := range expected.Filters.AllowedIP {
+		if !utils.IsStringInSlice(IPMask, actual.Filters.AllowedIP) {
+			return errors.New("AllowedIP contents mismatch")
+		}
+	}
+	for _, IPMask := range expected.Filters.DeniedIP {
+		if !utils.IsStringInSlice(IPMask, actual.Filters.DeniedIP) {
+			return errors.New("DeniedIP contents mismatch")
+		}
+	}
+	return nil
+}
+
+func compareEqualsUserFields(expected *dataprovider.User, actual *dataprovider.User) error {
 	if expected.Username != actual.Username {
 		return errors.New("Username mismatch")
 	}

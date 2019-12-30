@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 1.4.0
+  version: 1.5.0
 
 servers:
 - url: /api/v1
@@ -608,7 +608,7 @@ paths:
               - 2
           description: >
             Quota scan:
-              * `0` no quota scan is done, the imported user will have used_quota_size and used_quota_file = 0 
+              * `0` no quota scan is done, the imported user will have used_quota_size and used_quota_file = 0
               * `1` scan quota
               * `2` scan quota if the user has quota restrictions
           required: false
@@ -693,6 +693,23 @@ components:
         minItems: 1
       minProperties: 1
       description: hash map with directory as key and an array of permissions as value. Directories must be absolute paths, permissions for root directory ("/") are required
+    UserFilters:
+      type: object
+      properties:
+        allowed_ip:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: only clients connecting from these IP/Mask are allowed. IP/Mask must be in CIDR notation as defined in RFC 4632 and RFC 4291, for example "192.0.2.0/24" or "2001:db8::/32"
+          example: [ "192.0.2.0/24", "2001:db8::/32" ]
+        denied_ip:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: clients connecting from these IP/Mask are not allowed. Denied rules are evaluated before allowed ones
+          example: [ "172.16.0.0/16" ]
     User:
       type: object
       properties:
@@ -743,15 +760,15 @@ components:
         max_sessions:
           type: integer
           format: int32
-          description: limit the sessions that an user can open. 0 means unlimited
+          description: Limit the sessions that an user can open. 0 means unlimited
         quota_size:
           type: integer
           format: int64
-          description: quota as size in bytes. 0 menas unlimited. Please note that quota is updated if files are added/removed via SFTP/SCP otherwise a quota scan is needed
+          description: Quota as size in bytes. 0 menas unlimited. Please note that quota is updated if files are added/removed via SFTP/SCP otherwise a quota scan is needed
         quota_files:
           type: integer
           format: int32
-          description: quota as number of files. 0 menas unlimited. Please note that quota is updated if files are added/removed via SFTP/SCP otherwise a quota scan is needed
+          description: Quota as number of files. 0 menas unlimited. Please note that quota is updated if files are added/removed via SFTP/SCP otherwise a quota scan is needed
         permissions:
           type: object
           items:
@@ -767,7 +784,7 @@ components:
         last_quota_update:
           type: integer
           format: int64
-          description: last quota update as unix timestamp in milliseconds
+          description: Last quota update as unix timestamp in milliseconds
         upload_bandwidth:
           type: integer
           format: int32
@@ -779,7 +796,11 @@ components:
         last_login:
           type: integer
           format: int64
-          description: last user login as unix timestamp in milliseconds
+          description: Last user login as unix timestamp in milliseconds
+        filters:
+          $ref: '#/components/schemas/UserFilters'
+          nullable: true
+          description: Additional restrictions
     Transfer:
       type: object
       properties:

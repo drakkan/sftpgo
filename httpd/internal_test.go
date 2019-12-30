@@ -43,8 +43,8 @@ func TestCheckResponse(t *testing.T) {
 }
 
 func TestCheckUser(t *testing.T) {
-	expected := dataprovider.User{}
-	actual := dataprovider.User{}
+	expected := &dataprovider.User{}
+	actual := &dataprovider.User{}
 	actual.Password = "password"
 	err := checkUser(expected, actual)
 	if err == nil {
@@ -72,6 +72,10 @@ func TestCheckUser(t *testing.T) {
 	expected.Permissions = make(map[string][]string)
 	expected.Permissions["/"] = []string{dataprovider.PermCreateDirs, dataprovider.PermDelete, dataprovider.PermDownload}
 	actual.Permissions = make(map[string][]string)
+	err = checkUser(expected, actual)
+	if err == nil {
+		t.Errorf("Permissions are not equal")
+	}
 	actual.Permissions["/"] = []string{dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
 	err = checkUser(expected, actual)
 	if err == nil {
@@ -90,11 +94,37 @@ func TestCheckUser(t *testing.T) {
 	if err == nil {
 		t.Errorf("Permissions are not equal")
 	}
+	expected.Permissions = make(map[string][]string)
+	actual.Permissions = make(map[string][]string)
+	expected.Filters.AllowedIP = []string{}
+	actual.Filters.AllowedIP = []string{"192.168.1.2/32"}
+	err = checkUser(expected, actual)
+	if err == nil {
+		t.Errorf("AllowedIP are not equal")
+	}
+	expected.Filters.AllowedIP = []string{"192.168.1.3/32"}
+	err = checkUser(expected, actual)
+	if err == nil {
+		t.Errorf("AllowedIP contents are not equal")
+	}
+	expected.Filters.AllowedIP = []string{}
+	actual.Filters.AllowedIP = []string{}
+	expected.Filters.DeniedIP = []string{}
+	actual.Filters.DeniedIP = []string{"192.168.1.2/32"}
+	err = checkUser(expected, actual)
+	if err == nil {
+		t.Errorf("DeniedIP are not equal")
+	}
+	expected.Filters.DeniedIP = []string{"192.168.1.3/32"}
+	err = checkUser(expected, actual)
+	if err == nil {
+		t.Errorf("DeniedIP contents are not equal")
+	}
 }
 
 func TestCompareUserFields(t *testing.T) {
-	expected := dataprovider.User{}
-	actual := dataprovider.User{}
+	expected := &dataprovider.User{}
+	actual := &dataprovider.User{}
 	expected.Permissions = make(map[string][]string)
 	actual.Permissions = make(map[string][]string)
 	expected.Username = "test"

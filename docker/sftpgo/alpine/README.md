@@ -11,6 +11,7 @@ sudo groupadd -g 1003 sftpgrp && \
   sudo -u sftpuser mkdir /home/sftpuser/{conf,data} && \
   curl https://raw.githubusercontent.com/drakkan/sftpgo/master/sql/sqlite/20190828.sql | sqlite3 /home/sftpuser/conf/sftpgo.db && \
   curl https://raw.githubusercontent.com/drakkan/sftpgo/master/sql/sqlite/20191112.sql | sqlite3 /home/sftpuser/conf/sftpgo.db && \
+  curl https://raw.githubusercontent.com/drakkan/sftpgo/master/sql/sqlite/20191230.sql | sqlite3 /home/sftpuser/conf/sftpgo.db && \
   curl https://raw.githubusercontent.com/drakkan/sftpgo/master/sftpgo.json -o /home/sftpuser/conf/sftpgo.json
 
 # Get and build SFTPGo image
