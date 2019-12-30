@@ -513,7 +513,9 @@ The logs can be divided into the following categories:
     - `login_type` string. Can be `public_key`, `password` or `no_auth_tryed`
     - `error` string. Optional error description
 
-The **connection failed logs** can be used for better integration in tools such as [Fail2ban](http://www.fail2ban.org/)
+### Brute force protection
+
+The **connection failed logs** can be used for better integration in tools such as [Fail2ban](http://www.fail2ban.org/). Example of [jails](./fail2ban/jails) and [filters](./fail2ban/filters) working with systemD/journalD are available in fail2ban directory.
 
 ## Acknowledgements
 
