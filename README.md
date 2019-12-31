@@ -19,9 +19,9 @@ Full featured and highly configurable SFTP server
 - Automatically terminating idle connections.
 - Atomic uploads are configurable.
 - Support for Git repository over SSH.
-- SCP is supported.
+- SCP and rsync are supported.
 - Prometheus metrics are exposed.
-- REST API for users and quota management and real time reports for the active connections with possibility of forcibly closing a connection.
+- REST API for users management, backup, restore and real time reports of the active connections with possibility of forcibly closing a connection.
 - Web based interface to easily manage users and connections.
 - Easy migration from Unix system user accounts.
 - Portable mode: a convenient way to share a single directory on demand.
@@ -199,7 +199,7 @@ The `sftpgo` configuration file contains the following sections:
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"
     - `templates_path`, string. Path to the HTML web templates. This can be an absolute path or a path relative to the config dir
     - `static_files_path`, string. Path to the static files for the web interface. This can be an absolute path or a path relative to the config dir
-    - `backups_path`, string. Path to the backup directory. This can be an absolute path or a path relative to the config dir
+    - `backups_path`, string. Path to the backup directory. This can be an absolute path or a path relative to the config dir. We don't allow backups in arbitrary paths for security reasons
 
 Here is a full example showing the default config in JSON format:
 
@@ -396,9 +396,9 @@ These properties are stored inside the data provider. If you want to use your ex
 
 ## REST API
 
-SFTPGo exposes REST API to manage users and quota, to backup and restore users and to get real time reports for the active connections with possibility of forcibly closing a connection.
+SFTPGo exposes REST API to manage users and quota, to backup and restore users and to get real time reports of the active connections with possibility of forcibly closing a connection.
 
-If quota tracking is enabled in `sftpgo` configuration file, then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP or if you change `track_quota` from `2` to `1`, you can rescan the user home dir and update the used quota using the REST API.
+If quota tracking is enabled in `sftpgo` configuration file, then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP/SCP or if you change `track_quota` from `2` to `1`, you can rescan the users home dir and update the used quota using the REST API.
 
 REST API is designed to run on localhost or on a trusted network, if you need HTTPS and/or authentication you can setup a reverse proxy using an HTTP Server such as Apache or NGNIX.
 
@@ -444,7 +444,7 @@ Several counters and gauges are available, for example:
 - Data provider availability
 - Total successful and failed logins using a password or a public key
 - Total HTTP requests served and totals for response code
-- Go's runtime like details about GC, number of gouroutines and OS threads
+- Go's runtime details about GC, number of gouroutines and OS threads
 - Process information like CPU, memory, file descriptor usage and start time
 
 Please check the `/metrics` page for more details.
@@ -515,7 +515,7 @@ The logs can be divided into the following categories:
 
 ### Brute force protection
 
-The **connection failed logs** can be used for better integration in tools such as [Fail2ban](http://www.fail2ban.org/). Example of [jails](./fail2ban/jails) and [filters](./fail2ban/filters) working with systemD/journalD are available in fail2ban directory.
+The **connection failed logs** can be used for better integration in tools such as [Fail2ban](http://www.fail2ban.org/). Example of [jails](./fail2ban/jails) and [filters](./fail2ban/filters) working with `systemd`/`journald` are available in fail2ban directory.
 
 ## Acknowledgements
 
