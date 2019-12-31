@@ -34,6 +34,8 @@ For each subcommand `--help` shows the available arguments, try for example:
 
 ```python sftpgo_api_cli.py add_user --help```
 
+Additionally it can convert users to the SFTPGo format from some supported users stores
+
 Let's see a sample usage for each REST API.
 
 ### Add user

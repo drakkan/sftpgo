@@ -18,7 +18,7 @@ Full featured and highly configurable SFTP server
 - Configurable custom commands and/or HTTP notifications on file upload, download, delete, rename, on SSH commands and on user add, update and delete.
 - Automatically terminating idle connections.
 - Atomic uploads are configurable.
-- Support for Git repository over SSH.
+- Support for Git repositories over SSH.
 - SCP and rsync are supported.
 - Prometheus metrics are exposed.
 - REST API for users management, backup, restore and real time reports of the active connections with possibility of forcibly closing a connection.
@@ -163,7 +163,7 @@ The `sftpgo` configuration file contains the following sections:
       - `scp`, SCP is an experimental feature, we have our own SCP implementation since we can't rely on "scp" system command to proper handle quotas and user's home dir restrictions. The SCP protocol is quite simple but there is no official docs about it, so we need more testing and feedbacks before enabling it by default. We may not handle some borderline cases or have sneaky bugs. Please do accurate tests yourself before enabling SCP and let us known if something does not work as expected for your use cases. SCP between two remote hosts is supported using the `-3` scp option.
       - `md5sum`, `sha1sum`, `sha256sum`, `sha384sum`, `sha512sum`. Useful to check message digests for uploaded files. These commands are implemented inside SFTPGo so they work even if the matching system commands are not available, for example on Windows.
       - `cd`, `pwd`. Some SFTP clients does not support the SFTP SSH_FXP_REALPATH packet type and so they use `cd` and `pwd` SSH commands to get the initial directory. Currently `cd` do nothing and `pwd` always returns the `/` path.
-      - `git-receive-pack`, `git-upload-pack`, `git-upload-archive`. These commands enable support for Git repo over SSH, they need to be installed and in your system's `PATH`.
+      - `git-receive-pack`, `git-upload-pack`, `git-upload-archive`. These commands enable support for Git repositories over SSH, they need to be installed and in your system's `PATH`.
       - `rsync`. The `rsync` command need to be installed and in your system's `PATH`. We cannot avoid that rsync create symlinks so if the user has the permission to create symlinks we add the option `--safe-links` to the received rsync command if it is not already set. This should prevent to create symlinks that point outside the home dir. If the user cannot create symlinks we add the option `--munge-links`, if it is not already set. This should make symlinks unusable (but manually recoverable)
 - **"data_provider"**, the configuration for the data provider
     - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`, `memory`
@@ -392,7 +392,11 @@ For each account the following properties can be configured:
 - `allowed_ip`, List of IP/Mask allowed to login. Any IP address not contained in this list cannot login. IP/Mask must be in CIDR notation as defined in RFC 4632 and RFC 4291, for example "192.0.2.0/24" or "2001:db8::/32"
 - `denied_ip`, List of IP/Mask not allowed to login. If an IP address is both allowed and denied then login will be denied
 
-These properties are stored inside the data provider. If you want to use your existing accounts, you can create a database view. Since a view is read only, you have to disable user management and quota tracking so SFTPGo will never try to write to the view.
+These properties are stored inside the data provider.
+
+If you want to use your existing accounts you have two options:
+- If your accounts are aleady stored inside a supported database, you can create a database view. Since a view is read only, you have to disable user management and quota tracking so SFTPGo will never try to write to the view
+- you can import your users inside SFTPGo. Take a look at [sftpgo_api_cli.py](./scripts/README.md "sftpgo_api_cli script"), it can convert and import users from Unix system users and Pure-FTPd/ProFTPD virtual users
 
 ## REST API
 
