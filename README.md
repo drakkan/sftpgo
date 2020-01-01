@@ -44,6 +44,13 @@ Binary releases for Linux, macOS and Windows are available, please visit the [re
 
 Sample Dockerfiles for [Debian](https://www.debian.org "Debian") and [Alpine](https://alpinelinux.org "Alpine") are available inside the source tree [docker](./docker "docker") directory.
 
+Some Linux distro packages are available:
+
+- For Arch Linux via AUR:
+  - [sftpgo](https://aur.archlinux.org/packages/sftpgo/). This package follow stable releases. It requires `git`, `gcc` and `go` to build.
+  - [sftpgo-bin](https://aur.archlinux.org/packages/sftpgo-bin/). This package follow stable releases downloading the prebuilt linux binary from GitHub. It does not require `git`, `gcc` and `go` to build.
+  - [sftpgo-git](https://aur.archlinux.org/packages/sftpgo-git/). This package build and install the latest git master. It requires `git`, `gcc` and `go` to build.
+
 Alternately you can install the package to your [$GOPATH](https://github.com/golang/go/wiki/GOPATH "GOPATH") with the [go tool](https://golang.org/cmd/go/ "go command") from shell:
 
 ```
@@ -76,13 +83,6 @@ and you will get a version that includes git commit and build date like this one
 sftpgo -v
 SFTPGo version: 0.9.0-dev-90607d4-dirty-2019-08-08T19:28:36Z
 ```
-
-Alternately you can use distro packages:
-
-- Several Arch Linux packages are available on AUR:
-  - [sftpgo](https://aur.archlinux.org/packages/sftpgo/). This package follow stable releases. It requires `git`, `gcc` and `go` to build.
-  - [sftpgo-bin](https://aur.archlinux.org/packages/sftpgo-bin/). This package follow stable releases downloading the prebuilt linux binary from GitHub. It does not require `git`, `gcc` and `go` to build.
-  - [sftpgo-git](https://aur.archlinux.org/packages/sftpgo-git/). This package build and install the latest git master. It requires `git`, `gcc` and `go` to build.
 
 For Linux, a `systemd` sample [service](./init/sftpgo.service "systemd service") can be found inside the source tree.
 
@@ -125,7 +125,7 @@ If you don't configure any private host keys, the daemon will use `id_rsa` in th
 
 Before starting `sftpgo` a dataprovider must be configured.
 
-Sample SQL scripts to create the required database structure can be found inside the source tree [sql](./sql "sql") directory. The SQL scripts filename's is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190828.sql` must be applied before `20191112.sql` and so on.
+SQL scripts to create the required database structure can be found inside the source tree [sql](./sql "sql") directory. The SQL scripts filename is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190828.sql` must be applied before `20191112.sql` and so on.
 
 The `sftpgo` configuration file contains the following sections:
 
@@ -400,7 +400,7 @@ If you want to use your existing accounts you have two options:
 
 ## REST API
 
-SFTPGo exposes REST API to manage users and quota, to backup and restore users and to get real time reports of the active connections with possibility of forcibly closing a connection.
+SFTPGo exposes REST API to manage, backup and restore users and to get real time reports of the active connections with possibility of forcibly closing a connection.
 
 If quota tracking is enabled in `sftpgo` configuration file, then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP/SCP or if you change `track_quota` from `2` to `1`, you can rescan the users home dir and update the used quota using the REST API.
 
@@ -509,7 +509,7 @@ The logs can be divided into the following categories:
     - `resp_size` integer. Size in bytes of the HTTP response
     - `elapsed_ms` int64. Elapsed time, as milliseconds, to complete the request
     - `request_id` string. Unique request identifier
-- **"connection failed logs"**, logs for failed attempts to initialize a connection. A connection can fail for an authentication error or other errors such as a client abort or a time out if the login does not happen in two minutes
+- **"connection failed logs"**, logs for failed attempts to initialize a connection. A connection can fail for an authentication error or other errors such as a client abort or a timeout if the login does not happen in two minutes
     - `sender` string. `connection_failed`
     - `level` string
     - `username`, string. Can be empty if the connection is closed before an authentication attempt
@@ -519,7 +519,7 @@ The logs can be divided into the following categories:
 
 ### Brute force protection
 
-The **connection failed logs** can be used for better integration in tools such as [Fail2ban](http://www.fail2ban.org/). Example of [jails](./fail2ban/jails) and [filters](./fail2ban/filters) working with `systemd`/`journald` are available in fail2ban directory.
+The **connection failed logs** can be used for integration in tools such as [Fail2ban](http://www.fail2ban.org/). Example of [jails](./fail2ban/jails) and [filters](./fail2ban/filters) working with `systemd`/`journald` are available in fail2ban directory.
 
 ## Acknowledgements
 
