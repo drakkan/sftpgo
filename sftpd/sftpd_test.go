@@ -2589,48 +2589,48 @@ func TestUserPerms(t *testing.T) {
 	user.Permissions["/p/3"] = []string{dataprovider.PermChmod}
 	user.Permissions["/p/3/4"] = []string{dataprovider.PermChtimes}
 	user.Permissions["/tmp"] = []string{dataprovider.PermRename}
-	if !user.HasPerm(dataprovider.PermListItems, filepath.Join(user.HomeDir, "/")) {
+	if !user.HasPerm(dataprovider.PermListItems, "/") {
 		t.Error("expected permission not found")
 	}
-	if !user.HasPerm(dataprovider.PermListItems, filepath.Join(user.HomeDir, ".")) {
+	if !user.HasPerm(dataprovider.PermListItems, ".") {
 		t.Error("expected permission not found")
 	}
-	if !user.HasPerm(dataprovider.PermListItems, filepath.Join(user.HomeDir, "")) {
+	if !user.HasPerm(dataprovider.PermListItems, "") {
 		t.Error("expected permission not found")
 	}
-	if !user.HasPerm(dataprovider.PermListItems, filepath.Join(user.HomeDir, "../")) {
+	if !user.HasPerm(dataprovider.PermListItems, "../") {
 		t.Error("expected permission not found")
 	}
 	// path p and /p are the same
-	if !user.HasPerm(dataprovider.PermDelete, filepath.Join(user.HomeDir, "/p")) {
+	if !user.HasPerm(dataprovider.PermDelete, "/p") {
 		t.Error("expected permission not found")
 	}
-	if !user.HasPerm(dataprovider.PermDownload, filepath.Join(user.HomeDir, "/p/1")) {
+	if !user.HasPerm(dataprovider.PermDownload, "/p/1") {
 		t.Error("expected permission not found")
 	}
-	if !user.HasPerm(dataprovider.PermCreateDirs, filepath.Join(user.HomeDir, "p/2")) {
+	if !user.HasPerm(dataprovider.PermCreateDirs, "p/2") {
 		t.Error("expected permission not found")
 	}
-	if !user.HasPerm(dataprovider.PermChmod, filepath.Join(user.HomeDir, "/p/3")) {
+	if !user.HasPerm(dataprovider.PermChmod, "/p/3") {
 		t.Error("expected permission not found")
 	}
-	if !user.HasPerm(dataprovider.PermChtimes, filepath.Join(user.HomeDir, "p/3/4")) {
+	if !user.HasPerm(dataprovider.PermChtimes, "p/3/4/") {
 		t.Error("expected permission not found")
 	}
-	if !user.HasPerm(dataprovider.PermChtimes, filepath.Join(user.HomeDir, "p/3/4/../4")) {
+	if !user.HasPerm(dataprovider.PermChtimes, "p/3/4/../4") {
 		t.Error("expected permission not found")
 	}
 	// undefined paths have permissions of the nearest path
-	if !user.HasPerm(dataprovider.PermListItems, filepath.Join(user.HomeDir, "/p34")) {
+	if !user.HasPerm(dataprovider.PermListItems, "/p34") {
 		t.Error("expected permission not found")
 	}
-	if !user.HasPerm(dataprovider.PermListItems, filepath.Join(user.HomeDir, "/p34/p1/file.dat")) {
+	if !user.HasPerm(dataprovider.PermListItems, "/p34/p1/file.dat") {
 		t.Error("expected permission not found")
 	}
-	if !user.HasPerm(dataprovider.PermChtimes, filepath.Join(user.HomeDir, "/p/3/4/5/6")) {
+	if !user.HasPerm(dataprovider.PermChtimes, "/p/3/4/5/6") {
 		t.Error("expected permission not found")
 	}
-	if !user.HasPerm(dataprovider.PermDownload, filepath.Join(user.HomeDir, "/p/1/test/file.dat")) {
+	if !user.HasPerm(dataprovider.PermDownload, "/p/1/test/file.dat") {
 		t.Error("expected permission not found")
 	}
 }

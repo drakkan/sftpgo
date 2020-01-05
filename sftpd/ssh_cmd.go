@@ -129,7 +129,7 @@ func (c *sshCommand) handleHashCommands() error {
 		if err != nil {
 			return c.sendErrorResponse(err)
 		}
-		if !c.connection.User.HasPerm(dataprovider.PermListItems, path) {
+		if !c.connection.User.HasPerm(dataprovider.PermListItems, sshPath) {
 			return c.sendErrorResponse(errPermissionDenied)
 		}
 		hash, err := computeHashForFile(h, path)
@@ -149,7 +149,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	}
 	perms := []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermCreateDirs, dataprovider.PermListItems,
 		dataprovider.PermOverwrite, dataprovider.PermDelete, dataprovider.PermRename}
-	if !c.connection.User.HasPerms(perms, command.realPath) {
+	if !c.connection.User.HasPerms(perms, c.getDestPath()) {
 		return c.sendErrorResponse(errPermissionDenied)
 	}
 
@@ -299,7 +299,7 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 		// the home dir.
 		// If the user cannot create symlinks we add the option --munge-links, if it is not
 		// already set. This should make symlinks unusable (but manually recoverable)
-		if c.connection.User.HasPerm(dataprovider.PermCreateSymlinks, path) {
+		if c.connection.User.HasPerm(dataprovider.PermCreateSymlinks, c.getDestPath()) {
 			if !utils.IsStringInSlice("--safe-links", args) {
 				args = append([]string{"--safe-links"}, args...)
 			}

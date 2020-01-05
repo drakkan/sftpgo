@@ -100,7 +100,8 @@ type User struct {
 	Filters UserFilters `json:"filters"`
 }
 
-// GetPermissionsForPath returns the permissions for the given path
+// GetPermissionsForPath returns the permissions for the given path.
+// The path must be an SFTP path
 func (u *User) GetPermissionsForPath(p string) []string {
 	permissions := []string{}
 	if perms, ok := u.Permissions["/"]; ok {
@@ -111,17 +112,18 @@ func (u *User) GetPermissionsForPath(p string) []string {
 		// fallback permissions
 		permissions = perms
 	}
-	relPath := u.GetRelativePath(p)
-	if len(relPath) == 0 {
-		relPath = "/"
+	sftpPath := filepath.ToSlash(p)
+	if !path.IsAbs(p) {
+		sftpPath = "/" + sftpPath
 	}
-	dirsForPath := []string{relPath}
+	sftpPath = path.Clean(sftpPath)
+	dirsForPath := []string{sftpPath}
 	for {
-		if relPath == "/" {
+		if sftpPath == "/" {
 			break
 		}
-		relPath = path.Dir(relPath)
-		dirsForPath = append(dirsForPath, relPath)
+		sftpPath = path.Dir(sftpPath)
+		dirsForPath = append(dirsForPath, sftpPath)
 	}
 	// dirsForPath contains all the dirs for a given path in reverse order
 	// for example if the path is: /1/2/3/4 it contains:

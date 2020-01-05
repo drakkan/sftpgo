@@ -310,6 +310,26 @@ func TestSSHCommandPath(t *testing.T) {
 	if path != "/" {
 		t.Errorf("unexpected path: %v", path)
 	}
+	sshCommand.args = []string{"-t", "."}
+	path = sshCommand.getDestPath()
+	if path != "/" {
+		t.Errorf("unexpected path: %v", path)
+	}
+	sshCommand.args = []string{"-t", "//"}
+	path = sshCommand.getDestPath()
+	if path != "/" {
+		t.Errorf("unexpected path: %v", path)
+	}
+	sshCommand.args = []string{"-t", "../.."}
+	path = sshCommand.getDestPath()
+	if path != "/" {
+		t.Errorf("unexpected path: %v", path)
+	}
+	sshCommand.args = []string{"-t", "/.."}
+	path = sshCommand.getDestPath()
+	if path != "/" {
+		t.Errorf("unexpected path: %v", path)
+	}
 }
 
 func TestSSHCommandErrors(t *testing.T) {
@@ -633,13 +653,6 @@ func TestSCPFileMode(t *testing.T) {
 	mode = getFileModeAsString(os.FileMode(fileMode), false)
 	if mode != "1044" {
 		t.Errorf("invalid file mode: %v expected: 1044", mode)
-	}
-}
-
-func TestSCPGetNonExistingDirContent(t *testing.T) {
-	_, err := getDirContents("non_existing")
-	if err == nil {
-		t.Errorf("get non existing dir contents must fail")
 	}
 }
 

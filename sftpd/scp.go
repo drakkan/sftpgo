@@ -3,6 +3,7 @@ package sftpd
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math"
 	"os"
 	"path"
@@ -83,7 +84,7 @@ func (c *scpCommand) handleRecursiveUpload() error {
 				}
 			} else {
 				// the destination dir is now the parent directory
-				destPath = filepath.Join(destPath, "..")
+				destPath = path.Join(destPath, "..")
 			}
 		} else {
 			sizeToRead, name, err := c.parseUploadMessage(command)
@@ -120,7 +121,7 @@ func (c *scpCommand) handleCreateDir(dirPath string) error {
 		c.sendErrorMessage(err.Error())
 		return err
 	}
-	if !c.connection.User.HasPerm(dataprovider.PermCreateDirs, filepath.Dir(p)) {
+	if !c.connection.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(dirPath)) {
 		err := fmt.Errorf("Permission denied")
 		c.connection.Log(logger.LevelWarn, logSenderSCP, "error creating dir: %#v, permission denied", dirPath)
 		c.sendErrorMessage(err.Error())
@@ -234,7 +235,7 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 	}
 	stat, statErr := os.Stat(p)
 	if os.IsNotExist(statErr) {
-		if !c.connection.User.HasPerm(dataprovider.PermUpload, filepath.Dir(p)) {
+		if !c.connection.User.HasPerm(dataprovider.PermUpload, path.Dir(uploadFilePath)) {
 			err := fmt.Errorf("Permission denied")
 			c.connection.Log(logger.LevelWarn, logSenderSCP, "cannot upload file: %#v, permission denied", uploadFilePath)
 			c.sendErrorMessage(err.Error())
@@ -256,7 +257,7 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 		return err
 	}
 
-	if !c.connection.User.HasPerm(dataprovider.PermOverwrite, filePath) {
+	if !c.connection.User.HasPerm(dataprovider.PermOverwrite, uploadFilePath) {
 		err := fmt.Errorf("Permission denied")
 		c.connection.Log(logger.LevelWarn, logSenderSCP, "cannot overwrite file: %#v, permission denied", uploadFilePath)
 		c.sendErrorMessage(err.Error())
@@ -302,7 +303,7 @@ func (c *scpCommand) sendDownloadProtocolMessages(dirPath string, stat os.FileIn
 	return err
 }
 
-// we send first all the files in the roor directory and then the directories
+// we send first all the files in the root directory and then the directories
 // for each directory we recursively call this method again
 func (c *scpCommand) handleRecursiveDownload(dirPath string, stat os.FileInfo) error {
 	var err error
@@ -312,7 +313,7 @@ func (c *scpCommand) handleRecursiveDownload(dirPath string, stat os.FileInfo) e
 		if err != nil {
 			return err
 		}
-		files, err := getDirContents(dirPath)
+		files, err := ioutil.ReadDir(dirPath)
 		if err != nil {
 			c.sendErrorMessage(err.Error())
 			return err
@@ -431,7 +432,7 @@ func (c *scpCommand) handleDownload(filePath string) error {
 	}
 
 	if stat.IsDir() {
-		if !c.connection.User.HasPerm(dataprovider.PermDownload, p) {
+		if !c.connection.User.HasPerm(dataprovider.PermDownload, filePath) {
 			err := fmt.Errorf("Permission denied")
 			c.connection.Log(logger.LevelWarn, logSenderSCP, "error downloading dir: %#v, permission denied", filePath)
 			c.sendErrorMessage(err.Error())
@@ -441,7 +442,7 @@ func (c *scpCommand) handleDownload(filePath string) error {
 		return err
 	}
 
-	if !c.connection.User.HasPerm(dataprovider.PermDownload, filepath.Dir(p)) {
+	if !c.connection.User.HasPerm(dataprovider.PermDownload, path.Dir(filePath)) {
 		err := fmt.Errorf("Permission denied")
 		c.connection.Log(logger.LevelWarn, logSenderSCP, "error downloading dir: %#v, permission denied", filePath)
 		c.sendErrorMessage(err.Error())
@@ -731,15 +732,4 @@ func getFileModeAsString(fileMode os.FileMode, isDir bool) string {
 		o++
 	}
 	return fmt.Sprintf("%v%v%v%v", s, u, g, o)
-}
-
-func getDirContents(path string) ([]os.FileInfo, error) {
-	var files []os.FileInfo
-	f, err := os.Open(path)
-	if err != nil {
-		return files, err
-	}
-	files, err = f.Readdir(-1)
-	f.Close()
-	return files, err
 }

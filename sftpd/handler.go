@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -51,12 +52,13 @@ func (c Connection) Log(level logger.LogLevel, sender string, format string, v .
 func (c Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 	updateConnectionActivity(c.ID)
 
+	if !c.User.HasPerm(dataprovider.PermDownload, path.Dir(request.Filepath)) {
+		return nil, sftp.ErrSSHFxPermissionDenied
+	}
+
 	p, err := c.buildPath(request.Filepath)
 	if err != nil {
 		return nil, getSFTPErrorFromOSError(err)
-	}
-	if !c.User.HasPerm(dataprovider.PermDownload, filepath.Dir(p)) {
-		return nil, sftp.ErrSSHFxPermissionDenied
 	}
 
 	c.lock.Lock()
@@ -112,7 +114,7 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 
 	stat, statErr := os.Stat(p)
 	if os.IsNotExist(statErr) {
-		if !c.User.HasPerm(dataprovider.PermUpload, filepath.Dir(p)) {
+		if !c.User.HasPerm(dataprovider.PermUpload, path.Dir(request.Filepath)) {
 			return nil, sftp.ErrSSHFxPermissionDenied
 		}
 		return c.handleSFTPUploadToNewFile(p, filePath)
@@ -129,7 +131,7 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 		return nil, sftp.ErrSSHFxOpUnsupported
 	}
 
-	if !c.User.HasPerm(dataprovider.PermOverwrite, filepath.Dir(filePath)) {
+	if !c.User.HasPerm(dataprovider.PermOverwrite, path.Dir(request.Filepath)) {
 		return nil, sftp.ErrSSHFxPermissionDenied
 	}
 
@@ -157,26 +159,26 @@ func (c Connection) Filecmd(request *sftp.Request) error {
 	case "Setstat":
 		return c.handleSFTPSetstat(p, request)
 	case "Rename":
-		if err = c.handleSFTPRename(p, target); err != nil {
+		if err = c.handleSFTPRename(p, target, request); err != nil {
 			return err
 		}
 		break
 	case "Rmdir":
-		return c.handleSFTPRmdir(p)
+		return c.handleSFTPRmdir(p, request)
 
 	case "Mkdir":
-		err = c.handleSFTPMkdir(p)
+		err = c.handleSFTPMkdir(p, request)
 		if err != nil {
 			return err
 		}
 		break
 	case "Symlink":
-		if err = c.handleSFTPSymlink(p, target); err != nil {
+		if err = c.handleSFTPSymlink(p, target, request); err != nil {
 			return err
 		}
 		break
 	case "Remove":
-		return c.handleSFTPRemove(p)
+		return c.handleSFTPRemove(p, request)
 
 	default:
 		return sftp.ErrSSHFxOpUnsupported
@@ -204,7 +206,7 @@ func (c Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 
 	switch request.Method {
 	case "List":
-		if !c.User.HasPerm(dataprovider.PermListItems, p) {
+		if !c.User.HasPerm(dataprovider.PermListItems, request.Filepath) {
 			return nil, sftp.ErrSSHFxPermissionDenied
 		}
 
@@ -218,7 +220,7 @@ func (c Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 
 		return listerAt(files), nil
 	case "Stat":
-		if !c.User.HasPerm(dataprovider.PermListItems, filepath.Dir(p)) {
+		if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(request.Filepath)) {
 			return nil, sftp.ErrSSHFxPermissionDenied
 		}
 
@@ -249,7 +251,7 @@ func (c Connection) getSFTPCmdTargetPath(requestTarget string) (string, error) {
 	return target, nil
 }
 
-func (c Connection) handleSFTPSetstat(path string, request *sftp.Request) error {
+func (c Connection) handleSFTPSetstat(filePath string, request *sftp.Request) error {
 	if setstatMode == 1 {
 		return nil
 	}
@@ -258,10 +260,10 @@ func (c Connection) handleSFTPSetstat(path string, request *sftp.Request) error 
 			c.ClientVersion)
 		return sftp.ErrSSHFxBadMessage
 	}
-	pathForPerms := path
-	if fi, err := os.Lstat(path); err == nil {
+	pathForPerms := request.Filepath
+	if fi, err := os.Lstat(filePath); err == nil {
 		if fi.IsDir() {
-			pathForPerms = filepath.Dir(path)
+			pathForPerms = path.Dir(request.Filepath)
 		}
 	}
 	attrFlags := request.AttrFlags()
@@ -270,11 +272,11 @@ func (c Connection) handleSFTPSetstat(path string, request *sftp.Request) error 
 			return sftp.ErrSSHFxPermissionDenied
 		}
 		fileMode := request.Attributes().FileMode()
-		if err := os.Chmod(path, fileMode); err != nil {
-			c.Log(logger.LevelWarn, logSender, "failed to chmod path %#v, mode: %v, err: %v", path, fileMode.String(), err)
+		if err := os.Chmod(filePath, fileMode); err != nil {
+			c.Log(logger.LevelWarn, logSender, "failed to chmod path %#v, mode: %v, err: %v", filePath, fileMode.String(), err)
 			return getSFTPErrorFromOSError(err)
 		}
-		logger.CommandLog(chmodLogSender, path, "", c.User.Username, fileMode.String(), c.ID, c.protocol, -1, -1, "", "", "")
+		logger.CommandLog(chmodLogSender, filePath, "", c.User.Username, fileMode.String(), c.ID, c.protocol, -1, -1, "", "", "")
 		return nil
 	} else if attrFlags.UidGid {
 		if !c.User.HasPerm(dataprovider.PermChown, pathForPerms) {
@@ -282,11 +284,11 @@ func (c Connection) handleSFTPSetstat(path string, request *sftp.Request) error 
 		}
 		uid := int(request.Attributes().UID)
 		gid := int(request.Attributes().GID)
-		if err := os.Chown(path, uid, gid); err != nil {
-			c.Log(logger.LevelWarn, logSender, "failed to chown path %#v, uid: %v, gid: %v, err: %v", path, uid, gid, err)
+		if err := os.Chown(filePath, uid, gid); err != nil {
+			c.Log(logger.LevelWarn, logSender, "failed to chown path %#v, uid: %v, gid: %v, err: %v", filePath, uid, gid, err)
 			return getSFTPErrorFromOSError(err)
 		}
-		logger.CommandLog(chownLogSender, path, "", c.User.Username, "", c.ID, c.protocol, uid, gid, "", "", "")
+		logger.CommandLog(chownLogSender, filePath, "", c.User.Username, "", c.ID, c.protocol, uid, gid, "", "", "")
 		return nil
 	} else if attrFlags.Acmodtime {
 		if !c.User.HasPerm(dataprovider.PermChtimes, pathForPerms) {
@@ -297,24 +299,24 @@ func (c Connection) handleSFTPSetstat(path string, request *sftp.Request) error 
 		modificationTime := time.Unix(int64(request.Attributes().Mtime), 0)
 		accessTimeString := accessTime.Format(dateFormat)
 		modificationTimeString := modificationTime.Format(dateFormat)
-		if err := os.Chtimes(path, accessTime, modificationTime); err != nil {
+		if err := os.Chtimes(filePath, accessTime, modificationTime); err != nil {
 			c.Log(logger.LevelWarn, logSender, "failed to chtimes for path %#v, access time: %v, modification time: %v, err: %v",
-				path, accessTime, modificationTime, err)
+				filePath, accessTime, modificationTime, err)
 			return getSFTPErrorFromOSError(err)
 		}
-		logger.CommandLog(chtimesLogSender, path, "", c.User.Username, "", c.ID, c.protocol, -1, -1, accessTimeString,
+		logger.CommandLog(chtimesLogSender, filePath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, accessTimeString,
 			modificationTimeString, "")
 		return nil
 	}
 	return nil
 }
 
-func (c Connection) handleSFTPRename(sourcePath string, targetPath string) error {
+func (c Connection) handleSFTPRename(sourcePath string, targetPath string, request *sftp.Request) error {
 	if c.User.GetRelativePath(sourcePath) == "/" {
 		c.Log(logger.LevelWarn, logSender, "renaming root dir is not allowed")
 		return sftp.ErrSSHFxPermissionDenied
 	}
-	if !c.User.HasPerm(dataprovider.PermRename, filepath.Dir(targetPath)) {
+	if !c.User.HasPerm(dataprovider.PermRename, path.Dir(request.Target)) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
 	if err := os.Rename(sourcePath, targetPath); err != nil {
@@ -326,41 +328,41 @@ func (c Connection) handleSFTPRename(sourcePath string, targetPath string) error
 	return nil
 }
 
-func (c Connection) handleSFTPRmdir(path string) error {
-	if c.User.GetRelativePath(path) == "/" {
+func (c Connection) handleSFTPRmdir(dirPath string, request *sftp.Request) error {
+	if c.User.GetRelativePath(dirPath) == "/" {
 		c.Log(logger.LevelWarn, logSender, "removing root dir is not allowed")
 		return sftp.ErrSSHFxPermissionDenied
 	}
-	if !c.User.HasPerm(dataprovider.PermDelete, filepath.Dir(path)) {
+	if !c.User.HasPerm(dataprovider.PermDelete, path.Dir(request.Filepath)) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
 
 	var fi os.FileInfo
 	var err error
-	if fi, err = os.Lstat(path); err != nil {
-		c.Log(logger.LevelWarn, logSender, "failed to remove a dir %#v: stat error: %v", path, err)
+	if fi, err = os.Lstat(dirPath); err != nil {
+		c.Log(logger.LevelWarn, logSender, "failed to remove a dir %#v: stat error: %v", dirPath, err)
 		return getSFTPErrorFromOSError(err)
 	}
 	if !fi.IsDir() || fi.Mode()&os.ModeSymlink == os.ModeSymlink {
-		c.Log(logger.LevelDebug, logSender, "cannot remove %#v is not a directory", path)
+		c.Log(logger.LevelDebug, logSender, "cannot remove %#v is not a directory", dirPath)
 		return sftp.ErrSSHFxFailure
 	}
 
-	if err = os.Remove(path); err != nil {
-		c.Log(logger.LevelWarn, logSender, "failed to remove directory %#v: %v", path, err)
+	if err = os.Remove(dirPath); err != nil {
+		c.Log(logger.LevelWarn, logSender, "failed to remove directory %#v: %v", dirPath, err)
 		return getSFTPErrorFromOSError(err)
 	}
 
-	logger.CommandLog(rmdirLogSender, path, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "")
+	logger.CommandLog(rmdirLogSender, dirPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "")
 	return sftp.ErrSSHFxOk
 }
 
-func (c Connection) handleSFTPSymlink(sourcePath string, targetPath string) error {
+func (c Connection) handleSFTPSymlink(sourcePath string, targetPath string, request *sftp.Request) error {
 	if c.User.GetRelativePath(sourcePath) == "/" {
 		c.Log(logger.LevelWarn, logSender, "symlinking root dir is not allowed")
 		return sftp.ErrSSHFxPermissionDenied
 	}
-	if !c.User.HasPerm(dataprovider.PermCreateSymlinks, filepath.Dir(targetPath)) {
+	if !c.User.HasPerm(dataprovider.PermCreateSymlinks, path.Dir(request.Target)) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
 	if err := os.Symlink(sourcePath, targetPath); err != nil {
@@ -372,47 +374,47 @@ func (c Connection) handleSFTPSymlink(sourcePath string, targetPath string) erro
 	return nil
 }
 
-func (c Connection) handleSFTPMkdir(path string) error {
-	if !c.User.HasPerm(dataprovider.PermCreateDirs, filepath.Dir(path)) {
+func (c Connection) handleSFTPMkdir(dirPath string, request *sftp.Request) error {
+	if !c.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(request.Filepath)) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
-	if err := os.Mkdir(path, 0777); err != nil {
-		c.Log(logger.LevelWarn, logSender, "error creating missing dir: %#v error: %v", path, err)
+	if err := os.Mkdir(dirPath, 0777); err != nil {
+		c.Log(logger.LevelWarn, logSender, "error creating missing dir: %#v error: %v", dirPath, err)
 		return getSFTPErrorFromOSError(err)
 	}
-	utils.SetPathPermissions(path, c.User.GetUID(), c.User.GetGID())
+	utils.SetPathPermissions(dirPath, c.User.GetUID(), c.User.GetGID())
 
-	logger.CommandLog(mkdirLogSender, path, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "")
+	logger.CommandLog(mkdirLogSender, dirPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "")
 	return nil
 }
 
-func (c Connection) handleSFTPRemove(path string) error {
-	if !c.User.HasPerm(dataprovider.PermDelete, filepath.Dir(path)) {
+func (c Connection) handleSFTPRemove(filePath string, request *sftp.Request) error {
+	if !c.User.HasPerm(dataprovider.PermDelete, path.Dir(request.Filepath)) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
 
 	var size int64
 	var fi os.FileInfo
 	var err error
-	if fi, err = os.Lstat(path); err != nil {
-		c.Log(logger.LevelWarn, logSender, "failed to remove a file %#v: stat error: %v", path, err)
+	if fi, err = os.Lstat(filePath); err != nil {
+		c.Log(logger.LevelWarn, logSender, "failed to remove a file %#v: stat error: %v", filePath, err)
 		return getSFTPErrorFromOSError(err)
 	}
 	if fi.IsDir() && fi.Mode()&os.ModeSymlink != os.ModeSymlink {
-		c.Log(logger.LevelDebug, logSender, "cannot remove %#v is not a file/symlink", path)
+		c.Log(logger.LevelDebug, logSender, "cannot remove %#v is not a file/symlink", filePath)
 		return sftp.ErrSSHFxFailure
 	}
 	size = fi.Size()
-	if err := os.Remove(path); err != nil {
-		c.Log(logger.LevelWarn, logSender, "failed to remove a file/symlink %#v: %v", path, err)
+	if err := os.Remove(filePath); err != nil {
+		c.Log(logger.LevelWarn, logSender, "failed to remove a file/symlink %#v: %v", filePath, err)
 		return getSFTPErrorFromOSError(err)
 	}
 
-	logger.CommandLog(removeLogSender, path, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "")
+	logger.CommandLog(removeLogSender, filePath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "")
 	if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
 		dataprovider.UpdateUserQuota(dataProvider, c.User, -1, -size, false)
 	}
-	go executeAction(operationDelete, c.User.Username, path, "", "")
+	go executeAction(operationDelete, c.User.Username, filePath, "", "")
 
 	return sftp.ErrSSHFxOk
 }
