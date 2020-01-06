@@ -5,6 +5,7 @@ package dataprovider
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -100,7 +101,8 @@ type Actions struct {
 type Config struct {
 	// Driver name, must be one of the SupportedProviders
 	Driver string `json:"driver" mapstructure:"driver"`
-	// Database name
+	// Database name. For driver sqlite this can be the database name relative to the config dir
+	// or the absolute path to the SQLite database.
 	Name string `json:"name" mapstructure:"name"`
 	// Database host
 	Host string `json:"host" mapstructure:"host"`
@@ -141,6 +143,34 @@ type Config struct {
 	// Actions to execute on user add, update, delete.
 	// Update action will not be fired for internal updates such as the last login or the user quota fields.
 	Actions Actions `json:"actions" mapstructure:"actions"`
+	// Absolute path to an external program to use for users authentication. Leave empty to use builtin
+	// authentication.
+	// The external program can read the following environment variables to get info about the user trying
+	// to authenticate:
+	//
+	// - SFTPGO_AUTHD_USERNAME
+	// - SFTPGO_AUTHD_PASSWORD, not empty for password authentication
+	// - SFTPGO_AUTHD_PUBLIC_KEY, not empty for public key authentication
+	//
+	// The content of these variables is _not_ quoted. They may contain special characters. They are under the
+	// control of a possibly malicious remote user.
+	//
+	// The program must respond on the standard output with a valid SFTPGo user serialized as json if the
+	// authentication succeed or an user with an empty username if the authentication fails.
+	// If the authentication succeed the user will be automatically added/updated inside the defined data provider.
+	// Actions defined for user added/updated will not be executed in this case.
+	// The external program should check authentication only, if there are login restrictions such as user
+	// disabled, expired, login allowed only from specific IP addresses it is enough to populate the matching user
+	// fields and these conditions will be checked in the same way as for builtin users.
+	// The external auth program must finish within 15 seconds.
+	// This method is slower than built-in authentication methods, but it's very flexible as anyone can
+	// easily write his own authentication programs.
+	ExternalAuthProgram string `json:"external_auth_program" mapstructure:"external_auth_program"`
+	// defines the scope for the external auth program, if defined.
+	// 0 means all supported authetication scopes, both password and public keys
+	// 1 means passwords only, the external auth program will not be used for public key authentication
+	// 2 means public keys only, the external auth program will not be used for password authentication
+	ExternalAuthScope int `json:"external_auth_scope" mapstructure:"external_auth_scope"`
 }
 
 // ValidationError raised if input data is not valid
@@ -212,6 +242,18 @@ func Initialize(cnf Config, basePath string) error {
 	var err error
 	config = cnf
 	sqlPlaceholders = getSQLPlaceholders()
+
+	if len(config.ExternalAuthProgram) > 0 {
+		if !filepath.IsAbs(config.ExternalAuthProgram) {
+			return fmt.Errorf("invalid external auth program: %#v must be an absolute path", config.ExternalAuthProgram)
+		}
+		_, err := os.Stat(config.ExternalAuthProgram)
+		if err != nil {
+			providerLog(logger.LevelWarn, "invalid external auth program:: %v", err)
+			return err
+		}
+	}
+
 	if config.Driver == SQLiteDataProviderName {
 		err = initializeSQLiteProvider(basePath)
 	} else if config.Driver == PGSQLDataProviderName {
@@ -233,11 +275,25 @@ func Initialize(cnf Config, basePath string) error {
 
 // CheckUserAndPass retrieves the SFTP user with the given username and password if a match is found or an error
 func CheckUserAndPass(p Provider, username string, password string) (User, error) {
+	if len(config.ExternalAuthProgram) > 0 && config.ExternalAuthScope <= 1 {
+		user, err := doExternalAuth(username, password, "")
+		if err != nil {
+			return user, err
+		}
+		return checkUserAndPass(user, password)
+	}
 	return p.validateUserAndPass(username, password)
 }
 
 // CheckUserAndPubKey retrieves the SFTP user with the given username and public key if a match is found or an error
 func CheckUserAndPubKey(p Provider, username string, pubKey string) (User, string, error) {
+	if len(config.ExternalAuthProgram) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope == 2) {
+		user, err := doExternalAuth(username, "", pubKey)
+		if err != nil {
+			return user, "", err
+		}
+		return checkUserAndPubKey(user, pubKey)
+	}
 	return p.validateUserAndPubKey(username, pubKey)
 }
 
@@ -634,6 +690,56 @@ func checkDataprovider() {
 		providerLog(logger.LevelWarn, "check availability error: %v", err)
 	}
 	metrics.UpdateDataProviderAvailability(err)
+}
+
+func doExternalAuth(username, password, pubKey string) (User, error) {
+	var user User
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, config.ExternalAuthProgram)
+	cmd.Env = append(cmd.Env, fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", username))
+	if len(password) > 0 {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%v", password))
+	}
+	pkey := ""
+	if len(pubKey) > 0 {
+		k, err := ssh.ParsePublicKey([]byte(pubKey))
+		if err != nil {
+			return user, err
+		}
+		pkey = string(ssh.MarshalAuthorizedKey(k))
+		cmd.Env = append(cmd.Env, fmt.Sprintf("SFTPGO_AUTHD_PUBLIC_KEY=%v", pkey))
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return user, fmt.Errorf("External auth error: %v env: %+v", err, cmd.Env)
+	}
+	err = json.Unmarshal(out, &user)
+	if err != nil {
+		return user, fmt.Errorf("Invalid external auth response: %v", err)
+	}
+	if len(user.Username) == 0 {
+		return user, errors.New("Invalid credentials")
+	}
+	user.Password = password
+	if len(pkey) > 0 && !utils.IsStringInSlice(pkey, user.PublicKeys) {
+		user.PublicKeys = append(user.PublicKeys, pkey)
+	}
+	u, err := provider.userExists(username)
+	if err == nil {
+		user.ID = u.ID
+		user.UsedQuotaSize = u.UsedQuotaSize
+		user.UsedQuotaFiles = u.UsedQuotaFiles
+		user.LastQuotaUpdate = u.LastQuotaUpdate
+		user.LastLogin = u.LastLogin
+		err = provider.updateUser(user)
+	} else {
+		err = provider.addUser(user)
+	}
+	if err != nil {
+		return user, err
+	}
+	return provider.userExists(username)
 }
 
 func providerLog(level logger.LogLevel, format string, v ...interface{}) {

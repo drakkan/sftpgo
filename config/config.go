@@ -81,6 +81,8 @@ func init() {
 				Command:             "",
 				HTTPNotificationURL: "",
 			},
+			ExternalAuthProgram: "",
+			ExternalAuthScope:   0,
 		},
 		HTTPDConfig: httpd.Conf{
 			BindPort:        8080,
@@ -166,6 +168,12 @@ func LoadConfig(configDir, configName string) error {
 		err = fmt.Errorf("invalid upload_mode 0 and 1 are supported, configured: %v reset upload_mode to 0",
 			globalConf.SFTPD.UploadMode)
 		globalConf.SFTPD.UploadMode = 0
+		logger.Warn(logSender, "", "Configuration error: %v", err)
+		logger.WarnToConsole("Configuration error: %v", err)
+	}
+	if globalConf.ProviderConf.ExternalAuthScope < 0 || globalConf.ProviderConf.ExternalAuthScope > 2 {
+		err = fmt.Errorf("invalid external_auth_scope: %v reset to 0", globalConf.ProviderConf.ExternalAuthScope)
+		globalConf.ProviderConf.ExternalAuthScope = 0
 		logger.Warn(logSender, "", "Configuration error: %v", err)
 		logger.WarnToConsole("Configuration error: %v", err)
 	}

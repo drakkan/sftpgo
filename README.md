@@ -9,6 +9,7 @@ Full featured and highly configurable SFTP server
 - SFTP accounts are virtual accounts stored in a "data provider".
 - SQLite, MySQL, PostgreSQL, bbolt (key/value store in pure Go) and in memory data providers are supported.
 - Public key and password authentication. Multiple public keys per user are supported.
+- Custom authentication using external programs is supported.
 - Quota support: accounts can have individual quota expressed as max total size and/or max number of files.
 - Bandwidth throttling is supported, with distinct settings for upload and download.
 - Per user maximum concurrent sessions.
@@ -194,6 +195,8 @@ The `sftpgo` configuration file contains the following sections:
             - `uid`
             - `gid`
         - `http_notification_url`, a valid URL. The action is added to the query string. For example `<http_notification_url>?action=update`. An HTTP POST request will be executed to this URL. The user is sent serialized as json inside the POST body. Leave empty to disable.
+    - `external_auth_program`, string. Absolute path to an external program to use for users authentication. See the "External Authentication" paragraph for more details.
+    - `external_auth_scope`, integer. 0 means all supported authetication scopes (passwords and public keys). 1 means passwords only. 2 means public keys only
 - **"httpd"**, the configuration for the HTTP server used to serve REST API
     - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 8080
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"
@@ -245,7 +248,9 @@ Here is a full example showing the default config in JSON format:
       "execute_on": [],
       "command": "",
       "http_notification_url": ""
-    }
+    },
+    "external_auth_program": "",
+    "external_auth_scope": 0
   },
   "httpd": {
     "bind_port": 8080,
@@ -318,6 +323,42 @@ netsh advfirewall firewall add rule name="SFTPGo Service" dir=in action=allow pr
 ```
 
 or through the Windows Firewall GUI.
+
+## External Authentication
+
+Custom authentication methods can easily be added. SFTPGo supports external authentication modules, and writing a new backend can be as simple as a few lines of shell script.
+
+To enable external authentication you must set the absolute path of your authentication program using `external_auth_program` key in your configuration file.
+
+The external program can read the following environment variables to get info about the user trying to authenticate:
+
+- `SFTPGO_AUTHD_USERNAME`
+- `SFTPGO_AUTHD_PASSWORD`, not empty for password authentication
+- `SFTPGO_AUTHD_PUBLIC_KEY`, not empty for public key authentication
+
+The content of these variables is _not_ quoted. They may contain special characters. They are under the control of a possibly malicious remote user.
+The program must respond on the standard output with a valid SFTPGo user serialized as json if the authentication succeed or an user with an empty username if the authentication fails.
+If the authentication succeed the user will be automatically added/updated inside the defined data provider. Actions defined for user added/updated will not be executed in this case.
+The external program should check authentication only, if there are login restrictions such as user disabled, expired, login allowed only from specific IP addresses it is enough to populate the matching user fields and these conditions will be checked in the same way as for built-in users.
+The external auth program must finish within 15 seconds.
+This method is slower than built-in authentication methods, but it's very flexible as anyone can easily write his own authentication programs.
+You can also restrict the authentication scope for the external program using the `external_auth_scope` configuration key:
+
+- 0 means all supported authetication scopes, both password and public keys
+- 1 means passwords only, the external auth program will not be used for public key authentication
+- 2 means public keys only, the external auth program will not be used for password authentication
+
+Let's see a very basic example. Our sample authentication program will only accept user `test_user` with any password or public key.
+
+```
+#!/bin/sh
+
+if test "$SFTPGO_AUTHD_USERNAME" = "test_user"; then
+  echo '{"status":1,"username":"test_user","expiration_date":0,"home_dir":"/tmp/test_user","uid":0,"gid":0,"max_sessions":0,"quota_size":0,"quota_files":100000,"permissions":{"/":["*"],"/somedir":["list","download"]},"upload_bandwidth":0,"download_bandwidth":0,"filters":{"allowed_ip":[],"denied_ip":[]},"public_keys":[]}'
+else
+  echo '{"username":""}'
+fi
+```
 
 ## Portable mode
 
@@ -455,7 +496,7 @@ Please check the `/metrics` page for more details.
 
 ## Web Admin
 
-You can easily build your own interface using the exposed REST API, anyway SFTPGo provides also a very basic builtin web interface that allows to manage users and connections.
+You can easily build your own interface using the exposed REST API, anyway SFTPGo provides also a very basic built-in web interface that allows to manage users and connections.
 With the default `httpd` configuration, the web admin is available at the following URL:
 
 [http://127.0.0.1:8080/web](http://127.0.0.1:8080/web)

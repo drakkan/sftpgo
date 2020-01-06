@@ -39,7 +39,9 @@
       "execute_on": [],
       "command": "",
       "http_notification_url": ""
-    }
+    },
+    "external_auth_program": "",
+    "external_auth_scope": 0
   },
   "httpd": {
     "bind_port": 8080,
