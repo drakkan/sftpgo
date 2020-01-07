@@ -428,7 +428,7 @@ func executeAction(operation, username, path, target, sshCmd string) error {
 				actions.Command, operation, username, path, target, sshCmd, err)
 			if err == nil {
 				// we are in a goroutine but we don't want to block here, this way we can send the
-				// HTTP notification, if configured, without waiting the end of the command
+				// HTTP notification, if configured, without waiting for the end of the command
 				go command.Wait()
 			}
 		} else {

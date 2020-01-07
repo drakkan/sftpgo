@@ -341,12 +341,12 @@ The program must respond on the standard output with a valid SFTPGo user seriali
 If the authentication succeed the user will be automatically added/updated inside the defined data provider. Actions defined for user added/updated will not be executed in this case.
 The external program should check authentication only, if there are login restrictions such as user disabled, expired, login allowed only from specific IP addresses it is enough to populate the matching user fields and these conditions will be checked in the same way as for built-in users.
 The external auth program must finish within 15 seconds.
-This method is slower than built-in authentication methods, but it's very flexible as anyone can easily write his own authentication programs.
+This method is slower than built-in authentication, but it's very flexible as anyone can easily write his own authentication program.
 You can also restrict the authentication scope for the external program using the `external_auth_scope` configuration key:
 
-- 0 means all supported authetication scopes, both password and public keys
-- 1 means passwords only, the external auth program will not be used for public key authentication
-- 2 means public keys only, the external auth program will not be used for password authentication
+- 0 means all supported authetication scopes, the external program will be used for both password and public key authentication
+- 1 means passwords only, the external program will not be used for public key authentication
+- 2 means public keys only, the external program will not be used for password authentication
 
 Let's see a very basic example. Our sample authentication program will only accept user `test_user` with any password or public key.
 
@@ -359,6 +359,8 @@ else
   echo '{"username":""}'
 fi
 ```
+
+If you have an external authentication program that could be useful for others too, for example LDAP/Active Directory authentication, please let us know and/or send a pull request.
 
 ## Portable mode
 
@@ -435,9 +437,11 @@ For each account the following properties can be configured:
 
 These properties are stored inside the data provider.
 
-If you want to use your existing accounts you have two options:
+If you want to use your existing accounts you have these options:
+
 - If your accounts are aleady stored inside a supported database, you can create a database view. Since a view is read only, you have to disable user management and quota tracking so SFTPGo will never try to write to the view
 - you can import your users inside SFTPGo. Take a look at [sftpgo_api_cli.py](./scripts/README.md "sftpgo_api_cli script"), it can convert and import users from Unix system users and Pure-FTPd/ProFTPD virtual users
+- you can use an external authentication program
 
 ## REST API
 

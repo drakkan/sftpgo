@@ -166,10 +166,11 @@ type Config struct {
 	// This method is slower than built-in authentication methods, but it's very flexible as anyone can
 	// easily write his own authentication programs.
 	ExternalAuthProgram string `json:"external_auth_program" mapstructure:"external_auth_program"`
-	// defines the scope for the external auth program, if defined.
-	// 0 means all supported authetication scopes, both password and public keys
-	// 1 means passwords only, the external auth program will not be used for public key authentication
-	// 2 means public keys only, the external auth program will not be used for password authentication
+	// ExternalAuthScope defines the scope for the external authentication program.
+	// - 0 means all supported authetication scopes, the external program will be used for both password and
+	//     public key authentication
+	// - 1 means passwords only, the external program will not be used for public key authentication
+	// - 2 means public keys only, the external program will not be used for password authentication
 	ExternalAuthScope int `json:"external_auth_scope" mapstructure:"external_auth_scope"`
 }
 
@@ -722,7 +723,7 @@ func doExternalAuth(username, password, pubKey string) (User, error) {
 		return user, errors.New("Invalid credentials")
 	}
 	user.Password = password
-	if len(pkey) > 0 && !utils.IsStringInSlice(pkey, user.PublicKeys) {
+	if len(pkey) > 0 && !utils.IsStringPrefixInSlice(pkey, user.PublicKeys) {
 		user.PublicKeys = append(user.PublicKeys, pkey)
 	}
 	u, err := provider.userExists(username)
@@ -771,7 +772,7 @@ func executeAction(operation string, user User) {
 				config.Actions.Command, commandArgs, err)
 			if err == nil {
 				// we are in a goroutine but we don't want to block here, this way we can send the
-				// HTTP notification, if configured, without waiting the end of the command
+				// HTTP notification, if configured, without waiting for the end of the command
 				go command.Wait()
 			}
 		} else {

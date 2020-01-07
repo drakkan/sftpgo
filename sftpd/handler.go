@@ -513,15 +513,15 @@ func (c Connection) hasSpace(checkFiles bool) bool {
 		numFile, size, err := dataprovider.GetUsedQuota(dataProvider, c.User.Username)
 		if err != nil {
 			if _, ok := err.(*dataprovider.MethodDisabledError); ok {
-				c.Log(logger.LevelWarn, logSender, "quota enforcement not possible for user %v: %v", c.User.Username, err)
+				c.Log(logger.LevelWarn, logSender, "quota enforcement not possible for user %#v: %v", c.User.Username, err)
 				return true
 			}
-			c.Log(logger.LevelWarn, logSender, "error getting used quota for %v: %v", c.User.Username, err)
+			c.Log(logger.LevelWarn, logSender, "error getting used quota for %#v: %v", c.User.Username, err)
 			return false
 		}
 		if (checkFiles && c.User.QuotaFiles > 0 && numFile >= c.User.QuotaFiles) ||
 			(c.User.QuotaSize > 0 && size >= c.User.QuotaSize) {
-			c.Log(logger.LevelDebug, logSender, "quota exceed for user %v, num files: %v/%v, size: %v/%v check files: %v",
+			c.Log(logger.LevelDebug, logSender, "quota exceed for user %#v, num files: %v/%v, size: %v/%v check files: %v",
 				c.User.Username, numFile, c.User.QuotaFiles, size, c.User.QuotaSize, checkFiles)
 			return false
 		}

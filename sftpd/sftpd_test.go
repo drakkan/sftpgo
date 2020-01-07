@@ -1155,7 +1155,7 @@ func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
 	providerConf.ExternalAuthScope = 0
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
-		t.Errorf("error initializing data provider with users base dir")
+		t.Errorf("error initializing data provider")
 	}
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
@@ -1176,6 +1176,7 @@ func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
 		if err != nil {
 			t.Errorf("file upload error: %v", err)
 		}
+		os.Remove(testFilePath)
 	}
 	u.Username = defaultUsername + "1"
 	client, err = getSftpClient(u, usePubKey)
@@ -1244,7 +1245,7 @@ func TestLoginExternalAuthPwd(t *testing.T) {
 	providerConf.ExternalAuthScope = 1
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
-		t.Errorf("error initializing data provider with users base dir")
+		t.Errorf("error initializing data provider")
 	}
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
@@ -1312,7 +1313,7 @@ func TestLoginExternalAuthPubKey(t *testing.T) {
 	providerConf.ExternalAuthScope = 2
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
-		t.Errorf("error initializing data provider with users base dir")
+		t.Errorf("error initializing data provider")
 	}
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
@@ -1380,7 +1381,7 @@ func TestLoginExternalAuthErrors(t *testing.T) {
 	providerConf.ExternalAuthScope = 0
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
-		t.Errorf("error initializing data provider with users base dir")
+		t.Errorf("error initializing data provider")
 	}
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
@@ -1414,6 +1415,61 @@ func TestLoginExternalAuthErrors(t *testing.T) {
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
 	os.Remove(extAuthPath)
+}
+
+func TestQuotaDisabledError(t *testing.T) {
+	dataProvider := dataprovider.GetProvider()
+	dataprovider.Close(dataProvider)
+	config.LoadConfig(configDir, "")
+	providerConf := config.GetProviderConf()
+	providerConf.TrackQuota = 0
+	err := dataprovider.Initialize(providerConf, configDir)
+	if err != nil {
+		t.Errorf("error initializing data provider")
+	}
+	httpd.SetDataProvider(dataprovider.GetProvider())
+	sftpd.SetDataProvider(dataprovider.GetProvider())
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.QuotaFiles = 10
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		if err != nil {
+			t.Errorf("unable to create test file: %v", err)
+		}
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		if err != nil {
+			t.Errorf("file upload error: %v", err)
+		}
+		os.Remove(testFilePath)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+
+	dataProvider = dataprovider.GetProvider()
+	dataprovider.Close(dataProvider)
+	config.LoadConfig(configDir, "")
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir)
+	if err != nil {
+		t.Errorf("error initializing data provider")
+	}
+	httpd.SetDataProvider(dataprovider.GetProvider())
+	sftpd.SetDataProvider(dataprovider.GetProvider())
 }
 
 func TestMaxSessions(t *testing.T) {
