@@ -211,27 +211,27 @@
             }
         });
 
-        { { if gt.User.ExpirationDate 0 } }
+        {{ if gt .User.ExpirationDate 0 }}
         var input_dt = moment({{.User.ExpirationDate }}).format('YYYY-MM-DD');
-    $('#idExpirationDate').val(input_dt);
-    $('#expirationDatePicker').datetimepicker('viewDate', input_dt);
-    { { end } }
+        $('#idExpirationDate').val(input_dt);
+        $('#expirationDatePicker').datetimepicker('viewDate', input_dt);
+        {{ end }}
 
-    $("#user_form").submit(function (event) {
-        var dt = $('#idExpirationDate').val();
-        if (dt) {
-            var d = $('#expirationDatePicker').datetimepicker('viewDate');
-            if (d) {
-                var dateString = moment(d).format('YYYY-MM-DD HH:mm:ss');
-                $('#hidden_start_datetime').val(dateString);
+        $("#user_form").submit(function (event) {
+            var dt = $('#idExpirationDate').val();
+            if (dt) {
+                var d = $('#expirationDatePicker').datetimepicker('viewDate');
+                if (d) {
+                    var dateString = moment(d).format('YYYY-MM-DD HH:mm:ss');
+                    $('#hidden_start_datetime').val(dateString);
+                } else {
+                    $('#hidden_start_datetime').val("");
+                }
             } else {
                 $('#hidden_start_datetime').val("");
             }
-        } else {
-            $('#hidden_start_datetime').val("");
-        }
-        return true;
-    });
+            return true;
+        });
     });
 </script>
 {{end}}
