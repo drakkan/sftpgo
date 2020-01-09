@@ -698,6 +698,7 @@ func doExternalAuth(username, password, pubKey string) (User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, config.ExternalAuthProgram)
+    	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", username))
 	if len(password) > 0 {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%v", password))
