@@ -24,7 +24,7 @@ Full featured and highly configurable SFTP server
 - Prometheus metrics are exposed.
 - REST API for users management, backup, restore and real time reports of the active connections with possibility of forcibly closing a connection.
 - Web based interface to easily manage users and connections.
-- Easy migration from Unix system user accounts.
+- Easy migration from Linux system user accounts.
 - Portable mode: a convenient way to share a single directory on demand.
 - Configuration is a your choice: JSON, TOML, YAML, HCL, envfile are supported.
 - Log files are accurate and they are saved in the easily parsable JSON format.
@@ -138,20 +138,10 @@ The `sftpgo` configuration file contains the following sections:
     - `umask`, string. Umask for the new files and directories. This setting has no effect on Windows. Default: "0022"
     - `banner`, string. Identification string used by the server. Leave empty to use the default banner. Default "SFTPGo_version"
     - `upload_mode` integer. 0 means standard, the files are uploaded directly to the requested path. 1 means atomic: files are uploaded to a temporary path and renamed to the requested path when the client ends the upload. Atomic mode avoids problems such as a web server that serves partial files when the files are being uploaded. In atomic mode if there is an upload error the temporary file is deleted and so the requested upload path will not contain a partial file. 2 means atomic with resume support: as atomic but if there is an upload error the temporary file is renamed to the requested path and not deleted, this way a client can reconnect and resume the upload.
-    - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions
-        - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`, `ssh_cmd`. Actions will not be executed if an error is detected and so a partial file is uploaded or downloaded or an SSH command is not successfully completed. The `upload` condition includes both uploads to new files and overwrite of existing files. The `ssh_cmd` condition will be triggered after a command is successfully executed via SSH. `scp` will trigger the `download` and `upload` conditions and not `ssh_cmd`. Leave empty to disable actions.
-        - `command`, string. Absolute path to the command to execute. Leave empty to disable. The command is invoked with the following arguments:
-            - `action`, any valid `execute_on` string
-            - `username`, user who did the action
-            - `path` to the affected file. For `rename` action this is the old file name
-            - `target_path`, non empty for `rename` action, this is the new file name
-            - `ssh_cmd`, non empty for `ssh_cmd` action
-        - `http_notification_url`, a valid URL. An HTTP GET request will be executed to this URL. Leave empty to disable. The query string will contain the following parameters that have the same meaning of the command's arguments:
-            - `action`
-            - `username`
-            - `path`
-            - `target_path`, added for `rename` action only
-            - `ssh_cmd`, added for `ssh_cmd` action only
+    - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions. See the "Custom Actions" paragraph for more details
+        - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`, `ssh_cmd`. Leave empty to disable actions.
+        - `command`, string. Absolute path to the command to execute. Leave empty to disable.
+        - `http_notification_url`, a valid URL. An HTTP GET request will be executed to this URL. Leave empty to disable.
     - `keys`, struct array. It contains the daemon's private keys. If empty or missing the daemon will search or try to generate `id_rsa` in the configuration directory.
         - `private_key`, path to the private key file. It can be a path relative to the config dir or an absolute one.
     - `enable_scp`, boolean. Default disabled. Set to `true` to enable the experimental SCP support. This setting is deprecated and will be removed in future versions, please add `scp` to the `enabled_ssh_commands` list to enable it
@@ -183,18 +173,10 @@ The `sftpgo` configuration file contains the following sections:
         - 2, quota is updated each time a user upload or delete a file but only for users with quota restrictions. With this configuration the "quota scan" REST API can still be used to periodically update space usage for users without quota restrictions
     - `pool_size`, integer. Sets the maximum number of open connections for `mysql` and `postgresql` driver. Default 0 (unlimited)
     - `users_base_dir`, string. Users' default base directory. If no home dir is defined while adding a new user, and this value is a valid absolute path, then the user home dir will be automatically defined as the path obtained joining the base dir and the username
-    - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions
+    - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions. See the "Custom Actions" paragraph for more details
         - `execute_on`, list of strings. Valid values are `add`, `update`, `delete`. `update` action will not be fired for internal updates such as the last login or the user quota fields.
-        - `command`, string. Absolute path to the command to execute. Leave empty to disable. The command is invoked with the following arguments that identify the user added, updated or deleted:
-            - `action`, any valid `execute_on` string
-            - `username`
-            - `ID`
-            - `status`
-            - `expiration_date`, as unix timestamp in milliseconds
-            - `home_dir`
-            - `uid`
-            - `gid`
-        - `http_notification_url`, a valid URL. The action is added to the query string. For example `<http_notification_url>?action=update`. An HTTP POST request will be executed to this URL. The user is sent serialized as json inside the POST body. Leave empty to disable.
+        - `command`, string. Absolute path to the command to execute. Leave empty to disable.
+        - `http_notification_url`, a valid URL. Leave empty to disable.
     - `external_auth_program`, string. Absolute path to an external program to use for users authentication. See the "External Authentication" paragraph for more details.
     - `external_auth_scope`, integer. 0 means all supported authetication scopes (passwords and public keys). 1 means passwords only. 2 means public keys only
 - **"httpd"**, the configuration for the HTTP server used to serve REST API
@@ -336,7 +318,7 @@ The external program can read the following environment variables to get info ab
 - `SFTPGO_AUTHD_PASSWORD`, not empty for password authentication
 - `SFTPGO_AUTHD_PUBLIC_KEY`, not empty for public key authentication
 
-The content of these variables is _not_ quoted. They may contain special characters. They are under the control of a possibly malicious remote user.
+Previous global environment variables aren't cleared when the script is called. The content of these variables is _not_ quoted. They may contain special characters. They are under the control of a possibly malicious remote user.
 The program must respond on the standard output with a valid SFTPGo user serialized as json if the authentication succeed or an user with an empty username if the authentication fails.
 If the authentication succeed the user will be automatically added/updated inside the defined data provider. Actions defined for user added/updated will not be executed in this case.
 The external program should check authentication only, if there are login restrictions such as user disabled, expired, login allowed only from specific IP addresses it is enough to populate the matching user fields and these conditions will be checked in the same way as for built-in users.
@@ -361,6 +343,78 @@ fi
 ```
 
 If you have an external authentication program that could be useful for others too, for example LDAP/Active Directory authentication, please let us know and/or send a pull request.
+
+## Custom Actions
+
+SFTPGo allows to configure custom commands and/or HTTP notifications on file upload, download, delete, rename, on SSH commands and on user add, update and delete.
+
+The `actions` struct inside the "sftpd" configuration section allows to configure actions on file upload, download, delete, rename and on SSH commands.
+
+Actions will not be executed if an error is detected and so a partial file is uploaded or downloaded or an SSH command is not successfully completed. The `upload` condition includes both uploads to new files and overwrite of existing files. The `ssh_cmd` condition will be triggered after a command is successfully executed via SSH. `scp` will trigger the `download` and `upload` conditions and not `ssh_cmd`.
+
+The `command`, if defined, is invoked with the following arguments:
+
+- `action`, string, possibile values are: `download`, `upload`, `delete`, `rename`, `ssh_cmd`
+- `username`
+- `path` is the full filesystem path, can be empty for some ssh commands
+- `target_path`, non empty for `rename` action
+- `ssh_cmd`, non empty for `ssh_cmd` action
+
+The `command` can also read the following environment variables:
+
+- `SFTPGO_ACTION`
+- `SFTPGO_ACTION_USERNAME`
+- `SFTPGO_ACTION_PATH`
+- `SFTPGO_ACTION_TARGET`, non empty for `rename` `SFTPGO_ACTION`
+- `SFTPGO_ACTION_SSH_CMD`, non empty for `ssh_cmd` `SFTPGO_ACTION`
+- `SFTPGO_ACTION_FILE_SIZE`, non empty for `upload`, `download` and `delete` `SFTPGO_ACTION`
+
+Previous global environment variables aren't cleared when the script is called.
+The `command` must finish within 30 seconds.
+
+The `http_notification_url`, if defined, will contain the following, percent encoded, query string parameters:
+
+- `action`
+- `username`
+- `path`
+- `target_path`, added for `rename` action
+- `ssh_cmd`, added for `ssh_cmd` action
+- `file_size`, added for `upload`, `download`, `delete` actions
+
+The HTTP request has a 15 seconds timeout.
+
+The `actions` struct inside the "data_provider" configuration section allows to configure actions on user add, update, delete.
+
+Actions will not be fired for internal updates such as the last login or the user quota fields or after external authentication.
+
+The `command`, if defined, is invoked with the following arguments:
+
+- `action`, string, possibile values are: `add`, `update`, `delete`
+- `username`
+- `ID`
+- `status`
+- `expiration_date`
+- `home_dir`
+- `uid`
+- `gid`
+
+The `command` can also read the following environment variables:
+
+- `SFTPGO_USER_ACTION`
+- `SFTPGO_USER_USERNAME`
+- `SFTPGO_USER_ID`
+- `SFTPGO_USER_STATUS`
+- `SFTPGO_USER_EXPIRATION_DATE`
+- `SFTPGO_USER_HOME_DIR`
+- `SFTPGO_USER_UID`
+- `SFTPGO_USER_GID`
+
+Previous global environment variables aren't cleared when the script is called.
+The `command` must finish within 15 seconds.
+
+The `http_notification_url`, if defined, will be called invoked as http POST. The action is added to the query string, for example `<http_notification_url>?action=update` and the user is sent serialized as json inside the POST body
+
+The HTTP request has a 15 seconds timeout.
 
 ## Portable mode
 
@@ -440,7 +494,7 @@ These properties are stored inside the data provider.
 If you want to use your existing accounts you have these options:
 
 - If your accounts are aleady stored inside a supported database, you can create a database view. Since a view is read only, you have to disable user management and quota tracking so SFTPGo will never try to write to the view
-- you can import your users inside SFTPGo. Take a look at [sftpgo_api_cli.py](./scripts/README.md "sftpgo_api_cli script"), it can convert and import users from Unix system users and Pure-FTPd/ProFTPD virtual users
+- you can import your users inside SFTPGo. Take a look at [sftpgo_api_cli.py](./scripts/README.md "sftpgo_api_cli script"), it can convert and import users from Linux system users and Pure-FTPd/ProFTPD virtual users
 - you can use an external authentication program
 
 ## REST API

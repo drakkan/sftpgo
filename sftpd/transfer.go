@@ -69,8 +69,8 @@ func (t *Transfer) WriteAt(p []byte, off int64) (n int, err error) {
 }
 
 // Close it is called when the transfer is completed.
-// It closes the underlying file, log the transfer info, update the user quota (for uploads)
-// and execute any defined actions.
+// It closes the underlying file, logs the transfer info, updates the user quota (for uploads)
+// and executes any defined action.
 // If there is an error no action will be executed and, in atomic mode, we try to delete
 // the temporary file
 func (t *Transfer) Close() error {
@@ -102,10 +102,10 @@ func (t *Transfer) Close() error {
 		elapsed := time.Since(t.start).Nanoseconds() / 1000000
 		if t.transferType == transferDownload {
 			logger.TransferLog(downloadLogSender, t.path, elapsed, t.bytesSent, t.user.Username, t.connectionID, t.protocol)
-			go executeAction(operationDownload, t.user.Username, t.path, "", "")
+			go executeAction(operationDownload, t.user.Username, t.path, "", "", t.bytesSent)
 		} else {
 			logger.TransferLog(uploadLogSender, t.path, elapsed, t.bytesReceived, t.user.Username, t.connectionID, t.protocol)
-			go executeAction(operationUpload, t.user.Username, t.path, "", "")
+			go executeAction(operationUpload, t.user.Username, t.path, "", "", t.bytesReceived+t.minWriteOffset)
 		}
 	}
 	metrics.TransferCompleted(t.bytesSent, t.bytesReceived, t.transferType, t.transferError)

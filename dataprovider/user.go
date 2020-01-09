@@ -412,8 +412,8 @@ func (u *User) getACopy() User {
 	}
 }
 
-func (u *User) getNotificationFieldsAsSlice() []string {
-	return []string{u.Username,
+func (u *User) getNotificationFieldsAsSlice(action string) []string {
+	return []string{action, u.Username,
 		strconv.FormatInt(u.ID, 10),
 		strconv.FormatInt(int64(u.Status), 10),
 		strconv.FormatInt(int64(u.ExpirationDate), 10),
@@ -421,4 +421,15 @@ func (u *User) getNotificationFieldsAsSlice() []string {
 		strconv.FormatInt(int64(u.UID), 10),
 		strconv.FormatInt(int64(u.GID), 10),
 	}
+}
+
+func (u *User) getNotificationFieldsAsEnvVars(action string) []string {
+	return []string{fmt.Sprintf("SFTPGO_USER_ACTION=%v", action),
+		fmt.Sprintf("SFTPGO_USER_USERNAME=%v", u.Username),
+		fmt.Sprintf("SFTPGO_USER_ID=%v", u.ID),
+		fmt.Sprintf("SFTPGO_USER_STATUS=%v", u.Status),
+		fmt.Sprintf("SFTPGO_USER_EXPIRATION_DATE=%v", u.ExpirationDate),
+		fmt.Sprintf("SFTPGO_USER_HOME_DIR=%v", u.HomeDir),
+		fmt.Sprintf("SFTPGO_USER_UID=%v", u.UID),
+		fmt.Sprintf("SFTPGO_USER_GID=%v", u.GID)}
 }

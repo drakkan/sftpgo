@@ -384,7 +384,14 @@ func (c *sshCommand) sendExitStatus(err error) {
 	metrics.SSHCommandCompleted(err)
 	// for scp we notify single uploads/downloads
 	if err == nil && c.command != "scp" {
-		go executeAction(operationSSHCmd, c.connection.User.Username, c.getDestPath(), "", c.command)
+		realPath := c.getDestPath()
+		if len(realPath) > 0 {
+			p, err := c.connection.buildPath(realPath)
+			if err == nil {
+				realPath = p
+			}
+		}
+		go executeAction(operationSSHCmd, c.connection.User.Username, realPath, "", c.command, 0)
 	}
 }
 

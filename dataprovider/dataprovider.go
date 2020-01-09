@@ -697,12 +697,6 @@ func doExternalAuth(username, password, pubKey string) (User, error) {
 	var user User
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, config.ExternalAuthProgram)
-    	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", username))
-	if len(password) > 0 {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%v", password))
-	}
 	pkey := ""
 	if len(pubKey) > 0 {
 		k, err := ssh.ParsePublicKey([]byte(pubKey))
@@ -710,8 +704,12 @@ func doExternalAuth(username, password, pubKey string) (User, error) {
 			return user, err
 		}
 		pkey = string(ssh.MarshalAuthorizedKey(k))
-		cmd.Env = append(cmd.Env, fmt.Sprintf("SFTPGO_AUTHD_PUBLIC_KEY=%v", pkey))
 	}
+	cmd := exec.CommandContext(ctx, config.ExternalAuthProgram)
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", username),
+		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%v", password),
+		fmt.Sprintf("SFTPGO_AUTHD_PUBLIC_KEY=%v", pkey))
 	out, err := cmd.Output()
 	if err != nil {
 		return user, fmt.Errorf("External auth error: %v env: %+v", err, cmd.Env)
@@ -748,6 +746,19 @@ func providerLog(level logger.LogLevel, format string, v ...interface{}) {
 	logger.Log(level, logSender, "", format, v...)
 }
 
+func executeNotificationCommand(operation string, user *User) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	commandArgs := user.getNotificationFieldsAsSlice(operation)
+	cmd := exec.CommandContext(ctx, config.Actions.Command, commandArgs...)
+	cmd.Env = append(os.Environ(), user.getNotificationFieldsAsEnvVars(operation)...)
+	startTime := time.Now()
+	err := cmd.Run()
+	providerLog(logger.LevelDebug, "executed command %#v with arguments: %+v, elapsed: %v, error: %v",
+		config.Actions.Command, commandArgs, time.Since(startTime), err)
+	return err
+}
+
 // executed in a goroutine
 func executeAction(operation string, user User) {
 	if !utils.IsStringInSlice(operation, config.Actions.ExecuteOn) {
@@ -764,20 +775,12 @@ func executeAction(operation string, user User) {
 	// hide the hashed password
 	user.Password = ""
 	if len(config.Actions.Command) > 0 && filepath.IsAbs(config.Actions.Command) {
-		if _, err := os.Stat(config.Actions.Command); err == nil {
-			commandArgs := []string{operation}
-			commandArgs = append(commandArgs, user.getNotificationFieldsAsSlice()...)
-			command := exec.Command(config.Actions.Command, commandArgs...)
-			err = command.Start()
-			providerLog(logger.LevelDebug, "start command %#v with arguments: %+v, error: %v",
-				config.Actions.Command, commandArgs, err)
-			if err == nil {
-				// we are in a goroutine but we don't want to block here, this way we can send the
-				// HTTP notification, if configured, without waiting for the end of the command
-				go command.Wait()
-			}
+		// we are in a goroutine but if we have to send an HTTP notification we don't want to wait for the
+		// end of the command
+		if len(config.Actions.HTTPNotificationURL) > 0 {
+			go executeNotificationCommand(operation, &user)
 		} else {
-			providerLog(logger.LevelWarn, "Invalid action command %#v for operation %#v: %v", config.Actions.Command, operation, err)
+			executeNotificationCommand(operation, &user)
 		}
 	}
 	if len(config.Actions.HTTPNotificationURL) > 0 {

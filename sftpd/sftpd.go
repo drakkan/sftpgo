@@ -4,6 +4,7 @@
 package sftpd
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -414,25 +415,42 @@ func isAtomicUploadEnabled() bool {
 	return uploadMode == uploadModeAtomic || uploadMode == uploadModeAtomicWithResume
 }
 
+func executeNotificationCommand(operation, username, path, target, sshCmd, fileSize string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, actions.Command, operation, username, path, target, sshCmd)
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("SFTPGO_ACTION=%v", operation),
+		fmt.Sprintf("SFTPGO_ACTION_USERNAME=%v", username),
+		fmt.Sprintf("SFTPGO_ACTION_PATH=%v", path),
+		fmt.Sprintf("SFTPGO_ACTION_TARGET=%v", target),
+		fmt.Sprintf("SFTPGO_ACTION_SSH_CMD=%v", sshCmd),
+		fmt.Sprintf("SFTPGO_ACTION_FILE_SIZE=%v", fileSize),
+	)
+	startTime := time.Now()
+	err := cmd.Run()
+	logger.Debug(logSender, "", "executed command %#v with arguments: %#v, %#v, %#v, %#v, %#v, elapsed: %v, error: %v",
+		actions.Command, operation, username, path, target, sshCmd, time.Since(startTime), err)
+	return err
+}
+
 // executed in a goroutine
-func executeAction(operation, username, path, target, sshCmd string) error {
+func executeAction(operation, username, path, target, sshCmd string, fileSize int64) error {
 	if !utils.IsStringInSlice(operation, actions.ExecuteOn) {
 		return nil
 	}
 	var err error
+	size := ""
+	if fileSize > 0 {
+		size = fmt.Sprintf("%v", fileSize)
+	}
 	if len(actions.Command) > 0 && filepath.IsAbs(actions.Command) {
-		if _, err = os.Stat(actions.Command); err == nil {
-			command := exec.Command(actions.Command, operation, username, path, target, sshCmd)
-			err = command.Start()
-			logger.Debug(logSender, "", "start command %#v with arguments: %#v, %#v, %#v, %#v, %#v, error: %v",
-				actions.Command, operation, username, path, target, sshCmd, err)
-			if err == nil {
-				// we are in a goroutine but we don't want to block here, this way we can send the
-				// HTTP notification, if configured, without waiting for the end of the command
-				go command.Wait()
-			}
+		// we are in a goroutine but if we have to send an HTTP notification we don't want to wait for the
+		// end of the command
+		if len(actions.HTTPNotificationURL) > 0 {
+			go executeNotificationCommand(operation, username, path, target, sshCmd, size)
 		} else {
-			logger.Warn(logSender, "", "Invalid action command %#v for operation %#v: %v", actions.Command, operation, err)
+			err = executeNotificationCommand(operation, username, path, target, sshCmd, size)
 		}
 	}
 	if len(actions.HTTPNotificationURL) > 0 {
@@ -448,6 +466,9 @@ func executeAction(operation, username, path, target, sshCmd string) error {
 			}
 			if len(sshCmd) > 0 {
 				q.Add("ssh_cmd", sshCmd)
+			}
+			if len(size) > 0 {
+				q.Add("file_size", size)
 			}
 			url.RawQuery = q.Encode()
 			startTime := time.Now()

@@ -379,7 +379,7 @@ Output:
 
 You can convert users to the SFTPGo format from the following users stores:
 
-- Linux/Unix users stored in `shadow`/`passwd` files
+- Linux users stored in `shadow`/`passwd` files
 - Pure-FTPd virtual users generated using `pure-pw` CLI
 - ProFTPD users generated using `ftpasswd` CLI
 

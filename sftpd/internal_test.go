@@ -69,17 +69,17 @@ func TestWrongActions(t *testing.T) {
 		Command:             badCommand,
 		HTTPNotificationURL: "",
 	}
-	err := executeAction(operationDownload, "username", "path", "", "")
+	err := executeAction(operationDownload, "username", "path", "", "", 0)
 	if err == nil {
 		t.Errorf("action with bad command must fail")
 	}
-	err = executeAction(operationDelete, "username", "path", "", "")
+	err = executeAction(operationDelete, "username", "path", "", "", 0)
 	if err != nil {
 		t.Errorf("action not configured must silently fail")
 	}
 	actions.Command = ""
 	actions.HTTPNotificationURL = "http://foo\x7f.com/"
-	err = executeAction(operationDownload, "username", "path", "", "")
+	err = executeAction(operationDownload, "username", "path", "", "", 0)
 	if err == nil {
 		t.Errorf("action with bad url must fail")
 	}
