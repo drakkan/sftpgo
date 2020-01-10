@@ -14,7 +14,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/drakkan/sftpgo/dataprovider"
@@ -274,7 +273,6 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		RemoteAddr:    remoteAddr,
 		StartTime:     time.Now(),
 		lastActivity:  time.Now(),
-		lock:          new(sync.Mutex),
 		netConn:       conn,
 		channel:       nil,
 	}

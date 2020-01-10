@@ -1,9 +1,11 @@
 package sftpd
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/drakkan/sftpgo/dataprovider"
@@ -33,11 +35,18 @@ type Transfer struct {
 	transferError  error
 	isFinished     bool
 	minWriteOffset int64
+	expectedSize   int64
+	lock           *sync.Mutex
 }
 
 // TransferError is called if there is an unexpected error.
 // For example network or client issues
 func (t *Transfer) TransferError(err error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	if t.transferError != nil {
+		return
+	}
 	t.transferError = err
 	elapsed := time.Since(t.start).Nanoseconds() / 1000000
 	logger.Warn(logSender, t.connectionID, "Unexpected error for transfer, path: %#v, error: \"%v\" bytes sent: %v, "+
@@ -49,7 +58,13 @@ func (t *Transfer) TransferError(err error) {
 func (t *Transfer) ReadAt(p []byte, off int64) (n int, err error) {
 	t.lastActivity = time.Now()
 	readed, e := t.file.ReadAt(p, off)
+	t.lock.Lock()
 	t.bytesSent += int64(readed)
+	t.lock.Unlock()
+	if e != nil && e != io.EOF {
+		t.TransferError(e)
+		return readed, e
+	}
 	t.handleThrottle()
 	return readed, e
 }
@@ -59,11 +74,18 @@ func (t *Transfer) ReadAt(p []byte, off int64) (n int, err error) {
 func (t *Transfer) WriteAt(p []byte, off int64) (n int, err error) {
 	t.lastActivity = time.Now()
 	if off < t.minWriteOffset {
-		logger.Warn(logSender, t.connectionID, "Invalid write offset %v minimum valid value %v", off, t.minWriteOffset)
-		return 0, fmt.Errorf("invalid write offset %v", off)
+		err := fmt.Errorf("Invalid write offset: %v minimum valid value: %v", off, t.minWriteOffset)
+		t.TransferError(err)
+		return 0, err
 	}
 	written, e := t.file.WriteAt(p, off)
+	t.lock.Lock()
 	t.bytesReceived += int64(written)
+	t.lock.Unlock()
+	if e != nil {
+		t.TransferError(e)
+		return written, e
+	}
 	t.handleThrottle()
 	return written, e
 }
@@ -74,15 +96,18 @@ func (t *Transfer) WriteAt(p []byte, off int64) (n int, err error) {
 // If there is an error no action will be executed and, in atomic mode, we try to delete
 // the temporary file
 func (t *Transfer) Close() error {
-	err := t.file.Close()
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	if t.isFinished {
-		return err
+		return errors.New("transfer already closed")
 	}
+	err := t.file.Close()
 	t.isFinished = true
 	numFiles := 0
 	if t.isNewFile {
 		numFiles = 1
 	}
+	t.checkDownloadSize()
 	if t.transferType == transferUpload && t.file.Name() != t.path {
 		if t.transferError == nil || uploadMode == uploadModeAtomicWithResume {
 			err = os.Rename(t.file.Name(), t.path)
@@ -107,6 +132,11 @@ func (t *Transfer) Close() error {
 			logger.TransferLog(uploadLogSender, t.path, elapsed, t.bytesReceived, t.user.Username, t.connectionID, t.protocol)
 			go executeAction(operationUpload, t.user.Username, t.path, "", "", t.bytesReceived+t.minWriteOffset)
 		}
+	} else {
+		logger.Warn(logSender, t.connectionID, "transfer error: %v, path: %#v", t.transferError, t.path)
+		if err == nil {
+			err = t.transferError
+		}
 	}
 	metrics.TransferCompleted(t.bytesSent, t.bytesReceived, t.transferType, t.transferError)
 	removeTransfer(t)
@@ -114,6 +144,12 @@ func (t *Transfer) Close() error {
 		dataprovider.UpdateUserQuota(dataProvider, t.user, numFiles, t.bytesReceived, false)
 	}
 	return err
+}
+
+func (t *Transfer) checkDownloadSize() {
+	if t.transferType == transferDownload && t.transferError == nil && t.bytesSent < t.expectedSize {
+		t.transferError = fmt.Errorf("incomplete download: %v/%v bytes transferred", t.bytesSent, t.expectedSize)
+	}
 }
 
 func (t *Transfer) handleThrottle() {

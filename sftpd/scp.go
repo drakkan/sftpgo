@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/drakkan/sftpgo/dataprovider"
@@ -212,6 +213,7 @@ func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead i
 		transferError:  nil,
 		isFinished:     false,
 		minWriteOffset: 0,
+		lock:           new(sync.Mutex),
 	}
 	addTransfer(&transfer)
 
@@ -387,8 +389,9 @@ func (c *scpCommand) sendDownloadFileData(filePath string, stat os.FileInfo, tra
 	}
 
 	buf := make([]byte, 32768)
+	var n int
 	for {
-		n, err := transfer.ReadAt(buf, readed)
+		n, err = transfer.ReadAt(buf, readed)
 		if err == nil || err == io.EOF {
 			if n > 0 {
 				_, err = c.connection.channel.Write(buf[:n])
@@ -471,6 +474,8 @@ func (c *scpCommand) handleDownload(filePath string) error {
 		transferError:  nil,
 		isFinished:     false,
 		minWriteOffset: 0,
+		expectedSize:   stat.Size(),
+		lock:           new(sync.Mutex),
 	}
 	addTransfer(&transfer)
 

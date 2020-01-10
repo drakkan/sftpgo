@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -136,10 +137,81 @@ func TestUploadResumeInvalidOffset(t *testing.T) {
 		transferError:  nil,
 		isFinished:     false,
 		minWriteOffset: 10,
+		lock:           new(sync.Mutex),
 	}
 	_, err := transfer.WriteAt([]byte("test"), 0)
 	if err == nil {
 		t.Errorf("upload with invalid offset must fail")
+	}
+	os.Remove(testfile)
+}
+
+func TestIncompleteDownload(t *testing.T) {
+	testfile := "testfile"
+	file, _ := os.Create(testfile)
+	transfer := Transfer{
+		file:          file,
+		path:          file.Name(),
+		start:         time.Now(),
+		bytesSent:     0,
+		bytesReceived: 0,
+		user: dataprovider.User{
+			Username: "testuser",
+		},
+		connectionID:   "",
+		transferType:   transferDownload,
+		lastActivity:   time.Now(),
+		isNewFile:      false,
+		protocol:       protocolSFTP,
+		transferError:  nil,
+		isFinished:     false,
+		minWriteOffset: 0,
+		expectedSize:   10,
+		lock:           new(sync.Mutex),
+	}
+	err := transfer.Close()
+	if err == nil {
+		t.Error("upoload must fail the expected size does not match")
+	}
+	os.Remove(testfile)
+}
+
+func TestReadWriteErrors(t *testing.T) {
+	testfile := "testfile"
+	file, _ := os.Create(testfile)
+	transfer := Transfer{
+		file:          file,
+		path:          file.Name(),
+		start:         time.Now(),
+		bytesSent:     0,
+		bytesReceived: 0,
+		user: dataprovider.User{
+			Username: "testuser",
+		},
+		connectionID:   "",
+		transferType:   transferDownload,
+		lastActivity:   time.Now(),
+		isNewFile:      false,
+		protocol:       protocolSFTP,
+		transferError:  nil,
+		isFinished:     false,
+		minWriteOffset: 0,
+		expectedSize:   10,
+		lock:           new(sync.Mutex),
+	}
+	file.Close()
+	_, err := transfer.WriteAt([]byte("test"), 0)
+	if err == nil {
+		t.Error("writing to closed file must fail")
+	}
+	buf := make([]byte, 32768)
+	_, err = transfer.ReadAt(buf, 0)
+	if err == nil {
+		t.Error("reading from a closed file must fail")
+	}
+	err = transfer.Close()
+	if err == nil {
+		t.Error("upoload must fail the expected size does not match")
 	}
 	os.Remove(testfile)
 }
@@ -550,7 +622,9 @@ func TestSystemCommandErrors(t *testing.T) {
 		WriteError:   nil,
 	}
 	sshCmd.connection.channel = &mockSSHChannel
-	transfer := Transfer{transferType: transferDownload}
+	transfer := Transfer{
+		transferType: transferDownload,
+		lock:         new(sync.Mutex)}
 	destBuff := make([]byte, 65535)
 	dst := bytes.NewBuffer(destBuff)
 	_, err = transfer.copyFromReaderToWriter(dst, sshCmd.connection.channel, 0)
@@ -1071,6 +1145,7 @@ func TestSCPUploadFiledata(t *testing.T) {
 		transferError:  nil,
 		isFinished:     false,
 		minWriteOffset: 0,
+		lock:           new(sync.Mutex),
 	}
 	addTransfer(&transfer)
 	err := scpCommand.getUploadFileData(2, &transfer)
@@ -1151,12 +1226,13 @@ func TestUploadError(t *testing.T) {
 		transferError:  nil,
 		isFinished:     false,
 		minWriteOffset: 0,
+		lock:           new(sync.Mutex),
 	}
 	addTransfer(&transfer)
 	transfer.TransferError(fmt.Errorf("fake error"))
 	transfer.Close()
 	if transfer.bytesReceived > 0 {
-		t.Errorf("byte sent should be 0 for a failed transfer: %v", transfer.bytesSent)
+		t.Errorf("bytes received should be 0 for a failed transfer: %v", transfer.bytesReceived)
 	}
 	_, err := os.Stat(testfile)
 	if !os.IsNotExist(err) {

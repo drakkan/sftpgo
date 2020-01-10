@@ -37,7 +37,6 @@ type Connection struct {
 	// last activity for this connection
 	lastActivity time.Time
 	protocol     string
-	lock         *sync.Mutex
 	netConn      net.Conn
 	channel      ssh.Channel
 	command      string
@@ -61,10 +60,8 @@ func (c Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 		return nil, getSFTPErrorFromOSError(err)
 	}
 
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	if _, err := os.Stat(p); err != nil {
+	fi, err := os.Stat(p)
+	if err != nil {
 		return nil, getSFTPErrorFromOSError(err)
 	}
 
@@ -91,6 +88,8 @@ func (c Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 		transferError:  nil,
 		isFinished:     false,
 		minWriteOffset: 0,
+		expectedSize:   fi.Size(),
+		lock:           new(sync.Mutex),
 	}
 	addTransfer(&transfer)
 	return &transfer, nil
@@ -108,9 +107,6 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 	if isAtomicUploadEnabled() {
 		filePath = getUploadTempFilePath(p)
 	}
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
 
 	stat, statErr := os.Stat(p)
 	if os.IsNotExist(statErr) {
@@ -448,6 +444,7 @@ func (c Connection) handleSFTPUploadToNewFile(requestPath, filePath string) (io.
 		transferError:  nil,
 		isFinished:     false,
 		minWriteOffset: 0,
+		lock:           new(sync.Mutex),
 	}
 	addTransfer(&transfer)
 	return &transfer, nil
@@ -503,6 +500,7 @@ func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, re
 		transferError:  nil,
 		isFinished:     false,
 		minWriteOffset: minWriteOffset,
+		lock:           new(sync.Mutex),
 	}
 	addTransfer(&transfer)
 	return &transfer, nil

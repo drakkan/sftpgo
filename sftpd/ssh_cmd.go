@@ -200,6 +200,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 			transferError:  nil,
 			isFinished:     false,
 			minWriteOffset: 0,
+			lock:           new(sync.Mutex),
 		}
 		addTransfer(&transfer)
 		defer removeTransfer(&transfer)
@@ -227,6 +228,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 			transferError:  nil,
 			isFinished:     false,
 			minWriteOffset: 0,
+			lock:           new(sync.Mutex),
 		}
 		addTransfer(&transfer)
 		defer removeTransfer(&transfer)
@@ -255,6 +257,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 			transferError:  nil,
 			isFinished:     false,
 			minWriteOffset: 0,
+			lock:           new(sync.Mutex),
 		}
 		addTransfer(&transfer)
 		defer removeTransfer(&transfer)
