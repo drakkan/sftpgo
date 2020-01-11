@@ -251,11 +251,6 @@ func (c Connection) handleSFTPSetstat(filePath string, request *sftp.Request) er
 	if setstatMode == 1 {
 		return nil
 	}
-	if len(request.Attrs) < 1 {
-		c.Log(logger.LevelInfo, logSender, "cannot handle Setstat request with no attrs, this is probably a buggy client: %v",
-			c.ClientVersion)
-		return sftp.ErrSSHFxBadMessage
-	}
 	pathForPerms := request.Filepath
 	if fi, err := os.Lstat(filePath); err == nil {
 		if fi.IsDir() {
