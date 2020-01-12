@@ -18,6 +18,10 @@ const (
 	transferDownload
 )
 
+var (
+	errTransferClosed = errors.New("transfer already closed")
+)
+
 // Transfer contains the transfer details for an upload or a download.
 // It implements the io Reader and Writer interface to handle files downloads and uploads
 type Transfer struct {
@@ -99,7 +103,7 @@ func (t *Transfer) Close() error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	if t.isFinished {
-		return errors.New("transfer already closed")
+		return errTransferClosed
 	}
 	err := t.file.Close()
 	t.isFinished = true

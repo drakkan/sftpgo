@@ -2,6 +2,7 @@ package sftpd
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -143,6 +144,10 @@ func TestUploadResumeInvalidOffset(t *testing.T) {
 	if err == nil {
 		t.Errorf("upload with invalid offset must fail")
 	}
+	err = transfer.Close()
+	if err == nil || !strings.Contains(err.Error(), "Invalid write offset") {
+		t.Errorf("unexpected error: %v", err)
+	}
 	os.Remove(testfile)
 }
 
@@ -170,7 +175,7 @@ func TestIncompleteDownload(t *testing.T) {
 		lock:           new(sync.Mutex),
 	}
 	err := transfer.Close()
-	if err == nil {
+	if err == nil || !strings.Contains(err.Error(), "incomplete download") {
 		t.Error("upoload must fail the expected size does not match")
 	}
 	os.Remove(testfile)
@@ -1155,6 +1160,7 @@ func TestSCPUploadFiledata(t *testing.T) {
 	scpCommand.connection.channel = &mockSSHChannel
 	file, _ = os.Create(testfile)
 	transfer.file = file
+	transfer.isFinished = false
 	addTransfer(&transfer)
 	err = scpCommand.getUploadFileData(2, &transfer)
 	if err == nil {
@@ -1172,6 +1178,7 @@ func TestSCPUploadFiledata(t *testing.T) {
 	scpCommand.connection.channel = &mockSSHChannel
 	file, _ = os.Create(testfile)
 	transfer.file = file
+	transfer.isFinished = false
 	addTransfer(&transfer)
 	err = scpCommand.getUploadFileData(2, &transfer)
 	if err == nil {
@@ -1187,10 +1194,13 @@ func TestSCPUploadFiledata(t *testing.T) {
 	}
 	addTransfer(&transfer)
 	err = scpCommand.getUploadFileData(0, &transfer)
-	if err == nil {
-		t.Errorf("upload must fail, the file is closed")
+	if err != errTransferClosed {
+		t.Errorf("upload must fail, the transfer is already closed")
 	}
-	os.Remove(testfile)
+	err = os.Remove(testfile)
+	if err != nil {
+		t.Errorf("error removing test file: %v", err)
+	}
 }
 
 func TestUploadError(t *testing.T) {
@@ -1223,12 +1233,16 @@ func TestUploadError(t *testing.T) {
 		lock:           new(sync.Mutex),
 	}
 	addTransfer(&transfer)
-	transfer.TransferError(fmt.Errorf("fake error"))
-	transfer.Close()
+	errFake := errors.New("fake error")
+	transfer.TransferError(errFake)
+	err := transfer.Close()
+	if err != errFake {
+		t.Errorf("unexpected error: %v", err)
+	}
 	if transfer.bytesReceived > 0 {
 		t.Errorf("bytes received should be 0 for a failed transfer: %v", transfer.bytesReceived)
 	}
-	_, err := os.Stat(testfile)
+	_, err = os.Stat(testfile)
 	if !os.IsNotExist(err) {
 		t.Errorf("file uploaded must be deleted after an error: %v", err)
 	}
