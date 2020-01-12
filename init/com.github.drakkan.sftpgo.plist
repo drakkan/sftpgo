@@ -14,6 +14,8 @@
         <string>/usr/local/opt/sftpgo/templates</string>
         <key>SFTPGO_HTTPD__STATIC_FILES_PATH</key>
         <string>/usr/local/opt/sftpgo/static</string>
+        <key>SFTPGO_HTTPD__BACKUPS_PATH</key>
+        <string>/usr/local/opt/sftpgo/backups</string>
     </dict>
     <key>WorkingDirectory</key>
     <string>/usr/local/opt/sftpgo/etc</string>
