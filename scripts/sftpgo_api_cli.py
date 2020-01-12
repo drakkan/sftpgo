@@ -418,9 +418,13 @@ if __name__ == '__main__':
 	parser.add_argument('-i', '--insecure', dest='secure', action='store_false',
 					help='Set to false to ignore verifying the SSL certificate')
 	parser.set_defaults(secure=True)
-	parser.add_argument('-t', '--no-color', dest='no_color', action='store_true',
+	has_colors_default = pygments is not None and platform.system() != "Windows"
+	group = parser.add_mutually_exclusive_group(required=False)
+	group.add_argument('-t', '--no-color', dest='no_color', action='store_true', default=(not has_colors_default),
 					help='Disable color highlight for JSON responses. You need python pygments module 1.5 or above to have highlighted output')
-	parser.set_defaults(no_color=(pygments is None or platform.system() == "Windows"))
+	group.add_argument('-c', '--color', dest='no_color', action='store_false', default=has_colors_default,
+					help='Enable color highlight for JSON responses. You need python pygments module 1.5 or above to have highlighted output')
+	parser.add_argument_group(group)
 
 	subparsers = parser.add_subparsers(dest='command', help='sub-command --help')
 	subparsers.required = True

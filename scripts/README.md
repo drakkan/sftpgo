@@ -28,7 +28,8 @@ Basically there is a sub command for each REST API and the following global argu
  - `-u`, `--auth-user`, user for HTTP authentication
  - `-p`, `--auth-password`, password for HTTP authentication
  - `-i`, `--insecure`, enable to ignore verifying the SSL certificate. Default disabled
- - `-t`, `--no-color`, disable color highligth for JSON responses. You need python pygments module 1.5 or above for this to work. Default disabled if pygments is found, enabled if not found. Please read the note at the end of this doc for colors in Windows command prompt.
+ - `-t`, `--no-color`, disable color highligth for JSON responses. You need python pygments module 1.5 or above for this to work. Default disabled if pygments is found and you aren't on Windows, otherwise enabled.
+ - `-c`, `--color`, enable color highligth for JSON responses. You need python pygments module 1.5 or above for this to work. Default enabled if `pygments` is found and you aren't on Windows, otherwise disabled. Please read the note at the end of this doc for colors in Windows command prompt.
 
 For each subcommand `--help` shows the available arguments, try for example:
 
