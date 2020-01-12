@@ -2,7 +2,7 @@
 ; You need to change the paths for the source files to match your environment
 
 #define MyAppName "SFTPGo"
-#define MyAppVersion "0.9.4-dev"
+#define MyAppVersion "0.9.5"
 #define MyAppURL "https://github.com/drakkan/sftpgo"
 #define MyAppExeName "sftpgo.exe"
 #define MyAppDir "C:\Users\vbox\Desktop\sftpgo_setup"
@@ -32,6 +32,7 @@ ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64
 MinVersion=6.1
+VersionInfoVersion={#MyAppVersion}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -50,6 +51,7 @@ Source: "{#MyAppDir}\static\*"; DestDir: "{app}\static"; Flags: ignoreversion re
 
 [Dirs]
 Name: "{app}\logs"; Permissions: everyone-full
+Name: "{app}\backups"; Permissions: everyone-full
 
 [Icons]
 Name: "{group}\Web Admin"; Filename: "http://127.0.0.1:8080/web";
