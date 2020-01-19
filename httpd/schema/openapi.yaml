@@ -732,6 +732,10 @@ components:
           description: optional endpoint
         storage_class:
           type: string
+        key_prefix:
+          type: string
+          description: key_prefix is similar to a chroot directory for a local filesystem. If specified the SFTP user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix, if not empty, must not start with "/" and must end with "/". If empty the whole bucket contents will be available
+          example: folder/subfolder/
       required:
         - bucket
         - region

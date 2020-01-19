@@ -4,7 +4,9 @@ package vfs
 import (
 	"errors"
 	"os"
+	"path"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/drakkan/sftpgo/logger"
@@ -36,7 +38,7 @@ type Fs interface {
 	IsPermission(err error) bool
 	ScanRootDirContents() (int, int64, error)
 	GetAtomicUploadPath(name string) string
-	GetRelativePath(name, rootPath string) string
+	GetRelativePath(name string) string
 	Join(elem ...string) string
 }
 
@@ -79,6 +81,15 @@ func ValidateS3FsConfig(config *S3FsConfig) error {
 	}
 	if len(config.AccessSecret) == 0 {
 		return errors.New("access_secret cannot be empty")
+	}
+	if len(config.KeyPrefix) > 0 {
+		if strings.HasPrefix(config.KeyPrefix, "/") {
+			return errors.New("key_prefix cannot start with /")
+		}
+		config.KeyPrefix = path.Clean(config.KeyPrefix)
+		if !strings.HasSuffix(config.KeyPrefix, "/") {
+			config.KeyPrefix += "/"
+		}
 	}
 	return nil
 }

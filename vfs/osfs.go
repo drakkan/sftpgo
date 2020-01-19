@@ -180,8 +180,8 @@ func (OsFs) GetAtomicUploadPath(name string) string {
 
 // GetRelativePath returns the path for a file relative to the user's home dir.
 // This is the path as seen by SFTP users
-func (OsFs) GetRelativePath(name, rootPath string) string {
-	rel, err := filepath.Rel(rootPath, filepath.Clean(name))
+func (fs OsFs) GetRelativePath(name string) string {
+	rel, err := filepath.Rel(fs.rootDir, filepath.Clean(name))
 	if err != nil {
 		return ""
 	}

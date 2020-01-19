@@ -435,6 +435,10 @@ func compareUserFsConfig(expected *dataprovider.User, actual *dataprovider.User)
 	if expected.FsConfig.S3Config.StorageClass != actual.FsConfig.S3Config.StorageClass {
 		return errors.New("S3 storage class mismatch")
 	}
+	if expected.FsConfig.S3Config.KeyPrefix != actual.FsConfig.S3Config.KeyPrefix &&
+		expected.FsConfig.S3Config.KeyPrefix+"/" != actual.FsConfig.S3Config.KeyPrefix {
+		return errors.New("S3 key prefix mismatch")
+	}
 	return nil
 }
 

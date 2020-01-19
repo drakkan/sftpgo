@@ -2904,57 +2904,118 @@ func TestRootDirCommands(t *testing.T) {
 
 func TestRelativePaths(t *testing.T) {
 	user := getTestUser(true)
-	path := filepath.Join(user.HomeDir, "/")
-	fs := vfs.NewOsFs("", user.GetHomeDir())
-	rel := fs.GetRelativePath(path, user.GetHomeDir())
-	if rel != "/" {
-		t.Errorf("Unexpected relative path: %v", rel)
+	var path, rel string
+	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir())}
+	s3config := vfs.S3FsConfig{
+		KeyPrefix: strings.TrimPrefix(user.GetHomeDir(), "/") + "/",
 	}
-	path = filepath.Join(user.HomeDir, "//")
-	rel = fs.GetRelativePath(path, user.GetHomeDir())
-	if rel != "/" {
-		t.Errorf("Unexpected relative path: %v", rel)
+	s3fs, _ := vfs.NewS3Fs("", user.GetHomeDir(), s3config)
+	filesystems = append(filesystems, s3fs)
+	for _, fs := range filesystems {
+		path = filepath.Join(user.HomeDir, "/")
+		rel = fs.GetRelativePath(path)
+		if rel != "/" {
+			t.Errorf("Unexpected relative path: %v", rel)
+		}
+		path = filepath.Join(user.HomeDir, "//")
+		rel = fs.GetRelativePath(path)
+		if rel != "/" {
+			t.Errorf("Unexpected relative path: %v", rel)
+		}
+		path = filepath.Join(user.HomeDir, "../..")
+		rel = fs.GetRelativePath(path)
+		if rel != "/" {
+			t.Errorf("Unexpected relative path: %v path: %v", rel, path)
+		}
+		path = filepath.Join(user.HomeDir, "../../../../../")
+		rel = fs.GetRelativePath(path)
+		if rel != "/" {
+			t.Errorf("Unexpected relative path: %v", rel)
+		}
+		path = filepath.Join(user.HomeDir, "/..")
+		rel = fs.GetRelativePath(path)
+		if rel != "/" {
+			t.Errorf("Unexpected relative path: %v path: %v", rel, path)
+		}
+		path = filepath.Join(user.HomeDir, "/../../../..")
+		rel = fs.GetRelativePath(path)
+		if rel != "/" {
+			t.Errorf("Unexpected relative path: %v", rel)
+		}
+		path = filepath.Join(user.HomeDir, "")
+		rel = fs.GetRelativePath(path)
+		if rel != "/" {
+			t.Errorf("Unexpected relative path: %v", rel)
+		}
+		path = filepath.Join(user.HomeDir, ".")
+		rel = fs.GetRelativePath(path)
+		if rel != "/" {
+			t.Errorf("Unexpected relative path: %v", rel)
+		}
+		path = filepath.Join(user.HomeDir, "somedir")
+		rel = fs.GetRelativePath(path)
+		if rel != "/somedir" {
+			t.Errorf("Unexpected relative path: %v", rel)
+		}
+		path = filepath.Join(user.HomeDir, "/somedir/subdir")
+		rel = fs.GetRelativePath(path)
+		if rel != "/somedir/subdir" {
+			t.Errorf("Unexpected relative path: %v", rel)
+		}
 	}
-	path = filepath.Join(user.HomeDir, "../..")
-	rel = fs.GetRelativePath(path, user.GetHomeDir())
-	if rel != "/" {
-		t.Errorf("Unexpected relative path: %v", rel)
+}
+
+func TestResolvePaths(t *testing.T) {
+	user := getTestUser(true)
+	var path, resolved string
+	var err error
+	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir())}
+	s3config := vfs.S3FsConfig{
+		KeyPrefix: strings.TrimPrefix(user.GetHomeDir(), "/") + "/",
 	}
-	path = filepath.Join(user.HomeDir, "../../../../../")
-	rel = fs.GetRelativePath(path, user.GetHomeDir())
-	if rel != "/" {
-		t.Errorf("Unexpected relative path: %v", rel)
+	os.MkdirAll(user.GetHomeDir(), 0777)
+	s3fs, _ := vfs.NewS3Fs("", user.GetHomeDir(), s3config)
+	filesystems = append(filesystems, s3fs)
+	for _, fs := range filesystems {
+		path = "/"
+		resolved, _ = fs.ResolvePath(filepath.ToSlash(path))
+		if resolved != fs.Join(user.GetHomeDir(), "/") {
+			t.Errorf("Unexpected resolved path: %v for: %v, fs: %v", resolved, path, fs.Name())
+		}
+		path = "."
+		resolved, _ = fs.ResolvePath(filepath.ToSlash(path))
+		if resolved != fs.Join(user.GetHomeDir(), "/") {
+			t.Errorf("Unexpected resolved path: %v for: %v, fs: %v", resolved, path, fs.Name())
+		}
+		path = "test/sub"
+		resolved, _ = fs.ResolvePath(filepath.ToSlash(path))
+		if resolved != fs.Join(user.GetHomeDir(), "/test/sub") {
+			t.Errorf("Unexpected resolved path: %v for: %v, fs: %v", resolved, path, fs.Name())
+		}
+		path = "../test/sub"
+		resolved, err = fs.ResolvePath(filepath.ToSlash(path))
+		if fs.Name() == "osfs" {
+			if err == nil {
+				t.Errorf("Unexpected resolved path: %v for: %v, fs: %v", resolved, path, fs.Name())
+			}
+		} else {
+			if resolved != fs.Join(user.GetHomeDir(), "/test/sub") && err == nil {
+				t.Errorf("Unexpected resolved path: %v for: %v, fs: %v", resolved, path, fs.Name())
+			}
+		}
+		path = "../../../test/../sub"
+		resolved, err = fs.ResolvePath(filepath.ToSlash(path))
+		if fs.Name() == "osfs" {
+			if err == nil {
+				t.Errorf("Unexpected resolved path: %v for: %v, fs: %v", resolved, path, fs.Name())
+			}
+		} else {
+			if resolved != fs.Join(user.GetHomeDir(), "/sub") && err == nil {
+				t.Errorf("Unexpected resolved path: %v for: %v, fs: %v", resolved, path, fs.Name())
+			}
+		}
 	}
-	path = filepath.Join(user.HomeDir, "/..")
-	rel = fs.GetRelativePath(path, user.GetHomeDir())
-	if rel != "/" {
-		t.Errorf("Unexpected relative path: %v", rel)
-	}
-	path = filepath.Join(user.HomeDir, "/../../../..")
-	rel = fs.GetRelativePath(path, user.GetHomeDir())
-	if rel != "/" {
-		t.Errorf("Unexpected relative path: %v", rel)
-	}
-	path = filepath.Join(user.HomeDir, "")
-	rel = fs.GetRelativePath(path, user.GetHomeDir())
-	if rel != "/" {
-		t.Errorf("Unexpected relative path: %v", rel)
-	}
-	path = filepath.Join(user.HomeDir, ".")
-	rel = fs.GetRelativePath(path, user.GetHomeDir())
-	if rel != "/" {
-		t.Errorf("Unexpected relative path: %v", rel)
-	}
-	path = filepath.Join(user.HomeDir, "somedir")
-	rel = fs.GetRelativePath(path, user.GetHomeDir())
-	if rel != "/somedir" {
-		t.Errorf("Unexpected relative path: %v", rel)
-	}
-	path = filepath.Join(user.HomeDir, "/somedir/subdir")
-	rel = fs.GetRelativePath(path, user.GetHomeDir())
-	if rel != "/somedir/subdir" {
-		t.Errorf("Unexpected relative path: %v", rel)
-	}
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestUserPerms(t *testing.T) {

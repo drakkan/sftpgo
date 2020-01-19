@@ -307,7 +307,7 @@ func GetConnectionsStats() []ConnectionStatus {
 					StartTime:     utils.GetTimeAsMsSinceEpoch(t.start),
 					Size:          size,
 					LastActivity:  utils.GetTimeAsMsSinceEpoch(t.lastActivity),
-					Path:          c.fs.GetRelativePath(t.path, c.User.GetHomeDir()),
+					Path:          c.fs.GetRelativePath(t.path),
 				}
 				conn.Transfers = append(conn.Transfers, connTransfer)
 			}

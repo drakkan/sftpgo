@@ -22,7 +22,14 @@ import (
 
 // S3FsConfig defines the configuration for S3fs
 type S3FsConfig struct {
-	Bucket       string `json:"bucket,omitempty"`
+	Bucket string `json:"bucket,omitempty"`
+	// KeyPrefix is similar to a chroot directory for local filesystem.
+	// If specified the SFTP user will only see contents that starts with
+	// this prefix and so you can restrict access to a specific virtual
+	// folder. The prefix, if not empty, must not start with "/" and must
+	// end with "/".
+	//If empty the whole bucket contents will be available
+	KeyPrefix    string `json:"key_prefix,omitempty"`
 	Region       string `json:"region,omitempty"`
 	AccessKey    string `json:"access_key,omitempty"`
 	AccessSecret string `json:"access_secret,omitempty"`
@@ -93,6 +100,9 @@ func (fs S3Fs) Stat(name string) (os.FileInfo, error) {
 		if err != nil {
 			return result, err
 		}
+		return NewS3FileInfo(name, true, 0, time.Time{}), nil
+	}
+	if "/"+fs.config.KeyPrefix == name+"/" {
 		return NewS3FileInfo(name, true, 0, time.Time{}), nil
 	}
 	prefix := path.Dir(name)
@@ -403,7 +413,7 @@ func (fs S3Fs) ScanRootDirContents() (int, int64, error) {
 	defer cancelFn()
 	err := fs.svc.ListObjectsV2PagesWithContext(ctx, &s3.ListObjectsV2Input{
 		Bucket: aws.String(fs.config.Bucket),
-		Prefix: aws.String(""),
+		Prefix: aws.String(fs.config.KeyPrefix),
 	}, func(page *s3.ListObjectsV2Output, lastPage bool) bool {
 		for _, fileObject := range page.Contents {
 			numFiles++
@@ -423,13 +433,19 @@ func (S3Fs) GetAtomicUploadPath(name string) string {
 
 // GetRelativePath returns the path for a file relative to the user's home dir.
 // This is the path as seen by SFTP users
-func (S3Fs) GetRelativePath(name, rootPath string) string {
-	rel := name
-	if name == "." {
+func (fs S3Fs) GetRelativePath(name string) string {
+	rel := path.Clean(name)
+	if rel == "." {
 		rel = ""
 	}
 	if !strings.HasPrefix(rel, "/") {
 		return "/" + rel
+	}
+	if len(fs.config.KeyPrefix) > 0 {
+		if !strings.HasPrefix(rel, "/"+fs.config.KeyPrefix) {
+			rel = "/"
+		}
+		rel = path.Clean("/" + strings.TrimPrefix(rel, "/"+fs.config.KeyPrefix))
 	}
 	return rel
 }
@@ -441,7 +457,10 @@ func (S3Fs) Join(elem ...string) string {
 
 // ResolvePath returns the matching filesystem path for the specified sftp path
 func (fs S3Fs) ResolvePath(sftpPath string) (string, error) {
-	return sftpPath, nil
+	if !path.IsAbs(sftpPath) {
+		sftpPath = path.Clean("/" + sftpPath)
+	}
+	return fs.Join("/", fs.config.KeyPrefix, sftpPath), nil
 }
 
 func (fs *S3Fs) resolve(name *string, prefix string) (string, bool) {

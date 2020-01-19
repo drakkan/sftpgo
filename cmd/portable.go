@@ -28,6 +28,7 @@ var (
 	portableS3AccessSecret       string
 	portableS3Endpoint           string
 	portableS3StorageClass       string
+	portableS3KeyPrefix          string
 	portableCmd                  = &cobra.Command{
 		Use:   "portable",
 		Short: "Serve a single directory",
@@ -70,6 +71,7 @@ Please take a look at the usage below to customize the serving parameters`,
 							AccessSecret: portableS3AccessSecret,
 							Endpoint:     portableS3Endpoint,
 							StorageClass: portableS3StorageClass,
+							KeyPrefix:    portableS3KeyPrefix,
 						},
 					},
 				},
@@ -105,5 +107,7 @@ func init() {
 	portableCmd.Flags().StringVar(&portableS3AccessSecret, "s3-access-secret", "", "")
 	portableCmd.Flags().StringVar(&portableS3Endpoint, "s3-endpoint", "", "")
 	portableCmd.Flags().StringVar(&portableS3StorageClass, "s3-storage-class", "", "")
+	portableCmd.Flags().StringVar(&portableS3KeyPrefix, "s3-key-prefix", "", "Allows to restrict access to the virtual folder "+
+		"identified by this prefix and its contents")
 	rootCmd.AddCommand(portableCmd)
 }

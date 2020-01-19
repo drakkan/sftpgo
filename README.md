@@ -419,8 +419,13 @@ The HTTP request has a 15 seconds timeout.
 
 ## S3 Compabible Object Storage backends
 
-Each user can be mapped with an S3-Compatible bucket, this way the mapped bucket is exposed over SFTP/SCP.
-SFTPGo uses multipart uploads and parallel downloads for storing and retrieving files from S3 and automatically try to create the mapped bucket if it does not exists.
+Each user can be mapped with an S3-Compatible bucket or a bucket virtual folder, this way the mapped bucket/virtual folder is exposed over SFTP/SCP.
+
+Specifying a different `key_prefix` you can assign different virtual folders of the same bucket to different users. This is similar to a chroot directory for local filesystem. The virtual folder identified by `key_prefix` does not need to be pre-created.
+
+SFTPGo uses multipart uploads and parallel downloads for storing and retrieving files from S3.
+
+SFTPGo tries to automatically create the mapped bucket if it does not exists but it's a better idea to pre-create the bucket and to assign to it the wanted options such as automatic encryption and authorizations.
 
 Some SFTP commands doesn't work over S3:
 
@@ -465,6 +470,7 @@ Flags:
       --s3-access-secret string
       --s3-bucket string
       --s3-endpoint string
+      --s3-key-prefix string      Allows to restrict access to the virtual folder identified by this prefix and its contents
       --s3-region string
       --s3-storage-class string
   -s, --sftpd-port int            0 means a random non privileged port
@@ -522,6 +528,7 @@ For each account the following properties can be configured:
 - `s3_access_secret`, required for S3 filesystem. It is stored encrypted (AES-256-GCM)
 - `s3_endpoint`, specifies s3 endpoint (server) different from AWS
 - `s3_storage_class`
+- `s3_key_prefix`, allows to restrict access to the virtual folder identified by this prefix and its contents
 
 These properties are stored inside the data provider.
 

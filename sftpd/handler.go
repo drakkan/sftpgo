@@ -302,7 +302,7 @@ func (c Connection) handleSFTPSetstat(filePath string, request *sftp.Request) er
 }
 
 func (c Connection) handleSFTPRename(sourcePath string, targetPath string, request *sftp.Request) error {
-	if c.fs.GetRelativePath(sourcePath, c.User.GetHomeDir()) == "/" {
+	if c.fs.GetRelativePath(sourcePath) == "/" {
 		c.Log(logger.LevelWarn, logSender, "renaming root dir is not allowed")
 		return sftp.ErrSSHFxPermissionDenied
 	}
@@ -319,7 +319,7 @@ func (c Connection) handleSFTPRename(sourcePath string, targetPath string, reque
 }
 
 func (c Connection) handleSFTPRmdir(dirPath string, request *sftp.Request) error {
-	if c.fs.GetRelativePath(dirPath, c.User.GetHomeDir()) == "/" {
+	if c.fs.GetRelativePath(dirPath) == "/" {
 		c.Log(logger.LevelWarn, logSender, "removing root dir is not allowed")
 		return sftp.ErrSSHFxPermissionDenied
 	}
@@ -348,7 +348,7 @@ func (c Connection) handleSFTPRmdir(dirPath string, request *sftp.Request) error
 }
 
 func (c Connection) handleSFTPSymlink(sourcePath string, targetPath string, request *sftp.Request) error {
-	if c.fs.GetRelativePath(sourcePath, c.User.GetHomeDir()) == "/" {
+	if c.fs.GetRelativePath(sourcePath) == "/" {
 		c.Log(logger.LevelWarn, logSender, "symlinking root dir is not allowed")
 		return sftp.ErrSSHFxPermissionDenied
 	}

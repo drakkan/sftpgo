@@ -408,6 +408,7 @@ func (u *User) getACopy() User {
 			AccessSecret: u.FsConfig.S3Config.AccessSecret,
 			Endpoint:     u.FsConfig.S3Config.Endpoint,
 			StorageClass: u.FsConfig.S3Config.StorageClass,
+			KeyPrefix:    u.FsConfig.S3Config.KeyPrefix,
 		},
 	}
 

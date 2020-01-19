@@ -325,7 +325,7 @@ func (c *scpCommand) handleRecursiveDownload(dirPath string, stat os.FileInfo) e
 		}
 		var dirs []string
 		for _, file := range files {
-			filePath := c.connection.fs.GetRelativePath(c.connection.fs.Join(dirPath, file.Name()), c.connection.User.GetHomeDir())
+			filePath := c.connection.fs.GetRelativePath(c.connection.fs.Join(dirPath, file.Name()))
 			if file.Mode().IsRegular() || file.Mode()&os.ModeSymlink == os.ModeSymlink {
 				err = c.handleDownload(filePath)
 				if err != nil {

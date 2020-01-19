@@ -238,6 +238,7 @@ func getFsConfigFromUserPostFields(r *http.Request) dataprovider.Filesystem {
 		fs.S3Config.AccessSecret = r.Form.Get("s3_access_secret")
 		fs.S3Config.Endpoint = r.Form.Get("s3_endpoint")
 		fs.S3Config.StorageClass = r.Form.Get("s3_storage_class")
+		fs.S3Config.KeyPrefix = r.Form.Get("s3_key_prefix")
 	}
 	return fs
 }

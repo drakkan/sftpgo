@@ -250,6 +250,17 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
 	}
+	u.FsConfig.S3Config.Bucket = "test"
+	u.FsConfig.S3Config.Region = "eu-west-1"
+	u.FsConfig.S3Config.AccessKey = "access-key"
+	u.FsConfig.S3Config.AccessSecret = "access-secret"
+	u.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/path?a=b"
+	u.FsConfig.S3Config.StorageClass = "Standard"
+	u.FsConfig.S3Config.KeyPrefix = "/somedir/subdir/"
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
+	}
 }
 
 func TestUserPublicKey(t *testing.T) {
@@ -341,6 +352,7 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.Region = "us-east-1"
 	user.FsConfig.S3Config.AccessKey = "Server-Access-Key1"
 	user.FsConfig.S3Config.Endpoint = "http://localhost:9000"
+	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir"
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
@@ -1467,6 +1479,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	user.FsConfig.S3Config.AccessSecret = "access-secret"
 	user.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/path?a=b"
 	user.FsConfig.S3Config.StorageClass = "Standard"
+	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir/"
 	form := make(url.Values)
 	form.Set("username", user.Username)
 	form.Set("home_dir", user.HomeDir)
@@ -1490,6 +1503,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("s3_access_secret", user.FsConfig.S3Config.AccessSecret)
 	form.Set("s3_storage_class", user.FsConfig.S3Config.StorageClass)
 	form.Set("s3_endpoint", user.FsConfig.S3Config.Endpoint)
+	form.Set("s3_key_prefix", user.FsConfig.S3Config.KeyPrefix)
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
@@ -1529,6 +1543,9 @@ func TestWebUserS3Mock(t *testing.T) {
 	}
 	if updateUser.FsConfig.S3Config.Endpoint != user.FsConfig.S3Config.Endpoint {
 		t.Error("s3 endpoint mismatch")
+	}
+	if updateUser.FsConfig.S3Config.KeyPrefix != user.FsConfig.S3Config.KeyPrefix {
+		t.Error("s3 key prefix mismatch")
 	}
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)

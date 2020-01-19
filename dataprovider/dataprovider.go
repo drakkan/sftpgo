@@ -413,19 +413,19 @@ func buildUserHomeDir(user *User) {
 
 func validatePermissions(user *User) error {
 	if len(user.Permissions) == 0 {
-		return &ValidationError{err: "Please grant some permissions to this user"}
+		return &ValidationError{err: "please grant some permissions to this user"}
 	}
 	permissions := make(map[string][]string)
 	if _, ok := user.Permissions["/"]; !ok {
-		return &ValidationError{err: fmt.Sprintf("Permissions for the root dir \"/\" must be set")}
+		return &ValidationError{err: fmt.Sprintf("permissions for the root dir \"/\" must be set")}
 	}
 	for dir, perms := range user.Permissions {
 		if len(perms) == 0 {
-			return &ValidationError{err: fmt.Sprintf("No permissions granted for the directory: %#v", dir)}
+			return &ValidationError{err: fmt.Sprintf("no permissions granted for the directory: %#v", dir)}
 		}
 		for _, p := range perms {
 			if !utils.IsStringInSlice(p, ValidPerms) {
-				return &ValidationError{err: fmt.Sprintf("Invalid permission: %#v", p)}
+				return &ValidationError{err: fmt.Sprintf("invalid permission: %#v", p)}
 			}
 		}
 		cleanedDir := filepath.ToSlash(path.Clean(dir))
@@ -433,7 +433,7 @@ func validatePermissions(user *User) error {
 			cleanedDir = strings.TrimSuffix(cleanedDir, "/")
 		}
 		if !path.IsAbs(cleanedDir) {
-			return &ValidationError{err: fmt.Sprintf("Cannot set permissions for non absolute path: %#v", dir)}
+			return &ValidationError{err: fmt.Sprintf("cannot set permissions for non absolute path: %#v", dir)}
 		}
 		if utils.IsStringInSlice(PermAny, perms) {
 			permissions[cleanedDir] = []string{PermAny}
@@ -452,7 +452,7 @@ func validatePublicKeys(user *User) error {
 	for i, k := range user.PublicKeys {
 		_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
 		if err != nil {
-			return &ValidationError{err: fmt.Sprintf("Could not parse key nr. %d: %s", i, err)}
+			return &ValidationError{err: fmt.Sprintf("could not parse key nr. %d: %s", i, err)}
 		}
 	}
 	return nil
@@ -468,13 +468,13 @@ func validateFilters(user *User) error {
 	for _, IPMask := range user.Filters.DeniedIP {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
-			return &ValidationError{err: fmt.Sprintf("Could not parse denied IP/Mask %#v : %v", IPMask, err)}
+			return &ValidationError{err: fmt.Sprintf("could not parse denied IP/Mask %#v : %v", IPMask, err)}
 		}
 	}
 	for _, IPMask := range user.Filters.AllowedIP {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
-			return &ValidationError{err: fmt.Sprintf("Could not parse allowed IP/Mask %#v : %v", IPMask, err)}
+			return &ValidationError{err: fmt.Sprintf("could not parse allowed IP/Mask %#v : %v", IPMask, err)}
 		}
 	}
 	return nil
@@ -484,13 +484,13 @@ func validateFilesystemConfig(user *User) error {
 	if user.FsConfig.Provider == 1 {
 		err := vfs.ValidateS3FsConfig(&user.FsConfig.S3Config)
 		if err != nil {
-			return &ValidationError{err: fmt.Sprintf("Could not validate s3config: %v", err)}
+			return &ValidationError{err: fmt.Sprintf("could not validate s3config: %v", err)}
 		}
 		vals := strings.Split(user.FsConfig.S3Config.AccessSecret, "$")
 		if !strings.HasPrefix(user.FsConfig.S3Config.AccessSecret, "$aes$") || len(vals) != 4 {
 			accessSecret, err := utils.EncryptData(user.FsConfig.S3Config.AccessSecret)
 			if err != nil {
-				return &ValidationError{err: fmt.Sprintf("Could encrypt s3 access secret: %v", err)}
+				return &ValidationError{err: fmt.Sprintf("could not encrypt s3 access secret: %v", err)}
 			}
 			user.FsConfig.S3Config.AccessSecret = accessSecret
 		}
@@ -504,10 +504,10 @@ func validateFilesystemConfig(user *User) error {
 func validateUser(user *User) error {
 	buildUserHomeDir(user)
 	if len(user.Username) == 0 || len(user.HomeDir) == 0 {
-		return &ValidationError{err: "Mandatory parameters missing"}
+		return &ValidationError{err: "mandatory parameters missing"}
 	}
 	if len(user.Password) == 0 && len(user.PublicKeys) == 0 {
-		return &ValidationError{err: "Please set a password or at least a public_key"}
+		return &ValidationError{err: "please set a password or at least a public_key"}
 	}
 	if !filepath.IsAbs(user.HomeDir) {
 		return &ValidationError{err: fmt.Sprintf("home_dir must be an absolute path, actual value: %v", user.HomeDir)}

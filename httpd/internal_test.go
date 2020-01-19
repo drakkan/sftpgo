@@ -274,6 +274,12 @@ func TestCompareUserFsConfig(t *testing.T) {
 	if err == nil {
 		t.Errorf("S3 storage class does not match")
 	}
+	expected.FsConfig.S3Config.StorageClass = ""
+	expected.FsConfig.S3Config.KeyPrefix = "somedir/subdir"
+	err = compareUserFsConfig(expected, actual)
+	if err == nil {
+		t.Errorf("S3 key prefix does not match")
+	}
 }
 
 func TestApiCallsWithBadURL(t *testing.T) {
