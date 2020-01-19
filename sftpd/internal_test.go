@@ -65,7 +65,7 @@ func (c *MockChannel) Stderr() io.ReadWriter {
 
 // MockOsFs mockable OsFs
 type MockOsFs struct {
-	vfs.OsFs
+	vfs.Fs
 	err                     error
 	statErr                 error
 	isAtomicUploadSupported bool
@@ -110,8 +110,9 @@ func (fs MockOsFs) Rename(source, target string) error {
 	return os.Rename(source, target)
 }
 
-func newMockOsFs(err, statErr error, atomicUpload bool) vfs.Fs {
+func newMockOsFs(err, statErr error, atomicUpload bool, connectionID, rootDir string) vfs.Fs {
 	return &MockOsFs{
+		Fs:                      vfs.NewOsFs(connectionID, rootDir),
 		err:                     err,
 		statErr:                 statErr,
 		isAtomicUploadSupported: atomicUpload,
@@ -366,7 +367,7 @@ func TestTransferCancelFn(t *testing.T) {
 
 func TestMockFsErrors(t *testing.T) {
 	errFake := errors.New("fake error")
-	fs := newMockOsFs(errFake, errFake, false)
+	fs := newMockOsFs(errFake, errFake, false, "123", os.TempDir())
 	u := dataprovider.User{}
 	u.Username = "test"
 	u.Permissions = make(map[string][]string)
@@ -402,7 +403,7 @@ func TestUploadFiles(t *testing.T) {
 	oldUploadMode := uploadMode
 	uploadMode = uploadModeAtomic
 	c := Connection{
-		fs: vfs.NewOsFs("123"),
+		fs: vfs.NewOsFs("123", os.TempDir()),
 	}
 	var flags sftp.FileOpenFlags
 	flags.Write = true
@@ -434,13 +435,13 @@ func TestWithInvalidHome(t *testing.T) {
 	if err == nil {
 		t.Errorf("login a user with an invalid home_dir must fail")
 	}
+	u.HomeDir = os.TempDir()
 	fs, _ := u.GetFilesystem("123")
 	c := Connection{
 		User: u,
 		fs:   fs,
 	}
-	u.HomeDir = os.TempDir()
-	_, err = c.fs.ResolvePath("../upper_path", u.GetHomeDir())
+	_, err = c.fs.ResolvePath("../upper_path")
 	if err == nil {
 		t.Errorf("tested path is not a home subdir")
 	}
@@ -469,7 +470,7 @@ func TestSFTPCmdTargetPath(t *testing.T) {
 
 func TestGetSFTPErrorFromOSError(t *testing.T) {
 	err := os.ErrNotExist
-	fs := vfs.NewOsFs("")
+	fs := vfs.NewOsFs("", os.TempDir())
 	err = vfs.GetSFTPError(fs, err)
 	if err != sftp.ErrSSHFxNoSuchFile {
 		t.Errorf("unexpected error: %v", err)
@@ -644,6 +645,8 @@ func TestSSHCommandErrors(t *testing.T) {
 	cmd.connection.User.HomeDir = os.TempDir()
 	cmd.connection.User.QuotaFiles = 1
 	cmd.connection.User.UsedQuotaFiles = 2
+	fs, _ = cmd.connection.User.GetFilesystem("123")
+	cmd.connection.fs = fs
 	err = cmd.handle()
 	if err != errQuotaExceeded {
 		t.Errorf("unexpected error: %v", err)
@@ -1175,7 +1178,7 @@ func TestSCPCommandHandleErrors(t *testing.T) {
 
 func TestSCPErrorsMockFs(t *testing.T) {
 	errFake := errors.New("fake error")
-	fs := newMockOsFs(errFake, errFake, false)
+	fs := newMockOsFs(errFake, errFake, false, "123", os.TempDir())
 	u := dataprovider.User{}
 	u.Username = "test"
 	u.Permissions = make(map[string][]string)
@@ -1214,7 +1217,7 @@ func TestSCPErrorsMockFs(t *testing.T) {
 	if err != errFake {
 		t.Errorf("unexpected error: %v", err)
 	}
-	scpCommand.sshCommand.connection.fs = newMockOsFs(errFake, nil, true)
+	scpCommand.sshCommand.connection.fs = newMockOsFs(errFake, nil, true, "123", os.TempDir())
 	err = scpCommand.handleUpload(filepath.Base(testfile), 0)
 	if err != errFake {
 		t.Errorf("unexpected error: %v", err)
@@ -1239,7 +1242,7 @@ func TestSCPRecursiveDownloadErrors(t *testing.T) {
 	connection := Connection{
 		channel: &mockSSHChannel,
 		netConn: client,
-		fs:      vfs.NewOsFs("123"),
+		fs:      vfs.NewOsFs("123", os.TempDir()),
 	}
 	scpCommand := scpCommand{
 		sshCommand: sshCommand{

@@ -51,7 +51,7 @@ func (c Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 		return nil, sftp.ErrSSHFxPermissionDenied
 	}
 
-	p, err := c.fs.ResolvePath(request.Filepath, c.User.GetHomeDir())
+	p, err := c.fs.ResolvePath(request.Filepath)
 	if err != nil {
 		return nil, vfs.GetSFTPError(c.fs, err)
 	}
@@ -97,7 +97,7 @@ func (c Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 // Filewrite handles the write actions for a file on the system.
 func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 	updateConnectionActivity(c.ID)
-	p, err := c.fs.ResolvePath(request.Filepath, c.User.GetHomeDir())
+	p, err := c.fs.ResolvePath(request.Filepath)
 	if err != nil {
 		return nil, vfs.GetSFTPError(c.fs, err)
 	}
@@ -138,7 +138,7 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 func (c Connection) Filecmd(request *sftp.Request) error {
 	updateConnectionActivity(c.ID)
 
-	p, err := c.fs.ResolvePath(request.Filepath, c.User.GetHomeDir())
+	p, err := c.fs.ResolvePath(request.Filepath)
 	if err != nil {
 		return vfs.GetSFTPError(c.fs, err)
 	}
@@ -194,7 +194,7 @@ func (c Connection) Filecmd(request *sftp.Request) error {
 // a directory as well as perform file/folder stat calls.
 func (c Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 	updateConnectionActivity(c.ID)
-	p, err := c.fs.ResolvePath(request.Filepath, c.User.GetHomeDir())
+	p, err := c.fs.ResolvePath(request.Filepath)
 	if err != nil {
 		return nil, vfs.GetSFTPError(c.fs, err)
 	}
@@ -238,7 +238,7 @@ func (c Connection) getSFTPCmdTargetPath(requestTarget string) (string, error) {
 	// location for the server. If it is not, return an error
 	if len(requestTarget) > 0 {
 		var err error
-		target, err = c.fs.ResolvePath(requestTarget, c.User.GetHomeDir())
+		target, err = c.fs.ResolvePath(requestTarget)
 		if err != nil {
 			return target, vfs.GetSFTPError(c.fs, err)
 		}

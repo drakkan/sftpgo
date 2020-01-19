@@ -40,7 +40,7 @@ func doQuotaScan(user dataprovider.User) error {
 		logger.Warn(logSender, "", "unable scan quota for user %#v error creating filesystem: %v", user.Username, err)
 		return err
 	}
-	numFiles, size, err := fs.ScanDirContents(user.HomeDir)
+	numFiles, size, err := fs.ScanRootDirContents()
 	if err != nil {
 		logger.Warn(logSender, "", "error scanning user home dir %#v: %v", user.HomeDir, err)
 	} else {

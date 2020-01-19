@@ -1515,6 +1515,7 @@ func TestQuotaDisabledError(t *testing.T) {
 func TestMaxSessions(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
+	u.Username += "1"
 	u.MaxSessions = 1
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	if err != nil {
@@ -2904,7 +2905,7 @@ func TestRootDirCommands(t *testing.T) {
 func TestRelativePaths(t *testing.T) {
 	user := getTestUser(true)
 	path := filepath.Join(user.HomeDir, "/")
-	fs := vfs.NewOsFs("")
+	fs := vfs.NewOsFs("", user.GetHomeDir())
 	rel := fs.GetRelativePath(path, user.GetHomeDir())
 	if rel != "/" {
 		t.Errorf("Unexpected relative path: %v", rel)

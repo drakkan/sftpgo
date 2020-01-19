@@ -372,10 +372,10 @@ func (S3Fs) IsPermission(err error) bool {
 }
 
 // CheckRootPath creates the specified root directory if it does not exists
-func (fs S3Fs) CheckRootPath(rootPath, username string, uid int, gid int) bool {
+func (fs S3Fs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
-	osFs := NewOsFs(fs.ConnectionID())
-	osFs.CheckRootPath(fs.localTempDir, username, uid, gid)
+	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir)
+	osFs.CheckRootPath(username, uid, gid)
 	err := fs.checkIfBucketExists()
 	if err == nil {
 		return true
@@ -394,9 +394,9 @@ func (fs S3Fs) CheckRootPath(rootPath, username string, uid int, gid int) bool {
 	return err == nil
 }
 
-// ScanDirContents returns the number of files contained in the bucket,
+// ScanRootDirContents returns the number of files contained in the bucket,
 // and their size
-func (fs S3Fs) ScanDirContents(dirPath string) (int, int64, error) {
+func (fs S3Fs) ScanRootDirContents() (int, int64, error) {
 	numFiles := 0
 	size := int64(0)
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
@@ -440,7 +440,7 @@ func (S3Fs) Join(elem ...string) string {
 }
 
 // ResolvePath returns the matching filesystem path for the specified sftp path
-func (fs S3Fs) ResolvePath(sftpPath, rootPath string) (string, error) {
+func (fs S3Fs) ResolvePath(sftpPath string) (string, error) {
 	return sftpPath, nil
 }
 

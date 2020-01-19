@@ -130,7 +130,7 @@ func (c *sshCommand) handleHashCommands() error {
 		response = fmt.Sprintf("%x  -\n", h.Sum(nil))
 	} else {
 		sshPath := c.getDestPath()
-		fsPath, err := c.connection.fs.ResolvePath(sshPath, c.connection.User.GetHomeDir())
+		fsPath, err := c.connection.fs.ResolvePath(sshPath)
 		if err != nil {
 			return c.sendErrorResponse(err)
 		}
@@ -296,7 +296,7 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 	if len(c.args) > 0 {
 		var err error
 		sshPath := c.getDestPath()
-		path, err = c.connection.fs.ResolvePath(sshPath, c.connection.User.GetHomeDir())
+		path, err = c.connection.fs.ResolvePath(sshPath)
 		if err != nil {
 			return command, err
 		}
@@ -339,7 +339,7 @@ func (c *sshCommand) rescanHomeDir() error {
 	var numFiles int
 	var size int64
 	if AddQuotaScan(c.connection.User.Username) {
-		numFiles, size, err = c.connection.fs.ScanDirContents(c.connection.User.HomeDir)
+		numFiles, size, err = c.connection.fs.ScanRootDirContents()
 		if err != nil {
 			c.connection.Log(logger.LevelWarn, logSenderSSH, "error scanning user home dir %#v: %v", c.connection.User.HomeDir, err)
 		} else {
@@ -397,7 +397,7 @@ func (c *sshCommand) sendExitStatus(err error) {
 	if err == nil && c.command != "scp" {
 		realPath := c.getDestPath()
 		if len(realPath) > 0 {
-			p, err := c.connection.fs.ResolvePath(realPath, c.connection.User.GetHomeDir())
+			p, err := c.connection.fs.ResolvePath(realPath)
 			if err == nil {
 				realPath = p
 			}

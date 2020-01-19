@@ -425,13 +425,13 @@ SFTPGo uses multipart uploads and parallel downloads for storing and retrieving 
 Some SFTP commands doesn't work over S3:
 
 - `symlink` and `chtimes` will fail
-- `chown`, `chmod` are silently ignored
+- `chown` and `chmod` are silently ignored
 - upload resume is not supported
 - upload mode `atomic` is ignored since S3 uploads are already atomic
 
 Other notes:
 
-- `rename` is a two steps operation: server-side copy and then deletion. So it is not atomic as for local filesystem
+- `rename` is a two steps operation: server-side copy and then deletion. So it is not atomic as for local filesystem.
 - We don't support renaming non empty directories since we should rename all the contents too and this could take long time: think about directories with thousands of files, for each file we should do an AWS API call.
 - For server side encryption you have to configure the mapped bucket to automatically encrypt objects.
 - A local home directory is still required to store temporary files.

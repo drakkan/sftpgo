@@ -1,3 +1,4 @@
+// Package vfs provides local and remote filesystems support
 package vfs
 
 import (
@@ -29,11 +30,11 @@ type Fs interface {
 	ReadDir(dirname string) ([]os.FileInfo, error)
 	IsUploadResumeSupported() bool
 	IsAtomicUploadSupported() bool
-	CheckRootPath(rootPath, username string, uid int, gid int) bool
-	ResolvePath(sftpPath, rootPath string) (string, error)
+	CheckRootPath(username string, uid int, gid int) bool
+	ResolvePath(sftpPath string) (string, error)
 	IsNotExist(err error) bool
 	IsPermission(err error) bool
-	ScanDirContents(dirPath string) (int, int64, error)
+	ScanRootDirContents() (int, int64, error)
 	GetAtomicUploadPath(name string) string
 	GetRelativePath(name, rootPath string) string
 	Join(elem ...string) string

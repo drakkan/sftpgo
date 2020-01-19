@@ -286,7 +286,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		fs:            fs,
 	}
 
-	connection.fs.CheckRootPath(user.GetHomeDir(), user.Username, user.GetUID(), user.GetGID())
+	connection.fs.CheckRootPath(user.Username, user.GetUID(), user.GetGID())
 
 	connection.Log(logger.LevelInfo, logSender, "User id: %d, logged in with: %#v, username: %#v, home_dir: %#v remote addr: %#v",
 		user.ID, loginType, user.Username, user.HomeDir, remoteAddr.String())

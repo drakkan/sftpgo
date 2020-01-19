@@ -114,7 +114,7 @@ func (u *User) GetFilesystem(connectionID string) (vfs.Fs, error) {
 	if u.FsConfig.Provider == 1 {
 		return vfs.NewS3Fs(connectionID, u.GetHomeDir(), u.FsConfig.S3Config)
 	}
-	return vfs.NewOsFs(connectionID), nil
+	return vfs.NewOsFs(connectionID, u.GetHomeDir()), nil
 }
 
 // GetPermissionsForPath returns the permissions for the given path.

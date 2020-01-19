@@ -116,7 +116,7 @@ func (c *scpCommand) handleRecursiveUpload() error {
 
 func (c *scpCommand) handleCreateDir(dirPath string) error {
 	updateConnectionActivity(c.connection.ID)
-	p, err := c.connection.fs.ResolvePath(dirPath, c.connection.User.GetHomeDir())
+	p, err := c.connection.fs.ResolvePath(dirPath)
 	if err != nil {
 		c.connection.Log(logger.LevelWarn, logSenderSCP, "error creating dir: %#v, invalid file path, err: %v", dirPath, err)
 		c.sendErrorMessage(err.Error())
@@ -228,7 +228,7 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 
 	updateConnectionActivity(c.connection.ID)
 
-	p, err := c.connection.fs.ResolvePath(uploadFilePath, c.connection.User.GetHomeDir())
+	p, err := c.connection.fs.ResolvePath(uploadFilePath)
 	if err != nil {
 		c.connection.Log(logger.LevelWarn, logSenderSCP, "error uploading file: %#v, err: %v", uploadFilePath, err)
 		c.sendErrorMessage(err.Error())
@@ -422,7 +422,7 @@ func (c *scpCommand) handleDownload(filePath string) error {
 
 	updateConnectionActivity(c.connection.ID)
 
-	p, err := c.connection.fs.ResolvePath(filePath, c.connection.User.GetHomeDir())
+	p, err := c.connection.fs.ResolvePath(filePath)
 	if err != nil {
 		err := fmt.Errorf("Invalid file path")
 		c.connection.Log(logger.LevelWarn, logSenderSCP, "error downloading file: %#v, invalid file path", filePath)
@@ -674,7 +674,7 @@ func (c *scpCommand) getFileUploadDestPath(scpDestPath, fileName string) string 
 			// but if scpDestPath is an existing directory then we put the uploaded file
 			// inside that directory this is as scp command works, for example:
 			// scp fileName.txt user@127.0.0.1:/existing_dir
-			if p, err := c.connection.fs.ResolvePath(scpDestPath, c.connection.User.GetHomeDir()); err == nil {
+			if p, err := c.connection.fs.ResolvePath(scpDestPath); err == nil {
 				if stat, err := c.connection.fs.Stat(p); err == nil {
 					if stat.IsDir() {
 						return path.Join(scpDestPath, fileName)

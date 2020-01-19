@@ -22,13 +22,16 @@ const (
 type OsFs struct {
 	name         string
 	connectionID string
+	rootDir      string
 }
 
 // NewOsFs returns an OsFs object that allows to interact with local Os filesystem
-func NewOsFs(connectionID string) Fs {
+func NewOsFs(connectionID, rootDir string) Fs {
 	return &OsFs{
 		name:         osFsName,
-		connectionID: connectionID}
+		connectionID: connectionID,
+		rootDir:      rootDir,
+	}
 }
 
 // Name returns the name for the Fs implementation
@@ -133,28 +136,28 @@ func (OsFs) IsPermission(err error) bool {
 	return os.IsPermission(err)
 }
 
-// CheckRootPath creates the specified root directory if it does not exists
-func (fs OsFs) CheckRootPath(rootPath, username string, uid int, gid int) bool {
+// CheckRootPath creates the root directory if it does not exists
+func (fs OsFs) CheckRootPath(username string, uid int, gid int) bool {
 	var err error
-	if _, err = fs.Stat(rootPath); fs.IsNotExist(err) {
-		err = os.MkdirAll(rootPath, 0777)
+	if _, err = fs.Stat(fs.rootDir); fs.IsNotExist(err) {
+		err = os.MkdirAll(fs.rootDir, 0777)
 		fsLog(fs, logger.LevelDebug, "root directory %#v for user %#v does not exist, try to create, mkdir error: %v",
-			rootPath, username, err)
+			fs.rootDir, username, err)
 		if err == nil {
-			SetPathPermissions(fs, rootPath, uid, gid)
+			SetPathPermissions(fs, fs.rootDir, uid, gid)
 		}
 	}
 	return (err == nil)
 }
 
-// ScanDirContents returns the number of files contained in a directory and
+// ScanRootDirContents returns the number of files contained in a directory and
 // their size
-func (fs OsFs) ScanDirContents(dirPath string) (int, int64, error) {
+func (fs OsFs) ScanRootDirContents() (int, int64, error) {
 	numFiles := 0
 	size := int64(0)
-	isDir, err := IsDirectory(fs, dirPath)
+	isDir, err := IsDirectory(fs, fs.rootDir)
 	if err == nil && isDir {
-		err = filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		err = filepath.Walk(fs.rootDir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
@@ -194,27 +197,27 @@ func (OsFs) Join(elem ...string) string {
 }
 
 // ResolvePath returns the matching filesystem path for the specified sftp path
-func (fs OsFs) ResolvePath(sftpPath, rootPath string) (string, error) {
-	if !filepath.IsAbs(rootPath) {
-		return "", fmt.Errorf("Invalid root path: %v", rootPath)
+func (fs OsFs) ResolvePath(sftpPath string) (string, error) {
+	if !filepath.IsAbs(fs.rootDir) {
+		return "", fmt.Errorf("Invalid root path: %v", fs.rootDir)
 	}
-	r := filepath.Clean(filepath.Join(rootPath, sftpPath))
+	r := filepath.Clean(filepath.Join(fs.rootDir, sftpPath))
 	p, err := filepath.EvalSymlinks(r)
 	if err != nil && !os.IsNotExist(err) {
 		return "", err
 	} else if os.IsNotExist(err) {
 		// The requested path doesn't exist, so at this point we need to iterate up the
 		// path chain until we hit a directory that _does_ exist and can be validated.
-		_, err = fs.findFirstExistingDir(r, rootPath)
+		_, err = fs.findFirstExistingDir(r, fs.rootDir)
 		if err != nil {
 			fsLog(fs, logger.LevelWarn, "error resolving not existent path: %#v", err)
 		}
 		return r, err
 	}
 
-	err = fs.isSubDir(p, rootPath)
+	err = fs.isSubDir(p, fs.rootDir)
 	if err != nil {
-		fsLog(fs, logger.LevelWarn, "Invalid path resolution, dir: %#v outside user home: %#v err: %v", p, rootPath, err)
+		fsLog(fs, logger.LevelWarn, "Invalid path resolution, dir: %#v outside user home: %#v err: %v", p, fs.rootDir, err)
 	}
 	return r, err
 }
