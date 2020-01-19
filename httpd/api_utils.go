@@ -406,8 +406,64 @@ func checkUser(expected *dataprovider.User, actual *dataprovider.User) error {
 	if err := compareUserFilters(expected, actual); err != nil {
 		return err
 	}
+	if err := compareUserFsConfig(expected, actual); err != nil {
+		return err
+	}
 
 	return compareEqualsUserFields(expected, actual)
+}
+
+func compareUserFsConfig(expected *dataprovider.User, actual *dataprovider.User) error {
+	if expected.FsConfig.Provider != actual.FsConfig.Provider {
+		return errors.New("Fs provider mismatch")
+	}
+	if expected.FsConfig.S3Config.Bucket != actual.FsConfig.S3Config.Bucket {
+		return errors.New("S3 bucket mismatch")
+	}
+	if expected.FsConfig.S3Config.Region != actual.FsConfig.S3Config.Region {
+		return errors.New("S3 region mismatch")
+	}
+	if expected.FsConfig.S3Config.AccessKey != actual.FsConfig.S3Config.AccessKey {
+		return errors.New("S3 access key mismatch")
+	}
+	if err := checkS3AccessSecret(expected.FsConfig.S3Config.AccessSecret, actual.FsConfig.S3Config.AccessSecret); err != nil {
+		return err
+	}
+	if expected.FsConfig.S3Config.Endpoint != actual.FsConfig.S3Config.Endpoint {
+		return errors.New("S3 endpoint mismatch")
+	}
+	if expected.FsConfig.S3Config.StorageClass != actual.FsConfig.S3Config.StorageClass {
+		return errors.New("S3 storage class mismatch")
+	}
+	return nil
+}
+
+func checkS3AccessSecret(expectedAccessSecret, actualAccessSecret string) error {
+	if len(expectedAccessSecret) > 0 {
+		vals := strings.Split(expectedAccessSecret, "$")
+		if strings.HasPrefix(expectedAccessSecret, "$aes$") && len(vals) == 4 {
+			expectedAccessSecret = utils.RemoveDecryptionKey(expectedAccessSecret)
+			if expectedAccessSecret != actualAccessSecret {
+				return fmt.Errorf("S3 access secret mismatch, expected: %v", expectedAccessSecret)
+			}
+		} else {
+			// here we check that actualAccessSecret is aes encrypted without the nonce
+			parts := strings.Split(actualAccessSecret, "$")
+			if !strings.HasPrefix(actualAccessSecret, "$aes$") || len(parts) != 3 {
+				return errors.New("Invalid S3 access secret")
+			}
+			if len(parts) == len(vals) {
+				if expectedAccessSecret != actualAccessSecret {
+					return errors.New("S3 encrypted access secret mismatch")
+				}
+			}
+		}
+	} else {
+		if expectedAccessSecret != actualAccessSecret {
+			return errors.New("S3 access secret mismatch")
+		}
+	}
+	return nil
 }
 
 func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) error {

@@ -336,7 +336,7 @@ func (p BoltProvider) getUsers(limit int, offset int, order string, username str
 		if offset == 0 {
 			user, err := p.userExists(username)
 			if err == nil {
-				users = append(users, getUserNoCredentials(&user))
+				users = append(users, HideUserSensitiveData(&user))
 			}
 		}
 		return users, err
@@ -357,7 +357,7 @@ func (p BoltProvider) getUsers(limit int, offset int, order string, username str
 				var user User
 				err = json.Unmarshal(v, &user)
 				if err == nil {
-					users = append(users, getUserNoCredentials(&user))
+					users = append(users, HideUserSensitiveData(&user))
 				}
 				if len(users) >= limit {
 					break
@@ -372,7 +372,7 @@ func (p BoltProvider) getUsers(limit int, offset int, order string, username str
 				var user User
 				err = json.Unmarshal(v, &user)
 				if err == nil {
-					users = append(users, getUserNoCredentials(&user))
+					users = append(users, HideUserSensitiveData(&user))
 				}
 				if len(users) >= limit {
 					break
@@ -386,11 +386,6 @@ func (p BoltProvider) getUsers(limit int, offset int, order string, username str
 
 func (p BoltProvider) close() error {
 	return p.dbHandle.Close()
-}
-
-func getUserNoCredentials(user *User) User {
-	user.Password = ""
-	return *user
 }
 
 // itob returns an 8-byte big endian representation of v.

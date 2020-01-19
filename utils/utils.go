@@ -2,15 +2,16 @@
 package utils
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"net"
-	"os"
-	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
-
-	"github.com/drakkan/sftpgo/logger"
 )
 
 const logSender = "utils"
@@ -44,49 +45,6 @@ func GetTimeAsMsSinceEpoch(t time.Time) int64 {
 // GetTimeFromMsecSinceEpoch return a time struct from a unix timestamp with millisecond precision
 func GetTimeFromMsecSinceEpoch(msec int64) time.Time {
 	return time.Unix(0, msec*1000000)
-}
-
-// ScanDirContents returns the number of files contained in a directory, their size and a slice with the file paths
-func ScanDirContents(path string) (int, int64, []string, error) {
-	var numFiles int
-	var size int64
-	var fileList []string
-	var err error
-	numFiles = 0
-	size = 0
-	isDir, err := isDirectory(path)
-	if err == nil && isDir {
-		err = filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if info != nil && info.Mode().IsRegular() {
-				size += info.Size()
-				numFiles++
-				fileList = append(fileList, path)
-			}
-			return err
-		})
-	}
-
-	return numFiles, size, fileList, err
-}
-
-func isDirectory(path string) (bool, error) {
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		return false, err
-	}
-	return fileInfo.IsDir(), err
-}
-
-// SetPathPermissions call os.Chown on unix, it does nothing on windows
-func SetPathPermissions(path string, uid int, gid int) {
-	if runtime.GOOS != "windows" {
-		if err := os.Chown(path, uid, gid); err != nil {
-			logger.Warn(logSender, "", "error chowning path %v: %v", path, err)
-		}
-	}
 }
 
 // GetAppVersion returns VersionInfo struct
@@ -143,4 +101,75 @@ func GetIPFromRemoteAddress(remoteAddress string) string {
 		return ip
 	}
 	return remoteAddress
+}
+
+// NilIfEmpty returns nil if the input string is empty
+func NilIfEmpty(s string) *string {
+	if len(s) == 0 {
+		return nil
+	}
+	return &s
+}
+
+// EncryptData encrypts data using the given key
+func EncryptData(data string) (string, error) {
+	var result string
+	key := make([]byte, 16)
+	if _, err := io.ReadFull(rand.Reader, key); err != nil {
+		return result, err
+	}
+	keyHex := hex.EncodeToString(key)
+	block, err := aes.NewCipher([]byte(keyHex))
+	if err != nil {
+		return result, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return result, err
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
+		return result, err
+	}
+	ciphertext := gcm.Seal(nonce, nonce, []byte(data), nil)
+	result = fmt.Sprintf("$aes$%s$%x", keyHex, ciphertext)
+	return result, err
+}
+
+// RemoveDecryptionKey returns encrypted data without the decryption key
+func RemoveDecryptionKey(encryptData string) string {
+	vals := strings.Split(encryptData, "$")
+	if len(vals) == 4 {
+		return fmt.Sprintf("$%v$%v", vals[1], vals[3])
+	}
+	return encryptData
+}
+
+// DecryptData decrypts data encrypted using EncryptData
+func DecryptData(data string) (string, error) {
+	var result string
+	vals := strings.Split(data, "$")
+	if len(vals) != 4 {
+		return "", errors.New("data to decrypt is not in the correct format")
+	}
+	key := vals[2]
+	encrypted, err := hex.DecodeString(vals[3])
+	if err != nil {
+		return result, err
+	}
+	block, err := aes.NewCipher([]byte(key))
+	if err != nil {
+		return result, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return result, err
+	}
+	nonceSize := gcm.NonceSize()
+	nonce, ciphertext := encrypted[:nonceSize], encrypted[nonceSize:]
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return result, err
+	}
+	return string(plaintext), nil
 }

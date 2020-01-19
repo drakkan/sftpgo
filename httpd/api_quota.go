@@ -6,7 +6,6 @@ import (
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
-	"github.com/drakkan/sftpgo/utils"
 	"github.com/go-chi/render"
 )
 
@@ -26,26 +25,27 @@ func startQuotaScan(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusNotFound)
 		return
 	}
-	if doQuotaScan(user) {
+	if sftpd.AddQuotaScan(user.Username) {
+		go doQuotaScan(user)
 		sendAPIResponse(w, r, err, "Scan started", http.StatusCreated)
 	} else {
 		sendAPIResponse(w, r, err, "Another scan is already in progress", http.StatusConflict)
 	}
 }
 
-func doQuotaScan(user dataprovider.User) bool {
-	result := sftpd.AddQuotaScan(user.Username)
-	if result {
-		go func() {
-			numFiles, size, _, err := utils.ScanDirContents(user.HomeDir)
-			if err != nil {
-				logger.Warn(logSender, "", "error scanning user home dir %#v: %v", user.HomeDir, err)
-			} else {
-				err := dataprovider.UpdateUserQuota(dataProvider, user, numFiles, size, true)
-				logger.Debug(logSender, "", "user home dir scanned, user: %#v, dir: %#v, error: %v", user.Username, user.HomeDir, err)
-			}
-			sftpd.RemoveQuotaScan(user.Username)
-		}()
+func doQuotaScan(user dataprovider.User) error {
+	defer sftpd.RemoveQuotaScan(user.Username)
+	fs, err := user.GetFilesystem("")
+	if err != nil {
+		logger.Warn(logSender, "", "unable scan quota for user %#v error creating filesystem: %v", user.Username, err)
+		return err
 	}
-	return result
+	numFiles, size, err := fs.ScanDirContents(user.HomeDir)
+	if err != nil {
+		logger.Warn(logSender, "", "error scanning user home dir %#v: %v", user.HomeDir, err)
+	} else {
+		err = dataprovider.UpdateUserQuota(dataProvider, user, numFiles, size, true)
+		logger.Debug(logSender, "", "user home dir scanned, user: %#v, dir: %#v, error: %v", user.Username, user.HomeDir, err)
+	}
+	return err
 }

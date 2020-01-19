@@ -266,6 +266,14 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 	loginType = sconn.Permissions.Extensions["login_type"]
 	connectionID := hex.EncodeToString(sconn.SessionID())
 
+	fs, err := user.GetFilesystem(connectionID)
+
+	if err != nil {
+		logger.Warn(logSender, "", "could create filesystem for user %#v err: %v", user.Username, err)
+		conn.Close()
+		return
+	}
+
 	connection := Connection{
 		ID:            connectionID,
 		User:          user,
@@ -275,7 +283,11 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		lastActivity:  time.Now(),
 		netConn:       conn,
 		channel:       nil,
+		fs:            fs,
 	}
+
+	connection.fs.CheckRootPath(user.GetHomeDir(), user.Username, user.GetUID(), user.GetGID())
+
 	connection.Log(logger.LevelInfo, logSender, "User id: %d, logged in with: %#v, username: %#v, home_dir: %#v remote addr: %#v",
 		user.ID, loginType, user.Username, user.HomeDir, remoteAddr.String())
 	dataprovider.UpdateLastLogin(dataProvider, user)
@@ -367,14 +379,6 @@ func loginUser(user dataprovider.User, loginType string, remoteAddr string) (*ss
 	if !user.IsLoginAllowed(remoteAddr) {
 		logger.Debug(logSender, "", "cannot login user %#v, remote address is not allowed: %v", user.Username, remoteAddr)
 		return nil, fmt.Errorf("Login is not allowed from this address: %v", remoteAddr)
-	}
-	if _, err := os.Stat(user.HomeDir); os.IsNotExist(err) {
-		err := os.MkdirAll(user.HomeDir, 0777)
-		logger.Debug(logSender, "", "home directory %#v for user %#v does not exist, try to create, mkdir error: %v",
-			user.HomeDir, user.Username, err)
-		if err == nil {
-			utils.SetPathPermissions(user.HomeDir, user.GetUID(), user.GetGID())
-		}
 	}
 
 	json, err := json.Marshal(user)

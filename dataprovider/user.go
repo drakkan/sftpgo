@@ -7,10 +7,10 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 // Available permissions for SFTP users
@@ -51,6 +51,13 @@ type UserFilters struct {
 	// clients connecting from these IP/Mask are not allowed.
 	// Denied rules will be evaluated before allowed ones
 	DeniedIP []string `json:"denied_ip"`
+}
+
+// Filesystem defines cloud storage filesystem details
+type Filesystem struct {
+	// 0 local filesystem, 1 Amazon S3 compatible
+	Provider int            `json:"provider"`
+	S3Config vfs.S3FsConfig `json:"s3config,omitempty"`
 }
 
 // User defines an SFTP user
@@ -98,6 +105,16 @@ type User struct {
 	LastLogin int64 `json:"last_login"`
 	// Additional restrictions
 	Filters UserFilters `json:"filters"`
+	// Filesystem configuration details
+	FsConfig Filesystem `json:"filesystem"`
+}
+
+// GetFilesystem returns the filesystem for this user
+func (u *User) GetFilesystem(connectionID string) (vfs.Fs, error) {
+	if u.FsConfig.Provider == 1 {
+		return vfs.NewS3Fs(connectionID, u.GetHomeDir(), u.FsConfig.S3Config)
+	}
+	return vfs.NewOsFs(connectionID), nil
 }
 
 // GetPermissionsForPath returns the permissions for the given path.
@@ -211,6 +228,11 @@ func (u *User) GetFiltersAsJSON() ([]byte, error) {
 	return json.Marshal(u.Filters)
 }
 
+// GetFsConfigAsJSON returns the filesystem config as json byte array
+func (u *User) GetFsConfigAsJSON() ([]byte, error) {
+	return json.Marshal(u.FsConfig)
+}
+
 // GetUID returns a validate uid, suitable for use with os.Chown
 func (u *User) GetUID() int {
 	if u.UID <= 0 || u.UID > 65535 {
@@ -235,19 +257,6 @@ func (u *User) GetHomeDir() string {
 // HasQuotaRestrictions returns true if there is a quota restriction on number of files or size or both
 func (u *User) HasQuotaRestrictions() bool {
 	return u.QuotaFiles > 0 || u.QuotaSize > 0
-}
-
-// GetRelativePath returns the path for a file relative to the user's home dir.
-// This is the path as seen by SFTP users
-func (u *User) GetRelativePath(path string) string {
-	rel, err := filepath.Rel(u.GetHomeDir(), filepath.Clean(path))
-	if err != nil {
-		return ""
-	}
-	if rel == "." || strings.HasPrefix(rel, "..") {
-		rel = ""
-	}
-	return "/" + filepath.ToSlash(rel)
 }
 
 // GetQuotaSummary returns used quota and limits if defined
@@ -319,6 +328,9 @@ func (u *User) GetInfoString() string {
 		t := utils.GetTimeFromMsecSinceEpoch(u.LastLogin)
 		result += fmt.Sprintf("Last login: %v ", t.Format("2006-01-02 15:04:05")) // YYYY-MM-DD HH:MM:SS
 	}
+	if u.FsConfig.Provider == 1 {
+		result += fmt.Sprintf("Storage: S3")
+	}
 	if len(u.PublicKeys) > 0 {
 		result += fmt.Sprintf("Public keys: %v ", len(u.PublicKeys))
 	}
@@ -387,6 +399,17 @@ func (u *User) getACopy() User {
 	copy(filters.AllowedIP, u.Filters.AllowedIP)
 	filters.DeniedIP = make([]string, len(u.Filters.DeniedIP))
 	copy(filters.DeniedIP, u.Filters.DeniedIP)
+	fsConfig := Filesystem{
+		Provider: u.FsConfig.Provider,
+		S3Config: vfs.S3FsConfig{
+			Bucket:       u.FsConfig.S3Config.Bucket,
+			Region:       u.FsConfig.S3Config.Region,
+			AccessKey:    u.FsConfig.S3Config.AccessKey,
+			AccessSecret: u.FsConfig.S3Config.AccessSecret,
+			Endpoint:     u.FsConfig.S3Config.Endpoint,
+			StorageClass: u.FsConfig.S3Config.StorageClass,
+		},
+	}
 
 	return User{
 		ID:                u.ID,
@@ -409,6 +432,7 @@ func (u *User) getACopy() User {
 		ExpirationDate:    u.ExpirationDate,
 		LastLogin:         u.LastLogin,
 		Filters:           filters,
+		FsConfig:          fsConfig,
 	}
 }
 

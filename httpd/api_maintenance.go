@@ -13,6 +13,7 @@ import (
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/sftpd"
 )
 
 func dumpData(w http.ResponseWriter, r *http.Request) {
@@ -103,10 +104,16 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 		u, err := dataprovider.UserExists(dataProvider, user.Username)
 		if err == nil {
 			user.ID = u.ID
+			user.LastLogin = u.LastLogin
+			user.UsedQuotaSize = u.UsedQuotaSize
+			user.UsedQuotaFiles = u.UsedQuotaFiles
 			err = dataprovider.UpdateUser(dataProvider, user)
 			user.Password = "[redacted]"
 			logger.Debug(logSender, "", "restoring existing user: %+v, dump file: %#v, error: %v", user, inputFile, err)
 		} else {
+			user.LastLogin = 0
+			user.UsedQuotaSize = 0
+			user.UsedQuotaFiles = 0
 			err = dataprovider.AddUser(dataProvider, user)
 			user.Password = "[redacted]"
 			logger.Debug(logSender, "", "adding new user: %+v, dump file: %#v, error: %v", user, inputFile, err)
@@ -115,11 +122,17 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
 		}
-		if scanQuota == 1 || (scanQuota == 2 && user.HasQuotaRestrictions()) {
-			logger.Debug(logSender, "", "starting quota scan for restored user: %#v", user.Username)
-			doQuotaScan(user)
+		if needQuotaScan(scanQuota, &user) {
+			if sftpd.AddQuotaScan(user.Username) {
+				logger.Debug(logSender, "", "starting quota scan for restored user: %#v", user.Username)
+				go doQuotaScan(user)
+			}
 		}
 	}
 	logger.Debug(logSender, "", "backup restored, users: %v", len(dump.Users))
 	sendAPIResponse(w, r, err, "Data restored", http.StatusOK)
+}
+
+func needQuotaScan(scanQuota int, user *dataprovider.User) bool {
+	return scanQuota == 1 || (scanQuota == 2 && user.HasQuotaRestrictions())
 }

@@ -191,6 +191,58 @@
         </div>
     </div>
 
+    <div class="form-group row">
+        <label for="idFilesystem" class="col-sm-2 col-form-label">Storage</label>
+        <div class="col-sm-10">
+            <select class="form-control" id="idFilesystem" name="fs_provider">
+                <option value="0" {{if eq .User.FsConfig.Provider 0 }}selected{{end}}>local</option>
+                <option value="1" {{if eq .User.FsConfig.Provider 1 }}selected{{end}}>S3</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-group row">
+        <label for="idS3Bucket" class="col-sm-2 col-form-label">S3 Bucket</label>
+        <div class="col-sm-3">
+            <input type="text" class="form-control" id="idS3Bucket" name="s3_bucket" placeholder=""
+                value="{{.User.FsConfig.S3Config.Bucket}}" maxlength="255">
+        </div>
+        <div class="col-sm-2"></div>
+        <label for="idS3Region" class="col-sm-2 col-form-label">S3 Region</label>
+        <div class="col-sm-3">
+            <input type="text" class="form-control" id="idS3Region" name="s3_region" placeholder=""
+                value="{{.User.FsConfig.S3Config.Region}}" maxlength="255">
+        </div>
+    </div>
+
+    <div class="form-group row">
+        <label for="idS3AccessKey" class="col-sm-2 col-form-label">S3 Access Key</label>
+        <div class="col-sm-3">
+            <input type="text" class="form-control" id="idS3AccessKey" name="s3_access_key" placeholder=""
+                value="{{.User.FsConfig.S3Config.AccessKey}}" maxlength="255">
+        </div>
+        <div class="col-sm-2"></div>
+        <label for="idS3AccessSecret" class="col-sm-2 col-form-label">S3 Access Secret</label>
+        <div class="col-sm-3">
+            <input type="text" class="form-control" id="idS3AccessSecret" name="s3_access_secret" placeholder=""
+                value="{{.User.FsConfig.S3Config.AccessSecret}}" maxlength="1000">
+        </div>
+    </div>
+
+    <div class="form-group row">
+        <label for="idS3StorageClass" class="col-sm-2 col-form-label">S3 Storage Class</label>
+        <div class="col-sm-3">
+            <input type="text" class="form-control" id="idS3StorageClass" name="s3_storage_class" placeholder=""
+                value="{{.User.FsConfig.S3Config.StorageClass}}" maxlength="1000">
+        </div>
+        <div class="col-sm-2"></div>
+        <label for="idS3Endpoint" class="col-sm-2 col-form-label">S3 Endpoint</label>
+        <div class="col-sm-3">
+            <input type="text" class="form-control" id="idS3Endpoint" name="s3_endpoint" placeholder=""
+                value="{{.User.FsConfig.S3Config.Endpoint}}" maxlength="255">
+        </div>
+    </div>
+
     <input type="hidden" name="expiration_date" id="hidden_start_datetime" value="">
     <button type="submit" class="btn btn-primary float-right mt-3 mb-5 px-5 px-3">Submit</button>
 </form>

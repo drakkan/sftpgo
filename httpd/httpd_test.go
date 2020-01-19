@@ -242,6 +242,16 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	}
 }
 
+func TestAddUserInvalidFsConfig(t *testing.T) {
+	u := getTestUser()
+	u.FsConfig.Provider = 1
+	u.FsConfig.S3Config.Bucket = ""
+	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
+	}
+}
+
 func TestUserPublicKey(t *testing.T) {
 	u := getTestUser()
 	invalidPubKey := "invalid"
@@ -289,6 +299,48 @@ func TestUpdateUser(t *testing.T) {
 	user.Filters.DeniedIP = []string{"192.168.3.0/24", "192.168.4.0/24"}
 	user.UploadBandwidth = 1024
 	user.DownloadBandwidth = 512
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove: %v", err)
+	}
+}
+
+func TestUserS3Config(t *testing.T) {
+	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	user.FsConfig.Provider = 1
+	user.FsConfig.S3Config.Bucket = "test"
+	user.FsConfig.S3Config.Region = "us-east-1"
+	user.FsConfig.S3Config.AccessKey = "Server-Access-Key"
+	user.FsConfig.S3Config.AccessSecret = "Server-Access-Secret"
+	user.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000"
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove: %v", err)
+	}
+	user.Password = defaultPassword
+	user.ID = 0
+	secret, _ := utils.EncryptData("Server-Access-Secret")
+	user.FsConfig.S3Config.AccessSecret = secret
+	user, _, err = httpd.AddUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	user.FsConfig.Provider = 1
+	user.FsConfig.S3Config.Bucket = "test1"
+	user.FsConfig.S3Config.Region = "us-east-1"
+	user.FsConfig.S3Config.AccessKey = "Server-Access-Key1"
+	user.FsConfig.S3Config.Endpoint = "http://localhost:9000"
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
@@ -1392,6 +1444,91 @@ func TestWebUserUpdateMock(t *testing.T) {
 	}
 	if !utils.IsStringInSlice("10.0.0.2/32", updateUser.Filters.DeniedIP) {
 		t.Errorf("Denied IP/Mask does not match: %v", updateUser.Filters.DeniedIP)
+	}
+	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+}
+
+func TestWebUserS3Mock(t *testing.T) {
+	user := getTestUser()
+	userAsJSON := getUserAsJSON(t, user)
+	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	err := render.DecodeJSON(rr.Body, &user)
+	if err != nil {
+		t.Errorf("Error get user: %v", err)
+	}
+	user.FsConfig.Provider = 1
+	user.FsConfig.S3Config.Bucket = "test"
+	user.FsConfig.S3Config.Region = "eu-west-1"
+	user.FsConfig.S3Config.AccessKey = "access-key"
+	user.FsConfig.S3Config.AccessSecret = "access-secret"
+	user.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/path?a=b"
+	user.FsConfig.S3Config.StorageClass = "Standard"
+	form := make(url.Values)
+	form.Set("username", user.Username)
+	form.Set("home_dir", user.HomeDir)
+	form.Set("uid", "0")
+	form.Set("gid", strconv.FormatInt(int64(user.GID), 10))
+	form.Set("max_sessions", strconv.FormatInt(int64(user.MaxSessions), 10))
+	form.Set("quota_size", strconv.FormatInt(user.QuotaSize, 10))
+	form.Set("quota_files", strconv.FormatInt(int64(user.QuotaFiles), 10))
+	form.Set("upload_bandwidth", "0")
+	form.Set("download_bandwidth", "0")
+	form.Set("permissions", "*")
+	form.Set("sub_dirs_permissions", "")
+	form.Set("status", strconv.Itoa(user.Status))
+	form.Set("expiration_date", "2020-01-01 00:00:00")
+	form.Set("allowed_ip", "")
+	form.Set("denied_ip", "")
+	form.Set("fs_provider", "1")
+	form.Set("s3_bucket", user.FsConfig.S3Config.Bucket)
+	form.Set("s3_region", user.FsConfig.S3Config.Region)
+	form.Set("s3_access_key", user.FsConfig.S3Config.AccessKey)
+	form.Set("s3_access_secret", user.FsConfig.S3Config.AccessSecret)
+	form.Set("s3_storage_class", user.FsConfig.S3Config.StorageClass)
+	form.Set("s3_endpoint", user.FsConfig.S3Config.Endpoint)
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr.Code)
+	req, _ = http.NewRequest(http.MethodGet, userPath+"?limit=1&offset=0&order=ASC&username="+user.Username, nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	var users []dataprovider.User
+	err = render.DecodeJSON(rr.Body, &users)
+	if err != nil {
+		t.Errorf("Error decoding users: %v", err)
+	}
+	if len(users) != 1 {
+		t.Errorf("1 user is expected")
+	}
+	updateUser := users[0]
+	if updateUser.ExpirationDate != 1577836800000 {
+		t.Errorf("invalid expiration date: %v", updateUser.ExpirationDate)
+	}
+	if updateUser.FsConfig.Provider != user.FsConfig.Provider {
+		t.Error("fs provider mismatch")
+	}
+	if updateUser.FsConfig.S3Config.Bucket != user.FsConfig.S3Config.Bucket {
+		t.Error("s3 bucket mismatch")
+	}
+	if updateUser.FsConfig.S3Config.Region != user.FsConfig.S3Config.Region {
+		t.Error("s3 region mismatch")
+	}
+	if updateUser.FsConfig.S3Config.AccessKey != user.FsConfig.S3Config.AccessKey {
+		t.Error("s3 access key mismatch")
+	}
+	if !strings.HasPrefix(updateUser.FsConfig.S3Config.AccessSecret, "$aes$") {
+		t.Error("s3 access secret is not encrypted")
+	}
+	if updateUser.FsConfig.S3Config.StorageClass != user.FsConfig.S3Config.StorageClass {
+		t.Error("s3 storage class mismatch")
+	}
+	if updateUser.FsConfig.S3Config.Endpoint != user.FsConfig.S3Config.Endpoint {
+		t.Error("s3 endpoint mismatch")
 	}
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)

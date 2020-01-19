@@ -6,9 +6,12 @@ import (
 	"html/template"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/sftpd"
+	"github.com/drakkan/sftpgo/utils"
 	"github.com/go-chi/chi"
 )
 
@@ -120,6 +123,13 @@ func TestCheckUser(t *testing.T) {
 	if err == nil {
 		t.Errorf("DeniedIP contents are not equal")
 	}
+	expected.Filters.DeniedIP = []string{}
+	actual.Filters.DeniedIP = []string{}
+	actual.FsConfig.Provider = 1
+	err = checkUser(expected, actual)
+	if err == nil {
+		t.Errorf("Fs providers are not equal")
+	}
 }
 
 func TestCompareUserFields(t *testing.T) {
@@ -197,6 +207,72 @@ func TestCompareUserFields(t *testing.T) {
 	err = compareEqualsUserFields(expected, actual)
 	if err == nil {
 		t.Errorf("Expiration date does not match")
+	}
+}
+
+func TestCompareUserFsConfig(t *testing.T) {
+	expected := &dataprovider.User{}
+	actual := &dataprovider.User{}
+	expected.FsConfig.Provider = 1
+	err := compareUserFsConfig(expected, actual)
+	if err == nil {
+		t.Errorf("Provider does not match")
+	}
+	expected.FsConfig.Provider = 0
+	expected.FsConfig.S3Config.Bucket = "bucket"
+	err = compareUserFsConfig(expected, actual)
+	if err == nil {
+		t.Errorf("S3 bucket does not match")
+	}
+	expected.FsConfig.S3Config.Bucket = ""
+	expected.FsConfig.S3Config.Region = "region"
+	err = compareUserFsConfig(expected, actual)
+	if err == nil {
+		t.Errorf("S3 region does not match")
+	}
+	expected.FsConfig.S3Config.Region = ""
+	expected.FsConfig.S3Config.AccessKey = "access key"
+	err = compareUserFsConfig(expected, actual)
+	if err == nil {
+		t.Errorf("S3 access key does not match")
+	}
+	expected.FsConfig.S3Config.AccessKey = ""
+	actual.FsConfig.S3Config.AccessSecret = "access secret"
+	err = compareUserFsConfig(expected, actual)
+	if err == nil {
+		t.Errorf("S3 access secret does not match")
+	}
+	secret, _ := utils.EncryptData("access secret")
+	actual.FsConfig.S3Config.AccessSecret = ""
+	expected.FsConfig.S3Config.AccessSecret = secret
+	err = compareUserFsConfig(expected, actual)
+	if err == nil {
+		t.Errorf("S3 access secret does not match")
+	}
+	expected.FsConfig.S3Config.AccessSecret = utils.RemoveDecryptionKey(secret)
+	actual.FsConfig.S3Config.AccessSecret = utils.RemoveDecryptionKey(secret) + "a"
+	err = compareUserFsConfig(expected, actual)
+	if err == nil {
+		t.Errorf("S3 access secret does not match")
+	}
+	expected.FsConfig.S3Config.AccessSecret = "test"
+	actual.FsConfig.S3Config.AccessSecret = ""
+	err = compareUserFsConfig(expected, actual)
+	if err == nil {
+		t.Errorf("S3 access secret does not match")
+	}
+	expected.FsConfig.S3Config.AccessSecret = ""
+	actual.FsConfig.S3Config.AccessSecret = ""
+	expected.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/"
+	err = compareUserFsConfig(expected, actual)
+	if err == nil {
+		t.Errorf("S3 endpoint does not match")
+	}
+	expected.FsConfig.S3Config.Endpoint = ""
+	expected.FsConfig.S3Config.StorageClass = "Standard"
+	err = compareUserFsConfig(expected, actual)
+	if err == nil {
+		t.Errorf("S3 storage class does not match")
 	}
 }
 
@@ -313,5 +389,20 @@ func TestRenderInvalidTemplate(t *testing.T) {
 		if rw.Code != http.StatusInternalServerError {
 			t.Errorf("invalid template rendering must fail")
 		}
+	}
+}
+
+func TestQuotaScanInvalidFs(t *testing.T) {
+	user := dataprovider.User{
+		Username: "test",
+		HomeDir:  os.TempDir(),
+		FsConfig: dataprovider.Filesystem{
+			Provider: 1,
+		},
+	}
+	sftpd.AddQuotaScan(user.Username)
+	err := doQuotaScan(user)
+	if err == nil {
+		t.Error("quota scan with bad fs must fail")
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/utils"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/render"
 )
@@ -63,8 +64,7 @@ func getUserByID(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := dataprovider.GetUserByID(dataProvider, userID)
 	if err == nil {
-		user.Password = ""
-		render.JSON(w, r, user)
+		render.JSON(w, r, dataprovider.HideUserSensitiveData(&user))
 	} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
 		sendAPIResponse(w, r, err, "", http.StatusNotFound)
 	} else {
@@ -83,8 +83,7 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		user, err = dataprovider.UserExists(dataProvider, user.Username)
 		if err == nil {
-			user.Password = ""
-			render.JSON(w, r, user)
+			render.JSON(w, r, dataprovider.HideUserSensitiveData(&user))
 		} else {
 			sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
 		}
@@ -102,6 +101,10 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := dataprovider.GetUserByID(dataProvider, userID)
 	oldPermissions := user.Permissions
+	oldS3AccessSecret := ""
+	if user.FsConfig.Provider == 1 {
+		oldS3AccessSecret = user.FsConfig.S3Config.AccessSecret
+	}
 	user.Permissions = make(map[string][]string)
 	if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
 		sendAPIResponse(w, r, err, "", http.StatusNotFound)
@@ -118,6 +121,13 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	// we use new Permissions if passed otherwise the old ones
 	if len(user.Permissions) == 0 {
 		user.Permissions = oldPermissions
+	}
+	// we use the new access secret if different from the old one and not empty
+	if user.FsConfig.Provider == 1 {
+		if utils.RemoveDecryptionKey(oldS3AccessSecret) == user.FsConfig.S3Config.AccessSecret ||
+			len(user.FsConfig.S3Config.AccessSecret) == 0 {
+			user.FsConfig.S3Config.AccessSecret = oldS3AccessSecret
+		}
 	}
 	if user.ID != userID {
 		sendAPIResponse(w, r, err, "user ID in request body does not match user ID in path parameter", http.StatusBadRequest)

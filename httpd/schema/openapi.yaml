@@ -710,6 +710,50 @@ components:
           nullable: true
           description: clients connecting from these IP/Mask are not allowed. Denied rules are evaluated before allowed ones
           example: [ "172.16.0.0/16" ]
+      description: Additional restrictions
+    S3Config:
+      type: object
+      properties:
+        bucket:
+          type: string
+          minLength: 1
+        region:
+          type: string
+          minLength: 1
+        access_key:
+          type: string
+          minLength: 1
+        access_secret:
+          type: string
+          minLength: 1
+          description: the access secret is stored encrypted (AES-256-GCM)
+        endpoint:
+          type: string
+          description: optional endpoint
+        storage_class:
+          type: string
+      required:
+        - bucket
+        - region
+        - access_key
+        - access_secret
+      nullable: true
+      description: S3 Compatible Object Storage configuration details
+    FilesystemConfig:
+      type: object
+      properties:
+        provider:
+          type: integer
+          enum:
+            - 0
+            - 1
+          description: >
+            Providers:
+              * `0` - local filesystem
+              * `1` - S3 Compatible Object Storage
+        s3config:
+          $ref: '#/components/schemas/S3Config'
+      description: Storage filesystem details
     User:
       type: object
       properties:
@@ -799,8 +843,8 @@ components:
           description: Last user login as unix timestamp in milliseconds
         filters:
           $ref: '#/components/schemas/UserFilters'
-          nullable: true
-          description: Additional restrictions
+        filesystem:
+          $ref: '#/components/schemas/FilesystemConfig'
     Transfer:
       type: object
       properties:

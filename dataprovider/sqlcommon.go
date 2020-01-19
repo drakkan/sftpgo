@@ -162,8 +162,13 @@ func sqlCommonAddUser(user User, dbHandle *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	fsConfig, err := user.GetFsConfigAsJSON()
+	if err != nil {
+		return err
+	}
 	_, err = stmt.Exec(user.Username, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
-		user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate, string(filters))
+		user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate, string(filters),
+		string(fsConfig))
 	return err
 }
 
@@ -191,9 +196,13 @@ func sqlCommonUpdateUser(user User, dbHandle *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	fsConfig, err := user.GetFsConfigAsJSON()
+	if err != nil {
+		return err
+	}
 	_, err = stmt.Exec(user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
 		user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate,
-		string(filters), user.ID)
+		string(filters), string(fsConfig), user.ID)
 	return err
 }
 
@@ -253,10 +262,8 @@ func sqlCommonGetUsers(limit int, offset int, order string, username string, dbH
 		defer rows.Close()
 		for rows.Next() {
 			u, err := getUserFromDbRow(nil, rows)
-			// hide password
 			if err == nil {
-				u.Password = ""
-				users = append(users, u)
+				users = append(users, HideUserSensitiveData(&u))
 			} else {
 				break
 			}
@@ -272,16 +279,17 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 	var password sql.NullString
 	var publicKey sql.NullString
 	var filters sql.NullString
+	var fsConfig sql.NullString
 	var err error
 	if row != nil {
 		err = row.Scan(&user.ID, &user.Username, &password, &publicKey, &user.HomeDir, &user.UID, &user.GID, &user.MaxSessions,
 			&user.QuotaSize, &user.QuotaFiles, &permissions, &user.UsedQuotaSize, &user.UsedQuotaFiles, &user.LastQuotaUpdate,
-			&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters)
+			&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig)
 
 	} else {
 		err = rows.Scan(&user.ID, &user.Username, &password, &publicKey, &user.HomeDir, &user.UID, &user.GID, &user.MaxSessions,
 			&user.QuotaSize, &user.QuotaFiles, &permissions, &user.UsedQuotaSize, &user.UsedQuotaFiles, &user.LastQuotaUpdate,
-			&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters)
+			&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig)
 	}
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -324,6 +332,17 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 		user.Filters = UserFilters{
 			AllowedIP: []string{},
 			DeniedIP:  []string{},
+		}
+	}
+	if fsConfig.Valid {
+		var fs Filesystem
+		err = json.Unmarshal([]byte(fsConfig.String), &fs)
+		if err == nil {
+			user.FsConfig = fs
+		}
+	} else {
+		user.FsConfig = Filesystem{
+			Provider: 0,
 		}
 	}
 	return user, err

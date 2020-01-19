@@ -3,7 +3,6 @@ package sftpd
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"path"
@@ -16,6 +15,7 @@ import (
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 var (
@@ -116,7 +116,7 @@ func (c *scpCommand) handleRecursiveUpload() error {
 
 func (c *scpCommand) handleCreateDir(dirPath string) error {
 	updateConnectionActivity(c.connection.ID)
-	p, err := c.connection.buildPath(dirPath)
+	p, err := c.connection.fs.ResolvePath(dirPath, c.connection.User.GetHomeDir())
 	if err != nil {
 		c.connection.Log(logger.LevelWarn, logSenderSCP, "error creating dir: %#v, invalid file path, err: %v", dirPath, err)
 		c.sendErrorMessage(err.Error())
@@ -189,17 +189,20 @@ func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead i
 		return err
 	}
 
-	file, err := os.Create(filePath)
+	file, w, cancelFn, err := c.connection.fs.Create(filePath, 0)
 	if err != nil {
 		c.connection.Log(logger.LevelError, logSenderSCP, "error creating file %#v: %v", requestPath, err)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
 
-	utils.SetPathPermissions(filePath, c.connection.User.GetUID(), c.connection.User.GetGID())
+	vfs.SetPathPermissions(c.connection.fs, filePath, c.connection.User.GetUID(), c.connection.User.GetGID())
 
 	transfer := Transfer{
 		file:           file,
+		readerAt:       nil,
+		writerAt:       w,
+		cancelFn:       cancelFn,
 		path:           requestPath,
 		start:          time.Now(),
 		bytesSent:      0,
@@ -225,18 +228,18 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 
 	updateConnectionActivity(c.connection.ID)
 
-	p, err := c.connection.buildPath(uploadFilePath)
+	p, err := c.connection.fs.ResolvePath(uploadFilePath, c.connection.User.GetHomeDir())
 	if err != nil {
 		c.connection.Log(logger.LevelWarn, logSenderSCP, "error uploading file: %#v, err: %v", uploadFilePath, err)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
 	filePath := p
-	if isAtomicUploadEnabled() {
-		filePath = getUploadTempFilePath(p)
+	if isAtomicUploadEnabled() && c.connection.fs.IsAtomicUploadSupported() {
+		filePath = c.connection.fs.GetAtomicUploadPath(p)
 	}
-	stat, statErr := os.Stat(p)
-	if os.IsNotExist(statErr) {
+	stat, statErr := c.connection.fs.Stat(p)
+	if c.connection.fs.IsNotExist(statErr) {
 		if !c.connection.User.HasPerm(dataprovider.PermUpload, path.Dir(uploadFilePath)) {
 			err := fmt.Errorf("Permission denied")
 			c.connection.Log(logger.LevelWarn, logSenderSCP, "cannot upload file: %#v, permission denied", uploadFilePath)
@@ -248,8 +251,8 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 
 	if statErr != nil {
 		c.connection.Log(logger.LevelError, logSenderSCP, "error performing file stat %#v: %v", p, statErr)
-		c.sendErrorMessage(err.Error())
-		return err
+		c.sendErrorMessage(statErr.Error())
+		return statErr
 	}
 
 	if stat.IsDir() {
@@ -266,8 +269,8 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 		return err
 	}
 
-	if isAtomicUploadEnabled() {
-		err = os.Rename(p, filePath)
+	if isAtomicUploadEnabled() && c.connection.fs.IsAtomicUploadSupported() {
+		err = c.connection.fs.Rename(p, filePath)
 		if err != nil {
 			c.connection.Log(logger.LevelError, logSenderSCP, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %v",
 				p, filePath, err)
@@ -315,14 +318,14 @@ func (c *scpCommand) handleRecursiveDownload(dirPath string, stat os.FileInfo) e
 		if err != nil {
 			return err
 		}
-		files, err := ioutil.ReadDir(dirPath)
+		files, err := c.connection.fs.ReadDir(dirPath)
 		if err != nil {
 			c.sendErrorMessage(err.Error())
 			return err
 		}
 		var dirs []string
 		for _, file := range files {
-			filePath := c.connection.User.GetRelativePath(filepath.Join(dirPath, file.Name()))
+			filePath := c.connection.fs.GetRelativePath(c.connection.fs.Join(dirPath, file.Name()), c.connection.User.GetHomeDir())
 			if file.Mode().IsRegular() || file.Mode()&os.ModeSymlink == os.ModeSymlink {
 				err = c.handleDownload(filePath)
 				if err != nil {
@@ -419,7 +422,7 @@ func (c *scpCommand) handleDownload(filePath string) error {
 
 	updateConnectionActivity(c.connection.ID)
 
-	p, err := c.connection.buildPath(filePath)
+	p, err := c.connection.fs.ResolvePath(filePath, c.connection.User.GetHomeDir())
 	if err != nil {
 		err := fmt.Errorf("Invalid file path")
 		c.connection.Log(logger.LevelWarn, logSenderSCP, "error downloading file: %#v, invalid file path", filePath)
@@ -428,7 +431,7 @@ func (c *scpCommand) handleDownload(filePath string) error {
 	}
 
 	var stat os.FileInfo
-	if stat, err = os.Stat(p); os.IsNotExist(err) {
+	if stat, err = c.connection.fs.Stat(p); err != nil {
 		c.connection.Log(logger.LevelWarn, logSenderSCP, "error downloading file: %#v, err: %v", p, err)
 		c.sendErrorMessage(err.Error())
 		return err
@@ -452,7 +455,7 @@ func (c *scpCommand) handleDownload(filePath string) error {
 		return err
 	}
 
-	file, err := os.Open(p)
+	file, r, cancelFn, err := c.connection.fs.Open(p)
 	if err != nil {
 		c.connection.Log(logger.LevelError, logSenderSCP, "could not open file %#v for reading: %v", p, err)
 		c.sendErrorMessage(err.Error())
@@ -461,6 +464,9 @@ func (c *scpCommand) handleDownload(filePath string) error {
 
 	transfer := Transfer{
 		file:           file,
+		readerAt:       r,
+		writerAt:       nil,
+		cancelFn:       cancelFn,
 		path:           p,
 		start:          time.Now(),
 		bytesSent:      0,
@@ -608,12 +614,12 @@ func (c *scpCommand) getNextUploadProtocolMessage() (string, error) {
 
 func (c *scpCommand) createDir(dirPath string) error {
 	var err error
-	if err = os.Mkdir(dirPath, 0777); err != nil {
+	if err = c.connection.fs.Mkdir(dirPath); err != nil {
 		c.connection.Log(logger.LevelError, logSenderSCP, "error creating dir: %v", dirPath)
 		c.sendErrorMessage(err.Error())
 		return err
 	}
-	utils.SetPathPermissions(dirPath, c.connection.User.GetUID(), c.connection.User.GetGID())
+	vfs.SetPathPermissions(c.connection.fs, dirPath, c.connection.User.GetUID(), c.connection.User.GetGID())
 	return err
 }
 
@@ -668,8 +674,8 @@ func (c *scpCommand) getFileUploadDestPath(scpDestPath, fileName string) string 
 			// but if scpDestPath is an existing directory then we put the uploaded file
 			// inside that directory this is as scp command works, for example:
 			// scp fileName.txt user@127.0.0.1:/existing_dir
-			if p, err := c.connection.buildPath(scpDestPath); err == nil {
-				if stat, err := os.Stat(p); err == nil {
+			if p, err := c.connection.fs.ResolvePath(scpDestPath, c.connection.User.GetHomeDir()); err == nil {
+				if stat, err := c.connection.fs.Stat(p); err == nil {
 					if stat.IsDir() {
 						return path.Join(scpDestPath, fileName)
 					}

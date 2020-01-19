@@ -34,6 +34,7 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/vfs"
 	unixcrypt "github.com/nathanaelle/password"
 )
 
@@ -479,6 +480,27 @@ func validateFilters(user *User) error {
 	return nil
 }
 
+func validateFilesystemConfig(user *User) error {
+	if user.FsConfig.Provider == 1 {
+		err := vfs.ValidateS3FsConfig(&user.FsConfig.S3Config)
+		if err != nil {
+			return &ValidationError{err: fmt.Sprintf("Could not validate s3config: %v", err)}
+		}
+		vals := strings.Split(user.FsConfig.S3Config.AccessSecret, "$")
+		if !strings.HasPrefix(user.FsConfig.S3Config.AccessSecret, "$aes$") || len(vals) != 4 {
+			accessSecret, err := utils.EncryptData(user.FsConfig.S3Config.AccessSecret)
+			if err != nil {
+				return &ValidationError{err: fmt.Sprintf("Could encrypt s3 access secret: %v", err)}
+			}
+			user.FsConfig.S3Config.AccessSecret = accessSecret
+		}
+		return nil
+	}
+	user.FsConfig.Provider = 0
+	user.FsConfig.S3Config = vfs.S3FsConfig{}
+	return nil
+}
+
 func validateUser(user *User) error {
 	buildUserHomeDir(user)
 	if len(user.Username) == 0 || len(user.HomeDir) == 0 {
@@ -491,6 +513,9 @@ func validateUser(user *User) error {
 		return &ValidationError{err: fmt.Sprintf("home_dir must be an absolute path, actual value: %v", user.HomeDir)}
 	}
 	if err := validatePermissions(user); err != nil {
+		return err
+	}
+	if err := validateFilesystemConfig(user); err != nil {
 		return err
 	}
 	if user.Status < 0 || user.Status > 1 {
@@ -645,6 +670,15 @@ func comparePbkdf2PasswordAndHash(password, hashedPassword string) (bool, error)
 	return subtle.ConstantTimeCompare(buf, []byte(expected)) == 1, nil
 }
 
+// HideUserSensitiveData hides user sensitive data
+func HideUserSensitiveData(user *User) User {
+	user.Password = ""
+	if user.FsConfig.Provider == 1 {
+		user.FsConfig.S3Config.AccessSecret = utils.RemoveDecryptionKey(user.FsConfig.S3Config.AccessSecret)
+	}
+	return *user
+}
+
 func getSSLMode() string {
 	if config.Driver == PGSQLDataProviderName {
 		if config.SSLMode == 0 {
@@ -772,8 +806,7 @@ func executeAction(operation string, user User) {
 			return
 		}
 	}
-	// hide the hashed password
-	user.Password = ""
+	HideUserSensitiveData(&user)
 	if len(config.Actions.Command) > 0 && filepath.IsAbs(config.Actions.Command) {
 		// we are in a goroutine but if we have to send an HTTP notification we don't want to wait for the
 		// end of the command

@@ -224,6 +224,24 @@ func getFiltersFromUserPostFields(r *http.Request) dataprovider.UserFilters {
 	return filters
 }
 
+func getFsConfigFromUserPostFields(r *http.Request) dataprovider.Filesystem {
+	var fs dataprovider.Filesystem
+	provider, err := strconv.Atoi(r.Form.Get("fs_provider"))
+	if err != nil {
+		provider = 0
+	}
+	fs.Provider = provider
+	if fs.Provider == 1 {
+		fs.S3Config.Bucket = r.Form.Get("s3_bucket")
+		fs.S3Config.Region = r.Form.Get("s3_region")
+		fs.S3Config.AccessKey = r.Form.Get("s3_access_key")
+		fs.S3Config.AccessSecret = r.Form.Get("s3_access_secret")
+		fs.S3Config.Endpoint = r.Form.Get("s3_endpoint")
+		fs.S3Config.StorageClass = r.Form.Get("s3_storage_class")
+	}
+	return fs
+}
+
 func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	var user dataprovider.User
 	err := r.ParseForm()
@@ -289,6 +307,7 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 		Status:            status,
 		ExpirationDate:    expirationDateMillis,
 		Filters:           getFiltersFromUserPostFields(r),
+		FsConfig:          getFsConfigFromUserPostFields(r),
 	}
 	return user, err
 }

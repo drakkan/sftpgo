@@ -6,6 +6,7 @@ import (
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/service"
 	"github.com/drakkan/sftpgo/sftpd"
+	"github.com/drakkan/sftpgo/vfs"
 	"github.com/spf13/cobra"
 )
 
@@ -20,6 +21,13 @@ var (
 	portablePublicKeys           []string
 	portablePermissions          []string
 	portableSSHCommands          []string
+	portableFsProvider           int
+	portableS3Bucket             string
+	portableS3Region             string
+	portableS3AccessKey          string
+	portableS3AccessSecret       string
+	portableS3Endpoint           string
+	portableS3StorageClass       string
 	portableCmd                  = &cobra.Command{
 		Use:   "portable",
 		Short: "Serve a single directory",
@@ -53,6 +61,17 @@ Please take a look at the usage below to customize the serving parameters`,
 					Permissions: permissions,
 					HomeDir:     portableDir,
 					Status:      1,
+					FsConfig: dataprovider.Filesystem{
+						Provider: portableFsProvider,
+						S3Config: vfs.S3FsConfig{
+							Bucket:       portableS3Bucket,
+							Region:       portableS3Region,
+							AccessKey:    portableS3AccessKey,
+							AccessSecret: portableS3AccessSecret,
+							Endpoint:     portableS3Endpoint,
+							StorageClass: portableS3StorageClass,
+						},
+					},
 				},
 			}
 			if err := service.StartPortableMode(portableSFTPDPort, portableSSHCommands, portableAdvertiseService,
@@ -79,5 +98,12 @@ func init() {
 		"Advertise SFTP service using multicast DNS")
 	portableCmd.Flags().BoolVarP(&portableAdvertiseCredentials, "advertise-credentials", "C", false,
 		"If the SFTP service is advertised via multicast DNS this flag allows to put username/password inside the advertised TXT record")
+	portableCmd.Flags().IntVarP(&portableFsProvider, "fs-provider", "f", 0, "0 means local filesystem, 1 S3 compatible")
+	portableCmd.Flags().StringVar(&portableS3Bucket, "s3-bucket", "", "")
+	portableCmd.Flags().StringVar(&portableS3Region, "s3-region", "", "")
+	portableCmd.Flags().StringVar(&portableS3AccessKey, "s3-access-key", "", "")
+	portableCmd.Flags().StringVar(&portableS3AccessSecret, "s3-access-secret", "", "")
+	portableCmd.Flags().StringVar(&portableS3Endpoint, "s3-endpoint", "", "")
+	portableCmd.Flags().StringVar(&portableS3StorageClass, "s3-storage-class", "", "")
 	rootCmd.AddCommand(portableCmd)
 }

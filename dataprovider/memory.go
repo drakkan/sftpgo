@@ -244,8 +244,7 @@ func (p MemoryProvider) getUsers(limit int, offset int, order string, username s
 		if offset == 0 {
 			user, err := p.userExistsInternal(username)
 			if err == nil {
-				user.Password = ""
-				users = append(users, user)
+				users = append(users, HideUserSensitiveData(&user))
 			}
 		}
 		return users, err
@@ -258,8 +257,7 @@ func (p MemoryProvider) getUsers(limit int, offset int, order string, username s
 				continue
 			}
 			user := p.dbHandle.users[username]
-			user.Password = ""
-			users = append(users, user)
+			users = append(users, HideUserSensitiveData(&user))
 			if len(users) >= limit {
 				break
 			}
@@ -272,8 +270,7 @@ func (p MemoryProvider) getUsers(limit int, offset int, order string, username s
 			}
 			username := p.dbHandle.usernames[i]
 			user := p.dbHandle.users[username]
-			user.Password = ""
-			users = append(users, user)
+			users = append(users, HideUserSensitiveData(&user))
 			if len(users) >= limit {
 				break
 			}

@@ -35,6 +35,7 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/vfs"
 	"github.com/pkg/sftp"
 	"github.com/rs/zerolog"
 )
@@ -1009,6 +1010,45 @@ func TestLoginUserExpiration(t *testing.T) {
 		t.Errorf("login for a non expired user must succeed: %v", err)
 	} else {
 		defer client.Close()
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+}
+
+func TestLoginInvalidFs(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("this test is not available on Windows")
+	}
+	config.LoadConfig(configDir, "")
+	providerConf := config.GetProviderConf()
+	if providerConf.Driver != dataprovider.SQLiteDataProviderName {
+		t.Skip("this test require sqlite provider")
+	}
+	dbPath := providerConf.Name
+	if !filepath.IsAbs(dbPath) {
+		dbPath = filepath.Join(configDir, dbPath)
+	}
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	// we update the database using sqlite3 CLI since we cannot add an user with an invalid config
+	time.Sleep(150 * time.Millisecond)
+	updateUserQuery := fmt.Sprintf("UPDATE users SET filesystem='{\"provider\":1}' WHERE id=%v", user.ID)
+	cmd := exec.Command("sqlite3", dbPath, updateUserQuery)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Errorf("unexpected error: %v, cmd out: %v", err, string(out))
+	}
+	time.Sleep(200 * time.Millisecond)
+	_, err = getSftpClient(user, usePubKey)
+	if err == nil {
+		t.Error("login must fail, the user has an invalid filesystem config")
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -2864,52 +2904,53 @@ func TestRootDirCommands(t *testing.T) {
 func TestRelativePaths(t *testing.T) {
 	user := getTestUser(true)
 	path := filepath.Join(user.HomeDir, "/")
-	rel := user.GetRelativePath(path)
+	fs := vfs.NewOsFs("")
+	rel := fs.GetRelativePath(path, user.GetHomeDir())
 	if rel != "/" {
 		t.Errorf("Unexpected relative path: %v", rel)
 	}
 	path = filepath.Join(user.HomeDir, "//")
-	rel = user.GetRelativePath(path)
+	rel = fs.GetRelativePath(path, user.GetHomeDir())
 	if rel != "/" {
 		t.Errorf("Unexpected relative path: %v", rel)
 	}
 	path = filepath.Join(user.HomeDir, "../..")
-	rel = user.GetRelativePath(path)
+	rel = fs.GetRelativePath(path, user.GetHomeDir())
 	if rel != "/" {
 		t.Errorf("Unexpected relative path: %v", rel)
 	}
 	path = filepath.Join(user.HomeDir, "../../../../../")
-	rel = user.GetRelativePath(path)
+	rel = fs.GetRelativePath(path, user.GetHomeDir())
 	if rel != "/" {
 		t.Errorf("Unexpected relative path: %v", rel)
 	}
 	path = filepath.Join(user.HomeDir, "/..")
-	rel = user.GetRelativePath(path)
+	rel = fs.GetRelativePath(path, user.GetHomeDir())
 	if rel != "/" {
 		t.Errorf("Unexpected relative path: %v", rel)
 	}
 	path = filepath.Join(user.HomeDir, "/../../../..")
-	rel = user.GetRelativePath(path)
+	rel = fs.GetRelativePath(path, user.GetHomeDir())
 	if rel != "/" {
 		t.Errorf("Unexpected relative path: %v", rel)
 	}
 	path = filepath.Join(user.HomeDir, "")
-	rel = user.GetRelativePath(path)
+	rel = fs.GetRelativePath(path, user.GetHomeDir())
 	if rel != "/" {
 		t.Errorf("Unexpected relative path: %v", rel)
 	}
 	path = filepath.Join(user.HomeDir, ".")
-	rel = user.GetRelativePath(path)
+	rel = fs.GetRelativePath(path, user.GetHomeDir())
 	if rel != "/" {
 		t.Errorf("Unexpected relative path: %v", rel)
 	}
 	path = filepath.Join(user.HomeDir, "somedir")
-	rel = user.GetRelativePath(path)
+	rel = fs.GetRelativePath(path, user.GetHomeDir())
 	if rel != "/somedir" {
 		t.Errorf("Unexpected relative path: %v", rel)
 	}
 	path = filepath.Join(user.HomeDir, "/somedir/subdir")
-	rel = user.GetRelativePath(path)
+	rel = fs.GetRelativePath(path, user.GetHomeDir())
 	if rel != "/somedir/subdir" {
 		t.Errorf("Unexpected relative path: %v", rel)
 	}

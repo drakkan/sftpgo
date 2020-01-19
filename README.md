@@ -21,6 +21,7 @@ Full featured and highly configurable SFTP server
 - Atomic uploads are configurable.
 - Support for Git repositories over SSH.
 - SCP and rsync are supported.
+- Support for serving S3 Compatible Object Storage over SFTP.
 - Prometheus metrics are exposed.
 - REST API for users management, backup, restore and real time reports of the active connections with possibility of forcibly closing a connection.
 - Web based interface to easily manage users and connections.
@@ -136,7 +137,7 @@ The `sftpgo` configuration file contains the following sections:
     - `idle_timeout`, integer. Time in minutes after which an idle client will be disconnected. 0 menas disabled. Default: 15
     - `max_auth_tries` integer. Maximum number of authentication attempts permitted per connection. If set to a negative number, the number of attempts are unlimited. If set to zero, the number of attempts are limited to 6.
     - `umask`, string. Umask for the new files and directories. This setting has no effect on Windows. Default: "0022"
-    - `banner`, string. Identification string used by the server. Leave empty to use the default banner. Default "SFTPGo_version"
+    - `banner`, string. Identification string used by the server. Leave empty to use the default banner. Default "SFTPGo_<version>"
     - `upload_mode` integer. 0 means standard, the files are uploaded directly to the requested path. 1 means atomic: files are uploaded to a temporary path and renamed to the requested path when the client ends the upload. Atomic mode avoids problems such as a web server that serves partial files when the files are being uploaded. In atomic mode if there is an upload error the temporary file is deleted and so the requested upload path will not contain a partial file. 2 means atomic with resume support: as atomic but if there is an upload error the temporary file is renamed to the requested path and not deleted, this way a client can reconnect and resume the upload.
     - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions. See the "Custom Actions" paragraph for more details
         - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`, `ssh_cmd`. Leave empty to disable actions.
@@ -150,7 +151,7 @@ The `sftpgo` configuration file contains the following sections:
     - `macs`, list of strings. available MAC (message authentication code) algorithms in preference order. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L84 "Supported MACs")
     - `login_banner_file`, path to the login banner file. The contents of the specified file, if any, are sent to the remote user before authentication is allowed. It can be a path relative to the config dir or an absolute one. Leave empty to send no login banner
     - `setstat_mode`, integer. 0 means "normal mode": requests for changing permissions, owner/group and access/modification times are executed. 1 means "ignore mode": requests for changing permissions, owner/group and access/modification times are silently ignored.
-    - `enabled_ssh_commands`, list of enabled SSH commands. These SSH commands are enabled by default: `md5sum`, `sha1sum`, `cd`, `pwd`. `*` enables all supported commands. Some commands are implemented directly inside SFTPGo, while for other commands we use system commands that need to be installed and in your system's `PATH`. For system commands we have no direct control on file creation/deletion and so quota check is suboptimal: if quota is enabled, the number of files is checked at the command begin and not while new files are created. The allowed size is calculated as the difference between the max quota and the used one and it is checked against the bytes transferred via SSH. The command is aborted if it uploads more bytes than the remaining allowed size calculated at the command start. Anyway we see the bytes that the remote command send to the local command via SSH, these bytes contain both protocol commands and files and so the size of the files is different from the size trasferred via SSH: for example a command can send compressed files or a protocol command (few bytes) could delete a big file. To mitigate this issue quotas are recalculated at the command end with a full home directory scan, this could be heavy for big directories. If you need system commands and quotas you could consider to disable quota restrictions and periodically update quota usage yourself using the REST API. We support the following SSH commands:
+    - `enabled_ssh_commands`, list of enabled SSH commands. These SSH commands are enabled by default: `md5sum`, `sha1sum`, `cd`, `pwd`. `*` enables all supported commands. Some commands are implemented directly inside SFTPGo, while for other commands we use system commands that need to be installed and in your system's `PATH`. For system commands we have no direct control on file creation/deletion and so we cannot support remote filesystems, such as S3, and quota check is suboptimal: if quota is enabled, the number of files is checked at the command begin and not while new files are created. The allowed size is calculated as the difference between the max quota and the used one and it is checked against the bytes transferred via SSH. The command is aborted if it uploads more bytes than the remaining allowed size calculated at the command start. Anyway we see the bytes that the remote command send to the local command via SSH, these bytes contain both protocol commands and files and so the size of the files is different from the size trasferred via SSH: for example a command can send compressed files or a protocol command (few bytes) could delete a big file. To mitigate this issue quotas are recalculated at the command end with a full home directory scan, this could be heavy for big directories. If you need system commands and quotas you could consider to disable quota restrictions and periodically update quota usage yourself using the REST API. We support the following SSH commands:
       - `scp`, SCP is an experimental feature, we have our own SCP implementation since we can't rely on "scp" system command to proper handle quotas and user's home dir restrictions. The SCP protocol is quite simple but there is no official docs about it, so we need more testing and feedbacks before enabling it by default. We may not handle some borderline cases or have sneaky bugs. Please do accurate tests yourself before enabling SCP and let us known if something does not work as expected for your use cases. SCP between two remote hosts is supported using the `-3` scp option.
       - `md5sum`, `sha1sum`, `sha256sum`, `sha384sum`, `sha512sum`. Useful to check message digests for uploaded files. These commands are implemented inside SFTPGo so they work even if the matching system commands are not available, for example on Windows.
       - `cd`, `pwd`. Some SFTP clients does not support the SFTP SSH_FXP_REALPATH packet type and so they use `cd` and `pwd` SSH commands to get the initial directory. Currently `cd` do nothing and `pwd` always returns the `/` path.
@@ -416,6 +417,25 @@ The `http_notification_url`, if defined, will be called invoked as http POST. Th
 
 The HTTP request has a 15 seconds timeout.
 
+## S3 Compabible Object Storage backends
+
+Each user can be mapped with an S3-Compatible bucket, this way the mapped bucket is exposed over SFTP/SCP.
+SFTPGo uses multipart uploads and parallel downloads for storing and retrieving files from S3 and automatically try to create the mapped bucket if it does not exists.
+
+Some SFTP commands doesn't work over S3:
+
+- `symlink` and `chtimes` will fail
+- `chown`, `chmod` are silently ignored
+- upload resume is not supported
+- upload mode `atomic` is ignored since S3 uploads are already atomic
+
+Other notes:
+
+- `rename` is a two steps operation: server-side copy and then deletion. So it is not atomic as for local filesystem
+- We don't support renaming non empty directories since we should rename all the contents too and this could take long time: think about directories with thousands of files, for each file we should do an AWS API call.
+- For server side encryption you have to configure the mapped bucket to automatically encrypt objects.
+- A local home directory is still required to store temporary files.
+
 ## Portable mode
 
 SFTPGo allows to share a single directory on demand using the `portable` subcommand:
@@ -432,17 +452,24 @@ Usage:
   sftpgo portable [flags]
 
 Flags:
-  -C, --advertise-credentials   If the SFTP service is advertised via multicast DNS this flag allows to put username/password inside the advertised TXT record
-  -S, --advertise-service       Advertise SFTP service using multicast DNS (default true)
-  -d, --directory string        Path to the directory to serve. This can be an absolute path or a path relative to the current directory (default ".")
-  -h, --help                    help for portable
-  -l, --log-file-path string    Leave empty to disable logging
-  -p, --password string         Leave empty to use an auto generated value
-  -g, --permissions strings     User's permissions. "*" means any permission (default [list,download])
+  -C, --advertise-credentials     If the SFTP service is advertised via multicast DNS this flag allows to put username/password inside the advertised TXT record
+  -S, --advertise-service         Advertise SFTP service using multicast DNS (default true)
+  -d, --directory string          Path to the directory to serve. This can be an absolute path or a path relative to the current directory (default ".")
+  -f, --fs-provider int           0 means local filesystem, 1 S3 compatible
+  -h, --help                      help for portable
+  -l, --log-file-path string      Leave empty to disable logging
+  -p, --password string           Leave empty to use an auto generated value
+  -g, --permissions strings       User's permissions. "*" means any permission (default [list,download])
   -k, --public-key strings
-  -s, --sftpd-port int          0 means a random non privileged port
-  -c, --ssh-commands strings    SSH commands to enable. "*" means any supported SSH command including scp (default [md5sum,sha1sum,cd,pwd])
-  -u, --username string         Leave empty to use an auto generated value
+      --s3-access-key string
+      --s3-access-secret string
+      --s3-bucket string
+      --s3-endpoint string
+      --s3-region string
+      --s3-storage-class string
+  -s, --sftpd-port int            0 means a random non privileged port
+  -c, --ssh-commands strings      SSH commands to enable. "*" means any supported SSH command including scp (default [md5sum,sha1sum,cd,pwd])
+  -u, --username string           Leave empty to use an auto generated value
 ```
 
 In portable mode SFTPGo can advertise the SFTP service and, optionally, the credentials via multicast DNS, so there is a standard way to discover the service and to automatically connect to it.
@@ -488,6 +515,13 @@ For each account the following properties can be configured:
 - `download_bandwidth` maximum download bandwidth as KB/s, 0 means unlimited.
 - `allowed_ip`, List of IP/Mask allowed to login. Any IP address not contained in this list cannot login. IP/Mask must be in CIDR notation as defined in RFC 4632 and RFC 4291, for example "192.0.2.0/24" or "2001:db8::/32"
 - `denied_ip`, List of IP/Mask not allowed to login. If an IP address is both allowed and denied then login will be denied
+- `fs_provider`, filesystem to serve via SFTP. Local filesystem and S3 Compatible Object Storage are supported
+- `s3_bucket`, required for S3 filesystem
+- `s3_region`, required for S3 filesystem
+- `s3_access_key`, required for S3 filesystem
+- `s3_access_secret`, required for S3 filesystem. It is stored encrypted (AES-256-GCM)
+- `s3_endpoint`, specifies s3 endpoint (server) different from AWS
+- `s3_storage_class`
 
 These properties are stored inside the data provider.
 

@@ -21,12 +21,14 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/vfs"
 	"golang.org/x/crypto/ssh"
 )
 
 var (
-	errQuotaExceeded    = errors.New("denying write due to space limit")
-	errPermissionDenied = errors.New("Permission denied. You don't have the permissions to execute this command")
+	errQuotaExceeded     = errors.New("denying write due to space limit")
+	errPermissionDenied  = errors.New("Permission denied. You don't have the permissions to execute this command")
+	errUnsupportedConfig = errors.New("command unsupported for this configuration")
 )
 
 type sshCommand struct {
@@ -101,6 +103,9 @@ func (c *sshCommand) handle() error {
 }
 
 func (c *sshCommand) handleHashCommands() error {
+	if !vfs.IsLocalOsFs(c.connection.fs) {
+		return c.sendErrorResponse(errUnsupportedConfig)
+	}
 	var h hash.Hash
 	if c.command == "md5sum" {
 		h = md5.New()
@@ -125,14 +130,14 @@ func (c *sshCommand) handleHashCommands() error {
 		response = fmt.Sprintf("%x  -\n", h.Sum(nil))
 	} else {
 		sshPath := c.getDestPath()
-		path, err := c.connection.buildPath(sshPath)
+		fsPath, err := c.connection.fs.ResolvePath(sshPath, c.connection.User.GetHomeDir())
 		if err != nil {
 			return c.sendErrorResponse(err)
 		}
 		if !c.connection.User.HasPerm(dataprovider.PermListItems, sshPath) {
 			return c.sendErrorResponse(errPermissionDenied)
 		}
-		hash, err := computeHashForFile(h, path)
+		hash, err := computeHashForFile(h, fsPath)
 		if err != nil {
 			return c.sendErrorResponse(err)
 		}
@@ -144,6 +149,9 @@ func (c *sshCommand) handleHashCommands() error {
 }
 
 func (c *sshCommand) executeSystemCommand(command systemCommand) error {
+	if !vfs.IsLocalOsFs(c.connection.fs) {
+		return c.sendErrorResponse(errUnsupportedConfig)
+	}
 	if c.connection.User.QuotaFiles > 0 && c.connection.User.UsedQuotaFiles > c.connection.User.QuotaFiles {
 		return c.sendErrorResponse(errQuotaExceeded)
 	}
@@ -288,7 +296,7 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 	if len(c.args) > 0 {
 		var err error
 		sshPath := c.getDestPath()
-		path, err = c.connection.buildPath(sshPath)
+		path, err = c.connection.fs.ResolvePath(sshPath, c.connection.User.GetHomeDir())
 		if err != nil {
 			return command, err
 		}
@@ -331,7 +339,7 @@ func (c *sshCommand) rescanHomeDir() error {
 	var numFiles int
 	var size int64
 	if AddQuotaScan(c.connection.User.Username) {
-		numFiles, size, _, err = utils.ScanDirContents(c.connection.User.HomeDir)
+		numFiles, size, err = c.connection.fs.ScanDirContents(c.connection.User.HomeDir)
 		if err != nil {
 			c.connection.Log(logger.LevelWarn, logSenderSSH, "error scanning user home dir %#v: %v", c.connection.User.HomeDir, err)
 		} else {
@@ -389,7 +397,7 @@ func (c *sshCommand) sendExitStatus(err error) {
 	if err == nil && c.command != "scp" {
 		realPath := c.getDestPath()
 		if len(realPath) > 0 {
-			p, err := c.connection.buildPath(realPath)
+			p, err := c.connection.fs.ResolvePath(realPath, c.connection.User.GetHomeDir())
 			if err == nil {
 				realPath = p
 			}
