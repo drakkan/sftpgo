@@ -98,6 +98,7 @@ var (
 	privateKeyPath string
 	gitWrapPath    string
 	extAuthPath    string
+	keyIntAuthPath string
 	logFilePath    string
 )
 
@@ -141,6 +142,9 @@ func TestMain(m *testing.M) {
 		sftpdConf.Actions.HTTPNotificationURL = "http://127.0.0.1:8080/"
 		scriptArgs = "$@"
 	}
+	keyIntAuthPath = filepath.Join(homeBasePath, "keyintauth.sh")
+	ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), 0755)
+	sftpdConf.KeyboardInteractiveProgram = keyIntAuthPath
 
 	scpPath, err = exec.LookPath("scp")
 	if err != nil {
@@ -206,6 +210,7 @@ func TestMain(m *testing.M) {
 	os.Remove(privateKeyPath)
 	os.Remove(gitWrapPath)
 	os.Remove(extAuthPath)
+	os.Remove(keyIntAuthPath)
 	os.Exit(exitCode)
 }
 
@@ -218,6 +223,16 @@ func TestInitialization(t *testing.T) {
 	sftpdConf.IsSCPEnabled = true
 	sftpdConf.EnabledSSHCommands = append(sftpdConf.EnabledSSHCommands, "ls")
 	err := sftpdConf.Initialize(configDir)
+	if err == nil {
+		t.Errorf("Inizialize must fail, a SFTP server should be already running")
+	}
+	sftpdConf.KeyboardInteractiveProgram = "invalid_file"
+	err = sftpdConf.Initialize(configDir)
+	if err == nil {
+		t.Errorf("Inizialize must fail, a SFTP server should be already running")
+	}
+	sftpdConf.KeyboardInteractiveProgram = filepath.Join(homeBasePath, "invalid_file")
+	err = sftpdConf.Initialize(configDir)
 	if err == nil {
 		t.Errorf("Inizialize must fail, a SFTP server should be already running")
 	}
@@ -1179,6 +1194,51 @@ func TestLoginAfterUserUpdateEmptyPubKey(t *testing.T) {
 	os.RemoveAll(user.GetHomeDir())
 }
 
+func TestLoginKeyboardInteractiveAuth(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("this test is not available on Windows")
+	}
+	user, _, err := httpd.AddUser(getTestUser(false), http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), 0755)
+	client, err := getKeyboardInteractiveSftpClient(user, []string{"1", "2"})
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		_, err := client.Getwd()
+		if err != nil {
+			t.Errorf("unable to get working dir: %v", err)
+		}
+		_, err = client.ReadDir(".")
+		if err != nil {
+			t.Errorf("unable to read remote dir: %v", err)
+		}
+	}
+	ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, -1), 0755)
+	client, err = getKeyboardInteractiveSftpClient(user, []string{"1", "2"})
+	if err == nil {
+		t.Error("keyboard interactive auth must fail the script returned -1")
+	}
+	ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, true, 1), 0755)
+	client, err = getKeyboardInteractiveSftpClient(user, []string{"1", "2"})
+	if err == nil {
+		t.Error("keyboard interactive auth must fail the script returned bad json")
+	}
+	ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 5, true, 1), 0755)
+	client, err = getKeyboardInteractiveSftpClient(user, []string{"1", "2"})
+	if err == nil {
+		t.Error("keyboard interactive auth must fail the script returned bad json")
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+}
+
 func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("this test is not available on Windows")
@@ -1374,6 +1434,75 @@ func TestLoginExternalAuthPubKey(t *testing.T) {
 		t.Error("external auth login with invalid user must fail")
 	}
 	usePubKey = false
+	u = getTestUser(usePubKey)
+	client, err = getSftpClient(u, usePubKey)
+	if err == nil {
+		t.Error("external auth login with valid user but invalid auth scope must fail")
+	}
+	users, out, err := httpd.GetUsers(0, 0, defaultUsername, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to get users: %v, out: %v", err, string(out))
+	}
+	if len(users) != 1 {
+		t.Errorf("number of users mismatch, expected: 1, actual: %v", len(users))
+	}
+	user := users[0]
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+
+	dataProvider = dataprovider.GetProvider()
+	dataprovider.Close(dataProvider)
+	config.LoadConfig(configDir, "")
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir)
+	if err != nil {
+		t.Errorf("error initializing data provider")
+	}
+	httpd.SetDataProvider(dataprovider.GetProvider())
+	sftpd.SetDataProvider(dataprovider.GetProvider())
+	os.Remove(extAuthPath)
+}
+
+func TestLoginExternalAuthInteractive(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("this test is not available on Windows")
+	}
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	dataProvider := dataprovider.GetProvider()
+	dataprovider.Close(dataProvider)
+	config.LoadConfig(configDir, "")
+	providerConf := config.GetProviderConf()
+	ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, 0, false), 0755)
+	providerConf.ExternalAuthProgram = extAuthPath
+	providerConf.ExternalAuthScope = 4
+	err := dataprovider.Initialize(providerConf, configDir)
+	if err != nil {
+		t.Errorf("error initializing data provider")
+	}
+	httpd.SetDataProvider(dataprovider.GetProvider())
+	sftpd.SetDataProvider(dataprovider.GetProvider())
+
+	ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), 0755)
+	client, err := getKeyboardInteractiveSftpClient(u, []string{"1", "2"})
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		_, err := client.Getwd()
+		if err != nil {
+			t.Errorf("unable to get working dir: %v", err)
+		}
+	}
+	u.Username = defaultUsername + "1"
+	client, err = getKeyboardInteractiveSftpClient(u, []string{"1", "2"})
+	if err == nil {
+		t.Error("external auth login with invalid user must fail")
+	}
+	usePubKey = true
 	u = getTestUser(usePubKey)
 	client, err = getSftpClient(u, usePubKey)
 	if err == nil {
@@ -4149,6 +4278,27 @@ func getSftpClient(user dataprovider.User, usePubKey bool) (*sftp.Client, error)
 	return sftpClient, err
 }
 
+func getKeyboardInteractiveSftpClient(user dataprovider.User, answers []string) (*sftp.Client, error) {
+	var sftpClient *sftp.Client
+	config := &ssh.ClientConfig{
+		User: user.Username,
+		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+			return nil
+		},
+		Auth: []ssh.AuthMethod{
+			ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+				return answers, nil
+			}),
+		},
+	}
+	conn, err := ssh.Dial("tcp", sftpServerAddr, config)
+	if err != nil {
+		return sftpClient, err
+	}
+	sftpClient, err = sftp.NewClient(conn)
+	return sftpClient, err
+}
+
 func createTestFile(path string, size int64) error {
 	baseDir := filepath.Dir(path)
 	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
@@ -4468,6 +4618,29 @@ func addFileToGitRepo(repoPath string, fileSize int64) ([]byte, error) {
 	cmd = exec.Command(gitPath, "commit", "-am", "test")
 	cmd.Dir = repoPath
 	return cmd.CombinedOutput()
+}
+
+func getKeyboardInteractiveScriptContent(questions []string, sleepTime int, nonJsonResponse bool, result int) []byte {
+	content := []byte("#!/bin/sh\n\n")
+	q, _ := json.Marshal(questions)
+	echos := []bool{}
+	for index, _ := range questions {
+		echos = append(echos, index%2 == 0)
+	}
+	e, _ := json.Marshal(echos)
+	if nonJsonResponse {
+		content = append(content, []byte(fmt.Sprintf("echo 'questions: %v echos: %v\n", string(q), string(e)))...)
+	} else {
+		content = append(content, []byte(fmt.Sprintf("echo '{\"questions\":%v,\"echos\":%v}'\n", string(q), string(e)))...)
+	}
+	for index, _ := range questions {
+		content = append(content, []byte(fmt.Sprintf("read ANSWER%v\n", index))...)
+	}
+	if sleepTime > 0 {
+		content = append(content, []byte(fmt.Sprintf("sleep %v\n", sleepTime))...)
+	}
+	content = append(content, []byte(fmt.Sprintf("echo '{\"auth_result\":%v}'\n", result))...)
+	return content
 }
 
 func getExtAuthScriptContent(user dataprovider.User, sleepTime int, nonJsonResponse bool) []byte {

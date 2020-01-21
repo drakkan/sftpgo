@@ -127,6 +127,27 @@ var (
 		Help: "The total number of failed logins using a public key",
 	})
 
+	// totalInteractiveLoginAttempts is the metric that reports the total number of login attempts
+	// using keyboard interactive authentication
+	totalInteractiveLoginAttempts = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_keyboard_interactive_login_attempts_total",
+		Help: "The total number of login attempts using keyboard interactive authentication",
+	})
+
+	// totalInteractiveLoginOK is the metric that reports the total number of successful logins
+	// using keyboard interactive authentication
+	totalInteractiveLoginOK = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_keyboard_interactive_login_ok_total",
+		Help: "The total number of successful logins using keyboard interactive authentication",
+	})
+
+	// totalInteractiveLoginFailed is the metric that reports the total number of failed logins
+	// using keyboard interactive authentication
+	totalInteractiveLoginFailed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_keyboard_interactive_login_ko_total",
+		Help: "The total number of failed logins using keyboard interactive authentication",
+	})
+
 	totalHTTPRequests = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_http_req_total",
 		Help: "The total number of HTTP requests served",
@@ -188,29 +209,38 @@ func UpdateDataProviderAvailability(err error) {
 }
 
 // AddLoginAttempt increments the metrics for login attempts
-func AddLoginAttempt(withKey bool) {
+func AddLoginAttempt(authMethod string) {
 	totalLoginAttempts.Inc()
-	if withKey {
+	switch authMethod {
+	case "public_key":
 		totalKeyLoginAttempts.Inc()
-	} else {
+	case "keyboard-interactive":
+		totalInteractiveLoginAttempts.Inc()
+	default:
 		totalPasswordLoginAttempts.Inc()
 	}
 }
 
 // AddLoginResult increments the metrics for login results
-func AddLoginResult(withKey bool, err error) {
+func AddLoginResult(authMethod string, err error) {
 	if err == nil {
 		totalLoginOK.Inc()
-		if withKey {
+		switch authMethod {
+		case "public_key":
 			totalKeyLoginOK.Inc()
-		} else {
+		case "keyboard-interactive":
+			totalInteractiveLoginOK.Inc()
+		default:
 			totalPasswordLoginOK.Inc()
 		}
 	} else {
 		totalLoginFailed.Inc()
-		if withKey {
+		switch authMethod {
+		case "public_key":
 			totalKeyLoginFailed.Inc()
-		} else {
+		case "keyboard-interactive":
+			totalInteractiveLoginFailed.Inc()
+		default:
 			totalPasswordLoginFailed.Inc()
 		}
 	}

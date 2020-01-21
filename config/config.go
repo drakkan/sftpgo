@@ -54,13 +54,14 @@ func init() {
 				Command:             "",
 				HTTPNotificationURL: "",
 			},
-			Keys:               []sftpd.Key{},
-			IsSCPEnabled:       false,
-			KexAlgorithms:      []string{},
-			Ciphers:            []string{},
-			MACs:               []string{},
-			LoginBannerFile:    "",
-			EnabledSSHCommands: sftpd.GetDefaultSSHCommands(),
+			Keys:                       []sftpd.Key{},
+			IsSCPEnabled:               false,
+			KexAlgorithms:              []string{},
+			Ciphers:                    []string{},
+			MACs:                       []string{},
+			LoginBannerFile:            "",
+			EnabledSSHCommands:         sftpd.GetDefaultSSHCommands(),
+			KeyboardInteractiveProgram: "",
 		},
 		ProviderConf: dataprovider.Config{
 			Driver:           "sqlite",
@@ -171,7 +172,7 @@ func LoadConfig(configDir, configName string) error {
 		logger.Warn(logSender, "", "Configuration error: %v", err)
 		logger.WarnToConsole("Configuration error: %v", err)
 	}
-	if globalConf.ProviderConf.ExternalAuthScope < 0 || globalConf.ProviderConf.ExternalAuthScope > 2 {
+	if globalConf.ProviderConf.ExternalAuthScope < 0 || globalConf.ProviderConf.ExternalAuthScope > 7 {
 		err = fmt.Errorf("invalid external_auth_scope: %v reset to 0", globalConf.ProviderConf.ExternalAuthScope)
 		globalConf.ProviderConf.ExternalAuthScope = 0
 		logger.Warn(logSender, "", "Configuration error: %v", err)

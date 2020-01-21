@@ -9,6 +9,7 @@ Full featured and highly configurable SFTP server
 - SFTP accounts are virtual accounts stored in a "data provider".
 - SQLite, MySQL, PostgreSQL, bbolt (key/value store in pure Go) and in memory data providers are supported.
 - Public key and password authentication. Multiple public keys per user are supported.
+- Keyboard interactive authentication. You can easily setup a customizable multi factor authentication.
 - Custom authentication using external programs is supported.
 - Quota support: accounts can have individual quota expressed as max total size and/or max number of files.
 - Bandwidth throttling is supported, with distinct settings for upload and download.
@@ -157,6 +158,7 @@ The `sftpgo` configuration file contains the following sections:
       - `cd`, `pwd`. Some SFTP clients does not support the SFTP SSH_FXP_REALPATH packet type and so they use `cd` and `pwd` SSH commands to get the initial directory. Currently `cd` do nothing and `pwd` always returns the `/` path.
       - `git-receive-pack`, `git-upload-pack`, `git-upload-archive`. These commands enable support for Git repositories over SSH, they need to be installed and in your system's `PATH`.
       - `rsync`. The `rsync` command need to be installed and in your system's `PATH`. We cannot avoid that rsync create symlinks so if the user has the permission to create symlinks we add the option `--safe-links` to the received rsync command if it is not already set. This should prevent to create symlinks that point outside the home dir. If the user cannot create symlinks we add the option `--munge-links`, if it is not already set. This should make symlinks unusable (but manually recoverable)
+    - `keyboard_interactive_auth_program`, string. Absolute path to an external program to use for keyboard interactive authentication. See the "Keyboard Interactive Authentication" paragraph for more details.
 - **"data_provider"**, the configuration for the data provider
     - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`, `memory`
     - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database.
@@ -179,7 +181,7 @@ The `sftpgo` configuration file contains the following sections:
         - `command`, string. Absolute path to the command to execute. Leave empty to disable.
         - `http_notification_url`, a valid URL. Leave empty to disable.
     - `external_auth_program`, string. Absolute path to an external program to use for users authentication. See the "External Authentication" paragraph for more details.
-    - `external_auth_scope`, integer. 0 means all supported authetication scopes (passwords and public keys). 1 means passwords only. 2 means public keys only
+    - `external_auth_scope`, integer. 0 means all supported authetication scopes (passwords, public keys and keyboard interactive). 1 means passwords only. 2 means public keys only. 4 means key keyboard interactive only. The flags can be combined, for example 6 means public keys and keyboard interactive
 - **"httpd"**, the configuration for the HTTP server used to serve REST API
     - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 8080
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"
@@ -211,7 +213,8 @@ Here is a full example showing the default config in JSON format:
     "macs": [],
     "login_banner_file": "",
     "setstat_mode": 0,
-    "enabled_ssh_commands": ["md5sum", "sha1sum", "cd", "pwd"]
+    "enabled_ssh_commands": ["md5sum", "sha1sum", "cd", "pwd"],
+    "keyboard_interactive_auth_program": ""
   },
   "data_provider": {
     "driver": "sqlite",
@@ -318,18 +321,22 @@ The external program can read the following environment variables to get info ab
 - `SFTPGO_AUTHD_USERNAME`
 - `SFTPGO_AUTHD_PASSWORD`, not empty for password authentication
 - `SFTPGO_AUTHD_PUBLIC_KEY`, not empty for public key authentication
+- `SFTPGO_AUTHD_KEYBOARD_INTERACTIVE`, not empty for keyboard interactive authentication
 
 Previous global environment variables aren't cleared when the script is called. The content of these variables is _not_ quoted. They may contain special characters. They are under the control of a possibly malicious remote user.
-The program must respond on the standard output with a valid SFTPGo user serialized as json if the authentication succeed or an user with an empty username if the authentication fails.
+The program must respond on the standard output with a valid SFTPGo user serialized as JSON if the authentication succeed or an user with an empty username if the authentication fails.
 If the authentication succeed the user will be automatically added/updated inside the defined data provider. Actions defined for user added/updated will not be executed in this case.
 The external program should check authentication only, if there are login restrictions such as user disabled, expired, login allowed only from specific IP addresses it is enough to populate the matching user fields and these conditions will be checked in the same way as for built-in users.
 The external auth program must finish within 15 seconds.
 This method is slower than built-in authentication, but it's very flexible as anyone can easily write his own authentication program.
 You can also restrict the authentication scope for the external program using the `external_auth_scope` configuration key:
 
-- 0 means all supported authetication scopes, the external program will be used for both password and public key authentication
-- 1 means passwords only, the external program will not be used for public key authentication
-- 2 means public keys only, the external program will not be used for password authentication
+- 0 means all supported authetication scopes, the external program will be used for password, public key and keyboard interactive authentication
+- 1 means passwords only
+- 2 means public keys only
+- 4 means keyboard interactive only
+
+You can combine the scopes, for example 3 means password and public key, 5 password and keyboard interactive and so on.
 
 Let's see a very basic example. Our sample authentication program will only accept user `test_user` with any password or public key.
 
@@ -344,6 +351,54 @@ fi
 ```
 
 If you have an external authentication program that could be useful for others too, for example LDAP/Active Directory authentication, please let us know and/or send a pull request.
+
+## Keyboard Interactive Authentication
+
+Keyboard interactive authentication is in general case a series of question asked by the server with responses provided by the client.
+This authentication method is typically used for multi factor authentication.
+There is no restrictions on the number of questions asked on a particular authentication stage; there is also no restrictions on the number of stages involving different sets of questions.
+
+To enable keyboard interactive authentication you must set the absolute path of your authentication program using `keyboard_interactive_auth_program` key in your configuration file.
+
+The external program can read the following environment variables to get info about the user trying to authenticate:
+
+- `SFTPGO_AUTHD_USERNAME`
+- `SFTPGO_AUTHD_PASSWORD`, this is the hashed password as stored inside the data provider
+
+Previous global environment variables aren't cleared when the script is called. The content of these variables is _not_ quoted. They may contain special characters.
+
+The program must write the questions on its standard output, in a single line, using the following struct JSON serialized:
+
+- `instruction`, string. A short description to show to the user that is trying to authenticate. Can be empty or omitted
+- `questions`, list of questions to be asked to the user
+- `echos` list of boolean flags corresponding to the questions (so the lengths of both lists must be the same) and indicating whether user's reply for a particular question should be echoed on the screen while they are typing: true if it should be echoed, or false if it should be hidden.
+- `auth_result`, integer. Set this field to 1 to indicate successfull authentication, 0 is ignored, any other value means authentication error. If this fields is found and it is different from 0 then SFTPGo does not read any other questions from the external program and finalize the authentication.
+
+SFTPGo writes the user answers to the program standard input, one per line, in the same order of the questions.
+
+Keyboard interactive authentication can be chained to the external authentication.
+The authentication must finish within 60 seconds.
+
+Let's see a very basic example. Our sample keyboard interactive authentication program will ask for 2 sets of questions and accept the user if the answer to the last question is `answer3`.
+
+```
+#!/bin/sh
+
+echo '{"questions":["Question1: ","Question2: "],"instruction":"This is a sample for keyboard interactive authentication","echos":[true,false]}'
+
+read ANSWER1
+read ANSWER2
+
+echo '{"questions":["Question3: "],"instruction":"","echos":[true]}'
+
+read ANSWER3
+
+if test "$ANSWER3" = "answer3"; then
+	echo '{"auth_result":1}'
+else
+	echo '{"auth_result":-1}'
+fi
+```
 
 ## Custom Actions
 
@@ -413,7 +468,7 @@ The `command` can also read the following environment variables:
 Previous global environment variables aren't cleared when the script is called.
 The `command` must finish within 15 seconds.
 
-The `http_notification_url`, if defined, will be called invoked as http POST. The action is added to the query string, for example `<http_notification_url>?action=update` and the user is sent serialized as json inside the POST body
+The `http_notification_url`, if defined, will be called invoked as http POST. The action is added to the query string, for example `<http_notification_url>?action=update` and the user is sent serialized as JSON inside the POST body
 
 The HTTP request has a 15 seconds timeout.
 
@@ -586,7 +641,7 @@ Several counters and gauges are available, for example:
 - Total SSH command errors
 - Number of active connections
 - Data provider availability
-- Total successful and failed logins using a password or a public key
+- Total successful and failed logins using password, public key or keyboard interactive authentication
 - Total HTTP requests served and totals for response code
 - Go's runtime details about GC, number of gouroutines and OS threads
 - Process information like CPU, memory, file descriptor usage and start time
@@ -676,6 +731,7 @@ The **connection failed logs** can be used for integration in tools such as [Fai
 - [cobra](https://github.com/spf13/cobra)
 - [xid](https://github.com/rs/xid)
 - [nathanaelle/password](https://github.com/nathanaelle/password)
+- [PipeAt](https://github.com/eikenb/pipeat)
 - [ZeroConf](https://github.com/grandcat/zeroconf)
 - [SB Admin 2](https://github.com/BlackrockDigital/startbootstrap-sb-admin-2)
 

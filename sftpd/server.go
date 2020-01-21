@@ -97,6 +97,9 @@ type Configuration struct {
 	// The following SSH commands are enabled by default: "md5sum", "sha1sum", "cd", "pwd".
 	// "*" enables all supported SSH commands.
 	EnabledSSHCommands []string `json:"enabled_ssh_commands" mapstructure:"enabled_ssh_commands"`
+	// Absolute path to an external program to use for keyboard interactive authentication.
+	// Leave empty to disable this authentication mode.
+	KeyboardInteractiveProgram string `json:"keyboard_interactive_auth_program" mapstructure:"keyboard_interactive_auth_program"`
 }
 
 // Key contains information about host keys
@@ -171,6 +174,7 @@ func (c Configuration) Initialize(configDir string) error {
 	}
 
 	c.configureSecurityOptions(serverConfig)
+	c.configureKeyboardInteractiveAuth(serverConfig)
 	c.configureLoginBanner(serverConfig, configDir)
 	c.configureSFTPExtensions()
 	c.checkSSHCommands()
@@ -230,6 +234,33 @@ func (c Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, conf
 	return err
 }
 
+func (c Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.ServerConfig) {
+	if len(c.KeyboardInteractiveProgram) == 0 {
+		return
+	}
+	if !filepath.IsAbs(c.KeyboardInteractiveProgram) {
+		logger.WarnToConsole("invalid keyboard interactive authentication program: %#v must be an absolute path",
+			c.KeyboardInteractiveProgram)
+		logger.Warn(logSender, "", "invalid keyboard interactive authentication program: %#v must be an absolute path",
+			c.KeyboardInteractiveProgram)
+		return
+	}
+	_, err := os.Stat(c.KeyboardInteractiveProgram)
+	if err != nil {
+		logger.WarnToConsole("invalid keyboard interactive authentication program:: %v", err)
+		logger.Warn(logSender, "", "invalid keyboard interactive authentication program:: %v", err)
+		return
+	}
+	serverConfig.KeyboardInteractiveCallback = func(conn ssh.ConnMetadata, client ssh.KeyboardInteractiveChallenge) (*ssh.Permissions, error) {
+		sp, err := c.validateKeyboardInteractiveCredentials(conn, client)
+		if err != nil {
+			return nil, &authenticationError{err: fmt.Sprintf("could not validate keyboard interactive credentials: %v", err)}
+		}
+
+		return sp, nil
+	}
+}
+
 func (c Configuration) configureSFTPExtensions() error {
 	err := sftp.SetSFTPExtensions(sftpExtensions...)
 	if err != nil {
@@ -258,12 +289,11 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 	conn.SetDeadline(time.Time{})
 
 	var user dataprovider.User
-	var loginType string
 
 	// Unmarshal cannot fails here and even if it fails we'll have a user with no permissions
 	json.Unmarshal([]byte(sconn.Permissions.Extensions["user"]), &user)
 
-	loginType = sconn.Permissions.Extensions["login_type"]
+	loginType := sconn.Permissions.Extensions["login_type"]
 	connectionID := hex.EncodeToString(sconn.SessionID())
 
 	fs, err := user.GetFilesystem(connectionID)
@@ -435,13 +465,14 @@ func (c Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKe
 	var keyID string
 	var sshPerm *ssh.Permissions
 
-	metrics.AddLoginAttempt(true)
+	method := "public_key"
+	metrics.AddLoginAttempt(method)
 	if user, keyID, err = dataprovider.CheckUserAndPubKey(dataProvider, conn.User(), pubKey); err == nil {
-		sshPerm, err = loginUser(user, "public_key:"+keyID, conn.RemoteAddr().String())
+		sshPerm, err = loginUser(user, fmt.Sprintf("%v:%v", method, keyID), conn.RemoteAddr().String())
 	} else {
-		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), "public_key", err.Error())
+		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), method, err.Error())
 	}
-	metrics.AddLoginResult(true, err)
+	metrics.AddLoginResult(method, err)
 	return sshPerm, err
 }
 
@@ -450,13 +481,30 @@ func (c Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass [
 	var user dataprovider.User
 	var sshPerm *ssh.Permissions
 
-	metrics.AddLoginAttempt(false)
+	method := "password"
+	metrics.AddLoginAttempt(method)
 	if user, err = dataprovider.CheckUserAndPass(dataProvider, conn.User(), string(pass)); err == nil {
-		sshPerm, err = loginUser(user, "password", conn.RemoteAddr().String())
+		sshPerm, err = loginUser(user, method, conn.RemoteAddr().String())
 	} else {
-		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), "password", err.Error())
+		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), method, err.Error())
 	}
-	metrics.AddLoginResult(false, err)
+	metrics.AddLoginResult(method, err)
+	return sshPerm, err
+}
+
+func (c Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMetadata, client ssh.KeyboardInteractiveChallenge) (*ssh.Permissions, error) {
+	var err error
+	var user dataprovider.User
+	var sshPerm *ssh.Permissions
+
+	method := "keyboard-interactive"
+	metrics.AddLoginAttempt(method)
+	if user, err = dataprovider.CheckKeyboardInteractiveAuth(dataProvider, conn.User(), c.KeyboardInteractiveProgram, client); err == nil {
+		sshPerm, err = loginUser(user, method, conn.RemoteAddr().String())
+	} else {
+		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), method, err.Error())
+	}
+	metrics.AddLoginResult(method, err)
 	return sshPerm, err
 }
 

@@ -4,6 +4,7 @@
 package dataprovider
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/sha1"
@@ -22,8 +23,10 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/alexedwards/argon2id"
@@ -168,11 +171,21 @@ type Config struct {
 	// easily write his own authentication programs.
 	ExternalAuthProgram string `json:"external_auth_program" mapstructure:"external_auth_program"`
 	// ExternalAuthScope defines the scope for the external authentication program.
-	// - 0 means all supported authetication scopes, the external program will be used for both password and
-	//     public key authentication
-	// - 1 means passwords only, the external program will not be used for public key authentication
-	// - 2 means public keys only, the external program will not be used for password authentication
+	// - 0 means all supported authetication scopes, the external program will be used for password,
+	//     public key and keyboard interactive authentication
+	// - 1 means passwords only
+	// - 2 means public keys only
+	// - 4 means keyboard interactive only
+	// you can combine the scopes, for example 3 means password and public key, 5 password and keyboard
+	// interactive and so on
 	ExternalAuthScope int `json:"external_auth_scope" mapstructure:"external_auth_scope"`
+}
+
+type keyboardAuthProgramResponse struct {
+	Instruction string   `json:"instruction"`
+	Questions   []string `json:"questions"`
+	Echos       []bool   `json:"echos"`
+	AuthResult  int      `json:"auth_result"`
 }
 
 // ValidationError raised if input data is not valid
@@ -277,8 +290,8 @@ func Initialize(cnf Config, basePath string) error {
 
 // CheckUserAndPass retrieves the SFTP user with the given username and password if a match is found or an error
 func CheckUserAndPass(p Provider, username string, password string) (User, error) {
-	if len(config.ExternalAuthProgram) > 0 && config.ExternalAuthScope <= 1 {
-		user, err := doExternalAuth(username, password, "")
+	if len(config.ExternalAuthProgram) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&1 != 0) {
+		user, err := doExternalAuth(username, password, "", "")
 		if err != nil {
 			return user, err
 		}
@@ -289,14 +302,30 @@ func CheckUserAndPass(p Provider, username string, password string) (User, error
 
 // CheckUserAndPubKey retrieves the SFTP user with the given username and public key if a match is found or an error
 func CheckUserAndPubKey(p Provider, username string, pubKey string) (User, string, error) {
-	if len(config.ExternalAuthProgram) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope == 2) {
-		user, err := doExternalAuth(username, "", pubKey)
+	if len(config.ExternalAuthProgram) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&2 != 0) {
+		user, err := doExternalAuth(username, "", pubKey, "")
 		if err != nil {
 			return user, "", err
 		}
 		return checkUserAndPubKey(user, pubKey)
 	}
 	return p.validateUserAndPubKey(username, pubKey)
+}
+
+// CheckKeyboardInteractiveAuth checks the keyboard interactive authentication and returns
+// the authenticated user or an error
+func CheckKeyboardInteractiveAuth(p Provider, username, authProgram string, client ssh.KeyboardInteractiveChallenge) (User, error) {
+	var user User
+	var err error
+	if len(config.ExternalAuthProgram) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&4 != 0) {
+		user, err = doExternalAuth(username, "", "", "1")
+	} else {
+		user, err = p.userExists(username)
+	}
+	if err != nil {
+		return user, err
+	}
+	return doKeyboardInteractiveAuth(user, authProgram, client)
 }
 
 // UpdateLastLogin updates the last login fields for the given SFTP user
@@ -727,7 +756,96 @@ func checkDataprovider() {
 	metrics.UpdateDataProviderAvailability(err)
 }
 
-func doExternalAuth(username, password, pubKey string) (User, error) {
+func terminateInteractiveAuthProgram(cmd *exec.Cmd, isFinished bool) {
+	if isFinished {
+		return
+	}
+	providerLog(logger.LevelInfo, "kill interactive auth program after an unexpected error")
+	cmd.Process.Kill()
+}
+
+func doKeyboardInteractiveAuth(user User, authProgram string, client ssh.KeyboardInteractiveChallenge) (User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, authProgram)
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", user.Username),
+		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%v", user.Password))
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return user, err
+	}
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return user, err
+	}
+	err = cmd.Start()
+	if err != nil {
+		return user, err
+	}
+	var once sync.Once
+	scanner := bufio.NewScanner(stdout)
+	authResult := 0
+	for scanner.Scan() {
+		var response keyboardAuthProgramResponse
+		err := json.Unmarshal(scanner.Bytes(), &response)
+		if err != nil {
+			providerLog(logger.LevelInfo, "interactive auth error parsing response: %v", err)
+			once.Do(func() { terminateInteractiveAuthProgram(cmd, false) })
+			break
+		}
+		if response.AuthResult != 0 {
+			authResult = response.AuthResult
+			break
+		}
+		if len(response.Questions) == 0 {
+			providerLog(logger.LevelInfo, "interactive auth error: program response does not contain questions")
+			once.Do(func() { terminateInteractiveAuthProgram(cmd, false) })
+			break
+		}
+		if len(response.Questions) != len(response.Echos) {
+			providerLog(logger.LevelInfo, "interactive auth error, program response questions don't match echos: %v %v",
+				len(response.Questions), len(response.Echos))
+			once.Do(func() { terminateInteractiveAuthProgram(cmd, false) })
+			break
+		}
+		go func() {
+			questions := response.Questions
+			answers, err := client(user.Username, response.Instruction, questions, response.Echos)
+			if err != nil {
+				providerLog(logger.LevelInfo, "error getting interactive auth client response: %v", err)
+				once.Do(func() { terminateInteractiveAuthProgram(cmd, false) })
+				return
+			}
+			if len(answers) != len(questions) {
+				providerLog(logger.LevelInfo, "client answers does not match questions, expected: %v actual: %v", questions, answers)
+				once.Do(func() { terminateInteractiveAuthProgram(cmd, false) })
+				return
+			}
+			for _, answer := range answers {
+				if runtime.GOOS == "windows" {
+					answer += "\r"
+				}
+				answer += "\n"
+				_, err = stdin.Write([]byte(answer))
+				if err != nil {
+					providerLog(logger.LevelError, "unable to write client answer to keyboard interactive program: %v", err)
+					once.Do(func() { terminateInteractiveAuthProgram(cmd, false) })
+					return
+				}
+			}
+		}()
+	}
+	stdin.Close()
+	once.Do(func() { terminateInteractiveAuthProgram(cmd, true) })
+	go cmd.Process.Wait()
+	if authResult != 1 {
+		return user, fmt.Errorf("keyboard interactive auth failed, result: %v", authResult)
+	}
+	return user, nil
+}
+
+func doExternalAuth(username, password, pubKey, keyboardInteractive string) (User, error) {
 	var user User
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -743,10 +861,11 @@ func doExternalAuth(username, password, pubKey string) (User, error) {
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", username),
 		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%v", password),
-		fmt.Sprintf("SFTPGO_AUTHD_PUBLIC_KEY=%v", pkey))
+		fmt.Sprintf("SFTPGO_AUTHD_PUBLIC_KEY=%v", pkey),
+		fmt.Sprintf("SFTPGO_AUTHD_KEYBOARD_INTERACTIVE=%v", keyboardInteractive))
 	out, err := cmd.Output()
 	if err != nil {
-		return user, fmt.Errorf("External auth error: %v env: %+v", err, cmd.Env)
+		return user, fmt.Errorf("External auth error: %v", err)
 	}
 	err = json.Unmarshal(out, &user)
 	if err != nil {
@@ -755,7 +874,9 @@ func doExternalAuth(username, password, pubKey string) (User, error) {
 	if len(user.Username) == 0 {
 		return user, errors.New("Invalid credentials")
 	}
-	user.Password = password
+	if len(password) > 0 {
+		user.Password = password
+	}
 	if len(pkey) > 0 && !utils.IsStringPrefixInSlice(pkey, user.PublicKeys) {
 		user.PublicKeys = append(user.PublicKeys, pkey)
 	}
