@@ -327,7 +327,7 @@ Previous global environment variables aren't cleared when the script is called. 
 The program must respond on the standard output with a valid SFTPGo user serialized as JSON if the authentication succeed or an user with an empty username if the authentication fails.
 If the authentication succeed the user will be automatically added/updated inside the defined data provider. Actions defined for user added/updated will not be executed in this case.
 The external program should check authentication only, if there are login restrictions such as user disabled, expired, login allowed only from specific IP addresses it is enough to populate the matching user fields and these conditions will be checked in the same way as for built-in users.
-The external auth program must finish within 15 seconds.
+The external auth program should finish very quickly, anyway it will be killed if it does not exit within 60 seconds.
 This method is slower than built-in authentication, but it's very flexible as anyone can easily write his own authentication program.
 You can also restrict the authentication scope for the external program using the `external_auth_scope` configuration key:
 
@@ -375,6 +375,7 @@ The program must write the questions on its standard output, in a single line, u
 - `auth_result`, integer. Set this field to 1 to indicate successfull authentication, 0 is ignored, any other value means authentication error. If this fields is found and it is different from 0 then SFTPGo does not read any other questions from the external program and finalize the authentication.
 
 SFTPGo writes the user answers to the program standard input, one per line, in the same order of the questions.
+Please be sure that your program receive the answers for all the issued questions before asking for the next ones.
 
 Keyboard interactive authentication can be chained to the external authentication.
 The authentication must finish within 60 seconds.

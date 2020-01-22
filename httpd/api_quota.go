@@ -42,10 +42,10 @@ func doQuotaScan(user dataprovider.User) error {
 	}
 	numFiles, size, err := fs.ScanRootDirContents()
 	if err != nil {
-		logger.Warn(logSender, "", "error scanning user home dir %#v: %v", user.HomeDir, err)
+		logger.Warn(logSender, "", "error scanning user home dir %#v: %v", user.Username, err)
 	} else {
 		err = dataprovider.UpdateUserQuota(dataProvider, user, numFiles, size, true)
-		logger.Debug(logSender, "", "user home dir scanned, user: %#v, dir: %#v, error: %v", user.Username, user.HomeDir, err)
+		logger.Debug(logSender, "", "user home dir scanned, user: %#v, error: %v", user.Username, err)
 	}
 	return err
 }

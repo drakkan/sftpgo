@@ -847,7 +847,7 @@ func doKeyboardInteractiveAuth(user User, authProgram string, client ssh.Keyboar
 
 func doExternalAuth(username, password, pubKey, keyboardInteractive string) (User, error) {
 	var user User
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	pkey := ""
 	if len(pubKey) > 0 {
