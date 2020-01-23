@@ -415,7 +415,7 @@ func isAtomicUploadEnabled() bool {
 	return uploadMode == uploadModeAtomic || uploadMode == uploadModeAtomicWithResume
 }
 
-func executeNotificationCommand(operation, username, path, target, sshCmd, fileSize string) error {
+func executeNotificationCommand(operation, username, path, target, sshCmd, fileSize, isLocalFile string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, actions.Command, operation, username, path, target, sshCmd)
@@ -426,6 +426,7 @@ func executeNotificationCommand(operation, username, path, target, sshCmd, fileS
 		fmt.Sprintf("SFTPGO_ACTION_TARGET=%v", target),
 		fmt.Sprintf("SFTPGO_ACTION_SSH_CMD=%v", sshCmd),
 		fmt.Sprintf("SFTPGO_ACTION_FILE_SIZE=%v", fileSize),
+		fmt.Sprintf("SFTPGO_ACTION_LOCAL_FILE=%v", isLocalFile),
 	)
 	startTime := time.Now()
 	err := cmd.Run()
@@ -435,7 +436,7 @@ func executeNotificationCommand(operation, username, path, target, sshCmd, fileS
 }
 
 // executed in a goroutine
-func executeAction(operation, username, path, target, sshCmd string, fileSize int64) error {
+func executeAction(operation, username, path, target, sshCmd string, fileSize int64, isLocalFile bool) error {
 	if !utils.IsStringInSlice(operation, actions.ExecuteOn) {
 		return nil
 	}
@@ -448,9 +449,9 @@ func executeAction(operation, username, path, target, sshCmd string, fileSize in
 		// we are in a goroutine but if we have to send an HTTP notification we don't want to wait for the
 		// end of the command
 		if len(actions.HTTPNotificationURL) > 0 {
-			go executeNotificationCommand(operation, username, path, target, sshCmd, size)
+			go executeNotificationCommand(operation, username, path, target, sshCmd, size, fmt.Sprintf("%t", isLocalFile))
 		} else {
-			err = executeNotificationCommand(operation, username, path, target, sshCmd, size)
+			err = executeNotificationCommand(operation, username, path, target, sshCmd, size, fmt.Sprintf("%t", isLocalFile))
 		}
 	}
 	if len(actions.HTTPNotificationURL) > 0 {
@@ -470,6 +471,7 @@ func executeAction(operation, username, path, target, sshCmd string, fileSize in
 			if len(size) > 0 {
 				q.Add("file_size", size)
 			}
+			q.Add("local_file", fmt.Sprintf("%t", isLocalFile))
 			url.RawQuery = q.Encode()
 			startTime := time.Now()
 			httpClient := &http.Client{

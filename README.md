@@ -425,6 +425,7 @@ The `command` can also read the following environment variables:
 - `SFTPGO_ACTION_TARGET`, non empty for `rename` `SFTPGO_ACTION`
 - `SFTPGO_ACTION_SSH_CMD`, non empty for `ssh_cmd` `SFTPGO_ACTION`
 - `SFTPGO_ACTION_FILE_SIZE`, non empty for `upload`, `download` and `delete` `SFTPGO_ACTION`
+- `SFTPGO_ACTION_LOCAL_FILE`, `true` if the affected file is stored on the local filesystem, otherwise `false`
 
 Previous global environment variables aren't cleared when the script is called.
 The `command` must finish within 30 seconds.
@@ -434,6 +435,7 @@ The `http_notification_url`, if defined, will contain the following, percent enc
 - `action`
 - `username`
 - `path`
+- `local_file`, `true` if the affected file is stored on the local filesystem, otherwise `false`
 - `target_path`, added for `rename` action
 - `ssh_cmd`, added for `ssh_cmd` action
 - `file_size`, added for `upload`, `download`, `delete` actions
