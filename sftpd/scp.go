@@ -181,7 +181,7 @@ func (c *scpCommand) getUploadFileData(sizeToRead int64, transfer *Transfer) err
 	return c.sendConfirmationMessage()
 }
 
-func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead int64, isNewFile bool) error {
+func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead int64, isNewFile bool, fileSize int64) error {
 	if !c.connection.hasSpace(true) {
 		err := fmt.Errorf("denying file write due to space limit")
 		c.connection.Log(logger.LevelWarn, logSenderSCP, "error uploading file: %#v, err: %v", filePath, err)
@@ -189,6 +189,14 @@ func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead i
 		return err
 	}
 
+	initialSize := int64(0)
+	if !isNewFile {
+		if vfs.IsLocalOsFs(c.connection.fs) {
+			dataprovider.UpdateUserQuota(dataProvider, c.connection.User, 0, -fileSize, false)
+		} else {
+			initialSize = fileSize
+		}
+	}
 	file, w, cancelFn, err := c.connection.fs.Create(filePath, 0)
 	if err != nil {
 		c.connection.Log(logger.LevelError, logSenderSCP, "error creating file %#v: %v", requestPath, err)
@@ -216,6 +224,7 @@ func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead i
 		transferError:  nil,
 		isFinished:     false,
 		minWriteOffset: 0,
+		initialSize:    initialSize,
 		lock:           new(sync.Mutex),
 	}
 	addTransfer(&transfer)
@@ -246,7 +255,7 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 			c.sendErrorMessage(err.Error())
 			return err
 		}
-		return c.handleUploadFile(p, filePath, sizeToRead, true)
+		return c.handleUploadFile(p, filePath, sizeToRead, true, 0)
 	}
 
 	if statErr != nil {
@@ -279,9 +288,7 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 		}
 	}
 
-	dataprovider.UpdateUserQuota(dataProvider, c.connection.User, 0, -stat.Size(), false)
-
-	return c.handleUploadFile(p, filePath, sizeToRead, false)
+	return c.handleUploadFile(p, filePath, sizeToRead, false, stat.Size())
 }
 
 func (c *scpCommand) sendDownloadProtocolMessages(dirPath string, stat os.FileInfo) error {

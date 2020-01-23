@@ -44,6 +44,7 @@ type Transfer struct {
 	isFinished     bool
 	minWriteOffset int64
 	expectedSize   int64
+	initialSize    int64
 	lock           *sync.Mutex
 }
 
@@ -163,9 +164,7 @@ func (t *Transfer) Close() error {
 	}
 	metrics.TransferCompleted(t.bytesSent, t.bytesReceived, t.transferType, t.transferError)
 	removeTransfer(t)
-	if t.transferType == transferUpload && (numFiles != 0 || t.bytesReceived > 0) {
-		dataprovider.UpdateUserQuota(dataProvider, t.user, numFiles, t.bytesReceived, false)
-	}
+	t.updateQuota(numFiles)
 	return err
 }
 
@@ -179,6 +178,18 @@ func (t *Transfer) closeIO() error {
 		err = t.file.Close()
 	}
 	return err
+}
+
+func (t *Transfer) updateQuota(numFiles int) bool {
+	// S3 uploads are atomic, if there is an error nothing is uploaded
+	if t.file == nil && t.transferError != nil {
+		return false
+	}
+	if t.transferType == transferUpload && (numFiles != 0 || t.bytesReceived > 0) {
+		dataprovider.UpdateUserQuota(dataProvider, t.user, numFiles, t.bytesReceived-t.initialSize, false)
+		return true
+	}
+	return false
 }
 
 func (t *Transfer) checkDownloadSize() {

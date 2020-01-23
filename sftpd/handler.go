@@ -479,11 +479,16 @@ func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, re
 		return nil, vfs.GetSFTPError(c.fs, err)
 	}
 
+	initialSize := int64(0)
 	if pflags.Append && osFlags&os.O_TRUNC == 0 {
 		c.Log(logger.LevelDebug, logSender, "upload resume requested, file path: %#v initial size: %v", filePath, fileSize)
 		minWriteOffset = fileSize
 	} else {
-		dataprovider.UpdateUserQuota(dataProvider, c.User, 0, -fileSize, false)
+		if vfs.IsLocalOsFs(c.fs) {
+			dataprovider.UpdateUserQuota(dataProvider, c.User, 0, -fileSize, false)
+		} else {
+			initialSize = fileSize
+		}
 	}
 
 	vfs.SetPathPermissions(c.fs, filePath, c.User.GetUID(), c.User.GetGID())
@@ -506,6 +511,7 @@ func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, re
 		transferError:  nil,
 		isFinished:     false,
 		minWriteOffset: minWriteOffset,
+		initialSize:    initialSize,
 		lock:           new(sync.Mutex),
 	}
 	addTransfer(&transfer)

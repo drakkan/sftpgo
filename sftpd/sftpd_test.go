@@ -3123,7 +3123,7 @@ func TestResolvePaths(t *testing.T) {
 		}
 		path = "../test/sub"
 		resolved, err = fs.ResolvePath(filepath.ToSlash(path))
-		if fs.Name() == "osfs" {
+		if vfs.IsLocalOsFs(fs) {
 			if err == nil {
 				t.Errorf("Unexpected resolved path: %v for: %v, fs: %v", resolved, path, fs.Name())
 			}
@@ -3134,7 +3134,7 @@ func TestResolvePaths(t *testing.T) {
 		}
 		path = "../../../test/../sub"
 		resolved, err = fs.ResolvePath(filepath.ToSlash(path))
-		if fs.Name() == "osfs" {
+		if vfs.IsLocalOsFs(fs) {
 			if err == nil {
 				t.Errorf("Unexpected resolved path: %v for: %v, fs: %v", resolved, path, fs.Name())
 			}
@@ -4624,7 +4624,7 @@ func getKeyboardInteractiveScriptContent(questions []string, sleepTime int, nonJ
 	content := []byte("#!/bin/sh\n\n")
 	q, _ := json.Marshal(questions)
 	echos := []bool{}
-	for index, _ := range questions {
+	for index := range questions {
 		echos = append(echos, index%2 == 0)
 	}
 	e, _ := json.Marshal(echos)
@@ -4633,7 +4633,7 @@ func getKeyboardInteractiveScriptContent(questions []string, sleepTime int, nonJ
 	} else {
 		content = append(content, []byte(fmt.Sprintf("echo '{\"questions\":%v,\"echos\":%v}'\n", string(q), string(e)))...)
 	}
-	for index, _ := range questions {
+	for index := range questions {
 		content = append(content, []byte(fmt.Sprintf("read ANSWER%v\n", index))...)
 	}
 	if sleepTime > 0 {

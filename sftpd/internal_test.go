@@ -425,6 +425,28 @@ func TestUploadFiles(t *testing.T) {
 	if err == nil {
 		t.Errorf("upload new file in missing path must fail")
 	}
+	c.fs = newMockOsFs(nil, nil, false, "123", os.TempDir())
+	f, _ := ioutil.TempFile("", "temp")
+	f.Close()
+	_, err = c.handleSFTPUploadToExistingFile(flags, f.Name(), f.Name(), 123)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if len(activeTransfers) != 1 {
+		t.Errorf("unexpected number of transfer, expected 1, current: %v", len(activeTransfers))
+	}
+	transfer := activeTransfers[0]
+	if transfer.initialSize != 123 {
+		t.Errorf("unexpected initial size: %v", transfer.initialSize)
+	}
+	err = transfer.Close()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if len(activeTransfers) != 0 {
+		t.Errorf("unexpected number of transfer, expected 0, current: %v", len(activeTransfers))
+	}
+	os.Remove(f.Name())
 	uploadMode = oldUploadMode
 }
 
@@ -899,6 +921,17 @@ func TestSystemCommandErrors(t *testing.T) {
 	}
 }
 
+func TestTransferUpdateQuota(t *testing.T) {
+	transfer := Transfer{
+		transferType:  transferUpload,
+		bytesReceived: 123,
+		lock:          new(sync.Mutex)}
+	transfer.TransferError(errors.New("fake error"))
+	if transfer.updateQuota(1) {
+		t.Errorf("update quota must fail, there is a error and this is a remote upload")
+	}
+}
+
 func TestGetConnectionInfo(t *testing.T) {
 	c := ConnectionStatus{
 		Username:      "test_user",
@@ -1220,6 +1253,10 @@ func TestSCPErrorsMockFs(t *testing.T) {
 	scpCommand.sshCommand.connection.fs = newMockOsFs(errFake, nil, true, "123", os.TempDir())
 	err = scpCommand.handleUpload(filepath.Base(testfile), 0)
 	if err != errFake {
+		t.Errorf("unexpected error: %v", err)
+	}
+	err = scpCommand.handleUploadFile(testfile, testfile, 0, false, 4)
+	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	os.Remove(testfile)
