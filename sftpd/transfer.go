@@ -132,6 +132,7 @@ func (t *Transfer) Close() error {
 		numFiles = 1
 	}
 	t.checkDownloadSize()
+	metrics.TransferCompleted(t.bytesSent, t.bytesReceived, t.transferType, t.transferError)
 	if t.transferType == transferUpload && t.file != nil && t.file.Name() != t.path {
 		if t.transferError == nil || uploadMode == uploadModeAtomicWithResume {
 			err = os.Rename(t.file.Name(), t.path)
@@ -162,7 +163,6 @@ func (t *Transfer) Close() error {
 			err = t.transferError
 		}
 	}
-	metrics.TransferCompleted(t.bytesSent, t.bytesReceived, t.transferType, t.transferError)
 	removeTransfer(t)
 	t.updateQuota(numFiles)
 	return err

@@ -27,4 +27,4 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
-replace github.com/eikenb/pipeat v0.0.0-20190316224601-fb1f3a9aa29f => github.com/drakkan/pipeat v0.0.0-20200122173221-ea03f92ba172
+replace github.com/eikenb/pipeat v0.0.0-20190316224601-fb1f3a9aa29f => github.com/drakkan/pipeat v0.0.0-20200123131427-11c048cfc0ec

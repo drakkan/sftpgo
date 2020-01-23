@@ -372,7 +372,7 @@ The program must write the questions on its standard output, in a single line, u
 - `instruction`, string. A short description to show to the user that is trying to authenticate. Can be empty or omitted
 - `questions`, list of questions to be asked to the user
 - `echos` list of boolean flags corresponding to the questions (so the lengths of both lists must be the same) and indicating whether user's reply for a particular question should be echoed on the screen while they are typing: true if it should be echoed, or false if it should be hidden.
-- `auth_result`, integer. Set this field to 1 to indicate successfull authentication, 0 is ignored, any other value means authentication error. If this fields is found and it is different from 0 then SFTPGo does not read any other questions from the external program and finalize the authentication.
+- `auth_result`, integer. Set this field to 1 to indicate successful authentication, 0 is ignored, any other value means authentication error. If this fields is found and it is different from 0 then SFTPGo does not read any other questions from the external program and finalize the authentication.
 
 SFTPGo writes the user answers to the program standard input, one per line, in the same order of the questions.
 Please be sure that your program receive the answers for all the issued questions before asking for the next ones.
@@ -411,7 +411,7 @@ Actions will not be executed if an error is detected and so a partial file is up
 
 The `command`, if defined, is invoked with the following arguments:
 
-- `action`, string, possibile values are: `download`, `upload`, `delete`, `rename`, `ssh_cmd`
+- `action`, string, possible values are: `download`, `upload`, `delete`, `rename`, `ssh_cmd`
 - `username`
 - `path` is the full filesystem path, can be empty for some ssh commands
 - `target_path`, non empty for `rename` action
@@ -446,7 +446,7 @@ Actions will not be fired for internal updates such as the last login or the use
 
 The `command`, if defined, is invoked with the following arguments:
 
-- `action`, string, possibile values are: `add`, `update`, `delete`
+- `action`, string, possible values are: `add`, `update`, `delete`
 - `username`
 - `ID`
 - `status`

@@ -19,40 +19,40 @@ var (
 		Help: "Total number of logged in users",
 	})
 
-	// totalUploads is the metric that reports the total number of uploads
+	// totalUploads is the metric that reports the total number of successful SFTP/SCP uploads
 	totalUploads = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_uploads_total",
-		Help: "The total number of uploads",
+		Help: "The total number of successful SFTP/SCP uploads",
 	})
 
-	// totalDownloads is the metric that reports the total number of downloads
+	// totalDownloads is the metric that reports the total number of successful SFTP/SCP downloads
 	totalDownloads = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_downloads_total",
-		Help: "The total number of downloads",
+		Help: "The total number of successful SFTP/SCP downloads",
 	})
 
-	// totalUploadErrors is the metric that reports the total number of upload errors
+	// totalUploadErrors is the metric that reports the total number of SFTP/SCP upload errors
 	totalUploadErrors = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_upload_errors_total",
-		Help: "The total number of upload errors",
+		Help: "The total number of SFTP/SCP upload errors",
 	})
 
-	// totalDownloadErrors is the metric that reports the total number of download errors
+	// totalDownloadErrors is the metric that reports the total number of SFTP/SCP download errors
 	totalDownloadErrors = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_download_errors_total",
-		Help: "The total number of download errors",
+		Help: "The total number of SFTP/SCP download errors",
 	})
 
-	// totalUploadSize is the metric that reports the total uploads size as bytes
+	// totalUploadSize is the metric that reports the total SFTP/SCP uploads size as bytes
 	totalUploadSize = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_upload_size",
-		Help: "The total upload size as bytes",
+		Help: "The total SFTP/SCP upload size as bytes, partial uploads are included",
 	})
 
-	// totalDownloadSize is the metric that reports the total downloads size as bytes
+	// totalDownloadSize is the metric that reports the total SFTP/SCP downloads size as bytes
 	totalDownloadSize = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_download_size",
-		Help: "The total download size as bytes",
+		Help: "The total SFTP/SCP download size as bytes, partial downloads are included",
 	})
 
 	// totalSSHCommands is the metric that reports the total number of executed SSH commands
@@ -167,26 +167,188 @@ var (
 		Name: "sftpgo_http_server_errors_total",
 		Help: "The total number of HTTP requests served with 5xx status code",
 	})
+
+	// totalS3Uploads is the metric that reports the total number of successful S3 uploads
+	totalS3Uploads = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_s3_uploads_total",
+		Help: "The total number of successful S3 uploads",
+	})
+
+	// totalS3Downloads is the metric that reports the total number of successful S3 downloads
+	totalS3Downloads = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_s3_downloads_total",
+		Help: "The total number of successful S3 downloads",
+	})
+
+	// totalS3UploadErrors is the metric that reports the total number of S3 upload errors
+	totalS3UploadErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_s3_upload_errors_total",
+		Help: "The total number of S3 upload errors",
+	})
+
+	// totalS3DownloadErrors is the metric that reports the total number of S3 download errors
+	totalS3DownloadErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_s3_download_errors_total",
+		Help: "The total number of S3 download errors",
+	})
+
+	// totalS3UploadSize is the metric that reports the total S3 uploads size as bytes
+	totalS3UploadSize = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_s3_upload_size",
+		Help: "The total S3 upload size as bytes, partial uploads are included",
+	})
+
+	// totalS3DownloadSize is the metric that reports the total S3 downloads size as bytes
+	totalS3DownloadSize = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_s3_download_size",
+		Help: "The total S3 download size as bytes, partial downloads are included",
+	})
+
+	// totalS3ListObjects is the metric that reports the total successful S3 list objects requests
+	totalS3ListObjects = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_s3_list_objects",
+		Help: "The total number of successful S3 list objects requests",
+	})
+
+	// totalS3CopyObject is the metric that reports the total successful S3 copy object requests
+	totalS3CopyObject = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_s3_copy_object",
+		Help: "The total number of successful S3 copy object requests",
+	})
+
+	// totalS3DeleteObject is the metric that reports the total successful S3 delete object requests
+	totalS3DeleteObject = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_s3_delete_object",
+		Help: "The total number of successful S3 delete object requests",
+	})
+
+	// totalS3ListObjectsError is the metric that reports the total S3 list objects errors
+	totalS3ListObjectsErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_s3_list_objects_errors",
+		Help: "The total number of S3 list objects errors",
+	})
+
+	// totalS3CopyObjectErrors is the metric that reports the total S3 copy object errors
+	totalS3CopyObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_s3_copy_object_errors",
+		Help: "The total number of S3 copy object errors",
+	})
+
+	// totalS3DeleteObjectErrors is the metric that reports the total S3 delete object errors
+	totalS3DeleteObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_s3_delete_object_errors",
+		Help: "The total number of S3 delete object errors",
+	})
+
+	// totalS3HeadBucket is the metric that reports the total successful S3 head bucket requests
+	totalS3HeadBucket = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_s3_head_bucket",
+		Help: "The total number of successful S3 head bucket requests",
+	})
+
+	// totalS3CreateBucket is the metric that reports the total successful S3 create bucket requests
+	totalS3CreateBucket = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_s3_create_bucket",
+		Help: "The total number of successful S3 create bucket requests",
+	})
+
+	// totalS3HeadBucketErrors is the metric that reports the total S3 head bucket errors
+	totalS3HeadBucketErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_s3_head_bucket_errors",
+		Help: "The total number of S3 head bucket errors",
+	})
+
+	// totalS3CreateBucketErrors is the metric that reports the total S3 create bucket errors
+	totalS3CreateBucketErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_s3_create_bucket_errors",
+		Help: "The total number of S3 create bucket errors",
+	})
 )
 
-// TransferCompleted update metrics after an upload or a download
+// TransferCompleted updates metrics after an upload or a download
 func TransferCompleted(bytesSent, bytesReceived int64, transferKind int, err error) {
 	if transferKind == 0 {
 		// upload
 		if err == nil {
 			totalUploads.Inc()
-			totalUploadSize.Add(float64(bytesReceived))
 		} else {
 			totalUploadErrors.Inc()
 		}
+		totalUploadSize.Add(float64(bytesReceived))
 	} else {
 		// download
 		if err == nil {
 			totalDownloads.Inc()
-			totalDownloadSize.Add(float64(bytesSent))
 		} else {
 			totalDownloadErrors.Inc()
 		}
+		totalDownloadSize.Add(float64(bytesSent))
+	}
+}
+
+// S3TransferCompleted updates metrics after an S3 upload or a download
+func S3TransferCompleted(bytes int64, transferKind int, err error) {
+	if transferKind == 0 {
+		// upload
+		if err == nil {
+			totalS3Uploads.Inc()
+		} else {
+			totalS3UploadErrors.Inc()
+		}
+		totalS3UploadSize.Add(float64(bytes))
+	} else {
+		// download
+		if err == nil {
+			totalS3Downloads.Inc()
+		} else {
+			totalS3DownloadErrors.Inc()
+		}
+		totalS3DownloadSize.Add(float64(bytes))
+	}
+}
+
+// S3ListObjectsCompleted updates metrics after an S3 list objects request terminates
+func S3ListObjectsCompleted(err error) {
+	if err == nil {
+		totalS3ListObjects.Inc()
+	} else {
+		totalS3ListObjectsErrors.Inc()
+	}
+}
+
+// S3CopyObjectCompleted updates metrics after an S3 copy object request terminates
+func S3CopyObjectCompleted(err error) {
+	if err == nil {
+		totalS3CopyObject.Inc()
+	} else {
+		totalS3CopyObjectErrors.Inc()
+	}
+}
+
+// S3DeleteObjectCompleted updates metrics after an S3 delete object request terminates
+func S3DeleteObjectCompleted(err error) {
+	if err == nil {
+		totalS3DeleteObject.Inc()
+	} else {
+		totalS3DeleteObjectErrors.Inc()
+	}
+}
+
+// S3HeadBucketCompleted updates metrics after an S3 head bucket request terminates
+func S3HeadBucketCompleted(err error) {
+	if err == nil {
+		totalS3HeadBucket.Inc()
+	} else {
+		totalS3HeadBucketErrors.Inc()
+	}
+}
+
+// S3CreateBucketCompleted updates metrics after an S3 create bucket request terminates
+func S3CreateBucketCompleted(err error) {
+	if err == nil {
+		totalS3CreateBucket.Inc()
+	} else {
+		totalS3CreateBucketErrors.Inc()
 	}
 }
 

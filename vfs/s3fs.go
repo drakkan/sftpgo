@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/eikenb/pipeat"
 )
@@ -138,6 +139,7 @@ func (fs S3Fs) Stat(name string) (os.FileInfo, error) {
 		}
 		return true
 	})
+	metrics.S3ListObjectsCompleted(err)
 	if err == nil && len(result.Name()) == 0 {
 		err = errors.New("404 no such file or directory")
 	}
@@ -164,8 +166,9 @@ func (fs S3Fs) Open(name string) (*os.File, *pipeat.PipeReaderAt, func(), error)
 			Bucket: aws.String(fs.config.Bucket),
 			Key:    aws.String(key),
 		})
-		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)
 		w.CloseWithError(err)
+		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)
+		metrics.S3TransferCompleted(n, 1, err)
 	}()
 	return nil, r, cancelFn, nil
 }
@@ -187,8 +190,10 @@ func (fs S3Fs) Create(name string, flag int) (*os.File, *pipeat.PipeWriterAt, fu
 			Body:         r,
 			StorageClass: utils.NilIfEmpty(fs.config.StorageClass),
 		})
-		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, response: %v, err: %v", name, response, err)
 		r.CloseWithError(err)
+		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, response: %v, readed bytes: %v, err: %v",
+			name, response, r.GetReadedBytes(), err)
+		metrics.S3TransferCompleted(r.GetReadedBytes(), 0, err)
 	}()
 	return nil, w, cancelFn, nil
 }
@@ -229,6 +234,7 @@ func (fs S3Fs) Rename(source, target string) error {
 		CopySource: aws.String(copySource),
 		Key:        aws.String(target),
 	})
+	metrics.S3CopyObjectCompleted(err)
 	if err != nil {
 		return err
 	}
@@ -255,6 +261,7 @@ func (fs S3Fs) Remove(name string, isDir bool) error {
 		Bucket: aws.String(fs.config.Bucket),
 		Key:    aws.String(name),
 	})
+	metrics.S3DeleteObjectCompleted(err)
 	return err
 }
 
@@ -331,6 +338,7 @@ func (fs S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 		}
 		return true
 	})
+	metrics.S3ListObjectsCompleted(err)
 	return result, err
 }
 
@@ -401,6 +409,7 @@ func (fs S3Fs) CheckRootPath(username string, uid int, gid int) bool {
 	_, err = fs.svc.CreateBucketWithContext(ctx, input)
 	fsLog(fs, logger.LevelDebug, "bucket %#v for user %#v does not exists, try to create, error: %v",
 		fs.config.Bucket, username, err)
+	metrics.S3CreateBucketCompleted(err)
 	return err == nil
 }
 
@@ -421,7 +430,7 @@ func (fs S3Fs) ScanRootDirContents() (int, int64, error) {
 		}
 		return true
 	})
-
+	metrics.S3ListObjectsCompleted(err)
 	return numFiles, size, err
 }
 
@@ -496,6 +505,7 @@ func (fs *S3Fs) checkIfBucketExists() error {
 	_, err := fs.svc.HeadBucketWithContext(ctx, &s3.HeadBucketInput{
 		Bucket: aws.String(fs.config.Bucket),
 	})
+	metrics.S3HeadBucketCompleted(err)
 	return err
 }
 
