@@ -2,6 +2,7 @@ package httpd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -53,11 +54,8 @@ func sendAPIResponse(w http.ResponseWriter, r *http.Request, err error, message 
 		Message:    message,
 		HTTPStatus: code,
 	}
-	if code != http.StatusOK {
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.WriteHeader(code)
-	}
-	render.JSON(w, r, resp)
+	ctx := context.WithValue(r.Context(), render.StatusCtxKey, code)
+	render.JSON(w, r.WithContext(ctx), resp)
 }
 
 func getRespStatus(err error) int {

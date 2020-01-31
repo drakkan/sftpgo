@@ -139,7 +139,7 @@ func TestMain(m *testing.M) {
 	} else {
 		sftpdConf.Actions.ExecuteOn = []string{"download", "upload", "rename", "delete", "ssh_cmd"}
 		sftpdConf.Actions.Command = "/usr/bin/true"
-		sftpdConf.Actions.HTTPNotificationURL = "http://127.0.0.1:8080/"
+		sftpdConf.Actions.HTTPNotificationURL = "http://127.0.0.1:8083/"
 		scriptArgs = "$@"
 	}
 	keyIntAuthPath = filepath.Join(homeBasePath, "keyintauth.sh")

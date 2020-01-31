@@ -147,6 +147,21 @@ func TestWrongActions(t *testing.T) {
 	actions = actionsCopy
 }
 
+func TestActionHTTP(t *testing.T) {
+	actionsCopy := actions
+	actions = Actions{
+		ExecuteOn:           []string{operationDownload},
+		Command:             "",
+		HTTPNotificationURL: "http://127.0.0.1:8080/",
+	}
+	err := executeAction(operationDownload, "username", "path", "", "", 0, true)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	actions = actionsCopy
+}
+
 func TestRemoveNonexistentTransfer(t *testing.T) {
 	transfer := Transfer{}
 	err := removeTransfer(&transfer)

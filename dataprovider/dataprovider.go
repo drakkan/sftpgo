@@ -565,8 +565,7 @@ func validateFilesystemConfig(user *User) error {
 	return nil
 }
 
-func validateUser(user *User) error {
-	buildUserHomeDir(user)
+func validateBaseParams(user *User) error {
 	if len(user.Username) == 0 || len(user.HomeDir) == 0 {
 		return &ValidationError{err: "mandatory parameters missing"}
 	}
@@ -575,6 +574,14 @@ func validateUser(user *User) error {
 	}
 	if !filepath.IsAbs(user.HomeDir) {
 		return &ValidationError{err: fmt.Sprintf("home_dir must be an absolute path, actual value: %v", user.HomeDir)}
+	}
+	return nil
+}
+
+func validateUser(user *User) error {
+	buildUserHomeDir(user)
+	if err := validateBaseParams(user); err != nil {
+		return err
 	}
 	if err := validatePermissions(user); err != nil {
 		return err
