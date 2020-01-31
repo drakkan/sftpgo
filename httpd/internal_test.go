@@ -340,7 +340,7 @@ func TestApiCallsWithBadURL(t *testing.T) {
 	if err == nil {
 		t.Error("request with invalid URL must fail")
 	}
-	_, _, err = Loaddata("/tmp/backup.json", "", http.StatusBadRequest)
+	_, _, err = Loaddata("/tmp/backup.json", "", "", http.StatusBadRequest)
 	if err == nil {
 		t.Error("request with invalid URL must fail")
 	}
@@ -399,7 +399,7 @@ func TestApiCallToNotListeningServer(t *testing.T) {
 	if err == nil {
 		t.Errorf("request to an inactive URL must fail")
 	}
-	_, _, err = Loaddata("/tmp/backup.json", "", http.StatusOK)
+	_, _, err = Loaddata("/tmp/backup.json", "", "", http.StatusOK)
 	if err == nil {
 		t.Errorf("request to an inactive URL must fail")
 	}

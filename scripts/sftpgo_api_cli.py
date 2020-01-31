@@ -50,50 +50,50 @@ class SFTPGoApiRequests:
 
 	def formatAsJSON(self, text):
 		if not text:
-			return ""
+			return ''
 		json_string = json.dumps(json.loads(text), sort_keys=True, indent=2)
 		if not self.no_color and pygments:
 			return pygments.highlight(json_string, JsonLexer(), TerminalFormatter())
 		return json_string
 
 	def printResponse(self, r):
-		if "content-type" in r.headers and "application/json" in r.headers["content-type"]:
+		if 'content-type' in r.headers and 'application/json' in r.headers['content-type']:
 			if self.debug:
 				if pygments is None:
 					print('')
 					print('Response color highlight is not available: you need pygments 1.5 or above.')
 				print('')
-				print("Executed request: {} {} - request body: {}".format(
+				print('Executed request: {} {} - request body: {}'.format(
 					r.request.method, r.url, self.formatAsJSON(r.request.body)))
 				print('')
-				print("Got response, status code: {} body:".format(r.status_code))
+				print('Got response, status code: {} body:'.format(r.status_code))
 			print(self.formatAsJSON(r.text))
 		else:
 			print(r.text)
 
-	def buildUserObject(self, user_id=0, username="", password="", public_keys=[], home_dir="", uid=0, gid=0,
+	def buildUserObject(self, user_id=0, username='', password='', public_keys=[], home_dir='', uid=0, gid=0,
 					max_sessions=0, quota_size=0, quota_files=0, permissions={}, upload_bandwidth=0, download_bandwidth=0,
 					status=1, expiration_date=0, allowed_ip=[], denied_ip=[], fs_provider='local', s3_bucket='',
 					s3_region='', s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='',
 					s3_key_prefix='', gcs_bucket='', gcs_key_prefix='', gcs_storage_class='', gcs_credentials_file=''):
-		user = {"id":user_id, "username":username, "uid":uid, "gid":gid,
-			"max_sessions":max_sessions, "quota_size":quota_size, "quota_files":quota_files,
-			"upload_bandwidth":upload_bandwidth, "download_bandwidth":download_bandwidth,
-			"status":status, "expiration_date":expiration_date}
+		user = {'id':user_id, 'username':username, 'uid':uid, 'gid':gid,
+			'max_sessions':max_sessions, 'quota_size':quota_size, 'quota_files':quota_files,
+			'upload_bandwidth':upload_bandwidth, 'download_bandwidth':download_bandwidth,
+			'status':status, 'expiration_date':expiration_date}
 		if password is not None:
-			user.update({"password":password})
+			user.update({'password':password})
 		if public_keys:
 			if len(public_keys) == 1 and not public_keys[0]:
-				user.update({"public_keys":[]})
+				user.update({'public_keys':[]})
 			else:
-				user.update({"public_keys":public_keys})
+				user.update({'public_keys':public_keys})
 		if home_dir:
-			user.update({"home_dir":home_dir})
+			user.update({'home_dir':home_dir})
 		if permissions:
-			user.update({"permissions":permissions})
+			user.update({'permissions':permissions})
 		if allowed_ip or denied_ip:
-			user.update({"filters":self.buildFilters(allowed_ip, denied_ip)})
-		user.update({"filesystem":self.buildFsConfig(fs_provider, s3_bucket, s3_region, s3_access_key, s3_access_secret,
+			user.update({'filters':self.buildFilters(allowed_ip, denied_ip)})
+		user.update({'filesystem':self.buildFsConfig(fs_provider, s3_bucket, s3_region, s3_access_key, s3_access_secret,
 													s3_endpoint, s3_storage_class, s3_key_prefix, gcs_bucket,
 													gcs_key_prefix, gcs_storage_class, gcs_credentials_file)})
 		return user
@@ -101,16 +101,16 @@ class SFTPGoApiRequests:
 	def buildPermissions(self, root_perms, subdirs_perms):
 		permissions = {}
 		if root_perms:
-			permissions.update({"/":root_perms})
+			permissions.update({'/':root_perms})
 		for p in subdirs_perms:
-			if ":" in p:
+			if ':' in p:
 				directory = None
 				values = []
-				for value in p.split(":"):
+				for value in p.split(':'):
 					if directory is None:
 						directory = value
 					else:
-						values = [v.strip() for v in value.split(",") if v.strip()]
+						values = [v.strip() for v in value.split(',') if v.strip()]
 				if directory and values:
 					permissions.update({directory:values})
 		return permissions
@@ -145,16 +145,16 @@ class SFTPGoApiRequests:
 			fs_config.update({'provider':2, 'gcsconfig':gcsconfig})
 		return fs_config
 
-	def getUsers(self, limit=100, offset=0, order="ASC", username=""):
-		r = requests.get(self.userPath, params={"limit":limit, "offset":offset, "order":order,
-											"username":username}, auth=self.auth, verify=self.verify)
+	def getUsers(self, limit=100, offset=0, order='ASC', username=''):
+		r = requests.get(self.userPath, params={'limit':limit, 'offset':offset, 'order':order,
+											'username':username}, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
 	def getUserByID(self, user_id):
-		r = requests.get(urlparse.urljoin(self.userPath, "user/" + str(user_id)), auth=self.auth, verify=self.verify)
+		r = requests.get(urlparse.urljoin(self.userPath, 'user/' + str(user_id)), auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
-	def addUser(self, username="", password="", public_keys="", home_dir="", uid=0, gid=0, max_sessions=0, quota_size=0,
+	def addUser(self, username='', password='', public_keys='', home_dir='', uid=0, gid=0, max_sessions=0, quota_size=0,
 			quota_files=0, perms=[], upload_bandwidth=0, download_bandwidth=0, status=1, expiration_date=0,
 			subdirs_permissions=[], allowed_ip=[], denied_ip=[], fs_provider='local', s3_bucket='', s3_region='',
 			s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='', s3_key_prefix='', gcs_bucket='',
@@ -167,7 +167,7 @@ class SFTPGoApiRequests:
 		r = requests.post(self.userPath, json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
-	def updateUser(self, user_id, username="", password="", public_keys="", home_dir="", uid=0, gid=0, max_sessions=0,
+	def updateUser(self, user_id, username='', password='', public_keys='', home_dir='', uid=0, gid=0, max_sessions=0,
 				quota_size=0, quota_files=0, perms=[], upload_bandwidth=0, download_bandwidth=0, status=1,
 				expiration_date=0, subdirs_permissions=[], allowed_ip=[], denied_ip=[], fs_provider='local',
 				s3_bucket='', s3_region='', s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='',
@@ -177,11 +177,11 @@ class SFTPGoApiRequests:
 			status, expiration_date, allowed_ip, denied_ip, fs_provider, s3_bucket, s3_region, s3_access_key,
 			s3_access_secret, s3_endpoint, s3_storage_class, s3_key_prefix, gcs_bucket, gcs_key_prefix, gcs_storage_class,
 			gcs_credentials_file)
-		r = requests.put(urlparse.urljoin(self.userPath, "user/" + str(user_id)), json=u, auth=self.auth, verify=self.verify)
+		r = requests.put(urlparse.urljoin(self.userPath, 'user/' + str(user_id)), json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
 	def deleteUser(self, user_id):
-		r = requests.delete(urlparse.urljoin(self.userPath, "user/" + str(user_id)), auth=self.auth, verify=self.verify)
+		r = requests.delete(urlparse.urljoin(self.userPath, 'user/' + str(user_id)), auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
 	def getConnections(self):
@@ -189,7 +189,7 @@ class SFTPGoApiRequests:
 		self.printResponse(r)
 
 	def closeConnection(self, connectionID):
-		r = requests.delete(urlparse.urljoin(self.activeConnectionsPath, "connection/" + str(connectionID)), auth=self.auth)
+		r = requests.delete(urlparse.urljoin(self.activeConnectionsPath, 'connection/' + str(connectionID)), auth=self.auth)
 		self.printResponse(r)
 
 	def getQuotaScans(self):
@@ -210,12 +210,13 @@ class SFTPGoApiRequests:
 		self.printResponse(r)
 
 	def dumpData(self, output_file):
-		r = requests.get(self.dumpDataPath, params={"output_file":output_file}, auth=self.auth,
+		r = requests.get(self.dumpDataPath, params={'output_file':output_file}, auth=self.auth,
 						verify=self.verify)
 		self.printResponse(r)
 
-	def loadData(self, input_file, scan_quota):
-		r = requests.get(self.loadDataPath, params={"input_file":input_file, "scan_quota":scan_quota},
+	def loadData(self, input_file, scan_quota, mode):
+		r = requests.get(self.loadDataPath, params={'input_file':input_file, 'scan_quota':scan_quota,
+												'mode':mode},
 						auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
@@ -237,7 +238,7 @@ class ConvertUsers:
 		self.SFTPGoRestAPI = api
 
 	def addUser(self, user):
-		user["id"] = len(self.SFTPGoUsers) + 1
+		user['id'] = len(self.SFTPGoUsers) + 1
 		print('')
 		print('New user imported: {}'.format(user))
 		print('')
@@ -245,7 +246,7 @@ class ConvertUsers:
 
 	def saveUsers(self):
 		if self.SFTPGoUsers:
-			data = {"users":self.SFTPGoUsers}
+			data = {'users':self.SFTPGoUsers}
 			jsonData = json.dumps(data)
 			with open(self.output_file, 'w') as f:
 				f.write(jsonData)
@@ -259,9 +260,9 @@ class ConvertUsers:
 			sys.exit(1)
 
 	def convert(self):
-		if self.users_format == "unix-passwd":
+		if self.users_format == 'unix-passwd':
 			self.convertFromUnixPasswd()
-		elif self.users_format == "pure-ftpd":
+		elif self.users_format == 'pure-ftpd':
 			self.convertFromPureFTPD()
 		else:
 			self.convertFromProFTPD()
@@ -333,15 +334,15 @@ class ConvertUsers:
 		result = []
 		if not fields:
 			return result
-		for v in fields.split(","):
+		for v in fields.split(','):
 			ip_mask = v.strip()
 			if not ip_mask:
 				continue
-			if ip_mask.count(".") < 3 and ip_mask.count(":") < 3:
-				print("cannot import pure-ftpd IP: {}".format(ip_mask))
+			if ip_mask.count('.') < 3 and ip_mask.count(':') < 3:
+				print('cannot import pure-ftpd IP: {}'.format(ip_mask))
 				continue
-			if "/" not in ip_mask:
-				ip_mask += "/32"
+			if '/' not in ip_mask:
+				ip_mask += '/32'
 			result.append(ip_mask)
 		return result
 
@@ -389,9 +390,9 @@ def validDate(s):
 	if not s:
 		return datetime.fromtimestamp(0)
 	try:
-		return datetime.strptime(s, "%Y-%m-%d")
+		return datetime.strptime(s, '%Y-%m-%d')
 	except ValueError:
-		msg = "Not a valid date: '{0}'.".format(s)
+		msg = 'Not a valid date: "{0}".'.format(s)
 		raise argparse.ArgumentTypeError(msg)
 
 
@@ -411,7 +412,7 @@ def addCommonUserArguments(parser):
 					help='Maximum concurrent sessions. 0 means unlimited. Default: %(default)s')
 	parser.add_argument('-S', '--quota-size', type=int, default=0,
 					help='Maximum size allowed as bytes. 0 means unlimited. Default: %(default)s')
-	parser.add_argument('-F', '--quota-files', type=int, default=0, help="default: %(default)s")
+	parser.add_argument('-F', '--quota-files', type=int, default=0, help='default: %(default)s')
 	parser.add_argument('-G', '--permissions', type=str, nargs='+', default=[],
 					choices=['*', 'list', 'download', 'upload', 'overwrite', 'delete', 'rename', 'create_dirs',
 							'create_symlinks', 'chmod', 'chown', 'chtimes'], help='Permissions for the root directory '
@@ -424,7 +425,7 @@ def addCommonUserArguments(parser):
 					help='Maximum download bandwidth as KB/s, 0 means unlimited. Default: %(default)s')
 	parser.add_argument('--status', type=int, choices=[0, 1], default=1,
 							help='User\'s status. 1 enabled, 0 disabled. Default: %(default)s')
-	parser.add_argument('-E', '--expiration-date', type=validDate, default="",
+	parser.add_argument('-E', '--expiration-date', type=validDate, default='',
 					help='Expiration date as YYYY-MM-DD, empty string means no expiration. Default: %(default)s')
 	parser.add_argument('-Y', '--allowed-ip', type=str, nargs='+', default=[],
 					help='Allowed IP/Mask in CIDR notation. For example "192.168.2.0/24" or "2001:db8::/32". Default: %(default)s')
@@ -455,7 +456,7 @@ if __name__ == '__main__':
 					help='Base URL for SFTPGo REST API. Default: %(default)s')
 	parser.add_argument('-a', '--auth-type', type=str, default=None, choices=['basic', 'digest'],
 					help='HTTP authentication type. Default: %(default)s')
-	parser.add_argument("-u", "--auth-user", type=str, default="",
+	parser.add_argument('-u', '--auth-user', type=str, default='',
 					help='User for HTTP authentication. Default: %(default)s')
 	parser.add_argument('-p', '--auth-password', type=str, default='',
 					help='Password for HTTP authentication. Default: %(default)s')
@@ -464,7 +465,7 @@ if __name__ == '__main__':
 	parser.add_argument('-i', '--insecure', dest='secure', action='store_false',
 					help='Set to false to ignore verifying the SSL certificate')
 	parser.set_defaults(secure=True)
-	has_colors_default = pygments is not None and platform.system() != "Windows"
+	has_colors_default = pygments is not None and platform.system() != 'Windows'
 	group = parser.add_mutually_exclusive_group(required=False)
 	group.add_argument('-t', '--no-color', dest='no_color', action='store_true', default=(not has_colors_default),
 					help='Disable color highlight for JSON responses. You need python pygments module 1.5 or above to have highlighted output')
@@ -519,15 +520,19 @@ if __name__ == '__main__':
 	parserLoadData.add_argument('-Q', '--scan-quota', type=int, choices=[0, 1, 2], default=0,
 							help='0 means no quota scan after a user is added/updated. 1 means always scan quota. 2 ' +
 							'means scan quota if the user has quota restrictions. Default: %(default)s')
+	parserLoadData.add_argument('-M', '--mode', type=int, choices=[0, 1], default=0,
+							help='0 means new users are added, existing users are updated. 1 means new users are added,' +
+							' existing users are not modified. Default: %(default)s')
 
-	parserConvertUsers = subparsers.add_parser('convert-users', help='Convert users to a JSON format suitable to use with loadddata')
+	parserConvertUsers = subparsers.add_parser('convert-users', help='Convert users to a JSON format suitable to use ' +
+											'with loadddata')
 	supportedUsersFormats = []
 	help_text = ''
 	if pwd is not None:
-		supportedUsersFormats.append("unix-passwd")
+		supportedUsersFormats.append('unix-passwd')
 		help_text = 'To import from unix-passwd format you need the permission to read /etc/shadow that is typically granted to the root user only'
-	supportedUsersFormats.append("pure-ftpd")
-	supportedUsersFormats.append("proftpd")
+	supportedUsersFormats.append('pure-ftpd')
+	supportedUsersFormats.append('proftpd')
 	parserConvertUsers.add_argument('input_file', type=str)
 	parserConvertUsers.add_argument('users_format', type=str, choices=supportedUsersFormats, help=help_text)
 	parserConvertUsers.add_argument('output_file', type=str)
@@ -581,7 +586,7 @@ if __name__ == '__main__':
 	elif args.command == 'dumpdata':
 		api.dumpData(args.output_file)
 	elif args.command == 'loaddata':
-		api.loadData(args.input_file, args.scan_quota)
+		api.loadData(args.input_file, args.scan_quota, args.mode)
 	elif args.command == 'convert-users':
 		convertUsers = ConvertUsers(args.input_file, args.users_format, args.output_file, args.min_uid, args.max_uid,
 								args.usernames, args.force_uid, args.force_gid)

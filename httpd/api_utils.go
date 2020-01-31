@@ -338,7 +338,7 @@ func Dumpdata(outputFile string, expectedStatusCode int) (map[string]interface{}
 // Loaddata restores a backup.
 // New users are added, existing users are updated. Users will be restored one by one and the restore is stopped if a
 // user cannot be added/updated, so it could happen a partial restore
-func Loaddata(inputFile, scanQuota string, expectedStatusCode int) (map[string]interface{}, []byte, error) {
+func Loaddata(inputFile, scanQuota, mode string, expectedStatusCode int) (map[string]interface{}, []byte, error) {
 	var response map[string]interface{}
 	var body []byte
 	url, err := url.Parse(buildURLRelativeToBase(loadDataPath))
@@ -349,6 +349,9 @@ func Loaddata(inputFile, scanQuota string, expectedStatusCode int) (map[string]i
 	q.Add("input_file", inputFile)
 	if len(scanQuota) > 0 {
 		q.Add("scan_quota", scanQuota)
+	}
+	if len(mode) > 0 {
+		q.Add("mode", mode)
 	}
 	url.RawQuery = q.Encode()
 	resp, err := getHTTPClient().Get(url.String())

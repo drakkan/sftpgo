@@ -727,7 +727,7 @@ func TestProviderErrors(t *testing.T) {
 	backupContent, _ := json.Marshal(backupData)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
 	ioutil.WriteFile(backupFilePath, backupContent, 0666)
-	_, _, err = httpd.Loaddata(backupFilePath, "", http.StatusInternalServerError)
+	_, _, err = httpd.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
 	if err != nil {
 		t.Errorf("get provider status with provider closed must fail: %v", err)
 	}
@@ -800,33 +800,37 @@ func TestLoaddata(t *testing.T) {
 	backupContent, _ := json.Marshal(backupData)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
 	ioutil.WriteFile(backupFilePath, backupContent, 0666)
-	_, _, err := httpd.Loaddata(backupFilePath, "a", http.StatusBadRequest)
+	_, _, err := httpd.Loaddata(backupFilePath, "a", "", http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	_, _, err = httpd.Loaddata("backup.json", "1", http.StatusBadRequest)
+	_, _, err = httpd.Loaddata(backupFilePath, "", "a", http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	_, _, err = httpd.Loaddata(backupFilePath+"a", "1", http.StatusBadRequest)
+	_, _, err = httpd.Loaddata("backup.json", "1", "", http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	_, _, err = httpd.Loaddata(backupFilePath+"a", "1", "", http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if runtime.GOOS != "windows" {
 		os.Chmod(backupFilePath, 0111)
-		_, _, err = httpd.Loaddata(backupFilePath, "1", http.StatusInternalServerError)
+		_, _, err = httpd.Loaddata(backupFilePath, "1", "", http.StatusInternalServerError)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 		os.Chmod(backupFilePath, 0644)
 	}
 	// add user from backup
-	_, _, err = httpd.Loaddata(backupFilePath, "1", http.StatusOK)
+	_, _, err = httpd.Loaddata(backupFilePath, "1", "", http.StatusOK)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	// update user from backup
-	_, _, err = httpd.Loaddata(backupFilePath, "2", http.StatusOK)
+	_, _, err = httpd.Loaddata(backupFilePath, "2", "", http.StatusOK)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -844,15 +848,64 @@ func TestLoaddata(t *testing.T) {
 	}
 	os.Remove(backupFilePath)
 	createTestFile(backupFilePath, 10485761)
-	_, _, err = httpd.Loaddata(backupFilePath, "1", http.StatusBadRequest)
+	_, _, err = httpd.Loaddata(backupFilePath, "1", "0", http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	os.Remove(backupFilePath)
 	createTestFile(backupFilePath, 65535)
-	_, _, err = httpd.Loaddata(backupFilePath, "1", http.StatusBadRequest)
+	_, _, err = httpd.Loaddata(backupFilePath, "1", "0", http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
+	}
+	os.Remove(backupFilePath)
+}
+
+func TestLoaddataMode(t *testing.T) {
+	user := getTestUser()
+	user.ID = 1
+	user.Username = "test_user_restore"
+	backupData := httpd.BackupData{}
+	backupData.Users = append(backupData.Users, user)
+	backupContent, _ := json.Marshal(backupData)
+	backupFilePath := filepath.Join(backupsPath, "backup.json")
+	ioutil.WriteFile(backupFilePath, backupContent, 0666)
+	_, _, err := httpd.Loaddata(backupFilePath, "0", "0", http.StatusOK)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	users, _, err := httpd.GetUsers(1, 0, user.Username, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to get users: %v", err)
+	}
+	if len(users) != 1 {
+		t.Error("Unable to get restored user")
+	}
+	user = users[0]
+	oldUploadBandwidth := user.UploadBandwidth
+	user.UploadBandwidth = oldUploadBandwidth + 128
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	_, _, err = httpd.Loaddata(backupFilePath, "0", "1", http.StatusOK)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	users, _, err = httpd.GetUsers(1, 0, user.Username, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to get users: %v", err)
+	}
+	if len(users) != 1 {
+		t.Error("Unable to get restored user")
+	}
+	user = users[0]
+	if user.UploadBandwidth == oldUploadBandwidth {
+		t.Error("user must not be modified")
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
 	}
 	os.Remove(backupFilePath)
 }

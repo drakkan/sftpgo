@@ -59,19 +59,10 @@ func dumpData(w http.ResponseWriter, r *http.Request) {
 }
 
 func loadData(w http.ResponseWriter, r *http.Request) {
-	var inputFile string
-	var err error
-	scanQuota := 0
-	if _, ok := r.URL.Query()["input_file"]; ok {
-		inputFile = strings.TrimSpace(r.URL.Query().Get("input_file"))
-	}
-	if _, ok := r.URL.Query()["scan_quota"]; ok {
-		scanQuota, err = strconv.Atoi(r.URL.Query().Get("scan_quota"))
-		if err != nil {
-			err = errors.New("Invalid scan_quota")
-			sendAPIResponse(w, r, err, "", http.StatusBadRequest)
-			return
-		}
+	inputFile, scanQuota, mode, err := getLoaddataOptions(r)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
 	}
 	if !filepath.IsAbs(inputFile) {
 		sendAPIResponse(w, r, fmt.Errorf("Invalid input_file %#v: it must be an absolute path", inputFile), "", http.StatusBadRequest)
@@ -103,6 +94,10 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 	for _, user := range dump.Users {
 		u, err := dataprovider.UserExists(dataProvider, user.Username)
 		if err == nil {
+			if mode == 1 {
+				logger.Debug(logSender, "", "loaddata mode = 1 existing user: %#v not updated", u.Username)
+				continue
+			}
 			user.ID = u.ID
 			user.LastLogin = u.LastLogin
 			user.UsedQuotaSize = u.UsedQuotaSize
@@ -135,4 +130,27 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 
 func needQuotaScan(scanQuota int, user *dataprovider.User) bool {
 	return scanQuota == 1 || (scanQuota == 2 && user.HasQuotaRestrictions())
+}
+
+func getLoaddataOptions(r *http.Request) (string, int, int, error) {
+	var inputFile string
+	var err error
+	scanQuota := 0
+	restoreMode := 0
+	if _, ok := r.URL.Query()["input_file"]; ok {
+		inputFile = strings.TrimSpace(r.URL.Query().Get("input_file"))
+	}
+	if _, ok := r.URL.Query()["scan_quota"]; ok {
+		scanQuota, err = strconv.Atoi(r.URL.Query().Get("scan_quota"))
+		if err != nil {
+			err = fmt.Errorf("invalid scan_quota: %v", err)
+		}
+	}
+	if _, ok := r.URL.Query()["mode"]; ok {
+		restoreMode, err = strconv.Atoi(r.URL.Query().Get("mode"))
+		if err != nil {
+			err = fmt.Errorf("invalid mode: %v", err)
+		}
+	}
+	return inputFile, scanQuota, restoreMode, err
 }

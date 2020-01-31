@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 1.6.0
+  version: 1.6.1
 
 servers:
 - url: /api/v1
@@ -589,7 +589,7 @@ paths:
       tags:
       - maintenance
       summary: Restore SFTPGo data from a JSON backup
-      description: New users are added, existing users are updated. Users will be restored one by one and the restore is stopped if a user cannot be added/updated, so it could happen a partial restore
+      description: Users will be restored one by one and the restore is stopped if a user cannot be added or updated, so it could happen a partial restore
       operationId: loaddata
       parameters:
         - in: query
@@ -608,10 +608,21 @@ paths:
               - 2
           description: >
             Quota scan:
-              * `0` no quota scan is done, the imported user will have used_quota_size and used_quota_file = 0
+              * `0` no quota scan is done, the imported user will have used_quota_size and used_quota_file = 0. This is the default
               * `1` scan quota
               * `2` scan quota if the user has quota restrictions
           required: false
+        - in: query
+          name: mode
+          schema:
+            type: integer
+            enum:
+              - 0
+              - 1
+            description: >
+              Mode:
+                * `0` New users are added, existing users are updated. This is the default
+                * `1` New users are added, existing users are not modified
       responses:
         200:
           description: successful operation
