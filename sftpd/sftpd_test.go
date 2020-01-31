@@ -1053,7 +1053,7 @@ func TestLoginInvalidFs(t *testing.T) {
 		t.Errorf("unable to add user: %v", err)
 	}
 	// we update the database using sqlite3 CLI since we cannot add an user with an invalid config
-	time.Sleep(150 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 	updateUserQuery := fmt.Sprintf("UPDATE users SET filesystem='{\"provider\":1}' WHERE id=%v", user.ID)
 	cmd := exec.Command("sqlite3", dbPath, updateUserQuery)
 	out, err := cmd.CombinedOutput()
@@ -3039,7 +3039,11 @@ func TestRelativePaths(t *testing.T) {
 		KeyPrefix: strings.TrimPrefix(user.GetHomeDir(), "/") + "/",
 	}
 	s3fs, _ := vfs.NewS3Fs("", user.GetHomeDir(), s3config)
-	filesystems = append(filesystems, s3fs)
+	gcsConfig := vfs.GCSFsConfig{
+		KeyPrefix: strings.TrimPrefix(user.GetHomeDir(), "/") + "/",
+	}
+	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), gcsConfig)
+	filesystems = append(filesystems, s3fs, gcsfs)
 	for _, fs := range filesystems {
 		path = filepath.Join(user.HomeDir, "/")
 		rel = fs.GetRelativePath(path)
@@ -3104,7 +3108,11 @@ func TestResolvePaths(t *testing.T) {
 	}
 	os.MkdirAll(user.GetHomeDir(), 0777)
 	s3fs, _ := vfs.NewS3Fs("", user.GetHomeDir(), s3config)
-	filesystems = append(filesystems, s3fs)
+	gcsConfig := vfs.GCSFsConfig{
+		KeyPrefix: strings.TrimPrefix(user.GetHomeDir(), "/") + "/",
+	}
+	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), gcsConfig)
+	filesystems = append(filesystems, s3fs, gcsfs)
 	for _, fs := range filesystems {
 		path = "/"
 		resolved, _ = fs.ResolvePath(filepath.ToSlash(path))
@@ -3509,7 +3517,8 @@ func TestSCPBasicHandling(t *testing.T) {
 		t.Errorf("stat for the downloaded file must succeed")
 	} else {
 		if fi.Size() != testFileSize {
-			t.Errorf("size of the file downloaded via SCP does not match the expected one")
+			t.Errorf("size of the file downloaded via SCP does not match the expected one: %v/%v",
+				fi.Size(), testFileSize)
 		}
 	}
 	os.Remove(localPath)
@@ -3582,7 +3591,8 @@ func TestSCPUploadFileOverwrite(t *testing.T) {
 		t.Errorf("stat for the downloaded file must succeed")
 	} else {
 		if fi.Size() != testFileSize {
-			t.Errorf("size of the file downloaded via SCP does not match the expected one")
+			t.Errorf("size of the file downloaded via SCP does not match the expected one: %v/%v",
+				fi.Size(), testFileSize)
 		}
 	}
 	os.Remove(localPath)

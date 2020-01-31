@@ -42,7 +42,8 @@
       "http_notification_url": ""
     },
     "external_auth_program": "",
-    "external_auth_scope": 0
+    "external_auth_scope": 0,
+    "credentials_path": "credentials"
   },
   "httpd": {
     "bind_port": 8080,

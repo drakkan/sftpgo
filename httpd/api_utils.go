@@ -439,6 +439,16 @@ func compareUserFsConfig(expected *dataprovider.User, actual *dataprovider.User)
 		expected.FsConfig.S3Config.KeyPrefix+"/" != actual.FsConfig.S3Config.KeyPrefix {
 		return errors.New("S3 key prefix mismatch")
 	}
+	if expected.FsConfig.GCSConfig.Bucket != actual.FsConfig.GCSConfig.Bucket {
+		return errors.New("GCS bucket mismatch")
+	}
+	if expected.FsConfig.GCSConfig.StorageClass != actual.FsConfig.GCSConfig.StorageClass {
+		return errors.New("GCS storage class mismatch")
+	}
+	if expected.FsConfig.GCSConfig.KeyPrefix != actual.FsConfig.GCSConfig.KeyPrefix &&
+		expected.FsConfig.GCSConfig.KeyPrefix+"/" != actual.FsConfig.GCSConfig.KeyPrefix {
+		return errors.New("GCS key prefix mismatch")
+	}
 	return nil
 }
 

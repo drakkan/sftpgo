@@ -54,6 +54,7 @@ Output:
   "download_bandwidth": 60,
   "expiration_date": 1546297200000,
   "filesystem": {
+    "gcsconfig": {},
     "provider": 1,
     "s3config": {
       "access_key": "accesskey",
@@ -139,6 +140,7 @@ Output:
   "download_bandwidth": 80,
   "expiration_date": 0,
   "filesystem": {
+    "gcsconfig": {},
     "provider": 0,
     "s3config": {}
   },
@@ -191,6 +193,7 @@ Output:
     "download_bandwidth": 80,
     "expiration_date": 0,
     "filesystem": {
+      "gcsconfig": {},
       "provider": 0,
       "s3config": {}
     },

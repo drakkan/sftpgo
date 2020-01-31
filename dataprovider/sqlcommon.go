@@ -232,11 +232,14 @@ func sqlCommonDumpUsers(dbHandle *sql.DB) ([]User, error) {
 		defer rows.Close()
 		for rows.Next() {
 			u, err := getUserFromDbRow(nil, rows)
-			if err == nil {
-				users = append(users, u)
-			} else {
-				break
+			if err != nil {
+				return users, err
 			}
+			err = addCredentialsToUser(&u)
+			if err != nil {
+				return users, err
+			}
+			users = append(users, u)
 		}
 	}
 

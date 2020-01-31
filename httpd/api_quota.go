@@ -14,6 +14,7 @@ func getQuotaScans(w http.ResponseWriter, r *http.Request) {
 }
 
 func startQuotaScan(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	var u dataprovider.User
 	err := render.DecodeJSON(r.Body, &u)
 	if err != nil {

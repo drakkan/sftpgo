@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import base64
 from datetime import datetime
 import json
 import platform
@@ -74,7 +75,7 @@ class SFTPGoApiRequests:
 					max_sessions=0, quota_size=0, quota_files=0, permissions={}, upload_bandwidth=0, download_bandwidth=0,
 					status=1, expiration_date=0, allowed_ip=[], denied_ip=[], fs_provider='local', s3_bucket='',
 					s3_region='', s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='',
-					s3_key_prefix=''):
+					s3_key_prefix='', gcs_bucket='', gcs_key_prefix='', gcs_storage_class='', gcs_credentials_file=''):
 		user = {"id":user_id, "username":username, "uid":uid, "gid":gid,
 			"max_sessions":max_sessions, "quota_size":quota_size, "quota_files":quota_files,
 			"upload_bandwidth":upload_bandwidth, "download_bandwidth":download_bandwidth,
@@ -92,9 +93,9 @@ class SFTPGoApiRequests:
 			user.update({"permissions":permissions})
 		if allowed_ip or denied_ip:
 			user.update({"filters":self.buildFilters(allowed_ip, denied_ip)})
-		user.update({"filesystem":self.buildFsConfig(fs_provider, s3_bucket, s3_region, s3_access_key,
-														s3_access_secret, s3_endpoint, s3_storage_class,
-														s3_key_prefix)})
+		user.update({"filesystem":self.buildFsConfig(fs_provider, s3_bucket, s3_region, s3_access_key, s3_access_secret,
+													s3_endpoint, s3_storage_class, s3_key_prefix, gcs_bucket,
+													gcs_key_prefix, gcs_storage_class, gcs_credentials_file)})
 		return user
 
 	def buildPermissions(self, root_perms, subdirs_perms):
@@ -129,13 +130,19 @@ class SFTPGoApiRequests:
 		return filters
 
 	def buildFsConfig(self, fs_provider, s3_bucket, s3_region, s3_access_key, s3_access_secret, s3_endpoint,
-					s3_storage_class, s3_key_prefix):
+					s3_storage_class, s3_key_prefix, gcs_bucket, gcs_key_prefix, gcs_storage_class, gcs_credentials_file):
 		fs_config = {'provider':0}
 		if fs_provider == 'S3':
 			s3config = {'bucket':s3_bucket, 'region':s3_region, 'access_key':s3_access_key, 'access_secret':
 					s3_access_secret, 'endpoint':s3_endpoint, 'storage_class':s3_storage_class, 'key_prefix':
 					s3_key_prefix}
 			fs_config.update({'provider':1, 's3config':s3config})
+		elif fs_provider == 'GCS':
+			gcsconfig = {'bucket':gcs_bucket, 'key_prefix':gcs_key_prefix, 'storage_class':gcs_storage_class}
+			if gcs_credentials_file:
+				with open(gcs_credentials_file) as creds:
+					gcsconfig.update({'credentials':base64.b64encode(creds.read().encode('UTF-8')).decode('UTF-8')})
+			fs_config.update({'provider':2, 'gcsconfig':gcsconfig})
 		return fs_config
 
 	def getUsers(self, limit=100, offset=0, order="ASC", username=""):
@@ -150,11 +157,13 @@ class SFTPGoApiRequests:
 	def addUser(self, username="", password="", public_keys="", home_dir="", uid=0, gid=0, max_sessions=0, quota_size=0,
 			quota_files=0, perms=[], upload_bandwidth=0, download_bandwidth=0, status=1, expiration_date=0,
 			subdirs_permissions=[], allowed_ip=[], denied_ip=[], fs_provider='local', s3_bucket='', s3_region='',
-			s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='', s3_key_prefix=''):
+			s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='', s3_key_prefix='', gcs_bucket='',
+			gcs_key_prefix='', gcs_storage_class='', gcs_credentials_file=''):
 		u = self.buildUserObject(0, username, password, public_keys, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, self.buildPermissions(perms, subdirs_permissions), upload_bandwidth, download_bandwidth,
-			status, expiration_date, allowed_ip, denied_ip, fs_provider, s3_bucket, s3_region,
-			s3_access_key, s3_access_secret, s3_endpoint, s3_storage_class, s3_key_prefix)
+			status, expiration_date, allowed_ip, denied_ip, fs_provider, s3_bucket, s3_region, s3_access_key,
+			s3_access_secret, s3_endpoint, s3_storage_class, s3_key_prefix, gcs_bucket, gcs_key_prefix, gcs_storage_class,
+			gcs_credentials_file)
 		r = requests.post(self.userPath, json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
@@ -162,11 +171,12 @@ class SFTPGoApiRequests:
 				quota_size=0, quota_files=0, perms=[], upload_bandwidth=0, download_bandwidth=0, status=1,
 				expiration_date=0, subdirs_permissions=[], allowed_ip=[], denied_ip=[], fs_provider='local',
 				s3_bucket='', s3_region='', s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='',
-				s3_key_prefix=''):
+				s3_key_prefix='', gcs_bucket='', gcs_key_prefix='', gcs_storage_class='', gcs_credentials_file=''):
 		u = self.buildUserObject(user_id, username, password, public_keys, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, self.buildPermissions(perms, subdirs_permissions), upload_bandwidth, download_bandwidth,
 			status, expiration_date, allowed_ip, denied_ip, fs_provider, s3_bucket, s3_region, s3_access_key,
-			s3_access_secret, s3_endpoint, s3_storage_class, s3_key_prefix)
+			s3_access_secret, s3_endpoint, s3_storage_class, s3_key_prefix, gcs_bucket, gcs_key_prefix, gcs_storage_class,
+			gcs_credentials_file)
 		r = requests.put(urlparse.urljoin(self.userPath, "user/" + str(user_id)), json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
@@ -420,7 +430,7 @@ def addCommonUserArguments(parser):
 					help='Allowed IP/Mask in CIDR notation. For example "192.168.2.0/24" or "2001:db8::/32". Default: %(default)s')
 	parser.add_argument('-N', '--denied-ip', type=str, nargs='+', default=[],
 					help='Denied IP/Mask in CIDR notation. For example "192.168.2.0/24" or "2001:db8::/32". Default: %(default)s')
-	parser.add_argument('--fs', type=str, default='local', choices=['local', 'S3'],
+	parser.add_argument('--fs', type=str, default='local', choices=['local', 'S3', 'GCS'],
 					help='Filesystem provider. Default: %(default)s')
 	parser.add_argument('--s3-bucket', type=str, default='', help='Default: %(default)s')
 	parser.add_argument('--s3-key-prefix', type=str, default='', help='Virtual root directory. If non empty only this ' +
@@ -431,6 +441,12 @@ def addCommonUserArguments(parser):
 	parser.add_argument('--s3-access-secret', type=str, default='', help='Default: %(default)s')
 	parser.add_argument('--s3-endpoint', type=str, default='', help='Default: %(default)s')
 	parser.add_argument('--s3-storage-class', type=str, default='', help='Default: %(default)s')
+	parser.add_argument('--gcs-bucket', type=str, default='', help='Default: %(default)s')
+	parser.add_argument('--gcs-key-prefix', type=str, default='', help='Virtual root directory. If non empty only this ' +
+					'directory and its contents will be available. Cannot start with "/". For example "folder/subfolder/".' +
+					' Default: %(default)s')
+	parser.add_argument('--gcs-storage-class', type=str, default='', help='Default: %(default)s')
+	parser.add_argument('--gcs-credentials-file', type=str, default='', help='Default: %(default)s')
 
 
 if __name__ == '__main__':
@@ -534,14 +550,16 @@ if __name__ == '__main__':
 				args.quota_size, args.quota_files, args.permissions, args.upload_bandwidth, args.download_bandwidth,
 				args.status, getDatetimeAsMillisSinceEpoch(args.expiration_date), args.subdirs_permissions, args.allowed_ip,
 				args.denied_ip, args.fs, args.s3_bucket, args.s3_region, args.s3_access_key, args.s3_access_secret,
-				args.s3_endpoint, args.s3_storage_class, args.s3_key_prefix)
+				args.s3_endpoint, args.s3_storage_class, args.s3_key_prefix, args.gcs_bucket, args.gcs_key_prefix,
+				args.gcs_storage_class, args.gcs_credentials_file)
 	elif args.command == 'update-user':
 		api.updateUser(args.id, args.username, args.password, args.public_keys, args.home_dir, args.uid, args.gid,
 					args.max_sessions, args.quota_size, args.quota_files, args.permissions, args.upload_bandwidth,
 					args.download_bandwidth, args.status, getDatetimeAsMillisSinceEpoch(args.expiration_date),
 					args.subdirs_permissions, args.allowed_ip, args.denied_ip, args.fs, args.s3_bucket, args.s3_region,
 					args.s3_access_key, args.s3_access_secret, args.s3_endpoint, args.s3_storage_class,
-					args.s3_key_prefix)
+					args.s3_key_prefix, args.gcs_bucket, args.gcs_key_prefix, args.gcs_storage_class,
+					args.gcs_credentials_file)
 	elif args.command == 'delete-user':
 		api.deleteUser(args.id)
 	elif args.command == 'get-users':

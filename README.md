@@ -22,7 +22,7 @@ Full featured and highly configurable SFTP server
 - Atomic uploads are configurable.
 - Support for Git repositories over SSH.
 - SCP and rsync are supported.
-- Support for serving S3 Compatible Object Storage over SFTP.
+- Support for serving local filesystem, S3 Compatible Object Storage and Google Cloud Storage over SFTP/SCP.
 - Prometheus metrics are exposed.
 - REST API for users management, backup, restore and real time reports of the active connections with possibility of forcibly closing a connection.
 - Web based interface to easily manage users and connections.
@@ -178,6 +178,7 @@ The `sftpgo` configuration file contains the following sections:
         - `http_notification_url`, a valid URL. Leave empty to disable.
     - `external_auth_program`, string. Absolute path to an external program to use for users authentication. See the "External Authentication" paragraph for more details.
     - `external_auth_scope`, integer. 0 means all supported authetication scopes (passwords, public keys and keyboard interactive). 1 means passwords only. 2 means public keys only. 4 means key keyboard interactive only. The flags can be combined, for example 6 means public keys and keyboard interactive
+    - `credentials_path`, string. It defines the directory for storing user provided credential files such as Google Cloud Storage credentials. This can be an absolute path or a path relative to the config dir
 - **"httpd"**, the configuration for the HTTP server used to serve REST API
     - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 8080
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"
@@ -232,7 +233,8 @@ Here is a full example showing the default config in JSON format:
       "http_notification_url": ""
     },
     "external_auth_program": "",
-    "external_auth_scope": 0
+    "external_auth_scope": 0,
+    "credentials_path": "credentials"
   },
   "httpd": {
     "bind_port": 8080,
@@ -270,10 +272,12 @@ Please note that to override configuration options with environment variables a 
 
 ### Data provider initialization
 
-Before starting `sftpgo serve` a data provider must be configured.
+Before starting `sftpgo serve` please ensure that the configured dataprovider is properly initialized.
 
-SQL scripts to create the required database structure can be found inside the source tree [sql](./sql "sql") directory. The SQL scripts filename is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190828.sql` must be applied before `20191112.sql` and so on.  
-Example for `sqlite`: `find sql/sqlite/ -type f -iname '*.sql' -print |sort -n|xargs cat |sqlite3 sftpgo.db`
+SQL based data providers (SQLite, MySQL, PostgreSQL) requires the creation of a database containing the required tables. Memory and bolt data providers does not require an initialization.
+
+SQL scripts to create the required database structure can be found inside the source tree [sql](./sql "sql") directory. The SQL scripts filename is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190828.sql` must be applied before `20191112.sql` and so on.
+Example for `SQLite`: `find sql/sqlite/ -type f -iname '*.sql' -print | sort -n |xargs cat | sqlite3 sftpgo.db`
 
 ### Starting SFTGo in server mode
 
@@ -482,13 +486,13 @@ The HTTP request has a 15 seconds timeout.
 
 ## S3 Compabible Object Storage backends
 
-Each user can be mapped with an S3-Compatible bucket or a bucket virtual folder, this way the mapped bucket/virtual folder is exposed over SFTP/SCP.
+Each user can be mapped to whole bucket or to a bucket virtual folder, this way the mapped bucket/virtual folder is exposed over SFTP/SCP.
 
-Specifying a different `key_prefix` you can assign different virtual folders of the same bucket to different users. This is similar to a chroot directory for local filesystem. The virtual folder identified by `key_prefix` does not need to be pre-created.
+Specifying a different `key_prefix` you can assign different virtual folders of the same bucket to different users. This is similar to a chroot directory for local filesystem. Each SFTP/SCP user can only access to the assigned virtual folder and to its contents The virtual folder identified by `key_prefix` does not need to be pre-created.
 
 SFTPGo uses multipart uploads and parallel downloads for storing and retrieving files from S3.
 
-SFTPGo tries to automatically create the mapped bucket if it does not exists but it's a better idea to pre-create the bucket and to assign to it the wanted options such as automatic encryption and authorizations.
+The configured bucket must exist.
 
 Some SFTP commands doesn't work over S3:
 
@@ -503,6 +507,21 @@ Other notes:
 - We don't support renaming non empty directories since we should rename all the contents too and this could take long time: think about directories with thousands of files, for each file we should do an AWS API call.
 - For server side encryption you have to configure the mapped bucket to automatically encrypt objects.
 - A local home directory is still required to store temporary files.
+
+## Google Cloud Storage backend
+
+Each user can be mapped with a Google Cloud Storage bucket or a bucket virtual folder, this way the mapped bucket/virtual folder is exposed over SFTP/SCP. This backend is very similar to the S3 backend and it has the same limitations.
+
+## Other Storage backends
+
+Adding new storage backends it's quite easy:
+
+- implement the [Fs interface](./vfs/vfs.go#L18 "interface for filesystem backends").
+- update the user method `GetFilesystem` to return the new backend
+- update the web interface and the REST API CLI
+- add the flags for the new storage backed to the `portable` mode
+
+Anyway some backends require a pay per use account (or they offer free account for a limited time period only), to be able to add support for such backends or to review pull requests please provide a test account. The test account must be available over the time to be able to maintain the backend and do basic tests before each new release.
 
 ## Portable mode
 
@@ -520,25 +539,29 @@ Usage:
   sftpgo portable [flags]
 
 Flags:
-  -C, --advertise-credentials     If the SFTP service is advertised via multicast DNS this flag allows to put username/password inside the advertised TXT record
-  -S, --advertise-service         Advertise SFTP service using multicast DNS (default true)
-  -d, --directory string          Path to the directory to serve. This can be an absolute path or a path relative to the current directory (default ".")
-  -f, --fs-provider int           0 means local filesystem, 1 S3 compatible
-  -h, --help                      help for portable
-  -l, --log-file-path string      Leave empty to disable logging
-  -p, --password string           Leave empty to use an auto generated value
-  -g, --permissions strings       User's permissions. "*" means any permission (default [list,download])
+  -C, --advertise-credentials         If the SFTP service is advertised via multicast DNS this flag allows to put username/password inside the advertised TXT record
+  -S, --advertise-service             Advertise SFTP service using multicast DNS (default true)
+  -d, --directory string              Path to the directory to serve. This can be an absolute path or a path relative to the current directory (default ".")
+  -f, --fs-provider int               0 means local filesystem, 1 Amazon S3 compatible, 2 Google Cloud Storage
+      --gcs-bucket string
+      --gcs-credentials-file string   Google Cloud Storage JSON credentials file
+      --gcs-key-prefix string         Allows to restrict access to the virtual folder identified by this prefix and its contents
+      --gcs-storage-class string
+  -h, --help                          help for portable
+  -l, --log-file-path string          Leave empty to disable logging
+  -p, --password string               Leave empty to use an auto generated value
+  -g, --permissions strings           User's permissions. "*" means any permission (default [list,download])
   -k, --public-key strings
       --s3-access-key string
       --s3-access-secret string
       --s3-bucket string
       --s3-endpoint string
-      --s3-key-prefix string      Allows to restrict access to the virtual folder identified by this prefix and its contents
+      --s3-key-prefix string          Allows to restrict access to the virtual folder identified by this prefix and its contents
       --s3-region string
       --s3-storage-class string
-  -s, --sftpd-port int            0 means a random non privileged port
-  -c, --ssh-commands strings      SSH commands to enable. "*" means any supported SSH command including scp (default [md5sum,sha1sum,cd,pwd])
-  -u, --username string           Leave empty to use an auto generated value
+  -s, --sftpd-port int                0 means a random non privileged port
+  -c, --ssh-commands strings          SSH commands to enable. "*" means any supported SSH command including scp (default [md5sum,sha1sum,cd,pwd])
+  -u, --username string               Leave empty to use an auto generated value
 ```
 
 In portable mode SFTPGo can advertise the SFTP service and, optionally, the credentials via multicast DNS, so there is a standard way to discover the service and to automatically connect to it.
@@ -592,6 +615,10 @@ For each account the following properties can be configured:
 - `s3_endpoint`, specifies s3 endpoint (server) different from AWS
 - `s3_storage_class`
 - `s3_key_prefix`, allows to restrict access to the virtual folder identified by this prefix and its contents
+- `gcs_bucket`, required for GCS filesystem
+- `gcs_credentials`, Google Cloud Storage JSON credentials base64 encoded
+- `gcs_storage_class`
+- `gcs_key_prefix`, allows to restrict access to the virtual folder identified by this prefix and its contents
 
 These properties are stored inside the data provider.
 

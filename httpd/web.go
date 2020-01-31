@@ -1,8 +1,11 @@
 package httpd
 
 import (
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -224,7 +227,7 @@ func getFiltersFromUserPostFields(r *http.Request) dataprovider.UserFilters {
 	return filters
 }
 
-func getFsConfigFromUserPostFields(r *http.Request) dataprovider.Filesystem {
+func getFsConfigFromUserPostFields(r *http.Request) (dataprovider.Filesystem, error) {
 	var fs dataprovider.Filesystem
 	provider, err := strconv.Atoi(r.Form.Get("fs_provider"))
 	if err != nil {
@@ -239,13 +242,33 @@ func getFsConfigFromUserPostFields(r *http.Request) dataprovider.Filesystem {
 		fs.S3Config.Endpoint = r.Form.Get("s3_endpoint")
 		fs.S3Config.StorageClass = r.Form.Get("s3_storage_class")
 		fs.S3Config.KeyPrefix = r.Form.Get("s3_key_prefix")
+	} else if fs.Provider == 2 {
+		fs.GCSConfig.Bucket = r.Form.Get("gcs_bucket")
+		fs.GCSConfig.StorageClass = r.Form.Get("gcs_storage_class")
+		fs.GCSConfig.KeyPrefix = r.Form.Get("gcs_key_prefix")
+		credentials, _, err := r.FormFile("gcs_credential_file")
+		if err == http.ErrMissingFile {
+			return fs, nil
+		}
+		if err != nil {
+			return fs, err
+		}
+		defer credentials.Close()
+		fileBytes, err := ioutil.ReadAll(credentials)
+		if err != nil || len(fileBytes) == 0 {
+			if len(fileBytes) == 0 {
+				err = errors.New("credentials file size must be greater than 0")
+			}
+			return fs, err
+		}
+		fs.GCSConfig.Credentials = base64.StdEncoding.EncodeToString(fileBytes)
 	}
-	return fs
+	return fs, nil
 }
 
 func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	var user dataprovider.User
-	err := r.ParseForm()
+	err := r.ParseMultipartForm(maxRequestSize)
 	if err != nil {
 		return user, err
 	}
@@ -292,6 +315,10 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 		}
 		expirationDateMillis = utils.GetTimeAsMsSinceEpoch(expirationDate)
 	}
+	fsConfig, err := getFsConfigFromUserPostFields(r)
+	if err != nil {
+		return user, err
+	}
 	user = dataprovider.User{
 		Username:          r.Form.Get("username"),
 		Password:          r.Form.Get("password"),
@@ -308,7 +335,7 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 		Status:            status,
 		ExpirationDate:    expirationDateMillis,
 		Filters:           getFiltersFromUserPostFields(r),
-		FsConfig:          getFsConfigFromUserPostFields(r),
+		FsConfig:          fsConfig,
 	}
 	return user, err
 }
@@ -365,6 +392,7 @@ func handleWebUpdateUserGet(userID string, w http.ResponseWriter, r *http.Reques
 }
 
 func handleWebAddUserPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	user, err := getUserFromPostFields(r)
 	if err != nil {
 		renderAddUserPage(w, user, err.Error())
@@ -379,6 +407,7 @@ func handleWebAddUserPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebUpdateUserPost(userID string, w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	id, err := strconv.ParseInt(userID, 10, 64)
 	if err != nil {
 		renderBadRequestPage(w, err)

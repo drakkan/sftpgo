@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -146,6 +147,7 @@ func (s *Service) StartPortableMode(sftpdPort int, enabledSSHCommands []string, 
 	}
 	dataProviderConf := config.GetProviderConf()
 	dataProviderConf.Driver = dataprovider.MemoryDataProviderName
+	dataProviderConf.CredentialsPath = filepath.Join(os.TempDir(), "credentials")
 	config.SetProviderConf(dataProviderConf)
 	httpdConf := config.GetHTTPDConfig()
 	httpdConf.BindPort = 0

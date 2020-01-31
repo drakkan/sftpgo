@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// S3FileInfo implements os.FileInfo for a file in S3.
-type S3FileInfo struct {
+// FileInfo implements os.FileInfo for a file in S3.
+type FileInfo struct {
 	name        string
 	sizeInBytes int64
 	modTime     time.Time
@@ -14,14 +14,14 @@ type S3FileInfo struct {
 	sys         interface{}
 }
 
-// NewS3FileInfo creates file info.
-func NewS3FileInfo(name string, isDirectory bool, sizeInBytes int64, modTime time.Time) S3FileInfo {
+// NewFileInfo creates file info.
+func NewFileInfo(name string, isDirectory bool, sizeInBytes int64, modTime time.Time) FileInfo {
 	mode := os.FileMode(0644)
 	if isDirectory {
 		mode = os.FileMode(0755) | os.ModeDir
 	}
 
-	return S3FileInfo{
+	return FileInfo{
 		name:        name,
 		sizeInBytes: sizeInBytes,
 		modTime:     modTime,
@@ -30,31 +30,31 @@ func NewS3FileInfo(name string, isDirectory bool, sizeInBytes int64, modTime tim
 }
 
 // Name provides the base name of the file.
-func (fi S3FileInfo) Name() string {
+func (fi FileInfo) Name() string {
 	return fi.name
 }
 
 // Size provides the length in bytes for a file.
-func (fi S3FileInfo) Size() int64 {
+func (fi FileInfo) Size() int64 {
 	return fi.sizeInBytes
 }
 
 // Mode provides the file mode bits
-func (fi S3FileInfo) Mode() os.FileMode {
+func (fi FileInfo) Mode() os.FileMode {
 	return fi.mode
 }
 
 // ModTime provides the last modification time.
-func (fi S3FileInfo) ModTime() time.Time {
+func (fi FileInfo) ModTime() time.Time {
 	return fi.modTime
 }
 
 // IsDir provides the abbreviation for Mode().IsDir()
-func (fi S3FileInfo) IsDir() bool {
+func (fi FileInfo) IsDir() bool {
 	return fi.mode&os.ModeDir != 0
 }
 
 // Sys provides the underlying data source (can return nil)
-func (fi S3FileInfo) Sys() interface{} {
+func (fi FileInfo) Sys() interface{} {
 	return fi.getFileInfoSys()
 }

@@ -55,9 +55,10 @@ type UserFilters struct {
 
 // Filesystem defines cloud storage filesystem details
 type Filesystem struct {
-	// 0 local filesystem, 1 Amazon S3 compatible
-	Provider int            `json:"provider"`
-	S3Config vfs.S3FsConfig `json:"s3config,omitempty"`
+	// 0 local filesystem, 1 Amazon S3 compatible, 2 Google Cloud Storage
+	Provider  int             `json:"provider"`
+	S3Config  vfs.S3FsConfig  `json:"s3config,omitempty"`
+	GCSConfig vfs.GCSFsConfig `json:"gcsconfig,omitempty"`
 }
 
 // User defines an SFTP user
@@ -73,7 +74,7 @@ type User struct {
 	ExpirationDate int64 `json:"expiration_date"`
 	// Password used for password authentication.
 	// For users created using SFTPGo REST API the password is be stored using argon2id hashing algo.
-	// Checking passwords stored with bcrypt, pbkdf2 and sha512crypt is supported too.
+	// Checking passwords stored with bcrypt, pbkdf2, md5crypt and sha512crypt is supported too.
 	Password string `json:"password,omitempty"`
 	// PublicKeys used for public key authentication. At least one between password and a public key is mandatory
 	PublicKeys []string `json:"public_keys,omitempty"`
@@ -113,6 +114,10 @@ type User struct {
 func (u *User) GetFilesystem(connectionID string) (vfs.Fs, error) {
 	if u.FsConfig.Provider == 1 {
 		return vfs.NewS3Fs(connectionID, u.GetHomeDir(), u.FsConfig.S3Config)
+	} else if u.FsConfig.Provider == 2 {
+		config := u.FsConfig.GCSConfig
+		config.CredentialFile = u.getGCSCredentialsFilePath()
+		return vfs.NewGCSFs(connectionID, u.GetHomeDir(), config)
 	}
 	return vfs.NewOsFs(connectionID, u.GetHomeDir()), nil
 }
@@ -321,7 +326,8 @@ func (u *User) GetBandwidthAsString() string {
 }
 
 // GetInfoString returns user's info as string.
-// Number of public keys, max sessions, uid and gid are returned
+// Storage provider, number of public keys, max sessions, uid,
+// gid, denied and allowed IP/Mask are returned
 func (u *User) GetInfoString() string {
 	var result string
 	if u.LastLogin > 0 {
@@ -329,7 +335,9 @@ func (u *User) GetInfoString() string {
 		result += fmt.Sprintf("Last login: %v ", t.Format("2006-01-02 15:04:05")) // YYYY-MM-DD HH:MM:SS
 	}
 	if u.FsConfig.Provider == 1 {
-		result += fmt.Sprintf("Storage: S3")
+		result += fmt.Sprintf("Storage: S3 ")
+	} else if u.FsConfig.Provider == 2 {
+		result += fmt.Sprintf("Storage: GCS ")
 	}
 	if len(u.PublicKeys) > 0 {
 		result += fmt.Sprintf("Public keys: %v ", len(u.PublicKeys))
@@ -410,6 +418,12 @@ func (u *User) getACopy() User {
 			StorageClass: u.FsConfig.S3Config.StorageClass,
 			KeyPrefix:    u.FsConfig.S3Config.KeyPrefix,
 		},
+		GCSConfig: vfs.GCSFsConfig{
+			Bucket:         u.FsConfig.GCSConfig.Bucket,
+			CredentialFile: u.FsConfig.GCSConfig.CredentialFile,
+			StorageClass:   u.FsConfig.GCSConfig.StorageClass,
+			KeyPrefix:      u.FsConfig.GCSConfig.KeyPrefix,
+		},
 	}
 
 	return User{
@@ -457,4 +471,8 @@ func (u *User) getNotificationFieldsAsEnvVars(action string) []string {
 		fmt.Sprintf("SFTPGO_USER_HOME_DIR=%v", u.HomeDir),
 		fmt.Sprintf("SFTPGO_USER_UID=%v", u.UID),
 		fmt.Sprintf("SFTPGO_USER_GID=%v", u.GID)}
+}
+
+func (u *User) getGCSCredentialsFilePath() string {
+	return filepath.Join(credentialsDirPath, fmt.Sprintf("%v_gcs_credentials.json", u.Username))
 }

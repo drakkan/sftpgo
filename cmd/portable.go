@@ -1,6 +1,10 @@
 package cmd
 
 import (
+	"encoding/base64"
+	"fmt"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/drakkan/sftpgo/dataprovider"
@@ -29,6 +33,10 @@ var (
 	portableS3Endpoint           string
 	portableS3StorageClass       string
 	portableS3KeyPrefix          string
+	portableGCSBucket            string
+	portableGCSCredentialsFile   string
+	portableGCSStorageClass      string
+	portableGCSKeyPrefix         string
 	portableCmd                  = &cobra.Command{
 		Use:   "portable",
 		Short: "Serve a single directory",
@@ -44,6 +52,24 @@ Please take a look at the usage below to customize the serving parameters`,
 			}
 			permissions := make(map[string][]string)
 			permissions["/"] = portablePermissions
+			portableGCSCredentials := ""
+			if portableFsProvider == 2 {
+				fi, err := os.Stat(portableGCSCredentialsFile)
+				if err != nil {
+					fmt.Printf("Invalid GCS credentials file: %v\n", err)
+					return
+				}
+				if fi.Size() > 1048576 {
+					fmt.Printf("Invalid GCS credentials file: %#v is too big %v/1048576 bytes\n", portableGCSCredentialsFile,
+						fi.Size())
+					return
+				}
+				creds, err := ioutil.ReadFile(portableGCSCredentialsFile)
+				if err != nil {
+					fmt.Printf("Unable to read credentials file: %v\n", err)
+				}
+				portableGCSCredentials = base64.StdEncoding.EncodeToString(creds)
+			}
 			service := service.Service{
 				ConfigDir:     defaultConfigDir,
 				ConfigFile:    defaultConfigName,
@@ -73,6 +99,12 @@ Please take a look at the usage below to customize the serving parameters`,
 							StorageClass: portableS3StorageClass,
 							KeyPrefix:    portableS3KeyPrefix,
 						},
+						GCSConfig: vfs.GCSFsConfig{
+							Bucket:       portableGCSBucket,
+							Credentials:  portableGCSCredentials,
+							StorageClass: portableGCSStorageClass,
+							KeyPrefix:    portableGCSKeyPrefix,
+						},
 					},
 				},
 			}
@@ -100,7 +132,8 @@ func init() {
 		"Advertise SFTP service using multicast DNS")
 	portableCmd.Flags().BoolVarP(&portableAdvertiseCredentials, "advertise-credentials", "C", false,
 		"If the SFTP service is advertised via multicast DNS this flag allows to put username/password inside the advertised TXT record")
-	portableCmd.Flags().IntVarP(&portableFsProvider, "fs-provider", "f", 0, "0 means local filesystem, 1 S3 compatible")
+	portableCmd.Flags().IntVarP(&portableFsProvider, "fs-provider", "f", 0, "0 means local filesystem, 1 Amazon S3 compatible, "+
+		"2 Google Cloud Storage")
 	portableCmd.Flags().StringVar(&portableS3Bucket, "s3-bucket", "", "")
 	portableCmd.Flags().StringVar(&portableS3Region, "s3-region", "", "")
 	portableCmd.Flags().StringVar(&portableS3AccessKey, "s3-access-key", "", "")
@@ -109,5 +142,10 @@ func init() {
 	portableCmd.Flags().StringVar(&portableS3StorageClass, "s3-storage-class", "", "")
 	portableCmd.Flags().StringVar(&portableS3KeyPrefix, "s3-key-prefix", "", "Allows to restrict access to the virtual folder "+
 		"identified by this prefix and its contents")
+	portableCmd.Flags().StringVar(&portableGCSBucket, "gcs-bucket", "", "")
+	portableCmd.Flags().StringVar(&portableGCSStorageClass, "gcs-storage-class", "", "")
+	portableCmd.Flags().StringVar(&portableGCSKeyPrefix, "gcs-key-prefix", "", "Allows to restrict access to the virtual folder "+
+		"identified by this prefix and its contents")
+	portableCmd.Flags().StringVar(&portableGCSCredentialsFile, "gcs-credentials-file", "", "Google Cloud Storage JSON credentials file")
 	rootCmd.AddCommand(portableCmd)
 }

@@ -21,15 +21,15 @@ import (
 	"github.com/eikenb/pipeat"
 )
 
-// S3FsConfig defines the configuration for S3fs
+// S3FsConfig defines the configuration for S3 based filesystem
 type S3FsConfig struct {
 	Bucket string `json:"bucket,omitempty"`
 	// KeyPrefix is similar to a chroot directory for local filesystem.
-	// If specified the SFTP user will only see contents that starts with
+	// If specified the SFTP user will only see objects that starts with
 	// this prefix and so you can restrict access to a specific virtual
 	// folder. The prefix, if not empty, must not start with "/" and must
 	// end with "/".
-	//If empty the whole bucket contents will be available
+	// If empty the whole bucket contents will be available
 	KeyPrefix    string `json:"key_prefix,omitempty"`
 	Region       string `json:"region,omitempty"`
 	AccessKey    string `json:"access_key,omitempty"`
@@ -70,7 +70,6 @@ func NewS3Fs(connectionID, localTempDir string, config S3FsConfig) (Fs, error) {
 		Region:      aws.String(fs.config.Region),
 		Credentials: credentials.NewStaticCredentials(fs.config.AccessKey, fs.config.AccessSecret, ""),
 	}
-	//config.WithLogLevel(aws.LogDebugWithHTTPBody)
 	if len(fs.config.Endpoint) > 0 {
 		awsConfig.Endpoint = aws.String(fs.config.Endpoint)
 		awsConfig.S3ForcePathStyle = aws.Bool(true)
@@ -95,16 +94,16 @@ func (fs S3Fs) ConnectionID() string {
 
 // Stat returns a FileInfo describing the named file
 func (fs S3Fs) Stat(name string) (os.FileInfo, error) {
-	var result S3FileInfo
+	var result FileInfo
 	if name == "/" || name == "." {
 		err := fs.checkIfBucketExists()
 		if err != nil {
 			return result, err
 		}
-		return NewS3FileInfo(name, true, 0, time.Time{}), nil
+		return NewFileInfo(name, true, 0, time.Time{}), nil
 	}
 	if "/"+fs.config.KeyPrefix == name+"/" {
-		return NewS3FileInfo(name, true, 0, time.Time{}), nil
+		return NewFileInfo(name, true, 0, time.Time{}), nil
 	}
 	prefix := path.Dir(name)
 	if prefix == "/" || prefix == "." {
@@ -124,7 +123,7 @@ func (fs S3Fs) Stat(name string) (os.FileInfo, error) {
 	}, func(page *s3.ListObjectsV2Output, lastPage bool) bool {
 		for _, p := range page.CommonPrefixes {
 			if fs.isEqual(p.Prefix, name) {
-				result = NewS3FileInfo(name, true, 0, time.Time{})
+				result = NewFileInfo(name, true, 0, time.Time{})
 				return false
 			}
 		}
@@ -133,7 +132,7 @@ func (fs S3Fs) Stat(name string) (os.FileInfo, error) {
 				objectSize := *fileObject.Size
 				objectModTime := *fileObject.LastModified
 				isDir := strings.HasSuffix(*fileObject.Key, "/")
-				result = NewS3FileInfo(name, isDir, objectSize, objectModTime)
+				result = NewFileInfo(name, isDir, objectSize, objectModTime)
 				return false
 			}
 		}
@@ -325,7 +324,7 @@ func (fs S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	}, func(page *s3.ListObjectsV2Output, lastPage bool) bool {
 		for _, p := range page.CommonPrefixes {
 			name, isDir := fs.resolve(p.Prefix, prefix)
-			result = append(result, NewS3FileInfo(name, isDir, 0, time.Time{}))
+			result = append(result, NewFileInfo(name, isDir, 0, time.Time{}))
 		}
 		for _, fileObject := range page.Contents {
 			objectSize := *fileObject.Size
@@ -334,7 +333,7 @@ func (fs S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 			if len(name) == 0 {
 				continue
 			}
-			result = append(result, NewS3FileInfo(name, isDir, objectSize, objectModTime))
+			result = append(result, NewFileInfo(name, isDir, objectSize, objectModTime))
 		}
 		return true
 	})
@@ -394,23 +393,7 @@ func (fs S3Fs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
 	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir)
 	osFs.CheckRootPath(username, uid, gid)
-	err := fs.checkIfBucketExists()
-	if err == nil {
-		return true
-	}
-	if !fs.IsNotExist(err) {
-		return false
-	}
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-	defer cancelFn()
-	input := &s3.CreateBucketInput{
-		Bucket: aws.String(fs.config.Bucket),
-	}
-	_, err = fs.svc.CreateBucketWithContext(ctx, input)
-	fsLog(fs, logger.LevelDebug, "bucket %#v for user %#v does not exists, try to create, error: %v",
-		fs.config.Bucket, username, err)
-	metrics.S3CreateBucketCompleted(err)
-	return err == nil
+	return fs.checkIfBucketExists() != nil
 }
 
 // ScanRootDirContents returns the number of files contained in the bucket,

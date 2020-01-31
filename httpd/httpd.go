@@ -33,6 +33,7 @@ const (
 	webConnectionsPath    = "/web/connections"
 	webStaticFilesPath    = "/static"
 	maxRestoreSize        = 10485760 // 10 MB
+	maxRequestSize        = 1048576  // 1MB
 )
 
 var (

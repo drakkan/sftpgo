@@ -3,9 +3,12 @@ package httpd_test
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -56,6 +59,7 @@ var (
 	defaultPerms       = []string{dataprovider.PermAny}
 	homeBasePath       string
 	backupsPath        string
+	credentialsPath    string
 	testServer         *httptest.Server
 	providerDriverName string
 )
@@ -66,7 +70,10 @@ func TestMain(m *testing.M) {
 	logger.InitLogger(logfilePath, 5, 1, 28, false, zerolog.DebugLevel)
 	config.LoadConfig(configDir, "")
 	providerConf := config.GetProviderConf()
+	credentialsPath = filepath.Join(os.TempDir(), "test_credentials")
+	providerConf.CredentialsPath = credentialsPath
 	providerDriverName = providerConf.Driver
+	os.RemoveAll(credentialsPath)
 
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
@@ -102,6 +109,7 @@ func TestMain(m *testing.M) {
 	exitCode := m.Run()
 	os.Remove(logfilePath)
 	os.RemoveAll(backupsPath)
+	os.RemoveAll(credentialsPath)
 	os.Exit(exitCode)
 }
 
@@ -250,6 +258,8 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
 	}
+	os.RemoveAll(credentialsPath)
+	os.MkdirAll(credentialsPath, 0700)
 	u.FsConfig.S3Config.Bucket = "test"
 	u.FsConfig.S3Config.Region = "eu-west-1"
 	u.FsConfig.S3Config.AccessKey = "access-key"
@@ -257,6 +267,32 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/path?a=b"
 	u.FsConfig.S3Config.StorageClass = "Standard"
 	u.FsConfig.S3Config.KeyPrefix = "/somedir/subdir/"
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
+	}
+	u = getTestUser()
+	u.FsConfig.Provider = 2
+	u.FsConfig.GCSConfig.Bucket = ""
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
+	}
+	u.FsConfig.GCSConfig.Bucket = "test"
+	u.FsConfig.GCSConfig.StorageClass = "Standard"
+	u.FsConfig.GCSConfig.KeyPrefix = "/somedir/subdir/"
+	u.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString([]byte("test"))
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
+	}
+	u.FsConfig.GCSConfig.KeyPrefix = "somedir/subdir/"
+	u.FsConfig.GCSConfig.Credentials = ""
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
+	}
+	u.FsConfig.GCSConfig.Credentials = "no base64 encoded"
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
@@ -357,6 +393,56 @@ func TestUserS3Config(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
 	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove: %v", err)
+	}
+}
+
+func TestUserGCSConfig(t *testing.T) {
+	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	os.RemoveAll(credentialsPath)
+	os.MkdirAll(credentialsPath, 0700)
+	user.FsConfig.Provider = 2
+	user.FsConfig.GCSConfig.Bucket = "test"
+	user.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString([]byte("fake credentials"))
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove: %v", err)
+	}
+	user.Password = defaultPassword
+	user.ID = 0
+	// the user will be added since the credentials file is found
+	user, _, err = httpd.AddUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	user.FsConfig.Provider = 1
+	user.FsConfig.S3Config.Bucket = "test1"
+	user.FsConfig.S3Config.Region = "us-east-1"
+	user.FsConfig.S3Config.AccessKey = "Server-Access-Key1"
+	user.FsConfig.S3Config.AccessSecret = "secret"
+	user.FsConfig.S3Config.Endpoint = "http://localhost:9000"
+	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir"
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	user.FsConfig.Provider = 2
+	user.FsConfig.GCSConfig.Bucket = "test1"
+	user.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString([]byte("fake credentials"))
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove: %v", err)
@@ -594,6 +680,8 @@ func TestUserBaseDir(t *testing.T) {
 	dataprovider.Close(dataProvider)
 	config.LoadConfig(configDir, "")
 	providerConf = config.GetProviderConf()
+	providerConf.CredentialsPath = credentialsPath
+	os.RemoveAll(credentialsPath)
 	err = dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
 		t.Errorf("error initializing data provider")
@@ -646,6 +734,8 @@ func TestProviderErrors(t *testing.T) {
 	os.Remove(backupFilePath)
 	config.LoadConfig(configDir, "")
 	providerConf := config.GetProviderConf()
+	providerConf.CredentialsPath = credentialsPath
+	os.RemoveAll(credentialsPath)
 	err = dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
 		t.Errorf("error initializing data provider")
@@ -655,7 +745,17 @@ func TestProviderErrors(t *testing.T) {
 }
 
 func TestDumpdata(t *testing.T) {
-	_, _, err := httpd.Dumpdata("", http.StatusBadRequest)
+	dataProvider := dataprovider.GetProvider()
+	dataprovider.Close(dataProvider)
+	config.LoadConfig(configDir, "")
+	providerConf := config.GetProviderConf()
+	err := dataprovider.Initialize(providerConf, configDir)
+	if err != nil {
+		t.Errorf("error initializing data provider")
+	}
+	httpd.SetDataProvider(dataprovider.GetProvider())
+	sftpd.SetDataProvider(dataprovider.GetProvider())
+	_, _, err = httpd.Dumpdata("", http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -680,6 +780,15 @@ func TestDumpdata(t *testing.T) {
 		}
 		os.Chmod(backupsPath, 0755)
 	}
+	providerConf = config.GetProviderConf()
+	providerConf.CredentialsPath = credentialsPath
+	os.RemoveAll(credentialsPath)
+	err = dataprovider.Initialize(providerConf, configDir)
+	if err != nil {
+		t.Errorf("error initializing data provider")
+	}
+	httpd.SetDataProvider(dataprovider.GetProvider())
+	sftpd.SetDataProvider(dataprovider.GetProvider())
 }
 
 func TestLoaddata(t *testing.T) {
@@ -1228,16 +1337,23 @@ func TestBasicWebUsersMock(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr.Code)
 	form := make(url.Values)
 	form.Set("username", user.Username)
-	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
+	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
-	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), strings.NewReader(form.Encode()))
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
-	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/0", strings.NewReader(form.Encode()))
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/0", &b)
+	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr.Code)
-	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/a", strings.NewReader(form.Encode()))
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/a", &b)
+	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr.Code)
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
@@ -1261,90 +1377,103 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("expiration_date", "")
 	form.Set("permissions", "*")
 	form.Set("sub_dirs_permissions", " /subdir:list ,download ")
+	b, contentType, _ := getMultipartFormData(form, "", "")
 	// test invalid url escape
-	req, _ := http.NewRequest(http.MethodPost, webUserPath+"?a=%2", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req, _ := http.NewRequest(http.MethodPost, webUserPath+"?a=%2", &b)
+	req.Header.Set("Content-Type", contentType)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	form.Set("public_keys", testPubKey)
 	form.Set("uid", strconv.FormatInt(int64(user.UID), 10))
 	form.Set("gid", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
 	// test invalid gid
-	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	form.Set("gid", "0")
 	form.Set("max_sessions", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
 	// test invalid max sessions
-	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	form.Set("max_sessions", "0")
 	form.Set("quota_size", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
 	// test invalid quota size
-	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	form.Set("quota_size", "0")
 	form.Set("quota_files", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
 	// test invalid quota files
-	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	form.Set("quota_files", "0")
 	form.Set("upload_bandwidth", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
 	// test invalid upload bandwidth
-	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	form.Set("upload_bandwidth", strconv.FormatInt(user.UploadBandwidth, 10))
 	form.Set("download_bandwidth", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
 	// test invalid download bandwidth
-	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	form.Set("download_bandwidth", strconv.FormatInt(user.DownloadBandwidth, 10))
 	form.Set("status", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
 	// test invalid status
-	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	form.Set("status", strconv.Itoa(user.Status))
 	form.Set("expiration_date", "123")
+	b, contentType, _ = getMultipartFormData(form, "", "")
 	// test invalid expiration date
-	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	form.Set("expiration_date", "")
 	form.Set("allowed_ip", "invalid,ip")
+	b, contentType, _ = getMultipartFormData(form, "", "")
 	// test invalid allowed_ip
-	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	form.Set("allowed_ip", "")
 	form.Set("denied_ip", "192.168.1.2") // it should be 192.168.1.2/32
+	b, contentType, _ = getMultipartFormData(form, "", "")
 	// test invalid denied_ip
-	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	form.Set("denied_ip", "")
-	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr.Code)
 	// the user already exists, was created with the above request
-	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	req, _ = http.NewRequest(http.MethodGet, userPath+"?limit=1&offset=0&order=ASC&username="+user.Username, nil)
@@ -1356,7 +1485,7 @@ func TestWebUserAddMock(t *testing.T) {
 		t.Errorf("Error decoding users: %v", err)
 	}
 	if len(users) != 1 {
-		t.Errorf("1 user is expected")
+		t.Errorf("1 user is expected, actual: %v", len(users))
 	}
 	newUser := users[0]
 	if newUser.UID != user.UID {
@@ -1413,8 +1542,9 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("expiration_date", "2020-01-01 00:00:00")
 	form.Set("allowed_ip", " 192.168.1.3/32, 192.168.2.0/24 ")
 	form.Set("denied_ip", " 10.0.0.2/32 ")
-	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr.Code)
 	req, _ = http.NewRequest(http.MethodGet, userPath+"?limit=1&offset=0&order=ASC&username="+user.Username, nil)
@@ -1504,8 +1634,9 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("s3_storage_class", user.FsConfig.S3Config.StorageClass)
 	form.Set("s3_endpoint", user.FsConfig.S3Config.Endpoint)
 	form.Set("s3_key_prefix", user.FsConfig.S3Config.KeyPrefix)
-	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr.Code)
 	req, _ = http.NewRequest(http.MethodGet, userPath+"?limit=1&offset=0&order=ASC&username="+user.Username, nil)
@@ -1552,6 +1683,97 @@ func TestWebUserS3Mock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr.Code)
 }
 
+func TestWebUserGCSMock(t *testing.T) {
+	user := getTestUser()
+	userAsJSON := getUserAsJSON(t, user)
+	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	err := render.DecodeJSON(rr.Body, &user)
+	if err != nil {
+		t.Errorf("Error get user: %v", err)
+	}
+	credentialsFilePath := filepath.Join(os.TempDir(), "gcs.json")
+	err = createTestFile(credentialsFilePath, 0)
+	if err != nil {
+		t.Errorf("unable to create credential test file: %v", err)
+	}
+	user.FsConfig.Provider = 2
+	user.FsConfig.GCSConfig.Bucket = "test"
+	user.FsConfig.GCSConfig.KeyPrefix = "somedir/subdir/"
+	user.FsConfig.GCSConfig.StorageClass = "standard"
+	form := make(url.Values)
+	form.Set("username", user.Username)
+	form.Set("home_dir", user.HomeDir)
+	form.Set("uid", "0")
+	form.Set("gid", strconv.FormatInt(int64(user.GID), 10))
+	form.Set("max_sessions", strconv.FormatInt(int64(user.MaxSessions), 10))
+	form.Set("quota_size", strconv.FormatInt(user.QuotaSize, 10))
+	form.Set("quota_files", strconv.FormatInt(int64(user.QuotaFiles), 10))
+	form.Set("upload_bandwidth", "0")
+	form.Set("download_bandwidth", "0")
+	form.Set("permissions", "*")
+	form.Set("sub_dirs_permissions", "")
+	form.Set("status", strconv.Itoa(user.Status))
+	form.Set("expiration_date", "2020-01-01 00:00:00")
+	form.Set("allowed_ip", "")
+	form.Set("denied_ip", "")
+	form.Set("fs_provider", "2")
+	form.Set("gcs_bucket", user.FsConfig.GCSConfig.Bucket)
+	form.Set("gcs_storage_class", user.FsConfig.GCSConfig.StorageClass)
+	form.Set("gcs_key_prefix", user.FsConfig.GCSConfig.KeyPrefix)
+	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	b, contentType, _ = getMultipartFormData(form, "gcs_credential_file", credentialsFilePath)
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	err = createTestFile(credentialsFilePath, 4096)
+	if err != nil {
+		t.Errorf("unable to create credential test file: %v", err)
+	}
+	b, contentType, _ = getMultipartFormData(form, "gcs_credential_file", credentialsFilePath)
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr.Code)
+	req, _ = http.NewRequest(http.MethodGet, userPath+"?limit=1&offset=0&order=ASC&username="+user.Username, nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	var users []dataprovider.User
+	err = render.DecodeJSON(rr.Body, &users)
+	if err != nil {
+		t.Errorf("Error decoding users: %v", err)
+	}
+	if len(users) != 1 {
+		t.Errorf("1 user is expected")
+	}
+	updateUser := users[0]
+	if updateUser.ExpirationDate != 1577836800000 {
+		t.Errorf("invalid expiration date: %v", updateUser.ExpirationDate)
+	}
+	if updateUser.FsConfig.Provider != user.FsConfig.Provider {
+		t.Error("fs provider mismatch")
+	}
+	if updateUser.FsConfig.GCSConfig.Bucket != user.FsConfig.GCSConfig.Bucket {
+		t.Error("GCS bucket mismatch")
+	}
+	if updateUser.FsConfig.GCSConfig.StorageClass != user.FsConfig.GCSConfig.StorageClass {
+		t.Error("GCS storage class mismatch")
+	}
+	if updateUser.FsConfig.GCSConfig.KeyPrefix != user.FsConfig.GCSConfig.KeyPrefix {
+		t.Error("GCS key prefix mismatch")
+	}
+	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	os.Remove(credentialsFilePath)
+}
+
 func TestProviderClosedMock(t *testing.T) {
 	if providerDriverName == dataprovider.BoltDataProviderName {
 		t.Skip("skipping test provider errors for bolt provider")
@@ -1571,6 +1793,8 @@ func TestProviderClosedMock(t *testing.T) {
 	checkResponseCode(t, http.StatusInternalServerError, rr.Code)
 	config.LoadConfig(configDir, "")
 	providerConf := config.GetProviderConf()
+	providerConf.CredentialsPath = credentialsPath
+	os.RemoveAll(credentialsPath)
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
 		t.Errorf("error initializing data provider")
@@ -1644,9 +1868,38 @@ func createTestFile(path string, size int64) error {
 		os.MkdirAll(baseDir, 0777)
 	}
 	content := make([]byte, size)
-	_, err := rand.Read(content)
-	if err != nil {
-		return err
+	if size > 0 {
+		_, err := rand.Read(content)
+		if err != nil {
+			return err
+		}
 	}
 	return ioutil.WriteFile(path, content, 0666)
+}
+
+func getMultipartFormData(values url.Values, fileFieldName, filePath string) (bytes.Buffer, string, error) {
+	var b bytes.Buffer
+	w := multipart.NewWriter(&b)
+	for k, v := range values {
+		for _, s := range v {
+			if err := w.WriteField(k, s); err != nil {
+				return b, "", err
+			}
+		}
+	}
+	if len(fileFieldName) > 0 && len(filePath) > 0 {
+		fw, err := w.CreateFormFile(fileFieldName, filepath.Base(filePath))
+		if err != nil {
+			return b, "", err
+		}
+		f, err := os.Open(filePath)
+		if err != nil {
+			return b, "", err
+		}
+		if _, err = io.Copy(fw, f); err != nil {
+			return b, "", err
+		}
+	}
+	err := w.Close()
+	return b, w.FormDataContentType(), err
 }

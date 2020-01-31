@@ -15,7 +15,7 @@
     <div class="card-body text-form-error">{{.Error}}</div>
 </div>
 {{end}}
-<form id="user_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
+<form id="user_form" enctype="multipart/form-data" action="{{.CurrentURL}}" method="POST" autocomplete="off">
     <div class="form-group row">
         <label for="idUsername" class="col-sm-2 col-form-label">Username</label>
         <div class="col-sm-10">
@@ -194,14 +194,15 @@
     <div class="form-group row">
         <label for="idFilesystem" class="col-sm-2 col-form-label">Storage</label>
         <div class="col-sm-10">
-            <select class="form-control" id="idFilesystem" name="fs_provider">
+            <select class="form-control" id="idFilesystem" name="fs_provider" onchange="onFilesystemChanged(this.value)">
                 <option value="0" {{if eq .User.FsConfig.Provider 0 }}selected{{end}}>local</option>
-                <option value="1" {{if eq .User.FsConfig.Provider 1 }}selected{{end}}>S3</option>
+                <option value="1" {{if eq .User.FsConfig.Provider 1 }}selected{{end}}>Amazon S3 (Compatible)</option>
+                <option value="2" {{if eq .User.FsConfig.Provider 2 }}selected{{end}}>Google Cloud Storage</option>
             </select>
         </div>
     </div>
 
-    <div class="form-group row">
+    <div class="form-group row s3">
         <label for="idS3Bucket" class="col-sm-2 col-form-label">S3 Bucket</label>
         <div class="col-sm-3">
             <input type="text" class="form-control" id="idS3Bucket" name="s3_bucket" placeholder=""
@@ -215,7 +216,7 @@
         </div>
     </div>
 
-    <div class="form-group row">
+    <div class="form-group row s3">
         <label for="idS3AccessKey" class="col-sm-2 col-form-label">S3 Access Key</label>
         <div class="col-sm-3">
             <input type="text" class="form-control" id="idS3AccessKey" name="s3_access_key" placeholder=""
@@ -229,7 +230,7 @@
         </div>
     </div>
 
-    <div class="form-group row">
+    <div class="form-group row s3">
         <label for="idS3StorageClass" class="col-sm-2 col-form-label">S3 Storage Class</label>
         <div class="col-sm-3">
             <input type="text" class="form-control" id="idS3StorageClass" name="s3_storage_class" placeholder=""
@@ -243,7 +244,7 @@
         </div>
     </div>
 
-    <div class="form-group row">
+    <div class="form-group row s3">
         <label for="idS3KeyPrefix" class="col-sm-2 col-form-label">S3 Key Prefix</label>
         <div class="col-sm-10">
             <input type="text" class="form-control" id="idS3KeyPrefix" name="s3_key_prefix" placeholder=""
@@ -253,6 +254,43 @@
             </small>
         </div>
     </div>
+
+    <div class="form-group row gcs">
+        <label for="idGCSBucket" class="col-sm-2 col-form-label">GCS Bucket</label>
+        <div class="col-sm-10">
+            <input type="text" class="form-control" id="idGCSBucket" name="gcs_bucket" placeholder=""
+                value="{{.User.FsConfig.GCSConfig.Bucket}}" maxlength="255">
+        </div>
+    </div>
+
+    <div class="form-group row gcs">
+        <label for="idGCSCredentialFile" class="col-sm-2 col-form-label">GCS Credential file</label>
+        <div class="col-sm-4">
+            <input type="file" class="form-control-file" id="idGCSCredentialFile" name="gcs_credential_file"
+                aria-describedby="GCSCredentialsHelpBlock">
+            <small id="GCSCredentialsHelpBlock" class="form-text text-muted">
+                Add or update credentials from a JSON file
+            </small>
+        </div>
+        <div class="col-sm-1"></div>
+        <label for="idGCSStorageClass" class="col-sm-2 col-form-label">GCS Storage Class</label>
+        <div class="col-sm-3">
+            <input type="text" class="form-control" id="idGCSStorageClass" name="gcs_storage_class" placeholder=""
+                value="{{.User.FsConfig.GCSConfig.StorageClass}}" maxlength="255">
+        </div>
+    </div>
+
+    <div class="form-group row gcs">
+        <label for="idGCSKeyPrefix" class="col-sm-2 col-form-label">GCS Key Prefix</label>
+        <div class="col-sm-10">
+            <input type="text" class="form-control" id="idGCSKeyPrefix" name="gcs_key_prefix" placeholder=""
+                value="{{.User.FsConfig.GCSConfig.KeyPrefix}}" maxlength="255" aria-describedby="GCSKeyPrefixHelpBlock">
+            <small id="GCSKeyPrefixHelpBlock" class="form-text text-muted">
+                Similar to a chroot for local filesystem. Cannot start with "/". Example: "somedir/subdir/".
+            </small>
+        </div>
+    </div>
+
 
     <input type="hidden" name="expiration_date" id="hidden_start_datetime" value="">
     <button type="submit" class="btn btn-primary float-right mt-3 mb-5 px-5 px-3">Submit</button>
@@ -295,6 +333,22 @@
             }
             return true;
         });
+
+        onFilesystemChanged('{{.User.FsConfig.Provider}}');
+
     });
+
+    function onFilesystemChanged(val){
+        if (val == '1'){
+            $('.form-group.row.gcs').hide();
+            $('.form-group.row.s3').show();
+        } else if (val == '2'){
+            $('.form-group.row.gcs').show();
+            $('.form-group.row.s3').hide();
+        } else {
+            $('.form-group.row.gcs').hide();
+            $('.form-group.row.s3').hide();
+        }
+    }
 </script>
 {{end}}

@@ -119,6 +119,27 @@ func TestInvalidExternalAuthScope(t *testing.T) {
 	os.Remove(configFilePath)
 }
 
+func TestInvalidCredentialsPath(t *testing.T) {
+	configDir := ".."
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+	config.LoadConfig(configDir, "")
+	providerConf := config.GetProviderConf()
+	providerConf.CredentialsPath = ""
+	c := make(map[string]dataprovider.Config)
+	c["data_provider"] = providerConf
+	jsonConf, _ := json.Marshal(c)
+	err := ioutil.WriteFile(configFilePath, jsonConf, 0666)
+	if err != nil {
+		t.Errorf("error saving temporary configuration")
+	}
+	err = config.LoadConfig(configDir, tempConfigName)
+	if err == nil {
+		t.Errorf("Loading configuration with credentials path must fail")
+	}
+	os.Remove(configFilePath)
+}
+
 func TestSetGetConfig(t *testing.T) {
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.IdleTimeout = 3

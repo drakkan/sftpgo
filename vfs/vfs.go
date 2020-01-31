@@ -3,6 +3,7 @@ package vfs
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"runtime"
@@ -14,7 +15,7 @@ import (
 	"github.com/pkg/sftp"
 )
 
-// Fs defines the interface for filesystems backends
+// Fs defines the interface for filesystem backends
 type Fs interface {
 	Name() string
 	ConnectionID() string
@@ -89,6 +90,32 @@ func ValidateS3FsConfig(config *S3FsConfig) error {
 		config.KeyPrefix = path.Clean(config.KeyPrefix)
 		if !strings.HasSuffix(config.KeyPrefix, "/") {
 			config.KeyPrefix += "/"
+		}
+	}
+	return nil
+}
+
+// ValidateGCSFsConfig returns nil if the specified GCS config is valid, otherwise an error
+func ValidateGCSFsConfig(config *GCSFsConfig, credentialsFilePath string) error {
+	if len(config.Bucket) == 0 {
+		return errors.New("bucket cannot be empty")
+	}
+	if len(config.KeyPrefix) > 0 {
+		if strings.HasPrefix(config.KeyPrefix, "/") {
+			return errors.New("key_prefix cannot start with /")
+		}
+		config.KeyPrefix = path.Clean(config.KeyPrefix)
+		if !strings.HasSuffix(config.KeyPrefix, "/") {
+			config.KeyPrefix += "/"
+		}
+	}
+	if len(config.Credentials) == 0 {
+		fi, err := os.Stat(credentialsFilePath)
+		if err != nil {
+			return fmt.Errorf("invalid credentials %v", err)
+		}
+		if fi.Size() == 0 {
+			return errors.New("credentials cannot be empty")
 		}
 	}
 	return nil

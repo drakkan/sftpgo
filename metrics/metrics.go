@@ -246,22 +246,94 @@ var (
 		Help: "The total number of successful S3 head bucket requests",
 	})
 
-	// totalS3CreateBucket is the metric that reports the total successful S3 create bucket requests
-	totalS3CreateBucket = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "sftpgo_s3_create_bucket",
-		Help: "The total number of successful S3 create bucket requests",
-	})
-
 	// totalS3HeadBucketErrors is the metric that reports the total S3 head bucket errors
 	totalS3HeadBucketErrors = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_s3_head_bucket_errors",
 		Help: "The total number of S3 head bucket errors",
 	})
 
-	// totalS3CreateBucketErrors is the metric that reports the total S3 create bucket errors
-	totalS3CreateBucketErrors = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "sftpgo_s3_create_bucket_errors",
-		Help: "The total number of S3 create bucket errors",
+	// totalGCSUploads is the metric that reports the total number of successful GCS uploads
+	totalGCSUploads = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_gcs_uploads_total",
+		Help: "The total number of successful GCS uploads",
+	})
+
+	// totalGCSDownloads is the metric that reports the total number of successful GCS downloads
+	totalGCSDownloads = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_gcs_downloads_total",
+		Help: "The total number of successful GCS downloads",
+	})
+
+	// totalGCSUploadErrors is the metric that reports the total number of GCS upload errors
+	totalGCSUploadErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_gcs_upload_errors_total",
+		Help: "The total number of GCS upload errors",
+	})
+
+	// totalGCSDownloadErrors is the metric that reports the total number of GCS download errors
+	totalGCSDownloadErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_gcs_download_errors_total",
+		Help: "The total number of GCS download errors",
+	})
+
+	// totalGCSUploadSize is the metric that reports the total GCS uploads size as bytes
+	totalGCSUploadSize = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_gcs_upload_size",
+		Help: "The total GCS upload size as bytes, partial uploads are included",
+	})
+
+	// totalGCSDownloadSize is the metric that reports the total GCS downloads size as bytes
+	totalGCSDownloadSize = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_gcs_download_size",
+		Help: "The total GCS download size as bytes, partial downloads are included",
+	})
+
+	// totalS3ListObjects is the metric that reports the total successful GCS list objects requests
+	totalGCSListObjects = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_gcs_list_objects",
+		Help: "The total number of successful GCS list objects requests",
+	})
+
+	// totalGCSCopyObject is the metric that reports the total successful GCS copy object requests
+	totalGCSCopyObject = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_gcs_copy_object",
+		Help: "The total number of successful GCS copy object requests",
+	})
+
+	// totalGCSDeleteObject is the metric that reports the total successful S3 delete object requests
+	totalGCSDeleteObject = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_gcs_delete_object",
+		Help: "The total number of successful GCS delete object requests",
+	})
+
+	// totalGCSListObjectsError is the metric that reports the total GCS list objects errors
+	totalGCSListObjectsErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_gcs_list_objects_errors",
+		Help: "The total number of GCS list objects errors",
+	})
+
+	// totalGCSCopyObjectErrors is the metric that reports the total GCS copy object errors
+	totalGCSCopyObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_gcs_copy_object_errors",
+		Help: "The total number of GCS copy object errors",
+	})
+
+	// totalGCSDeleteObjectErrors is the metric that reports the total GCS delete object errors
+	totalGCSDeleteObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_gcs_delete_object_errors",
+		Help: "The total number of GCS delete object errors",
+	})
+
+	// totalGCSHeadBucket is the metric that reports the total successful GCS head bucket requests
+	totalGCSHeadBucket = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_gcs_head_bucket",
+		Help: "The total number of successful GCS head bucket requests",
+	})
+
+	// totalGCSHeadBucketErrors is the metric that reports the total GCS head bucket errors
+	totalGCSHeadBucketErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_gcs_head_bucket_errors",
+		Help: "The total number of GCS head bucket errors",
 	})
 )
 
@@ -343,12 +415,60 @@ func S3HeadBucketCompleted(err error) {
 	}
 }
 
-// S3CreateBucketCompleted updates metrics after an S3 create bucket request terminates
-func S3CreateBucketCompleted(err error) {
-	if err == nil {
-		totalS3CreateBucket.Inc()
+// GCSTransferCompleted updates metrics after a GCS upload or a download
+func GCSTransferCompleted(bytes int64, transferKind int, err error) {
+	if transferKind == 0 {
+		// upload
+		if err == nil {
+			totalGCSUploads.Inc()
+		} else {
+			totalGCSUploadErrors.Inc()
+		}
+		totalGCSUploadSize.Add(float64(bytes))
 	} else {
-		totalS3CreateBucketErrors.Inc()
+		// download
+		if err == nil {
+			totalGCSDownloads.Inc()
+		} else {
+			totalGCSDownloadErrors.Inc()
+		}
+		totalGCSDownloadSize.Add(float64(bytes))
+	}
+}
+
+// GCSListObjectsCompleted updates metrics after a GCS list objects request terminates
+func GCSListObjectsCompleted(err error) {
+	if err == nil {
+		totalGCSListObjects.Inc()
+	} else {
+		totalGCSListObjectsErrors.Inc()
+	}
+}
+
+// GCSCopyObjectCompleted updates metrics after a GCS copy object request terminates
+func GCSCopyObjectCompleted(err error) {
+	if err == nil {
+		totalGCSCopyObject.Inc()
+	} else {
+		totalGCSCopyObjectErrors.Inc()
+	}
+}
+
+// GCSDeleteObjectCompleted updates metrics after a GCS delete object request terminates
+func GCSDeleteObjectCompleted(err error) {
+	if err == nil {
+		totalGCSDeleteObject.Inc()
+	} else {
+		totalGCSDeleteObjectErrors.Inc()
+	}
+}
+
+// GCSHeadBucketCompleted updates metrics after a GCS head bucket request terminates
+func GCSHeadBucketCompleted(err error) {
+	if err == nil {
+		totalGCSHeadBucket.Inc()
+	} else {
+		totalGCSHeadBucketErrors.Inc()
 	}
 }
 

@@ -84,6 +84,7 @@ func init() {
 			},
 			ExternalAuthProgram: "",
 			ExternalAuthScope:   0,
+			CredentialsPath:     "credentials",
 		},
 		HTTPDConfig: httpd.Conf{
 			BindPort:        8080,
@@ -175,6 +176,12 @@ func LoadConfig(configDir, configName string) error {
 	if globalConf.ProviderConf.ExternalAuthScope < 0 || globalConf.ProviderConf.ExternalAuthScope > 7 {
 		err = fmt.Errorf("invalid external_auth_scope: %v reset to 0", globalConf.ProviderConf.ExternalAuthScope)
 		globalConf.ProviderConf.ExternalAuthScope = 0
+		logger.Warn(logSender, "", "Configuration error: %v", err)
+		logger.WarnToConsole("Configuration error: %v", err)
+	}
+	if len(globalConf.ProviderConf.CredentialsPath) == 0 {
+		err = fmt.Errorf("invalid credentials path, reset to \"credentials\"")
+		globalConf.ProviderConf.CredentialsPath = "credentials"
 		logger.Warn(logSender, "", "Configuration error: %v", err)
 		logger.WarnToConsole("Configuration error: %v", err)
 	}

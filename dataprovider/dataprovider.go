@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -85,6 +86,7 @@ var (
 	availabilityTicker     *time.Ticker
 	availabilityTickerDone chan bool
 	errWrongPassword       = errors.New("password does not match")
+	credentialsDirPath     string
 )
 
 // Actions to execute on user create, update, delete.
@@ -179,6 +181,10 @@ type Config struct {
 	// you can combine the scopes, for example 3 means password and public key, 5 password and keyboard
 	// interactive and so on
 	ExternalAuthScope int `json:"external_auth_scope" mapstructure:"external_auth_scope"`
+	// CredentialsPath defines the directory for storing user provided credential files such as
+	// Google Cloud Storage credentials. It can be a path relative to the config dir or an
+	// absolute path
+	CredentialsPath string `json:"credentials_path" mapstructure:"credentials_path"`
 }
 
 type keyboardAuthProgramResponse struct {
@@ -267,6 +273,9 @@ func Initialize(cnf Config, basePath string) error {
 			providerLog(logger.LevelWarn, "invalid external auth program:: %v", err)
 			return err
 		}
+	}
+	if err := validateCredentialsDir(basePath); err != nil {
+		return err
 	}
 
 	if config.Driver == SQLiteDataProviderName {
@@ -509,6 +518,25 @@ func validateFilters(user *User) error {
 	return nil
 }
 
+func saveGCSCredentials(user *User) error {
+	if user.FsConfig.Provider != 2 {
+		return nil
+	}
+	if len(user.FsConfig.GCSConfig.Credentials) == 0 {
+		return nil
+	}
+	decoded, err := base64.StdEncoding.DecodeString(user.FsConfig.GCSConfig.Credentials)
+	if err != nil {
+		return &ValidationError{err: fmt.Sprintf("could not validate GCS credentials: %v", err)}
+	}
+	err = ioutil.WriteFile(user.getGCSCredentialsFilePath(), decoded, 0600)
+	if err != nil {
+		return &ValidationError{err: fmt.Sprintf("could not save GCS credentials: %v", err)}
+	}
+	user.FsConfig.GCSConfig.Credentials = ""
+	return nil
+}
+
 func validateFilesystemConfig(user *User) error {
 	if user.FsConfig.Provider == 1 {
 		err := vfs.ValidateS3FsConfig(&user.FsConfig.S3Config)
@@ -524,9 +552,16 @@ func validateFilesystemConfig(user *User) error {
 			user.FsConfig.S3Config.AccessSecret = accessSecret
 		}
 		return nil
+	} else if user.FsConfig.Provider == 2 {
+		err := vfs.ValidateGCSFsConfig(&user.FsConfig.GCSConfig, user.getGCSCredentialsFilePath())
+		if err != nil {
+			return &ValidationError{err: fmt.Sprintf("could not validate GCS config: %v", err)}
+		}
+		return nil
 	}
 	user.FsConfig.Provider = 0
 	user.FsConfig.S3Config = vfs.S3FsConfig{}
+	user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
 	return nil
 }
 
@@ -561,6 +596,9 @@ func validateUser(user *User) error {
 		return err
 	}
 	if err := validateFilters(user); err != nil {
+		return err
+	}
+	if err := saveGCSCredentials(user); err != nil {
 		return err
 	}
 	return nil
@@ -704,8 +742,22 @@ func HideUserSensitiveData(user *User) User {
 	user.Password = ""
 	if user.FsConfig.Provider == 1 {
 		user.FsConfig.S3Config.AccessSecret = utils.RemoveDecryptionKey(user.FsConfig.S3Config.AccessSecret)
+	} else if user.FsConfig.Provider == 2 {
+		user.FsConfig.GCSConfig.Credentials = ""
 	}
 	return *user
+}
+
+func addCredentialsToUser(user *User) error {
+	if user.FsConfig.Provider != 2 {
+		return nil
+	}
+	cred, err := ioutil.ReadFile(user.getGCSCredentialsFilePath())
+	if err != nil {
+		return err
+	}
+	user.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString(cred)
+	return nil
 }
 
 func getSSLMode() string {
@@ -746,6 +798,25 @@ func startAvailabilityTimer() {
 			}
 		}
 	}()
+}
+
+func validateCredentialsDir(basePath string) error {
+	if filepath.IsAbs(config.CredentialsPath) {
+		credentialsDirPath = config.CredentialsPath
+	} else {
+		credentialsDirPath = filepath.Join(basePath, config.CredentialsPath)
+	}
+	fi, err := os.Stat(credentialsDirPath)
+	if err == nil {
+		if !fi.IsDir() {
+			return errors.New("Credential path is not a valid directory")
+		}
+		return nil
+	}
+	if !os.IsNotExist(err) {
+		return err
+	}
+	return os.MkdirAll(credentialsDirPath, 0700)
 }
 
 func checkDataprovider() {

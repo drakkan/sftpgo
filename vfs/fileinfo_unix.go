@@ -21,7 +21,7 @@ func init() {
 	}
 }
 
-func (fi S3FileInfo) getFileInfoSys() interface{} {
+func (fi FileInfo) getFileInfoSys() interface{} {
 	return &syscall.Stat_t{
 		Uid: uint32(defaultUID),
 		Gid: uint32(defaultGID)}

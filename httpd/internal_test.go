@@ -6,7 +6,9 @@ import (
 	"html/template"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/drakkan/sftpgo/dataprovider"
@@ -279,6 +281,38 @@ func TestCompareUserFsConfig(t *testing.T) {
 	err = compareUserFsConfig(expected, actual)
 	if err == nil {
 		t.Errorf("S3 key prefix does not match")
+	}
+	expected.FsConfig.S3Config.KeyPrefix = ""
+	expected.FsConfig.GCSConfig.KeyPrefix = "somedir/subdir"
+	err = compareUserFsConfig(expected, actual)
+	if err == nil {
+		t.Errorf("GCS key prefix does not match")
+	}
+	expected.FsConfig.GCSConfig.KeyPrefix = ""
+	expected.FsConfig.GCSConfig.Bucket = "bucket"
+	err = compareUserFsConfig(expected, actual)
+	if err == nil {
+		t.Errorf("GCS bucket does not match")
+	}
+	expected.FsConfig.GCSConfig.Bucket = ""
+	expected.FsConfig.GCSConfig.StorageClass = "Standard"
+	err = compareUserFsConfig(expected, actual)
+	if err == nil {
+		t.Errorf("GCS storage class does not match")
+	}
+	expected.FsConfig.GCSConfig.StorageClass = ""
+}
+
+func TestGCSWebInvalidFormFile(t *testing.T) {
+	form := make(url.Values)
+	form.Set("username", "test_username")
+	form.Set("fs_provider", "2")
+	req, _ := http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.ParseForm()
+	_, err := getFsConfigFromUserPostFields(req)
+	if err != http.ErrNotMultipart {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 

@@ -319,6 +319,10 @@ func (p BoltProvider) dumpUsers() ([]User, error) {
 			if err != nil {
 				return err
 			}
+			err = addCredentialsToUser(&user)
+			if err != nil {
+				return err
+			}
 			users = append(users, user)
 		}
 		return err

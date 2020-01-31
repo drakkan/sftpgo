@@ -73,6 +73,7 @@ func getUserByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func addUser(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	var user dataprovider.User
 	err := render.DecodeJSON(r.Body, &user)
 	if err != nil {
@@ -93,6 +94,7 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateUser(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	userID, err := strconv.ParseInt(chi.URLParam(r, "userID"), 10, 64)
 	if err != nil {
 		err = errors.New("Invalid userID")
@@ -100,10 +102,10 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, err := dataprovider.GetUserByID(dataProvider, userID)
-	oldPermissions := user.Permissions
-	oldS3AccessSecret := ""
+	currentPermissions := user.Permissions
+	currentS3AccessSecret := ""
 	if user.FsConfig.Provider == 1 {
-		oldS3AccessSecret = user.FsConfig.S3Config.AccessSecret
+		currentS3AccessSecret = user.FsConfig.S3Config.AccessSecret
 	}
 	user.Permissions = make(map[string][]string)
 	if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
@@ -120,13 +122,13 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	// we use new Permissions if passed otherwise the old ones
 	if len(user.Permissions) == 0 {
-		user.Permissions = oldPermissions
+		user.Permissions = currentPermissions
 	}
 	// we use the new access secret if different from the old one and not empty
 	if user.FsConfig.Provider == 1 {
-		if utils.RemoveDecryptionKey(oldS3AccessSecret) == user.FsConfig.S3Config.AccessSecret ||
+		if utils.RemoveDecryptionKey(currentS3AccessSecret) == user.FsConfig.S3Config.AccessSecret ||
 			len(user.FsConfig.S3Config.AccessSecret) == 0 {
-			user.FsConfig.S3Config.AccessSecret = oldS3AccessSecret
+			user.FsConfig.S3Config.AccessSecret = currentS3AccessSecret
 		}
 	}
 	if user.ID != userID {
