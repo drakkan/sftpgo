@@ -126,10 +126,6 @@ The `serve` subcommand supports the following flags:
 
 If you don't configure any private host keys, the daemon will use `id_rsa` in the configuration directory. If that file doesn't exist, the daemon will attempt to autogenerate it (if the user that executes SFTPGo has write access to the config-dir). The server supports any private key format supported by [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/keys.go#L32).
 
-Before starting `sftpgo` a dataprovider must be configured.
-
-SQL scripts to create the required database structure can be found inside the source tree [sql](./sql "sql") directory. The SQL scripts filename is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190828.sql` must be applied before `20191112.sql` and so on.
-
 The `sftpgo` configuration file contains the following sections:
 
 - **"sftpd"**, the configuration for the SFTP server
@@ -271,6 +267,15 @@ Let's see some examples:
 - To set the `execute_on` actions you need to define the env var `SFTPGO_SFTPD__ACTIONS__EXECUTE_ON` for example `SFTPGO_SFTPD__ACTIONS__EXECUTE_ON=upload,download`
 
 Please note that to override configuration options with environment variables a configuration file containing the options to override is required. You can, for example, deploy the default configuration file and then override the options you need to customize using environment variables.
+
+### Data provider initialization
+
+Before starting `sftpgo serve` a data provider must be configured.
+
+SQL scripts to create the required database structure can be found inside the source tree [sql](./sql "sql") directory. The SQL scripts filename is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190828.sql` must be applied before `20191112.sql` and so on.  
+Example for `sqlite`: `find sql/sqlite/ -type f -iname '*.sql' -print |sort -n|xargs cat |sqlite3 sftpgo.db`
+
+### Starting SFTGo in server mode
 
 To start the SFTP Server with the default values for the command line flags simply use:
 
