@@ -3044,7 +3044,9 @@ func TestRelativePaths(t *testing.T) {
 		KeyPrefix: keyPrefix,
 	}
 	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), gcsConfig)
-	filesystems = append(filesystems, s3fs, gcsfs)
+	if runtime.GOOS != "windows" {
+		filesystems = append(filesystems, s3fs, gcsfs)
+	}
 	for _, fs := range filesystems {
 		path = filepath.Join(user.HomeDir, "/")
 		rel = fs.GetRelativePath(path)
@@ -3104,16 +3106,19 @@ func TestResolvePaths(t *testing.T) {
 	var path, resolved string
 	var err error
 	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir())}
+	keyPrefix := strings.TrimPrefix(user.GetHomeDir(), "/") + "/"
 	s3config := vfs.S3FsConfig{
-		KeyPrefix: strings.TrimPrefix(user.GetHomeDir(), "/") + "/",
+		KeyPrefix: keyPrefix,
 	}
 	os.MkdirAll(user.GetHomeDir(), 0777)
 	s3fs, _ := vfs.NewS3Fs("", user.GetHomeDir(), s3config)
 	gcsConfig := vfs.GCSFsConfig{
-		KeyPrefix: strings.TrimPrefix(user.GetHomeDir(), "/") + "/",
+		KeyPrefix: keyPrefix,
 	}
 	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), gcsConfig)
-	filesystems = append(filesystems, s3fs, gcsfs)
+	if runtime.GOOS != "windows" {
+		filesystems = append(filesystems, s3fs, gcsfs)
+	}
 	for _, fs := range filesystems {
 		path = "/"
 		resolved, _ = fs.ResolvePath(filepath.ToSlash(path))
