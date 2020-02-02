@@ -98,3 +98,7 @@ func (p PGSQLProvider) getUsers(limit int, offset int, order string, username st
 func (p PGSQLProvider) close() error {
 	return p.dbHandle.Close()
 }
+
+func (p PGSQLProvider) reloadConfig() error {
+	return nil
+}

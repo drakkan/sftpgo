@@ -99,3 +99,7 @@ func (p MySQLProvider) getUsers(limit int, offset int, order string, username st
 func (p MySQLProvider) close() error {
 	return p.dbHandle.Close()
 }
+
+func (p MySQLProvider) reloadConfig() error {
+	return nil
+}

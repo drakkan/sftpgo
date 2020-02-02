@@ -3035,12 +3035,13 @@ func TestRelativePaths(t *testing.T) {
 	user := getTestUser(true)
 	var path, rel string
 	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir())}
+	keyPrefix := strings.TrimPrefix(user.GetHomeDir(), "/") + "/"
 	s3config := vfs.S3FsConfig{
-		KeyPrefix: strings.TrimPrefix(user.GetHomeDir(), "/") + "/",
+		KeyPrefix: keyPrefix,
 	}
 	s3fs, _ := vfs.NewS3Fs("", user.GetHomeDir(), s3config)
 	gcsConfig := vfs.GCSFsConfig{
-		KeyPrefix: strings.TrimPrefix(user.GetHomeDir(), "/") + "/",
+		KeyPrefix: keyPrefix,
 	}
 	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), gcsConfig)
 	filesystems = append(filesystems, s3fs, gcsfs)
@@ -3048,52 +3049,52 @@ func TestRelativePaths(t *testing.T) {
 		path = filepath.Join(user.HomeDir, "/")
 		rel = fs.GetRelativePath(path)
 		if rel != "/" {
-			t.Errorf("Unexpected relative path: %v", rel)
+			t.Errorf("Unexpected relative path: %v fs: %v", rel, fs.Name())
 		}
 		path = filepath.Join(user.HomeDir, "//")
 		rel = fs.GetRelativePath(path)
 		if rel != "/" {
-			t.Errorf("Unexpected relative path: %v", rel)
+			t.Errorf("Unexpected relative path: %v fs: %v", rel, fs.Name())
 		}
 		path = filepath.Join(user.HomeDir, "../..")
 		rel = fs.GetRelativePath(path)
 		if rel != "/" {
-			t.Errorf("Unexpected relative path: %v path: %v", rel, path)
+			t.Errorf("Unexpected relative path: %v path: %v fs: %v", rel, path, fs.Name())
 		}
 		path = filepath.Join(user.HomeDir, "../../../../../")
 		rel = fs.GetRelativePath(path)
 		if rel != "/" {
-			t.Errorf("Unexpected relative path: %v", rel)
+			t.Errorf("Unexpected relative path: %v fs: %v", rel, fs.Name())
 		}
 		path = filepath.Join(user.HomeDir, "/..")
 		rel = fs.GetRelativePath(path)
 		if rel != "/" {
-			t.Errorf("Unexpected relative path: %v path: %v", rel, path)
+			t.Errorf("Unexpected relative path: %v path: %v fs: %v", rel, path, fs.Name())
 		}
 		path = filepath.Join(user.HomeDir, "/../../../..")
 		rel = fs.GetRelativePath(path)
 		if rel != "/" {
-			t.Errorf("Unexpected relative path: %v", rel)
+			t.Errorf("Unexpected relative path: %v fs: %v", rel, fs.Name())
 		}
 		path = filepath.Join(user.HomeDir, "")
 		rel = fs.GetRelativePath(path)
 		if rel != "/" {
-			t.Errorf("Unexpected relative path: %v", rel)
+			t.Errorf("Unexpected relative path: %v fs: %v", rel, fs.Name())
 		}
 		path = filepath.Join(user.HomeDir, ".")
 		rel = fs.GetRelativePath(path)
 		if rel != "/" {
-			t.Errorf("Unexpected relative path: %v", rel)
+			t.Errorf("Unexpected relative path: %v fs: %v", rel, fs.Name())
 		}
 		path = filepath.Join(user.HomeDir, "somedir")
 		rel = fs.GetRelativePath(path)
 		if rel != "/somedir" {
-			t.Errorf("Unexpected relative path: %v", rel)
+			t.Errorf("Unexpected relative path: %v fs: %v", rel, fs.Name())
 		}
 		path = filepath.Join(user.HomeDir, "/somedir/subdir")
 		rel = fs.GetRelativePath(path)
 		if rel != "/somedir/subdir" {
-			t.Errorf("Unexpected relative path: %v", rel)
+			t.Errorf("Unexpected relative path: %v fs: %v", rel, fs.Name())
 		}
 	}
 }

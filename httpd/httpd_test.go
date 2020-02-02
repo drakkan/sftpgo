@@ -716,13 +716,13 @@ func TestProviderErrors(t *testing.T) {
 	if err != nil {
 		t.Errorf("get provider status with provider closed must fail: %v", err)
 	}
-	_, _, err = httpd.Dumpdata("backup.json", http.StatusInternalServerError)
+	_, _, err = httpd.Dumpdata("backup.json", "", http.StatusInternalServerError)
 	if err != nil {
 		t.Errorf("get provider status with provider closed must fail: %v", err)
 	}
 	user := getTestUser()
 	user.ID = 1
-	backupData := httpd.BackupData{}
+	backupData := dataprovider.BackupData{}
 	backupData.Users = append(backupData.Users, user)
 	backupContent, _ := json.Marshal(backupData)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
@@ -755,26 +755,30 @@ func TestDumpdata(t *testing.T) {
 	}
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
-	_, _, err = httpd.Dumpdata("", http.StatusBadRequest)
+	_, _, err = httpd.Dumpdata("", "", http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	_, _, err = httpd.Dumpdata(filepath.Join(backupsPath, "backup.json"), http.StatusBadRequest)
+	_, _, err = httpd.Dumpdata(filepath.Join(backupsPath, "backup.json"), "", http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	_, _, err = httpd.Dumpdata("../backup.json", http.StatusBadRequest)
+	_, _, err = httpd.Dumpdata("../backup.json", "", http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	_, _, err = httpd.Dumpdata("backup.json", http.StatusOK)
+	_, _, err = httpd.Dumpdata("backup.json", "0", http.StatusOK)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	_, _, err = httpd.Dumpdata("backup.json", "1", http.StatusOK)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	os.Remove(filepath.Join(backupsPath, "backup.json"))
 	if runtime.GOOS != "windows" {
 		os.Chmod(backupsPath, 0001)
-		_, _, err = httpd.Dumpdata("bck.json", http.StatusInternalServerError)
+		_, _, err = httpd.Dumpdata("bck.json", "", http.StatusInternalServerError)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -795,7 +799,7 @@ func TestLoaddata(t *testing.T) {
 	user := getTestUser()
 	user.ID = 1
 	user.Username = "test_user_restore"
-	backupData := httpd.BackupData{}
+	backupData := dataprovider.BackupData{}
 	backupData.Users = append(backupData.Users, user)
 	backupContent, _ := json.Marshal(backupData)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
@@ -865,7 +869,7 @@ func TestLoaddataMode(t *testing.T) {
 	user := getTestUser()
 	user.ID = 1
 	user.Username = "test_user_restore"
-	backupData := httpd.BackupData{}
+	backupData := dataprovider.BackupData{}
 	backupData.Users = append(backupData.Users, user)
 	backupContent, _ := json.Marshal(backupData)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")

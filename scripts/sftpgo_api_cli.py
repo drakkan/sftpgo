@@ -209,9 +209,9 @@ class SFTPGoApiRequests:
 		r = requests.get(self.providerStatusPath, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
-	def dumpData(self, output_file):
-		r = requests.get(self.dumpDataPath, params={'output_file':output_file}, auth=self.auth,
-						verify=self.verify)
+	def dumpData(self, output_file, indent):
+		r = requests.get(self.dumpDataPath, params={'output_file':output_file, 'indent':indent},
+						auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
 	def loadData(self, input_file, scan_quota, mode):
@@ -514,6 +514,8 @@ if __name__ == '__main__':
 
 	parserDumpData = subparsers.add_parser('dumpdata', help='Backup SFTPGo data serializing them as JSON')
 	parserDumpData.add_argument('output_file', type=str)
+	parserDumpData.add_argument('-I', '--indent', type=int, choices=[0, 1], default=0,
+							help='0 means no indentation. 1 means format the output JSON. Default: %(default)s')
 
 	parserLoadData = subparsers.add_parser('loaddata', help='Restore SFTPGo data from a JSON backup')
 	parserLoadData.add_argument('input_file', type=str)
@@ -584,7 +586,7 @@ if __name__ == '__main__':
 	elif args.command == 'get-provider-status':
 		api.getProviderStatus()
 	elif args.command == 'dumpdata':
-		api.dumpData(args.output_file)
+		api.dumpData(args.output_file, args.indent)
 	elif args.command == 'loaddata':
 		api.loadData(args.input_file, args.scan_quota, args.mode)
 	elif args.command == 'convert-users':

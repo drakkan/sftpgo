@@ -309,7 +309,7 @@ func GetProviderStatus(expectedStatusCode int) (map[string]interface{}, []byte, 
 
 // Dumpdata requests a backup to outputFile.
 // outputFile is relative to the configured backups_path
-func Dumpdata(outputFile string, expectedStatusCode int) (map[string]interface{}, []byte, error) {
+func Dumpdata(outputFile, indent string, expectedStatusCode int) (map[string]interface{}, []byte, error) {
 	var response map[string]interface{}
 	var body []byte
 	url, err := url.Parse(buildURLRelativeToBase(dumpDataPath))
@@ -318,6 +318,9 @@ func Dumpdata(outputFile string, expectedStatusCode int) (map[string]interface{}
 	}
 	q := url.Query()
 	q.Add("output_file", outputFile)
+	if len(indent) > 0 {
+		q.Add("indent", indent)
+	}
 	url.RawQuery = q.Encode()
 	resp, err := getHTTPClient().Get(url.String())
 	if err != nil {

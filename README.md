@@ -157,7 +157,7 @@ The `sftpgo` configuration file contains the following sections:
     - `keyboard_interactive_auth_program`, string. Absolute path to an external program to use for keyboard interactive authentication. See the "Keyboard Interactive Authentication" paragraph for more details.
 - **"data_provider"**, the configuration for the data provider
     - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`, `memory`
-    - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database.
+    - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database. For driver `memory` this is the (optional) path relative to the config dir or the absolute path to the users dump to load.
     - `host`, string. Database host. Leave empty for drivers `sqlite`, `bolt` and `memory`
     - `port`, integer. Database port. Leave empty for drivers `sqlite`, `bolt` and `memory`
     - `username`, string. Database user. Leave empty for drivers `sqlite`, `bolt` and `memory`
@@ -277,7 +277,9 @@ Before starting `sftpgo serve` please ensure that the configured dataprovider is
 SQL based data providers (SQLite, MySQL, PostgreSQL) requires the creation of a database containing the required tables. Memory and bolt data providers does not require an initialization.
 
 SQL scripts to create the required database structure can be found inside the source tree [sql](./sql "sql") directory. The SQL scripts filename is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190828.sql` must be applied before `20191112.sql` and so on.
-Example for `SQLite`: `find sql/sqlite/ -type f -iname '*.sql' -print | sort -n |xargs cat | sqlite3 sftpgo.db`
+Example for SQLite: `find sql/sqlite/ -type f -iname '*.sql' -print | sort -n |xargs cat | sqlite3 sftpgo.db`.
+
+The `memory` provider can load users from a dump obtained using the `dumpdata` REST API. This dump file can be configured using the dataprovider `name` configuration key. It will be loaded at startup and can be reloaded on demand using a `SIGHUP` on Unix based systems and a `paramchange` request to the running service on Windows.
 
 ### Starting SFTGo in server mode
 
@@ -291,13 +293,14 @@ On Windows you can register `SFTPGo` as Windows Service, take a look at the CLI 
 
 ```
 sftpgo.exe service --help
-Install, Uninstall, Start, Stop and retrieve status for SFTPGo Windows Service
+Install, Uninstall, Start, Stop, Reload and retrieve status for SFTPGo Windows Service
 
 Usage:
   sftpgo service [command]
 
 Available Commands:
   install     Install SFTPGo as Windows Service
+  reload      Reload the SFTPGo Windows Service sending a `paramchange` request
   start       Start SFTPGo Windows Service
   status      Retrieve the status for the SFTPGo Windows Service
   stop        Stop SFTPGo Windows Service

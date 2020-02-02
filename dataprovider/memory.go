@@ -1,8 +1,12 @@
 package dataprovider
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -23,7 +27,9 @@ type memoryProviderHandle struct {
 	usersIdx map[int64]string
 	// map for users, username is the key
 	users map[string]User
-	lock  *sync.Mutex
+	// configuration file to use for loading users
+	configFile string
+	lock       *sync.Mutex
 }
 
 // MemoryProvider auth provider for a memory store
@@ -31,17 +37,25 @@ type MemoryProvider struct {
 	dbHandle *memoryProviderHandle
 }
 
-func initializeMemoryProvider() error {
+func initializeMemoryProvider(basePath string) error {
+	configFile := ""
+	if len(config.Name) > 0 {
+		configFile = config.Name
+		if !filepath.IsAbs(configFile) {
+			configFile = filepath.Join(basePath, configFile)
+		}
+	}
 	provider = MemoryProvider{
 		dbHandle: &memoryProviderHandle{
-			isClosed:  false,
-			usernames: []string{},
-			usersIdx:  make(map[int64]string),
-			users:     make(map[string]User),
-			lock:      new(sync.Mutex),
+			isClosed:   false,
+			usernames:  []string{},
+			usersIdx:   make(map[int64]string),
+			users:      make(map[string]User),
+			configFile: configFile,
+			lock:       new(sync.Mutex),
 		},
 	}
-	return nil
+	return provider.reloadConfig()
 }
 
 func (p MemoryProvider) checkAvailability() error {
@@ -307,4 +321,72 @@ func (p MemoryProvider) getNextID() int64 {
 		}
 	}
 	return nextID
+}
+
+func (p MemoryProvider) clearUsers() {
+	p.dbHandle.lock.Lock()
+	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.usernames = []string{}
+	p.dbHandle.usersIdx = make(map[int64]string)
+	p.dbHandle.users = make(map[string]User)
+}
+
+func (p MemoryProvider) reloadConfig() error {
+	if len(p.dbHandle.configFile) == 0 {
+		providerLog(logger.LevelDebug, "no users configuration file defined")
+		return nil
+	}
+	providerLog(logger.LevelDebug, "loading users from file: %#v", p.dbHandle.configFile)
+	fi, err := os.Stat(p.dbHandle.configFile)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error loading users: %v", err)
+		return err
+	}
+	if fi.Size() == 0 {
+		err = errors.New("users configuration file is invalid, its size must be > 0")
+		providerLog(logger.LevelWarn, "error loading users: %v", err)
+		return err
+	}
+	if fi.Size() > 10485760 {
+		err = errors.New("users configuration file is invalid, its size must be <= 10485760 bytes")
+		providerLog(logger.LevelWarn, "error loading users: %v", err)
+		return err
+	}
+	content, err := ioutil.ReadFile(p.dbHandle.configFile)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error loading users: %v", err)
+		return err
+	}
+	var dump BackupData
+	err = json.Unmarshal(content, &dump)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error loading users: %v", err)
+		return err
+	}
+	p.clearUsers()
+	for _, user := range dump.Users {
+		u, err := p.userExists(user.Username)
+		if err == nil {
+			user.ID = u.ID
+			user.LastLogin = u.LastLogin
+			user.UsedQuotaSize = u.UsedQuotaSize
+			user.UsedQuotaFiles = u.UsedQuotaFiles
+			err = p.updateUser(user)
+			if err != nil {
+				providerLog(logger.LevelWarn, "error updating user %#v: %v", user.Username, err)
+				return err
+			}
+		} else {
+			user.LastLogin = 0
+			user.UsedQuotaSize = 0
+			user.UsedQuotaFiles = 0
+			err = p.addUser(user)
+			if err != nil {
+				providerLog(logger.LevelWarn, "error adding user %#v: %v", user.Username, err)
+				return err
+			}
+		}
+	}
+	providerLog(logger.LevelDebug, "users loaded from file: %#v", p.dbHandle.configFile)
+	return nil
 }

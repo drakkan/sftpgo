@@ -56,11 +56,6 @@ type Conf struct {
 	BackupsPath string `json:"backups_path" mapstructure:"backups_path"`
 }
 
-// BackupData defines the structure for the backup/restore files
-type BackupData struct {
-	Users []dataprovider.User `json:"users"`
-}
-
 type apiResponse struct {
 	Error      string `json:"error"`
 	Message    string `json:"message"`

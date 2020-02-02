@@ -392,6 +392,10 @@ func (p BoltProvider) close() error {
 	return p.dbHandle.Close()
 }
 
+func (p BoltProvider) reloadConfig() error {
+	return nil
+}
+
 // itob returns an 8-byte big endian representation of v.
 func itob(v int64) []byte {
 	b := make([]byte, 8)

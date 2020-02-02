@@ -187,6 +187,11 @@ type Config struct {
 	CredentialsPath string `json:"credentials_path" mapstructure:"credentials_path"`
 }
 
+// BackupData defines the structure for the backup/restore files
+type BackupData struct {
+	Users []User `json:"users"`
+}
+
 type keyboardAuthProgramResponse struct {
 	Instruction string   `json:"instruction"`
 	Questions   []string `json:"questions"`
@@ -251,6 +256,7 @@ type Provider interface {
 	updateLastLogin(username string) error
 	checkAvailability() error
 	close() error
+	reloadConfig() error
 }
 
 func init() {
@@ -287,7 +293,7 @@ func Initialize(cnf Config, basePath string) error {
 	} else if config.Driver == BoltDataProviderName {
 		err = initializeBoltProvider(basePath)
 	} else if config.Driver == MemoryDataProviderName {
-		err = initializeMemoryProvider()
+		err = initializeMemoryProvider(basePath)
 	} else {
 		err = fmt.Errorf("unsupported data provider: %v", config.Driver)
 	}
@@ -415,6 +421,13 @@ func DeleteUser(p Provider, user User) error {
 // DumpUsers returns an array with all users including their hashed password
 func DumpUsers(p Provider) ([]User, error) {
 	return p.dumpUsers()
+}
+
+// ReloadConfig reloads provider configuration.
+// Currently only implemented for memory provider, allows to reload the users
+// from the configured file, if defined
+func ReloadConfig() error {
+	return provider.reloadConfig()
 }
 
 // GetUsers returns an array of users respecting limit and offset and filtered by username exact match if not empty

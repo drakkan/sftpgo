@@ -368,7 +368,7 @@ Output:
 Command:
 
 ```
-python sftpgo_api_cli.py dumpdata backup.json
+python sftpgo_api_cli.py dumpdata backup.json --indent 1
 ```
 
 Output:
@@ -386,7 +386,7 @@ Output:
 Command:
 
 ```
-python sftpgo_api_cli.py loaddata /app/data/backups/backup.json --scan-quota 2
+python sftpgo_api_cli.py loaddata /app/data/backups/backup.json --scan-quota 2 --mode 0
 ```
 
 Output:

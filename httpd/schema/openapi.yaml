@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 1.6.1
+  version: 1.6.2
 
 servers:
 - url: /api/v1
@@ -543,6 +543,17 @@ paths:
             type: string
           required: true
           description: Path for the file to write the JSON serialized data to. This path is relative to the configured "backups_path". If this file already exists it will be overwritten
+        - in: query
+          name: indent
+          schema:
+            type: integer
+            enum:
+              - 0
+              - 1
+          description: >
+            indent:
+              * `0` no indentation. This is the default
+              * `1` format the output JSON
       responses:
         200:
           description: successful operation

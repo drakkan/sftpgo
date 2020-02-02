@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 
 	"golang.org/x/sys/windows/svc"
@@ -61,7 +62,7 @@ func (s Status) String() string {
 }
 
 func (s *WindowsService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
-	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
+	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptParamChange
 	changes <- svc.Status{State: svc.StartPending}
 	if err := s.Service.Start(); err != nil {
 		return true, 1
@@ -79,6 +80,9 @@ loop:
 			changes <- svc.Status{State: svc.StopPending}
 			s.Service.Stop()
 			break loop
+		case svc.ParamChange:
+			logger.Debug(logSender, "", "Received reload request")
+			dataprovider.ReloadConfig()
 		default:
 			continue loop
 		}
@@ -123,6 +127,24 @@ func (s *WindowsService) Start() error {
 	err = service.Start()
 	if err != nil {
 		return fmt.Errorf("could not start service: %v", err)
+	}
+	return nil
+}
+
+func (s *WindowsService) Reload() error {
+	m, err := mgr.Connect()
+	if err != nil {
+		return err
+	}
+	defer m.Disconnect()
+	service, err := m.OpenService(serviceName)
+	if err != nil {
+		return fmt.Errorf("could not access service: %v", err)
+	}
+	defer service.Close()
+	_, err = service.Control(svc.ParamChange)
+	if err != nil {
+		return fmt.Errorf("could not send control=%d: %v", svc.ParamChange, err)
 	}
 	return nil
 }

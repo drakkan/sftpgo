@@ -17,9 +17,12 @@ import (
 )
 
 func dumpData(w http.ResponseWriter, r *http.Request) {
-	var outputFile string
+	var outputFile, indent string
 	if _, ok := r.URL.Query()["output_file"]; ok {
 		outputFile = strings.TrimSpace(r.URL.Query().Get("output_file"))
+	}
+	if _, ok := r.URL.Query()["indent"]; ok {
+		indent = strings.TrimSpace(r.URL.Query().Get("indent"))
 	}
 	if len(outputFile) == 0 {
 		sendAPIResponse(w, r, errors.New("Invalid or missing output_file"), "", http.StatusBadRequest)
@@ -42,12 +45,19 @@ func dumpData(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	dump, err := json.Marshal(BackupData{
-		Users: users,
-	})
+	var dump []byte
+	if indent == "1" {
+		dump, err = json.MarshalIndent(dataprovider.BackupData{
+			Users: users,
+		}, "", "  ")
+	} else {
+		dump, err = json.Marshal(dataprovider.BackupData{
+			Users: users,
+		})
+	}
 	if err == nil {
-		os.MkdirAll(filepath.Dir(outputFile), 0777)
-		err = ioutil.WriteFile(outputFile, dump, 0666)
+		os.MkdirAll(filepath.Dir(outputFile), 0700)
+		err = ioutil.WriteFile(outputFile, dump, 0600)
 	}
 	if err != nil {
 		logger.Warn(logSender, "", "dumping data error: %v, output file: %#v", err, outputFile)
@@ -74,8 +84,8 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if fi.Size() > maxRestoreSize {
-		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to restore input file: %#v size too big: %v/%v", inputFile, fi.Size(),
-			maxRestoreSize), http.StatusBadRequest)
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to restore input file: %#v size too big: %v/%v bytes",
+			inputFile, fi.Size(), maxRestoreSize), http.StatusBadRequest)
 		return
 	}
 
@@ -84,7 +94,7 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	var dump BackupData
+	var dump dataprovider.BackupData
 	err = json.Unmarshal(content, &dump)
 	if err != nil {
 		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to parse input file: %#v", inputFile), http.StatusBadRequest)
@@ -95,7 +105,7 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 		u, err := dataprovider.UserExists(dataProvider, user.Username)
 		if err == nil {
 			if mode == 1 {
-				logger.Debug(logSender, "", "loaddata mode = 1 existing user: %#v not updated", u.Username)
+				logger.Debug(logSender, "", "loaddata mode 1, existing user %#v not updated", u.Username)
 				continue
 			}
 			user.ID = u.ID

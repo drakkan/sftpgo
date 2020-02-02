@@ -105,3 +105,7 @@ func (p SQLiteProvider) getUsers(limit int, offset int, order string, username s
 func (p SQLiteProvider) close() error {
 	return p.dbHandle.Close()
 }
+
+func (p SQLiteProvider) reloadConfig() error {
+	return nil
+}
