@@ -60,6 +60,7 @@ const (
 	pbkdf2SHA256Prefix       = "$pbkdf2-sha256$"
 	pbkdf2SHA512Prefix       = "$pbkdf2-sha512$"
 	md5cryptPwdPrefix        = "$1$"
+	md5cryptApr1PwdPrefix    = "$apr1$"
 	sha512cryptPwdPrefix     = "$6$"
 	manageUsersDisabledError = "please set manage_users to 1 in your configuration to enable this method"
 	trackQuotaDisabledError  = "please enable track_quota in your configuration to use this method"
@@ -79,9 +80,9 @@ var (
 	provider        Provider
 	sqlPlaceholders []string
 	hashPwdPrefixes = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
-		pbkdf2SHA512Prefix, md5cryptPwdPrefix, sha512cryptPwdPrefix}
+		pbkdf2SHA512Prefix, md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
 	pbkdfPwdPrefixes       = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
-	unixPwdPrefixes        = []string{md5cryptPwdPrefix, sha512cryptPwdPrefix}
+	unixPwdPrefixes        = []string{md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
 	logSender              = "dataProvider"
 	availabilityTicker     *time.Ticker
 	availabilityTickerDone chan bool
@@ -709,7 +710,7 @@ func compareUnixPasswordAndHash(user User, password string) (bool, error) {
 			return match, errWrongPassword
 		}
 		match = true
-	} else if strings.HasPrefix(user.Password, md5cryptPwdPrefix) {
+	} else if strings.HasPrefix(user.Password, md5cryptPwdPrefix) || strings.HasPrefix(user.Password, md5cryptApr1PwdPrefix) {
 		crypter, ok := unixcrypt.MD5.CrypterFound(user.Password)
 		if !ok {
 			err = errors.New("cannot found matching MD5 crypter")

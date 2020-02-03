@@ -202,6 +202,11 @@ func (fs S3Fs) Create(name string, flag int) (*os.File, *pipeat.PipeWriterAt, fu
 // rename all the contents too and this could take long time: think
 // about directories with thousands of files, for each file we should
 // execute a CopyObject call.
+// TODO: rename does not work for files bigger than 5GB, implement
+// multipart copy or wait for this pull request to be merged:
+//
+// https://github.com/aws/aws-sdk-go/pull/2653
+//
 func (fs S3Fs) Rename(source, target string) error {
 	if source == target {
 		return nil

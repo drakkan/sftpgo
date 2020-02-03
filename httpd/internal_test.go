@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -318,7 +321,9 @@ func TestGCSWebInvalidFormFile(t *testing.T) {
 
 func TestApiCallsWithBadURL(t *testing.T) {
 	oldBaseURL := httpBaseURL
-	SetBaseURL(invalidURL)
+	oldAuthUsername := authUsername
+	oldAuthPassword := authPassword
+	SetBaseURLAndCredentials(invalidURL, oldAuthUsername, oldAuthPassword)
 	u := dataprovider.User{}
 	_, _, err := UpdateUser(u, http.StatusBadRequest)
 	if err == nil {
@@ -344,12 +349,14 @@ func TestApiCallsWithBadURL(t *testing.T) {
 	if err == nil {
 		t.Error("request with invalid URL must fail")
 	}
-	SetBaseURL(oldBaseURL)
+	SetBaseURLAndCredentials(oldBaseURL, oldAuthUsername, oldAuthPassword)
 }
 
 func TestApiCallToNotListeningServer(t *testing.T) {
 	oldBaseURL := httpBaseURL
-	SetBaseURL(inactiveURL)
+	oldAuthUsername := authUsername
+	oldAuthPassword := authPassword
+	SetBaseURLAndCredentials(inactiveURL, oldAuthUsername, oldAuthPassword)
 	u := dataprovider.User{}
 	_, _, err := AddUser(u, http.StatusBadRequest)
 	if err == nil {
@@ -403,7 +410,79 @@ func TestApiCallToNotListeningServer(t *testing.T) {
 	if err == nil {
 		t.Errorf("request to an inactive URL must fail")
 	}
-	SetBaseURL(oldBaseURL)
+	SetBaseURLAndCredentials(oldBaseURL, oldAuthUsername, oldAuthPassword)
+}
+
+func TestBasicAuth(t *testing.T) {
+	oldAuthUsername := authUsername
+	oldAuthPassword := authPassword
+	authUserFile := filepath.Join(os.TempDir(), "http_users.txt")
+	authUserData := []byte("test1:$2y$05$bcHSED7aO1cfLto6ZdDBOOKzlwftslVhtpIkRhAtSa4GuLmk5mola\n")
+	ioutil.WriteFile(authUserFile, authUserData, 0666)
+	httpAuth, _ = newBasicAuthProvider(authUserFile)
+	_, _, err := GetVersion(http.StatusUnauthorized)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	SetBaseURLAndCredentials(httpBaseURL, "test1", "password1")
+	_, _, err = GetVersion(http.StatusOK)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	SetBaseURLAndCredentials(httpBaseURL, "test1", "wrong_password")
+	resp, _ := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(metricsPath), nil, "")
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("request with wrong password must fail, status code: %v", resp.StatusCode)
+	}
+	authUserData = append(authUserData, []byte("test2:$apr1$gLnIkRIf$Xr/6aJfmIrihP4b2N2tcs/\n")...)
+	ioutil.WriteFile(authUserFile, authUserData, 0666)
+	SetBaseURLAndCredentials(httpBaseURL, "test2", "password2")
+	_, _, err = GetVersion(http.StatusOK)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	SetBaseURLAndCredentials(httpBaseURL, "test2", "wrong_password")
+	_, _, err = GetVersion(http.StatusOK)
+	if err == nil {
+		t.Error("request with wrong password must fail")
+	}
+	authUserData = append(authUserData, []byte("test3:$apr1$gLnIkRIf$Xr/6$aJfmIr$ihP4b2N2tcs/\n")...)
+	ioutil.WriteFile(authUserFile, authUserData, 0666)
+	SetBaseURLAndCredentials(httpBaseURL, "test3", "wrong_password")
+	_, _, err = GetVersion(http.StatusUnauthorized)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	authUserData = append(authUserData, []byte("test4:$invalid$gLnIkRIf$Xr/6$aJfmIr$ihP4b2N2tcs/\n")...)
+	ioutil.WriteFile(authUserFile, authUserData, 0666)
+	SetBaseURLAndCredentials(httpBaseURL, "test3", "password2")
+	_, _, err = GetVersion(http.StatusUnauthorized)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if runtime.GOOS != "windows" {
+		authUserData = append(authUserData, []byte("test5:$apr1$gLnIkRIf$Xr/6aJfmIrihP4b2N2tcs/\n")...)
+		ioutil.WriteFile(authUserFile, authUserData, 0666)
+		os.Chmod(authUserFile, 0001)
+		SetBaseURLAndCredentials(httpBaseURL, "test5", "password2")
+		_, _, err = GetVersion(http.StatusUnauthorized)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		os.Chmod(authUserFile, 0666)
+
+	}
+	authUserData = append(authUserData, []byte("\"foo\"bar\"\r\n")...)
+	ioutil.WriteFile(authUserFile, authUserData, 0666)
+	SetBaseURLAndCredentials(httpBaseURL, "test2", "password2")
+	_, _, err = GetVersion(http.StatusUnauthorized)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	os.Remove(authUserFile)
+	SetBaseURLAndCredentials(httpBaseURL, oldAuthUsername, oldAuthPassword)
+	httpAuth, _ = newBasicAuthProvider("")
 }
 
 func TestCloseConnectionHandler(t *testing.T) {

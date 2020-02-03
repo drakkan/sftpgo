@@ -19,6 +19,7 @@ import (
 
 const (
 	logSender             = "httpd"
+	apiPrefix             = "/api/v1"
 	activeConnectionsPath = "/api/v1/connection"
 	quotaScanPath         = "/api/v1/quota_scan"
 	userPath              = "/api/v1/user"
@@ -40,6 +41,7 @@ var (
 	router       *chi.Mux
 	dataProvider dataprovider.Provider
 	backupsPath  string
+	httpAuth     httpAuthProvider
 )
 
 // Conf httpd daemon configuration
@@ -54,6 +56,16 @@ type Conf struct {
 	StaticFilesPath string `json:"static_files_path" mapstructure:"static_files_path"`
 	// Path to the backup directory. This can be an absolute path or a path relative to the config dir
 	BackupsPath string `json:"backups_path" mapstructure:"backups_path"`
+	// Path to a file used to store usernames and password for basic authentication.
+	// This can be an absolute path or a path relative to the config dir.
+	// We support HTTP basic authentication and the file format must conform to the one generated using the Apache
+	// htpasswd tool. The supported password formats are bcrypt ($2y$ prefix) and md5 crypt ($apr1$ prefix).
+	// If empty HTTP authentication is disabled
+	AuthUserFile string `json:"auth_user_file" mapstructure:"auth_user_file"`
+	// If files containing a certificate and matching private key for the server are provided the server will expect
+	// HTTPS connections
+	CertificateFile    string `json:"certificate_file" mapstructure:"certificate_file"`
+	CertificateKeyFile string `json:"certificate_key_file" mapstructure:"certificate_key_file"`
 }
 
 type apiResponse struct {
@@ -69,27 +81,36 @@ func SetDataProvider(provider dataprovider.Provider) {
 
 // Initialize the HTTP server
 func (c Conf) Initialize(configDir string) error {
+	var err error
 	logger.Debug(logSender, "", "initializing HTTP server with config %+v", c)
-	backupsPath = c.BackupsPath
-	if !filepath.IsAbs(backupsPath) {
-		backupsPath = filepath.Join(configDir, backupsPath)
+	backupsPath = getConfigPath(c.BackupsPath, configDir)
+	staticFilesPath := getConfigPath(c.StaticFilesPath, configDir)
+	templatesPath := getConfigPath(c.TemplatesPath, configDir)
+	authUserFile := getConfigPath(c.AuthUserFile, configDir)
+	httpAuth, err = newBasicAuthProvider(authUserFile)
+	if err != nil {
+		return err
 	}
-	staticFilesPath := c.StaticFilesPath
-	if !filepath.IsAbs(staticFilesPath) {
-		staticFilesPath = filepath.Join(configDir, staticFilesPath)
-	}
-	templatesPath := c.TemplatesPath
-	if !filepath.IsAbs(templatesPath) {
-		templatesPath = filepath.Join(configDir, templatesPath)
-	}
+	certificateFile := getConfigPath(c.CertificateFile, configDir)
+	certificateKeyFile := getConfigPath(c.CertificateKeyFile, configDir)
 	loadTemplates(templatesPath)
 	initializeRouter(staticFilesPath)
 	httpServer := &http.Server{
 		Addr:           fmt.Sprintf("%s:%d", c.BindAddress, c.BindPort),
 		Handler:        router,
-		ReadTimeout:    300 * time.Second,
-		WriteTimeout:   300 * time.Second,
+		ReadTimeout:    60 * time.Second,
+		WriteTimeout:   60 * time.Second,
 		MaxHeaderBytes: 1 << 16, // 64KB
 	}
+	if len(certificateFile) > 0 && len(certificateKeyFile) > 0 {
+		return httpServer.ListenAndServeTLS(certificateFile, certificateKeyFile)
+	}
 	return httpServer.ListenAndServe()
+}
+
+func getConfigPath(name, configDir string) string {
+	if len(name) > 0 && !filepath.IsAbs(name) {
+		return filepath.Join(configDir, name)
+	}
+	return name
 }

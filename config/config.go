@@ -87,11 +87,14 @@ func init() {
 			CredentialsPath:     "credentials",
 		},
 		HTTPDConfig: httpd.Conf{
-			BindPort:        8080,
-			BindAddress:     "127.0.0.1",
-			TemplatesPath:   "templates",
-			StaticFilesPath: "static",
-			BackupsPath:     "backups",
+			BindPort:           8080,
+			BindAddress:        "127.0.0.1",
+			TemplatesPath:      "templates",
+			StaticFilesPath:    "static",
+			BackupsPath:        "backups",
+			AuthUserFile:       "",
+			CertificateFile:    "",
+			CertificateKeyFile: "",
 		},
 	}
 

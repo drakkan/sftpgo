@@ -37,91 +37,95 @@ func initializeRouter(staticFilesPath string) {
 		http.Redirect(w, r, webUsersPath, http.StatusMovedPermanently)
 	})
 
-	router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, webUsersPath, http.StatusMovedPermanently)
-	})
+	router.Group(func(router chi.Router) {
+		router.Use(checkAuth)
 
-	router.Handle(metricsPath, promhttp.Handler())
+		router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, webUsersPath, http.StatusMovedPermanently)
+		})
 
-	router.Get(versionPath, func(w http.ResponseWriter, r *http.Request) {
-		render.JSON(w, r, utils.GetAppVersion())
-	})
+		router.Handle(metricsPath, promhttp.Handler())
 
-	router.Get(providerStatusPath, func(w http.ResponseWriter, r *http.Request) {
-		err := dataprovider.GetProviderStatus(dataProvider)
-		if err != nil {
-			sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
-		} else {
-			sendAPIResponse(w, r, err, "Alive", http.StatusOK)
-		}
-	})
+		router.Get(versionPath, func(w http.ResponseWriter, r *http.Request) {
+			render.JSON(w, r, utils.GetAppVersion())
+		})
 
-	router.Get(activeConnectionsPath, func(w http.ResponseWriter, r *http.Request) {
-		render.JSON(w, r, sftpd.GetConnectionsStats())
-	})
+		router.Get(providerStatusPath, func(w http.ResponseWriter, r *http.Request) {
+			err := dataprovider.GetProviderStatus(dataProvider)
+			if err != nil {
+				sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
+			} else {
+				sendAPIResponse(w, r, err, "Alive", http.StatusOK)
+			}
+		})
 
-	router.Delete(activeConnectionsPath+"/{connectionID}", func(w http.ResponseWriter, r *http.Request) {
-		handleCloseConnection(w, r)
-	})
+		router.Get(activeConnectionsPath, func(w http.ResponseWriter, r *http.Request) {
+			render.JSON(w, r, sftpd.GetConnectionsStats())
+		})
 
-	router.Get(quotaScanPath, func(w http.ResponseWriter, r *http.Request) {
-		getQuotaScans(w, r)
-	})
+		router.Delete(activeConnectionsPath+"/{connectionID}", func(w http.ResponseWriter, r *http.Request) {
+			handleCloseConnection(w, r)
+		})
 
-	router.Post(quotaScanPath, func(w http.ResponseWriter, r *http.Request) {
-		startQuotaScan(w, r)
-	})
+		router.Get(quotaScanPath, func(w http.ResponseWriter, r *http.Request) {
+			getQuotaScans(w, r)
+		})
 
-	router.Get(userPath, func(w http.ResponseWriter, r *http.Request) {
-		getUsers(w, r)
-	})
+		router.Post(quotaScanPath, func(w http.ResponseWriter, r *http.Request) {
+			startQuotaScan(w, r)
+		})
 
-	router.Post(userPath, func(w http.ResponseWriter, r *http.Request) {
-		addUser(w, r)
-	})
+		router.Get(userPath, func(w http.ResponseWriter, r *http.Request) {
+			getUsers(w, r)
+		})
 
-	router.Get(userPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
-		getUserByID(w, r)
-	})
+		router.Post(userPath, func(w http.ResponseWriter, r *http.Request) {
+			addUser(w, r)
+		})
 
-	router.Put(userPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
-		updateUser(w, r)
-	})
+		router.Get(userPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
+			getUserByID(w, r)
+		})
 
-	router.Delete(userPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
-		deleteUser(w, r)
-	})
+		router.Put(userPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
+			updateUser(w, r)
+		})
 
-	router.Get(dumpDataPath, func(w http.ResponseWriter, r *http.Request) {
-		dumpData(w, r)
-	})
+		router.Delete(userPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
+			deleteUser(w, r)
+		})
 
-	router.Get(loadDataPath, func(w http.ResponseWriter, r *http.Request) {
-		loadData(w, r)
-	})
+		router.Get(dumpDataPath, func(w http.ResponseWriter, r *http.Request) {
+			dumpData(w, r)
+		})
 
-	router.Get(webUsersPath, func(w http.ResponseWriter, r *http.Request) {
-		handleGetWebUsers(w, r)
-	})
+		router.Get(loadDataPath, func(w http.ResponseWriter, r *http.Request) {
+			loadData(w, r)
+		})
 
-	router.Get(webUserPath, func(w http.ResponseWriter, r *http.Request) {
-		handleWebAddUserGet(w, r)
-	})
+		router.Get(webUsersPath, func(w http.ResponseWriter, r *http.Request) {
+			handleGetWebUsers(w, r)
+		})
 
-	router.Get(webUserPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
-		handleWebUpdateUserGet(chi.URLParam(r, "userID"), w, r)
-	})
+		router.Get(webUserPath, func(w http.ResponseWriter, r *http.Request) {
+			handleWebAddUserGet(w, r)
+		})
 
-	router.Post(webUserPath, func(w http.ResponseWriter, r *http.Request) {
-		handleWebAddUserPost(w, r)
-	})
+		router.Get(webUserPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
+			handleWebUpdateUserGet(chi.URLParam(r, "userID"), w, r)
+		})
 
-	router.Post(webUserPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
-		handleWebUpdateUserPost(chi.URLParam(r, "userID"), w, r)
-	})
+		router.Post(webUserPath, func(w http.ResponseWriter, r *http.Request) {
+			handleWebAddUserPost(w, r)
+		})
 
-	router.Get(webConnectionsPath, func(w http.ResponseWriter, r *http.Request) {
-		handleWebGetConnections(w, r)
+		router.Post(webUserPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
+			handleWebUpdateUserPost(chi.URLParam(r, "userID"), w, r)
+		})
+
+		router.Get(webConnectionsPath, func(w http.ResponseWriter, r *http.Request) {
+			handleWebGetConnections(w, r)
+		})
 	})
 
 	router.Group(func(router chi.Router) {

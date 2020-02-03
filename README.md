@@ -185,6 +185,9 @@ The `sftpgo` configuration file contains the following sections:
     - `templates_path`, string. Path to the HTML web templates. This can be an absolute path or a path relative to the config dir
     - `static_files_path`, string. Path to the static files for the web interface. This can be an absolute path or a path relative to the config dir
     - `backups_path`, string. Path to the backup directory. This can be an absolute path or a path relative to the config dir. We don't allow backups in arbitrary paths for security reasons
+    - `auth_user_file`, string. Path to a file used to store usernames and password for basic authentication. This can be an absolute path or a path relative to the config dir. We support HTTP basic authentication and the file format must conform to the one generated using the Apache tool. The supported password formats are bcrypt (`$2y$` prefix) and md5 crypt (`$apr1$` prefix). If empty HTTP authentication is disabled.
+    - `certificate_file`, string. Certificate for HTTPS. This can be an absolute path or a path relative to the config dir.
+    - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If both the certificate and the private key are provided the the server will expect HTTPS connections.
 
 Here is a full example showing the default config in JSON format:
 
@@ -241,7 +244,10 @@ Here is a full example showing the default config in JSON format:
     "bind_address": "127.0.0.1",
     "templates_path": "templates",
     "static_files_path": "static",
-    "backups_path": "backups"
+    "backups_path": "backups",
+    "auth_user_file": "",
+    "certificate_file": "",
+    "certificate_key_file": ""
   }
 }
 ```
@@ -277,9 +283,9 @@ Before starting `sftpgo serve` please ensure that the configured dataprovider is
 SQL based data providers (SQLite, MySQL, PostgreSQL) requires the creation of a database containing the required tables. Memory and bolt data providers does not require an initialization.
 
 SQL scripts to create the required database structure can be found inside the source tree [sql](./sql "sql") directory. The SQL scripts filename is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190828.sql` must be applied before `20191112.sql` and so on.
-Example for SQLite: `find sql/sqlite/ -type f -iname '*.sql' -print | sort -n |xargs cat | sqlite3 sftpgo.db`.
+Example for SQLite: `find sql/sqlite/ -type f -iname '*.sql' -print | sort -n | xargs cat | sqlite3 sftpgo.db`.
 
-The `memory` provider can load users from a dump obtained using the `dumpdata` REST API. This dump file can be configured using the dataprovider `name` configuration key. It will be loaded at startup and can be reloaded on demand using a `SIGHUP` on Unix based systems and a `paramchange` request to the running service on Windows.
+The `memory` provider can load users from a dump obtained using the `dumpdata` REST API. The path to this dump file can be configured using the dataprovider `name` configuration key. It will be loaded at startup and can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows. The `memory` provider will not modify the provided file so quota usage and last login will not be persisted.
 
 ### Starting SFTGo in server mode
 
@@ -584,7 +590,7 @@ Here is an example of the advertised service including credentials as seen using
 For each account the following properties can be configured:
 
 - `username`
-- `password` used for password authentication. For users created using SFTPGo REST API if the password has no known hashing algo prefix it will be stored using argon2id. SFTPGo supports checking passwords stored with bcrypt, pbkdf2, md5crypt and sha512crypt too. For pbkdf2 the supported format is `$<algo>$<iterations>$<salt>$<hashed pwd base64 encoded>`, where algo is `pbkdf2-sha1` or `pbkdf2-sha256` or `pbkdf2-sha512`. For example the `pbkdf2-sha256` of the word `password` using 150000 iterations and `E86a9YMX3zC7` as salt must be stored as `$pbkdf2-sha256$150000$E86a9YMX3zC7$R5J62hsSq+pYw00hLLPKBbcGXmq7fj5+/M0IFoYtZbo=`. For bcrypt the format must be the one supported by golang's [crypto/bcrypt](https://godoc.org/golang.org/x/crypto/bcrypt) package, for example the password `secret` with cost `14` must be stored as `$2a$14$ajq8Q7fbtFRQvXpdCq7Jcuy.Rx1h/L4J60Otx.gyNLbAYctGMJ9tK`. For md5crypt and sha512crypt we support the format used in `/etc/shadow` with the `$1$` and `$6$` prefix, this is useful if you are migrating from Unix system user accounts.  Using the REST API you can send a password hashed as bcrypt, pbkdf2, md5crypt or sha512crypt and it will be stored as is.
+- `password` used for password authentication. For users created using SFTPGo REST API if the password has no known hashing algo prefix it will be stored using argon2id. SFTPGo supports checking passwords stored with bcrypt, pbkdf2, md5crypt and sha512crypt too. For pbkdf2 the supported format is `$<algo>$<iterations>$<salt>$<hashed pwd base64 encoded>`, where algo is `pbkdf2-sha1` or `pbkdf2-sha256` or `pbkdf2-sha512`. For example the `pbkdf2-sha256` of the word `password` using 150000 iterations and `E86a9YMX3zC7` as salt must be stored as `$pbkdf2-sha256$150000$E86a9YMX3zC7$R5J62hsSq+pYw00hLLPKBbcGXmq7fj5+/M0IFoYtZbo=`. For bcrypt the format must be the one supported by golang's [crypto/bcrypt](https://godoc.org/golang.org/x/crypto/bcrypt) package, for example the password `secret` with cost `14` must be stored as `$2a$14$ajq8Q7fbtFRQvXpdCq7Jcuy.Rx1h/L4J60Otx.gyNLbAYctGMJ9tK`. For md5crypt and sha512crypt we support the format used in `/etc/shadow` with the `$1$` and `$6$` prefix, this is useful if you are migrating from Unix system user accounts. We support Apache md5crypt (`$apr1$` prefix) too. Using the REST API you can send a password hashed as bcrypt, pbkdf2, md5crypt or sha512crypt and it will be stored as is.
 - `public_keys` array of public keys. At least one public key or the password is mandatory.
 - `status` 1 means "active", 0 "inactive". An inactive account cannot login.
 - `expiration_date` expiration date as unix timestamp in milliseconds. An expired account cannot login. 0 means no expiration.
@@ -637,7 +643,7 @@ SFTPGo exposes REST API to manage, backup and restore users and to get real time
 
 If quota tracking is enabled in `sftpgo` configuration file, then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP/SCP or if you change `track_quota` from `2` to `1`, you can rescan the users home dir and update the used quota using the REST API.
 
-REST API is designed to run on localhost or on a trusted network, if you need HTTPS and/or authentication you can setup a reverse proxy using an HTTP Server such as Apache or NGNIX.
+REST API can be protected using HTTP basic authentication and exposed via HTTPS, if you need more advanced security features you can setup a reverse proxy using an HTTP Server such as Apache or NGNIX.
 
 For example you can keep SFTPGo listening on localhost and expose it externally configuring a reverse proxy using Apache HTTP Server this way:
 
@@ -693,7 +699,7 @@ With the default `httpd` configuration, the web admin is available at the follow
 
 [http://127.0.0.1:8080/web](http://127.0.0.1:8080/web)
 
-If you need HTTPS and/or authentication you can setup a reverse proxy as explained for the REST API.
+The web interface can be protected using HTTP basic authentication and exposed via HTTPS, if you need more advanced security features you can setup a reverse proxy as explained for the REST API.
 
 ## Logs
 

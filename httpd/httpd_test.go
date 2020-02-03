@@ -84,10 +84,9 @@ func TestMain(m *testing.M) {
 	httpdConf := config.GetHTTPDConfig()
 
 	httpdConf.BindPort = 8081
-	httpd.SetBaseURL("http://127.0.0.1:8081")
-	httpdConf.BackupsPath = "test_backups"
-	currentPath, _ := os.Getwd()
-	backupsPath = filepath.Join(currentPath, "..", httpdConf.BackupsPath)
+	httpd.SetBaseURLAndCredentials("http://127.0.0.1:8081", "", "")
+	backupsPath = filepath.Join(os.TempDir(), "test_backups")
+	httpdConf.BackupsPath = backupsPath
 	os.MkdirAll(backupsPath, 0777)
 
 	sftpd.SetDataProvider(dataProvider)
@@ -111,6 +110,25 @@ func TestMain(m *testing.M) {
 	os.RemoveAll(backupsPath)
 	os.RemoveAll(credentialsPath)
 	os.Exit(exitCode)
+}
+
+func TestInitialization(t *testing.T) {
+	config.LoadConfig(configDir, "")
+	httpdConf := config.GetHTTPDConfig()
+	httpdConf.BackupsPath = "test_backups"
+	httpdConf.AuthUserFile = "invalid file"
+	err := httpdConf.Initialize(configDir)
+	if err == nil {
+		t.Error("Inizialize must fail")
+	}
+	httpdConf.BackupsPath = backupsPath
+	httpdConf.AuthUserFile = ""
+	httpdConf.CertificateFile = "invalid file"
+	httpdConf.CertificateKeyFile = "invalid file"
+	err = httpdConf.Initialize(configDir)
+	if err == nil {
+		t.Error("Inizialize must fail")
+	}
 }
 
 func TestBasicUserHandling(t *testing.T) {

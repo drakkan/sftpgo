@@ -412,7 +412,7 @@ func (c *scpCommand) sendDownloadFileData(filePath string, stat os.FileInfo, tra
 			break
 		}
 	}
-	if err != nil && err != io.EOF {
+	if err != io.EOF {
 		c.sendErrorMessage(err.Error())
 		return err
 	}

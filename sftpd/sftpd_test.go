@@ -224,17 +224,17 @@ func TestInitialization(t *testing.T) {
 	sftpdConf.EnabledSSHCommands = append(sftpdConf.EnabledSSHCommands, "ls")
 	err := sftpdConf.Initialize(configDir)
 	if err == nil {
-		t.Errorf("Inizialize must fail, a SFTP server should be already running")
+		t.Error("Inizialize must fail, a SFTP server should be already running")
 	}
 	sftpdConf.KeyboardInteractiveProgram = "invalid_file"
 	err = sftpdConf.Initialize(configDir)
 	if err == nil {
-		t.Errorf("Inizialize must fail, a SFTP server should be already running")
+		t.Error("Inizialize must fail, a SFTP server should be already running")
 	}
 	sftpdConf.KeyboardInteractiveProgram = filepath.Join(homeBasePath, "invalid_file")
 	err = sftpdConf.Initialize(configDir)
 	if err == nil {
-		t.Errorf("Inizialize must fail, a SFTP server should be already running")
+		t.Error("Inizialize must fail, a SFTP server should be already running")
 	}
 }
 
@@ -2258,6 +2258,39 @@ func TestPasswordsHashSHA512Crypt(t *testing.T) {
 
 func TestPasswordsHashMD5Crypt(t *testing.T) {
 	md5CryptPwd := "$1$b5caebda$VODr/nyhGWgZaY8sJ4x05."
+	clearPwd := "password"
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Password = md5CryptPwd
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	user.Password = clearPwd
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to login with md5 crypt password: %v", err)
+	} else {
+		defer client.Close()
+		_, err = client.Getwd()
+		if err != nil {
+			t.Errorf("unable to get working dir with md5 crypt password: %v", err)
+		}
+	}
+	user.Password = md5CryptPwd
+	_, err = getSftpClient(user, usePubKey)
+	if err == nil {
+		t.Errorf("login with wrong password must fail")
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+}
+
+func TestPasswordsHashMD5CryptApr1(t *testing.T) {
+	md5CryptPwd := "$apr1$OBWLeSme$WoJbB736e7kKxMBIAqilb1"
 	clearPwd := "password"
 	usePubKey := false
 	u := getTestUser(usePubKey)

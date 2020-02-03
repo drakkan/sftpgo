@@ -50,6 +50,9 @@
     "bind_address": "127.0.0.1",
     "templates_path": "templates",
     "static_files_path": "static",
-    "backups_path": "backups"
+    "backups_path": "backups",
+    "auth_user_file": "",
+    "certificate_file": "",
+    "certificate_key_file": ""
   }
 }

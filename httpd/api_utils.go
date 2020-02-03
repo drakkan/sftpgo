@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -22,12 +23,17 @@ import (
 )
 
 var (
-	httpBaseURL = "http://127.0.0.1:8080"
+	httpBaseURL  = "http://127.0.0.1:8080"
+	authUsername = ""
+	authPassword = ""
 )
 
-// SetBaseURL sets the base url to use for HTTP requests, default is "http://127.0.0.1:8080"
-func SetBaseURL(url string) {
+// SetBaseURLAndCredentials sets the base url and the optional credentials to use for HTTP requests.
+// Default URL is "http://127.0.0.1:8080" with empty credentials
+func SetBaseURLAndCredentials(url, username, password string) {
 	httpBaseURL = url
+	authUsername = username
+	authPassword = password
 }
 
 // gets an HTTP Client with a timeout
@@ -35,6 +41,20 @@ func getHTTPClient() *http.Client {
 	return &http.Client{
 		Timeout: 15 * time.Second,
 	}
+}
+
+func sendHTTPRequest(method, url string, body io.Reader, contentType string) (*http.Response, error) {
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		return nil, err
+	}
+	if len(contentType) > 0 {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if len(authUsername) > 0 || len(authPassword) > 0 {
+		req.SetBasicAuth(authUsername, authPassword)
+	}
+	return getHTTPClient().Do(req)
 }
 
 func buildURLRelativeToBase(paths ...string) string {
@@ -79,7 +99,8 @@ func AddUser(user dataprovider.User, expectedStatusCode int) (dataprovider.User,
 	if err != nil {
 		return newUser, body, err
 	}
-	resp, err := getHTTPClient().Post(buildURLRelativeToBase(userPath), "application/json", bytes.NewBuffer(userAsJSON))
+	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(userPath), bytes.NewBuffer(userAsJSON),
+		"application/json")
 	if err != nil {
 		return newUser, body, err
 	}
@@ -108,12 +129,8 @@ func UpdateUser(user dataprovider.User, expectedStatusCode int) (dataprovider.Us
 	if err != nil {
 		return user, body, err
 	}
-	req, err := http.NewRequest(http.MethodPut, buildURLRelativeToBase(userPath, strconv.FormatInt(user.ID, 10)),
-		bytes.NewBuffer(userAsJSON))
-	if err != nil {
-		return user, body, err
-	}
-	resp, err := getHTTPClient().Do(req)
+	resp, err := sendHTTPRequest(http.MethodPut, buildURLRelativeToBase(userPath, strconv.FormatInt(user.ID, 10)),
+		bytes.NewBuffer(userAsJSON), "application/json")
 	if err != nil {
 		return user, body, err
 	}
@@ -135,11 +152,7 @@ func UpdateUser(user dataprovider.User, expectedStatusCode int) (dataprovider.Us
 // RemoveUser removes an existing user and checks the received HTTP Status code against expectedStatusCode.
 func RemoveUser(user dataprovider.User, expectedStatusCode int) ([]byte, error) {
 	var body []byte
-	req, err := http.NewRequest(http.MethodDelete, buildURLRelativeToBase(userPath, strconv.FormatInt(user.ID, 10)), nil)
-	if err != nil {
-		return body, err
-	}
-	resp, err := getHTTPClient().Do(req)
+	resp, err := sendHTTPRequest(http.MethodDelete, buildURLRelativeToBase(userPath, strconv.FormatInt(user.ID, 10)), nil, "")
 	if err != nil {
 		return body, err
 	}
@@ -152,7 +165,7 @@ func RemoveUser(user dataprovider.User, expectedStatusCode int) ([]byte, error) 
 func GetUserByID(userID int64, expectedStatusCode int) (dataprovider.User, []byte, error) {
 	var user dataprovider.User
 	var body []byte
-	resp, err := getHTTPClient().Get(buildURLRelativeToBase(userPath, strconv.FormatInt(userID, 10)))
+	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(userPath, strconv.FormatInt(userID, 10)), nil, "")
 	if err != nil {
 		return user, body, err
 	}
@@ -188,7 +201,7 @@ func GetUsers(limit int64, offset int64, username string, expectedStatusCode int
 		q.Add("username", username)
 	}
 	url.RawQuery = q.Encode()
-	resp, err := getHTTPClient().Get(url.String())
+	resp, err := sendHTTPRequest(http.MethodGet, url.String(), nil, "")
 	if err != nil {
 		return users, body, err
 	}
@@ -206,7 +219,7 @@ func GetUsers(limit int64, offset int64, username string, expectedStatusCode int
 func GetQuotaScans(expectedStatusCode int) ([]sftpd.ActiveQuotaScan, []byte, error) {
 	var quotaScans []sftpd.ActiveQuotaScan
 	var body []byte
-	resp, err := getHTTPClient().Get(buildURLRelativeToBase(quotaScanPath))
+	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(quotaScanPath), nil, "")
 	if err != nil {
 		return quotaScans, body, err
 	}
@@ -227,7 +240,7 @@ func StartQuotaScan(user dataprovider.User, expectedStatusCode int) ([]byte, err
 	if err != nil {
 		return body, err
 	}
-	resp, err := getHTTPClient().Post(buildURLRelativeToBase(quotaScanPath), "application/json", bytes.NewBuffer(userAsJSON))
+	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(quotaScanPath), bytes.NewBuffer(userAsJSON), "")
 	if err != nil {
 		return body, err
 	}
@@ -240,7 +253,7 @@ func StartQuotaScan(user dataprovider.User, expectedStatusCode int) ([]byte, err
 func GetConnections(expectedStatusCode int) ([]sftpd.ConnectionStatus, []byte, error) {
 	var connections []sftpd.ConnectionStatus
 	var body []byte
-	resp, err := getHTTPClient().Get(buildURLRelativeToBase(activeConnectionsPath))
+	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(activeConnectionsPath), nil, "")
 	if err != nil {
 		return connections, body, err
 	}
@@ -257,11 +270,7 @@ func GetConnections(expectedStatusCode int) ([]sftpd.ConnectionStatus, []byte, e
 // CloseConnection closes an active  connection identified by connectionID
 func CloseConnection(connectionID string, expectedStatusCode int) ([]byte, error) {
 	var body []byte
-	req, err := http.NewRequest(http.MethodDelete, buildURLRelativeToBase(activeConnectionsPath, connectionID), nil)
-	if err != nil {
-		return body, err
-	}
-	resp, err := getHTTPClient().Do(req)
+	resp, err := sendHTTPRequest(http.MethodDelete, buildURLRelativeToBase(activeConnectionsPath, connectionID), nil, "")
 	if err != nil {
 		return body, err
 	}
@@ -275,7 +284,7 @@ func CloseConnection(connectionID string, expectedStatusCode int) ([]byte, error
 func GetVersion(expectedStatusCode int) (utils.VersionInfo, []byte, error) {
 	var version utils.VersionInfo
 	var body []byte
-	resp, err := getHTTPClient().Get(buildURLRelativeToBase(versionPath))
+	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(versionPath), nil, "")
 	if err != nil {
 		return version, body, err
 	}
@@ -293,7 +302,7 @@ func GetVersion(expectedStatusCode int) (utils.VersionInfo, []byte, error) {
 func GetProviderStatus(expectedStatusCode int) (map[string]interface{}, []byte, error) {
 	var response map[string]interface{}
 	var body []byte
-	resp, err := getHTTPClient().Get(buildURLRelativeToBase(providerStatusPath))
+	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(providerStatusPath), nil, "")
 	if err != nil {
 		return response, body, err
 	}
@@ -322,7 +331,7 @@ func Dumpdata(outputFile, indent string, expectedStatusCode int) (map[string]int
 		q.Add("indent", indent)
 	}
 	url.RawQuery = q.Encode()
-	resp, err := getHTTPClient().Get(url.String())
+	resp, err := sendHTTPRequest(http.MethodGet, url.String(), nil, "")
 	if err != nil {
 		return response, body, err
 	}
@@ -355,7 +364,7 @@ func Loaddata(inputFile, scanQuota, mode string, expectedStatusCode int) (map[st
 		q.Add("mode", mode)
 	}
 	url.RawQuery = q.Encode()
-	resp, err := getHTTPClient().Get(url.String())
+	resp, err := sendHTTPRequest(http.MethodGet, url.String(), nil, "")
 	if err != nil {
 		return response, body, err
 	}
