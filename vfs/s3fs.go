@@ -188,6 +188,8 @@ func (fs S3Fs) Create(name string, flag int) (*os.File, *pipeat.PipeWriterAt, fu
 			Key:          aws.String(key),
 			Body:         r,
 			StorageClass: utils.NilIfEmpty(fs.config.StorageClass),
+		}, func(u *s3manager.Uploader) {
+			u.Concurrency = 2
 		})
 		r.CloseWithError(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, response: %v, readed bytes: %v, err: %v",
