@@ -7,6 +7,7 @@
 package httpd
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -42,6 +43,7 @@ var (
 	dataProvider dataprovider.Provider
 	backupsPath  string
 	httpAuth     httpAuthProvider
+	certMgr      *certManager
 )
 
 // Conf httpd daemon configuration
@@ -63,7 +65,9 @@ type Conf struct {
 	// If empty HTTP authentication is disabled
 	AuthUserFile string `json:"auth_user_file" mapstructure:"auth_user_file"`
 	// If files containing a certificate and matching private key for the server are provided the server will expect
-	// HTTPS connections
+	// HTTPS connections.
+	// Certificate and key files can be reloaded on demand sending a "SIGHUP" signal on Unix based systems and a
+	// "paramchange" request to the running service on Windows.
 	CertificateFile    string `json:"certificate_file" mapstructure:"certificate_file"`
 	CertificateKeyFile string `json:"certificate_key_file" mapstructure:"certificate_key_file"`
 }
@@ -103,9 +107,24 @@ func (c Conf) Initialize(configDir string) error {
 		MaxHeaderBytes: 1 << 16, // 64KB
 	}
 	if len(certificateFile) > 0 && len(certificateKeyFile) > 0 {
-		return httpServer.ListenAndServeTLS(certificateFile, certificateKeyFile)
+		certMgr, err = newCertManager(certificateFile, certificateKeyFile)
+		if err != nil {
+			return err
+		}
+		config := &tls.Config{
+			GetCertificate: certMgr.GetCertificateFunc(),
+		}
+		httpServer.TLSConfig = config
+		return httpServer.ListenAndServeTLS("", "")
 	}
 	return httpServer.ListenAndServe()
+}
+
+// ReloadTLSCertificate reloads the TLS certificate and key from the configured paths
+func ReloadTLSCertificate() {
+	if certMgr != nil {
+		certMgr.loadCertificate()
+	}
 }
 
 func getConfigPath(name, configDir string) string {

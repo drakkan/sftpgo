@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/logger"
 )
 
@@ -18,6 +19,7 @@ func registerSigHup() {
 		for range sig {
 			logger.Debug(logSender, "", "Received reload request")
 			dataprovider.ReloadConfig()
+			httpd.ReloadTLSCertificate()
 		}
 	}()
 }

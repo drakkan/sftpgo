@@ -114,14 +114,14 @@ func (s *Service) Start() error {
 			logger.DebugToConsole("HTTP server not started, disabled in config file")
 		}
 	}
-	if s.PortableMode != 1 {
-		registerSigHup()
-	}
 	return nil
 }
 
 // Wait blocks until the service exits
 func (s *Service) Wait() {
+	if s.PortableMode != 1 {
+		registerSigHup()
+	}
 	<-s.Shutdown
 }
 

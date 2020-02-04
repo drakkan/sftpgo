@@ -53,6 +53,29 @@ const (
 	webUserPath           = "/web/user"
 	webConnectionsPath    = "/web/connections"
 	configDir             = ".."
+	httpsCert             = `-----BEGIN CERTIFICATE-----
+MIICHTCCAaKgAwIBAgIUHnqw7QnB1Bj9oUsNpdb+ZkFPOxMwCgYIKoZIzj0EAwIw
+RTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoMGElu
+dGVybmV0IFdpZGdpdHMgUHR5IEx0ZDAeFw0yMDAyMDQwOTUzMDRaFw0zMDAyMDEw
+OTUzMDRaMEUxCzAJBgNVBAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYD
+VQQKDBhJbnRlcm5ldCBXaWRnaXRzIFB0eSBMdGQwdjAQBgcqhkjOPQIBBgUrgQQA
+IgNiAARCjRMqJ85rzMC998X5z761nJ+xL3bkmGVqWvrJ51t5OxV0v25NsOgR82CA
+NXUgvhVYs7vNFN+jxtb2aj6Xg+/2G/BNxkaFspIVCzgWkxiz7XE4lgUwX44FCXZM
+3+JeUbKjUzBRMB0GA1UdDgQWBBRhLw+/o3+Z02MI/d4tmaMui9W16jAfBgNVHSME
+GDAWgBRhLw+/o3+Z02MI/d4tmaMui9W16jAPBgNVHRMBAf8EBTADAQH/MAoGCCqG
+SM49BAMCA2kAMGYCMQDqLt2lm8mE+tGgtjDmtFgdOcI72HSbRQ74D5rYTzgST1rY
+/8wTi5xl8TiFUyLMUsICMQC5ViVxdXbhuG7gX6yEqSkMKZICHpO8hqFwOD/uaFVI
+dV4vKmHUzwK/eIx+8Ay3neE=
+-----END CERTIFICATE-----`
+	httpsKey = `-----BEGIN EC PARAMETERS-----
+BgUrgQQAIg==
+-----END EC PARAMETERS-----
+-----BEGIN EC PRIVATE KEY-----
+MIGkAgEBBDCfMNsN6miEE3rVyUPwElfiJSWaR5huPCzUenZOfJT04GAcQdWvEju3
+UM2lmBLIXpGgBwYFK4EEACKhZANiAARCjRMqJ85rzMC998X5z761nJ+xL3bkmGVq
+WvrJ51t5OxV0v25NsOgR82CANXUgvhVYs7vNFN+jxtb2aj6Xg+/2G/BNxkaFspIV
+CzgWkxiz7XE4lgUwX44FCXZM3+JeUbI=
+-----END EC PRIVATE KEY-----`
 )
 
 var (
@@ -93,14 +116,28 @@ func TestMain(m *testing.M) {
 	httpd.SetDataProvider(dataProvider)
 
 	go func() {
-		go func() {
-			if err := httpdConf.Initialize(configDir); err != nil {
-				logger.Error(logSender, "", "could not start HTTP server: %v", err)
-			}
-		}()
+		if err := httpdConf.Initialize(configDir); err != nil {
+			logger.Error(logSender, "", "could not start HTTP server: %v", err)
+		}
 	}()
 
 	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
+	// now start an https server
+	certPath := filepath.Join(os.TempDir(), "test.crt")
+	keyPath := filepath.Join(os.TempDir(), "test.key")
+	ioutil.WriteFile(certPath, []byte(httpsCert), 0666)
+	ioutil.WriteFile(keyPath, []byte(httpsKey), 0666)
+	httpdConf.BindPort = 8443
+	httpdConf.CertificateFile = certPath
+	httpdConf.CertificateKeyFile = keyPath
+
+	go func() {
+		if err := httpdConf.Initialize(configDir); err != nil {
+			logger.Error(logSender, "", "could not start HTTPS server: %v", err)
+		}
+	}()
+	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
+	httpd.ReloadTLSCertificate()
 
 	testServer = httptest.NewServer(httpd.GetHTTPRouter())
 	defer testServer.Close()
@@ -109,6 +146,8 @@ func TestMain(m *testing.M) {
 	os.Remove(logfilePath)
 	os.RemoveAll(backupsPath)
 	os.RemoveAll(credentialsPath)
+	os.Remove(certPath)
+	os.Remove(keyPath)
 	os.Exit(exitCode)
 }
 
@@ -930,6 +969,17 @@ func TestLoaddataMode(t *testing.T) {
 		t.Errorf("unable to remove user: %v", err)
 	}
 	os.Remove(backupFilePath)
+}
+
+func TestHTTPSConnection(t *testing.T) {
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+	_, err := client.Get("https://localhost:8443" + metricsPath)
+	if err == nil || (!strings.Contains(err.Error(), "certificate is not valid") &&
+		!strings.Contains(err.Error(), "certificate signed by unknown authority")) {
+		t.Errorf("unexpected error: %v", err)
+	}
 }
 
 // test using mock http server

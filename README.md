@@ -187,7 +187,7 @@ The `sftpgo` configuration file contains the following sections:
     - `backups_path`, string. Path to the backup directory. This can be an absolute path or a path relative to the config dir. We don't allow backups in arbitrary paths for security reasons
     - `auth_user_file`, string. Path to a file used to store usernames and password for basic authentication. This can be an absolute path or a path relative to the config dir. We support HTTP basic authentication and the file format must conform to the one generated using the Apache tool. The supported password formats are bcrypt (`$2y$` prefix) and md5 crypt (`$apr1$` prefix). If empty HTTP authentication is disabled.
     - `certificate_file`, string. Certificate for HTTPS. This can be an absolute path or a path relative to the config dir.
-    - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If both the certificate and the private key are provided the the server will expect HTTPS connections.
+    - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If both the certificate and the private key are provided the the server will expect HTTPS connections. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
 
 Here is a full example showing the default config in JSON format:
 

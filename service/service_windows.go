@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/logger"
 
 	"golang.org/x/sys/windows/svc"
@@ -83,6 +84,7 @@ loop:
 		case svc.ParamChange:
 			logger.Debug(logSender, "", "Received reload request")
 			dataprovider.ReloadConfig()
+			httpd.ReloadTLSCertificate()
 		default:
 			continue loop
 		}
