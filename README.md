@@ -479,17 +479,24 @@ The `command` can also read the following environment variables:
 
 - `SFTPGO_USER_ACTION`
 - `SFTPGO_USER_USERNAME`
+- `SFTPGO_USER_PASSWORD`, hashed password as stored inside the data provider, can be empty if the user does not login using a password
 - `SFTPGO_USER_ID`
 - `SFTPGO_USER_STATUS`
 - `SFTPGO_USER_EXPIRATION_DATE`
 - `SFTPGO_USER_HOME_DIR`
 - `SFTPGO_USER_UID`
 - `SFTPGO_USER_GID`
+- `SFTPGO_USER_QUOTA_FILES`
+- `SFTPGO_USER_QUOTA_SIZE`
+- `SFTPGO_USER_UPLOAD_BANDWIDTH`
+- `SFTPGO_USER_DOWNLOAD_BANDWIDTH`
+- `SFTPGO_USER_MAX_SESSIONS`
+- `SFTPGO_USER_FS_PROVIDER`
 
 Previous global environment variables aren't cleared when the script is called.
 The `command` must finish within 15 seconds.
 
-The `http_notification_url`, if defined, will be called invoked as http POST. The action is added to the query string, for example `<http_notification_url>?action=update` and the user is sent serialized as JSON inside the POST body
+The `http_notification_url`, if defined, will be called invoked as http POST. The action is added to the query string, for example `<http_notification_url>?action=update` and the user is sent serialized as JSON inside the POST body with sensitive fields removed.
 
 The HTTP request has a 15 seconds timeout.
 

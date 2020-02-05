@@ -993,7 +993,7 @@ func providerLog(level logger.LogLevel, format string, v ...interface{}) {
 	logger.Log(level, logSender, "", format, v...)
 }
 
-func executeNotificationCommand(operation string, user *User) error {
+func executeNotificationCommand(operation string, user User) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	commandArgs := user.getNotificationFieldsAsSlice(operation)
@@ -1015,18 +1015,17 @@ func executeAction(operation string, user User) {
 		var err error
 		user, err = provider.userExists(user.Username)
 		if err != nil {
-			providerLog(logger.LevelWarn, "unable to get the user to notify operation %#v: %v", operation, err)
+			providerLog(logger.LevelWarn, "unable to get the user to notify for operation %#v: %v", operation, err)
 			return
 		}
 	}
-	HideUserSensitiveData(&user)
 	if len(config.Actions.Command) > 0 && filepath.IsAbs(config.Actions.Command) {
 		// we are in a goroutine but if we have to send an HTTP notification we don't want to wait for the
 		// end of the command
 		if len(config.Actions.HTTPNotificationURL) > 0 {
-			go executeNotificationCommand(operation, &user)
+			go executeNotificationCommand(operation, user)
 		} else {
-			executeNotificationCommand(operation, &user)
+			executeNotificationCommand(operation, user)
 		}
 	}
 	if len(config.Actions.HTTPNotificationURL) > 0 {
@@ -1040,6 +1039,7 @@ func executeAction(operation string, user User) {
 		q := url.Query()
 		q.Add("action", operation)
 		url.RawQuery = q.Encode()
+		HideUserSensitiveData(&user)
 		userAsJSON, err := json.Marshal(user)
 		if err != nil {
 			return
