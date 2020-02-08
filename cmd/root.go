@@ -73,7 +73,7 @@ func Execute() {
 	}
 }
 
-func addServeFlags(cmd *cobra.Command) {
+func addConfigFlags(cmd *cobra.Command) {
 	viper.SetDefault(configDirKey, defaultConfigDir)
 	viper.BindEnv(configDirKey, "SFTPGO_CONFIG_DIR")
 	cmd.Flags().StringVarP(&configDir, configDirFlag, "c", viper.GetString(configDirKey),
@@ -90,6 +90,10 @@ func addServeFlags(cmd *cobra.Command) {
 			"Java properties. Therefore if you set \"sftpgo\" then \"sftpgo.json\", \"sftpgo.yaml\" and so on are searched. "+
 			"This flag can be set using SFTPGO_CONFIG_FILE env var too.")
 	viper.BindPFlag(configFileKey, cmd.Flags().Lookup(configFileFlag))
+}
+
+func addServeFlags(cmd *cobra.Command) {
+	addConfigFlags(cmd)
 
 	viper.SetDefault(logFilePathKey, defaultLogFile)
 	viper.BindEnv(logFilePathKey, "SFTPGO_LOG_FILE_PATH")

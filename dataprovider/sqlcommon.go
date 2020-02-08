@@ -11,6 +11,11 @@ import (
 	"github.com/drakkan/sftpgo/utils"
 )
 
+const (
+	sqlDatabaseVersion  = 1
+	initialDBVersionSQL = "INSERT INTO schema_version (version) VALUES (1);"
+)
+
 func getUserByUsername(username string, dbHandle *sql.DB) (User, error) {
 	var user User
 	q := getUserByUsernameQuery()
@@ -349,4 +354,43 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 		}
 	}
 	return user, err
+}
+
+func sqlCommonMigrateDatabase(dbHandle *sql.DB) error {
+	dbVersion, err := sqlCommonGetDatabaseVersion(dbHandle)
+	if err != nil {
+		return err
+	}
+	if dbVersion.Version == sqlDatabaseVersion {
+		providerLog(logger.LevelDebug, "sql database is updated, current version: %v", dbVersion.Version)
+		return nil
+	}
+	return nil
+}
+
+func sqlCommonGetDatabaseVersion(dbHandle *sql.DB) (schemaVersion, error) {
+	var result schemaVersion
+	q := getDatabaseVersionQuery()
+	stmt, err := dbHandle.Prepare(q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return result, err
+	}
+	defer stmt.Close()
+	row := stmt.QueryRow()
+	err = row.Scan(&result.Version)
+	return result, err
+}
+
+func sqlCommonUpdateDatabaseVersion(dbHandle *sql.DB) error {
+	q := getUpdateDBVersionQuery()
+	stmt, err := dbHandle.Prepare(q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(sqlDatabaseVersion)
+	return err
+
 }

@@ -102,9 +102,10 @@ Usage:
   sftpgo [command]
 
 Available Commands:
-  help        Help about any command
-  portable    Serve a single directory
-  serve       Start the SFTP Server
+  help         Help about any command
+  initprovider Initializes the configured data provider
+  portable     Serve a single directory
+  serve        Start the SFTP Server
 
 Flags:
   -h, --help      help for sftpgo
@@ -113,7 +114,7 @@ Flags:
  Use "sftpgo [command] --help" for more information about a command
 ```
 
-The `serve` subcommand supports the following flags:
+The `serve` command supports the following flags:
 
 - `--config-dir` string. Location of the config dir. This directory should contain the `sftpgo` configuration file and is used as the base for files with a relative path (eg. the private keys for the SFTP server, the SQLite or bblot database if you use SQLite or bbolt as data provider). The default value is "." or the value of `SFTPGO_CONFIG_DIR` environment variable.
 - `--config-file` string. Name of the configuration file. It must be the name of a file stored in config-dir not the absolute path to the configuration file. The specified file name must have no extension we automatically load JSON, YAML, TOML, HCL and Java properties. The default value is "sftpgo" (and therefore `sftpgo.json`, `sftpgo.yaml` and so on are searched) or the value of `SFTPGO_CONFIG_FILE` environment variable.
@@ -282,8 +283,27 @@ Before starting `sftpgo serve` please ensure that the configured dataprovider is
 
 SQL based data providers (SQLite, MySQL, PostgreSQL) requires the creation of a database containing the required tables. Memory and bolt data providers does not require an initialization.
 
-SQL scripts to create the required database structure can be found inside the source tree [sql](./sql "sql") directory. The SQL scripts filename is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190828.sql` must be applied before `20191112.sql` and so on.
+After configuring the data provider, using the configuration file, you can create the required database structure using the `initprovider` command.
+For SQLite provider the database file will be auto created if missing.
+For PostgreSQL and MySQL providers you need to create the configured database, `initprovider` command will create the required tables.
+
+For example you can simply execute the following command from the configuration directory:
+
+```
+sftpgo initprovider
+```
+
+Take a look at the CLI usage to learn how to specify a different configuration file:
+
+```
+sftpgo initprovider --help
+```
+
+The `initprovider` command is enough for new installations. From now on, the database structure will be automatically checked and updated, if required, at startup.
+
+If you are upgrading from version 0.9.5 or before you have to manually execute the SQL scripts to create the required database structure.Theese script can be found inside the source tree [sql](./sql "sql") directory. The SQL scripts filename is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190828.sql` must be applied before `20191112.sql` and so on.
 Example for SQLite: `find sql/sqlite/ -type f -iname '*.sql' -print | sort -n | xargs cat | sqlite3 sftpgo.db`.
+After applying these scripts your database structure is the same as the one obtained using `initprovider` for new installations, so from now on you don't have to manually upgrade your database anymore.
 
 The `memory` provider can load users from a dump obtained using the `dumpdata` REST API. The path to this dump file can be configured using the dataprovider `name` configuration key. It will be loaded at startup and can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows. The `memory` provider will not modify the provided file so quota usage and last login will not be persisted.
 
@@ -318,7 +338,7 @@ Flags:
 Use "sftpgo service [command] --help" for more information about a command.
 ```
 
-`install` subcommand accepts the same flags valid for `serve`.
+`install` command accepts the same flags valid for `serve`.
 
 After installing as Windows Service please remember to allow network access to the SFTPGo executable using something like this:
 
@@ -510,6 +530,8 @@ SFTPGo uses multipart uploads and parallel downloads for storing and retrieving 
 
 The configured bucket must exist.
 
+To connect SFTPGo to AWS a `region` is required, here is the list of available [AWS regions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions). For example if your bucket is at `Frankfurt` you have to set the region to `eu-central-1`. You can specify an AWS [storage class](https://docs.aws.amazon.com/AmazonS3/latest/dev/storage-class-intro.html) too, leave blank to use the default AWS storage class. An endpoint is required if you are connecting to a Compatible AWS Storage such as [MinIO](https://min.io/).
+
 Some SFTP commands doesn't work over S3:
 
 - `symlink` and `chtimes` will fail
@@ -527,6 +549,10 @@ Other notes:
 ## Google Cloud Storage backend
 
 Each user can be mapped with a Google Cloud Storage bucket or a bucket virtual folder, this way the mapped bucket/virtual folder is exposed over SFTP/SCP. This backend is very similar to the S3 backend and it has the same limitations.
+
+To connect SFTPGo to Google Cloud Storage you need a credentials file that you can obtain from the Google Cloud Console, take a look at the "Setting up authentication" section [here](https://cloud.google.com/storage/docs/reference/libraries) for details.
+
+You can optionally specify a [storage class](https://cloud.google.com/storage/docs/storage-classes) too, leave blank to use the default storage class.
 
 ## Other Storage backends
 
@@ -625,11 +651,11 @@ For each account the following properties can be configured:
 - `denied_ip`, List of IP/Mask not allowed to login. If an IP address is both allowed and denied then login will be denied
 - `fs_provider`, filesystem to serve via SFTP. Local filesystem and S3 Compatible Object Storage are supported
 - `s3_bucket`, required for S3 filesystem
-- `s3_region`, required for S3 filesystem
+- `s3_region`, required for S3 filesystem. Must match the region for your bucket. You can find here the list of available [AWS regions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions). For example if your bucket is at `Frankfurt` you have to set the region to `eu-central-1`
 - `s3_access_key`, required for S3 filesystem
 - `s3_access_secret`, required for S3 filesystem. It is stored encrypted (AES-256-GCM)
-- `s3_endpoint`, specifies s3 endpoint (server) different from AWS
-- `s3_storage_class`
+- `s3_endpoint`, specifies a S3 endpoint (server) different from AWS. It is not required if you are connecting to AWS
+- `s3_storage_class`, leave blank to use the default or specify a valid AWS [storage class](https://docs.aws.amazon.com/AmazonS3/latest/dev/storage-class-intro.html)
 - `s3_key_prefix`, allows to restrict access to the virtual folder identified by this prefix and its contents
 - `gcs_bucket`, required for GCS filesystem
 - `gcs_credentials`, Google Cloud Storage JSON credentials base64 encoded

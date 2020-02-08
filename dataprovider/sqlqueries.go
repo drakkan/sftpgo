@@ -79,3 +79,11 @@ func getUpdateUserQuery() string {
 func getDeleteUserQuery() string {
 	return fmt.Sprintf(`DELETE FROM %v WHERE id = %v`, config.UsersTable, sqlPlaceholders[0])
 }
+
+func getDatabaseVersionQuery() string {
+	return "SELECT version from schema_version LIMIT 1"
+}
+
+func getUpdateDBVersionQuery() string {
+	return fmt.Sprintf(`UPDATE schema_version SET version=%v`, sqlPlaceholders[0])
+}

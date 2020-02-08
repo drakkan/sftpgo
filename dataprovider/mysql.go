@@ -3,9 +3,22 @@ package dataprovider
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/drakkan/sftpgo/logger"
+)
+
+const (
+	mysqlUsersTableSQL = "CREATE TABLE `{{users}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
+		"`username` varchar(255) NOT NULL UNIQUE, `password` varchar(255) NULL, `public_keys` longtext NULL, " +
+		"`home_dir` varchar(255) NOT NULL, `uid` integer NOT NULL, `gid` integer NOT NULL, `max_sessions` integer NOT NULL, " +
+		" `quota_size` bigint NOT NULL, `quota_files` integer NOT NULL, `permissions` longtext NOT NULL, " +
+		"`used_quota_size` bigint NOT NULL, `used_quota_files` integer NOT NULL, `last_quota_update` bigint NOT NULL, " +
+		"`upload_bandwidth` integer NOT NULL, `download_bandwidth` integer NOT NULL, `expiration_date` bigint(20) NOT NULL, " +
+		"`last_login` bigint(20) NOT NULL, `status` int(11) NOT NULL, `filters` longtext DEFAULT NULL, " +
+		"`filesystem` longtext DEFAULT NULL);"
+	mysqlSchemaTableSQL = "CREATE TABLE `schema_version` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `version` integer NOT NULL);"
 )
 
 // MySQLProvider auth provider for MySQL/MariaDB database
@@ -102,4 +115,33 @@ func (p MySQLProvider) close() error {
 
 func (p MySQLProvider) reloadConfig() error {
 	return nil
+}
+
+// initializeDatabase creates the initial database structure
+func (p MySQLProvider) initializeDatabase() error {
+	sqlUsers := strings.Replace(mysqlUsersTableSQL, "{{users}}", config.UsersTable, 1)
+	tx, err := p.dbHandle.Begin()
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(sqlUsers)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	_, err = tx.Exec(mysqlSchemaTableSQL)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	_, err = tx.Exec(initialDBVersionSQL)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
+func (p MySQLProvider) migrateDatabase() error {
+	return sqlCommonMigrateDatabase(p.dbHandle)
 }

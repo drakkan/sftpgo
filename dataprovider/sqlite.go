@@ -2,12 +2,22 @@ package dataprovider
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/drakkan/sftpgo/logger"
+)
+
+const (
+	sqliteUsersTableSQL = `CREATE TABLE "{{users}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "username" varchar(255)
+NOT NULL UNIQUE, "password" varchar(255) NULL, "public_keys" text NULL, "home_dir" varchar(255) NOT NULL, "uid" integer NOT NULL,
+"gid" integer NOT NULL, "max_sessions" integer NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL,
+"permissions" text NOT NULL, "used_quota_size" bigint NOT NULL, "used_quota_files" integer NOT NULL,
+"last_quota_update" bigint NOT NULL, "upload_bandwidth" integer NOT NULL, "download_bandwidth" integer NOT NULL,
+"expiration_date" bigint NOT NULL, "last_login" bigint NOT NULL, "status" integer NOT NULL, "filters" text NULL,
+"filesystem" text NULL);`
+	sqliteSchemaTableSQL = `CREATE TABLE "schema_version" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "version" integer NOT NULL);`
 )
 
 // SQLiteProvider auth provider for SQLite database
@@ -23,16 +33,6 @@ func initializeSQLiteProvider(basePath string) error {
 		dbPath := config.Name
 		if !filepath.IsAbs(dbPath) {
 			dbPath = filepath.Join(basePath, dbPath)
-		}
-		fi, err := os.Stat(dbPath)
-		if err != nil {
-			providerLog(logger.LevelWarn, "sqlite database file does not exists, please be sure to create and initialize"+
-				" a database before starting sftpgo")
-			return err
-		}
-		if fi.Size() == 0 {
-			return errors.New("sqlite database file is invalid, please be sure to create and initialize" +
-				" a database before starting sftpgo")
 		}
 		connectionString = fmt.Sprintf("file:%v?cache=shared", dbPath)
 	} else {
@@ -108,4 +108,16 @@ func (p SQLiteProvider) close() error {
 
 func (p SQLiteProvider) reloadConfig() error {
 	return nil
+}
+
+// initializeDatabase creates the initial database structure
+func (p SQLiteProvider) initializeDatabase() error {
+	sqlUsers := strings.Replace(sqliteUsersTableSQL, "{{users}}", config.UsersTable, 1)
+	sql := sqlUsers + " " + sqliteSchemaTableSQL + " " + initialDBVersionSQL
+	_, err := p.dbHandle.Exec(sql)
+	return err
+}
+
+func (p SQLiteProvider) migrateDatabase() error {
+	return sqlCommonMigrateDatabase(p.dbHandle)
 }

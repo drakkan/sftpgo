@@ -87,8 +87,13 @@ var (
 	availabilityTicker     *time.Ticker
 	availabilityTickerDone chan bool
 	errWrongPassword       = errors.New("password does not match")
+	errNoInitRequired      = errors.New("initialization is not required for this data provider")
 	credentialsDirPath     string
 )
+
+type schemaVersion struct {
+	Version int
+}
 
 // Actions to execute on user create, update, delete.
 // An external command can be executed and/or an HTTP notification can be fired
@@ -258,6 +263,8 @@ type Provider interface {
 	checkAvailability() error
 	close() error
 	reloadConfig() error
+	initializeDatabase() error
+	migrateDatabase() error
 }
 
 func init() {
@@ -277,31 +284,39 @@ func Initialize(cnf Config, basePath string) error {
 		}
 		_, err := os.Stat(config.ExternalAuthProgram)
 		if err != nil {
-			providerLog(logger.LevelWarn, "invalid external auth program:: %v", err)
+			providerLog(logger.LevelWarn, "invalid external auth program: %v", err)
 			return err
 		}
 	}
-	if err := validateCredentialsDir(basePath); err != nil {
+	if err = validateCredentialsDir(basePath); err != nil {
 		return err
 	}
+	err = createProvider(basePath)
+	if err != nil {
+		return err
+	}
+	err = provider.migrateDatabase()
+	if err != nil {
+		providerLog(logger.LevelWarn, "database migration error: %v", err)
+		return err
+	}
+	startAvailabilityTimer()
+	return nil
+}
 
-	if config.Driver == SQLiteDataProviderName {
-		err = initializeSQLiteProvider(basePath)
-	} else if config.Driver == PGSQLDataProviderName {
-		err = initializePGSQLProvider()
-	} else if config.Driver == MySQLDataProviderName {
-		err = initializeMySQLProvider()
-	} else if config.Driver == BoltDataProviderName {
-		err = initializeBoltProvider(basePath)
-	} else if config.Driver == MemoryDataProviderName {
-		err = initializeMemoryProvider(basePath)
-	} else {
-		err = fmt.Errorf("unsupported data provider: %v", config.Driver)
+// InitializeDatabase creates the initial database structure
+func InitializeDatabase(cnf Config, basePath string) error {
+	config = cnf
+	sqlPlaceholders = getSQLPlaceholders()
+
+	if config.Driver == BoltDataProviderName || config.Driver == MemoryDataProviderName {
+		return errNoInitRequired
 	}
-	if err == nil {
-		startAvailabilityTimer()
+	err := createProvider(basePath)
+	if err != nil {
+		return err
 	}
-	return err
+	return provider.initializeDatabase()
 }
 
 // CheckUserAndPass retrieves the SFTP user with the given username and password if a match is found or an error
@@ -453,6 +468,24 @@ func Close(p Provider) error {
 	availabilityTicker.Stop()
 	availabilityTickerDone <- true
 	return p.close()
+}
+
+func createProvider(basePath string) error {
+	var err error
+	if config.Driver == SQLiteDataProviderName {
+		err = initializeSQLiteProvider(basePath)
+	} else if config.Driver == PGSQLDataProviderName {
+		err = initializePGSQLProvider()
+	} else if config.Driver == MySQLDataProviderName {
+		err = initializeMySQLProvider()
+	} else if config.Driver == BoltDataProviderName {
+		err = initializeBoltProvider(basePath)
+	} else if config.Driver == MemoryDataProviderName {
+		err = initializeMemoryProvider(basePath)
+	} else {
+		err = fmt.Errorf("unsupported data provider: %v", config.Driver)
+	}
+	return err
 }
 
 func buildUserHomeDir(user *User) {

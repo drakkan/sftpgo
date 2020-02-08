@@ -3,8 +3,20 @@ package dataprovider
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/drakkan/sftpgo/logger"
+)
+
+const (
+	pgsqlUsersTableSQL = `CREATE TABLE "{{users}}" ("id" serial NOT NULL PRIMARY KEY, "username" varchar(255) NOT NULL UNIQUE,
+"password" varchar(255) NULL, "public_keys" text NULL, "home_dir" varchar(255) NOT NULL, "uid" integer NOT NULL,
+"gid" integer NOT NULL, "max_sessions" integer NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL,
+"permissions" text NOT NULL, "used_quota_size" bigint NOT NULL, "used_quota_files" integer NOT NULL,
+"last_quota_update" bigint NOT NULL, "upload_bandwidth" integer NOT NULL, "download_bandwidth" integer NOT NULL,
+"expiration_date" bigint NOT NULL, "last_login" bigint NOT NULL, "status" integer NOT NULL, "filters" text NULL,
+"filesystem" text NULL);`
+	pgsqlSchemaTableSQL = `CREATE TABLE "schema_version" ("id" serial NOT NULL PRIMARY KEY, "version" integer NOT NULL);`
 )
 
 // PGSQLProvider auth provider for PostgreSQL database
@@ -101,4 +113,33 @@ func (p PGSQLProvider) close() error {
 
 func (p PGSQLProvider) reloadConfig() error {
 	return nil
+}
+
+// initializeDatabase creates the initial database structure
+func (p PGSQLProvider) initializeDatabase() error {
+	sqlUsers := strings.Replace(pgsqlUsersTableSQL, "{{users}}", config.UsersTable, 1)
+	tx, err := p.dbHandle.Begin()
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(sqlUsers)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	_, err = tx.Exec(pgsqlSchemaTableSQL)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	_, err = tx.Exec(initialDBVersionSQL)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
+func (p PGSQLProvider) migrateDatabase() error {
+	return sqlCommonMigrateDatabase(p.dbHandle)
 }

@@ -390,3 +390,12 @@ func (p MemoryProvider) reloadConfig() error {
 	providerLog(logger.LevelDebug, "users loaded from file: %#v", p.dbHandle.configFile)
 	return nil
 }
+
+// initializeDatabase does nothing, no initilization is needed for memory provider
+func (p MemoryProvider) initializeDatabase() error {
+	return errNoInitRequired
+}
+
+func (p MemoryProvider) migrateDatabase() error {
+	return nil
+}

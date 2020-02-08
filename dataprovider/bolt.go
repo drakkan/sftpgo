@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	databaseVersion = 3
+	boltDatabaseVersion = 3
 )
 
 var (
@@ -27,10 +27,6 @@ var (
 // BoltProvider auth provider for bolt key/value store
 type BoltProvider struct {
 	dbHandle *bolt.DB
-}
-
-type boltDatabaseVersion struct {
-	Version int
 }
 
 type compatUserV2 struct {
@@ -93,7 +89,6 @@ func initializeBoltProvider(basePath string) error {
 			return err
 		}
 		provider = BoltProvider{dbHandle: dbHandle}
-		err = checkBoltDatabaseVersion(dbHandle)
 	} else {
 		providerLog(logger.LevelWarn, "error creating bolt key/value store handler: %v", err)
 	}
@@ -396,6 +391,33 @@ func (p BoltProvider) reloadConfig() error {
 	return nil
 }
 
+// initializeDatabase does nothing, no initilization is needed for bolt provider
+func (p BoltProvider) initializeDatabase() error {
+	return errNoInitRequired
+}
+
+func (p BoltProvider) migrateDatabase() error {
+	dbVersion, err := getBoltDatabaseVersion(p.dbHandle)
+	if err != nil {
+		return err
+	}
+	if dbVersion.Version == boltDatabaseVersion {
+		providerLog(logger.LevelDebug, "bolt database is updated, current version: %v", dbVersion.Version)
+		return nil
+	}
+	if dbVersion.Version == 1 {
+		err = updateDatabaseFrom1To2(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		return updateDatabaseFrom2To3(p.dbHandle)
+	} else if dbVersion.Version == 2 {
+		return updateDatabaseFrom2To3(p.dbHandle)
+	}
+
+	return nil
+}
+
 // itob returns an 8-byte big endian representation of v.
 func itob(v int64) []byte {
 	b := make([]byte, 8)
@@ -411,28 +433,6 @@ func getBuckets(tx *bolt.Tx) (*bolt.Bucket, *bolt.Bucket, error) {
 		err = fmt.Errorf("unable to find required buckets, bolt database structure not correcly defined")
 	}
 	return bucket, idxBucket, err
-}
-
-func checkBoltDatabaseVersion(dbHandle *bolt.DB) error {
-	dbVersion, err := getBoltDatabaseVersion(dbHandle)
-	if err != nil {
-		return err
-	}
-	if dbVersion.Version == databaseVersion {
-		providerLog(logger.LevelDebug, "bolt database updated, version: %v", dbVersion.Version)
-		return nil
-	}
-	if dbVersion.Version == 1 {
-		err = updateDatabaseFrom1To2(dbHandle)
-		if err != nil {
-			return err
-		}
-		return updateDatabaseFrom2To3(dbHandle)
-	} else if dbVersion.Version == 2 {
-		return updateDatabaseFrom2To3(dbHandle)
-	}
-
-	return nil
 }
 
 func updateDatabaseFrom1To2(dbHandle *bolt.DB) error {
@@ -527,8 +527,8 @@ func getBoltAvailableUsernames(dbHandle *bolt.DB) ([]string, error) {
 	return usernames, err
 }
 
-func getBoltDatabaseVersion(dbHandle *bolt.DB) (boltDatabaseVersion, error) {
-	var dbVersion boltDatabaseVersion
+func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
+	var dbVersion schemaVersion
 	err := dbHandle.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(dbVersionBucket)
 		if bucket == nil {
@@ -536,7 +536,7 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (boltDatabaseVersion, error) {
 		}
 		v := bucket.Get(dbVersionKey)
 		if v == nil {
-			dbVersion = boltDatabaseVersion{
+			dbVersion = schemaVersion{
 				Version: 1,
 			}
 			return nil
@@ -552,7 +552,7 @@ func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
 		if bucket == nil {
 			return fmt.Errorf("unable to find database version bucket")
 		}
-		newDbVersion := boltDatabaseVersion{
+		newDbVersion := schemaVersion{
 			Version: version,
 		}
 		buf, err := json.Marshal(newDbVersion)
