@@ -301,7 +301,7 @@ sftpgo initprovider --help
 
 The `initprovider` command is enough for new installations. From now on, the database structure will be automatically checked and updated, if required, at startup.
 
-If you are upgrading from version 0.9.5 or before you have to manually execute the SQL scripts to create the required database structure.Theese script can be found inside the source tree [sql](./sql "sql") directory. The SQL scripts filename is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190828.sql` must be applied before `20191112.sql` and so on.
+If you are upgrading from version 0.9.5 or before you have to manually execute the SQL scripts to create the required database structure.These script can be found inside the source tree [sql](./sql "sql") directory. The SQL scripts filename is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190828.sql` must be applied before `20191112.sql` and so on.
 Example for SQLite: `find sql/sqlite/ -type f -iname '*.sql' -print | sort -n | xargs cat | sqlite3 sftpgo.db`.
 After applying these scripts your database structure is the same as the one obtained using `initprovider` for new installations, so from now on you don't have to manually upgrade your database anymore.
 

@@ -628,6 +628,25 @@ func TestSSHCommandPath(t *testing.T) {
 	if path != "/" {
 		t.Errorf("unexpected path: %v", path)
 	}
+	sshCommand.args = []string{"-f", "/a space.txt"}
+	path = sshCommand.getDestPath()
+	if path != "/a space.txt" {
+		t.Errorf("unexpected path: %v", path)
+	}
+}
+
+func TestSSHParseCommandPayload(t *testing.T) {
+	cmd := "command -a  -f  some\\ spaces\\ \\ .txt"
+	name, args, _ := parseCommandPayload(cmd)
+	if name != "command" {
+		t.Errorf("unexpected command: %v", name)
+	}
+	if len(args) != 3 {
+		t.Errorf("unexpected number of arguments %v/3", len(args))
+	}
+	if !utils.IsStringInSlice("some spaces  .txt", args) {
+		t.Errorf("command parsing error, expected arguments not found: %v", args)
+	}
 }
 
 func TestSSHCommandErrors(t *testing.T) {

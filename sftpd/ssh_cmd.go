@@ -45,7 +45,7 @@ type systemCommand struct {
 func processSSHCommand(payload []byte, connection *Connection, channel ssh.Channel, enabledSSHCommands []string) bool {
 	var msg sshSubsystemExecMsg
 	if err := ssh.Unmarshal(payload, &msg); err == nil {
-		name, args, err := parseCommandPayload(msg.Command)
+		name, args, err := parseCommandPayload(strings.TrimSpace(msg.Command))
 		connection.Log(logger.LevelDebug, logSenderSSH, "new ssh command: %#v args: %v user: %v, error: %v",
 			name, args, connection.User.Username, err)
 		if err == nil && utils.IsStringInSlice(name, enabledSSHCommands) {
@@ -421,9 +421,17 @@ func computeHashForFile(hasher hash.Hash, path string) (string, error) {
 }
 
 func parseCommandPayload(command string) (string, []string, error) {
-	parts := strings.Split(command, " ")
+	parts := strings.Split(strings.ReplaceAll(command, "\\ ", "\\"), " ")
 	if len(parts) < 2 {
 		return parts[0], []string{}, nil
 	}
-	return parts[0], parts[1:], nil
+	args := []string{}
+	for _, arg := range parts[1:] {
+		parsed := strings.TrimSpace(strings.ReplaceAll(arg, "\\", " "))
+		if len(parsed) == 0 {
+			continue
+		}
+		args = append(args, parsed)
+	}
+	return parts[0], args, nil
 }

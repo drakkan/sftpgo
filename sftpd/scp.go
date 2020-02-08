@@ -56,6 +56,7 @@ func (c *scpCommand) handle() error {
 		}
 	} else {
 		err = fmt.Errorf("scp command not supported, args: %v", c.args)
+		c.connection.Log(logger.LevelDebug, logSenderSCP, "unsupported scp command, args: %v", c.args)
 	}
 	c.sendExitStatus(err)
 	return err
