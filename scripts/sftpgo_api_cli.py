@@ -111,7 +111,7 @@ class SFTPGoApiRequests:
 						directory = value
 					else:
 						values = [v.strip() for v in value.split(',') if v.strip()]
-				if directory and values:
+				if directory:
 					permissions.update({directory:values})
 		return permissions
 

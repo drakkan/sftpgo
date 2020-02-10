@@ -505,7 +505,7 @@ func validatePermissions(user *User) error {
 		return &ValidationError{err: fmt.Sprintf("permissions for the root dir \"/\" must be set")}
 	}
 	for dir, perms := range user.Permissions {
-		if len(perms) == 0 {
+		if len(perms) == 0 && dir == "/" {
 			return &ValidationError{err: fmt.Sprintf("no permissions granted for the directory: %#v", dir)}
 		}
 		for _, p := range perms {
@@ -519,6 +519,9 @@ func validatePermissions(user *User) error {
 		}
 		if !path.IsAbs(cleanedDir) {
 			return &ValidationError{err: fmt.Sprintf("cannot set permissions for non absolute path: %#v", dir)}
+		}
+		if dir != cleanedDir && cleanedDir == "/" {
+			return &ValidationError{err: fmt.Sprintf("cannot set permissions for invalid subdirectory: %#v is an alias for \"/\"", dir)}
 		}
 		if utils.IsStringInSlice(PermAny, perms) {
 			permissions[cleanedDir] = []string{PermAny}

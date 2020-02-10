@@ -200,7 +200,7 @@ func getUserPermissionsFromPostFields(r *http.Request) map[string][]string {
 						perms = append(perms, cleanedPerm)
 					}
 				}
-				if len(dir) > 0 && len(perms) > 0 {
+				if len(dir) > 0 {
 					permissions[dir] = perms
 				}
 			}

@@ -3250,6 +3250,17 @@ func TestUserPerms(t *testing.T) {
 	}
 }
 
+func TestUserEmptySubDirPerms(t *testing.T) {
+	user := getTestUser(true)
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/emptyperms"] = []string{}
+	for _, p := range dataprovider.ValidPerms {
+		if user.HasPerm(p, "/emptyperms") {
+			t.Errorf("unexpected permission %#v for dir /emptyperms", p)
+		}
+	}
+}
+
 func TestUserFiltersIPMaskConditions(t *testing.T) {
 	user := getTestUser(true)
 	// with no filter login must be allowed even if the remoteIP is invalid

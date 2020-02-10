@@ -285,10 +285,17 @@ func TestAddUserInvalidPerms(t *testing.T) {
 		t.Errorf("unexpected error adding user with invalid perms: %v", err)
 	}
 	// permissions for root dir are mandatory
+	u.Permissions["/"] = []string{}
 	u.Permissions["/somedir"] = []string{dataprovider.PermAny}
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error adding user with no root dir perms: %v", err)
+	}
+	u.Permissions["/"] = []string{dataprovider.PermAny}
+	u.Permissions["/subdir/.."] = []string{dataprovider.PermAny}
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid dir perms: %v", err)
 	}
 }
 
@@ -406,6 +413,14 @@ func TestUpdateUser(t *testing.T) {
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
+	}
+	user.Permissions["/subdir"] = []string{}
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	if len(user.Permissions["/subdir"]) > 0 {
+		t.Errorf("unexpected subdir permissions, must be empty")
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -1136,12 +1151,18 @@ func TestUserPermissionsMock(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error get user: %v", err)
 	}
-	user.Permissions["/somedir"] = []string{}
+	user.Permissions["/somedir"] = []string{"invalid"}
 	userAsJSON = getUserAsJSON(t, user)
 	req, _ = http.NewRequest(http.MethodPut, userPath+"/"+strconv.FormatInt(user.ID, 10), bytes.NewBuffer(userAsJSON))
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr.Code)
 	delete(user.Permissions, "/somedir")
+	user.Permissions["/somedir/.."] = []string{dataprovider.PermAny}
+	userAsJSON = getUserAsJSON(t, user)
+	req, _ = http.NewRequest(http.MethodPut, userPath+"/"+strconv.FormatInt(user.ID, 10), bytes.NewBuffer(userAsJSON))
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr.Code)
+	delete(user.Permissions, "/somedir/..")
 	user.Permissions["not_abs_path"] = []string{dataprovider.PermAny}
 	userAsJSON = getUserAsJSON(t, user)
 	req, _ = http.NewRequest(http.MethodPut, userPath+"/"+strconv.FormatInt(user.ID, 10), bytes.NewBuffer(userAsJSON))
