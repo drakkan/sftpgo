@@ -530,7 +530,7 @@ SFTPGo uses multipart uploads and parallel downloads for storing and retrieving 
 
 The configured bucket must exist.
 
-To connect SFTPGo to AWS a `region` is required, here is the list of available [AWS regions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions). For example if your bucket is at `Frankfurt` you have to set the region to `eu-central-1`. You can specify an AWS [storage class](https://docs.aws.amazon.com/AmazonS3/latest/dev/storage-class-intro.html) too, leave blank to use the default AWS storage class. An endpoint is required if you are connecting to a Compatible AWS Storage such as [MinIO](https://min.io/).
+To connect SFTPGo to AWS you need [Access Keys](https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html#access-keys-and-secret-access-keys), a `region` is required too, here is the list of available [AWS regions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions). For example if your bucket is at `Frankfurt` you have to set the region to `eu-central-1`. You can specify an AWS [storage class](https://docs.aws.amazon.com/AmazonS3/latest/dev/storage-class-intro.html) too, leave blank to use the default AWS storage class. An endpoint is required if you are connecting to a Compatible AWS Storage such as [MinIO](https://min.io/).
 
 Some SFTP commands doesn't work over S3:
 

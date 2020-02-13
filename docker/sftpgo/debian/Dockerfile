@@ -59,7 +59,7 @@ VOLUME [ "$DATA_DIR", "$CONFIG_DIR", "$BACKUPS_DIR" ]
 # override some default configuration options using env vars
 ENV SFTPGO_CONFIG_DIR=${CONFIG_DIR}
 # setting SFTPGO_LOG_FILE_PATH to an empty string will log to stdout
-ENV SFTPGO_LOG_FILE_PATH=${CONFIG_DIR}/sftpgo.log
+ENV SFTPGO_LOG_FILE_PATH=""
 ENV SFTPGO_HTTPD__BIND_ADDRESS=""
 ENV SFTPGO_HTTPD__TEMPLATES_PATH=${WEB_DIR}/templates
 ENV SFTPGO_HTTPD__STATIC_FILES_PATH=${WEB_DIR}/static
