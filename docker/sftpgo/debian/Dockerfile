@@ -10,8 +10,8 @@ RUN go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/utils.commit=`git d
 # now define the run environment
 FROM debian:latest
 
-# git and rsync are optional, uncomment the next line to add support for them if needed
-#RUN apt-get update && apt-get install -y git rsync
+# git, rsync and ca-certificates are optional, uncomment the next line to add support for them if needed. (ca-certificate if you're going to use S3 binding feature)
+RUN apt-get update && apt-get install -y git rsync ca-certificates
 
 ARG BASE_DIR=/app
 ARG DATA_REL_DIR=data
