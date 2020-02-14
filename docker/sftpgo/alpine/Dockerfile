@@ -28,4 +28,4 @@ VOLUME [ "/data", "/srv/sftpgo/config", "/srv/sftpgo/backups" ]
 EXPOSE 2022 8080
 
 ENTRYPOINT ["/bin/entrypoint.sh"]
-CMD []
+CMD ["serve"]
