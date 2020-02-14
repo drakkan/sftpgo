@@ -12,8 +12,10 @@ FROM alpine:latest
 RUN apk add --no-cache ca-certificates su-exec \
   && mkdir -p /data /etc/sftpgo /srv/sftpgo/config /srv/sftpgo/web /srv/sftpgo/backups
 
-# git and rsync are optional, uncomment the next line to add support for them if needed
-#RUN apk add --no-cache git rsync
+# ca-certificates is needed for Cloud Storage Support and to expose the REST API over HTTPS.
+# If you install git then ca-certificates will be automatically installed as dependency.
+# git, rsync and ca-certificates are optional, uncomment the next line to add support for them if needed.
+#RUN apk add --no-cache git rsync ca-certificates
 
 COPY --from=builder /go/bin/sftpgo /bin/
 COPY --from=builder /go/src/github.com/drakkan/sftpgo/sftpgo.json /etc/sftpgo/sftpgo.json
