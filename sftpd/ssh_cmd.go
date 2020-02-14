@@ -22,6 +22,7 @@ import (
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
+	"github.com/google/shlex"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -45,11 +46,11 @@ type systemCommand struct {
 func processSSHCommand(payload []byte, connection *Connection, channel ssh.Channel, enabledSSHCommands []string) bool {
 	var msg sshSubsystemExecMsg
 	if err := ssh.Unmarshal(payload, &msg); err == nil {
-		name, args, err := parseCommandPayload(strings.TrimSpace(msg.Command))
-		connection.Log(logger.LevelDebug, logSenderSSH, "new ssh command: %#v args: %v user: %v, error: %v",
-			name, args, connection.User.Username, err)
+		name, args, err := parseCommandPayload(msg.Command)
+		connection.Log(logger.LevelDebug, logSenderSSH, "new ssh command: %#v args: %v num args: %v user: %v, error: %v",
+			name, args, len(args), connection.User.Username, err)
 		if err == nil && utils.IsStringInSlice(name, enabledSSHCommands) {
-			connection.command = fmt.Sprintf("%v %v", name, strings.Join(args, " "))
+			connection.command = msg.Command
 			if name == "scp" && len(args) >= 2 {
 				connection.protocol = protocolSCP
 				connection.channel = channel
@@ -421,17 +422,15 @@ func computeHashForFile(hasher hash.Hash, path string) (string, error) {
 }
 
 func parseCommandPayload(command string) (string, []string, error) {
-	parts := strings.Split(strings.ReplaceAll(command, "\\ ", "\\"), " ")
+	parts, err := shlex.Split(command)
+	if err == nil && len(parts) == 0 {
+		err = fmt.Errorf("invalid command: %#v", command)
+	}
+	if err != nil {
+		return "", []string{}, err
+	}
 	if len(parts) < 2 {
 		return parts[0], []string{}, nil
 	}
-	args := []string{}
-	for _, arg := range parts[1:] {
-		parsed := strings.TrimSpace(strings.ReplaceAll(arg, "\\", " "))
-		if len(parsed) == 0 {
-			continue
-		}
-		args = append(args, parsed)
-	}
-	return parts[0], args, nil
+	return parts[0], parts[1:], nil
 }

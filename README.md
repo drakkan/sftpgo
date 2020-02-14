@@ -811,6 +811,7 @@ The **connection failed logs** can be used for integration in tools such as [Fai
 - [PipeAt](https://github.com/eikenb/pipeat)
 - [ZeroConf](https://github.com/grandcat/zeroconf)
 - [SB Admin 2](https://github.com/BlackrockDigital/startbootstrap-sb-admin-2)
+- [shlex](https://github.com/google/shlex)
 
 Some code was initially taken from [Pterodactyl sftp server](https://github.com/pterodactyl/sftp-server)
 

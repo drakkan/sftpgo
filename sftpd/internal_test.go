@@ -606,7 +606,7 @@ func TestSSHCommandPath(t *testing.T) {
 }
 
 func TestSSHParseCommandPayload(t *testing.T) {
-	cmd := "command -a  -f  some\\ spaces\\ \\ .txt"
+	cmd := "command -a  -f  /ab\\ à/some\\ spaces\\ \\ \\(\\).txt"
 	name, args, _ := parseCommandPayload(cmd)
 	if name != "command" {
 		t.Errorf("unexpected command: %v", name)
@@ -614,8 +614,12 @@ func TestSSHParseCommandPayload(t *testing.T) {
 	if len(args) != 3 {
 		t.Errorf("unexpected number of arguments %v/3", len(args))
 	}
-	if !utils.IsStringInSlice("some spaces  .txt", args) {
+	if args[2] != "/ab à/some spaces  ().txt" {
 		t.Errorf("command parsing error, expected arguments not found: %v", args)
+	}
+	_, _, err := parseCommandPayload("")
+	if err == nil {
+		t.Error("parsing invalid command must fail")
 	}
 }
 
