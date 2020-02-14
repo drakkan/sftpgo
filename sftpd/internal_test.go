@@ -225,36 +225,6 @@ func TestUploadResumeInvalidOffset(t *testing.T) {
 	os.Remove(testfile)
 }
 
-func TestIncompleteDownload(t *testing.T) {
-	testfile := "testfile"
-	file, _ := os.Create(testfile)
-	transfer := Transfer{
-		file:          file,
-		path:          file.Name(),
-		start:         time.Now(),
-		bytesSent:     0,
-		bytesReceived: 0,
-		user: dataprovider.User{
-			Username: "testuser",
-		},
-		connectionID:   "",
-		transferType:   transferDownload,
-		lastActivity:   time.Now(),
-		isNewFile:      false,
-		protocol:       protocolSFTP,
-		transferError:  nil,
-		isFinished:     false,
-		minWriteOffset: 0,
-		expectedSize:   10,
-		lock:           new(sync.Mutex),
-	}
-	err := transfer.Close()
-	if err == nil || !strings.Contains(err.Error(), "incomplete download") {
-		t.Error("upoload must fail the expected size does not match")
-	}
-	os.Remove(testfile)
-}
-
 func TestReadWriteErrors(t *testing.T) {
 	testfile := "testfile"
 	file, _ := os.Create(testfile)

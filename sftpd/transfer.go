@@ -131,7 +131,6 @@ func (t *Transfer) Close() error {
 	if t.isNewFile {
 		numFiles = 1
 	}
-	t.checkDownloadSize()
 	metrics.TransferCompleted(t.bytesSent, t.bytesReceived, t.transferType, t.transferError)
 	if t.transferType == transferUpload && t.file != nil && t.file.Name() != t.path {
 		if t.transferError == nil || uploadMode == uploadModeAtomicWithResume {
@@ -190,12 +189,6 @@ func (t *Transfer) updateQuota(numFiles int) bool {
 		return true
 	}
 	return false
-}
-
-func (t *Transfer) checkDownloadSize() {
-	if t.transferType == transferDownload && t.transferError == nil && t.bytesSent < t.expectedSize {
-		t.transferError = fmt.Errorf("incomplete download: %v/%v bytes transferred", t.bytesSent, t.expectedSize)
-	}
 }
 
 func (t *Transfer) handleThrottle() {
