@@ -150,6 +150,7 @@ func (s *Service) StartPortableMode(sftpdPort int, enabledSSHCommands []string, 
 	}
 	dataProviderConf := config.GetProviderConf()
 	dataProviderConf.Driver = dataprovider.MemoryDataProviderName
+	dataProviderConf.Name = ""
 	dataProviderConf.CredentialsPath = filepath.Join(os.TempDir(), "credentials")
 	config.SetProviderConf(dataProviderConf)
 	httpdConf := config.GetHTTPDConfig()
