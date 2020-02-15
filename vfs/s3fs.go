@@ -61,20 +61,31 @@ func NewS3Fs(connectionID, localTempDir string, config S3FsConfig) (Fs, error) {
 	if err := ValidateS3FsConfig(&fs.config); err != nil {
 		return fs, err
 	}
-	accessSecret, err := utils.DecryptData(fs.config.AccessSecret)
-	if err != nil {
-		return fs, err
+	awsConfig := aws.NewConfig()
+
+	if len(fs.config.Region) > 0 {
+		awsConfig.WithRegion(fs.config.Region)
 	}
-	fs.config.AccessSecret = accessSecret
-	awsConfig := &aws.Config{
-		Region:      aws.String(fs.config.Region),
-		Credentials: credentials.NewStaticCredentials(fs.config.AccessKey, fs.config.AccessSecret, ""),
+
+	if len(fs.config.AccessSecret) > 0 {
+		accessSecret, err := utils.DecryptData(fs.config.AccessSecret)
+		if err != nil {
+			return fs, err
+		}
+		fs.config.AccessSecret = accessSecret
+		awsConfig.Credentials = credentials.NewStaticCredentials(fs.config.AccessKey, fs.config.AccessSecret, "")
 	}
+
 	if len(fs.config.Endpoint) > 0 {
 		awsConfig.Endpoint = aws.String(fs.config.Endpoint)
 		awsConfig.S3ForcePathStyle = aws.Bool(true)
 	}
-	sess, err := session.NewSession(awsConfig)
+
+	sessOpts := session.Options{
+		Config:            *awsConfig,
+		SharedConfigState: session.SharedConfigEnable,
+	}
+	sess, err := session.NewSessionWithOptions(sessOpts)
 	if err != nil {
 		return fs, err
 	}
