@@ -4,14 +4,23 @@ package utils
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/hex"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
+	"os"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/ssh"
 )
 
 const logSender = "utils"
@@ -172,4 +181,70 @@ func DecryptData(data string) (string, error) {
 		return result, err
 	}
 	return string(plaintext), nil
+}
+
+// GenerateRSAKeys generate rsa private and public keys and write the
+// private key to specified file and the public key to the specified
+// file adding the .pub suffix
+func GenerateRSAKeys(file string) error {
+	key, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return err
+	}
+
+	o, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	defer o.Close()
+
+	priv := &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(key),
+	}
+
+	if err := pem.Encode(o, priv); err != nil {
+		return err
+	}
+
+	pub, err := ssh.NewPublicKey(&key.PublicKey)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(file+".pub", ssh.MarshalAuthorizedKey(pub), 0600)
+}
+
+// GenerateECDSAKeys generate ecdsa private and public keys and write the
+// private key to specified file and the public key to the specified
+// file adding the .pub suffix
+func GenerateECDSAKeys(file string) error {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return err
+	}
+
+	o, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	defer o.Close()
+
+	keyBytes, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return err
+	}
+	priv := &pem.Block{
+		Type:  "EC PRIVATE KEY",
+		Bytes: keyBytes,
+	}
+
+	if err := pem.Encode(o, priv); err != nil {
+		return err
+	}
+
+	pub, err := ssh.NewPublicKey(&key.PublicKey)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(file+".pub", ssh.MarshalAuthorizedKey(pub), 0600)
 }

@@ -125,7 +125,7 @@ The `serve` command supports the following flags:
 - `--log-max-size` int. Maximum size in megabytes of the log file before it gets rotated. Default 10 or the value of `SFTPGO_LOG_MAX_SIZE` environment variable. It is unused if `log-file-path` is empty.
 - `--log-verbose` boolean. Enable verbose logs. Default `true` or the value of `SFTPGO_LOG_VERBOSE` environment variable (1 or `true`, 0 or `false`).
 
-If you don't configure any private host keys, the daemon will use `id_rsa` in the configuration directory. If that file doesn't exist, the daemon will attempt to autogenerate it (if the user that executes SFTPGo has write access to the config-dir). The server supports any private key format supported by [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/keys.go#L32).
+If you don't configure any private host keys, the daemon will use `id_rsa` and `id_ecdsa` in the configuration directory. If these files don't exist, the daemon will attempt to autogenerate them (if the user that executes SFTPGo has write access to the config-dir). The server supports any private key format supported by [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/keys.go#L32).
 
 The `sftpgo` configuration file contains the following sections:
 
@@ -141,7 +141,7 @@ The `sftpgo` configuration file contains the following sections:
         - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`, `ssh_cmd`. Leave empty to disable actions.
         - `command`, string. Absolute path to the command to execute. Leave empty to disable.
         - `http_notification_url`, a valid URL. An HTTP GET request will be executed to this URL. Leave empty to disable.
-    - `keys`, struct array. It contains the daemon's private keys. If empty or missing the daemon will search or try to generate `id_rsa` in the configuration directory.
+    - `keys`, struct array. It contains the daemon's private keys. If empty or missing the daemon will search or try to generate `id_rsa` and `id_ecdsa` keys in the configuration directory.
         - `private_key`, path to the private key file. It can be a path relative to the config dir or an absolute one.
     - `enable_scp`, boolean. Default disabled. Set to `true` to enable the experimental SCP support. This setting is deprecated and will be removed in future versions, please add `scp` to the `enabled_ssh_commands` list to enable it
     - `kex_algorithms`, list of strings. Available KEX (Key Exchange) algorithms in preference order. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L46 "Supported kex algos")
@@ -253,7 +253,7 @@ Here is a full example showing the default config in JSON format:
 }
 ```
 
-If you want to use a private key that use an algorithm different from RSA or more than one private key then replace the empty `keys` array with something like this:
+If you want to use a private key that use an algorithm different from RSA or ECDSA or more private keys then generate your own keys and replace the empty `keys` array with something like this:
 
 ```json
 "keys": [
@@ -262,9 +262,14 @@ If you want to use a private key that use an algorithm different from RSA or mor
   },
   {
     "private_key": "id_ecdsa"
+  },
+  {
+    "private_key": "id_ed25519"
   }
 ]
 ```
+
+where `id_rsa`, `id_ecdsa` and `id_ed25519` are your generated keys. You can use absolute paths or paths relative to the configuration directory.
 
 The configuration can be read from JSON, TOML, YAML, HCL, envfile and Java properties config files, if your `config-file` flag is set to `sftpgo` (default value) you need to create a configuration file called `sftpgo.json` or `sftpgo.yaml` and so on inside `config-dir`.
 
@@ -410,7 +415,7 @@ The program must write the questions on its standard output, in a single line, u
 - `instruction`, string. A short description to show to the user that is trying to authenticate. Can be empty or omitted
 - `questions`, list of questions to be asked to the user
 - `echos` list of boolean flags corresponding to the questions (so the lengths of both lists must be the same) and indicating whether user's reply for a particular question should be echoed on the screen while they are typing: true if it should be echoed, or false if it should be hidden.
-- `check_password` optional integer. Ask exactly one question and set this field to 1 if the expected answer is the user password and you want that SFTPGo check it for you. If the password is correct the returned response to the program is `OK`. If the password is wrong the program will be terminated and an authentication error will be returned to the user
+- `check_password` optional integer. Ask exactly one question and set this field to 1 if the expected answer is the user password and you want that SFTPGo checks it for you. If the password is correct the returned response to the program is `OK`. If the password is wrong the program will be terminated and an authentication error will be returned to the user that is trying to authenticate
 - `auth_result`, integer. Set this field to 1 to indicate successful authentication, 0 is ignored, any other value means authentication error. If this fields is found and it is different from 0 then SFTPGo does not read any other questions from the external program and finalize the authentication.
 
 SFTPGo writes the user answers to the program standard input, one per line, in the same order of the questions.
@@ -440,7 +445,7 @@ else
 fi
 ```
 
-and here is an example where SFTPGo check the user password for you:
+and here is an example where SFTPGo checks the user password for you:
 
 ```
 #!/bin/sh

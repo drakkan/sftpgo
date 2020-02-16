@@ -1,12 +1,8 @@
 package sftpd
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -24,7 +20,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-const defaultPrivateKeyName = "id_rsa"
+const (
+	defaultPrivateRSAKeyName   = "id_rsa"
+	defaultPrivateECDSAKeyName = "id_ecdsa"
+)
 
 var sftpExtensions = []string{"posix-rename@openssh.com"}
 
@@ -445,18 +444,26 @@ func (c *Configuration) checkSSHCommands() {
 
 // If no host keys are defined we try to use or generate the default one.
 func (c *Configuration) checkHostKeys(configDir string) error {
-	var err error
 	if len(c.Keys) == 0 {
-		autoFile := filepath.Join(configDir, defaultPrivateKeyName)
-		if _, err = os.Stat(autoFile); os.IsNotExist(err) {
-			logger.Info(logSender, "", "No host keys configured and %#v does not exist; creating new private key for server", autoFile)
-			logger.InfoToConsole("No host keys configured and %#v does not exist; creating new private key for server", autoFile)
-			err = c.generatePrivateKey(autoFile)
+		defaultKeys := []string{defaultPrivateRSAKeyName, defaultPrivateECDSAKeyName}
+		for _, k := range defaultKeys {
+			autoFile := filepath.Join(configDir, k)
+			if _, err := os.Stat(autoFile); os.IsNotExist(err) {
+				logger.Info(logSender, "", "No host keys configured and %#v does not exist; creating new key for server", autoFile)
+				logger.InfoToConsole("No host keys configured and %#v does not exist; creating new key for server", autoFile)
+				if k == defaultPrivateRSAKeyName {
+					err = utils.GenerateRSAKeys(autoFile)
+				} else {
+					err = utils.GenerateECDSAKeys(autoFile)
+				}
+				if err != nil {
+					return err
+				}
+			}
+			c.Keys = append(c.Keys, Key{PrivateKey: k})
 		}
-
-		c.Keys = append(c.Keys, Key{PrivateKey: defaultPrivateKeyName})
 	}
-	return err
+	return nil
 }
 
 func (c Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKey string) (*ssh.Permissions, error) {
@@ -506,29 +513,4 @@ func (c Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMetad
 	}
 	metrics.AddLoginResult(method, err)
 	return sshPerm, err
-}
-
-// Generates a private key that will be used by the SFTP server.
-func (c Configuration) generatePrivateKey(file string) error {
-	key, err := rsa.GenerateKey(rand.Reader, 4096)
-	if err != nil {
-		return err
-	}
-
-	o, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		return err
-	}
-	defer o.Close()
-
-	pkey := &pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(key),
-	}
-
-	if err := pem.Encode(o, pkey); err != nil {
-		return err
-	}
-
-	return nil
 }
