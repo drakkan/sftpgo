@@ -127,7 +127,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	// we use the new access secret if different from the old one and not empty
 	if user.FsConfig.Provider == 1 {
 		if utils.RemoveDecryptionKey(currentS3AccessSecret) == user.FsConfig.S3Config.AccessSecret ||
-			len(user.FsConfig.S3Config.AccessSecret) == 0 {
+			(len(user.FsConfig.S3Config.AccessSecret) == 0 && len(user.FsConfig.S3Config.AccessKey) > 0) {
 			user.FsConfig.S3Config.AccessSecret = currentS3AccessSecret
 		}
 	}

@@ -593,13 +593,15 @@ func validateFilesystemConfig(user *User) error {
 		if err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not validate s3config: %v", err)}
 		}
-		vals := strings.Split(user.FsConfig.S3Config.AccessSecret, "$")
-		if !strings.HasPrefix(user.FsConfig.S3Config.AccessSecret, "$aes$") || len(vals) != 4 {
-			accessSecret, err := utils.EncryptData(user.FsConfig.S3Config.AccessSecret)
-			if err != nil {
-				return &ValidationError{err: fmt.Sprintf("could not encrypt s3 access secret: %v", err)}
+		if len(user.FsConfig.S3Config.AccessSecret) > 0 {
+			vals := strings.Split(user.FsConfig.S3Config.AccessSecret, "$")
+			if !strings.HasPrefix(user.FsConfig.S3Config.AccessSecret, "$aes$") || len(vals) != 4 {
+				accessSecret, err := utils.EncryptData(user.FsConfig.S3Config.AccessSecret)
+				if err != nil {
+					return &ValidationError{err: fmt.Sprintf("could not encrypt s3 access secret: %v", err)}
+				}
+				user.FsConfig.S3Config.AccessSecret = accessSecret
 			}
-			user.FsConfig.S3Config.AccessSecret = accessSecret
 		}
 		return nil
 	} else if user.FsConfig.Provider == 2 {

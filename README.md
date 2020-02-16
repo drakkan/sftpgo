@@ -532,10 +532,12 @@ The configured bucket must exist.
 
 To connect SFTPGo to AWS you need to specify credentials, and a `region` is required too, here is the list of available [AWS regions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions). For example if your bucket is at `Frankfurt` you have to set the region to `eu-central-1`. You can specify an AWS [storage class](https://docs.aws.amazon.com/AmazonS3/latest/dev/storage-class-intro.html) too, leave blank to use the default AWS storage class. An endpoint is required if you are connecting to a Compatible AWS Storage such as [MinIO](https://min.io/).
 
-AWS SDK for Go has different options for credentials. [More Detail](https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html)
-1. Providing [Access Keys](https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html#access-keys-and-secret-access-keys).  
-2. Use IAM roles for Amazon EC2 
+AWS SDK has different options for credentials. [More Detail](https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html). We support:
+1. Providing [Access Keys](https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html#access-keys-and-secret-access-keys).
+2. Use IAM roles for Amazon EC2
 3. Use IAM roles for tasks if your application uses an ECS task definition
+
+So you need to provide access keys to activate option 1 or leave them blank to use the other ways to specify credentials.
 
 Some SFTP commands doesn't work over S3:
 

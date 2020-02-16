@@ -77,6 +77,12 @@ func ValidateS3FsConfig(config *S3FsConfig) error {
 	if len(config.Region) == 0 {
 		return errors.New("region cannot be empty")
 	}
+	if len(config.AccessKey) == 0 && len(config.AccessSecret) > 0 {
+		return errors.New("access_key cannot be empty with access_secret not empty")
+	}
+	if len(config.AccessSecret) == 0 && len(config.AccessKey) > 0 {
+		return errors.New("access_secret cannot be empty with access_key not empty")
+	}
 	if len(config.KeyPrefix) > 0 {
 		if strings.HasPrefix(config.KeyPrefix, "/") {
 			return errors.New("key_prefix cannot start with /")
