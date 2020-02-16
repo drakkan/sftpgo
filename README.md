@@ -410,6 +410,7 @@ The program must write the questions on its standard output, in a single line, u
 - `instruction`, string. A short description to show to the user that is trying to authenticate. Can be empty or omitted
 - `questions`, list of questions to be asked to the user
 - `echos` list of boolean flags corresponding to the questions (so the lengths of both lists must be the same) and indicating whether user's reply for a particular question should be echoed on the screen while they are typing: true if it should be echoed, or false if it should be hidden.
+- `check_password` optional integer. Ask exactly one question and set this field to 1 if the expected answer is the user password and you want that SFTPGo check it for you. If the password is correct the returned response to the program is `OK`. If the password is wrong the program will be terminated and an authentication error will be returned to the user
 - `auth_result`, integer. Set this field to 1 to indicate successful authentication, 0 is ignored, any other value means authentication error. If this fields is found and it is different from 0 then SFTPGo does not read any other questions from the external program and finalize the authentication.
 
 SFTPGo writes the user answers to the program standard input, one per line, in the same order of the questions.
@@ -433,6 +434,30 @@ echo '{"questions":["Question3: "],"instruction":"","echos":[true]}'
 read ANSWER3
 
 if test "$ANSWER3" = "answer3"; then
+	echo '{"auth_result":1}'
+else
+	echo '{"auth_result":-1}'
+fi
+```
+
+and here is an example where SFTPGo check the user password for you:
+
+```
+#!/bin/sh
+
+echo '{"questions":["Password: "],"instruction":"This is a sample for keyboard interactive authentication","echos":[false],"check_password":1}'
+
+read ANSWER1
+
+if test "$ANSWER1" != "OK"; then
+  exit 1
+fi
+
+echo '{"questions":["One time token: "],"instruction":"","echos":[false]}'
+
+read ANSWER2
+
+if test "$ANSWER2" = "token"; then
 	echo '{"auth_result":1}'
 else
 	echo '{"auth_result":-1}'
@@ -659,8 +684,8 @@ For each account the following properties can be configured:
 - `fs_provider`, filesystem to serve via SFTP. Local filesystem and S3 Compatible Object Storage are supported
 - `s3_bucket`, required for S3 filesystem
 - `s3_region`, required for S3 filesystem. Must match the region for your bucket. You can find here the list of available [AWS regions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions). For example if your bucket is at `Frankfurt` you have to set the region to `eu-central-1`
-- `s3_access_key`, required for S3 filesystem
-- `s3_access_secret`, required for S3 filesystem. It is stored encrypted (AES-256-GCM)
+- `s3_access_key`
+- `s3_access_secret`, if provided it is stored encrypted (AES-256-GCM)
 - `s3_endpoint`, specifies a S3 endpoint (server) different from AWS. It is not required if you are connecting to AWS
 - `s3_storage_class`, leave blank to use the default or specify a valid AWS [storage class](https://docs.aws.amazon.com/AmazonS3/latest/dev/storage-class-intro.html)
 - `s3_key_prefix`, allows to restrict access to the virtual folder identified by this prefix and its contents

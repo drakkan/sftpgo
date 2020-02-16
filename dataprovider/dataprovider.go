@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -203,6 +204,7 @@ type keyboardAuthProgramResponse struct {
 	Questions   []string `json:"questions"`
 	Echos       []bool   `json:"echos"`
 	AuthResult  int      `json:"auth_result"`
+	CheckPwd    int      `json:"check_password"`
 }
 
 // ValidationError raised if input data is not valid
@@ -894,6 +896,42 @@ func terminateInteractiveAuthProgram(cmd *exec.Cmd, isFinished bool) {
 	cmd.Process.Kill()
 }
 
+func handleInteractiveQuestions(client ssh.KeyboardInteractiveChallenge, response keyboardAuthProgramResponse,
+	user User, stdin io.WriteCloser) error {
+	questions := response.Questions
+	answers, err := client(user.Username, response.Instruction, questions, response.Echos)
+	if err != nil {
+		providerLog(logger.LevelInfo, "error getting interactive auth client response: %v", err)
+		return err
+	}
+	if len(answers) != len(questions) {
+		err = fmt.Errorf("client answers does not match questions, expected: %v actual: %v", questions, answers)
+		providerLog(logger.LevelInfo, "keyboard interactive auth error: %v", err)
+		return err
+	}
+	if len(answers) == 1 && response.CheckPwd > 0 {
+		_, err = checkUserAndPass(user, answers[0])
+		providerLog(logger.LevelInfo, "interactive auth program requested password validation for user %#v, validation error: %v",
+			user.Username, err)
+		if err != nil {
+			return err
+		}
+		answers[0] = "OK"
+	}
+	for _, answer := range answers {
+		if runtime.GOOS == "windows" {
+			answer += "\r"
+		}
+		answer += "\n"
+		_, err = stdin.Write([]byte(answer))
+		if err != nil {
+			providerLog(logger.LevelError, "unable to write client answer to keyboard interactive program: %v", err)
+			return err
+		}
+	}
+	return nil
+}
+
 func doKeyboardInteractiveAuth(user User, authProgram string, client ssh.KeyboardInteractiveChallenge) (User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -940,29 +978,9 @@ func doKeyboardInteractiveAuth(user User, authProgram string, client ssh.Keyboar
 			break
 		}
 		go func() {
-			questions := response.Questions
-			answers, err := client(user.Username, response.Instruction, questions, response.Echos)
+			err := handleInteractiveQuestions(client, response, user, stdin)
 			if err != nil {
-				providerLog(logger.LevelInfo, "error getting interactive auth client response: %v", err)
 				once.Do(func() { terminateInteractiveAuthProgram(cmd, false) })
-				return
-			}
-			if len(answers) != len(questions) {
-				providerLog(logger.LevelInfo, "client answers does not match questions, expected: %v actual: %v", questions, answers)
-				once.Do(func() { terminateInteractiveAuthProgram(cmd, false) })
-				return
-			}
-			for _, answer := range answers {
-				if runtime.GOOS == "windows" {
-					answer += "\r"
-				}
-				answer += "\n"
-				_, err = stdin.Write([]byte(answer))
-				if err != nil {
-					providerLog(logger.LevelError, "unable to write client answer to keyboard interactive program: %v", err)
-					once.Do(func() { terminateInteractiveAuthProgram(cmd, false) })
-					return
-				}
 			}
 		}()
 	}
