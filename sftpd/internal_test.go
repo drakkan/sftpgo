@@ -1534,7 +1534,18 @@ func TestSCPUploadFiledata(t *testing.T) {
 	addTransfer(&transfer)
 	err = scpCommand.getUploadFileData(0, &transfer)
 	if err != errTransferClosed {
-		t.Errorf("upload must fail, the transfer is already closed")
+		t.Errorf("upload must fail, the transfer is already closed, err: %v", err)
+	}
+	mockSSHChannel = MockChannel{
+		Buffer:       bytes.NewBuffer(buf),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+		ReadError:    nil,
+		WriteError:   nil,
+	}
+	addTransfer(&transfer)
+	err = scpCommand.getUploadFileData(2, &transfer)
+	if !errors.Is(err, os.ErrClosed) {
+		t.Errorf("the file is closed and writes must fail, err: %v", err)
 	}
 	err = os.Remove(testfile)
 	if err != nil {
