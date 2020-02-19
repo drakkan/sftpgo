@@ -286,8 +286,13 @@ func TestCompareUserFsConfig(t *testing.T) {
 		t.Errorf("S3 key prefix does not match")
 	}
 	expected.FsConfig.S3Config.KeyPrefix = ""
+}
+
+func TestCompareUserGCSConfig(t *testing.T) {
+	expected := &dataprovider.User{}
+	actual := &dataprovider.User{}
 	expected.FsConfig.GCSConfig.KeyPrefix = "somedir/subdir"
-	err = compareUserFsConfig(expected, actual)
+	err := compareUserFsConfig(expected, actual)
 	if err == nil {
 		t.Errorf("GCS key prefix does not match")
 	}
@@ -304,6 +309,12 @@ func TestCompareUserFsConfig(t *testing.T) {
 		t.Errorf("GCS storage class does not match")
 	}
 	expected.FsConfig.GCSConfig.StorageClass = ""
+	expected.FsConfig.GCSConfig.AutomaticCredentials = 1
+	err = compareUserFsConfig(expected, actual)
+	if err == nil {
+		t.Errorf("GCS automatic credentials does not match")
+	}
+	expected.FsConfig.GCSConfig.AutomaticCredentials = 0
 }
 
 func TestGCSWebInvalidFormFile(t *testing.T) {

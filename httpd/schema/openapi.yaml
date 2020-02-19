@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 1.7.0
+  version: 1.8.0
 
 servers:
 - url: /api/v1
@@ -987,6 +987,16 @@ components:
           type: string
           format: byte
           description: Google Cloud Storage JSON credentials base64 encoded. This field must be populated only when adding/updating an user. It will be always omitted, since there are sensitive data, when you search/get users. The credentials will be stored in the configured "credentials_path"
+        automatic_credentials:
+          type: integer
+          nullable: true
+          enum:
+            - 0
+            - 1
+          description: >
+            Automatic credentials:
+              * `0` - disabled, explicit credentials, using a JSON credentials file, must be provided. This is the default value if the field is null
+              * `1` - enabled, we try to use the Application Default Credentials (ADC) strategy to find your application's credentials
         storage_class:
           type: string
         key_prefix:

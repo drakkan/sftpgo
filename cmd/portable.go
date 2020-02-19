@@ -35,6 +35,7 @@ var (
 	portableS3KeyPrefix          string
 	portableGCSBucket            string
 	portableGCSCredentialsFile   string
+	portableGCSAutoCredentials   int
 	portableGCSStorageClass      string
 	portableGCSKeyPrefix         string
 	portableCmd                  = &cobra.Command{
@@ -48,12 +49,16 @@ Please take a look at the usage below to customize the serving parameters`,
 		Run: func(cmd *cobra.Command, args []string) {
 			portableDir := directoryToServe
 			if !filepath.IsAbs(portableDir) {
-				portableDir, _ = filepath.Abs(portableDir)
+				if portableFsProvider == 0 {
+					portableDir, _ = filepath.Abs(portableDir)
+				} else {
+					portableDir = os.TempDir()
+				}
 			}
 			permissions := make(map[string][]string)
 			permissions["/"] = portablePermissions
 			portableGCSCredentials := ""
-			if portableFsProvider == 2 {
+			if portableFsProvider == 2 && len(portableGCSCredentialsFile) > 0 {
 				fi, err := os.Stat(portableGCSCredentialsFile)
 				if err != nil {
 					fmt.Printf("Invalid GCS credentials file: %v\n", err)
@@ -69,6 +74,7 @@ Please take a look at the usage below to customize the serving parameters`,
 					fmt.Printf("Unable to read credentials file: %v\n", err)
 				}
 				portableGCSCredentials = base64.StdEncoding.EncodeToString(creds)
+				portableGCSAutoCredentials = 0
 			}
 			service := service.Service{
 				ConfigDir:     defaultConfigDir,
@@ -100,10 +106,11 @@ Please take a look at the usage below to customize the serving parameters`,
 							KeyPrefix:    portableS3KeyPrefix,
 						},
 						GCSConfig: vfs.GCSFsConfig{
-							Bucket:       portableGCSBucket,
-							Credentials:  portableGCSCredentials,
-							StorageClass: portableGCSStorageClass,
-							KeyPrefix:    portableGCSKeyPrefix,
+							Bucket:               portableGCSBucket,
+							Credentials:          portableGCSCredentials,
+							AutomaticCredentials: portableGCSAutoCredentials,
+							StorageClass:         portableGCSStorageClass,
+							KeyPrefix:            portableGCSKeyPrefix,
 						},
 					},
 				},
@@ -147,5 +154,7 @@ func init() {
 	portableCmd.Flags().StringVar(&portableGCSKeyPrefix, "gcs-key-prefix", "", "Allows to restrict access to the virtual folder "+
 		"identified by this prefix and its contents")
 	portableCmd.Flags().StringVar(&portableGCSCredentialsFile, "gcs-credentials-file", "", "Google Cloud Storage JSON credentials file")
+	portableCmd.Flags().IntVar(&portableGCSAutoCredentials, "gcs-automatic-credentials", 1, "0 means explicit credentials using a JSON "+
+		"credentials file, 1 automatic")
 	rootCmd.AddCommand(portableCmd)
 }

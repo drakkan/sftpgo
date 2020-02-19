@@ -203,13 +203,13 @@
     </div>
 
     <div class="form-group row s3">
-        <label for="idS3Bucket" class="col-sm-2 col-form-label">S3 Bucket</label>
+        <label for="idS3Bucket" class="col-sm-2 col-form-label">Bucket</label>
         <div class="col-sm-3">
             <input type="text" class="form-control" id="idS3Bucket" name="s3_bucket" placeholder=""
                 value="{{.User.FsConfig.S3Config.Bucket}}" maxlength="255">
         </div>
         <div class="col-sm-2"></div>
-        <label for="idS3Region" class="col-sm-2 col-form-label">S3 Region</label>
+        <label for="idS3Region" class="col-sm-2 col-form-label">Region</label>
         <div class="col-sm-3">
             <input type="text" class="form-control" id="idS3Region" name="s3_region" placeholder=""
                 value="{{.User.FsConfig.S3Config.Region}}" maxlength="255">
@@ -217,13 +217,13 @@
     </div>
 
     <div class="form-group row s3">
-        <label for="idS3AccessKey" class="col-sm-2 col-form-label">S3 Access Key</label>
+        <label for="idS3AccessKey" class="col-sm-2 col-form-label">Access Key</label>
         <div class="col-sm-3">
             <input type="text" class="form-control" id="idS3AccessKey" name="s3_access_key" placeholder=""
                 value="{{.User.FsConfig.S3Config.AccessKey}}" maxlength="255">
         </div>
         <div class="col-sm-2"></div>
-        <label for="idS3AccessSecret" class="col-sm-2 col-form-label">S3 Access Secret</label>
+        <label for="idS3AccessSecret" class="col-sm-2 col-form-label">Access Secret</label>
         <div class="col-sm-3">
             <input type="text" class="form-control" id="idS3AccessSecret" name="s3_access_secret" placeholder=""
                 value="{{.User.FsConfig.S3Config.AccessSecret}}" maxlength="1000">
@@ -231,13 +231,13 @@
     </div>
 
     <div class="form-group row s3">
-        <label for="idS3StorageClass" class="col-sm-2 col-form-label">S3 Storage Class</label>
+        <label for="idS3StorageClass" class="col-sm-2 col-form-label">Storage Class</label>
         <div class="col-sm-3">
             <input type="text" class="form-control" id="idS3StorageClass" name="s3_storage_class" placeholder=""
                 value="{{.User.FsConfig.S3Config.StorageClass}}" maxlength="1000">
         </div>
         <div class="col-sm-2"></div>
-        <label for="idS3Endpoint" class="col-sm-2 col-form-label">S3 Endpoint</label>
+        <label for="idS3Endpoint" class="col-sm-2 col-form-label">Endpoint</label>
         <div class="col-sm-3">
             <input type="text" class="form-control" id="idS3Endpoint" name="s3_endpoint" placeholder=""
                 value="{{.User.FsConfig.S3Config.Endpoint}}" maxlength="255">
@@ -245,7 +245,7 @@
     </div>
 
     <div class="form-group row s3">
-        <label for="idS3KeyPrefix" class="col-sm-2 col-form-label">S3 Key Prefix</label>
+        <label for="idS3KeyPrefix" class="col-sm-2 col-form-label">Key Prefix</label>
         <div class="col-sm-10">
             <input type="text" class="form-control" id="idS3KeyPrefix" name="s3_key_prefix" placeholder=""
                 value="{{.User.FsConfig.S3Config.KeyPrefix}}" maxlength="255" aria-describedby="S3KeyPrefixHelpBlock">
@@ -256,7 +256,7 @@
     </div>
 
     <div class="form-group row gcs">
-        <label for="idGCSBucket" class="col-sm-2 col-form-label">GCS Bucket</label>
+        <label for="idGCSBucket" class="col-sm-2 col-form-label">Bucket</label>
         <div class="col-sm-10">
             <input type="text" class="form-control" id="idGCSBucket" name="gcs_bucket" placeholder=""
                 value="{{.User.FsConfig.GCSConfig.Bucket}}" maxlength="255">
@@ -264,7 +264,7 @@
     </div>
 
     <div class="form-group row gcs">
-        <label for="idGCSCredentialFile" class="col-sm-2 col-form-label">GCS Credentials file</label>
+        <label for="idGCSCredentialFile" class="col-sm-2 col-form-label">Credentials file</label>
         <div class="col-sm-4">
             <input type="file" class="form-control-file" id="idGCSCredentialFile" name="gcs_credential_file"
                 aria-describedby="GCSCredentialsHelpBlock">
@@ -273,15 +273,23 @@
             </small>
         </div>
         <div class="col-sm-1"></div>
-        <label for="idGCSStorageClass" class="col-sm-2 col-form-label">GCS Storage Class</label>
+        <label for="idGCSStorageClass" class="col-sm-2 col-form-label">Storage Class</label>
         <div class="col-sm-3">
             <input type="text" class="form-control" id="idGCSStorageClass" name="gcs_storage_class" placeholder=""
                 value="{{.User.FsConfig.GCSConfig.StorageClass}}" maxlength="255">
         </div>
     </div>
 
+    <div class="form-group gcs">
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="idGCSAutoCredentials" name="gcs_auto_credentials"
+                {{if gt .User.FsConfig.GCSConfig.AutomaticCredentials 0}}checked{{end}}>
+            <label for="idGCSAutoCredentials" class="form-check-label">Automatic credentials</label>
+        </div>
+    </div>
+
     <div class="form-group row gcs">
-        <label for="idGCSKeyPrefix" class="col-sm-2 col-form-label">GCS Key Prefix</label>
+        <label for="idGCSKeyPrefix" class="col-sm-2 col-form-label">Key Prefix</label>
         <div class="col-sm-10">
             <input type="text" class="form-control" id="idGCSKeyPrefix" name="gcs_key_prefix" placeholder=""
                 value="{{.User.FsConfig.GCSConfig.KeyPrefix}}" maxlength="255" aria-describedby="GCSKeyPrefixHelpBlock">
@@ -341,12 +349,15 @@
     function onFilesystemChanged(val){
         if (val == '1'){
             $('.form-group.row.gcs').hide();
+            $('.form-group.gcs').hide();
             $('.form-group.row.s3').show();
         } else if (val == '2'){
             $('.form-group.row.gcs').show();
+            $('.form-group.gcs').show();
             $('.form-group.row.s3').hide();
         } else {
             $('.form-group.row.gcs').hide();
+            $('.form-group.gcs').hide();
             $('.form-group.row.s3').hide();
         }
     }

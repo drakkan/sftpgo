@@ -109,7 +109,7 @@ func ValidateGCSFsConfig(config *GCSFsConfig, credentialsFilePath string) error 
 			config.KeyPrefix += "/"
 		}
 	}
-	if len(config.Credentials) == 0 {
+	if len(config.Credentials) == 0 && config.AutomaticCredentials == 0 {
 		fi, err := os.Stat(credentialsFilePath)
 		if err != nil {
 			return fmt.Errorf("invalid credentials %v", err)

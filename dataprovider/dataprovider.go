@@ -813,6 +813,9 @@ func addCredentialsToUser(user *User) error {
 	if user.FsConfig.Provider != 2 {
 		return nil
 	}
+	if user.FsConfig.GCSConfig.AutomaticCredentials > 0 {
+		return nil
+	}
 	cred, err := ioutil.ReadFile(user.getGCSCredentialsFilePath())
 	if err != nil {
 		return err

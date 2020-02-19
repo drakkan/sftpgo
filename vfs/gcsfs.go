@@ -21,10 +21,8 @@ import (
 )
 
 var (
-	// we cannot use attrs selection until this bug is fixed:
-	//
-	// https://github.com/googleapis/google-cloud-go/issues/1763
-	//
+	// we can use fields selection only when we don't need directory-like results
+	// with folders
 	gcsDefaultFieldsSelection = []string{"Name", "Size", "Deleted", "Updated"}
 )
 
@@ -37,10 +35,11 @@ type GCSFsConfig struct {
 	// folder. The prefix, if not empty, must not start with "/" and must
 	// end with "/".
 	// If empty the whole bucket contents will be available
-	KeyPrefix      string `json:"key_prefix,omitempty"`
-	CredentialFile string `json:"-"`
-	Credentials    string `json:"credentials,omitempty"`
-	StorageClass   string `json:"storage_class,omitempty"`
+	KeyPrefix            string `json:"key_prefix,omitempty"`
+	CredentialFile       string `json:"-"`
+	Credentials          string `json:"credentials,omitempty"`
+	AutomaticCredentials int    `json:"automatic_credentials,omitempty"`
+	StorageClass         string `json:"storage_class,omitempty"`
 }
 
 // GCSFs is a Fs implementation for Google Cloud Storage.
@@ -67,7 +66,11 @@ func NewGCSFs(connectionID, localTempDir string, config GCSFsConfig) (Fs, error)
 		return fs, err
 	}
 	ctx := context.Background()
-	fs.svc, err = storage.NewClient(ctx, option.WithCredentialsFile(fs.config.CredentialFile))
+	if fs.config.AutomaticCredentials > 0 {
+		fs.svc, err = storage.NewClient(ctx)
+	} else {
+		fs.svc, err = storage.NewClient(ctx, option.WithCredentialsFile(fs.config.CredentialFile))
+	}
 	return fs, err
 }
 
@@ -97,10 +100,6 @@ func (fs GCSFs) Stat(name string) (os.FileInfo, error) {
 	}
 	prefix := fs.getPrefixForStat(name)
 	query := &storage.Query{Prefix: prefix, Delimiter: "/"}
-	/*err = query.SetAttrSelection(gcsDefaultFieldsSelection)
-	if err != nil {
-		return result, err
-	}*/
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
 	bkt := fs.svc.Bucket(fs.config.Bucket)
@@ -299,7 +298,7 @@ func (GCSFs) Chtimes(name string, atime, mtime time.Time) error {
 // a list of directory entries.
 func (fs GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	var result []os.FileInfo
-	// dirname deve essere già cleaned
+	// dirname must be already cleaned
 	prefix := ""
 	if len(dirname) > 0 && dirname != "." {
 		prefix = strings.TrimPrefix(dirname, "/")
@@ -308,10 +307,6 @@ func (fs GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 		}
 	}
 	query := &storage.Query{Prefix: prefix, Delimiter: "/"}
-	/*err := query.SetAttrSelection(gcsDefaultFieldsSelection)
-	if err != nil {
-		return result, err
-	}*/
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
 	bkt := fs.svc.Bucket(fs.config.Bucket)

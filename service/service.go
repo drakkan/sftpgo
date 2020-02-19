@@ -172,52 +172,60 @@ func (s *Service) StartPortableMode(sftpdPort int, enabledSSHCommands []string, 
 	config.SetSFTPDConfig(sftpdConf)
 
 	err = s.Start()
-	if err == nil {
-		var mDNSService *zeroconf.Server
-		var err error
-		if advertiseService {
-			version := utils.GetAppVersion()
-			meta := []string{
-				fmt.Sprintf("version=%v", version.GetVersionAsString()),
-			}
-			if advertiseCredentials {
-				logger.InfoToConsole("Advertising credentials via multicast DNS")
-				meta = append(meta, fmt.Sprintf("user=%v", s.PortableUser.Username))
-				if len(s.PortableUser.Password) > 0 {
-					meta = append(meta, fmt.Sprintf("password=%v", s.PortableUser.Password))
-				} else {
-					logger.InfoToConsole("Unable to advertise key based credentials via multicast DNS, we don't have the private key")
-				}
-			}
-			mDNSService, err = zeroconf.Register(
-				fmt.Sprintf("SFTPGo portable %v", sftpdConf.BindPort), // service instance name
-				"_sftp-ssh._tcp",   // service type and protocol
-				"local.",           // service domain
-				sftpdConf.BindPort, // service port
-				meta,               // service metadata
-				nil,                // register on all network interfaces
-			)
-			if err != nil {
-				mDNSService = nil
-				logger.WarnToConsole("Unable to advertise SFTP service via multicast DNS: %v", err)
-			} else {
-				logger.InfoToConsole("SFTP service advertised via multicast DNS")
-			}
-
-		}
-		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
-		go func() {
-			<-sig
-			if mDNSService != nil {
-				logger.InfoToConsole("unregistering multicast DNS service")
-				mDNSService.Shutdown()
-			}
-			s.Stop()
-		}()
-		logger.InfoToConsole("Portable mode ready, SFTP port: %v, user: %#v, password: %#v, public keys: %v, directory: %#v, "+
-			"permissions: %v, enabled ssh commands: %v", sftpdConf.BindPort, s.PortableUser.Username, s.PortableUser.Password,
-			s.PortableUser.PublicKeys, s.PortableUser.HomeDir, s.PortableUser.Permissions, sftpdConf.EnabledSSHCommands)
+	if err != nil {
+		return err
 	}
-	return err
+	var mDNSService *zeroconf.Server
+	if advertiseService {
+		version := utils.GetAppVersion()
+		meta := []string{
+			fmt.Sprintf("version=%v", version.GetVersionAsString()),
+		}
+		if advertiseCredentials {
+			logger.InfoToConsole("Advertising credentials via multicast DNS")
+			meta = append(meta, fmt.Sprintf("user=%v", s.PortableUser.Username))
+			if len(s.PortableUser.Password) > 0 {
+				meta = append(meta, fmt.Sprintf("password=%v", s.PortableUser.Password))
+			} else {
+				logger.InfoToConsole("Unable to advertise key based credentials via multicast DNS, we don't have the private key")
+			}
+		}
+		mDNSService, err = zeroconf.Register(
+			fmt.Sprintf("SFTPGo portable %v", sftpdConf.BindPort), // service instance name
+			"_sftp-ssh._tcp",   // service type and protocol
+			"local.",           // service domain
+			sftpdConf.BindPort, // service port
+			meta,               // service metadata
+			nil,                // register on all network interfaces
+		)
+		if err != nil {
+			mDNSService = nil
+			logger.WarnToConsole("Unable to advertise SFTP service via multicast DNS: %v", err)
+		} else {
+			logger.InfoToConsole("SFTP service advertised via multicast DNS")
+		}
+
+	}
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sig
+		if mDNSService != nil {
+			logger.InfoToConsole("unregistering multicast DNS service")
+			mDNSService.Shutdown()
+		}
+		s.Stop()
+	}()
+	var dirToServe string
+	if s.PortableUser.FsConfig.Provider == 1 {
+		dirToServe = s.PortableUser.FsConfig.S3Config.KeyPrefix
+	} else if s.PortableUser.FsConfig.Provider == 2 {
+		dirToServe = s.PortableUser.FsConfig.GCSConfig.KeyPrefix
+	} else {
+		dirToServe = s.PortableUser.HomeDir
+	}
+	logger.InfoToConsole("Portable mode ready, SFTP port: %v, user: %#v, password: %#v, public keys: %v, directory: %#v, "+
+		"permissions: %v, enabled ssh commands: %v", sftpdConf.BindPort, s.PortableUser.Username, s.PortableUser.Password,
+		s.PortableUser.PublicKeys, dirToServe, s.PortableUser.Permissions, sftpdConf.EnabledSSHCommands)
+	return nil
 }

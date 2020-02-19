@@ -325,7 +325,7 @@ func (S3Fs) Chtimes(name string, atime, mtime time.Time) error {
 // a list of directory entries.
 func (fs S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	var result []os.FileInfo
-	// dirname deve essere già cleaned
+	// dirname must be already cleaned
 	prefix := ""
 	if dirname != "/" && dirname != "." {
 		prefix = strings.TrimPrefix(dirname, "/")

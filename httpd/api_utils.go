@@ -462,6 +462,9 @@ func compareUserFsConfig(expected *dataprovider.User, actual *dataprovider.User)
 		expected.FsConfig.GCSConfig.KeyPrefix+"/" != actual.FsConfig.GCSConfig.KeyPrefix {
 		return errors.New("GCS key prefix mismatch")
 	}
+	if expected.FsConfig.GCSConfig.AutomaticCredentials != actual.FsConfig.GCSConfig.AutomaticCredentials {
+		return errors.New("GCS automatic credentials mismatch")
+	}
 	return nil
 }
 

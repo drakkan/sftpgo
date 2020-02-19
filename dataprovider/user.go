@@ -419,10 +419,11 @@ func (u *User) getACopy() User {
 			KeyPrefix:    u.FsConfig.S3Config.KeyPrefix,
 		},
 		GCSConfig: vfs.GCSFsConfig{
-			Bucket:         u.FsConfig.GCSConfig.Bucket,
-			CredentialFile: u.FsConfig.GCSConfig.CredentialFile,
-			StorageClass:   u.FsConfig.GCSConfig.StorageClass,
-			KeyPrefix:      u.FsConfig.GCSConfig.KeyPrefix,
+			Bucket:               u.FsConfig.GCSConfig.Bucket,
+			CredentialFile:       u.FsConfig.GCSConfig.CredentialFile,
+			AutomaticCredentials: u.FsConfig.GCSConfig.AutomaticCredentials,
+			StorageClass:         u.FsConfig.GCSConfig.StorageClass,
+			KeyPrefix:            u.FsConfig.GCSConfig.KeyPrefix,
 		},
 	}
 

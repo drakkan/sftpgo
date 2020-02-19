@@ -246,6 +246,12 @@ func getFsConfigFromUserPostFields(r *http.Request) (dataprovider.Filesystem, er
 		fs.GCSConfig.Bucket = r.Form.Get("gcs_bucket")
 		fs.GCSConfig.StorageClass = r.Form.Get("gcs_storage_class")
 		fs.GCSConfig.KeyPrefix = r.Form.Get("gcs_key_prefix")
+		autoCredentials := r.Form.Get("gcs_auto_credentials")
+		if len(autoCredentials) > 0 {
+			fs.GCSConfig.AutomaticCredentials = 1
+		} else {
+			fs.GCSConfig.AutomaticCredentials = 0
+		}
 		credentials, _, err := r.FormFile("gcs_credential_file")
 		if err == http.ErrMissingFile {
 			return fs, nil
@@ -262,6 +268,7 @@ func getFsConfigFromUserPostFields(r *http.Request) (dataprovider.Filesystem, er
 			return fs, err
 		}
 		fs.GCSConfig.Credentials = base64.StdEncoding.EncodeToString(fileBytes)
+		fs.GCSConfig.AutomaticCredentials = 0
 	}
 	return fs, nil
 }

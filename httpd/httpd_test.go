@@ -352,6 +352,7 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	}
 	u.FsConfig.GCSConfig.KeyPrefix = "somedir/subdir/"
 	u.FsConfig.GCSConfig.Credentials = ""
+	u.FsConfig.GCSConfig.AutomaticCredentials = 0
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
@@ -518,6 +519,14 @@ func TestUserGCSConfig(t *testing.T) {
 	user, _, err = httpd.AddUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
+	}
+	os.RemoveAll(credentialsPath)
+	os.MkdirAll(credentialsPath, 0700)
+	user.FsConfig.GCSConfig.Credentials = ""
+	user.FsConfig.GCSConfig.AutomaticCredentials = 1
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
 	}
 	user.FsConfig.Provider = 1
 	user.FsConfig.S3Config.Bucket = "test1"
@@ -1936,6 +1945,26 @@ func TestWebUserGCSMock(t *testing.T) {
 	}
 	if updateUser.FsConfig.GCSConfig.KeyPrefix != user.FsConfig.GCSConfig.KeyPrefix {
 		t.Error("GCS key prefix mismatch")
+	}
+	form.Set("gcs_auto_credentials", "on")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr.Code)
+	req, _ = http.NewRequest(http.MethodGet, userPath+"?limit=1&offset=0&order=ASC&username="+user.Username, nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	err = render.DecodeJSON(rr.Body, &users)
+	if err != nil {
+		t.Errorf("Error decoding users: %v", err)
+	}
+	if len(users) != 1 {
+		t.Errorf("1 user is expected")
+	}
+	updateUser = users[0]
+	if updateUser.FsConfig.GCSConfig.AutomaticCredentials != 1 {
+		t.Error("GCS automatic credentials mismatch")
 	}
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)
