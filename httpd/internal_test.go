@@ -59,12 +59,6 @@ func TestCheckUser(t *testing.T) {
 		t.Errorf("actual password must be nil")
 	}
 	actual.Password = ""
-	actual.PublicKeys = []string{"pub key"}
-	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("actual public key must be nil")
-	}
-	actual.PublicKeys = []string{}
 	err = checkUser(expected, actual)
 	if err == nil {
 		t.Errorf("actual ID must be > 0")
@@ -104,9 +98,21 @@ func TestCheckUser(t *testing.T) {
 	}
 	expected.Permissions = make(map[string][]string)
 	actual.Permissions = make(map[string][]string)
+	actual.FsConfig.Provider = 1
+	err = checkUser(expected, actual)
+	if err == nil {
+		t.Errorf("Fs providers are not equal")
+	}
+}
+
+func TestCompareUserFilters(t *testing.T) {
+	expected := &dataprovider.User{}
+	actual := &dataprovider.User{}
+	actual.ID = 1
+	expected.ID = 1
 	expected.Filters.AllowedIP = []string{}
 	actual.Filters.AllowedIP = []string{"192.168.1.2/32"}
-	err = checkUser(expected, actual)
+	err := checkUser(expected, actual)
 	if err == nil {
 		t.Errorf("AllowedIP are not equal")
 	}
@@ -130,10 +136,16 @@ func TestCheckUser(t *testing.T) {
 	}
 	expected.Filters.DeniedIP = []string{}
 	actual.Filters.DeniedIP = []string{}
-	actual.FsConfig.Provider = 1
+	expected.Filters.DeniedLoginMethods = []string{}
+	actual.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPublicKey}
 	err = checkUser(expected, actual)
 	if err == nil {
-		t.Errorf("Fs providers are not equal")
+		t.Errorf("Denied login methods are not equal")
+	}
+	expected.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPassword}
+	err = checkUser(expected, actual)
+	if err == nil {
+		t.Errorf("Denied login methods contents are not equal")
 	}
 }
 

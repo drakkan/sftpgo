@@ -494,7 +494,7 @@ func UpdateDataProviderAvailability(err error) {
 func AddLoginAttempt(authMethod string) {
 	totalLoginAttempts.Inc()
 	switch authMethod {
-	case "public_key":
+	case "publickey":
 		totalKeyLoginAttempts.Inc()
 	case "keyboard-interactive":
 		totalInteractiveLoginAttempts.Inc()
@@ -508,7 +508,7 @@ func AddLoginResult(authMethod string, err error) {
 	if err == nil {
 		totalLoginOK.Inc()
 		switch authMethod {
-		case "public_key":
+		case "publickey":
 			totalKeyLoginOK.Inc()
 		case "keyboard-interactive":
 			totalInteractiveLoginOK.Inc()
@@ -518,7 +518,7 @@ func AddLoginResult(authMethod string, err error) {
 	} else {
 		totalLoginFailed.Inc()
 		switch authMethod {
-		case "public_key":
+		case "publickey":
 			totalKeyLoginFailed.Inc()
 		case "keyboard-interactive":
 			totalInteractiveLoginFailed.Inc()

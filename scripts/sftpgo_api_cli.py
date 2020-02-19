@@ -76,7 +76,7 @@ class SFTPGoApiRequests:
 					status=1, expiration_date=0, allowed_ip=[], denied_ip=[], fs_provider='local', s3_bucket='',
 					s3_region='', s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='',
 					s3_key_prefix='', gcs_bucket='', gcs_key_prefix='', gcs_storage_class='', gcs_credentials_file='',
-					gcs_automatic_credentials='automatic'):
+					gcs_automatic_credentials='automatic', denied_login_methods=[]):
 		user = {'id':user_id, 'username':username, 'uid':uid, 'gid':gid,
 			'max_sessions':max_sessions, 'quota_size':quota_size, 'quota_files':quota_files,
 			'upload_bandwidth':upload_bandwidth, 'download_bandwidth':download_bandwidth,
@@ -92,8 +92,8 @@ class SFTPGoApiRequests:
 			user.update({'home_dir':home_dir})
 		if permissions:
 			user.update({'permissions':permissions})
-		if allowed_ip or denied_ip:
-			user.update({'filters':self.buildFilters(allowed_ip, denied_ip)})
+		if allowed_ip or denied_ip or denied_login_methods:
+			user.update({'filters':self.buildFilters(allowed_ip, denied_ip, denied_login_methods)})
 		user.update({'filesystem':self.buildFsConfig(fs_provider, s3_bucket, s3_region, s3_access_key, s3_access_secret,
 													s3_endpoint, s3_storage_class, s3_key_prefix, gcs_bucket,
 													gcs_key_prefix, gcs_storage_class, gcs_credentials_file,
@@ -117,7 +117,7 @@ class SFTPGoApiRequests:
 					permissions.update({directory:values})
 		return permissions
 
-	def buildFilters(self, allowed_ip, denied_ip):
+	def buildFilters(self, allowed_ip, denied_ip, denied_login_methods):
 		filters = {}
 		if allowed_ip:
 			if len(allowed_ip) == 1 and not allowed_ip[0]:
@@ -129,6 +129,11 @@ class SFTPGoApiRequests:
 				filters.update({'denied_ip':[]})
 			else:
 				filters.update({'denied_ip':denied_ip})
+		if denied_login_methods:
+			if len(denied_login_methods) == 1 and not denied_login_methods[0]:
+				filters.update({'denied_login_methods':[]})
+			else:
+				filters.update({'denied_login_methods':denied_login_methods})
 		return filters
 
 	def buildFsConfig(self, fs_provider, s3_bucket, s3_region, s3_access_key, s3_access_secret, s3_endpoint,
@@ -166,12 +171,13 @@ class SFTPGoApiRequests:
 			quota_files=0, perms=[], upload_bandwidth=0, download_bandwidth=0, status=1, expiration_date=0,
 			subdirs_permissions=[], allowed_ip=[], denied_ip=[], fs_provider='local', s3_bucket='', s3_region='',
 			s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='', s3_key_prefix='', gcs_bucket='',
-			gcs_key_prefix='', gcs_storage_class='', gcs_credentials_file='', gcs_automatic_credentials='automatic'):
+			gcs_key_prefix='', gcs_storage_class='', gcs_credentials_file='', gcs_automatic_credentials='automatic',
+			denied_login_methods=[]):
 		u = self.buildUserObject(0, username, password, public_keys, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, self.buildPermissions(perms, subdirs_permissions), upload_bandwidth, download_bandwidth,
 			status, expiration_date, allowed_ip, denied_ip, fs_provider, s3_bucket, s3_region, s3_access_key,
 			s3_access_secret, s3_endpoint, s3_storage_class, s3_key_prefix, gcs_bucket, gcs_key_prefix, gcs_storage_class,
-			gcs_credentials_file, gcs_automatic_credentials)
+			gcs_credentials_file, gcs_automatic_credentials, denied_login_methods)
 		r = requests.post(self.userPath, json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
@@ -180,12 +186,12 @@ class SFTPGoApiRequests:
 				expiration_date=0, subdirs_permissions=[], allowed_ip=[], denied_ip=[], fs_provider='local',
 				s3_bucket='', s3_region='', s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='',
 				s3_key_prefix='', gcs_bucket='', gcs_key_prefix='', gcs_storage_class='', gcs_credentials_file='',
-				gcs_automatic_credentials='automatic'):
+				gcs_automatic_credentials='automatic', denied_login_methods=[]):
 		u = self.buildUserObject(user_id, username, password, public_keys, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, self.buildPermissions(perms, subdirs_permissions), upload_bandwidth, download_bandwidth,
 			status, expiration_date, allowed_ip, denied_ip, fs_provider, s3_bucket, s3_region, s3_access_key,
 			s3_access_secret, s3_endpoint, s3_storage_class, s3_key_prefix, gcs_bucket, gcs_key_prefix, gcs_storage_class,
-			gcs_credentials_file, gcs_automatic_credentials)
+			gcs_credentials_file, gcs_automatic_credentials, denied_login_methods)
 		r = requests.put(urlparse.urljoin(self.userPath, 'user/' + str(user_id)), json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
@@ -426,6 +432,8 @@ def addCommonUserArguments(parser):
 					choices=['*', 'list', 'download', 'upload', 'overwrite', 'delete', 'rename', 'create_dirs',
 							'create_symlinks', 'chmod', 'chown', 'chtimes'], help='Permissions for the root directory '
 							+'(/). Default: %(default)s')
+	parser.add_argument('-L', '--denied-login-methods', type=str, nargs='+', default=[],
+					choices=['', 'publickey', 'password', 'keyboard-interactive'], help='Default: %(default)s')
 	parser.add_argument('--subdirs-permissions', type=str, nargs='*', default=[], help='Permissions for subdirs. '
 					+'For example: "/somedir:list,download" "/otherdir/subdir:*" Default: %(default)s')
 	parser.add_argument('-U', '--upload-bandwidth', type=int, default=0,
@@ -569,7 +577,8 @@ if __name__ == '__main__':
 				args.status, getDatetimeAsMillisSinceEpoch(args.expiration_date), args.subdirs_permissions, args.allowed_ip,
 				args.denied_ip, args.fs, args.s3_bucket, args.s3_region, args.s3_access_key, args.s3_access_secret,
 				args.s3_endpoint, args.s3_storage_class, args.s3_key_prefix, args.gcs_bucket, args.gcs_key_prefix,
-				args.gcs_storage_class, args.gcs_credentials_file, args.gcs_automatic_credentials)
+				args.gcs_storage_class, args.gcs_credentials_file, args.gcs_automatic_credentials,
+				args.denied_login_methods)
 	elif args.command == 'update-user':
 		api.updateUser(args.id, args.username, args.password, args.public_keys, args.home_dir, args.uid, args.gid,
 					args.max_sessions, args.quota_size, args.quota_files, args.permissions, args.upload_bandwidth,
@@ -577,7 +586,7 @@ if __name__ == '__main__':
 					args.subdirs_permissions, args.allowed_ip, args.denied_ip, args.fs, args.s3_bucket, args.s3_region,
 					args.s3_access_key, args.s3_access_secret, args.s3_endpoint, args.s3_storage_class,
 					args.s3_key_prefix, args.gcs_bucket, args.gcs_key_prefix, args.gcs_storage_class,
-					args.gcs_credentials_file, args.gcs_automatic_credentials)
+					args.gcs_credentials_file, args.gcs_automatic_credentials, args.denied_login_methods)
 	elif args.command == 'delete-user':
 		api.deleteUser(args.id)
 	elif args.command == 'get-users':

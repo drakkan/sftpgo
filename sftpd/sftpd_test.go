@@ -1072,6 +1072,55 @@ func TestLoginInvalidFs(t *testing.T) {
 	os.RemoveAll(user.GetHomeDir())
 }
 
+func TestDeniedLoginMethods(t *testing.T) {
+	u := getTestUser(true)
+	u.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPublicKey, dataprovider.SSHLoginMethodPassword}
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	_, err = getSftpClient(user, true)
+	if err == nil {
+		t.Error("public key login is disabled, authentication must fail")
+	}
+	user.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodKeyboardInteractive, dataprovider.SSHLoginMethodPassword}
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	client, err := getSftpClient(user, true)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		client.Close()
+	}
+	user.Password = defaultPassword
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	_, err = getSftpClient(user, false)
+	if err == nil {
+		t.Error("password login is disabled, authentication must fail")
+	}
+	user.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodKeyboardInteractive, dataprovider.SSHLoginMethodPublicKey}
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	client, err = getSftpClient(user, false)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		client.Close()
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+}
+
 func TestLoginWithIPFilters(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
@@ -3264,53 +3313,53 @@ func TestUserEmptySubDirPerms(t *testing.T) {
 func TestUserFiltersIPMaskConditions(t *testing.T) {
 	user := getTestUser(true)
 	// with no filter login must be allowed even if the remoteIP is invalid
-	if !user.IsLoginAllowed("192.168.1.5") {
+	if !user.IsLoginFromAddrAllowed("192.168.1.5") {
 		t.Error("unexpected login denied")
 	}
-	if !user.IsLoginAllowed("invalid") {
+	if !user.IsLoginFromAddrAllowed("invalid") {
 		t.Error("unexpected login denied")
 	}
 	user.Filters.DeniedIP = append(user.Filters.DeniedIP, "192.168.1.0/24")
-	if user.IsLoginAllowed("192.168.1.5") {
+	if user.IsLoginFromAddrAllowed("192.168.1.5") {
 		t.Error("unexpected login allowed")
 	}
-	if !user.IsLoginAllowed("192.168.2.6") {
+	if !user.IsLoginFromAddrAllowed("192.168.2.6") {
 		t.Error("unexpected login denied")
 	}
 	user.Filters.AllowedIP = append(user.Filters.AllowedIP, "192.168.1.5/32")
 	// if the same ip/mask is both denied and allowed then login must be denied
-	if user.IsLoginAllowed("192.168.1.5") {
+	if user.IsLoginFromAddrAllowed("192.168.1.5") {
 		t.Error("unexpected login allowed")
 	}
-	if user.IsLoginAllowed("192.168.3.6") {
+	if user.IsLoginFromAddrAllowed("192.168.3.6") {
 		t.Error("unexpected login allowed")
 	}
 	user.Filters.DeniedIP = []string{}
-	if !user.IsLoginAllowed("192.168.1.5") {
+	if !user.IsLoginFromAddrAllowed("192.168.1.5") {
 		t.Error("unexpected login denied")
 	}
-	if user.IsLoginAllowed("192.168.1.6") {
+	if user.IsLoginFromAddrAllowed("192.168.1.6") {
 		t.Error("unexpected login allowed")
 	}
 	user.Filters.DeniedIP = []string{"192.168.0.0/16", "172.16.0.0/16"}
 	user.Filters.AllowedIP = []string{}
-	if user.IsLoginAllowed("192.168.5.255") {
+	if user.IsLoginFromAddrAllowed("192.168.5.255") {
 		t.Error("unexpected login allowed")
 	}
-	if user.IsLoginAllowed("172.16.1.2") {
+	if user.IsLoginFromAddrAllowed("172.16.1.2") {
 		t.Error("unexpected login allowed")
 	}
-	if !user.IsLoginAllowed("172.18.2.1") {
+	if !user.IsLoginFromAddrAllowed("172.18.2.1") {
 		t.Error("unexpected login denied")
 	}
 	user.Filters.AllowedIP = []string{"10.4.4.0/24"}
-	if user.IsLoginAllowed("10.5.4.2") {
+	if user.IsLoginFromAddrAllowed("10.5.4.2") {
 		t.Error("unexpected login allowed")
 	}
-	if !user.IsLoginAllowed("10.4.4.2") {
+	if !user.IsLoginFromAddrAllowed("10.4.4.2") {
 		t.Error("unexpected login denied")
 	}
-	if !user.IsLoginAllowed("invalid") {
+	if !user.IsLoginFromAddrAllowed("invalid") {
 		t.Error("unexpected login denied")
 	}
 }

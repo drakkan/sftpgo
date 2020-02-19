@@ -77,10 +77,12 @@ var (
 	// ValidPerms list that contains all the valid permissions for an user
 	ValidPerms = []string{PermAny, PermListItems, PermDownload, PermUpload, PermOverwrite, PermRename, PermDelete,
 		PermCreateDirs, PermCreateSymlinks, PermChmod, PermChown, PermChtimes}
-	config          Config
-	provider        Provider
-	sqlPlaceholders []string
-	hashPwdPrefixes = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
+	// ValidSSHLoginMethods list that contains all the valid SSH login methods
+	ValidSSHLoginMethods = []string{SSHLoginMethodPublicKey, SSHLoginMethodPassword, SSHLoginMethodKeyboardInteractive}
+	config               Config
+	provider             Provider
+	sqlPlaceholders      []string
+	hashPwdPrefixes      = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
 		pbkdf2SHA512Prefix, md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
 	pbkdfPwdPrefixes       = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
 	unixPwdPrefixes        = []string{md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
@@ -510,6 +512,9 @@ func validatePermissions(user *User) error {
 		if len(perms) == 0 && dir == "/" {
 			return &ValidationError{err: fmt.Sprintf("no permissions granted for the directory: %#v", dir)}
 		}
+		if len(perms) > len(ValidPerms) {
+			return &ValidationError{err: "invalid permissions"}
+		}
 		for _, p := range perms {
 			if !utils.IsStringInSlice(p, ValidPerms) {
 				return &ValidationError{err: fmt.Sprintf("invalid permission: %#v", p)}
@@ -555,6 +560,9 @@ func validateFilters(user *User) error {
 	if len(user.Filters.DeniedIP) == 0 {
 		user.Filters.DeniedIP = []string{}
 	}
+	if len(user.Filters.DeniedLoginMethods) == 0 {
+		user.Filters.DeniedLoginMethods = []string{}
+	}
 	for _, IPMask := range user.Filters.DeniedIP {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
@@ -565,6 +573,14 @@ func validateFilters(user *User) error {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not parse allowed IP/Mask %#v : %v", IPMask, err)}
+		}
+	}
+	if len(user.Filters.DeniedLoginMethods) >= len(ValidSSHLoginMethods) {
+		return &ValidationError{err: "invalid denied_login_methods"}
+	}
+	for _, loginMethod := range user.Filters.DeniedLoginMethods {
+		if !utils.IsStringInSlice(loginMethod, ValidSSHLoginMethods) {
+			return &ValidationError{err: fmt.Sprintf("invalid login method: %#v", loginMethod)}
 		}
 	}
 	return nil

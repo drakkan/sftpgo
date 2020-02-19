@@ -503,6 +503,9 @@ func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) 
 	if len(expected.Filters.DeniedIP) != len(actual.Filters.DeniedIP) {
 		return errors.New("DeniedIP mismatch")
 	}
+	if len(expected.Filters.DeniedLoginMethods) != len(actual.Filters.DeniedLoginMethods) {
+		return errors.New("Denied login methods mismatch")
+	}
 	for _, IPMask := range expected.Filters.AllowedIP {
 		if !utils.IsStringInSlice(IPMask, actual.Filters.AllowedIP) {
 			return errors.New("AllowedIP contents mismatch")
@@ -511,6 +514,11 @@ func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) 
 	for _, IPMask := range expected.Filters.DeniedIP {
 		if !utils.IsStringInSlice(IPMask, actual.Filters.DeniedIP) {
 			return errors.New("DeniedIP contents mismatch")
+		}
+	}
+	for _, method := range expected.Filters.DeniedLoginMethods {
+		if !utils.IsStringInSlice(method, actual.Filters.DeniedLoginMethods) {
+			return errors.New("Denied login methods contents mismatch")
 		}
 	}
 	return nil

@@ -292,7 +292,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 	// Unmarshal cannot fails here and even if it fails we'll have a user with no permissions
 	json.Unmarshal([]byte(sconn.Permissions.Extensions["user"]), &user)
 
-	loginType := sconn.Permissions.Extensions["login_type"]
+	loginType := sconn.Permissions.Extensions["login_method"]
 	connectionID := hex.EncodeToString(sconn.SessionID())
 
 	fs, err := user.GetFilesystem(connectionID)
@@ -391,7 +391,7 @@ func (c Configuration) createHandler(connection Connection) sftp.Handlers {
 	}
 }
 
-func loginUser(user dataprovider.User, loginType string, remoteAddr string) (*ssh.Permissions, error) {
+func loginUser(user dataprovider.User, loginMethod, remoteAddr, publicKey string) (*ssh.Permissions, error) {
 	if !filepath.IsAbs(user.HomeDir) {
 		logger.Warn(logSender, "", "user %#v has an invalid home dir: %#v. Home dir must be an absolute path, login not allowed",
 			user.Username, user.HomeDir)
@@ -405,9 +405,13 @@ func loginUser(user dataprovider.User, loginType string, remoteAddr string) (*ss
 			return nil, fmt.Errorf("too many open sessions: %v", activeSessions)
 		}
 	}
-	if !user.IsLoginAllowed(remoteAddr) {
+	if !user.IsLoginMethodAllowed(loginMethod) {
+		logger.Debug(logSender, "", "cannot login user %#v, login method %#v is not allowed", user.Username, loginMethod)
+		return nil, fmt.Errorf("Login method %#v is not allowed for user %#v", loginMethod, user.Username)
+	}
+	if !user.IsLoginFromAddrAllowed(remoteAddr) {
 		logger.Debug(logSender, "", "cannot login user %#v, remote address is not allowed: %v", user.Username, remoteAddr)
-		return nil, fmt.Errorf("Login is not allowed from this address: %v", remoteAddr)
+		return nil, fmt.Errorf("Login for user %#v is not allowed from this address: %v", user.Username, remoteAddr)
 	}
 
 	json, err := json.Marshal(user)
@@ -415,10 +419,13 @@ func loginUser(user dataprovider.User, loginType string, remoteAddr string) (*ss
 		logger.Warn(logSender, "", "error serializing user info: %v, authentication rejected", err)
 		return nil, err
 	}
+	if len(publicKey) > 0 {
+		loginMethod = fmt.Sprintf("%v: %v", loginMethod, publicKey)
+	}
 	p := &ssh.Permissions{}
 	p.Extensions = make(map[string]string)
 	p.Extensions["user"] = string(json)
-	p.Extensions["login_type"] = loginType
+	p.Extensions["login_method"] = loginMethod
 	return p, nil
 }
 
@@ -472,11 +479,12 @@ func (c Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKe
 	var keyID string
 	var sshPerm *ssh.Permissions
 
-	method := "public_key"
+	method := dataprovider.SSHLoginMethodPublicKey
 	metrics.AddLoginAttempt(method)
 	if user, keyID, err = dataprovider.CheckUserAndPubKey(dataProvider, conn.User(), pubKey); err == nil {
-		sshPerm, err = loginUser(user, fmt.Sprintf("%v:%v", method, keyID), conn.RemoteAddr().String())
-	} else {
+		sshPerm, err = loginUser(user, method, conn.RemoteAddr().String(), keyID)
+	}
+	if err != nil {
 		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), method, err.Error())
 	}
 	metrics.AddLoginResult(method, err)
@@ -488,11 +496,12 @@ func (c Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass [
 	var user dataprovider.User
 	var sshPerm *ssh.Permissions
 
-	method := "password"
+	method := dataprovider.SSHLoginMethodPassword
 	metrics.AddLoginAttempt(method)
 	if user, err = dataprovider.CheckUserAndPass(dataProvider, conn.User(), string(pass)); err == nil {
-		sshPerm, err = loginUser(user, method, conn.RemoteAddr().String())
-	} else {
+		sshPerm, err = loginUser(user, method, conn.RemoteAddr().String(), "")
+	}
+	if err != nil {
 		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), method, err.Error())
 	}
 	metrics.AddLoginResult(method, err)
@@ -504,11 +513,12 @@ func (c Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMetad
 	var user dataprovider.User
 	var sshPerm *ssh.Permissions
 
-	method := "keyboard-interactive"
+	method := dataprovider.SSHLoginMethodKeyboardInteractive
 	metrics.AddLoginAttempt(method)
 	if user, err = dataprovider.CheckKeyboardInteractiveAuth(dataProvider, conn.User(), c.KeyboardInteractiveProgram, client); err == nil {
-		sshPerm, err = loginUser(user, method, conn.RemoteAddr().String())
-	} else {
+		sshPerm, err = loginUser(user, method, conn.RemoteAddr().String(), "")
+	}
+	if err != nil {
 		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), method, err.Error())
 	}
 	metrics.AddLoginResult(method, err)

@@ -438,7 +438,7 @@ func TestUploadFiles(t *testing.T) {
 func TestWithInvalidHome(t *testing.T) {
 	u := dataprovider.User{}
 	u.HomeDir = "home_rel_path"
-	_, err := loginUser(u, "password", "")
+	_, err := loginUser(u, dataprovider.SSHLoginMethodPassword, "", "")
 	if err == nil {
 		t.Errorf("login a user with an invalid home_dir must fail")
 	}

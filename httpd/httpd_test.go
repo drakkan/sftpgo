@@ -312,6 +312,18 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error adding user with invalid filters: %v", err)
 	}
+	u.Filters.DeniedIP = []string{}
+	u.Filters.DeniedLoginMethods = []string{"invalid"}
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid filters: %v", err)
+	}
+	u.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodKeyboardInteractive,
+		dataprovider.SSHLoginMethodPassword, dataprovider.SSHLoginMethodPublicKey}
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid filters: %v", err)
+	}
 }
 
 func TestAddUserInvalidFsConfig(t *testing.T) {
@@ -409,6 +421,7 @@ func TestUpdateUser(t *testing.T) {
 	user.Permissions["/subdir"] = []string{dataprovider.PermListItems, dataprovider.PermUpload}
 	user.Filters.AllowedIP = []string{"192.168.1.0/24", "192.168.2.0/24"}
 	user.Filters.DeniedIP = []string{"192.168.3.0/24", "192.168.4.0/24"}
+	user.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPassword}
 	user.UploadBandwidth = 1024
 	user.DownloadBandwidth = 512
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
@@ -893,7 +906,7 @@ func TestDumpdata(t *testing.T) {
 	os.RemoveAll(credentialsPath)
 	err = dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
-		t.Errorf("error initializing data provider")
+		t.Errorf("error initializing data provider: %v", err)
 	}
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
@@ -1720,6 +1733,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("expiration_date", "2020-01-01 00:00:00")
 	form.Set("allowed_ip", " 192.168.1.3/32, 192.168.2.0/24 ")
 	form.Set("denied_ip", " 10.0.0.2/32 ")
+	form.Set("ssh_login_methods", dataprovider.SSHLoginMethodKeyboardInteractive)
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
 	req.Header.Set("Content-Type", contentType)
@@ -1764,6 +1778,9 @@ func TestWebUserUpdateMock(t *testing.T) {
 	}
 	if !utils.IsStringInSlice("10.0.0.2/32", updateUser.Filters.DeniedIP) {
 		t.Errorf("Denied IP/Mask does not match: %v", updateUser.Filters.DeniedIP)
+	}
+	if !utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, updateUser.Filters.DeniedLoginMethods) {
+		t.Errorf("Denied login methods does not match: %v", updateUser.Filters.DeniedLoginMethods)
 	}
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)

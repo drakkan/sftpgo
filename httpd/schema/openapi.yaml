@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 1.8.0
+  version: 1.8.1
 
 servers:
 - url: /api/v1
@@ -927,6 +927,12 @@ components:
         minItems: 1
       minProperties: 1
       description: hash map with directory as key and an array of permissions as value. Directories must be absolute paths, permissions for root directory ("/") are required
+    LoginMethods:
+      type: string
+      enum:
+        - 'publickey'
+        - 'password'
+        - 'keyboard-interactive'
     UserFilters:
       type: object
       properties:
@@ -944,6 +950,12 @@ components:
           nullable: true
           description: clients connecting from these IP/Mask are not allowed. Denied rules are evaluated before allowed ones
           example: [ "172.16.0.0/16" ]
+        denied_login_methods:
+          type: array
+          items:
+            $ref: '#/components/schemas/LoginMethods'
+          nullable: true
+          description: if null or empty any available login method is allowed
       description: Additional restrictions
     S3Config:
       type: object
@@ -973,8 +985,6 @@ components:
       required:
         - bucket
         - region
-        - access_key
-        - access_secret
       nullable: true
       description: S3 Compatible Object Storage configuration details
     GCSConfig:

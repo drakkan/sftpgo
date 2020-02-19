@@ -64,12 +64,13 @@ type connectionsPage struct {
 
 type userPage struct {
 	basePage
-	IsAdd        bool
-	User         dataprovider.User
-	RootPerms    []string
-	Error        string
-	ValidPerms   []string
-	RootDirPerms []string
+	IsAdd                bool
+	User                 dataprovider.User
+	RootPerms            []string
+	Error                string
+	ValidPerms           []string
+	ValidSSHLoginMethods []string
+	RootDirPerms         []string
 }
 
 type messagePage struct {
@@ -161,24 +162,26 @@ func renderNotFoundPage(w http.ResponseWriter, err error) {
 
 func renderAddUserPage(w http.ResponseWriter, user dataprovider.User, error string) {
 	data := userPage{
-		basePage:     getBasePageData("Add a new user", webUserPath),
-		IsAdd:        true,
-		Error:        error,
-		User:         user,
-		ValidPerms:   dataprovider.ValidPerms,
-		RootDirPerms: user.GetPermissionsForPath("/"),
+		basePage:             getBasePageData("Add a new user", webUserPath),
+		IsAdd:                true,
+		Error:                error,
+		User:                 user,
+		ValidPerms:           dataprovider.ValidPerms,
+		ValidSSHLoginMethods: dataprovider.ValidSSHLoginMethods,
+		RootDirPerms:         user.GetPermissionsForPath("/"),
 	}
 	renderTemplate(w, templateUser, data)
 }
 
 func renderUpdateUserPage(w http.ResponseWriter, user dataprovider.User, error string) {
 	data := userPage{
-		basePage:     getBasePageData("Update user", fmt.Sprintf("%v/%v", webUserPath, user.ID)),
-		IsAdd:        false,
-		Error:        error,
-		User:         user,
-		ValidPerms:   dataprovider.ValidPerms,
-		RootDirPerms: user.GetPermissionsForPath("/"),
+		basePage:             getBasePageData("Update user", fmt.Sprintf("%v/%v", webUserPath, user.ID)),
+		IsAdd:                false,
+		Error:                error,
+		User:                 user,
+		ValidPerms:           dataprovider.ValidPerms,
+		ValidSSHLoginMethods: dataprovider.ValidSSHLoginMethods,
+		RootDirPerms:         user.GetPermissionsForPath("/"),
 	}
 	renderTemplate(w, templateUser, data)
 }
@@ -224,6 +227,7 @@ func getFiltersFromUserPostFields(r *http.Request) dataprovider.UserFilters {
 	var filters dataprovider.UserFilters
 	filters.AllowedIP = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")
 	filters.DeniedIP = getSliceFromDelimitedValues(r.Form.Get("denied_ip"), ",")
+	filters.DeniedLoginMethods = r.Form["ssh_login_methods"]
 	return filters
 }
 

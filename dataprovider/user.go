@@ -42,15 +42,25 @@ const (
 	PermChtimes = "chtimes"
 )
 
+// Available SSH login methods
+const (
+	SSHLoginMethodPublicKey           = "publickey"
+	SSHLoginMethodPassword            = "password"
+	SSHLoginMethodKeyboardInteractive = "keyboard-interactive"
+)
+
 // UserFilters defines additional restrictions for a user
 type UserFilters struct {
 	// only clients connecting from these IP/Mask are allowed.
 	// IP/Mask must be in CIDR notation as defined in RFC 4632 and RFC 4291
 	// for example "192.0.2.0/24" or "2001:db8::/32"
-	AllowedIP []string `json:"allowed_ip"`
+	AllowedIP []string `json:"allowed_ip,omitempty"`
 	// clients connecting from these IP/Mask are not allowed.
 	// Denied rules will be evaluated before allowed ones
-	DeniedIP []string `json:"denied_ip"`
+	DeniedIP []string `json:"denied_ip,omitempty"`
+	// these login methods are not allowed.
+	// If null or empty any available login method is allowed
+	DeniedLoginMethods []string `json:"denied_login_methods,omitempty"`
 }
 
 // Filesystem defines cloud storage filesystem details
@@ -183,11 +193,22 @@ func (u *User) HasPerms(permissions []string, path string) bool {
 	return true
 }
 
-// IsLoginAllowed return true if the login is allowed from the specified remoteAddr.
+// IsLoginMethodAllowed returns true if the specified login method is allowed for the user
+func (u *User) IsLoginMethodAllowed(loginMetod string) bool {
+	if len(u.Filters.DeniedLoginMethods) == 0 {
+		return true
+	}
+	if utils.IsStringInSlice(loginMetod, u.Filters.DeniedLoginMethods) {
+		return false
+	}
+	return true
+}
+
+// IsLoginFromAddrAllowed returns true if the login is allowed from the specified remoteAddr.
 // If AllowedIP is defined only the specified IP/Mask can login.
 // If DeniedIP is defined the specified IP/Mask cannot login.
 // If an IP is both allowed and denied then login will be denied
-func (u *User) IsLoginAllowed(remoteAddr string) bool {
+func (u *User) IsLoginFromAddrAllowed(remoteAddr string) bool {
 	if len(u.Filters.AllowedIP) == 0 && len(u.Filters.DeniedIP) == 0 {
 		return true
 	}
@@ -407,6 +428,8 @@ func (u *User) getACopy() User {
 	copy(filters.AllowedIP, u.Filters.AllowedIP)
 	filters.DeniedIP = make([]string, len(u.Filters.DeniedIP))
 	copy(filters.DeniedIP, u.Filters.DeniedIP)
+	filters.DeniedLoginMethods = make([]string, len(u.Filters.DeniedLoginMethods))
+	copy(filters.DeniedLoginMethods, u.Filters.DeniedLoginMethods)
 	fsConfig := Filesystem{
 		Provider: u.FsConfig.Provider,
 		S3Config: vfs.S3FsConfig{

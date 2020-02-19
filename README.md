@@ -10,6 +10,7 @@ Full featured and highly configurable SFTP server
 - SQLite, MySQL, PostgreSQL, bbolt (key/value store in pure Go) and in memory data providers are supported.
 - Public key and password authentication. Multiple public keys per user are supported.
 - Keyboard interactive authentication. You can easily setup a customizable multi factor authentication.
+- Per user authentication methods. You can, for example, deny one or more authentication methods to one or more users.
 - Custom authentication using external programs is supported.
 - Quota support: accounts can have individual quota expressed as max total size and/or max number of files.
 - Bandwidth throttling is supported, with distinct settings for upload and download.
@@ -687,6 +688,10 @@ For each account the following properties can be configured:
 - `download_bandwidth` maximum download bandwidth as KB/s, 0 means unlimited.
 - `allowed_ip`, List of IP/Mask allowed to login. Any IP address not contained in this list cannot login. IP/Mask must be in CIDR notation as defined in RFC 4632 and RFC 4291, for example "192.0.2.0/24" or "2001:db8::/32"
 - `denied_ip`, List of IP/Mask not allowed to login. If an IP address is both allowed and denied then login will be denied
+- `denied_login_methods`, List of login methods not allowed. The following login methods are supported:
+  - `publickey`
+  - `password`
+  - `keyboard-interactive`
 - `fs_provider`, filesystem to serve via SFTP. Local filesystem and S3 Compatible Object Storage are supported
 - `s3_bucket`, required for S3 filesystem
 - `s3_region`, required for S3 filesystem. Must match the region for your bucket. You can find here the list of available [AWS regions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions). For example if your bucket is at `Frankfurt` you have to set the region to `eu-central-1`
@@ -825,7 +830,7 @@ The logs can be divided into the following categories:
     - `level` string
     - `username`, string. Can be empty if the connection is closed before an authentication attempt
     - `client_ip` string.
-    - `login_type` string. Can be `public_key`, `password` or `no_auth_tryed`
+    - `login_type` string. Can be `publickey`, `password`, `keyboard-interactive` or `no_auth_tryed`
     - `error` string. Optional error description
 
 ### Brute force protection
