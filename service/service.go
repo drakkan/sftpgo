@@ -216,6 +216,14 @@ func (s *Service) StartPortableMode(sftpdPort int, enabledSSHCommands []string, 
 		}
 		s.Stop()
 	}()
+
+	logger.InfoToConsole("Portable mode ready, SFTP port: %v, user: %#v, password: %#v, public keys: %v, directory: %#v, "+
+		"permissions: %v, enabled ssh commands: %v", sftpdConf.BindPort, s.PortableUser.Username, s.PortableUser.Password,
+		s.PortableUser.PublicKeys, s.getPortableDirToServe(), s.PortableUser.Permissions, sftpdConf.EnabledSSHCommands)
+	return nil
+}
+
+func (s *Service) getPortableDirToServe() string {
 	var dirToServe string
 	if s.PortableUser.FsConfig.Provider == 1 {
 		dirToServe = s.PortableUser.FsConfig.S3Config.KeyPrefix
@@ -224,8 +232,5 @@ func (s *Service) StartPortableMode(sftpdPort int, enabledSSHCommands []string, 
 	} else {
 		dirToServe = s.PortableUser.HomeDir
 	}
-	logger.InfoToConsole("Portable mode ready, SFTP port: %v, user: %#v, password: %#v, public keys: %v, directory: %#v, "+
-		"permissions: %v, enabled ssh commands: %v", sftpdConf.BindPort, s.PortableUser.Username, s.PortableUser.Password,
-		s.PortableUser.PublicKeys, dirToServe, s.PortableUser.Permissions, sftpdConf.EnabledSSHCommands)
-	return nil
+	return dirToServe
 }
