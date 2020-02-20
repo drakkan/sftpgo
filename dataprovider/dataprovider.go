@@ -606,6 +606,10 @@ func saveGCSCredentials(user *User) error {
 }
 
 func validateFilesystemConfig(user *User) error {
+	if user.FsConfig.Provider == 2 {
+		user.FsConfig.S3Config = vfs.S3FsConfig{}
+		return nil
+	}
 	if user.FsConfig.Provider == 1 {
 		err := vfs.ValidateS3FsConfig(&user.FsConfig.S3Config)
 		if err != nil {

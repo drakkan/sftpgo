@@ -65,10 +65,14 @@ type UserFilters struct {
 
 // Filesystem defines cloud storage filesystem details
 type Filesystem struct {
-	// 0 local filesystem, 1 Amazon S3 compatible, 2 Google Cloud Storage
-	Provider  int             `json:"provider"`
-	S3Config  vfs.S3FsConfig  `json:"s3config,omitempty"`
+	// 0 local filesystem
+	Provider int `json:"provider"`
+	// 1 Amazon S3 compatible
+	S3Config vfs.S3FsConfig `json:"s3config,omitempty"`
+	// 2 Google Cloud Storage
 	GCSConfig vfs.GCSFsConfig `json:"gcsconfig,omitempty"`
+	// 3 Dynamic Configuration from URL
+	DynamicConfigurationURL vfs.DynFsConfigURL `json:"dynamic_configuration_url,omitempty"`
 }
 
 // User defines an SFTP user
@@ -122,6 +126,9 @@ type User struct {
 
 // GetFilesystem returns the filesystem for this user
 func (u *User) GetFilesystem(connectionID string) (vfs.Fs, error) {
+	if u.FsConfig.Provider == 2 {
+		return vfs.NewDynFs(connectionID, u.GetHomeDir(), u.FsConfig.DynamicConfigurationURL)
+	}
 	if u.FsConfig.Provider == 1 {
 		return vfs.NewS3Fs(connectionID, u.GetHomeDir(), u.FsConfig.S3Config)
 	} else if u.FsConfig.Provider == 2 {

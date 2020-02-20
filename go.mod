@@ -15,6 +15,7 @@ require (
 	github.com/golang/protobuf v1.3.3 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/grandcat/zeroconf v1.0.0
+	github.com/hashicorp/go-retryablehttp v0.6.4
 	github.com/lib/pq v1.3.0
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/nathanaelle/password v1.0.0
@@ -34,7 +35,7 @@ require (
 	golang.org/x/exp v0.0.0-20200119233911-0405dc783f0a // indirect
 	golang.org/x/lint v0.0.0-20200130185559-910be7a94367 // indirect
 	golang.org/x/sys v0.0.0-20200124204421-9fbb57f87de9
-	golang.org/x/tools v0.0.0-20200131211209-ecb101ed6550 // indirect
+	golang.org/x/tools v0.0.0-20200131211209-ecb101ed6550
 	google.golang.org/api v0.15.0
 	google.golang.org/genproto v0.0.0-20200128133413-58ce757ed39b // indirect
 	google.golang.org/grpc v1.27.0 // indirect
