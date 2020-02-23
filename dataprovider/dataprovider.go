@@ -170,14 +170,14 @@ type Config struct {
 	// The content of these variables is _not_ quoted. They may contain special characters. They are under the
 	// control of a possibly malicious remote user.
 	//
-	// The program must respond on the standard output with a valid SFTPGo user serialized as json if the
+	// The program must respond on the standard output with a valid SFTPGo user serialized as JSON if the
 	// authentication succeed or an user with an empty username if the authentication fails.
 	// If the authentication succeed the user will be automatically added/updated inside the defined data provider.
 	// Actions defined for user added/updated will not be executed in this case.
 	// The external program should check authentication only, if there are login restrictions such as user
 	// disabled, expired, login allowed only from specific IP addresses it is enough to populate the matching user
 	// fields and these conditions will be checked in the same way as for builtin users.
-	// The external auth program must finish within 15 seconds.
+	// The external auth program must finish within 60 seconds.
 	// This method is slower than built-in authentication methods, but it's very flexible as anyone can
 	// easily write his own authentication programs.
 	ExternalAuthProgram string `json:"external_auth_program" mapstructure:"external_auth_program"`
@@ -194,6 +194,30 @@ type Config struct {
 	// Google Cloud Storage credentials. It can be a path relative to the config dir or an
 	// absolute path
 	CredentialsPath string `json:"credentials_path" mapstructure:"credentials_path"`
+	// Absolute path to an external program to start just before the user login.
+	// This program will be started before an existing user try to login and allows to
+	// modify the user.
+	// It is useful if you have users with dynamic fields that need to the updated just
+	// before the login.
+	// The external program can read the following environment variables:
+	//
+	// - SFTPGO_LOGIND_USER, it contains the user trying to login serialized as JSON
+	// - SFTPGO_LOGIND_METHOD, possibile values are: "password", "publickey" and "keyboard-interactive"
+	//
+	// The program must respond on the standard output with an empty string if no user
+	// update is needed or with a valid SFTPGo user serialized as JSON.
+	// The JSON response can include only the fields that need to the updated instead
+	// of the full user, for example if you want to disable the user you can return a
+	// response like this:
+	//
+	// {"status":0}
+	//
+	// The external program must finish within 60 seconds.
+	//
+	// If an error happen while executing the "BeforeLoginProgram" then login will be denied.
+	// BeforeLoginProgram and ExternalAuthProgram are mutally exclusive.
+	// Leave empty to disable.
+	BeforeLoginProgram string `json:"before_login_program" mapstructure:"before_login_program"`
 }
 
 // BackupData defines the structure for the backup/restore files
@@ -292,6 +316,16 @@ func Initialize(cnf Config, basePath string) error {
 			return err
 		}
 	}
+	if len(config.BeforeLoginProgram) > 0 {
+		if !filepath.IsAbs(config.BeforeLoginProgram) {
+			return fmt.Errorf("invalid pre login program: %#v must be an absolute path", config.BeforeLoginProgram)
+		}
+		_, err := os.Stat(config.BeforeLoginProgram)
+		if err != nil {
+			providerLog(logger.LevelWarn, "invalid pre login program: %v", err)
+			return err
+		}
+	}
 	if err = validateCredentialsDir(basePath); err != nil {
 		return err
 	}
@@ -332,6 +366,13 @@ func CheckUserAndPass(p Provider, username string, password string) (User, error
 		}
 		return checkUserAndPass(user, password)
 	}
+	if len(config.BeforeLoginProgram) > 0 {
+		user, err := executeBeforeLoginProgram(username, SSHLoginMethodPassword)
+		if err != nil {
+			return user, err
+		}
+		return checkUserAndPass(user, password)
+	}
 	return p.validateUserAndPass(username, password)
 }
 
@@ -339,6 +380,13 @@ func CheckUserAndPass(p Provider, username string, password string) (User, error
 func CheckUserAndPubKey(p Provider, username string, pubKey string) (User, string, error) {
 	if len(config.ExternalAuthProgram) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&2 != 0) {
 		user, err := doExternalAuth(username, "", pubKey, "")
+		if err != nil {
+			return user, "", err
+		}
+		return checkUserAndPubKey(user, pubKey)
+	}
+	if len(config.BeforeLoginProgram) > 0 {
+		user, err := executeBeforeLoginProgram(username, SSHLoginMethodPublicKey)
 		if err != nil {
 			return user, "", err
 		}
@@ -354,6 +402,8 @@ func CheckKeyboardInteractiveAuth(p Provider, username, authProgram string, clie
 	var err error
 	if len(config.ExternalAuthProgram) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&4 != 0) {
 		user, err = doExternalAuth(username, "", "", "1")
+	} else if len(config.BeforeLoginProgram) > 0 {
+		user, err = executeBeforeLoginProgram(username, SSHLoginMethodKeyboardInteractive)
 	} else {
 		user, err = p.userExists(username)
 	}
@@ -1086,7 +1136,58 @@ func doKeyboardInteractiveAuth(user User, authProgram string, client ssh.Keyboar
 	if authResult != 1 {
 		return user, fmt.Errorf("keyboard interactive auth failed, result: %v", authResult)
 	}
+	err = checkLoginConditions(user)
+	if err != nil {
+		return user, err
+	}
 	return user, nil
+}
+
+func executeBeforeLoginProgram(username, loginMethod string) (User, error) {
+	u, err := provider.userExists(username)
+	if err != nil {
+		return u, err
+	}
+	userAsJSON, err := json.Marshal(u)
+	if err != nil {
+		return u, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, config.BeforeLoginProgram)
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("SFTPGO_LOGIND_USER=%v", string(userAsJSON)),
+		fmt.Sprintf("SFTPGO_LOGIND_METHOD=%v", loginMethod))
+	out, err := cmd.Output()
+	if err != nil {
+		return u, fmt.Errorf("Before login program error: %v", err)
+	}
+	if len(strings.TrimSpace(string(out))) == 0 {
+		providerLog(logger.LevelDebug, "empty response from before login program, no modification needed for user %#v", username)
+		return u, nil
+	}
+
+	userID := u.ID
+	userUsedQuotaSize := u.UsedQuotaSize
+	userUsedQuotaFiles := u.UsedQuotaFiles
+	userLastQuotaUpdate := u.LastQuotaUpdate
+	userLastLogin := u.LastLogin
+	err = json.Unmarshal(out, &u)
+	if err != nil {
+		return u, fmt.Errorf("Invalid before login program response %#v, error: %v", string(out), err)
+	}
+	u.ID = userID
+	u.UsedQuotaSize = userUsedQuotaSize
+	u.UsedQuotaFiles = userUsedQuotaFiles
+	u.LastQuotaUpdate = userLastQuotaUpdate
+	u.LastLogin = userLastLogin
+	err = provider.updateUser(u)
+	if err != nil {
+		return u, err
+	}
+	providerLog(logger.LevelDebug, "user %#v updated from before login program response", username)
+	return provider.userExists(username)
 }
 
 func doExternalAuth(username, password, pubKey, keyboardInteractive string) (User, error) {

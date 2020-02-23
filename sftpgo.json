@@ -43,7 +43,8 @@
     },
     "external_auth_program": "",
     "external_auth_scope": 0,
-    "credentials_path": "credentials"
+    "credentials_path": "credentials",
+    "before_login_program": ""
   },
   "httpd": {
     "bind_port": 8080,

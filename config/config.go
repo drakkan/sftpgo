@@ -85,6 +85,7 @@ func init() {
 			ExternalAuthProgram: "",
 			ExternalAuthScope:   0,
 			CredentialsPath:     "credentials",
+			BeforeLoginProgram:  "",
 		},
 		HTTPDConfig: httpd.Conf{
 			BindPort:           8080,

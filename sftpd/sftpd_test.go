@@ -89,17 +89,18 @@ iixITGvaNZh/tjAAAACW5pY29sYUBwMQE=
 )
 
 var (
-	allPerms       = []string{dataprovider.PermAny}
-	homeBasePath   string
-	scpPath        string
-	gitPath        string
-	sshPath        string
-	pubKeyPath     string
-	privateKeyPath string
-	gitWrapPath    string
-	extAuthPath    string
-	keyIntAuthPath string
-	logFilePath    string
+	allPerms        = []string{dataprovider.PermAny}
+	homeBasePath    string
+	scpPath         string
+	gitPath         string
+	sshPath         string
+	pubKeyPath      string
+	privateKeyPath  string
+	gitWrapPath     string
+	extAuthPath     string
+	keyIntAuthPath  string
+	beforeLoginPath string
+	logFilePath     string
 )
 
 func TestMain(m *testing.M) {
@@ -171,6 +172,7 @@ func TestMain(m *testing.M) {
 	privateKeyPath = filepath.Join(homeBasePath, "ssh_key")
 	gitWrapPath = filepath.Join(homeBasePath, "gitwrap.sh")
 	extAuthPath = filepath.Join(homeBasePath, "extauth.sh")
+	beforeLoginPath = filepath.Join(homeBasePath, "beforelogin.sh")
 	err = ioutil.WriteFile(pubKeyPath, []byte(testPubKey+"\n"), 0600)
 	if err != nil {
 		logger.WarnToConsole("unable to save public key to file: %v", err)
@@ -210,6 +212,7 @@ func TestMain(m *testing.M) {
 	os.Remove(privateKeyPath)
 	os.Remove(gitWrapPath)
 	os.Remove(extAuthPath)
+	os.Remove(beforeLoginPath)
 	os.Remove(keyIntAuthPath)
 	os.Exit(exitCode)
 }
@@ -1266,6 +1269,20 @@ func TestLoginKeyboardInteractiveAuth(t *testing.T) {
 			t.Errorf("unable to read remote dir: %v", err)
 		}
 	}
+	user.Status = 0
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("error updating user: %v", err)
+	}
+	client, err = getKeyboardInteractiveSftpClient(user, []string{"1", "2"})
+	if err == nil {
+		t.Error("keyboard interactive auth must fail the user is disabled")
+	}
+	user.Status = 1
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("error updating user: %v", err)
+	}
 	ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, -1), 0755)
 	client, err = getKeyboardInteractiveSftpClient(user, []string{"1", "2"})
 	if err == nil {
@@ -1286,6 +1303,68 @@ func TestLoginKeyboardInteractiveAuth(t *testing.T) {
 		t.Errorf("unable to remove user: %v", err)
 	}
 	os.RemoveAll(user.GetHomeDir())
+}
+
+func TestBeforeLoginScript(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("this test is not available on Windows")
+	}
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	dataProvider := dataprovider.GetProvider()
+	dataprovider.Close(dataProvider)
+	config.LoadConfig(configDir, "")
+	providerConf := config.GetProviderConf()
+	ioutil.WriteFile(beforeLoginPath, getBeforeLoginScriptContent(u, false), 0755)
+	providerConf.BeforeLoginProgram = beforeLoginPath
+	err := dataprovider.Initialize(providerConf, configDir)
+	if err != nil {
+		t.Errorf("error initializing data provider")
+	}
+	httpd.SetDataProvider(dataprovider.GetProvider())
+	sftpd.SetDataProvider(dataprovider.GetProvider())
+
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(u, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		_, err = client.Getwd()
+		if err != nil {
+			t.Errorf("unable to get working dir: %v", err)
+		}
+	}
+	ioutil.WriteFile(beforeLoginPath, getBeforeLoginScriptContent(user, true), 0755)
+	_, err = getSftpClient(u, usePubKey)
+	if err == nil {
+		t.Error("before login script returned a non json response, login must fail")
+	}
+	user.Status = 0
+	ioutil.WriteFile(beforeLoginPath, getBeforeLoginScriptContent(user, false), 0755)
+	_, err = getSftpClient(u, usePubKey)
+	if err == nil {
+		t.Error("before login script returned a disabled user, login must fail")
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+	dataProvider = dataprovider.GetProvider()
+	dataprovider.Close(dataProvider)
+	config.LoadConfig(configDir, "")
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir)
+	if err != nil {
+		t.Errorf("error initializing data provider")
+	}
+	httpd.SetDataProvider(dataprovider.GetProvider())
+	sftpd.SetDataProvider(dataprovider.GetProvider())
+	os.Remove(beforeLoginPath)
 }
 
 func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
@@ -4956,6 +5035,19 @@ func getExtAuthScriptContent(user dataprovider.User, sleepTime int, nonJsonRespo
 		extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("sleep %v\n", sleepTime))...)
 	}
 	return extAuthContent
+}
+
+func getBeforeLoginScriptContent(user dataprovider.User, nonJsonResponse bool) []byte {
+	content := []byte("#!/bin/sh\n\n")
+	if nonJsonResponse {
+		content = append(content, []byte("echo 'text response'\n")...)
+		return content
+	}
+	if len(user.Username) > 0 {
+		u, _ := json.Marshal(user)
+		content = append(content, []byte(fmt.Sprintf("echo '%v'\n", string(u)))...)
+	}
+	return content
 }
 
 func printLatestLogs(maxNumberOfLines int) {

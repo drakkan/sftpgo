@@ -11,7 +11,8 @@ Full featured and highly configurable SFTP server
 - Public key and password authentication. Multiple public keys per user are supported.
 - Keyboard interactive authentication. You can easily setup a customizable multi factor authentication.
 - Per user authentication methods. You can, for example, deny one or more authentication methods to one or more users.
-- Custom authentication using external programs is supported.
+- Custom authentication via external programs is supported.
+- Dynamic users modifications before login via external programs are supported.
 - Quota support: accounts can have individual quota expressed as max total size and/or max number of files.
 - Bandwidth throttling is supported, with distinct settings for upload and download.
 - Per user maximum concurrent sessions.
@@ -179,9 +180,10 @@ The `sftpgo` configuration file contains the following sections:
         - `execute_on`, list of strings. Valid values are `add`, `update`, `delete`. `update` action will not be fired for internal updates such as the last login or the user quota fields.
         - `command`, string. Absolute path to the command to execute. Leave empty to disable.
         - `http_notification_url`, a valid URL. Leave empty to disable.
-    - `external_auth_program`, string. Absolute path to an external program to use for users authentication. See the "External Authentication" paragraph for more details.
+    - `external_auth_program`, string. Absolute path to an external program to use for users authentication. See the "External Authentication" paragraph for more details. Leave empty to disable.
     - `external_auth_scope`, integer. 0 means all supported authetication scopes (passwords, public keys and keyboard interactive). 1 means passwords only. 2 means public keys only. 4 means key keyboard interactive only. The flags can be combined, for example 6 means public keys and keyboard interactive
     - `credentials_path`, string. It defines the directory for storing user provided credential files such as Google Cloud Storage credentials. This can be an absolute path or a path relative to the config dir
+    - `before_login_program`, string. Absolute path to an external program to use to modify user details just before the login. See the "Dynamic users modifications" paragraph for more details. Leave empty to disable.
 - **"httpd"**, the configuration for the HTTP server used to serve REST API
     - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 8080
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"
@@ -240,7 +242,8 @@ Here is a full example showing the default config in JSON format:
     },
     "external_auth_program": "",
     "external_auth_scope": 0,
-    "credentials_path": "credentials"
+    "credentials_path": "credentials",
+    "before_login_program": ""
   },
   "httpd": {
     "bind_port": 8080,
@@ -369,7 +372,7 @@ The external program can read the following environment variables to get info ab
 - `SFTPGO_AUTHD_KEYBOARD_INTERACTIVE`, not empty for keyboard interactive authentication
 
 Previous global environment variables aren't cleared when the script is called. The content of these variables is _not_ quoted. They may contain special characters. They are under the control of a possibly malicious remote user.
-The program must respond on the standard output with a valid SFTPGo user serialized as JSON if the authentication succeed or an user with an empty username if the authentication fails.
+The program must write, on its standard output, a valid SFTPGo user serialized as JSON if the authentication succeed or an user with an empty username if the authentication fails.
 If the authentication succeed the user will be automatically added/updated inside the defined data provider. Actions defined for user added/updated will not be executed in this case.
 The external program should check authentication only, if there are login restrictions such as user disabled, expired, login allowed only from specific IP addresses it is enough to populate the matching user fields and these conditions will be checked in the same way as for built-in users.
 The external auth program should finish very quickly, anyway it will be killed if it does not exit within 60 seconds.
@@ -395,7 +398,46 @@ else
 fi
 ```
 
-If you have an external authentication program that could be useful for others too, for example LDAP/Active Directory authentication, please let us know and/or send a pull request.
+If you have an external authentication program that could be useful for others too, please let us know and/or send a pull request.
+
+## Dynamic users modifications
+
+Dynamic users modifications are supported via an external program that can be executed just before the user login.
+To enable dynamic users modifications you must set the absolute path of your program using the `before_login_program` key in your configuration file.
+
+The external program can read the following environment variables to get info about the user trying to login:
+
+- `SFTPGO_LOGIND_USER`, it contains the user trying to login serialized as JSON
+- `SFTPGO_LOGIND_METHOD`, possibile values are: `password`, `publickey` and `keyboard-interactive`
+
+The program must write, on its the standard output, an empty string (or no response at all) if no user update is needed or with a valid SFTPGo user serialized as JSON.
+The JSON response can include only the fields that need to the updated instead of the full user, for example if you want to disable the user you can return a response like this:
+
+```json
+{"status": 0}
+```
+The external program must finish within 60 seconds.
+
+If an error happen while executing your program then login will be denied. "Dynamic users modifications" and "External Authentication" are mutally exclusive.
+
+Let's see a very basic example. Our sample program will grant access to the user `test_user` only in the time range 10:00-18:00. Other users will not be modified since the program will terminate with no output.
+
+```
+#!/bin/bash
+
+CURRENT_TIME=`date +%H:%M`
+if [[ "$SFTPGO_LOGIND_USER" =~ "\"test_user\"" ]]
+then
+  if [[ $CURRENT_TIME > "18:00" || $CURRENT_TIME < "10:00" ]]
+  then
+    echo '{"status":0}'
+  else
+    echo '{"status":1}'
+  fi
+fi
+```
+
+Please note that this is a demo program and it could not work in all cases, for example the username should be obtained parsing the JSON serialized user and not searching the username inside the JSON as showed here.
 
 ## Keyboard Interactive Authentication
 
