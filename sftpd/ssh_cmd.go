@@ -11,8 +11,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -360,11 +358,7 @@ func (c *sshCommand) getDestPath() string {
 	}
 	destPath := strings.Trim(c.args[len(c.args)-1], "'")
 	destPath = strings.Trim(destPath, "\"")
-	destPath = filepath.ToSlash(destPath)
-	if !path.IsAbs(destPath) {
-		destPath = "/" + destPath
-	}
-	result := path.Clean(destPath)
+	result := utils.CleanSFTPPath(destPath)
 	if strings.HasSuffix(destPath, "/") && !strings.HasSuffix(result, "/") {
 		result += "/"
 	}

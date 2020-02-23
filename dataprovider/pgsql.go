@@ -17,6 +17,7 @@ const (
 "expiration_date" bigint NOT NULL, "last_login" bigint NOT NULL, "status" integer NOT NULL, "filters" text NULL,
 "filesystem" text NULL);`
 	pgsqlSchemaTableSQL = `CREATE TABLE "schema_version" ("id" serial NOT NULL PRIMARY KEY, "version" integer NOT NULL);`
+	pgsqlUsersV2SQL     = `ALTER TABLE "{{users}}" ADD COLUMN "virtual_folders" text NULL;`
 )
 
 // PGSQLProvider auth provider for PostgreSQL database
@@ -141,5 +142,36 @@ func (p PGSQLProvider) initializeDatabase() error {
 }
 
 func (p PGSQLProvider) migrateDatabase() error {
-	return sqlCommonMigrateDatabase(p.dbHandle)
+	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle)
+	if err != nil {
+		return err
+	}
+	if dbVersion.Version == sqlDatabaseVersion {
+		providerLog(logger.LevelDebug, "sql database is updated, current version: %v", dbVersion.Version)
+		return nil
+	}
+	if dbVersion.Version == 1 {
+		return updatePGSQLDatabaseFrom1To2(p.dbHandle)
+	}
+	return nil
+}
+
+func updatePGSQLDatabaseFrom1To2(dbHandle *sql.DB) error {
+	providerLog(logger.LevelInfo, "updating database version: 1 -> 2")
+	sql := strings.Replace(pgsqlUsersV2SQL, "{{users}}", config.UsersTable, 1)
+	tx, err := dbHandle.Begin()
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(sql)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	err = sqlCommonUpdateDatabaseVersionWithTX(tx, 2)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
 }

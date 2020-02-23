@@ -18,6 +18,7 @@ Full featured and highly configurable SFTP server
 - Per user and per directory permissions: list directories content, upload, overwrite, download, delete, rename, create directories, create symlinks, changing owner/group and mode, changing access and modification times can be enabled or disabled.
 - Per user files/folders ownership: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (*NIX only).
 - Per user IP filters are supported: login can be restricted to specific ranges of IP addresses or to a specific IP address.
+- Virtual folders are supported: directories outside the user home directory can be exposed as virtual folders.
 - Configurable custom commands and/or HTTP notifications on file upload, download, delete, rename, on SSH commands and on user add, update and delete.
 - Automatically terminating idle connections.
 - Atomic uploads are configurable.
@@ -666,7 +667,8 @@ For each account the following properties can be configured:
 - `public_keys` array of public keys. At least one public key or the password is mandatory.
 - `status` 1 means "active", 0 "inactive". An inactive account cannot login.
 - `expiration_date` expiration date as unix timestamp in milliseconds. An expired account cannot login. 0 means no expiration.
-- `home_dir` The user cannot upload or download files outside this directory. Must be an absolute path.
+- `home_dir` the user cannot upload or download files outside this directory. Must be an absolute path.
+- `virtual_folders` list of mappings between virtual SFTP/SCP paths and local filesystem paths outside the user home directory. The specified paths must be absolute and the virtual path cannot be "/", it must be a sub directory. The parent directory for the specified virtual path must exist. SFTPGo will try to automatically create any missing parent directory for the configured virtual folders at user login
 - `uid`, `gid`. If sftpgo runs as root system user then the created files and directories will be assigned to this system uid/gid. Ignored on windows and if sftpgo runs as non root user: in this case files and directories for all SFTP users will be owned by the system user that runs sftpgo.
 - `max_sessions` maximum concurrent sessions. 0 means unlimited.
 - `quota_size` maximum size allowed as bytes. 0 means unlimited.
@@ -833,9 +835,18 @@ The logs can be divided into the following categories:
     - `login_type` string. Can be `publickey`, `password`, `keyboard-interactive` or `no_auth_tryed`
     - `error` string. Optional error description
 
-### Brute force protection
+## Brute force protection
 
 The **connection failed logs** can be used for integration in tools such as [Fail2ban](http://www.fail2ban.org/). Example of [jails](./fail2ban/jails) and [filters](./fail2ban/filters) working with `systemd`/`journald` are available in fail2ban directory.
+
+## Performance
+
+SFTPGo can easily saturate a Gigabit connection, on low end hardware, with no special configurations and this is generally enough for most use cases.
+
+The main bootlenecks are the encryption and the messages authentication, so if you can use a fast cipher with implicit message authentication, for example `aes128-gcm@openssh.com`, you will get a big performace boost.
+
+There is an open [issue](https://github.com/drakkan/sftpgo/issues/69) with some other suggestions to improve performance and some comparisons against OpenSSH.
+
 
 ## Acknowledgements
 

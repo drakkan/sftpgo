@@ -19,6 +19,7 @@ const (
 		"`last_login` bigint(20) NOT NULL, `status` int(11) NOT NULL, `filters` longtext DEFAULT NULL, " +
 		"`filesystem` longtext DEFAULT NULL);"
 	mysqlSchemaTableSQL = "CREATE TABLE `schema_version` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `version` integer NOT NULL);"
+	mysqlUsersV2SQL     = "ALTER TABLE `{{users}}` ADD COLUMN `virtual_folders` longtext NULL;"
 )
 
 // MySQLProvider auth provider for MySQL/MariaDB database
@@ -143,5 +144,36 @@ func (p MySQLProvider) initializeDatabase() error {
 }
 
 func (p MySQLProvider) migrateDatabase() error {
-	return sqlCommonMigrateDatabase(p.dbHandle)
+	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle)
+	if err != nil {
+		return err
+	}
+	if dbVersion.Version == sqlDatabaseVersion {
+		providerLog(logger.LevelDebug, "sql database is updated, current version: %v", dbVersion.Version)
+		return nil
+	}
+	if dbVersion.Version == 1 {
+		return updateMySQLDatabaseFrom1To2(p.dbHandle)
+	}
+	return nil
+}
+
+func updateMySQLDatabaseFrom1To2(dbHandle *sql.DB) error {
+	providerLog(logger.LevelInfo, "updating database version: 1 -> 2")
+	sql := strings.Replace(mysqlUsersV2SQL, "{{users}}", config.UsersTable, 1)
+	tx, err := dbHandle.Begin()
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(sql)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	err = sqlCommonUpdateDatabaseVersionWithTX(tx, 2)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
 }

@@ -112,7 +112,7 @@ func (fs MockOsFs) Rename(source, target string) error {
 
 func newMockOsFs(err, statErr error, atomicUpload bool, connectionID, rootDir string) vfs.Fs {
 	return &MockOsFs{
-		Fs:                      vfs.NewOsFs(connectionID, rootDir),
+		Fs:                      vfs.NewOsFs(connectionID, rootDir, nil),
 		err:                     err,
 		statErr:                 statErr,
 		isAtomicUploadSupported: atomicUpload,
@@ -388,7 +388,7 @@ func TestUploadFiles(t *testing.T) {
 	oldUploadMode := uploadMode
 	uploadMode = uploadModeAtomic
 	c := Connection{
-		fs: vfs.NewOsFs("123", os.TempDir()),
+		fs: vfs.NewOsFs("123", os.TempDir(), nil),
 	}
 	var flags sftp.FileOpenFlags
 	flags.Write = true
@@ -477,7 +477,7 @@ func TestSFTPCmdTargetPath(t *testing.T) {
 
 func TestGetSFTPErrorFromOSError(t *testing.T) {
 	err := os.ErrNotExist
-	fs := vfs.NewOsFs("", os.TempDir())
+	fs := vfs.NewOsFs("", os.TempDir(), nil)
 	err = vfs.GetSFTPError(fs, err)
 	if err != sftp.ErrSSHFxNoSuchFile {
 		t.Errorf("unexpected error: %v", err)
@@ -1287,7 +1287,7 @@ func TestSCPRecursiveDownloadErrors(t *testing.T) {
 	connection := Connection{
 		channel: &mockSSHChannel,
 		netConn: client,
-		fs:      vfs.NewOsFs("123", os.TempDir()),
+		fs:      vfs.NewOsFs("123", os.TempDir(), nil),
 	}
 	scpCommand := scpCommand{
 		sshCommand: sshCommand{

@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 1.8.1
+  version: 1.8.2
 
 servers:
 - url: /api/v1
@@ -1036,6 +1036,17 @@ components:
         gcsconfig:
           $ref: '#/components/schemas/GCSConfig'
       description: Storage filesystem details
+    VirtualFolder:
+      type: object
+      properties:
+        virtual_path:
+          type: string
+        mapped_path:
+          type: string
+      required:
+        - virtual_path
+        - mapped_path
+      description: A virtual folder is a mapping between a SFTP/SCP virtual path and a filesystem path outside the user home directory. The specified paths must be absolute and the virtual path cannot be "/", it must be a sub directory. The parent directory for the specified virtual path must exist. SFTPGo will try to automatically create any missing parent directory for the configured virtual folders at user login.
     User:
       type: object
       properties:
@@ -1071,6 +1082,12 @@ components:
         home_dir:
           type: string
           description: path to the user home directory. The user cannot upload or download files outside this directory. SFTPGo tries to automatically create this folder if missing. Must be an absolute path
+        virtual_folders:
+          type: array
+          items:
+            $ref: '#/components/schemas/VirtualFolder'
+          nullable: true
+          description: mapping between virtual SFTP/SCP paths and filesystem paths outside the user home directory. Supported for local filesystem only
         uid:
           type: integer
           format: int32

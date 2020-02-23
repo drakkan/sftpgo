@@ -206,14 +206,13 @@ func (c Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 		}
 
 		c.Log(logger.LevelDebug, logSender, "requested list file for dir: %#v", p)
-
 		files, err := c.fs.ReadDir(p)
 		if err != nil {
 			c.Log(logger.LevelWarn, logSender, "error listing directory: %+v", err)
 			return nil, vfs.GetSFTPError(c.fs, err)
 		}
 
-		return listerAt(files), nil
+		return listerAt(c.User.AddVirtualDirs(files, request.Filepath)), nil
 	case "Stat":
 		if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(request.Filepath)) {
 			return nil, sftp.ErrSSHFxPermissionDenied
@@ -306,6 +305,10 @@ func (c Connection) handleSFTPRename(sourcePath string, targetPath string, reque
 		c.Log(logger.LevelWarn, logSender, "renaming root dir is not allowed")
 		return sftp.ErrSSHFxPermissionDenied
 	}
+	if c.User.IsVirtualFolder(request.Filepath) || c.User.IsVirtualFolder(request.Target) {
+		c.Log(logger.LevelWarn, logSender, "renaming a virtual folder is not allowed")
+		return sftp.ErrSSHFxPermissionDenied
+	}
 	if !c.User.HasPerm(dataprovider.PermRename, path.Dir(request.Target)) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
@@ -321,6 +324,10 @@ func (c Connection) handleSFTPRename(sourcePath string, targetPath string, reque
 func (c Connection) handleSFTPRmdir(dirPath string, request *sftp.Request) error {
 	if c.fs.GetRelativePath(dirPath) == "/" {
 		c.Log(logger.LevelWarn, logSender, "removing root dir is not allowed")
+		return sftp.ErrSSHFxPermissionDenied
+	}
+	if c.User.IsVirtualFolder(request.Filepath) {
+		c.Log(logger.LevelWarn, logSender, "removing a virtual folder is not allowed: %#v", request.Filepath)
 		return sftp.ErrSSHFxPermissionDenied
 	}
 	if !c.User.HasPerm(dataprovider.PermDelete, path.Dir(request.Filepath)) {
@@ -352,6 +359,10 @@ func (c Connection) handleSFTPSymlink(sourcePath string, targetPath string, requ
 		c.Log(logger.LevelWarn, logSender, "symlinking root dir is not allowed")
 		return sftp.ErrSSHFxPermissionDenied
 	}
+	if c.User.IsVirtualFolder(request.Target) {
+		c.Log(logger.LevelWarn, logSender, "symlinking a virtual folder is not allowed")
+		return sftp.ErrSSHFxPermissionDenied
+	}
 	if !c.User.HasPerm(dataprovider.PermCreateSymlinks, path.Dir(request.Target)) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
@@ -366,6 +377,10 @@ func (c Connection) handleSFTPSymlink(sourcePath string, targetPath string, requ
 
 func (c Connection) handleSFTPMkdir(dirPath string, request *sftp.Request) error {
 	if !c.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(request.Filepath)) {
+		return sftp.ErrSSHFxPermissionDenied
+	}
+	if c.User.IsVirtualFolder(request.Filepath) {
+		c.Log(logger.LevelWarn, logSender, "mkdir not allowed %#v is virtual folder is not allowed", request.Filepath)
 		return sftp.ErrSSHFxPermissionDenied
 	}
 	if err := c.fs.Mkdir(dirPath); err != nil {

@@ -33,6 +33,7 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 const (
@@ -376,6 +377,132 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	}
 }
 
+func TestAddUserInvalidVirtualFolders(t *testing.T) {
+	u := getTestUser()
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "vdir",
+		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir"),
+	})
+	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
+	}
+	u.VirtualFolders = nil
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/",
+		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir"),
+	})
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
+	}
+	u.VirtualFolders = nil
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir",
+		MappedPath:  filepath.Join(u.GetHomeDir(), "mapped_dir"),
+	})
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
+	}
+	u.VirtualFolders = nil
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir",
+		MappedPath:  u.GetHomeDir(),
+	})
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
+	}
+	u.VirtualFolders = nil
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir",
+		MappedPath:  filepath.Join(u.GetHomeDir(), ".."),
+	})
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
+	}
+	u.VirtualFolders = nil
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir",
+		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir"),
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir",
+		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir1"),
+	})
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
+	}
+	u.VirtualFolders = nil
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir1",
+		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir"),
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir2",
+		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir"),
+	})
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
+	}
+	u.VirtualFolders = nil
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir1",
+		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir", "subdir"),
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir2",
+		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir"),
+	})
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
+	}
+	u.VirtualFolders = nil
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir1",
+		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir"),
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir2",
+		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir", "subdir"),
+	})
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
+	}
+	u.VirtualFolders = nil
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir1/subdir",
+		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir1"),
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir1/../vdir1",
+		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir2"),
+	})
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
+	}
+	u.VirtualFolders = nil
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir1/",
+		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir1"),
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir1/subdir",
+		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir2"),
+	})
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
+	}
+}
+
 func TestUserPublicKey(t *testing.T) {
 	u := getTestUser()
 	invalidPubKey := "invalid"
@@ -424,6 +551,15 @@ func TestUpdateUser(t *testing.T) {
 	user.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPassword}
 	user.UploadBandwidth = 1024
 	user.DownloadBandwidth = 512
+	user.VirtualFolders = nil
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir1",
+		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir1"),
+	})
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir12/subdir",
+		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir2"),
+	})
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
@@ -1560,6 +1696,7 @@ func TestWebUserAddMock(t *testing.T) {
 	user.UploadBandwidth = 32
 	user.DownloadBandwidth = 64
 	user.UID = 1000
+	mappedDir := filepath.Join(os.TempDir(), "mapped")
 	form := make(url.Values)
 	form.Set("username", user.Username)
 	form.Set("home_dir", user.HomeDir)
@@ -1567,7 +1704,8 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("status", strconv.Itoa(user.Status))
 	form.Set("expiration_date", "")
 	form.Set("permissions", "*")
-	form.Set("sub_dirs_permissions", " /subdir:list ,download ")
+	form.Set("sub_dirs_permissions", " /subdir::list ,download ")
+	form.Set("virtual_folders", fmt.Sprintf(" /vdir:: %v ", mappedDir))
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	// test invalid url escape
 	req, _ := http.NewRequest(http.MethodPost, webUserPath+"?a=%2", &b)
@@ -1696,7 +1834,16 @@ func TestWebUserAddMock(t *testing.T) {
 			t.Error("permssions for /subdir does not match")
 		}
 	} else {
-		t.Errorf("user permissions must contains /somedir, actual: %v", newUser.Permissions)
+		t.Errorf("user permissions must contain /somedir, actual: %v", newUser.Permissions)
+	}
+	vfolderFoumd := false
+	for _, v := range newUser.VirtualFolders {
+		if v.VirtualPath == "/vdir" && v.MappedPath == mappedDir {
+			vfolderFoumd = true
+		}
+	}
+	if !vfolderFoumd {
+		t.Errorf("virtual folders must contain /vdir, actual: %+v", newUser.VirtualFolders)
 	}
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(newUser.ID, 10), nil)
 	rr = executeRequest(req)
@@ -1728,7 +1875,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("upload_bandwidth", "0")
 	form.Set("download_bandwidth", "0")
 	form.Set("permissions", "*")
-	form.Set("sub_dirs_permissions", "/otherdir : list ,upload ")
+	form.Set("sub_dirs_permissions", "/otherdir :: list ,upload ")
 	form.Set("status", strconv.Itoa(user.Status))
 	form.Set("expiration_date", "2020-01-01 00:00:00")
 	form.Set("allowed_ip", " 192.168.1.3/32, 192.168.2.0/24 ")

@@ -104,6 +104,7 @@ func (c Conf) Initialize(configDir string) error {
 		Handler:        router,
 		ReadTimeout:    60 * time.Second,
 		WriteTimeout:   60 * time.Second,
+		IdleTimeout:    120 * time.Second,
 		MaxHeaderBytes: 1 << 16, // 64KB
 	}
 	if len(certificateFile) > 0 && len(certificateKeyFile) > 0 {

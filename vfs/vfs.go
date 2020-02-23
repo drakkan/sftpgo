@@ -43,6 +43,17 @@ type Fs interface {
 	Join(elem ...string) string
 }
 
+// VirtualFolder defines a mapping between a SFTP/SCP virtual path and a
+// filesystem path outside the user home directory.
+// The specified paths must be absolute and the virtual path cannot be "/",
+// it must be a sub directory. The parent directory for the specified virtual
+// path must exist. SFTPGo will try to automatically create any missing
+// parent directory for the configured virtual folders at user login.
+type VirtualFolder struct {
+	VirtualPath string `json:"virtual_path"`
+	MappedPath  string `json:"mapped_path"`
+}
+
 // IsDirectory checks if a path exists and is a directory
 func IsDirectory(fs Fs, path string) (bool, error) {
 	fileInfo, err := fs.Stat(path)

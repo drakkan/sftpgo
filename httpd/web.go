@@ -15,6 +15,7 @@ import (
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 const (
@@ -186,13 +187,30 @@ func renderUpdateUserPage(w http.ResponseWriter, user dataprovider.User, error s
 	renderTemplate(w, templateUser, data)
 }
 
+func getVirtualFoldersFromPostFields(r *http.Request) []vfs.VirtualFolder {
+	var virtualFolders []vfs.VirtualFolder
+	formValue := r.Form.Get("virtual_folders")
+	for _, cleaned := range getSliceFromDelimitedValues(formValue, "\n") {
+		if strings.Contains(cleaned, "::") {
+			mapping := strings.Split(cleaned, "::")
+			if len(mapping) > 1 {
+				virtualFolders = append(virtualFolders, vfs.VirtualFolder{
+					VirtualPath: strings.TrimSpace(mapping[0]),
+					MappedPath:  strings.TrimSpace(mapping[1]),
+				})
+			}
+		}
+	}
+	return virtualFolders
+}
+
 func getUserPermissionsFromPostFields(r *http.Request) map[string][]string {
 	permissions := make(map[string][]string)
 	permissions["/"] = r.Form["permissions"]
 	subDirsPermsValue := r.Form.Get("sub_dirs_permissions")
 	for _, cleaned := range getSliceFromDelimitedValues(subDirsPermsValue, "\n") {
-		if strings.ContainsRune(cleaned, ':') {
-			dirPerms := strings.Split(cleaned, ":")
+		if strings.Contains(cleaned, "::") {
+			dirPerms := strings.Split(cleaned, "::")
 			if len(dirPerms) > 1 {
 				dir := dirPerms[0]
 				dir = strings.TrimSpace(dir)
@@ -335,6 +353,7 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 		Password:          r.Form.Get("password"),
 		PublicKeys:        publicKeys,
 		HomeDir:           r.Form.Get("home_dir"),
+		VirtualFolders:    getVirtualFoldersFromPostFields(r),
 		UID:               uid,
 		GID:               gid,
 		Permissions:       getUserPermissionsFromPostFields(r),

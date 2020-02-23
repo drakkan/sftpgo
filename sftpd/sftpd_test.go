@@ -1988,6 +1988,68 @@ func TestBandwidthAndConnections(t *testing.T) {
 	os.RemoveAll(user.GetHomeDir())
 }
 
+func TestVirtualFolders(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	mappedPath := filepath.Join(os.TempDir(), "vdir")
+	vdirPath := "/vdir"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: vdirPath,
+		MappedPath:  mappedPath,
+	})
+	os.MkdirAll(mappedPath, 0777)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		testFileSize := int64(131072)
+		testFileName := "test_file.dat"
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		if err != nil {
+			t.Errorf("unable to create test file: %v", err)
+		}
+		localDownloadPath := filepath.Join(homeBasePath, "test_download.dat")
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath, testFileName), testFileSize, client)
+		if err != nil {
+			t.Errorf("file upload error: %v", err)
+		}
+		err = sftpDownloadFile(path.Join(vdirPath, testFileName), localDownloadPath, testFileSize, client)
+		if err != nil {
+			t.Errorf("file download error: %v", err)
+		}
+		err = client.Rename(vdirPath, "new_name")
+		if err == nil {
+			t.Error("renaming a virtual folder must fail")
+		}
+		err = client.RemoveDirectory(vdirPath)
+		if err == nil {
+			t.Error("removing a virtual folder must fail")
+		}
+		err = client.Mkdir(vdirPath)
+		if err == nil {
+			t.Error("creating a virtual folder must fail")
+		}
+		err = client.Symlink(path.Join(vdirPath, testFileName), vdirPath)
+		if err == nil {
+			t.Error("symlink to a virtual folder must fail")
+		}
+		os.Remove(testFilePath)
+		os.Remove(localDownloadPath)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+	os.RemoveAll(mappedPath)
+}
+
 func TestMissingFile(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
@@ -3116,7 +3178,7 @@ func TestRootDirCommands(t *testing.T) {
 func TestRelativePaths(t *testing.T) {
 	user := getTestUser(true)
 	var path, rel string
-	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir())}
+	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), user.VirtualFolders)}
 	keyPrefix := strings.TrimPrefix(user.GetHomeDir(), "/") + "/"
 	s3config := vfs.S3FsConfig{
 		KeyPrefix: keyPrefix,
@@ -3187,7 +3249,7 @@ func TestResolvePaths(t *testing.T) {
 	user := getTestUser(true)
 	var path, resolved string
 	var err error
-	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir())}
+	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), user.VirtualFolders)}
 	keyPrefix := strings.TrimPrefix(user.GetHomeDir(), "/") + "/"
 	s3config := vfs.S3FsConfig{
 		KeyPrefix: keyPrefix,
@@ -3241,6 +3303,80 @@ func TestResolvePaths(t *testing.T) {
 		}
 	}
 	os.RemoveAll(user.GetHomeDir())
+}
+
+func TestVirtualRelativePaths(t *testing.T) {
+	user := getTestUser(true)
+	mappedPath := filepath.Join(os.TempDir(), "vdir")
+	vdirPath := "/vdir"
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: vdirPath,
+		MappedPath:  mappedPath,
+	})
+	os.MkdirAll(mappedPath, 0777)
+	fs := vfs.NewOsFs("", user.GetHomeDir(), user.VirtualFolders)
+	rel := fs.GetRelativePath(mappedPath)
+	if rel != vdirPath {
+		t.Errorf("Unexpected relative path: %v", rel)
+	}
+	rel = fs.GetRelativePath(filepath.Join(mappedPath, ".."))
+	if rel != "/" {
+		t.Errorf("Unexpected relative path: %v", rel)
+	}
+	// path outside home and virtual dir
+	rel = fs.GetRelativePath(filepath.Join(mappedPath, "../vdir1"))
+	if rel != "/" {
+		t.Errorf("Unexpected relative path: %v", rel)
+	}
+	rel = fs.GetRelativePath(filepath.Join(mappedPath, "../vdir/file.txt"))
+	if rel != "/vdir/file.txt" {
+		t.Errorf("Unexpected relative path: %v", rel)
+	}
+	rel = fs.GetRelativePath(filepath.Join(user.HomeDir, "vdir1/file.txt"))
+	if rel != "/vdir1/file.txt" {
+		t.Errorf("Unexpected relative path: %v", rel)
+	}
+}
+
+func TestResolveVirtualPaths(t *testing.T) {
+	user := getTestUser(true)
+	mappedPath := filepath.Join(os.TempDir(), "vdir")
+	vdirPath := "/vdir"
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: vdirPath,
+		MappedPath:  mappedPath,
+	})
+	os.MkdirAll(mappedPath, 0777)
+	fs := vfs.NewOsFs("", user.GetHomeDir(), user.VirtualFolders)
+	osFs := fs.(*vfs.OsFs)
+	b, f := osFs.GetFsPaths("/vdir/a.txt")
+	if b != mappedPath {
+		t.Errorf("unexpected base path: %#v expected: %#v", b, mappedPath)
+	}
+	if f != filepath.Join(mappedPath, "a.txt") {
+		t.Errorf("unexpected fs path: %#v expected: %#v", f, filepath.Join(mappedPath, "a.txt"))
+	}
+	b, f = osFs.GetFsPaths("/vdir/sub with space & spécial chars/a.txt")
+	if b != mappedPath {
+		t.Errorf("unexpected base path: %#v expected: %#v", b, mappedPath)
+	}
+	if f != filepath.Join(mappedPath, "sub with space & spécial chars/a.txt") {
+		t.Errorf("unexpected fs path: %#v expected: %#v", f, filepath.Join(mappedPath, "sub with space & spécial chars/a.txt"))
+	}
+	b, f = osFs.GetFsPaths("/vdir/../a.txt")
+	if b != user.GetHomeDir() {
+		t.Errorf("unexpected base path: %#v expected: %#v", b, user.GetHomeDir())
+	}
+	if f != filepath.Join(user.GetHomeDir(), "a.txt") {
+		t.Errorf("unexpected fs path: %#v expected: %#v", f, filepath.Join(user.GetHomeDir(), "a.txt"))
+	}
+	b, f = osFs.GetFsPaths("/vdir1/a.txt")
+	if b != user.GetHomeDir() {
+		t.Errorf("unexpected base path: %#v expected: %#v", b, user.GetHomeDir())
+	}
+	if f != filepath.Join(user.GetHomeDir(), "/vdir1/a.txt") {
+		t.Errorf("unexpected fs path: %#v expected: %#v", f, filepath.Join(user.GetHomeDir(), "/vdir1/a.txt"))
+	}
 }
 
 func TestUserPerms(t *testing.T) {
@@ -3778,6 +3914,54 @@ func TestSCPRecursive(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+}
+
+func TestSCPVirtualFolders(t *testing.T) {
+	if len(scpPath) == 0 {
+		t.Skip("scp command not found, unable to execute this test")
+	}
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	mappedPath := filepath.Join(os.TempDir(), "vdir")
+	vdirPath := "/vdir"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: vdirPath,
+		MappedPath:  mappedPath,
+	})
+	os.MkdirAll(mappedPath, 0777)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	testFileName := "test_file.dat"
+	testBaseDirName := "test_dir"
+	testBaseDirPath := filepath.Join(homeBasePath, testBaseDirName)
+	testBaseDirDownName := "test_dir_down"
+	testBaseDirDownPath := filepath.Join(homeBasePath, testBaseDirDownName)
+	testFilePath := filepath.Join(homeBasePath, testBaseDirName, testFileName)
+	testFilePath1 := filepath.Join(homeBasePath, testBaseDirName, testBaseDirName, testFileName)
+	testFileSize := int64(131074)
+	createTestFile(testFilePath, testFileSize)
+	createTestFile(testFilePath1, testFileSize)
+	remoteDownPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join("/", vdirPath))
+	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, vdirPath)
+	err = scpUpload(testBaseDirPath, remoteUpPath, true, false)
+	if err != nil {
+		t.Errorf("error uploading dir via scp: %v", err)
+	}
+	err = scpDownload(testBaseDirDownPath, remoteDownPath, true, true)
+	if err != nil {
+		t.Errorf("error downloading dir via scp: %v", err)
+	}
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(testBaseDirPath)
+	os.RemoveAll(testBaseDirDownPath)
+	os.RemoveAll(user.GetHomeDir())
+	os.RemoveAll(mappedPath)
 }
 
 func TestSCPPermsSubDirs(t *testing.T) {

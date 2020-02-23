@@ -17,6 +17,7 @@ import (
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/vfs"
 	"github.com/go-chi/chi"
 )
 
@@ -102,6 +103,23 @@ func TestCheckUser(t *testing.T) {
 	err = checkUser(expected, actual)
 	if err == nil {
 		t.Errorf("Fs providers are not equal")
+	}
+	actual.FsConfig.Provider = 0
+	expected.VirtualFolders = append(expected.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir",
+		MappedPath:  os.TempDir(),
+	})
+	err = checkUser(expected, actual)
+	if err == nil {
+		t.Errorf("Virtual folders are not equal")
+	}
+	actual.VirtualFolders = append(actual.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir1",
+		MappedPath:  os.TempDir(),
+	})
+	err = checkUser(expected, actual)
+	if err == nil {
+		t.Errorf("Virtual folders are not equal")
 	}
 }
 

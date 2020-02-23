@@ -652,7 +652,7 @@ func (c *scpCommand) parseUploadMessage(command string) (int64, string, error) {
 		c.sendErrorMessage(err.Error())
 		return size, name, err
 	}
-	parts := strings.Split(command, " ")
+	parts := strings.SplitN(command, " ", 3)
 	if len(parts) == 3 {
 		size, err = strconv.ParseInt(parts[1], 10, 64)
 		if err != nil {
@@ -668,7 +668,7 @@ func (c *scpCommand) parseUploadMessage(command string) (int64, string, error) {
 			return size, name, err
 		}
 	} else {
-		err = fmt.Errorf("Error splitting upload message: %v", command)
+		err = fmt.Errorf("Error splitting upload message: %#v", command)
 		c.connection.Log(logger.LevelWarn, logSenderSCP, "error: %v", err)
 		c.sendErrorMessage(err.Error())
 		return size, name, err

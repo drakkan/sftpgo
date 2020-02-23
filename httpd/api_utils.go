@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -422,8 +423,30 @@ func checkUser(expected *dataprovider.User, actual *dataprovider.User) error {
 	if err := compareUserFsConfig(expected, actual); err != nil {
 		return err
 	}
-
+	if err := compareUserVirtualFolders(expected, actual); err != nil {
+		return err
+	}
 	return compareEqualsUserFields(expected, actual)
+}
+
+func compareUserVirtualFolders(expected *dataprovider.User, actual *dataprovider.User) error {
+	if len(actual.VirtualFolders) != len(expected.VirtualFolders) {
+		return errors.New("Virtual folders mismatch")
+	}
+	for _, v := range actual.VirtualFolders {
+		found := false
+		for _, v1 := range expected.VirtualFolders {
+			if path.Clean(v.VirtualPath) == path.Clean(v1.VirtualPath) &&
+				filepath.Clean(v.MappedPath) == filepath.Clean(v1.MappedPath) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return errors.New("Virtual folders mismatch")
+		}
+	}
+	return nil
 }
 
 func compareUserFsConfig(expected *dataprovider.User, actual *dataprovider.User) error {

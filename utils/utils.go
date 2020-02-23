@@ -17,6 +17,8 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -247,4 +249,29 @@ func GenerateECDSAKeys(file string) error {
 		return err
 	}
 	return ioutil.WriteFile(file+".pub", ssh.MarshalAuthorizedKey(pub), 0600)
+}
+
+// GetDirsForSFTPPath returns all the directory for the given path in reverse order
+// for example if the path is: /1/2/3/4 it returns:
+// [ "/1/2/3/4", "/1/2/3", "/1/2", "/1", "/" ]
+func GetDirsForSFTPPath(p string) []string {
+	sftpPath := CleanSFTPPath(p)
+	dirsForPath := []string{sftpPath}
+	for {
+		if sftpPath == "/" {
+			break
+		}
+		sftpPath = path.Dir(sftpPath)
+		dirsForPath = append(dirsForPath, sftpPath)
+	}
+	return dirsForPath
+}
+
+// CleanSFTPPath returns a clean sftp path
+func CleanSFTPPath(p string) string {
+	sftpPath := filepath.ToSlash(p)
+	if !path.IsAbs(p) {
+		sftpPath = "/" + sftpPath
+	}
+	return path.Clean(sftpPath)
 }

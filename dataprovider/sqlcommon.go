@@ -9,10 +9,11 @@ import (
 
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 const (
-	sqlDatabaseVersion  = 1
+	sqlDatabaseVersion  = 2
 	initialDBVersionSQL = "INSERT INTO schema_version (version) VALUES (1);"
 )
 
@@ -171,9 +172,13 @@ func sqlCommonAddUser(user User, dbHandle *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	virtualFolders, err := user.GetVirtualFoldersAsJSON()
+	if err != nil {
+		return err
+	}
 	_, err = stmt.Exec(user.Username, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
 		user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate, string(filters),
-		string(fsConfig))
+		string(fsConfig), string(virtualFolders))
 	return err
 }
 
@@ -205,9 +210,13 @@ func sqlCommonUpdateUser(user User, dbHandle *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	virtualFolders, err := user.GetVirtualFoldersAsJSON()
+	if err != nil {
+		return err
+	}
 	_, err = stmt.Exec(user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
 		user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate,
-		string(filters), string(fsConfig), user.ID)
+		string(filters), string(fsConfig), string(virtualFolders), user.ID)
 	return err
 }
 
@@ -281,6 +290,25 @@ func sqlCommonGetUsers(limit int, offset int, order string, username string, dbH
 	return users, err
 }
 
+func updateUserPermissionsFromDb(user *User, permissions string) error {
+	var err error
+	perms := make(map[string][]string)
+	err = json.Unmarshal([]byte(permissions), &perms)
+	if err == nil {
+		user.Permissions = perms
+	} else {
+		// compatibility layer: until version 0.9.4 permissions were a string list
+		var list []string
+		err = json.Unmarshal([]byte(permissions), &list)
+		if err != nil {
+			return err
+		}
+		perms["/"] = list
+		user.Permissions = perms
+	}
+	return err
+}
+
 func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 	var user User
 	var permissions sql.NullString
@@ -288,16 +316,19 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 	var publicKey sql.NullString
 	var filters sql.NullString
 	var fsConfig sql.NullString
+	var virtualFolders sql.NullString
 	var err error
 	if row != nil {
 		err = row.Scan(&user.ID, &user.Username, &password, &publicKey, &user.HomeDir, &user.UID, &user.GID, &user.MaxSessions,
 			&user.QuotaSize, &user.QuotaFiles, &permissions, &user.UsedQuotaSize, &user.UsedQuotaFiles, &user.LastQuotaUpdate,
-			&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig)
+			&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig,
+			&virtualFolders)
 
 	} else {
 		err = rows.Scan(&user.ID, &user.Username, &password, &publicKey, &user.HomeDir, &user.UID, &user.GID, &user.MaxSessions,
 			&user.QuotaSize, &user.QuotaFiles, &permissions, &user.UsedQuotaSize, &user.UsedQuotaFiles, &user.LastQuotaUpdate,
-			&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig)
+			&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig,
+			&virtualFolders)
 	}
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -308,6 +339,9 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 	if password.Valid {
 		user.Password = password.String
 	}
+	// we can have a empty string or an invalid json in null string
+	// so we do a relaxed test if the field is optional, for example we
+	// populate public keys only if unmarshal does not return an error
 	if publicKey.Valid {
 		var list []string
 		err = json.Unmarshal([]byte(publicKey.String), &list)
@@ -316,18 +350,9 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 		}
 	}
 	if permissions.Valid {
-		perms := make(map[string][]string)
-		err = json.Unmarshal([]byte(permissions.String), &perms)
-		if err == nil {
-			user.Permissions = perms
-		} else {
-			// compatibility layer: until version 0.9.4 permissions were a string list
-			var list []string
-			err = json.Unmarshal([]byte(permissions.String), &list)
-			if err == nil {
-				perms["/"] = list
-				user.Permissions = perms
-			}
+		err = updateUserPermissionsFromDb(&user, permissions.String)
+		if err != nil {
+			return user, err
 		}
 	}
 	if filters.Valid {
@@ -336,11 +361,6 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 		if err == nil {
 			user.Filters = userFilters
 		}
-	} else {
-		user.Filters = UserFilters{
-			AllowedIP: []string{},
-			DeniedIP:  []string{},
-		}
 	}
 	if fsConfig.Valid {
 		var fs Filesystem
@@ -348,24 +368,15 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 		if err == nil {
 			user.FsConfig = fs
 		}
-	} else {
-		user.FsConfig = Filesystem{
-			Provider: 0,
+	}
+	if virtualFolders.Valid {
+		var list []vfs.VirtualFolder
+		err = json.Unmarshal([]byte(virtualFolders.String), &list)
+		if err == nil {
+			user.VirtualFolders = list
 		}
 	}
 	return user, err
-}
-
-func sqlCommonMigrateDatabase(dbHandle *sql.DB) error {
-	dbVersion, err := sqlCommonGetDatabaseVersion(dbHandle)
-	if err != nil {
-		return err
-	}
-	if dbVersion.Version == sqlDatabaseVersion {
-		providerLog(logger.LevelDebug, "sql database is updated, current version: %v", dbVersion.Version)
-		return nil
-	}
-	return nil
 }
 
 func sqlCommonGetDatabaseVersion(dbHandle *sql.DB) (schemaVersion, error) {
@@ -382,7 +393,7 @@ func sqlCommonGetDatabaseVersion(dbHandle *sql.DB) (schemaVersion, error) {
 	return result, err
 }
 
-func sqlCommonUpdateDatabaseVersion(dbHandle *sql.DB) error {
+func sqlCommonUpdateDatabaseVersion(dbHandle *sql.DB, version int) error {
 	q := getUpdateDBVersionQuery()
 	stmt, err := dbHandle.Prepare(q)
 	if err != nil {
@@ -390,7 +401,18 @@ func sqlCommonUpdateDatabaseVersion(dbHandle *sql.DB) error {
 		return err
 	}
 	defer stmt.Close()
-	_, err = stmt.Exec(sqlDatabaseVersion)
+	_, err = stmt.Exec(version)
 	return err
+}
 
+func sqlCommonUpdateDatabaseVersionWithTX(tx *sql.Tx, version int) error {
+	q := getUpdateDBVersionQuery()
+	stmt, err := tx.Prepare(q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(version)
+	return err
 }

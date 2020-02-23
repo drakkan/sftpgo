@@ -385,7 +385,7 @@ func (GCSFs) IsPermission(err error) bool {
 // CheckRootPath creates the specified root directory if it does not exists
 func (fs GCSFs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
-	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir)
+	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, nil)
 	osFs.CheckRootPath(username, uid, gid)
 	return fs.checkIfBucketExists() != nil
 }

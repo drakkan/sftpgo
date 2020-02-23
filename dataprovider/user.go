@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"os"
 	"path"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
@@ -90,6 +92,8 @@ type User struct {
 	PublicKeys []string `json:"public_keys,omitempty"`
 	// The user cannot upload or download files outside this directory. Must be an absolute path
 	HomeDir string `json:"home_dir"`
+	// Mapping between virtual paths and filesystem paths outside the home directory. Supported for local filesystem only
+	VirtualFolders []vfs.VirtualFolder `json:"virtual_folders,omitempty"`
 	// If sftpgo runs as root system user then the created files and directories will be assigned to this system UID
 	UID int `json:"uid"`
 	// If sftpgo runs as root system user then the created files and directories will be assigned to this system GID
@@ -129,7 +133,7 @@ func (u *User) GetFilesystem(connectionID string) (vfs.Fs, error) {
 		config.CredentialFile = u.getGCSCredentialsFilePath()
 		return vfs.NewGCSFs(connectionID, u.GetHomeDir(), config)
 	}
-	return vfs.NewOsFs(connectionID, u.GetHomeDir()), nil
+	return vfs.NewOsFs(connectionID, u.GetHomeDir(), u.VirtualFolders), nil
 }
 
 // GetPermissionsForPath returns the permissions for the given path.
@@ -144,19 +148,7 @@ func (u *User) GetPermissionsForPath(p string) []string {
 		// fallback permissions
 		permissions = perms
 	}
-	sftpPath := filepath.ToSlash(p)
-	if !path.IsAbs(p) {
-		sftpPath = "/" + sftpPath
-	}
-	sftpPath = path.Clean(sftpPath)
-	dirsForPath := []string{sftpPath}
-	for {
-		if sftpPath == "/" {
-			break
-		}
-		sftpPath = path.Dir(sftpPath)
-		dirsForPath = append(dirsForPath, sftpPath)
-	}
+	dirsForPath := utils.GetDirsForSFTPPath(p)
 	// dirsForPath contains all the dirs for a given path in reverse order
 	// for example if the path is: /1/2/3/4 it contains:
 	// [ "/1/2/3/4", "/1/2/3", "/1/2", "/1", "/" ]
@@ -168,6 +160,40 @@ func (u *User) GetPermissionsForPath(p string) []string {
 		}
 	}
 	return permissions
+}
+
+// AddVirtualDirs adds virtual folders, if defined, to the given files list
+func (u *User) AddVirtualDirs(list []os.FileInfo, sftpPath string) []os.FileInfo {
+	if len(u.VirtualFolders) == 0 {
+		return list
+	}
+	for _, v := range u.VirtualFolders {
+		if path.Dir(v.VirtualPath) == sftpPath {
+			fi := vfs.NewFileInfo(path.Base(v.VirtualPath), true, 0, time.Time{})
+			found := false
+			for index, f := range list {
+				if f.Name() == fi.Name() {
+					list[index] = fi
+					found = true
+					break
+				}
+			}
+			if !found {
+				list = append(list, fi)
+			}
+		}
+	}
+	return list
+}
+
+// IsVirtualFolder returns true if the specified sftp path is a virtual folder
+func (u *User) IsVirtualFolder(sftpPath string) bool {
+	for _, v := range u.VirtualFolders {
+		if sftpPath == v.VirtualPath {
+			return true
+		}
+	}
+	return false
 }
 
 // HasPerm returns true if the user has the given permission or any permission
@@ -257,6 +283,11 @@ func (u *User) GetFiltersAsJSON() ([]byte, error) {
 // GetFsConfigAsJSON returns the filesystem config as json byte array
 func (u *User) GetFsConfigAsJSON() ([]byte, error) {
 	return json.Marshal(u.FsConfig)
+}
+
+// GetVirtualFoldersAsJSON returns the virtual folders as json byte array
+func (u *User) GetVirtualFoldersAsJSON() ([]byte, error) {
+	return json.Marshal(u.VirtualFolders)
 }
 
 // GetUID returns a validate uid, suitable for use with os.Chown
@@ -417,6 +448,8 @@ func (u User) GetDeniedIPAsString() string {
 func (u *User) getACopy() User {
 	pubKeys := make([]string, len(u.PublicKeys))
 	copy(pubKeys, u.PublicKeys)
+	virtualFolders := make([]vfs.VirtualFolder, len(u.VirtualFolders))
+	copy(virtualFolders, u.VirtualFolders)
 	permissions := make(map[string][]string)
 	for k, v := range u.Permissions {
 		perms := make([]string, len(v))
@@ -456,6 +489,7 @@ func (u *User) getACopy() User {
 		Password:          u.Password,
 		PublicKeys:        pubKeys,
 		HomeDir:           u.HomeDir,
+		VirtualFolders:    virtualFolders,
 		UID:               u.UID,
 		GID:               u.GID,
 		MaxSessions:       u.MaxSessions,

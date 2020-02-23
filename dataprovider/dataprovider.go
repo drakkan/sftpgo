@@ -500,6 +500,80 @@ func buildUserHomeDir(user *User) {
 	}
 }
 
+func isVirtualDirOverlapped(dir1, dir2 string) bool {
+	if dir1 == dir2 {
+		return true
+	}
+	if len(dir1) > len(dir2) {
+		if strings.HasPrefix(dir1, dir2+"/") {
+			return true
+		}
+	}
+	if len(dir2) > len(dir1) {
+		if strings.HasPrefix(dir2, dir1+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+func isMappedDirOverlapped(dir1, dir2 string) bool {
+	if dir1 == dir2 {
+		return true
+	}
+	if len(dir1) > len(dir2) {
+		if strings.HasPrefix(dir1, dir2+string(os.PathSeparator)) {
+			return true
+		}
+	}
+	if len(dir2) > len(dir1) {
+		if strings.HasPrefix(dir2, dir1+string(os.PathSeparator)) {
+			return true
+		}
+	}
+	return false
+}
+
+func validateVirtualFolders(user *User) error {
+	if len(user.VirtualFolders) == 0 || user.FsConfig.Provider != 0 {
+		user.VirtualFolders = []vfs.VirtualFolder{}
+		return nil
+	}
+	var virtualFolders []vfs.VirtualFolder
+	mappedPaths := make(map[string]string)
+	for _, v := range user.VirtualFolders {
+		cleanedVPath := filepath.ToSlash(path.Clean(v.VirtualPath))
+		if !path.IsAbs(cleanedVPath) || cleanedVPath == "/" {
+			return &ValidationError{err: fmt.Sprintf("invalid virtual folder %#v", v.VirtualPath)}
+		}
+		cleanedMPath := filepath.Clean(v.MappedPath)
+		if !filepath.IsAbs(cleanedMPath) {
+			return &ValidationError{err: fmt.Sprintf("invalid mapped folder %#v", v.MappedPath)}
+		}
+		if isMappedDirOverlapped(cleanedMPath, user.GetHomeDir()) {
+			return &ValidationError{err: fmt.Sprintf("invalid mapped folder %#v cannot be inside or contain the user home dir %#v",
+				v.MappedPath, user.GetHomeDir())}
+		}
+		virtualFolders = append(virtualFolders, vfs.VirtualFolder{
+			VirtualPath: cleanedVPath,
+			MappedPath:  cleanedMPath,
+		})
+		for k, virtual := range mappedPaths {
+			if isMappedDirOverlapped(k, cleanedMPath) {
+				return &ValidationError{err: fmt.Sprintf("invalid mapped folder %#v overlaps with mapped folder %#v",
+					v.MappedPath, k)}
+			}
+			if isVirtualDirOverlapped(virtual, cleanedVPath) {
+				return &ValidationError{err: fmt.Sprintf("invalid virtual folder %#v overlaps with virtual folder %#v",
+					v.VirtualPath, virtual)}
+			}
+		}
+		mappedPaths[cleanedMPath] = cleanedVPath
+	}
+	user.VirtualFolders = virtualFolders
+	return nil
+}
+
 func validatePermissions(user *User) error {
 	if len(user.Permissions) == 0 {
 		return &ValidationError{err: "please grant some permissions to this user"}
@@ -657,6 +731,9 @@ func validateUser(user *User) error {
 		return err
 	}
 	if err := validateFilesystemConfig(user); err != nil {
+		return err
+	}
+	if err := validateVirtualFolders(user); err != nil {
 		return err
 	}
 	if user.Status < 0 || user.Status > 1 {

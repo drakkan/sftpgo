@@ -18,6 +18,7 @@ NOT NULL UNIQUE, "password" varchar(255) NULL, "public_keys" text NULL, "home_di
 "expiration_date" bigint NOT NULL, "last_login" bigint NOT NULL, "status" integer NOT NULL, "filters" text NULL,
 "filesystem" text NULL);`
 	sqliteSchemaTableSQL = `CREATE TABLE "schema_version" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "version" integer NOT NULL);`
+	sqliteUsersV2SQL     = `ALTER TABLE "{{users}}" ADD COLUMN "virtual_folders" text NULL;`
 )
 
 // SQLiteProvider auth provider for SQLite database
@@ -119,5 +120,26 @@ func (p SQLiteProvider) initializeDatabase() error {
 }
 
 func (p SQLiteProvider) migrateDatabase() error {
-	return sqlCommonMigrateDatabase(p.dbHandle)
+	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle)
+	if err != nil {
+		return err
+	}
+	if dbVersion.Version == sqlDatabaseVersion {
+		providerLog(logger.LevelDebug, "sql database is updated, current version: %v", dbVersion.Version)
+		return nil
+	}
+	if dbVersion.Version == 1 {
+		return updateSQLiteDatabaseFrom1To2(p.dbHandle)
+	}
+	return nil
+}
+
+func updateSQLiteDatabaseFrom1To2(dbHandle *sql.DB) error {
+	providerLog(logger.LevelInfo, "updating database version: 1 -> 2")
+	sql := strings.Replace(sqliteUsersV2SQL, "{{users}}", config.UsersTable, 1)
+	_, err := dbHandle.Exec(sql)
+	if err != nil {
+		return err
+	}
+	return sqlCommonUpdateDatabaseVersion(dbHandle, 2)
 }
