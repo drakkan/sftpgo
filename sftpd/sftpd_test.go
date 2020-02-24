@@ -3952,6 +3952,11 @@ func TestSCPRecursive(t *testing.T) {
 	if err != nil {
 		t.Errorf("error uploading dir via scp: %v", err)
 	}
+	// overwrite existing dir
+	err = scpUpload(testBaseDirPath, remoteUpPath, true, false)
+	if err != nil {
+		t.Errorf("error uploading dir via scp: %v", err)
+	}
 	err = scpDownload(testBaseDirDownPath, remoteDownPath, true, true)
 	if err != nil {
 		t.Errorf("error downloading dir via scp: %v", err)

@@ -312,7 +312,15 @@ func (c *scpCommand) sendDownloadProtocolMessages(dirPath string, stat os.FileIn
 		}
 	}
 
-	fileMode := fmt.Sprintf("D%v 0 %v\n", getFileModeAsString(stat.Mode(), stat.IsDir()), filepath.Base(dirPath))
+	dirName := filepath.Base(dirPath)
+	for _, v := range c.connection.User.VirtualFolders {
+		if v.MappedPath == dirPath {
+			dirName = path.Base(v.VirtualPath)
+			break
+		}
+	}
+
+	fileMode := fmt.Sprintf("D%v 0 %v\n", getFileModeAsString(stat.Mode(), stat.IsDir()), dirName)
 	err = c.sendProtocolMessage(fileMode)
 	if err != nil {
 		return err
@@ -332,6 +340,7 @@ func (c *scpCommand) handleRecursiveDownload(dirPath string, stat os.FileInfo) e
 			return err
 		}
 		files, err := c.connection.fs.ReadDir(dirPath)
+		files = c.connection.User.AddVirtualDirs(files, c.connection.fs.GetRelativePath(dirPath))
 		if err != nil {
 			c.sendErrorMessage(err.Error())
 			return err
@@ -627,8 +636,14 @@ func (c *scpCommand) getNextUploadProtocolMessage() (string, error) {
 
 func (c *scpCommand) createDir(dirPath string) error {
 	var err error
+	var isDir bool
+	isDir, err = vfs.IsDirectory(c.connection.fs, dirPath)
+	if err == nil && isDir {
+		c.connection.Log(logger.LevelDebug, logSenderSCP, "directory %#v already exists", dirPath)
+		return nil
+	}
 	if err = c.connection.fs.Mkdir(dirPath); err != nil {
-		c.connection.Log(logger.LevelError, logSenderSCP, "error creating dir: %v", dirPath)
+		c.connection.Log(logger.LevelError, logSenderSCP, "error creating dir %#v", dirPath)
 		c.sendErrorMessage(err.Error())
 		return err
 	}

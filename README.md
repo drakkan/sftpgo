@@ -156,8 +156,8 @@ The `sftpgo` configuration file contains the following sections:
       - `scp`, SCP is an experimental feature, we have our own SCP implementation since we can't rely on "scp" system command to proper handle quotas and user's home dir restrictions. The SCP protocol is quite simple but there is no official docs about it, so we need more testing and feedbacks before enabling it by default. We may not handle some borderline cases or have sneaky bugs. Please do accurate tests yourself before enabling SCP and let us known if something does not work as expected for your use cases. SCP between two remote hosts is supported using the `-3` scp option.
       - `md5sum`, `sha1sum`, `sha256sum`, `sha384sum`, `sha512sum`. Useful to check message digests for uploaded files. These commands are implemented inside SFTPGo so they work even if the matching system commands are not available, for example on Windows.
       - `cd`, `pwd`. Some SFTP clients does not support the SFTP SSH_FXP_REALPATH packet type and so they use `cd` and `pwd` SSH commands to get the initial directory. Currently `cd` do nothing and `pwd` always returns the `/` path.
-      - `git-receive-pack`, `git-upload-pack`, `git-upload-archive`. These commands enable support for Git repositories over SSH, they need to be installed and in your system's `PATH`.
-      - `rsync`. The `rsync` command need to be installed and in your system's `PATH`. We cannot avoid that rsync create symlinks so if the user has the permission to create symlinks we add the option `--safe-links` to the received rsync command if it is not already set. This should prevent to create symlinks that point outside the home dir. If the user cannot create symlinks we add the option `--munge-links`, if it is not already set. This should make symlinks unusable (but manually recoverable)
+      - `git-receive-pack`, `git-upload-pack`, `git-upload-archive`. These commands enable support for Git repositories over SSH, they need to be installed and in your system's `PATH`. Git commands are not allowed inside virtual folders.
+      - `rsync`. The `rsync` command need to be installed and in your system's `PATH`. We cannot avoid that rsync create symlinks so if the user has the permission to create symlinks we add the option `--safe-links` to the received rsync command if it is not already set. This should prevent to create symlinks that point outside the home dir. If the user cannot create symlinks we add the option `--munge-links`, if it is not already set. This should make symlinks unusable (but manually recoverable). The `rsync` command interacts with the filesystem directly and it is not aware about virtual folders, so it will be automatically disabled for users with virtual folders.
     - `keyboard_interactive_auth_program`, string. Absolute path to an external program to use for keyboard interactive authentication. See the "Keyboard Interactive Authentication" paragraph for more details.
 - **"data_provider"**, the configuration for the data provider
     - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`, `memory`
@@ -410,7 +410,7 @@ The external program can read the following environment variables to get info ab
 - `SFTPGO_LOGIND_USER`, it contains the user trying to login serialized as JSON
 - `SFTPGO_LOGIND_METHOD`, possibile values are: `password`, `publickey` and `keyboard-interactive`
 
-The program must write, on its the standard output, an empty string (or no response at all) if no user update is needed or with a valid SFTPGo user serialized as JSON.
+The program must write, on its the standard output, an empty string (or no response at all) if no user update is needed or a valid SFTPGo user serialized as JSON.
 The JSON response can include only the fields that need to the updated instead of the full user, for example if you want to disable the user you can return a response like this:
 
 ```json

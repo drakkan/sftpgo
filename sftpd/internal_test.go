@@ -799,6 +799,48 @@ func TestSSHCommandQuotaScan(t *testing.T) {
 	}
 }
 
+func TestGitVirtualFolders(t *testing.T) {
+	permissions := make(map[string][]string)
+	permissions["/"] = []string{dataprovider.PermAny}
+	user := dataprovider.User{
+		Permissions: permissions,
+		HomeDir:     os.TempDir(),
+	}
+	fs, _ := user.GetFilesystem("123")
+	conn := Connection{
+		User: user,
+		fs:   fs,
+	}
+	cmd := sshCommand{
+		command:    "git-receive-pack",
+		connection: conn,
+		args:       []string{"/vdir"},
+	}
+	cmd.connection.User.VirtualFolders = append(cmd.connection.User.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir",
+		MappedPath:  os.TempDir(),
+	})
+	_, err := cmd.getSystemCommand()
+	if err != errUnsupportedConfig {
+		t.Errorf("unexpected error: %v", err)
+	}
+	cmd.connection.User.VirtualFolders = nil
+	cmd.connection.User.VirtualFolders = append(cmd.connection.User.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir",
+		MappedPath:  os.TempDir(),
+	})
+	cmd.args = []string{"/vdir/subdir"}
+	_, err = cmd.getSystemCommand()
+	if err != errUnsupportedConfig {
+		t.Errorf("unexpected error: %v", err)
+	}
+	cmd.args = []string{"/adir/subdir"}
+	_, err = cmd.getSystemCommand()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
 func TestRsyncOptions(t *testing.T) {
 	permissions := make(map[string][]string)
 	permissions["/"] = []string{dataprovider.PermAny}
@@ -842,6 +884,14 @@ func TestRsyncOptions(t *testing.T) {
 	}
 	if !utils.IsStringInSlice("--munge-links", cmd.cmd.Args) {
 		t.Errorf("--munge-links must be added if the user has the create symlinks permission")
+	}
+	sshCmd.connection.User.VirtualFolders = append(sshCmd.connection.User.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: "/vdir",
+		MappedPath:  os.TempDir(),
+	})
+	_, err = sshCmd.getSystemCommand()
+	if err != errUnsupportedConfig {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 

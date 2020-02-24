@@ -302,7 +302,32 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 		args = args[:len(args)-1]
 		args = append(args, path)
 	}
+	if strings.HasPrefix(c.command, "git-") {
+		// we don't allow git inside virtual folders
+		gitPath := c.getDestPath()
+		for _, v := range c.connection.User.VirtualFolders {
+			if v.VirtualPath == gitPath {
+				c.connection.Log(logger.LevelDebug, logSenderSSH, "git is not supported inside virtual folder %#v user %#v",
+					gitPath, c.connection.User.Username)
+				return command, errUnsupportedConfig
+			}
+			if len(gitPath) > len(v.VirtualPath) {
+				if strings.HasPrefix(gitPath, v.VirtualPath+"/") {
+					c.connection.Log(logger.LevelDebug, logSenderSSH, "git is not supported inside virtual folder %#v user %#v",
+						gitPath, c.connection.User.Username)
+					return command, errUnsupportedConfig
+				}
+			}
+		}
+	}
 	if c.command == "rsync" {
+		// if the user has virtual folders we don't allow rsync since the rsync command interacts with the
+		// filesystem directly and it is not aware about virtual folders
+		if len(c.connection.User.VirtualFolders) > 0 {
+			c.connection.Log(logger.LevelDebug, logSenderSSH, "user %#v has virtual folders, rsync is not supported",
+				c.connection.User.Username)
+			return command, errUnsupportedConfig
+		}
 		// we cannot avoid that rsync create symlinks so if the user has the permission
 		// to create symlinks we add the option --safe-links to the received rsync command if
 		// it is not already set. This should prevent to create symlinks that point outside
