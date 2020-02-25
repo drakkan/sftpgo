@@ -99,7 +99,7 @@ var (
 	gitWrapPath     string
 	extAuthPath     string
 	keyIntAuthPath  string
-	beforeLoginPath string
+	preLoginPath string
 	logFilePath     string
 )
 
@@ -172,7 +172,7 @@ func TestMain(m *testing.M) {
 	privateKeyPath = filepath.Join(homeBasePath, "ssh_key")
 	gitWrapPath = filepath.Join(homeBasePath, "gitwrap.sh")
 	extAuthPath = filepath.Join(homeBasePath, "extauth.sh")
-	beforeLoginPath = filepath.Join(homeBasePath, "beforelogin.sh")
+	preLoginPath = filepath.Join(homeBasePath, "prelogin.sh")
 	err = ioutil.WriteFile(pubKeyPath, []byte(testPubKey+"\n"), 0600)
 	if err != nil {
 		logger.WarnToConsole("unable to save public key to file: %v", err)
@@ -212,7 +212,7 @@ func TestMain(m *testing.M) {
 	os.Remove(privateKeyPath)
 	os.Remove(gitWrapPath)
 	os.Remove(extAuthPath)
-	os.Remove(beforeLoginPath)
+	os.Remove(preLoginPath)
 	os.Remove(keyIntAuthPath)
 	os.Exit(exitCode)
 }
@@ -1305,7 +1305,7 @@ func TestLoginKeyboardInteractiveAuth(t *testing.T) {
 	os.RemoveAll(user.GetHomeDir())
 }
 
-func TestBeforeLoginScript(t *testing.T) {
+func TestPreLoginScript(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("this test is not available on Windows")
 	}
@@ -1315,8 +1315,8 @@ func TestBeforeLoginScript(t *testing.T) {
 	dataprovider.Close(dataProvider)
 	config.LoadConfig(configDir, "")
 	providerConf := config.GetProviderConf()
-	ioutil.WriteFile(beforeLoginPath, getBeforeLoginScriptContent(u, false), 0755)
-	providerConf.BeforeLoginProgram = beforeLoginPath
+	ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), 0755)
+	providerConf.PreLoginProgram = preLoginPath
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
 		t.Errorf("error initializing data provider")
@@ -1338,16 +1338,16 @@ func TestBeforeLoginScript(t *testing.T) {
 			t.Errorf("unable to get working dir: %v", err)
 		}
 	}
-	ioutil.WriteFile(beforeLoginPath, getBeforeLoginScriptContent(user, true), 0755)
+	ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(user, true), 0755)
 	_, err = getSftpClient(u, usePubKey)
 	if err == nil {
-		t.Error("before login script returned a non json response, login must fail")
+		t.Error("pre login script returned a non json response, login must fail")
 	}
 	user.Status = 0
-	ioutil.WriteFile(beforeLoginPath, getBeforeLoginScriptContent(user, false), 0755)
+	ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(user, false), 0755)
 	_, err = getSftpClient(u, usePubKey)
 	if err == nil {
-		t.Error("before login script returned a disabled user, login must fail")
+		t.Error("pre login script returned a disabled user, login must fail")
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
@@ -1364,7 +1364,7 @@ func TestBeforeLoginScript(t *testing.T) {
 	}
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
-	os.Remove(beforeLoginPath)
+	os.Remove(preLoginPath)
 }
 
 func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
@@ -5042,7 +5042,7 @@ func getExtAuthScriptContent(user dataprovider.User, sleepTime int, nonJsonRespo
 	return extAuthContent
 }
 
-func getBeforeLoginScriptContent(user dataprovider.User, nonJsonResponse bool) []byte {
+func getPreLoginScriptContent(user dataprovider.User, nonJsonResponse bool) []byte {
 	content := []byte("#!/bin/sh\n\n")
 	if nonJsonResponse {
 		content = append(content, []byte("echo 'text response'\n")...)

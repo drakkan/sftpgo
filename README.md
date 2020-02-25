@@ -12,7 +12,7 @@ Full featured and highly configurable SFTP server
 - Keyboard interactive authentication. You can easily setup a customizable multi-factor authentication.
 - Per user authentication methods. You can, for example, deny one or more authentication methods to one or more users.
 - Custom authentication via external programs is supported.
-- Dynamic users modifications before login via external programs are supported.
+- Dynamic user modification before login via external programs is supported.
 - Quota support: accounts can have individual quota expressed as max total size and/or max number of files.
 - Bandwidth throttling is supported, with distinct settings for upload and download.
 - Per user maximum concurrent sessions.
@@ -183,7 +183,7 @@ The `sftpgo` configuration file contains the following sections:
     - `external_auth_program`, string. Absolute path to an external program to use for users authentication. See the "External Authentication" paragraph for more details. Leave empty to disable.
     - `external_auth_scope`, integer. 0 means all supported authetication scopes (passwords, public keys and keyboard interactive). 1 means passwords only. 2 means public keys only. 4 means key keyboard interactive only. The flags can be combined, for example 6 means public keys and keyboard interactive
     - `credentials_path`, string. It defines the directory for storing user provided credential files such as Google Cloud Storage credentials. This can be an absolute path or a path relative to the config dir
-    - `before_login_program`, string. Absolute path to an external program to use to modify user details just before the login. See the "Dynamic users modifications" paragraph for more details. Leave empty to disable.
+    - `pre_login_program`, string. Absolute path to an external program to use to modify user details just before the login. See the "Dynamic user modification" paragraph for more details. Leave empty to disable.
 - **"httpd"**, the configuration for the HTTP server used to serve REST API
     - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 8080
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"
@@ -243,7 +243,7 @@ Here is a full example showing the default config in JSON format:
     "external_auth_program": "",
     "external_auth_scope": 0,
     "credentials_path": "credentials",
-    "before_login_program": ""
+    "pre_login_program": ""
   },
   "httpd": {
     "bind_port": 8080,
@@ -400,10 +400,10 @@ fi
 
 If you have an external authentication program that could be useful for others too, please let us know and/or send a pull request.
 
-## Dynamic users modifications
+## Dynamic user modification
 
-Dynamic users modifications are supported via an external program that can be executed just before the user login.
-To enable dynamic users modifications you must set the absolute path of your program using the `before_login_program` key in your configuration file.
+Dynamic user modification is supported via an external program that can be executed just before the user login.
+To enable dynamic user modification you must set the absolute path of your program using the `pre_login_program` key in your configuration file.
 
 The external program can read the following environment variables to get info about the user trying to login:
 
@@ -418,7 +418,7 @@ The JSON response can include only the fields that need to the updated instead o
 ```
 The external program must finish within 60 seconds.
 
-If an error happens while executing your program then login will be denied. "Dynamic users modifications" and "External Authentication" are mutally exclusive.
+If an error happens while executing your program then login will be denied. "Dynamic user modification" and "External Authentication" are mutally exclusive.
 
 Let's see a very basic example. Our sample program will grant access to the user `test_user` only in the time range 10:00-18:00. Other users will not be modified since the program will terminate with no output.
 
