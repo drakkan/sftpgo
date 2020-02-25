@@ -9,15 +9,15 @@ Full featured and highly configurable SFTP server
 - SFTP accounts are virtual accounts stored in a "data provider".
 - SQLite, MySQL, PostgreSQL, bbolt (key/value store in pure Go) and in memory data providers are supported.
 - Public key and password authentication. Multiple public keys per user are supported.
-- Keyboard interactive authentication. You can easily setup a customizable multi factor authentication.
+- Keyboard interactive authentication. You can easily setup a customizable multi-factor authentication.
 - Per user authentication methods. You can, for example, deny one or more authentication methods to one or more users.
 - Custom authentication via external programs is supported.
 - Dynamic users modifications before login via external programs are supported.
 - Quota support: accounts can have individual quota expressed as max total size and/or max number of files.
 - Bandwidth throttling is supported, with distinct settings for upload and download.
 - Per user maximum concurrent sessions.
-- Per user and per directory permissions: list directories content, upload, overwrite, download, delete, rename, create directories, create symlinks, changing owner/group and mode, changing access and modification times can be enabled or disabled.
-- Per user files/folders ownership: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (*NIX only).
+- Per user and per directory permission management: list directory contents, upload, overwrite, download, delete, rename, create directories, create symlinks, change owner/group and mode, change access and modification times.
+- Per user files/folders ownership mapping: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (*NIX only).
 - Per user IP filters are supported: login can be restricted to specific ranges of IP addresses or to a specific IP address.
 - Virtual folders are supported: directories outside the user home directory can be exposed as virtual folders.
 - Configurable custom commands and/or HTTP notifications on file upload, download, delete, rename, on SSH commands and on user add, update and delete.
@@ -31,13 +31,13 @@ Full featured and highly configurable SFTP server
 - Web based interface to easily manage users and connections.
 - Easy migration from Linux system user accounts.
 - Portable mode: a convenient way to share a single directory on demand.
-- Configuration is a your choice: JSON, TOML, YAML, HCL, envfile are supported.
+- Configuration format is at your choice: JSON, TOML, YAML, HCL, envfile are supported.
 - Log files are accurate and they are saved in the easily parsable JSON format.
 
 ## Platforms
 
 SFTPGo is developed and tested on Linux. After each commit the code is automatically built and tested on Linux and macOS using Travis CI.
-Regularly the test cases are manually executed and pass on Windows. Other UNIX variants such as *BSD should work too.
+The test cases are regularly manually executed and passed on Windows. Other UNIX variants such as *BSD should work too.
 
 ## Requirements
 
@@ -65,12 +65,12 @@ $ go get -u github.com/drakkan/sftpgo
 
 Make sure [Git](https://git-scm.com/downloads) is installed on your machine and in your system's `PATH`.
 
-SFTPGo depends on [go-sqlite3](https://github.com/mattn/go-sqlite3) that is a CGO package and so it requires a `C` compiler at build time.
+SFTPGo depends on [go-sqlite3](https://github.com/mattn/go-sqlite3) which is a CGO package and so it requires a `C` compiler at build time.
 On Linux and macOS a compiler is easy to install or already installed, on Windows you need to download [MinGW-w64](https://sourceforge.net/projects/mingw-w64/files/) and build SFTPGo from its command prompt.
 
 The compiler is a build time only dependency, it is not not required at runtime.
 
-If you don't need SQLite, you can also get/build SFTPGo setting the environment variable `GCO_ENABLED` to 0, this way SQLite support will be disabled but PostgreSQL, MySQL, bbolt and memory data providers will work and you don't need a `C` compiler for building.
+If you don't need SQLite, you can also get/build SFTPGo setting the environment variable `GCO_ENABLED` to 0, this way SQLite support will be disabled and PostgreSQL, MySQL, bbolt and memory data providers will keep working, in this way you don't need a `C` compiler for building.
 
 Version info, such as git commit and build date, can be embedded setting the following string variables at build time:
 
@@ -119,7 +119,7 @@ Flags:
 
 The `serve` command supports the following flags:
 
-- `--config-dir` string. Location of the config dir. This directory should contain the `sftpgo` configuration file and is used as the base for files with a relative path (eg. the private keys for the SFTP server, the SQLite or bblot database if you use SQLite or bbolt as data provider). The default value is "." or the value of `SFTPGO_CONFIG_DIR` environment variable.
+- `--config-dir` string. Location of the config dir. This directory should contain the `sftpgo` configuration file and is used as the base dir for files with a relative path (eg. the private keys for the SFTP server, the SQLite or bblot database if you use SQLite or bbolt as data provider). The default value is "." or the value of `SFTPGO_CONFIG_DIR` environment variable.
 - `--config-file` string. Name of the configuration file. It must be the name of a file stored in config-dir not the absolute path to the configuration file. The specified file name must have no extension we automatically load JSON, YAML, TOML, HCL and Java properties. The default value is "sftpgo" (and therefore `sftpgo.json`, `sftpgo.yaml` and so on are searched) or the value of `SFTPGO_CONFIG_FILE` environment variable.
 - `--log-compress` boolean. Determine if the rotated log files should be compressed using gzip. Default `false` or the value of `SFTPGO_LOG_COMPRESS` environment variable (1 or `true`, 0 or `false`). It is unused if `log-file-path` is empty.
 - `--log-file-path` string. Location for the log file, default "sftpgo.log" or the value of `SFTPGO_LOG_FILE_PATH` environment variable. Leave empty to write logs to the standard error.
@@ -128,7 +128,7 @@ The `serve` command supports the following flags:
 - `--log-max-size` int. Maximum size in megabytes of the log file before it gets rotated. Default 10 or the value of `SFTPGO_LOG_MAX_SIZE` environment variable. It is unused if `log-file-path` is empty.
 - `--log-verbose` boolean. Enable verbose logs. Default `true` or the value of `SFTPGO_LOG_VERBOSE` environment variable (1 or `true`, 0 or `false`).
 
-If you don't configure any private host keys, the daemon will use `id_rsa` and `id_ecdsa` in the configuration directory. If these files don't exist, the daemon will attempt to autogenerate them (if the user that executes SFTPGo has write access to the config-dir). The server supports any private key format supported by [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/keys.go#L32).
+If you don't configure any private host key, the daemon will use `id_rsa` and `id_ecdsa` in the configuration directory. If these files don't exist, the daemon will attempt to autogenerate them (if the user that executes SFTPGo has write access to the config-dir). The server supports any private key format supported by [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/keys.go#L32).
 
 The `sftpgo` configuration file contains the following sections:
 
@@ -410,7 +410,7 @@ The external program can read the following environment variables to get info ab
 - `SFTPGO_LOGIND_USER`, it contains the user trying to login serialized as JSON
 - `SFTPGO_LOGIND_METHOD`, possibile values are: `password`, `publickey` and `keyboard-interactive`
 
-The program must write, on its the standard output, an empty string (or no response at all) if no user update is needed or a valid SFTPGo user serialized as JSON.
+The program must write, on its the standard output, an empty string (or no response at all) if no user update is needed or the updated SFTPGo user serialized as JSON.
 The JSON response can include only the fields that need to the updated instead of the full user, for example if you want to disable the user you can return a response like this:
 
 ```json
@@ -418,7 +418,7 @@ The JSON response can include only the fields that need to the updated instead o
 ```
 The external program must finish within 60 seconds.
 
-If an error happen while executing your program then login will be denied. "Dynamic users modifications" and "External Authentication" are mutally exclusive.
+If an error happens while executing your program then login will be denied. "Dynamic users modifications" and "External Authentication" are mutally exclusive.
 
 Let's see a very basic example. Our sample program will grant access to the user `test_user` only in the time range 10:00-18:00. Other users will not be modified since the program will terminate with no output.
 
