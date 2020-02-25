@@ -214,10 +214,10 @@ type Config struct {
 	//
 	// The external program must finish within 60 seconds.
 	//
-	// If an error happen while executing the "BeforeLoginProgram" then login will be denied.
-	// BeforeLoginProgram and ExternalAuthProgram are mutally exclusive.
+	// If an error happens while executing the "PreLoginProgram" then login will be denied.
+	// PreLoginProgram and ExternalAuthProgram are mutally exclusive.
 	// Leave empty to disable.
-	BeforeLoginProgram string `json:"before_login_program" mapstructure:"before_login_program"`
+	PreLoginProgram string `json:"pre_login_program" mapstructure:"pre_login_program"`
 }
 
 // BackupData defines the structure for the backup/restore files
@@ -316,11 +316,11 @@ func Initialize(cnf Config, basePath string) error {
 			return err
 		}
 	}
-	if len(config.BeforeLoginProgram) > 0 {
-		if !filepath.IsAbs(config.BeforeLoginProgram) {
-			return fmt.Errorf("invalid pre login program: %#v must be an absolute path", config.BeforeLoginProgram)
+	if len(config.PreLoginProgram) > 0 {
+		if !filepath.IsAbs(config.PreLoginProgram) {
+			return fmt.Errorf("invalid pre login program: %#v must be an absolute path", config.PreLoginProgram)
 		}
-		_, err := os.Stat(config.BeforeLoginProgram)
+		_, err := os.Stat(config.PreLoginProgram)
 		if err != nil {
 			providerLog(logger.LevelWarn, "invalid pre login program: %v", err)
 			return err
@@ -366,8 +366,8 @@ func CheckUserAndPass(p Provider, username string, password string) (User, error
 		}
 		return checkUserAndPass(user, password)
 	}
-	if len(config.BeforeLoginProgram) > 0 {
-		user, err := executeBeforeLoginProgram(username, SSHLoginMethodPassword)
+	if len(config.PreLoginProgram) > 0 {
+		user, err := executePreLoginProgram(username, SSHLoginMethodPassword)
 		if err != nil {
 			return user, err
 		}
@@ -385,8 +385,8 @@ func CheckUserAndPubKey(p Provider, username string, pubKey string) (User, strin
 		}
 		return checkUserAndPubKey(user, pubKey)
 	}
-	if len(config.BeforeLoginProgram) > 0 {
-		user, err := executeBeforeLoginProgram(username, SSHLoginMethodPublicKey)
+	if len(config.PreLoginProgram) > 0 {
+		user, err := executePreLoginProgram(username, SSHLoginMethodPublicKey)
 		if err != nil {
 			return user, "", err
 		}
@@ -402,8 +402,8 @@ func CheckKeyboardInteractiveAuth(p Provider, username, authProgram string, clie
 	var err error
 	if len(config.ExternalAuthProgram) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&4 != 0) {
 		user, err = doExternalAuth(username, "", "", "1")
-	} else if len(config.BeforeLoginProgram) > 0 {
-		user, err = executeBeforeLoginProgram(username, SSHLoginMethodKeyboardInteractive)
+	} else if len(config.PreLoginProgram) > 0 {
+		user, err = executePreLoginProgram(username, SSHLoginMethodKeyboardInteractive)
 	} else {
 		user, err = p.userExists(username)
 	}
@@ -1143,7 +1143,7 @@ func doKeyboardInteractiveAuth(user User, authProgram string, client ssh.Keyboar
 	return user, nil
 }
 
-func executeBeforeLoginProgram(username, loginMethod string) (User, error) {
+func executePreLoginProgram(username, loginMethod string) (User, error) {
 	u, err := provider.userExists(username)
 	if err != nil {
 		return u, err
@@ -1155,7 +1155,7 @@ func executeBeforeLoginProgram(username, loginMethod string) (User, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, config.BeforeLoginProgram)
+	cmd := exec.CommandContext(ctx, config.PreLoginProgram)
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("SFTPGO_LOGIND_USER=%v", string(userAsJSON)),
 		fmt.Sprintf("SFTPGO_LOGIND_METHOD=%v", loginMethod))
