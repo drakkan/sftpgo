@@ -408,7 +408,7 @@ To enable dynamic users modifications you must set the absolute path of your pro
 The external program can read the following environment variables to get info about the user trying to login:
 
 - `SFTPGO_LOGIND_USER`, it contains the user trying to login serialized as JSON
-- `SFTPGO_LOGIND_METHOD`, possibile values are: `password`, `publickey` and `keyboard-interactive`
+- `SFTPGO_LOGIND_METHOD`, possible values are: `password`, `publickey` and `keyboard-interactive`
 
 The program must write, on its the standard output, an empty string (or no response at all) if no user update is needed or the updated SFTPGo user serialized as JSON.
 The JSON response can include only the fields that need to the updated instead of the full user, for example if you want to disable the user you can return a response like this:

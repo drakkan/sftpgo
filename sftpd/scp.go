@@ -643,7 +643,7 @@ func (c *scpCommand) createDir(dirPath string) error {
 		return nil
 	}
 	if err = c.connection.fs.Mkdir(dirPath); err != nil {
-		c.connection.Log(logger.LevelError, logSenderSCP, "error creating dir %#v", dirPath)
+		c.connection.Log(logger.LevelError, logSenderSCP, "error creating dir %#v: %v", dirPath, err)
 		c.sendErrorMessage(err.Error())
 		return err
 	}

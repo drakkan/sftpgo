@@ -202,7 +202,7 @@ type Config struct {
 	// The external program can read the following environment variables:
 	//
 	// - SFTPGO_LOGIND_USER, it contains the user trying to login serialized as JSON
-	// - SFTPGO_LOGIND_METHOD, possibile values are: "password", "publickey" and "keyboard-interactive"
+	// - SFTPGO_LOGIND_METHOD, possible values are: "password", "publickey" and "keyboard-interactive"
 	//
 	// The program must respond on the standard output with an empty string if no user
 	// update is needed or with a valid SFTPGo user serialized as JSON.
