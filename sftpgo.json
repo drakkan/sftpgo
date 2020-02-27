@@ -20,7 +20,8 @@
     "login_banner_file": "",
     "setstat_mode": 0,
     "enabled_ssh_commands": ["md5sum", "sha1sum", "cd", "pwd"],
-    "keyboard_interactive_auth_program": ""
+    "keyboard_interactive_auth_program": "",
+    "proxy_protocol": 0
   },
   "data_provider": {
     "driver": "sqlite",

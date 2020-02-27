@@ -27,6 +27,7 @@ Full featured and highly configurable SFTP server
 - SCP and rsync are supported.
 - Support for serving local filesystem, S3 Compatible Object Storage and Google Cloud Storage over SFTP/SCP.
 - Prometheus metrics are exposed.
+- Support for HAProxy PROXY protocol: you can proxy and/or load balance the SFTP/SCP service without losing the information about the client's address.
 - REST API for users management, backup, restore and real time reports of the active connections with possibility of forcibly closing a connection.
 - Web based interface to easily manage users and connections.
 - Easy migration from Linux system user accounts.
@@ -159,6 +160,7 @@ The `sftpgo` configuration file contains the following sections:
       - `git-receive-pack`, `git-upload-pack`, `git-upload-archive`. These commands enable support for Git repositories over SSH, they need to be installed and in your system's `PATH`. Git commands are not allowed inside virtual folders.
       - `rsync`. The `rsync` command need to be installed and in your system's `PATH`. We cannot avoid that rsync create symlinks so if the user has the permission to create symlinks we add the option `--safe-links` to the received rsync command if it is not already set. This should prevent to create symlinks that point outside the home dir. If the user cannot create symlinks we add the option `--munge-links`, if it is not already set. This should make symlinks unusable (but manually recoverable). The `rsync` command interacts with the filesystem directly and it is not aware about virtual folders, so it will be automatically disabled for users with virtual folders.
     - `keyboard_interactive_auth_program`, string. Absolute path to an external program to use for keyboard interactive authentication. See the "Keyboard Interactive Authentication" paragraph for more details.
+    - `proxy_protocol`, integer. Support for [HAProxy PROXY protocol](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt). If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable the proxy protocol. It provides a convenient way to safely transport connection information such as a client's address across multiple layers of NAT or TCP proxies to get the real client IP address instead of the proxy IP. Set to 1 to enable proxy protocol, default 0. You have to enable the protocol in your proxy configuration too, for example for HAProxy add `send-proxy` or `send-proxy-v2` to each server configuration line
 - **"data_provider"**, the configuration for the data provider
     - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`, `memory`
     - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database. For driver `memory` this is the (optional) path relative to the config dir or the absolute path to the users dump to load.
@@ -219,7 +221,8 @@ Here is a full example showing the default config in JSON format:
     "login_banner_file": "",
     "setstat_mode": 0,
     "enabled_ssh_commands": ["md5sum", "sha1sum", "cd", "pwd"],
-    "keyboard_interactive_auth_program": ""
+    "keyboard_interactive_auth_program": "",
+    "proxy_protocol": 0
   },
   "data_provider": {
     "driver": "sqlite",
@@ -909,6 +912,7 @@ There is an open [issue](https://github.com/drakkan/sftpgo/issues/69) with some 
 - [ZeroConf](https://github.com/grandcat/zeroconf)
 - [SB Admin 2](https://github.com/BlackrockDigital/startbootstrap-sb-admin-2)
 - [shlex](https://github.com/google/shlex)
+- [go-proxyproto](https://github.com/pires/go-proxyproto)
 
 Some code was initially taken from [Pterodactyl sftp server](https://github.com/pterodactyl/sftp-server)
 

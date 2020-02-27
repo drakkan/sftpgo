@@ -16,6 +16,7 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/pires/go-proxyproto"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 )
@@ -99,6 +100,15 @@ type Configuration struct {
 	// Absolute path to an external program to use for keyboard interactive authentication.
 	// Leave empty to disable this authentication mode.
 	KeyboardInteractiveProgram string `json:"keyboard_interactive_auth_program" mapstructure:"keyboard_interactive_auth_program"`
+	// Support for HAProxy PROXY protocol.
+	// If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable
+	// the proxy protocol. It provides a convenient way to safely transport connection information
+	// such as a client's address across multiple layers of NAT or TCP proxies to get the real
+	// client IP address instead of the proxy IP.
+	// Set to 1 to enable proxy protocol.
+	// You have to enable the protocol in your proxy configuration too, for example for HAProxy
+	// add "send-proxy" or "send-proxy-v2" to each server configuration line
+	ProxyProtocol int `json:"proxy_protocol" mapstructure:"proxy_protocol"`
 }
 
 // Key contains information about host keys
@@ -183,20 +193,35 @@ func (c Configuration) Initialize(configDir string) error {
 		logger.Warn(logSender, "", "error starting listener on address %s:%d: %v", c.BindAddress, c.BindPort, err)
 		return err
 	}
+	var proxyListener *proxyproto.Listener
+	if c.ProxyProtocol == 1 {
+		proxyListener = &proxyproto.Listener{
+			Listener: listener,
+		}
+	}
 
 	actions = c.Actions
 	uploadMode = c.UploadMode
 	setstatMode = c.SetstatMode
 	logger.Info(logSender, "", "server listener registered address: %v", listener.Addr().String())
-	if c.IdleTimeout > 0 {
-		startIdleTimer(time.Duration(c.IdleTimeout) * time.Minute)
-	}
+	c.checkIdleTimer()
 
 	for {
-		conn, _ := listener.Accept()
-		if conn != nil {
+		var conn net.Conn
+		if proxyListener != nil {
+			conn, err = proxyListener.Accept()
+		} else {
+			conn, err = listener.Accept()
+		}
+		if conn != nil && err == nil {
 			go c.AcceptInboundConnection(conn, serverConfig)
 		}
+	}
+}
+
+func (c Configuration) checkIdleTimer() {
+	if c.IdleTimeout > 0 {
+		startIdleTimer(time.Duration(c.IdleTimeout) * time.Minute)
 	}
 }
 

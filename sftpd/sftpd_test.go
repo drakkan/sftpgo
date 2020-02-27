@@ -89,18 +89,18 @@ iixITGvaNZh/tjAAAACW5pY29sYUBwMQE=
 )
 
 var (
-	allPerms        = []string{dataprovider.PermAny}
-	homeBasePath    string
-	scpPath         string
-	gitPath         string
-	sshPath         string
-	pubKeyPath      string
-	privateKeyPath  string
-	gitWrapPath     string
-	extAuthPath     string
-	keyIntAuthPath  string
-	preLoginPath string
-	logFilePath     string
+	allPerms       = []string{dataprovider.PermAny}
+	homeBasePath   string
+	scpPath        string
+	gitPath        string
+	sshPath        string
+	pubKeyPath     string
+	privateKeyPath string
+	gitWrapPath    string
+	extAuthPath    string
+	keyIntAuthPath string
+	preLoginPath   string
+	logFilePath    string
 )
 
 func TestMain(m *testing.M) {
@@ -204,6 +204,17 @@ func TestMain(m *testing.M) {
 
 	waitTCPListening(fmt.Sprintf("%s:%d", sftpdConf.BindAddress, sftpdConf.BindPort))
 	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
+
+	sftpdConf.BindPort = 2222
+	sftpdConf.ProxyProtocol = 1
+	go func() {
+		logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
+		if err := sftpdConf.Initialize(configDir); err != nil {
+			logger.Error(logSender, "", "could not start SFTP server: %v", err)
+		}
+	}()
+
+	waitTCPListening(fmt.Sprintf("%s:%d", sftpdConf.BindAddress, sftpdConf.BindPort))
 
 	exitCode := m.Run()
 	os.Remove(logFilePath)
@@ -309,6 +320,28 @@ func TestBasicSFTPHandling(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
+}
+
+func TestProxyProtocol(t *testing.T) {
+	usePubKey := false
+	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	// remove the home dir to test auto creation
+	os.RemoveAll(user.HomeDir)
+	client, err := getSftpClientWithAddr(user, usePubKey, "127.0.0.1:2222")
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		_, err = client.Getwd()
+		if err != nil {
+			t.Errorf("error mkdir: %v", err)
+		}
+	}
+	httpd.RemoveUser(user, http.StatusOK)
 	os.RemoveAll(user.GetHomeDir())
 }
 
@@ -4626,7 +4659,7 @@ func runSSHCommand(command string, user dataprovider.User, usePubKey bool) ([]by
 	return stdout.Bytes(), err
 }
 
-func getSftpClient(user dataprovider.User, usePubKey bool) (*sftp.Client, error) {
+func getSftpClientWithAddr(user dataprovider.User, usePubKey bool, addr string) (*sftp.Client, error) {
 	var sftpClient *sftp.Client
 	config := &ssh.ClientConfig{
 		User: user.Username,
@@ -4647,12 +4680,16 @@ func getSftpClient(user dataprovider.User, usePubKey bool) (*sftp.Client, error)
 			config.Auth = []ssh.AuthMethod{ssh.Password(defaultPassword)}
 		}
 	}
-	conn, err := ssh.Dial("tcp", sftpServerAddr, config)
+	conn, err := ssh.Dial("tcp", addr, config)
 	if err != nil {
 		return sftpClient, err
 	}
 	sftpClient, err = sftp.NewClient(conn)
 	return sftpClient, err
+}
+
+func getSftpClient(user dataprovider.User, usePubKey bool) (*sftp.Client, error) {
+	return getSftpClientWithAddr(user, usePubKey, sftpServerAddr)
 }
 
 func getKeyboardInteractiveSftpClient(user dataprovider.User, answers []string) (*sftp.Client, error) {

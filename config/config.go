@@ -62,6 +62,7 @@ func init() {
 			LoginBannerFile:            "",
 			EnabledSSHCommands:         sftpd.GetDefaultSSHCommands(),
 			KeyboardInteractiveProgram: "",
+			ProxyProtocol:              0,
 		},
 		ProviderConf: dataprovider.Config{
 			Driver:           "sqlite",
@@ -85,7 +86,7 @@ func init() {
 			ExternalAuthProgram: "",
 			ExternalAuthScope:   0,
 			CredentialsPath:     "credentials",
-			PreLoginProgram:  "",
+			PreLoginProgram:     "",
 		},
 		HTTPDConfig: httpd.Conf{
 			BindPort:           8080,
