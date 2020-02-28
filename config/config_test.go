@@ -140,6 +140,27 @@ func TestInvalidCredentialsPath(t *testing.T) {
 	os.Remove(configFilePath)
 }
 
+func TestInvalidProxyProtocol(t *testing.T) {
+	configDir := ".."
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+	config.LoadConfig(configDir, "")
+	sftpdConf := config.GetSFTPDConfig()
+	sftpdConf.ProxyProtocol = 10
+	c := make(map[string]sftpd.Configuration)
+	c["sftpd"] = sftpdConf
+	jsonConf, _ := json.Marshal(c)
+	err := ioutil.WriteFile(configFilePath, jsonConf, 0666)
+	if err != nil {
+		t.Errorf("error saving temporary configuration")
+	}
+	err = config.LoadConfig(configDir, tempConfigName)
+	if err == nil {
+		t.Errorf("Loading configuration with invalid proxy_protocol must fail")
+	}
+	os.Remove(configFilePath)
+}
+
 func TestSetGetConfig(t *testing.T) {
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.IdleTimeout = 3

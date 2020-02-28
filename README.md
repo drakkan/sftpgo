@@ -160,7 +160,10 @@ The `sftpgo` configuration file contains the following sections:
       - `git-receive-pack`, `git-upload-pack`, `git-upload-archive`. These commands enable support for Git repositories over SSH, they need to be installed and in your system's `PATH`. Git commands are not allowed inside virtual folders.
       - `rsync`. The `rsync` command need to be installed and in your system's `PATH`. We cannot avoid that rsync create symlinks so if the user has the permission to create symlinks we add the option `--safe-links` to the received rsync command if it is not already set. This should prevent to create symlinks that point outside the home dir. If the user cannot create symlinks we add the option `--munge-links`, if it is not already set. This should make symlinks unusable (but manually recoverable). The `rsync` command interacts with the filesystem directly and it is not aware about virtual folders, so it will be automatically disabled for users with virtual folders.
     - `keyboard_interactive_auth_program`, string. Absolute path to an external program to use for keyboard interactive authentication. See the "Keyboard Interactive Authentication" paragraph for more details.
-    - `proxy_protocol`, integer. Support for [HAProxy PROXY protocol](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt). If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable the proxy protocol. It provides a convenient way to safely transport connection information such as a client's address across multiple layers of NAT or TCP proxies to get the real client IP address instead of the proxy IP. Set to 1 to enable proxy protocol, default 0. You have to enable the protocol in your proxy configuration too, for example for HAProxy add `send-proxy` or `send-proxy-v2` to each server configuration line
+    - `proxy_protocol`, integer. Support for [HAProxy PROXY protocol](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt). If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable the proxy protocol. It provides a convenient way to safely transport connection information such as a client's address across multiple layers of NAT or TCP proxies to get the real client IP address instead of the proxy IP. Both protocol v1 and v2 are supported. If the proxy protocol is enabled in SFTPGo then you have to enable the protocol in your proxy configuration too, for example for HAProxy add `send-proxy` or `send-proxy-v2` to each server configuration line. The following modes are supported:
+      - 0, disabled
+      - 1, enabled. Proxy header will be used and requests without proxy header will be accepted
+      - 2, required. Proxy header will be used and requests without proxy header will be rejected
 - **"data_provider"**, the configuration for the data provider
     - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`, `memory`
     - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database. For driver `memory` this is the (optional) path relative to the config dir or the absolute path to the users dump to load.
@@ -888,7 +891,7 @@ The **connection failed logs** can be used for integration in tools such as [Fai
 
 SFTPGo can easily saturate a Gigabit connection, on low end hardware, with no special configurations and this is generally enough for most use cases.
 
-The main bootlenecks are the encryption and the messages authentication, so if you can use a fast cipher with implicit message authentication, for example `aes128-gcm@openssh.com`, you will get a big performace boost.
+The main bootlenecks are the encryption and the messages authentication, so if you can use a fast cipher with implicit message authentication, for example `aes128-gcm@openssh.com`, you will get a big performance boost.
 
 There is an open [issue](https://github.com/drakkan/sftpgo/issues/69) with some other suggestions to improve performance and some comparisons against OpenSSH.
 

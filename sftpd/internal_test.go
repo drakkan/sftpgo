@@ -1709,3 +1709,18 @@ func TestSFTPExtensions(t *testing.T) {
 	}
 	sftpExtensions = initialSFTPExtensions
 }
+
+func TestProxyProtocolVersion(t *testing.T) {
+	c := Configuration{
+		ProxyProtocol: 1,
+	}
+	proxyListener := c.getProxyListener(nil)
+	if proxyListener.Policy != nil {
+		t.Error("proxy listener policy must be nil")
+	}
+	c.ProxyProtocol = 2
+	proxyListener = c.getProxyListener(nil)
+	if proxyListener.Policy == nil {
+		t.Error("proxy listener policy must be not nil")
+	}
+}

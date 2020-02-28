@@ -216,6 +216,17 @@ func TestMain(m *testing.M) {
 
 	waitTCPListening(fmt.Sprintf("%s:%d", sftpdConf.BindAddress, sftpdConf.BindPort))
 
+	sftpdConf.BindPort = 2224
+	sftpdConf.ProxyProtocol = 2
+	go func() {
+		logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
+		if err := sftpdConf.Initialize(configDir); err != nil {
+			logger.Error(logSender, "", "could not start SFTP server: %v", err)
+		}
+	}()
+
+	waitTCPListening(fmt.Sprintf("%s:%d", sftpdConf.BindAddress, sftpdConf.BindPort))
+
 	exitCode := m.Run()
 	os.Remove(logFilePath)
 	os.Remove(loginBannerFile)
@@ -340,6 +351,10 @@ func TestProxyProtocol(t *testing.T) {
 		if err != nil {
 			t.Errorf("error mkdir: %v", err)
 		}
+	}
+	client, err = getSftpClientWithAddr(user, usePubKey, "127.0.0.1:2224")
+	if err == nil {
+		t.Error("request without a proxy header must be rejected")
 	}
 	httpd.RemoveUser(user, http.StatusOK)
 	os.RemoveAll(user.GetHomeDir())

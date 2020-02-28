@@ -172,9 +172,16 @@ func LoadConfig(configDir, configName string) error {
 		globalConf.SFTPD.Banner = defaultBanner
 	}
 	if globalConf.SFTPD.UploadMode < 0 || globalConf.SFTPD.UploadMode > 2 {
-		err = fmt.Errorf("invalid upload_mode 0 and 1 are supported, configured: %v reset upload_mode to 0",
+		err = fmt.Errorf("invalid upload_mode 0, 1 and 2 are supported, configured: %v reset upload_mode to 0",
 			globalConf.SFTPD.UploadMode)
 		globalConf.SFTPD.UploadMode = 0
+		logger.Warn(logSender, "", "Configuration error: %v", err)
+		logger.WarnToConsole("Configuration error: %v", err)
+	}
+	if globalConf.SFTPD.ProxyProtocol < 0 || globalConf.SFTPD.ProxyProtocol > 2 {
+		err = fmt.Errorf("invalid proxy_protocol 0, 1 and 2 are supported, configured: %v reset proxy_protocol to 0",
+			globalConf.SFTPD.ProxyProtocol)
+		globalConf.SFTPD.ProxyProtocol = 0
 		logger.Warn(logSender, "", "Configuration error: %v", err)
 		logger.WarnToConsole("Configuration error: %v", err)
 	}

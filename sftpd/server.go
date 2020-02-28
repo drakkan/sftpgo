@@ -3,6 +3,7 @@ package sftpd
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -26,7 +27,10 @@ const (
 	defaultPrivateECDSAKeyName = "id_ecdsa"
 )
 
-var sftpExtensions = []string{"posix-rename@openssh.com"}
+var (
+	sftpExtensions            = []string{"posix-rename@openssh.com"}
+	errWrongProxyProtoVersion = errors.New("unacceptable proxy protocol version")
+)
 
 // Configuration for the SFTP server
 type Configuration struct {
@@ -104,10 +108,12 @@ type Configuration struct {
 	// If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable
 	// the proxy protocol. It provides a convenient way to safely transport connection information
 	// such as a client's address across multiple layers of NAT or TCP proxies to get the real
-	// client IP address instead of the proxy IP.
-	// Set to 1 to enable proxy protocol.
-	// You have to enable the protocol in your proxy configuration too, for example for HAProxy
-	// add "send-proxy" or "send-proxy-v2" to each server configuration line
+	// client IP address instead of the proxy IP. Both protocol v1 and v2 are supported.
+	// - 0 means disabled
+	// - 1 means proxy protocol enabled. Proxy header will be used and requests without proxy header will be accepted.
+	// - 2 means proxy protocol required. Proxy header will be used and requests without proxy header will be rejected.
+	// If the proxy protocol is enabled in SFTPGo then you have to enable the protocol in your proxy configuration too,
+	// for example for HAProxy add "send-proxy" or "send-proxy-v2" to each server configuration line.
 	ProxyProtocol int `json:"proxy_protocol" mapstructure:"proxy_protocol"`
 }
 
@@ -193,13 +199,7 @@ func (c Configuration) Initialize(configDir string) error {
 		logger.Warn(logSender, "", "error starting listener on address %s:%d: %v", c.BindAddress, c.BindPort, err)
 		return err
 	}
-	var proxyListener *proxyproto.Listener
-	if c.ProxyProtocol == 1 {
-		proxyListener = &proxyproto.Listener{
-			Listener: listener,
-		}
-	}
-
+	proxyListener := c.getProxyListener(listener)
 	actions = c.Actions
 	uploadMode = c.UploadMode
 	setstatMode = c.SetstatMode
@@ -217,6 +217,23 @@ func (c Configuration) Initialize(configDir string) error {
 			go c.AcceptInboundConnection(conn, serverConfig)
 		}
 	}
+}
+
+func (c *Configuration) getProxyListener(listener net.Listener) *proxyproto.Listener {
+	var proxyListener *proxyproto.Listener
+	if c.ProxyProtocol > 0 {
+		var policyFunc func(upstream net.Addr) (proxyproto.Policy, error)
+		if c.ProxyProtocol == 2 {
+			policyFunc = func(upstream net.Addr) (proxyproto.Policy, error) {
+				return proxyproto.REQUIRE, nil
+			}
+		}
+		proxyListener = &proxyproto.Listener{
+			Listener: listener,
+			Policy:   policyFunc,
+		}
+	}
+	return proxyListener
 }
 
 func (c Configuration) checkIdleTimer() {
