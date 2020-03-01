@@ -115,6 +115,12 @@ type Configuration struct {
 	// If the proxy protocol is enabled in SFTPGo then you have to enable the protocol in your proxy configuration too,
 	// for example for HAProxy add "send-proxy" or "send-proxy-v2" to each server configuration line.
 	ProxyProtocol int `json:"proxy_protocol" mapstructure:"proxy_protocol"`
+	// List of IP addresses and IP ranges allowed to send the proxy header.
+	// If proxy protocol is set to 1 and we receive a proxy header from an IP that is not in the list then the
+	// connection will be accepted and the header will be ignored.
+	// If proxy protocol is set to 2 and we receive a proxy header from an IP that is not in the list then the
+	// connection will be rejected.
+	ProxyAllowed []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
 }
 
 // Key contains information about host keys
@@ -199,7 +205,11 @@ func (c Configuration) Initialize(configDir string) error {
 		logger.Warn(logSender, "", "error starting listener on address %s:%d: %v", c.BindAddress, c.BindPort, err)
 		return err
 	}
-	proxyListener := c.getProxyListener(listener)
+	proxyListener, err := c.getProxyListener(listener)
+	if err != nil {
+		logger.Warn(logSender, "", "error enabling proxy listener: %v", err)
+		return err
+	}
 	actions = c.Actions
 	uploadMode = c.UploadMode
 	setstatMode = c.SetstatMode
@@ -219,13 +229,27 @@ func (c Configuration) Initialize(configDir string) error {
 	}
 }
 
-func (c *Configuration) getProxyListener(listener net.Listener) *proxyproto.Listener {
+func (c *Configuration) getProxyListener(listener net.Listener) (*proxyproto.Listener, error) {
 	var proxyListener *proxyproto.Listener
+	var err error
 	if c.ProxyProtocol > 0 {
 		var policyFunc func(upstream net.Addr) (proxyproto.Policy, error)
+		if c.ProxyProtocol == 1 && len(c.ProxyAllowed) > 0 {
+			policyFunc, err = proxyproto.LaxWhiteListPolicy(c.ProxyAllowed)
+			if err != nil {
+				return nil, err
+			}
+		}
 		if c.ProxyProtocol == 2 {
-			policyFunc = func(upstream net.Addr) (proxyproto.Policy, error) {
-				return proxyproto.REQUIRE, nil
+			if len(c.ProxyAllowed) == 0 {
+				policyFunc = func(upstream net.Addr) (proxyproto.Policy, error) {
+					return proxyproto.REQUIRE, nil
+				}
+			} else {
+				policyFunc, err = proxyproto.StrictWhiteListPolicy(c.ProxyAllowed)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 		proxyListener = &proxyproto.Listener{
@@ -233,7 +257,7 @@ func (c *Configuration) getProxyListener(listener net.Listener) *proxyproto.List
 			Policy:   policyFunc,
 		}
 	}
-	return proxyListener
+	return proxyListener, nil
 }
 
 func (c Configuration) checkIdleTimer() {

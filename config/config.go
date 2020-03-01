@@ -63,6 +63,7 @@ func init() {
 			EnabledSSHCommands:         sftpd.GetDefaultSSHCommands(),
 			KeyboardInteractiveProgram: "",
 			ProxyProtocol:              0,
+			ProxyAllowed:               []string{},
 		},
 		ProviderConf: dataprovider.Config{
 			Driver:           "sqlite",

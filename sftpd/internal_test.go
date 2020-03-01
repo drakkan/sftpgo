@@ -1791,13 +1791,24 @@ func TestProxyProtocolVersion(t *testing.T) {
 	c := Configuration{
 		ProxyProtocol: 1,
 	}
-	proxyListener := c.getProxyListener(nil)
+	proxyListener, _ := c.getProxyListener(nil)
 	if proxyListener.Policy != nil {
 		t.Error("proxy listener policy must be nil")
 	}
 	c.ProxyProtocol = 2
-	proxyListener = c.getProxyListener(nil)
+	proxyListener, _ = c.getProxyListener(nil)
 	if proxyListener.Policy == nil {
 		t.Error("proxy listener policy must be not nil")
+	}
+	c.ProxyProtocol = 1
+	c.ProxyAllowed = []string{"invalid"}
+	_, err := c.getProxyListener(nil)
+	if err == nil {
+		t.Error("get proxy listener with invalid IP must fail")
+	}
+	c.ProxyProtocol = 2
+	_, err = c.getProxyListener(nil)
+	if err == nil {
+		t.Error("get proxy listener with invalid IP must fail")
 	}
 }

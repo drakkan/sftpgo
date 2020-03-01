@@ -261,6 +261,13 @@ func TestInitialization(t *testing.T) {
 	if err == nil {
 		t.Error("Inizialize must fail, a SFTP server should be already running")
 	}
+	sftpdConf.BindPort = 4444
+	sftpdConf.ProxyProtocol = 1
+	sftpdConf.ProxyAllowed = []string{"1270.0.0.1"}
+	err = sftpdConf.Initialize(configDir)
+	if err == nil {
+		t.Error("Inizialize must fail, proxy IP allowed is invalid")
+	}
 }
 
 func TestBasicSFTPHandling(t *testing.T) {

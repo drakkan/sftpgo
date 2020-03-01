@@ -165,6 +165,9 @@ The `sftpgo` configuration file contains the following sections:
       - 0, disabled
       - 1, enabled. Proxy header will be used and requests without proxy header will be accepted
       - 2, required. Proxy header will be used and requests without proxy header will be rejected
+    - `proxy_allowed`, List of IP addresses and IP ranges allowed to send the proxy header:
+      - If `proxy_protocol` is set to 1 and we receive a proxy header from an IP that is not in the list then the connection will be accepted and the header will be ignored
+      - If `proxy_protocol` is set to 2 and we receive a proxy header from an IP that is not in the list then the connection will be rejected
 - **"data_provider"**, the configuration for the data provider
     - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`, `memory`
     - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database. For driver `memory` this is the (optional) path relative to the config dir or the absolute path to the users dump to load.
@@ -226,7 +229,8 @@ Here is a full example showing the default config in JSON format:
     "setstat_mode": 0,
     "enabled_ssh_commands": ["md5sum", "sha1sum", "cd", "pwd"],
     "keyboard_interactive_auth_program": "",
-    "proxy_protocol": 0
+    "proxy_protocol": 0,
+    "proxy_allowed": []
   },
   "data_provider": {
     "driver": "sqlite",
