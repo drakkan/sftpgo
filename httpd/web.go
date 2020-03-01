@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"io/ioutil"
 	"net/http"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -241,11 +242,75 @@ func getSliceFromDelimitedValues(values, delimiter string) []string {
 	return result
 }
 
+func getFileExtensionsFromPostField(value string, extesionsType int) []dataprovider.ExtensionsFilter {
+	var result []dataprovider.ExtensionsFilter
+	for _, cleaned := range getSliceFromDelimitedValues(value, "\n") {
+		if strings.Contains(cleaned, "::") {
+			dirExts := strings.Split(cleaned, "::")
+			if len(dirExts) > 1 {
+				dir := dirExts[0]
+				dir = strings.TrimSpace(dir)
+				exts := []string{}
+				for _, e := range strings.Split(dirExts[1], ",") {
+					cleanedExt := strings.TrimSpace(e)
+					if len(cleanedExt) > 0 {
+						exts = append(exts, cleanedExt)
+					}
+				}
+				if len(dir) > 0 {
+					filter := dataprovider.ExtensionsFilter{
+						Path: dir,
+					}
+					if extesionsType == 1 {
+						filter.AllowedExtensions = exts
+						filter.DeniedExtensions = []string{}
+					} else {
+						filter.DeniedExtensions = exts
+						filter.AllowedExtensions = []string{}
+					}
+					result = append(result, filter)
+				}
+			}
+		}
+	}
+	return result
+}
+
 func getFiltersFromUserPostFields(r *http.Request) dataprovider.UserFilters {
 	var filters dataprovider.UserFilters
 	filters.AllowedIP = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")
 	filters.DeniedIP = getSliceFromDelimitedValues(r.Form.Get("denied_ip"), ",")
 	filters.DeniedLoginMethods = r.Form["ssh_login_methods"]
+	allowedExtensions := getFileExtensionsFromPostField(r.Form.Get("allowed_extensions"), 1)
+	deniedExtensions := getFileExtensionsFromPostField(r.Form.Get("denied_extensions"), 2)
+	extensions := []dataprovider.ExtensionsFilter{}
+	if len(allowedExtensions) > 0 && len(deniedExtensions) > 0 {
+		for _, allowed := range allowedExtensions {
+			for _, denied := range deniedExtensions {
+				if path.Clean(allowed.Path) == path.Clean(denied.Path) {
+					allowed.DeniedExtensions = append(allowed.DeniedExtensions, denied.DeniedExtensions...)
+				}
+			}
+			extensions = append(extensions, allowed)
+		}
+		for _, denied := range deniedExtensions {
+			found := false
+			for _, allowed := range allowedExtensions {
+				if path.Clean(denied.Path) == path.Clean(allowed.Path) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				extensions = append(extensions, denied)
+			}
+		}
+	} else if len(allowedExtensions) > 0 {
+		extensions = append(extensions, allowedExtensions...)
+	} else if len(deniedExtensions) > 0 {
+		extensions = append(extensions, deniedExtensions...)
+	}
+	filters.FileExtensions = extensions
 	return filters
 }
 

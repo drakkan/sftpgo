@@ -544,6 +544,40 @@ func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) 
 			return errors.New("Denied login methods contents mismatch")
 		}
 	}
+	if err := compareUserFileExtensionsFilters(expected, actual); err != nil {
+		return err
+	}
+	return nil
+}
+
+func compareUserFileExtensionsFilters(expected *dataprovider.User, actual *dataprovider.User) error {
+	if len(expected.Filters.FileExtensions) != len(actual.Filters.FileExtensions) {
+		return errors.New("file extensions mismatch")
+	}
+	for _, f := range expected.Filters.FileExtensions {
+		found := false
+		for _, f1 := range actual.Filters.FileExtensions {
+			if path.Clean(f.Path) == path.Clean(f1.Path) {
+				if len(f.AllowedExtensions) != len(f1.AllowedExtensions) || len(f.DeniedExtensions) != len(f1.DeniedExtensions) {
+					return errors.New("file extensions contents mismatch")
+				}
+				for _, e := range f.AllowedExtensions {
+					if !utils.IsStringInSlice(e, f1.AllowedExtensions) {
+						return errors.New("file extensions contents mismatch")
+					}
+				}
+				for _, e := range f.DeniedExtensions {
+					if !utils.IsStringInSlice(e, f1.DeniedExtensions) {
+						return errors.New("file extensions contents mismatch")
+					}
+				}
+				found = true
+			}
+		}
+		if !found {
+			return errors.New("file extensions contents mismatch")
+		}
+	}
 	return nil
 }
 

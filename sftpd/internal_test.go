@@ -723,6 +723,83 @@ func TestSSHCommandErrors(t *testing.T) {
 	}
 }
 
+func TestCommandsWithExtensionsFilter(t *testing.T) {
+	buf := make([]byte, 65535)
+	stdErrBuf := make([]byte, 65535)
+	mockSSHChannel := MockChannel{
+		Buffer:       bytes.NewBuffer(buf),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+	}
+	server, client := net.Pipe()
+	defer server.Close()
+	defer client.Close()
+	user := dataprovider.User{
+		Username: "test",
+		HomeDir:  os.TempDir(),
+		Status:   1,
+	}
+	user.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
+		dataprovider.ExtensionsFilter{
+			Path:              "/subdir",
+			AllowedExtensions: []string{".jpg"},
+			DeniedExtensions:  []string{},
+		},
+	}
+
+	fs, _ := user.GetFilesystem("123")
+	connection := Connection{
+		channel: &mockSSHChannel,
+		netConn: client,
+		User:    user,
+		fs:      fs,
+	}
+	cmd := sshCommand{
+		command:    "md5sum",
+		connection: connection,
+		args:       []string{"subdir/test.png"},
+	}
+	err := cmd.handleHashCommands()
+	if err != errPermissionDenied {
+		t.Errorf("unexpected error: %v", err)
+	}
+	cmd = sshCommand{
+		command:    "rsync",
+		connection: connection,
+		args:       []string{"--server", "-vlogDtprze.iLsfxC", ".", "/"},
+	}
+	_, err = cmd.getSystemCommand()
+	if err != errUnsupportedConfig {
+		t.Errorf("unexpected error: %v", err)
+	}
+	cmd = sshCommand{
+		command:    "git-receive-pack",
+		connection: connection,
+		args:       []string{"/subdir"},
+	}
+	_, err = cmd.getSystemCommand()
+	if err != errUnsupportedConfig {
+		t.Errorf("unexpected error: %v", err)
+	}
+	cmd = sshCommand{
+		command:    "git-receive-pack",
+		connection: connection,
+		args:       []string{"/subdir/dir"},
+	}
+	_, err = cmd.getSystemCommand()
+	if err != errUnsupportedConfig {
+		t.Errorf("unexpected error: %v", err)
+	}
+	cmd = sshCommand{
+		command:    "git-receive-pack",
+		connection: connection,
+		args:       []string{"/adir/subdir"},
+	}
+	_, err = cmd.getSystemCommand()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
 func TestSSHCommandsRemoteFs(t *testing.T) {
 	buf := make([]byte, 65535)
 	stdErrBuf := make([]byte, 65535)

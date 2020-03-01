@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/drakkan/sftpgo/logger"
@@ -51,6 +52,29 @@ const (
 	SSHLoginMethodKeyboardInteractive = "keyboard-interactive"
 )
 
+// ExtensionsFilter defines filters based on file extensions.
+// These restrictions do not apply to files listing for performance reasons, so
+// a denied file cannot be downloaded/overwritten/renamed but will still be
+// it will still be listed in the list of files.
+// System commands such as Git and rsync interacts with the filesystem directly
+// and they are not aware about these restrictions so rsync is not allowed if
+// extensions filters are defined and Git is not allowed inside a path with
+// extensions filters
+type ExtensionsFilter struct {
+	// SFTP/SCP path, if no other specific filter is defined, the filter apply for
+	// sub directories too.
+	// For example if filters are defined for the paths "/" and "/sub" then the
+	// filters for "/" are applied for any file outside the "/sub" directory
+	Path string `json:"path"`
+	// only files with these, case insensitive, extensions are allowed.
+	// Shell like expansion is not supported so you have to specify ".jpg" and
+	// not "*.jpg"
+	AllowedExtensions []string `json:"allowed_extensions,omitempty"`
+	// files with these, case insensitive, extensions are not allowed.
+	// Denied file extensions are evaluated before the allowed ones
+	DeniedExtensions []string `json:"denied_extensions,omitempty"`
+}
+
 // UserFilters defines additional restrictions for a user
 type UserFilters struct {
 	// only clients connecting from these IP/Mask are allowed.
@@ -63,6 +87,9 @@ type UserFilters struct {
 	// these login methods are not allowed.
 	// If null or empty any available login method is allowed
 	DeniedLoginMethods []string `json:"denied_login_methods,omitempty"`
+	// filters based on file extensions.
+	// Please note that these restrictions can be easily bypassed.
+	FileExtensions []ExtensionsFilter `json:"file_extensions,omitempty"`
 }
 
 // Filesystem defines cloud storage filesystem details
@@ -226,6 +253,41 @@ func (u *User) IsLoginMethodAllowed(loginMetod string) bool {
 	}
 	if utils.IsStringInSlice(loginMetod, u.Filters.DeniedLoginMethods) {
 		return false
+	}
+	return true
+}
+
+// IsFileAllowed returns true if the specified file is allowed by the file restrictions filters
+func (u *User) IsFileAllowed(sftpPath string) bool {
+	if len(u.Filters.FileExtensions) == 0 {
+		return true
+	}
+	dirsForPath := utils.GetDirsForSFTPPath(path.Dir(sftpPath))
+	var filter ExtensionsFilter
+	for _, dir := range dirsForPath {
+		for _, f := range u.Filters.FileExtensions {
+			if f.Path == dir {
+				filter = f
+				break
+			}
+		}
+		if len(filter.Path) > 0 {
+			break
+		}
+	}
+	if len(filter.Path) > 0 {
+		toMatch := strings.ToLower(sftpPath)
+		for _, denied := range filter.DeniedExtensions {
+			if strings.HasSuffix(toMatch, denied) {
+				return false
+			}
+		}
+		for _, allowed := range filter.AllowedExtensions {
+			if strings.HasSuffix(toMatch, allowed) {
+				return true
+			}
+		}
+		return len(filter.AllowedExtensions) == 0
 	}
 	return true
 }
@@ -463,6 +525,8 @@ func (u *User) getACopy() User {
 	copy(filters.DeniedIP, u.Filters.DeniedIP)
 	filters.DeniedLoginMethods = make([]string, len(u.Filters.DeniedLoginMethods))
 	copy(filters.DeniedLoginMethods, u.Filters.DeniedLoginMethods)
+	filters.FileExtensions = make([]ExtensionsFilter, len(u.Filters.FileExtensions))
+	copy(filters.FileExtensions, u.Filters.FileExtensions)
 	fsConfig := Filesystem{
 		Provider: u.FsConfig.Provider,
 		S3Config: vfs.S3FsConfig{

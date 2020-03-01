@@ -2115,6 +2115,81 @@ func TestBandwidthAndConnections(t *testing.T) {
 	os.RemoveAll(user.GetHomeDir())
 }
 
+func TestExtensionsFilters(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	testFileSize := int64(131072)
+	testFileName := "test_file.dat"
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	localDownloadPath := filepath.Join(homeBasePath, "test_download.dat")
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		err = createTestFile(testFilePath, testFileSize)
+		if err != nil {
+			t.Errorf("unable to create test file: %v", err)
+		}
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		if err != nil {
+			t.Errorf("file upload error: %v", err)
+		}
+	}
+	user.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
+		dataprovider.ExtensionsFilter{
+			Path:              "/",
+			AllowedExtensions: []string{".zip"},
+			DeniedExtensions:  []string{},
+		},
+	}
+	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	client, err = getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		if err == nil {
+			t.Error("file upload must fail")
+		}
+		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
+		if err == nil {
+			t.Error("file download must fail")
+		}
+		err = client.Rename(testFileName, testFileName+"1")
+		if err == nil {
+			t.Error("rename must fail")
+		}
+		err = client.Remove(testFileName)
+		if err == nil {
+			t.Error("remove must fail")
+		}
+		err = client.Mkdir("dir.zip")
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		err = client.Rename("dir.zip", "dir1.zip")
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.Remove(testFilePath)
+	os.Remove(localDownloadPath)
+	os.RemoveAll(user.GetHomeDir())
+}
+
 func TestVirtualFolders(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
@@ -3562,6 +3637,60 @@ func TestUserPerms(t *testing.T) {
 	}
 }
 
+func TestFilterFileExtensions(t *testing.T) {
+	user := getTestUser(true)
+	extension := dataprovider.ExtensionsFilter{
+		Path:              "/test",
+		AllowedExtensions: []string{".jpg", ".png"},
+		DeniedExtensions:  []string{".pdf"},
+	}
+	filters := dataprovider.UserFilters{
+		FileExtensions: []dataprovider.ExtensionsFilter{extension},
+	}
+	user.Filters = filters
+	if !user.IsFileAllowed("/test/test.jPg") {
+		t.Error("this file must be allowed")
+	}
+	if user.IsFileAllowed("/test/test.pdf") {
+		t.Error("this file must be denied")
+	}
+	if !user.IsFileAllowed("/test.pDf") {
+		t.Error("this file must be allowed")
+	}
+	filters.FileExtensions = append(filters.FileExtensions, dataprovider.ExtensionsFilter{
+		Path:              "/",
+		AllowedExtensions: []string{".zip", ".rar", ".pdf"},
+		DeniedExtensions:  []string{".gz"},
+	})
+	user.Filters = filters
+	if user.IsFileAllowed("/test1/test.gz") {
+		t.Error("this file must be denied")
+	}
+	if !user.IsFileAllowed("/test1/test.zip") {
+		t.Error("this file must be allowed")
+	}
+	if user.IsFileAllowed("/test/sub/test.pdf") {
+		t.Error("this file must be denied")
+	}
+	if user.IsFileAllowed("/test1/test.png") {
+		t.Error("this file must be denied")
+	}
+	filters.FileExtensions = append(filters.FileExtensions, dataprovider.ExtensionsFilter{
+		Path:             "/test/sub",
+		DeniedExtensions: []string{".tar"},
+	})
+	user.Filters = filters
+	if user.IsFileAllowed("/test/sub/sub/test.tar") {
+		t.Error("this file must be denied")
+	}
+	if !user.IsFileAllowed("/test/sub/test.gz") {
+		t.Error("this file must be allowed")
+	}
+	if user.IsFileAllowed("/test/test.zip") {
+		t.Error("this file must be denied")
+	}
+}
+
 func TestUserEmptySubDirPerms(t *testing.T) {
 	user := getTestUser(true)
 	user.Permissions = make(map[string][]string)
@@ -4046,6 +4175,58 @@ func TestSCPRecursive(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+}
+
+func TestSCPExtensionsFilter(t *testing.T) {
+	if len(scpPath) == 0 {
+		t.Skip("scp command not found, unable to execute this test")
+	}
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	testFileSize := int64(131072)
+	testFileName := "test_file.dat"
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	localPath := filepath.Join(homeBasePath, "scp_download.dat")
+	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/")
+	remoteDownPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join("/", testFileName))
+	err = createTestFile(testFilePath, testFileSize)
+	if err != nil {
+		t.Errorf("unable to create test file: %v", err)
+	}
+	err = scpUpload(testFilePath, remoteUpPath, false, false)
+	if err != nil {
+		t.Errorf("error uploading file via scp: %v", err)
+	}
+	user.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
+		dataprovider.ExtensionsFilter{
+			Path:              "/",
+			AllowedExtensions: []string{".zip"},
+			DeniedExtensions:  []string{},
+		},
+	}
+	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to update user: %v", err)
+	}
+	err = scpDownload(localPath, remoteDownPath, false, false)
+	if err == nil {
+		t.Errorf("scp download must fail")
+	}
+	err = scpUpload(testFilePath, remoteUpPath, false, false)
+	if err == nil {
+		t.Error("scp upload must fail")
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.Remove(testFilePath)
+	os.Remove(localPath)
+	os.RemoveAll(user.GetHomeDir())
 }
 
 func TestSCPVirtualFolders(t *testing.T) {

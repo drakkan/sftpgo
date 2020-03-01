@@ -325,6 +325,45 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error adding user with invalid filters: %v", err)
 	}
+	u.Filters.DeniedLoginMethods = []string{}
+	u.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
+		dataprovider.ExtensionsFilter{
+			Path:              "relative",
+			AllowedExtensions: []string{},
+			DeniedExtensions:  []string{},
+		},
+	}
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid extensions filters: %v", err)
+	}
+	u.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
+		dataprovider.ExtensionsFilter{
+			Path:              "/",
+			AllowedExtensions: []string{},
+			DeniedExtensions:  []string{},
+		},
+	}
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid extensions filters: %v", err)
+	}
+	u.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
+		dataprovider.ExtensionsFilter{
+			Path:              "/subdir",
+			AllowedExtensions: []string{".zip"},
+			DeniedExtensions:  []string{},
+		},
+		dataprovider.ExtensionsFilter{
+			Path:              "/subdir",
+			AllowedExtensions: []string{".rar"},
+			DeniedExtensions:  []string{".jpg"},
+		},
+	}
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid extensions filters: %v", err)
+	}
 }
 
 func TestAddUserInvalidFsConfig(t *testing.T) {
@@ -549,6 +588,11 @@ func TestUpdateUser(t *testing.T) {
 	user.Filters.AllowedIP = []string{"192.168.1.0/24", "192.168.2.0/24"}
 	user.Filters.DeniedIP = []string{"192.168.3.0/24", "192.168.4.0/24"}
 	user.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPassword}
+	user.Filters.FileExtensions = append(user.Filters.FileExtensions, dataprovider.ExtensionsFilter{
+		Path:              "/subdir",
+		AllowedExtensions: []string{".zip", ".rar"},
+		DeniedExtensions:  []string{".jpg", ".png"},
+	})
 	user.UploadBandwidth = 1024
 	user.DownloadBandwidth = 512
 	user.VirtualFolders = nil
@@ -1706,6 +1750,8 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("permissions", "*")
 	form.Set("sub_dirs_permissions", " /subdir::list ,download ")
 	form.Set("virtual_folders", fmt.Sprintf(" /vdir:: %v ", mappedDir))
+	form.Set("allowed_extensions", "/dir1::.jpg,.png")
+	form.Set("denied_extensions", "/dir1::.zip")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	// test invalid url escape
 	req, _ := http.NewRequest(http.MethodPost, webUserPath+"?a=%2", &b)
@@ -1845,6 +1891,10 @@ func TestWebUserAddMock(t *testing.T) {
 	if !vfolderFoumd {
 		t.Errorf("virtual folders must contain /vdir, actual: %+v", newUser.VirtualFolders)
 	}
+	extFilters := newUser.Filters.FileExtensions[0]
+	if !utils.IsStringInSlice(".zip", extFilters.DeniedExtensions) {
+		t.Errorf("unexpected denied extensions: %v", extFilters.DeniedExtensions)
+	}
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(newUser.ID, 10), nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
@@ -1880,6 +1930,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("expiration_date", "2020-01-01 00:00:00")
 	form.Set("allowed_ip", " 192.168.1.3/32, 192.168.2.0/24 ")
 	form.Set("denied_ip", " 10.0.0.2/32 ")
+	form.Set("denied_extensions", "/dir1::.zip")
 	form.Set("ssh_login_methods", dataprovider.SSHLoginMethodKeyboardInteractive)
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
@@ -1890,10 +1941,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	var users []dataprovider.User
-	err = render.DecodeJSON(rr.Body, &users)
-	if err != nil {
-		t.Errorf("Error decoding users: %v", err)
-	}
+	render.DecodeJSON(rr.Body, &users)
 	if len(users) != 1 {
 		t.Errorf("1 user is expected")
 	}
@@ -1928,6 +1976,9 @@ func TestWebUserUpdateMock(t *testing.T) {
 	}
 	if !utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, updateUser.Filters.DeniedLoginMethods) {
 		t.Errorf("Denied login methods does not match: %v", updateUser.Filters.DeniedLoginMethods)
+	}
+	if !utils.IsStringInSlice(".zip", updateUser.Filters.FileExtensions[0].DeniedExtensions) {
+		t.Errorf("unexpected extensions filter: %+v", updateUser.Filters.FileExtensions)
 	}
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)
@@ -1976,6 +2027,8 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("s3_storage_class", user.FsConfig.S3Config.StorageClass)
 	form.Set("s3_endpoint", user.FsConfig.S3Config.Endpoint)
 	form.Set("s3_key_prefix", user.FsConfig.S3Config.KeyPrefix)
+	form.Set("allowed_extensions", "/dir1::.jpg,.png")
+	form.Set("denied_extensions", "/dir2::.zip")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
 	req.Header.Set("Content-Type", contentType)
@@ -2019,6 +2072,9 @@ func TestWebUserS3Mock(t *testing.T) {
 	}
 	if updateUser.FsConfig.S3Config.KeyPrefix != user.FsConfig.S3Config.KeyPrefix {
 		t.Error("s3 key prefix mismatch")
+	}
+	if len(updateUser.Filters.FileExtensions) != 2 {
+		t.Errorf("unexpected extensions filter: %+v", updateUser.Filters.FileExtensions)
 	}
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)
@@ -2064,6 +2120,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	form.Set("gcs_bucket", user.FsConfig.GCSConfig.Bucket)
 	form.Set("gcs_storage_class", user.FsConfig.GCSConfig.StorageClass)
 	form.Set("gcs_key_prefix", user.FsConfig.GCSConfig.KeyPrefix)
+	form.Set("allowed_extensions", "/dir1::.jpg,.png")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
 	req.Header.Set("Content-Type", contentType)
@@ -2087,10 +2144,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	var users []dataprovider.User
-	err = render.DecodeJSON(rr.Body, &users)
-	if err != nil {
-		t.Errorf("Error decoding users: %v", err)
-	}
+	render.DecodeJSON(rr.Body, &users)
 	if len(users) != 1 {
 		t.Errorf("1 user is expected")
 	}
@@ -2109,6 +2163,9 @@ func TestWebUserGCSMock(t *testing.T) {
 	}
 	if updateUser.FsConfig.GCSConfig.KeyPrefix != user.FsConfig.GCSConfig.KeyPrefix {
 		t.Error("GCS key prefix mismatch")
+	}
+	if updateUser.Filters.FileExtensions[0].Path != "/dir1" {
+		t.Errorf("unexpected extensions filter: %+v", updateUser.Filters.FileExtensions)
 	}
 	form.Set("gcs_auto_credentials", "on")
 	b, contentType, _ = getMultipartFormData(form, "", "")

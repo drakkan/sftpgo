@@ -677,6 +677,32 @@ func validatePublicKeys(user *User) error {
 	return nil
 }
 
+func validateFiltersFileExtensions(user *User) error {
+	if len(user.Filters.FileExtensions) == 0 {
+		user.Filters.FileExtensions = []ExtensionsFilter{}
+		return nil
+	}
+	filteredPaths := []string{}
+	var filters []ExtensionsFilter
+	for _, f := range user.Filters.FileExtensions {
+		cleanedPath := filepath.ToSlash(path.Clean(f.Path))
+		if !path.IsAbs(cleanedPath) {
+			return &ValidationError{err: fmt.Sprintf("invalid path %#v for file extensions filter", f.Path)}
+		}
+		if utils.IsStringInSlice(cleanedPath, filteredPaths) {
+			return &ValidationError{err: fmt.Sprintf("duplicate file extensions filter for path %#v", f.Path)}
+		}
+		if len(f.AllowedExtensions) == 0 && len(f.DeniedExtensions) == 0 {
+			return &ValidationError{err: fmt.Sprintf("empty file extensions filter for path %#v", f.Path)}
+		}
+		f.Path = cleanedPath
+		filters = append(filters, f)
+		filteredPaths = append(filteredPaths, cleanedPath)
+	}
+	user.Filters.FileExtensions = filters
+	return nil
+}
+
 func validateFilters(user *User) error {
 	if len(user.Filters.AllowedIP) == 0 {
 		user.Filters.AllowedIP = []string{}
@@ -706,6 +732,9 @@ func validateFilters(user *User) error {
 		if !utils.IsStringInSlice(loginMethod, ValidSSHLoginMethods) {
 			return &ValidationError{err: fmt.Sprintf("invalid login method: %#v", loginMethod)}
 		}
+	}
+	if err := validateFiltersFileExtensions(user); err != nil {
+		return err
 	}
 	return nil
 }

@@ -129,6 +129,10 @@ func (c *sshCommand) handleHashCommands() error {
 		response = fmt.Sprintf("%x  -\n", h.Sum(nil))
 	} else {
 		sshPath := c.getDestPath()
+		if !c.connection.User.IsFileAllowed(sshPath) {
+			c.connection.Log(logger.LevelInfo, logSenderSSH, "hash not allowed for file %#v", sshPath)
+			return c.sendErrorResponse(errPermissionDenied)
+		}
 		fsPath, err := c.connection.fs.ResolvePath(sshPath)
 		if err != nil {
 			return c.sendErrorResponse(err)
@@ -284,6 +288,41 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	return err
 }
 
+func (c *sshCommand) checkGitAllowed() error {
+	gitPath := c.getDestPath()
+	for _, v := range c.connection.User.VirtualFolders {
+		if v.VirtualPath == gitPath {
+			c.connection.Log(logger.LevelDebug, logSenderSSH, "git is not supported inside virtual folder %#v user %#v",
+				gitPath, c.connection.User.Username)
+			return errUnsupportedConfig
+		}
+		if len(gitPath) > len(v.VirtualPath) {
+			if strings.HasPrefix(gitPath, v.VirtualPath+"/") {
+				c.connection.Log(logger.LevelDebug, logSenderSSH, "git is not supported inside virtual folder %#v user %#v",
+					gitPath, c.connection.User.Username)
+				return errUnsupportedConfig
+			}
+		}
+	}
+	for _, f := range c.connection.User.Filters.FileExtensions {
+		if f.Path == gitPath {
+			c.connection.Log(logger.LevelDebug, logSenderSSH,
+				"git is not supported inside folder with files extensions filters %#v user %#v", gitPath,
+				c.connection.User.Username)
+			return errUnsupportedConfig
+		}
+		if len(gitPath) > len(f.Path) {
+			if strings.HasPrefix(gitPath, f.Path+"/") || f.Path == "/" {
+				c.connection.Log(logger.LevelDebug, logSenderSSH,
+					"git is not supported inside folder with files extensions filters %#v user %#v", gitPath,
+					c.connection.User.Username)
+				return errUnsupportedConfig
+			}
+		}
+	}
+	return nil
+}
+
 func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 	command := systemCommand{
 		cmd:      nil,
@@ -303,28 +342,21 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 		args = append(args, path)
 	}
 	if strings.HasPrefix(c.command, "git-") {
-		// we don't allow git inside virtual folders
-		gitPath := c.getDestPath()
-		for _, v := range c.connection.User.VirtualFolders {
-			if v.VirtualPath == gitPath {
-				c.connection.Log(logger.LevelDebug, logSenderSSH, "git is not supported inside virtual folder %#v user %#v",
-					gitPath, c.connection.User.Username)
-				return command, errUnsupportedConfig
-			}
-			if len(gitPath) > len(v.VirtualPath) {
-				if strings.HasPrefix(gitPath, v.VirtualPath+"/") {
-					c.connection.Log(logger.LevelDebug, logSenderSSH, "git is not supported inside virtual folder %#v user %#v",
-						gitPath, c.connection.User.Username)
-					return command, errUnsupportedConfig
-				}
-			}
+		// we don't allow git inside virtual folders or folders with files extensions filters
+		if err := c.checkGitAllowed(); err != nil {
+			return command, err
 		}
 	}
 	if c.command == "rsync" {
-		// if the user has virtual folders we don't allow rsync since the rsync command interacts with the
-		// filesystem directly and it is not aware about virtual folders
+		// if the user has virtual folders or file extensions filters we don't allow rsync since the rsync command
+		// interacts with the filesystem directly and it is not aware about virtual folders/extensions files filters
 		if len(c.connection.User.VirtualFolders) > 0 {
 			c.connection.Log(logger.LevelDebug, logSenderSSH, "user %#v has virtual folders, rsync is not supported",
+				c.connection.User.Username)
+			return command, errUnsupportedConfig
+		}
+		if len(c.connection.User.Filters.FileExtensions) > 0 {
+			c.connection.Log(logger.LevelDebug, logSenderSSH, "user %#v has file extensions filter, rsync is not supported",
 				c.connection.User.Username)
 			return command, errUnsupportedConfig
 		}

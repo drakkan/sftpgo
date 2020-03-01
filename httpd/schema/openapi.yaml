@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 1.8.2
+  version: 1.8.3
 
 servers:
 - url: /api/v1
@@ -933,6 +933,26 @@ components:
         - 'publickey'
         - 'password'
         - 'keyboard-interactive'
+    ExtensionsFilter:
+      type: object
+      properties:
+        path:
+          type: string
+          description: SFTP/SCP path, if no other specific filter is defined, the filter apply for sub directories too. For example if filters are defined for the paths "/" and "/sub" then the filters for "/" are applied for any file outside the "/sub" directory
+        allowed_extensions:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: list of, case insensitive, allowed files extension. Shell like expansion is not supported so you have to specify `.jpg` and not `*.jpg`
+          example: [ ".jpg", ".png" ]
+        denied_extensions:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: list of, case insensitive, denied files extension. Denied file extensions are evaluated before the allowed ones
+          example: [ ".zip" ]
     UserFilters:
       type: object
       properties:
@@ -956,6 +976,12 @@ components:
             $ref: '#/components/schemas/LoginMethods'
           nullable: true
           description: if null or empty any available login method is allowed
+        file_extensions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExtensionsFilter'
+          nullable: true
+          description: filters based on file extensions. These restrictions do not apply to files listing for performance reasons, so a denied file cannot be downloaded/overwritten/renamed but it will still be listed in the list of files. Please note that these restrictions can be easily bypassed
       description: Additional restrictions
     S3Config:
       type: object

@@ -165,6 +165,53 @@ func TestCompareUserFilters(t *testing.T) {
 	if err == nil {
 		t.Errorf("Denied login methods contents are not equal")
 	}
+	expected.Filters.DeniedLoginMethods = []string{}
+	actual.Filters.DeniedLoginMethods = []string{}
+	expected.Filters.FileExtensions = append(expected.Filters.FileExtensions, dataprovider.ExtensionsFilter{
+		Path:              "/",
+		AllowedExtensions: []string{".jpg", ".png"},
+		DeniedExtensions:  []string{".zip", ".rar"},
+	})
+	err = checkUser(expected, actual)
+	if err == nil {
+		t.Errorf("file extensons are not equal")
+	}
+	actual.Filters.FileExtensions = append(actual.Filters.FileExtensions, dataprovider.ExtensionsFilter{
+		Path:              "/sub",
+		AllowedExtensions: []string{".jpg", ".png"},
+		DeniedExtensions:  []string{".zip", ".rar"},
+	})
+	err = checkUser(expected, actual)
+	if err == nil {
+		t.Errorf("file extensons contents are not equal")
+	}
+	actual.Filters.FileExtensions[0] = dataprovider.ExtensionsFilter{
+		Path:              "/",
+		AllowedExtensions: []string{".jpg"},
+		DeniedExtensions:  []string{".zip", ".rar"},
+	}
+	err = checkUser(expected, actual)
+	if err == nil {
+		t.Errorf("file extensons contents are not equal")
+	}
+	actual.Filters.FileExtensions[0] = dataprovider.ExtensionsFilter{
+		Path:              "/",
+		AllowedExtensions: []string{".tiff", ".png"},
+		DeniedExtensions:  []string{".zip", ".rar"},
+	}
+	err = checkUser(expected, actual)
+	if err == nil {
+		t.Errorf("file extensons contents are not equal")
+	}
+	actual.Filters.FileExtensions[0] = dataprovider.ExtensionsFilter{
+		Path:              "/",
+		AllowedExtensions: []string{".jpg", ".png"},
+		DeniedExtensions:  []string{".tar.gz", ".rar"},
+	}
+	err = checkUser(expected, actual)
+	if err == nil {
+		t.Errorf("file extensons contents are not equal")
+	}
 }
 
 func TestCompareUserFields(t *testing.T) {

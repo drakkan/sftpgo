@@ -51,6 +51,11 @@ func (c Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 		return nil, sftp.ErrSSHFxPermissionDenied
 	}
 
+	if !c.User.IsFileAllowed(request.Filepath) {
+		c.Log(logger.LevelWarn, logSender, "reading file %#v is not allowed", request.Filepath)
+		return nil, sftp.ErrSSHFxPermissionDenied
+	}
+
 	p, err := c.fs.ResolvePath(request.Filepath)
 	if err != nil {
 		return nil, vfs.GetSFTPError(c.fs, err)
@@ -97,6 +102,12 @@ func (c Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 // Filewrite handles the write actions for a file on the system.
 func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 	updateConnectionActivity(c.ID)
+
+	if !c.User.IsFileAllowed(request.Filepath) {
+		c.Log(logger.LevelWarn, logSender, "writing file %#v is not allowed", request.Filepath)
+		return nil, sftp.ErrSSHFxPermissionDenied
+	}
+
 	p, err := c.fs.ResolvePath(request.Filepath)
 	if err != nil {
 		return nil, vfs.GetSFTPError(c.fs, err)
@@ -309,6 +320,13 @@ func (c Connection) handleSFTPRename(sourcePath string, targetPath string, reque
 		c.Log(logger.LevelWarn, logSender, "renaming a virtual folder is not allowed")
 		return sftp.ErrSSHFxPermissionDenied
 	}
+	if !c.User.IsFileAllowed(request.Filepath) || !c.User.IsFileAllowed(request.Target) {
+		if fi, err := c.fs.Lstat(sourcePath); err == nil && fi.Mode().IsRegular() {
+			c.Log(logger.LevelDebug, logSender, "renaming file is not allowed, source: %#v target: %#v", request.Filepath,
+				request.Target)
+			return sftp.ErrSSHFxPermissionDenied
+		}
+	}
 	if !c.User.HasPerm(dataprovider.PermRename, path.Dir(request.Target)) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
@@ -409,6 +427,12 @@ func (c Connection) handleSFTPRemove(filePath string, request *sftp.Request) err
 		c.Log(logger.LevelDebug, logSender, "cannot remove %#v is not a file/symlink", filePath)
 		return sftp.ErrSSHFxFailure
 	}
+
+	if !c.User.IsFileAllowed(request.Filepath) {
+		c.Log(logger.LevelDebug, logSender, "removing file %#v is not allowed", filePath)
+		return sftp.ErrSSHFxPermissionDenied
+	}
+
 	size = fi.Size()
 	if err := c.fs.Remove(filePath, false); err != nil {
 		c.Log(logger.LevelWarn, logSender, "failed to remove a file/symlink %#v: %+v", filePath, err)
