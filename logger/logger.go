@@ -11,6 +11,7 @@ package logger
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 
@@ -46,7 +47,7 @@ func GetLogger() *zerolog.Logger {
 // InitLogger configures the logger using the given parameters
 func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge int, logCompress bool, level zerolog.Level) {
 	zerolog.TimeFieldFormat = dateFormat
-	if len(logFilePath) > 0 {
+	if len(logFilePath) > 0 && filepath.Clean(logFilePath) != "." {
 		logger = zerolog.New(&lumberjack.Logger{
 			Filename:   logFilePath,
 			MaxSize:    logMaxSize,

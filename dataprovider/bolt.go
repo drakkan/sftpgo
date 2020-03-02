@@ -55,6 +55,9 @@ func initializeBoltProvider(basePath string) error {
 	var err error
 	logSender = BoltDataProviderName
 	dbPath := config.Name
+	if dbPath == "." {
+		return fmt.Errorf("Invalid database path: %#v", dbPath)
+	}
 	if !filepath.IsAbs(dbPath) {
 		dbPath = filepath.Join(basePath, dbPath)
 	}

@@ -32,6 +32,9 @@ func initializeSQLiteProvider(basePath string) error {
 	logSender = SQLiteDataProviderName
 	if len(config.ConnectionString) == 0 {
 		dbPath := config.Name
+		if dbPath == "." {
+			return fmt.Errorf("Invalid database path: %#v", dbPath)
+		}
 		if !filepath.IsAbs(dbPath) {
 			dbPath = filepath.Join(basePath, dbPath)
 		}

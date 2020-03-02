@@ -50,6 +50,9 @@ func (s *Service) Start() error {
 	if !s.LogVerbose {
 		logLevel = zerolog.InfoLevel
 	}
+	if !filepath.IsAbs(s.LogFilePath) && len(s.LogFilePath) > 0 && s.LogFilePath != "." {
+		s.LogFilePath = filepath.Join(s.ConfigDir, s.LogFilePath)
+	}
 	logger.InitLogger(s.LogFilePath, s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogCompress, logLevel)
 	if s.PortableMode == 1 {
 		logger.EnableConsoleLogger(logLevel)

@@ -39,7 +39,7 @@ type MemoryProvider struct {
 
 func initializeMemoryProvider(basePath string) error {
 	configFile := ""
-	if len(config.Name) > 0 {
+	if len(config.Name) > 0 && config.Name != "." {
 		configFile = config.Name
 		if !filepath.IsAbs(configFile) {
 			configFile = filepath.Join(basePath, configFile)

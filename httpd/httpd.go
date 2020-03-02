@@ -129,7 +129,7 @@ func ReloadTLSCertificate() {
 }
 
 func getConfigPath(name, configDir string) string {
-	if len(name) > 0 && !filepath.IsAbs(name) {
+	if len(name) > 0 && !filepath.IsAbs(name) && name != "." {
 		return filepath.Join(configDir, name)
 	}
 	return name
