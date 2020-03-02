@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/drakkan/sftpgo/service"
 	"github.com/spf13/cobra"
@@ -18,7 +19,7 @@ sftpgo service install
 Please take a look at the usage below to customize the startup options`,
 		Run: func(cmd *cobra.Command, args []string) {
 			s := service.Service{
-				ConfigDir:     configDir,
+				ConfigDir:     filepath.Clean(configDir),
 				ConfigFile:    configFile,
 				LogFilePath:   logFilePath,
 				LogMaxSize:    logMaxSize,

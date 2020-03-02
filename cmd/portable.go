@@ -77,7 +77,7 @@ Please take a look at the usage below to customize the serving parameters`,
 				portableGCSAutoCredentials = 0
 			}
 			service := service.Service{
-				ConfigDir:     defaultConfigDir,
+				ConfigDir:     filepath.Clean(defaultConfigDir),
 				ConfigFile:    defaultConfigName,
 				LogFilePath:   portableLogFile,
 				LogMaxSize:    defaultLogMaxSize,

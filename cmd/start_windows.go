@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/drakkan/sftpgo/service"
 	"github.com/spf13/cobra"
@@ -13,7 +14,7 @@ var (
 		Short: "Start SFTPGo Windows Service",
 		Run: func(cmd *cobra.Command, args []string) {
 			s := service.Service{
-				ConfigDir:     configDir,
+				ConfigDir:     filepath.Clean(configDir),
 				ConfigFile:    configFile,
 				LogFilePath:   logFilePath,
 				LogMaxSize:    logMaxSize,
