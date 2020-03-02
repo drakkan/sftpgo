@@ -327,7 +327,7 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	}
 	u.Filters.DeniedLoginMethods = []string{}
 	u.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
-		dataprovider.ExtensionsFilter{
+		{
 			Path:              "relative",
 			AllowedExtensions: []string{},
 			DeniedExtensions:  []string{},
@@ -338,7 +338,7 @@ func TestAddUserInvalidFilters(t *testing.T) {
 		t.Errorf("unexpected error adding user with invalid extensions filters: %v", err)
 	}
 	u.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
-		dataprovider.ExtensionsFilter{
+		{
 			Path:              "/",
 			AllowedExtensions: []string{},
 			DeniedExtensions:  []string{},
@@ -349,12 +349,12 @@ func TestAddUserInvalidFilters(t *testing.T) {
 		t.Errorf("unexpected error adding user with invalid extensions filters: %v", err)
 	}
 	u.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
-		dataprovider.ExtensionsFilter{
+		{
 			Path:              "/subdir",
 			AllowedExtensions: []string{".zip"},
 			DeniedExtensions:  []string{},
 		},
-		dataprovider.ExtensionsFilter{
+		{
 			Path:              "/subdir",
 			AllowedExtensions: []string{".rar"},
 			DeniedExtensions:  []string{".jpg"},

@@ -739,7 +739,7 @@ func TestCommandsWithExtensionsFilter(t *testing.T) {
 		Status:   1,
 	}
 	user.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
-		dataprovider.ExtensionsFilter{
+		{
 			Path:              "/subdir",
 			AllowedExtensions: []string{".jpg"},
 			DeniedExtensions:  []string{},

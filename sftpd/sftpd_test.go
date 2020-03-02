@@ -2148,7 +2148,7 @@ func TestExtensionsFilters(t *testing.T) {
 		}
 	}
 	user.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
-		dataprovider.ExtensionsFilter{
+		{
 			Path:              "/",
 			AllowedExtensions: []string{".zip"},
 			DeniedExtensions:  []string{},
@@ -4209,7 +4209,7 @@ func TestSCPExtensionsFilter(t *testing.T) {
 		t.Errorf("error uploading file via scp: %v", err)
 	}
 	user.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
-		dataprovider.ExtensionsFilter{
+		{
 			Path:              "/",
 			AllowedExtensions: []string{".zip"},
 			DeniedExtensions:  []string{},
