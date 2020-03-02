@@ -192,11 +192,10 @@ func (s *WindowsService) Install(args ...string) error {
 			Delay: 60 * time.Second,
 		},
 		{
-			Type:  mgr.ServiceRestart,
-			Delay: 90 * time.Second,
+			Type: mgr.NoAction,
 		},
 	}
-	err = service.SetRecoveryActions(recoveryActions, uint32(86400))
+	err = service.SetRecoveryActions(recoveryActions, uint32(3600))
 	if err != nil {
 		service.Delete()
 		return fmt.Errorf("unable to set recovery actions: %v", err)
