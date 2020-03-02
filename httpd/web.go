@@ -98,10 +98,10 @@ func loadTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateBase),
 		filepath.Join(templatesPath, templateMessage),
 	}
-	usersTmpl := template.Must(template.ParseFiles(usersPaths...))
-	userTmpl := template.Must(template.ParseFiles(userPaths...))
-	connectionsTmpl := template.Must(template.ParseFiles(connectionsPaths...))
-	messageTmpl := template.Must(template.ParseFiles(messagePath...))
+	usersTmpl := utils.LoadTemplate(template.ParseFiles(usersPaths...))
+	userTmpl := utils.LoadTemplate(template.ParseFiles(userPaths...))
+	connectionsTmpl := utils.LoadTemplate(template.ParseFiles(connectionsPaths...))
+	messageTmpl := utils.LoadTemplate(template.ParseFiles(messagePath...))
 
 	templates[templateUsers] = usersTmpl
 	templates[templateUser] = userTmpl

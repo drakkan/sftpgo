@@ -13,6 +13,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"net"
@@ -22,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/drakkan/sftpgo/logger"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -274,4 +276,15 @@ func CleanSFTPPath(p string) string {
 		sftpPath = "/" + sftpPath
 	}
 	return path.Clean(sftpPath)
+}
+
+// LoadTemplate wraps a call to a function returning (*Template, error)
+// it is just like template.Must but it writes a log before exiting
+func LoadTemplate(t *template.Template, err error) *template.Template {
+	if err != nil {
+		logger.ErrorToConsole("error loading required template: %v", err)
+		logger.Error(logSender, "", "error loading required template: %v", err)
+		panic(err)
+	}
+	return t
 }
