@@ -305,7 +305,7 @@ Before starting `sftpgo serve` please ensure that the configured dataprovider is
 SQL based data providers (SQLite, MySQL, PostgreSQL) requires the creation of a database containing the required tables. Memory and bolt data providers does not require an initialization.
 
 After configuring the data provider, using the configuration file, you can create the required database structure using the `initprovider` command.
-For SQLite provider the database file will be auto created if missing.
+For SQLite provider, `initprovider`command will auto create the database file, if missing, and the required tables.
 For PostgreSQL and MySQL providers you need to create the configured database, `initprovider` command will create the required tables.
 
 For example you can simply execute the following command from the configuration directory:
