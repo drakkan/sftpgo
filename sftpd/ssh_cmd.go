@@ -360,7 +360,7 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 				c.connection.User.Username)
 			return command, errUnsupportedConfig
 		}
-		// we cannot avoid that rsync create symlinks so if the user has the permission
+		// we cannot avoid that rsync creates symlinks so if the user has the permission
 		// to create symlinks we add the option --safe-links to the received rsync command if
 		// it is not already set. This should prevent to create symlinks that point outside
 		// the home dir.

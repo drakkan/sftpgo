@@ -150,7 +150,7 @@ type Config struct {
 	// Sets the maximum number of open connections for mysql and postgresql driver.
 	// Default 0 (unlimited)
 	PoolSize int `json:"pool_size" mapstructure:"pool_size"`
-	// Users' default base directory.
+	// Users default base directory.
 	// If no home dir is defined while adding a new user, and this value is
 	// a valid absolute path, then the user home dir will be automatically
 	// defined as the path obtained joining the base dir and the username

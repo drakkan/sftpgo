@@ -40,10 +40,11 @@ type Configuration struct {
 	BindPort int `json:"bind_port" mapstructure:"bind_port"`
 	// The address to listen on. A blank value means listen on all available network interfaces.
 	BindAddress string `json:"bind_address" mapstructure:"bind_address"`
-	// Maximum idle timeout as minutes. If a client is idle for a time that exceeds this setting it will be disconnected
+	// Maximum idle timeout as minutes. If a client is idle for a time that exceeds this setting it will be disconnected.
+	// 0 means disabled
 	IdleTimeout int `json:"idle_timeout" mapstructure:"idle_timeout"`
 	// Maximum number of authentication attempts permitted per connection.
-	// If set to a negative number, the number of attempts are unlimited.
+	// If set to a negative number, the number of attempts is unlimited.
 	// If set to zero, the number of attempts are limited to 6.
 	MaxAuthTries int `json:"max_auth_tries" mapstructure:"max_auth_tries"`
 	// Umask for new files
@@ -108,7 +109,7 @@ type Configuration struct {
 	// If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable
 	// the proxy protocol. It provides a convenient way to safely transport connection information
 	// such as a client's address across multiple layers of NAT or TCP proxies to get the real
-	// client IP address instead of the proxy IP. Both protocol v1 and v2 are supported.
+	// client IP address instead of the proxy IP. Both protocol version 1 and 2 are supported.
 	// - 0 means disabled
 	// - 1 means proxy protocol enabled. Proxy header will be used and requests without proxy header will be accepted.
 	// - 2 means proxy protocol required. Proxy header will be used and requests without proxy header will be rejected.

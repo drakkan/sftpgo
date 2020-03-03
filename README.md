@@ -121,8 +121,8 @@ Flags:
 
 The `serve` command supports the following flags:
 
-- `--config-dir` string. Location of the config dir. This directory should contain the `sftpgo` configuration file and is used as the base dir for files with a relative path (eg. the private keys for the SFTP server, the SQLite or bblot database if you use SQLite or bbolt as data provider). The default value is "." or the value of `SFTPGO_CONFIG_DIR` environment variable.
-- `--config-file` string. Name of the configuration file. It must be the name of a file stored in config-dir not the absolute path to the configuration file. The specified file name must have no extension we automatically load JSON, YAML, TOML, HCL and Java properties. The default value is "sftpgo" (and therefore `sftpgo.json`, `sftpgo.yaml` and so on are searched) or the value of `SFTPGO_CONFIG_FILE` environment variable.
+- `--config-dir` string. Location of the config dir. This directory should contain the `sftpgo` configuration file and is used as the base directory for files with a relative path (eg. the private keys for the SFTP server, the SQLite or bblot database if you use SQLite or bbolt as data provider). The default value is "." or the value of `SFTPGO_CONFIG_DIR` environment variable.
+- `--config-file` string. Name of the configuration file. It must be the name of a file stored in `config-dir` not the absolute path to the configuration file. The specified file name must have no extension we automatically load JSON, YAML, TOML, HCL and Java properties. The default value is "sftpgo" (and therefore `sftpgo.json`, `sftpgo.yaml` and so on are searched) or the value of `SFTPGO_CONFIG_FILE` environment variable.
 - `--log-compress` boolean. Determine if the rotated log files should be compressed using gzip. Default `false` or the value of `SFTPGO_LOG_COMPRESS` environment variable (1 or `true`, 0 or `false`). It is unused if `log-file-path` is empty.
 - `--log-file-path` string. Location for the log file, default "sftpgo.log" or the value of `SFTPGO_LOG_FILE_PATH` environment variable. Leave empty to write logs to the standard error.
 - `--log-max-age` int. Maximum number of days to retain old log files. Default 28 or the value of `SFTPGO_LOG_MAX_AGE` environment variable. It is unused if `log-file-path` is empty.
@@ -130,17 +130,17 @@ The `serve` command supports the following flags:
 - `--log-max-size` int. Maximum size in megabytes of the log file before it gets rotated. Default 10 or the value of `SFTPGO_LOG_MAX_SIZE` environment variable. It is unused if `log-file-path` is empty.
 - `--log-verbose` boolean. Enable verbose logs. Default `true` or the value of `SFTPGO_LOG_VERBOSE` environment variable (1 or `true`, 0 or `false`).
 
-If you don't configure any private host key, the daemon will use `id_rsa` and `id_ecdsa` in the configuration directory. If these files don't exist, the daemon will attempt to autogenerate them (if the user that executes SFTPGo has write access to the config-dir). The server supports any private key format supported by [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/keys.go#L32).
+If you don't configure any private host key, the daemon will use `id_rsa` and `id_ecdsa` in the configuration directory. If these files don't exist, the daemon will attempt to autogenerate them (if the user that executes SFTPGo has write access to the `config-dir`). The server supports any private key format supported by [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/keys.go#L33).
 
 The `sftpgo` configuration file contains the following sections:
 
 - **"sftpd"**, the configuration for the SFTP server
     - `bind_port`, integer. The port used for serving SFTP requests. Default: 2022
     - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: ""
-    - `idle_timeout`, integer. Time in minutes after which an idle client will be disconnected. 0 menas disabled. Default: 15
-    - `max_auth_tries` integer. Maximum number of authentication attempts permitted per connection. If set to a negative number, the number of attempts are unlimited. If set to zero, the number of attempts are limited to 6.
+    - `idle_timeout`, integer. Time in minutes after which an idle client will be disconnected. 0 means disabled. Default: 15
+    - `max_auth_tries` integer. Maximum number of authentication attempts permitted per connection. If set to a negative number, the number of attempts is unlimited. If set to zero, the number of attempts are limited to 6.
     - `umask`, string. Umask for the new files and directories. This setting has no effect on Windows. Default: "0022"
-    - `banner`, string. Identification string used by the server. Leave empty to use the default banner. Default "SFTPGo_<version>"
+    - `banner`, string. Identification string used by the server. Leave empty to use the default banner. Default `SFTPGo_<version>`, for example `SSH-2.0-SFTPGo_0.9.5`
     - `upload_mode` integer. 0 means standard, the files are uploaded directly to the requested path. 1 means atomic: files are uploaded to a temporary path and renamed to the requested path when the client ends the upload. Atomic mode avoids problems such as a web server that serves partial files when the files are being uploaded. In atomic mode if there is an upload error the temporary file is deleted and so the requested upload path will not contain a partial file. 2 means atomic with resume support: as atomic but if there is an upload error the temporary file is renamed to the requested path and not deleted, this way a client can reconnect and resume the upload.
     - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions. See the "Custom Actions" paragraph for more details
         - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`, `ssh_cmd`. Leave empty to disable actions.
@@ -152,16 +152,16 @@ The `sftpgo` configuration file contains the following sections:
     - `kex_algorithms`, list of strings. Available KEX (Key Exchange) algorithms in preference order. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L46 "Supported kex algos")
     - `ciphers`, list of strings. Allowed ciphers. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L28 "Supported ciphers")
     - `macs`, list of strings. available MAC (message authentication code) algorithms in preference order. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L84 "Supported MACs")
-    - `login_banner_file`, path to the login banner file. The contents of the specified file, if any, are sent to the remote user before authentication is allowed. It can be a path relative to the config dir or an absolute one. Leave empty to send no login banner
+    - `login_banner_file`, path to the login banner file. The contents of the specified file, if any, are sent to the remote user before authentication is allowed. It can be a path relative to the config dir or an absolute one. Leave empty to disable login banner
     - `setstat_mode`, integer. 0 means "normal mode": requests for changing permissions, owner/group and access/modification times are executed. 1 means "ignore mode": requests for changing permissions, owner/group and access/modification times are silently ignored.
     - `enabled_ssh_commands`, list of enabled SSH commands. These SSH commands are enabled by default: `md5sum`, `sha1sum`, `cd`, `pwd`. `*` enables all supported commands. Some commands are implemented directly inside SFTPGo, while for other commands we use system commands that need to be installed and in your system's `PATH`. For system commands we have no direct control on file creation/deletion and so we cannot support remote filesystems, such as S3, and quota check is suboptimal: if quota is enabled, the number of files is checked at the command begin and not while new files are created. The allowed size is calculated as the difference between the max quota and the used one and it is checked against the bytes transferred via SSH. The command is aborted if it uploads more bytes than the remaining allowed size calculated at the command start. Anyway we see the bytes that the remote command send to the local command via SSH, these bytes contain both protocol commands and files and so the size of the files is different from the size trasferred via SSH: for example a command can send compressed files or a protocol command (few bytes) could delete a big file. To mitigate this issue quotas are recalculated at the command end with a full home directory scan, this could be heavy for big directories. If you need system commands and quotas you could consider to disable quota restrictions and periodically update quota usage yourself using the REST API. We support the following SSH commands:
       - `scp`, SCP is an experimental feature, we have our own SCP implementation since we can't rely on "scp" system command to proper handle quotas and user's home dir restrictions. The SCP protocol is quite simple but there is no official docs about it, so we need more testing and feedbacks before enabling it by default. We may not handle some borderline cases or have sneaky bugs. Please do accurate tests yourself before enabling SCP and let us known if something does not work as expected for your use cases. SCP between two remote hosts is supported using the `-3` scp option.
       - `md5sum`, `sha1sum`, `sha256sum`, `sha384sum`, `sha512sum`. Useful to check message digests for uploaded files. These commands are implemented inside SFTPGo so they work even if the matching system commands are not available, for example on Windows.
-      - `cd`, `pwd`. Some SFTP clients does not support the SFTP SSH_FXP_REALPATH packet type and so they use `cd` and `pwd` SSH commands to get the initial directory. Currently `cd` do nothing and `pwd` always returns the `/` path.
+      - `cd`, `pwd`. Some SFTP clients does not support the SFTP SSH_FXP_REALPATH packet type and so they use `cd` and `pwd` SSH commands to get the initial directory. Currently `cd` does nothing and `pwd` always returns the `/` path.
       - `git-receive-pack`, `git-upload-pack`, `git-upload-archive`. These commands enable support for Git repositories over SSH, they need to be installed and in your system's `PATH`. Git commands are not allowed inside virtual folders and inside directories with file extensions filters.
-      - `rsync`. The `rsync` command need to be installed and in your system's `PATH`. We cannot avoid that rsync create symlinks so if the user has the permission to create symlinks we add the option `--safe-links` to the received rsync command if it is not already set. This should prevent to create symlinks that point outside the home dir. If the user cannot create symlinks we add the option `--munge-links`, if it is not already set. This should make symlinks unusable (but manually recoverable). The `rsync` command interacts with the filesystem directly and it is not aware about virtual folders and file extensions filters, so it will be automatically disabled for users with virtual folders or file extensions filters.
+      - `rsync`. The `rsync` command need to be installed and in your system's `PATH`. We cannot avoid that rsync creates symlinks so if the user has the permission to create symlinks we add the option `--safe-links` to the received rsync command, if it is not already set. This should prevent to create symlinks that point outside the home dir. If the user cannot create symlinks we add the option `--munge-links`, if it is not already set. This should make symlinks unusable (but manually recoverable). The `rsync` command interacts with the filesystem directly and it is not aware about virtual folders and file extensions filters, so it will be automatically disabled for users with these features enabled.
     - `keyboard_interactive_auth_program`, string. Absolute path to an external program to use for keyboard interactive authentication. See the "Keyboard Interactive Authentication" paragraph for more details.
-    - `proxy_protocol`, integer. Support for [HAProxy PROXY protocol](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt). If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable the proxy protocol. It provides a convenient way to safely transport connection information such as a client's address across multiple layers of NAT or TCP proxies to get the real client IP address instead of the proxy IP. Both protocol v1 and v2 are supported. If the proxy protocol is enabled in SFTPGo then you have to enable the protocol in your proxy configuration too, for example for HAProxy add `send-proxy` or `send-proxy-v2` to each server configuration line. The following modes are supported:
+    - `proxy_protocol`, integer. Support for [HAProxy PROXY protocol](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt). If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable the proxy protocol. It provides a convenient way to safely transport connection information such as a client's address across multiple layers of NAT or TCP proxies to get the real client IP address instead of the proxy IP. Both protocol version 1 and 2 are supported. If the proxy protocol is enabled in SFTPGo then you have to enable the protocol in your proxy configuration too, for example for HAProxy add `send-proxy` or `send-proxy-v2` to each server configuration line. The following modes are supported:
       - 0, disabled
       - 1, enabled. Proxy header will be used and requests without proxy header will be accepted
       - 2, required. Proxy header will be used and requests without proxy header will be rejected
@@ -184,7 +184,7 @@ The `sftpgo` configuration file contains the following sections:
         - 1, quota is updated each time a user upload or delete a file even if the user has no quota restrictions
         - 2, quota is updated each time a user upload or delete a file but only for users with quota restrictions. With this configuration the "quota scan" REST API can still be used to periodically update space usage for users without quota restrictions
     - `pool_size`, integer. Sets the maximum number of open connections for `mysql` and `postgresql` driver. Default 0 (unlimited)
-    - `users_base_dir`, string. Users' default base directory. If no home dir is defined while adding a new user, and this value is a valid absolute path, then the user home dir will be automatically defined as the path obtained joining the base dir and the username
+    - `users_base_dir`, string. Users default base directory. If no home dir is defined while adding a new user, and this value is a valid absolute path, then the user home dir will be automatically defined as the path obtained joining the base dir and the username
     - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions. See the "Custom Actions" paragraph for more details
         - `execute_on`, list of strings. Valid values are `add`, `update`, `delete`. `update` action will not be fired for internal updates such as the last login or the user quota fields.
         - `command`, string. Absolute path to the command to execute. Leave empty to disable.
@@ -199,9 +199,9 @@ The `sftpgo` configuration file contains the following sections:
     - `templates_path`, string. Path to the HTML web templates. This can be an absolute path or a path relative to the config dir
     - `static_files_path`, string. Path to the static files for the web interface. This can be an absolute path or a path relative to the config dir
     - `backups_path`, string. Path to the backup directory. This can be an absolute path or a path relative to the config dir. We don't allow backups in arbitrary paths for security reasons
-    - `auth_user_file`, string. Path to a file used to store usernames and password for basic authentication. This can be an absolute path or a path relative to the config dir. We support HTTP basic authentication and the file format must conform to the one generated using the Apache tool. The supported password formats are bcrypt (`$2y$` prefix) and md5 crypt (`$apr1$` prefix). If empty HTTP authentication is disabled.
+    - `auth_user_file`, string. Path to a file used to store usernames and password for basic authentication. This can be an absolute path or a path relative to the config dir. We support HTTP basic authentication and the file format must conform to the one generated using the Apache `htpasswd` tool. The supported password formats are bcrypt (`$2y$` prefix) and md5 crypt (`$apr1$` prefix). If empty HTTP authentication is disabled.
     - `certificate_file`, string. Certificate for HTTPS. This can be an absolute path or a path relative to the config dir.
-    - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If both the certificate and the private key are provided the the server will expect HTTPS connections. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
+    - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If both the certificate and the private key are provided the server will expect HTTPS connections. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
 
 Here is a full example showing the default config in JSON format:
 
@@ -305,8 +305,8 @@ Before starting `sftpgo serve` please ensure that the configured dataprovider is
 SQL based data providers (SQLite, MySQL, PostgreSQL) requires the creation of a database containing the required tables. Memory and bolt data providers does not require an initialization.
 
 After configuring the data provider, using the configuration file, you can create the required database structure using the `initprovider` command.
-For SQLite provider, `initprovider`command will auto create the database file, if missing, and the required tables.
-For PostgreSQL and MySQL providers you need to create the configured database, `initprovider` command will create the required tables.
+For SQLite provider, the `initprovider` command will auto create the database file, if missing, and the required tables.
+For PostgreSQL and MySQL providers you need to create the configured database, the `initprovider` command will create the required tables.
 
 For example you can simply execute the following command from the configuration directory:
 
@@ -322,7 +322,7 @@ sftpgo initprovider --help
 
 The `initprovider` command is enough for new installations. From now on, the database structure will be automatically checked and updated, if required, at startup.
 
-If you are upgrading from version 0.9.5 or before you have to manually execute the SQL scripts to create the required database structure.These script can be found inside the source tree [sql](./sql "sql") directory. The SQL scripts filename is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190828.sql` must be applied before `20191112.sql` and so on.
+If you are upgrading from version 0.9.5 or before you have to manually execute the SQL scripts to create the required database structure. These script can be found inside the source tree [sql](./sql "sql") directory. The SQL scripts filename is, by convention, the date as `YYYYMMDD` and the suffix `.sql`. You need to apply all the SQL scripts for your database ordered by name, for example `20190828.sql` must be applied before `20191112.sql` and so on.
 Example for SQLite: `find sql/sqlite/ -type f -iname '*.sql' -print | sort -n | xargs cat | sqlite3 sftpgo.db`.
 After applying these scripts your database structure is the same as the one obtained using `initprovider` for new installations, so from now on you don't have to manually upgrade your database anymore.
 
@@ -384,7 +384,7 @@ The external program can read the following environment variables to get info ab
 
 Previous global environment variables aren't cleared when the script is called. The content of these variables is _not_ quoted. They may contain special characters. They are under the control of a possibly malicious remote user.
 The program must write, on its standard output, a valid SFTPGo user serialized as JSON if the authentication succeed or an user with an empty username if the authentication fails.
-If the authentication succeed the user will be automatically added/updated inside the defined data provider. Actions defined for user added/updated will not be executed in this case.
+If the authentication succeed the user will be automatically added/updated inside the defined data provider. Actions defined for users added/updated will not be executed in this case.
 The external program should check authentication only, if there are login restrictions such as user disabled, expired, login allowed only from specific IP addresses it is enough to populate the matching user fields and these conditions will be checked in the same way as for built-in users.
 The external auth program should finish very quickly, anyway it will be killed if it does not exit within 60 seconds.
 This method is slower than built-in authentication, but it's very flexible as anyone can easily write his own authentication program.
@@ -421,7 +421,7 @@ The external program can read the following environment variables to get info ab
 - `SFTPGO_LOGIND_USER`, it contains the user trying to login serialized as JSON
 - `SFTPGO_LOGIND_METHOD`, possible values are: `password`, `publickey` and `keyboard-interactive`
 
-The program must write, on its the standard output, an empty string (or no response at all) if no user update is needed or the updated SFTPGo user serialized as JSON.
+The program must write, on its the standard output, an empty string (or no response at all) if no user update is needed or the updated SFTPGo user serialized as JSON. Actions defined for users update will not be executed in this case.
 The JSON response can include only the fields that need to the updated instead of the full user, for example if you want to disable the user you can return a response like this:
 
 ```json
@@ -452,7 +452,7 @@ Please note that this is a demo program and it could not work in all cases, for 
 
 ## Keyboard Interactive Authentication
 
-Keyboard interactive authentication is in general case a series of question asked by the server with responses provided by the client.
+Keyboard interactive authentication is, in general case, a series of question asked by the server with responses provided by the client.
 This authentication method is typically used for multi factor authentication.
 There is no restrictions on the number of questions asked on a particular authentication stage; there is also no restrictions on the number of stages involving different sets of questions.
 
@@ -528,9 +528,9 @@ fi
 
 SFTPGo allows to configure custom commands and/or HTTP notifications on file upload, download, delete, rename, on SSH commands and on user add, update and delete.
 
-The `actions` struct inside the "sftpd" configuration section allows to configure actions on file upload, download, delete, rename and on SSH commands.
+The `actions` struct inside the "sftpd" configuration section allows to configure the actions for file operations and SSH commands.
 
-Actions will not be executed if an error is detected and so a partial file is uploaded or downloaded or an SSH command is not successfully completed. The `upload` condition includes both uploads to new files and overwrite of existing files. The `ssh_cmd` condition will be triggered after a command is successfully executed via SSH. `scp` will trigger the `download` and `upload` conditions and not `ssh_cmd`.
+Actions will not be executed if an error is detected and so a partial file is uploaded or an SSH command is not successfully completed. The `upload` condition includes both uploads to new files and overwrite of existing files. The `ssh_cmd` condition will be triggered after a command is successfully executed via SSH. `scp` will trigger the `download` and `upload` conditions and not `ssh_cmd`.
 
 The `command`, if defined, is invoked with the following arguments:
 
@@ -563,7 +563,7 @@ The `http_notification_url`, if defined, will contain the following, percent enc
 - `ssh_cmd`, added for `ssh_cmd` action
 - `file_size`, added for `upload`, `download`, `delete` actions
 
-The HTTP request has a 15 seconds timeout.
+The HTTP request is executed with a 15 seconds timeout.
 
 The `actions` struct inside the "data_provider" configuration section allows to configure actions on user add, update, delete.
 
@@ -603,7 +603,7 @@ The `command` must finish within 15 seconds.
 
 The `http_notification_url`, if defined, will be called invoked as http POST. The action is added to the query string, for example `<http_notification_url>?action=update` and the user is sent serialized as JSON inside the POST body with sensitive fields removed.
 
-The HTTP request has a 15 seconds timeout.
+The HTTP request is executed with a 15 seconds timeout.
 
 ## S3 Compabible Object Storage backends
 
@@ -770,7 +770,7 @@ These properties are stored inside the data provider.
 If you want to use your existing accounts you have these options:
 
 - If your accounts are aleady stored inside a supported database, you can create a database view. Since a view is read only, you have to disable user management and quota tracking so SFTPGo will never try to write to the view
-- you can import your users inside SFTPGo. Take a look at [sftpgo_api_cli.py](./scripts/README.md "sftpgo_api_cli script"), it can convert and import users from Linux system users and Pure-FTPd/ProFTPD virtual users
+- you can import your users inside SFTPGo. Take a look at [sftpgo_api_cli.py](./scripts/README.md "sftpgo api cli script"), it can convert and import users from Linux system users and Pure-FTPd/ProFTPD virtual users
 - you can use an external authentication program
 
 ## REST API
