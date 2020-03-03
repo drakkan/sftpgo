@@ -39,19 +39,20 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 Source: "{#MyAppDir}\sftpgo.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#MyAppDir}\sftpgo.db"; DestDir: "{app}"; Flags: onlyifdoesntexist uninsneveruninstall
+Source: "{#MyAppDir}\sftpgo.db"; DestDir: "{commonappdata}\{#MyAppName}"; Flags: onlyifdoesntexist uninsneveruninstall
 Source: "{#MyAppDir}\README.pdf"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyAppDir}\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#MyAppDir}\sftpgo.json"; DestDir: "{app}"; Flags: onlyifdoesntexist uninsneveruninstall
+Source: "{#MyAppDir}\sftpgo.json"; DestDir: "{commonappdata}\{#MyAppName}"; Flags: onlyifdoesntexist uninsneveruninstall
 Source: "{#MyAppDir}\scripts\*"; DestDir: "{app}\scripts"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#MyAppDir}\sql\*"; DestDir: "{app}\sql"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#MyAppDir}\templates\*"; DestDir: "{app}\templates"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#MyAppDir}\static\*"; DestDir: "{app}\static"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#MyAppDir}\templates\*"; DestDir: "{commonappdata}\{#MyAppName}\templates"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#MyAppDir}\static\*"; DestDir: "{commonappdata}\{#MyAppName}\static"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Dirs]
-Name: "{app}\logs"; Permissions: everyone-full
-Name: "{app}\backups"; Permissions: everyone-full
+Name: "{commonappdata}\{#MyAppName}\logs"; Permissions: everyone-full
+Name: "{commonappdata}\{#MyAppName}\backups"; Permissions: everyone-full
+Name: "{commonappdata}\{#MyAppName}\credentials"; Permissions: everyone-full
 
 [Icons]
 Name: "{group}\Web Admin"; Filename: "http://127.0.0.1:8080/web";
@@ -62,7 +63,7 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 [Run]
 Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""SFTPGo Service"""; Flags: runhidden
 Filename: "netsh"; Parameters: "advfirewall firewall add rule name=""SFTPGo Service"" dir=in action=allow program=""{app}\{#MyAppExeName}"""; Flags: runhidden
-Filename: "{app}\{#MyAppExeName}"; Parameters: "service install -l ""{app}\logs\sftpgo.log"""; Description: "Install SFTPGo Windows Service"; Flags: runhidden
+Filename: "{app}\{#MyAppExeName}"; Parameters: "service install -c ""{commonappdata}\{#MyAppName}"" -l ""{commonappdata}\{#MyAppName}\logs\sftpgo.log"""; Description: "Install SFTPGo Windows Service"; Flags: runhidden
 Filename: "{app}\{#MyAppExeName}"; Parameters: "service start";  Description: "Start SFTPGo Windows Service"; Flags: runhidden
 
 [UninstallRun]
