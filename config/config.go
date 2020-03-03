@@ -172,6 +172,12 @@ func LoadConfig(configDir, configName string) error {
 	if strings.TrimSpace(globalConf.SFTPD.Banner) == "" {
 		globalConf.SFTPD.Banner = defaultBanner
 	}
+	if len(globalConf.ProviderConf.UsersBaseDir) > 0 && !utils.IsFileInputValid(globalConf.ProviderConf.UsersBaseDir) {
+		err = fmt.Errorf("invalid users base dir %#v will be ignored", globalConf.ProviderConf.UsersBaseDir)
+		globalConf.ProviderConf.UsersBaseDir = ""
+		logger.Warn(logSender, "", "Configuration error: %v", err)
+		logger.WarnToConsole("Configuration error: %v", err)
+	}
 	if globalConf.SFTPD.UploadMode < 0 || globalConf.SFTPD.UploadMode > 2 {
 		err = fmt.Errorf("invalid upload_mode 0, 1 and 2 are supported, configured: %v reset upload_mode to 0",
 			globalConf.SFTPD.UploadMode)
@@ -198,6 +204,6 @@ func LoadConfig(configDir, configName string) error {
 		logger.Warn(logSender, "", "Configuration error: %v", err)
 		logger.WarnToConsole("Configuration error: %v", err)
 	}
-	logger.Debug(logSender, "", "config file used: '%v', config loaded: %+v", viper.ConfigFileUsed(), getRedactedGlobalConf())
+	logger.Debug(logSender, "", "config file used: '%#v', config loaded: %+v", viper.ConfigFileUsed(), getRedactedGlobalConf())
 	return err
 }

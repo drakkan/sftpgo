@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/utils"
 )
 
 const (
@@ -32,7 +33,7 @@ func initializeSQLiteProvider(basePath string) error {
 	logSender = SQLiteDataProviderName
 	if len(config.ConnectionString) == 0 {
 		dbPath := config.Name
-		if dbPath == "." {
+		if !utils.IsFileInputValid(dbPath) {
 			return fmt.Errorf("Invalid database path: %#v", dbPath)
 		}
 		if !filepath.IsAbs(dbPath) {

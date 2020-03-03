@@ -149,7 +149,7 @@ func getCustomServeFlags() []string {
 		result = append(result, "--"+configFileFlag)
 		result = append(result, configFile)
 	}
-	if logFilePath != defaultLogFile && len(logFilePath) > 0 && logFilePath != "." {
+	if logFilePath != defaultLogFile && utils.IsFileInputValid(logFilePath) {
 		if !filepath.IsAbs(logFilePath) {
 			logFilePath = filepath.Join(configDir, logFilePath)
 		}

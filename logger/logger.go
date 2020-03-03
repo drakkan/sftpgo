@@ -47,7 +47,7 @@ func GetLogger() *zerolog.Logger {
 // InitLogger configures the logger using the given parameters
 func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge int, logCompress bool, level zerolog.Level) {
 	zerolog.TimeFieldFormat = dateFormat
-	if len(logFilePath) > 0 && filepath.Clean(logFilePath) != "." {
+	if isLogFilePathValid(logFilePath) {
 		logger = zerolog.New(&lumberjack.Logger{
 			Filename:   logFilePath,
 			MaxSize:    logMaxSize,
@@ -182,4 +182,12 @@ func ConnectionFailedLog(user, ip, loginType, errorString string) {
 		Str("login_type", loginType).
 		Str("error", errorString).
 		Msg("")
+}
+
+func isLogFilePathValid(logFilePath string) bool {
+	cleanInput := filepath.Clean(logFilePath)
+	if cleanInput == "." || cleanInput == ".." {
+		return false
+	}
+	return true
 }

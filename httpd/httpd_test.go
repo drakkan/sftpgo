@@ -169,6 +169,13 @@ func TestInitialization(t *testing.T) {
 	if err == nil {
 		t.Error("Inizialize must fail")
 	}
+	httpdConf.CertificateFile = ""
+	httpdConf.CertificateKeyFile = ""
+	httpdConf.TemplatesPath = "."
+	err = httpdConf.Initialize(configDir)
+	if err == nil {
+		t.Error("Inizialize must fail")
+	}
 }
 
 func TestBasicUserHandling(t *testing.T) {

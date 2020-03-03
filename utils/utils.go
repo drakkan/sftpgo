@@ -288,3 +288,14 @@ func LoadTemplate(t *template.Template, err error) *template.Template {
 	}
 	return t
 }
+
+// IsFileInputValid returns true this is a valid file name.
+// This method must be used before joining a file name, generally provided as
+// user input, with a directory
+func IsFileInputValid(fileInput string) bool {
+	cleanInput := filepath.Clean(fileInput)
+	if cleanInput == "." || cleanInput == ".." {
+		return false
+	}
+	return true
+}

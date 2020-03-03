@@ -15,6 +15,7 @@ import (
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/utils"
 	"github.com/go-chi/chi"
 )
 
@@ -90,6 +91,10 @@ func (c Conf) Initialize(configDir string) error {
 	backupsPath = getConfigPath(c.BackupsPath, configDir)
 	staticFilesPath := getConfigPath(c.StaticFilesPath, configDir)
 	templatesPath := getConfigPath(c.TemplatesPath, configDir)
+	if len(backupsPath) == 0 || len(staticFilesPath) == 0 || len(templatesPath) == 0 {
+		return fmt.Errorf("Required directory is invalid, backup path %#v, static file path: %#v template path: %#v",
+			backupsPath, staticFilesPath, templatesPath)
+	}
 	authUserFile := getConfigPath(c.AuthUserFile, configDir)
 	httpAuth, err = newBasicAuthProvider(authUserFile)
 	if err != nil {
@@ -129,7 +134,10 @@ func ReloadTLSCertificate() {
 }
 
 func getConfigPath(name, configDir string) string {
-	if len(name) > 0 && !filepath.IsAbs(name) && name != "." {
+	if !utils.IsFileInputValid(name) {
+		return ""
+	}
+	if len(name) > 0 && !filepath.IsAbs(name) {
 		return filepath.Join(configDir, name)
 	}
 	return name

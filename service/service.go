@@ -50,7 +50,7 @@ func (s *Service) Start() error {
 	if !s.LogVerbose {
 		logLevel = zerolog.InfoLevel
 	}
-	if !filepath.IsAbs(s.LogFilePath) && len(s.LogFilePath) > 0 && s.LogFilePath != "." {
+	if !filepath.IsAbs(s.LogFilePath) && utils.IsFileInputValid(s.LogFilePath) {
 		s.LogFilePath = filepath.Join(s.ConfigDir, s.LogFilePath)
 	}
 	logger.InitLogger(s.LogFilePath, s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogCompress, logLevel)

@@ -3,7 +3,6 @@ module github.com/drakkan/sftpgo
 go 1.13
 
 require (
-	cloud.google.com/go v0.53.0 // indirect
 	cloud.google.com/go/storage v1.6.0
 	github.com/alexedwards/argon2id v0.0.0-20190612080829-01a59b2b8802
 	github.com/aws/aws-sdk-go v1.29.14
