@@ -1,11 +1,12 @@
 # SFTPGo
+
 [![Build Status](https://travis-ci.org/drakkan/sftpgo.svg?branch=master)](https://travis-ci.org/drakkan/sftpgo) [![Code Coverage](https://codecov.io/gh/drakkan/sftpgo/branch/master/graph/badge.svg)](https://codecov.io/gh/drakkan/sftpgo/branch/master) [![Go Report Card](https://goreportcard.com/badge/github.com/drakkan/sftpgo)](https://goreportcard.com/report/github.com/drakkan/sftpgo) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
-Full featured and highly configurable SFTP server
+Fully featured and highly configurable SFTP server, written in Go
 
 ## Features
 
-- Each account is chrooted to its Home Dir.
+- Each account is chrooted to its home directory.
 - SFTP accounts are virtual accounts stored in a "data provider".
 - SQLite, MySQL, PostgreSQL, bbolt (key/value store in pure Go) and in-memory data providers are supported.
 - Public key and password authentication. Multiple public keys per user are supported.
@@ -32,7 +33,7 @@ Full featured and highly configurable SFTP server
 - REST API for users management, backup, restore and real time reports of the active connections with possibility of forcibly closing a connection.
 - Web based interface to easily manage users and connections.
 - Easy migration from Linux system user accounts.
-- Portable mode: a convenient way to share a single directory on demand.
+- [Portable mode](./docs/portable-mode.md): a convenient way to share a single directory on demand.
 - Configuration format is at your choice: JSON, TOML, YAML, HCL, envfile are supported.
 - Log files are accurate and they are saved in the easily parsable JSON format.
 
@@ -48,7 +49,7 @@ The test cases are regularly manually executed and passed on Windows. Other UNIX
 
 ## Installation
 
-Binary releases for Linux, macOS, and Windows are available.  Please visit the [releases](https://github.com/drakkan/sftpgo/releases "releases") page.
+Binary releases for Linux, macOS, and Windows are available. Please visit the [releases](https://github.com/drakkan/sftpgo/releases "releases") page.
 
 Sample Dockerfiles for [Debian](https://www.debian.org "Debian") and [Alpine](https://alpinelinux.org "Alpine") are available inside the source tree [docker](./docker "docker") directory.
 
@@ -68,11 +69,11 @@ $ go get -u github.com/drakkan/sftpgo
 Make sure [Git](https://git-scm.com/downloads) is installed on your machine and in your system's `PATH`.
 
 SFTPGo depends on [go-sqlite3](https://github.com/mattn/go-sqlite3) which is a CGO package and so it requires a `C` compiler at build time.
-On Linux and macOS, a compiler is easy to install or already installed.  On Windows, you need to download [MinGW-w64](https://sourceforge.net/projects/mingw-w64/files/) and build SFTPGo from its command prompt.
+On Linux and macOS, a compiler is easy to install or already installed. On Windows, you need to download [MinGW-w64](https://sourceforge.net/projects/mingw-w64/files/) and build SFTPGo from its command prompt.
 
-The compiler is a build time only dependency.  It is not required at runtime.
+The compiler is a build time only dependency. It is not required at runtime.
 
-If you don't need SQLite, you can also get/build SFTPGo setting the environment variable `GCO_ENABLED` to 0.  This way, SQLite support will be disabled and PostgreSQL, MySQL, bbolt and memory data providers will keep working.  In this way, you don't need a `C` compiler for building.
+If you don't need SQLite, you can also get/build SFTPGo setting the environment variable `GCO_ENABLED` to 0. This way, SQLite support will be disabled and PostgreSQL, MySQL, bbolt and memory data providers will keep working. In this way, you don't need a `C` compiler for building.
 
 Version info, such as git commit and build date, can be embedded setting the following string variables at build time:
 
@@ -96,7 +97,7 @@ For Linux, a `systemd` sample [service](./init/sftpgo.service "systemd service")
 
 For macOS, a `launchd` sample [service](./init/com.github.drakkan.sftpgo.plist "launchd plist") can be found inside the source tree. The `launchd` plist assumes that `sftpgo` has `/usr/local/opt/sftpgo` as base directory.
 
-On Windows, you can run `SFTPGo` as Windows Service.  Please read the "Configuration" section below for more details.
+On Windows, you can run `SFTPGo` as Windows Service. Please read the "Configuration" section below for more details.
 
 ## Configuration
 
@@ -148,7 +149,7 @@ The `sftpgo` configuration file contains the following sections:
         - `http_notification_url`, a valid URL. An HTTP GET request will be executed to this URL. Leave empty to disable.
     - `keys`, struct array. It contains the daemon's private keys. If empty or missing, the daemon will search or try to generate `id_rsa` and `id_ecdsa` keys in the configuration directory.
         - `private_key`, path to the private key file. It can be a path relative to the config dir or an absolute one.
-    - `enable_scp`, boolean. Default disabled. Set to `true` to enable the experimental SCP support. This setting is deprecated and will be removed in future versions.  Please add `scp` to the `enabled_ssh_commands` list to enable it.
+    - `enable_scp`, boolean. Default disabled. Set to `true` to enable the experimental SCP support. This setting is deprecated and will be removed in future versions. Please add `scp` to the `enabled_ssh_commands` list to enable it.
     - `kex_algorithms`, list of strings. Available KEX (Key Exchange) algorithms in preference order. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L46 "Supported kex algos")
     - `ciphers`, list of strings. Allowed ciphers. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L28 "Supported ciphers")
     - `macs`, list of strings. available MAC (message authentication code) algorithms in preference order. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L84 "Supported MACs")
@@ -203,71 +204,7 @@ The `sftpgo` configuration file contains the following sections:
     - `certificate_file`, string. Certificate for HTTPS. This can be an absolute path or a path relative to the config dir.
     - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If both the certificate and the private key are provided, the server will expect HTTPS connections. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
 
-Here is a full example showing the default config in JSON format:
-
-```json
-{
-  "sftpd": {
-    "bind_port": 2022,
-    "bind_address": "",
-    "idle_timeout": 15,
-    "max_auth_tries": 0,
-    "umask": "0022",
-    "banner": "",
-    "upload_mode": 0,
-    "actions": {
-      "execute_on": [],
-      "command": "",
-      "http_notification_url": ""
-    },
-    "keys": [],
-    "enable_scp": false,
-    "kex_algorithms": [],
-    "ciphers": [],
-    "macs": [],
-    "login_banner_file": "",
-    "setstat_mode": 0,
-    "enabled_ssh_commands": ["md5sum", "sha1sum", "cd", "pwd"],
-    "keyboard_interactive_auth_program": "",
-    "proxy_protocol": 0,
-    "proxy_allowed": []
-  },
-  "data_provider": {
-    "driver": "sqlite",
-    "name": "sftpgo.db",
-    "host": "",
-    "port": 5432,
-    "username": "",
-    "password": "",
-    "sslmode": 0,
-    "connection_string": "",
-    "users_table": "users",
-    "manage_users": 1,
-    "track_quota": 2,
-    "pool_size": 0,
-    "users_base_dir": "",
-    "actions": {
-      "execute_on": [],
-      "command": "",
-      "http_notification_url": ""
-    },
-    "external_auth_program": "",
-    "external_auth_scope": 0,
-    "credentials_path": "credentials",
-    "pre_login_program": ""
-  },
-  "httpd": {
-    "bind_port": 8080,
-    "bind_address": "127.0.0.1",
-    "templates_path": "templates",
-    "static_files_path": "static",
-    "backups_path": "backups",
-    "auth_user_file": "",
-    "certificate_file": "",
-    "certificate_key_file": ""
-  }
-}
-```
+A full example showing the default config (in JSON format) can be found [here](./sftpgo.json)
 
 If you want to use a private key that use an algorithm different from RSA or ECDSA, or more private keys, then generate your own keys and replace the empty `keys` array with something like this:
 
@@ -285,9 +222,9 @@ If you want to use a private key that use an algorithm different from RSA or ECD
 ]
 ```
 
-where `id_rsa`, `id_ecdsa` and `id_ed25519` are your generated keys. You can use absolute paths or paths relative to the configuration directory.
+where `id_rsa`, `id_ecdsa` and `id_ed25519` in this example are files containing your generated keys. You can use absolute paths or paths relative to the configuration directory.
 
-The configuration can be read from JSON, TOML, YAML, HCL, envfile and Java properties config files.  If your `config-file` flag is set to `sftpgo` (default value), you need to create a configuration file called `sftpgo.json` or `sftpgo.yaml` and so on inside `config-dir`.
+The configuration can be read from JSON, TOML, YAML, HCL, envfile and Java properties config files. If your `config-file` flag is set to `sftpgo` (default value), you need to create a configuration file called `sftpgo.json` or `sftpgo.yaml` and so on inside `config-dir`.
 
 You can also override all the available configuration options using environment variables. SFTPGo will check for environment variables with a name matching the key uppercased and prefixed with the `SFTPGO_`. You need to use `__` to traverse a struct.
 
@@ -656,60 +593,6 @@ Adding new storage backends is quite easy:
 - add the flags for the new storage backed to the `portable` mode
 
 Anyway, some backends require a pay per use account (or they offer free account for a limited time period only). To be able to add support for such backends or to review pull requests, please provide a test account. The test account must be available for enough time to be able to maintain the backend and do basic tests before each new release.
-
-## Portable mode
-
-SFTPGo allows to share a single directory on demand using the `portable` subcommand:
-
-```
-sftpgo portable --help
-To serve the current working directory with auto generated credentials simply use:
-
-sftpgo portable
-
-Please take a look at the usage below to customize the serving parameters
-
-Usage:
-  sftpgo portable [flags]
-
-Flags:
-  -C, --advertise-credentials           If the SFTP service is advertised via multicast DNS, this flag allows to put username/password inside the advertised TXT record
-  -S, --advertise-service               Advertise SFTP service using multicast DNS (default true)
-  -d, --directory string                Path to the directory to serve. This can be an absolute path or a path relative to the current directory (default ".")
-  -f, --fs-provider int                 0 means local filesystem, 1 Amazon S3 compatible, 2 Google Cloud Storage
-      --gcs-automatic-credentials int   0 means explicit credentials using a JSON credentials file, 1 automatic (default 1)
-      --gcs-bucket string
-      --gcs-credentials-file string     Google Cloud Storage JSON credentials file
-      --gcs-key-prefix string           Allows to restrict access to the virtual folder identified by this prefix and its contents
-      --gcs-storage-class string
-  -h, --help                            help for portable
-  -l, --log-file-path string            Leave empty to disable logging
-  -p, --password string                 Leave empty to use an auto generated value
-  -g, --permissions strings             User's permissions. "*" means any permission (default [list,download])
-  -k, --public-key strings
-      --s3-access-key string
-      --s3-access-secret string
-      --s3-bucket string
-      --s3-endpoint string
-      --s3-key-prefix string            Allows to restrict access to the virtual folder identified by this prefix and its contents
-      --s3-region string
-      --s3-storage-class string
-  -s, --sftpd-port int                  0 means a random non privileged port
-  -c, --ssh-commands strings            SSH commands to enable. "*" means any supported SSH command including scp (default [md5sum,sha1sum,cd,pwd])
-  -u, --username string                 Leave empty to use an auto generated value
-```
-
-In portable mode, SFTPGo can advertise the SFTP service and, optionally, the credentials via multicast DNS, so there is a standard way to discover the service and to automatically connect to it.
-
-Here is an example of the advertised service including credentials as seen using `avahi-browse`:
-
-```
-= enp0s31f6 IPv4 SFTPGo portable 53705                         SFTP File Transfer   local
-   hostname = [p1.local]
-   address = [192.168.1.230]
-   port = [53705]
-   txt = ["password=EWOo6pJe" "user=user" "version=0.9.3-dev-b409523-dirty-2019-10-26T13:43:32Z"]
-```
 
 ## Account's configuration properties
 
