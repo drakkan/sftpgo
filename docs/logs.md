@@ -1,5 +1,7 @@
 # Logs
 
+Inside the log file, each line is a JSON struct.
+
 Each struct has a `sender` field that identifies the log type.
 
 The logs can be divided into the following categories:
