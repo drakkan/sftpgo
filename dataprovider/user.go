@@ -428,13 +428,13 @@ func (u *User) GetBandwidthAsString() string {
 	if u.DownloadBandwidth > 0 {
 		result += utils.ByteCountSI(u.DownloadBandwidth*1000) + "/s."
 	} else {
-		result += "ulimited."
+		result += "unlimited."
 	}
 	result += " Upload: "
 	if u.UploadBandwidth > 0 {
 		result += utils.ByteCountSI(u.UploadBandwidth*1000) + "/s."
 	} else {
-		result += "ulimited."
+		result += "unlimited."
 	}
 	return result
 }
