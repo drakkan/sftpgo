@@ -106,8 +106,6 @@ If you are upgrading from version 0.9.5 or before, you have to manually execute 
 Example for SQLite: `find sql/sqlite/ -type f -iname '*.sql' -print | sort -n | xargs cat | sqlite3 sftpgo.db`.
 After applying these scripts, your database structure is the same as the one obtained using `initprovider` for new installations, so from now on, you don't have to manually upgrade your database anymore.
 
-The `memory` provider can load users from a dump obtained using the `dumpdata` REST API. The path to this dump file can be configured using the dataprovider `name` configuration key. It will be loaded at startup and can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows. The `memory` provider will not modify the provided file so quota usage and last login will not be persisted.
-
 ## Authentication options
 
 ### External Authentication
@@ -139,7 +137,7 @@ Each user can be mapped to whole bucket or to a bucket virtual folder. This way,
 
 ### Google Cloud Storage backend
 
-Each user can be mapped with a Google Cloud Storage bucket or a bucket virtual folder. This way, the mapped bucket/virtual folder is exposed over SFTP/SCP. This backend is very similar to the S3 backend, and it has the same limitations. More information about S3 integration can be found [here](./docs/google-cloud-storage.md).
+Each user can be mapped with a Google Cloud Storage bucket or a bucket virtual folder. This way, the mapped bucket/virtual folder is exposed over SFTP/SCP. More information about Google Cloud Storage integration can be found [here](./docs/google-cloud-storage.md).
 
 ### Other Storage backends
 

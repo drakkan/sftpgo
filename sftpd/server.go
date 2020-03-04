@@ -109,7 +109,7 @@ type Configuration struct {
 	// If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable
 	// the proxy protocol. It provides a convenient way to safely transport connection information
 	// such as a client's address across multiple layers of NAT or TCP proxies to get the real
-	// client IP address instead of the proxy IP. Both protocol version 1 and 2 are supported.
+	// client IP address instead of the proxy IP. Both protocol versions 1 and 2 are supported.
 	// - 0 means disabled
 	// - 1 means proxy protocol enabled. Proxy header will be used and requests without proxy header will be accepted.
 	// - 2 means proxy protocol required. Proxy header will be used and requests without proxy header will be rejected.
