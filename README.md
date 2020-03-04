@@ -74,42 +74,11 @@ To start the SFTP server with default settings, simply run:
 sftpgo serve
 ```
 
-On Windows, you can register `SFTPGo` as Windows Service. Take a look at the CLI usage to learn how to do this:
-
-```powershell
-PS> sftpgo.exe service --help
-Install, Uninstall, Start, Stop, Reload and retrieve status for SFTPGo Windows Service
-
-Usage:
-  sftpgo service [command]
-
-Available Commands:
-  install     Install SFTPGo as Windows Service
-  reload      Reload the SFTPGo Windows Service sending a `paramchange` request
-  start       Start SFTPGo Windows Service
-  status      Retrieve the status for the SFTPGo Windows Service
-  stop        Stop SFTPGo Windows Service
-  uninstall   Uninstall SFTPGo Windows Service
-
-Flags:
-  -h, --help   help for service
-
-Use "sftpgo service [command] --help" for more information about a command.
-```
-
-The `install` subcommand accepts the same flags that are valid for `serve`.
-
-After installing as a Windows Service, please remember to allow network access to the SFTPGo executable using something like this:
-
-```powershell
-PS> netsh advfirewall firewall add rule name="SFTPGo Service" dir=in action=allow program="C:\Program Files\SFTPGo\sftpgo.exe"
-```
-
-(Or through the Windows Firewall GUI.)
+Check out [this documentation](./docs/service.md) if you want to run SFTPGo as a service.
 
 ### Data provider initialization
 
-Before starting the `sftpgo` server, please ensure that the configured data provider is properly initialized.
+Before starting the SFTPGo server, please ensure that the configured data provider is properly initialized.
 
 SQL based data providers (SQLite, MySQL, PostgreSQL) require the creation of a database containing the required tables. Memory and bolt data providers do not require an initialization.
 
@@ -119,13 +88,13 @@ For PostgreSQL and MySQL providers, you need to create the configured database, 
 
 For example, you can simply execute the following command from the configuration directory:
 
-```
+```bash
 sftpgo initprovider
 ```
 
 Take a look at the CLI usage to learn how to specify a different configuration file:
 
-```
+```bash
 sftpgo initprovider --help
 ```
 

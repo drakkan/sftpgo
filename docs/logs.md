@@ -1,12 +1,10 @@
 # Logs
 
-Inside the log file, each line is a JSON struct.
-
-Each struct has a `sender` field that identifies the log type.
+The log file is a stream of JSON structs. Each struct has a `sender` field that identifies the log type.
 
 The logs can be divided into the following categories:
 
-- **"app logs"**, internal logs used to debug `sftpgo`:
+- **"app logs"**, internal logs used to debug SFTPGo:
     - `sender` string. This is generally the package name that emits the log
     - `time` string. Date/time with millisecond precision
     - `level` string

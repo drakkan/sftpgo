@@ -1,4 +1,4 @@
-# Build from source
+# Build SFTPGo from source
 
 Install the package to your [\$GOPATH](https://github.com/golang/go/wiki/GOPATH "GOPATH") with the [go tool](https://golang.org/cmd/go/ "go command") from shell:
 
@@ -32,9 +32,3 @@ You should get a version that includes git commit and build date like this one:
 $ sftpgo -v
 SFTPGo version: 0.9.0-dev-90607d4-dirty-2019-08-08T19:28:36Z
 ```
-
-For Linux, a `systemd` sample [service](../init/sftpgo.service "systemd service") can be found inside the source tree.
-
-For macOS, a `launchd` sample [service](../init/com.github.drakkan.sftpgo.plist "launchd plist") can be found inside the source tree. The `launchd` plist assumes that `sftpgo` has `/usr/local/opt/sftpgo` as base directory.
-
-On Windows, you can run `SFTPGo` as Windows Service. Please read the "Configuration" section below for more details.

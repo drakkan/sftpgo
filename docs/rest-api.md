@@ -2,7 +2,7 @@
 
 SFTPGo exposes REST API to manage, backup, and restore users, and to get real time reports of the active connections with the ability to forcibly close a connection.
 
-If quota tracking is enabled in the `sftpgo` configuration file, then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP/SCP, or if you change `track_quota` from `2` to `1`, you can rescan the users home dir and update the used quota using the REST API.
+If quota tracking is enabled in the configuration file, then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP/SCP, or if you change `track_quota` from `2` to `1`, you can rescan the users home dir and update the used quota using the REST API.
 
 REST API can be protected using HTTP basic authentication and exposed via HTTPS. If you need more advanced security features, you can setup a reverse proxy using an HTTP Server such as Apache or NGNIX.
 

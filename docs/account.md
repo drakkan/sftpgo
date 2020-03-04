@@ -9,7 +9,7 @@ For each account, the following properties can be configured:
 - `expiration_date` expiration date as unix timestamp in milliseconds. An expired account cannot login. 0 means no expiration.
 - `home_dir` the user cannot upload or download files outside this directory. Must be an absolute path.
 - `virtual_folders` list of mappings between virtual SFTP/SCP paths and local filesystem paths outside the user home directory. The specified paths must be absolute and the virtual path cannot be "/", it must be a sub directory. The parent directory for the specified virtual path must exist. SFTPGo will try to automatically create any missing parent directory for the configured virtual folders at user login
-- `uid`, `gid`. If sftpgo runs as root system user then the created files and directories will be assigned to this system uid/gid. Ignored on windows and if sftpgo runs as non root user: in this case files and directories for all SFTP users will be owned by the system user that runs sftpgo.
+- `uid`, `gid`. If SFTPGo runs as root system user then the created files and directories will be assigned to this system uid/gid. Ignored on windows or if SFTPGo runs as non root user: in this case files and directories for all SFTP users will be owned by the system user that runs SFTPGo.
 - `max_sessions` maximum concurrent sessions. 0 means unlimited.
 - `quota_size` maximum size allowed as bytes. 0 means unlimited.
 - `quota_files` maximum number of files allowed. 0 means unlimited.
@@ -57,5 +57,5 @@ These properties are stored inside the data provider.
 If you want to use your existing accounts, you have these options:
 
 - If your accounts are aleady stored inside a supported database, you can create a database view. Since a view is read only, you have to disable user management and quota tracking so SFTPGo will never try to write to the view
-- you can import your users inside SFTPGo. Take a look at [sftpgo_api_cli.py](./scripts/README.md "sftpgo api cli script"), it can convert and import users from Linux system users and Pure-FTPd/ProFTPD virtual users
+- you can import your users inside SFTPGo. Take a look at [sftpgo_api_cli.py](./scripts/README.md "SFTPGo api cli script"), it can convert and import users from Linux system users and Pure-FTPd/ProFTPD virtual users
 - you can use an external authentication program

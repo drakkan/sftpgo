@@ -1,8 +1,8 @@
-# Configuring sftpgo
+# Configuring SFTPGo
 
 ## Command line options
 
-The `sftpgo` executable can be used this way:
+The SFTPGo executable can be used this way:
 
 ```
 Usage:
@@ -23,7 +23,7 @@ Flags:
 
 The `serve` command supports the following flags:
 
-- `--config-dir` string. Location of the config dir. This directory should contain the `sftpgo` configuration file and is used as the base directory for any files that use a relative path (eg. the private keys for the SFTP server, the SQLite or bblot database if you use SQLite or bbolt as data provider). The default value is "." or the value of `SFTPGO_CONFIG_DIR` environment variable.
+- `--config-dir` string. Location of the config dir. This directory should contain the configuration file and is used as the base directory for any files that use a relative path (eg. the private keys for the SFTP server, the SQLite or bblot database if you use SQLite or bbolt as data provider). The default value is "." or the value of `SFTPGO_CONFIG_DIR` environment variable.
 - `--config-file` string. Name of the configuration file. It must be the name of a file stored in `config-dir`, not the absolute path to the configuration file. The specified file name must have no extension because we automatically append JSON, YAML, TOML, HCL and Java extensions when we search for the file. The default value is "sftpgo" (and therefore `sftpgo.json`, `sftpgo.yaml` and so on are searched) or the value of `SFTPGO_CONFIG_FILE` environment variable.
 - `--log-compress` boolean. Determine if the rotated log files should be compressed using gzip. Default `false` or the value of `SFTPGO_LOG_COMPRESS` environment variable (1 or `true`, 0 or `false`). It is unused if `log-file-path` is empty.
 - `--log-file-path` string. Location for the log file, default "sftpgo.log" or the value of `SFTPGO_LOG_FILE_PATH` environment variable. Leave empty to write logs to the standard error.
@@ -36,7 +36,7 @@ If you don't configure any private host key, the daemon will use `id_rsa` and `i
 
 ## Configuration file
 
-The `sftpgo` configuration file contains the following sections:
+The configuration file contains the following sections:
 
 - **"sftpd"**, the configuration for the SFTP server
   - `bind_port`, integer. The port used for serving SFTP requests. Default: 2022
@@ -107,7 +107,7 @@ The `sftpgo` configuration file contains the following sections:
   - `certificate_file`, string. Certificate for HTTPS. This can be an absolute path or a path relative to the config dir.
   - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If both the certificate and the private key are provided, the server will expect HTTPS connections. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
 
-A full example showing the default config (in JSON format) can be found [here](./sftpgo.json).
+A full example showing the default config (in JSON format) can be found [here](../sftpgo.json).
 
 If you want to use a private key that use an algorithm different from RSA or ECDSA, or more private keys, then generate your own keys and replace the empty `keys` array with something like this:
 
