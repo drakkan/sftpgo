@@ -900,9 +900,40 @@ The **connection failed logs** can be used for integration in tools such as [Fai
 
 SFTPGo can easily saturate a Gigabit connection on low end hardware with no special configuration, and this is generally enough for most use cases.
 
-The main bootlenecks are the encryption and the messages authentication, so if you can use a fast cipher with implicit message authentication, for example `aes128-gcm@openssh.com`, you will get a big performance boost.
+For Multi-Gig connections, some performance improvements and comparisons with OpenSSH are being discussed here [issue](https://github.com/drakkan/sftpgo/issues/69),  some of them need upstream updates so there are not included in the released version yet. To summarize:
+- In current state with all performance improvements applied, SFTP performance is very close to OpenSSH however CPU usage is higher. SCP performance match OpenSSH.
+- The main bottlenecks are the encryption and the messages authentication, so if you can use a fast cipher with implicit message authentication, such as `aes128-gcm@openssh.com`, you will get a big performance boost.
+- SFTPGo's SCP implementation is more efficient than SFTP, in *nix environment it performs better than SFTP. 
+- Load balancing with HAProxy can greatly improve the performance if CPU not become the bottleneck.
 
-There is an open [issue](https://github.com/drakkan/sftpgo/issues/69) with some other suggestions to improve performance and some comparisons against OpenSSH.
+If you compile SFTPGo from source, you can:
+- AES-CTR optimization of golang compiler hasn't been merged yet, you can apply the patch yourself. [patch](https://go-review.googlesource.com/c/go/+/51670)
+- Use minio/sha256-simd to accelerate MAC computation, which could improve the performance by 50% on newer CPU architectures.
+```
+diff --git a/go.mod b/go.mod
+index f1b2caa..a3e2ba5 100644
+--- a/go.mod
++++ b/go.mod
+@@ -43,3 +43,5 @@ require (
+ )
+ 
+ replace github.com/eikenb/pipeat v0.0.0-20190316224601-fb1f3a9aa29f => github.com/drakkan/pipeat v0.0.0-20200123131427-11c048cfc0ec
++
++golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200211081002-cc78d71334be
+```
+- A new allocator which greatly improve parallel loads is being tested here.
+```
+diff --git a/go.mod b/go.mod
+index f1b2caa..4a3be8a 100644
+--- a/go.mod
++++ b/go.mod
+@@ -43,3 +43,5 @@ require (
+ )
+ 
+ replace github.com/eikenb/pipeat v0.0.0-20190316224601-fb1f3a9aa29f => github.com/drakkan/pipeat v0.0.0-20200123131427-11c048cfc0ec
++
++replace github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20200227085621-6b4abaad1b9a
+```
 
 
 ## Acknowledgements
