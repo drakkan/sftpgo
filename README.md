@@ -204,7 +204,7 @@ The `sftpgo` configuration file contains the following sections:
     - `certificate_file`, string. Certificate for HTTPS. This can be an absolute path or a path relative to the config dir.
     - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If both the certificate and the private key are provided, the server will expect HTTPS connections. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
 
-A full example showing the default config (in JSON format) can be found [here](./sftpgo.json)
+A full example showing the default config (in JSON format) can be found [here](./sftpgo.json).
 
 If you want to use a private key that use an algorithm different from RSA or ECDSA, or more private keys, then generate your own keys and replace the empty `keys` array with something like this:
 
@@ -306,284 +306,40 @@ netsh advfirewall firewall add rule name="SFTPGo Service" dir=in action=allow pr
 
 or through the Windows Firewall GUI.
 
-## External Authentication
+## Authentication options
 
-Custom authentication methods can easily be added. SFTPGo supports external authentication modules, and writing a new backend can be as simple as a few lines of shell script.
+### External Authentication
 
-To enable external authentication, you must set the absolute path of your authentication program using `external_auth_program` key in your configuration file.
+Custom authentication methods can easily be added. SFTPGo supports external authentication modules, and writing a new backend can be as simple as a few lines of shell script. More information can be found [here](./docs/external-auth.md).
 
-The external program can read the following environment variables to get info about the user trying to authenticate:
-
-- `SFTPGO_AUTHD_USERNAME`
-- `SFTPGO_AUTHD_PASSWORD`, not empty for password authentication
-- `SFTPGO_AUTHD_PUBLIC_KEY`, not empty for public key authentication
-- `SFTPGO_AUTHD_KEYBOARD_INTERACTIVE`, not empty for keyboard interactive authentication
-
-Previous global environment variables aren't cleared when the script is called. The content of these variables is _not_ quoted. They may contain special characters. They are under the control of a possibly malicious remote user.
-The program must write, on its standard output, a valid SFTPGo user serialized as JSON if the authentication succeed or an user with an empty username if the authentication fails.
-If the authentication succeeds, the user will be automatically added/updated inside the defined data provider. Actions defined for users added/updated will not be executed in this case.
-The external program should check authentication only. If there are login restrictions such as user disabled, expired, or login allowed only from specific IP addresses, it is enough to populate the matching user fields, and these conditions will be checked in the same way as for built-in users.
-The external auth program should finish very quickly. It will be killed if it does not exit within 60 seconds.
-This method is slower than built-in authentication, but it's very flexible as anyone can easily write his own authentication program.
-You can also restrict the authentication scope for the external program using the `external_auth_scope` configuration key:
-
-- 0 means all supported authetication scopes. The external program will be used for password, public key and keyboard interactive authentication
-- 1 means passwords only
-- 2 means public keys only
-- 4 means keyboard interactive only
-
-You can combine the scopes. For example, 3 means password and public key, 5 means password and keyboard interactive, and so on.
-
-Let's see a very basic example. Our sample authentication program will only accept user `test_user` with any password or public key.
-
-```
-#!/bin/sh
-
-if test "$SFTPGO_AUTHD_USERNAME" = "test_user"; then
-  echo '{"status":1,"username":"test_user","expiration_date":0,"home_dir":"/tmp/test_user","uid":0,"gid":0,"max_sessions":0,"quota_size":0,"quota_files":100000,"permissions":{"/":["*"],"/somedir":["list","download"]},"upload_bandwidth":0,"download_bandwidth":0,"filters":{"allowed_ip":[],"denied_ip":[]},"public_keys":[]}'
-else
-  echo '{"username":""}'
-fi
-```
-
-If you have an external authentication program that could be useful for others too, please let us know and/or send a pull request.
-
-## Dynamic user modification
-
-Dynamic user modification is supported via an external program that can be executed just before the user login.
-To enable dynamic user modification, you must set the absolute path of your program using the `pre_login_program` key in your configuration file.
-
-The external program can read the following environment variables to get info about the user trying to login:
-
-- `SFTPGO_LOGIND_USER`, it contains the user trying to login serialized as JSON
-- `SFTPGO_LOGIND_METHOD`, possible values are: `password`, `publickey` and `keyboard-interactive`
-
-The program must write, on its the standard output, an empty string (or no response at all) if no user update is needed or the updated SFTPGo user serialized as JSON. Actions defined for users update will not be executed in this case.
-The JSON response can include only the fields that need to the updated instead of the full user. For example, if you want to disable the user, you can return a response like this:
-
-```json
-{"status": 0}
-```
-The external program must finish within 60 seconds.
-
-If an error happens while executing your program then login will be denied. "Dynamic user modification" and "External Authentication" are mutally exclusive.
-
-Let's see a very basic example. Our sample program will grant access to the user `test_user` only in the time range 10:00-18:00. Other users will not be modified since the program will terminate with no output.
-
-```
-#!/bin/bash
-
-CURRENT_TIME=`date +%H:%M`
-if [[ "$SFTPGO_LOGIND_USER" =~ "\"test_user\"" ]]
-then
-  if [[ $CURRENT_TIME > "18:00" || $CURRENT_TIME < "10:00" ]]
-  then
-    echo '{"status":0}'
-  else
-    echo '{"status":1}'
-  fi
-fi
-```
-
-Please note that this is a demo program and it might not work in all cases. For example, the username should be obtained by parsing the JSON serialized user and not by searching the username inside the JSON as shown here.
-
-## Keyboard Interactive Authentication
+### Keyboard Interactive Authentication
 
 Keyboard interactive authentication is, in general, a series of questions asked by the server with responses provided by the client.
 This authentication method is typically used for multi-factor authentication.
-There are no restrictions on the number of questions asked on a particular authentication stage; there are also no restrictions on the number of stages involving different sets of questions.
 
-To enable keyboard interactive authentication, you must set the absolute path of your authentication program using the `keyboard_interactive_auth_program` key in your configuration file.
+More information can be found [here](./docs/keyboard-interactive.md).
 
-The external program can read the following environment variables to get info about the user trying to authenticate:
+## Dynamic user modification
 
-- `SFTPGO_AUTHD_USERNAME`
-- `SFTPGO_AUTHD_PASSWORD`, this is the hashed password as stored inside the data provider
-
-Previous global environment variables aren't cleared when the script is called. The content of these variables is _not_ quoted. They may contain special characters.
-
-The program must write the questions on its standard output, in a single line, using the following struct JSON serialized:
-
-- `instruction`, string. A short description to show to the user that is trying to authenticate. Can be empty or omitted
-- `questions`, list of questions to be asked to the user
-- `echos` list of boolean flags corresponding to the questions (so the lengths of both lists must be the same) and indicating whether user's reply for a particular question should be echoed on the screen while they are typing: true if it should be echoed, or false if it should be hidden.
-- `check_password` optional integer. Ask exactly one question and set this field to 1 if the expected answer is the user password and you want SFTPGo to check it for you. If the password is correct, the returned response to the program is `OK`. If the password is wrong, the program will be terminated and an authentication error will be returned to the user that is trying to authenticate.
-- `auth_result`, integer. Set this field to 1 to indicate successful authentication. 0 is ignored. Any other value means authentication error. If this field is found and it is different from 0 then SFTPGo will not read any other questions from the external program, and it will finalize the authentication.
-
-SFTPGo writes the user answers to the program standard input, one per line, in the same order as the questions.
-Please be sure that your program receives the answers for all the issued questions before asking for the next ones.
-
-Keyboard interactive authentication can be chained to the external authentication.
-The authentication must finish within 60 seconds.
-
-Let's see a very basic example. Our sample keyboard interactive authentication program will ask for 2 sets of questions and accept the user if the answer to the last question is `answer3`.
-
-```
-#!/bin/sh
-
-echo '{"questions":["Question1: ","Question2: "],"instruction":"This is a sample for keyboard interactive authentication","echos":[true,false]}'
-
-read ANSWER1
-read ANSWER2
-
-echo '{"questions":["Question3: "],"instruction":"","echos":[true]}'
-
-read ANSWER3
-
-if test "$ANSWER3" = "answer3"; then
-	echo '{"auth_result":1}'
-else
-	echo '{"auth_result":-1}'
-fi
-```
-
-and here is an example where SFTPGo checks the user password for you:
-
-```
-#!/bin/sh
-
-echo '{"questions":["Password: "],"instruction":"This is a sample for keyboard interactive authentication","echos":[false],"check_password":1}'
-
-read ANSWER1
-
-if test "$ANSWER1" != "OK"; then
-  exit 1
-fi
-
-echo '{"questions":["One time token: "],"instruction":"","echos":[false]}'
-
-read ANSWER2
-
-if test "$ANSWER2" = "token"; then
-	echo '{"auth_result":1}'
-else
-	echo '{"auth_result":-1}'
-fi
-```
+The user configuration, retrieved from the data provider, can be modified by an external program. More information about this can be found [here](./docs/dynamic-user-mod.md).
 
 ## Custom Actions
 
 SFTPGo allows you to configure custom commands and/or HTTP notifications on file upload, download, delete, rename, on SSH commands and on user add, update and delete.
 
-The `actions` struct inside the "sftpd" configuration section allows to configure the actions for file operations and SSH commands.
+More information about custom actions can be found [here](./docs/custom-actions.md).
 
-Actions will not be executed if an error is detected, and so a partial file is uploaded or an SSH command is not successfully completed. The `upload` condition includes both uploads to new files and overwrite of existing files. The `ssh_cmd` condition will be triggered after a command is successfully executed via SSH. `scp` will trigger the `download` and `upload` conditions and not `ssh_cmd`.
+## Storage backends
 
-The `command`, if defined, is invoked with the following arguments:
+### S3 Compabible Object Storage backends
 
-- `action`, string, possible values are: `download`, `upload`, `delete`, `rename`, `ssh_cmd`
-- `username`
-- `path` is the full filesystem path, can be empty for some ssh commands
-- `target_path`, non empty for `rename` action
-- `ssh_cmd`, non empty for `ssh_cmd` action
+Each user can be mapped to whole bucket or to a bucket virtual folder. This way, the mapped bucket/virtual folder is exposed over SFTP/SCP. More information about S3 integration can be found [here](./docs/s3.md).
 
-The `command` can also read the following environment variables:
+### Google Cloud Storage backend
 
-- `SFTPGO_ACTION`
-- `SFTPGO_ACTION_USERNAME`
-- `SFTPGO_ACTION_PATH`
-- `SFTPGO_ACTION_TARGET`, non empty for `rename` `SFTPGO_ACTION`
-- `SFTPGO_ACTION_SSH_CMD`, non empty for `ssh_cmd` `SFTPGO_ACTION`
-- `SFTPGO_ACTION_FILE_SIZE`, non empty for `upload`, `download` and `delete` `SFTPGO_ACTION`
-- `SFTPGO_ACTION_LOCAL_FILE`, `true` if the affected file is stored on the local filesystem, otherwise `false`
+Each user can be mapped with a Google Cloud Storage bucket or a bucket virtual folder. This way, the mapped bucket/virtual folder is exposed over SFTP/SCP. This backend is very similar to the S3 backend, and it has the same limitations. More information about S3 integration can be found [here](./docs/google-cloud-storage.md).
 
-Previous global environment variables aren't cleared when the script is called.
-The `command` must finish within 30 seconds.
-
-The `http_notification_url`, if defined, will contain the following, percent encoded, query string parameters:
-
-- `action`
-- `username`
-- `path`
-- `local_file`, `true` if the affected file is stored on the local filesystem, otherwise `false`
-- `target_path`, added for `rename` action
-- `ssh_cmd`, added for `ssh_cmd` action
-- `file_size`, added for `upload`, `download`, `delete` actions
-
-The HTTP request is executed with a 15-second timeout.
-
-The `actions` struct inside the "data_provider" configuration section allows you to configure actions on user add, update, delete.
-
-Actions will not be fired for internal updates, such as the last login or the user quota fields, or after external authentication.
-
-The `command`, if defined, is invoked with the following arguments:
-
-- `action`, string, possible values are: `add`, `update`, `delete`
-- `username`
-- `ID`
-- `status`
-- `expiration_date`
-- `home_dir`
-- `uid`
-- `gid`
-
-The `command` can also read the following environment variables:
-
-- `SFTPGO_USER_ACTION`
-- `SFTPGO_USER_USERNAME`
-- `SFTPGO_USER_PASSWORD`, hashed password as stored inside the data provider, can be empty if the user does not login using a password
-- `SFTPGO_USER_ID`
-- `SFTPGO_USER_STATUS`
-- `SFTPGO_USER_EXPIRATION_DATE`
-- `SFTPGO_USER_HOME_DIR`
-- `SFTPGO_USER_UID`
-- `SFTPGO_USER_GID`
-- `SFTPGO_USER_QUOTA_FILES`
-- `SFTPGO_USER_QUOTA_SIZE`
-- `SFTPGO_USER_UPLOAD_BANDWIDTH`
-- `SFTPGO_USER_DOWNLOAD_BANDWIDTH`
-- `SFTPGO_USER_MAX_SESSIONS`
-- `SFTPGO_USER_FS_PROVIDER`
-
-Previous global environment variables aren't cleared when the script is called.
-The `command` must finish within 15 seconds.
-
-The `http_notification_url`, if defined, will be called invoked as http POST. The action is added to the query string, for example `<http_notification_url>?action=update`, and the user is sent serialized as JSON inside the POST body with sensitive fields removed.
-
-The HTTP request is executed with a 15-second timeout.
-
-## S3 Compabible Object Storage backends
-
-Each user can be mapped to whole bucket or to a bucket virtual folder. This way, the mapped bucket/virtual folder is exposed over SFTP/SCP.
-
-Specifying a different `key_prefix`, you can assign different virtual folders of the same bucket to different users. This is similar to a chroot directory for local filesystem. Each SFTP/SCP user can only access the assigned virtual folder and its contents. The virtual folder identified by `key_prefix` does not need to be pre-created.
-
-SFTPGo uses multipart uploads and parallel downloads for storing and retrieving files from S3.
-
-The configured bucket must exist.
-
-To connect SFTPGo to AWS, you need to specify credentials, and a `region` is required too. Here is the list of available [AWS regions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions). For example, if your bucket is at `Frankfurt`, you have to set the region to `eu-central-1`. You can specify an AWS [storage class](https://docs.aws.amazon.com/AmazonS3/latest/dev/storage-class-intro.html) too. Leave it blank to use the default AWS storage class. An endpoint is required if you are connecting to a Compatible AWS Storage such as [MinIO](https://min.io/).
-
-AWS SDK has different options for credentials. [More Detail](https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html). We support:
-1. Providing [Access Keys](https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html#access-keys-and-secret-access-keys).
-2. Use IAM roles for Amazon EC2
-3. Use IAM roles for tasks if your application uses an ECS task definition
-
-So, you need to provide access keys to activate option 1, or leave them blank to use the other ways to specify credentials.
-
-Some SFTP commands don't work over S3:
-
-- `symlink` and `chtimes` will fail
-- `chown` and `chmod` are silently ignored
-- upload resume is not supported
-- upload mode `atomic` is ignored since S3 uploads are already atomic
-
-Other notes:
-
-- `rename` is a two step operation: server-side copy and then deletion. So, it is not atomic as for local filesystem.
-- We don't support renaming non empty directories since we should rename all the contents too and this could take a long time: think about directories with thousands of files; for each file we should do an AWS API call.
-- For server side encryption, you have to configure the mapped bucket to automatically encrypt objects.
-- A local home directory is still required to store temporary files.
-
-## Google Cloud Storage backend
-
-Each user can be mapped with a Google Cloud Storage bucket or a bucket virtual folder. This way, the mapped bucket/virtual folder is exposed over SFTP/SCP. This backend is very similar to the S3 backend, and it has the same limitations.
-
-To connect SFTPGo to Google Cloud Storage, you can use use the Application Default Credentials (ADC) strategy to try to find your application's credentials automatically or you can explicitly provide a JSON credentials file that you can obtain from the Google Cloud Console. Take a look [here](https://cloud.google.com/docs/authentication/production#providing_credentials_to_your_application) for details.
-
-You can optionally specify a [storage class](https://cloud.google.com/storage/docs/storage-classes) too. Leave it blank to use the default storage class.
-
-## Other Storage backends
+### Other Storage backends
 
 Adding new storage backends is quite easy:
 
@@ -594,103 +350,9 @@ Adding new storage backends is quite easy:
 
 Anyway, some backends require a pay per use account (or they offer free account for a limited time period only). To be able to add support for such backends or to review pull requests, please provide a test account. The test account must be available for enough time to be able to maintain the backend and do basic tests before each new release.
 
-## Account's configuration properties
-
-For each account, the following properties can be configured:
-
-- `username`
-- `password` used for password authentication. For users created using SFTPGo REST API, if the password has no known hashing algo prefix, it will be stored using argon2id. SFTPGo supports checking passwords stored with bcrypt, pbkdf2, md5crypt and sha512crypt too. For pbkdf2 the supported format is `$<algo>$<iterations>$<salt>$<hashed pwd base64 encoded>`, where algo is `pbkdf2-sha1` or `pbkdf2-sha256` or `pbkdf2-sha512`. For example the `pbkdf2-sha256` of the word `password` using 150000 iterations and `E86a9YMX3zC7` as salt must be stored as `$pbkdf2-sha256$150000$E86a9YMX3zC7$R5J62hsSq+pYw00hLLPKBbcGXmq7fj5+/M0IFoYtZbo=`. For bcrypt the format must be the one supported by golang's [crypto/bcrypt](https://godoc.org/golang.org/x/crypto/bcrypt) package, for example the password `secret` with cost `14` must be stored as `$2a$14$ajq8Q7fbtFRQvXpdCq7Jcuy.Rx1h/L4J60Otx.gyNLbAYctGMJ9tK`. For md5crypt and sha512crypt we support the format used in `/etc/shadow` with the `$1$` and `$6$` prefix, this is useful if you are migrating from Unix system user accounts. We support Apache md5crypt (`$apr1$` prefix) too. Using the REST API you can send a password hashed as bcrypt, pbkdf2, md5crypt or sha512crypt and it will be stored as is.
-- `public_keys` array of public keys. At least one public key or the password is mandatory.
-- `status` 1 means "active", 0 "inactive". An inactive account cannot login.
-- `expiration_date` expiration date as unix timestamp in milliseconds. An expired account cannot login. 0 means no expiration.
-- `home_dir` the user cannot upload or download files outside this directory. Must be an absolute path.
-- `virtual_folders` list of mappings between virtual SFTP/SCP paths and local filesystem paths outside the user home directory. The specified paths must be absolute and the virtual path cannot be "/", it must be a sub directory. The parent directory for the specified virtual path must exist. SFTPGo will try to automatically create any missing parent directory for the configured virtual folders at user login
-- `uid`, `gid`. If sftpgo runs as root system user then the created files and directories will be assigned to this system uid/gid. Ignored on windows and if sftpgo runs as non root user: in this case files and directories for all SFTP users will be owned by the system user that runs sftpgo.
-- `max_sessions` maximum concurrent sessions. 0 means unlimited.
-- `quota_size` maximum size allowed as bytes. 0 means unlimited.
-- `quota_files` maximum number of files allowed. 0 means unlimited.
-- `permissions` the following per directory permissions are supported:
-    - `*` all permissions are granted
-    - `list` list items is allowed
-    - `download` download files is allowed
-    - `upload` upload files is allowed
-    - `overwrite` overwrite an existing file, while uploading, is allowed. `upload` permission is required to allow file overwrite
-    - `delete` delete files or directories is allowed
-    - `rename` rename files or directories is allowed
-    - `create_dirs` create directories is allowed
-    - `create_symlinks` create symbolic links is allowed
-    - `chmod` changing file or directory permissions is allowed. On Windows, only the 0200 bit (owner writable) of mode is used; it controls whether the file's read-only attribute is set or cleared. The other bits are currently unused. Use mode 0400 for a read-only file and 0600 for a readable+writable file.
-    - `chown` changing file or directory owner and group is allowed. Changing owner and group is not supported on Windows.
-    - `chtimes` changing file or directory access and modification time is allowed
-- `upload_bandwidth` maximum upload bandwidth as KB/s, 0 means unlimited.
-- `download_bandwidth` maximum download bandwidth as KB/s, 0 means unlimited.
-- `allowed_ip`, List of IP/Mask allowed to login. Any IP address not contained in this list cannot login. IP/Mask must be in CIDR notation as defined in RFC 4632 and RFC 4291, for example "192.0.2.0/24" or "2001:db8::/32"
-- `denied_ip`, List of IP/Mask not allowed to login. If an IP address is both allowed and denied then login will be denied
-- `denied_login_methods`, List of login methods not allowed. The following login methods are supported:
-  - `publickey`
-  - `password`
-  - `keyboard-interactive`
-- `file_extensions`, list of struct. These restrictions do not apply to files listing for performance reasons, so a denied file cannot be downloaded/overwritten/renamed but it will still be listed in the list of files. Please note that these restrictions can be easily bypassed. Each struct contains the following fields:
-  - `allowed_extensions`, list of, case insensitive, allowed files extension. Shell like expansion is not supported so you have to specify `.jpg` and not `*.jpg`. Any file that does not end with this suffix will be denied
-  - `denied_extensions`, list of, case insensitive, denied files extension. Denied file extensions are evaluated before the allowed ones
-  - `path`, SFTP/SCP path, if no other specific filter is defined, the filter apply for sub directories too. For example if filters are defined for the paths `/` and `/sub` then the filters for `/` are applied for any file outside the `/sub` directory
-- `fs_provider`, filesystem to serve via SFTP. Local filesystem and S3 Compatible Object Storage are supported
-- `s3_bucket`, required for S3 filesystem
-- `s3_region`, required for S3 filesystem. Must match the region for your bucket. You can find here the list of available [AWS regions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions). For example if your bucket is at `Frankfurt` you have to set the region to `eu-central-1`
-- `s3_access_key`
-- `s3_access_secret`, if provided it is stored encrypted (AES-256-GCM)
-- `s3_endpoint`, specifies a S3 endpoint (server) different from AWS. It is not required if you are connecting to AWS
-- `s3_storage_class`, leave blank to use the default or specify a valid AWS [storage class](https://docs.aws.amazon.com/AmazonS3/latest/dev/storage-class-intro.html)
-- `s3_key_prefix`, allows to restrict access to the virtual folder identified by this prefix and its contents
-- `gcs_bucket`, required for GCS filesystem
-- `gcs_credentials`, Google Cloud Storage JSON credentials base64 encoded
-- `gcs_automatic_credentials`, integer. Set to 1 to use Application Default Credentials strategy or set to 0 to use explicit credentials via `gcs_credentials`
-- `gcs_storage_class`
-- `gcs_key_prefix`, allows to restrict access to the virtual folder identified by this prefix and its contents
-
-These properties are stored inside the data provider.
-
-If you want to use your existing accounts, you have these options:
-
-- If your accounts are aleady stored inside a supported database, you can create a database view. Since a view is read only, you have to disable user management and quota tracking so SFTPGo will never try to write to the view
-- you can import your users inside SFTPGo. Take a look at [sftpgo_api_cli.py](./scripts/README.md "sftpgo api cli script"), it can convert and import users from Linux system users and Pure-FTPd/ProFTPD virtual users
-- you can use an external authentication program
-
 ## REST API
 
-SFTPGo exposes REST API to manage, backup, and restore users, and to get real time reports of the active connections with the ability to forcibly close a connection.
-
-If quota tracking is enabled in the `sftpgo` configuration file, then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP/SCP, or if you change `track_quota` from `2` to `1`, you can rescan the users home dir and update the used quota using the REST API.
-
-REST API can be protected using HTTP basic authentication and exposed via HTTPS. If you need more advanced security features, you can setup a reverse proxy using an HTTP Server such as Apache or NGNIX.
-
-For example, you can keep SFTPGo listening on localhost and expose it externally configuring a reverse proxy using Apache HTTP Server this way:
-
-```
-ProxyPass /api/v1 http://127.0.0.1:8080/api/v1
-ProxyPassReverse /api/v1 http://127.0.0.1:8080/api/v1
-```
-
-and you can add authentication with something like this:
-
-```
-<Location /api/v1>
-	AuthType Digest
-	AuthName "Private"
-	AuthDigestDomain "/api/v1"
-	AuthDigestProvider file
-	AuthUserFile "/etc/httpd/conf/auth_digest"
-	Require valid-user
-</Location>
-```
-
-and, of course, you can configure the web server to use HTTPS.
-
-The OpenAPI 3 schema for the exposed API can be found inside the source tree: [openapi.yaml](./httpd/schema/openapi.yaml "OpenAPI 3 specs").
-
-A sample CLI client for the REST API can be found inside the source tree [scripts](./scripts "scripts") directory.
-
-You can also generate your own REST client in your preferred programming language, or even bash scripts, using an OpenAPI generator such as [swagger-codegen](https://github.com/swagger-api/swagger-codegen) or [OpenAPI Generator](https://openapi-generator.tech/)
+SFTPGo exposes REST API to manage, backup, and restore users, and to get real time reports of the active connections with the ability to forcibly close a connection. More information about the REST API can be found [here](./docs/rest-api.md).
 
 ## Metrics
 
@@ -722,62 +384,15 @@ The web interface can be protected using HTTP basic authentication and exposed v
 
 ## Logs
 
-Inside the log file, each line is a JSON struct. Each struct has a `sender` field that identifies the log type.
-
-The logs can be divided into the following categories:
-
-- **"app logs"**, internal logs used to debug `sftpgo`:
-    - `sender` string. This is generally the package name that emits the log
-    - `time` string. Date/time with millisecond precision
-    - `level` string
-    - `message` string
-- **"transfer logs"**, SFTP/SCP transfer logs:
-    - `sender` string. `Upload` or `Download`
-    - `time` string. Date/time with millisecond precision
-    - `level` string
-    - `elapsed_ms`, int64. Elapsed time, as milliseconds, for the upload/download
-    - `size_bytes`, int64. Size, as bytes, of the download/upload
-    - `username`, string
-    - `file_path` string
-    - `connection_id` string. Unique connection identifier
-    - `protocol` string. `SFTP` or `SCP`
-- **"command logs"**, SFTP/SCP command logs:
-    - `sender` string. `Rename`, `Rmdir`, `Mkdir`, `Symlink`, `Remove`, `Chmod`, `Chown`, `Chtimes`, `SSHCommand`
-    - `level` string
-    - `username`, string
-    - `file_path` string
-    - `target_path` string
-    - `filemode` string. Valid for sender `Chmod` otherwise empty
-    - `uid` integer. Valid for sender `Chown` otherwise -1
-    - `gid` integer. Valid for sender `Chown` otherwise -1
-    - `access_time` datetime as YYYY-MM-DDTHH:MM:SS. Valid for sender `Chtimes` otherwise empty
-    - `modification_time` datetime as YYYY-MM-DDTHH:MM:SS. Valid for sender `Chtimes` otherwise empty
-    - `ssh_command`, string. Valid for sender `SSHCommand` otherwise empty
-    - `connection_id` string. Unique connection identifier
-    - `protocol` string. `SFTP`, `SCP` or `SSH`
-- **"http logs"**, REST API logs:
-    - `sender` string. `httpd`
-    - `level` string
-    - `remote_addr` string. IP and port of the remote client
-    - `proto` string, for example `HTTP/1.1`
-    - `method` string. HTTP method (`GET`, `POST`, `PUT`, `DELETE` etc.)
-    - `user_agent` string
-    - `uri` string. Full uri
-    - `resp_status` integer. HTTP response status code
-    - `resp_size` integer. Size in bytes of the HTTP response
-    - `elapsed_ms` int64. Elapsed time, as milliseconds, to complete the request
-    - `request_id` string. Unique request identifier
-- **"connection failed logs"**, logs for failed attempts to initialize a connection. A connection can fail for an authentication error or other errors such as a client abort or a timeout if the login does not happen in two minutes
-    - `sender` string. `connection_failed`
-    - `level` string
-    - `username`, string. Can be empty if the connection is closed before an authentication attempt
-    - `client_ip` string.
-    - `login_type` string. Can be `publickey`, `password`, `keyboard-interactive` or `no_auth_tryed`
-    - `error` string. Optional error description
+Inside the log file, each line is a JSON struct. The struct is documented [here](./docs/logs.md).
 
 ## Brute force protection
 
 The **connection failed logs** can be used for integration in tools such as [Fail2ban](http://www.fail2ban.org/). Example of [jails](./fail2ban/jails) and [filters](./fail2ban/filters) working with `systemd`/`journald` are available in fail2ban directory.
+
+## Account's configuration properties
+
+Details information about account configuration properties can be found [here](./docs/account.md).
 
 ## Performance
 
@@ -785,8 +400,7 @@ SFTPGo can easily saturate a Gigabit connection on low end hardware with no spec
 
 The main bootlenecks are the encryption and the messages authentication, so if you can use a fast cipher with implicit message authentication, for example `aes128-gcm@openssh.com`, you will get a big performance boost.
 
-There is an open [issue](https://github.com/drakkan/sftpgo/issues/69) with some other suggestions to improve performance and some comparisons against OpenSSH.
-
+More in-depth analysis of performance can be found [here](./docs/performance.md).
 
 ## Acknowledgements
 

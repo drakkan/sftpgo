@@ -1,0 +1,54 @@
+# Logs
+
+Each struct has a `sender` field that identifies the log type.
+
+The logs can be divided into the following categories:
+
+- **"app logs"**, internal logs used to debug `sftpgo`:
+    - `sender` string. This is generally the package name that emits the log
+    - `time` string. Date/time with millisecond precision
+    - `level` string
+    - `message` string
+- **"transfer logs"**, SFTP/SCP transfer logs:
+    - `sender` string. `Upload` or `Download`
+    - `time` string. Date/time with millisecond precision
+    - `level` string
+    - `elapsed_ms`, int64. Elapsed time, as milliseconds, for the upload/download
+    - `size_bytes`, int64. Size, as bytes, of the download/upload
+    - `username`, string
+    - `file_path` string
+    - `connection_id` string. Unique connection identifier
+    - `protocol` string. `SFTP` or `SCP`
+- **"command logs"**, SFTP/SCP command logs:
+    - `sender` string. `Rename`, `Rmdir`, `Mkdir`, `Symlink`, `Remove`, `Chmod`, `Chown`, `Chtimes`, `SSHCommand`
+    - `level` string
+    - `username`, string
+    - `file_path` string
+    - `target_path` string
+    - `filemode` string. Valid for sender `Chmod` otherwise empty
+    - `uid` integer. Valid for sender `Chown` otherwise -1
+    - `gid` integer. Valid for sender `Chown` otherwise -1
+    - `access_time` datetime as YYYY-MM-DDTHH:MM:SS. Valid for sender `Chtimes` otherwise empty
+    - `modification_time` datetime as YYYY-MM-DDTHH:MM:SS. Valid for sender `Chtimes` otherwise empty
+    - `ssh_command`, string. Valid for sender `SSHCommand` otherwise empty
+    - `connection_id` string. Unique connection identifier
+    - `protocol` string. `SFTP`, `SCP` or `SSH`
+- **"http logs"**, REST API logs:
+    - `sender` string. `httpd`
+    - `level` string
+    - `remote_addr` string. IP and port of the remote client
+    - `proto` string, for example `HTTP/1.1`
+    - `method` string. HTTP method (`GET`, `POST`, `PUT`, `DELETE` etc.)
+    - `user_agent` string
+    - `uri` string. Full uri
+    - `resp_status` integer. HTTP response status code
+    - `resp_size` integer. Size in bytes of the HTTP response
+    - `elapsed_ms` int64. Elapsed time, as milliseconds, to complete the request
+    - `request_id` string. Unique request identifier
+- **"connection failed logs"**, logs for failed attempts to initialize a connection. A connection can fail for an authentication error or other errors such as a client abort or a timeout if the login does not happen in two minutes
+    - `sender` string. `connection_failed`
+    - `level` string
+    - `username`, string. Can be empty if the connection is closed before an authentication attempt
+    - `client_ip` string.
+    - `login_type` string. Can be `publickey`, `password`, `keyboard-interactive` or `no_auth_tryed`
+    - `error` string. Optional error description
