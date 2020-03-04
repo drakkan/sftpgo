@@ -19,7 +19,12 @@
     "macs": [],
     "login_banner_file": "",
     "setstat_mode": 0,
-    "enabled_ssh_commands": ["md5sum", "sha1sum", "cd", "pwd"],
+    "enabled_ssh_commands": [
+      "md5sum",
+      "sha1sum",
+      "cd",
+      "pwd"
+    ],
     "keyboard_interactive_auth_program": "",
     "proxy_protocol": 0,
     "proxy_allowed": []
