@@ -138,7 +138,7 @@ func init() {
 	portableCmd.Flags().BoolVarP(&portableAdvertiseService, "advertise-service", "S", true,
 		"Advertise SFTP service using multicast DNS")
 	portableCmd.Flags().BoolVarP(&portableAdvertiseCredentials, "advertise-credentials", "C", false,
-		"If the SFTP service is advertised via multicast DNS this flag allows to put username/password inside the advertised TXT record")
+		"If the SFTP service is advertised via multicast DNS, this flag allows to put username/password inside the advertised TXT record")
 	portableCmd.Flags().IntVarP(&portableFsProvider, "fs-provider", "f", 0, "0 means local filesystem, 1 Amazon S3 compatible, "+
 		"2 Google Cloud Storage")
 	portableCmd.Flags().StringVar(&portableS3Bucket, "s3-bucket", "", "")

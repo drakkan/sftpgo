@@ -4,7 +4,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 
 	"github.com/drakkan/sftpgo/config"
@@ -141,7 +140,7 @@ func addServeFlags(cmd *cobra.Command) {
 func getCustomServeFlags() []string {
 	result := []string{}
 	if configDir != defaultConfigDir {
-		configDir = filepath.Clean(configDir)
+		configDir = utils.CleanDirInput(configDir)
 		result = append(result, "--"+configDirFlag)
 		result = append(result, configDir)
 	}
@@ -149,10 +148,7 @@ func getCustomServeFlags() []string {
 		result = append(result, "--"+configFileFlag)
 		result = append(result, configFile)
 	}
-	if logFilePath != defaultLogFile && utils.IsFileInputValid(logFilePath) {
-		if !filepath.IsAbs(logFilePath) {
-			logFilePath = filepath.Join(configDir, logFilePath)
-		}
+	if logFilePath != defaultLogFile {
 		result = append(result, "--"+logFilePathFlag)
 		result = append(result, logFilePath)
 	}

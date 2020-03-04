@@ -2,7 +2,7 @@
 ; You need to change the paths for the source files to match your environment
 
 #define MyAppName "SFTPGo"
-#define MyAppVersion "0.9.5-dev"
+#define MyAppVersion "0.9.5.1"
 #define MyAppURL "https://github.com/drakkan/sftpgo"
 #define MyAppExeName "sftpgo.exe"
 #define MyAppDir "C:\Users\vbox\Desktop\sftpgo_setup"
@@ -63,7 +63,7 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 [Run]
 Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""SFTPGo Service"""; Flags: runhidden
 Filename: "netsh"; Parameters: "advfirewall firewall add rule name=""SFTPGo Service"" dir=in action=allow program=""{app}\{#MyAppExeName}"""; Flags: runhidden
-Filename: "{app}\{#MyAppExeName}"; Parameters: "service install -c ""{commonappdata}\{#MyAppName}"" -l ""{commonappdata}\{#MyAppName}\logs\sftpgo.log"""; Description: "Install SFTPGo Windows Service"; Flags: runhidden
+Filename: "{app}\{#MyAppExeName}"; Parameters: "service install -c ""{commonappdata}\{#MyAppName}"" -l ""logs\sftpgo.log"""; Description: "Install SFTPGo Windows Service"; Flags: runhidden
 Filename: "{app}\{#MyAppExeName}"; Parameters: "service start";  Description: "Start SFTPGo Windows Service"; Flags: runhidden
 
 [UninstallRun]

@@ -20,6 +20,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -298,4 +299,20 @@ func IsFileInputValid(fileInput string) bool {
 		return false
 	}
 	return true
+}
+
+// CleanDirInput sanitizes user input for directories.
+// On Windows it removes any trailing `"`.
+// We try to help windows users that set an invalid path such as "C:\ProgramData\SFTPGO\".
+// This will only help if the invalid path is the last argument, for example in this command:
+// sftpgo.exe serve -c "C:\ProgramData\SFTPGO\" -l "sftpgo.log"
+// the -l flag will be ignored and the -c flag will get the value `C:\ProgramData\SFTPGO" -l sftpgo.log`
+// since the backslash after SFTPGO escape the double quote. This is definitely a bad user input
+func CleanDirInput(dirInput string) string {
+	if runtime.GOOS == "windows" {
+		for strings.HasSuffix(dirInput, "\"") {
+			dirInput = strings.TrimSuffix(dirInput, "\"")
+		}
+	}
+	return filepath.Clean(dirInput)
 }

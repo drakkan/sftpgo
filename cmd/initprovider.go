@@ -1,11 +1,10 @@
 package cmd
 
 import (
-	"path/filepath"
-
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/utils"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -31,7 +30,7 @@ Please take a look at the usage below to customize the options.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			logger.DisableLogger()
 			logger.EnableConsoleLogger(zerolog.DebugLevel)
-			configDir = filepath.Clean(configDir)
+			configDir = utils.CleanDirInput(configDir)
 			config.LoadConfig(configDir, configFile)
 			providerConf := config.GetProviderConf()
 			logger.DebugToConsole("Initializing provider: %#v config file: %#v", providerConf.Driver, viper.ConfigFileUsed())
