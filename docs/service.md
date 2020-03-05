@@ -8,6 +8,36 @@ For Linux, a `systemd` sample [service](../init/sftpgo.service "systemd service"
 
 For macOS, a `launchd` sample [service](../init/com.github.drakkan.sftpgo.plist "launchd plist") can be found inside the source tree. The `launchd` plist assumes that SFTPGo has `/usr/local/opt/sftpgo` as base directory.
 
+Here are some basic instructions to run SFTPGo as service, please run the following commands from the directory where you downloaded SFTPGo:
+
+```bash
+# create the required directories
+sudo mkdir -p /usr/local/opt/sftpgo/init \
+  /usr/local/opt/sftpgo/var/lib \
+  /usr/local/opt/sftpgo/var/log \
+  /usr/local/opt/sftpgo/etc \
+  /usr/local/opt/sftpgo/bin
+
+# install sftpgo executable
+sudo cp sftpgo /usr/local/opt/sftpgo/bin/
+# install the launchd service
+sudo cp init/com.github.drakkan.sftpgo.plist /usr/local/opt/sftpgo/init
+# install the default configuration file, edit it if required
+sudo cp sftpgo.json /usr/local/opt/sftpgo/etc/
+# install static file and templates for the web UI
+sudo cp -r static templates /usr/local/opt/sftpgo/var/lib/
+# initialize the configured data provider
+sudo /usr/local/opt/sftpgo/bin/sftpgo initprovider -c /usr/local/opt/sftpgo/etc
+# add sftpgo to the launch daemons
+sudo ln -s /usr/local/opt/sftpgo/init/com.github.drakkan.sftpgo.plist /Library/LaunchDaemons/com.github.drakkan.sftpgo.plist
+# start the service
+sudo launchctl load -w /Library/LaunchDaemons/com.github.drakkan.sftpgo.plist
+# verify that the service is started
+sudo launchctl list com.github.drakkan.sftpgo
+# optional, install the REST API CLI. It requires python-requests to run, this python module is not installed by default
+sudo cp scripts/sftpgo_api_cli.py /usr/local/opt/sftpgo/bin/
+```
+
 ## Windows
 
 On Windows, you can register SFTPGo as Windows Service. Take a look at the CLI usage to learn how to do this:
