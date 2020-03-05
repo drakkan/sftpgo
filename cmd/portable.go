@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/service"
@@ -25,6 +27,8 @@ var (
 	portablePublicKeys           []string
 	portablePermissions          []string
 	portableSSHCommands          []string
+	portableAllowedExtensions    []string
+	portableDeniedExtensions     []string
 	portableFsProvider           int
 	portableS3Bucket             string
 	portableS3Region             string
@@ -113,6 +117,9 @@ Please take a look at the usage below to customize the serving parameters`,
 							KeyPrefix:            portableGCSKeyPrefix,
 						},
 					},
+					Filters: dataprovider.UserFilters{
+						FileExtensions: parseFileExtensionsFilters(),
+					},
 				},
 			}
 			if err := service.StartPortableMode(portableSFTPDPort, portableSSHCommands, portableAdvertiseService,
@@ -135,6 +142,10 @@ func init() {
 	portableCmd.Flags().StringSliceVarP(&portablePublicKeys, "public-key", "k", []string{}, "")
 	portableCmd.Flags().StringSliceVarP(&portablePermissions, "permissions", "g", []string{"list", "download"},
 		"User's permissions. \"*\" means any permission")
+	portableCmd.Flags().StringArrayVar(&portableAllowedExtensions, "allowed-extensions", []string{},
+		"Allowed file extensions case insensitive. The format is /dir::ext1,ext2. For example: \"/somedir::.jpg,.png\"")
+	portableCmd.Flags().StringArrayVar(&portableDeniedExtensions, "denied-extensions", []string{},
+		"Denied file extensions case insensitive. The format is /dir::ext1,ext2. For example: \"/somedir::.jpg,.png\"")
 	portableCmd.Flags().BoolVarP(&portableAdvertiseService, "advertise-service", "S", true,
 		"Advertise SFTP service using multicast DNS")
 	portableCmd.Flags().BoolVarP(&portableAdvertiseCredentials, "advertise-credentials", "C", false,
@@ -157,4 +168,59 @@ func init() {
 	portableCmd.Flags().IntVar(&portableGCSAutoCredentials, "gcs-automatic-credentials", 1, "0 means explicit credentials using a JSON "+
 		"credentials file, 1 automatic")
 	rootCmd.AddCommand(portableCmd)
+}
+
+func parseFileExtensionsFilters() []dataprovider.ExtensionsFilter {
+	var extensions []dataprovider.ExtensionsFilter
+	for _, val := range portableAllowedExtensions {
+		p, exts := getExtensionsFilterValues(strings.TrimSpace(val))
+		if len(p) > 0 {
+			extensions = append(extensions, dataprovider.ExtensionsFilter{
+				Path:              path.Clean(p),
+				AllowedExtensions: exts,
+				DeniedExtensions:  []string{},
+			})
+		}
+	}
+	for _, val := range portableDeniedExtensions {
+		p, exts := getExtensionsFilterValues(strings.TrimSpace(val))
+		if len(p) > 0 {
+			found := false
+			for index, e := range extensions {
+				if path.Clean(e.Path) == path.Clean(p) {
+					extensions[index].DeniedExtensions = append(extensions[index].DeniedExtensions, exts...)
+					found = true
+					break
+				}
+			}
+			if !found {
+				extensions = append(extensions, dataprovider.ExtensionsFilter{
+					Path:              path.Clean(p),
+					AllowedExtensions: []string{},
+					DeniedExtensions:  exts,
+				})
+			}
+		}
+	}
+	return extensions
+}
+
+func getExtensionsFilterValues(value string) (string, []string) {
+	if strings.Contains(value, "::") {
+		dirExts := strings.Split(value, "::")
+		if len(dirExts) > 1 {
+			dir := strings.TrimSpace(dirExts[0])
+			exts := []string{}
+			for _, e := range strings.Split(dirExts[1], ",") {
+				cleanedExt := strings.TrimSpace(e)
+				if len(cleanedExt) > 0 {
+					exts = append(exts, cleanedExt)
+				}
+			}
+			if len(dir) > 0 && len(exts) > 0 {
+				return dir, exts
+			}
+		}
+	}
+	return "", nil
 }

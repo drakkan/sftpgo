@@ -221,8 +221,9 @@ func (s *Service) StartPortableMode(sftpdPort int, enabledSSHCommands []string, 
 	}()
 
 	logger.InfoToConsole("Portable mode ready, SFTP port: %v, user: %#v, password: %#v, public keys: %v, directory: %#v, "+
-		"permissions: %v, enabled ssh commands: %v", sftpdConf.BindPort, s.PortableUser.Username, s.PortableUser.Password,
-		s.PortableUser.PublicKeys, s.getPortableDirToServe(), s.PortableUser.Permissions, sftpdConf.EnabledSSHCommands)
+		"permissions: %+v, enabled ssh commands: %v file extensions filters: %+v", sftpdConf.BindPort, s.PortableUser.Username,
+		s.PortableUser.Password, s.PortableUser.PublicKeys, s.getPortableDirToServe(), s.PortableUser.Permissions,
+		sftpdConf.EnabledSSHCommands, s.PortableUser.Filters.FileExtensions)
 	return nil
 }
 
