@@ -36,16 +36,19 @@ Ethernet| Mellanox ConnectX-3 40GbE|
 #### Cipher aes128-ctr
 ##### SFTP
 Download:
+
 Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
----|---|---|---|---|---|---|---|---|
+---|---|---|---|---|
 1|125|280|370|378|
 2|210|520|675|720|
 3|260|760|880|1002|
 4|330|1100|1150|1222|
 8|387|1850|1400|1815|
+
 Upload:
+
 Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
----|---|---|---|---|---|---|---|---|
+---|---|---|---|---|
 1||280|340|355|
 2||440|490|633|
 3||520|560|726|
@@ -54,56 +57,68 @@ Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
 
 ##### SCP
 Download:
+
 Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
----|---|---|---|---|---|---|---|---|
+---|---|---|---|---|
 1|380|||470|
 2|750|||828|
 3|1100|||1174|
 4|1350|||1424|
 8|2100|||1870|
+
 Upload:
+
 Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
----|---|---|---|---|---|---|---|---|
+---|---|---|---|---|
 1||340||428|
 2||520||668|
 3||630||803|
 4||700||840|
 8||830||884|
+
 #### Cipher aes128gcm@openssh.com
 ##### SFTP
 Download:
+
 Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
----|---|---|---|---|---|---|---|---|
+---|---|---|---|---|
 1|260||500|401|
 2|420||900|810|
 3|500||1100|1072|
 4|580||1500|1288|
 8|700||1600|1842|
+
 Upload:
+
 Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
----|---|---|---|---|---|---|---|---|
+---|---|---|---|---|
 1|||420|381|
 2|||550|670|
 3|||600|757|
 4|||700|758|
 8|||750|815|
+
 ##### SCP
 Download:
+
 Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
----|---|---|---|---|---|---|---|---|
+---|---|---|---|---|
 1|500|||447|
 2|950|||883|
 3|1350|||1217|
 4|1650|||1475|
 8|2400|||1941|
+
 Upload:
+
 Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
----|---|---|---|---|---|---|---|---|
+---|---|---|---|---|
 1||||448|
 2||||650|
 3||||741|
 4||||858|
 8||||887|
+
 ### Optimizations applied
 - AES-CTR optimization of golang compiler hasn't been merged yet, you can apply the patch yourself. [patch](https://go-review.googlesource.com/c/go/+/51670)
 - Use minio/sha256-simd to accelerate MAC computation, which could improve the performance by 50% on newer CPU architectures.
