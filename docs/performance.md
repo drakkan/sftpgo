@@ -1,4 +1,5 @@
 
+  
 # Performance
 
 SFTPGo can easily saturate a Gigabit connection on low end hardware with no special configuration, and this is generally enough for most use cases.
@@ -39,42 +40,42 @@ Download:
 
 Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
 ---|---|---|---|---|
-1|125|280|370|378|
-2|210|520|675|720|
-3|260|760|880|1002|
-4|330|1100|1150|1222|
-8|387|1850|1400|1815|
+1|125|306|370|378|
+2|210|576|675|720|
+3|260|807|880|1002|
+4|330|1024|1150|1222|
+8|387|1749|1400|1815|
 
 Upload:
 
 Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
 ---|---|---|---|---|
-1||280|340|355|
-2||440|490|633|
-3||520|560|726|
-4||570|650|788|
-8||690|700|806|
+1||292|340|355|
+2||453|490|633|
+3||566|560|726|
+4||647|650|788|
+8||735|700|806|
 
 ##### SCP
 Download:
 
 Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
 ---|---|---|---|---|
-1|380|||470|
-2|750|||828|
-3|1100|||1174|
-4|1350|||1424|
-8|2100|||1870|
+1|380|509|579|470|
+2|750|928|1097|828|
+3|1100|1327|1346|1174|
+4|1350|1670|1576|1424|
+8|2100|2656|2049|1870|
 
 Upload:
 
 Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
 ---|---|---|---|---|
-1||340||428|
-2||520||668|
-3||630||803|
-4||700||840|
-8||830||884|
+1||354|393|428|
+2||510|570|668|
+3||621|664|803|
+4||705|723|840|
+8||767|799|884|
 
 #### Cipher aes128gcm@openssh.com
 ##### SFTP
@@ -82,42 +83,42 @@ Download:
 
 Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
 ---|---|---|---|---|
-1|260||500|401|
-2|420||900|810|
-3|500||1100|1072|
-4|580||1500|1288|
-8|700||1600|1842|
+1|260|388|561|401|
+2|420|734|976|810|
+3|500|1067|1214|1072|
+4|580|1283|1415|1288|
+8|700|2072|1742|1842|
 
 Upload:
 
 Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
 ---|---|---|---|---|
-1|||420|381|
-2|||550|670|
-3|||600|757|
-4|||700|758|
-8|||750|815|
+1||353|415|381|
+2||542|573|670|
+3||672|657|757|
+4||730|721|758|
+8||825|763|815|
 
 ##### SCP
 Download:
 
 Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
 ---|---|---|---|---|
-1|500|||447|
-2|950|||883|
-3|1350|||1217|
-4|1650|||1475|
-8|2400|||1941|
+1|500|734|818|447|
+2|950|1320|1367|883|
+3|1350|1738|1755|1217|
+4|1650|2238|2038|1475|
+8|2400|3184|2391|1941|
 
 Upload:
 
 Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
 ---|---|---|---|---|
-1||||448|
-2||||650|
-3||||741|
-4||||858|
-8||||887|
+1||430|494|448|
+2||623|646|650|
+3||749|728|741|
+4||832|788|858|
+8||903|823|887|
 
 ### Optimizations applied
 - AES-CTR optimization of golang compiler hasn't been merged yet, you can apply the patch yourself. [patch](https://go-review.googlesource.com/c/go/+/51670)
@@ -147,9 +148,3 @@ index f1b2caa..4a3be8a 100644
 +
 +replace github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20200227085621-6b4abaad1b9a
 ```
-
-
-
-
-
-
