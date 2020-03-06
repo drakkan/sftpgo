@@ -160,9 +160,7 @@ Details information about account configuration properties can be found [here](.
 
 ## Performance
 
-SFTPGo can easily saturate a Gigabit connection on low end hardware with no special configuration, and this is generally enough for most use cases.
-
-The main bootlenecks are the encryption and the messages authentication, so if you can use a fast cipher with implicit message authentication, for example `aes128-gcm@openssh.com`, you will get a big performance boost.
+SFTPGo can easily saturate a Gigabit connection on low end hardware with no special configuration, this is generally enough for most use cases.
 
 More in-depth analysis of performance can be found [here](./docs/performance.md).
 
