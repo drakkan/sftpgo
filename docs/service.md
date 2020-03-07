@@ -16,10 +16,10 @@ sudo install -Dm755 sftpgo /usr/bin/sftpgo
 # install the default configuration file, edit it if required
 sudo install -Dm644 sftpgo.json /etc/sftpgo/
 # override some configuration keys using environment variables
-sudo echo "SFTPGO_HTTPD__TEMPLATES_PATH=/var/lib/sftpgo/templates" > /etc/sftpgo/sftpgo.env
-sudo echo "SFTPGO_HTTPD__STATIC_FILES_PATH=/var/lib/sftpgo/static" >> /etc/sftpgo/sftpgo.env
-sudo echo "SFTPGO_HTTPD__BACKUPS_PATH=/var/lib/sftpgo/backups" >> /etc/sftpgo/sftpgo.env
-sudo echo "SFTPGO_DATA_PROVIDER__CREDENTIALS_PATH=/var/lib/sftpgo/credentials" >> /etc/sftpgo/sftpgo.env
+sudo sh -c 'echo "SFTPGO_HTTPD__TEMPLATES_PATH=/var/lib/sftpgo/templates" > /etc/sftpgo/sftpgo.env'
+sudo sh -c 'echo "SFTPGO_HTTPD__STATIC_FILES_PATH=/var/lib/sftpgo/static" >> /etc/sftpgo/sftpgo.env'
+sudo sh -c 'echo "SFTPGO_HTTPD__BACKUPS_PATH=/var/lib/sftpgo/backups" >> /etc/sftpgo/sftpgo.env'
+sudo sh -c 'echo "SFTPGO_DATA_PROVIDER__CREDENTIALS_PATH=/var/lib/sftpgo/credentials" >> /etc/sftpgo/sftpgo.env'
 # install static files and templates for the web UI
 sudo cp -r static templates /var/lib/sftpgo/
 # initialize the configured data provider
@@ -55,6 +55,7 @@ sudo mkdir -p /usr/local/opt/sftpgo/init \
 sudo cp sftpgo /usr/local/opt/sftpgo/bin/
 # install the launchd service
 sudo cp init/com.github.drakkan.sftpgo.plist /usr/local/opt/sftpgo/init/
+sudo chown root:wheel /usr/local/opt/sftpgo/init/com.github.drakkan.sftpgo.plist
 # install the default configuration file, edit it if required
 sudo cp sftpgo.json /usr/local/opt/sftpgo/etc/
 # install static files and templates for the web UI

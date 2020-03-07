@@ -2,15 +2,13 @@
 ; You need to change the paths for the source files to match your environment
 
 #define MyAppName "SFTPGo"
-#define MyAppVersion "0.9.5.1"
+#define MyAppVersion "0.9.6"
 #define MyAppURL "https://github.com/drakkan/sftpgo"
 #define MyAppExeName "sftpgo.exe"
 #define MyAppDir "C:\Users\vbox\Desktop\sftpgo_setup"
 #define MyOutputDir "C:\Users\vbox\Desktop"
 
 [Setup]
-; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
-; (To generate a new GUID, click Tools | Generate GUID inside the IDE.)
 AppId={{1FB9D57F-00DD-4B1B-8798-1138E5CE995D}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
@@ -21,8 +19,6 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 LicenseFile={#MyAppDir}\LICENSE.txt
-; Uncomment the following line to run in non administrative install mode (install for current user only.)
-;PrivilegesRequired=lowest
 OutputDir={#MyOutputDir}
 OutputBaseFilename=sftpgo_windows_x86_64
 Compression=lzma
@@ -40,14 +36,12 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Files]
 Source: "{#MyAppDir}\sftpgo.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyAppDir}\sftpgo.db"; DestDir: "{commonappdata}\{#MyAppName}"; Flags: onlyifdoesntexist uninsneveruninstall
-Source: "{#MyAppDir}\README.pdf"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyAppDir}\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyAppDir}\sftpgo.json"; DestDir: "{commonappdata}\{#MyAppName}"; Flags: onlyifdoesntexist uninsneveruninstall
 Source: "{#MyAppDir}\scripts\*"; DestDir: "{app}\scripts"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#MyAppDir}\sql\*"; DestDir: "{app}\sql"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#MyAppDir}\templates\*"; DestDir: "{commonappdata}\{#MyAppName}\templates"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#MyAppDir}\static\*"; DestDir: "{commonappdata}\{#MyAppName}\static"; Flags: ignoreversion recursesubdirs createallsubdirs
-; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Dirs]
 Name: "{commonappdata}\{#MyAppName}\logs"; Permissions: everyone-full
@@ -58,6 +52,7 @@ Name: "{commonappdata}\{#MyAppName}\credentials"; Permissions: everyone-full
 Name: "{group}\Web Admin"; Filename: "http://127.0.0.1:8080/web";
 Name: "{group}\Service Control";  WorkingDir: "{app}"; Filename: "powershell.exe"; Parameters: "-Command ""Start-Process cmd \""/k cd {app} & {#MyAppName} service --help\"" -Verb RunAs"; Comment: "Install, start, stop, uninstall SFTPGo Service"
 Name: "{group}\REST API CLI";  WorkingDir: "{app}\scripts"; Filename: "{cmd}"; Parameters: "/k sftpgo_api_cli.exe --help"; Comment: "Manage users and connections"
+Name: "{group}\Documentation"; Filename: "https://github.com/drakkan/sftpgo/blob/0.9.6/README.md";
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 
 [Run]
