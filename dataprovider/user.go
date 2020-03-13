@@ -530,13 +530,15 @@ func (u *User) getACopy() User {
 	fsConfig := Filesystem{
 		Provider: u.FsConfig.Provider,
 		S3Config: vfs.S3FsConfig{
-			Bucket:       u.FsConfig.S3Config.Bucket,
-			Region:       u.FsConfig.S3Config.Region,
-			AccessKey:    u.FsConfig.S3Config.AccessKey,
-			AccessSecret: u.FsConfig.S3Config.AccessSecret,
-			Endpoint:     u.FsConfig.S3Config.Endpoint,
-			StorageClass: u.FsConfig.S3Config.StorageClass,
-			KeyPrefix:    u.FsConfig.S3Config.KeyPrefix,
+			Bucket:            u.FsConfig.S3Config.Bucket,
+			Region:            u.FsConfig.S3Config.Region,
+			AccessKey:         u.FsConfig.S3Config.AccessKey,
+			AccessSecret:      u.FsConfig.S3Config.AccessSecret,
+			Endpoint:          u.FsConfig.S3Config.Endpoint,
+			StorageClass:      u.FsConfig.S3Config.StorageClass,
+			KeyPrefix:         u.FsConfig.S3Config.KeyPrefix,
+			UploadPartSize:    u.FsConfig.S3Config.UploadPartSize,
+			UploadConcurrency: u.FsConfig.S3Config.UploadConcurrency,
 		},
 		GCSConfig: vfs.GCSFsConfig{
 			Bucket:               u.FsConfig.GCSConfig.Bucket,

@@ -1009,7 +1009,7 @@ components:
           description: the buffer size (in MB) to use for multipart uploads. The minimum allowed part size is 5MB, and if this value is set to zero, the default value (5MB) for the AWS SDK will be used. The minimum allowed value is 5.
         upload_concurrency:
           type: integer
-          description: the number of parts to upload in parallel. If this value is set to zero, 2 will be used
+          description: the number of parts to upload in parallel. If this value is set to zero, the default value (2) will be used
         key_prefix:
           type: string
           description: key_prefix is similar to a chroot directory for a local filesystem. If specified the SFTP user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix, if not empty, must not start with "/" and must end with "/". If empty the whole bucket contents will be available

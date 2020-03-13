@@ -106,6 +106,9 @@ func ValidateS3FsConfig(config *S3FsConfig) error {
 	if config.UploadPartSize != 0 && config.UploadPartSize < 5 {
 		return errors.New("upload_part_size cannot be != 0 and lower than 5 (MB)")
 	}
+	if config.UploadConcurrency < 0 {
+		return fmt.Errorf("invalid upload concurrency: %v", config.UploadConcurrency)
+	}
 	return nil
 }
 

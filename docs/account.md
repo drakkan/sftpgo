@@ -47,6 +47,7 @@ For each account, the following properties can be configured:
 - `s3_storage_class`, leave blank to use the default or specify a valid AWS [storage class](https://docs.aws.amazon.com/AmazonS3/latest/dev/storage-class-intro.html)
 - `s3_key_prefix`, allows to restrict access to the virtual folder identified by this prefix and its contents
 - `s3_upload_part_size`, the buffer size for multipart uploads (MB). Zero means the default (5 MB). Minimum is 5
+- `s3_upload_concurrency` how many parts are uploaded in parallel
 - `gcs_bucket`, required for GCS filesystem
 - `gcs_credentials`, Google Cloud Storage JSON credentials base64 encoded
 - `gcs_automatic_credentials`, integer. Set to 1 to use Application Default Credentials strategy or set to 0 to use explicit credentials via `gcs_credentials`

@@ -77,7 +77,7 @@ class SFTPGoApiRequests:
 					s3_region='', s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='',
 					s3_key_prefix='', gcs_bucket='', gcs_key_prefix='', gcs_storage_class='', gcs_credentials_file='',
 					gcs_automatic_credentials='automatic', denied_login_methods=[], virtual_folders=[],
-					denied_extensions=[], allowed_extensions=[], s3_upload_part_size=0):
+					denied_extensions=[], allowed_extensions=[], s3_upload_part_size=0, s3_upload_concurrency=0):
 		user = {'id':user_id, 'username':username, 'uid':uid, 'gid':gid,
 			'max_sessions':max_sessions, 'quota_size':quota_size, 'quota_files':quota_files,
 			'upload_bandwidth':upload_bandwidth, 'download_bandwidth':download_bandwidth,
@@ -101,7 +101,7 @@ class SFTPGoApiRequests:
 		user.update({'filesystem':self.buildFsConfig(fs_provider, s3_bucket, s3_region, s3_access_key, s3_access_secret,
 													s3_endpoint, s3_storage_class, s3_key_prefix, gcs_bucket,
 													gcs_key_prefix, gcs_storage_class, gcs_credentials_file,
-													gcs_automatic_credentials, s3_upload_part_size)})
+													gcs_automatic_credentials, s3_upload_part_size, s3_upload_concurrency)})
 		return user
 
 	def buildVirtualFolders(self, vfolders):
@@ -204,12 +204,12 @@ class SFTPGoApiRequests:
 
 	def buildFsConfig(self, fs_provider, s3_bucket, s3_region, s3_access_key, s3_access_secret, s3_endpoint,
 					s3_storage_class, s3_key_prefix, gcs_bucket, gcs_key_prefix, gcs_storage_class,
-					gcs_credentials_file, gcs_automatic_credentials, s3_upload_part_size):
+					gcs_credentials_file, gcs_automatic_credentials, s3_upload_part_size, s3_upload_concurrency):
 		fs_config = {'provider':0}
 		if fs_provider == 'S3':
 			s3config = {'bucket':s3_bucket, 'region':s3_region, 'access_key':s3_access_key, 'access_secret':
 					s3_access_secret, 'endpoint':s3_endpoint, 'storage_class':s3_storage_class, 'key_prefix':
-					s3_key_prefix, 'upload_part_size':s3_upload_part_size}
+					s3_key_prefix, 'upload_part_size':s3_upload_part_size, 'upload_concurrency':s3_upload_concurrency}
 			fs_config.update({'provider':1, 's3config':s3config})
 		elif fs_provider == 'GCS':
 			gcsconfig = {'bucket':gcs_bucket, 'key_prefix':gcs_key_prefix, 'storage_class':gcs_storage_class}
@@ -239,13 +239,13 @@ class SFTPGoApiRequests:
 			s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='', s3_key_prefix='', gcs_bucket='',
 			gcs_key_prefix='', gcs_storage_class='', gcs_credentials_file='', gcs_automatic_credentials='automatic',
 			denied_login_methods=[], virtual_folders=[], denied_extensions=[], allowed_extensions=[],
-			s3_upload_part_size=0):
+			s3_upload_part_size=0, s3_upload_concurrency=0):
 		u = self.buildUserObject(0, username, password, public_keys, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, self.buildPermissions(perms, subdirs_permissions), upload_bandwidth, download_bandwidth,
 			status, expiration_date, allowed_ip, denied_ip, fs_provider, s3_bucket, s3_region, s3_access_key,
 			s3_access_secret, s3_endpoint, s3_storage_class, s3_key_prefix, gcs_bucket, gcs_key_prefix, gcs_storage_class,
 			gcs_credentials_file, gcs_automatic_credentials, denied_login_methods, virtual_folders, denied_extensions,
-			allowed_extensions, s3_upload_part_size)
+			allowed_extensions, s3_upload_part_size, s3_upload_concurrency)
 		r = requests.post(self.userPath, json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
@@ -255,13 +255,13 @@ class SFTPGoApiRequests:
 				s3_bucket='', s3_region='', s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='',
 				s3_key_prefix='', gcs_bucket='', gcs_key_prefix='', gcs_storage_class='', gcs_credentials_file='',
 				gcs_automatic_credentials='automatic', denied_login_methods=[], virtual_folders=[], denied_extensions=[],
-				allowed_extensions=[], s3_upload_part_size=0):
+				allowed_extensions=[], s3_upload_part_size=0, s3_upload_concurrency=0):
 		u = self.buildUserObject(user_id, username, password, public_keys, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, self.buildPermissions(perms, subdirs_permissions), upload_bandwidth, download_bandwidth,
 			status, expiration_date, allowed_ip, denied_ip, fs_provider, s3_bucket, s3_region, s3_access_key,
 			s3_access_secret, s3_endpoint, s3_storage_class, s3_key_prefix, gcs_bucket, gcs_key_prefix, gcs_storage_class,
 			gcs_credentials_file, gcs_automatic_credentials, denied_login_methods, virtual_folders, denied_extensions,
-			allowed_extensions, s3_upload_part_size)
+			allowed_extensions, s3_upload_part_size, s3_upload_concurrency)
 		r = requests.put(urlparse.urljoin(self.userPath, 'user/' + str(user_id)), json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
@@ -540,6 +540,8 @@ def addCommonUserArguments(parser):
 	parser.add_argument('--s3-storage-class', type=str, default='', help='Default: %(default)s')
 	parser.add_argument('--s3-upload-part-size', type=int, default=0, help='The buffer size for multipart uploads (MB). ' +
 					'Zero means the default (5 MB). Minimum is 5. Default: %(default)s')
+	parser.add_argument('--s3-upload-concurrency', type=int, default=0, help='How many parts are uploaded in parallel. ' +
+					'Zero means the default (2). Default: %(default)s')
 	parser.add_argument('--gcs-bucket', type=str, default='', help='Default: %(default)s')
 	parser.add_argument('--gcs-key-prefix', type=str, default='', help='Virtual root directory. If non empty only this ' +
 					'directory and its contents will be available. Cannot start with "/". For example "folder/subfolder/".' +
@@ -660,7 +662,7 @@ if __name__ == '__main__':
 				args.s3_endpoint, args.s3_storage_class, args.s3_key_prefix, args.gcs_bucket, args.gcs_key_prefix,
 				args.gcs_storage_class, args.gcs_credentials_file, args.gcs_automatic_credentials,
 				args.denied_login_methods, args.virtual_folders, args.denied_extensions, args.allowed_extensions,
-				args.s3_upload_part_size)
+				args.s3_upload_part_size, args.s3_upload_concurrency)
 	elif args.command == 'update-user':
 		api.updateUser(args.id, args.username, args.password, args.public_keys, args.home_dir, args.uid, args.gid,
 					args.max_sessions, args.quota_size, args.quota_files, args.permissions, args.upload_bandwidth,
@@ -669,7 +671,8 @@ if __name__ == '__main__':
 					args.s3_access_key, args.s3_access_secret, args.s3_endpoint, args.s3_storage_class,
 					args.s3_key_prefix, args.gcs_bucket, args.gcs_key_prefix, args.gcs_storage_class,
 					args.gcs_credentials_file, args.gcs_automatic_credentials, args.denied_login_methods,
-					args.virtual_folders, args.denied_extensions, args.allowed_extensions, args.s3_upload_part_size)
+					args.virtual_folders, args.denied_extensions, args.allowed_extensions, args.s3_upload_part_size,
+					args.s3_upload_concurrency)
 	elif args.command == 'delete-user':
 		api.deleteUser(args.id)
 	elif args.command == 'get-users':

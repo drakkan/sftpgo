@@ -39,10 +39,13 @@ type S3FsConfig struct {
 	// The buffer size (in MB) to use for multipart uploads. The minimum allowed part size is 5MB,
 	// and if this value is set to zero, the default value (5MB) for the AWS SDK will be used.
 	// The minimum allowed value is 5.
-	// Please note that if the upload bandwidth between the SFTP client and SFTPGo is greater than the
-	// upload bandwidth between SFTPGo and S3 then the SFTP client will idle wait for the uploads of
-	// the last parts, and it could timeout. Keep this in mind if you customize these parameters.
+	// Please note that if the upload bandwidth between the SFTP client and SFTPGo is greater than
+	// the upload bandwidth between SFTPGo and S3 then the SFTP client have to wait for the upload
+	// of the last parts to S3 after it ends the file upload to SFTPGo, and it may time out.
+	// Keep this in mind if you customize these parameters.
 	UploadPartSize int64 `json:"upload_part_size,omitempty"`
+	// How many parts are uploaded in parallel
+	UploadConcurrency int `json:"upload_concurrency,omitempty"`
 }
 
 // S3Fs is a Fs implementation for Amazon S3 compatible object storage.
@@ -92,6 +95,9 @@ func NewS3Fs(connectionID, localTempDir string, config S3FsConfig) (Fs, error) {
 		fs.config.UploadPartSize = s3manager.DefaultUploadPartSize
 	} else {
 		fs.config.UploadPartSize *= 1024 * 1024
+	}
+	if fs.config.UploadConcurrency == 0 {
+		fs.config.UploadConcurrency = 2
 	}
 
 	sessOpts := session.Options{
@@ -213,7 +219,7 @@ func (fs S3Fs) Create(name string, flag int) (*os.File, *pipeat.PipeWriterAt, fu
 			Body:         r,
 			StorageClass: utils.NilIfEmpty(fs.config.StorageClass),
 		}, func(u *s3manager.Uploader) {
-			u.Concurrency = 2
+			u.Concurrency = fs.config.UploadConcurrency
 			u.PartSize = fs.config.UploadPartSize
 		})
 		r.CloseWithError(err)

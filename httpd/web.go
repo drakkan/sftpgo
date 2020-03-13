@@ -333,6 +333,10 @@ func getFsConfigFromUserPostFields(r *http.Request) (dataprovider.Filesystem, er
 		if err != nil {
 			return fs, err
 		}
+		fs.S3Config.UploadConcurrency, err = strconv.Atoi(r.Form.Get("s3_upload_concurrency"))
+		if err != nil {
+			return fs, err
+		}
 	} else if fs.Provider == 2 {
 		fs.GCSConfig.Bucket = r.Form.Get("gcs_bucket")
 		fs.GCSConfig.StorageClass = r.Form.Get("gcs_storage_class")

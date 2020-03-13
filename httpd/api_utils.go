@@ -482,7 +482,10 @@ func compareS3Config(expected *dataprovider.User, actual *dataprovider.User) err
 		return errors.New("S3 storage class mismatch")
 	}
 	if expected.FsConfig.S3Config.UploadPartSize != actual.FsConfig.S3Config.UploadPartSize {
-		return errors.New("S3 upload part size class mismatch")
+		return errors.New("S3 upload part size mismatch")
+	}
+	if expected.FsConfig.S3Config.UploadConcurrency != actual.FsConfig.S3Config.UploadConcurrency {
+		return errors.New("S3 upload concurrency mismatch")
 	}
 	if expected.FsConfig.S3Config.KeyPrefix != actual.FsConfig.S3Config.KeyPrefix &&
 		expected.FsConfig.S3Config.KeyPrefix+"/" != actual.FsConfig.S3Config.KeyPrefix {

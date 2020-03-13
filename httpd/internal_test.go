@@ -369,6 +369,11 @@ func TestCompareUserFsConfig(t *testing.T) {
 		t.Errorf("S3 upload part size does not match")
 	}
 	expected.FsConfig.S3Config.UploadPartSize = 0
+	expected.FsConfig.S3Config.UploadConcurrency = 3
+	err = compareUserFsConfig(expected, actual)
+	if err == nil {
+		t.Errorf("S3 upload concurrency does not match")
+	}
 }
 
 func TestCompareUserGCSConfig(t *testing.T) {

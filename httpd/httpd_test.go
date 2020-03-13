@@ -400,6 +400,12 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
 	}
+	u.FsConfig.S3Config.UploadPartSize = 0
+	u.FsConfig.S3Config.UploadConcurrency = -1
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
+	}
 	u = getTestUser()
 	u.FsConfig.Provider = 2
 	u.FsConfig.GCSConfig.Bucket = ""
@@ -646,6 +652,7 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.AccessKey = "Server-Access-Key"
 	user.FsConfig.S3Config.AccessSecret = "Server-Access-Secret"
 	user.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000"
+	user.FsConfig.S3Config.UploadPartSize = 8
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
@@ -668,6 +675,7 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.AccessKey = "Server-Access-Key1"
 	user.FsConfig.S3Config.Endpoint = "http://localhost:9000"
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir"
+	user.FsConfig.S3Config.UploadConcurrency = 5
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
@@ -679,6 +687,8 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.AccessSecret = ""
 	user.FsConfig.S3Config.Endpoint = ""
 	user.FsConfig.S3Config.KeyPrefix = ""
+	user.FsConfig.S3Config.UploadPartSize = 0
+	user.FsConfig.S3Config.UploadConcurrency = 0
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
@@ -691,6 +701,8 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.AccessSecret = ""
 	user.FsConfig.S3Config.Endpoint = ""
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir"
+	user.FsConfig.S3Config.UploadPartSize = 6
+	user.FsConfig.S3Config.UploadConcurrency = 4
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to update user: %v", err)
@@ -2017,6 +2029,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	user.FsConfig.S3Config.StorageClass = "Standard"
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir/"
 	user.FsConfig.S3Config.UploadPartSize = 5
+	user.FsConfig.S3Config.UploadConcurrency = 4
 	form := make(url.Values)
 	form.Set("username", user.Username)
 	form.Set("home_dir", user.HomeDir)
@@ -2050,8 +2063,16 @@ func TestWebUserS3Mock(t *testing.T) {
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
-	// now add the user
+	// test invalid s3_concurrency
 	form.Set("s3_upload_part_size", strconv.FormatInt(user.FsConfig.S3Config.UploadPartSize, 10))
+	form.Set("s3_upload_concurrency", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	// now add the user
+	form.Set("s3_upload_concurrency", strconv.Itoa(user.FsConfig.S3Config.UploadConcurrency))
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
 	req.Header.Set("Content-Type", contentType)
@@ -2071,9 +2092,6 @@ func TestWebUserS3Mock(t *testing.T) {
 	updateUser := users[0]
 	if updateUser.ExpirationDate != 1577836800000 {
 		t.Errorf("invalid expiration date: %v", updateUser.ExpirationDate)
-	}
-	if updateUser.FsConfig.Provider != user.FsConfig.Provider {
-		t.Error("fs provider mismatch")
 	}
 	if updateUser.FsConfig.S3Config.Bucket != user.FsConfig.S3Config.Bucket {
 		t.Error("s3 bucket mismatch")
@@ -2098,6 +2116,9 @@ func TestWebUserS3Mock(t *testing.T) {
 	}
 	if updateUser.FsConfig.S3Config.UploadPartSize != user.FsConfig.S3Config.UploadPartSize {
 		t.Error("s3 upload part size mismatch")
+	}
+	if updateUser.FsConfig.S3Config.UploadConcurrency != user.FsConfig.S3Config.UploadConcurrency {
+		t.Error("s3 upload concurrency mismatch")
 	}
 	if len(updateUser.Filters.FileExtensions) != 2 {
 		t.Errorf("unexpected extensions filter: %+v", updateUser.Filters.FileExtensions)
