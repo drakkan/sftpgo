@@ -453,6 +453,16 @@ func compareUserFsConfig(expected *dataprovider.User, actual *dataprovider.User)
 	if expected.FsConfig.Provider != actual.FsConfig.Provider {
 		return errors.New("Fs provider mismatch")
 	}
+	if err := compareS3Config(expected, actual); err != nil {
+		return err
+	}
+	if err := compareGCSConfig(expected, actual); err != nil {
+		return err
+	}
+	return nil
+}
+
+func compareS3Config(expected *dataprovider.User, actual *dataprovider.User) error {
 	if expected.FsConfig.S3Config.Bucket != actual.FsConfig.S3Config.Bucket {
 		return errors.New("S3 bucket mismatch")
 	}
@@ -471,10 +481,17 @@ func compareUserFsConfig(expected *dataprovider.User, actual *dataprovider.User)
 	if expected.FsConfig.S3Config.StorageClass != actual.FsConfig.S3Config.StorageClass {
 		return errors.New("S3 storage class mismatch")
 	}
+	if expected.FsConfig.S3Config.UploadPartSize != actual.FsConfig.S3Config.UploadPartSize {
+		return errors.New("S3 upload part size class mismatch")
+	}
 	if expected.FsConfig.S3Config.KeyPrefix != actual.FsConfig.S3Config.KeyPrefix &&
 		expected.FsConfig.S3Config.KeyPrefix+"/" != actual.FsConfig.S3Config.KeyPrefix {
 		return errors.New("S3 key prefix mismatch")
 	}
+	return nil
+}
+
+func compareGCSConfig(expected *dataprovider.User, actual *dataprovider.User) error {
 	if expected.FsConfig.GCSConfig.Bucket != actual.FsConfig.GCSConfig.Bucket {
 		return errors.New("GCS bucket mismatch")
 	}

@@ -394,6 +394,12 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
 	}
+	u.FsConfig.S3Config.KeyPrefix = ""
+	u.FsConfig.S3Config.UploadPartSize = 3
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	if err != nil {
+		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
+	}
 	u = getTestUser()
 	u.FsConfig.Provider = 2
 	u.FsConfig.GCSConfig.Bucket = ""
@@ -2010,7 +2016,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	user.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/path?a=b"
 	user.FsConfig.S3Config.StorageClass = "Standard"
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir/"
-	user.FsConfig.S3Config.PartSize = 5
+	user.FsConfig.S3Config.UploadPartSize = 5
 	form := make(url.Values)
 	form.Set("username", user.Username)
 	form.Set("home_dir", user.HomeDir)
@@ -2035,10 +2041,18 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("s3_storage_class", user.FsConfig.S3Config.StorageClass)
 	form.Set("s3_endpoint", user.FsConfig.S3Config.Endpoint)
 	form.Set("s3_key_prefix", user.FsConfig.S3Config.KeyPrefix)
-	form.Set("s3_part_size", strconv.FormatInt(int64(user.FsConfig.S3Config.PartSize), 10))
 	form.Set("allowed_extensions", "/dir1::.jpg,.png")
 	form.Set("denied_extensions", "/dir2::.zip")
+	// test invalid s3_upload_part_size
+	form.Set("s3_upload_part_size", "a")
 	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	// now add the user
+	form.Set("s3_upload_part_size", strconv.FormatInt(user.FsConfig.S3Config.UploadPartSize, 10))
+	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
@@ -2081,6 +2095,9 @@ func TestWebUserS3Mock(t *testing.T) {
 	}
 	if updateUser.FsConfig.S3Config.KeyPrefix != user.FsConfig.S3Config.KeyPrefix {
 		t.Error("s3 key prefix mismatch")
+	}
+	if updateUser.FsConfig.S3Config.UploadPartSize != user.FsConfig.S3Config.UploadPartSize {
+		t.Error("s3 upload part size mismatch")
 	}
 	if len(updateUser.Filters.FileExtensions) != 2 {
 		t.Errorf("unexpected extensions filter: %+v", updateUser.Filters.FileExtensions)

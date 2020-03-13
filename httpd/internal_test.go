@@ -363,6 +363,12 @@ func TestCompareUserFsConfig(t *testing.T) {
 		t.Errorf("S3 key prefix does not match")
 	}
 	expected.FsConfig.S3Config.KeyPrefix = ""
+	expected.FsConfig.S3Config.UploadPartSize = 10
+	err = compareUserFsConfig(expected, actual)
+	if err == nil {
+		t.Errorf("S3 upload part size does not match")
+	}
+	expected.FsConfig.S3Config.UploadPartSize = 0
 }
 
 func TestCompareUserGCSConfig(t *testing.T) {

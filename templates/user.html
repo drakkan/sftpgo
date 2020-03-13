@@ -301,10 +301,13 @@
     </div>
 
     <div class="form-group row s3">
-        <label for="idS3PartSize" class="col-sm-2 col-form-label">Part Size (MB)</label>
+        <label for="idS3PartSize" class="col-sm-2 col-form-label">UL Part Size (MB)</label>
         <div class="col-sm-3">
-            <input type="number" class="form-control" id="idS3PartSoze" name="s3_part_size" placeholder=""
-                value="{{.User.FsConfig.S3Config.PartSize}}" min="5">
+            <input type="number" class="form-control" id="idS3PartSize" name="s3_upload_part_size" placeholder=""
+                value="{{.User.FsConfig.S3Config.UploadPartSize}}" aria-describedby="S3PartSizeHelpBlock">
+            <small id="S3PartSizeHelpBlock" class="form-text text-muted">
+                The buffer size for multipart uploads. Zero means the default (5 MB). Minimum is 5
+            </small>
         </div>
         <div class="col-sm-2"></div>
     </div>

@@ -103,8 +103,8 @@ func ValidateS3FsConfig(config *S3FsConfig) error {
 			config.KeyPrefix += "/"
 		}
 	}
-	if config.PartSize != 0 && config.PartSize < 5 {
-		return errors.New("part_size ret cannot be lower than 5MB")
+	if config.UploadPartSize != 0 && config.UploadPartSize < 5 {
+		return errors.New("upload_part_size cannot be != 0 and lower than 5 (MB)")
 	}
 	return nil
 }

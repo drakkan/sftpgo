@@ -329,7 +329,7 @@ func getFsConfigFromUserPostFields(r *http.Request) (dataprovider.Filesystem, er
 		fs.S3Config.Endpoint = r.Form.Get("s3_endpoint")
 		fs.S3Config.StorageClass = r.Form.Get("s3_storage_class")
 		fs.S3Config.KeyPrefix = r.Form.Get("s3_key_prefix")
-		fs.S3Config.PartSize, err = strconv.ParseInt(r.Form.Get("s3_part_size"), 10, 64)
+		fs.S3Config.UploadPartSize, err = strconv.ParseInt(r.Form.Get("s3_upload_part_size"), 10, 64)
 		if err != nil {
 			return fs, err
 		}

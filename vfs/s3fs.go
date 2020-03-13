@@ -36,7 +36,13 @@ type S3FsConfig struct {
 	AccessSecret string `json:"access_secret,omitempty"`
 	Endpoint     string `json:"endpoint,omitempty"`
 	StorageClass string `json:"storage_class,omitempty"`
-	PartSize     int64  `json:"partsize,omitempty"`
+	// The buffer size (in MB) to use for multipart uploads. The minimum allowed part size is 5MB,
+	// and if this value is set to zero, the default value (5MB) for the AWS SDK will be used.
+	// The minimum allowed value is 5.
+	// Please note that if the upload bandwidth between the SFTP client and SFTPGo is greater than the
+	// upload bandwidth between SFTPGo and S3 then the SFTP client will idle wait for the uploads of
+	// the last parts, and it could timeout. Keep this in mind if you customize these parameters.
+	UploadPartSize int64 `json:"upload_part_size,omitempty"`
 }
 
 // S3Fs is a Fs implementation for Amazon S3 compatible object storage.
@@ -82,10 +88,10 @@ func NewS3Fs(connectionID, localTempDir string, config S3FsConfig) (Fs, error) {
 		awsConfig.S3ForcePathStyle = aws.Bool(true)
 	}
 
-	if fs.config.PartSize == 0 {
-		fs.config.PartSize = s3manager.DefaultUploadPartSize
+	if fs.config.UploadPartSize == 0 {
+		fs.config.UploadPartSize = s3manager.DefaultUploadPartSize
 	} else {
-		fs.config.PartSize *= 1024 * 1024
+		fs.config.UploadPartSize *= 1024 * 1024
 	}
 
 	sessOpts := session.Options{
@@ -208,10 +214,10 @@ func (fs S3Fs) Create(name string, flag int) (*os.File, *pipeat.PipeWriterAt, fu
 			StorageClass: utils.NilIfEmpty(fs.config.StorageClass),
 		}, func(u *s3manager.Uploader) {
 			u.Concurrency = 2
-			u.PartSize = fs.config.PartSize
+			u.PartSize = fs.config.UploadPartSize
 		})
 		r.CloseWithError(err)
-		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, response: %v, readed bytes: %v, err: %v",
+		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, response: %v, readed bytes: %v, err: %+v",
 			name, response, r.GetReadedBytes(), err)
 		metrics.S3TransferCompleted(r.GetReadedBytes(), 0, err)
 	}()
