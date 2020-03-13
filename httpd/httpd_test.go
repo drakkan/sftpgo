@@ -2010,6 +2010,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	user.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/path?a=b"
 	user.FsConfig.S3Config.StorageClass = "Standard"
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir/"
+	user.FsConfig.S3Config.PartSize = 5
 	form := make(url.Values)
 	form.Set("username", user.Username)
 	form.Set("home_dir", user.HomeDir)
@@ -2034,6 +2035,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("s3_storage_class", user.FsConfig.S3Config.StorageClass)
 	form.Set("s3_endpoint", user.FsConfig.S3Config.Endpoint)
 	form.Set("s3_key_prefix", user.FsConfig.S3Config.KeyPrefix)
+	form.Set("s3_part_size", strconv.FormatInt(int64(user.FsConfig.S3Config.PartSize), 10))
 	form.Set("allowed_extensions", "/dir1::.jpg,.png")
 	form.Set("denied_extensions", "/dir2::.zip")
 	b, contentType, _ := getMultipartFormData(form, "", "")

@@ -36,6 +36,7 @@ type S3FsConfig struct {
 	AccessSecret string `json:"access_secret,omitempty"`
 	Endpoint     string `json:"endpoint,omitempty"`
 	StorageClass string `json:"storage_class,omitempty"`
+	PartSize     int64  `json:"partsize,omitempty"`
 }
 
 // S3Fs is a Fs implementation for Amazon S3 compatible object storage.
@@ -79,6 +80,12 @@ func NewS3Fs(connectionID, localTempDir string, config S3FsConfig) (Fs, error) {
 	if len(fs.config.Endpoint) > 0 {
 		awsConfig.Endpoint = aws.String(fs.config.Endpoint)
 		awsConfig.S3ForcePathStyle = aws.Bool(true)
+	}
+
+	if fs.config.PartSize == 0 {
+		fs.config.PartSize = s3manager.DefaultUploadPartSize
+	} else {
+		fs.config.PartSize *= 1024 * 1024
 	}
 
 	sessOpts := session.Options{
@@ -201,6 +208,7 @@ func (fs S3Fs) Create(name string, flag int) (*os.File, *pipeat.PipeWriterAt, fu
 			StorageClass: utils.NilIfEmpty(fs.config.StorageClass),
 		}, func(u *s3manager.Uploader) {
 			u.Concurrency = 2
+			u.PartSize = fs.config.PartSize
 		})
 		r.CloseWithError(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, response: %v, readed bytes: %v, err: %v",
