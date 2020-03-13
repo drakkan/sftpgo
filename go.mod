@@ -18,7 +18,7 @@ require (
 	github.com/nathanaelle/password v1.0.0
 	github.com/pelletier/go-toml v1.6.0 // indirect
 	github.com/pires/go-proxyproto v0.0.0-20200213100827-833e5d06d8f0
-	github.com/pkg/sftp v1.11.1-0.20200301233614-8f7762387880
+	github.com/pkg/sftp v1.11.1-0.20200310224833-18dc4db7a456
 	github.com/prometheus/client_golang v1.4.1
 	github.com/prometheus/procfs v0.0.10 // indirect
 	github.com/rs/xid v1.2.1
@@ -42,4 +42,7 @@ require (
 	gopkg.in/yaml.v2 v2.2.8 // indirect
 )
 
-replace github.com/eikenb/pipeat v0.0.0-20190316224601-fb1f3a9aa29f => github.com/drakkan/pipeat v0.0.0-20200123131427-11c048cfc0ec
+replace (
+	github.com/eikenb/pipeat v0.0.0-20190316224601-fb1f3a9aa29f => github.com/drakkan/pipeat v0.0.0-20200123131427-11c048cfc0ec
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200313182750-40fd29667886
+)
