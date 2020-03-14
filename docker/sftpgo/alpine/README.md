@@ -9,19 +9,24 @@ This DockerFile is made to build image to host multiple instances of SFTPGo star
 sudo groupadd -g 1003 sftpgrp && \
   sudo useradd -u 1003 -g 1003 sftpuser -d /home/sftpuser/ && \
   sudo -u sftpuser mkdir /home/sftpuser/{conf,data} && \
-  curl https://raw.githubusercontent.com/drakkan/sftpgo/master/sql/sqlite/20190828.sql | sqlite3 /home/sftpuser/conf/sftpgo.db && \
-  curl https://raw.githubusercontent.com/drakkan/sftpgo/master/sql/sqlite/20191112.sql | sqlite3 /home/sftpuser/conf/sftpgo.db && \
-  curl https://raw.githubusercontent.com/drakkan/sftpgo/master/sql/sqlite/20191230.sql | sqlite3 /home/sftpuser/conf/sftpgo.db && \
-  curl https://raw.githubusercontent.com/drakkan/sftpgo/master/sql/sqlite/20200116.sql | sqlite3 /home/sftpuser/conf/sftpgo.db && \
   curl https://raw.githubusercontent.com/drakkan/sftpgo/master/sftpgo.json -o /home/sftpuser/conf/sftpgo.json
+
+# Edit sftpgo.json as you need
 
 # Get and build SFTPGo image
 git clone https://github.com/drakkan/sftpgo.git && \
   cd sftpgo && \
   sudo docker build -t sftpgo docker/sftpgo/alpine/
 
-# Starting image
+# Initialize the configured provider. For PostgreSQL and MySQL providers you need to create the configured database and the "initprovider" command will create the required tables.
 sudo docker run --name sftpgo \
+  -e PUID=1003 \
+  -e GUID=1003 \
+  -v /home/sftpuser/conf/:/srv/sftpgo/config \
+  sftpgo initprovider -c /srv/sftpgo/config
+
+# Start the image
+sudo docker rm sftpgo && sudo docker run --name sftpgo \
   -e SFTPGO_LOG_FILE_PATH= \
   -e SFTPGO_CONFIG_DIR=/srv/sftpgo/config \
   -e SFTPGO_HTTPD__TEMPLATES_PATH=/srv/sftpgo/web/templates \
@@ -36,7 +41,8 @@ sudo docker run --name sftpgo \
   -v /home/sftpuser/backups:/srv/sftpgo/backups \
   sftpgo
 ```
-The script `entrypoint.sh` makes sure to correct the permissions of directories and start the process with the right user
+
+The script `entrypoint.sh` makes sure to correct the permissions of directories and start the process with the right user.
 
 Several images can be run with different parameters.
 

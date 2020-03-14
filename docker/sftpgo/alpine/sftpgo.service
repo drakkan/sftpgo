@@ -8,7 +8,7 @@ Group=root
 WorkingDirectory=/etc/sftpgo
 Environment=PUID=1003
 Environment=GUID=1003
-EnvironmentFile=-/etc/sysconfig/sftpgo.conf
+EnvironmentFile=-/etc/sysconfig/sftpgo.env
 ExecStartPre=-docker kill sftpgo
 ExecStartPre=-docker rm sftpgo
 ExecStart=docker run --name sftpgo \
