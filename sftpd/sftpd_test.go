@@ -197,7 +197,7 @@ func TestMain(m *testing.M) {
 	}()
 
 	go func() {
-		if err := httpdConf.Initialize(configDir); err != nil {
+		if err := httpdConf.Initialize(configDir, false); err != nil {
 			logger.Error(logSender, "", "could not start HTTP server: %v", err)
 		}
 	}()

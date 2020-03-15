@@ -30,6 +30,7 @@ const (
 	dumpDataPath          = "/api/v1/dumpdata"
 	loadDataPath          = "/api/v1/loaddata"
 	metricsPath           = "/metrics"
+	pprofBasePath         = "/debug"
 	webBasePath           = "/web"
 	webUsersPath          = "/web/users"
 	webUserPath           = "/web/user"
@@ -85,7 +86,7 @@ func SetDataProvider(provider dataprovider.Provider) {
 }
 
 // Initialize the HTTP server
-func (c Conf) Initialize(configDir string) error {
+func (c Conf) Initialize(configDir string, profiler bool) error {
 	var err error
 	logger.Debug(logSender, "", "initializing HTTP server with config %+v", c)
 	backupsPath = getConfigPath(c.BackupsPath, configDir)
@@ -103,7 +104,7 @@ func (c Conf) Initialize(configDir string) error {
 	certificateFile := getConfigPath(c.CertificateFile, configDir)
 	certificateKeyFile := getConfigPath(c.CertificateKeyFile, configDir)
 	loadTemplates(templatesPath)
-	initializeRouter(staticFilesPath)
+	initializeRouter(staticFilesPath, profiler)
 	httpServer := &http.Server{
 		Addr:           fmt.Sprintf("%s:%d", c.BindAddress, c.BindPort),
 		Handler:        router,

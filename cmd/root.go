@@ -30,6 +30,8 @@ const (
 	logCompressKey      = "log_compress"
 	logVerboseFlag      = "log-verbose"
 	logVerboseKey       = "log_verbose"
+	profilerFlag        = "profiler"
+	profilerKey         = "profiler"
 	defaultConfigDir    = "."
 	defaultConfigName   = config.DefaultConfigName
 	defaultLogFile      = "sftpgo.log"
@@ -38,6 +40,7 @@ const (
 	defaultLogMaxAge    = 28
 	defaultLogCompress  = false
 	defaultLogVerbose   = true
+	defaultProfiler     = false
 )
 
 var (
@@ -49,6 +52,7 @@ var (
 	logMaxAge     int
 	logCompress   bool
 	logVerbose    bool
+	profiler      bool
 
 	rootCmd = &cobra.Command{
 		Use:   "sftpgo",
@@ -135,6 +139,13 @@ func addServeFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVarP(&logVerbose, logVerboseFlag, "v", viper.GetBool(logVerboseKey), "Enable verbose logs. "+
 		"This flag can be set using SFTPGO_LOG_VERBOSE env var too.")
 	viper.BindPFlag(logVerboseKey, cmd.Flags().Lookup(logVerboseFlag))
+
+	viper.SetDefault(profilerKey, defaultProfiler)
+	viper.BindEnv(profilerKey, "SFTPGO_PROFILER")
+	cmd.Flags().BoolVarP(&profiler, profilerFlag, "p", viper.GetBool(profilerKey), "Enable the built-in profiler. "+
+		"The profiler will be accessible via HTTP/HTTPS using the base URL \"/debug/pprof/\". "+
+		"This flag can be set using SFTPGO_PROFILER env var too.")
+	viper.BindPFlag(profilerKey, cmd.Flags().Lookup(profilerFlag))
 }
 
 func getCustomServeFlags() []string {
@@ -169,6 +180,9 @@ func getCustomServeFlags() []string {
 	}
 	if logCompress != defaultLogCompress {
 		result = append(result, "--"+logCompressFlag+"=true")
+	}
+	if profiler != defaultProfiler {
+		result = append(result, "--"+profilerFlag+"=true")
 	}
 	return result
 }

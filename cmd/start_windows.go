@@ -27,6 +27,7 @@ var (
 				LogMaxAge:     logMaxAge,
 				LogCompress:   logCompress,
 				LogVerbose:    logVerbose,
+				Profiler:      profiler,
 				Shutdown:      make(chan bool),
 			}
 			winService := service.WindowsService{

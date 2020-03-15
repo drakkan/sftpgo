@@ -49,6 +49,7 @@ const (
 	dumpDataPath          = "/api/v1/dumpdata"
 	loadDataPath          = "/api/v1/loaddata"
 	metricsPath           = "/metrics"
+	pprofPath             = "/debug/pprof/"
 	webBasePath           = "/web"
 	webUsersPath          = "/web/users"
 	webUserPath           = "/web/user"
@@ -117,7 +118,7 @@ func TestMain(m *testing.M) {
 	httpd.SetDataProvider(dataProvider)
 
 	go func() {
-		if err := httpdConf.Initialize(configDir); err != nil {
+		if err := httpdConf.Initialize(configDir, true); err != nil {
 			logger.Error(logSender, "", "could not start HTTP server: %v", err)
 		}
 	}()
@@ -133,7 +134,7 @@ func TestMain(m *testing.M) {
 	httpdConf.CertificateKeyFile = keyPath
 
 	go func() {
-		if err := httpdConf.Initialize(configDir); err != nil {
+		if err := httpdConf.Initialize(configDir, true); err != nil {
 			logger.Error(logSender, "", "could not start HTTPS server: %v", err)
 		}
 	}()
@@ -157,7 +158,7 @@ func TestInitialization(t *testing.T) {
 	httpdConf := config.GetHTTPDConfig()
 	httpdConf.BackupsPath = "test_backups"
 	httpdConf.AuthUserFile = "invalid file"
-	err := httpdConf.Initialize(configDir)
+	err := httpdConf.Initialize(configDir, true)
 	if err == nil {
 		t.Error("Inizialize must fail")
 	}
@@ -165,14 +166,14 @@ func TestInitialization(t *testing.T) {
 	httpdConf.AuthUserFile = ""
 	httpdConf.CertificateFile = "invalid file"
 	httpdConf.CertificateKeyFile = "invalid file"
-	err = httpdConf.Initialize(configDir)
+	err = httpdConf.Initialize(configDir, true)
 	if err == nil {
 		t.Error("Inizialize must fail")
 	}
 	httpdConf.CertificateFile = ""
 	httpdConf.CertificateKeyFile = ""
 	httpdConf.TemplatesPath = "."
-	err = httpdConf.Initialize(configDir)
+	err = httpdConf.Initialize(configDir, true)
 	if err == nil {
 		t.Error("Inizialize must fail")
 	}
@@ -1677,6 +1678,12 @@ func TestMethodNotAllowedMock(t *testing.T) {
 
 func TestMetricsMock(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, metricsPath, nil)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+}
+
+func TestPProfEndPointMock(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, pprofPath, nil)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 }

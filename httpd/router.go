@@ -18,12 +18,18 @@ func GetHTTPRouter() http.Handler {
 	return router
 }
 
-func initializeRouter(staticFilesPath string) {
+func initializeRouter(staticFilesPath string, profiler bool) {
 	router = chi.NewRouter()
 	router.Use(middleware.RequestID)
 	router.Use(middleware.RealIP)
 	router.Use(logger.NewStructuredLogger(logger.GetLogger()))
 	router.Use(middleware.Recoverer)
+
+	if profiler {
+		logger.InfoToConsole("enabling the built-in profiler")
+		logger.Info(logSender, "", "enabling the built-in profiler")
+		router.Mount(pprofBasePath, middleware.Profiler())
+	}
 
 	router.NotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, "Not Found", http.StatusNotFound)

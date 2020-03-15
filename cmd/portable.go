@@ -91,6 +91,7 @@ Please take a look at the usage below to customize the serving parameters`,
 				LogMaxAge:     defaultLogMaxAge,
 				LogCompress:   defaultLogCompress,
 				LogVerbose:    defaultLogVerbose,
+				Profiler:      defaultProfiler,
 				Shutdown:      make(chan bool),
 				PortableMode:  1,
 				PortableUser: dataprovider.User{

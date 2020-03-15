@@ -41,6 +41,7 @@ type Service struct {
 	LogVerbose    bool
 	PortableMode  int
 	PortableUser  dataprovider.User
+	Profiler      bool
 	Shutdown      chan bool
 }
 
@@ -62,8 +63,8 @@ func (s *Service) Start() error {
 	}
 	version := utils.GetAppVersion()
 	logger.Info(logSender, "", "starting SFTPGo %v, config dir: %v, config file: %v, log max size: %v log max backups: %v "+
-		"log max age: %v log verbose: %v, log compress: %v", version.GetVersionAsString(), s.ConfigDir, s.ConfigFile, s.LogMaxSize,
-		s.LogMaxBackups, s.LogMaxAge, s.LogVerbose, s.LogCompress)
+		"log max age: %v log verbose: %v, log compress: %v, profile: %v", version.GetVersionAsString(), s.ConfigDir, s.ConfigFile,
+		s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogVerbose, s.LogCompress, s.Profiler)
 	// in portable mode we don't read configuration from file
 	if s.PortableMode != 1 {
 		config.LoadConfig(s.ConfigDir, s.ConfigFile)
@@ -105,7 +106,7 @@ func (s *Service) Start() error {
 		httpd.SetDataProvider(dataProvider)
 
 		go func() {
-			if err := httpdConf.Initialize(s.ConfigDir); err != nil {
+			if err := httpdConf.Initialize(s.ConfigDir, s.Profiler); err != nil {
 				logger.Error(logSender, "", "could not start HTTP server: %v", err)
 				logger.ErrorToConsole("could not start HTTP server: %v", err)
 			}

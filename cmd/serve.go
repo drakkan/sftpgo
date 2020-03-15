@@ -25,6 +25,7 @@ Please take a look at the usage below to customize the startup options`,
 				LogMaxAge:     logMaxAge,
 				LogCompress:   logCompress,
 				LogVerbose:    logVerbose,
+				Profiler:      profiler,
 				Shutdown:      make(chan bool),
 			}
 			if err := service.Start(); err == nil {
