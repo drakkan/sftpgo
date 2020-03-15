@@ -34,6 +34,7 @@ Fully featured and highly configurable SFTP server, written in Go
 - [Web based administration interface](./docs/web-admin.md) to easily manage users and connections.
 - Easy [migration](./scripts#convert-users-from-other-stores) from Linux system user accounts.
 - [Portable mode](./docs/portable-mode.md): a convenient way to share a single directory on demand.
+- Performance analysis using built-in [profiler](./docs/profiling.md).
 - Configuration format is at your choice: JSON, TOML, YAML, HCL, envfile are supported.
 - Log files are accurate and they are saved in the easily parsable JSON format ([more information](./docs/logs.md)).
 
