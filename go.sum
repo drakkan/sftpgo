@@ -63,8 +63,8 @@ github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZm
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
 github.com/drakkan/crypto v0.0.0-20200313182750-40fd29667886 h1:4dCWgFNP6pawO0bdrNSe9FXCEy7HuvQaApcvXHrPgeo=
 github.com/drakkan/crypto v0.0.0-20200313182750-40fd29667886/go.mod h1:v3bhWOXGYda7H5d2s5t9XA6th3fxW3s0MQxU1R96G/w=
-github.com/drakkan/pipeat v0.0.0-20200123131427-11c048cfc0ec h1:DXfzg1NXoesnFzdCyyi2uU3o1o0XiWTN2ZcpWDE7MCk=
-github.com/drakkan/pipeat v0.0.0-20200123131427-11c048cfc0ec/go.mod h1:wNYvIpR5rIhoezOYcpxcXz4HbIEOu7A45EqlQCA+h+w=
+github.com/drakkan/pipeat v0.0.0-20200315002837-010186aaa07d h1:qD1b7ZnrTUscSof+W+Pa3D9hN4jmQ/UcoZ05q7W96rA=
+github.com/drakkan/pipeat v0.0.0-20200315002837-010186aaa07d/go.mod h1:wNYvIpR5rIhoezOYcpxcXz4HbIEOu7A45EqlQCA+h+w=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
@@ -170,7 +170,6 @@ github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5
 github.com/miekg/dns v1.1.27/go.mod h1:KNUDUusw/aVsxyTYZM1oqvCicbwhgbNgztCETuNZ7xM=
 github.com/miekg/dns v1.1.28 h1:gQhy5bsJa8zTlVI8lywCTZp1lguor+xevFoYlzeCTQY=
 github.com/miekg/dns v1.1.28/go.mod h1:KNUDUusw/aVsxyTYZM1oqvCicbwhgbNgztCETuNZ7xM=
-github.com/minio/sha256-simd v0.1.1 h1:5QHSlgo3nt5yKOJrC7W8w7X+NFl8cMPZm96iu8kKUJU=
 github.com/minio/sha256-simd v0.1.1/go.mod h1:B5e1o+1/KgNmWrSQK08Y6Z1Vb5pwIktudl0J58iy0KM=
 github.com/mitchellh/go-homedir v1.1.0/go.mod h1:SfyaCUpYCn1Vlf4IUYiD9fPX4A5wJrkLzIz1N1q0pr0=
 github.com/mitchellh/mapstructure v1.1.2 h1:fmNYVwqnSfB9mZU6OS2O6GsXM+wcskZDuKQzvN1EDeE=
