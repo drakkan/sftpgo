@@ -37,10 +37,11 @@ Flags:
       --s3-key-prefix string             Allows to restrict access to the virtual folder identified by this prefix and its contents
       --s3-region string
       --s3-storage-class string
+      --s3-upload-concurrency int        How many parts are uploaded in parallel (default 2)
+      --s3-upload-part-size int          The buffer size for multipart uploads (MB) (default 5)
   -s, --sftpd-port int                   0 means a random non privileged port
   -c, --ssh-commands strings             SSH commands to enable. "*" means any supported SSH command including scp (default [md5sum,sha1sum,cd,pwd])
   -u, --username string                  Leave empty to use an auto generated value
-
 ```
 
 In portable mode, SFTPGo can advertise the SFTP service and, optionally, the credentials via multicast DNS, so there is a standard way to discover the service and to automatically connect to it.

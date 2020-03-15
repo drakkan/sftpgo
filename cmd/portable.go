@@ -37,6 +37,8 @@ var (
 	portableS3Endpoint           string
 	portableS3StorageClass       string
 	portableS3KeyPrefix          string
+	portableS3ULPartSize         int
+	portableS3ULConcurrency      int
 	portableGCSBucket            string
 	portableGCSCredentialsFile   string
 	portableGCSAutoCredentials   int
@@ -101,13 +103,15 @@ Please take a look at the usage below to customize the serving parameters`,
 					FsConfig: dataprovider.Filesystem{
 						Provider: portableFsProvider,
 						S3Config: vfs.S3FsConfig{
-							Bucket:       portableS3Bucket,
-							Region:       portableS3Region,
-							AccessKey:    portableS3AccessKey,
-							AccessSecret: portableS3AccessSecret,
-							Endpoint:     portableS3Endpoint,
-							StorageClass: portableS3StorageClass,
-							KeyPrefix:    portableS3KeyPrefix,
+							Bucket:            portableS3Bucket,
+							Region:            portableS3Region,
+							AccessKey:         portableS3AccessKey,
+							AccessSecret:      portableS3AccessSecret,
+							Endpoint:          portableS3Endpoint,
+							StorageClass:      portableS3StorageClass,
+							KeyPrefix:         portableS3KeyPrefix,
+							UploadPartSize:    int64(portableS3ULPartSize),
+							UploadConcurrency: portableS3ULConcurrency,
 						},
 						GCSConfig: vfs.GCSFsConfig{
 							Bucket:               portableGCSBucket,
@@ -160,6 +164,8 @@ func init() {
 	portableCmd.Flags().StringVar(&portableS3StorageClass, "s3-storage-class", "", "")
 	portableCmd.Flags().StringVar(&portableS3KeyPrefix, "s3-key-prefix", "", "Allows to restrict access to the virtual folder "+
 		"identified by this prefix and its contents")
+	portableCmd.Flags().IntVar(&portableS3ULPartSize, "s3-upload-part-size", 5, "The buffer size for multipart uploads (MB)")
+	portableCmd.Flags().IntVar(&portableS3ULConcurrency, "s3-upload-concurrency", 2, "How many parts are uploaded in parallel")
 	portableCmd.Flags().StringVar(&portableGCSBucket, "gcs-bucket", "", "")
 	portableCmd.Flags().StringVar(&portableGCSStorageClass, "gcs-storage-class", "", "")
 	portableCmd.Flags().StringVar(&portableGCSKeyPrefix, "gcs-key-prefix", "", "Allows to restrict access to the virtual folder "+
