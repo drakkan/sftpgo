@@ -20,6 +20,7 @@ require (
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/miekg/dns v1.1.28 // indirect
 	github.com/nathanaelle/password v1.0.0
+	github.com/nathanaelle/password/v2 v2.0.1
 	github.com/pelletier/go-toml v1.6.0 // indirect
 	github.com/pires/go-proxyproto v0.0.0-20200213100827-833e5d06d8f0
 	github.com/pkg/sftp v1.11.1-0.20200310224833-18dc4db7a456

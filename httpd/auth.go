@@ -11,7 +11,7 @@ import (
 
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
-	unixcrypt "github.com/nathanaelle/password"
+	unixcrypt "github.com/nathanaelle/password/v2"
 	"golang.org/x/crypto/bcrypt"
 )
 
