@@ -983,7 +983,7 @@ func TestUserBaseDir(t *testing.T) {
 	providerConf.UsersBaseDir = homeBasePath
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
-		t.Errorf("error initializing data provider with users base dir")
+		t.Errorf("error initializing data provider with users base dir: %v", err)
 	}
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	u := getTestUser()
@@ -1014,9 +1014,6 @@ func TestUserBaseDir(t *testing.T) {
 }
 
 func TestProviderErrors(t *testing.T) {
-	if providerDriverName == dataprovider.BoltDataProviderName {
-		t.Skip("skipping test provider errors for bolt provider")
-	}
 	dataProvider := dataprovider.GetProvider()
 	dataprovider.Close(dataProvider)
 	_, _, err := httpd.GetUserByID(0, http.StatusInternalServerError)
@@ -1061,7 +1058,7 @@ func TestProviderErrors(t *testing.T) {
 	os.RemoveAll(credentialsPath)
 	err = dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
-		t.Errorf("error initializing data provider")
+		t.Errorf("error initializing data provider: %v", err)
 	}
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
@@ -1074,7 +1071,7 @@ func TestDumpdata(t *testing.T) {
 	providerConf := config.GetProviderConf()
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
-		t.Errorf("error initializing data provider")
+		t.Errorf("error initializing data provider:_%v", err)
 	}
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
@@ -1107,6 +1104,9 @@ func TestDumpdata(t *testing.T) {
 		}
 		os.Chmod(backupsPath, 0755)
 	}
+	dataProvider = dataprovider.GetProvider()
+	dataprovider.Close(dataProvider)
+	config.LoadConfig(configDir, "")
 	providerConf = config.GetProviderConf()
 	providerConf.CredentialsPath = credentialsPath
 	os.RemoveAll(credentialsPath)
@@ -2248,9 +2248,6 @@ func TestWebUserGCSMock(t *testing.T) {
 }
 
 func TestProviderClosedMock(t *testing.T) {
-	if providerDriverName == dataprovider.BoltDataProviderName {
-		t.Skip("skipping test provider errors for bolt provider")
-	}
 	dataProvider := dataprovider.GetProvider()
 	dataprovider.Close(dataProvider)
 	req, _ := http.NewRequest(http.MethodGet, webUsersPath, nil)
@@ -2270,7 +2267,7 @@ func TestProviderClosedMock(t *testing.T) {
 	os.RemoveAll(credentialsPath)
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
-		t.Errorf("error initializing data provider")
+		t.Errorf("error initializing data provider: %v", err)
 	}
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())

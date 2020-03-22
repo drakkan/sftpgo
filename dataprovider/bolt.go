@@ -336,9 +336,14 @@ func (p BoltProvider) getUsers(limit int, offset int, order string, username str
 	}
 	if len(username) > 0 {
 		if offset == 0 {
-			user, err := p.userExists(username)
+			var user User
+			user, err = p.userExists(username)
 			if err == nil {
 				users = append(users, HideUserSensitiveData(&user))
+				return users, nil
+			}
+			if _, ok := err.(*RecordNotFoundError); ok {
+				err = nil
 			}
 		}
 		return users, err
