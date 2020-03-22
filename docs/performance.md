@@ -128,8 +128,8 @@ Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
 8|897|903|823|887|
 
 ### Optimizations applied
-- AES-CTR optimization of Golang compiler, the patch hasn't been merged yet, you can apply it yourself. [Patch](https://go-review.googlesource.com/c/go/+/51670)
-- Use [minio/sha256-simd](https://github.com/minio/sha256-simd) to accelerate MAC (Message Authentication Code) computation. In this way the tested hardware will use `Intel SHA Extensions` for SHA256 computation. This will give a significant performance boost compared to `AVX2` extensions used with the Golang's SHA256 implementation.
+- AES-CTR optimization of Go compiler for x86_64, there is a [patch](https://go-review.googlesource.com/c/go/+/51670) that hasn't been merged yet, you can apply it yourself.
+- Use [minio/sha256-simd](https://github.com/minio/sha256-simd) to accelerate MAC (Message Authentication Code) computation. In this way the tested hardware will use `Intel SHA Extensions` for SHA256 computation. This will give a significant performance boost compared to `AVX2` extensions used with the Go's SHA256 implementation. This patch is now included in SFTPGo master branch.
 ```
 diff --git a/go.mod b/go.mod
 index f1b2caa..109e064 100644
@@ -142,7 +142,7 @@ index f1b2caa..109e064 100644
 +
 +replace golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200303175438-17ef3d252b1c
 ```
-- A new allocator for `pkg/sftp` which greatly improve parallel loads. We are discussing about this patch with `pkg/sftp` maintainers [here](https://github.com/pkg/sftp/issues/334).
+- A new allocator for `pkg/sftp` which greatly improve parallel loads. We are discussing about this patch with `pkg/sftp` maintainers [here](https://github.com/pkg/sftp/pull/344).
 ```
 diff --git a/go.mod b/go.mod
 index 109e064..4d67a47 100644
@@ -152,7 +152,7 @@ index 109e064..4d67a47 100644
  replace github.com/eikenb/pipeat v0.0.0-20190316224601-fb1f3a9aa29f => github.com/drakkan/pipeat v0.0.0-20200123131427-11c048cfc0ec
 
  replace golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200303175438-17ef3d252b1c
-+replace github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20200227085621-6b4abaad1b9a
++replace github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20200319122022-2fc68482d27f
 ```
 
 ### HAProxy configuration

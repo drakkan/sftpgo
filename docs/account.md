@@ -42,7 +42,7 @@ For each account, the following properties can be configured:
 - `s3_bucket`, required for S3 filesystem
 - `s3_region`, required for S3 filesystem. Must match the region for your bucket. You can find here the list of available [AWS regions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions). For example if your bucket is at `Frankfurt` you have to set the region to `eu-central-1`
 - `s3_access_key`
-- `s3_access_secret`, if provided it is stored encrypted (AES-256-GCM)
+- `s3_access_secret`, if provided it is stored encrypted (AES-256-GCM). You can leave access key and access secret blank to use credentials from environment
 - `s3_endpoint`, specifies a S3 endpoint (server) different from AWS. It is not required if you are connecting to AWS
 - `s3_storage_class`, leave blank to use the default or specify a valid AWS [storage class](https://docs.aws.amazon.com/AmazonS3/latest/dev/storage-class-intro.html)
 - `s3_key_prefix`, allows to restrict access to the virtual folder identified by this prefix and its contents

@@ -16,7 +16,7 @@ The following profiles are available, you can obtain them via HTTP GET requests:
 - `threadcreate`, stack traces that led to the creation of new OS threads
 - `trace`, a trace of execution of the current program. You can specify the duration in the `seconds` GET parameter. After you get the trace file, use the `go tool trace` command to investigate the trace
 
-Let's see some examples:
+For example you can:
 
 - download a 30 seconds CPU profile from the URL `/debug/pprof/profile?seconds=30`
 - download a sampling of memory allocations of live objects from the URL `/debug/pprof/heap?gc=1`

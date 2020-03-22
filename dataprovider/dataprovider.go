@@ -801,6 +801,17 @@ func validateBaseParams(user *User) error {
 	return nil
 }
 
+func createUserPasswordHash(user *User) error {
+	if len(user.Password) > 0 && !utils.IsStringPrefixInSlice(user.Password, hashPwdPrefixes) {
+		pwd, err := argon2id.CreateHash(user.Password, argon2id.DefaultParams)
+		if err != nil {
+			return err
+		}
+		user.Password = pwd
+	}
+	return nil
+}
+
 func validateUser(user *User) error {
 	buildUserHomeDir(user)
 	if err := validateBaseParams(user); err != nil {
@@ -818,12 +829,8 @@ func validateUser(user *User) error {
 	if user.Status < 0 || user.Status > 1 {
 		return &ValidationError{err: fmt.Sprintf("invalid user status: %v", user.Status)}
 	}
-	if len(user.Password) > 0 && !utils.IsStringPrefixInSlice(user.Password, hashPwdPrefixes) {
-		pwd, err := argon2id.CreateHash(user.Password, argon2id.DefaultParams)
-		if err != nil {
-			return err
-		}
-		user.Password = pwd
+	if err := createUserPasswordHash(user); err != nil {
+		return err
 	}
 	if err := validatePublicKeys(user); err != nil {
 		return err
