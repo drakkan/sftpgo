@@ -9,31 +9,36 @@ The `command`, if defined, is invoked with the following arguments:
 - `action`, string, possible values are: `download`, `upload`, `delete`, `rename`, `ssh_cmd`
 - `username`
 - `path` is the full filesystem path, can be empty for some ssh commands
-- `target_path`, non empty for `rename` action
-- `ssh_cmd`, non empty for `ssh_cmd` action
+- `target_path`, non-empty for `rename` action
+- `ssh_cmd`, non-empty for `ssh_cmd` action
 
 The `command` can also read the following environment variables:
 
 - `SFTPGO_ACTION`
 - `SFTPGO_ACTION_USERNAME`
 - `SFTPGO_ACTION_PATH`
-- `SFTPGO_ACTION_TARGET`, non empty for `rename` `SFTPGO_ACTION`
-- `SFTPGO_ACTION_SSH_CMD`, non empty for `ssh_cmd` `SFTPGO_ACTION`
-- `SFTPGO_ACTION_FILE_SIZE`, non empty for `upload`, `download` and `delete` `SFTPGO_ACTION`
-- `SFTPGO_ACTION_LOCAL_FILE`, `true` if the affected file is stored on the local filesystem, otherwise `false`
+- `SFTPGO_ACTION_TARGET`, non-empty for `rename` `SFTPGO_ACTION`
+- `SFTPGO_ACTION_SSH_CMD`, non-empty for `ssh_cmd` `SFTPGO_ACTION`
+- `SFTPGO_ACTION_FILE_SIZE`, non-empty for `upload`, `download` and `delete` `SFTPGO_ACTION`
+- `SFTPGO_ACTION_FS_PROVIDER`, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend
+- `SFTPGO_ACTION_BUCKET`, non-empty for S3 and GCS backends
+- `SFTPGO_ACTION_ENDPOINT`, non-empty for S3 backend if configured
 
 Previous global environment variables aren't cleared when the script is called.
 The `command` must finish within 30 seconds.
 
-The `http_notification_url`, if defined, will contain the following, percent encoded, query string parameters:
+The `http_notification_url`, if defined, will be invoked as HTTP POST. The request body will contain a JSON serialized struct with the following fields:
 
 - `action`
 - `username`
 - `path`
-- `local_file`, `true` if the affected file is stored on the local filesystem, otherwise `false`
-- `target_path`, added for `rename` action
-- `ssh_cmd`, added for `ssh_cmd` action
-- `file_size`, added for `upload`, `download`, `delete` actions
+- `target_path`, not null for `rename` action
+- `ssh_cmd`, not null for `ssh_cmd` action
+- `file_size`, not null for `upload`, `download`, `delete` actions
+- `fs_provider`, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend
+- `bucket`, not null for S3 and GCS backends
+- `endpoint`, not null for S3 backend if configured
+
 
 The HTTP request is executed with a 15-second timeout.
 
@@ -73,6 +78,6 @@ The `command` can also read the following environment variables:
 Previous global environment variables aren't cleared when the script is called.
 The `command` must finish within 15 seconds.
 
-The `http_notification_url`, if defined, will be called invoked as http POST. The action is added to the query string, for example `<http_notification_url>?action=update`, and the user is sent serialized as JSON inside the POST body with sensitive fields removed.
+The `http_notification_url`, if defined, will be invoked as HTTP POST. The action is added to the query string, for example `<http_notification_url>?action=update`, and the user is sent serialized as JSON inside the POST body with sensitive fields removed.
 
 The HTTP request is executed with a 15-second timeout.

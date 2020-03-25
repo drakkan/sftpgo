@@ -454,7 +454,7 @@ func (c *sshCommand) sendExitStatus(err error) {
 				realPath = p
 			}
 		}
-		go executeAction(operationSSHCmd, c.connection.User.Username, realPath, "", c.command, 0, vfs.IsLocalOsFs(c.connection.fs))
+		go executeAction(newActionNotification(c.connection.User, operationSSHCmd, realPath, "", c.command, 0))
 	}
 }
 

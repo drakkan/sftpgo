@@ -151,10 +151,10 @@ func (t *Transfer) Close() error {
 		elapsed := time.Since(t.start).Nanoseconds() / 1000000
 		if t.transferType == transferDownload {
 			logger.TransferLog(downloadLogSender, t.path, elapsed, t.bytesSent, t.user.Username, t.connectionID, t.protocol)
-			go executeAction(operationDownload, t.user.Username, t.path, "", "", t.bytesSent, (t.file != nil))
+			go executeAction(newActionNotification(t.user, operationDownload, t.path, "", "", t.bytesSent))
 		} else {
 			logger.TransferLog(uploadLogSender, t.path, elapsed, t.bytesReceived, t.user.Username, t.connectionID, t.protocol)
-			go executeAction(operationUpload, t.user.Username, t.path, "", "", t.bytesReceived+t.minWriteOffset, (t.file != nil))
+			go executeAction(newActionNotification(t.user, operationUpload, t.path, "", "", t.bytesReceived+t.minWriteOffset))
 		}
 	} else {
 		logger.Warn(logSender, t.connectionID, "transfer error: %v, path: %#v", t.transferError, t.path)

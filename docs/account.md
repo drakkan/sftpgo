@@ -7,7 +7,7 @@ For each account, the following properties can be configured:
 - `public_keys` array of public keys. At least one public key or the password is mandatory.
 - `status` 1 means "active", 0 "inactive". An inactive account cannot login.
 - `expiration_date` expiration date as unix timestamp in milliseconds. An expired account cannot login. 0 means no expiration.
-- `home_dir` the user cannot upload or download files outside this directory. Must be an absolute path.
+- `home_dir` the user cannot upload or download files outside this directory. Must be an absolute path. A local home directory is required for Cloud Storage Backends too: in this case it will store temporary files.
 - `virtual_folders` list of mappings between virtual SFTP/SCP paths and local filesystem paths outside the user home directory. The specified paths must be absolute and the virtual path cannot be "/", it must be a sub directory. The parent directory for the specified virtual path must exist. SFTPGo will try to automatically create any missing parent directory for the configured virtual folders at user login
 - `uid`, `gid`. If SFTPGo runs as root system user then the created files and directories will be assigned to this system uid/gid. Ignored on windows or if SFTPGo runs as non root user: in this case files and directories for all SFTP users will be owned by the system user that runs SFTPGo.
 - `max_sessions` maximum concurrent sessions. 0 means unlimited.

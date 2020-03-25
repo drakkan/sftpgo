@@ -119,6 +119,46 @@ func newMockOsFs(err, statErr error, atomicUpload bool, connectionID, rootDir st
 	}
 }
 
+func TestNewActionNotification(t *testing.T) {
+	user := dataprovider.User{
+		Username: "username",
+	}
+	user.FsConfig.Provider = 0
+	user.FsConfig.S3Config = vfs.S3FsConfig{
+		Bucket:   "s3bucket",
+		Endpoint: "endpoint",
+	}
+	user.FsConfig.GCSConfig = vfs.GCSFsConfig{
+		Bucket: "gcsbucket",
+	}
+	a := newActionNotification(user, operationDownload, "path", "target", "", 123)
+	if a.Username != "username" {
+		t.Errorf("unexpected username")
+	}
+	if len(a.Bucket) > 0 {
+		t.Errorf("unexpected bucket")
+	}
+	if len(a.Endpoint) > 0 {
+		t.Errorf("unexpected endpoint")
+	}
+	user.FsConfig.Provider = 1
+	a = newActionNotification(user, operationDownload, "path", "target", "", 123)
+	if a.Bucket != "s3bucket" {
+		t.Errorf("unexpected s3 bucket")
+	}
+	if a.Endpoint != "endpoint" {
+		t.Errorf("unexpected endpoint")
+	}
+	user.FsConfig.Provider = 2
+	a = newActionNotification(user, operationDownload, "path", "target", "", 123)
+	if a.Bucket != "gcsbucket" {
+		t.Errorf("unexpected gcs bucket")
+	}
+	if len(a.Endpoint) > 0 {
+		t.Errorf("unexpected endpoint")
+	}
+}
+
 func TestWrongActions(t *testing.T) {
 	actionsCopy := actions
 	badCommand := "/bad/command"
@@ -130,17 +170,20 @@ func TestWrongActions(t *testing.T) {
 		Command:             badCommand,
 		HTTPNotificationURL: "",
 	}
-	err := executeAction(operationDownload, "username", "path", "", "", 0, true)
+	user := dataprovider.User{
+		Username: "username",
+	}
+	err := executeAction(newActionNotification(user, operationDownload, "path", "", "", 0))
 	if err == nil {
 		t.Errorf("action with bad command must fail")
 	}
-	err = executeAction(operationDelete, "username", "path", "", "", 0, true)
+	err = executeAction(newActionNotification(user, operationDelete, "path", "", "", 0))
 	if err != nil {
 		t.Errorf("action not configured must silently fail")
 	}
 	actions.Command = ""
 	actions.HTTPNotificationURL = "http://foo\x7f.com/"
-	err = executeAction(operationDownload, "username", "path", "", "", 0, true)
+	err = executeAction(newActionNotification(user, operationDownload, "path", "", "", 0))
 	if err == nil {
 		t.Errorf("action with bad url must fail")
 	}
@@ -154,7 +197,10 @@ func TestActionHTTP(t *testing.T) {
 		Command:             "",
 		HTTPNotificationURL: "http://127.0.0.1:8080/",
 	}
-	err := executeAction(operationDownload, "username", "path", "", "", 0, true)
+	user := dataprovider.User{
+		Username: "username",
+	}
+	err := executeAction(newActionNotification(user, operationDownload, "path", "", "", 0))
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
