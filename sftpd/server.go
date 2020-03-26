@@ -63,10 +63,6 @@ type Configuration struct {
 	Actions Actions `json:"actions" mapstructure:"actions"`
 	// Keys are a list of host keys
 	Keys []Key `json:"keys" mapstructure:"keys"`
-	// IsSCPEnabled determines if experimental SCP support is enabled.
-	// This setting is deprecated and will be removed in future versions,
-	// please add "scp" to the EnabledSSHCommands list to enable it.
-	IsSCPEnabled bool `json:"enable_scp" mapstructure:"enable_scp"`
 	// KexAlgorithms specifies the available KEX (Key Exchange) algorithms in
 	// preference order.
 	KexAlgorithms []string `json:"kex_algorithms" mapstructure:"kex_algorithms"`
@@ -502,9 +498,6 @@ func (c *Configuration) checkSSHCommands() {
 		return
 	}
 	sshCommands := []string{}
-	if c.IsSCPEnabled {
-		sshCommands = append(sshCommands, "scp")
-	}
 	for _, command := range c.EnabledSSHCommands {
 		if utils.IsStringInSlice(command, supportedSSHCommands) {
 			sshCommands = append(sshCommands, command)

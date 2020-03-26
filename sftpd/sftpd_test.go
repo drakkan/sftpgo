@@ -245,7 +245,6 @@ func TestInitialization(t *testing.T) {
 	sftpdConf.Umask = "invalid umask"
 	sftpdConf.BindPort = 2022
 	sftpdConf.LoginBannerFile = "invalid_file"
-	sftpdConf.IsSCPEnabled = true
 	sftpdConf.EnabledSSHCommands = append(sftpdConf.EnabledSSHCommands, "ls")
 	err := sftpdConf.Initialize(configDir)
 	if err == nil {

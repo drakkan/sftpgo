@@ -67,7 +67,7 @@ var (
 	setstatMode          int
 	supportedSSHCommands = []string{"scp", "md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum", "cd", "pwd",
 		"git-receive-pack", "git-upload-pack", "git-upload-archive", "rsync"}
-	defaultSSHCommands = []string{"md5sum", "sha1sum", "cd", "pwd"}
+	defaultSSHCommands = []string{"md5sum", "sha1sum", "cd", "pwd", "scp"}
 	sshHashCommands    = []string{"md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum"}
 	systemCommands     = []string{"git-receive-pack", "git-upload-pack", "git-upload-archive", "rsync"}
 )

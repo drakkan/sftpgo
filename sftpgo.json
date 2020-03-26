@@ -13,7 +13,6 @@
       "http_notification_url": ""
     },
     "keys": [],
-    "enable_scp": false,
     "kex_algorithms": [],
     "ciphers": [],
     "macs": [],
@@ -23,7 +22,8 @@
       "md5sum",
       "sha1sum",
       "cd",
-      "pwd"
+      "pwd",
+      "scp"
     ],
     "keyboard_interactive_auth_program": "",
     "proxy_protocol": 0,

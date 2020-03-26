@@ -55,7 +55,6 @@ func init() {
 				HTTPNotificationURL: "",
 			},
 			Keys:                       []sftpd.Key{},
-			IsSCPEnabled:               false,
 			KexAlgorithms:              []string{},
 			Ciphers:                    []string{},
 			MACs:                       []string{},
