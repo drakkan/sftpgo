@@ -1109,7 +1109,7 @@ func TestLoginInvalidFs(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to add user: %v", err)
 	}
-	// we update the database using sqlite3 CLI since we cannot add an user with an invalid config
+	// we update the database using sqlite3 CLI since we cannot add a user with an invalid config
 	time.Sleep(200 * time.Millisecond)
 	updateUserQuery := fmt.Sprintf("UPDATE users SET filesystem='{\"provider\":1}' WHERE id=%v", user.ID)
 	cmd := exec.Command("sqlite3", dbPath, updateUserQuery)
@@ -1395,18 +1395,76 @@ func TestPreLoginScript(t *testing.T) {
 	ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(user, true), 0755)
 	_, err = getSftpClient(u, usePubKey)
 	if err == nil {
-		t.Error("pre login script returned a non json response, login must fail")
+		t.Error("pre-login script returned a non json response, login must fail")
 	}
 	user.Status = 0
 	ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(user, false), 0755)
 	_, err = getSftpClient(u, usePubKey)
 	if err == nil {
-		t.Error("pre login script returned a disabled user, login must fail")
+		t.Error("pre-login script returned a disabled user, login must fail")
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	if err != nil {
 		t.Errorf("unable to remove user: %v", err)
 	}
+	os.RemoveAll(user.GetHomeDir())
+	dataProvider = dataprovider.GetProvider()
+	dataprovider.Close(dataProvider)
+	config.LoadConfig(configDir, "")
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir)
+	if err != nil {
+		t.Errorf("error initializing data provider")
+	}
+	httpd.SetDataProvider(dataprovider.GetProvider())
+	sftpd.SetDataProvider(dataprovider.GetProvider())
+	os.Remove(preLoginPath)
+}
+
+func TestPreLoginUserCreation(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("this test is not available on Windows")
+	}
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	dataProvider := dataprovider.GetProvider()
+	dataprovider.Close(dataProvider)
+	config.LoadConfig(configDir, "")
+	providerConf := config.GetProviderConf()
+	ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), 0755)
+	providerConf.PreLoginProgram = preLoginPath
+	err := dataprovider.Initialize(providerConf, configDir)
+	if err != nil {
+		t.Errorf("error initializing data provider")
+	}
+	httpd.SetDataProvider(dataprovider.GetProvider())
+	sftpd.SetDataProvider(dataprovider.GetProvider())
+
+	users, out, err := httpd.GetUsers(0, 0, defaultUsername, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to get users: %v, out: %v", err, string(out))
+	}
+	if len(users) != 0 {
+		t.Errorf("number of users mismatch, expected: 0, actual: %v", len(users))
+	}
+	client, err := getSftpClient(u, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		_, err = client.Getwd()
+		if err != nil {
+			t.Errorf("unable to get working dir: %v", err)
+		}
+	}
+	users, out, err = httpd.GetUsers(0, 0, defaultUsername, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to get users: %v, out: %v", err, string(out))
+	}
+	if len(users) != 1 {
+		t.Errorf("number of users mismatch, expected: 1, actual: %v", len(users))
+	}
+	user := users[0]
 	os.RemoveAll(user.GetHomeDir())
 	dataProvider = dataprovider.GetProvider()
 	dataprovider.Close(dataProvider)

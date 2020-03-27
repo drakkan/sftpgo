@@ -10,7 +10,7 @@ The external program can read the following environment variables to get info ab
 - `SFTPGO_AUTHD_KEYBOARD_INTERACTIVE`, not empty for keyboard interactive authentication
 
 Previous global environment variables aren't cleared when the script is called. The content of these variables is _not_ quoted. They may contain special characters. They are under the control of a possibly malicious remote user.
-The program must write, on its standard output, a valid SFTPGo user serialized as JSON if the authentication succeed or an user with an empty username if the authentication fails.
+The program must write, on its standard output, a valid SFTPGo user serialized as JSON if the authentication succeed or a user with an empty username if the authentication fails.
 If the authentication succeeds, the user will be automatically added/updated inside the defined data provider. Actions defined for users added/updated will not be executed in this case.
 The external program should check authentication only. If there are login restrictions such as user disabled, expired, or login allowed only from specific IP addresses, it is enough to populate the matching user fields, and these conditions will be checked in the same way as for built-in users.
 The external auth program should finish very quickly. It will be killed if it does not exit within 60 seconds.

@@ -271,7 +271,7 @@ func GetQuotaScans() []ActiveQuotaScan {
 	return scans
 }
 
-// AddQuotaScan add an user to the ones with active quota scans.
+// AddQuotaScan add a user to the ones with active quota scans.
 // Returns false if the user has a quota scan already running
 func AddQuotaScan(username string) bool {
 	mutex.Lock()
@@ -288,7 +288,7 @@ func AddQuotaScan(username string) bool {
 	return true
 }
 
-// RemoveQuotaScan removes an user from the ones with active quota scans
+// RemoveQuotaScan removes a user from the ones with active quota scans
 func RemoveQuotaScan(username string) error {
 	mutex.Lock()
 	defer mutex.Unlock()

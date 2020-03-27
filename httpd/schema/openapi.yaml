@@ -1028,7 +1028,7 @@ components:
         credentials:
           type: string
           format: byte
-          description: Google Cloud Storage JSON credentials base64 encoded. This field must be populated only when adding/updating an user. It will be always omitted, since there are sensitive data, when you search/get users. The credentials will be stored in the configured "credentials_path"
+          description: Google Cloud Storage JSON credentials base64 encoded. This field must be populated only when adding/updating a user. It will be always omitted, since there are sensitive data, when you search/get users. The credentials will be stored in the configured "credentials_path"
         automatic_credentials:
           type: integer
           nullable: true
@@ -1135,7 +1135,7 @@ components:
         max_sessions:
           type: integer
           format: int32
-          description: Limit the sessions that an user can open. 0 means unlimited
+          description: Limit the sessions that a user can open. 0 means unlimited
         quota_size:
           type: integer
           format: int64

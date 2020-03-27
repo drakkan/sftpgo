@@ -162,7 +162,7 @@ func RemoveUser(user dataprovider.User, expectedStatusCode int) ([]byte, error) 
 	return body, checkResponse(resp.StatusCode, expectedStatusCode)
 }
 
-// GetUserByID gets an user by database id and checks the received HTTP Status code against expectedStatusCode.
+// GetUserByID gets a user by database id and checks the received HTTP Status code against expectedStatusCode.
 func GetUserByID(userID int64, expectedStatusCode int) (dataprovider.User, []byte, error) {
 	var user dataprovider.User
 	var body []byte
@@ -183,7 +183,7 @@ func GetUserByID(userID int64, expectedStatusCode int) (dataprovider.User, []byt
 // GetUsers allows to get a list of users and checks the received HTTP Status code against expectedStatusCode.
 // The number of results can be limited specifying a limit.
 // Some results can be skipped specifying an offset.
-// The results can be filtered specifying an username, the username filter is an exact match
+// The results can be filtered specifying a username, the username filter is an exact match
 func GetUsers(limit int64, offset int64, username string, expectedStatusCode int) ([]dataprovider.User, []byte, error) {
 	var users []dataprovider.User
 	var body []byte

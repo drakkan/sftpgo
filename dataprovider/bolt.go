@@ -328,6 +328,20 @@ func (p BoltProvider) dumpUsers() ([]User, error) {
 	return users, err
 }
 
+func (p BoltProvider) getUserWithUsername(username string) ([]User, error) {
+	users := []User{}
+	var user User
+	user, err := p.userExists(username)
+	if err == nil {
+		users = append(users, HideUserSensitiveData(&user))
+		return users, nil
+	}
+	if _, ok := err.(*RecordNotFoundError); ok {
+		err = nil
+	}
+	return users, err
+}
+
 func (p BoltProvider) getUsers(limit int, offset int, order string, username string) ([]User, error) {
 	users := []User{}
 	var err error
@@ -336,15 +350,7 @@ func (p BoltProvider) getUsers(limit int, offset int, order string, username str
 	}
 	if len(username) > 0 {
 		if offset == 0 {
-			var user User
-			user, err = p.userExists(username)
-			if err == nil {
-				users = append(users, HideUserSensitiveData(&user))
-				return users, nil
-			}
-			if _, ok := err.(*RecordNotFoundError); ok {
-				err = nil
-			}
+			return p.getUserWithUsername(username)
 		}
 		return users, err
 	}

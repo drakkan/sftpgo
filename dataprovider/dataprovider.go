@@ -74,7 +74,7 @@ var (
 	// SupportedProviders data provider configured in the sftpgo.conf file must match of these strings
 	SupportedProviders = []string{SQLiteDataProviderName, PGSQLDataProviderName, MySQLDataProviderName,
 		BoltDataProviderName, MemoryDataProviderName}
-	// ValidPerms list that contains all the valid permissions for an user
+	// ValidPerms list that contains all the valid permissions for a user
 	ValidPerms = []string{PermAny, PermListItems, PermDownload, PermUpload, PermOverwrite, PermRename, PermDelete,
 		PermCreateDirs, PermCreateSymlinks, PermChmod, PermChown, PermChtimes}
 	// ValidSSHLoginMethods list that contains all the valid SSH login methods
@@ -171,7 +171,7 @@ type Config struct {
 	// control of a possibly malicious remote user.
 	//
 	// The program must respond on the standard output with a valid SFTPGo user serialized as JSON if the
-	// authentication succeed or an user with an empty username if the authentication fails.
+	// authentication succeed or a user with an empty username if the authentication fails.
 	// If the authentication succeed the user will be automatically added/updated inside the defined data provider.
 	// Actions defined for user added/updated will not be executed in this case.
 	// The external program should check authentication only, if there are login restrictions such as user
@@ -196,7 +196,7 @@ type Config struct {
 	CredentialsPath string `json:"credentials_path" mapstructure:"credentials_path"`
 	// Absolute path to an external program to start just before the user login.
 	// This program will be started before an existing user try to login and allows to
-	// modify the user.
+	// modify or create the user.
 	// It is useful if you have users with dynamic fields that need to the updated just
 	// before the login.
 	// The external program can read the following environment variables:
@@ -204,13 +204,15 @@ type Config struct {
 	// - SFTPGO_LOGIND_USER, it contains the user trying to login serialized as JSON
 	// - SFTPGO_LOGIND_METHOD, possible values are: "password", "publickey" and "keyboard-interactive"
 	//
-	// The program must respond on the standard output with an empty string if no user
-	// update is needed or with a valid SFTPGo user serialized as JSON.
-	// The JSON response can include only the fields that need to the updated instead
-	// of the full user, for example if you want to disable the user you can return a
-	// response like this:
+	// The program must write on its standard output an empty string if no user update is needed
+	// or a valid SFTPGo user serialized as JSON.
+	// The JSON response can include only the fields to update instead of the full user,
+	// for example if you want to disable the user you can return a response like this:
 	//
 	// {"status":0}
+	//
+	// Please note that if you want to create a new user, the pre-login program response must
+	// include all the mandatory user fields.
 	//
 	// The external program must finish within 60 seconds.
 	//
@@ -245,7 +247,7 @@ func (e *ValidationError) Error() string {
 
 // MethodDisabledError raised if a method is disabled in config file.
 // For example, if user management is disabled, this error is raised
-// every time an user operation is done using the REST API
+// every time a user operation is done using the REST API
 type MethodDisabledError struct {
 	err string
 }
@@ -318,11 +320,11 @@ func Initialize(cnf Config, basePath string) error {
 	}
 	if len(config.PreLoginProgram) > 0 {
 		if !filepath.IsAbs(config.PreLoginProgram) {
-			return fmt.Errorf("invalid pre login program: %#v must be an absolute path", config.PreLoginProgram)
+			return fmt.Errorf("invalid pre-login program: %#v must be an absolute path", config.PreLoginProgram)
 		}
 		_, err := os.Stat(config.PreLoginProgram)
 		if err != nil {
-			providerLog(logger.LevelWarn, "invalid pre login program: %v", err)
+			providerLog(logger.LevelWarn, "invalid pre-login program: %v", err)
 			return err
 		}
 	}
@@ -1182,7 +1184,13 @@ func doKeyboardInteractiveAuth(user User, authProgram string, client ssh.Keyboar
 func executePreLoginProgram(username, loginMethod string) (User, error) {
 	u, err := provider.userExists(username)
 	if err != nil {
-		return u, err
+		if _, ok := err.(*RecordNotFoundError); !ok {
+			return u, err
+		}
+		u = User{
+			ID:       0,
+			Username: username,
+		}
 	}
 	userAsJSON, err := json.Marshal(u)
 	if err != nil {
@@ -1197,10 +1205,14 @@ func executePreLoginProgram(username, loginMethod string) (User, error) {
 		fmt.Sprintf("SFTPGO_LOGIND_METHOD=%v", loginMethod))
 	out, err := cmd.Output()
 	if err != nil {
-		return u, fmt.Errorf("Before login program error: %v", err)
+		return u, fmt.Errorf("Pre-login program error: %v", err)
 	}
 	if len(strings.TrimSpace(string(out))) == 0 {
-		providerLog(logger.LevelDebug, "empty response from before login program, no modification needed for user %#v", username)
+		providerLog(logger.LevelDebug, "empty response from pre-login program, no modification requested for user %#v id: %v",
+			username, u.ID)
+		if u.ID == 0 {
+			return u, &RecordNotFoundError{err: fmt.Sprintf("username %v does not exist", username)}
+		}
 		return u, nil
 	}
 
@@ -1211,18 +1223,22 @@ func executePreLoginProgram(username, loginMethod string) (User, error) {
 	userLastLogin := u.LastLogin
 	err = json.Unmarshal(out, &u)
 	if err != nil {
-		return u, fmt.Errorf("Invalid before login program response %#v, error: %v", string(out), err)
+		return u, fmt.Errorf("Invalid pre-login program response %#v, error: %v", string(out), err)
 	}
 	u.ID = userID
 	u.UsedQuotaSize = userUsedQuotaSize
 	u.UsedQuotaFiles = userUsedQuotaFiles
 	u.LastQuotaUpdate = userLastQuotaUpdate
 	u.LastLogin = userLastLogin
-	err = provider.updateUser(u)
+	if userID == 0 {
+		err = provider.addUser(u)
+	} else {
+		err = provider.updateUser(u)
+	}
 	if err != nil {
 		return u, err
 	}
-	providerLog(logger.LevelDebug, "user %#v updated from before login program response", username)
+	providerLog(logger.LevelDebug, "user %#v added/updated from pre-login program response, id: %v", username, userID)
 	return provider.userExists(username)
 }
 

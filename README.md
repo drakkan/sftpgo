@@ -120,9 +120,9 @@ This authentication method is typically used for multi-factor authentication.
 
 More information can be found [here](./docs/keyboard-interactive.md).
 
-## Dynamic user modification
+## Dynamic user creation or modification
 
-The user configuration, retrieved from the data provider, can be modified by an external program. More information about this can be found [here](./docs/dynamic-user-mod.md).
+A user can be created or modified by an external program just before the login. More information about this can be found [here](./docs/dynamic-user-mod.md).
 
 ## Custom Actions
 
