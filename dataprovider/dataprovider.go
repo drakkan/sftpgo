@@ -954,15 +954,11 @@ func comparePbkdf2PasswordAndHash(password, hashedPassword string) (bool, error)
 		return false, fmt.Errorf("pbkdf2: hash is not in the correct format")
 	}
 	var hashFunc func() hash.Hash
-	var hashSize int
 	if strings.HasPrefix(hashedPassword, pbkdf2SHA256Prefix) {
-		hashSize = sha256.Size
 		hashFunc = sha256.New
 	} else if strings.HasPrefix(hashedPassword, pbkdf2SHA512Prefix) {
-		hashSize = sha512.Size
 		hashFunc = sha512.New
 	} else if strings.HasPrefix(hashedPassword, pbkdf2SHA1Prefix) {
-		hashSize = sha1.Size
 		hashFunc = sha1.New
 	} else {
 		return false, fmt.Errorf("pbkdf2: invalid or unsupported hash format %v", vals[1])
@@ -972,11 +968,12 @@ func comparePbkdf2PasswordAndHash(password, hashedPassword string) (bool, error)
 		return false, err
 	}
 	salt := vals[3]
-	expected := vals[4]
-	df := pbkdf2.Key([]byte(password), []byte(salt), iterations, hashSize, hashFunc)
-	buf := make([]byte, base64.StdEncoding.EncodedLen(len(df)))
-	base64.StdEncoding.Encode(buf, df)
-	return subtle.ConstantTimeCompare(buf, []byte(expected)) == 1, nil
+	expected, err := base64.StdEncoding.DecodeString(vals[4])
+	if err != nil {
+		return false, err
+	}
+	df := pbkdf2.Key([]byte(password), []byte(salt), iterations, len(expected), hashFunc)
+	return subtle.ConstantTimeCompare(df, expected) == 1, nil
 }
 
 // HideUserSensitiveData hides user sensitive data

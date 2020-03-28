@@ -2514,12 +2514,12 @@ func TestPasswordsHashPbkdf2Sha256(t *testing.T) {
 	user.Password = pbkdf2ClearPwd
 	client, err := getSftpClient(user, usePubKey)
 	if err != nil {
-		t.Errorf("unable to login with pkkdf2 sha1 password: %v", err)
+		t.Errorf("unable to login with pkkdf2 sha256 password: %v", err)
 	} else {
 		defer client.Close()
 		_, err = client.Getwd()
 		if err != nil {
-			t.Errorf("unable to get working dir with pkkdf2 sha1 password: %v", err)
+			t.Errorf("unable to get working dir with pkkdf2 sha256 password: %v", err)
 		}
 	}
 	user.Password = pbkdf2Pwd
@@ -2547,12 +2547,12 @@ func TestPasswordsHashPbkdf2Sha512(t *testing.T) {
 	user.Password = pbkdf2ClearPwd
 	client, err := getSftpClient(user, usePubKey)
 	if err != nil {
-		t.Errorf("unable to login with pkkdf2 sha1 password: %v", err)
+		t.Errorf("unable to login with pkkdf2 sha512 password: %v", err)
 	} else {
 		defer client.Close()
 		_, err = client.Getwd()
 		if err != nil {
-			t.Errorf("unable to get working dir with pkkdf2 sha1 password: %v", err)
+			t.Errorf("unable to get working dir with pkkdf2 sha512 password: %v", err)
 		}
 	}
 	user.Password = pbkdf2Pwd
