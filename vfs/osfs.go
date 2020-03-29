@@ -178,7 +178,7 @@ func (fs OsFs) ScanRootDirContents() (int, int64, error) {
 		num, s, err := fs.getDirSize(v.MappedPath)
 		if err != nil {
 			if fs.IsNotExist(err) {
-				fsLog(fs, logger.LevelWarn, "unable to scan contents for not existent mapped path: %#v", v.MappedPath)
+				fsLog(fs, logger.LevelWarn, "unable to scan contents for non-existent mapped path: %#v", v.MappedPath)
 				continue
 			}
 			return numFiles, size, err
@@ -237,7 +237,7 @@ func (fs OsFs) ResolvePath(sftpPath string) (string, error) {
 		// path chain until we hit a directory that _does_ exist and can be validated.
 		_, err = fs.findFirstExistingDir(r, basePath)
 		if err != nil {
-			fsLog(fs, logger.LevelWarn, "error resolving not existent path: %#v", err)
+			fsLog(fs, logger.LevelWarn, "error resolving non-existent path: %#v", err)
 		}
 		return r, err
 	}

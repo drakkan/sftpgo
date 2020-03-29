@@ -2316,6 +2316,74 @@ func TestVirtualFolders(t *testing.T) {
 	os.RemoveAll(mappedPath)
 }
 
+func TestVirtualFoldersQuota(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.QuotaFiles = 100
+	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	vdirPath1 := "/vdir1"
+	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	vdirPath2 := "/vdir2"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: vdirPath1,
+		MappedPath:  mappedPath1,
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: vdirPath2,
+		MappedPath:  mappedPath2,
+	})
+	os.MkdirAll(mappedPath1, 0777)
+	os.MkdirAll(mappedPath2, 0777)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFileSize := int64(131072)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		if err != nil {
+			t.Errorf("unable to create test file: %v", err)
+		}
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		if err != nil {
+			t.Errorf("file upload error: %v", err)
+		}
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, testFileName), testFileSize, client)
+		if err != nil {
+			t.Errorf("file upload error: %v", err)
+		}
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, testFileName), testFileSize, client)
+		if err != nil {
+			t.Errorf("file upload error: %v", err)
+		}
+		expectedQuotaFiles := 3
+		expectedQuotaSize := testFileSize * 3
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		if err != nil {
+			t.Errorf("error getting user: %v", err)
+		}
+		if expectedQuotaFiles != user.UsedQuotaFiles {
+			t.Errorf("quota files does not match, expected: %v, actual: %v", expectedQuotaFiles, user.UsedQuotaFiles)
+		}
+		if expectedQuotaSize != user.UsedQuotaSize {
+			t.Errorf("quota size does not match, expected: %v, actual: %v", expectedQuotaSize, user.UsedQuotaSize)
+		}
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+	os.RemoveAll(mappedPath1)
+	os.RemoveAll(mappedPath2)
+}
+
 func TestMissingFile(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
