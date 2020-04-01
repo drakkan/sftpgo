@@ -145,7 +145,7 @@ func TestMain(m *testing.M) {
 	}
 	keyIntAuthPath = filepath.Join(homeBasePath, "keyintauth.sh")
 	ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), 0755)
-	sftpdConf.KeyboardInteractiveProgram = keyIntAuthPath
+	sftpdConf.KeyboardInteractiveHook = keyIntAuthPath
 
 	scpPath, err = exec.LookPath("scp")
 	if err != nil {
@@ -250,12 +250,12 @@ func TestInitialization(t *testing.T) {
 	if err == nil {
 		t.Error("Inizialize must fail, a SFTP server should be already running")
 	}
-	sftpdConf.KeyboardInteractiveProgram = "invalid_file"
+	sftpdConf.KeyboardInteractiveHook = "invalid_file"
 	err = sftpdConf.Initialize(configDir)
 	if err == nil {
 		t.Error("Inizialize must fail, a SFTP server should be already running")
 	}
-	sftpdConf.KeyboardInteractiveProgram = filepath.Join(homeBasePath, "invalid_file")
+	sftpdConf.KeyboardInteractiveHook = filepath.Join(homeBasePath, "invalid_file")
 	err = sftpdConf.Initialize(configDir)
 	if err == nil {
 		t.Error("Inizialize must fail, a SFTP server should be already running")
@@ -1370,7 +1370,7 @@ func TestPreLoginScript(t *testing.T) {
 	config.LoadConfig(configDir, "")
 	providerConf := config.GetProviderConf()
 	ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), 0755)
-	providerConf.PreLoginProgram = preLoginPath
+	providerConf.PreLoginHook = preLoginPath
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
 		t.Errorf("error initializing data provider")
@@ -1432,7 +1432,7 @@ func TestPreLoginUserCreation(t *testing.T) {
 	config.LoadConfig(configDir, "")
 	providerConf := config.GetProviderConf()
 	ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), 0755)
-	providerConf.PreLoginProgram = preLoginPath
+	providerConf.PreLoginHook = preLoginPath
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
 		t.Errorf("error initializing data provider")
@@ -1491,7 +1491,7 @@ func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
 	config.LoadConfig(configDir, "")
 	providerConf := config.GetProviderConf()
 	ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, 0, false), 0755)
-	providerConf.ExternalAuthProgram = extAuthPath
+	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
@@ -1581,7 +1581,7 @@ func TestLoginExternalAuthPwd(t *testing.T) {
 	config.LoadConfig(configDir, "")
 	providerConf := config.GetProviderConf()
 	ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, 0, false), 0755)
-	providerConf.ExternalAuthProgram = extAuthPath
+	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 1
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
@@ -1649,7 +1649,7 @@ func TestLoginExternalAuthPubKey(t *testing.T) {
 	config.LoadConfig(configDir, "")
 	providerConf := config.GetProviderConf()
 	ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, 0, false), 0755)
-	providerConf.ExternalAuthProgram = extAuthPath
+	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 2
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
@@ -1717,7 +1717,7 @@ func TestLoginExternalAuthInteractive(t *testing.T) {
 	config.LoadConfig(configDir, "")
 	providerConf := config.GetProviderConf()
 	ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, 0, false), 0755)
-	providerConf.ExternalAuthProgram = extAuthPath
+	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 4
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
@@ -1786,7 +1786,7 @@ func TestLoginExternalAuthErrors(t *testing.T) {
 	config.LoadConfig(configDir, "")
 	providerConf := config.GetProviderConf()
 	ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, 0, true), 0755)
-	providerConf.ExternalAuthProgram = extAuthPath
+	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
 	err := dataprovider.Initialize(providerConf, configDir)
 	if err != nil {

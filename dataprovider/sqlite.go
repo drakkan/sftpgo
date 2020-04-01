@@ -30,7 +30,7 @@ type SQLiteProvider struct {
 func initializeSQLiteProvider(basePath string) error {
 	var err error
 	var connectionString string
-	logSender = SQLiteDataProviderName
+	logSender = fmt.Sprintf("dataprovider_%v", SQLiteDataProviderName)
 	if len(config.ConnectionString) == 0 {
 		dbPath := config.Name
 		if !utils.IsFileInputValid(dbPath) {

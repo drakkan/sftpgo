@@ -182,6 +182,48 @@ func TestInvalidUsersBaseDir(t *testing.T) {
 	os.Remove(configFilePath)
 }
 
+func TestHookCompatibity(t *testing.T) {
+	configDir := ".."
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+	config.LoadConfig(configDir, "")
+	providerConf := config.GetProviderConf()
+	providerConf.ExternalAuthProgram = "ext_auth_program"
+	providerConf.PreLoginProgram = "pre_login_program"
+	c := make(map[string]dataprovider.Config)
+	c["data_provider"] = providerConf
+	jsonConf, _ := json.Marshal(c)
+	err := ioutil.WriteFile(configFilePath, jsonConf, 0666)
+	if err != nil {
+		t.Errorf("error saving temporary configuration")
+	}
+	config.LoadConfig(configDir, tempConfigName)
+	providerConf = config.GetProviderConf()
+	if providerConf.ExternalAuthHook != "ext_auth_program" {
+		t.Error("unexpected external auth hook")
+	}
+	if providerConf.PreLoginHook != "pre_login_program" {
+		t.Error("unexpected pre-login hook")
+	}
+	os.Remove(configFilePath)
+
+	sftpdConf := config.GetSFTPDConfig()
+	sftpdConf.KeyboardInteractiveProgram = "key_int_program"
+	cnf := make(map[string]sftpd.Configuration)
+	cnf["sftpd"] = sftpdConf
+	jsonConf, _ = json.Marshal(cnf)
+	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
+	if err != nil {
+		t.Errorf("error saving temporary configuration")
+	}
+	config.LoadConfig(configDir, tempConfigName)
+	sftpdConf = config.GetSFTPDConfig()
+	if sftpdConf.KeyboardInteractiveHook != "key_int_program" {
+		t.Error("unexpected keyboard interactive hook")
+	}
+	os.Remove(configFilePath)
+}
+
 func TestSetGetConfig(t *testing.T) {
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.IdleTimeout = 3

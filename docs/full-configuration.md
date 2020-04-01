@@ -63,7 +63,8 @@ The configuration file contains the following sections:
     - `cd`, `pwd`. Some SFTP clients do not support the SFTP SSH_FXP_REALPATH packet type, so they use `cd` and `pwd` SSH commands to get the initial directory. Currently `cd` does nothing and `pwd` always returns the `/` path.
     - `git-receive-pack`, `git-upload-pack`, `git-upload-archive`. These commands enable support for Git repositories over SSH. They need to be installed and in your system's `PATH`. Git commands are not allowed inside virtual folders or inside directories with file extensions filters.
     - `rsync`. The `rsync` command needs to be installed and in your system's `PATH`. We cannot avoid that rsync creates symlinks, so if the user has the permission to create symlinks, we add the option `--safe-links` to the received rsync command if it is not already set. This should prevent creating symlinks that point outside the home dir. If the user cannot create symlinks, we add the option `--munge-links` if it is not already set. This should make symlinks unusable (but manually recoverable). The `rsync` command interacts with the filesystem directly and it is not aware of virtual folders and file extensions filters, so it will be automatically disabled for users with these features enabled.
-  - `keyboard_interactive_auth_program`, string. Absolute path to an external program to use for keyboard interactive authentication. See the "Keyboard Interactive Authentication" paragraph for more details.
+  - `keyboard_interactive_auth_program`, string. Deprecated, please use `keyboard_interactive_auth_hook`.
+  - `keyboard_interactive_auth_hook`, string. Absolute path to an external program or an HTTP URL to invoke for keyboard interactive authentication. See the "Keyboard Interactive Authentication" paragraph for more details.
   - `proxy_protocol`, integer. Support for [HAProxy PROXY protocol](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt). If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable the proxy protocol. It provides a convenient way to safely transport connection information such as a client's address across multiple layers of NAT or TCP proxies to get the real client IP address instead of the proxy IP. Both protocol versions 1 and 2 are supported. If the proxy protocol is enabled in SFTPGo then you have to enable the protocol in your proxy configuration too. For example, for HAProxy, add `send-proxy` or `send-proxy-v2` to each server configuration line. The following modes are supported:
     - 0, disabled
     - 1, enabled. Proxy header will be used and requests without proxy header will be accepted
@@ -92,10 +93,12 @@ The configuration file contains the following sections:
     - `execute_on`, list of strings. Valid values are `add`, `update`, `delete`. `update` action will not be fired for internal updates such as the last login or the user quota fields.
     - `command`, string. Absolute path to the command to execute. Leave empty to disable.
     - `http_notification_url`, a valid URL. Leave empty to disable.
-  - `external_auth_program`, string. Absolute path to an external program to use for users authentication. See the "External Authentication" paragraph for more details. Leave empty to disable.
+  - `external_auth_program`, string. Deprecated, please use `external_auth_hook`.
+  - `external_auth_hook`, string. Absolute path to an external program or an HTTP URL to invoke for users authentication. See the "External Authentication" paragraph for more details. Leave empty to disable.
   - `external_auth_scope`, integer. 0 means all supported authetication scopes (passwords, public keys and keyboard interactive). 1 means passwords only. 2 means public keys only. 4 means key keyboard interactive only. The flags can be combined, for example 6 means public keys and keyboard interactive
   - `credentials_path`, string. It defines the directory for storing user provided credential files such as Google Cloud Storage credentials. This can be an absolute path or a path relative to the config dir
-  - `pre_login_program`, string. Absolute path to an external program to use to modify user details just before the login. See the "Dynamic user modification" paragraph for more details. Leave empty to disable.
+  - `pre_login_program`, string. Deprecated, please use `pre_login_hook`.
+  - `pre_login_hook`, string. Absolute path to an external program or an HTTP URL to invoke to modify user details just before the login. See the "Dynamic user modification" paragraph for more details. Leave empty to disable.
 - **"httpd"**, the configuration for the HTTP server used to serve REST API
   - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 8080
   - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"

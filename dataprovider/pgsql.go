@@ -27,7 +27,7 @@ type PGSQLProvider struct {
 
 func initializePGSQLProvider() error {
 	var err error
-	logSender = PGSQLDataProviderName
+	logSender = fmt.Sprintf("dataprovider_%v", PGSQLDataProviderName)
 	dbHandle, err := sql.Open("postgres", getPGSQLConnectionString(false))
 	if err == nil {
 		providerLog(logger.LevelDebug, "postgres database handle created, connection string: %#v, pool size: %v",

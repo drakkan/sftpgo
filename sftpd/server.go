@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/drakkan/sftpgo/dataprovider"
@@ -98,9 +99,11 @@ type Configuration struct {
 	// The following SSH commands are enabled by default: "md5sum", "sha1sum", "cd", "pwd".
 	// "*" enables all supported SSH commands.
 	EnabledSSHCommands []string `json:"enabled_ssh_commands" mapstructure:"enabled_ssh_commands"`
-	// Absolute path to an external program to use for keyboard interactive authentication.
-	// Leave empty to disable this authentication mode.
+	// Deprecated: please use KeyboardInteractiveHook
 	KeyboardInteractiveProgram string `json:"keyboard_interactive_auth_program" mapstructure:"keyboard_interactive_auth_program"`
+	// Absolute path to an external program or an HTTP URL to invoke for keyboard interactive authentication.
+	// Leave empty to disable this authentication mode.
+	KeyboardInteractiveHook string `json:"keyboard_interactive_auth_hook" mapstructure:"keyboard_interactive_auth_hook"`
 	// Support for HAProxy PROXY protocol.
 	// If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable
 	// the proxy protocol. It provides a convenient way to safely transport connection information
@@ -297,21 +300,23 @@ func (c Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, conf
 }
 
 func (c Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.ServerConfig) {
-	if len(c.KeyboardInteractiveProgram) == 0 {
+	if len(c.KeyboardInteractiveHook) == 0 {
 		return
 	}
-	if !filepath.IsAbs(c.KeyboardInteractiveProgram) {
-		logger.WarnToConsole("invalid keyboard interactive authentication program: %#v must be an absolute path",
-			c.KeyboardInteractiveProgram)
-		logger.Warn(logSender, "", "invalid keyboard interactive authentication program: %#v must be an absolute path",
-			c.KeyboardInteractiveProgram)
-		return
-	}
-	_, err := os.Stat(c.KeyboardInteractiveProgram)
-	if err != nil {
-		logger.WarnToConsole("invalid keyboard interactive authentication program:: %v", err)
-		logger.Warn(logSender, "", "invalid keyboard interactive authentication program:: %v", err)
-		return
+	if !strings.HasPrefix(c.KeyboardInteractiveHook, "http") {
+		if !filepath.IsAbs(c.KeyboardInteractiveHook) {
+			logger.WarnToConsole("invalid keyboard interactive authentication program: %#v must be an absolute path",
+				c.KeyboardInteractiveHook)
+			logger.Warn(logSender, "", "invalid keyboard interactive authentication program: %#v must be an absolute path",
+				c.KeyboardInteractiveHook)
+			return
+		}
+		_, err := os.Stat(c.KeyboardInteractiveHook)
+		if err != nil {
+			logger.WarnToConsole("invalid keyboard interactive authentication program:: %v", err)
+			logger.Warn(logSender, "", "invalid keyboard interactive authentication program:: %v", err)
+			return
+		}
 	}
 	serverConfig.KeyboardInteractiveCallback = func(conn ssh.ConnMetadata, client ssh.KeyboardInteractiveChallenge) (*ssh.Permissions, error) {
 		sp, err := c.validateKeyboardInteractiveCredentials(conn, client)
@@ -575,7 +580,7 @@ func (c Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMetad
 
 	method := dataprovider.SSHLoginMethodKeyboardInteractive
 	metrics.AddLoginAttempt(method)
-	if user, err = dataprovider.CheckKeyboardInteractiveAuth(dataProvider, conn.User(), c.KeyboardInteractiveProgram, client); err == nil {
+	if user, err = dataprovider.CheckKeyboardInteractiveAuth(dataProvider, conn.User(), c.KeyboardInteractiveHook, client); err == nil {
 		sshPerm, err = loginUser(user, method, conn.RemoteAddr().String(), "")
 	}
 	if err != nil {

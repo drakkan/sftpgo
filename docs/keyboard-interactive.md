@@ -4,7 +4,7 @@ Keyboard interactive authentication is, in general, a series of questions asked 
 This authentication method is typically used for multi-factor authentication.
 There are no restrictions on the number of questions asked on a particular authentication stage; there are also no restrictions on the number of stages involving different sets of questions.
 
-To enable keyboard interactive authentication, you must set the absolute path of your authentication program using the `keyboard_interactive_auth_program` key in your configuration file.
+To enable keyboard interactive authentication, you must set the absolute path of your authentication program or an HTTP URL using the  `keyboard_interactive_auth_hook` key in your configuration file.
 
 The external program can read the following environment variables to get info about the user trying to authenticate:
 
@@ -18,7 +18,7 @@ The program must write the questions on its standard output, in a single line, u
 - `instruction`, string. A short description to show to the user that is trying to authenticate. Can be empty or omitted
 - `questions`, list of questions to be asked to the user
 - `echos` list of boolean flags corresponding to the questions (so the lengths of both lists must be the same) and indicating whether user's reply for a particular question should be echoed on the screen while they are typing: true if it should be echoed, or false if it should be hidden.
-- `check_password` optional integer. Ask exactly one question and set this field to 1 if the expected answer is the user password and you want SFTPGo to check it for you. If the password is correct, the returned response to the program is `OK`. If the password is wrong, the program will be terminated and an authentication error will be returned to the user that is trying to authenticate.
+- `check_password` optional integer. Ask exactly one question and set this field to 1 if the expected answer is the user password and you want that SFTPGo checks it for you. If the password is correct, the returned response to the program is `OK`. If the password is wrong, the program will be terminated and an authentication error will be returned to the user that is trying to authenticate.
 - `auth_result`, integer. Set this field to 1 to indicate successful authentication. 0 is ignored. Any other value means authentication error. If this field is found and it is different from 0 then SFTPGo will not read any other questions from the external program, and it will finalize the authentication.
 
 SFTPGo writes the user answers to the program standard input, one per line, in the same order as the questions.
@@ -72,3 +72,93 @@ else
 fi
 ```
 
+If the hook is an HTTP URL then it will be invoked as HTTP POST multiple times for each login request.
+The request body will contain a JSON struct with the following fields:
+
+- `request_id`, string. Unique request identifier
+- `username`, string
+- `password`, string. This is the hashed password as stored inside the data provider
+- `answers`, list of string. It will be null for the first request
+- `questions`, list of string. It will contains the previous asked questions. It will be null for the first request
+
+The HTTP response code must be 200 and the body must contain the same JSON struct described for the program.
+
+Let's see a basic sample, the configured hook is `http://127.0.0.1:8000/keyIntHookPwd`, as soon as the user try to login, SFTPGo makes this HTTP POST request:
+
+```
+POST /keyIntHookPwd HTTP/1.1
+Host: 127.0.0.1:8000
+User-Agent: Go-http-client/1.1
+Content-Length: 189
+Content-Type: application/json
+Accept-Encoding: gzip
+
+{"request_id":"bq1r5r7cdrpd2qtn25ng","username":"a","password":"$pbkdf2-sha512$150000$ClOPkLNujMTL$XktKy0xuJsOfMYBz+f2bIyPTdbvDTSnJ1q+7+zp/HPq5Qojwp6kcpSIiVHiwvbi8P6HFXI/D3UJv9BLcnQFqPA=="}
+```
+
+as you can see in this first requests `answers` and `questions` are null.
+
+Here is the response that instructs SFTPGo to ask for the user password and to check it:
+
+```
+HTTP/1.1 200 OK
+Date: Tue, 31 Mar 2020 21:15:24 GMT
+Server: WSGIServer/0.2 CPython/3.8.2
+Content-Type: application/json
+X-Frame-Options: SAMEORIGIN
+Content-Length: 143
+
+{"questions": ["Password: "], "check_password": 1, "instruction": "This is a sample for keyboard interactive authentication", "echos": [false]}
+```
+
+The user enters the correct password and so SFTPGo makes a new HTTP POST, please note that the `request_id` is the same of the previous request, this time the asked `questions` and the user's `answers` are not null:
+
+```
+POST /keyIntHookPwd HTTP/1.1
+Host: 127.0.0.1:8000
+User-Agent: Go-http-client/1.1
+Content-Length: 233
+Content-Type: application/json
+Accept-Encoding: gzip
+
+{"request_id":"bq1r5r7cdrpd2qtn25ng","username":"a","password":"$pbkdf2-sha512$150000$ClOPkLNujMTL$XktKy0xuJsOfMYBz+f2bIyPTdbvDTSnJ1q+7+zp/HPq5Qojwp6kcpSIiVHiwvbi8P6HFXI/D3UJv9BLcnQFqPA==","answers":["OK"],"questions":["Password: "]}
+```
+
+Here is the HTTP response that istructs SFTPGo to ask for a new question:
+
+```
+HTTP/1.1 200 OK
+Date: Tue, 31 Mar 2020 21:15:27 GMT
+Server: WSGIServer/0.2 CPython/3.8.2
+Content-Type: application/json
+X-Frame-Options: SAMEORIGIN
+Content-Length: 66
+
+{"questions": ["Question2: "], "instruction": "", "echos": [true]}
+```
+
+As soon as the user answer to this question, SFTPGo will make a new HTTP POST request with the user's answers:
+
+```
+POST /keyIntHookPwd HTTP/1.1
+Host: 127.0.0.1:8000
+User-Agent: Go-http-client/1.1
+Content-Length: 239
+Content-Type: application/json
+Accept-Encoding: gzip
+
+{"request_id":"bq1r5r7cdrpd2qtn25ng","username":"a","password":"$pbkdf2-sha512$150000$ClOPkLNujMTL$XktKy0xuJsOfMYBz+f2bIyPTdbvDTSnJ1q+7+zp/HPq5Qojwp6kcpSIiVHiwvbi8P6HFXI/D3UJv9BLcnQFqPA==","answers":["answer2"],"questions":["Question2: "]}
+```
+
+Here is the final HTTP response that allows the user login:
+
+```
+HTTP/1.1 200 OK
+Date: Tue, 31 Mar 2020 21:15:29 GMT
+Server: WSGIServer/0.2 CPython/3.8.2
+Content-Type: application/json
+X-Frame-Options: SAMEORIGIN
+Content-Length: 18
+
+{"auth_result": 1}
+```

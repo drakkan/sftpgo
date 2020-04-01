@@ -26,6 +26,7 @@
       "scp"
     ],
     "keyboard_interactive_auth_program": "",
+    "keyboard_interactive_auth_hook": "",
     "proxy_protocol": 0,
     "proxy_allowed": []
   },
@@ -49,8 +50,10 @@
       "http_notification_url": ""
     },
     "external_auth_program": "",
+    "external_auth_hook": "",
     "external_auth_scope": 0,
     "credentials_path": "credentials",
+    "pre_login_hook": "",
     "pre_login_program": ""
   },
   "httpd": {

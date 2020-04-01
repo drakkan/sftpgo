@@ -53,7 +53,7 @@ type compatUserV2 struct {
 
 func initializeBoltProvider(basePath string) error {
 	var err error
-	logSender = BoltDataProviderName
+	logSender = fmt.Sprintf("dataprovider_%v", BoltDataProviderName)
 	dbPath := config.Name
 	if !utils.IsFileInputValid(dbPath) {
 		return fmt.Errorf("Invalid database path: %#v", dbPath)

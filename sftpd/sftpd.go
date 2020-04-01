@@ -58,7 +58,6 @@ var (
 	mutex                sync.RWMutex
 	openConnections      map[string]Connection
 	activeTransfers      []*Transfer
-	idleConnectionTicker *time.Ticker
 	idleTimeout          time.Duration
 	activeQuotaScans     []ActiveQuotaScan
 	dataProvider         dataprovider.Provider
@@ -182,7 +181,6 @@ func (a *actionNotification) AsEnvVars() []string {
 
 func init() {
 	openConnections = make(map[string]Connection)
-	idleConnectionTicker = time.NewTicker(5 * time.Minute)
 }
 
 // GetDefaultSSHCommands returns the SSH commands enabled as default
@@ -373,8 +371,7 @@ func GetConnectionsStats() []ConnectionStatus {
 func startIdleTimer(maxIdleTime time.Duration) {
 	idleTimeout = maxIdleTime
 	go func() {
-		for t := range idleConnectionTicker.C {
-			logger.Debug(logSender, "", "idle connections check ticker %v", t)
+		for range time.Tick(5 * time.Minute) {
 			CheckIdleConnections()
 		}
 	}()
@@ -401,7 +398,6 @@ func CheckIdleConnections() {
 			c.Log(logger.LevelInfo, logSender, "close idle connection, idle time: %v, close error: %v", idleTime, err)
 		}
 	}
-	logger.Debug(logSender, "", "check idle connections ended")
 }
 
 func addConnection(c Connection) {

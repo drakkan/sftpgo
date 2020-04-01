@@ -29,7 +29,7 @@ type MySQLProvider struct {
 
 func initializeMySQLProvider() error {
 	var err error
-	logSender = MySQLDataProviderName
+	logSender = fmt.Sprintf("dataprovider_%v", MySQLDataProviderName)
 	dbHandle, err := sql.Open("mysql", getMySQLConnectionString(false))
 	if err == nil {
 		providerLog(logger.LevelDebug, "mysql database handle created, connection string: %#v, pool size: %v",
