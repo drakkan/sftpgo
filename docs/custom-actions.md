@@ -2,7 +2,8 @@
 
 The `actions` struct inside the "sftpd" configuration section allows to configure the actions for file operations and SSH commands.
 
-Actions will not be executed if an error is detected, and so a partial file is uploaded or an SSH command is not successfully completed. The `upload` condition includes both uploads to new files and overwrite of existing files. The `ssh_cmd` condition will be triggered after a command is successfully executed via SSH. `scp` will trigger the `download` and `upload` conditions and not `ssh_cmd`.
+The `upload` condition includes both uploads to new files and overwrite of existing files. The `ssh_cmd` condition will be triggered after a command is successfully executed via SSH. `scp` will trigger the `download` and `upload` conditions and not `ssh_cmd`.
+The notification will indicate if an error is detected and so, for example, a partial file is uploaded.
 
 The `command`, if defined, is invoked with the following arguments:
 
@@ -23,6 +24,7 @@ The `command` can also read the following environment variables:
 - `SFTPGO_ACTION_FS_PROVIDER`, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend
 - `SFTPGO_ACTION_BUCKET`, non-empty for S3 and GCS backends
 - `SFTPGO_ACTION_ENDPOINT`, non-empty for S3 backend if configured
+- `SFTPGO_ACTION_STATUS`, integer. 0 means an error occurred. 1 means no error
 
 Previous global environment variables aren't cleared when the script is called.
 The `command` must finish within 30 seconds.
@@ -38,6 +40,7 @@ The `http_notification_url`, if defined, will be invoked as HTTP POST. The reque
 - `fs_provider`, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend
 - `bucket`, not null for S3 and GCS backends
 - `endpoint`, not null for S3 backend if configured
+- `status`, integer. 0 means an error occurred. 1 means no error
 
 
 The HTTP request is executed with a 15-second timeout.

@@ -131,7 +131,7 @@ func TestNewActionNotification(t *testing.T) {
 	user.FsConfig.GCSConfig = vfs.GCSFsConfig{
 		Bucket: "gcsbucket",
 	}
-	a := newActionNotification(user, operationDownload, "path", "target", "", 123)
+	a := newActionNotification(user, operationDownload, "path", "target", "", 123, nil)
 	if a.Username != "username" {
 		t.Errorf("unexpected username")
 	}
@@ -142,7 +142,7 @@ func TestNewActionNotification(t *testing.T) {
 		t.Errorf("unexpected endpoint")
 	}
 	user.FsConfig.Provider = 1
-	a = newActionNotification(user, operationDownload, "path", "target", "", 123)
+	a = newActionNotification(user, operationDownload, "path", "target", "", 123, nil)
 	if a.Bucket != "s3bucket" {
 		t.Errorf("unexpected s3 bucket")
 	}
@@ -150,7 +150,7 @@ func TestNewActionNotification(t *testing.T) {
 		t.Errorf("unexpected endpoint")
 	}
 	user.FsConfig.Provider = 2
-	a = newActionNotification(user, operationDownload, "path", "target", "", 123)
+	a = newActionNotification(user, operationDownload, "path", "target", "", 123, nil)
 	if a.Bucket != "gcsbucket" {
 		t.Errorf("unexpected gcs bucket")
 	}
@@ -173,17 +173,17 @@ func TestWrongActions(t *testing.T) {
 	user := dataprovider.User{
 		Username: "username",
 	}
-	err := executeAction(newActionNotification(user, operationDownload, "path", "", "", 0))
+	err := executeAction(newActionNotification(user, operationDownload, "path", "", "", 0, nil))
 	if err == nil {
 		t.Errorf("action with bad command must fail")
 	}
-	err = executeAction(newActionNotification(user, operationDelete, "path", "", "", 0))
+	err = executeAction(newActionNotification(user, operationDelete, "path", "", "", 0, nil))
 	if err != nil {
 		t.Errorf("action not configured must silently fail")
 	}
 	actions.Command = ""
 	actions.HTTPNotificationURL = "http://foo\x7f.com/"
-	err = executeAction(newActionNotification(user, operationDownload, "path", "", "", 0))
+	err = executeAction(newActionNotification(user, operationDownload, "path", "", "", 0, nil))
 	if err == nil {
 		t.Errorf("action with bad url must fail")
 	}
@@ -200,7 +200,7 @@ func TestActionHTTP(t *testing.T) {
 	user := dataprovider.User{
 		Username: "username",
 	}
-	err := executeAction(newActionNotification(user, operationDownload, "path", "", "", 0))
+	err := executeAction(newActionNotification(user, operationDownload, "path", "", "", 0, nil))
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

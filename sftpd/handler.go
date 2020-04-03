@@ -335,7 +335,7 @@ func (c Connection) handleSFTPRename(sourcePath string, targetPath string, reque
 		return vfs.GetSFTPError(c.fs, err)
 	}
 	logger.CommandLog(renameLogSender, sourcePath, targetPath, c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "")
-	go executeAction(newActionNotification(c.User, operationRename, sourcePath, targetPath, "", 0))
+	go executeAction(newActionNotification(c.User, operationRename, sourcePath, targetPath, "", 0, nil))
 	return nil
 }
 
@@ -443,7 +443,7 @@ func (c Connection) handleSFTPRemove(filePath string, request *sftp.Request) err
 	if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
 		dataprovider.UpdateUserQuota(dataProvider, c.User, -1, -size, false)
 	}
-	go executeAction(newActionNotification(c.User, operationDelete, filePath, "", "", fi.Size()))
+	go executeAction(newActionNotification(c.User, operationDelete, filePath, "", "", fi.Size(), nil))
 
 	return sftp.ErrSSHFxOk
 }

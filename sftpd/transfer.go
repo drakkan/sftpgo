@@ -147,16 +147,16 @@ func (t *Transfer) Close() error {
 			}
 		}
 	}
-	if t.transferError == nil {
-		elapsed := time.Since(t.start).Nanoseconds() / 1000000
-		if t.transferType == transferDownload {
-			logger.TransferLog(downloadLogSender, t.path, elapsed, t.bytesSent, t.user.Username, t.connectionID, t.protocol)
-			go executeAction(newActionNotification(t.user, operationDownload, t.path, "", "", t.bytesSent))
-		} else {
-			logger.TransferLog(uploadLogSender, t.path, elapsed, t.bytesReceived, t.user.Username, t.connectionID, t.protocol)
-			go executeAction(newActionNotification(t.user, operationUpload, t.path, "", "", t.bytesReceived+t.minWriteOffset))
-		}
+	elapsed := time.Since(t.start).Nanoseconds() / 1000000
+	if t.transferType == transferDownload {
+		logger.TransferLog(downloadLogSender, t.path, elapsed, t.bytesSent, t.user.Username, t.connectionID, t.protocol)
+		go executeAction(newActionNotification(t.user, operationDownload, t.path, "", "", t.bytesSent, t.transferError))
 	} else {
+		logger.TransferLog(uploadLogSender, t.path, elapsed, t.bytesReceived, t.user.Username, t.connectionID, t.protocol)
+		go executeAction(newActionNotification(t.user, operationUpload, t.path, "", "", t.bytesReceived+t.minWriteOffset,
+			t.transferError))
+	}
+	if t.transferError != nil {
 		logger.Warn(logSender, t.connectionID, "transfer error: %v, path: %#v", t.transferError, t.path)
 		if err == nil {
 			err = t.transferError

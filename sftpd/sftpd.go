@@ -138,16 +138,22 @@ type actionNotification struct {
 	FsProvider int    `json:"fs_provider"`
 	Bucket     string `json:"bucket,omitempty"`
 	Endpoint   string `json:"endpoint,omitempty"`
+	Status     int    `json:"status"`
 }
 
-func newActionNotification(user dataprovider.User, operation, filePath, target, sshCmd string, fileSize int64) actionNotification {
+func newActionNotification(user dataprovider.User, operation, filePath, target, sshCmd string, fileSize int64,
+	err error) actionNotification {
 	bucket := ""
 	endpoint := ""
+	status := 1
 	if user.FsConfig.Provider == 1 {
 		bucket = user.FsConfig.S3Config.Bucket
 		endpoint = user.FsConfig.S3Config.Endpoint
 	} else if user.FsConfig.Provider == 2 {
 		bucket = user.FsConfig.GCSConfig.Bucket
+	}
+	if err != nil {
+		status = 0
 	}
 	return actionNotification{
 		Action:     operation,
@@ -159,6 +165,7 @@ func newActionNotification(user dataprovider.User, operation, filePath, target, 
 		FsProvider: user.FsConfig.Provider,
 		Bucket:     bucket,
 		Endpoint:   endpoint,
+		Status:     status,
 	}
 }
 
@@ -176,7 +183,9 @@ func (a *actionNotification) AsEnvVars() []string {
 		fmt.Sprintf("SFTPGO_ACTION_FILE_SIZE=%v", a.FileSize),
 		fmt.Sprintf("SFTPGO_ACTION_FS_PROVIDER=%v", a.FsProvider),
 		fmt.Sprintf("SFTPGO_ACTION_BUCKET=%v", a.Bucket),
-		fmt.Sprintf("SFTPGO_ACTION_ENDPOINT=%v", a.Endpoint)}
+		fmt.Sprintf("SFTPGO_ACTION_ENDPOINT=%v", a.Endpoint),
+		fmt.Sprintf("SFTPGO_ACTION_STATUS=%v", a.Status),
+	}
 }
 
 func init() {

@@ -444,17 +444,17 @@ func (c *sshCommand) sendExitStatus(err error) {
 	}
 	c.connection.channel.SendRequest("exit-status", false, ssh.Marshal(&exitStatus))
 	c.connection.channel.Close()
-	metrics.SSHCommandCompleted(err)
 	// for scp we notify single uploads/downloads
-	if err == nil && c.command != "scp" {
+	if c.command != "scp" {
+		metrics.SSHCommandCompleted(err)
 		realPath := c.getDestPath()
 		if len(realPath) > 0 {
-			p, err := c.connection.fs.ResolvePath(realPath)
-			if err == nil {
+			p, e := c.connection.fs.ResolvePath(realPath)
+			if e == nil {
 				realPath = p
 			}
 		}
-		go executeAction(newActionNotification(c.connection.User, operationSSHCmd, realPath, "", c.command, 0))
+		go executeAction(newActionNotification(c.connection.User, operationSSHCmd, realPath, "", c.command, 0, err))
 	}
 }
 
