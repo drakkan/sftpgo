@@ -1299,6 +1299,9 @@ func doKeyboardInteractiveAuth(user User, authHook string, client ssh.KeyboardIn
 	} else {
 		authResult, err = executeKeyboardInteractiveProgram(user, authHook, client)
 	}
+	if err != nil {
+		return user, err
+	}
 	if authResult != 1 {
 		return user, fmt.Errorf("keyboard interactive auth failed, result: %v", authResult)
 	}

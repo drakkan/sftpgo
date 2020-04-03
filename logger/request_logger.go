@@ -54,7 +54,7 @@ func (l *StructuredLogger) NewLogEntry(r *http.Request) middleware.LogEntry {
 }
 
 // Write logs a new entry at the end of the HTTP request
-func (l *StructuredLoggerEntry) Write(status, bytes int, elapsed time.Duration) {
+func (l *StructuredLoggerEntry) Write(status, bytes int, header http.Header, elapsed time.Duration, extra interface{}) {
 	metrics.HTTPRequestServed(status)
 	l.Logger.Info().
 		Timestamp().
