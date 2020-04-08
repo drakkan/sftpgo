@@ -8,7 +8,14 @@ You can build the container image using `docker build`, for example:
 docker build -t="drakkan/sftpgo" .
 ```
 
-now create the required folders on the host system, for example:
+This will build master of github.com/drakkan/sftpgo. To build the latest tag you can add `--build-arg TAG=LATEST`
+and to build a specific tag you can use for example `TAG=0.9.6`, like this:
+
+```bash
+docker build -t="drakkan/sftpgo" --build-arg TAG=0.9.6 .
+```
+
+Now create the required folders on the host system, for example:
 
 ```bash
 sudo mkdir -p /srv/sftpgo/data /srv/sftpgo/config /srv/sftpgo/backups
