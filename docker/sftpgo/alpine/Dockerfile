@@ -3,8 +3,9 @@ FROM golang:alpine as builder
 RUN apk add --no-cache git gcc g++ ca-certificates \
   && go get -d github.com/drakkan/sftpgo
 WORKDIR /go/src/github.com/drakkan/sftpgo
-# uncomment the next line to get the latest stable version instead of the latest git
-#RUN git checkout `git rev-list --tags --max-count=1`
+ARG TAG
+# Use --build-arg TAG=LATEST for latest tag. Use e.g. --build-arg TAG=0.9.6 for a specific tag. Otherwise HEAD (master) is built.
+RUN git checkout $(if [ "${TAG}" = LATEST ]; then echo `git rev-list --tags --max-count=1`; elif [ -n "${TAG}" ]; then echo "${TAG}"; else echo HEAD; fi)
 RUN go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/utils.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/utils.date=`date -u +%FT%TZ`" -o /go/bin/sftpgo
 
 FROM alpine:latest
