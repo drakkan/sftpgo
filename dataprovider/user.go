@@ -50,6 +50,8 @@ const (
 	SSHLoginMethodPublicKey           = "publickey"
 	SSHLoginMethodPassword            = "password"
 	SSHLoginMethodKeyboardInteractive = "keyboard-interactive"
+	SSHLoginMethodKeyAndPassword      = "publickey+password"
+	SSHLoginMethodKeyAndKeyboardInt   = "publickey+keyboard-interactive"
 )
 
 // ExtensionsFilter defines filters based on file extensions.
@@ -246,15 +248,71 @@ func (u *User) HasPerms(permissions []string, path string) bool {
 	return true
 }
 
-// IsLoginMethodAllowed returns true if the specified login method is allowed for the user
-func (u *User) IsLoginMethodAllowed(loginMetod string) bool {
+// IsLoginMethodAllowed returns true if the specified login method is allowed
+func (u *User) IsLoginMethodAllowed(loginMethod string, partialSuccessMethods []string) bool {
 	if len(u.Filters.DeniedLoginMethods) == 0 {
 		return true
 	}
-	if utils.IsStringInSlice(loginMetod, u.Filters.DeniedLoginMethods) {
+	if len(partialSuccessMethods) == 1 {
+		for _, method := range u.GetNextAuthMethods(partialSuccessMethods) {
+			if method == loginMethod {
+				return true
+			}
+		}
+	}
+	if utils.IsStringInSlice(loginMethod, u.Filters.DeniedLoginMethods) {
 		return false
 	}
 	return true
+}
+
+// GetNextAuthMethods returns the list of authentications methods that
+// can continue for multi-step authentication
+func (u *User) GetNextAuthMethods(partialSuccessMethods []string) []string {
+	var methods []string
+	if len(partialSuccessMethods) != 1 {
+		return methods
+	}
+	if partialSuccessMethods[0] != SSHLoginMethodPublicKey {
+		return methods
+	}
+	for _, method := range u.GetAllowedLoginMethods() {
+		if method == SSHLoginMethodKeyAndPassword {
+			methods = append(methods, SSHLoginMethodPassword)
+		}
+		if method == SSHLoginMethodKeyAndKeyboardInt {
+			methods = append(methods, SSHLoginMethodKeyboardInteractive)
+		}
+	}
+	return methods
+}
+
+// IsPartialAuth returns true if the specified login method is a step for
+// a multi-step Authentication.
+// We support publickey+password and publickey+keyboard-interactive, so
+// only publickey can returns partial success.
+// We can have partial success if only multi-step Auth methods are enabled
+func (u *User) IsPartialAuth(loginMethod string) bool {
+	if loginMethod != SSHLoginMethodPublicKey {
+		return false
+	}
+	for _, method := range u.GetAllowedLoginMethods() {
+		if !utils.IsStringInSlice(method, SSHMultiStepsLoginMethods) {
+			return false
+		}
+	}
+	return true
+}
+
+// GetAllowedLoginMethods returns the allowed login methods
+func (u *User) GetAllowedLoginMethods() []string {
+	var allowedMethods []string
+	for _, method := range ValidSSHLoginMethods {
+		if !utils.IsStringInSlice(method, u.Filters.DeniedLoginMethods) {
+			allowedMethods = append(allowedMethods, method)
+		}
+	}
+	return allowedMethods
 }
 
 // IsFileAllowed returns true if the specified file is allowed by the file restrictions filters

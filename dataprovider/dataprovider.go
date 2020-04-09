@@ -73,18 +73,21 @@ const (
 )
 
 var (
-	// SupportedProviders data provider configured in the sftpgo.conf file must match of these strings
+	// SupportedProviders defines the supported data providers
 	SupportedProviders = []string{SQLiteDataProviderName, PGSQLDataProviderName, MySQLDataProviderName,
 		BoltDataProviderName, MemoryDataProviderName}
-	// ValidPerms list that contains all the valid permissions for a user
+	// ValidPerms defines all the valid permissions for a user
 	ValidPerms = []string{PermAny, PermListItems, PermDownload, PermUpload, PermOverwrite, PermRename, PermDelete,
 		PermCreateDirs, PermCreateSymlinks, PermChmod, PermChown, PermChtimes}
-	// ValidSSHLoginMethods list that contains all the valid SSH login methods
-	ValidSSHLoginMethods = []string{SSHLoginMethodPublicKey, SSHLoginMethodPassword, SSHLoginMethodKeyboardInteractive}
-	config               Config
-	provider             Provider
-	sqlPlaceholders      []string
-	hashPwdPrefixes      = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
+	// ValidSSHLoginMethods defines all the valid SSH login methods
+	ValidSSHLoginMethods = []string{SSHLoginMethodPublicKey, SSHLoginMethodPassword, SSHLoginMethodKeyboardInteractive,
+		SSHLoginMethodKeyAndPassword, SSHLoginMethodKeyAndKeyboardInt}
+	// SSHMultiStepsLoginMethods defines the supported Multi-Step Authentications
+	SSHMultiStepsLoginMethods = []string{SSHLoginMethodKeyAndPassword, SSHLoginMethodKeyAndKeyboardInt}
+	config                    Config
+	provider                  Provider
+	sqlPlaceholders           []string
+	hashPwdPrefixes           = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
 		pbkdf2SHA512Prefix, md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
 	pbkdfPwdPrefixes       = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
 	unixPwdPrefixes        = []string{md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
@@ -311,7 +314,7 @@ func GetQuotaTracking() int {
 // Provider interface that data providers must implement.
 type Provider interface {
 	validateUserAndPass(username string, password string) (User, error)
-	validateUserAndPubKey(username string, pubKey string) (User, string, error)
+	validateUserAndPubKey(username string, pubKey []byte) (User, string, error)
 	updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error
 	getUsedQuota(username string) (int, int64, error)
 	userExists(username string) (User, error)
@@ -401,7 +404,7 @@ func InitializeDatabase(cnf Config, basePath string) error {
 // CheckUserAndPass retrieves the SFTP user with the given username and password if a match is found or an error
 func CheckUserAndPass(p Provider, username string, password string) (User, error) {
 	if len(config.ExternalAuthHook) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&1 != 0) {
-		user, err := doExternalAuth(username, password, "", "")
+		user, err := doExternalAuth(username, password, nil, "")
 		if err != nil {
 			return user, err
 		}
@@ -418,7 +421,7 @@ func CheckUserAndPass(p Provider, username string, password string) (User, error
 }
 
 // CheckUserAndPubKey retrieves the SFTP user with the given username and public key if a match is found or an error
-func CheckUserAndPubKey(p Provider, username string, pubKey string) (User, string, error) {
+func CheckUserAndPubKey(p Provider, username string, pubKey []byte) (User, string, error) {
 	if len(config.ExternalAuthHook) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&2 != 0) {
 		user, err := doExternalAuth(username, "", pubKey, "")
 		if err != nil {
@@ -442,7 +445,7 @@ func CheckKeyboardInteractiveAuth(p Provider, username, authHook string, client 
 	var user User
 	var err error
 	if len(config.ExternalAuthHook) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&4 != 0) {
-		user, err = doExternalAuth(username, "", "", "1")
+		user, err = doExternalAuth(username, "", nil, "1")
 	} else if len(config.PreLoginHook) > 0 {
 		user, err = executePreLoginHook(username, SSHLoginMethodKeyboardInteractive)
 	} else {
@@ -934,7 +937,7 @@ func checkUserAndPass(user User, password string) (User, error) {
 	return user, err
 }
 
-func checkUserAndPubKey(user User, pubKey string) (User, string, error) {
+func checkUserAndPubKey(user User, pubKey []byte) (User, string, error) {
 	err := checkLoginConditions(user)
 	if err != nil {
 		return user, "", err
@@ -948,7 +951,7 @@ func checkUserAndPubKey(user User, pubKey string) (User, string, error) {
 			providerLog(logger.LevelWarn, "error parsing stored public key %d for user %v: %v", i, user.Username, err)
 			return user, "", err
 		}
-		if string(storedPubKey.Marshal()) == pubKey {
+		if bytes.Equal(storedPubKey.Marshal(), pubKey) {
 			fp := ssh.FingerprintSHA256(storedPubKey)
 			return user, fp + ":" + comment, nil
 		}
@@ -1451,7 +1454,7 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive strin
 	return cmd.Output()
 }
 
-func doExternalAuth(username, password, pubKey, keyboardInteractive string) (User, error) {
+func doExternalAuth(username, password string, pubKey []byte, keyboardInteractive string) (User, error) {
 	var user User
 	pkey := ""
 	if len(pubKey) > 0 {

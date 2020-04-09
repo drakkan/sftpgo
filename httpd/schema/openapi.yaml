@@ -933,6 +933,8 @@ components:
         - 'publickey'
         - 'password'
         - 'keyboard-interactive'
+        - 'publickey+password'
+        - 'publickey+keyboard-interactive'
     ExtensionsFilter:
       type: object
       properties:

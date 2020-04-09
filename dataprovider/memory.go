@@ -91,7 +91,7 @@ func (p MemoryProvider) validateUserAndPass(username string, password string) (U
 	return checkUserAndPass(user, password)
 }
 
-func (p MemoryProvider) validateUserAndPubKey(username string, pubKey string) (User, string, error) {
+func (p MemoryProvider) validateUserAndPubKey(username string, pubKey []byte) (User, string, error) {
 	var user User
 	if len(pubKey) == 0 {
 		return user, "", errors.New("Credentials cannot be null or empty")

@@ -10,7 +10,7 @@ Several counters and gauges are available, for example:
 - Total SSH command errors
 - Number of active connections
 - Data provider availability
-- Total successful and failed logins using password, public key or keyboard interactive authentication
+- Total successful and failed logins using password, public key, keyboard interactive authentication or supported multi-step authentications
 - Total HTTP requests served and totals for response code
 - Go's runtime details about GC, number of gouroutines and OS threads
 - Process information like CPU, memory, file descriptor usage and start time

@@ -999,6 +999,120 @@ func TestLogin(t *testing.T) {
 	os.RemoveAll(user.GetHomeDir())
 }
 
+func TestMultiStepLoginKeyAndPwd(t *testing.T) {
+	u := getTestUser(true)
+	u.Password = defaultPassword
+	u.Filters.DeniedLoginMethods = append(u.Filters.DeniedLoginMethods, []string{
+		dataprovider.SSHLoginMethodKeyAndKeyboardInt,
+		dataprovider.SSHLoginMethodPublicKey,
+		dataprovider.SSHLoginMethodPassword,
+		dataprovider.SSHLoginMethodKeyboardInteractive,
+	}...)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	_, err = getSftpClient(user, true)
+	if err == nil {
+		t.Error("login with public key is disallowed and must fail")
+	}
+	_, err = getSftpClient(user, true)
+	if err == nil {
+		t.Error("login with password is disallowed and must fail")
+	}
+	key, _ := ssh.ParsePrivateKey([]byte(testPrivateKey))
+	authMethods := []ssh.AuthMethod{
+		ssh.PublicKeys(key),
+		ssh.Password(defaultPassword),
+	}
+	client, err := getCustomAuthSftpClient(user, authMethods)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		_, err := client.Getwd()
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	}
+	authMethods = []ssh.AuthMethod{
+		ssh.Password(defaultPassword),
+		ssh.PublicKeys(key),
+	}
+	_, err = getCustomAuthSftpClient(user, authMethods)
+	if err == nil {
+		t.Error("multi step auth login with wrong order must fail")
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+}
+
+func TestMultiStepLoginKeyAndKeyInt(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("this test is not available on Windows")
+	}
+	u := getTestUser(true)
+	u.Password = defaultPassword
+	u.Filters.DeniedLoginMethods = append(u.Filters.DeniedLoginMethods, []string{
+		dataprovider.SSHLoginMethodKeyAndPassword,
+		dataprovider.SSHLoginMethodPublicKey,
+		dataprovider.SSHLoginMethodPassword,
+		dataprovider.SSHLoginMethodKeyboardInteractive,
+	}...)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), 0755)
+	_, err = getSftpClient(user, true)
+	if err == nil {
+		t.Error("login with public key is disallowed and must fail")
+	}
+	key, _ := ssh.ParsePrivateKey([]byte(testPrivateKey))
+	authMethods := []ssh.AuthMethod{
+		ssh.PublicKeys(key),
+		ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+			return []string{"1", "2"}, nil
+		}),
+	}
+	client, err := getCustomAuthSftpClient(user, authMethods)
+	if err != nil {
+		t.Errorf("unable to create sftp client: %v", err)
+	} else {
+		defer client.Close()
+		_, err := client.Getwd()
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	}
+	authMethods = []ssh.AuthMethod{
+		ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+			return []string{"1", "2"}, nil
+		}),
+		ssh.PublicKeys(key),
+	}
+	_, err = getCustomAuthSftpClient(user, authMethods)
+	if err == nil {
+		t.Error("multi step auth login with wrong order must fail")
+	}
+	authMethods = []ssh.AuthMethod{
+		ssh.PublicKeys(key),
+		ssh.Password(defaultPassword),
+	}
+	_, err = getCustomAuthSftpClient(user, authMethods)
+	if err == nil {
+		t.Error("multi step auth login with wrong method must fail")
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+}
+
 func TestLoginUserStatus(t *testing.T) {
 	usePubKey := true
 	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
@@ -3823,6 +3937,151 @@ func TestFilterFileExtensions(t *testing.T) {
 	}
 }
 
+func TestUserAllowedLoginMethods(t *testing.T) {
+	user := getTestUser(true)
+	user.Filters.DeniedLoginMethods = dataprovider.ValidSSHLoginMethods
+	allowedMethods := user.GetAllowedLoginMethods()
+	if len(allowedMethods) != 0 {
+		t.Errorf("unexpected allowed methods: %+v", allowedMethods)
+	}
+	user.Filters.DeniedLoginMethods = []string{
+		dataprovider.SSHLoginMethodPassword,
+		dataprovider.SSHLoginMethodPublicKey,
+		dataprovider.SSHLoginMethodKeyboardInteractive,
+	}
+	allowedMethods = user.GetAllowedLoginMethods()
+	if len(allowedMethods) != 2 {
+		t.Errorf("unexpected allowed methods: %+v", allowedMethods)
+	}
+	if !utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyAndKeyboardInt, allowedMethods) {
+		t.Errorf("unexpected allowed methods: %+v", allowedMethods)
+	}
+	if !utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyAndPassword, allowedMethods) {
+		t.Errorf("unexpected allowed methods: %+v", allowedMethods)
+	}
+}
+
+func TestUserPartialAuth(t *testing.T) {
+	user := getTestUser(true)
+	user.Filters.DeniedLoginMethods = []string{
+		dataprovider.SSHLoginMethodPassword,
+		dataprovider.SSHLoginMethodPublicKey,
+		dataprovider.SSHLoginMethodKeyboardInteractive,
+	}
+	if user.IsPartialAuth(dataprovider.SSHLoginMethodPassword) {
+		t.Error("unexpected partial auth method")
+	}
+	if user.IsPartialAuth(dataprovider.SSHLoginMethodKeyboardInteractive) {
+		t.Error("unexpected partial auth method")
+	}
+	if !user.IsPartialAuth(dataprovider.SSHLoginMethodPublicKey) {
+		t.Error("public key must be a partial auth method with this configuration")
+	}
+	user.Filters.DeniedLoginMethods = []string{
+		dataprovider.SSHLoginMethodPassword,
+		dataprovider.SSHLoginMethodKeyboardInteractive,
+	}
+	if user.IsPartialAuth(dataprovider.SSHLoginMethodPublicKey) {
+		t.Error("public key must not be a partial auth method with this configuration")
+	}
+	user.Filters.DeniedLoginMethods = []string{
+		dataprovider.SSHLoginMethodPassword,
+		dataprovider.SSHLoginMethodPublicKey,
+	}
+	if user.IsPartialAuth(dataprovider.SSHLoginMethodPublicKey) {
+		t.Error("public key must not be a partial auth method with this configuration")
+	}
+}
+
+func TestUserGetNextAuthMethods(t *testing.T) {
+	user := getTestUser(true)
+	user.Filters.DeniedLoginMethods = []string{
+		dataprovider.SSHLoginMethodPassword,
+		dataprovider.SSHLoginMethodPublicKey,
+		dataprovider.SSHLoginMethodKeyboardInteractive,
+	}
+	methods := user.GetNextAuthMethods(nil)
+	if len(methods) != 0 {
+		t.Errorf("unexpected next auth methods: %+v", methods)
+	}
+	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPassword})
+	if len(methods) != 0 {
+		t.Errorf("unexpected next auth methods: %+v", methods)
+	}
+	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodKeyboardInteractive})
+	if len(methods) != 0 {
+		t.Errorf("unexpected next auth methods: %+v", methods)
+	}
+	methods = user.GetNextAuthMethods([]string{
+		dataprovider.SSHLoginMethodPublicKey,
+		dataprovider.SSHLoginMethodKeyboardInteractive,
+	})
+	if len(methods) != 0 {
+		t.Errorf("unexpected next auth methods: %+v", methods)
+	}
+	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey})
+	if len(methods) != 2 {
+		t.Errorf("unexpected next auth methods: %+v", methods)
+	}
+	if !utils.IsStringInSlice(dataprovider.SSHLoginMethodPassword, methods) {
+		t.Errorf("unexpected next auth methods: %+v", methods)
+	}
+	if !utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, methods) {
+		t.Errorf("unexpected next auth methods: %+v", methods)
+	}
+	user.Filters.DeniedLoginMethods = []string{
+		dataprovider.SSHLoginMethodPassword,
+		dataprovider.SSHLoginMethodPublicKey,
+		dataprovider.SSHLoginMethodKeyboardInteractive,
+		dataprovider.SSHLoginMethodKeyAndKeyboardInt,
+	}
+	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey})
+	if len(methods) != 1 {
+		t.Errorf("unexpected next auth methods: %+v", methods)
+	}
+	if !utils.IsStringInSlice(dataprovider.SSHLoginMethodPassword, methods) {
+		t.Errorf("unexpected next auth methods: %+v", methods)
+	}
+	user.Filters.DeniedLoginMethods = []string{
+		dataprovider.SSHLoginMethodPassword,
+		dataprovider.SSHLoginMethodPublicKey,
+		dataprovider.SSHLoginMethodKeyboardInteractive,
+		dataprovider.SSHLoginMethodKeyAndPassword,
+	}
+	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey})
+	if len(methods) != 1 {
+		t.Errorf("unexpected next auth methods: %+v", methods)
+	}
+	if !utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, methods) {
+		t.Errorf("unexpected next auth methods: %+v", methods)
+	}
+}
+
+func TestUserIsLoginMethodAllowed(t *testing.T) {
+	user := getTestUser(true)
+	user.Filters.DeniedLoginMethods = []string{
+		dataprovider.SSHLoginMethodPassword,
+		dataprovider.SSHLoginMethodPublicKey,
+		dataprovider.SSHLoginMethodKeyboardInteractive,
+	}
+	if user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodPassword, nil) {
+		t.Error("unexpected login method allowed")
+	}
+	if !user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodPassword, []string{dataprovider.SSHLoginMethodPublicKey}) {
+		t.Error("unexpected login method denied")
+	}
+	if !user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodKeyboardInteractive, []string{dataprovider.SSHLoginMethodPublicKey}) {
+		t.Error("unexpected login method denied")
+	}
+	user.Filters.DeniedLoginMethods = []string{
+		dataprovider.SSHLoginMethodPublicKey,
+		dataprovider.SSHLoginMethodKeyboardInteractive,
+	}
+	if !user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodPassword, nil) {
+		t.Error("unexpected login method denied")
+	}
+}
+
 func TestUserEmptySubDirPerms(t *testing.T) {
 	user := getTestUser(true)
 	user.Permissions = make(map[string][]string)
@@ -5032,6 +5291,23 @@ func getKeyboardInteractiveSftpClient(user dataprovider.User, answers []string) 
 				return answers, nil
 			}),
 		},
+	}
+	conn, err := ssh.Dial("tcp", sftpServerAddr, config)
+	if err != nil {
+		return sftpClient, err
+	}
+	sftpClient, err = sftp.NewClient(conn)
+	return sftpClient, err
+}
+
+func getCustomAuthSftpClient(user dataprovider.User, authMethods []ssh.AuthMethod) (*sftp.Client, error) {
+	var sftpClient *sftp.Client
+	config := &ssh.ClientConfig{
+		User: user.Username,
+		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+			return nil
+		},
+		Auth: authMethods,
 	}
 	conn, err := ssh.Dial("tcp", sftpServerAddr, config)
 	if err != nil {

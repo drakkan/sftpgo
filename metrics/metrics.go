@@ -148,6 +148,48 @@ var (
 		Help: "The total number of failed logins using keyboard interactive authentication",
 	})
 
+	// totalKeyAndPasswordLoginAttempts is the metric that reports the total number of
+	// login attempts using public key + password multi steps auth
+	totalKeyAndPasswordLoginAttempts = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_key_and_password_login_attempts_total",
+		Help: "The total number of login attempts using public key + password",
+	})
+
+	// totalKeyAndPasswordLoginOK is the metric that reports the total number of
+	// successful logins using public key + password multi steps auth
+	totalKeyAndPasswordLoginOK = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_key_and_password_login_ok_total",
+		Help: "The total number of successful logins using public key + password",
+	})
+
+	// totalKeyAndPasswordLoginFailed is the metric that reports the total number of
+	// failed logins using public key + password multi steps auth
+	totalKeyAndPasswordLoginFailed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_key_and_password_login_ko_total",
+		Help: "The total number of failed logins using  public key + password",
+	})
+
+	// totalKeyAndKeyIntLoginAttempts is the metric that reports the total number of
+	// login attempts using public key + keyboard interactive multi steps auth
+	totalKeyAndKeyIntLoginAttempts = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_key_and_keyboard_int_login_attempts_total",
+		Help: "The total number of login attempts using public key + keyboard interactive",
+	})
+
+	// totalKeyAndKeyIntLoginOK is the metric that reports the total number of
+	// successful logins using public key + keyboard interactive multi steps auth
+	totalKeyAndKeyIntLoginOK = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_key_and_keyboard_int_login_ok_total",
+		Help: "The total number of successful logins using public key + keyboard interactive",
+	})
+
+	// totalKeyAndKeyIntLoginFailed is the metric that reports the total number of
+	// failed logins using public key + keyboard interactive multi steps auth
+	totalKeyAndKeyIntLoginFailed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_key_and_keyboard_int_login_ko_total",
+		Help: "The total number of failed logins using  public key + keyboard interactive",
+	})
+
 	totalHTTPRequests = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_http_req_total",
 		Help: "The total number of HTTP requests served",
@@ -498,6 +540,10 @@ func AddLoginAttempt(authMethod string) {
 		totalKeyLoginAttempts.Inc()
 	case "keyboard-interactive":
 		totalInteractiveLoginAttempts.Inc()
+	case "publickey+password":
+		totalKeyAndPasswordLoginAttempts.Inc()
+	case "publickey+keyboard-interactive":
+		totalKeyAndKeyIntLoginAttempts.Inc()
 	default:
 		totalPasswordLoginAttempts.Inc()
 	}
@@ -512,6 +558,10 @@ func AddLoginResult(authMethod string, err error) {
 			totalKeyLoginOK.Inc()
 		case "keyboard-interactive":
 			totalInteractiveLoginOK.Inc()
+		case "publickey+password":
+			totalKeyAndPasswordLoginOK.Inc()
+		case "publickey+keyboard-interactive":
+			totalKeyAndKeyIntLoginOK.Inc()
 		default:
 			totalPasswordLoginOK.Inc()
 		}
@@ -522,6 +572,10 @@ func AddLoginResult(authMethod string, err error) {
 			totalKeyLoginFailed.Inc()
 		case "keyboard-interactive":
 			totalInteractiveLoginFailed.Inc()
+		case "publickey+password":
+			totalKeyAndPasswordLoginFailed.Inc()
+		case "publickey+keyboard-interactive":
+			totalKeyAndKeyIntLoginFailed.Inc()
 		default:
 			totalPasswordLoginFailed.Inc()
 		}

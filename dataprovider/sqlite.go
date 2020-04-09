@@ -63,7 +63,7 @@ func (p SQLiteProvider) validateUserAndPass(username string, password string) (U
 	return sqlCommonValidateUserAndPass(username, password, p.dbHandle)
 }
 
-func (p SQLiteProvider) validateUserAndPubKey(username string, publicKey string) (User, string, error) {
+func (p SQLiteProvider) validateUserAndPubKey(username string, publicKey []byte) (User, string, error) {
 	return sqlCommonValidateUserAndPubKey(username, publicKey, p.dbHandle)
 }
 

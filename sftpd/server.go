@@ -158,40 +158,30 @@ func (c Configuration) Initialize(configDir string) error {
 			return sp, nil
 		},
 		PublicKeyCallback: func(conn ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
-			sp, err := c.validatePublicKeyCredentials(conn, string(pubKey.Marshal()))
+			sp, err := c.validatePublicKeyCredentials(conn, pubKey.Marshal())
+			if err == ssh.ErrPartialSuccess {
+				return nil, err
+			}
 			if err != nil {
 				return nil, &authenticationError{err: fmt.Sprintf("could not validate public key credentials: %v", err)}
 			}
 
 			return sp, nil
 		},
-		ServerVersion: "SSH-2.0-" + c.Banner,
+		NextAuthMethodsCallback: func(conn ssh.ConnMetadata) []string {
+			var nextMethods []string
+			user, err := dataprovider.UserExists(dataProvider, conn.User())
+			if err == nil {
+				nextMethods = user.GetNextAuthMethods(conn.PartialSuccessMethods())
+			}
+			return nextMethods
+		},
+		ServerVersion: fmt.Sprintf("SSH-2.0-%v", c.Banner),
 	}
 
-	err = c.checkHostKeys(configDir)
+	err = c.checkAndLoadHostKeys(configDir, serverConfig)
 	if err != nil {
 		return err
-	}
-
-	for _, k := range c.Keys {
-		privateFile := k.PrivateKey
-		if !filepath.IsAbs(privateFile) {
-			privateFile = filepath.Join(configDir, privateFile)
-		}
-		logger.Info(logSender, "", "Loading private key: %s", privateFile)
-
-		privateBytes, err := ioutil.ReadFile(privateFile)
-		if err != nil {
-			return err
-		}
-
-		private, err := ssh.ParsePrivateKey(privateBytes)
-		if err != nil {
-			return err
-		}
-
-		// Add private key to the server configuration.
-		serverConfig.AddHostKey(private)
 	}
 
 	c.configureSecurityOptions(serverConfig)
@@ -285,9 +275,10 @@ func (c Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, conf
 		if !filepath.IsAbs(bannerFilePath) {
 			bannerFilePath = filepath.Join(configDir, bannerFilePath)
 		}
-		var banner []byte
-		banner, err = ioutil.ReadFile(bannerFilePath)
+		var bannerContent []byte
+		bannerContent, err = ioutil.ReadFile(bannerFilePath)
 		if err == nil {
+			banner := string(bannerContent)
 			serverConfig.BannerCallback = func(conn ssh.ConnMetadata) string {
 				return string(banner)
 			}
@@ -459,9 +450,13 @@ func (c Configuration) createHandler(connection Connection) sftp.Handlers {
 	}
 }
 
-func loginUser(user dataprovider.User, loginMethod, remoteAddr, publicKey string) (*ssh.Permissions, error) {
+func loginUser(user dataprovider.User, loginMethod, publicKey string, conn ssh.ConnMetadata) (*ssh.Permissions, error) {
+	connectionID := ""
+	if conn != nil {
+		connectionID = hex.EncodeToString(conn.SessionID())
+	}
 	if !filepath.IsAbs(user.HomeDir) {
-		logger.Warn(logSender, "", "user %#v has an invalid home dir: %#v. Home dir must be an absolute path, login not allowed",
+		logger.Warn(logSender, connectionID, "user %#v has an invalid home dir: %#v. Home dir must be an absolute path, login not allowed",
 			user.Username, user.HomeDir)
 		return nil, fmt.Errorf("cannot login user with invalid home dir: %#v", user.HomeDir)
 	}
@@ -473,18 +468,19 @@ func loginUser(user dataprovider.User, loginMethod, remoteAddr, publicKey string
 			return nil, fmt.Errorf("too many open sessions: %v", activeSessions)
 		}
 	}
-	if !user.IsLoginMethodAllowed(loginMethod) {
-		logger.Debug(logSender, "", "cannot login user %#v, login method %#v is not allowed", user.Username, loginMethod)
+	if !user.IsLoginMethodAllowed(loginMethod, conn.PartialSuccessMethods()) {
+		logger.Debug(logSender, connectionID, "cannot login user %#v, login method %#v is not allowed", user.Username, loginMethod)
 		return nil, fmt.Errorf("Login method %#v is not allowed for user %#v", loginMethod, user.Username)
 	}
+	remoteAddr := conn.RemoteAddr().String()
 	if !user.IsLoginFromAddrAllowed(remoteAddr) {
-		logger.Debug(logSender, "", "cannot login user %#v, remote address is not allowed: %v", user.Username, remoteAddr)
+		logger.Debug(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v", user.Username, remoteAddr)
 		return nil, fmt.Errorf("Login for user %#v is not allowed from this address: %v", user.Username, remoteAddr)
 	}
 
 	json, err := json.Marshal(user)
 	if err != nil {
-		logger.Warn(logSender, "", "error serializing user info: %v, authentication rejected", err)
+		logger.Warn(logSender, connectionID, "error serializing user info: %v, authentication rejected", err)
 		return nil, err
 	}
 	if len(publicKey) > 0 {
@@ -514,8 +510,8 @@ func (c *Configuration) checkSSHCommands() {
 	c.EnabledSSHCommands = sshCommands
 }
 
-// If no host keys are defined we try to use or generate the default one.
-func (c *Configuration) checkHostKeys(configDir string) error {
+// If no host keys are defined we try to use or generate the default ones.
+func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh.ServerConfig) error {
 	if len(c.Keys) == 0 {
 		defaultKeys := []string{defaultPrivateRSAKeyName, defaultPrivateECDSAKeyName}
 		for _, k := range defaultKeys {
@@ -535,20 +531,45 @@ func (c *Configuration) checkHostKeys(configDir string) error {
 			c.Keys = append(c.Keys, Key{PrivateKey: k})
 		}
 	}
+	for _, k := range c.Keys {
+		privateFile := k.PrivateKey
+		if !filepath.IsAbs(privateFile) {
+			privateFile = filepath.Join(configDir, privateFile)
+		}
+		logger.Info(logSender, "", "Loading private key: %s", privateFile)
+
+		privateBytes, err := ioutil.ReadFile(privateFile)
+		if err != nil {
+			return err
+		}
+
+		private, err := ssh.ParsePrivateKey(privateBytes)
+		if err != nil {
+			return err
+		}
+
+		// Add private key to the server configuration.
+		serverConfig.AddHostKey(private)
+	}
 	return nil
 }
 
-func (c Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKey string) (*ssh.Permissions, error) {
+func (c Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKey []byte) (*ssh.Permissions, error) {
 	var err error
 	var user dataprovider.User
 	var keyID string
 	var sshPerm *ssh.Permissions
 
+	connectionID := hex.EncodeToString(conn.SessionID())
 	method := dataprovider.SSHLoginMethodPublicKey
-	metrics.AddLoginAttempt(method)
 	if user, keyID, err = dataprovider.CheckUserAndPubKey(dataProvider, conn.User(), pubKey); err == nil {
-		sshPerm, err = loginUser(user, method, conn.RemoteAddr().String(), keyID)
+		if user.IsPartialAuth(method) {
+			logger.Debug(logSender, connectionID, "user %#v authenticated with partial success", conn.User())
+			return nil, ssh.ErrPartialSuccess
+		}
+		sshPerm, err = loginUser(user, method, keyID, conn)
 	}
+	metrics.AddLoginAttempt(method)
 	if err != nil {
 		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), method, err.Error())
 	}
@@ -562,9 +583,12 @@ func (c Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass [
 	var sshPerm *ssh.Permissions
 
 	method := dataprovider.SSHLoginMethodPassword
+	if len(conn.PartialSuccessMethods()) == 1 {
+		method = dataprovider.SSHLoginMethodKeyAndPassword
+	}
 	metrics.AddLoginAttempt(method)
 	if user, err = dataprovider.CheckUserAndPass(dataProvider, conn.User(), string(pass)); err == nil {
-		sshPerm, err = loginUser(user, method, conn.RemoteAddr().String(), "")
+		sshPerm, err = loginUser(user, method, "", conn)
 	}
 	if err != nil {
 		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), method, err.Error())
@@ -579,9 +603,12 @@ func (c Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMetad
 	var sshPerm *ssh.Permissions
 
 	method := dataprovider.SSHLoginMethodKeyboardInteractive
+	if len(conn.PartialSuccessMethods()) == 1 {
+		method = dataprovider.SSHLoginMethodKeyAndKeyboardInt
+	}
 	metrics.AddLoginAttempt(method)
 	if user, err = dataprovider.CheckKeyboardInteractiveAuth(dataProvider, conn.User(), c.KeyboardInteractiveHook, client); err == nil {
-		sshPerm, err = loginUser(user, method, conn.RemoteAddr().String(), "")
+		sshPerm, err = loginUser(user, method, "", conn)
 	}
 	if err != nil {
 		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), method, err.Error())

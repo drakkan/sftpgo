@@ -61,10 +61,10 @@ github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSs
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
-github.com/drakkan/crypto v0.0.0-20200403175740-a4c92a934d79 h1:dARy4jBz2xeVoGq3CTZ8dsQTXB4G833M5cIq7rMtEuw=
-github.com/drakkan/crypto v0.0.0-20200403175740-a4c92a934d79/go.mod h1:v3bhWOXGYda7H5d2s5t9XA6th3fxW3s0MQxU1R96G/w=
-github.com/drakkan/pipeat v0.0.0-20200315002837-010186aaa07d h1:qD1b7ZnrTUscSof+W+Pa3D9hN4jmQ/UcoZ05q7W96rA=
-github.com/drakkan/pipeat v0.0.0-20200315002837-010186aaa07d/go.mod h1:wNYvIpR5rIhoezOYcpxcXz4HbIEOu7A45EqlQCA+h+w=
+github.com/drakkan/crypto v0.0.0-20200409210311-95730af1ff98 h1:5yTRWoqE1GhPfctw9E0wh1d3+xHajMyhQAQuxuNqwQ8=
+github.com/drakkan/crypto v0.0.0-20200409210311-95730af1ff98/go.mod h1:v3bhWOXGYda7H5d2s5t9XA6th3fxW3s0MQxU1R96G/w=
+github.com/drakkan/pipeat v0.0.0-20200327213700-f3a27a751cdc h1:aDQn2DUfujideR+efH3697MZk+9YY4T95P7BujKkWiY=
+github.com/drakkan/pipeat v0.0.0-20200327213700-f3a27a751cdc/go.mod h1:+JPhBw5JdJrSF80r6xsSg1TYHjyAGxYs4X24VyUdMZU=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=

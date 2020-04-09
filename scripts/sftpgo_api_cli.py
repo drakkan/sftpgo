@@ -503,7 +503,8 @@ def addCommonUserArguments(parser):
 							'create_symlinks', 'chmod', 'chown', 'chtimes'], help='Permissions for the root directory '
 							+'(/). Default: %(default)s')
 	parser.add_argument('-L', '--denied-login-methods', type=str, nargs='+', default=[],
-					choices=['', 'publickey', 'password', 'keyboard-interactive'], help='Default: %(default)s')
+					choices=['', 'publickey', 'password', 'keyboard-interactive', 'publickey+password',
+							'publickey+keyboard-interactive'], help='Default: %(default)s')
 	parser.add_argument('--subdirs-permissions', type=str, nargs='*', default=[], help='Permissions for subdirs. '
 					+'For example: "/somedir::list,download" "/otherdir/subdir::*" Default: %(default)s')
 	parser.add_argument('--virtual-folders', type=str, nargs='*', default=[], help='Virtual folder mapping. For example: '

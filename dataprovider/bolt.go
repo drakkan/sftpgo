@@ -116,7 +116,7 @@ func (p BoltProvider) validateUserAndPass(username string, password string) (Use
 	return checkUserAndPass(user, password)
 }
 
-func (p BoltProvider) validateUserAndPubKey(username string, pubKey string) (User, string, error) {
+func (p BoltProvider) validateUserAndPubKey(username string, pubKey []byte) (User, string, error) {
 	var user User
 	if len(pubKey) == 0 {
 		return user, "", errors.New("Credentials cannot be null or empty")

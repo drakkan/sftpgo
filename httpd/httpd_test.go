@@ -327,8 +327,7 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error adding user with invalid filters: %v", err)
 	}
-	u.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodKeyboardInteractive,
-		dataprovider.SSHLoginMethodPassword, dataprovider.SSHLoginMethodPublicKey}
+	u.Filters.DeniedLoginMethods = dataprovider.ValidSSHLoginMethods
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	if err != nil {
 		t.Errorf("unexpected error adding user with invalid filters: %v", err)
