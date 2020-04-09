@@ -13,7 +13,7 @@ sudo groupadd -g 1003 sftpgrp && \
 
 # Edit sftpgo.json as you need
 
-# Get and build SFTPGo image
+# Get and build SFTPGo image (add --build-arg TAG=LATEST to build the latest tag or e.g. TAG=0.9.6 for a specific tag).
 git clone https://github.com/drakkan/sftpgo.git && \
   cd sftpgo && \
   sudo docker build -t sftpgo docker/sftpgo/alpine/
