@@ -20,6 +20,20 @@ NOT NULL UNIQUE, "password" varchar(255) NULL, "public_keys" text NULL, "home_di
 "filesystem" text NULL);`
 	sqliteSchemaTableSQL = `CREATE TABLE "schema_version" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "version" integer NOT NULL);`
 	sqliteUsersV2SQL     = `ALTER TABLE "{{users}}" ADD COLUMN "virtual_folders" text NULL;`
+	sqliteUsersV3SQL     = `CREATE TABLE "new__users" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "username" varchar(255) NOT NULL UNIQUE,
+	"password" text NULL, "public_keys" text NULL, "home_dir" varchar(255) NOT NULL, "uid" integer NOT NULL,
+"gid" integer NOT NULL, "max_sessions" integer NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL,
+"permissions" text NOT NULL, "used_quota_size" bigint NOT NULL, "used_quota_files" integer NOT NULL, "last_quota_update" bigint NOT NULL,
+"upload_bandwidth" integer NOT NULL, "download_bandwidth" integer NOT NULL, "expiration_date" bigint NOT NULL, "last_login" bigint NOT NULL,
+"status" integer NOT NULL, "filters" text NULL, "filesystem" text NULL, "virtual_folders" text NULL);
+INSERT INTO "new__users" ("id", "username", "public_keys", "home_dir", "uid", "gid", "max_sessions", "quota_size", "quota_files",
+"permissions", "used_quota_size", "used_quota_files", "last_quota_update", "upload_bandwidth", "download_bandwidth", "expiration_date",
+"last_login", "status", "filters", "filesystem", "virtual_folders", "password") SELECT "id", "username", "public_keys", "home_dir",
+"uid", "gid", "max_sessions", "quota_size", "quota_files", "permissions", "used_quota_size", "used_quota_files", "last_quota_update",
+"upload_bandwidth", "download_bandwidth", "expiration_date", "last_login", "status", "filters", "filesystem", "virtual_folders",
+"password" FROM "{{users}}";
+DROP TABLE "{{users}}";
+ALTER TABLE "new__users" RENAME TO "{{users}}";`
 )
 
 // SQLiteProvider auth provider for SQLite database
@@ -132,10 +146,18 @@ func (p SQLiteProvider) migrateDatabase() error {
 		providerLog(logger.LevelDebug, "sql database is updated, current version: %v", dbVersion.Version)
 		return nil
 	}
-	if dbVersion.Version == 1 {
-		return updateSQLiteDatabaseFrom1To2(p.dbHandle)
+	switch dbVersion.Version {
+	case 1:
+		err = updateSQLiteDatabaseFrom1To2(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		return updateSQLiteDatabaseFrom2To3(p.dbHandle)
+	case 2:
+		return updateSQLiteDatabaseFrom2To3(p.dbHandle)
+	default:
+		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
 	}
-	return nil
 }
 
 func updateSQLiteDatabaseFrom1To2(dbHandle *sql.DB) error {
@@ -146,4 +168,14 @@ func updateSQLiteDatabaseFrom1To2(dbHandle *sql.DB) error {
 		return err
 	}
 	return sqlCommonUpdateDatabaseVersion(dbHandle, 2)
+}
+
+func updateSQLiteDatabaseFrom2To3(dbHandle *sql.DB) error {
+	providerLog(logger.LevelInfo, "updating database version: 2 -> 3")
+	sql := strings.ReplaceAll(sqliteUsersV3SQL, "{{users}}", config.UsersTable)
+	_, err := dbHandle.Exec(sql)
+	if err != nil {
+		return err
+	}
+	return sqlCommonUpdateDatabaseVersion(dbHandle, 3)
 }

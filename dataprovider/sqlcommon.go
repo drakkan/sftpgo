@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion  = 2
+	sqlDatabaseVersion  = 3
 	initialDBVersionSQL = "INSERT INTO schema_version (version) VALUES (1);"
 )
 

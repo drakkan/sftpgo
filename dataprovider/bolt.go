@@ -419,17 +419,18 @@ func (p BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelDebug, "bolt database is updated, current version: %v", dbVersion.Version)
 		return nil
 	}
-	if dbVersion.Version == 1 {
+	switch dbVersion.Version {
+	case 1:
 		err = updateDatabaseFrom1To2(p.dbHandle)
 		if err != nil {
 			return err
 		}
 		return updateDatabaseFrom2To3(p.dbHandle)
-	} else if dbVersion.Version == 2 {
+	case 2:
 		return updateDatabaseFrom2To3(p.dbHandle)
+	default:
+		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
 	}
-
-	return nil
 }
 
 // itob returns an 8-byte big endian representation of v.

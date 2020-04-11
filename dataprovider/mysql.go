@@ -20,6 +20,7 @@ const (
 		"`filesystem` longtext DEFAULT NULL);"
 	mysqlSchemaTableSQL = "CREATE TABLE `schema_version` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `version` integer NOT NULL);"
 	mysqlUsersV2SQL     = "ALTER TABLE `{{users}}` ADD COLUMN `virtual_folders` longtext NULL;"
+	mysqlUsersV3SQL     = "ALTER TABLE `{{users}}` MODIFY `password` longtext NULL;"
 )
 
 // MySQLProvider auth provider for MySQL/MariaDB database
@@ -152,15 +153,33 @@ func (p MySQLProvider) migrateDatabase() error {
 		providerLog(logger.LevelDebug, "sql database is updated, current version: %v", dbVersion.Version)
 		return nil
 	}
-	if dbVersion.Version == 1 {
-		return updateMySQLDatabaseFrom1To2(p.dbHandle)
+	switch dbVersion.Version {
+	case 1:
+		err = updateMySQLDatabaseFrom1To2(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		return updateMySQLDatabaseFrom2To3(p.dbHandle)
+	case 2:
+		return updateMySQLDatabaseFrom2To3(p.dbHandle)
+	default:
+		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
 	}
-	return nil
 }
 
 func updateMySQLDatabaseFrom1To2(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "updating database version: 1 -> 2")
 	sql := strings.Replace(mysqlUsersV2SQL, "{{users}}", config.UsersTable, 1)
+	return updateMySQLDatabase(dbHandle, sql, 2)
+}
+
+func updateMySQLDatabaseFrom2To3(dbHandle *sql.DB) error {
+	providerLog(logger.LevelInfo, "updating database version: 2 -> 3")
+	sql := strings.Replace(mysqlUsersV3SQL, "{{users}}", config.UsersTable, 1)
+	return updateMySQLDatabase(dbHandle, sql, 3)
+}
+
+func updateMySQLDatabase(dbHandle *sql.DB, sql string, newVersion int) error {
 	tx, err := dbHandle.Begin()
 	if err != nil {
 		return err
@@ -170,7 +189,7 @@ func updateMySQLDatabaseFrom1To2(dbHandle *sql.DB) error {
 		tx.Rollback()
 		return err
 	}
-	err = sqlCommonUpdateDatabaseVersionWithTX(tx, 2)
+	err = sqlCommonUpdateDatabaseVersionWithTX(tx, newVersion)
 	if err != nil {
 		tx.Rollback()
 		return err

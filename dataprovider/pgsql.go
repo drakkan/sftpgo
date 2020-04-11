@@ -18,6 +18,7 @@ const (
 "filesystem" text NULL);`
 	pgsqlSchemaTableSQL = `CREATE TABLE "schema_version" ("id" serial NOT NULL PRIMARY KEY, "version" integer NOT NULL);`
 	pgsqlUsersV2SQL     = `ALTER TABLE "{{users}}" ADD COLUMN "virtual_folders" text NULL;`
+	pgsqlUsersV3SQL     = `ALTER TABLE "{{users}}" ALTER COLUMN "password" TYPE text USING "password"::text;`
 )
 
 // PGSQLProvider auth provider for PostgreSQL database
@@ -150,15 +151,33 @@ func (p PGSQLProvider) migrateDatabase() error {
 		providerLog(logger.LevelDebug, "sql database is updated, current version: %v", dbVersion.Version)
 		return nil
 	}
-	if dbVersion.Version == 1 {
-		return updatePGSQLDatabaseFrom1To2(p.dbHandle)
+	switch dbVersion.Version {
+	case 1:
+		err = updatePGSQLDatabaseFrom1To2(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		return updatePGSQLDatabaseFrom2To3(p.dbHandle)
+	case 2:
+		return updatePGSQLDatabaseFrom2To3(p.dbHandle)
+	default:
+		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
 	}
-	return nil
 }
 
 func updatePGSQLDatabaseFrom1To2(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "updating database version: 1 -> 2")
 	sql := strings.Replace(pgsqlUsersV2SQL, "{{users}}", config.UsersTable, 1)
+	return updatePGSQLDatabase(dbHandle, sql, 2)
+}
+
+func updatePGSQLDatabaseFrom2To3(dbHandle *sql.DB) error {
+	providerLog(logger.LevelInfo, "updating database version: 2 -> 3")
+	sql := strings.Replace(pgsqlUsersV3SQL, "{{users}}", config.UsersTable, 1)
+	return updatePGSQLDatabase(dbHandle, sql, 3)
+}
+
+func updatePGSQLDatabase(dbHandle *sql.DB, sql string, newVersion int) error {
 	tx, err := dbHandle.Begin()
 	if err != nil {
 		return err
@@ -168,7 +187,7 @@ func updatePGSQLDatabaseFrom1To2(dbHandle *sql.DB) error {
 		tx.Rollback()
 		return err
 	}
-	err = sqlCommonUpdateDatabaseVersionWithTX(tx, 2)
+	err = sqlCommonUpdateDatabaseVersionWithTX(tx, newVersion)
 	if err != nil {
 		tx.Rollback()
 		return err
