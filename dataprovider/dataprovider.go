@@ -57,19 +57,20 @@ const (
 	// MemoryDataProviderName name for memory provider
 	MemoryDataProviderName = "memory"
 
-	argonPwdPrefix           = "$argon2id$"
-	bcryptPwdPrefix          = "$2a$"
-	pbkdf2SHA1Prefix         = "$pbkdf2-sha1$"
-	pbkdf2SHA256Prefix       = "$pbkdf2-sha256$"
-	pbkdf2SHA512Prefix       = "$pbkdf2-sha512$"
-	md5cryptPwdPrefix        = "$1$"
-	md5cryptApr1PwdPrefix    = "$apr1$"
-	sha512cryptPwdPrefix     = "$6$"
-	manageUsersDisabledError = "please set manage_users to 1 in your configuration to enable this method"
-	trackQuotaDisabledError  = "please enable track_quota in your configuration to use this method"
-	operationAdd             = "add"
-	operationUpdate          = "update"
-	operationDelete          = "delete"
+	argonPwdPrefix            = "$argon2id$"
+	bcryptPwdPrefix           = "$2a$"
+	pbkdf2SHA1Prefix          = "$pbkdf2-sha1$"
+	pbkdf2SHA256Prefix        = "$pbkdf2-sha256$"
+	pbkdf2SHA512Prefix        = "$pbkdf2-sha512$"
+	pbkdf2SHA256B64SaltPrefix = "$pbkdf2-b64salt-sha256$"
+	md5cryptPwdPrefix         = "$1$"
+	md5cryptApr1PwdPrefix     = "$apr1$"
+	sha512cryptPwdPrefix      = "$6$"
+	manageUsersDisabledError  = "please set manage_users to 1 in your configuration to enable this method"
+	trackQuotaDisabledError   = "please enable track_quota in your configuration to use this method"
+	operationAdd              = "add"
+	operationUpdate           = "update"
+	operationDelete           = "delete"
 )
 
 var (
@@ -88,15 +89,16 @@ var (
 	provider                  Provider
 	sqlPlaceholders           []string
 	hashPwdPrefixes           = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
-		pbkdf2SHA512Prefix, md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
-	pbkdfPwdPrefixes       = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix}
-	unixPwdPrefixes        = []string{md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
-	logSender              = "dataProvider"
-	availabilityTicker     *time.Ticker
-	availabilityTickerDone chan bool
-	errWrongPassword       = errors.New("password does not match")
-	errNoInitRequired      = errors.New("initialization is not required for this data provider")
-	credentialsDirPath     string
+		pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix, md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
+	pbkdfPwdPrefixes        = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix}
+	pbkdfPwdB64SaltPrefixes = []string{pbkdf2SHA256B64SaltPrefix}
+	unixPwdPrefixes         = []string{md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
+	logSender               = "dataProvider"
+	availabilityTicker      *time.Ticker
+	availabilityTickerDone  chan bool
+	errWrongPassword        = errors.New("password does not match")
+	errNoInitRequired       = errors.New("initialization is not required for this data provider")
+	credentialsDirPath      string
 )
 
 type schemaVersion struct {
@@ -995,8 +997,25 @@ func comparePbkdf2PasswordAndHash(password, hashedPassword string) (bool, error)
 	if len(vals) != 5 {
 		return false, fmt.Errorf("pbkdf2: hash is not in the correct format")
 	}
+	iterations, err := strconv.Atoi(vals[2])
+	if err != nil {
+		return false, err
+	}
+	expected, err := base64.StdEncoding.DecodeString(vals[4])
+	if err != nil {
+		return false, err
+	}
+	var salt []byte
+	if utils.IsStringPrefixInSlice(hashedPassword, pbkdfPwdB64SaltPrefixes) {
+		salt, err = base64.StdEncoding.DecodeString(vals[3])
+		if err != nil {
+			return false, err
+		}
+	} else {
+		salt = []byte(vals[3])
+	}
 	var hashFunc func() hash.Hash
-	if strings.HasPrefix(hashedPassword, pbkdf2SHA256Prefix) {
+	if strings.HasPrefix(hashedPassword, pbkdf2SHA256Prefix) || strings.HasPrefix(hashedPassword, pbkdf2SHA256B64SaltPrefix) {
 		hashFunc = sha256.New
 	} else if strings.HasPrefix(hashedPassword, pbkdf2SHA512Prefix) {
 		hashFunc = sha512.New
@@ -1005,16 +1024,7 @@ func comparePbkdf2PasswordAndHash(password, hashedPassword string) (bool, error)
 	} else {
 		return false, fmt.Errorf("pbkdf2: invalid or unsupported hash format %v", vals[1])
 	}
-	iterations, err := strconv.Atoi(vals[2])
-	if err != nil {
-		return false, err
-	}
-	salt := vals[3]
-	expected, err := base64.StdEncoding.DecodeString(vals[4])
-	if err != nil {
-		return false, err
-	}
-	df := pbkdf2.Key([]byte(password), []byte(salt), iterations, len(expected), hashFunc)
+	df := pbkdf2.Key([]byte(password), salt, iterations, len(expected), hashFunc)
 	return subtle.ConstantTimeCompare(df, expected) == 1, nil
 }
 

@@ -6,6 +6,8 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"hash"
@@ -2735,6 +2737,51 @@ func TestPasswordsHashPbkdf2Sha512(t *testing.T) {
 		_, err = client.Getwd()
 		if err != nil {
 			t.Errorf("unable to get working dir with pkkdf2 sha512 password: %v", err)
+		}
+	}
+	user.Password = pbkdf2Pwd
+	_, err = getSftpClient(user, usePubKey)
+	if err == nil {
+		t.Errorf("login with wrong password must fail")
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(user.GetHomeDir())
+}
+
+func TestPasswordsHashPbkdf2Sha256_389DS(t *testing.T) {
+	pbkdf389dsPwd := "{PBKDF2_SHA256}AAAIAMZIKG4ie44zJY4HOXI+upFR74PzWLUQV63jg+zzkbEjCK3N4qW583WF7EdcpeoOMQ4HY3aWEXB6lnXhXJixbJkU4vVSJkL6YCbU3TrD0qn1uUUVSkaIgAOtmZENitwbhYhiWfEzGyAtFqkFd75P5xhWJEog9XhQKYrR0f7S3WGGZq03JRcLJ460xpU97bE/sWRn7sshgkWzLuyrs0I+XRKmK7FJeaA9zd+1m44Y3IVmZ2YLdKATzjRHAIgpBC6i1TWOcpKJT1+feP1C9hrxH8vU9baw9thNiO8jSHaZlwb//KpJFe0ahVnG/1ubiG8cO0+CCqDqXVJR6Vr4QZxHP+4pwooW+4TP/L+HFdyA1y6z4gKfqYnBsmb3sD1R1TbxfH4btTdvgZAnBk9CmR3QASkFXxeTYsrmNd5+9IAHc6dm"
+	pbkdf389dsPwd = pbkdf389dsPwd[15:]
+	hashBytes, err := base64.StdEncoding.DecodeString(pbkdf389dsPwd)
+	if err != nil {
+		t.Errorf("unable to decode 389ds password: %v", err)
+	}
+	iterBytes := hashBytes[0:4]
+	var iterations int32
+	binary.Read(bytes.NewBuffer(iterBytes), binary.BigEndian, &iterations)
+	salt := hashBytes[4:68]
+	targetKey := hashBytes[68:]
+	key := base64.StdEncoding.EncodeToString(targetKey)
+	pbkdf2Pwd := fmt.Sprintf("$pbkdf2-b64salt-sha256$%v$%v$%v", iterations, base64.StdEncoding.EncodeToString(salt), key)
+	pbkdf2ClearPwd := "password"
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Password = pbkdf2Pwd
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	user.Password = pbkdf2ClearPwd
+	client, err := getSftpClient(user, usePubKey)
+	if err != nil {
+		t.Errorf("unable to login with pkkdf2 sha256 password: %v", err)
+	} else {
+		defer client.Close()
+		_, err = client.Getwd()
+		if err != nil {
+			t.Errorf("unable to get working dir with pkkdf2 sha256 password: %v", err)
 		}
 	}
 	user.Password = pbkdf2Pwd
