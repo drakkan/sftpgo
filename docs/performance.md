@@ -2,7 +2,7 @@
 
 SFTPGo can easily saturate a Gigabit connection on low end hardware with no special configuration, this is generally enough for most use cases.
 
-For Multi-Gig connections, some performance improvements and comparisons with OpenSSH have been discussed [here](https://github.com/drakkan/sftpgo/issues/69), some of them need upstream updates so there are not included in the SFTPGo released version (0.9.6) yet. To summarize:
+For Multi-Gig connections, some performance improvements and comparisons with OpenSSH have been discussed [here](https://github.com/drakkan/sftpgo/issues/69), most of them have been included in the master branch. To summarize:
 - In current state with all performance improvements applied, SFTP performance is very close to OpenSSH however CPU usage is higher. SCP performance match OpenSSH.
 - The main bottlenecks are the encryption and the messages authentication, so if you can use a fast cipher with implicit messages authentication, such as `aes128-gcm@openssh.com`, you will get a big performance boost.
 - SCP protocol is much simpler than SFTP and so, the multi-platform, SFTPGo's SCP implementation performs better than SFTP.
@@ -15,7 +15,7 @@ For Multi-Gig connections, some performance improvements and comparisons with Op
 OS| Debian 10.2 x64 |
 CPU| Ryzen5 3600 |
 RAM| 64GB 2400MHz ECC |
-Disk| 3* Intel P4510 4TB RAID0 |
+Disk| Ramdisk |
 Ethernet| Mellanox ConnectX-3 40GbE|
 
 **Client** ||
@@ -23,13 +23,14 @@ Ethernet| Mellanox ConnectX-3 40GbE|
 OS| Ubuntu 19.10 x64 |
 CPU| Threadripper 1920X |
 RAM| 64GB 2400MHz ECC |
-Disk| Samsung 960EVO 1TB |
+Disk| Ramdisk |
 Ethernet| Mellanox ConnectX-3 40GbE|
 
 ### Test configurations
 
 - `Baseline`: SFTPGo version 0.9.6.
-- `Optimized`: Various [optimizations](#Optimizations-applied) applied on top of 0.9.6.
+- `Devel`: SFTPGo commit b0ed1905918b9dcc22f9a20e89e354313f491734, compiled with Golang 1.14.2 .
+- `Optimized`: Various [optimizations](#Optimizations-applied) applied on top of `Devel`.
 - `Balanced`: Two optimized instances, running on localhost, load balanced by HAProxy 2.1.3.
 - `OpenSSH`: OpenSSH_7.9p1 Debian-10+deb10u2, OpenSSL 1.1.1d  10 Sep 2019
 
@@ -42,44 +43,44 @@ The Message Authentication Code (MAC) used is `hmac-sha2-256`.
 ##### SFTP
 Download:
 
-Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
----|---|---|---|---|
-1|149|306|370|378|
-2|265|576|675|720|
-3|341|807|880|1002|
-4|402|1024|1150|1222|
-8|518|1749|1400|1815|
+Stream|Baseline MB/s|Devel MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
+---|---|---|---|---|---|
+1|150|243|319|412|452|
+2|267|452|600|740|735|
+3|351|637|802|991|1045|
+4|414|811|1002|1192|1265|
+8|536|1451|1742|1552|1798|
 
 Upload:
 
-Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
----|---|---|---|---|
-1|165|292|340|355|
-2|262|453|490|633|
-3|327|566|560|726|
-4|376|647|650|788|
-8|478|735|700|806|
+Stream|Baseline MB/s|Devel MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
+---|---|---|---|---|---|
+1|172|273|343|407|426|
+2|284|469|595|673|738|
+3|368|644|820|881|1090|
+4|446|851|1041|1026|1244|
+8|605|1210|1368|1273|1820|
 
 ##### SCP
 Download:
 
-Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
----|---|---|---|---|
-1|215|509|579|470|
-2|433|928|1097|828|
-3|613|1327|1346|1174|
-4|824|1670|1576|1424|
-8|1281|2656|2049|1870|
+Stream|Baseline MB/s|Devel MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
+---|---|---|---|---|---|
+1|220|369|525|611|558|
+2|437|659|941|1048|856|
+3|635|1000|1365|1363|1201|
+4|787|1272|1664|1610|1415|
+8|1297|2129|2690|2100|1959|
 
 Upload:
 
-Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
----|---|---|---|---|
-1|189|354|393|428|
-2|312|510|570|668|
-3|401|621|664|803|
-4|481|705|723|840|
-8|652|767|799|884|
+Stream|Baseline MB/s|Devel MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
+---|---|---|---|---|---|
+1|208|312|400|458|508|
+2|360|516|647|745|926|
+3|476|678|861|935|1254|
+4|576|836|1080|1099|1569|
+8|857|1161|1416|1433|2271|
 
 #### Cipher aes128gcm@openssh.com
 
@@ -88,72 +89,48 @@ With this cipher the messages authentication is implicit, no SHA256 computation 
 ##### SFTP
 Download:
 
-Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
----|---|---|---|---|
-1|322|388|561|401|
-2|518|734|976|810|
-3|638|1067|1214|1072|
-4|723|1283|1415|1288|
-8|844|2072|1742|1842|
+Stream|Baseline MB/s|Devel MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
+---|---|---|---|---|---|
+1|332|423|<--|583|443|
+2|533|755|<--|970|809|
+3|666|1045|<--|1249|1098|
+4|762|1276|<--|1461|1351|
+8|886|2064|<--|1825|1933|
 
 Upload:
 
-Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
----|---|---|---|---|
-1|318|353|415|381|
-2|473|542|573|670|
-3|569|672|657|757|
-4|621|730|721|758|
-8|694|825|763|815|
+Stream|Baseline MB/s|Devel MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
+---|---|---|---|---|---|
+1|348|410|<--|527|469|
+2|596|729|<--|842|930|
+3|778|974|<--|1088|1341|
+4|886|1192|<--|1232|1494|
+8|1042|1578|<--|1433|1893|
 
 ##### SCP
 Download:
 
-Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
----|---|---|---|---|
-1|669|734|818|447|
-2|1218|1320|1367|883|
-3|1752|1738|1755|1217|
-4|2202|2238|2038|1475|
-8|3151|3184|2391|1941|
+Stream|Baseline MB/s|Devel MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
+---|---|---|---|---|---|
+1|776|793|<--|832|578|
+2|1343|1415|<--|1435|938|
+3|1815|1878|<--|1877|1279|
+4|2192|2205|<--|2056|1567|
+8|3237|3287|<--|2493|2036|
 
 Upload:
 
-Stream|Baseline MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
----|---|---|---|---|
-1|446|446|494|448|
-2|616|623|646|650|
-3|746|749|728|741|
-4|833|832|788|858|
-8|897|903|823|887|
+Stream|Baseline MB/s|Devel MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
+---|---|---|---|---|---|
+1|528|545|<--|608|584|
+2|872|849|<--|975|1019|
+3|1121|1138|<--|1217|1412|
+4|1367|1387|<--|1368|1755|
+8|1733|1744|<--|1664|2510|
 
 ### Optimizations applied
 - AES-CTR optimization of Go compiler for x86_64, there is a [patch](https://go-review.googlesource.com/c/go/+/51670) that hasn't been merged yet, you can apply it yourself.
-- Use [minio/sha256-simd](https://github.com/minio/sha256-simd) to accelerate MAC (Message Authentication Code) computation. In this way the tested hardware will use `Intel SHA Extensions` for SHA256 computation. This will give a significant performance boost compared to `AVX2` extensions used with the Go's SHA256 implementation. This patch is now included in SFTPGo master branch.
-```
-diff --git a/go.mod b/go.mod
-index f1b2caa..109e064 100644
---- a/go.mod
-+++ b/go.mod
-@@ -43,3 +43,5 @@ require (
- )
 
- replace github.com/eikenb/pipeat v0.0.0-20190316224601-fb1f3a9aa29f => github.com/drakkan/pipeat v0.0.0-20200123131427-11c048cfc0ec
-+
-+replace golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200303175438-17ef3d252b1c
-```
-- A new allocator for `pkg/sftp` which greatly improve parallel loads. We are discussing about this patch with `pkg/sftp` maintainers [here](https://github.com/pkg/sftp/pull/344).
-```
-diff --git a/go.mod b/go.mod
-index 109e064..4d67a47 100644
---- a/go.mod
-+++ b/go.mod
-@@ -45,3 +45,4 @@ require (
- replace github.com/eikenb/pipeat v0.0.0-20190316224601-fb1f3a9aa29f => github.com/drakkan/pipeat v0.0.0-20200123131427-11c048cfc0ec
-
- replace golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200303175438-17ef3d252b1c
-+replace github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20200319122022-2fc68482d27f
-```
 
 ### HAProxy configuration
 
