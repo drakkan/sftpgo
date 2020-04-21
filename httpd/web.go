@@ -17,6 +17,7 @@ import (
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
+	"github.com/go-chi/chi"
 )
 
 const (
@@ -478,8 +479,8 @@ func handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
 	renderAddUserPage(w, dataprovider.User{Status: 1}, "")
 }
 
-func handleWebUpdateUserGet(userID string, w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(userID, 10, 64)
+func handleWebUpdateUserGet(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "userID"), 10, 64)
 	if err != nil {
 		renderBadRequestPage(w, err)
 		return
@@ -509,9 +510,9 @@ func handleWebAddUserPost(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleWebUpdateUserPost(userID string, w http.ResponseWriter, r *http.Request) {
+func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	id, err := strconv.ParseInt(userID, 10, 64)
+	id, err := strconv.ParseInt(chi.URLParam(r, "userID"), 10, 64)
 	if err != nil {
 		renderBadRequestPage(w, err)
 		return

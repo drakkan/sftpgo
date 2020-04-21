@@ -2,6 +2,7 @@ package httpd
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
@@ -69,69 +70,22 @@ func initializeRouter(staticFilesPath string, profiler bool) {
 			render.JSON(w, r, sftpd.GetConnectionsStats())
 		})
 
-		router.Delete(activeConnectionsPath+"/{connectionID}", func(w http.ResponseWriter, r *http.Request) {
-			handleCloseConnection(w, r)
-		})
-
-		router.Get(quotaScanPath, func(w http.ResponseWriter, r *http.Request) {
-			getQuotaScans(w, r)
-		})
-
-		router.Post(quotaScanPath, func(w http.ResponseWriter, r *http.Request) {
-			startQuotaScan(w, r)
-		})
-
-		router.Get(userPath, func(w http.ResponseWriter, r *http.Request) {
-			getUsers(w, r)
-		})
-
-		router.Post(userPath, func(w http.ResponseWriter, r *http.Request) {
-			addUser(w, r)
-		})
-
-		router.Get(userPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
-			getUserByID(w, r)
-		})
-
-		router.Put(userPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
-			updateUser(w, r)
-		})
-
-		router.Delete(userPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
-			deleteUser(w, r)
-		})
-
-		router.Get(dumpDataPath, func(w http.ResponseWriter, r *http.Request) {
-			dumpData(w, r)
-		})
-
-		router.Get(loadDataPath, func(w http.ResponseWriter, r *http.Request) {
-			loadData(w, r)
-		})
-
-		router.Get(webUsersPath, func(w http.ResponseWriter, r *http.Request) {
-			handleGetWebUsers(w, r)
-		})
-
-		router.Get(webUserPath, func(w http.ResponseWriter, r *http.Request) {
-			handleWebAddUserGet(w, r)
-		})
-
-		router.Get(webUserPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
-			handleWebUpdateUserGet(chi.URLParam(r, "userID"), w, r)
-		})
-
-		router.Post(webUserPath, func(w http.ResponseWriter, r *http.Request) {
-			handleWebAddUserPost(w, r)
-		})
-
-		router.Post(webUserPath+"/{userID}", func(w http.ResponseWriter, r *http.Request) {
-			handleWebUpdateUserPost(chi.URLParam(r, "userID"), w, r)
-		})
-
-		router.Get(webConnectionsPath, func(w http.ResponseWriter, r *http.Request) {
-			handleWebGetConnections(w, r)
-		})
+		router.Delete(activeConnectionsPath+"/{connectionID}", handleCloseConnection)
+		router.Get(quotaScanPath, getQuotaScans)
+		router.Post(quotaScanPath, startQuotaScan)
+		router.Get(userPath, getUsers)
+		router.Post(userPath, addUser)
+		router.Get(userPath+"/{userID}", getUserByID)
+		router.Put(userPath+"/{userID}", updateUser)
+		router.Delete(userPath+"/{userID}", deleteUser)
+		router.Get(dumpDataPath, dumpData)
+		router.Get(loadDataPath, loadData)
+		router.Get(webUsersPath, handleGetWebUsers)
+		router.Get(webUserPath, handleWebAddUserGet)
+		router.Get(webUserPath+"/{userID}", handleWebUpdateUserGet)
+		router.Post(webUserPath, handleWebAddUserPost)
+		router.Post(webUserPath+"/{userID}", handleWebUpdateUserPost)
+		router.Get(webConnectionsPath, handleWebGetConnections)
 	})
 
 	router.Group(func(router chi.Router) {
@@ -155,15 +109,16 @@ func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
 }
 
 func fileServer(r chi.Router, path string, root http.FileSystem) {
-	fs := http.StripPrefix(path, http.FileServer(root))
-
 	if path != "/" && path[len(path)-1] != '/' {
 		r.Get(path, http.RedirectHandler(path+"/", http.StatusMovedPermanently).ServeHTTP)
 		path += "/"
 	}
 	path += "*"
 
-	r.Get(path, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Get(path, func(w http.ResponseWriter, r *http.Request) {
+		rctx := chi.RouteContext(r.Context())
+		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
+		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
 		fs.ServeHTTP(w, r)
-	}))
+	})
 }
