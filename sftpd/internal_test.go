@@ -1195,6 +1195,7 @@ func TestSCPParseUploadMessage(t *testing.T) {
 	}
 	connection := Connection{
 		channel: &mockSSHChannel,
+		fs:      vfs.NewOsFs("", os.TempDir(), nil),
 	}
 	scpCommand := scpCommand{
 		sshCommand: sshCommand{
@@ -1632,6 +1633,7 @@ func TestSCPUploadFiledata(t *testing.T) {
 		},
 		protocol: protocolSCP,
 		channel:  &mockSSHChannel,
+		fs:       vfs.NewOsFs("", os.TempDir(), nil),
 	}
 	scpCommand := scpCommand{
 		sshCommand: sshCommand{

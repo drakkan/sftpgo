@@ -422,8 +422,19 @@ func (c *sshCommand) getDestPath() string {
 	return result
 }
 
+// we try to avoid to leak the real filesystem path here
+func (c *sshCommand) getMappedError(err error) error {
+	if c.connection.fs.IsNotExist(err) {
+		return errors.New("no such file or directory")
+	}
+	if c.connection.fs.IsPermission(err) {
+		return errors.New("permission denied")
+	}
+	return err
+}
+
 func (c *sshCommand) sendErrorResponse(err error) error {
-	errorString := fmt.Sprintf("%v: %v %v\n", c.command, c.getDestPath(), err)
+	errorString := fmt.Sprintf("%v: %v %v\n", c.command, c.getDestPath(), c.getMappedError(err))
 	c.connection.channel.Write([]byte(errorString))
 	c.sendExitStatus(err)
 	return err
