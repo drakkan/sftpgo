@@ -10,6 +10,7 @@ import (
 
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/sftpd"
 )
@@ -35,6 +36,10 @@ func TestLoadConfigTest(t *testing.T) {
 	emptySFTPDConf := sftpd.Configuration{}
 	if config.GetSFTPDConfig().BindPort == emptySFTPDConf.BindPort {
 		t.Errorf("error loading SFTPD conf")
+	}
+	emptyHTTPConfig := httpclient.Config{}
+	if config.GetHTTPConfig().Timeout == emptyHTTPConfig.Timeout {
+		t.Errorf("error loading HTTP conf")
 	}
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)

@@ -26,7 +26,7 @@ type HTTPDConfig struct {
 	CertificateKeyFile string `mapstructure:"certificate_key_file"`
 }
 
-// LDAPConfig defines the configuration parameters for LDAP connections and searchs
+// LDAPConfig defines the configuration parameters for LDAP connections and searches
 type LDAPConfig struct {
 	BaseDN             string   `mapstructure:"basedn"`
 	BindURL            string   `mapstructure:"bind_url"`

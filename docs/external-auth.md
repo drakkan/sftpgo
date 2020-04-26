@@ -23,7 +23,7 @@ If authentication succeed the HTTP response code must be 200 and the response bo
 
 If the authentication succeeds, the user will be automatically added/updated inside the defined data provider. Actions defined for users added/updated will not be executed in this case.
 The external hook should check authentication only. If there are login restrictions such as user disabled, expired, or login allowed only from specific IP addresses, it is enough to populate the matching user fields, and these conditions will be checked in the same way as for built-in users.
-The hook must finish within 30 seconds.
+The program hook must finish within 30 seconds, the HTTP hook timeout will use the global configuration for HTTP clients.
 
 This method is slower than built-in authentication, but it's very flexible as anyone can easily write his own authentication hooks.
 You can also restrict the authentication scope for the hook using the `external_auth_scope` configuration key:

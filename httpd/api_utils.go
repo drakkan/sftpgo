@@ -15,9 +15,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/go-chi/render"
@@ -37,13 +37,6 @@ func SetBaseURLAndCredentials(url, username, password string) {
 	authPassword = password
 }
 
-// gets an HTTP Client with a timeout
-func getHTTPClient() *http.Client {
-	return &http.Client{
-		Timeout: 15 * time.Second,
-	}
-}
-
 func sendHTTPRequest(method, url string, body io.Reader, contentType string) (*http.Response, error) {
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
@@ -55,7 +48,7 @@ func sendHTTPRequest(method, url string, body io.Reader, contentType string) (*h
 	if len(authUsername) > 0 || len(authPassword) > 0 {
 		req.SetBasicAuth(authUsername, authPassword)
 	}
-	return getHTTPClient().Do(req)
+	return httpclient.GetHTTPClient().Do(req)
 }
 
 func buildURLRelativeToBase(paths ...string) string {

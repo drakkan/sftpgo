@@ -78,6 +78,9 @@ func (s *Service) Start() error {
 		return err
 	}
 
+	httpConfig := config.GetHTTPConfig()
+	httpConfig.Initialize(s.ConfigDir)
+
 	dataProvider := dataprovider.GetProvider()
 	sftpdConf := config.GetSFTPDConfig()
 	httpdConf := config.GetHTTPDConfig()

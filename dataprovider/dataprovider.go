@@ -38,6 +38,7 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
@@ -1146,9 +1147,7 @@ func validateKeyboardAuthResponse(response keyboardAuthHookResponse) error {
 
 func sendKeyboardAuthHTTPReq(url *url.URL, request keyboardAuthHookRequest) (keyboardAuthHookResponse, error) {
 	var response keyboardAuthHookResponse
-	httpClient := &http.Client{
-		Timeout: 30 * time.Second,
-	}
+	httpClient := httpclient.GetHTTPClient()
 	reqAsJSON, err := json.Marshal(request)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error serializing keyboard interactive auth request: %v", err)
@@ -1326,7 +1325,6 @@ func doKeyboardInteractiveAuth(user User, authHook string, client ssh.KeyboardIn
 }
 
 func getPreLoginHookResponse(loginMethod string, userAsJSON []byte) ([]byte, error) {
-	timeout := 30 * time.Second
 	if strings.HasPrefix(config.PreLoginHook, "http") {
 		var url *url.URL
 		var result []byte
@@ -1338,9 +1336,7 @@ func getPreLoginHookResponse(loginMethod string, userAsJSON []byte) ([]byte, err
 		q := url.Query()
 		q.Add("login_method", loginMethod)
 		url.RawQuery = q.Encode()
-		httpClient := &http.Client{
-			Timeout: timeout,
-		}
+		httpClient := httpclient.GetHTTPClient()
 		resp, err := httpClient.Post(url.String(), "application/json", bytes.NewBuffer(userAsJSON))
 		if err != nil {
 			providerLog(logger.LevelWarn, "error getting pre-login hook response: %v", err)
@@ -1355,7 +1351,7 @@ func getPreLoginHookResponse(loginMethod string, userAsJSON []byte) ([]byte, err
 		}
 		return ioutil.ReadAll(resp.Body)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, config.PreLoginHook)
 	cmd.Env = append(os.Environ(),
@@ -1420,7 +1416,6 @@ func executePreLoginHook(username, loginMethod string) (User, error) {
 }
 
 func getExternalAuthResponse(username, password, pkey, keyboardInteractive string) ([]byte, error) {
-	timeout := 30 * time.Second
 	if strings.HasPrefix(config.ExternalAuthHook, "http") {
 		var url *url.URL
 		var result []byte
@@ -1429,9 +1424,7 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive strin
 			providerLog(logger.LevelWarn, "invalid url for external auth hook %#v, error: %v", config.ExternalAuthHook, err)
 			return result, err
 		}
-		httpClient := &http.Client{
-			Timeout: timeout,
-		}
+		httpClient := httpclient.GetHTTPClient()
 		authRequest := make(map[string]string)
 		authRequest["username"] = username
 		authRequest["password"] = password
@@ -1453,7 +1446,7 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive strin
 		}
 		return ioutil.ReadAll(resp.Body)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, config.ExternalAuthHook)
 	cmd.Env = append(os.Environ(),
@@ -1564,9 +1557,7 @@ func executeAction(operation string, user User) {
 			return
 		}
 		startTime := time.Now()
-		httpClient := &http.Client{
-			Timeout: 15 * time.Second,
-		}
+		httpClient := httpclient.GetHTTPClient()
 		resp, err := httpClient.Post(url.String(), "application/json", bytes.NewBuffer(userAsJSON))
 		respCode := 0
 		if err == nil {

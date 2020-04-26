@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -17,6 +16,7 @@ import (
 	"time"
 
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
@@ -509,9 +509,7 @@ func executeAction(a actionNotification) error {
 			return err
 		}
 		startTime := time.Now()
-		httpClient := &http.Client{
-			Timeout: 15 * time.Second,
-		}
+		httpClient := httpclient.GetHTTPClient()
 		resp, err := httpClient.Post(url.String(), "application/json", bytes.NewBuffer(a.AsJSON()))
 		respCode := 0
 		if err == nil {

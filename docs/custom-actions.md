@@ -43,7 +43,7 @@ The `http_notification_url`, if defined, will be invoked as HTTP POST. The reque
 - `status`, integer. 0 means an error occurred. 1 means no error
 
 
-The HTTP request is executed with a 15-second timeout.
+The HTTP request will use the global configuration for HTTP clients.
 
 The `actions` struct inside the "data_provider" configuration section allows you to configure actions on user add, update, delete.
 
@@ -83,4 +83,4 @@ The `command` must finish within 15 seconds.
 
 The `http_notification_url`, if defined, will be invoked as HTTP POST. The action is added to the query string, for example `<http_notification_url>?action=update`, and the user is sent serialized as JSON inside the POST body with sensitive fields removed.
 
-The HTTP request is executed with a 15-second timeout.
+The HTTP request will use the global configuration for HTTP clients.

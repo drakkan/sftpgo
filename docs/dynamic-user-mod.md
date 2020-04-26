@@ -26,7 +26,7 @@ The JSON response can include only the fields to update instead of the full user
 
 Please note that if you want to create a new user, the pre-login hook response must include all the mandatory user fields.
 
-The hook must finish within 30 seconds.
+The program hook must finish within 30 seconds, the HTTP hook will use the global configuration for HTTP clients.
 
 If an error happens while executing the hook then login will be denied.
 

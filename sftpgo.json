@@ -65,5 +65,9 @@
     "auth_user_file": "",
     "certificate_file": "",
     "certificate_key_file": ""
+  },
+  "http": {
+    "timeout": 20,
+    "ca_certificates": []
   }
 }

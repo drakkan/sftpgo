@@ -119,6 +119,10 @@ func TestMain(m *testing.M) {
 		logger.Warn(logSender, "", "error initializing data provider: %v", err)
 		os.Exit(1)
 	}
+
+	httpConfig := config.GetHTTPConfig()
+	httpConfig.Initialize(configDir)
+
 	dataProvider := dataprovider.GetProvider()
 	sftpdConf := config.GetSFTPDConfig()
 	httpdConf := config.GetHTTPDConfig()

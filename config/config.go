@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
@@ -36,6 +37,7 @@ type globalConfig struct {
 	SFTPD        sftpd.Configuration `json:"sftpd" mapstructure:"sftpd"`
 	ProviderConf dataprovider.Config `json:"data_provider" mapstructure:"data_provider"`
 	HTTPDConfig  httpd.Conf          `json:"httpd" mapstructure:"httpd"`
+	HTTPConfig   httpclient.Config   `json:"http" mapstructure:"http"`
 }
 
 func init() {
@@ -98,6 +100,10 @@ func init() {
 			CertificateFile:    "",
 			CertificateKeyFile: "",
 		},
+		HTTPConfig: httpclient.Config{
+			Timeout:        20,
+			CACertificates: nil,
+		},
 	}
 
 	viper.SetEnvPrefix(configEnvPrefix)
@@ -136,6 +142,11 @@ func GetProviderConf() dataprovider.Config {
 //SetProviderConf sets the configuration for the data provider
 func SetProviderConf(config dataprovider.Config) {
 	globalConf.ProviderConf = config
+}
+
+// GetHTTPConfig returns the configuration for HTTP clients
+func GetHTTPConfig() httpclient.Config {
+	return globalConf.HTTPConfig
 }
 
 func getRedactedGlobalConf() globalConfig {

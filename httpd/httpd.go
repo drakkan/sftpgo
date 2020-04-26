@@ -85,7 +85,7 @@ func SetDataProvider(provider dataprovider.Provider) {
 	dataProvider = provider
 }
 
-// Initialize the HTTP server
+// Initialize configures and starts the HTTP server
 func (c Conf) Initialize(configDir string, profiler bool) error {
 	var err error
 	logger.Debug(logSender, "", "initializing HTTP server with config %+v", c)
