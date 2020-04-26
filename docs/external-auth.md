@@ -47,6 +47,8 @@ else
 fi
 ```
 
-An example authentication program that allow SFTPGo to authenticate against LDAP can be found inside the source tree [ldapauth](../examples/ldapauth) directory.
+An example authentication program allowing to authenticate against an LDAP server can be found inside the source tree [ldapauth](../examples/ldapauth) directory.
+
+An example server, to use as HTTP authentication hook, allowing to authenticate against an LDAP server can be found inside the source tree [ldapauthserver](../examples/ldapauthserver) directory.
 
 If you have an external authentication hook that could be useful to others too, please let us know and/or please send a pull request.

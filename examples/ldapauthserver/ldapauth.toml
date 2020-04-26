@@ -1,0 +1,33 @@
+[httpd]
+bind_address = ""
+bind_port = 9000
+# Path to a file used to store usernames and passwords for basic authentication. It can be generated using the Apache htpasswd tool
+auth_user_file = ""
+# If both the certificate and the private key are provided, the server will expect HTTPS connections
+certificate_file = ""
+certificate_key_file = ""
+
+[ldap]
+basedn = "dc=example,dc=com"
+bind_url = "ldap://127.0.0.1:389"
+bind_username = "cn=Directory Manager"
+bind_password = "YOUR_ADMIN_PASSWORD_HERE"
+search_filter = "(&(objectClass=nsPerson)(uid=%s))"
+# you can change the name of the search base attributes to adapt them to your schema but the order must remain the same
+search_base_attrs = [
+    "dn",
+    "homeDirectory",
+    "uidNumber",
+    "gidNumber",
+    "nsSshPublicKey"
+]
+default_uid = 0
+default_gid = 0
+force_default_uid = true
+force_default_gid = true
+# if true, ldaps accepts any certificate presented by the LDAP server and any host name in that certificate.
+# This should be used only for testing
+insecure_skip_verify = false
+# list of root CA to use for ldaps connections
+# If you use a self signed certificate is better to add the root CA to this list than set insecure_skip_verify to true
+ca_certificates = []

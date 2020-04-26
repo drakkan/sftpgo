@@ -1,6 +1,6 @@
 ## LDAPAuth
 
-This is an example for an external authentication program that performs authentication against an LDAP server.
+This is an example for an external authentication program. It performs authentication against an LDAP server.
 It is tested against [389ds](https://directory.fedoraproject.org/) and can be used as starting point to authenticate using any LDAP server including Active Directory.
 
 You need to change the LDAP connection parameters and the user search query to match your environment.
