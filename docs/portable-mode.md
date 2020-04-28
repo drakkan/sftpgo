@@ -27,6 +27,7 @@ Flags:
       --gcs-storage-class string
   -h, --help                             help for portable
   -l, --log-file-path string             Leave empty to disable logging
+  -v, --log-verbose                      Enable verbose logs
   -p, --password string                  Leave empty to use an auto generated value
   -g, --permissions strings              User's permissions. "*" means any permission (default [list,download])
   -k, --public-key strings

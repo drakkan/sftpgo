@@ -24,6 +24,7 @@ var (
 	portableUsername             string
 	portablePassword             string
 	portableLogFile              string
+	portableLogVerbose           bool
 	portablePublicKeys           []string
 	portablePermissions          []string
 	portableSSHCommands          []string
@@ -90,7 +91,7 @@ Please take a look at the usage below to customize the serving parameters`,
 				LogMaxBackups: defaultLogMaxBackup,
 				LogMaxAge:     defaultLogMaxAge,
 				LogCompress:   defaultLogCompress,
-				LogVerbose:    defaultLogVerbose,
+				LogVerbose:    portableLogVerbose,
 				Profiler:      defaultProfiler,
 				Shutdown:      make(chan bool),
 				PortableMode:  1,
@@ -144,6 +145,7 @@ func init() {
 	portableCmd.Flags().StringVarP(&portableUsername, "username", "u", "", "Leave empty to use an auto generated value")
 	portableCmd.Flags().StringVarP(&portablePassword, "password", "p", "", "Leave empty to use an auto generated value")
 	portableCmd.Flags().StringVarP(&portableLogFile, logFilePathFlag, "l", "", "Leave empty to disable logging")
+	portableCmd.Flags().BoolVarP(&portableLogVerbose, logVerboseFlag, "v", false, "Enable verbose logs")
 	portableCmd.Flags().StringSliceVarP(&portablePublicKeys, "public-key", "k", []string{}, "")
 	portableCmd.Flags().StringSliceVarP(&portablePermissions, "permissions", "g", []string{"list", "download"},
 		"User's permissions. \"*\" means any permission")
