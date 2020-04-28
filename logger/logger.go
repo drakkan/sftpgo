@@ -62,7 +62,7 @@ func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge
 			lock:   new(sync.Mutex)})
 		consoleLogger = zerolog.Nop()
 	}
-	logger.Level(level)
+	logger = logger.Level(level)
 }
 
 // DisableLogger disable the main logger.
