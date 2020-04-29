@@ -29,4 +29,6 @@ jobs:
       run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.24.0
 
     - name: Run golangci-lint
-      run: golangci-lint run --timeout=2m --tests=false --enable=goconst,gofmt,goimports,golint,unconvert,unparam
+      run: |
+        golangci-lint run --timeout=2m --tests=false --enable=goconst,gofmt,goimports,golint,unconvert,unparam \
+          --exclude "Error return value of .((w|r)\.CloseWithError|viper.BindEnv). is not checked"
