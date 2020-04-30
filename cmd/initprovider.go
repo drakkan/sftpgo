@@ -31,10 +31,13 @@ Please take a look at the usage below to customize the options.`,
 			logger.DisableLogger()
 			logger.EnableConsoleLogger(zerolog.DebugLevel)
 			configDir = utils.CleanDirInput(configDir)
-			config.LoadConfig(configDir, configFile)
+			err := config.LoadConfig(configDir, configFile)
+			if err != nil {
+				logger.WarnToConsole("Unable to initialize data provider, config load error: %v", err)
+			}
 			providerConf := config.GetProviderConf()
 			logger.DebugToConsole("Initializing provider: %#v config file: %#v", providerConf.Driver, viper.ConfigFileUsed())
-			err := dataprovider.InitializeDatabase(providerConf, configDir)
+			err = dataprovider.InitializeDatabase(providerConf, configDir)
 			if err == nil {
 				logger.DebugToConsole("Data provider successfully initialized")
 			} else {

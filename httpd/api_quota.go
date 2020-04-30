@@ -27,7 +27,7 @@ func startQuotaScan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if sftpd.AddQuotaScan(user.Username) {
-		go doQuotaScan(user)
+		go doQuotaScan(user) //nolint:errcheck
 		sendAPIResponse(w, r, err, "Scan started", http.StatusCreated)
 	} else {
 		sendAPIResponse(w, r, err, "Another scan is already in progress", http.StatusConflict)
@@ -35,7 +35,7 @@ func startQuotaScan(w http.ResponseWriter, r *http.Request) {
 }
 
 func doQuotaScan(user dataprovider.User) error {
-	defer sftpd.RemoveQuotaScan(user.Username)
+	defer sftpd.RemoveQuotaScan(user.Username) //nolint:errcheck
 	fs, err := user.GetFilesystem("")
 	if err != nil {
 		logger.Warn(logSender, "", "unable scan quota for user %#v error creating filesystem: %v", user.Username, err)

@@ -168,24 +168,19 @@ func (c Connection) Filecmd(request *sftp.Request) error {
 		if err = c.handleSFTPRename(p, target, request); err != nil {
 			return err
 		}
-		break
 	case "Rmdir":
 		return c.handleSFTPRmdir(p, request)
-
 	case "Mkdir":
 		err = c.handleSFTPMkdir(p, request)
 		if err != nil {
 			return err
 		}
-		break
 	case "Symlink":
 		if err = c.handleSFTPSymlink(p, target, request); err != nil {
 			return err
 		}
-		break
 	case "Remove":
 		return c.handleSFTPRemove(p, request)
-
 	default:
 		return sftp.ErrSSHFxOpUnsupported
 	}
@@ -335,7 +330,8 @@ func (c Connection) handleSFTPRename(sourcePath string, targetPath string, reque
 		return vfs.GetSFTPError(c.fs, err)
 	}
 	logger.CommandLog(renameLogSender, sourcePath, targetPath, c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "")
-	go executeAction(newActionNotification(c.User, operationRename, sourcePath, targetPath, "", 0, nil))
+	// the returned error is used in test cases only, we already log the error inside executeAction
+	go executeAction(newActionNotification(c.User, operationRename, sourcePath, targetPath, "", 0, nil)) //nolint:errcheck
 	return nil
 }
 
@@ -441,9 +437,9 @@ func (c Connection) handleSFTPRemove(filePath string, request *sftp.Request) err
 
 	logger.CommandLog(removeLogSender, filePath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "")
 	if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
-		dataprovider.UpdateUserQuota(dataProvider, c.User, -1, -size, false)
+		dataprovider.UpdateUserQuota(dataProvider, c.User, -1, -size, false) //nolint:errcheck
 	}
-	go executeAction(newActionNotification(c.User, operationDelete, filePath, "", "", fi.Size(), nil))
+	go executeAction(newActionNotification(c.User, operationDelete, filePath, "", "", fi.Size(), nil)) //nolint:errcheck
 
 	return sftp.ErrSSHFxOk
 }
@@ -524,7 +520,7 @@ func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, re
 		minWriteOffset = fileSize
 	} else {
 		if vfs.IsLocalOsFs(c.fs) {
-			dataprovider.UpdateUserQuota(dataProvider, c.User, 0, -fileSize, false)
+			dataprovider.UpdateUserQuota(dataProvider, c.User, 0, -fileSize, false) //nolint:errcheck
 		} else {
 			initialSize = fileSize
 		}

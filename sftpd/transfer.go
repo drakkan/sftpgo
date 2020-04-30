@@ -38,14 +38,14 @@ type Transfer struct {
 	connectionID   string
 	transferType   int
 	lastActivity   time.Time
-	isNewFile      bool
 	protocol       string
 	transferError  error
-	isFinished     bool
 	minWriteOffset int64
 	expectedSize   int64
 	initialSize    int64
 	lock           *sync.Mutex
+	isNewFile      bool
+	isFinished     bool
 }
 
 // TransferError is called if there is an unexpected error.
@@ -126,6 +126,7 @@ func (t *Transfer) Close() error {
 		return errTransferClosed
 	}
 	err := t.closeIO()
+	defer removeTransfer(t) //nolint:errcheck
 	t.isFinished = true
 	numFiles := 0
 	if t.isNewFile {
@@ -150,10 +151,10 @@ func (t *Transfer) Close() error {
 	elapsed := time.Since(t.start).Nanoseconds() / 1000000
 	if t.transferType == transferDownload {
 		logger.TransferLog(downloadLogSender, t.path, elapsed, t.bytesSent, t.user.Username, t.connectionID, t.protocol)
-		go executeAction(newActionNotification(t.user, operationDownload, t.path, "", "", t.bytesSent, t.transferError))
+		go executeAction(newActionNotification(t.user, operationDownload, t.path, "", "", t.bytesSent, t.transferError)) //nolint:errcheck
 	} else {
 		logger.TransferLog(uploadLogSender, t.path, elapsed, t.bytesReceived, t.user.Username, t.connectionID, t.protocol)
-		go executeAction(newActionNotification(t.user, operationUpload, t.path, "", "", t.bytesReceived+t.minWriteOffset,
+		go executeAction(newActionNotification(t.user, operationUpload, t.path, "", "", t.bytesReceived+t.minWriteOffset, //nolint:errcheck
 			t.transferError))
 	}
 	if t.transferError != nil {
@@ -162,7 +163,6 @@ func (t *Transfer) Close() error {
 			err = t.transferError
 		}
 	}
-	removeTransfer(t)
 	t.updateQuota(numFiles)
 	return err
 }
@@ -185,7 +185,7 @@ func (t *Transfer) updateQuota(numFiles int) bool {
 		return false
 	}
 	if t.transferType == transferUpload && (numFiles != 0 || t.bytesReceived > 0) {
-		dataprovider.UpdateUserQuota(dataProvider, t.user, numFiles, t.bytesReceived-t.initialSize, false)
+		dataprovider.UpdateUserQuota(dataProvider, t.user, numFiles, t.bytesReceived-t.initialSize, false) //nolint:errcheck
 		return true
 	}
 	return false

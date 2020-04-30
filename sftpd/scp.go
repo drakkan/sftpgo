@@ -45,7 +45,6 @@ func (c *scpCommand) handle() error {
 		if err != nil {
 			return err
 		}
-
 	} else if commandType == "-f" {
 		// -f means "from" so download
 		err = c.readConfirmationMessage()
@@ -199,7 +198,7 @@ func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead i
 	initialSize := int64(0)
 	if !isNewFile {
 		if vfs.IsLocalOsFs(c.connection.fs) {
-			dataprovider.UpdateUserQuota(dataProvider, c.connection.User, 0, -fileSize, false)
+			dataprovider.UpdateUserQuota(dataProvider, c.connection.User, 0, -fileSize, false) //nolint:errcheck
 		} else {
 			initialSize = fileSize
 		}
@@ -593,6 +592,7 @@ func (c *scpCommand) readProtocolMessage() (string, error) {
 }
 
 // send an error message and close the channel
+//nolint:errcheck // we don't check write errors here, we have to close the channel anyway
 func (c *scpCommand) sendErrorMessage(err error) {
 	c.connection.channel.Write(errMsg)
 	c.connection.channel.Write([]byte(c.getMappedError(err).Error()))

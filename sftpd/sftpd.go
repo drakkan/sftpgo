@@ -49,7 +49,7 @@ const (
 )
 
 const (
-	uploadModeStandard = iota
+	uploadModeStandard = iota //nolint:varcheck,deadcode
 	uploadModeAtomic
 	uploadModeAtomicWithResume
 )
@@ -429,7 +429,7 @@ func removeConnection(c Connection) {
 	// We only need to ensure that a connection will not remain indefinitely open and so the
 	// underlying file descriptor is not released.
 	// This should protect us against buggy clients and edge cases.
-	c.netConn.SetDeadline(time.Now().Add(2 * time.Minute))
+	c.netConn.SetDeadline(time.Now().Add(2 * time.Minute)) //nolint:errcheck
 	c.Log(logger.LevelDebug, logSender, "connection removed, num open connections: %v", len(openConnections))
 }
 
@@ -495,9 +495,9 @@ func executeAction(a actionNotification) error {
 		// we are in a goroutine but if we have to send an HTTP notification we don't want to wait for the
 		// end of the command
 		if len(actions.HTTPNotificationURL) > 0 {
-			go executeNotificationCommand(a)
+			go executeNotificationCommand(a) //nolint:errcheck
 		} else {
-			err = executeNotificationCommand(a)
+			err = executeNotificationCommand(a) //nolint:errcheck
 		}
 	}
 	if len(actions.HTTPNotificationURL) > 0 {

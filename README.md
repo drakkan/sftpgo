@@ -13,8 +13,8 @@ Fully featured and highly configurable SFTP server, written in Go
 - Keyboard interactive authentication. You can easily setup a customizable multi-factor authentication.
 - Partial authentication. You can configure multi-step authentication requiring, for example, the user password after successful public key authentication.
 - Per user authentication methods. You can, for example, deny one or more authentication methods to one or more users.
-- Custom authentication via external programs is supported.
-- Dynamic user modification before login via external programs is supported.
+- Custom authentication via external programs/HTTP API is supported.
+- Dynamic user modification before login via external programs/HTTP API is supported.
 - Quota support: accounts can have individual quota expressed as max total size and/or max number of files.
 - Bandwidth throttling is supported, with distinct settings for upload and download.
 - Per user maximum concurrent sessions.

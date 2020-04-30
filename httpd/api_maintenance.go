@@ -37,6 +37,12 @@ func dumpData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	outputFile = filepath.Join(backupsPath, outputFile)
+	err := os.MkdirAll(filepath.Dir(outputFile), 0700)
+	if err != nil {
+		logger.Warn(logSender, "", "dumping data error: %v, output file: %#v", err, outputFile)
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
 	logger.Debug(logSender, "", "dumping data to: %#v", outputFile)
 
 	users, err := dataprovider.DumpUsers(dataProvider)
@@ -56,7 +62,6 @@ func dumpData(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	if err == nil {
-		os.MkdirAll(filepath.Dir(outputFile), 0700)
 		err = ioutil.WriteFile(outputFile, dump, 0600)
 	}
 	if err != nil {
@@ -127,19 +132,15 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
 		}
-		if needQuotaScan(scanQuota, &user) {
+		if scanQuota == 1 || (scanQuota == 2 && user.HasQuotaRestrictions()) {
 			if sftpd.AddQuotaScan(user.Username) {
 				logger.Debug(logSender, "", "starting quota scan for restored user: %#v", user.Username)
-				go doQuotaScan(user)
+				go doQuotaScan(user) //nolint:errcheck
 			}
 		}
 	}
 	logger.Debug(logSender, "", "backup restored, users: %v", len(dump.Users))
 	sendAPIResponse(w, r, err, "Data restored", http.StatusOK)
-}
-
-func needQuotaScan(scanQuota int, user *dataprovider.User) bool {
-	return scanQuota == 1 || (scanQuota == 2 && user.HasQuotaRestrictions())
 }
 
 func getLoaddataOptions(r *http.Request) (string, int, int, error) {

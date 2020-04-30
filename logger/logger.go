@@ -93,7 +93,6 @@ func Log(level LogLevel, sender string, connectionID string, format string, v ..
 	default:
 		Error(sender, connectionID, format, v...)
 	}
-
 }
 
 // Debug logs at debug level for the specified sender

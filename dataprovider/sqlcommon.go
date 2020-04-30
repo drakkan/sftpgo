@@ -323,7 +323,6 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 			&user.QuotaSize, &user.QuotaFiles, &permissions, &user.UsedQuotaSize, &user.UsedQuotaFiles, &user.LastQuotaUpdate,
 			&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig,
 			&virtualFolders)
-
 	} else {
 		err = rows.Scan(&user.ID, &user.Username, &password, &publicKey, &user.HomeDir, &user.UID, &user.GID, &user.MaxSessions,
 			&user.QuotaSize, &user.QuotaFiles, &permissions, &user.UsedQuotaSize, &user.UsedQuotaFiles, &user.LastQuotaUpdate,
@@ -377,6 +376,13 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 		}
 	}
 	return user, err
+}
+
+func sqlCommonRollbackTransaction(tx *sql.Tx) {
+	err := tx.Rollback()
+	if err != nil {
+		providerLog(logger.LevelWarn, "error rolling back transaction: %v", err)
+	}
 }
 
 func sqlCommonGetDatabaseVersion(dbHandle *sql.DB) (schemaVersion, error) {

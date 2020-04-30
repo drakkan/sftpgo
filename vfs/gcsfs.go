@@ -159,7 +159,7 @@ func (fs GCSFs) Open(name string) (*os.File, *pipeat.PipeReaderAt, func(), error
 		defer cancelFn()
 		defer objectReader.Close()
 		n, err := io.Copy(w, objectReader)
-		w.CloseWithError(err)
+		w.CloseWithError(err) //nolint:errcheck // the returned error is always null
 		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)
 		metrics.GCSTransferCompleted(n, 1, err)
 	}()
@@ -183,7 +183,7 @@ func (fs GCSFs) Create(name string, flag int) (*os.File, *pipeat.PipeWriterAt, f
 		defer cancelFn()
 		defer objectWriter.Close()
 		n, err := io.Copy(objectWriter, r)
-		r.CloseWithError(err)
+		r.CloseWithError(err) //nolint:errcheck // the returned error is always null
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, readed bytes: %v, err: %v", name, n, err)
 		metrics.GCSTransferCompleted(n, 0, err)
 	}()

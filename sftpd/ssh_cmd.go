@@ -24,6 +24,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+const scpCmdName = "scp"
+
 var (
 	errQuotaExceeded     = errors.New("denying write due to space limit")
 	errPermissionDenied  = errors.New("Permission denied. You don't have the permissions to execute this command")
@@ -49,7 +51,7 @@ func processSSHCommand(payload []byte, connection *Connection, channel ssh.Chann
 			name, args, len(args), connection.User.Username, err)
 		if err == nil && utils.IsStringInSlice(name, enabledSSHCommands) {
 			connection.command = msg.Command
-			if name == "scp" && len(args) >= 2 {
+			if name == scpCmdName && len(args) >= 2 {
 				connection.protocol = protocolSCP
 				connection.channel = channel
 				scpCommand := scpCommand{
@@ -58,10 +60,10 @@ func processSSHCommand(payload []byte, connection *Connection, channel ssh.Chann
 						connection: *connection,
 						args:       args},
 				}
-				go scpCommand.handle()
+				go scpCommand.handle() //nolint:errcheck
 				return true
 			}
-			if name != "scp" {
+			if name != scpCmdName {
 				connection.protocol = protocolSSH
 				connection.channel = channel
 				sshCommand := sshCommand{
@@ -69,7 +71,7 @@ func processSSHCommand(payload []byte, connection *Connection, channel ssh.Chann
 					connection: *connection,
 					args:       args,
 				}
-				go sshCommand.handle()
+				go sshCommand.handle() //nolint:errcheck
 				return true
 			}
 		} else {
@@ -95,7 +97,7 @@ func (c *sshCommand) handle() error {
 		c.sendExitStatus(nil)
 	} else if c.command == "pwd" {
 		// hard coded response to "/"
-		c.connection.channel.Write([]byte("/\n"))
+		c.connection.channel.Write([]byte("/\n")) //nolint:errcheck
 		c.sendExitStatus(nil)
 	}
 	return nil
@@ -125,7 +127,7 @@ func (c *sshCommand) handleHashCommands() error {
 		if err != nil && err != io.EOF {
 			return c.sendErrorResponse(err)
 		}
-		h.Write(buf[:n])
+		h.Write(buf[:n]) //nolint:errcheck
 		response = fmt.Sprintf("%x  -\n", h.Sum(nil))
 	} else {
 		sshPath := c.getDestPath()
@@ -146,7 +148,7 @@ func (c *sshCommand) handleHashCommands() error {
 		}
 		response = fmt.Sprintf("%v  %v\n", hash, sshPath)
 	}
-	c.connection.channel.Write([]byte(response))
+	c.connection.channel.Write([]byte(response)) //nolint:errcheck
 	c.sendExitStatus(nil)
 	return nil
 }
@@ -184,8 +186,9 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	closeCmdOnError := func() {
 		c.connection.Log(logger.LevelDebug, logSenderSSH, "kill cmd: %#v and close ssh channel after read or write error",
 			c.connection.command)
-		command.cmd.Process.Kill()
-		c.connection.channel.Close()
+		killerr := command.cmd.Process.Kill()
+		closerr := c.connection.channel.Close()
+		c.connection.Log(logger.LevelDebug, logSenderSSH, "kill cmd error: %v close channel error: %v", killerr, closerr)
 	}
 	var once sync.Once
 	commandResponse := make(chan bool)
@@ -214,7 +217,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 			lock:           new(sync.Mutex),
 		}
 		addTransfer(&transfer)
-		defer removeTransfer(&transfer)
+		defer removeTransfer(&transfer) //nolint:errcheck
 		w, e := transfer.copyFromReaderToWriter(stdin, c.connection.channel, remainingQuotaSize)
 		c.connection.Log(logger.LevelDebug, logSenderSSH, "command: %#v, copy from remote command to sdtin ended, written: %v, "+
 			"initial remaining quota: %v, err: %v", c.connection.command, w, remainingQuotaSize, e)
@@ -242,7 +245,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 			lock:           new(sync.Mutex),
 		}
 		addTransfer(&transfer)
-		defer removeTransfer(&transfer)
+		defer removeTransfer(&transfer) //nolint:errcheck
 		w, e := transfer.copyFromReaderToWriter(c.connection.channel, stdout, 0)
 		c.connection.Log(logger.LevelDebug, logSenderSSH, "command: %#v, copy from sdtout to remote command ended, written: %v err: %v",
 			c.connection.command, w, e)
@@ -271,7 +274,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 			lock:           new(sync.Mutex),
 		}
 		addTransfer(&transfer)
-		defer removeTransfer(&transfer)
+		defer removeTransfer(&transfer) //nolint:errcheck
 		w, e := transfer.copyFromReaderToWriter(c.connection.channel.Stderr(), stderr, 0)
 		c.connection.Log(logger.LevelDebug, logSenderSSH, "command: %#v, copy from sdterr to remote command ended, written: %v err: %v",
 			c.connection.command, w, e)
@@ -284,7 +287,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	<-commandResponse
 	err = command.cmd.Wait()
 	c.sendExitStatus(err)
-	c.rescanHomeDir()
+	c.rescanHomeDir() //nolint:errcheck
 	return err
 }
 
@@ -403,7 +406,7 @@ func (c *sshCommand) rescanHomeDir() error {
 			c.connection.Log(logger.LevelDebug, logSenderSSH, "user home dir scanned, user: %#v, dir: %#v, error: %v",
 				c.connection.User.Username, c.connection.User.HomeDir, err)
 		}
-		RemoveQuotaScan(c.connection.User.Username)
+		RemoveQuotaScan(c.connection.User.Username) //nolint:errcheck
 	}
 	return err
 }
@@ -435,7 +438,7 @@ func (c *sshCommand) getMappedError(err error) error {
 
 func (c *sshCommand) sendErrorResponse(err error) error {
 	errorString := fmt.Sprintf("%v: %v %v\n", c.command, c.getDestPath(), c.getMappedError(err))
-	c.connection.channel.Write([]byte(errorString))
+	c.connection.channel.Write([]byte(errorString)) //nolint:errcheck
 	c.sendExitStatus(err)
 	return err
 }
@@ -453,10 +456,10 @@ func (c *sshCommand) sendExitStatus(err error) {
 	exitStatus := sshSubsystemExitStatus{
 		Status: status,
 	}
-	c.connection.channel.SendRequest("exit-status", false, ssh.Marshal(&exitStatus))
+	c.connection.channel.SendRequest("exit-status", false, ssh.Marshal(&exitStatus)) //nolint:errcheck
 	c.connection.channel.Close()
 	// for scp we notify single uploads/downloads
-	if c.command != "scp" {
+	if c.command != scpCmdName {
 		metrics.SSHCommandCompleted(err)
 		realPath := c.getDestPath()
 		if len(realPath) > 0 {
@@ -465,7 +468,7 @@ func (c *sshCommand) sendExitStatus(err error) {
 				realPath = p
 			}
 		}
-		go executeAction(newActionNotification(c.connection.User, operationSSHCmd, realPath, "", c.command, 0, err))
+		go executeAction(newActionNotification(c.connection.User, operationSSHCmd, realPath, "", c.command, 0, err)) //nolint:errcheck
 	}
 }
 

@@ -128,10 +128,11 @@ func (c Conf) Initialize(configDir string, profiler bool) error {
 }
 
 // ReloadTLSCertificate reloads the TLS certificate and key from the configured paths
-func ReloadTLSCertificate() {
+func ReloadTLSCertificate() error {
 	if certMgr != nil {
-		certMgr.loadCertificate()
+		return certMgr.loadCertificate()
 	}
+	return nil
 }
 
 func getConfigPath(name, configDir string) string {

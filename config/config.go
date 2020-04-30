@@ -220,19 +220,20 @@ func LoadConfig(configDir, configName string) error {
 }
 
 func checkHooksCompatibility() {
-	if len(globalConf.ProviderConf.ExternalAuthProgram) > 0 && len(globalConf.ProviderConf.ExternalAuthHook) == 0 {
+	// we copy deprecated fields to new ones to keep backward compatibility so lint is disabled
+	if len(globalConf.ProviderConf.ExternalAuthProgram) > 0 && len(globalConf.ProviderConf.ExternalAuthHook) == 0 { //nolint: staticcheck
 		logger.Warn(logSender, "", "external_auth_program is deprecated, please use external_auth_hook")
 		logger.WarnToConsole("external_auth_program is deprecated, please use external_auth_hook")
-		globalConf.ProviderConf.ExternalAuthHook = globalConf.ProviderConf.ExternalAuthProgram
+		globalConf.ProviderConf.ExternalAuthHook = globalConf.ProviderConf.ExternalAuthProgram //nolint: staticcheck
 	}
-	if len(globalConf.ProviderConf.PreLoginProgram) > 0 && len(globalConf.ProviderConf.PreLoginHook) == 0 {
+	if len(globalConf.ProviderConf.PreLoginProgram) > 0 && len(globalConf.ProviderConf.PreLoginHook) == 0 { //nolint: staticcheck
 		logger.Warn(logSender, "", "pre_login_program is deprecated, please use pre_login_hook")
 		logger.WarnToConsole("pre_login_program is deprecated, please use pre_login_hook")
-		globalConf.ProviderConf.PreLoginHook = globalConf.ProviderConf.PreLoginProgram
+		globalConf.ProviderConf.PreLoginHook = globalConf.ProviderConf.PreLoginProgram //nolint: staticcheck
 	}
-	if len(globalConf.SFTPD.KeyboardInteractiveProgram) > 0 && len(globalConf.SFTPD.KeyboardInteractiveHook) == 0 {
+	if len(globalConf.SFTPD.KeyboardInteractiveProgram) > 0 && len(globalConf.SFTPD.KeyboardInteractiveHook) == 0 { //nolint: staticcheck
 		logger.Warn(logSender, "", "keyboard_interactive_auth_program is deprecated, please use keyboard_interactive_auth_hook")
 		logger.WarnToConsole("keyboard_interactive_auth_program is deprecated, please use keyboard_interactive_auth_hook")
-		globalConf.SFTPD.KeyboardInteractiveHook = globalConf.SFTPD.KeyboardInteractiveProgram
+		globalConf.SFTPD.KeyboardInteractiveHook = globalConf.SFTPD.KeyboardInteractiveProgram //nolint: staticcheck
 	}
 }

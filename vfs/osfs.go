@@ -71,7 +71,6 @@ func (OsFs) Create(name string, flag int) (*os.File, *pipeat.PipeWriterAt, func(
 		f, err = os.Create(name)
 	} else {
 		f, err = os.OpenFile(name, flag, 0666)
-
 	}
 	return f, nil, nil, err
 }
