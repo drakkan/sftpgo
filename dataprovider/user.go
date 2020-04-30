@@ -507,9 +507,9 @@ func (u *User) GetInfoString() string {
 		result += fmt.Sprintf("Last login: %v ", t.Format("2006-01-02 15:04:05")) // YYYY-MM-DD HH:MM:SS
 	}
 	if u.FsConfig.Provider == 1 {
-		result += fmt.Sprintf("Storage: S3 ")
+		result += "Storage: S3 "
 	} else if u.FsConfig.Provider == 2 {
-		result += fmt.Sprintf("Storage: GCS ")
+		result += "Storage: GCS "
 	}
 	if len(u.PublicKeys) > 0 {
 		result += fmt.Sprintf("Public keys: %v ", len(u.PublicKeys))

@@ -677,7 +677,7 @@ func validatePermissions(user *User) error {
 	}
 	permissions := make(map[string][]string)
 	if _, ok := user.Permissions["/"]; !ok {
-		return &ValidationError{err: fmt.Sprintf("permissions for the root dir \"/\" must be set")}
+		return &ValidationError{err: "permissions for the root dir \"/\" must be set"}
 	}
 	for dir, perms := range user.Permissions {
 		if len(perms) == 0 && dir == "/" {
