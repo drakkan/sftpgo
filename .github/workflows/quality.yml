@@ -12,21 +12,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - name: Set up Go 1.13
-      uses: actions/setup-go@v1
+    - name: Set up Go 1.14
+      uses: actions/setup-go@v2
       with:
-        go-version: 1.13
+        go-version: 1.14.x
       id: go
 
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
 
-    - name: Add GOPATH to PATH
-      run: echo "::add-path::$(go env GOPATH)/bin"
-      shell: bash
-
     - name: Install golangci-lint
       run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.25.1
 
     - name: Run golangci-lint
-      run: golangci-lint run --timeout=2m --tests=false --enable=goconst,gofmt,goimports,golint,unconvert,unparam,bodyclose,gocyclo,misspell,maligned,whitespace,dupl,scopelint
+      run: golangci-lint run --timeout=3m --tests=false --enable=goconst,gofmt,goimports,golint,unconvert,unparam,bodyclose,gocyclo,misspell,maligned,whitespace,dupl,scopelint
