@@ -126,17 +126,17 @@ func (p PGSQLProvider) initializeDatabase() error {
 	}
 	_, err = tx.Exec(sqlUsers)
 	if err != nil {
-		tx.Rollback()
+		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	_, err = tx.Exec(pgsqlSchemaTableSQL)
 	if err != nil {
-		tx.Rollback()
+		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	_, err = tx.Exec(initialDBVersionSQL)
 	if err != nil {
-		tx.Rollback()
+		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	return tx.Commit()
@@ -184,12 +184,12 @@ func updatePGSQLDatabase(dbHandle *sql.DB, sql string, newVersion int) error {
 	}
 	_, err = tx.Exec(sql)
 	if err != nil {
-		tx.Rollback()
+		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	err = sqlCommonUpdateDatabaseVersionWithTX(tx, newVersion)
 	if err != nil {
-		tx.Rollback()
+		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	return tx.Commit()

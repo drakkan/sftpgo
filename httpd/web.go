@@ -152,7 +152,7 @@ func renderMessagePage(w http.ResponseWriter, title, body string, statusCode int
 }
 
 func renderInternalServerErrorPage(w http.ResponseWriter, err error) {
-	renderMessagePage(w, page500Title, page400Title, http.StatusInternalServerError, err, "")
+	renderMessagePage(w, page500Title, page500Body, http.StatusInternalServerError, err, "")
 }
 
 func renderBadRequestPage(w http.ResponseWriter, err error) {

@@ -62,7 +62,7 @@ func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge
 			lock:   new(sync.Mutex)})
 		consoleLogger = zerolog.Nop()
 	}
-	logger.Level(level)
+	logger = logger.Level(level)
 }
 
 // DisableLogger disable the main logger.
@@ -93,7 +93,6 @@ func Log(level LogLevel, sender string, connectionID string, format string, v ..
 	default:
 		Error(sender, connectionID, format, v...)
 	}
-
 }
 
 // Debug logs at debug level for the specified sender

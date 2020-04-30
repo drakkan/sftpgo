@@ -3,7 +3,6 @@ package sftpd
 import (
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -29,8 +28,7 @@ const (
 )
 
 var (
-	sftpExtensions            = []string{"posix-rename@openssh.com"}
-	errWrongProxyProtoVersion = errors.New("unacceptable proxy protocol version")
+	sftpExtensions = []string{"posix-rename@openssh.com"}
 )
 
 // Configuration for the SFTP server
@@ -184,10 +182,11 @@ func (c Configuration) Initialize(configDir string) error {
 		return err
 	}
 
+	sftp.SetSFTPExtensions(sftpExtensions...) //nolint:errcheck // we configure valid SFTP Extensions so we cannot get an error
+
 	c.configureSecurityOptions(serverConfig)
 	c.configureKeyboardInteractiveAuth(serverConfig)
 	c.configureLoginBanner(serverConfig, configDir)
-	c.configureSFTPExtensions()
 	c.checkSSHCommands()
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", c.BindAddress, c.BindPort))
@@ -268,26 +267,23 @@ func (c Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig) 
 	}
 }
 
-func (c Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, configDir string) error {
-	var err error
+func (c Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, configDir string) {
 	if len(c.LoginBannerFile) > 0 {
 		bannerFilePath := c.LoginBannerFile
 		if !filepath.IsAbs(bannerFilePath) {
 			bannerFilePath = filepath.Join(configDir, bannerFilePath)
 		}
-		var bannerContent []byte
-		bannerContent, err = ioutil.ReadFile(bannerFilePath)
+		bannerContent, err := ioutil.ReadFile(bannerFilePath)
 		if err == nil {
 			banner := string(bannerContent)
 			serverConfig.BannerCallback = func(conn ssh.ConnMetadata) string {
-				return string(banner)
+				return banner
 			}
 		} else {
 			logger.WarnToConsole("unable to read login banner file: %v", err)
 			logger.Warn(logSender, "", "unable to read login banner file: %v", err)
 		}
 	}
-	return err
 }
 
 func (c Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.ServerConfig) {
@@ -319,21 +315,11 @@ func (c Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.Server
 	}
 }
 
-func (c Configuration) configureSFTPExtensions() error {
-	err := sftp.SetSFTPExtensions(sftpExtensions...)
-	if err != nil {
-		logger.WarnToConsole("unable to configure SFTP extensions: %v", err)
-		logger.Warn(logSender, "", "unable to configure SFTP extensions: %v", err)
-	}
-	return err
-}
-
 // AcceptInboundConnection handles an inbound connection to the server instance and determines if the request should be served or not.
 func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.ServerConfig) {
-
 	// Before beginning a handshake must be performed on the incoming net.Conn
 	// we'll set a Deadline for handshake to complete, the default is 2 minutes as OpenSSH
-	conn.SetDeadline(time.Now().Add(handshakeTimeout))
+	conn.SetDeadline(time.Now().Add(handshakeTimeout)) //nolint:errcheck
 	remoteAddr := conn.RemoteAddr()
 	sconn, chans, reqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
@@ -344,12 +330,12 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		return
 	}
 	// handshake completed so remove the deadline, we'll use IdleTimeout configuration from now on
-	conn.SetDeadline(time.Time{})
+	conn.SetDeadline(time.Time{}) //nolint:errcheck
 
 	var user dataprovider.User
 
 	// Unmarshal cannot fails here and even if it fails we'll have a user with no permissions
-	json.Unmarshal([]byte(sconn.Permissions.Extensions["user"]), &user)
+	json.Unmarshal([]byte(sconn.Permissions.Extensions["user"]), &user) //nolint:errcheck
 
 	loginType := sconn.Permissions.Extensions["login_method"]
 	connectionID := hex.EncodeToString(sconn.SessionID())
@@ -378,7 +364,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 
 	connection.Log(logger.LevelInfo, logSender, "User id: %d, logged in with: %#v, username: %#v, home_dir: %#v remote addr: %#v",
 		user.ID, loginType, user.Username, user.HomeDir, remoteAddr.String())
-	dataprovider.UpdateLastLogin(dataProvider, user)
+	dataprovider.UpdateLastLogin(dataProvider, user) //nolint:errcheck
 
 	go ssh.DiscardRequests(reqs)
 
@@ -387,7 +373,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		// know how to handle at this point.
 		if newChannel.ChannelType() != "session" {
 			connection.Log(logger.LevelDebug, logSender, "received an unknown channel type: %v", newChannel.ChannelType())
-			newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
+			newChannel.Reject(ssh.UnknownChannelType, "unknown channel type") //nolint:errcheck
 			continue
 		}
 
@@ -414,7 +400,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 				case "exec":
 					ok = processSSHCommand(req.Payload, &connection, channel, c.EnabledSSHCommands)
 				}
-				req.Reply(ok, nil)
+				req.Reply(ok, nil) //nolint:errcheck
 			}
 		}(requests)
 	}
@@ -441,7 +427,6 @@ func (c Configuration) handleSftpConnection(channel ssh.Channel, connection Conn
 }
 
 func (c Configuration) createHandler(connection Connection) sftp.Handlers {
-
 	return sftp.Handlers{
 		FileGet:  connection,
 		FilePut:  connection,

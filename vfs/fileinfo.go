@@ -11,7 +11,6 @@ type FileInfo struct {
 	sizeInBytes int64
 	modTime     time.Time
 	mode        os.FileMode
-	sys         interface{}
 }
 
 // NewFileInfo creates file info.

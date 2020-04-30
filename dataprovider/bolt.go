@@ -171,7 +171,13 @@ func (p BoltProvider) updateLastLogin(username string) error {
 		if err != nil {
 			return err
 		}
-		return bucket.Put([]byte(username), buf)
+		err = bucket.Put([]byte(username), buf)
+		if err == nil {
+			providerLog(logger.LevelDebug, "last login updated for user %#v", username)
+		} else {
+			providerLog(logger.LevelWarn, "error updating last login for user %#v: %v", username, err)
+		}
+		return err
 	})
 }
 
@@ -304,8 +310,7 @@ func (p BoltProvider) deleteUser(user User) error {
 
 func (p BoltProvider) dumpUsers() ([]User, error) {
 	users := []User{}
-	var err error
-	err = p.dbHandle.View(func(tx *bolt.Tx) error {
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
 		bucket, _, err := getBuckets(tx)
 		if err != nil {
 			return err

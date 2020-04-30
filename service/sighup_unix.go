@@ -18,8 +18,14 @@ func registerSigHup() {
 	go func() {
 		for range sig {
 			logger.Debug(logSender, "", "Received reload request")
-			dataprovider.ReloadConfig()
-			httpd.ReloadTLSCertificate()
+			err := dataprovider.ReloadConfig()
+			if err != nil {
+				logger.Warn(logSender, "", "error reloading dataprovider configuration: %v", err)
+			}
+			err = httpd.ReloadTLSCertificate()
+			if err != nil {
+				logger.Warn(logSender, "", "error reloading TLS certificate: %v", err)
+			}
 		}
 	}()
 }

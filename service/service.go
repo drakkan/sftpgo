@@ -37,10 +37,10 @@ type Service struct {
 	LogMaxSize    int
 	LogMaxBackups int
 	LogMaxAge     int
-	LogCompress   bool
-	LogVerbose    bool
 	PortableMode  int
 	PortableUser  dataprovider.User
+	LogCompress   bool
+	LogVerbose    bool
 	Profiler      bool
 	Shutdown      chan bool
 }
@@ -67,7 +67,10 @@ func (s *Service) Start() error {
 		s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogVerbose, s.LogCompress, s.Profiler)
 	// in portable mode we don't read configuration from file
 	if s.PortableMode != 1 {
-		config.LoadConfig(s.ConfigDir, s.ConfigFile)
+		err := config.LoadConfig(s.ConfigDir, s.ConfigFile)
+		if err != nil {
+			logger.Error(logSender, "", "error loading configuration: %v", err)
+		}
 	}
 	providerConf := config.GetProviderConf()
 
@@ -211,7 +214,6 @@ func (s *Service) StartPortableMode(sftpdPort int, enabledSSHCommands []string, 
 		} else {
 			logger.InfoToConsole("SFTP service advertised via multicast DNS")
 		}
-
 	}
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)

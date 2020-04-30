@@ -195,7 +195,7 @@ func (fs S3Fs) Open(name string) (*os.File, *pipeat.PipeReaderAt, func(), error)
 			Bucket: aws.String(fs.config.Bucket),
 			Key:    aws.String(key),
 		})
-		w.CloseWithError(err)
+		w.CloseWithError(err) //nolint:errcheck // the returned error is always null
 		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)
 		metrics.S3TransferCompleted(n, 1, err)
 	}()
@@ -222,7 +222,7 @@ func (fs S3Fs) Create(name string, flag int) (*os.File, *pipeat.PipeWriterAt, fu
 			u.Concurrency = fs.config.UploadConcurrency
 			u.PartSize = fs.config.UploadPartSize
 		})
-		r.CloseWithError(err)
+		r.CloseWithError(err) //nolint:errcheck // the returned error is always null
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, response: %v, readed bytes: %v, err: %+v",
 			name, response, r.GetReadedBytes(), err)
 		metrics.S3TransferCompleted(r.GetReadedBytes(), 0, err)
@@ -528,14 +528,4 @@ func (fs *S3Fs) checkIfBucketExists() error {
 	})
 	metrics.S3HeadBucketCompleted(err)
 	return err
-}
-
-func (fs *S3Fs) getObjectDetails(key string) (*s3.HeadObjectOutput, error) {
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-	defer cancelFn()
-	input := &s3.HeadObjectInput{
-		Bucket: aws.String(fs.config.Bucket),
-		Key:    aws.String(key),
-	}
-	return fs.svc.HeadObjectWithContext(ctx, input)
 }

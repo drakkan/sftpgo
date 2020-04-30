@@ -504,7 +504,7 @@ func AddUser(p Provider, user User) error {
 	}
 	err := p.addUser(user)
 	if err == nil {
-		go executeAction(operationAdd, user)
+		go executeAction(operationAdd, user) //nolint:errcheck // the error is used in test cases only
 	}
 	return err
 }
@@ -517,7 +517,7 @@ func UpdateUser(p Provider, user User) error {
 	}
 	err := p.updateUser(user)
 	if err == nil {
-		go executeAction(operationUpdate, user)
+		go executeAction(operationUpdate, user) //nolint:errcheck // the error is used in test cases only
 	}
 	return err
 }
@@ -530,7 +530,7 @@ func DeleteUser(p Provider, user User) error {
 	}
 	err := p.deleteUser(user)
 	if err == nil {
-		go executeAction(operationDelete, user)
+		go executeAction(operationDelete, user) //nolint:errcheck // the error is used in test cases only
 	}
 	return err
 }
@@ -1127,7 +1127,10 @@ func terminateInteractiveAuthProgram(cmd *exec.Cmd, isFinished bool) {
 		return
 	}
 	providerLog(logger.LevelInfo, "kill interactive auth program after an unexpected error")
-	cmd.Process.Kill()
+	err := cmd.Process.Kill()
+	if err != nil {
+		providerLog(logger.LevelDebug, "error killing interactive auth program: %v", err)
+	}
 }
 
 func validateKeyboardAuthResponse(response keyboardAuthHookResponse) error {
@@ -1298,7 +1301,12 @@ func executeKeyboardInteractiveProgram(user User, authHook string, client ssh.Ke
 	}
 	stdin.Close()
 	once.Do(func() { terminateInteractiveAuthProgram(cmd, true) })
-	go cmd.Process.Wait()
+	go func() {
+		_, err := cmd.Process.Wait()
+		if err != nil {
+			providerLog(logger.LevelWarn, "error waiting for #%v process to exit: %v", authHook, err)
+		}
+	}()
 
 	return authResult, err
 }
@@ -1461,7 +1469,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 	var user User
 	pkey := ""
 	if len(pubKey) > 0 {
-		k, err := ssh.ParsePublicKey([]byte(pubKey))
+		k, err := ssh.ParsePublicKey(pubKey)
 		if err != nil {
 			return user, err
 		}
@@ -1535,9 +1543,9 @@ func executeAction(operation string, user User) {
 		// we are in a goroutine but if we have to send an HTTP notification we don't want to wait for the
 		// end of the command
 		if len(config.Actions.HTTPNotificationURL) > 0 {
-			go executeNotificationCommand(operation, user)
+			go executeNotificationCommand(operation, user) //nolint:errcheck // the error is used in test cases only
 		} else {
-			executeNotificationCommand(operation, user)
+			executeNotificationCommand(operation, user) //nolint:errcheck // the error is used in test cases only
 		}
 	}
 	if len(config.Actions.HTTPNotificationURL) > 0 {

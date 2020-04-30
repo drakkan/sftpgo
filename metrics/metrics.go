@@ -6,6 +6,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
+const (
+	loginMethodPublicKey           = "publickey"
+	loginMethodKeyboardInteractive = "keyboard-interactive"
+	loginMethodKeyAndPassword      = "publickey+password"
+	loginMethodKeyAndKeyboardInt   = "publickey+keyboard-interactive"
+)
+
 var (
 	// dataproviderAvailability is the metric that reports the availability for the configured data provider
 	dataproviderAvailability = promauto.NewGauge(prometheus.GaugeOpts{
@@ -536,13 +543,13 @@ func UpdateDataProviderAvailability(err error) {
 func AddLoginAttempt(authMethod string) {
 	totalLoginAttempts.Inc()
 	switch authMethod {
-	case "publickey":
+	case loginMethodPublicKey:
 		totalKeyLoginAttempts.Inc()
-	case "keyboard-interactive":
+	case loginMethodKeyboardInteractive:
 		totalInteractiveLoginAttempts.Inc()
-	case "publickey+password":
+	case loginMethodKeyAndPassword:
 		totalKeyAndPasswordLoginAttempts.Inc()
-	case "publickey+keyboard-interactive":
+	case loginMethodKeyAndKeyboardInt:
 		totalKeyAndKeyIntLoginAttempts.Inc()
 	default:
 		totalPasswordLoginAttempts.Inc()
@@ -554,13 +561,13 @@ func AddLoginResult(authMethod string, err error) {
 	if err == nil {
 		totalLoginOK.Inc()
 		switch authMethod {
-		case "publickey":
+		case loginMethodPublicKey:
 			totalKeyLoginOK.Inc()
-		case "keyboard-interactive":
+		case loginMethodKeyboardInteractive:
 			totalInteractiveLoginOK.Inc()
-		case "publickey+password":
+		case loginMethodKeyAndPassword:
 			totalKeyAndPasswordLoginOK.Inc()
-		case "publickey+keyboard-interactive":
+		case loginMethodKeyAndKeyboardInt:
 			totalKeyAndKeyIntLoginOK.Inc()
 		default:
 			totalPasswordLoginOK.Inc()
@@ -568,13 +575,13 @@ func AddLoginResult(authMethod string, err error) {
 	} else {
 		totalLoginFailed.Inc()
 		switch authMethod {
-		case "publickey":
+		case loginMethodPublicKey:
 			totalKeyLoginFailed.Inc()
-		case "keyboard-interactive":
+		case loginMethodKeyboardInteractive:
 			totalInteractiveLoginFailed.Inc()
-		case "publickey+password":
+		case loginMethodKeyAndPassword:
 			totalKeyAndPasswordLoginFailed.Inc()
-		case "publickey+keyboard-interactive":
+		case loginMethodKeyAndKeyboardInt:
 			totalKeyAndKeyIntLoginFailed.Inc()
 		default:
 			totalPasswordLoginFailed.Inc()

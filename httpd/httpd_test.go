@@ -181,6 +181,10 @@ func TestInitialization(t *testing.T) {
 	if err == nil {
 		t.Error("Inizialize must fail")
 	}
+	err = httpd.ReloadTLSCertificate()
+	if err != nil {
+		t.Error("realoding TLS Certificate must return nil error if no certificate is configured")
+	}
 }
 
 func TestBasicUserHandling(t *testing.T) {
@@ -1102,6 +1106,11 @@ func TestDumpdata(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		os.Chmod(backupsPath, 0001)
 		_, _, err = httpd.Dumpdata("bck.json", "", http.StatusInternalServerError)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		// subdir cannot be created
+		_, _, err = httpd.Dumpdata(filepath.Join("subdir", "bck.json"), "", http.StatusInternalServerError)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/drakkan/sftpgo/service"
 	"github.com/drakkan/sftpgo/utils"
@@ -50,4 +51,43 @@ Please take a look at the usage below to customize the startup options`,
 func init() {
 	serviceCmd.AddCommand(installCmd)
 	addServeFlags(installCmd)
+}
+
+func getCustomServeFlags() []string {
+	result := []string{}
+	if configDir != defaultConfigDir {
+		configDir = utils.CleanDirInput(configDir)
+		result = append(result, "--"+configDirFlag)
+		result = append(result, configDir)
+	}
+	if configFile != defaultConfigName {
+		result = append(result, "--"+configFileFlag)
+		result = append(result, configFile)
+	}
+	if logFilePath != defaultLogFile {
+		result = append(result, "--"+logFilePathFlag)
+		result = append(result, logFilePath)
+	}
+	if logMaxSize != defaultLogMaxSize {
+		result = append(result, "--"+logMaxSizeFlag)
+		result = append(result, strconv.Itoa(logMaxSize))
+	}
+	if logMaxBackups != defaultLogMaxBackup {
+		result = append(result, "--"+logMaxBackupFlag)
+		result = append(result, strconv.Itoa(logMaxBackups))
+	}
+	if logMaxAge != defaultLogMaxAge {
+		result = append(result, "--"+logMaxAgeFlag)
+		result = append(result, strconv.Itoa(logMaxAge))
+	}
+	if logVerbose != defaultLogVerbose {
+		result = append(result, "--"+logVerboseFlag+"=false")
+	}
+	if logCompress != defaultLogCompress {
+		result = append(result, "--"+logCompressFlag+"=true")
+	}
+	if profiler != defaultProfiler {
+		result = append(result, "--"+profilerFlag+"=true")
+	}
+	return result
 }

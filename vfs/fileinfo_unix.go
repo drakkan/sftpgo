@@ -2,9 +2,10 @@
 
 package vfs
 
-import "syscall"
-
-import "os"
+import (
+	"os"
+	"syscall"
+)
 
 var (
 	defaultUID, defaultGID int
