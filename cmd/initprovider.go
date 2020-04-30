@@ -34,6 +34,7 @@ Please take a look at the usage below to customize the options.`,
 			err := config.LoadConfig(configDir, configFile)
 			if err != nil {
 				logger.WarnToConsole("Unable to initialize data provider, config load error: %v", err)
+				return
 			}
 			providerConf := config.GetProviderConf()
 			logger.DebugToConsole("Initializing provider: %#v config file: %#v", providerConf.Driver, viper.ConfigFileUsed())
