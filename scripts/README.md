@@ -140,7 +140,7 @@ Output:
 Command:
 
 ```
-python sftpgo_api_cli.py update-user 9576 test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 0 --gid 33 --max-sessions 3 --quota-size 0 --quota-files 4 --permissions "*" --subdirs-permissions "/dir1::list,download,create_symlinks" --upload-bandwidth 90 --download-bandwidth 80 --status 1 --expiration-date "" --allowed-ip "" --denied-ip "192.168.1.0/24" --denied-login-methods "" --fs local --virtual-folders "/vdir1::/tmp/mapped1" "/vdir2::/tmp/mapped2" --allowed-extensions "" --denied-extensions ""
+python sftpgo_api_cli.py update-user 9576 test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 0 --gid 33 --max-sessions 3 --quota-size 0 --quota-files 4 --permissions "*" --subdirs-permissions "/dir1::list,download,create_symlinks" --upload-bandwidth 90 --download-bandwidth 80 --status 1 --expiration-date "" --allowed-ip "" --denied-ip "192.168.1.0/24" --denied-login-methods "" --fs local --virtual-folders "/vdir1::/tmp/mapped1" "/vdir2::/tmp/mapped2::1" --allowed-extensions "" --denied-extensions ""
 ```
 
 Output:
@@ -203,10 +203,12 @@ Output:
   "username": "test_username",
   "virtual_folders": [
     {
+      "exclude_from_quota": false,
       "mapped_path": "/tmp/mapped1",
       "virtual_path": "/vdir1"
     },
     {
+      "exclude_from_quota": true,
       "mapped_path": "/tmp/mapped2",
       "virtual_path": "/vdir2"
     }
@@ -265,10 +267,12 @@ Output:
     "username": "test_username",
     "virtual_folders": [
       {
+        "exclude_from_quota": false,
         "mapped_path": "/tmp/mapped1",
         "virtual_path": "/vdir1"
       },
       {
+        "exclude_from_quota": true,
         "mapped_path": "/tmp/mapped2",
         "virtual_path": "/vdir2"
       }

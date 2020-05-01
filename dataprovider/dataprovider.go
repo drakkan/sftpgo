@@ -652,8 +652,9 @@ func validateVirtualFolders(user *User) error {
 				v.MappedPath, user.GetHomeDir())}
 		}
 		virtualFolders = append(virtualFolders, vfs.VirtualFolder{
-			VirtualPath: cleanedVPath,
-			MappedPath:  cleanedMPath,
+			VirtualPath:      cleanedVPath,
+			MappedPath:       cleanedMPath,
+			ExcludeFromQuota: v.ExcludeFromQuota,
 		})
 		for k, virtual := range mappedPaths {
 			if isMappedDirOverlapped(k, cleanedMPath) {

@@ -196,10 +196,17 @@ func getVirtualFoldersFromPostFields(r *http.Request) []vfs.VirtualFolder {
 		if strings.Contains(cleaned, "::") {
 			mapping := strings.Split(cleaned, "::")
 			if len(mapping) > 1 {
-				virtualFolders = append(virtualFolders, vfs.VirtualFolder{
+				vfolder := vfs.VirtualFolder{
 					VirtualPath: strings.TrimSpace(mapping[0]),
 					MappedPath:  strings.TrimSpace(mapping[1]),
-				})
+				}
+				if len(mapping) > 2 {
+					excludeFromQuota, err := strconv.Atoi(strings.TrimSpace(mapping[2]))
+					if err == nil {
+						vfolder.ExcludeFromQuota = (excludeFromQuota > 0)
+					}
+				}
+				virtualFolders = append(virtualFolders, vfolder)
 			}
 		}
 	}

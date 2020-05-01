@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 1.8.4
+  version: 1.8.5
 
 servers:
 - url: /api/v1
@@ -1077,6 +1077,10 @@ components:
           type: string
         mapped_path:
           type: string
+        exclude_from_quota:
+          type: boolean
+          nullable: true
+          description: This folder will be excluded from user quota
       required:
         - virtual_path
         - mapped_path

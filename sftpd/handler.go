@@ -75,25 +75,26 @@ func (c Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 	c.Log(logger.LevelDebug, logSender, "fileread requested for path: %#v", p)
 
 	transfer := Transfer{
-		file:           file,
-		readerAt:       r,
-		writerAt:       nil,
-		cancelFn:       cancelFn,
-		path:           p,
-		start:          time.Now(),
-		bytesSent:      0,
-		bytesReceived:  0,
-		user:           c.User,
-		connectionID:   c.ID,
-		transferType:   transferDownload,
-		lastActivity:   time.Now(),
-		isNewFile:      false,
-		protocol:       c.protocol,
-		transferError:  nil,
-		isFinished:     false,
-		minWriteOffset: 0,
-		expectedSize:   fi.Size(),
-		lock:           new(sync.Mutex),
+		file:                file,
+		readerAt:            r,
+		writerAt:            nil,
+		cancelFn:            cancelFn,
+		path:                p,
+		start:               time.Now(),
+		bytesSent:           0,
+		bytesReceived:       0,
+		user:                c.User,
+		connectionID:        c.ID,
+		transferType:        transferDownload,
+		lastActivity:        time.Now(),
+		isNewFile:           false,
+		protocol:            c.protocol,
+		transferError:       nil,
+		isFinished:          false,
+		minWriteOffset:      0,
+		expectedSize:        fi.Size(),
+		isExcludedFromQuota: c.User.IsFileExcludedFromQuota(request.Filepath),
+		lock:                new(sync.Mutex),
 	}
 	addTransfer(&transfer)
 	return &transfer, nil
@@ -123,7 +124,7 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 		if !c.User.HasPerm(dataprovider.PermUpload, path.Dir(request.Filepath)) {
 			return nil, sftp.ErrSSHFxPermissionDenied
 		}
-		return c.handleSFTPUploadToNewFile(p, filePath)
+		return c.handleSFTPUploadToNewFile(p, filePath, c.User.IsFileExcludedFromQuota(request.Filepath))
 	}
 
 	if statErr != nil {
@@ -141,7 +142,8 @@ func (c Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 		return nil, sftp.ErrSSHFxPermissionDenied
 	}
 
-	return c.handleSFTPUploadToExistingFile(request.Pflags(), p, filePath, stat.Size())
+	return c.handleSFTPUploadToExistingFile(request.Pflags(), p, filePath, stat.Size(),
+		c.User.IsFileExcludedFromQuota(request.Filepath))
 }
 
 // Filecmd hander for basic SFTP system calls related to files, but not anything to do with reading
@@ -437,14 +439,16 @@ func (c Connection) handleSFTPRemove(filePath string, request *sftp.Request) err
 
 	logger.CommandLog(removeLogSender, filePath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "")
 	if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
-		dataprovider.UpdateUserQuota(dataProvider, c.User, -1, -size, false) //nolint:errcheck
+		if !c.User.IsFileExcludedFromQuota(request.Filepath) {
+			dataprovider.UpdateUserQuota(dataProvider, c.User, -1, -size, false) //nolint:errcheck
+		}
 	}
 	go executeAction(newActionNotification(c.User, operationDelete, filePath, "", "", fi.Size(), nil)) //nolint:errcheck
 
 	return sftp.ErrSSHFxOk
 }
 
-func (c Connection) handleSFTPUploadToNewFile(requestPath, filePath string) (io.WriterAt, error) {
+func (c Connection) handleSFTPUploadToNewFile(requestPath, filePath string, isExcludedFromQuota bool) (io.WriterAt, error) {
 	if !c.hasSpace(true) {
 		c.Log(logger.LevelInfo, logSender, "denying file write due to space limit")
 		return nil, sftp.ErrSSHFxFailure
@@ -459,31 +463,32 @@ func (c Connection) handleSFTPUploadToNewFile(requestPath, filePath string) (io.
 	vfs.SetPathPermissions(c.fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	transfer := Transfer{
-		file:           file,
-		writerAt:       w,
-		readerAt:       nil,
-		cancelFn:       cancelFn,
-		path:           requestPath,
-		start:          time.Now(),
-		bytesSent:      0,
-		bytesReceived:  0,
-		user:           c.User,
-		connectionID:   c.ID,
-		transferType:   transferUpload,
-		lastActivity:   time.Now(),
-		isNewFile:      true,
-		protocol:       c.protocol,
-		transferError:  nil,
-		isFinished:     false,
-		minWriteOffset: 0,
-		lock:           new(sync.Mutex),
+		file:                file,
+		writerAt:            w,
+		readerAt:            nil,
+		cancelFn:            cancelFn,
+		path:                requestPath,
+		start:               time.Now(),
+		bytesSent:           0,
+		bytesReceived:       0,
+		user:                c.User,
+		connectionID:        c.ID,
+		transferType:        transferUpload,
+		lastActivity:        time.Now(),
+		isNewFile:           true,
+		protocol:            c.protocol,
+		transferError:       nil,
+		isFinished:          false,
+		minWriteOffset:      0,
+		isExcludedFromQuota: isExcludedFromQuota,
+		lock:                new(sync.Mutex),
 	}
 	addTransfer(&transfer)
 	return &transfer, nil
 }
 
 func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, requestPath, filePath string,
-	fileSize int64) (io.WriterAt, error) {
+	fileSize int64, isExcludedFromQuota bool) (io.WriterAt, error) {
 	var err error
 	if !c.hasSpace(false) {
 		c.Log(logger.LevelInfo, logSender, "denying file write due to space limit")
@@ -520,7 +525,9 @@ func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, re
 		minWriteOffset = fileSize
 	} else {
 		if vfs.IsLocalOsFs(c.fs) {
-			dataprovider.UpdateUserQuota(dataProvider, c.User, 0, -fileSize, false) //nolint:errcheck
+			if !isExcludedFromQuota {
+				dataprovider.UpdateUserQuota(dataProvider, c.User, 0, -fileSize, false) //nolint:errcheck
+			}
 		} else {
 			initialSize = fileSize
 		}
@@ -529,25 +536,26 @@ func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, re
 	vfs.SetPathPermissions(c.fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	transfer := Transfer{
-		file:           file,
-		writerAt:       w,
-		readerAt:       nil,
-		cancelFn:       cancelFn,
-		path:           requestPath,
-		start:          time.Now(),
-		bytesSent:      0,
-		bytesReceived:  0,
-		user:           c.User,
-		connectionID:   c.ID,
-		transferType:   transferUpload,
-		lastActivity:   time.Now(),
-		isNewFile:      false,
-		protocol:       c.protocol,
-		transferError:  nil,
-		isFinished:     false,
-		minWriteOffset: minWriteOffset,
-		initialSize:    initialSize,
-		lock:           new(sync.Mutex),
+		file:                file,
+		writerAt:            w,
+		readerAt:            nil,
+		cancelFn:            cancelFn,
+		path:                requestPath,
+		start:               time.Now(),
+		bytesSent:           0,
+		bytesReceived:       0,
+		user:                c.User,
+		connectionID:        c.ID,
+		transferType:        transferUpload,
+		lastActivity:        time.Now(),
+		isNewFile:           false,
+		protocol:            c.protocol,
+		transferError:       nil,
+		isFinished:          false,
+		minWriteOffset:      minWriteOffset,
+		initialSize:         initialSize,
+		isExcludedFromQuota: isExcludedFromQuota,
+		lock:                new(sync.Mutex),
 	}
 	addTransfer(&transfer)
 	return &transfer, nil

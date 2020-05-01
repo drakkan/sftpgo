@@ -423,7 +423,7 @@ func TestMockFsErrors(t *testing.T) {
 	flags.Write = true
 	flags.Trunc = false
 	flags.Append = true
-	_, err = c.handleSFTPUploadToExistingFile(flags, testfile, testfile, 0)
+	_, err = c.handleSFTPUploadToExistingFile(flags, testfile, testfile, 0, false)
 	if err != sftp.ErrSSHFxOpUnsupported {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -439,12 +439,12 @@ func TestUploadFiles(t *testing.T) {
 	var flags sftp.FileOpenFlags
 	flags.Write = true
 	flags.Trunc = true
-	_, err := c.handleSFTPUploadToExistingFile(flags, "missing_path", "other_missing_path", 0)
+	_, err := c.handleSFTPUploadToExistingFile(flags, "missing_path", "other_missing_path", 0, false)
 	if err == nil {
 		t.Errorf("upload to existing file must fail if one or both paths are invalid")
 	}
 	uploadMode = uploadModeStandard
-	_, err = c.handleSFTPUploadToExistingFile(flags, "missing_path", "other_missing_path", 0)
+	_, err = c.handleSFTPUploadToExistingFile(flags, "missing_path", "other_missing_path", 0, false)
 	if err == nil {
 		t.Errorf("upload to existing file must fail if one or both paths are invalid")
 	}
@@ -452,14 +452,14 @@ func TestUploadFiles(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		missingFile = "missing\\relative\\file.txt"
 	}
-	_, err = c.handleSFTPUploadToNewFile(".", missingFile)
+	_, err = c.handleSFTPUploadToNewFile(".", missingFile, false)
 	if err == nil {
 		t.Errorf("upload new file in missing path must fail")
 	}
 	c.fs = newMockOsFs(nil, nil, false, "123", os.TempDir())
 	f, _ := ioutil.TempFile("", "temp")
 	f.Close()
-	_, err = c.handleSFTPUploadToExistingFile(flags, f.Name(), f.Name(), 123)
+	_, err = c.handleSFTPUploadToExistingFile(flags, f.Name(), f.Name(), 123, false)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -1437,7 +1437,7 @@ func TestSCPErrorsMockFs(t *testing.T) {
 	if err != errFake {
 		t.Errorf("unexpected error: %v", err)
 	}
-	err = scpCommand.handleUploadFile(testfile, testfile, 0, false, 4)
+	err = scpCommand.handleUploadFile(testfile, testfile, 0, false, 4, false)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

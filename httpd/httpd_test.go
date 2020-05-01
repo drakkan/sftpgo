@@ -183,7 +183,7 @@ func TestInitialization(t *testing.T) {
 	}
 	err = httpd.ReloadTLSCertificate()
 	if err != nil {
-		t.Error("realoding TLS Certificate must return nil error if no certificate is configured")
+		t.Error("reloading TLS Certificate must return nil error if no certificate is configured")
 	}
 }
 
@@ -628,8 +628,9 @@ func TestUpdateUser(t *testing.T) {
 		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir1"),
 	})
 	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
-		VirtualPath: "/vdir12/subdir",
-		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir2"),
+		VirtualPath:      "/vdir12/subdir",
+		MappedPath:       filepath.Join(os.TempDir(), "mapped_dir2"),
+		ExcludeFromQuota: true,
 	})
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
 	if err != nil {
@@ -1793,7 +1794,7 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("expiration_date", "")
 	form.Set("permissions", "*")
 	form.Set("sub_dirs_permissions", " /subdir::list ,download ")
-	form.Set("virtual_folders", fmt.Sprintf(" /vdir:: %v ", mappedDir))
+	form.Set("virtual_folders", fmt.Sprintf(" /vdir:: %v ::1", mappedDir))
 	form.Set("allowed_extensions", "/dir1::.jpg,.png")
 	form.Set("denied_extensions", "/dir1::.zip")
 	b, contentType, _ := getMultipartFormData(form, "", "")
@@ -1899,10 +1900,7 @@ func TestWebUserAddMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	var users []dataprovider.User
-	err := render.DecodeJSON(rr.Body, &users)
-	if err != nil {
-		t.Errorf("Error decoding users: %v", err)
-	}
+	render.DecodeJSON(rr.Body, &users)
 	if len(users) != 1 {
 		t.Errorf("1 user is expected, actual: %v", len(users))
 	}
@@ -1928,7 +1926,7 @@ func TestWebUserAddMock(t *testing.T) {
 	}
 	vfolderFoumd := false
 	for _, v := range newUser.VirtualFolders {
-		if v.VirtualPath == "/vdir" && v.MappedPath == mappedDir {
+		if v.VirtualPath == "/vdir" && v.MappedPath == mappedDir && v.ExcludeFromQuota == true {
 			vfolderFoumd = true
 		}
 	}

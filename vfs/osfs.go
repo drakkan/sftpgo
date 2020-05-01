@@ -174,6 +174,9 @@ func (fs OsFs) CheckRootPath(username string, uid int, gid int) bool {
 func (fs OsFs) ScanRootDirContents() (int, int64, error) {
 	numFiles, size, err := fs.getDirSize(fs.rootDir)
 	for _, v := range fs.virtualFolders {
+		if v.ExcludeFromQuota {
+			continue
+		}
 		num, s, err := fs.getDirSize(v.MappedPath)
 		if err != nil {
 			if fs.IsNotExist(err) {

@@ -191,6 +191,22 @@ func (u *User) GetPermissionsForPath(p string) []string {
 	return permissions
 }
 
+// IsFileExcludedFromQuota returns true if the file must be excluded from quota usage
+func (u *User) IsFileExcludedFromQuota(sftpPath string) bool {
+	if len(u.VirtualFolders) == 0 || u.FsConfig.Provider != 0 {
+		return false
+	}
+	dirsForPath := utils.GetDirsForSFTPPath(path.Dir(sftpPath))
+	for _, val := range dirsForPath {
+		for _, v := range u.VirtualFolders {
+			if v.VirtualPath == val {
+				return v.ExcludeFromQuota
+			}
+		}
+	}
+	return false
+}
+
 // AddVirtualDirs adds virtual folders, if defined, to the given files list
 func (u *User) AddVirtualDirs(list []os.FileInfo, sftpPath string) []os.FileInfo {
 	if len(u.VirtualFolders) == 0 {

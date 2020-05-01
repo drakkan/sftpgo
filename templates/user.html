@@ -124,10 +124,10 @@
         <div class="col-sm-10">
             <textarea class="form-control" id="idVirtualFolders" name="virtual_folders" rows="3"
                 aria-describedby="vfHelpBlock">{{range $index, $mapping := .User.VirtualFolders -}}
-                {{$mapping.VirtualPath}}::{{$mapping.MappedPath}}&#10;
+                {{$mapping.VirtualPath}}::{{$mapping.MappedPath}}{{if $mapping.ExcludeFromQuota}}::1{{end}}&#10;
                 {{- end}}</textarea>
             <small id="vfHelpBlock" class="form-text text-muted">
-                One mapping per line as vpath::path, for example /vdir::/home/adir or /vdir::C:\adir, ignored for non local filesystems
+                One mapping per line as vpath::path::[exclude_from_quota], for example /vdir::/home/adir or /vdir::C:\adir::1, ignored for non local filesystems
             </small>
         </div>
     </div>

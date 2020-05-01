@@ -2449,15 +2449,13 @@ func TestVirtualFoldersQuota(t *testing.T) {
 		MappedPath:  mappedPath1,
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
-		VirtualPath: vdirPath2,
-		MappedPath:  mappedPath2,
+		VirtualPath:      vdirPath2,
+		MappedPath:       mappedPath2,
+		ExcludeFromQuota: true,
 	})
 	os.MkdirAll(mappedPath1, 0777)
 	os.MkdirAll(mappedPath2, 0777)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to add user: %v", err)
-	}
+	user, _, _ := httpd.AddUser(u, http.StatusOK)
 	client, err := getSftpClient(user, usePubKey)
 	if err != nil {
 		t.Errorf("unable to create sftp client: %v", err)
@@ -2482,8 +2480,26 @@ func TestVirtualFoldersQuota(t *testing.T) {
 		if err != nil {
 			t.Errorf("file upload error: %v", err)
 		}
-		expectedQuotaFiles := 3
-		expectedQuotaSize := testFileSize * 3
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, testFileName), testFileSize, client)
+		if err != nil {
+			t.Errorf("file upload error: %v", err)
+		}
+		expectedQuotaFiles := 2
+		expectedQuotaSize := testFileSize * 2
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		if err != nil {
+			t.Errorf("error getting user: %v", err)
+		}
+		if expectedQuotaFiles != user.UsedQuotaFiles {
+			t.Errorf("quota files does not match, expected: %v, actual: %v", expectedQuotaFiles, user.UsedQuotaFiles)
+		}
+		if expectedQuotaSize != user.UsedQuotaSize {
+			t.Errorf("quota size does not match, expected: %v, actual: %v", expectedQuotaSize, user.UsedQuotaSize)
+		}
+		err = client.Remove(path.Join(vdirPath2, testFileName))
+		if err != nil {
+			t.Errorf("unexpected error removing uploaded file: %v", err)
+		}
 		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
 		if err != nil {
 			t.Errorf("error getting user: %v", err)
@@ -3878,6 +3894,52 @@ func TestResolveVirtualPaths(t *testing.T) {
 	}
 }
 
+func TestVirtualFoldersExcludeQuota(t *testing.T) {
+	user := getTestUser(true)
+	mappedPath := filepath.Join(os.TempDir(), "vdir")
+	vdirPath := "/vdir/sub"
+	vSubDirPath := path.Join(vdirPath, "subdir", "subdir")
+	vSubDir1Path := path.Join(vSubDirPath, "subdir", "subdir")
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath:      vdirPath,
+		MappedPath:       mappedPath,
+		ExcludeFromQuota: false,
+	})
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath:      vSubDir1Path,
+		MappedPath:       mappedPath,
+		ExcludeFromQuota: false,
+	})
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath:      vSubDirPath,
+		MappedPath:       mappedPath,
+		ExcludeFromQuota: true,
+	})
+
+	if user.IsFileExcludedFromQuota("/file") {
+		t.Errorf("unexpected file excluded from quota")
+	}
+	if user.IsFileExcludedFromQuota(path.Join(vdirPath, "file")) {
+		t.Errorf("unexpected file excluded from quota")
+	}
+	if !user.IsFileExcludedFromQuota(path.Join(vSubDirPath, "file")) {
+		t.Errorf("unexpected file included in quota")
+	}
+	if !user.IsFileExcludedFromQuota(path.Join(vSubDir1Path, "..", "file")) {
+		t.Errorf("unexpected file included in quota")
+	}
+	if user.IsFileExcludedFromQuota(path.Join(vSubDir1Path, "file")) {
+		t.Errorf("unexpected file excluded from quota")
+	}
+	if user.IsFileExcludedFromQuota(path.Join(vSubDirPath, "..", "file")) {
+		t.Errorf("unexpected file excluded from quota")
+	}
+	// we check the parent dir for a file
+	if user.IsFileExcludedFromQuota(vSubDirPath) {
+		t.Errorf("unexpected file excluded from quota")
+	}
+}
+
 func TestUserPerms(t *testing.T) {
 	user := getTestUser(true)
 	user.Permissions = make(map[string][]string)
@@ -4717,6 +4779,86 @@ func TestSCPVirtualFolders(t *testing.T) {
 	os.RemoveAll(testBaseDirDownPath)
 	os.RemoveAll(user.GetHomeDir())
 	os.RemoveAll(mappedPath)
+}
+
+func TestSCPVirtualFoldersQuota(t *testing.T) {
+	if len(scpPath) == 0 {
+		t.Skip("scp command not found, unable to execute this test")
+	}
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.QuotaFiles = 100
+	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	vdirPath1 := "/vdir1"
+	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	vdirPath2 := "/vdir2"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath: vdirPath1,
+		MappedPath:  mappedPath1,
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		VirtualPath:      vdirPath2,
+		MappedPath:       mappedPath2,
+		ExcludeFromQuota: true,
+	})
+	os.MkdirAll(mappedPath1, 0777)
+	os.MkdirAll(mappedPath2, 0777)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to add user: %v", err)
+	}
+	testFileName := "test_file.dat"
+	testBaseDirName := "test_dir"
+	testBaseDirPath := filepath.Join(homeBasePath, testBaseDirName)
+	testBaseDirDownName := "test_dir_down"
+	testBaseDirDownPath := filepath.Join(homeBasePath, testBaseDirDownName)
+	testFilePath := filepath.Join(homeBasePath, testBaseDirName, testFileName)
+	testFilePath1 := filepath.Join(homeBasePath, testBaseDirName, testBaseDirName, testFileName)
+	testFileSize := int64(131074)
+	createTestFile(testFilePath, testFileSize)
+	createTestFile(testFilePath1, testFileSize)
+	remoteDownPath1 := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join("/", vdirPath1))
+	remoteUpPath1 := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, vdirPath1)
+	remoteDownPath2 := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join("/", vdirPath2))
+	remoteUpPath2 := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, vdirPath2)
+	err = scpUpload(testBaseDirPath, remoteUpPath1, true, false)
+	if err != nil {
+		t.Errorf("error uploading dir via scp: %v", err)
+	}
+	err = scpDownload(testBaseDirDownPath, remoteDownPath1, true, true)
+	if err != nil {
+		t.Errorf("error downloading dir via scp: %v", err)
+	}
+	err = scpUpload(testBaseDirPath, remoteUpPath2, true, false)
+	if err != nil {
+		t.Errorf("error uploading dir via scp: %v", err)
+	}
+	err = scpDownload(testBaseDirDownPath, remoteDownPath2, true, true)
+	if err != nil {
+		t.Errorf("error downloading dir via scp: %v", err)
+	}
+	expectedQuotaFiles := 2
+	expectedQuotaSize := testFileSize * 2
+	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+	if err != nil {
+		t.Errorf("error getting user: %v", err)
+	}
+	if expectedQuotaFiles != user.UsedQuotaFiles {
+		t.Errorf("quota files does not match, expected: %v, actual: %v", expectedQuotaFiles, user.UsedQuotaFiles)
+	}
+	if expectedQuotaSize != user.UsedQuotaSize {
+		t.Errorf("quota size does not match, expected: %v, actual: %v", expectedQuotaSize, user.UsedQuotaSize)
+	}
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	if err != nil {
+		t.Errorf("unable to remove user: %v", err)
+	}
+	os.RemoveAll(testBaseDirPath)
+	os.RemoveAll(testBaseDirDownPath)
+	os.RemoveAll(user.GetHomeDir())
+	os.RemoveAll(mappedPath1)
+	os.RemoveAll(mappedPath1)
 }
 
 func TestSCPPermsSubDirs(t *testing.T) {

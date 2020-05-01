@@ -26,26 +26,27 @@ var (
 // Transfer contains the transfer details for an upload or a download.
 // It implements the io Reader and Writer interface to handle files downloads and uploads
 type Transfer struct {
-	file           *os.File
-	writerAt       *pipeat.PipeWriterAt
-	readerAt       *pipeat.PipeReaderAt
-	cancelFn       func()
-	path           string
-	start          time.Time
-	bytesSent      int64
-	bytesReceived  int64
-	user           dataprovider.User
-	connectionID   string
-	transferType   int
-	lastActivity   time.Time
-	protocol       string
-	transferError  error
-	minWriteOffset int64
-	expectedSize   int64
-	initialSize    int64
-	lock           *sync.Mutex
-	isNewFile      bool
-	isFinished     bool
+	file                *os.File
+	writerAt            *pipeat.PipeWriterAt
+	readerAt            *pipeat.PipeReaderAt
+	cancelFn            func()
+	path                string
+	start               time.Time
+	bytesSent           int64
+	bytesReceived       int64
+	user                dataprovider.User
+	connectionID        string
+	transferType        int
+	lastActivity        time.Time
+	protocol            string
+	transferError       error
+	minWriteOffset      int64
+	expectedSize        int64
+	initialSize         int64
+	lock                *sync.Mutex
+	isNewFile           bool
+	isFinished          bool
+	isExcludedFromQuota bool
 }
 
 // TransferError is called if there is an unexpected error.
@@ -182,6 +183,9 @@ func (t *Transfer) closeIO() error {
 func (t *Transfer) updateQuota(numFiles int) bool {
 	// S3 uploads are atomic, if there is an error nothing is uploaded
 	if t.file == nil && t.transferError != nil {
+		return false
+	}
+	if t.isExcludedFromQuota {
 		return false
 	}
 	if t.transferType == transferUpload && (numFiles != 0 || t.bytesReceived > 0) {

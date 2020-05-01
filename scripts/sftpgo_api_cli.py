@@ -110,12 +110,19 @@ class SFTPGoApiRequests:
 			if '::' in f:
 				vpath = ''
 				mapped_path = ''
+				exclude_from_quota = False
 				values = f.split('::')
 				if len(values) > 1:
 					vpath = values[0]
 					mapped_path = values[1]
+				if len(values) > 2:
+					try:
+						exclude_from_quota = int(values[2]) > 0
+					except:
+						pass
 				if vpath and mapped_path:
-					result.append({"virtual_path":vpath, "mapped_path":mapped_path})
+					result.append({"virtual_path":vpath, "mapped_path":mapped_path,
+								"exclude_from_quota":exclude_from_quota})
 		return result
 
 	def buildPermissions(self, root_perms, subdirs_perms):
@@ -508,7 +515,8 @@ def addCommonUserArguments(parser):
 	parser.add_argument('--subdirs-permissions', type=str, nargs='*', default=[], help='Permissions for subdirs. '
 					+'For example: "/somedir::list,download" "/otherdir/subdir::*" Default: %(default)s')
 	parser.add_argument('--virtual-folders', type=str, nargs='*', default=[], help='Virtual folder mapping. For example: '
-					+'"/vpath::/home/adir" "/vpath::C:\adir", ignored for non local filesystems. Default: %(default)s')
+					+'"/vpath::/home/adir" "/vpath::C:\adir::1". If the optional third argument is > 0 the virtual '
+					+'folder will be excluded from user quota. Ignored for non local filesystems. Default: %(default)s')
 	parser.add_argument('-U', '--upload-bandwidth', type=int, default=0,
 					help='Maximum upload bandwidth as KB/s, 0 means unlimited. Default: %(default)s')
 	parser.add_argument('-D', '--download-bandwidth', type=int, default=0,
