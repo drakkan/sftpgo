@@ -29,7 +29,7 @@ type OsFs struct {
 
 // NewOsFs returns an OsFs object that allows to interact with local Os filesystem
 func NewOsFs(connectionID, rootDir string, virtualFolders []VirtualFolder) Fs {
-	return &OsFs{
+	return OsFs{
 		name:           osFsName,
 		connectionID:   connectionID,
 		rootDir:        rootDir,

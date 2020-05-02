@@ -3862,8 +3862,7 @@ func TestResolveVirtualPaths(t *testing.T) {
 		MappedPath:  mappedPath,
 	})
 	os.MkdirAll(mappedPath, 0777)
-	fs := vfs.NewOsFs("", user.GetHomeDir(), user.VirtualFolders)
-	osFs := fs.(*vfs.OsFs)
+	osFs := vfs.NewOsFs("", user.GetHomeDir(), user.VirtualFolders).(vfs.OsFs)
 	b, f := osFs.GetFsPaths("/vdir/a.txt")
 	if b != mappedPath {
 		t.Errorf("unexpected base path: %#v expected: %#v", b, mappedPath)

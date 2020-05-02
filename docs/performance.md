@@ -82,7 +82,7 @@ Stream|Baseline MB/s|Devel MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
 4|576|836|1080|1099|1569|
 8|857|1161|1416|1433|2271|
 
-#### Cipher aes128gcm@openssh.com
+#### Cipher aes128-gcm@openssh.com
 
 With this cipher the messages authentication is implicit, no SHA256 computation is needed.
 
