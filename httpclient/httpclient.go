@@ -22,7 +22,12 @@ type Config struct {
 	// The paths can be absolute or relative to the config dir.
 	// Adding trusted CA certificates is a convenient way to use self-signed
 	// certificates without defeating the purpose of using TLS
-	CACertificates  []string `json:"ca_certificates" mapstructure:"ca_certificates"`
+	CACertificates []string `json:"ca_certificates" mapstructure:"ca_certificates"`
+	// if enabled the HTTP client accepts any TLS certificate presented by
+	// the server and any host name in that certificate.
+	// In this mode, TLS is susceptible to man-in-the-middle attacks.
+	// This should be used only for testing.
+	SkipTLSVerify   bool `json:"skip_tls_verify" mapstructure:"skip_tls_verify"`
 	customTransport *http.Transport
 }
 
@@ -42,6 +47,7 @@ func (c Config) Initialize(configDir string) {
 			RootCAs: rootCAs,
 		}
 	}
+	customTransport.TLSClientConfig.InsecureSkipVerify = c.SkipTLSVerify
 	httpConfig.customTransport = customTransport
 }
 

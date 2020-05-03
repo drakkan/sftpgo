@@ -68,6 +68,7 @@
   },
   "http": {
     "timeout": 20,
-    "ca_certificates": []
+    "ca_certificates": [],
+    "skip_tls_verify": false
   }
 }

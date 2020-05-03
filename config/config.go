@@ -103,6 +103,7 @@ func init() {
 		HTTPConfig: httpclient.Config{
 			Timeout:        20,
 			CACertificates: nil,
+			SkipTLSVerify:  false,
 		},
 	}
 

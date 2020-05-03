@@ -52,7 +52,7 @@ type Fs interface {
 type VirtualFolder struct {
 	VirtualPath string `json:"virtual_path"`
 	MappedPath  string `json:"mapped_path"`
-	// This folder will be excluded from user quota
+	// Enable to exclude this folder from the user quota
 	ExcludeFromQuota bool `json:"exclude_from_quota"`
 }
 
