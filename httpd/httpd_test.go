@@ -1969,6 +1969,7 @@ func getMultipartFormData(values url.Values, fileFieldName, filePath string) (by
 		if err != nil {
 			return b, "", err
 		}
+		defer f.Close()
 		if _, err = io.Copy(fw, f); err != nil {
 			return b, "", err
 		}

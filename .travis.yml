@@ -12,6 +12,12 @@ go:
   - 1.13.x
   - 1.14.x
 
+matrix:
+  exclude:
+    - os: linux
+      arch: arm64
+      go: 1.13.x
+
 env:
   - GO111MODULE=on
 
