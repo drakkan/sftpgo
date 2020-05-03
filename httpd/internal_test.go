@@ -19,6 +19,7 @@ import (
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
 	"github.com/go-chi/chi"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -30,25 +31,17 @@ func TestGetRespStatus(t *testing.T) {
 	var err error
 	err = &dataprovider.MethodDisabledError{}
 	respStatus := getRespStatus(err)
-	if respStatus != http.StatusForbidden {
-		t.Errorf("wrong resp status extected: %d got: %d", http.StatusForbidden, respStatus)
-	}
+	assert.Equal(t, http.StatusForbidden, respStatus)
 	err = fmt.Errorf("generic error")
 	respStatus = getRespStatus(err)
-	if respStatus != http.StatusInternalServerError {
-		t.Errorf("wrong resp status extected: %d got: %d", http.StatusInternalServerError, respStatus)
-	}
+	assert.Equal(t, http.StatusInternalServerError, respStatus)
 }
 
 func TestCheckResponse(t *testing.T) {
 	err := checkResponse(http.StatusOK, http.StatusCreated)
-	if err == nil {
-		t.Errorf("check must fail")
-	}
+	assert.Error(t, err)
 	err = checkResponse(http.StatusBadRequest, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("test must succeed, error: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestCheckUser(t *testing.T) {
@@ -56,71 +49,51 @@ func TestCheckUser(t *testing.T) {
 	actual := &dataprovider.User{}
 	actual.Password = "password"
 	err := checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("actual password must be nil")
-	}
+	assert.Error(t, err)
 	actual.Password = ""
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("actual ID must be > 0")
-	}
+	assert.Error(t, err)
 	expected.ID = 1
 	actual.ID = 2
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("actual ID must be equal to expected ID")
-	}
+	assert.Error(t, err)
 	expected.ID = 2
 	actual.ID = 2
 	expected.Permissions = make(map[string][]string)
 	expected.Permissions["/"] = []string{dataprovider.PermCreateDirs, dataprovider.PermDelete, dataprovider.PermDownload}
 	actual.Permissions = make(map[string][]string)
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("Permissions are not equal")
-	}
+	assert.Error(t, err)
 	actual.Permissions["/"] = []string{dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("Permissions are not equal")
-	}
+	assert.Error(t, err)
 	expected.Permissions["/"] = append(expected.Permissions["/"], dataprovider.PermRename)
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("Permissions are not equal")
-	}
+	assert.Error(t, err)
 	expected.Permissions = make(map[string][]string)
 	expected.Permissions["/somedir"] = []string{dataprovider.PermAny}
 	actual.Permissions = make(map[string][]string)
 	actual.Permissions["/otherdir"] = []string{dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks}
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("Permissions are not equal")
-	}
+	assert.Error(t, err)
 	expected.Permissions = make(map[string][]string)
 	actual.Permissions = make(map[string][]string)
 	actual.FsConfig.Provider = 1
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("Fs providers are not equal")
-	}
+	assert.Error(t, err)
 	actual.FsConfig.Provider = 0
 	expected.VirtualFolders = append(expected.VirtualFolders, vfs.VirtualFolder{
 		VirtualPath: "/vdir",
 		MappedPath:  os.TempDir(),
 	})
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("Virtual folders are not equal")
-	}
+	assert.Error(t, err)
 	actual.VirtualFolders = append(actual.VirtualFolders, vfs.VirtualFolder{
 		VirtualPath: "/vdir1",
 		MappedPath:  os.TempDir(),
 	})
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("Virtual folders are not equal")
-	}
+	assert.Error(t, err)
 }
 
 func TestCompareUserFilters(t *testing.T) {
@@ -131,40 +104,28 @@ func TestCompareUserFilters(t *testing.T) {
 	expected.Filters.AllowedIP = []string{}
 	actual.Filters.AllowedIP = []string{"192.168.1.2/32"}
 	err := checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("AllowedIP are not equal")
-	}
+	assert.Error(t, err)
 	expected.Filters.AllowedIP = []string{"192.168.1.3/32"}
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("AllowedIP contents are not equal")
-	}
+	assert.Error(t, err)
 	expected.Filters.AllowedIP = []string{}
 	actual.Filters.AllowedIP = []string{}
 	expected.Filters.DeniedIP = []string{}
 	actual.Filters.DeniedIP = []string{"192.168.1.2/32"}
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("DeniedIP are not equal")
-	}
+	assert.Error(t, err)
 	expected.Filters.DeniedIP = []string{"192.168.1.3/32"}
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("DeniedIP contents are not equal")
-	}
+	assert.Error(t, err)
 	expected.Filters.DeniedIP = []string{}
 	actual.Filters.DeniedIP = []string{}
 	expected.Filters.DeniedLoginMethods = []string{}
 	actual.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPublicKey}
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("Denied login methods are not equal")
-	}
+	assert.Error(t, err)
 	expected.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPassword}
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("Denied login methods contents are not equal")
-	}
+	assert.Error(t, err)
 	expected.Filters.DeniedLoginMethods = []string{}
 	actual.Filters.DeniedLoginMethods = []string{}
 	expected.Filters.FileExtensions = append(expected.Filters.FileExtensions, dataprovider.ExtensionsFilter{
@@ -173,45 +134,35 @@ func TestCompareUserFilters(t *testing.T) {
 		DeniedExtensions:  []string{".zip", ".rar"},
 	})
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("file extensons are not equal")
-	}
+	assert.Error(t, err)
 	actual.Filters.FileExtensions = append(actual.Filters.FileExtensions, dataprovider.ExtensionsFilter{
 		Path:              "/sub",
 		AllowedExtensions: []string{".jpg", ".png"},
 		DeniedExtensions:  []string{".zip", ".rar"},
 	})
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("file extensons contents are not equal")
-	}
+	assert.Error(t, err)
 	actual.Filters.FileExtensions[0] = dataprovider.ExtensionsFilter{
 		Path:              "/",
 		AllowedExtensions: []string{".jpg"},
 		DeniedExtensions:  []string{".zip", ".rar"},
 	}
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("file extensons contents are not equal")
-	}
+	assert.Error(t, err)
 	actual.Filters.FileExtensions[0] = dataprovider.ExtensionsFilter{
 		Path:              "/",
 		AllowedExtensions: []string{".tiff", ".png"},
 		DeniedExtensions:  []string{".zip", ".rar"},
 	}
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("file extensons contents are not equal")
-	}
+	assert.Error(t, err)
 	actual.Filters.FileExtensions[0] = dataprovider.ExtensionsFilter{
 		Path:              "/",
 		AllowedExtensions: []string{".jpg", ".png"},
 		DeniedExtensions:  []string{".tar.gz", ".rar"},
 	}
 	err = checkUser(expected, actual)
-	if err == nil {
-		t.Errorf("file extensons contents are not equal")
-	}
+	assert.Error(t, err)
 }
 
 func TestCompareUserFields(t *testing.T) {
@@ -221,75 +172,51 @@ func TestCompareUserFields(t *testing.T) {
 	actual.Permissions = make(map[string][]string)
 	expected.Username = "test"
 	err := compareEqualsUserFields(expected, actual)
-	if err == nil {
-		t.Errorf("Username does not match")
-	}
+	assert.Error(t, err)
 	expected.Username = ""
 	expected.HomeDir = "homedir"
 	err = compareEqualsUserFields(expected, actual)
-	if err == nil {
-		t.Errorf("HomeDir does not match")
-	}
+	assert.Error(t, err)
 	expected.HomeDir = ""
 	expected.UID = 1
 	err = compareEqualsUserFields(expected, actual)
-	if err == nil {
-		t.Errorf("UID does not match")
-	}
+	assert.Error(t, err)
 	expected.UID = 0
 	expected.GID = 1
 	err = compareEqualsUserFields(expected, actual)
-	if err == nil {
-		t.Errorf("GID does not match")
-	}
+	assert.Error(t, err)
 	expected.GID = 0
 	expected.MaxSessions = 2
 	err = compareEqualsUserFields(expected, actual)
-	if err == nil {
-		t.Errorf("MaxSessions do not match")
-	}
+	assert.Error(t, err)
 	expected.MaxSessions = 0
 	expected.QuotaSize = 4096
 	err = compareEqualsUserFields(expected, actual)
-	if err == nil {
-		t.Errorf("QuotaSize does not match")
-	}
+	assert.Error(t, err)
 	expected.QuotaSize = 0
 	expected.QuotaFiles = 2
 	err = compareEqualsUserFields(expected, actual)
-	if err == nil {
-		t.Errorf("QuotaFiles do not match")
-	}
+	assert.Error(t, err)
 	expected.QuotaFiles = 0
 	expected.Permissions["/"] = []string{dataprovider.PermCreateDirs}
 	err = compareEqualsUserFields(expected, actual)
-	if err == nil {
-		t.Errorf("Permissions are not equal")
-	}
+	assert.Error(t, err)
 	expected.Permissions = nil
 	expected.UploadBandwidth = 64
 	err = compareEqualsUserFields(expected, actual)
-	if err == nil {
-		t.Errorf("UploadBandwidth does not match")
-	}
+	assert.Error(t, err)
 	expected.UploadBandwidth = 0
 	expected.DownloadBandwidth = 128
 	err = compareEqualsUserFields(expected, actual)
-	if err == nil {
-		t.Errorf("DownloadBandwidth does not match")
-	}
+	assert.Error(t, err)
 	expected.DownloadBandwidth = 0
 	expected.Status = 1
 	err = compareEqualsUserFields(expected, actual)
-	if err == nil {
-		t.Errorf("Status does not match")
-	}
+	assert.Error(t, err)
 	expected.Status = 0
 	expected.ExpirationDate = 123
 	err = compareEqualsUserFields(expected, actual)
-	if err == nil {
-		t.Errorf("Expiration date does not match")
-	}
+	assert.Error(t, err)
 }
 
 func TestCompareUserFsConfig(t *testing.T) {
@@ -297,83 +224,57 @@ func TestCompareUserFsConfig(t *testing.T) {
 	actual := &dataprovider.User{}
 	expected.FsConfig.Provider = 1
 	err := compareUserFsConfig(expected, actual)
-	if err == nil {
-		t.Errorf("Provider does not match")
-	}
+	assert.Error(t, err)
 	expected.FsConfig.Provider = 0
 	expected.FsConfig.S3Config.Bucket = "bucket"
 	err = compareUserFsConfig(expected, actual)
-	if err == nil {
-		t.Errorf("S3 bucket does not match")
-	}
+	assert.Error(t, err)
 	expected.FsConfig.S3Config.Bucket = ""
 	expected.FsConfig.S3Config.Region = "region"
 	err = compareUserFsConfig(expected, actual)
-	if err == nil {
-		t.Errorf("S3 region does not match")
-	}
+	assert.Error(t, err)
 	expected.FsConfig.S3Config.Region = ""
 	expected.FsConfig.S3Config.AccessKey = "access key"
 	err = compareUserFsConfig(expected, actual)
-	if err == nil {
-		t.Errorf("S3 access key does not match")
-	}
+	assert.Error(t, err)
 	expected.FsConfig.S3Config.AccessKey = ""
 	actual.FsConfig.S3Config.AccessSecret = "access secret"
 	err = compareUserFsConfig(expected, actual)
-	if err == nil {
-		t.Errorf("S3 access secret does not match")
-	}
+	assert.Error(t, err)
 	secret, _ := utils.EncryptData("access secret")
 	actual.FsConfig.S3Config.AccessSecret = ""
 	expected.FsConfig.S3Config.AccessSecret = secret
 	err = compareUserFsConfig(expected, actual)
-	if err == nil {
-		t.Errorf("S3 access secret does not match")
-	}
+	assert.Error(t, err)
 	expected.FsConfig.S3Config.AccessSecret = utils.RemoveDecryptionKey(secret)
 	actual.FsConfig.S3Config.AccessSecret = utils.RemoveDecryptionKey(secret) + "a"
 	err = compareUserFsConfig(expected, actual)
-	if err == nil {
-		t.Errorf("S3 access secret does not match")
-	}
+	assert.Error(t, err)
 	expected.FsConfig.S3Config.AccessSecret = "test"
 	actual.FsConfig.S3Config.AccessSecret = ""
 	err = compareUserFsConfig(expected, actual)
-	if err == nil {
-		t.Errorf("S3 access secret does not match")
-	}
+	assert.Error(t, err)
 	expected.FsConfig.S3Config.AccessSecret = ""
 	actual.FsConfig.S3Config.AccessSecret = ""
 	expected.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/"
 	err = compareUserFsConfig(expected, actual)
-	if err == nil {
-		t.Errorf("S3 endpoint does not match")
-	}
+	assert.Error(t, err)
 	expected.FsConfig.S3Config.Endpoint = ""
 	expected.FsConfig.S3Config.StorageClass = "Standard"
 	err = compareUserFsConfig(expected, actual)
-	if err == nil {
-		t.Errorf("S3 storage class does not match")
-	}
+	assert.Error(t, err)
 	expected.FsConfig.S3Config.StorageClass = ""
 	expected.FsConfig.S3Config.KeyPrefix = "somedir/subdir"
 	err = compareUserFsConfig(expected, actual)
-	if err == nil {
-		t.Errorf("S3 key prefix does not match")
-	}
+	assert.Error(t, err)
 	expected.FsConfig.S3Config.KeyPrefix = ""
 	expected.FsConfig.S3Config.UploadPartSize = 10
 	err = compareUserFsConfig(expected, actual)
-	if err == nil {
-		t.Errorf("S3 upload part size does not match")
-	}
+	assert.Error(t, err)
 	expected.FsConfig.S3Config.UploadPartSize = 0
 	expected.FsConfig.S3Config.UploadConcurrency = 3
 	err = compareUserFsConfig(expected, actual)
-	if err == nil {
-		t.Errorf("S3 upload concurrency does not match")
-	}
+	assert.Error(t, err)
 }
 
 func TestCompareUserGCSConfig(t *testing.T) {
@@ -381,27 +282,19 @@ func TestCompareUserGCSConfig(t *testing.T) {
 	actual := &dataprovider.User{}
 	expected.FsConfig.GCSConfig.KeyPrefix = "somedir/subdir"
 	err := compareUserFsConfig(expected, actual)
-	if err == nil {
-		t.Errorf("GCS key prefix does not match")
-	}
+	assert.Error(t, err)
 	expected.FsConfig.GCSConfig.KeyPrefix = ""
 	expected.FsConfig.GCSConfig.Bucket = "bucket"
 	err = compareUserFsConfig(expected, actual)
-	if err == nil {
-		t.Errorf("GCS bucket does not match")
-	}
+	assert.Error(t, err)
 	expected.FsConfig.GCSConfig.Bucket = ""
 	expected.FsConfig.GCSConfig.StorageClass = "Standard"
 	err = compareUserFsConfig(expected, actual)
-	if err == nil {
-		t.Errorf("GCS storage class does not match")
-	}
+	assert.Error(t, err)
 	expected.FsConfig.GCSConfig.StorageClass = ""
 	expected.FsConfig.GCSConfig.AutomaticCredentials = 1
 	err = compareUserFsConfig(expected, actual)
-	if err == nil {
-		t.Errorf("GCS automatic credentials does not match")
-	}
+	assert.Error(t, err)
 	expected.FsConfig.GCSConfig.AutomaticCredentials = 0
 }
 
@@ -413,9 +306,7 @@ func TestGCSWebInvalidFormFile(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.ParseForm()
 	_, err := getFsConfigFromUserPostFields(req)
-	if err != http.ErrNotMultipart {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.EqualError(t, err, http.ErrNotMultipart.Error())
 }
 
 func TestApiCallsWithBadURL(t *testing.T) {
@@ -425,29 +316,17 @@ func TestApiCallsWithBadURL(t *testing.T) {
 	SetBaseURLAndCredentials(invalidURL, oldAuthUsername, oldAuthPassword)
 	u := dataprovider.User{}
 	_, _, err := UpdateUser(u, http.StatusBadRequest)
-	if err == nil {
-		t.Error("request with invalid URL must fail")
-	}
+	assert.Error(t, err)
 	_, err = RemoveUser(u, http.StatusNotFound)
-	if err == nil {
-		t.Error("request with invalid URL must fail")
-	}
+	assert.Error(t, err)
 	_, _, err = GetUsers(1, 0, "", http.StatusBadRequest)
-	if err == nil {
-		t.Error("request with invalid URL must fail")
-	}
+	assert.Error(t, err)
 	_, err = CloseConnection("non_existent_id", http.StatusNotFound)
-	if err == nil {
-		t.Error("request with invalid URL must fail")
-	}
+	assert.Error(t, err)
 	_, _, err = Dumpdata("backup.json", "", http.StatusBadRequest)
-	if err == nil {
-		t.Error("request with invalid URL must fail")
-	}
+	assert.Error(t, err)
 	_, _, err = Loaddata("/tmp/backup.json", "", "", http.StatusBadRequest)
-	if err == nil {
-		t.Error("request with invalid URL must fail")
-	}
+	assert.Error(t, err)
 	SetBaseURLAndCredentials(oldBaseURL, oldAuthUsername, oldAuthPassword)
 }
 
@@ -458,57 +337,31 @@ func TestApiCallToNotListeningServer(t *testing.T) {
 	SetBaseURLAndCredentials(inactiveURL, oldAuthUsername, oldAuthPassword)
 	u := dataprovider.User{}
 	_, _, err := AddUser(u, http.StatusBadRequest)
-	if err == nil {
-		t.Errorf("request to an inactive URL must fail")
-	}
+	assert.Error(t, err)
 	_, _, err = UpdateUser(u, http.StatusNotFound)
-	if err == nil {
-		t.Errorf("request to an inactive URL must fail")
-	}
+	assert.Error(t, err)
 	_, err = RemoveUser(u, http.StatusNotFound)
-	if err == nil {
-		t.Errorf("request to an inactive URL must fail")
-	}
+	assert.Error(t, err)
 	_, _, err = GetUserByID(-1, http.StatusNotFound)
-	if err == nil {
-		t.Errorf("request to an inactive URL must fail")
-	}
+	assert.Error(t, err)
 	_, _, err = GetUsers(100, 0, "", http.StatusOK)
-	if err == nil {
-		t.Errorf("request to an inactive URL must fail")
-	}
+	assert.Error(t, err)
 	_, _, err = GetQuotaScans(http.StatusOK)
-	if err == nil {
-		t.Errorf("request to an inactive URL must fail")
-	}
+	assert.Error(t, err)
 	_, err = StartQuotaScan(u, http.StatusNotFound)
-	if err == nil {
-		t.Errorf("request to an inactive URL must fail")
-	}
+	assert.Error(t, err)
 	_, _, err = GetConnections(http.StatusOK)
-	if err == nil {
-		t.Errorf("request to an inactive URL must fail")
-	}
+	assert.Error(t, err)
 	_, err = CloseConnection("non_existent_id", http.StatusNotFound)
-	if err == nil {
-		t.Errorf("request to an inactive URL must fail")
-	}
+	assert.Error(t, err)
 	_, _, err = GetVersion(http.StatusOK)
-	if err == nil {
-		t.Errorf("request to an inactive URL must fail")
-	}
+	assert.Error(t, err)
 	_, _, err = GetProviderStatus(http.StatusOK)
-	if err == nil {
-		t.Errorf("request to an inactive URL must fail")
-	}
+	assert.Error(t, err)
 	_, _, err = Dumpdata("backup.json", "0", http.StatusOK)
-	if err == nil {
-		t.Errorf("request to an inactive URL must fail")
-	}
+	assert.Error(t, err)
 	_, _, err = Loaddata("/tmp/backup.json", "", "", http.StatusOK)
-	if err == nil {
-		t.Errorf("request to an inactive URL must fail")
-	}
+	assert.Error(t, err)
 	SetBaseURLAndCredentials(oldBaseURL, oldAuthUsername, oldAuthPassword)
 }
 
@@ -520,66 +373,53 @@ func TestBasicAuth(t *testing.T) {
 	ioutil.WriteFile(authUserFile, authUserData, 0666)
 	httpAuth, _ = newBasicAuthProvider(authUserFile)
 	_, _, err := GetVersion(http.StatusUnauthorized)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 	SetBaseURLAndCredentials(httpBaseURL, "test1", "password1")
 	_, _, err = GetVersion(http.StatusOK)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 	SetBaseURLAndCredentials(httpBaseURL, "test1", "wrong_password")
 	resp, _ := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(metricsPath), nil, "")
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("request with wrong password must fail, status code: %v", resp.StatusCode)
-	}
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 	authUserData = append(authUserData, []byte("test2:$apr1$gLnIkRIf$Xr/6aJfmIrihP4b2N2tcs/\n")...)
-	ioutil.WriteFile(authUserFile, authUserData, 0666)
+	err = ioutil.WriteFile(authUserFile, authUserData, 0666)
+	assert.NoError(t, err)
 	SetBaseURLAndCredentials(httpBaseURL, "test2", "password2")
 	_, _, err = GetVersion(http.StatusOK)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 	SetBaseURLAndCredentials(httpBaseURL, "test2", "wrong_password")
 	_, _, err = GetVersion(http.StatusOK)
-	if err == nil {
-		t.Error("request with wrong password must fail")
-	}
+	assert.Error(t, err)
 	authUserData = append(authUserData, []byte("test3:$apr1$gLnIkRIf$Xr/6$aJfmIr$ihP4b2N2tcs/\n")...)
 	ioutil.WriteFile(authUserFile, authUserData, 0666)
 	SetBaseURLAndCredentials(httpBaseURL, "test3", "wrong_password")
 	_, _, err = GetVersion(http.StatusUnauthorized)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 	authUserData = append(authUserData, []byte("test4:$invalid$gLnIkRIf$Xr/6$aJfmIr$ihP4b2N2tcs/\n")...)
 	ioutil.WriteFile(authUserFile, authUserData, 0666)
 	SetBaseURLAndCredentials(httpBaseURL, "test3", "password2")
 	_, _, err = GetVersion(http.StatusUnauthorized)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 	if runtime.GOOS != "windows" {
 		authUserData = append(authUserData, []byte("test5:$apr1$gLnIkRIf$Xr/6aJfmIrihP4b2N2tcs/\n")...)
-		ioutil.WriteFile(authUserFile, authUserData, 0666)
-		os.Chmod(authUserFile, 0001)
+		err = ioutil.WriteFile(authUserFile, authUserData, 0666)
+		assert.NoError(t, err)
+		err = os.Chmod(authUserFile, 0001)
+		assert.NoError(t, err)
 		SetBaseURLAndCredentials(httpBaseURL, "test5", "password2")
 		_, _, err = GetVersion(http.StatusUnauthorized)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		os.Chmod(authUserFile, 0666)
-
+		assert.NoError(t, err)
+		err = os.Chmod(authUserFile, 0666)
+		assert.NoError(t, err)
 	}
 	authUserData = append(authUserData, []byte("\"foo\"bar\"\r\n")...)
-	ioutil.WriteFile(authUserFile, authUserData, 0666)
+	err = ioutil.WriteFile(authUserFile, authUserData, 0666)
+	assert.NoError(t, err)
 	SetBaseURLAndCredentials(httpBaseURL, "test2", "password2")
 	_, _, err = GetVersion(http.StatusUnauthorized)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	os.Remove(authUserFile)
+	assert.NoError(t, err)
+	err = os.Remove(authUserFile)
+	assert.NoError(t, err)
 	SetBaseURLAndCredentials(httpBaseURL, oldAuthUsername, oldAuthPassword)
 	httpAuth, _ = newBasicAuthProvider("")
 }
@@ -591,22 +431,16 @@ func TestCloseConnectionHandler(t *testing.T) {
 	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 	rr := httptest.NewRecorder()
 	handleCloseConnection(rr, req)
-	if rr.Code != http.StatusBadRequest {
-		t.Errorf("Expected response code 400. Got %d", rr.Code)
-	}
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
 
 func TestRenderInvalidTemplate(t *testing.T) {
 	tmpl, err := template.New("test").Parse("{{.Count}}")
-	if err != nil {
-		t.Errorf("error making test template: %v", err)
-	} else {
+	if assert.NoError(t, err) {
 		templates["no_match"] = tmpl
 		rw := httptest.NewRecorder()
 		renderTemplate(rw, "no_match", map[string]string{})
-		if rw.Code != http.StatusInternalServerError {
-			t.Errorf("invalid template rendering must fail")
-		}
+		assert.Equal(t, http.StatusInternalServerError, rw.Code)
 	}
 }
 
@@ -620,7 +454,5 @@ func TestQuotaScanInvalidFs(t *testing.T) {
 	}
 	sftpd.AddQuotaScan(user.Username)
 	err := doQuotaScan(user)
-	if err == nil {
-		t.Error("quota scan with bad fs must fail")
-	}
+	assert.Error(t, err)
 }

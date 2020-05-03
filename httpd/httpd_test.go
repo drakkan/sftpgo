@@ -26,6 +26,7 @@ import (
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
@@ -158,40 +159,31 @@ func TestMain(m *testing.M) {
 }
 
 func TestInitialization(t *testing.T) {
-	config.LoadConfig(configDir, "")
+	err := config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
 	httpdConf := config.GetHTTPDConfig()
 	httpdConf.BackupsPath = "test_backups"
 	httpdConf.AuthUserFile = "invalid file"
-	err := httpdConf.Initialize(configDir, true)
-	if err == nil {
-		t.Error("Inizialize must fail")
-	}
+	err = httpdConf.Initialize(configDir, true)
+	assert.Error(t, err)
 	httpdConf.BackupsPath = backupsPath
 	httpdConf.AuthUserFile = ""
 	httpdConf.CertificateFile = "invalid file"
 	httpdConf.CertificateKeyFile = "invalid file"
 	err = httpdConf.Initialize(configDir, true)
-	if err == nil {
-		t.Error("Inizialize must fail")
-	}
+	assert.Error(t, err)
 	httpdConf.CertificateFile = ""
 	httpdConf.CertificateKeyFile = ""
 	httpdConf.TemplatesPath = "."
 	err = httpdConf.Initialize(configDir, true)
-	if err == nil {
-		t.Error("Inizialize must fail")
-	}
+	assert.Error(t, err)
 	err = httpd.ReloadTLSCertificate()
-	if err != nil {
-		t.Error("reloading TLS Certificate must return nil error if no certificate is configured")
-	}
+	assert.NoError(t, err, "reloading TLS Certificate must return nil error if no certificate is configured")
 }
 
 func TestBasicUserHandling(t *testing.T) {
 	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to add user: %v", err)
-	}
+	assert.NoError(t, err)
 	user.MaxSessions = 10
 	user.QuotaSize = 4096
 	user.QuotaFiles = 2
@@ -199,48 +191,30 @@ func TestBasicUserHandling(t *testing.T) {
 	user.DownloadBandwidth = 64
 	user.ExpirationDate = utils.GetTimeAsMsSinceEpoch(time.Now())
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to update user: %v", err)
-	}
+	assert.NoError(t, err)
 	users, _, err := httpd.GetUsers(0, 0, defaultUsername, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to get users: %v", err)
-	}
-	if len(users) != 1 {
-		t.Errorf("number of users mismatch, expected: 1, actual: %v", len(users))
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(users))
 	_, err = httpd.RemoveUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestUserStatus(t *testing.T) {
 	u := getTestUser()
 	u.Status = 3
 	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with bad status: %v", err)
-	}
+	assert.NoError(t, err)
 	u.Status = 0
 	user, _, err := httpd.AddUser(u, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to add user: %v", err)
-	}
+	assert.NoError(t, err)
 	user.Status = 2
 	_, _, err = httpd.UpdateUser(user, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error updating user with bad status: %v", err)
-	}
+	assert.NoError(t, err)
 	user.Status = 1
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to update user: %v", err)
-	}
+	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestAddUserNoCredentials(t *testing.T) {
@@ -248,98 +222,72 @@ func TestAddUserNoCredentials(t *testing.T) {
 	u.Password = ""
 	u.PublicKeys = []string{}
 	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with no credentials: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestAddUserNoUsername(t *testing.T) {
 	u := getTestUser()
 	u.Username = ""
 	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with no home dir: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestAddUserNoHomeDir(t *testing.T) {
 	u := getTestUser()
 	u.HomeDir = ""
 	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with no home dir: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestAddUserInvalidHomeDir(t *testing.T) {
 	u := getTestUser()
 	u.HomeDir = "relative_path"
 	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid home dir: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestAddUserNoPerms(t *testing.T) {
 	u := getTestUser()
 	u.Permissions = make(map[string][]string)
 	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with no perms: %v", err)
-	}
+	assert.NoError(t, err)
 	u.Permissions["/"] = []string{}
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with no perms: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestAddUserInvalidPerms(t *testing.T) {
 	u := getTestUser()
 	u.Permissions["/"] = []string{"invalidPerm"}
 	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid perms: %v", err)
-	}
+	assert.NoError(t, err)
 	// permissions for root dir are mandatory
 	u.Permissions["/"] = []string{}
 	u.Permissions["/somedir"] = []string{dataprovider.PermAny}
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with no root dir perms: %v", err)
-	}
+	assert.NoError(t, err)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
 	u.Permissions["/subdir/.."] = []string{dataprovider.PermAny}
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid dir perms: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestAddUserInvalidFilters(t *testing.T) {
 	u := getTestUser()
 	u.Filters.AllowedIP = []string{"192.168.1.0/24", "192.168.2.0"}
 	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid filters: %v", err)
-	}
+	assert.NoError(t, err)
 	u.Filters.AllowedIP = []string{}
 	u.Filters.DeniedIP = []string{"192.168.3.0/16", "invalid"}
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid filters: %v", err)
-	}
+	assert.NoError(t, err)
 	u.Filters.DeniedIP = []string{}
 	u.Filters.DeniedLoginMethods = []string{"invalid"}
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid filters: %v", err)
-	}
+	assert.NoError(t, err)
 	u.Filters.DeniedLoginMethods = dataprovider.ValidSSHLoginMethods
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid filters: %v", err)
-	}
+	assert.NoError(t, err)
 	u.Filters.DeniedLoginMethods = []string{}
 	u.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
 		{
@@ -349,9 +297,7 @@ func TestAddUserInvalidFilters(t *testing.T) {
 		},
 	}
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid extensions filters: %v", err)
-	}
+	assert.NoError(t, err)
 	u.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
 		{
 			Path:              "/",
@@ -360,9 +306,7 @@ func TestAddUserInvalidFilters(t *testing.T) {
 		},
 	}
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid extensions filters: %v", err)
-	}
+	assert.NoError(t, err)
 	u.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
 		{
 			Path:              "/subdir",
@@ -376,9 +320,7 @@ func TestAddUserInvalidFilters(t *testing.T) {
 		},
 	}
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid extensions filters: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestAddUserInvalidFsConfig(t *testing.T) {
@@ -386,11 +328,11 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.Provider = 1
 	u.FsConfig.S3Config.Bucket = ""
 	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
-	}
-	os.RemoveAll(credentialsPath)
-	os.MkdirAll(credentialsPath, 0700)
+	assert.NoError(t, err)
+	err = os.RemoveAll(credentialsPath)
+	assert.NoError(t, err)
+	err = os.MkdirAll(credentialsPath, 0700)
+	assert.NoError(t, err)
 	u.FsConfig.S3Config.Bucket = "test"
 	u.FsConfig.S3Config.Region = "eu-west-1"
 	u.FsConfig.S3Config.AccessKey = "access-key"
@@ -399,48 +341,34 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.S3Config.StorageClass = "Standard"
 	u.FsConfig.S3Config.KeyPrefix = "/somedir/subdir/"
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
-	}
+	assert.NoError(t, err)
 	u.FsConfig.S3Config.KeyPrefix = ""
 	u.FsConfig.S3Config.UploadPartSize = 3
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
-	}
+	assert.NoError(t, err)
 	u.FsConfig.S3Config.UploadPartSize = 0
 	u.FsConfig.S3Config.UploadConcurrency = -1
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
-	}
+	assert.NoError(t, err)
 	u = getTestUser()
 	u.FsConfig.Provider = 2
 	u.FsConfig.GCSConfig.Bucket = ""
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
-	}
+	assert.NoError(t, err)
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.StorageClass = "Standard"
 	u.FsConfig.GCSConfig.KeyPrefix = "/somedir/subdir/"
 	u.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString([]byte("test"))
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
-	}
+	assert.NoError(t, err)
 	u.FsConfig.GCSConfig.KeyPrefix = "somedir/subdir/"
 	u.FsConfig.GCSConfig.Credentials = ""
 	u.FsConfig.GCSConfig.AutomaticCredentials = 0
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
-	}
+	assert.NoError(t, err)
 	u.FsConfig.GCSConfig.Credentials = "no base64 encoded"
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid fs config: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestAddUserInvalidVirtualFolders(t *testing.T) {
@@ -450,45 +378,35 @@ func TestAddUserInvalidVirtualFolders(t *testing.T) {
 		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir"),
 	})
 	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
-	}
+	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		VirtualPath: "/",
 		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir"),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
-	}
+	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		VirtualPath: "/vdir",
 		MappedPath:  filepath.Join(u.GetHomeDir(), "mapped_dir"),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
-	}
+	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		VirtualPath: "/vdir",
 		MappedPath:  u.GetHomeDir(),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
-	}
+	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		VirtualPath: "/vdir",
 		MappedPath:  filepath.Join(u.GetHomeDir(), ".."),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
-	}
+	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		VirtualPath: "/vdir",
@@ -499,9 +417,7 @@ func TestAddUserInvalidVirtualFolders(t *testing.T) {
 		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir1"),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
-	}
+	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		VirtualPath: "/vdir1",
@@ -512,9 +428,7 @@ func TestAddUserInvalidVirtualFolders(t *testing.T) {
 		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir"),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
-	}
+	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		VirtualPath: "/vdir1",
@@ -525,9 +439,7 @@ func TestAddUserInvalidVirtualFolders(t *testing.T) {
 		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir"),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
-	}
+	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		VirtualPath: "/vdir1",
@@ -538,9 +450,7 @@ func TestAddUserInvalidVirtualFolders(t *testing.T) {
 		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir", "subdir"),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
-	}
+	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		VirtualPath: "/vdir1/subdir",
@@ -551,9 +461,7 @@ func TestAddUserInvalidVirtualFolders(t *testing.T) {
 		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir2"),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
-	}
+	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		VirtualPath: "/vdir1/",
@@ -564,9 +472,7 @@ func TestAddUserInvalidVirtualFolders(t *testing.T) {
 		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir2"),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid virtual folder: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestUserPublicKey(t *testing.T) {
@@ -575,35 +481,23 @@ func TestUserPublicKey(t *testing.T) {
 	validPubKey := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"
 	u.PublicKeys = []string{invalidPubKey}
 	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error adding user with invalid pub key: %v", err)
-	}
+	assert.NoError(t, err)
 	u.PublicKeys = []string{validPubKey}
 	user, _, err := httpd.AddUser(u, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to add user: %v", err)
-	}
+	assert.NoError(t, err)
 	user.PublicKeys = []string{validPubKey, invalidPubKey}
 	_, _, err = httpd.UpdateUser(user, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("update user with invalid public key must fail: %v", err)
-	}
+	assert.NoError(t, err)
 	user.PublicKeys = []string{validPubKey, validPubKey, validPubKey}
 	_, _, err = httpd.UpdateUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to update user: %v", err)
-	}
+	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestUpdateUser(t *testing.T) {
 	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to add user: %v", err)
-	}
+	assert.NoError(t, err)
 	user.HomeDir = filepath.Join(homeBasePath, "testmod")
 	user.UID = 33
 	user.GID = 101
@@ -633,28 +527,20 @@ func TestUpdateUser(t *testing.T) {
 		ExcludeFromQuota: true,
 	})
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to update user: %v", err)
-	}
+	assert.NoError(t, err)
 	user.Permissions["/subdir"] = []string{}
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to update user: %v", err)
-	}
+	assert.NoError(t, err)
 	if len(user.Permissions["/subdir"]) > 0 {
 		t.Errorf("unexpected subdir permissions, must be empty")
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestUserS3Config(t *testing.T) {
 	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to add user: %v", err)
-	}
+	assert.NoError(t, err)
 	user.FsConfig.Provider = 1
 	user.FsConfig.S3Config.Bucket = "test"
 	user.FsConfig.S3Config.Region = "us-east-1"
@@ -663,21 +549,15 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000"
 	user.FsConfig.S3Config.UploadPartSize = 8
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to update user: %v", err)
-	}
+	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove: %v", err)
-	}
+	assert.NoError(t, err)
 	user.Password = defaultPassword
 	user.ID = 0
 	secret, _ := utils.EncryptData("Server-Access-Secret")
 	user.FsConfig.S3Config.AccessSecret = secret
 	user, _, err = httpd.AddUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to add user: %v", err)
-	}
+	assert.NoError(t, err)
 	user.FsConfig.Provider = 1
 	user.FsConfig.S3Config.Bucket = "test1"
 	user.FsConfig.S3Config.Region = "us-east-1"
@@ -686,9 +566,7 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir"
 	user.FsConfig.S3Config.UploadConcurrency = 5
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to update user: %v", err)
-	}
+	assert.NoError(t, err)
 	user.FsConfig.Provider = 0
 	user.FsConfig.S3Config.Bucket = ""
 	user.FsConfig.S3Config.Region = ""
@@ -699,9 +577,7 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.UploadPartSize = 0
 	user.FsConfig.S3Config.UploadConcurrency = 0
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to update user: %v", err)
-	}
+	assert.NoError(t, err)
 	// test user without access key and access secret (shared config state)
 	user.FsConfig.Provider = 1
 	user.FsConfig.S3Config.Bucket = "test1"
@@ -713,48 +589,38 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.UploadPartSize = 6
 	user.FsConfig.S3Config.UploadConcurrency = 4
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to update user: %v", err)
-	}
+	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestUserGCSConfig(t *testing.T) {
 	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to add user: %v", err)
-	}
-	os.RemoveAll(credentialsPath)
-	os.MkdirAll(credentialsPath, 0700)
+	assert.NoError(t, err)
+	err = os.RemoveAll(credentialsPath)
+	assert.NoError(t, err)
+	err = os.MkdirAll(credentialsPath, 0700)
+	assert.NoError(t, err)
 	user.FsConfig.Provider = 2
 	user.FsConfig.GCSConfig.Bucket = "test"
 	user.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString([]byte("fake credentials"))
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to update user: %v", err)
-	}
+	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove: %v", err)
-	}
+	assert.NoError(t, err)
 	user.Password = defaultPassword
 	user.ID = 0
 	// the user will be added since the credentials file is found
 	user, _, err = httpd.AddUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to add user: %v", err)
-	}
-	os.RemoveAll(credentialsPath)
-	os.MkdirAll(credentialsPath, 0700)
+	assert.NoError(t, err)
+	err = os.RemoveAll(credentialsPath)
+	assert.NoError(t, err)
+	err = os.MkdirAll(credentialsPath, 0700)
+	assert.NoError(t, err)
 	user.FsConfig.GCSConfig.Credentials = ""
 	user.FsConfig.GCSConfig.AutomaticCredentials = 1
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to update user: %v", err)
-	}
+	assert.NoError(t, err)
 	user.FsConfig.Provider = 1
 	user.FsConfig.S3Config.Bucket = "test1"
 	user.FsConfig.S3Config.Region = "us-east-1"
@@ -763,291 +629,191 @@ func TestUserGCSConfig(t *testing.T) {
 	user.FsConfig.S3Config.Endpoint = "http://localhost:9000"
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir"
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to update user: %v", err)
-	}
+	assert.NoError(t, err)
 	user.FsConfig.Provider = 2
 	user.FsConfig.GCSConfig.Bucket = "test1"
 	user.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString([]byte("fake credentials"))
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to update user: %v", err)
-	}
+	assert.NoError(t, err)
 
 	_, err = httpd.RemoveUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestUpdateUserNoCredentials(t *testing.T) {
 	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to add user: %v", err)
-	}
+	assert.NoError(t, err)
 	user.Password = ""
 	user.PublicKeys = []string{}
 	// password and public key will be omitted from json serialization if empty and so they will remain unchanged
 	// and no validation error will be raised
 	_, _, err = httpd.UpdateUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unexpected error updating user with no credentials: %v", err)
-	}
+	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestUpdateUserEmptyHomeDir(t *testing.T) {
 	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to add user: %v", err)
-	}
+	assert.NoError(t, err)
 	user.HomeDir = ""
 	_, _, err = httpd.UpdateUser(user, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error updating user with empty home dir: %v", err)
-	}
+	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestUpdateUserInvalidHomeDir(t *testing.T) {
 	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to add user: %v", err)
-	}
+	assert.NoError(t, err)
 	user.HomeDir = "relative_path"
 	_, _, err = httpd.UpdateUser(user, http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error updating user with empty home dir: %v", err)
-	}
+	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestUpdateNonExistentUser(t *testing.T) {
 	_, _, err := httpd.UpdateUser(getTestUser(), http.StatusNotFound)
-	if err != nil {
-		t.Errorf("unable to update user: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestGetNonExistentUser(t *testing.T) {
 	_, _, err := httpd.GetUserByID(0, http.StatusNotFound)
-	if err != nil {
-		t.Errorf("unable to get user: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestDeleteNonExistentUser(t *testing.T) {
 	_, err := httpd.RemoveUser(getTestUser(), http.StatusNotFound)
-	if err != nil {
-		t.Errorf("unable to remove user: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestAddDuplicateUser(t *testing.T) {
 	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to add user: %v", err)
-	}
+	assert.NoError(t, err)
 	_, _, err = httpd.AddUser(getTestUser(), http.StatusInternalServerError)
-	if err != nil {
-		t.Errorf("unable to add second user: %v", err)
-	}
+	assert.NoError(t, err)
 	_, _, err = httpd.AddUser(getTestUser(), http.StatusOK)
-	if err == nil {
-		t.Errorf("adding a duplicate user must fail")
-	}
+	assert.Error(t, err, "adding a duplicate user must fail")
 	_, err = httpd.RemoveUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove user: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestGetUsers(t *testing.T) {
 	user1, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to add user: %v", err)
-	}
+	assert.NoError(t, err)
 	u := getTestUser()
 	u.Username = defaultUsername + "1"
 	user2, _, err := httpd.AddUser(u, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to add second user: %v", err)
-	}
+	assert.NoError(t, err)
 	users, _, err := httpd.GetUsers(0, 0, "", http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to get users: %v", err)
-	}
-	if len(users) < 2 {
-		t.Errorf("at least 2 users are expected")
-	}
+	assert.NoError(t, err)
+	assert.GreaterOrEqual(t, len(users), 2)
 	users, _, err = httpd.GetUsers(1, 0, "", http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to get users: %v", err)
-	}
-	if len(users) != 1 {
-		t.Errorf("1 user is expected")
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(users))
 	users, _, err = httpd.GetUsers(1, 1, "", http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to get users: %v", err)
-	}
-	if len(users) != 1 {
-		t.Errorf("1 user is expected")
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(users))
 	_, _, err = httpd.GetUsers(1, 1, "", http.StatusInternalServerError)
-	if err == nil {
-		t.Errorf("get users must succeed, we requested a fail for a good request")
-	}
+	assert.Error(t, err)
 	_, err = httpd.RemoveUser(user1, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove user: %v", err)
-	}
+	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user2, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove user: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestGetQuotaScans(t *testing.T) {
 	_, _, err := httpd.GetQuotaScans(http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to get quota scans: %v", err)
-	}
+	assert.NoError(t, err)
 	_, _, err = httpd.GetQuotaScans(http.StatusInternalServerError)
-	if err == nil {
-		t.Errorf("quota scan request must succeed, we requested to check a wrong status code")
-	}
+	assert.Error(t, err, "quota scan request must succeed, we requested to check a wrong status code")
 }
 
 func TestStartQuotaScan(t *testing.T) {
 	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to add user: %v", err)
-	}
+	assert.NoError(t, err)
 	_, err = httpd.StartQuotaScan(user, http.StatusCreated)
-	if err != nil {
-		t.Errorf("unable to start quota scan: %v", err)
-	}
+	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove user: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestGetVersion(t *testing.T) {
 	_, _, err := httpd.GetVersion(http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to get version: %v", err)
-	}
+	assert.NoError(t, err)
 	_, _, err = httpd.GetVersion(http.StatusInternalServerError)
-	if err == nil {
-		t.Errorf("get version request must succeed, we requested to check a wrong status code")
-	}
+	assert.Error(t, err, "get version request must succeed, we requested to check a wrong status code")
 }
 
 func TestGetProviderStatus(t *testing.T) {
 	_, _, err := httpd.GetProviderStatus(http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to get provider status: %v", err)
-	}
+	assert.NoError(t, err)
 	_, _, err = httpd.GetProviderStatus(http.StatusBadRequest)
-	if err == nil {
-		t.Errorf("get provider status request must succeed, we requested to check a wrong status code")
-	}
+	assert.Error(t, err, "get provider status request must succeed, we requested to check a wrong status code")
 }
 
 func TestGetConnections(t *testing.T) {
 	_, _, err := httpd.GetConnections(http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to get sftp connections: %v", err)
-	}
+	assert.NoError(t, err)
 	_, _, err = httpd.GetConnections(http.StatusInternalServerError)
-	if err == nil {
-		t.Errorf("get sftp connections request must succeed, we requested to check a wrong status code")
-	}
+	assert.Error(t, err, "get sftp connections request must succeed, we requested to check a wrong status code")
 }
 
 func TestCloseActiveConnection(t *testing.T) {
 	_, err := httpd.CloseConnection("non_existent_id", http.StatusNotFound)
-	if err != nil {
-		t.Errorf("unexpected error closing non existent sftp connection: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestUserBaseDir(t *testing.T) {
 	dataProvider := dataprovider.GetProvider()
-	dataprovider.Close(dataProvider)
-	config.LoadConfig(configDir, "")
+	err := dataprovider.Close(dataProvider)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	providerConf.UsersBaseDir = homeBasePath
-	err := dataprovider.Initialize(providerConf, configDir)
-	if err != nil {
-		t.Errorf("error initializing data provider with users base dir: %v", err)
-	}
+	err = dataprovider.Initialize(providerConf, configDir)
+	assert.NoError(t, err)
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	u := getTestUser()
 	u.HomeDir = ""
 	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to add user: %v", err)
-	}
-	if user.HomeDir != filepath.Join(providerConf.UsersBaseDir, u.Username) {
-		t.Errorf("invalid home dir: %v", user.HomeDir)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join(providerConf.UsersBaseDir, u.Username), user.HomeDir)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove: %v", err)
-	}
+	assert.NoError(t, err)
 	dataProvider = dataprovider.GetProvider()
-	dataprovider.Close(dataProvider)
-	config.LoadConfig(configDir, "")
+	err = dataprovider.Close(dataProvider)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	providerConf.CredentialsPath = credentialsPath
-	os.RemoveAll(credentialsPath)
+	err = os.RemoveAll(credentialsPath)
+	assert.NoError(t, err)
 	err = dataprovider.Initialize(providerConf, configDir)
-	if err != nil {
-		t.Errorf("error initializing data provider")
-	}
+	assert.NoError(t, err)
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
 }
 
 func TestProviderErrors(t *testing.T) {
 	dataProvider := dataprovider.GetProvider()
-	dataprovider.Close(dataProvider)
-	_, _, err := httpd.GetUserByID(0, http.StatusInternalServerError)
-	if err != nil {
-		t.Errorf("get user with provider closed must fail: %v", err)
-	}
+	err := dataprovider.Close(dataProvider)
+	assert.NoError(t, err)
+	_, _, err = httpd.GetUserByID(0, http.StatusInternalServerError)
+	assert.NoError(t, err)
 	_, _, err = httpd.GetUsers(1, 0, defaultUsername, http.StatusInternalServerError)
-	if err != nil {
-		t.Errorf("get users with provider closed must fail: %v", err)
-	}
+	assert.NoError(t, err)
 	_, _, err = httpd.UpdateUser(dataprovider.User{}, http.StatusInternalServerError)
-	if err != nil {
-		t.Errorf("update user with provider closed must fail: %v", err)
-	}
+	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(dataprovider.User{}, http.StatusInternalServerError)
-	if err != nil {
-		t.Errorf("delete user with provider closed must fail: %v", err)
-	}
+	assert.NoError(t, err)
 	_, _, err = httpd.GetProviderStatus(http.StatusInternalServerError)
-	if err != nil {
-		t.Errorf("get provider status with provider closed must fail: %v", err)
-	}
+	assert.NoError(t, err)
 	_, _, err = httpd.Dumpdata("backup.json", "", http.StatusInternalServerError)
-	if err != nil {
-		t.Errorf("get provider status with provider closed must fail: %v", err)
-	}
+	assert.NoError(t, err)
 	user := getTestUser()
 	user.ID = 1
 	backupData := dataprovider.BackupData{}
@@ -1056,77 +822,66 @@ func TestProviderErrors(t *testing.T) {
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
 	ioutil.WriteFile(backupFilePath, backupContent, 0666)
 	_, _, err = httpd.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
-	if err != nil {
-		t.Errorf("get provider status with provider closed must fail: %v", err)
-	}
-	os.Remove(backupFilePath)
-	config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	err = os.Remove(backupFilePath)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	providerConf.CredentialsPath = credentialsPath
-	os.RemoveAll(credentialsPath)
+	err = os.RemoveAll(credentialsPath)
+	assert.NoError(t, err)
 	err = dataprovider.Initialize(providerConf, configDir)
-	if err != nil {
-		t.Errorf("error initializing data provider: %v", err)
-	}
+	assert.NoError(t, err)
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
 }
 
 func TestDumpdata(t *testing.T) {
 	dataProvider := dataprovider.GetProvider()
-	dataprovider.Close(dataProvider)
-	config.LoadConfig(configDir, "")
+	err := dataprovider.Close(dataProvider)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err := dataprovider.Initialize(providerConf, configDir)
-	if err != nil {
-		t.Errorf("error initializing data provider:_%v", err)
-	}
+	err = dataprovider.Initialize(providerConf, configDir)
+	assert.NoError(t, err)
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
 	_, _, err = httpd.Dumpdata("", "", http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 	_, _, err = httpd.Dumpdata(filepath.Join(backupsPath, "backup.json"), "", http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 	_, _, err = httpd.Dumpdata("../backup.json", "", http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 	_, _, err = httpd.Dumpdata("backup.json", "0", http.StatusOK)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 	_, _, err = httpd.Dumpdata("backup.json", "1", http.StatusOK)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	os.Remove(filepath.Join(backupsPath, "backup.json"))
+	assert.NoError(t, err)
+	err = os.Remove(filepath.Join(backupsPath, "backup.json"))
+	assert.NoError(t, err)
 	if runtime.GOOS != "windows" {
-		os.Chmod(backupsPath, 0001)
+		err = os.Chmod(backupsPath, 0001)
+		assert.NoError(t, err)
 		_, _, err = httpd.Dumpdata("bck.json", "", http.StatusInternalServerError)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
+		assert.NoError(t, err)
 		// subdir cannot be created
 		_, _, err = httpd.Dumpdata(filepath.Join("subdir", "bck.json"), "", http.StatusInternalServerError)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		os.Chmod(backupsPath, 0755)
+		assert.NoError(t, err)
+		err = os.Chmod(backupsPath, 0755)
+		assert.NoError(t, err)
 	}
 	dataProvider = dataprovider.GetProvider()
-	dataprovider.Close(dataProvider)
-	config.LoadConfig(configDir, "")
+	err = dataprovider.Close(dataProvider)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	providerConf.CredentialsPath = credentialsPath
-	os.RemoveAll(credentialsPath)
+	err = os.RemoveAll(credentialsPath)
+	assert.NoError(t, err)
 	err = dataprovider.Initialize(providerConf, configDir)
-	if err != nil {
-		t.Errorf("error initializing data provider: %v", err)
-	}
+	assert.NoError(t, err)
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
 }
@@ -1139,66 +894,51 @@ func TestLoaddata(t *testing.T) {
 	backupData.Users = append(backupData.Users, user)
 	backupContent, _ := json.Marshal(backupData)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
-	ioutil.WriteFile(backupFilePath, backupContent, 0666)
-	_, _, err := httpd.Loaddata(backupFilePath, "a", "", http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	err := ioutil.WriteFile(backupFilePath, backupContent, 0666)
+	assert.NoError(t, err)
+	_, _, err = httpd.Loaddata(backupFilePath, "a", "", http.StatusBadRequest)
+	assert.NoError(t, err)
 	_, _, err = httpd.Loaddata(backupFilePath, "", "a", http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 	_, _, err = httpd.Loaddata("backup.json", "1", "", http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 	_, _, err = httpd.Loaddata(backupFilePath+"a", "1", "", http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 	if runtime.GOOS != "windows" {
-		os.Chmod(backupFilePath, 0111)
+		err = os.Chmod(backupFilePath, 0111)
+		assert.NoError(t, err)
 		_, _, err = httpd.Loaddata(backupFilePath, "1", "", http.StatusInternalServerError)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		os.Chmod(backupFilePath, 0644)
+		assert.NoError(t, err)
+		err = os.Chmod(backupFilePath, 0644)
+		assert.NoError(t, err)
 	}
 	// add user from backup
 	_, _, err = httpd.Loaddata(backupFilePath, "1", "", http.StatusOK)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 	// update user from backup
 	_, _, err = httpd.Loaddata(backupFilePath, "2", "", http.StatusOK)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 	users, _, err := httpd.GetUsers(1, 0, user.Username, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to get users: %v", err)
+	assert.NoError(t, err)
+	if assert.Equal(t, 1, len(users)) {
+		user = users[0]
+		_, err = httpd.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
 	}
-	if len(users) != 1 {
-		t.Error("Unable to get restored user")
-	}
-	user = users[0]
-	_, err = httpd.RemoveUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove user: %v", err)
-	}
-	os.Remove(backupFilePath)
-	createTestFile(backupFilePath, 10485761)
+	err = os.Remove(backupFilePath)
+	assert.NoError(t, err)
+	err = createTestFile(backupFilePath, 10485761)
+	assert.NoError(t, err)
 	_, _, err = httpd.Loaddata(backupFilePath, "1", "0", http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	os.Remove(backupFilePath)
-	createTestFile(backupFilePath, 65535)
+	assert.NoError(t, err)
+	err = os.Remove(backupFilePath)
+	assert.NoError(t, err)
+	err = createTestFile(backupFilePath, 65535)
+	assert.NoError(t, err)
 	_, _, err = httpd.Loaddata(backupFilePath, "1", "0", http.StatusBadRequest)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	os.Remove(backupFilePath)
+	assert.NoError(t, err)
+	err = os.Remove(backupFilePath)
+	assert.NoError(t, err)
 }
 
 func TestLoaddataMode(t *testing.T) {
@@ -1209,45 +949,29 @@ func TestLoaddataMode(t *testing.T) {
 	backupData.Users = append(backupData.Users, user)
 	backupContent, _ := json.Marshal(backupData)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
-	ioutil.WriteFile(backupFilePath, backupContent, 0666)
-	_, _, err := httpd.Loaddata(backupFilePath, "0", "0", http.StatusOK)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	err := ioutil.WriteFile(backupFilePath, backupContent, 0666)
+	assert.NoError(t, err)
+	_, _, err = httpd.Loaddata(backupFilePath, "0", "0", http.StatusOK)
+	assert.NoError(t, err)
 	users, _, err := httpd.GetUsers(1, 0, user.Username, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to get users: %v", err)
-	}
-	if len(users) != 1 {
-		t.Error("Unable to get restored user")
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(users))
 	user = users[0]
 	oldUploadBandwidth := user.UploadBandwidth
 	user.UploadBandwidth = oldUploadBandwidth + 128
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to update user: %v", err)
-	}
+	assert.NoError(t, err)
 	_, _, err = httpd.Loaddata(backupFilePath, "0", "1", http.StatusOK)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 	users, _, err = httpd.GetUsers(1, 0, user.Username, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to get users: %v", err)
-	}
-	if len(users) != 1 {
-		t.Error("Unable to get restored user")
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(users))
 	user = users[0]
-	if user.UploadBandwidth == oldUploadBandwidth {
-		t.Error("user must not be modified")
-	}
+	assert.NotEqual(t, oldUploadBandwidth, user.UploadBandwidth)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
-	if err != nil {
-		t.Errorf("unable to remove user: %v", err)
-	}
-	os.Remove(backupFilePath)
+	assert.NoError(t, err)
+	err = os.Remove(backupFilePath)
+	assert.NoError(t, err)
 }
 
 func TestHTTPSConnection(t *testing.T) {
@@ -1255,9 +979,10 @@ func TestHTTPSConnection(t *testing.T) {
 		Timeout: 5 * time.Second,
 	}
 	_, err := client.Get("https://localhost:8443" + metricsPath)
-	if err == nil || (!strings.Contains(err.Error(), "certificate is not valid") &&
-		!strings.Contains(err.Error(), "certificate signed by unknown authority")) {
-		t.Errorf("unexpected error: %v", err)
+	assert.Error(t, err)
+	if !strings.Contains(err.Error(), "certificate is not valid") &&
+		!strings.Contains(err.Error(), "certificate signed by unknown authority") {
+		assert.Fail(t, err.Error())
 	}
 }
 
@@ -1266,13 +991,12 @@ func TestHTTPSConnection(t *testing.T) {
 func TestBasicUserHandlingMock(t *testing.T) {
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
-	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	req, err := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	assert.NoError(t, err)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
-	err := render.DecodeJSON(rr.Body, &user)
-	if err != nil {
-		t.Errorf("Error get user: %v", err)
-	}
+	err = render.DecodeJSON(rr.Body, &user)
+	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr.Code)
@@ -1290,18 +1014,11 @@ func TestBasicUserHandlingMock(t *testing.T) {
 
 	var updatedUser dataprovider.User
 	err = render.DecodeJSON(rr.Body, &updatedUser)
-	if err != nil {
-		t.Errorf("Error decoding updated user: %v", err)
-	}
-	if user.MaxSessions != updatedUser.MaxSessions || user.UploadBandwidth != updatedUser.UploadBandwidth {
-		t.Errorf("Error modifying user actual: %v, %v", updatedUser.MaxSessions, updatedUser.UploadBandwidth)
-	}
-	if len(updatedUser.Permissions["/"]) != 1 {
-		t.Errorf("permissions other than any should be removed")
-	}
-	if !utils.IsStringInSlice(dataprovider.PermAny, updatedUser.Permissions["/"]) {
-		t.Errorf("permissions mismatch")
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, user.MaxSessions, updatedUser.MaxSessions)
+	assert.Equal(t, user.UploadBandwidth, updatedUser.UploadBandwidth)
+	assert.Equal(t, 1, len(updatedUser.Permissions["/"]))
+	assert.True(t, utils.IsStringInSlice(dataprovider.PermAny, updatedUser.Permissions["/"]))
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
@@ -1356,9 +1073,7 @@ func TestUpdateUserMock(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	err := render.DecodeJSON(rr.Body, &user)
-	if err != nil {
-		t.Errorf("Error get user: %v", err)
-	}
+	assert.NoError(t, err)
 	// permissions should not change if empty or nil
 	permissions := user.Permissions
 	user.Permissions = make(map[string][]string)
@@ -1371,18 +1086,14 @@ func TestUpdateUserMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	var updatedUser dataprovider.User
 	err = render.DecodeJSON(rr.Body, &updatedUser)
-	if err != nil {
-		t.Errorf("Error decoding updated user: %v", err)
-	}
+	assert.NoError(t, err)
 	for dir, perms := range permissions {
 		if actualPerms, ok := updatedUser.Permissions[dir]; ok {
 			for _, v := range actualPerms {
-				if !utils.IsStringInSlice(v, perms) {
-					t.Error("Permissions contents mismatch")
-				}
+				assert.True(t, utils.IsStringInSlice(v, perms))
 			}
 		} else {
-			t.Error("Permissions directories mismatch")
+			assert.Fail(t, "Permissions directories mismatch")
 		}
 	}
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
@@ -1412,9 +1123,7 @@ func TestUserPermissionsMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	err := render.DecodeJSON(rr.Body, &user)
-	if err != nil {
-		t.Errorf("Error get user: %v", err)
-	}
+	assert.NoError(t, err)
 	user.Permissions["/somedir"] = []string{"invalid"}
 	userAsJSON = getUserAsJSON(t, user)
 	req, _ = http.NewRequest(http.MethodPut, userPath+"/"+strconv.FormatInt(user.ID, 10), bytes.NewBuffer(userAsJSON))
@@ -1443,18 +1152,12 @@ func TestUserPermissionsMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	var updatedUser dataprovider.User
 	err = render.DecodeJSON(rr.Body, &updatedUser)
-	if err != nil {
-		t.Errorf("Error decoding updated user: %v", err)
-	}
+	assert.NoError(t, err)
 	if val, ok := updatedUser.Permissions["/otherdir"]; ok {
-		if !utils.IsStringInSlice(dataprovider.PermListItems, val) {
-			t.Error("expected permission list not found")
-		}
-		if len(val) != 1 {
-			t.Errorf("Unexpected number of permissions, expected 1, actual: %v", len(val))
-		}
+		assert.True(t, utils.IsStringInSlice(dataprovider.PermListItems, val))
+		assert.Equal(t, 1, len(val))
 	} else {
-		t.Errorf("expected dir not found in permissions")
+		assert.Fail(t, "expected dir not found in permissions")
 	}
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)
@@ -1468,9 +1171,7 @@ func TestUpdateUserInvalidJsonMock(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	err := render.DecodeJSON(rr.Body, &user)
-	if err != nil {
-		t.Errorf("Error get user: %v", err)
-	}
+	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodPut, userPath+"/"+strconv.FormatInt(user.ID, 10), bytes.NewBuffer([]byte("Invalid json")))
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr.Code)
@@ -1486,9 +1187,7 @@ func TestUpdateUserInvalidParamsMock(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	err := render.DecodeJSON(rr.Body, &user)
-	if err != nil {
-		t.Errorf("Error get user: %v", err)
-	}
+	assert.NoError(t, err)
 	user.HomeDir = ""
 	userAsJSON = getUserAsJSON(t, user)
 	req, _ = http.NewRequest(http.MethodPut, userPath+"/"+strconv.FormatInt(user.ID, 10), bytes.NewBuffer(userAsJSON))
@@ -1519,20 +1218,14 @@ func TestGetUsersMock(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	err := render.DecodeJSON(rr.Body, &user)
-	if err != nil {
-		t.Errorf("Error get user: %v", err)
-	}
+	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodGet, userPath+"?limit=510&offset=0&order=ASC&username="+defaultUsername, nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	var users []dataprovider.User
 	err = render.DecodeJSON(rr.Body, &users)
-	if err != nil {
-		t.Errorf("Error decoding users: %v", err)
-	}
-	if len(users) != 1 {
-		t.Errorf("1 user is expected")
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(users))
 	req, _ = http.NewRequest(http.MethodGet, userPath+"?limit=a&offset=0&order=ASC", nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr.Code)
@@ -1559,9 +1252,7 @@ func TestDeleteUserInvalidParamsMock(t *testing.T) {
 
 func TestGetQuotaScansMock(t *testing.T) {
 	req, err := http.NewRequest("GET", quotaScanPath, nil)
-	if err != nil {
-		t.Errorf("error get quota scan: %v", err)
-	}
+	assert.NoError(t, err)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 }
@@ -1573,12 +1264,11 @@ func TestStartQuotaScanMock(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	err := render.DecodeJSON(rr.Body, &user)
-	if err != nil {
-		t.Errorf("Error get user: %v", err)
-	}
+	assert.NoError(t, err)
 	_, err = os.Stat(user.HomeDir)
 	if err == nil {
-		os.Remove(user.HomeDir)
+		err = os.Remove(user.HomeDir)
+		assert.NoError(t, err)
 	}
 	// simulate a duplicate quota scan
 	userAsJSON = getUserAsJSON(t, user)
@@ -1598,23 +1288,22 @@ func TestStartQuotaScanMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	var scans []sftpd.ActiveQuotaScan
 	err = render.DecodeJSON(rr.Body, &scans)
-	if err != nil {
-		t.Errorf("Error get active scans: %v", err)
-	}
+	assert.NoError(t, err)
 	for len(scans) > 0 {
 		req, _ = http.NewRequest(http.MethodGet, quotaScanPath, nil)
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr.Code)
 		err = render.DecodeJSON(rr.Body, &scans)
 		if err != nil {
-			t.Errorf("Error get active scans: %v", err)
+			assert.Fail(t, err.Error(), "Error get active scans")
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 	_, err = os.Stat(user.HomeDir)
 	if err != nil && os.IsNotExist(err) {
-		os.MkdirAll(user.HomeDir, 0777)
+		err = os.MkdirAll(user.HomeDir, 0777)
+		assert.NoError(t, err)
 	}
 	req, _ = http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer(userAsJSON))
 	rr = executeRequest(req)
@@ -1624,16 +1313,14 @@ func TestStartQuotaScanMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	err = render.DecodeJSON(rr.Body, &scans)
-	if err != nil {
-		t.Errorf("Error get active scans: %v", err)
-	}
+	assert.NoError(t, err)
 	for len(scans) > 0 {
 		req, _ = http.NewRequest(http.MethodGet, quotaScanPath, nil)
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr.Code)
 		err = render.DecodeJSON(rr.Body, &scans)
 		if err != nil {
-			t.Errorf("Error get active scans: %v", err)
+			assert.Fail(t, err.Error(), "Error get active scans")
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
@@ -1642,7 +1329,8 @@ func TestStartQuotaScanMock(t *testing.T) {
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
-	os.RemoveAll(user.GetHomeDir())
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
 }
 
 func TestStartQuotaScanBadUserMock(t *testing.T) {
@@ -1717,9 +1405,7 @@ func TestBasicWebUsersMock(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	err := render.DecodeJSON(rr.Body, &user)
-	if err != nil {
-		t.Errorf("Error get user: %v", err)
-	}
+	assert.NoError(t, err)
 	user1 := getTestUser()
 	user1.Username += "1"
 	user1AsJSON := getUserAsJSON(t, user1)
@@ -1727,9 +1413,7 @@ func TestBasicWebUsersMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	err = render.DecodeJSON(rr.Body, &user1)
-	if err != nil {
-		t.Errorf("Error get user1: %v", err)
-	}
+	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodGet, webUsersPath, nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
@@ -1901,42 +1585,27 @@ func TestWebUserAddMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	var users []dataprovider.User
 	render.DecodeJSON(rr.Body, &users)
-	if len(users) != 1 {
-		t.Errorf("1 user is expected, actual: %v", len(users))
-	}
+	assert.Equal(t, 1, len(users))
 	newUser := users[0]
-	if newUser.UID != user.UID {
-		t.Errorf("uid does not match")
-	}
-	if newUser.UploadBandwidth != user.UploadBandwidth {
-		t.Errorf("upload_bandwidth does not match")
-	}
-	if newUser.DownloadBandwidth != user.DownloadBandwidth {
-		t.Errorf("download_bandwidth does not match")
-	}
-	if !utils.IsStringInSlice(testPubKey, newUser.PublicKeys) {
-		t.Errorf("public_keys does not match")
-	}
+	assert.Equal(t, user.UID, newUser.UID)
+	assert.Equal(t, user.UploadBandwidth, newUser.UploadBandwidth)
+	assert.Equal(t, user.DownloadBandwidth, newUser.DownloadBandwidth)
+	assert.True(t, utils.IsStringInSlice(testPubKey, newUser.PublicKeys))
 	if val, ok := newUser.Permissions["/subdir"]; ok {
-		if !utils.IsStringInSlice(dataprovider.PermListItems, val) || !utils.IsStringInSlice(dataprovider.PermDownload, val) {
-			t.Error("permssions for /subdir does not match")
-		}
+		assert.True(t, utils.IsStringInSlice(dataprovider.PermListItems, val))
+		assert.True(t, utils.IsStringInSlice(dataprovider.PermDownload, val))
 	} else {
-		t.Errorf("user permissions must contain /somedir, actual: %v", newUser.Permissions)
+		assert.Fail(t, "user permissions must contain /somedir", "actual: %v", newUser.Permissions)
 	}
-	vfolderFoumd := false
+	vfolderFound := false
 	for _, v := range newUser.VirtualFolders {
 		if v.VirtualPath == "/vdir" && v.MappedPath == mappedDir && v.ExcludeFromQuota == true {
-			vfolderFoumd = true
+			vfolderFound = true
 		}
 	}
-	if !vfolderFoumd {
-		t.Errorf("virtual folders must contain /vdir, actual: %+v", newUser.VirtualFolders)
-	}
+	assert.True(t, vfolderFound)
 	extFilters := newUser.Filters.FileExtensions[0]
-	if !utils.IsStringInSlice(".zip", extFilters.DeniedExtensions) {
-		t.Errorf("unexpected denied extensions: %v", extFilters.DeniedExtensions)
-	}
+	assert.True(t, utils.IsStringInSlice(".zip", extFilters.DeniedExtensions))
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(newUser.ID, 10), nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
@@ -1949,9 +1618,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	err := render.DecodeJSON(rr.Body, &user)
-	if err != nil {
-		t.Errorf("Error get user: %v", err)
-	}
+	assert.NoError(t, err)
 	user.MaxSessions = 1
 	user.QuotaFiles = 2
 	user.QuotaSize = 3
@@ -1984,44 +1651,27 @@ func TestWebUserUpdateMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	var users []dataprovider.User
 	render.DecodeJSON(rr.Body, &users)
-	if len(users) != 1 {
-		t.Errorf("1 user is expected")
-	}
+	assert.Equal(t, 1, len(users))
 	updateUser := users[0]
-	if user.HomeDir != updateUser.HomeDir {
-		t.Errorf("home dir does not match")
-	}
-	if user.MaxSessions != updateUser.MaxSessions {
-		t.Errorf("max_sessions does not match")
-	}
-	if user.QuotaFiles != updateUser.QuotaFiles {
-		t.Errorf("quota_files does not match")
-	}
-	if user.QuotaSize != updateUser.QuotaSize {
-		t.Errorf("quota_size does not match")
-	}
-	if user.GID != updateUser.GID {
-		t.Errorf("gid does not match")
-	}
+	assert.Equal(t, user.HomeDir, updateUser.HomeDir)
+	assert.Equal(t, user.MaxSessions, updateUser.MaxSessions)
+	assert.Equal(t, user.QuotaFiles, updateUser.QuotaFiles)
+	assert.Equal(t, user.QuotaSize, updateUser.QuotaSize)
+	assert.Equal(t, user.UID, updateUser.UID)
+	assert.Equal(t, user.GID, updateUser.GID)
+
 	if val, ok := updateUser.Permissions["/otherdir"]; ok {
 		if !utils.IsStringInSlice(dataprovider.PermListItems, val) || !utils.IsStringInSlice(dataprovider.PermUpload, val) {
 			t.Error("permssions for /otherdir does not match")
 		}
 	} else {
-		t.Errorf("user permissions must contains /otherdir, actual: %v", updateUser.Permissions)
+		assert.Fail(t, "user permissions must contains /otherdir", "actual: %v", updateUser.Permissions)
 	}
-	if !utils.IsStringInSlice("192.168.1.3/32", updateUser.Filters.AllowedIP) {
-		t.Errorf("Allowed IP/Mask does not match: %v", updateUser.Filters.AllowedIP)
-	}
-	if !utils.IsStringInSlice("10.0.0.2/32", updateUser.Filters.DeniedIP) {
-		t.Errorf("Denied IP/Mask does not match: %v", updateUser.Filters.DeniedIP)
-	}
-	if !utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, updateUser.Filters.DeniedLoginMethods) {
-		t.Errorf("Denied login methods does not match: %v", updateUser.Filters.DeniedLoginMethods)
-	}
-	if !utils.IsStringInSlice(".zip", updateUser.Filters.FileExtensions[0].DeniedExtensions) {
-		t.Errorf("unexpected extensions filter: %+v", updateUser.Filters.FileExtensions)
-	}
+	assert.True(t, utils.IsStringInSlice("192.168.1.3/32", updateUser.Filters.AllowedIP))
+	assert.True(t, utils.IsStringInSlice("10.0.0.2/32", updateUser.Filters.DeniedIP))
+	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, updateUser.Filters.DeniedLoginMethods))
+	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, updateUser.Filters.DeniedLoginMethods))
+	assert.True(t, utils.IsStringInSlice(".zip", updateUser.Filters.FileExtensions[0].DeniedExtensions))
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
@@ -2034,9 +1684,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	err := render.DecodeJSON(rr.Body, &user)
-	if err != nil {
-		t.Errorf("Error get user: %v", err)
-	}
+	assert.NoError(t, err)
 	user.FsConfig.Provider = 1
 	user.FsConfig.S3Config.Bucket = "test"
 	user.FsConfig.S3Config.Region = "eu-west-1"
@@ -2100,45 +1748,21 @@ func TestWebUserS3Mock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	var users []dataprovider.User
 	err = render.DecodeJSON(rr.Body, &users)
-	if err != nil {
-		t.Errorf("Error decoding users: %v", err)
-	}
-	if len(users) != 1 {
-		t.Errorf("1 user is expected")
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(users))
 	updateUser := users[0]
-	if updateUser.ExpirationDate != 1577836800000 {
-		t.Errorf("invalid expiration date: %v", updateUser.ExpirationDate)
-	}
-	if updateUser.FsConfig.S3Config.Bucket != user.FsConfig.S3Config.Bucket {
-		t.Error("s3 bucket mismatch")
-	}
-	if updateUser.FsConfig.S3Config.Region != user.FsConfig.S3Config.Region {
-		t.Error("s3 region mismatch")
-	}
-	if updateUser.FsConfig.S3Config.AccessKey != user.FsConfig.S3Config.AccessKey {
-		t.Error("s3 access key mismatch")
-	}
+	assert.Equal(t, int64(1577836800000), updateUser.ExpirationDate)
+	assert.Equal(t, updateUser.FsConfig.S3Config.Bucket, user.FsConfig.S3Config.Bucket)
+	assert.Equal(t, updateUser.FsConfig.S3Config.Region, user.FsConfig.S3Config.Region)
+	assert.Equal(t, updateUser.FsConfig.S3Config.AccessKey, user.FsConfig.S3Config.AccessKey)
+	assert.Equal(t, updateUser.FsConfig.S3Config.StorageClass, user.FsConfig.S3Config.StorageClass)
+	assert.Equal(t, updateUser.FsConfig.S3Config.Endpoint, user.FsConfig.S3Config.Endpoint)
+	assert.Equal(t, updateUser.FsConfig.S3Config.KeyPrefix, user.FsConfig.S3Config.KeyPrefix)
+	assert.Equal(t, updateUser.FsConfig.S3Config.UploadPartSize, user.FsConfig.S3Config.UploadPartSize)
+	assert.Equal(t, updateUser.FsConfig.S3Config.UploadConcurrency, user.FsConfig.S3Config.UploadConcurrency)
+	assert.Equal(t, 2, len(updateUser.Filters.FileExtensions))
 	if !strings.HasPrefix(updateUser.FsConfig.S3Config.AccessSecret, "$aes$") {
 		t.Error("s3 access secret is not encrypted")
-	}
-	if updateUser.FsConfig.S3Config.StorageClass != user.FsConfig.S3Config.StorageClass {
-		t.Error("s3 storage class mismatch")
-	}
-	if updateUser.FsConfig.S3Config.Endpoint != user.FsConfig.S3Config.Endpoint {
-		t.Error("s3 endpoint mismatch")
-	}
-	if updateUser.FsConfig.S3Config.KeyPrefix != user.FsConfig.S3Config.KeyPrefix {
-		t.Error("s3 key prefix mismatch")
-	}
-	if updateUser.FsConfig.S3Config.UploadPartSize != user.FsConfig.S3Config.UploadPartSize {
-		t.Error("s3 upload part size mismatch")
-	}
-	if updateUser.FsConfig.S3Config.UploadConcurrency != user.FsConfig.S3Config.UploadConcurrency {
-		t.Error("s3 upload concurrency mismatch")
-	}
-	if len(updateUser.Filters.FileExtensions) != 2 {
-		t.Errorf("unexpected extensions filter: %+v", updateUser.Filters.FileExtensions)
 	}
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)
@@ -2148,18 +1772,15 @@ func TestWebUserS3Mock(t *testing.T) {
 func TestWebUserGCSMock(t *testing.T) {
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
-	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	req, err := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	assert.NoError(t, err)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
-	err := render.DecodeJSON(rr.Body, &user)
-	if err != nil {
-		t.Errorf("Error get user: %v", err)
-	}
+	err = render.DecodeJSON(rr.Body, &user)
+	assert.NoError(t, err)
 	credentialsFilePath := filepath.Join(os.TempDir(), "gcs.json")
 	err = createTestFile(credentialsFilePath, 0)
-	if err != nil {
-		t.Errorf("unable to create credential test file: %v", err)
-	}
+	assert.NoError(t, err)
 	user.FsConfig.Provider = 2
 	user.FsConfig.GCSConfig.Bucket = "test"
 	user.FsConfig.GCSConfig.KeyPrefix = "somedir/subdir/"
@@ -2196,9 +1817,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	err = createTestFile(credentialsFilePath, 4096)
-	if err != nil {
-		t.Errorf("unable to create credential test file: %v", err)
-	}
+	assert.NoError(t, err)
 	b, contentType, _ = getMultipartFormData(form, "gcs_credential_file", credentialsFilePath)
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
 	req.Header.Set("Content-Type", contentType)
@@ -2209,28 +1828,14 @@ func TestWebUserGCSMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	var users []dataprovider.User
 	render.DecodeJSON(rr.Body, &users)
-	if len(users) != 1 {
-		t.Errorf("1 user is expected")
-	}
+	assert.Equal(t, 1, len(users))
 	updateUser := users[0]
-	if updateUser.ExpirationDate != 1577836800000 {
-		t.Errorf("invalid expiration date: %v", updateUser.ExpirationDate)
-	}
-	if updateUser.FsConfig.Provider != user.FsConfig.Provider {
-		t.Error("fs provider mismatch")
-	}
-	if updateUser.FsConfig.GCSConfig.Bucket != user.FsConfig.GCSConfig.Bucket {
-		t.Error("GCS bucket mismatch")
-	}
-	if updateUser.FsConfig.GCSConfig.StorageClass != user.FsConfig.GCSConfig.StorageClass {
-		t.Error("GCS storage class mismatch")
-	}
-	if updateUser.FsConfig.GCSConfig.KeyPrefix != user.FsConfig.GCSConfig.KeyPrefix {
-		t.Error("GCS key prefix mismatch")
-	}
-	if updateUser.Filters.FileExtensions[0].Path != "/dir1" {
-		t.Errorf("unexpected extensions filter: %+v", updateUser.Filters.FileExtensions)
-	}
+	assert.Equal(t, int64(1577836800000), updateUser.ExpirationDate)
+	assert.Equal(t, user.FsConfig.Provider, updateUser.FsConfig.Provider)
+	assert.Equal(t, user.FsConfig.GCSConfig.Bucket, updateUser.FsConfig.GCSConfig.Bucket)
+	assert.Equal(t, user.FsConfig.GCSConfig.StorageClass, updateUser.FsConfig.GCSConfig.StorageClass)
+	assert.Equal(t, user.FsConfig.GCSConfig.KeyPrefix, updateUser.FsConfig.GCSConfig.KeyPrefix)
+	assert.Equal(t, "/dir1", updateUser.Filters.FileExtensions[0].Path)
 	form.Set("gcs_auto_credentials", "on")
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
@@ -2241,20 +1846,15 @@ func TestWebUserGCSMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	err = render.DecodeJSON(rr.Body, &users)
-	if err != nil {
-		t.Errorf("Error decoding users: %v", err)
-	}
-	if len(users) != 1 {
-		t.Errorf("1 user is expected")
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(users))
 	updateUser = users[0]
-	if updateUser.FsConfig.GCSConfig.AutomaticCredentials != 1 {
-		t.Error("GCS automatic credentials mismatch")
-	}
+	assert.Equal(t, 1, updateUser.FsConfig.GCSConfig.AutomaticCredentials)
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
-	os.Remove(credentialsFilePath)
+	err = os.Remove(credentialsFilePath)
+	assert.NoError(t, err)
 }
 
 func TestProviderClosedMock(t *testing.T) {
@@ -2276,9 +1876,7 @@ func TestProviderClosedMock(t *testing.T) {
 	providerConf.CredentialsPath = credentialsPath
 	os.RemoveAll(credentialsPath)
 	err := dataprovider.Initialize(providerConf, configDir)
-	if err != nil {
-		t.Errorf("error initializing data provider: %v", err)
-	}
+	assert.NoError(t, err)
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
 }
@@ -2323,10 +1921,7 @@ func getTestUser() dataprovider.User {
 
 func getUserAsJSON(t *testing.T, user dataprovider.User) []byte {
 	json, err := json.Marshal(user)
-	if err != nil {
-		t.Errorf("error get user as json: %v", err)
-		return []byte("{}")
-	}
+	assert.NoError(t, err)
 	return json
 }
 
@@ -2337,9 +1932,7 @@ func executeRequest(req *http.Request) *httptest.ResponseRecorder {
 }
 
 func checkResponseCode(t *testing.T, expected, actual int) {
-	if expected != actual {
-		t.Errorf("Expected response code %d. Got %d", expected, actual)
-	}
+	assert.Equal(t, expected, actual)
 }
 
 func createTestFile(path string, size int64) error {

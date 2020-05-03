@@ -24,7 +24,7 @@ const (
 func TestLoadConfigTest(t *testing.T) {
 	configDir := ".."
 	err := config.LoadConfig(configDir, configName)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotEqual(t, httpd.Conf{}, config.GetHTTPConfig())
 	assert.NotEqual(t, dataprovider.Config{}, config.GetProviderConf())
 	assert.NotEqual(t, sftpd.Configuration{}, config.GetSFTPDConfig())
@@ -34,15 +34,15 @@ func TestLoadConfigTest(t *testing.T) {
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NotNil(t, err)
 	err = ioutil.WriteFile(configFilePath, []byte("{invalid json}"), 0666)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NotNil(t, err)
 	err = ioutil.WriteFile(configFilePath, []byte("{\"sftpd\": {\"bind_port\": \"a\"}}"), 0666)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NotNil(t, err)
 	err = os.Remove(configFilePath)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestEmptyBanner(t *testing.T) {
@@ -50,20 +50,20 @@ func TestEmptyBanner(t *testing.T) {
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
 	err := config.LoadConfig(configDir, configName)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.Banner = " "
 	c := make(map[string]sftpd.Configuration)
 	c["sftpd"] = sftpdConf
 	jsonConf, _ := json.Marshal(c)
 	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	sftpdConf = config.GetSFTPDConfig()
 	assert.NotEmpty(t, strings.TrimSpace(sftpdConf.Banner))
 	err = os.Remove(configFilePath)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestInvalidUploadMode(t *testing.T) {
@@ -71,19 +71,19 @@ func TestInvalidUploadMode(t *testing.T) {
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
 	err := config.LoadConfig(configDir, configName)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.UploadMode = 10
 	c := make(map[string]sftpd.Configuration)
 	c["sftpd"] = sftpdConf
 	jsonConf, err := json.Marshal(c)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NotNil(t, err)
 	err = os.Remove(configFilePath)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestInvalidExternalAuthScope(t *testing.T) {
@@ -91,19 +91,19 @@ func TestInvalidExternalAuthScope(t *testing.T) {
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
 	err := config.LoadConfig(configDir, configName)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	providerConf.ExternalAuthScope = 10
 	c := make(map[string]dataprovider.Config)
 	c["data_provider"] = providerConf
 	jsonConf, err := json.Marshal(c)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NotNil(t, err)
 	err = os.Remove(configFilePath)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestInvalidCredentialsPath(t *testing.T) {
@@ -111,19 +111,19 @@ func TestInvalidCredentialsPath(t *testing.T) {
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
 	err := config.LoadConfig(configDir, configName)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	providerConf.CredentialsPath = ""
 	c := make(map[string]dataprovider.Config)
 	c["data_provider"] = providerConf
 	jsonConf, err := json.Marshal(c)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NotNil(t, err)
 	err = os.Remove(configFilePath)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestInvalidProxyProtocol(t *testing.T) {
@@ -131,19 +131,19 @@ func TestInvalidProxyProtocol(t *testing.T) {
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
 	err := config.LoadConfig(configDir, configName)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.ProxyProtocol = 10
 	c := make(map[string]sftpd.Configuration)
 	c["sftpd"] = sftpdConf
 	jsonConf, err := json.Marshal(c)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NotNil(t, err)
 	err = os.Remove(configFilePath)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestInvalidUsersBaseDir(t *testing.T) {
@@ -151,19 +151,19 @@ func TestInvalidUsersBaseDir(t *testing.T) {
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
 	err := config.LoadConfig(configDir, configName)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	providerConf.UsersBaseDir = "."
 	c := make(map[string]dataprovider.Config)
 	c["data_provider"] = providerConf
 	jsonConf, err := json.Marshal(c)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NotNil(t, err)
 	err = os.Remove(configFilePath)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestHookCompatibity(t *testing.T) {
@@ -171,36 +171,37 @@ func TestHookCompatibity(t *testing.T) {
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
 	err := config.LoadConfig(configDir, configName)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	providerConf.ExternalAuthProgram = "ext_auth_program"
 	providerConf.PreLoginProgram = "pre_login_program"
 	c := make(map[string]dataprovider.Config)
 	c["data_provider"] = providerConf
 	jsonConf, err := json.Marshal(c)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
+	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	assert.Equal(t, "ext_auth_program", providerConf.ExternalAuthHook)
 	assert.Equal(t, "pre_login_program", providerConf.PreLoginHook)
 	err = os.Remove(configFilePath)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.KeyboardInteractiveProgram = "key_int_program"
 	cnf := make(map[string]sftpd.Configuration)
 	cnf["sftpd"] = sftpdConf
 	jsonConf, err = json.Marshal(cnf)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	sftpdConf = config.GetSFTPDConfig()
 	assert.Equal(t, "key_int_program", sftpdConf.KeyboardInteractiveHook)
 	err = os.Remove(configFilePath)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestSetGetConfig(t *testing.T) {
