@@ -1701,6 +1701,7 @@ func TestBandwidthAndConnections(t *testing.T) {
 		}
 		err = <-c
 		assert.Error(t, err, "connection closed while uploading: the upload must fail")
+		waitForNoActiveTransfer()
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 		err = os.Remove(localDownloadPath)
@@ -4042,6 +4043,7 @@ func appendToTestFile(path string, size int64) error {
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 	written, err := io.Copy(f, bytes.NewReader(content))
 	if err != nil {
 		return err
