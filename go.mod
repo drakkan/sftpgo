@@ -7,7 +7,7 @@ require (
 	cloud.google.com/go/storage v1.6.0
 	github.com/alexedwards/argon2id v0.0.0-20190612080829-01a59b2b8802
 	github.com/aws/aws-sdk-go v1.30.3
-	github.com/eikenb/pipeat v0.0.0-20190316224601-fb1f3a9aa29f
+	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-chi/chi v4.1.1+incompatible
 	github.com/go-chi/render v1.0.1
@@ -44,7 +44,6 @@ require (
 )
 
 replace (
-	github.com/eikenb/pipeat => github.com/drakkan/pipeat v0.0.0-20200327213700-f3a27a751cdc
 	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20200319122022-2fc68482d27f
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200409210311-95730af1ff98
 )
