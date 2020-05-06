@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
+
 	"github.com/drakkan/sftpgo/service"
 	"github.com/drakkan/sftpgo/utils"
-	"github.com/spf13/cobra"
 )
 
 var (

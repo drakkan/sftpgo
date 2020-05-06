@@ -13,13 +13,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pires/go-proxyproto"
+	"github.com/pkg/sftp"
+	"golang.org/x/crypto/ssh"
+
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
-	"github.com/pires/go-proxyproto"
-	"github.com/pkg/sftp"
-	"golang.org/x/crypto/ssh"
 )
 
 const (

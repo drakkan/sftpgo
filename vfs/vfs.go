@@ -10,9 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/drakkan/sftpgo/logger"
 	"github.com/eikenb/pipeat"
 	"github.com/pkg/sftp"
+
+	"github.com/drakkan/sftpgo/logger"
 )
 
 // Fs defines the interface for filesystem backends

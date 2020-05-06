@@ -24,8 +24,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/drakkan/sftpgo/logger"
 	"golang.org/x/crypto/ssh"
+
+	"github.com/drakkan/sftpgo/logger"
 )
 
 const logSender = "utils"

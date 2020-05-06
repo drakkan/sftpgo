@@ -11,14 +11,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/grandcat/zeroconf"
+	"github.com/rs/zerolog"
+
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
-	"github.com/grandcat/zeroconf"
-	"github.com/rs/zerolog"
 )
 
 const (

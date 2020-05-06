@@ -46,9 +46,6 @@ const (
 	activeConnectionsPath = "/api/v1/connection"
 	quotaScanPath         = "/api/v1/quota_scan"
 	versionPath           = "/api/v1/version"
-	providerStatusPath    = "/api/v1/providerstatus"
-	dumpDataPath          = "/api/v1/dumpdata"
-	loadDataPath          = "/api/v1/loaddata"
 	metricsPath           = "/metrics"
 	pprofPath             = "/debug/pprof/"
 	webBasePath           = "/web"
@@ -94,16 +91,20 @@ func TestMain(m *testing.M) {
 	homeBasePath = os.TempDir()
 	logfilePath := filepath.Join(configDir, "sftpgo_api_test.log")
 	logger.InitLogger(logfilePath, 5, 1, 28, false, zerolog.DebugLevel)
-	config.LoadConfig(configDir, "")
+	err := config.LoadConfig(configDir, "")
+	if err != nil {
+		logger.WarnToConsole("error loading configuration: %v", err)
+		os.Exit(1)
+	}
 	providerConf := config.GetProviderConf()
 	credentialsPath = filepath.Join(os.TempDir(), "test_credentials")
 	providerConf.CredentialsPath = credentialsPath
 	providerDriverName = providerConf.Driver
-	os.RemoveAll(credentialsPath)
+	os.RemoveAll(credentialsPath) //nolint:errcheck
 
-	err := dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
-		logger.Warn(logSender, "", "error initializing data provider: %v", err)
+		logger.WarnToConsole("error initializing data provider: %v", err)
 		os.Exit(1)
 	}
 
@@ -117,14 +118,18 @@ func TestMain(m *testing.M) {
 	httpd.SetBaseURLAndCredentials("http://127.0.0.1:8081", "", "")
 	backupsPath = filepath.Join(os.TempDir(), "test_backups")
 	httpdConf.BackupsPath = backupsPath
-	os.MkdirAll(backupsPath, 0777)
+	err = os.MkdirAll(backupsPath, 0777)
+	if err != nil {
+		logger.WarnToConsole("error creating backups path: %v", err)
+		os.Exit(1)
+	}
 
 	sftpd.SetDataProvider(dataProvider)
 	httpd.SetDataProvider(dataProvider)
 
 	go func() {
 		if err := httpdConf.Initialize(configDir, true); err != nil {
-			logger.Error(logSender, "", "could not start HTTP server: %v", err)
+			logger.ErrorToConsole("could not start HTTP server: %v", err)
 		}
 	}()
 
@@ -132,8 +137,16 @@ func TestMain(m *testing.M) {
 	// now start an https server
 	certPath := filepath.Join(os.TempDir(), "test.crt")
 	keyPath := filepath.Join(os.TempDir(), "test.key")
-	ioutil.WriteFile(certPath, []byte(httpsCert), 0666)
-	ioutil.WriteFile(keyPath, []byte(httpsKey), 0666)
+	err = ioutil.WriteFile(certPath, []byte(httpsCert), 0666)
+	if err != nil {
+		logger.WarnToConsole("error writing HTTPS certificate: %v", err)
+		os.Exit(1)
+	}
+	err = ioutil.WriteFile(keyPath, []byte(httpsKey), 0666)
+	if err != nil {
+		logger.WarnToConsole("error writing HTTPS private key: %v", err)
+		os.Exit(1)
+	}
 	httpdConf.BindPort = 8443
 	httpdConf.CertificateFile = certPath
 	httpdConf.CertificateKeyFile = keyPath
@@ -144,18 +157,18 @@ func TestMain(m *testing.M) {
 		}
 	}()
 	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
-	httpd.ReloadTLSCertificate()
+	httpd.ReloadTLSCertificate() //nolint:errcheck
 
 	testServer = httptest.NewServer(httpd.GetHTTPRouter())
-	defer testServer.Close()
+	defer testServer.Close() //nolint:errcheck
 
 	exitCode := m.Run()
-	os.Remove(logfilePath)
-	os.RemoveAll(backupsPath)
-	os.RemoveAll(credentialsPath)
-	os.Remove(certPath)
-	os.Remove(keyPath)
-	os.Exit(exitCode)
+	os.Remove(logfilePath)        //nolint:errcheck
+	os.RemoveAll(backupsPath)     //nolint:errcheck
+	os.RemoveAll(credentialsPath) //nolint:errcheck
+	os.Remove(certPath)           //nolint:errcheck
+	os.Remove(keyPath)            //nolint:errcheck
+	os.Exit(exitCode)             //nolint:errcheck
 }
 
 func TestInitialization(t *testing.T) {
@@ -163,7 +176,7 @@ func TestInitialization(t *testing.T) {
 	assert.NoError(t, err)
 	httpdConf := config.GetHTTPDConfig()
 	httpdConf.BackupsPath = "test_backups"
-	httpdConf.AuthUserFile = "invalid file"
+	httpdConf.AuthUserFile = "invalid_file"
 	err = httpdConf.Initialize(configDir, true)
 	assert.Error(t, err)
 	httpdConf.BackupsPath = backupsPath
@@ -241,7 +254,7 @@ func TestAddUserNoHomeDir(t *testing.T) {
 
 func TestAddUserInvalidHomeDir(t *testing.T) {
 	u := getTestUser()
-	u.HomeDir = "relative_path"
+	u.HomeDir = "relative_path" //nolint:goconst
 	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 }
@@ -333,13 +346,13 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(credentialsPath, 0700)
 	assert.NoError(t, err)
-	u.FsConfig.S3Config.Bucket = "test"
+	u.FsConfig.S3Config.Bucket = "testbucket"
 	u.FsConfig.S3Config.Region = "eu-west-1"
 	u.FsConfig.S3Config.AccessKey = "access-key"
 	u.FsConfig.S3Config.AccessSecret = "access-secret"
 	u.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/path?a=b"
-	u.FsConfig.S3Config.StorageClass = "Standard"
-	u.FsConfig.S3Config.KeyPrefix = "/somedir/subdir/"
+	u.FsConfig.S3Config.StorageClass = "Standard" //nolint:goconst
+	u.FsConfig.S3Config.KeyPrefix = "/adir/subdir/"
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.FsConfig.S3Config.KeyPrefix = ""
@@ -355,13 +368,13 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.GCSConfig.Bucket = ""
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.FsConfig.GCSConfig.Bucket = "test"
+	u.FsConfig.GCSConfig.Bucket = "abucket"
 	u.FsConfig.GCSConfig.StorageClass = "Standard"
 	u.FsConfig.GCSConfig.KeyPrefix = "/somedir/subdir/"
 	u.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString([]byte("test"))
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.FsConfig.GCSConfig.KeyPrefix = "somedir/subdir/"
+	u.FsConfig.GCSConfig.KeyPrefix = "somedir/subdir/" //nolint:goconst
 	u.FsConfig.GCSConfig.Credentials = ""
 	u.FsConfig.GCSConfig.AutomaticCredentials = 0
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
@@ -542,8 +555,8 @@ func TestUserS3Config(t *testing.T) {
 	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
 	assert.NoError(t, err)
 	user.FsConfig.Provider = 1
-	user.FsConfig.S3Config.Bucket = "test"
-	user.FsConfig.S3Config.Region = "us-east-1"
+	user.FsConfig.S3Config.Bucket = "test"      //nolint:goconst
+	user.FsConfig.S3Config.Region = "us-east-1" //nolint:goconst
 	user.FsConfig.S3Config.AccessKey = "Server-Access-Key"
 	user.FsConfig.S3Config.AccessSecret = "Server-Access-Secret"
 	user.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000"
@@ -559,11 +572,11 @@ func TestUserS3Config(t *testing.T) {
 	user, _, err = httpd.AddUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	user.FsConfig.Provider = 1
-	user.FsConfig.S3Config.Bucket = "test1"
-	user.FsConfig.S3Config.Region = "us-east-1"
+	user.FsConfig.S3Config.Bucket = "test-bucket"
+	user.FsConfig.S3Config.Region = "us-east-1" //nolint:goconst
 	user.FsConfig.S3Config.AccessKey = "Server-Access-Key1"
 	user.FsConfig.S3Config.Endpoint = "http://localhost:9000"
-	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir"
+	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir" //nolint:goconst
 	user.FsConfig.S3Config.UploadConcurrency = 5
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -580,7 +593,7 @@ func TestUserS3Config(t *testing.T) {
 	assert.NoError(t, err)
 	// test user without access key and access secret (shared config state)
 	user.FsConfig.Provider = 1
-	user.FsConfig.S3Config.Bucket = "test1"
+	user.FsConfig.S3Config.Bucket = "testbucket"
 	user.FsConfig.S3Config.Region = "us-east-1"
 	user.FsConfig.S3Config.AccessKey = ""
 	user.FsConfig.S3Config.AccessSecret = ""
@@ -820,7 +833,8 @@ func TestProviderErrors(t *testing.T) {
 	backupData.Users = append(backupData.Users, user)
 	backupContent, _ := json.Marshal(backupData)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
-	ioutil.WriteFile(backupFilePath, backupContent, 0666)
+	err = ioutil.WriteFile(backupFilePath, backupContent, 0666)
+	assert.NoError(t, err)
 	_, _, err = httpd.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
 	assert.NoError(t, err)
 	err = os.Remove(backupFilePath)
@@ -978,11 +992,14 @@ func TestHTTPSConnection(t *testing.T) {
 	client := &http.Client{
 		Timeout: 5 * time.Second,
 	}
-	_, err := client.Get("https://localhost:8443" + metricsPath)
-	assert.Error(t, err)
-	if !strings.Contains(err.Error(), "certificate is not valid") &&
-		!strings.Contains(err.Error(), "certificate signed by unknown authority") {
-		assert.Fail(t, err.Error())
+	resp, err := client.Get("https://localhost:8443" + metricsPath)
+	if assert.Error(t, err) {
+		if !strings.Contains(err.Error(), "certificate is not valid") &&
+			!strings.Contains(err.Error(), "certificate signed by unknown authority") {
+			assert.Fail(t, err.Error())
+		}
+	} else {
+		resp.Body.Close()
 	}
 }
 
@@ -1276,7 +1293,8 @@ func TestStartQuotaScanMock(t *testing.T) {
 	req, _ = http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer(userAsJSON))
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusConflict, rr.Code)
-	sftpd.RemoveQuotaScan(user.Username)
+	err = sftpd.RemoveQuotaScan(user.Username)
+	assert.NoError(t, err)
 
 	userAsJSON = getUserAsJSON(t, user)
 	req, _ = http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer(userAsJSON))
@@ -1584,7 +1602,8 @@ func TestWebUserAddMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	var users []dataprovider.User
-	render.DecodeJSON(rr.Body, &users)
+	err := render.DecodeJSON(rr.Body, &users)
+	assert.NoError(t, err)
 	assert.Equal(t, 1, len(users))
 	newUser := users[0]
 	assert.Equal(t, user.UID, newUser.UID)
@@ -1650,7 +1669,8 @@ func TestWebUserUpdateMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	var users []dataprovider.User
-	render.DecodeJSON(rr.Body, &users)
+	err = render.DecodeJSON(rr.Body, &users)
+	assert.NoError(t, err)
 	assert.Equal(t, 1, len(users))
 	updateUser := users[0]
 	assert.Equal(t, user.HomeDir, updateUser.HomeDir)
@@ -1661,9 +1681,8 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.Equal(t, user.GID, updateUser.GID)
 
 	if val, ok := updateUser.Permissions["/otherdir"]; ok {
-		if !utils.IsStringInSlice(dataprovider.PermListItems, val) || !utils.IsStringInSlice(dataprovider.PermUpload, val) {
-			t.Error("permssions for /otherdir does not match")
-		}
+		assert.True(t, utils.IsStringInSlice(dataprovider.PermListItems, val))
+		assert.True(t, utils.IsStringInSlice(dataprovider.PermUpload, val))
 	} else {
 		assert.Fail(t, "user permissions must contains /otherdir", "actual: %v", updateUser.Permissions)
 	}
@@ -1672,7 +1691,8 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, updateUser.Filters.DeniedLoginMethods))
 	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, updateUser.Filters.DeniedLoginMethods))
 	assert.True(t, utils.IsStringInSlice(".zip", updateUser.Filters.FileExtensions[0].DeniedExtensions))
-	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
+	req, err = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
+	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 }
@@ -1827,7 +1847,8 @@ func TestWebUserGCSMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	var users []dataprovider.User
-	render.DecodeJSON(rr.Body, &users)
+	err = render.DecodeJSON(rr.Body, &users)
+	assert.NoError(t, err)
 	assert.Equal(t, 1, len(users))
 	updateUser := users[0]
 	assert.Equal(t, int64(1577836800000), updateUser.ExpirationDate)
@@ -1871,11 +1892,13 @@ func TestProviderClosedMock(t *testing.T) {
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/0", strings.NewReader(form.Encode()))
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr.Code)
-	config.LoadConfig(configDir, "")
+	err := config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	providerConf.CredentialsPath = credentialsPath
-	os.RemoveAll(credentialsPath)
-	err := dataprovider.Initialize(providerConf, configDir)
+	err = os.RemoveAll(credentialsPath)
+	assert.NoError(t, err)
+	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
@@ -1938,7 +1961,10 @@ func checkResponseCode(t *testing.T, expected, actual int) {
 func createTestFile(path string, size int64) error {
 	baseDir := filepath.Dir(path)
 	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
-		os.MkdirAll(baseDir, 0777)
+		err = os.MkdirAll(baseDir, 0777)
+		if err != nil {
+			return err
+		}
 	}
 	content := make([]byte, size)
 	if size > 0 {

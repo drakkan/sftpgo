@@ -49,7 +49,7 @@ const (
 )
 
 const (
-	uploadModeStandard = iota //nolint:varcheck,deadcode
+	uploadModeStandard = iota
 	uploadModeAtomic
 	uploadModeAtomicWithResume
 )

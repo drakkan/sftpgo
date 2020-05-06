@@ -33,6 +33,7 @@ import (
 
 	"github.com/alexedwards/argon2id"
 	"github.com/go-chi/render"
+	unixcrypt "github.com/nathanaelle/password/v2"
 	"github.com/rs/xid"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/pbkdf2"
@@ -43,7 +44,6 @@ import (
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
-	unixcrypt "github.com/nathanaelle/password/v2"
 )
 
 const (

@@ -13,11 +13,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi"
+
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
-	"github.com/go-chi/chi"
 )
 
 const (

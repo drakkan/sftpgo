@@ -1,0 +1,42 @@
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+
+
+linters-settings:
+  dupl:
+    threshold: 150
+  errcheck:
+    check-type-assertions: false
+    check-blank: false
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+  gocyclo:
+    min-complexity: 15
+  gofmt:
+    simplify: true
+  goimports:
+    local-prefixes: github.com/drakkan/sftpgo
+  maligned:
+    suggest-new: true
+
+linters:
+  enable:
+    - goconst
+    - errcheck
+    - gofmt
+    - goimports
+    - golint
+    - unconvert
+    - unparam
+    - bodyclose
+    - gocyclo
+    - misspell
+    - maligned
+    - whitespace
+    - dupl
+    - scopelint
+    - rowserrcheck
+    - dogsled

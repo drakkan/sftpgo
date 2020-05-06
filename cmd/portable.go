@@ -9,11 +9,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/service"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/vfs"
-	"github.com/spf13/cobra"
 )
 
 var (

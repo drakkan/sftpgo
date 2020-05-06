@@ -16,11 +16,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-chi/render"
+
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
-	"github.com/go-chi/render"
 )
 
 var (

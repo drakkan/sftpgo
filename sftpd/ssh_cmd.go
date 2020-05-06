@@ -15,13 +15,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/shlex"
+	"golang.org/x/crypto/ssh"
+
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
-	"github.com/google/shlex"
-	"golang.org/x/crypto/ssh"
 )
 
 const scpCmdName = "scp"

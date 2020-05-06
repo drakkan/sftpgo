@@ -3,10 +3,11 @@ package httpd
 import (
 	"net/http"
 
+	"github.com/go-chi/render"
+
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
-	"github.com/go-chi/render"
 )
 
 func getQuotaScans(w http.ResponseWriter, r *http.Request) {

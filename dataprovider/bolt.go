@@ -8,9 +8,10 @@ import (
 	"path/filepath"
 	"time"
 
+	bolt "go.etcd.io/bbolt"
+
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
-	bolt "go.etcd.io/bbolt"
 )
 
 const (

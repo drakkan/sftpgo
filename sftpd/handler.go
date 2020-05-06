@@ -8,13 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/drakkan/sftpgo/vfs"
+	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
-
-	"github.com/pkg/sftp"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 // Connection details for an authenticated user

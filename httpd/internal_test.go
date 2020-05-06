@@ -14,12 +14,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-chi/chi"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
-	"github.com/go-chi/chi"
-	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -304,8 +305,9 @@ func TestGCSWebInvalidFormFile(t *testing.T) {
 	form.Set("fs_provider", "2")
 	req, _ := http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.ParseForm()
-	_, err := getFsConfigFromUserPostFields(req)
+	err := req.ParseForm()
+	assert.NoError(t, err)
+	_, err = getFsConfigFromUserPostFields(req)
 	assert.EqualError(t, err, http.ErrNotMultipart.Error())
 }
 
@@ -370,9 +372,10 @@ func TestBasicAuth(t *testing.T) {
 	oldAuthPassword := authPassword
 	authUserFile := filepath.Join(os.TempDir(), "http_users.txt")
 	authUserData := []byte("test1:$2y$05$bcHSED7aO1cfLto6ZdDBOOKzlwftslVhtpIkRhAtSa4GuLmk5mola\n")
-	ioutil.WriteFile(authUserFile, authUserData, 0666)
+	err := ioutil.WriteFile(authUserFile, authUserData, 0666)
+	assert.NoError(t, err)
 	httpAuth, _ = newBasicAuthProvider(authUserFile)
-	_, _, err := GetVersion(http.StatusUnauthorized)
+	_, _, err = GetVersion(http.StatusUnauthorized)
 	assert.NoError(t, err)
 	SetBaseURLAndCredentials(httpBaseURL, "test1", "password1")
 	_, _, err = GetVersion(http.StatusOK)
@@ -391,12 +394,14 @@ func TestBasicAuth(t *testing.T) {
 	_, _, err = GetVersion(http.StatusOK)
 	assert.Error(t, err)
 	authUserData = append(authUserData, []byte("test3:$apr1$gLnIkRIf$Xr/6$aJfmIr$ihP4b2N2tcs/\n")...)
-	ioutil.WriteFile(authUserFile, authUserData, 0666)
+	err = ioutil.WriteFile(authUserFile, authUserData, 0666)
+	assert.NoError(t, err)
 	SetBaseURLAndCredentials(httpBaseURL, "test3", "wrong_password")
 	_, _, err = GetVersion(http.StatusUnauthorized)
 	assert.NoError(t, err)
 	authUserData = append(authUserData, []byte("test4:$invalid$gLnIkRIf$Xr/6$aJfmIr$ihP4b2N2tcs/\n")...)
-	ioutil.WriteFile(authUserFile, authUserData, 0666)
+	err = ioutil.WriteFile(authUserFile, authUserData, 0666)
+	assert.NoError(t, err)
 	SetBaseURLAndCredentials(httpBaseURL, "test3", "password2")
 	_, _, err = GetVersion(http.StatusUnauthorized)
 	assert.NoError(t, err)

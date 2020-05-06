@@ -8,10 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/utils"
 	"github.com/eikenb/pipeat"
 	"github.com/rs/xid"
+
+	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/utils"
 )
 
 const (

@@ -12,12 +12,13 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/metrics"
 	"github.com/eikenb/pipeat"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
+
+	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/metrics"
 )
 
 var (

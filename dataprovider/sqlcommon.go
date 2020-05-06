@@ -271,9 +271,9 @@ func sqlCommonGetUsers(limit int, offset int, order string, username string, dbH
 	defer stmt.Close()
 	var rows *sql.Rows
 	if len(username) > 0 {
-		rows, err = stmt.Query(username, limit, offset)
+		rows, err = stmt.Query(username, limit, offset) //nolint:rowserrcheck // err is checked
 	} else {
-		rows, err = stmt.Query(limit, offset)
+		rows, err = stmt.Query(limit, offset) //nolint:rowserrcheck // err is checked
 	}
 	if err == nil {
 		defer rows.Close()

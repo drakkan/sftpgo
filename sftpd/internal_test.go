@@ -10,17 +10,20 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/eikenb/pipeat"
+	"github.com/pkg/sftp"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
-	"github.com/eikenb/pipeat"
-	"github.com/pkg/sftp"
 )
+
+const osWindows = "windows"
 
 type MockChannel struct {
 	Buffer        *bytes.Buffer
@@ -132,37 +135,26 @@ func TestNewActionNotification(t *testing.T) {
 		Bucket: "gcsbucket",
 	}
 	a := newActionNotification(user, operationDownload, "path", "target", "", 123, nil)
-	if a.Username != "username" {
-		t.Errorf("unexpected username")
-	}
-	if len(a.Bucket) > 0 {
-		t.Errorf("unexpected bucket")
-	}
-	if len(a.Endpoint) > 0 {
-		t.Errorf("unexpected endpoint")
-	}
+	assert.Equal(t, user.Username, a.Username)
+	assert.Equal(t, 0, len(a.Bucket))
+	assert.Equal(t, 0, len(a.Endpoint))
+
 	user.FsConfig.Provider = 1
 	a = newActionNotification(user, operationDownload, "path", "target", "", 123, nil)
-	if a.Bucket != "s3bucket" {
-		t.Errorf("unexpected s3 bucket")
-	}
-	if a.Endpoint != "endpoint" {
-		t.Errorf("unexpected endpoint")
-	}
+	assert.Equal(t, "s3bucket", a.Bucket)
+	assert.Equal(t, "endpoint", a.Endpoint)
+
 	user.FsConfig.Provider = 2
 	a = newActionNotification(user, operationDownload, "path", "target", "", 123, nil)
-	if a.Bucket != "gcsbucket" {
-		t.Errorf("unexpected gcs bucket")
-	}
-	if len(a.Endpoint) > 0 {
-		t.Errorf("unexpected endpoint")
-	}
+	assert.Equal(t, "gcsbucket", a.Bucket)
+	assert.Equal(t, 0, len(a.Endpoint))
 }
 
 func TestWrongActions(t *testing.T) {
 	actionsCopy := actions
+
 	badCommand := "/bad/command"
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		badCommand = "C:\\bad\\command"
 	}
 	actions = Actions{
@@ -174,19 +166,15 @@ func TestWrongActions(t *testing.T) {
 		Username: "username",
 	}
 	err := executeAction(newActionNotification(user, operationDownload, "path", "", "", 0, nil))
-	if err == nil {
-		t.Errorf("action with bad command must fail")
-	}
+	assert.Error(t, err, "action with bad command must fail")
+
 	err = executeAction(newActionNotification(user, operationDelete, "path", "", "", 0, nil))
-	if err != nil {
-		t.Errorf("action not configured must silently fail")
-	}
+	assert.NoError(t, err)
 	actions.Command = ""
 	actions.HTTPNotificationURL = "http://foo\x7f.com/"
 	err = executeAction(newActionNotification(user, operationDownload, "path", "", "", 0, nil))
-	if err == nil {
-		t.Errorf("action with bad url must fail")
-	}
+	assert.Error(t, err, "action with bad url must fail")
+
 	actions = actionsCopy
 }
 
@@ -201,9 +189,7 @@ func TestActionHTTP(t *testing.T) {
 		Username: "username",
 	}
 	err := executeAction(newActionNotification(user, operationDownload, "path", "", "", 0, nil))
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 
 	actions = actionsCopy
 }
@@ -211,16 +197,12 @@ func TestActionHTTP(t *testing.T) {
 func TestRemoveNonexistentTransfer(t *testing.T) {
 	transfer := Transfer{}
 	err := removeTransfer(&transfer)
-	if err == nil {
-		t.Errorf("remove nonexistent transfer must fail")
-	}
+	assert.Error(t, err, "remove nonexistent transfer must fail")
 }
 
 func TestRemoveNonexistentQuotaScan(t *testing.T) {
 	err := RemoveQuotaScan("username")
-	if err == nil {
-		t.Errorf("remove nonexistent transfer must fail")
-	}
+	assert.Error(t, err, "remove nonexistent quota scan must fail")
 }
 
 func TestGetOSOpenFlags(t *testing.T) {
@@ -228,19 +210,19 @@ func TestGetOSOpenFlags(t *testing.T) {
 	flags.Write = true
 	flags.Excl = true
 	osFlags := getOSOpenFlags(flags)
-	if osFlags&os.O_WRONLY == 0 || osFlags&os.O_EXCL == 0 {
-		t.Errorf("error getting os flags from sftp file open flags")
-	}
+	assert.NotEqual(t, 0, osFlags&os.O_WRONLY)
+	assert.NotEqual(t, 0, osFlags&os.O_EXCL)
+
 	flags.Append = true
 	// append flag should be ignored to allow resume
-	if osFlags&os.O_WRONLY == 0 || osFlags&os.O_EXCL == 0 {
-		t.Errorf("error getting os flags from sftp file open flags")
-	}
+	assert.NotEqual(t, 0, osFlags&os.O_WRONLY)
+	assert.NotEqual(t, 0, osFlags&os.O_EXCL)
 }
 
 func TestUploadResumeInvalidOffset(t *testing.T) {
-	testfile := "testfile"
-	file, _ := os.Create(testfile)
+	testfile := "testfile" //nolint:goconst
+	file, err := os.Create(testfile)
+	assert.NoError(t, err)
 	transfer := Transfer{
 		file:          file,
 		path:          file.Name(),
@@ -260,20 +242,20 @@ func TestUploadResumeInvalidOffset(t *testing.T) {
 		minWriteOffset: 10,
 		lock:           new(sync.Mutex),
 	}
-	_, err := transfer.WriteAt([]byte("test"), 0)
-	if err == nil {
-		t.Errorf("upload with invalid offset must fail")
-	}
+	_, err = transfer.WriteAt([]byte("test"), 0)
+	assert.Error(t, err, "upload with invalid offset must fail")
 	err = transfer.Close()
-	if err == nil || !strings.Contains(err.Error(), "Invalid write offset") {
-		t.Errorf("unexpected error: %v", err)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "Invalid write offset")
 	}
-	os.Remove(testfile)
+	err = os.Remove(testfile)
+	assert.NoError(t, err)
 }
 
 func TestReadWriteErrors(t *testing.T) {
 	testfile := "testfile"
-	file, _ := os.Create(testfile)
+	file, err := os.Create(testfile)
+	assert.NoError(t, err)
 	transfer := Transfer{
 		file:          file,
 		path:          file.Name(),
@@ -294,21 +276,18 @@ func TestReadWriteErrors(t *testing.T) {
 		expectedSize:   10,
 		lock:           new(sync.Mutex),
 	}
-	file.Close()
-	_, err := transfer.WriteAt([]byte("test"), 0)
-	if err == nil {
-		t.Error("writing to closed file must fail")
-	}
+	err = file.Close()
+	assert.NoError(t, err)
+	_, err = transfer.WriteAt([]byte("test"), 0)
+	assert.Error(t, err, "writing to closed file must fail")
 	buf := make([]byte, 32768)
 	_, err = transfer.ReadAt(buf, 0)
-	if err == nil {
-		t.Error("reading from a closed file must fail")
-	}
+	assert.Error(t, err, "reading from a closed file must fail")
 	err = transfer.Close()
-	if err == nil {
-		t.Error("upoload must fail the expected size does not match")
-	}
-	r, _, _ := pipeat.Pipe()
+	assert.Error(t, err, "upoload must fail: the expected size does not match")
+
+	r, _, err := pipeat.Pipe()
+	assert.NoError(t, err)
 	transfer = Transfer{
 		readerAt:      r,
 		writerAt:      nil,
@@ -327,12 +306,13 @@ func TestReadWriteErrors(t *testing.T) {
 		isFinished:    false,
 		lock:          new(sync.Mutex),
 	}
-	transfer.closeIO()
+	err = transfer.closeIO()
+	assert.NoError(t, err)
 	_, err = transfer.ReadAt(buf, 0)
-	if err == nil {
-		t.Error("reading from a closed pipe must fail")
-	}
-	r, w, _ := pipeat.Pipe()
+	assert.Error(t, err, "reading from a closed pipe must fail")
+
+	r, w, err := pipeat.Pipe()
+	assert.NoError(t, err)
 	transfer = Transfer{
 		readerAt:      nil,
 		writerAt:      w,
@@ -351,18 +331,21 @@ func TestReadWriteErrors(t *testing.T) {
 		isFinished:    false,
 		lock:          new(sync.Mutex),
 	}
-	r.Close()
-	transfer.closeIO()
+	err = r.Close()
+	assert.NoError(t, err)
+	err = transfer.closeIO()
+	assert.NoError(t, err)
 	_, err = transfer.WriteAt([]byte("test"), 0)
-	if err == nil {
-		t.Error("writing to closed pipe must fail")
-	}
-	os.Remove(testfile)
+	assert.Error(t, err, "writing to closed pipe must fail")
+
+	err = os.Remove(testfile)
+	assert.NoError(t, err)
 }
 
 func TestTransferCancelFn(t *testing.T) {
 	testfile := "testfile"
-	file, _ := os.Create(testfile)
+	file, err := os.Create(testfile)
+	assert.NoError(t, err)
 	isCancelled := false
 	cancelFn := func() {
 		isCancelled = true
@@ -388,19 +371,21 @@ func TestTransferCancelFn(t *testing.T) {
 		expectedSize:   10,
 		lock:           new(sync.Mutex),
 	}
-	transfer.TransferError(errors.New("fake error, this will trigger cancelFn"))
-	transfer.Close()
-	if !isCancelled {
-		t.Error("cancelFn not called")
-	}
-	os.Remove(testfile)
+	errFake := errors.New("fake error, this will trigger cancelFn")
+	transfer.TransferError(errFake)
+	err = transfer.Close()
+	assert.EqualError(t, err, errFake.Error())
+	assert.True(t, isCancelled, "cancelFn not called!")
+
+	err = os.Remove(testfile)
+	assert.NoError(t, err)
 }
 
 func TestMockFsErrors(t *testing.T) {
 	errFake := errors.New("fake error")
 	fs := newMockOsFs(errFake, errFake, false, "123", os.TempDir())
 	u := dataprovider.User{}
-	u.Username = "test"
+	u.Username = "test_username"
 	u.Permissions = make(map[string][]string)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
 	u.HomeDir = os.TempDir()
@@ -410,24 +395,22 @@ func TestMockFsErrors(t *testing.T) {
 	}
 	testfile := filepath.Join(u.HomeDir, "testfile")
 	request := sftp.NewRequest("Remove", testfile)
-	ioutil.WriteFile(testfile, []byte("test"), 0666)
-	err := c.handleSFTPRemove(testfile, request)
-	if err != sftp.ErrSSHFxFailure {
-		t.Errorf("unexpected error: %v", err)
-	}
+	err := ioutil.WriteFile(testfile, []byte("test"), 0666)
+	assert.NoError(t, err)
+	err = c.handleSFTPRemove(testfile, request)
+	assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
 	_, err = c.Filewrite(request)
-	if err != sftp.ErrSSHFxFailure {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
+
 	var flags sftp.FileOpenFlags
 	flags.Write = true
 	flags.Trunc = false
 	flags.Append = true
 	_, err = c.handleSFTPUploadToExistingFile(flags, testfile, testfile, 0, false)
-	if err != sftp.ErrSSHFxOpUnsupported {
-		t.Errorf("unexpected error: %v", err)
-	}
-	os.Remove(testfile)
+	assert.EqualError(t, err, sftp.ErrSSHFxOpUnsupported.Error())
+
+	err = os.Remove(testfile)
+	assert.NoError(t, err)
 }
 
 func TestUploadFiles(t *testing.T) {
@@ -440,103 +423,87 @@ func TestUploadFiles(t *testing.T) {
 	flags.Write = true
 	flags.Trunc = true
 	_, err := c.handleSFTPUploadToExistingFile(flags, "missing_path", "other_missing_path", 0, false)
-	if err == nil {
-		t.Errorf("upload to existing file must fail if one or both paths are invalid")
-	}
+	assert.Error(t, err, "upload to existing file must fail if one or both paths are invalid")
+
 	uploadMode = uploadModeStandard
 	_, err = c.handleSFTPUploadToExistingFile(flags, "missing_path", "other_missing_path", 0, false)
-	if err == nil {
-		t.Errorf("upload to existing file must fail if one or both paths are invalid")
-	}
+	assert.Error(t, err, "upload to existing file must fail if one or both paths are invalid")
+
 	missingFile := "missing/relative/file.txt"
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		missingFile = "missing\\relative\\file.txt"
 	}
 	_, err = c.handleSFTPUploadToNewFile(".", missingFile, false)
-	if err == nil {
-		t.Errorf("upload new file in missing path must fail")
-	}
+	assert.Error(t, err, "upload new file in missing path must fail")
+
 	c.fs = newMockOsFs(nil, nil, false, "123", os.TempDir())
-	f, _ := ioutil.TempFile("", "temp")
-	f.Close()
+	f, err := ioutil.TempFile("", "temp")
+	assert.NoError(t, err)
+	err = f.Close()
+	assert.NoError(t, err)
+
 	_, err = c.handleSFTPUploadToExistingFile(flags, f.Name(), f.Name(), 123, false)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+	assert.NoError(t, err)
+	if assert.Equal(t, 1, len(activeTransfers)) {
+		transfer := activeTransfers[0]
+		assert.Equal(t, int64(123), transfer.initialSize)
+		err = transfer.Close()
+		assert.NoError(t, err)
+		assert.Equal(t, 0, len(activeTransfers))
 	}
-	if len(activeTransfers) != 1 {
-		t.Errorf("unexpected number of transfer, expected 1, current: %v", len(activeTransfers))
-	}
-	transfer := activeTransfers[0]
-	if transfer.initialSize != 123 {
-		t.Errorf("unexpected initial size: %v", transfer.initialSize)
-	}
-	err = transfer.Close()
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if len(activeTransfers) != 0 {
-		t.Errorf("unexpected number of transfer, expected 0, current: %v", len(activeTransfers))
-	}
-	os.Remove(f.Name())
+	err = os.Remove(f.Name())
+	assert.NoError(t, err)
 	uploadMode = oldUploadMode
 }
 
 func TestWithInvalidHome(t *testing.T) {
 	u := dataprovider.User{}
-	u.HomeDir = "home_rel_path"
+	u.HomeDir = "home_rel_path" //nolint:goconst
 	_, err := loginUser(u, dataprovider.SSHLoginMethodPassword, "", nil)
-	if err == nil {
-		t.Errorf("login a user with an invalid home_dir must fail")
-	}
+	assert.Error(t, err, "login a user with an invalid home_dir must fail")
+
 	u.HomeDir = os.TempDir()
-	fs, _ := u.GetFilesystem("123")
+	fs, err := u.GetFilesystem("123")
+	assert.NoError(t, err)
 	c := Connection{
 		User: u,
 		fs:   fs,
 	}
 	_, err = c.fs.ResolvePath("../upper_path")
-	if err == nil {
-		t.Errorf("tested path is not a home subdir")
-	}
+	assert.Error(t, err, "tested path is not a home subdir")
 }
 
 func TestSFTPCmdTargetPath(t *testing.T) {
 	u := dataprovider.User{}
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		u.HomeDir = "C:\\invalid_home"
 	} else {
 		u.HomeDir = "/invalid_home"
 	}
-	u.Username = "test"
+	u.Username = "testuser"
 	u.Permissions = make(map[string][]string)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
-	fs, _ := u.GetFilesystem("123")
+	fs, err := u.GetFilesystem("123")
+	assert.NoError(t, err)
 	connection := Connection{
 		User: u,
 		fs:   fs,
 	}
-	_, err := connection.getSFTPCmdTargetPath("invalid_path")
-	if err != sftp.ErrSSHFxNoSuchFile {
-		t.Errorf("getSFTPCmdTargetPath must fal with the expected error: %v", err)
-	}
+	_, err = connection.getSFTPCmdTargetPath("invalid_path")
+	assert.EqualError(t, err, sftp.ErrSSHFxNoSuchFile.Error())
 }
 
 func TestGetSFTPErrorFromOSError(t *testing.T) {
 	err := os.ErrNotExist
 	fs := vfs.NewOsFs("", os.TempDir(), nil)
 	err = vfs.GetSFTPError(fs, err)
-	if err != sftp.ErrSSHFxNoSuchFile {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.EqualError(t, err, sftp.ErrSSHFxNoSuchFile.Error())
+
 	err = os.ErrPermission
 	err = vfs.GetSFTPError(fs, err)
-	if err != sftp.ErrSSHFxPermissionDenied {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.EqualError(t, err, sftp.ErrSSHFxPermissionDenied.Error())
 	err = vfs.GetSFTPError(fs, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestSetstatModeIgnore(t *testing.T) {
@@ -544,9 +511,7 @@ func TestSetstatModeIgnore(t *testing.T) {
 	setstatMode = 1
 	connection := Connection{}
 	err := connection.handleSFTPSetstat("invalid", nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v setstat should be silently ignore in mode 1", err)
-	}
+	assert.NoError(t, err)
 	setstatMode = originalMode
 }
 
@@ -561,21 +526,15 @@ func TestSFTPGetUsedQuota(t *testing.T) {
 	connection := Connection{
 		User: u,
 	}
-	res := connection.hasSpace(false)
-	if res != false {
-		t.Errorf("has space must return false if the user is invalid")
-	}
+	assert.False(t, connection.hasSpace(false))
 }
 
 func TestSupportedSSHCommands(t *testing.T) {
 	cmds := GetSupportedSSHCommands()
-	if len(cmds) != len(supportedSSHCommands) {
-		t.Errorf("supported ssh commands does not match")
-	}
+	assert.Equal(t, len(supportedSSHCommands), len(cmds))
+
 	for _, c := range cmds {
-		if !utils.IsStringInSlice(c, supportedSSHCommands) {
-			t.Errorf("invalid ssh command: %v", c)
-		}
+		assert.True(t, utils.IsStringInSlice(c, supportedSSHCommands))
 	}
 }
 
@@ -595,78 +554,48 @@ func TestSSHCommandPath(t *testing.T) {
 		connection: connection,
 		args:       []string{},
 	}
-	path := sshCommand.getDestPath()
-	if path != "" {
-		t.Errorf("path must be empty")
-	}
+	assert.Equal(t, "", sshCommand.getDestPath())
+
 	sshCommand.args = []string{"-t", "/tmp/../path"}
-	path = sshCommand.getDestPath()
-	if path != "/path" {
-		t.Errorf("unexpected path: %v", path)
-	}
+	assert.Equal(t, "/path", sshCommand.getDestPath())
+
 	sshCommand.args = []string{"-t", "/tmp/"}
-	path = sshCommand.getDestPath()
-	if path != "/tmp/" {
-		t.Errorf("unexpected path: %v", path)
-	}
+	assert.Equal(t, "/tmp/", sshCommand.getDestPath())
+
 	sshCommand.args = []string{"-t", "tmp/"}
-	path = sshCommand.getDestPath()
-	if path != "/tmp/" {
-		t.Errorf("unexpected path: %v", path)
-	}
+	assert.Equal(t, "/tmp/", sshCommand.getDestPath())
+
 	sshCommand.args = []string{"-t", "/tmp/../../../path"}
-	path = sshCommand.getDestPath()
-	if path != "/path" {
-		t.Errorf("unexpected path: %v", path)
-	}
+	assert.Equal(t, "/path", sshCommand.getDestPath())
+
 	sshCommand.args = []string{"-t", ".."}
-	path = sshCommand.getDestPath()
-	if path != "/" {
-		t.Errorf("unexpected path: %v", path)
-	}
+	assert.Equal(t, "/", sshCommand.getDestPath())
+
 	sshCommand.args = []string{"-t", "."}
-	path = sshCommand.getDestPath()
-	if path != "/" {
-		t.Errorf("unexpected path: %v", path)
-	}
+	assert.Equal(t, "/", sshCommand.getDestPath())
+
 	sshCommand.args = []string{"-t", "//"}
-	path = sshCommand.getDestPath()
-	if path != "/" {
-		t.Errorf("unexpected path: %v", path)
-	}
+	assert.Equal(t, "/", sshCommand.getDestPath())
+
 	sshCommand.args = []string{"-t", "../.."}
-	path = sshCommand.getDestPath()
-	if path != "/" {
-		t.Errorf("unexpected path: %v", path)
-	}
+	assert.Equal(t, "/", sshCommand.getDestPath())
+
 	sshCommand.args = []string{"-t", "/.."}
-	path = sshCommand.getDestPath()
-	if path != "/" {
-		t.Errorf("unexpected path: %v", path)
-	}
+	assert.Equal(t, "/", sshCommand.getDestPath())
+
 	sshCommand.args = []string{"-f", "/a space.txt"}
-	path = sshCommand.getDestPath()
-	if path != "/a space.txt" {
-		t.Errorf("unexpected path: %v", path)
-	}
+	assert.Equal(t, "/a space.txt", sshCommand.getDestPath())
 }
 
 func TestSSHParseCommandPayload(t *testing.T) {
 	cmd := "command -a  -f  /ab\\ à/some\\ spaces\\ \\ \\(\\).txt"
 	name, args, _ := parseCommandPayload(cmd)
-	if name != "command" {
-		t.Errorf("unexpected command: %v", name)
-	}
-	if len(args) != 3 {
-		t.Errorf("unexpected number of arguments %v/3", len(args))
-	}
-	if args[2] != "/ab à/some spaces  ().txt" {
-		t.Errorf("command parsing error, expected arguments not found: %v", args)
-	}
+	assert.Equal(t, "command", name)
+	assert.Equal(t, 3, len(args))
+	assert.Equal(t, "/ab à/some spaces  ().txt", args[2])
+
 	_, _, err := parseCommandPayload("")
-	if err == nil {
-		t.Error("parsing invalid command must fail")
-	}
+	assert.Error(t, err, "parsing invalid command must fail")
 }
 
 func TestSSHCommandErrors(t *testing.T) {
@@ -679,12 +608,19 @@ func TestSSHCommandErrors(t *testing.T) {
 		ReadError:    readErr,
 	}
 	server, client := net.Pipe()
-	defer server.Close()
-	defer client.Close()
+	defer func() {
+		err := server.Close()
+		assert.NoError(t, err)
+	}()
+	defer func() {
+		err := client.Close()
+		assert.NoError(t, err)
+	}()
 	user := dataprovider.User{}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	fs, _ := user.GetFilesystem("123")
+	fs, err := user.GetFilesystem("123")
+	assert.NoError(t, err)
 	connection := Connection{
 		channel: &mockSSHChannel,
 		netConn: client,
@@ -696,77 +632,68 @@ func TestSSHCommandErrors(t *testing.T) {
 		connection: connection,
 		args:       []string{},
 	}
-	err := cmd.handle()
-	if err == nil {
-		t.Errorf("ssh command must fail, we are sending a fake error")
-	}
+	err = cmd.handle()
+	assert.Error(t, err, "ssh command must fail, we are sending a fake error")
+
 	cmd = sshCommand{
 		command:    "md5sum",
 		connection: connection,
 		args:       []string{"/../../test_file.dat"},
 	}
 	err = cmd.handle()
-	if err == nil {
-		t.Errorf("ssh command must fail, we are requesting an invalid path")
-	}
+	assert.Error(t, err, "ssh command must fail, we are requesting an invalid path")
+
 	cmd = sshCommand{
 		command:    "git-receive-pack",
 		connection: connection,
 		args:       []string{"/../../testrepo"},
 	}
 	err = cmd.handle()
-	if err == nil {
-		t.Errorf("ssh command must fail, we are requesting an invalid path")
-	}
+	assert.Error(t, err, "ssh command must fail, we are requesting an invalid path")
+
 	cmd.connection.User.HomeDir = os.TempDir()
 	cmd.connection.User.QuotaFiles = 1
 	cmd.connection.User.UsedQuotaFiles = 2
-	fs, _ = cmd.connection.User.GetFilesystem("123")
+	fs, err = cmd.connection.User.GetFilesystem("123")
+	assert.NoError(t, err)
 	cmd.connection.fs = fs
 	err = cmd.handle()
-	if err != errQuotaExceeded {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.EqualError(t, err, errQuotaExceeded.Error())
+
 	cmd.connection.User.QuotaFiles = 0
 	cmd.connection.User.UsedQuotaFiles = 0
 	cmd.connection.User.Permissions = make(map[string][]string)
 	cmd.connection.User.Permissions["/"] = []string{dataprovider.PermListItems}
 	err = cmd.handle()
-	if err != errPermissionDenied {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.EqualError(t, err, errPermissionDenied.Error())
+
 	cmd.connection.User.Permissions["/"] = []string{dataprovider.PermAny}
 	cmd.command = "invalid_command"
 	command, err := cmd.getSystemCommand()
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
+
 	err = cmd.executeSystemCommand(command)
-	if err == nil {
-		t.Errorf("invalid command must fail")
-	}
+	assert.Error(t, err, "invalid command must fail")
+
 	command, err = cmd.getSystemCommand()
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	command.cmd.StderrPipe()
+	assert.NoError(t, err)
+
+	_, err = command.cmd.StderrPipe()
+	assert.NoError(t, err)
+
 	err = cmd.executeSystemCommand(command)
-	if err == nil {
-		t.Errorf("command must fail, pipe was already assigned")
-	}
+	assert.Error(t, err, "command must fail, pipe was already assigned")
+
 	err = cmd.executeSystemCommand(command)
-	if err == nil {
-		t.Errorf("command must fail, pipe was already assigned")
-	}
+	assert.Error(t, err, "command must fail, pipe was already assigned")
+
 	command, err = cmd.getSystemCommand()
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	command.cmd.StdoutPipe()
+	assert.NoError(t, err)
+
+	_, err = command.cmd.StdoutPipe()
+	assert.NoError(t, err)
 	err = cmd.executeSystemCommand(command)
-	if err == nil {
-		t.Errorf("command must fail, pipe was already assigned")
-	}
+	assert.Error(t, err, "command must fail, pipe was already assigned")
 }
 
 func TestCommandsWithExtensionsFilter(t *testing.T) {
@@ -792,7 +719,8 @@ func TestCommandsWithExtensionsFilter(t *testing.T) {
 		},
 	}
 
-	fs, _ := user.GetFilesystem("123")
+	fs, err := user.GetFilesystem("123")
+	assert.NoError(t, err)
 	connection := Connection{
 		channel: &mockSSHChannel,
 		netConn: client,
@@ -804,46 +732,40 @@ func TestCommandsWithExtensionsFilter(t *testing.T) {
 		connection: connection,
 		args:       []string{"subdir/test.png"},
 	}
-	err := cmd.handleHashCommands()
-	if err != errPermissionDenied {
-		t.Errorf("unexpected error: %v", err)
-	}
+	err = cmd.handleHashCommands()
+	assert.EqualError(t, err, errPermissionDenied.Error())
+
 	cmd = sshCommand{
 		command:    "rsync",
 		connection: connection,
 		args:       []string{"--server", "-vlogDtprze.iLsfxC", ".", "/"},
 	}
 	_, err = cmd.getSystemCommand()
-	if err != errUnsupportedConfig {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.EqualError(t, err, errUnsupportedConfig.Error())
+
 	cmd = sshCommand{
 		command:    "git-receive-pack",
 		connection: connection,
 		args:       []string{"/subdir"},
 	}
 	_, err = cmd.getSystemCommand()
-	if err != errUnsupportedConfig {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.EqualError(t, err, errUnsupportedConfig.Error())
+
 	cmd = sshCommand{
 		command:    "git-receive-pack",
 		connection: connection,
 		args:       []string{"/subdir/dir"},
 	}
 	_, err = cmd.getSystemCommand()
-	if err != errUnsupportedConfig {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.EqualError(t, err, errUnsupportedConfig.Error())
+
 	cmd = sshCommand{
 		command:    "git-receive-pack",
 		connection: connection,
 		args:       []string{"/adir/subdir"},
 	}
 	_, err = cmd.getSystemCommand()
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestSSHCommandsRemoteFs(t *testing.T) {
@@ -854,12 +776,25 @@ func TestSSHCommandsRemoteFs(t *testing.T) {
 		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
 	}
 	server, client := net.Pipe()
-	defer server.Close()
-	defer client.Close()
+	defer func() {
+		err := server.Close()
+		assert.NoError(t, err)
+	}()
+	defer func() {
+		err := client.Close()
+		assert.NoError(t, err)
+	}()
 	user := dataprovider.User{}
 	user.FsConfig = dataprovider.Filesystem{
-		Provider: 1}
-	fs, _ := user.GetFilesystem("123")
+		Provider: 1,
+		S3Config: vfs.S3FsConfig{
+			Bucket:   "s3bucket",
+			Endpoint: "endpoint",
+			Region:   "eu-west-1",
+		},
+	}
+	fs, err := user.GetFilesystem("123")
+	assert.NoError(t, err)
 	connection := Connection{
 		channel: &mockSSHChannel,
 		netConn: client,
@@ -871,18 +806,14 @@ func TestSSHCommandsRemoteFs(t *testing.T) {
 		connection: connection,
 		args:       []string{},
 	}
-	err := cmd.handleHashCommands()
-	if err == nil {
-		t.Error("command must fail for a non local filesystem")
-	}
+	err = cmd.handleHashCommands()
+	assert.Error(t, err, "command must fail for a non local filesystem")
+
 	command, err := cmd.getSystemCommand()
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
+
 	err = cmd.executeSystemCommand(command)
-	if err == nil {
-		t.Error("command must fail for a non local filesystem")
-	}
+	assert.Error(t, err, "command must fail for a non local filesystem")
 }
 
 func TestSSHCommandQuotaScan(t *testing.T) {
@@ -895,8 +826,14 @@ func TestSSHCommandQuotaScan(t *testing.T) {
 		ReadError:    readErr,
 	}
 	server, client := net.Pipe()
-	defer server.Close()
-	defer client.Close()
+	defer func() {
+		err := server.Close()
+		assert.NoError(t, err)
+	}()
+	defer func() {
+		err := client.Close()
+		assert.NoError(t, err)
+	}()
 	permissions := make(map[string][]string)
 	permissions["/"] = []string{dataprovider.PermAny}
 	user := dataprovider.User{
@@ -904,7 +841,8 @@ func TestSSHCommandQuotaScan(t *testing.T) {
 		QuotaFiles:  1,
 		HomeDir:     "invalid_path",
 	}
-	fs, _ := user.GetFilesystem("123")
+	fs, err := user.GetFilesystem("123")
+	assert.NoError(t, err)
 	connection := Connection{
 		channel: &mockSSHChannel,
 		netConn: client,
@@ -916,10 +854,8 @@ func TestSSHCommandQuotaScan(t *testing.T) {
 		connection: connection,
 		args:       []string{"/testrepo"},
 	}
-	err := cmd.rescanHomeDir()
-	if err == nil {
-		t.Errorf("scanning an invalid home dir must fail")
-	}
+	err = cmd.rescanHomeDir()
+	assert.Error(t, err, "scanning an invalid home dir must fail")
 }
 
 func TestGitVirtualFolders(t *testing.T) {
@@ -929,7 +865,8 @@ func TestGitVirtualFolders(t *testing.T) {
 		Permissions: permissions,
 		HomeDir:     os.TempDir(),
 	}
-	fs, _ := user.GetFilesystem("123")
+	fs, err := user.GetFilesystem("123")
+	assert.NoError(t, err)
 	conn := Connection{
 		User: user,
 		fs:   fs,
@@ -943,10 +880,9 @@ func TestGitVirtualFolders(t *testing.T) {
 		VirtualPath: "/vdir",
 		MappedPath:  os.TempDir(),
 	})
-	_, err := cmd.getSystemCommand()
-	if err != errUnsupportedConfig {
-		t.Errorf("unexpected error: %v", err)
-	}
+	_, err = cmd.getSystemCommand()
+	assert.EqualError(t, err, errUnsupportedConfig.Error())
+
 	cmd.connection.User.VirtualFolders = nil
 	cmd.connection.User.VirtualFolders = append(cmd.connection.User.VirtualFolders, vfs.VirtualFolder{
 		VirtualPath: "/vdir",
@@ -954,14 +890,11 @@ func TestGitVirtualFolders(t *testing.T) {
 	})
 	cmd.args = []string{"/vdir/subdir"}
 	_, err = cmd.getSystemCommand()
-	if err != errUnsupportedConfig {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.EqualError(t, err, errUnsupportedConfig.Error())
+
 	cmd.args = []string{"/adir/subdir"}
 	_, err = cmd.getSystemCommand()
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestRsyncOptions(t *testing.T) {
@@ -971,7 +904,8 @@ func TestRsyncOptions(t *testing.T) {
 		Permissions: permissions,
 		HomeDir:     os.TempDir(),
 	}
-	fs, _ := user.GetFilesystem("123")
+	fs, err := user.GetFilesystem("123")
+	assert.NoError(t, err)
 	conn := Connection{
 		User: user,
 		fs:   fs,
@@ -982,16 +916,16 @@ func TestRsyncOptions(t *testing.T) {
 		args:       []string{"--server", "-vlogDtprze.iLsfxC", ".", "/"},
 	}
 	cmd, err := sshCmd.getSystemCommand()
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !utils.IsStringInSlice("--safe-links", cmd.cmd.Args) {
-		t.Errorf("--safe-links must be added if the user has the create symlinks permission")
-	}
+	assert.NoError(t, err)
+	assert.True(t, utils.IsStringInSlice("--safe-links", cmd.cmd.Args),
+		"--safe-links must be added if the user has the create symlinks permission")
+
 	permissions["/"] = []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermCreateDirs,
 		dataprovider.PermListItems, dataprovider.PermOverwrite, dataprovider.PermDelete, dataprovider.PermRename}
 	user.Permissions = permissions
-	fs, _ = user.GetFilesystem("123")
+	fs, err = user.GetFilesystem("123")
+	assert.NoError(t, err)
+
 	conn = Connection{
 		User: user,
 		fs:   fs,
@@ -1002,20 +936,16 @@ func TestRsyncOptions(t *testing.T) {
 		args:       []string{"--server", "-vlogDtprze.iLsfxC", ".", "/"},
 	}
 	cmd, err = sshCmd.getSystemCommand()
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !utils.IsStringInSlice("--munge-links", cmd.cmd.Args) {
-		t.Errorf("--munge-links must be added if the user has the create symlinks permission")
-	}
+	assert.NoError(t, err)
+	assert.True(t, utils.IsStringInSlice("--munge-links", cmd.cmd.Args),
+		"--munge-links must be added if the user has the create symlinks permission")
+
 	sshCmd.connection.User.VirtualFolders = append(sshCmd.connection.User.VirtualFolders, vfs.VirtualFolder{
 		VirtualPath: "/vdir",
 		MappedPath:  os.TempDir(),
 	})
 	_, err = sshCmd.getSystemCommand()
-	if err != errUnsupportedConfig {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.EqualError(t, err, errUnsupportedConfig.Error())
 }
 
 func TestSystemCommandErrors(t *testing.T) {
@@ -1030,15 +960,22 @@ func TestSystemCommandErrors(t *testing.T) {
 		WriteError:   writeErr,
 	}
 	server, client := net.Pipe()
-	defer server.Close()
-	defer client.Close()
+	defer func() {
+		err := server.Close()
+		assert.NoError(t, err)
+	}()
+	defer func() {
+		err := client.Close()
+		assert.NoError(t, err)
+	}()
 	permissions := make(map[string][]string)
 	permissions["/"] = []string{dataprovider.PermAny}
 	user := dataprovider.User{
 		Permissions: permissions,
 		HomeDir:     os.TempDir(),
 	}
-	fs, _ := user.GetFilesystem("123")
+	fs, err := user.GetFilesystem("123")
+	assert.NoError(t, err)
 	connection := Connection{
 		channel: &mockSSHChannel,
 		netConn: client,
@@ -1051,13 +988,13 @@ func TestSystemCommandErrors(t *testing.T) {
 		args:       []string{"/"},
 	}
 	systemCmd, err := sshCmd.getSystemCommand()
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
+
 	systemCmd.cmd.Dir = os.TempDir()
 	// FIXME: the command completes but the fake client was unable to read the response
-	// no error is reported in this case
-	sshCmd.executeSystemCommand(systemCmd)
+	// no error is reported in this case. We can see that the expected code is executed
+	// reading the test coverage
+	sshCmd.executeSystemCommand(systemCmd) //nolint:errcheck
 
 	mockSSHChannel = MockChannel{
 		Buffer:       bytes.NewBuffer(buf),
@@ -1072,9 +1009,7 @@ func TestSystemCommandErrors(t *testing.T) {
 	destBuff := make([]byte, 65535)
 	dst := bytes.NewBuffer(destBuff)
 	_, err = transfer.copyFromReaderToWriter(dst, sshCmd.connection.channel, 0)
-	if err != readErr {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.EqualError(t, err, readErr.Error())
 
 	mockSSHChannel = MockChannel{
 		Buffer:       bytes.NewBuffer(buf),
@@ -1084,9 +1019,7 @@ func TestSystemCommandErrors(t *testing.T) {
 	}
 	sshCmd.connection.channel = &mockSSHChannel
 	_, err = transfer.copyFromReaderToWriter(dst, sshCmd.connection.channel, 1)
-	if err != errQuotaExceeded {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.EqualError(t, err, errQuotaExceeded.Error())
 
 	mockSSHChannel = MockChannel{
 		Buffer:        bytes.NewBuffer(buf),
@@ -1097,9 +1030,7 @@ func TestSystemCommandErrors(t *testing.T) {
 	}
 	sshCmd.connection.channel = &mockSSHChannel
 	_, err = transfer.copyFromReaderToWriter(sshCmd.connection.channel, dst, 0)
-	if err != io.ErrShortWrite {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.EqualError(t, err, io.ErrShortWrite.Error())
 }
 
 func TestTransferUpdateQuota(t *testing.T) {
@@ -1108,9 +1039,7 @@ func TestTransferUpdateQuota(t *testing.T) {
 		bytesReceived: 123,
 		lock:          new(sync.Mutex)}
 	transfer.TransferError(errors.New("fake error"))
-	if transfer.updateQuota(1) {
-		t.Errorf("update quota must fail, there is a error and this is a remote upload")
-	}
+	assert.False(t, transfer.updateQuota(1))
 }
 
 func TestGetConnectionInfo(t *testing.T) {
@@ -1123,66 +1052,52 @@ func TestGetConnectionInfo(t *testing.T) {
 		SSHCommand:    "sha1sum /test_file.dat",
 	}
 	info := c.GetConnectionInfo()
-	if !strings.Contains(info, "sha1sum /test_file.dat") {
-		t.Errorf("ssh command not found in connection info")
-	}
+	assert.Contains(t, info, "sha1sum /test_file.dat")
 }
 
 func TestSCPFileMode(t *testing.T) {
 	mode := getFileModeAsString(0, true)
-	if mode != "0755" {
-		t.Errorf("invalid file mode: %v expected: 0755", mode)
-	}
+	assert.Equal(t, "0755", mode)
+
 	mode = getFileModeAsString(0700, true)
-	if mode != "0700" {
-		t.Errorf("invalid file mode: %v expected: 0700", mode)
-	}
+	assert.Equal(t, "0700", mode)
+
 	mode = getFileModeAsString(0750, true)
-	if mode != "0750" {
-		t.Errorf("invalid file mode: %v expected: 0750", mode)
-	}
+	assert.Equal(t, "0750", mode)
+
 	mode = getFileModeAsString(0777, true)
-	if mode != "0777" {
-		t.Errorf("invalid file mode: %v expected: 0777", mode)
-	}
+	assert.Equal(t, "0777", mode)
+
 	mode = getFileModeAsString(0640, false)
-	if mode != "0640" {
-		t.Errorf("invalid file mode: %v expected: 0640", mode)
-	}
+	assert.Equal(t, "0640", mode)
+
 	mode = getFileModeAsString(0600, false)
-	if mode != "0600" {
-		t.Errorf("invalid file mode: %v expected: 0600", mode)
-	}
+	assert.Equal(t, "0600", mode)
+
 	mode = getFileModeAsString(0, false)
-	if mode != "0644" {
-		t.Errorf("invalid file mode: %v expected: 0644", mode)
-	}
+	assert.Equal(t, "0644", mode)
+
 	fileMode := uint32(0777)
 	fileMode = fileMode | uint32(os.ModeSetgid)
 	fileMode = fileMode | uint32(os.ModeSetuid)
 	fileMode = fileMode | uint32(os.ModeSticky)
 	mode = getFileModeAsString(os.FileMode(fileMode), false)
-	if mode != "7777" {
-		t.Errorf("invalid file mode: %v expected: 7777", mode)
-	}
+	assert.Equal(t, "7777", mode)
+
 	fileMode = uint32(0644)
 	fileMode = fileMode | uint32(os.ModeSetgid)
 	mode = getFileModeAsString(os.FileMode(fileMode), false)
-	if mode != "4644" {
-		t.Errorf("invalid file mode: %v expected: 4644", mode)
-	}
+	assert.Equal(t, "4644", mode)
+
 	fileMode = uint32(0600)
 	fileMode = fileMode | uint32(os.ModeSetuid)
 	mode = getFileModeAsString(os.FileMode(fileMode), false)
-	if mode != "2600" {
-		t.Errorf("invalid file mode: %v expected: 2600", mode)
-	}
+	assert.Equal(t, "2600", mode)
+
 	fileMode = uint32(0044)
 	fileMode = fileMode | uint32(os.ModeSticky)
 	mode = getFileModeAsString(os.FileMode(fileMode), false)
-	if mode != "1044" {
-		t.Errorf("invalid file mode: %v expected: 1044", mode)
-	}
+	assert.Equal(t, "1044", mode)
 }
 
 func TestSCPParseUploadMessage(t *testing.T) {
@@ -1205,21 +1120,16 @@ func TestSCPParseUploadMessage(t *testing.T) {
 		},
 	}
 	_, _, err := scpCommand.parseUploadMessage("invalid")
-	if err == nil {
-		t.Errorf("parsing invalid upload message must fail")
-	}
+	assert.Error(t, err, "parsing invalid upload message must fail")
+
 	_, _, err = scpCommand.parseUploadMessage("D0755 0")
-	if err == nil {
-		t.Errorf("parsing incomplete upload message must fail")
-	}
+	assert.Error(t, err, "parsing incomplete upload message must fail")
+
 	_, _, err = scpCommand.parseUploadMessage("D0755 invalidsize testdir")
-	if err == nil {
-		t.Errorf("parsing upload message with invalid size must fail")
-	}
+	assert.Error(t, err, "parsing upload message with invalid size must fail")
+
 	_, _, err = scpCommand.parseUploadMessage("D0755 0 ")
-	if err == nil {
-		t.Errorf("parsing upload message with invalid name must fail")
-	}
+	assert.Error(t, err, "parsing upload message with invalid name must fail")
 }
 
 func TestSCPProtocolMessages(t *testing.T) {
@@ -1244,21 +1154,17 @@ func TestSCPProtocolMessages(t *testing.T) {
 		},
 	}
 	_, err := scpCommand.readProtocolMessage()
-	if err == nil || err != readErr {
-		t.Errorf("read protocol message must fail, we are sending a fake error")
-	}
+	assert.EqualError(t, err, readErr.Error())
+
 	err = scpCommand.sendConfirmationMessage()
-	if err != writeErr {
-		t.Errorf("write confirmation message must fail, we are sending a fake error")
-	}
+	assert.EqualError(t, err, writeErr.Error())
+
 	err = scpCommand.sendProtocolMessage("E\n")
-	if err != writeErr {
-		t.Errorf("write confirmation message must fail, we are sending a fake error")
-	}
+	assert.EqualError(t, err, writeErr.Error())
+
 	_, err = scpCommand.getNextUploadProtocolMessage()
-	if err == nil || err != readErr {
-		t.Errorf("read next upload protocol message must fail, we are sending a fake read error")
-	}
+	assert.EqualError(t, err, readErr.Error())
+
 	mockSSHChannel = MockChannel{
 		Buffer:       bytes.NewBuffer([]byte("T1183832947 0 1183833773 0\n")),
 		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
@@ -1267,9 +1173,8 @@ func TestSCPProtocolMessages(t *testing.T) {
 	}
 	scpCommand.connection.channel = &mockSSHChannel
 	_, err = scpCommand.getNextUploadProtocolMessage()
-	if err == nil || err != writeErr {
-		t.Errorf("read next upload protocol message must fail, we are sending a fake write error")
-	}
+	assert.EqualError(t, err, writeErr.Error())
+
 	respBuffer := []byte{0x02}
 	protocolErrorMsg := "protocol error msg"
 	respBuffer = append(respBuffer, protocolErrorMsg...)
@@ -1282,8 +1187,8 @@ func TestSCPProtocolMessages(t *testing.T) {
 	}
 	scpCommand.connection.channel = &mockSSHChannel
 	err = scpCommand.readConfirmationMessage()
-	if err == nil || err.Error() != protocolErrorMsg {
-		t.Errorf("read confirmation message must return the expected protocol error, actual err: %v", err)
+	if assert.Error(t, err) {
+		assert.Equal(t, protocolErrorMsg, err.Error())
 	}
 }
 
@@ -1309,12 +1214,12 @@ func TestSCPTestDownloadProtocolMessages(t *testing.T) {
 		},
 	}
 	path := "testDir"
-	os.Mkdir(path, 0777)
-	stat, _ := os.Stat(path)
-	err := scpCommand.sendDownloadProtocolMessages(path, stat)
-	if err != writeErr {
-		t.Errorf("sendDownloadProtocolMessages must return the expected error: %v", err)
-	}
+	err := os.Mkdir(path, 0777)
+	assert.NoError(t, err)
+	stat, err := os.Stat(path)
+	assert.NoError(t, err)
+	err = scpCommand.sendDownloadProtocolMessages(path, stat)
+	assert.EqualError(t, err, writeErr.Error())
 
 	mockSSHChannel = MockChannel{
 		Buffer:       bytes.NewBuffer(buf),
@@ -1324,9 +1229,7 @@ func TestSCPTestDownloadProtocolMessages(t *testing.T) {
 	}
 
 	err = scpCommand.sendDownloadProtocolMessages(path, stat)
-	if err != readErr {
-		t.Errorf("sendDownloadProtocolMessages must return the expected error: %v", err)
-	}
+	assert.EqualError(t, err, readErr.Error())
 
 	mockSSHChannel = MockChannel{
 		Buffer:       bytes.NewBuffer(buf),
@@ -1337,9 +1240,7 @@ func TestSCPTestDownloadProtocolMessages(t *testing.T) {
 	scpCommand.args = []string{"-f", "/tmp"}
 	scpCommand.connection.channel = &mockSSHChannel
 	err = scpCommand.sendDownloadProtocolMessages(path, stat)
-	if err != writeErr {
-		t.Errorf("sendDownloadProtocolMessages must return the expected error: %v", err)
-	}
+	assert.EqualError(t, err, writeErr.Error())
 
 	mockSSHChannel = MockChannel{
 		Buffer:       bytes.NewBuffer(buf),
@@ -1349,10 +1250,10 @@ func TestSCPTestDownloadProtocolMessages(t *testing.T) {
 	}
 	scpCommand.connection.channel = &mockSSHChannel
 	err = scpCommand.sendDownloadProtocolMessages(path, stat)
-	if err != readErr {
-		t.Errorf("sendDownloadProtocolMessages must return the expected error: %v", err)
-	}
-	os.Remove(path)
+	assert.EqualError(t, err, readErr.Error())
+
+	err = os.Remove(path)
+	assert.NoError(t, err)
 }
 
 func TestSCPCommandHandleErrors(t *testing.T) {
@@ -1367,8 +1268,14 @@ func TestSCPCommandHandleErrors(t *testing.T) {
 		WriteError:   writeErr,
 	}
 	server, client := net.Pipe()
-	defer server.Close()
-	defer client.Close()
+	defer func() {
+		err := server.Close()
+		assert.NoError(t, err)
+	}()
+	defer func() {
+		err := client.Close()
+		assert.NoError(t, err)
+	}()
 	connection := Connection{
 		channel: &mockSSHChannel,
 		netConn: client,
@@ -1381,19 +1288,15 @@ func TestSCPCommandHandleErrors(t *testing.T) {
 		},
 	}
 	err := scpCommand.handle()
-	if err == nil || err != readErr {
-		t.Errorf("scp download must fail, we are sending a fake error")
-	}
+	assert.EqualError(t, err, readErr.Error())
 	scpCommand.args = []string{"-i", "/tmp"}
 	err = scpCommand.handle()
-	if err == nil {
-		t.Errorf("invalid scp command must fail")
-	}
+	assert.Error(t, err, "invalid scp command must fail")
 }
 
 func TestSCPErrorsMockFs(t *testing.T) {
 	errFake := errors.New("fake error")
-	fs := newMockOsFs(errFake, errFake, false, "123", os.TempDir())
+	fs := newMockOsFs(errFake, errFake, false, "1234", os.TempDir())
 	u := dataprovider.User{}
 	u.Username = "test"
 	u.Permissions = make(map[string][]string)
@@ -1406,8 +1309,14 @@ func TestSCPErrorsMockFs(t *testing.T) {
 		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
 	}
 	server, client := net.Pipe()
-	defer server.Close()
-	defer client.Close()
+	defer func() {
+		err := server.Close()
+		assert.NoError(t, err)
+	}()
+	defer func() {
+		err := client.Close()
+		assert.NoError(t, err)
+	}()
 	connection := Connection{
 		channel: &mockSSHChannel,
 		netConn: client,
@@ -1422,26 +1331,24 @@ func TestSCPErrorsMockFs(t *testing.T) {
 		},
 	}
 	err := scpCommand.handleUpload("test", 0)
-	if err != errFake {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.EqualError(t, err, errFake.Error())
+
 	testfile := filepath.Join(u.HomeDir, "testfile")
-	ioutil.WriteFile(testfile, []byte("test"), 0666)
-	stat, _ := os.Stat(u.HomeDir)
+	err = ioutil.WriteFile(testfile, []byte("test"), 0666)
+	assert.NoError(t, err)
+	stat, err := os.Stat(u.HomeDir)
+	assert.NoError(t, err)
 	err = scpCommand.handleRecursiveDownload(u.HomeDir, stat)
-	if err != errFake {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.EqualError(t, err, errFake.Error())
+
 	scpCommand.sshCommand.connection.fs = newMockOsFs(errFake, nil, true, "123", os.TempDir())
 	err = scpCommand.handleUpload(filepath.Base(testfile), 0)
-	if err != errFake {
-		t.Errorf("unexpected error: %v", err)
-	}
+	assert.EqualError(t, err, errFake.Error())
+
 	err = scpCommand.handleUploadFile(testfile, testfile, 0, false, 4, false)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	os.Remove(testfile)
+	assert.NoError(t, err)
+	err = os.Remove(testfile)
+	assert.NoError(t, err)
 }
 
 func TestSCPRecursiveDownloadErrors(t *testing.T) {
@@ -1456,8 +1363,14 @@ func TestSCPRecursiveDownloadErrors(t *testing.T) {
 		WriteError:   writeErr,
 	}
 	server, client := net.Pipe()
-	defer server.Close()
-	defer client.Close()
+	defer func() {
+		err := server.Close()
+		assert.NoError(t, err)
+	}()
+	defer func() {
+		err := client.Close()
+		assert.NoError(t, err)
+	}()
 	connection := Connection{
 		channel: &mockSSHChannel,
 		netConn: client,
@@ -1471,12 +1384,13 @@ func TestSCPRecursiveDownloadErrors(t *testing.T) {
 		},
 	}
 	path := "testDir"
-	os.Mkdir(path, 0777)
-	stat, _ := os.Stat(path)
-	err := scpCommand.handleRecursiveDownload("invalid_dir", stat)
-	if err != writeErr {
-		t.Errorf("recursive upload download must fail with the expected error: %v", err)
-	}
+	err := os.Mkdir(path, 0777)
+	assert.NoError(t, err)
+	stat, err := os.Stat(path)
+	assert.NoError(t, err)
+	err = scpCommand.handleRecursiveDownload("invalid_dir", stat)
+	assert.EqualError(t, err, writeErr.Error())
+
 	mockSSHChannel = MockChannel{
 		Buffer:       bytes.NewBuffer(buf),
 		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
@@ -1485,11 +1399,10 @@ func TestSCPRecursiveDownloadErrors(t *testing.T) {
 	}
 	scpCommand.connection.channel = &mockSSHChannel
 	err = scpCommand.handleRecursiveDownload("invalid_dir", stat)
-	if err == nil {
-		t.Errorf("recursive upload download must fail for a non existing dir")
-	}
+	assert.Error(t, err, "recursive upload download must fail for a non existing dir")
 
-	os.Remove(path)
+	err = os.Remove(path)
+	assert.NoError(t, err)
 }
 
 func TestSCPRecursiveUploadErrors(t *testing.T) {
@@ -1514,9 +1427,8 @@ func TestSCPRecursiveUploadErrors(t *testing.T) {
 		},
 	}
 	err := scpCommand.handleRecursiveUpload()
-	if err == nil {
-		t.Errorf("recursive upload must fail, we send a fake error message")
-	}
+	assert.Error(t, err, "recursive upload must fail, we send a fake error message")
+
 	mockSSHChannel = MockChannel{
 		Buffer:       bytes.NewBuffer(buf),
 		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
@@ -1525,9 +1437,7 @@ func TestSCPRecursiveUploadErrors(t *testing.T) {
 	}
 	scpCommand.connection.channel = &mockSSHChannel
 	err = scpCommand.handleRecursiveUpload()
-	if err == nil {
-		t.Errorf("recursive upload must fail, we send a fake error message")
-	}
+	assert.Error(t, err, "recursive upload must fail, we send a fake error message")
 }
 
 func TestSCPCreateDirs(t *testing.T) {
@@ -1544,7 +1454,8 @@ func TestSCPCreateDirs(t *testing.T) {
 		ReadError:    nil,
 		WriteError:   nil,
 	}
-	fs, _ := u.GetFilesystem("123")
+	fs, err := u.GetFilesystem("123")
+	assert.NoError(t, err)
 	connection := Connection{
 		User:    u,
 		channel: &mockSSHChannel,
@@ -1557,10 +1468,8 @@ func TestSCPCreateDirs(t *testing.T) {
 			args:       []string{"-r", "-t", "/tmp"},
 		},
 	}
-	err := scpCommand.handleCreateDir("invalid_dir")
-	if err == nil {
-		t.Errorf("create invalid dir must fail")
-	}
+	err = scpCommand.handleCreateDir("invalid_dir")
+	assert.Error(t, err, "create invalid dir must fail")
 }
 
 func TestSCPDownloadFileData(t *testing.T) {
@@ -1591,28 +1500,27 @@ func TestSCPDownloadFileData(t *testing.T) {
 			args:       []string{"-r", "-f", "/tmp"},
 		},
 	}
-	ioutil.WriteFile(testfile, []byte("test"), 0666)
-	stat, _ := os.Stat(testfile)
-	err := scpCommand.sendDownloadFileData(testfile, stat, nil)
-	if err != readErr {
-		t.Errorf("send download file data must fail with the expected error: %v", err)
-	}
+	err := ioutil.WriteFile(testfile, []byte("test"), 0666)
+	assert.NoError(t, err)
+	stat, err := os.Stat(testfile)
+	assert.NoError(t, err)
+	err = scpCommand.sendDownloadFileData(testfile, stat, nil)
+	assert.EqualError(t, err, readErr.Error())
+
 	scpCommand.connection.channel = &mockSSHChannelWriteErr
 	err = scpCommand.sendDownloadFileData(testfile, stat, nil)
-	if err != writeErr {
-		t.Errorf("send download file data must fail with the expected error: %v", err)
-	}
+	assert.EqualError(t, err, writeErr.Error())
+
 	scpCommand.args = []string{"-r", "-p", "-f", "/tmp"}
 	err = scpCommand.sendDownloadFileData(testfile, stat, nil)
-	if err != writeErr {
-		t.Errorf("send download file data must fail with the expected error: %v", err)
-	}
+	assert.EqualError(t, err, writeErr.Error())
+
 	scpCommand.connection.channel = &mockSSHChannelReadErr
 	err = scpCommand.sendDownloadFileData(testfile, stat, nil)
-	if err != readErr {
-		t.Errorf("send download file data must fail with the expected error: %v", err)
-	}
-	os.Remove(testfile)
+	assert.EqualError(t, err, readErr.Error())
+
+	err = os.Remove(testfile)
+	assert.NoError(t, err)
 }
 
 func TestSCPUploadFiledata(t *testing.T) {
@@ -1642,7 +1550,9 @@ func TestSCPUploadFiledata(t *testing.T) {
 			args:       []string{"-r", "-t", "/tmp"},
 		},
 	}
-	file, _ := os.Create(testfile)
+	file, err := os.Create(testfile)
+	assert.NoError(t, err)
+
 	transfer := Transfer{
 		file:           file,
 		path:           file.Name(),
@@ -1661,10 +1571,9 @@ func TestSCPUploadFiledata(t *testing.T) {
 		lock:           new(sync.Mutex),
 	}
 	addTransfer(&transfer)
-	err := scpCommand.getUploadFileData(2, &transfer)
-	if err == nil {
-		t.Errorf("upload must fail, we send a fake write error message")
-	}
+	err = scpCommand.getUploadFileData(2, &transfer)
+	assert.Error(t, err, "upload must fail, we send a fake write error message")
+
 	mockSSHChannel = MockChannel{
 		Buffer:       bytes.NewBuffer(buf),
 		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
@@ -1672,14 +1581,13 @@ func TestSCPUploadFiledata(t *testing.T) {
 		WriteError:   nil,
 	}
 	scpCommand.connection.channel = &mockSSHChannel
-	file, _ = os.Create(testfile)
+	file, err = os.Create(testfile)
+	assert.NoError(t, err)
 	transfer.file = file
 	transfer.isFinished = false
 	addTransfer(&transfer)
 	err = scpCommand.getUploadFileData(2, &transfer)
-	if err == nil {
-		t.Errorf("upload must fail, we send a fake read error message")
-	}
+	assert.Error(t, err, "upload must fail, we send a fake read error message")
 
 	respBuffer := []byte("12")
 	respBuffer = append(respBuffer, 0x02)
@@ -1690,14 +1598,13 @@ func TestSCPUploadFiledata(t *testing.T) {
 		WriteError:   nil,
 	}
 	scpCommand.connection.channel = &mockSSHChannel
-	file, _ = os.Create(testfile)
+	file, err = os.Create(testfile)
+	assert.NoError(t, err)
 	transfer.file = file
 	transfer.isFinished = false
 	addTransfer(&transfer)
 	err = scpCommand.getUploadFileData(2, &transfer)
-	if err == nil {
-		t.Errorf("upload must fail, we have not enough data to read")
-	}
+	assert.Error(t, err, "upload must fail, we have not enough data to read")
 
 	// the file is already closed so we have an error on trasfer closing
 	mockSSHChannel = MockChannel{
@@ -1708,9 +1615,8 @@ func TestSCPUploadFiledata(t *testing.T) {
 	}
 	addTransfer(&transfer)
 	err = scpCommand.getUploadFileData(0, &transfer)
-	if err != errTransferClosed {
-		t.Errorf("upload must fail, the transfer is already closed, err: %v", err)
-	}
+	assert.EqualError(t, err, errTransferClosed.Error())
+
 	mockSSHChannel = MockChannel{
 		Buffer:       bytes.NewBuffer(buf),
 		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
@@ -1719,13 +1625,10 @@ func TestSCPUploadFiledata(t *testing.T) {
 	}
 	addTransfer(&transfer)
 	err = scpCommand.getUploadFileData(2, &transfer)
-	if !errors.Is(err, os.ErrClosed) {
-		t.Errorf("the file is closed and writes must fail, err: %v", err)
-	}
+	assert.True(t, errors.Is(err, os.ErrClosed))
+
 	err = os.Remove(testfile)
-	if err != nil {
-		t.Errorf("error removing test file: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestUploadError(t *testing.T) {
@@ -1739,7 +1642,8 @@ func TestUploadError(t *testing.T) {
 	}
 	testfile := "testfile"
 	fileTempName := "temptestfile"
-	file, _ := os.Create(fileTempName)
+	file, err := os.Create(fileTempName)
+	assert.NoError(t, err)
 	transfer := Transfer{
 		file:           file,
 		path:           testfile,
@@ -1760,21 +1664,13 @@ func TestUploadError(t *testing.T) {
 	addTransfer(&transfer)
 	errFake := errors.New("fake error")
 	transfer.TransferError(errFake)
-	err := transfer.Close()
-	if err != errFake {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if transfer.bytesReceived > 0 {
-		t.Errorf("bytes received should be 0 for a failed transfer: %v", transfer.bytesReceived)
-	}
-	_, err = os.Stat(testfile)
-	if !os.IsNotExist(err) {
-		t.Errorf("file uploaded must be deleted after an error: %v", err)
-	}
-	_, err = os.Stat(fileTempName)
-	if !os.IsNotExist(err) {
-		t.Errorf("file uploaded must be deleted after an error: %v", err)
-	}
+	err = transfer.Close()
+	assert.EqualError(t, err, errFake.Error())
+	assert.Equal(t, int64(0), transfer.bytesReceived)
+
+	assert.NoFileExists(t, testfile)
+	assert.NoFileExists(t, fileTempName)
+
 	uploadMode = oldUploadMode
 }
 
@@ -1807,41 +1703,34 @@ func TestConnectionStatusStruct(t *testing.T) {
 		Transfers:      transfers,
 	}
 	durationString := c.GetConnectionDuration()
-	if len(durationString) == 0 {
-		t.Errorf("error getting connection duration")
-	}
+	assert.NotEqual(t, 0, len(durationString))
+
 	transfersString := c.GetTransfersAsString()
-	if len(transfersString) == 0 {
-		t.Errorf("error getting transfers as string")
-	}
+	assert.NotEqual(t, 0, len(transfersString))
+
 	connInfo := c.GetConnectionInfo()
-	if len(connInfo) == 0 {
-		t.Errorf("error getting connection info")
-	}
+	assert.NotEqual(t, 0, len(connInfo))
 }
 
 func TestProxyProtocolVersion(t *testing.T) {
 	c := Configuration{
 		ProxyProtocol: 1,
 	}
-	proxyListener, _ := c.getProxyListener(nil)
-	if proxyListener.Policy != nil {
-		t.Error("proxy listener policy must be nil")
-	}
+	proxyListener, err := c.getProxyListener(nil)
+	assert.NoError(t, err)
+	assert.Nil(t, proxyListener.Policy)
+
 	c.ProxyProtocol = 2
 	proxyListener, _ = c.getProxyListener(nil)
-	if proxyListener.Policy == nil {
-		t.Error("proxy listener policy must be not nil")
-	}
+	assert.NoError(t, err)
+	assert.NotNil(t, proxyListener.Policy)
+
 	c.ProxyProtocol = 1
 	c.ProxyAllowed = []string{"invalid"}
-	_, err := c.getProxyListener(nil)
-	if err == nil {
-		t.Error("get proxy listener with invalid IP must fail")
-	}
+	_, err = c.getProxyListener(nil)
+	assert.Error(t, err)
+
 	c.ProxyProtocol = 2
 	_, err = c.getProxyListener(nil)
-	if err == nil {
-		t.Error("get proxy listener with invalid IP must fail")
-	}
+	assert.Error(t, err)
 }

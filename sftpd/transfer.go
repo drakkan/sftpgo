@@ -8,10 +8,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/eikenb/pipeat"
+
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
-	"github.com/eikenb/pipeat"
 )
 
 const (

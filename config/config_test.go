@@ -8,12 +8,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/sftpd"
-	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -173,8 +174,8 @@ func TestHookCompatibity(t *testing.T) {
 	err := config.LoadConfig(configDir, configName)
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	providerConf.ExternalAuthProgram = "ext_auth_program"
-	providerConf.PreLoginProgram = "pre_login_program"
+	providerConf.ExternalAuthProgram = "ext_auth_program" //nolint:staticcheck
+	providerConf.PreLoginProgram = "pre_login_program"    //nolint:staticcheck
 	c := make(map[string]dataprovider.Config)
 	c["data_provider"] = providerConf
 	jsonConf, err := json.Marshal(c)
@@ -189,7 +190,7 @@ func TestHookCompatibity(t *testing.T) {
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
 	sftpdConf := config.GetSFTPDConfig()
-	sftpdConf.KeyboardInteractiveProgram = "key_int_program"
+	sftpdConf.KeyboardInteractiveProgram = "key_int_program" //nolint:staticcheck
 	cnf := make(map[string]sftpd.Configuration)
 	cnf["sftpd"] = sftpdConf
 	jsonConf, err = json.Marshal(cnf)

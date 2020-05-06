@@ -5,9 +5,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/drakkan/sftpgo/metrics"
 	"github.com/go-chi/chi/middleware"
 	"github.com/rs/zerolog"
+
+	"github.com/drakkan/sftpgo/metrics"
 )
 
 // StructuredLogger defines a simple wrapper around zerolog logger.

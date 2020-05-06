@@ -13,10 +13,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/go-chi/chi"
+
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
-	"github.com/go-chi/chi"
 )
 
 const (
