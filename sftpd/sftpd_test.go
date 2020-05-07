@@ -891,7 +891,8 @@ func TestLoginUserExpiration(t *testing.T) {
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
-		client.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -900,30 +901,21 @@ func TestLoginUserExpiration(t *testing.T) {
 }
 
 func TestLoginInvalidFs(t *testing.T) {
-	if runtime.GOOS == osWindows {
-		t.Skip("this test is not available on Windows")
-	}
-	err := config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	providerConf := config.GetProviderConf()
-	if providerConf.Driver != dataprovider.SQLiteDataProviderName {
-		t.Skip("this test require sqlite provider")
-	}
-	dbPath := providerConf.Name
-	if !filepath.IsAbs(dbPath) {
-		dbPath = filepath.Join(configDir, dbPath)
-	}
 	usePubKey := true
 	u := getTestUser(usePubKey)
+	u.FsConfig.Provider = 2
+	u.FsConfig.GCSConfig.Bucket = "test"
+	u.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString([]byte("invalid JSON for credentials"))
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
-
-	// we update the database using sqlite3 CLI since we cannot add a user with an invalid config
-	updateUserQuery := fmt.Sprintf("UPDATE users SET filesystem='{\"provider\":1}' WHERE id=%v", user.ID)
-	cmd := exec.Command("sqlite3", "-cmd", "\".timeout 2000\"", dbPath, updateUserQuery)
-	out, err := cmd.CombinedOutput()
-	assert.NoError(t, err, "unexpected error: %v, cmd out: %v", err, string(out))
-
+	// now remove the credentials file so the filesystem creation will fail
+	providerConf := config.GetProviderConf()
+	credentialsFile := filepath.Join(providerConf.CredentialsPath, fmt.Sprintf("%v_gcs_credentials.json", u.Username))
+	if !filepath.IsAbs(credentialsFile) {
+		credentialsFile = filepath.Join(configDir, credentialsFile)
+	}
+	err = os.Remove(credentialsFile)
+	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if !assert.Error(t, err, "login must fail, the user has an invalid filesystem config") {
 		client.Close()
