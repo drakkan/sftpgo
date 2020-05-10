@@ -156,7 +156,7 @@ func TestMain(m *testing.M) {
 		scriptArgs = "%*"
 	} else {
 		sftpdConf.Actions.ExecuteOn = []string{"download", "upload", "rename", "delete", "ssh_cmd"}
-		sftpdConf.Actions.Command = "/usr/bin/true"
+		sftpdConf.Actions.Command = "/bin/true"
 		sftpdConf.Actions.HTTPNotificationURL = "http://127.0.0.1:8083/"
 		scriptArgs = "$@"
 		scpPath, err = exec.LookPath("scp")
@@ -691,7 +691,7 @@ func TestHomeSpecialChars(t *testing.T) {
 		assert.NoError(t, err)
 		files, err := client.ReadDir(".")
 		assert.NoError(t, err)
-		assert.GreaterOrEqual(t, len(files), 1)
+		assert.Equal(t, 1, len(files))
 		err = client.Remove(testFileName)
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
@@ -762,16 +762,20 @@ func TestMultiStepLoginKeyAndPwd(t *testing.T) {
 	}...)
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = getSftpClient(user, true)
-	assert.Error(t, err, "login with public key is disallowed and must fail")
-	_, err = getSftpClient(user, true)
-	assert.Error(t, err, "login with password is disallowed and must fail")
+	client, err := getSftpClient(user, true)
+	if !assert.Error(t, err, "login with public key is disallowed and must fail") {
+		client.Close()
+	}
+	client, err = getSftpClient(user, true)
+	if !assert.Error(t, err, "login with password is disallowed and must fail") {
+		client.Close()
+	}
 	key, _ := ssh.ParsePrivateKey([]byte(testPrivateKey))
 	authMethods := []ssh.AuthMethod{
 		ssh.PublicKeys(key),
 		ssh.Password(defaultPassword),
 	}
-	client, err := getCustomAuthSftpClient(user, authMethods)
+	client, err = getCustomAuthSftpClient(user, authMethods)
 	if assert.NoError(t, err) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
@@ -804,8 +808,10 @@ func TestMultiStepLoginKeyAndKeyInt(t *testing.T) {
 	assert.NoError(t, err)
 	err = ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), 0755)
 	assert.NoError(t, err)
-	_, err = getSftpClient(user, true)
-	assert.Error(t, err, "login with public key is disallowed and must fail")
+	client, err := getSftpClient(user, true)
+	if !assert.Error(t, err, "login with public key is disallowed and must fail") {
+		client.Close()
+	}
 
 	key, _ := ssh.ParsePrivateKey([]byte(testPrivateKey))
 	authMethods := []ssh.AuthMethod{
@@ -814,7 +820,7 @@ func TestMultiStepLoginKeyAndKeyInt(t *testing.T) {
 			return []string{"1", "2"}, nil
 		}),
 	}
-	client, err := getCustomAuthSftpClient(user, authMethods)
+	client, err = getCustomAuthSftpClient(user, authMethods)
 	if assert.NoError(t, err) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
@@ -941,7 +947,8 @@ func TestDeniedLoginMethods(t *testing.T) {
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, true)
 	if assert.NoError(t, err) {
-		client.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
 	}
 	user.Password = defaultPassword
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
@@ -956,7 +963,8 @@ func TestDeniedLoginMethods(t *testing.T) {
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, false)
 	if assert.NoError(t, err) {
-		client.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -1215,12 +1223,12 @@ func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
 
+	testFileSize := int64(65535)
 	client, err := getSftpClient(u, usePubKey)
 	if assert.NoError(t, err) {
 		defer client.Close()
 		testFileName := "test_file.dat"
 		testFilePath := filepath.Join(homeBasePath, testFileName)
-		testFileSize := int64(65535)
 		err = createTestFile(testFilePath, testFileSize)
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
@@ -1248,7 +1256,8 @@ func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
 	assert.Equal(t, 1, len(users))
 	user := users[0]
 	assert.Equal(t, 0, len(user.PublicKeys))
-	assert.Greater(t, user.UsedQuotaSize, int64(0))
+	assert.Equal(t, testFileSize, user.UsedQuotaSize)
+	assert.Equal(t, 1, user.UsedQuotaFiles)
 
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -1508,8 +1517,10 @@ func TestMaxSessions(t *testing.T) {
 	if assert.NoError(t, err) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
-		_, err = getSftpClient(user, usePubKey)
-		assert.Error(t, err, "max sessions exceeded, new login should not succeed")
+		c, err := getSftpClient(user, usePubKey)
+		if !assert.Error(t, err, "max sessions exceeded, new login should not succeed") {
+			c.Close()
+		}
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -3134,7 +3145,7 @@ func TestBasicGitCommands(t *testing.T) {
 	assert.NoError(t, err)
 
 	out, err = pushToGitRepo(clonePath)
-	if assert.NoError(t, err, "unexpected error, out: %v", string(out)) {
+	if !assert.NoError(t, err, "unexpected error, out: %v", string(out)) {
 		printLatestLogs(10)
 	}
 
