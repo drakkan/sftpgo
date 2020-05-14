@@ -20,7 +20,7 @@ require (
 	github.com/mitchellh/mapstructure v1.2.2 // indirect
 	github.com/nathanaelle/password/v2 v2.0.1
 	github.com/pelletier/go-toml v1.7.0 // indirect
-	github.com/pires/go-proxyproto v0.0.0-20200402183925-afa328f5c7c0
+	github.com/pires/go-proxyproto v0.1.3
 	github.com/pkg/sftp v1.11.1-0.20200310224833-18dc4db7a456
 	github.com/prometheus/client_golang v1.5.1
 	github.com/prometheus/procfs v0.0.11 // indirect
