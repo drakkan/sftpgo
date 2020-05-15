@@ -1110,13 +1110,13 @@ components:
         password:
           type: string
           nullable: true
-          description: password or public key are mandatory. If the password has no known hashing algo prefix it will be stored using argon2id. You can send a password hashed as bcrypt or pbkdf2 and it will be stored as is. For security reasons this field is omitted when you search/get users
+          description: password or public key/SSH user certificate are mandatory. If the password has no known hashing algo prefix it will be stored using argon2id. You can send a password hashed as bcrypt or pbkdf2 and it will be stored as is. For security reasons this field is omitted when you search/get users
         public_keys:
           type: array
           items:
             type: string
           nullable: true
-          description: a password or at least one public key are mandatory.
+          description: a password or at least one public key/SSH user certificate are mandatory.
         home_dir:
           type: string
           description: path to the user home directory. The user cannot upload or download files outside this directory. SFTPGo tries to automatically create this folder if missing. Must be an absolute path

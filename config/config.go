@@ -61,6 +61,7 @@ func init() {
 			KexAlgorithms:           []string{},
 			Ciphers:                 []string{},
 			MACs:                    []string{},
+			TrustedUserCAKeys:       []string{},
 			LoginBannerFile:         "",
 			EnabledSSHCommands:      sftpd.GetDefaultSSHCommands(),
 			KeyboardInteractiveHook: "",

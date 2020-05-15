@@ -956,8 +956,13 @@ func checkUserAndPubKey(user User, pubKey []byte) (User, string, error) {
 			return user, "", err
 		}
 		if bytes.Equal(storedPubKey.Marshal(), pubKey) {
-			fp := ssh.FingerprintSHA256(storedPubKey)
-			return user, fp + ":" + comment, nil
+			certInfo := ""
+			cert, ok := storedPubKey.(*ssh.Certificate)
+			if ok {
+				certInfo = fmt.Sprintf(" %v ID: %v Serial: %v CA: %v", cert.Type(), cert.KeyId, cert.Serial,
+					ssh.FingerprintSHA256(cert.SignatureKey))
+			}
+			return user, fmt.Sprintf("%v:%v%v", ssh.FingerprintSHA256(storedPubKey), comment, certInfo), nil
 		}
 	}
 	return user, "", errors.New("Invalid credentials")

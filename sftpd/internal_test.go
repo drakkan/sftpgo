@@ -17,6 +17,7 @@ import (
 	"github.com/eikenb/pipeat"
 	"github.com/pkg/sftp"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/utils"
@@ -1733,4 +1734,42 @@ func TestProxyProtocolVersion(t *testing.T) {
 	c.ProxyProtocol = 2
 	_, err = c.getProxyListener(nil)
 	assert.Error(t, err)
+}
+
+func TestLoadHostKeys(t *testing.T) {
+	c := Configuration{}
+	c.Keys = []Key{
+		{
+			PrivateKey: "missing file",
+		},
+	}
+	err := c.checkAndLoadHostKeys("..", &ssh.ServerConfig{})
+	assert.Error(t, err)
+	testfile := filepath.Join(os.TempDir(), "invalidkey")
+	err = ioutil.WriteFile(testfile, []byte("some bytes"), 0666)
+	assert.NoError(t, err)
+	c.Keys = []Key{
+		{
+			PrivateKey: testfile,
+		},
+	}
+	err = c.checkAndLoadHostKeys("..", &ssh.ServerConfig{})
+	assert.Error(t, err)
+	err = os.Remove(testfile)
+	assert.NoError(t, err)
+}
+
+func TestCertCheckerInitErrors(t *testing.T) {
+	c := Configuration{}
+	c.TrustedUserCAKeys = append(c.TrustedUserCAKeys, "missing file")
+	err := c.initializeCertChecker("")
+	assert.Error(t, err)
+	testfile := filepath.Join(os.TempDir(), "invalidkey")
+	err = ioutil.WriteFile(testfile, []byte("some bytes"), 0666)
+	assert.NoError(t, err)
+	c.TrustedUserCAKeys = []string{testfile}
+	err = c.initializeCertChecker("")
+	assert.Error(t, err)
+	err = os.Remove(testfile)
+	assert.NoError(t, err)
 }

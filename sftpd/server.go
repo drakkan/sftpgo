@@ -1,6 +1,7 @@
 package sftpd
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -24,8 +25,9 @@ import (
 )
 
 const (
-	defaultPrivateRSAKeyName   = "id_rsa"
-	defaultPrivateECDSAKeyName = "id_ecdsa"
+	defaultPrivateRSAKeyName    = "id_rsa"
+	defaultPrivateECDSAKeyName  = "id_ecdsa"
+	sourceAddressCriticalOption = "source-address"
 )
 
 var (
@@ -71,6 +73,10 @@ type Configuration struct {
 	// MACs Specifies the available MAC (message authentication code) algorithms
 	// in preference order
 	MACs []string `json:"macs" mapstructure:"macs"`
+	// TrustedUserCAKeys specifies a list of public keys paths of certificate authorities
+	// that are trusted to sign user certificates for authentication.
+	// The paths can be absolute or relative to the configuration directory
+	TrustedUserCAKeys []string `json:"trusted_user_ca_keys" mapstructure:"trusted_user_ca_keys"`
 	// LoginBannerFile the contents of the specified file, if any, are sent to
 	// the remote user before authentication is allowed.
 	LoginBannerFile string `json:"login_banner_file" mapstructure:"login_banner_file"`
@@ -119,12 +125,14 @@ type Configuration struct {
 	// connection will be accepted and the header will be ignored.
 	// If proxy protocol is set to 2 and we receive a proxy header from an IP that is not in the list then the
 	// connection will be rejected.
-	ProxyAllowed []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
+	ProxyAllowed     []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
+	certChecker      *ssh.CertChecker
+	parsedUserCAKeys []ssh.PublicKey
 }
 
 // Key contains information about host keys
 type Key struct {
-	// The private key path relative to the configuration directory or absolute
+	// The private key path as absolute path or relative to the configuration directory
 	PrivateKey string `json:"private_key" mapstructure:"private_key"`
 }
 
@@ -157,7 +165,7 @@ func (c Configuration) Initialize(configDir string) error {
 			return sp, nil
 		},
 		PublicKeyCallback: func(conn ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
-			sp, err := c.validatePublicKeyCredentials(conn, pubKey.Marshal())
+			sp, err := c.validatePublicKeyCredentials(conn, pubKey)
 			if err == ssh.ErrPartialSuccess {
 				return nil, err
 			}
@@ -178,8 +186,11 @@ func (c Configuration) Initialize(configDir string) error {
 		ServerVersion: fmt.Sprintf("SSH-2.0-%v", c.Banner),
 	}
 
-	err = c.checkAndLoadHostKeys(configDir, serverConfig)
-	if err != nil {
+	if err = c.checkAndLoadHostKeys(configDir, serverConfig); err != nil {
+		return err
+	}
+
+	if err = c.initializeCertChecker(configDir); err != nil {
 		return err
 	}
 
@@ -336,9 +347,9 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 	var user dataprovider.User
 
 	// Unmarshal cannot fails here and even if it fails we'll have a user with no permissions
-	json.Unmarshal([]byte(sconn.Permissions.Extensions["user"]), &user) //nolint:errcheck
+	json.Unmarshal([]byte(sconn.Permissions.Extensions["sftpgo_user"]), &user) //nolint:errcheck
 
-	loginType := sconn.Permissions.Extensions["login_method"]
+	loginType := sconn.Permissions.Extensions["sftpgo_login_method"]
 	connectionID := hex.EncodeToString(sconn.SessionID())
 
 	fs, err := user.GetFilesystem(connectionID)
@@ -474,8 +485,8 @@ func loginUser(user dataprovider.User, loginMethod, publicKey string, conn ssh.C
 	}
 	p := &ssh.Permissions{}
 	p.Extensions = make(map[string]string)
-	p.Extensions["user"] = string(json)
-	p.Extensions["login_method"] = loginMethod
+	p.Extensions["sftpgo_user"] = string(json)
+	p.Extensions["sftpgo_login_method"] = loginMethod
 	return p, nil
 }
 
@@ -540,26 +551,93 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 	return nil
 }
 
-func (c Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKey []byte) (*ssh.Permissions, error) {
+func (c *Configuration) initializeCertChecker(configDir string) error {
+	for _, keyPath := range c.TrustedUserCAKeys {
+		if !filepath.IsAbs(keyPath) {
+			keyPath = filepath.Join(configDir, keyPath)
+		}
+		keyBytes, err := ioutil.ReadFile(keyPath)
+		if err != nil {
+			logger.Warn(logSender, "", "error loading trusted user CA key %#v: %v", keyPath, err)
+			logger.WarnToConsole("error loading trusted user CA key %#v: %v", keyPath, err)
+			return err
+		}
+		parsedKey, _, _, _, err := ssh.ParseAuthorizedKey(keyBytes)
+		if err != nil {
+			logger.Warn(logSender, "", "error parsing trusted user CA key %#v: %v", keyPath, err)
+			logger.WarnToConsole("error parsing trusted user CA key %#v: %v", keyPath, err)
+			return err
+		}
+		c.parsedUserCAKeys = append(c.parsedUserCAKeys, parsedKey)
+	}
+	c.certChecker = &ssh.CertChecker{
+		SupportedCriticalOptions: []string{
+			sourceAddressCriticalOption,
+		},
+		IsUserAuthority: func(k ssh.PublicKey) bool {
+			for _, key := range c.parsedUserCAKeys {
+				if bytes.Equal(k.Marshal(), key.Marshal()) {
+					return true
+				}
+			}
+			return false
+		},
+	}
+	return nil
+}
+
+func (c Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
 	var err error
 	var user dataprovider.User
 	var keyID string
 	var sshPerm *ssh.Permissions
+	var certPerm *ssh.Permissions
 
 	connectionID := hex.EncodeToString(conn.SessionID())
 	method := dataprovider.SSHLoginMethodPublicKey
-	if user, keyID, err = dataprovider.CheckUserAndPubKey(dataProvider, conn.User(), pubKey); err == nil {
+	cert, ok := pubKey.(*ssh.Certificate)
+	if ok {
+		if cert.CertType != ssh.UserCert {
+			err = fmt.Errorf("ssh: cert has type %d", cert.CertType)
+			updateLoginMetrics(conn, method, err)
+			return nil, err
+		}
+		if !c.certChecker.IsUserAuthority(cert.SignatureKey) {
+			err = fmt.Errorf("ssh: certificate signed by unrecognized authority")
+			updateLoginMetrics(conn, method, err)
+			return nil, err
+		}
+		if err := c.certChecker.CheckCert(conn.User(), cert); err != nil {
+			updateLoginMetrics(conn, method, err)
+			return nil, err
+		}
+		// we need to check source address ourself since crypto/ssh will skip this check if we return partial success
+		if cert.Permissions.CriticalOptions != nil && cert.Permissions.CriticalOptions[sourceAddressCriticalOption] != "" {
+			if err := utils.CheckSourceAddress(conn.RemoteAddr(), cert.Permissions.CriticalOptions[sourceAddressCriticalOption]); err != nil {
+				updateLoginMetrics(conn, method, err)
+				return nil, err
+			}
+		}
+		certPerm = &cert.Permissions
+	}
+	if user, keyID, err = dataprovider.CheckUserAndPubKey(dataProvider, conn.User(), pubKey.Marshal()); err == nil {
 		if user.IsPartialAuth(method) {
 			logger.Debug(logSender, connectionID, "user %#v authenticated with partial success", conn.User())
 			return nil, ssh.ErrPartialSuccess
 		}
 		sshPerm, err = loginUser(user, method, keyID, conn)
+		if err == nil && certPerm != nil {
+			// if we have a SSH user cert we need to merge certificate permissions with our ones
+			// we only set Extensions, so CriticalOptions are always the ones from the certificate
+			sshPerm.CriticalOptions = certPerm.CriticalOptions
+			if certPerm.Extensions != nil {
+				for k, v := range certPerm.Extensions {
+					sshPerm.Extensions[k] = v
+				}
+			}
+		}
 	}
-	metrics.AddLoginAttempt(method)
-	if err != nil {
-		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), method, err.Error())
-	}
-	metrics.AddLoginResult(method, err)
+	updateLoginMetrics(conn, method, err)
 	return sshPerm, err
 }
 
@@ -572,14 +650,10 @@ func (c Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass [
 	if len(conn.PartialSuccessMethods()) == 1 {
 		method = dataprovider.SSHLoginMethodKeyAndPassword
 	}
-	metrics.AddLoginAttempt(method)
 	if user, err = dataprovider.CheckUserAndPass(dataProvider, conn.User(), string(pass)); err == nil {
 		sshPerm, err = loginUser(user, method, "", conn)
 	}
-	if err != nil {
-		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), method, err.Error())
-	}
-	metrics.AddLoginResult(method, err)
+	updateLoginMetrics(conn, method, err)
 	return sshPerm, err
 }
 
@@ -592,13 +666,17 @@ func (c Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMetad
 	if len(conn.PartialSuccessMethods()) == 1 {
 		method = dataprovider.SSHLoginMethodKeyAndKeyboardInt
 	}
-	metrics.AddLoginAttempt(method)
 	if user, err = dataprovider.CheckKeyboardInteractiveAuth(dataProvider, conn.User(), c.KeyboardInteractiveHook, client); err == nil {
 		sshPerm, err = loginUser(user, method, "", conn)
 	}
+	updateLoginMetrics(conn, method, err)
+	return sshPerm, err
+}
+
+func updateLoginMetrics(conn ssh.ConnMetadata, method string, err error) {
+	metrics.AddLoginAttempt(method)
 	if err != nil {
 		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), method, err.Error())
 	}
 	metrics.AddLoginResult(method, err)
-	return sshPerm, err
 }

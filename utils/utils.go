@@ -317,3 +317,34 @@ func CleanDirInput(dirInput string) string {
 	}
 	return filepath.Clean(dirInput)
 }
+
+// CheckSourceAddress check the source address against the one defined inside an SSH user certificate
+func CheckSourceAddress(addr net.Addr, sourceAddrs string) error {
+	if addr == nil {
+		return errors.New("ssh: no address known for client, but source-address match required")
+	}
+
+	tcpAddr, ok := addr.(*net.TCPAddr)
+	if !ok {
+		return fmt.Errorf("ssh: remote address %v is not an TCP address when checking source-address match", addr)
+	}
+
+	for _, sourceAddr := range strings.Split(sourceAddrs, ",") {
+		if allowedIP := net.ParseIP(sourceAddr); allowedIP != nil {
+			if allowedIP.Equal(tcpAddr.IP) {
+				return nil
+			}
+		} else {
+			_, ipNet, err := net.ParseCIDR(sourceAddr)
+			if err != nil {
+				return fmt.Errorf("ssh: error parsing source-address restriction %q: %v", sourceAddr, err)
+			}
+
+			if ipNet.Contains(tcpAddr.IP) {
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("ssh: remote address %v is not allowed because of source-address restriction", addr)
+}

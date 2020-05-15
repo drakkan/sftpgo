@@ -496,7 +496,8 @@ def getDatetimeAsMillisSinceEpoch(dt):
 def addCommonUserArguments(parser):
 	parser.add_argument('username', type=str)
 	parser.add_argument('-P', '--password', type=str, default=None, help='Default: %(default)s')
-	parser.add_argument('-K', '--public-keys', type=str, nargs='+', default=[], help='Default: %(default)s')
+	parser.add_argument('-K', '--public-keys', type=str, nargs='+', default=[], help='Public keys or SSH user certificates. ' +
+					'Default: %(default)s')
 	parser.add_argument('-H', '--home-dir', type=str, default='', help='Default: %(default)s')
 	parser.add_argument('--uid', type=int, default=0, help='Default: %(default)s')
 	parser.add_argument('--gid', type=int, default=0, help='Default: %(default)s')
