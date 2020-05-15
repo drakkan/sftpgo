@@ -16,7 +16,7 @@
     "kex_algorithms": [],
     "ciphers": [],
     "macs": [],
-    "trusted_user_ca_keys":[],
+    "trusted_user_ca_keys": [],
     "login_banner_file": "",
     "setstat_mode": 0,
     "enabled_ssh_commands": [
