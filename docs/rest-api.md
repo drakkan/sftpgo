@@ -30,6 +30,6 @@ and, of course, you can configure the web server to use HTTPS.
 
 The OpenAPI 3 schema for the exposed API can be found inside the source tree: [openapi.yaml](../httpd/schema/openapi.yaml "OpenAPI 3 specs").
 
-A sample CLI client for the REST API can be found inside the source tree [scripts](../scripts "scripts") directory.
+A sample CLI client for the REST API can be found inside the source tree [rest-api-cli](../examples/rest-api-cli) directory.
 
 You can also generate your own REST client in your preferred programming language, or even bash scripts, using an OpenAPI generator such as [swagger-codegen](https://github.com/swagger-api/swagger-codegen) or [OpenAPI Generator](https://openapi-generator.tech/)

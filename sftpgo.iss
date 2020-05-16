@@ -38,8 +38,7 @@ Source: "{#MyAppDir}\sftpgo.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyAppDir}\sftpgo.db"; DestDir: "{commonappdata}\{#MyAppName}"; Flags: onlyifdoesntexist uninsneveruninstall
 Source: "{#MyAppDir}\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyAppDir}\sftpgo.json"; DestDir: "{commonappdata}\{#MyAppName}"; Flags: onlyifdoesntexist uninsneveruninstall
-Source: "{#MyAppDir}\scripts\*"; DestDir: "{app}\scripts"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#MyAppDir}\sql\*"; DestDir: "{app}\sql"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#MyAppDir}\examples\sftpgo_api_cli.exe"; DestDir: "{app}\examples"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#MyAppDir}\templates\*"; DestDir: "{commonappdata}\{#MyAppName}\templates"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#MyAppDir}\static\*"; DestDir: "{commonappdata}\{#MyAppName}\static"; Flags: ignoreversion recursesubdirs createallsubdirs
 
@@ -51,8 +50,8 @@ Name: "{commonappdata}\{#MyAppName}\credentials"; Permissions: everyone-full
 [Icons]
 Name: "{group}\Web Admin"; Filename: "http://127.0.0.1:8080/web";
 Name: "{group}\Service Control";  WorkingDir: "{app}"; Filename: "powershell.exe"; Parameters: "-Command ""Start-Process cmd \""/k cd {app} & {#MyAppName} service --help\"" -Verb RunAs"; Comment: "Install, start, stop, uninstall SFTPGo Service"
-Name: "{group}\REST API CLI";  WorkingDir: "{app}\scripts"; Filename: "{cmd}"; Parameters: "/k sftpgo_api_cli.exe --help"; Comment: "Manage users and connections"
-Name: "{group}\Documentation"; Filename: "https://github.com/drakkan/sftpgo/blob/0.9.6/README.md";
+Name: "{group}\REST API CLI";  WorkingDir: "{app}\examples"; Filename: "{cmd}"; Parameters: "/k sftpgo_api_cli.exe --help"; Comment: "Manage users and connections"
+Name: "{group}\Documentation"; Filename: "https://github.com/drakkan/sftpgo/blob/master/README.md";
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 
 [Run]
