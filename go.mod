@@ -34,9 +34,9 @@ require (
 	github.com/spf13/viper v1.6.3
 	github.com/stretchr/testify v1.5.1
 	go.etcd.io/bbolt v1.3.4
-	golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59
-	golang.org/x/sys v0.0.0-20200331124033-c3d80250170d
-	golang.org/x/tools v0.0.0-20200403170748-4480df5f1627 // indirect
+	golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37
+	golang.org/x/sys v0.0.0-20200515095857-1151b9dac4a9
+	golang.org/x/tools v0.0.0-20200515220128-d3bf790afa53 // indirect
 	google.golang.org/api v0.20.0
 	google.golang.org/genproto v0.0.0-20200403120447-c50568487044 // indirect
 	gopkg.in/ini.v1 v1.55.0 // indirect
@@ -45,5 +45,5 @@ require (
 
 replace (
 	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20200319122022-2fc68482d27f
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200409210311-95730af1ff98
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200516130408-81aafe6d26b9
 )

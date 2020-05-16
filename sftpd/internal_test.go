@@ -1740,6 +1740,9 @@ func TestLoadHostKeys(t *testing.T) {
 	c := Configuration{}
 	c.Keys = []Key{
 		{
+			PrivateKey: ".",
+		},
+		{
 			PrivateKey: "missing file",
 		},
 	}
@@ -1761,7 +1764,7 @@ func TestLoadHostKeys(t *testing.T) {
 
 func TestCertCheckerInitErrors(t *testing.T) {
 	c := Configuration{}
-	c.TrustedUserCAKeys = append(c.TrustedUserCAKeys, "missing file")
+	c.TrustedUserCAKeys = []string{".", "missing file"}
 	err := c.initializeCertChecker("")
 	assert.Error(t, err)
 	testfile := filepath.Join(os.TempDir(), "invalidkey")

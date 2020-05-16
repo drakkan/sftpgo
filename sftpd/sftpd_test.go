@@ -833,7 +833,7 @@ func TestLoginUserCert(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
-	// now login with a username not in the set of valid principals for given certificate
+	// now login with a username not in the set of valid principals for the given certificate
 	u.Username += "1"
 	user, _, err = httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)

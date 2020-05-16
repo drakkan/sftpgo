@@ -167,7 +167,7 @@ func (c Configuration) Initialize(configDir string) error {
 		PublicKeyCallback: func(conn ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
 			sp, err := c.validatePublicKeyCredentials(conn, pubKey)
 			if err == ssh.ErrPartialSuccess {
-				return nil, err
+				return sp, err
 			}
 			if err != nil {
 				return nil, &authenticationError{err: fmt.Sprintf("could not validate public key credentials: %v", err)}
@@ -530,6 +530,11 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 	}
 	for _, k := range c.Keys {
 		privateFile := k.PrivateKey
+		if !utils.IsFileInputValid(privateFile) {
+			logger.Warn(logSender, "", "unable to load invalid host key: %#v", privateFile)
+			logger.WarnToConsole("unable to load invalid host key: %#v", privateFile)
+			continue
+		}
 		if !filepath.IsAbs(privateFile) {
 			privateFile = filepath.Join(configDir, privateFile)
 		}
@@ -553,6 +558,11 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 
 func (c *Configuration) initializeCertChecker(configDir string) error {
 	for _, keyPath := range c.TrustedUserCAKeys {
+		if !utils.IsFileInputValid(keyPath) {
+			logger.Warn(logSender, "", "unable to load invalid trusted user CA key: %#v", keyPath)
+			logger.WarnToConsole("unable to load invalid trusted user CA key: %#v", keyPath)
+			continue
+		}
 		if !filepath.IsAbs(keyPath) {
 			keyPath = filepath.Join(configDir, keyPath)
 		}
@@ -611,19 +621,12 @@ func (c Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKe
 			updateLoginMetrics(conn, method, err)
 			return nil, err
 		}
-		// we need to check source address ourself since crypto/ssh will skip this check if we return partial success
-		if cert.Permissions.CriticalOptions != nil && cert.Permissions.CriticalOptions[sourceAddressCriticalOption] != "" {
-			if err := utils.CheckSourceAddress(conn.RemoteAddr(), cert.Permissions.CriticalOptions[sourceAddressCriticalOption]); err != nil {
-				updateLoginMetrics(conn, method, err)
-				return nil, err
-			}
-		}
 		certPerm = &cert.Permissions
 	}
 	if user, keyID, err = dataprovider.CheckUserAndPubKey(dataProvider, conn.User(), pubKey.Marshal()); err == nil {
 		if user.IsPartialAuth(method) {
 			logger.Debug(logSender, connectionID, "user %#v authenticated with partial success", conn.User())
-			return nil, ssh.ErrPartialSuccess
+			return certPerm, ssh.ErrPartialSuccess
 		}
 		sshPerm, err = loginUser(user, method, keyID, conn)
 		if err == nil && certPerm != nil {
