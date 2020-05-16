@@ -15,6 +15,7 @@ import (
 	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/sftpd"
+	"github.com/drakkan/sftpgo/utils"
 )
 
 const (
@@ -201,6 +202,37 @@ func TestHookCompatibity(t *testing.T) {
 	assert.NoError(t, err)
 	sftpdConf = config.GetSFTPDConfig()
 	assert.Equal(t, "key_int_program", sftpdConf.KeyboardInteractiveHook)
+	err = os.Remove(configFilePath)
+	assert.NoError(t, err)
+}
+
+func TestHostKeyCompatibility(t *testing.T) {
+	configDir := ".."
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+	err := config.LoadConfig(configDir, configName)
+	assert.NoError(t, err)
+	sftpdConf := config.GetSFTPDConfig()
+	sftpdConf.Keys = []sftpd.Key{ //nolint:staticcheck
+		{
+			PrivateKey: "rsa",
+		},
+		{
+			PrivateKey: "ecdsa",
+		},
+	}
+	c := make(map[string]sftpd.Configuration)
+	c["sftpd"] = sftpdConf
+	jsonConf, err := json.Marshal(c)
+	assert.NoError(t, err)
+	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, tempConfigName)
+	assert.NoError(t, err)
+	sftpdConf = config.GetSFTPDConfig()
+	assert.Equal(t, 2, len(sftpdConf.HostKeys))
+	assert.True(t, utils.IsStringInSlice("rsa", sftpdConf.HostKeys))
+	assert.True(t, utils.IsStringInSlice("ecdsa", sftpdConf.HostKeys))
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
 }

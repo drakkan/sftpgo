@@ -63,8 +63,13 @@ type Configuration struct {
 	UploadMode int `json:"upload_mode" mapstructure:"upload_mode"`
 	// Actions to execute on SFTP create, download, delete and rename
 	Actions Actions `json:"actions" mapstructure:"actions"`
-	// Keys are a list of host keys
+	// Deprecated: please use HostKeys
 	Keys []Key `json:"keys" mapstructure:"keys"`
+	// HostKeys define the daemon's private host keys.
+	// Each host key can be defined as a path relative to the configuration directory or an absolute one.
+	// If empty or missing, the daemon will search or try to generate "id_rsa" and "id_ecdsa" host keys
+	// inside the configuration directory.
+	HostKeys []string `json:"host_keys" mapstructure:"host_keys"`
 	// KexAlgorithms specifies the available KEX (Key Exchange) algorithms in
 	// preference order.
 	KexAlgorithms []string `json:"kex_algorithms" mapstructure:"kex_algorithms"`
@@ -131,6 +136,7 @@ type Configuration struct {
 }
 
 // Key contains information about host keys
+// Deprecated: please use HostKeys
 type Key struct {
 	// The private key path as absolute path or relative to the configuration directory
 	PrivateKey string `json:"private_key" mapstructure:"private_key"`
@@ -509,7 +515,7 @@ func (c *Configuration) checkSSHCommands() {
 
 // If no host keys are defined we try to use or generate the default ones.
 func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh.ServerConfig) error {
-	if len(c.Keys) == 0 {
+	if len(c.HostKeys) == 0 {
 		defaultKeys := []string{defaultPrivateRSAKeyName, defaultPrivateECDSAKeyName}
 		for _, k := range defaultKeys {
 			autoFile := filepath.Join(configDir, k)
@@ -525,22 +531,22 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 					return err
 				}
 			}
-			c.Keys = append(c.Keys, Key{PrivateKey: k})
+			c.HostKeys = append(c.HostKeys, k)
 		}
 	}
-	for _, k := range c.Keys {
-		privateFile := k.PrivateKey
-		if !utils.IsFileInputValid(privateFile) {
-			logger.Warn(logSender, "", "unable to load invalid host key: %#v", privateFile)
-			logger.WarnToConsole("unable to load invalid host key: %#v", privateFile)
+	for _, k := range c.HostKeys {
+		hostKey := k
+		if !utils.IsFileInputValid(hostKey) {
+			logger.Warn(logSender, "", "unable to load invalid host key: %#v", hostKey)
+			logger.WarnToConsole("unable to load invalid host key: %#v", hostKey)
 			continue
 		}
-		if !filepath.IsAbs(privateFile) {
-			privateFile = filepath.Join(configDir, privateFile)
+		if !filepath.IsAbs(hostKey) {
+			hostKey = filepath.Join(configDir, hostKey)
 		}
-		logger.Info(logSender, "", "Loading private key: %s", privateFile)
+		logger.Info(logSender, "", "Loading private host key: %s", hostKey)
 
-		privateBytes, err := ioutil.ReadFile(privateFile)
+		privateBytes, err := ioutil.ReadFile(hostKey)
 		if err != nil {
 			return err
 		}

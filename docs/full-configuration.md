@@ -50,8 +50,9 @@ The configuration file contains the following sections:
     - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`, `ssh_cmd`. Leave empty to disable actions.
     - `command`, string. Absolute path to the command to execute. Leave empty to disable.
     - `http_notification_url`, a valid URL. An HTTP GET request will be executed to this URL. Leave empty to disable.
-  - `keys`, struct array. It contains the daemon's private keys. If empty or missing, the daemon will search or try to generate `id_rsa` and `id_ecdsa` keys in the configuration directory.
+  - `keys`, struct array. Deprecated, please use `host_keys`.
     - `private_key`, path to the private key file. It can be a path relative to the config dir or an absolute one.
+  - `host_keys`, list of strings. It contains the daemon's private host keys. Each host key can be defined as a path relative to the configuration directory or an absolute one. If empty or missing, the daemon will search or try to generate `id_rsa` and `id_ecdsa` keys inside the configuration directory.
   - `kex_algorithms`, list of strings. Available KEX (Key Exchange) algorithms in preference order. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L46 "Supported kex algos")
   - `ciphers`, list of strings. Allowed ciphers. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L28 "Supported ciphers")
   - `macs`, list of strings. Available MAC (message authentication code) algorithms in preference order. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L84 "Supported MACs")

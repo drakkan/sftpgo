@@ -57,7 +57,7 @@ func init() {
 				Command:             "",
 				HTTPNotificationURL: "",
 			},
-			Keys:                    []sftpd.Key{},
+			HostKeys:                []string{},
 			KexAlgorithms:           []string{},
 			Ciphers:                 []string{},
 			MACs:                    []string{},
@@ -218,6 +218,7 @@ func LoadConfig(configDir, configName string) error {
 		logger.WarnToConsole("Configuration error: %v", err)
 	}
 	checkHooksCompatibility()
+	checkHostKeyCompatibility()
 	logger.Debug(logSender, "", "config file used: '%#v', config loaded: %+v", viper.ConfigFileUsed(), getRedactedGlobalConf())
 	return err
 }
@@ -238,5 +239,16 @@ func checkHooksCompatibility() {
 		logger.Warn(logSender, "", "keyboard_interactive_auth_program is deprecated, please use keyboard_interactive_auth_hook")
 		logger.WarnToConsole("keyboard_interactive_auth_program is deprecated, please use keyboard_interactive_auth_hook")
 		globalConf.SFTPD.KeyboardInteractiveHook = globalConf.SFTPD.KeyboardInteractiveProgram //nolint:staticcheck
+	}
+}
+
+func checkHostKeyCompatibility() {
+	// we copy deprecated fields to new ones to keep backward compatibility so lint is disabled
+	if len(globalConf.SFTPD.Keys) > 0 && len(globalConf.SFTPD.HostKeys) == 0 { //nolint:staticcheck
+		logger.Warn(logSender, "", "keys is deprecated, please use host_keys")
+		logger.WarnToConsole("keys is deprecated, please use host_keys")
+		for _, k := range globalConf.SFTPD.Keys { //nolint:staticcheck
+			globalConf.SFTPD.HostKeys = append(globalConf.SFTPD.HostKeys, k.PrivateKey)
+		}
 	}
 }

@@ -293,11 +293,7 @@ func TestInitialization(t *testing.T) {
 	sftpdConf.ProxyAllowed = []string{"1270.0.0.1"}
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
-	sftpdConf.Keys = []sftpd.Key{
-		{
-			PrivateKey: "missing file",
-		},
-	}
+	sftpdConf.HostKeys = []string{"missing file"}
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
 	sftpdConf.Keys = nil

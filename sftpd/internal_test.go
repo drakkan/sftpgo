@@ -1738,24 +1738,13 @@ func TestProxyProtocolVersion(t *testing.T) {
 
 func TestLoadHostKeys(t *testing.T) {
 	c := Configuration{}
-	c.Keys = []Key{
-		{
-			PrivateKey: ".",
-		},
-		{
-			PrivateKey: "missing file",
-		},
-	}
+	c.HostKeys = []string{".", "missing file"}
 	err := c.checkAndLoadHostKeys("..", &ssh.ServerConfig{})
 	assert.Error(t, err)
 	testfile := filepath.Join(os.TempDir(), "invalidkey")
 	err = ioutil.WriteFile(testfile, []byte("some bytes"), 0666)
 	assert.NoError(t, err)
-	c.Keys = []Key{
-		{
-			PrivateKey: testfile,
-		},
-	}
+	c.HostKeys = []string{testfile}
 	err = c.checkAndLoadHostKeys("..", &ssh.ServerConfig{})
 	assert.Error(t, err)
 	err = os.Remove(testfile)
