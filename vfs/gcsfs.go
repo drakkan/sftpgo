@@ -168,11 +168,12 @@ func (fs GCSFs) Open(name string) (*os.File, *pipeat.PipeReaderAt, func(), error
 }
 
 // Create creates or opens the named file for writing
-func (fs GCSFs) Create(name string, flag int) (*os.File, *pipeat.PipeWriterAt, func(), error) {
+func (fs GCSFs) Create(name string, flag int) (*os.File, *PipeWriter, func(), error) {
 	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	p := NewPipeWriter(w)
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	obj := bkt.Object(name)
 	ctx, cancelFn := context.WithCancel(context.Background())
@@ -185,10 +186,11 @@ func (fs GCSFs) Create(name string, flag int) (*os.File, *pipeat.PipeWriterAt, f
 		defer objectWriter.Close()
 		n, err := io.Copy(objectWriter, r)
 		r.CloseWithError(err) //nolint:errcheck // the returned error is always null
+		p.Done(GetSFTPError(fs, err))
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, readed bytes: %v, err: %v", name, n, err)
 		metrics.GCSTransferCompleted(n, 0, err)
 	}()
-	return nil, w, cancelFn, nil
+	return nil, p, cancelFn, nil
 }
 
 // Rename renames (moves) source to target.

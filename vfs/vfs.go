@@ -23,7 +23,7 @@ type Fs interface {
 	Stat(name string) (os.FileInfo, error)
 	Lstat(name string) (os.FileInfo, error)
 	Open(name string) (*os.File, *pipeat.PipeReaderAt, func(), error)
-	Create(name string, flag int) (*os.File, *pipeat.PipeWriterAt, func(), error)
+	Create(name string, flag int) (*os.File, *PipeWriter, func(), error)
 	Rename(source, target string) error
 	Remove(name string, isDir bool) error
 	Mkdir(name string) error
@@ -42,6 +42,41 @@ type Fs interface {
 	GetAtomicUploadPath(name string) string
 	GetRelativePath(name string) string
 	Join(elem ...string) string
+}
+
+// PipeWriter defines a wrapper for pipeat.PipeWriterAt.
+type PipeWriter struct {
+	writer *pipeat.PipeWriterAt
+	err    error
+	done   chan bool
+}
+
+// NewPipeWriter initializes a new PipeWriter
+func NewPipeWriter(w *pipeat.PipeWriterAt) *PipeWriter {
+	return &PipeWriter{
+		writer: w,
+		err:    nil,
+		done:   make(chan bool),
+	}
+}
+
+// Close waits for the upload to end, closes the pipeat.PipeWriterAt and returns an error if any.
+func (p *PipeWriter) Close() error {
+	p.writer.Close() //nolint:errcheck // the returned error is always null
+	<-p.done
+	return p.err
+}
+
+// Done unlocks other goroutines waiting on Close().
+// It must be called when the upload ends
+func (p *PipeWriter) Done(err error) {
+	p.err = err
+	p.done <- true
+}
+
+// WriteAt is a wrapper for pipeat WriteAt
+func (p *PipeWriter) WriteAt(data []byte, off int64) (int, error) {
+	return p.writer.WriteAt(data, off)
 }
 
 // VirtualFolder defines a mapping between a SFTP/SCP virtual path and a

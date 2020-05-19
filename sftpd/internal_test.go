@@ -316,7 +316,7 @@ func TestReadWriteErrors(t *testing.T) {
 	assert.NoError(t, err)
 	transfer = Transfer{
 		readerAt:      nil,
-		writerAt:      w,
+		writerAt:      vfs.NewPipeWriter(w),
 		start:         time.Now(),
 		bytesSent:     0,
 		bytesReceived: 0,
@@ -334,8 +334,13 @@ func TestReadWriteErrors(t *testing.T) {
 	}
 	err = r.Close()
 	assert.NoError(t, err)
+	errFake := fmt.Errorf("fake upload error")
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		transfer.writerAt.Done(errFake)
+	}()
 	err = transfer.closeIO()
-	assert.NoError(t, err)
+	assert.EqualError(t, err, errFake.Error())
 	_, err = transfer.WriteAt([]byte("test"), 0)
 	assert.Error(t, err, "writing to closed pipe must fail")
 

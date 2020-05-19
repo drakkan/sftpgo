@@ -13,6 +13,7 @@ import (
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 const (
@@ -28,7 +29,7 @@ var (
 // It implements the io Reader and Writer interface to handle files downloads and uploads
 type Transfer struct {
 	file                *os.File
-	writerAt            *pipeat.PipeWriterAt
+	writerAt            *vfs.PipeWriter
 	readerAt            *pipeat.PipeReaderAt
 	cancelFn            func()
 	path                string
@@ -173,6 +174,9 @@ func (t *Transfer) closeIO() error {
 	var err error
 	if t.writerAt != nil {
 		err = t.writerAt.Close()
+		if err != nil {
+			t.transferError = err
+		}
 	} else if t.readerAt != nil {
 		err = t.readerAt.Close()
 	} else {

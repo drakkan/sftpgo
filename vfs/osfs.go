@@ -65,7 +65,7 @@ func (OsFs) Open(name string) (*os.File, *pipeat.PipeReaderAt, func(), error) {
 }
 
 // Create creates or opens the named file for writing
-func (OsFs) Create(name string, flag int) (*os.File, *pipeat.PipeWriterAt, func(), error) {
+func (OsFs) Create(name string, flag int) (*os.File, *PipeWriter, func(), error) {
 	var err error
 	var f *os.File
 	if flag == 0 {

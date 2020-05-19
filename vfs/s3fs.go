@@ -204,11 +204,12 @@ func (fs S3Fs) Open(name string) (*os.File, *pipeat.PipeReaderAt, func(), error)
 }
 
 // Create creates or opens the named file for writing
-func (fs S3Fs) Create(name string, flag int) (*os.File, *pipeat.PipeWriterAt, func(), error) {
+func (fs S3Fs) Create(name string, flag int) (*os.File, *PipeWriter, func(), error) {
 	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	p := NewPipeWriter(w)
 	ctx, cancelFn := context.WithCancel(context.Background())
 	uploader := s3manager.NewUploaderWithClient(fs.svc)
 	go func() {
@@ -224,11 +225,12 @@ func (fs S3Fs) Create(name string, flag int) (*os.File, *pipeat.PipeWriterAt, fu
 			u.PartSize = fs.config.UploadPartSize
 		})
 		r.CloseWithError(err) //nolint:errcheck // the returned error is always null
+		p.Done(GetSFTPError(fs, err))
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, response: %v, readed bytes: %v, err: %+v",
 			name, response, r.GetReadedBytes(), err)
 		metrics.S3TransferCompleted(r.GetReadedBytes(), 0, err)
 	}()
-	return nil, w, cancelFn, nil
+	return nil, p, cancelFn, nil
 }
 
 // Rename renames (moves) source to target.
