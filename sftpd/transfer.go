@@ -43,7 +43,6 @@ type Transfer struct {
 	protocol            string
 	transferError       error
 	minWriteOffset      int64
-	expectedSize        int64
 	initialSize         int64
 	lock                *sync.Mutex
 	isNewFile           bool

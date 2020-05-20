@@ -274,7 +274,6 @@ func TestReadWriteErrors(t *testing.T) {
 		transferError:  nil,
 		isFinished:     false,
 		minWriteOffset: 0,
-		expectedSize:   10,
 		lock:           new(sync.Mutex),
 	}
 	err = file.Close()
@@ -285,7 +284,7 @@ func TestReadWriteErrors(t *testing.T) {
 	_, err = transfer.ReadAt(buf, 0)
 	assert.Error(t, err, "reading from a closed file must fail")
 	err = transfer.Close()
-	assert.Error(t, err, "upoload must fail: the expected size does not match")
+	assert.Error(t, err)
 
 	r, _, err := pipeat.Pipe()
 	assert.NoError(t, err)
@@ -374,7 +373,6 @@ func TestTransferCancelFn(t *testing.T) {
 		transferError:  nil,
 		isFinished:     false,
 		minWriteOffset: 0,
-		expectedSize:   10,
 		lock:           new(sync.Mutex),
 	}
 	errFake := errors.New("fake error, this will trigger cancelFn")

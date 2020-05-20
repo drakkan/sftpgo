@@ -60,11 +60,6 @@ func (c Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 		return nil, vfs.GetSFTPError(c.fs, err)
 	}
 
-	fi, err := c.fs.Stat(p)
-	if err != nil {
-		return nil, vfs.GetSFTPError(c.fs, err)
-	}
-
 	file, r, cancelFn, err := c.fs.Open(p)
 	if err != nil {
 		c.Log(logger.LevelWarn, logSender, "could not open file %#v for reading: %+v", p, err)
@@ -91,7 +86,6 @@ func (c Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 		transferError:       nil,
 		isFinished:          false,
 		minWriteOffset:      0,
-		expectedSize:        fi.Size(),
 		isExcludedFromQuota: c.User.IsFileExcludedFromQuota(request.Filepath),
 		lock:                new(sync.Mutex),
 	}

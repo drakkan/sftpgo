@@ -512,7 +512,6 @@ func (c *scpCommand) handleDownload(filePath string) error {
 		transferError:  nil,
 		isFinished:     false,
 		minWriteOffset: 0,
-		expectedSize:   stat.Size(),
 		lock:           new(sync.Mutex),
 	}
 	addTransfer(&transfer)
