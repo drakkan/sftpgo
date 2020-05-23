@@ -8,17 +8,17 @@ go get -u github.com/drakkan/sftpgo
 
 Make sure [Git](https://git-scm.com/downloads) is installed on your machine and in your system's `PATH`.
 
-The following build tags are available to disable some features:
+The following build tags are available:
 
-- `nogcs`, disable Google Cloud Storage backend
-- `nos3`, disable S3 Compabible Object Storage backends
-- `nobolt`, disable Bolt data provider
-- `nomysql`, disable MySQL data provider
-- `nopgsql`, disable PostgreSQL data provider
-- `nosqlite`, disable SQLite data provider
-- `noportable`, disable portable mode
+- `nogcs`, disable Google Cloud Storage backend, default enabled
+- `nos3`, disable S3 Compabible Object Storage backends, , default enabled
+- `nobolt`, disable Bolt data provider, , default enabled
+- `nomysql`, disable MySQL data provider, default enabled
+- `nopgsql`, disable PostgreSQL data provider, default enabled
+- `nosqlite`, disable SQLite data provider, default enabled
+- `noportable`, disable portable mode, default enabled
 
-If no build tag is specified all the features will be included.
+If no build tag is specified the build will include the default features.
 
 The optional [SQLite driver](https://github.com/mattn/go-sqlite3 "go-sqlite3") is a `CGO` package and so it requires a `C` compiler at build time.
 On Linux and macOS, a compiler is easy to install or already installed. On Windows, you need to download [MinGW-w64](https://sourceforge.net/projects/mingw-w64/files/) and build SFTPGo from its command prompt.

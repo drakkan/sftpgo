@@ -13,7 +13,7 @@ Fully featured and highly configurable SFTP server, written in Go
 - SSH user [certificate authentication](https://cvsweb.openbsd.org/src/usr.bin/ssh/PROTOCOL.certkeys?rev=1.8).
 - Keyboard interactive authentication. You can easily setup a customizable multi-factor authentication.
 - Partial authentication. You can configure multi-step authentication requiring, for example, the user password after successful public key authentication.
-- Per user authentication methods. You can, for example, deny one or more authentication methods to one or more users.
+- Per user authentication methods. You can configure the allowed authentication methods for each user.
 - Custom authentication via external programs/HTTP API is supported.
 - Dynamic user modification before login via external programs/HTTP API is supported.
 - Quota support: accounts can have individual quota expressed as max total size and/or max number of files.
@@ -54,7 +54,7 @@ The test cases are regularly manually executed and passed on Windows. Other UNIX
 
 Binary releases for Linux, macOS, and Windows are available. Please visit the [releases](https://github.com/drakkan/sftpgo/releases "releases") page.
 
-Sample Dockerfiles for [Debian](https://www.debian.org "Debian") and [Alpine](https://alpinelinux.org "Alpine") are available inside the source tree [docker](./docker "docker") directory.
+Sample Dockerfiles for [Debian](https://www.debian.org) and [Alpine](https://alpinelinux.org) are available inside the source tree [docker](./docker) directory.
 
 Some Linux distro packages are available:
 
@@ -128,7 +128,7 @@ A user can be created or modified by an external program just before the login. 
 
 ## Custom Actions
 
-SFTPGo allows you to configure custom commands and/or HTTP notifications on file upload, download, delete, rename, on SSH commands and on user add, update and delete.
+SFTPGo allows to configure custom commands and/or HTTP notifications on file upload, download, delete, rename, on SSH commands and on user add, update and delete.
 
 More information about custom actions can be found [here](./docs/custom-actions.md).
 

@@ -16,10 +16,10 @@ To build the latest tag you can add `--build-arg TAG=LATEST` and to build a spec
 docker build -t="drakkan/sftpgo" --build-arg TAG=0.9.6 .
 ```
 
-To disable some features you can add `--build-arg FEATURES=<features to disable>`. For example you can disable SQLite support like this:
+To specify the features to build you can add `--build-arg FEATURES=<build features comma separated>`. For example you can disable SQLite and S3 support like this:
 
 ```bash
-docker build -t="drakkan/sftpgo" --build-arg FEATURES=nosqlite .
+docker build -t="drakkan/sftpgo" --build-arg FEATURES=nosqlite,nos3 .
 ```
 
 Please take a look at the [build from source](./../../../docs/build-from-source.md) documentation for the complete list of the features that can be disabled.
