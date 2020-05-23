@@ -8,12 +8,21 @@ You can build the container image using `docker build`, for example:
 docker build -t="drakkan/sftpgo" .
 ```
 
-This will build master of github.com/drakkan/sftpgo. To build the latest tag you can add `--build-arg TAG=LATEST`
-and to build a specific tag/commit you can use for example `TAG=0.9.6`, like this:
+This will build master of github.com/drakkan/sftpgo.
+
+To build the latest tag you can add `--build-arg TAG=LATEST` and to build a specific tag/commit you can use for example `TAG=0.9.6`, like this:
 
 ```bash
 docker build -t="drakkan/sftpgo" --build-arg TAG=0.9.6 .
 ```
+
+To disable some features you can add `--build-arg FEATURES=<features to disable>`. For example you can disable SQLite support like this:
+
+```bash
+docker build -t="drakkan/sftpgo" --build-arg FEATURES=nosqlite .
+```
+
+Please take a look at the [build from source](./../../../docs/build-from-source.md) documentation for the complete list of the features that can be disabled.
 
 Now create the required folders on the host system, for example:
 

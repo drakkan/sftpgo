@@ -1,3 +1,5 @@
+// +build !nomysql
+
 package dataprovider
 
 import (
@@ -6,7 +8,11 @@ import (
 	"strings"
 	"time"
 
+	// we import go-sql-driver/mysql here to be able to disable MySQL support using a build tag
+	_ "github.com/go-sql-driver/mysql"
+
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/utils"
 )
 
 const (
@@ -26,6 +32,10 @@ const (
 // MySQLProvider auth provider for MySQL/MariaDB database
 type MySQLProvider struct {
 	dbHandle *sql.DB
+}
+
+func init() {
+	utils.AddFeature("+mysql")
 }
 
 func initializeMySQLProvider() error {

@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 1.8.5
+  version: 1.8.6
 
 servers:
 - url: /api/v1
@@ -1278,6 +1278,11 @@ components:
           type: string
         commit_hash:
           type: string
+        features:
+          type: array
+          items:
+            type: string
+          description: Features for the current build. Available features are "portable", "bolt", "mysql", "sqlite", "pgsql", "s3", "gcs". If a feature is available it has a "+" prefix, otherwise a "-" prefix
   securitySchemes:
     BasicAuth:
       type: http

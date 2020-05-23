@@ -13,7 +13,10 @@ sudo groupadd -g 1003 sftpgrp && \
 
 # Edit sftpgo.json as you need
 
-# Get and build SFTPGo image (add --build-arg TAG=LATEST to build the latest tag or e.g. TAG=0.9.6 for a specific tag/commit).
+# Get and build SFTPGo image.
+# Add --build-arg TAG=LATEST to build the latest tag or e.g. TAG=0.9.6 for a specific tag/commit.
+# Add --build-arg FEATURES=<features to disable> to disable some feature.
+# Please take a look at the [build from source](./../../../docs/build-from-source.md) documentation for the complete list of the features that can be disabled.
 git clone https://github.com/drakkan/sftpgo.git && \
   cd sftpgo && \
   sudo docker build -t sftpgo docker/sftpgo/alpine/

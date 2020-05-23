@@ -1,3 +1,5 @@
+// +build !nosqlite
+
 package dataprovider
 
 import (
@@ -5,6 +7,9 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	// we import go-sqlite3 here to be able to disable SQLite support using a build tag
+	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
@@ -39,6 +44,10 @@ ALTER TABLE "new__users" RENAME TO "{{users}}";`
 // SQLiteProvider auth provider for SQLite database
 type SQLiteProvider struct {
 	dbHandle *sql.DB
+}
+
+func init() {
+	utils.AddFeature("+sqlite")
 }
 
 func initializeSQLiteProvider(basePath string) error {

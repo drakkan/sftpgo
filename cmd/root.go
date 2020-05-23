@@ -63,7 +63,7 @@ func init() {
 	version := utils.GetAppVersion()
 	rootCmd.Flags().BoolP("version", "v", false, "")
 	rootCmd.Version = version.GetVersionAsString()
-	rootCmd.SetVersionTemplate(`{{printf "SFTPGo version: "}}{{printf "%s" .Version}}
+	rootCmd.SetVersionTemplate(`{{printf "SFTPGo "}}{{printf "%s" .Version}}
 `)
 }
 

@@ -1,3 +1,5 @@
+// +build !nopgsql
+
 package dataprovider
 
 import (
@@ -5,7 +7,11 @@ import (
 	"fmt"
 	"strings"
 
+	// we import lib/pq here to be able to disable PostgreSQL support using a build tag
+	_ "github.com/lib/pq"
+
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/utils"
 )
 
 const (
@@ -24,6 +30,10 @@ const (
 // PGSQLProvider auth provider for PostgreSQL database
 type PGSQLProvider struct {
 	dbHandle *sql.DB
+}
+
+func init() {
+	utils.AddFeature("+pgsql")
 }
 
 func initializePGSQLProvider() error {

@@ -1,3 +1,5 @@
+// +build !nogcs
+
 package vfs
 
 import (
@@ -19,6 +21,7 @@ import (
 
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
+	"github.com/drakkan/sftpgo/utils"
 )
 
 var (
@@ -26,22 +29,6 @@ var (
 	// with folders
 	gcsDefaultFieldsSelection = []string{"Name", "Size", "Deleted", "Updated"}
 )
-
-// GCSFsConfig defines the configuration for Google Cloud Storage based filesystem
-type GCSFsConfig struct {
-	Bucket string `json:"bucket,omitempty"`
-	// KeyPrefix is similar to a chroot directory for local filesystem.
-	// If specified the SFTP user will only see objects that starts with
-	// this prefix and so you can restrict access to a specific virtual
-	// folder. The prefix, if not empty, must not start with "/" and must
-	// end with "/".
-	// If empty the whole bucket contents will be available
-	KeyPrefix            string `json:"key_prefix,omitempty"`
-	CredentialFile       string `json:"-"`
-	Credentials          string `json:"credentials,omitempty"`
-	AutomaticCredentials int    `json:"automatic_credentials,omitempty"`
-	StorageClass         string `json:"storage_class,omitempty"`
-}
 
 // GCSFs is a Fs implementation for Google Cloud Storage.
 type GCSFs struct {
@@ -51,6 +38,10 @@ type GCSFs struct {
 	svc            *storage.Client
 	ctxTimeout     time.Duration
 	ctxLongTimeout time.Duration
+}
+
+func init() {
+	utils.AddFeature("+gcs")
 }
 
 // NewGCSFs returns an GCSFs object that allows to interact with Google Cloud Storage

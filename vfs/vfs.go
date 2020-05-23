@@ -44,6 +44,49 @@ type Fs interface {
 	Join(elem ...string) string
 }
 
+// S3FsConfig defines the configuration for S3 based filesystem
+type S3FsConfig struct {
+	Bucket string `json:"bucket,omitempty"`
+	// KeyPrefix is similar to a chroot directory for local filesystem.
+	// If specified the SFTP user will only see objects that starts with
+	// this prefix and so you can restrict access to a specific virtual
+	// folder. The prefix, if not empty, must not start with "/" and must
+	// end with "/".
+	// If empty the whole bucket contents will be available
+	KeyPrefix    string `json:"key_prefix,omitempty"`
+	Region       string `json:"region,omitempty"`
+	AccessKey    string `json:"access_key,omitempty"`
+	AccessSecret string `json:"access_secret,omitempty"`
+	Endpoint     string `json:"endpoint,omitempty"`
+	StorageClass string `json:"storage_class,omitempty"`
+	// The buffer size (in MB) to use for multipart uploads. The minimum allowed part size is 5MB,
+	// and if this value is set to zero, the default value (5MB) for the AWS SDK will be used.
+	// The minimum allowed value is 5.
+	// Please note that if the upload bandwidth between the SFTP client and SFTPGo is greater than
+	// the upload bandwidth between SFTPGo and S3 then the SFTP client have to wait for the upload
+	// of the last parts to S3 after it ends the file upload to SFTPGo, and it may time out.
+	// Keep this in mind if you customize these parameters.
+	UploadPartSize int64 `json:"upload_part_size,omitempty"`
+	// How many parts are uploaded in parallel
+	UploadConcurrency int `json:"upload_concurrency,omitempty"`
+}
+
+// GCSFsConfig defines the configuration for Google Cloud Storage based filesystem
+type GCSFsConfig struct {
+	Bucket string `json:"bucket,omitempty"`
+	// KeyPrefix is similar to a chroot directory for local filesystem.
+	// If specified the SFTP user will only see objects that starts with
+	// this prefix and so you can restrict access to a specific virtual
+	// folder. The prefix, if not empty, must not start with "/" and must
+	// end with "/".
+	// If empty the whole bucket contents will be available
+	KeyPrefix            string `json:"key_prefix,omitempty"`
+	CredentialFile       string `json:"-"`
+	Credentials          string `json:"credentials,omitempty"`
+	AutomaticCredentials int    `json:"automatic_credentials,omitempty"`
+	StorageClass         string `json:"storage_class,omitempty"`
+}
+
 // PipeWriter defines a wrapper for pipeat.PipeWriterAt.
 type PipeWriter struct {
 	writer *pipeat.PipeWriterAt

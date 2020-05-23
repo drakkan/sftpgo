@@ -1,3 +1,5 @@
+// +build !nobolt
+
 package dataprovider
 
 import (
@@ -50,6 +52,10 @@ type compatUserV2 struct {
 	ExpirationDate    int64    `json:"expiration_date"`
 	LastLogin         int64    `json:"last_login"`
 	Status            int      `json:"status"`
+}
+
+func init() {
+	utils.AddFeature("+bolt")
 }
 
 func initializeBoltProvider(basePath string) error {

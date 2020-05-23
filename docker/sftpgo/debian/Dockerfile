@@ -4,16 +4,18 @@ LABEL maintainer="nicola.murino@gmail.com"
 RUN go get -d github.com/drakkan/sftpgo
 WORKDIR /go/src/github.com/drakkan/sftpgo
 ARG TAG
+ARG FEATURES
 # Use --build-arg TAG=LATEST for latest tag. Use e.g. --build-arg TAG=0.9.6 for a specific tag/commit. Otherwise HEAD (master) is built.
 RUN git checkout $(if [ "${TAG}" = LATEST ]; then echo `git rev-list --tags --max-count=1`; elif [ -n "${TAG}" ]; then echo "${TAG}"; else echo HEAD; fi)
-RUN go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/utils.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/utils.date=`date -u +%FT%TZ`" -o sftpgo
+RUN go build -i $(if [ -n "${FEATURES}" ]; then echo "-tags ${FEATURES}"; fi) -ldflags "-s -w -X github.com/drakkan/sftpgo/utils.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/utils.date=`date -u +%FT%TZ`" -o sftpgo
 
 # now define the run environment
 FROM debian:latest
 
 # ca-certificates is needed for Cloud Storage Support and to expose the REST API over HTTPS.
-# If you install git then ca-certificates will be automatically installed as dependency.
-# git, rsync and ca-certificates are optional, uncomment the next line to add support for them if needed.
+RUN apt-get update && apt-get install -y ca-certificates
+
+# git and rsync are optional, uncomment the next line to add support for them if needed.
 #RUN apt-get update && apt-get install -y git rsync ca-certificates
 
 ARG BASE_DIR=/app
