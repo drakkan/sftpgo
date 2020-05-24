@@ -159,9 +159,8 @@ func TestWrongActions(t *testing.T) {
 		badCommand = "C:\\bad\\command"
 	}
 	actions = Actions{
-		ExecuteOn:           []string{operationDownload},
-		Command:             badCommand,
-		HTTPNotificationURL: "",
+		ExecuteOn: []string{operationDownload},
+		Hook:      badCommand,
 	}
 	user := dataprovider.User{
 		Username: "username",
@@ -170,11 +169,18 @@ func TestWrongActions(t *testing.T) {
 	assert.Error(t, err, "action with bad command must fail")
 
 	err = executeAction(newActionNotification(user, operationDelete, "path", "", "", 0, nil))
-	assert.NoError(t, err)
-	actions.Command = ""
-	actions.HTTPNotificationURL = "http://foo\x7f.com/"
+	assert.EqualError(t, err, errUnconfiguredAction.Error())
+	actions.Hook = "http://foo\x7f.com/"
 	err = executeAction(newActionNotification(user, operationDownload, "path", "", "", 0, nil))
 	assert.Error(t, err, "action with bad url must fail")
+
+	actions.Hook = ""
+	err = executeAction(newActionNotification(user, operationDownload, "path", "", "", 0, nil))
+	assert.Error(t, err, errNoHook.Error())
+
+	actions.Hook = "relative path"
+	err = executeNotificationCommand(newActionNotification(user, operationDownload, "path", "", "", 0, nil))
+	assert.EqualError(t, err, fmt.Sprintf("invalid notification command %#v", actions.Hook))
 
 	actions = actionsCopy
 }
@@ -182,9 +188,8 @@ func TestWrongActions(t *testing.T) {
 func TestActionHTTP(t *testing.T) {
 	actionsCopy := actions
 	actions = Actions{
-		ExecuteOn:           []string{operationDownload},
-		Command:             "",
-		HTTPNotificationURL: "http://127.0.0.1:8080/",
+		ExecuteOn: []string{operationDownload},
+		Hook:      "http://127.0.0.1:8080/",
 	}
 	user := dataprovider.User{
 		Username: "username",

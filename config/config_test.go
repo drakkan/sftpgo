@@ -177,6 +177,7 @@ func TestHookCompatibity(t *testing.T) {
 	providerConf := config.GetProviderConf()
 	providerConf.ExternalAuthProgram = "ext_auth_program" //nolint:staticcheck
 	providerConf.PreLoginProgram = "pre_login_program"    //nolint:staticcheck
+	providerConf.Actions.Command = "/tmp/test_cmd"        //nolint:staticcheck
 	c := make(map[string]dataprovider.Config)
 	c["data_provider"] = providerConf
 	jsonConf, err := json.Marshal(c)
@@ -188,10 +189,26 @@ func TestHookCompatibity(t *testing.T) {
 	providerConf = config.GetProviderConf()
 	assert.Equal(t, "ext_auth_program", providerConf.ExternalAuthHook)
 	assert.Equal(t, "pre_login_program", providerConf.PreLoginHook)
+	assert.Equal(t, "/tmp/test_cmd", providerConf.Actions.Hook)
+	err = os.Remove(configFilePath)
+	assert.NoError(t, err)
+	providerConf.Actions.Hook = ""
+	providerConf.Actions.HTTPNotificationURL = "http://example.com/notify" //nolint:staticcheck
+	c = make(map[string]dataprovider.Config)
+	c["data_provider"] = providerConf
+	jsonConf, err = json.Marshal(c)
+	assert.NoError(t, err)
+	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, tempConfigName)
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	assert.Equal(t, "http://example.com/notify", providerConf.Actions.Hook)
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.KeyboardInteractiveProgram = "key_int_program" //nolint:staticcheck
+	sftpdConf.Actions.Command = "/tmp/sftp_cmd"              //nolint:staticcheck
 	cnf := make(map[string]sftpd.Configuration)
 	cnf["sftpd"] = sftpdConf
 	jsonConf, err = json.Marshal(cnf)
@@ -202,6 +219,21 @@ func TestHookCompatibity(t *testing.T) {
 	assert.NoError(t, err)
 	sftpdConf = config.GetSFTPDConfig()
 	assert.Equal(t, "key_int_program", sftpdConf.KeyboardInteractiveHook)
+	assert.Equal(t, "/tmp/sftp_cmd", sftpdConf.Actions.Hook)
+	err = os.Remove(configFilePath)
+	assert.NoError(t, err)
+	sftpdConf.Actions.Hook = ""
+	sftpdConf.Actions.HTTPNotificationURL = "http://example.com/sftp" //nolint:staticcheck
+	cnf = make(map[string]sftpd.Configuration)
+	cnf["sftpd"] = sftpdConf
+	jsonConf, err = json.Marshal(cnf)
+	assert.NoError(t, err)
+	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, tempConfigName)
+	assert.NoError(t, err)
+	sftpdConf = config.GetSFTPDConfig()
+	assert.Equal(t, "http://example.com/sftp", sftpdConf.Actions.Hook)
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
 }

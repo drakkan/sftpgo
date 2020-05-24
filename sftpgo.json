@@ -9,8 +9,7 @@
     "upload_mode": 0,
     "actions": {
       "execute_on": [],
-      "command": "",
-      "http_notification_url": ""
+      "hook": ""
     },
     "host_keys": [],
     "kex_algorithms": [],
@@ -46,8 +45,7 @@
     "users_base_dir": "",
     "actions": {
       "execute_on": [],
-      "command": "",
-      "http_notification_url": ""
+      "hook": ""
     },
     "external_auth_hook": "",
     "external_auth_scope": 0,

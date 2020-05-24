@@ -53,9 +53,8 @@ func init() {
 			Umask:        "0022",
 			UploadMode:   0,
 			Actions: sftpd.Actions{
-				ExecuteOn:           []string{},
-				Command:             "",
-				HTTPNotificationURL: "",
+				ExecuteOn: []string{},
+				Hook:      "",
 			},
 			HostKeys:                []string{},
 			KexAlgorithms:           []string{},
@@ -83,9 +82,8 @@ func init() {
 			PoolSize:         0,
 			UsersBaseDir:     "",
 			Actions: dataprovider.Actions{
-				ExecuteOn:           []string{},
-				Command:             "",
-				HTTPNotificationURL: "",
+				ExecuteOn: []string{},
+				Hook:      "",
 			},
 			ExternalAuthHook:  "",
 			ExternalAuthScope: 0,
@@ -239,6 +237,28 @@ func checkHooksCompatibility() {
 		logger.Warn(logSender, "", "keyboard_interactive_auth_program is deprecated, please use keyboard_interactive_auth_hook")
 		logger.WarnToConsole("keyboard_interactive_auth_program is deprecated, please use keyboard_interactive_auth_hook")
 		globalConf.SFTPD.KeyboardInteractiveHook = globalConf.SFTPD.KeyboardInteractiveProgram //nolint:staticcheck
+	}
+	if len(globalConf.SFTPD.Actions.Hook) == 0 {
+		if len(globalConf.SFTPD.Actions.HTTPNotificationURL) > 0 { //nolint:staticcheck
+			logger.Warn(logSender, "", "http_notification_url is deprecated, please use hook")
+			logger.WarnToConsole("http_notification_url is deprecated, please use hook")
+			globalConf.SFTPD.Actions.Hook = globalConf.SFTPD.Actions.HTTPNotificationURL //nolint:staticcheck
+		} else if len(globalConf.SFTPD.Actions.Command) > 0 { //nolint:staticcheck
+			logger.Warn(logSender, "", "command is deprecated, please use hook")
+			logger.WarnToConsole("command is deprecated, please use hook")
+			globalConf.SFTPD.Actions.Hook = globalConf.SFTPD.Actions.Command //nolint:staticcheck
+		}
+	}
+	if len(globalConf.ProviderConf.Actions.Hook) == 0 {
+		if len(globalConf.ProviderConf.Actions.HTTPNotificationURL) > 0 { //nolint:staticcheck
+			logger.Warn(logSender, "", "http_notification_url is deprecated, please use hook")
+			logger.WarnToConsole("http_notification_url is deprecated, please use hook")
+			globalConf.ProviderConf.Actions.Hook = globalConf.ProviderConf.Actions.HTTPNotificationURL //nolint:staticcheck
+		} else if len(globalConf.ProviderConf.Actions.Command) > 0 { //nolint:staticcheck
+			logger.Warn(logSender, "", "command is deprecated, please use hook")
+			logger.WarnToConsole("command is deprecated, please use hook")
+			globalConf.ProviderConf.Actions.Hook = globalConf.ProviderConf.Actions.Command //nolint:staticcheck
+		}
 	}
 }
 

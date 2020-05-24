@@ -7,11 +7,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -66,9 +68,11 @@ var (
 	setstatMode          int
 	supportedSSHCommands = []string{"scp", "md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum", "cd", "pwd",
 		"git-receive-pack", "git-upload-pack", "git-upload-archive", "rsync"}
-	defaultSSHCommands = []string{"md5sum", "sha1sum", "cd", "pwd", "scp"}
-	sshHashCommands    = []string{"md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum"}
-	systemCommands     = []string{"git-receive-pack", "git-upload-pack", "git-upload-archive", "rsync"}
+	defaultSSHCommands    = []string{"md5sum", "sha1sum", "cd", "pwd", "scp"}
+	sshHashCommands       = []string{"md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum"}
+	systemCommands        = []string{"git-receive-pack", "git-upload-pack", "git-upload-archive", "rsync"}
+	errUnconfiguredAction = errors.New("no hook is configured for this action")
+	errNoHook             = errors.New("unable to execute action, no hook defined")
 )
 
 type connectionTransfer struct {
@@ -92,10 +96,12 @@ type ActiveQuotaScan struct {
 type Actions struct {
 	// Valid values are download, upload, delete, rename, ssh_cmd. Empty slice to disable
 	ExecuteOn []string `json:"execute_on" mapstructure:"execute_on"`
-	// Absolute path to the command to execute, empty to disable
+	// Deprecated: please use Hook
 	Command string `json:"command" mapstructure:"command"`
-	// The URL to notify using an HTTP GET, empty to disable
+	// Deprecated: please use Hook
 	HTTPNotificationURL string `json:"http_notification_url" mapstructure:"http_notification_url"`
+	// Absolute path to an external program or an HTTP URL
+	Hook string `json:"hook" mapstructure:"hook"`
 }
 
 // ConnectionStatus status for an active connection
@@ -474,38 +480,36 @@ func isAtomicUploadEnabled() bool {
 }
 
 func executeNotificationCommand(a actionNotification) error {
+	if !filepath.IsAbs(actions.Hook) {
+		err := fmt.Errorf("invalid notification command %#v", actions.Hook)
+		logger.Warn(logSender, "", "unable to execute notification command: %v", err)
+		return err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, actions.Command, a.Action, a.Username, a.Path, a.TargetPath, a.SSHCmd)
+	cmd := exec.CommandContext(ctx, actions.Hook, a.Action, a.Username, a.Path, a.TargetPath, a.SSHCmd)
 	cmd.Env = append(os.Environ(), a.AsEnvVars()...)
 	startTime := time.Now()
 	err := cmd.Run()
 	logger.Debug(logSender, "", "executed command %#v with arguments: %#v, %#v, %#v, %#v, %#v, elapsed: %v, error: %v",
-		actions.Command, a.Action, a.Username, a.Path, a.TargetPath, a.SSHCmd, time.Since(startTime), err)
+		actions.Hook, a.Action, a.Username, a.Path, a.TargetPath, a.SSHCmd, time.Since(startTime), err)
 	return err
 }
 
 // executed in a goroutine
 func executeAction(a actionNotification) error {
 	if !utils.IsStringInSlice(a.Action, actions.ExecuteOn) {
-		return nil
+		return errUnconfiguredAction
 	}
-	var err error
-	if len(actions.Command) > 0 && filepath.IsAbs(actions.Command) {
-		// we are in a goroutine but if we have to send an HTTP notification we don't want to wait for the
-		// end of the command
-		if len(actions.HTTPNotificationURL) > 0 {
-			go executeNotificationCommand(a) //nolint:errcheck
-		} else {
-			err = executeNotificationCommand(a) //nolint:errcheck
-		}
+	if len(actions.Hook) == 0 {
+		logger.Warn(logSender, "", "Unable to send notification, no hook is defined")
+		return errNoHook
 	}
-	if len(actions.HTTPNotificationURL) > 0 {
+	if strings.HasPrefix(actions.Hook, "http") {
 		var url *url.URL
-		url, err = url.Parse(actions.HTTPNotificationURL)
+		url, err := url.Parse(actions.Hook)
 		if err != nil {
-			logger.Warn(logSender, "", "Invalid http_notification_url %#v for operation %#v: %v", actions.HTTPNotificationURL,
-				a.Action, err)
+			logger.Warn(logSender, "", "Invalid hook %#v for operation %#v: %v", actions.Hook, a.Action, err)
 			return err
 		}
 		startTime := time.Now()
@@ -518,6 +522,7 @@ func executeAction(a actionNotification) error {
 		}
 		logger.Debug(logSender, "", "notified operation %#v to URL: %v status code: %v, elapsed: %v err: %v",
 			a.Action, url.String(), respCode, time.Since(startTime), err)
+		return err
 	}
-	return err
+	return executeNotificationCommand(a)
 }

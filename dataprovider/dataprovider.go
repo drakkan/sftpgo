@@ -111,13 +111,12 @@ type schemaVersion struct {
 type Actions struct {
 	// Valid values are add, update, delete. Empty slice to disable
 	ExecuteOn []string `json:"execute_on" mapstructure:"execute_on"`
-	// Absolute path to the command to execute, empty to disable
+	// Deprecated: please use Hook
 	Command string `json:"command" mapstructure:"command"`
-	// The URL to notify using an HTTP POST.
-	// The action is added to the query string. For example <url>?action=update.
-	// The user is sent serialized as json inside the POST body.
-	// Empty to disable
+	// Deprecated: please use Hook
 	HTTPNotificationURL string `json:"http_notification_url" mapstructure:"http_notification_url"`
+	// Absolute path to an external program or an HTTP URL
+	Hook string `json:"hook" mapstructure:"hook"`
 }
 
 // Config provider configuration
@@ -1520,21 +1519,29 @@ func providerLog(level logger.LogLevel, format string, v ...interface{}) {
 }
 
 func executeNotificationCommand(operation string, user User) error {
+	if !filepath.IsAbs(config.Actions.Hook) {
+		err := fmt.Errorf("invalid notification command %#v", config.Actions.Hook)
+		logger.Warn(logSender, "", "unable to execute notification command: %v", err)
+		return err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	commandArgs := user.getNotificationFieldsAsSlice(operation)
-	cmd := exec.CommandContext(ctx, config.Actions.Command, commandArgs...)
+	cmd := exec.CommandContext(ctx, config.Actions.Hook, commandArgs...)
 	cmd.Env = append(os.Environ(), user.getNotificationFieldsAsEnvVars(operation)...)
 	startTime := time.Now()
 	err := cmd.Run()
 	providerLog(logger.LevelDebug, "executed command %#v with arguments: %+v, elapsed: %v, error: %v",
-		config.Actions.Command, commandArgs, time.Since(startTime), err)
+		config.Actions.Hook, commandArgs, time.Since(startTime), err)
 	return err
 }
 
 // executed in a goroutine
 func executeAction(operation string, user User) {
 	if !utils.IsStringInSlice(operation, config.Actions.ExecuteOn) {
+		return
+	}
+	if len(config.Actions.Hook) == 0 {
 		return
 	}
 	if operation != operationDelete {
@@ -1545,21 +1552,11 @@ func executeAction(operation string, user User) {
 			return
 		}
 	}
-	if len(config.Actions.Command) > 0 && filepath.IsAbs(config.Actions.Command) {
-		// we are in a goroutine but if we have to send an HTTP notification we don't want to wait for the
-		// end of the command
-		if len(config.Actions.HTTPNotificationURL) > 0 {
-			go executeNotificationCommand(operation, user) //nolint:errcheck // the error is used in test cases only
-		} else {
-			executeNotificationCommand(operation, user) //nolint:errcheck // the error is used in test cases only
-		}
-	}
-	if len(config.Actions.HTTPNotificationURL) > 0 {
+	if strings.HasPrefix(config.Actions.Hook, "http") {
 		var url *url.URL
-		url, err := url.Parse(config.Actions.HTTPNotificationURL)
+		url, err := url.Parse(config.Actions.Hook)
 		if err != nil {
-			providerLog(logger.LevelWarn, "Invalid http_notification_url %#v for operation %#v: %v", config.Actions.HTTPNotificationURL,
-				operation, err)
+			providerLog(logger.LevelWarn, "Invalid http_notification_url %#v for operation %#v: %v", config.Actions.Hook, operation, err)
 			return
 		}
 		q := url.Query()
@@ -1580,5 +1577,7 @@ func executeAction(operation string, user User) {
 		}
 		providerLog(logger.LevelDebug, "notified operation %#v to URL: %v status code: %v, elapsed: %v err: %v",
 			operation, url.String(), respCode, time.Since(startTime), err)
+	} else {
+		executeNotificationCommand(operation, user) //nolint:errcheck // the error is used in test cases only
 	}
 }

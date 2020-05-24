@@ -1,11 +1,12 @@
 # Custom Actions
 
 The `actions` struct inside the "sftpd" configuration section allows to configure the actions for file operations and SSH commands.
+The `hook` can be defined as the absolute path of your program or an HTTP URL.
 
 The `upload` condition includes both uploads to new files and overwrite of existing files. The `ssh_cmd` condition will be triggered after a command is successfully executed via SSH. `scp` will trigger the `download` and `upload` conditions and not `ssh_cmd`.
 The notification will indicate if an error is detected and so, for example, a partial file is uploaded.
 
-The `command`, if defined, is invoked with the following arguments:
+If the `hook` defines a path to an external program, then this program is invoked with the following arguments:
 
 - `action`, string, possible values are: `download`, `upload`, `delete`, `rename`, `ssh_cmd`
 - `username`
@@ -13,7 +14,7 @@ The `command`, if defined, is invoked with the following arguments:
 - `target_path`, non-empty for `rename` action
 - `ssh_cmd`, non-empty for `ssh_cmd` action
 
-The `command` can also read the following environment variables:
+The external program can also read the following environment variables:
 
 - `SFTPGO_ACTION`
 - `SFTPGO_ACTION_USERNAME`
@@ -27,9 +28,9 @@ The `command` can also read the following environment variables:
 - `SFTPGO_ACTION_STATUS`, integer. 0 means an error occurred. 1 means no error
 
 Previous global environment variables aren't cleared when the script is called.
-The `command` must finish within 30 seconds.
+The program must finish within 30 seconds.
 
-The `http_notification_url`, if defined, will be invoked as HTTP POST. The request body will contain a JSON serialized struct with the following fields:
+If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. The request body will contain a JSON serialized struct with the following fields:
 
 - `action`
 - `username`
@@ -49,7 +50,7 @@ The `actions` struct inside the "data_provider" configuration section allows you
 
 Actions will not be fired for internal updates, such as the last login or the user quota fields, or after external authentication.
 
-The `command`, if defined, is invoked with the following arguments:
+If the `hook` defines a path to an external program, then this program is invoked with the following arguments:
 
 - `action`, string, possible values are: `add`, `update`, `delete`
 - `username`
@@ -60,7 +61,7 @@ The `command`, if defined, is invoked with the following arguments:
 - `uid`
 - `gid`
 
-The `command` can also read the following environment variables:
+The external program can also read the following environment variables:
 
 - `SFTPGO_USER_ACTION`
 - `SFTPGO_USER_USERNAME`
@@ -79,8 +80,8 @@ The `command` can also read the following environment variables:
 - `SFTPGO_USER_FS_PROVIDER`
 
 Previous global environment variables aren't cleared when the script is called.
-The `command` must finish within 15 seconds.
+The program must finish within 15 seconds.
 
-The `http_notification_url`, if defined, will be invoked as HTTP POST. The action is added to the query string, for example `<http_notification_url>?action=update`, and the user is sent serialized as JSON inside the POST body with sensitive fields removed.
+If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. The action is added to the query string, for example `<hook>?action=update`, and the user is sent serialized as JSON inside the POST body with sensitive fields removed.
 
 The HTTP request will use the global configuration for HTTP clients.

@@ -174,8 +174,7 @@ func TestMain(m *testing.M) {
 		scriptArgs = "%*"
 	} else {
 		sftpdConf.Actions.ExecuteOn = []string{"download", "upload", "rename", "delete", "ssh_cmd"}
-		sftpdConf.Actions.Command = "/bin/true"
-		sftpdConf.Actions.HTTPNotificationURL = "http://127.0.0.1:8083/"
+		sftpdConf.Actions.Hook = "/bin/true"
 		scriptArgs = "$@"
 		scpPath, err = exec.LookPath("scp")
 		if err != nil {
