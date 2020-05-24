@@ -116,6 +116,7 @@ var (
 	scpPath          string
 	gitPath          string
 	sshPath          string
+	hookCmdPath      string
 	pubKeyPath       string
 	privateKeyPath   string
 	trustedCAUserKey string
@@ -134,7 +135,6 @@ func TestMain(m *testing.M) {
 	err := ioutil.WriteFile(loginBannerFile, []byte("simple login banner\n"), 0777)
 	if err != nil {
 		logger.WarnToConsole("error creating login banner: %v", err)
-		os.Exit(1)
 	}
 	err = config.LoadConfig(configDir, "")
 	if err != nil {
@@ -169,21 +169,15 @@ func TestMain(m *testing.M) {
 	// work in non atomic mode too
 	sftpdConf.UploadMode = 2
 	homeBasePath = os.TempDir()
+	checkSystemCommands()
 	var scriptArgs string
 	if runtime.GOOS == osWindows {
 		scriptArgs = "%*"
 	} else {
 		sftpdConf.Actions.ExecuteOn = []string{"download", "upload", "rename", "delete", "ssh_cmd"}
-		sftpdConf.Actions.Hook = "/bin/true"
+		sftpdConf.Actions.Hook = hookCmdPath
 		scriptArgs = "$@"
-		scpPath, err = exec.LookPath("scp")
-		if err != nil {
-			logger.Warn(logSender, "", "unable to get scp command. SCP tests will be skipped, err: %v", err)
-			logger.WarnToConsole("unable to get scp command. SCP tests will be skipped, err: %v", err)
-			scpPath = ""
-		}
 	}
-	checkGitCommand()
 
 	keyIntAuthPath = filepath.Join(homeBasePath, "keyintauth.sh")
 	err = ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), 0755)
@@ -4447,7 +4441,7 @@ func waitQuotaScans() error {
 	return nil
 }
 
-func checkGitCommand() {
+func checkSystemCommands() {
 	var err error
 	gitPath, err = exec.LookPath("git")
 	if err != nil {
@@ -4461,6 +4455,21 @@ func checkGitCommand() {
 		logger.Warn(logSender, "", "unable to get ssh command. GIT tests will be skipped, err: %v", err)
 		logger.WarnToConsole("unable to get ssh command. GIT tests will be skipped, err: %v", err)
 		gitPath = ""
+	}
+	hookCmdPath, err = exec.LookPath("true")
+	if err != nil {
+		logger.Warn(logSender, "", "unable to get hook command: %v", err)
+		logger.WarnToConsole("unable to get hook command: %v", err)
+	}
+	if runtime.GOOS == osWindows {
+		scpPath = ""
+	} else {
+		scpPath, err = exec.LookPath("scp")
+		if err != nil {
+			logger.Warn(logSender, "", "unable to get scp command. SCP tests will be skipped, err: %v", err)
+			logger.WarnToConsole("unable to get scp command. SCP tests will be skipped, err: %v", err)
+			scpPath = ""
+		}
 	}
 }
 

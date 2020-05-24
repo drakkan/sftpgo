@@ -47,9 +47,10 @@ The configuration file contains the following sections:
   - `banner`, string. Identification string used by the server. Leave empty to use the default banner. Default `SFTPGo_<version>`, for example `SSH-2.0-SFTPGo_0.9.5`
   - `upload_mode` integer. 0 means standard: the files are uploaded directly to the requested path. 1 means atomic: files are uploaded to a temporary path and renamed to the requested path when the client ends the upload. Atomic mode avoids problems such as a web server that serves partial files when the files are being uploaded. In atomic mode, if there is an upload error, the temporary file is deleted and so the requested upload path will not contain a partial file. 2 means atomic with resume support: same as atomic but if there is an upload error, the temporary file is renamed to the requested path and not deleted. This way, a client can reconnect and resume the upload.
   - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions. See the "Custom Actions" paragraph for more details
-    - `execute_on`, list of strings. Valid values are `download`, `upload`, `delete`, `rename`, `ssh_cmd`. Leave empty to disable actions.
-    - `command`, string. Absolute path to the command to execute. Leave empty to disable.
-    - `http_notification_url`, a valid URL. An HTTP GET request will be executed to this URL. Leave empty to disable.
+    - `execute_on`, list of strings. Valid values are `download`, `upload`, `pre-delete`, `delete`, `rename`, `ssh_cmd`. Leave empty to disable actions.
+    - `command`, string. Deprecated please use `hook`.
+    - `http_notification_url`, a valid URL. Deprecated please use `hook`.
+    - `hook`, string. Absolute path to the command to execute or HTTP URL to notify.
   - `keys`, struct array. Deprecated, please use `host_keys`.
     - `private_key`, path to the private key file. It can be a path relative to the config dir or an absolute one.
   - `host_keys`, list of strings. It contains the daemon's private host keys. Each host key can be defined as a path relative to the configuration directory or an absolute one. If empty or missing, the daemon will search or try to generate `id_rsa` and `id_ecdsa` keys inside the configuration directory.
@@ -93,8 +94,9 @@ The configuration file contains the following sections:
   - `users_base_dir`, string. Users default base directory. If no home dir is defined while adding a new user, and this value is a valid absolute path, then the user home dir will be automatically defined as the path obtained joining the base dir and the username
   - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions. See the "Custom Actions" paragraph for more details
     - `execute_on`, list of strings. Valid values are `add`, `update`, `delete`. `update` action will not be fired for internal updates such as the last login or the user quota fields.
-    - `command`, string. Absolute path to the command to execute. Leave empty to disable.
-    - `http_notification_url`, a valid URL. Leave empty to disable.
+    - `command`, string. Deprecated please use `hook`.
+    - `http_notification_url`, a valid URL. Deprecated please use `hook`.
+    - `hook`, string. Absolute path to the command to execute or HTTP URL to notify.
   - `external_auth_program`, string. Deprecated, please use `external_auth_hook`.
   - `external_auth_hook`, string. Absolute path to an external program or an HTTP URL to invoke for users authentication. See the "External Authentication" paragraph for more details. Leave empty to disable.
   - `external_auth_scope`, integer. 0 means all supported authetication scopes (passwords, public keys and keyboard interactive). 1 means passwords only. 2 means public keys only. 4 means key keyboard interactive only. The flags can be combined, for example 6 means public keys and keyboard interactive

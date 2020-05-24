@@ -503,7 +503,7 @@ func AddUser(p Provider, user User) error {
 	}
 	err := p.addUser(user)
 	if err == nil {
-		go executeAction(operationAdd, user) //nolint:errcheck // the error is used in test cases only
+		go executeAction(operationAdd, user)
 	}
 	return err
 }
@@ -516,7 +516,7 @@ func UpdateUser(p Provider, user User) error {
 	}
 	err := p.updateUser(user)
 	if err == nil {
-		go executeAction(operationUpdate, user) //nolint:errcheck // the error is used in test cases only
+		go executeAction(operationUpdate, user)
 	}
 	return err
 }
@@ -529,7 +529,7 @@ func DeleteUser(p Provider, user User) error {
 	}
 	err := p.deleteUser(user)
 	if err == nil {
-		go executeAction(operationDelete, user) //nolint:errcheck // the error is used in test cases only
+		go executeAction(operationDelete, user)
 	}
 	return err
 }

@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -187,6 +188,7 @@ func TestWrongActions(t *testing.T) {
 
 func TestActionHTTP(t *testing.T) {
 	actionsCopy := actions
+
 	actions = Actions{
 		ExecuteOn: []string{operationDownload},
 		Hook:      "http://127.0.0.1:8080/",
@@ -195,7 +197,42 @@ func TestActionHTTP(t *testing.T) {
 		Username: "username",
 	}
 	err := executeAction(newActionNotification(user, operationDownload, "path", "", "", 0, nil))
+	assert.EqualError(t, err, errUnexpectedHTTResponse.Error())
+
+	actions = actionsCopy
+}
+
+func TestPreDeleteAction(t *testing.T) {
+	actionsCopy := actions
+
+	hookCmd, err := exec.LookPath("true")
 	assert.NoError(t, err)
+	actions = Actions{
+		ExecuteOn: []string{operationPreDelete},
+		Hook:      hookCmd,
+	}
+	homeDir := filepath.Join(os.TempDir(), "test_user")
+	err = os.MkdirAll(homeDir, 0777)
+	assert.NoError(t, err)
+	user := dataprovider.User{
+		Username: "username",
+		HomeDir:  homeDir,
+	}
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{dataprovider.PermAny}
+	c := Connection{
+		fs:   vfs.NewOsFs("id", homeDir, nil),
+		User: user,
+	}
+	testfile := filepath.Join(user.HomeDir, "testfile")
+	request := sftp.NewRequest("Remove", "/testfile")
+	err = ioutil.WriteFile(testfile, []byte("test"), 0666)
+	assert.NoError(t, err)
+	err = c.handleSFTPRemove(testfile, request)
+	assert.EqualError(t, err, sftp.ErrSSHFxOk.Error())
+	assert.FileExists(t, testfile)
+
+	os.RemoveAll(homeDir)
 
 	actions = actionsCopy
 }

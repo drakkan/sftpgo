@@ -425,9 +425,14 @@ func (c Connection) handleSFTPRemove(filePath string, request *sftp.Request) err
 	}
 
 	size = fi.Size()
-	if err := c.fs.Remove(filePath, false); err != nil {
-		c.Log(logger.LevelWarn, logSender, "failed to remove a file/symlink %#v: %+v", filePath, err)
-		return vfs.GetSFTPError(c.fs, err)
+	actionErr := executeAction(newActionNotification(c.User, operationPreDelete, filePath, "", "", fi.Size(), nil))
+	if actionErr == nil {
+		c.Log(logger.LevelDebug, logSender, "remove for path %#v handled by pre-delete action", filePath)
+	} else {
+		if err := c.fs.Remove(filePath, false); err != nil {
+			c.Log(logger.LevelWarn, logSender, "failed to remove a file/symlink %#v: %+v", filePath, err)
+			return vfs.GetSFTPError(c.fs, err)
+		}
 	}
 
 	logger.CommandLog(removeLogSender, filePath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "")
@@ -436,7 +441,9 @@ func (c Connection) handleSFTPRemove(filePath string, request *sftp.Request) err
 			dataprovider.UpdateUserQuota(dataProvider, c.User, -1, -size, false) //nolint:errcheck
 		}
 	}
-	go executeAction(newActionNotification(c.User, operationDelete, filePath, "", "", fi.Size(), nil)) //nolint:errcheck
+	if actionErr != nil {
+		go executeAction(newActionNotification(c.User, operationDelete, filePath, "", "", fi.Size(), nil)) //nolint:errcheck
+	}
 
 	return sftp.ErrSSHFxOk
 }

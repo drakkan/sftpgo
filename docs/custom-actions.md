@@ -5,10 +5,11 @@ The `hook` can be defined as the absolute path of your program or an HTTP URL.
 
 The `upload` condition includes both uploads to new files and overwrite of existing files. The `ssh_cmd` condition will be triggered after a command is successfully executed via SSH. `scp` will trigger the `download` and `upload` conditions and not `ssh_cmd`.
 The notification will indicate if an error is detected and so, for example, a partial file is uploaded.
+The `pre-delete` action, if defined, will be called just before files deletion. If the external command completes with a zero exit status or the HTTP notification response code is `200` then SFTPGo will assume that the file was already deleted/moved and so it will not try to remove the file and it will not execute the hook defined for the `delete` action.
 
 If the `hook` defines a path to an external program, then this program is invoked with the following arguments:
 
-- `action`, string, possible values are: `download`, `upload`, `delete`, `rename`, `ssh_cmd`
+- `action`, string, possible values are: `download`, `upload`, `pre-delete`,`delete`, `rename`, `ssh_cmd`
 - `username`
 - `path` is the full filesystem path, can be empty for some ssh commands
 - `target_path`, non-empty for `rename` action

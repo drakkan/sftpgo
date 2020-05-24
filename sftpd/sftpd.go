@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -42,6 +43,7 @@ const (
 	operationDownload   = "download"
 	operationUpload     = "upload"
 	operationDelete     = "delete"
+	operationPreDelete  = "pre-delete"
 	operationRename     = "rename"
 	operationSSHCmd     = "ssh_cmd"
 	protocolSFTP        = "SFTP"
@@ -68,11 +70,12 @@ var (
 	setstatMode          int
 	supportedSSHCommands = []string{"scp", "md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum", "cd", "pwd",
 		"git-receive-pack", "git-upload-pack", "git-upload-archive", "rsync"}
-	defaultSSHCommands    = []string{"md5sum", "sha1sum", "cd", "pwd", "scp"}
-	sshHashCommands       = []string{"md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum"}
-	systemCommands        = []string{"git-receive-pack", "git-upload-pack", "git-upload-archive", "rsync"}
-	errUnconfiguredAction = errors.New("no hook is configured for this action")
-	errNoHook             = errors.New("unable to execute action, no hook defined")
+	defaultSSHCommands       = []string{"md5sum", "sha1sum", "cd", "pwd", "scp"}
+	sshHashCommands          = []string{"md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum"}
+	systemCommands           = []string{"git-receive-pack", "git-upload-pack", "git-upload-archive", "rsync"}
+	errUnconfiguredAction    = errors.New("no hook is configured for this action")
+	errNoHook                = errors.New("unable to execute action, no hook defined")
+	errUnexpectedHTTResponse = errors.New("unexpected HTTP response code")
 )
 
 type connectionTransfer struct {
@@ -496,7 +499,6 @@ func executeNotificationCommand(a actionNotification) error {
 	return err
 }
 
-// executed in a goroutine
 func executeAction(a actionNotification) error {
 	if !utils.IsStringInSlice(a.Action, actions.ExecuteOn) {
 		return errUnconfiguredAction
@@ -519,6 +521,9 @@ func executeAction(a actionNotification) error {
 		if err == nil {
 			respCode = resp.StatusCode
 			resp.Body.Close()
+			if respCode != http.StatusOK {
+				err = errUnexpectedHTTResponse
+			}
 		}
 		logger.Debug(logSender, "", "notified operation %#v to URL: %v status code: %v, elapsed: %v err: %v",
 			a.Action, url.String(), respCode, time.Since(startTime), err)
