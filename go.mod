@@ -45,5 +45,5 @@ require (
 
 replace (
 	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20200319122022-2fc68482d27f
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200516130408-81aafe6d26b9
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200524095353-320d3214f471
 )

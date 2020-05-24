@@ -63,8 +63,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
-github.com/drakkan/crypto v0.0.0-20200516130408-81aafe6d26b9 h1:H+Pr8rDH54EXtBEA5ejYdO9yhFC2xKlCRidiyseuIAg=
-github.com/drakkan/crypto v0.0.0-20200516130408-81aafe6d26b9/go.mod h1:v3bhWOXGYda7H5d2s5t9XA6th3fxW3s0MQxU1R96G/w=
+github.com/drakkan/crypto v0.0.0-20200524095353-320d3214f471 h1:rLmRFKAl3ABpOeUoctzdSKSgfP65OuxV551yh7apZho=
+github.com/drakkan/crypto v0.0.0-20200524095353-320d3214f471/go.mod h1:v3bhWOXGYda7H5d2s5t9XA6th3fxW3s0MQxU1R96G/w=
 github.com/drakkan/sftp v0.0.0-20200319122022-2fc68482d27f h1:hD7R/tb8VF5Lwj0J3PnPZwN1twzpwWS2QJQYkliJ/Jw=
 github.com/drakkan/sftp v0.0.0-20200319122022-2fc68482d27f/go.mod h1:PIrgHN0+qgDmYTNiwryjoEqmXo9tv8aMwQ//Yg1xwIs=
 github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d h1:8RvCRWer7TB2n+DKhW4uW15hRiqPmabSnSyYhju/Nuw=
