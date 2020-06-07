@@ -45,6 +45,43 @@ func TestCheckResponse(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestCheckFolder(t *testing.T) {
+	expected := &vfs.BaseVirtualFolder{}
+	actual := &vfs.BaseVirtualFolder{}
+	err := checkFolder(expected, actual)
+	assert.Error(t, err)
+	expected.ID = 1
+	actual.ID = 2
+	err = checkFolder(expected, actual)
+	assert.Error(t, err)
+	expected.ID = 2
+	actual.ID = 2
+	expected.MappedPath = "path"
+	err = checkFolder(expected, actual)
+	assert.Error(t, err)
+	expected.MappedPath = ""
+	expected.LastQuotaUpdate = 1
+	err = checkFolder(expected, actual)
+	assert.Error(t, err)
+	expected.LastQuotaUpdate = 0
+	expected.UsedQuotaFiles = 1
+	err = checkFolder(expected, actual)
+	assert.Error(t, err)
+	expected.UsedQuotaFiles = 0
+	expected.UsedQuotaSize = 1
+	err = checkFolder(expected, actual)
+	assert.Error(t, err)
+	expected.UsedQuotaSize = 0
+	expected.Users = append(expected.Users, "user1")
+	err = checkFolder(expected, actual)
+	assert.Error(t, err)
+	actual.Users = append(actual.Users, "user2")
+	err = checkFolder(expected, actual)
+	assert.Error(t, err)
+	expected.Users = nil
+	actual.Users = nil
+}
+
 func TestCheckUser(t *testing.T) {
 	expected := &dataprovider.User{}
 	actual := &dataprovider.User{}
@@ -84,14 +121,18 @@ func TestCheckUser(t *testing.T) {
 	assert.Error(t, err)
 	actual.FsConfig.Provider = 0
 	expected.VirtualFolders = append(expected.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: os.TempDir(),
+		},
 		VirtualPath: "/vdir",
-		MappedPath:  os.TempDir(),
 	})
 	err = checkUser(expected, actual)
 	assert.Error(t, err)
 	actual.VirtualFolders = append(actual.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: os.TempDir(),
+		},
 		VirtualPath: "/vdir1",
-		MappedPath:  os.TempDir(),
 	})
 	err = checkUser(expected, actual)
 	assert.Error(t, err)
@@ -321,7 +362,11 @@ func TestApiCallsWithBadURL(t *testing.T) {
 	assert.Error(t, err)
 	_, err = RemoveUser(u, http.StatusNotFound)
 	assert.Error(t, err)
+	_, err = RemoveFolder(vfs.BaseVirtualFolder{}, http.StatusNotFound)
+	assert.Error(t, err)
 	_, _, err = GetUsers(1, 0, "", http.StatusBadRequest)
+	assert.Error(t, err)
+	_, _, err = GetFolders(1, 0, "", http.StatusBadRequest)
 	assert.Error(t, err)
 	_, err = CloseConnection("non_existent_id", http.StatusNotFound)
 	assert.Error(t, err)
@@ -351,6 +396,19 @@ func TestApiCallToNotListeningServer(t *testing.T) {
 	_, _, err = GetQuotaScans(http.StatusOK)
 	assert.Error(t, err)
 	_, err = StartQuotaScan(u, http.StatusNotFound)
+	assert.Error(t, err)
+	folder := vfs.BaseVirtualFolder{
+		MappedPath: os.TempDir(),
+	}
+	_, err = StartFolderQuotaScan(folder, http.StatusNotFound)
+	assert.Error(t, err)
+	_, _, err = AddFolder(folder, http.StatusOK)
+	assert.Error(t, err)
+	_, err = RemoveFolder(folder, http.StatusOK)
+	assert.Error(t, err)
+	_, _, err = GetFolders(0, 0, "", http.StatusOK)
+	assert.Error(t, err)
+	_, _, err = GetFoldersQuotaScans(http.StatusOK)
 	assert.Error(t, err)
 	_, _, err = GetConnections(http.StatusOK)
 	assert.Error(t, err)

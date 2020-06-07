@@ -59,16 +59,17 @@ const (
 )
 
 var (
-	mutex                sync.RWMutex
-	openConnections      map[string]Connection
-	activeTransfers      []*Transfer
-	idleTimeout          time.Duration
-	activeQuotaScans     []ActiveQuotaScan
-	dataProvider         dataprovider.Provider
-	actions              Actions
-	uploadMode           int
-	setstatMode          int
-	supportedSSHCommands = []string{"scp", "md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum", "cd", "pwd",
+	mutex                   sync.RWMutex
+	openConnections         map[string]Connection
+	activeTransfers         []*Transfer
+	idleTimeout             time.Duration
+	activeQuotaScans        []ActiveQuotaScan
+	activeVFoldersQuotaScan []ActiveVirtualFolderQuotaScan
+	dataProvider            dataprovider.Provider
+	actions                 Actions
+	uploadMode              int
+	setstatMode             int
+	supportedSSHCommands    = []string{"scp", "md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum", "cd", "pwd",
 		"git-receive-pack", "git-upload-pack", "git-upload-archive", "rsync"}
 	defaultSSHCommands       = []string{"md5sum", "sha1sum", "cd", "pwd", "scp"}
 	sshHashCommands          = []string{"md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum"}
@@ -86,10 +87,18 @@ type connectionTransfer struct {
 	Path          string `json:"path"`
 }
 
-// ActiveQuotaScan defines an active quota scan
+// ActiveQuotaScan defines an active quota scan for a user home dir
 type ActiveQuotaScan struct {
 	// Username to which the quota scan refers
 	Username string `json:"username"`
+	// quota scan start time as unix timestamp in milliseconds
+	StartTime int64 `json:"start_time"`
+}
+
+// ActiveVirtualFolderQuotaScan defines an active quota scan for a virtual folder
+type ActiveVirtualFolderQuotaScan struct {
+	// folder path to which the quota scan refers
+	MappedPath string `json:"mapped_path"`
 	// quota scan start time as unix timestamp in milliseconds
 	StartTime int64 `json:"start_time"`
 }
@@ -278,7 +287,7 @@ func getActiveSessions(username string) int {
 	return numSessions
 }
 
-// GetQuotaScans returns the active quota scans
+// GetQuotaScans returns the active quota scans for users home directories
 func GetQuotaScans() []ActiveQuotaScan {
 	mutex.RLock()
 	defer mutex.RUnlock()
@@ -320,8 +329,56 @@ func RemoveQuotaScan(username string) error {
 		activeQuotaScans[indexToRemove] = activeQuotaScans[len(activeQuotaScans)-1]
 		activeQuotaScans = activeQuotaScans[:len(activeQuotaScans)-1]
 	} else {
-		logger.Warn(logSender, "", "quota scan to remove not found for user: %v", username)
-		err = fmt.Errorf("quota scan to remove not found for user: %v", username)
+		err = fmt.Errorf("quota scan to remove not found for user: %#v", username)
+		logger.Warn(logSender, "", "error: %v", err)
+	}
+	return err
+}
+
+// GetVFoldersQuotaScans returns the active quota scans for virtual folders
+func GetVFoldersQuotaScans() []ActiveVirtualFolderQuotaScan {
+	mutex.RLock()
+	defer mutex.RUnlock()
+	scans := make([]ActiveVirtualFolderQuotaScan, len(activeVFoldersQuotaScan))
+	copy(scans, activeVFoldersQuotaScan)
+	return scans
+}
+
+// AddVFolderQuotaScan add a virtual folder to the ones with active quota scans.
+// Returns false if the folder has a quota scan already running
+func AddVFolderQuotaScan(folderPath string) bool {
+	mutex.Lock()
+	defer mutex.Unlock()
+	for _, s := range activeVFoldersQuotaScan {
+		if s.MappedPath == folderPath {
+			return false
+		}
+	}
+	activeVFoldersQuotaScan = append(activeVFoldersQuotaScan, ActiveVirtualFolderQuotaScan{
+		MappedPath: folderPath,
+		StartTime:  utils.GetTimeAsMsSinceEpoch(time.Now()),
+	})
+	return true
+}
+
+// RemoveVFolderQuotaScan removes a folder from the ones with active quota scans
+func RemoveVFolderQuotaScan(folderPath string) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+	var err error
+	indexToRemove := -1
+	for i, s := range activeVFoldersQuotaScan {
+		if s.MappedPath == folderPath {
+			indexToRemove = i
+			break
+		}
+	}
+	if indexToRemove >= 0 {
+		activeVFoldersQuotaScan[indexToRemove] = activeVFoldersQuotaScan[len(activeVFoldersQuotaScan)-1]
+		activeVFoldersQuotaScan = activeVFoldersQuotaScan[:len(activeVFoldersQuotaScan)-1]
+	} else {
+		err = fmt.Errorf("quota scan to remove not found for user: %#v", folderPath)
+		logger.Warn(logSender, "", "error: %v", err)
 	}
 	return err
 }

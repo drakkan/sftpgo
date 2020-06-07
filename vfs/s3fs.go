@@ -437,6 +437,12 @@ func (fs S3Fs) ScanRootDirContents() (int, int64, error) {
 	return numFiles, size, err
 }
 
+// GetDirSize returns the number of files and the size for a folder
+// including any subfolders
+func (S3Fs) GetDirSize(dirname string) (int, int64, error) {
+	return 0, 0, errors.New("Not implemented")
+}
+
 // GetAtomicUploadPath returns the path to use for an atomic upload.
 // S3 uploads are already atomic, we never call this method for S3
 func (S3Fs) GetAtomicUploadPath(name string) string {

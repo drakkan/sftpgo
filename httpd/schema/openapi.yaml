@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 1.8.6
+  version: 1.9.0
 
 servers:
 - url: /api/v1
@@ -224,7 +224,7 @@ paths:
     get:
       tags:
       - quota
-      summary: Get the active quota scans
+      summary: Get the active quota scans for users home directories
       operationId: get_quota_scans
       responses:
         200:
@@ -268,8 +268,8 @@ paths:
     post:
       tags:
       - quota
-      summary: start a new quota scan
-      description: A quota scan update the number of files and their total size for the given user
+      summary: start a new user quota scan
+      description: A quota scan update the number of files and their total size for the specified user
       operationId: start_quota_scan
       requestBody:
         required: true
@@ -348,6 +348,354 @@ paths:
                 status: 500
                 message: ""
                 error: "Error description if any"
+  /folder_quota_scan:
+    get:
+      tags:
+      - quota
+      summary: Get the active quota scans for folders
+      operationId: get_folders_quota_scans
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref : '#/components/schemas/FolderQuotaScan'
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 401
+                message: ""
+                error: "Error description if any"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 403
+                message: ""
+                error: "Error description if any"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 500
+                message: ""
+                error: "Error description if any"
+    post:
+      tags:
+      - quota
+      summary: start a new folder quota scan
+      description: A quota scan update the number of files and their total size for the specified folder
+      operationId: start_folder_quota_scan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref : '#/components/schemas/BaseVirtualFolder'
+      responses:
+        201:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 201
+                message: "Scan started"
+                error: ""
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 400
+                message: ""
+                error: "Error description if any"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 401
+                message: ""
+                error: "Error description if any"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 403
+                message: ""
+                error: "Error description if any"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 404
+                message: ""
+                error: "Error description if any"
+        409:
+          description: Another scan is already in progress for this user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 409
+                message: "Another scan is already in progress"
+                error: "Error description if any"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 500
+                message: ""
+                error: "Error description if any"
+  /folder:
+    get:
+      tags:
+      - folders
+      summary: Returns an array with one or more folders
+      operationId: get_folders
+      parameters:
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          required: false
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+          required: false
+          description: The maximum number of items to return. Max value is 500, default is 100
+        - in: query
+          name: order
+          required: false
+          description: Ordering folders by path. Default ASC
+          schema:
+             type: string
+             enum:
+                - ASC
+                - DESC
+             example: ASC
+        - in: query
+          name: folder_path
+          required: false
+          description: Filter by folder path, extact match case sensitive
+          schema:
+             type: string
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref : '#/components/schemas/BaseVirtualFolder'
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 400
+                message: ""
+                error: "Error description if any"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 401
+                message: ""
+                error: "Error description if any"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 403
+                message: ""
+                error: "Error description if any"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 500
+                message: ""
+                error: "Error description if any"
+    post:
+      tags:
+      - folders
+      summary: Adds a new folder
+      operationId: add_folder
+      description: a new folder with the specified mapped_path will be added. To update the used quota parameters a quota scan is needed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref : '#/components/schemas/BaseVirtualFolder'
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref : '#/components/schemas/BaseVirtualFolder'
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 400
+                message: ""
+                error: "Error description if any"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 401
+                message: ""
+                error: "Error description if any"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 403
+                message: ""
+                error: "Error description if any"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 500
+                message: ""
+                error: "Error description if any"
+    delete:
+      tags:
+      - folders
+      summary: Delete an existing folder
+      operationId: delete_folder
+      parameters:
+      - name: folder_path
+        in: query
+        description: path to the folder to delete
+        required: true
+        schema:
+          type: string
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref : '#/components/schemas/ApiResponse'
+              example:
+                status: 200
+                message: "Folder deleted"
+                error: ""
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 400
+                message: ""
+                error: "Error description if any"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 401
+                message: ""
+                error: "Error description if any"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 403
+                message: ""
+                error: "Error description if any"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 404
+                message: ""
+                error: "Error description if any"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 500
+                message: ""
+                error: "Error description if any"
   /user:
     get:
       tags:
@@ -375,7 +723,7 @@ paths:
         - in: query
           name: order
           required: false
-          description: Ordering users by username
+          description: Ordering users by username. Default ASC
           schema:
              type: string
              enum:
@@ -802,7 +1150,7 @@ paths:
       tags:
       - maintenance
       summary: Restore SFTPGo data from a JSON backup
-      description: Users will be restored one by one and the restore is stopped if a user cannot be added or updated, so it could happen a partial restore
+      description: Users and folders will be restored one by one and the restore is stopped if a user/folder cannot be added or updated, so it could happen a partial restore
       operationId: loaddata
       parameters:
         - in: query
@@ -821,7 +1169,7 @@ paths:
               - 2
           description: >
             Quota scan:
-              * `0` no quota scan is done, the imported user will have used_quota_size and used_quota_file = 0. This is the default
+              * `0` no quota scan is done, the imported users will have used_quota_size and used_quota_files = 0 or the existing values if they already exists. This is the default
               * `1` scan quota
               * `2` scan quota if the user has quota restrictions
           required: false
@@ -1070,20 +1418,52 @@ components:
         gcsconfig:
           $ref: '#/components/schemas/GCSConfig'
       description: Storage filesystem details
-    VirtualFolder:
+    BaseVirtualFolder:
       type: object
       properties:
-        virtual_path:
-          type: string
+        id:
+          type: integer
+          format: int32
+          minimum: 1
         mapped_path:
           type: string
-        exclude_from_quota:
-          type: boolean
+          description: absolute filesystem path to use as virtual folder. This field is unique
+        used_quota_size:
+          type: integer
+          format: int64
+        used_quota_files:
+          type: integer
+          format: int32
+        last_quota_update:
+          type: integer
+          format: int64
+          description: Last quota update as unix timestamp in milliseconds
+        users:
+          type: array
           nullable: true
-          description: This folder will be excluded from user quota
+          items:
+            type: string
+          description: list of usernames associated with this virtual folder
       required:
-        - virtual_path
         - mapped_path
+      description: defines the path for the virtual folder and the used quota limits. The same folder can be shared among multiple users and each user can have different quota limits or a different virtual path.
+    VirtualFolder:
+      allOf:
+        - $ref: '#/components/schemas/BaseVirtualFolder'
+        - type: object
+          properties:
+            virtual_path:
+              type: string
+            quota_size:
+              type: integer
+              format: int64
+              description: Quota as size in bytes. 0 menas unlimited, -1 means included in user quota. Please note that quota is updated if files are added/removed via SFTP/SCP otherwise a quota scan is needed
+            quota_files:
+              type: integer
+              format: int32
+              description: Quota as number of files. 0 menas unlimited, , -1 means included in user quota. Please note that quota is updated if files are added/removed via SFTP/SCP otherwise a quota scan is needed
+          required:
+            - virtual_path
       description: A virtual folder is a mapping between a SFTP/SCP virtual path and a filesystem path outside the user home directory. The specified paths must be absolute and the virtual path cannot be "/", it must be a sub directory. The parent directory for the specified virtual path must exist. SFTPGo will try to automatically create any missing parent directory for the configured virtual folders at user login.
     User:
       type: object
@@ -1103,6 +1483,7 @@ components:
               * `1` user is enabled
         username:
           type: string
+          description: username is unique
         expiration_date:
           type: integer
           format: int64
@@ -1125,7 +1506,7 @@ components:
           items:
             $ref: '#/components/schemas/VirtualFolder'
           nullable: true
-          description: mapping between virtual SFTP/SCP paths and filesystem paths outside the user home directory. Supported for local filesystem only
+          description: mapping between virtual SFTP/SCP paths and filesystem paths outside the user home directory. Supported for local filesystem only. If one or more of the specified folders are not inside the dataprovider they will be automatically created. You have to create the folder on the filesystem yourself
         uid:
           type: integer
           format: int32
@@ -1159,7 +1540,7 @@ components:
         used_quota_size:
           type: integer
           format: int64
-        used_quota_file:
+        used_quota_files:
           type: integer
           format: int32
         last_quota_update:
@@ -1251,6 +1632,16 @@ components:
           type: integer
           format: int64
           description: scan start time as unix timestamp in milliseconds
+    FolderQuotaScan:
+      type: object
+      properties:
+        mapped_path:
+          type: string
+          description: path with an active scan
+        start_time:
+          type: integer
+          format: int64
+          description: scan start time as unix timestamp in milliseconds
     ApiResponse:
       type: object
       properties:
@@ -1258,7 +1649,7 @@ components:
           type: integer
           format: int32
           minimum: 200
-          maximum: 500
+          maximum: 509
           example: 200
           description: HTTP Status code, for example 200 OK, 400 Bad request and so on
         message:

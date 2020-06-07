@@ -28,26 +28,26 @@ var (
 // Transfer contains the transfer details for an upload or a download.
 // It implements the io Reader and Writer interface to handle files downloads and uploads
 type Transfer struct {
-	file                *os.File
-	writerAt            *vfs.PipeWriter
-	readerAt            *pipeat.PipeReaderAt
-	cancelFn            func()
-	path                string
-	start               time.Time
-	bytesSent           int64
-	bytesReceived       int64
-	user                dataprovider.User
-	connectionID        string
-	transferType        int
-	lastActivity        time.Time
-	protocol            string
-	transferError       error
-	minWriteOffset      int64
-	initialSize         int64
-	lock                *sync.Mutex
-	isNewFile           bool
-	isFinished          bool
-	isExcludedFromQuota bool
+	file           *os.File
+	writerAt       *vfs.PipeWriter
+	readerAt       *pipeat.PipeReaderAt
+	cancelFn       func()
+	path           string
+	start          time.Time
+	bytesSent      int64
+	bytesReceived  int64
+	user           dataprovider.User
+	connectionID   string
+	transferType   int
+	lastActivity   time.Time
+	protocol       string
+	transferError  error
+	minWriteOffset int64
+	initialSize    int64
+	lock           *sync.Mutex
+	isNewFile      bool
+	isFinished     bool
+	requestPath    string
 }
 
 // TransferError is called if there is an unexpected error.
@@ -189,11 +189,17 @@ func (t *Transfer) updateQuota(numFiles int) bool {
 	if t.file == nil && t.transferError != nil {
 		return false
 	}
-	if t.isExcludedFromQuota {
-		return false
-	}
 	if t.transferType == transferUpload && (numFiles != 0 || t.bytesReceived > 0) {
-		dataprovider.UpdateUserQuota(dataProvider, t.user, numFiles, t.bytesReceived-t.initialSize, false) //nolint:errcheck
+		vfolder, err := t.user.GetVirtualFolderForPath(t.requestPath)
+		if err == nil {
+			dataprovider.UpdateVirtualFolderQuota(dataProvider, vfolder.BaseVirtualFolder, numFiles, //nolint:errcheck
+				t.bytesReceived-t.initialSize, false)
+			if vfolder.IsIncludedInUserQuota() {
+				dataprovider.UpdateUserQuota(dataProvider, t.user, numFiles, t.bytesReceived-t.initialSize, false) //nolint:errcheck
+			}
+		} else {
+			dataprovider.UpdateUserQuota(dataProvider, t.user, numFiles, t.bytesReceived-t.initialSize, false) //nolint:errcheck
+		}
 		return true
 	}
 	return false

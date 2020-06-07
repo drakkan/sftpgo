@@ -43,14 +43,18 @@ const (
 	testPubKey            = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"
 	logSender             = "APITesting"
 	userPath              = "/api/v1/user"
+	folderPath            = "/api/v1/folder"
 	activeConnectionsPath = "/api/v1/connection"
 	quotaScanPath         = "/api/v1/quota_scan"
+	quotaScanVFolderPath  = "/api/v1/folder_quota_scan"
 	versionPath           = "/api/v1/version"
 	metricsPath           = "/metrics"
 	pprofPath             = "/debug/pprof/"
 	webBasePath           = "/web"
 	webUsersPath          = "/web/users"
 	webUserPath           = "/web/user"
+	webFoldersPath        = "/web/folders"
+	webFolderPath         = "/web/folder"
 	webConnectionsPath    = "/web/connections"
 	configDir             = ".."
 	httpsCert             = `-----BEGIN CERTIFICATE-----
@@ -387,102 +391,180 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 func TestAddUserInvalidVirtualFolders(t *testing.T) {
 	u := getTestUser()
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir"),
+		},
 		VirtualPath: "vdir",
-		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir"),
 	})
 	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir"),
+		},
 		VirtualPath: "/",
-		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir"),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(u.GetHomeDir(), "mapped_dir"),
+		},
 		VirtualPath: "/vdir",
-		MappedPath:  filepath.Join(u.GetHomeDir(), "mapped_dir"),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: u.GetHomeDir(),
+		},
 		VirtualPath: "/vdir",
-		MappedPath:  u.GetHomeDir(),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(u.GetHomeDir(), ".."),
+		},
 		VirtualPath: "/vdir",
-		MappedPath:  filepath.Join(u.GetHomeDir(), ".."),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir"),
+		},
 		VirtualPath: "/vdir",
-		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir"),
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir1"),
+		},
 		VirtualPath: "/vdir",
-		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir1"),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir"),
+		},
 		VirtualPath: "/vdir1",
-		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir"),
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir"),
+		},
 		VirtualPath: "/vdir2",
-		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir"),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir", "subdir"),
+		},
 		VirtualPath: "/vdir1",
-		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir", "subdir"),
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir"),
+		},
 		VirtualPath: "/vdir2",
-		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir"),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir"),
+		},
 		VirtualPath: "/vdir1",
-		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir"),
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir", "subdir"),
+		},
 		VirtualPath: "/vdir2",
-		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir", "subdir"),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir1"),
+		},
 		VirtualPath: "/vdir1/subdir",
-		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir1"),
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir2"),
+		},
 		VirtualPath: "/vdir1/../vdir1",
-		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir2"),
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir1"),
+		},
 		VirtualPath: "/vdir1/",
-		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir1"),
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir2"),
+		},
 		VirtualPath: "/vdir1/subdir",
-		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir2"),
+	})
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.VirtualFolders = nil
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir1"),
+		},
+		VirtualPath: "/vdir1/",
+		QuotaSize:   -1,
+		QuotaFiles:  1,
+	})
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.VirtualFolders = nil
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir1"),
+		},
+		VirtualPath: "/vdir1/",
+		QuotaSize:   1,
+		QuotaFiles:  -1,
+	})
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.VirtualFolders = nil
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir1"),
+		},
+		VirtualPath: "/vdir1/",
+		QuotaSize:   -2,
+		QuotaFiles:  0,
+	})
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.VirtualFolders = nil
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir1"),
+		},
+		VirtualPath: "/vdir1/",
+		QuotaSize:   0,
+		QuotaFiles:  -2,
 	})
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -530,24 +612,203 @@ func TestUpdateUser(t *testing.T) {
 	user.UploadBandwidth = 1024
 	user.DownloadBandwidth = 512
 	user.VirtualFolders = nil
+	mappedPath1 := filepath.Join(os.TempDir(), "mapped_dir1")
+	mappedPath2 := filepath.Join(os.TempDir(), "mapped_dir2")
 	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
 		VirtualPath: "/vdir1",
-		MappedPath:  filepath.Join(os.TempDir(), "mapped_dir1"),
 	})
 	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
-		VirtualPath:      "/vdir12/subdir",
-		MappedPath:       filepath.Join(os.TempDir(), "mapped_dir2"),
-		ExcludeFromQuota: true,
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: "/vdir12/subdir",
+		QuotaSize:   123,
+		QuotaFiles:  2,
 	})
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	user.Permissions["/subdir"] = []string{}
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	if len(user.Permissions["/subdir"]) > 0 {
-		t.Errorf("unexpected subdir permissions, must be empty")
+	assert.Len(t, user.Permissions["/subdir"], 0)
+	assert.Len(t, user.VirtualFolders, 2)
+	for _, folder := range user.VirtualFolders {
+		assert.Greater(t, folder.ID, int64(0))
+		if folder.VirtualPath == "/vdir12/subdir" {
+			assert.Equal(t, int64(123), folder.QuotaSize)
+			assert.Equal(t, 2, folder.QuotaFiles)
+		}
 	}
+	folder, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folder, 1) {
+		f := folder[0]
+		assert.Len(t, f.Users, 1)
+		assert.Contains(t, f.Users, user.Username)
+	}
+
 	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	// removing the user must remove folder mapping
+	folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folder, 1) {
+		f := folder[0]
+		assert.Len(t, f.Users, 0)
+		_, err = httpd.RemoveFolder(f, http.StatusOK)
+		assert.NoError(t, err)
+	}
+	folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folder, 1) {
+		f := folder[0]
+		assert.Len(t, f.Users, 0)
+		_, err = httpd.RemoveFolder(f, http.StatusOK)
+		assert.NoError(t, err)
+	}
+}
+
+func TestUserFolderMapping(t *testing.T) {
+	mappedPath1 := filepath.Join(os.TempDir(), "mapped_dir1")
+	mappedPath2 := filepath.Join(os.TempDir(), "mapped_dir2")
+	u1 := getTestUser()
+	u1.VirtualFolders = append(u1.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: "/vdir",
+		QuotaSize:   -1,
+		QuotaFiles:  -1,
+	})
+	user1, _, err := httpd.AddUser(u1, http.StatusOK)
+	assert.NoError(t, err)
+	// virtual folder must be auto created
+	folders, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folders, 1) {
+		folder := folders[0]
+		assert.Len(t, folder.Users, 1)
+		assert.Contains(t, folder.Users, user1.Username)
+	}
+	u2 := getTestUser()
+	u2.Username = defaultUsername + "2"
+	u2.VirtualFolders = append(u2.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: "/vdir1",
+		QuotaSize:   0,
+		QuotaFiles:  0,
+	})
+	u2.VirtualFolders = append(u2.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: "/vdir2",
+		QuotaSize:   -1,
+		QuotaFiles:  -1,
+	})
+	user2, _, err := httpd.AddUser(u2, http.StatusOK)
+	assert.NoError(t, err)
+	folders, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folders, 1) {
+		folder := folders[0]
+		assert.Len(t, folder.Users, 1)
+		assert.Contains(t, folder.Users, user2.Username)
+	}
+	folders, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folders, 1) {
+		folder := folders[0]
+		assert.Len(t, folder.Users, 2)
+		assert.Contains(t, folder.Users, user1.Username)
+		assert.Contains(t, folder.Users, user2.Username)
+	}
+	// now update user2 removing mappedPath1
+	user2.VirtualFolders = nil
+	user2.VirtualFolders = append(user2.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: "/vdir",
+		QuotaSize:   0,
+		QuotaFiles:  0,
+	})
+	user2, _, err = httpd.UpdateUser(user2, http.StatusOK)
+	assert.NoError(t, err)
+	folders, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folders, 1) {
+		folder := folders[0]
+		assert.Len(t, folder.Users, 1)
+		assert.Contains(t, folder.Users, user2.Username)
+	}
+	folders, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folders, 1) {
+		folder := folders[0]
+		assert.Len(t, folder.Users, 1)
+		assert.Contains(t, folder.Users, user1.Username)
+	}
+	// add mappedPath1 again to user2
+	user2.VirtualFolders = append(user2.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: "/vdir1",
+	})
+	user2, _, err = httpd.UpdateUser(user2, http.StatusOK)
+	assert.NoError(t, err)
+	folders, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folders, 1) {
+		folder := folders[0]
+		assert.Len(t, folder.Users, 1)
+		assert.Contains(t, folder.Users, user2.Username)
+	}
+	// removing virtual folders should clear relations on both side
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	assert.NoError(t, err)
+	user2, _, err = httpd.GetUserByID(user2.ID, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, user2.VirtualFolders, 1) {
+		folder := user2.VirtualFolders[0]
+		assert.Equal(t, mappedPath1, folder.MappedPath)
+	}
+	user1, _, err = httpd.GetUserByID(user1.ID, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, user2.VirtualFolders, 1) {
+		folder := user2.VirtualFolders[0]
+		assert.Equal(t, mappedPath1, folder.MappedPath)
+	}
+
+	folders, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folders, 1) {
+		folder := folders[0]
+		assert.Len(t, folder.Users, 2)
+	}
+	// removing a user should clear virtual folder mapping
+	_, err = httpd.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	folders, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folders, 1) {
+		folder := folders[0]
+		assert.Len(t, folder.Users, 1)
+		assert.Contains(t, folder.Users, user2.Username)
+	}
+	// removing a folder should clear mapping on the user side too
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	assert.NoError(t, err)
+	user2, _, err = httpd.GetUserByID(user2.ID, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, user2.VirtualFolders, 0)
+	_, err = httpd.RemoveUser(user2, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -740,7 +1001,11 @@ func TestGetQuotaScans(t *testing.T) {
 	_, _, err := httpd.GetQuotaScans(http.StatusOK)
 	assert.NoError(t, err)
 	_, _, err = httpd.GetQuotaScans(http.StatusInternalServerError)
-	assert.Error(t, err, "quota scan request must succeed, we requested to check a wrong status code")
+	assert.Error(t, err)
+	_, _, err = httpd.GetFoldersQuotaScans(http.StatusOK)
+	assert.NoError(t, err)
+	_, _, err = httpd.GetFoldersQuotaScans(http.StatusInternalServerError)
+	assert.Error(t, err)
 }
 
 func TestStartQuotaScan(t *testing.T) {
@@ -749,6 +1014,15 @@ func TestStartQuotaScan(t *testing.T) {
 	_, err = httpd.StartQuotaScan(user, http.StatusCreated)
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	folder := vfs.BaseVirtualFolder{
+		MappedPath: filepath.Join(os.TempDir(), "folder"),
+	}
+	_, _, err = httpd.AddFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.StartFolderQuotaScan(folder, http.StatusCreated)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -791,11 +1065,57 @@ func TestUserBaseDir(t *testing.T) {
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	u := getTestUser()
 	u.HomeDir = ""
-	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
-	assert.NoError(t, err)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	if assert.Error(t, err) {
+		assert.EqualError(t, err, "HomeDir mismatch")
+	}
 	assert.Equal(t, filepath.Join(providerConf.UsersBaseDir, u.Username), user.HomeDir)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
+	dataProvider = dataprovider.GetProvider()
+	err = dataprovider.Close(dataProvider)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	providerConf.CredentialsPath = credentialsPath
+	err = os.RemoveAll(credentialsPath)
+	assert.NoError(t, err)
+	err = dataprovider.Initialize(providerConf, configDir)
+	assert.NoError(t, err)
+	httpd.SetDataProvider(dataprovider.GetProvider())
+	sftpd.SetDataProvider(dataprovider.GetProvider())
+}
+
+func TestQuotaTrackingDisabled(t *testing.T) {
+	dataProvider := dataprovider.GetProvider()
+	err := dataprovider.Close(dataProvider)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	providerConf.TrackQuota = 0
+	err = dataprovider.Initialize(providerConf, configDir)
+	assert.NoError(t, err)
+	httpd.SetDataProvider(dataprovider.GetProvider())
+	// user quota scan must fail
+	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.StartQuotaScan(user, http.StatusForbidden)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	// folder quota scan must fail
+	folder := vfs.BaseVirtualFolder{
+		MappedPath: os.TempDir(),
+	}
+	folder, _, err = httpd.AddFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.StartFolderQuotaScan(folder, http.StatusForbidden)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+
 	dataProvider = dataprovider.GetProvider()
 	err = dataprovider.Close(dataProvider)
 	assert.NoError(t, err)
@@ -823,16 +1143,28 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(dataprovider.User{}, http.StatusInternalServerError)
 	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: "apath"}, http.StatusInternalServerError)
+	assert.NoError(t, err)
 	_, _, err = httpd.GetProviderStatus(http.StatusInternalServerError)
 	assert.NoError(t, err)
 	_, _, err = httpd.Dumpdata("backup.json", "", http.StatusInternalServerError)
+	assert.NoError(t, err)
+	_, _, err = httpd.GetFolders(0, 0, "", http.StatusInternalServerError)
 	assert.NoError(t, err)
 	user := getTestUser()
 	user.ID = 1
 	backupData := dataprovider.BackupData{}
 	backupData.Users = append(backupData.Users, user)
-	backupContent, _ := json.Marshal(backupData)
+	backupContent, err := json.Marshal(backupData)
+	assert.NoError(t, err)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
+	err = ioutil.WriteFile(backupFilePath, backupContent, 0666)
+	assert.NoError(t, err)
+	_, _, err = httpd.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
+	assert.NoError(t, err)
+	backupData.Folders = append(backupData.Folders, vfs.BaseVirtualFolder{MappedPath: os.TempDir()})
+	backupContent, err = json.Marshal(backupData)
+	assert.NoError(t, err)
 	err = ioutil.WriteFile(backupFilePath, backupContent, 0666)
 	assert.NoError(t, err)
 	_, _, err = httpd.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
@@ -849,6 +1181,66 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	httpd.SetDataProvider(dataprovider.GetProvider())
 	sftpd.SetDataProvider(dataprovider.GetProvider())
+}
+
+func TestFolders(t *testing.T) {
+	folder := vfs.BaseVirtualFolder{
+		MappedPath: "relative path",
+	}
+	_, _, err := httpd.AddFolder(folder, http.StatusBadRequest)
+	assert.NoError(t, err)
+	folder.MappedPath = os.TempDir()
+	folder1, _, err := httpd.AddFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, folder.MappedPath, folder1.MappedPath)
+	assert.Equal(t, 0, folder1.UsedQuotaFiles)
+	assert.Equal(t, int64(0), folder1.UsedQuotaSize)
+	assert.Equal(t, int64(0), folder1.LastQuotaUpdate)
+	// adding a duplicate folder must fail
+	_, _, err = httpd.AddFolder(folder, http.StatusOK)
+	assert.Error(t, err)
+	folder.MappedPath = filepath.Join(os.TempDir(), "vfolder")
+	folder.UsedQuotaFiles = 1
+	folder.UsedQuotaSize = 345
+	folder.LastQuotaUpdate = 10
+	folder2, _, err := httpd.AddFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, folder2.UsedQuotaFiles)
+	assert.Equal(t, int64(345), folder2.UsedQuotaSize)
+	assert.Equal(t, int64(10), folder2.LastQuotaUpdate)
+	folders, _, err := httpd.GetFolders(0, 0, "", http.StatusOK)
+	assert.NoError(t, err)
+	numResults := len(folders)
+	assert.GreaterOrEqual(t, numResults, 2)
+	folders, _, err = httpd.GetFolders(0, 1, "", http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, folders, numResults-1)
+	folders, _, err = httpd.GetFolders(1, 0, "", http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, folders, 1)
+	folders, _, err = httpd.GetFolders(0, 0, folder1.MappedPath, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folders, 1) {
+		f := folders[0]
+		assert.Equal(t, folder1.MappedPath, f.MappedPath)
+	}
+	folders, _, err = httpd.GetFolders(0, 0, folder2.MappedPath, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folders, 1) {
+		f := folders[0]
+		assert.Equal(t, folder2.MappedPath, f.MappedPath)
+	}
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{}, http.StatusBadRequest)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{
+		MappedPath: "invalid",
+	}, http.StatusNotFound)
+	assert.NoError(t, err)
+
+	_, err = httpd.RemoveFolder(folder1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(folder2, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestDumpdata(t *testing.T) {
@@ -901,14 +1293,28 @@ func TestDumpdata(t *testing.T) {
 }
 
 func TestLoaddata(t *testing.T) {
+	mappedPath := filepath.Join(os.TempDir(), "restored_folder")
 	user := getTestUser()
 	user.ID = 1
 	user.Username = "test_user_restore"
 	backupData := dataprovider.BackupData{}
 	backupData.Users = append(backupData.Users, user)
-	backupContent, _ := json.Marshal(backupData)
+	backupData.Folders = []vfs.BaseVirtualFolder{
+		{
+			MappedPath:      mappedPath,
+			UsedQuotaSize:   123,
+			UsedQuotaFiles:  456,
+			LastQuotaUpdate: 789,
+			Users:           []string{"user"},
+		},
+		{
+			MappedPath: mappedPath,
+		},
+	}
+	backupContent, err := json.Marshal(backupData)
+	assert.NoError(t, err)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
-	err := ioutil.WriteFile(backupFilePath, backupContent, 0666)
+	err = ioutil.WriteFile(backupFilePath, backupContent, 0666)
 	assert.NoError(t, err)
 	_, _, err = httpd.Loaddata(backupFilePath, "a", "", http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -926,7 +1332,7 @@ func TestLoaddata(t *testing.T) {
 		err = os.Chmod(backupFilePath, 0644)
 		assert.NoError(t, err)
 	}
-	// add user from backup
+	// add user and folder from backup
 	_, _, err = httpd.Loaddata(backupFilePath, "1", "", http.StatusOK)
 	assert.NoError(t, err)
 	// update user from backup
@@ -934,9 +1340,21 @@ func TestLoaddata(t *testing.T) {
 	assert.NoError(t, err)
 	users, _, err := httpd.GetUsers(1, 0, user.Username, http.StatusOK)
 	assert.NoError(t, err)
-	if assert.Equal(t, 1, len(users)) {
+	if assert.Len(t, users, 1) {
 		user = users[0]
 		_, err = httpd.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+	}
+	folders, _, err := httpd.GetFolders(1, 0, mappedPath, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folders, 1) {
+		folder := folders[0]
+		assert.Equal(t, mappedPath, folder.MappedPath)
+		assert.Equal(t, int64(123), folder.UsedQuotaSize)
+		assert.Equal(t, 456, folder.UsedQuotaFiles)
+		assert.Equal(t, int64(789), folder.LastQuotaUpdate)
+		assert.Len(t, folder.Users, 0)
+		_, err = httpd.RemoveFolder(folder, http.StatusOK)
 		assert.NoError(t, err)
 	}
 	err = os.Remove(backupFilePath)
@@ -1073,6 +1491,12 @@ func TestAddUserInvalidPermsMock(t *testing.T) {
 	user.Permissions["/"] = []string{}
 	userAsJSON := getUserAsJSON(t, user)
 	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr.Code)
+}
+
+func TestAddFolderInvalidJsonMock(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodPost, folderPath, bytes.NewBuffer([]byte("invalid json")))
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr.Code)
 }
@@ -1301,19 +1725,17 @@ func TestStartQuotaScanMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr.Code)
 
-	req, _ = http.NewRequest(http.MethodGet, quotaScanPath, nil)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr.Code)
 	var scans []sftpd.ActiveQuotaScan
-	err = render.DecodeJSON(rr.Body, &scans)
-	assert.NoError(t, err)
-	for len(scans) > 0 {
+	for {
 		req, _ = http.NewRequest(http.MethodGet, quotaScanPath, nil)
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr.Code)
 		err = render.DecodeJSON(rr.Body, &scans)
-		if err != nil {
+		if !assert.NoError(t, err) {
 			assert.Fail(t, err.Error(), "Error get active scans")
+			break
+		}
+		if len(scans) == 0 {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
@@ -1327,18 +1749,17 @@ func TestStartQuotaScanMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr.Code)
 
-	req, _ = http.NewRequest(http.MethodGet, quotaScanPath, nil)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr.Code)
-	err = render.DecodeJSON(rr.Body, &scans)
-	assert.NoError(t, err)
-	for len(scans) > 0 {
+	scans = nil
+	for {
 		req, _ = http.NewRequest(http.MethodGet, quotaScanPath, nil)
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr.Code)
 		err = render.DecodeJSON(rr.Body, &scans)
-		if err != nil {
+		if !assert.NoError(t, err) {
 			assert.Fail(t, err.Error(), "Error get active scans")
+			break
+		}
+		if len(scans) == 0 {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
@@ -1351,7 +1772,66 @@ func TestStartQuotaScanMock(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestStartQuotaScanBadUserMock(t *testing.T) {
+func TestStartFolderQuotaScanMock(t *testing.T) {
+	mappedPath := filepath.Join(os.TempDir(), "vfolder")
+	folder := vfs.BaseVirtualFolder{
+		MappedPath: mappedPath,
+	}
+	folderAsJSON, err := json.Marshal(folder)
+	assert.NoError(t, err)
+	req, _ := http.NewRequest(http.MethodPost, folderPath, bytes.NewBuffer(folderAsJSON))
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	_, err = os.Stat(mappedPath)
+	if err == nil {
+		err = os.Remove(mappedPath)
+		assert.NoError(t, err)
+	}
+	// simulate a duplicate quota scan
+	sftpd.AddVFolderQuotaScan(mappedPath)
+	req, _ = http.NewRequest(http.MethodPost, quotaScanVFolderPath, bytes.NewBuffer(folderAsJSON))
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusConflict, rr.Code)
+	err = sftpd.RemoveVFolderQuotaScan(mappedPath)
+	assert.NoError(t, err)
+	// and now a real quota scan
+	_, err = os.Stat(mappedPath)
+	if err != nil && os.IsNotExist(err) {
+		err = os.MkdirAll(mappedPath, 0777)
+		assert.NoError(t, err)
+	}
+	req, _ = http.NewRequest(http.MethodPost, quotaScanVFolderPath, bytes.NewBuffer(folderAsJSON))
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr.Code)
+	var scans []sftpd.ActiveVirtualFolderQuotaScan
+	for {
+		req, _ = http.NewRequest(http.MethodGet, quotaScanVFolderPath, nil)
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusOK, rr.Code)
+		err = render.DecodeJSON(rr.Body, &scans)
+		if !assert.NoError(t, err) {
+			assert.Fail(t, err.Error(), "Error get active folders scans")
+			break
+		}
+		if len(scans) == 0 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	// cleanup
+	url, err := url.Parse(folderPath)
+	assert.NoError(t, err)
+	q := url.Query()
+	q.Add("folder_path", mappedPath)
+	url.RawQuery = q.Encode()
+	req, _ = http.NewRequest(http.MethodDelete, url.String(), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	err = os.RemoveAll(folderPath)
+	assert.NoError(t, err)
+}
+
+func TestStartQuotaScanNonExistentUserMock(t *testing.T) {
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
 	req, _ := http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer(userAsJSON))
@@ -1359,10 +1839,72 @@ func TestStartQuotaScanBadUserMock(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, rr.Code)
 }
 
-func TestStartQuotaScanNonExistentUserMock(t *testing.T) {
+func TestStartQuotaScanBadUserMock(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer([]byte("invalid json")))
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr.Code)
+}
+
+func TestStartQuotaScanBadFolderMock(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodPost, quotaScanVFolderPath, bytes.NewBuffer([]byte("invalid json")))
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr.Code)
+}
+
+func TestStartQuotaScanNonExistentFolderMock(t *testing.T) {
+	folder := vfs.BaseVirtualFolder{
+		MappedPath: os.TempDir(),
+	}
+	folderAsJSON, err := json.Marshal(folder)
+	assert.NoError(t, err)
+	req, _ := http.NewRequest(http.MethodPost, quotaScanVFolderPath, bytes.NewBuffer(folderAsJSON))
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr.Code)
+}
+
+func TestGetFoldersMock(t *testing.T) {
+	mappedPath := filepath.Join(os.TempDir(), "vfolder")
+	folder := vfs.BaseVirtualFolder{
+		MappedPath: mappedPath,
+	}
+	folderAsJSON, err := json.Marshal(folder)
+	assert.NoError(t, err)
+	req, _ := http.NewRequest(http.MethodPost, folderPath, bytes.NewBuffer(folderAsJSON))
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	err = render.DecodeJSON(rr.Body, &folder)
+	assert.NoError(t, err)
+
+	var folders []vfs.BaseVirtualFolder
+	url, err := url.Parse(folderPath + "?limit=510&offset=0&order=DESC")
+	assert.NoError(t, err)
+	q := url.Query()
+	q.Add("folder_path", mappedPath)
+	url.RawQuery = q.Encode()
+	req, _ = http.NewRequest(http.MethodGet, url.String(), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	err = render.DecodeJSON(rr.Body, &folders)
+	assert.NoError(t, err)
+	assert.Len(t, folders, 1)
+	req, _ = http.NewRequest(http.MethodGet, folderPath+"?limit=a&offset=0&order=ASC", nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr.Code)
+	req, _ = http.NewRequest(http.MethodGet, folderPath+"?limit=1&offset=a&order=ASC", nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr.Code)
+	req, _ = http.NewRequest(http.MethodGet, folderPath+"?limit=1&offset=0&order=ASCa", nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr.Code)
+
+	url, err = url.Parse(folderPath)
+	assert.NoError(t, err)
+	q = url.Query()
+	q.Add("folder_path", mappedPath)
+	url.RawQuery = q.Encode()
+	req, _ = http.NewRequest(http.MethodDelete, url.String(), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
 }
 
 func TestGetVersionMock(t *testing.T) {
@@ -1496,7 +2038,7 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("expiration_date", "")
 	form.Set("permissions", "*")
 	form.Set("sub_dirs_permissions", " /subdir::list ,download ")
-	form.Set("virtual_folders", fmt.Sprintf(" /vdir:: %v ::1", mappedDir))
+	form.Set("virtual_folders", fmt.Sprintf(" /vdir:: %v :: 2 :: 1024", mappedDir))
 	form.Set("allowed_extensions", "/dir1::.jpg,.png")
 	form.Set("denied_extensions", "/dir1::.zip")
 	b, contentType, _ := getMultipartFormData(form, "", "")
@@ -1616,16 +2158,24 @@ func TestWebUserAddMock(t *testing.T) {
 	} else {
 		assert.Fail(t, "user permissions must contain /somedir", "actual: %v", newUser.Permissions)
 	}
-	vfolderFound := false
+	assert.Len(t, newUser.VirtualFolders, 1)
 	for _, v := range newUser.VirtualFolders {
-		if v.VirtualPath == "/vdir" && v.MappedPath == mappedDir && v.ExcludeFromQuota == true {
-			vfolderFound = true
-		}
+		assert.Equal(t, v.VirtualPath, "/vdir")
+		assert.Equal(t, v.MappedPath, mappedDir)
+		assert.Equal(t, v.QuotaFiles, 2)
+		assert.Equal(t, v.QuotaSize, int64(1024))
 	}
-	assert.True(t, vfolderFound)
 	extFilters := newUser.Filters.FileExtensions[0]
 	assert.True(t, utils.IsStringInSlice(".zip", extFilters.DeniedExtensions))
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(newUser.ID, 10), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	url, err := url.Parse(folderPath)
+	assert.NoError(t, err)
+	q := url.Query()
+	q.Add("folder_path", mappedDir)
+	url.RawQuery = q.Encode()
+	req, _ = http.NewRequest(http.MethodDelete, url.String(), nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 }
@@ -1878,11 +2428,112 @@ func TestWebUserGCSMock(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestAddWebFoldersMock(t *testing.T) {
+	mappedPath := os.TempDir()
+	form := make(url.Values)
+	form.Set("mapped_path", mappedPath)
+	req, err := http.NewRequest(http.MethodPost, webFolderPath, strings.NewReader(form.Encode()))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr.Code)
+	// adding the same folder will fail since the path must be unique
+	req, err = http.NewRequest(http.MethodPost, webFolderPath, strings.NewReader(form.Encode()))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	// invalid form
+	req, err = http.NewRequest(http.MethodPost, webFolderPath, strings.NewReader(form.Encode()))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "text/plain; boundary=")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+
+	// now render the add folder page
+	req, err = http.NewRequest(http.MethodGet, webFolderPath, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+
+	var folders []vfs.BaseVirtualFolder
+	url, err := url.Parse(folderPath)
+	assert.NoError(t, err)
+	q := url.Query()
+	q.Add("folder_path", mappedPath)
+	url.RawQuery = q.Encode()
+	req, _ = http.NewRequest(http.MethodGet, url.String(), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	err = render.DecodeJSON(rr.Body, &folders)
+	assert.NoError(t, err)
+	if assert.Len(t, folders, 1) {
+		folder := folders[0]
+		assert.Equal(t, mappedPath, folder.MappedPath)
+	}
+	// cleanup
+	url, err = url.Parse(folderPath)
+	assert.NoError(t, err)
+	q = url.Query()
+	q.Add("folder_path", mappedPath)
+	url.RawQuery = q.Encode()
+	req, _ = http.NewRequest(http.MethodDelete, url.String(), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+}
+
+func TestWebFoldersMock(t *testing.T) {
+	mappedPath1 := filepath.Join(os.TempDir(), "vfolder1")
+	mappedPath2 := filepath.Join(os.TempDir(), "vfolder2")
+	folders := []vfs.BaseVirtualFolder{
+		{
+			MappedPath: mappedPath1,
+		},
+		{
+			MappedPath: mappedPath2,
+		},
+	}
+	for _, folder := range folders {
+		folderAsJSON, err := json.Marshal(folder)
+		assert.NoError(t, err)
+		req, _ := http.NewRequest(http.MethodPost, folderPath, bytes.NewBuffer(folderAsJSON))
+		rr := executeRequest(req)
+		checkResponseCode(t, http.StatusOK, rr.Code)
+	}
+
+	req, err := http.NewRequest(http.MethodGet, webFoldersPath, nil)
+	assert.NoError(t, err)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	req, err = http.NewRequest(http.MethodGet, webFoldersPath+"?qlimit=a", nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	req, err = http.NewRequest(http.MethodGet, webFoldersPath+"?qlimit=1", nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+
+	for _, folder := range folders {
+		url, err := url.Parse(folderPath)
+		assert.NoError(t, err)
+		q := url.Query()
+		q.Add("folder_path", folder.MappedPath)
+		url.RawQuery = q.Encode()
+		req, _ := http.NewRequest(http.MethodDelete, url.String(), nil)
+		rr := executeRequest(req)
+		checkResponseCode(t, http.StatusOK, rr.Code)
+	}
+}
+
 func TestProviderClosedMock(t *testing.T) {
 	dataProvider := dataprovider.GetProvider()
 	dataprovider.Close(dataProvider)
-	req, _ := http.NewRequest(http.MethodGet, webUsersPath, nil)
+	req, _ := http.NewRequest(http.MethodGet, webFoldersPath, nil)
 	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr.Code)
+	req, _ = http.NewRequest(http.MethodGet, webUsersPath, nil)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr.Code)
 	req, _ = http.NewRequest(http.MethodGet, webUserPath+"/0", nil)
 	rr = executeRequest(req)

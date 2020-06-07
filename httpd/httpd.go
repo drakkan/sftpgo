@@ -25,8 +25,10 @@ const (
 	apiPrefix             = "/api/v1"
 	activeConnectionsPath = "/api/v1/connection"
 	quotaScanPath         = "/api/v1/quota_scan"
+	quotaScanVFolderPath  = "/api/v1/folder_quota_scan"
 	userPath              = "/api/v1/user"
 	versionPath           = "/api/v1/version"
+	folderPath            = "/api/v1/folder"
 	providerStatusPath    = "/api/v1/providerstatus"
 	dumpDataPath          = "/api/v1/dumpdata"
 	loadDataPath          = "/api/v1/loaddata"
@@ -36,6 +38,8 @@ const (
 	webUsersPath          = "/web/users"
 	webUserPath           = "/web/user"
 	webConnectionsPath    = "/web/connections"
+	webFoldersPath        = "/web/folders"
+	webFolderPath         = "/web/folder"
 	webStaticFilesPath    = "/static"
 	maxRestoreSize        = 10485760 // 10 MB
 	maxRequestSize        = 1048576  // 1MB

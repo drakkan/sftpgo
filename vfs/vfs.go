@@ -39,6 +39,7 @@ type Fs interface {
 	IsNotExist(err error) bool
 	IsPermission(err error) bool
 	ScanRootDirContents() (int, int64, error)
+	GetDirSize(dirname string) (int, int64, error)
 	GetAtomicUploadPath(name string) string
 	GetRelativePath(name string) string
 	Join(elem ...string) string
@@ -48,8 +49,8 @@ type Fs interface {
 type S3FsConfig struct {
 	Bucket string `json:"bucket,omitempty"`
 	// KeyPrefix is similar to a chroot directory for local filesystem.
-	// If specified the SFTP user will only see objects that starts with
-	// this prefix and so you can restrict access to a specific virtual
+	// If specified then the SFTP user will only see objects that starts
+	// with this prefix and so you can restrict access to a specific
 	// folder. The prefix, if not empty, must not start with "/" and must
 	// end with "/".
 	// If empty the whole bucket contents will be available
@@ -75,8 +76,8 @@ type S3FsConfig struct {
 type GCSFsConfig struct {
 	Bucket string `json:"bucket,omitempty"`
 	// KeyPrefix is similar to a chroot directory for local filesystem.
-	// If specified the SFTP user will only see objects that starts with
-	// this prefix and so you can restrict access to a specific virtual
+	// If specified then the SFTP user will only see objects that starts
+	// with this prefix and so you can restrict access to a specific
 	// folder. The prefix, if not empty, must not start with "/" and must
 	// end with "/".
 	// If empty the whole bucket contents will be available
@@ -120,19 +121,6 @@ func (p *PipeWriter) Done(err error) {
 // WriteAt is a wrapper for pipeat WriteAt
 func (p *PipeWriter) WriteAt(data []byte, off int64) (int, error) {
 	return p.writer.WriteAt(data, off)
-}
-
-// VirtualFolder defines a mapping between a SFTP/SCP virtual path and a
-// filesystem path outside the user home directory.
-// The specified paths must be absolute and the virtual path cannot be "/",
-// it must be a sub directory. The parent directory for the specified virtual
-// path must exist. SFTPGo will try to automatically create any missing
-// parent directory for the configured virtual folders at user login.
-type VirtualFolder struct {
-	VirtualPath string `json:"virtual_path"`
-	MappedPath  string `json:"mapped_path"`
-	// Enable to exclude this folder from the user quota
-	ExcludeFromQuota bool `json:"exclude_from_quota"`
 }
 
 // IsDirectory checks if a path exists and is a directory

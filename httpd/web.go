@@ -22,20 +22,23 @@ import (
 )
 
 const (
-	templateBase           = "base.html"
-	templateUsers          = "users.html"
-	templateUser           = "user.html"
-	templateConnections    = "connections.html"
-	templateMessage        = "message.html"
-	pageUsersTitle         = "Users"
-	pageConnectionsTitle   = "Connections"
-	page400Title           = "Bad request"
-	page404Title           = "Not found"
-	page404Body            = "The page you are looking for does not exist."
-	page500Title           = "Internal Server Error"
-	page500Body            = "The server is unable to fulfill your request."
-	defaultUsersQueryLimit = 500
-	webDateTimeFormat      = "2006-01-02 15:04:05" // YYYY-MM-DD HH:MM:SS
+	templateBase         = "base.html"
+	templateUsers        = "users.html"
+	templateUser         = "user.html"
+	templateConnections  = "connections.html"
+	templateFolders      = "folders.html"
+	templateFolder       = "folder.html"
+	templateMessage      = "message.html"
+	pageUsersTitle       = "Users"
+	pageConnectionsTitle = "Connections"
+	pageFoldersTitle     = "Folders"
+	page400Title         = "Bad request"
+	page404Title         = "Not found"
+	page404Body          = "The page you are looking for does not exist."
+	page500Title         = "Internal Server Error"
+	page500Body          = "The server is unable to fulfill your request."
+	defaultQueryLimit    = 500
+	webDateTimeFormat    = "2006-01-02 15:04:05" // YYYY-MM-DD HH:MM:SS
 )
 
 var (
@@ -43,22 +46,32 @@ var (
 )
 
 type basePage struct {
-	Title             string
-	CurrentURL        string
-	UsersURL          string
-	UserURL           string
-	APIUserURL        string
-	APIConnectionsURL string
-	APIQuotaScanURL   string
-	ConnectionsURL    string
-	UsersTitle        string
-	ConnectionsTitle  string
-	Version           string
+	Title                 string
+	CurrentURL            string
+	UsersURL              string
+	UserURL               string
+	APIUserURL            string
+	APIConnectionsURL     string
+	APIQuotaScanURL       string
+	ConnectionsURL        string
+	FoldersURL            string
+	FolderURL             string
+	APIFoldersURL         string
+	APIFolderQuotaScanURL string
+	UsersTitle            string
+	ConnectionsTitle      string
+	FoldersTitle          string
+	Version               string
 }
 
 type usersPage struct {
 	basePage
 	Users []dataprovider.User
+}
+
+type foldersPage struct {
+	basePage
+	Folders []vfs.BaseVirtualFolder
 }
 
 type connectionsPage struct {
@@ -75,6 +88,12 @@ type userPage struct {
 	ValidPerms           []string
 	ValidSSHLoginMethods []string
 	RootDirPerms         []string
+}
+
+type folderPage struct {
+	basePage
+	Folder vfs.BaseVirtualFolder
+	Error  string
 }
 
 type messagePage struct {
@@ -100,31 +119,48 @@ func loadTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateBase),
 		filepath.Join(templatesPath, templateMessage),
 	}
+	foldersPath := []string{
+		filepath.Join(templatesPath, templateBase),
+		filepath.Join(templatesPath, templateFolders),
+	}
+	folderPath := []string{
+		filepath.Join(templatesPath, templateBase),
+		filepath.Join(templatesPath, templateFolder),
+	}
 	usersTmpl := utils.LoadTemplate(template.ParseFiles(usersPaths...))
 	userTmpl := utils.LoadTemplate(template.ParseFiles(userPaths...))
 	connectionsTmpl := utils.LoadTemplate(template.ParseFiles(connectionsPaths...))
 	messageTmpl := utils.LoadTemplate(template.ParseFiles(messagePath...))
+	foldersTmpl := utils.LoadTemplate(template.ParseFiles(foldersPath...))
+	folderTmpl := utils.LoadTemplate(template.ParseFiles(folderPath...))
 
 	templates[templateUsers] = usersTmpl
 	templates[templateUser] = userTmpl
 	templates[templateConnections] = connectionsTmpl
 	templates[templateMessage] = messageTmpl
+	templates[templateFolders] = foldersTmpl
+	templates[templateFolder] = folderTmpl
 }
 
 func getBasePageData(title, currentURL string) basePage {
 	version := utils.GetAppVersion()
 	return basePage{
-		Title:             title,
-		CurrentURL:        currentURL,
-		UsersURL:          webUsersPath,
-		UserURL:           webUserPath,
-		APIUserURL:        userPath,
-		APIConnectionsURL: activeConnectionsPath,
-		APIQuotaScanURL:   quotaScanPath,
-		ConnectionsURL:    webConnectionsPath,
-		UsersTitle:        pageUsersTitle,
-		ConnectionsTitle:  pageConnectionsTitle,
-		Version:           version.GetVersionAsString(),
+		Title:                 title,
+		CurrentURL:            currentURL,
+		UsersURL:              webUsersPath,
+		UserURL:               webUserPath,
+		FoldersURL:            webFoldersPath,
+		FolderURL:             webFolderPath,
+		APIUserURL:            userPath,
+		APIConnectionsURL:     activeConnectionsPath,
+		APIQuotaScanURL:       quotaScanPath,
+		APIFoldersURL:         folderPath,
+		APIFolderQuotaScanURL: quotaScanVFolderPath,
+		ConnectionsURL:        webConnectionsPath,
+		UsersTitle:            pageUsersTitle,
+		ConnectionsTitle:      pageConnectionsTitle,
+		FoldersTitle:          pageFoldersTitle,
+		Version:               version.GetVersionAsString(),
 	}
 }
 
@@ -190,6 +226,15 @@ func renderUpdateUserPage(w http.ResponseWriter, user dataprovider.User, error s
 	renderTemplate(w, templateUser, data)
 }
 
+func renderAddFolderPage(w http.ResponseWriter, folder vfs.BaseVirtualFolder, error string) {
+	data := folderPage{
+		basePage: getBasePageData("Add a new folder", webFolderPath),
+		Error:    error,
+		Folder:   folder,
+	}
+	renderTemplate(w, templateFolder, data)
+}
+
 func getVirtualFoldersFromPostFields(r *http.Request) []vfs.VirtualFolder {
 	var virtualFolders []vfs.VirtualFolder
 	formValue := r.Form.Get("virtual_folders")
@@ -198,13 +243,23 @@ func getVirtualFoldersFromPostFields(r *http.Request) []vfs.VirtualFolder {
 			mapping := strings.Split(cleaned, "::")
 			if len(mapping) > 1 {
 				vfolder := vfs.VirtualFolder{
+					BaseVirtualFolder: vfs.BaseVirtualFolder{
+						MappedPath: strings.TrimSpace(mapping[1]),
+					},
 					VirtualPath: strings.TrimSpace(mapping[0]),
-					MappedPath:  strings.TrimSpace(mapping[1]),
+					QuotaFiles:  -1,
+					QuotaSize:   -1,
 				}
 				if len(mapping) > 2 {
-					excludeFromQuota, err := strconv.Atoi(strings.TrimSpace(mapping[2]))
+					quotaFiles, err := strconv.Atoi(strings.TrimSpace(mapping[2]))
 					if err == nil {
-						vfolder.ExcludeFromQuota = (excludeFromQuota > 0)
+						vfolder.QuotaFiles = quotaFiles
+					}
+				}
+				if len(mapping) > 3 {
+					quotaSize, err := strconv.ParseInt(strings.TrimSpace(mapping[3]), 10, 64)
+					if err == nil {
+						vfolder.QuotaSize = quotaSize
 					}
 				}
 				virtualFolders = append(virtualFolders, vfolder)
@@ -453,28 +508,25 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 }
 
 func handleGetWebUsers(w http.ResponseWriter, r *http.Request) {
-	limit := defaultUsersQueryLimit
+	limit := defaultQueryLimit
 	if _, ok := r.URL.Query()["qlimit"]; ok {
 		var err error
 		limit, err = strconv.Atoi(r.URL.Query().Get("qlimit"))
 		if err != nil {
-			limit = defaultUsersQueryLimit
+			limit = defaultQueryLimit
 		}
 	}
-	var users []dataprovider.User
-	u, err := dataprovider.GetUsers(dataProvider, limit, 0, "ASC", "")
-	users = append(users, u...)
-	for len(u) == limit {
-		u, err = dataprovider.GetUsers(dataProvider, limit, len(users), "ASC", "")
-		if err == nil && len(u) > 0 {
-			users = append(users, u...)
-		} else {
+	users := make([]dataprovider.User, 0, limit)
+	for {
+		u, err := dataprovider.GetUsers(dataProvider, limit, len(users), dataprovider.OrderASC, "")
+		if err != nil {
+			renderInternalServerErrorPage(w, err)
+			return
+		}
+		users = append(users, u...)
+		if len(u) < limit {
 			break
 		}
-	}
-	if err != nil {
-		renderInternalServerErrorPage(w, err)
-		return
 	}
 	data := usersPage{
 		basePage: getBasePageData(pageUsersTitle, webUsersPath),
@@ -557,4 +609,55 @@ func handleWebGetConnections(w http.ResponseWriter, r *http.Request) {
 		Connections: connectionStats,
 	}
 	renderTemplate(w, templateConnections, data)
+}
+
+func handleWebAddFolderGet(w http.ResponseWriter, r *http.Request) {
+	renderAddFolderPage(w, vfs.BaseVirtualFolder{}, "")
+}
+
+func handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	folder := vfs.BaseVirtualFolder{}
+	err := r.ParseForm()
+	if err != nil {
+		renderAddFolderPage(w, folder, err.Error())
+		return
+	}
+	folder.MappedPath = r.Form.Get("mapped_path")
+
+	err = dataprovider.AddFolder(dataProvider, folder)
+	if err == nil {
+		http.Redirect(w, r, webFoldersPath, http.StatusSeeOther)
+	} else {
+		renderAddFolderPage(w, folder, err.Error())
+	}
+}
+
+func handleWebGetFolders(w http.ResponseWriter, r *http.Request) {
+	limit := defaultQueryLimit
+	if _, ok := r.URL.Query()["qlimit"]; ok {
+		var err error
+		limit, err = strconv.Atoi(r.URL.Query().Get("qlimit"))
+		if err != nil {
+			limit = defaultQueryLimit
+		}
+	}
+	folders := make([]vfs.BaseVirtualFolder, 0, limit)
+	for {
+		f, err := dataprovider.GetFolders(dataProvider, limit, len(folders), dataprovider.OrderASC, "")
+		if err != nil {
+			renderInternalServerErrorPage(w, err)
+			return
+		}
+		folders = append(folders, f...)
+		if len(f) < limit {
+			break
+		}
+	}
+
+	data := foldersPage{
+		basePage: getBasePageData(pageFoldersTitle, webFoldersPath),
+		Folders:  folders,
+	}
+	renderTemplate(w, templateFolders, data)
 }

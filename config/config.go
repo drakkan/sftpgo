@@ -75,7 +75,7 @@ func init() {
 			Username:         "",
 			Password:         "",
 			ConnectionString: "",
-			UsersTable:       "users",
+			SQLTablesPrefix:  "",
 			ManageUsers:      1,
 			SSLMode:          0,
 			TrackQuota:       1,

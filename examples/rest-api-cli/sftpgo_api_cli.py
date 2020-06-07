@@ -32,7 +32,9 @@ class SFTPGoApiRequests:
 
 	def __init__(self, debug, baseUrl, authType, authUser, authPassword, secure, no_color):
 		self.userPath = urlparse.urljoin(baseUrl, '/api/v1/user')
+		self.folderPath = urlparse.urljoin(baseUrl, '/api/v1/folder')
 		self.quotaScanPath = urlparse.urljoin(baseUrl, '/api/v1/quota_scan')
+		self.folderQuotaScanPath = urlparse.urljoin(baseUrl, '/api/v1/folder_quota_scan')
 		self.activeConnectionsPath = urlparse.urljoin(baseUrl, '/api/v1/connection')
 		self.versionPath = urlparse.urljoin(baseUrl, '/api/v1/version')
 		self.providerStatusPath = urlparse.urljoin(baseUrl, '/api/v1/providerstatus')
@@ -110,19 +112,25 @@ class SFTPGoApiRequests:
 			if '::' in f:
 				vpath = ''
 				mapped_path = ''
-				exclude_from_quota = False
+				quota_files = 0
+				quota_size = 0
 				values = f.split('::')
 				if len(values) > 1:
 					vpath = values[0]
 					mapped_path = values[1]
 				if len(values) > 2:
 					try:
-						exclude_from_quota = int(values[2]) > 0
+						quota_files = int(values[2])
+					except:
+						pass
+				if len(values) > 3:
+					try:
+						quota_size = int(values[3])
 					except:
 						pass
 				if vpath and mapped_path:
 					result.append({"virtual_path":vpath, "mapped_path":mapped_path,
-								"exclude_from_quota":exclude_from_quota})
+								"quota_files":quota_files, "quota_size":quota_size})
 		return result
 
 	def buildPermissions(self, root_perms, subdirs_perms):
@@ -291,6 +299,29 @@ class SFTPGoApiRequests:
 	def startQuotaScan(self, username):
 		u = self.buildUserObject(0, username)
 		r = requests.post(self.quotaScanPath, json=u, auth=self.auth, verify=self.verify)
+		self.printResponse(r)
+
+	def getFoldersQuotaScans(self):
+		r = requests.get(self.folderQuotaScanPath, auth=self.auth, verify=self.verify)
+		self.printResponse(r)
+
+	def startFolderQuotaScan(self, mapped_path):
+		f = {"mapped_path":mapped_path}
+		r = requests.post(self.folderQuotaScanPath, json=f, auth=self.auth, verify=self.verify)
+		self.printResponse(r)
+
+	def addFolder(self, mapped_path):
+		f = {"mapped_path":mapped_path}
+		r = requests.post(self.folderPath, json=f, auth=self.auth, verify=self.verify)
+		self.printResponse(r)
+
+	def deleteFolder(self, mapped_path):
+		r = requests.delete(self.folderPath, params={'folder_path':mapped_path}, auth=self.auth, verify=self.verify)
+		self.printResponse(r)
+
+	def getFolders(self, limit=100, offset=0, order='ASC', mapped_path=''):
+		r = requests.get(self.folderPath, params={'limit':limit, 'offset':offset, 'order':order,
+											'folder_path':mapped_path}, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
 	def getVersion(self):
@@ -516,8 +547,8 @@ def addCommonUserArguments(parser):
 	parser.add_argument('--subdirs-permissions', type=str, nargs='*', default=[], help='Permissions for subdirs. '
 					+'For example: "/somedir::list,download" "/otherdir/subdir::*" Default: %(default)s')
 	parser.add_argument('--virtual-folders', type=str, nargs='*', default=[], help='Virtual folder mapping. For example: '
-					+'"/vpath::/home/adir" "/vpath::C:\adir::1". If the optional third argument is > 0 the virtual '
-					+'folder will be excluded from user quota. Ignored for non local filesystems. Default: %(default)s')
+					+'"/vpath::/home/adir" "/vpath::C:\adir::[quota_file]::[quota_size]". Quota parameters -1 means '
+					+'included inside user quota, 0 means unlimited. Ignored for non local filesystems. Default: %(default)s')
 	parser.add_argument('-U', '--upload-bandwidth', type=int, default=0,
 					help='Maximum upload bandwidth as KB/s, 0 means unlimited. Default: %(default)s')
 	parser.add_argument('-D', '--download-bandwidth', type=int, default=0,
@@ -615,10 +646,29 @@ if __name__ == '__main__':
 	parserCloseConnection = subparsers.add_parser('close-connection', help='Terminate an active SFTP/SCP connection')
 	parserCloseConnection.add_argument('connectionID', type=str)
 
-	parserGetQuotaScans = subparsers.add_parser('get-quota-scans', help='Get the active quota scans')
+	parserGetQuotaScans = subparsers.add_parser('get-quota-scans', help='Get the active quota scans for users home directories')
 
-	parserStartQuotaScans = subparsers.add_parser('start-quota-scan', help='Start a new quota scan')
-	addCommonUserArguments(parserStartQuotaScans)
+	parserStartQuotaScan = subparsers.add_parser('start-quota-scan', help='Start a new user quota scan')
+	addCommonUserArguments(parserStartQuotaScan)
+
+	parserGetFolderQuotaScans = subparsers.add_parser('get-folders-quota-scans', help='Get the active quota scans for folders')
+
+	parserStartFolderQuotaScan = subparsers.add_parser('start-folder-quota-scan', help='Start a new folder quota scan')
+	parserStartFolderQuotaScan.add_argument('folder_path', type=str)
+
+	parserGetFolders = subparsers.add_parser('get-folders', help='Returns an array with one or more folders')
+	parserGetFolders.add_argument('-L', '--limit', type=int, default=100, choices=range(1, 501),
+							help='Maximum allowed value is 500. Default: %(default)s', metavar='[1...500]')
+	parserGetFolders.add_argument('-O', '--offset', type=int, default=0, help='Default: %(default)s')
+	parserGetFolders.add_argument('-P', '--folder-path', type=str, default='', help='Default: %(default)s')
+	parserGetFolders.add_argument('-S', '--order', type=str, choices=['ASC', 'DESC'], default='ASC',
+							help='default: %(default)s')
+
+	parserAddFolder = subparsers.add_parser('add-folder', help='Add a new folder')
+	parserAddFolder.add_argument('folder_path', type=str)
+
+	parserDeleteFolder = subparsers.add_parser('delete-folder', help='Delete an existing folder')
+	parserDeleteFolder.add_argument('folder_path', type=str)
 
 	parserGetVersion = subparsers.add_parser('get-version', help='Get version details')
 
@@ -697,6 +747,16 @@ if __name__ == '__main__':
 		api.getQuotaScans()
 	elif args.command == 'start-quota-scan':
 		api.startQuotaScan(args.username)
+	elif args.command == 'get-folders':
+		api.getFolders(args.limit, args.offset, args.order, args.folder_path)
+	elif args.command == 'add-folder':
+		api.addFolder(args.folder_path)
+	elif args.command == 'delete-folder':
+		api.deleteFolder(args.folder_path)
+	elif args.command == 'get-folders-quota-scans':
+		api.getFoldersQuotaScans()
+	elif args.command == 'start-folder-quota-scan':
+		api.startFolderQuotaScan(args.folder_path)
 	elif args.command == 'get-version':
 		api.getVersion()
 	elif args.command == 'get-provider-status':

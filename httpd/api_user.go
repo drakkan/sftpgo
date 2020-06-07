@@ -15,7 +15,7 @@ import (
 func getUsers(w http.ResponseWriter, r *http.Request) {
 	limit := 100
 	offset := 0
-	order := "ASC"
+	order := dataprovider.OrderASC
 	username := ""
 	var err error
 	if _, ok := r.URL.Query()["limit"]; ok {
@@ -39,7 +39,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, ok := r.URL.Query()["order"]; ok {
 		order = r.URL.Query().Get("order")
-		if order != "ASC" && order != "DESC" {
+		if order != dataprovider.OrderASC && order != dataprovider.OrderDESC {
 			err = errors.New("Invalid order")
 			sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 			return

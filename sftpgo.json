@@ -38,7 +38,7 @@
     "password": "",
     "sslmode": 0,
     "connection_string": "",
-    "users_table": "users",
+    "sql_tables_prefix": "",
     "manage_users": 1,
     "track_quota": 2,
     "pool_size": 0,

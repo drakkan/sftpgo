@@ -21,6 +21,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -422,6 +423,9 @@ func TestDirCommands(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Rename("test1", "test")
 		assert.NoError(t, err)
+		// rename a missing file
+		err = client.Rename("test1", "test2")
+		assert.Error(t, err)
 		_, err = client.Lstat("/test1")
 		assert.Error(t, err, "stat for renamed dir must not succeed")
 		err = client.PosixRename("test", "test1")
@@ -1412,6 +1416,7 @@ func TestLoginExternalAuth(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")
 	}
+	mappedPath := filepath.Join(os.TempDir(), "vdir1")
 	extAuthScopes := []int{1, 2}
 	for _, authScope := range extAuthScopes {
 		var usePubKey bool
@@ -1421,6 +1426,14 @@ func TestLoginExternalAuth(t *testing.T) {
 			usePubKey = true
 		}
 		u := getTestUser(usePubKey)
+		u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				MappedPath: mappedPath,
+			},
+			VirtualPath: "/vpath",
+			QuotaFiles:  1 + authScope,
+			QuotaSize:   10 + int64(authScope),
+		})
 		dataProvider := dataprovider.GetProvider()
 		err := dataprovider.Close(dataProvider)
 		assert.NoError(t, err)
@@ -1454,14 +1467,22 @@ func TestLoginExternalAuth(t *testing.T) {
 		}
 		users, _, err := httpd.GetUsers(0, 0, defaultUsername, http.StatusOK)
 		assert.NoError(t, err)
-		assert.Equal(t, 1, len(users))
+		if assert.Len(t, users, 1) {
+			user := users[0]
+			if assert.Len(t, user.VirtualFolders, 1) {
+				folder := user.VirtualFolders[0]
+				assert.Equal(t, mappedPath, folder.MappedPath)
+				assert.Equal(t, 1+authScope, folder.QuotaFiles)
+				assert.Equal(t, 10+int64(authScope), folder.QuotaSize)
+			}
+			_, err = httpd.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			err = os.RemoveAll(user.GetHomeDir())
+			assert.NoError(t, err)
+		}
 
-		user := users[0]
-		_, err = httpd.RemoveUser(user, http.StatusOK)
+		_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
 		assert.NoError(t, err)
-		err = os.RemoveAll(user.GetHomeDir())
-		assert.NoError(t, err)
-
 		dataProvider = dataprovider.GetProvider()
 		err = dataprovider.Close(dataProvider)
 		assert.NoError(t, err)
@@ -1603,7 +1624,7 @@ func TestQuotaDisabledError(t *testing.T) {
 	sftpd.SetDataProvider(dataprovider.GetProvider())
 	usePubKey := false
 	u := getTestUser(usePubKey)
-	u.QuotaFiles = 10
+	u.QuotaFiles = 1
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
@@ -1615,6 +1636,10 @@ func TestQuotaDisabledError(t *testing.T) {
 		err = createTestFile(testFilePath, testFileSize)
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName+"1", testFileSize, client)
+		assert.NoError(t, err)
+		err = client.Rename(testFileName+"1", testFileName+".rename")
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
@@ -1678,8 +1703,6 @@ func TestQuotaFileReplace(t *testing.T) {
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
-		assert.NoError(t, err)
 		// now replace the same file, the quota must not change
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		assert.NoError(t, err)
@@ -1687,9 +1710,25 @@ func TestQuotaFileReplace(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
+		// now create a symlink, replace it with a file and check the quota
+		// replacing a symlink is like uploading a new file
+		err = client.Symlink(testFileName, testFileName+".link")
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
+		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
+		expectedQuotaFiles = expectedQuotaFiles + 1
+		expectedQuotaSize = expectedQuotaSize + testFileSize
+		err = sftpUploadFile(testFilePath, testFileName+".link", testFileSize, client)
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
+		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
 	}
 	// now set a quota size restriction and upload the same file, upload should fail for space limit exceeded
-	user.QuotaSize = testFileSize - 1
+	user.QuotaSize = testFileSize*2 - 1
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
@@ -1702,6 +1741,90 @@ func TestQuotaFileReplace(t *testing.T) {
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestQuotaRename(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.QuotaFiles = 1000
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	testFileSize := int64(65535)
+	testFileSize1 := int64(65537)
+	testFileName := "test_file.dat"
+	testFileName1 := "test_file1.dat" //nolint:goconst
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFilePath1 := filepath.Join(homeBasePath, testFileName1)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = createTestFile(testFilePath1, testFileSize1)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = client.Rename(testFileName, testFileName+".rename")
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, testFileName1, testFileSize1, client)
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
+		err = client.Rename(testFileName1, testFileName+".rename")
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize1, user.UsedQuotaSize)
+		err = client.Symlink(testFileName+".rename", testFileName+".symlink")
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		// overwrite a symlink
+		err = client.Rename(testFileName, testFileName+".symlink")
+		assert.NoError(t, err)
+		err = client.Mkdir("testdir")
+		assert.NoError(t, err)
+		err = client.Rename("testdir", "testdir1")
+		assert.NoError(t, err)
+		err = client.Mkdir("testdir")
+		assert.NoError(t, err)
+		err = client.Rename("testdir", "testdir1")
+		assert.Error(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
+		testDir := "tdir"
+		err = client.Mkdir(testDir)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(testDir, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(testDir, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 4, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize*2+testFileSize1*2, user.UsedQuotaSize)
+		err = client.Rename(testDir, testDir+"1")
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 4, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize*2+testFileSize1*2, user.UsedQuotaSize)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath1)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1733,7 +1856,7 @@ func TestQuotaScan(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpd.StartQuotaScan(user, http.StatusCreated)
 	assert.NoError(t, err)
-	err = waitQuotaScans()
+	err = waitQuotaScans(1)
 	assert.NoError(t, err)
 	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
 	assert.NoError(t, err)
@@ -1754,32 +1877,48 @@ func TestMultipleQuotaScans(t *testing.T) {
 	assert.NoError(t, err)
 	activeScans := sftpd.GetQuotaScans()
 	assert.Equal(t, 0, len(activeScans))
+	err = sftpd.RemoveQuotaScan(defaultUsername)
+	assert.Error(t, err)
 }
 
-func TestQuotaSize(t *testing.T) {
+func TestQuotaLimits(t *testing.T) {
 	usePubKey := false
-	testFileSize := int64(65535)
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 1
-	u.QuotaSize = testFileSize - 1
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
+	testFileSize := int64(65535)
+	testFileName := "test_file.dat"
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	// test quota files
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
 		defer client.Close()
-		testFileName := "test_file.dat"
-		testFilePath := filepath.Join(homeBasePath, testFileName)
-		err = createTestFile(testFilePath, testFileSize)
-		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, testFileName+".quota", testFileSize, client)
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, testFileName+".quota.1", testFileSize, client)
-		assert.Error(t, err, "user is over quota file upload must fail")
-		err = client.Remove(testFileName + ".quota")
-		assert.NoError(t, err)
-		err = os.Remove(testFilePath)
+		assert.Error(t, err, "user is over quota files, upload must fail")
+		// rename should work
+		err = client.Rename(testFileName+".quota", testFileName)
 		assert.NoError(t, err)
 	}
+	// test quota size
+	user.QuotaSize = testFileSize - 1
+	user.QuotaFiles = 0
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	client, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		err = sftpUploadFile(testFilePath, testFileName+".quota.1", testFileSize, client)
+		assert.Error(t, err, "user is over quota size, upload must fail")
+		err = client.Rename(testFileName, testFileName+".quota")
+		assert.NoError(t, err)
+	}
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
@@ -1902,10 +2041,12 @@ func TestVirtualFolders(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	mappedPath := filepath.Join(os.TempDir(), "vdir")
-	vdirPath := "/vdir" //nolint:goconst
+	vdirPath := "/vdir/subdir"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath,
+		},
 		VirtualPath: vdirPath,
-		MappedPath:  mappedPath,
 	})
 	err := os.MkdirAll(mappedPath, 0777)
 	assert.NoError(t, err)
@@ -1932,6 +2073,14 @@ func TestVirtualFolders(t *testing.T) {
 		assert.Error(t, err, "creating a virtual folder must fail")
 		err = client.Symlink(path.Join(vdirPath, testFileName), vdirPath)
 		assert.Error(t, err, "symlink to a virtual folder must fail")
+		err = client.Rename("/vdir", "/vdir1")
+		assert.Error(t, err, "renaming a directory with a virtual folder inside must fail")
+		err = client.RemoveDirectory("/vdir")
+		assert.Error(t, err, "removing a directory with a virtual folder inside must fail")
+		err = client.Mkdir("vdir1")
+		assert.NoError(t, err)
+		err = client.Rename("vdir1", "vdir2")
+		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 		err = os.Remove(localDownloadPath)
@@ -1939,28 +2088,236 @@ func TestVirtualFolders(t *testing.T) {
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
+	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath)
 	assert.NoError(t, err)
 }
 
-func TestVirtualFoldersQuota(t *testing.T) {
+func TestVirtualFoldersQuotaLimit(t *testing.T) {
 	usePubKey := false
+	u1 := getTestUser(usePubKey)
+	u1.QuotaFiles = 1
+	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	vdirPath1 := "/vdir1" //nolint:goconst
+	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	vdirPath2 := "/vdir2" //nolint:goconst
+	u1.VirtualFolders = append(u1.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: vdirPath1,
+		QuotaFiles:  -1,
+		QuotaSize:   -1,
+	})
+	u1.VirtualFolders = append(u1.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: vdirPath2,
+		QuotaFiles:  1,
+		QuotaSize:   0,
+	})
+	testFileSize := int64(131072)
+	testFileName := "test_file.dat"
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	err := createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	u2 := getTestUser(usePubKey)
+	u2.QuotaSize = testFileSize - 1
+	u2.VirtualFolders = append(u2.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: vdirPath1,
+		QuotaFiles:  -1,
+		QuotaSize:   -1,
+	})
+	u2.VirtualFolders = append(u2.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: vdirPath2,
+		QuotaFiles:  0,
+		QuotaSize:   testFileSize - 1,
+	})
+	users := []dataprovider.User{u1, u2}
+	for _, u := range users {
+		err = os.MkdirAll(mappedPath1, 0777)
+		assert.NoError(t, err)
+		err = os.MkdirAll(mappedPath2, 0777)
+		assert.NoError(t, err)
+		user, _, err := httpd.AddUser(u, http.StatusOK)
+		assert.NoError(t, err)
+		client, err := getSftpClient(user, usePubKey)
+		if assert.NoError(t, err) {
+			defer client.Close()
+			err = sftpUploadFile(testFilePath, path.Join(vdirPath1, testFileName), testFileSize, client)
+			assert.NoError(t, err)
+			err = sftpUploadFile(testFilePath, path.Join(vdirPath2, testFileName), testFileSize, client)
+			assert.NoError(t, err)
+			err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+			assert.Error(t, err)
+			err = sftpUploadFile(testFilePath, path.Join(vdirPath1, testFileName+"1"), testFileSize, client)
+			assert.Error(t, err)
+			err = sftpUploadFile(testFilePath, path.Join(vdirPath2, testFileName+"1"), testFileSize, client)
+			assert.Error(t, err)
+			err = client.Remove(path.Join(vdirPath1, testFileName))
+			assert.NoError(t, err)
+			err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+			assert.NoError(t, err)
+			err = sftpUploadFile(testFilePath, path.Join(vdirPath1, testFileName), testFileSize, client)
+			assert.Error(t, err)
+			// now test renames
+			err = client.Rename(testFileName, path.Join(vdirPath1, testFileName))
+			assert.NoError(t, err)
+			err = client.Rename(path.Join(vdirPath1, testFileName), path.Join(vdirPath1, testFileName+".rename"))
+			assert.NoError(t, err)
+			err = client.Rename(path.Join(vdirPath2, testFileName), path.Join(vdirPath2, testFileName+".rename"))
+			assert.NoError(t, err)
+			err = client.Rename(path.Join(vdirPath2, testFileName+".rename"), testFileName+".rename")
+			assert.Error(t, err)
+			err = client.Rename(path.Join(vdirPath2, testFileName+".rename"), path.Join(vdirPath1, testFileName))
+			assert.Error(t, err)
+			err = client.Rename(path.Join(vdirPath1, testFileName+".rename"), path.Join(vdirPath2, testFileName))
+			assert.Error(t, err)
+			err = client.Rename(path.Join(vdirPath1, testFileName+".rename"), testFileName)
+			assert.Error(t, err)
+		}
+		_, err = httpd.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+		assert.NoError(t, err)
+		_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+		assert.NoError(t, err)
+		err = os.RemoveAll(user.GetHomeDir())
+		assert.NoError(t, err)
+		err = os.RemoveAll(mappedPath1)
+		assert.NoError(t, err)
+		err = os.RemoveAll(mappedPath2)
+		assert.NoError(t, err)
+	}
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+}
+
+func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
+	usePubKey := true
+	testFileSize := int64(131072)
+	testFileName := "test_file.dat"
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize1 := int64(65537)
+	testFileName1 := "test_file1.dat"
+	testFilePath1 := filepath.Join(homeBasePath, testFileName1)
+	err := createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	err = createTestFile(testFilePath1, testFileSize1)
+	assert.NoError(t, err)
 	u := getTestUser(usePubKey)
-	u.QuotaFiles = 100
+	u.QuotaFiles = 0
+	u.QuotaSize = 0
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
 	vdirPath1 := "/vdir1"
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
 	vdirPath2 := "/vdir2"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
 		VirtualPath: vdirPath1,
-		MappedPath:  mappedPath1,
+		QuotaFiles:  2,
+		QuotaSize:   0,
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
-		VirtualPath:      vdirPath2,
-		MappedPath:       mappedPath2,
-		ExcludeFromQuota: true,
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: vdirPath2,
+		QuotaFiles:  0,
+		QuotaSize:   testFileSize + testFileSize1 - 1,
+	})
+	err = os.MkdirAll(mappedPath1, 0777)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath2, 0777)
+	assert.NoError(t, err)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(vdirPath1, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(vdirPath2, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, testFileName1, testFileSize1, client)
+		assert.NoError(t, err)
+		err = client.Rename(testFileName, path.Join(vdirPath1, testFileName+".rename"))
+		assert.Error(t, err)
+		// we overwrite an existing file and we have unlimited size
+		err = client.Rename(testFileName, path.Join(vdirPath1, testFileName))
+		assert.NoError(t, err)
+		// we have no space and we try to overwrite a bigger file with a smaller one, this should succeed
+		err = client.Rename(testFileName1, path.Join(vdirPath2, testFileName))
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		// we have no space and we try to overwrite a smaller file with a bigger one, this should fail
+		err = client.Rename(testFileName, path.Join(vdirPath2, testFileName1))
+		assert.Error(t, err)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath1)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath2)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath1)
+	assert.NoError(t, err)
+}
+
+func TestVirtualFoldersQuotaValues(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.QuotaFiles = 100
+	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	vdirPath1 := "/vdir1" //nolint:goconst
+	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	vdirPath2 := "/vdir2" //nolint:goconst
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: vdirPath1,
+		// quota is included in the user's one
+		QuotaFiles: -1,
+		QuotaSize:  -1,
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: vdirPath2,
+		// quota is unlimited and excluded from user's one
+		QuotaFiles: 0,
+		QuotaSize:  0,
 	})
 	err := os.MkdirAll(mappedPath1, 0777)
 	assert.NoError(t, err)
@@ -1978,6 +2335,9 @@ func TestVirtualFoldersQuota(t *testing.T) {
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		assert.NoError(t, err)
+		// we copy the same file two times to test quota update on file overwrite
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, testFileName), testFileSize, client)
+		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, testFileName), testFileSize, client)
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, testFileName), testFileSize, client)
@@ -1990,14 +2350,1287 @@ func TestVirtualFoldersQuota(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
+		folder, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+
+		err = client.Remove(path.Join(vdirPath1, testFileName))
+		assert.NoError(t, err)
 		err = client.Remove(path.Join(vdirPath2, testFileName))
+		assert.NoError(t, err)
+
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, int64(0), f.UsedQuotaSize)
+			assert.Equal(t, 0, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, int64(0), f.UsedQuotaSize)
+			assert.Equal(t, 0, f.UsedQuotaFiles)
+		}
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath1)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath2)
+	assert.NoError(t, err)
+}
+
+func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.QuotaFiles = 100
+	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	vdirPath1 := "/vdir1"
+	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	vdirPath2 := "/vdir2"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: vdirPath1,
+		// quota is included in the user's one
+		QuotaFiles: -1,
+		QuotaSize:  -1,
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: vdirPath2,
+		// quota is unlimited and excluded from user's one
+		QuotaFiles: 0,
+		QuotaSize:  0,
+	})
+	err := os.MkdirAll(mappedPath1, 0777)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath2, 0777)
+	assert.NoError(t, err)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFileName1 := "test_file1.dat"
+		testFileSize := int64(131072)
+		testFileSize1 := int64(65535)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFilePath1 := filepath.Join(homeBasePath, testFileName1)
+		dir1 := "dir1" //nolint:goconst
+		dir2 := "dir2" //nolint:goconst
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = createTestFile(testFilePath1, testFileSize1)
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath1, dir1))
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath1, dir2))
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath2, dir1))
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath2, dir2))
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, dir1, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(vdirPath1, dir2, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, dir1, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(vdirPath2, dir2, testFileName1), testFileSize1, client)
 		assert.NoError(t, err)
 		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
 		assert.NoError(t, err)
-		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
-		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
+		assert.Equal(t, 2, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
+		folder, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 2, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 2, f.UsedQuotaFiles)
+		}
+		// initial files:
+		// - vdir1/dir1/testFileName
+		// - vdir1/dir2/testFileName1
+		// - vdir2/dir1/testFileName
+		// - vdir2/dir2/testFileName1
+		//
+		// rename a file inside vdir1 it is included inside user quota, so we have:
+		// - vdir1/dir1/testFileName.rename
+		// - vdir1/dir2/testFileName1
+		// - vdir2/dir1/testFileName
+		// - vdir2/dir2/testFileName1
+		err = client.Rename(path.Join(vdirPath1, dir1, testFileName), path.Join(vdirPath1, dir1, testFileName+".rename"))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 2, f.UsedQuotaFiles)
+		}
+		// rename a file inside vdir2, it isn't included inside user quota, so we have:
+		// - vdir1/dir1/testFileName.rename
+		// - vdir1/dir2/testFileName1
+		// - vdir2/dir1/testFileName.rename
+		// - vdir2/dir2/testFileName1
+		err = client.Rename(path.Join(vdirPath2, dir1, testFileName), path.Join(vdirPath2, dir1, testFileName+".rename"))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 2, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 2, f.UsedQuotaFiles)
+		}
+		// rename a file inside vdir2 overwriting an existing, we now have:
+		// - vdir1/dir1/testFileName.rename
+		// - vdir1/dir2/testFileName1
+		// - vdir2/dir1/testFileName.rename (initial testFileName1)
+		err = client.Rename(path.Join(vdirPath2, dir2, testFileName1), path.Join(vdirPath2, dir1, testFileName+".rename"))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 2, f.UsedQuotaFiles)
+		}
+		// rename a file inside vdir1 overwriting an existing, we now have:
+		// - vdir1/dir1/testFileName.rename (initial testFileName1)
+		// - vdir2/dir1/testFileName.rename (initial testFileName1)
+		err = client.Rename(path.Join(vdirPath1, dir2, testFileName1), path.Join(vdirPath1, dir1, testFileName+".rename"))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize1, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		// rename a directory inside the same virtual folder, quota should not change
+		err = client.RemoveDirectory(path.Join(vdirPath1, dir2))
+		assert.NoError(t, err)
+		err = client.RemoveDirectory(path.Join(vdirPath2, dir2))
+		assert.NoError(t, err)
+		err = client.Rename(path.Join(vdirPath1, dir1), path.Join(vdirPath1, dir2))
+		assert.NoError(t, err)
+		err = client.Rename(path.Join(vdirPath2, dir1), path.Join(vdirPath2, dir2))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize1, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath1)
+		assert.NoError(t, err)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath1)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath2)
+	assert.NoError(t, err)
+}
+
+func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.QuotaFiles = 100
+	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	vdirPath1 := "/vdir1"
+	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	vdirPath2 := "/vdir2"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: vdirPath1,
+		// quota is included in the user's one
+		QuotaFiles: -1,
+		QuotaSize:  -1,
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: vdirPath2,
+		// quota is unlimited and excluded from user's one
+		QuotaFiles: 0,
+		QuotaSize:  0,
+	})
+	err := os.MkdirAll(mappedPath1, 0777)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath2, 0777)
+	assert.NoError(t, err)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFileName1 := "test_file1.dat"
+		testFileSize := int64(131072)
+		testFileSize1 := int64(65535)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFilePath1 := filepath.Join(homeBasePath, testFileName1)
+		dir1 := "dir1"
+		dir2 := "dir2"
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = createTestFile(testFilePath1, testFileSize1)
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath1, dir1))
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath1, dir2))
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath2, dir1))
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath2, dir2))
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, dir1, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(vdirPath1, dir2, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, dir1, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(vdirPath2, dir2, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		// initial files:
+		// - vdir1/dir1/testFileName
+		// - vdir1/dir2/testFileName1
+		// - vdir2/dir1/testFileName
+		// - vdir2/dir2/testFileName1
+		//
+		// rename a file from vdir1 to vdir2, vdir1 is included inside user quota, so we have:
+		// - vdir1/dir1/testFileName
+		// - vdir2/dir1/testFileName
+		// - vdir2/dir2/testFileName1
+		// - vdir2/dir1/testFileName1.rename
+		err = client.Rename(path.Join(vdirPath1, dir2, testFileName1), path.Join(vdirPath2, dir1, testFileName1+".rename"))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize, user.UsedQuotaSize)
+		folder, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize+testFileSize1+testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 3, f.UsedQuotaFiles)
+		}
+		// rename a file from vdir2 to vdir1, vdir2 is not included inside user quota, so we have:
+		// - vdir1/dir1/testFileName
+		// - vdir1/dir2/testFileName.rename
+		// - vdir2/dir2/testFileName1
+		// - vdir2/dir1/testFileName1.rename
+		err = client.Rename(path.Join(vdirPath2, dir1, testFileName), path.Join(vdirPath1, dir2, testFileName+".rename"))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize*2, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize*2, f.UsedQuotaSize)
+			assert.Equal(t, 2, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize1*2, f.UsedQuotaSize)
+			assert.Equal(t, 2, f.UsedQuotaFiles)
+		}
+		// rename a file from vdir1 to vdir2 overwriting an existing file, vdir1 is included inside user quota, so we have:
+		// - vdir1/dir2/testFileName.rename
+		// - vdir2/dir2/testFileName1 (is the initial testFileName)
+		// - vdir2/dir1/testFileName1.rename
+		err = client.Rename(path.Join(vdirPath1, dir1, testFileName), path.Join(vdirPath2, dir2, testFileName1))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize1+testFileSize, f.UsedQuotaSize)
+			assert.Equal(t, 2, f.UsedQuotaFiles)
+		}
+		// rename a file from vdir2 to vdir1 overwriting an existing file, vdir2 is not included inside user quota, so we have:
+		// - vdir1/dir2/testFileName.rename (is the initial testFileName1)
+		// - vdir2/dir2/testFileName1 (is the initial testFileName)
+		err = client.Rename(path.Join(vdirPath2, dir1, testFileName1+".rename"), path.Join(vdirPath1, dir2, testFileName+".rename"))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize1, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, dir2, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(vdirPath2, dir2, testFileName), testFileSize1, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(vdirPath2, dir2, testFileName+"1.dupl"), testFileSize1, client)
+		assert.NoError(t, err)
+		err = client.RemoveDirectory(path.Join(vdirPath1, dir1))
+		assert.NoError(t, err)
+		err = client.RemoveDirectory(path.Join(vdirPath2, dir1))
+		assert.NoError(t, err)
+		// - vdir1/dir2/testFileName.rename (initial testFileName1)
+		// - vdir1/dir2/testFileName
+		// - vdir2/dir2/testFileName1 (initial testFileName)
+		// - vdir2/dir2/testFileName (initial testFileName1)
+		// - vdir2/dir2/testFileName1.dupl
+		// rename directories between the two virtual folders
+		err = client.Rename(path.Join(vdirPath2, dir2), path.Join(vdirPath1, dir1))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 5, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize1*3+testFileSize*2, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize1*3+testFileSize*2, f.UsedQuotaSize)
+			assert.Equal(t, 5, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, int64(0), f.UsedQuotaSize)
+			assert.Equal(t, 0, f.UsedQuotaFiles)
+		}
+		// now move on vpath2
+		err = client.Rename(path.Join(vdirPath1, dir2), path.Join(vdirPath2, dir1))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 3, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize1*2+testFileSize, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize1*2+testFileSize, f.UsedQuotaSize)
+			assert.Equal(t, 3, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 2, f.UsedQuotaFiles)
+		}
+
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath1)
+		assert.NoError(t, err)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath1)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath2)
+	assert.NoError(t, err)
+}
+
+func TestQuotaRenameFromVirtualFolder(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.QuotaFiles = 100
+	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	vdirPath1 := "/vdir1"
+	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	vdirPath2 := "/vdir2"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: vdirPath1,
+		// quota is included in the user's one
+		QuotaFiles: -1,
+		QuotaSize:  -1,
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: vdirPath2,
+		// quota is unlimited and excluded from user's one
+		QuotaFiles: 0,
+		QuotaSize:  0,
+	})
+	err := os.MkdirAll(mappedPath1, 0777)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath2, 0777)
+	assert.NoError(t, err)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFileName1 := "test_file1.dat"
+		testFileSize := int64(131072)
+		testFileSize1 := int64(65535)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFilePath1 := filepath.Join(homeBasePath, testFileName1)
+		dir1 := "dir1"
+		dir2 := "dir2"
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = createTestFile(testFilePath1, testFileSize1)
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath1, dir1))
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath1, dir2))
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath2, dir1))
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath2, dir2))
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, dir1, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(vdirPath1, dir2, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, dir1, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(vdirPath2, dir2, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		// initial files:
+		// - vdir1/dir1/testFileName
+		// - vdir1/dir2/testFileName1
+		// - vdir2/dir1/testFileName
+		// - vdir2/dir2/testFileName1
+		//
+		// rename a file from vdir1 to the user home dir, vdir1 is included in user quota so we have:
+		// - testFileName
+		// - vdir1/dir2/testFileName1
+		// - vdir2/dir1/testFileName
+		// - vdir2/dir2/testFileName1
+		err = client.Rename(path.Join(vdirPath1, dir1, testFileName), path.Join(testFileName))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
+		folder, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 2, f.UsedQuotaFiles)
+		}
+		// rename a file from vdir2 to the user home dir, vdir2 is not included in user quota so we have:
+		// - testFileName
+		// - testFileName1
+		// - vdir1/dir2/testFileName1
+		// - vdir2/dir1/testFileName
+		err = client.Rename(path.Join(vdirPath2, dir2, testFileName1), path.Join(testFileName1))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 3, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize+testFileSize1+testFileSize1, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		// rename a file from vdir1 to the user home dir overwriting an existing file, vdir1 is included in user quota so we have:
+		// - testFileName (initial testFileName1)
+		// - testFileName1
+		// - vdir2/dir1/testFileName
+		err = client.Rename(path.Join(vdirPath1, dir2, testFileName1), path.Join(testFileName))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize1+testFileSize1, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, int64(0), f.UsedQuotaSize)
+			assert.Equal(t, 0, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		// rename a file from vdir2 to the user home dir overwriting an existing file, vdir2 is not included in user quota so we have:
+		// - testFileName (initial testFileName1)
+		// - testFileName1 (initial testFileName)
+		err = client.Rename(path.Join(vdirPath2, dir1, testFileName), path.Join(testFileName1))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, int64(0), f.UsedQuotaSize)
+			assert.Equal(t, 0, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, int64(0), f.UsedQuotaSize)
+			assert.Equal(t, 0, f.UsedQuotaFiles)
+		}
+		// dir rename
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, dir1, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(vdirPath1, dir1, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, dir1, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(vdirPath2, dir1, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		// - testFileName (initial testFileName1)
+		// - testFileName1 (initial testFileName)
+		// - vdir1/dir1/testFileName
+		// - vdir1/dir1/testFileName1
+		// - dir1/testFileName
+		// - dir1/testFileName1
+		err = client.Rename(path.Join(vdirPath2, dir1), dir1)
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 6, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize*3+testFileSize1*3, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 2, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, int64(0), f.UsedQuotaSize)
+			assert.Equal(t, 0, f.UsedQuotaFiles)
+		}
+		// - testFileName (initial testFileName1)
+		// - testFileName1 (initial testFileName)
+		// - dir2/testFileName
+		// - dir2/testFileName1
+		// - dir1/testFileName
+		// - dir1/testFileName1
+		err = client.Rename(path.Join(vdirPath1, dir1), dir2)
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 6, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize*3+testFileSize1*3, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, int64(0), f.UsedQuotaSize)
+			assert.Equal(t, 0, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, int64(0), f.UsedQuotaSize)
+			assert.Equal(t, 0, f.UsedQuotaFiles)
+		}
+
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath1)
+		assert.NoError(t, err)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath1)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath2)
+	assert.NoError(t, err)
+}
+
+func TestQuotaRenameToVirtualFolder(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.QuotaFiles = 100
+	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	vdirPath1 := "/vdir1"
+	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	vdirPath2 := "/vdir2"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: vdirPath1,
+		// quota is included in the user's one
+		QuotaFiles: -1,
+		QuotaSize:  -1,
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: vdirPath2,
+		// quota is unlimited and excluded from user's one
+		QuotaFiles: 0,
+		QuotaSize:  0,
+	})
+	err := os.MkdirAll(mappedPath1, 0777)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath2, 0777)
+	assert.NoError(t, err)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFileName1 := "test_file1.dat"
+		testFileSize := int64(131072)
+		testFileSize1 := int64(65535)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFilePath1 := filepath.Join(homeBasePath, testFileName1)
+		dir1 := "dir1"
+		dir2 := "dir2"
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = createTestFile(testFilePath1, testFileSize1)
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath1, dir1))
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath1, dir2))
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath2, dir1))
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath2, dir2))
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, testFileName1, testFileSize1, client)
+		assert.NoError(t, err)
+		// initial files:
+		// - testFileName
+		// - testFileName1
+		//
+		// rename a file from user home dir to vdir1, vdir1 is included in user quota so we have:
+		// - testFileName
+		// - /vdir1/dir1/testFileName1
+		err = client.Rename(testFileName1, path.Join(vdirPath1, dir1, testFileName1))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
+		folder, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		// rename a file from user home dir to vdir2, vdir2 is not included in user quota so we have:
+		// - /vdir2/dir1/testFileName
+		// - /vdir1/dir1/testFileName1
+		err = client.Rename(testFileName, path.Join(vdirPath2, dir1, testFileName))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize1, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		// upload two new files to the user home dir so we have:
+		// - testFileName
+		// - testFileName1
+		// - /vdir1/dir1/testFileName1
+		// - /vdir2/dir1/testFileName
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, testFileName1, testFileSize1, client)
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 3, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize+testFileSize1+testFileSize1, user.UsedQuotaSize)
+		// rename a file from user home dir to vdir1 overwriting an existing file, vdir1 is included in user quota so we have:
+		// - testFileName1
+		// - /vdir1/dir1/testFileName1 (initial testFileName)
+		// - /vdir2/dir1/testFileName
+		err = client.Rename(testFileName, path.Join(vdirPath1, dir1, testFileName1))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		// rename a file from user home dir to vdir2 overwriting an existing file, vdir2 is not included in user quota so we have:
+		// - /vdir1/dir1/testFileName1 (initial testFileName)
+		// - /vdir2/dir1/testFileName (initial testFileName1)
+		err = client.Rename(testFileName1, path.Join(vdirPath2, dir1, testFileName))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+
+		err = client.Mkdir(dir1)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(dir1, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(dir1, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		// - /dir1/testFileName
+		// - /dir1/testFileName1
+		// - /vdir1/dir1/testFileName1 (initial testFileName)
+		// - /vdir2/dir1/testFileName (initial testFileName1)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 3, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize*2+testFileSize1, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		// - /vdir1/adir/testFileName
+		// - /vdir1/adir/testFileName1
+		// - /vdir1/dir1/testFileName1 (initial testFileName)
+		// - /vdir2/dir1/testFileName (initial testFileName1)
+		err = client.Rename(dir1, path.Join(vdirPath1, "adir"))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 3, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize*2+testFileSize1, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize*2+testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 3, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		err = client.Mkdir(dir1)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(dir1, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(dir1, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		// - /vdir1/adir/testFileName
+		// - /vdir1/adir/testFileName1
+		// - /vdir1/dir1/testFileName1 (initial testFileName)
+		// - /vdir2/dir1/testFileName (initial testFileName1)
+		// - /vdir2/adir/testFileName
+		// - /vdir2/adir/testFileName1
+		err = client.Rename(dir1, path.Join(vdirPath2, "adir"))
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 3, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize*2+testFileSize1, user.UsedQuotaSize)
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize*2+testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 3, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize1*2+testFileSize, f.UsedQuotaSize)
+			assert.Equal(t, 3, f.UsedQuotaFiles)
+		}
+
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath1)
+		assert.NoError(t, err)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath1)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath2)
+	assert.NoError(t, err)
+}
+
+func TestVirtualFoldersLink(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	vdirPath1 := "/vdir1"
+	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	vdirPath2 := "/vdir2"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: vdirPath1,
+		// quota is included in the user's one
+		QuotaFiles: -1,
+		QuotaSize:  -1,
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: vdirPath2,
+		// quota is unlimited and excluded from user's one
+		QuotaFiles: 0,
+		QuotaSize:  0,
+	})
+	err := os.MkdirAll(mappedPath1, 0777)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath2, 0777)
+	assert.NoError(t, err)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFileSize := int64(131072)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testDir := "adir"
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath1, testDir))
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath2, testDir))
+		assert.NoError(t, err)
+		err = client.Symlink(testFileName, testFileName+".link")
+		assert.NoError(t, err)
+		err = client.Symlink(path.Join(vdirPath1, testFileName), path.Join(vdirPath1, testFileName+".link"))
+		assert.NoError(t, err)
+		err = client.Symlink(path.Join(vdirPath1, testFileName), path.Join(vdirPath1, testDir, testFileName+".link"))
+		assert.NoError(t, err)
+		err = client.Symlink(path.Join(vdirPath2, testFileName), path.Join(vdirPath2, testFileName+".link"))
+		assert.NoError(t, err)
+		err = client.Symlink(path.Join(vdirPath2, testFileName), path.Join(vdirPath2, testDir, testFileName+".link"))
+		assert.NoError(t, err)
+		err = client.Symlink(testFileName, path.Join(vdirPath1, testFileName+".link1"))
+		assert.Error(t, err)
+		err = client.Symlink(testFileName, path.Join(vdirPath1, testDir, testFileName+".link1"))
+		assert.Error(t, err)
+		err = client.Symlink(testFileName, path.Join(vdirPath2, testFileName+".link1"))
+		assert.Error(t, err)
+		err = client.Symlink(testFileName, path.Join(vdirPath2, testDir, testFileName+".link1"))
+		assert.Error(t, err)
+		err = client.Symlink(path.Join(vdirPath1, testFileName), testFileName+".link1")
+		assert.Error(t, err)
+		err = client.Symlink(path.Join(vdirPath2, testFileName), testFileName+".link1")
+		assert.Error(t, err)
+		err = client.Symlink(path.Join(vdirPath1, testFileName), path.Join(vdirPath2, testDir, testFileName+".link1"))
+		assert.Error(t, err)
+		err = client.Symlink(path.Join(vdirPath2, testFileName), path.Join(vdirPath1, testFileName+".link1"))
+		assert.Error(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath1)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath2)
+	assert.NoError(t, err)
+}
+
+func TestVirtualFolderQuotaScan(t *testing.T) {
+	mappedPath := filepath.Join(os.TempDir(), "mapped_dir")
+	err := os.MkdirAll(mappedPath, 0777)
+	assert.NoError(t, err)
+	testFileSize := int64(65535)
+	testFileName := "test_file.dat"
+	testFilePath := filepath.Join(mappedPath, testFileName)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	expectedQuotaSize := testFileSize
+	expectedQuotaFiles := 1
+	folder, _, err := httpd.AddFolder(vfs.BaseVirtualFolder{
+		MappedPath: mappedPath,
+	}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.StartFolderQuotaScan(folder, http.StatusCreated)
+	assert.NoError(t, err)
+	err = waitQuotaScans(1)
+	assert.NoError(t, err)
+	folders, _, err := httpd.GetFolders(0, 0, mappedPath, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folders, 1) {
+		folder = folders[0]
+		assert.Equal(t, expectedQuotaFiles, folder.UsedQuotaFiles)
+		assert.Equal(t, expectedQuotaSize, folder.UsedQuotaSize)
+	}
+	_, err = httpd.RemoveFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+}
+
+func TestVFolderMultipleQuotaScan(t *testing.T) {
+	folderPath := filepath.Join(os.TempDir(), "folder_path")
+	res := sftpd.AddVFolderQuotaScan(folderPath)
+	assert.True(t, res)
+	res = sftpd.AddVFolderQuotaScan(folderPath)
+	assert.False(t, res)
+	err := sftpd.RemoveVFolderQuotaScan(folderPath)
+	assert.NoError(t, err)
+	activeScans := sftpd.GetVFoldersQuotaScans()
+	assert.Len(t, activeScans, 0)
+	err = sftpd.RemoveVFolderQuotaScan(folderPath)
+	assert.Error(t, err)
+}
+
+func TestVFolderQuotaSize(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	testFileSize := int64(131072)
+	u.QuotaFiles = 1
+	u.QuotaSize = testFileSize - 1
+	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	vdirPath1 := "/vpath1"
+	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	vdirPath2 := "/vpath2"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: vdirPath1,
+		// quota is included in the user's one
+		QuotaFiles: -1,
+		QuotaSize:  -1,
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: vdirPath2,
+		QuotaFiles:  1,
+		QuotaSize:   testFileSize * 2,
+	})
+	err := os.MkdirAll(mappedPath1, 0777)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath2, 0777)
+	assert.NoError(t, err)
+	testFileName := "test_file.dat"
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		// vdir1 is included in the user quota so upload must fail
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, testFileName), testFileSize, client)
+		assert.Error(t, err)
+		// upload to vdir2 must work, it has its own quota
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		// now vdir2 is over quota
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, testFileName+".quota"), testFileSize, client)
+		assert.Error(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize, user.UsedQuotaSize)
+		// remove a file
+		err = client.Remove(testFileName)
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, user.UsedQuotaFiles)
+		assert.Equal(t, int64(0), user.UsedQuotaSize)
+		// upload to vdir1 must work now
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, testFileSize, user.UsedQuotaSize)
+
+		folder, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize, f.UsedQuotaSize)
+			assert.Equal(t, 1, f.UsedQuotaFiles)
+		}
+	}
+	// now create another user with the same shared folder but a different quota limit
+	u.Username = defaultUsername + "1"
+	u.VirtualFolders = nil
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: vdirPath2,
+		QuotaFiles:  10,
+		QuotaSize:   testFileSize*2 - 1,
+	})
+	user1, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err = getSftpClient(user1, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, testFileName+".quota"), testFileSize, client)
+		assert.NoError(t, err)
+		// the folder is now over quota for size but not for files
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, testFileName+".quota1"), testFileSize, client)
+		assert.Error(t, err)
+	}
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -2352,7 +3985,47 @@ func TestPermRename(t *testing.T) {
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		assert.NoError(t, err)
 		err = client.Rename(testFileName, testFileName+".rename")
-		assert.Error(t, err, "rename without permission should not succeed")
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), permissionErrorString)
+		}
+		err = client.Remove(testFileName)
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+//nolint:dupl
+func TestPermRenameOverwrite(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
+		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermChmod, dataprovider.PermRename,
+		dataprovider.PermChown, dataprovider.PermChtimes}
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = client.Rename(testFileName, testFileName+".rename")
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = client.Rename(testFileName, testFileName+".rename")
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), permissionErrorString)
+		}
 		err = client.Remove(testFileName)
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
@@ -2515,7 +4188,7 @@ func TestSubDirsUploads(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
-	u.Permissions["/subdir"] = []string{dataprovider.PermChtimes, dataprovider.PermDownload}
+	u.Permissions["/subdir"] = []string{dataprovider.PermChtimes, dataprovider.PermDownload, dataprovider.PermOverwrite}
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
@@ -2525,6 +4198,7 @@ func TestSubDirsUploads(t *testing.T) {
 		assert.NoError(t, err)
 		testFileName := "test_file.dat"
 		testFileNameSub := "/subdir/test_file_dat"
+		testDir := "testdir"
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(65535)
 		err = createTestFile(testFilePath, testFileSize)
@@ -2546,6 +4220,22 @@ func TestSubDirsUploads(t *testing.T) {
 			assert.Contains(t, err.Error(), permissionErrorString)
 		}
 		err = client.Rename(testFileName, testFileName+".rename")
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		// rename overwriting an existing file
+		err = client.Rename(testFileName, testFileName+".rename")
+		assert.NoError(t, err)
+		// now try to overwrite a directory
+		err = client.Mkdir(testDir)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = client.Rename(testFileName, testDir)
+		assert.Error(t, err)
+		err = client.Remove(testFileName)
+		assert.NoError(t, err)
+		err = client.Remove(testDir)
 		assert.NoError(t, err)
 		err = client.Remove(testFileNameSub)
 		if assert.Error(t, err) {
@@ -2878,10 +4568,12 @@ func TestResolvePaths(t *testing.T) {
 func TestVirtualRelativePaths(t *testing.T) {
 	user := getTestUser(true)
 	mappedPath := filepath.Join(os.TempDir(), "vdir")
-	vdirPath := "/vdir"
+	vdirPath := "/vdir" //nolint:goconst
 	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath,
+		},
 		VirtualPath: vdirPath,
-		MappedPath:  mappedPath,
 	})
 	err := os.MkdirAll(mappedPath, 0777)
 	assert.NoError(t, err)
@@ -2904,8 +4596,10 @@ func TestResolveVirtualPaths(t *testing.T) {
 	mappedPath := filepath.Join(os.TempDir(), "vdir")
 	vdirPath := "/vdir"
 	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath,
+		},
 		VirtualPath: vdirPath,
-		MappedPath:  mappedPath,
 	})
 	err := os.MkdirAll(mappedPath, 0777)
 	assert.NoError(t, err)
@@ -2922,38 +4616,6 @@ func TestResolveVirtualPaths(t *testing.T) {
 	b, f = osFs.GetFsPaths("/vdir1/a.txt")
 	assert.Equal(t, user.GetHomeDir(), b)
 	assert.Equal(t, filepath.Join(user.GetHomeDir(), "/vdir1/a.txt"), f)
-}
-
-func TestVirtualFoldersExcludeQuota(t *testing.T) {
-	user := getTestUser(true)
-	mappedPath := filepath.Join(os.TempDir(), "vdir")
-	vdirPath := "/vdir/sub"
-	vSubDirPath := path.Join(vdirPath, "subdir", "subdir")
-	vSubDir1Path := path.Join(vSubDirPath, "subdir", "subdir")
-	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
-		VirtualPath:      vdirPath,
-		MappedPath:       mappedPath,
-		ExcludeFromQuota: false,
-	})
-	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
-		VirtualPath:      vSubDir1Path,
-		MappedPath:       mappedPath,
-		ExcludeFromQuota: false,
-	})
-	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
-		VirtualPath:      vSubDirPath,
-		MappedPath:       mappedPath,
-		ExcludeFromQuota: true,
-	})
-
-	assert.False(t, user.IsFileExcludedFromQuota("/file"))
-	assert.False(t, user.IsFileExcludedFromQuota(path.Join(vdirPath, "file")))
-	assert.True(t, user.IsFileExcludedFromQuota(path.Join(vSubDirPath, "file")))
-	assert.True(t, user.IsFileExcludedFromQuota(path.Join(vSubDir1Path, "..", "file")))
-	assert.False(t, user.IsFileExcludedFromQuota(path.Join(vSubDir1Path, "file")))
-	assert.False(t, user.IsFileExcludedFromQuota(path.Join(vSubDirPath, "..", "file")))
-	// we check the parent dir for a file
-	assert.False(t, user.IsFileExcludedFromQuota(vSubDirPath))
 }
 
 func TestUserPerms(t *testing.T) {
@@ -3168,6 +4830,50 @@ func TestUserFiltersIPMaskConditions(t *testing.T) {
 	assert.True(t, user.IsLoginFromAddrAllowed("invalid"))
 }
 
+func TestGetVirtualFolderForPath(t *testing.T) {
+	user := getTestUser(true)
+	mappedPath1 := filepath.Join(os.TempDir(), "vpath1")
+	mappedPath2 := filepath.Join(os.TempDir(), "vpath1")
+	mappedPath3 := filepath.Join(os.TempDir(), "vpath3")
+	vdirPath := "/vdir/sub"
+	vSubDirPath := path.Join(vdirPath, "subdir", "subdir")
+	vSubDir1Path := path.Join(vSubDirPath, "subdir", "subdir")
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: vdirPath,
+	})
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: vSubDir1Path,
+	})
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath3,
+		},
+		VirtualPath: vSubDirPath,
+	})
+	folder, err := user.GetVirtualFolderForPath(path.Join(vSubDirPath, "file"))
+	assert.NoError(t, err)
+	assert.Equal(t, folder.MappedPath, mappedPath3)
+	_, err = user.GetVirtualFolderForPath("/file")
+	assert.Error(t, err)
+	folder, err = user.GetVirtualFolderForPath(path.Join(vdirPath, "/file"))
+	assert.NoError(t, err)
+	assert.Equal(t, folder.MappedPath, mappedPath1)
+	folder, err = user.GetVirtualFolderForPath(path.Join(vSubDirPath+"1", "file"))
+	assert.NoError(t, err)
+	assert.Equal(t, folder.MappedPath, mappedPath1)
+	_, err = user.GetVirtualFolderForPath("/vdir/sub1/file")
+	assert.Error(t, err)
+	// we check the parent dir
+	folder, err = user.GetVirtualFolderForPath(vdirPath)
+	assert.Error(t, err)
+}
+
 func TestSSHCommands(t *testing.T) {
 	usePubKey := false
 	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
@@ -3279,7 +4985,7 @@ func TestBasicGitCommands(t *testing.T) {
 		printLatestLogs(10)
 	}
 
-	err = waitQuotaScans()
+	err = waitQuotaScans(1)
 	assert.NoError(t, err)
 
 	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
@@ -3405,6 +5111,24 @@ func TestSCPUploadFileOverwrite(t *testing.T) {
 	if assert.NoError(t, err) {
 		assert.Equal(t, testFileSize, fi.Size())
 	}
+	// now create a simlink via SFTP, replace the symlink with a file via SCP and check quota usage
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		err = client.Symlink(testFileName, testFileName+".link")
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, testFileSize, user.UsedQuotaSize)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+	}
+	err = scpUpload(testFilePath, remoteUpPath+".link", true, false)
+	assert.NoError(t, err)
+	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, testFileSize*2, user.UsedQuotaSize)
+	assert.Equal(t, 2, user.UsedQuotaFiles)
+
 	err = os.Remove(localPath)
 	assert.NoError(t, err)
 	err = os.Remove(testFilePath)
@@ -3529,8 +5253,10 @@ func TestSCPVirtualFolders(t *testing.T) {
 	mappedPath := filepath.Join(os.TempDir(), "vdir")
 	vdirPath := "/vdir"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath,
+		},
 		VirtualPath: vdirPath,
-		MappedPath:  mappedPath,
 	})
 	err := os.MkdirAll(mappedPath, 0777)
 	assert.NoError(t, err)
@@ -3557,6 +5283,8 @@ func TestSCPVirtualFolders(t *testing.T) {
 
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
+	assert.NoError(t, err)
 	err = os.RemoveAll(testBaseDirPath)
 	assert.NoError(t, err)
 	err = os.RemoveAll(testBaseDirDownPath)
@@ -3579,13 +5307,20 @@ func TestSCPVirtualFoldersQuota(t *testing.T) {
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
 	vdirPath2 := "/vdir2"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
 		VirtualPath: vdirPath1,
-		MappedPath:  mappedPath1,
+		QuotaFiles:  -1,
+		QuotaSize:   -1,
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
-		VirtualPath:      vdirPath2,
-		MappedPath:       mappedPath2,
-		ExcludeFromQuota: true,
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: vdirPath2,
+		QuotaFiles:  0,
+		QuotaSize:   0,
 	})
 	err := os.MkdirAll(mappedPath1, 0777)
 	assert.NoError(t, err)
@@ -3609,6 +5344,11 @@ func TestSCPVirtualFoldersQuota(t *testing.T) {
 	remoteUpPath1 := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, vdirPath1)
 	remoteDownPath2 := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join("/", vdirPath2))
 	remoteUpPath2 := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, vdirPath2)
+	// we upload two times to test overwrite
+	err = scpUpload(testBaseDirPath, remoteUpPath1, true, false)
+	assert.NoError(t, err)
+	err = scpDownload(testBaseDirDownPath, remoteDownPath1, true, true)
+	assert.NoError(t, err)
 	err = scpUpload(testBaseDirPath, remoteUpPath1, true, false)
 	assert.NoError(t, err)
 	err = scpDownload(testBaseDirDownPath, remoteDownPath1, true, true)
@@ -3623,8 +5363,26 @@ func TestSCPVirtualFoldersQuota(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 	assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
+	folder, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folder, 1) {
+		f := folder[0]
+		assert.Equal(t, expectedQuotaSize, f.UsedQuotaSize)
+		assert.Equal(t, expectedQuotaFiles, f.UsedQuotaFiles)
+	}
+	folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folder, 1) {
+		f := folder[0]
+		assert.Equal(t, expectedQuotaSize, f.UsedQuotaSize)
+		assert.Equal(t, expectedQuotaFiles, f.UsedQuotaFiles)
+	}
 
 	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(testBaseDirPath)
 	assert.NoError(t, err)
@@ -3634,7 +5392,7 @@ func TestSCPVirtualFoldersQuota(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath1)
 	assert.NoError(t, err)
-	err = os.RemoveAll(mappedPath1)
+	err = os.RemoveAll(mappedPath2)
 	assert.NoError(t, err)
 }
 
@@ -4425,17 +6183,25 @@ func waitForActiveTransfer() {
 	}
 }
 
-func waitQuotaScans() error {
-	time.Sleep(100 * time.Millisecond)
-	scans, _, err := httpd.GetQuotaScans(http.StatusOK)
-	if err != nil {
-		return err
-	}
-	for len(scans) > 0 {
-		time.Sleep(100 * time.Millisecond)
-		scans, _, err = httpd.GetQuotaScans(http.StatusOK)
-		if err != nil {
-			return err
+func waitQuotaScans(kind int) error {
+	for {
+		time.Sleep(50 * time.Millisecond)
+		var activeScans int
+		if kind == 1 {
+			scans, _, err := httpd.GetQuotaScans(http.StatusOK)
+			if err != nil {
+				return err
+			}
+			activeScans = len(scans)
+		} else {
+			scans, _, err := httpd.GetFoldersQuotaScans(http.StatusOK)
+			if err != nil {
+				return err
+			}
+			activeScans = len(scans)
+		}
+		if activeScans == 0 {
+			break
 		}
 	}
 	return nil
@@ -4567,7 +6333,9 @@ func getExtAuthScriptContent(user dataprovider.User, nonJSONResponse bool) []byt
 	if nonJSONResponse {
 		extAuthContent = append(extAuthContent, []byte("echo 'text response'\n")...)
 	} else {
-		extAuthContent = append(extAuthContent, []byte("echo '{\"username\":\"\"}'\n")...)
+		json, _ := json.Marshal(user)
+		quoteJson := strconv.Quote(string(json))
+		extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("echo '%v'\n", quoteJson))...)
 	}
 	extAuthContent = append(extAuthContent, []byte("fi\n")...)
 	return extAuthContent

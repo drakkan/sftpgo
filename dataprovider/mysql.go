@@ -13,6 +13,7 @@ import (
 
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 const (
@@ -24,9 +25,18 @@ const (
 		"`upload_bandwidth` integer NOT NULL, `download_bandwidth` integer NOT NULL, `expiration_date` bigint(20) NOT NULL, " +
 		"`last_login` bigint(20) NOT NULL, `status` int(11) NOT NULL, `filters` longtext DEFAULT NULL, " +
 		"`filesystem` longtext DEFAULT NULL);"
-	mysqlSchemaTableSQL = "CREATE TABLE `schema_version` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `version` integer NOT NULL);"
-	mysqlUsersV2SQL     = "ALTER TABLE `{{users}}` ADD COLUMN `virtual_folders` longtext NULL;"
-	mysqlUsersV3SQL     = "ALTER TABLE `{{users}}` MODIFY `password` longtext NULL;"
+	mysqlSchemaTableSQL = "CREATE TABLE `{{schema_version}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `version` integer NOT NULL);"
+	mysqlV2SQL          = "ALTER TABLE `{{users}}` ADD COLUMN `virtual_folders` longtext NULL;"
+	mysqlV3SQL          = "ALTER TABLE `{{users}}` MODIFY `password` longtext NULL;"
+	mysqlV4SQL          = "CREATE TABLE `{{folders}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `path` varchar(512) NOT NULL UNIQUE," +
+		"`used_quota_size` bigint NOT NULL, `used_quota_files` integer NOT NULL, `last_quota_update` bigint NOT NULL);" +
+		"ALTER TABLE `{{users}}` MODIFY `home_dir` varchar(512) NOT NULL;" +
+		"ALTER TABLE `{{users}}` DROP COLUMN `virtual_folders`;" +
+		"CREATE TABLE `{{folders_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `virtual_path` varchar(512) NOT NULL, " +
+		"`quota_size` bigint NOT NULL, `quota_files` integer NOT NULL, `folder_id` integer NOT NULL, `user_id` integer NOT NULL);" +
+		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `unique_mapping` UNIQUE (`user_id`, `folder_id`);" +
+		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `folders_mapping_folder_id_fk_folders_id` FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE CASCADE;" +
+		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `folders_mapping_user_id_fk_users_id` FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;"
 )
 
 // MySQLProvider auth provider for MySQL/MariaDB database
@@ -89,12 +99,12 @@ func (p MySQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64,
 	return sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
 }
 
-func (p MySQLProvider) updateLastLogin(username string) error {
-	return sqlCommonUpdateLastLogin(username, p.dbHandle)
-}
-
 func (p MySQLProvider) getUsedQuota(username string) (int, int64, error) {
 	return sqlCommonGetUsedQuota(username, p.dbHandle)
+}
+
+func (p MySQLProvider) updateLastLogin(username string) error {
+	return sqlCommonUpdateLastLogin(username, p.dbHandle)
 }
 
 func (p MySQLProvider) userExists(username string) (User, error) {
@@ -121,6 +131,34 @@ func (p MySQLProvider) getUsers(limit int, offset int, order string, username st
 	return sqlCommonGetUsers(limit, offset, order, username, p.dbHandle)
 }
 
+func (p MySQLProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
+	return sqlCommonDumpFolders(p.dbHandle)
+}
+
+func (p MySQLProvider) getFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error) {
+	return sqlCommonGetFolders(limit, offset, order, folderPath, p.dbHandle)
+}
+
+func (p MySQLProvider) getFolderByPath(mappedPath string) (vfs.BaseVirtualFolder, error) {
+	return sqlCommonCheckFolderExists(mappedPath, p.dbHandle)
+}
+
+func (p MySQLProvider) addFolder(folder vfs.BaseVirtualFolder) error {
+	return sqlCommonAddFolder(folder, p.dbHandle)
+}
+
+func (p MySQLProvider) deleteFolder(folder vfs.BaseVirtualFolder) error {
+	return sqlCommonDeleteFolder(folder, p.dbHandle)
+}
+
+func (p MySQLProvider) updateFolderQuota(mappedPath string, filesAdd int, sizeAdd int64, reset bool) error {
+	return sqlCommonUpdateFolderQuota(mappedPath, filesAdd, sizeAdd, reset, p.dbHandle)
+}
+
+func (p MySQLProvider) getUsedFolderQuota(mappedPath string) (int, int64, error) {
+	return sqlCommonGetFolderUsedQuota(mappedPath, p.dbHandle)
+}
+
 func (p MySQLProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -131,7 +169,7 @@ func (p MySQLProvider) reloadConfig() error {
 
 // initializeDatabase creates the initial database structure
 func (p MySQLProvider) initializeDatabase() error {
-	sqlUsers := strings.Replace(mysqlUsersTableSQL, "{{users}}", config.UsersTable, 1)
+	sqlUsers := strings.Replace(mysqlUsersTableSQL, "{{users}}", sqlTableUsers, 1)
 	tx, err := p.dbHandle.Begin()
 	if err != nil {
 		return err
@@ -141,12 +179,12 @@ func (p MySQLProvider) initializeDatabase() error {
 		sqlCommonRollbackTransaction(tx)
 		return err
 	}
-	_, err = tx.Exec(mysqlSchemaTableSQL)
+	_, err = tx.Exec(strings.Replace(mysqlSchemaTableSQL, "{{schema_version}}", sqlTableSchemaVersion, 1))
 	if err != nil {
 		sqlCommonRollbackTransaction(tx)
 		return err
 	}
-	_, err = tx.Exec(initialDBVersionSQL)
+	_, err = tx.Exec(strings.Replace(initialDBVersionSQL, "{{schema_version}}", sqlTableSchemaVersion, 1))
 	if err != nil {
 		sqlCommonRollbackTransaction(tx)
 		return err
@@ -169,9 +207,19 @@ func (p MySQLProvider) migrateDatabase() error {
 		if err != nil {
 			return err
 		}
-		return updateMySQLDatabaseFrom2To3(p.dbHandle)
+		err = updateMySQLDatabaseFrom2To3(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		return updateMySQLDatabaseFrom3To4(p.dbHandle)
 	case 2:
-		return updateMySQLDatabaseFrom2To3(p.dbHandle)
+		err = updateMySQLDatabaseFrom2To3(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		return updateMySQLDatabaseFrom3To4(p.dbHandle)
+	case 3:
+		return updateMySQLDatabaseFrom3To4(p.dbHandle)
 	default:
 		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
 	}
@@ -179,30 +227,16 @@ func (p MySQLProvider) migrateDatabase() error {
 
 func updateMySQLDatabaseFrom1To2(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "updating database version: 1 -> 2")
-	sql := strings.Replace(mysqlUsersV2SQL, "{{users}}", config.UsersTable, 1)
-	return updateMySQLDatabase(dbHandle, sql, 2)
+	sql := strings.Replace(mysqlV2SQL, "{{users}}", sqlTableUsers, 1)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 2)
 }
 
 func updateMySQLDatabaseFrom2To3(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "updating database version: 2 -> 3")
-	sql := strings.Replace(mysqlUsersV3SQL, "{{users}}", config.UsersTable, 1)
-	return updateMySQLDatabase(dbHandle, sql, 3)
+	sql := strings.Replace(mysqlV3SQL, "{{users}}", sqlTableUsers, 1)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 3)
 }
 
-func updateMySQLDatabase(dbHandle *sql.DB, sql string, newVersion int) error {
-	tx, err := dbHandle.Begin()
-	if err != nil {
-		return err
-	}
-	_, err = tx.Exec(sql)
-	if err != nil {
-		sqlCommonRollbackTransaction(tx)
-		return err
-	}
-	err = sqlCommonUpdateDatabaseVersionWithTX(tx, newVersion)
-	if err != nil {
-		sqlCommonRollbackTransaction(tx)
-		return err
-	}
-	return tx.Commit()
+func updateMySQLDatabaseFrom3To4(dbHandle *sql.DB) error {
+	return sqlCommonUpdateDatabaseFrom3To4(mysqlV4SQL, dbHandle)
 }

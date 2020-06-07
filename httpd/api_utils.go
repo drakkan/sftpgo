@@ -22,6 +22,7 @@ import (
 	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 var (
@@ -90,10 +91,7 @@ func getRespStatus(err error) int {
 func AddUser(user dataprovider.User, expectedStatusCode int) (dataprovider.User, []byte, error) {
 	var newUser dataprovider.User
 	var body []byte
-	userAsJSON, err := json.Marshal(user)
-	if err != nil {
-		return newUser, body, err
-	}
+	userAsJSON, _ := json.Marshal(user)
 	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(userPath), bytes.NewBuffer(userAsJSON),
 		"application/json")
 	if err != nil {
@@ -120,10 +118,7 @@ func AddUser(user dataprovider.User, expectedStatusCode int) (dataprovider.User,
 func UpdateUser(user dataprovider.User, expectedStatusCode int) (dataprovider.User, []byte, error) {
 	var newUser dataprovider.User
 	var body []byte
-	userAsJSON, err := json.Marshal(user)
-	if err != nil {
-		return user, body, err
-	}
+	userAsJSON, _ := json.Marshal(user)
 	resp, err := sendHTTPRequest(http.MethodPut, buildURLRelativeToBase(userPath, strconv.FormatInt(user.ID, 10)),
 		bytes.NewBuffer(userAsJSON), "application/json")
 	if err != nil {
@@ -174,28 +169,22 @@ func GetUserByID(userID int64, expectedStatusCode int) (dataprovider.User, []byt
 	return user, body, err
 }
 
-// GetUsers allows to get a list of users and checks the received HTTP Status code against expectedStatusCode.
+// GetUsers returns a list of users and checks the received HTTP Status code against expectedStatusCode.
 // The number of results can be limited specifying a limit.
 // Some results can be skipped specifying an offset.
 // The results can be filtered specifying a username, the username filter is an exact match
-func GetUsers(limit int64, offset int64, username string, expectedStatusCode int) ([]dataprovider.User, []byte, error) {
+func GetUsers(limit, offset int64, username string, expectedStatusCode int) ([]dataprovider.User, []byte, error) {
 	var users []dataprovider.User
 	var body []byte
-	url, err := url.Parse(buildURLRelativeToBase(userPath))
+	url, err := addLimitAndOffsetQueryParams(buildURLRelativeToBase(userPath), limit, offset)
 	if err != nil {
 		return users, body, err
 	}
-	q := url.Query()
-	if limit > 0 {
-		q.Add("limit", strconv.FormatInt(limit, 10))
-	}
-	if offset > 0 {
-		q.Add("offset", strconv.FormatInt(offset, 10))
-	}
 	if len(username) > 0 {
+		q := url.Query()
 		q.Add("username", username)
+		url.RawQuery = q.Encode()
 	}
-	url.RawQuery = q.Encode()
 	resp, err := sendHTTPRequest(http.MethodGet, url.String(), nil, "")
 	if err != nil {
 		return users, body, err
@@ -210,7 +199,7 @@ func GetUsers(limit int64, offset int64, username string, expectedStatusCode int
 	return users, body, err
 }
 
-// GetQuotaScans gets active quota scans and checks the received HTTP Status code against expectedStatusCode.
+// GetQuotaScans gets active quota scans for users and checks the received HTTP Status code against expectedStatusCode.
 func GetQuotaScans(expectedStatusCode int) ([]sftpd.ActiveQuotaScan, []byte, error) {
 	var quotaScans []sftpd.ActiveQuotaScan
 	var body []byte
@@ -231,10 +220,7 @@ func GetQuotaScans(expectedStatusCode int) ([]sftpd.ActiveQuotaScan, []byte, err
 // StartQuotaScan start a new quota scan for the given user and checks the received HTTP Status code against expectedStatusCode.
 func StartQuotaScan(user dataprovider.User, expectedStatusCode int) ([]byte, error) {
 	var body []byte
-	userAsJSON, err := json.Marshal(user)
-	if err != nil {
-		return body, err
-	}
+	userAsJSON, _ := json.Marshal(user)
 	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(quotaScanPath), bytes.NewBuffer(userAsJSON), "")
 	if err != nil {
 		return body, err
@@ -273,6 +259,114 @@ func CloseConnection(connectionID string, expectedStatusCode int) ([]byte, error
 	err = checkResponse(resp.StatusCode, expectedStatusCode)
 	body, _ = getResponseBody(resp)
 	return body, err
+}
+
+// AddFolder adds a new folder and checks the received HTTP Status code against expectedStatusCode
+func AddFolder(folder vfs.BaseVirtualFolder, expectedStatusCode int) (vfs.BaseVirtualFolder, []byte, error) {
+	var newFolder vfs.BaseVirtualFolder
+	var body []byte
+	folderAsJSON, _ := json.Marshal(folder)
+	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(folderPath), bytes.NewBuffer(folderAsJSON),
+		"application/json")
+	if err != nil {
+		return newFolder, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if expectedStatusCode != http.StatusOK {
+		body, _ = getResponseBody(resp)
+		return newFolder, body, err
+	}
+	if err == nil {
+		err = render.DecodeJSON(resp.Body, &newFolder)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	if err == nil {
+		err = checkFolder(&folder, &newFolder)
+	}
+	return newFolder, body, err
+}
+
+// RemoveFolder removes an existing user and checks the received HTTP Status code against expectedStatusCode.
+func RemoveFolder(folder vfs.BaseVirtualFolder, expectedStatusCode int) ([]byte, error) {
+	var body []byte
+	baseURL := buildURLRelativeToBase(folderPath)
+	url, err := url.Parse(baseURL)
+	if err != nil {
+		return body, err
+	}
+	q := url.Query()
+	q.Add("folder_path", folder.MappedPath)
+	url.RawQuery = q.Encode()
+	resp, err := sendHTTPRequest(http.MethodDelete, url.String(), nil, "")
+	if err != nil {
+		return body, err
+	}
+	defer resp.Body.Close()
+	body, _ = getResponseBody(resp)
+	return body, checkResponse(resp.StatusCode, expectedStatusCode)
+}
+
+// GetFolders returns a list of folders and checks the received HTTP Status code against expectedStatusCode.
+// The number of results can be limited specifying a limit.
+// Some results can be skipped specifying an offset.
+// The results can be filtered specifying a folder path, the folder path filter is an exact match
+func GetFolders(limit int64, offset int64, mappedPath string, expectedStatusCode int) ([]vfs.BaseVirtualFolder, []byte, error) {
+	var folders []vfs.BaseVirtualFolder
+	var body []byte
+	url, err := addLimitAndOffsetQueryParams(buildURLRelativeToBase(folderPath), limit, offset)
+	if err != nil {
+		return folders, body, err
+	}
+	if len(mappedPath) > 0 {
+		q := url.Query()
+		q.Add("folder_path", mappedPath)
+		url.RawQuery = q.Encode()
+	}
+	resp, err := sendHTTPRequest(http.MethodGet, url.String(), nil, "")
+	if err != nil {
+		return folders, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &folders)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return folders, body, err
+}
+
+// GetFoldersQuotaScans gets active quota scans for folders and checks the received HTTP Status code against expectedStatusCode.
+func GetFoldersQuotaScans(expectedStatusCode int) ([]sftpd.ActiveVirtualFolderQuotaScan, []byte, error) {
+	var quotaScans []sftpd.ActiveVirtualFolderQuotaScan
+	var body []byte
+	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(quotaScanVFolderPath), nil, "")
+	if err != nil {
+		return quotaScans, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &quotaScans)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return quotaScans, body, err
+}
+
+// StartFolderQuotaScan start a new quota scan for the given folder and checks the received HTTP Status code against expectedStatusCode.
+func StartFolderQuotaScan(folder vfs.BaseVirtualFolder, expectedStatusCode int) ([]byte, error) {
+	var body []byte
+	folderAsJSON, _ := json.Marshal(folder)
+	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(quotaScanVFolderPath), bytes.NewBuffer(folderAsJSON), "")
+	if err != nil {
+		return body, err
+	}
+	defer resp.Body.Close()
+	body, _ = getResponseBody(resp)
+	return body, checkResponse(resp.StatusCode, expectedStatusCode)
 }
 
 // GetVersion returns version details
@@ -382,6 +476,39 @@ func checkResponse(actual int, expected int) error {
 
 func getResponseBody(resp *http.Response) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
+}
+
+func checkFolder(expected *vfs.BaseVirtualFolder, actual *vfs.BaseVirtualFolder) error {
+	if expected.ID <= 0 {
+		if actual.ID <= 0 {
+			return errors.New("actual folder ID must be > 0")
+		}
+	} else {
+		if actual.ID != expected.ID {
+			return errors.New("folder ID mismatch")
+		}
+	}
+	if expected.MappedPath != actual.MappedPath {
+		return errors.New("mapped path mismatch")
+	}
+	if expected.LastQuotaUpdate != actual.LastQuotaUpdate {
+		return errors.New("last quota update mismatch")
+	}
+	if expected.UsedQuotaSize != actual.UsedQuotaSize {
+		return errors.New("used quota size mismatch")
+	}
+	if expected.UsedQuotaFiles != actual.UsedQuotaFiles {
+		return errors.New("used quota files mismatch")
+	}
+	if len(expected.Users) != len(actual.Users) {
+		return errors.New("folder users mismatch")
+	}
+	for _, u := range actual.Users {
+		if !utils.IsStringInSlice(u, expected.Users) {
+			return errors.New("folder users mismatch")
+		}
+	}
+	return nil
 }
 
 func checkUser(expected *dataprovider.User, actual *dataprovider.User) error {
@@ -633,4 +760,20 @@ func compareEqualsUserFields(expected *dataprovider.User, actual *dataprovider.U
 		return errors.New("ExpirationDate mismatch")
 	}
 	return nil
+}
+
+func addLimitAndOffsetQueryParams(rawurl string, limit, offset int64) (*url.URL, error) {
+	url, err := url.Parse(rawurl)
+	if err != nil {
+		return nil, err
+	}
+	q := url.Query()
+	if limit > 0 {
+		q.Add("limit", strconv.FormatInt(limit, 10))
+	}
+	if offset > 0 {
+		q.Add("offset", strconv.FormatInt(offset, 10))
+	}
+	url.RawQuery = q.Encode()
+	return url, err
 }

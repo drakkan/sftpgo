@@ -8,7 +8,7 @@ For each account, the following properties can be configured:
 - `status` 1 means "active", 0 "inactive". An inactive account cannot login.
 - `expiration_date` expiration date as unix timestamp in milliseconds. An expired account cannot login. 0 means no expiration.
 - `home_dir` the user cannot upload or download files outside this directory. Must be an absolute path. A local home directory is required for Cloud Storage Backends too: in this case it will store temporary files.
-- `virtual_folders` list of mappings between virtual SFTP/SCP paths and local filesystem paths outside the user home directory. The specified paths must be absolute and the virtual path cannot be "/", it must be a sub directory. The parent directory for the specified virtual path must exist. SFTPGo will try to automatically create any missing parent directory for the configured virtual folders at user login. For each mapping you can configure if the folder will be included or not in user quota limit.
+- `virtual_folders` list of mappings between virtual SFTP/SCP paths and local filesystem paths outside the user home directory. More information can be found [here](./virtual-folders.md)
 - `uid`, `gid`. If SFTPGo runs as root system user then the created files and directories will be assigned to this system uid/gid. Ignored on windows or if SFTPGo runs as non root user: in this case files and directories for all SFTP users will be owned by the system user that runs SFTPGo.
 - `max_sessions` maximum concurrent sessions. 0 means unlimited.
 - `quota_size` maximum size allowed as bytes. 0 means unlimited.
@@ -47,14 +47,14 @@ For each account, the following properties can be configured:
 - `s3_access_secret`, if provided it is stored encrypted (AES-256-GCM). You can leave access key and access secret blank to use credentials from environment
 - `s3_endpoint`, specifies a S3 endpoint (server) different from AWS. It is not required if you are connecting to AWS
 - `s3_storage_class`, leave blank to use the default or specify a valid AWS [storage class](https://docs.aws.amazon.com/AmazonS3/latest/dev/storage-class-intro.html)
-- `s3_key_prefix`, allows to restrict access to the virtual folder identified by this prefix and its contents
+- `s3_key_prefix`, allows to restrict access to the folder identified by this prefix and its contents
 - `s3_upload_part_size`, the buffer size for multipart uploads (MB). Zero means the default (5 MB). Minimum is 5
 - `s3_upload_concurrency` how many parts are uploaded in parallel
 - `gcs_bucket`, required for GCS filesystem
 - `gcs_credentials`, Google Cloud Storage JSON credentials base64 encoded
 - `gcs_automatic_credentials`, integer. Set to 1 to use Application Default Credentials strategy or set to 0 to use explicit credentials via `gcs_credentials`
 - `gcs_storage_class`
-- `gcs_key_prefix`, allows to restrict access to the virtual folder identified by this prefix and its contents
+- `gcs_key_prefix`, allows to restrict access to the folder identified by this prefix and its contents
 
 These properties are stored inside the data provider.
 

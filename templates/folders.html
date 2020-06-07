@@ -1,0 +1,205 @@
+{{template "base" .}}
+
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "extra_css"}}
+<link href="/static/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
+<link href="/static/vendor/datatables/select.bootstrap4.min.css" rel="stylesheet">
+<link href="/static/vendor/datatables/buttons.bootstrap4.min.css" rel="stylesheet">
+{{end}}
+
+{{define "page_body"}}
+
+<div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
+    <div id="errorTxt" class="card-body text-form-error"></div>
+</div>
+
+<div id="successMsg" class="card mb-4 border-left-success" style="display: none;">
+    <div id="successTxt" class="card-body"></div>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">View and manage folders</h6>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-bordered" id="dataTable" width="100%" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th>Path</th>
+                        <th>Quota</th>
+                        <th>Used by</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Folders}}
+                    <tr>
+                        <td>{{.MappedPath}}</td>
+                        <td>{{.GetQuotaSummary}}</td>
+                        <td>{{.GetUsersAsString}}</td>
+                    </tr>
+                    {{end}}
+
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{{end}}
+
+{{define "dialog"}}
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    Confirmation required
+                </h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+            <div class="modal-body">Do you want to delete the selected virtual folder and any users mapping?</div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" data-dismiss="modal">
+                    Cancel
+                </button>
+                <a class="btn btn-warning" href="#" onclick="deleteAction()">
+                    Delete
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "extra_js"}}
+<script src="/static/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="/static/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+<script src="/static/vendor/datatables/dataTables.select.min.js"></script>
+<script src="/static/vendor/datatables/select.bootstrap4.min.js"></script>
+<script src="/static/vendor/datatables/dataTables.buttons.min.js"></script>
+<script src="/static/vendor/datatables/buttons.bootstrap4.min.js"></script>
+<script type="text/javascript">
+
+function deleteAction() {
+        var table = $('#dataTable').DataTable();
+        table.button(1).enable(false);
+        var folderPath = table.row({ selected: true }).data()[0];
+        var path = '{{.APIFoldersURL}}'.trimEnd("/") + "?folder_path=" + encodeURIComponent(folderPath);
+        $('#deleteModal').modal('hide');
+        $.ajax({
+            url: path,
+            type: 'DELETE',
+            dataType: 'json',
+            timeout: 15000,
+            success: function (result) {
+                table.button(1).enable(true);
+                window.location.href = '{{.FoldersURL}}';
+            },
+            error: function ($xhr, textStatus, errorThrown) {
+                console.log("delete error")
+                table.button(1).enable(true);
+                var txt = "Unable to delete the selected folder";
+                if ($xhr) {
+                    var json = $xhr.responseJSON;
+                    if (json) {
+                        txt += ": " + json.error;
+                    }
+                }
+                $('#errorTxt').text(txt);
+                $('#errorMsg').show();
+                setTimeout(function () {
+                    $('#errorMsg').hide();
+                }, 5000);
+            }
+        });
+    }
+
+    $(document).ready(function () {
+        $.fn.dataTable.ext.buttons.add = {
+            text: 'Add',
+            action: function (e, dt, node, config) {
+                window.location.href = '{{.FolderURL}}';
+            }
+        };
+
+        $.fn.dataTable.ext.buttons.delete = {
+            text: 'Delete',
+            action: function (e, dt, node, config) {
+                $('#deleteModal').modal('show');
+            },
+            enabled: false
+        };
+
+        $.fn.dataTable.ext.buttons.quota_scan = {
+            text: 'Quota scan',
+            action: function (e, dt, node, config) {
+                table.button(2).enable(false);
+                var folderPath = dt.row({ selected: true }).data()[0];
+                var path = '{{.APIFolderQuotaScanURL}}'
+                $.ajax({
+                    url: path,
+                    type: 'POST',
+                    dataType: 'json',
+                    data: JSON.stringify({ "mapped_path": folderPath }),
+                    timeout: 15000,
+                    success: function (result) {
+                        table.button(2).enable(true);
+                        $('#successTxt').text("Quota scan started for the selected folder. Please reload the folders page to check when the scan ends");
+                        $('#successMsg').show();
+                        setTimeout(function () {
+                            $('#successMsg').hide();
+                        }, 5000);
+                    },
+                    error: function ($xhr, textStatus, errorThrown) {
+                        console.log("quota scan error")
+                        table.button(2).enable(true);
+                        var txt = "Unable to update quota for the selected folder";
+                        if ($xhr) {
+                            var json = $xhr.responseJSON;
+                            if (json) {
+                                if (json.message) {
+                                    txt += ": " + json.message;
+                                } else if (json.error) {
+                                    txt += ": " + json.error;
+                                }
+                            }
+                        }
+                        $('#errorTxt').text(txt);
+                        $('#errorMsg').show();
+                        setTimeout(function () {
+                            $('#errorMsg').hide();
+                        }, 5000);
+                    }
+                });
+            },
+            enabled: false
+        };
+
+        var table = $('#dataTable').DataTable({
+            dom: "<'row'<'col-sm-12'B>>" +
+                "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+                "<'row'<'col-sm-12'tr>>" +
+                "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+            select: true,
+            buttons: [
+                'add','delete', 'quota_scan'
+            ],
+            "scrollX": false,
+            "order": [[0, 'asc']]
+        });
+
+        table.on('select deselect', function () {
+            var selectedRows = table.rows({ selected: true }).count();
+            table.button(1).enable(selectedRows == 1);
+            table.button(2).enable(selectedRows == 1);
+        });
+
+    });
+
+</script>
+{{end}}

@@ -59,6 +59,12 @@
                     <span>{{.UsersTitle}}</span></a>
             </li>
 
+            <li class="nav-item {{if eq .CurrentURL .FoldersURL}}active{{end}}">
+                <a class="nav-link" href="{{.FoldersURL}}">
+                    <i class="fas fa-folder"></i>
+                    <span>{{.FoldersTitle}}</span></a>
+            </li>
+
             <li class="nav-item {{if eq .CurrentURL .ConnectionsURL}}active{{end}}">
                 <a class="nav-link" href="{{.ConnectionsURL}}">
                     <i class="fas fa-exchange-alt"></i>

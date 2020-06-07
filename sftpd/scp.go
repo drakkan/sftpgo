@@ -187,10 +187,9 @@ func (c *scpCommand) getUploadFileData(sizeToRead int64, transfer *Transfer) err
 	return c.sendConfirmationMessage()
 }
 
-func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead int64, isNewFile bool, fileSize int64,
-	isExcludedFromQuota bool) error {
-	if !c.connection.hasSpace(true) {
-		err := fmt.Errorf("denying file write due to space limit")
+func (c *scpCommand) handleUploadFile(resolvedPath, filePath string, sizeToRead int64, isNewFile bool, fileSize int64, requestPath string) error {
+	if !c.connection.hasSpace(true, requestPath) {
+		err := fmt.Errorf("denying file write due to quota limits")
 		c.connection.Log(logger.LevelWarn, logSenderSCP, "error uploading file: %#v, err: %v", filePath, err)
 		c.sendErrorMessage(err)
 		return err
@@ -199,7 +198,13 @@ func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead i
 	initialSize := int64(0)
 	if !isNewFile {
 		if vfs.IsLocalOsFs(c.connection.fs) {
-			if !isExcludedFromQuota {
+			vfolder, err := c.connection.User.GetVirtualFolderForPath(requestPath)
+			if err == nil {
+				dataprovider.UpdateVirtualFolderQuota(dataProvider, vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck
+				if vfolder.IsIncludedInUserQuota() {
+					dataprovider.UpdateUserQuota(dataProvider, c.connection.User, 0, -fileSize, false) //nolint:errcheck
+				}
+			} else {
 				dataprovider.UpdateUserQuota(dataProvider, c.connection.User, 0, -fileSize, false) //nolint:errcheck
 			}
 		} else {
@@ -208,7 +213,7 @@ func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead i
 	}
 	file, w, cancelFn, err := c.connection.fs.Create(filePath, 0)
 	if err != nil {
-		c.connection.Log(logger.LevelError, logSenderSCP, "error creating file %#v: %v", requestPath, err)
+		c.connection.Log(logger.LevelError, logSenderSCP, "error creating file %#v: %v", resolvedPath, err)
 		c.sendErrorMessage(err)
 		return err
 	}
@@ -216,26 +221,26 @@ func (c *scpCommand) handleUploadFile(requestPath, filePath string, sizeToRead i
 	vfs.SetPathPermissions(c.connection.fs, filePath, c.connection.User.GetUID(), c.connection.User.GetGID())
 
 	transfer := Transfer{
-		file:                file,
-		readerAt:            nil,
-		writerAt:            w,
-		cancelFn:            cancelFn,
-		path:                requestPath,
-		start:               time.Now(),
-		bytesSent:           0,
-		bytesReceived:       0,
-		user:                c.connection.User,
-		connectionID:        c.connection.ID,
-		transferType:        transferUpload,
-		lastActivity:        time.Now(),
-		isNewFile:           isNewFile,
-		protocol:            c.connection.protocol,
-		transferError:       nil,
-		isFinished:          false,
-		minWriteOffset:      0,
-		initialSize:         initialSize,
-		isExcludedFromQuota: isExcludedFromQuota,
-		lock:                new(sync.Mutex),
+		file:           file,
+		readerAt:       nil,
+		writerAt:       w,
+		cancelFn:       cancelFn,
+		path:           resolvedPath,
+		start:          time.Now(),
+		bytesSent:      0,
+		bytesReceived:  0,
+		user:           c.connection.User,
+		connectionID:   c.connection.ID,
+		transferType:   transferUpload,
+		lastActivity:   time.Now(),
+		isNewFile:      isNewFile,
+		protocol:       c.connection.protocol,
+		transferError:  nil,
+		isFinished:     false,
+		minWriteOffset: 0,
+		initialSize:    initialSize,
+		requestPath:    requestPath,
+		lock:           new(sync.Mutex),
 	}
 	addTransfer(&transfer)
 
@@ -262,14 +267,14 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 	if isAtomicUploadEnabled() && c.connection.fs.IsAtomicUploadSupported() {
 		filePath = c.connection.fs.GetAtomicUploadPath(p)
 	}
-	stat, statErr := c.connection.fs.Stat(p)
-	if c.connection.fs.IsNotExist(statErr) {
+	stat, statErr := c.connection.fs.Lstat(p)
+	if (statErr == nil && stat.Mode()&os.ModeSymlink == os.ModeSymlink) || c.connection.fs.IsNotExist(statErr) {
 		if !c.connection.User.HasPerm(dataprovider.PermUpload, path.Dir(uploadFilePath)) {
 			c.connection.Log(logger.LevelWarn, logSenderSCP, "cannot upload file: %#v, permission denied", uploadFilePath)
 			c.sendErrorMessage(errPermission)
 			return errPermission
 		}
-		return c.handleUploadFile(p, filePath, sizeToRead, true, 0, c.connection.User.IsFileExcludedFromQuota(uploadFilePath))
+		return c.handleUploadFile(p, filePath, sizeToRead, true, 0, uploadFilePath)
 	}
 
 	if statErr != nil {
@@ -301,7 +306,7 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 		}
 	}
 
-	return c.handleUploadFile(p, filePath, sizeToRead, false, stat.Size(), c.connection.User.IsFileExcludedFromQuota(uploadFilePath))
+	return c.handleUploadFile(p, filePath, sizeToRead, false, stat.Size(), uploadFilePath)
 }
 
 func (c *scpCommand) sendDownloadProtocolMessages(dirPath string, stat os.FileInfo) error {
@@ -336,8 +341,8 @@ func (c *scpCommand) sendDownloadProtocolMessages(dirPath string, stat os.FileIn
 	return err
 }
 
-// we send first all the files in the root directory and then the directories
-// for each directory we recursively call this method again
+// We send first all the files in the root directory and then the directories.
+// For each directory we recursively call this method again
 func (c *scpCommand) handleRecursiveDownload(dirPath string, stat os.FileInfo) error {
 	var err error
 	if c.isRecursive() {

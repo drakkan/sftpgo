@@ -1,6 +1,5 @@
 // Package dataprovider provides data access.
-// It abstract different data providers and exposes a common API.
-// Currently the supported data providers are: PostreSQL (9+), MySQL (4.1+) and SQLite 3.x
+// It abstracts different data providers and exposes a common API.
 package dataprovider
 
 import (
@@ -72,6 +71,13 @@ const (
 	operationAdd              = "add"
 	operationUpdate           = "update"
 	operationDelete           = "delete"
+	sqlPrefixValidChars       = "abcdefghijklmnopqrstuvwxyz_"
+)
+
+// ordering constants
+const (
+	OrderASC  = "ASC"
+	OrderDESC = "DESC"
 )
 
 var (
@@ -100,6 +106,10 @@ var (
 	errWrongPassword        = errors.New("password does not match")
 	errNoInitRequired       = errors.New("initialization is not required for this data provider")
 	credentialsDirPath      string
+	sqlTableUsers           = "users"
+	sqlTableFolders         = "folders"
+	sqlTableFoldersMapping  = "folders_mapping"
+	sqlTableSchemaVersion   = "schema_version"
 )
 
 type schemaVersion struct {
@@ -143,14 +153,15 @@ type Config struct {
 	// Custom database connection string.
 	// If not empty this connection string will be used instead of build one using the previous parameters
 	ConnectionString string `json:"connection_string" mapstructure:"connection_string"`
-	// Database table for SFTP users
-	UsersTable string `json:"users_table" mapstructure:"users_table"`
+	// prefix for SQL tables
+	SQLTablesPrefix string `json:"sql_tables_prefix" mapstructure:"sql_tables_prefix"`
 	// Set to 0 to disable users management, 1 to enable
 	ManageUsers int `json:"manage_users" mapstructure:"manage_users"`
 	// Set the preferred way to track users quota between the following choices:
 	// 0, disable quota tracking. REST API to scan user dir and update quota will do nothing
 	// 1, quota is updated each time a user upload or delete a file even if the user has no quota restrictions
-	// 2, quota is updated each time a user upload or delete a file but only for users with quota restrictions.
+	// 2, quota is updated each time a user upload or delete a file but only for users with quota restrictions
+	//    and for virtual folders.
 	//    With this configuration the "quota scan" REST API can still be used to periodically update space usage
 	//    for users without quota restrictions
 	TrackQuota int `json:"track_quota" mapstructure:"track_quota"`
@@ -253,7 +264,8 @@ type Config struct {
 
 // BackupData defines the structure for the backup/restore files
 type BackupData struct {
-	Users []User `json:"users"`
+	Users   []User                  `json:"users"`
+	Folders []vfs.BaseVirtualFolder `json:"folders"`
 }
 
 type keyboardAuthHookRequest struct {
@@ -270,6 +282,18 @@ type keyboardAuthHookResponse struct {
 	Echos       []bool   `json:"echos"`
 	AuthResult  int      `json:"auth_result"`
 	CheckPwd    int      `json:"check_password"`
+}
+
+type virtualFoldersCompact struct {
+	VirtualPath      string `json:"virtual_path"`
+	MappedPath       string `json:"mapped_path"`
+	ExcludeFromQuota bool   `json:"exclude_from_quota"`
+}
+
+type userCompactVFolders struct {
+	ID             int64                   `json:"id"`
+	Username       string                  `json:"username"`
+	VirtualFolders []virtualFoldersCompact `json:"virtual_folders"`
 }
 
 // ValidationError raised if input data is not valid
@@ -313,7 +337,7 @@ func GetQuotaTracking() int {
 	return config.TrackQuota
 }
 
-// Provider interface that data providers must implement.
+// Provider defines the interface that data providers must implement.
 type Provider interface {
 	validateUserAndPass(username string, password string) (User, error)
 	validateUserAndPubKey(username string, pubKey []byte) (User, string, error)
@@ -327,6 +351,13 @@ type Provider interface {
 	dumpUsers() ([]User, error)
 	getUserByID(ID int64) (User, error)
 	updateLastLogin(username string) error
+	getFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error)
+	getFolderByPath(mappedPath string) (vfs.BaseVirtualFolder, error)
+	addFolder(folder vfs.BaseVirtualFolder) error
+	deleteFolder(folder vfs.BaseVirtualFolder) error
+	updateFolderQuota(mappedPath string, filesAdd int, sizeAdd int64, reset bool) error
+	getUsedFolderQuota(mappedPath string) (int, int64, error)
+	dumpFolders() ([]vfs.BaseVirtualFolder, error)
 	checkAvailability() error
 	close() error
 	reloadConfig() error
@@ -343,7 +374,6 @@ func init() {
 func Initialize(cnf Config, basePath string) error {
 	var err error
 	config = cnf
-	sqlPlaceholders = getSQLPlaceholders()
 
 	if err = validateHooks(); err != nil {
 		return err
@@ -388,10 +418,26 @@ func validateHooks() error {
 	return nil
 }
 
+func validateSQLTablesPrefix() error {
+	if len(config.SQLTablesPrefix) > 0 {
+		for _, char := range config.SQLTablesPrefix {
+			if !strings.Contains(sqlPrefixValidChars, strings.ToLower(string(char))) {
+				return errors.New("Invalid sql_tables_prefix only chars in range 'a..z', 'A..Z' and '_' are allowed")
+			}
+		}
+		sqlTableUsers = config.SQLTablesPrefix + sqlTableUsers
+		sqlTableFolders = config.SQLTablesPrefix + sqlTableFolders
+		sqlTableFoldersMapping = config.SQLTablesPrefix + sqlTableFoldersMapping
+		sqlTableSchemaVersion = config.SQLTablesPrefix + sqlTableSchemaVersion
+		providerLog(logger.LevelDebug, "sql table for users %#v, folders %#v folders mapping %#v schema version %#v",
+			sqlTableUsers, sqlTableFolders, sqlTableFoldersMapping, sqlTableSchemaVersion)
+	}
+	return nil
+}
+
 // InitializeDatabase creates the initial database structure
 func InitializeDatabase(cnf Config, basePath string) error {
 	config = cnf
-	sqlPlaceholders = getSQLPlaceholders()
 
 	if config.Driver == BoltDataProviderName || config.Driver == MemoryDataProviderName {
 		return errNoInitRequired
@@ -481,13 +527,32 @@ func UpdateUserQuota(p Provider, user User, filesAdd int, sizeAdd int64, reset b
 	return p.updateQuota(user.Username, filesAdd, sizeAdd, reset)
 }
 
+// UpdateVirtualFolderQuota updates the quota for the given virtual folder adding filesAdd and sizeAdd.
+// If reset is true filesAdd and sizeAdd indicates the total files and the total size instead of the difference.
+func UpdateVirtualFolderQuota(p Provider, vfolder vfs.BaseVirtualFolder, filesAdd int, sizeAdd int64, reset bool) error {
+	if config.TrackQuota == 0 {
+		return &MethodDisabledError{err: trackQuotaDisabledError}
+	}
+	if config.ManageUsers == 0 {
+		return &MethodDisabledError{err: manageUsersDisabledError}
+	}
+	return p.updateFolderQuota(vfolder.MappedPath, filesAdd, sizeAdd, reset)
+}
+
 // GetUsedQuota returns the used quota for the given SFTP user.
-// TrackQuota must be >=1 to enable this method
 func GetUsedQuota(p Provider, username string) (int, int64, error) {
 	if config.TrackQuota == 0 {
 		return 0, 0, &MethodDisabledError{err: trackQuotaDisabledError}
 	}
 	return p.getUsedQuota(username)
+}
+
+// GetUsedVirtualFolderQuota returns the used quota for the given virtual folder.
+func GetUsedVirtualFolderQuota(p Provider, mappedPath string) (int, int64, error) {
+	if config.TrackQuota == 0 {
+		return 0, 0, &MethodDisabledError{err: trackQuotaDisabledError}
+	}
+	return p.getUsedFolderQuota(mappedPath)
 }
 
 // UserExists checks if the given SFTP username exists, returns an error if no match is found
@@ -534,11 +599,6 @@ func DeleteUser(p Provider, user User) error {
 	return err
 }
 
-// DumpUsers returns an array with all users including their hashed password
-func DumpUsers(p Provider) ([]User, error) {
-	return p.dumpUsers()
-}
-
 // ReloadConfig reloads provider configuration.
 // Currently only implemented for memory provider, allows to reload the users
 // from the configured file, if defined
@@ -547,13 +607,57 @@ func ReloadConfig() error {
 }
 
 // GetUsers returns an array of users respecting limit and offset and filtered by username exact match if not empty
-func GetUsers(p Provider, limit int, offset int, order string, username string) ([]User, error) {
+func GetUsers(p Provider, limit, offset int, order string, username string) ([]User, error) {
 	return p.getUsers(limit, offset, order, username)
 }
 
 // GetUserByID returns the user with the given database ID if a match is found or an error
 func GetUserByID(p Provider, ID int64) (User, error) {
 	return p.getUserByID(ID)
+}
+
+// AddFolder adds a new virtual folder.
+// ManageUsers configuration must be set to 1 to enable this method
+func AddFolder(p Provider, folder vfs.BaseVirtualFolder) error {
+	if config.ManageUsers == 0 {
+		return &MethodDisabledError{err: manageUsersDisabledError}
+	}
+	return p.addFolder(folder)
+}
+
+// DeleteFolder deletes an existing folder.
+// ManageUsers configuration must be set to 1 to enable this method
+func DeleteFolder(p Provider, folder vfs.BaseVirtualFolder) error {
+	if config.ManageUsers == 0 {
+		return &MethodDisabledError{err: manageUsersDisabledError}
+	}
+	return p.deleteFolder(folder)
+}
+
+// GetFolderByPath returns the folder with the specified path if any
+func GetFolderByPath(p Provider, mappedPath string) (vfs.BaseVirtualFolder, error) {
+	return p.getFolderByPath(mappedPath)
+}
+
+// GetFolders returns an array of folders respecting limit and offset
+func GetFolders(p Provider, limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error) {
+	return p.getFolders(limit, offset, order, folderPath)
+}
+
+// DumpData returns all users and folders
+func DumpData(p Provider) (BackupData, error) {
+	var data BackupData
+	users, err := p.dumpUsers()
+	if err != nil {
+		return data, err
+	}
+	folders, err := p.dumpFolders()
+	if err != nil {
+		return data, err
+	}
+	data.Users = users
+	data.Folders = folders
+	return data, err
 }
 
 // GetProviderStatus returns an error if the provider is not available
@@ -572,6 +676,10 @@ func Close(p Provider) error {
 
 func createProvider(basePath string) error {
 	var err error
+	sqlPlaceholders = getSQLPlaceholders()
+	if err = validateSQLTablesPrefix(); err != nil {
+		return err
+	}
 	if config.Driver == SQLiteDataProviderName {
 		err = initializeSQLiteProvider(basePath)
 	} else if config.Driver == PGSQLDataProviderName {
@@ -630,7 +738,21 @@ func isMappedDirOverlapped(dir1, dir2 string) bool {
 	return false
 }
 
-func validateVirtualFolders(user *User) error {
+func validateFolderQuotaLimits(folder vfs.VirtualFolder) error {
+	if folder.QuotaSize < -1 {
+		return &ValidationError{err: fmt.Sprintf("invalid quota_size: %v folder path %#v", folder.QuotaSize, folder.MappedPath)}
+	}
+	if folder.QuotaFiles < -1 {
+		return &ValidationError{err: fmt.Sprintf("invalid quota_file: %v folder path %#v", folder.QuotaSize, folder.MappedPath)}
+	}
+	if (folder.QuotaSize == -1 && folder.QuotaFiles != -1) || (folder.QuotaFiles == -1 && folder.QuotaSize != -1) {
+		return &ValidationError{err: fmt.Sprintf("virtual folder quota_size and quota_files must be both -1 or >= 0, quota_size: %v quota_files: %v",
+			folder.QuotaFiles, folder.QuotaSize)}
+	}
+	return nil
+}
+
+func validateUserVirtualFolders(user *User) error {
 	if len(user.VirtualFolders) == 0 || user.FsConfig.Provider != 0 {
 		user.VirtualFolders = []vfs.VirtualFolder{}
 		return nil
@@ -642,6 +764,9 @@ func validateVirtualFolders(user *User) error {
 		if !path.IsAbs(cleanedVPath) || cleanedVPath == "/" {
 			return &ValidationError{err: fmt.Sprintf("invalid virtual folder %#v", v.VirtualPath)}
 		}
+		if err := validateFolderQuotaLimits(v); err != nil {
+			return err
+		}
 		cleanedMPath := filepath.Clean(v.MappedPath)
 		if !filepath.IsAbs(cleanedMPath) {
 			return &ValidationError{err: fmt.Sprintf("invalid mapped folder %#v", v.MappedPath)}
@@ -651,9 +776,12 @@ func validateVirtualFolders(user *User) error {
 				v.MappedPath, user.GetHomeDir())}
 		}
 		virtualFolders = append(virtualFolders, vfs.VirtualFolder{
-			VirtualPath:      cleanedVPath,
-			MappedPath:       cleanedMPath,
-			ExcludeFromQuota: v.ExcludeFromQuota,
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				MappedPath: cleanedMPath,
+			},
+			VirtualPath: cleanedVPath,
+			QuotaSize:   v.QuotaSize,
+			QuotaFiles:  v.QuotaFiles,
 		})
 		for k, virtual := range mappedPaths {
 			if isMappedDirOverlapped(k, cleanedMPath) {
@@ -859,6 +987,15 @@ func createUserPasswordHash(user *User) error {
 	return nil
 }
 
+func validateFolder(folder *vfs.BaseVirtualFolder) error {
+	cleanedMPath := filepath.Clean(folder.MappedPath)
+	if !filepath.IsAbs(cleanedMPath) {
+		return &ValidationError{err: fmt.Sprintf("invalid mapped folder %#v", folder.MappedPath)}
+	}
+	folder.MappedPath = cleanedMPath
+	return nil
+}
+
 func validateUser(user *User) error {
 	buildUserHomeDir(user)
 	if err := validateBaseParams(user); err != nil {
@@ -870,7 +1007,7 @@ func validateUser(user *User) error {
 	if err := validateFilesystemConfig(user); err != nil {
 		return err
 	}
-	if err := validateVirtualFolders(user); err != nil {
+	if err := validateUserVirtualFolders(user); err != nil {
 		return err
 	}
 	if user.Status < 0 || user.Status > 1 {
@@ -1579,5 +1716,25 @@ func executeAction(operation string, user User) {
 			operation, url.String(), respCode, time.Since(startTime), err)
 	} else {
 		executeNotificationCommand(operation, user) //nolint:errcheck // the error is used in test cases only
+	}
+}
+
+// after migrating database to v4 we have to update the quota for the imported folders
+func updateVFoldersQuotaAfterRestore(foldersToScan []string) {
+	fs := vfs.NewOsFs("", "", nil).(vfs.OsFs)
+	for _, folder := range foldersToScan {
+		providerLog(logger.LevelDebug, "starting quota scan after migration for folder %#v", folder)
+		vfolder, err := provider.getFolderByPath(folder)
+		if err != nil {
+			providerLog(logger.LevelWarn, "error getting folder to scan %#v: %v", folder, err)
+			continue
+		}
+		numFiles, size, err := fs.GetDirSize(folder)
+		if err != nil {
+			providerLog(logger.LevelWarn, "error scanning folder %#v: %v", folder, err)
+			continue
+		}
+		err = UpdateVirtualFolderQuota(provider, vfolder, numFiles, size, true)
+		providerLog(logger.LevelDebug, "quota updated for virtual folder %#v, error: %v", vfolder.MappedPath, err)
 	}
 }

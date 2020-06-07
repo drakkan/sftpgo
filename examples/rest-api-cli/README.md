@@ -140,7 +140,7 @@ Output:
 Command:
 
 ```
-python sftpgo_api_cli.py update-user 9576 test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 0 --gid 33 --max-sessions 3 --quota-size 0 --quota-files 4 --permissions "*" --subdirs-permissions "/dir1::list,download,create_symlinks" --upload-bandwidth 90 --download-bandwidth 80 --status 1 --expiration-date "" --allowed-ip "" --denied-ip "192.168.1.0/24" --denied-login-methods "" --fs local --virtual-folders "/vdir1::/tmp/mapped1" "/vdir2::/tmp/mapped2::1" --allowed-extensions "" --denied-extensions ""
+python sftpgo_api_cli.py update-user 9576 test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 0 --gid 33 --max-sessions 3 --quota-size 0 --quota-files 4 --permissions "*" --subdirs-permissions "/dir1::list,download,create_symlinks" --upload-bandwidth 90 --download-bandwidth 80 --status 1 --expiration-date "" --allowed-ip "" --denied-ip "192.168.1.0/24" --denied-login-methods "" --fs local --virtual-folders "/vdir1::/tmp/mapped1::-1::-1" "/vdir2::/tmp/mapped2::100::104857600" --allowed-extensions "" --denied-extensions ""
 ```
 
 Output:
@@ -203,13 +203,23 @@ Output:
   "username": "test_username",
   "virtual_folders": [
     {
-      "exclude_from_quota": false,
+      "id": 1,
+      "last_quota_update": 0,
       "mapped_path": "/tmp/mapped1",
+      "quota_files": -1,
+      "quota_size": -1,
+      "used_quota_files": 0,
+      "used_quota_size": 0,
       "virtual_path": "/vdir1"
     },
     {
-      "exclude_from_quota": true,
+      "id": 2,
+      "last_quota_update": 0,
       "mapped_path": "/tmp/mapped2",
+      "quota_files": 100,
+      "quota_size": 104857600,
+      "used_quota_files": 0,
+      "used_quota_size": 0,
       "virtual_path": "/vdir2"
     }
   ]
@@ -315,6 +325,49 @@ Output:
 ]
 ```
 
+### Get folders
+
+Command:
+
+```
+python sftpgo_api_cli.py get-folders --limit 1 --offset 0 --folder-path /tmp/mapped1 --order DESC
+```
+
+Output:
+
+```json
+[
+  {
+    "id": 1,
+    "last_quota_update": 1591563422870,
+    "mapped_path": "/tmp/mapped1",
+    "used_quota_files": 1,
+    "used_quota_size": 13313790,
+    "users": [
+      "test_username"
+    ]
+  }
+]
+```
+
+### Add folder
+
+```
+python sftpgo_api_cli.py add-folder /tmp/mapped_folder
+```
+
+Output:
+
+```json
+{
+  "id": 4,
+  "last_quota_update": 0,
+  "mapped_path": "/tmp/mapped_folder",
+  "used_quota_files": 0,
+  "used_quota_size": 0
+}
+```
+
 ### Close connection
 
 Command:
@@ -359,6 +412,32 @@ Output:
 }
 ```
 
+### Get folder quota scans
+
+Command:
+
+```
+python sftpgo_api_cli.py get-folders-quota-scans
+```
+
+### Start folder quota scan
+
+Command:
+
+```
+python sftpgo_api_cli.py start-folder-quota-scan /tmp/mapped_folder
+```
+
+Output:
+
+```json
+{
+  "status": 201,
+  "message": "Scan started",
+  "error": ""
+}
+```
+
 ### Delete user
 
 Command:
@@ -373,6 +452,22 @@ Output:
 {
   "error": "",
   "message": "User deleted",
+  "status": 200
+}
+```
+
+### Delete folder
+
+```
+python sftpgo_api_cli.py delete-folder /tmp/mapped_folder
+```
+
+Output:
+
+```json
+{
+  "error": "",
+  "message": "Folder deleted",
   "status": 200
 }
 ```

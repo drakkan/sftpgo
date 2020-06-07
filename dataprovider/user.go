@@ -2,6 +2,7 @@ package dataprovider
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -52,6 +53,10 @@ const (
 	SSHLoginMethodKeyboardInteractive = "keyboard-interactive"
 	SSHLoginMethodKeyAndPassword      = "publickey+password"
 	SSHLoginMethodKeyAndKeyboardInt   = "publickey+keyboard-interactive"
+)
+
+var (
+	errNoMatchingVirtualFolder = errors.New("no matching virtual folder found")
 )
 
 // ExtensionsFilter defines filters based on file extensions.
@@ -121,7 +126,8 @@ type User struct {
 	PublicKeys []string `json:"public_keys,omitempty"`
 	// The user cannot upload or download files outside this directory. Must be an absolute path
 	HomeDir string `json:"home_dir"`
-	// Mapping between virtual paths and filesystem paths outside the home directory. Supported for local filesystem only
+	// Mapping between virtual paths and filesystem paths outside the home directory.
+	// Supported for local filesystem only
 	VirtualFolders []vfs.VirtualFolder `json:"virtual_folders,omitempty"`
 	// If sftpgo runs as root system user then the created files and directories will be assigned to this system UID
 	UID int `json:"uid"`
@@ -191,20 +197,22 @@ func (u *User) GetPermissionsForPath(p string) []string {
 	return permissions
 }
 
-// IsFileExcludedFromQuota returns true if the file must be excluded from quota usage
-func (u *User) IsFileExcludedFromQuota(sftpPath string) bool {
+// GetVirtualFolderForPath returns the virtual folder containing the specified sftp path.
+// If the path is not inside a virtual folder an error is returned
+func (u *User) GetVirtualFolderForPath(sftpPath string) (vfs.VirtualFolder, error) {
+	var folder vfs.VirtualFolder
 	if len(u.VirtualFolders) == 0 || u.FsConfig.Provider != 0 {
-		return false
+		return folder, errNoMatchingVirtualFolder
 	}
 	dirsForPath := utils.GetDirsForSFTPPath(path.Dir(sftpPath))
 	for _, val := range dirsForPath {
 		for _, v := range u.VirtualFolders {
 			if v.VirtualPath == val {
-				return v.ExcludeFromQuota
+				return v, nil
 			}
 		}
 	}
-	return false
+	return folder, errNoMatchingVirtualFolder
 }
 
 // AddVirtualDirs adds virtual folders, if defined, to the given files list
@@ -241,6 +249,19 @@ func (u *User) IsVirtualFolder(sftpPath string) bool {
 	return false
 }
 
+// HasVirtualFoldersInside return true if there are virtual folders inside the
+// specified SFTP path. We assume that path are cleaned
+func (u *User) HasVirtualFoldersInside(sftpPath string) bool {
+	for _, v := range u.VirtualFolders {
+		if len(v.VirtualPath) > len(sftpPath) {
+			if strings.HasPrefix(v.VirtualPath, sftpPath+"/") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // HasPerm returns true if the user has the given permission or any permission
 func (u *User) HasPerm(permission, path string) bool {
 	perms := u.GetPermissionsForPath(path)
@@ -262,6 +283,14 @@ func (u *User) HasPerms(permissions []string, path string) bool {
 		}
 	}
 	return true
+}
+
+// HasNoQuotaRestrictions returns true if no quota restrictions need to be applyed
+func (u *User) HasNoQuotaRestrictions(checkFiles bool) bool {
+	if u.QuotaSize == 0 && (!checkFiles || u.QuotaFiles == 0) {
+		return true
+	}
+	return false
 }
 
 // IsLoginMethodAllowed returns true if the specified login method is allowed
@@ -419,11 +448,6 @@ func (u *User) GetFiltersAsJSON() ([]byte, error) {
 // GetFsConfigAsJSON returns the filesystem config as json byte array
 func (u *User) GetFsConfigAsJSON() ([]byte, error) {
 	return json.Marshal(u.FsConfig)
-}
-
-// GetVirtualFoldersAsJSON returns the virtual folders as json byte array
-func (u *User) GetVirtualFoldersAsJSON() ([]byte, error) {
-	return json.Marshal(u.VirtualFolders)
 }
 
 // GetUID returns a validate uid, suitable for use with os.Chown

@@ -12,6 +12,7 @@ import (
 
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 const (
@@ -22,9 +23,19 @@ const (
 "last_quota_update" bigint NOT NULL, "upload_bandwidth" integer NOT NULL, "download_bandwidth" integer NOT NULL,
 "expiration_date" bigint NOT NULL, "last_login" bigint NOT NULL, "status" integer NOT NULL, "filters" text NULL,
 "filesystem" text NULL);`
-	pgsqlSchemaTableSQL = `CREATE TABLE "schema_version" ("id" serial NOT NULL PRIMARY KEY, "version" integer NOT NULL);`
-	pgsqlUsersV2SQL     = `ALTER TABLE "{{users}}" ADD COLUMN "virtual_folders" text NULL;`
-	pgsqlUsersV3SQL     = `ALTER TABLE "{{users}}" ALTER COLUMN "password" TYPE text USING "password"::text;`
+	pgsqlSchemaTableSQL = `CREATE TABLE "{{schema_version}}" ("id" serial NOT NULL PRIMARY KEY, "version" integer NOT NULL);`
+	pgsqlV2SQL          = `ALTER TABLE "{{users}}" ADD COLUMN "virtual_folders" text NULL;`
+	pgsqlV3SQL          = `ALTER TABLE "{{users}}" ALTER COLUMN "password" TYPE text USING "password"::text;`
+	pgsqlV4SQL          = `CREATE TABLE "{{folders}}" ("id" serial NOT NULL PRIMARY KEY, "path" varchar(512) NOT NULL UNIQUE, "used_quota_size" bigint NOT NULL, "used_quota_files" integer NOT NULL, "last_quota_update" bigint NOT NULL);
+ALTER TABLE "{{users}}" ALTER COLUMN "home_dir" TYPE varchar(512) USING "home_dir"::varchar(512);
+ALTER TABLE "{{users}}" DROP COLUMN "virtual_folders" CASCADE;
+CREATE TABLE "{{folders_mapping}}" ("id" serial NOT NULL PRIMARY KEY, "virtual_path" varchar(512) NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "folder_id" integer NOT NULL, "user_id" integer NOT NULL);
+ALTER TABLE "{{folders_mapping}}" ADD CONSTRAINT "unique_mapping" UNIQUE ("user_id", "folder_id");
+ALTER TABLE "{{folders_mapping}}" ADD CONSTRAINT "folders_mapping_folder_id_fk_folders_id" FOREIGN KEY ("folder_id") REFERENCES "{{folders}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
+ALTER TABLE "{{folders_mapping}}" ADD CONSTRAINT "folders_mapping_user_id_fk_users_id" FOREIGN KEY ("user_id") REFERENCES "{{users}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
+CREATE INDEX "folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_id");
+CREATE INDEX "folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
+`
 )
 
 // PGSQLProvider auth provider for PostgreSQL database
@@ -87,12 +98,12 @@ func (p PGSQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64,
 	return sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
 }
 
-func (p PGSQLProvider) updateLastLogin(username string) error {
-	return sqlCommonUpdateLastLogin(username, p.dbHandle)
-}
-
 func (p PGSQLProvider) getUsedQuota(username string) (int, int64, error) {
 	return sqlCommonGetUsedQuota(username, p.dbHandle)
+}
+
+func (p PGSQLProvider) updateLastLogin(username string) error {
+	return sqlCommonUpdateLastLogin(username, p.dbHandle)
 }
 
 func (p PGSQLProvider) userExists(username string) (User, error) {
@@ -119,6 +130,34 @@ func (p PGSQLProvider) getUsers(limit int, offset int, order string, username st
 	return sqlCommonGetUsers(limit, offset, order, username, p.dbHandle)
 }
 
+func (p PGSQLProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
+	return sqlCommonDumpFolders(p.dbHandle)
+}
+
+func (p PGSQLProvider) getFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error) {
+	return sqlCommonGetFolders(limit, offset, order, folderPath, p.dbHandle)
+}
+
+func (p PGSQLProvider) getFolderByPath(mappedPath string) (vfs.BaseVirtualFolder, error) {
+	return sqlCommonCheckFolderExists(mappedPath, p.dbHandle)
+}
+
+func (p PGSQLProvider) addFolder(folder vfs.BaseVirtualFolder) error {
+	return sqlCommonAddFolder(folder, p.dbHandle)
+}
+
+func (p PGSQLProvider) deleteFolder(folder vfs.BaseVirtualFolder) error {
+	return sqlCommonDeleteFolder(folder, p.dbHandle)
+}
+
+func (p PGSQLProvider) updateFolderQuota(mappedPath string, filesAdd int, sizeAdd int64, reset bool) error {
+	return sqlCommonUpdateFolderQuota(mappedPath, filesAdd, sizeAdd, reset, p.dbHandle)
+}
+
+func (p PGSQLProvider) getUsedFolderQuota(mappedPath string) (int, int64, error) {
+	return sqlCommonGetFolderUsedQuota(mappedPath, p.dbHandle)
+}
+
 func (p PGSQLProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -129,7 +168,7 @@ func (p PGSQLProvider) reloadConfig() error {
 
 // initializeDatabase creates the initial database structure
 func (p PGSQLProvider) initializeDatabase() error {
-	sqlUsers := strings.Replace(pgsqlUsersTableSQL, "{{users}}", config.UsersTable, 1)
+	sqlUsers := strings.Replace(pgsqlUsersTableSQL, "{{users}}", sqlTableUsers, 1)
 	tx, err := p.dbHandle.Begin()
 	if err != nil {
 		return err
@@ -139,12 +178,12 @@ func (p PGSQLProvider) initializeDatabase() error {
 		sqlCommonRollbackTransaction(tx)
 		return err
 	}
-	_, err = tx.Exec(pgsqlSchemaTableSQL)
+	_, err = tx.Exec(strings.Replace(pgsqlSchemaTableSQL, "{{schema_version}}", sqlTableSchemaVersion, 1))
 	if err != nil {
 		sqlCommonRollbackTransaction(tx)
 		return err
 	}
-	_, err = tx.Exec(initialDBVersionSQL)
+	_, err = tx.Exec(strings.Replace(initialDBVersionSQL, "{{schema_version}}", sqlTableSchemaVersion, 1))
 	if err != nil {
 		sqlCommonRollbackTransaction(tx)
 		return err
@@ -167,9 +206,19 @@ func (p PGSQLProvider) migrateDatabase() error {
 		if err != nil {
 			return err
 		}
-		return updatePGSQLDatabaseFrom2To3(p.dbHandle)
+		err = updatePGSQLDatabaseFrom2To3(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		return updatePGSQLDatabaseFrom3To4(p.dbHandle)
 	case 2:
-		return updatePGSQLDatabaseFrom2To3(p.dbHandle)
+		err = updatePGSQLDatabaseFrom2To3(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		return updatePGSQLDatabaseFrom3To4(p.dbHandle)
+	case 3:
+		return updatePGSQLDatabaseFrom3To4(p.dbHandle)
 	default:
 		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
 	}
@@ -177,30 +226,16 @@ func (p PGSQLProvider) migrateDatabase() error {
 
 func updatePGSQLDatabaseFrom1To2(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "updating database version: 1 -> 2")
-	sql := strings.Replace(pgsqlUsersV2SQL, "{{users}}", config.UsersTable, 1)
-	return updatePGSQLDatabase(dbHandle, sql, 2)
+	sql := strings.Replace(pgsqlV2SQL, "{{users}}", sqlTableUsers, 1)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 2)
 }
 
 func updatePGSQLDatabaseFrom2To3(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "updating database version: 2 -> 3")
-	sql := strings.Replace(pgsqlUsersV3SQL, "{{users}}", config.UsersTable, 1)
-	return updatePGSQLDatabase(dbHandle, sql, 3)
+	sql := strings.Replace(pgsqlV3SQL, "{{users}}", sqlTableUsers, 1)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 3)
 }
 
-func updatePGSQLDatabase(dbHandle *sql.DB, sql string, newVersion int) error {
-	tx, err := dbHandle.Begin()
-	if err != nil {
-		return err
-	}
-	_, err = tx.Exec(sql)
-	if err != nil {
-		sqlCommonRollbackTransaction(tx)
-		return err
-	}
-	err = sqlCommonUpdateDatabaseVersionWithTX(tx, newVersion)
-	if err != nil {
-		sqlCommonRollbackTransaction(tx)
-		return err
-	}
-	return tx.Commit()
+func updatePGSQLDatabaseFrom3To4(dbHandle *sql.DB) error {
+	return sqlCommonUpdateDatabaseFrom3To4(pgsqlV4SQL, dbHandle)
 }

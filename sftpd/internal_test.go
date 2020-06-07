@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -97,6 +98,14 @@ func (fs MockOsFs) Stat(name string) (os.FileInfo, error) {
 		return nil, fs.statErr
 	}
 	return os.Stat(name)
+}
+
+// Lstat returns a FileInfo describing the named file
+func (fs MockOsFs) Lstat(name string) (os.FileInfo, error) {
+	if fs.statErr != nil {
+		return nil, fs.statErr
+	}
+	return os.Lstat(name)
 }
 
 // Remove removes the named file or (empty) directory.
@@ -203,6 +212,9 @@ func TestActionHTTP(t *testing.T) {
 }
 
 func TestPreDeleteAction(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
 	actionsCopy := actions
 
 	hookCmd, err := exec.LookPath("true")
@@ -443,8 +455,6 @@ func TestMockFsErrors(t *testing.T) {
 	request := sftp.NewRequest("Remove", testfile)
 	err := ioutil.WriteFile(testfile, []byte("test"), 0666)
 	assert.NoError(t, err)
-	err = c.handleSFTPRemove(testfile, request)
-	assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
 	_, err = c.Filewrite(request)
 	assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
 
@@ -452,8 +462,13 @@ func TestMockFsErrors(t *testing.T) {
 	flags.Write = true
 	flags.Trunc = false
 	flags.Append = true
-	_, err = c.handleSFTPUploadToExistingFile(flags, testfile, testfile, 0, false)
+	_, err = c.handleSFTPUploadToExistingFile(flags, testfile, testfile, 0, "/testfile")
 	assert.EqualError(t, err, sftp.ErrSSHFxOpUnsupported.Error())
+
+	fs = newMockOsFs(errFake, nil, false, "123", os.TempDir())
+	c.fs = fs
+	err = c.handleSFTPRemove(testfile, request)
+	assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
 
 	err = os.Remove(testfile)
 	assert.NoError(t, err)
@@ -468,18 +483,18 @@ func TestUploadFiles(t *testing.T) {
 	var flags sftp.FileOpenFlags
 	flags.Write = true
 	flags.Trunc = true
-	_, err := c.handleSFTPUploadToExistingFile(flags, "missing_path", "other_missing_path", 0, false)
+	_, err := c.handleSFTPUploadToExistingFile(flags, "missing_path", "other_missing_path", 0, "/missing_path")
 	assert.Error(t, err, "upload to existing file must fail if one or both paths are invalid")
 
 	uploadMode = uploadModeStandard
-	_, err = c.handleSFTPUploadToExistingFile(flags, "missing_path", "other_missing_path", 0, false)
+	_, err = c.handleSFTPUploadToExistingFile(flags, "missing_path", "other_missing_path", 0, "/missing_path")
 	assert.Error(t, err, "upload to existing file must fail if one or both paths are invalid")
 
 	missingFile := "missing/relative/file.txt"
 	if runtime.GOOS == osWindows {
 		missingFile = "missing\\relative\\file.txt"
 	}
-	_, err = c.handleSFTPUploadToNewFile(".", missingFile, false)
+	_, err = c.handleSFTPUploadToNewFile(".", missingFile, "/missing")
 	assert.Error(t, err, "upload new file in missing path must fail")
 
 	c.fs = newMockOsFs(nil, nil, false, "123", os.TempDir())
@@ -488,7 +503,7 @@ func TestUploadFiles(t *testing.T) {
 	err = f.Close()
 	assert.NoError(t, err)
 
-	_, err = c.handleSFTPUploadToExistingFile(flags, f.Name(), f.Name(), 123, false)
+	_, err = c.handleSFTPUploadToExistingFile(flags, f.Name(), f.Name(), 123, f.Name())
 	assert.NoError(t, err)
 	if assert.Equal(t, 1, len(activeTransfers)) {
 		transfer := activeTransfers[0]
@@ -572,7 +587,7 @@ func TestSFTPGetUsedQuota(t *testing.T) {
 	connection := Connection{
 		User: u,
 	}
-	assert.False(t, connection.hasSpace(false))
+	assert.False(t, connection.hasSpace(false, "/"))
 }
 
 func TestSupportedSSHCommands(t *testing.T) {
@@ -923,16 +938,20 @@ func TestGitVirtualFolders(t *testing.T) {
 		args:       []string{"/vdir"},
 	}
 	cmd.connection.User.VirtualFolders = append(cmd.connection.User.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: os.TempDir(),
+		},
 		VirtualPath: "/vdir",
-		MappedPath:  os.TempDir(),
 	})
 	_, err = cmd.getSystemCommand()
 	assert.EqualError(t, err, errUnsupportedConfig.Error())
 
 	cmd.connection.User.VirtualFolders = nil
 	cmd.connection.User.VirtualFolders = append(cmd.connection.User.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: os.TempDir(),
+		},
 		VirtualPath: "/vdir",
-		MappedPath:  os.TempDir(),
 	})
 	cmd.args = []string{"/vdir/subdir"}
 	_, err = cmd.getSystemCommand()
@@ -987,8 +1006,10 @@ func TestRsyncOptions(t *testing.T) {
 		"--munge-links must be added if the user has the create symlinks permission")
 
 	sshCmd.connection.User.VirtualFolders = append(sshCmd.connection.User.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: os.TempDir(),
+		},
 		VirtualPath: "/vdir",
-		MappedPath:  os.TempDir(),
 	})
 	_, err = sshCmd.getSystemCommand()
 	assert.EqualError(t, err, errUnsupportedConfig.Error())
@@ -1391,7 +1412,7 @@ func TestSCPErrorsMockFs(t *testing.T) {
 	err = scpCommand.handleUpload(filepath.Base(testfile), 0)
 	assert.EqualError(t, err, errFake.Error())
 
-	err = scpCommand.handleUploadFile(testfile, testfile, 0, false, 4, false)
+	err = scpCommand.handleUploadFile(testfile, testfile, 0, false, 4, "/testfile")
 	assert.NoError(t, err)
 	err = os.Remove(testfile)
 	assert.NoError(t, err)
@@ -1809,4 +1830,44 @@ func TestCertCheckerInitErrors(t *testing.T) {
 	assert.Error(t, err)
 	err = os.Remove(testfile)
 	assert.NoError(t, err)
+}
+
+func TestUpdateQuotaAfterRenameMissingFile(t *testing.T) {
+	user := dataprovider.User{
+		Username: "username",
+		HomeDir:  filepath.Join(os.TempDir(), "home"),
+	}
+	mappedPath := filepath.Join(os.TempDir(), "vdir")
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{dataprovider.PermAny}
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath,
+		},
+		VirtualPath: "/vdir",
+	})
+	c := Connection{
+		fs:   vfs.NewOsFs("id", os.TempDir(), nil),
+		User: user,
+	}
+	request := sftp.NewRequest("Rename", "/testfile")
+	request.Filepath = "/dir"
+	request.Target = path.Join("vdir", "dir")
+	if runtime.GOOS != "windows" {
+		testDirPath := filepath.Join(mappedPath, "dir")
+		err := os.MkdirAll(testDirPath, 0777)
+		assert.NoError(t, err)
+		err = os.Chmod(testDirPath, 0001)
+		assert.NoError(t, err)
+		err = c.updateQuotaAfterRename(request, testDirPath, 0)
+		assert.Error(t, err)
+		err = os.Chmod(testDirPath, 0777)
+		assert.NoError(t, err)
+		err = os.RemoveAll(testDirPath)
+		assert.NoError(t, err)
+	}
+	request.Target = "/testfile1"
+	request.Filepath = path.Join("vdir", "file")
+	err := c.updateQuotaAfterRename(request, filepath.Join(os.TempDir(), "vdir", "file"), 0)
+	assert.Error(t, err)
 }

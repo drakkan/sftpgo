@@ -24,7 +24,7 @@ Fully featured and highly configurable SFTP server, written in Go
 - Per user IP filters are supported: login can be restricted to specific ranges of IP addresses or to a specific IP address.
 - Per user and per directory file extensions filters are supported: files can be allowed or denied based on their extensions.
 - Virtual folders are supported: directories outside the user home directory can be exposed as virtual folders.
-- Configurable custom commands and/or HTTP notifications on file upload, download, delete, rename, on SSH commands and on user add, update and delete.
+- Configurable custom commands and/or HTTP notifications on file upload, download, pre-delete, delete, rename, on SSH commands and on user add, update and delete.
 - Automatically terminating idle connections.
 - Atomic uploads are configurable.
 - Support for Git repositories over SSH.
@@ -131,6 +131,10 @@ A user can be created or modified by an external program just before the login. 
 SFTPGo allows to configure custom commands and/or HTTP notifications on file upload, download, delete, rename, on SSH commands and on user add, update and delete.
 
 More information about custom actions can be found [here](./docs/custom-actions.md).
+
+## Virtual folders
+
+Directories outside the user home directory can be exposed as virtual folders, more information [here](./docs/virtual-folders.md).
 
 ## Storage backends
 

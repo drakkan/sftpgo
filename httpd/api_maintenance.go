@@ -14,6 +14,7 @@ import (
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 func dumpData(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +46,7 @@ func dumpData(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Debug(logSender, "", "dumping data to: %#v", outputFile)
 
-	users, err := dataprovider.DumpUsers(dataProvider)
+	backup, err := dataprovider.DumpData(dataProvider)
 	if err != nil {
 		logger.Warn(logSender, "", "dumping data error: %v, output file: %#v", err, outputFile)
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -53,13 +54,9 @@ func dumpData(w http.ResponseWriter, r *http.Request) {
 	}
 	var dump []byte
 	if indent == "1" {
-		dump, err = json.MarshalIndent(dataprovider.BackupData{
-			Users: users,
-		}, "", "  ")
+		dump, err = json.MarshalIndent(backup, "", "  ")
 	} else {
-		dump, err = json.Marshal(dataprovider.BackupData{
-			Users: users,
-		})
+		dump, err = json.Marshal(backup)
 	}
 	if err == nil {
 		err = ioutil.WriteFile(outputFile, dump, 0600)
@@ -106,39 +103,16 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for _, user := range dump.Users {
-		u, err := dataprovider.UserExists(dataProvider, user.Username)
-		if err == nil {
-			if mode == 1 {
-				logger.Debug(logSender, "", "loaddata mode 1, existing user %#v not updated", u.Username)
-				continue
-			}
-			user.ID = u.ID
-			user.LastLogin = u.LastLogin
-			user.UsedQuotaSize = u.UsedQuotaSize
-			user.UsedQuotaFiles = u.UsedQuotaFiles
-			err = dataprovider.UpdateUser(dataProvider, user)
-			user.Password = "[redacted]"
-			logger.Debug(logSender, "", "restoring existing user: %+v, dump file: %#v, error: %v", user, inputFile, err)
-		} else {
-			user.LastLogin = 0
-			user.UsedQuotaSize = 0
-			user.UsedQuotaFiles = 0
-			err = dataprovider.AddUser(dataProvider, user)
-			user.Password = "[redacted]"
-			logger.Debug(logSender, "", "adding new user: %+v, dump file: %#v, error: %v", user, inputFile, err)
-		}
-		if err != nil {
-			sendAPIResponse(w, r, err, "", getRespStatus(err))
-			return
-		}
-		if scanQuota == 1 || (scanQuota == 2 && user.HasQuotaRestrictions()) {
-			if sftpd.AddQuotaScan(user.Username) {
-				logger.Debug(logSender, "", "starting quota scan for restored user: %#v", user.Username)
-				go doQuotaScan(user) //nolint:errcheck
-			}
-		}
+	if err = restoreFolders(dump.Folders, inputFile, scanQuota); err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
 	}
+
+	if err = restoreUsers(dump.Users, inputFile, mode, scanQuota); err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+
 	logger.Debug(logSender, "", "backup restored, users: %v", len(dump.Users))
 	sendAPIResponse(w, r, err, "Data restored", http.StatusOK)
 }
@@ -164,4 +138,57 @@ func getLoaddataOptions(r *http.Request) (string, int, int, error) {
 		}
 	}
 	return inputFile, scanQuota, restoreMode, err
+}
+
+func restoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, scanQuota int) error {
+	for _, folder := range folders {
+		_, err := dataprovider.GetFolderByPath(dataProvider, folder.MappedPath)
+		if err == nil {
+			logger.Debug(logSender, "", "folder %#v already exists, restore not needed", folder.MappedPath)
+			continue
+		}
+		folder.Users = nil
+		err = dataprovider.AddFolder(dataProvider, folder)
+		logger.Debug(logSender, "", "adding new folder: %+v, dump file: %#v, error: %v", folder, inputFile, err)
+		if err != nil {
+			return err
+		}
+		if scanQuota >= 1 {
+			if sftpd.AddVFolderQuotaScan(folder.MappedPath) {
+				logger.Debug(logSender, "", "starting quota scan for restored folder: %#v", folder.MappedPath)
+				go doFolderQuotaScan(folder) //nolint:errcheck
+			}
+		}
+	}
+	return nil
+}
+
+func restoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota int) error {
+	for _, user := range users {
+		u, err := dataprovider.UserExists(dataProvider, user.Username)
+		if err == nil {
+			if mode == 1 {
+				logger.Debug(logSender, "", "loaddata mode 1, existing user %#v not updated", u.Username)
+				continue
+			}
+			user.ID = u.ID
+			err = dataprovider.UpdateUser(dataProvider, user)
+			user.Password = "[redacted]"
+			logger.Debug(logSender, "", "restoring existing user: %+v, dump file: %#v, error: %v", user, inputFile, err)
+		} else {
+			err = dataprovider.AddUser(dataProvider, user)
+			user.Password = "[redacted]"
+			logger.Debug(logSender, "", "adding new user: %+v, dump file: %#v, error: %v", user, inputFile, err)
+		}
+		if err != nil {
+			return err
+		}
+		if scanQuota == 1 || (scanQuota == 2 && user.HasQuotaRestrictions()) {
+			if sftpd.AddQuotaScan(user.Username) {
+				logger.Debug(logSender, "", "starting quota scan for restored user: %#v", user.Username)
+				go doQuotaScan(user) //nolint:errcheck
+			}
+		}
+	}
+	return nil
 }

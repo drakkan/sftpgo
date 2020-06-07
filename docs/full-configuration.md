@@ -84,12 +84,12 @@ The configuration file contains the following sections:
   - `password`, string. Database password. Leave empty for drivers `sqlite`, `bolt` and `memory`
   - `sslmode`, integer. Used for drivers `mysql` and `postgresql`. 0 disable SSL/TLS connections, 1 require ssl, 2 set ssl mode to `verify-ca` for driver `postgresql` and `skip-verify` for driver `mysql`, 3 set ssl mode to `verify-full` for driver `postgresql` and `preferred` for driver `mysql`
   - `connectionstring`, string. Provide a custom database connection string. If not empty, this connection string will be used instead of building one using the previous parameters. Leave empty for drivers `bolt` and `memory`
-  - `users_table`, string. Database table for SFTP users
+  - `sql_tables_prefix`, string. Prefix for SQL tables
   - `manage_users`, integer. Set to 0 to disable users management, 1 to enable
   - `track_quota`, integer. Set the preferred mode to track users quota between the following choices:
-    - 0, disable quota tracking. REST API to scan user dir and update quota will do nothing
+    - 0, disable quota tracking. REST API to scan users home directories/virtual folders and update quota will do nothing
     - 1, quota is updated each time a user uploads or deletes a file, even if the user has no quota restrictions
-    - 2, quota is updated each time a user uploads or deletes a file, but only for users with quota restrictions. With this configuration, the "quota scan" REST API can still be used to periodically update space usage for users without quota restrictions
+    - 2, quota is updated each time a user uploads or deletes a file, but only for users with quota restrictions and for virtual folders. With this configuration, the `quota scan` and `folder_quota_scan` REST API can still be used to periodically update space usage for users without quota restrictions and for folders
   - `pool_size`, integer. Sets the maximum number of open connections for `mysql` and `postgresql` driver. Default 0 (unlimited)
   - `users_base_dir`, string. Users default base directory. If no home dir is defined while adding a new user, and this value is a valid absolute path, then the user home dir will be automatically defined as the path obtained joining the base dir and the username
   - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions. See the "Custom Actions" paragraph for more details

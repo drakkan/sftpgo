@@ -173,12 +173,12 @@ func (fs OsFs) CheckRootPath(username string, uid int, gid int) bool {
 // ScanRootDirContents returns the number of files contained in a directory and
 // their size
 func (fs OsFs) ScanRootDirContents() (int, int64, error) {
-	numFiles, size, err := fs.getDirSize(fs.rootDir)
+	numFiles, size, err := fs.GetDirSize(fs.rootDir)
 	for _, v := range fs.virtualFolders {
-		if v.ExcludeFromQuota {
+		if !v.IsIncludedInUserQuota() {
 			continue
 		}
-		num, s, err := fs.getDirSize(v.MappedPath)
+		num, s, err := fs.GetDirSize(v.MappedPath)
 		if err != nil {
 			if fs.IsNotExist(err) {
 				fsLog(fs, logger.LevelWarn, "unable to scan contents for non-existent mapped path: %#v", v.MappedPath)
@@ -250,6 +250,27 @@ func (fs OsFs) ResolvePath(sftpPath string) (string, error) {
 		fsLog(fs, logger.LevelWarn, "Invalid path resolution, dir: %#v outside user home: %#v err: %v", p, fs.rootDir, err)
 	}
 	return r, err
+}
+
+// GetDirSize returns the number of files and the size for a folder
+// including any subfolders
+func (fs OsFs) GetDirSize(dirname string) (int, int64, error) {
+	numFiles := 0
+	size := int64(0)
+	isDir, err := IsDirectory(fs, dirname)
+	if err == nil && isDir {
+		err = filepath.Walk(dirname, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info != nil && info.Mode().IsRegular() {
+				size += info.Size()
+				numFiles++
+			}
+			return err
+		})
+	}
+	return numFiles, size, err
 }
 
 // GetFsPaths returns the base path and filesystem path for the given sftpPath.
@@ -369,23 +390,4 @@ func (fs *OsFs) createMissingDirs(filePath string, uid, gid int) error {
 		SetPathPermissions(fs, d, uid, gid)
 	}
 	return nil
-}
-
-func (fs *OsFs) getDirSize(dirname string) (int, int64, error) {
-	numFiles := 0
-	size := int64(0)
-	isDir, err := IsDirectory(fs, dirname)
-	if err == nil && isDir {
-		err = filepath.Walk(dirname, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if info != nil && info.Mode().IsRegular() {
-				size += info.Size()
-				numFiles++
-			}
-			return err
-		})
-	}
-	return numFiles, size, err
 }
