@@ -6334,8 +6334,7 @@ func getExtAuthScriptContent(user dataprovider.User, nonJSONResponse bool) []byt
 		extAuthContent = append(extAuthContent, []byte("echo 'text response'\n")...)
 	} else {
 		json, _ := json.Marshal(user)
-		quoteJson := strconv.Quote(string(json))
-		extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("echo '%v'\n", quoteJson))...)
+		extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("echo '%v'\n", strconv.Quote(string(json))))...)
 	}
 	extAuthContent = append(extAuthContent, []byte("fi\n")...)
 	return extAuthContent

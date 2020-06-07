@@ -1107,7 +1107,7 @@ func TestQuotaTrackingDisabled(t *testing.T) {
 	assert.NoError(t, err)
 	// folder quota scan must fail
 	folder := vfs.BaseVirtualFolder{
-		MappedPath: os.TempDir(),
+		MappedPath: filepath.Clean(os.TempDir()),
 	}
 	folder, _, err = httpd.AddFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
@@ -1189,7 +1189,7 @@ func TestFolders(t *testing.T) {
 	}
 	_, _, err := httpd.AddFolder(folder, http.StatusBadRequest)
 	assert.NoError(t, err)
-	folder.MappedPath = os.TempDir()
+	folder.MappedPath = filepath.Clean(os.TempDir())
 	folder1, _, err := httpd.AddFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, folder.MappedPath, folder1.MappedPath)
@@ -2429,7 +2429,7 @@ func TestWebUserGCSMock(t *testing.T) {
 }
 
 func TestAddWebFoldersMock(t *testing.T) {
-	mappedPath := os.TempDir()
+	mappedPath := filepath.Clean(os.TempDir())
 	form := make(url.Values)
 	form.Set("mapped_path", mappedPath)
 	req, err := http.NewRequest(http.MethodPost, webFolderPath, strings.NewReader(form.Encode()))
