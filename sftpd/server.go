@@ -513,15 +513,40 @@ func (c *Configuration) checkSSHCommands() {
 	c.EnabledSSHCommands = sshCommands
 }
 
-// If no host keys are defined we try to use or generate the default ones.
-func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh.ServerConfig) error {
+func (c *Configuration) checkHostKeyAutoGeneration(configDir string) error {
+	for _, k := range c.HostKeys {
+		if filepath.IsAbs(k) {
+			if _, err := os.Stat(k); os.IsNotExist(err) {
+				keyName := filepath.Base(k)
+				switch keyName {
+				case defaultPrivateRSAKeyName:
+					logger.Info(logSender, "", "try to create non-existent host key %#v", k)
+					logger.InfoToConsole("try to create non-existent host key %#v", k)
+					err = utils.GenerateRSAKeys(k)
+					if err != nil {
+						return err
+					}
+				case defaultPrivateECDSAKeyName:
+					logger.Info(logSender, "", "try to create non-existent host key %#v", k)
+					logger.InfoToConsole("try to create non-existent host key %#v", k)
+					err = utils.GenerateECDSAKeys(k)
+					if err != nil {
+						return err
+					}
+				default:
+					logger.Warn(logSender, "", "non-existent host key %#v will not be created", k)
+					logger.WarnToConsole("non-existent host key %#v will not be created", k)
+				}
+			}
+		}
+	}
 	if len(c.HostKeys) == 0 {
 		defaultKeys := []string{defaultPrivateRSAKeyName, defaultPrivateECDSAKeyName}
 		for _, k := range defaultKeys {
 			autoFile := filepath.Join(configDir, k)
 			if _, err := os.Stat(autoFile); os.IsNotExist(err) {
-				logger.Info(logSender, "", "No host keys configured and %#v does not exist; creating new key for server", autoFile)
-				logger.InfoToConsole("No host keys configured and %#v does not exist; creating new key for server", autoFile)
+				logger.Info(logSender, "", "No host keys configured and %#v does not exist; try to create a new host key", autoFile)
+				logger.InfoToConsole("No host keys configured and %#v does not exist; try to create a new host key", autoFile)
 				if k == defaultPrivateRSAKeyName {
 					err = utils.GenerateRSAKeys(autoFile)
 				} else {
@@ -533,6 +558,14 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 			}
 			c.HostKeys = append(c.HostKeys, k)
 		}
+	}
+	return nil
+}
+
+// If no host keys are defined we try to use or generate the default ones.
+func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh.ServerConfig) error {
+	if err := c.checkHostKeyAutoGeneration(configDir); err != nil {
+		return err
 	}
 	for _, k := range c.HostKeys {
 		hostKey := k

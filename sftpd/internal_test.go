@@ -1803,17 +1803,52 @@ func TestProxyProtocolVersion(t *testing.T) {
 }
 
 func TestLoadHostKeys(t *testing.T) {
+	configDir := ".."
+	serverConfig := &ssh.ServerConfig{}
 	c := Configuration{}
 	c.HostKeys = []string{".", "missing file"}
-	err := c.checkAndLoadHostKeys("..", &ssh.ServerConfig{})
+	err := c.checkAndLoadHostKeys(configDir, serverConfig)
 	assert.Error(t, err)
 	testfile := filepath.Join(os.TempDir(), "invalidkey")
 	err = ioutil.WriteFile(testfile, []byte("some bytes"), 0666)
 	assert.NoError(t, err)
 	c.HostKeys = []string{testfile}
-	err = c.checkAndLoadHostKeys("..", &ssh.ServerConfig{})
+	err = c.checkAndLoadHostKeys(configDir, serverConfig)
 	assert.Error(t, err)
 	err = os.Remove(testfile)
+	assert.NoError(t, err)
+	keysDir := filepath.Join(os.TempDir(), "keys")
+	err = os.MkdirAll(keysDir, 0777)
+	assert.NoError(t, err)
+	rsaKeyName := filepath.Join(keysDir, defaultPrivateRSAKeyName)
+	ecdsaKeyName := filepath.Join(keysDir, defaultPrivateECDSAKeyName)
+	nonDefaultKeyName := filepath.Join(keysDir, "akey")
+	c.HostKeys = []string{nonDefaultKeyName, rsaKeyName, ecdsaKeyName}
+	err = c.checkAndLoadHostKeys(configDir, serverConfig)
+	assert.Error(t, err)
+	assert.FileExists(t, rsaKeyName)
+	assert.FileExists(t, ecdsaKeyName)
+	assert.NoFileExists(t, nonDefaultKeyName)
+	err = os.Remove(rsaKeyName)
+	assert.NoError(t, err)
+	err = os.Remove(ecdsaKeyName)
+	assert.NoError(t, err)
+	if runtime.GOOS != osWindows {
+		err = os.Chmod(keysDir, 0551)
+		assert.NoError(t, err)
+		c.HostKeys = nil
+		err = c.checkAndLoadHostKeys(keysDir, serverConfig)
+		assert.Error(t, err)
+		c.HostKeys = []string{rsaKeyName, ecdsaKeyName}
+		err = c.checkAndLoadHostKeys(configDir, serverConfig)
+		assert.Error(t, err)
+		c.HostKeys = []string{ecdsaKeyName, rsaKeyName}
+		err = c.checkAndLoadHostKeys(configDir, serverConfig)
+		assert.Error(t, err)
+		err = os.Chmod(keysDir, 0755)
+		assert.NoError(t, err)
+	}
+	err = os.RemoveAll(keysDir)
 	assert.NoError(t, err)
 }
 
@@ -1853,7 +1888,7 @@ func TestUpdateQuotaAfterRenameMissingFile(t *testing.T) {
 	request := sftp.NewRequest("Rename", "/testfile")
 	request.Filepath = "/dir"
 	request.Target = path.Join("vdir", "dir")
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != osWindows {
 		testDirPath := filepath.Join(mappedPath, "dir")
 		err := os.MkdirAll(testDirPath, 0777)
 		assert.NoError(t, err)
