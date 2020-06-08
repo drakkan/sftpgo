@@ -122,7 +122,7 @@ func TestMain(m *testing.M) {
 	httpd.SetBaseURLAndCredentials("http://127.0.0.1:8081", "", "")
 	backupsPath = filepath.Join(os.TempDir(), "test_backups")
 	httpdConf.BackupsPath = backupsPath
-	err = os.MkdirAll(backupsPath, 0777)
+	err = os.MkdirAll(backupsPath, os.ModePerm)
 	if err != nil {
 		logger.WarnToConsole("error creating backups path: %v", err)
 		os.Exit(1)
@@ -1742,7 +1742,7 @@ func TestStartQuotaScanMock(t *testing.T) {
 	}
 	_, err = os.Stat(user.HomeDir)
 	if err != nil && os.IsNotExist(err) {
-		err = os.MkdirAll(user.HomeDir, 0777)
+		err = os.MkdirAll(user.HomeDir, os.ModePerm)
 		assert.NoError(t, err)
 	}
 	req, _ = http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer(userAsJSON))
@@ -1797,7 +1797,7 @@ func TestStartFolderQuotaScanMock(t *testing.T) {
 	// and now a real quota scan
 	_, err = os.Stat(mappedPath)
 	if err != nil && os.IsNotExist(err) {
-		err = os.MkdirAll(mappedPath, 0777)
+		err = os.MkdirAll(mappedPath, os.ModePerm)
 		assert.NoError(t, err)
 	}
 	req, _ = http.NewRequest(http.MethodPost, quotaScanVFolderPath, bytes.NewBuffer(folderAsJSON))
@@ -2612,7 +2612,7 @@ func checkResponseCode(t *testing.T, expected, actual int) {
 func createTestFile(path string, size int64) error {
 	baseDir := filepath.Dir(path)
 	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
-		err = os.MkdirAll(baseDir, 0777)
+		err = os.MkdirAll(baseDir, os.ModePerm)
 		if err != nil {
 			return err
 		}

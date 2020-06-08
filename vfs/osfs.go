@@ -88,7 +88,7 @@ func (OsFs) Remove(name string, isDir bool) error {
 
 // Mkdir creates a new directory with the specified name and default permissions
 func (OsFs) Mkdir(name string) error {
-	return os.Mkdir(name, 0777)
+	return os.Mkdir(name, os.ModePerm)
 }
 
 // Symlink creates source as a symbolic link to target.
@@ -152,7 +152,7 @@ func (OsFs) IsPermission(err error) bool {
 func (fs OsFs) CheckRootPath(username string, uid int, gid int) bool {
 	var err error
 	if _, err = fs.Stat(fs.rootDir); fs.IsNotExist(err) {
-		err = os.MkdirAll(fs.rootDir, 0777)
+		err = os.MkdirAll(fs.rootDir, os.ModePerm)
 		fsLog(fs, logger.LevelDebug, "root directory %#v for user %#v does not exist, try to create, mkdir error: %v",
 			fs.rootDir, username, err)
 		if err == nil {
@@ -383,7 +383,7 @@ func (fs *OsFs) createMissingDirs(filePath string, uid, gid int) error {
 	last := len(dirsToCreate) - 1
 	for i := range dirsToCreate {
 		d := dirsToCreate[last-i]
-		if err := os.Mkdir(d, 0777); err != nil {
+		if err := os.Mkdir(d, os.ModePerm); err != nil {
 			fsLog(fs, logger.LevelError, "error creating missing dir: %#v", d)
 			return err
 		}

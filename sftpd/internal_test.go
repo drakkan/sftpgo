@@ -224,7 +224,7 @@ func TestPreDeleteAction(t *testing.T) {
 		Hook:      hookCmd,
 	}
 	homeDir := filepath.Join(os.TempDir(), "test_user")
-	err = os.MkdirAll(homeDir, 0777)
+	err = os.MkdirAll(homeDir, os.ModePerm)
 	assert.NoError(t, err)
 	user := dataprovider.User{
 		Username: "username",
@@ -1281,7 +1281,7 @@ func TestSCPTestDownloadProtocolMessages(t *testing.T) {
 		},
 	}
 	path := "testDir"
-	err := os.Mkdir(path, 0777)
+	err := os.Mkdir(path, os.ModePerm)
 	assert.NoError(t, err)
 	stat, err := os.Stat(path)
 	assert.NoError(t, err)
@@ -1451,7 +1451,7 @@ func TestSCPRecursiveDownloadErrors(t *testing.T) {
 		},
 	}
 	path := "testDir"
-	err := os.Mkdir(path, 0777)
+	err := os.Mkdir(path, os.ModePerm)
 	assert.NoError(t, err)
 	stat, err := os.Stat(path)
 	assert.NoError(t, err)
@@ -1818,7 +1818,7 @@ func TestLoadHostKeys(t *testing.T) {
 	err = os.Remove(testfile)
 	assert.NoError(t, err)
 	keysDir := filepath.Join(os.TempDir(), "keys")
-	err = os.MkdirAll(keysDir, 0777)
+	err = os.MkdirAll(keysDir, os.ModePerm)
 	assert.NoError(t, err)
 	rsaKeyName := filepath.Join(keysDir, defaultPrivateRSAKeyName)
 	ecdsaKeyName := filepath.Join(keysDir, defaultPrivateECDSAKeyName)
@@ -1890,13 +1890,13 @@ func TestUpdateQuotaAfterRenameMissingFile(t *testing.T) {
 	request.Target = path.Join("vdir", "dir")
 	if runtime.GOOS != osWindows {
 		testDirPath := filepath.Join(mappedPath, "dir")
-		err := os.MkdirAll(testDirPath, 0777)
+		err := os.MkdirAll(testDirPath, os.ModePerm)
 		assert.NoError(t, err)
 		err = os.Chmod(testDirPath, 0001)
 		assert.NoError(t, err)
 		err = c.updateQuotaAfterRename(request, testDirPath, 0)
 		assert.Error(t, err)
-		err = os.Chmod(testDirPath, 0777)
+		err = os.Chmod(testDirPath, os.ModePerm)
 		assert.NoError(t, err)
 		err = os.RemoveAll(testDirPath)
 		assert.NoError(t, err)

@@ -132,7 +132,7 @@ func TestMain(m *testing.M) {
 	loginBannerFileName := "login_banner"
 	loginBannerFile := filepath.Join(configDir, loginBannerFileName)
 	logger.InitLogger(logFilePath, 5, 1, 28, false, zerolog.DebugLevel)
-	err := ioutil.WriteFile(loginBannerFile, []byte("simple login banner\n"), 0777)
+	err := ioutil.WriteFile(loginBannerFile, []byte("simple login banner\n"), os.ModePerm)
 	if err != nil {
 		logger.WarnToConsole("error creating login banner: %v", err)
 	}
@@ -2126,7 +2126,7 @@ func TestVirtualFolders(t *testing.T) {
 		},
 		VirtualPath: vdirPath,
 	})
-	err := os.MkdirAll(mappedPath, 0777)
+	err := os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
@@ -2223,9 +2223,9 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 	})
 	users := []dataprovider.User{u1, u2}
 	for _, u := range users {
-		err = os.MkdirAll(mappedPath1, 0777)
+		err = os.MkdirAll(mappedPath1, os.ModePerm)
 		assert.NoError(t, err)
-		err = os.MkdirAll(mappedPath2, 0777)
+		err = os.MkdirAll(mappedPath2, os.ModePerm)
 		assert.NoError(t, err)
 		user, _, err := httpd.AddUser(u, http.StatusOK)
 		assert.NoError(t, err)
@@ -2316,9 +2316,9 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 		QuotaFiles:  0,
 		QuotaSize:   testFileSize + testFileSize1 - 1,
 	})
-	err = os.MkdirAll(mappedPath1, 0777)
+	err = os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
-	err = os.MkdirAll(mappedPath2, 0777)
+	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
@@ -2397,9 +2397,9 @@ func TestVirtualFoldersQuotaValues(t *testing.T) {
 		QuotaFiles: 0,
 		QuotaSize:  0,
 	})
-	err := os.MkdirAll(mappedPath1, 0777)
+	err := os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
-	err = os.MkdirAll(mappedPath2, 0777)
+	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
@@ -2505,9 +2505,9 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 		QuotaFiles: 0,
 		QuotaSize:  0,
 	})
-	err := os.MkdirAll(mappedPath1, 0777)
+	err := os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
-	err = os.MkdirAll(mappedPath2, 0777)
+	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
@@ -2729,9 +2729,9 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 		QuotaFiles: 0,
 		QuotaSize:  0,
 	})
-	err := os.MkdirAll(mappedPath1, 0777)
+	err := os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
-	err = os.MkdirAll(mappedPath2, 0777)
+	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
@@ -2973,9 +2973,9 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 		QuotaFiles: 0,
 		QuotaSize:  0,
 	})
-	err := os.MkdirAll(mappedPath1, 0777)
+	err := os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
-	err = os.MkdirAll(mappedPath2, 0777)
+	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
@@ -3220,9 +3220,9 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 		QuotaFiles: 0,
 		QuotaSize:  0,
 	})
-	err := os.MkdirAll(mappedPath1, 0777)
+	err := os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
-	err = os.MkdirAll(mappedPath2, 0777)
+	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
@@ -3479,9 +3479,9 @@ func TestVirtualFoldersLink(t *testing.T) {
 		QuotaFiles: 0,
 		QuotaSize:  0,
 	})
-	err := os.MkdirAll(mappedPath1, 0777)
+	err := os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
-	err = os.MkdirAll(mappedPath2, 0777)
+	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
@@ -3549,7 +3549,7 @@ func TestVirtualFoldersLink(t *testing.T) {
 
 func TestVirtualFolderQuotaScan(t *testing.T) {
 	mappedPath := filepath.Join(os.TempDir(), "mapped_dir")
-	err := os.MkdirAll(mappedPath, 0777)
+	err := os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
 	testFileSize := int64(65535)
 	testFileName := "test_file.dat"
@@ -3620,9 +3620,9 @@ func TestVFolderQuotaSize(t *testing.T) {
 		QuotaFiles:  1,
 		QuotaSize:   testFileSize * 2,
 	})
-	err := os.MkdirAll(mappedPath1, 0777)
+	err := os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
-	err = os.MkdirAll(mappedPath2, 0777)
+	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
 	testFileName := "test_file.dat"
 	testFilePath := filepath.Join(homeBasePath, testFileName)
@@ -4603,7 +4603,7 @@ func TestResolvePaths(t *testing.T) {
 		Bucket:    "bucket",
 		Region:    "us-east-1",
 	}
-	err = os.MkdirAll(user.GetHomeDir(), 0777)
+	err = os.MkdirAll(user.GetHomeDir(), os.ModePerm)
 	assert.NoError(t, err)
 	s3fs, err := vfs.NewS3Fs("", user.GetHomeDir(), s3config)
 	assert.NoError(t, err)
@@ -4653,7 +4653,7 @@ func TestVirtualRelativePaths(t *testing.T) {
 		},
 		VirtualPath: vdirPath,
 	})
-	err := os.MkdirAll(mappedPath, 0777)
+	err := os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
 	fs := vfs.NewOsFs("", user.GetHomeDir(), user.VirtualFolders)
 	rel := fs.GetRelativePath(mappedPath)
@@ -4679,7 +4679,7 @@ func TestResolveVirtualPaths(t *testing.T) {
 		},
 		VirtualPath: vdirPath,
 	})
-	err := os.MkdirAll(mappedPath, 0777)
+	err := os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
 	osFs := vfs.NewOsFs("", user.GetHomeDir(), user.VirtualFolders).(vfs.OsFs)
 	b, f := osFs.GetFsPaths("/vdir/a.txt")
@@ -5336,7 +5336,7 @@ func TestSCPVirtualFolders(t *testing.T) {
 		},
 		VirtualPath: vdirPath,
 	})
-	err := os.MkdirAll(mappedPath, 0777)
+	err := os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
@@ -5400,9 +5400,9 @@ func TestSCPVirtualFoldersQuota(t *testing.T) {
 		QuotaFiles:  0,
 		QuotaSize:   0,
 	})
-	err := os.MkdirAll(mappedPath1, 0777)
+	err := os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
-	err = os.MkdirAll(mappedPath2, 0777)
+	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
@@ -5487,7 +5487,7 @@ func TestSCPPermsSubDirs(t *testing.T) {
 	localPath := filepath.Join(homeBasePath, "scp_download.dat")
 	subPath := filepath.Join(user.GetHomeDir(), "somedir")
 	testFileSize := int64(65535)
-	err = os.MkdirAll(subPath, 0777)
+	err = os.MkdirAll(subPath, os.ModePerm)
 	assert.NoError(t, err)
 	remoteDownPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/somedir")
 	err = scpDownload(localPath, remoteDownPath, false, true)
@@ -5667,7 +5667,7 @@ func TestSCPEscapeHomeDir(t *testing.T) {
 	usePubKey := true
 	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
 	assert.NoError(t, err)
-	err = os.MkdirAll(user.GetHomeDir(), 0777)
+	err = os.MkdirAll(user.GetHomeDir(), os.ModePerm)
 	assert.NoError(t, err)
 	testDir := "testDir"
 	linkPath := filepath.Join(homeBasePath, defaultUsername, testDir)
@@ -5709,7 +5709,7 @@ func TestSCPUploadPaths(t *testing.T) {
 	testFileSize := int64(65535)
 	testDirName := "testDir"
 	testDirPath := filepath.Join(user.GetHomeDir(), testDirName)
-	err = os.MkdirAll(testDirPath, 0777)
+	err = os.MkdirAll(testDirPath, os.ModePerm)
 	assert.NoError(t, err)
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
@@ -5744,7 +5744,7 @@ func TestSCPOverwriteDirWithFile(t *testing.T) {
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	testFileSize := int64(65535)
 	testDirPath := filepath.Join(user.GetHomeDir(), testFileName)
-	err = os.MkdirAll(testDirPath, 0777)
+	err = os.MkdirAll(testDirPath, os.ModePerm)
 	assert.NoError(t, err)
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
@@ -6001,7 +6001,7 @@ func getCustomAuthSftpClient(user dataprovider.User, authMethods []ssh.AuthMetho
 func createTestFile(path string, size int64) error {
 	baseDir := filepath.Dir(path)
 	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
-		err = os.MkdirAll(baseDir, 0777)
+		err = os.MkdirAll(baseDir, os.ModePerm)
 		if err != nil {
 			return err
 		}
@@ -6318,7 +6318,7 @@ func checkSystemCommands() {
 }
 
 func initGitRepo(path string) ([]byte, error) {
-	err := os.MkdirAll(path, 0777)
+	err := os.MkdirAll(path, os.ModePerm)
 	if err != nil {
 		return nil, err
 	}
