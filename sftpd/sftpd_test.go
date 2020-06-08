@@ -21,7 +21,6 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -1348,7 +1347,7 @@ func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false), 0755)
+	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), 0755)
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
@@ -1378,7 +1377,7 @@ func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
 	usePubKey = false
 	u = getTestUser(usePubKey)
 	u.PublicKeys = []string{}
-	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false), 0755)
+	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), 0755)
 	assert.NoError(t, err)
 	client, err = getSftpClient(u, usePubKey)
 	if assert.NoError(t, err) {
@@ -1387,16 +1386,95 @@ func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
 	}
 	users, _, err := httpd.GetUsers(0, 0, defaultUsername, http.StatusOK)
 	assert.NoError(t, err)
-	assert.Equal(t, 1, len(users))
-	user := users[0]
-	assert.Equal(t, 0, len(user.PublicKeys))
-	assert.Equal(t, testFileSize, user.UsedQuotaSize)
-	assert.Equal(t, 1, user.UsedQuotaFiles)
+	if assert.Equal(t, 1, len(users)) {
+		user := users[0]
+		assert.Equal(t, 0, len(user.PublicKeys))
+		assert.Equal(t, testFileSize, user.UsedQuotaSize)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+		_, err = httpd.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		err = os.RemoveAll(user.GetHomeDir())
+		assert.NoError(t, err)
+	}
+
+	dataProvider = dataprovider.GetProvider()
+	err = dataprovider.Close(dataProvider)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
+	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir)
+	assert.NoError(t, err)
+	httpd.SetDataProvider(dataprovider.GetProvider())
+	sftpd.SetDataProvider(dataprovider.GetProvider())
+	err = os.Remove(extAuthPath)
+	assert.NoError(t, err)
+}
+
+func TestExternalAuthDifferentUsername(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	usePubKey := false
+	extAuthUsername := "common_user"
+	u := getTestUser(usePubKey)
+	u.QuotaFiles = 1000
+	dataProvider := dataprovider.GetProvider()
+	err := dataprovider.Close(dataProvider)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, extAuthUsername), 0755)
+	assert.NoError(t, err)
+	providerConf.ExternalAuthHook = extAuthPath
+	providerConf.ExternalAuthScope = 0
+	err = dataprovider.Initialize(providerConf, configDir)
+	assert.NoError(t, err)
+	httpd.SetDataProvider(dataprovider.GetProvider())
+	sftpd.SetDataProvider(dataprovider.GetProvider())
+
+	// the user logins using "defaultUsername" and the external auth returns "extAuthUsername"
+	testFileSize := int64(65535)
+	client, err := getSftpClient(u, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+	}
+
+	// logins again to test that used quota is preserved
+	client, err = getSftpClient(u, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+	}
+
+	users, _, err := httpd.GetUsers(0, 0, defaultUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(users))
+
+	users, _, err = httpd.GetUsers(0, 0, extAuthUsername, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Equal(t, 1, len(users)) {
+		user := users[0]
+		assert.Equal(t, 0, len(user.PublicKeys))
+		assert.Equal(t, testFileSize, user.UsedQuotaSize)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+
+		_, err = httpd.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		err = os.RemoveAll(user.GetHomeDir())
+		assert.NoError(t, err)
+	}
 
 	dataProvider = dataprovider.GetProvider()
 	err = dataprovider.Close(dataProvider)
@@ -1440,7 +1518,7 @@ func TestLoginExternalAuth(t *testing.T) {
 		err = config.LoadConfig(configDir, "")
 		assert.NoError(t, err)
 		providerConf := config.GetProviderConf()
-		err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false), 0755)
+		err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), 0755)
 		assert.NoError(t, err)
 		providerConf.ExternalAuthHook = extAuthPath
 		providerConf.ExternalAuthScope = authScope
@@ -1510,7 +1588,7 @@ func TestLoginExternalAuthInteractive(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false), 0755)
+	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), 0755)
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 4
@@ -1572,7 +1650,7 @@ func TestLoginExternalAuthErrors(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, true), 0755)
+	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, true, ""), 0755)
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
@@ -6320,10 +6398,13 @@ func getKeyboardInteractiveScriptContent(questions []string, sleepTime int, nonJ
 	return content
 }
 
-func getExtAuthScriptContent(user dataprovider.User, nonJSONResponse bool) []byte {
+func getExtAuthScriptContent(user dataprovider.User, nonJSONResponse bool, username string) []byte {
 	extAuthContent := []byte("#!/bin/sh\n\n")
-	u, _ := json.Marshal(user)
 	extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("if test \"$SFTPGO_AUTHD_USERNAME\" = \"%v\"; then\n", user.Username))...)
+	if len(username) > 0 {
+		user.Username = username
+	}
+	u, _ := json.Marshal(user)
 	if nonJSONResponse {
 		extAuthContent = append(extAuthContent, []byte("echo 'text response'\n")...)
 	} else {
@@ -6333,8 +6414,7 @@ func getExtAuthScriptContent(user dataprovider.User, nonJSONResponse bool) []byt
 	if nonJSONResponse {
 		extAuthContent = append(extAuthContent, []byte("echo 'text response'\n")...)
 	} else {
-		json, _ := json.Marshal(user)
-		extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("echo '%v'\n", strconv.Quote(string(json))))...)
+		extAuthContent = append(extAuthContent, []byte("echo '{\"username\":\"\"}'\n")...)
 	}
 	extAuthContent = append(extAuthContent, []byte("fi\n")...)
 	return extAuthContent

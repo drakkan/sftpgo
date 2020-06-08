@@ -1634,7 +1634,11 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 	if len(pkey) > 0 && !utils.IsStringPrefixInSlice(pkey, user.PublicKeys) {
 		user.PublicKeys = append(user.PublicKeys, pkey)
 	}
-	u, err := provider.userExists(username)
+	// some users want to map multiple login usernames with a single SGTPGo account
+	// for example an SFTP user logins using "user1" or "user2" and the external auth
+	// returns "user" in both cases, so we use the username returned from
+	// external auth and not the one used to login
+	u, err := provider.userExists(user.Username)
 	if err == nil {
 		user.ID = u.ID
 		user.UsedQuotaSize = u.UsedQuotaSize
@@ -1648,7 +1652,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 	if err != nil {
 		return user, err
 	}
-	return provider.userExists(username)
+	return provider.userExists(user.Username)
 }
 
 func providerLog(level logger.LogLevel, format string, v ...interface{}) {
