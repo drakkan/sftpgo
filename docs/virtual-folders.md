@@ -16,16 +16,16 @@ For example if you configure `/tmp/mapped` or `C:\mapped` as mapped path and `/v
 The same virtual folder, identified by the `mapped_path`, can be shared among users and different folder quota limits for each user are supported.
 Folder quota limits can also be included inside the user quota but in this case the folder is considered "private" and sharing it with other users will break user quota calculation.
 
-You don't need to create virtual folders, inside the data provider, to associate them to the users: any missing virtual folder will be automatically created when you add/update an user. You have to create the folder on the filesystem yourself.
+You don't need to create virtual folders, inside the data provider, to associate them to the users: any missing virtual folder will be automatically created when you add/update an user. You only have to create the folder on the filesystem.
 
 Using the REST API you can:
 
-- monitor folder quota usage
-- scan quota for a virtual folder
-- inspect the users associated with a virtual folder
-- delete a virtual folder. SFTPGo remove folders from the data provider, no deletion will occur on the filesystem
+- monitor folders quota usage
+- scan quota for folders
+- inspect the relationships among users and folders
+- delete a virtual folder. SFTPGo removes folders from the data provider, no files deletion will occur
 
-If you remove a folder, from the data provider, any users relationship will be cleaned up. If the deleted folder is included inside the user quota you need to do a user quota scan to update its quota. An orphan virtual folder will not be automatically deleted since if you add it again later then a quota scan is needed and it could be quite expensive, anyway you can easily list the orphan virtual folders via REST API and delete them if they are not needed anymore.
+If you remove a folder, from the data provider, any users relationships will be cleared up. If the deleted folder is included inside the user quota you need to do a user quota scan to update its quota. An orphan virtual folder will not be automatically deleted since if you add it again later then a quota scan is needed and it could be quite expensive, anyway you can easily list the orphan folders using the REST API and delete them if they are not needed anymore.
 
-Overlapping virtual or mapped paths are not allowed for the same user.
+Overlapping virtual paths are not allowed for the same user, overlapping mapped paths are allowed only if quota tracking is globally disabled inside the configuration file (`track_quota` must be set to `0`).
 Virtual folders are supported for local filesystem only.

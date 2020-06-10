@@ -3547,6 +3547,124 @@ func TestVirtualFoldersLink(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestOverlappedMappedFolders(t *testing.T) {
+	dataProvider := dataprovider.GetProvider()
+	err := dataprovider.Close(dataProvider)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	providerConf.TrackQuota = 0
+	err = dataprovider.Initialize(providerConf, configDir)
+	assert.NoError(t, err)
+	httpd.SetDataProvider(dataprovider.GetProvider())
+	sftpd.SetDataProvider(dataprovider.GetProvider())
+
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	subDir := "subdir"
+	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	vdirPath1 := "/vdir1"
+	mappedPath2 := filepath.Join(os.TempDir(), "vdir1", subDir)
+	vdirPath2 := "/vdir2"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: vdirPath1,
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: vdirPath2,
+	})
+	err = os.MkdirAll(mappedPath1, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath2, os.ModePerm)
+	assert.NoError(t, err)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+		testFileName := "test_file.dat"
+		testFileSize := int64(131072)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		fi, err := client.Stat(path.Join(vdirPath1, subDir, testFileName))
+		if assert.NoError(t, err) {
+			assert.Equal(t, testFileSize, fi.Size())
+		}
+		err = client.Rename(path.Join(vdirPath1, subDir, testFileName), path.Join(vdirPath2, testFileName+"1"))
+		assert.NoError(t, err)
+		err = client.Rename(path.Join(vdirPath2, testFileName+"1"), path.Join(vdirPath1, subDir, testFileName))
+		assert.NoError(t, err)
+		err = client.Rename(path.Join(vdirPath1, subDir), path.Join(vdirPath2, subDir))
+		assert.Error(t, err)
+		err = client.Mkdir(subDir)
+		assert.NoError(t, err)
+		err = client.Rename(subDir, path.Join(vdirPath1, subDir))
+		assert.Error(t, err)
+		err = client.RemoveDirectory(path.Join(vdirPath1, subDir))
+		assert.Error(t, err)
+		err = client.Symlink(path.Join(vdirPath1, subDir), path.Join(vdirPath1, "adir"))
+		assert.Error(t, err)
+		err = client.Mkdir(path.Join(vdirPath1, subDir+"1"))
+		assert.NoError(t, err)
+		err = client.Symlink(path.Join(vdirPath1, subDir+"1"), path.Join(vdirPath1, subDir))
+		assert.Error(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+	}
+
+	dataProvider = dataprovider.GetProvider()
+	err = dataprovider.Close(dataProvider)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir)
+	assert.NoError(t, err)
+	httpd.SetDataProvider(dataprovider.GetProvider())
+	sftpd.SetDataProvider(dataprovider.GetProvider())
+
+	if providerConf.Driver != dataprovider.MemoryDataProviderName {
+		client, err = getSftpClient(user, usePubKey)
+		if !assert.Error(t, err) {
+			client.Close()
+		}
+
+		_, err = httpd.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+		assert.NoError(t, err)
+		_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+		assert.NoError(t, err)
+	}
+
+	_, _, err = httpd.AddUser(u, http.StatusOK)
+	assert.Error(t, err)
+
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath1)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath2)
+	assert.NoError(t, err)
+}
+
 func TestVirtualFolderQuotaScan(t *testing.T) {
 	mappedPath := filepath.Join(os.TempDir(), "mapped_dir")
 	err := os.MkdirAll(mappedPath, os.ModePerm)

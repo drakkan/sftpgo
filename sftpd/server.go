@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -474,6 +475,11 @@ func loginUser(user dataprovider.User, loginMethod, publicKey string, conn ssh.C
 	if !user.IsLoginMethodAllowed(loginMethod, conn.PartialSuccessMethods()) {
 		logger.Debug(logSender, connectionID, "cannot login user %#v, login method %#v is not allowed", user.Username, loginMethod)
 		return nil, fmt.Errorf("Login method %#v is not allowed for user %#v", loginMethod, user.Username)
+	}
+	if dataprovider.GetQuotaTracking() > 0 && user.HasOverlappedMappedPaths() {
+		logger.Debug(logSender, connectionID, "cannot login user %#v, overlapping mapped folders are allowed only with quota tracking disabled",
+			user.Username)
+		return nil, errors.New("overlapping mapped folders are allowed only with quota tracking disabled")
 	}
 	remoteAddr := conn.RemoteAddr().String()
 	if !user.IsLoginFromAddrAllowed(remoteAddr) {

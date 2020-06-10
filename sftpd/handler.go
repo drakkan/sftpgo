@@ -304,6 +304,14 @@ func (c Connection) handleSFTPRename(sourcePath, targetPath string, request *sft
 	if !c.isRenamePermitted(sourcePath, request) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
+	if c.User.IsMappedPath(sourcePath) {
+		c.Log(logger.LevelWarn, logSender, "renaming a directory mapped as virtual folder is not allowed: %#v", sourcePath)
+		return sftp.ErrSSHFxPermissionDenied
+	}
+	if c.User.IsMappedPath(targetPath) {
+		c.Log(logger.LevelWarn, logSender, "renaming to a directory mapped as virtual folder is not allowed: %#v", targetPath)
+		return sftp.ErrSSHFxPermissionDenied
+	}
 	if c.User.HasVirtualFoldersInside(request.Filepath) {
 		if fi, err := c.fs.Stat(sourcePath); err == nil {
 			if fi.IsDir() {
@@ -359,6 +367,10 @@ func (c Connection) handleSFTPRmdir(dirPath string, request *sftp.Request) error
 		c.Log(logger.LevelWarn, logSender, "removing a directory with a virtual folder inside is not allowed: %#v", request.Filepath)
 		return sftp.ErrSSHFxOpUnsupported
 	}
+	if c.User.IsMappedPath(dirPath) {
+		c.Log(logger.LevelWarn, logSender, "removing a directory mapped as virtual folder is not allowed: %#v", dirPath)
+		return sftp.ErrSSHFxPermissionDenied
+	}
 	if !c.User.HasPerm(dataprovider.PermDelete, path.Dir(request.Filepath)) {
 		return sftp.ErrSSHFxPermissionDenied
 	}
@@ -398,6 +410,14 @@ func (c Connection) handleSFTPSymlink(sourcePath string, targetPath string, requ
 	if c.isCrossFoldersRequest(request) {
 		c.Log(logger.LevelWarn, logSender, "cross folder symlink is not supported, src: %v dst: %v", request.Filepath, request.Target)
 		return sftp.ErrSSHFxFailure
+	}
+	if c.User.IsMappedPath(sourcePath) {
+		c.Log(logger.LevelWarn, logSender, "symlinking a directory mapped as virtual folder is not allowed: %#v", sourcePath)
+		return sftp.ErrSSHFxPermissionDenied
+	}
+	if c.User.IsMappedPath(targetPath) {
+		c.Log(logger.LevelWarn, logSender, "symlinking to a directory mapped as virtual folder is not allowed: %#v", targetPath)
+		return sftp.ErrSSHFxPermissionDenied
 	}
 	if err := c.fs.Symlink(sourcePath, targetPath); err != nil {
 		c.Log(logger.LevelWarn, logSender, "failed to create symlink %#v -> %#v: %+v", sourcePath, targetPath, err)

@@ -239,6 +239,17 @@ func (u *User) AddVirtualDirs(list []os.FileInfo, sftpPath string) []os.FileInfo
 	return list
 }
 
+// IsMappedPath returns true if the specified filesystem path has a virtual folder mapping.
+// The filesystem path must be cleaned before calling this method
+func (u *User) IsMappedPath(fsPath string) bool {
+	for _, v := range u.VirtualFolders {
+		if fsPath == v.MappedPath {
+			return true
+		}
+	}
+	return false
+}
+
 // IsVirtualFolder returns true if the specified sftp path is a virtual folder
 func (u *User) IsVirtualFolder(sftpPath string) bool {
 	for _, v := range u.VirtualFolders {
@@ -255,6 +266,24 @@ func (u *User) HasVirtualFoldersInside(sftpPath string) bool {
 	for _, v := range u.VirtualFolders {
 		if len(v.VirtualPath) > len(sftpPath) {
 			if strings.HasPrefix(v.VirtualPath, sftpPath+"/") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// HasOverlappedMappedPaths returns true if this user has virtual folders with overlapped mapped paths
+func (u *User) HasOverlappedMappedPaths() bool {
+	if len(u.VirtualFolders) <= 1 {
+		return false
+	}
+	for _, v1 := range u.VirtualFolders {
+		for _, v2 := range u.VirtualFolders {
+			if v1.VirtualPath == v2.VirtualPath {
+				continue
+			}
+			if isMappedDirOverlapped(v1.MappedPath, v2.MappedPath) {
 				return true
 			}
 		}

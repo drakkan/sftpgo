@@ -1,6 +1,6 @@
 # REST API
 
-SFTPGo exposes REST API to manage, backup, and restore users, and to get real time reports of the active connections with the ability to forcibly close a connection.
+SFTPGo exposes REST API to manage, backup, and restore users and folders, and to get real time reports of the active connections with the ability to forcibly close a connection.
 
 If quota tracking is enabled in the configuration file, then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP/SCP, or if you change `track_quota` from `2` to `1`, you can rescan the users home dir and update the used quota using the REST API.
 

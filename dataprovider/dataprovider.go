@@ -784,9 +784,15 @@ func validateUserVirtualFolders(user *User) error {
 			QuotaFiles:  v.QuotaFiles,
 		})
 		for k, virtual := range mappedPaths {
-			if isMappedDirOverlapped(k, cleanedMPath) {
-				return &ValidationError{err: fmt.Sprintf("invalid mapped folder %#v overlaps with mapped folder %#v",
-					v.MappedPath, k)}
+			if GetQuotaTracking() > 0 {
+				if isMappedDirOverlapped(k, cleanedMPath) {
+					return &ValidationError{err: fmt.Sprintf("invalid mapped folder %#v overlaps with mapped folder %#v",
+						v.MappedPath, k)}
+				}
+			} else {
+				if k == cleanedMPath {
+					return &ValidationError{err: fmt.Sprintf("duplicated mapped folder %#v", v.MappedPath)}
+				}
 			}
 			if isVirtualDirOverlapped(virtual, cleanedVPath) {
 				return &ValidationError{err: fmt.Sprintf("invalid virtual folder %#v overlaps with virtual folder %#v",
