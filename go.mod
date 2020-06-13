@@ -19,6 +19,7 @@ require (
 	github.com/miekg/dns v1.1.29 // indirect
 	github.com/mitchellh/mapstructure v1.2.2 // indirect
 	github.com/nathanaelle/password/v2 v2.0.1
+	github.com/otiai10/copy v1.2.0
 	github.com/pelletier/go-toml v1.7.0 // indirect
 	github.com/pires/go-proxyproto v0.1.3
 	github.com/pkg/sftp v1.11.1-0.20200310224833-18dc4db7a456

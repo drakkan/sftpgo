@@ -3625,6 +3625,8 @@ func TestOverlappedMappedFolders(t *testing.T) {
 		assert.Error(t, err)
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath1, subDir)), user, usePubKey)
+		assert.Error(t, err)
 	}
 
 	dataProvider = dataprovider.GetProvider()
@@ -3657,9 +3659,86 @@ func TestOverlappedMappedFolders(t *testing.T) {
 
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
+	err = os.RemoveAll(mappedPath1)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath2)
+	assert.NoError(t, err)
+}
+
+func TestResolveOverlappedMappedPaths(t *testing.T) {
+	u := getTestUser(false)
+	mappedPath1 := filepath.Join(os.TempDir(), "mapped1", "subdir")
+	vdirPath1 := "/vdir1/subdir"
+	mappedPath2 := filepath.Join(os.TempDir(), "mapped2")
+	vdirPath2 := "/vdir2/subdir"
+	mappedPath3 := filepath.Join(os.TempDir(), "mapped1")
+	vdirPath3 := "/vdir3"
+	mappedPath4 := filepath.Join(os.TempDir(), "mapped1", "subdir", "vdir4")
+	vdirPath4 := "/vdir4"
+	u.VirtualFolders = []vfs.VirtualFolder{
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				MappedPath: mappedPath1,
+			},
+			VirtualPath: vdirPath1,
+		},
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				MappedPath: mappedPath2,
+			},
+			VirtualPath: vdirPath2,
+		},
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				MappedPath: mappedPath3,
+			},
+			VirtualPath: vdirPath3,
+		},
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				MappedPath: mappedPath4,
+			},
+			VirtualPath: vdirPath4,
+		},
+	}
+	err := os.MkdirAll(u.GetHomeDir(), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath1, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath2, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath3, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath4, os.ModePerm)
+	assert.NoError(t, err)
+
+	fs := vfs.NewOsFs("", u.GetHomeDir(), u.VirtualFolders)
+	p, err := fs.ResolvePath("/vdir1")
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join(u.GetHomeDir(), "vdir1"), p)
+	p, err = fs.ResolvePath("/vdir1/subdir")
+	assert.NoError(t, err)
+	assert.Equal(t, mappedPath1, p)
+	p, err = fs.ResolvePath("/vdir3/subdir/vdir4/file.txt")
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join(mappedPath4, "file.txt"), p)
+	p, err = fs.ResolvePath("/vdir4/file.txt")
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join(mappedPath4, "file.txt"), p)
+	assert.Equal(t, filepath.Join(mappedPath3, "subdir", "vdir4", "file.txt"), p)
+	assert.Equal(t, filepath.Join(mappedPath1, "vdir4", "file.txt"), p)
+	p, err = fs.ResolvePath("/vdir3/subdir/vdir4/../file.txt")
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join(mappedPath3, "subdir", "file.txt"), p)
+	assert.Equal(t, filepath.Join(mappedPath1, "file.txt"), p)
+
+	err = os.RemoveAll(u.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath4)
 	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath1)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath3)
 	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath2)
 	assert.NoError(t, err)
@@ -5145,6 +5224,367 @@ func TestSSHFileHash(t *testing.T) {
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestSSHCopy(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.QuotaFiles = 100
+	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	vdirPath1 := "/vdir1/subdir"
+	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	vdirPath2 := "/vdir2/subdir"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: vdirPath1,
+		QuotaFiles:  -1,
+		QuotaSize:   -1,
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: vdirPath2,
+		QuotaFiles:  100,
+		QuotaSize:   0,
+	})
+	u.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
+		{
+			Path:             "/",
+			DeniedExtensions: []string{".denied"},
+		},
+	}
+	err := os.MkdirAll(mappedPath1, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath2, os.ModePerm)
+	assert.NoError(t, err)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	testDir := "adir"
+	testDir1 := "adir1"
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFileSize := int64(131072)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileName1 := "test_file1.dat"
+		testFileSize1 := int64(65537)
+		testFilePath1 := filepath.Join(homeBasePath, testFileName1)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = createTestFile(testFilePath1, testFileSize1)
+		assert.NoError(t, err)
+		err = client.Mkdir(testDir)
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath1, testDir1))
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath2, testDir1))
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(testDir, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(testDir, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, testDir1, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(vdirPath1, testDir1, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, testDir1, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(vdirPath2, testDir1, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		err = client.Symlink(path.Join(testDir, testFileName), testFileName)
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 4, user.UsedQuotaFiles)
+		assert.Equal(t, 2*testFileSize+2*testFileSize1, user.UsedQuotaSize)
+		folder, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 2, f.UsedQuotaFiles)
+		}
+		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			f := folder[0]
+			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 2, f.UsedQuotaFiles)
+		}
+
+		_, err = client.Stat(testDir1)
+		assert.Error(t, err)
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v", path.Join(vdirPath1, testDir1)), user, usePubKey)
+		assert.Error(t, err)
+		_, err = runSSHCommand("sftpgo-copy", user, usePubKey)
+		assert.Error(t, err)
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", testFileName, testFileName+".linkcopy"), user, usePubKey)
+		assert.Error(t, err)
+		out, err := runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir1), "."), user, usePubKey)
+		if assert.NoError(t, err) {
+			assert.Equal(t, "OK\n", string(out))
+			fi, err := client.Stat(testDir1)
+			if assert.NoError(t, err) {
+				assert.True(t, fi.IsDir())
+			}
+			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, 6, user.UsedQuotaFiles)
+			assert.Equal(t, 3*testFileSize+3*testFileSize1, user.UsedQuotaSize)
+		}
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", "missing\\ dir", "."), user, usePubKey)
+		assert.Error(t, err)
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir1), "."), user, usePubKey)
+		assert.Error(t, err)
+		out, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath2, testDir1, testFileName), testFileName+".copy"),
+			user, usePubKey)
+		if assert.NoError(t, err) {
+			assert.Equal(t, "OK\n", string(out))
+			fi, err := client.Stat(testFileName + ".copy")
+			if assert.NoError(t, err) {
+				assert.True(t, fi.Mode().IsRegular())
+			}
+			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, 7, user.UsedQuotaFiles)
+			assert.Equal(t, 4*testFileSize+3*testFileSize1, user.UsedQuotaSize)
+		}
+		out, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir1), path.Join(vdirPath2, testDir1+"copy")),
+			user, usePubKey)
+		if assert.NoError(t, err) {
+			assert.Equal(t, "OK\n", string(out))
+			fi, err := client.Stat(path.Join(vdirPath2, testDir1+"copy"))
+			if assert.NoError(t, err) {
+				assert.True(t, fi.IsDir())
+			}
+			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, 7, user.UsedQuotaFiles)
+			assert.Equal(t, 4*testFileSize+3*testFileSize1, user.UsedQuotaSize)
+			folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+			assert.NoError(t, err)
+			if assert.Len(t, folder, 1) {
+				f := folder[0]
+				assert.Equal(t, testFileSize*2+testFileSize1*2, f.UsedQuotaSize)
+				assert.Equal(t, 4, f.UsedQuotaFiles)
+			}
+		}
+		out, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir1), path.Join(vdirPath1, testDir1+"copy")),
+			user, usePubKey)
+		if assert.NoError(t, err) {
+			assert.Equal(t, "OK\n", string(out))
+			_, err := client.Stat(path.Join(vdirPath2, testDir1+"copy"))
+			assert.NoError(t, err)
+			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, 9, user.UsedQuotaFiles)
+			assert.Equal(t, 5*testFileSize+4*testFileSize1, user.UsedQuotaSize)
+			folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+			assert.NoError(t, err)
+			if assert.Len(t, folder, 1) {
+				f := folder[0]
+				assert.Equal(t, 2*testFileSize+2*testFileSize1, f.UsedQuotaSize)
+				assert.Equal(t, 4, f.UsedQuotaFiles)
+			}
+		}
+
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath2, ".."), "newdir"), user, usePubKey)
+		assert.Error(t, err)
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(testDir, testFileName), testFileName+".denied"), user, usePubKey)
+		assert.Error(t, err)
+		if runtime.GOOS != osWindows {
+			err = os.Chmod(filepath.Join(mappedPath1, testDir1), 0001)
+			assert.NoError(t, err)
+			_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1), "newdir"), user, usePubKey)
+			assert.Error(t, err)
+			err = os.Chmod(filepath.Join(mappedPath1, testDir1), os.ModePerm)
+			assert.NoError(t, err)
+			err = os.Chmod(filepath.Join(user.GetHomeDir(), testDir1), 0555)
+			assert.NoError(t, err)
+			_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir1, testFileName),
+				path.Join(testDir1, "anewdir")), user, usePubKey)
+			assert.Error(t, err)
+			err = os.Chmod(filepath.Join(user.GetHomeDir(), testDir1), os.ModePerm)
+			assert.NoError(t, err)
+
+			err = os.RemoveAll(filepath.Join(user.GetHomeDir(), "vdir1"))
+			assert.NoError(t, err)
+			err = os.Chmod(user.GetHomeDir(), 0555)
+			assert.NoError(t, err)
+			_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath2), "/vdir1"), user, usePubKey)
+			assert.Error(t, err)
+			err = os.Chmod(user.GetHomeDir(), os.ModePerm)
+			assert.NoError(t, err)
+		}
+
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath1)
+		assert.NoError(t, err)
+	}
+	// test copy dir with no create dirs perm
+	user.Permissions["/"] = []string{dataprovider.PermUpload, dataprovider.PermDownload, dataprovider.PermListItems}
+	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	client, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir1), testDir1+"copy1"),
+			user, usePubKey)
+		assert.Error(t, err)
+	}
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath1)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath2)
+	assert.NoError(t, err)
+}
+
+func TestSSHRemove(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.QuotaFiles = 100
+	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	vdirPath1 := "/vdir1/sub"
+	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	vdirPath2 := "/vdir2/sub"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: vdirPath1,
+		QuotaFiles:  -1,
+		QuotaSize:   -1,
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: vdirPath2,
+		QuotaFiles:  100,
+		QuotaSize:   0,
+	})
+	err := os.MkdirAll(mappedPath1, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath2, os.ModePerm)
+	assert.NoError(t, err)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFileSize := int64(131072)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileName1 := "test_file1.dat"
+		testFileSize1 := int64(65537)
+		testFilePath1 := filepath.Join(homeBasePath, testFileName1)
+		testDir := "testdir"
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = createTestFile(testFilePath1, testFileSize1)
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath1, testDir))
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath2, testDir))
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, testFileName1, testFileSize1, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, testDir, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(vdirPath1, testDir, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, testDir, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(vdirPath2, testDir, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		err = client.Symlink(testFileName, testFileName+".link")
+		assert.NoError(t, err)
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", testFileName+".link"), user, usePubKey)
+		assert.Error(t, err)
+		_, err = runSSHCommand("sftpgo-remove /vdir1", user, usePubKey)
+		assert.Error(t, err)
+		_, err = runSSHCommand("sftpgo-remove /", user, usePubKey)
+		assert.Error(t, err)
+		_, err = runSSHCommand("sftpgo-remove", user, usePubKey)
+		assert.Error(t, err)
+		out, err := runSSHCommand(fmt.Sprintf("sftpgo-remove %v", testFileName), user, usePubKey)
+		if assert.NoError(t, err) {
+			assert.Equal(t, "OK\n", string(out))
+			_, err := client.Stat(testFileName)
+			assert.Error(t, err)
+			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, 3, user.UsedQuotaFiles)
+			assert.Equal(t, testFileSize+2*testFileSize1, user.UsedQuotaSize)
+		}
+		out, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath1, testDir)), user, usePubKey)
+		if assert.NoError(t, err) {
+			assert.Equal(t, "OK\n", string(out))
+			_, err := client.Stat(path.Join(vdirPath1, testFileName))
+			assert.Error(t, err)
+			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, 1, user.UsedQuotaFiles)
+			assert.Equal(t, testFileSize1, user.UsedQuotaSize)
+		}
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", vdirPath1), user, usePubKey)
+		assert.Error(t, err)
+		_, err = runSSHCommand("sftpgo-remove /", user, usePubKey)
+		assert.Error(t, err)
+		_, err = runSSHCommand("sftpgo-remove missing_file", user, usePubKey)
+		assert.Error(t, err)
+		if runtime.GOOS != osWindows {
+			err = os.Chmod(filepath.Join(mappedPath2, testDir), 0555)
+			assert.NoError(t, err)
+			_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath2, testDir)), user, usePubKey)
+			assert.Error(t, err)
+			err = os.Chmod(filepath.Join(mappedPath2, testDir), 0001)
+			assert.NoError(t, err)
+			_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath2, testDir)), user, usePubKey)
+			assert.Error(t, err)
+			err = os.Chmod(filepath.Join(mappedPath2, testDir), os.ModePerm)
+			assert.NoError(t, err)
+		}
+	}
+
+	// test remove dir with no delete perm
+	user.Permissions["/"] = []string{dataprovider.PermUpload, dataprovider.PermDownload, dataprovider.PermListItems}
+	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	client, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		_, err = runSSHCommand("sftpgo-remove adir", user, usePubKey)
+		assert.Error(t, err)
+	}
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath1)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath2)
 	assert.NoError(t, err)
 }
 

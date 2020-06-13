@@ -173,26 +173,9 @@ More in-depth analysis of performance can be found [here](./docs/performance.md)
 
 ## Acknowledgements
 
-- [pkg/sftp](https://github.com/pkg/sftp)
-- [go-chi](https://github.com/go-chi/chi)
-- [zerolog](https://github.com/rs/zerolog)
-- [lumberjack](https://gopkg.in/natefinch/lumberjack.v2)
-- [argon2id](https://github.com/alexedwards/argon2id)
-- [go-sqlite3](https://github.com/mattn/go-sqlite3)
-- [go-sql-driver/mysql](https://github.com/go-sql-driver/mysql)
-- [bbolt](https://github.com/etcd-io/bbolt)
-- [lib/pq](https://github.com/lib/pq)
-- [viper](https://github.com/spf13/viper)
-- [cobra](https://github.com/spf13/cobra)
-- [xid](https://github.com/rs/xid)
-- [nathanaelle/password](https://github.com/nathanaelle/password)
-- [PipeAt](https://github.com/eikenb/pipeat)
-- [ZeroConf](https://github.com/grandcat/zeroconf)
-- [SB Admin 2](https://github.com/BlackrockDigital/startbootstrap-sb-admin-2)
-- [shlex](https://github.com/google/shlex)
-- [go-proxyproto](https://github.com/pires/go-proxyproto)
-
-Some code was initially taken from [Pterodactyl sftp server](https://github.com/pterodactyl/sftp-server)
+SFTPGo makes use of the third party libraries listed inside [go.mod](./go.mod).
+Some code was initially taken from [Pterodactyl SFTP Server](https://github.com/pterodactyl/sftp-server).
+We are very grateful to all the people who contributed with ideas and/or pull requests.
 
 ## License
 

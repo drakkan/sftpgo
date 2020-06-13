@@ -712,7 +712,7 @@ func TestSSHCommandErrors(t *testing.T) {
 	err = cmd.handle()
 	assert.Error(t, err, "ssh command must fail, we are requesting an invalid path")
 
-	cmd.connection.User.HomeDir = os.TempDir()
+	cmd.connection.User.HomeDir = filepath.Clean(os.TempDir())
 	cmd.connection.User.QuotaFiles = 1
 	cmd.connection.User.UsedQuotaFiles = 2
 	fs, err = cmd.connection.User.GetFilesystem("123")
@@ -755,6 +755,54 @@ func TestSSHCommandErrors(t *testing.T) {
 	assert.NoError(t, err)
 	err = cmd.executeSystemCommand(command)
 	assert.Error(t, err, "command must fail, pipe was already assigned")
+
+	cmd = sshCommand{
+		command:    "sftpgo-remove",
+		connection: connection,
+		args:       []string{"/../../src"},
+	}
+	err = cmd.handle()
+	assert.Error(t, err, "ssh command must fail, we are requesting an invalid path")
+
+	cmd = sshCommand{
+		command:    "sftpgo-copy",
+		connection: connection,
+		args:       []string{"/../../test_src", "."},
+	}
+	err = cmd.handle()
+	assert.Error(t, err, "ssh command must fail, we are requesting an invalid path")
+	cmd.connection.fs = fs
+	_, _, err = cmd.resolveCopyPaths(".", "../adir")
+	assert.Error(t, err)
+	cmd = sshCommand{
+		command:    "sftpgo-copy",
+		connection: connection,
+		args:       []string{"src", "dst"},
+	}
+	cmd.connection.User.Permissions = make(map[string][]string)
+	cmd.connection.User.Permissions["/"] = []string{dataprovider.PermDownload}
+	_, _, err = cmd.getCopyPaths()
+	if assert.Error(t, err) {
+		assert.EqualError(t, err, errPermissionDenied.Error())
+	}
+	cmd.connection.User.Permissions = make(map[string][]string)
+	cmd.connection.User.Permissions["/"] = []string{dataprovider.PermAny}
+	if runtime.GOOS != osWindows {
+		aDir := filepath.Join(os.TempDir(), "adir")
+		err = os.MkdirAll(aDir, os.ModePerm)
+		assert.NoError(t, err)
+		tmpFile := filepath.Join(aDir, "testcopy")
+		err = ioutil.WriteFile(tmpFile, []byte("aaa"), os.ModePerm)
+		assert.NoError(t, err)
+		err = os.Chmod(aDir, 0001)
+		assert.NoError(t, err)
+		err = cmd.checkCopyDestination(tmpFile)
+		assert.Error(t, err)
+		err = os.Chmod(aDir, os.ModePerm)
+		assert.NoError(t, err)
+		err = os.Remove(tmpFile)
+		assert.NoError(t, err)
+	}
 }
 
 func TestCommandsWithExtensionsFilter(t *testing.T) {
@@ -875,6 +923,20 @@ func TestSSHCommandsRemoteFs(t *testing.T) {
 
 	err = cmd.executeSystemCommand(command)
 	assert.Error(t, err, "command must fail for a non local filesystem")
+	cmd = sshCommand{
+		command:    "sftpgo-copy",
+		connection: connection,
+		args:       []string{},
+	}
+	err = cmd.handeSFTPGoCopy()
+	assert.Error(t, err)
+	cmd = sshCommand{
+		command:    "sftpgo-remove",
+		connection: connection,
+		args:       []string{},
+	}
+	err = cmd.handeSFTPGoRemove()
+	assert.Error(t, err)
 }
 
 func TestSSHCommandQuotaScan(t *testing.T) {

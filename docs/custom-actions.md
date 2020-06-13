@@ -12,7 +12,7 @@ If the `hook` defines a path to an external program, then this program is invoke
 - `action`, string, possible values are: `download`, `upload`, `pre-delete`,`delete`, `rename`, `ssh_cmd`
 - `username`
 - `path` is the full filesystem path, can be empty for some ssh commands
-- `target_path`, non-empty for `rename` action
+- `target_path`, non-empty for `rename` action and for `sftpgo-copy` SSH command
 - `ssh_cmd`, non-empty for `ssh_cmd` action
 
 The external program can also read the following environment variables:
