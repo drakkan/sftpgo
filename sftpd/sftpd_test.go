@@ -4244,7 +4244,7 @@ func TestPermDelete(t *testing.T) {
 func TestPermRename(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
-	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
+	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload,
 		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite, dataprovider.PermChmod,
 		dataprovider.PermChown, dataprovider.PermChtimes}
 	user, _, err := httpd.AddUser(u, http.StatusOK)
@@ -4263,7 +4263,7 @@ func TestPermRename(t *testing.T) {
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), permissionErrorString)
 		}
-		err = client.Remove(testFileName)
+		_, err = client.Stat(testFileName)
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
@@ -4659,7 +4659,8 @@ func TestPermsSubDirsCommands(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
-	u.Permissions["/subdir"] = []string{dataprovider.PermDownload, dataprovider.PermUpload}
+	u.Permissions["/subdir"] = []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermCreateDirs}
+	u.Permissions["/subdir/otherdir"] = []string{dataprovider.PermListItems, dataprovider.PermDownload}
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
@@ -4682,13 +4683,15 @@ func TestPermsSubDirsCommands(t *testing.T) {
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), permissionErrorString)
 		}
-		err = client.Mkdir("/subdir/dir")
+		err = client.Mkdir("/subdir/otherdir/dir")
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), permissionErrorString)
 		}
 		err = client.Mkdir("/otherdir")
 		assert.NoError(t, err)
-		err = client.Rename("/otherdir", "/subdir/otherdir")
+		err = client.Mkdir("/subdir/otherdir")
+		assert.NoError(t, err)
+		err = client.Rename("/otherdir", "/subdir/otherdir/adir")
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), permissionErrorString)
 		}
@@ -4700,7 +4703,7 @@ func TestPermsSubDirsCommands(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Rename("/otherdir", "/otherdir1")
 		assert.NoError(t, err)
-		err = client.RemoveDirectory("/subdir")
+		err = client.RemoveDirectory("/otherdir1")
 		assert.NoError(t, err)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)

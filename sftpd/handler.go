@@ -751,7 +751,9 @@ func (c Connection) isRenamePermitted(sourcePath string, request *sftp.Request) 
 			return false
 		}
 	}
-	if !c.User.HasPerm(dataprovider.PermRename, path.Dir(request.Target)) {
+	if !c.User.HasPerm(dataprovider.PermRename, path.Dir(request.Target)) &&
+		(!c.User.HasPerm(dataprovider.PermDelete, path.Dir(request.Filepath)) ||
+			!c.User.HasPerm(dataprovider.PermUpload, path.Dir(request.Target))) {
 		return false
 	}
 	return true

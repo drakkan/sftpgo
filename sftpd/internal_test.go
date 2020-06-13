@@ -1968,3 +1968,42 @@ func TestUpdateQuotaAfterRenameMissingFile(t *testing.T) {
 	err := c.updateQuotaAfterRename(request, filepath.Join(os.TempDir(), "vdir", "file"), 0)
 	assert.Error(t, err)
 }
+
+func TestRenamePermission(t *testing.T) {
+	permissions := make(map[string][]string)
+	permissions["/"] = []string{dataprovider.PermAny}
+	permissions["/dir1"] = []string{dataprovider.PermRename}
+	permissions["/dir2"] = []string{dataprovider.PermUpload}
+	permissions["/dir3"] = []string{dataprovider.PermDelete}
+	permissions["/dir4"] = []string{dataprovider.PermListItems}
+
+	user := dataprovider.User{
+		Permissions: permissions,
+		HomeDir:     os.TempDir(),
+	}
+	fs, err := user.GetFilesystem("123")
+	assert.NoError(t, err)
+	conn := Connection{
+		User: user,
+		fs:   fs,
+	}
+	request := sftp.NewRequest("Rename", "/testfile")
+	request.Target = "/dir4/testfile"
+	// rename is not granted on Target
+	assert.False(t, conn.isRenamePermitted("", request))
+	request = sftp.NewRequest("Rename", "/dir4/testfile")
+	request.Target = "/dir1/testfile"
+	// rename is granted on Target, this is enough
+	assert.True(t, conn.isRenamePermitted("", request))
+	request = sftp.NewRequest("Rename", "/dir4/testfile")
+	request.Target = "/testfile"
+	// rename is granted on Target, this is enough
+	assert.True(t, conn.isRenamePermitted("", request))
+	request = sftp.NewRequest("Rename", "/dir3/testfile")
+	request.Target = "/dir2/testfile"
+	// delete is granted on Source and Upload on Target, this is enough
+	assert.True(t, conn.isRenamePermitted("", request))
+	request = sftp.NewRequest("Rename", "/dir2/testfile")
+	request.Target = "/dir3/testfile"
+	assert.False(t, conn.isRenamePermitted("", request))
+}
