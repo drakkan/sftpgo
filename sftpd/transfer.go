@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"sync"
 	"time"
 
@@ -190,7 +191,7 @@ func (t *Transfer) updateQuota(numFiles int) bool {
 		return false
 	}
 	if t.transferType == transferUpload && (numFiles != 0 || t.bytesReceived > 0) {
-		vfolder, err := t.user.GetVirtualFolderForPath(t.requestPath)
+		vfolder, err := t.user.GetVirtualFolderForPath(path.Dir(t.requestPath))
 		if err == nil {
 			dataprovider.UpdateVirtualFolderQuota(dataProvider, vfolder.BaseVirtualFolder, numFiles, //nolint:errcheck
 				t.bytesReceived-t.initialSize, false)

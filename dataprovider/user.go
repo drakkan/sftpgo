@@ -64,9 +64,8 @@ var (
 // a denied file cannot be downloaded/overwritten/renamed but will still be
 // it will still be listed in the list of files.
 // System commands such as Git and rsync interacts with the filesystem directly
-// and they are not aware about these restrictions so rsync is not allowed if
-// extensions filters are defined and Git is not allowed inside a path with
-// extensions filters
+// and they are not aware about these restrictions so they are not allowed
+// inside paths with extensions filters
 type ExtensionsFilter struct {
 	// SFTP/SCP path, if no other specific filter is defined, the filter apply for
 	// sub directories too.
@@ -204,7 +203,7 @@ func (u *User) GetVirtualFolderForPath(sftpPath string) (vfs.VirtualFolder, erro
 	if len(u.VirtualFolders) == 0 || u.FsConfig.Provider != 0 {
 		return folder, errNoMatchingVirtualFolder
 	}
-	dirsForPath := utils.GetDirsForSFTPPath(path.Dir(sftpPath))
+	dirsForPath := utils.GetDirsForSFTPPath(sftpPath)
 	for _, val := range dirsForPath {
 		for _, v := range u.VirtualFolders {
 			if v.VirtualPath == val {
@@ -263,6 +262,9 @@ func (u *User) IsVirtualFolder(sftpPath string) bool {
 // HasVirtualFoldersInside return true if there are virtual folders inside the
 // specified SFTP path. We assume that path are cleaned
 func (u *User) HasVirtualFoldersInside(sftpPath string) bool {
+	if sftpPath == "/" && len(u.VirtualFolders) > 0 {
+		return true
+	}
 	for _, v := range u.VirtualFolders {
 		if len(v.VirtualPath) > len(sftpPath) {
 			if strings.HasPrefix(v.VirtualPath, sftpPath+"/") {
@@ -289,6 +291,24 @@ func (u *User) HasOverlappedMappedPaths() bool {
 		}
 	}
 	return false
+}
+
+// GetRemaingQuotaSize returns the available quota size for the given SFTP path
+func (u *User) GetRemaingQuotaSize(sftpPath string) int64 {
+	vfolder, err := u.GetVirtualFolderForPath(sftpPath)
+	if err == nil {
+		if vfolder.IsIncludedInUserQuota() && u.QuotaSize > 0 {
+			return u.QuotaSize - u.UsedQuotaSize
+		}
+		if vfolder.QuotaSize > 0 {
+			return vfolder.QuotaSize - vfolder.UsedQuotaSize
+		}
+	} else {
+		if u.QuotaSize > 0 {
+			return u.QuotaSize - u.UsedQuotaSize
+		}
+	}
+	return 0
 }
 
 // HasPerm returns true if the user has the given permission or any permission

@@ -5147,9 +5147,8 @@ func TestGetVirtualFolderForPath(t *testing.T) {
 	assert.Equal(t, folder.MappedPath, mappedPath1)
 	_, err = user.GetVirtualFolderForPath("/vdir/sub1/file")
 	assert.Error(t, err)
-	// we check the parent dir
 	folder, err = user.GetVirtualFolderForPath(vdirPath)
-	assert.Error(t, err)
+	assert.NoError(t, err)
 }
 
 func TestSSHCommands(t *testing.T) {
@@ -5600,7 +5599,7 @@ func TestBasicGitCommands(t *testing.T) {
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
 
-	repoName := "testrepo"
+	repoName := "testrepo" //nolint:goconst
 	clonePath := filepath.Join(homeBasePath, repoName)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5624,21 +5623,96 @@ func TestBasicGitCommands(t *testing.T) {
 		printLatestLogs(10)
 	}
 
-	err = waitQuotaScans(1)
-	assert.NoError(t, err)
+	out, err = addFileToGitRepo(clonePath, 131072)
+	assert.NoError(t, err, "unexpected error, out: %v", string(out))
 
 	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
 	assert.NoError(t, err)
-	user.QuotaSize = user.UsedQuotaSize - 1
+	user.QuotaSize = user.UsedQuotaSize + 1
 	_, _, err = httpd.UpdateUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	out, err = pushToGitRepo(clonePath)
 	assert.Error(t, err, "git push must fail if quota is exceeded, out: %v", string(out))
 
+	aDir := filepath.Join(user.GetHomeDir(), repoName, "adir")
+	err = os.MkdirAll(aDir, 0001)
+	assert.NoError(t, err)
+	_, err = pushToGitRepo(clonePath)
+	assert.Error(t, err)
+	err = os.Chmod(aDir, os.ModePerm)
+	assert.NoError(t, err)
+
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 
 	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(clonePath)
+	assert.NoError(t, err)
+}
+
+func TestGitQuotaVirtualFolders(t *testing.T) {
+	if len(gitPath) == 0 || len(sshPath) == 0 || runtime.GOOS == osWindows {
+		t.Skip("git and/or ssh command not found or OS is windows, unable to execute this test")
+	}
+	usePubKey := true
+	repoName := "testrepo"
+	u := getTestUser(usePubKey)
+	u.QuotaFiles = 1
+	u.QuotaSize = 1
+	mappedPath := filepath.Join(os.TempDir(), "repo")
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath,
+		},
+		VirtualPath: "/" + repoName,
+		QuotaFiles:  0,
+		QuotaSize:   0,
+	})
+	err := os.MkdirAll(mappedPath, os.ModePerm)
+	assert.NoError(t, err)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		// we upload a file so the user is over quota
+		defer client.Close()
+		testFileName := "test_file.dat"
+		testFileSize := int64(131072)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+	}
+
+	clonePath := filepath.Join(homeBasePath, repoName)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(filepath.Join(homeBasePath, repoName))
+	assert.NoError(t, err)
+	out, err := initGitRepo(mappedPath)
+	assert.NoError(t, err, "unexpected error, out: %v", string(out))
+
+	out, err = cloneGitRepo(homeBasePath, "/"+repoName, user.Username)
+	assert.NoError(t, err, "unexpected error, out: %v", string(out))
+
+	out, err = addFileToGitRepo(clonePath, 128)
+	assert.NoError(t, err, "unexpected error, out: %v", string(out))
+
+	out, err = pushToGitRepo(clonePath)
+	assert.NoError(t, err, "unexpected error, out: %v", string(out))
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
 	assert.NoError(t, err)
 	err = os.RemoveAll(clonePath)
 	assert.NoError(t, err)

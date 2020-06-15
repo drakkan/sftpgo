@@ -195,10 +195,17 @@ func (c *scpCommand) handleUploadFile(resolvedPath, filePath string, sizeToRead 
 		return err
 	}
 
+	file, w, cancelFn, err := c.connection.fs.Create(filePath, 0)
+	if err != nil {
+		c.connection.Log(logger.LevelError, logSenderSCP, "error creating file %#v: %v", resolvedPath, err)
+		c.sendErrorMessage(err)
+		return err
+	}
+
 	initialSize := int64(0)
 	if !isNewFile {
 		if vfs.IsLocalOsFs(c.connection.fs) {
-			vfolder, err := c.connection.User.GetVirtualFolderForPath(requestPath)
+			vfolder, err := c.connection.User.GetVirtualFolderForPath(path.Dir(requestPath))
 			if err == nil {
 				dataprovider.UpdateVirtualFolderQuota(dataProvider, vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck
 				if vfolder.IsIncludedInUserQuota() {
@@ -210,12 +217,6 @@ func (c *scpCommand) handleUploadFile(resolvedPath, filePath string, sizeToRead 
 		} else {
 			initialSize = fileSize
 		}
-	}
-	file, w, cancelFn, err := c.connection.fs.Create(filePath, 0)
-	if err != nil {
-		c.connection.Log(logger.LevelError, logSenderSCP, "error creating file %#v: %v", resolvedPath, err)
-		c.sendErrorMessage(err)
-		return err
 	}
 
 	vfs.SetPathPermissions(c.connection.fs, filePath, c.connection.User.GetUID(), c.connection.User.GetGID())

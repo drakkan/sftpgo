@@ -480,7 +480,7 @@ func (c Connection) handleSFTPRemove(filePath string, request *sftp.Request) err
 
 	logger.CommandLog(removeLogSender, filePath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "")
 	if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
-		vfolder, err := c.User.GetVirtualFolderForPath(request.Filepath)
+		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(request.Filepath))
 		if err == nil {
 			dataprovider.UpdateVirtualFolderQuota(dataProvider, vfolder.BaseVirtualFolder, -1, -size, false) //nolint:errcheck
 			if vfolder.IsIncludedInUserQuota() {
@@ -573,7 +573,7 @@ func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, re
 		minWriteOffset = fileSize
 	} else {
 		if vfs.IsLocalOsFs(c.fs) {
-			vfolder, err := c.User.GetVirtualFolderForPath(requestPath)
+			vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 			if err == nil {
 				dataprovider.UpdateVirtualFolderQuota(dataProvider, vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck
 				if vfolder.IsIncludedInUserQuota() {
@@ -619,8 +619,8 @@ func (c Connection) hasSpaceForRename(request *sftp.Request, initialSize int64, 
 	if dataprovider.GetQuotaTracking() == 0 {
 		return true
 	}
-	sourceFolder, errSrc := c.User.GetVirtualFolderForPath(request.Filepath)
-	dstFolder, errDst := c.User.GetVirtualFolderForPath(request.Target)
+	sourceFolder, errSrc := c.User.GetVirtualFolderForPath(path.Dir(request.Filepath))
+	dstFolder, errDst := c.User.GetVirtualFolderForPath(path.Dir(request.Target))
 	if errSrc != nil && errDst != nil {
 		// rename inside the user home dir
 		return true
@@ -663,7 +663,7 @@ func (c Connection) hasSpace(checkFiles bool, requestPath string) bool {
 	var quotaFiles, numFiles int
 	var err error
 	var vfolder vfs.VirtualFolder
-	vfolder, err = c.User.GetVirtualFolderForPath(requestPath)
+	vfolder, err = c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 	if err == nil && !vfolder.IsIncludedInUserQuota() {
 		if vfolder.HasNoQuotaRestrictions(checkFiles) {
 			return true
@@ -826,8 +826,8 @@ func (c Connection) updateQuotaAfterRename(request *sftp.Request, targetPath str
 	// - a file overwriting an existing one
 	// - a new directory
 	// initialSize != -1 only when overwriting files
-	sourceFolder, errSrc := c.User.GetVirtualFolderForPath(request.Filepath)
-	dstFolder, errDst := c.User.GetVirtualFolderForPath(request.Target)
+	sourceFolder, errSrc := c.User.GetVirtualFolderForPath(path.Dir(request.Filepath))
+	dstFolder, errDst := c.User.GetVirtualFolderForPath(path.Dir(request.Target))
 	if errSrc != nil && errDst != nil {
 		// both files are contained inside the user home dir
 		if initialSize != -1 {

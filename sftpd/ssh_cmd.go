@@ -42,8 +42,9 @@ type sshCommand struct {
 }
 
 type systemCommand struct {
-	cmd      *exec.Cmd
-	realPath string
+	cmd            *exec.Cmd
+	fsPath         string
+	quotaCheckPath string
 }
 
 func processSSHCommand(payload []byte, connection *Connection, channel ssh.Channel, enabledSSHCommands []string) bool {
@@ -299,13 +300,19 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	if !vfs.IsLocalOsFs(c.connection.fs) {
 		return c.sendErrorResponse(errUnsupportedConfig)
 	}
-	if c.connection.User.QuotaFiles > 0 && c.connection.User.UsedQuotaFiles > c.connection.User.QuotaFiles {
+	sshDestPath := c.getDestPath()
+	if !c.connection.hasSpace(true, command.quotaCheckPath) {
 		return c.sendErrorResponse(errQuotaExceeded)
 	}
 	perms := []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermCreateDirs, dataprovider.PermListItems,
-		dataprovider.PermOverwrite, dataprovider.PermDelete, dataprovider.PermRename}
-	if !c.connection.User.HasPerms(perms, c.getDestPath()) {
+		dataprovider.PermOverwrite, dataprovider.PermDelete}
+	if !c.connection.User.HasPerms(perms, sshDestPath) {
 		return c.sendErrorResponse(errPermissionDenied)
+	}
+
+	initialFiles, initialSize, err := c.getSizeForPath(command.fsPath)
+	if err != nil {
+		return c.sendErrorResponse(err)
 	}
 
 	stdin, err := command.cmd.StdinPipe()
@@ -337,13 +344,10 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 
 	go func() {
 		defer stdin.Close()
-		remainingQuotaSize := int64(0)
-		if c.connection.User.QuotaSize > 0 {
-			remainingQuotaSize = c.connection.User.QuotaSize - c.connection.User.UsedQuotaSize
-		}
+		remainingQuotaSize := c.connection.User.GetRemaingQuotaSize(sshDestPath)
 		transfer := Transfer{
 			file:           nil,
-			path:           command.realPath,
+			path:           command.fsPath,
 			start:          time.Now(),
 			bytesSent:      0,
 			bytesReceived:  0,
@@ -371,7 +375,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	go func() {
 		transfer := Transfer{
 			file:           nil,
-			path:           command.realPath,
+			path:           command.fsPath,
 			start:          time.Now(),
 			bytesSent:      0,
 			bytesReceived:  0,
@@ -400,7 +404,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	go func() {
 		transfer := Transfer{
 			file:           nil,
-			path:           command.realPath,
+			path:           command.fsPath,
 			start:          time.Now(),
 			bytesSent:      0,
 			bytesReceived:  0,
@@ -429,38 +433,48 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	<-commandResponse
 	err = command.cmd.Wait()
 	c.sendExitStatus(err)
-	c.rescanHomeDir() //nolint:errcheck
+
+	numFiles, dirSize, errSize := c.getSizeForPath(command.fsPath)
+	if errSize == nil {
+		c.updateQuota(sshDestPath, numFiles-initialFiles, dirSize-initialSize)
+	}
+	c.connection.Log(logger.LevelDebug, logSenderSSH, "command %#v finished for path %#v, initial files %v initial size %v "+
+		"current files %v current size %v size err: %v", c.connection.command, command.fsPath, initialFiles, initialSize,
+		numFiles, dirSize, errSize)
 	return err
 }
 
-func (c *sshCommand) checkGitAllowed() error {
-	gitPath := c.getDestPath()
-	for _, v := range c.connection.User.VirtualFolders {
-		if v.VirtualPath == gitPath {
-			c.connection.Log(logger.LevelDebug, logSenderSSH, "git is not supported inside virtual folder %#v user %#v",
-				gitPath, c.connection.User.Username)
+func (c *sshCommand) isSystemCommandAllowed() error {
+	sshDestPath := c.getDestPath()
+	if c.connection.User.IsVirtualFolder(sshDestPath) {
+		// overlapped virtual path are not allowed
+		return nil
+	}
+	if c.connection.User.HasVirtualFoldersInside(sshDestPath) {
+		c.connection.Log(logger.LevelDebug, logSenderSSH, "command %#v is not allowed, path %#v has virtual folders inside it, user %#v",
+			c.command, sshDestPath, c.connection.User.Username)
+		return errUnsupportedConfig
+	}
+	for _, f := range c.connection.User.Filters.FileExtensions {
+		if f.Path == sshDestPath {
+			c.connection.Log(logger.LevelDebug, logSenderSSH,
+				"command %#v is not allowed inside folders with files extensions filters %#v user %#v",
+				c.command, sshDestPath, c.connection.User.Username)
 			return errUnsupportedConfig
 		}
-		if len(gitPath) > len(v.VirtualPath) {
-			if strings.HasPrefix(gitPath, v.VirtualPath+"/") {
-				c.connection.Log(logger.LevelDebug, logSenderSSH, "git is not supported inside virtual folder %#v user %#v",
-					gitPath, c.connection.User.Username)
+		if len(sshDestPath) > len(f.Path) {
+			if strings.HasPrefix(sshDestPath, f.Path+"/") || f.Path == "/" {
+				c.connection.Log(logger.LevelDebug, logSenderSSH,
+					"command %#v is not allowed it includes folders with files extensions filters %#v user %#v",
+					c.command, sshDestPath, c.connection.User.Username)
 				return errUnsupportedConfig
 			}
 		}
-	}
-	for _, f := range c.connection.User.Filters.FileExtensions {
-		if f.Path == gitPath {
-			c.connection.Log(logger.LevelDebug, logSenderSSH,
-				"git is not supported inside folder with files extensions filters %#v user %#v", gitPath,
-				c.connection.User.Username)
-			return errUnsupportedConfig
-		}
-		if len(gitPath) > len(f.Path) {
-			if strings.HasPrefix(gitPath, f.Path+"/") || f.Path == "/" {
+		if len(sshDestPath) < len(f.Path) {
+			if strings.HasPrefix(sshDestPath+"/", f.Path) || sshDestPath == "/" {
 				c.connection.Log(logger.LevelDebug, logSenderSSH,
-					"git is not supported inside folder with files extensions filters %#v user %#v", gitPath,
-					c.connection.User.Username)
+					"command %#v is not allowed inside folder with files extensions filters %#v user %#v",
+					c.command, sshDestPath, c.connection.User.Username)
 				return errUnsupportedConfig
 			}
 		}
@@ -470,41 +484,34 @@ func (c *sshCommand) checkGitAllowed() error {
 
 func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 	command := systemCommand{
-		cmd:      nil,
-		realPath: "",
+		cmd:            nil,
+		fsPath:         "",
+		quotaCheckPath: "",
 	}
 	args := make([]string, len(c.args))
 	copy(args, c.args)
-	var path string
+	var fsPath, quotaPath string
 	if len(c.args) > 0 {
 		var err error
 		sshPath := c.getDestPath()
-		path, err = c.connection.fs.ResolvePath(sshPath)
+		fsPath, err = c.connection.fs.ResolvePath(sshPath)
 		if err != nil {
 			return command, err
 		}
-		args = args[:len(args)-1]
-		args = append(args, path)
-	}
-	if strings.HasPrefix(c.command, "git-") {
-		// we don't allow git inside virtual folders or folders with files extensions filters
-		if err := c.checkGitAllowed(); err != nil {
-			return command, err
+		quotaPath = sshPath
+		fi, err := c.connection.fs.Stat(fsPath)
+		if err == nil && fi.IsDir() {
+			// if the target is an existing dir the command will write inside this dir
+			// so we need to check the quota for this directory and not its parent dir
+			quotaPath = path.Join(sshPath, "fakecontent")
 		}
+		args = args[:len(args)-1]
+		args = append(args, fsPath)
+	}
+	if err := c.isSystemCommandAllowed(); err != nil {
+		return command, errUnsupportedConfig
 	}
 	if c.command == "rsync" {
-		// if the user has virtual folders or file extensions filters we don't allow rsync since the rsync command
-		// interacts with the filesystem directly and it is not aware about virtual folders/extensions files filters
-		if len(c.connection.User.VirtualFolders) > 0 {
-			c.connection.Log(logger.LevelDebug, logSenderSSH, "user %#v has virtual folders, rsync is not supported",
-				c.connection.User.Username)
-			return command, errUnsupportedConfig
-		}
-		if len(c.connection.User.Filters.FileExtensions) > 0 {
-			c.connection.Log(logger.LevelDebug, logSenderSSH, "user %#v has file extensions filter, rsync is not supported",
-				c.connection.User.Username)
-			return command, errUnsupportedConfig
-		}
 		// we cannot avoid that rsync creates symlinks so if the user has the permission
 		// to create symlinks we add the option --safe-links to the received rsync command if
 		// it is not already set. This should prevent to create symlinks that point outside
@@ -521,36 +528,16 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 			}
 		}
 	}
-	c.connection.Log(logger.LevelDebug, logSenderSSH, "new system command %#v, with args: %v path: %v", c.command, args, path)
+	c.connection.Log(logger.LevelDebug, logSenderSSH, "new system command %#v, with args: %+v fs path %#v quota check path %#v",
+		c.command, args, fsPath, quotaPath)
 	cmd := exec.Command(c.command, args...)
 	uid := c.connection.User.GetUID()
 	gid := c.connection.User.GetGID()
 	cmd = wrapCmd(cmd, uid, gid)
 	command.cmd = cmd
-	command.realPath = path
+	command.fsPath = fsPath
+	command.quotaCheckPath = quotaPath
 	return command, nil
-}
-
-func (c *sshCommand) rescanHomeDir() error {
-	quotaTracking := dataprovider.GetQuotaTracking()
-	if (!c.connection.User.HasQuotaRestrictions() && quotaTracking == 2) || quotaTracking == 0 {
-		return nil
-	}
-	var err error
-	var numFiles int
-	var size int64
-	if AddQuotaScan(c.connection.User.Username) {
-		numFiles, size, err = c.connection.fs.ScanRootDirContents()
-		if err != nil {
-			c.connection.Log(logger.LevelWarn, logSenderSSH, "error scanning user home dir %#v: %v", c.connection.User.HomeDir, err)
-		} else {
-			err := dataprovider.UpdateUserQuota(dataProvider, c.connection.User, numFiles, size, true)
-			c.connection.Log(logger.LevelDebug, logSenderSSH, "user home dir scanned, user: %#v, dir: %#v, error: %v",
-				c.connection.User.Username, c.connection.User.HomeDir, err)
-		}
-		RemoveQuotaScan(c.connection.User.Username) //nolint:errcheck
-	}
-	return err
 }
 
 // for the supported commands, the destination path, if any, is the last argument
@@ -640,6 +627,29 @@ func (c *sshCommand) checkCopyDestination(fsDestPath string) error {
 		return err
 	}
 	return nil
+}
+
+func (c *sshCommand) getSizeForPath(name string) (int, int64, error) {
+	if dataprovider.GetQuotaTracking() > 0 {
+		fi, err := c.connection.fs.Lstat(name)
+		if err != nil {
+			if c.connection.fs.IsNotExist(err) {
+				return 0, 0, nil
+			}
+			c.connection.Log(logger.LevelDebug, logSenderSSH, "unable to stat %#v error: %v", name, err)
+			return 0, 0, err
+		}
+		if fi.IsDir() {
+			files, size, err := c.connection.fs.GetDirSize(name)
+			if err != nil {
+				c.connection.Log(logger.LevelDebug, logSenderSSH, "unable to get size for dir %#v error: %v", name, err)
+			}
+			return files, size, err
+		} else if fi.Mode().IsRegular() {
+			return 1, fi.Size(), nil
+		}
+	}
+	return 0, 0, nil
 }
 
 func (c *sshCommand) sendErrorResponse(err error) error {

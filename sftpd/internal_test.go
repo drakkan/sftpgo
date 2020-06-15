@@ -939,48 +939,6 @@ func TestSSHCommandsRemoteFs(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestSSHCommandQuotaScan(t *testing.T) {
-	buf := make([]byte, 65535)
-	stdErrBuf := make([]byte, 65535)
-	readErr := fmt.Errorf("test read error")
-	mockSSHChannel := MockChannel{
-		Buffer:       bytes.NewBuffer(buf),
-		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
-		ReadError:    readErr,
-	}
-	server, client := net.Pipe()
-	defer func() {
-		err := server.Close()
-		assert.NoError(t, err)
-	}()
-	defer func() {
-		err := client.Close()
-		assert.NoError(t, err)
-	}()
-	permissions := make(map[string][]string)
-	permissions["/"] = []string{dataprovider.PermAny}
-	user := dataprovider.User{
-		Permissions: permissions,
-		QuotaFiles:  1,
-		HomeDir:     "invalid_path",
-	}
-	fs, err := user.GetFilesystem("123")
-	assert.NoError(t, err)
-	connection := Connection{
-		channel: &mockSSHChannel,
-		netConn: client,
-		User:    user,
-		fs:      fs,
-	}
-	cmd := sshCommand{
-		command:    "git-receive-pack",
-		connection: connection,
-		args:       []string{"/testrepo"},
-	}
-	err = cmd.rescanHomeDir()
-	assert.Error(t, err, "scanning an invalid home dir must fail")
-}
-
 func TestGitVirtualFolders(t *testing.T) {
 	permissions := make(map[string][]string)
 	permissions["/"] = []string{dataprovider.PermAny}
@@ -1006,7 +964,13 @@ func TestGitVirtualFolders(t *testing.T) {
 		VirtualPath: "/vdir",
 	})
 	_, err = cmd.getSystemCommand()
+	assert.NoError(t, err)
+	cmd.args = []string{"/"}
+	_, err = cmd.getSystemCommand()
 	assert.EqualError(t, err, errUnsupportedConfig.Error())
+	cmd.args = []string{"/vdir1"}
+	_, err = cmd.getSystemCommand()
+	assert.NoError(t, err)
 
 	cmd.connection.User.VirtualFolders = nil
 	cmd.connection.User.VirtualFolders = append(cmd.connection.User.VirtualFolders, vfs.VirtualFolder{
@@ -1017,7 +981,7 @@ func TestGitVirtualFolders(t *testing.T) {
 	})
 	cmd.args = []string{"/vdir/subdir"}
 	_, err = cmd.getSystemCommand()
-	assert.EqualError(t, err, errUnsupportedConfig.Error())
+	assert.NoError(t, err)
 
 	cmd.args = []string{"/adir/subdir"}
 	_, err = cmd.getSystemCommand()
@@ -1077,6 +1041,54 @@ func TestRsyncOptions(t *testing.T) {
 	assert.EqualError(t, err, errUnsupportedConfig.Error())
 }
 
+func TestSystemCommandSizeForPath(t *testing.T) {
+	permissions := make(map[string][]string)
+	permissions["/"] = []string{dataprovider.PermAny}
+	user := dataprovider.User{
+		Permissions: permissions,
+		HomeDir:     os.TempDir(),
+	}
+	fs, err := user.GetFilesystem("123")
+	assert.NoError(t, err)
+	conn := Connection{
+		User: user,
+		fs:   fs,
+	}
+	sshCmd := sshCommand{
+		command:    "rsync",
+		connection: conn,
+		args:       []string{"--server", "-vlogDtprze.iLsfxC", ".", "/"},
+	}
+	_, _, err = sshCmd.getSizeForPath("missing path")
+	assert.NoError(t, err)
+	testDir := filepath.Join(os.TempDir(), "dir")
+	err = os.MkdirAll(testDir, os.ModePerm)
+	assert.NoError(t, err)
+	testFile := filepath.Join(testDir, "testfile")
+	err = ioutil.WriteFile(testFile, []byte("test content"), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.Symlink(testFile, testFile+".link")
+	assert.NoError(t, err)
+	numFiles, size, err := sshCmd.getSizeForPath(testFile + ".link")
+	assert.NoError(t, err)
+	assert.Equal(t, 0, numFiles)
+	assert.Equal(t, int64(0), size)
+	numFiles, size, err = sshCmd.getSizeForPath(testFile)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, numFiles)
+	assert.Equal(t, int64(12), size)
+	if runtime.GOOS != osWindows {
+		err = os.Chmod(testDir, 0001)
+		assert.NoError(t, err)
+		_, _, err = sshCmd.getSizeForPath(testFile)
+		assert.Error(t, err)
+		err = os.Chmod(testDir, os.ModePerm)
+		assert.NoError(t, err)
+	}
+	err = os.RemoveAll(testDir)
+	assert.NoError(t, err)
+}
+
 func TestSystemCommandErrors(t *testing.T) {
 	buf := make([]byte, 65535)
 	stdErrBuf := make([]byte, 65535)
@@ -1099,9 +1111,14 @@ func TestSystemCommandErrors(t *testing.T) {
 	}()
 	permissions := make(map[string][]string)
 	permissions["/"] = []string{dataprovider.PermAny}
+	homeDir := filepath.Join(os.TempDir(), "adir")
+	err := os.MkdirAll(homeDir, os.ModePerm)
+	assert.NoError(t, err)
+	err = ioutil.WriteFile(filepath.Join(homeDir, "afile"), []byte("content"), os.ModePerm)
+	assert.NoError(t, err)
 	user := dataprovider.User{
 		Permissions: permissions,
-		HomeDir:     os.TempDir(),
+		HomeDir:     homeDir,
 	}
 	fs, err := user.GetFilesystem("123")
 	assert.NoError(t, err)
@@ -1111,16 +1128,25 @@ func TestSystemCommandErrors(t *testing.T) {
 		User:    user,
 		fs:      fs,
 	}
-	sshCmd := sshCommand{
-		command:    "ls",
-		connection: connection,
-		args:       []string{"/"},
+	var sshCmd sshCommand
+	if runtime.GOOS == osWindows {
+		sshCmd = sshCommand{
+			command:    "dir",
+			connection: connection,
+			args:       []string{"/"},
+		}
+	} else {
+		sshCmd = sshCommand{
+			command:    "ls",
+			connection: connection,
+			args:       []string{"/"},
+		}
 	}
 	systemCmd, err := sshCmd.getSystemCommand()
 	assert.NoError(t, err)
 
 	systemCmd.cmd.Dir = os.TempDir()
-	// FIXME: the command completes but the fake client was unable to read the response
+	// FIXME: the command completes but the fake client is unable to read the response
 	// no error is reported in this case. We can see that the expected code is executed
 	// reading the test coverage
 	sshCmd.executeSystemCommand(systemCmd) //nolint:errcheck
@@ -1160,6 +1186,10 @@ func TestSystemCommandErrors(t *testing.T) {
 	sshCmd.connection.channel = &mockSSHChannel
 	_, err = transfer.copyFromReaderToWriter(sshCmd.connection.channel, dst, 0)
 	assert.EqualError(t, err, io.ErrShortWrite.Error())
+	_, err = transfer.copyFromReaderToWriter(sshCmd.connection.channel, dst, -1)
+	assert.EqualError(t, err, errQuotaExceeded.Error())
+	err = os.RemoveAll(homeDir)
+	assert.NoError(t, err)
 }
 
 func TestTransferUpdateQuota(t *testing.T) {
