@@ -29,7 +29,7 @@ The authentication must finish within 60 seconds.
 
 Let's see a very basic example. Our sample keyboard interactive authentication program will ask for 2 sets of questions and accept the user if the answer to the last question is `answer3`.
 
-```
+```shell
 #!/bin/sh
 
 echo '{"questions":["Question1: ","Question2: "],"instruction":"This is a sample for keyboard interactive authentication","echos":[true,false]}'
@@ -42,15 +42,15 @@ echo '{"questions":["Question3: "],"instruction":"","echos":[true]}'
 read ANSWER3
 
 if test "$ANSWER3" = "answer3"; then
-	echo '{"auth_result":1}'
+  echo '{"auth_result":1}'
 else
-	echo '{"auth_result":-1}'
+  echo '{"auth_result":-1}'
 fi
 ```
 
 and here is an example where SFTPGo checks the user password for you:
 
-```
+```shell
 #!/bin/sh
 
 echo '{"questions":["Password: "],"instruction":"This is a sample for keyboard interactive authentication","echos":[false],"check_password":1}'
@@ -66,9 +66,9 @@ echo '{"questions":["One time token: "],"instruction":"","echos":[false]}'
 read ANSWER2
 
 if test "$ANSWER2" = "token"; then
-	echo '{"auth_result":1}'
+  echo '{"auth_result":1}'
 else
-	echo '{"auth_result":-1}'
+  echo '{"auth_result":-1}'
 fi
 ```
 
@@ -85,7 +85,7 @@ The HTTP response code must be 200 and the body must contain the same JSON struc
 
 Let's see a basic sample, the configured hook is `http://127.0.0.1:8000/keyIntHookPwd`, as soon as the user try to login, SFTPGo makes this HTTP POST request:
 
-```
+```shell
 POST /keyIntHookPwd HTTP/1.1
 Host: 127.0.0.1:8000
 User-Agent: Go-http-client/1.1
@@ -100,7 +100,7 @@ as you can see in this first requests `answers` and `questions` are null.
 
 Here is the response that instructs SFTPGo to ask for the user password and to check it:
 
-```
+```shell
 HTTP/1.1 200 OK
 Date: Tue, 31 Mar 2020 21:15:24 GMT
 Server: WSGIServer/0.2 CPython/3.8.2
@@ -113,7 +113,7 @@ Content-Length: 143
 
 The user enters the correct password and so SFTPGo makes a new HTTP POST, please note that the `request_id` is the same of the previous request, this time the asked `questions` and the user's `answers` are not null:
 
-```
+```shell
 POST /keyIntHookPwd HTTP/1.1
 Host: 127.0.0.1:8000
 User-Agent: Go-http-client/1.1
@@ -126,7 +126,7 @@ Accept-Encoding: gzip
 
 Here is the HTTP response that istructs SFTPGo to ask for a new question:
 
-```
+```shell
 HTTP/1.1 200 OK
 Date: Tue, 31 Mar 2020 21:15:27 GMT
 Server: WSGIServer/0.2 CPython/3.8.2
@@ -139,7 +139,7 @@ Content-Length: 66
 
 As soon as the user answer to this question, SFTPGo will make a new HTTP POST request with the user's answers:
 
-```
+```shell
 POST /keyIntHookPwd HTTP/1.1
 Host: 127.0.0.1:8000
 User-Agent: Go-http-client/1.1
@@ -152,7 +152,7 @@ Accept-Encoding: gzip
 
 Here is the final HTTP response that allows the user login:
 
-```
+```shell
 HTTP/1.1 200 OK
 Date: Tue, 31 Mar 2020 21:15:29 GMT
 Server: WSGIServer/0.2 CPython/3.8.2

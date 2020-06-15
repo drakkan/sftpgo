@@ -14,18 +14,18 @@ For each account, the following properties can be configured:
 - `quota_size` maximum size allowed as bytes. 0 means unlimited.
 - `quota_files` maximum number of files allowed. 0 means unlimited.
 - `permissions` the following per directory permissions are supported:
-    - `*` all permissions are granted
-    - `list` list items is allowed
-    - `download` download files is allowed
-    - `upload` upload files is allowed
-    - `overwrite` overwrite an existing file, while uploading, is allowed. `upload` permission is required to allow file overwrite
-    - `delete` delete files or directories is allowed
-    - `rename` rename files or directories is allowed if this permission is granted on target path. You can enable rename in a more controlled way granting `delete` permission on source directory and `upload` permission on target directory
-    - `create_dirs` create directories is allowed
-    - `create_symlinks` create symbolic links is allowed
-    - `chmod` changing file or directory permissions is allowed. On Windows, only the 0200 bit (owner writable) of mode is used; it controls whether the file's read-only attribute is set or cleared. The other bits are currently unused. Use mode 0400 for a read-only file and 0600 for a readable+writable file.
-    - `chown` changing file or directory owner and group is allowed. Changing owner and group is not supported on Windows.
-    - `chtimes` changing file or directory access and modification time is allowed
+  - `*` all permissions are granted
+  - `list` list items is allowed
+  - `download` download files is allowed
+  - `upload` upload files is allowed
+  - `overwrite` overwrite an existing file, while uploading, is allowed. `upload` permission is required to allow file overwrite
+  - `delete` delete files or directories is allowed
+  - `rename` rename files or directories is allowed if this permission is granted on target path. You can enable rename in a more controlled way granting `delete` permission on source directory and `upload` permission on target directory
+  - `create_dirs` create directories is allowed
+  - `create_symlinks` create symbolic links is allowed
+  - `chmod` changing file or directory permissions is allowed. On Windows, only the 0200 bit (owner writable) of mode is used; it controls whether the file's read-only attribute is set or cleared. The other bits are currently unused. Use mode 0400 for a read-only file and 0600 for a readable+writable file.
+  - `chown` changing file or directory owner and group is allowed. Changing owner and group is not supported on Windows.
+  - `chtimes` changing file or directory access and modification time is allowed
 - `upload_bandwidth` maximum upload bandwidth as KB/s, 0 means unlimited.
 - `download_bandwidth` maximum download bandwidth as KB/s, 0 means unlimited.
 - `allowed_ip`, List of IP/Mask allowed to login. Any IP address not contained in this list cannot login. IP/Mask must be in CIDR notation as defined in RFC 4632 and RFC 4291, for example "192.0.2.0/24" or "2001:db8::/32"

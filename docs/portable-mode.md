@@ -2,7 +2,7 @@
 
 SFTPGo allows to share a single directory on demand using the `portable` subcommand:
 
-```
+```console
 sftpgo portable --help
 To serve the current working directory with auto generated credentials simply use:
 
@@ -49,11 +49,10 @@ In portable mode, SFTPGo can advertise the SFTP service and, optionally, the cre
 
 Here is an example of the advertised service including credentials as seen using `avahi-browse`:
 
-```
+```console
 = enp0s31f6 IPv4 SFTPGo portable 53705                         SFTP File Transfer   local
    hostname = [p1.local]
    address = [192.168.1.230]
    port = [53705]
    txt = ["password=EWOo6pJe" "user=user" "version=0.9.3-dev-b409523-dirty-2019-10-26T13:43:32Z"]
 ```
-

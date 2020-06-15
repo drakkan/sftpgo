@@ -3,13 +3,16 @@
 SFTPGo can easily saturate a Gigabit connection on low end hardware with no special configuration, this is generally enough for most use cases.
 
 For Multi-Gig connections, some performance improvements and comparisons with OpenSSH have been discussed [here](https://github.com/drakkan/sftpgo/issues/69), most of them have been included in the master branch. To summarize:
+
 - In current state with all performance improvements applied, SFTP performance is very close to OpenSSH however CPU usage is higher. SCP performance match OpenSSH.
 - The main bottlenecks are the encryption and the messages authentication, so if you can use a fast cipher with implicit messages authentication, such as `aes128-gcm@openssh.com`, you will get a big performance boost.
 - SCP protocol is much simpler than SFTP and so, the multi-platform, SFTPGo's SCP implementation performs better than SFTP.
 - Load balancing with HAProxy can greatly improve the performance if CPU not become the bottleneck.
 
 ## Benchmark
+
 ### Hardware specification
+
 **Server** ||
 --- | --- |
 OS| Debian 10.2 x64 |
@@ -41,6 +44,7 @@ Server's CPU is in Eco mode, you can expect better results in certain cases with
 The Message Authentication Code (MAC) used is `hmac-sha2-256`.
 
 ##### SFTP
+
 Download:
 
 Stream|Baseline MB/s|Devel MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
@@ -62,6 +66,7 @@ Stream|Baseline MB/s|Devel MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
 8|605|1210|1368|1273|1820|
 
 ##### SCP
+
 Download:
 
 Stream|Baseline MB/s|Devel MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
@@ -87,6 +92,7 @@ Stream|Baseline MB/s|Devel MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
 With this cipher the messages authentication is implicit, no SHA256 computation is needed.
 
 ##### SFTP
+
 Download:
 
 Stream|Baseline MB/s|Devel MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
@@ -108,6 +114,7 @@ Stream|Baseline MB/s|Devel MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
 8|1042|1578|<--|1433|1893|
 
 ##### SCP
+
 Download:
 
 Stream|Baseline MB/s|Devel MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
@@ -129,27 +136,27 @@ Stream|Baseline MB/s|Devel MB/s|Optimized MB/s|Balanced MB/s|OpenSSH MB/s|
 8|1733|1744|<--|1664|2510|
 
 ### Optimizations applied
-- AES-CTR optimization of Go compiler for x86_64, there is a [patch](https://go-review.googlesource.com/c/go/+/51670) that hasn't been merged yet, you can apply it yourself.
 
+- AES-CTR optimization of Go compiler for x86_64, there is a [patch](https://go-review.googlesource.com/c/go/+/51670) that hasn't been merged yet, you can apply it yourself.
 
 ### HAProxy configuration
 
 Here is the relevant HAProxy configuration used for the `Balanced` test configuration:
 
-```
+```console
 frontend sftp
-    bind 	:2222
-    mode 	tcp
+    bind   :2222
+    mode   tcp
     timeout  client  600s
     default_backend sftpgo
 
 backend sftpgo
-    mode	tcp
-    balance	roundrobin
-    timeout	connect 10s
-    timeout	server  600s
-    timeout	queue   30s
-    option 	tcp-check
+    mode    tcp
+    balance roundrobin
+    timeout connect 10s
+    timeout server  600s
+    timeout queue   30s
+    option  tcp-check
     tcp-check expect string SSH-2.0-
 
     server sftpgo1 127.0.0.1:2022 check send-proxy-v2 weight 10 inter 10s rise 2 fall 3

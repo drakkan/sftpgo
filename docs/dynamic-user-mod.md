@@ -35,7 +35,7 @@ In other words while using "External Authentication" the external program receiv
 
 Let's see a very basic example. Our sample program will grant access to the existing user `test_user` only in the time range 10:00-18:00. Other users will not be modified since the program will terminate with no output.
 
-```
+```shell
 #!/bin/bash
 
 CURRENT_TIME=`date +%H:%M`
@@ -51,4 +51,3 @@ fi
 ```
 
 Please note that this is a demo program and it might not work in all cases. For example, the username should be obtained by parsing the JSON serialized user and not by searching the username inside the JSON as shown here.
-

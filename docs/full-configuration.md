@@ -4,7 +4,7 @@
 
 The SFTPGo executable can be used this way:
 
-```
+```console
 Usage:
   sftpgo [command]
 

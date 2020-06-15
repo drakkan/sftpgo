@@ -8,21 +8,21 @@ REST API can be protected using HTTP basic authentication and exposed via HTTPS.
 
 For example, you can keep SFTPGo listening on localhost and expose it externally configuring a reverse proxy using Apache HTTP Server this way:
 
-```
+```shell
 ProxyPass /api/v1 http://127.0.0.1:8080/api/v1
 ProxyPassReverse /api/v1 http://127.0.0.1:8080/api/v1
 ```
 
 and you can add authentication with something like this:
 
-```
+```shell
 <Location /api/v1>
-	AuthType Digest
-	AuthName "Private"
-	AuthDigestDomain "/api/v1"
-	AuthDigestProvider file
-	AuthUserFile "/etc/httpd/conf/auth_digest"
-	Require valid-user
+  AuthType Digest
+  AuthName "Private"
+  AuthDigestDomain "/api/v1"
+  AuthDigestProvider file
+  AuthUserFile "/etc/httpd/conf/auth_digest"
+  Require valid-user
 </Location>
 ```
 

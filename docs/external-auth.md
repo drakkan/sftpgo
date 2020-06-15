@@ -37,7 +37,7 @@ You can combine the scopes. For example, 3 means password and public key, 5 mean
 
 Let's see a very basic example. Our sample authentication program will only accept user `test_user` with any password or public key.
 
-```
+```shell
 #!/bin/sh
 
 if test "$SFTPGO_AUTHD_USERNAME" = "test_user"; then

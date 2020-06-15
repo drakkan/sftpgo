@@ -44,7 +44,6 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 - `endpoint`, not null for S3 backend if configured
 - `status`, integer. 0 means an error occurred. 1 means no error
 
-
 The HTTP request will use the global configuration for HTTP clients.
 
 The `actions` struct inside the "data_provider" configuration section allows you to configure actions on user add, update, delete.
