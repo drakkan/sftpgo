@@ -188,7 +188,8 @@ func (c *scpCommand) getUploadFileData(sizeToRead int64, transfer *Transfer) err
 }
 
 func (c *scpCommand) handleUploadFile(resolvedPath, filePath string, sizeToRead int64, isNewFile bool, fileSize int64, requestPath string) error {
-	if !c.connection.hasSpace(true, requestPath) {
+	quotaResult := c.connection.hasSpace(true, requestPath)
+	if !quotaResult.HasSpace {
 		err := fmt.Errorf("denying file write due to quota limits")
 		c.connection.Log(logger.LevelWarn, logSenderSCP, "error uploading file: %#v, err: %v", filePath, err)
 		c.sendErrorMessage(err)

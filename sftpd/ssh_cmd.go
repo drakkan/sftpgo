@@ -163,6 +163,9 @@ func (c *sshCommand) handeSFTPGoCopy() error {
 		err := errors.New("unsupported copy source: only files and directories are supported")
 		return c.sendErrorResponse(err)
 	}
+	if err := c.checkCopyQuota(filesNum, filesSize, sshDestPath); err != nil {
+		return c.sendErrorResponse(err)
+	}
 	c.connection.Log(logger.LevelDebug, logSenderSSH, "start copy %#v -> %#v", fsSourcePath, fsDestPath)
 	err = fscopy.Copy(fsSourcePath, fsDestPath)
 	if err != nil {
@@ -301,7 +304,8 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 		return c.sendErrorResponse(errUnsupportedConfig)
 	}
 	sshDestPath := c.getDestPath()
-	if !c.connection.hasSpace(true, command.quotaCheckPath) {
+	quotaResult := c.connection.hasSpace(true, command.quotaCheckPath)
+	if !quotaResult.HasSpace {
 		return c.sendErrorResponse(errQuotaExceeded)
 	}
 	perms := []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermCreateDirs, dataprovider.PermListItems,
@@ -342,9 +346,10 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	var once sync.Once
 	commandResponse := make(chan bool)
 
+	remainingQuotaSize := quotaResult.GetRemainingSize()
+
 	go func() {
 		defer stdin.Close()
-		remainingQuotaSize := c.connection.User.GetRemaingQuotaSize(sshDestPath)
 		transfer := Transfer{
 			file:           nil,
 			path:           command.fsPath,
@@ -625,6 +630,30 @@ func (c *sshCommand) checkCopyDestination(fsDestPath string) error {
 		return err
 	} else if !c.connection.fs.IsNotExist(err) {
 		return err
+	}
+	return nil
+}
+
+func (c *sshCommand) checkCopyQuota(numFiles int, filesSize int64, requestPath string) error {
+	quotaResult := c.connection.hasSpace(true, requestPath)
+	if !quotaResult.HasSpace {
+		return errQuotaExceeded
+	}
+	if quotaResult.QuotaFiles > 0 {
+		remainingFiles := quotaResult.GetRemainingFiles()
+		if remainingFiles < numFiles {
+			c.connection.Log(logger.LevelDebug, logSenderSSH, "copy not allowed, file limit will be exceeded, "+
+				"remaining files: %v to copy: %v", remainingFiles, numFiles)
+			return errQuotaExceeded
+		}
+	}
+	if quotaResult.QuotaSize > 0 {
+		remainingSize := quotaResult.GetRemainingSize()
+		if remainingSize < filesSize {
+			c.connection.Log(logger.LevelDebug, logSenderSSH, "copy not allowed, size limit will be exceeded, "+
+				"remaining size: %v to copy: %v", remainingSize, filesSize)
+			return errQuotaExceeded
+		}
 	}
 	return nil
 }

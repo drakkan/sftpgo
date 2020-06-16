@@ -45,6 +45,33 @@ type Fs interface {
 	Join(elem ...string) string
 }
 
+// QuotaCheckResult defines the result for a quota check
+type QuotaCheckResult struct {
+	HasSpace     bool
+	AllowedSize  int64
+	AllowedFiles int
+	UsedSize     int64
+	UsedFiles    int
+	QuotaSize    int64
+	QuotaFiles   int
+}
+
+// GetRemainingSize returns the remaining allowed size
+func (q *QuotaCheckResult) GetRemainingSize() int64 {
+	if q.QuotaSize > 0 {
+		return q.QuotaSize - q.UsedSize
+	}
+	return 0
+}
+
+// GetRemainigFiles returns the remaining allowed files
+func (q *QuotaCheckResult) GetRemainingFiles() int {
+	if q.QuotaFiles > 0 {
+		return q.QuotaFiles - q.UsedFiles
+	}
+	return 0
+}
+
 // S3FsConfig defines the configuration for S3 based filesystem
 type S3FsConfig struct {
 	Bucket string `json:"bucket,omitempty"`

@@ -587,7 +587,8 @@ func TestSFTPGetUsedQuota(t *testing.T) {
 	connection := Connection{
 		User: u,
 	}
-	assert.False(t, connection.hasSpace(false, "/"))
+	quotaResult := connection.hasSpace(false, "/")
+	assert.False(t, quotaResult.HasSpace)
 }
 
 func TestSupportedSSHCommands(t *testing.T) {

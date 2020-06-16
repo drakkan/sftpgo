@@ -293,24 +293,6 @@ func (u *User) HasOverlappedMappedPaths() bool {
 	return false
 }
 
-// GetRemaingQuotaSize returns the available quota size for the given SFTP path
-func (u *User) GetRemaingQuotaSize(sftpPath string) int64 {
-	vfolder, err := u.GetVirtualFolderForPath(sftpPath)
-	if err == nil {
-		if vfolder.IsIncludedInUserQuota() && u.QuotaSize > 0 {
-			return u.QuotaSize - u.UsedQuotaSize
-		}
-		if vfolder.QuotaSize > 0 {
-			return vfolder.QuotaSize - vfolder.UsedQuotaSize
-		}
-	} else {
-		if u.QuotaSize > 0 {
-			return u.QuotaSize - u.UsedQuotaSize
-		}
-	}
-	return 0
-}
-
 // HasPerm returns true if the user has the given permission or any permission
 func (u *User) HasPerm(permission, path string) bool {
 	perms := u.GetPermissionsForPath(path)

@@ -498,7 +498,8 @@ func (c Connection) handleSFTPRemove(filePath string, request *sftp.Request) err
 }
 
 func (c Connection) handleSFTPUploadToNewFile(resolvedPath, filePath, requestPath string) (io.WriterAt, error) {
-	if !c.hasSpace(true, requestPath) {
+	quotaResult := c.hasSpace(true, requestPath)
+	if !quotaResult.HasSpace {
 		c.Log(logger.LevelInfo, logSender, "denying file write due to quota limits")
 		return nil, sftp.ErrSSHFxFailure
 	}
@@ -539,7 +540,8 @@ func (c Connection) handleSFTPUploadToNewFile(resolvedPath, filePath, requestPat
 func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, resolvedPath, filePath string,
 	fileSize int64, requestPath string) (io.WriterAt, error) {
 	var err error
-	if !c.hasSpace(false, requestPath) {
+	quotaResult := c.hasSpace(false, requestPath)
+	if !quotaResult.HasSpace {
 		c.Log(logger.LevelInfo, logSender, "denying file write due to quota limits")
 		return nil, sftp.ErrSSHFxFailure
 	}
@@ -636,10 +638,12 @@ func (c Connection) hasSpaceForRename(request *sftp.Request, initialSize int64, 
 		// rename between user root dir and a virtual folder included in user quota
 		return true
 	}
-	if !c.hasSpace(true, request.Target) {
+	quotaResult := c.hasSpace(true, request.Target)
+	if !quotaResult.HasSpace {
 		if initialSize != -1 {
 			// we are overquota but we are overwriting a file so we check the quota size
-			if c.hasSpace(false, request.Target) {
+			quotaResult = c.hasSpace(false, request.Target)
+			if quotaResult.HasSpace {
 				// we have enough quota size
 				return true
 			}
@@ -655,41 +659,53 @@ func (c Connection) hasSpaceForRename(request *sftp.Request, initialSize int64, 
 	return true
 }
 
-func (c Connection) hasSpace(checkFiles bool, requestPath string) bool {
-	if dataprovider.GetQuotaTracking() == 0 {
-		return true
+func (c Connection) hasSpace(checkFiles bool, requestPath string) vfs.QuotaCheckResult {
+	result := vfs.QuotaCheckResult{
+		HasSpace:     true,
+		AllowedSize:  0,
+		AllowedFiles: 0,
+		UsedSize:     0,
+		UsedFiles:    0,
+		QuotaSize:    0,
+		QuotaFiles:   0,
 	}
-	var quotaSize, usedSize int64
-	var quotaFiles, numFiles int
+
+	if dataprovider.GetQuotaTracking() == 0 {
+		return result
+	}
 	var err error
 	var vfolder vfs.VirtualFolder
 	vfolder, err = c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 	if err == nil && !vfolder.IsIncludedInUserQuota() {
 		if vfolder.HasNoQuotaRestrictions(checkFiles) {
-			return true
+			return result
 		}
-		quotaSize = vfolder.QuotaSize
-		quotaFiles = vfolder.QuotaFiles
-		numFiles, usedSize, err = dataprovider.GetUsedVirtualFolderQuota(dataProvider, vfolder.MappedPath)
+		result.QuotaSize = vfolder.QuotaSize
+		result.QuotaFiles = vfolder.QuotaFiles
+		result.UsedFiles, result.UsedSize, err = dataprovider.GetUsedVirtualFolderQuota(dataProvider, vfolder.MappedPath)
 	} else {
 		if c.User.HasNoQuotaRestrictions(checkFiles) {
-			return true
+			return result
 		}
-		quotaSize = c.User.QuotaSize
-		quotaFiles = c.User.QuotaFiles
-		numFiles, usedSize, err = dataprovider.GetUsedQuota(dataProvider, c.User.Username)
+		result.QuotaSize = c.User.QuotaSize
+		result.QuotaFiles = c.User.QuotaFiles
+		result.UsedFiles, result.UsedSize, err = dataprovider.GetUsedQuota(dataProvider, c.User.Username)
 	}
 	if err != nil {
 		c.Log(logger.LevelWarn, logSender, "error getting used quota for %#v request path %#v: %v", c.User.Username, requestPath, err)
-		return false
+		result.HasSpace = false
+		return result
 	}
-	if (checkFiles && quotaFiles > 0 && numFiles >= quotaFiles) ||
-		(quotaSize > 0 && usedSize >= quotaSize) {
+	result.AllowedFiles = result.QuotaFiles - result.UsedFiles
+	result.AllowedSize = result.QuotaSize - result.UsedSize
+	if (checkFiles && result.QuotaFiles > 0 && result.UsedFiles >= result.QuotaFiles) ||
+		(result.QuotaSize > 0 && result.UsedSize >= result.QuotaSize) {
 		c.Log(logger.LevelDebug, logSender, "quota exceed for user %#v, request path %#v, num files: %v/%v, size: %v/%v check files: %v",
-			c.User.Username, requestPath, numFiles, quotaFiles, usedSize, quotaSize, checkFiles)
-		return false
+			c.User.Username, requestPath, result.UsedFiles, result.QuotaFiles, result.UsedSize, result.QuotaSize, checkFiles)
+		result.HasSpace = false
+		return result
 	}
-	return true
+	return result
 }
 
 func (c Connection) close() error {
