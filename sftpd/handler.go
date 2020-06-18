@@ -531,6 +531,7 @@ func (c Connection) handleSFTPUploadToNewFile(resolvedPath, filePath, requestPat
 		isFinished:     false,
 		minWriteOffset: 0,
 		requestPath:    requestPath,
+		maxWriteSize:   quotaResult.GetRemainingSize(),
 		lock:           new(sync.Mutex),
 	}
 	addTransfer(&transfer)
@@ -570,6 +571,9 @@ func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, re
 	}
 
 	initialSize := int64(0)
+	// if there is a size limit remaining size cannot be 0 here, since quotaResult.HasSpace
+	// will return false in this case and we deny the upload before
+	maxWriteSize := quotaResult.GetRemainingSize()
 	if pflags.Append && osFlags&os.O_TRUNC == 0 {
 		c.Log(logger.LevelDebug, logSender, "upload resume requested, file path: %#v initial size: %v", filePath, fileSize)
 		minWriteOffset = fileSize
@@ -586,6 +590,9 @@ func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, re
 			}
 		} else {
 			initialSize = fileSize
+		}
+		if maxWriteSize > 0 {
+			maxWriteSize += fileSize
 		}
 	}
 
@@ -611,10 +618,67 @@ func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, re
 		minWriteOffset: minWriteOffset,
 		initialSize:    initialSize,
 		requestPath:    requestPath,
+		maxWriteSize:   maxWriteSize,
 		lock:           new(sync.Mutex),
 	}
 	addTransfer(&transfer)
 	return &transfer, nil
+}
+
+// hasSpaceForCrossRename checks the quota after a rename between different folders
+func (c Connection) hasSpaceForCrossRename(quotaResult vfs.QuotaCheckResult, initialSize int64, sourcePath string) bool {
+	if !quotaResult.HasSpace && initialSize == -1 {
+		// we are over quota and this is not a file replace
+		return false
+	}
+	fi, err := c.fs.Lstat(sourcePath)
+	if err != nil {
+		c.Log(logger.LevelWarn, logSender, "cross rename denied, stat error for path %#v: %v", sourcePath, err)
+		return false
+	}
+	var sizeDiff int64
+	var filesDiff int
+	if fi.Mode().IsRegular() {
+		sizeDiff = fi.Size()
+		filesDiff = 1
+		if initialSize != -1 {
+			sizeDiff -= initialSize
+			filesDiff = 0
+		}
+	} else if fi.IsDir() {
+		filesDiff, sizeDiff, err = c.fs.GetDirSize(sourcePath)
+		if err != nil {
+			c.Log(logger.LevelWarn, logSender, "cross rename denied, error getting size for directory %#v: %v", sourcePath, err)
+			return false
+		}
+	}
+	if !quotaResult.HasSpace && initialSize != -1 {
+		// we are over quota but we are overwriting an existing file so we check if the quota size after the rename is ok
+		if quotaResult.QuotaSize == 0 {
+			return true
+		}
+		c.Log(logger.LevelDebug, logSender, "cross rename overwrite, source %#v, used size %v, size to add %v",
+			sourcePath, quotaResult.UsedSize, sizeDiff)
+		quotaResult.UsedSize += sizeDiff
+		return quotaResult.GetRemainingSize() >= 0
+	}
+	if quotaResult.QuotaFiles > 0 {
+		remainingFiles := quotaResult.GetRemainingFiles()
+		c.Log(logger.LevelDebug, logSender, "cross rename, source %#v remaining file %v to add %v", sourcePath,
+			remainingFiles, filesDiff)
+		if remainingFiles < filesDiff {
+			return false
+		}
+	}
+	if quotaResult.QuotaSize > 0 {
+		remainingSize := quotaResult.GetRemainingSize()
+		c.Log(logger.LevelDebug, logSender, "cross rename, source %#v remaining size %v to add %v", sourcePath,
+			remainingSize, sizeDiff)
+		if remainingSize < sizeDiff {
+			return false
+		}
+	}
+	return true
 }
 
 func (c Connection) hasSpaceForRename(request *sftp.Request, initialSize int64, sourcePath string) bool {
@@ -639,24 +703,7 @@ func (c Connection) hasSpaceForRename(request *sftp.Request, initialSize int64, 
 		return true
 	}
 	quotaResult := c.hasSpace(true, request.Target)
-	if !quotaResult.HasSpace {
-		if initialSize != -1 {
-			// we are overquota but we are overwriting a file so we check the quota size
-			quotaResult = c.hasSpace(false, request.Target)
-			if quotaResult.HasSpace {
-				// we have enough quota size
-				return true
-			}
-			if fi, err := c.fs.Lstat(sourcePath); err == nil {
-				if fi.Mode().IsRegular() {
-					// we have space if we are overwriting a bigger file with a smaller one
-					return initialSize >= fi.Size()
-				}
-			}
-		}
-		return false
-	}
-	return true
+	return c.hasSpaceForCrossRename(quotaResult, initialSize, sourcePath)
 }
 
 func (c Connection) hasSpace(checkFiles bool, requestPath string) vfs.QuotaCheckResult {
@@ -771,6 +818,12 @@ func (c Connection) isRenamePermitted(sourcePath string, request *sftp.Request) 
 		(!c.User.HasPerm(dataprovider.PermDelete, path.Dir(request.Filepath)) ||
 			!c.User.HasPerm(dataprovider.PermUpload, path.Dir(request.Target))) {
 		return false
+	}
+	if !c.User.HasPerm(dataprovider.PermRename, path.Dir(request.Target)) &&
+		!c.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(request.Target)) {
+		if fi, err := c.fs.Lstat(sourcePath); err == nil && fi.IsDir() {
+			return false
+		}
 	}
 	return true
 }

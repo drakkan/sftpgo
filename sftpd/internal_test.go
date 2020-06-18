@@ -1042,6 +1042,40 @@ func TestRsyncOptions(t *testing.T) {
 	assert.EqualError(t, err, errUnsupportedConfig.Error())
 }
 
+func TestSpaceForCrossRename(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	permissions := make(map[string][]string)
+	permissions["/"] = []string{dataprovider.PermAny}
+	user := dataprovider.User{
+		Permissions: permissions,
+		HomeDir:     os.TempDir(),
+	}
+	fs, err := user.GetFilesystem("123")
+	assert.NoError(t, err)
+	conn := Connection{
+		User: user,
+		fs:   fs,
+	}
+	quotaResult := vfs.QuotaCheckResult{
+		HasSpace: true,
+	}
+	assert.False(t, conn.hasSpaceForCrossRename(quotaResult, -1, filepath.Join(os.TempDir(), "a missing file")))
+	testDir := filepath.Join(os.TempDir(), "dir")
+	err = os.MkdirAll(testDir, os.ModePerm)
+	assert.NoError(t, err)
+	err = ioutil.WriteFile(filepath.Join(testDir, "afile"), []byte("content"), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.Chmod(testDir, 0001)
+	assert.NoError(t, err)
+	assert.False(t, conn.hasSpaceForCrossRename(quotaResult, -1, testDir))
+	err = os.Chmod(testDir, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.RemoveAll(testDir)
+	assert.NoError(t, err)
+}
+
 func TestSystemCommandSizeForPath(t *testing.T) {
 	permissions := make(map[string][]string)
 	permissions["/"] = []string{dataprovider.PermAny}
@@ -1164,7 +1198,7 @@ func TestSystemCommandErrors(t *testing.T) {
 		lock:         new(sync.Mutex)}
 	destBuff := make([]byte, 65535)
 	dst := bytes.NewBuffer(destBuff)
-	_, err = transfer.copyFromReaderToWriter(dst, sshCmd.connection.channel, 0)
+	_, err = transfer.copyFromReaderToWriter(dst, sshCmd.connection.channel)
 	assert.EqualError(t, err, readErr.Error())
 
 	mockSSHChannel = MockChannel{
@@ -1174,7 +1208,8 @@ func TestSystemCommandErrors(t *testing.T) {
 		WriteError:   nil,
 	}
 	sshCmd.connection.channel = &mockSSHChannel
-	_, err = transfer.copyFromReaderToWriter(dst, sshCmd.connection.channel, 1)
+	transfer.maxWriteSize = 1
+	_, err = transfer.copyFromReaderToWriter(dst, sshCmd.connection.channel)
 	assert.EqualError(t, err, errQuotaExceeded.Error())
 
 	mockSSHChannel = MockChannel{
@@ -1185,9 +1220,10 @@ func TestSystemCommandErrors(t *testing.T) {
 		ShortWriteErr: true,
 	}
 	sshCmd.connection.channel = &mockSSHChannel
-	_, err = transfer.copyFromReaderToWriter(sshCmd.connection.channel, dst, 0)
+	_, err = transfer.copyFromReaderToWriter(sshCmd.connection.channel, dst)
 	assert.EqualError(t, err, io.ErrShortWrite.Error())
-	_, err = transfer.copyFromReaderToWriter(sshCmd.connection.channel, dst, -1)
+	transfer.maxWriteSize = -1
+	_, err = transfer.copyFromReaderToWriter(sshCmd.connection.channel, dst)
 	assert.EqualError(t, err, errQuotaExceeded.Error())
 	err = os.RemoveAll(homeDir)
 	assert.NoError(t, err)
@@ -2032,9 +2068,21 @@ func TestRenamePermission(t *testing.T) {
 	assert.True(t, conn.isRenamePermitted("", request))
 	request = sftp.NewRequest("Rename", "/dir3/testfile")
 	request.Target = "/dir2/testfile"
-	// delete is granted on Source and Upload on Target, this is enough
+	// delete is granted on Source and Upload on Target, the target is a file this is enough
 	assert.True(t, conn.isRenamePermitted("", request))
 	request = sftp.NewRequest("Rename", "/dir2/testfile")
 	request.Target = "/dir3/testfile"
 	assert.False(t, conn.isRenamePermitted("", request))
+	tmpDir := filepath.Join(os.TempDir(), "dir")
+	err = os.Mkdir(tmpDir, os.ModePerm)
+	assert.NoError(t, err)
+	request.Filepath = "/dir"
+	request.Target = "/dir2/dir"
+	// the source is a dir and the target has no createDirs perm
+	assert.False(t, conn.isRenamePermitted(tmpDir, request))
+	conn.User.Permissions["/dir2"] = []string{dataprovider.PermUpload, dataprovider.PermCreateDirs}
+	// the source is a dir and the target has createDirs perm
+	assert.True(t, conn.isRenamePermitted(tmpDir, request))
+	err = os.RemoveAll(tmpDir)
+	assert.NoError(t, err)
 }

@@ -170,7 +170,9 @@ func newActionNotification(user dataprovider.User, operation, filePath, target, 
 	} else if user.FsConfig.Provider == 2 {
 		bucket = user.FsConfig.GCSConfig.Bucket
 	}
-	if err != nil {
+	if err == errQuotaExceeded {
+		status = 2
+	} else if err != nil {
 		status = 0
 	}
 	return actionNotification{

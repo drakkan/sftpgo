@@ -365,11 +365,12 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 			transferError:  nil,
 			isFinished:     false,
 			minWriteOffset: 0,
+			maxWriteSize:   remainingQuotaSize,
 			lock:           new(sync.Mutex),
 		}
 		addTransfer(&transfer)
 		defer removeTransfer(&transfer) //nolint:errcheck
-		w, e := transfer.copyFromReaderToWriter(stdin, c.connection.channel, remainingQuotaSize)
+		w, e := transfer.copyFromReaderToWriter(stdin, c.connection.channel)
 		c.connection.Log(logger.LevelDebug, logSenderSSH, "command: %#v, copy from remote command to sdtin ended, written: %v, "+
 			"initial remaining quota: %v, err: %v", c.connection.command, w, remainingQuotaSize, e)
 		if e != nil {
@@ -397,7 +398,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 		}
 		addTransfer(&transfer)
 		defer removeTransfer(&transfer) //nolint:errcheck
-		w, e := transfer.copyFromReaderToWriter(c.connection.channel, stdout, 0)
+		w, e := transfer.copyFromReaderToWriter(c.connection.channel, stdout)
 		c.connection.Log(logger.LevelDebug, logSenderSSH, "command: %#v, copy from sdtout to remote command ended, written: %v err: %v",
 			c.connection.command, w, e)
 		if e != nil {
@@ -426,7 +427,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 		}
 		addTransfer(&transfer)
 		defer removeTransfer(&transfer) //nolint:errcheck
-		w, e := transfer.copyFromReaderToWriter(c.connection.channel.Stderr(), stderr, 0)
+		w, e := transfer.copyFromReaderToWriter(c.connection.channel.Stderr(), stderr)
 		c.connection.Log(logger.LevelDebug, logSenderSSH, "command: %#v, copy from sdterr to remote command ended, written: %v err: %v",
 			c.connection.command, w, e)
 		// os.ErrClosed means that the command is finished so we don't need to do anything

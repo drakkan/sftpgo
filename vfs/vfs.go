@@ -64,7 +64,7 @@ func (q *QuotaCheckResult) GetRemainingSize() int64 {
 	return 0
 }
 
-// GetRemainigFiles returns the remaining allowed files
+// GetRemainingFiles returns the remaining allowed files
 func (q *QuotaCheckResult) GetRemainingFiles() int {
 	if q.QuotaFiles > 0 {
 		return q.QuotaFiles - q.UsedFiles

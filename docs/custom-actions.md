@@ -3,7 +3,7 @@
 The `actions` struct inside the "sftpd" configuration section allows to configure the actions for file operations and SSH commands.
 The `hook` can be defined as the absolute path of your program or an HTTP URL.
 
-The `upload` condition includes both uploads to new files and overwrite of existing files. The `ssh_cmd` condition will be triggered after a command is successfully executed via SSH. `scp` will trigger the `download` and `upload` conditions and not `ssh_cmd`.
+The `upload` condition includes both uploads to new files and overwrite of existing files. If an upload is aborted for quota limits SFTPGo tries to remove the partial file, so if the notification reports a zero size file and a quota exceeded error the file has been deleted. The `ssh_cmd` condition will be triggered after a command is successfully executed via SSH. `scp` will trigger the `download` and `upload` conditions and not `ssh_cmd`.
 The notification will indicate if an error is detected and so, for example, a partial file is uploaded.
 The `pre-delete` action, if defined, will be called just before files deletion. If the external command completes with a zero exit status or the HTTP notification response code is `200` then SFTPGo will assume that the file was already deleted/moved and so it will not try to remove the file and it will not execute the hook defined for the `delete` action.
 
@@ -26,7 +26,7 @@ The external program can also read the following environment variables:
 - `SFTPGO_ACTION_FS_PROVIDER`, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend
 - `SFTPGO_ACTION_BUCKET`, non-empty for S3 and GCS backends
 - `SFTPGO_ACTION_ENDPOINT`, non-empty for S3 backend if configured
-- `SFTPGO_ACTION_STATUS`, integer. 0 means an error occurred. 1 means no error
+- `SFTPGO_ACTION_STATUS`, integer. 0 means a generic error occurred. 1 means no error, 2 means quota exceeded error
 
 Previous global environment variables aren't cleared when the script is called.
 The program must finish within 30 seconds.
@@ -42,7 +42,7 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 - `fs_provider`, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend
 - `bucket`, not null for S3 and GCS backends
 - `endpoint`, not null for S3 backend if configured
-- `status`, integer. 0 means an error occurred. 1 means no error
+- `status`, integer. 0 means a generic error occurred. 1 means no error, 2 means quota exceeded error
 
 The HTTP request will use the global configuration for HTTP clients.
 

@@ -1970,6 +1970,16 @@ func TestQuotaLimits(t *testing.T) {
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
+	testFileSize1 := int64(131072)
+	testFileName1 := "test_file1.dat"
+	testFilePath1 := filepath.Join(homeBasePath, testFileName1)
+	err = createTestFile(testFilePath1, testFileSize1)
+	assert.NoError(t, err)
+	testFileSize2 := int64(32768)
+	testFileName2 := "test_file2.dat" //nolint:goconst
+	testFilePath2 := filepath.Join(homeBasePath, testFileName2)
+	err = createTestFile(testFilePath2, testFileSize2)
+	assert.NoError(t, err)
 	// test quota files
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -1994,8 +2004,36 @@ func TestQuotaLimits(t *testing.T) {
 		assert.Error(t, err, "user is over quota size, upload must fail")
 		err = client.Rename(testFileName, testFileName+".quota")
 		assert.NoError(t, err)
+		err = client.Rename(testFileName+".quota", testFileName)
+		assert.NoError(t, err)
+	}
+	// now test quota limits while uploading the current file, we have 1 bytes remaining
+	user.QuotaSize = testFileSize + 1
+	user.QuotaFiles = 0
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	client, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		err = sftpUploadFile(testFilePath1, testFileName1, testFileSize1, client)
+		assert.Error(t, err)
+		_, err = client.Stat(testFileName1)
+		assert.Error(t, err)
+		// overwriting an existing file will work if the resulting size is lesser or equal than the current one
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath2, testFileName, testFileSize2, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, testFileName, testFileSize1, client)
+		assert.Error(t, err)
+		_, err := client.Stat(testFileName)
+		assert.Error(t, err)
 	}
 	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath1)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath2)
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -2204,7 +2242,7 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 	err := createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
 	u2 := getTestUser(usePubKey)
-	u2.QuotaSize = testFileSize - 1
+	u2.QuotaSize = testFileSize + 1
 	u2.VirtualFolders = append(u2.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			MappedPath: mappedPath1,
@@ -2219,7 +2257,7 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 		},
 		VirtualPath: vdirPath2,
 		QuotaFiles:  0,
-		QuotaSize:   testFileSize - 1,
+		QuotaSize:   testFileSize + 1,
 	})
 	users := []dataprovider.User{u1, u2}
 	for _, u := range users {
@@ -2238,9 +2276,15 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 			assert.NoError(t, err)
 			err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 			assert.Error(t, err)
+			_, err = client.Stat(testFileName)
+			assert.Error(t, err)
 			err = sftpUploadFile(testFilePath, path.Join(vdirPath1, testFileName+"1"), testFileSize, client)
 			assert.Error(t, err)
+			_, err = client.Stat(path.Join(vdirPath1, testFileName+"1"))
+			assert.Error(t, err)
 			err = sftpUploadFile(testFilePath, path.Join(vdirPath2, testFileName+"1"), testFileSize, client)
+			assert.Error(t, err)
+			_, err = client.Stat(path.Join(vdirPath2, testFileName+"1"))
 			assert.Error(t, err)
 			err = client.Remove(path.Join(vdirPath1, testFileName))
 			assert.NoError(t, err)
@@ -2300,6 +2344,8 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 	vdirPath1 := "/vdir1"
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
 	vdirPath2 := "/vdir2"
+	mappedPath3 := filepath.Join(os.TempDir(), "vdir3")
+	vdirPath3 := "/vdir3"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			MappedPath: mappedPath1,
@@ -2314,11 +2360,21 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 		},
 		VirtualPath: vdirPath2,
 		QuotaFiles:  0,
-		QuotaSize:   testFileSize + testFileSize1 - 1,
+		QuotaSize:   testFileSize + testFileSize1 + 1,
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath3,
+		},
+		VirtualPath: vdirPath3,
+		QuotaFiles:  2,
+		QuotaSize:   testFileSize * 2,
 	})
 	err = os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath3, os.ModePerm)
 	assert.NoError(t, err)
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
@@ -2337,6 +2393,10 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath1, testFileName1, testFileSize1, client)
 		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath3, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join(vdirPath3, testFileName+"1"), testFileSize, client)
+		assert.NoError(t, err)
 		err = client.Rename(testFileName, path.Join(vdirPath1, testFileName+".rename"))
 		assert.Error(t, err)
 		// we overwrite an existing file and we have unlimited size
@@ -2352,6 +2412,41 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 		// we have no space and we try to overwrite a smaller file with a bigger one, this should fail
 		err = client.Rename(testFileName, path.Join(vdirPath2, testFileName1))
 		assert.Error(t, err)
+		fi, err := client.Stat(path.Join(vdirPath1, testFileName1))
+		if assert.NoError(t, err) {
+			assert.Equal(t, testFileSize1, fi.Size())
+		}
+		// we are overquota inside vdir3 size 2/2 and size 262144/262144
+		err = client.Rename(path.Join(vdirPath1, testFileName1), path.Join(vdirPath3, testFileName1+".rename"))
+		assert.Error(t, err)
+		// we overwrite an existing file and we have enough size
+		err = client.Rename(path.Join(vdirPath1, testFileName1), path.Join(vdirPath3, testFileName))
+		assert.NoError(t, err)
+		testFileName2 := "test_file2.dat"
+		testFilePath2 := filepath.Join(homeBasePath, testFileName2)
+		err = createTestFile(testFilePath2, testFileSize+testFileSize1)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath2, testFileName2, testFileSize+testFileSize1, client)
+		assert.NoError(t, err)
+		// we overwrite an existing file and we haven't enough size
+		err = client.Rename(testFileName2, path.Join(vdirPath3, testFileName))
+		assert.Error(t, err)
+		err = os.Remove(testFilePath2)
+		assert.NoError(t, err)
+		// now remove a file from vdir3, create a dir with 2 files and try to rename it in vdir3
+		// this will fail since the rename will result in 3 files inside vdir3 and quota limits only
+		// allow 2 total files there
+		err = client.Remove(path.Join(vdirPath3, testFileName+"1"))
+		assert.NoError(t, err)
+		aDir := "a dir"
+		err = client.Mkdir(aDir)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(aDir, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath1, path.Join(aDir, testFileName1+"1"), testFileSize1, client)
+		assert.NoError(t, err)
+		err = client.Rename(aDir, path.Join(vdirPath3, aDir))
+		assert.Error(t, err)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -2359,11 +2454,15 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
 	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath3}, http.StatusOK)
+	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath1)
 	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath2)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath3)
 	assert.NoError(t, err)
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
@@ -3795,7 +3894,7 @@ func TestVFolderQuotaSize(t *testing.T) {
 	u := getTestUser(usePubKey)
 	testFileSize := int64(131072)
 	u.QuotaFiles = 1
-	u.QuotaSize = testFileSize - 1
+	u.QuotaSize = testFileSize + 1
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
 	vdirPath1 := "/vpath1"
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
@@ -3884,7 +3983,7 @@ func TestVFolderQuotaSize(t *testing.T) {
 		},
 		VirtualPath: vdirPath2,
 		QuotaFiles:  10,
-		QuotaSize:   testFileSize*2 - 1,
+		QuotaSize:   testFileSize*2 + 1,
 	})
 	user1, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
@@ -5822,7 +5921,7 @@ func TestGitQuotaVirtualFolders(t *testing.T) {
 	repoName := "testrepo"
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 1
-	u.QuotaSize = 1
+	u.QuotaSize = 131072
 	mappedPath := filepath.Join(os.TempDir(), "repo")
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
@@ -5841,11 +5940,10 @@ func TestGitQuotaVirtualFolders(t *testing.T) {
 		// we upload a file so the user is over quota
 		defer client.Close()
 		testFileName := "test_file.dat"
-		testFileSize := int64(131072)
 		testFilePath := filepath.Join(homeBasePath, testFileName)
-		err = createTestFile(testFilePath, testFileSize)
+		err = createTestFile(testFilePath, u.QuotaSize)
 		assert.NoError(t, err)
-		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		err = sftpUploadFile(testFilePath, testFileName, u.QuotaSize, client)
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
@@ -6437,12 +6535,22 @@ func TestSCPQuotaSize(t *testing.T) {
 	testFileSize := int64(65535)
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 1
-	u.QuotaSize = testFileSize - 1
+	u.QuotaSize = testFileSize + 1
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
 	testFileName := "test_file.dat"
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	testFileSize1 := int64(131072)
+	testFileName1 := "test_file1.dat"
+	testFilePath1 := filepath.Join(homeBasePath, testFileName1)
+	err = createTestFile(testFilePath1, testFileSize1)
+	assert.NoError(t, err)
+	testFileSize2 := int64(32768)
+	testFileName2 := "test_file2.dat"
+	testFilePath2 := filepath.Join(homeBasePath, testFileName2)
+	err = createTestFile(testFilePath2, testFileSize2)
 	assert.NoError(t, err)
 	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join("/", testFileName))
 	err = scpUpload(testFilePath, remoteUpPath, true, false)
@@ -6450,7 +6558,25 @@ func TestSCPQuotaSize(t *testing.T) {
 	err = scpUpload(testFilePath, remoteUpPath+".quota", true, false)
 	assert.Error(t, err, "user is over quota scp upload must fail")
 
+	// now test quota limits while uploading the current file, we have 1 bytes remaining
+	user.QuotaSize = testFileSize + 1
+	user.QuotaFiles = 0
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = scpUpload(testFilePath2, remoteUpPath+".quota", true, false)
+	assert.Error(t, err, "user is over quota scp upload must fail")
+	// overwriting an existing file will work if the resulting size is lesser or equal than the current one
+	err = scpUpload(testFilePath1, remoteUpPath, true, false)
+	assert.Error(t, err)
+	err = scpUpload(testFilePath2, remoteUpPath, true, false)
+	assert.NoError(t, err)
+	err = scpUpload(testFilePath, remoteUpPath, true, false)
+	assert.NoError(t, err)
 	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath1)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath2)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)

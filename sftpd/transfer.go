@@ -49,6 +49,7 @@ type Transfer struct {
 	isNewFile      bool
 	isFinished     bool
 	requestPath    string
+	maxWriteSize   int64
 }
 
 // TransferError is called if there is an unexpected error.
@@ -108,6 +109,9 @@ func (t *Transfer) WriteAt(p []byte, off int64) (n int, err error) {
 	}
 	t.lock.Lock()
 	t.bytesReceived += int64(written)
+	if e == nil && t.maxWriteSize > 0 && t.bytesReceived > t.maxWriteSize {
+		e = errQuotaExceeded
+	}
 	t.lock.Unlock()
 	if e != nil {
 		t.TransferError(e)
@@ -136,7 +140,17 @@ func (t *Transfer) Close() error {
 		numFiles = 1
 	}
 	metrics.TransferCompleted(t.bytesSent, t.bytesReceived, t.transferType, t.transferError)
-	if t.transferType == transferUpload && t.file != nil && t.file.Name() != t.path {
+	if t.transferError == errQuotaExceeded && t.file != nil {
+		// if quota is exceeded we try to remove the partial file for uploads to local filesystem
+		err = os.Remove(t.file.Name())
+		if err == nil {
+			numFiles--
+			t.bytesReceived = 0
+			t.minWriteOffset = 0
+		}
+		logger.Warn(logSender, t.connectionID, "upload denied due to space limit, delete temporary file: %#v, deletion error: %v",
+			t.file.Name(), err)
+	} else if t.transferType == transferUpload && t.file != nil && t.file.Name() != t.path {
 		if t.transferError == nil || uploadMode == uploadModeAtomicWithResume {
 			err = os.Rename(t.file.Name(), t.path)
 			logger.Debug(logSender, t.connectionID, "atomic upload completed, rename: %#v -> %#v, error: %v",
@@ -148,6 +162,7 @@ func (t *Transfer) Close() error {
 			if err == nil {
 				numFiles--
 				t.bytesReceived = 0
+				t.minWriteOffset = 0
 			}
 		}
 	}
@@ -231,10 +246,10 @@ func (t *Transfer) handleThrottle() {
 // used for ssh commands.
 // It reads from src until EOF so it does not treat an EOF from Read as an error to be reported.
 // EOF from Write is reported as error
-func (t *Transfer) copyFromReaderToWriter(dst io.Writer, src io.Reader, maxWriteSize int64) (int64, error) {
+func (t *Transfer) copyFromReaderToWriter(dst io.Writer, src io.Reader) (int64, error) {
 	var written int64
 	var err error
-	if maxWriteSize < 0 {
+	if t.maxWriteSize < 0 {
 		return 0, errQuotaExceeded
 	}
 	buf := make([]byte, 32768)
@@ -250,7 +265,7 @@ func (t *Transfer) copyFromReaderToWriter(dst io.Writer, src io.Reader, maxWrite
 				} else {
 					t.bytesReceived = written
 				}
-				if maxWriteSize > 0 && written > maxWriteSize {
+				if t.maxWriteSize > 0 && written > t.maxWriteSize {
 					err = errQuotaExceeded
 					break
 				}
