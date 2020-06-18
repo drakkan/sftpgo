@@ -178,15 +178,16 @@ func TestMain(m *testing.M) {
 func TestInitialization(t *testing.T) {
 	err := config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
+	invalidFile := "invalid file"
 	httpdConf := config.GetHTTPDConfig()
 	httpdConf.BackupsPath = "test_backups"
-	httpdConf.AuthUserFile = "invalid_file"
+	httpdConf.AuthUserFile = invalidFile
 	err = httpdConf.Initialize(configDir, true)
 	assert.Error(t, err)
 	httpdConf.BackupsPath = backupsPath
 	httpdConf.AuthUserFile = ""
-	httpdConf.CertificateFile = "invalid file"
-	httpdConf.CertificateKeyFile = "invalid file"
+	httpdConf.CertificateFile = invalidFile
+	httpdConf.CertificateKeyFile = invalidFile
 	err = httpdConf.Initialize(configDir, true)
 	assert.Error(t, err)
 	httpdConf.CertificateFile = ""
@@ -196,6 +197,17 @@ func TestInitialization(t *testing.T) {
 	assert.Error(t, err)
 	err = httpd.ReloadTLSCertificate()
 	assert.NoError(t, err, "reloading TLS Certificate must return nil error if no certificate is configured")
+	httpdConf = config.GetHTTPDConfig()
+	httpdConf.BackupsPath = ".."
+	err = httpdConf.Initialize(configDir, true)
+	assert.Error(t, err)
+	httpdConf.BackupsPath = backupsPath
+	httpdConf.CertificateFile = invalidFile
+	httpdConf.CertificateKeyFile = invalidFile
+	httpdConf.StaticFilesPath = ""
+	httpdConf.TemplatesPath = ""
+	err = httpdConf.Initialize(configDir, true)
+	assert.Error(t, err)
 }
 
 func TestBasicUserHandling(t *testing.T) {

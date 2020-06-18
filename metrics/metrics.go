@@ -2,8 +2,10 @@
 package metrics
 
 import (
+	"github.com/go-chi/chi"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const (
@@ -12,6 +14,11 @@ const (
 	loginMethodKeyAndPassword      = "publickey+password"
 	loginMethodKeyAndKeyboardInt   = "publickey+keyboard-interactive"
 )
+
+// AddMetricsEndpoint exposes metrics to the specified endpoint
+func AddMetricsEndpoint(metricsPath string, handler chi.Router) {
+	handler.Handle(metricsPath, promhttp.Handler())
+}
 
 var (
 	// dataproviderAvailability is the metric that reports the availability for the configured data provider

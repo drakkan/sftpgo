@@ -102,7 +102,7 @@ The configuration file contains the following sections:
   - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 8080
   - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"
   - `templates_path`, string. Path to the HTML web templates. This can be an absolute path or a path relative to the config dir
-  - `static_files_path`, string. Path to the static files for the web interface. This can be an absolute path or a path relative to the config dir
+  - `static_files_path`, string. Path to the static files for the web interface. This can be an absolute path or a path relative to the config dir. If both `templates_path` and `static_files_path` are empty the built-in web interface will be disabled
   - `backups_path`, string. Path to the backup directory. This can be an absolute path or a path relative to the config dir. We don't allow backups in arbitrary paths for security reasons
   - `auth_user_file`, string. Path to a file used to store usernames and passwords for basic authentication. This can be an absolute path or a path relative to the config dir. We support HTTP basic authentication, and the file format must conform to the one generated using the Apache `htpasswd` tool. The supported password formats are bcrypt (`$2y$` prefix) and md5 crypt (`$apr1$` prefix). If empty, HTTP authentication is disabled.
   - `certificate_file`, string. Certificate for HTTPS. This can be an absolute path or a path relative to the config dir.

@@ -61,7 +61,8 @@ type Conf struct {
 	BindAddress string `json:"bind_address" mapstructure:"bind_address"`
 	// Path to the HTML web templates. This can be an absolute path or a path relative to the config dir
 	TemplatesPath string `json:"templates_path" mapstructure:"templates_path"`
-	// Path to the static files for the web interface. This can be an absolute path or a path relative to the config dir
+	// Path to the static files for the web interface. This can be an absolute path or a path relative to the config dir.
+	// If both TemplatesPath and StaticFilesPath are empty the built-in web interface will be disabled
 	StaticFilesPath string `json:"static_files_path" mapstructure:"static_files_path"`
 	// Path to the backup directory. This can be an absolute path or a path relative to the config dir
 	BackupsPath string `json:"backups_path" mapstructure:"backups_path"`
@@ -91,15 +92,19 @@ func SetDataProvider(provider dataprovider.Provider) {
 }
 
 // Initialize configures and starts the HTTP server
-func (c Conf) Initialize(configDir string, profiler bool) error {
+func (c Conf) Initialize(configDir string, enableProfiler bool) error {
 	var err error
 	logger.Debug(logSender, "", "initializing HTTP server with config %+v", c)
 	backupsPath = getConfigPath(c.BackupsPath, configDir)
 	staticFilesPath := getConfigPath(c.StaticFilesPath, configDir)
 	templatesPath := getConfigPath(c.TemplatesPath, configDir)
-	if len(backupsPath) == 0 || len(staticFilesPath) == 0 || len(templatesPath) == 0 {
-		return fmt.Errorf("Required directory is invalid, backup path %#v, static file path: %#v template path: %#v",
-			backupsPath, staticFilesPath, templatesPath)
+	enableWebAdmin := len(staticFilesPath) > 0 || len(templatesPath) > 0
+	if len(backupsPath) == 0 {
+		return fmt.Errorf("Required directory is invalid, backup path %#v", backupsPath)
+	}
+	if enableWebAdmin && (len(staticFilesPath) == 0 || len(templatesPath) == 0) {
+		return fmt.Errorf("Required directory is invalid, static file path: %#v template path: %#v",
+			staticFilesPath, templatesPath)
 	}
 	authUserFile := getConfigPath(c.AuthUserFile, configDir)
 	httpAuth, err = newBasicAuthProvider(authUserFile)
@@ -108,8 +113,12 @@ func (c Conf) Initialize(configDir string, profiler bool) error {
 	}
 	certificateFile := getConfigPath(c.CertificateFile, configDir)
 	certificateKeyFile := getConfigPath(c.CertificateKeyFile, configDir)
-	loadTemplates(templatesPath)
-	initializeRouter(staticFilesPath, profiler)
+	if enableWebAdmin {
+		loadTemplates(templatesPath)
+	} else {
+		logger.Info(logSender, "", "built-in web interface disabled, please set templates_path and static_files_path to enable it")
+	}
+	initializeRouter(staticFilesPath, enableProfiler, enableWebAdmin)
 	httpServer := &http.Server{
 		Addr:           fmt.Sprintf("%s:%d", c.BindAddress, c.BindPort),
 		Handler:        router,

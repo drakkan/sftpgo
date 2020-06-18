@@ -7,10 +7,10 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
 )
@@ -20,14 +20,14 @@ func GetHTTPRouter() http.Handler {
 	return router
 }
 
-func initializeRouter(staticFilesPath string, profiler bool) {
+func initializeRouter(staticFilesPath string, enableProfiler, enableWebAdmin bool) {
 	router = chi.NewRouter()
 	router.Use(middleware.RequestID)
 	router.Use(middleware.RealIP)
 	router.Use(logger.NewStructuredLogger(logger.GetLogger()))
 	router.Use(middleware.Recoverer)
 
-	if profiler {
+	if enableProfiler {
 		logger.InfoToConsole("enabling the built-in profiler")
 		logger.Info(logSender, "", "enabling the built-in profiler")
 		router.Mount(pprofBasePath, middleware.Profiler())
@@ -52,7 +52,7 @@ func initializeRouter(staticFilesPath string, profiler bool) {
 			http.Redirect(w, r, webUsersPath, http.StatusMovedPermanently)
 		})
 
-		router.Handle(metricsPath, promhttp.Handler())
+		metrics.AddMetricsEndpoint(metricsPath, router)
 
 		router.Get(versionPath, func(w http.ResponseWriter, r *http.Request) {
 			render.JSON(w, r, utils.GetAppVersion())
@@ -86,22 +86,26 @@ func initializeRouter(staticFilesPath string, profiler bool) {
 		router.Delete(folderPath, deleteFolderByPath)
 		router.Get(dumpDataPath, dumpData)
 		router.Get(loadDataPath, loadData)
-		router.Get(webUsersPath, handleGetWebUsers)
-		router.Get(webUserPath, handleWebAddUserGet)
-		router.Get(webUserPath+"/{userID}", handleWebUpdateUserGet)
-		router.Post(webUserPath, handleWebAddUserPost)
-		router.Post(webUserPath+"/{userID}", handleWebUpdateUserPost)
-		router.Get(webConnectionsPath, handleWebGetConnections)
-		router.Get(webFoldersPath, handleWebGetFolders)
-		router.Get(webFolderPath, handleWebAddFolderGet)
-		router.Post(webFolderPath, handleWebAddFolderPost)
+		if enableWebAdmin {
+			router.Get(webUsersPath, handleGetWebUsers)
+			router.Get(webUserPath, handleWebAddUserGet)
+			router.Get(webUserPath+"/{userID}", handleWebUpdateUserGet)
+			router.Post(webUserPath, handleWebAddUserPost)
+			router.Post(webUserPath+"/{userID}", handleWebUpdateUserPost)
+			router.Get(webConnectionsPath, handleWebGetConnections)
+			router.Get(webFoldersPath, handleWebGetFolders)
+			router.Get(webFolderPath, handleWebAddFolderGet)
+			router.Post(webFolderPath, handleWebAddFolderPost)
+		}
 	})
 
-	router.Group(func(router chi.Router) {
-		compressor := middleware.NewCompressor(5)
-		router.Use(compressor.Handler)
-		fileServer(router, webStaticFilesPath, http.Dir(staticFilesPath))
-	})
+	if enableWebAdmin {
+		router.Group(func(router chi.Router) {
+			compressor := middleware.NewCompressor(5)
+			router.Use(compressor.Handler)
+			fileServer(router, webStaticFilesPath, http.Dir(staticFilesPath))
+		})
+	}
 }
 
 func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
