@@ -18,6 +18,7 @@ import (
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/version"
 	"github.com/drakkan/sftpgo/vfs"
 )
 
@@ -143,7 +144,6 @@ func loadTemplates(templatesPath string) {
 }
 
 func getBasePageData(title, currentURL string) basePage {
-	version := utils.GetAppVersion()
 	return basePage{
 		Title:                 title,
 		CurrentURL:            currentURL,
@@ -160,7 +160,7 @@ func getBasePageData(title, currentURL string) basePage {
 		UsersTitle:            pageUsersTitle,
 		ConnectionsTitle:      pageConnectionsTitle,
 		FoldersTitle:          pageFoldersTitle,
-		Version:               version.GetVersionAsString(),
+		Version:               version.GetAsString(),
 	}
 }
 

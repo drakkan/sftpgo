@@ -12,7 +12,7 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/sftpd"
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/version"
 )
 
 // GetHTTPRouter returns the configured HTTP handler
@@ -55,7 +55,7 @@ func initializeRouter(staticFilesPath string, enableProfiler, enableWebAdmin boo
 		metrics.AddMetricsEndpoint(metricsPath, router)
 
 		router.Get(versionPath, func(w http.ResponseWriter, r *http.Request) {
-			render.JSON(w, r, utils.GetAppVersion())
+			render.JSON(w, r, version.Get())
 		})
 
 		router.Get(providerStatusPath, func(w http.ResponseWriter, r *http.Request) {

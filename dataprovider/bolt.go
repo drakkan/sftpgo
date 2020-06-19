@@ -14,6 +14,7 @@ import (
 
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/version"
 	"github.com/drakkan/sftpgo/vfs"
 )
 
@@ -57,7 +58,7 @@ type compatUserV2 struct {
 }
 
 func init() {
-	utils.AddFeature("+bolt")
+	version.AddFeature("+bolt")
 }
 
 func initializeBoltProvider(basePath string) error {

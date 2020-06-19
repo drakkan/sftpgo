@@ -12,6 +12,7 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/version"
 )
 
 const (
@@ -54,9 +55,8 @@ func (s *Service) Start() error {
 			logger.DisableLogger()
 		}
 	}
-	version := utils.GetAppVersion()
 	logger.Info(logSender, "", "starting SFTPGo %v, config dir: %v, config file: %v, log max size: %v log max backups: %v "+
-		"log max age: %v log verbose: %v, log compress: %v, profile: %v", version.GetVersionAsString(), s.ConfigDir, s.ConfigFile,
+		"log max age: %v log verbose: %v, log compress: %v, profile: %v", version.GetAsString(), s.ConfigDir, s.ConfigFile,
 		s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogVerbose, s.LogCompress, s.Profiler)
 	// in portable mode we don't read configuration from file
 	if s.PortableMode != 1 {

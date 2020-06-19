@@ -2,8 +2,8 @@
 
 package cmd
 
-import "github.com/drakkan/sftpgo/utils"
+import "github.com/drakkan/sftpgo/version"
 
 func init() {
-	utils.AddFeature("-portable")
+	version.AddFeature("-portable")
 }

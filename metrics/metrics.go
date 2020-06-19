@@ -1,3 +1,5 @@
+// +build !nometrics
+
 // Package metrics provides Prometheus metrics support
 package metrics
 
@@ -6,6 +8,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"github.com/drakkan/sftpgo/version"
 )
 
 const (
@@ -15,9 +19,8 @@ const (
 	loginMethodKeyAndKeyboardInt   = "publickey+keyboard-interactive"
 )
 
-// AddMetricsEndpoint exposes metrics to the specified endpoint
-func AddMetricsEndpoint(metricsPath string, handler chi.Router) {
-	handler.Handle(metricsPath, promhttp.Handler())
+func init() {
+	version.AddFeature("+metrics")
 }
 
 var (
@@ -392,6 +395,11 @@ var (
 		Help: "The total number of GCS head bucket errors",
 	})
 )
+
+// AddMetricsEndpoint exposes metrics to the specified endpoint
+func AddMetricsEndpoint(metricsPath string, handler chi.Router) {
+	handler.Handle(metricsPath, promhttp.Handler())
+}
 
 // TransferCompleted updates metrics after an upload or a download
 func TransferCompleted(bytesSent, bytesReceived int64, transferKind int, err error) {

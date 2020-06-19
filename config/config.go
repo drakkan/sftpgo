@@ -17,6 +17,7 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/version"
 )
 
 const (
@@ -31,7 +32,7 @@ const (
 
 var (
 	globalConf    globalConfig
-	defaultBanner = fmt.Sprintf("SFTPGo_%v", utils.GetAppVersion().Version)
+	defaultBanner = fmt.Sprintf("SFTPGo_%v", version.Get().Version)
 )
 
 type globalConfig struct {

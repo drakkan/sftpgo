@@ -5,11 +5,11 @@ package vfs
 import (
 	"errors"
 
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/version"
 )
 
 func init() {
-	utils.AddFeature("-gcs")
+	version.AddFeature("-gcs")
 }
 
 // NewGCSFs returns an error, GCS is disabled

@@ -11,7 +11,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/version"
 	"github.com/drakkan/sftpgo/vfs"
 )
 
@@ -44,7 +44,7 @@ type PGSQLProvider struct {
 }
 
 func init() {
-	utils.AddFeature("+pgsql")
+	version.AddFeature("+pgsql")
 }
 
 func initializePGSQLProvider() error {

@@ -22,6 +22,7 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/version"
 )
 
 // S3Fs is a Fs implementation for Amazon S3 compatible object storage.
@@ -35,7 +36,7 @@ type S3Fs struct {
 }
 
 func init() {
-	utils.AddFeature("+s3")
+	version.AddFeature("+s3")
 }
 
 // NewS3Fs returns an S3Fs object that allows to interact with an s3 compatible

@@ -16,7 +16,7 @@ import (
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/service"
 	"github.com/drakkan/sftpgo/sftpd"
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/version"
 	"github.com/drakkan/sftpgo/vfs"
 )
 
@@ -141,7 +141,7 @@ Please take a look at the usage below to customize the serving parameters`,
 )
 
 func init() {
-	utils.AddFeature("+portable")
+	version.AddFeature("+portable")
 
 	portableCmd.Flags().StringVarP(&directoryToServe, "directory", "d", ".",
 		"Path to the directory to serve. This can be an absolute path or a path relative to the current directory")

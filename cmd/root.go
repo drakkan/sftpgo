@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/drakkan/sftpgo/config"
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/version"
 )
 
 const (
@@ -60,9 +60,8 @@ var (
 )
 
 func init() {
-	version := utils.GetAppVersion()
 	rootCmd.Flags().BoolP("version", "v", false, "")
-	rootCmd.Version = version.GetVersionAsString()
+	rootCmd.Version = version.GetAsString()
 	rootCmd.SetVersionTemplate(`{{printf "SFTPGo "}}{{printf "%s" .Version}}
 `)
 }

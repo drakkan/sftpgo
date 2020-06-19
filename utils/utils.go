@@ -62,11 +62,6 @@ func GetTimeFromMsecSinceEpoch(msec int64) time.Time {
 	return time.Unix(0, msec*1000000)
 }
 
-// GetAppVersion returns VersionInfo struct
-func GetAppVersion() VersionInfo {
-	return versionInfo
-}
-
 // GetDurationAsString returns a string representation for a time.Duration
 func GetDurationAsString(d time.Duration) string {
 	d = d.Round(time.Second)

@@ -5,11 +5,11 @@ package dataprovider
 import (
 	"errors"
 
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/version"
 )
 
 func init() {
-	utils.AddFeature("-sqlite")
+	version.AddFeature("-sqlite")
 }
 
 func initializeSQLiteProvider(basePath string) error {

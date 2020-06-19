@@ -5,11 +5,11 @@ package vfs
 import (
 	"errors"
 
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/version"
 )
 
 func init() {
-	utils.AddFeature("-s3")
+	version.AddFeature("-s3")
 }
 
 // NewS3Fs returns an error, S3 is disabled

@@ -19,6 +19,7 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/version"
 )
 
 // StartPortableMode starts the service in portable mode
@@ -67,9 +68,8 @@ func (s *Service) StartPortableMode(sftpdPort int, enabledSSHCommands []string, 
 	}
 	var mDNSService *zeroconf.Server
 	if advertiseService {
-		version := utils.GetAppVersion()
 		meta := []string{
-			fmt.Sprintf("version=%v", version.GetVersionAsString()),
+			fmt.Sprintf("version=%v", version.GetAsString()),
 		}
 		if advertiseCredentials {
 			logger.InfoToConsole("Advertising credentials via multicast DNS")

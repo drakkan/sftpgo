@@ -22,6 +22,7 @@ import (
 	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/version"
 	"github.com/drakkan/sftpgo/vfs"
 )
 
@@ -370,21 +371,21 @@ func StartFolderQuotaScan(folder vfs.BaseVirtualFolder, expectedStatusCode int) 
 }
 
 // GetVersion returns version details
-func GetVersion(expectedStatusCode int) (utils.VersionInfo, []byte, error) {
-	var version utils.VersionInfo
+func GetVersion(expectedStatusCode int) (version.Info, []byte, error) {
+	var appVersion version.Info
 	var body []byte
 	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(versionPath), nil, "")
 	if err != nil {
-		return version, body, err
+		return appVersion, body, err
 	}
 	defer resp.Body.Close()
 	err = checkResponse(resp.StatusCode, expectedStatusCode)
 	if err == nil && expectedStatusCode == http.StatusOK {
-		err = render.DecodeJSON(resp.Body, &version)
+		err = render.DecodeJSON(resp.Body, &appVersion)
 	} else {
 		body, _ = getResponseBody(resp)
 	}
-	return version, body, err
+	return appVersion, body, err
 }
 
 // GetProviderStatus returns provider status

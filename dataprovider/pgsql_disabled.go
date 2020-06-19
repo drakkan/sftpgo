@@ -5,11 +5,11 @@ package dataprovider
 import (
 	"errors"
 
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/version"
 )
 
 func init() {
-	utils.AddFeature("-pgsql")
+	version.AddFeature("-pgsql")
 }
 
 func initializePGSQLProvider() error {

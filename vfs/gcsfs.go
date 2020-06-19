@@ -21,7 +21,7 @@ import (
 
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/version"
 )
 
 var (
@@ -41,7 +41,7 @@ type GCSFs struct {
 }
 
 func init() {
-	utils.AddFeature("+gcs")
+	version.AddFeature("+gcs")
 }
 
 // NewGCSFs returns an GCSFs object that allows to interact with Google Cloud Storage
