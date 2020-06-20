@@ -1,4 +1,4 @@
-## Dockerfile based on Debian stable
+# Dockerfile based on Debian stable
 
 Please read the comments inside the `Dockerfile` to learn how to customize things for your setup.
 

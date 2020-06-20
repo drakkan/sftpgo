@@ -21,28 +21,30 @@ import (
 )
 
 const (
-	logSender             = "httpd"
-	apiPrefix             = "/api/v1"
-	activeConnectionsPath = "/api/v1/connection"
-	quotaScanPath         = "/api/v1/quota_scan"
-	quotaScanVFolderPath  = "/api/v1/folder_quota_scan"
-	userPath              = "/api/v1/user"
-	versionPath           = "/api/v1/version"
-	folderPath            = "/api/v1/folder"
-	providerStatusPath    = "/api/v1/providerstatus"
-	dumpDataPath          = "/api/v1/dumpdata"
-	loadDataPath          = "/api/v1/loaddata"
-	metricsPath           = "/metrics"
-	pprofBasePath         = "/debug"
-	webBasePath           = "/web"
-	webUsersPath          = "/web/users"
-	webUserPath           = "/web/user"
-	webConnectionsPath    = "/web/connections"
-	webFoldersPath        = "/web/folders"
-	webFolderPath         = "/web/folder"
-	webStaticFilesPath    = "/static"
-	maxRestoreSize        = 10485760 // 10 MB
-	maxRequestSize        = 1048576  // 1MB
+	logSender                 = "httpd"
+	apiPrefix                 = "/api/v1"
+	activeConnectionsPath     = "/api/v1/connection"
+	quotaScanPath             = "/api/v1/quota_scan"
+	quotaScanVFolderPath      = "/api/v1/folder_quota_scan"
+	userPath                  = "/api/v1/user"
+	versionPath               = "/api/v1/version"
+	folderPath                = "/api/v1/folder"
+	providerStatusPath        = "/api/v1/providerstatus"
+	dumpDataPath              = "/api/v1/dumpdata"
+	loadDataPath              = "/api/v1/loaddata"
+	updateUsedQuotaPath       = "/api/v1/quota_update"
+	updateFolderUsedQuotaPath = "/api/v1/folder_quota_update"
+	metricsPath               = "/metrics"
+	pprofBasePath             = "/debug"
+	webBasePath               = "/web"
+	webUsersPath              = "/web/users"
+	webUserPath               = "/web/user"
+	webConnectionsPath        = "/web/connections"
+	webFoldersPath            = "/web/folders"
+	webFolderPath             = "/web/folder"
+	webStaticFilesPath        = "/static"
+	maxRestoreSize            = 10485760 // 10 MB
+	maxRequestSize            = 1048576  // 1MB
 )
 
 var (

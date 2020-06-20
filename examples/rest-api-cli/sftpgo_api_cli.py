@@ -40,6 +40,8 @@ class SFTPGoApiRequests:
 		self.providerStatusPath = urlparse.urljoin(baseUrl, '/api/v1/providerstatus')
 		self.dumpDataPath = urlparse.urljoin(baseUrl, '/api/v1/dumpdata')
 		self.loadDataPath = urlparse.urljoin(baseUrl, '/api/v1/loaddata')
+		self.updateUsedQuotaPath = urlparse.urljoin(baseUrl, "/api/v1/quota_update")
+		self.updateFolderUsedQuotaPath = urlparse.urljoin(baseUrl, "/api/v1/folder_quota_update")
 		self.debug = debug
 		if authType == 'basic':
 			self.auth = requests.auth.HTTPBasicAuth(authUser, authPassword)
@@ -282,6 +284,16 @@ class SFTPGoApiRequests:
 
 	def deleteUser(self, user_id):
 		r = requests.delete(urlparse.urljoin(self.userPath, 'user/' + str(user_id)), auth=self.auth, verify=self.verify)
+		self.printResponse(r)
+
+	def updateQuotaUsage(self, username, used_quota_size, used_quota_files, mode):
+		req = {"username":username, "used_quota_files":used_quota_files, "used_quota_size":used_quota_size}
+		r = requests.put(self.updateUsedQuotaPath, params={'mode':mode}, json=req, auth=self.auth, verify=self.verify)
+		self.printResponse(r)
+
+	def updateFolderQuotaUsage(self, mapped_path, used_quota_size, used_quota_files, mode):
+		req = {"mapped_path":mapped_path, "used_quota_files":used_quota_files, "used_quota_size":used_quota_size}
+		r = requests.put(self.updateFolderUsedQuotaPath, params={'mode':mode}, json=req, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
 	def getConnections(self):
@@ -688,6 +700,22 @@ if __name__ == '__main__':
 							help='0 means new users are added, existing users are updated. 1 means new users are added,' +
 							' existing users are not modified. Default: %(default)s')
 
+	parserUpdateQuotaUsage = subparsers.add_parser('update-quota-usage', help='Update the user used quota limits')
+	parserUpdateQuotaUsage.add_argument('username', type=str)
+	parserUpdateQuotaUsage.add_argument('-M', '--mode', type=str, choices=["add", "reset"], default="reset",
+							help='the update mode specifies if the given quota usage values should be added or ' +
+							'replace the current ones. Default: %(default)s')
+	parserUpdateQuotaUsage.add_argument('-S', '--used_quota_size', type=int, default=0, help='Default: %(default)s')
+	parserUpdateQuotaUsage.add_argument('-F', '--used_quota_files', type=int, default=0, help='Default: %(default)s')
+
+	parserUpdateFolderQuotaUsage = subparsers.add_parser('update-folder-quota-usage', help='Update the folder used quota limits')
+	parserUpdateFolderQuotaUsage.add_argument('folder_path', type=str)
+	parserUpdateFolderQuotaUsage.add_argument('-M', '--mode', type=str, choices=["add", "reset"], default="reset",
+							help='the update mode specifies if the given quota usage values should be added or ' +
+							'replace the current ones. Default: %(default)s')
+	parserUpdateFolderQuotaUsage.add_argument('-S', '--used_quota_size', type=int, default=0, help='Default: %(default)s')
+	parserUpdateFolderQuotaUsage.add_argument('-F', '--used_quota_files', type=int, default=0, help='Default: %(default)s')
+
 	parserConvertUsers = subparsers.add_parser('convert-users', help='Convert users to a JSON format suitable to use ' +
 											'with loadddata')
 	supportedUsersFormats = []
@@ -765,6 +793,10 @@ if __name__ == '__main__':
 		api.dumpData(args.output_file, args.indent)
 	elif args.command == 'loaddata':
 		api.loadData(args.input_file, args.scan_quota, args.mode)
+	elif args.command == 'update-quota-usage':
+		api.updateQuotaUsage(args.username, args.used_quota_size, args.used_quota_files, args.mode)
+	elif args.command == 'update-folder-quota-usage':
+		api.updateFolderQuotaUsage(args.folder_path, args.used_quota_size, args.used_quota_files, args.mode)
 	elif args.command == 'convert-users':
 		convertUsers = ConvertUsers(args.input_file, args.users_format, args.output_file, args.min_uid, args.max_uid,
 								args.usernames, args.force_uid, args.force_gid)

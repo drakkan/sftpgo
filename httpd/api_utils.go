@@ -82,6 +82,9 @@ func getRespStatus(err error) int {
 	if _, ok := err.(*dataprovider.MethodDisabledError); ok {
 		return http.StatusForbidden
 	}
+	if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+		return http.StatusNotFound
+	}
 	if os.IsNotExist(err) {
 		return http.StatusBadRequest
 	}
@@ -218,11 +221,28 @@ func GetQuotaScans(expectedStatusCode int) ([]sftpd.ActiveQuotaScan, []byte, err
 	return quotaScans, body, err
 }
 
-// StartQuotaScan start a new quota scan for the given user and checks the received HTTP Status code against expectedStatusCode.
+// StartQuotaScan starts a new quota scan for the given user and checks the received HTTP Status code against expectedStatusCode.
 func StartQuotaScan(user dataprovider.User, expectedStatusCode int) ([]byte, error) {
 	var body []byte
 	userAsJSON, _ := json.Marshal(user)
 	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(quotaScanPath), bytes.NewBuffer(userAsJSON), "")
+	if err != nil {
+		return body, err
+	}
+	defer resp.Body.Close()
+	body, _ = getResponseBody(resp)
+	return body, checkResponse(resp.StatusCode, expectedStatusCode)
+}
+
+// UpdateQuotaUsage updates the user used quota limits and checks the received HTTP Status code against expectedStatusCode.
+func UpdateQuotaUsage(user dataprovider.User, mode string, expectedStatusCode int) ([]byte, error) {
+	var body []byte
+	userAsJSON, _ := json.Marshal(user)
+	url, err := addModeQueryParam(buildURLRelativeToBase(updateUsedQuotaPath), mode)
+	if err != nil {
+		return body, err
+	}
+	resp, err := sendHTTPRequest(http.MethodPut, url.String(), bytes.NewBuffer(userAsJSON), "")
 	if err != nil {
 		return body, err
 	}
@@ -362,6 +382,23 @@ func StartFolderQuotaScan(folder vfs.BaseVirtualFolder, expectedStatusCode int) 
 	var body []byte
 	folderAsJSON, _ := json.Marshal(folder)
 	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(quotaScanVFolderPath), bytes.NewBuffer(folderAsJSON), "")
+	if err != nil {
+		return body, err
+	}
+	defer resp.Body.Close()
+	body, _ = getResponseBody(resp)
+	return body, checkResponse(resp.StatusCode, expectedStatusCode)
+}
+
+// UpdateFolderQuotaUsage updates the folder used quota limits and checks the received HTTP Status code against expectedStatusCode.
+func UpdateFolderQuotaUsage(folder vfs.BaseVirtualFolder, mode string, expectedStatusCode int) ([]byte, error) {
+	var body []byte
+	folderAsJSON, _ := json.Marshal(folder)
+	url, err := addModeQueryParam(buildURLRelativeToBase(updateFolderUsedQuotaPath), mode)
+	if err != nil {
+		return body, err
+	}
+	resp, err := sendHTTPRequest(http.MethodPut, url.String(), bytes.NewBuffer(folderAsJSON), "")
 	if err != nil {
 		return body, err
 	}
@@ -774,6 +811,19 @@ func addLimitAndOffsetQueryParams(rawurl string, limit, offset int64) (*url.URL,
 	}
 	if offset > 0 {
 		q.Add("offset", strconv.FormatInt(offset, 10))
+	}
+	url.RawQuery = q.Encode()
+	return url, err
+}
+
+func addModeQueryParam(rawurl, mode string) (*url.URL, error) {
+	url, err := url.Parse(rawurl)
+	if err != nil {
+		return nil, err
+	}
+	q := url.Query()
+	if len(mode) > 0 {
+		q.Add("mode", mode)
 	}
 	url.RawQuery = q.Encode()
 	return url, err

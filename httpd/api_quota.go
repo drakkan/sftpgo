@@ -1,6 +1,7 @@
 package httpd
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/render"
@@ -11,6 +12,11 @@ import (
 	"github.com/drakkan/sftpgo/vfs"
 )
 
+const (
+	quotaUpdateModeAdd   = "add"
+	quotaUpdateModeReset = "reset"
+)
+
 func getQuotaScans(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, sftpd.GetQuotaScans())
 }
@@ -19,8 +25,89 @@ func getVFolderQuotaScans(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, sftpd.GetVFoldersQuotaScans())
 }
 
+func updateUserQuotaUsage(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	var u dataprovider.User
+	err := render.DecodeJSON(r.Body, &u)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+	if u.UsedQuotaFiles < 0 || u.UsedQuotaSize < 0 {
+		sendAPIResponse(w, r, errors.New("Invalid used quota parameters, negative values are not allowed"),
+			"", http.StatusBadRequest)
+		return
+	}
+	mode, err := getQuotaUpdateMode(r)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+	user, err := dataprovider.UserExists(dataProvider, u.Username)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	if mode == quotaUpdateModeAdd && !user.HasQuotaRestrictions() && dataprovider.GetQuotaTracking() == 2 {
+		sendAPIResponse(w, r, errors.New("this user has no quota restrictions, only reset mode is supported"),
+			"", http.StatusBadRequest)
+		return
+	}
+	if !sftpd.AddQuotaScan(user.Username) {
+		sendAPIResponse(w, r, err, "A quota scan is in progress for this user", http.StatusConflict)
+		return
+	}
+	defer sftpd.RemoveQuotaScan(user.Username) //nolint:errcheck
+	err = dataprovider.UpdateUserQuota(dataProvider, user, u.UsedQuotaFiles, u.UsedQuotaSize, mode == quotaUpdateModeReset)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+	} else {
+		sendAPIResponse(w, r, err, "Quota updated", http.StatusOK)
+	}
+}
+
+func updateVFolderQuotaUsage(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	var f vfs.BaseVirtualFolder
+	err := render.DecodeJSON(r.Body, &f)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+	if f.UsedQuotaFiles < 0 || f.UsedQuotaSize < 0 {
+		sendAPIResponse(w, r, errors.New("Invalid used quota parameters, negative values are not allowed"),
+			"", http.StatusBadRequest)
+		return
+	}
+	mode, err := getQuotaUpdateMode(r)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+	folder, err := dataprovider.GetFolderByPath(dataProvider, f.MappedPath)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	if !sftpd.AddVFolderQuotaScan(folder.MappedPath) {
+		sendAPIResponse(w, r, err, "A quota scan is in progress for this folder", http.StatusConflict)
+		return
+	}
+	defer sftpd.RemoveVFolderQuotaScan(folder.MappedPath) //nolint:errcheck
+	err = dataprovider.UpdateVirtualFolderQuota(dataProvider, folder, f.UsedQuotaFiles, f.UsedQuotaSize, mode == quotaUpdateModeReset)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+	} else {
+		sendAPIResponse(w, r, err, "Quota updated", http.StatusOK)
+	}
+}
+
 func startQuotaScan(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	if dataprovider.GetQuotaTracking() == 0 {
+		sendAPIResponse(w, r, nil, "Quota tracking is disabled!", http.StatusForbidden)
+		return
+	}
 	var u dataprovider.User
 	err := render.DecodeJSON(r.Body, &u)
 	if err != nil {
@@ -29,11 +116,7 @@ func startQuotaScan(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := dataprovider.UserExists(dataProvider, u.Username)
 	if err != nil {
-		sendAPIResponse(w, r, err, "", http.StatusNotFound)
-		return
-	}
-	if dataprovider.GetQuotaTracking() == 0 {
-		sendAPIResponse(w, r, nil, "Quota tracking is disabled!", http.StatusForbidden)
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
 	if sftpd.AddQuotaScan(user.Username) {
@@ -46,6 +129,10 @@ func startQuotaScan(w http.ResponseWriter, r *http.Request) {
 
 func startVFolderQuotaScan(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	if dataprovider.GetQuotaTracking() == 0 {
+		sendAPIResponse(w, r, nil, "Quota tracking is disabled!", http.StatusForbidden)
+		return
+	}
 	var f vfs.BaseVirtualFolder
 	err := render.DecodeJSON(r.Body, &f)
 	if err != nil {
@@ -54,11 +141,7 @@ func startVFolderQuotaScan(w http.ResponseWriter, r *http.Request) {
 	}
 	folder, err := dataprovider.GetFolderByPath(dataProvider, f.MappedPath)
 	if err != nil {
-		sendAPIResponse(w, r, err, "", http.StatusNotFound)
-		return
-	}
-	if dataprovider.GetQuotaTracking() == 0 {
-		sendAPIResponse(w, r, nil, "Quota tracking is disabled!", http.StatusForbidden)
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
 	if sftpd.AddVFolderQuotaScan(folder.MappedPath) {
@@ -97,4 +180,15 @@ func doFolderQuotaScan(folder vfs.BaseVirtualFolder) error {
 	err = dataprovider.UpdateVirtualFolderQuota(dataProvider, folder, numFiles, size, true)
 	logger.Debug(logSender, "", "virtual folder %#v scanned, error: %v", folder.MappedPath, err)
 	return err
+}
+
+func getQuotaUpdateMode(r *http.Request) (string, error) {
+	mode := quotaUpdateModeReset
+	if _, ok := r.URL.Query()["mode"]; ok {
+		mode = r.URL.Query().Get("mode")
+		if mode != quotaUpdateModeReset && mode != quotaUpdateModeAdd {
+			return "", errors.New("Invalid mode")
+		}
+	}
+	return mode, nil
 }

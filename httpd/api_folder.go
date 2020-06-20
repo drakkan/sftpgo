@@ -69,7 +69,7 @@ func addFolder(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			render.JSON(w, r, folder)
 		} else {
-			sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
+			sendAPIResponse(w, r, err, "", getRespStatus(err))
 		}
 	} else {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -88,11 +88,8 @@ func deleteFolderByPath(w http.ResponseWriter, r *http.Request) {
 	}
 
 	folder, err := dataprovider.GetFolderByPath(dataProvider, folderPath)
-	if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
-		sendAPIResponse(w, r, err, "", http.StatusNotFound)
-		return
-	} else if err != nil {
-		sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
 	err = dataprovider.DeleteFolder(dataProvider, folder)

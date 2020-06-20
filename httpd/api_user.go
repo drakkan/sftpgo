@@ -66,10 +66,8 @@ func getUserByID(w http.ResponseWriter, r *http.Request) {
 	user, err := dataprovider.GetUserByID(dataProvider, userID)
 	if err == nil {
 		render.JSON(w, r, dataprovider.HideUserSensitiveData(&user))
-	} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
-		sendAPIResponse(w, r, err, "", http.StatusNotFound)
 	} else {
-		sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
 	}
 }
 
@@ -87,7 +85,7 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			render.JSON(w, r, dataprovider.HideUserSensitiveData(&user))
 		} else {
-			sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
+			sendAPIResponse(w, r, err, "", getRespStatus(err))
 		}
 	} else {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -103,6 +101,10 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, err := dataprovider.GetUserByID(dataProvider, userID)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
 	currentPermissions := user.Permissions
 	currentFileExtensions := user.Filters.FileExtensions
 	currentS3AccessSecret := ""
@@ -111,13 +113,6 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Filters.FileExtensions = []dataprovider.ExtensionsFilter{}
-	if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
-		sendAPIResponse(w, r, err, "", http.StatusNotFound)
-		return
-	} else if err != nil {
-		sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
-		return
-	}
 	err = render.DecodeJSON(r.Body, &user)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
@@ -158,11 +153,8 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, err := dataprovider.GetUserByID(dataProvider, userID)
-	if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
-		sendAPIResponse(w, r, err, "", http.StatusNotFound)
-		return
-	} else if err != nil {
-		sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
 	err = dataprovider.DeleteUser(dataProvider, user)

@@ -38,26 +38,28 @@ import (
 )
 
 const (
-	defaultUsername       = "test_user"
-	defaultPassword       = "test_password"
-	testPubKey            = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"
-	logSender             = "APITesting"
-	userPath              = "/api/v1/user"
-	folderPath            = "/api/v1/folder"
-	activeConnectionsPath = "/api/v1/connection"
-	quotaScanPath         = "/api/v1/quota_scan"
-	quotaScanVFolderPath  = "/api/v1/folder_quota_scan"
-	versionPath           = "/api/v1/version"
-	metricsPath           = "/metrics"
-	pprofPath             = "/debug/pprof/"
-	webBasePath           = "/web"
-	webUsersPath          = "/web/users"
-	webUserPath           = "/web/user"
-	webFoldersPath        = "/web/folders"
-	webFolderPath         = "/web/folder"
-	webConnectionsPath    = "/web/connections"
-	configDir             = ".."
-	httpsCert             = `-----BEGIN CERTIFICATE-----
+	defaultUsername           = "test_user"
+	defaultPassword           = "test_password"
+	testPubKey                = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"
+	logSender                 = "APITesting"
+	userPath                  = "/api/v1/user"
+	folderPath                = "/api/v1/folder"
+	activeConnectionsPath     = "/api/v1/connection"
+	quotaScanPath             = "/api/v1/quota_scan"
+	quotaScanVFolderPath      = "/api/v1/folder_quota_scan"
+	updateUsedQuotaPath       = "/api/v1/quota_update"
+	updateFolderUsedQuotaPath = "/api/v1/folder_quota_update"
+	versionPath               = "/api/v1/version"
+	metricsPath               = "/metrics"
+	pprofPath                 = "/debug/pprof/"
+	webBasePath               = "/web"
+	webUsersPath              = "/web/users"
+	webUserPath               = "/web/user"
+	webFoldersPath            = "/web/folders"
+	webFolderPath             = "/web/folder"
+	webConnectionsPath        = "/web/connections"
+	configDir                 = ".."
+	httpsCert                 = `-----BEGIN CERTIFICATE-----
 MIICHTCCAaKgAwIBAgIUHnqw7QnB1Bj9oUsNpdb+ZkFPOxMwCgYIKoZIzj0EAwIw
 RTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoMGElu
 dGVybmV0IFdpZGdpdHMgUHR5IEx0ZDAeFw0yMDAyMDQwOTUzMDRaFw0zMDAyMDEw
@@ -603,8 +605,13 @@ func TestUserPublicKey(t *testing.T) {
 }
 
 func TestUpdateUser(t *testing.T) {
-	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
+	u := getTestUser()
+	u.UsedQuotaFiles = 1
+	u.UsedQuotaSize = 2
+	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
+	assert.Equal(t, 0, user.UsedQuotaFiles)
+	assert.Equal(t, int64(0), user.UsedQuotaSize)
 	user.HomeDir = filepath.Join(homeBasePath, "testmod")
 	user.UID = 33
 	user.GID = 101
@@ -681,6 +688,48 @@ func TestUpdateUser(t *testing.T) {
 		_, err = httpd.RemoveFolder(f, http.StatusOK)
 		assert.NoError(t, err)
 	}
+}
+
+func TestUpdateUserQuotaUsage(t *testing.T) {
+	u := getTestUser()
+	usedQuotaFiles := 1
+	usedQuotaSize := int64(65535)
+	u.UsedQuotaFiles = usedQuotaFiles
+	u.UsedQuotaSize = usedQuotaSize
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.UpdateQuotaUsage(u, "invalid_mode", http.StatusBadRequest)
+	assert.NoError(t, err)
+	_, err = httpd.UpdateQuotaUsage(u, "", http.StatusOK)
+	assert.NoError(t, err)
+	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, usedQuotaFiles, user.UsedQuotaFiles)
+	assert.Equal(t, usedQuotaSize, user.UsedQuotaSize)
+	_, err = httpd.UpdateQuotaUsage(u, "add", http.StatusBadRequest)
+	assert.NoError(t, err, "user has no quota restrictions add mode should fail")
+	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, usedQuotaFiles, user.UsedQuotaFiles)
+	assert.Equal(t, usedQuotaSize, user.UsedQuotaSize)
+	user.QuotaFiles = 100
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.UpdateQuotaUsage(u, "add", http.StatusOK)
+	assert.NoError(t, err)
+	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, 2*usedQuotaFiles, user.UsedQuotaFiles)
+	assert.Equal(t, 2*usedQuotaSize, user.UsedQuotaSize)
+	u.UsedQuotaFiles = -1
+	_, err = httpd.UpdateQuotaUsage(u, "", http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.UsedQuotaFiles = usedQuotaFiles
+	u.Username = u.Username + "1"
+	_, err = httpd.UpdateQuotaUsage(u, "", http.StatusNotFound)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestUserFolderMapping(t *testing.T) {
@@ -1038,6 +1087,47 @@ func TestStartQuotaScan(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUpdateFolderQuotaUsage(t *testing.T) {
+	f := vfs.BaseVirtualFolder{
+		MappedPath: filepath.Join(os.TempDir(), "folder"),
+	}
+	usedQuotaFiles := 1
+	usedQuotaSize := int64(65535)
+	f.UsedQuotaFiles = usedQuotaFiles
+	f.UsedQuotaSize = usedQuotaSize
+	folder, _, err := httpd.AddFolder(f, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.UpdateFolderQuotaUsage(folder, "invalid mode", http.StatusBadRequest)
+	assert.NoError(t, err)
+	_, err = httpd.UpdateFolderQuotaUsage(f, "reset", http.StatusOK)
+	assert.NoError(t, err)
+	folders, _, err := httpd.GetFolders(0, 0, f.MappedPath, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folders, 1) {
+		folder = folders[0]
+		assert.Equal(t, usedQuotaFiles, folder.UsedQuotaFiles)
+		assert.Equal(t, usedQuotaSize, folder.UsedQuotaSize)
+	}
+	_, err = httpd.UpdateFolderQuotaUsage(f, "add", http.StatusOK)
+	assert.NoError(t, err)
+	folders, _, err = httpd.GetFolders(0, 0, f.MappedPath, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folders, 1) {
+		folder = folders[0]
+		assert.Equal(t, 2*usedQuotaFiles, folder.UsedQuotaFiles)
+		assert.Equal(t, 2*usedQuotaSize, folder.UsedQuotaSize)
+	}
+	f.UsedQuotaSize = -1
+	_, err = httpd.UpdateFolderQuotaUsage(f, "", http.StatusBadRequest)
+	assert.NoError(t, err)
+	f.UsedQuotaSize = usedQuotaSize
+	f.MappedPath = f.MappedPath + "1"
+	_, err = httpd.UpdateFolderQuotaUsage(f, "", http.StatusNotFound)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestGetVersion(t *testing.T) {
 	_, _, err := httpd.GetVersion(http.StatusOK)
 	assert.NoError(t, err)
@@ -1115,6 +1205,8 @@ func TestQuotaTrackingDisabled(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpd.StartQuotaScan(user, http.StatusForbidden)
 	assert.NoError(t, err)
+	_, err = httpd.UpdateQuotaUsage(user, "", http.StatusForbidden)
+	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	// folder quota scan must fail
@@ -1124,6 +1216,8 @@ func TestQuotaTrackingDisabled(t *testing.T) {
 	folder, _, err = httpd.AddFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpd.StartFolderQuotaScan(folder, http.StatusForbidden)
+	assert.NoError(t, err)
+	_, err = httpd.UpdateFolderQuotaUsage(folder, "", http.StatusForbidden)
 	assert.NoError(t, err)
 	_, err = httpd.RemoveFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
@@ -1554,6 +1648,42 @@ func TestUpdateUserMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr.Code)
 }
 
+func TestUpdateUserQuotaUsageMock(t *testing.T) {
+	var user dataprovider.User
+	u := getTestUser()
+	usedQuotaFiles := 1
+	usedQuotaSize := int64(65535)
+	u.UsedQuotaFiles = usedQuotaFiles
+	u.UsedQuotaSize = usedQuotaSize
+	userAsJSON := getUserAsJSON(t, u)
+	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	err := render.DecodeJSON(rr.Body, &user)
+	assert.NoError(t, err)
+	req, _ = http.NewRequest(http.MethodPut, updateUsedQuotaPath, bytes.NewBuffer(userAsJSON))
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	req, _ = http.NewRequest(http.MethodGet, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	err = render.DecodeJSON(rr.Body, &user)
+	assert.NoError(t, err)
+	assert.Equal(t, usedQuotaFiles, user.UsedQuotaFiles)
+	assert.Equal(t, usedQuotaSize, user.UsedQuotaSize)
+	req, _ = http.NewRequest(http.MethodPut, updateUsedQuotaPath, bytes.NewBuffer([]byte("string")))
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr.Code)
+	assert.True(t, sftpd.AddQuotaScan(user.Username))
+	req, _ = http.NewRequest(http.MethodPut, updateUsedQuotaPath, bytes.NewBuffer(userAsJSON))
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusConflict, rr.Code)
+	assert.NoError(t, sftpd.RemoveQuotaScan(user.Username))
+	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+}
+
 func TestUserPermissionsMock(t *testing.T) {
 	user := getTestUser()
 	user.Permissions = make(map[string][]string)
@@ -1782,6 +1912,64 @@ func TestStartQuotaScanMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
+}
+
+func TestUpdateFolderQuotaUsageMock(t *testing.T) {
+	mappedPath := filepath.Join(os.TempDir(), "vfolder")
+	f := vfs.BaseVirtualFolder{
+		MappedPath: mappedPath,
+	}
+	usedQuotaFiles := 1
+	usedQuotaSize := int64(65535)
+	f.UsedQuotaFiles = usedQuotaFiles
+	f.UsedQuotaSize = usedQuotaSize
+	var folder vfs.BaseVirtualFolder
+	folderAsJSON, err := json.Marshal(f)
+	assert.NoError(t, err)
+	req, _ := http.NewRequest(http.MethodPost, folderPath, bytes.NewBuffer(folderAsJSON))
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	err = render.DecodeJSON(rr.Body, &folder)
+	assert.NoError(t, err)
+	req, _ = http.NewRequest(http.MethodPut, updateFolderUsedQuotaPath, bytes.NewBuffer(folderAsJSON))
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+
+	var folders []vfs.BaseVirtualFolder
+	url, err := url.Parse(folderPath)
+	assert.NoError(t, err)
+	q := url.Query()
+	q.Add("folder_path", mappedPath)
+	url.RawQuery = q.Encode()
+	req, _ = http.NewRequest(http.MethodGet, url.String(), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	err = render.DecodeJSON(rr.Body, &folders)
+	assert.NoError(t, err)
+	if assert.Len(t, folders, 1) {
+		folder = folders[0]
+		assert.Equal(t, usedQuotaFiles, folder.UsedQuotaFiles)
+		assert.Equal(t, usedQuotaSize, folder.UsedQuotaSize)
+	}
+
+	req, _ = http.NewRequest(http.MethodPut, updateFolderUsedQuotaPath, bytes.NewBuffer([]byte("string")))
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr.Code)
+
+	assert.True(t, sftpd.AddVFolderQuotaScan(mappedPath))
+	req, _ = http.NewRequest(http.MethodPut, updateFolderUsedQuotaPath, bytes.NewBuffer(folderAsJSON))
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusConflict, rr.Code)
+	assert.NoError(t, sftpd.RemoveVFolderQuotaScan(mappedPath))
+
+	url, err = url.Parse(folderPath)
+	assert.NoError(t, err)
+	q = url.Query()
+	q.Add("folder_path", mappedPath)
+	url.RawQuery = q.Encode()
+	req, _ = http.NewRequest(http.MethodDelete, url.String(), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
 }
 
 func TestStartFolderQuotaScanMock(t *testing.T) {

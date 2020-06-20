@@ -1,4 +1,4 @@
-## LDAPAuth
+# LDAPAuth
 
 This is an example for an external authentication program. It performs authentication against an LDAP server.
 It is tested against [389ds](https://directory.fedoraproject.org/) and can be used as starting point to authenticate using any LDAP server including Active Directory.
@@ -6,13 +6,13 @@ It is tested against [389ds](https://directory.fedoraproject.org/) and can be us
 You need to change the LDAP connection parameters and the user search query to match your environment.
 You can build this example using the following command:
 
-```
+```console
 go build -i -ldflags "-s -w" -o ldapauth
 ```
 
 This program assumes that the 389ds schema was extended to add support for public keys using the following ldif file placed in `/etc/dirsrv/schema/98openssh-ldap.ldif`:
 
-```
+```console
 dn: cn=schema
 changetype: modify
 add: attributetypes

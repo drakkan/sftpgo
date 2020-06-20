@@ -1,4 +1,4 @@
-## REST API CLI client
+# REST API CLI client
 
 `sftpgo_api_cli.py` is a very simple command line client for `SFTPGo` REST API written in python.
 
@@ -10,26 +10,26 @@ It has the following requirements:
 
 You can see the usage with the following command:
 
-```
+```console
 python sftpgo_api_cli.py --help
 ```
 
 and
 
-```
+```console
 python sftpgo_api_cli.py [sub-command] --help
 ```
 
 Basically there is a sub command for each REST API and the following global arguments:
 
- - `-d`, `--debug`, default disabled, print useful debug info.
- - `-b`, `--base-url`, default `http://127.0.0.1:8080`. Base URL for SFTPGo REST API
- - `-a`, `--auth-type`, HTTP auth type. Supported HTTP auth type are `basic` and `digest`. Default none
- - `-u`, `--auth-user`, user for HTTP authentication
- - `-p`, `--auth-password`, password for HTTP authentication
- - `-i`, `--insecure`, enable to ignore verifying the SSL certificate. Default disabled
- - `-t`, `--no-color`, disable color highligth for JSON responses. You need python pygments module 1.5 or above for this to work. Default disabled if pygments is found and you aren't on Windows, otherwise enabled.
- - `-c`, `--color`, enable color highligth for JSON responses. You need python pygments module 1.5 or above for this to work. Default enabled if `pygments` is found and you aren't on Windows, otherwise disabled. Please read the note at the end of this doc for colors in Windows command prompt.
+- `-d`, `--debug`, default disabled, print useful debug info.
+- `-b`, `--base-url`, default `http://127.0.0.1:8080`. Base URL for SFTPGo REST API
+- `-a`, `--auth-type`, HTTP auth type. Supported HTTP auth type are `basic` and `digest`. Default none
+- `-u`, `--auth-user`, user for HTTP authentication
+- `-p`, `--auth-password`, password for HTTP authentication
+- `-i`, `--insecure`, enable to ignore verifying the SSL certificate. Default disabled
+- `-t`, `--no-color`, disable color highligth for JSON responses. You need python pygments module 1.5 or above for this to work. Default disabled if pygments is found and you aren't on Windows, otherwise enabled.
+- `-c`, `--color`, enable color highligth for JSON responses. You need python pygments module 1.5 or above for this to work. Default enabled if `pygments` is found and you aren't on Windows, otherwise disabled. Please read the note at the end of this doc for colors in Windows command prompt.
 
 For each subcommand `--help` shows the available arguments, try for example:
 
@@ -39,11 +39,11 @@ Additionally it can convert users to the SFTPGo format from some supported users
 
 Let's see a sample usage for each REST API.
 
-### Add user
+## Add user
 
 Command:
 
-```
+```console
 python sftpgo_api_cli.py add-user test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 33 --gid 1000 --max-sessions 2 --quota-size 0 --quota-files 3 --permissions "list" "download" "upload" "delete" "rename" "create_dirs" "overwrite" --subdirs-permissions "/dir1::list,download" "/dir2::*" --upload-bandwidth 100 --download-bandwidth 60 --status 0 --expiration-date 2019-01-01 --allowed-ip "192.168.1.1/32" --fs S3 --s3-bucket test --s3-region eu-west-1 --s3-access-key accesskey --s3-access-secret secret --s3-endpoint "http://127.0.0.1:9000" --s3-storage-class Standard --s3-key-prefix "vfolder/" --s3-upload-part-size 10 --s3-upload-concurrency 4 --denied-login-methods "password" "keyboard-interactive" --allowed-extensions "/dir1::.jpg,.png" "/dir2::.rar,.png" --denied-extensions "/dir3::.zip,.rar"
 ```
 
@@ -135,11 +135,11 @@ Output:
 }
 ```
 
-### Update user
+## Update user
 
 Command:
 
-```
+```console
 python sftpgo_api_cli.py update-user 9576 test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 0 --gid 33 --max-sessions 3 --quota-size 0 --quota-files 4 --permissions "*" --subdirs-permissions "/dir1::list,download,create_symlinks" --upload-bandwidth 90 --download-bandwidth 80 --status 1 --expiration-date "" --allowed-ip "" --denied-ip "192.168.1.0/24" --denied-login-methods "" --fs local --virtual-folders "/vdir1::/tmp/mapped1::-1::-1" "/vdir2::/tmp/mapped2::100::104857600" --allowed-extensions "" --denied-extensions ""
 ```
 
@@ -153,11 +153,11 @@ Output:
 }
 ```
 
-### Get user by id
+## Get user by id
 
 Command:
 
-```
+```console
 python sftpgo_api_cli.py get-user-by-id 9576
 ```
 
@@ -226,11 +226,11 @@ Output:
 }
 ```
 
-### Get users
+## Get users
 
 Command:
 
-```
+```console
 python sftpgo_api_cli.py get-users --limit 1 --offset 0 --username test_username --order DESC
 ```
 
@@ -291,11 +291,11 @@ Output:
 ]
 ```
 
-### Get active connections
+## Get active connections
 
 Command:
 
-```
+```console
 python sftpgo_api_cli.py get-connections
 ```
 
@@ -325,11 +325,11 @@ Output:
 ]
 ```
 
-### Get folders
+## Get folders
 
 Command:
 
-```
+```console
 python sftpgo_api_cli.py get-folders --limit 1 --offset 0 --folder-path /tmp/mapped1 --order DESC
 ```
 
@@ -350,9 +350,9 @@ Output:
 ]
 ```
 
-### Add folder
+## Add folder
 
-```
+```console
 python sftpgo_api_cli.py add-folder /tmp/mapped_folder
 ```
 
@@ -368,11 +368,11 @@ Output:
 }
 ```
 
-### Close connection
+## Close connection
 
 Command:
 
-```
+```console
 python sftpgo_api_cli.py close-connection f82cfec6a391ad673edd4ae9a144f32ccb59456139f8e1185b070134fffbab7c
 ```
 
@@ -386,19 +386,19 @@ Output:
 }
 ```
 
-### Get quota scans
+## Get quota scans
 
 Command:
 
-```
+```console
 python sftpgo_api_cli.py get-quota-scans
 ```
 
-### Start quota scan
+## Start quota scan
 
 Command:
 
-```
+```console
 python sftpgo_api_cli.py start-quota-scan test_username
 ```
 
@@ -412,19 +412,19 @@ Output:
 }
 ```
 
-### Get folder quota scans
+## Get folder quota scans
 
 Command:
 
-```
+```console
 python sftpgo_api_cli.py get-folders-quota-scans
 ```
 
-### Start folder quota scan
+## Start folder quota scan
 
 Command:
 
-```
+```console
 python sftpgo_api_cli.py start-folder-quota-scan /tmp/mapped_folder
 ```
 
@@ -438,11 +438,47 @@ Output:
 }
 ```
 
-### Delete user
+## Update quota usage
 
 Command:
 
+```console
+python sftpgo_api_cli.py -d update-quota-usage a -S 123 -F 1 -M reset
 ```
+
+Output:
+
+```json
+{
+  "error": "",
+  "message": "Quota updated",
+  "status": 200
+}
+```
+
+## Update folder quota usage
+
+Command:
+
+```console
+python sftpgo_api_cli.py -d update-quota-usage /tmp/mapped_folder -S 123 -F 1 -M add
+```
+
+Output:
+
+```json
+{
+  "error": "",
+  "message": "Quota updated",
+  "status": 200
+}
+```
+
+## Delete user
+
+Command:
+
+```console
 python sftpgo_api_cli.py delete-user 9576
 ```
 
@@ -456,9 +492,9 @@ Output:
 }
 ```
 
-### Delete folder
+## Delete folder
 
-```
+```console
 python sftpgo_api_cli.py delete-folder /tmp/mapped_folder
 ```
 
@@ -472,11 +508,11 @@ Output:
 }
 ```
 
-### Get version
+## Get version
 
 Command:
 
-```
+```console
 python sftpgo_api_cli.py get-version
 ```
 
@@ -490,11 +526,11 @@ Output:
 }
 ```
 
-### Get provider status
+## Get provider status
 
 Command:
 
-```
+```console
 python sftpgo_api_cli.py get-provider-status
 ```
 
@@ -508,11 +544,11 @@ Output:
 }
 ```
 
-### Backup data
+## Backup data
 
 Command:
 
-```
+```console
 python sftpgo_api_cli.py dumpdata backup.json --indent 1
 ```
 
@@ -526,11 +562,11 @@ Output:
 }
 ```
 
-### Restore data
+## Restore data
 
 Command:
 
-```
+```console
 python sftpgo_api_cli.py loaddata /app/data/backups/backup.json --scan-quota 2 --mode 0
 ```
 
@@ -544,7 +580,7 @@ Output:
 }
 ```
 
-### Convert users from other stores
+## Convert users from other stores
 
 You can convert users to the SFTPGo format from the following users stores:
 
@@ -554,21 +590,21 @@ You can convert users to the SFTPGo format from the following users stores:
 
 For details give a look at the `convert-users` subcommand usage:
 
-```
+```console
 python sftpgo_api_cli.py convert-users --help
 ```
 
 Let's see some examples:
 
-```
+```console
 python sftpgo_api_cli.py convert-users "" unix-passwd unix_users.json --min-uid 500 --force-uid 1000 --force-gid 1000
 ```
 
-```
+```console
 python sftpgo_api_cli.py convert-users pureftpd.passwd pure-ftpd pure_users.json --usernames "user1" "user2"
 ```
 
-```
+```console
 python sftpgo_api_cli.py convert-users proftpd.passwd proftpd pro_users.json
 ```
 
@@ -576,7 +612,7 @@ The json file generated using the `convert-users` subcommand can be used as inpu
 
 Please note that when importing Linux/Unix users the input file is not required: `/etc/passwd` and `/etc/shadow` are automatically parsed. `/etc/shadow` read permission is is typically granted to the `root` user, so you need to execute the `convert-users` subcommand as `root`.
 
-### Colors highlight for Windows command prompt
+## Colors highlight for Windows command prompt
 
 If your Windows command prompt does not recognize ANSI/VT100 escape sequences you can download [ANSICON](https://github.com/adoxa/ansicon "ANSICON") extract proper files depending on your Windows OS, and install them using `ansicon -i`.
 Thats all. From now on, your Windows command prompt will be aware of ANSI colors.

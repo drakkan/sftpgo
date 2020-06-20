@@ -1,4 +1,4 @@
-## Dockerfile examples
+# Dockerfile examples
 
 Sample Dockerfiles for `sftpgo` daemon and the REST API CLI.
 

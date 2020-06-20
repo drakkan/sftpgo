@@ -357,16 +357,23 @@ func TestApiCallsWithBadURL(t *testing.T) {
 	oldAuthUsername := authUsername
 	oldAuthPassword := authPassword
 	SetBaseURLAndCredentials(invalidURL, oldAuthUsername, oldAuthPassword)
+	folder := vfs.BaseVirtualFolder{
+		MappedPath: os.TempDir(),
+	}
 	u := dataprovider.User{}
 	_, _, err := UpdateUser(u, http.StatusBadRequest)
 	assert.Error(t, err)
 	_, err = RemoveUser(u, http.StatusNotFound)
 	assert.Error(t, err)
-	_, err = RemoveFolder(vfs.BaseVirtualFolder{}, http.StatusNotFound)
+	_, err = RemoveFolder(folder, http.StatusNotFound)
 	assert.Error(t, err)
 	_, _, err = GetUsers(1, 0, "", http.StatusBadRequest)
 	assert.Error(t, err)
 	_, _, err = GetFolders(1, 0, "", http.StatusBadRequest)
+	assert.Error(t, err)
+	_, err = UpdateQuotaUsage(u, "", http.StatusNotFound)
+	assert.Error(t, err)
+	_, err = UpdateFolderQuotaUsage(folder, "", http.StatusNotFound)
 	assert.Error(t, err)
 	_, err = CloseConnection("non_existent_id", http.StatusNotFound)
 	assert.Error(t, err)
@@ -393,6 +400,8 @@ func TestApiCallToNotListeningServer(t *testing.T) {
 	assert.Error(t, err)
 	_, _, err = GetUsers(100, 0, "", http.StatusOK)
 	assert.Error(t, err)
+	_, err = UpdateQuotaUsage(u, "", http.StatusNotFound)
+	assert.Error(t, err)
 	_, _, err = GetQuotaScans(http.StatusOK)
 	assert.Error(t, err)
 	_, err = StartQuotaScan(u, http.StatusNotFound)
@@ -407,6 +416,8 @@ func TestApiCallToNotListeningServer(t *testing.T) {
 	_, err = RemoveFolder(folder, http.StatusOK)
 	assert.Error(t, err)
 	_, _, err = GetFolders(0, 0, "", http.StatusOK)
+	assert.Error(t, err)
+	_, err = UpdateFolderQuotaUsage(folder, "", http.StatusNotFound)
 	assert.Error(t, err)
 	_, _, err = GetFoldersQuotaScans(http.StatusOK)
 	assert.Error(t, err)

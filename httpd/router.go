@@ -86,6 +86,8 @@ func initializeRouter(staticFilesPath string, enableProfiler, enableWebAdmin boo
 		router.Delete(folderPath, deleteFolderByPath)
 		router.Get(dumpDataPath, dumpData)
 		router.Get(loadDataPath, loadData)
+		router.Put(updateUsedQuotaPath, updateUserQuotaUsage)
+		router.Put(updateFolderUsedQuotaPath, updateVFolderQuotaUsage)
 		if enableWebAdmin {
 			router.Get(webUsersPath, handleGetWebUsers)
 			router.Get(webUserPath, handleWebAddUserGet)

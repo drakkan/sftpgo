@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 1.9.0
+  version: 1.9.1
 
 servers:
 - url: /api/v1
@@ -337,6 +337,202 @@ paths:
               example:
                 status: 409
                 message: "Another scan is already in progress"
+                error: "Error description if any"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 500
+                message: ""
+                error: "Error description if any"
+  /quota_update:
+    put:
+      tags:
+      - quota
+      summary: update the user used quota limits
+      description: Set the current used quota limits for the given user
+      operationId: quota_update
+      parameters:
+        - in: query
+          name: mode
+          required: false
+          description: the update mode specifies if the given quota usage values should be added or replace the current ones
+          schema:
+            type: string
+            enum: [add, reset]
+            description: >
+              Update type:
+                * `add` - add the specified quota limits to the current used ones
+                * `reset` - reset the values to the specified ones. This is the default
+            example: reset
+      requestBody:
+        required: true
+        description: The only user mandatory fields are username,used_quota_size and used_quota_files. Please note that if the quota fields are missing they will default to 0
+        content:
+          application/json:
+            schema:
+              $ref : '#/components/schemas/User'
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 200
+                message: "Quota updated"
+                error: ""
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 400
+                message: ""
+                error: "Error description if any"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 401
+                message: ""
+                error: "Error description if any"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 403
+                message: ""
+                error: "Error description if any"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 404
+                message: ""
+                error: "Error description if any"
+        409:
+          description: A quota scan is in progress for this user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 409
+                message: "A quota scan is in progress"
+                error: "Error description if any"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 500
+                message: ""
+                error: "Error description if any"
+  /folder_quota_update:
+    put:
+      tags:
+      - quota
+      summary: update the folder used quota limits
+      description: Set the current used quota limits for the given folder
+      operationId: folder_quota_update
+      parameters:
+        - in: query
+          name: mode
+          required: false
+          description: the update mode specifies if the given quota usage values should be added or replace the current ones
+          schema:
+            type: string
+            enum: [add, reset]
+            description: >
+              Update type:
+                * `add` - add the specified quota limits to the current used ones
+                * `reset` - reset the values to the specified ones. This is the default
+            example: reset
+      requestBody:
+        required: true
+        description: The only folder mandatory fields are mapped_path,used_quota_size and used_quota_files. Please note that if the used quota fields are missing they will default to 0
+        content:
+          application/json:
+            schema:
+              $ref : '#/components/schemas/BaseVirtualFolder'
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 200
+                message: "Quota updated"
+                error: ""
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 400
+                message: ""
+                error: "Error description if any"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 401
+                message: ""
+                error: "Error description if any"
+        403:
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 403
+                message: ""
+                error: "Error description if any"
+        404:
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 404
+                message: ""
+                error: "Error description if any"
+        409:
+          description: A quota scan is in progress for this folder
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 409
+                message: "A quota scan is in progress"
                 error: "Error description if any"
         500:
           description: Internal Server Error
