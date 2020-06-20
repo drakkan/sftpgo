@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+
 	"github.com/spf13/cobra"
 
 	"github.com/drakkan/sftpgo/service"
@@ -31,7 +33,9 @@ Please take a look at the usage below to customize the startup options`,
 			}
 			if err := service.Start(); err == nil {
 				service.Wait()
+				os.Exit(0)
 			}
+			os.Exit(1)
 		},
 	}
 )

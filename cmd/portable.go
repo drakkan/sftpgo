@@ -73,12 +73,12 @@ Please take a look at the usage below to customize the serving parameters`,
 				fi, err := os.Stat(portableGCSCredentialsFile)
 				if err != nil {
 					fmt.Printf("Invalid GCS credentials file: %v\n", err)
-					return
+					os.Exit(1)
 				}
 				if fi.Size() > 1048576 {
 					fmt.Printf("Invalid GCS credentials file: %#v is too big %v/1048576 bytes\n", portableGCSCredentialsFile,
 						fi.Size())
-					return
+					os.Exit(1)
 				}
 				creds, err := ioutil.ReadFile(portableGCSCredentialsFile)
 				if err != nil {
@@ -135,7 +135,9 @@ Please take a look at the usage below to customize the serving parameters`,
 			if err := service.StartPortableMode(portableSFTPDPort, portableSSHCommands, portableAdvertiseService,
 				portableAdvertiseCredentials); err == nil {
 				service.Wait()
+				os.Exit(0)
 			}
+			os.Exit(1)
 		},
 	}
 )

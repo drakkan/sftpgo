@@ -290,6 +290,10 @@ func (p BoltProvider) addUser(user User) error {
 			return err
 		}
 		user.ID = int64(id)
+		user.LastQuotaUpdate = 0
+		user.UsedQuotaSize = 0
+		user.UsedQuotaFiles = 0
+		user.LastLogin = 0
 		for _, folder := range user.VirtualFolders {
 			err = addUserToFolderMapping(folder, user, folderBucket)
 			if err != nil {

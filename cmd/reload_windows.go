@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -21,6 +22,7 @@ var (
 			err := s.Reload()
 			if err != nil {
 				fmt.Printf("Error reloading service: %v\r\n", err)
+				os.Exit(1)
 			} else {
 				fmt.Printf("Service reloaded!\r\n")
 			}

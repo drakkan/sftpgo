@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -42,6 +43,7 @@ Please take a look at the usage below to customize the startup options`,
 			err := winService.Install(serviceArgs...)
 			if err != nil {
 				fmt.Printf("Error installing service: %v\r\n", err)
+				os.Exit(1)
 			} else {
 				fmt.Printf("Service installed!\r\n")
 			}

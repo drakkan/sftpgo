@@ -192,6 +192,10 @@ func (p MemoryProvider) addUser(user User) error {
 		return fmt.Errorf("username %#v already exists", user.Username)
 	}
 	user.ID = p.getNextID()
+	user.LastQuotaUpdate = 0
+	user.UsedQuotaSize = 0
+	user.UsedQuotaFiles = 0
+	user.LastLogin = 0
 	user.VirtualFolders = p.joinVirtualFoldersFields(user)
 	p.dbHandle.users[user.Username] = user
 	p.dbHandle.usersIdx[user.ID] = user.Username

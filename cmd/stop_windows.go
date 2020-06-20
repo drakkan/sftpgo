@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -21,6 +22,7 @@ var (
 			err := s.Stop()
 			if err != nil {
 				fmt.Printf("Error stopping service: %v\r\n", err)
+				os.Exit(1)
 			} else {
 				fmt.Printf("Service stopped!\r\n")
 			}

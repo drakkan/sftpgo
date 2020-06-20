@@ -738,7 +738,9 @@ func TestUserFolderMapping(t *testing.T) {
 	u1 := getTestUser()
 	u1.VirtualFolders = append(u1.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			MappedPath: mappedPath1,
+			MappedPath:     mappedPath1,
+			UsedQuotaFiles: 2,
+			UsedQuotaSize:  123,
 		},
 		VirtualPath: "/vdir",
 		QuotaSize:   -1,
@@ -753,6 +755,8 @@ func TestUserFolderMapping(t *testing.T) {
 		folder := folders[0]
 		assert.Len(t, folder.Users, 1)
 		assert.Contains(t, folder.Users, user1.Username)
+		assert.Equal(t, 0, folder.UsedQuotaFiles)
+		assert.Equal(t, int64(0), folder.UsedQuotaSize)
 	}
 	u2 := getTestUser()
 	u2.Username = defaultUsername + "2"
@@ -793,7 +797,9 @@ func TestUserFolderMapping(t *testing.T) {
 	user2.VirtualFolders = nil
 	user2.VirtualFolders = append(user2.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			MappedPath: mappedPath2,
+			MappedPath:     mappedPath2,
+			UsedQuotaFiles: 2,
+			UsedQuotaSize:  123,
 		},
 		VirtualPath: "/vdir",
 		QuotaSize:   0,
@@ -807,6 +813,8 @@ func TestUserFolderMapping(t *testing.T) {
 		folder := folders[0]
 		assert.Len(t, folder.Users, 1)
 		assert.Contains(t, folder.Users, user2.Username)
+		assert.Equal(t, 0, folder.UsedQuotaFiles)
+		assert.Equal(t, int64(0), folder.UsedQuotaSize)
 	}
 	folders, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
 	assert.NoError(t, err)

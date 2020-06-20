@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -21,6 +22,7 @@ var (
 			err := s.Uninstall()
 			if err != nil {
 				fmt.Printf("Error removing service: %v\r\n", err)
+				os.Exit(1)
 			} else {
 				fmt.Printf("Service uninstalled\r\n")
 			}

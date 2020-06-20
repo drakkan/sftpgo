@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -44,6 +46,7 @@ Please take a look at the usage below to customize the options.`,
 				logger.DebugToConsole("Data provider successfully initialized")
 			} else {
 				logger.WarnToConsole("Unable to initialize data provider: %v", err)
+				os.Exit(1)
 			}
 		},
 	}

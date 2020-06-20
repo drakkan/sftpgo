@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -37,6 +38,7 @@ var (
 			err := winService.RunService()
 			if err != nil {
 				fmt.Printf("Error starting service: %v\r\n", err)
+				os.Exit(1)
 			} else {
 				fmt.Printf("Service started!\r\n")
 			}
