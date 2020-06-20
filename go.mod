@@ -32,8 +32,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.7.0
-	github.com/stretchr/testify v1.5.1
-	github.com/zenazn/goji v0.9.0 // indirect
+	github.com/stretchr/testify v1.6.1
 	go.etcd.io/bbolt v1.3.5
 	go.opencensus.io v0.22.4 // indirect
 	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9

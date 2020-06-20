@@ -1,0 +1,102 @@
+name: Development Workflow
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  golangci-lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v1
+        with:
+          version: v1.27
+
+  build-and-test-on-unix:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        go: [1.14]
+        os:
+          - ubuntu-latest
+          - macos-latest
+        include:
+          - go: 1.13
+            os: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: Build
+        run: go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
+
+      - name: Initialize data provider
+        run: ./sftpgo initprovider
+
+      - name: Run tests
+        run: go test -v ./... -coverprofile=coverage.txt -covermode=atomic
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v1
+        with:
+          file: ./coverage.txt
+          fail_ci_if_error: true
+
+      - name: Prepare artifact
+        run: |
+          mkdir output
+          cp sftpgo output/
+          cp sftpgo.json output/
+          cp -r templates output/
+          cp -r static output/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: sftpgo-${{ matrix.os }}-go${{ matrix.go }}
+          path: output
+
+
+  build-and-test-on-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14
+
+      - name: Build
+        run: |
+          $GIT_COMMIT = (git describe --always --dirty) | Out-String
+          go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=$GIT_COMMIT" -o sftpgo.exe
+
+      - name: Initialize data provider
+        run: .\sftpgo.exe initprovider
+
+      - name: Run tests
+        run: go test -v ./... -coverprofile=coverage.txt -covermode=atomic
+
+      - name: Prepare artifact
+        run: |
+          mkdir output
+          xcopy.exe .\sftpgo.exe .\output
+          xcopy.exe .\sftpgo.json .\output
+          move .\templates .\output
+          move .\static .\output
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: sftpgo-windows
+          path: output
