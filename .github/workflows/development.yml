@@ -67,17 +67,18 @@ jobs:
         if: ${{ matrix.os == 'ubuntu-latest' && matrix.go == '1.14' }}
         run: |
           rm -f sftpgo.db
-          export SFTPGO_DATA_PROVIDER__DRIVER=bolt
           go test -v ./config -covermode=atomic
           go test -v ./httpd -covermode=atomic
           go test -v ./sftpd -covermode=atomic
+        env:
+          SFTPGO_DATA_PROVIDER__DRIVER: bolt
 
       - name: Run tests using memory provider
         if: ${{ matrix.os == 'ubuntu-latest' && matrix.go == '1.14' }}
-        run: |
-          export SFTPGO_DATA_PROVIDER__DRIVER=memory
-          export SFTPGO_DATA_PROVIDER__NAME=
-          go test -v ./... -covermode=atomic
+        run: go test -v ./... -covermode=atomic
+        env:
+            SFTPGO_DATA_PROVIDER__DRIVER: memory
+            SFTPGO_DATA_PROVIDER__NAME:
 
   test-deploy-windows:
     runs-on: windows-latest
@@ -104,8 +105,8 @@ jobs:
       - name: Prepare artifact
         run: |
           mkdir output
-          xcopy.exe .\sftpgo.exe .\output
-          xcopy.exe .\sftpgo.json .\output
+          xcopy .\sftpgo.exe .\output
+          xcopy .\sftpgo.json .\output
           move .\templates .\output
           move .\static .\output
 
@@ -114,3 +115,44 @@ jobs:
         with:
           name: sftpgo-windows
           path: output
+
+  test-postgresql:
+    runs-on: ubuntu-latest
+    env:
+      SFTPGO_DATA_PROVIDER__DRIVER: postgresql
+      SFTPGO_DATA_PROVIDER__NAME: sftpgo
+      SFTPGO_DATA_PROVIDER__HOST: localhost
+      SFTPGO_DATA_PROVIDER__PORT: 5432
+      SFTPGO_DATA_PROVIDER__USERNAME: postgres
+      SFTPGO_DATA_PROVIDER__PASSWORD: postgres
+
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sftpgo
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14
+
+      - name: Build
+        run: go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
+
+      - name: Initialize data provider
+        run: ./sftpgo initprovider
+
+      - name: Run tests using PostgreSQL provider
+        run: go test -v ./... -covermode=atomic
