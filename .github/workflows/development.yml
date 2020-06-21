@@ -21,9 +21,7 @@ jobs:
     strategy:
       matrix:
         go: [1.14]
-        os:
-          - ubuntu-latest
-          - macos-latest
+        os: [ubuntu-latest, macos-latest]
         include:
           - go: 1.13
             os: ubuntu-latest
@@ -42,7 +40,7 @@ jobs:
       - name: Initialize data provider
         run: ./sftpgo initprovider
 
-      - name: Run tests
+      - name: Run tests using SQLite provider
         run: go test -v ./... -coverprofile=coverage.txt -covermode=atomic
 
       - name: Upload to Codecov
@@ -65,14 +63,21 @@ jobs:
           name: sftpgo-${{ matrix.os }}-go${{ matrix.go }}
           path: output
 
-      - name: Run tests against bolt data provider
+      - name: Run tests using bolt provider
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.go == '1.14' }}
         run: |
           rm -f sftpgo.db
-          mv sftpgo.json sftpgo.json.bak
-          sed 's/sqlite/bolt/g' sftpgo.json.bak > sftpgo.json
+          export SFTPGO_DATA_PROVIDER__DRIVER=bolt
           go test -v ./config -covermode=atomic
           go test -v ./httpd -covermode=atomic
           go test -v ./sftpd -covermode=atomic
+
+      - name: Run tests using memory provider
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.go == '1.14' }}
+        run: |
+          export SFTPGO_DATA_PROVIDER__DRIVER=memory
+          export SFTPGO_DATA_PROVIDER__NAME=
+          go test -v ./... -covermode=atomic
 
   test-deploy-windows:
     runs-on: windows-latest
@@ -87,7 +92,8 @@ jobs:
       - name: Build
         run: |
           $GIT_COMMIT = (git describe --always --dirty) | Out-String
-          go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=$GIT_COMMIT" -o sftpgo.exe
+          $DATE_TIME = ([datetime]::Now.ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ")) | Out-String
+          go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/version.date=$DATE_TIME" -o sftpgo.exe
 
       - name: Initialize data provider
         run: .\sftpgo.exe initprovider
