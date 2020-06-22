@@ -16,7 +16,8 @@ jobs:
         with:
           version: v1.27
 
-  test-deploy-unix:
+  tests-upload-unix:
+    name: Run tests and upload build artifacts on Linux and macOS
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -40,7 +41,7 @@ jobs:
       - name: Initialize data provider
         run: ./sftpgo initprovider
 
-      - name: Run tests using SQLite provider
+      - name: Run test cases using SQLite as data provider
         run: go test -v ./... -coverprofile=coverage.txt -covermode=atomic
 
       - name: Upload to Codecov
@@ -63,7 +64,7 @@ jobs:
           name: sftpgo-${{ matrix.os }}-go${{ matrix.go }}
           path: output
 
-      - name: Run tests using bolt provider
+      - name: Run test cases using bolt as data provider
         if: ${{ matrix.os == 'ubuntu-latest' && matrix.go == '1.14' }}
         run: |
           rm -f sftpgo.db
@@ -73,14 +74,15 @@ jobs:
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: bolt
 
-      - name: Run tests using memory provider
+      - name: Run test cases using the memory data provider
         if: ${{ matrix.os == 'ubuntu-latest' && matrix.go == '1.14' }}
         run: go test -v ./... -covermode=atomic
         env:
             SFTPGO_DATA_PROVIDER__DRIVER: memory
             SFTPGO_DATA_PROVIDER__NAME:
 
-  test-deploy-windows:
+  tests-upload-windows:
+    name: Run tests and upload build artifact on Windows
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2
@@ -116,7 +118,8 @@ jobs:
           name: sftpgo-windows
           path: output
 
-  test-postgresql:
+  tests-postgresql:
+    name: Run test cases using PostgreSQL as data provider
     runs-on: ubuntu-latest
     env:
       SFTPGO_DATA_PROVIDER__DRIVER: postgresql

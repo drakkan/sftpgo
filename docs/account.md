@@ -13,7 +13,7 @@ For each account, the following properties can be configured:
 - `max_sessions` maximum concurrent sessions. 0 means unlimited.
 - `quota_size` maximum size allowed as bytes. 0 means unlimited.
 - `quota_files` maximum number of files allowed. 0 means unlimited.
-- `permissions` the following per directory permissions are supported:
+- `permissions` for SFTP paths. The following per directory permissions are supported:
   - `*` all permissions are granted
   - `list` list items is allowed
   - `download` download files is allowed

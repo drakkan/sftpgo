@@ -1,4 +1,3 @@
 package service
 
-func registerSigHup() {
-}
+func registerSigHup() {}

@@ -86,7 +86,8 @@ Usage:
 
 Available Commands:
   install     Install SFTPGo as Windows Service
-  reload      Reload the SFTPGo Windows Service sending a `paramchange` request
+  reload      Reload the SFTPGo Windows Service sending a "paramchange" request
+  rotatelogs  Signal to the running service to close the existing log file and immediately create a new one
   start       Start SFTPGo Windows Service
   status      Retrieve the status for the SFTPGo Windows Service
   stop        Stop SFTPGo Windows Service

@@ -124,6 +124,7 @@ func (s *Service) Start() error {
 func (s *Service) Wait() {
 	if s.PortableMode != 1 {
 		registerSigHup()
+		registerSigUSR1()
 	}
 	<-s.Shutdown
 }

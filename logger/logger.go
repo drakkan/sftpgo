@@ -9,6 +9,7 @@
 package logger
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -37,6 +38,7 @@ const (
 var (
 	logger        zerolog.Logger
 	consoleLogger zerolog.Logger
+	rollingLogger *lumberjack.Logger
 )
 
 // GetLogger get the configured logger instance
@@ -48,13 +50,14 @@ func GetLogger() *zerolog.Logger {
 func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge int, logCompress bool, level zerolog.Level) {
 	zerolog.TimeFieldFormat = dateFormat
 	if isLogFilePathValid(logFilePath) {
-		logger = zerolog.New(&lumberjack.Logger{
+		rollingLogger = &lumberjack.Logger{
 			Filename:   logFilePath,
 			MaxSize:    logMaxSize,
 			MaxBackups: logMaxBackups,
 			MaxAge:     logMaxAge,
 			Compress:   logCompress,
-		})
+		}
+		logger = zerolog.New(rollingLogger)
 		EnableConsoleLogger(level)
 	} else {
 		logger = zerolog.New(logSyncWrapper{
@@ -69,6 +72,7 @@ func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge
 // ConsoleLogger will not be affected
 func DisableLogger() {
 	logger = zerolog.Nop()
+	rollingLogger = nil
 }
 
 // EnableConsoleLogger enables the console logger
@@ -79,6 +83,14 @@ func EnableConsoleLogger(level zerolog.Level) {
 		NoColor:    runtime.GOOS == "windows",
 	}
 	consoleLogger = zerolog.New(consoleOutput).With().Timestamp().Logger().Level(level)
+}
+
+// RotateLogFile closes the existing log file and immediately create a new one
+func RotateLogFile() error {
+	if rollingLogger != nil {
+		return rollingLogger.Rotate()
+	}
+	return errors.New("logging to file is disabled")
 }
 
 // Log logs at the specified level for the specified sender

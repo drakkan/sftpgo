@@ -17,8 +17,10 @@ import (
 )
 
 const (
-	serviceName = "SFTPGo"
-	serviceDesc = "Full featured and highly configurable SFTP server"
+	serviceName     = "SFTPGo"
+	serviceDesc     = "Full featured and highly configurable SFTP server"
+	rotateLogCmd    = svc.Cmd(128)
+	acceptRotateLog = svc.Accepted(rotateLogCmd)
 )
 
 // Status defines service status
@@ -63,7 +65,7 @@ func (s Status) String() string {
 }
 
 func (s *WindowsService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
-	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptParamChange
+	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptParamChange | acceptRotateLog
 	changes <- svc.Status{State: svc.StartPending}
 	if err := s.Service.Start(); err != nil {
 		return true, 1
@@ -90,6 +92,12 @@ loop:
 			err = httpd.ReloadTLSCertificate()
 			if err != nil {
 				logger.Warn(logSender, "", "error reloading TLS certificate: %v", err)
+			}
+		case rotateLogCmd:
+			logger.Debug(logSender, "", "Received log file rotation request")
+			err := logger.RotateLogFile()
+			if err != nil {
+				logger.Warn(logSender, "", "error rotating log file: %v", err)
 			}
 		default:
 			continue loop
@@ -153,6 +161,24 @@ func (s *WindowsService) Reload() error {
 	_, err = service.Control(svc.ParamChange)
 	if err != nil {
 		return fmt.Errorf("could not send control=%d: %v", svc.ParamChange, err)
+	}
+	return nil
+}
+
+func (s *WindowsService) RotateLogFile() error {
+	m, err := mgr.Connect()
+	if err != nil {
+		return err
+	}
+	defer m.Disconnect()
+	service, err := m.OpenService(serviceName)
+	if err != nil {
+		return fmt.Errorf("could not access service: %v", err)
+	}
+	defer service.Close()
+	_, err = service.Control(rotateLogCmd)
+	if err != nil {
+		return fmt.Errorf("could not send control=%d: %v", rotateLogCmd, err)
 	}
 	return nil
 }

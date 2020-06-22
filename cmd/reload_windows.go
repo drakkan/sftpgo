@@ -21,10 +21,10 @@ var (
 			}
 			err := s.Reload()
 			if err != nil {
-				fmt.Printf("Error reloading service: %v\r\n", err)
+				fmt.Printf("Error sending reload signal: %v\r\n", err)
 				os.Exit(1)
 			} else {
-				fmt.Printf("Service reloaded!\r\n")
+				fmt.Printf("Reload signal sent!\r\n")
 			}
 		},
 	}
