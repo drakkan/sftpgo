@@ -17,7 +17,7 @@ jobs:
           version: v1.27
 
   tests-upload-unix:
-    name: Run tests and upload build artifacts on Linux and macOS
+    name: Run tests and upload build artifacts
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -118,16 +118,9 @@ jobs:
           name: sftpgo-windows
           path: output
 
-  tests-postgresql:
-    name: Run test cases using PostgreSQL as data provider
+  tests-postgresql-mysql:
+    name: Run test cases using PostgreSQL/MySQL data providers
     runs-on: ubuntu-latest
-    env:
-      SFTPGO_DATA_PROVIDER__DRIVER: postgresql
-      SFTPGO_DATA_PROVIDER__NAME: sftpgo
-      SFTPGO_DATA_PROVIDER__HOST: localhost
-      SFTPGO_DATA_PROVIDER__PORT: 5432
-      SFTPGO_DATA_PROVIDER__USERNAME: postgres
-      SFTPGO_DATA_PROVIDER__PASSWORD: postgres
 
     services:
       postgres:
@@ -143,6 +136,21 @@ jobs:
         ports:
           - 5432:5432
 
+      mariadb:
+        image: mariadb:latest
+        env:
+          MYSQL_ROOT_PASSWORD: mysql
+          MYSQL_DATABASE: sftpgo
+          MYSQL_USER: sftpgo
+          MYSQL_PASSWORD: sftpgo
+        options: >-
+          --health-cmd "mysqladmin status -h 127.0.0.1 -P 3306 -u root -p$MYSQL_ROOT_PASSWORD"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 6
+        ports:
+          - 3307:3306
+
     steps:
       - uses: actions/checkout@v2
 
@@ -154,8 +162,26 @@ jobs:
       - name: Build
         run: go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
 
-      - name: Initialize data provider
-        run: ./sftpgo initprovider
-
       - name: Run tests using PostgreSQL provider
-        run: go test -v ./... -covermode=atomic
+        run: |
+          ./sftpgo initprovider
+          go test -v ./... -covermode=atomic
+        env:
+          SFTPGO_DATA_PROVIDER__DRIVER: postgresql
+          SFTPGO_DATA_PROVIDER__NAME: sftpgo
+          SFTPGO_DATA_PROVIDER__HOST: localhost
+          SFTPGO_DATA_PROVIDER__PORT: 5432
+          SFTPGO_DATA_PROVIDER__USERNAME: postgres
+          SFTPGO_DATA_PROVIDER__PASSWORD: postgres
+
+      - name: Run tests using MySQL provider
+        run: |
+          ./sftpgo initprovider
+          go test -v ./... -covermode=atomic
+        env:
+          SFTPGO_DATA_PROVIDER__DRIVER: mysql
+          SFTPGO_DATA_PROVIDER__NAME: sftpgo
+          SFTPGO_DATA_PROVIDER__HOST: localhost
+          SFTPGO_DATA_PROVIDER__PORT: 3307
+          SFTPGO_DATA_PROVIDER__USERNAME: sftpgo
+          SFTPGO_DATA_PROVIDER__PASSWORD: sftpgo

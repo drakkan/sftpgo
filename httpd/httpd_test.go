@@ -1091,6 +1091,16 @@ func TestStartQuotaScan(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpd.StartFolderQuotaScan(folder, http.StatusCreated)
 	assert.NoError(t, err)
+	for {
+		quotaScan, _, err := httpd.GetFoldersQuotaScans(http.StatusOK)
+		if !assert.NoError(t, err, "Error getting active scans") {
+			break
+		}
+		if len(quotaScan) == 0 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 	_, err = httpd.RemoveFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
 }
@@ -1875,14 +1885,13 @@ func TestStartQuotaScanMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr.Code)
 
-	var scans []sftpd.ActiveQuotaScan
 	for {
+		var scans []sftpd.ActiveQuotaScan
 		req, _ = http.NewRequest(http.MethodGet, quotaScanPath, nil)
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr.Code)
 		err = render.DecodeJSON(rr.Body, &scans)
-		if !assert.NoError(t, err) {
-			assert.Fail(t, err.Error(), "Error get active scans")
+		if !assert.NoError(t, err, "Error getting active scans") {
 			break
 		}
 		if len(scans) == 0 {
@@ -1899,14 +1908,14 @@ func TestStartQuotaScanMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr.Code)
 
-	scans = nil
 	for {
+		var scans []sftpd.ActiveQuotaScan
 		req, _ = http.NewRequest(http.MethodGet, quotaScanPath, nil)
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr.Code)
 		err = render.DecodeJSON(rr.Body, &scans)
 		if !assert.NoError(t, err) {
-			assert.Fail(t, err.Error(), "Error get active scans")
+			assert.Fail(t, err.Error(), "Error getting active scans")
 			break
 		}
 		if len(scans) == 0 {
@@ -2017,8 +2026,7 @@ func TestStartFolderQuotaScanMock(t *testing.T) {
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr.Code)
 		err = render.DecodeJSON(rr.Body, &scans)
-		if !assert.NoError(t, err) {
-			assert.Fail(t, err.Error(), "Error get active folders scans")
+		if !assert.NoError(t, err, "Error getting active folders scans") {
 			break
 		}
 		if len(scans) == 0 {
