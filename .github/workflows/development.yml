@@ -41,14 +41,15 @@ jobs:
       - name: Initialize data provider
         run: ./sftpgo initprovider
 
-      - name: Run test cases using SQLite as data provider
+      - name: Run test cases using SQLite provider
         run: go test -v ./... -coverprofile=coverage.txt -covermode=atomic
 
       - name: Upload to Codecov
+        if: ${{ matrix.go == '1.14' }}
         uses: codecov/codecov-action@v1
         with:
           file: ./coverage.txt
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
       - name: Prepare artifact
         run: |
@@ -64,22 +65,22 @@ jobs:
           name: sftpgo-${{ matrix.os }}-go${{ matrix.go }}
           path: output
 
-      - name: Run test cases using bolt as data provider
-        if: ${{ matrix.os == 'ubuntu-latest' && matrix.go == '1.14' }}
+      - name: Run test cases using bolt provider
+        if: ${{ matrix.go == '1.14' }}
         run: |
-          rm -f sftpgo.db
           go test -v ./config -covermode=atomic
           go test -v ./httpd -covermode=atomic
           go test -v ./sftpd -covermode=atomic
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: bolt
+          SFTPGO_DATA_PROVIDER__NAME: 'sftpgo_bolt.db'
 
-      - name: Run test cases using the memory data provider
-        if: ${{ matrix.os == 'ubuntu-latest' && matrix.go == '1.14' }}
+      - name: Run test cases using memory provider
+        if: ${{ matrix.go == '1.14' }}
         run: go test -v ./... -covermode=atomic
         env:
             SFTPGO_DATA_PROVIDER__DRIVER: memory
-            SFTPGO_DATA_PROVIDER__NAME:
+            SFTPGO_DATA_PROVIDER__NAME: ''
 
   tests-upload-windows:
     name: Run tests and upload build artifact on Windows
@@ -101,7 +102,7 @@ jobs:
       - name: Initialize data provider
         run: .\sftpgo.exe initprovider
 
-      - name: Run tests
+      - name: Run test cases using SQLite provider
         run: go test -v ./... -coverprofile=coverage.txt -covermode=atomic
 
       - name: Prepare artifact
@@ -109,14 +110,31 @@ jobs:
           mkdir output
           xcopy .\sftpgo.exe .\output
           xcopy .\sftpgo.json .\output
-          move .\templates .\output
-          move .\static .\output
+          mkdir output\templates
+          xcopy .\templates .\output\templates\ /E
+          mkdir output\static
+          xcopy .\static .\output\static\ /E
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
           name: sftpgo-windows
           path: output
+
+      - name: Run test cases using bolt provider
+        run: |
+          go test -v ./config -covermode=atomic
+          go test -v ./httpd -covermode=atomic
+          go test -v ./sftpd -covermode=atomic
+        env:
+          SFTPGO_DATA_PROVIDER__DRIVER: bolt
+          SFTPGO_DATA_PROVIDER__NAME: 'sftpgo_bolt.db'
+
+      - name: Run test cases using memory provider
+        run: go test -v ./... -covermode=atomic
+        env:
+          SFTPGO_DATA_PROVIDER__DRIVER: memory
+          SFTPGO_DATA_PROVIDER__NAME: ''
 
   tests-postgresql-mysql:
     name: Run test cases using PostgreSQL/MySQL data providers
