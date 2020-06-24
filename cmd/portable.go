@@ -161,7 +161,7 @@ func init() {
 		"Allowed file extensions case insensitive. The format is /dir::ext1,ext2. For example: \"/somedir::.jpg,.png\"")
 	portableCmd.Flags().StringArrayVar(&portableDeniedExtensions, "denied-extensions", []string{},
 		"Denied file extensions case insensitive. The format is /dir::ext1,ext2. For example: \"/somedir::.jpg,.png\"")
-	portableCmd.Flags().BoolVarP(&portableAdvertiseService, "advertise-service", "S", true,
+	portableCmd.Flags().BoolVarP(&portableAdvertiseService, "advertise-service", "S", false,
 		"Advertise SFTP service using multicast DNS")
 	portableCmd.Flags().BoolVarP(&portableAdvertiseCredentials, "advertise-credentials", "C", false,
 		"If the SFTP service is advertised via multicast DNS, this flag allows to put username/password inside the advertised TXT record")

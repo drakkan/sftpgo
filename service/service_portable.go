@@ -32,12 +32,14 @@ func (s *Service) StartPortableMode(sftpdPort int, enabledSSHCommands []string, 
 	if len(s.PortableUser.Username) == 0 {
 		s.PortableUser.Username = "user"
 	}
+	printablePassword := "[redacted]"
 	if len(s.PortableUser.PublicKeys) == 0 && len(s.PortableUser.Password) == 0 {
 		var b strings.Builder
 		for i := 0; i < 8; i++ {
 			b.WriteRune(chars[rand.Intn(len(chars))])
 		}
 		s.PortableUser.Password = b.String()
+		printablePassword = s.PortableUser.Password
 	}
 	dataProviderConf := config.GetProviderConf()
 	dataProviderConf.Driver = dataprovider.MemoryDataProviderName
@@ -108,7 +110,7 @@ func (s *Service) StartPortableMode(sftpdPort int, enabledSSHCommands []string, 
 
 	logger.InfoToConsole("Portable mode ready, SFTP port: %v, user: %#v, password: %#v, public keys: %v, directory: %#v, "+
 		"permissions: %+v, enabled ssh commands: %v file extensions filters: %+v", sftpdConf.BindPort, s.PortableUser.Username,
-		s.PortableUser.Password, s.PortableUser.PublicKeys, s.getPortableDirToServe(), s.PortableUser.Permissions,
+		printablePassword, s.PortableUser.PublicKeys, s.getPortableDirToServe(), s.PortableUser.Permissions,
 		sftpdConf.EnabledSSHCommands, s.PortableUser.Filters.FileExtensions)
 	return nil
 }
