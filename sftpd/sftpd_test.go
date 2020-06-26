@@ -142,6 +142,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	providerConf := config.GetProviderConf()
+	logger.InfoToConsole("Starting SFTPD tests, provider: %v", providerConf.Driver)
 
 	err = dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
@@ -2158,12 +2159,19 @@ func TestVirtualFolders(t *testing.T) {
 	u := getTestUser(usePubKey)
 	mappedPath := filepath.Join(os.TempDir(), "vdir")
 	vdirPath := "/vdir/subdir"
+	testDir := "/userDir"
+	testDir1 := "/userDir1"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			MappedPath: mappedPath,
 		},
 		VirtualPath: vdirPath,
 	})
+	u.Permissions[testDir] = []string{dataprovider.PermCreateDirs}
+	u.Permissions[testDir1] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload, dataprovider.PermDelete}
+	u.Permissions[path.Join(testDir1, "subdir")] = []string{dataprovider.PermCreateSymlinks, dataprovider.PermUpload,
+		dataprovider.PermDelete}
+
 	err := os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
 	user, _, err := httpd.AddUser(u, http.StatusOK)
@@ -2195,7 +2203,47 @@ func TestVirtualFolders(t *testing.T) {
 		assert.Error(t, err, "removing a directory with a virtual folder inside must fail")
 		err = client.Mkdir("vdir1")
 		assert.NoError(t, err)
+		// rename empty dir /vdir1, we have permission on /
 		err = client.Rename("vdir1", "vdir2")
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join("vdir2", testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		// we don't have upload permission on testDir, we can only create dirs
+		err = client.Rename("vdir2", testDir)
+		assert.Error(t, err)
+		// on testDir1 only symlink aren't allowed
+		err = client.Rename("vdir2", testDir1)
+		assert.NoError(t, err)
+		err = client.Rename(testDir1, "vdir2")
+		assert.NoError(t, err)
+		err = client.MkdirAll(path.Join("vdir2", "subdir"))
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join("vdir2", "subdir", testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = client.Rename("vdir2", testDir1)
+		assert.NoError(t, err)
+		err = client.Rename(testDir1, "vdir2")
+		assert.NoError(t, err)
+		err = client.MkdirAll(path.Join("vdir2", "subdir", "subdir"))
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join("vdir2", "subdir", "subdir", testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		// we cannot create dirs inside /userDir1/subdir
+		err = client.Rename("vdir2", testDir1)
+		assert.Error(t, err)
+		err = client.Rename("vdir2", "vdir3")
+		assert.NoError(t, err)
+		err = client.Remove(path.Join("vdir3", "subdir", "subdir", testFileName))
+		assert.NoError(t, err)
+		err = client.RemoveDirectory(path.Join("vdir3", "subdir", "subdir"))
+		assert.NoError(t, err)
+		err = client.Rename("vdir3", testDir1)
+		assert.NoError(t, err)
+		err = client.Rename(testDir1, "vdir2")
+		assert.NoError(t, err)
+		err = client.Symlink(path.Join("vdir2", "subdir", testFileName), path.Join("vdir2", "subdir", "alink"))
+		assert.NoError(t, err)
+		err = client.Rename("vdir2", testDir1)
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
@@ -5499,11 +5547,16 @@ func TestSSHCopy(t *testing.T) {
 		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(testDir, testFileName), testFileName+".denied"), user, usePubKey)
 		assert.Error(t, err)
 		if runtime.GOOS != osWindows {
-			err = os.Chmod(filepath.Join(mappedPath1, testDir1), 0001)
+			subPath := filepath.Join(mappedPath1, testDir1, "asubdir", "anothersub", "another")
+			err = os.MkdirAll(subPath, os.ModePerm)
 			assert.NoError(t, err)
-			_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1), "newdir"), user, usePubKey)
+			err = os.Chmod(subPath, 0001)
+			assert.NoError(t, err)
+			// c.connection.fs.GetDirSize(fsSourcePath) will fail scanning subdirs
+			// checkRecursiveCopyPermissions will work since it will skip subdirs with no permissions
+			_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", vdirPath1, "newdir"), user, usePubKey)
 			assert.Error(t, err)
-			err = os.Chmod(filepath.Join(mappedPath1, testDir1), os.ModePerm)
+			err = os.Chmod(subPath, os.ModePerm)
 			assert.NoError(t, err)
 			err = os.Chmod(filepath.Join(user.GetHomeDir(), testDir1), 0555)
 			assert.NoError(t, err)
@@ -5528,18 +5581,6 @@ func TestSSHCopy(t *testing.T) {
 		err = os.Remove(testFilePath1)
 		assert.NoError(t, err)
 	}
-	// test copy dir with no create dirs perm
-	user.Permissions["/"] = []string{dataprovider.PermUpload, dataprovider.PermDownload, dataprovider.PermListItems}
-	_, _, err = httpd.UpdateUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	client, err = getSftpClient(user, usePubKey)
-	if assert.NoError(t, err) {
-		defer client.Close()
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir1), testDir1+"copy1"),
-			user, usePubKey)
-		assert.Error(t, err)
-	}
-
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
@@ -5554,8 +5595,71 @@ func TestSSHCopy(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSSHCopyQuotaLimits(t *testing.T) {
+func TestSSHCopyPermissions(t *testing.T) {
 	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Permissions["/dir1"] = []string{dataprovider.PermUpload, dataprovider.PermDownload, dataprovider.PermListItems}
+	u.Permissions["/dir2"] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload, dataprovider.PermDownload,
+		dataprovider.PermListItems}
+	u.Permissions["/dir3"] = []string{dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermDownload,
+		dataprovider.PermListItems}
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		testDir := "tDir"
+		testFileSize := int64(131072)
+		testFileName := "test_file.dat"
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = client.Mkdir(testDir)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, path.Join("/", testDir, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		// test copy file with no permission
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir, testFileName), path.Join("/dir3", testFileName)),
+			user, usePubKey)
+		assert.Error(t, err)
+		// test copy dir with no create dirs perm
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir), "/dir1/"), user, usePubKey)
+		assert.Error(t, err)
+		// dir2 has the needed permissions
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir), "/dir2/"), user, usePubKey)
+		assert.NoError(t, err)
+		info, err := client.Stat(path.Join("/dir2", testDir))
+		if assert.NoError(t, err) {
+			assert.True(t, info.IsDir())
+		}
+		info, err = client.Stat(path.Join("/dir2", testDir, testFileName))
+		if assert.NoError(t, err) {
+			assert.True(t, info.Mode().IsRegular())
+		}
+		// now create a symlink, dir2 has no create symlink permission
+		err = client.Symlink(path.Join("/", testDir, testFileName), path.Join("/", testDir, testFileName+".link"))
+		assert.NoError(t, err)
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir), "/dir2/sub"), user, usePubKey)
+		assert.Error(t, err)
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir), "/newdir"), user, usePubKey)
+		assert.NoError(t, err)
+		// now delete the file and copy inside /dir3
+		err = client.Remove(path.Join("/", testDir, testFileName))
+		assert.NoError(t, err)
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir), "/dir3"), user, usePubKey)
+		assert.NoError(t, err)
+
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestSSHCopyQuotaLimits(t *testing.T) {
+	usePubKey := true
 	testFileSize := int64(131072)
 	testFileSize1 := int64(65536)
 	testFileSize2 := int64(32768)

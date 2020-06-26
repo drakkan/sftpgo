@@ -30,9 +30,10 @@ import (
 const scpCmdName = "scp"
 
 var (
-	errQuotaExceeded     = errors.New("denying write due to space limit")
-	errPermissionDenied  = errors.New("Permission denied. You don't have the permissions to execute this command")
-	errUnsupportedConfig = errors.New("command unsupported for this configuration")
+	errQuotaExceeded        = errors.New("denying write due to space limit")
+	errPermissionDenied     = errors.New("Permission denied. You don't have the permissions to execute this command")
+	errUnsupportedConfig    = errors.New("command unsupported for this configuration")
+	errSkipPermissionsCheck = errors.New("permission check skipped")
 )
 
 type sshCommand struct {
@@ -134,12 +135,12 @@ func (c *sshCommand) handeSFTPGoCopy() error {
 	if err != nil {
 		return c.sendErrorResponse(err)
 	}
+	if err := c.checkCopyPermissions(fsSourcePath, fsDestPath, sshSourcePath, sshDestPath, fi); err != nil {
+		return c.sendErrorResponse(err)
+	}
 	filesNum := 0
 	filesSize := int64(0)
 	if fi.IsDir() {
-		if !c.connection.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(sshDestPath)) {
-			return c.sendErrorResponse(errPermissionDenied)
-		}
 		filesNum, filesSize, err = c.connection.fs.GetDirSize(fsSourcePath)
 		if err != nil {
 			return c.sendErrorResponse(err)
@@ -593,11 +594,67 @@ func (c *sshCommand) getCopyPaths() (string, string, error) {
 		err := errors.New("usage sftpgo-copy <source dir path> <destination dir path>")
 		return "", "", err
 	}
-	if !c.connection.User.HasPerm(dataprovider.PermListItems, path.Dir(sshSourcePath)) ||
-		!c.connection.User.HasPerm(dataprovider.PermUpload, path.Dir(sshDestPath)) {
-		return "", "", errPermissionDenied
-	}
 	return sshSourcePath, sshDestPath, nil
+}
+
+func (c *sshCommand) hasCopyPermissions(sshSourcePath, sshDestPath string, srcInfo os.FileInfo) bool {
+	if !c.connection.User.HasPerm(dataprovider.PermListItems, path.Dir(sshSourcePath)) {
+		return false
+	}
+	if srcInfo.IsDir() {
+		return c.connection.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(sshDestPath))
+	} else if srcInfo.Mode()&os.ModeSymlink == os.ModeSymlink {
+		return c.connection.User.HasPerm(dataprovider.PermCreateSymlinks, path.Dir(sshDestPath))
+	}
+	return c.connection.User.HasPerm(dataprovider.PermUpload, path.Dir(sshDestPath))
+}
+
+// fsSourcePath must be a directory
+func (c *sshCommand) checkRecursiveCopyPermissions(fsSourcePath, fsDestPath, sshDestPath string) error {
+	if !c.connection.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(sshDestPath)) {
+		return errPermissionDenied
+	}
+	dstPerms := []string{
+		dataprovider.PermCreateDirs,
+		dataprovider.PermCreateSymlinks,
+		dataprovider.PermUpload,
+	}
+
+	err := c.connection.fs.Walk(fsSourcePath, func(walkedPath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		fsDstSubPath := strings.Replace(walkedPath, fsSourcePath, fsDestPath, 1)
+		sshSrcSubPath := c.connection.fs.GetRelativePath(walkedPath)
+		sshDstSubPath := c.connection.fs.GetRelativePath(fsDstSubPath)
+		// If the current dir has no subdirs with defined permissions inside it
+		// and it has all the possible permissions we can stop scanning
+		if !c.connection.User.HasPermissionsInside(path.Dir(sshSrcSubPath)) &&
+			!c.connection.User.HasPermissionsInside(path.Dir(sshDstSubPath)) {
+			if c.connection.User.HasPerm(dataprovider.PermListItems, path.Dir(sshSrcSubPath)) &&
+				c.connection.User.HasPerms(dstPerms, path.Dir(sshDstSubPath)) {
+				return errSkipPermissionsCheck
+			}
+		}
+		if !c.hasCopyPermissions(sshSrcSubPath, sshDstSubPath, info) {
+			return errPermissionDenied
+		}
+		return nil
+	})
+	if err == errSkipPermissionsCheck {
+		err = nil
+	}
+	return err
+}
+
+func (c *sshCommand) checkCopyPermissions(fsSourcePath, fsDestPath, sshSourcePath, sshDestPath string, info os.FileInfo) error {
+	if info.IsDir() {
+		return c.checkRecursiveCopyPermissions(fsSourcePath, fsDestPath, sshDestPath)
+	}
+	if !c.hasCopyPermissions(sshSourcePath, sshDestPath, info) {
+		return errPermissionDenied
+	}
+	return nil
 }
 
 func (c *sshCommand) getRemovePath() (string, error) {

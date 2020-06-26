@@ -15,7 +15,7 @@ Usage:
 
 Flags:
   -C, --advertise-credentials            If the SFTP service is advertised via multicast DNS, this flag allows to put username/password inside the advertised TXT record
-  -S, --advertise-service                Advertise SFTP service using multicast DNS (default true)
+  -S, --advertise-service                Advertise SFTP service using multicast DNS
       --allowed-extensions stringArray   Allowed file extensions case insensitive. The format is /dir::ext1,ext2. For example: "/somedir::.jpg,.png"
       --denied-extensions stringArray    Denied file extensions case insensitive. The format is /dir::ext1,ext2. For example: "/somedir::.jpg,.png"
   -d, --directory string                 Path to the directory to serve. This can be an absolute path or a path relative to the current directory (default ".")

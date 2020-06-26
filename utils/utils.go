@@ -266,7 +266,7 @@ func GetDirsForSFTPPath(p string) []string {
 	return dirsForPath
 }
 
-// CleanSFTPPath returns a clean sftp path
+// CleanSFTPPath returns a cleaned SFTP path
 func CleanSFTPPath(p string) string {
 	sftpPath := filepath.ToSlash(p)
 	if !path.IsAbs(p) {

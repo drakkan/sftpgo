@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -42,8 +43,11 @@ type Fs interface {
 	GetDirSize(dirname string) (int, int64, error)
 	GetAtomicUploadPath(name string) string
 	GetRelativePath(name string) string
+	Walk(root string, walkFn filepath.WalkFunc) error
 	Join(elem ...string) string
 }
+
+var errUnsupported = errors.New("Not supported")
 
 // QuotaCheckResult defines the result for a quota check
 type QuotaCheckResult struct {

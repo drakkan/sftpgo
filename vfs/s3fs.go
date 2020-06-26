@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -441,7 +442,7 @@ func (fs S3Fs) ScanRootDirContents() (int, int64, error) {
 // GetDirSize returns the number of files and the size for a folder
 // including any subfolders
 func (S3Fs) GetDirSize(dirname string) (int, int64, error) {
-	return 0, 0, errors.New("Not implemented")
+	return 0, 0, errUnsupported
 }
 
 // GetAtomicUploadPath returns the path to use for an atomic upload.
@@ -467,6 +468,12 @@ func (fs S3Fs) GetRelativePath(name string) string {
 		rel = path.Clean("/" + strings.TrimPrefix(rel, "/"+fs.config.KeyPrefix))
 	}
 	return rel
+}
+
+// Walk walks the file tree rooted at root, calling walkFn for each file or
+// directory in the tree, including root
+func (S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
+	return errUnsupported
 }
 
 // Join joins any number of path elements into a single path

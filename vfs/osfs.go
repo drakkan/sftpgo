@@ -221,6 +221,12 @@ func (fs OsFs) GetRelativePath(name string) string {
 	return path.Join(virtualPath, filepath.ToSlash(rel))
 }
 
+// Walk walks the file tree rooted at root, calling walkFn for each file or
+// directory in the tree, including root
+func (OsFs) Walk(root string, walkFn filepath.WalkFunc) error {
+	return filepath.Walk(root, walkFn)
+}
+
 // Join joins any number of path elements into a single path
 func (OsFs) Join(elem ...string) string {
 	return filepath.Join(elem...)

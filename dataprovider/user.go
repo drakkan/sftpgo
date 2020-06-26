@@ -259,7 +259,7 @@ func (u *User) IsVirtualFolder(sftpPath string) bool {
 	return false
 }
 
-// HasVirtualFoldersInside return true if there are virtual folders inside the
+// HasVirtualFoldersInside returns true if there are virtual folders inside the
 // specified SFTP path. We assume that path are cleaned
 func (u *User) HasVirtualFoldersInside(sftpPath string) bool {
 	if sftpPath == "/" && len(u.VirtualFolders) > 0 {
@@ -268,6 +268,21 @@ func (u *User) HasVirtualFoldersInside(sftpPath string) bool {
 	for _, v := range u.VirtualFolders {
 		if len(v.VirtualPath) > len(sftpPath) {
 			if strings.HasPrefix(v.VirtualPath, sftpPath+"/") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// HasPermissionsInside returns true if the specified sftpPath has no permissions itself and
+// no subdirs with defined permissions
+func (u *User) HasPermissionsInside(sftpPath string) bool {
+	for dir := range u.Permissions {
+		if dir == sftpPath {
+			return true
+		} else if len(dir) > len(sftpPath) {
+			if strings.HasPrefix(dir, sftpPath+"/") {
 				return true
 			}
 		}

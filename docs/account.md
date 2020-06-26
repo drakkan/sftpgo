@@ -20,7 +20,7 @@ For each account, the following properties can be configured:
   - `upload` upload files is allowed
   - `overwrite` overwrite an existing file, while uploading, is allowed. `upload` permission is required to allow file overwrite
   - `delete` delete files or directories is allowed
-  - `rename` rename a file or a directory is allowed if this permission is granted on target path. You can enable rename in a more controlled way granting `delete` permission on source directory and `upload`/`create_dirs` permissions on target directory. Please be aware that no subdir permission is checked for the directories rename case
+  - `rename` rename a file or a directory is allowed if this permission is granted on source and target path. You can enable rename in a more controlled way granting `delete` permission on source directory and `upload`/`create_dirs`/`create_symlinks` permissions on target directory
   - `create_dirs` create directories is allowed
   - `create_symlinks` create symbolic links is allowed
   - `chmod` changing file or directory permissions is allowed. On Windows, only the 0200 bit (owner writable) of mode is used; it controls whether the file's read-only attribute is set or cleared. The other bits are currently unused. Use mode 0400 for a read-only file and 0600 for a readable+writable file.

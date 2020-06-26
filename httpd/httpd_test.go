@@ -107,6 +107,7 @@ func TestMain(m *testing.M) {
 	providerConf.CredentialsPath = credentialsPath
 	providerDriverName = providerConf.Driver
 	os.RemoveAll(credentialsPath) //nolint:errcheck
+	logger.InfoToConsole("Starting HTTPD tests, provider: %v", providerConf.Driver)
 
 	err = dataprovider.Initialize(providerConf, configDir)
 	if err != nil {

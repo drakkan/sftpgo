@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -301,9 +302,6 @@ func (c Connection) handleSFTPSetstat(filePath string, request *sftp.Request) er
 }
 
 func (c Connection) handleSFTPRename(sourcePath, targetPath string, request *sftp.Request) error {
-	if !c.isRenamePermitted(sourcePath, request) {
-		return sftp.ErrSSHFxPermissionDenied
-	}
 	if c.User.IsMappedPath(sourcePath) {
 		c.Log(logger.LevelWarn, logSender, "renaming a directory mapped as virtual folder is not allowed: %#v", sourcePath)
 		return sftp.ErrSSHFxPermissionDenied
@@ -312,29 +310,38 @@ func (c Connection) handleSFTPRename(sourcePath, targetPath string, request *sft
 		c.Log(logger.LevelWarn, logSender, "renaming to a directory mapped as virtual folder is not allowed: %#v", targetPath)
 		return sftp.ErrSSHFxPermissionDenied
 	}
-	if c.User.HasVirtualFoldersInside(request.Filepath) {
-		if fi, err := c.fs.Stat(sourcePath); err == nil {
-			if fi.IsDir() {
-				c.Log(logger.LevelDebug, logSender, "renaming the folder %#v is not supported: it has virtual folders inside it",
-					request.Filepath)
-				return sftp.ErrSSHFxOpUnsupported
-			}
-		}
+	srcInfo, err := c.fs.Lstat(sourcePath)
+	if err != nil {
+		return vfs.GetSFTPError(c.fs, err)
+	}
+	if !c.isRenamePermitted(sourcePath, request.Filepath, request.Target, srcInfo) {
+		return sftp.ErrSSHFxPermissionDenied
 	}
 	initialSize := int64(-1)
-	if fi, err := c.fs.Lstat(targetPath); err == nil {
-		if fi.IsDir() {
+	if dstInfo, err := c.fs.Lstat(targetPath); err == nil {
+		if dstInfo.IsDir() {
 			c.Log(logger.LevelWarn, logSender, "attempted to rename %#v overwriting an existing directory %#v", sourcePath, targetPath)
 			return sftp.ErrSSHFxOpUnsupported
 		}
 		// we are overwriting an existing file/symlink
-		if fi.Mode().IsRegular() {
-			initialSize = fi.Size()
+		if dstInfo.Mode().IsRegular() {
+			initialSize = dstInfo.Size()
 		}
 		if !c.User.HasPerm(dataprovider.PermOverwrite, path.Dir(request.Target)) {
 			c.Log(logger.LevelDebug, logSender, "renaming is not allowed, source: %#v target: %#v. "+
 				"Target exists but the user has no overwrite permission", request.Filepath, request.Target)
 			return sftp.ErrSSHFxPermissionDenied
+		}
+	}
+	if srcInfo.IsDir() {
+		if c.User.HasVirtualFoldersInside(request.Filepath) {
+			c.Log(logger.LevelDebug, logSender, "renaming the folder %#v is not supported: it has virtual folders inside it",
+				request.Filepath)
+			return sftp.ErrSSHFxOpUnsupported
+		}
+		if err = c.checkRecursiveRenameDirPermissions(sourcePath, targetPath); err != nil {
+			c.Log(logger.LevelDebug, logSender, "error checking recursive permissions before renaming %#v: %+v", sourcePath, err)
+			return vfs.GetSFTPError(c.fs, err)
 		}
 	}
 	if !c.hasSpaceForRename(request, initialSize, sourcePath) {
@@ -798,34 +805,77 @@ func (c Connection) isCrossFoldersRequest(request *sftp.Request) bool {
 	return true
 }
 
-func (c Connection) isRenamePermitted(sourcePath string, request *sftp.Request) bool {
-	if c.fs.GetRelativePath(sourcePath) == "/" {
+func (c Connection) isRenamePermitted(fsSrcPath, sftpSrcPath, sftpDstPath string, fi os.FileInfo) bool {
+	if c.fs.GetRelativePath(fsSrcPath) == "/" {
 		c.Log(logger.LevelWarn, logSender, "renaming root dir is not allowed")
 		return false
 	}
-	if c.User.IsVirtualFolder(request.Filepath) || c.User.IsVirtualFolder(request.Target) {
+	if c.User.IsVirtualFolder(sftpSrcPath) || c.User.IsVirtualFolder(sftpDstPath) {
 		c.Log(logger.LevelWarn, logSender, "renaming a virtual folder is not allowed")
 		return false
 	}
-	if !c.User.IsFileAllowed(request.Filepath) || !c.User.IsFileAllowed(request.Target) {
-		if fi, err := c.fs.Lstat(sourcePath); err == nil && fi.Mode().IsRegular() {
-			c.Log(logger.LevelDebug, logSender, "renaming file is not allowed, source: %#v target: %#v", request.Filepath,
-				request.Target)
+	if !c.User.IsFileAllowed(sftpSrcPath) || !c.User.IsFileAllowed(sftpDstPath) {
+		if fi != nil && fi.Mode().IsRegular() {
+			c.Log(logger.LevelDebug, logSender, "renaming file is not allowed, source: %#v target: %#v", sftpSrcPath,
+				sftpDstPath)
 			return false
 		}
 	}
-	if !c.User.HasPerm(dataprovider.PermRename, path.Dir(request.Target)) &&
-		(!c.User.HasPerm(dataprovider.PermDelete, path.Dir(request.Filepath)) ||
-			!c.User.HasPerm(dataprovider.PermUpload, path.Dir(request.Target))) {
+	if c.User.HasPerm(dataprovider.PermRename, path.Dir(sftpSrcPath)) &&
+		c.User.HasPerm(dataprovider.PermRename, path.Dir(sftpDstPath)) {
+		return true
+	}
+	if !c.User.HasPerm(dataprovider.PermDelete, path.Dir(sftpSrcPath)) {
 		return false
 	}
-	if !c.User.HasPerm(dataprovider.PermRename, path.Dir(request.Target)) &&
-		!c.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(request.Target)) {
-		if fi, err := c.fs.Lstat(sourcePath); err == nil && fi.IsDir() {
-			return false
+	if fi != nil {
+		if fi.IsDir() {
+			return c.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(sftpDstPath))
+		} else if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
+			return c.User.HasPerm(dataprovider.PermCreateSymlinks, path.Dir(sftpDstPath))
 		}
 	}
-	return true
+	return c.User.HasPerm(dataprovider.PermUpload, path.Dir(sftpDstPath))
+}
+
+func (c Connection) checkRecursiveRenameDirPermissions(sourcePath, targetPath string) error {
+	dstPerms := []string{
+		dataprovider.PermCreateDirs,
+		dataprovider.PermUpload,
+		dataprovider.PermCreateSymlinks,
+	}
+
+	err := c.fs.Walk(sourcePath, func(walkedPath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		dstPath := strings.Replace(walkedPath, sourcePath, targetPath, 1)
+		sftpSrcPath := c.fs.GetRelativePath(walkedPath)
+		sftpDstPath := c.fs.GetRelativePath(dstPath)
+		// walk scans the directory tree in order, checking the parent dirctory permissions we are sure that all contents
+		// inside the parent path was checked. If the current dir has no subdirs with defined permissions inside it
+		// and it has all the possible permissions we can stop scanning
+		if !c.User.HasPermissionsInside(path.Dir(sftpSrcPath)) && !c.User.HasPermissionsInside(path.Dir(sftpDstPath)) {
+			if c.User.HasPerm(dataprovider.PermRename, path.Dir(sftpSrcPath)) &&
+				c.User.HasPerm(dataprovider.PermRename, path.Dir(sftpDstPath)) {
+				return errSkipPermissionsCheck
+			}
+			if c.User.HasPerm(dataprovider.PermDelete, path.Dir(sftpSrcPath)) &&
+				c.User.HasPerms(dstPerms, path.Dir(sftpDstPath)) {
+				return errSkipPermissionsCheck
+			}
+		}
+		if !c.isRenamePermitted(walkedPath, sftpSrcPath, sftpDstPath, info) {
+			c.Log(logger.LevelInfo, logSender, "rename %#v -> %#v is not allowed, sftp destination path: %#v",
+				walkedPath, dstPath, sftpDstPath)
+			return os.ErrPermission
+		}
+		return nil
+	})
+	if err == errSkipPermissionsCheck {
+		err = nil
+	}
+	return err
 }
 
 func (c Connection) updateQuotaMoveBetweenVFolders(sourceFolder, dstFolder vfs.VirtualFolder, initialSize, filesSize int64, numFiles int) {

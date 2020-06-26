@@ -470,6 +470,11 @@ func TestMockFsErrors(t *testing.T) {
 	err = c.handleSFTPRemove(testfile, request)
 	assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
 
+	request = sftp.NewRequest("Rename", filepath.Base(testfile))
+	request.Target = filepath.Base(testfile) + "1"
+	err = c.handleSFTPRename(testfile, testfile+"1", request)
+	assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
+
 	err = os.Remove(testfile)
 	assert.NoError(t, err)
 }
@@ -782,10 +787,10 @@ func TestSSHCommandErrors(t *testing.T) {
 	}
 	cmd.connection.User.Permissions = make(map[string][]string)
 	cmd.connection.User.Permissions["/"] = []string{dataprovider.PermDownload}
-	_, _, err = cmd.getCopyPaths()
-	if assert.Error(t, err) {
-		assert.EqualError(t, err, errPermissionDenied.Error())
-	}
+	src, dst, err := cmd.getCopyPaths()
+	assert.NoError(t, err)
+	assert.False(t, cmd.hasCopyPermissions(src, dst, nil))
+
 	cmd.connection.User.Permissions = make(map[string][]string)
 	cmd.connection.User.Permissions["/"] = []string{dataprovider.PermAny}
 	if runtime.GOOS != osWindows {
@@ -2043,6 +2048,9 @@ func TestRenamePermission(t *testing.T) {
 	permissions["/dir2"] = []string{dataprovider.PermUpload}
 	permissions["/dir3"] = []string{dataprovider.PermDelete}
 	permissions["/dir4"] = []string{dataprovider.PermListItems}
+	permissions["/dir5"] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload}
+	permissions["/dir6"] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload,
+		dataprovider.PermListItems, dataprovider.PermCreateSymlinks}
 
 	user := dataprovider.User{
 		Permissions: permissions,
@@ -2055,34 +2063,103 @@ func TestRenamePermission(t *testing.T) {
 		fs:   fs,
 	}
 	request := sftp.NewRequest("Rename", "/testfile")
+	request.Target = "/dir1/testfile"
+	// rename is granted on Source and Target
+	assert.True(t, conn.isRenamePermitted("", request.Filepath, request.Target, nil))
 	request.Target = "/dir4/testfile"
 	// rename is not granted on Target
-	assert.False(t, conn.isRenamePermitted("", request))
+	assert.False(t, conn.isRenamePermitted("", request.Filepath, request.Target, nil))
+	request = sftp.NewRequest("Rename", "/dir1/testfile")
+	request.Target = "/dir2/testfile" //nolint:goconst
+	// rename is granted on Source but not on Target
+	assert.False(t, conn.isRenamePermitted("", request.Filepath, request.Target, nil))
 	request = sftp.NewRequest("Rename", "/dir4/testfile")
 	request.Target = "/dir1/testfile"
-	// rename is granted on Target, this is enough
-	assert.True(t, conn.isRenamePermitted("", request))
+	// rename is granted on Target but not on Source
+	assert.False(t, conn.isRenamePermitted("", request.Filepath, request.Target, nil))
 	request = sftp.NewRequest("Rename", "/dir4/testfile")
 	request.Target = "/testfile"
-	// rename is granted on Target, this is enough
-	assert.True(t, conn.isRenamePermitted("", request))
+	// rename is granted on Target but not on Source
+	assert.False(t, conn.isRenamePermitted("", request.Filepath, request.Target, nil))
 	request = sftp.NewRequest("Rename", "/dir3/testfile")
 	request.Target = "/dir2/testfile"
 	// delete is granted on Source and Upload on Target, the target is a file this is enough
-	assert.True(t, conn.isRenamePermitted("", request))
+	assert.True(t, conn.isRenamePermitted("", request.Filepath, request.Target, nil))
 	request = sftp.NewRequest("Rename", "/dir2/testfile")
 	request.Target = "/dir3/testfile"
-	assert.False(t, conn.isRenamePermitted("", request))
+	assert.False(t, conn.isRenamePermitted("", request.Filepath, request.Target, nil))
 	tmpDir := filepath.Join(os.TempDir(), "dir")
+	tmpDirLink := filepath.Join(os.TempDir(), "link")
 	err = os.Mkdir(tmpDir, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.Symlink(tmpDir, tmpDirLink)
 	assert.NoError(t, err)
 	request.Filepath = "/dir"
 	request.Target = "/dir2/dir"
 	// the source is a dir and the target has no createDirs perm
-	assert.False(t, conn.isRenamePermitted(tmpDir, request))
-	conn.User.Permissions["/dir2"] = []string{dataprovider.PermUpload, dataprovider.PermCreateDirs}
-	// the source is a dir and the target has createDirs perm
-	assert.True(t, conn.isRenamePermitted(tmpDir, request))
+	info, err := os.Lstat(tmpDir)
+	if assert.NoError(t, err) {
+		assert.False(t, conn.isRenamePermitted(tmpDir, request.Filepath, request.Target, info))
+		conn.User.Permissions["/dir2"] = []string{dataprovider.PermUpload, dataprovider.PermCreateDirs}
+		// the source is a dir and the target has createDirs perm
+		assert.True(t, conn.isRenamePermitted(tmpDir, request.Filepath, request.Target, info))
+
+		request = sftp.NewRequest("Rename", "/testfile")
+		request.Target = "/dir5/testfile"
+		// the source is a dir and the target has createDirs and upload perm
+		assert.True(t, conn.isRenamePermitted(tmpDir, request.Filepath, request.Target, info))
+	}
+	info, err = os.Lstat(tmpDirLink)
+	if assert.NoError(t, err) {
+		assert.True(t, info.Mode()&os.ModeSymlink == os.ModeSymlink)
+		// the source is a symlink and the target has createDirs and upload perm
+		assert.False(t, conn.isRenamePermitted(tmpDir, request.Filepath, request.Target, info))
+	}
 	err = os.RemoveAll(tmpDir)
 	assert.NoError(t, err)
+	err = os.Remove(tmpDirLink)
+	assert.NoError(t, err)
+	conn.User.VirtualFolders = append(conn.User.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: os.TempDir(),
+		},
+		VirtualPath: "/dir1",
+	})
+	request = sftp.NewRequest("Rename", "/dir1")
+	request.Target = "/dir2/testfile"
+	// renaming a virtual folder is not allowed
+	assert.False(t, conn.isRenamePermitted("", request.Filepath, request.Target, nil))
+	err = conn.checkRecursiveRenameDirPermissions("invalid", "invalid")
+	assert.Error(t, err)
+	dir3 := filepath.Join(conn.User.HomeDir, "dir3")
+	dir6 := filepath.Join(conn.User.HomeDir, "dir6")
+	err = os.MkdirAll(filepath.Join(dir3, "subdir"), os.ModePerm)
+	assert.NoError(t, err)
+	err = ioutil.WriteFile(filepath.Join(dir3, "subdir", "testfile"), []byte("test"), os.ModePerm)
+	assert.NoError(t, err)
+	err = conn.checkRecursiveRenameDirPermissions(dir3, dir6)
+	assert.NoError(t, err)
+}
+
+func TestRecursiveCopyErrors(t *testing.T) {
+	permissions := make(map[string][]string)
+	permissions["/"] = []string{dataprovider.PermAny}
+	user := dataprovider.User{
+		Permissions: permissions,
+		HomeDir:     os.TempDir(),
+	}
+	fs, err := user.GetFilesystem("123")
+	assert.NoError(t, err)
+	conn := Connection{
+		User: user,
+		fs:   fs,
+	}
+	sshCmd := sshCommand{
+		command:    "sftpgo-copy",
+		connection: conn,
+		args:       []string{"adir", "another"},
+	}
+	// try to copy a missing directory
+	err = sshCmd.checkRecursiveCopyPermissions("adir", "another", "/another")
+	assert.Error(t, err)
 }

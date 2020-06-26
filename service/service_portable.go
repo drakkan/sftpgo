@@ -32,7 +32,10 @@ func (s *Service) StartPortableMode(sftpdPort int, enabledSSHCommands []string, 
 	if len(s.PortableUser.Username) == 0 {
 		s.PortableUser.Username = "user"
 	}
-	printablePassword := "[redacted]"
+	printablePassword := ""
+	if len(s.PortableUser.Password) > 0 {
+		printablePassword = "[redacted]"
+	}
 	if len(s.PortableUser.PublicKeys) == 0 && len(s.PortableUser.Password) == 0 {
 		var b strings.Builder
 		for i := 0; i < 8; i++ {

@@ -1,10 +1,12 @@
 # Build SFTPGo from source
 
-Install the package to your [\$GOPATH](https://github.com/golang/go/wiki/GOPATH "GOPATH") with the [go tool](https://golang.org/cmd/go/ "go command") from shell:
+You can install the package to your [\$GOPATH](https://github.com/golang/go/wiki/GOPATH "GOPATH") with the [go tool](https://golang.org/cmd/go/ "go command") from shell:
 
 ```bash
 go get -u github.com/drakkan/sftpgo
 ```
+
+Or you can download the sources and use `go build`.
 
 Make sure [Git](https://git-scm.com/downloads) is installed on your machine and in your system's `PATH`.
 
