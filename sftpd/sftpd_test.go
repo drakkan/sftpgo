@@ -21,7 +21,9 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -338,6 +340,51 @@ func TestBasicSFTPHandling(t *testing.T) {
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
 	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestConcurrentLogins(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	var wg sync.WaitGroup
+	numLogins := 50
+	testFileName := "test_file.dat"
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+
+	for i := 0; i < numLogins; i++ {
+		wg.Add(1)
+		go func(counter int) {
+			client, err := getSftpClient(user, usePubKey)
+			if assert.NoError(t, err) {
+				defer wg.Done()
+				defer client.Close()
+				err = checkBasicSFTP(client)
+				assert.NoError(t, err)
+				err = sftpUploadFile(testFilePath, testFileName+strconv.Itoa(counter), testFileSize, client)
+				assert.NoError(t, err)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		files, err := client.ReadDir(".")
+		assert.NoError(t, err)
+		assert.Len(t, files, numLogins)
+	}
+
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())

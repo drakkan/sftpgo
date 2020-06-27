@@ -1115,7 +1115,10 @@ func TestUpdateFolderQuotaUsage(t *testing.T) {
 	f.UsedQuotaFiles = usedQuotaFiles
 	f.UsedQuotaSize = usedQuotaSize
 	folder, _, err := httpd.AddFolder(f, http.StatusOK)
-	assert.NoError(t, err)
+	if assert.NoError(t, err) {
+		assert.Equal(t, usedQuotaFiles, folder.UsedQuotaFiles)
+		assert.Equal(t, usedQuotaSize, folder.UsedQuotaSize)
+	}
 	_, err = httpd.UpdateFolderQuotaUsage(folder, "invalid mode", http.StatusBadRequest)
 	assert.NoError(t, err)
 	_, err = httpd.UpdateFolderQuotaUsage(f, "reset", http.StatusOK)
