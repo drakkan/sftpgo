@@ -1,4 +1,4 @@
-name: Development Workflow
+name: CI
 
 on:
   push:
