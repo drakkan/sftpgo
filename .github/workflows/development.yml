@@ -5,24 +5,17 @@ on:
     branches: [master]
   pull_request:
 
-jobs:
-  golangci-lint:
-    name: golangci-lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v1
-        with:
-          version: v1.27
+env:
+  GOLATEST: 1.14
 
-  tests-upload-unix:
-    name: Run tests and upload build artifacts
+jobs:
+  build-test-upload:
+    name: Build, run tests and upload build artifacts
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         go: [1.14]
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - go: 1.13
             os: ubuntu-latest
@@ -35,38 +28,33 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
-      - name: Build
+      - name: Build Linux/macOS
+        if: startsWith(matrix.os, 'windows-') != true
         run: go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
+
+      - name: Build Windows
+        if: startsWith(matrix.os, 'windows-')
+        run: |
+          $GIT_COMMIT = (git describe --always --dirty) | Out-String
+          $DATE_TIME = ([datetime]::Now.ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ")) | Out-String
+          go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/version.date=$DATE_TIME" -o sftpgo.exe
 
       - name: Initialize data provider
         run: ./sftpgo initprovider
+        shell: bash
 
       - name: Run test cases using SQLite provider
         run: go test -v ./... -coverprofile=coverage.txt -covermode=atomic
 
       - name: Upload to Codecov
-        if: ${{ matrix.go == '1.14' }}
+        if: ${{ matrix.go == env.GOLATEST && startsWith(matrix.os, 'windows-') != true }}
         uses: codecov/codecov-action@v1
         with:
           file: ./coverage.txt
           fail_ci_if_error: false
 
-      - name: Prepare artifact
-        run: |
-          mkdir output
-          cp sftpgo output/
-          cp sftpgo.json output/
-          cp -r templates output/
-          cp -r static output/
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: sftpgo-${{ matrix.os }}-go${{ matrix.go }}
-          path: output
-
       - name: Run test cases using bolt provider
-        if: ${{ matrix.go == '1.14' }}
+        if: ${{ matrix.go == env.GOLATEST }}
         run: |
           go test -v ./config -covermode=atomic
           go test -v ./httpd -covermode=atomic
@@ -76,36 +64,23 @@ jobs:
           SFTPGO_DATA_PROVIDER__NAME: 'sftpgo_bolt.db'
 
       - name: Run test cases using memory provider
-        if: ${{ matrix.go == '1.14' }}
+        if: ${{ matrix.go == env.GOLATEST }}
         run: go test -v ./... -covermode=atomic
         env:
-            SFTPGO_DATA_PROVIDER__DRIVER: memory
-            SFTPGO_DATA_PROVIDER__NAME: ''
+          SFTPGO_DATA_PROVIDER__DRIVER: memory
+          SFTPGO_DATA_PROVIDER__NAME: ''
 
-  tests-upload-windows:
-    name: Run tests and upload build artifact on Windows
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Install Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.14
-
-      - name: Build
+      - name: Prepare artifacts Linux/macOS
+        if: startsWith(matrix.os, 'windows-') != true
         run: |
-          $GIT_COMMIT = (git describe --always --dirty) | Out-String
-          $DATE_TIME = ([datetime]::Now.ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ")) | Out-String
-          go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/version.date=$DATE_TIME" -o sftpgo.exe
+          mkdir output
+          cp sftpgo output/
+          cp sftpgo.json output/
+          cp -r templates output/
+          cp -r static output/
 
-      - name: Initialize data provider
-        run: .\sftpgo.exe initprovider
-
-      - name: Run test cases using SQLite provider
-        run: go test -v ./... -coverprofile=coverage.txt -covermode=atomic
-
-      - name: Prepare artifact
+      - name: Prepare artifacts Windows
+        if: startsWith(matrix.os, 'windows-')
         run: |
           mkdir output
           xcopy .\sftpgo.exe .\output
@@ -115,26 +90,11 @@ jobs:
           mkdir output\static
           xcopy .\static .\output\static\ /E
 
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: sftpgo-windows
+          name: sftpgo-${{ matrix.os }}-go${{ matrix.go }}
           path: output
-
-      - name: Run test cases using bolt provider
-        run: |
-          go test -v ./config -covermode=atomic
-          go test -v ./httpd -covermode=atomic
-          go test -v ./sftpd -covermode=atomic
-        env:
-          SFTPGO_DATA_PROVIDER__DRIVER: bolt
-          SFTPGO_DATA_PROVIDER__NAME: 'sftpgo_bolt.db'
-
-      - name: Run test cases using memory provider
-        run: go test -v ./... -covermode=atomic
-        env:
-          SFTPGO_DATA_PROVIDER__DRIVER: memory
-          SFTPGO_DATA_PROVIDER__NAME: ''
 
   tests-postgresql-mysql:
     name: Run test cases using PostgreSQL/MySQL data providers
@@ -203,3 +163,14 @@ jobs:
           SFTPGO_DATA_PROVIDER__PORT: 3307
           SFTPGO_DATA_PROVIDER__USERNAME: sftpgo
           SFTPGO_DATA_PROVIDER__PASSWORD: sftpgo
+
+  golangci-lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v1
+        with:
+          version: v1.27
+          args: --timeout=3m

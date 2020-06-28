@@ -1,12 +1,19 @@
-; Script used to generate SFTPGo's Windows setup
-; You need to change the paths for the source files to match your environment
-
 #define MyAppName "SFTPGo"
-#define MyAppVersion "0.9.6.1"
+#if GetEnv("SFTPGO_ISS_VERSION") != ""
+    #define MyAppVersion GetEnv("SFTPGO_ISS_VERSION")
+#else
+    #define MyAppVersion "v0.0.0"
+#endif
 #define MyAppURL "https://github.com/drakkan/sftpgo"
+#define MyVersionInfo StringChange(MyAppVersion,"v","")
+#if GetEnv("SFTPGO_ISS_DOC_URL") != ""
+    #define DocURL GetEnv("SFTPGO_ISS_DOC_URL")
+#else
+    #define DocURL "https://github.com/drakkan/sftpgo/blob/master/README.md"
+#endif
 #define MyAppExeName "sftpgo.exe"
-#define MyAppDir "C:\Users\vbox\Desktop\sftpgo_setup"
-#define MyOutputDir "C:\Users\vbox\Desktop"
+#define MyAppDir "..\output"
+#define MyOutputDir ".."
 
 [Setup]
 AppId={{1FB9D57F-00DD-4B1B-8798-1138E5CE995D}
@@ -28,7 +35,7 @@ ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64
 MinVersion=6.1
-VersionInfoVersion={#MyAppVersion}
+VersionInfoVersion={#MyVersionInfo}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -38,7 +45,7 @@ Source: "{#MyAppDir}\sftpgo.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyAppDir}\sftpgo.db"; DestDir: "{commonappdata}\{#MyAppName}"; Flags: onlyifdoesntexist uninsneveruninstall
 Source: "{#MyAppDir}\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyAppDir}\sftpgo.json"; DestDir: "{commonappdata}\{#MyAppName}"; Flags: onlyifdoesntexist uninsneveruninstall
-Source: "{#MyAppDir}\examples\sftpgo_api_cli.exe"; DestDir: "{app}\examples"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#MyAppDir}\sftpgo_api_cli.exe"; DestDir: "{app}\examples\rest-api-cli"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#MyAppDir}\templates\*"; DestDir: "{commonappdata}\{#MyAppName}\templates"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#MyAppDir}\static\*"; DestDir: "{commonappdata}\{#MyAppName}\static"; Flags: ignoreversion recursesubdirs createallsubdirs
 
@@ -50,8 +57,8 @@ Name: "{commonappdata}\{#MyAppName}\credentials"; Permissions: everyone-full
 [Icons]
 Name: "{group}\Web Admin"; Filename: "http://127.0.0.1:8080/web";
 Name: "{group}\Service Control";  WorkingDir: "{app}"; Filename: "powershell.exe"; Parameters: "-Command ""Start-Process cmd \""/k cd {app} & {#MyAppName} service --help\"" -Verb RunAs"; Comment: "Install, start, stop, uninstall SFTPGo Service"
-Name: "{group}\REST API CLI";  WorkingDir: "{app}\examples"; Filename: "{cmd}"; Parameters: "/k sftpgo_api_cli.exe --help"; Comment: "Manage users and connections"
-Name: "{group}\Documentation"; Filename: "https://github.com/drakkan/sftpgo/blob/master/README.md";
+Name: "{group}\REST API CLI";  WorkingDir: "{app}\examples\rest-api-cli"; Filename: "{cmd}"; Parameters: "/k sftpgo_api_cli.exe --help"; Comment: "Manage users and connections"
+Name: "{group}\Documentation"; Filename: "{#DocURL}";
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 
 [Run]

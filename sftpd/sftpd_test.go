@@ -348,11 +348,12 @@ func TestBasicSFTPHandling(t *testing.T) {
 
 func TestConcurrentLogins(t *testing.T) {
 	usePubKey := true
+	numLogins := 50
 	u := getTestUser(usePubKey)
+	u.QuotaFiles = numLogins + 1
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
 	var wg sync.WaitGroup
-	numLogins := 50
 	testFileName := "test_file.dat"
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	testFileSize := int64(65535)
