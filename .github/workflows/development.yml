@@ -5,9 +5,6 @@ on:
     branches: [master]
   pull_request:
 
-env:
-  GO_LATEST: 1.14
-
 jobs:
   test-deploy:
     name: Test and deploy
@@ -15,10 +12,15 @@ jobs:
     strategy:
       matrix:
         go: [1.14]
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
+        upload-coverage: [true]
         include:
           - go: 1.13
             os: ubuntu-latest
+            upload-coverage: false
+          - go: 1.14
+            os: windows-latest
+            upload-coverage: false
 
     steps:
       - uses: actions/checkout@v2
@@ -47,7 +49,7 @@ jobs:
         run: go test -v ./... -coverprofile=coverage.txt -covermode=atomic
 
       - name: Upload coverage to Codecov
-        if: ${{ matrix.go == env.GO_LATEST && startsWith(matrix.os, 'windows-') != true }}
+        if: ${{ matrix.upload-coverage }}
         uses: codecov/codecov-action@v1
         with:
           file: ./coverage.txt
@@ -171,4 +173,3 @@ jobs:
         uses: golangci/golangci-lint-action@v1
         with:
           version: v1.27
-          args: --timeout=3m
