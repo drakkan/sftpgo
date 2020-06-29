@@ -2163,3 +2163,28 @@ func TestRecursiveCopyErrors(t *testing.T) {
 	err = sshCmd.checkRecursiveCopyPermissions("adir", "another", "/another")
 	assert.Error(t, err)
 }
+
+func TestSSHMappedError(t *testing.T) {
+	user := dataprovider.User{
+		HomeDir: os.TempDir(),
+	}
+	fs, err := user.GetFilesystem("123")
+	assert.NoError(t, err)
+	conn := Connection{
+		User: user,
+		fs:   fs,
+	}
+	sshCommand := sshCommand{
+		command:    "test",
+		connection: conn,
+		args:       []string{},
+	}
+	err = sshCommand.getMappedError(os.ErrNotExist)
+	assert.EqualError(t, err, errNotExist.Error())
+	err = sshCommand.getMappedError(os.ErrPermission)
+	assert.EqualError(t, err, errPermissionDenied.Error())
+	err = sshCommand.getMappedError(os.ErrInvalid)
+	assert.EqualError(t, err, errGenericFailure.Error())
+	err = sshCommand.getMappedError(os.ErrNoDeadline)
+	assert.EqualError(t, err, errGenericFailure.Error())
+}

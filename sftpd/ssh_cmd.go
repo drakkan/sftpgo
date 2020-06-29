@@ -32,6 +32,8 @@ const scpCmdName = "scp"
 var (
 	errQuotaExceeded        = errors.New("denying write due to space limit")
 	errPermissionDenied     = errors.New("Permission denied. You don't have the permissions to execute this command")
+	errNotExist             = errors.New("no such file or directory")
+	errGenericFailure       = errors.New("failure, this command cannot be executed")
 	errUnsupportedConfig    = errors.New("command unsupported for this configuration")
 	errSkipPermissionsCheck = errors.New("permission check skipped")
 )
@@ -576,12 +578,13 @@ func cleanCommandPath(name string) string {
 // we try to avoid to leak the real filesystem path here
 func (c *sshCommand) getMappedError(err error) error {
 	if c.connection.fs.IsNotExist(err) {
-		return errors.New("no such file or directory")
+		return errNotExist
 	}
 	if c.connection.fs.IsPermission(err) {
-		return errors.New("permission denied")
+		return errPermissionDenied
 	}
-	return err
+	c.connection.Log(logger.LevelDebug, logSenderSSH, "unhandled error for SSH command, a generic failure will be sent: %v", err)
+	return errGenericFailure
 }
 
 func (c *sshCommand) getCopyPaths() (string, string, error) {
