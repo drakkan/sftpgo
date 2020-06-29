@@ -19,7 +19,7 @@
 AppId={{1FB9D57F-00DD-4B1B-8798-1138E5CE995D}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-;AppVerName={#MyAppName} {#MyAppVersion}
+AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
@@ -55,8 +55,8 @@ Name: "{commonappdata}\{#MyAppName}\credentials"; Permissions: everyone-full
 
 [Icons]
 Name: "{group}\Web Admin"; Filename: "http://127.0.0.1:8080/web";
-Name: "{group}\Service Control";  WorkingDir: "{app}"; Filename: "powershell.exe"; Parameters: "-Command ""Start-Process cmd \""/k cd {app} & {#MyAppName} service --help\"" -Verb RunAs"; Comment: "Install, start, stop, uninstall SFTPGo Service"
-Name: "{group}\REST API CLI";  WorkingDir: "{app}\examples\rest-api-cli"; Filename: "{cmd}"; Parameters: "/k sftpgo_api_cli.exe --help"; Comment: "Manage users and connections"
+Name: "{group}\Service Control";  WorkingDir: "{app}"; Filename: "powershell.exe"; Parameters: "-Command ""Start-Process cmd \""/k cd {app} & {#MyAppExeName} service --help\"" -Verb RunAs"; Comment: "Manage SFTPGo Service"
+Name: "{group}\REST API CLI";  WorkingDir: "{app}\examples\rest-api-cli"; Filename: "{cmd}"; Parameters: "/k sftpgo_api_cli.exe --help"; Comment: "Manage users, folders and connections"
 Name: "{group}\Documentation"; Filename: "{#DocURL}";
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 
