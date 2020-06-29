@@ -6,11 +6,11 @@ on:
   pull_request:
 
 env:
-  GOLATEST: 1.14
+  GO_LATEST: 1.14
 
 jobs:
-  build-test-upload:
-    name: Build, run tests and upload build artifacts
+  test-deploy:
+    name: Test and deploy
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -23,16 +23,16 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install Go
+      - name: Set up Go
         uses: actions/setup-go@v2
         with:
           go-version: ${{ matrix.go }}
 
-      - name: Build Linux/macOS
+      - name: Build for Linux/macOS
         if: startsWith(matrix.os, 'windows-') != true
         run: go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
 
-      - name: Build Windows
+      - name: Build for Windows
         if: startsWith(matrix.os, 'windows-')
         run: |
           $GIT_COMMIT = (git describe --always --dirty) | Out-String
@@ -46,15 +46,14 @@ jobs:
       - name: Run test cases using SQLite provider
         run: go test -v ./... -coverprofile=coverage.txt -covermode=atomic
 
-      - name: Upload to Codecov
-        if: ${{ matrix.go == env.GOLATEST && startsWith(matrix.os, 'windows-') != true }}
+      - name: Upload coverage to Codecov
+        if: ${{ matrix.go == env.GO_LATEST && startsWith(matrix.os, 'windows-') != true }}
         uses: codecov/codecov-action@v1
         with:
           file: ./coverage.txt
           fail_ci_if_error: false
 
       - name: Run test cases using bolt provider
-        if: ${{ matrix.go == env.GOLATEST }}
         run: |
           go test -v ./config -covermode=atomic
           go test -v ./httpd -covermode=atomic
@@ -64,13 +63,12 @@ jobs:
           SFTPGO_DATA_PROVIDER__NAME: 'sftpgo_bolt.db'
 
       - name: Run test cases using memory provider
-        if: ${{ matrix.go == env.GOLATEST }}
         run: go test -v ./... -covermode=atomic
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: memory
           SFTPGO_DATA_PROVIDER__NAME: ''
 
-      - name: Prepare artifacts Linux/macOS
+      - name: Prepare build artifact for Linux/macOS
         if: startsWith(matrix.os, 'windows-') != true
         run: |
           mkdir output
@@ -79,25 +77,25 @@ jobs:
           cp -r templates output/
           cp -r static output/
 
-      - name: Prepare artifacts Windows
+      - name: Prepare build artifact for Windows
         if: startsWith(matrix.os, 'windows-')
         run: |
           mkdir output
-          xcopy .\sftpgo.exe .\output
-          xcopy .\sftpgo.json .\output
+          copy .\sftpgo.exe .\output
+          copy .\sftpgo.json .\output
           mkdir output\templates
           xcopy .\templates .\output\templates\ /E
           mkdir output\static
           xcopy .\static .\output\static\ /E
 
-      - name: Upload artifacts
+      - name: Upload build artifact
         uses: actions/upload-artifact@v2
         with:
           name: sftpgo-${{ matrix.os }}-go${{ matrix.go }}
           path: output
 
-  tests-postgresql-mysql:
-    name: Run test cases using PostgreSQL/MySQL data providers
+  test-postgresql-mysql:
+    name: Test with PostgreSQL/MySQL
     runs-on: ubuntu-latest
 
     services:
@@ -132,7 +130,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install Go
+      - name: Set up Go
         uses: actions/setup-go@v2
         with:
           go-version: 1.14

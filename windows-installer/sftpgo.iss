@@ -28,13 +28,12 @@ DefaultGroupName={#MyAppName}
 LicenseFile={#MyAppDir}\LICENSE.txt
 OutputDir={#MyOutputDir}
 OutputBaseFilename=sftpgo_windows_x86_64
-Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64
-MinVersion=6.1
+MinVersion=10
 VersionInfoVersion={#MyVersionInfo}
 
 [Languages]

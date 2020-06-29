@@ -1,15 +1,15 @@
-name: Release a tag
+name: Release
 
 on:
   push:
     tags: 'v*'
 
 env:
-  GOVERSION: 1.14
+  GO_VERSION: 1.14
 
 jobs:
   create-release:
-    name: Create Release
+    name: Create
     runs-on: ubuntu-latest
     steps:
       - name: Create Release
@@ -27,24 +27,24 @@ jobs:
         run: echo "${{ steps.create_release.outputs.upload_url }}" > ./upload_url.txt
         shell: bash
 
-      - name: 'Store release upload URL'
+      - name: Store release upload URL
         uses: actions/upload-artifact@v2
         with:
           name: upload_url
           path: ./upload_url.txt
 
-  upload-src-with-deps:
-    name: Upload sources with dependencies
+  release-sources-with-deps:
+    name: Publish sources
     needs: create-release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Install Go
+      - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: ${{ env.GOVERSION }}
+          go-version: ${{ env.GO_VERSION }}
 
-      - name: Get version
+      - name: Get SFTPGo version
         id: get_version
         run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
 
@@ -56,11 +56,12 @@ jobs:
         env:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
 
-      - uses: actions/download-artifact@v2
+      - name: Download release upload URL
+        uses: actions/download-artifact@v2
         with:
           name: upload_url
 
-      - name: Get upload URL
+      - name: Get release upload URL
         id: upload_url
         run: |
           URL=$(cat upload_url.txt)
@@ -78,8 +79,8 @@ jobs:
           asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_src_with_deps.tar.xz
           asset_content_type: application/x-xz
 
-  build:
-    name: Build Release
+  publish:
+    name: Publish binary
     needs: create-release
     runs-on: ${{ matrix.os }}
     strategy:
@@ -88,10 +89,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - name: Install Go
+      - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: ${{ env.GOVERSION }}
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Set up Python
         if: startsWith(matrix.os, 'windows-')
@@ -99,11 +100,11 @@ jobs:
         with:
           python-version: 3.x
 
-      - name: Build Linux/macOS
+      - name: Build for Linux/macOS
         if: startsWith(matrix.os, 'windows-') != true
         run: go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
 
-      - name: Build Windows
+      - name: Build for Windows
         if: startsWith(matrix.os, 'windows-')
         run: |
           $GIT_COMMIT = (git describe --always --dirty) | Out-String
@@ -114,7 +115,7 @@ jobs:
         run: ./sftpgo initprovider
         shell: bash
 
-      - name: Get version
+      - name: Get SFTPGo version
         id: get_version
         run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
         shell: bash
@@ -135,7 +136,7 @@ jobs:
         env:
           MATRIX_OS: ${{ matrix.os }}
 
-      - name: Build REST API CLI
+      - name: Build REST API CLI for Windows
         if: startsWith(matrix.os, 'windows-')
         run: |
           python -m pip install --upgrade pip setuptools wheel
@@ -144,7 +145,7 @@ jobs:
           pip install pyinstaller
           pyinstaller --hidden-import="pkg_resources.py2_warn" --noupx --onefile examples\rest-api-cli\sftpgo_api_cli.py
 
-      - name: Prepare release Linux/macOS
+      - name: Prepare Release for Linux/macOS
         if: startsWith(matrix.os, 'windows-') != true
         run: |
           mkdir -p output/{init,examples/rest-api-cli,sqlite}
@@ -171,7 +172,7 @@ jobs:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
           OS: ${{ steps.get_os_name.outputs.OS }}
 
-      - name: Prepare release Windows
+      - name: Prepare Release for Windows
         if: startsWith(matrix.os, 'windows-')
         run: |
           mkdir output
@@ -189,18 +190,19 @@ jobs:
           SFTPGO_ISS_VERSION: ${{ steps.get_version.outputs.VERSION }}
           SFTPGO_ISS_DOC_URL: https://github.com/drakkan/sftpgo/blob/${{ steps.get_version.outputs.VERSION }}/README.md
 
-      - uses: actions/download-artifact@v2
+      - name: Download release upload URL
+        uses: actions/download-artifact@v2
         with:
           name: upload_url
 
-      - name: Get upload URL
+      - name: Get release upload URL
         id: upload_url
         run: |
           URL=$(cat upload_url.txt)
           echo "::set-output name=url::${URL}"
         shell: bash
 
-      - name: Upload Release Linux/macOS
+      - name: Upload Linux/macOS Release
         if: startsWith(matrix.os, 'windows-') != true
         uses: actions/upload-release-asset@v1
         env:
@@ -211,7 +213,7 @@ jobs:
           asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.tar.xz
           asset_content_type: application/x-xz
 
-      - name: Upload Release Windows
+      - name: Upload Windows Release
         if: startsWith(matrix.os, 'windows-')
         uses: actions/upload-release-asset@v1
         env:
