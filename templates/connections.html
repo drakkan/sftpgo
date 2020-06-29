@@ -92,7 +92,7 @@
         var table = $('#dataTable').DataTable();
         table.button(0).enable(false);
         var connectionID = table.row({ selected: true }).data()[0];
-        var path = '{{.APIConnectionsURL}}'.trimEnd("/") + "/" + connectionID;
+        var path = '{{.APIConnectionsURL}}' + "/" + connectionID;
         $('#disconnectModal').modal('hide');
         $.ajax({
             url: path,

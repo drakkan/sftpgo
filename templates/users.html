@@ -99,7 +99,7 @@
         var table = $('#dataTable').DataTable();
         table.button(2).enable(false);
         var userID = table.row({ selected: true }).data()[0];
-        var path = '{{.APIUserURL}}'.trimEnd("/") + "/" + userID;
+        var path = '{{.APIUserURL}}' + "/" + userID;
         $('#deleteModal').modal('hide');
         $.ajax({
             url: path,
@@ -141,7 +141,7 @@
             text: 'Edit',
             action: function (e, dt, node, config) {
                 var userID = dt.row({ selected: true }).data()[0];
-                var path = '{{.UserURL}}'.trimEnd("/") + "/" + userID;
+                var path = '{{.UserURL}}' + "/" + userID;
                 window.location.href = path;
             },
             enabled: false
