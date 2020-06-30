@@ -6546,13 +6546,14 @@ func TestSCPPermsSubDirs(t *testing.T) {
 	assert.NoError(t, err)
 	err = scpDownload(localPath, remoteDownPath, false, false)
 	assert.NoError(t, err)
-	err = os.Chmod(subPath, 0001)
-	assert.NoError(t, err)
-	err = scpDownload(localPath, remoteDownPath, false, false)
-	assert.Error(t, err, "download a file with no system permissions must fail")
-
-	err = os.Chmod(subPath, 0755)
-	assert.NoError(t, err)
+	if runtime.GOOS != osWindows {
+		err = os.Chmod(subPath, 0001)
+		assert.NoError(t, err)
+		err = scpDownload(localPath, remoteDownPath, false, false)
+		assert.Error(t, err, "download a file with no system permissions must fail")
+		err = os.Chmod(subPath, 0755)
+		assert.NoError(t, err)
+	}
 	err = os.Remove(localPath)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
@@ -6837,6 +6838,9 @@ func TestSCPOverwriteDirWithFile(t *testing.T) {
 func TestSCPRemoteToRemote(t *testing.T) {
 	if len(scpPath) == 0 {
 		t.Skip("scp command not found, unable to execute this test")
+	}
+	if runtime.GOOS == osWindows {
+		t.Skip("scp between remote hosts is not supported on Windows")
 	}
 	usePubKey := true
 	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
@@ -7381,15 +7385,11 @@ func checkSystemCommands() {
 		logger.Warn(logSender, "", "unable to get hook command: %v", err)
 		logger.WarnToConsole("unable to get hook command: %v", err)
 	}
-	if runtime.GOOS == osWindows {
+	scpPath, err = exec.LookPath("scp")
+	if err != nil {
+		logger.Warn(logSender, "", "unable to get scp command. SCP tests will be skipped, err: %v", err)
+		logger.WarnToConsole("unable to get scp command. SCP tests will be skipped, err: %v", err)
 		scpPath = ""
-	} else {
-		scpPath, err = exec.LookPath("scp")
-		if err != nil {
-			logger.Warn(logSender, "", "unable to get scp command. SCP tests will be skipped, err: %v", err)
-			logger.WarnToConsole("unable to get scp command. SCP tests will be skipped, err: %v", err)
-			scpPath = ""
-		}
 	}
 }
 
