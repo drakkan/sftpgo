@@ -32,7 +32,7 @@ Ethernet| Mellanox ConnectX-3 40GbE|
 ### Test configurations
 
 - `Baseline`: SFTPGo version 0.9.6.
-- `Devel`: SFTPGo commit b0ed1905918b9dcc22f9a20e89e354313f491734, compiled with Golang 1.14.2 .
+- `Devel`: SFTPGo commit b0ed1905918b9dcc22f9a20e89e354313f491734, compiled with Golang 1.14.2. This is basically the same as v1.0.0 as far as performance is concerned.
 - `Optimized`: Various [optimizations](#Optimizations-applied) applied on top of `Devel`.
 - `Balanced`: Two optimized instances, running on localhost, load balanced by HAProxy 2.1.3.
 - `OpenSSH`: OpenSSH_7.9p1 Debian-10+deb10u2, OpenSSL 1.1.1d  10 Sep 2019
