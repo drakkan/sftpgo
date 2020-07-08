@@ -3,6 +3,7 @@
 package dataprovider
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"path/filepath"
@@ -162,7 +163,9 @@ func (p SQLiteProvider) getFolders(limit, offset int, order, folderPath string) 
 }
 
 func (p SQLiteProvider) getFolderByPath(mappedPath string) (vfs.BaseVirtualFolder, error) {
-	return sqlCommonCheckFolderExists(mappedPath, p.dbHandle)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	return sqlCommonCheckFolderExists(ctx, mappedPath, p.dbHandle)
 }
 
 func (p SQLiteProvider) addFolder(folder vfs.BaseVirtualFolder) error {
