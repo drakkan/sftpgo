@@ -65,7 +65,6 @@ var (
 	idleTimeout             time.Duration
 	activeQuotaScans        []ActiveQuotaScan
 	activeVFoldersQuotaScan []ActiveVirtualFolderQuotaScan
-	dataProvider            dataprovider.Provider
 	actions                 Actions
 	uploadMode              int
 	setstatMode             int
@@ -270,11 +269,6 @@ func (t connectionTransfer) getConnectionTransferAsString() string {
 			utils.GetDurationAsString(elapsed), speed)
 	}
 	return result
-}
-
-// SetDataProvider sets the data provider to use to authenticate users and to get/update their disk quota
-func SetDataProvider(provider dataprovider.Provider) {
-	dataProvider = provider
 }
 
 func getActiveSessions(username string) int {

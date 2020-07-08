@@ -155,7 +155,6 @@ func TestMain(m *testing.M) {
 	httpConfig := config.GetHTTPConfig()
 	httpConfig.Initialize(configDir)
 
-	dataProvider := dataprovider.GetProvider()
 	sftpdConf := config.GetSFTPDConfig()
 	httpdConf := config.GetHTTPDConfig()
 	sftpdConf.BindPort = 2022
@@ -214,8 +213,6 @@ func TestMain(m *testing.M) {
 		logger.WarnToConsole("unable to save trusted CA user key: %v", err)
 	}
 	sftpdConf.TrustedUserCAKeys = append(sftpdConf.TrustedUserCAKeys, trustedCAUserKey)
-	sftpd.SetDataProvider(dataProvider)
-	httpd.SetDataProvider(dataProvider)
 
 	go func() {
 		logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
@@ -1283,8 +1280,7 @@ func TestPreLoginScript(t *testing.T) {
 	}
 	usePubKey := true
 	u := getTestUser(usePubKey)
-	dataProvider := dataprovider.GetProvider()
-	err := dataprovider.Close(dataProvider)
+	err := dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
@@ -1294,8 +1290,6 @@ func TestPreLoginScript(t *testing.T) {
 	providerConf.PreLoginHook = preLoginPath
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
@@ -1321,16 +1315,13 @@ func TestPreLoginScript(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	dataProvider = dataprovider.GetProvider()
-	err = dataprovider.Close(dataProvider)
+	err = dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 	err = os.Remove(preLoginPath)
 	assert.NoError(t, err)
 }
@@ -1341,8 +1332,7 @@ func TestPreLoginUserCreation(t *testing.T) {
 	}
 	usePubKey := false
 	u := getTestUser(usePubKey)
-	dataProvider := dataprovider.GetProvider()
-	err := dataprovider.Close(dataProvider)
+	err := dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
@@ -1352,8 +1342,6 @@ func TestPreLoginUserCreation(t *testing.T) {
 	providerConf.PreLoginHook = preLoginPath
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 
 	users, _, err := httpd.GetUsers(0, 0, defaultUsername, http.StatusOK)
 	assert.NoError(t, err)
@@ -1369,16 +1357,13 @@ func TestPreLoginUserCreation(t *testing.T) {
 	user := users[0]
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	dataProvider = dataprovider.GetProvider()
-	err = dataprovider.Close(dataProvider)
+	err = dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 	err = os.Remove(preLoginPath)
 	assert.NoError(t, err)
 }
@@ -1390,8 +1375,7 @@ func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 1000
-	dataProvider := dataprovider.GetProvider()
-	err := dataprovider.Close(dataProvider)
+	err := dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
@@ -1402,8 +1386,6 @@ func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
 	providerConf.ExternalAuthScope = 0
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 
 	testFileSize := int64(65535)
 	client, err := getSftpClient(u, usePubKey)
@@ -1447,16 +1429,13 @@ func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	dataProvider = dataprovider.GetProvider()
-	err = dataprovider.Close(dataProvider)
+	err = dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 	err = os.Remove(extAuthPath)
 	assert.NoError(t, err)
 }
@@ -1469,8 +1448,7 @@ func TestExternalAuthDifferentUsername(t *testing.T) {
 	extAuthUsername := "common_user"
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 1000
-	dataProvider := dataprovider.GetProvider()
-	err := dataprovider.Close(dataProvider)
+	err := dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
@@ -1481,8 +1459,6 @@ func TestExternalAuthDifferentUsername(t *testing.T) {
 	providerConf.ExternalAuthScope = 0
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 
 	// the user logins using "defaultUsername" and the external auth returns "extAuthUsername"
 	testFileSize := int64(65535)
@@ -1525,16 +1501,13 @@ func TestExternalAuthDifferentUsername(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	dataProvider = dataprovider.GetProvider()
-	err = dataprovider.Close(dataProvider)
+	err = dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 	err = os.Remove(extAuthPath)
 	assert.NoError(t, err)
 }
@@ -1561,8 +1534,7 @@ func TestLoginExternalAuth(t *testing.T) {
 			QuotaFiles:  1 + authScope,
 			QuotaSize:   10 + int64(authScope),
 		})
-		dataProvider := dataprovider.GetProvider()
-		err := dataprovider.Close(dataProvider)
+		err := dataprovider.Close()
 		assert.NoError(t, err)
 		err = config.LoadConfig(configDir, "")
 		assert.NoError(t, err)
@@ -1573,8 +1545,6 @@ func TestLoginExternalAuth(t *testing.T) {
 		providerConf.ExternalAuthScope = authScope
 		err = dataprovider.Initialize(providerConf, configDir)
 		assert.NoError(t, err)
-		httpd.SetDataProvider(dataprovider.GetProvider())
-		sftpd.SetDataProvider(dataprovider.GetProvider())
 
 		client, err := getSftpClient(u, usePubKey)
 		if assert.NoError(t, err) {
@@ -1610,16 +1580,13 @@ func TestLoginExternalAuth(t *testing.T) {
 
 		_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
 		assert.NoError(t, err)
-		dataProvider = dataprovider.GetProvider()
-		err = dataprovider.Close(dataProvider)
+		err = dataprovider.Close()
 		assert.NoError(t, err)
 		err = config.LoadConfig(configDir, "")
 		assert.NoError(t, err)
 		providerConf = config.GetProviderConf()
 		err = dataprovider.Initialize(providerConf, configDir)
 		assert.NoError(t, err)
-		httpd.SetDataProvider(dataprovider.GetProvider())
-		sftpd.SetDataProvider(dataprovider.GetProvider())
 		err = os.Remove(extAuthPath)
 		assert.NoError(t, err)
 	}
@@ -1631,8 +1598,7 @@ func TestLoginExternalAuthInteractive(t *testing.T) {
 	}
 	usePubKey := false
 	u := getTestUser(usePubKey)
-	dataProvider := dataprovider.GetProvider()
-	err := dataprovider.Close(dataProvider)
+	err := dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
@@ -1643,8 +1609,6 @@ func TestLoginExternalAuthInteractive(t *testing.T) {
 	providerConf.ExternalAuthScope = 4
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 
 	err = ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), 0755)
 	assert.NoError(t, err)
@@ -1673,16 +1637,13 @@ func TestLoginExternalAuthInteractive(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
-	dataProvider = dataprovider.GetProvider()
-	err = dataprovider.Close(dataProvider)
+	err = dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 	err = os.Remove(extAuthPath)
 	assert.NoError(t, err)
 }
@@ -1693,8 +1654,7 @@ func TestLoginExternalAuthErrors(t *testing.T) {
 	}
 	usePubKey := true
 	u := getTestUser(usePubKey)
-	dataProvider := dataprovider.GetProvider()
-	err := dataprovider.Close(dataProvider)
+	err := dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
@@ -1705,8 +1665,6 @@ func TestLoginExternalAuthErrors(t *testing.T) {
 	providerConf.ExternalAuthScope = 0
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 
 	client, err := getSftpClient(u, usePubKey)
 	if !assert.Error(t, err, "login must fail, external auth returns a non json response") {
@@ -1723,23 +1681,19 @@ func TestLoginExternalAuthErrors(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 0, len(users))
 
-	dataProvider = dataprovider.GetProvider()
-	err = dataprovider.Close(dataProvider)
+	err = dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 	err = os.Remove(extAuthPath)
 	assert.NoError(t, err)
 }
 
 func TestQuotaDisabledError(t *testing.T) {
-	dataProvider := dataprovider.GetProvider()
-	err := dataprovider.Close(dataProvider)
+	err := dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
@@ -1747,8 +1701,6 @@ func TestQuotaDisabledError(t *testing.T) {
 	providerConf.TrackQuota = 0
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 1
@@ -1776,16 +1728,13 @@ func TestQuotaDisabledError(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
-	dataProvider = dataprovider.GetProvider()
-	err = dataprovider.Close(dataProvider)
+	err = dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 }
 
 func TestMaxSessions(t *testing.T) {
@@ -3743,8 +3692,7 @@ func TestVirtualFoldersLink(t *testing.T) {
 }
 
 func TestOverlappedMappedFolders(t *testing.T) {
-	dataProvider := dataprovider.GetProvider()
-	err := dataprovider.Close(dataProvider)
+	err := dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
@@ -3752,8 +3700,6 @@ func TestOverlappedMappedFolders(t *testing.T) {
 	providerConf.TrackQuota = 0
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 
 	usePubKey := false
 	u := getTestUser(usePubKey)
@@ -3824,16 +3770,13 @@ func TestOverlappedMappedFolders(t *testing.T) {
 		assert.Error(t, err)
 	}
 
-	dataProvider = dataprovider.GetProvider()
-	err = dataprovider.Close(dataProvider)
+	err = dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 
 	if providerConf.Driver != dataprovider.MemoryDataProviderName {
 		client, err = getSftpClient(user, usePubKey)

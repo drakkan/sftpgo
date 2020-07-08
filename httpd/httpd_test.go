@@ -118,7 +118,6 @@ func TestMain(m *testing.M) {
 	httpConfig := config.GetHTTPConfig()
 	httpConfig.Initialize(configDir)
 
-	dataProvider := dataprovider.GetProvider()
 	httpdConf := config.GetHTTPDConfig()
 
 	httpdConf.BindPort = 8081
@@ -130,9 +129,6 @@ func TestMain(m *testing.M) {
 		logger.WarnToConsole("error creating backups path: %v", err)
 		os.Exit(1)
 	}
-
-	sftpd.SetDataProvider(dataProvider)
-	httpd.SetDataProvider(dataProvider)
 
 	go func() {
 		if err := httpdConf.Initialize(configDir, true); err != nil {
@@ -1177,8 +1173,7 @@ func TestCloseActiveConnection(t *testing.T) {
 }
 
 func TestUserBaseDir(t *testing.T) {
-	dataProvider := dataprovider.GetProvider()
-	err := dataprovider.Close(dataProvider)
+	err := dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
@@ -1186,7 +1181,6 @@ func TestUserBaseDir(t *testing.T) {
 	providerConf.UsersBaseDir = homeBasePath
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
 	u := getTestUser()
 	u.HomeDir = ""
 	user, _, err := httpd.AddUser(u, http.StatusOK)
@@ -1196,8 +1190,7 @@ func TestUserBaseDir(t *testing.T) {
 	assert.Equal(t, filepath.Join(providerConf.UsersBaseDir, u.Username), user.HomeDir)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	dataProvider = dataprovider.GetProvider()
-	err = dataprovider.Close(dataProvider)
+	err = dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
@@ -1207,13 +1200,10 @@ func TestUserBaseDir(t *testing.T) {
 	assert.NoError(t, err)
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 }
 
 func TestQuotaTrackingDisabled(t *testing.T) {
-	dataProvider := dataprovider.GetProvider()
-	err := dataprovider.Close(dataProvider)
+	err := dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
@@ -1221,7 +1211,6 @@ func TestQuotaTrackingDisabled(t *testing.T) {
 	providerConf.TrackQuota = 0
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
 	// user quota scan must fail
 	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
 	assert.NoError(t, err)
@@ -1244,8 +1233,7 @@ func TestQuotaTrackingDisabled(t *testing.T) {
 	_, err = httpd.RemoveFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
 
-	dataProvider = dataprovider.GetProvider()
-	err = dataprovider.Close(dataProvider)
+	err = dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
@@ -1255,13 +1243,10 @@ func TestQuotaTrackingDisabled(t *testing.T) {
 	assert.NoError(t, err)
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 }
 
 func TestProviderErrors(t *testing.T) {
-	dataProvider := dataprovider.GetProvider()
-	err := dataprovider.Close(dataProvider)
+	err := dataprovider.Close()
 	assert.NoError(t, err)
 	_, _, err = httpd.GetUserByID(0, http.StatusInternalServerError)
 	assert.NoError(t, err)
@@ -1307,8 +1292,6 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 }
 
 func TestFolders(t *testing.T) {
@@ -1372,16 +1355,13 @@ func TestFolders(t *testing.T) {
 }
 
 func TestDumpdata(t *testing.T) {
-	dataProvider := dataprovider.GetProvider()
-	err := dataprovider.Close(dataProvider)
+	err := dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 	_, _, err = httpd.Dumpdata("", "", http.StatusBadRequest)
 	assert.NoError(t, err)
 	_, _, err = httpd.Dumpdata(filepath.Join(backupsPath, "backup.json"), "", http.StatusBadRequest)
@@ -1405,8 +1385,7 @@ func TestDumpdata(t *testing.T) {
 		err = os.Chmod(backupsPath, 0755)
 		assert.NoError(t, err)
 	}
-	dataProvider = dataprovider.GetProvider()
-	err = dataprovider.Close(dataProvider)
+	err = dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
@@ -1416,8 +1395,6 @@ func TestDumpdata(t *testing.T) {
 	assert.NoError(t, err)
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 }
 
 func TestLoaddata(t *testing.T) {
@@ -2747,8 +2724,7 @@ func TestWebFoldersMock(t *testing.T) {
 }
 
 func TestProviderClosedMock(t *testing.T) {
-	dataProvider := dataprovider.GetProvider()
-	dataprovider.Close(dataProvider)
+	dataprovider.Close()
 	req, _ := http.NewRequest(http.MethodGet, webFoldersPath, nil)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr.Code)
@@ -2771,8 +2747,6 @@ func TestProviderClosedMock(t *testing.T) {
 	assert.NoError(t, err)
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
-	httpd.SetDataProvider(dataprovider.GetProvider())
-	sftpd.SetDataProvider(dataprovider.GetProvider())
 }
 
 func TestGetWebConnectionsMock(t *testing.T) {

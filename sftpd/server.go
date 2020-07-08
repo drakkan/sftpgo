@@ -184,7 +184,7 @@ func (c Configuration) Initialize(configDir string) error {
 		},
 		NextAuthMethodsCallback: func(conn ssh.ConnMetadata) []string {
 			var nextMethods []string
-			user, err := dataprovider.UserExists(dataProvider, conn.User())
+			user, err := dataprovider.UserExists(conn.User())
 			if err == nil {
 				nextMethods = user.GetNextAuthMethods(conn.PartialSuccessMethods())
 			}
@@ -383,7 +383,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 
 	connection.Log(logger.LevelInfo, logSender, "User id: %d, logged in with: %#v, username: %#v, home_dir: %#v remote addr: %#v",
 		user.ID, loginType, user.Username, user.HomeDir, remoteAddr.String())
-	dataprovider.UpdateLastLogin(dataProvider, user) //nolint:errcheck
+	dataprovider.UpdateLastLogin(user) //nolint:errcheck
 
 	go ssh.DiscardRequests(reqs)
 
@@ -668,7 +668,7 @@ func (c Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKe
 		}
 		certPerm = &cert.Permissions
 	}
-	if user, keyID, err = dataprovider.CheckUserAndPubKey(dataProvider, conn.User(), pubKey.Marshal()); err == nil {
+	if user, keyID, err = dataprovider.CheckUserAndPubKey(conn.User(), pubKey.Marshal()); err == nil {
 		if user.IsPartialAuth(method) {
 			logger.Debug(logSender, connectionID, "user %#v authenticated with partial success", conn.User())
 			return certPerm, ssh.ErrPartialSuccess
@@ -698,7 +698,7 @@ func (c Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass [
 	if len(conn.PartialSuccessMethods()) == 1 {
 		method = dataprovider.SSHLoginMethodKeyAndPassword
 	}
-	if user, err = dataprovider.CheckUserAndPass(dataProvider, conn.User(), string(pass)); err == nil {
+	if user, err = dataprovider.CheckUserAndPass(conn.User(), string(pass)); err == nil {
 		sshPerm, err = loginUser(user, method, "", conn)
 	}
 	updateLoginMetrics(conn, method, err)
@@ -714,7 +714,7 @@ func (c Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMetad
 	if len(conn.PartialSuccessMethods()) == 1 {
 		method = dataprovider.SSHLoginMethodKeyAndKeyboardInt
 	}
-	if user, err = dataprovider.CheckKeyboardInteractiveAuth(dataProvider, conn.User(), c.KeyboardInteractiveHook, client); err == nil {
+	if user, err = dataprovider.CheckKeyboardInteractiveAuth(conn.User(), c.KeyboardInteractiveHook, client); err == nil {
 		sshPerm, err = loginUser(user, method, "", conn)
 	}
 	updateLoginMetrics(conn, method, err)

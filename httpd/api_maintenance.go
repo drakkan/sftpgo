@@ -46,7 +46,7 @@ func dumpData(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Debug(logSender, "", "dumping data to: %#v", outputFile)
 
-	backup, err := dataprovider.DumpData(dataProvider)
+	backup, err := dataprovider.DumpData()
 	if err != nil {
 		logger.Warn(logSender, "", "dumping data error: %v, output file: %#v", err, outputFile)
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -142,13 +142,13 @@ func getLoaddataOptions(r *http.Request) (string, int, int, error) {
 
 func restoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, scanQuota int) error {
 	for _, folder := range folders {
-		_, err := dataprovider.GetFolderByPath(dataProvider, folder.MappedPath)
+		_, err := dataprovider.GetFolderByPath(folder.MappedPath)
 		if err == nil {
 			logger.Debug(logSender, "", "folder %#v already exists, restore not needed", folder.MappedPath)
 			continue
 		}
 		folder.Users = nil
-		err = dataprovider.AddFolder(dataProvider, folder)
+		err = dataprovider.AddFolder(folder)
 		logger.Debug(logSender, "", "adding new folder: %+v, dump file: %#v, error: %v", folder, inputFile, err)
 		if err != nil {
 			return err
@@ -165,18 +165,18 @@ func restoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, scanQuota
 
 func restoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota int) error {
 	for _, user := range users {
-		u, err := dataprovider.UserExists(dataProvider, user.Username)
+		u, err := dataprovider.UserExists(user.Username)
 		if err == nil {
 			if mode == 1 {
 				logger.Debug(logSender, "", "loaddata mode 1, existing user %#v not updated", u.Username)
 				continue
 			}
 			user.ID = u.ID
-			err = dataprovider.UpdateUser(dataProvider, user)
+			err = dataprovider.UpdateUser(user)
 			user.Password = "[redacted]"
 			logger.Debug(logSender, "", "restoring existing user: %+v, dump file: %#v, error: %v", user, inputFile, err)
 		} else {
-			err = dataprovider.AddUser(dataProvider, user)
+			err = dataprovider.AddUser(user)
 			user.Password = "[redacted]"
 			logger.Debug(logSender, "", "adding new user: %+v, dump file: %#v, error: %v", user, inputFile, err)
 		}

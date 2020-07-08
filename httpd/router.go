@@ -59,7 +59,7 @@ func initializeRouter(staticFilesPath string, enableProfiler, enableWebAdmin boo
 		})
 
 		router.Get(providerStatusPath, func(w http.ResponseWriter, r *http.Request) {
-			err := dataprovider.GetProviderStatus(dataProvider)
+			err := dataprovider.GetProviderStatus()
 			if err != nil {
 				sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
 			} else {

@@ -48,7 +48,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	if _, ok := r.URL.Query()["username"]; ok {
 		username = r.URL.Query().Get("username")
 	}
-	users, err := dataprovider.GetUsers(dataProvider, limit, offset, order, username)
+	users, err := dataprovider.GetUsers(limit, offset, order, username)
 	if err == nil {
 		render.JSON(w, r, users)
 	} else {
@@ -63,7 +63,7 @@ func getUserByID(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	user, err := dataprovider.GetUserByID(dataProvider, userID)
+	user, err := dataprovider.GetUserByID(userID)
 	if err == nil {
 		render.JSON(w, r, dataprovider.HideUserSensitiveData(&user))
 	} else {
@@ -79,9 +79,9 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	err = dataprovider.AddUser(dataProvider, user)
+	err = dataprovider.AddUser(user)
 	if err == nil {
-		user, err = dataprovider.UserExists(dataProvider, user.Username)
+		user, err = dataprovider.UserExists(user.Username)
 		if err == nil {
 			render.JSON(w, r, dataprovider.HideUserSensitiveData(&user))
 		} else {
@@ -100,7 +100,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	user, err := dataprovider.GetUserByID(dataProvider, userID)
+	user, err := dataprovider.GetUserByID(userID)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -137,7 +137,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "user ID in request body does not match user ID in path parameter", http.StatusBadRequest)
 		return
 	}
-	err = dataprovider.UpdateUser(dataProvider, user)
+	err = dataprovider.UpdateUser(user)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 	} else {
@@ -152,12 +152,12 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	user, err := dataprovider.GetUserByID(dataProvider, userID)
+	user, err := dataprovider.GetUserByID(userID)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	err = dataprovider.DeleteUser(dataProvider, user)
+	err = dataprovider.DeleteUser(user)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
 	} else {

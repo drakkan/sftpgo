@@ -15,7 +15,6 @@ import (
 
 	"github.com/go-chi/chi"
 
-	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 )
@@ -48,11 +47,10 @@ const (
 )
 
 var (
-	router       *chi.Mux
-	dataProvider dataprovider.Provider
-	backupsPath  string
-	httpAuth     httpAuthProvider
-	certMgr      *certManager
+	router      *chi.Mux
+	backupsPath string
+	httpAuth    httpAuthProvider
+	certMgr     *certManager
 )
 
 // Conf httpd daemon configuration
@@ -86,11 +84,6 @@ type apiResponse struct {
 	Error      string `json:"error"`
 	Message    string `json:"message"`
 	HTTPStatus int    `json:"status"`
-}
-
-// SetDataProvider sets the data provider to use to fetch the data about users
-func SetDataProvider(provider dataprovider.Provider) {
-	dataProvider = provider
 }
 
 // Initialize configures and starts the HTTP server

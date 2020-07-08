@@ -489,12 +489,12 @@ func (c Connection) handleSFTPRemove(filePath string, request *sftp.Request) err
 	if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
 		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(request.Filepath))
 		if err == nil {
-			dataprovider.UpdateVirtualFolderQuota(dataProvider, vfolder.BaseVirtualFolder, -1, -size, false) //nolint:errcheck
+			dataprovider.UpdateVirtualFolderQuota(vfolder.BaseVirtualFolder, -1, -size, false) //nolint:errcheck
 			if vfolder.IsIncludedInUserQuota() {
-				dataprovider.UpdateUserQuota(dataProvider, c.User, -1, -size, false) //nolint:errcheck
+				dataprovider.UpdateUserQuota(c.User, -1, -size, false) //nolint:errcheck
 			}
 		} else {
-			dataprovider.UpdateUserQuota(dataProvider, c.User, -1, -size, false) //nolint:errcheck
+			dataprovider.UpdateUserQuota(c.User, -1, -size, false) //nolint:errcheck
 		}
 	}
 	if actionErr != nil {
@@ -588,12 +588,12 @@ func (c Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, re
 		if vfs.IsLocalOsFs(c.fs) {
 			vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 			if err == nil {
-				dataprovider.UpdateVirtualFolderQuota(dataProvider, vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck
+				dataprovider.UpdateVirtualFolderQuota(vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck
 				if vfolder.IsIncludedInUserQuota() {
-					dataprovider.UpdateUserQuota(dataProvider, c.User, 0, -fileSize, false) //nolint:errcheck
+					dataprovider.UpdateUserQuota(c.User, 0, -fileSize, false) //nolint:errcheck
 				}
 			} else {
-				dataprovider.UpdateUserQuota(dataProvider, c.User, 0, -fileSize, false) //nolint:errcheck
+				dataprovider.UpdateUserQuota(c.User, 0, -fileSize, false) //nolint:errcheck
 			}
 		} else {
 			initialSize = fileSize
@@ -736,14 +736,14 @@ func (c Connection) hasSpace(checkFiles bool, requestPath string) vfs.QuotaCheck
 		}
 		result.QuotaSize = vfolder.QuotaSize
 		result.QuotaFiles = vfolder.QuotaFiles
-		result.UsedFiles, result.UsedSize, err = dataprovider.GetUsedVirtualFolderQuota(dataProvider, vfolder.MappedPath)
+		result.UsedFiles, result.UsedSize, err = dataprovider.GetUsedVirtualFolderQuota(vfolder.MappedPath)
 	} else {
 		if c.User.HasNoQuotaRestrictions(checkFiles) {
 			return result
 		}
 		result.QuotaSize = c.User.QuotaSize
 		result.QuotaFiles = c.User.QuotaFiles
-		result.UsedFiles, result.UsedSize, err = dataprovider.GetUsedQuota(dataProvider, c.User.Username)
+		result.UsedFiles, result.UsedSize, err = dataprovider.GetUsedQuota(c.User.Username)
 	}
 	if err != nil {
 		c.Log(logger.LevelWarn, logSender, "error getting used quota for %#v request path %#v: %v", c.User.Username, requestPath, err)
@@ -882,59 +882,59 @@ func (c Connection) updateQuotaMoveBetweenVFolders(sourceFolder, dstFolder vfs.V
 	if sourceFolder.MappedPath == dstFolder.MappedPath {
 		// both files are inside the same virtual folder
 		if initialSize != -1 {
-			dataprovider.UpdateVirtualFolderQuota(dataProvider, dstFolder.BaseVirtualFolder, -numFiles, -initialSize, false) //nolint:errcheck
+			dataprovider.UpdateVirtualFolderQuota(dstFolder.BaseVirtualFolder, -numFiles, -initialSize, false) //nolint:errcheck
 			if dstFolder.IsIncludedInUserQuota() {
-				dataprovider.UpdateUserQuota(dataProvider, c.User, -numFiles, -initialSize, false) //nolint:errcheck
+				dataprovider.UpdateUserQuota(c.User, -numFiles, -initialSize, false) //nolint:errcheck
 			}
 		}
 		return
 	}
 	// files are inside different virtual folders
-	dataprovider.UpdateVirtualFolderQuota(dataProvider, sourceFolder.BaseVirtualFolder, -numFiles, -filesSize, false) //nolint:errcheck
+	dataprovider.UpdateVirtualFolderQuota(sourceFolder.BaseVirtualFolder, -numFiles, -filesSize, false) //nolint:errcheck
 	if sourceFolder.IsIncludedInUserQuota() {
-		dataprovider.UpdateUserQuota(dataProvider, c.User, -numFiles, -filesSize, false) //nolint:errcheck
+		dataprovider.UpdateUserQuota(c.User, -numFiles, -filesSize, false) //nolint:errcheck
 	}
 	if initialSize == -1 {
-		dataprovider.UpdateVirtualFolderQuota(dataProvider, dstFolder.BaseVirtualFolder, numFiles, filesSize, false) //nolint:errcheck
+		dataprovider.UpdateVirtualFolderQuota(dstFolder.BaseVirtualFolder, numFiles, filesSize, false) //nolint:errcheck
 		if dstFolder.IsIncludedInUserQuota() {
-			dataprovider.UpdateUserQuota(dataProvider, c.User, numFiles, filesSize, false) //nolint:errcheck
+			dataprovider.UpdateUserQuota(c.User, numFiles, filesSize, false) //nolint:errcheck
 		}
 	} else {
 		// we cannot have a directory here, initialSize != -1 only for files
-		dataprovider.UpdateVirtualFolderQuota(dataProvider, dstFolder.BaseVirtualFolder, 0, filesSize-initialSize, false) //nolint:errcheck
+		dataprovider.UpdateVirtualFolderQuota(dstFolder.BaseVirtualFolder, 0, filesSize-initialSize, false) //nolint:errcheck
 		if dstFolder.IsIncludedInUserQuota() {
-			dataprovider.UpdateUserQuota(dataProvider, c.User, 0, filesSize-initialSize, false) //nolint:errcheck
+			dataprovider.UpdateUserQuota(c.User, 0, filesSize-initialSize, false) //nolint:errcheck
 		}
 	}
 }
 
 func (c Connection) updateQuotaMoveFromVFolder(sourceFolder vfs.VirtualFolder, initialSize, filesSize int64, numFiles int) {
 	// move between a virtual folder and the user home dir
-	dataprovider.UpdateVirtualFolderQuota(dataProvider, sourceFolder.BaseVirtualFolder, -numFiles, -filesSize, false) //nolint:errcheck
+	dataprovider.UpdateVirtualFolderQuota(sourceFolder.BaseVirtualFolder, -numFiles, -filesSize, false) //nolint:errcheck
 	if sourceFolder.IsIncludedInUserQuota() {
-		dataprovider.UpdateUserQuota(dataProvider, c.User, -numFiles, -filesSize, false) //nolint:errcheck
+		dataprovider.UpdateUserQuota(c.User, -numFiles, -filesSize, false) //nolint:errcheck
 	}
 	if initialSize == -1 {
-		dataprovider.UpdateUserQuota(dataProvider, c.User, numFiles, filesSize, false) //nolint:errcheck
+		dataprovider.UpdateUserQuota(c.User, numFiles, filesSize, false) //nolint:errcheck
 	} else {
 		// we cannot have a directory here, initialSize != -1 only for files
-		dataprovider.UpdateUserQuota(dataProvider, c.User, 0, filesSize-initialSize, false) //nolint:errcheck
+		dataprovider.UpdateUserQuota(c.User, 0, filesSize-initialSize, false) //nolint:errcheck
 	}
 }
 
 func (c Connection) updateQuotaMoveToVFolder(dstFolder vfs.VirtualFolder, initialSize, filesSize int64, numFiles int) {
 	// move between the user home dir and a virtual folder
-	dataprovider.UpdateUserQuota(dataProvider, c.User, -numFiles, -filesSize, false) //nolint:errcheck
+	dataprovider.UpdateUserQuota(c.User, -numFiles, -filesSize, false) //nolint:errcheck
 	if initialSize == -1 {
-		dataprovider.UpdateVirtualFolderQuota(dataProvider, dstFolder.BaseVirtualFolder, numFiles, filesSize, false) //nolint:errcheck
+		dataprovider.UpdateVirtualFolderQuota(dstFolder.BaseVirtualFolder, numFiles, filesSize, false) //nolint:errcheck
 		if dstFolder.IsIncludedInUserQuota() {
-			dataprovider.UpdateUserQuota(dataProvider, c.User, numFiles, filesSize, false) //nolint:errcheck
+			dataprovider.UpdateUserQuota(c.User, numFiles, filesSize, false) //nolint:errcheck
 		}
 	} else {
 		// we cannot have a directory here, initialSize != -1 only for files
-		dataprovider.UpdateVirtualFolderQuota(dataProvider, dstFolder.BaseVirtualFolder, 0, filesSize-initialSize, false) //nolint:errcheck
+		dataprovider.UpdateVirtualFolderQuota(dstFolder.BaseVirtualFolder, 0, filesSize-initialSize, false) //nolint:errcheck
 		if dstFolder.IsIncludedInUserQuota() {
-			dataprovider.UpdateUserQuota(dataProvider, c.User, 0, filesSize-initialSize, false) //nolint:errcheck
+			dataprovider.UpdateUserQuota(c.User, 0, filesSize-initialSize, false) //nolint:errcheck
 		}
 	}
 }
@@ -951,7 +951,7 @@ func (c Connection) updateQuotaAfterRename(request *sftp.Request, targetPath str
 		// both files are contained inside the user home dir
 		if initialSize != -1 {
 			// we cannot have a directory here
-			dataprovider.UpdateUserQuota(dataProvider, c.User, -1, -initialSize, false) //nolint:errcheck
+			dataprovider.UpdateUserQuota(c.User, -1, -initialSize, false) //nolint:errcheck
 		}
 		return nil
 	}

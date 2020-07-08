@@ -243,12 +243,12 @@ func (c *sshCommand) handeSFTPGoRemove() error {
 func (c *sshCommand) updateQuota(sshDestPath string, filesNum int, filesSize int64) {
 	vfolder, err := c.connection.User.GetVirtualFolderForPath(sshDestPath)
 	if err == nil {
-		dataprovider.UpdateVirtualFolderQuota(dataProvider, vfolder.BaseVirtualFolder, filesNum, filesSize, false) //nolint:errcheck
+		dataprovider.UpdateVirtualFolderQuota(vfolder.BaseVirtualFolder, filesNum, filesSize, false) //nolint:errcheck
 		if vfolder.IsIncludedInUserQuota() {
-			dataprovider.UpdateUserQuota(dataProvider, c.connection.User, filesNum, filesSize, false) //nolint:errcheck
+			dataprovider.UpdateUserQuota(c.connection.User, filesNum, filesSize, false) //nolint:errcheck
 		}
 	} else {
-		dataprovider.UpdateUserQuota(dataProvider, c.connection.User, filesNum, filesSize, false) //nolint:errcheck
+		dataprovider.UpdateUserQuota(c.connection.User, filesNum, filesSize, false) //nolint:errcheck
 	}
 }
 

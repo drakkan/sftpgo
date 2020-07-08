@@ -327,11 +327,6 @@ func (e *RecordNotFoundError) Error() string {
 	return fmt.Sprintf("Not found: %s", e.err)
 }
 
-// GetProvider returns the configured provider
-func GetProvider() Provider {
-	return provider
-}
-
 // GetQuotaTracking returns the configured mode for user's quota tracking
 func GetQuotaTracking() int {
 	return config.TrackQuota
@@ -450,7 +445,7 @@ func InitializeDatabase(cnf Config, basePath string) error {
 }
 
 // CheckUserAndPass retrieves the SFTP user with the given username and password if a match is found or an error
-func CheckUserAndPass(p Provider, username string, password string) (User, error) {
+func CheckUserAndPass(username string, password string) (User, error) {
 	if len(config.ExternalAuthHook) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&1 != 0) {
 		user, err := doExternalAuth(username, password, nil, "")
 		if err != nil {
@@ -465,11 +460,11 @@ func CheckUserAndPass(p Provider, username string, password string) (User, error
 		}
 		return checkUserAndPass(user, password)
 	}
-	return p.validateUserAndPass(username, password)
+	return provider.validateUserAndPass(username, password)
 }
 
 // CheckUserAndPubKey retrieves the SFTP user with the given username and public key if a match is found or an error
-func CheckUserAndPubKey(p Provider, username string, pubKey []byte) (User, string, error) {
+func CheckUserAndPubKey(username string, pubKey []byte) (User, string, error) {
 	if len(config.ExternalAuthHook) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&2 != 0) {
 		user, err := doExternalAuth(username, "", pubKey, "")
 		if err != nil {
@@ -484,12 +479,12 @@ func CheckUserAndPubKey(p Provider, username string, pubKey []byte) (User, strin
 		}
 		return checkUserAndPubKey(user, pubKey)
 	}
-	return p.validateUserAndPubKey(username, pubKey)
+	return provider.validateUserAndPubKey(username, pubKey)
 }
 
 // CheckKeyboardInteractiveAuth checks the keyboard interactive authentication and returns
 // the authenticated user or an error
-func CheckKeyboardInteractiveAuth(p Provider, username, authHook string, client ssh.KeyboardInteractiveChallenge) (User, error) {
+func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.KeyboardInteractiveChallenge) (User, error) {
 	var user User
 	var err error
 	if len(config.ExternalAuthHook) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&4 != 0) {
@@ -497,7 +492,7 @@ func CheckKeyboardInteractiveAuth(p Provider, username, authHook string, client 
 	} else if len(config.PreLoginHook) > 0 {
 		user, err = executePreLoginHook(username, SSHLoginMethodKeyboardInteractive)
 	} else {
-		user, err = p.userExists(username)
+		user, err = provider.userExists(username)
 	}
 	if err != nil {
 		return user, err
@@ -506,16 +501,16 @@ func CheckKeyboardInteractiveAuth(p Provider, username, authHook string, client 
 }
 
 // UpdateLastLogin updates the last login fields for the given SFTP user
-func UpdateLastLogin(p Provider, user User) error {
+func UpdateLastLogin(user User) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
-	return p.updateLastLogin(user.Username)
+	return provider.updateLastLogin(user.Username)
 }
 
 // UpdateUserQuota updates the quota for the given SFTP user adding filesAdd and sizeAdd.
 // If reset is true filesAdd and sizeAdd indicates the total files and the total size instead of the difference.
-func UpdateUserQuota(p Provider, user User, filesAdd int, sizeAdd int64, reset bool) error {
+func UpdateUserQuota(user User, filesAdd int, sizeAdd int64, reset bool) error {
 	if config.TrackQuota == 0 {
 		return &MethodDisabledError{err: trackQuotaDisabledError}
 	} else if config.TrackQuota == 2 && !reset && !user.HasQuotaRestrictions() {
@@ -524,49 +519,49 @@ func UpdateUserQuota(p Provider, user User, filesAdd int, sizeAdd int64, reset b
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
-	return p.updateQuota(user.Username, filesAdd, sizeAdd, reset)
+	return provider.updateQuota(user.Username, filesAdd, sizeAdd, reset)
 }
 
 // UpdateVirtualFolderQuota updates the quota for the given virtual folder adding filesAdd and sizeAdd.
 // If reset is true filesAdd and sizeAdd indicates the total files and the total size instead of the difference.
-func UpdateVirtualFolderQuota(p Provider, vfolder vfs.BaseVirtualFolder, filesAdd int, sizeAdd int64, reset bool) error {
+func UpdateVirtualFolderQuota(vfolder vfs.BaseVirtualFolder, filesAdd int, sizeAdd int64, reset bool) error {
 	if config.TrackQuota == 0 {
 		return &MethodDisabledError{err: trackQuotaDisabledError}
 	}
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
-	return p.updateFolderQuota(vfolder.MappedPath, filesAdd, sizeAdd, reset)
+	return provider.updateFolderQuota(vfolder.MappedPath, filesAdd, sizeAdd, reset)
 }
 
 // GetUsedQuota returns the used quota for the given SFTP user.
-func GetUsedQuota(p Provider, username string) (int, int64, error) {
+func GetUsedQuota(username string) (int, int64, error) {
 	if config.TrackQuota == 0 {
 		return 0, 0, &MethodDisabledError{err: trackQuotaDisabledError}
 	}
-	return p.getUsedQuota(username)
+	return provider.getUsedQuota(username)
 }
 
 // GetUsedVirtualFolderQuota returns the used quota for the given virtual folder.
-func GetUsedVirtualFolderQuota(p Provider, mappedPath string) (int, int64, error) {
+func GetUsedVirtualFolderQuota(mappedPath string) (int, int64, error) {
 	if config.TrackQuota == 0 {
 		return 0, 0, &MethodDisabledError{err: trackQuotaDisabledError}
 	}
-	return p.getUsedFolderQuota(mappedPath)
+	return provider.getUsedFolderQuota(mappedPath)
 }
 
 // UserExists checks if the given SFTP username exists, returns an error if no match is found
-func UserExists(p Provider, username string) (User, error) {
-	return p.userExists(username)
+func UserExists(username string) (User, error) {
+	return provider.userExists(username)
 }
 
 // AddUser adds a new SFTP user.
 // ManageUsers configuration must be set to 1 to enable this method
-func AddUser(p Provider, user User) error {
+func AddUser(user User) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
-	err := p.addUser(user)
+	err := provider.addUser(user)
 	if err == nil {
 		go executeAction(operationAdd, user)
 	}
@@ -575,11 +570,11 @@ func AddUser(p Provider, user User) error {
 
 // UpdateUser updates an existing SFTP user.
 // ManageUsers configuration must be set to 1 to enable this method
-func UpdateUser(p Provider, user User) error {
+func UpdateUser(user User) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
-	err := p.updateUser(user)
+	err := provider.updateUser(user)
 	if err == nil {
 		go executeAction(operationUpdate, user)
 	}
@@ -588,11 +583,11 @@ func UpdateUser(p Provider, user User) error {
 
 // DeleteUser deletes an existing SFTP user.
 // ManageUsers configuration must be set to 1 to enable this method
-func DeleteUser(p Provider, user User) error {
+func DeleteUser(user User) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
-	err := p.deleteUser(user)
+	err := provider.deleteUser(user)
 	if err == nil {
 		go executeAction(operationDelete, user)
 	}
@@ -607,51 +602,51 @@ func ReloadConfig() error {
 }
 
 // GetUsers returns an array of users respecting limit and offset and filtered by username exact match if not empty
-func GetUsers(p Provider, limit, offset int, order string, username string) ([]User, error) {
-	return p.getUsers(limit, offset, order, username)
+func GetUsers(limit, offset int, order string, username string) ([]User, error) {
+	return provider.getUsers(limit, offset, order, username)
 }
 
 // GetUserByID returns the user with the given database ID if a match is found or an error
-func GetUserByID(p Provider, ID int64) (User, error) {
-	return p.getUserByID(ID)
+func GetUserByID(ID int64) (User, error) {
+	return provider.getUserByID(ID)
 }
 
 // AddFolder adds a new virtual folder.
 // ManageUsers configuration must be set to 1 to enable this method
-func AddFolder(p Provider, folder vfs.BaseVirtualFolder) error {
+func AddFolder(folder vfs.BaseVirtualFolder) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
-	return p.addFolder(folder)
+	return provider.addFolder(folder)
 }
 
 // DeleteFolder deletes an existing folder.
 // ManageUsers configuration must be set to 1 to enable this method
-func DeleteFolder(p Provider, folder vfs.BaseVirtualFolder) error {
+func DeleteFolder(folder vfs.BaseVirtualFolder) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
-	return p.deleteFolder(folder)
+	return provider.deleteFolder(folder)
 }
 
 // GetFolderByPath returns the folder with the specified path if any
-func GetFolderByPath(p Provider, mappedPath string) (vfs.BaseVirtualFolder, error) {
-	return p.getFolderByPath(mappedPath)
+func GetFolderByPath(mappedPath string) (vfs.BaseVirtualFolder, error) {
+	return provider.getFolderByPath(mappedPath)
 }
 
 // GetFolders returns an array of folders respecting limit and offset
-func GetFolders(p Provider, limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error) {
-	return p.getFolders(limit, offset, order, folderPath)
+func GetFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error) {
+	return provider.getFolders(limit, offset, order, folderPath)
 }
 
 // DumpData returns all users and folders
-func DumpData(p Provider) (BackupData, error) {
+func DumpData() (BackupData, error) {
 	var data BackupData
-	users, err := p.dumpUsers()
+	users, err := provider.dumpUsers()
 	if err != nil {
 		return data, err
 	}
-	folders, err := p.dumpFolders()
+	folders, err := provider.dumpFolders()
 	if err != nil {
 		return data, err
 	}
@@ -661,17 +656,17 @@ func DumpData(p Provider) (BackupData, error) {
 }
 
 // GetProviderStatus returns an error if the provider is not available
-func GetProviderStatus(p Provider) error {
-	return p.checkAvailability()
+func GetProviderStatus() error {
+	return provider.checkAvailability()
 }
 
 // Close releases all provider resources.
 // This method is used in test cases.
 // Closing an uninitialized provider is not supported
-func Close(p Provider) error {
+func Close() error {
 	availabilityTicker.Stop()
 	availabilityTickerDone <- true
-	return p.close()
+	return provider.close()
 }
 
 func createProvider(basePath string) error {
@@ -1744,7 +1739,7 @@ func updateVFoldersQuotaAfterRestore(foldersToScan []string) {
 			providerLog(logger.LevelWarn, "error scanning folder %#v: %v", folder, err)
 			continue
 		}
-		err = UpdateVirtualFolderQuota(provider, vfolder, numFiles, size, true)
+		err = UpdateVirtualFolderQuota(vfolder, numFiles, size, true)
 		providerLog(logger.LevelDebug, "quota updated for virtual folder %#v, error: %v", vfolder.MappedPath, err)
 	}
 }

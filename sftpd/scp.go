@@ -209,12 +209,12 @@ func (c *scpCommand) handleUploadFile(resolvedPath, filePath string, sizeToRead 
 		if vfs.IsLocalOsFs(c.connection.fs) {
 			vfolder, err := c.connection.User.GetVirtualFolderForPath(path.Dir(requestPath))
 			if err == nil {
-				dataprovider.UpdateVirtualFolderQuota(dataProvider, vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck
+				dataprovider.UpdateVirtualFolderQuota(vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck
 				if vfolder.IsIncludedInUserQuota() {
-					dataprovider.UpdateUserQuota(dataProvider, c.connection.User, 0, -fileSize, false) //nolint:errcheck
+					dataprovider.UpdateUserQuota(c.connection.User, 0, -fileSize, false) //nolint:errcheck
 				}
 			} else {
-				dataprovider.UpdateUserQuota(dataProvider, c.connection.User, 0, -fileSize, false) //nolint:errcheck
+				dataprovider.UpdateUserQuota(c.connection.User, 0, -fileSize, false) //nolint:errcheck
 			}
 		} else {
 			initialSize = fileSize

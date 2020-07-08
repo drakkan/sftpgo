@@ -518,7 +518,7 @@ func handleGetWebUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	users := make([]dataprovider.User, 0, limit)
 	for {
-		u, err := dataprovider.GetUsers(dataProvider, limit, len(users), dataprovider.OrderASC, "")
+		u, err := dataprovider.GetUsers(limit, len(users), dataprovider.OrderASC, "")
 		if err != nil {
 			renderInternalServerErrorPage(w, err)
 			return
@@ -545,7 +545,7 @@ func handleWebUpdateUserGet(w http.ResponseWriter, r *http.Request) {
 		renderBadRequestPage(w, err)
 		return
 	}
-	user, err := dataprovider.GetUserByID(dataProvider, id)
+	user, err := dataprovider.GetUserByID(id)
 	if err == nil {
 		renderUpdateUserPage(w, user, "")
 	} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
@@ -562,7 +562,7 @@ func handleWebAddUserPost(w http.ResponseWriter, r *http.Request) {
 		renderAddUserPage(w, user, err.Error())
 		return
 	}
-	err = dataprovider.AddUser(dataProvider, user)
+	err = dataprovider.AddUser(user)
 	if err == nil {
 		http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
 	} else {
@@ -577,7 +577,7 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 		renderBadRequestPage(w, err)
 		return
 	}
-	user, err := dataprovider.GetUserByID(dataProvider, id)
+	user, err := dataprovider.GetUserByID(id)
 	if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
 		renderNotFoundPage(w, err)
 		return
@@ -594,7 +594,7 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 	if len(updatedUser.Password) == 0 {
 		updatedUser.Password = user.Password
 	}
-	err = dataprovider.UpdateUser(dataProvider, updatedUser)
+	err = dataprovider.UpdateUser(updatedUser)
 	if err == nil {
 		http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
 	} else {
@@ -625,7 +625,7 @@ func handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
 	}
 	folder.MappedPath = r.Form.Get("mapped_path")
 
-	err = dataprovider.AddFolder(dataProvider, folder)
+	err = dataprovider.AddFolder(folder)
 	if err == nil {
 		http.Redirect(w, r, webFoldersPath, http.StatusSeeOther)
 	} else {
@@ -644,7 +644,7 @@ func handleWebGetFolders(w http.ResponseWriter, r *http.Request) {
 	}
 	folders := make([]vfs.BaseVirtualFolder, 0, limit)
 	for {
-		f, err := dataprovider.GetFolders(dataProvider, limit, len(folders), dataprovider.OrderASC, "")
+		f, err := dataprovider.GetFolders(limit, len(folders), dataprovider.OrderASC, "")
 		if err != nil {
 			renderInternalServerErrorPage(w, err)
 			return

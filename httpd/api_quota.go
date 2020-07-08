@@ -43,7 +43,7 @@ func updateUserQuotaUsage(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	user, err := dataprovider.UserExists(dataProvider, u.Username)
+	user, err := dataprovider.UserExists(u.Username)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -58,7 +58,7 @@ func updateUserQuotaUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer sftpd.RemoveQuotaScan(user.Username) //nolint:errcheck
-	err = dataprovider.UpdateUserQuota(dataProvider, user, u.UsedQuotaFiles, u.UsedQuotaSize, mode == quotaUpdateModeReset)
+	err = dataprovider.UpdateUserQuota(user, u.UsedQuotaFiles, u.UsedQuotaSize, mode == quotaUpdateModeReset)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 	} else {
@@ -84,7 +84,7 @@ func updateVFolderQuotaUsage(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	folder, err := dataprovider.GetFolderByPath(dataProvider, f.MappedPath)
+	folder, err := dataprovider.GetFolderByPath(f.MappedPath)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -94,7 +94,7 @@ func updateVFolderQuotaUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer sftpd.RemoveVFolderQuotaScan(folder.MappedPath) //nolint:errcheck
-	err = dataprovider.UpdateVirtualFolderQuota(dataProvider, folder, f.UsedQuotaFiles, f.UsedQuotaSize, mode == quotaUpdateModeReset)
+	err = dataprovider.UpdateVirtualFolderQuota(folder, f.UsedQuotaFiles, f.UsedQuotaSize, mode == quotaUpdateModeReset)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 	} else {
@@ -114,7 +114,7 @@ func startQuotaScan(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	user, err := dataprovider.UserExists(dataProvider, u.Username)
+	user, err := dataprovider.UserExists(u.Username)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -139,7 +139,7 @@ func startVFolderQuotaScan(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	folder, err := dataprovider.GetFolderByPath(dataProvider, f.MappedPath)
+	folder, err := dataprovider.GetFolderByPath(f.MappedPath)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -164,7 +164,7 @@ func doQuotaScan(user dataprovider.User) error {
 		logger.Warn(logSender, "", "error scanning user home dir %#v: %v", user.Username, err)
 		return err
 	}
-	err = dataprovider.UpdateUserQuota(dataProvider, user, numFiles, size, true)
+	err = dataprovider.UpdateUserQuota(user, numFiles, size, true)
 	logger.Debug(logSender, "", "user home dir scanned, user: %#v, error: %v", user.Username, err)
 	return err
 }
@@ -177,7 +177,7 @@ func doFolderQuotaScan(folder vfs.BaseVirtualFolder) error {
 		logger.Warn(logSender, "", "error scanning folder %#v: %v", folder.MappedPath, err)
 		return err
 	}
-	err = dataprovider.UpdateVirtualFolderQuota(dataProvider, folder, numFiles, size, true)
+	err = dataprovider.UpdateVirtualFolderQuota(folder, numFiles, size, true)
 	logger.Debug(logSender, "", "virtual folder %#v scanned, error: %v", folder.MappedPath, err)
 	return err
 }

@@ -47,7 +47,7 @@ func getFolders(w http.ResponseWriter, r *http.Request) {
 	if _, ok := r.URL.Query()["folder_path"]; ok {
 		folderPath = r.URL.Query().Get("folder_path")
 	}
-	folders, err := dataprovider.GetFolders(dataProvider, limit, offset, order, folderPath)
+	folders, err := dataprovider.GetFolders(limit, offset, order, folderPath)
 	if err == nil {
 		render.JSON(w, r, folders)
 	} else {
@@ -63,9 +63,9 @@ func addFolder(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	err = dataprovider.AddFolder(dataProvider, folder)
+	err = dataprovider.AddFolder(folder)
 	if err == nil {
-		folder, err = dataprovider.GetFolderByPath(dataProvider, folder.MappedPath)
+		folder, err = dataprovider.GetFolderByPath(folder.MappedPath)
 		if err == nil {
 			render.JSON(w, r, folder)
 		} else {
@@ -87,12 +87,12 @@ func deleteFolderByPath(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	folder, err := dataprovider.GetFolderByPath(dataProvider, folderPath)
+	folder, err := dataprovider.GetFolderByPath(folderPath)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	err = dataprovider.DeleteFolder(dataProvider, folder)
+	err = dataprovider.DeleteFolder(folder)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
 	} else {

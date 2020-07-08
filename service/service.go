@@ -8,9 +8,7 @@ import (
 
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/version"
 )
@@ -77,20 +75,17 @@ func (s *Service) Start() error {
 	httpConfig := config.GetHTTPConfig()
 	httpConfig.Initialize(s.ConfigDir)
 
-	dataProvider := dataprovider.GetProvider()
 	sftpdConf := config.GetSFTPDConfig()
 	httpdConf := config.GetHTTPDConfig()
 
 	if s.PortableMode == 1 {
 		// create the user for portable mode
-		err = dataprovider.AddUser(dataProvider, s.PortableUser)
+		err = dataprovider.AddUser(s.PortableUser)
 		if err != nil {
 			logger.ErrorToConsole("error adding portable user: %v", err)
 			return err
 		}
 	}
-
-	sftpd.SetDataProvider(dataProvider)
 
 	go func() {
 		logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
@@ -102,8 +97,6 @@ func (s *Service) Start() error {
 	}()
 
 	if httpdConf.BindPort > 0 {
-		httpd.SetDataProvider(dataProvider)
-
 		go func() {
 			if err := httpdConf.Initialize(s.ConfigDir, s.Profiler); err != nil {
 				logger.Error(logSender, "", "could not start HTTP server: %v", err)
