@@ -9,6 +9,7 @@ Usage:
   sftpgo [command]
 
 Available Commands:
+  gen          A collection of useful generators
   help         Help about any command
   initprovider Initializes the configured data provider
   portable     Serve a single directory
@@ -35,6 +36,8 @@ The `serve` command supports the following flags:
 Log file can be rotated on demand sending a `SIGUSR1` signal on Unix based systems and using the command `sftpgo service rotatelogs` on Windows.
 
 If you don't configure any private host key, the daemon will use `id_rsa` and `id_ecdsa` in the configuration directory. If these files don't exist, the daemon will attempt to autogenerate them (if the user that executes SFTPGo has write access to the `config-dir`). The server supports any private key format supported by [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/keys.go#L33).
+
+The `gen` command allows to generate completion scripts for your shell and man pages. Currently the man pages visual representation is wrong, take a look at this upstream [bug](https://github.com/spf13/cobra/issues/1049) for more details.
 
 ## Configuration file
 

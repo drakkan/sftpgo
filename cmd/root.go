@@ -55,7 +55,7 @@ var (
 
 	rootCmd = &cobra.Command{
 		Use:   "sftpgo",
-		Short: "Full featured and highly configurable SFTP server",
+		Short: "Fully featured and highly configurable SFTP server",
 	}
 )
 
