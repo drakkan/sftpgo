@@ -17,17 +17,19 @@ var (
 	initProviderCmd = &cobra.Command{
 		Use:   "initprovider",
 		Short: "Initializes the configured data provider",
-		Long: `This command reads the data provider connection details from the specified configuration file and creates the initial structure.
+		Long: `This command reads the data provider connection details from the specified
+configuration file and creates the initial structure.
 
 Some data providers such as bolt and memory does not require an initialization.
 
 For SQLite provider the database file will be auto created if missing.
 
-For PostgreSQL and MySQL providers you need to create the configured database, this command will create the required tables.
+For PostgreSQL and MySQL providers you need to create the configured database,
+this command will create the required tables.
 
 To initialize the data provider from the configuration directory simply use:
 
-sftpgo initprovider
+$ sftpgo initprovider
 
 Please take a look at the usage below to customize the options.`,
 		Run: func(cmd *cobra.Command, args []string) {

@@ -12,7 +12,7 @@ import (
 var (
 	rotateLogCmd = &cobra.Command{
 		Use:   "rotatelogs",
-		Short: "Signal to the running service to close the existing log file and immediately create a new one",
+		Short: "Signal to the running service to rotate the logs",
 		Run: func(cmd *cobra.Command, args []string) {
 			s := service.WindowsService{
 				Service: service.Service{

@@ -15,7 +15,8 @@ var (
 	installCmd = &cobra.Command{
 		Use:   "install",
 		Short: "Install SFTPGo as Windows Service",
-		Long: `To install the SFTPGo Windows Service with the default values for the command line flags simply use:
+		Long: `To install the SFTPGo Windows Service with the default values for the command
+line flags simply use:
 
 sftpgo service install
 

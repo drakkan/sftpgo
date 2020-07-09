@@ -13,9 +13,10 @@ var (
 	serveCmd = &cobra.Command{
 		Use:   "serve",
 		Short: "Start the SFTP Server",
-		Long: `To start the SFTPGo with the default values for the command line flags simply use:
+		Long: `To start the SFTPGo with the default values for the command line flags simply
+use:
 
-sftpgo serve
+$ sftpgo serve
 
 Please take a look at the usage below to customize the startup options`,
 		Run: func(cmd *cobra.Command, args []string) {

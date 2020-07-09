@@ -79,7 +79,7 @@ On Windows, you can register SFTPGo as Windows Service. Take a look at the CLI u
 
 ```powershell
 PS> sftpgo.exe service --help
-Install, Uninstall, Start, Stop, Reload and retrieve status for SFTPGo Windows Service
+Manage SFTPGo Windows Service
 
 Usage:
   sftpgo service [command]
@@ -87,7 +87,7 @@ Usage:
 Available Commands:
   install     Install SFTPGo as Windows Service
   reload      Reload the SFTPGo Windows Service sending a "paramchange" request
-  rotatelogs  Signal to the running service to close the existing log file and immediately create a new one
+  rotatelogs  Signal to the running service to rotate the logs
   start       Start SFTPGo Windows Service
   status      Retrieve the status for the SFTPGo Windows Service
   stop        Stop SFTPGo Windows Service
