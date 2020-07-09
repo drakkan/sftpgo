@@ -774,6 +774,9 @@ func sqlCommonGetDatabaseVersion(dbHandle *sql.DB) (schemaVersion, error) {
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		if strings.Contains(err.Error(), sqlTableSchemaVersion) {
+			logger.WarnToConsole("database query error, did you forgot to run the \"initprovider\" command?")
+		}
 		return result, err
 	}
 	defer stmt.Close()
