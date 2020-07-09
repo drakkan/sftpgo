@@ -35,6 +35,7 @@ type Service struct {
 	LogVerbose    bool
 	Profiler      bool
 	Shutdown      chan bool
+	Error         error
 }
 
 // Start initializes the service
@@ -92,6 +93,7 @@ func (s *Service) Start() error {
 		if err := sftpdConf.Initialize(s.ConfigDir); err != nil {
 			logger.Error(logSender, "", "could not start SFTP server: %v", err)
 			logger.ErrorToConsole("could not start SFTP server: %v", err)
+			s.Error = err
 		}
 		s.Shutdown <- true
 	}()
@@ -101,6 +103,7 @@ func (s *Service) Start() error {
 			if err := httpdConf.Initialize(s.ConfigDir, s.Profiler); err != nil {
 				logger.Error(logSender, "", "could not start HTTP server: %v", err)
 				logger.ErrorToConsole("could not start HTTP server: %v", err)
+				s.Error = err
 			}
 			s.Shutdown <- true
 		}()
