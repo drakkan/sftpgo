@@ -4119,8 +4119,9 @@ func TestOpenError(t *testing.T) {
 		err = os.Chmod(filepath.Join(user.GetHomeDir(), "test"), 0000)
 		assert.NoError(t, err)
 		err = client.Rename(testFileName, path.Join("test", testFileName))
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
+		}
 		err = os.Chmod(filepath.Join(user.GetHomeDir(), "test"), 0755)
 		assert.NoError(t, err)
 		err = os.Remove(localDownloadPath)

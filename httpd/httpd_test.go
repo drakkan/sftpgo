@@ -2026,6 +2026,8 @@ func TestStartFolderQuotaScanMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	err = os.RemoveAll(folderPath)
 	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
 }
 
 func TestStartQuotaScanNonExistentUserMock(t *testing.T) {

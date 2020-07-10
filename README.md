@@ -46,7 +46,7 @@ Fully featured and highly configurable SFTP server, written in Go
 
 ## Platforms
 
-SFTPGo is developed and tested on Linux. After each commit, the code is automatically built and tested on Linux, macOS and Windows using a [GitHub Action](./.github/workflows/development.yml). Other UNIX variants such as \*BSD should work too.
+SFTPGo is developed and tested on Linux. After each commit, the code is automatically built and tested on Linux, macOS and Windows using a [GitHub Action](./.github/workflows/development.yml). The test cases are regularly manually executed and passed on FreeBSD. Other *BSD variants should work too.
 
 ## Requirements
 

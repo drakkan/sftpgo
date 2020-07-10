@@ -25,7 +25,7 @@ in the "man" directory under the current directory.
 			logger.DisableLogger()
 			logger.EnableConsoleLogger(zerolog.DebugLevel)
 			if _, err := os.Stat(manDir); os.IsNotExist(err) {
-				err = os.Mkdir(manDir, os.ModePerm)
+				err = os.MkdirAll(manDir, os.ModePerm)
 				if err != nil {
 					logger.WarnToConsole("Unable to generate man page files: %v", err)
 					os.Exit(1)

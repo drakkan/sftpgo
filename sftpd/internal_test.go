@@ -2139,6 +2139,8 @@ func TestRenamePermission(t *testing.T) {
 	assert.NoError(t, err)
 	err = conn.checkRecursiveRenameDirPermissions(dir3, dir6)
 	assert.NoError(t, err)
+	err = os.RemoveAll(dir3)
+	assert.NoError(t, err)
 }
 
 func TestRecursiveCopyErrors(t *testing.T) {
