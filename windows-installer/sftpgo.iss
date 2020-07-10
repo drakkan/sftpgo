@@ -44,7 +44,7 @@ Source: "{#MyAppDir}\sftpgo.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyAppDir}\sftpgo.db"; DestDir: "{commonappdata}\{#MyAppName}"; Flags: onlyifdoesntexist uninsneveruninstall
 Source: "{#MyAppDir}\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyAppDir}\sftpgo.json"; DestDir: "{commonappdata}\{#MyAppName}"; Flags: onlyifdoesntexist uninsneveruninstall
-Source: "{#MyAppDir}\sftpgo_api_cli.exe"; DestDir: "{app}\examples\rest-api-cli"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#MyAppDir}\sftpgo_api_cli.exe"; DestDir: "{app}\examples\rest-api-cli"; Flags: ignoreversion
 Source: "{#MyAppDir}\templates\*"; DestDir: "{commonappdata}\{#MyAppName}\templates"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#MyAppDir}\static\*"; DestDir: "{commonappdata}\{#MyAppName}\static"; Flags: ignoreversion recursesubdirs createallsubdirs
 

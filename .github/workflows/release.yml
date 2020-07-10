@@ -148,7 +148,7 @@ jobs:
       - name: Prepare Release for Linux/macOS
         if: startsWith(matrix.os, 'windows-') != true
         run: |
-          mkdir -p output/{init,examples/rest-api-cli,sqlite}
+          mkdir -p output/{init,examples/rest-api-cli,sqlite,bash_completion,zsh_completion}
           echo "For documentation please take a look here:" > output/README.txt
           echo "" >> output/README.txt
           echo "https://github.com/drakkan/sftpgo/blob/${SFTPGO_VERSION}/README.md" >> output/README.txt
@@ -164,6 +164,10 @@ jobs:
           else
             cp -r init/com.github.drakkan.sftpgo.plist output/init/
           fi
+          ./sftpgo gen completion bash > output/bash_completion/sftpgo-completion.bash
+          ./sftpgo gen completion zsh > output/zsh_completion/_sftpgo
+          ./sftpgo gen man -d output/man/man1
+          gzip output/man/man1/*
           cp examples/rest-api-cli/sftpgo_api_cli.py output/examples/rest-api-cli/
           cd output
           tar cJvf sftpgo_${SFTPGO_VERSION}_${OS}_x86_64.tar.xz *
@@ -189,6 +193,24 @@ jobs:
         env:
           SFTPGO_ISS_VERSION: ${{ steps.get_version.outputs.VERSION }}
           SFTPGO_ISS_DOC_URL: https://github.com/drakkan/sftpgo/blob/${{ steps.get_version.outputs.VERSION }}/README.md
+
+      - name: Prepare Portable Release for Windows
+        if: startsWith(matrix.os, 'windows-')
+        run: |
+          mkdir win-portable\examples\rest-api-cli
+          copy .\sftpgo.exe .\win-portable
+          copy .\sftpgo.json .\win-portable
+          copy .\sftpgo.db .\win-portable
+          copy .\dist\sftpgo_api_cli.exe .\win-portable\examples\rest-api-cli
+          copy .\LICENSE .\win-portable\LICENSE.txt
+          mkdir win-portable\templates
+          xcopy .\templates .\win-portable\templates\ /E
+          mkdir win-portable\static
+          xcopy .\static .\win-portable\static\ /E
+          Compress-Archive .\win-portable\* sftpgo_portable_x86_64.zip
+        env:
+          SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
+          OS: ${{ steps.get_os_name.outputs.OS }}
 
       - name: Download release upload URL
         uses: actions/download-artifact@v2
@@ -223,3 +245,14 @@ jobs:
           asset_path: ./sftpgo_windows_x86_64.exe
           asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.exe
           asset_content_type: application/x-dosexec
+
+      - name: Upload Portable Windows Release
+        if: startsWith(matrix.os, 'windows-')
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.upload_url.outputs.url }}
+          asset_path: ./sftpgo_portable_x86_64.zip
+          asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_portable_x86_64.zip
+          asset_content_type: application/zip
