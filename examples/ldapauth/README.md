@@ -7,7 +7,7 @@ You need to change the LDAP connection parameters and the user search query to m
 You can build this example using the following command:
 
 ```console
-go build -i -ldflags "-s -w" -o ldapauth
+go build -ldflags "-s -w" -o ldapauth
 ```
 
 This program assumes that the 389ds schema was extended to add support for public keys using the following ldif file placed in `/etc/dirsrv/schema/98openssh-ldap.ldif`:

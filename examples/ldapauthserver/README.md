@@ -7,5 +7,5 @@ You can configure the server using the [ldapauth.toml](./ldapauth.toml) configur
 You can build this example using the following command:
 
 ```console
-go build -i -ldflags "-s -w" -o ldapauthserver
+go build -ldflags "-s -w" -o ldapauthserver
 ```

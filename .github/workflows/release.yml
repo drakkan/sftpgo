@@ -102,14 +102,14 @@ jobs:
 
       - name: Build for Linux/macOS
         if: startsWith(matrix.os, 'windows-') != true
-        run: go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
+        run: go build -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
 
       - name: Build for Windows
         if: startsWith(matrix.os, 'windows-')
         run: |
           $GIT_COMMIT = (git describe --always --dirty) | Out-String
           $DATE_TIME = ([datetime]::Now.ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ")) | Out-String
-          go build -i -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/version.date=$DATE_TIME" -o sftpgo.exe
+          go build -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/version.date=$DATE_TIME" -o sftpgo.exe
 
       - name: Initialize data provider
         run: ./sftpgo initprovider
@@ -160,9 +160,9 @@ jobs:
           cp -r templates output/
           if [ $OS == 'linux' ]
           then
-            cp -r init/sftpgo.service output/init/
+            cp init/sftpgo.service output/init/
           else
-            cp -r init/com.github.drakkan.sftpgo.plist output/init/
+            cp init/com.github.drakkan.sftpgo.plist output/init/
           fi
           ./sftpgo gen completion bash > output/bash_completion/sftpgo-completion.bash
           ./sftpgo gen completion zsh > output/zsh_completion/_sftpgo

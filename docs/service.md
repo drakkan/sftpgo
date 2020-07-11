@@ -9,19 +9,22 @@ Here are some basic instructions to run SFTPGo as service, please run the follow
 ```bash
 # create the required directories
 sudo mkdir -p /etc/sftpgo \
-  /var/lib/sftpgo
+  /var/lib/sftpgo \
+  /usr/share/sftpgo
 
 # install sftpgo executable
 sudo install -Dm755 sftpgo /usr/bin/sftpgo
 # install the default configuration file, edit it if required
 sudo install -Dm644 sftpgo.json /etc/sftpgo/
 # override some configuration keys using environment variables
-sudo sh -c 'echo "SFTPGO_HTTPD__TEMPLATES_PATH=/var/lib/sftpgo/templates" > /etc/sftpgo/sftpgo.env'
-sudo sh -c 'echo "SFTPGO_HTTPD__STATIC_FILES_PATH=/var/lib/sftpgo/static" >> /etc/sftpgo/sftpgo.env'
+sudo sh -c 'echo "SFTPGO_HTTPD__TEMPLATES_PATH=/usr/share/sftpgo/templates" > /etc/sftpgo/sftpgo.env'
+sudo sh -c 'echo "SFTPGO_HTTPD__STATIC_FILES_PATH=/usr/share/sftpgo/static" >> /etc/sftpgo/sftpgo.env'
 sudo sh -c 'echo "SFTPGO_HTTPD__BACKUPS_PATH=/var/lib/sftpgo/backups" >> /etc/sftpgo/sftpgo.env'
 sudo sh -c 'echo "SFTPGO_DATA_PROVIDER__CREDENTIALS_PATH=/var/lib/sftpgo/credentials" >> /etc/sftpgo/sftpgo.env'
+# if you use a file based data provider such as sqlite or bolt consider to set the database path too, for example:
+#sudo sh -c 'echo "SFTPGO_DATA_PROVIDER__NAME=/var/lib/sftpgo/sftpgo.db" >> /etc/sftpgo/sftpgo.env'
 # install static files and templates for the web UI
-sudo cp -r static templates /var/lib/sftpgo/
+sudo cp -r static templates /usr/share/sftpgo/
 # initialize the configured data provider
 # if you want to use MySQL or PostgreSQL you need to create the configured database before running the initprovider command
 sudo /usr/bin/sftpgo initprovider -c /etc/sftpgo/
@@ -35,6 +38,10 @@ sudo systemctl status sftpgo
 sudo systemctl enable sftpgo
 # optional, install the REST API CLI. It requires python-requests to run
 sudo install -Dm755 examples/rest-api-cli/sftpgo_api_cli.py /usr/bin/sftpgo_api_cli
+# optional, create shell completion script, for example for bash
+sudo /usr/bin/sftpgo gen completion bash > /etc/bash_completion.d/sftpgo-completion.bash
+# optional, create man pages
+sudo /usr/bin/sftpgo gen man -d /usr/share/man/man1
 ```
 
 ## macOS
@@ -47,6 +54,7 @@ Here are some basic instructions to run SFTPGo as service, please run the follow
 # create the required directories
 sudo mkdir -p /usr/local/opt/sftpgo/init \
   /usr/local/opt/sftpgo/var/lib \
+  /usr/local/opt/sftpgo/usr/share \
   /usr/local/opt/sftpgo/var/log \
   /usr/local/opt/sftpgo/etc \
   /usr/local/opt/sftpgo/bin
@@ -59,7 +67,7 @@ sudo chown root:wheel /usr/local/opt/sftpgo/init/com.github.drakkan.sftpgo.plist
 # install the default configuration file, edit it if required
 sudo cp sftpgo.json /usr/local/opt/sftpgo/etc/
 # install static files and templates for the web UI
-sudo cp -r static templates /usr/local/opt/sftpgo/var/lib/
+sudo cp -r static templates /usr/local/opt/sftpgo/usr/share/
 # initialize the configured data provider
 # if you want to use MySQL or PostgreSQL you need to create the configured database before running the initprovider command
 sudo /usr/local/opt/sftpgo/bin/sftpgo initprovider -c /usr/local/opt/sftpgo/etc/

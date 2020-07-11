@@ -11,9 +11,9 @@
         <key>SFTPGO_LOG_FILE_PATH</key>
         <string>/usr/local/opt/sftpgo/var/log/sftpgo.log</string>
         <key>SFTPGO_HTTPD__TEMPLATES_PATH</key>
-        <string>/usr/local/opt/sftpgo/var/lib/templates</string>
+        <string>/usr/local/opt/sftpgo/usr/share/templates</string>
         <key>SFTPGO_HTTPD__STATIC_FILES_PATH</key>
-        <string>/usr/local/opt/sftpgo/var/lib/static</string>
+        <string>/usr/local/opt/sftpgo/usr/share/static</string>
         <key>SFTPGO_HTTPD__BACKUPS_PATH</key>
         <string>/usr/local/opt/sftpgo/var/lib/backups</string>
         <key>SFTPGO_DATA_PROVIDER__CREDENTIALS_PATH</key>

@@ -16,24 +16,24 @@ var genCompletionCmd = &cobra.Command{
 
 Bash:
 
-$ source <(sftpgo completion bash)
+$ source <(sftpgo gen completion bash)
 
 # To load completions for each session, execute once:
 Linux:
-  $ sftpgo completion bash > /etc/bash_completion.d/sftpgo-completion.bash
+  $ sftpgo gen completion bash > /etc/bash_completion.d/sftpgo-completion.bash
 MacOS:
-  $ sftpgo completion bash > /usr/local/etc/bash_completion.d/sftpgo-completion.bash
+  $ sftpgo gen completion bash > /usr/local/etc/bash_completion.d/sftpgo-completion.bash
 
 Zsh:
 
-$ source <(sftpgo completion zsh)
+$ source <(sftpgo gen completion zsh)
 
 # To load completions for each session, execute once:
 $ sftpgo completion zsh > "${fpath[1]}/_sftpgo"
 
 Fish:
 
-$ sftpgo completion fish | source
+$ sftpgo gen completion fish | source
 
 # To load completions for each session, execute once:
 $ sftpgo completion fish > ~/.config/fish/completions/sftpgo.fish
