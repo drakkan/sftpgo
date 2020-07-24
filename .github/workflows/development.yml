@@ -58,6 +58,7 @@ jobs:
       - name: Run test cases using bolt provider
         run: |
           go test -v ./config -covermode=atomic
+          go test -v ./common -covermode=atomic
           go test -v ./httpd -covermode=atomic
           go test -v ./sftpd -covermode=atomic
         env:

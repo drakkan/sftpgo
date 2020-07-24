@@ -8,10 +8,10 @@ import (
 )
 
 type certManager struct {
-	cert     *tls.Certificate
 	certPath string
 	keyPath  string
-	lock     *sync.RWMutex
+	sync.RWMutex
+	cert *tls.Certificate
 }
 
 func (m *certManager) loadCertificate() error {
@@ -21,16 +21,16 @@ func (m *certManager) loadCertificate() error {
 		return err
 	}
 	logger.Debug(logSender, "", "https certificate successfully loaded")
-	m.lock.Lock()
-	defer m.lock.Unlock()
+	m.Lock()
+	defer m.Unlock()
 	m.cert = &newCert
 	return nil
 }
 
 func (m *certManager) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		m.lock.RLock()
-		defer m.lock.RUnlock()
+		m.RLock()
+		defer m.RUnlock()
 		return m.cert, nil
 	}
 }
@@ -40,7 +40,6 @@ func newCertManager(certificateFile, certificateKeyFile string) (*certManager, e
 		cert:     nil,
 		certPath: certificateFile,
 		keyPath:  certificateKeyFile,
-		lock:     new(sync.RWMutex),
 	}
 	err := manager.loadCertificate()
 	if err != nil {

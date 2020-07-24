@@ -16,7 +16,7 @@ sudo groupadd -g 1003 sftpgrp && \
 # Edit sftpgo.json as you need
 
 # Get and build SFTPGo image.
-# Add --build-arg TAG=LATEST to build the latest tag or e.g. TAG=0.9.6 for a specific tag/commit.
+# Add --build-arg TAG=LATEST to build the latest tag or e.g. TAG=v1.0.0 for a specific tag/commit.
 # Add --build-arg FEATURES=<build features comma separated> to specify the features to build.
 git clone https://github.com/drakkan/sftpgo.git && \
   cd sftpgo && \

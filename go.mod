@@ -22,7 +22,7 @@ require (
 	github.com/otiai10/copy v1.2.0
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/pires/go-proxyproto v0.1.3
-	github.com/pkg/sftp v1.11.1-0.20200310224833-18dc4db7a456
+	github.com/pkg/sftp v1.11.1-0.20200716191756-97b9df616e69
 	github.com/prometheus/client_golang v1.7.1
 	github.com/rs/xid v1.2.1
 	github.com/rs/zerolog v1.19.0
@@ -47,7 +47,4 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
-replace (
-	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20200705201813-118ca5720446
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200705203859-05ad140ecdbd
-)
+replace golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200705203859-05ad140ecdbd

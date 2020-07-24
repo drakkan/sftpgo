@@ -28,11 +28,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
 )
@@ -41,7 +41,6 @@ const (
 	defaultUsername           = "test_user"
 	defaultPassword           = "test_password"
 	testPubKey                = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"
-	logSender                 = "APITesting"
 	userPath                  = "/api/v1/user"
 	folderPath                = "/api/v1/folder"
 	activeConnectionsPath     = "/api/v1/connection"
@@ -109,6 +108,8 @@ func TestMain(m *testing.M) {
 	os.RemoveAll(credentialsPath) //nolint:errcheck
 	logger.InfoToConsole("Starting HTTPD tests, provider: %v", providerConf.Driver)
 
+	common.Initialize(config.GetCommonConfig())
+
 	err = dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
 		logger.WarnToConsole("error initializing data provider: %v", err)
@@ -126,13 +127,14 @@ func TestMain(m *testing.M) {
 	httpdConf.BackupsPath = backupsPath
 	err = os.MkdirAll(backupsPath, os.ModePerm)
 	if err != nil {
-		logger.WarnToConsole("error creating backups path: %v", err)
+		logger.ErrorToConsole("error creating backups path: %v", err)
 		os.Exit(1)
 	}
 
 	go func() {
 		if err := httpdConf.Initialize(configDir, true); err != nil {
 			logger.ErrorToConsole("could not start HTTP server: %v", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -140,14 +142,14 @@ func TestMain(m *testing.M) {
 	// now start an https server
 	certPath := filepath.Join(os.TempDir(), "test.crt")
 	keyPath := filepath.Join(os.TempDir(), "test.key")
-	err = ioutil.WriteFile(certPath, []byte(httpsCert), 0666)
+	err = ioutil.WriteFile(certPath, []byte(httpsCert), os.ModePerm)
 	if err != nil {
-		logger.WarnToConsole("error writing HTTPS certificate: %v", err)
+		logger.ErrorToConsole("error writing HTTPS certificate: %v", err)
 		os.Exit(1)
 	}
-	err = ioutil.WriteFile(keyPath, []byte(httpsKey), 0666)
+	err = ioutil.WriteFile(keyPath, []byte(httpsKey), os.ModePerm)
 	if err != nil {
-		logger.WarnToConsole("error writing HTTPS private key: %v", err)
+		logger.ErrorToConsole("error writing HTTPS private key: %v", err)
 		os.Exit(1)
 	}
 	httpdConf.BindPort = 8443
@@ -156,7 +158,8 @@ func TestMain(m *testing.M) {
 
 	go func() {
 		if err := httpdConf.Initialize(configDir, true); err != nil {
-			logger.Error(logSender, "", "could not start HTTPS server: %v", err)
+			logger.ErrorToConsole("could not start HTTPS server: %v", err)
+			os.Exit(1)
 		}
 	}()
 	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
@@ -1673,11 +1676,11 @@ func TestUpdateUserQuotaUsageMock(t *testing.T) {
 	req, _ = http.NewRequest(http.MethodPut, updateUsedQuotaPath, bytes.NewBuffer([]byte("string")))
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr.Code)
-	assert.True(t, sftpd.AddQuotaScan(user.Username))
+	assert.True(t, common.QuotaScans.AddUserQuotaScan(user.Username))
 	req, _ = http.NewRequest(http.MethodPut, updateUsedQuotaPath, bytes.NewBuffer(userAsJSON))
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusConflict, rr.Code)
-	assert.NoError(t, sftpd.RemoveQuotaScan(user.Username))
+	assert.True(t, common.QuotaScans.RemoveUserQuotaScan(user.Username))
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
@@ -1854,12 +1857,11 @@ func TestStartQuotaScanMock(t *testing.T) {
 	}
 	// simulate a duplicate quota scan
 	userAsJSON = getUserAsJSON(t, user)
-	sftpd.AddQuotaScan(user.Username)
+	common.QuotaScans.AddUserQuotaScan(user.Username)
 	req, _ = http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer(userAsJSON))
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusConflict, rr.Code)
-	err = sftpd.RemoveQuotaScan(user.Username)
-	assert.NoError(t, err)
+	assert.True(t, common.QuotaScans.RemoveUserQuotaScan(user.Username))
 
 	userAsJSON = getUserAsJSON(t, user)
 	req, _ = http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer(userAsJSON))
@@ -1867,7 +1869,7 @@ func TestStartQuotaScanMock(t *testing.T) {
 	checkResponseCode(t, http.StatusCreated, rr.Code)
 
 	for {
-		var scans []sftpd.ActiveQuotaScan
+		var scans []common.ActiveQuotaScan
 		req, _ = http.NewRequest(http.MethodGet, quotaScanPath, nil)
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr.Code)
@@ -1890,7 +1892,7 @@ func TestStartQuotaScanMock(t *testing.T) {
 	checkResponseCode(t, http.StatusCreated, rr.Code)
 
 	for {
-		var scans []sftpd.ActiveQuotaScan
+		var scans []common.ActiveQuotaScan
 		req, _ = http.NewRequest(http.MethodGet, quotaScanPath, nil)
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr.Code)
@@ -1954,11 +1956,11 @@ func TestUpdateFolderQuotaUsageMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr.Code)
 
-	assert.True(t, sftpd.AddVFolderQuotaScan(mappedPath))
+	assert.True(t, common.QuotaScans.AddVFolderQuotaScan(mappedPath))
 	req, _ = http.NewRequest(http.MethodPut, updateFolderUsedQuotaPath, bytes.NewBuffer(folderAsJSON))
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusConflict, rr.Code)
-	assert.NoError(t, sftpd.RemoveVFolderQuotaScan(mappedPath))
+	assert.True(t, common.QuotaScans.RemoveVFolderQuotaScan(mappedPath))
 
 	url, err = url.Parse(folderPath)
 	assert.NoError(t, err)
@@ -1986,12 +1988,11 @@ func TestStartFolderQuotaScanMock(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	// simulate a duplicate quota scan
-	sftpd.AddVFolderQuotaScan(mappedPath)
+	common.QuotaScans.AddVFolderQuotaScan(mappedPath)
 	req, _ = http.NewRequest(http.MethodPost, quotaScanVFolderPath, bytes.NewBuffer(folderAsJSON))
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusConflict, rr.Code)
-	err = sftpd.RemoveVFolderQuotaScan(mappedPath)
-	assert.NoError(t, err)
+	assert.True(t, common.QuotaScans.RemoveVFolderQuotaScan(mappedPath))
 	// and now a real quota scan
 	_, err = os.Stat(mappedPath)
 	if err != nil && os.IsNotExist(err) {
@@ -2001,7 +2002,7 @@ func TestStartFolderQuotaScanMock(t *testing.T) {
 	req, _ = http.NewRequest(http.MethodPost, quotaScanVFolderPath, bytes.NewBuffer(folderAsJSON))
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr.Code)
-	var scans []sftpd.ActiveVirtualFolderQuotaScan
+	var scans []common.ActiveVirtualFolderQuotaScan
 	for {
 		req, _ = http.NewRequest(http.MethodGet, quotaScanVFolderPath, nil)
 		rr = executeRequest(req)
@@ -2772,7 +2773,7 @@ func waitTCPListening(address string) {
 			continue
 		}
 		logger.InfoToConsole("tcp server %v now listening\n", address)
-		defer conn.Close()
+		conn.Close()
 		break
 	}
 }

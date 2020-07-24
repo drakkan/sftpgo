@@ -43,19 +43,28 @@ The `gen` command allows to generate completion scripts for your shell and man p
 
 The configuration file contains the following sections:
 
-- **"sftpd"**, the configuration for the SFTP server
-  - `bind_port`, integer. The port used for serving SFTP requests. Default: 2022
-  - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: ""
+- **"common"**, configuration parameters shared among all the supported protocols
   - `idle_timeout`, integer. Time in minutes after which an idle client will be disconnected. 0 means disabled. Default: 15
-  - `max_auth_tries` integer. Maximum number of authentication attempts permitted per connection. If set to a negative number, the number of attempts is unlimited. If set to zero, the number of attempts are limited to 6.
-  - `umask`, string. Umask for the new files and directories. This setting has no effect on Windows. Default: "0022"
-  - `banner`, string. Identification string used by the server. Leave empty to use the default banner. Default `SFTPGo_<version>`, for example `SSH-2.0-SFTPGo_0.9.5`
   - `upload_mode` integer. 0 means standard: the files are uploaded directly to the requested path. 1 means atomic: files are uploaded to a temporary path and renamed to the requested path when the client ends the upload. Atomic mode avoids problems such as a web server that serves partial files when the files are being uploaded. In atomic mode, if there is an upload error, the temporary file is deleted and so the requested upload path will not contain a partial file. 2 means atomic with resume support: same as atomic but if there is an upload error, the temporary file is renamed to the requested path and not deleted. This way, a client can reconnect and resume the upload.
   - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions. See the "Custom Actions" paragraph for more details
     - `execute_on`, list of strings. Valid values are `download`, `upload`, `pre-delete`, `delete`, `rename`, `ssh_cmd`. Leave empty to disable actions.
-    - `command`, string. Deprecated please use `hook`.
-    - `http_notification_url`, a valid URL. Deprecated please use `hook`.
     - `hook`, string. Absolute path to the command to execute or HTTP URL to notify.
+  - `setstat_mode`, integer. 0 means "normal mode": requests for changing permissions, owner/group and access/modification times are executed. 1 means "ignore mode": requests for changing permissions, owner/group and access/modification times are silently ignored.
+  - `proxy_protocol`, integer. Support for [HAProxy PROXY protocol](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt). If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable the proxy protocol. It provides a convenient way to safely transport connection information such as a client's address across multiple layers of NAT or TCP proxies to get the real client IP address instead of the proxy IP. Both protocol versions 1 and 2 are supported. If the proxy protocol is enabled in SFTPGo then you have to enable the protocol in your proxy configuration too. For example, for HAProxy, add `send-proxy` or `send-proxy-v2` to each server configuration line. The following modes are supported:
+    - 0, disabled
+    - 1, enabled. Proxy header will be used and requests without proxy header will be accepted
+    - 2, required. Proxy header will be used and requests without proxy header will be rejected
+  - `proxy_allowed`, List of IP addresses and IP ranges allowed to send the proxy header:
+    - If `proxy_protocol` is set to 1 and we receive a proxy header from an IP that is not in the list then the connection will be accepted and the header will be ignored
+    - If `proxy_protocol` is set to 2 and we receive a proxy header from an IP that is not in the list then the connection will be rejected
+- **"sftpd"**, the configuration for the SFTP server
+  - `bind_port`, integer. The port used for serving SFTP requests. Default: 2022
+  - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: ""
+  - `idle_timeout`, integer. Deprecated, please use the same key in `common` section.
+  - `max_auth_tries` integer. Maximum number of authentication attempts permitted per connection. If set to a negative number, the number of attempts is unlimited. If set to zero, the number of attempts are limited to 6.
+  - `banner`, string. Identification string used by the server. Leave empty to use the default banner. Default `SFTPGo_<version>`, for example `SSH-2.0-SFTPGo_0.9.5`
+  - `upload_mode` integer. Deprecated, please use the same key in `common` section.
+  - `actions`, struct. Deprecated, please use the same key in `common` section.
   - `keys`, struct array. Deprecated, please use `host_keys`.
     - `private_key`, path to the private key file. It can be a path relative to the config dir or an absolute one.
   - `host_keys`, list of strings. It contains the daemon's private host keys. Each host key can be defined as a path relative to the configuration directory or an absolute one. If empty, the daemon will search or try to generate `id_rsa` and `id_ecdsa` keys inside the configuration directory. If you configure absolute paths to files named `id_rsa` and/or `id_ecdsa` then SFTPGo will try to generate these keys using the default settings.
@@ -64,17 +73,11 @@ The configuration file contains the following sections:
   - `macs`, list of strings. Available MAC (message authentication code) algorithms in preference order. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L84 "Supported MACs")
   - `trusted_user_ca_keys`, list of public keys paths of certificate authorities that are trusted to sign user certificates for authentication. The paths can be absolute or relative to the configuration directory.
   - `login_banner_file`, path to the login banner file. The contents of the specified file, if any, are sent to the remote user before authentication is allowed. It can be a path relative to the config dir or an absolute one. Leave empty to disable login banner.
-  - `setstat_mode`, integer. 0 means "normal mode": requests for changing permissions, owner/group and access/modification times are executed. 1 means "ignore mode": requests for changing permissions, owner/group and access/modification times are silently ignored.
+  - `setstat_mode`, integer. Deprecated, please use the same key in `common` section.
   - `enabled_ssh_commands`, list of enabled SSH commands. `*` enables all supported commands. More information can be found [here](./ssh-commands.md).
-  - `keyboard_interactive_auth_program`, string. Deprecated, please use `keyboard_interactive_auth_hook`.
   - `keyboard_interactive_auth_hook`, string. Absolute path to an external program or an HTTP URL to invoke for keyboard interactive authentication. See the "Keyboard Interactive Authentication" paragraph for more details.
-  - `proxy_protocol`, integer. Support for [HAProxy PROXY protocol](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt). If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable the proxy protocol. It provides a convenient way to safely transport connection information such as a client's address across multiple layers of NAT or TCP proxies to get the real client IP address instead of the proxy IP. Both protocol versions 1 and 2 are supported. If the proxy protocol is enabled in SFTPGo then you have to enable the protocol in your proxy configuration too. For example, for HAProxy, add `send-proxy` or `send-proxy-v2` to each server configuration line. The following modes are supported:
-    - 0, disabled
-    - 1, enabled. Proxy header will be used and requests without proxy header will be accepted
-    - 2, required. Proxy header will be used and requests without proxy header will be rejected
-  - `proxy_allowed`, List of IP addresses and IP ranges allowed to send the proxy header:
-    - If `proxy_protocol` is set to 1 and we receive a proxy header from an IP that is not in the list then the connection will be accepted and the header will be ignored
-    - If `proxy_protocol` is set to 2 and we receive a proxy header from an IP that is not in the list then the connection will be rejected
+  - `proxy_protocol`, integer.  Deprecated, please use the same key in `common` section.
+  - `proxy_allowed`, list of strings. Deprecated, please use the same key in `common` section.
 - **"data_provider"**, the configuration for the data provider
   - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`, `memory`
   - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database. For driver `memory` this is the (optional) path relative to the config dir or the absolute path to the users dump, obtained using the `dumpdata` REST API, to load. This dump will be loaded at startup and can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows. The `memory` provider will not modify the provided file so quota usage and last login will not be persisted
@@ -94,8 +97,6 @@ The configuration file contains the following sections:
   - `users_base_dir`, string. Users default base directory. If no home dir is defined while adding a new user, and this value is a valid absolute path, then the user home dir will be automatically defined as the path obtained joining the base dir and the username
   - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions. See the "Custom Actions" paragraph for more details
     - `execute_on`, list of strings. Valid values are `add`, `update`, `delete`. `update` action will not be fired for internal updates such as the last login or the user quota fields.
-    - `command`, string. Deprecated please use `hook`.
-    - `http_notification_url`, a valid URL. Deprecated please use `hook`.
     - `hook`, string. Absolute path to the command to execute or HTTP URL to notify.
   - `external_auth_program`, string. Deprecated, please use `external_auth_hook`.
   - `external_auth_hook`, string. Absolute path to an external program or an HTTP URL to invoke for users authentication. See the "External Authentication" paragraph for more details. Leave empty to disable.
@@ -151,6 +152,6 @@ You can also override all the available configuration options using environment 
 Let's see some examples:
 
 - To set sftpd `bind_port`, you need to define the env var `SFTPGO_SFTPD__BIND_PORT`
-- To set the `execute_on` actions, you need to define the env var `SFTPGO_SFTPD__ACTIONS__EXECUTE_ON`. For example `SFTPGO_SFTPD__ACTIONS__EXECUTE_ON=upload,download`
+- To set the `execute_on` actions, you need to define the env var `SFTPGO_COMMON__ACTIONS__EXECUTE_ON`. For example `SFTPGO_COMMON__ACTIONS__EXECUTE_ON=upload,download`
 
 Please note that, to override configuration options with environment variables, a configuration file containing the options to override is required. You can, for example, deploy the default configuration file and then override the options you need to customize using environment variables.

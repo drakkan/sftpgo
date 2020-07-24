@@ -6,9 +6,9 @@ import (
 
 	"github.com/go-chi/render"
 
+	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/vfs"
 )
 
@@ -18,11 +18,11 @@ const (
 )
 
 func getQuotaScans(w http.ResponseWriter, r *http.Request) {
-	render.JSON(w, r, sftpd.GetQuotaScans())
+	render.JSON(w, r, common.QuotaScans.GetUsersQuotaScans())
 }
 
 func getVFolderQuotaScans(w http.ResponseWriter, r *http.Request) {
-	render.JSON(w, r, sftpd.GetVFoldersQuotaScans())
+	render.JSON(w, r, common.QuotaScans.GetVFoldersQuotaScans())
 }
 
 func updateUserQuotaUsage(w http.ResponseWriter, r *http.Request) {
@@ -53,11 +53,11 @@ func updateUserQuotaUsage(w http.ResponseWriter, r *http.Request) {
 			"", http.StatusBadRequest)
 		return
 	}
-	if !sftpd.AddQuotaScan(user.Username) {
+	if !common.QuotaScans.AddUserQuotaScan(user.Username) {
 		sendAPIResponse(w, r, err, "A quota scan is in progress for this user", http.StatusConflict)
 		return
 	}
-	defer sftpd.RemoveQuotaScan(user.Username) //nolint:errcheck
+	defer common.QuotaScans.RemoveUserQuotaScan(user.Username)
 	err = dataprovider.UpdateUserQuota(user, u.UsedQuotaFiles, u.UsedQuotaSize, mode == quotaUpdateModeReset)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -89,11 +89,11 @@ func updateVFolderQuotaUsage(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if !sftpd.AddVFolderQuotaScan(folder.MappedPath) {
+	if !common.QuotaScans.AddVFolderQuotaScan(folder.MappedPath) {
 		sendAPIResponse(w, r, err, "A quota scan is in progress for this folder", http.StatusConflict)
 		return
 	}
-	defer sftpd.RemoveVFolderQuotaScan(folder.MappedPath) //nolint:errcheck
+	defer common.QuotaScans.RemoveVFolderQuotaScan(folder.MappedPath)
 	err = dataprovider.UpdateVirtualFolderQuota(folder, f.UsedQuotaFiles, f.UsedQuotaSize, mode == quotaUpdateModeReset)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -119,7 +119,7 @@ func startQuotaScan(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if sftpd.AddQuotaScan(user.Username) {
+	if common.QuotaScans.AddUserQuotaScan(user.Username) {
 		go doQuotaScan(user) //nolint:errcheck
 		sendAPIResponse(w, r, err, "Scan started", http.StatusCreated)
 	} else {
@@ -144,7 +144,7 @@ func startVFolderQuotaScan(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if sftpd.AddVFolderQuotaScan(folder.MappedPath) {
+	if common.QuotaScans.AddVFolderQuotaScan(folder.MappedPath) {
 		go doFolderQuotaScan(folder) //nolint:errcheck
 		sendAPIResponse(w, r, err, "Scan started", http.StatusCreated)
 	} else {
@@ -153,7 +153,7 @@ func startVFolderQuotaScan(w http.ResponseWriter, r *http.Request) {
 }
 
 func doQuotaScan(user dataprovider.User) error {
-	defer sftpd.RemoveQuotaScan(user.Username) //nolint:errcheck
+	defer common.QuotaScans.RemoveUserQuotaScan(user.Username)
 	fs, err := user.GetFilesystem("")
 	if err != nil {
 		logger.Warn(logSender, "", "unable scan quota for user %#v error creating filesystem: %v", user.Username, err)
@@ -170,7 +170,7 @@ func doQuotaScan(user dataprovider.User) error {
 }
 
 func doFolderQuotaScan(folder vfs.BaseVirtualFolder) error {
-	defer sftpd.RemoveVFolderQuotaScan(folder.MappedPath) //nolint:errcheck
+	defer common.QuotaScans.RemoveVFolderQuotaScan(folder.MappedPath)
 	fs := vfs.NewOsFs("", "", nil).(vfs.OsFs)
 	numFiles, size, err := fs.GetDirSize(folder.MappedPath)
 	if err != nil {

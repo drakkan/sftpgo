@@ -11,14 +11,13 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/pires/go-proxyproto"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
@@ -43,27 +42,16 @@ type Configuration struct {
 	BindPort int `json:"bind_port" mapstructure:"bind_port"`
 	// The address to listen on. A blank value means listen on all available network interfaces.
 	BindAddress string `json:"bind_address" mapstructure:"bind_address"`
-	// Maximum idle timeout as minutes. If a client is idle for a time that exceeds this setting it will be disconnected.
-	// 0 means disabled
+	// Deprecated: please use the same key in common configuration
 	IdleTimeout int `json:"idle_timeout" mapstructure:"idle_timeout"`
 	// Maximum number of authentication attempts permitted per connection.
 	// If set to a negative number, the number of attempts is unlimited.
 	// If set to zero, the number of attempts are limited to 6.
 	MaxAuthTries int `json:"max_auth_tries" mapstructure:"max_auth_tries"`
-	// Umask for new files
-	Umask string `json:"umask" mapstructure:"umask"`
-	// UploadMode 0 means standard, the files are uploaded directly to the requested path.
-	// 1 means atomic: the files are uploaded to a temporary path and renamed to the requested path
-	// when the client ends the upload. Atomic mode avoid problems such as a web server that
-	// serves partial files when the files are being uploaded.
-	// In atomic mode if there is an upload error the temporary file is deleted and so the requested
-	// upload path will not contain a partial file.
-	// 2 means atomic with resume support: as atomic but if there is an upload error the temporary
-	// file is renamed to the requested path and not deleted, this way a client can reconnect and resume
-	// the upload.
+	// Deprecated: please use the same key in common configuration
 	UploadMode int `json:"upload_mode" mapstructure:"upload_mode"`
-	// Actions to execute on SFTP create, download, delete and rename
-	Actions Actions `json:"actions" mapstructure:"actions"`
+	// Actions to execute on file operations and SSH commands
+	Actions common.ProtocolActions `json:"actions" mapstructure:"actions"`
 	// Deprecated: please use HostKeys
 	Keys []Key `json:"keys" mapstructure:"keys"`
 	// HostKeys define the daemon's private host keys.
@@ -86,8 +74,7 @@ type Configuration struct {
 	// LoginBannerFile the contents of the specified file, if any, are sent to
 	// the remote user before authentication is allowed.
 	LoginBannerFile string `json:"login_banner_file" mapstructure:"login_banner_file"`
-	// SetstatMode 0 means "normal mode": requests for changing permissions and owner/group are executed.
-	// 1 means "ignore mode": requests for changing permissions and owner/group are silently ignored.
+	// Deprecated: please use the same key in common configuration
 	SetstatMode int `json:"setstat_mode" mapstructure:"setstat_mode"`
 	// List of enabled SSH commands.
 	// We support the following SSH commands:
@@ -110,27 +97,12 @@ type Configuration struct {
 	// The following SSH commands are enabled by default: "md5sum", "sha1sum", "cd", "pwd".
 	// "*" enables all supported SSH commands.
 	EnabledSSHCommands []string `json:"enabled_ssh_commands" mapstructure:"enabled_ssh_commands"`
-	// Deprecated: please use KeyboardInteractiveHook
-	KeyboardInteractiveProgram string `json:"keyboard_interactive_auth_program" mapstructure:"keyboard_interactive_auth_program"`
 	// Absolute path to an external program or an HTTP URL to invoke for keyboard interactive authentication.
 	// Leave empty to disable this authentication mode.
 	KeyboardInteractiveHook string `json:"keyboard_interactive_auth_hook" mapstructure:"keyboard_interactive_auth_hook"`
-	// Support for HAProxy PROXY protocol.
-	// If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable
-	// the proxy protocol. It provides a convenient way to safely transport connection information
-	// such as a client's address across multiple layers of NAT or TCP proxies to get the real
-	// client IP address instead of the proxy IP. Both protocol versions 1 and 2 are supported.
-	// - 0 means disabled
-	// - 1 means proxy protocol enabled. Proxy header will be used and requests without proxy header will be accepted.
-	// - 2 means proxy protocol required. Proxy header will be used and requests without proxy header will be rejected.
-	// If the proxy protocol is enabled in SFTPGo then you have to enable the protocol in your proxy configuration too,
-	// for example for HAProxy add "send-proxy" or "send-proxy-v2" to each server configuration line.
+	// Deprecated: please use the same key in common configuration
 	ProxyProtocol int `json:"proxy_protocol" mapstructure:"proxy_protocol"`
-	// List of IP addresses and IP ranges allowed to send the proxy header.
-	// If proxy protocol is set to 1 and we receive a proxy header from an IP that is not in the list then the
-	// connection will be accepted and the header will be ignored.
-	// If proxy protocol is set to 2 and we receive a proxy header from an IP that is not in the list then the
-	// connection will be rejected.
+	// Deprecated: please use the same key in common configuration
 	ProxyAllowed     []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
 	certChecker      *ssh.CertChecker
 	parsedUserCAKeys []ssh.PublicKey
@@ -153,13 +125,6 @@ func (e *authenticationError) Error() string {
 
 // Initialize the SFTP server and add a persistent listener to handle inbound SFTP connections.
 func (c Configuration) Initialize(configDir string) error {
-	umask, err := strconv.ParseUint(c.Umask, 8, 8)
-	if err == nil {
-		utils.SetUmask(int(umask), c.Umask)
-	} else {
-		logger.Warn(logSender, "", "error reading umask, please fix your config file: %v", err)
-		logger.WarnToConsole("error reading umask, please fix your config file: %v", err)
-	}
 	serverConfig := &ssh.ServerConfig{
 		NoClientAuth: false,
 		MaxAuthTries: c.MaxAuthTries,
@@ -193,11 +158,11 @@ func (c Configuration) Initialize(configDir string) error {
 		ServerVersion: fmt.Sprintf("SSH-2.0-%v", c.Banner),
 	}
 
-	if err = c.checkAndLoadHostKeys(configDir, serverConfig); err != nil {
+	if err := c.checkAndLoadHostKeys(configDir, serverConfig); err != nil {
 		return err
 	}
 
-	if err = c.initializeCertChecker(configDir); err != nil {
+	if err := c.initializeCertChecker(configDir); err != nil {
 		return err
 	}
 
@@ -213,16 +178,12 @@ func (c Configuration) Initialize(configDir string) error {
 		logger.Warn(logSender, "", "error starting listener on address %s:%d: %v", c.BindAddress, c.BindPort, err)
 		return err
 	}
-	proxyListener, err := c.getProxyListener(listener)
+	proxyListener, err := common.Config.GetProxyListener(listener)
 	if err != nil {
 		logger.Warn(logSender, "", "error enabling proxy listener: %v", err)
 		return err
 	}
-	actions = c.Actions
-	uploadMode = c.UploadMode
-	setstatMode = c.SetstatMode
 	logger.Info(logSender, "", "server listener registered address: %v", listener.Addr().String())
-	c.checkIdleTimer()
 
 	for {
 		var conn net.Conn
@@ -234,43 +195,6 @@ func (c Configuration) Initialize(configDir string) error {
 		if conn != nil && err == nil {
 			go c.AcceptInboundConnection(conn, serverConfig)
 		}
-	}
-}
-
-func (c *Configuration) getProxyListener(listener net.Listener) (*proxyproto.Listener, error) {
-	var proxyListener *proxyproto.Listener
-	var err error
-	if c.ProxyProtocol > 0 {
-		var policyFunc func(upstream net.Addr) (proxyproto.Policy, error)
-		if c.ProxyProtocol == 1 && len(c.ProxyAllowed) > 0 {
-			policyFunc, err = proxyproto.LaxWhiteListPolicy(c.ProxyAllowed)
-			if err != nil {
-				return nil, err
-			}
-		}
-		if c.ProxyProtocol == 2 {
-			if len(c.ProxyAllowed) == 0 {
-				policyFunc = func(upstream net.Addr) (proxyproto.Policy, error) {
-					return proxyproto.REQUIRE, nil
-				}
-			} else {
-				policyFunc, err = proxyproto.StrictWhiteListPolicy(c.ProxyAllowed)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-		proxyListener = &proxyproto.Listener{
-			Listener: listener,
-			Policy:   policyFunc,
-		}
-	}
-	return proxyListener, nil
-}
-
-func (c Configuration) checkIdleTimer() {
-	if c.IdleTimeout > 0 {
-		startIdleTimer(time.Duration(c.IdleTimeout) * time.Minute)
 	}
 }
 
@@ -368,20 +292,16 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 	}
 
 	connection := Connection{
-		ID:            connectionID,
-		User:          user,
-		ClientVersion: string(sconn.ClientVersion()),
-		RemoteAddr:    remoteAddr,
-		StartTime:     time.Now(),
-		lastActivity:  time.Now(),
-		netConn:       conn,
-		channel:       nil,
-		fs:            fs,
+		BaseConnection: common.NewBaseConnection(connectionID, "sftpd", user, fs),
+		ClientVersion:  string(sconn.ClientVersion()),
+		RemoteAddr:     remoteAddr,
+		netConn:        conn,
+		channel:        nil,
 	}
 
-	connection.fs.CheckRootPath(user.Username, user.GetUID(), user.GetGID())
+	connection.Fs.CheckRootPath(user.Username, user.GetUID(), user.GetGID())
 
-	connection.Log(logger.LevelInfo, logSender, "User id: %d, logged in with: %#v, username: %#v, home_dir: %#v remote addr: %#v",
+	connection.Log(logger.LevelInfo, "User id: %d, logged in with: %#v, username: %#v, home_dir: %#v remote addr: %#v",
 		user.ID, loginType, user.Username, user.HomeDir, remoteAddr.String())
 	dataprovider.UpdateLastLogin(user) //nolint:errcheck
 
@@ -391,14 +311,14 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		// If its not a session channel we just move on because its not something we
 		// know how to handle at this point.
 		if newChannel.ChannelType() != "session" {
-			connection.Log(logger.LevelDebug, logSender, "received an unknown channel type: %v", newChannel.ChannelType())
+			connection.Log(logger.LevelDebug, "received an unknown channel type: %v", newChannel.ChannelType())
 			newChannel.Reject(ssh.UnknownChannelType, "unknown channel type") //nolint:errcheck
 			continue
 		}
 
 		channel, requests, err := newChannel.Accept()
 		if err != nil {
-			connection.Log(logger.LevelWarn, logSender, "could not accept a channel: %v", err)
+			connection.Log(logger.LevelWarn, "could not accept a channel: %v", err)
 			continue
 		}
 
@@ -412,11 +332,12 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 				case "subsystem":
 					if string(req.Payload[4:]) == "sftp" {
 						ok = true
-						connection.protocol = protocolSFTP
+						connection.SetProtocol(common.ProtocolSFTP)
 						connection.channel = channel
-						go c.handleSftpConnection(channel, connection)
+						go c.handleSftpConnection(channel, &connection)
 					}
 				case "exec":
+					connection.SetProtocol(common.ProtocolSSH)
 					ok = processSSHCommand(req.Payload, &connection, channel, c.EnabledSSHCommands)
 				}
 				req.Reply(ok, nil) //nolint:errcheck
@@ -425,9 +346,10 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 	}
 }
 
-func (c Configuration) handleSftpConnection(channel ssh.Channel, connection Connection) {
-	addConnection(connection)
-	defer removeConnection(connection)
+func (c Configuration) handleSftpConnection(channel ssh.Channel, connection *Connection) {
+	common.Connections.Add(connection)
+	defer common.Connections.Remove(connection)
+
 	// Create a new handler for the currently logged in user's server.
 	handler := c.createHandler(connection)
 
@@ -435,17 +357,17 @@ func (c Configuration) handleSftpConnection(channel ssh.Channel, connection Conn
 	server := sftp.NewRequestServer(channel, handler, sftp.WithRSAllocator())
 
 	if err := server.Serve(); err == io.EOF {
-		connection.Log(logger.LevelDebug, logSender, "connection closed, sending exit status")
+		connection.Log(logger.LevelDebug, "connection closed, sending exit status")
 		exitStatus := sshSubsystemExitStatus{Status: uint32(0)}
 		_, err = channel.SendRequest("exit-status", false, ssh.Marshal(&exitStatus))
-		connection.Log(logger.LevelDebug, logSender, "sent exit status %+v error: %v", exitStatus, err)
+		connection.Log(logger.LevelDebug, "sent exit status %+v error: %v", exitStatus, err)
 		server.Close()
 	} else if err != nil {
-		connection.Log(logger.LevelWarn, logSender, "connection closed with error: %v", err)
+		connection.Log(logger.LevelWarn, "connection closed with error: %v", err)
 	}
 }
 
-func (c Configuration) createHandler(connection Connection) sftp.Handlers {
+func (c Configuration) createHandler(connection *Connection) sftp.Handlers {
 	return sftp.Handlers{
 		FileGet:  connection,
 		FilePut:  connection,
@@ -465,7 +387,7 @@ func loginUser(user dataprovider.User, loginMethod, publicKey string, conn ssh.C
 		return nil, fmt.Errorf("cannot login user with invalid home dir: %#v", user.HomeDir)
 	}
 	if user.MaxSessions > 0 {
-		activeSessions := getActiveSessions(user.Username)
+		activeSessions := common.Connections.GetActiveSessions(user.Username)
 		if activeSessions >= user.MaxSessions {
 			logger.Debug(logSender, "", "authentication refused for user: %#v, too many open sessions: %v/%v", user.Username,
 				activeSessions, user.MaxSessions)

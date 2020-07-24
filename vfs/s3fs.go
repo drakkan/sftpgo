@@ -206,7 +206,7 @@ func (fs S3Fs) Create(name string, flag int) (*os.File, *PipeWriter, func(), err
 			u.PartSize = fs.config.UploadPartSize
 		})
 		r.CloseWithError(err) //nolint:errcheck // the returned error is always null
-		p.Done(GetSFTPError(fs, err))
+		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, response: %v, readed bytes: %v, err: %+v",
 			name, response, r.GetReadedBytes(), err)
 		metrics.S3TransferCompleted(r.GetReadedBytes(), 0, err)

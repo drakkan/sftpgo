@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-chi/chi"
 
+	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 )
@@ -50,7 +51,7 @@ var (
 	router      *chi.Mux
 	backupsPath string
 	httpAuth    httpAuthProvider
-	certMgr     *certManager
+	certMgr     *common.CertManager
 )
 
 // Conf httpd daemon configuration
@@ -123,7 +124,7 @@ func (c Conf) Initialize(configDir string, enableProfiler bool) error {
 		MaxHeaderBytes: 1 << 16, // 64KB
 	}
 	if len(certificateFile) > 0 && len(certificateKeyFile) > 0 {
-		certMgr, err = newCertManager(certificateFile, certificateKeyFile)
+		certMgr, err = common.NewCertManager(certificateFile, certificateKeyFile, logSender)
 		if err != nil {
 			return err
 		}
@@ -139,7 +140,7 @@ func (c Conf) Initialize(configDir string, enableProfiler bool) error {
 // ReloadTLSCertificate reloads the TLS certificate and key from the configured paths
 func ReloadTLSCertificate() error {
 	if certMgr != nil {
-		return certMgr.loadCertificate()
+		return certMgr.LoadCertificate(logSender)
 	}
 	return nil
 }

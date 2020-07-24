@@ -15,8 +15,8 @@ import (
 
 	"github.com/go-chi/chi"
 
+	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/version"
 	"github.com/drakkan/sftpgo/vfs"
@@ -77,7 +77,7 @@ type foldersPage struct {
 
 type connectionsPage struct {
 	basePage
-	Connections []sftpd.ConnectionStatus
+	Connections []common.ConnectionStatus
 }
 
 type userPage struct {
@@ -603,7 +603,7 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebGetConnections(w http.ResponseWriter, r *http.Request) {
-	connectionStats := sftpd.GetConnectionsStats()
+	connectionStats := common.Connections.GetStats()
 	data := connectionsPage{
 		basePage:    getBasePageData(pageConnectionsTitle, webConnectionsPath),
 		Connections: connectionStats,

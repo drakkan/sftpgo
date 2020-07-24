@@ -8,11 +8,8 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"os/exec"
-	"path"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"testing"
 	"time"
 
@@ -21,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
@@ -133,131 +131,8 @@ func newMockOsFs(err, statErr error, atomicUpload bool, connectionID, rootDir st
 	}
 }
 
-func TestNewActionNotification(t *testing.T) {
-	user := dataprovider.User{
-		Username: "username",
-	}
-	user.FsConfig.Provider = 0
-	user.FsConfig.S3Config = vfs.S3FsConfig{
-		Bucket:   "s3bucket",
-		Endpoint: "endpoint",
-	}
-	user.FsConfig.GCSConfig = vfs.GCSFsConfig{
-		Bucket: "gcsbucket",
-	}
-	a := newActionNotification(user, operationDownload, "path", "target", "", 123, nil)
-	assert.Equal(t, user.Username, a.Username)
-	assert.Equal(t, 0, len(a.Bucket))
-	assert.Equal(t, 0, len(a.Endpoint))
-
-	user.FsConfig.Provider = 1
-	a = newActionNotification(user, operationDownload, "path", "target", "", 123, nil)
-	assert.Equal(t, "s3bucket", a.Bucket)
-	assert.Equal(t, "endpoint", a.Endpoint)
-
-	user.FsConfig.Provider = 2
-	a = newActionNotification(user, operationDownload, "path", "target", "", 123, nil)
-	assert.Equal(t, "gcsbucket", a.Bucket)
-	assert.Equal(t, 0, len(a.Endpoint))
-}
-
-func TestWrongActions(t *testing.T) {
-	actionsCopy := actions
-
-	badCommand := "/bad/command"
-	if runtime.GOOS == osWindows {
-		badCommand = "C:\\bad\\command"
-	}
-	actions = Actions{
-		ExecuteOn: []string{operationDownload},
-		Hook:      badCommand,
-	}
-	user := dataprovider.User{
-		Username: "username",
-	}
-	err := executeAction(newActionNotification(user, operationDownload, "path", "", "", 0, nil))
-	assert.Error(t, err, "action with bad command must fail")
-
-	err = executeAction(newActionNotification(user, operationDelete, "path", "", "", 0, nil))
-	assert.EqualError(t, err, errUnconfiguredAction.Error())
-	actions.Hook = "http://foo\x7f.com/"
-	err = executeAction(newActionNotification(user, operationDownload, "path", "", "", 0, nil))
-	assert.Error(t, err, "action with bad url must fail")
-
-	actions.Hook = ""
-	err = executeAction(newActionNotification(user, operationDownload, "path", "", "", 0, nil))
-	assert.Error(t, err, errNoHook.Error())
-
-	actions.Hook = "relative path"
-	err = executeNotificationCommand(newActionNotification(user, operationDownload, "path", "", "", 0, nil))
-	assert.EqualError(t, err, fmt.Sprintf("invalid notification command %#v", actions.Hook))
-
-	actions = actionsCopy
-}
-
-func TestActionHTTP(t *testing.T) {
-	actionsCopy := actions
-
-	actions = Actions{
-		ExecuteOn: []string{operationDownload},
-		Hook:      "http://127.0.0.1:8080/",
-	}
-	user := dataprovider.User{
-		Username: "username",
-	}
-	err := executeAction(newActionNotification(user, operationDownload, "path", "", "", 0, nil))
-	assert.EqualError(t, err, errUnexpectedHTTResponse.Error())
-
-	actions = actionsCopy
-}
-
-func TestPreDeleteAction(t *testing.T) {
-	if runtime.GOOS == osWindows {
-		t.Skip("this test is not available on Windows")
-	}
-	actionsCopy := actions
-
-	hookCmd, err := exec.LookPath("true")
-	assert.NoError(t, err)
-	actions = Actions{
-		ExecuteOn: []string{operationPreDelete},
-		Hook:      hookCmd,
-	}
-	homeDir := filepath.Join(os.TempDir(), "test_user")
-	err = os.MkdirAll(homeDir, os.ModePerm)
-	assert.NoError(t, err)
-	user := dataprovider.User{
-		Username: "username",
-		HomeDir:  homeDir,
-	}
-	user.Permissions = make(map[string][]string)
-	user.Permissions["/"] = []string{dataprovider.PermAny}
-	c := Connection{
-		fs:   vfs.NewOsFs("id", homeDir, nil),
-		User: user,
-	}
-	testfile := filepath.Join(user.HomeDir, "testfile")
-	request := sftp.NewRequest("Remove", "/testfile")
-	err = ioutil.WriteFile(testfile, []byte("test"), 0666)
-	assert.NoError(t, err)
-	err = c.handleSFTPRemove(testfile, request)
-	assert.EqualError(t, err, sftp.ErrSSHFxOk.Error())
-	assert.FileExists(t, testfile)
-
-	os.RemoveAll(homeDir)
-
-	actions = actionsCopy
-}
-
-func TestRemoveNonexistentTransfer(t *testing.T) {
-	transfer := Transfer{}
-	err := removeTransfer(&transfer)
-	assert.Error(t, err, "remove nonexistent transfer must fail")
-}
-
 func TestRemoveNonexistentQuotaScan(t *testing.T) {
-	err := RemoveQuotaScan("username")
-	assert.Error(t, err, "remove nonexistent quota scan must fail")
+	assert.False(t, common.QuotaScans.RemoveUserQuotaScan("username"))
 }
 
 func TestGetOSOpenFlags(t *testing.T) {
@@ -278,31 +153,25 @@ func TestUploadResumeInvalidOffset(t *testing.T) {
 	testfile := "testfile" //nolint:goconst
 	file, err := os.Create(testfile)
 	assert.NoError(t, err)
-	transfer := Transfer{
-		file:          file,
-		path:          file.Name(),
-		start:         time.Now(),
-		bytesSent:     0,
-		bytesReceived: 0,
-		user: dataprovider.User{
-			Username: "testuser",
-		},
-		connectionID:   "",
-		transferType:   transferUpload,
-		lastActivity:   time.Now(),
-		isNewFile:      false,
-		protocol:       protocolSFTP,
-		transferError:  nil,
-		isFinished:     false,
-		minWriteOffset: 10,
-		lock:           new(sync.Mutex),
+	user := dataprovider.User{
+		Username: "testuser",
 	}
+	fs := vfs.NewOsFs("", os.TempDir(), nil)
+	conn := common.NewBaseConnection("", common.ProtocolSFTP, user, fs)
+	baseTransfer := common.NewBaseTransfer(file, conn, nil, file.Name(), testfile, common.TransferUpload, 10, 0, false)
+	transfer := newTranfer(baseTransfer, nil, nil, 0)
 	_, err = transfer.WriteAt([]byte("test"), 0)
 	assert.Error(t, err, "upload with invalid offset must fail")
+	if assert.Error(t, transfer.ErrTransfer) {
+		assert.EqualError(t, err, transfer.ErrTransfer.Error())
+		assert.Contains(t, transfer.ErrTransfer.Error(), "Invalid write offset")
+	}
+
 	err = transfer.Close()
 	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "Invalid write offset")
+		assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
 	}
+
 	err = os.Remove(testfile)
 	assert.NoError(t, err)
 }
@@ -311,25 +180,14 @@ func TestReadWriteErrors(t *testing.T) {
 	testfile := "testfile"
 	file, err := os.Create(testfile)
 	assert.NoError(t, err)
-	transfer := Transfer{
-		file:          file,
-		path:          file.Name(),
-		start:         time.Now(),
-		bytesSent:     0,
-		bytesReceived: 0,
-		user: dataprovider.User{
-			Username: "testuser",
-		},
-		connectionID:   "",
-		transferType:   transferDownload,
-		lastActivity:   time.Now(),
-		isNewFile:      false,
-		protocol:       protocolSFTP,
-		transferError:  nil,
-		isFinished:     false,
-		minWriteOffset: 0,
-		lock:           new(sync.Mutex),
+
+	user := dataprovider.User{
+		Username: "testuser",
 	}
+	fs := vfs.NewOsFs("", os.TempDir(), nil)
+	conn := common.NewBaseConnection("", common.ProtocolSFTP, user, fs)
+	baseTransfer := common.NewBaseTransfer(file, conn, nil, file.Name(), testfile, common.TransferDownload, 0, 0, false)
+	transfer := newTranfer(baseTransfer, nil, nil, 0)
 	err = file.Close()
 	assert.NoError(t, err)
 	_, err = transfer.WriteAt([]byte("test"), 0)
@@ -342,24 +200,8 @@ func TestReadWriteErrors(t *testing.T) {
 
 	r, _, err := pipeat.Pipe()
 	assert.NoError(t, err)
-	transfer = Transfer{
-		readerAt:      r,
-		writerAt:      nil,
-		start:         time.Now(),
-		bytesSent:     0,
-		bytesReceived: 0,
-		user: dataprovider.User{
-			Username: "testuser",
-		},
-		connectionID:  "",
-		transferType:  transferDownload,
-		lastActivity:  time.Now(),
-		isNewFile:     false,
-		protocol:      protocolSFTP,
-		transferError: nil,
-		isFinished:    false,
-		lock:          new(sync.Mutex),
-	}
+	baseTransfer = common.NewBaseTransfer(nil, conn, nil, file.Name(), testfile, common.TransferDownload, 0, 0, false)
+	transfer = newTranfer(baseTransfer, nil, r, 0)
 	err = transfer.closeIO()
 	assert.NoError(t, err)
 	_, err = transfer.ReadAt(buf, 0)
@@ -367,30 +209,16 @@ func TestReadWriteErrors(t *testing.T) {
 
 	r, w, err := pipeat.Pipe()
 	assert.NoError(t, err)
-	transfer = Transfer{
-		readerAt:      nil,
-		writerAt:      vfs.NewPipeWriter(w),
-		start:         time.Now(),
-		bytesSent:     0,
-		bytesReceived: 0,
-		user: dataprovider.User{
-			Username: "testuser",
-		},
-		connectionID:  "",
-		transferType:  transferDownload,
-		lastActivity:  time.Now(),
-		isNewFile:     false,
-		protocol:      protocolSFTP,
-		transferError: nil,
-		isFinished:    false,
-		lock:          new(sync.Mutex),
-	}
+	pipeWriter := vfs.NewPipeWriter(w)
+	baseTransfer = common.NewBaseTransfer(nil, conn, nil, file.Name(), testfile, common.TransferDownload, 0, 0, false)
+	transfer = newTranfer(baseTransfer, pipeWriter, nil, 0)
+
 	err = r.Close()
 	assert.NoError(t, err)
 	errFake := fmt.Errorf("fake upload error")
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		transfer.writerAt.Done(errFake)
+		pipeWriter.Done(errFake)
 	}()
 	err = transfer.closeIO()
 	assert.EqualError(t, err, errFake.Error())
@@ -409,30 +237,23 @@ func TestTransferCancelFn(t *testing.T) {
 	cancelFn := func() {
 		isCancelled = true
 	}
-	transfer := Transfer{
-		file:          file,
-		cancelFn:      cancelFn,
-		path:          file.Name(),
-		start:         time.Now(),
-		bytesSent:     0,
-		bytesReceived: 0,
-		user: dataprovider.User{
-			Username: "testuser",
-		},
-		connectionID:   "",
-		transferType:   transferDownload,
-		lastActivity:   time.Now(),
-		isNewFile:      false,
-		protocol:       protocolSFTP,
-		transferError:  nil,
-		isFinished:     false,
-		minWriteOffset: 0,
-		lock:           new(sync.Mutex),
+	user := dataprovider.User{
+		Username: "testuser",
 	}
+	fs := vfs.NewOsFs("", os.TempDir(), nil)
+	conn := common.NewBaseConnection("", common.ProtocolSFTP, user, fs)
+	baseTransfer := common.NewBaseTransfer(file, conn, cancelFn, file.Name(), testfile, common.TransferDownload, 0, 0, false)
+	transfer := newTranfer(baseTransfer, nil, nil, 0)
+
 	errFake := errors.New("fake error, this will trigger cancelFn")
 	transfer.TransferError(errFake)
 	err = transfer.Close()
-	assert.EqualError(t, err, errFake.Error())
+	if assert.Error(t, err) {
+		assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
+	}
+	if assert.Error(t, transfer.ErrTransfer) {
+		assert.EqualError(t, transfer.ErrTransfer, errFake.Error())
+	}
 	assert.True(t, isCancelled, "cancelFn not called!")
 
 	err = os.Remove(testfile)
@@ -448,8 +269,7 @@ func TestMockFsErrors(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermAny}
 	u.HomeDir = os.TempDir()
 	c := Connection{
-		fs:   fs,
-		User: u,
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, u, fs),
 	}
 	testfile := filepath.Join(u.HomeDir, "testfile")
 	request := sftp.NewRequest("Remove", testfile)
@@ -466,13 +286,13 @@ func TestMockFsErrors(t *testing.T) {
 	assert.EqualError(t, err, sftp.ErrSSHFxOpUnsupported.Error())
 
 	fs = newMockOsFs(errFake, nil, false, "123", os.TempDir())
-	c.fs = fs
+	c.BaseConnection.Fs = fs
 	err = c.handleSFTPRemove(testfile, request)
 	assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
 
 	request = sftp.NewRequest("Rename", filepath.Base(testfile))
 	request.Target = filepath.Base(testfile) + "1"
-	err = c.handleSFTPRename(testfile, testfile+"1", request)
+	err = c.Rename(testfile, testfile+"1", request.Filepath, request.Target)
 	assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
 
 	err = os.Remove(testfile)
@@ -480,10 +300,12 @@ func TestMockFsErrors(t *testing.T) {
 }
 
 func TestUploadFiles(t *testing.T) {
-	oldUploadMode := uploadMode
-	uploadMode = uploadModeAtomic
+	oldUploadMode := common.Config.UploadMode
+	common.Config.UploadMode = common.UploadModeAtomic
+	fs := vfs.NewOsFs("123", os.TempDir(), nil)
+	u := dataprovider.User{}
 	c := Connection{
-		fs: vfs.NewOsFs("123", os.TempDir(), nil),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, u, fs),
 	}
 	var flags sftp.FileOpenFlags
 	flags.Write = true
@@ -491,7 +313,7 @@ func TestUploadFiles(t *testing.T) {
 	_, err := c.handleSFTPUploadToExistingFile(flags, "missing_path", "other_missing_path", 0, "/missing_path")
 	assert.Error(t, err, "upload to existing file must fail if one or both paths are invalid")
 
-	uploadMode = uploadModeStandard
+	common.Config.UploadMode = common.UploadModeStandard
 	_, err = c.handleSFTPUploadToExistingFile(flags, "missing_path", "other_missing_path", 0, "/missing_path")
 	assert.Error(t, err, "upload to existing file must fail if one or both paths are invalid")
 
@@ -502,24 +324,27 @@ func TestUploadFiles(t *testing.T) {
 	_, err = c.handleSFTPUploadToNewFile(".", missingFile, "/missing")
 	assert.Error(t, err, "upload new file in missing path must fail")
 
-	c.fs = newMockOsFs(nil, nil, false, "123", os.TempDir())
+	c.BaseConnection.Fs = newMockOsFs(nil, nil, false, "123", os.TempDir())
 	f, err := ioutil.TempFile("", "temp")
 	assert.NoError(t, err)
 	err = f.Close()
 	assert.NoError(t, err)
 
-	_, err = c.handleSFTPUploadToExistingFile(flags, f.Name(), f.Name(), 123, f.Name())
-	assert.NoError(t, err)
-	if assert.Equal(t, 1, len(activeTransfers)) {
-		transfer := activeTransfers[0]
-		assert.Equal(t, int64(123), transfer.initialSize)
-		err = transfer.Close()
-		assert.NoError(t, err)
-		assert.Equal(t, 0, len(activeTransfers))
+	tr, err := c.handleSFTPUploadToExistingFile(flags, f.Name(), f.Name(), 123, f.Name())
+	if assert.NoError(t, err) {
+		transfer := tr.(*transfer)
+		transfers := c.GetTransfers()
+		if assert.Equal(t, 1, len(transfers)) {
+			assert.Equal(t, transfers[0].ID, transfer.GetID())
+			assert.Equal(t, int64(123), transfer.InitialSize)
+			err = transfer.Close()
+			assert.NoError(t, err)
+			assert.Equal(t, 0, len(c.GetTransfers()))
+		}
 	}
 	err = os.Remove(f.Name())
 	assert.NoError(t, err)
-	uploadMode = oldUploadMode
+	common.Config.UploadMode = oldUploadMode
 }
 
 func TestWithInvalidHome(t *testing.T) {
@@ -532,10 +357,9 @@ func TestWithInvalidHome(t *testing.T) {
 	fs, err := u.GetFilesystem("123")
 	assert.NoError(t, err)
 	c := Connection{
-		User: u,
-		fs:   fs,
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, u, fs),
 	}
-	_, err = c.fs.ResolvePath("../upper_path")
+	_, err = c.Fs.ResolvePath("../upper_path")
 	assert.Error(t, err, "tested path is not a home subdir")
 }
 
@@ -552,33 +376,21 @@ func TestSFTPCmdTargetPath(t *testing.T) {
 	fs, err := u.GetFilesystem("123")
 	assert.NoError(t, err)
 	connection := Connection{
-		User: u,
-		fs:   fs,
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, u, fs),
 	}
 	_, err = connection.getSFTPCmdTargetPath("invalid_path")
-	assert.EqualError(t, err, sftp.ErrSSHFxNoSuchFile.Error())
-}
-
-func TestGetSFTPErrorFromOSError(t *testing.T) {
-	err := os.ErrNotExist
-	fs := vfs.NewOsFs("", os.TempDir(), nil)
-	err = vfs.GetSFTPError(fs, err)
-	assert.EqualError(t, err, sftp.ErrSSHFxNoSuchFile.Error())
-
-	err = os.ErrPermission
-	err = vfs.GetSFTPError(fs, err)
-	assert.EqualError(t, err, sftp.ErrSSHFxPermissionDenied.Error())
-	err = vfs.GetSFTPError(fs, nil)
-	assert.NoError(t, err)
+	assert.True(t, os.IsNotExist(err))
 }
 
 func TestSetstatModeIgnore(t *testing.T) {
-	originalMode := setstatMode
-	setstatMode = 1
+	originalMode := common.Config.SetstatMode
+	common.Config.SetstatMode = 1
 	connection := Connection{}
-	err := connection.handleSFTPSetstat("invalid", nil)
+	request := sftp.NewRequest("Setstat", "invalid")
+	request.Flags = 0
+	err := connection.handleSFTPSetstat("invalid", request)
 	assert.NoError(t, err)
-	setstatMode = originalMode
+	common.Config.SetstatMode = originalMode
 }
 
 func TestSFTPGetUsedQuota(t *testing.T) {
@@ -590,9 +402,9 @@ func TestSFTPGetUsedQuota(t *testing.T) {
 	u.Permissions = make(map[string][]string)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
 	connection := Connection{
-		User: u,
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, u, nil),
 	}
-	quotaResult := connection.hasSpace(false, "/")
+	quotaResult := connection.HasSpace(false, "/")
 	assert.False(t, quotaResult.HasSpace)
 }
 
@@ -613,7 +425,7 @@ func TestSSHCommandPath(t *testing.T) {
 		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
 		ReadError:    nil,
 	}
-	connection := Connection{
+	connection := &Connection{
 		channel: &mockSSHChannel,
 	}
 	sshCommand := sshCommand{
@@ -689,14 +501,13 @@ func TestSSHCommandErrors(t *testing.T) {
 	fs, err := user.GetFilesystem("123")
 	assert.NoError(t, err)
 	connection := Connection{
-		channel: &mockSSHChannel,
-		netConn: client,
-		User:    user,
-		fs:      fs,
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, user, fs),
+		channel:        &mockSSHChannel,
+		netConn:        client,
 	}
 	cmd := sshCommand{
 		command:    "md5sum",
-		connection: connection,
+		connection: &connection,
 		args:       []string{},
 	}
 	err = cmd.handle()
@@ -704,7 +515,7 @@ func TestSSHCommandErrors(t *testing.T) {
 
 	cmd = sshCommand{
 		command:    "md5sum",
-		connection: connection,
+		connection: &connection,
 		args:       []string{"/../../test_file.dat"},
 	}
 	err = cmd.handle()
@@ -712,7 +523,7 @@ func TestSSHCommandErrors(t *testing.T) {
 
 	cmd = sshCommand{
 		command:    "git-receive-pack",
-		connection: connection,
+		connection: &connection,
 		args:       []string{"/../../testrepo"},
 	}
 	err = cmd.handle()
@@ -723,16 +534,16 @@ func TestSSHCommandErrors(t *testing.T) {
 	cmd.connection.User.UsedQuotaFiles = 2
 	fs, err = cmd.connection.User.GetFilesystem("123")
 	assert.NoError(t, err)
-	cmd.connection.fs = fs
+	cmd.connection.Fs = fs
 	err = cmd.handle()
-	assert.EqualError(t, err, errQuotaExceeded.Error())
+	assert.EqualError(t, err, common.ErrQuotaExceeded.Error())
 
 	cmd.connection.User.QuotaFiles = 0
 	cmd.connection.User.UsedQuotaFiles = 0
 	cmd.connection.User.Permissions = make(map[string][]string)
 	cmd.connection.User.Permissions["/"] = []string{dataprovider.PermListItems}
 	err = cmd.handle()
-	assert.EqualError(t, err, errPermissionDenied.Error())
+	assert.EqualError(t, err, common.ErrPermissionDenied.Error())
 
 	cmd.connection.User.Permissions["/"] = []string{dataprovider.PermAny}
 	cmd.command = "invalid_command"
@@ -762,9 +573,13 @@ func TestSSHCommandErrors(t *testing.T) {
 	err = cmd.executeSystemCommand(command)
 	assert.Error(t, err, "command must fail, pipe was already assigned")
 
+	fs, err = user.GetFilesystem("123")
+	assert.NoError(t, err)
+	connection.Fs = fs
+
 	cmd = sshCommand{
 		command:    "sftpgo-remove",
-		connection: connection,
+		connection: &connection,
 		args:       []string{"/../../src"},
 	}
 	err = cmd.handle()
@@ -772,17 +587,22 @@ func TestSSHCommandErrors(t *testing.T) {
 
 	cmd = sshCommand{
 		command:    "sftpgo-copy",
-		connection: connection,
+		connection: &connection,
 		args:       []string{"/../../test_src", "."},
 	}
 	err = cmd.handle()
 	assert.Error(t, err, "ssh command must fail, we are requesting an invalid path")
-	cmd.connection.fs = fs
+
+	cmd.connection.User.HomeDir = filepath.Clean(os.TempDir())
+	fs, err = cmd.connection.User.GetFilesystem("123")
+	assert.NoError(t, err)
+	cmd.connection.Fs = fs
 	_, _, err = cmd.resolveCopyPaths(".", "../adir")
 	assert.Error(t, err)
+
 	cmd = sshCommand{
 		command:    "sftpgo-copy",
-		connection: connection,
+		connection: &connection,
 		args:       []string{"src", "dst"},
 	}
 	cmd.connection.User.Permissions = make(map[string][]string)
@@ -836,11 +656,10 @@ func TestCommandsWithExtensionsFilter(t *testing.T) {
 
 	fs, err := user.GetFilesystem("123")
 	assert.NoError(t, err)
-	connection := Connection{
-		channel: &mockSSHChannel,
-		netConn: client,
-		User:    user,
-		fs:      fs,
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, user, fs),
+		channel:        &mockSSHChannel,
+		netConn:        client,
 	}
 	cmd := sshCommand{
 		command:    "md5sum",
@@ -848,7 +667,7 @@ func TestCommandsWithExtensionsFilter(t *testing.T) {
 		args:       []string{"subdir/test.png"},
 	}
 	err = cmd.handleHashCommands()
-	assert.EqualError(t, err, errPermissionDenied.Error())
+	assert.EqualError(t, err, common.ErrPermissionDenied.Error())
 
 	cmd = sshCommand{
 		command:    "rsync",
@@ -910,11 +729,10 @@ func TestSSHCommandsRemoteFs(t *testing.T) {
 	}
 	fs, err := user.GetFilesystem("123")
 	assert.NoError(t, err)
-	connection := Connection{
-		channel: &mockSSHChannel,
-		netConn: client,
-		User:    user,
-		fs:      fs,
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, user, fs),
+		channel:        &mockSSHChannel,
+		netConn:        client,
 	}
 	cmd := sshCommand{
 		command:    "md5sum",
@@ -954,9 +772,8 @@ func TestGitVirtualFolders(t *testing.T) {
 	}
 	fs, err := user.GetFilesystem("123")
 	assert.NoError(t, err)
-	conn := Connection{
-		User: user,
-		fs:   fs,
+	conn := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, user, fs),
 	}
 	cmd := sshCommand{
 		command:    "git-receive-pack",
@@ -1003,9 +820,8 @@ func TestRsyncOptions(t *testing.T) {
 	}
 	fs, err := user.GetFilesystem("123")
 	assert.NoError(t, err)
-	conn := Connection{
-		User: user,
-		fs:   fs,
+	conn := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, user, fs),
 	}
 	sshCmd := sshCommand{
 		command:    "rsync",
@@ -1023,9 +839,8 @@ func TestRsyncOptions(t *testing.T) {
 	fs, err = user.GetFilesystem("123")
 	assert.NoError(t, err)
 
-	conn = Connection{
-		User: user,
-		fs:   fs,
+	conn = &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, user, fs),
 	}
 	sshCmd = sshCommand{
 		command:    "rsync",
@@ -1047,40 +862,6 @@ func TestRsyncOptions(t *testing.T) {
 	assert.EqualError(t, err, errUnsupportedConfig.Error())
 }
 
-func TestSpaceForCrossRename(t *testing.T) {
-	if runtime.GOOS == osWindows {
-		t.Skip("this test is not available on Windows")
-	}
-	permissions := make(map[string][]string)
-	permissions["/"] = []string{dataprovider.PermAny}
-	user := dataprovider.User{
-		Permissions: permissions,
-		HomeDir:     os.TempDir(),
-	}
-	fs, err := user.GetFilesystem("123")
-	assert.NoError(t, err)
-	conn := Connection{
-		User: user,
-		fs:   fs,
-	}
-	quotaResult := vfs.QuotaCheckResult{
-		HasSpace: true,
-	}
-	assert.False(t, conn.hasSpaceForCrossRename(quotaResult, -1, filepath.Join(os.TempDir(), "a missing file")))
-	testDir := filepath.Join(os.TempDir(), "dir")
-	err = os.MkdirAll(testDir, os.ModePerm)
-	assert.NoError(t, err)
-	err = ioutil.WriteFile(filepath.Join(testDir, "afile"), []byte("content"), os.ModePerm)
-	assert.NoError(t, err)
-	err = os.Chmod(testDir, 0001)
-	assert.NoError(t, err)
-	assert.False(t, conn.hasSpaceForCrossRename(quotaResult, -1, testDir))
-	err = os.Chmod(testDir, os.ModePerm)
-	assert.NoError(t, err)
-	err = os.RemoveAll(testDir)
-	assert.NoError(t, err)
-}
-
 func TestSystemCommandSizeForPath(t *testing.T) {
 	permissions := make(map[string][]string)
 	permissions["/"] = []string{dataprovider.PermAny}
@@ -1090,9 +871,8 @@ func TestSystemCommandSizeForPath(t *testing.T) {
 	}
 	fs, err := user.GetFilesystem("123")
 	assert.NoError(t, err)
-	conn := Connection{
-		User: user,
-		fs:   fs,
+	conn := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, user, fs),
 	}
 	sshCmd := sshCommand{
 		command:    "rsync",
@@ -1162,11 +942,10 @@ func TestSystemCommandErrors(t *testing.T) {
 	}
 	fs, err := user.GetFilesystem("123")
 	assert.NoError(t, err)
-	connection := Connection{
-		channel: &mockSSHChannel,
-		netConn: client,
-		User:    user,
-		fs:      fs,
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, user, fs),
+		channel:        &mockSSHChannel,
+		netConn:        client,
 	}
 	var sshCmd sshCommand
 	if runtime.GOOS == osWindows {
@@ -1198,9 +977,9 @@ func TestSystemCommandErrors(t *testing.T) {
 		WriteError:   nil,
 	}
 	sshCmd.connection.channel = &mockSSHChannel
-	transfer := Transfer{
-		transferType: transferDownload,
-		lock:         new(sync.Mutex)}
+	baseTransfer := common.NewBaseTransfer(nil, sshCmd.connection.BaseConnection, nil, "", "", common.TransferDownload,
+		0, 0, false)
+	transfer := newTranfer(baseTransfer, nil, nil, 0)
 	destBuff := make([]byte, 65535)
 	dst := bytes.NewBuffer(destBuff)
 	_, err = transfer.copyFromReaderToWriter(dst, sshCmd.connection.channel)
@@ -1215,7 +994,7 @@ func TestSystemCommandErrors(t *testing.T) {
 	sshCmd.connection.channel = &mockSSHChannel
 	transfer.maxWriteSize = 1
 	_, err = transfer.copyFromReaderToWriter(dst, sshCmd.connection.channel)
-	assert.EqualError(t, err, errQuotaExceeded.Error())
+	assert.EqualError(t, err, common.ErrQuotaExceeded.Error())
 
 	mockSSHChannel = MockChannel{
 		Buffer:        bytes.NewBuffer(buf),
@@ -1229,27 +1008,18 @@ func TestSystemCommandErrors(t *testing.T) {
 	assert.EqualError(t, err, io.ErrShortWrite.Error())
 	transfer.maxWriteSize = -1
 	_, err = transfer.copyFromReaderToWriter(sshCmd.connection.channel, dst)
-	assert.EqualError(t, err, errQuotaExceeded.Error())
+	assert.EqualError(t, err, common.ErrQuotaExceeded.Error())
 	err = os.RemoveAll(homeDir)
 	assert.NoError(t, err)
 }
 
-func TestTransferUpdateQuota(t *testing.T) {
-	transfer := Transfer{
-		transferType:  transferUpload,
-		bytesReceived: 123,
-		lock:          new(sync.Mutex)}
-	transfer.TransferError(errors.New("fake error"))
-	assert.False(t, transfer.updateQuota(1))
-}
-
 func TestGetConnectionInfo(t *testing.T) {
-	c := ConnectionStatus{
+	c := common.ConnectionStatus{
 		Username:      "test_user",
 		ConnectionID:  "123",
 		ClientVersion: "client",
 		RemoteAddress: "127.0.0.1:1234",
-		Protocol:      protocolSSH,
+		Protocol:      common.ProtocolSSH,
 		SSHCommand:    "sha1sum /test_file.dat",
 	}
 	info := c.GetConnectionInfo()
@@ -1309,9 +1079,10 @@ func TestSCPParseUploadMessage(t *testing.T) {
 		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
 		ReadError:    nil,
 	}
-	connection := Connection{
-		channel: &mockSSHChannel,
-		fs:      vfs.NewOsFs("", os.TempDir(), nil),
+	fs := vfs.NewOsFs("", os.TempDir(), nil)
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, dataprovider.User{}, fs),
+		channel:        &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
 		sshCommand: sshCommand{
@@ -1344,8 +1115,9 @@ func TestSCPProtocolMessages(t *testing.T) {
 		ReadError:    readErr,
 		WriteError:   writeErr,
 	}
-	connection := Connection{
-		channel: &mockSSHChannel,
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, dataprovider.User{}, nil),
+		channel:        &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
 		sshCommand: sshCommand{
@@ -1404,8 +1176,9 @@ func TestSCPTestDownloadProtocolMessages(t *testing.T) {
 		ReadError:    readErr,
 		WriteError:   writeErr,
 	}
-	connection := Connection{
-		channel: &mockSSHChannel,
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, dataprovider.User{}, nil),
+		channel:        &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
 		sshCommand: sshCommand{
@@ -1477,9 +1250,10 @@ func TestSCPCommandHandleErrors(t *testing.T) {
 		err := client.Close()
 		assert.NoError(t, err)
 	}()
-	connection := Connection{
-		channel: &mockSSHChannel,
-		netConn: client,
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, dataprovider.User{}, nil),
+		channel:        &mockSSHChannel,
+		netConn:        client,
 	}
 	scpCommand := scpCommand{
 		sshCommand: sshCommand{
@@ -1518,11 +1292,10 @@ func TestSCPErrorsMockFs(t *testing.T) {
 		err := client.Close()
 		assert.NoError(t, err)
 	}()
-	connection := Connection{
-		channel: &mockSSHChannel,
-		netConn: client,
-		fs:      fs,
-		User:    u,
+	connection := &Connection{
+		channel:        &mockSSHChannel,
+		netConn:        client,
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, u, fs),
 	}
 	scpCommand := scpCommand{
 		sshCommand: sshCommand{
@@ -1542,7 +1315,7 @@ func TestSCPErrorsMockFs(t *testing.T) {
 	err = scpCommand.handleRecursiveDownload(u.HomeDir, stat)
 	assert.EqualError(t, err, errFake.Error())
 
-	scpCommand.sshCommand.connection.fs = newMockOsFs(errFake, nil, true, "123", os.TempDir())
+	scpCommand.sshCommand.connection.Fs = newMockOsFs(errFake, nil, true, "123", os.TempDir())
 	err = scpCommand.handleUpload(filepath.Base(testfile), 0)
 	assert.EqualError(t, err, errFake.Error())
 
@@ -1572,10 +1345,11 @@ func TestSCPRecursiveDownloadErrors(t *testing.T) {
 		err := client.Close()
 		assert.NoError(t, err)
 	}()
-	connection := Connection{
-		channel: &mockSSHChannel,
-		netConn: client,
-		fs:      vfs.NewOsFs("123", os.TempDir(), nil),
+	fs := vfs.NewOsFs("123", os.TempDir(), nil)
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, dataprovider.User{}, fs),
+		channel:        &mockSSHChannel,
+		netConn:        client,
 	}
 	scpCommand := scpCommand{
 		sshCommand: sshCommand{
@@ -1617,8 +1391,9 @@ func TestSCPRecursiveUploadErrors(t *testing.T) {
 		ReadError:    readErr,
 		WriteError:   writeErr,
 	}
-	connection := Connection{
-		channel: &mockSSHChannel,
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, dataprovider.User{}, nil),
+		channel:        &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
 		sshCommand: sshCommand{
@@ -1657,10 +1432,9 @@ func TestSCPCreateDirs(t *testing.T) {
 	}
 	fs, err := u.GetFilesystem("123")
 	assert.NoError(t, err)
-	connection := Connection{
-		User:    u,
-		channel: &mockSSHChannel,
-		fs:      fs,
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, u, fs),
+		channel:        &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
 		sshCommand: sshCommand{
@@ -1691,8 +1465,9 @@ func TestSCPDownloadFileData(t *testing.T) {
 		ReadError:    nil,
 		WriteError:   writeErr,
 	}
-	connection := Connection{
-		channel: &mockSSHChannelReadErr,
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, dataprovider.User{}, nil),
+		channel:        &mockSSHChannelReadErr,
 	}
 	scpCommand := scpCommand{
 		sshCommand: sshCommand{
@@ -1736,13 +1511,13 @@ func TestSCPUploadFiledata(t *testing.T) {
 		ReadError:    readErr,
 		WriteError:   writeErr,
 	}
-	connection := Connection{
-		User: dataprovider.User{
-			Username: "testuser",
-		},
-		protocol: protocolSCP,
-		channel:  &mockSSHChannel,
-		fs:       vfs.NewOsFs("", os.TempDir(), nil),
+	user := dataprovider.User{
+		Username: "testuser",
+	}
+	fs := vfs.NewOsFs("", os.TempDir(), nil)
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, user, fs),
+		channel:        &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
 		sshCommand: sshCommand{
@@ -1754,25 +1529,11 @@ func TestSCPUploadFiledata(t *testing.T) {
 	file, err := os.Create(testfile)
 	assert.NoError(t, err)
 
-	transfer := Transfer{
-		file:           file,
-		path:           file.Name(),
-		start:          time.Now(),
-		bytesSent:      0,
-		bytesReceived:  0,
-		user:           scpCommand.connection.User,
-		connectionID:   "",
-		transferType:   transferDownload,
-		lastActivity:   time.Now(),
-		isNewFile:      true,
-		protocol:       connection.protocol,
-		transferError:  nil,
-		isFinished:     false,
-		minWriteOffset: 0,
-		lock:           new(sync.Mutex),
-	}
-	addTransfer(&transfer)
-	err = scpCommand.getUploadFileData(2, &transfer)
+	baseTransfer := common.NewBaseTransfer(file, scpCommand.connection.BaseConnection, nil, file.Name(),
+		"/"+testfile, common.TransferDownload, 0, 0, true)
+	transfer := newTranfer(baseTransfer, nil, nil, 0)
+
+	err = scpCommand.getUploadFileData(2, transfer)
 	assert.Error(t, err, "upload must fail, we send a fake write error message")
 
 	mockSSHChannel = MockChannel{
@@ -1784,10 +1545,10 @@ func TestSCPUploadFiledata(t *testing.T) {
 	scpCommand.connection.channel = &mockSSHChannel
 	file, err = os.Create(testfile)
 	assert.NoError(t, err)
-	transfer.file = file
+	transfer.File = file
 	transfer.isFinished = false
-	addTransfer(&transfer)
-	err = scpCommand.getUploadFileData(2, &transfer)
+	transfer.Connection.AddTransfer(transfer)
+	err = scpCommand.getUploadFileData(2, transfer)
 	assert.Error(t, err, "upload must fail, we send a fake read error message")
 
 	respBuffer := []byte("12")
@@ -1801,10 +1562,10 @@ func TestSCPUploadFiledata(t *testing.T) {
 	scpCommand.connection.channel = &mockSSHChannel
 	file, err = os.Create(testfile)
 	assert.NoError(t, err)
-	transfer.file = file
-	transfer.isFinished = false
-	addTransfer(&transfer)
-	err = scpCommand.getUploadFileData(2, &transfer)
+	baseTransfer.File = file
+	transfer = newTranfer(baseTransfer, nil, nil, 0)
+	transfer.Connection.AddTransfer(transfer)
+	err = scpCommand.getUploadFileData(2, transfer)
 	assert.Error(t, err, "upload must fail, we have not enough data to read")
 
 	// the file is already closed so we have an error on trasfer closing
@@ -1814,9 +1575,12 @@ func TestSCPUploadFiledata(t *testing.T) {
 		ReadError:    nil,
 		WriteError:   nil,
 	}
-	addTransfer(&transfer)
-	err = scpCommand.getUploadFileData(0, &transfer)
-	assert.EqualError(t, err, errTransferClosed.Error())
+
+	transfer.Connection.AddTransfer(transfer)
+	err = scpCommand.getUploadFileData(0, transfer)
+	if assert.Error(t, err) {
+		assert.EqualError(t, err, common.ErrTransferClosed.Error())
+	}
 
 	mockSSHChannel = MockChannel{
 		Buffer:       bytes.NewBuffer(buf),
@@ -1824,8 +1588,9 @@ func TestSCPUploadFiledata(t *testing.T) {
 		ReadError:    nil,
 		WriteError:   nil,
 	}
-	addTransfer(&transfer)
-	err = scpCommand.getUploadFileData(2, &transfer)
+
+	transfer.Connection.AddTransfer(transfer)
+	err = scpCommand.getUploadFileData(2, transfer)
 	assert.True(t, errors.Is(err, os.ErrClosed))
 
 	err = os.Remove(testfile)
@@ -1833,67 +1598,59 @@ func TestSCPUploadFiledata(t *testing.T) {
 }
 
 func TestUploadError(t *testing.T) {
-	oldUploadMode := uploadMode
-	uploadMode = uploadModeAtomic
-	connection := Connection{
-		User: dataprovider.User{
-			Username: "testuser",
-		},
-		protocol: protocolSCP,
+	oldUploadMode := common.Config.UploadMode
+	common.Config.UploadMode = common.UploadModeAtomic
+
+	user := dataprovider.User{
+		Username: "testuser",
 	}
+	fs := vfs.NewOsFs("", os.TempDir(), nil)
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, user, fs),
+	}
+
 	testfile := "testfile"
 	fileTempName := "temptestfile"
 	file, err := os.Create(fileTempName)
 	assert.NoError(t, err)
-	transfer := Transfer{
-		file:           file,
-		path:           testfile,
-		start:          time.Now(),
-		bytesSent:      0,
-		bytesReceived:  100,
-		user:           connection.User,
-		connectionID:   "",
-		transferType:   transferUpload,
-		lastActivity:   time.Now(),
-		isNewFile:      true,
-		protocol:       connection.protocol,
-		transferError:  nil,
-		isFinished:     false,
-		minWriteOffset: 0,
-		lock:           new(sync.Mutex),
-	}
-	addTransfer(&transfer)
+	baseTransfer := common.NewBaseTransfer(file, connection.BaseConnection, nil, testfile,
+		testfile, common.TransferUpload, 0, 0, true)
+	transfer := newTranfer(baseTransfer, nil, nil, 0)
+
 	errFake := errors.New("fake error")
 	transfer.TransferError(errFake)
 	err = transfer.Close()
-	assert.EqualError(t, err, errFake.Error())
-	assert.Equal(t, int64(0), transfer.bytesReceived)
+	if assert.Error(t, err) {
+		assert.EqualError(t, err, common.ErrGenericFailure.Error())
+	}
+	if assert.Error(t, transfer.ErrTransfer) {
+		assert.EqualError(t, transfer.ErrTransfer, errFake.Error())
+	}
+	assert.Equal(t, int64(0), transfer.BytesReceived)
 
 	assert.NoFileExists(t, testfile)
 	assert.NoFileExists(t, fileTempName)
 
-	uploadMode = oldUploadMode
+	common.Config.UploadMode = oldUploadMode
 }
 
 func TestConnectionStatusStruct(t *testing.T) {
-	var transfers []connectionTransfer
-	transferUL := connectionTransfer{
-		OperationType: operationUpload,
+	var transfers []common.ConnectionTransfer
+	transferUL := common.ConnectionTransfer{
+		OperationType: "upload",
 		StartTime:     utils.GetTimeAsMsSinceEpoch(time.Now()),
 		Size:          123,
-		LastActivity:  utils.GetTimeAsMsSinceEpoch(time.Now()),
-		Path:          "/test.upload",
+		VirtualPath:   "/test.upload",
 	}
-	transferDL := connectionTransfer{
-		OperationType: operationDownload,
+	transferDL := common.ConnectionTransfer{
+		OperationType: "download",
 		StartTime:     utils.GetTimeAsMsSinceEpoch(time.Now()),
 		Size:          123,
-		LastActivity:  utils.GetTimeAsMsSinceEpoch(time.Now()),
-		Path:          "/test.download",
+		VirtualPath:   "/test.download",
 	}
 	transfers = append(transfers, transferUL)
 	transfers = append(transfers, transferDL)
-	c := ConnectionStatus{
+	c := common.ConnectionStatus{
 		Username:       "test",
 		ConnectionID:   "123",
 		ClientVersion:  "fakeClient-1.0.0",
@@ -1911,29 +1668,6 @@ func TestConnectionStatusStruct(t *testing.T) {
 
 	connInfo := c.GetConnectionInfo()
 	assert.NotEqual(t, 0, len(connInfo))
-}
-
-func TestProxyProtocolVersion(t *testing.T) {
-	c := Configuration{
-		ProxyProtocol: 1,
-	}
-	proxyListener, err := c.getProxyListener(nil)
-	assert.NoError(t, err)
-	assert.Nil(t, proxyListener.Policy)
-
-	c.ProxyProtocol = 2
-	proxyListener, _ = c.getProxyListener(nil)
-	assert.NoError(t, err)
-	assert.NotNil(t, proxyListener.Policy)
-
-	c.ProxyProtocol = 1
-	c.ProxyAllowed = []string{"invalid"}
-	_, err = c.getProxyListener(nil)
-	assert.Error(t, err)
-
-	c.ProxyProtocol = 2
-	_, err = c.getProxyListener(nil)
-	assert.Error(t, err)
 }
 
 func TestLoadHostKeys(t *testing.T) {
@@ -2001,148 +1735,6 @@ func TestCertCheckerInitErrors(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestUpdateQuotaAfterRenameMissingFile(t *testing.T) {
-	user := dataprovider.User{
-		Username: "username",
-		HomeDir:  filepath.Join(os.TempDir(), "home"),
-	}
-	mappedPath := filepath.Join(os.TempDir(), "vdir")
-	user.Permissions = make(map[string][]string)
-	user.Permissions["/"] = []string{dataprovider.PermAny}
-	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
-		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			MappedPath: mappedPath,
-		},
-		VirtualPath: "/vdir",
-	})
-	c := Connection{
-		fs:   vfs.NewOsFs("id", os.TempDir(), nil),
-		User: user,
-	}
-	request := sftp.NewRequest("Rename", "/testfile")
-	request.Filepath = "/dir"
-	request.Target = path.Join("vdir", "dir")
-	if runtime.GOOS != osWindows {
-		testDirPath := filepath.Join(mappedPath, "dir")
-		err := os.MkdirAll(testDirPath, os.ModePerm)
-		assert.NoError(t, err)
-		err = os.Chmod(testDirPath, 0001)
-		assert.NoError(t, err)
-		err = c.updateQuotaAfterRename(request, testDirPath, 0)
-		assert.Error(t, err)
-		err = os.Chmod(testDirPath, os.ModePerm)
-		assert.NoError(t, err)
-		err = os.RemoveAll(testDirPath)
-		assert.NoError(t, err)
-	}
-	request.Target = "/testfile1"
-	request.Filepath = path.Join("vdir", "file")
-	err := c.updateQuotaAfterRename(request, filepath.Join(os.TempDir(), "vdir", "file"), 0)
-	assert.Error(t, err)
-}
-
-func TestRenamePermission(t *testing.T) {
-	permissions := make(map[string][]string)
-	permissions["/"] = []string{dataprovider.PermAny}
-	permissions["/dir1"] = []string{dataprovider.PermRename}
-	permissions["/dir2"] = []string{dataprovider.PermUpload}
-	permissions["/dir3"] = []string{dataprovider.PermDelete}
-	permissions["/dir4"] = []string{dataprovider.PermListItems}
-	permissions["/dir5"] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload}
-	permissions["/dir6"] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload,
-		dataprovider.PermListItems, dataprovider.PermCreateSymlinks}
-
-	user := dataprovider.User{
-		Permissions: permissions,
-		HomeDir:     os.TempDir(),
-	}
-	fs, err := user.GetFilesystem("123")
-	assert.NoError(t, err)
-	conn := Connection{
-		User: user,
-		fs:   fs,
-	}
-	request := sftp.NewRequest("Rename", "/testfile")
-	request.Target = "/dir1/testfile"
-	// rename is granted on Source and Target
-	assert.True(t, conn.isRenamePermitted("", request.Filepath, request.Target, nil))
-	request.Target = "/dir4/testfile"
-	// rename is not granted on Target
-	assert.False(t, conn.isRenamePermitted("", request.Filepath, request.Target, nil))
-	request = sftp.NewRequest("Rename", "/dir1/testfile")
-	request.Target = "/dir2/testfile" //nolint:goconst
-	// rename is granted on Source but not on Target
-	assert.False(t, conn.isRenamePermitted("", request.Filepath, request.Target, nil))
-	request = sftp.NewRequest("Rename", "/dir4/testfile")
-	request.Target = "/dir1/testfile"
-	// rename is granted on Target but not on Source
-	assert.False(t, conn.isRenamePermitted("", request.Filepath, request.Target, nil))
-	request = sftp.NewRequest("Rename", "/dir4/testfile")
-	request.Target = "/testfile"
-	// rename is granted on Target but not on Source
-	assert.False(t, conn.isRenamePermitted("", request.Filepath, request.Target, nil))
-	request = sftp.NewRequest("Rename", "/dir3/testfile")
-	request.Target = "/dir2/testfile"
-	// delete is granted on Source and Upload on Target, the target is a file this is enough
-	assert.True(t, conn.isRenamePermitted("", request.Filepath, request.Target, nil))
-	request = sftp.NewRequest("Rename", "/dir2/testfile")
-	request.Target = "/dir3/testfile"
-	assert.False(t, conn.isRenamePermitted("", request.Filepath, request.Target, nil))
-	tmpDir := filepath.Join(os.TempDir(), "dir")
-	tmpDirLink := filepath.Join(os.TempDir(), "link")
-	err = os.Mkdir(tmpDir, os.ModePerm)
-	assert.NoError(t, err)
-	err = os.Symlink(tmpDir, tmpDirLink)
-	assert.NoError(t, err)
-	request.Filepath = "/dir"
-	request.Target = "/dir2/dir"
-	// the source is a dir and the target has no createDirs perm
-	info, err := os.Lstat(tmpDir)
-	if assert.NoError(t, err) {
-		assert.False(t, conn.isRenamePermitted(tmpDir, request.Filepath, request.Target, info))
-		conn.User.Permissions["/dir2"] = []string{dataprovider.PermUpload, dataprovider.PermCreateDirs}
-		// the source is a dir and the target has createDirs perm
-		assert.True(t, conn.isRenamePermitted(tmpDir, request.Filepath, request.Target, info))
-
-		request = sftp.NewRequest("Rename", "/testfile")
-		request.Target = "/dir5/testfile"
-		// the source is a dir and the target has createDirs and upload perm
-		assert.True(t, conn.isRenamePermitted(tmpDir, request.Filepath, request.Target, info))
-	}
-	info, err = os.Lstat(tmpDirLink)
-	if assert.NoError(t, err) {
-		assert.True(t, info.Mode()&os.ModeSymlink == os.ModeSymlink)
-		// the source is a symlink and the target has createDirs and upload perm
-		assert.False(t, conn.isRenamePermitted(tmpDir, request.Filepath, request.Target, info))
-	}
-	err = os.RemoveAll(tmpDir)
-	assert.NoError(t, err)
-	err = os.Remove(tmpDirLink)
-	assert.NoError(t, err)
-	conn.User.VirtualFolders = append(conn.User.VirtualFolders, vfs.VirtualFolder{
-		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			MappedPath: os.TempDir(),
-		},
-		VirtualPath: "/dir1",
-	})
-	request = sftp.NewRequest("Rename", "/dir1")
-	request.Target = "/dir2/testfile"
-	// renaming a virtual folder is not allowed
-	assert.False(t, conn.isRenamePermitted("", request.Filepath, request.Target, nil))
-	err = conn.checkRecursiveRenameDirPermissions("invalid", "invalid")
-	assert.Error(t, err)
-	dir3 := filepath.Join(conn.User.HomeDir, "dir3")
-	dir6 := filepath.Join(conn.User.HomeDir, "dir6")
-	err = os.MkdirAll(filepath.Join(dir3, "subdir"), os.ModePerm)
-	assert.NoError(t, err)
-	err = ioutil.WriteFile(filepath.Join(dir3, "subdir", "testfile"), []byte("test"), os.ModePerm)
-	assert.NoError(t, err)
-	err = conn.checkRecursiveRenameDirPermissions(dir3, dir6)
-	assert.NoError(t, err)
-	err = os.RemoveAll(dir3)
-	assert.NoError(t, err)
-}
-
 func TestRecursiveCopyErrors(t *testing.T) {
 	permissions := make(map[string][]string)
 	permissions["/"] = []string{dataprovider.PermAny}
@@ -2152,9 +1744,8 @@ func TestRecursiveCopyErrors(t *testing.T) {
 	}
 	fs, err := user.GetFilesystem("123")
 	assert.NoError(t, err)
-	conn := Connection{
-		User: user,
-		fs:   fs,
+	conn := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, user, fs),
 	}
 	sshCmd := sshCommand{
 		command:    "sftpgo-copy",
@@ -2164,29 +1755,4 @@ func TestRecursiveCopyErrors(t *testing.T) {
 	// try to copy a missing directory
 	err = sshCmd.checkRecursiveCopyPermissions("adir", "another", "/another")
 	assert.Error(t, err)
-}
-
-func TestSSHMappedError(t *testing.T) {
-	user := dataprovider.User{
-		HomeDir: os.TempDir(),
-	}
-	fs, err := user.GetFilesystem("123")
-	assert.NoError(t, err)
-	conn := Connection{
-		User: user,
-		fs:   fs,
-	}
-	sshCommand := sshCommand{
-		command:    "test",
-		connection: conn,
-		args:       []string{},
-	}
-	err = sshCommand.getMappedError(os.ErrNotExist)
-	assert.EqualError(t, err, errNotExist.Error())
-	err = sshCommand.getMappedError(os.ErrPermission)
-	assert.EqualError(t, err, errPermissionDenied.Error())
-	err = sshCommand.getMappedError(os.ErrInvalid)
-	assert.EqualError(t, err, errGenericFailure.Error())
-	err = sshCommand.getMappedError(os.ErrNoDeadline)
-	assert.EqualError(t, err, errGenericFailure.Error())
 }

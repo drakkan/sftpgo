@@ -18,9 +18,9 @@ import (
 
 	"github.com/go-chi/render"
 
+	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/httpclient"
-	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/version"
 	"github.com/drakkan/sftpgo/vfs"
@@ -204,8 +204,8 @@ func GetUsers(limit, offset int64, username string, expectedStatusCode int) ([]d
 }
 
 // GetQuotaScans gets active quota scans for users and checks the received HTTP Status code against expectedStatusCode.
-func GetQuotaScans(expectedStatusCode int) ([]sftpd.ActiveQuotaScan, []byte, error) {
-	var quotaScans []sftpd.ActiveQuotaScan
+func GetQuotaScans(expectedStatusCode int) ([]common.ActiveQuotaScan, []byte, error) {
+	var quotaScans []common.ActiveQuotaScan
 	var body []byte
 	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(quotaScanPath), nil, "")
 	if err != nil {
@@ -252,8 +252,8 @@ func UpdateQuotaUsage(user dataprovider.User, mode string, expectedStatusCode in
 }
 
 // GetConnections returns status and stats for active SFTP/SCP connections
-func GetConnections(expectedStatusCode int) ([]sftpd.ConnectionStatus, []byte, error) {
-	var connections []sftpd.ConnectionStatus
+func GetConnections(expectedStatusCode int) ([]common.ConnectionStatus, []byte, error) {
+	var connections []common.ConnectionStatus
 	var body []byte
 	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(activeConnectionsPath), nil, "")
 	if err != nil {
@@ -360,8 +360,8 @@ func GetFolders(limit int64, offset int64, mappedPath string, expectedStatusCode
 }
 
 // GetFoldersQuotaScans gets active quota scans for folders and checks the received HTTP Status code against expectedStatusCode.
-func GetFoldersQuotaScans(expectedStatusCode int) ([]sftpd.ActiveVirtualFolderQuotaScan, []byte, error) {
-	var quotaScans []sftpd.ActiveVirtualFolderQuotaScan
+func GetFoldersQuotaScans(expectedStatusCode int) ([]common.ActiveVirtualFolderQuotaScan, []byte, error) {
+	var quotaScans []common.ActiveVirtualFolderQuotaScan
 	var body []byte
 	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(quotaScanVFolderPath), nil, "")
 	if err != nil {

@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -36,11 +37,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
 )
@@ -106,10 +107,9 @@ iixITGvaNZh/tjAAAACW5pY29sYUBwMQE=
 	testCertOtherSourceAddress = "ssh-rsa-cert-v01@openssh.com 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 nicola@p1"
 	// this is testPubKey signed using testCAUserKey but expired.
 	// % ssh-keygen -s ca_user_key -I test_user_sftp -n test_user_sftp -V 20100101123000:20110101123000 -z 4 /tmp/test.pub
-	testCertExpired       = "ssh-rsa-cert-v01@openssh.com AAAAHHNzaC1yc2EtY2VydC12MDFAb3BlbnNzaC5jb20AAAAgU3TLP5285k20fBSsdZioI78oJUpaRXFlgx5IPg6gWg8AAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0AAAAAAAAABAAAAAEAAAAOdGVzdF91c2VyX3NmdHAAAAASAAAADnRlc3RfdXNlcl9zZnRwAAAAAEs93LgAAAAATR8QOAAAAAAAAACCAAAAFXBlcm1pdC1YMTEtZm9yd2FyZGluZwAAAAAAAAAXcGVybWl0LWFnZW50LWZvcndhcmRpbmcAAAAAAAAAFnBlcm1pdC1wb3J0LWZvcndhcmRpbmcAAAAAAAAACnBlcm1pdC1wdHkAAAAAAAAADnBlcm1pdC11c2VyLXJjAAAAAAAAAAAAAAGXAAAAB3NzaC1yc2EAAAADAQABAAABgQDF5fcwZHiyixmnE6IlOZJpZhWXoh62gN+yadAA0GJ509SAEaZVLPDP8S5RsE8mUikR3wxynVshxHeqMhrkS+RlNbhSlOXDdNg94yTrq/xF8Z/PgKRInvef74k5i7bAIytza7jERzFJ/ujTEy3537T5k5EYQJ15ZQGuvzynSdv+6o99SjI4jFplyQOZ2QcYbEAmhHm5GgQlIiEFG/RlDtLksOulKZxOY3qPzP0AyQxtZJXn/5vG40aW9LTbwxCJqWlgrkFXMqAAVCbuU5YspwhiXmKt1PsldiXw23oloa4caCKN1jzbFiGuZNXEU2Ebx7JIvjQCPaUYwLjEbkRDxDqN/vmwZqBuKYiuG9Eafx+nFSQkr7QYb5b+mT+/1IFHnmeRGn38731kBqtH7tpzC/t+soRX9p2HtJM+9MYhblO2OqTSPGTlxihWUkyiRBekpAhaiHld16TsG+A3bOJHrojGcX+5g6oGarKGLAMcykL1X+rZqT993Mo6d2Z7q43MOXEAAAGUAAAADHJzYS1zaGEyLTUxMgAAAYAlH3hhj8J6xLyVpeLZjblzwDKrxp/MWiH30hQ965ExPrPRcoAZFEKVqOYdj6bp4Q19Q4Yzqdobg3aN5ym2iH0b2TlOY0mM901CAoHbNJyiLs+0KiFRoJ+30EDj/hcKusg6v8ln2yixPagAyQu3zyiWo4t1ZuO3I86xchGlptStxSdHAHPFCfpbhcnzWFZctiMqUutl82C4ROWyjOZcRzdVdWHeN5h8wnooXuvba2VkT8QPmjYYyRGuQ3Hg+ySdh8Tel4wiix1Dg5MX7Wjh4hKEx80No9UPy+0iyZMNc07lsWAtrY6NRxGM5CzB6mklscB8TzFrVSnIl9u3bquLfaCrFt/Mft5dR7Yy4jmF+zUhjia6h6giCZ91J+FZ4hV+WkBtPCvTfrGWoA1BgEB/iI2xOq/NPqJ7UXRoMXk/l0NPgRPT2JS1adegqnt4ddr6IlmPyZxaSEvXhanjKdfMlEFYO1wz7ouqpYUozQVy4KXBlzFlNwyD1hI+k4+/A6AIYeI= nicola@p1"
-	configDir             = ".."
-	permissionErrorString = "Permission Denied"
-	osWindows             = "windows"
+	testCertExpired = "ssh-rsa-cert-v01@openssh.com AAAAHHNzaC1yc2EtY2VydC12MDFAb3BlbnNzaC5jb20AAAAgU3TLP5285k20fBSsdZioI78oJUpaRXFlgx5IPg6gWg8AAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0AAAAAAAAABAAAAAEAAAAOdGVzdF91c2VyX3NmdHAAAAASAAAADnRlc3RfdXNlcl9zZnRwAAAAAEs93LgAAAAATR8QOAAAAAAAAACCAAAAFXBlcm1pdC1YMTEtZm9yd2FyZGluZwAAAAAAAAAXcGVybWl0LWFnZW50LWZvcndhcmRpbmcAAAAAAAAAFnBlcm1pdC1wb3J0LWZvcndhcmRpbmcAAAAAAAAACnBlcm1pdC1wdHkAAAAAAAAADnBlcm1pdC11c2VyLXJjAAAAAAAAAAAAAAGXAAAAB3NzaC1yc2EAAAADAQABAAABgQDF5fcwZHiyixmnE6IlOZJpZhWXoh62gN+yadAA0GJ509SAEaZVLPDP8S5RsE8mUikR3wxynVshxHeqMhrkS+RlNbhSlOXDdNg94yTrq/xF8Z/PgKRInvef74k5i7bAIytza7jERzFJ/ujTEy3537T5k5EYQJ15ZQGuvzynSdv+6o99SjI4jFplyQOZ2QcYbEAmhHm5GgQlIiEFG/RlDtLksOulKZxOY3qPzP0AyQxtZJXn/5vG40aW9LTbwxCJqWlgrkFXMqAAVCbuU5YspwhiXmKt1PsldiXw23oloa4caCKN1jzbFiGuZNXEU2Ebx7JIvjQCPaUYwLjEbkRDxDqN/vmwZqBuKYiuG9Eafx+nFSQkr7QYb5b+mT+/1IFHnmeRGn38731kBqtH7tpzC/t+soRX9p2HtJM+9MYhblO2OqTSPGTlxihWUkyiRBekpAhaiHld16TsG+A3bOJHrojGcX+5g6oGarKGLAMcykL1X+rZqT993Mo6d2Z7q43MOXEAAAGUAAAADHJzYS1zaGEyLTUxMgAAAYAlH3hhj8J6xLyVpeLZjblzwDKrxp/MWiH30hQ965ExPrPRcoAZFEKVqOYdj6bp4Q19Q4Yzqdobg3aN5ym2iH0b2TlOY0mM901CAoHbNJyiLs+0KiFRoJ+30EDj/hcKusg6v8ln2yixPagAyQu3zyiWo4t1ZuO3I86xchGlptStxSdHAHPFCfpbhcnzWFZctiMqUutl82C4ROWyjOZcRzdVdWHeN5h8wnooXuvba2VkT8QPmjYYyRGuQ3Hg+ySdh8Tel4wiix1Dg5MX7Wjh4hKEx80No9UPy+0iyZMNc07lsWAtrY6NRxGM5CzB6mklscB8TzFrVSnIl9u3bquLfaCrFt/Mft5dR7Yy4jmF+zUhjia6h6giCZ91J+FZ4hV+WkBtPCvTfrGWoA1BgEB/iI2xOq/NPqJ7UXRoMXk/l0NPgRPT2JS1adegqnt4ddr6IlmPyZxaSEvXhanjKdfMlEFYO1wz7ouqpYUozQVy4KXBlzFlNwyD1hI+k4+/A6AIYeI= nicola@p1"
+	configDir       = ".."
+	osWindows       = "windows"
 )
 
 var (
@@ -136,19 +136,37 @@ func TestMain(m *testing.M) {
 	logger.InitLogger(logFilePath, 5, 1, 28, false, zerolog.DebugLevel)
 	err := ioutil.WriteFile(loginBannerFile, []byte("simple login banner\n"), os.ModePerm)
 	if err != nil {
-		logger.WarnToConsole("error creating login banner: %v", err)
+		logger.ErrorToConsole("error creating login banner: %v", err)
 	}
 	err = config.LoadConfig(configDir, "")
 	if err != nil {
-		logger.WarnToConsole("error loading configuration: %v", err)
+		logger.ErrorToConsole("error loading configuration: %v", err)
 		os.Exit(1)
 	}
 	providerConf := config.GetProviderConf()
 	logger.InfoToConsole("Starting SFTPD tests, provider: %v", providerConf.Driver)
 
+	commonConf := config.GetCommonConfig()
+	// we run the test cases with UploadMode atomic and resume support. The non atomic code path
+	// simply does not execute some code so if it works in atomic mode will
+	// work in non atomic mode too
+	commonConf.UploadMode = 2
+	homeBasePath = os.TempDir()
+	checkSystemCommands()
+	var scriptArgs string
+	if runtime.GOOS == osWindows {
+		scriptArgs = "%*"
+	} else {
+		commonConf.Actions.ExecuteOn = []string{"download", "upload", "rename", "delete", "ssh_cmd"}
+		commonConf.Actions.Hook = hookCmdPath
+		scriptArgs = "$@"
+	}
+
+	common.Initialize(commonConf)
+
 	err = dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
-		logger.WarnToConsole("error initializing data provider: %v", err)
+		logger.ErrorToConsole("error initializing data provider: %v", err)
 		os.Exit(1)
 	}
 
@@ -166,25 +184,11 @@ func TestMain(m *testing.M) {
 	sftpdConf.LoginBannerFile = loginBannerFileName
 	// we need to test all supported ssh commands
 	sftpdConf.EnabledSSHCommands = []string{"*"}
-	// we run the test cases with UploadMode atomic and resume support. The non atomic code path
-	// simply does not execute some code so if it works in atomic mode will
-	// work in non atomic mode too
-	sftpdConf.UploadMode = 2
-	homeBasePath = os.TempDir()
-	checkSystemCommands()
-	var scriptArgs string
-	if runtime.GOOS == osWindows {
-		scriptArgs = "%*"
-	} else {
-		sftpdConf.Actions.ExecuteOn = []string{"download", "upload", "rename", "delete", "ssh_cmd"}
-		sftpdConf.Actions.Hook = hookCmdPath
-		scriptArgs = "$@"
-	}
 
 	keyIntAuthPath = filepath.Join(homeBasePath, "keyintauth.sh")
 	err = ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), 0755)
 	if err != nil {
-		logger.WarnToConsole("error writing keyboard interactive script: %v", err)
+		logger.ErrorToConsole("error writing keyboard interactive script: %v", err)
 		os.Exit(1)
 	}
 	sftpdConf.KeyboardInteractiveHook = keyIntAuthPath
@@ -217,13 +221,15 @@ func TestMain(m *testing.M) {
 	go func() {
 		logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
 		if err := sftpdConf.Initialize(configDir); err != nil {
-			logger.Error(logSender, "", "could not start SFTP server: %v", err)
+			logger.ErrorToConsole("could not start SFTP server: %v", err)
+			os.Exit(1)
 		}
 	}()
 
 	go func() {
 		if err := httpdConf.Initialize(configDir, false); err != nil {
-			logger.Error(logSender, "", "could not start HTTP server: %v", err)
+			logger.ErrorToConsole("could not start HTTP server: %v", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -231,22 +237,26 @@ func TestMain(m *testing.M) {
 	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
 
 	sftpdConf.BindPort = 2222
-	sftpdConf.ProxyProtocol = 1
+	common.Config.ProxyProtocol = 1
 	go func() {
-		logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
+		logger.Debug(logSender, "", "initializing SFTP server with config %+v and proxy protocol %v",
+			sftpdConf, common.Config.ProxyProtocol)
 		if err := sftpdConf.Initialize(configDir); err != nil {
-			logger.Error(logSender, "", "could not start SFTP server: %v", err)
+			logger.ErrorToConsole("could not start SFTP server with proxy protocol 1: %v", err)
+			os.Exit(1)
 		}
 	}()
 
 	waitTCPListening(fmt.Sprintf("%s:%d", sftpdConf.BindAddress, sftpdConf.BindPort))
 
 	sftpdConf.BindPort = 2224
-	sftpdConf.ProxyProtocol = 2
+	common.Config.ProxyProtocol = 2
 	go func() {
-		logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
+		logger.Debug(logSender, "", "initializing SFTP server with config %+v and proxy protocol %v",
+			sftpdConf, common.Config.ProxyProtocol)
 		if err := sftpdConf.Initialize(configDir); err != nil {
-			logger.Error(logSender, "", "could not start SFTP server: %v", err)
+			logger.ErrorToConsole("could not start SFTP server with proxy protocol 2: %v", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -269,7 +279,6 @@ func TestInitialization(t *testing.T) {
 	err := config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	sftpdConf := config.GetSFTPDConfig()
-	sftpdConf.Umask = "invalid umask"
 	sftpdConf.BindPort = 2022
 	sftpdConf.LoginBannerFile = "invalid_file"
 	sftpdConf.EnabledSSHCommands = append(sftpdConf.EnabledSSHCommands, "ls")
@@ -282,15 +291,15 @@ func TestInitialization(t *testing.T) {
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
 	sftpdConf.BindPort = 4444
-	sftpdConf.ProxyProtocol = 1
-	sftpdConf.ProxyAllowed = []string{"1270.0.0.1"}
+	common.Config.ProxyProtocol = 1
+	common.Config.ProxyAllowed = []string{"1270.0.0.1"}
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
-	sftpdConf.HostKeys = []string{"missing file"}
+	sftpdConf.HostKeys = []string{"missing key"}
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
-	sftpdConf.Keys = nil
-	sftpdConf.TrustedUserCAKeys = []string{"missing file"}
+	sftpdConf.HostKeys = nil
+	sftpdConf.TrustedUserCAKeys = []string{"missing ca key"}
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
 }
@@ -343,7 +352,7 @@ func TestBasicSFTPHandling(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestConcurrentLogins(t *testing.T) {
+func TestConcurrency(t *testing.T) {
 	usePubKey := true
 	numLogins := 50
 	u := getTestUser(usePubKey)
@@ -353,33 +362,75 @@ func TestConcurrentLogins(t *testing.T) {
 	var wg sync.WaitGroup
 	testFileName := "test_file.dat"
 	testFilePath := filepath.Join(homeBasePath, testFileName)
-	testFileSize := int64(65535)
+	testFileSize := int64(262144)
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
 
+	closedConns := int32(0)
 	for i := 0; i < numLogins; i++ {
 		wg.Add(1)
 		go func(counter int) {
+			defer wg.Done()
+			defer atomic.AddInt32(&closedConns, 1)
+
 			client, err := getSftpClient(user, usePubKey)
 			if assert.NoError(t, err) {
-				defer wg.Done()
 				defer client.Close()
+
 				err = checkBasicSFTP(client)
 				assert.NoError(t, err)
 				err = sftpUploadFile(testFilePath, testFileName+strconv.Itoa(counter), testFileSize, client)
 				assert.NoError(t, err)
+				assert.Greater(t, common.Connections.GetActiveSessions(defaultUsername), 0)
 			}
 		}(i)
 	}
+	var statsWg sync.WaitGroup
+	statsWg.Add(1)
+
+	go func() {
+		defer statsWg.Done()
+
+		maxConns := 0
+		maxSessions := 0
+		for {
+			servedReqs := atomic.LoadInt32(&closedConns)
+			if servedReqs > 0 {
+				stats := common.Connections.GetStats()
+				if len(stats) > maxConns {
+					maxConns = len(stats)
+				}
+				activeSessions := common.Connections.GetActiveSessions(defaultUsername)
+				if activeSessions > maxSessions {
+					maxSessions = activeSessions
+				}
+			}
+			if servedReqs >= int32(numLogins) {
+				break
+			}
+		}
+		assert.Greater(t, maxConns, 0)
+		assert.Greater(t, maxSessions, 0)
+	}()
+
 	wg.Wait()
+	statsWg.Wait()
 
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
-		defer client.Close()
 		files, err := client.ReadDir(".")
 		assert.NoError(t, err)
 		assert.Len(t, files, numLogins)
+		client.Close()
 	}
+
+	assert.Eventually(t, func() bool {
+		return common.Connections.GetActiveSessions(defaultUsername) == 0
+	}, 1*time.Second, 50*time.Millisecond)
+
+	assert.Eventually(t, func() bool {
+		return len(common.Connections.GetStats()) == 0
+	}, 1*time.Second, 50*time.Millisecond)
 
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
@@ -1945,16 +1996,14 @@ func TestQuotaScan(t *testing.T) {
 }
 
 func TestMultipleQuotaScans(t *testing.T) {
-	res := sftpd.AddQuotaScan(defaultUsername)
+	res := common.QuotaScans.AddUserQuotaScan(defaultUsername)
 	assert.True(t, res)
-	res = sftpd.AddQuotaScan(defaultUsername)
+	res = common.QuotaScans.AddUserQuotaScan(defaultUsername)
 	assert.False(t, res, "add quota must fail if another scan is already active")
-	err := sftpd.RemoveQuotaScan(defaultUsername)
-	assert.NoError(t, err)
-	activeScans := sftpd.GetQuotaScans()
+	assert.True(t, common.QuotaScans.RemoveUserQuotaScan(defaultUsername))
+	activeScans := common.QuotaScans.GetUsersQuotaScans()
 	assert.Equal(t, 0, len(activeScans))
-	err = sftpd.RemoveQuotaScan(defaultUsername)
-	assert.Error(t, err)
+	assert.False(t, common.QuotaScans.RemoveUserQuotaScan(defaultUsername))
 }
 
 func TestQuotaLimits(t *testing.T) {
@@ -2071,7 +2120,6 @@ func TestBandwidthAndConnections(t *testing.T) {
 		// wait some additional arbitrary time to wait for transfer activity to happen
 		// it is need to reach all the code in CheckIdleConnections
 		time.Sleep(100 * time.Millisecond)
-		sftpd.CheckIdleConnections()
 		err = <-c
 		assert.NoError(t, err)
 		elapsed = time.Since(startTime).Nanoseconds() / 1000000
@@ -2080,10 +2128,9 @@ func TestBandwidthAndConnections(t *testing.T) {
 		c = sftpUploadNonBlocking(testFilePath, testFileName+"_partial", testFileSize, client)
 		waitForActiveTransfer()
 		time.Sleep(100 * time.Millisecond)
-		sftpd.CheckIdleConnections()
-		stats := sftpd.GetConnectionsStats()
+		stats := common.Connections.GetStats()
 		for _, stat := range stats {
-			sftpd.CloseActiveConnection(stat.ConnectionID)
+			common.Connections.Close(stat.ConnectionID)
 		}
 		err = <-c
 		assert.Error(t, err, "connection closed while uploading: the upload must fail")
@@ -3916,16 +3963,16 @@ func TestVirtualFolderQuotaScan(t *testing.T) {
 
 func TestVFolderMultipleQuotaScan(t *testing.T) {
 	folderPath := filepath.Join(os.TempDir(), "folder_path")
-	res := sftpd.AddVFolderQuotaScan(folderPath)
+	res := common.QuotaScans.AddVFolderQuotaScan(folderPath)
 	assert.True(t, res)
-	res = sftpd.AddVFolderQuotaScan(folderPath)
+	res = common.QuotaScans.AddVFolderQuotaScan(folderPath)
 	assert.False(t, res)
-	err := sftpd.RemoveVFolderQuotaScan(folderPath)
-	assert.NoError(t, err)
-	activeScans := sftpd.GetVFoldersQuotaScans()
+	res = common.QuotaScans.RemoveVFolderQuotaScan(folderPath)
+	assert.True(t, res)
+	activeScans := common.QuotaScans.GetVFoldersQuotaScans()
 	assert.Len(t, activeScans, 0)
-	err = sftpd.RemoveVFolderQuotaScan(folderPath)
-	assert.Error(t, err)
+	res = common.QuotaScans.RemoveVFolderQuotaScan(folderPath)
+	assert.False(t, res)
 }
 
 func TestVFolderQuotaSize(t *testing.T) {
@@ -4400,7 +4447,7 @@ func TestPermRename(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Rename(testFileName, testFileName+".rename")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		_, err = client.Stat(testFileName)
 		assert.NoError(t, err)
@@ -4438,7 +4485,7 @@ func TestPermRenameOverwrite(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Rename(testFileName, testFileName+".rename")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = client.Remove(testFileName)
 		assert.NoError(t, err)
@@ -4612,26 +4659,29 @@ func TestSubDirsUploads(t *testing.T) {
 		assert.NoError(t, err)
 		testFileName := "test_file.dat"
 		testFileNameSub := "/subdir/test_file_dat"
+		testSubFile := filepath.Join(user.GetHomeDir(), "subdir", "file.dat")
 		testDir := "testdir"
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(65535)
 		err = createTestFile(testFilePath, testFileSize)
 		assert.NoError(t, err)
+		err = createTestFile(testSubFile, testFileSize)
+		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, testFileNameSub, testFileSize, client)
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = client.Symlink(testFileName, testFileNameSub+".link")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = client.Symlink(testFileName, testFileName+".link")
 		assert.NoError(t, err)
 		err = client.Rename(testFileName, testFileNameSub+".rename")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = client.Rename(testFileName, testFileName+".rename")
 		assert.NoError(t, err)
@@ -4651,9 +4701,9 @@ func TestSubDirsUploads(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Remove(testDir)
 		assert.NoError(t, err)
-		err = client.Remove(testFileNameSub)
+		err = client.Remove(path.Join("/subdir", "file.dat"))
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = client.Remove(testFileName + ".rename")
 		assert.NoError(t, err)
@@ -4686,7 +4736,7 @@ func TestSubDirsOverwrite(t *testing.T) {
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, testFileName+".new", testFileSize, client)
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		assert.NoError(t, err)
@@ -4721,27 +4771,27 @@ func TestSubDirsDownloads(t *testing.T) {
 		localDownloadPath := filepath.Join(homeBasePath, "test_download.dat")
 		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = client.Chtimes(testFileName, time.Now(), time.Now())
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = client.Rename(testFileName, testFileName+".rename")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = client.Symlink(testFileName, testFileName+".link")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = client.Remove(testFileName)
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
@@ -4777,11 +4827,11 @@ func TestPermsSubDirsSetstat(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Chtimes("/subdir/", time.Now(), time.Now())
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = client.Chtimes("subdir/", time.Now(), time.Now())
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = client.Chtimes(testFileName, time.Now(), time.Now())
 		assert.NoError(t, err)
@@ -4816,15 +4866,15 @@ func TestPermsSubDirsCommands(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = client.ReadDir("/subdir")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = client.RemoveDirectory("/subdir/dir")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = client.Mkdir("/subdir/otherdir/dir")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = client.Mkdir("/otherdir")
 		assert.NoError(t, err)
@@ -4832,11 +4882,11 @@ func TestPermsSubDirsCommands(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Rename("/otherdir", "/subdir/otherdir/adir")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = client.Symlink("/otherdir", "/subdir/otherdir")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = client.Symlink("/otherdir", "/otherdir_link")
 		assert.NoError(t, err)
@@ -4863,15 +4913,15 @@ func TestRootDirCommands(t *testing.T) {
 		defer client.Close()
 		err = client.Rename("/", "rootdir")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = client.Symlink("/", "rootdir")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 		err = client.RemoveDirectory("/")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), permissionErrorString)
+			assert.Contains(t, err.Error(), sftp.ErrSSHFxPermissionDenied.Error())
 		}
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
@@ -6880,7 +6930,7 @@ func waitTCPListening(address string) {
 			continue
 		}
 		logger.InfoToConsole("tcp server %v now listening\n", address)
-		defer conn.Close()
+		conn.Close()
 		break
 	}
 }
@@ -7261,19 +7311,19 @@ func computeHashForFile(hasher hash.Hash, path string) (string, error) {
 }
 
 func waitForNoActiveTransfer() {
-	for len(sftpd.GetConnectionsStats()) > 0 {
+	for len(common.Connections.GetStats()) > 0 {
 		time.Sleep(100 * time.Millisecond)
 	}
 }
 
 func waitForActiveTransfer() {
-	stats := sftpd.GetConnectionsStats()
+	stats := common.Connections.GetStats()
 	for len(stats) < 1 {
-		stats = sftpd.GetConnectionsStats()
+		stats = common.Connections.GetStats()
 	}
 	activeTransferFound := false
 	for !activeTransferFound {
-		stats = sftpd.GetConnectionsStats()
+		stats = common.Connections.GetStats()
 		if len(stats) == 0 {
 			break
 		}

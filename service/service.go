@@ -6,6 +6,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
@@ -64,6 +65,9 @@ func (s *Service) Start() error {
 			logger.Error(logSender, "", "error loading configuration: %v", err)
 		}
 	}
+
+	common.Initialize(config.GetCommonConfig())
+
 	providerConf := config.GetProviderConf()
 
 	err := dataprovider.Initialize(providerConf, s.ConfigDir)

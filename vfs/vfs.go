@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/eikenb/pipeat"
-	"github.com/pkg/sftp"
 
 	"github.com/drakkan/sftpgo/logger"
 )
@@ -154,6 +153,11 @@ func (p *PipeWriter) WriteAt(data []byte, off int64) (int, error) {
 	return p.writer.WriteAt(data, off)
 }
 
+// Write is a wrapper for pipeat Write
+func (p *PipeWriter) Write(data []byte) (int, error) {
+	return p.writer.Write(data)
+}
+
 // IsDirectory checks if a path exists and is a directory
 func IsDirectory(fs Fs, path string) (bool, error) {
 	fileInfo, err := fs.Stat(path)
@@ -161,18 +165,6 @@ func IsDirectory(fs Fs, path string) (bool, error) {
 		return false, err
 	}
 	return fileInfo.IsDir(), err
-}
-
-// GetSFTPError returns an sftp error from a filesystem error
-func GetSFTPError(fs Fs, err error) error {
-	if fs.IsNotExist(err) {
-		return sftp.ErrSSHFxNoSuchFile
-	} else if fs.IsPermission(err) {
-		return sftp.ErrSSHFxPermissionDenied
-	} else if err != nil {
-		return sftp.ErrSSHFxFailure
-	}
-	return nil
 }
 
 // IsLocalOsFs returns true if fs is the local filesystem implementation

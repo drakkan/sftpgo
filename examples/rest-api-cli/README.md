@@ -306,7 +306,6 @@ Output:
   {
     "active_transfers": [
       {
-        "last_activity": 1577197485561,
         "operation_type": "upload",
         "path": "/test_upload.tar.gz",
         "size": 1540096,
@@ -319,7 +318,6 @@ Output:
     "last_activity": 1577197485561,
     "protocol": "SFTP",
     "remote_address": "127.0.0.1:43714",
-    "ssh_command": "",
     "username": "test_username"
   }
 ]

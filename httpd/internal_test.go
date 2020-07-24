@@ -17,8 +17,8 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
 )
@@ -526,7 +526,7 @@ func TestQuotaScanInvalidFs(t *testing.T) {
 			Provider: 1,
 		},
 	}
-	sftpd.AddQuotaScan(user.Username)
+	common.QuotaScans.AddUserQuotaScan(user.Username)
 	err := doQuotaScan(user)
 	assert.Error(t, err)
 }

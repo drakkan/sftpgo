@@ -6,12 +6,12 @@ import (
 )
 
 type logSyncWrapper struct {
-	lock   *sync.Mutex
+	sync.Mutex
 	output *os.File
 }
 
-func (l logSyncWrapper) Write(b []byte) (n int, err error) {
-	l.lock.Lock()
-	defer l.lock.Unlock()
+func (l *logSyncWrapper) Write(b []byte) (n int, err error) {
+	l.Lock()
+	defer l.Unlock()
 	return l.output.Write(b)
 }

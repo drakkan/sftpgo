@@ -29,14 +29,14 @@ Zsh:
 $ source <(sftpgo gen completion zsh)
 
 # To load completions for each session, execute once:
-$ sftpgo completion zsh > "${fpath[1]}/_sftpgo"
+$ sftpgo gen completion zsh > "${fpath[1]}/_sftpgo"
 
 Fish:
 
 $ sftpgo gen completion fish | source
 
 # To load completions for each session, execute once:
-$ sftpgo completion fish > ~/.config/fish/completions/sftpgo.fish
+$ sftpgo gen completion fish > ~/.config/fish/completions/sftpgo.fish
 `,
 	DisableFlagsInUseLine: true,
 	ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},

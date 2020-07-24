@@ -33,10 +33,10 @@ type httpAuthProvider interface {
 }
 
 type basicAuthProvider struct {
-	Path  string
+	Path string
+	sync.RWMutex
 	Info  os.FileInfo
 	Users map[string]string
-	lock  *sync.RWMutex
 }
 
 func newBasicAuthProvider(authUserFile string) (httpAuthProvider, error) {
@@ -44,7 +44,6 @@ func newBasicAuthProvider(authUserFile string) (httpAuthProvider, error) {
 		Path:  authUserFile,
 		Info:  nil,
 		Users: make(map[string]string),
-		lock:  new(sync.RWMutex),
 	}
 	return &basicAuthProvider, basicAuthProvider.loadUsers()
 }
@@ -54,8 +53,8 @@ func (p *basicAuthProvider) isEnabled() bool {
 }
 
 func (p *basicAuthProvider) isReloadNeeded(info os.FileInfo) bool {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
+	p.RLock()
+	defer p.RUnlock()
 	return p.Info == nil || p.Info.ModTime() != info.ModTime() || p.Info.Size() != info.Size()
 }
 
@@ -84,8 +83,8 @@ func (p *basicAuthProvider) loadUsers() error {
 			logger.Debug(logSender, "", "unable to parse basic auth users file: %v", err)
 			return err
 		}
-		p.lock.Lock()
-		defer p.lock.Unlock()
+		p.Lock()
+		defer p.Unlock()
 		p.Users = make(map[string]string)
 		for _, record := range records {
 			if len(record) == 2 {
@@ -103,8 +102,8 @@ func (p *basicAuthProvider) getHashedPassword(username string) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	p.lock.RLock()
-	defer p.lock.RUnlock()
+	p.RLock()
+	defer p.RUnlock()
 	pwd, ok := p.Users[username]
 	return pwd, ok
 }

@@ -21,6 +21,9 @@ var (
 )
 
 type memoryProviderHandle struct {
+	// configuration file to use for loading users
+	configFile string
+	sync.Mutex
 	isClosed bool
 	// slice with ordered usernames
 	usernames []string
@@ -32,9 +35,6 @@ type memoryProviderHandle struct {
 	vfolders map[string]vfs.BaseVirtualFolder
 	// slice with ordered folders mapped path
 	vfoldersPaths []string
-	// configuration file to use for loading users
-	configFile string
-	lock       *sync.Mutex
 }
 
 // MemoryProvider auth provider for a memory store
@@ -60,15 +60,14 @@ func initializeMemoryProvider(basePath string) error {
 			vfolders:      make(map[string]vfs.BaseVirtualFolder),
 			vfoldersPaths: []string{},
 			configFile:    configFile,
-			lock:          new(sync.Mutex),
 		},
 	}
 	return provider.reloadConfig()
 }
 
 func (p MemoryProvider) checkAvailability() error {
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return errMemoryProviderClosed
 	}
@@ -76,8 +75,8 @@ func (p MemoryProvider) checkAvailability() error {
 }
 
 func (p MemoryProvider) close() error {
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return errMemoryProviderClosed
 	}
@@ -112,8 +111,8 @@ func (p MemoryProvider) validateUserAndPubKey(username string, pubKey []byte) (U
 }
 
 func (p MemoryProvider) getUserByID(ID int64) (User, error) {
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return User{}, errMemoryProviderClosed
 	}
@@ -124,8 +123,8 @@ func (p MemoryProvider) getUserByID(ID int64) (User, error) {
 }
 
 func (p MemoryProvider) updateLastLogin(username string) error {
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return errMemoryProviderClosed
 	}
@@ -139,8 +138,8 @@ func (p MemoryProvider) updateLastLogin(username string) error {
 }
 
 func (p MemoryProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return errMemoryProviderClosed
 	}
@@ -164,8 +163,8 @@ func (p MemoryProvider) updateQuota(username string, filesAdd int, sizeAdd int64
 }
 
 func (p MemoryProvider) getUsedQuota(username string) (int, int64, error) {
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return 0, 0, errMemoryProviderClosed
 	}
@@ -178,8 +177,8 @@ func (p MemoryProvider) getUsedQuota(username string) (int, int64, error) {
 }
 
 func (p MemoryProvider) addUser(user User) error {
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return errMemoryProviderClosed
 	}
@@ -205,8 +204,8 @@ func (p MemoryProvider) addUser(user User) error {
 }
 
 func (p MemoryProvider) updateUser(user User) error {
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return errMemoryProviderClosed
 	}
@@ -231,8 +230,8 @@ func (p MemoryProvider) updateUser(user User) error {
 }
 
 func (p MemoryProvider) deleteUser(user User) error {
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return errMemoryProviderClosed
 	}
@@ -255,8 +254,8 @@ func (p MemoryProvider) deleteUser(user User) error {
 }
 
 func (p MemoryProvider) dumpUsers() ([]User, error) {
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	users := make([]User, 0, len(p.dbHandle.usernames))
 	var err error
 	if p.dbHandle.isClosed {
@@ -274,8 +273,8 @@ func (p MemoryProvider) dumpUsers() ([]User, error) {
 }
 
 func (p MemoryProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	folders := make([]vfs.BaseVirtualFolder, 0, len(p.dbHandle.vfoldersPaths))
 	if p.dbHandle.isClosed {
 		return folders, errMemoryProviderClosed
@@ -289,8 +288,8 @@ func (p MemoryProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 func (p MemoryProvider) getUsers(limit int, offset int, order string, username string) ([]User, error) {
 	users := make([]User, 0, limit)
 	var err error
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return users, errMemoryProviderClosed
 	}
@@ -337,8 +336,8 @@ func (p MemoryProvider) getUsers(limit int, offset int, order string, username s
 }
 
 func (p MemoryProvider) userExists(username string) (User, error) {
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return User{}, errMemoryProviderClosed
 	}
@@ -353,8 +352,8 @@ func (p MemoryProvider) userExistsInternal(username string) (User, error) {
 }
 
 func (p MemoryProvider) updateFolderQuota(mappedPath string, filesAdd int, sizeAdd int64, reset bool) error {
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return errMemoryProviderClosed
 	}
@@ -376,8 +375,8 @@ func (p MemoryProvider) updateFolderQuota(mappedPath string, filesAdd int, sizeA
 }
 
 func (p MemoryProvider) getUsedFolderQuota(mappedPath string) (int, int64, error) {
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return 0, 0, errMemoryProviderClosed
 	}
@@ -458,8 +457,8 @@ func (p MemoryProvider) folderExistsInternal(mappedPath string) (vfs.BaseVirtual
 func (p MemoryProvider) getFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error) {
 	folders := make([]vfs.BaseVirtualFolder, 0, limit)
 	var err error
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return folders, errMemoryProviderClosed
 	}
@@ -507,8 +506,8 @@ func (p MemoryProvider) getFolders(limit, offset int, order, folderPath string) 
 }
 
 func (p MemoryProvider) getFolderByPath(mappedPath string) (vfs.BaseVirtualFolder, error) {
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return vfs.BaseVirtualFolder{}, errMemoryProviderClosed
 	}
@@ -516,8 +515,8 @@ func (p MemoryProvider) getFolderByPath(mappedPath string) (vfs.BaseVirtualFolde
 }
 
 func (p MemoryProvider) addFolder(folder vfs.BaseVirtualFolder) error {
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return errMemoryProviderClosed
 	}
@@ -537,8 +536,8 @@ func (p MemoryProvider) addFolder(folder vfs.BaseVirtualFolder) error {
 }
 
 func (p MemoryProvider) deleteFolder(folder vfs.BaseVirtualFolder) error {
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return errMemoryProviderClosed
 	}
@@ -590,8 +589,8 @@ func (p MemoryProvider) getNextFolderID() int64 {
 }
 
 func (p MemoryProvider) clear() {
-	p.dbHandle.lock.Lock()
-	defer p.dbHandle.lock.Unlock()
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
 	p.dbHandle.usernames = []string{}
 	p.dbHandle.usersIdx = make(map[int64]string)
 	p.dbHandle.users = make(map[string]User)

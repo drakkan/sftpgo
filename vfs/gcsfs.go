@@ -178,7 +178,7 @@ func (fs GCSFs) Create(name string, flag int) (*os.File, *PipeWriter, func(), er
 		defer objectWriter.Close()
 		n, err := io.Copy(objectWriter, r)
 		r.CloseWithError(err) //nolint:errcheck // the returned error is always null
-		p.Done(GetSFTPError(fs, err))
+		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, readed bytes: %v, err: %v", name, n, err)
 		metrics.GCSTransferCompleted(n, 0, err)
 	}()

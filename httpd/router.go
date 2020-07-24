@@ -8,10 +8,10 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
 
+	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
-	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/version"
 )
 
@@ -68,7 +68,7 @@ func initializeRouter(staticFilesPath string, enableProfiler, enableWebAdmin boo
 		})
 
 		router.Get(activeConnectionsPath, func(w http.ResponseWriter, r *http.Request) {
-			render.JSON(w, r, sftpd.GetConnectionsStats())
+			render.JSON(w, r, common.Connections.GetStats())
 		})
 
 		router.Delete(activeConnectionsPath+"/{connectionID}", handleCloseConnection)
@@ -116,7 +116,7 @@ func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, "connectionID is mandatory", http.StatusBadRequest)
 		return
 	}
-	if sftpd.CloseActiveConnection(connectionID) {
+	if common.Connections.Close(connectionID) {
 		sendAPIResponse(w, r, nil, "Connection closed", http.StatusOK)
 	} else {
 		sendAPIResponse(w, r, nil, "Not Found", http.StatusNotFound)

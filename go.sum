@@ -84,8 +84,6 @@ github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZm
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
 github.com/drakkan/crypto v0.0.0-20200705203859-05ad140ecdbd h1:7DQ8ayx6QylOxQrQ6oHdO+gk1cqtaINUekLrwD9gGNc=
 github.com/drakkan/crypto v0.0.0-20200705203859-05ad140ecdbd/go.mod h1:v3bhWOXGYda7H5d2s5t9XA6th3fxW3s0MQxU1R96G/w=
-github.com/drakkan/sftp v0.0.0-20200705201813-118ca5720446 h1:GxI4rQ487aXpKd4RkqZJ4aeJ0/1uksscNlaZ/a3FlN0=
-github.com/drakkan/sftp v0.0.0-20200705201813-118ca5720446/go.mod h1:PIrgHN0+qgDmYTNiwryjoEqmXo9tv8aMwQ//Yg1xwIs=
 github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d h1:8RvCRWer7TB2n+DKhW4uW15hRiqPmabSnSyYhju/Nuw=
 github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d/go.mod h1:+JPhBw5JdJrSF80r6xsSg1TYHjyAGxYs4X24VyUdMZU=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
@@ -262,6 +260,9 @@ github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINE
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
+github.com/pkg/sftp v1.10.1/go.mod h1:lYOWFsE0bwd1+KfKJaKeuokY15vzFx25BLbzYYoAxZI=
+github.com/pkg/sftp v1.11.1-0.20200716191756-97b9df616e69 h1:qbrvNcVkxFdNuawO0LsSRRVMubCHOHdDTbb5EO/hiPE=
+github.com/pkg/sftp v1.11.1-0.20200716191756-97b9df616e69/go.mod h1:PIrgHN0+qgDmYTNiwryjoEqmXo9tv8aMwQ//Yg1xwIs=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/posener/complete v1.1.1/go.mod h1:em0nMJCgc9GFtwrmVmEMR/ZL6WyhyjMBndrE9hABlRI=

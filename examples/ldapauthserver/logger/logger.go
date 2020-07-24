@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sync"
 
 	"github.com/rs/zerolog"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
@@ -38,9 +37,9 @@ func InitLogger(logFilePath string, logMaxSize, logMaxBackups, logMaxAge int, lo
 		})
 		EnableConsoleLogger(level)
 	} else {
-		logger = zerolog.New(logSyncWrapper{
+		logger = zerolog.New(&logSyncWrapper{
 			output: os.Stdout,
-			lock:   new(sync.Mutex)})
+		})
 		consoleLogger = zerolog.Nop()
 	}
 	logger.Level(level)

@@ -116,15 +116,10 @@ type schemaVersion struct {
 	Version int
 }
 
-// Actions to execute on user create, update, delete.
-// An external command can be executed and/or an HTTP notification can be fired
-type Actions struct {
+// UserActions defines the action to execute on user create, update, delete.
+type UserActions struct {
 	// Valid values are add, update, delete. Empty slice to disable
 	ExecuteOn []string `json:"execute_on" mapstructure:"execute_on"`
-	// Deprecated: please use Hook
-	Command string `json:"command" mapstructure:"command"`
-	// Deprecated: please use Hook
-	HTTPNotificationURL string `json:"http_notification_url" mapstructure:"http_notification_url"`
 	// Absolute path to an external program or an HTTP URL
 	Hook string `json:"hook" mapstructure:"hook"`
 }
@@ -175,9 +170,7 @@ type Config struct {
 	UsersBaseDir string `json:"users_base_dir" mapstructure:"users_base_dir"`
 	// Actions to execute on user add, update, delete.
 	// Update action will not be fired for internal updates such as the last login or the user quota fields.
-	Actions Actions `json:"actions" mapstructure:"actions"`
-	// Deprecated: please use ExternalAuthHook
-	ExternalAuthProgram string `json:"external_auth_program" mapstructure:"external_auth_program"`
+	Actions UserActions `json:"actions" mapstructure:"actions"`
 	// Absolute path to an external program or an HTTP URL to invoke for users authentication.
 	// Leave empty to use builtin authentication.
 	// The external program can read the following environment variables to get info about the user trying
@@ -227,8 +220,6 @@ type Config struct {
 	// Google Cloud Storage credentials. It can be a path relative to the config dir or an
 	// absolute path
 	CredentialsPath string `json:"credentials_path" mapstructure:"credentials_path"`
-	// Deprecated: please use PreLoginHook
-	PreLoginProgram string `json:"pre_login_program" mapstructure:"pre_login_program"`
 	// Absolute path to an external program or an HTTP URL to invoke just before the user login.
 	// This program/URL allows to modify or create the user trying to login.
 	// It is useful if you have users with dynamic fields to update just before the login.
@@ -358,10 +349,6 @@ type Provider interface {
 	reloadConfig() error
 	initializeDatabase() error
 	migrateDatabase() error
-}
-
-func init() {
-	availabilityTicker = time.NewTicker(30 * time.Second)
 }
 
 // Initialize the data provider.
@@ -664,8 +651,11 @@ func GetProviderStatus() error {
 // This method is used in test cases.
 // Closing an uninitialized provider is not supported
 func Close() error {
-	availabilityTicker.Stop()
-	availabilityTickerDone <- true
+	if availabilityTicker != nil {
+		availabilityTicker.Stop()
+		availabilityTickerDone <- true
+		availabilityTicker = nil
+	}
 	return provider.close()
 }
 
@@ -1224,6 +1214,7 @@ func getSSLMode() string {
 }
 
 func startAvailabilityTimer() {
+	availabilityTicker = time.NewTicker(30 * time.Second)
 	availabilityTickerDone = make(chan bool)
 	checkDataprovider()
 	go func() {

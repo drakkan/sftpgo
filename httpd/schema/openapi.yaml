@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 1.9.1
+  version: 1.9.2
 
 servers:
 - url: /api/v1
@@ -1778,10 +1778,6 @@ components:
           type: integer
           format: int64
           description: bytes transferred
-        last_activity:
-          type: integer
-          format: int64
-          description: last transfer activity as unix timestamp in milliseconds
     ConnectionStatus:
       type: object
       properties:
@@ -1793,6 +1789,7 @@ components:
           description: unique connection identifier
         client_version:
           type: string
+          nullable: true
           description: client version
         remote_address:
           type: string
@@ -1803,6 +1800,7 @@ components:
           description: connection time as unix timestamp in milliseconds
         ssh_command:
           type: string
+          nullable: true
           description: SSH command. This is not empty for protocol SSH
         last_activity:
           type: integer
@@ -1816,6 +1814,7 @@ components:
             - SSH
         active_transfers:
           type: array
+          nullable: true
           items:
             $ref : '#/components/schemas/Transfer'
     QuotaScan:

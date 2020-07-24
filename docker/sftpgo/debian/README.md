@@ -10,10 +10,10 @@ docker build -t="drakkan/sftpgo" .
 
 This will build master of github.com/drakkan/sftpgo.
 
-To build the latest tag you can add `--build-arg TAG=LATEST` and to build a specific tag/commit you can use for example `TAG=0.9.6`, like this:
+To build the latest tag you can add `--build-arg TAG=LATEST` and to build a specific tag/commit you can use for example `TAG=v1.0.0`, like this:
 
 ```bash
-docker build -t="drakkan/sftpgo" --build-arg TAG=0.9.6 .
+docker build -t="drakkan/sftpgo" --build-arg TAG=v1.0.0 .
 ```
 
 To specify the features to build you can add `--build-arg FEATURES=<build features comma separated>`. For example you can disable SQLite and S3 support like this:

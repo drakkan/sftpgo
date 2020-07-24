@@ -1,8 +1,4 @@
-// Package config manages the configuration.
-// Configuration is loaded from sftpgo.conf file.
-// If sftpgo.conf is not found or cannot be readed or decoded as json the default configuration is used.
-// The default configuration an be found inside the source tree:
-// https://github.com/drakkan/sftpgo/blob/master/sftpgo.conf
+// Package config manages the configuration
 package config
 
 import (
@@ -11,6 +7,7 @@ import (
 
 	"github.com/spf13/viper"
 
+	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/httpd"
@@ -36,27 +33,32 @@ var (
 )
 
 type globalConfig struct {
-	SFTPD        sftpd.Configuration `json:"sftpd" mapstructure:"sftpd"`
-	ProviderConf dataprovider.Config `json:"data_provider" mapstructure:"data_provider"`
-	HTTPDConfig  httpd.Conf          `json:"httpd" mapstructure:"httpd"`
-	HTTPConfig   httpclient.Config   `json:"http" mapstructure:"http"`
+	Common       common.Configuration `json:"common" mapstructure:"common"`
+	SFTPD        sftpd.Configuration  `json:"sftpd" mapstructure:"sftpd"`
+	ProviderConf dataprovider.Config  `json:"data_provider" mapstructure:"data_provider"`
+	HTTPDConfig  httpd.Conf           `json:"httpd" mapstructure:"httpd"`
+	HTTPConfig   httpclient.Config    `json:"http" mapstructure:"http"`
 }
 
 func init() {
 	// create a default configuration to use if no config file is provided
 	globalConf = globalConfig{
-		SFTPD: sftpd.Configuration{
-			Banner:       defaultBanner,
-			BindPort:     2022,
-			BindAddress:  "",
-			IdleTimeout:  15,
-			MaxAuthTries: 0,
-			Umask:        "0022",
-			UploadMode:   0,
-			Actions: sftpd.Actions{
+		Common: common.Configuration{
+			IdleTimeout: 15,
+			UploadMode:  0,
+			Actions: common.ProtocolActions{
 				ExecuteOn: []string{},
 				Hook:      "",
 			},
+			SetstatMode:   0,
+			ProxyProtocol: 0,
+			ProxyAllowed:  []string{},
+		},
+		SFTPD: sftpd.Configuration{
+			Banner:                  defaultBanner,
+			BindPort:                2022,
+			BindAddress:             "",
+			MaxAuthTries:            0,
 			HostKeys:                []string{},
 			KexAlgorithms:           []string{},
 			Ciphers:                 []string{},
@@ -65,8 +67,6 @@ func init() {
 			LoginBannerFile:         "",
 			EnabledSSHCommands:      sftpd.GetDefaultSSHCommands(),
 			KeyboardInteractiveHook: "",
-			ProxyProtocol:           0,
-			ProxyAllowed:            []string{},
 		},
 		ProviderConf: dataprovider.Config{
 			Driver:           "sqlite",
@@ -82,7 +82,7 @@ func init() {
 			TrackQuota:       1,
 			PoolSize:         0,
 			UsersBaseDir:     "",
-			Actions: dataprovider.Actions{
+			Actions: dataprovider.UserActions{
 				ExecuteOn: []string{},
 				Hook:      "",
 			},
@@ -114,6 +114,16 @@ func init() {
 	viper.SetConfigName(DefaultConfigName)
 	viper.AutomaticEnv()
 	viper.AllowEmptyEnv(true)
+}
+
+// GetCommonConfig returns the common protocols configuration
+func GetCommonConfig() common.Configuration {
+	return globalConf.Common
+}
+
+// SetCommonConfig sets the common protocols configuration
+func SetCommonConfig(config common.Configuration) {
+	globalConf.Common = config
 }
 
 // GetSFTPDConfig returns the configuration for the SFTP server
@@ -181,6 +191,7 @@ func LoadConfig(configDir, configName string) error {
 		logger.WarnToConsole("error parsing configuration file: %v. Default configuration will be used.", err)
 		return err
 	}
+	checkCommonParamsCompatibility()
 	if strings.TrimSpace(globalConf.SFTPD.Banner) == "" {
 		globalConf.SFTPD.Banner = defaultBanner
 	}
@@ -190,17 +201,17 @@ func LoadConfig(configDir, configName string) error {
 		logger.Warn(logSender, "", "Configuration error: %v", err)
 		logger.WarnToConsole("Configuration error: %v", err)
 	}
-	if globalConf.SFTPD.UploadMode < 0 || globalConf.SFTPD.UploadMode > 2 {
+	if globalConf.Common.UploadMode < 0 || globalConf.Common.UploadMode > 2 {
 		err = fmt.Errorf("invalid upload_mode 0, 1 and 2 are supported, configured: %v reset upload_mode to 0",
-			globalConf.SFTPD.UploadMode)
-		globalConf.SFTPD.UploadMode = 0
+			globalConf.Common.UploadMode)
+		globalConf.Common.UploadMode = 0
 		logger.Warn(logSender, "", "Configuration error: %v", err)
 		logger.WarnToConsole("Configuration error: %v", err)
 	}
-	if globalConf.SFTPD.ProxyProtocol < 0 || globalConf.SFTPD.ProxyProtocol > 2 {
+	if globalConf.Common.ProxyProtocol < 0 || globalConf.Common.ProxyProtocol > 2 {
 		err = fmt.Errorf("invalid proxy_protocol 0, 1 and 2 are supported, configured: %v reset proxy_protocol to 0",
-			globalConf.SFTPD.ProxyProtocol)
-		globalConf.SFTPD.ProxyProtocol = 0
+			globalConf.Common.ProxyProtocol)
+		globalConf.Common.ProxyProtocol = 0
 		logger.Warn(logSender, "", "Configuration error: %v", err)
 		logger.WarnToConsole("Configuration error: %v", err)
 	}
@@ -216,51 +227,9 @@ func LoadConfig(configDir, configName string) error {
 		logger.Warn(logSender, "", "Configuration error: %v", err)
 		logger.WarnToConsole("Configuration error: %v", err)
 	}
-	checkHooksCompatibility()
 	checkHostKeyCompatibility()
 	logger.Debug(logSender, "", "config file used: '%#v', config loaded: %+v", viper.ConfigFileUsed(), getRedactedGlobalConf())
 	return err
-}
-
-func checkHooksCompatibility() {
-	// we copy deprecated fields to new ones to keep backward compatibility so lint is disabled
-	if len(globalConf.ProviderConf.ExternalAuthProgram) > 0 && len(globalConf.ProviderConf.ExternalAuthHook) == 0 { //nolint:staticcheck
-		logger.Warn(logSender, "", "external_auth_program is deprecated, please use external_auth_hook")
-		logger.WarnToConsole("external_auth_program is deprecated, please use external_auth_hook")
-		globalConf.ProviderConf.ExternalAuthHook = globalConf.ProviderConf.ExternalAuthProgram //nolint:staticcheck
-	}
-	if len(globalConf.ProviderConf.PreLoginProgram) > 0 && len(globalConf.ProviderConf.PreLoginHook) == 0 { //nolint:staticcheck
-		logger.Warn(logSender, "", "pre_login_program is deprecated, please use pre_login_hook")
-		logger.WarnToConsole("pre_login_program is deprecated, please use pre_login_hook")
-		globalConf.ProviderConf.PreLoginHook = globalConf.ProviderConf.PreLoginProgram //nolint:staticcheck
-	}
-	if len(globalConf.SFTPD.KeyboardInteractiveProgram) > 0 && len(globalConf.SFTPD.KeyboardInteractiveHook) == 0 { //nolint:staticcheck
-		logger.Warn(logSender, "", "keyboard_interactive_auth_program is deprecated, please use keyboard_interactive_auth_hook")
-		logger.WarnToConsole("keyboard_interactive_auth_program is deprecated, please use keyboard_interactive_auth_hook")
-		globalConf.SFTPD.KeyboardInteractiveHook = globalConf.SFTPD.KeyboardInteractiveProgram //nolint:staticcheck
-	}
-	if len(globalConf.SFTPD.Actions.Hook) == 0 {
-		if len(globalConf.SFTPD.Actions.HTTPNotificationURL) > 0 { //nolint:staticcheck
-			logger.Warn(logSender, "", "http_notification_url is deprecated, please use hook")
-			logger.WarnToConsole("http_notification_url is deprecated, please use hook")
-			globalConf.SFTPD.Actions.Hook = globalConf.SFTPD.Actions.HTTPNotificationURL //nolint:staticcheck
-		} else if len(globalConf.SFTPD.Actions.Command) > 0 { //nolint:staticcheck
-			logger.Warn(logSender, "", "command is deprecated, please use hook")
-			logger.WarnToConsole("command is deprecated, please use hook")
-			globalConf.SFTPD.Actions.Hook = globalConf.SFTPD.Actions.Command //nolint:staticcheck
-		}
-	}
-	if len(globalConf.ProviderConf.Actions.Hook) == 0 {
-		if len(globalConf.ProviderConf.Actions.HTTPNotificationURL) > 0 { //nolint:staticcheck
-			logger.Warn(logSender, "", "http_notification_url is deprecated, please use hook")
-			logger.WarnToConsole("http_notification_url is deprecated, please use hook")
-			globalConf.ProviderConf.Actions.Hook = globalConf.ProviderConf.Actions.HTTPNotificationURL //nolint:staticcheck
-		} else if len(globalConf.ProviderConf.Actions.Command) > 0 { //nolint:staticcheck
-			logger.Warn(logSender, "", "command is deprecated, please use hook")
-			logger.WarnToConsole("command is deprecated, please use hook")
-			globalConf.ProviderConf.Actions.Hook = globalConf.ProviderConf.Actions.Command //nolint:staticcheck
-		}
-	}
 }
 
 func checkHostKeyCompatibility() {
@@ -271,5 +240,36 @@ func checkHostKeyCompatibility() {
 		for _, k := range globalConf.SFTPD.Keys { //nolint:staticcheck
 			globalConf.SFTPD.HostKeys = append(globalConf.SFTPD.HostKeys, k.PrivateKey)
 		}
+	}
+}
+
+func checkCommonParamsCompatibility() {
+	// we copy deprecated fields to new ones to keep backward compatibility so lint is disabled
+	if globalConf.SFTPD.IdleTimeout > 0 { //nolint:staticcheck
+		logger.Warn(logSender, "", "sftpd.idle_timeout is deprecated, please use common.idle_timeout")
+		logger.WarnToConsole("sftpd.idle_timeout is deprecated, please use common.idle_timeout")
+		globalConf.Common.IdleTimeout = globalConf.SFTPD.IdleTimeout //nolint:staticcheck
+	}
+	if len(globalConf.SFTPD.Actions.Hook) > 0 && len(globalConf.Common.Actions.Hook) == 0 { //nolint:staticcheck
+		logger.Warn(logSender, "", "sftpd.actions is deprecated, please use common.actions")
+		logger.WarnToConsole("sftpd.actions is deprecated, please use common.actions")
+		globalConf.Common.Actions.ExecuteOn = globalConf.SFTPD.Actions.ExecuteOn //nolint:staticcheck
+		globalConf.Common.Actions.Hook = globalConf.SFTPD.Actions.Hook           //nolint:staticcheck
+	}
+	if globalConf.SFTPD.SetstatMode > 0 && globalConf.Common.SetstatMode == 0 { //nolint:staticcheck
+		logger.Warn(logSender, "", "sftpd.setstat_mode is deprecated, please use common.setstat_mode")
+		logger.WarnToConsole("sftpd.setstat_mode is deprecated, please use common.setstat_mode")
+		globalConf.Common.SetstatMode = globalConf.SFTPD.SetstatMode //nolint:staticcheck
+	}
+	if globalConf.SFTPD.UploadMode > 0 && globalConf.Common.UploadMode == 0 { //nolint:staticcheck
+		logger.Warn(logSender, "", "sftpd.upload_mode is deprecated, please use common.upload_mode")
+		logger.WarnToConsole("sftpd.upload_mode is deprecated, please use common.upload_mode")
+		globalConf.Common.UploadMode = globalConf.SFTPD.UploadMode //nolint:staticcheck
+	}
+	if globalConf.SFTPD.ProxyProtocol > 0 && globalConf.Common.ProxyProtocol == 0 { //nolint:staticcheck
+		logger.Warn(logSender, "", "sftpd.proxy_protocol is deprecated, please use common.proxy_protocol")
+		logger.WarnToConsole("sftpd.proxy_protocol is deprecated, please use common.proxy_protocol")
+		globalConf.Common.ProxyProtocol = globalConf.SFTPD.ProxyProtocol //nolint:staticcheck
+		globalConf.Common.ProxyAllowed = globalConf.SFTPD.ProxyAllowed   //nolint:staticcheck
 	}
 }
