@@ -385,11 +385,10 @@ func TestConcurrency(t *testing.T) {
 			}
 		}(i)
 	}
-	var statsWg sync.WaitGroup
-	statsWg.Add(1)
 
+	wg.Add(1)
 	go func() {
-		defer statsWg.Done()
+		defer wg.Done()
 
 		maxConns := 0
 		maxSessions := 0
@@ -408,13 +407,13 @@ func TestConcurrency(t *testing.T) {
 			if servedReqs >= int32(numLogins) {
 				break
 			}
+			time.Sleep(1 * time.Millisecond)
 		}
 		assert.Greater(t, maxConns, 0)
 		assert.Greater(t, maxSessions, 0)
 	}()
 
 	wg.Wait()
-	statsWg.Wait()
 
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
