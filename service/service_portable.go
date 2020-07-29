@@ -23,7 +23,8 @@ import (
 )
 
 // StartPortableMode starts the service in portable mode
-func (s *Service) StartPortableMode(sftpdPort int, enabledSSHCommands []string, advertiseService, advertiseCredentials bool) error {
+func (s *Service) StartPortableMode(sftpdPort, ftpPort int, enabledSSHCommands []string, advertiseService, advertiseCredentials bool,
+	ftpsCert, ftpsKey string) error {
 	if s.PortableMode != 1 {
 		return fmt.Errorf("service is not configured for portable mode")
 	}
@@ -67,14 +68,44 @@ func (s *Service) StartPortableMode(sftpdPort int, enabledSSHCommands []string, 
 	}
 	config.SetSFTPDConfig(sftpdConf)
 
+	if ftpPort >= 0 {
+		ftpConf := config.GetFTPDConfig()
+		if ftpPort > 0 {
+			ftpConf.BindPort = ftpPort
+		} else {
+			ftpConf.BindPort = 49152 + rand.Intn(15000)
+		}
+		ftpConf.Banner = fmt.Sprintf("SFTPGo portable %v ready", version.Get().Version)
+		ftpConf.CertificateFile = ftpsCert
+		ftpConf.CertificateKeyFile = ftpsKey
+		config.SetFTPDConfig(ftpConf)
+	}
+
 	err = s.Start()
 	if err != nil {
 		return err
 	}
-	var mDNSService *zeroconf.Server
+
+	s.advertiseServices(advertiseService, advertiseCredentials)
+
+	var ftpInfo string
+	if config.GetFTPDConfig().BindPort > 0 {
+		ftpInfo = fmt.Sprintf("FTP port: %v", config.GetFTPDConfig().BindPort)
+	}
+	logger.InfoToConsole("Portable mode ready, SFTP port: %v, user: %#v, password: %#v, public keys: %v, directory: %#v, "+
+		"permissions: %+v, enabled ssh commands: %v file extensions filters: %+v %v", sftpdConf.BindPort, s.PortableUser.Username,
+		printablePassword, s.PortableUser.PublicKeys, s.getPortableDirToServe(), s.PortableUser.Permissions,
+		sftpdConf.EnabledSSHCommands, s.PortableUser.Filters.FileExtensions, ftpInfo)
+	return nil
+}
+
+func (s *Service) advertiseServices(advertiseService, advertiseCredentials bool) {
+	var mDNSServiceSFTP *zeroconf.Server
+	var mDNSServiceFTP *zeroconf.Server
+	var err error
 	if advertiseService {
 		meta := []string{
-			fmt.Sprintf("version=%v", version.GetAsString()),
+			fmt.Sprintf("version=%v", version.Get().Version),
 		}
 		if advertiseCredentials {
 			logger.InfoToConsole("Advertising credentials via multicast DNS")
@@ -85,7 +116,8 @@ func (s *Service) StartPortableMode(sftpdPort int, enabledSSHCommands []string, 
 				logger.InfoToConsole("Unable to advertise key based credentials via multicast DNS, we don't have the private key")
 			}
 		}
-		mDNSService, err = zeroconf.Register(
+		sftpdConf := config.GetSFTPDConfig()
+		mDNSServiceSFTP, err = zeroconf.Register(
 			fmt.Sprintf("SFTPGo portable %v", sftpdConf.BindPort), // service instance name
 			"_sftp-ssh._tcp",   // service type and protocol
 			"local.",           // service domain
@@ -94,28 +126,41 @@ func (s *Service) StartPortableMode(sftpdPort int, enabledSSHCommands []string, 
 			nil,                // register on all network interfaces
 		)
 		if err != nil {
-			mDNSService = nil
+			mDNSServiceSFTP = nil
 			logger.WarnToConsole("Unable to advertise SFTP service via multicast DNS: %v", err)
 		} else {
 			logger.InfoToConsole("SFTP service advertised via multicast DNS")
+		}
+		ftpdConf := config.GetFTPDConfig()
+		mDNSServiceFTP, err = zeroconf.Register(
+			fmt.Sprintf("SFTPGo portable %v", ftpdConf.BindPort),
+			"_ftp._tcp",
+			"local.",
+			ftpdConf.BindPort,
+			meta,
+			nil,
+		)
+		if err != nil {
+			mDNSServiceFTP = nil
+			logger.WarnToConsole("Unable to advertise FTP service via multicast DNS: %v", err)
+		} else {
+			logger.InfoToConsole("FTP service advertised via multicast DNS")
 		}
 	}
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-sig
-		if mDNSService != nil {
-			logger.InfoToConsole("unregistering multicast DNS service")
-			mDNSService.Shutdown()
+		if mDNSServiceSFTP != nil {
+			logger.InfoToConsole("unregistering multicast DNS SFTP service")
+			mDNSServiceSFTP.Shutdown()
+		}
+		if mDNSServiceFTP != nil {
+			logger.InfoToConsole("unregistering multicast DNS FTP service")
+			mDNSServiceFTP.Shutdown()
 		}
 		s.Stop()
 	}()
-
-	logger.InfoToConsole("Portable mode ready, SFTP port: %v, user: %#v, password: %#v, public keys: %v, directory: %#v, "+
-		"permissions: %+v, enabled ssh commands: %v file extensions filters: %+v", sftpdConf.BindPort, s.PortableUser.Username,
-		printablePassword, s.PortableUser.PublicKeys, s.getPortableDirToServe(), s.PortableUser.Permissions,
-		sftpdConf.EnabledSSHCommands, s.PortableUser.Filters.FileExtensions)
-	return nil
 }
 
 func (s *Service) getPortableDirToServe() string {

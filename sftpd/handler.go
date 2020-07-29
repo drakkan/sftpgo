@@ -74,7 +74,7 @@ func (c *Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, p, request.Filepath, common.TransferDownload,
 		0, 0, false)
-	t := newTranfer(baseTransfer, nil, r, 0)
+	t := newTransfer(baseTransfer, nil, r, 0)
 
 	return t, nil
 }
@@ -163,14 +163,6 @@ func (c *Connection) Filecmd(request *sftp.Request) error {
 	default:
 		return sftp.ErrSSHFxOpUnsupported
 	}
-
-	var fileLocation = p
-	if target != "" {
-		fileLocation = target
-	}
-
-	// we return if we remove a file or a dir so source path or target path always exists here
-	vfs.SetPathPermissions(c.Fs, fileLocation, c.User.GetUID(), c.User.GetGID())
 
 	return sftp.ErrSSHFxOk
 }
@@ -276,7 +268,7 @@ func (c *Connection) handleSFTPUploadToNewFile(resolvedPath, filePath, requestPa
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
 		common.TransferUpload, 0, 0, true)
-	t := newTranfer(baseTransfer, w, nil, quotaResult.GetRemainingSize())
+	t := newTransfer(baseTransfer, w, nil, quotaResult.GetRemainingSize())
 
 	return t, nil
 }
@@ -343,7 +335,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, r
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
 		common.TransferUpload, minWriteOffset, initialSize, false)
-	t := newTranfer(baseTransfer, w, nil, maxWriteSize)
+	t := newTransfer(baseTransfer, w, nil, maxWriteSize)
 
 	return t, nil
 }

@@ -46,13 +46,14 @@ const (
 	PermChtimes = "chtimes"
 )
 
-// Available SSH login methods
+// Available login methods
 const (
 	SSHLoginMethodPublicKey           = "publickey"
 	SSHLoginMethodPassword            = "password"
 	SSHLoginMethodKeyboardInteractive = "keyboard-interactive"
 	SSHLoginMethodKeyAndPassword      = "publickey+password"
 	SSHLoginMethodKeyAndKeyboardInt   = "publickey+keyboard-interactive"
+	FTPLoginMethodPassword            = "ftp-password"
 )
 
 var (

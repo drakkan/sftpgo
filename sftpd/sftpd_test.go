@@ -1405,6 +1405,8 @@ func TestPreLoginUserCreation(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(users))
 	user := users[0]
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	err = dataprovider.Close()
@@ -4567,7 +4569,7 @@ func TestPermChmod(t *testing.T) {
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		assert.NoError(t, err)
-		err = client.Chmod(testFileName, 0666)
+		err = client.Chmod(testFileName, os.ModePerm)
 		assert.Error(t, err, "chmod without permission should not succeed")
 		err = client.Remove(testFileName)
 		assert.NoError(t, err)
@@ -7084,7 +7086,7 @@ func createTestFile(path string, size int64) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, content, 0666)
+	return ioutil.WriteFile(path, content, os.ModePerm)
 }
 
 func appendToTestFile(path string, size int64) error {
@@ -7093,7 +7095,7 @@ func appendToTestFile(path string, size int64) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0666)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, os.ModePerm)
 	if err != nil {
 		return err
 	}

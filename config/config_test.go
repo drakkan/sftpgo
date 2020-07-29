@@ -13,6 +13,7 @@ import (
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/ftpd"
 	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/sftpd"
@@ -36,11 +37,11 @@ func TestLoadConfigTest(t *testing.T) {
 	configFilePath := filepath.Join(configDir, confName)
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NotNil(t, err)
-	err = ioutil.WriteFile(configFilePath, []byte("{invalid json}"), 0666)
+	err = ioutil.WriteFile(configFilePath, []byte("{invalid json}"), os.ModePerm)
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NotNil(t, err)
-	err = ioutil.WriteFile(configFilePath, []byte("{\"sftpd\": {\"bind_port\": \"a\"}}"), 0666)
+	err = ioutil.WriteFile(configFilePath, []byte("{\"sftpd\": {\"bind_port\": \"a\"}}"), os.ModePerm)
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NotNil(t, err)
@@ -59,12 +60,26 @@ func TestEmptyBanner(t *testing.T) {
 	c := make(map[string]sftpd.Configuration)
 	c["sftpd"] = sftpdConf
 	jsonConf, _ := json.Marshal(c)
-	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
+	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NoError(t, err)
 	sftpdConf = config.GetSFTPDConfig()
 	assert.NotEmpty(t, strings.TrimSpace(sftpdConf.Banner))
+	err = os.Remove(configFilePath)
+	assert.NoError(t, err)
+
+	ftpdConf := config.GetFTPDConfig()
+	ftpdConf.Banner = " "
+	c1 := make(map[string]ftpd.Configuration)
+	c1["ftpd"] = ftpdConf
+	jsonConf, _ = json.Marshal(c1)
+	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, tempConfigName)
+	assert.NoError(t, err)
+	ftpdConf = config.GetFTPDConfig()
+	assert.NotEmpty(t, strings.TrimSpace(ftpdConf.Banner))
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
 }
@@ -81,7 +96,7 @@ func TestInvalidUploadMode(t *testing.T) {
 	c["common"] = commonConf
 	jsonConf, err := json.Marshal(c)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
+	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NotNil(t, err)
@@ -101,7 +116,7 @@ func TestInvalidExternalAuthScope(t *testing.T) {
 	c["data_provider"] = providerConf
 	jsonConf, err := json.Marshal(c)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
+	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NotNil(t, err)
@@ -121,7 +136,7 @@ func TestInvalidCredentialsPath(t *testing.T) {
 	c["data_provider"] = providerConf
 	jsonConf, err := json.Marshal(c)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
+	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NotNil(t, err)
@@ -141,7 +156,7 @@ func TestInvalidProxyProtocol(t *testing.T) {
 	c["common"] = commonConf
 	jsonConf, err := json.Marshal(c)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
+	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NotNil(t, err)
@@ -161,7 +176,7 @@ func TestInvalidUsersBaseDir(t *testing.T) {
 	c["data_provider"] = providerConf
 	jsonConf, err := json.Marshal(c)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
+	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NotNil(t, err)
@@ -187,7 +202,7 @@ func TestCommonParamsCompatibility(t *testing.T) {
 	c["sftpd"] = sftpdConf
 	jsonConf, err := json.Marshal(c)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
+	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NoError(t, err)
@@ -223,7 +238,7 @@ func TestHostKeyCompatibility(t *testing.T) {
 	c["sftpd"] = sftpdConf
 	jsonConf, err := json.Marshal(c)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(configFilePath, jsonConf, 0666)
+	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
 	assert.NoError(t, err)
@@ -252,4 +267,10 @@ func TestSetGetConfig(t *testing.T) {
 	commonConf.IdleTimeout = 10
 	config.SetCommonConfig(commonConf)
 	assert.Equal(t, commonConf.IdleTimeout, config.GetCommonConfig().IdleTimeout)
+	ftpdConf := config.GetFTPDConfig()
+	ftpdConf.CertificateFile = "cert"
+	ftpdConf.CertificateKeyFile = "key"
+	config.SetFTPDConfig(ftpdConf)
+	assert.Equal(t, ftpdConf.CertificateFile, config.GetFTPDConfig().CertificateFile)
+	assert.Equal(t, ftpdConf.CertificateKeyFile, config.GetFTPDConfig().CertificateKeyFile)
 }

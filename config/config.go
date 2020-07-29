@@ -9,6 +9,7 @@ import (
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/ftpd"
 	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/logger"
@@ -28,13 +29,15 @@ const (
 )
 
 var (
-	globalConf    globalConfig
-	defaultBanner = fmt.Sprintf("SFTPGo_%v", version.Get().Version)
+	globalConf         globalConfig
+	defaultSFTPDBanner = fmt.Sprintf("SFTPGo_%v", version.Get().Version)
+	defaultFTPDBanner  = fmt.Sprintf("SFTPGo %v ready", version.Get().Version)
 )
 
 type globalConfig struct {
 	Common       common.Configuration `json:"common" mapstructure:"common"`
 	SFTPD        sftpd.Configuration  `json:"sftpd" mapstructure:"sftpd"`
+	FTPD         ftpd.Configuration   `json:"ftpd" mapstructure:"ftpd"`
 	ProviderConf dataprovider.Config  `json:"data_provider" mapstructure:"data_provider"`
 	HTTPDConfig  httpd.Conf           `json:"httpd" mapstructure:"httpd"`
 	HTTPConfig   httpclient.Config    `json:"http" mapstructure:"http"`
@@ -55,7 +58,7 @@ func init() {
 			ProxyAllowed:  []string{},
 		},
 		SFTPD: sftpd.Configuration{
-			Banner:                  defaultBanner,
+			Banner:                  defaultSFTPDBanner,
 			BindPort:                2022,
 			BindAddress:             "",
 			MaxAuthTries:            0,
@@ -67,6 +70,20 @@ func init() {
 			LoginBannerFile:         "",
 			EnabledSSHCommands:      sftpd.GetDefaultSSHCommands(),
 			KeyboardInteractiveHook: "",
+		},
+		FTPD: ftpd.Configuration{
+			BindPort:                 0,
+			BindAddress:              "",
+			Banner:                   defaultFTPDBanner,
+			BannerFile:               "",
+			ActiveTransfersPortNon20: false,
+			ForcePassiveIP:           "",
+			PassivePortRange: ftpd.PortRange{
+				Start: 50000,
+				End:   50100,
+			},
+			CertificateFile:    "",
+			CertificateKeyFile: "",
 		},
 		ProviderConf: dataprovider.Config{
 			Driver:           "sqlite",
@@ -136,6 +153,16 @@ func SetSFTPDConfig(config sftpd.Configuration) {
 	globalConf.SFTPD = config
 }
 
+// GetFTPDConfig returns the configuration for the FTP server
+func GetFTPDConfig() ftpd.Configuration {
+	return globalConf.FTPD
+}
+
+// SetFTPDConfig sets the configuration for the FTP server
+func SetFTPDConfig(config ftpd.Configuration) {
+	globalConf.FTPD = config
+}
+
 // GetHTTPDConfig returns the configuration for the HTTP server
 func GetHTTPDConfig() httpd.Conf {
 	return globalConf.HTTPDConfig
@@ -193,7 +220,10 @@ func LoadConfig(configDir, configName string) error {
 	}
 	checkCommonParamsCompatibility()
 	if strings.TrimSpace(globalConf.SFTPD.Banner) == "" {
-		globalConf.SFTPD.Banner = defaultBanner
+		globalConf.SFTPD.Banner = defaultSFTPDBanner
+	}
+	if strings.TrimSpace(globalConf.FTPD.Banner) == "" {
+		globalConf.FTPD.Banner = defaultFTPDBanner
 	}
 	if len(globalConf.ProviderConf.UsersBaseDir) > 0 && !utils.IsFileInputValid(globalConf.ProviderConf.UsersBaseDir) {
 		err = fmt.Errorf("invalid users base dir %#v will be ignored", globalConf.ProviderConf.UsersBaseDir)

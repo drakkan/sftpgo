@@ -32,7 +32,7 @@ type transfer struct {
 	maxWriteSize int64
 }
 
-func newTranfer(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *pipeat.PipeReaderAt,
+func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *pipeat.PipeReaderAt,
 	maxWriteSize int64) *transfer {
 	var writer writerAtCloser
 	var reader readerAtCloser

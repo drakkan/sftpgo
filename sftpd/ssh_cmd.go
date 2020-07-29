@@ -88,7 +88,7 @@ func processSSHCommand(payload []byte, connection *Connection, channel ssh.Chann
 
 func (c *sshCommand) handle() error {
 	common.Connections.Add(c.connection)
-	defer common.Connections.Remove(c.connection)
+	defer common.Connections.Remove(c.connection.GetID())
 
 	c.connection.UpdateLastActivity()
 	if utils.IsStringInSlice(c.command, sshHashCommands) {
@@ -354,7 +354,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 		defer stdin.Close()
 		baseTransfer := common.NewBaseTransfer(nil, c.connection.BaseConnection, nil, command.fsPath, sshDestPath,
 			common.TransferUpload, 0, 0, false)
-		transfer := newTranfer(baseTransfer, nil, nil, remainingQuotaSize)
+		transfer := newTransfer(baseTransfer, nil, nil, remainingQuotaSize)
 
 		w, e := transfer.copyFromReaderToWriter(stdin, c.connection.channel)
 		c.connection.Log(logger.LevelDebug, "command: %#v, copy from remote command to sdtin ended, written: %v, "+
@@ -367,7 +367,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	go func() {
 		baseTransfer := common.NewBaseTransfer(nil, c.connection.BaseConnection, nil, command.fsPath, sshDestPath,
 			common.TransferDownload, 0, 0, false)
-		transfer := newTranfer(baseTransfer, nil, nil, 0)
+		transfer := newTransfer(baseTransfer, nil, nil, 0)
 
 		w, e := transfer.copyFromReaderToWriter(c.connection.channel, stdout)
 		c.connection.Log(logger.LevelDebug, "command: %#v, copy from sdtout to remote command ended, written: %v err: %v",
@@ -381,7 +381,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	go func() {
 		baseTransfer := common.NewBaseTransfer(nil, c.connection.BaseConnection, nil, command.fsPath, sshDestPath,
 			common.TransferDownload, 0, 0, false)
-		transfer := newTranfer(baseTransfer, nil, nil, 0)
+		transfer := newTransfer(baseTransfer, nil, nil, 0)
 
 		w, e := transfer.copyFromReaderToWriter(c.connection.channel.Stderr(), stderr)
 		c.connection.Log(logger.LevelDebug, "command: %#v, copy from sdterr to remote command ended, written: %v err: %v",

@@ -18,6 +18,7 @@ import (
 
 // constants
 const (
+	logSender                = "common"
 	uploadLogSender          = "Upload"
 	downloadLogSender        = "Download"
 	renameLogSender          = "Rename"
@@ -35,7 +36,7 @@ const (
 	operationRename          = "rename"
 	operationSSHCmd          = "ssh_cmd"
 	chtimesFormat            = "2006-01-02T15:04:05" // YYYY-MM-DDTHH:MM:SS
-	idleTimeoutCheckInterval = 5 * time.Minute
+	idleTimeoutCheckInterval = 3 * time.Minute
 )
 
 // Stat flags
@@ -56,6 +57,7 @@ const (
 	ProtocolSFTP = "SFTP"
 	ProtocolSCP  = "SCP"
 	ProtocolSSH  = "SSH"
+	ProtocolFTP  = "FTP"
 )
 
 // Upload modes
@@ -84,12 +86,13 @@ var (
 	QuotaScans            ActiveScans
 	idleTimeoutTicker     *time.Ticker
 	idleTimeoutTickerDone chan bool
-	supportedProcols      = []string{ProtocolSFTP, ProtocolSCP, ProtocolSSH}
+	supportedProcols      = []string{ProtocolSFTP, ProtocolSCP, ProtocolSSH, ProtocolFTP}
 )
 
 // Initialize sets the common configuration
 func Initialize(c Configuration) {
 	Config = c
+	Config.idleLoginTimeout = 2 * time.Minute
 	Config.idleTimeoutAsDuration = time.Duration(Config.IdleTimeout) * time.Minute
 	if Config.IdleTimeout > 0 {
 		startIdleTimeoutTicker(idleTimeoutCheckInterval)
@@ -220,6 +223,7 @@ type Configuration struct {
 	// connection will be rejected.
 	ProxyAllowed          []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
 	idleTimeoutAsDuration time.Duration
+	idleLoginTimeout      time.Duration
 }
 
 // IsAtomicUploadEnabled returns true if atomic upload is enabled
@@ -291,15 +295,35 @@ func (conns *ActiveConnections) Add(c ActiveConnection) {
 	logger.Debug(c.GetProtocol(), c.GetID(), "connection added, num open connections: %v", len(conns.connections))
 }
 
-// Remove removes a connection from the active ones
-func (conns *ActiveConnections) Remove(c ActiveConnection) {
+// Swap replaces an existing connection with the given one.
+// This method is useful if you have to change some connection details
+// for example for FTP is used to update the connection once the user
+// authenticates
+func (conns *ActiveConnections) Swap(c ActiveConnection) error {
 	conns.Lock()
 	defer conns.Unlock()
 
+	for idx, conn := range conns.connections {
+		if conn.GetID() == c.GetID() {
+			conn = nil
+			conns.connections[idx] = c
+			return nil
+		}
+	}
+	return errors.New("connection to swap not found")
+}
+
+// Remove removes a connection from the active ones
+func (conns *ActiveConnections) Remove(connectionID string) {
+	conns.Lock()
+	defer conns.Unlock()
+
+	var c ActiveConnection
 	indexToRemove := -1
-	for i, v := range conns.connections {
-		if v.GetID() == c.GetID() {
+	for i, conn := range conns.connections {
+		if conn.GetID() == connectionID {
 			indexToRemove = i
+			c = conn
 			break
 		}
 	}
@@ -307,19 +331,20 @@ func (conns *ActiveConnections) Remove(c ActiveConnection) {
 		conns.connections[indexToRemove] = conns.connections[len(conns.connections)-1]
 		conns.connections[len(conns.connections)-1] = nil
 		conns.connections = conns.connections[:len(conns.connections)-1]
+		metrics.UpdateActiveConnectionsSize(len(conns.connections))
 		logger.Debug(c.GetProtocol(), c.GetID(), "connection removed, num open connections: %v",
 			len(conns.connections))
+		// we have finished to send data here and most of the time the underlying network connection
+		// is already closed. Sometime a client can still be reading the last sended data, so we set
+		// a deadline instead of directly closing the network connection.
+		// Setting a deadline on an already closed connection has no effect.
+		// We only need to ensure that a connection will not remain indefinitely open and so the
+		// underlying file descriptor is not released.
+		// This should protect us against buggy clients and edge cases.
+		c.SetConnDeadline()
 	} else {
-		logger.Warn(c.GetProtocol(), c.GetID(), "connection to remove not found!")
+		logger.Warn(logSender, "", "connection to remove with id %#v not found!", connectionID)
 	}
-	// we have finished to send data here and most of the time the underlying network connection
-	// is already closed. Sometime a client can still be reading the last sended data, so we set
-	// a deadline instead of directly closing the network connection.
-	// Setting a deadline on an already closed connection has no effect.
-	// We only need to ensure that a connection will not remain indefinitely open and so the
-	// underlying file descriptor is not released.
-	// This should protect us against buggy clients and edge cases.
-	c.SetConnDeadline()
 }
 
 // Close closes an active connection.
@@ -330,10 +355,10 @@ func (conns *ActiveConnections) Close(connectionID string) bool {
 
 	for _, c := range conns.connections {
 		if c.GetID() == connectionID {
-			defer func() {
-				err := c.Disconnect()
-				logger.Debug(c.GetProtocol(), c.GetID(), "close connection requested, close err: %v", err)
-			}()
+			defer func(conn ActiveConnection) {
+				err := conn.Disconnect()
+				logger.Debug(conn.GetProtocol(), conn.GetID(), "close connection requested, close err: %v", err)
+			}(c)
 			result = true
 			break
 		}
@@ -348,11 +373,19 @@ func (conns *ActiveConnections) checkIdleConnections() {
 
 	for _, c := range conns.connections {
 		idleTime := time.Since(c.GetLastActivity())
-		if idleTime > Config.idleTimeoutAsDuration {
-			defer func() {
-				err := c.Disconnect()
-				logger.Debug(c.GetProtocol(), c.GetID(), "close idle connection, idle time: %v, close err: %v", idleTime, err)
-			}()
+		isUnauthenticatedFTPUser := (c.GetProtocol() == ProtocolFTP && len(c.GetUsername()) == 0)
+
+		if idleTime > Config.idleTimeoutAsDuration || (isUnauthenticatedFTPUser && idleTime > Config.idleLoginTimeout) {
+			defer func(conn ActiveConnection, isFTPNoAuth bool) {
+				err := conn.Disconnect()
+				logger.Debug(conn.GetProtocol(), conn.GetID(), "close idle connection, idle time: %v, username: %#v close err: %v",
+					idleTime, conn.GetUsername(), err)
+				if isFTPNoAuth {
+					logger.ConnectionFailedLog("", utils.GetIPFromRemoteAddress(c.GetRemoteAddress()),
+						"no_auth_tryed", "client idle")
+					metrics.AddNoAuthTryed()
+				}
+			}(c, isUnauthenticatedFTPUser)
 		}
 	}
 

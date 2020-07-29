@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	logSender        = "common_test"
+	logSenderTest    = "common_test"
 	httpAddr         = "127.0.0.1:9999"
 	httpProxyAddr    = "127.0.0.1:7777"
 	configDir        = ".."
@@ -37,8 +37,18 @@ type fakeConnection struct {
 	sshCommand string
 }
 
+func (c *fakeConnection) AddUser(user dataprovider.User) error {
+	fs, err := user.GetFilesystem(c.GetID())
+	if err != nil {
+		return err
+	}
+	c.BaseConnection.User = user
+	c.BaseConnection.Fs = fs
+	return nil
+}
+
 func (c *fakeConnection) Disconnect() error {
-	Connections.Remove(c)
+	Connections.Remove(c.GetID())
 	return nil
 }
 
@@ -166,15 +176,29 @@ func TestIdleConnections(t *testing.T) {
 	user := dataprovider.User{
 		Username: username,
 	}
-	c := NewBaseConnection("id", ProtocolSFTP, user, nil)
+	c := NewBaseConnection("id1", ProtocolSFTP, user, nil)
 	c.lastActivity = time.Now().Add(-24 * time.Hour).UnixNano()
 	fakeConn := &fakeConnection{
 		BaseConnection: c,
 	}
 	Connections.Add(fakeConn)
 	assert.Equal(t, Connections.GetActiveSessions(username), 1)
+	c = NewBaseConnection("id2", ProtocolFTP, dataprovider.User{}, nil)
+	c.lastActivity = time.Now().UnixNano()
+	fakeConn = &fakeConnection{
+		BaseConnection: c,
+	}
+	Connections.Add(fakeConn)
+	assert.Equal(t, Connections.GetActiveSessions(username), 1)
+	assert.Len(t, Connections.GetStats(), 2)
+
 	startIdleTimeoutTicker(100 * time.Millisecond)
 	assert.Eventually(t, func() bool { return Connections.GetActiveSessions(username) == 0 }, 1*time.Second, 200*time.Millisecond)
+	stopIdleTimeoutTicker()
+	assert.Len(t, Connections.GetStats(), 1)
+	c.lastActivity = time.Now().Add(-24 * time.Hour).UnixNano()
+	startIdleTimeoutTicker(100 * time.Millisecond)
+	assert.Eventually(t, func() bool { return len(Connections.GetStats()) == 0 }, 1*time.Second, 200*time.Millisecond)
 	stopIdleTimeoutTicker()
 
 	Config = configCopy
@@ -192,7 +216,34 @@ func TestCloseConnection(t *testing.T) {
 	assert.Eventually(t, func() bool { return len(Connections.GetStats()) == 0 }, 300*time.Millisecond, 50*time.Millisecond)
 	res = Connections.Close(fakeConn.GetID())
 	assert.False(t, res)
-	Connections.Remove(fakeConn)
+	Connections.Remove(fakeConn.GetID())
+}
+
+func TestSwapConnection(t *testing.T) {
+	c := NewBaseConnection("id", ProtocolFTP, dataprovider.User{}, nil)
+	fakeConn := &fakeConnection{
+		BaseConnection: c,
+	}
+	Connections.Add(fakeConn)
+	if assert.Len(t, Connections.GetStats(), 1) {
+		assert.Equal(t, "", Connections.GetStats()[0].Username)
+	}
+	c = NewBaseConnection("id", ProtocolFTP, dataprovider.User{
+		Username: userTestUsername,
+	}, nil)
+	fakeConn = &fakeConnection{
+		BaseConnection: c,
+	}
+	err := Connections.Swap(fakeConn)
+	assert.NoError(t, err)
+	if assert.Len(t, Connections.GetStats(), 1) {
+		assert.Equal(t, userTestUsername, Connections.GetStats()[0].Username)
+	}
+	res := Connections.Close(fakeConn.GetID())
+	assert.True(t, res)
+	assert.Eventually(t, func() bool { return len(Connections.GetStats()) == 0 }, 300*time.Millisecond, 50*time.Millisecond)
+	err = Connections.Swap(fakeConn)
+	assert.Error(t, err)
 }
 
 func TestAtomicUpload(t *testing.T) {
@@ -255,8 +306,8 @@ func TestConnectionStatus(t *testing.T) {
 	err = t2.Close()
 	assert.NoError(t, err)
 
-	Connections.Remove(fakeConn1)
-	Connections.Remove(fakeConn2)
+	Connections.Remove(fakeConn1.GetID())
+	Connections.Remove(fakeConn2.GetID())
 	stats = Connections.GetStats()
 	assert.Len(t, stats, 0)
 }

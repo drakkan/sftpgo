@@ -61,6 +61,7 @@ jobs:
           go test -v -timeout 1m ./common -covermode=atomic
           go test -v -timeout 5m ./httpd -covermode=atomic
           go test -v -timeout 5m ./sftpd -covermode=atomic
+          go test -v -timeout 5m ./ftpd -covermode=atomic
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: bolt
           SFTPGO_DATA_PROVIDER__NAME: 'sftpgo_bolt.db'
@@ -177,4 +178,4 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v1
         with:
-          version: v1.27
+          version: v1.29

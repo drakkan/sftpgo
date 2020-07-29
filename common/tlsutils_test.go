@@ -43,7 +43,7 @@ func TestLoadCertificate(t *testing.T) {
 	assert.NoError(t, err)
 	err = ioutil.WriteFile(keyPath, []byte(httpsKey), os.ModePerm)
 	assert.NoError(t, err)
-	certManager, err := NewCertManager(certPath, keyPath, logSender)
+	certManager, err := NewCertManager(certPath, keyPath, logSenderTest)
 	assert.NoError(t, err)
 	certFunc := certManager.GetCertificateFunc()
 	if assert.NotNil(t, certFunc) {
@@ -63,7 +63,7 @@ func TestLoadCertificate(t *testing.T) {
 }
 
 func TestLoadInvalidCert(t *testing.T) {
-	certManager, err := NewCertManager("test.crt", "test.key", logSender)
+	certManager, err := NewCertManager("test.crt", "test.key", logSenderTest)
 	assert.Error(t, err)
 	assert.Nil(t, certManager)
 }

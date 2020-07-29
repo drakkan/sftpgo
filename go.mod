@@ -8,12 +8,14 @@ require (
 	github.com/alexedwards/argon2id v0.0.0-20200522061839-9369edc04b05
 	github.com/aws/aws-sdk-go v1.33.1
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
+	github.com/fclairamb/ftpserverlib v0.8.0
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/render v1.0.1
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/grandcat/zeroconf v1.0.0
+	github.com/jlaffaye/ftp v0.0.0-20200720194710-13949d38913e
 	github.com/lib/pq v1.7.0
 	github.com/mattn/go-sqlite3 v1.14.0
 	github.com/miekg/dns v1.1.29 // indirect
@@ -26,7 +28,7 @@ require (
 	github.com/prometheus/client_golang v1.7.1
 	github.com/rs/xid v1.2.1
 	github.com/rs/zerolog v1.19.0
-	github.com/spf13/afero v1.3.1 // indirect
+	github.com/spf13/afero v1.3.2
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
@@ -47,4 +49,8 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
-replace golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200705203859-05ad140ecdbd
+replace (
+	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20200729185904-a61d63fc1db1
+	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20200727182237-9cca2b71337f
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200705203859-05ad140ecdbd
+)

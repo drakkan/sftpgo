@@ -30,7 +30,7 @@ type scpCommand struct {
 
 func (c *scpCommand) handle() error {
 	common.Connections.Add(c.connection)
-	defer common.Connections.Remove(c.connection)
+	defer common.Connections.Remove(c.connection.GetID())
 
 	var err error
 	destPath := c.getDestPath()
@@ -226,7 +226,7 @@ func (c *scpCommand) handleUploadFile(resolvedPath, filePath string, sizeToRead 
 
 	baseTransfer := common.NewBaseTransfer(file, c.connection.BaseConnection, cancelFn, resolvedPath, requestPath,
 		common.TransferUpload, 0, initialSize, isNewFile)
-	t := newTranfer(baseTransfer, w, nil, maxWriteSize)
+	t := newTransfer(baseTransfer, w, nil, maxWriteSize)
 
 	return c.getUploadFileData(sizeToRead, t)
 }
@@ -484,7 +484,7 @@ func (c *scpCommand) handleDownload(filePath string) error {
 
 	baseTransfer := common.NewBaseTransfer(file, c.connection.BaseConnection, cancelFn, p, filePath,
 		common.TransferDownload, 0, 0, false)
-	t := newTranfer(baseTransfer, nil, r, 0)
+	t := newTransfer(baseTransfer, nil, r, 0)
 
 	err = c.sendDownloadFileData(p, stat, t)
 	// we need to call Close anyway and return close error if any and

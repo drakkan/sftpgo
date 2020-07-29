@@ -36,40 +36,40 @@ var (
 		Help: "Total number of logged in users",
 	})
 
-	// totalUploads is the metric that reports the total number of successful SFTP/SCP uploads
+	// totalUploads is the metric that reports the total number of successful uploads
 	totalUploads = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_uploads_total",
-		Help: "The total number of successful SFTP/SCP uploads",
+		Help: "The total number of successful uploads",
 	})
 
-	// totalDownloads is the metric that reports the total number of successful SFTP/SCP downloads
+	// totalDownloads is the metric that reports the total number of successful downloads
 	totalDownloads = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_downloads_total",
-		Help: "The total number of successful SFTP/SCP downloads",
+		Help: "The total number of successful downloads",
 	})
 
-	// totalUploadErrors is the metric that reports the total number of SFTP/SCP upload errors
+	// totalUploadErrors is the metric that reports the total number of upload errors
 	totalUploadErrors = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_upload_errors_total",
-		Help: "The total number of SFTP/SCP upload errors",
+		Help: "The total number of upload errors",
 	})
 
-	// totalDownloadErrors is the metric that reports the total number of SFTP/SCP download errors
+	// totalDownloadErrors is the metric that reports the total number of download errors
 	totalDownloadErrors = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_download_errors_total",
-		Help: "The total number of SFTP/SCP download errors",
+		Help: "The total number of download errors",
 	})
 
-	// totalUploadSize is the metric that reports the total SFTP/SCP uploads size as bytes
+	// totalUploadSize is the metric that reports the total uploads size as bytes
 	totalUploadSize = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_upload_size",
-		Help: "The total SFTP/SCP upload size as bytes, partial uploads are included",
+		Help: "The total upload size as bytes, partial uploads are included",
 	})
 
-	// totalDownloadSize is the metric that reports the total SFTP/SCP downloads size as bytes
+	// totalDownloadSize is the metric that reports the total downloads size as bytes
 	totalDownloadSize = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_download_size",
-		Help: "The total SFTP/SCP download size as bytes, partial downloads are included",
+		Help: "The total download size as bytes, partial downloads are included",
 	})
 
 	// totalSSHCommands is the metric that reports the total number of executed SSH commands
@@ -88,6 +88,13 @@ var (
 	totalLoginAttempts = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_login_attempts_total",
 		Help: "The total number of login attempts",
+	})
+
+	// totalNoAuthTryed is te metric that reports the total number of clients disconnected
+	// for inactivity before trying to login
+	totalNoAuthTryed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_no_auth_total",
+		Help: "The total number of clients disconnected for inactivity before trying to login",
 	})
 
 	// totalLoginOK is the metric that reports the total number of successful logins
@@ -602,6 +609,12 @@ func AddLoginResult(authMethod string, err error) {
 			totalPasswordLoginFailed.Inc()
 		}
 	}
+}
+
+// AddNoAuthTryed increments the metric for clients disconnected
+// for inactivity before trying to login
+func AddNoAuthTryed() {
+	totalNoAuthTryed.Inc()
 }
 
 // HTTPRequestServed increments the metrics for HTTP requests

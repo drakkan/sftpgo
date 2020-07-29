@@ -1274,14 +1274,14 @@ func TestProviderErrors(t *testing.T) {
 	backupContent, err := json.Marshal(backupData)
 	assert.NoError(t, err)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
-	err = ioutil.WriteFile(backupFilePath, backupContent, 0666)
+	err = ioutil.WriteFile(backupFilePath, backupContent, os.ModePerm)
 	assert.NoError(t, err)
 	_, _, err = httpd.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
 	assert.NoError(t, err)
 	backupData.Folders = append(backupData.Folders, vfs.BaseVirtualFolder{MappedPath: os.TempDir()})
 	backupContent, err = json.Marshal(backupData)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(backupFilePath, backupContent, 0666)
+	err = ioutil.WriteFile(backupFilePath, backupContent, os.ModePerm)
 	assert.NoError(t, err)
 	_, _, err = httpd.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
 	assert.NoError(t, err)
@@ -1422,7 +1422,7 @@ func TestLoaddata(t *testing.T) {
 	backupContent, err := json.Marshal(backupData)
 	assert.NoError(t, err)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
-	err = ioutil.WriteFile(backupFilePath, backupContent, 0666)
+	err = ioutil.WriteFile(backupFilePath, backupContent, os.ModePerm)
 	assert.NoError(t, err)
 	_, _, err = httpd.Loaddata(backupFilePath, "a", "", http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -1489,7 +1489,7 @@ func TestLoaddataMode(t *testing.T) {
 	backupData.Users = append(backupData.Users, user)
 	backupContent, _ := json.Marshal(backupData)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
-	err := ioutil.WriteFile(backupFilePath, backupContent, 0666)
+	err := ioutil.WriteFile(backupFilePath, backupContent, os.ModePerm)
 	assert.NoError(t, err)
 	_, _, err = httpd.Loaddata(backupFilePath, "0", "0", http.StatusOK)
 	assert.NoError(t, err)
@@ -2821,7 +2821,7 @@ func createTestFile(path string, size int64) error {
 			return err
 		}
 	}
-	return ioutil.WriteFile(path, content, 0666)
+	return ioutil.WriteFile(path, content, os.ModePerm)
 }
 
 func getMultipartFormData(values url.Values, fileFieldName, filePath string) (bytes.Buffer, string, error) {

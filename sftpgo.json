@@ -30,6 +30,20 @@
     ],
     "keyboard_interactive_auth_hook": ""
   },
+  "ftpd": {
+    "bind_port": 0,
+    "bind_address": "",
+    "banner": "",
+    "banner_file": "",
+    "active_transfers_port_non_20": false,
+    "force_passive_ip": "",
+    "passive_port_range": {
+      "start": 50000,
+      "end": 50100
+    },
+    "certificate_file": "",
+    "certificate_key_file": ""
+  },
   "data_provider": {
     "driver": "sqlite",
     "name": "sftpgo.db",

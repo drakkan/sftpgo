@@ -223,7 +223,7 @@ func (c Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, conf
 				return banner
 			}
 		} else {
-			logger.WarnToConsole("unable to read login banner file: %v", err)
+			logger.WarnToConsole("unable to read SFTPD login banner file: %v", err)
 			logger.Warn(logSender, "", "unable to read login banner file: %v", err)
 		}
 	}
@@ -269,6 +269,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		logger.Warn(logSender, "", "failed to accept an incoming connection: %v", err)
 		if _, ok := err.(*ssh.ServerAuthError); !ok {
 			logger.ConnectionFailedLog("", utils.GetIPFromRemoteAddress(remoteAddr.String()), "no_auth_tryed", err.Error())
+			metrics.AddNoAuthTryed()
 		}
 		return
 	}
@@ -348,7 +349,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 
 func (c Configuration) handleSftpConnection(channel ssh.Channel, connection *Connection) {
 	common.Connections.Add(connection)
-	defer common.Connections.Remove(connection)
+	defer common.Connections.Remove(connection.GetID())
 
 	// Create a new handler for the currently logged in user's server.
 	handler := c.createHandler(connection)

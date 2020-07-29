@@ -159,7 +159,7 @@ func TestUploadResumeInvalidOffset(t *testing.T) {
 	fs := vfs.NewOsFs("", os.TempDir(), nil)
 	conn := common.NewBaseConnection("", common.ProtocolSFTP, user, fs)
 	baseTransfer := common.NewBaseTransfer(file, conn, nil, file.Name(), testfile, common.TransferUpload, 10, 0, false)
-	transfer := newTranfer(baseTransfer, nil, nil, 0)
+	transfer := newTransfer(baseTransfer, nil, nil, 0)
 	_, err = transfer.WriteAt([]byte("test"), 0)
 	assert.Error(t, err, "upload with invalid offset must fail")
 	if assert.Error(t, transfer.ErrTransfer) {
@@ -187,7 +187,7 @@ func TestReadWriteErrors(t *testing.T) {
 	fs := vfs.NewOsFs("", os.TempDir(), nil)
 	conn := common.NewBaseConnection("", common.ProtocolSFTP, user, fs)
 	baseTransfer := common.NewBaseTransfer(file, conn, nil, file.Name(), testfile, common.TransferDownload, 0, 0, false)
-	transfer := newTranfer(baseTransfer, nil, nil, 0)
+	transfer := newTransfer(baseTransfer, nil, nil, 0)
 	err = file.Close()
 	assert.NoError(t, err)
 	_, err = transfer.WriteAt([]byte("test"), 0)
@@ -201,7 +201,7 @@ func TestReadWriteErrors(t *testing.T) {
 	r, _, err := pipeat.Pipe()
 	assert.NoError(t, err)
 	baseTransfer = common.NewBaseTransfer(nil, conn, nil, file.Name(), testfile, common.TransferDownload, 0, 0, false)
-	transfer = newTranfer(baseTransfer, nil, r, 0)
+	transfer = newTransfer(baseTransfer, nil, r, 0)
 	err = transfer.closeIO()
 	assert.NoError(t, err)
 	_, err = transfer.ReadAt(buf, 0)
@@ -211,7 +211,7 @@ func TestReadWriteErrors(t *testing.T) {
 	assert.NoError(t, err)
 	pipeWriter := vfs.NewPipeWriter(w)
 	baseTransfer = common.NewBaseTransfer(nil, conn, nil, file.Name(), testfile, common.TransferDownload, 0, 0, false)
-	transfer = newTranfer(baseTransfer, pipeWriter, nil, 0)
+	transfer = newTransfer(baseTransfer, pipeWriter, nil, 0)
 
 	err = r.Close()
 	assert.NoError(t, err)
@@ -243,7 +243,7 @@ func TestTransferCancelFn(t *testing.T) {
 	fs := vfs.NewOsFs("", os.TempDir(), nil)
 	conn := common.NewBaseConnection("", common.ProtocolSFTP, user, fs)
 	baseTransfer := common.NewBaseTransfer(file, conn, cancelFn, file.Name(), testfile, common.TransferDownload, 0, 0, false)
-	transfer := newTranfer(baseTransfer, nil, nil, 0)
+	transfer := newTransfer(baseTransfer, nil, nil, 0)
 
 	errFake := errors.New("fake error, this will trigger cancelFn")
 	transfer.TransferError(errFake)
@@ -273,7 +273,7 @@ func TestMockFsErrors(t *testing.T) {
 	}
 	testfile := filepath.Join(u.HomeDir, "testfile")
 	request := sftp.NewRequest("Remove", testfile)
-	err := ioutil.WriteFile(testfile, []byte("test"), 0666)
+	err := ioutil.WriteFile(testfile, []byte("test"), os.ModePerm)
 	assert.NoError(t, err)
 	_, err = c.Filewrite(request)
 	assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
@@ -979,7 +979,7 @@ func TestSystemCommandErrors(t *testing.T) {
 	sshCmd.connection.channel = &mockSSHChannel
 	baseTransfer := common.NewBaseTransfer(nil, sshCmd.connection.BaseConnection, nil, "", "", common.TransferDownload,
 		0, 0, false)
-	transfer := newTranfer(baseTransfer, nil, nil, 0)
+	transfer := newTransfer(baseTransfer, nil, nil, 0)
 	destBuff := make([]byte, 65535)
 	dst := bytes.NewBuffer(destBuff)
 	_, err = transfer.copyFromReaderToWriter(dst, sshCmd.connection.channel)
@@ -1308,7 +1308,7 @@ func TestSCPErrorsMockFs(t *testing.T) {
 	assert.EqualError(t, err, errFake.Error())
 
 	testfile := filepath.Join(u.HomeDir, "testfile")
-	err = ioutil.WriteFile(testfile, []byte("test"), 0666)
+	err = ioutil.WriteFile(testfile, []byte("test"), os.ModePerm)
 	assert.NoError(t, err)
 	stat, err := os.Stat(u.HomeDir)
 	assert.NoError(t, err)
@@ -1476,7 +1476,7 @@ func TestSCPDownloadFileData(t *testing.T) {
 			args:       []string{"-r", "-f", "/tmp"},
 		},
 	}
-	err := ioutil.WriteFile(testfile, []byte("test"), 0666)
+	err := ioutil.WriteFile(testfile, []byte("test"), os.ModePerm)
 	assert.NoError(t, err)
 	stat, err := os.Stat(testfile)
 	assert.NoError(t, err)
@@ -1531,7 +1531,7 @@ func TestSCPUploadFiledata(t *testing.T) {
 
 	baseTransfer := common.NewBaseTransfer(file, scpCommand.connection.BaseConnection, nil, file.Name(),
 		"/"+testfile, common.TransferDownload, 0, 0, true)
-	transfer := newTranfer(baseTransfer, nil, nil, 0)
+	transfer := newTransfer(baseTransfer, nil, nil, 0)
 
 	err = scpCommand.getUploadFileData(2, transfer)
 	assert.Error(t, err, "upload must fail, we send a fake write error message")
@@ -1563,7 +1563,7 @@ func TestSCPUploadFiledata(t *testing.T) {
 	file, err = os.Create(testfile)
 	assert.NoError(t, err)
 	baseTransfer.File = file
-	transfer = newTranfer(baseTransfer, nil, nil, 0)
+	transfer = newTransfer(baseTransfer, nil, nil, 0)
 	transfer.Connection.AddTransfer(transfer)
 	err = scpCommand.getUploadFileData(2, transfer)
 	assert.Error(t, err, "upload must fail, we have not enough data to read")
@@ -1615,7 +1615,7 @@ func TestUploadError(t *testing.T) {
 	assert.NoError(t, err)
 	baseTransfer := common.NewBaseTransfer(file, connection.BaseConnection, nil, testfile,
 		testfile, common.TransferUpload, 0, 0, true)
-	transfer := newTranfer(baseTransfer, nil, nil, 0)
+	transfer := newTransfer(baseTransfer, nil, nil, 0)
 
 	errFake := errors.New("fake error")
 	transfer.TransferError(errFake)
@@ -1678,7 +1678,7 @@ func TestLoadHostKeys(t *testing.T) {
 	err := c.checkAndLoadHostKeys(configDir, serverConfig)
 	assert.Error(t, err)
 	testfile := filepath.Join(os.TempDir(), "invalidkey")
-	err = ioutil.WriteFile(testfile, []byte("some bytes"), 0666)
+	err = ioutil.WriteFile(testfile, []byte("some bytes"), os.ModePerm)
 	assert.NoError(t, err)
 	c.HostKeys = []string{testfile}
 	err = c.checkAndLoadHostKeys(configDir, serverConfig)
@@ -1726,7 +1726,7 @@ func TestCertCheckerInitErrors(t *testing.T) {
 	err := c.initializeCertChecker("")
 	assert.Error(t, err)
 	testfile := filepath.Join(os.TempDir(), "invalidkey")
-	err = ioutil.WriteFile(testfile, []byte("some bytes"), 0666)
+	err = ioutil.WriteFile(testfile, []byte("some bytes"), os.ModePerm)
 	assert.NoError(t, err)
 	c.TrustedUserCAKeys = []string{testfile}
 	err = c.initializeCertChecker("")

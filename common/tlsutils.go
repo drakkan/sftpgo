@@ -19,7 +19,7 @@ type CertManager struct {
 func (m *CertManager) LoadCertificate(logSender string) error {
 	newCert, err := tls.LoadX509KeyPair(m.certPath, m.keyPath)
 	if err != nil {
-		logger.Warn(logSender, "", "unable to load X509 ket pair, cert file %#v key file %#v error: %v",
+		logger.Warn(logSender, "", "unable to load X509 key pair, cert file %#v key file %#v error: %v",
 			m.certPath, m.keyPath, err)
 		return err
 	}

@@ -167,7 +167,7 @@ func TestPreDeleteAction(t *testing.T) {
 	c := NewBaseConnection("id", ProtocolSFTP, user, fs)
 
 	testfile := filepath.Join(user.HomeDir, "testfile")
-	err = ioutil.WriteFile(testfile, []byte("test"), 0666)
+	err = ioutil.WriteFile(testfile, []byte("test"), os.ModePerm)
 	assert.NoError(t, err)
 	info, err := os.Stat(testfile)
 	assert.NoError(t, err)

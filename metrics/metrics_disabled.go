@@ -60,6 +60,10 @@ func AddLoginAttempt(authMethod string) {}
 // AddLoginResult increments the metrics for login results
 func AddLoginResult(authMethod string, err error) {}
 
+// AddNoAuthTryed increments the metric for clients disconnected
+// for inactivity before trying to login
+func AddNoAuthTryed() {}
+
 // HTTPRequestServed increments the metrics for HTTP requests
 func HTTPRequestServed(status int) {}
 
