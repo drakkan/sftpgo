@@ -103,14 +103,8 @@ github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZm
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
 github.com/drakkan/crypto v0.0.0-20200705203859-05ad140ecdbd h1:7DQ8ayx6QylOxQrQ6oHdO+gk1cqtaINUekLrwD9gGNc=
 github.com/drakkan/crypto v0.0.0-20200705203859-05ad140ecdbd/go.mod h1:v3bhWOXGYda7H5d2s5t9XA6th3fxW3s0MQxU1R96G/w=
-github.com/drakkan/ftp v0.0.0-20200727182237-9cca2b71337f h1:O58KACT8jWFlYJ3VSNFk+T+s7eX67LQwkC+FTRmCPa8=
-github.com/drakkan/ftp v0.0.0-20200727182237-9cca2b71337f/go.mod h1:2lmrmq866uF2tnje75wQHzmPXhmSWUt7Gyx2vgK1RCU=
-github.com/drakkan/ftpserverlib v0.0.0-20200728193209-1f77405f11b5 h1:pAThLlS4VfkAOPk/tex9/qVwsbb1CRT9YkBjsBVBFNI=
-github.com/drakkan/ftpserverlib v0.0.0-20200728193209-1f77405f11b5/go.mod h1:Jwd+zOP3T0kwiCQcgjpu3VWtc7AI6Nu4UPN2HYqaniM=
-github.com/drakkan/ftpserverlib v0.0.0-20200729180240-d4d48e974eed h1:mIaBQdWAOkh6Rt+O9sEo/gGJaC7DnPuxpqVpPZYz0z8=
-github.com/drakkan/ftpserverlib v0.0.0-20200729180240-d4d48e974eed/go.mod h1:Jwd+zOP3T0kwiCQcgjpu3VWtc7AI6Nu4UPN2HYqaniM=
-github.com/drakkan/ftpserverlib v0.0.0-20200729185904-a61d63fc1db1 h1:PkZAqIdsFJpfyRLmCOHZHsu3VUDgqClze0+hai6HBL8=
-github.com/drakkan/ftpserverlib v0.0.0-20200729185904-a61d63fc1db1/go.mod h1:Jwd+zOP3T0kwiCQcgjpu3VWtc7AI6Nu4UPN2HYqaniM=
+github.com/drakkan/ftp v0.0.0-20200730125632-b21eac28818c h1:QSXIWohSNn0negBVSKEjKTpdpGEsW7weVW8QNzviLHY=
+github.com/drakkan/ftp v0.0.0-20200730125632-b21eac28818c/go.mod h1:2lmrmq866uF2tnje75wQHzmPXhmSWUt7Gyx2vgK1RCU=
 github.com/dustin/go-humanize v0.0.0-20171111073723-bb3d318650d4/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/eapache/go-resiliency v1.1.0/go.mod h1:kFI+JgMyC7bLPUVY133qvEBtVayf5mFgVsvEsIPBvNs=
 github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21/go.mod h1:+020luEh2TKB4/GOp8oxxtq0Daoen/Cii55CzbTV6DU=
@@ -124,6 +118,8 @@ github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.m
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
+github.com/fclairamb/ftpserverlib v0.8.1-0.20200729230026-7f0ab9d81bb6 h1:W/hHWcIep1orjDWid4mp8tWcn2nCJqpKbV/W+AY0Ids=
+github.com/fclairamb/ftpserverlib v0.8.1-0.20200729230026-7f0ab9d81bb6/go.mod h1:Jwd+zOP3T0kwiCQcgjpu3VWtc7AI6Nu4UPN2HYqaniM=
 github.com/franela/goblin v0.0.0-20200105215937-c9ffbefa60db/go.mod h1:7dvUGVsVBjqR7JHJk0brhHOZYGmfBYOrK0ZhYMEtBr4=
 github.com/franela/goreq v0.0.0-20171204163338-bcd34c9993f8/go.mod h1:ZhphrRTfi2rbfLwlschooIH4+wKKDR4Pdxhh+TRoA20=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=

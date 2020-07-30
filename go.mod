@@ -8,7 +8,7 @@ require (
 	github.com/alexedwards/argon2id v0.0.0-20200522061839-9369edc04b05
 	github.com/aws/aws-sdk-go v1.33.1
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
-	github.com/fclairamb/ftpserverlib v0.8.0
+	github.com/fclairamb/ftpserverlib v0.8.1-0.20200729230026-7f0ab9d81bb6
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/render v1.0.1
@@ -50,7 +50,6 @@ require (
 )
 
 replace (
-	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20200729185904-a61d63fc1db1
-	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20200727182237-9cca2b71337f
+	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20200730125632-b21eac28818c
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200705203859-05ad140ecdbd
 )
