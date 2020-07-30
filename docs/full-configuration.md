@@ -46,7 +46,7 @@ The configuration file contains the following sections:
 - **"common"**, configuration parameters shared among all the supported protocols
   - `idle_timeout`, integer. Time in minutes after which an idle client will be disconnected. 0 means disabled. Default: 15
   - `upload_mode` integer. 0 means standard: the files are uploaded directly to the requested path. 1 means atomic: files are uploaded to a temporary path and renamed to the requested path when the client ends the upload. Atomic mode avoids problems such as a web server that serves partial files when the files are being uploaded. In atomic mode, if there is an upload error, the temporary file is deleted and so the requested upload path will not contain a partial file. 2 means atomic with resume support: same as atomic but if there is an upload error, the temporary file is renamed to the requested path and not deleted. This way, a client can reconnect and resume the upload.
-  - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions. See the "Custom Actions" paragraph for more details
+  - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions. See [Custom Actions](./custom-actions.md) for more details
     - `execute_on`, list of strings. Valid values are `download`, `upload`, `pre-delete`, `delete`, `rename`, `ssh_cmd`. Leave empty to disable actions.
     - `hook`, string. Absolute path to the command to execute or HTTP URL to notify.
   - `setstat_mode`, integer. 0 means "normal mode": requests for changing permissions, owner/group and access/modification times are executed. 1 means "ignore mode": requests for changing permissions, owner/group and access/modification times are silently ignored.
@@ -57,6 +57,7 @@ The configuration file contains the following sections:
   - `proxy_allowed`, List of IP addresses and IP ranges allowed to send the proxy header:
     - If `proxy_protocol` is set to 1 and we receive a proxy header from an IP that is not in the list then the connection will be accepted and the header will be ignored
     - If `proxy_protocol` is set to 2 and we receive a proxy header from an IP that is not in the list then the connection will be rejected
+  - `post_connect_hook`, string. Absolute path to the command to execute or HTTP URL to notify. See [Post connect hook](./post-connect-hook.md) for more details. Leave empty to disable
 - **"sftpd"**, the configuration for the SFTP server
   - `bind_port`, integer. The port used for serving SFTP requests. Default: 2022
   - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: ""
@@ -75,7 +76,7 @@ The configuration file contains the following sections:
   - `login_banner_file`, path to the login banner file. The contents of the specified file, if any, are sent to the remote user before authentication is allowed. It can be a path relative to the config dir or an absolute one. Leave empty to disable login banner.
   - `setstat_mode`, integer. Deprecated, please use the same key in `common` section.
   - `enabled_ssh_commands`, list of enabled SSH commands. `*` enables all supported commands. More information can be found [here](./ssh-commands.md).
-  - `keyboard_interactive_auth_hook`, string. Absolute path to an external program or an HTTP URL to invoke for keyboard interactive authentication. See the "Keyboard Interactive Authentication" paragraph for more details.
+  - `keyboard_interactive_auth_hook`, string. Absolute path to an external program or an HTTP URL to invoke for keyboard interactive authentication. See [Keyboard Interactive Authentication](./keyboard-interactive.md) for more details.
   - `proxy_protocol`, integer.  Deprecated, please use the same key in `common` section.
   - `proxy_allowed`, list of strings. Deprecated, please use the same key in `common` section.
 - **"ftpd"**, the configuration for the FTP server
@@ -105,15 +106,15 @@ The configuration file contains the following sections:
     - 2, quota is updated each time a user uploads or deletes a file, but only for users with quota restrictions and for virtual folders. With this configuration, the `quota scan` and `folder_quota_scan` REST API can still be used to periodically update space usage for users without quota restrictions and for folders
   - `pool_size`, integer. Sets the maximum number of open connections for `mysql` and `postgresql` driver. Default 0 (unlimited)
   - `users_base_dir`, string. Users default base directory. If no home dir is defined while adding a new user, and this value is a valid absolute path, then the user home dir will be automatically defined as the path obtained joining the base dir and the username
-  - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions. See the "Custom Actions" paragraph for more details
+  - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions. See [Custom Actions](./custom-actions.md) for more details
     - `execute_on`, list of strings. Valid values are `add`, `update`, `delete`. `update` action will not be fired for internal updates such as the last login or the user quota fields.
     - `hook`, string. Absolute path to the command to execute or HTTP URL to notify.
   - `external_auth_program`, string. Deprecated, please use `external_auth_hook`.
-  - `external_auth_hook`, string. Absolute path to an external program or an HTTP URL to invoke for users authentication. See the "External Authentication" paragraph for more details. Leave empty to disable.
+  - `external_auth_hook`, string. Absolute path to an external program or an HTTP URL to invoke for users authentication. See [External Authentication](./external-auth.md) for more details. Leave empty to disable.
   - `external_auth_scope`, integer. 0 means all supported authetication scopes (passwords, public keys and keyboard interactive). 1 means passwords only. 2 means public keys only. 4 means key keyboard interactive only. The flags can be combined, for example 6 means public keys and keyboard interactive
   - `credentials_path`, string. It defines the directory for storing user provided credential files such as Google Cloud Storage credentials. This can be an absolute path or a path relative to the config dir
   - `pre_login_program`, string. Deprecated, please use `pre_login_hook`.
-  - `pre_login_hook`, string. Absolute path to an external program or an HTTP URL to invoke to modify user details just before the login. See the "Dynamic user modification" paragraph for more details. Leave empty to disable.
+  - `pre_login_hook`, string. Absolute path to an external program or an HTTP URL to invoke to modify user details just before the login. See [Dynamic user modification](./dynamic-user-mod.md) for more details. Leave empty to disable.
 - **"httpd"**, the configuration for the HTTP server used to serve REST API and to expose the built-in web interface
   - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 8080
   - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"

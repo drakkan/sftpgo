@@ -92,6 +92,9 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 
 // ClientConnected is called to send the very first welcome message
 func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
+	if err := common.Config.ExecutePostConnectHook(cc.RemoteAddr(), common.ProtocolFTP); err != nil {
+		return common.ErrConnectionDenied.Error(), err
+	}
 	connID := fmt.Sprintf("%v", cc.ID())
 	user := dataprovider.User{}
 	connection := &Connection{

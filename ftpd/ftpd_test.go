@@ -64,12 +64,13 @@ CzgWkxiz7XE4lgUwX44FCXZM3+JeUbI=
 )
 
 var (
-	allPerms     = []string{dataprovider.PermAny}
-	homeBasePath string
-	hookCmdPath  string
-	extAuthPath  string
-	preLoginPath string
-	logFilePath  string
+	allPerms        = []string{dataprovider.PermAny}
+	homeBasePath    string
+	hookCmdPath     string
+	extAuthPath     string
+	preLoginPath    string
+	postConnectPath string
+	logFilePath     string
 )
 
 func TestMain(m *testing.M) {
@@ -77,7 +78,6 @@ func TestMain(m *testing.M) {
 	bannerFileName := "banner_file"
 	bannerFile := filepath.Join(configDir, bannerFileName)
 	logger.InitLogger(logFilePath, 5, 1, 28, false, zerolog.DebugLevel)
-	logger.DebugToConsole("aaa %v", bannerFile)
 	err := ioutil.WriteFile(bannerFile, []byte("SFTPGo test ready\nsimple banner line\n"), os.ModePerm)
 	if err != nil {
 		logger.ErrorToConsole("error creating banner file: %v", err)
@@ -144,6 +144,7 @@ func TestMain(m *testing.M) {
 
 	extAuthPath = filepath.Join(homeBasePath, "extauth.sh")
 	preLoginPath = filepath.Join(homeBasePath, "prelogin.sh")
+	postConnectPath = filepath.Join(homeBasePath, "postconnect.sh")
 
 	go func() {
 		logger.Debug(logSender, "", "initializing FTP server with config %+v", ftpdConf)
@@ -169,6 +170,7 @@ func TestMain(m *testing.M) {
 	os.Remove(bannerFile)
 	os.Remove(extAuthPath)
 	os.Remove(preLoginPath)
+	os.Remove(postConnectPath)
 	os.Remove(certPath)
 	os.Remove(keyPath)
 	os.Exit(exitCode)
@@ -280,7 +282,7 @@ func TestLoginExternalAuth(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), 0755)
+	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
@@ -330,7 +332,7 @@ func TestPreLoginHook(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), 0755)
+	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.PreLoginHook = preLoginPath
 	err = dataprovider.Initialize(providerConf, configDir)
@@ -360,7 +362,7 @@ func TestPreLoginHook(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(user, true), 0755)
+	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(user, true), os.ModePerm)
 	assert.NoError(t, err)
 	client, err = getFTPClient(u, false)
 	if !assert.Error(t, err) {
@@ -368,7 +370,7 @@ func TestPreLoginHook(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	user.Status = 0
-	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(user, false), 0755)
+	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(user, false), os.ModePerm)
 	assert.NoError(t, err)
 	client, err = getFTPClient(u, false)
 	if !assert.Error(t, err, "pre-login script returned a disabled user, login must fail") {
@@ -389,6 +391,58 @@ func TestPreLoginHook(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.Remove(preLoginPath)
 	assert.NoError(t, err)
+}
+
+func TestPostConnectHook(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	common.Config.PostConnectHook = postConnectPath
+
+	u := getTestUser()
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	err = ioutil.WriteFile(postConnectPath, getPostConnectScriptContent(0), os.ModePerm)
+	assert.NoError(t, err)
+	client, err := getFTPClient(user, true)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err := client.Quit()
+		assert.NoError(t, err)
+	}
+	err = ioutil.WriteFile(postConnectPath, getPostConnectScriptContent(1), os.ModePerm)
+	assert.NoError(t, err)
+	client, err = getFTPClient(user, true)
+	if !assert.Error(t, err) {
+		err := client.Quit()
+		assert.NoError(t, err)
+	}
+
+	common.Config.PostConnectHook = "http://127.0.0.1:8079/api/v1/version"
+
+	client, err = getFTPClient(user, false)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err := client.Quit()
+		assert.NoError(t, err)
+	}
+
+	common.Config.PostConnectHook = "http://127.0.0.1:8079/notfound"
+
+	client, err = getFTPClient(user, true)
+	if !assert.Error(t, err) {
+		err := client.Quit()
+		assert.NoError(t, err)
+	}
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	common.Config.PostConnectHook = ""
 }
 
 func TestMaxSessions(t *testing.T) {
@@ -1243,6 +1297,12 @@ func getPreLoginScriptContent(user dataprovider.User, nonJSONResponse bool) []by
 		u, _ := json.Marshal(user)
 		content = append(content, []byte(fmt.Sprintf("echo '%v'\n", string(u)))...)
 	}
+	return content
+}
+
+func getPostConnectScriptContent(exitCode int) []byte {
+	content := []byte("#!/bin/sh\n\n")
+	content = append(content, []byte(fmt.Sprintf("exit %v", exitCode))...)
 	return content
 }
 

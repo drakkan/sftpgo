@@ -264,6 +264,10 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 	// we'll set a Deadline for handshake to complete, the default is 2 minutes as OpenSSH
 	conn.SetDeadline(time.Now().Add(handshakeTimeout)) //nolint:errcheck
 	remoteAddr := conn.RemoteAddr()
+	if err := common.Config.ExecutePostConnectHook(remoteAddr, common.ProtocolSSH); err != nil {
+		conn.Close()
+		return
+	}
 	sconn, chans, reqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
 		logger.Warn(logSender, "", "failed to accept an incoming connection: %v", err)

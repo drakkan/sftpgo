@@ -1,6 +1,6 @@
 # Custom Actions
 
-The `actions` struct inside the "sftpd" configuration section allows to configure the actions for file operations and SSH commands.
+The `actions` struct inside the "common" configuration section allows to configure the actions for file operations and SSH commands.
 The `hook` can be defined as the absolute path of your program or an HTTP URL.
 
 The `upload` condition includes both uploads to new files and overwrite of existing files. If an upload is aborted for quota limits SFTPGo tries to remove the partial file, so if the notification reports a zero size file and a quota exceeded error the file has been deleted. The `ssh_cmd` condition will be triggered after a command is successfully executed via SSH. `scp` will trigger the `download` and `upload` conditions and not `ssh_cmd`.

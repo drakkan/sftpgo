@@ -2,15 +2,22 @@
 package common
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/pires/go-proxyproto"
 
+	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
@@ -75,6 +82,7 @@ var (
 	ErrGenericFailure       = errors.New("failure")
 	ErrQuotaExceeded        = errors.New("denying write due to space limit")
 	ErrSkipPermissionsCheck = errors.New("permission check skipped")
+	ErrConnectionDenied     = errors.New("You are not allowed to connect")
 )
 
 var (
@@ -221,7 +229,11 @@ type Configuration struct {
 	// connection will be accepted and the header will be ignored.
 	// If proxy protocol is set to 2 and we receive a proxy header from an IP that is not in the list then the
 	// connection will be rejected.
-	ProxyAllowed          []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
+	ProxyAllowed []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
+	// Absolute path to an external program or an HTTP URL to invoke after a user connects
+	// and before he tries to login. It allows you to reject the connection based on the source
+	// ip address. Leave empty do disable.
+	PostConnectHook       string `json:"post_connect_hook" mapstructure:"post_connect_hook"`
 	idleTimeoutAsDuration time.Duration
 	idleLoginTimeout      time.Duration
 }
@@ -262,6 +274,56 @@ func (c *Configuration) GetProxyListener(listener net.Listener) (*proxyproto.Lis
 		}
 	}
 	return proxyListener, nil
+}
+
+// ExecutePostConnectHook executes the post connect hook if defined
+func (c *Configuration) ExecutePostConnectHook(remoteAddr net.Addr, protocol string) error {
+	if len(c.PostConnectHook) == 0 {
+		return nil
+	}
+	ip := utils.GetIPFromRemoteAddress(remoteAddr.String())
+	if strings.HasPrefix(c.PostConnectHook, "http") {
+		var url *url.URL
+		url, err := url.Parse(c.PostConnectHook)
+		if err != nil {
+			logger.Warn(protocol, "", "Login from ip %#v denied, invalid post connect hook %#v: %v",
+				ip, c.PostConnectHook, err)
+			return err
+		}
+		httpClient := httpclient.GetHTTPClient()
+		q := url.Query()
+		q.Add("ip", ip)
+		q.Add("protocol", protocol)
+		url.RawQuery = q.Encode()
+
+		resp, err := httpClient.Get(url.String())
+		if err != nil {
+			logger.Warn(protocol, "", "Login from ip %#v denied, error executing post connect hook: %v", ip, err)
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			logger.Warn(protocol, "", "Login from ip %#v denied, post connect hook response code: %v", ip, resp.StatusCode)
+			return errUnexpectedHTTResponse
+		}
+		return nil
+	}
+	if !filepath.IsAbs(c.PostConnectHook) {
+		err := fmt.Errorf("invalid post connect hook %#v", c.PostConnectHook)
+		logger.Warn(protocol, "", "Login from ip %#v denied: %v", ip, err)
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, c.PostConnectHook)
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("SFTPGO_CONNECTION_IP=%v", ip),
+		fmt.Sprintf("SFTPGO_CONNECTION_PROTOCOL=%v", protocol))
+	err := cmd.Run()
+	if err != nil {
+		logger.Warn(protocol, "", "Login from ip %#v denied, connect hook error: %v", ip, err)
+	}
+	return err
 }
 
 // ActiveConnections holds the currect active connections with the associated transfers

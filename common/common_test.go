@@ -5,6 +5,8 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -366,4 +368,45 @@ func TestProxyProtocol(t *testing.T) {
 		defer resp.Body.Close()
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	}
+}
+
+func TestPostConnectHook(t *testing.T) {
+	Config.PostConnectHook = ""
+
+	remoteAddr := &net.IPAddr{
+		IP:   net.ParseIP("127.0.0.1"),
+		Zone: "",
+	}
+
+	assert.NoError(t, Config.ExecutePostConnectHook(remoteAddr, ProtocolFTP))
+
+	Config.PostConnectHook = "http://foo\x7f.com/"
+	assert.Error(t, Config.ExecutePostConnectHook(remoteAddr, ProtocolSFTP))
+
+	Config.PostConnectHook = "http://invalid:1234/"
+	assert.Error(t, Config.ExecutePostConnectHook(remoteAddr, ProtocolSFTP))
+
+	Config.PostConnectHook = fmt.Sprintf("http://%v/404", httpAddr)
+	assert.Error(t, Config.ExecutePostConnectHook(remoteAddr, ProtocolFTP))
+
+	Config.PostConnectHook = fmt.Sprintf("http://%v", httpAddr)
+	assert.NoError(t, Config.ExecutePostConnectHook(remoteAddr, ProtocolFTP))
+
+	Config.PostConnectHook = "invalid"
+	assert.Error(t, Config.ExecutePostConnectHook(remoteAddr, ProtocolFTP))
+
+	if runtime.GOOS == osWindows {
+		Config.PostConnectHook = "C:\\bad\\command"
+		assert.Error(t, Config.ExecutePostConnectHook(remoteAddr, ProtocolSFTP))
+	} else {
+		Config.PostConnectHook = "/invalid/path"
+		assert.Error(t, Config.ExecutePostConnectHook(remoteAddr, ProtocolSFTP))
+
+		hookCmd, err := exec.LookPath("true")
+		assert.NoError(t, err)
+		Config.PostConnectHook = hookCmd
+		assert.NoError(t, Config.ExecutePostConnectHook(remoteAddr, ProtocolSFTP))
+	}
+
+	Config.PostConnectHook = ""
 }
