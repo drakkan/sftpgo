@@ -481,6 +481,11 @@ func (S3Fs) Join(elem ...string) string {
 	return path.Join(elem...)
 }
 
+// HasVirtualFolders returns true if folders are emulated
+func (S3Fs) HasVirtualFolders() bool {
+	return true
+}
+
 // ResolvePath returns the matching filesystem path for the specified sftp path
 func (fs S3Fs) ResolvePath(sftpPath string) (string, error) {
 	if !path.IsAbs(sftpPath) {

@@ -16,6 +16,29 @@ import (
 	"github.com/drakkan/sftpgo/vfs"
 )
 
+// MockOsFs mockable OsFs
+type MockOsFs struct {
+	vfs.Fs
+	hasVirtualFolders bool
+}
+
+// Name returns the name for the Fs implementation
+func (fs MockOsFs) Name() string {
+	return "mockOsFs"
+}
+
+// HasVirtualFolders returns true if folders are emulated
+func (fs MockOsFs) HasVirtualFolders() bool {
+	return fs.hasVirtualFolders
+}
+
+func newMockOsFs(hasVirtualFolders bool, connectionID, rootDir string) vfs.Fs {
+	return &MockOsFs{
+		Fs:                vfs.NewOsFs(connectionID, rootDir, nil),
+		hasVirtualFolders: hasVirtualFolders,
+	}
+}
+
 func TestListDir(t *testing.T) {
 	user := dataprovider.User{
 		Username: userTestUsername,
@@ -210,6 +233,14 @@ func TestRemoveDir(t *testing.T) {
 	assert.Error(t, err)
 	err = os.RemoveAll(testDirSub)
 	assert.NoError(t, err)
+	err = c.RemoveDir(testDir, "/testDir")
+	assert.NoError(t, err)
+
+	err = c.RemoveDir(testDir, "/testDir")
+	assert.Error(t, err)
+
+	fs = newMockOsFs(true, "", user.GetHomeDir())
+	c.Fs = fs
 	err = c.RemoveDir(testDir, "/testDir")
 	assert.NoError(t, err)
 

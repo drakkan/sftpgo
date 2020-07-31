@@ -3,10 +3,10 @@ module github.com/drakkan/sftpgo
 go 1.13
 
 require (
-	cloud.google.com/go v0.60.0 // indirect
+	cloud.google.com/go v0.62.0 // indirect
 	cloud.google.com/go/storage v1.10.0
 	github.com/alexedwards/argon2id v0.0.0-20200522061839-9369edc04b05
-	github.com/aws/aws-sdk-go v1.33.1
+	github.com/aws/aws-sdk-go v1.33.16
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
 	github.com/fclairamb/ftpserverlib v0.8.1-0.20200729230026-7f0ab9d81bb6
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
@@ -16,15 +16,15 @@ require (
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/jlaffaye/ftp v0.0.0-20200720194710-13949d38913e
-	github.com/lib/pq v1.7.0
+	github.com/lib/pq v1.8.0
 	github.com/mattn/go-sqlite3 v1.14.0
-	github.com/miekg/dns v1.1.29 // indirect
-	github.com/mitchellh/mapstructure v1.3.2 // indirect
+	github.com/miekg/dns v1.1.30 // indirect
+	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/nathanaelle/password/v2 v2.0.1
 	github.com/otiai10/copy v1.2.0
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/pires/go-proxyproto v0.1.3
-	github.com/pkg/sftp v1.11.1-0.20200716191756-97b9df616e69
+	github.com/pkg/sftp v1.11.1-0.20200731124947-b508b936bef3
 	github.com/prometheus/client_golang v1.7.1
 	github.com/rs/xid v1.2.1
 	github.com/rs/zerolog v1.19.0
@@ -36,20 +36,17 @@ require (
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.6.1
 	go.etcd.io/bbolt v1.3.5
-	go.opencensus.io v0.22.4 // indirect
-	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/net v0.0.0-20200625001655-4c5254603344 // indirect
-	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae
-	golang.org/x/text v0.3.3 // indirect
-	golang.org/x/tools v0.0.0-20200702044944-0cc1aa72b347 // indirect
-	google.golang.org/api v0.28.0
-	google.golang.org/genproto v0.0.0-20200702021140-07506425bd67 // indirect
-	google.golang.org/grpc v1.30.0 // indirect
+	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
+	golang.org/x/sys v0.0.0-20200728102440-3e129f6d46b1
+	golang.org/x/tools v0.0.0-20200731060945-b5fad4ed8dd6 // indirect
+	google.golang.org/api v0.29.0
+	google.golang.org/genproto v0.0.0-20200731012542-8145dea6a485 // indirect
+	google.golang.org/grpc v1.31.0 // indirect
 	gopkg.in/ini.v1 v1.57.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20200730125632-b21eac28818c
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200705203859-05ad140ecdbd
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200731130417-7674a892f9b1
 )

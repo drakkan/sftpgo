@@ -279,6 +279,11 @@ func (fs OsFs) GetDirSize(dirname string) (int, int64, error) {
 	return numFiles, size, err
 }
 
+// HasVirtualFolders returns true if folders are emulated
+func (OsFs) HasVirtualFolders() bool {
+	return false
+}
+
 // GetFsPaths returns the base path and filesystem path for the given sftpPath.
 // base path is the root dir or matching the virtual folder dir for the sftpPath.
 // file path is the filesystem path matching the sftpPath

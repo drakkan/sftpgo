@@ -460,6 +460,11 @@ func (GCSFs) Join(elem ...string) string {
 	return strings.TrimPrefix(path.Join(elem...), "/")
 }
 
+// HasVirtualFolders returns true if folders are emulated
+func (GCSFs) HasVirtualFolders() bool {
+	return true
+}
+
 // ResolvePath returns the matching filesystem path for the specified sftp path
 func (fs GCSFs) ResolvePath(sftpPath string) (string, error) {
 	if !path.IsAbs(sftpPath) {

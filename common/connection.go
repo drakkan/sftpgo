@@ -252,6 +252,10 @@ func (c *BaseConnection) RemoveDir(fsPath, virtualPath string) error {
 	var fi os.FileInfo
 	var err error
 	if fi, err = c.Fs.Lstat(fsPath); err != nil {
+		// see #149
+		if c.Fs.IsNotExist(err) && c.Fs.HasVirtualFolders() {
+			return nil
+		}
 		c.Log(logger.LevelWarn, "failed to remove a dir %#v: stat error: %+v", fsPath, err)
 		return c.GetFsError(err)
 	}

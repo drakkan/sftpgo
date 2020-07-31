@@ -44,6 +44,7 @@ type Fs interface {
 	GetRelativePath(name string) string
 	Walk(root string, walkFn filepath.WalkFunc) error
 	Join(elem ...string) string
+	HasVirtualFolders() bool
 }
 
 var errUnsupported = errors.New("Not supported")

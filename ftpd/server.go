@@ -58,7 +58,7 @@ func NewServer(config *Configuration, configDir string) (*Server, error) {
 
 // GetSettings returns FTP server settings
 func (s *Server) GetSettings() (*ftpserver.Settings, error) {
-	var portRange *ftpserver.PortRange = nil
+	var portRange *ftpserver.PortRange
 	if s.config.PassivePortRange.Start > 0 && s.config.PassivePortRange.End > s.config.PassivePortRange.Start {
 		portRange = &ftpserver.PortRange{
 			Start: s.config.PassivePortRange.Start,
