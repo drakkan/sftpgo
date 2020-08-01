@@ -27,5 +27,17 @@ RUN chmod +x /bin/entrypoint.sh
 VOLUME [ "/data", "/srv/sftpgo/config", "/srv/sftpgo/backups" ]
 EXPOSE 2022 8080
 
+# uncomment the following settings to enable FTP support
+#ENV SFTPGO_FTPD__BIND_PORT=2121
+#ENV SFTPGO_FTPD__FORCE_PASSIVE_IP=<your FTP visibile ip here>
+#EXPOSE 2121
+
+# we need to expose the passive ports range too
+#EXPOSE 50000-50100
+
+# it is a good idea to provide certificates to enable FTPS too
+#ENV SFTPGO_FTPD__CERTIFICATE_FILE=/srv/sftpgo/config/mycert.crt
+#ENV SFTPGO_FTPD__CERTIFICATE_KEY_FILE=/srv/sftpgo/config/mycert.key
+
 ENTRYPOINT ["/bin/entrypoint.sh"]
 CMD ["serve"]

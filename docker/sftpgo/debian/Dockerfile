@@ -71,5 +71,17 @@ ENV SFTPGO_HTTPD__STATIC_FILES_PATH=${WEB_DIR}/static
 ENV SFTPGO_DATA_PROVIDER__USERS_BASE_DIR=${DATA_DIR}
 ENV SFTPGO_HTTPD__BACKUPS_PATH=${BACKUPS_DIR}
 
+# uncomment the following settings to enable FTP support
+#ENV SFTPGO_FTPD__BIND_PORT=2121
+#ENV SFTPGO_FTPD__FORCE_PASSIVE_IP=<your FTP visibile ip here>
+#EXPOSE 2121
+# we need to expose the passive ports range too
+#EXPOSE 50000-50100
+
+# it is a good idea to provide certificates to enable FTPS too
+#ENV SFTPGO_FTPD__CERTIFICATE_FILE=${CONFIG_DIR}/mycert.crt
+#ENV SFTPGO_FTPD__CERTIFICATE_KEY_FILE=${CONFIG_DIR}/mycert.key
+
+
 ENTRYPOINT ["sftpgo"]
 CMD ["serve"]
