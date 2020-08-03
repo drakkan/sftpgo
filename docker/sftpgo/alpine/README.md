@@ -46,7 +46,7 @@ sudo docker rm sftpgo && sudo docker run --name sftpgo \
   sftpgo
 ```
 
-If you want to enable FTP/S you also need the publish the FTP port and the FTP passive port range by adding, for example, the following options to the `docker run` command `-p 2121:2121 -p 50000-50100:50000-50100`
+If you want to enable FTP/S you also need the publish the FTP port and the FTP passive port range, defined in your `Dockerfile`, by adding, for example, the following options to the `docker run` command `-p 2121:2121 -p 50000-50100:50000-50100`
 
 The script `entrypoint.sh` makes sure to correct the permissions of directories and start the process with the right user.
 

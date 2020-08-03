@@ -244,6 +244,8 @@ func TestBasicFTPHandling(t *testing.T) {
 		}
 		err = client.Delete(path.Join("/", testDir, testFileName))
 		assert.NoError(t, err)
+		err = client.Delete(testDir)
+		assert.Error(t, err)
 		err = client.RemoveDir(testDir)
 		assert.NoError(t, err)
 

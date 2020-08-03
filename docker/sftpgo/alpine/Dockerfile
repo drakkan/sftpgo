@@ -29,7 +29,7 @@ EXPOSE 2022 8080
 
 # uncomment the following settings to enable FTP support
 #ENV SFTPGO_FTPD__BIND_PORT=2121
-#ENV SFTPGO_FTPD__FORCE_PASSIVE_IP=<your FTP visibile ip here>
+#ENV SFTPGO_FTPD__FORCE_PASSIVE_IP=<your FTP visibile IP here>
 #EXPOSE 2121
 
 # we need to expose the passive ports range too

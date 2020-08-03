@@ -268,6 +268,10 @@ func TestResolvePathErrors(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, common.ErrGenericFailure.Error())
 	}
+	err = connection.RemoveDir("")
+	if assert.Error(t, err) {
+		assert.EqualError(t, err, common.ErrGenericFailure.Error())
+	}
 	err = connection.Rename("", "")
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, common.ErrGenericFailure.Error())

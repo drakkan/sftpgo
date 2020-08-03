@@ -86,7 +86,8 @@ func (c *Connection) OpenFile(name string, flag int, perm os.FileMode) (afero.Fi
 	return nil, errNotImplemented
 }
 
-// Remove removes a file or an empty directory
+// Remove removes a file.
+// We implements ClientDriverExtensionRemoveDir for directories
 func (c *Connection) Remove(name string) error {
 	c.UpdateLastActivity()
 
@@ -102,7 +103,8 @@ func (c *Connection) Remove(name string) error {
 	}
 
 	if fi.IsDir() && fi.Mode()&os.ModeSymlink != os.ModeSymlink {
-		return c.RemoveDir(p, name)
+		c.Log(logger.LevelDebug, "cannot remove %#v is not a file/symlink", p)
+		return c.GetGenericError()
 	}
 	return c.RemoveFile(p, name, fi)
 }
@@ -213,6 +215,18 @@ func (c *Connection) AllocateSpace(size int) error {
 		}
 	}
 	return common.ErrQuotaExceeded
+}
+
+// RemoveDir implements ClientDriverExtensionRemoveDir
+func (c *Connection) RemoveDir(name string) error {
+	c.UpdateLastActivity()
+
+	p, err := c.Fs.ResolvePath(name)
+	if err != nil {
+		return c.GetFsError(err)
+	}
+
+	return c.BaseConnection.RemoveDir(p, name)
 }
 
 // ReadDir implements ClientDriverExtensionFilelist
