@@ -475,7 +475,7 @@ func (c *scpCommand) handleDownload(filePath string) error {
 		c.sendErrorMessage(common.ErrPermissionDenied)
 	}
 
-	file, r, cancelFn, err := c.connection.Fs.Open(p)
+	file, r, cancelFn, err := c.connection.Fs.Open(p, 0)
 	if err != nil {
 		c.connection.Log(logger.LevelError, "could not open file %#v for reading: %v", p, err)
 		c.sendErrorMessage(c.connection.GetFsError(err))

@@ -133,7 +133,7 @@ func (fs GCSFs) Lstat(name string) (os.FileInfo, error) {
 }
 
 // Open opens the named file for reading
-func (fs GCSFs) Open(name string) (*os.File, *pipeat.PipeReaderAt, func(), error) {
+func (fs GCSFs) Open(name string, offset int64) (*os.File, *pipeat.PipeReaderAt, func(), error) {
 	r, w, err := pipeat.AsyncWriterPipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err
@@ -141,7 +141,11 @@ func (fs GCSFs) Open(name string) (*os.File, *pipeat.PipeReaderAt, func(), error
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	obj := bkt.Object(name)
 	ctx, cancelFn := context.WithCancel(context.Background())
-	objectReader, err := obj.NewReader(ctx)
+	objectReader, err := obj.NewRangeReader(ctx, offset, -1)
+	if err == nil && offset > 0 && objectReader.Attrs.ContentEncoding == "gzip" {
+		err = fmt.Errorf("Range request is not possible for gzip content encoding, requested offset %v", offset)
+		objectReader.Close()
+	}
 	if err != nil {
 		r.Close()
 		w.Close()

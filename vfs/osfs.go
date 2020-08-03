@@ -59,7 +59,7 @@ func (OsFs) Lstat(name string) (os.FileInfo, error) {
 }
 
 // Open opens the named file for reading
-func (OsFs) Open(name string) (*os.File, *pipeat.PipeReaderAt, func(), error) {
+func (OsFs) Open(name string, offset int64) (*os.File, *pipeat.PipeReaderAt, func(), error) {
 	f, err := os.Open(name)
 	return f, nil, nil, err
 }

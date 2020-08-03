@@ -105,8 +105,8 @@ github.com/drakkan/crypto v0.0.0-20200731130417-7674a892f9b1 h1:EjZwDKOSCvUUXilY
 github.com/drakkan/crypto v0.0.0-20200731130417-7674a892f9b1/go.mod h1:v3bhWOXGYda7H5d2s5t9XA6th3fxW3s0MQxU1R96G/w=
 github.com/drakkan/ftp v0.0.0-20200730125632-b21eac28818c h1:QSXIWohSNn0negBVSKEjKTpdpGEsW7weVW8QNzviLHY=
 github.com/drakkan/ftp v0.0.0-20200730125632-b21eac28818c/go.mod h1:2lmrmq866uF2tnje75wQHzmPXhmSWUt7Gyx2vgK1RCU=
-github.com/drakkan/ftpserverlib v0.0.0-20200731174440-5032a4cc72f5 h1:BdTp34B+hh3MXvaf50ALb3Hx6QXHiprx01IC+u/VUnU=
-github.com/drakkan/ftpserverlib v0.0.0-20200731174440-5032a4cc72f5/go.mod h1:Jwd+zOP3T0kwiCQcgjpu3VWtc7AI6Nu4UPN2HYqaniM=
+github.com/drakkan/ftpserverlib v0.0.0-20200731183125-82c4b2b9bb35 h1:fS1f/T5ruUySzUD5m4VFhnEXjgPAUm/KwLZG+s/W83E=
+github.com/drakkan/ftpserverlib v0.0.0-20200731183125-82c4b2b9bb35/go.mod h1:Jwd+zOP3T0kwiCQcgjpu3VWtc7AI6Nu4UPN2HYqaniM=
 github.com/dustin/go-humanize v0.0.0-20171111073723-bb3d318650d4/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/eapache/go-resiliency v1.1.0/go.mod h1:kFI+JgMyC7bLPUVY133qvEBtVayf5mFgVsvEsIPBvNs=
 github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21/go.mod h1:+020luEh2TKB4/GOp8oxxtq0Daoen/Cii55CzbTV6DU=

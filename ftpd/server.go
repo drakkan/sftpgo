@@ -15,22 +15,25 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/version"
 )
 
 // Server implements the ftpserverlib MainDriver interface
 type Server struct {
-	config     *Configuration
-	certMgr    *common.CertManager
-	initialMsg string
+	config       *Configuration
+	certMgr      *common.CertManager
+	initialMsg   string
+	statusBanner string
 }
 
 // NewServer returns a new FTP server driver
 func NewServer(config *Configuration, configDir string) (*Server, error) {
 	var err error
 	server := &Server{
-		config:     config,
-		certMgr:    nil,
-		initialMsg: config.Banner,
+		config:       config,
+		certMgr:      nil,
+		initialMsg:   config.Banner,
+		statusBanner: fmt.Sprintf("SFTPGo %v FTP Server", version.Get().Version),
 	}
 	certificateFile := getConfigPath(config.CertificateFile, configDir)
 	certificateKeyFile := getConfigPath(config.CertificateKeyFile, configDir)
@@ -86,7 +89,8 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 		PassiveTransferPortRange: portRange,
 		ActiveTransferPortNon20:  s.config.ActiveTransfersPortNon20,
 		IdleTimeout:              -1,
-		ConnectionTimeout:        30,
+		ConnectionTimeout:        20,
+		Banner:                   s.statusBanner,
 	}, nil
 }
 

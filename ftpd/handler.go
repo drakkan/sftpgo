@@ -241,7 +241,7 @@ func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 }
 
 // GetHandle implements ClientDriverExtentionFileTransfer
-func (c *Connection) GetHandle(name string, flags int) (ftpserver.FileTransfer, error) {
+func (c *Connection) GetHandle(name string, flags int, offset int64) (ftpserver.FileTransfer, error) {
 	c.UpdateLastActivity()
 
 	p, err := c.Fs.ResolvePath(name)
@@ -251,10 +251,10 @@ func (c *Connection) GetHandle(name string, flags int) (ftpserver.FileTransfer, 
 	if flags&os.O_WRONLY != 0 {
 		return c.uploadFile(p, name, flags)
 	}
-	return c.downloadFile(p, name)
+	return c.downloadFile(p, name, offset)
 }
 
-func (c *Connection) downloadFile(fsPath, ftpPath string) (ftpserver.FileTransfer, error) {
+func (c *Connection) downloadFile(fsPath, ftpPath string, offset int64) (ftpserver.FileTransfer, error) {
 	if !c.User.HasPerm(dataprovider.PermDownload, path.Dir(ftpPath)) {
 		return nil, c.GetPermissionDeniedError()
 	}
@@ -264,7 +264,7 @@ func (c *Connection) downloadFile(fsPath, ftpPath string) (ftpserver.FileTransfe
 		return nil, c.GetPermissionDeniedError()
 	}
 
-	file, r, cancelFn, err := c.Fs.Open(fsPath)
+	file, r, cancelFn, err := c.Fs.Open(fsPath, offset)
 	if err != nil {
 		c.Log(logger.LevelWarn, "could not open file %#v for reading: %+v", fsPath, err)
 		return nil, c.GetFsError(err)
@@ -272,7 +272,7 @@ func (c *Connection) downloadFile(fsPath, ftpPath string) (ftpserver.FileTransfe
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, fsPath, ftpPath, common.TransferDownload,
 		0, 0, false)
-	t := newTransfer(baseTransfer, nil, r, 0)
+	t := newTransfer(baseTransfer, nil, r, 0, offset)
 
 	return t, nil
 }
@@ -330,7 +330,7 @@ func (c *Connection) handleFTPUploadToNewFile(resolvedPath, filePath, requestPat
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
 		common.TransferUpload, 0, 0, true)
-	t := newTransfer(baseTransfer, w, nil, quotaResult.GetRemainingSize())
+	t := newTransfer(baseTransfer, w, nil, quotaResult.GetRemainingSize(), 0)
 
 	return t, nil
 }
@@ -395,7 +395,7 @@ func (c *Connection) handleFTPUploadToExistingFile(flags int, resolvedPath, file
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
 		common.TransferUpload, minWriteOffset, initialSize, false)
-	t := newTransfer(baseTransfer, w, nil, maxWriteSize)
+	t := newTransfer(baseTransfer, w, nil, maxWriteSize, 0)
 
 	return t, nil
 }

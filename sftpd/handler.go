@@ -66,7 +66,7 @@ func (c *Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 		return nil, c.GetFsError(err)
 	}
 
-	file, r, cancelFn, err := c.Fs.Open(p)
+	file, r, cancelFn, err := c.Fs.Open(p, 0)
 	if err != nil {
 		c.Log(logger.LevelWarn, "could not open file %#v for reading: %+v", p, err)
 		return nil, c.GetFsError(err)

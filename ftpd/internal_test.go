@@ -292,7 +292,7 @@ func TestResolvePathErrors(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, common.ErrGenericFailure.Error())
 	}
-	_, err = connection.GetHandle("", 0)
+	_, err = connection.GetHandle("", 0, 0)
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, common.ErrGenericFailure.Error())
 	}
@@ -400,9 +400,11 @@ func TestTransferErrors(t *testing.T) {
 	}
 	baseTransfer := common.NewBaseTransfer(file, connection.BaseConnection, nil, file.Name(), testfile, common.TransferDownload,
 		0, 0, false)
-	tr := newTransfer(baseTransfer, nil, nil, 0)
+	tr := newTransfer(baseTransfer, nil, nil, 0, 0)
 	err = tr.Close()
 	assert.NoError(t, err)
+	_, err = tr.Seek(10, 0)
+	assert.Error(t, err)
 	buf := make([]byte, 64)
 	_, err = tr.Read(buf)
 	assert.Error(t, err)
@@ -416,7 +418,10 @@ func TestTransferErrors(t *testing.T) {
 	assert.NoError(t, err)
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testfile, testfile,
 		common.TransferUpload, 0, 0, false)
-	tr = newTransfer(baseTransfer, nil, r, 0)
+	tr = newTransfer(baseTransfer, nil, r, 0, 10)
+	pos, err := tr.Seek(10, 0)
+	assert.NoError(t, err)
+	assert.Equal(t, pos, tr.expectedOffset)
 	err = tr.closeIO()
 	assert.NoError(t, err)
 
@@ -425,11 +430,7 @@ func TestTransferErrors(t *testing.T) {
 	pipeWriter := vfs.NewPipeWriter(w)
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testfile, testfile,
 		common.TransferUpload, 0, 0, false)
-	tr = newTransfer(baseTransfer, pipeWriter, nil, 0)
-	_, err = tr.Seek(1, 0)
-	if assert.Error(t, err) {
-		assert.EqualError(t, err, common.ErrOpUnsupported.Error())
-	}
+	tr = newTransfer(baseTransfer, pipeWriter, nil, 0, 0)
 
 	err = r.Close()
 	assert.NoError(t, err)
@@ -440,6 +441,10 @@ func TestTransferErrors(t *testing.T) {
 	}()
 	err = tr.closeIO()
 	assert.EqualError(t, err, errFake.Error())
+	_, err = tr.Seek(1, 0)
+	if assert.Error(t, err) {
+		assert.EqualError(t, err, common.ErrOpUnsupported.Error())
+	}
 	err = os.Remove(testfile)
 	assert.NoError(t, err)
 }

@@ -1,6 +1,7 @@
 package ftpd
 
 import (
+	"errors"
 	"io"
 	"sync/atomic"
 
@@ -14,14 +15,15 @@ import (
 // It implements the ftpserver.FileTransfer interface to handle files downloads and uploads
 type transfer struct {
 	*common.BaseTransfer
-	writer       io.WriteCloser
-	reader       io.ReadCloser
-	isFinished   bool
-	maxWriteSize int64
+	writer         io.WriteCloser
+	reader         io.ReadCloser
+	isFinished     bool
+	maxWriteSize   int64
+	expectedOffset int64
 }
 
 func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *pipeat.PipeReaderAt,
-	maxWriteSize int64) *transfer {
+	maxWriteSize, expectedOffset int64) *transfer {
 	var writer io.WriteCloser
 	var reader io.ReadCloser
 	if baseTransfer.File != nil {
@@ -33,11 +35,12 @@ func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, 
 		reader = pipeReader
 	}
 	return &transfer{
-		BaseTransfer: baseTransfer,
-		writer:       writer,
-		reader:       reader,
-		isFinished:   false,
-		maxWriteSize: maxWriteSize,
+		BaseTransfer:   baseTransfer,
+		writer:         writer,
+		reader:         reader,
+		isFinished:     false,
+		maxWriteSize:   maxWriteSize,
+		expectedOffset: expectedOffset,
 	}
 }
 
@@ -81,8 +84,16 @@ func (t *transfer) Write(p []byte) (n int, err error) {
 // Seek sets the offset to resume an upload or a download
 func (t *transfer) Seek(offset int64, whence int) (int64, error) {
 	if t.File != nil {
-		return t.File.Seek(offset, whence)
+		ret, err := t.File.Seek(offset, whence)
+		if err != nil {
+			t.TransferError(err)
+		}
+		return ret, err
 	}
+	if t.reader != nil && t.expectedOffset == offset && whence == io.SeekStart {
+		return offset, nil
+	}
+	t.TransferError(errors.New("seek is unsupported for this transfer"))
 	return 0, common.ErrOpUnsupported
 }
 

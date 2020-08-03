@@ -22,7 +22,7 @@ type Fs interface {
 	ConnectionID() string
 	Stat(name string) (os.FileInfo, error)
 	Lstat(name string) (os.FileInfo, error)
-	Open(name string) (*os.File, *pipeat.PipeReaderAt, func(), error)
+	Open(name string, offset int64) (*os.File, *pipeat.PipeReaderAt, func(), error)
 	Create(name string, flag int) (*os.File, *PipeWriter, func(), error)
 	Rename(source, target string) error
 	Remove(name string, isDir bool) error

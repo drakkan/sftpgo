@@ -163,19 +163,24 @@ func (fs S3Fs) Lstat(name string) (os.FileInfo, error) {
 }
 
 // Open opens the named file for reading
-func (fs S3Fs) Open(name string) (*os.File, *pipeat.PipeReaderAt, func(), error) {
+func (fs S3Fs) Open(name string, offset int64) (*os.File, *pipeat.PipeReaderAt, func(), error) {
 	r, w, err := pipeat.AsyncWriterPipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	ctx, cancelFn := context.WithCancel(context.Background())
 	downloader := s3manager.NewDownloaderWithClient(fs.svc)
+	var streamRange *string
+	if offset > 0 {
+		streamRange = aws.String(fmt.Sprintf("bytes=%v-", offset))
+	}
+
 	go func() {
 		defer cancelFn()
-		key := name
 		n, err := downloader.DownloadWithContext(ctx, w, &s3.GetObjectInput{
 			Bucket: aws.String(fs.config.Bucket),
-			Key:    aws.String(key),
+			Key:    aws.String(name),
+			Range:  streamRange,
 		})
 		w.CloseWithError(err) //nolint:errcheck // the returned error is always null
 		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)
