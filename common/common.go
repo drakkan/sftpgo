@@ -94,7 +94,7 @@ var (
 	QuotaScans            ActiveScans
 	idleTimeoutTicker     *time.Ticker
 	idleTimeoutTickerDone chan bool
-	supportedProcols      = []string{ProtocolSFTP, ProtocolSCP, ProtocolSSH, ProtocolFTP}
+	supportedProtocols    = []string{ProtocolSFTP, ProtocolSCP, ProtocolSSH, ProtocolFTP}
 )
 
 // Initialize sets the common configuration

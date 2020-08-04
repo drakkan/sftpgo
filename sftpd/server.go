@@ -595,7 +595,8 @@ func (c Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKe
 		}
 		certPerm = &cert.Permissions
 	}
-	if user, keyID, err = dataprovider.CheckUserAndPubKey(conn.User(), pubKey.Marshal()); err == nil {
+	ipAddr := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
+	if user, keyID, err = dataprovider.CheckUserAndPubKey(conn.User(), pubKey.Marshal(), ipAddr); err == nil {
 		if user.IsPartialAuth(method) {
 			logger.Debug(logSender, connectionID, "user %#v authenticated with partial success", conn.User())
 			return certPerm, ssh.ErrPartialSuccess
@@ -625,7 +626,8 @@ func (c Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass [
 	if len(conn.PartialSuccessMethods()) == 1 {
 		method = dataprovider.SSHLoginMethodKeyAndPassword
 	}
-	if user, err = dataprovider.CheckUserAndPass(conn.User(), string(pass)); err == nil {
+	ipAddr := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
+	if user, err = dataprovider.CheckUserAndPass(conn.User(), string(pass), ipAddr); err == nil {
 		sshPerm, err = loginUser(user, method, "", conn)
 	}
 	updateLoginMetrics(conn, method, err)
@@ -641,7 +643,8 @@ func (c Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMetad
 	if len(conn.PartialSuccessMethods()) == 1 {
 		method = dataprovider.SSHLoginMethodKeyAndKeyboardInt
 	}
-	if user, err = dataprovider.CheckKeyboardInteractiveAuth(conn.User(), c.KeyboardInteractiveHook, client); err == nil {
+	ipAddr := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
+	if user, err = dataprovider.CheckKeyboardInteractiveAuth(conn.User(), c.KeyboardInteractiveHook, client, ipAddr); err == nil {
 		sshPerm, err = loginUser(user, method, "", conn)
 	}
 	updateLoginMetrics(conn, method, err)

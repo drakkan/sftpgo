@@ -37,7 +37,7 @@ type BaseConnection struct {
 // NewBaseConnection returns a new BaseConnection
 func NewBaseConnection(ID, protocol string, user dataprovider.User, fs vfs.Fs) *BaseConnection {
 	connID := ID
-	if utils.IsStringInSlice(protocol, supportedProcols) {
+	if utils.IsStringInSlice(protocol, supportedProtocols) {
 		connID = fmt.Sprintf("%v_%v", protocol, ID)
 	}
 	return &BaseConnection{
@@ -79,7 +79,7 @@ func (c *BaseConnection) GetProtocol() string {
 // SetProtocol sets the protocol for this connection
 func (c *BaseConnection) SetProtocol(protocol string) {
 	c.protocol = protocol
-	if utils.IsStringInSlice(c.protocol, supportedProcols) {
+	if utils.IsStringInSlice(c.protocol, supportedProtocols) {
 		c.ID = fmt.Sprintf("%v_%v", c.protocol, c.ID)
 	}
 }

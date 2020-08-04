@@ -12,11 +12,11 @@ RUN go build $(if [ -n "${FEATURES}" ]; then echo "-tags ${FEATURES}"; fi) -ldfl
 # now define the run environment
 FROM debian:latest
 
-# ca-certificates is needed for Cloud Storage Support and to expose the REST API over HTTPS.
-RUN apt-get update && apt-get install -y ca-certificates
+# ca-certificates is needed for Cloud Storage Support and for HTTPS/FTPS.
+RUN apt-get update && apt-get install -y ca-certificates && apt-get clean
 
 # git and rsync are optional, uncomment the next line to add support for them if needed.
-#RUN apt-get update && apt-get install -y git rsync
+#RUN apt-get update && apt-get install -y git rsync && apt-get clean
 
 ARG BASE_DIR=/app
 ARG DATA_REL_DIR=data
@@ -81,7 +81,6 @@ ENV SFTPGO_HTTPD__BACKUPS_PATH=${BACKUPS_DIR}
 # it is a good idea to provide certificates to enable FTPS too
 #ENV SFTPGO_FTPD__CERTIFICATE_FILE=${CONFIG_DIR}/mycert.crt
 #ENV SFTPGO_FTPD__CERTIFICATE_KEY_FILE=${CONFIG_DIR}/mycert.key
-
 
 ENTRYPOINT ["sftpgo"]
 CMD ["serve"]

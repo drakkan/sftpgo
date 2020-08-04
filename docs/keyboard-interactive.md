@@ -9,6 +9,7 @@ To enable keyboard interactive authentication, you must set the absolute path of
 The external program can read the following environment variables to get info about the user trying to authenticate:
 
 - `SFTPGO_AUTHD_USERNAME`
+- `SFTPGO_AUTHD_IP`
 - `SFTPGO_AUTHD_PASSWORD`, this is the hashed password as stored inside the data provider
 
 Previous global environment variables aren't cleared when the script is called. The content of these variables is _not_ quoted. They may contain special characters.
@@ -77,6 +78,7 @@ The request body will contain a JSON struct with the following fields:
 
 - `request_id`, string. Unique request identifier
 - `username`, string
+- `ip`, string
 - `password`, string. This is the hashed password as stored inside the data provider
 - `answers`, list of string. It will be null for the first request
 - `questions`, list of string. It will contains the previous asked questions. It will be null for the first request
@@ -93,7 +95,7 @@ Content-Length: 189
 Content-Type: application/json
 Accept-Encoding: gzip
 
-{"request_id":"bq1r5r7cdrpd2qtn25ng","username":"a","password":"$pbkdf2-sha512$150000$ClOPkLNujMTL$XktKy0xuJsOfMYBz+f2bIyPTdbvDTSnJ1q+7+zp/HPq5Qojwp6kcpSIiVHiwvbi8P6HFXI/D3UJv9BLcnQFqPA=="}
+{"request_id":"bq1r5r7cdrpd2qtn25ng","username":"a","ip":"127.0.0.1","password":"$pbkdf2-sha512$150000$ClOPkLNujMTL$XktKy0xuJsOfMYBz+f2bIyPTdbvDTSnJ1q+7+zp/HPq5Qojwp6kcpSIiVHiwvbi8P6HFXI/D3UJv9BLcnQFqPA=="}
 ```
 
 as you can see in this first requests `answers` and `questions` are null.
@@ -121,7 +123,7 @@ Content-Length: 233
 Content-Type: application/json
 Accept-Encoding: gzip
 
-{"request_id":"bq1r5r7cdrpd2qtn25ng","username":"a","password":"$pbkdf2-sha512$150000$ClOPkLNujMTL$XktKy0xuJsOfMYBz+f2bIyPTdbvDTSnJ1q+7+zp/HPq5Qojwp6kcpSIiVHiwvbi8P6HFXI/D3UJv9BLcnQFqPA==","answers":["OK"],"questions":["Password: "]}
+{"request_id":"bq1r5r7cdrpd2qtn25ng","username":"a","ip":"127.0.0.1","password":"$pbkdf2-sha512$150000$ClOPkLNujMTL$XktKy0xuJsOfMYBz+f2bIyPTdbvDTSnJ1q+7+zp/HPq5Qojwp6kcpSIiVHiwvbi8P6HFXI/D3UJv9BLcnQFqPA==","answers":["OK"],"questions":["Password: "]}
 ```
 
 Here is the HTTP response that istructs SFTPGo to ask for a new question:
@@ -147,7 +149,7 @@ Content-Length: 239
 Content-Type: application/json
 Accept-Encoding: gzip
 
-{"request_id":"bq1r5r7cdrpd2qtn25ng","username":"a","password":"$pbkdf2-sha512$150000$ClOPkLNujMTL$XktKy0xuJsOfMYBz+f2bIyPTdbvDTSnJ1q+7+zp/HPq5Qojwp6kcpSIiVHiwvbi8P6HFXI/D3UJv9BLcnQFqPA==","answers":["answer2"],"questions":["Question2: "]}
+{"request_id":"bq1r5r7cdrpd2qtn25ng","username":"a","ip":"127.0.0.1","password":"$pbkdf2-sha512$150000$ClOPkLNujMTL$XktKy0xuJsOfMYBz+f2bIyPTdbvDTSnJ1q+7+zp/HPq5Qojwp6kcpSIiVHiwvbi8P6HFXI/D3UJv9BLcnQFqPA==","answers":["answer2"],"questions":["Question2: "]}
 ```
 
 Here is the final HTTP response that allows the user login:

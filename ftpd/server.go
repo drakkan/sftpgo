@@ -118,7 +118,7 @@ func (s *Server) ClientDisconnected(cc ftpserver.ClientContext) {
 // AuthUser authenticates the user and selects an handling driver
 func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string) (ftpserver.ClientDriver, error) {
 	remoteAddr := cc.RemoteAddr().String()
-	user, err := dataprovider.CheckUserAndPass(username, password)
+	user, err := dataprovider.CheckUserAndPass(username, password, utils.GetIPFromRemoteAddress(remoteAddr))
 	if err != nil {
 		updateLoginMetrics(username, remoteAddr, dataprovider.FTPLoginMethodPassword, err)
 		return nil, err

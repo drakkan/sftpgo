@@ -1030,7 +1030,7 @@ func TestUpdateQuotaMoveVFolders(t *testing.T) {
 func TestErrorsMapping(t *testing.T) {
 	fs := vfs.NewOsFs("", os.TempDir(), nil)
 	conn := NewBaseConnection("", ProtocolSFTP, dataprovider.User{}, fs)
-	for _, protocol := range supportedProcols {
+	for _, protocol := range supportedProtocols {
 		conn.SetProtocol(protocol)
 		err := conn.GetFsError(os.ErrNotExist)
 		if protocol == ProtocolSFTP {

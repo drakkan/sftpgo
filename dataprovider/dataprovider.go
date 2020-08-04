@@ -177,6 +177,7 @@ type Config struct {
 	// to authenticate:
 	//
 	// - SFTPGO_AUTHD_USERNAME
+	// - SFTPGO_AUTHD_IP
 	// - SFTPGO_AUTHD_PASSWORD, not empty for password authentication
 	// - SFTPGO_AUTHD_PUBLIC_KEY, not empty for public key authentication
 	// - SFTPGO_AUTHD_KEYBOARD_INTERACTIVE, not empty for keyboard interactive authentication
@@ -190,6 +191,7 @@ type Config struct {
 	// The request body will contain a JSON serialized struct with the following fields:
 	//
 	// - username
+	// - ip
 	// - password, not empty for password authentication
 	// - public_key, not empty for public key authentication
 	// - keyboard_interactive, not empty for keyboard interactive authentication
@@ -227,15 +229,18 @@ type Config struct {
 	//
 	// - SFTPGO_LOGIND_USER, it contains the user trying to login serialized as JSON
 	// - SFTPGO_LOGIND_METHOD, possible values are: "password", "publickey" and "keyboard-interactive"
+	// - SFTPGO_LOGIND_IP, ip address of the user trying to login
 	//
 	// The program must write on its standard output an empty string if no user update is needed
 	// or a valid SFTPGo user serialized as JSON.
 	//
 	// If the hook is an HTTP URL then it will be invoked as HTTP POST.
-	// The login method is added to the query string, for example "<http_url>?login_method=password".
+	// The login method and the ip address of the user trying to login are added to
+	// the query string, for example "<http_url>?login_method=password&ip=1.2.3.4"
 	// The request body will contain the user trying to login serialized as JSON.
-	// If no modification is needed the HTTP response code must be 204, otherwise the response code
-	// must be 200 and the response body a valid SFTPGo user serialized as JSON.
+	// If no modification is needed the HTTP response code must be 204, otherwise
+	// the response code must be 200 and the response body a valid SFTPGo user
+	// serialized as JSON.
 	//
 	// The JSON response can include only the fields to update instead of the full user,
 	// for example if you want to disable the user you can return a response like this:
@@ -262,6 +267,7 @@ type BackupData struct {
 type keyboardAuthHookRequest struct {
 	RequestID string   `json:"request_id"`
 	Username  string   `json:"username,omitempty"`
+	IP        string   `json:"ip,omitempty"`
 	Password  string   `json:"password,omitempty"`
 	Answers   []string `json:"answers,omitempty"`
 	Questions []string `json:"questions,omitempty"`
@@ -432,16 +438,16 @@ func InitializeDatabase(cnf Config, basePath string) error {
 }
 
 // CheckUserAndPass retrieves the SFTP user with the given username and password if a match is found or an error
-func CheckUserAndPass(username string, password string) (User, error) {
+func CheckUserAndPass(username, password, ip string) (User, error) {
 	if len(config.ExternalAuthHook) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&1 != 0) {
-		user, err := doExternalAuth(username, password, nil, "")
+		user, err := doExternalAuth(username, password, nil, "", ip)
 		if err != nil {
 			return user, err
 		}
 		return checkUserAndPass(user, password)
 	}
 	if len(config.PreLoginHook) > 0 {
-		user, err := executePreLoginHook(username, SSHLoginMethodPassword)
+		user, err := executePreLoginHook(username, SSHLoginMethodPassword, ip)
 		if err != nil {
 			return user, err
 		}
@@ -451,16 +457,16 @@ func CheckUserAndPass(username string, password string) (User, error) {
 }
 
 // CheckUserAndPubKey retrieves the SFTP user with the given username and public key if a match is found or an error
-func CheckUserAndPubKey(username string, pubKey []byte) (User, string, error) {
+func CheckUserAndPubKey(username string, pubKey []byte, ip string) (User, string, error) {
 	if len(config.ExternalAuthHook) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&2 != 0) {
-		user, err := doExternalAuth(username, "", pubKey, "")
+		user, err := doExternalAuth(username, "", pubKey, "", ip)
 		if err != nil {
 			return user, "", err
 		}
 		return checkUserAndPubKey(user, pubKey)
 	}
 	if len(config.PreLoginHook) > 0 {
-		user, err := executePreLoginHook(username, SSHLoginMethodPublicKey)
+		user, err := executePreLoginHook(username, SSHLoginMethodPublicKey, ip)
 		if err != nil {
 			return user, "", err
 		}
@@ -471,20 +477,20 @@ func CheckUserAndPubKey(username string, pubKey []byte) (User, string, error) {
 
 // CheckKeyboardInteractiveAuth checks the keyboard interactive authentication and returns
 // the authenticated user or an error
-func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.KeyboardInteractiveChallenge) (User, error) {
+func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.KeyboardInteractiveChallenge, ip string) (User, error) {
 	var user User
 	var err error
 	if len(config.ExternalAuthHook) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&4 != 0) {
-		user, err = doExternalAuth(username, "", nil, "1")
+		user, err = doExternalAuth(username, "", nil, "1", ip)
 	} else if len(config.PreLoginHook) > 0 {
-		user, err = executePreLoginHook(username, SSHLoginMethodKeyboardInteractive)
+		user, err = executePreLoginHook(username, SSHLoginMethodKeyboardInteractive, ip)
 	} else {
 		user, err = provider.userExists(username)
 	}
 	if err != nil {
 		return user, err
 	}
-	return doKeyboardInteractiveAuth(user, authHook, client)
+	return doKeyboardInteractiveAuth(user, authHook, client, ip)
 }
 
 // UpdateLastLogin updates the last login fields for the given SFTP user
@@ -1303,7 +1309,7 @@ func sendKeyboardAuthHTTPReq(url *url.URL, request keyboardAuthHookRequest) (key
 	return response, err
 }
 
-func executeKeyboardInteractiveHTTPHook(user User, authHook string, client ssh.KeyboardInteractiveChallenge) (int, error) {
+func executeKeyboardInteractiveHTTPHook(user User, authHook string, client ssh.KeyboardInteractiveChallenge, ip string) (int, error) {
 	authResult := 0
 	var url *url.URL
 	url, err := url.Parse(authHook)
@@ -1314,6 +1320,7 @@ func executeKeyboardInteractiveHTTPHook(user User, authHook string, client ssh.K
 	requestID := xid.New().String()
 	req := keyboardAuthHookRequest{
 		Username:  user.Username,
+		IP:        ip,
 		Password:  user.Password,
 		RequestID: requestID,
 	}
@@ -1388,13 +1395,14 @@ func handleProgramInteractiveQuestions(client ssh.KeyboardInteractiveChallenge, 
 	return nil
 }
 
-func executeKeyboardInteractiveProgram(user User, authHook string, client ssh.KeyboardInteractiveChallenge) (int, error) {
+func executeKeyboardInteractiveProgram(user User, authHook string, client ssh.KeyboardInteractiveChallenge, ip string) (int, error) {
 	authResult := 0
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, authHook)
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", user.Username),
+		fmt.Sprintf("SFTPGO_AUTHD_IP=%v", ip),
 		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%v", user.Password))
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -1445,13 +1453,13 @@ func executeKeyboardInteractiveProgram(user User, authHook string, client ssh.Ke
 	return authResult, err
 }
 
-func doKeyboardInteractiveAuth(user User, authHook string, client ssh.KeyboardInteractiveChallenge) (User, error) {
+func doKeyboardInteractiveAuth(user User, authHook string, client ssh.KeyboardInteractiveChallenge, ip string) (User, error) {
 	var authResult int
 	var err error
 	if strings.HasPrefix(authHook, "http") {
-		authResult, err = executeKeyboardInteractiveHTTPHook(user, authHook, client)
+		authResult, err = executeKeyboardInteractiveHTTPHook(user, authHook, client, ip)
 	} else {
-		authResult, err = executeKeyboardInteractiveProgram(user, authHook, client)
+		authResult, err = executeKeyboardInteractiveProgram(user, authHook, client, ip)
 	}
 	if err != nil {
 		return user, err
@@ -1466,7 +1474,7 @@ func doKeyboardInteractiveAuth(user User, authHook string, client ssh.KeyboardIn
 	return user, nil
 }
 
-func getPreLoginHookResponse(loginMethod string, userAsJSON []byte) ([]byte, error) {
+func getPreLoginHookResponse(loginMethod, ip string, userAsJSON []byte) ([]byte, error) {
 	if strings.HasPrefix(config.PreLoginHook, "http") {
 		var url *url.URL
 		var result []byte
@@ -1477,6 +1485,7 @@ func getPreLoginHookResponse(loginMethod string, userAsJSON []byte) ([]byte, err
 		}
 		q := url.Query()
 		q.Add("login_method", loginMethod)
+		q.Add("ip", ip)
 		url.RawQuery = q.Encode()
 		httpClient := httpclient.GetHTTPClient()
 		resp, err := httpClient.Post(url.String(), "application/json", bytes.NewBuffer(userAsJSON))
@@ -1499,11 +1508,12 @@ func getPreLoginHookResponse(loginMethod string, userAsJSON []byte) ([]byte, err
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("SFTPGO_LOGIND_USER=%v", string(userAsJSON)),
 		fmt.Sprintf("SFTPGO_LOGIND_METHOD=%v", loginMethod),
+		fmt.Sprintf("SFTPGO_LOGIND_IP=%v", ip),
 	)
 	return cmd.Output()
 }
 
-func executePreLoginHook(username, loginMethod string) (User, error) {
+func executePreLoginHook(username, loginMethod, ip string) (User, error) {
 	u, err := provider.userExists(username)
 	if err != nil {
 		if _, ok := err.(*RecordNotFoundError); !ok {
@@ -1518,7 +1528,7 @@ func executePreLoginHook(username, loginMethod string) (User, error) {
 	if err != nil {
 		return u, err
 	}
-	out, err := getPreLoginHookResponse(loginMethod, userAsJSON)
+	out, err := getPreLoginHookResponse(loginMethod, ip, userAsJSON)
 	if err != nil {
 		return u, fmt.Errorf("Pre-login hook error: %v", err)
 	}
@@ -1557,7 +1567,7 @@ func executePreLoginHook(username, loginMethod string) (User, error) {
 	return provider.userExists(username)
 }
 
-func getExternalAuthResponse(username, password, pkey, keyboardInteractive string) ([]byte, error) {
+func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip string) ([]byte, error) {
 	if strings.HasPrefix(config.ExternalAuthHook, "http") {
 		var url *url.URL
 		var result []byte
@@ -1569,6 +1579,7 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive strin
 		httpClient := httpclient.GetHTTPClient()
 		authRequest := make(map[string]string)
 		authRequest["username"] = username
+		authRequest["ip"] = ip
 		authRequest["password"] = password
 		authRequest["public_key"] = pkey
 		authRequest["keyboard_interactive"] = keyboardInteractive
@@ -1593,13 +1604,14 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive strin
 	cmd := exec.CommandContext(ctx, config.ExternalAuthHook)
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", username),
+		fmt.Sprintf("SFTPGO_AUTHD_IP=%v", ip),
 		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%v", password),
 		fmt.Sprintf("SFTPGO_AUTHD_PUBLIC_KEY=%v", pkey),
 		fmt.Sprintf("SFTPGO_AUTHD_KEYBOARD_INTERACTIVE=%v", keyboardInteractive))
 	return cmd.Output()
 }
 
-func doExternalAuth(username, password string, pubKey []byte, keyboardInteractive string) (User, error) {
+func doExternalAuth(username, password string, pubKey []byte, keyboardInteractive, ip string) (User, error) {
 	var user User
 	pkey := ""
 	if len(pubKey) > 0 {
@@ -1609,7 +1621,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		}
 		pkey = string(ssh.MarshalAuthorizedKey(k))
 	}
-	out, err := getExternalAuthResponse(username, password, pkey, keyboardInteractive)
+	out, err := getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip)
 	if err != nil {
 		return user, fmt.Errorf("External auth error: %v", err)
 	}

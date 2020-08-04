@@ -5,6 +5,7 @@ To enable external authentication, you must set the absolute path of your authen
 The external program can read the following environment variables to get info about the user trying to authenticate:
 
 - `SFTPGO_AUTHD_USERNAME`
+- `SFTPGO_AUTHD_IP`
 - `SFTPGO_AUTHD_PASSWORD`, not empty for password authentication
 - `SFTPGO_AUTHD_PUBLIC_KEY`, not empty for public key authentication
 - `SFTPGO_AUTHD_KEYBOARD_INTERACTIVE`, not empty for keyboard interactive authentication
@@ -15,6 +16,7 @@ The program must write, on its standard output, a valid SFTPGo user serialized a
 If the hook is an HTTP URL then it will be invoked as HTTP POST. The request body will contain a JSON serialized struct with the following fields:
 
 - `username`
+- `ip`
 - `password`, not empty for password authentication
 - `public_key`, not empty for public key authentication
 - `keyboard_interactive`, not empty for keyboard interactive authentication
