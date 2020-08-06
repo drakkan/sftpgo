@@ -270,7 +270,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 	}
 	sconn, chans, reqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
-		logger.Warn(logSender, "", "failed to accept an incoming connection: %v", err)
+		logger.Debug(logSender, "", "failed to accept an incoming connection: %v", err)
 		if _, ok := err.(*ssh.ServerAuthError); !ok {
 			logger.ConnectionFailedLog("", utils.GetIPFromRemoteAddress(remoteAddr.String()), "no_auth_tryed", err.Error())
 			metrics.AddNoAuthTryed()
