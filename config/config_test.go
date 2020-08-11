@@ -273,4 +273,10 @@ func TestSetGetConfig(t *testing.T) {
 	config.SetFTPDConfig(ftpdConf)
 	assert.Equal(t, ftpdConf.CertificateFile, config.GetFTPDConfig().CertificateFile)
 	assert.Equal(t, ftpdConf.CertificateKeyFile, config.GetFTPDConfig().CertificateKeyFile)
+	webDavConf := config.GetWebDAVDConfig()
+	webDavConf.CertificateFile = "dav_cert"
+	webDavConf.CertificateKeyFile = "dav_key"
+	config.SetWebDAVDConfig(webDavConf)
+	assert.Equal(t, webDavConf.CertificateFile, config.GetWebDAVDConfig().CertificateFile)
+	assert.Equal(t, webDavConf.CertificateKeyFile, config.GetWebDAVDConfig().CertificateKeyFile)
 }

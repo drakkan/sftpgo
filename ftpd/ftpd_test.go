@@ -61,6 +61,8 @@ UM2lmBLIXpGgBwYFK4EEACKhZANiAARCjRMqJ85rzMC998X5z761nJ+xL3bkmGVq
 WvrJ51t5OxV0v25NsOgR82CANXUgvhVYs7vNFN+jxtb2aj6Xg+/2G/BNxkaFspIV
 CzgWkxiz7XE4lgUwX44FCXZM3+JeUbI=
 -----END EC PRIVATE KEY-----`
+	testFileName   = "test_file_ftp.dat"
+	testDLFileName = "test_download_ftp.dat"
 )
 
 var (
@@ -106,8 +108,8 @@ func TestMain(m *testing.M) {
 		}
 	}
 
-	certPath := filepath.Join(os.TempDir(), "test.crt")
-	keyPath := filepath.Join(os.TempDir(), "test.key")
+	certPath := filepath.Join(os.TempDir(), "test_ftpd.crt")
+	keyPath := filepath.Join(os.TempDir(), "test_ftpd.key")
 	err = ioutil.WriteFile(certPath, []byte(ftpsCert), os.ModePerm)
 	if err != nil {
 		logger.ErrorToConsole("error writing FTPS certificate: %v", err)
@@ -184,7 +186,6 @@ func TestBasicFTPHandling(t *testing.T) {
 	client, err := getFTPClient(user, true)
 	if assert.NoError(t, err) {
 		assert.Len(t, common.Connections.GetStats(), 1)
-		testFileName := "test_file.dat" //nolint:goconst
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(65535)
 		expectedQuotaSize := user.UsedQuotaSize + testFileSize
@@ -201,7 +202,7 @@ func TestBasicFTPHandling(t *testing.T) {
 		// overwrite an existing file
 		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
 		assert.NoError(t, err)
-		localDownloadPath := filepath.Join(homeBasePath, "test_download.dat")
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
 		assert.NoError(t, err)
 		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
@@ -308,6 +309,7 @@ func TestLoginExternalAuth(t *testing.T) {
 	assert.NoError(t, err)
 	if assert.Len(t, users, 1) {
 		user := users[0]
+		assert.Equal(t, defaultUsername, user.Username)
 		_, err = httpd.RemoveUser(user, http.StatusOK)
 		assert.NoError(t, err)
 		err = os.RemoveAll(user.GetHomeDir())
@@ -505,7 +507,7 @@ func TestZeroBytesTransfers(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestDownloadsError(t *testing.T) {
+func TestDownloadErrors(t *testing.T) {
 	u := getTestUser()
 	u.QuotaFiles = 1
 	subDir1 := "sub1"
@@ -534,7 +536,7 @@ func TestDownloadsError(t *testing.T) {
 		assert.NoError(t, err)
 		err = ioutil.WriteFile(testFilePath2, []byte("file2"), os.ModePerm)
 		assert.NoError(t, err)
-		localDownloadPath := filepath.Join(homeBasePath, "test_download.dat")
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 		err = ftpDownloadFile(path.Join("/", subDir1, "file.zip"), localDownloadPath, 5, client, 0)
 		assert.Error(t, err)
 		err = ftpDownloadFile(path.Join("/", subDir2, "file.zip"), localDownloadPath, 5, client, 0)
@@ -571,7 +573,6 @@ func TestUploadErrors(t *testing.T) {
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, true)
 	if assert.NoError(t, err) {
-		testFileName := "test_file.dat"
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := user.QuotaSize
 		err = createTestFile(testFilePath, testFileSize)
@@ -609,6 +610,8 @@ func TestUploadErrors(t *testing.T) {
 		assert.Error(t, err)
 		err = client.Quit()
 		assert.NoError(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -622,7 +625,6 @@ func TestResume(t *testing.T) {
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, true)
 	if assert.NoError(t, err) {
-		testFileName := "test_file.dat"
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		data := []byte("test data")
 		err = ioutil.WriteFile(testFilePath, data, os.ModePerm)
@@ -634,7 +636,7 @@ func TestResume(t *testing.T) {
 		readed, err := ioutil.ReadFile(filepath.Join(user.GetHomeDir(), testFileName))
 		assert.NoError(t, err)
 		assert.Equal(t, "test test data", string(readed))
-		localDownloadPath := filepath.Join(homeBasePath, "test_download.dat")
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 		err = ftpDownloadFile(testFileName, localDownloadPath, int64(len(data)), client, 5)
 		assert.NoError(t, err)
 		readed, err = ioutil.ReadFile(localDownloadPath)
@@ -680,7 +682,6 @@ func TestQuotaLimits(t *testing.T) {
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
 	testFileSize := int64(65535)
-	testFileName := "test_file.dat"
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
@@ -830,7 +831,6 @@ func TestRename(t *testing.T) {
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
 	testDir := "adir"
-	testFileName := "test_file.dat"
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	testFileSize := int64(65535)
 	err = createTestFile(testFilePath, testFileSize)
@@ -907,7 +907,6 @@ func TestStat(t *testing.T) {
 		}()
 
 		subDir := "subdir"
-		testFileName := "test_file.dat"
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(65535)
 		err = createTestFile(testFilePath, testFileSize)
@@ -954,7 +953,6 @@ func TestUploadOverwriteVfolder(t *testing.T) {
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, false)
 	if assert.NoError(t, err) {
-		testFileName := "test_file.dat"
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(65535)
 		err = createTestFile(testFilePath, testFileSize)
@@ -1020,7 +1018,6 @@ func TestAllocate(t *testing.T) {
 	assert.NoError(t, err)
 	client, err = getFTPClient(user, false)
 	if assert.NoError(t, err) {
-		testFileName := "test_file.dat"
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := user.QuotaSize - 1
 		err = createTestFile(testFilePath, testFileSize)
@@ -1079,7 +1076,6 @@ func TestChtimes(t *testing.T) {
 			assert.NoError(t, err)
 		}()
 
-		testFileName := "test_file.dat"
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(65535)
 		err = createTestFile(testFilePath, testFileSize)
@@ -1118,7 +1114,6 @@ func TestChmod(t *testing.T) {
 			assert.NoError(t, err)
 		}()
 
-		testFileName := "test_file.dat"
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(131072)
 		err = createTestFile(testFilePath, testFileSize)

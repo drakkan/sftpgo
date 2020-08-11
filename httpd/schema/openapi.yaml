@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 1.9.2
+  version: 1.9.3
 
 servers:
 - url: /api/v1
@@ -1484,7 +1484,7 @@ components:
       properties:
         path:
           type: string
-          description: SFTP/SCP path, if no other specific filter is defined, the filter apply for sub directories too. For example if filters are defined for the paths "/" and "/sub" then the filters for "/" are applied for any file outside the "/sub" directory
+          description: exposed SFTPGo path, if no other specific filter is defined, the filter apply for sub directories too. For example if filters are defined for the paths "/" and "/sub" then the filters for "/" are applied for any file outside the "/sub" directory
         allowed_extensions:
           type: array
           items:
@@ -1558,7 +1558,7 @@ components:
           description: the number of parts to upload in parallel. If this value is set to zero, the default value (2) will be used
         key_prefix:
           type: string
-          description: key_prefix is similar to a chroot directory for a local filesystem. If specified the SFTP user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix, if not empty, must not start with "/" and must end with "/". If empty the whole bucket contents will be available
+          description: key_prefix is similar to a chroot directory for a local filesystem. If specified the user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix, if not empty, must not start with "/" and must end with "/". If empty the whole bucket contents will be available
           example: folder/subfolder/
       required:
         - bucket
@@ -1589,7 +1589,7 @@ components:
           type: string
         key_prefix:
           type: string
-          description: key_prefix is similar to a chroot directory for a local filesystem. If specified the SFTP user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix, if not empty, must not start with "/" and must end with "/". If empty the whole bucket contents will be available
+          description: key_prefix is similar to a chroot directory for a local filesystem. If specified the user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix, if not empty, must not start with "/" and must end with "/". If empty the whole bucket contents will be available
           example: folder/subfolder/
       required:
         - bucket
@@ -1653,14 +1653,14 @@ components:
             quota_size:
               type: integer
               format: int64
-              description: Quota as size in bytes. 0 menas unlimited, -1 means included in user quota. Please note that quota is updated if files are added/removed via SFTP/SCP otherwise a quota scan is needed
+              description: Quota as size in bytes. 0 menas unlimited, -1 means included in user quota. Please note that quota is updated if files are added/removed via SFTPGo otherwise a quota scan or a manual quota update is needed
             quota_files:
               type: integer
               format: int32
-              description: Quota as number of files. 0 menas unlimited, , -1 means included in user quota. Please note that quota is updated if files are added/removed via SFTP/SCP otherwise a quota scan is needed
+              description: Quota as number of files. 0 menas unlimited, , -1 means included in user quota. Please note that quota is updated if files are added/removed via SFTPGo otherwise a quota scan or a manual quota update is needed
           required:
             - virtual_path
-      description: A virtual folder is a mapping between a SFTP/SCP virtual path and a filesystem path outside the user home directory. The specified paths must be absolute and the virtual path cannot be "/", it must be a sub directory. The parent directory for the specified virtual path must exist. SFTPGo will try to automatically create any missing parent directory for the configured virtual folders at user login.
+      description: A virtual folder is a mapping between a SFTPGo virtual path and a filesystem path outside the user home directory. The specified paths must be absolute and the virtual path cannot be "/", it must be a sub directory. The parent directory for the specified virtual path must exist. SFTPGo will try to automatically create any missing parent directory for the configured virtual folders at user login.
     User:
       type: object
       properties:
@@ -1702,19 +1702,19 @@ components:
           items:
             $ref: '#/components/schemas/VirtualFolder'
           nullable: true
-          description: mapping between virtual SFTP/SCP paths and filesystem paths outside the user home directory. Supported for local filesystem only. If one or more of the specified folders are not inside the dataprovider they will be automatically created. You have to create the folder on the filesystem yourself
+          description: mapping between virtual SFTPGo paths and filesystem paths outside the user home directory. Supported for local filesystem only. If one or more of the specified folders are not inside the dataprovider they will be automatically created. You have to create the folder on the filesystem yourself
         uid:
           type: integer
           format: int32
           minimum: 0
           maximum: 65535
-          description: if you run sftpgo as root user the created files and directories will be assigned to this uid. 0 means no change, the owner will be the user that runs sftpgo. Ignored on windows
+          description: if you run SFTPGo as root user, the created files and directories will be assigned to this uid. 0 means no change, the owner will be the user that runs SFTPGo. Ignored on windows
         gid:
           type: integer
           format: int32
           minimum: 0
           maximum: 65535
-          description: if you run sftpgo as root user the created files and directories will be assigned to this gid. 0 means no change, the group will be the one of the user that runs sftpgo. Ignored on windows
+          description: if you run SFTPGo as root user, the created files and directories will be assigned to this gid. 0 means no change, the group will be the one of the user that runs SFTPGo. Ignored on windows
         max_sessions:
           type: integer
           format: int32
@@ -1722,11 +1722,11 @@ components:
         quota_size:
           type: integer
           format: int64
-          description: Quota as size in bytes. 0 menas unlimited. Please note that quota is updated if files are added/removed via SFTP/SCP otherwise a quota scan is needed
+          description: Quota as size in bytes. 0 menas unlimited. Please note that quota is updated if files are added/removed via SFTPGo otherwise a quota scan or a manual quota update is needed
         quota_files:
           type: integer
           format: int32
-          description: Quota as number of files. 0 menas unlimited. Please note that quota is updated if files are added/removed via SFTP/SCP otherwise a quota scan is needed
+          description: Quota as number of files. 0 menas unlimited. Please note that quota is updated if files are added/removed via SFTPGo otherwise a quota scan or a manual quota update is needed
         permissions:
           type: object
           items:
@@ -1798,10 +1798,10 @@ components:
           type: integer
           format: int64
           description: connection time as unix timestamp in milliseconds
-        ssh_command:
+        command:
           type: string
           nullable: true
-          description: SSH command. This is not empty for protocol SSH
+          description: SSH command or WebDAV method
         last_activity:
           type: integer
           format: int64
@@ -1812,6 +1812,8 @@ components:
             - SFTP
             - SCP
             - SSH
+            - FTP
+            - DAV
         active_transfers:
           type: array
           nullable: true
@@ -1868,7 +1870,7 @@ components:
           type: array
           items:
             type: string
-          description: Features for the current build. Available features are "portable", "bolt", "mysql", "sqlite", "pgsql", "s3", "gcs". If a feature is available it has a "+" prefix, otherwise a "-" prefix
+          description: Features for the current build. Available features are "portable", "bolt", "mysql", "sqlite", "pgsql", "s3", "gcs", "metrics". If a feature is available it has a "+" prefix, otherwise a "-" prefix
   securitySchemes:
     BasicAuth:
       type: http

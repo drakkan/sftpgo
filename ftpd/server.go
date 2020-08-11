@@ -96,7 +96,7 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 
 // ClientConnected is called to send the very first welcome message
 func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
-	if err := common.Config.ExecutePostConnectHook(cc.RemoteAddr(), common.ProtocolFTP); err != nil {
+	if err := common.Config.ExecutePostConnectHook(cc.RemoteAddr().String(), common.ProtocolFTP); err != nil {
 		return common.ErrConnectionDenied.Error(), err
 	}
 	connID := fmt.Sprintf("%v", cc.ID())
@@ -120,13 +120,13 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 	remoteAddr := cc.RemoteAddr().String()
 	user, err := dataprovider.CheckUserAndPass(username, password, utils.GetIPFromRemoteAddress(remoteAddr))
 	if err != nil {
-		updateLoginMetrics(username, remoteAddr, dataprovider.FTPLoginMethodPassword, err)
+		updateLoginMetrics(username, remoteAddr, err)
 		return nil, err
 	}
 
 	connection, err := s.validateUser(user, cc)
 
-	defer updateLoginMetrics(username, remoteAddr, dataprovider.FTPLoginMethodPassword, err)
+	defer updateLoginMetrics(username, remoteAddr, err)
 
 	if err != nil {
 		return nil, err
@@ -188,10 +188,11 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 	return connection, nil
 }
 
-func updateLoginMetrics(username, remoteAddress, method string, err error) {
-	metrics.AddLoginAttempt(method)
+func updateLoginMetrics(username, remoteAddress string, err error) {
+	metrics.AddLoginAttempt(dataprovider.FTPLoginMethodPassword)
 	if err != nil {
-		logger.ConnectionFailedLog(username, utils.GetIPFromRemoteAddress(remoteAddress), method, err.Error())
+		logger.ConnectionFailedLog(username, utils.GetIPFromRemoteAddress(remoteAddress),
+			dataprovider.FTPLoginMethodPassword, err.Error())
 	}
-	metrics.AddLoginResult(method, err)
+	metrics.AddLoginResult(dataprovider.FTPLoginMethodPassword, err)
 }

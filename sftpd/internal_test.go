@@ -516,7 +516,7 @@ func TestSSHCommandErrors(t *testing.T) {
 	cmd = sshCommand{
 		command:    "md5sum",
 		connection: &connection,
-		args:       []string{"/../../test_file.dat"},
+		args:       []string{"/../../test_file_ftp.dat"},
 	}
 	err = cmd.handle()
 	assert.Error(t, err, "ssh command must fail, we are requesting an invalid path")
@@ -1020,10 +1020,10 @@ func TestGetConnectionInfo(t *testing.T) {
 		ClientVersion: "client",
 		RemoteAddress: "127.0.0.1:1234",
 		Protocol:      common.ProtocolSSH,
-		SSHCommand:    "sha1sum /test_file.dat",
+		Command:       "sha1sum /test_file_ftp.dat",
 	}
 	info := c.GetConnectionInfo()
-	assert.Contains(t, info, "sha1sum /test_file.dat")
+	assert.Contains(t, info, "sha1sum /test_file_ftp.dat")
 }
 
 func TestSCPFileMode(t *testing.T) {

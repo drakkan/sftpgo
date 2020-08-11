@@ -49,13 +49,33 @@ func (fs OsFs) ConnectionID() string {
 }
 
 // Stat returns a FileInfo describing the named file
-func (OsFs) Stat(name string) (os.FileInfo, error) {
-	return os.Stat(name)
+func (fs OsFs) Stat(name string) (os.FileInfo, error) {
+	fi, err := os.Stat(name)
+	if err != nil {
+		return fi, err
+	}
+	for _, v := range fs.virtualFolders {
+		if v.MappedPath == name {
+			info := NewFileInfo(v.VirtualPath, true, fi.Size(), fi.ModTime())
+			return info, nil
+		}
+	}
+	return fi, err
 }
 
 // Lstat returns a FileInfo describing the named file
-func (OsFs) Lstat(name string) (os.FileInfo, error) {
-	return os.Lstat(name)
+func (fs OsFs) Lstat(name string) (os.FileInfo, error) {
+	fi, err := os.Lstat(name)
+	if err != nil {
+		return fi, err
+	}
+	for _, v := range fs.virtualFolders {
+		if v.MappedPath == name {
+			info := NewFileInfo(v.VirtualPath, true, fi.Size(), fi.ModTime())
+			return info, nil
+		}
+	}
+	return fi, err
 }
 
 // Open opens the named file for reading
@@ -292,7 +312,7 @@ func (fs *OsFs) GetFsPaths(sftpPath string) (string, string) {
 	virtualPath, mappedPath := fs.getMappedFolderForPath(sftpPath)
 	if len(mappedPath) > 0 {
 		basePath = mappedPath
-		sftpPath = strings.TrimPrefix(utils.CleanSFTPPath(sftpPath), virtualPath)
+		sftpPath = strings.TrimPrefix(utils.CleanPath(sftpPath), virtualPath)
 	}
 	r := filepath.Clean(filepath.Join(basePath, sftpPath))
 	return basePath, r

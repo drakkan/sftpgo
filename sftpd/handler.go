@@ -190,7 +190,7 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 
 		s, err := c.Fs.Stat(p)
 		if err != nil {
-			c.Log(logger.LevelWarn, "error running stat on path: %+v", err)
+			c.Log(logger.LevelWarn, "error running stat on path %#v: %+v", p, err)
 			return nil, c.GetFsError(err)
 		}
 

@@ -54,7 +54,7 @@ type Configuration struct {
 // Initialize configures and starts the FTP server
 func (c *Configuration) Initialize(configDir string) error {
 	var err error
-	logger.Debug(logSender, "", "initializing FTP server with config %+v", c)
+	logger.Debug(logSender, "", "initializing FTP server with config %+v", *c)
 	server, err = NewServer(c, configDir)
 	if err != nil {
 		return err

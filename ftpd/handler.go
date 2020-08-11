@@ -150,7 +150,7 @@ func (c *Connection) Stat(name string) (os.FileInfo, error) {
 	}
 	fi, err := c.Fs.Stat(p)
 	if err != nil {
-		c.Log(logger.LevelWarn, "error running stat on path: %+v", err)
+		c.Log(logger.LevelWarn, "error running stat on path %#v: %+v", p, err)
 		return nil, c.GetFsError(err)
 	}
 	return fi, nil

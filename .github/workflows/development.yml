@@ -46,7 +46,7 @@ jobs:
         shell: bash
 
       - name: Run test cases using SQLite provider
-        run: go test -v -timeout 5m ./... -coverprofile=coverage.txt -covermode=atomic
+        run: go test -v -p 1 -timeout 5m ./... -coverprofile=coverage.txt -covermode=atomic
 
       - name: Upload coverage to Codecov
         if: ${{ matrix.upload-coverage }}
@@ -57,17 +57,18 @@ jobs:
 
       - name: Run test cases using bolt provider
         run: |
-          go test -v -timeout 1m ./config -covermode=atomic
-          go test -v -timeout 1m ./common -covermode=atomic
-          go test -v -timeout 5m ./httpd -covermode=atomic
-          go test -v -timeout 5m ./sftpd -covermode=atomic
-          go test -v -timeout 5m ./ftpd -covermode=atomic
+          go test -v -p 1 -timeout 1m ./config -covermode=atomic
+          go test -v -p 1 -timeout 1m ./common -covermode=atomic
+          go test -v -p 1 -timeout 2m ./httpd -covermode=atomic
+          go test -v -p 1 -timeout 5m ./sftpd -covermode=atomic
+          go test -v -p 1 -timeout 2m ./ftpd -covermode=atomic
+          go test -v -p 1 -timeout 2m ./webdavd -covermode=atomic
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: bolt
           SFTPGO_DATA_PROVIDER__NAME: 'sftpgo_bolt.db'
 
       - name: Run test cases using memory provider
-        run: go test -v -timeout 5m ./... -covermode=atomic
+        run: go test -v -p 1 -timeout 5m ./... -covermode=atomic
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: memory
           SFTPGO_DATA_PROVIDER__NAME: ''
@@ -149,7 +150,7 @@ jobs:
       - name: Run tests using PostgreSQL provider
         run: |
           ./sftpgo initprovider
-          go test -v -timeout 5m ./... -covermode=atomic
+          go test -v -p 1 -timeout 5m ./... -covermode=atomic
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: postgresql
           SFTPGO_DATA_PROVIDER__NAME: sftpgo
@@ -161,7 +162,7 @@ jobs:
       - name: Run tests using MySQL provider
         run: |
           ./sftpgo initprovider
-          go test -v -timeout 5m ./... -covermode=atomic
+          go test -v -p 1 -timeout 5m ./... -covermode=atomic
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: mysql
           SFTPGO_DATA_PROVIDER__NAME: sftpgo

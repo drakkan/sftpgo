@@ -55,9 +55,9 @@ func TestTransferThrottling(t *testing.T) {
 	testFileSize := int64(131072)
 	wantedUploadElapsed := 1000 * (testFileSize / 1000) / u.UploadBandwidth
 	wantedDownloadElapsed := 1000 * (testFileSize / 1000) / u.DownloadBandwidth
-	// 100 ms tolerance
-	wantedUploadElapsed -= 100
-	wantedDownloadElapsed -= 100
+	// some tolerance
+	wantedUploadElapsed -= wantedDownloadElapsed / 10
+	wantedDownloadElapsed -= wantedDownloadElapsed / 10
 	conn := NewBaseConnection("id", ProtocolSCP, u, nil)
 	transfer := NewBaseTransfer(nil, conn, nil, "", "", TransferUpload, 0, 0, true)
 	transfer.BytesReceived = testFileSize
@@ -99,7 +99,10 @@ func TestTransferErrors(t *testing.T) {
 		assert.FailNow(t, "unable to open test file")
 	}
 	conn := NewBaseConnection("id", ProtocolSFTP, u, fs)
-	transfer := NewBaseTransfer(file, conn, cancelFn, testFile, "/transfer_test_file", TransferUpload, 0, 0, true)
+	transfer := NewBaseTransfer(file, conn, nil, testFile, "/transfer_test_file", TransferUpload, 0, 0, true)
+	assert.Nil(t, transfer.cancelFn)
+	assert.Equal(t, testFile, transfer.GetFsPath())
+	transfer.SetCancelFn(cancelFn)
 	errFake := errors.New("err fake")
 	transfer.BytesReceived = 9
 	transfer.TransferError(ErrQuotaExceeded)

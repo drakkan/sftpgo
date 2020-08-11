@@ -6,13 +6,14 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
-Fully featured and highly configurable SFTP server, written in Go
+Fully featured and highly configurable SFTP server with optional FTP/S and WebDAV support, written in Go.
+It can serve local filesystem, S3 or Google Cloud Storage.
 
 ## Features
 
-- Each account is chrooted to its home directory.
-- SFTP accounts are virtual accounts stored in a "data provider".
+- SFTPGo uses virtual accounts stored inside a "data provider".
 - SQLite, MySQL, PostgreSQL, bbolt (key/value store in pure Go) and in-memory data providers are supported.
+- Each account is chrooted to its home directory.
 - Public key and password authentication. Multiple public keys per user are supported.
 - SSH user [certificate authentication](https://cvsweb.openbsd.org/src/usr.bin/ssh/PROTOCOL.certkeys?rev=1.8).
 - Keyboard interactive authentication. You can easily setup a customizable multi-factor authentication.
@@ -34,9 +35,10 @@ Fully featured and highly configurable SFTP server, written in Go
 - Support for Git repositories over SSH.
 - SCP and rsync are supported.
 - FTP/S is supported.
-- Support for serving local filesystem, S3 Compatible Object Storage and Google Cloud Storage over SFTP/SCP/FTP.
+- WebDAV is supported.
+- Support for serving local filesystem, S3 Compatible Object Storage and Google Cloud Storage over SFTP/SCP/FTP/WebDAV.
 - [Prometheus metrics](./docs/metrics.md) are exposed.
-- Support for HAProxy PROXY protocol: you can proxy and/or load balance the SFTP/SCP/FTP service without losing the information about the client's address.
+- Support for HAProxy PROXY protocol: you can proxy and/or load balance the SFTP/SCP/FTP/WebDAV service without losing the information about the client's address.
 - [REST API](./docs/rest-api.md) for users and folders management, backup, restore and real time reports of the active connections with possibility of forcibly closing a connection.
 - [Web based administration interface](./docs/web-admin.md) to easily manage users, folders and connections.
 - Easy [migration](./examples/rest-api-cli#convert-users-from-other-stores) from Linux system user accounts.

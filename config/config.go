@@ -16,6 +16,7 @@ import (
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/version"
+	"github.com/drakkan/sftpgo/webdavd"
 )
 
 const (
@@ -35,12 +36,13 @@ var (
 )
 
 type globalConfig struct {
-	Common       common.Configuration `json:"common" mapstructure:"common"`
-	SFTPD        sftpd.Configuration  `json:"sftpd" mapstructure:"sftpd"`
-	FTPD         ftpd.Configuration   `json:"ftpd" mapstructure:"ftpd"`
-	ProviderConf dataprovider.Config  `json:"data_provider" mapstructure:"data_provider"`
-	HTTPDConfig  httpd.Conf           `json:"httpd" mapstructure:"httpd"`
-	HTTPConfig   httpclient.Config    `json:"http" mapstructure:"http"`
+	Common       common.Configuration  `json:"common" mapstructure:"common"`
+	SFTPD        sftpd.Configuration   `json:"sftpd" mapstructure:"sftpd"`
+	FTPD         ftpd.Configuration    `json:"ftpd" mapstructure:"ftpd"`
+	WebDAVD      webdavd.Configuration `json:"webdavd" mapstructure:"webdavd"`
+	ProviderConf dataprovider.Config   `json:"data_provider" mapstructure:"data_provider"`
+	HTTPDConfig  httpd.Conf            `json:"httpd" mapstructure:"httpd"`
+	HTTPConfig   httpclient.Config     `json:"http" mapstructure:"http"`
 }
 
 func init() {
@@ -82,6 +84,12 @@ func init() {
 				Start: 50000,
 				End:   50100,
 			},
+			CertificateFile:    "",
+			CertificateKeyFile: "",
+		},
+		WebDAVD: webdavd.Configuration{
+			BindPort:           0,
+			BindAddress:        "",
 			CertificateFile:    "",
 			CertificateKeyFile: "",
 		},
@@ -161,6 +169,16 @@ func GetFTPDConfig() ftpd.Configuration {
 // SetFTPDConfig sets the configuration for the FTP server
 func SetFTPDConfig(config ftpd.Configuration) {
 	globalConf.FTPD = config
+}
+
+// GetWebDAVDConfig returns the configuration for the WebDAV server
+func GetWebDAVDConfig() webdavd.Configuration {
+	return globalConf.WebDAVD
+}
+
+// SetWebDAVDConfig sets the configuration for the WebDAV server
+func SetWebDAVDConfig(config webdavd.Configuration) {
+	globalConf.WebDAVD = config
 }
 
 // GetHTTPDConfig returns the configuration for the HTTP server

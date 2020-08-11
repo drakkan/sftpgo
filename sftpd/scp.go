@@ -449,7 +449,7 @@ func (c *scpCommand) handleDownload(filePath string) error {
 
 	var stat os.FileInfo
 	if stat, err = c.connection.Fs.Stat(p); err != nil {
-		c.connection.Log(logger.LevelWarn, "error downloading file: %#v, err: %v", p, err)
+		c.connection.Log(logger.LevelWarn, "error downloading file: %#v->%#v, err: %v", filePath, p, err)
 		c.sendErrorMessage(c.connection.GetFsError(err))
 		return err
 	}

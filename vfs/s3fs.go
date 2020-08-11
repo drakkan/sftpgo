@@ -112,10 +112,10 @@ func (fs S3Fs) Stat(name string) (os.FileInfo, error) {
 		if err != nil {
 			return result, err
 		}
-		return NewFileInfo(name, true, 0, time.Time{}), nil
+		return NewFileInfo(name, true, 0, time.Now()), nil
 	}
 	if "/"+fs.config.KeyPrefix == name+"/" {
-		return NewFileInfo(name, true, 0, time.Time{}), nil
+		return NewFileInfo(name, true, 0, time.Now()), nil
 	}
 	prefix := path.Dir(name)
 	if prefix == "/" || prefix == "." {
@@ -135,7 +135,7 @@ func (fs S3Fs) Stat(name string) (os.FileInfo, error) {
 	}, func(page *s3.ListObjectsV2Output, lastPage bool) bool {
 		for _, p := range page.CommonPrefixes {
 			if fs.isEqual(p.Prefix, name) {
-				result = NewFileInfo(name, true, 0, time.Time{})
+				result = NewFileInfo(name, true, 0, time.Now())
 				return false
 			}
 		}
@@ -164,7 +164,7 @@ func (fs S3Fs) Lstat(name string) (os.FileInfo, error) {
 
 // Open opens the named file for reading
 func (fs S3Fs) Open(name string, offset int64) (*os.File, *pipeat.PipeReaderAt, func(), error) {
-	r, w, err := pipeat.AsyncWriterPipeInDir(fs.localTempDir)
+	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -182,7 +182,7 @@ func (fs S3Fs) Open(name string, offset int64) (*os.File, *pipeat.PipeReaderAt, 
 			Key:    aws.String(name),
 			Range:  streamRange,
 		})
-		w.CloseWithError(err) //nolint:errcheck // the returned error is always null
+		w.CloseWithError(err) //nolint:errcheck
 		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)
 		metrics.S3TransferCompleted(n, 1, err)
 	}()
@@ -210,7 +210,7 @@ func (fs S3Fs) Create(name string, flag int) (*os.File, *PipeWriter, func(), err
 			u.Concurrency = fs.config.UploadConcurrency
 			u.PartSize = fs.config.UploadPartSize
 		})
-		r.CloseWithError(err) //nolint:errcheck // the returned error is always null
+		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, response: %v, readed bytes: %v, err: %+v",
 			name, response, r.GetReadedBytes(), err)
@@ -351,7 +351,7 @@ func (fs S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	}, func(page *s3.ListObjectsV2Output, lastPage bool) bool {
 		for _, p := range page.CommonPrefixes {
 			name, isDir := fs.resolve(p.Prefix, prefix)
-			result = append(result, NewFileInfo(name, isDir, 0, time.Time{}))
+			result = append(result, NewFileInfo(name, isDir, 0, time.Now()))
 		}
 		for _, fileObject := range page.Contents {
 			objectSize := *fileObject.Size
@@ -415,12 +415,11 @@ func (S3Fs) IsPermission(err error) bool {
 	return strings.Contains(err.Error(), "403")
 }
 
-// CheckRootPath creates the specified root directory if it does not exists
+// CheckRootPath creates the specified local root directory if it does not exists
 func (fs S3Fs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
 	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, nil)
-	osFs.CheckRootPath(username, uid, gid)
-	return fs.checkIfBucketExists() != nil
+	return osFs.CheckRootPath(username, uid, gid)
 }
 
 // ScanRootDirContents returns the number of files contained in the bucket,
@@ -476,9 +475,40 @@ func (fs S3Fs) GetRelativePath(name string) string {
 }
 
 // Walk walks the file tree rooted at root, calling walkFn for each file or
-// directory in the tree, including root
-func (S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
-	return errUnsupported
+// directory in the tree, including root. The result are unordered
+func (fs S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
+	prefix := ""
+	if root != "/" && root != "." {
+		prefix = strings.TrimPrefix(root, "/")
+		if !strings.HasSuffix(prefix, "/") {
+			prefix += "/"
+		}
+	}
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	defer cancelFn()
+	err := fs.svc.ListObjectsV2PagesWithContext(ctx, &s3.ListObjectsV2Input{
+		Bucket: aws.String(fs.config.Bucket),
+		Prefix: aws.String(prefix),
+	}, func(page *s3.ListObjectsV2Output, lastPage bool) bool {
+		for _, fileObject := range page.Contents {
+			objectSize := *fileObject.Size
+			objectModTime := *fileObject.LastModified
+			isDir := strings.HasSuffix(*fileObject.Key, "/")
+			name := path.Clean(*fileObject.Key)
+			if len(name) == 0 {
+				continue
+			}
+			err := walkFn(fs.Join("/", *fileObject.Key), NewFileInfo(name, isDir, objectSize, objectModTime), nil)
+			if err != nil {
+				return false
+			}
+		}
+		return true
+	})
+	metrics.S3ListObjectsCompleted(err)
+	walkFn(root, NewFileInfo(root, true, 0, time.Now()), err) //nolint:errcheck
+
+	return err
 }
 
 // Join joins any number of path elements into a single path
@@ -534,4 +564,18 @@ func (fs *S3Fs) checkIfBucketExists() error {
 	})
 	metrics.S3HeadBucketCompleted(err)
 	return err
+}
+
+// GetMimeType implements MimeTyper interface
+func (fs S3Fs) GetMimeType(name string) (string, error) {
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	defer cancelFn()
+	obj, err := fs.svc.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(fs.config.Bucket),
+		Key:    aws.String(name),
+	})
+	if err != nil {
+		return "", err
+	}
+	return *obj.ContentType, err
 }

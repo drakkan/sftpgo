@@ -82,5 +82,12 @@ ENV SFTPGO_HTTPD__BACKUPS_PATH=${BACKUPS_DIR}
 #ENV SFTPGO_FTPD__CERTIFICATE_FILE=${CONFIG_DIR}/mycert.crt
 #ENV SFTPGO_FTPD__CERTIFICATE_KEY_FILE=${CONFIG_DIR}/mycert.key
 
+# uncomment the following setting to enable WebDAV support
+#ENV SFTPGO_WEBDAVD__BIND_PORT=8090
+
+# it is a good idea to provide certificates to enable WebDAV over HTTPS
+#ENV SFTPGO_WEBDAVD__CERTIFICATE_FILE=${CONFIG_DIR}/mycert.crt
+#ENV SFTPGO_WEBDAVD__CERTIFICATE_KEY_FILE=${CONFIG_DIR}/mycert.key
+
 ENTRYPOINT ["sftpgo"]
 CMD ["serve"]

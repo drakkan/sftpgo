@@ -86,10 +86,10 @@ func (fs GCSFs) Stat(name string) (os.FileInfo, error) {
 		if err != nil {
 			return result, err
 		}
-		return NewFileInfo(name, true, 0, time.Time{}), nil
+		return NewFileInfo(name, true, 0, time.Now()), nil
 	}
 	if fs.config.KeyPrefix == name+"/" {
-		return NewFileInfo(name, true, 0, time.Time{}), nil
+		return NewFileInfo(name, true, 0, time.Now()), nil
 	}
 	prefix := fs.getPrefixForStat(name)
 	query := &storage.Query{Prefix: prefix, Delimiter: "/"}
@@ -108,7 +108,8 @@ func (fs GCSFs) Stat(name string) (os.FileInfo, error) {
 		}
 		if len(attrs.Prefix) > 0 {
 			if fs.isEqual(attrs.Prefix, name) {
-				result = NewFileInfo(name, true, 0, time.Time{})
+				result = NewFileInfo(name, true, 0, time.Now())
+				break
 			}
 		} else {
 			if !attrs.Deleted.IsZero() {
@@ -117,6 +118,10 @@ func (fs GCSFs) Stat(name string) (os.FileInfo, error) {
 			if fs.isEqual(attrs.Name, name) {
 				isDir := strings.HasSuffix(attrs.Name, "/")
 				result = NewFileInfo(name, isDir, attrs.Size, attrs.Updated)
+				if !isDir {
+					result.setContentType(attrs.ContentType)
+				}
+				break
 			}
 		}
 	}
@@ -134,7 +139,7 @@ func (fs GCSFs) Lstat(name string) (os.FileInfo, error) {
 
 // Open opens the named file for reading
 func (fs GCSFs) Open(name string, offset int64) (*os.File, *pipeat.PipeReaderAt, func(), error) {
-	r, w, err := pipeat.AsyncWriterPipeInDir(fs.localTempDir)
+	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -156,7 +161,7 @@ func (fs GCSFs) Open(name string, offset int64) (*os.File, *pipeat.PipeReaderAt,
 		defer cancelFn()
 		defer objectReader.Close()
 		n, err := io.Copy(w, objectReader)
-		w.CloseWithError(err) //nolint:errcheck // the returned error is always null
+		w.CloseWithError(err) //nolint:errcheck
 		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)
 		metrics.GCSTransferCompleted(n, 1, err)
 	}()
@@ -181,7 +186,7 @@ func (fs GCSFs) Create(name string, flag int) (*os.File, *PipeWriter, func(), er
 		defer cancelFn()
 		defer objectWriter.Close()
 		n, err := io.Copy(objectWriter, r)
-		r.CloseWithError(err) //nolint:errcheck // the returned error is always null
+		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, readed bytes: %v, err: %v", name, n, err)
 		metrics.GCSTransferCompleted(n, 0, err)
@@ -321,7 +326,7 @@ func (fs GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 		}
 		if len(attrs.Prefix) > 0 {
 			name, _ := fs.resolve(attrs.Prefix, prefix)
-			result = append(result, NewFileInfo(name, true, 0, time.Time{}))
+			result = append(result, NewFileInfo(name, true, 0, time.Now()))
 		} else {
 			name, isDir := fs.resolve(attrs.Name, prefix)
 			if len(name) == 0 {
@@ -330,7 +335,11 @@ func (fs GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 			if !attrs.Deleted.IsZero() {
 				continue
 			}
-			result = append(result, NewFileInfo(name, isDir, attrs.Size, attrs.Updated))
+			fi := NewFileInfo(name, isDir, attrs.Size, attrs.Updated)
+			if !isDir {
+				fi.setContentType(attrs.ContentType)
+			}
+			result = append(result, fi)
 		}
 	}
 	metrics.GCSListObjectsCompleted(nil)
@@ -381,12 +390,11 @@ func (GCSFs) IsPermission(err error) bool {
 	return strings.Contains(err.Error(), "403")
 }
 
-// CheckRootPath creates the specified root directory if it does not exists
+// CheckRootPath creates the specified local root directory if it does not exists
 func (fs GCSFs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
 	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, nil)
-	osFs.CheckRootPath(username, uid, gid)
-	return fs.checkIfBucketExists() != nil
+	return osFs.CheckRootPath(username, uid, gid)
 }
 
 // ScanRootDirContents returns the number of files contained in the bucket,
@@ -455,8 +463,53 @@ func (fs GCSFs) GetRelativePath(name string) string {
 
 // Walk walks the file tree rooted at root, calling walkFn for each file or
 // directory in the tree, including root
-func (GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
-	return errUnsupported
+func (fs GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
+	prefix := ""
+	if len(root) > 0 && root != "." {
+		prefix = strings.TrimPrefix(root, "/")
+		if !strings.HasSuffix(prefix, "/") {
+			prefix += "/"
+		}
+	}
+
+	query := &storage.Query{Prefix: prefix}
+	err := query.SetAttrSelection(gcsDefaultFieldsSelection)
+	if err != nil {
+		walkFn(root, nil, err) //nolint:errcheck
+		return err
+	}
+
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	defer cancelFn()
+	bkt := fs.svc.Bucket(fs.config.Bucket)
+	it := bkt.Objects(ctx, query)
+	for {
+		attrs, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			walkFn(root, nil, err) //nolint:errcheck
+			metrics.GCSListObjectsCompleted(err)
+			return err
+		}
+		if !attrs.Deleted.IsZero() {
+			continue
+		}
+		isDir := strings.HasSuffix(attrs.Name, "/")
+		name := path.Clean(attrs.Name)
+		if len(name) == 0 {
+			continue
+		}
+		err = walkFn(attrs.Name, NewFileInfo(name, isDir, attrs.Size, attrs.Updated), nil)
+		if err != nil {
+			break
+		}
+	}
+
+	walkFn(root, NewFileInfo(root, true, 0, time.Now()), err) //nolint:errcheck
+	metrics.GCSListObjectsCompleted(err)
+	return err
 }
 
 // Join joins any number of path elements into a single path

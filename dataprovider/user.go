@@ -54,6 +54,7 @@ const (
 	SSHLoginMethodKeyAndPassword      = "publickey+password"
 	SSHLoginMethodKeyAndKeyboardInt   = "publickey+keyboard-interactive"
 	FTPLoginMethodPassword            = "ftp-password"
+	WebDavLoginMethodPassword         = "dav-password"
 )
 
 var (
@@ -222,7 +223,7 @@ func (u *User) AddVirtualDirs(list []os.FileInfo, sftpPath string) []os.FileInfo
 	}
 	for _, v := range u.VirtualFolders {
 		if path.Dir(v.VirtualPath) == sftpPath {
-			fi := vfs.NewFileInfo(path.Base(v.VirtualPath), true, 0, time.Time{})
+			fi := vfs.NewFileInfo(v.VirtualPath, true, 0, time.Now())
 			found := false
 			for index, f := range list {
 				if f.Name() == fi.Name() {

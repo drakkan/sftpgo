@@ -521,7 +521,7 @@ func (c *sshCommand) getSourcePath() string {
 func cleanCommandPath(name string) string {
 	name = strings.Trim(name, "'")
 	name = strings.Trim(name, "\"")
-	result := utils.CleanSFTPPath(name)
+	result := utils.CleanPath(name)
 	if strings.HasSuffix(name, "/") && !strings.HasSuffix(result, "/") {
 		result += "/"
 	}

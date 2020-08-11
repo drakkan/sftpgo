@@ -47,6 +47,11 @@ type Fs interface {
 	HasVirtualFolders() bool
 }
 
+// MimeTyper defines an optional interface to get the content type
+type MimeTyper interface {
+	GetMimeType(name string) (string, error)
+}
+
 var errUnsupported = errors.New("Not supported")
 
 // QuotaCheckResult defines the result for a quota check

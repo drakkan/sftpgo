@@ -1,6 +1,7 @@
 package common
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -138,10 +139,11 @@ func (c *BaseConnection) GetTransfers() []ConnectionTransfer {
 	transfers := make([]ConnectionTransfer, 0, len(c.activeTransfers))
 	for _, t := range c.activeTransfers {
 		var operationType string
-		if t.GetType() == TransferUpload {
-			operationType = operationUpload
-		} else {
+		switch t.GetType() {
+		case TransferDownload:
 			operationType = operationDownload
+		case TransferUpload:
+			operationType = operationUpload
 		}
 		transfers = append(transfers, ConnectionTransfer{
 			ID:            t.GetID(),
@@ -153,6 +155,21 @@ func (c *BaseConnection) GetTransfers() []ConnectionTransfer {
 	}
 
 	return transfers
+}
+
+// SignalTransfersAbort signals to the active transfers to exit as soon as possible
+func (c *BaseConnection) SignalTransfersAbort() error {
+	c.RLock()
+	defer c.RUnlock()
+
+	if len(c.activeTransfers) == 0 {
+		return errors.New("no active transfer found")
+	}
+
+	for _, t := range c.activeTransfers {
+		t.SignalClose()
+	}
+	return nil
 }
 
 // ListDir reads the directory named by fsPath and returns a list of directory entries
@@ -187,14 +204,22 @@ func (c *BaseConnection) CreateDir(fsPath, virtualPath string) error {
 	return nil
 }
 
-// RemoveFile removes a file at the specified fsPath
-func (c *BaseConnection) RemoveFile(fsPath, virtualPath string, info os.FileInfo) error {
+// IsRemoveFileAllowed returns an error if removing this file is not allowed
+func (c *BaseConnection) IsRemoveFileAllowed(fsPath, virtualPath string) error {
 	if !c.User.HasPerm(dataprovider.PermDelete, path.Dir(virtualPath)) {
 		return c.GetPermissionDeniedError()
 	}
 	if !c.User.IsFileAllowed(virtualPath) {
 		c.Log(logger.LevelDebug, "removing file %#v is not allowed", fsPath)
 		return c.GetPermissionDeniedError()
+	}
+	return nil
+}
+
+// RemoveFile removes a file at the specified fsPath
+func (c *BaseConnection) RemoveFile(fsPath, virtualPath string, info os.FileInfo) error {
+	if err := c.IsRemoveFileAllowed(fsPath, virtualPath); err != nil {
+		return err
 	}
 	size := info.Size()
 	action := newActionNotification(&c.User, operationPreDelete, fsPath, "", "", c.protocol, size, nil)
@@ -227,8 +252,8 @@ func (c *BaseConnection) RemoveFile(fsPath, virtualPath string, info os.FileInfo
 	return nil
 }
 
-// RemoveDir removes a directory at the specified fsPath
-func (c *BaseConnection) RemoveDir(fsPath, virtualPath string) error {
+// IsRemoveDirAllowed returns an error if removing this directory is not allowed
+func (c *BaseConnection) IsRemoveDirAllowed(fsPath, virtualPath string) error {
 	if c.Fs.GetRelativePath(fsPath) == "/" {
 		c.Log(logger.LevelWarn, "removing root dir is not allowed")
 		return c.GetPermissionDeniedError()
@@ -247,6 +272,14 @@ func (c *BaseConnection) RemoveDir(fsPath, virtualPath string) error {
 	}
 	if !c.User.HasPerm(dataprovider.PermDelete, path.Dir(virtualPath)) {
 		return c.GetPermissionDeniedError()
+	}
+	return nil
+}
+
+// RemoveDir removes a directory at the specified fsPath
+func (c *BaseConnection) RemoveDir(fsPath, virtualPath string) error {
+	if err := c.IsRemoveDirAllowed(fsPath, virtualPath); err != nil {
+		return err
 	}
 
 	var fi os.FileInfo
@@ -440,7 +473,7 @@ func (c *BaseConnection) checkRecursiveRenameDirPermissions(sourcePath, targetPa
 		dstPath := strings.Replace(walkedPath, sourcePath, targetPath, 1)
 		virtualSrcPath := c.Fs.GetRelativePath(walkedPath)
 		virtualDstPath := c.Fs.GetRelativePath(dstPath)
-		// walk scans the directory tree in order, checking the parent dirctory permissions we are sure that all contents
+		// walk scans the directory tree in order, checking the parent directory permissions we are sure that all contents
 		// inside the parent path was checked. If the current dir has no subdirs with defined permissions inside it
 		// and it has all the possible permissions we can stop scanning
 		if !c.User.HasPermissionsInside(path.Dir(virtualSrcPath)) && !c.User.HasPermissionsInside(path.Dir(virtualDstPath)) {
@@ -756,6 +789,8 @@ func (c *BaseConnection) GetPermissionDeniedError() error {
 	switch c.protocol {
 	case ProtocolSFTP:
 		return sftp.ErrSSHFxPermissionDenied
+	case ProtocolWebDAV:
+		return os.ErrPermission
 	default:
 		return ErrPermissionDenied
 	}
@@ -766,6 +801,8 @@ func (c *BaseConnection) GetNotExistError() error {
 	switch c.protocol {
 	case ProtocolSFTP:
 		return sftp.ErrSSHFxNoSuchFile
+	case ProtocolWebDAV:
+		return os.ErrNotExist
 	default:
 		return ErrNotExist
 	}

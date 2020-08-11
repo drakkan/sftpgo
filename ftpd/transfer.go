@@ -83,6 +83,7 @@ func (t *transfer) Write(p []byte) (n int, err error) {
 
 // Seek sets the offset to resume an upload or a download
 func (t *transfer) Seek(offset int64, whence int) (int64, error) {
+	t.Connection.UpdateLastActivity()
 	if t.File != nil {
 		ret, err := t.File.Seek(offset, whence)
 		if err != nil {

@@ -19,7 +19,7 @@ var (
 )
 
 // BaseTransfer contains protocols common transfer details for an upload or a download.
-type BaseTransfer struct {
+type BaseTransfer struct { //nolint:maligned
 	ID             uint64
 	File           *os.File
 	Connection     *BaseConnection
@@ -33,6 +33,7 @@ type BaseTransfer struct {
 	requestPath    string
 	BytesSent      int64
 	BytesReceived  int64
+	AbortTransfer  int32
 	sync.Mutex
 	ErrTransfer error
 }
@@ -54,7 +55,9 @@ func NewBaseTransfer(file *os.File, conn *BaseConnection, cancelFn func(), fsPat
 		requestPath:    requestPath,
 		BytesSent:      0,
 		BytesReceived:  0,
+		AbortTransfer:  0,
 	}
+
 	conn.AddTransfer(t)
 	return t
 }
@@ -82,9 +85,27 @@ func (t *BaseTransfer) GetStartTime() time.Time {
 	return t.start
 }
 
+// SignalClose signals that the transfer should be closed.
+// For same protocols, for example WebDAV, we have no
+// access to the network connection, so we use this method
+// to make the next read or write to fail
+func (t *BaseTransfer) SignalClose() {
+	atomic.StoreInt32(&(t.AbortTransfer), 1)
+}
+
 // GetVirtualPath returns the transfer virtual path
 func (t *BaseTransfer) GetVirtualPath() string {
 	return t.requestPath
+}
+
+// GetFsPath returns the transfer filesystem path
+func (t *BaseTransfer) GetFsPath() string {
+	return t.fsPath
+}
+
+// SetCancelFn sets the cancel function for the transfer
+func (t *BaseTransfer) SetCancelFn(cancelFn func()) {
+	t.cancelFn = cancelFn
 }
 
 // TransferError is called if there is an unexpected error.
@@ -106,8 +127,8 @@ func (t *BaseTransfer) TransferError(err error) {
 }
 
 // Close it is called when the transfer is completed.
-// It closes the underlying file, logs the transfer info, updates the
-// user quota (for uploads) and executes any defined action.
+// It logs the transfer info, updates the user quota (for uploads)
+// and executes any defined action.
 // If there is an error no action will be executed and, in atomic mode,
 // we try to delete the temporary file
 func (t *BaseTransfer) Close() error {

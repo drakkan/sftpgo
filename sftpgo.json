@@ -45,6 +45,12 @@
     "certificate_file": "",
     "certificate_key_file": ""
   },
+  "webdavd": {
+    "bind_port": 0,
+    "bind_address": "",
+    "certificate_file": "",
+    "certificate_key_file": ""
+  },
   "data_provider": {
     "driver": "sqlite",
     "name": "sftpgo.db",

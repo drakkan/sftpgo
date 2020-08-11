@@ -61,10 +61,11 @@ const (
 
 // Supported protocols
 const (
-	ProtocolSFTP = "SFTP"
-	ProtocolSCP  = "SCP"
-	ProtocolSSH  = "SSH"
-	ProtocolFTP  = "FTP"
+	ProtocolSFTP   = "SFTP"
+	ProtocolSCP    = "SCP"
+	ProtocolSSH    = "SSH"
+	ProtocolFTP    = "FTP"
+	ProtocolWebDAV = "DAV"
 )
 
 // Upload modes
@@ -94,7 +95,7 @@ var (
 	QuotaScans            ActiveScans
 	idleTimeoutTicker     *time.Ticker
 	idleTimeoutTickerDone chan bool
-	supportedProtocols    = []string{ProtocolSFTP, ProtocolSCP, ProtocolSSH, ProtocolFTP}
+	supportedProtocols    = []string{ProtocolSFTP, ProtocolSCP, ProtocolSSH, ProtocolFTP, ProtocolWebDAV}
 )
 
 // Initialize sets the common configuration
@@ -138,6 +139,7 @@ type ActiveTransfer interface {
 	GetSize() int64
 	GetVirtualPath() string
 	GetStartTime() time.Time
+	SignalClose()
 }
 
 // ActiveConnection defines the interface for the current active connections
@@ -178,12 +180,13 @@ type ConnectionTransfer struct {
 
 func (t *ConnectionTransfer) getConnectionTransferAsString() string {
 	result := ""
-	if t.OperationType == operationUpload {
-		result += "UL"
-	} else {
-		result += "DL"
+	switch t.OperationType {
+	case operationUpload:
+		result += "UL "
+	case operationDownload:
+		result += "DL "
 	}
-	result += fmt.Sprintf(" %#v ", t.VirtualPath)
+	result += fmt.Sprintf("%#v ", t.VirtualPath)
 	if t.Size > 0 {
 		elapsed := time.Since(utils.GetTimeFromMsecSinceEpoch(t.StartTime))
 		speed := float64(t.Size) / float64(utils.GetTimeAsMsSinceEpoch(time.Now())-t.StartTime)
@@ -277,11 +280,11 @@ func (c *Configuration) GetProxyListener(listener net.Listener) (*proxyproto.Lis
 }
 
 // ExecutePostConnectHook executes the post connect hook if defined
-func (c *Configuration) ExecutePostConnectHook(remoteAddr net.Addr, protocol string) error {
+func (c *Configuration) ExecutePostConnectHook(remoteAddr, protocol string) error {
 	if len(c.PostConnectHook) == 0 {
 		return nil
 	}
-	ip := utils.GetIPFromRemoteAddress(remoteAddr.String())
+	ip := utils.GetIPFromRemoteAddress(remoteAddr)
 	if strings.HasPrefix(c.PostConnectHook, "http") {
 		var url *url.URL
 		url, err := url.Parse(c.PostConnectHook)
@@ -469,7 +472,7 @@ func (conns *ActiveConnections) GetStats() []ConnectionStatus {
 			ConnectionTime: utils.GetTimeAsMsSinceEpoch(c.GetConnectionTime()),
 			LastActivity:   utils.GetTimeAsMsSinceEpoch(c.GetLastActivity()),
 			Protocol:       c.GetProtocol(),
-			SSHCommand:     c.GetCommand(),
+			Command:        c.GetCommand(),
 			Transfers:      c.GetTransfers(),
 		}
 		stats = append(stats, stat)
@@ -491,12 +494,12 @@ type ConnectionStatus struct {
 	ConnectionTime int64 `json:"connection_time"`
 	// Last activity as unix timestamp in milliseconds
 	LastActivity int64 `json:"last_activity"`
-	// Protocol for this connection: SFTP, SCP, SSH
+	// Protocol for this connection
 	Protocol string `json:"protocol"`
 	// active uploads/downloads
 	Transfers []ConnectionTransfer `json:"active_transfers,omitempty"`
-	// for the SSH protocol this is the issued command
-	SSHCommand string `json:"ssh_command,omitempty"`
+	// SSH command or WevDAV method
+	Command string `json:"command,omitempty"`
 }
 
 // GetConnectionDuration returns the connection duration as string
@@ -510,8 +513,11 @@ func (c ConnectionStatus) GetConnectionDuration() string {
 // For SSH commands the issued command is returned too.
 func (c ConnectionStatus) GetConnectionInfo() string {
 	result := fmt.Sprintf("%v. Client: %#v From: %#v", c.Protocol, c.ClientVersion, c.RemoteAddress)
-	if c.Protocol == ProtocolSSH && len(c.SSHCommand) > 0 {
-		result += fmt.Sprintf(". Command: %#v", c.SSHCommand)
+	if c.Protocol == ProtocolSSH && len(c.Command) > 0 {
+		result += fmt.Sprintf(". Command: %#v", c.Command)
+	}
+	if c.Protocol == ProtocolWebDAV && len(c.Command) > 0 {
+		result += fmt.Sprintf(". Method: %#v", c.Command)
 	}
 	return result
 }

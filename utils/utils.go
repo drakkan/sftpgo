@@ -254,7 +254,7 @@ func GenerateECDSAKeys(file string) error {
 // for example if the path is: /1/2/3/4 it returns:
 // [ "/1/2/3/4", "/1/2/3", "/1/2", "/1", "/" ]
 func GetDirsForSFTPPath(p string) []string {
-	sftpPath := CleanSFTPPath(p)
+	sftpPath := CleanPath(p)
 	dirsForPath := []string{sftpPath}
 	for {
 		if sftpPath == "/" {
@@ -266,13 +266,13 @@ func GetDirsForSFTPPath(p string) []string {
 	return dirsForPath
 }
 
-// CleanSFTPPath returns a cleaned SFTP path
-func CleanSFTPPath(p string) string {
-	sftpPath := filepath.ToSlash(p)
+// CleanPath returns a clean POSIX (/) absolute path to work with
+func CleanPath(p string) string {
+	p = filepath.ToSlash(p)
 	if !path.IsAbs(p) {
-		sftpPath = "/" + sftpPath
+		p = "/" + p
 	}
-	return path.Clean(sftpPath)
+	return path.Clean(p)
 }
 
 // LoadTemplate wraps a call to a function returning (*Template, error)

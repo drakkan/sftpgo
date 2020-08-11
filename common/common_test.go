@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -36,7 +37,7 @@ type providerConf struct {
 
 type fakeConnection struct {
 	*BaseConnection
-	sshCommand string
+	command string
 }
 
 func (c *fakeConnection) AddUser(user dataprovider.User) error {
@@ -59,7 +60,7 @@ func (c *fakeConnection) GetClientVersion() string {
 }
 
 func (c *fakeConnection) GetCommand() string {
-	return c.sshCommand
+	return c.command
 }
 
 func (c *fakeConnection) GetRemoteAddress() string {
@@ -277,13 +278,20 @@ func TestConnectionStatus(t *testing.T) {
 	c2 := NewBaseConnection("id2", ProtocolSSH, user, nil)
 	fakeConn2 := &fakeConnection{
 		BaseConnection: c2,
-		sshCommand:     "md5sum",
+		command:        "md5sum",
 	}
+	c3 := NewBaseConnection("id3", ProtocolWebDAV, user, nil)
+	fakeConn3 := &fakeConnection{
+		BaseConnection: c3,
+		command:        "PROPFIND",
+	}
+	t3 := NewBaseTransfer(nil, c3, nil, "/p2", "/r2", TransferDownload, 0, 0, true)
 	Connections.Add(fakeConn1)
 	Connections.Add(fakeConn2)
+	Connections.Add(fakeConn3)
 
 	stats := Connections.GetStats()
-	assert.Len(t, stats, 2)
+	assert.Len(t, stats, 3)
 	for _, stat := range stats {
 		assert.Equal(t, stat.Username, username)
 		assert.True(t, strings.HasPrefix(stat.GetConnectionInfo(), stat.Protocol))
@@ -298,6 +306,9 @@ func TestConnectionStatus(t *testing.T) {
 					assert.True(t, strings.HasPrefix(tr.getConnectionTransferAsString(), "UL"))
 				}
 			}
+		} else if stat.ConnectionID == "DAV_id3" {
+			assert.Len(t, stat.Transfers, 1)
+			assert.Greater(t, len(stat.GetTransfersAsString()), 0)
 		} else {
 			assert.Equal(t, 0, len(stat.GetTransfersAsString()))
 		}
@@ -308,8 +319,17 @@ func TestConnectionStatus(t *testing.T) {
 	err = t2.Close()
 	assert.NoError(t, err)
 
+	err = fakeConn3.SignalTransfersAbort()
+	assert.NoError(t, err)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&t3.AbortTransfer))
+	err = t3.Close()
+	assert.NoError(t, err)
+	err = fakeConn3.SignalTransfersAbort()
+	assert.Error(t, err)
+
 	Connections.Remove(fakeConn1.GetID())
 	Connections.Remove(fakeConn2.GetID())
+	Connections.Remove(fakeConn3.GetID())
 	stats = Connections.GetStats()
 	assert.Len(t, stats, 0)
 }
@@ -378,34 +398,34 @@ func TestPostConnectHook(t *testing.T) {
 		Zone: "",
 	}
 
-	assert.NoError(t, Config.ExecutePostConnectHook(remoteAddr, ProtocolFTP))
+	assert.NoError(t, Config.ExecutePostConnectHook(remoteAddr.String(), ProtocolFTP))
 
 	Config.PostConnectHook = "http://foo\x7f.com/"
-	assert.Error(t, Config.ExecutePostConnectHook(remoteAddr, ProtocolSFTP))
+	assert.Error(t, Config.ExecutePostConnectHook(remoteAddr.String(), ProtocolSFTP))
 
 	Config.PostConnectHook = "http://invalid:1234/"
-	assert.Error(t, Config.ExecutePostConnectHook(remoteAddr, ProtocolSFTP))
+	assert.Error(t, Config.ExecutePostConnectHook(remoteAddr.String(), ProtocolSFTP))
 
 	Config.PostConnectHook = fmt.Sprintf("http://%v/404", httpAddr)
-	assert.Error(t, Config.ExecutePostConnectHook(remoteAddr, ProtocolFTP))
+	assert.Error(t, Config.ExecutePostConnectHook(remoteAddr.String(), ProtocolFTP))
 
 	Config.PostConnectHook = fmt.Sprintf("http://%v", httpAddr)
-	assert.NoError(t, Config.ExecutePostConnectHook(remoteAddr, ProtocolFTP))
+	assert.NoError(t, Config.ExecutePostConnectHook(remoteAddr.String(), ProtocolFTP))
 
 	Config.PostConnectHook = "invalid"
-	assert.Error(t, Config.ExecutePostConnectHook(remoteAddr, ProtocolFTP))
+	assert.Error(t, Config.ExecutePostConnectHook(remoteAddr.String(), ProtocolFTP))
 
 	if runtime.GOOS == osWindows {
 		Config.PostConnectHook = "C:\\bad\\command"
-		assert.Error(t, Config.ExecutePostConnectHook(remoteAddr, ProtocolSFTP))
+		assert.Error(t, Config.ExecutePostConnectHook(remoteAddr.String(), ProtocolSFTP))
 	} else {
 		Config.PostConnectHook = "/invalid/path"
-		assert.Error(t, Config.ExecutePostConnectHook(remoteAddr, ProtocolSFTP))
+		assert.Error(t, Config.ExecutePostConnectHook(remoteAddr.String(), ProtocolSFTP))
 
 		hookCmd, err := exec.LookPath("true")
 		assert.NoError(t, err)
 		Config.PostConnectHook = hookCmd
-		assert.NoError(t, Config.ExecutePostConnectHook(remoteAddr, ProtocolSFTP))
+		assert.NoError(t, Config.ExecutePostConnectHook(remoteAddr.String(), ProtocolSFTP))
 	}
 
 	Config.PostConnectHook = ""
