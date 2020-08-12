@@ -26,7 +26,7 @@ If the hook is an HTTP URL then it will be invoked as HTTP POST. The request bod
 If authentication succeed the HTTP response code must be 200 and the response body a valid SFTPGo user serialized as JSON. If the authentication fails the HTTP response code must be != 200 or the response body must be empty.
 
 If the authentication succeeds, the user will be automatically added/updated inside the defined data provider. Actions defined for users added/updated will not be executed in this case.
-The external hook should check authentication only. If there are login restrictions such as user disabled, expired, or login allowed only from specific IP addresses, it is enough to populate the matching user fields, and these conditions will be checked in the same way as for built-in users.
+
 The program hook must finish within 30 seconds, the HTTP hook timeout will use the global configuration for HTTP clients.
 
 This method is slower than built-in authentication, but it's very flexible as anyone can easily write his own authentication hooks.
