@@ -183,13 +183,14 @@ func CommandLog(command, path, target, user, fileMode, connectionID, protocol st
 // A connection can fail for an authentication error or other errors such as
 // a client abort or a time out if the login does not happen in two minutes.
 // These logs are useful for better integration with Fail2ban and similar tools.
-func ConnectionFailedLog(user, ip, loginType, errorString string) {
+func ConnectionFailedLog(user, ip, loginType, protocol, errorString string) {
 	logger.Debug().
 		Timestamp().
 		Str("sender", "connection_failed").
 		Str("client_ip", ip).
 		Str("username", user).
 		Str("login_type", loginType).
+		Str("protocol", protocol).
 		Str("error", errorString).
 		Msg("")
 }

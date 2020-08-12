@@ -8,13 +8,14 @@ The external program can read the following environment variables to get info ab
 - `SFTPGO_LOGIND_USER`, it contains the user trying to login serialized as JSON. A JSON serialized user id equal to zero means the user does not exists inside SFTPGo
 - `SFTPGO_LOGIND_METHOD`, possible values are: `password`, `publickey` and `keyboard-interactive`
 - `SFTPGO_LOGIND_IP`, ip address of the user trying to login
+- `SFTPGO_LOGIND_PROTOCOL`, possible values are `SSH`, `FTP`, `DAV`
 
 The program must write, on its the standard output:
 
 - an empty string (or no response at all) if the user should not be created/updated
 - or the SFTPGo user, JSON serialized, if you want create or update the given user
 
-If the hook is an HTTP URL then it will be invoked as HTTP POST. The login method and the ip address of the user trying to login are added to the query string, for example `<http_url>?login_method=password&ip=1.2.3.4`.
+If the hook is an HTTP URL then it will be invoked as HTTP POST. The login method, the used protocol and the ip address of the user trying to login are added to the query string, for example `<http_url>?login_method=password&ip=1.2.3.4&protocol=SSH`.
 The request body will contain the user trying to login serialized as JSON. If no modification is needed the HTTP response code must be 204, otherwise the response code must be 200 and the response body a valid SFTPGo user serialized as JSON.
 
 Actions defined for user's updates will not be executed in this case.

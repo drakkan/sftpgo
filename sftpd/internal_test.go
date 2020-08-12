@@ -350,7 +350,7 @@ func TestUploadFiles(t *testing.T) {
 func TestWithInvalidHome(t *testing.T) {
 	u := dataprovider.User{}
 	u.HomeDir = "home_rel_path" //nolint:goconst
-	_, err := loginUser(u, dataprovider.SSHLoginMethodPassword, "", nil)
+	_, err := loginUser(u, dataprovider.LoginMethodPassword, "", nil)
 	assert.Error(t, err, "login a user with an invalid home_dir must fail")
 
 	u.HomeDir = os.TempDir()

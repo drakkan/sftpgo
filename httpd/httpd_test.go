@@ -622,7 +622,7 @@ func TestUpdateUser(t *testing.T) {
 	user.Permissions["/subdir"] = []string{dataprovider.PermListItems, dataprovider.PermUpload}
 	user.Filters.AllowedIP = []string{"192.168.1.0/24", "192.168.2.0/24"}
 	user.Filters.DeniedIP = []string{"192.168.3.0/24", "192.168.4.0/24"}
-	user.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPassword}
+	user.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodPassword}
 	user.Filters.FileExtensions = append(user.Filters.FileExtensions, dataprovider.ExtensionsFilter{
 		Path:              "/subdir",
 		AllowedExtensions: []string{".zip", ".rar"},

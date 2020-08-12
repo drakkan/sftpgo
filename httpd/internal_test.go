@@ -165,7 +165,7 @@ func TestCompareUserFilters(t *testing.T) {
 	actual.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPublicKey}
 	err = checkUser(expected, actual)
 	assert.Error(t, err)
-	expected.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPassword}
+	expected.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodPassword}
 	err = checkUser(expected, actual)
 	assert.Error(t, err)
 	expected.Filters.DeniedLoginMethods = []string{}

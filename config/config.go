@@ -115,6 +115,8 @@ func init() {
 			ExternalAuthScope: 0,
 			CredentialsPath:   "credentials",
 			PreLoginHook:      "",
+			PostLoginHook:     "",
+			PostLoginScope:    0,
 		},
 		HTTPDConfig: httpd.Conf{
 			BindPort:           8080,

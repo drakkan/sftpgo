@@ -50,5 +50,6 @@ The logs can be divided into the following categories:
   - `level` string
   - `username`, string. Can be empty if the connection is closed before an authentication attempt
   - `client_ip` string.
+  - `protocol` string. Possible values are `SSH`, `FTP`, `DAV`
   - `login_type` string. Can be `publickey`, `password`, `keyboard-interactive`, `publickey+password`, `publickey+keyboard-interactive` or `no_auth_tryed`
   - `error` string. Optional error description

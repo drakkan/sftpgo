@@ -652,8 +652,6 @@ func TestClientClose(t *testing.T) {
 	}, 1*time.Second, 50*time.Millisecond)
 
 	for _, stat := range common.Connections.GetStats() {
-		logger.DebugToConsole("close upload connection id %#v, active transfers: %v", stat.ConnectionID,
-			stat.GetTransfersAsString())
 		common.Connections.Close(stat.ConnectionID)
 	}
 	wg.Wait()
@@ -684,8 +682,6 @@ func TestClientClose(t *testing.T) {
 	}, 1*time.Second, 50*time.Millisecond)
 
 	for _, stat := range common.Connections.GetStats() {
-		logger.DebugToConsole("close download connection id %#v, active transfers: %v", stat.ConnectionID,
-			stat.GetTransfersAsString())
 		common.Connections.Close(stat.ConnectionID)
 	}
 	wg.Wait()

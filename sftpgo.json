@@ -72,7 +72,9 @@
     "external_auth_hook": "",
     "external_auth_scope": 0,
     "credentials_path": "credentials",
-    "pre_login_hook": ""
+    "pre_login_hook": "",
+    "post_login_hook": "",
+    "post_login_scope": 0
   },
   "httpd": {
     "bind_port": 8080,

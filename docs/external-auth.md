@@ -6,6 +6,7 @@ The external program can read the following environment variables to get info ab
 
 - `SFTPGO_AUTHD_USERNAME`
 - `SFTPGO_AUTHD_IP`
+- `SFTPGO_AUTHD_PROTOCOL`, possible values are `SSH`, `FTP`, `DAV`
 - `SFTPGO_AUTHD_PASSWORD`, not empty for password authentication
 - `SFTPGO_AUTHD_PUBLIC_KEY`, not empty for public key authentication
 - `SFTPGO_AUTHD_KEYBOARD_INTERACTIVE`, not empty for keyboard interactive authentication
@@ -17,6 +18,7 @@ If the hook is an HTTP URL then it will be invoked as HTTP POST. The request bod
 
 - `username`
 - `ip`
+- `protocol`, possible values are `SSH`, `FTP`, `DAV`
 - `password`, not empty for password authentication
 - `public_key`, not empty for public key authentication
 - `keyboard_interactive`, not empty for keyboard interactive authentication

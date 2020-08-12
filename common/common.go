@@ -17,6 +17,7 @@ import (
 
 	"github.com/pires/go-proxyproto"
 
+	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
@@ -446,9 +447,11 @@ func (conns *ActiveConnections) checkIdleConnections() {
 				logger.Debug(conn.GetProtocol(), conn.GetID(), "close idle connection, idle time: %v, username: %#v close err: %v",
 					idleTime, conn.GetUsername(), err)
 				if isFTPNoAuth {
-					logger.ConnectionFailedLog("", utils.GetIPFromRemoteAddress(c.GetRemoteAddress()),
-						"no_auth_tryed", "client idle")
+					ip := utils.GetIPFromRemoteAddress(c.GetRemoteAddress())
+					logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, c.GetProtocol(), "client idle")
 					metrics.AddNoAuthTryed()
+					dataprovider.ExecutePostLoginHook("", dataprovider.LoginMethodNoAuthTryed, ip, c.GetProtocol(),
+						dataprovider.ErrNoAuthTryed)
 				}
 			}(c, isUnauthenticatedFTPUser)
 		}

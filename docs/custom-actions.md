@@ -27,6 +27,7 @@ The external program can also read the following environment variables:
 - `SFTPGO_ACTION_BUCKET`, non-empty for S3 and GCS backends
 - `SFTPGO_ACTION_ENDPOINT`, non-empty for S3 backend if configured
 - `SFTPGO_ACTION_STATUS`, integer. 0 means a generic error occurred. 1 means no error, 2 means quota exceeded error
+- `SFTPGO_ACTION_PROTOCOL`, string. Possible values are `SSH`, `SFTP`, `SCP`, `FTP`, `DAV`
 
 Previous global environment variables aren't cleared when the script is called.
 The program must finish within 30 seconds.
@@ -43,6 +44,7 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 - `bucket`, not null for S3 and GCS backends
 - `endpoint`, not null for S3 backend if configured
 - `status`, integer. 0 means a generic error occurred. 1 means no error, 2 means quota exceeded error
+- `protocol`, string. Possible values are `SSH`, `FTP`, `DAV`
 
 The HTTP request will use the global configuration for HTTP clients.
 

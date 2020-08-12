@@ -118,7 +118,7 @@ func (s *Server) ClientDisconnected(cc ftpserver.ClientContext) {
 // AuthUser authenticates the user and selects an handling driver
 func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string) (ftpserver.ClientDriver, error) {
 	remoteAddr := cc.RemoteAddr().String()
-	user, err := dataprovider.CheckUserAndPass(username, password, utils.GetIPFromRemoteAddress(remoteAddr))
+	user, err := dataprovider.CheckUserAndPass(username, password, utils.GetIPFromRemoteAddress(remoteAddr), common.ProtocolFTP)
 	if err != nil {
 		updateLoginMetrics(username, remoteAddr, err)
 		return nil, err
@@ -189,10 +189,12 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 }
 
 func updateLoginMetrics(username, remoteAddress string, err error) {
-	metrics.AddLoginAttempt(dataprovider.FTPLoginMethodPassword)
+	metrics.AddLoginAttempt(dataprovider.LoginMethodPassword)
+	ip := utils.GetIPFromRemoteAddress(remoteAddress)
 	if err != nil {
-		logger.ConnectionFailedLog(username, utils.GetIPFromRemoteAddress(remoteAddress),
-			dataprovider.FTPLoginMethodPassword, err.Error())
+		logger.ConnectionFailedLog(username, ip, dataprovider.LoginMethodPassword,
+			common.ProtocolFTP, err.Error())
 	}
-	metrics.AddLoginResult(dataprovider.FTPLoginMethodPassword, err)
+	metrics.AddLoginResult(dataprovider.LoginMethodPassword, err)
+	dataprovider.ExecutePostLoginHook(username, dataprovider.LoginMethodPassword, ip, common.ProtocolFTP, err)
 }

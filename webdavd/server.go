@@ -141,7 +141,7 @@ func (s *webDavServer) authenticate(r *http.Request) (dataprovider.User, error) 
 	if !ok {
 		return user, err401
 	}
-	user, err = dataprovider.CheckUserAndPass(username, password, utils.GetIPFromRemoteAddress(r.RemoteAddr))
+	user, err = dataprovider.CheckUserAndPass(username, password, utils.GetIPFromRemoteAddress(r.RemoteAddr), common.ProtocolWebDAV)
 	if err != nil {
 		updateLoginMetrics(username, r.RemoteAddr, err)
 		return user, err
@@ -232,10 +232,11 @@ func checkRemoteAddress(r *http.Request) {
 }
 
 func updateLoginMetrics(username, remoteAddress string, err error) {
-	metrics.AddLoginAttempt(dataprovider.WebDavLoginMethodPassword)
+	metrics.AddLoginAttempt(dataprovider.LoginMethodPassword)
+	ip := utils.GetIPFromRemoteAddress(remoteAddress)
 	if err != nil {
-		logger.ConnectionFailedLog(username, utils.GetIPFromRemoteAddress(remoteAddress),
-			dataprovider.WebDavLoginMethodPassword, err.Error())
+		logger.ConnectionFailedLog(username, ip, dataprovider.LoginMethodPassword, common.ProtocolWebDAV, err.Error())
 	}
-	metrics.AddLoginResult(dataprovider.WebDavLoginMethodPassword, err)
+	metrics.AddLoginResult(dataprovider.LoginMethodPassword, err)
+	dataprovider.ExecutePostLoginHook(username, dataprovider.LoginMethodPassword, ip, common.ProtocolWebDAV, err)
 }

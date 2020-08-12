@@ -940,7 +940,7 @@ func TestMultiStepLoginKeyAndPwd(t *testing.T) {
 	u.Filters.DeniedLoginMethods = append(u.Filters.DeniedLoginMethods, []string{
 		dataprovider.SSHLoginMethodKeyAndKeyboardInt,
 		dataprovider.SSHLoginMethodPublicKey,
-		dataprovider.SSHLoginMethodPassword,
+		dataprovider.LoginMethodPassword,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}...)
 	user, _, err := httpd.AddUser(u, http.StatusOK)
@@ -984,7 +984,7 @@ func TestMultiStepLoginKeyAndKeyInt(t *testing.T) {
 	u.Filters.DeniedLoginMethods = append(u.Filters.DeniedLoginMethods, []string{
 		dataprovider.SSHLoginMethodKeyAndPassword,
 		dataprovider.SSHLoginMethodPublicKey,
-		dataprovider.SSHLoginMethodPassword,
+		dataprovider.LoginMethodPassword,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}...)
 	user, _, err := httpd.AddUser(u, http.StatusOK)
@@ -1037,7 +1037,7 @@ func TestMultiStepLoginCertAndPwd(t *testing.T) {
 	u.Filters.DeniedLoginMethods = append(u.Filters.DeniedLoginMethods, []string{
 		dataprovider.SSHLoginMethodKeyAndKeyboardInt,
 		dataprovider.SSHLoginMethodPublicKey,
-		dataprovider.SSHLoginMethodPassword,
+		dataprovider.LoginMethodPassword,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}...)
 	user, _, err := httpd.AddUser(u, http.StatusOK)
@@ -1159,14 +1159,14 @@ func TestLoginInvalidFs(t *testing.T) {
 
 func TestDeniedLoginMethods(t *testing.T) {
 	u := getTestUser(true)
-	u.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPublicKey, dataprovider.SSHLoginMethodPassword}
+	u.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPublicKey, dataprovider.LoginMethodPassword}
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, true)
 	if !assert.Error(t, err, "public key login is disabled, authentication must fail") {
 		client.Close()
 	}
-	user.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodKeyboardInteractive, dataprovider.SSHLoginMethodPassword}
+	user.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodKeyboardInteractive, dataprovider.LoginMethodPassword}
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, true)
@@ -5177,7 +5177,7 @@ func TestUserAllowedLoginMethods(t *testing.T) {
 	assert.Equal(t, 0, len(allowedMethods))
 
 	user.Filters.DeniedLoginMethods = []string{
-		dataprovider.SSHLoginMethodPassword,
+		dataprovider.LoginMethodPassword,
 		dataprovider.SSHLoginMethodPublicKey,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}
@@ -5191,22 +5191,22 @@ func TestUserAllowedLoginMethods(t *testing.T) {
 func TestUserPartialAuth(t *testing.T) {
 	user := getTestUser(true)
 	user.Filters.DeniedLoginMethods = []string{
-		dataprovider.SSHLoginMethodPassword,
+		dataprovider.LoginMethodPassword,
 		dataprovider.SSHLoginMethodPublicKey,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}
-	assert.False(t, user.IsPartialAuth(dataprovider.SSHLoginMethodPassword))
+	assert.False(t, user.IsPartialAuth(dataprovider.LoginMethodPassword))
 	assert.False(t, user.IsPartialAuth(dataprovider.SSHLoginMethodKeyboardInteractive))
 	assert.True(t, user.IsPartialAuth(dataprovider.SSHLoginMethodPublicKey))
 
 	user.Filters.DeniedLoginMethods = []string{
-		dataprovider.SSHLoginMethodPassword,
+		dataprovider.LoginMethodPassword,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}
 	assert.False(t, user.IsPartialAuth(dataprovider.SSHLoginMethodPublicKey))
 
 	user.Filters.DeniedLoginMethods = []string{
-		dataprovider.SSHLoginMethodPassword,
+		dataprovider.LoginMethodPassword,
 		dataprovider.SSHLoginMethodPublicKey,
 	}
 	assert.False(t, user.IsPartialAuth(dataprovider.SSHLoginMethodPublicKey))
@@ -5215,14 +5215,14 @@ func TestUserPartialAuth(t *testing.T) {
 func TestUserGetNextAuthMethods(t *testing.T) {
 	user := getTestUser(true)
 	user.Filters.DeniedLoginMethods = []string{
-		dataprovider.SSHLoginMethodPassword,
+		dataprovider.LoginMethodPassword,
 		dataprovider.SSHLoginMethodPublicKey,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}
 	methods := user.GetNextAuthMethods(nil)
 	assert.Equal(t, 0, len(methods))
 
-	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPassword})
+	methods = user.GetNextAuthMethods([]string{dataprovider.LoginMethodPassword})
 	assert.Equal(t, 0, len(methods))
 
 	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodKeyboardInteractive})
@@ -5236,21 +5236,21 @@ func TestUserGetNextAuthMethods(t *testing.T) {
 
 	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey})
 	assert.Equal(t, 2, len(methods))
-	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodPassword, methods))
+	assert.True(t, utils.IsStringInSlice(dataprovider.LoginMethodPassword, methods))
 	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, methods))
 
 	user.Filters.DeniedLoginMethods = []string{
-		dataprovider.SSHLoginMethodPassword,
+		dataprovider.LoginMethodPassword,
 		dataprovider.SSHLoginMethodPublicKey,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 		dataprovider.SSHLoginMethodKeyAndKeyboardInt,
 	}
 	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey})
 	assert.Equal(t, 1, len(methods))
-	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodPassword, methods))
+	assert.True(t, utils.IsStringInSlice(dataprovider.LoginMethodPassword, methods))
 
 	user.Filters.DeniedLoginMethods = []string{
-		dataprovider.SSHLoginMethodPassword,
+		dataprovider.LoginMethodPassword,
 		dataprovider.SSHLoginMethodPublicKey,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 		dataprovider.SSHLoginMethodKeyAndPassword,
@@ -5263,19 +5263,19 @@ func TestUserGetNextAuthMethods(t *testing.T) {
 func TestUserIsLoginMethodAllowed(t *testing.T) {
 	user := getTestUser(true)
 	user.Filters.DeniedLoginMethods = []string{
-		dataprovider.SSHLoginMethodPassword,
+		dataprovider.LoginMethodPassword,
 		dataprovider.SSHLoginMethodPublicKey,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}
-	assert.False(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodPassword, nil))
-	assert.True(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodPassword, []string{dataprovider.SSHLoginMethodPublicKey}))
+	assert.False(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, nil))
+	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, []string{dataprovider.SSHLoginMethodPublicKey}))
 	assert.True(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodKeyboardInteractive, []string{dataprovider.SSHLoginMethodPublicKey}))
 
 	user.Filters.DeniedLoginMethods = []string{
 		dataprovider.SSHLoginMethodPublicKey,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}
-	assert.True(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodPassword, nil))
+	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, nil))
 }
 
 func TestUserEmptySubDirPerms(t *testing.T) {

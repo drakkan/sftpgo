@@ -48,13 +48,12 @@ const (
 
 // Available login methods
 const (
+	LoginMethodNoAuthTryed            = "no_auth_tryed"
+	LoginMethodPassword               = "password"
 	SSHLoginMethodPublicKey           = "publickey"
-	SSHLoginMethodPassword            = "password"
 	SSHLoginMethodKeyboardInteractive = "keyboard-interactive"
 	SSHLoginMethodKeyAndPassword      = "publickey+password"
 	SSHLoginMethodKeyAndKeyboardInt   = "publickey+keyboard-interactive"
-	FTPLoginMethodPassword            = "ftp-password"
-	WebDavLoginMethodPassword         = "dav-password"
 )
 
 var (
@@ -371,7 +370,7 @@ func (u *User) GetNextAuthMethods(partialSuccessMethods []string) []string {
 	}
 	for _, method := range u.GetAllowedLoginMethods() {
 		if method == SSHLoginMethodKeyAndPassword {
-			methods = append(methods, SSHLoginMethodPassword)
+			methods = append(methods, LoginMethodPassword)
 		}
 		if method == SSHLoginMethodKeyAndKeyboardInt {
 			methods = append(methods, SSHLoginMethodKeyboardInteractive)

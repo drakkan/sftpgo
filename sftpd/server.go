@@ -272,8 +272,10 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 	if err != nil {
 		logger.Debug(logSender, "", "failed to accept an incoming connection: %v", err)
 		if _, ok := err.(*ssh.ServerAuthError); !ok {
-			logger.ConnectionFailedLog("", utils.GetIPFromRemoteAddress(remoteAddr.String()), "no_auth_tryed", err.Error())
+			ip := utils.GetIPFromRemoteAddress(remoteAddr.String())
+			logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, common.ProtocolSSH, err.Error())
 			metrics.AddNoAuthTryed()
+			dataprovider.ExecutePostLoginHook("", dataprovider.LoginMethodNoAuthTryed, ip, common.ProtocolSSH, err)
 		}
 		return
 	}
@@ -596,7 +598,7 @@ func (c Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKe
 		certPerm = &cert.Permissions
 	}
 	ipAddr := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
-	if user, keyID, err = dataprovider.CheckUserAndPubKey(conn.User(), pubKey.Marshal(), ipAddr); err == nil {
+	if user, keyID, err = dataprovider.CheckUserAndPubKey(conn.User(), pubKey.Marshal(), ipAddr, common.ProtocolSSH); err == nil {
 		if user.IsPartialAuth(method) {
 			logger.Debug(logSender, connectionID, "user %#v authenticated with partial success", conn.User())
 			return certPerm, ssh.ErrPartialSuccess
@@ -622,12 +624,12 @@ func (c Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass [
 	var user dataprovider.User
 	var sshPerm *ssh.Permissions
 
-	method := dataprovider.SSHLoginMethodPassword
+	method := dataprovider.LoginMethodPassword
 	if len(conn.PartialSuccessMethods()) == 1 {
 		method = dataprovider.SSHLoginMethodKeyAndPassword
 	}
 	ipAddr := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
-	if user, err = dataprovider.CheckUserAndPass(conn.User(), string(pass), ipAddr); err == nil {
+	if user, err = dataprovider.CheckUserAndPass(conn.User(), string(pass), ipAddr, common.ProtocolSSH); err == nil {
 		sshPerm, err = loginUser(user, method, "", conn)
 	}
 	updateLoginMetrics(conn, method, err)
@@ -644,7 +646,8 @@ func (c Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMetad
 		method = dataprovider.SSHLoginMethodKeyAndKeyboardInt
 	}
 	ipAddr := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
-	if user, err = dataprovider.CheckKeyboardInteractiveAuth(conn.User(), c.KeyboardInteractiveHook, client, ipAddr); err == nil {
+	if user, err = dataprovider.CheckKeyboardInteractiveAuth(conn.User(), c.KeyboardInteractiveHook, client,
+		ipAddr, common.ProtocolSSH); err == nil {
 		sshPerm, err = loginUser(user, method, "", conn)
 	}
 	updateLoginMetrics(conn, method, err)
@@ -653,8 +656,10 @@ func (c Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMetad
 
 func updateLoginMetrics(conn ssh.ConnMetadata, method string, err error) {
 	metrics.AddLoginAttempt(method)
+	ip := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
 	if err != nil {
-		logger.ConnectionFailedLog(conn.User(), utils.GetIPFromRemoteAddress(conn.RemoteAddr().String()), method, err.Error())
+		logger.ConnectionFailedLog(conn.User(), ip, method, common.ProtocolSSH, err.Error())
 	}
 	metrics.AddLoginResult(method, err)
+	dataprovider.ExecutePostLoginHook(conn.User(), method, ip, common.ProtocolSSH, err)
 }
