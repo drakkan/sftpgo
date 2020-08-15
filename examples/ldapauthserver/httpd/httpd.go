@@ -86,6 +86,7 @@ func StartHTTPServer(configDir string, httpConfig config.HTTPDConfig) error {
 		}
 		config := &tls.Config{
 			GetCertificate: certMgr.GetCertificateFunc(),
+			MinVersion:     tls.VersionTLS12,
 		}
 		httpServer.TLSConfig = config
 		return httpServer.ListenAndServeTLS("", "")

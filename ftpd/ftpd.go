@@ -49,6 +49,8 @@ type Configuration struct {
 	ActiveTransfersPortNon20 bool `json:"active_transfers_port_non_20" mapstructure:"active_transfers_port_non_20"`
 	// Port Range for data connections. Random if not specified
 	PassivePortRange PortRange `json:"passive_port_range" mapstructure:"passive_port_range"`
+	// set to 1 to require TLS for both data and control connection
+	TLSMode int `json:"tls_mode" mapstructure:"tls_mode"`
 }
 
 // Initialize configures and starts the FTP server

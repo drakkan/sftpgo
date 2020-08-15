@@ -61,6 +61,7 @@ func (s *webDavServer) listenAndServe() error {
 	if s.certMgr != nil {
 		httpServer.TLSConfig = &tls.Config{
 			GetCertificate: s.certMgr.GetCertificateFunc(),
+			MinVersion:     tls.VersionTLS12,
 		}
 		return httpServer.ListenAndServeTLS("", "")
 	}

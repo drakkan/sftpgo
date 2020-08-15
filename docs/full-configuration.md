@@ -89,6 +89,7 @@ The configuration file contains the following sections:
   - `passive_port_range`, struct containing the key `start` and `end`. Port Range for data connections. Random if not specified. Default range is 50000-50100.
   - `certificate_file`, string. Certificate for FTPS. This can be an absolute path or a path relative to the config dir.
   - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If both the certificate and the private key are provided the server will accept both plain FTP an explicit FTP over TLS. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
+  - `tls_mode`, integer. 0 means accept both cleartext and encrypted sessions. 1 means TLS in required for both control and data connection. Do not enable this blindly, please check that a proper TLS config is in place or no login will be allowed if `tls_mode` is 1.
 - **webdavd**, the configuration for the WebDAV server, more info [here](./webdav.md)
   - `bind_port`, integer. The port used for serving WebDAV requests. 0 means disabled. Default: 0.
   - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "".

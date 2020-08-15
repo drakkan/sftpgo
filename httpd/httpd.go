@@ -130,6 +130,7 @@ func (c Conf) Initialize(configDir string, enableProfiler bool) error {
 		}
 		config := &tls.Config{
 			GetCertificate: certMgr.GetCertificateFunc(),
+			MinVersion:     tls.VersionTLS12,
 		}
 		httpServer.TLSConfig = config
 		return httpServer.ListenAndServeTLS("", "")

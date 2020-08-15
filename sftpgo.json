@@ -43,7 +43,8 @@
       "end": 50100
     },
     "certificate_file": "",
-    "certificate_key_file": ""
+    "certificate_key_file": "",
+    "tls_mode": 0
   },
   "webdavd": {
     "bind_port": 0,

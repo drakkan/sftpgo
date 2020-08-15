@@ -91,6 +91,7 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 		IdleTimeout:              -1,
 		ConnectionTimeout:        20,
 		Banner:                   s.statusBanner,
+		TSLMode:                  s.config.TLSMode,
 	}, nil
 }
 
@@ -143,6 +144,7 @@ func (s *Server) GetTLSConfig() (*tls.Config, error) {
 	if s.certMgr != nil {
 		return &tls.Config{
 			GetCertificate: s.certMgr.GetCertificateFunc(),
+			MinVersion:     tls.VersionTLS12,
 		}, nil
 	}
 	return nil, errors.New("no TLS certificate configured")

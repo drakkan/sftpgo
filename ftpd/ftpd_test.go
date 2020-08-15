@@ -837,7 +837,6 @@ func TestRename(t *testing.T) {
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, false)
 	if assert.NoError(t, err) {
-		assert.NoError(t, err)
 		err = checkBasicFTP(client)
 		assert.NoError(t, err)
 		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
@@ -886,6 +885,55 @@ func TestRename(t *testing.T) {
 		assert.Error(t, err)
 	}
 
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestSymlink(t *testing.T) {
+	u := getTestUser()
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	client, err := getFTPClient(user, false)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.NoError(t, err)
+		code, _, err := client.SendCustomCommand(fmt.Sprintf("SITE SYMLINK %v %v", testFileName, testFileName+".link"))
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusCommandOK, code)
+
+		if runtime.GOOS != osWindows {
+			testDir := "adir"
+			otherDir := "dir"
+			err = client.MakeDir(otherDir)
+			assert.NoError(t, err)
+			err = client.MakeDir(path.Join(otherDir, testDir))
+			assert.NoError(t, err)
+			code, response, err := client.SendCustomCommand(fmt.Sprintf("SITE CHMOD 0001 %v", otherDir))
+			assert.NoError(t, err)
+			assert.Equal(t, ftp.StatusCommandOK, code)
+			assert.Equal(t, "SITE CHMOD command successful", response)
+			code, _, err = client.SendCustomCommand(fmt.Sprintf("SITE SYMLINK %v %v", testDir, path.Join(otherDir, testDir)))
+			assert.NoError(t, err)
+			assert.Equal(t, ftp.StatusFileUnavailable, code)
+
+			code, response, err = client.SendCustomCommand(fmt.Sprintf("SITE CHMOD 755 %v", otherDir))
+			assert.NoError(t, err)
+			assert.Equal(t, ftp.StatusCommandOK, code)
+			assert.Equal(t, "SITE CHMOD command successful", response)
+		}
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
@@ -1217,6 +1265,7 @@ func getFTPClient(user dataprovider.User, useTLS bool) (*ftp.ServerConn, error) 
 		tlsConfig := &tls.Config{
 			ServerName:         "localhost",
 			InsecureSkipVerify: true, // use this for tests only
+			MinVersion:         tls.VersionTLS12,
 		}
 		ftpOptions = append(ftpOptions, ftp.DialWithExplicitTLS(tlsConfig))
 	}
