@@ -50,7 +50,16 @@
     "bind_port": 0,
     "bind_address": "",
     "certificate_file": "",
-    "certificate_key_file": ""
+    "certificate_key_file": "",
+    "cors": {
+      "enabled": false,
+      "allowed_origins": [],
+      "allowed_methods": [],
+      "allowed_headers": [],
+      "exposed_headers": [],
+      "allow_credentials": false,
+      "max_age": 0
+    }
   },
   "data_provider": {
     "driver": "sqlite",

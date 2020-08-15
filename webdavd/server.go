@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/cors"
 	"github.com/rs/xid"
 	"golang.org/x/net/webdav"
 
@@ -57,6 +58,20 @@ func (s *webDavServer) listenAndServe() error {
 		ReadHeaderTimeout: 30 * time.Second,
 		IdleTimeout:       120 * time.Second,
 		MaxHeaderBytes:    1 << 16, // 64KB
+	}
+	if s.config.Cors.Enabled {
+		c := cors.New(cors.Options{
+			AllowedOrigins:     s.config.Cors.AllowedOrigins,
+			AllowedMethods:     s.config.Cors.AllowedMethods,
+			AllowedHeaders:     s.config.Cors.AllowedHeaders,
+			ExposedHeaders:     s.config.Cors.ExposedHeaders,
+			MaxAge:             s.config.Cors.MaxAge,
+			AllowCredentials:   s.config.Cors.AllowCredentials,
+			OptionsPassthrough: true,
+		})
+		httpServer.Handler = c.Handler(server)
+	} else {
+		httpServer.Handler = server
 	}
 	if s.certMgr != nil {
 		httpServer.TLSConfig = &tls.Config{

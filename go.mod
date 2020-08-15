@@ -27,6 +27,7 @@ require (
 	github.com/pkg/sftp v1.11.1-0.20200731124947-b508b936bef3
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/common v0.12.0 // indirect
+	github.com/rs/cors v1.7.1-0.20200626170627-8b4a00bd362b
 	github.com/rs/xid v1.2.1
 	github.com/rs/zerolog v1.19.0
 	github.com/spf13/afero v1.3.4

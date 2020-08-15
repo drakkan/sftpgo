@@ -132,6 +132,20 @@ func TestMain(m *testing.M) {
 
 	webDavConf := config.GetWebDAVDConfig()
 	webDavConf.BindPort = webDavServerPort
+	webDavConf.Cors = webdavd.Cors{
+		Enabled:        true,
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{
+			http.MethodHead,
+			http.MethodGet,
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodPatch,
+			http.MethodDelete,
+		},
+		AllowedHeaders:   []string{"*"},
+		AllowCredentials: true,
+	}
 
 	extAuthPath = filepath.Join(homeBasePath, "extauth.sh")
 	preLoginPath = filepath.Join(homeBasePath, "prelogin.sh")

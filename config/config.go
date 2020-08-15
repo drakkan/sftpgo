@@ -92,6 +92,15 @@ func init() {
 			BindAddress:        "",
 			CertificateFile:    "",
 			CertificateKeyFile: "",
+			Cors: webdavd.Cors{
+				Enabled:          false,
+				AllowedOrigins:   []string{},
+				AllowedMethods:   []string{},
+				AllowedHeaders:   []string{},
+				ExposedHeaders:   []string{},
+				AllowCredentials: false,
+				MaxAge:           0,
+			},
 		},
 		ProviderConf: dataprovider.Config{
 			Driver:           "sqlite",

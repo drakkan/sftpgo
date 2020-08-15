@@ -6896,7 +6896,7 @@ func TestSCPErrors(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	err = cmd.Process.Kill()
 	assert.NoError(t, err)
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 1*time.Second, 50*time.Millisecond)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 2*time.Second, 100*time.Millisecond)
 	cmd = getScpUploadCommand(testFilePath, remoteUpPath, false, false)
 	go func() {
 		err := cmd.Run()
@@ -6908,7 +6908,7 @@ func TestSCPErrors(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	err = cmd.Process.Kill()
 	assert.NoError(t, err)
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 1*time.Second, 50*time.Millisecond)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 2*time.Second, 100*time.Millisecond)
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
 	os.Remove(localPath)

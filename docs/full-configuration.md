@@ -95,6 +95,14 @@ The configuration file contains the following sections:
   - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "".
   - `certificate_file`, string. Certificate for WebDAV over HTTPS. This can be an absolute path or a path relative to the config dir.
   - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If both the certificate and the private key are provided the server will expect HTTPS connections. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
+  - `cors` struct containing CORS configuration. SFTPGo uses [Go CORS handler](https://github.com/rs/cors), please refer to upstream documentation for fields meaning and their default values.
+    - `enabled`, boolean, set to true to enable CORS.
+    - `allowed_origins`, list of strings.
+    - `allowed_methods`, list of strings.
+    - `allowed_headers`, list of strings.
+    - `exposed_headers`, list of strings.
+    - `allow_credentials` boolean.
+    - `max_age`, integer.
 - **"data_provider"**, the configuration for the data provider
   - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`, `memory`
   - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database. For driver `memory` this is the (optional) path relative to the config dir or the absolute path to the users dump, obtained using the `dumpdata` REST API, to load. This dump will be loaded at startup and can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows. The `memory` provider will not modify the provided file so quota usage and last login will not be persisted

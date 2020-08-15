@@ -23,6 +23,17 @@ var (
 	server *webDavServer
 )
 
+// Cors configuration
+type Cors struct {
+	AllowedOrigins   []string `json:"allowed_origins" mapstructure:"allowed_origins"`
+	AllowedMethods   []string `json:"allowed_methods" mapstructure:"allowed_methods"`
+	AllowedHeaders   []string `json:"allowed_headers" mapstructure:"allowed_headers"`
+	ExposedHeaders   []string `json:"exposed_headers" mapstructure:"exposed_headers"`
+	AllowCredentials bool     `json:"allow_credentials" mapstructure:"allow_credentials"`
+	Enabled          bool     `json:"enabled" mapstructure:"enabled"`
+	MaxAge           int      `json:"max_age" mapstructure:"max_age"`
+}
+
 // Configuration defines the configuration for the WevDAV server
 type Configuration struct {
 	// The port used for serving FTP requests
@@ -35,6 +46,8 @@ type Configuration struct {
 	// "paramchange" request to the running service on Windows.
 	CertificateFile    string `json:"certificate_file" mapstructure:"certificate_file"`
 	CertificateKeyFile string `json:"certificate_key_file" mapstructure:"certificate_key_file"`
+	// CORS configuration
+	Cors Cors `json:"cors" mapstructure:"cors"`
 }
 
 // Initialize configures and starts the WebDav server
