@@ -708,6 +708,9 @@ func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) 
 	if len(expected.Filters.DeniedLoginMethods) != len(actual.Filters.DeniedLoginMethods) {
 		return errors.New("Denied login methods mismatch")
 	}
+	if expected.Filters.MaxUploadFileSize != actual.Filters.MaxUploadFileSize {
+		return errors.New("Max upload file size mismatch")
+	}
 	for _, IPMask := range expected.Filters.AllowedIP {
 		if !utils.IsStringInSlice(IPMask, actual.Filters.AllowedIP) {
 			return errors.New("AllowedIP contents mismatch")

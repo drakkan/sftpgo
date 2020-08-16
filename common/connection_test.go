@@ -32,6 +32,10 @@ func (fs MockOsFs) HasVirtualFolders() bool {
 	return fs.hasVirtualFolders
 }
 
+func (fs MockOsFs) IsUploadResumeSupported() bool {
+	return !fs.hasVirtualFolders
+}
+
 func newMockOsFs(hasVirtualFolders bool, connectionID, rootDir string) vfs.Fs {
 	return &MockOsFs{
 		Fs:                vfs.NewOsFs(connectionID, rootDir, nil),
@@ -536,7 +540,7 @@ func TestSpaceForCrossRename(t *testing.T) {
 	user := dataprovider.User{
 		Username:    userTestUsername,
 		Permissions: permissions,
-		HomeDir:     os.TempDir(),
+		HomeDir:     filepath.Clean(os.TempDir()),
 	}
 	fs, err := user.GetFilesystem("123")
 	assert.NoError(t, err)
@@ -1061,4 +1065,54 @@ func TestErrorsMapping(t *testing.T) {
 			assert.EqualError(t, err, ErrOpUnsupported.Error())
 		}
 	}
+}
+
+func TestMaxWriteSize(t *testing.T) {
+	permissions := make(map[string][]string)
+	permissions["/"] = []string{dataprovider.PermAny}
+	user := dataprovider.User{
+		Username:    userTestUsername,
+		Permissions: permissions,
+		HomeDir:     filepath.Clean(os.TempDir()),
+	}
+	fs, err := user.GetFilesystem("123")
+	assert.NoError(t, err)
+	conn := NewBaseConnection("", ProtocolFTP, user, fs)
+	quotaResult := vfs.QuotaCheckResult{
+		HasSpace: true,
+	}
+	size, err := conn.GetMaxWriteSize(quotaResult, false, 0)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), size)
+
+	conn.User.Filters.MaxUploadFileSize = 100
+	size, err = conn.GetMaxWriteSize(quotaResult, false, 0)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(100), size)
+
+	quotaResult.QuotaSize = 1000
+	size, err = conn.GetMaxWriteSize(quotaResult, false, 50)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(100), size)
+
+	quotaResult.QuotaSize = 1000
+	quotaResult.UsedSize = 990
+	size, err = conn.GetMaxWriteSize(quotaResult, false, 50)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(60), size)
+
+	quotaResult.QuotaSize = 0
+	quotaResult.UsedSize = 0
+	size, err = conn.GetMaxWriteSize(quotaResult, true, 100)
+	assert.EqualError(t, err, ErrQuotaExceeded.Error())
+	assert.Equal(t, int64(0), size)
+
+	size, err = conn.GetMaxWriteSize(quotaResult, true, 10)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(90), size)
+
+	conn.Fs = newMockOsFs(true, fs.ConnectionID(), user.GetHomeDir())
+	size, err = conn.GetMaxWriteSize(quotaResult, true, 100)
+	assert.EqualError(t, err, ErrOpUnsupported.Error())
+	assert.Equal(t, int64(0), size)
 }

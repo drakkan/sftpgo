@@ -97,6 +97,8 @@ type UserFilters struct {
 	// filters based on file extensions.
 	// Please note that these restrictions can be easily bypassed.
 	FileExtensions []ExtensionsFilter `json:"file_extensions,omitempty"`
+	// max size allowed for a single upload, 0 means unlimited
+	MaxUploadFileSize int64 `json:"max_upload_file_size,omitempty"`
 }
 
 // Filesystem defines cloud storage filesystem details
@@ -664,6 +666,7 @@ func (u *User) getACopy() User {
 		permissions[k] = perms
 	}
 	filters := UserFilters{}
+	filters.MaxUploadFileSize = u.Filters.MaxUploadFileSize
 	filters.AllowedIP = make([]string, len(u.Filters.AllowedIP))
 	copy(filters.AllowedIP, u.Filters.AllowedIP)
 	filters.DeniedIP = make([]string, len(u.Filters.DeniedIP))

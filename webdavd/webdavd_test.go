@@ -635,6 +635,36 @@ func TestQuotaLimits(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUploadMaxSize(t *testing.T) {
+	testFileSize := int64(65535)
+	u := getTestUser()
+	u.Filters.MaxUploadFileSize = testFileSize + 1
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	testFileSize1 := int64(131072)
+	testFileName1 := "test_file_dav1.dat"
+	testFilePath1 := filepath.Join(homeBasePath, testFileName1)
+	err = createTestFile(testFilePath1, testFileSize1)
+	assert.NoError(t, err)
+	client := getWebDavClient(user)
+	err = uploadFile(testFilePath1, testFileName1, testFileSize1, client)
+	assert.Error(t, err)
+	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	assert.NoError(t, err)
+
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath1)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestClientClose(t *testing.T) {
 	u := getTestUser()
 	u.UploadBandwidth = 64

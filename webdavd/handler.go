@@ -258,10 +258,13 @@ func (c *Connection) handleUploadToNewFile(resolvedPath, filePath, requestPath s
 
 	vfs.SetPathPermissions(c.Fs, filePath, c.User.GetUID(), c.User.GetGID())
 
+	// we can get an error only for resume
+	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, 0)
+
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
 		common.TransferUpload, 0, 0, true)
 
-	return newWebDavFile(baseTransfer, w, nil, quotaResult.GetRemainingSize(), nil, c.Fs), nil
+	return newWebDavFile(baseTransfer, w, nil, maxWriteSize, nil, c.Fs), nil
 }
 
 func (c *Connection) handleUploadToExistingFile(resolvedPath, filePath string, fileSize int64,
@@ -272,6 +275,10 @@ func (c *Connection) handleUploadToExistingFile(resolvedPath, filePath string, f
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, common.ErrQuotaExceeded
 	}
+
+	// if there is a size limit remaining size cannot be 0 here, since quotaResult.HasSpace
+	// will return false in this case and we deny the upload before
+	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, fileSize)
 
 	if common.Config.IsAtomicUploadEnabled() && c.Fs.IsAtomicUploadSupported() {
 		err = c.Fs.Rename(resolvedPath, filePath)
@@ -288,9 +295,6 @@ func (c *Connection) handleUploadToExistingFile(resolvedPath, filePath string, f
 		return nil, c.GetFsError(err)
 	}
 	initialSize := int64(0)
-	// if there is a size limit remaining size cannot be 0 here, since quotaResult.HasSpace
-	// will return false in this case and we deny the upload before
-	maxWriteSize := quotaResult.GetRemainingSize()
 	if vfs.IsLocalOsFs(c.Fs) {
 		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 		if err == nil {
@@ -303,9 +307,6 @@ func (c *Connection) handleUploadToExistingFile(resolvedPath, filePath string, f
 		}
 	} else {
 		initialSize = fileSize
-	}
-	if maxWriteSize > 0 {
-		maxWriteSize += fileSize
 	}
 
 	vfs.SetPathPermissions(c.Fs, filePath, c.User.GetUID(), c.User.GetGID())

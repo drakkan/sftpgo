@@ -194,6 +194,8 @@ func (c *scpCommand) handleUploadFile(resolvedPath, filePath string, sizeToRead 
 		return err
 	}
 
+	maxWriteSize, _ := c.connection.GetMaxWriteSize(quotaResult, false, fileSize)
+
 	file, w, cancelFn, err := c.connection.Fs.Create(filePath, 0)
 	if err != nil {
 		c.connection.Log(logger.LevelError, "error creating file %#v: %v", resolvedPath, err)
@@ -202,7 +204,6 @@ func (c *scpCommand) handleUploadFile(resolvedPath, filePath string, sizeToRead 
 	}
 
 	initialSize := int64(0)
-	maxWriteSize := quotaResult.GetRemainingSize()
 	if !isNewFile {
 		if vfs.IsLocalOsFs(c.connection.Fs) {
 			vfolder, err := c.connection.User.GetVirtualFolderForPath(path.Dir(requestPath))

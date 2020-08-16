@@ -195,6 +195,11 @@ func (c *Connection) Chtimes(name string, atime time.Time, mtime time.Time) erro
 // AllocateSpace implements ClientDriverExtensionAllocate
 func (c *Connection) AllocateSpace(size int) error {
 	c.UpdateLastActivity()
+	// check the max allowed file size first
+	if c.User.Filters.MaxUploadFileSize > 0 && int64(size) > c.User.Filters.MaxUploadFileSize {
+		return common.ErrQuotaExceeded
+	}
+
 	// we don't have a path here so we check home dir and any virtual folders
 	// we return no error if there is space in any folder
 	folders := []string{"/"}
@@ -344,9 +349,12 @@ func (c *Connection) handleFTPUploadToNewFile(resolvedPath, filePath, requestPat
 
 	vfs.SetPathPermissions(c.Fs, filePath, c.User.GetUID(), c.User.GetGID())
 
+	// we can get an error only for resume
+	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, 0)
+
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
 		common.TransferUpload, 0, 0, true)
-	t := newTransfer(baseTransfer, w, nil, quotaResult.GetRemainingSize(), 0)
+	t := newTransfer(baseTransfer, w, nil, maxWriteSize, 0)
 
 	return t, nil
 }
@@ -360,10 +368,13 @@ func (c *Connection) handleFTPUploadToExistingFile(flags int, resolvedPath, file
 		return nil, common.ErrQuotaExceeded
 	}
 	minWriteOffset := int64(0)
-
-	if flags&os.O_APPEND != 0 && flags&os.O_TRUNC == 0 && !c.Fs.IsUploadResumeSupported() {
-		c.Log(logger.LevelInfo, "upload resume requested for path: %#v but not supported in fs implementation", resolvedPath)
-		return nil, c.GetOpUnsupportedError()
+	isResume := flags&os.O_APPEND != 0 && flags&os.O_TRUNC == 0
+	// if there is a size limit remaining size cannot be 0 here, since quotaResult.HasSpace
+	// will return false in this case and we deny the upload before
+	maxWriteSize, err := c.GetMaxWriteSize(quotaResult, isResume, fileSize)
+	if err != nil {
+		c.Log(logger.LevelDebug, "unable to get max write size: %v", err)
+		return nil, err
 	}
 
 	if common.Config.IsAtomicUploadEnabled() && c.Fs.IsAtomicUploadSupported() {
@@ -382,10 +393,7 @@ func (c *Connection) handleFTPUploadToExistingFile(flags int, resolvedPath, file
 	}
 
 	initialSize := int64(0)
-	// if there is a size limit remaining size cannot be 0 here, since quotaResult.HasSpace
-	// will return false in this case and we deny the upload before
-	maxWriteSize := quotaResult.GetRemainingSize()
-	if flags&os.O_APPEND != 0 && flags&os.O_TRUNC == 0 {
+	if isResume {
 		c.Log(logger.LevelDebug, "upload resume requested, file path: %#v initial size: %v", filePath, fileSize)
 		minWriteOffset = fileSize
 	} else {
@@ -401,9 +409,6 @@ func (c *Connection) handleFTPUploadToExistingFile(flags int, resolvedPath, file
 			}
 		} else {
 			initialSize = fileSize
-		}
-		if maxWriteSize > 0 {
-			maxWriteSize += fileSize
 		}
 	}
 

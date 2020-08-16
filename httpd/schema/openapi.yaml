@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 1.9.3
+  version: 1.9.4
 
 servers:
 - url: /api/v1
@@ -1528,6 +1528,11 @@ components:
             $ref: '#/components/schemas/ExtensionsFilter'
           nullable: true
           description: filters based on file extensions. These restrictions do not apply to files listing for performance reasons, so a denied file cannot be downloaded/overwritten/renamed but it will still be listed in the list of files. Please note that these restrictions can be easily bypassed
+        max_upload_file_size:
+          type: integer
+          format: int64
+          nullable: true
+          description: maximum allowed size, as bytes, for a single file upload. The upload will be aborted if/when the size of the file being sent exceeds this limit. 0 means unlimited. This restriction does not apply for SSH system commands such as `git` and `rsync`
       description: Additional restrictions
     S3Config:
       type: object

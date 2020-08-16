@@ -504,6 +504,8 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 		Filters:           getFiltersFromUserPostFields(r),
 		FsConfig:          fsConfig,
 	}
+	maxFileSize, err := strconv.ParseInt(r.Form.Get("max_upload_file_size"), 10, 64)
+	user.Filters.MaxUploadFileSize = maxFileSize
 	return user, err
 }
 

@@ -2131,6 +2131,39 @@ func TestQuotaLimits(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUploadMaxSize(t *testing.T) {
+	testFileSize := int64(65535)
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Filters.MaxUploadFileSize = testFileSize + 1
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	testFileSize1 := int64(131072)
+	testFileName1 := "test_file1.dat"
+	testFilePath1 := filepath.Join(homeBasePath, testFileName1)
+	err = createTestFile(testFilePath1, testFileSize1)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		err = sftpUploadFile(testFilePath1, testFileName1, testFileSize1, client)
+		assert.Error(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+	}
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath1)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestBandwidthAndConnections(t *testing.T) {
 	usePubKey := false
 	testFileSize := int64(524288)
@@ -6371,6 +6404,36 @@ func TestSCPExtensionsFilter(t *testing.T) {
 		err = os.Remove(localPath)
 		assert.NoError(t, err)
 	}
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestSCPUploadMaxSize(t *testing.T) {
+	testFileSize := int64(65535)
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.Filters.MaxUploadFileSize = testFileSize + 1
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	testFileSize1 := int64(131072)
+	testFileName1 := "test_file1.dat"
+	testFilePath1 := filepath.Join(homeBasePath, testFileName1)
+	err = createTestFile(testFilePath1, testFileSize1)
+	assert.NoError(t, err)
+	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/")
+	err = scpUpload(testFilePath1, remoteUpPath, false, false)
+	assert.Error(t, err)
+	err = scpUpload(testFilePath, remoteUpPath, false, false)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath1)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }

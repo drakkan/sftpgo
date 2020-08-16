@@ -761,6 +761,39 @@ func TestQuotaLimits(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUploadMaxSize(t *testing.T) {
+	testFileSize := int64(65535)
+	u := getTestUser()
+	u.Filters.MaxUploadFileSize = testFileSize + 1
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	testFileSize1 := int64(131072)
+	testFileName1 := "test_file1.dat"
+	testFilePath1 := filepath.Join(homeBasePath, testFileName1)
+	err = createTestFile(testFilePath1, testFileSize1)
+	assert.NoError(t, err)
+	client, err := getFTPClient(user, false)
+	if assert.NoError(t, err) {
+		err = ftpUploadFile(testFilePath1, testFileName1, testFileSize1, client, 0)
+		assert.Error(t, err)
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath1)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestLoginWithIPilters(t *testing.T) {
 	u := getTestUser()
 	u.Filters.DeniedIP = []string{"192.167.0.0/24", "172.18.0.0/16"}
@@ -1100,6 +1133,25 @@ func TestAllocate(t *testing.T) {
 		err = client.Quit()
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+	}
+
+	user.Filters.MaxUploadFileSize = 100
+	user.QuotaSize = 0
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	client, err = getFTPClient(user, false)
+	if assert.NoError(t, err) {
+		code, response, err := client.SendCustomCommand("allo 99")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusCommandOK, code)
+		assert.Equal(t, "Done !", response)
+		code, response, err = client.SendCustomCommand("allo 150")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusFileUnavailable, code)
+		assert.Contains(t, response, common.ErrQuotaExceeded.Error())
+
+		err = client.Quit()
 		assert.NoError(t, err)
 	}
 

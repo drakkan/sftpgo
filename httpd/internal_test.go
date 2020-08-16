@@ -170,6 +170,11 @@ func TestCompareUserFilters(t *testing.T) {
 	assert.Error(t, err)
 	expected.Filters.DeniedLoginMethods = []string{}
 	actual.Filters.DeniedLoginMethods = []string{}
+	expected.Filters.MaxUploadFileSize = 0
+	actual.Filters.MaxUploadFileSize = 100
+	err = checkUser(expected, actual)
+	assert.Error(t, err)
+	actual.Filters.MaxUploadFileSize = 0
 	expected.Filters.FileExtensions = append(expected.Filters.FileExtensions, dataprovider.ExtensionsFilter{
 		Path:              "/",
 		AllowedExtensions: []string{".jpg", ".png"},

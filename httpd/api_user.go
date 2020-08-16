@@ -106,13 +106,11 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentPermissions := user.Permissions
-	currentFileExtensions := user.Filters.FileExtensions
 	currentS3AccessSecret := ""
 	if user.FsConfig.Provider == 1 {
 		currentS3AccessSecret = user.FsConfig.S3Config.AccessSecret
 	}
 	user.Permissions = make(map[string][]string)
-	user.Filters.FileExtensions = []dataprovider.ExtensionsFilter{}
 	err = render.DecodeJSON(r.Body, &user)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
@@ -121,10 +119,6 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	// we use new Permissions if passed otherwise the old ones
 	if len(user.Permissions) == 0 {
 		user.Permissions = currentPermissions
-	}
-	// we use new file extensions if passed otherwise the old ones
-	if len(user.Filters.FileExtensions) == 0 {
-		user.Filters.FileExtensions = currentFileExtensions
 	}
 	// we use the new access secret if different from the old one and not empty
 	if user.FsConfig.Provider == 1 {

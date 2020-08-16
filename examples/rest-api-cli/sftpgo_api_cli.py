@@ -81,7 +81,8 @@ class SFTPGoApiRequests:
 					s3_region='', s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='',
 					s3_key_prefix='', gcs_bucket='', gcs_key_prefix='', gcs_storage_class='', gcs_credentials_file='',
 					gcs_automatic_credentials='automatic', denied_login_methods=[], virtual_folders=[],
-					denied_extensions=[], allowed_extensions=[], s3_upload_part_size=0, s3_upload_concurrency=0):
+					denied_extensions=[], allowed_extensions=[], s3_upload_part_size=0, s3_upload_concurrency=0,
+					max_upload_file_size=0):
 		user = {'id':user_id, 'username':username, 'uid':uid, 'gid':gid,
 			'max_sessions':max_sessions, 'quota_size':quota_size, 'quota_files':quota_files,
 			'upload_bandwidth':upload_bandwidth, 'download_bandwidth':download_bandwidth,
@@ -99,9 +100,9 @@ class SFTPGoApiRequests:
 			user.update({'permissions':permissions})
 		if virtual_folders:
 			user.update({'virtual_folders':self.buildVirtualFolders(virtual_folders)})
-		if allowed_ip or denied_ip or denied_login_methods or allowed_extensions or denied_extensions:
-			user.update({'filters':self.buildFilters(allowed_ip, denied_ip, denied_login_methods, denied_extensions,
-													allowed_extensions)})
+
+		user.update({'filters':self.buildFilters(allowed_ip, denied_ip, denied_login_methods, denied_extensions,
+													allowed_extensions, max_upload_file_size)})
 		user.update({'filesystem':self.buildFsConfig(fs_provider, s3_bucket, s3_region, s3_access_key, s3_access_secret,
 													s3_endpoint, s3_storage_class, s3_key_prefix, gcs_bucket,
 													gcs_key_prefix, gcs_storage_class, gcs_credentials_file,
@@ -152,8 +153,9 @@ class SFTPGoApiRequests:
 					permissions.update({directory:values})
 		return permissions
 
-	def buildFilters(self, allowed_ip, denied_ip, denied_login_methods, denied_extensions, allowed_extensions):
-		filters = {}
+	def buildFilters(self, allowed_ip, denied_ip, denied_login_methods, denied_extensions, allowed_extensions,
+					max_upload_file_size):
+		filters = {"max_upload_file_size":max_upload_file_size}
 		if allowed_ip:
 			if len(allowed_ip) == 1 and not allowed_ip[0]:
 				filters.update({'allowed_ip':[]})
@@ -256,13 +258,13 @@ class SFTPGoApiRequests:
 			s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='', s3_key_prefix='', gcs_bucket='',
 			gcs_key_prefix='', gcs_storage_class='', gcs_credentials_file='', gcs_automatic_credentials='automatic',
 			denied_login_methods=[], virtual_folders=[], denied_extensions=[], allowed_extensions=[],
-			s3_upload_part_size=0, s3_upload_concurrency=0):
+			s3_upload_part_size=0, s3_upload_concurrency=0, max_upload_file_size=0):
 		u = self.buildUserObject(0, username, password, public_keys, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, self.buildPermissions(perms, subdirs_permissions), upload_bandwidth, download_bandwidth,
 			status, expiration_date, allowed_ip, denied_ip, fs_provider, s3_bucket, s3_region, s3_access_key,
 			s3_access_secret, s3_endpoint, s3_storage_class, s3_key_prefix, gcs_bucket, gcs_key_prefix, gcs_storage_class,
 			gcs_credentials_file, gcs_automatic_credentials, denied_login_methods, virtual_folders, denied_extensions,
-			allowed_extensions, s3_upload_part_size, s3_upload_concurrency)
+			allowed_extensions, s3_upload_part_size, s3_upload_concurrency, max_upload_file_size)
 		r = requests.post(self.userPath, json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
@@ -272,13 +274,13 @@ class SFTPGoApiRequests:
 				s3_bucket='', s3_region='', s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='',
 				s3_key_prefix='', gcs_bucket='', gcs_key_prefix='', gcs_storage_class='', gcs_credentials_file='',
 				gcs_automatic_credentials='automatic', denied_login_methods=[], virtual_folders=[], denied_extensions=[],
-				allowed_extensions=[], s3_upload_part_size=0, s3_upload_concurrency=0):
+				allowed_extensions=[], s3_upload_part_size=0, s3_upload_concurrency=0, max_upload_file_size=0):
 		u = self.buildUserObject(user_id, username, password, public_keys, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, self.buildPermissions(perms, subdirs_permissions), upload_bandwidth, download_bandwidth,
 			status, expiration_date, allowed_ip, denied_ip, fs_provider, s3_bucket, s3_region, s3_access_key,
 			s3_access_secret, s3_endpoint, s3_storage_class, s3_key_prefix, gcs_bucket, gcs_key_prefix, gcs_storage_class,
 			gcs_credentials_file, gcs_automatic_credentials, denied_login_methods, virtual_folders, denied_extensions,
-			allowed_extensions, s3_upload_part_size, s3_upload_concurrency)
+			allowed_extensions, s3_upload_part_size, s3_upload_concurrency, max_upload_file_size)
 		r = requests.put(urlparse.urljoin(self.userPath, 'user/' + str(user_id)), json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
@@ -567,6 +569,8 @@ def addCommonUserArguments(parser):
 					help='Maximum download bandwidth as KB/s, 0 means unlimited. Default: %(default)s')
 	parser.add_argument('--status', type=int, choices=[0, 1], default=1,
 							help='User\'s status. 1 enabled, 0 disabled. Default: %(default)s')
+	parser.add_argument('--max-upload-file-size', type=int, default=0,
+					help='Maximum allowed size, as bytes, for a single file upload, 0 means unlimited. Default: %(default)s')
 	parser.add_argument('-E', '--expiration-date', type=validDate, default='',
 					help='Expiration date as YYYY-MM-DD, empty string means no expiration. Default: %(default)s')
 	parser.add_argument('-Y', '--allowed-ip', type=str, nargs='+', default=[],
@@ -750,7 +754,7 @@ if __name__ == '__main__':
 				args.s3_endpoint, args.s3_storage_class, args.s3_key_prefix, args.gcs_bucket, args.gcs_key_prefix,
 				args.gcs_storage_class, args.gcs_credentials_file, args.gcs_automatic_credentials,
 				args.denied_login_methods, args.virtual_folders, args.denied_extensions, args.allowed_extensions,
-				args.s3_upload_part_size, args.s3_upload_concurrency)
+				args.s3_upload_part_size, args.s3_upload_concurrency, args.max_upload_file_size)
 	elif args.command == 'update-user':
 		api.updateUser(args.id, args.username, args.password, args.public_keys, args.home_dir, args.uid, args.gid,
 					args.max_sessions, args.quota_size, args.quota_files, args.permissions, args.upload_bandwidth,
@@ -760,7 +764,7 @@ if __name__ == '__main__':
 					args.s3_key_prefix, args.gcs_bucket, args.gcs_key_prefix, args.gcs_storage_class,
 					args.gcs_credentials_file, args.gcs_automatic_credentials, args.denied_login_methods,
 					args.virtual_folders, args.denied_extensions, args.allowed_extensions, args.s3_upload_part_size,
-					args.s3_upload_concurrency)
+					args.s3_upload_concurrency, args.max_upload_file_size)
 	elif args.command == 'delete-user':
 		api.deleteUser(args.id)
 	elif args.command == 'get-users':

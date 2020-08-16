@@ -614,6 +614,36 @@ func (c *BaseConnection) hasSpaceForCrossRename(quotaResult vfs.QuotaCheckResult
 	return true
 }
 
+// GetMaxWriteSize returns the allowed size for an upload or an error
+// if no enough size is available for a resume/append
+func (c *BaseConnection) GetMaxWriteSize(quotaResult vfs.QuotaCheckResult, isResume bool, fileSize int64) (int64, error) {
+	maxWriteSize := quotaResult.GetRemainingSize()
+
+	if isResume {
+		if !c.Fs.IsUploadResumeSupported() {
+			return 0, c.GetOpUnsupportedError()
+		}
+		if c.User.Filters.MaxUploadFileSize > 0 && c.User.Filters.MaxUploadFileSize <= fileSize {
+			return 0, ErrQuotaExceeded
+		}
+		if c.User.Filters.MaxUploadFileSize > 0 {
+			maxUploadSize := c.User.Filters.MaxUploadFileSize - fileSize
+			if maxUploadSize < maxWriteSize || maxWriteSize == 0 {
+				maxWriteSize = maxUploadSize
+			}
+		}
+	} else {
+		if maxWriteSize > 0 {
+			maxWriteSize += fileSize
+		}
+		if c.User.Filters.MaxUploadFileSize > 0 && (c.User.Filters.MaxUploadFileSize < maxWriteSize || maxWriteSize == 0) {
+			maxWriteSize = c.User.Filters.MaxUploadFileSize
+		}
+	}
+
+	return maxWriteSize, nil
+}
+
 // HasSpace checks user's quota usage
 func (c *BaseConnection) HasSpace(checkFiles bool, requestPath string) vfs.QuotaCheckResult {
 	result := vfs.QuotaCheckResult{

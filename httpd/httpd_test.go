@@ -628,6 +628,7 @@ func TestUpdateUser(t *testing.T) {
 		AllowedExtensions: []string{".zip", ".rar"},
 		DeniedExtensions:  []string{".jpg", ".png"},
 	})
+	user.Filters.MaxUploadFileSize = 4096
 	user.UploadBandwidth = 1024
 	user.DownloadBandwidth = 512
 	user.VirtualFolders = nil
@@ -2329,6 +2330,14 @@ func TestWebUserAddMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	form.Set("denied_ip", "")
+	// test invalid max file upload size
+	form.Set("max_upload_file_size", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	form.Set("max_upload_file_size", "1000")
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
 	req.Header.Set("Content-Type", contentType)
@@ -2351,6 +2360,7 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.Equal(t, user.UID, newUser.UID)
 	assert.Equal(t, user.UploadBandwidth, newUser.UploadBandwidth)
 	assert.Equal(t, user.DownloadBandwidth, newUser.DownloadBandwidth)
+	assert.Equal(t, int64(1000), newUser.Filters.MaxUploadFileSize)
 	assert.True(t, utils.IsStringInSlice(testPubKey, newUser.PublicKeys))
 	if val, ok := newUser.Permissions["/subdir"]; ok {
 		assert.True(t, utils.IsStringInSlice(dataprovider.PermListItems, val))
@@ -2410,6 +2420,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("denied_ip", " 10.0.0.2/32 ")
 	form.Set("denied_extensions", "/dir1::.zip")
 	form.Set("ssh_login_methods", dataprovider.SSHLoginMethodKeyboardInteractive)
+	form.Set("max_upload_file_size", "100")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
 	req.Header.Set("Content-Type", contentType)
@@ -2429,6 +2440,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.Equal(t, user.QuotaSize, updateUser.QuotaSize)
 	assert.Equal(t, user.UID, updateUser.UID)
 	assert.Equal(t, user.GID, updateUser.GID)
+	assert.Equal(t, int64(100), updateUser.Filters.MaxUploadFileSize)
 
 	if val, ok := updateUser.Permissions["/otherdir"]; ok {
 		assert.True(t, utils.IsStringInSlice(dataprovider.PermListItems, val))
@@ -2491,6 +2503,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("s3_key_prefix", user.FsConfig.S3Config.KeyPrefix)
 	form.Set("allowed_extensions", "/dir1::.jpg,.png")
 	form.Set("denied_extensions", "/dir2::.zip")
+	form.Set("max_upload_file_size", "0")
 	// test invalid s3_upload_part_size
 	form.Set("s3_upload_part_size", "a")
 	b, contentType, _ := getMultipartFormData(form, "", "")
@@ -2576,6 +2589,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	form.Set("gcs_storage_class", user.FsConfig.GCSConfig.StorageClass)
 	form.Set("gcs_key_prefix", user.FsConfig.GCSConfig.KeyPrefix)
 	form.Set("allowed_extensions", "/dir1::.jpg,.png")
+	form.Set("max_upload_file_size", "0")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
 	req.Header.Set("Content-Type", contentType)

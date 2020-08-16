@@ -140,7 +140,7 @@ Output:
 Command:
 
 ```console
-python sftpgo_api_cli.py update-user 9576 test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 0 --gid 33 --max-sessions 3 --quota-size 0 --quota-files 4 --permissions "*" --subdirs-permissions "/dir1::list,download,create_symlinks" --upload-bandwidth 90 --download-bandwidth 80 --status 1 --expiration-date "" --allowed-ip "" --denied-ip "192.168.1.0/24" --denied-login-methods "" --fs local --virtual-folders "/vdir1::/tmp/mapped1::-1::-1" "/vdir2::/tmp/mapped2::100::104857600" --allowed-extensions "" --denied-extensions ""
+python sftpgo_api_cli.py update-user 9576 test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 0 --gid 33 --max-sessions 3 --quota-size 0 --quota-files 4 --permissions "*" --subdirs-permissions "/dir1::list,download,create_symlinks" --upload-bandwidth 90 --download-bandwidth 80 --status 1 --expiration-date "" --allowed-ip "" --denied-ip "192.168.1.0/24" --denied-login-methods "" --fs local --virtual-folders "/vdir1::/tmp/mapped1::-1::-1" "/vdir2::/tmp/mapped2::100::104857600" --allowed-extensions "" --denied-extensions "" --max-upload-file-size 104857600
 ```
 
 Output:
@@ -175,7 +175,31 @@ Output:
   "filters": {
     "denied_ip": [
       "192.168.1.0/24"
-    ]
+    ],
+    "file_extensions": [
+      {
+        "allowed_extensions": [
+          ".jpg",
+          ".png"
+        ],
+        "path": "/dir1"
+      },
+      {
+        "allowed_extensions": [
+          ".rar",
+          ".png"
+        ],
+        "path": "/dir2"
+      },
+      {
+        "denied_extensions": [
+          ".zip",
+          ".rar"
+        ],
+        "path": "/dir3"
+      }
+    ],
+    "max_upload_file_size": 104857600
   },
   "gid": 33,
   "home_dir": "/tmp/test_home_dir",
