@@ -23,8 +23,8 @@ import (
 )
 
 // StartPortableMode starts the service in portable mode
-func (s *Service) StartPortableMode(sftpdPort, ftpPort int, enabledSSHCommands []string, advertiseService, advertiseCredentials bool,
-	ftpsCert, ftpsKey string) error {
+func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledSSHCommands []string, advertiseService, advertiseCredentials bool,
+	ftpsCert, ftpsKey, webDavCert, webDavKey string) error {
 	if s.PortableMode != 1 {
 		return fmt.Errorf("service is not configured for portable mode")
 	}
@@ -81,6 +81,18 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort int, enabledSSHCommands [
 		config.SetFTPDConfig(ftpConf)
 	}
 
+	if webdavPort > 0 {
+		webDavConf := config.GetWebDAVDConfig()
+		if webdavPort > 0 {
+			webDavConf.BindPort = webdavPort
+		} else {
+			webDavConf.BindPort = 49152 + rand.Intn(15000)
+		}
+		webDavConf.CertificateFile = webDavCert
+		webDavConf.CertificateKeyFile = webDavKey
+		config.SetWebDAVDConfig(webDavConf)
+	}
+
 	err = s.Start()
 	if err != nil {
 		return err
@@ -88,15 +100,30 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort int, enabledSSHCommands [
 
 	s.advertiseServices(advertiseService, advertiseCredentials)
 
-	var ftpInfo string
-	if config.GetFTPDConfig().BindPort > 0 {
-		ftpInfo = fmt.Sprintf("FTP port: %v", config.GetFTPDConfig().BindPort)
-	}
 	logger.InfoToConsole("Portable mode ready, SFTP port: %v, user: %#v, password: %#v, public keys: %v, directory: %#v, "+
 		"permissions: %+v, enabled ssh commands: %v file extensions filters: %+v %v", sftpdConf.BindPort, s.PortableUser.Username,
 		printablePassword, s.PortableUser.PublicKeys, s.getPortableDirToServe(), s.PortableUser.Permissions,
-		sftpdConf.EnabledSSHCommands, s.PortableUser.Filters.FileExtensions, ftpInfo)
+		sftpdConf.EnabledSSHCommands, s.PortableUser.Filters.FileExtensions, s.getServiceOptionalInfoString())
 	return nil
+}
+
+func (s *Service) getServiceOptionalInfoString() string {
+	var info strings.Builder
+	if config.GetFTPDConfig().BindPort > 0 {
+		info.WriteString(fmt.Sprintf("FTP port: %v ", config.GetFTPDConfig().BindPort))
+	}
+	if config.GetWebDAVDConfig().BindPort > 0 {
+		if info.Len() == 0 {
+			info.WriteString(" ")
+		}
+		scheme := "http"
+		if len(config.GetWebDAVDConfig().CertificateFile) > 0 && len(config.GetWebDAVDConfig().CertificateKeyFile) > 0 {
+			scheme = "https"
+		}
+		info.WriteString(fmt.Sprintf("WebDAV URL: %v://<your IP>:%v/%v",
+			scheme, config.GetWebDAVDConfig().BindPort, s.PortableUser.Username))
+	}
+	return info.String()
 }
 
 func (s *Service) advertiseServices(advertiseService, advertiseCredentials bool) {

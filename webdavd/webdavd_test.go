@@ -576,6 +576,7 @@ func TestDeniedProtocols(t *testing.T) {
 
 	user.Filters.DeniedProtocols = []string{common.ProtocolSSH, common.ProtocolFTP}
 	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	assert.NoError(t, err)
 	client = getWebDavClient(user)
 	assert.NoError(t, checkBasicFunc(client))
 

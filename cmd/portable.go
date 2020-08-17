@@ -53,6 +53,9 @@ var (
 	portableFTPDPort             int
 	portableFTPSCert             string
 	portableFTPSKey              string
+	portableWebDAVPort           int
+	portableWebDAVCert           string
+	portableWebDAVKey            string
 	portableCmd                  = &cobra.Command{
 		Use:   "portable",
 		Short: "Serve a single directory",
@@ -97,6 +100,14 @@ Please take a look at the usage below to customize the serving parameters`,
 				if err != nil {
 					fmt.Printf("Unable to load FTPS key pair, cert file %#v key file %#v error: %v\n",
 						portableFTPSCert, portableFTPSKey, err)
+					os.Exit(1)
+				}
+			}
+			if portableWebDAVPort > 0 && len(portableWebDAVCert) > 0 && len(portableWebDAVKey) > 0 {
+				_, err := common.NewCertManager(portableWebDAVCert, portableWebDAVKey, "WebDAV portable")
+				if err != nil {
+					fmt.Printf("Unable to load WebDAV key pair, cert file %#v key file %#v error: %v\n",
+						portableWebDAVCert, portableWebDAVKey, err)
 					os.Exit(1)
 				}
 			}
@@ -145,8 +156,8 @@ Please take a look at the usage below to customize the serving parameters`,
 					},
 				},
 			}
-			if err := service.StartPortableMode(portableSFTPDPort, portableFTPDPort, portableSSHCommands, portableAdvertiseService,
-				portableAdvertiseCredentials, portableFTPSCert, portableFTPSKey); err == nil {
+			if err := service.StartPortableMode(portableSFTPDPort, portableFTPDPort, portableWebDAVPort, portableSSHCommands, portableAdvertiseService,
+				portableAdvertiseCredentials, portableFTPSCert, portableFTPSKey, portableWebDAVCert, portableWebDAVKey); err == nil {
 				service.Wait()
 				if service.Error == nil {
 					os.Exit(0)
@@ -166,6 +177,8 @@ relative to the current directory
 `)
 	portableCmd.Flags().IntVarP(&portableSFTPDPort, "sftpd-port", "s", 0, "0 means a random unprivileged port")
 	portableCmd.Flags().IntVar(&portableFTPDPort, "ftpd-port", -1, `0 means a random unprivileged port,
+< 0 disabled`)
+	portableCmd.Flags().IntVar(&portableWebDAVPort, "webdav-port", -1, `0 means a random unprivileged port,
 < 0 disabled`)
 	portableCmd.Flags().StringSliceVarP(&portableSSHCommands, "ssh-commands", "c", sftpd.GetDefaultSSHCommands(),
 		`SSH commands to enable.
@@ -228,6 +241,10 @@ a JSON credentials file, 1 automatic
 `)
 	portableCmd.Flags().StringVar(&portableFTPSCert, "ftpd-cert", "", "Path to the certificate file for FTPS")
 	portableCmd.Flags().StringVar(&portableFTPSKey, "ftpd-key", "", "Path to the key file for FTPS")
+	portableCmd.Flags().StringVar(&portableWebDAVCert, "webdav-cert", "", `Path to the certificate file for WebDAV
+over HTTPS`)
+	portableCmd.Flags().StringVar(&portableWebDAVKey, "webdav-key", "", `Path to the key file for WebDAV over
+HTTPS`)
 	rootCmd.AddCommand(portableCmd)
 }
 

@@ -78,6 +78,12 @@ Flags:
                                           (default [md5sum,sha1sum,cd,pwd,scp])
   -u, --username string                  Leave empty to use an auto generated
                                          value
+      --webdav-cert string               Path to the certificate file for WebDAV
+                                         over HTTPS
+      --webdav-key string                Path to the key file for WebDAV over
+                                         HTTPS
+      --webdav-port int                  0 means a random unprivileged port,
+                                         < 0 disabled (default -1)
 ```
 
 In portable mode, SFTPGo can advertise the SFTP/FTP services and, optionally, the credentials via multicast DNS, so there is a standard way to discover the service and to automatically connect to it.

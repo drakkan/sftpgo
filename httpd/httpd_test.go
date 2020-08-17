@@ -355,8 +355,10 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	u.Filters.FileExtensions = nil
 	u.Filters.DeniedProtocols = []string{"invalid"}
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
 	u.Filters.DeniedProtocols = dataprovider.ValidProtocols
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
 }
 
 func TestAddUserInvalidFsConfig(t *testing.T) {
