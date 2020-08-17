@@ -1157,6 +1157,30 @@ func TestLoginInvalidFs(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestDeniedProtocols(t *testing.T) {
+	u := getTestUser(true)
+	u.Filters.DeniedProtocols = []string{common.ProtocolSSH}
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, true)
+	if !assert.Error(t, err, "SSH protocol is disabled, authentication must fail") {
+		client.Close()
+	}
+	user.Filters.DeniedProtocols = []string{common.ProtocolFTP, common.ProtocolWebDAV}
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	client, err = getSftpClient(user, true)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestDeniedLoginMethods(t *testing.T) {
 	u := getTestUser(true)
 	u.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPublicKey, dataprovider.LoginMethodPassword}

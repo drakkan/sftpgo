@@ -88,6 +88,7 @@ type userPage struct {
 	Error                string
 	ValidPerms           []string
 	ValidSSHLoginMethods []string
+	ValidProtocols       []string
 	RootDirPerms         []string
 }
 
@@ -208,6 +209,7 @@ func renderAddUserPage(w http.ResponseWriter, user dataprovider.User, error stri
 		User:                 user,
 		ValidPerms:           dataprovider.ValidPerms,
 		ValidSSHLoginMethods: dataprovider.ValidSSHLoginMethods,
+		ValidProtocols:       dataprovider.ValidProtocols,
 		RootDirPerms:         user.GetPermissionsForPath("/"),
 	}
 	renderTemplate(w, templateUser, data)
@@ -221,6 +223,7 @@ func renderUpdateUserPage(w http.ResponseWriter, user dataprovider.User, error s
 		User:                 user,
 		ValidPerms:           dataprovider.ValidPerms,
 		ValidSSHLoginMethods: dataprovider.ValidSSHLoginMethods,
+		ValidProtocols:       dataprovider.ValidProtocols,
 		RootDirPerms:         user.GetPermissionsForPath("/"),
 	}
 	renderTemplate(w, templateUser, data)
@@ -345,6 +348,7 @@ func getFiltersFromUserPostFields(r *http.Request) dataprovider.UserFilters {
 	filters.AllowedIP = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")
 	filters.DeniedIP = getSliceFromDelimitedValues(r.Form.Get("denied_ip"), ",")
 	filters.DeniedLoginMethods = r.Form["ssh_login_methods"]
+	filters.DeniedProtocols = r.Form["denied_protocols"]
 	allowedExtensions := getFileExtensionsFromPostField(r.Form.Get("allowed_extensions"), 1)
 	deniedExtensions := getFileExtensionsFromPostField(r.Form.Get("denied_extensions"), 2)
 	extensions := []dataprovider.ExtensionsFilter{}

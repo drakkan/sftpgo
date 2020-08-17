@@ -94,6 +94,9 @@ type UserFilters struct {
 	// these login methods are not allowed.
 	// If null or empty any available login method is allowed
 	DeniedLoginMethods []string `json:"denied_login_methods,omitempty"`
+	// these protocols are not allowed.
+	// If null or empty any available protocol is allowed
+	DeniedProtocols []string `json:"denied_protocols,omitempty"`
 	// filters based on file extensions.
 	// Please note that these restrictions can be easily bypassed.
 	FileExtensions []ExtensionsFilter `json:"file_extensions,omitempty"`
@@ -675,6 +678,8 @@ func (u *User) getACopy() User {
 	copy(filters.DeniedLoginMethods, u.Filters.DeniedLoginMethods)
 	filters.FileExtensions = make([]ExtensionsFilter, len(u.Filters.FileExtensions))
 	copy(filters.FileExtensions, u.Filters.FileExtensions)
+	filters.DeniedProtocols = make([]string, len(u.Filters.DeniedProtocols))
+	copy(filters.DeniedProtocols, u.Filters.DeniedProtocols)
 	fsConfig := Filesystem{
 		Provider: u.FsConfig.Provider,
 		S3Config: vfs.S3FsConfig{

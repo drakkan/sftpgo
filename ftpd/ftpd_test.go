@@ -676,6 +676,28 @@ func TestResume(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestDeniedProtocols(t *testing.T) {
+	u := getTestUser()
+	u.Filters.DeniedProtocols = []string{common.ProtocolFTP}
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = getFTPClient(user, false)
+	assert.Error(t, err)
+	user.Filters.DeniedProtocols = []string{common.ProtocolSSH, common.ProtocolWebDAV}
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getFTPClient(user, true)
+	if assert.NoError(t, err) {
+		assert.NoError(t, checkBasicFTP(client))
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestQuotaLimits(t *testing.T) {
 	u := getTestUser()
 	u.QuotaFiles = 1

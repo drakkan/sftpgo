@@ -393,6 +393,10 @@ func loginUser(user dataprovider.User, loginMethod, publicKey string, conn ssh.C
 			user.Username, user.HomeDir)
 		return nil, fmt.Errorf("cannot login user with invalid home dir: %#v", user.HomeDir)
 	}
+	if utils.IsStringInSlice(common.ProtocolSSH, user.Filters.DeniedProtocols) {
+		logger.Debug(logSender, connectionID, "cannot login user %#v, protocol SSH is not allowed", user.Username)
+		return nil, fmt.Errorf("Protocol SSH is not allowed for user %#v", user.Username)
+	}
 	if user.MaxSessions > 0 {
 		activeSessions := common.Connections.GetActiveSessions(user.Username)
 		if activeSessions >= user.MaxSessions {

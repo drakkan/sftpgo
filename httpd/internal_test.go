@@ -170,6 +170,14 @@ func TestCompareUserFilters(t *testing.T) {
 	assert.Error(t, err)
 	expected.Filters.DeniedLoginMethods = []string{}
 	actual.Filters.DeniedLoginMethods = []string{}
+	actual.Filters.DeniedProtocols = []string{common.ProtocolFTP}
+	err = checkUser(expected, actual)
+	assert.Error(t, err)
+	expected.Filters.DeniedProtocols = []string{common.ProtocolWebDAV}
+	err = checkUser(expected, actual)
+	assert.Error(t, err)
+	expected.Filters.DeniedProtocols = []string{}
+	actual.Filters.DeniedProtocols = []string{}
 	expected.Filters.MaxUploadFileSize = 0
 	actual.Filters.MaxUploadFileSize = 100
 	err = checkUser(expected, actual)

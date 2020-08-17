@@ -2,7 +2,7 @@ openapi: 3.0.1
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 1.9.4
+  version: 1.9.5
 
 servers:
 - url: /api/v1
@@ -1479,6 +1479,12 @@ components:
         - 'keyboard-interactive'
         - 'publickey+password'
         - 'publickey+keyboard-interactive'
+    SupportedProtocols:
+      type: string
+      enum:
+        - 'SSH'
+        - 'FTP'
+        - 'DAV'
     ExtensionsFilter:
       type: object
       properties:
@@ -1522,6 +1528,12 @@ components:
             $ref: '#/components/schemas/LoginMethods'
           nullable: true
           description: if null or empty any available login method is allowed
+        denied_protocols:
+          type: array
+          items:
+            $ref: '#/components/schemas/SupportedProtocols'
+          nullable: true
+          description: if null or empty any available protocol is allowed
         file_extensions:
           type: array
           items:

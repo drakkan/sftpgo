@@ -34,9 +34,10 @@ It can serve local filesystem, S3 or Google Cloud Storage.
 - Atomic uploads are configurable.
 - Support for Git repositories over SSH.
 - SCP and rsync are supported.
-- FTP/S is supported.
-- WebDAV is supported.
+- FTP/S is supported. You can configure the FTP service to require TLS for both control and data connections.
+- [WebDAV](./docs/webdav.md) is supported.
 - Support for serving local filesystem, S3 Compatible Object Storage and Google Cloud Storage over SFTP/SCP/FTP/WebDAV.
+- Per user protocols restrictions. You can configure the allowed protocols (SSH/FTP/WebDAV) for each user.
 - [Prometheus metrics](./docs/metrics.md) are exposed.
 - Support for HAProxy PROXY protocol: you can proxy and/or load balance the SFTP/SCP/FTP/WebDAV service without losing the information about the client's address.
 - [REST API](./docs/rest-api.md) for users and folders management, backup, restore and real time reports of the active connections with possibility of forcibly closing a connection.
@@ -139,15 +140,19 @@ More information about custom actions can be found [here](./docs/custom-actions.
 
 Directories outside the user home directory can be exposed as virtual folders, more information [here](./docs/virtual-folders.md).
 
+## Other hooks
+
+You can get notified as soon as a new connection is established using the [Post-connect hook](./docs/post-connect-hook.md) and after each login using the [Post-login hook](./docs/post-login-hook.md).
+
 ## Storage backends
 
 ### S3 Compabible Object Storage backends
 
-Each user can be mapped to whole bucket or to a bucket virtual folder. This way, the mapped bucket/virtual folder is exposed over SFTP/SCP. More information about S3 integration can be found [here](./docs/s3.md).
+Each user can be mapped to the whole bucket or to a bucket virtual folder. This way, the mapped bucket/virtual folder is exposed over SFTP/SCP/FTP/WebDAV. More information about S3 integration can be found [here](./docs/s3.md).
 
 ### Google Cloud Storage backend
 
-Each user can be mapped with a Google Cloud Storage bucket or a bucket virtual folder. This way, the mapped bucket/virtual folder is exposed over SFTP/SCP. More information about Google Cloud Storage integration can be found [here](./docs/google-cloud-storage.md).
+Each user can be mapped with a Google Cloud Storage bucket or a bucket virtual folder. This way, the mapped bucket/virtual folder is exposed over SFTP/SCP/FTP/WebDAV. More information about Google Cloud Storage integration can be found [here](./docs/google-cloud-storage.md).
 
 ### Other Storage backends
 

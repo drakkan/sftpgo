@@ -93,7 +93,9 @@ var (
 	// SSHMultiStepsLoginMethods defines the supported Multi-Step Authentications
 	SSHMultiStepsLoginMethods = []string{SSHLoginMethodKeyAndPassword, SSHLoginMethodKeyAndKeyboardInt}
 	// ErrNoAuthTryed defines the error for connection closed before authentication
-	ErrNoAuthTryed  = errors.New("no auth tryed")
+	ErrNoAuthTryed = errors.New("no auth tryed")
+	// ValidProtocols defines all the valid protcols
+	ValidProtocols  = []string{"SSH", "FTP", "DAV"}
 	config          Config
 	provider        Provider
 	sqlPlaceholders []string
@@ -853,6 +855,9 @@ func validateFilters(user *User) error {
 	if len(user.Filters.DeniedLoginMethods) == 0 {
 		user.Filters.DeniedLoginMethods = []string{}
 	}
+	if len(user.Filters.DeniedProtocols) == 0 {
+		user.Filters.DeniedProtocols = []string{}
+	}
 	for _, IPMask := range user.Filters.DeniedIP {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
@@ -873,10 +878,15 @@ func validateFilters(user *User) error {
 			return &ValidationError{err: fmt.Sprintf("invalid login method: %#v", loginMethod)}
 		}
 	}
-	if err := validateFiltersFileExtensions(user); err != nil {
-		return err
+	if len(user.Filters.DeniedProtocols) >= len(ValidProtocols) {
+		return &ValidationError{err: "invalid denied_protocols"}
 	}
-	return nil
+	for _, p := range user.Filters.DeniedProtocols {
+		if !utils.IsStringInSlice(p, ValidProtocols) {
+			return &ValidationError{err: fmt.Sprintf("invalid protocol: %#v", p)}
+		}
+	}
+	return validateFiltersFileExtensions(user)
 }
 
 func saveGCSCredentials(user *User) error {

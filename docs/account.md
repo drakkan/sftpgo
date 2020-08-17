@@ -37,6 +37,10 @@ For each account, the following properties can be configured:
   - `keyboard-interactive`
   - `publickey+password`
   - `publickey+keyboard-interactive`
+- `denied_protocols`, list of protocols not allowed. The following protocols are supported:
+  - `SSH`
+  - `FTP`
+  - `DAV`
 - `file_extensions`, list of struct. These restrictions do not apply to files listing for performance reasons, so a denied file cannot be downloaded/overwritten/renamed but it will still be listed in the list of files. Please note that these restrictions can be easily bypassed. Each struct contains the following fields:
   - `allowed_extensions`, list of, case insensitive, allowed files extension. Shell like expansion is not supported so you have to specify `.jpg` and not `*.jpg`. Any file that does not end with this suffix will be denied
   - `denied_extensions`, list of, case insensitive, denied files extension. Denied file extensions are evaluated before the allowed ones

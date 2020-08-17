@@ -352,6 +352,11 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	}
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
+	u.Filters.FileExtensions = nil
+	u.Filters.DeniedProtocols = []string{"invalid"}
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	u.Filters.DeniedProtocols = dataprovider.ValidProtocols
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 }
 
 func TestAddUserInvalidFsConfig(t *testing.T) {
@@ -623,6 +628,7 @@ func TestUpdateUser(t *testing.T) {
 	user.Filters.AllowedIP = []string{"192.168.1.0/24", "192.168.2.0/24"}
 	user.Filters.DeniedIP = []string{"192.168.3.0/24", "192.168.4.0/24"}
 	user.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodPassword}
+	user.Filters.DeniedProtocols = []string{common.ProtocolWebDAV}
 	user.Filters.FileExtensions = append(user.Filters.FileExtensions, dataprovider.ExtensionsFilter{
 		Path:              "/subdir",
 		AllowedExtensions: []string{".zip", ".rar"},
@@ -2420,6 +2426,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("denied_ip", " 10.0.0.2/32 ")
 	form.Set("denied_extensions", "/dir1::.zip")
 	form.Set("ssh_login_methods", dataprovider.SSHLoginMethodKeyboardInteractive)
+	form.Set("denied_protocols", common.ProtocolFTP)
 	form.Set("max_upload_file_size", "100")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
@@ -2451,7 +2458,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.True(t, utils.IsStringInSlice("192.168.1.3/32", updateUser.Filters.AllowedIP))
 	assert.True(t, utils.IsStringInSlice("10.0.0.2/32", updateUser.Filters.DeniedIP))
 	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, updateUser.Filters.DeniedLoginMethods))
-	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, updateUser.Filters.DeniedLoginMethods))
+	assert.True(t, utils.IsStringInSlice(common.ProtocolFTP, updateUser.Filters.DeniedProtocols))
 	assert.True(t, utils.IsStringInSlice(".zip", updateUser.Filters.FileExtensions[0].DeniedExtensions))
 	req, err = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	assert.NoError(t, err)

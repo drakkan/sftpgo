@@ -180,6 +180,10 @@ func (s *webDavServer) validateUser(user dataprovider.User, r *http.Request) (st
 			user.Username, user.HomeDir)
 		return connID, fmt.Errorf("cannot login user with invalid home dir: %#v", user.HomeDir)
 	}
+	if utils.IsStringInSlice(common.ProtocolWebDAV, user.Filters.DeniedProtocols) {
+		logger.Debug(logSender, connectionID, "cannot login user %#v, protocol DAV is not allowed", user.Username)
+		return connID, fmt.Errorf("Protocol DAV is not allowed for user %#v", user.Username)
+	}
 	if user.MaxSessions > 0 {
 		activeSessions := common.Connections.GetActiveSessions(user.Username)
 		if activeSessions >= user.MaxSessions {

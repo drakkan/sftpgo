@@ -708,6 +708,9 @@ func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) 
 	if len(expected.Filters.DeniedLoginMethods) != len(actual.Filters.DeniedLoginMethods) {
 		return errors.New("Denied login methods mismatch")
 	}
+	if len(expected.Filters.DeniedProtocols) != len(actual.Filters.DeniedProtocols) {
+		return errors.New("Denied protocols mismatch")
+	}
 	if expected.Filters.MaxUploadFileSize != actual.Filters.MaxUploadFileSize {
 		return errors.New("Max upload file size mismatch")
 	}
@@ -724,6 +727,11 @@ func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) 
 	for _, method := range expected.Filters.DeniedLoginMethods {
 		if !utils.IsStringInSlice(method, actual.Filters.DeniedLoginMethods) {
 			return errors.New("Denied login methods contents mismatch")
+		}
+	}
+	for _, protocol := range expected.Filters.DeniedProtocols {
+		if !utils.IsStringInSlice(protocol, actual.Filters.DeniedProtocols) {
+			return errors.New("Denied protocols contents mismatch")
 		}
 	}
 	if err := compareUserFileExtensionsFilters(expected, actual); err != nil {
