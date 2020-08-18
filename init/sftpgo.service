@@ -1,5 +1,5 @@
 [Unit]
-Description=SFTPGo SFTP Server
+Description=SFTPGo Server
 After=network.target
 
 [Service]

@@ -164,3 +164,5 @@ Content-Length: 18
 
 {"auth_result": 1}
 ```
+
+An example keyboard interactive program allowing to authenticate using [Twillo Authy 2FA](https://www.twilio.com/docs/authy) can be found inside the source tree [authy](../examples/OTP/authy) directory.

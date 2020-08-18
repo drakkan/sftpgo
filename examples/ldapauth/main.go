@@ -35,8 +35,8 @@ func exitError() {
 	u := minimalSFTPGoUser{
 		Username: "",
 	}
-	json, _ := json.Marshal(u)
-	fmt.Printf("%v\n", string(json))
+	resp, _ := json.Marshal(u)
+	fmt.Printf("%v\n", string(resp))
 	os.Exit(1)
 }
 
@@ -52,8 +52,8 @@ func printSuccessResponse(username, homeDir string, uid, gid int) {
 	u.Permissions["/"] = []string{"*"}
 	// uncomment the next line to require publickey+password authentication
 	//u.Filters.DeniedLoginMethods = []string{"publickey", "password", "keyboard-interactive", "publickey+keyboard-interactive"}
-	json, _ := json.Marshal(u)
-	fmt.Printf("%v\n", string(json))
+	resp, _ := json.Marshal(u)
+	fmt.Printf("%v\n", string(resp))
 	os.Exit(0)
 }
 
