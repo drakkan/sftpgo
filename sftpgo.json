@@ -84,7 +84,9 @@
     "credentials_path": "credentials",
     "pre_login_hook": "",
     "post_login_hook": "",
-    "post_login_scope": 0
+    "post_login_scope": 0,
+    "check_password_hook": "",
+    "check_password_scope": 0
   },
   "httpd": {
     "bind_port": 8080,

@@ -46,7 +46,7 @@ func getUserByUsername(username string, dbHandle sqlQuerier) (User, error) {
 	return getUserWithVirtualFolders(user, dbHandle)
 }
 
-func sqlCommonValidateUserAndPass(username string, password string, dbHandle *sql.DB) (User, error) {
+func sqlCommonValidateUserAndPass(username, password, ip, protocol string, dbHandle *sql.DB) (User, error) {
 	var user User
 	if len(password) == 0 {
 		return user, errors.New("Credentials cannot be null or empty")
@@ -56,7 +56,7 @@ func sqlCommonValidateUserAndPass(username string, password string, dbHandle *sq
 		providerLog(logger.LevelWarn, "error authenticating user: %v, error: %v", username, err)
 		return user, err
 	}
-	return checkUserAndPass(user, password)
+	return checkUserAndPass(user, password, ip, protocol)
 }
 
 func sqlCommonValidateUserAndPubKey(username string, pubKey []byte, dbHandle *sql.DB) (User, string, error) {

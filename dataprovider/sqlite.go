@@ -106,8 +106,8 @@ func (p SQLiteProvider) checkAvailability() error {
 	return sqlCommonCheckAvailability(p.dbHandle)
 }
 
-func (p SQLiteProvider) validateUserAndPass(username string, password string) (User, error) {
-	return sqlCommonValidateUserAndPass(username, password, p.dbHandle)
+func (p SQLiteProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
+	return sqlCommonValidateUserAndPass(username, password, ip, protocol, p.dbHandle)
 }
 
 func (p SQLiteProvider) validateUserAndPubKey(username string, publicKey []byte) (User, string, error) {

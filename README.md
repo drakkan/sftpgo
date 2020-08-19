@@ -143,6 +143,7 @@ Directories outside the user home directory can be exposed as virtual folders, m
 ## Other hooks
 
 You can get notified as soon as a new connection is established using the [Post-connect hook](./docs/post-connect-hook.md) and after each login using the [Post-login hook](./docs/post-login-hook.md).
+You can use your own hook to [check passwords](./docs/check-password-hook.md).
 
 ## Storage backends
 

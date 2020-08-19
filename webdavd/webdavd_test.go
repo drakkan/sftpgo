@@ -566,6 +566,26 @@ func TestUploadErrors(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestDeniedLoginMethod(t *testing.T) {
+	u := getTestUser()
+	u.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodPassword}
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client := getWebDavClient(user)
+	assert.Error(t, checkBasicFunc(client))
+
+	user.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPublicKey, dataprovider.SSHLoginMethodKeyAndKeyboardInt}
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	client = getWebDavClient(user)
+	assert.NoError(t, checkBasicFunc(client))
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestDeniedProtocols(t *testing.T) {
 	u := getTestUser()
 	u.Filters.DeniedProtocols = []string{common.ProtocolWebDAV}

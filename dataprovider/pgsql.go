@@ -83,8 +83,8 @@ func (p PGSQLProvider) checkAvailability() error {
 	return sqlCommonCheckAvailability(p.dbHandle)
 }
 
-func (p PGSQLProvider) validateUserAndPass(username string, password string) (User, error) {
-	return sqlCommonValidateUserAndPass(username, password, p.dbHandle)
+func (p PGSQLProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
+	return sqlCommonValidateUserAndPass(username, password, ip, protocol, p.dbHandle)
 }
 
 func (p PGSQLProvider) validateUserAndPubKey(username string, publicKey []byte) (User, string, error) {

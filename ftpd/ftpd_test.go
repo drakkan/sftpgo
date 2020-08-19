@@ -676,6 +676,30 @@ func TestResume(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+//nolint:dupl
+func TestDeniedLoginMethod(t *testing.T) {
+	u := getTestUser()
+	u.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodPassword}
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = getFTPClient(user, false)
+	assert.Error(t, err)
+	user.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPublicKey, dataprovider.SSHLoginMethodKeyAndPassword}
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getFTPClient(user, true)
+	if assert.NoError(t, err) {
+		assert.NoError(t, checkBasicFTP(client))
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+//nolint:dupl
 func TestDeniedProtocols(t *testing.T) {
 	u := getTestUser()
 	u.Filters.DeniedProtocols = []string{common.ProtocolFTP}

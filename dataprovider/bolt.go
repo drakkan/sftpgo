@@ -121,7 +121,7 @@ func (p BoltProvider) checkAvailability() error {
 	return err
 }
 
-func (p BoltProvider) validateUserAndPass(username string, password string) (User, error) {
+func (p BoltProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
 	var user User
 	if len(password) == 0 {
 		return user, errors.New("Credentials cannot be null or empty")
@@ -131,7 +131,7 @@ func (p BoltProvider) validateUserAndPass(username string, password string) (Use
 		providerLog(logger.LevelWarn, "error authenticating user: %v, error: %v", username, err)
 		return user, err
 	}
-	return checkUserAndPass(user, password)
+	return checkUserAndPass(user, password, ip, protocol)
 }
 
 func (p BoltProvider) validateUserAndPubKey(username string, pubKey []byte) (User, string, error) {

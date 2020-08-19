@@ -84,8 +84,8 @@ func (p MySQLProvider) checkAvailability() error {
 	return sqlCommonCheckAvailability(p.dbHandle)
 }
 
-func (p MySQLProvider) validateUserAndPass(username string, password string) (User, error) {
-	return sqlCommonValidateUserAndPass(username, password, p.dbHandle)
+func (p MySQLProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
+	return sqlCommonValidateUserAndPass(username, password, ip, protocol, p.dbHandle)
 }
 
 func (p MySQLProvider) validateUserAndPubKey(username string, publicKey []byte) (User, string, error) {

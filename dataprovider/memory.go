@@ -84,7 +84,7 @@ func (p MemoryProvider) close() error {
 	return nil
 }
 
-func (p MemoryProvider) validateUserAndPass(username string, password string) (User, error) {
+func (p MemoryProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
 	var user User
 	if len(password) == 0 {
 		return user, errors.New("Credentials cannot be null or empty")
@@ -94,7 +94,7 @@ func (p MemoryProvider) validateUserAndPass(username string, password string) (U
 		providerLog(logger.LevelWarn, "error authenticating user %#v, error: %v", username, err)
 		return user, err
 	}
-	return checkUserAndPass(user, password)
+	return checkUserAndPass(user, password, ip, protocol)
 }
 
 func (p MemoryProvider) validateUserAndPubKey(username string, pubKey []byte) (User, string, error) {

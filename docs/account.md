@@ -31,7 +31,7 @@ For each account, the following properties can be configured:
 - `allowed_ip`, List of IP/Mask allowed to login. Any IP address not contained in this list cannot login. IP/Mask must be in CIDR notation as defined in RFC 4632 and RFC 4291, for example "192.0.2.0/24" or "2001:db8::/32"
 - `denied_ip`, List of IP/Mask not allowed to login. If an IP address is both allowed and denied then login will be denied
 - `max_upload_file_size`, max allowed size, as bytes, for a single file upload. The upload will be aborted if/when the size of the file being sent exceeds this limit. 0 means unlimited. This restriction does not apply for SSH system commands such as `git` and `rsync`
-- `denied_login_methods`, List of login methods not allowed. To enable multi-step authentication you have to allow only multi-step login methods. The following login methods are supported:
+- `denied_login_methods`, List of login methods not allowed. To enable multi-step authentication you have to allow only multi-step login methods. If password login method is denied or no password is set then FTP and WebDAV users cannot login. The following login methods are supported:
   - `publickey`
   - `password`
   - `keyboard-interactive`

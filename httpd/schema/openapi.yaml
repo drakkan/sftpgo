@@ -1479,6 +1479,8 @@ components:
         - 'keyboard-interactive'
         - 'publickey+password'
         - 'publickey+keyboard-interactive'
+      description: >
+        To enable multi-step authentication you have to allow only multi-step login methods. If password login method is denied or no password is set then FTP and WebDAV users cannot login
     SupportedProtocols:
       type: string
       enum:

@@ -24,7 +24,7 @@ require (
 	github.com/otiai10/copy v1.2.0
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/pires/go-proxyproto v0.1.3
-	github.com/pkg/sftp v1.11.1-0.20200731124947-b508b936bef3
+	github.com/pkg/sftp v1.11.1-0.20200819110714-3ee8d0ba91c0
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/common v0.12.0 // indirect
 	github.com/rs/cors v1.7.1-0.20200626170627-8b4a00bd362b
@@ -41,7 +41,7 @@ require (
 	go.etcd.io/bbolt v1.3.5
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
 	golang.org/x/net v0.0.0-20200813134508-3edf25e44fcc
-	golang.org/x/sys v0.0.0-20200814200057-3d37ad5750ed
+	golang.org/x/sys v0.0.0-20200819091447-39769834ee22
 	golang.org/x/tools v0.0.0-20200814230902-9882f1d1823d // indirect
 	google.golang.org/api v0.30.0
 	google.golang.org/genproto v0.0.0-20200815001618-f69a88009b70 // indirect

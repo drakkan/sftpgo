@@ -129,6 +129,7 @@ var (
 	keyIntAuthPath   string
 	preLoginPath     string
 	postConnectPath  string
+	checkPwdPath     string
 	logFilePath      string
 )
 
@@ -203,6 +204,7 @@ func TestMain(m *testing.M) {
 	extAuthPath = filepath.Join(homeBasePath, "extauth.sh")
 	preLoginPath = filepath.Join(homeBasePath, "prelogin.sh")
 	postConnectPath = filepath.Join(homeBasePath, "postconnect.sh")
+	checkPwdPath = filepath.Join(homeBasePath, "checkpwd.sh")
 	err = ioutil.WriteFile(pubKeyPath, []byte(testPubKey+"\n"), 0600)
 	if err != nil {
 		logger.WarnToConsole("unable to save public key to file: %v", err)
@@ -277,6 +279,7 @@ func TestMain(m *testing.M) {
 	os.Remove(preLoginPath)
 	os.Remove(postConnectPath)
 	os.Remove(keyIntAuthPath)
+	os.Remove(checkPwdPath)
 	os.Exit(exitCode)
 }
 
@@ -1485,6 +1488,77 @@ func TestPostConnectHook(t *testing.T) {
 	assert.NoError(t, err)
 
 	common.Config.PostConnectHook = ""
+}
+
+func TestCheckPwdHook(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.QuotaFiles = 1000
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = ioutil.WriteFile(checkPwdPath, getCheckPwdScriptsContents(2, defaultPassword), os.ModePerm)
+	assert.NoError(t, err)
+	providerConf.CheckPasswordHook = checkPwdPath
+	providerConf.CheckPasswordScope = 1
+	err = dataprovider.Initialize(providerConf, configDir)
+	assert.NoError(t, err)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+		client.Close()
+	}
+
+	err = ioutil.WriteFile(checkPwdPath, getCheckPwdScriptsContents(0, defaultPassword), os.ModePerm)
+	assert.NoError(t, err)
+	client, err = getSftpClient(user, usePubKey)
+	if !assert.Error(t, err) {
+		client.Close()
+	}
+
+	err = ioutil.WriteFile(checkPwdPath, getCheckPwdScriptsContents(1, ""), os.ModePerm)
+	assert.NoError(t, err)
+	user.Password = defaultPassword + "1"
+	client, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+		client.Close()
+	}
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	providerConf.CheckPasswordScope = 6
+	err = dataprovider.Initialize(providerConf, configDir)
+	assert.NoError(t, err)
+	client, err = getSftpClient(user, usePubKey)
+	if !assert.Error(t, err) {
+		client.Close()
+	}
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir)
+	assert.NoError(t, err)
+	err = os.Remove(checkPwdPath)
+	assert.NoError(t, err)
 }
 
 func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
@@ -7554,6 +7628,17 @@ func getPreLoginScriptContent(user dataprovider.User, nonJSONResponse bool) []by
 func getPostConnectScriptContent(exitCode int) []byte {
 	content := []byte("#!/bin/sh\n\n")
 	content = append(content, []byte(fmt.Sprintf("exit %v", exitCode))...)
+	return content
+}
+
+func getCheckPwdScriptsContents(status int, toVerify string) []byte {
+	content := []byte("#!/bin/sh\n\n")
+	content = append(content, []byte(fmt.Sprintf("echo '{\"status\":%v,\"to_verify\":\"%v\"}'\n", status, toVerify))...)
+	if status > 0 {
+		content = append(content, []byte("exit 0")...)
+	} else {
+		content = append(content, []byte("exit 1")...)
+	}
 	return content
 }
 

@@ -32,10 +32,10 @@ The program hook must finish within 30 seconds, the HTTP hook timeout will use t
 This method is slower than built-in authentication, but it's very flexible as anyone can easily write his own authentication hooks.
 You can also restrict the authentication scope for the hook using the `external_auth_scope` configuration key:
 
-- 0 means all supported authetication scopes. The external hook will be used for password, public key and keyboard interactive authentication
-- 1 means passwords only
-- 2 means public keys only
-- 4 means keyboard interactive only
+- `0` means all supported authetication scopes. The external hook will be used for password, public key and keyboard interactive authentication
+- `1` means passwords only
+- `2` means public keys only
+- `4` means keyboard interactive only
 
 You can combine the scopes. For example, 3 means password and public key, 5 means password and keyboard interactive, and so on.
 

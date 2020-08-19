@@ -184,6 +184,10 @@ func (s *webDavServer) validateUser(user dataprovider.User, r *http.Request) (st
 		logger.Debug(logSender, connectionID, "cannot login user %#v, protocol DAV is not allowed", user.Username)
 		return connID, fmt.Errorf("Protocol DAV is not allowed for user %#v", user.Username)
 	}
+	if !user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, nil) {
+		logger.Debug(logSender, connectionID, "cannot login user %#v, password login method is not allowed", user.Username)
+		return connID, fmt.Errorf("Password login method is not allowed for user %#v", user.Username)
+	}
 	if user.MaxSessions > 0 {
 		activeSessions := common.Connections.GetActiveSessions(user.Username)
 		if activeSessions >= user.MaxSessions {
