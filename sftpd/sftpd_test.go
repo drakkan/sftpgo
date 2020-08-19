@@ -1534,12 +1534,17 @@ func TestCheckPwdHook(t *testing.T) {
 		assert.NoError(t, err)
 		client.Close()
 	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
 
 	err = dataprovider.Close()
 	assert.NoError(t, err)
 	providerConf.CheckPasswordScope = 6
 	err = dataprovider.Initialize(providerConf, configDir)
 	assert.NoError(t, err)
+	user, _, err = httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	user.Password = defaultPassword + "1"
 	client, err = getSftpClient(user, usePubKey)
 	if !assert.Error(t, err) {
 		client.Close()
