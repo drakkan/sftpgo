@@ -108,6 +108,22 @@ func (t *BaseTransfer) SetCancelFn(cancelFn func()) {
 	t.cancelFn = cancelFn
 }
 
+// Truncate changes the size of the opened file.
+// Supported for local fs only
+func (t *BaseTransfer) Truncate(fsPath string, size int64) error {
+	if fsPath == t.GetFsPath() {
+		if t.File != nil {
+			return t.File.Truncate(size)
+		}
+		if size == 0 {
+			// for cloud providers the file is always truncated to zero, we don't support append/resume for uploads
+			return nil
+		}
+		return ErrOpUnsupported
+	}
+	return errTransferMismatch
+}
+
 // TransferError is called if there is an unexpected error.
 // For example network or client issues
 func (t *BaseTransfer) TransferError(err error) {

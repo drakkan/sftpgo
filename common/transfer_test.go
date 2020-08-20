@@ -81,6 +81,53 @@ func TestTransferThrottling(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestTruncate(t *testing.T) {
+	testFile := filepath.Join(os.TempDir(), "transfer_test_file")
+	fs := vfs.NewOsFs("123", os.TempDir(), nil)
+	u := dataprovider.User{
+		Username: "user",
+		HomeDir:  os.TempDir(),
+	}
+	u.Permissions = make(map[string][]string)
+	u.Permissions["/"] = []string{dataprovider.PermAny}
+	file, err := os.Create(testFile)
+	if !assert.NoError(t, err) {
+		assert.FailNow(t, "unable to open test file")
+	}
+	_, err = file.Write([]byte("hello"))
+	assert.NoError(t, err)
+	conn := NewBaseConnection(fs.ConnectionID(), ProtocolSFTP, u, fs)
+	transfer := NewBaseTransfer(file, conn, nil, testFile, "/transfer_test_file", TransferUpload, 0, 0, true)
+
+	err = conn.SetStat(testFile, "/transfer_test_file", &StatAttributes{
+		Size:  2,
+		Flags: StatAttrSize,
+	})
+	assert.NoError(t, err)
+	err = transfer.Close()
+	assert.NoError(t, err)
+	fi, err := os.Stat(testFile)
+	if assert.NoError(t, err) {
+		assert.Equal(t, int64(2), fi.Size())
+	}
+
+	transfer = NewBaseTransfer(nil, conn, nil, testFile, "", TransferUpload, 0, 0, true)
+	err = transfer.Truncate("mismatch", 0)
+	assert.EqualError(t, err, errTransferMismatch.Error())
+	err = transfer.Truncate(testFile, 0)
+	assert.NoError(t, err)
+	err = transfer.Truncate(testFile, 1)
+	assert.EqualError(t, err, ErrOpUnsupported.Error())
+
+	err = transfer.Close()
+	assert.NoError(t, err)
+
+	err = os.Remove(testFile)
+	assert.NoError(t, err)
+
+	assert.Len(t, conn.GetTransfers(), 0)
+}
+
 func TestTransferErrors(t *testing.T) {
 	isCancelled := false
 	cancelFn := func() {

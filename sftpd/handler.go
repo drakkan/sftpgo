@@ -232,6 +232,10 @@ func (c *Connection) handleSFTPSetstat(filePath string, request *sftp.Request) e
 		attrs.Atime = time.Unix(int64(request.Attributes().Atime), 0)
 		attrs.Mtime = time.Unix(int64(request.Attributes().Mtime), 0)
 	}
+	if request.AttrFlags().Size {
+		attrs.Flags |= common.StatAttrSize
+		attrs.Size = int64(request.Attributes().Size)
+	}
 
 	return c.SetStat(filePath, request.Filepath, &attrs)
 }

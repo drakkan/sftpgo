@@ -131,6 +131,11 @@ func (OsFs) Chtimes(name string, atime, mtime time.Time) error {
 	return os.Chtimes(name, atime, mtime)
 }
 
+// Truncate changes the size of the named file
+func (OsFs) Truncate(name string, size int64) error {
+	return os.Truncate(name, size)
+}
+
 // ReadDir reads the directory named by dirname and returns
 // a list of directory entries.
 func (OsFs) ReadDir(dirname string) ([]os.FileInfo, error) {

@@ -657,8 +657,22 @@ func TestStat(t *testing.T) {
 		assert.Equal(t, newPerm, newFi.Mode().Perm())
 		_, err = client.ReadLink(testFileName)
 		assert.Error(t, err, "readlink is not supported and must fail")
-		err = client.Truncate(testFileName, 0)
+		newPerm = os.FileMode(0666)
+		err = client.Chmod(testFileName, newPerm)
 		assert.NoError(t, err)
+		err = client.Truncate(testFileName, 100)
+		assert.NoError(t, err)
+		fi, err := client.Stat(testFileName)
+		if assert.NoError(t, err) {
+			assert.Equal(t, int64(100), fi.Size())
+		}
+		f, err := client.OpenFile(testFileName, os.O_WRONLY)
+		if assert.NoError(t, err) {
+			err = f.Truncate(5)
+			assert.NoError(t, err)
+			err = f.Close()
+			assert.NoError(t, err)
+		}
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}

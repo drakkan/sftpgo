@@ -37,6 +37,7 @@ const (
 	chownLogSender           = "Chown"
 	chmodLogSender           = "Chmod"
 	chtimesLogSender         = "Chtimes"
+	truncateLogSender        = "Truncate"
 	operationDownload        = "download"
 	operationUpload          = "upload"
 	operationDelete          = "delete"
@@ -52,6 +53,7 @@ const (
 	StatAttrUIDGID = 1
 	StatAttrPerms  = 2
 	StatAttrTimes  = 4
+	StatAttrSize   = 8
 )
 
 // Transfer types
@@ -85,6 +87,8 @@ var (
 	ErrQuotaExceeded        = errors.New("denying write due to space limit")
 	ErrSkipPermissionsCheck = errors.New("permission check skipped")
 	ErrConnectionDenied     = errors.New("You are not allowed to connect")
+	errNoTransfer           = errors.New("requested transfer not found")
+	errTransferMismatch     = errors.New("transfer mismatch")
 )
 
 var (
@@ -141,6 +145,7 @@ type ActiveTransfer interface {
 	GetVirtualPath() string
 	GetStartTime() time.Time
 	SignalClose()
+	Truncate(fsPath string, size int64) error
 }
 
 // ActiveConnection defines the interface for the current active connections
@@ -168,6 +173,7 @@ type StatAttributes struct {
 	UID   int
 	GID   int
 	Flags int
+	Size  int64
 }
 
 // ConnectionTransfer defines the trasfer details to expose

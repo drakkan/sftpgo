@@ -31,6 +31,7 @@ type Fs interface {
 	Chown(name string, uid int, gid int) error
 	Chmod(name string, mode os.FileMode) error
 	Chtimes(name string, atime, mtime time.Time) error
+	Truncate(name string, size int64) error
 	ReadDir(dirname string) ([]os.FileInfo, error)
 	IsUploadResumeSupported() bool
 	IsAtomicUploadSupported() bool

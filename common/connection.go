@@ -172,6 +172,20 @@ func (c *BaseConnection) SignalTransfersAbort() error {
 	return nil
 }
 
+func (c *BaseConnection) truncateOpenHandle(fsPath string, size int64) error {
+	c.RLock()
+	defer c.RUnlock()
+
+	for _, t := range c.activeTransfers {
+		err := t.Truncate(fsPath, size)
+		if err != errTransferMismatch {
+			return err
+		}
+	}
+
+	return errNoTransfer
+}
+
 // ListDir reads the directory named by fsPath and returns a list of directory entries
 func (c *BaseConnection) ListDir(fsPath, virtualPath string) ([]os.FileInfo, error) {
 	if !c.User.HasPerm(dataprovider.PermListItems, virtualPath) {
@@ -200,7 +214,7 @@ func (c *BaseConnection) CreateDir(fsPath, virtualPath string) error {
 	}
 	vfs.SetPathPermissions(c.Fs, fsPath, c.User.GetUID(), c.User.GetGID())
 
-	logger.CommandLog(mkdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "")
+	logger.CommandLog(mkdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1)
 	return nil
 }
 
@@ -233,7 +247,7 @@ func (c *BaseConnection) RemoveFile(fsPath, virtualPath string, info os.FileInfo
 		}
 	}
 
-	logger.CommandLog(removeLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "")
+	logger.CommandLog(removeLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1)
 	if info.Mode()&os.ModeSymlink != os.ModeSymlink {
 		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(virtualPath))
 		if err == nil {
@@ -302,7 +316,7 @@ func (c *BaseConnection) RemoveDir(fsPath, virtualPath string) error {
 		return c.GetFsError(err)
 	}
 
-	logger.CommandLog(rmdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "")
+	logger.CommandLog(rmdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1)
 	return nil
 }
 
@@ -363,7 +377,7 @@ func (c *BaseConnection) Rename(fsSourcePath, fsTargetPath, virtualSourcePath, v
 		c.updateQuotaAfterRename(virtualSourcePath, virtualTargetPath, fsTargetPath, initialSize) //nolint:errcheck
 	}
 	logger.CommandLog(renameLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1,
-		"", "", "")
+		"", "", "", -1)
 	action := newActionNotification(&c.User, operationRename, fsSourcePath, fsTargetPath, "", c.protocol, 0, nil)
 	// the returned error is used in test cases only, we already log the error inside action.execute
 	go action.execute() //nolint:errcheck
@@ -400,8 +414,18 @@ func (c *BaseConnection) CreateSymlink(fsSourcePath, fsTargetPath, virtualSource
 		c.Log(logger.LevelWarn, "failed to create symlink %#v -> %#v: %+v", fsSourcePath, fsTargetPath, err)
 		return c.GetFsError(err)
 	}
-	logger.CommandLog(symlinkLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "")
+	logger.CommandLog(symlinkLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1)
 	return nil
+}
+
+func (c *BaseConnection) getPathForSetStatPerms(fsPath, virtualPath string) string {
+	pathForPerms := virtualPath
+	if fi, err := c.Fs.Lstat(fsPath); err == nil {
+		if fi.IsDir() {
+			pathForPerms = path.Dir(virtualPath)
+		}
+	}
+	return pathForPerms
 }
 
 // SetStat set StatAttributes for the specified fsPath
@@ -409,12 +433,8 @@ func (c *BaseConnection) SetStat(fsPath, virtualPath string, attributes *StatAtt
 	if Config.SetstatMode == 1 {
 		return nil
 	}
-	pathForPerms := virtualPath
-	if fi, err := c.Fs.Lstat(fsPath); err == nil {
-		if fi.IsDir() {
-			pathForPerms = path.Dir(virtualPath)
-		}
-	}
+	pathForPerms := c.getPathForSetStatPerms(fsPath, virtualPath)
+
 	if attributes.Flags&StatAttrPerms != 0 {
 		if !c.User.HasPerm(dataprovider.PermChmod, pathForPerms) {
 			return c.GetPermissionDeniedError()
@@ -424,7 +444,7 @@ func (c *BaseConnection) SetStat(fsPath, virtualPath string, attributes *StatAtt
 			return c.GetFsError(err)
 		}
 		logger.CommandLog(chmodLogSender, fsPath, "", c.User.Username, attributes.Mode.String(), c.ID, c.protocol,
-			-1, -1, "", "", "")
+			-1, -1, "", "", "", -1)
 	}
 
 	if attributes.Flags&StatAttrUIDGID != 0 {
@@ -437,12 +457,12 @@ func (c *BaseConnection) SetStat(fsPath, virtualPath string, attributes *StatAtt
 			return c.GetFsError(err)
 		}
 		logger.CommandLog(chownLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, attributes.UID, attributes.GID,
-			"", "", "")
+			"", "", "", -1)
 	}
 
 	if attributes.Flags&StatAttrTimes != 0 {
 		if !c.User.HasPerm(dataprovider.PermChtimes, pathForPerms) {
-			return sftp.ErrSSHFxPermissionDenied
+			return c.GetPermissionDeniedError()
 		}
 
 		if err := c.Fs.Chtimes(fsPath, attributes.Atime, attributes.Mtime); err != nil {
@@ -453,10 +473,35 @@ func (c *BaseConnection) SetStat(fsPath, virtualPath string, attributes *StatAtt
 		accessTimeString := attributes.Atime.Format(chtimesFormat)
 		modificationTimeString := attributes.Mtime.Format(chtimesFormat)
 		logger.CommandLog(chtimesLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1,
-			accessTimeString, modificationTimeString, "")
+			accessTimeString, modificationTimeString, "", -1)
+	}
+
+	if attributes.Flags&StatAttrSize != 0 {
+		if !c.User.HasPerm(dataprovider.PermOverwrite, pathForPerms) {
+			return c.GetPermissionDeniedError()
+		}
+
+		if err := c.truncateFile(fsPath, attributes.Size); err != nil {
+			c.Log(logger.LevelWarn, "failed to truncate path %#v, size: %v, err: %+v", fsPath, attributes.Size, err)
+			return c.GetFsError(err)
+		}
+		logger.CommandLog(truncateLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", attributes.Size)
 	}
 
 	return nil
+}
+
+func (c *BaseConnection) truncateFile(fsPath string, size int64) error {
+	// check first if we have an open transfer for the given path and try to truncate the file already opened
+	// if we found no transfer we truncate by path.
+	// pkg/sftp should expose an optional interface and call truncate directly on the opened handle ...
+	// If we try to truncate by path an already opened file we get an error on Windows
+	err := c.truncateOpenHandle(fsPath, size)
+	if err == errNoTransfer {
+		c.Log(logger.LevelDebug, "file path %#v not found in active transfers, execute trucate by path", fsPath)
+		err = c.Fs.Truncate(fsPath, size)
+	}
+	return err
 }
 
 func (c *BaseConnection) checkRecursiveRenameDirPermissions(sourcePath, targetPath string) error {

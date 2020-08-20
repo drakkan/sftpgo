@@ -330,6 +330,13 @@ func (S3Fs) Chtimes(name string, atime, mtime time.Time) error {
 	return errors.New("403 chtimes is not supported")
 }
 
+// Truncate changes the size of the named file.
+// Truncate by path is not supported, while truncating an opened
+// file is handled inside base transfer
+func (S3Fs) Truncate(name string, size int64) error {
+	return errors.New("403 truncate is not supported")
+}
+
 // ReadDir reads the directory named by dirname and returns
 // a list of directory entries.
 func (fs S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {

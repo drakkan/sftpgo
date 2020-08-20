@@ -20,7 +20,7 @@ The logs can be divided into the following categories:
   - `connection_id` string. Unique connection identifier
   - `protocol` string. `SFTP` or `SCP`
 - **"command logs"**, SFTP/SCP command logs:
-  - `sender` string. `Rename`, `Rmdir`, `Mkdir`, `Symlink`, `Remove`, `Chmod`, `Chown`, `Chtimes`, `SSHCommand`
+  - `sender` string. `Rename`, `Rmdir`, `Mkdir`, `Symlink`, `Remove`, `Chmod`, `Chown`, `Chtimes`, `Truncate`, `SSHCommand`
   - `level` string
   - `username`, string
   - `file_path` string
@@ -30,6 +30,7 @@ The logs can be divided into the following categories:
   - `gid` integer. Valid for sender `Chown` otherwise -1
   - `access_time` datetime as YYYY-MM-DDTHH:MM:SS. Valid for sender `Chtimes` otherwise empty
   - `modification_time` datetime as YYYY-MM-DDTHH:MM:SS. Valid for sender `Chtimes` otherwise empty
+  - `size` int64. Valid for sender `Truncate` otherwise -1
   - `ssh_command`, string. Valid for sender `SSHCommand` otherwise empty
   - `connection_id` string. Unique connection identifier
   - `protocol` string. `SFTP`, `SCP` or `SSH`

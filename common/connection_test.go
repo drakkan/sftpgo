@@ -529,6 +529,30 @@ func TestSetStat(t *testing.T) {
 		Flags: StatAttrTimes,
 	})
 	assert.Error(t, err)
+	// truncate
+	err = c.SetStat(filepath.Join(user.GetHomeDir(), "missing"), "/missing", &StatAttributes{
+		Size:  1,
+		Flags: StatAttrSize,
+	})
+	assert.Error(t, err)
+	err = c.SetStat(filepath.Join(dir3, "afile.txt"), "/dir3/afile.txt", &StatAttributes{
+		Size:  1,
+		Flags: StatAttrSize,
+	})
+	assert.Error(t, err)
+
+	filePath := filepath.Join(user.GetHomeDir(), "afile.txt")
+	err = ioutil.WriteFile(filePath, []byte("hello"), os.ModePerm)
+	assert.NoError(t, err)
+	err = c.SetStat(filePath, "/afile.txt", &StatAttributes{
+		Flags: StatAttrSize,
+		Size:  1,
+	})
+	assert.NoError(t, err)
+	fi, err := os.Stat(filePath)
+	if assert.NoError(t, err) {
+		assert.Equal(t, int64(1), fi.Size())
+	}
 
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
