@@ -530,7 +530,7 @@ func TestSetStat(t *testing.T) {
 	})
 	assert.Error(t, err)
 	// truncate
-	err = c.SetStat(filepath.Join(user.GetHomeDir(), "missing"), "/missing", &StatAttributes{
+	err = c.SetStat(filepath.Join(user.GetHomeDir(), "/missing/missing"), "/missing/missing", &StatAttributes{
 		Size:  1,
 		Flags: StatAttrSize,
 	})

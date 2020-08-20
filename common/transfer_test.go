@@ -106,6 +106,8 @@ func TestTruncate(t *testing.T) {
 	assert.NoError(t, err)
 	err = transfer.Close()
 	assert.NoError(t, err)
+	err = file.Close()
+	assert.NoError(t, err)
 	fi, err := os.Stat(testFile)
 	if assert.NoError(t, err) {
 		assert.Equal(t, int64(2), fi.Size())

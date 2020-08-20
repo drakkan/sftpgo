@@ -496,7 +496,8 @@ func (c *BaseConnection) truncateFile(fsPath string, size int64) error {
 	// if we found no transfer we truncate by path.
 	// pkg/sftp should expose an optional interface and call truncate directly on the opened handle ...
 	// If we try to truncate by path an already opened file we get an error on Windows
-	err := c.truncateOpenHandle(fsPath, size)
+	var err error
+	err = c.truncateOpenHandle(fsPath, size)
 	if err == errNoTransfer {
 		c.Log(logger.LevelDebug, "file path %#v not found in active transfers, execute trucate by path", fsPath)
 		err = c.Fs.Truncate(fsPath, size)
