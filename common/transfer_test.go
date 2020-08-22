@@ -83,6 +83,36 @@ func TestTransferThrottling(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRealPath(t *testing.T) {
+	testFile := filepath.Join(os.TempDir(), "afile.txt")
+	fs := vfs.NewOsFs("123", os.TempDir(), nil)
+	u := dataprovider.User{
+		Username: "user",
+		HomeDir:  os.TempDir(),
+	}
+	u.Permissions = make(map[string][]string)
+	u.Permissions["/"] = []string{dataprovider.PermAny}
+	file, err := os.Create(testFile)
+	if !assert.NoError(t, err) {
+		assert.FailNow(t, "unable to open test file")
+	}
+	conn := NewBaseConnection(fs.ConnectionID(), ProtocolSFTP, u, fs)
+	transfer := NewBaseTransfer(file, conn, nil, testFile, "/transfer_test_file", TransferUpload, 0, 0, 0, true, fs)
+	rPath := transfer.GetRealFsPath(testFile)
+	assert.Equal(t, testFile, rPath)
+	rPath = conn.getRealFsPath(testFile)
+	assert.Equal(t, testFile, rPath)
+	err = transfer.Close()
+	assert.NoError(t, err)
+	err = file.Close()
+	assert.NoError(t, err)
+	transfer.File = nil
+	rPath = transfer.GetRealFsPath(testFile)
+	assert.Equal(t, testFile, rPath)
+	rPath = transfer.GetRealFsPath("")
+	assert.Empty(t, rPath)
+}
+
 func TestTruncate(t *testing.T) {
 	testFile := filepath.Join(os.TempDir(), "transfer_test_file")
 	fs := vfs.NewOsFs("123", os.TempDir(), nil)
@@ -99,14 +129,14 @@ func TestTruncate(t *testing.T) {
 	_, err = file.Write([]byte("hello"))
 	assert.NoError(t, err)
 	conn := NewBaseConnection(fs.ConnectionID(), ProtocolSFTP, u, fs)
-	transfer := NewBaseTransfer(file, conn, nil, testFile, "/transfer_test_file", TransferUpload, 0, 0, 100, true, fs)
+	transfer := NewBaseTransfer(file, conn, nil, testFile, "/transfer_test_file", TransferUpload, 0, 5, 100, false, fs)
 
 	err = conn.SetStat(testFile, "/transfer_test_file", &StatAttributes{
 		Size:  2,
 		Flags: StatAttrSize,
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, int64(98), transfer.MaxWriteSize)
+	assert.Equal(t, int64(103), transfer.MaxWriteSize)
 	err = transfer.Close()
 	assert.NoError(t, err)
 	err = file.Close()

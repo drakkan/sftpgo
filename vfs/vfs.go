@@ -33,6 +33,7 @@ type Fs interface {
 	Chtimes(name string, atime, mtime time.Time) error
 	Truncate(name string, size int64) error
 	ReadDir(dirname string) ([]os.FileInfo, error)
+	Readlink(name string) (string, error)
 	IsUploadResumeSupported() bool
 	IsAtomicUploadSupported() bool
 	CheckRootPath(username string, uid int, gid int) bool

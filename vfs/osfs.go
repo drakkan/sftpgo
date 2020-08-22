@@ -56,7 +56,7 @@ func (fs OsFs) Stat(name string) (os.FileInfo, error) {
 	}
 	for _, v := range fs.virtualFolders {
 		if v.MappedPath == name {
-			info := NewFileInfo(v.VirtualPath, true, fi.Size(), fi.ModTime())
+			info := NewFileInfo(v.VirtualPath, true, fi.Size(), fi.ModTime(), false)
 			return info, nil
 		}
 	}
@@ -71,7 +71,7 @@ func (fs OsFs) Lstat(name string) (os.FileInfo, error) {
 	}
 	for _, v := range fs.virtualFolders {
 		if v.MappedPath == name {
-			info := NewFileInfo(v.VirtualPath, true, fi.Size(), fi.ModTime())
+			info := NewFileInfo(v.VirtualPath, true, fi.Size(), fi.ModTime(), false)
 			return info, nil
 		}
 	}
@@ -114,6 +114,16 @@ func (OsFs) Mkdir(name string) error {
 // Symlink creates source as a symbolic link to target.
 func (OsFs) Symlink(source, target string) error {
 	return os.Symlink(source, target)
+}
+
+// Readlink returns the destination of the named symbolic link
+// as absolute virtual path
+func (fs OsFs) Readlink(name string) (string, error) {
+	p, err := os.Readlink(name)
+	if err != nil {
+		return p, err
+	}
+	return fs.GetRelativePath(p), err
 }
 
 // Chown changes the numeric uid and gid of the named file.

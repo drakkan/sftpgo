@@ -227,7 +227,7 @@ func (u *User) AddVirtualDirs(list []os.FileInfo, sftpPath string) []os.FileInfo
 	}
 	for _, v := range u.VirtualFolders {
 		if path.Dir(v.VirtualPath) == sftpPath {
-			fi := vfs.NewFileInfo(v.VirtualPath, true, 0, time.Now())
+			fi := vfs.NewFileInfo(v.VirtualPath, true, 0, time.Now(), false)
 			found := false
 			for index, f := range list {
 				if f.Name() == fi.Name() {

@@ -86,10 +86,10 @@ func (fs GCSFs) Stat(name string) (os.FileInfo, error) {
 		if err != nil {
 			return result, err
 		}
-		return NewFileInfo(name, true, 0, time.Now()), nil
+		return NewFileInfo(name, true, 0, time.Now(), false), nil
 	}
 	if fs.config.KeyPrefix == name+"/" {
-		return NewFileInfo(name, true, 0, time.Now()), nil
+		return NewFileInfo(name, true, 0, time.Now(), false), nil
 	}
 	prefix := fs.getPrefixForStat(name)
 	query := &storage.Query{Prefix: prefix, Delimiter: "/"}
@@ -108,7 +108,7 @@ func (fs GCSFs) Stat(name string) (os.FileInfo, error) {
 		}
 		if len(attrs.Prefix) > 0 {
 			if fs.isEqual(attrs.Prefix, name) {
-				result = NewFileInfo(name, true, 0, time.Now())
+				result = NewFileInfo(name, true, 0, time.Now(), false)
 				break
 			}
 		} else {
@@ -117,7 +117,7 @@ func (fs GCSFs) Stat(name string) (os.FileInfo, error) {
 			}
 			if fs.isEqual(attrs.Name, name) {
 				isDir := strings.HasSuffix(attrs.Name, "/")
-				result = NewFileInfo(name, isDir, attrs.Size, attrs.Updated)
+				result = NewFileInfo(name, isDir, attrs.Size, attrs.Updated, false)
 				if !isDir {
 					result.setContentType(attrs.ContentType)
 				}
@@ -280,6 +280,11 @@ func (GCSFs) Symlink(source, target string) error {
 	return errors.New("403 symlinks are not supported")
 }
 
+// Readlink returns the destination of the named symbolic link
+func (GCSFs) Readlink(name string) (string, error) {
+	return "", errors.New("403 readlink is not supported")
+}
+
 // Chown changes the numeric uid and gid of the named file.
 // Silently ignored.
 func (GCSFs) Chown(name string, uid int, gid int) error {
@@ -333,7 +338,7 @@ func (fs GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 		}
 		if len(attrs.Prefix) > 0 {
 			name, _ := fs.resolve(attrs.Prefix, prefix)
-			result = append(result, NewFileInfo(name, true, 0, time.Now()))
+			result = append(result, NewFileInfo(name, true, 0, time.Now(), false))
 		} else {
 			name, isDir := fs.resolve(attrs.Name, prefix)
 			if len(name) == 0 {
@@ -342,7 +347,7 @@ func (fs GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 			if !attrs.Deleted.IsZero() {
 				continue
 			}
-			fi := NewFileInfo(name, isDir, attrs.Size, attrs.Updated)
+			fi := NewFileInfo(name, isDir, attrs.Size, attrs.Updated, false)
 			if !isDir {
 				fi.setContentType(attrs.ContentType)
 			}
@@ -508,13 +513,13 @@ func (fs GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
 		if len(name) == 0 {
 			continue
 		}
-		err = walkFn(attrs.Name, NewFileInfo(name, isDir, attrs.Size, attrs.Updated), nil)
+		err = walkFn(attrs.Name, NewFileInfo(name, isDir, attrs.Size, attrs.Updated, false), nil)
 		if err != nil {
 			break
 		}
 	}
 
-	walkFn(root, NewFileInfo(root, true, 0, time.Now()), err) //nolint:errcheck
+	walkFn(root, NewFileInfo(root, true, 0, time.Now(), false), err) //nolint:errcheck
 	metrics.GCSListObjectsCompleted(err)
 	return err
 }

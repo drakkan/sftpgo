@@ -195,6 +195,23 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 		}
 
 		return listerAt([]os.FileInfo{s}), nil
+	case "Readlink":
+		if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(request.Filepath)) {
+			return nil, sftp.ErrSSHFxPermissionDenied
+		}
+
+		s, err := c.Fs.Readlink(p)
+		if err != nil {
+			c.Log(logger.LevelWarn, "error running readlink on path %#v: %+v", p, err)
+			return nil, c.GetFsError(err)
+		}
+
+		if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(s)) {
+			return nil, sftp.ErrSSHFxPermissionDenied
+		}
+
+		return listerAt([]os.FileInfo{vfs.NewFileInfo(s, false, 0, time.Now(), true)}), nil
+
 	default:
 		return nil, sftp.ErrSSHFxOpUnsupported
 	}

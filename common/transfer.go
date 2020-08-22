@@ -108,6 +108,18 @@ func (t *BaseTransfer) GetFsPath() string {
 	return t.fsPath
 }
 
+// GetRealFsPath returns the real transfer filesystem path.
+// If atomic uploads are enabled this differ from fsPath
+func (t *BaseTransfer) GetRealFsPath(fsPath string) string {
+	if fsPath == t.GetFsPath() {
+		if t.File != nil {
+			return t.File.Name()
+		}
+		return t.fsPath
+	}
+	return ""
+}
+
 // SetCancelFn sets the cancel function for the transfer
 func (t *BaseTransfer) SetCancelFn(cancelFn func()) {
 	t.cancelFn = cancelFn

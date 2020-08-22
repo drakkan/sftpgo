@@ -21,16 +21,20 @@ type FileInfo struct {
 }
 
 // NewFileInfo creates file info.
-func NewFileInfo(name string, isDirectory bool, sizeInBytes int64, modTime time.Time) FileInfo {
+func NewFileInfo(name string, isDirectory bool, sizeInBytes int64, modTime time.Time, fullName bool) FileInfo {
 	mode := os.FileMode(0644)
 	contentType := ""
 	if isDirectory {
 		mode = os.FileMode(0755) | os.ModeDir
 		contentType = "inode/directory"
 	}
+	if !fullName {
+		// we have always Unix style paths here
+		name = path.Base(name)
+	}
 
 	return FileInfo{
-		name:        path.Base(name), // we have always Unix style paths here
+		name:        name,
 		sizeInBytes: sizeInBytes,
 		modTime:     modTime,
 		mode:        mode,

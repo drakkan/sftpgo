@@ -605,7 +605,7 @@ func TestSpaceForCrossRename(t *testing.T) {
 		testDir := filepath.Join(os.TempDir(), "dir")
 		err = os.MkdirAll(testDir, os.ModePerm)
 		assert.NoError(t, err)
-		err = ioutil.WriteFile(filepath.Join(testDir, "afile"), []byte("content"), os.ModePerm)
+		err = ioutil.WriteFile(filepath.Join(testDir, "afile.txt"), []byte("content"), os.ModePerm)
 		assert.NoError(t, err)
 		err = os.Chmod(testDir, 0001)
 		assert.NoError(t, err)
@@ -616,7 +616,7 @@ func TestSpaceForCrossRename(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	testFile := filepath.Join(os.TempDir(), "afile")
+	testFile := filepath.Join(os.TempDir(), "afile.txt")
 	err = ioutil.WriteFile(testFile, []byte("test data"), os.ModePerm)
 	assert.NoError(t, err)
 	quotaResult = vfs.QuotaCheckResult{

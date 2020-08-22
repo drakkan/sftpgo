@@ -172,6 +172,18 @@ func (c *BaseConnection) SignalTransfersAbort() error {
 	return nil
 }
 
+func (c *BaseConnection) getRealFsPath(fsPath string) string {
+	c.RLock()
+	defer c.RUnlock()
+
+	for _, t := range c.activeTransfers {
+		if p := t.GetRealFsPath(fsPath); len(p) > 0 {
+			return p
+		}
+	}
+	return fsPath
+}
+
 func (c *BaseConnection) truncateOpenHandle(fsPath string, size int64) (int64, error) {
 	c.RLock()
 	defer c.RUnlock()
@@ -439,7 +451,7 @@ func (c *BaseConnection) SetStat(fsPath, virtualPath string, attributes *StatAtt
 		if !c.User.HasPerm(dataprovider.PermChmod, pathForPerms) {
 			return c.GetPermissionDeniedError()
 		}
-		if err := c.Fs.Chmod(fsPath, attributes.Mode); err != nil {
+		if err := c.Fs.Chmod(c.getRealFsPath(fsPath), attributes.Mode); err != nil {
 			c.Log(logger.LevelWarn, "failed to chmod path %#v, mode: %v, err: %+v", fsPath, attributes.Mode.String(), err)
 			return c.GetFsError(err)
 		}
@@ -451,7 +463,7 @@ func (c *BaseConnection) SetStat(fsPath, virtualPath string, attributes *StatAtt
 		if !c.User.HasPerm(dataprovider.PermChown, pathForPerms) {
 			return c.GetPermissionDeniedError()
 		}
-		if err := c.Fs.Chown(fsPath, attributes.UID, attributes.GID); err != nil {
+		if err := c.Fs.Chown(c.getRealFsPath(fsPath), attributes.UID, attributes.GID); err != nil {
 			c.Log(logger.LevelWarn, "failed to chown path %#v, uid: %v, gid: %v, err: %+v", fsPath, attributes.UID,
 				attributes.GID, err)
 			return c.GetFsError(err)
@@ -465,7 +477,7 @@ func (c *BaseConnection) SetStat(fsPath, virtualPath string, attributes *StatAtt
 			return c.GetPermissionDeniedError()
 		}
 
-		if err := c.Fs.Chtimes(fsPath, attributes.Atime, attributes.Mtime); err != nil {
+		if err := c.Fs.Chtimes(c.getRealFsPath(fsPath), attributes.Atime, attributes.Mtime); err != nil {
 			c.Log(logger.LevelWarn, "failed to chtimes for path %#v, access time: %v, modification time: %v, err: %+v",
 				fsPath, attributes.Atime, attributes.Mtime, err)
 			return c.GetFsError(err)

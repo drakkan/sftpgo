@@ -79,11 +79,11 @@ func (fs MockOsFs) Rename(source, target string) error {
 // Walk returns a duplicate path for testing
 func (fs MockOsFs) Walk(root string, walkFn filepath.WalkFunc) error {
 	if fs.err == errWalkDir {
-		walkFn("fsdpath", vfs.NewFileInfo("dpath", true, 0, time.Now()), nil) //nolint:errcheck
-		walkFn("fsdpath", vfs.NewFileInfo("dpath", true, 0, time.Now()), nil) //nolint:errcheck
+		walkFn("fsdpath", vfs.NewFileInfo("dpath", true, 0, time.Now(), false), nil) //nolint:errcheck
+		walkFn("fsdpath", vfs.NewFileInfo("dpath", true, 0, time.Now(), false), nil) //nolint:errcheck
 		return nil
 	}
-	walkFn("fsfpath", vfs.NewFileInfo("fpath", false, 0, time.Now()), nil) //nolint:errcheck
+	walkFn("fsfpath", vfs.NewFileInfo("fpath", false, 0, time.Now(), false), nil) //nolint:errcheck
 	return fs.err
 }
 
@@ -317,12 +317,12 @@ func TestFileAccessErrors(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, os.ErrNotExist.Error())
 	}
-	info := vfs.NewFileInfo(missingPath, true, 0, time.Now())
+	info := vfs.NewFileInfo(missingPath, true, 0, time.Now(), false)
 	_, err = connection.getFile(fsMissingPath, missingPath, info)
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, os.ErrNotExist.Error())
 	}
-	info = vfs.NewFileInfo(missingPath, false, 123, time.Now())
+	info = vfs.NewFileInfo(missingPath, false, 123, time.Now(), false)
 	_, err = connection.getFile(fsMissingPath, missingPath, info)
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, os.ErrNotExist.Error())
@@ -429,7 +429,7 @@ func TestContentType(t *testing.T) {
 	ctx := context.Background()
 	baseTransfer := common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFile,
 		common.TransferDownload, 0, 0, 0, false, fs)
-	info := vfs.NewFileInfo(testFilePath, true, 0, time.Now())
+	info := vfs.NewFileInfo(testFilePath, true, 0, time.Now(), false)
 	davFile := newWebDavFile(baseTransfer, nil, nil, info)
 	fi, err := davFile.Stat()
 	if assert.NoError(t, err) {

@@ -229,6 +229,17 @@ func TestReadWriteErrors(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUnsupportedListOP(t *testing.T) {
+	fs := vfs.NewOsFs("", os.TempDir(), nil)
+	conn := common.NewBaseConnection("", common.ProtocolSFTP, dataprovider.User{}, fs)
+	sftpConn := Connection{
+		BaseConnection: conn,
+	}
+	request := sftp.NewRequest("Unsupported", "")
+	_, err := sftpConn.Filelist(request)
+	assert.EqualError(t, err, sftp.ErrSSHFxOpUnsupported.Error())
+}
+
 func TestTransferCancelFn(t *testing.T) {
 	testfile := "testfile"
 	file, err := os.Create(testfile)

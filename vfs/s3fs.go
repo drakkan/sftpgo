@@ -112,10 +112,10 @@ func (fs S3Fs) Stat(name string) (os.FileInfo, error) {
 		if err != nil {
 			return result, err
 		}
-		return NewFileInfo(name, true, 0, time.Now()), nil
+		return NewFileInfo(name, true, 0, time.Now(), false), nil
 	}
 	if "/"+fs.config.KeyPrefix == name+"/" {
-		return NewFileInfo(name, true, 0, time.Now()), nil
+		return NewFileInfo(name, true, 0, time.Now(), false), nil
 	}
 	prefix := path.Dir(name)
 	if prefix == "/" || prefix == "." {
@@ -135,7 +135,7 @@ func (fs S3Fs) Stat(name string) (os.FileInfo, error) {
 	}, func(page *s3.ListObjectsV2Output, lastPage bool) bool {
 		for _, p := range page.CommonPrefixes {
 			if fs.isEqual(p.Prefix, name) {
-				result = NewFileInfo(name, true, 0, time.Now())
+				result = NewFileInfo(name, true, 0, time.Now(), false)
 				return false
 			}
 		}
@@ -144,7 +144,7 @@ func (fs S3Fs) Stat(name string) (os.FileInfo, error) {
 				objectSize := *fileObject.Size
 				objectModTime := *fileObject.LastModified
 				isDir := strings.HasSuffix(*fileObject.Key, "/")
-				result = NewFileInfo(name, isDir, objectSize, objectModTime)
+				result = NewFileInfo(name, isDir, objectSize, objectModTime, false)
 				return false
 			}
 		}
@@ -312,6 +312,11 @@ func (S3Fs) Symlink(source, target string) error {
 	return errors.New("403 symlinks are not supported")
 }
 
+// Readlink returns the destination of the named symbolic link
+func (S3Fs) Readlink(name string) (string, error) {
+	return "", errors.New("403 readlink is not supported")
+}
+
 // Chown changes the numeric uid and gid of the named file.
 // Silently ignored.
 func (S3Fs) Chown(name string, uid int, gid int) error {
@@ -358,7 +363,7 @@ func (fs S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	}, func(page *s3.ListObjectsV2Output, lastPage bool) bool {
 		for _, p := range page.CommonPrefixes {
 			name, isDir := fs.resolve(p.Prefix, prefix)
-			result = append(result, NewFileInfo(name, isDir, 0, time.Now()))
+			result = append(result, NewFileInfo(name, isDir, 0, time.Now(), false))
 		}
 		for _, fileObject := range page.Contents {
 			objectSize := *fileObject.Size
@@ -367,7 +372,7 @@ func (fs S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 			if len(name) == 0 {
 				continue
 			}
-			result = append(result, NewFileInfo(name, isDir, objectSize, objectModTime))
+			result = append(result, NewFileInfo(name, isDir, objectSize, objectModTime, false))
 		}
 		return true
 	})
@@ -505,7 +510,7 @@ func (fs S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
 			if len(name) == 0 {
 				continue
 			}
-			err := walkFn(fs.Join("/", *fileObject.Key), NewFileInfo(name, isDir, objectSize, objectModTime), nil)
+			err := walkFn(fs.Join("/", *fileObject.Key), NewFileInfo(name, isDir, objectSize, objectModTime, false), nil)
 			if err != nil {
 				return false
 			}
@@ -513,7 +518,7 @@ func (fs S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
 		return true
 	})
 	metrics.S3ListObjectsCompleted(err)
-	walkFn(root, NewFileInfo(root, true, 0, time.Now()), err) //nolint:errcheck
+	walkFn(root, NewFileInfo(root, true, 0, time.Now(), false), err) //nolint:errcheck
 
 	return err
 }

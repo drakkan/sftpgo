@@ -146,6 +146,7 @@ type ActiveTransfer interface {
 	GetStartTime() time.Time
 	SignalClose()
 	Truncate(fsPath string, size int64) (int64, error)
+	GetRealFsPath(fsPath string) string
 }
 
 // ActiveConnection defines the interface for the current active connections

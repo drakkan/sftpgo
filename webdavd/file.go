@@ -98,7 +98,7 @@ func (f *webDavFile) Stat() (os.FileInfo, error) {
 	f.Unlock()
 	if f.GetType() == common.TransferUpload && closed && errUpload == nil {
 		info := webDavFileInfo{
-			FileInfo: vfs.NewFileInfo(f.GetFsPath(), false, atomic.LoadInt64(&f.BytesReceived), time.Now()),
+			FileInfo: vfs.NewFileInfo(f.GetFsPath(), false, atomic.LoadInt64(&f.BytesReceived), time.Now(), false),
 			file:     f,
 		}
 		return info, nil

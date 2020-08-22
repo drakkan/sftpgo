@@ -608,8 +608,9 @@ func TestLink(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Symlink(testFileName, testFileName+".link")
 		assert.NoError(t, err)
-		_, err = client.ReadLink(testFileName + ".link")
-		assert.Error(t, err, "readlink is currently not implemented so must fail")
+		linkName, err := client.ReadLink(testFileName + ".link")
+		assert.NoError(t, err)
+		assert.Equal(t, path.Join("/", testFileName), linkName)
 		err = client.Symlink(testFileName, testFileName+".link")
 		assert.Error(t, err, "creating a symlink to an existing one must fail")
 		err = client.Link(testFileName, testFileName+".hlink")
@@ -657,7 +658,12 @@ func TestStat(t *testing.T) {
 			assert.Equal(t, newPerm, newFi.Mode().Perm())
 		}
 		_, err = client.ReadLink(testFileName)
-		assert.Error(t, err, "readlink is not supported and must fail")
+		assert.Error(t, err, "readlink on a file must fail")
+		err = client.Symlink(testFileName, testFileName+".sym")
+		assert.NoError(t, err)
+		linkName, err := client.ReadLink(testFileName + ".sym")
+		assert.NoError(t, err)
+		assert.Equal(t, path.Join("/", testFileName), linkName)
 		newPerm = os.FileMode(0666)
 		err = client.Chmod(testFileName, newPerm)
 		assert.NoError(t, err)
@@ -674,6 +680,21 @@ func TestStat(t *testing.T) {
 			err = f.Close()
 			assert.NoError(t, err)
 		}
+		f, err = client.OpenFile(testFileName, os.O_WRONLY)
+		newPerm = os.FileMode(0444)
+		if assert.NoError(t, err) {
+			err = f.Chmod(newPerm)
+			assert.NoError(t, err)
+			err = f.Close()
+			assert.NoError(t, err)
+		}
+		newFi, err = client.Lstat(testFileName)
+		if assert.NoError(t, err) {
+			assert.Equal(t, newPerm, newFi.Mode().Perm())
+		}
+		newPerm = os.FileMode(0666)
+		err = client.Chmod(testFileName, newPerm)
+		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
@@ -4650,6 +4671,7 @@ func TestPermList(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete, dataprovider.PermRename,
 		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite, dataprovider.PermChmod,
 		dataprovider.PermChown, dataprovider.PermChtimes}
+	u.Permissions["/sub"] = []string{dataprovider.PermCreateSymlinks, dataprovider.PermListItems}
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
@@ -4659,6 +4681,21 @@ func TestPermList(t *testing.T) {
 		assert.Error(t, err, "read remote dir without permission should not succeed")
 		_, err = client.Stat("test_file")
 		assert.Error(t, err, "stat remote file without permission should not succeed")
+		_, err = client.ReadLink("test_link")
+		assert.Error(t, err, "read remote link without permission on source dir should not succeed")
+		f, err := client.Create(testFileName)
+		if assert.NoError(t, err) {
+			_, err = f.Write([]byte("content"))
+			assert.NoError(t, err)
+			err = f.Close()
+			assert.NoError(t, err)
+		}
+		err = client.Mkdir("sub")
+		assert.NoError(t, err)
+		err = client.Symlink(testFileName, path.Join("/sub", testFileName))
+		assert.NoError(t, err)
+		_, err = client.ReadLink(path.Join("/sub", testFileName))
+		assert.Error(t, err, "read remote link without permission on targe dir should not succeed")
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
