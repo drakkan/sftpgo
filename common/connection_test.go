@@ -554,7 +554,35 @@ func TestSetStat(t *testing.T) {
 		assert.Equal(t, int64(1), fi.Size())
 	}
 
+	vDir := filepath.Join(os.TempDir(), "vdir")
+	err = os.MkdirAll(vDir, os.ModePerm)
+	assert.NoError(t, err)
+	c.User.VirtualFolders = nil
+	c.User.VirtualFolders = append(c.User.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: vDir,
+		},
+		VirtualPath: "/vpath",
+		QuotaSize:   -1,
+		QuotaFiles:  -1,
+	})
+
+	filePath = filepath.Join(vDir, "afile.txt")
+	err = ioutil.WriteFile(filePath, []byte("hello"), os.ModePerm)
+	assert.NoError(t, err)
+	err = c.SetStat(filePath, "/vpath/afile.txt", &StatAttributes{
+		Flags: StatAttrSize,
+		Size:  1,
+	})
+	assert.NoError(t, err)
+	fi, err = os.Stat(filePath)
+	if assert.NoError(t, err) {
+		assert.Equal(t, int64(1), fi.Size())
+	}
+
 	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(vDir)
 	assert.NoError(t, err)
 }
 

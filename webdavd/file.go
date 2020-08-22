@@ -21,17 +21,15 @@ var errTransferAborted = errors.New("transfer aborted")
 
 type webDavFile struct {
 	*common.BaseTransfer
-	writer       io.WriteCloser
-	reader       io.ReadCloser
-	isFinished   bool
-	maxWriteSize int64
-	startOffset  int64
-	info         os.FileInfo
-	fs           vfs.Fs
+	writer      io.WriteCloser
+	reader      io.ReadCloser
+	isFinished  bool
+	startOffset int64
+	info        os.FileInfo
 }
 
 func newWebDavFile(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *pipeat.PipeReaderAt,
-	maxWriteSize int64, info os.FileInfo, fs vfs.Fs) *webDavFile {
+	info os.FileInfo) *webDavFile {
 	var writer io.WriteCloser
 	var reader io.ReadCloser
 	if baseTransfer.File != nil {
@@ -47,10 +45,8 @@ func newWebDavFile(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter
 		writer:       writer,
 		reader:       reader,
 		isFinished:   false,
-		maxWriteSize: maxWriteSize,
 		startOffset:  0,
 		info:         info,
-		fs:           fs,
 	}
 }
 
@@ -72,7 +68,7 @@ func (fi webDavFileInfo) ContentType(ctx context.Context) (string, error) {
 	if len(contentType) > 0 {
 		return contentType, nil
 	}
-	if c, ok := fi.file.fs.(vfs.MimeTyper); ok {
+	if c, ok := fi.file.Fs.(vfs.MimeTyper); ok {
 		contentType, err := c.GetMimeType(fi.file.GetFsPath())
 		return contentType, err
 	}
@@ -107,7 +103,7 @@ func (f *webDavFile) Stat() (os.FileInfo, error) {
 		}
 		return info, nil
 	}
-	info, err := f.fs.Stat(f.GetFsPath())
+	info, err := f.Fs.Stat(f.GetFsPath())
 	if err != nil {
 		return info, err
 	}
@@ -133,7 +129,7 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 			f.TransferError(common.ErrOpUnsupported)
 			return 0, common.ErrOpUnsupported
 		}
-		_, r, cancelFn, err := f.fs.Open(f.GetFsPath(), 0)
+		_, r, cancelFn, err := f.Fs.Open(f.GetFsPath(), 0)
 		f.Lock()
 		f.reader = r
 		f.ErrTransfer = err
@@ -171,7 +167,7 @@ func (f *webDavFile) Write(p []byte) (n int, err error) {
 	written, e = f.writer.Write(p)
 	atomic.AddInt64(&f.BytesReceived, int64(written))
 
-	if f.maxWriteSize > 0 && e == nil && atomic.LoadInt64(&f.BytesReceived) > f.maxWriteSize {
+	if f.MaxWriteSize > 0 && e == nil && atomic.LoadInt64(&f.BytesReceived) > f.MaxWriteSize {
 		e = common.ErrQuotaExceeded
 	}
 	if e != nil {
@@ -228,7 +224,7 @@ func (f *webDavFile) Seek(offset int64, whence int) (int64, error) {
 			}
 		}
 
-		_, r, cancelFn, err := f.fs.Open(f.GetFsPath(), startByte)
+		_, r, cancelFn, err := f.Fs.Open(f.GetFsPath(), startByte)
 
 		f.Lock()
 		if err == nil {

@@ -653,8 +653,9 @@ func TestStat(t *testing.T) {
 		err = client.Chmod(testFileName, newPerm)
 		assert.NoError(t, err)
 		newFi, err = client.Lstat(testFileName)
-		assert.NoError(t, err)
-		assert.Equal(t, newPerm, newFi.Mode().Perm())
+		if assert.NoError(t, err) {
+			assert.Equal(t, newPerm, newFi.Mode().Perm())
+		}
 		_, err = client.ReadLink(testFileName)
 		assert.Error(t, err, "readlink is not supported and must fail")
 		newPerm = os.FileMode(0666)
@@ -2603,6 +2604,182 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+}
+
+func TestTruncateQuotaLimits(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.QuotaSize = 20
+	mappedPath := filepath.Join(os.TempDir(), "mapped")
+	err := os.MkdirAll(mappedPath, os.ModePerm)
+	assert.NoError(t, err)
+	vdirPath := "/vmapped"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: mappedPath,
+		},
+		VirtualPath: vdirPath,
+		QuotaFiles:  10,
+	})
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		data := []byte("test data")
+		f, err := client.OpenFile(testFileName, os.O_WRONLY)
+		if assert.NoError(t, err) {
+			n, err := f.Write(data)
+			assert.NoError(t, err)
+			assert.Equal(t, len(data), n)
+			err = f.Truncate(2)
+			assert.NoError(t, err)
+			expectedQuotaFiles := 0
+			expectedQuotaSize := int64(2)
+			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
+			assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
+			n, err = f.Write(data)
+			assert.NoError(t, err)
+			assert.Equal(t, len(data), n)
+			err = f.Truncate(5)
+			assert.NoError(t, err)
+			expectedQuotaSize = int64(5)
+			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
+			assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
+			n, err = f.Write(data)
+			assert.NoError(t, err)
+			assert.Equal(t, len(data), n)
+			err = f.Close()
+			assert.NoError(t, err)
+			expectedQuotaFiles = 1
+			expectedQuotaSize = int64(5) + int64(len(data))
+			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
+			assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
+		}
+		// now truncate by path
+		err = client.Truncate(testFileName, 5)
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, int64(5), user.UsedQuotaSize)
+		// now open an existing file without truncate it, quota should not change
+		f, err = client.OpenFile(testFileName, os.O_WRONLY)
+		if assert.NoError(t, err) {
+			err = f.Close()
+			assert.NoError(t, err)
+			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, 1, user.UsedQuotaFiles)
+			assert.Equal(t, int64(5), user.UsedQuotaSize)
+		}
+		// open the file truncating it
+		f, err = client.OpenFile(testFileName, os.O_WRONLY|os.O_TRUNC)
+		if assert.NoError(t, err) {
+			err = f.Close()
+			assert.NoError(t, err)
+			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, 1, user.UsedQuotaFiles)
+			assert.Equal(t, int64(0), user.UsedQuotaSize)
+		}
+		// now test max write size
+		f, err = client.OpenFile(testFileName, os.O_WRONLY)
+		if assert.NoError(t, err) {
+			n, err := f.Write(data)
+			assert.NoError(t, err)
+			assert.Equal(t, len(data), n)
+			err = f.Truncate(11)
+			assert.NoError(t, err)
+			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, 1, user.UsedQuotaFiles)
+			assert.Equal(t, int64(11), user.UsedQuotaSize)
+			n, err = f.Write(data)
+			assert.NoError(t, err)
+			assert.Equal(t, len(data), n)
+			err = f.Truncate(5)
+			assert.NoError(t, err)
+			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, 1, user.UsedQuotaFiles)
+			assert.Equal(t, int64(5), user.UsedQuotaSize)
+			n, err = f.Write(data)
+			assert.NoError(t, err)
+			assert.Equal(t, len(data), n)
+			err = f.Truncate(12)
+			assert.NoError(t, err)
+			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, 1, user.UsedQuotaFiles)
+			assert.Equal(t, int64(12), user.UsedQuotaSize)
+			_, err = f.Write(data)
+			if assert.Error(t, err) {
+				assert.Contains(t, err.Error(), common.ErrQuotaExceeded.Error())
+			}
+			err = f.Close()
+			assert.Error(t, err)
+			// the file is deleted
+			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, 0, user.UsedQuotaFiles)
+			assert.Equal(t, int64(0), user.UsedQuotaSize)
+		}
+
+		// basic test inside a virtual folder
+		vfileName := path.Join(vdirPath, testFileName)
+		f, err = client.OpenFile(vfileName, os.O_WRONLY)
+		if assert.NoError(t, err) {
+			n, err := f.Write(data)
+			assert.NoError(t, err)
+			assert.Equal(t, len(data), n)
+			err = f.Truncate(2)
+			assert.NoError(t, err)
+			expectedQuotaFiles := 0
+			expectedQuotaSize := int64(2)
+			folder, _, err := httpd.GetFolders(0, 0, mappedPath, http.StatusOK)
+			assert.NoError(t, err)
+			if assert.Len(t, folder, 1) {
+				fold := folder[0]
+				assert.Equal(t, expectedQuotaSize, fold.UsedQuotaSize)
+				assert.Equal(t, expectedQuotaFiles, fold.UsedQuotaFiles)
+			}
+			err = f.Close()
+			assert.NoError(t, err)
+			expectedQuotaFiles = 1
+			folder, _, err = httpd.GetFolders(0, 0, mappedPath, http.StatusOK)
+			assert.NoError(t, err)
+			if assert.Len(t, folder, 1) {
+				fold := folder[0]
+				assert.Equal(t, expectedQuotaSize, fold.UsedQuotaSize)
+				assert.Equal(t, expectedQuotaFiles, fold.UsedQuotaFiles)
+			}
+		}
+		err = client.Truncate(vfileName, 1)
+		assert.NoError(t, err)
+		folder, _, err := httpd.GetFolders(0, 0, mappedPath, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, folder, 1) {
+			fold := folder[0]
+			assert.Equal(t, int64(1), fold.UsedQuotaSize)
+			assert.Equal(t, 1, fold.UsedQuotaFiles)
+		}
+	}
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
 	assert.NoError(t, err)
 }
 

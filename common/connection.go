@@ -172,18 +172,18 @@ func (c *BaseConnection) SignalTransfersAbort() error {
 	return nil
 }
 
-func (c *BaseConnection) truncateOpenHandle(fsPath string, size int64) error {
+func (c *BaseConnection) truncateOpenHandle(fsPath string, size int64) (int64, error) {
 	c.RLock()
 	defer c.RUnlock()
 
 	for _, t := range c.activeTransfers {
-		err := t.Truncate(fsPath, size)
+		initialSize, err := t.Truncate(fsPath, size)
 		if err != errTransferMismatch {
-			return err
+			return initialSize, err
 		}
 	}
 
-	return errNoTransfer
+	return 0, errNoTransfer
 }
 
 // ListDir reads the directory named by fsPath and returns a list of directory entries
@@ -481,7 +481,7 @@ func (c *BaseConnection) SetStat(fsPath, virtualPath string, attributes *StatAtt
 			return c.GetPermissionDeniedError()
 		}
 
-		if err := c.truncateFile(fsPath, attributes.Size); err != nil {
+		if err := c.truncateFile(fsPath, virtualPath, attributes.Size); err != nil {
 			c.Log(logger.LevelWarn, "failed to truncate path %#v, size: %v, err: %+v", fsPath, attributes.Size, err)
 			return c.GetFsError(err)
 		}
@@ -491,16 +491,33 @@ func (c *BaseConnection) SetStat(fsPath, virtualPath string, attributes *StatAtt
 	return nil
 }
 
-func (c *BaseConnection) truncateFile(fsPath string, size int64) error {
+func (c *BaseConnection) truncateFile(fsPath, virtualPath string, size int64) error {
 	// check first if we have an open transfer for the given path and try to truncate the file already opened
 	// if we found no transfer we truncate by path.
-	// pkg/sftp should expose an optional interface and call truncate directly on the opened handle ...
-	// If we try to truncate by path an already opened file we get an error on Windows
+	var initialSize int64
 	var err error
-	err = c.truncateOpenHandle(fsPath, size)
+	initialSize, err = c.truncateOpenHandle(fsPath, size)
 	if err == errNoTransfer {
 		c.Log(logger.LevelDebug, "file path %#v not found in active transfers, execute trucate by path", fsPath)
+		var info os.FileInfo
+		info, err = c.Fs.Stat(fsPath)
+		if err != nil {
+			return err
+		}
+		initialSize = info.Size()
 		err = c.Fs.Truncate(fsPath, size)
+	}
+	if err == nil && vfs.IsLocalOsFs(c.Fs) {
+		sizeDiff := initialSize - size
+		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(virtualPath))
+		if err == nil {
+			dataprovider.UpdateVirtualFolderQuota(vfolder.BaseVirtualFolder, 0, -sizeDiff, false) //nolint:errcheck
+			if vfolder.IsIncludedInUserQuota() {
+				dataprovider.UpdateUserQuota(c.User, 0, -sizeDiff, false) //nolint:errcheck
+			}
+		} else {
+			dataprovider.UpdateUserQuota(c.User, 0, -sizeDiff, false) //nolint:errcheck
+		}
 	}
 	return err
 }

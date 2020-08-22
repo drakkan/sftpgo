@@ -26,14 +26,12 @@ type readerAtCloser interface {
 // It implements the io.ReaderAt and io.WriterAt interfaces to handle SFTP downloads and uploads
 type transfer struct {
 	*common.BaseTransfer
-	writerAt     writerAtCloser
-	readerAt     readerAtCloser
-	isFinished   bool
-	maxWriteSize int64
+	writerAt   writerAtCloser
+	readerAt   readerAtCloser
+	isFinished bool
 }
 
-func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *pipeat.PipeReaderAt,
-	maxWriteSize int64) *transfer {
+func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *pipeat.PipeReaderAt) *transfer {
 	var writer writerAtCloser
 	var reader readerAtCloser
 	if baseTransfer.File != nil {
@@ -49,7 +47,6 @@ func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, 
 		writerAt:     writer,
 		readerAt:     reader,
 		isFinished:   false,
-		maxWriteSize: maxWriteSize,
 	}
 }
 
@@ -86,7 +83,7 @@ func (t *transfer) WriteAt(p []byte, off int64) (n int, err error) {
 	written, e = t.writerAt.WriteAt(p, off)
 	atomic.AddInt64(&t.BytesReceived, int64(written))
 
-	if t.maxWriteSize > 0 && e == nil && atomic.LoadInt64(&t.BytesReceived) > t.maxWriteSize {
+	if t.MaxWriteSize > 0 && e == nil && atomic.LoadInt64(&t.BytesReceived) > t.MaxWriteSize {
 		e = common.ErrQuotaExceeded
 	}
 	if e != nil {
@@ -151,7 +148,7 @@ func (t *transfer) copyFromReaderToWriter(dst io.Writer, src io.Reader) (int64, 
 	var written int64
 	var err error
 
-	if t.maxWriteSize < 0 {
+	if t.MaxWriteSize < 0 {
 		return 0, common.ErrQuotaExceeded
 	}
 	isDownload := t.GetType() == common.TransferDownload
@@ -168,7 +165,7 @@ func (t *transfer) copyFromReaderToWriter(dst io.Writer, src io.Reader) (int64, 
 				} else {
 					atomic.StoreInt64(&t.BytesReceived, written)
 				}
-				if t.maxWriteSize > 0 && written > t.maxWriteSize {
+				if t.MaxWriteSize > 0 && written > t.MaxWriteSize {
 					err = common.ErrQuotaExceeded
 					break
 				}

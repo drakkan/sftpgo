@@ -18,12 +18,11 @@ type transfer struct {
 	writer         io.WriteCloser
 	reader         io.ReadCloser
 	isFinished     bool
-	maxWriteSize   int64
 	expectedOffset int64
 }
 
 func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *pipeat.PipeReaderAt,
-	maxWriteSize, expectedOffset int64) *transfer {
+	expectedOffset int64) *transfer {
 	var writer io.WriteCloser
 	var reader io.ReadCloser
 	if baseTransfer.File != nil {
@@ -39,7 +38,6 @@ func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, 
 		writer:         writer,
 		reader:         reader,
 		isFinished:     false,
-		maxWriteSize:   maxWriteSize,
 		expectedOffset: expectedOffset,
 	}
 }
@@ -70,7 +68,7 @@ func (t *transfer) Write(p []byte) (n int, err error) {
 	written, e = t.writer.Write(p)
 	atomic.AddInt64(&t.BytesReceived, int64(written))
 
-	if t.maxWriteSize > 0 && e == nil && atomic.LoadInt64(&t.BytesReceived) > t.maxWriteSize {
+	if t.MaxWriteSize > 0 && e == nil && atomic.LoadInt64(&t.BytesReceived) > t.MaxWriteSize {
 		e = common.ErrQuotaExceeded
 	}
 	if e != nil {

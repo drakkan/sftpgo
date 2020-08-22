@@ -172,9 +172,9 @@ func (c *Connection) getFile(fsPath, virtualPath string, info os.FileInfo) (webd
 			}
 		}
 		baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, nil, fsPath, virtualPath, common.TransferDownload,
-			0, 0, false)
+			0, 0, 0, false, c.Fs)
 
-		return newWebDavFile(baseTransfer, nil, nil, 0, info, c.Fs), nil
+		return newWebDavFile(baseTransfer, nil, nil, info), nil
 	}
 
 	// we don't know if the file will be downloaded or opened for get properties so we check both permissions
@@ -202,9 +202,9 @@ func (c *Connection) getFile(fsPath, virtualPath string, info os.FileInfo) (webd
 	}
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, fsPath, virtualPath, common.TransferDownload,
-		0, 0, false)
+		0, 0, 0, false, c.Fs)
 
-	return newWebDavFile(baseTransfer, nil, r, 0, info, c.Fs), nil
+	return newWebDavFile(baseTransfer, nil, r, info), nil
 }
 
 func (c *Connection) putFile(fsPath, virtualPath string) (webdav.File, error) {
@@ -262,9 +262,9 @@ func (c *Connection) handleUploadToNewFile(resolvedPath, filePath, requestPath s
 	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, 0)
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
-		common.TransferUpload, 0, 0, true)
+		common.TransferUpload, 0, 0, maxWriteSize, true, c.Fs)
 
-	return newWebDavFile(baseTransfer, w, nil, maxWriteSize, nil, c.Fs), nil
+	return newWebDavFile(baseTransfer, w, nil, nil), nil
 }
 
 func (c *Connection) handleUploadToExistingFile(resolvedPath, filePath string, fileSize int64,
@@ -312,9 +312,9 @@ func (c *Connection) handleUploadToExistingFile(resolvedPath, filePath string, f
 	vfs.SetPathPermissions(c.Fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
-		common.TransferUpload, 0, initialSize, false)
+		common.TransferUpload, 0, initialSize, maxWriteSize, false, c.Fs)
 
-	return newWebDavFile(baseTransfer, w, nil, maxWriteSize, nil, c.Fs), nil
+	return newWebDavFile(baseTransfer, w, nil, nil), nil
 }
 
 type objectMapping struct {

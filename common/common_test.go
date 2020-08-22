@@ -19,6 +19,7 @@ import (
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 const (
@@ -267,13 +268,14 @@ func TestConnectionStatus(t *testing.T) {
 	user := dataprovider.User{
 		Username: username,
 	}
-	c1 := NewBaseConnection("id1", ProtocolSFTP, user, nil)
+	fs := vfs.NewOsFs("", os.TempDir(), nil)
+	c1 := NewBaseConnection("id1", ProtocolSFTP, user, fs)
 	fakeConn1 := &fakeConnection{
 		BaseConnection: c1,
 	}
-	t1 := NewBaseTransfer(nil, c1, nil, "/p1", "/r1", TransferUpload, 0, 0, true)
+	t1 := NewBaseTransfer(nil, c1, nil, "/p1", "/r1", TransferUpload, 0, 0, 0, true, fs)
 	t1.BytesReceived = 123
-	t2 := NewBaseTransfer(nil, c1, nil, "/p2", "/r2", TransferDownload, 0, 0, true)
+	t2 := NewBaseTransfer(nil, c1, nil, "/p2", "/r2", TransferDownload, 0, 0, 0, true, fs)
 	t2.BytesSent = 456
 	c2 := NewBaseConnection("id2", ProtocolSSH, user, nil)
 	fakeConn2 := &fakeConnection{
@@ -285,7 +287,7 @@ func TestConnectionStatus(t *testing.T) {
 		BaseConnection: c3,
 		command:        "PROPFIND",
 	}
-	t3 := NewBaseTransfer(nil, c3, nil, "/p2", "/r2", TransferDownload, 0, 0, true)
+	t3 := NewBaseTransfer(nil, c3, nil, "/p2", "/r2", TransferDownload, 0, 0, 0, true, fs)
 	Connections.Add(fakeConn1)
 	Connections.Add(fakeConn2)
 	Connections.Add(fakeConn3)

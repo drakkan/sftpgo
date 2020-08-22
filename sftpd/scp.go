@@ -226,8 +226,8 @@ func (c *scpCommand) handleUploadFile(resolvedPath, filePath string, sizeToRead 
 	vfs.SetPathPermissions(c.connection.Fs, filePath, c.connection.User.GetUID(), c.connection.User.GetGID())
 
 	baseTransfer := common.NewBaseTransfer(file, c.connection.BaseConnection, cancelFn, resolvedPath, requestPath,
-		common.TransferUpload, 0, initialSize, isNewFile)
-	t := newTransfer(baseTransfer, w, nil, maxWriteSize)
+		common.TransferUpload, 0, initialSize, maxWriteSize, isNewFile, c.connection.Fs)
+	t := newTransfer(baseTransfer, w, nil)
 
 	return c.getUploadFileData(sizeToRead, t)
 }
@@ -484,8 +484,8 @@ func (c *scpCommand) handleDownload(filePath string) error {
 	}
 
 	baseTransfer := common.NewBaseTransfer(file, c.connection.BaseConnection, cancelFn, p, filePath,
-		common.TransferDownload, 0, 0, false)
-	t := newTransfer(baseTransfer, nil, r, 0)
+		common.TransferDownload, 0, 0, 0, false, c.connection.Fs)
+	t := newTransfer(baseTransfer, nil, r)
 
 	err = c.sendDownloadFileData(p, stat, t)
 	// we need to call Close anyway and return close error if any and

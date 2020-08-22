@@ -158,8 +158,8 @@ func TestUploadResumeInvalidOffset(t *testing.T) {
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), nil)
 	conn := common.NewBaseConnection("", common.ProtocolSFTP, user, fs)
-	baseTransfer := common.NewBaseTransfer(file, conn, nil, file.Name(), testfile, common.TransferUpload, 10, 0, false)
-	transfer := newTransfer(baseTransfer, nil, nil, 0)
+	baseTransfer := common.NewBaseTransfer(file, conn, nil, file.Name(), testfile, common.TransferUpload, 10, 0, 0, false, fs)
+	transfer := newTransfer(baseTransfer, nil, nil)
 	_, err = transfer.WriteAt([]byte("test"), 0)
 	assert.Error(t, err, "upload with invalid offset must fail")
 	if assert.Error(t, transfer.ErrTransfer) {
@@ -186,8 +186,8 @@ func TestReadWriteErrors(t *testing.T) {
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), nil)
 	conn := common.NewBaseConnection("", common.ProtocolSFTP, user, fs)
-	baseTransfer := common.NewBaseTransfer(file, conn, nil, file.Name(), testfile, common.TransferDownload, 0, 0, false)
-	transfer := newTransfer(baseTransfer, nil, nil, 0)
+	baseTransfer := common.NewBaseTransfer(file, conn, nil, file.Name(), testfile, common.TransferDownload, 0, 0, 0, false, fs)
+	transfer := newTransfer(baseTransfer, nil, nil)
 	err = file.Close()
 	assert.NoError(t, err)
 	_, err = transfer.WriteAt([]byte("test"), 0)
@@ -200,8 +200,8 @@ func TestReadWriteErrors(t *testing.T) {
 
 	r, _, err := pipeat.Pipe()
 	assert.NoError(t, err)
-	baseTransfer = common.NewBaseTransfer(nil, conn, nil, file.Name(), testfile, common.TransferDownload, 0, 0, false)
-	transfer = newTransfer(baseTransfer, nil, r, 0)
+	baseTransfer = common.NewBaseTransfer(nil, conn, nil, file.Name(), testfile, common.TransferDownload, 0, 0, 0, false, fs)
+	transfer = newTransfer(baseTransfer, nil, r)
 	err = transfer.closeIO()
 	assert.NoError(t, err)
 	_, err = transfer.ReadAt(buf, 0)
@@ -210,8 +210,8 @@ func TestReadWriteErrors(t *testing.T) {
 	r, w, err := pipeat.Pipe()
 	assert.NoError(t, err)
 	pipeWriter := vfs.NewPipeWriter(w)
-	baseTransfer = common.NewBaseTransfer(nil, conn, nil, file.Name(), testfile, common.TransferDownload, 0, 0, false)
-	transfer = newTransfer(baseTransfer, pipeWriter, nil, 0)
+	baseTransfer = common.NewBaseTransfer(nil, conn, nil, file.Name(), testfile, common.TransferDownload, 0, 0, 0, false, fs)
+	transfer = newTransfer(baseTransfer, pipeWriter, nil)
 
 	err = r.Close()
 	assert.NoError(t, err)
@@ -242,8 +242,8 @@ func TestTransferCancelFn(t *testing.T) {
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), nil)
 	conn := common.NewBaseConnection("", common.ProtocolSFTP, user, fs)
-	baseTransfer := common.NewBaseTransfer(file, conn, cancelFn, file.Name(), testfile, common.TransferDownload, 0, 0, false)
-	transfer := newTransfer(baseTransfer, nil, nil, 0)
+	baseTransfer := common.NewBaseTransfer(file, conn, cancelFn, file.Name(), testfile, common.TransferDownload, 0, 0, 0, false, fs)
+	transfer := newTransfer(baseTransfer, nil, nil)
 
 	errFake := errors.New("fake error, this will trigger cancelFn")
 	transfer.TransferError(errFake)
@@ -978,8 +978,8 @@ func TestSystemCommandErrors(t *testing.T) {
 	}
 	sshCmd.connection.channel = &mockSSHChannel
 	baseTransfer := common.NewBaseTransfer(nil, sshCmd.connection.BaseConnection, nil, "", "", common.TransferDownload,
-		0, 0, false)
-	transfer := newTransfer(baseTransfer, nil, nil, 0)
+		0, 0, 0, false, fs)
+	transfer := newTransfer(baseTransfer, nil, nil)
 	destBuff := make([]byte, 65535)
 	dst := bytes.NewBuffer(destBuff)
 	_, err = transfer.copyFromReaderToWriter(dst, sshCmd.connection.channel)
@@ -992,7 +992,7 @@ func TestSystemCommandErrors(t *testing.T) {
 		WriteError:   nil,
 	}
 	sshCmd.connection.channel = &mockSSHChannel
-	transfer.maxWriteSize = 1
+	transfer.MaxWriteSize = 1
 	_, err = transfer.copyFromReaderToWriter(dst, sshCmd.connection.channel)
 	assert.EqualError(t, err, common.ErrQuotaExceeded.Error())
 
@@ -1006,7 +1006,7 @@ func TestSystemCommandErrors(t *testing.T) {
 	sshCmd.connection.channel = &mockSSHChannel
 	_, err = transfer.copyFromReaderToWriter(sshCmd.connection.channel, dst)
 	assert.EqualError(t, err, io.ErrShortWrite.Error())
-	transfer.maxWriteSize = -1
+	transfer.MaxWriteSize = -1
 	_, err = transfer.copyFromReaderToWriter(sshCmd.connection.channel, dst)
 	assert.EqualError(t, err, common.ErrQuotaExceeded.Error())
 	err = os.RemoveAll(homeDir)
@@ -1530,8 +1530,8 @@ func TestSCPUploadFiledata(t *testing.T) {
 	assert.NoError(t, err)
 
 	baseTransfer := common.NewBaseTransfer(file, scpCommand.connection.BaseConnection, nil, file.Name(),
-		"/"+testfile, common.TransferDownload, 0, 0, true)
-	transfer := newTransfer(baseTransfer, nil, nil, 0)
+		"/"+testfile, common.TransferDownload, 0, 0, 0, true, fs)
+	transfer := newTransfer(baseTransfer, nil, nil)
 
 	err = scpCommand.getUploadFileData(2, transfer)
 	assert.Error(t, err, "upload must fail, we send a fake write error message")
@@ -1563,7 +1563,7 @@ func TestSCPUploadFiledata(t *testing.T) {
 	file, err = os.Create(testfile)
 	assert.NoError(t, err)
 	baseTransfer.File = file
-	transfer = newTransfer(baseTransfer, nil, nil, 0)
+	transfer = newTransfer(baseTransfer, nil, nil)
 	transfer.Connection.AddTransfer(transfer)
 	err = scpCommand.getUploadFileData(2, transfer)
 	assert.Error(t, err, "upload must fail, we have not enough data to read")
@@ -1614,8 +1614,8 @@ func TestUploadError(t *testing.T) {
 	file, err := os.Create(fileTempName)
 	assert.NoError(t, err)
 	baseTransfer := common.NewBaseTransfer(file, connection.BaseConnection, nil, testfile,
-		testfile, common.TransferUpload, 0, 0, true)
-	transfer := newTransfer(baseTransfer, nil, nil, 0)
+		testfile, common.TransferUpload, 0, 0, 0, true, fs)
+	transfer := newTransfer(baseTransfer, nil, nil)
 
 	errFake := errors.New("fake error")
 	transfer.TransferError(errFake)

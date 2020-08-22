@@ -292,8 +292,8 @@ func (c *Connection) downloadFile(fsPath, ftpPath string, offset int64) (ftpserv
 	}
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, fsPath, ftpPath, common.TransferDownload,
-		0, 0, false)
-	t := newTransfer(baseTransfer, nil, r, 0, offset)
+		0, 0, 0, false, c.Fs)
+	t := newTransfer(baseTransfer, nil, r, offset)
 
 	return t, nil
 }
@@ -353,8 +353,8 @@ func (c *Connection) handleFTPUploadToNewFile(resolvedPath, filePath, requestPat
 	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, 0)
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
-		common.TransferUpload, 0, 0, true)
-	t := newTransfer(baseTransfer, w, nil, maxWriteSize, 0)
+		common.TransferUpload, 0, 0, maxWriteSize, true, c.Fs)
+	t := newTransfer(baseTransfer, w, nil, 0)
 
 	return t, nil
 }
@@ -396,6 +396,7 @@ func (c *Connection) handleFTPUploadToExistingFile(flags int, resolvedPath, file
 	if isResume {
 		c.Log(logger.LevelDebug, "upload resume requested, file path: %#v initial size: %v", filePath, fileSize)
 		minWriteOffset = fileSize
+		initialSize = fileSize
 	} else {
 		if vfs.IsLocalOsFs(c.Fs) {
 			vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
@@ -415,8 +416,8 @@ func (c *Connection) handleFTPUploadToExistingFile(flags int, resolvedPath, file
 	vfs.SetPathPermissions(c.Fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
-		common.TransferUpload, minWriteOffset, initialSize, false)
-	t := newTransfer(baseTransfer, w, nil, maxWriteSize, 0)
+		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, false, c.Fs)
+	t := newTransfer(baseTransfer, w, nil, 0)
 
 	return t, nil
 }

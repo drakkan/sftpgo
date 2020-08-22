@@ -73,8 +73,8 @@ func (c *Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 	}
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, p, request.Filepath, common.TransferDownload,
-		0, 0, false)
-	t := newTransfer(baseTransfer, nil, r, 0)
+		0, 0, 0, false, c.Fs)
+	t := newTransfer(baseTransfer, nil, r)
 
 	return t, nil
 }
@@ -274,8 +274,8 @@ func (c *Connection) handleSFTPUploadToNewFile(resolvedPath, filePath, requestPa
 	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, 0)
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
-		common.TransferUpload, 0, 0, true)
-	t := newTransfer(baseTransfer, w, nil, maxWriteSize)
+		common.TransferUpload, 0, 0, maxWriteSize, true, c.Fs)
+	t := newTransfer(baseTransfer, w, nil)
 
 	return t, nil
 }
@@ -291,10 +291,12 @@ func (c *Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, r
 
 	minWriteOffset := int64(0)
 	osFlags := getOSOpenFlags(pflags)
-	isResume := pflags.Append && osFlags&os.O_TRUNC == 0
+	isTruncate := osFlags&os.O_TRUNC != 0
+	isResume := pflags.Append && !isTruncate
 
-	// if there is a size limit remaining size cannot be 0 here, since quotaResult.HasSpace
-	// will return false in this case and we deny the upload before
+	// if there is a size limit the remaining size cannot be 0 here, since quotaResult.HasSpace
+	// will return false in this case and we deny the upload before.
+	// For Cloud FS GetMaxWriteSize will return unsupported operation
 	maxWriteSize, err := c.GetMaxWriteSize(quotaResult, isResume, fileSize)
 	if err != nil {
 		c.Log(logger.LevelDebug, "unable to get max write size: %v", err)
@@ -320,8 +322,9 @@ func (c *Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, r
 	if isResume {
 		c.Log(logger.LevelDebug, "upload resume requested, file path %#v initial size: %v", filePath, fileSize)
 		minWriteOffset = fileSize
+		initialSize = fileSize
 	} else {
-		if vfs.IsLocalOsFs(c.Fs) {
+		if vfs.IsLocalOsFs(c.Fs) && isTruncate {
 			vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 			if err == nil {
 				dataprovider.UpdateVirtualFolderQuota(vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck
@@ -334,7 +337,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, r
 		} else {
 			initialSize = fileSize
 		}
-		if maxWriteSize > 0 {
+		if maxWriteSize > 0 && isTruncate {
 			maxWriteSize += fileSize
 		}
 	}
@@ -342,8 +345,8 @@ func (c *Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, r
 	vfs.SetPathPermissions(c.Fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
-		common.TransferUpload, minWriteOffset, initialSize, false)
-	t := newTransfer(baseTransfer, w, nil, maxWriteSize)
+		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, false, c.Fs)
+	t := newTransfer(baseTransfer, w, nil)
 
 	return t, nil
 }

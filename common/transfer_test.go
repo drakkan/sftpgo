@@ -20,10 +20,11 @@ func TestTransferUpdateQuota(t *testing.T) {
 		Connection:    conn,
 		transferType:  TransferUpload,
 		BytesReceived: 123,
+		Fs:            vfs.NewOsFs("", os.TempDir(), nil),
 	}
 	errFake := errors.New("fake error")
 	transfer.TransferError(errFake)
-	assert.False(t, transfer.updateQuota(1))
+	assert.False(t, transfer.updateQuota(1, 0))
 	err := transfer.Close()
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, errFake.Error())
@@ -41,7 +42,7 @@ func TestTransferUpdateQuota(t *testing.T) {
 	transfer.ErrTransfer = nil
 	transfer.BytesReceived = 1
 	transfer.requestPath = "/vdir/file"
-	assert.True(t, transfer.updateQuota(1))
+	assert.True(t, transfer.updateQuota(1, 0))
 	err = transfer.Close()
 	assert.NoError(t, err)
 }
@@ -52,6 +53,7 @@ func TestTransferThrottling(t *testing.T) {
 		UploadBandwidth:   50,
 		DownloadBandwidth: 40,
 	}
+	fs := vfs.NewOsFs("", os.TempDir(), nil)
 	testFileSize := int64(131072)
 	wantedUploadElapsed := 1000 * (testFileSize / 1000) / u.UploadBandwidth
 	wantedDownloadElapsed := 1000 * (testFileSize / 1000) / u.DownloadBandwidth
@@ -59,7 +61,7 @@ func TestTransferThrottling(t *testing.T) {
 	wantedUploadElapsed -= wantedDownloadElapsed / 10
 	wantedDownloadElapsed -= wantedDownloadElapsed / 10
 	conn := NewBaseConnection("id", ProtocolSCP, u, nil)
-	transfer := NewBaseTransfer(nil, conn, nil, "", "", TransferUpload, 0, 0, true)
+	transfer := NewBaseTransfer(nil, conn, nil, "", "", TransferUpload, 0, 0, 0, true, fs)
 	transfer.BytesReceived = testFileSize
 	transfer.Connection.UpdateLastActivity()
 	startTime := transfer.Connection.GetLastActivity()
@@ -69,7 +71,7 @@ func TestTransferThrottling(t *testing.T) {
 	err := transfer.Close()
 	assert.NoError(t, err)
 
-	transfer = NewBaseTransfer(nil, conn, nil, "", "", TransferDownload, 0, 0, true)
+	transfer = NewBaseTransfer(nil, conn, nil, "", "", TransferDownload, 0, 0, 0, true, fs)
 	transfer.BytesSent = testFileSize
 	transfer.Connection.UpdateLastActivity()
 	startTime = transfer.Connection.GetLastActivity()
@@ -97,13 +99,14 @@ func TestTruncate(t *testing.T) {
 	_, err = file.Write([]byte("hello"))
 	assert.NoError(t, err)
 	conn := NewBaseConnection(fs.ConnectionID(), ProtocolSFTP, u, fs)
-	transfer := NewBaseTransfer(file, conn, nil, testFile, "/transfer_test_file", TransferUpload, 0, 0, true)
+	transfer := NewBaseTransfer(file, conn, nil, testFile, "/transfer_test_file", TransferUpload, 0, 0, 100, true, fs)
 
 	err = conn.SetStat(testFile, "/transfer_test_file", &StatAttributes{
 		Size:  2,
 		Flags: StatAttrSize,
 	})
 	assert.NoError(t, err)
+	assert.Equal(t, int64(98), transfer.MaxWriteSize)
 	err = transfer.Close()
 	assert.NoError(t, err)
 	err = file.Close()
@@ -113,12 +116,22 @@ func TestTruncate(t *testing.T) {
 		assert.Equal(t, int64(2), fi.Size())
 	}
 
-	transfer = NewBaseTransfer(nil, conn, nil, testFile, "", TransferUpload, 0, 0, true)
-	err = transfer.Truncate("mismatch", 0)
-	assert.EqualError(t, err, errTransferMismatch.Error())
-	err = transfer.Truncate(testFile, 0)
+	transfer = NewBaseTransfer(file, conn, nil, testFile, "/transfer_test_file", TransferUpload, 0, 0, 100, true, fs)
+	// file.Stat will fail on a closed file
+	err = conn.SetStat(testFile, "/transfer_test_file", &StatAttributes{
+		Size:  2,
+		Flags: StatAttrSize,
+	})
+	assert.Error(t, err)
+	err = transfer.Close()
 	assert.NoError(t, err)
-	err = transfer.Truncate(testFile, 1)
+
+	transfer = NewBaseTransfer(nil, conn, nil, testFile, "", TransferUpload, 0, 0, 0, true, fs)
+	_, err = transfer.Truncate("mismatch", 0)
+	assert.EqualError(t, err, errTransferMismatch.Error())
+	_, err = transfer.Truncate(testFile, 0)
+	assert.NoError(t, err)
+	_, err = transfer.Truncate(testFile, 1)
 	assert.EqualError(t, err, ErrOpUnsupported.Error())
 
 	err = transfer.Close()
@@ -148,7 +161,7 @@ func TestTransferErrors(t *testing.T) {
 		assert.FailNow(t, "unable to open test file")
 	}
 	conn := NewBaseConnection("id", ProtocolSFTP, u, fs)
-	transfer := NewBaseTransfer(file, conn, nil, testFile, "/transfer_test_file", TransferUpload, 0, 0, true)
+	transfer := NewBaseTransfer(file, conn, nil, testFile, "/transfer_test_file", TransferUpload, 0, 0, 0, true, fs)
 	assert.Nil(t, transfer.cancelFn)
 	assert.Equal(t, testFile, transfer.GetFsPath())
 	transfer.SetCancelFn(cancelFn)
@@ -174,7 +187,7 @@ func TestTransferErrors(t *testing.T) {
 		assert.FailNow(t, "unable to open test file")
 	}
 	fsPath := filepath.Join(os.TempDir(), "test_file")
-	transfer = NewBaseTransfer(file, conn, nil, fsPath, "/test_file", TransferUpload, 0, 0, true)
+	transfer = NewBaseTransfer(file, conn, nil, fsPath, "/test_file", TransferUpload, 0, 0, 0, true, fs)
 	transfer.BytesReceived = 9
 	transfer.TransferError(errFake)
 	assert.Error(t, transfer.ErrTransfer, errFake.Error())
@@ -193,7 +206,7 @@ func TestTransferErrors(t *testing.T) {
 	if !assert.NoError(t, err) {
 		assert.FailNow(t, "unable to open test file")
 	}
-	transfer = NewBaseTransfer(file, conn, nil, fsPath, "/test_file", TransferUpload, 0, 0, true)
+	transfer = NewBaseTransfer(file, conn, nil, fsPath, "/test_file", TransferUpload, 0, 0, 0, true, fs)
 	transfer.BytesReceived = 9
 	// the file is closed from the embedding struct before to call close
 	err = file.Close()
