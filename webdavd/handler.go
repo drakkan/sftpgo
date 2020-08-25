@@ -105,9 +105,9 @@ func (c *Connection) Stat(ctx context.Context, name string) (os.FileInfo, error)
 	if err != nil {
 		return nil, c.GetFsError(err)
 	}
-	fi, err := c.Fs.Stat(p)
+	fi, err := c.DoStat(p, 0)
 	if err != nil {
-		c.Log(logger.LevelWarn, "error running stat on path %#v: %+v", p, err)
+		c.Log(logger.LevelDebug, "error running stat on path %#v: %+v", p, err)
 		return nil, c.GetFsError(err)
 	}
 	return fi, err

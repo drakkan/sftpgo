@@ -440,6 +440,14 @@ func (c *BaseConnection) getPathForSetStatPerms(fsPath, virtualPath string) stri
 	return pathForPerms
 }
 
+// DoStat execute a Stat if mode = 0, Lstat if mode = 1
+func (c *BaseConnection) DoStat(fsPath string, mode int) (os.FileInfo, error) {
+	if mode == 1 {
+		return c.Fs.Lstat(c.getRealFsPath(fsPath))
+	}
+	return c.Fs.Stat(c.getRealFsPath(fsPath))
+}
+
 // SetStat set StatAttributes for the specified fsPath
 func (c *BaseConnection) SetStat(fsPath, virtualPath string, attributes *StatAttributes) error {
 	if Config.SetstatMode == 1 {

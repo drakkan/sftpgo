@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/sftp"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/vfs"
@@ -432,6 +433,37 @@ func TestCreateSymlink(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
+}
+
+func TestDoStat(t *testing.T) {
+	testFile := filepath.Join(os.TempDir(), "afile.txt")
+	fs := vfs.NewOsFs("123", os.TempDir(), nil)
+	u := dataprovider.User{
+		Username: "user",
+		HomeDir:  os.TempDir(),
+	}
+	u.Permissions = make(map[string][]string)
+	u.Permissions["/"] = []string{dataprovider.PermAny}
+	err := ioutil.WriteFile(testFile, []byte("data"), os.ModePerm)
+	require.NoError(t, err)
+	err = os.Symlink(testFile, testFile+".sym")
+	require.NoError(t, err)
+	conn := NewBaseConnection(fs.ConnectionID(), ProtocolSFTP, u, fs)
+	infoStat, err := conn.DoStat(testFile+".sym", 0)
+	if assert.NoError(t, err) {
+		assert.Equal(t, int64(4), infoStat.Size())
+	}
+	infoLstat, err := conn.DoStat(testFile+".sym", 1)
+	if assert.NoError(t, err) {
+		assert.NotEqual(t, int64(4), infoLstat.Size())
+	}
+	assert.False(t, os.SameFile(infoStat, infoLstat))
+
+	err = os.Remove(testFile)
+	assert.NoError(t, err)
+	err = os.Remove(testFile + ".sym")
+	assert.NoError(t, err)
+	assert.Len(t, conn.GetTransfers(), 0)
 }
 
 func TestSetStat(t *testing.T) {

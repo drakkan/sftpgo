@@ -24,7 +24,7 @@ require (
 	github.com/otiai10/copy v1.2.0
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/pires/go-proxyproto v0.1.3
-	github.com/pkg/sftp v1.11.1-0.20200819110714-3ee8d0ba91c0
+	github.com/pkg/sftp v1.11.1-0.20200825160622-06ab92ee3917
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/common v0.13.0 // indirect
 	github.com/rs/cors v1.7.1-0.20200626170627-8b4a00bd362b
@@ -50,7 +50,6 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20200730125632-b21eac28818c
-	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20200824132209-4da3253ee1d6
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200824205004-9f5ce89c1796
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20200824204746-8b31adf087bf
 )

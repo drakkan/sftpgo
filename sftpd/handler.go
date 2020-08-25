@@ -188,9 +188,9 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 			return nil, sftp.ErrSSHFxPermissionDenied
 		}
 
-		s, err := c.Fs.Stat(p)
+		s, err := c.DoStat(p, 0)
 		if err != nil {
-			c.Log(logger.LevelWarn, "error running stat on path %#v: %+v", p, err)
+			c.Log(logger.LevelDebug, "error running stat on path %#v: %+v", p, err)
 			return nil, c.GetFsError(err)
 		}
 
@@ -202,7 +202,7 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 
 		s, err := c.Fs.Readlink(p)
 		if err != nil {
-			c.Log(logger.LevelWarn, "error running readlink on path %#v: %+v", p, err)
+			c.Log(logger.LevelDebug, "error running readlink on path %#v: %+v", p, err)
 			return nil, c.GetFsError(err)
 		}
 

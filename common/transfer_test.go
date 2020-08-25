@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/vfs"
@@ -93,9 +94,7 @@ func TestRealPath(t *testing.T) {
 	u.Permissions = make(map[string][]string)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
 	file, err := os.Create(testFile)
-	if !assert.NoError(t, err) {
-		assert.FailNow(t, "unable to open test file")
-	}
+	require.NoError(t, err)
 	conn := NewBaseConnection(fs.ConnectionID(), ProtocolSFTP, u, fs)
 	transfer := NewBaseTransfer(file, conn, nil, testFile, "/transfer_test_file", TransferUpload, 0, 0, 0, true, fs)
 	rPath := transfer.GetRealFsPath(testFile)
@@ -111,6 +110,9 @@ func TestRealPath(t *testing.T) {
 	assert.Equal(t, testFile, rPath)
 	rPath = transfer.GetRealFsPath("")
 	assert.Empty(t, rPath)
+	err = os.Remove(testFile)
+	assert.NoError(t, err)
+	assert.Len(t, conn.GetTransfers(), 0)
 }
 
 func TestTruncate(t *testing.T) {
