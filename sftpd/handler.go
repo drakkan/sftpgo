@@ -74,13 +74,22 @@ func (c *Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, p, request.Filepath, common.TransferDownload,
 		0, 0, 0, false, c.Fs)
-	t := newTransfer(baseTransfer, nil, r)
+	t := newTransfer(baseTransfer, nil, r, nil)
 
 	return t, nil
 }
 
+// OpenFile implements OpenFileWriter interface
+func (c *Connection) OpenFile(request *sftp.Request) (sftp.WriterAtReaderAt, error) {
+	return c.handleFilewrite(request)
+}
+
 // Filewrite handles the write actions for a file on the system.
 func (c *Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
+	return c.handleFilewrite(request)
+}
+
+func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReaderAt, error) {
 	c.UpdateLastActivity()
 
 	if !c.User.IsFileAllowed(request.Filepath) {
@@ -98,12 +107,24 @@ func (c *Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 		filePath = c.Fs.GetAtomicUploadPath(p)
 	}
 
+	var errForRead error
+	if !vfs.IsLocalOsFs(c.Fs) && request.Pflags().Read {
+		// read and write mode is only supported for local filesystem
+		errForRead = sftp.ErrSSHFxOpUnsupported
+	}
+	if !c.User.HasPerm(dataprovider.PermDownload, path.Dir(request.Filepath)) {
+		// we can try to read only for local fs here, see above.
+		// os.ErrPermission will become sftp.ErrSSHFxPermissionDenied when sent to
+		// the client
+		errForRead = os.ErrPermission
+	}
+
 	stat, statErr := c.Fs.Lstat(p)
 	if (statErr == nil && stat.Mode()&os.ModeSymlink == os.ModeSymlink) || c.Fs.IsNotExist(statErr) {
 		if !c.User.HasPerm(dataprovider.PermUpload, path.Dir(request.Filepath)) {
 			return nil, sftp.ErrSSHFxPermissionDenied
 		}
-		return c.handleSFTPUploadToNewFile(p, filePath, request.Filepath)
+		return c.handleSFTPUploadToNewFile(p, filePath, request.Filepath, errForRead)
 	}
 
 	if statErr != nil {
@@ -121,7 +142,7 @@ func (c *Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 		return nil, sftp.ErrSSHFxPermissionDenied
 	}
 
-	return c.handleSFTPUploadToExistingFile(request.Pflags(), p, filePath, stat.Size(), request.Filepath)
+	return c.handleSFTPUploadToExistingFile(request.Pflags(), p, filePath, stat.Size(), request.Filepath, errForRead)
 }
 
 // Filecmd hander for basic SFTP system calls related to files, but not anything to do with reading
@@ -272,7 +293,7 @@ func (c *Connection) handleSFTPRemove(filePath string, request *sftp.Request) er
 	return c.RemoveFile(filePath, request.Filepath, fi)
 }
 
-func (c *Connection) handleSFTPUploadToNewFile(resolvedPath, filePath, requestPath string) (io.WriterAt, error) {
+func (c *Connection) handleSFTPUploadToNewFile(resolvedPath, filePath, requestPath string, errForRead error) (sftp.WriterAtReaderAt, error) {
 	quotaResult := c.HasSpace(true, requestPath)
 	if !quotaResult.HasSpace {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
@@ -292,13 +313,13 @@ func (c *Connection) handleSFTPUploadToNewFile(resolvedPath, filePath, requestPa
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
 		common.TransferUpload, 0, 0, maxWriteSize, true, c.Fs)
-	t := newTransfer(baseTransfer, w, nil)
+	t := newTransfer(baseTransfer, w, nil, errForRead)
 
 	return t, nil
 }
 
 func (c *Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, resolvedPath, filePath string,
-	fileSize int64, requestPath string) (io.WriterAt, error) {
+	fileSize int64, requestPath string, errForRead error) (sftp.WriterAtReaderAt, error) {
 	var err error
 	quotaResult := c.HasSpace(false, requestPath)
 	if !quotaResult.HasSpace {
@@ -363,7 +384,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, r
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
 		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, false, c.Fs)
-	t := newTransfer(baseTransfer, w, nil)
+	t := newTransfer(baseTransfer, w, nil, errForRead)
 
 	return t, nil
 }

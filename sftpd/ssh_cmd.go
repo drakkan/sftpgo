@@ -354,7 +354,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 		defer stdin.Close()
 		baseTransfer := common.NewBaseTransfer(nil, c.connection.BaseConnection, nil, command.fsPath, sshDestPath,
 			common.TransferUpload, 0, 0, remainingQuotaSize, false, c.connection.Fs)
-		transfer := newTransfer(baseTransfer, nil, nil)
+		transfer := newTransfer(baseTransfer, nil, nil, nil)
 
 		w, e := transfer.copyFromReaderToWriter(stdin, c.connection.channel)
 		c.connection.Log(logger.LevelDebug, "command: %#v, copy from remote command to sdtin ended, written: %v, "+
@@ -367,7 +367,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	go func() {
 		baseTransfer := common.NewBaseTransfer(nil, c.connection.BaseConnection, nil, command.fsPath, sshDestPath,
 			common.TransferDownload, 0, 0, 0, false, c.connection.Fs)
-		transfer := newTransfer(baseTransfer, nil, nil)
+		transfer := newTransfer(baseTransfer, nil, nil, nil)
 
 		w, e := transfer.copyFromReaderToWriter(c.connection.channel, stdout)
 		c.connection.Log(logger.LevelDebug, "command: %#v, copy from sdtout to remote command ended, written: %v err: %v",
@@ -381,7 +381,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	go func() {
 		baseTransfer := common.NewBaseTransfer(nil, c.connection.BaseConnection, nil, command.fsPath, sshDestPath,
 			common.TransferDownload, 0, 0, 0, false, c.connection.Fs)
-		transfer := newTransfer(baseTransfer, nil, nil)
+		transfer := newTransfer(baseTransfer, nil, nil, nil)
 
 		w, e := transfer.copyFromReaderToWriter(c.connection.channel.Stderr(), stderr)
 		c.connection.Log(logger.LevelDebug, "command: %#v, copy from sdterr to remote command ended, written: %v err: %v",
