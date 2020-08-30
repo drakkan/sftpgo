@@ -172,6 +172,10 @@ func (p MySQLProvider) reloadConfig() error {
 
 // initializeDatabase creates the initial database structure
 func (p MySQLProvider) initializeDatabase() error {
+	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, false)
+	if err == nil && dbVersion.Version > 0 {
+		return ErrNoInitRequired
+	}
 	sqlUsers := strings.Replace(mysqlUsersTableSQL, "{{users}}", sqlTableUsers, 1)
 	tx, err := p.dbHandle.Begin()
 	if err != nil {

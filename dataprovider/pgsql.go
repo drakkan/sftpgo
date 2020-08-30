@@ -171,6 +171,10 @@ func (p PGSQLProvider) reloadConfig() error {
 
 // initializeDatabase creates the initial database structure
 func (p PGSQLProvider) initializeDatabase() error {
+	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, false)
+	if err == nil && dbVersion.Version > 0 {
+		return ErrNoInitRequired
+	}
 	sqlUsers := strings.Replace(pgsqlUsersTableSQL, "{{users}}", sqlTableUsers, 1)
 	tx, err := p.dbHandle.Begin()
 	if err != nil {
