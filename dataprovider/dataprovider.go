@@ -95,11 +95,13 @@ var (
 	// ErrNoAuthTryed defines the error for connection closed before authentication
 	ErrNoAuthTryed = errors.New("no auth tryed")
 	// ValidProtocols defines all the valid protcols
-	ValidProtocols  = []string{"SSH", "FTP", "DAV"}
-	config          Config
-	provider        Provider
-	sqlPlaceholders []string
-	hashPwdPrefixes = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
+	ValidProtocols = []string{"SSH", "FTP", "DAV"}
+	// ErrNoInitRequired defines the error returned by InitProvider if no inizialization is required
+	ErrNoInitRequired = errors.New("Data provider initialization is not required")
+	config            Config
+	provider          Provider
+	sqlPlaceholders   []string
+	hashPwdPrefixes   = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
 		pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix, md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
 	pbkdfPwdPrefixes        = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix}
 	pbkdfPwdB64SaltPrefixes = []string{pbkdf2SHA256B64SaltPrefix}
@@ -108,7 +110,6 @@ var (
 	availabilityTicker      *time.Ticker
 	availabilityTickerDone  chan bool
 	errWrongPassword        = errors.New("password does not match")
-	errNoInitRequired       = errors.New("initialization is not required for this data provider")
 	credentialsDirPath      string
 	sqlTableUsers           = "users"
 	sqlTableFolders         = "folders"
@@ -422,7 +423,7 @@ func InitializeDatabase(cnf Config, basePath string) error {
 	config = cnf
 
 	if config.Driver == BoltDataProviderName || config.Driver == MemoryDataProviderName {
-		return errNoInitRequired
+		return ErrNoInitRequired
 	}
 	err := createProvider(basePath)
 	if err != nil {

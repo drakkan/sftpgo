@@ -667,7 +667,7 @@ func (p MemoryProvider) reloadConfig() error {
 
 // initializeDatabase does nothing, no initilization is needed for memory provider
 func (p MemoryProvider) initializeDatabase() error {
-	return errNoInitRequired
+	return ErrNoInitRequired
 }
 
 func (p MemoryProvider) migrateDatabase() error {

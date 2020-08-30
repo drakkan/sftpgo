@@ -703,7 +703,7 @@ func (p BoltProvider) reloadConfig() error {
 
 // initializeDatabase does nothing, no initilization is needed for bolt provider
 func (p BoltProvider) initializeDatabase() error {
-	return errNoInitRequired
+	return ErrNoInitRequired
 }
 
 func (p BoltProvider) migrateDatabase() error {

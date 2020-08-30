@@ -196,7 +196,7 @@ func (p MySQLProvider) initializeDatabase() error {
 }
 
 func (p MySQLProvider) migrateDatabase() error {
-	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle)
+	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
 		return err
 	}

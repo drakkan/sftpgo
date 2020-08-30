@@ -46,6 +46,8 @@ Please take a look at the usage below to customize the options.`,
 			err = dataprovider.InitializeDatabase(providerConf, configDir)
 			if err == nil {
 				logger.DebugToConsole("Data provider successfully initialized")
+			} else if err == dataprovider.ErrNoInitRequired {
+				logger.DebugToConsole("%v", err.Error())
 			} else {
 				logger.WarnToConsole("Unable to initialize data provider: %v", err)
 				os.Exit(1)
