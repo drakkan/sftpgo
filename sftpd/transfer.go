@@ -89,7 +89,9 @@ func (t *transfer) ReadAt(p []byte, off int64) (n int, err error) {
 	atomic.AddInt64(&t.BytesSent, int64(readed))
 
 	if e != nil && e != io.EOF {
-		t.TransferError(e)
+		if t.GetType() == common.TransferDownload {
+			t.TransferError(e)
+		}
 		return readed, e
 	}
 	t.HandleThrottle()

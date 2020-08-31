@@ -34,6 +34,13 @@ type Cors struct {
 	MaxAge           int      `json:"max_age" mapstructure:"max_age"`
 }
 
+// Cache configuration
+type Cache struct {
+	Enabled        bool `json:"enabled" mapstructure:"enabled"`
+	ExpirationTime int  `json:"expiration_time" mapstructure:"expiration_time"`
+	MaxSize        int  `json:"max_size" mapstructure:"max_size"`
+}
+
 // Configuration defines the configuration for the WevDAV server
 type Configuration struct {
 	// The port used for serving FTP requests
@@ -48,6 +55,8 @@ type Configuration struct {
 	CertificateKeyFile string `json:"certificate_key_file" mapstructure:"certificate_key_file"`
 	// CORS configuration
 	Cors Cors `json:"cors" mapstructure:"cors"`
+	// Cache configuration
+	Cache Cache `json:"cache" mapstructure:"cache"`
 }
 
 // Initialize configures and starts the WebDav server

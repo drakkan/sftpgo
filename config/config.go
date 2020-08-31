@@ -101,6 +101,11 @@ func init() {
 				AllowCredentials: false,
 				MaxAge:           0,
 			},
+			Cache: webdavd.Cache{
+				Enabled:        true,
+				ExpirationTime: 0,
+				MaxSize:        50,
+			},
 		},
 		ProviderConf: dataprovider.Config{
 			Driver:           "sqlite",

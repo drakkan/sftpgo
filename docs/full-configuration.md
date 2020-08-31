@@ -103,6 +103,10 @@ The configuration file contains the following sections:
     - `exposed_headers`, list of strings.
     - `allow_credentials` boolean.
     - `max_age`, integer.
+  - `cache` struct containing cache configuration.
+    - `enabled`, boolean, set to true to enable user caching. Default: true.
+    - `expiration_time`, integer. Expiration time, in minutes, for the cached users. 0 means unlimited. Default: 0.
+    - `max_size`, integer. Maximum number of users to cache. 0 means unlimited. Default: 50.
 - **"data_provider"**, the configuration for the data provider
   - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `bolt`, `memory`
   - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database. For driver `memory` this is the (optional) path relative to the config dir or the absolute path to the users dump, obtained using the `dumpdata` REST API, to load. This dump will be loaded at startup and can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows. The `memory` provider will not modify the provided file so quota usage and last login will not be persisted

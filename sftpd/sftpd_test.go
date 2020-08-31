@@ -365,8 +365,6 @@ func TestOpenReadWrite(t *testing.T) {
 	u.QuotaSize = 6553600
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
 		defer client.Close()
@@ -381,7 +379,8 @@ func TestOpenReadWrite(t *testing.T) {
 			assert.EqualError(t, err, io.EOF.Error())
 			assert.Equal(t, len(testData)-1, n)
 			assert.Equal(t, testData[1:], buffer[:n])
-			sftpFile.Close()
+			err = sftpFile.Close()
+			assert.NoError(t, err)
 		}
 		sftpFile, err = client.OpenFile(testFileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
 		if assert.NoError(t, err) {
@@ -394,8 +393,42 @@ func TestOpenReadWrite(t *testing.T) {
 			assert.EqualError(t, err, io.EOF.Error())
 			assert.Equal(t, len(testData)-1, n)
 			assert.Equal(t, testData[1:], buffer[:n])
-			sftpFile.Close()
-			sftpFile.Close()
+			err = sftpFile.Close()
+			assert.NoError(t, err)
+		}
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestOpenReadWritePerm(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	// we cannot read inside "/sub"
+	u.Permissions["/sub"] = []string{dataprovider.PermUpload, dataprovider.PermListItems}
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		err = client.Mkdir("sub")
+		assert.NoError(t, err)
+		sftpFileName := path.Join("sub", "file.txt")
+		sftpFile, err := client.OpenFile(sftpFileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
+		if assert.NoError(t, err) {
+			testData := []byte("test data")
+			n, err := sftpFile.Write(testData)
+			assert.NoError(t, err)
+			assert.Equal(t, len(testData), n)
+			buffer := make([]byte, 128)
+			_, err = sftpFile.ReadAt(buffer, 1)
+			if assert.Error(t, err) {
+				assert.Contains(t, strings.ToLower(err.Error()), "permission denied")
+			}
+			err = sftpFile.Close()
+			assert.NoError(t, err)
 		}
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)

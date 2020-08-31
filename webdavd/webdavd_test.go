@@ -277,8 +277,10 @@ func TestLoginInvalidPwd(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
-	user.Password = "wrong"
 	client := getWebDavClient(user)
+	assert.NoError(t, checkBasicFunc(client))
+	user.Password = "wrong"
+	client = getWebDavClient(user)
 	assert.Error(t, checkBasicFunc(client))
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -374,8 +376,14 @@ func TestPreLoginHook(t *testing.T) {
 	assert.NoError(t, checkBasicFunc(client))
 	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(user, true), os.ModePerm)
 	assert.NoError(t, err)
+	// update the user to remove it from the cache
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	assert.NoError(t, err)
 	client = getWebDavClient(user)
 	assert.Error(t, checkBasicFunc(client))
+	// update the user to remove it from the cache
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	assert.NoError(t, err)
 	user.Status = 0
 	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(user, false), os.ModePerm)
 	assert.NoError(t, err)

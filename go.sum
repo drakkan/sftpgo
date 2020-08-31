@@ -126,8 +126,8 @@ github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.m
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
-github.com/fclairamb/ftpserverlib v0.8.1-0.20200824203441-87a3864e6de5 h1:Kr7UEYS2FqcSUyItHImjszBJqJdmt4noGKIhMi0Ul4Y=
-github.com/fclairamb/ftpserverlib v0.8.1-0.20200824203441-87a3864e6de5/go.mod h1:ShLpSOXbtoMDYxTb5eRs9wDBfkQ7VINYghclB4P2z4E=
+github.com/fclairamb/ftpserverlib v0.8.1-0.20200828235935-8e22c5f260e1 h1:0futNS5JlIOTHAPljFKGcCdnO9U2o4JDI94wuTIuZAQ=
+github.com/fclairamb/ftpserverlib v0.8.1-0.20200828235935-8e22c5f260e1/go.mod h1:ShLpSOXbtoMDYxTb5eRs9wDBfkQ7VINYghclB4P2z4E=
 github.com/franela/goblin v0.0.0-20200105215937-c9ffbefa60db/go.mod h1:7dvUGVsVBjqR7JHJk0brhHOZYGmfBYOrK0ZhYMEtBr4=
 github.com/franela/goreq v0.0.0-20171204163338-bcd34c9993f8/go.mod h1:ZhphrRTfi2rbfLwlschooIH4+wKKDR4Pdxhh+TRoA20=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=

@@ -8,7 +8,7 @@ require (
 	github.com/alexedwards/argon2id v0.0.0-20200802152012-2464efd3196b
 	github.com/aws/aws-sdk-go v1.34.13
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
-	github.com/fclairamb/ftpserverlib v0.8.1-0.20200824203441-87a3864e6de5
+	github.com/fclairamb/ftpserverlib v0.8.1-0.20200828235935-8e22c5f260e1
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/render v1.0.1

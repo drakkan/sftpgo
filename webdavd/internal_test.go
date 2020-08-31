@@ -20,6 +20,7 @@ import (
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/vfs"
 )
 
@@ -609,5 +610,265 @@ func TestTransferSeek(t *testing.T) {
 	assert.Len(t, common.Connections.GetStats(), 0)
 
 	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+}
+
+func TestBasicUsersCache(t *testing.T) {
+	username := "webdav_internal_test"
+	password := "pwd"
+	u := dataprovider.User{
+		Username:       username,
+		Password:       password,
+		HomeDir:        filepath.Join(os.TempDir(), username),
+		Status:         1,
+		ExpirationDate: 0,
+	}
+	u.Permissions = make(map[string][]string)
+	u.Permissions["/"] = []string{dataprovider.PermAny}
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+
+	c := &Configuration{
+		BindPort: 9000,
+		Cache: Cache{
+			Enabled:        true,
+			MaxSize:        50,
+			ExpirationTime: 1,
+		},
+	}
+	server, err := newServer(c, configDir)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user.Username), nil)
+	assert.NoError(t, err)
+
+	_, _, err = server.authenticate(req)
+	assert.Error(t, err)
+
+	now := time.Now()
+	req.SetBasicAuth(username, password)
+	_, isCached, err := server.authenticate(req)
+	assert.NoError(t, err)
+	assert.False(t, isCached)
+	// now the user should be cached
+	var cachedUser dataprovider.CachedUser
+	result, ok := dataprovider.GetCachedWebDAVUser(username)
+	if assert.True(t, ok) {
+		cachedUser = result.(dataprovider.CachedUser)
+		assert.False(t, cachedUser.IsExpired())
+		assert.True(t, cachedUser.Expiration.After(now.Add(time.Duration(c.Cache.ExpirationTime)*time.Minute)))
+		// authenticate must return the cached user now
+		authUser, isCached, err := server.authenticate(req)
+		assert.NoError(t, err)
+		assert.True(t, isCached)
+		assert.Equal(t, cachedUser.User, authUser)
+	}
+	// a wrong password must fail
+	req.SetBasicAuth(username, "wrong")
+	_, _, err = server.authenticate(req)
+	assert.EqualError(t, err, dataprovider.ErrInvalidCredentials.Error())
+	req.SetBasicAuth(username, password)
+
+	// force cached user expiration
+	cachedUser.Expiration = now
+	dataprovider.CacheWebDAVUser(cachedUser, c.Cache.MaxSize)
+	result, ok = dataprovider.GetCachedWebDAVUser(username)
+	if assert.True(t, ok) {
+		cachedUser = result.(dataprovider.CachedUser)
+		assert.True(t, cachedUser.IsExpired())
+	}
+	// now authenticate should get the user from the data provider and update the cache
+	_, isCached, err = server.authenticate(req)
+	assert.NoError(t, err)
+	assert.False(t, isCached)
+	result, ok = dataprovider.GetCachedWebDAVUser(username)
+	if assert.True(t, ok) {
+		cachedUser = result.(dataprovider.CachedUser)
+		assert.False(t, cachedUser.IsExpired())
+	}
+	// cache is invalidated after a user modification
+	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, ok = dataprovider.GetCachedWebDAVUser(username)
+	assert.False(t, ok)
+
+	_, isCached, err = server.authenticate(req)
+	assert.NoError(t, err)
+	assert.False(t, isCached)
+	_, ok = dataprovider.GetCachedWebDAVUser(username)
+	assert.True(t, ok)
+	// cache is invalidated after user deletion
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, ok = dataprovider.GetCachedWebDAVUser(username)
+	assert.False(t, ok)
+}
+
+func TestUsersCacheSizeAndExpiration(t *testing.T) {
+	username := "webdav_internal_test"
+	password := "pwd"
+	u := dataprovider.User{
+		HomeDir:        filepath.Join(os.TempDir(), username),
+		Status:         1,
+		ExpirationDate: 0,
+	}
+	u.Username = username + "1"
+	u.Password = password + "1"
+	u.Permissions = make(map[string][]string)
+	u.Permissions["/"] = []string{dataprovider.PermAny}
+	user1, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	u.Username = username + "2"
+	u.Password = password + "2"
+	user2, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	u.Username = username + "3"
+	u.Password = password + "3"
+	user3, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	u.Username = username + "4"
+	u.Password = password + "4"
+	user4, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+
+	c := &Configuration{
+		BindPort: 9000,
+		Cache: Cache{
+			Enabled:        true,
+			MaxSize:        3,
+			ExpirationTime: 1,
+		},
+	}
+	server, err := newServer(c, configDir)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user1.Username), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(user1.Username, password+"1")
+	_, isCached, err := server.authenticate(req)
+	assert.NoError(t, err)
+	assert.False(t, isCached)
+
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user2.Username), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(user2.Username, password+"2")
+	_, isCached, err = server.authenticate(req)
+	assert.NoError(t, err)
+	assert.False(t, isCached)
+
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user3.Username), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(user3.Username, password+"3")
+	_, isCached, err = server.authenticate(req)
+	assert.NoError(t, err)
+	assert.False(t, isCached)
+
+	// the first 3 users are now cached
+	_, ok := dataprovider.GetCachedWebDAVUser(user1.Username)
+	assert.True(t, ok)
+	_, ok = dataprovider.GetCachedWebDAVUser(user2.Username)
+	assert.True(t, ok)
+	_, ok = dataprovider.GetCachedWebDAVUser(user3.Username)
+	assert.True(t, ok)
+
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user4.Username), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(user4.Username, password+"4")
+	_, isCached, err = server.authenticate(req)
+	assert.NoError(t, err)
+	assert.False(t, isCached)
+	// user1, the first cached, should be removed now
+	_, ok = dataprovider.GetCachedWebDAVUser(user1.Username)
+	assert.False(t, ok)
+	_, ok = dataprovider.GetCachedWebDAVUser(user2.Username)
+	assert.True(t, ok)
+	_, ok = dataprovider.GetCachedWebDAVUser(user3.Username)
+	assert.True(t, ok)
+	_, ok = dataprovider.GetCachedWebDAVUser(user4.Username)
+	assert.True(t, ok)
+
+	// user1 logins, user2 should be removed
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user1.Username), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(user1.Username, password+"1")
+	_, isCached, err = server.authenticate(req)
+	assert.NoError(t, err)
+	assert.False(t, isCached)
+	_, ok = dataprovider.GetCachedWebDAVUser(user2.Username)
+	assert.False(t, ok)
+	_, ok = dataprovider.GetCachedWebDAVUser(user1.Username)
+	assert.True(t, ok)
+	_, ok = dataprovider.GetCachedWebDAVUser(user3.Username)
+	assert.True(t, ok)
+	_, ok = dataprovider.GetCachedWebDAVUser(user4.Username)
+	assert.True(t, ok)
+
+	// user2 logins, user3 should be removed
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user2.Username), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(user2.Username, password+"2")
+	_, isCached, err = server.authenticate(req)
+	assert.NoError(t, err)
+	assert.False(t, isCached)
+	_, ok = dataprovider.GetCachedWebDAVUser(user3.Username)
+	assert.False(t, ok)
+	_, ok = dataprovider.GetCachedWebDAVUser(user1.Username)
+	assert.True(t, ok)
+	_, ok = dataprovider.GetCachedWebDAVUser(user2.Username)
+	assert.True(t, ok)
+	_, ok = dataprovider.GetCachedWebDAVUser(user4.Username)
+	assert.True(t, ok)
+
+	// user3 logins, user4 should be removed
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user3.Username), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(user3.Username, password+"3")
+	_, isCached, err = server.authenticate(req)
+	assert.NoError(t, err)
+	assert.False(t, isCached)
+	_, ok = dataprovider.GetCachedWebDAVUser(user4.Username)
+	assert.False(t, ok)
+	_, ok = dataprovider.GetCachedWebDAVUser(user1.Username)
+	assert.True(t, ok)
+	_, ok = dataprovider.GetCachedWebDAVUser(user2.Username)
+	assert.True(t, ok)
+	_, ok = dataprovider.GetCachedWebDAVUser(user3.Username)
+	assert.True(t, ok)
+
+	// now remove user1 after an update
+	user1, _, err = httpd.UpdateUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	_, ok = dataprovider.GetCachedWebDAVUser(user1.Username)
+	assert.False(t, ok)
+
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user4.Username), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(user4.Username, password+"4")
+	_, isCached, err = server.authenticate(req)
+	assert.NoError(t, err)
+	assert.False(t, isCached)
+
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user1.Username), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(user1.Username, password+"1")
+	_, isCached, err = server.authenticate(req)
+	assert.NoError(t, err)
+	assert.False(t, isCached)
+	_, ok = dataprovider.GetCachedWebDAVUser(user2.Username)
+	assert.False(t, ok)
+	_, ok = dataprovider.GetCachedWebDAVUser(user1.Username)
+	assert.True(t, ok)
+	_, ok = dataprovider.GetCachedWebDAVUser(user3.Username)
+	assert.True(t, ok)
+	_, ok = dataprovider.GetCachedWebDAVUser(user4.Username)
+	assert.True(t, ok)
+
+	_, err = httpd.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(user2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(user3, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(user4, http.StatusOK)
 	assert.NoError(t, err)
 }

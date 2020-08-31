@@ -90,7 +90,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, common.ErrConnectionDenied.Error(), http.StatusForbidden)
 		return
 	}
-	user, err := s.authenticate(r)
+	user, isCached, err := s.authenticate(r)
 	if err != nil {
 		w.Header().Set("WWW-Authenticate", "Basic realm=\"SFTPGo WebDAV\"")
 		http.Error(w, err401.Error(), http.StatusUnauthorized)
@@ -123,10 +123,11 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	connection.Fs.CheckRootPath(connection.GetUsername(), user.GetUID(), user.GetGID())
-	connection.Log(logger.LevelInfo, "User id: %d, logged in with WebDAV, method: %v, username: %#v, home_dir: %#v remote addr: %#v",
-		user.ID, r.Method, user.Username, user.HomeDir, r.RemoteAddr)
-	dataprovider.UpdateLastLogin(user) //nolint:errcheck
+	if !isCached {
+		// we update last login and check for home directory only if the user is not cached
+		connection.Fs.CheckRootPath(connection.GetUsername(), user.GetUID(), user.GetGID())
+		dataprovider.UpdateLastLogin(user) //nolint:errcheck
+	}
 
 	prefix := path.Join("/", user.Username)
 	// see RFC4918, section 9.4
@@ -150,19 +151,43 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-func (s *webDavServer) authenticate(r *http.Request) (dataprovider.User, error) {
+func (s *webDavServer) authenticate(r *http.Request) (dataprovider.User, bool, error) {
 	var user dataprovider.User
 	var err error
 	username, password, ok := r.BasicAuth()
 	if !ok {
-		return user, err401
+		return user, false, err401
+	}
+	if s.config.Cache.Enabled {
+		result, ok := dataprovider.GetCachedWebDAVUser(username)
+		if ok {
+			if result.(dataprovider.CachedUser).IsExpired() {
+				dataprovider.RemoveCachedWebDAVUser(username)
+			} else {
+				if len(password) > 0 && result.(dataprovider.CachedUser).Password == password {
+					return result.(dataprovider.CachedUser).User, true, nil
+				}
+				updateLoginMetrics(username, r.RemoteAddr, dataprovider.ErrInvalidCredentials)
+				return user, false, dataprovider.ErrInvalidCredentials
+			}
+		}
 	}
 	user, err = dataprovider.CheckUserAndPass(username, password, utils.GetIPFromRemoteAddress(r.RemoteAddr), common.ProtocolWebDAV)
 	if err != nil {
 		updateLoginMetrics(username, r.RemoteAddr, err)
-		return user, err
+		return user, false, err
 	}
-	return user, err
+	if s.config.Cache.Enabled && len(password) > 0 {
+		cachedUser := dataprovider.CachedUser{
+			User:     user,
+			Password: password,
+		}
+		if s.config.Cache.ExpirationTime > 0 {
+			cachedUser.Expiration = time.Now().Add(time.Duration(s.config.Cache.ExpirationTime) * time.Minute)
+		}
+		dataprovider.CacheWebDAVUser(cachedUser, s.config.Cache.MaxSize)
+	}
+	return user, false, err
 }
 
 func (s *webDavServer) validateUser(user dataprovider.User, r *http.Request) (string, error) {

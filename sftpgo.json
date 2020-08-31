@@ -59,6 +59,11 @@
       "exposed_headers": [],
       "allow_credentials": false,
       "max_age": 0
+    },
+    "cache": {
+      "enabled": true,
+      "expiration_time": 0,
+      "max_size": 50
     }
   },
   "data_provider": {

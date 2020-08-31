@@ -1671,7 +1671,7 @@ func TestTransferFailingReader(t *testing.T) {
 	assert.EqualError(t, err, sftp.ErrSSHFxOpUnsupported.Error())
 	if c, ok := transfer.(io.Closer); ok {
 		err = c.Close()
-		assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
+		assert.NoError(t, err)
 	}
 
 	fsPath := filepath.Join(os.TempDir(), "afile.txt")
@@ -1685,7 +1685,7 @@ func TestTransferFailingReader(t *testing.T) {
 	assert.EqualError(t, err, errRead.Error())
 
 	err = tr.Close()
-	assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
+	assert.NoError(t, err)
 
 	err = os.Remove(fsPath)
 	assert.NoError(t, err)

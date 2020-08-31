@@ -98,10 +98,13 @@ var (
 	ValidProtocols = []string{"SSH", "FTP", "DAV"}
 	// ErrNoInitRequired defines the error returned by InitProvider if no inizialization is required
 	ErrNoInitRequired = errors.New("Data provider initialization is not required")
-	config            Config
-	provider          Provider
-	sqlPlaceholders   []string
-	hashPwdPrefixes   = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
+	// ErrInvalidCredentials defines the error to return if the supplied credentials are invalid
+	ErrInvalidCredentials = errors.New("Invalid credentials")
+	webDAVUsersCache      sync.Map
+	config                Config
+	provider              Provider
+	sqlPlaceholders       []string
+	hashPwdPrefixes       = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
 		pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix, md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
 	pbkdfPwdPrefixes        = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix}
 	pbkdfPwdB64SaltPrefixes = []string{pbkdf2SHA256B64SaltPrefix}
@@ -507,6 +510,9 @@ func UpdateUserQuota(user User, filesAdd int, sizeAdd int64, reset bool) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
+	if filesAdd == 0 && sizeAdd == 0 && !reset {
+		return nil
+	}
 	return provider.updateQuota(user.Username, filesAdd, sizeAdd, reset)
 }
 
@@ -518,6 +524,9 @@ func UpdateVirtualFolderQuota(vfolder vfs.BaseVirtualFolder, filesAdd int, sizeA
 	}
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
+	}
+	if filesAdd == 0 && sizeAdd == 0 && !reset {
+		return nil
 	}
 	return provider.updateFolderQuota(vfolder.MappedPath, filesAdd, sizeAdd, reset)
 }
@@ -543,7 +552,7 @@ func UserExists(username string) (User, error) {
 	return provider.userExists(username)
 }
 
-// AddUser adds a new SFTP user.
+// AddUser adds a new SFTPGo user.
 // ManageUsers configuration must be set to 1 to enable this method
 func AddUser(user User) error {
 	if config.ManageUsers == 0 {
@@ -556,7 +565,7 @@ func AddUser(user User) error {
 	return err
 }
 
-// UpdateUser updates an existing SFTP user.
+// UpdateUser updates an existing SFTPGo user.
 // ManageUsers configuration must be set to 1 to enable this method
 func UpdateUser(user User) error {
 	if config.ManageUsers == 0 {
@@ -564,6 +573,7 @@ func UpdateUser(user User) error {
 	}
 	err := provider.updateUser(user)
 	if err == nil {
+		RemoveCachedWebDAVUser(user.Username)
 		go executeAction(operationUpdate, user)
 	}
 	return err
@@ -577,6 +587,7 @@ func DeleteUser(user User) error {
 	}
 	err := provider.deleteUser(user)
 	if err == nil {
+		RemoveCachedWebDAVUser(user.Username)
 		go executeAction(operationDelete, user)
 	}
 	return err
@@ -1092,12 +1103,12 @@ func checkUserAndPass(user User, password, ip, protocol string) (User, error) {
 		password = hookResponse.ToVerify
 	default:
 		providerLog(logger.LevelDebug, "password rejected by check password hook, status: %v", hookResponse.Status)
-		return user, errors.New("Invalid credentials")
+		return user, ErrInvalidCredentials
 	}
 
 	match, err := isPasswordOK(&user, password)
 	if !match {
-		err = errors.New("Invalid credentials")
+		err = ErrInvalidCredentials
 	}
 	return user, err
 }
@@ -1108,7 +1119,7 @@ func checkUserAndPubKey(user User, pubKey []byte) (User, string, error) {
 		return user, "", err
 	}
 	if len(user.PublicKeys) == 0 {
-		return user, "", errors.New("Invalid credentials")
+		return user, "", ErrInvalidCredentials
 	}
 	for i, k := range user.PublicKeys {
 		storedPubKey, comment, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
@@ -1126,7 +1137,7 @@ func checkUserAndPubKey(user User, pubKey []byte) (User, string, error) {
 			return user, fmt.Sprintf("%v:%v%v", ssh.FingerprintSHA256(storedPubKey), comment, certInfo), nil
 		}
 	}
-	return user, "", errors.New("Invalid credentials")
+	return user, "", ErrInvalidCredentials
 }
 
 func compareUnixPasswordAndHash(user *User, password string) (bool, error) {
@@ -1803,7 +1814,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		return user, fmt.Errorf("Invalid external auth response: %v", err)
 	}
 	if len(user.Username) == 0 {
-		return user, errors.New("Invalid credentials")
+		return user, ErrInvalidCredentials
 	}
 	if len(password) > 0 {
 		user.Password = password
@@ -1917,5 +1928,49 @@ func updateVFoldersQuotaAfterRestore(foldersToScan []string) {
 		}
 		err = UpdateVirtualFolderQuota(vfolder, numFiles, size, true)
 		providerLog(logger.LevelDebug, "quota updated for virtual folder %#v, error: %v", vfolder.MappedPath, err)
+	}
+}
+
+// CacheWebDAVUser add a user to the WebDAV cache
+func CacheWebDAVUser(cachedUser CachedUser, maxSize int) {
+	if maxSize > 0 {
+		var cacheSize int
+		var userToRemove string
+		var expirationTime time.Time
+
+		webDAVUsersCache.Range(func(k, v interface{}) bool {
+			cacheSize++
+			if len(userToRemove) == 0 {
+				userToRemove = k.(string)
+				expirationTime = v.(CachedUser).Expiration
+				return true
+			}
+			expireTime := v.(CachedUser).Expiration
+			if !expireTime.IsZero() && expireTime.Before(expirationTime) {
+				userToRemove = k.(string)
+				expirationTime = expireTime
+			}
+			return true
+		})
+
+		if cacheSize >= maxSize {
+			RemoveCachedWebDAVUser(userToRemove)
+		}
+	}
+
+	if len(cachedUser.User.Username) > 0 {
+		webDAVUsersCache.Store(cachedUser.User.Username, cachedUser)
+	}
+}
+
+// GetCachedWebDAVUser returns a previously cached WebDAV user
+func GetCachedWebDAVUser(username string) (interface{}, bool) {
+	return webDAVUsersCache.Load(username)
+}
+
+// RemoveCachedWebDAVUser removes a cached WebDAV user
+func RemoveCachedWebDAVUser(username string) {
+	if len(username) > 0 {
+		webDAVUsersCache.Delete(username)
 	}
 }

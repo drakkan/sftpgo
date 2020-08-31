@@ -60,6 +60,21 @@ var (
 	errNoMatchingVirtualFolder = errors.New("no matching virtual folder found")
 )
 
+// CachedUser adds fields useful for caching to a SFTPGo user
+type CachedUser struct {
+	User       User
+	Expiration time.Time
+	Password   string
+}
+
+// IsExpired returns true if the cached user is expired
+func (c CachedUser) IsExpired() bool {
+	if c.Expiration.IsZero() {
+		return false
+	}
+	return c.Expiration.Before(time.Now())
+}
+
 // ExtensionsFilter defines filters based on file extensions.
 // These restrictions do not apply to files listing for performance reasons, so
 // a denied file cannot be downloaded/overwritten/renamed but will still be
@@ -112,7 +127,7 @@ type Filesystem struct {
 	GCSConfig vfs.GCSFsConfig `json:"gcsconfig,omitempty"`
 }
 
-// User defines an SFTP user
+// User defines a SFTPGo user
 type User struct {
 	// Database unique identifier
 	ID int64 `json:"id"`
