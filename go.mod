@@ -3,10 +3,10 @@ module github.com/drakkan/sftpgo
 go 1.13
 
 require (
-	cloud.google.com/go v0.64.0 // indirect
-	cloud.google.com/go/storage v1.10.0
+	cloud.google.com/go v0.65.0 // indirect
+	cloud.google.com/go/storage v1.11.0
 	github.com/alexedwards/argon2id v0.0.0-20200802152012-2464efd3196b
-	github.com/aws/aws-sdk-go v1.34.10
+	github.com/aws/aws-sdk-go v1.34.13
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
 	github.com/fclairamb/ftpserverlib v0.8.1-0.20200824203441-87a3864e6de5
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
@@ -17,14 +17,15 @@ require (
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/jlaffaye/ftp v0.0.0-20200720194710-13949d38913e
 	github.com/lib/pq v1.8.0
-	github.com/mattn/go-sqlite3 v1.14.1
+	github.com/magiconair/properties v1.8.2 // indirect
+	github.com/mattn/go-sqlite3 v1.14.2
 	github.com/miekg/dns v1.1.31 // indirect
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/nathanaelle/password/v2 v2.0.1
 	github.com/otiai10/copy v1.2.0
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/pires/go-proxyproto v0.1.3
-	github.com/pkg/sftp v1.11.1-0.20200825160622-06ab92ee3917
+	github.com/pkg/sftp v1.12.0
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/common v0.13.0 // indirect
 	github.com/rs/cors v1.7.1-0.20200626170627-8b4a00bd362b
@@ -41,15 +42,18 @@ require (
 	go.etcd.io/bbolt v1.3.5
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	golang.org/x/net v0.0.0-20200822124328-c89045814202
-	golang.org/x/sys v0.0.0-20200824131525-c12d262b63d8
-	golang.org/x/tools v0.0.0-20200823205832-c024452afbcd // indirect
+	golang.org/x/sys v0.0.0-20200828194041-157a740278f4
+	golang.org/x/tools v0.0.0-20200828161849-5deb26317202 // indirect
 	google.golang.org/api v0.30.0
-	gopkg.in/ini.v1 v1.60.1 // indirect
+	google.golang.org/genproto v0.0.0-20200829155447-2bf3329a0021 // indirect
+	google.golang.org/grpc v1.31.1 // indirect
+	gopkg.in/ini.v1 v1.60.2 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20200730125632-b21eac28818c
+	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20200830084022-ea67d57ce589
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200824205004-9f5ce89c1796
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20200824204746-8b31adf087bf
 )

@@ -359,6 +359,51 @@ func TestBasicSFTPHandling(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestOpenReadWrite(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.QuotaSize = 6553600
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		sftpFile, err := client.OpenFile(testFileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
+		if assert.NoError(t, err) {
+			testData := []byte("test data")
+			n, err := sftpFile.Write(testData)
+			assert.NoError(t, err)
+			assert.Equal(t, len(testData), n)
+			buffer := make([]byte, 128)
+			n, err = sftpFile.ReadAt(buffer, 1)
+			assert.EqualError(t, err, io.EOF.Error())
+			assert.Equal(t, len(testData)-1, n)
+			assert.Equal(t, testData[1:], buffer[:n])
+			sftpFile.Close()
+		}
+		sftpFile, err = client.OpenFile(testFileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
+		if assert.NoError(t, err) {
+			testData := []byte("new test data")
+			n, err := sftpFile.Write(testData)
+			assert.NoError(t, err)
+			assert.Equal(t, len(testData), n)
+			buffer := make([]byte, 128)
+			n, err = sftpFile.ReadAt(buffer, 1)
+			assert.EqualError(t, err, io.EOF.Error())
+			assert.Equal(t, len(testData)-1, n)
+			assert.Equal(t, testData[1:], buffer[:n])
+			sftpFile.Close()
+			sftpFile.Close()
+		}
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestConcurrency(t *testing.T) {
 	usePubKey := true
 	numLogins := 50

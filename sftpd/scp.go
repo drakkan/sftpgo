@@ -227,7 +227,7 @@ func (c *scpCommand) handleUploadFile(resolvedPath, filePath string, sizeToRead 
 
 	baseTransfer := common.NewBaseTransfer(file, c.connection.BaseConnection, cancelFn, resolvedPath, requestPath,
 		common.TransferUpload, 0, initialSize, maxWriteSize, isNewFile, c.connection.Fs)
-	t := newTransfer(baseTransfer, w, nil)
+	t := newTransfer(baseTransfer, w, nil, nil)
 
 	return c.getUploadFileData(sizeToRead, t)
 }
@@ -485,7 +485,7 @@ func (c *scpCommand) handleDownload(filePath string) error {
 
 	baseTransfer := common.NewBaseTransfer(file, c.connection.BaseConnection, cancelFn, p, filePath,
 		common.TransferDownload, 0, 0, 0, false, c.connection.Fs)
-	t := newTransfer(baseTransfer, nil, r)
+	t := newTransfer(baseTransfer, nil, r, nil)
 
 	err = c.sendDownloadFileData(p, stat, t)
 	// we need to call Close anyway and return close error if any and

@@ -22,6 +22,19 @@ type readerAtCloser interface {
 	io.Closer
 }
 
+type failingReader struct {
+	innerReader readerAtCloser
+	errRead     error
+}
+
+func (r *failingReader) ReadAt(p []byte, off int64) (n int, err error) {
+	return 0, r.errRead
+}
+
+func (r *failingReader) Close() error {
+	return r.innerReader.Close()
+}
+
 // transfer defines the transfer details.
 // It implements the io.ReaderAt and io.WriterAt interfaces to handle SFTP downloads and uploads
 type transfer struct {
@@ -31,16 +44,31 @@ type transfer struct {
 	isFinished bool
 }
 
-func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *pipeat.PipeReaderAt) *transfer {
+func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *pipeat.PipeReaderAt,
+	errForRead error) *transfer {
 	var writer writerAtCloser
 	var reader readerAtCloser
 	if baseTransfer.File != nil {
 		writer = baseTransfer.File
-		reader = baseTransfer.File
+		if errForRead == nil {
+			reader = baseTransfer.File
+		} else {
+			reader = &failingReader{
+				innerReader: baseTransfer.File,
+				errRead:     errForRead,
+			}
+		}
 	} else if pipeWriter != nil {
 		writer = pipeWriter
 	} else if pipeReader != nil {
-		reader = pipeReader
+		if errForRead == nil {
+			reader = pipeReader
+		} else {
+			reader = &failingReader{
+				innerReader: pipeReader,
+				errRead:     errForRead,
+			}
+		}
 	}
 	return &transfer{
 		BaseTransfer: baseTransfer,
