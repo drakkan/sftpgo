@@ -147,7 +147,7 @@ You can use your own hook to [check passwords](./docs/check-password-hook.md).
 
 ## Storage backends
 
-### S3 Compabible Object Storage backends
+### S3 Compatible Object Storage backends
 
 Each user can be mapped to the whole bucket or to a bucket virtual folder. This way, the mapped bucket/virtual folder is exposed over SFTP/SCP/FTP/WebDAV. More information about S3 integration can be found [here](./docs/s3.md).
 
