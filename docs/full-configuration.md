@@ -63,6 +63,7 @@ The configuration file contains the following sections:
   - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: ""
   - `idle_timeout`, integer. Deprecated, please use the same key in `common` section.
   - `max_auth_tries` integer. Maximum number of authentication attempts permitted per connection. If set to a negative number, the number of attempts is unlimited. If set to zero, the number of attempts are limited to 6.
+  - `password_disabled`, boolean. Set to false to forbid password authentication (for example in a pubkey-only setup).
   - `banner`, string. Identification string used by the server. Leave empty to use the default banner. Default `SFTPGo_<version>`, for example `SSH-2.0-SFTPGo_0.9.5`
   - `upload_mode` integer. Deprecated, please use the same key in `common` section.
   - `actions`, struct. Deprecated, please use the same key in `common` section.

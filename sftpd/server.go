@@ -97,6 +97,8 @@ type Configuration struct {
 	// The following SSH commands are enabled by default: "md5sum", "sha1sum", "cd", "pwd".
 	// "*" enables all supported SSH commands.
 	EnabledSSHCommands []string `json:"enabled_ssh_commands" mapstructure:"enabled_ssh_commands"`
+	// PasswordDisabled specifies whether to forbid password authentication, for example in a publickey-only setup.
+	PasswordDisabled bool `json:"password_disabled" mapstructure:"password_disabled"`
 	// Absolute path to an external program or an HTTP URL to invoke for keyboard interactive authentication.
 	// Leave empty to disable this authentication mode.
 	KeyboardInteractiveHook string `json:"keyboard_interactive_auth_hook" mapstructure:"keyboard_interactive_auth_hook"`
@@ -128,14 +130,6 @@ func (c Configuration) Initialize(configDir string) error {
 	serverConfig := &ssh.ServerConfig{
 		NoClientAuth: false,
 		MaxAuthTries: c.MaxAuthTries,
-		PasswordCallback: func(conn ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
-			sp, err := c.validatePasswordCredentials(conn, pass)
-			if err != nil {
-				return nil, &authenticationError{err: fmt.Sprintf("could not validate password credentials: %v", err)}
-			}
-
-			return sp, nil
-		},
 		PublicKeyCallback: func(conn ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
 			sp, err := c.validatePublicKeyCredentials(conn, pubKey)
 			if err == ssh.ErrPartialSuccess {
@@ -156,6 +150,17 @@ func (c Configuration) Initialize(configDir string) error {
 			return nextMethods
 		},
 		ServerVersion: fmt.Sprintf("SSH-2.0-%v", c.Banner),
+	}
+
+	if !c.PasswordDisabled {
+		serverConfig.PasswordCallback = func(conn ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
+			sp, err := c.validatePasswordCredentials(conn, pass)
+			if err != nil {
+				return nil, &authenticationError{err: fmt.Sprintf("could not validate password credentials: %v", err)}
+			}
+
+			return sp, nil
+		}
 	}
 
 	if err := c.checkAndLoadHostKeys(configDir, serverConfig); err != nil {
