@@ -965,7 +965,7 @@ func TestLogin(t *testing.T) {
 	// testPubKey1 is not authorized
 	user.PublicKeys = []string{testPubKey1}
 	user.Password = ""
-	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, true)
 	if !assert.Error(t, err, "login with invalid public key must fail") {
@@ -974,7 +974,7 @@ func TestLogin(t *testing.T) {
 	// login a user with multiple public keys, only the second one is valid
 	user.PublicKeys = []string{testPubKey1, testPubKey}
 	user.Password = ""
-	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, true)
 	if assert.NoError(t, err) {
@@ -1201,7 +1201,7 @@ func TestLoginUserStatus(t *testing.T) {
 		assert.Greater(t, user.LastLogin, int64(0), "last login must be updated after a successful login: %v", user.LastLogin)
 	}
 	user.Status = 0
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if !assert.Error(t, err, "login for a disabled user must fail") {
@@ -1227,14 +1227,14 @@ func TestLoginUserExpiration(t *testing.T) {
 		assert.Greater(t, user.LastLogin, int64(0), "last login must be updated after a successful login: %v", user.LastLogin)
 	}
 	user.ExpirationDate = utils.GetTimeAsMsSinceEpoch(time.Now()) - 120000
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if !assert.Error(t, err, "login for an expired user must fail") {
 		client.Close()
 	}
 	user.ExpirationDate = utils.GetTimeAsMsSinceEpoch(time.Now()) + 120000
-	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -1284,7 +1284,7 @@ func TestDeniedProtocols(t *testing.T) {
 		client.Close()
 	}
 	user.Filters.DeniedProtocols = []string{common.ProtocolFTP, common.ProtocolWebDAV}
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, true)
 	if assert.NoError(t, err) {
@@ -1308,7 +1308,7 @@ func TestDeniedLoginMethods(t *testing.T) {
 		client.Close()
 	}
 	user.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodKeyboardInteractive, dataprovider.LoginMethodPassword}
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, true)
 	if assert.NoError(t, err) {
@@ -1316,7 +1316,7 @@ func TestDeniedLoginMethods(t *testing.T) {
 		assert.NoError(t, checkBasicSFTP(client))
 	}
 	user.Password = defaultPassword
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 
 	client, err = getSftpClient(user, false)
@@ -1324,7 +1324,7 @@ func TestDeniedLoginMethods(t *testing.T) {
 		client.Close()
 	}
 	user.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodKeyboardInteractive, dataprovider.SSHLoginMethodPublicKey}
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, false)
 	if assert.NoError(t, err) {
@@ -1353,7 +1353,7 @@ func TestLoginWithIPFilters(t *testing.T) {
 		assert.Greater(t, user.LastLogin, int64(0), "last login must be updated after a successful login: %v", user.LastLogin)
 	}
 	user.Filters.AllowedIP = []string{"127.0.0.0/8"}
-	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -1361,7 +1361,7 @@ func TestLoginWithIPFilters(t *testing.T) {
 		assert.NoError(t, checkBasicSFTP(client))
 	}
 	user.Filters.AllowedIP = []string{"172.19.0.0/16"}
-	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if !assert.Error(t, err, "login from an not allowed IP must fail") {
@@ -1380,7 +1380,7 @@ func TestLoginAfterUserUpdateEmptyPwd(t *testing.T) {
 	user.Password = ""
 	user.PublicKeys = []string{}
 	// password and public key should remain unchanged
-	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -1400,7 +1400,7 @@ func TestLoginAfterUserUpdateEmptyPubKey(t *testing.T) {
 	user.Password = ""
 	user.PublicKeys = []string{}
 	// password and public key should remain unchanged
-	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -1427,14 +1427,14 @@ func TestLoginKeyboardInteractiveAuth(t *testing.T) {
 		assert.NoError(t, checkBasicSFTP(client))
 	}
 	user.Status = 0
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getKeyboardInteractiveSftpClient(user, []string{"1", "2"})
 	if !assert.Error(t, err, "keyboard interactive auth must fail the user is disabled") {
 		client.Close()
 	}
 	user.Status = 1
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	err = ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, -1), os.ModePerm)
 	assert.NoError(t, err)
@@ -2113,7 +2113,7 @@ func TestQuotaFileReplace(t *testing.T) {
 	}
 	// now set a quota size restriction and upload the same file, upload should fail for space limit exceeded
 	user.QuotaSize = testFileSize*2 - 1
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -2302,7 +2302,7 @@ func TestQuotaLimits(t *testing.T) {
 	// test quota size
 	user.QuotaSize = testFileSize - 1
 	user.QuotaFiles = 0
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -2317,7 +2317,7 @@ func TestQuotaLimits(t *testing.T) {
 	// now test quota limits while uploading the current file, we have 1 bytes remaining
 	user.QuotaSize = testFileSize + 1
 	user.QuotaFiles = 0
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -2461,7 +2461,7 @@ func TestExtensionsFilters(t *testing.T) {
 			DeniedExtensions:  []string{},
 		},
 	}
-	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5862,13 +5862,13 @@ func TestSSHFileHash(t *testing.T) {
 		assert.NoError(t, err)
 		user.Permissions = make(map[string][]string)
 		user.Permissions["/"] = []string{dataprovider.PermUpload}
-		_, _, err = httpd.UpdateUser(user, http.StatusOK)
+		_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 		assert.NoError(t, err)
 		_, err = runSSHCommand("sha512sum "+testFileName, user, usePubKey)
 		assert.Error(t, err, "hash command with no list permission must fail")
 
 		user.Permissions["/"] = []string{dataprovider.PermAny}
-		_, _, err = httpd.UpdateUser(user, http.StatusOK)
+		_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 		assert.NoError(t, err)
 
 		initialHash, err := computeHashForFile(sha512.New(), testFilePath)
@@ -6293,7 +6293,7 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 		user.QuotaSize = testFileSize * 10
 		user.VirtualFolders[1].QuotaSize = testFileSize
 		user.VirtualFolders[1].QuotaFiles = 10
-		user, _, err = httpd.UpdateUser(user, http.StatusOK)
+		user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.QuotaFiles)
 		assert.Equal(t, testFileSize*10, user.QuotaSize)
@@ -6443,7 +6443,7 @@ func TestSSHRemove(t *testing.T) {
 
 	// test remove dir with no delete perm
 	user.Permissions["/"] = []string{dataprovider.PermUpload, dataprovider.PermDownload, dataprovider.PermListItems}
-	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -6491,7 +6491,7 @@ func TestBasicGitCommands(t *testing.T) {
 	assert.NoError(t, err, "unexpected error, out: %v", string(out))
 
 	user.QuotaFiles = 100000
-	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 
 	out, err = pushToGitRepo(clonePath)
@@ -6505,7 +6505,7 @@ func TestBasicGitCommands(t *testing.T) {
 	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
 	assert.NoError(t, err)
 	user.QuotaSize = user.UsedQuotaSize + 1
-	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	out, err = pushToGitRepo(clonePath)
 	assert.Error(t, err, "git push must fail if quota is exceeded, out: %v", string(out))
@@ -6807,7 +6807,7 @@ func TestSCPExtensionsFilter(t *testing.T) {
 			DeniedExtensions:  []string{},
 		},
 	}
-	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	err = scpDownload(localPath, remoteDownPath, false, false)
 	assert.Error(t, err, "scp download must fail")
@@ -7194,7 +7194,7 @@ func TestSCPQuotaSize(t *testing.T) {
 	// now test quota limits while uploading the current file, we have 1 bytes remaining
 	user.QuotaSize = testFileSize + 1
 	user.QuotaFiles = 0
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	err = scpUpload(testFilePath2, remoteUpPath+".quota", true, false)
 	assert.Error(t, err, "user is over quota scp upload must fail")
@@ -7365,7 +7365,7 @@ func TestSCPErrors(t *testing.T) {
 	assert.NoError(t, err)
 	user.UploadBandwidth = 512
 	user.DownloadBandwidth = 512
-	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	cmd := getScpDownloadCommand(localPath, remoteDownPath, false, false)
 	go func() {

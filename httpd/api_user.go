@@ -2,12 +2,14 @@ package httpd
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/render"
 
+	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/utils"
 )
@@ -100,6 +102,15 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
+	disconnect := 0
+	if _, ok := r.URL.Query()["disconnect"]; ok {
+		disconnect, err = strconv.Atoi(r.URL.Query().Get("disconnect"))
+		if err != nil {
+			err = fmt.Errorf("invalid disconnect parameter: %v", err)
+			sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+			return
+		}
+	}
 	user, err := dataprovider.GetUserByID(userID)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -136,6 +147,9 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 	} else {
 		sendAPIResponse(w, r, err, "User updated", http.StatusOK)
+		if disconnect == 1 {
+			disconnectUser(user.Username)
+		}
 	}
 }
 
@@ -156,5 +170,14 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
 	} else {
 		sendAPIResponse(w, r, err, "User deleted", http.StatusOK)
+		disconnectUser(user.Username)
+	}
+}
+
+func disconnectUser(username string) {
+	for _, stat := range common.Connections.GetStats() {
+		if stat.Username == username {
+			common.Connections.Close(stat.ConnectionID)
+		}
 	}
 }

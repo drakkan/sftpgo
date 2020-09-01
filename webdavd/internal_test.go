@@ -687,7 +687,7 @@ func TestBasicUsersCache(t *testing.T) {
 		assert.False(t, cachedUser.IsExpired())
 	}
 	// cache is invalidated after a user modification
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.False(t, ok)
@@ -836,7 +836,7 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	assert.True(t, ok)
 
 	// now remove user1 after an update
-	user1, _, err = httpd.UpdateUser(user1, http.StatusOK)
+	user1, _, err = httpd.UpdateUser(user1, http.StatusOK, "")
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(user1.Username)
 	assert.False(t, ok)

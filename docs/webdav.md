@@ -9,8 +9,8 @@ If you enable quota support a dataprovider query is required, to update the user
 
 The caching configuration allows to set:
 
-- `expiration_time` in minutes. If a user is cached for more than the specificied minutes it will be removed from the cache and a new dataprovider query will be performed. Please note that the `last_login` field will not be updated and `external_auth_hook`, `pre_login_hook` and `check_password_hook` will not be executed is the user is obtained from the cache.
-- `max_size`. Maximum number of users to cache. When this limit is reached the user with the oldest `expiration_time` is removed from the cache. 0 means no limit however the cache size cannot exceed the number of users so if you have a small number of users you can leave this setting to 0.
+- `expiration_time` in minutes. If a user is cached for more than the specificied minutes it will be removed from the cache and a new dataprovider query will be performed. Please note that the `last_login` field will not be updated and `external_auth_hook`, `pre_login_hook` and `check_password_hook` will not be executed if the user is obtained from the cache.
+- `max_size`. Maximum number of users to cache. When this limit is reached the user with the oldest expiration date will be removed from the cache. 0 means no limit however the cache size cannot exceed the number of users so if you have a small number of users you can leave this setting to 0.
 
 Users are automatically removed from the cache after an update/delete.
 

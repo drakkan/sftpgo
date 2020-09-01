@@ -15,7 +15,19 @@ For system commands we have no direct control on file creation/deletion and so t
  For these reasons we should limit system commands usage as much as possible, we currently support the following system commands:
 
 - `git-receive-pack`, `git-upload-pack`, `git-upload-archive`. These commands enable support for Git repositories over SSH. They need to be installed and in your system's `PATH`.
-- `rsync`. The `rsync` command needs to be installed and in your system's `PATH`. We cannot avoid that rsync creates symlinks, so if the user has the permission to create symlinks, we add the option `--safe-links` to the received rsync command if it is not already set. This should prevent creating symlinks that point outside the home dir. If the user cannot create symlinks, we add the option `--munge-links` if it is not already set. This should make symlinks unusable (but manually recoverable).
+- `rsync`. The `rsync` command needs to be installed and in your system's `PATH`.
+
+At least the following permissions are required to be able to run system commands:
+
+- `list`
+- `download`
+- `upload`
+- `create_dirs`
+- `overwrite`
+- `delete`
+
+For `rsync`  we cannot avoid that it creates symlinks so if the `create_symlinks` permission is granted we add the option `--safe-links`, if it is not already set, to the received `rsync` command. This should prevent to create symlinks that point outside the home directory.
+If the user cannot create symlinks we add the option `--munge-links`, if it is not already set, to the received `rsync` command. This should make symlinks unusable (but manually recoverable).
 
 SFTPGo support the following built-in SSH commands:
 

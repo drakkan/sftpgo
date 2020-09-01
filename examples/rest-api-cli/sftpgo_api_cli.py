@@ -280,14 +280,15 @@ class SFTPGoApiRequests:
 				s3_key_prefix='', gcs_bucket='', gcs_key_prefix='', gcs_storage_class='', gcs_credentials_file='',
 				gcs_automatic_credentials='automatic', denied_login_methods=[], virtual_folders=[], denied_extensions=[],
 				allowed_extensions=[], s3_upload_part_size=0, s3_upload_concurrency=0, max_upload_file_size=0,
-				denied_protocols=[]):
+				denied_protocols=[], disconnect=0):
 		u = self.buildUserObject(user_id, username, password, public_keys, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, self.buildPermissions(perms, subdirs_permissions), upload_bandwidth, download_bandwidth,
 			status, expiration_date, allowed_ip, denied_ip, fs_provider, s3_bucket, s3_region, s3_access_key,
 			s3_access_secret, s3_endpoint, s3_storage_class, s3_key_prefix, gcs_bucket, gcs_key_prefix, gcs_storage_class,
 			gcs_credentials_file, gcs_automatic_credentials, denied_login_methods, virtual_folders, denied_extensions,
 			allowed_extensions, s3_upload_part_size, s3_upload_concurrency, max_upload_file_size, denied_protocols)
-		r = requests.put(urlparse.urljoin(self.userPath, 'user/' + str(user_id)), json=u, auth=self.auth, verify=self.verify)
+		r = requests.put(urlparse.urljoin(self.userPath, 'user/' + str(user_id)), params={'disconnect':disconnect},
+						json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
 	def deleteUser(self, user_id):
@@ -648,6 +649,11 @@ if __name__ == '__main__':
 
 	parserUpdateUser = subparsers.add_parser('update-user', help='Update an existing user')
 	parserUpdateUser.add_argument('id', type=int, help='User\'s ID to update')
+	parserUpdateUser.add_argument('--disconnect', type=int, choices=[0, 1], default=0,
+							help='0 means the user will not be disconnected and it will continue to use the old ' +
+							'configuration until connected. 1 means the user will be disconnected after a successful ' +
+							'update. It must login again and so it will be forced to use the new configuration. ' +
+							'Default: %(default)s')
 	addCommonUserArguments(parserUpdateUser)
 
 	parserDeleteUser = subparsers.add_parser('delete-user', help='Delete an existing user')
@@ -708,9 +714,10 @@ if __name__ == '__main__':
 	parserLoadData.add_argument('-Q', '--scan-quota', type=int, choices=[0, 1, 2], default=0,
 							help='0 means no quota scan after a user is added/updated. 1 means always scan quota. 2 ' +
 							'means scan quota if the user has quota restrictions. Default: %(default)s')
-	parserLoadData.add_argument('-M', '--mode', type=int, choices=[0, 1], default=0,
+	parserLoadData.add_argument('-M', '--mode', type=int, choices=[0, 1, 2], default=0,
 							help='0 means new users are added, existing users are updated. 1 means new users are added,' +
-							' existing users are not modified. Default: %(default)s')
+							' existing users are not modified. 2 is the same as 0 but if an updated user is connected ' +
+							'it will be disconnected and so forced to use the new configuration Default: %(default)s')
 
 	parserUpdateQuotaUsage = subparsers.add_parser('update-quota-usage', help='Update the user used quota limits')
 	parserUpdateQuotaUsage.add_argument('username', type=str)
@@ -772,7 +779,7 @@ if __name__ == '__main__':
 					args.s3_key_prefix, args.gcs_bucket, args.gcs_key_prefix, args.gcs_storage_class,
 					args.gcs_credentials_file, args.gcs_automatic_credentials, args.denied_login_methods,
 					args.virtual_folders, args.denied_extensions, args.allowed_extensions, args.s3_upload_part_size,
-					args.s3_upload_concurrency, args.max_upload_file_size, args.denied_protocols)
+					args.s3_upload_concurrency, args.max_upload_file_size, args.denied_protocols, args.disconnect)
 	elif args.command == 'delete-user':
 		api.deleteUser(args.id)
 	elif args.command == 'get-users':

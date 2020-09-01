@@ -18,7 +18,7 @@ The program must write, on its the standard output:
 If the hook is an HTTP URL then it will be invoked as HTTP POST. The login method, the used protocol and the ip address of the user trying to login are added to the query string, for example `<http_url>?login_method=password&ip=1.2.3.4&protocol=SSH`.
 The request body will contain the user trying to login serialized as JSON. If no modification is needed the HTTP response code must be 204, otherwise the response code must be 200 and the response body a valid SFTPGo user serialized as JSON.
 
-Actions defined for user's updates will not be executed in this case.
+Actions defined for user's updates will not be executed in this case and an already logged in user with the same username will not be disconnected, you have to handle these things yourself.
 
 The JSON response can include only the fields to update instead of the full user. For example, if you want to disable the user, you can return a response like this:
 

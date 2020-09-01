@@ -456,14 +456,12 @@ func TestMaxSessions(t *testing.T) {
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, true)
 	if assert.NoError(t, err) {
-		defer func() {
-			err := client.Quit()
-			assert.NoError(t, err)
-		}()
 		err = checkBasicFTP(client)
 		assert.NoError(t, err)
 		_, err = getFTPClient(user, false)
 		assert.Error(t, err)
+		err = client.Quit()
+		assert.NoError(t, err)
 	}
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -685,7 +683,7 @@ func TestDeniedLoginMethod(t *testing.T) {
 	_, err = getFTPClient(user, false)
 	assert.Error(t, err)
 	user.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPublicKey, dataprovider.SSHLoginMethodKeyAndPassword}
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, true)
 	if assert.NoError(t, err) {
@@ -708,7 +706,7 @@ func TestDeniedProtocols(t *testing.T) {
 	_, err = getFTPClient(user, false)
 	assert.Error(t, err)
 	user.Filters.DeniedProtocols = []string{common.ProtocolSSH, common.ProtocolWebDAV}
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, true)
 	if assert.NoError(t, err) {
@@ -756,7 +754,7 @@ func TestQuotaLimits(t *testing.T) {
 	// test quota size
 	user.QuotaSize = testFileSize - 1
 	user.QuotaFiles = 0
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getFTPClient(user, true)
 	if assert.NoError(t, err) {
@@ -770,7 +768,7 @@ func TestQuotaLimits(t *testing.T) {
 	// now test quota limits while uploading the current file, we have 1 bytes remaining
 	user.QuotaSize = testFileSize + 1
 	user.QuotaFiles = 0
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getFTPClient(user, false)
 	if assert.NoError(t, err) {
@@ -951,17 +949,14 @@ func TestRename(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	user.Permissions[path.Join("/", testDir)] = []string{dataprovider.PermListItems}
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getFTPClient(user, false)
 	if assert.NoError(t, err) {
-		defer func() {
-			err := client.Quit()
-			assert.NoError(t, err)
-		}()
-
 		err = client.Rename(path.Join(testDir, testFileName), testFileName)
 		assert.Error(t, err)
+		err := client.Quit()
+		assert.NoError(t, err)
 	}
 
 	err = os.Remove(testFilePath)
@@ -1028,11 +1023,6 @@ func TestStat(t *testing.T) {
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, false)
 	if assert.NoError(t, err) {
-		defer func() {
-			err := client.Quit()
-			assert.NoError(t, err)
-		}()
-
 		subDir := "subdir"
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(65535)
@@ -1051,6 +1041,8 @@ func TestStat(t *testing.T) {
 		assert.Error(t, err)
 		_, err = client.FileSize("missing file")
 		assert.Error(t, err)
+		err = client.Quit()
+		assert.NoError(t, err)
 
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
@@ -1141,7 +1133,7 @@ func TestAllocate(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	user.QuotaSize = 100
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getFTPClient(user, false)
 	if assert.NoError(t, err) {
@@ -1184,7 +1176,7 @@ func TestAllocate(t *testing.T) {
 
 	user.Filters.MaxUploadFileSize = 100
 	user.QuotaSize = 0
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getFTPClient(user, false)
 	if assert.NoError(t, err) {
@@ -1217,11 +1209,6 @@ func TestChtimes(t *testing.T) {
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, false)
 	if assert.NoError(t, err) {
-		defer func() {
-			err := client.Quit()
-			assert.NoError(t, err)
-		}()
-
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(65535)
 		err = createTestFile(testFilePath, testFileSize)
@@ -1236,6 +1223,8 @@ func TestChtimes(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusFile, code)
 		assert.Equal(t, fmt.Sprintf("Modify=%v; %v", mtime, testFileName), response)
+		err = client.Quit()
+		assert.NoError(t, err)
 
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
@@ -1255,11 +1244,6 @@ func TestChmod(t *testing.T) {
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, true)
 	if assert.NoError(t, err) {
-		defer func() {
-			err := client.Quit()
-			assert.NoError(t, err)
-		}()
-
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(131072)
 		err = createTestFile(testFilePath, testFileSize)
@@ -1278,6 +1262,8 @@ func TestChmod(t *testing.T) {
 		if assert.NoError(t, err) {
 			assert.Equal(t, os.FileMode(0600), fi.Mode().Perm())
 		}
+		err = client.Quit()
+		assert.NoError(t, err)
 
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)

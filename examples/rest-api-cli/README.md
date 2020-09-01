@@ -157,6 +157,8 @@ Output:
 }
 ```
 
+You can set the argument `--disconnect` to `1` to disconnect the user, if connected, after a successful update and so force it to login again and to use the new configuration. If this parameter is not specified the user will continue to use the old configuration as long as he is logged in.
+
 ## Get user by id
 
 Command:

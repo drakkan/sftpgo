@@ -377,12 +377,12 @@ func TestPreLoginHook(t *testing.T) {
 	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(user, true), os.ModePerm)
 	assert.NoError(t, err)
 	// update the user to remove it from the cache
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client = getWebDavClient(user)
 	assert.Error(t, checkBasicFunc(client))
 	// update the user to remove it from the cache
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	user.Status = 0
 	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(user, false), os.ModePerm)
@@ -583,7 +583,7 @@ func TestDeniedLoginMethod(t *testing.T) {
 	assert.Error(t, checkBasicFunc(client))
 
 	user.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPublicKey, dataprovider.SSHLoginMethodKeyAndKeyboardInt}
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client = getWebDavClient(user)
 	assert.NoError(t, checkBasicFunc(client))
@@ -603,7 +603,7 @@ func TestDeniedProtocols(t *testing.T) {
 	assert.Error(t, checkBasicFunc(client))
 
 	user.Filters.DeniedProtocols = []string{common.ProtocolSSH, common.ProtocolFTP}
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client = getWebDavClient(user)
 	assert.NoError(t, checkBasicFunc(client))
@@ -644,7 +644,7 @@ func TestQuotaLimits(t *testing.T) {
 	// test quota size
 	user.QuotaSize = testFileSize - 1
 	user.QuotaFiles = 0
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	err = uploadFile(testFilePath, testFileName+".quota", testFileSize, client)
 	assert.Error(t, err)
@@ -653,7 +653,7 @@ func TestQuotaLimits(t *testing.T) {
 	// now test quota limits while uploading the current file, we have 1 bytes remaining
 	user.QuotaSize = testFileSize + 1
 	user.QuotaFiles = 0
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	err = uploadFile(testFilePath1, testFileName1, testFileSize1, client)
 	assert.Error(t, err)
@@ -914,7 +914,7 @@ func TestStat(t *testing.T) {
 	err = uploadFile(testFilePath, path.Join("/", subDir, testFileName), testFileSize, client)
 	assert.NoError(t, err)
 	user.Permissions["/subdir"] = []string{dataprovider.PermUpload, dataprovider.PermDownload}
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	_, err = client.Stat(testFileName)
 	assert.NoError(t, err)

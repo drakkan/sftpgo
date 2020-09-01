@@ -602,6 +602,9 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 	}
 	err = dataprovider.UpdateUser(updatedUser)
 	if err == nil {
+		if len(r.Form.Get("disconnect")) > 0 {
+			disconnectUser(user.Username)
+		}
 		http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
 	} else {
 		renderUpdateUserPage(w, user, err.Error())

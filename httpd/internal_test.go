@@ -374,7 +374,7 @@ func TestApiCallsWithBadURL(t *testing.T) {
 		MappedPath: os.TempDir(),
 	}
 	u := dataprovider.User{}
-	_, _, err := UpdateUser(u, http.StatusBadRequest)
+	_, _, err := UpdateUser(u, http.StatusBadRequest, "")
 	assert.Error(t, err)
 	_, err = RemoveUser(u, http.StatusNotFound)
 	assert.Error(t, err)
@@ -405,7 +405,7 @@ func TestApiCallToNotListeningServer(t *testing.T) {
 	u := dataprovider.User{}
 	_, _, err := AddUser(u, http.StatusBadRequest)
 	assert.Error(t, err)
-	_, _, err = UpdateUser(u, http.StatusNotFound)
+	_, _, err = UpdateUser(u, http.StatusNotFound, "")
 	assert.Error(t, err)
 	_, err = RemoveUser(u, http.StatusNotFound)
 	assert.Error(t, err)

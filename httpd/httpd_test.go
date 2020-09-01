@@ -92,6 +92,30 @@ var (
 	providerDriverName string
 )
 
+type fakeConnection struct {
+	*common.BaseConnection
+	command string
+}
+
+func (c *fakeConnection) Disconnect() error {
+	common.Connections.Remove(c.GetID())
+	return nil
+}
+
+func (c *fakeConnection) GetClientVersion() string {
+	return ""
+}
+
+func (c *fakeConnection) GetCommand() string {
+	return c.command
+}
+
+func (c *fakeConnection) GetRemoteAddress() string {
+	return ""
+}
+
+func (c *fakeConnection) SetConnDeadline() {}
+
 func TestMain(m *testing.M) {
 	homeBasePath = os.TempDir()
 	logfilePath := filepath.Join(configDir, "sftpgo_api_test.log")
@@ -221,7 +245,7 @@ func TestBasicUserHandling(t *testing.T) {
 	user.UploadBandwidth = 128
 	user.DownloadBandwidth = 64
 	user.ExpirationDate = utils.GetTimeAsMsSinceEpoch(time.Now())
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	users, _, err := httpd.GetUsers(0, 0, defaultUsername, http.StatusOK)
 	assert.NoError(t, err)
@@ -239,10 +263,10 @@ func TestUserStatus(t *testing.T) {
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
 	user.Status = 2
-	_, _, err = httpd.UpdateUser(user, http.StatusBadRequest)
+	_, _, err = httpd.UpdateUser(user, http.StatusBadRequest, "")
 	assert.NoError(t, err)
 	user.Status = 1
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -602,10 +626,10 @@ func TestUserPublicKey(t *testing.T) {
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
 	user.PublicKeys = []string{validPubKey, invalidPubKey}
-	_, _, err = httpd.UpdateUser(user, http.StatusBadRequest)
+	_, _, err = httpd.UpdateUser(user, http.StatusBadRequest, "")
 	assert.NoError(t, err)
 	user.PublicKeys = []string{validPubKey, validPubKey, validPubKey}
-	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -656,10 +680,16 @@ func TestUpdateUser(t *testing.T) {
 		QuotaSize:   123,
 		QuotaFiles:  2,
 	})
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	_, _, err = httpd.UpdateUser(user, http.StatusBadRequest, "invalid")
+	assert.NoError(t, err)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "0")
+	assert.NoError(t, err)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "1")
 	assert.NoError(t, err)
 	user.Permissions["/subdir"] = []string{}
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	assert.Len(t, user.Permissions["/subdir"], 0)
 	assert.Len(t, user.VirtualFolders, 2)
@@ -722,7 +752,7 @@ func TestUpdateUserQuotaUsage(t *testing.T) {
 	assert.Equal(t, usedQuotaFiles, user.UsedQuotaFiles)
 	assert.Equal(t, usedQuotaSize, user.UsedQuotaSize)
 	user.QuotaFiles = 100
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	_, err = httpd.UpdateQuotaUsage(u, "add", http.StatusOK)
 	assert.NoError(t, err)
@@ -814,7 +844,7 @@ func TestUserFolderMapping(t *testing.T) {
 		QuotaSize:   0,
 		QuotaFiles:  0,
 	})
-	user2, _, err = httpd.UpdateUser(user2, http.StatusOK)
+	user2, _, err = httpd.UpdateUser(user2, http.StatusOK, "")
 	assert.NoError(t, err)
 	folders, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
 	assert.NoError(t, err)
@@ -839,7 +869,7 @@ func TestUserFolderMapping(t *testing.T) {
 		},
 		VirtualPath: "/vdir1",
 	})
-	user2, _, err = httpd.UpdateUser(user2, http.StatusOK)
+	user2, _, err = httpd.UpdateUser(user2, http.StatusOK, "")
 	assert.NoError(t, err)
 	folders, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
 	assert.NoError(t, err)
@@ -900,7 +930,7 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.AccessSecret = "Server-Access-Secret"
 	user.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000"
 	user.FsConfig.S3Config.UploadPartSize = 8
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -917,7 +947,7 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.Endpoint = "http://localhost:9000"
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir" //nolint:goconst
 	user.FsConfig.S3Config.UploadConcurrency = 5
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	user.FsConfig.Provider = 0
 	user.FsConfig.S3Config.Bucket = ""
@@ -928,7 +958,7 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.KeyPrefix = ""
 	user.FsConfig.S3Config.UploadPartSize = 0
 	user.FsConfig.S3Config.UploadConcurrency = 0
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	// test user without access key and access secret (shared config state)
 	user.FsConfig.Provider = 1
@@ -940,7 +970,7 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir"
 	user.FsConfig.S3Config.UploadPartSize = 6
 	user.FsConfig.S3Config.UploadConcurrency = 4
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -956,7 +986,7 @@ func TestUserGCSConfig(t *testing.T) {
 	user.FsConfig.Provider = 2
 	user.FsConfig.GCSConfig.Bucket = "test"
 	user.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString([]byte("fake credentials"))
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -971,7 +1001,7 @@ func TestUserGCSConfig(t *testing.T) {
 	assert.NoError(t, err)
 	user.FsConfig.GCSConfig.Credentials = ""
 	user.FsConfig.GCSConfig.AutomaticCredentials = 1
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	user.FsConfig.Provider = 1
 	user.FsConfig.S3Config.Bucket = "test1"
@@ -980,12 +1010,12 @@ func TestUserGCSConfig(t *testing.T) {
 	user.FsConfig.S3Config.AccessSecret = "secret"
 	user.FsConfig.S3Config.Endpoint = "http://localhost:9000"
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir"
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	user.FsConfig.Provider = 2
 	user.FsConfig.GCSConfig.Bucket = "test1"
 	user.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString([]byte("fake credentials"))
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 
 	_, err = httpd.RemoveUser(user, http.StatusOK)
@@ -999,7 +1029,7 @@ func TestUpdateUserNoCredentials(t *testing.T) {
 	user.PublicKeys = []string{}
 	// password and public key will be omitted from json serialization if empty and so they will remain unchanged
 	// and no validation error will be raised
-	_, _, err = httpd.UpdateUser(user, http.StatusOK)
+	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -1009,7 +1039,7 @@ func TestUpdateUserEmptyHomeDir(t *testing.T) {
 	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
 	assert.NoError(t, err)
 	user.HomeDir = ""
-	_, _, err = httpd.UpdateUser(user, http.StatusBadRequest)
+	_, _, err = httpd.UpdateUser(user, http.StatusBadRequest, "")
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -1019,14 +1049,14 @@ func TestUpdateUserInvalidHomeDir(t *testing.T) {
 	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
 	assert.NoError(t, err)
 	user.HomeDir = "relative_path"
-	_, _, err = httpd.UpdateUser(user, http.StatusBadRequest)
+	_, _, err = httpd.UpdateUser(user, http.StatusBadRequest, "")
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
 
 func TestUpdateNonExistentUser(t *testing.T) {
-	_, _, err := httpd.UpdateUser(getTestUser(), http.StatusNotFound)
+	_, _, err := httpd.UpdateUser(getTestUser(), http.StatusNotFound, "")
 	assert.NoError(t, err)
 }
 
@@ -1182,6 +1212,43 @@ func TestGetConnections(t *testing.T) {
 func TestCloseActiveConnection(t *testing.T) {
 	_, err := httpd.CloseConnection("non_existent_id", http.StatusNotFound)
 	assert.NoError(t, err)
+	user := getTestUser()
+	c := common.NewBaseConnection("connID", common.ProtocolSFTP, user, nil)
+	fakeConn := &fakeConnection{
+		BaseConnection: c,
+	}
+	common.Connections.Add(fakeConn)
+	_, err = httpd.CloseConnection(c.GetID(), http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, common.Connections.GetStats(), 0)
+}
+
+func TestCloseConnectionAfterUserUpdateDelete(t *testing.T) {
+	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
+	assert.NoError(t, err)
+	c := common.NewBaseConnection("connID", common.ProtocolFTP, user, nil)
+	fakeConn := &fakeConnection{
+		BaseConnection: c,
+	}
+	common.Connections.Add(fakeConn)
+	c1 := common.NewBaseConnection("connID1", common.ProtocolSFTP, user, nil)
+	fakeConn1 := &fakeConnection{
+		BaseConnection: c1,
+	}
+	common.Connections.Add(fakeConn1)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "0")
+	assert.NoError(t, err)
+	assert.Len(t, common.Connections.GetStats(), 2)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "1")
+	assert.NoError(t, err)
+	assert.Len(t, common.Connections.GetStats(), 0)
+
+	common.Connections.Add(fakeConn)
+	common.Connections.Add(fakeConn1)
+	assert.Len(t, common.Connections.GetStats(), 2)
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, common.Connections.GetStats(), 0)
 }
 
 func TestUserBaseDir(t *testing.T) {
@@ -1264,7 +1331,7 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	_, _, err = httpd.GetUsers(1, 0, defaultUsername, http.StatusInternalServerError)
 	assert.NoError(t, err)
-	_, _, err = httpd.UpdateUser(dataprovider.User{}, http.StatusInternalServerError)
+	_, _, err = httpd.UpdateUser(dataprovider.User{}, http.StatusInternalServerError, "")
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(dataprovider.User{}, http.StatusInternalServerError)
 	assert.NoError(t, err)
@@ -1508,15 +1575,31 @@ func TestLoaddataMode(t *testing.T) {
 	user = users[0]
 	oldUploadBandwidth := user.UploadBandwidth
 	user.UploadBandwidth = oldUploadBandwidth + 128
-	user, _, err = httpd.UpdateUser(user, http.StatusOK)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	_, _, err = httpd.Loaddata(backupFilePath, "0", "1", http.StatusOK)
 	assert.NoError(t, err)
+
+	c := common.NewBaseConnection("connID", common.ProtocolFTP, user, nil)
+	fakeConn := &fakeConnection{
+		BaseConnection: c,
+	}
+	common.Connections.Add(fakeConn)
+	assert.Len(t, common.Connections.GetStats(), 1)
 	users, _, err = httpd.GetUsers(1, 0, user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(users))
 	user = users[0]
 	assert.NotEqual(t, oldUploadBandwidth, user.UploadBandwidth)
+	_, _, err = httpd.Loaddata(backupFilePath, "0", "2", http.StatusOK)
+	assert.NoError(t, err)
+	// mode 2 will update the user and close the previous connection
+	assert.Len(t, common.Connections.GetStats(), 0)
+	users, _, err = httpd.GetUsers(1, 0, user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(users))
+	user = users[0]
+	assert.Equal(t, oldUploadBandwidth, user.UploadBandwidth)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.Remove(backupFilePath)
@@ -2430,6 +2513,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("ssh_login_methods", dataprovider.SSHLoginMethodKeyboardInteractive)
 	form.Set("denied_protocols", common.ProtocolFTP)
 	form.Set("max_upload_file_size", "100")
+	form.Set("disconnect", "1")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
 	req.Header.Set("Content-Type", contentType)

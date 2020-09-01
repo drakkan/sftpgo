@@ -103,7 +103,7 @@ The configuration file contains the following sections:
     - `exposed_headers`, list of strings.
     - `allow_credentials` boolean.
     - `max_age`, integer.
-  - `cache` struct containing cache configuration.
+  - `cache` struct containing cache configuration for the authenticated users.
     - `enabled`, boolean, set to true to enable user caching. Default: true.
     - `expiration_time`, integer. Expiration time, in minutes, for the cached users. 0 means unlimited. Default: 0.
     - `max_size`, integer. Maximum number of users to cache. 0 means unlimited. Default: 50.

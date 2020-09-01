@@ -579,7 +579,7 @@ func UpdateUser(user User) error {
 	return err
 }
 
-// DeleteUser deletes an existing SFTP user.
+// DeleteUser deletes an existing SFTPGo user.
 // ManageUsers configuration must be set to 1 to enable this method
 func DeleteUser(user User) error {
 	if config.ManageUsers == 0 {

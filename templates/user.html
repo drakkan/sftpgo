@@ -399,6 +399,17 @@
         </div>
     </div>
 
+    {{if not .IsAdd}}
+    <div class="form-group">
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="idDisconnect" name="disconnect" aria-describedby="disconnectHelpBlock">
+            <label for="idDisconnect" class="form-check-label">Disconnect the user after the update</label>
+            <small id="disconnectHelpBlock" class="form-text text-muted">
+                This way you force the user to login again, if connected, and so to use the new configuration
+            </small>
+        </div>
+    </div>
+    {{end}}
 
     <input type="hidden" name="expiration_date" id="hidden_start_datetime" value="">
     <button type="submit" class="btn btn-primary float-right mt-3 mb-5 px-5 px-3">Submit</button>

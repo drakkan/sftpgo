@@ -119,12 +119,15 @@ func AddUser(user dataprovider.User, expectedStatusCode int) (dataprovider.User,
 }
 
 // UpdateUser updates an existing user and checks the received HTTP Status code against expectedStatusCode.
-func UpdateUser(user dataprovider.User, expectedStatusCode int) (dataprovider.User, []byte, error) {
+func UpdateUser(user dataprovider.User, expectedStatusCode int, disconnect string) (dataprovider.User, []byte, error) {
 	var newUser dataprovider.User
 	var body []byte
+	url, err := addDisconnectQueryParam(buildURLRelativeToBase(userPath, strconv.FormatInt(user.ID, 10)), disconnect)
+	if err != nil {
+		return user, body, err
+	}
 	userAsJSON, _ := json.Marshal(user)
-	resp, err := sendHTTPRequest(http.MethodPut, buildURLRelativeToBase(userPath, strconv.FormatInt(user.ID, 10)),
-		bytes.NewBuffer(userAsJSON), "application/json")
+	resp, err := sendHTTPRequest(http.MethodPut, url.String(), bytes.NewBuffer(userAsJSON), "application/json")
 	if err != nil {
 		return user, body, err
 	}
@@ -835,6 +838,19 @@ func addModeQueryParam(rawurl, mode string) (*url.URL, error) {
 	q := url.Query()
 	if len(mode) > 0 {
 		q.Add("mode", mode)
+	}
+	url.RawQuery = q.Encode()
+	return url, err
+}
+
+func addDisconnectQueryParam(rawurl, disconnect string) (*url.URL, error) {
+	url, err := url.Parse(rawurl)
+	if err != nil {
+		return nil, err
+	}
+	q := url.Query()
+	if len(disconnect) > 0 {
+		q.Add("disconnect", disconnect)
 	}
 	url.RawQuery = q.Encode()
 	return url, err

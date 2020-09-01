@@ -175,6 +175,9 @@ func restoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota i
 			err = dataprovider.UpdateUser(user)
 			user.Password = "[redacted]"
 			logger.Debug(logSender, "", "restoring existing user: %+v, dump file: %#v, error: %v", user, inputFile, err)
+			if mode == 2 && err == nil {
+				disconnectUser(user.Username)
+			}
 		} else {
 			err = dataprovider.AddUser(user)
 			user.Password = "[redacted]"
