@@ -97,11 +97,11 @@ type Configuration struct {
 	// The following SSH commands are enabled by default: "md5sum", "sha1sum", "cd", "pwd".
 	// "*" enables all supported SSH commands.
 	EnabledSSHCommands []string `json:"enabled_ssh_commands" mapstructure:"enabled_ssh_commands"`
-	// PasswordDisabled specifies whether to forbid password authentication, for example in a publickey-only setup.
-	PasswordDisabled bool `json:"password_disabled" mapstructure:"password_disabled"`
 	// Absolute path to an external program or an HTTP URL to invoke for keyboard interactive authentication.
 	// Leave empty to disable this authentication mode.
 	KeyboardInteractiveHook string `json:"keyboard_interactive_auth_hook" mapstructure:"keyboard_interactive_auth_hook"`
+	// PasswordAuthentication specifies whether password authentication is allowed.
+	PasswordAuthentication bool `json:"password_authentication" mapstructure:"password_authentication"`
 	// Deprecated: please use the same key in common configuration
 	ProxyProtocol int `json:"proxy_protocol" mapstructure:"proxy_protocol"`
 	// Deprecated: please use the same key in common configuration
@@ -145,14 +145,14 @@ func (c Configuration) Initialize(configDir string) error {
 			var nextMethods []string
 			user, err := dataprovider.UserExists(conn.User())
 			if err == nil {
-				nextMethods = user.GetNextAuthMethods(conn.PartialSuccessMethods())
+				nextMethods = user.GetNextAuthMethods(conn.PartialSuccessMethods(), c.PasswordAuthentication)
 			}
 			return nextMethods
 		},
 		ServerVersion: fmt.Sprintf("SSH-2.0-%v", c.Banner),
 	}
 
-	if !c.PasswordDisabled {
+	if c.PasswordAuthentication {
 		serverConfig.PasswordCallback = func(conn ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
 			sp, err := c.validatePasswordCredentials(conn, pass)
 			if err != nil {

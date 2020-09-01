@@ -49,6 +49,7 @@ import (
 const (
 	logSender       = "sftpdTesting"
 	sftpServerAddr  = "127.0.0.1:2022"
+	sftpSrvAddr2222 = "127.0.0.1:2222"
 	defaultUsername = "test_user_sftp"
 	defaultPassword = "test_password"
 	testPubKey      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"
@@ -243,6 +244,7 @@ func TestMain(m *testing.M) {
 	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
 
 	sftpdConf.BindPort = 2222
+	sftpdConf.PasswordAuthentication = false
 	common.Config.ProxyProtocol = 1
 	go func() {
 		logger.Debug(logSender, "", "initializing SFTP server with config %+v and proxy protocol %v",
@@ -256,6 +258,7 @@ func TestMain(m *testing.M) {
 	waitTCPListening(fmt.Sprintf("%s:%d", sftpdConf.BindAddress, sftpdConf.BindPort))
 
 	sftpdConf.BindPort = 2224
+	sftpdConf.PasswordAuthentication = true
 	common.Config.ProxyProtocol = 2
 	go func() {
 		logger.Debug(logSender, "", "initializing SFTP server with config %+v and proxy protocol %v",
@@ -524,13 +527,13 @@ func TestConcurrency(t *testing.T) {
 }
 
 func TestProxyProtocol(t *testing.T) {
-	usePubKey := false
+	usePubKey := true
 	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
 	assert.NoError(t, err)
 	// remove the home dir to test auto creation
 	err = os.RemoveAll(user.HomeDir)
 	assert.NoError(t, err)
-	client, err := getSftpClientWithAddr(user, usePubKey, "127.0.0.1:2222")
+	client, err := getSftpClientWithAddr(user, usePubKey, sftpSrvAddr2222)
 	if assert.NoError(t, err) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
@@ -995,7 +998,7 @@ func TestLoginUserCert(t *testing.T) {
 	// try login using a cert signed from a trusted CA
 	signer, err := getSignerForUserCert([]byte(testCertValid))
 	assert.NoError(t, err)
-	client, err := getCustomAuthSftpClient(user, []ssh.AuthMethod{ssh.PublicKeys(signer)})
+	client, err := getCustomAuthSftpClient(user, []ssh.AuthMethod{ssh.PublicKeys(signer)}, "")
 	if assert.NoError(t, err) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
@@ -1003,28 +1006,28 @@ func TestLoginUserCert(t *testing.T) {
 	// try login using a cert signed from an untrusted CA
 	signer, err = getSignerForUserCert([]byte(testCertUntrustedCA))
 	assert.NoError(t, err)
-	client, err = getCustomAuthSftpClient(user, []ssh.AuthMethod{ssh.PublicKeys(signer)})
+	client, err = getCustomAuthSftpClient(user, []ssh.AuthMethod{ssh.PublicKeys(signer)}, "")
 	if !assert.Error(t, err) {
 		client.Close()
 	}
 	// try login using an host certificate instead of an user certificate
 	signer, err = getSignerForUserCert([]byte(testHostCert))
 	assert.NoError(t, err)
-	client, err = getCustomAuthSftpClient(user, []ssh.AuthMethod{ssh.PublicKeys(signer)})
+	client, err = getCustomAuthSftpClient(user, []ssh.AuthMethod{ssh.PublicKeys(signer)}, "")
 	if !assert.Error(t, err) {
 		client.Close()
 	}
 	// try login using a user certificate with an authorized source address different from localhost
 	signer, err = getSignerForUserCert([]byte(testCertOtherSourceAddress))
 	assert.NoError(t, err)
-	client, err = getCustomAuthSftpClient(user, []ssh.AuthMethod{ssh.PublicKeys(signer)})
+	client, err = getCustomAuthSftpClient(user, []ssh.AuthMethod{ssh.PublicKeys(signer)}, "")
 	if !assert.Error(t, err) {
 		client.Close()
 	}
 	// try login using an expired certificate
 	signer, err = getSignerForUserCert([]byte(testCertExpired))
 	assert.NoError(t, err)
-	client, err = getCustomAuthSftpClient(user, []ssh.AuthMethod{ssh.PublicKeys(signer)})
+	client, err = getCustomAuthSftpClient(user, []ssh.AuthMethod{ssh.PublicKeys(signer)}, "")
 	if !assert.Error(t, err) {
 		client.Close()
 	}
@@ -1040,7 +1043,7 @@ func TestLoginUserCert(t *testing.T) {
 
 	signer, err = getSignerForUserCert([]byte(testCertValid))
 	assert.NoError(t, err)
-	client, err = getCustomAuthSftpClient(user, []ssh.AuthMethod{ssh.PublicKeys(signer)})
+	client, err = getCustomAuthSftpClient(user, []ssh.AuthMethod{ssh.PublicKeys(signer)}, "")
 	if !assert.Error(t, err) {
 		client.Close()
 	}
@@ -1075,16 +1078,20 @@ func TestMultiStepLoginKeyAndPwd(t *testing.T) {
 		ssh.PublicKeys(signer),
 		ssh.Password(defaultPassword),
 	}
-	client, err = getCustomAuthSftpClient(user, authMethods)
+	client, err = getCustomAuthSftpClient(user, authMethods, "")
 	if assert.NoError(t, err) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
+	}
+	client, err = getCustomAuthSftpClient(user, authMethods, sftpSrvAddr2222)
+	if !assert.Error(t, err, "password auth is disabled on port 2222, multi-step auth must fail") {
+		client.Close()
 	}
 	authMethods = []ssh.AuthMethod{
 		ssh.Password(defaultPassword),
 		ssh.PublicKeys(signer),
 	}
-	_, err = getCustomAuthSftpClient(user, authMethods)
+	_, err = getCustomAuthSftpClient(user, authMethods, "")
 	assert.Error(t, err, "multi step auth login with wrong order must fail")
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -1120,7 +1127,12 @@ func TestMultiStepLoginKeyAndKeyInt(t *testing.T) {
 			return []string{"1", "2"}, nil
 		}),
 	}
-	client, err = getCustomAuthSftpClient(user, authMethods)
+	client, err = getCustomAuthSftpClient(user, authMethods, "")
+	if assert.NoError(t, err) {
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+	client, err = getCustomAuthSftpClient(user, authMethods, sftpSrvAddr2222)
 	if assert.NoError(t, err) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
@@ -1131,15 +1143,32 @@ func TestMultiStepLoginKeyAndKeyInt(t *testing.T) {
 		}),
 		ssh.PublicKeys(signer),
 	}
-	_, err = getCustomAuthSftpClient(user, authMethods)
+	_, err = getCustomAuthSftpClient(user, authMethods, "")
 	assert.Error(t, err, "multi step auth login with wrong order must fail")
 
 	authMethods = []ssh.AuthMethod{
 		ssh.PublicKeys(signer),
 		ssh.Password(defaultPassword),
 	}
-	_, err = getCustomAuthSftpClient(user, authMethods)
+	_, err = getCustomAuthSftpClient(user, authMethods, "")
 	assert.Error(t, err, "multi step auth login with wrong method must fail")
+
+	user.Filters.DeniedLoginMethods = nil
+	user.Filters.DeniedLoginMethods = append(user.Filters.DeniedLoginMethods, []string{
+		dataprovider.SSHLoginMethodKeyAndKeyboardInt,
+		dataprovider.SSHLoginMethodPublicKey,
+		dataprovider.LoginMethodPassword,
+		dataprovider.SSHLoginMethodKeyboardInteractive,
+	}...)
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	_, err = getCustomAuthSftpClient(user, authMethods, sftpSrvAddr2222)
+	assert.Error(t, err)
+	client, err = getCustomAuthSftpClient(user, authMethods, "")
+	if assert.NoError(t, err) {
+		assert.NoError(t, checkBasicSFTP(client))
+		client.Close()
+	}
 
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -1165,7 +1194,7 @@ func TestMultiStepLoginCertAndPwd(t *testing.T) {
 		ssh.PublicKeys(signer),
 		ssh.Password(defaultPassword),
 	}
-	client, err := getCustomAuthSftpClient(user, authMethods)
+	client, err := getCustomAuthSftpClient(user, authMethods, "")
 	if assert.NoError(t, err) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
@@ -1177,7 +1206,7 @@ func TestMultiStepLoginCertAndPwd(t *testing.T) {
 		ssh.PublicKeys(signer),
 		ssh.Password(defaultPassword),
 	}
-	client, err = getCustomAuthSftpClient(user, authMethods)
+	client, err = getCustomAuthSftpClient(user, authMethods, "")
 	if !assert.Error(t, err) {
 		client.Close()
 	}
@@ -5671,24 +5700,27 @@ func TestUserGetNextAuthMethods(t *testing.T) {
 		dataprovider.SSHLoginMethodPublicKey,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}
-	methods := user.GetNextAuthMethods(nil)
+	methods := user.GetNextAuthMethods(nil, true)
 	assert.Equal(t, 0, len(methods))
 
-	methods = user.GetNextAuthMethods([]string{dataprovider.LoginMethodPassword})
+	methods = user.GetNextAuthMethods([]string{dataprovider.LoginMethodPassword}, true)
 	assert.Equal(t, 0, len(methods))
 
-	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodKeyboardInteractive})
+	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodKeyboardInteractive}, true)
 	assert.Equal(t, 0, len(methods))
 
 	methods = user.GetNextAuthMethods([]string{
 		dataprovider.SSHLoginMethodPublicKey,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
-	})
+	}, true)
 	assert.Equal(t, 0, len(methods))
 
-	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey})
+	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey}, true)
 	assert.Equal(t, 2, len(methods))
 	assert.True(t, utils.IsStringInSlice(dataprovider.LoginMethodPassword, methods))
+	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, methods))
+	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey}, false)
+	assert.Equal(t, 1, len(methods))
 	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, methods))
 
 	user.Filters.DeniedLoginMethods = []string{
@@ -5697,7 +5729,7 @@ func TestUserGetNextAuthMethods(t *testing.T) {
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 		dataprovider.SSHLoginMethodKeyAndKeyboardInt,
 	}
-	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey})
+	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey}, true)
 	assert.Equal(t, 1, len(methods))
 	assert.True(t, utils.IsStringInSlice(dataprovider.LoginMethodPassword, methods))
 
@@ -5707,7 +5739,7 @@ func TestUserGetNextAuthMethods(t *testing.T) {
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 		dataprovider.SSHLoginMethodKeyAndPassword,
 	}
-	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey})
+	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey}, true)
 	assert.Equal(t, 1, len(methods))
 	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, methods))
 }
@@ -5720,8 +5752,11 @@ func TestUserIsLoginMethodAllowed(t *testing.T) {
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}
 	assert.False(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, nil))
+	assert.False(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodPublicKey, nil))
+	assert.False(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodKeyboardInteractive, nil))
 	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, []string{dataprovider.SSHLoginMethodPublicKey}))
 	assert.True(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodKeyboardInteractive, []string{dataprovider.SSHLoginMethodPublicKey}))
+	assert.True(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodKeyAndPassword, []string{dataprovider.SSHLoginMethodPublicKey}))
 
 	user.Filters.DeniedLoginMethods = []string{
 		dataprovider.SSHLoginMethodPublicKey,
@@ -7536,7 +7571,7 @@ func getKeyboardInteractiveSftpClient(user dataprovider.User, answers []string) 
 	return sftpClient, err
 }
 
-func getCustomAuthSftpClient(user dataprovider.User, authMethods []ssh.AuthMethod) (*sftp.Client, error) {
+func getCustomAuthSftpClient(user dataprovider.User, authMethods []ssh.AuthMethod, addr string) (*sftp.Client, error) {
 	var sftpClient *sftp.Client
 	config := &ssh.ClientConfig{
 		User: user.Username,
@@ -7545,7 +7580,13 @@ func getCustomAuthSftpClient(user dataprovider.User, authMethods []ssh.AuthMetho
 		},
 		Auth: authMethods,
 	}
-	conn, err := ssh.Dial("tcp", sftpServerAddr, config)
+	var err error
+	var conn *ssh.Client
+	if len(addr) > 0 {
+		conn, err = ssh.Dial("tcp", addr, config)
+	} else {
+		conn, err = ssh.Dial("tcp", sftpServerAddr, config)
+	}
 	if err != nil {
 		return sftpClient, err
 	}

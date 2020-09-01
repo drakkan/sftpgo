@@ -29,7 +29,8 @@
       "pwd",
       "scp"
     ],
-    "keyboard_interactive_auth_hook": ""
+    "keyboard_interactive_auth_hook": "",
+    "password_authentication": true
   },
   "ftpd": {
     "bind_port": 0,

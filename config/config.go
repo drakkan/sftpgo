@@ -72,6 +72,7 @@ func init() {
 			LoginBannerFile:         "",
 			EnabledSSHCommands:      sftpd.GetDefaultSSHCommands(),
 			KeyboardInteractiveHook: "",
+			PasswordAuthentication:  true,
 		},
 		FTPD: ftpd.Configuration{
 			BindPort:                 0,

@@ -366,7 +366,7 @@ func (u *User) IsLoginMethodAllowed(loginMethod string, partialSuccessMethods []
 		return true
 	}
 	if len(partialSuccessMethods) == 1 {
-		for _, method := range u.GetNextAuthMethods(partialSuccessMethods) {
+		for _, method := range u.GetNextAuthMethods(partialSuccessMethods, true) {
 			if method == loginMethod {
 				return true
 			}
@@ -380,7 +380,7 @@ func (u *User) IsLoginMethodAllowed(loginMethod string, partialSuccessMethods []
 
 // GetNextAuthMethods returns the list of authentications methods that
 // can continue for multi-step authentication
-func (u *User) GetNextAuthMethods(partialSuccessMethods []string) []string {
+func (u *User) GetNextAuthMethods(partialSuccessMethods []string, isPasswordAuthEnabled bool) []string {
 	var methods []string
 	if len(partialSuccessMethods) != 1 {
 		return methods
@@ -389,7 +389,7 @@ func (u *User) GetNextAuthMethods(partialSuccessMethods []string) []string {
 		return methods
 	}
 	for _, method := range u.GetAllowedLoginMethods() {
-		if method == SSHLoginMethodKeyAndPassword {
+		if method == SSHLoginMethodKeyAndPassword && isPasswordAuthEnabled {
 			methods = append(methods, LoginMethodPassword)
 		}
 		if method == SSHLoginMethodKeyAndKeyboardInt {
