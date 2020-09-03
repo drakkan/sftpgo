@@ -3,8 +3,18 @@
 // https://github.com/drakkan/sftpgo/blob/master/README.md
 package main // import "github.com/drakkan/sftpgo"
 
-import "github.com/drakkan/sftpgo/cmd"
+import (
+	"fmt"
+
+	"go.uber.org/automaxprocs/maxprocs"
+
+	"github.com/drakkan/sftpgo/cmd"
+)
 
 func main() {
+	if undo, err := maxprocs.Set(); err != nil {
+		fmt.Printf("error setting max procs: %v\n", err)
+		undo()
+	}
 	cmd.Execute()
 }
