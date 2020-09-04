@@ -5,6 +5,7 @@ go 1.13
 require (
 	cloud.google.com/go v0.65.0 // indirect
 	cloud.google.com/go/storage v1.11.0
+	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20200802152012-2464efd3196b
 	github.com/aws/aws-sdk-go v1.34.13
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
@@ -21,7 +22,6 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.2
 	github.com/miekg/dns v1.1.31 // indirect
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
-	github.com/nathanaelle/password/v2 v2.0.1
 	github.com/otiai10/copy v1.2.0
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/pires/go-proxyproto v0.1.3

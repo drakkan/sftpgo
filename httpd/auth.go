@@ -9,7 +9,8 @@ import (
 	"strings"
 	"sync"
 
-	unixcrypt "github.com/nathanaelle/password/v2"
+	"github.com/GehirnInc/crypt/apr1_crypt"
+	"github.com/GehirnInc/crypt/md5_crypt"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/drakkan/sftpgo/logger"
@@ -20,11 +21,12 @@ const (
 	authenticationHeader = "WWW-Authenticate"
 	authenticationRealm  = "SFTPGo Web"
 	unauthResponse       = "Unauthorized"
+	md5CryptPwdPrefix    = "$1$"
+	apr1CryptPwdPrefix   = "$apr1$"
 )
 
 var (
-	md5CryptPwdPrefixes = []string{"$1$", "$apr1$"}
-	bcryptPwdPrefixes   = []string{"$2a$", "$2$", "$2x$", "$2y$", "$2b$"}
+	bcryptPwdPrefixes = []string{"$2a$", "$2$", "$2x$", "$2y$", "$2b$"}
 )
 
 type httpAuthProvider interface {
@@ -136,14 +138,15 @@ func validateCredentials(r *http.Request) bool {
 			err := bcrypt.CompareHashAndPassword([]byte(hashedPwd), []byte(password))
 			return err == nil
 		}
-		if utils.IsStringPrefixInSlice(hashedPwd, md5CryptPwdPrefixes) {
-			crypter, ok := unixcrypt.MD5.CrypterFound(hashedPwd)
-			if !ok {
-				err := errors.New("cannot found matching MD5 crypter")
-				logger.Debug(logSender, "", "error comparing password with MD5 crypt hash: %v", err)
-				return false
-			}
-			return crypter.Verify([]byte(password))
+		if strings.HasPrefix(hashedPwd, md5CryptPwdPrefix) {
+			crypter := md5_crypt.New()
+			err := crypter.Verify(hashedPwd, []byte(password))
+			return err == nil
+		}
+		if strings.HasPrefix(hashedPwd, apr1CryptPwdPrefix) {
+			crypter := apr1_crypt.New()
+			err := crypter.Verify(hashedPwd, []byte(password))
+			return err == nil
 		}
 	}
 	return false

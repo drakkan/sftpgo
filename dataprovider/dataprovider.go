@@ -30,9 +30,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/GehirnInc/crypt"
+	"github.com/GehirnInc/crypt/apr1_crypt"
+	"github.com/GehirnInc/crypt/md5_crypt"
+	"github.com/GehirnInc/crypt/sha512_crypt"
 	"github.com/alexedwards/argon2id"
 	"github.com/go-chi/render"
-	unixcrypt "github.com/nathanaelle/password/v2"
 	"github.com/rs/xid"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/pbkdf2"
@@ -112,7 +115,6 @@ var (
 	logSender               = "dataProvider"
 	availabilityTicker      *time.Ticker
 	availabilityTickerDone  chan bool
-	errWrongPassword        = errors.New("password does not match")
 	credentialsDirPath      string
 	sqlTableUsers           = "users"
 	sqlTableFolders         = "folders"
@@ -1163,34 +1165,20 @@ func checkUserAndPubKey(user User, pubKey []byte) (User, string, error) {
 }
 
 func compareUnixPasswordAndHash(user *User, password string) (bool, error) {
-	match := false
-	var err error
+	var crypter crypt.Crypter
 	if strings.HasPrefix(user.Password, sha512cryptPwdPrefix) {
-		crypter, ok := unixcrypt.SHA512.CrypterFound(user.Password)
-		if !ok {
-			err = errors.New("cannot found matching SHA512 crypter")
-			providerLog(logger.LevelWarn, "error comparing password with SHA512 crypt hash: %v", err)
-			return match, err
-		}
-		if !crypter.Verify([]byte(password)) {
-			return match, errWrongPassword
-		}
-		match = true
-	} else if strings.HasPrefix(user.Password, md5cryptPwdPrefix) || strings.HasPrefix(user.Password, md5cryptApr1PwdPrefix) {
-		crypter, ok := unixcrypt.MD5.CrypterFound(user.Password)
-		if !ok {
-			err = errors.New("cannot found matching MD5 crypter")
-			providerLog(logger.LevelWarn, "error comparing password with MD5 crypt hash: %v", err)
-			return match, err
-		}
-		if !crypter.Verify([]byte(password)) {
-			return match, errWrongPassword
-		}
-		match = true
+		crypter = sha512_crypt.New()
+	} else if strings.HasPrefix(user.Password, md5cryptPwdPrefix) {
+		crypter = md5_crypt.New()
+	} else if strings.HasPrefix(user.Password, md5cryptApr1PwdPrefix) {
+		crypter = apr1_crypt.New()
 	} else {
-		err = errors.New("unix crypt: invalid or unsupported hash format")
+		return false, errors.New("unix crypt: invalid or unsupported hash format")
 	}
-	return match, err
+	if err := crypter.Verify(user.Password, []byte(password)); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func comparePbkdf2PasswordAndHash(password, hashedPassword string) (bool, error) {
