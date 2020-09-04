@@ -134,6 +134,13 @@ func init() {
 			PostLoginScope:     0,
 			CheckPasswordHook:  "",
 			CheckPasswordScope: 0,
+			PasswordHashing: dataprovider.PasswordHashing{
+				Argon2Options: dataprovider.Argon2Options{
+					Memory:      65536,
+					Iterations:  1,
+					Parallelism: 2,
+				},
+			},
 		},
 		HTTPDConfig: httpd.Conf{
 			BindPort:           8080,

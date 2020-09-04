@@ -92,7 +92,14 @@
     "post_login_hook": "",
     "post_login_scope": 0,
     "check_password_hook": "",
-    "check_password_scope": 0
+    "check_password_scope": 0,
+    "password_hashing": {
+      "argon2_options": {
+        "memory": 65536,
+        "iterations": 1,
+        "parallelism": 2
+      }
+    }
   },
   "httpd": {
     "bind_port": 8080,

@@ -118,10 +118,23 @@ var (
 	sqlTableFolders         = "folders"
 	sqlTableFoldersMapping  = "folders_mapping"
 	sqlTableSchemaVersion   = "schema_version"
+	argon2Params            *argon2id.Params
 )
 
 type schemaVersion struct {
 	Version int
+}
+
+// Argon2Options defines the options for argon2 password hashing
+type Argon2Options struct {
+	Memory      uint32 `json:"memory" mapstructure:"memory"`
+	Iterations  uint32 `json:"iterations" mapstructure:"iterations"`
+	Parallelism uint8  `json:"parallelism" mapstructure:"parallelism"`
+}
+
+// PasswordHashing defines the configuration for password hashing
+type PasswordHashing struct {
+	Argon2Options Argon2Options `json:"argon2_options" mapstructure:"argon2_options"`
 }
 
 // UserActions defines the action to execute on user create, update, delete.
@@ -234,6 +247,8 @@ type Config struct {
 	// - 4 means WebDAV
 	// you can combine the scopes, for example 6 means FTP and WebDAV
 	CheckPasswordScope int `json:"check_password_scope" mapstructure:"check_password_scope"`
+	// PasswordHashing defines the configuration for password hashing
+	PasswordHashing PasswordHashing `json:"password_hashing" mapstructure:"password_hashing"`
 }
 
 // BackupData defines the structure for the backup/restore files
@@ -370,6 +385,13 @@ func Initialize(cnf Config, basePath string) error {
 	if err != nil {
 		providerLog(logger.LevelWarn, "database migration error: %v", err)
 		return err
+	}
+	argon2Params = &argon2id.Params{
+		Memory:      cnf.PasswordHashing.Argon2Options.Memory,
+		Iterations:  cnf.PasswordHashing.Argon2Options.Iterations,
+		Parallelism: cnf.PasswordHashing.Argon2Options.Parallelism,
+		SaltLength:  16,
+		KeyLength:   32,
 	}
 	startAvailabilityTimer()
 	return nil
@@ -989,7 +1011,7 @@ func validateBaseParams(user *User) error {
 
 func createUserPasswordHash(user *User) error {
 	if len(user.Password) > 0 && !utils.IsStringPrefixInSlice(user.Password, hashPwdPrefixes) {
-		pwd, err := argon2id.CreateHash(user.Password, argon2id.DefaultParams)
+		pwd, err := argon2id.CreateHash(user.Password, argon2Params)
 		if err != nil {
 			return err
 		}
