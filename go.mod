@@ -25,7 +25,7 @@ require (
 	github.com/otiai10/copy v1.2.0
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/pires/go-proxyproto v0.1.3
-	github.com/pkg/sftp v1.12.0
+	github.com/pkg/sftp v1.12.1-0.20200905201520-7a079e8e55f7
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/common v0.13.0 // indirect
 	github.com/rs/cors v1.7.1-0.20200626170627-8b4a00bd362b
@@ -43,7 +43,7 @@ require (
 	go.uber.org/automaxprocs v1.3.0
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	golang.org/x/net v0.0.0-20200822124328-c89045814202
-	golang.org/x/sys v0.0.0-20200828194041-157a740278f4
+	golang.org/x/sys v0.0.0-20200905004654-be1d3432aa8f
 	golang.org/x/tools v0.0.0-20200828161849-5deb26317202 // indirect
 	google.golang.org/api v0.30.0
 	google.golang.org/genproto v0.0.0-20200829155447-2bf3329a0021 // indirect
@@ -54,7 +54,6 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20200730125632-b21eac28818c
-	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20200830084022-ea67d57ce589
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20200824205004-9f5ce89c1796
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20200824204746-8b31adf087bf
 )

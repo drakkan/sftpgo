@@ -1,8 +1,8 @@
-openapi: 3.0.1
+openapi: 3.0.3
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 1.9.6
+  version: 1.9.7
 
 servers:
 - url: /api/v1
@@ -21,9 +21,17 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref : '#/components/schemas/VersionInfo'
+                $ref : '#/components/schemas/VersionInfo'
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 400
+                message: ""
+                error: "Error description if any"
         401:
           description: Unauthorized
           content:
@@ -71,6 +79,16 @@ paths:
                 status: 200
                 message: "Alive"
                 error: ""
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 400
+                message: ""
+                error: "Error description if any"
         401:
           description: Unauthorized
           content:
@@ -116,6 +134,16 @@ paths:
                 type: array
                 items:
                   $ref : '#/components/schemas/ConnectionStatus'
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 400
+                message: ""
+                error: "Error description if any"
         401:
           description: Unauthorized
           content:
@@ -235,6 +263,16 @@ paths:
                 type: array
                 items:
                   $ref : '#/components/schemas/QuotaScan'
+        400:
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                status: 400
+                message: ""
+                error: "Error description if any"
         401:
           description: Unauthorized
           content:
