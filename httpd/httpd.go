@@ -82,9 +82,8 @@ type Conf struct {
 }
 
 type apiResponse struct {
-	Error      string `json:"error"`
-	Message    string `json:"message"`
-	HTTPStatus int    `json:"status"`
+	Error   string `json:"error,omitempty"`
+	Message string `json:"message"`
 }
 
 // Initialize configures and starts the HTTP server

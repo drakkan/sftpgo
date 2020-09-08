@@ -39,7 +39,7 @@ sudo systemctl enable sftpgo
 # optional, install the REST API CLI. It requires python-requests to run
 sudo install -Dm755 examples/rest-api-cli/sftpgo_api_cli.py /usr/bin/sftpgo_api_cli
 # optional, create shell completion script, for example for bash
-sudo /usr/bin/sftpgo gen completion bash > /etc/bash_completion.d/sftpgo-completion.bash
+sudo sh -c '/usr/bin/sftpgo gen completion bash > /etc/bash_completion.d/sftpgo-completion.bash'
 # optional, create man pages
 sudo /usr/bin/sftpgo gen man -d /usr/share/man/man1
 ```

@@ -67,9 +67,8 @@ func sendAPIResponse(w http.ResponseWriter, r *http.Request, err error, message 
 		errorString = err.Error()
 	}
 	resp := apiResponse{
-		Error:      errorString,
-		Message:    message,
-		HTTPStatus: code,
+		Error:   errorString,
+		Message: message,
 	}
 	ctx := context.WithValue(r.Context(), render.StatusCtxKey, code)
 	render.JSON(w, r.WithContext(ctx), resp)
