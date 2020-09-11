@@ -627,6 +627,8 @@ func TestDirCommands(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = client.Lstat("/test")
 		assert.Error(t, err, "stat for deleted dir must not succeed")
+		_, err = client.Stat("/test")
+		assert.Error(t, err, "stat for deleted dir must not succeed")
 		err = client.RemoveDirectory("/test")
 		assert.Error(t, err, "remove missing path must fail")
 	}
@@ -724,6 +726,8 @@ func TestStat(t *testing.T) {
 		assert.NoError(t, err)
 		_, err := client.Lstat(testFileName)
 		assert.NoError(t, err)
+		_, err = client.Stat(testFileName)
+		assert.NoError(t, err)
 		// mode 0666 and 0444 works on Windows too
 		newPerm := os.FileMode(0666)
 		err = client.Chmod(testFileName, newPerm)
@@ -740,9 +744,18 @@ func TestStat(t *testing.T) {
 		}
 		_, err = client.ReadLink(testFileName)
 		assert.Error(t, err, "readlink on a file must fail")
-		err = client.Symlink(testFileName, testFileName+".sym")
+		symlinkName := testFileName + ".sym"
+		err = client.Symlink(testFileName, symlinkName)
 		assert.NoError(t, err)
-		linkName, err := client.ReadLink(testFileName + ".sym")
+		info, err := client.Lstat(symlinkName)
+		if assert.NoError(t, err) {
+			assert.True(t, info.Mode()&os.ModeSymlink == os.ModeSymlink)
+		}
+		info, err = client.Stat(symlinkName)
+		if assert.NoError(t, err) {
+			assert.False(t, info.Mode()&os.ModeSymlink == os.ModeSymlink)
+		}
+		linkName, err := client.ReadLink(symlinkName)
 		assert.NoError(t, err)
 		assert.Equal(t, path.Join("/", testFileName), linkName)
 		newPerm = os.FileMode(0666)
@@ -2354,6 +2367,8 @@ func TestQuotaLimits(t *testing.T) {
 		err = sftpUploadFile(testFilePath1, testFileName1, testFileSize1, client)
 		assert.Error(t, err)
 		_, err = client.Stat(testFileName1)
+		assert.Error(t, err)
+		_, err = client.Lstat(testFileName1)
 		assert.Error(t, err)
 		// overwriting an existing file will work if the resulting size is lesser or equal than the current one
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
@@ -4798,6 +4813,8 @@ func TestPermList(t *testing.T) {
 		assert.Error(t, err, "read remote dir without permission should not succeed")
 		_, err = client.Stat("test_file")
 		assert.Error(t, err, "stat remote file without permission should not succeed")
+		_, err = client.Lstat("test_file")
+		assert.Error(t, err, "lstat remote file without permission should not succeed")
 		_, err = client.ReadLink("test_link")
 		assert.Error(t, err, "read remote link without permission on source dir should not succeed")
 		f, err := client.Create(testFileName)

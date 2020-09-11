@@ -238,6 +238,28 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 	}
 }
 
+// Lstat implements LstatFileLister interface
+func (c *Connection) Lstat(request *sftp.Request) (sftp.ListerAt, error) {
+	c.UpdateLastActivity()
+
+	p, err := c.Fs.ResolvePath(request.Filepath)
+	if err != nil {
+		return nil, c.GetFsError(err)
+	}
+
+	if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(request.Filepath)) {
+		return nil, sftp.ErrSSHFxPermissionDenied
+	}
+
+	s, err := c.DoStat(p, 1)
+	if err != nil {
+		c.Log(logger.LevelDebug, "error running lstat on path %#v: %+v", p, err)
+		return nil, c.GetFsError(err)
+	}
+
+	return listerAt([]os.FileInfo{s}), nil
+}
+
 func (c *Connection) getSFTPCmdTargetPath(requestTarget string) (string, error) {
 	var target string
 	// If a target is provided in this request validate that it is going to the correct

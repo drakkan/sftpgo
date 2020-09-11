@@ -190,7 +190,7 @@ func TestMain(m *testing.M) {
 	httpd.ReloadTLSCertificate() //nolint:errcheck
 
 	testServer = httptest.NewServer(httpd.GetHTTPRouter())
-	defer testServer.Close() //nolint:errcheck
+	defer testServer.Close()
 
 	exitCode := m.Run()
 	os.Remove(logfilePath)        //nolint:errcheck
