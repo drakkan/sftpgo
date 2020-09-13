@@ -144,7 +144,7 @@ paths:
             schema:
               $ref : '#/components/schemas/User'
       responses:
-        201:
+        202:
           description: successful operation
           content:
             application/json:
@@ -302,7 +302,7 @@ paths:
             schema:
               $ref : '#/components/schemas/BaseVirtualFolder'
       responses:
-        201:
+        202:
           description: successful operation
           content:
             application/json:

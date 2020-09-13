@@ -1119,7 +1119,7 @@ func TestGetQuotaScans(t *testing.T) {
 func TestStartQuotaScan(t *testing.T) {
 	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.StartQuotaScan(user, http.StatusCreated)
+	_, err = httpd.StartQuotaScan(user, http.StatusAccepted)
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -1128,7 +1128,7 @@ func TestStartQuotaScan(t *testing.T) {
 	}
 	_, _, err = httpd.AddFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.StartFolderQuotaScan(folder, http.StatusCreated)
+	_, err = httpd.StartFolderQuotaScan(folder, http.StatusAccepted)
 	assert.NoError(t, err)
 	for {
 		quotaScan, _, err := httpd.GetFoldersQuotaScans(http.StatusOK)
@@ -1958,7 +1958,7 @@ func TestStartQuotaScanMock(t *testing.T) {
 	userAsJSON = getUserAsJSON(t, user)
 	req, _ = http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer(userAsJSON))
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusCreated, rr.Code)
+	checkResponseCode(t, http.StatusAccepted, rr.Code)
 
 	for {
 		var scans []common.ActiveQuotaScan
@@ -1981,7 +1981,7 @@ func TestStartQuotaScanMock(t *testing.T) {
 	}
 	req, _ = http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer(userAsJSON))
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusCreated, rr.Code)
+	checkResponseCode(t, http.StatusAccepted, rr.Code)
 
 	for {
 		var scans []common.ActiveQuotaScan
@@ -2093,7 +2093,7 @@ func TestStartFolderQuotaScanMock(t *testing.T) {
 	}
 	req, _ = http.NewRequest(http.MethodPost, quotaScanVFolderPath, bytes.NewBuffer(folderAsJSON))
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusCreated, rr.Code)
+	checkResponseCode(t, http.StatusAccepted, rr.Code)
 	var scans []common.ActiveVirtualFolderQuotaScan
 	for {
 		req, _ = http.NewRequest(http.MethodGet, quotaScanVFolderPath, nil)

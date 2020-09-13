@@ -81,7 +81,7 @@ A full explanation of all configuration methods can be found [here](./docs/full-
 
 Please make sure to [initialize the data provider](#data-provider-initialization) before running the daemon!
 
-To start the SFTP server with default settings, simply run:
+To start SFTPGo with the default settings, simply run:
 
 ```bash
 sftpgo serve
@@ -112,6 +112,10 @@ sftpgo initprovider --help
 ```
 
 After the initialization, the database structure will be automatically checked and updated, if required, at startup.
+
+## Tutorials
+
+Some step-to-step tutorials can be found inside the source tree [howto](./docs/howto "How-to") directory.
 
 ## Authentication options
 

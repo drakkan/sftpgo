@@ -12,7 +12,7 @@ sudo mkdir -p /etc/sftpgo \
   /var/lib/sftpgo \
   /usr/share/sftpgo
 
-# install sftpgo executable
+# install the sftpgo executable
 sudo install -Dm755 sftpgo /usr/bin/sftpgo
 # install the default configuration file, edit it if required
 sudo install -Dm644 sftpgo.json /etc/sftpgo/

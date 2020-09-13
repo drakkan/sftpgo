@@ -2279,7 +2279,7 @@ func TestQuotaScan(t *testing.T) {
 	// create user with the same home dir, so there is at least an untracked file
 	user, _, err = httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.StartQuotaScan(user, http.StatusCreated)
+	_, err = httpd.StartQuotaScan(user, http.StatusAccepted)
 	assert.NoError(t, err)
 	assert.Eventually(t, func() bool {
 		scans, _, err := httpd.GetQuotaScans(http.StatusOK)
@@ -4454,7 +4454,7 @@ func TestVirtualFolderQuotaScan(t *testing.T) {
 		MappedPath: mappedPath,
 	}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.StartFolderQuotaScan(folder, http.StatusCreated)
+	_, err = httpd.StartFolderQuotaScan(folder, http.StatusAccepted)
 	assert.NoError(t, err)
 	assert.Eventually(t, func() bool {
 		scans, _, err := httpd.GetFoldersQuotaScans(http.StatusOK)

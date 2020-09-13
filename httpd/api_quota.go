@@ -121,7 +121,7 @@ func startQuotaScan(w http.ResponseWriter, r *http.Request) {
 	}
 	if common.QuotaScans.AddUserQuotaScan(user.Username) {
 		go doQuotaScan(user) //nolint:errcheck
-		sendAPIResponse(w, r, err, "Scan started", http.StatusCreated)
+		sendAPIResponse(w, r, err, "Scan started", http.StatusAccepted)
 	} else {
 		sendAPIResponse(w, r, err, "Another scan is already in progress", http.StatusConflict)
 	}
@@ -146,7 +146,7 @@ func startVFolderQuotaScan(w http.ResponseWriter, r *http.Request) {
 	}
 	if common.QuotaScans.AddVFolderQuotaScan(folder.MappedPath) {
 		go doFolderQuotaScan(folder) //nolint:errcheck
-		sendAPIResponse(w, r, err, "Scan started", http.StatusCreated)
+		sendAPIResponse(w, r, err, "Scan started", http.StatusAccepted)
 	} else {
 		sendAPIResponse(w, r, err, "Another scan is already in progress", http.StatusConflict)
 	}
