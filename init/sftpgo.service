@@ -13,6 +13,7 @@ EnvironmentFile=-/etc/sftpgo/sftpgo.env
 ExecStart=/usr/bin/sftpgo serve
 ExecReload=/bin/kill -s HUP $MAINPID
 KillMode=mixed
+PrivateTmp=true
 Restart=always
 RestartSec=10s
 

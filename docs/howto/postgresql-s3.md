@@ -28,6 +28,12 @@ whoami
 
 the output should be `sftpgo`.
 
+NOTE: once you completed this tutorial you can, optionally, remove the user `sftpgo` from the `sudo` group with the following command.
+
+```shell
+sudo delgroup sftpgo sudo
+```
+
 ## Install PostgreSQL
 
 Before installing any packages on the Ubuntu system, update and upgrade all packages using the `apt` commands below.
@@ -56,7 +62,7 @@ Next, check the PostgreSQL service using the following command.
 systemctl status postgresql
 ```
 
-## Create a new PostgreSQL user
+## Configure PostgreSQL
 
 PostgreSQL uses roles for user authentication and authorization, it just like Unix-Style permissions. By default, PostgreSQL creates a new user called `postgres` for basic authentication.
 
@@ -246,7 +252,7 @@ The easiest way to add virtual users is to use the built-in Web interface.
 You can expose the Web Admin interface over the network replacing `"bind_address": "127.0.0.1"` in the `httpd` configuration section with `"bind_address": ""` and apply the change restarting the SFTPGo service with the following command.
 
 ```shell
-systemctl restart sftpgo
+sudo systemctl restart sftpgo
 ```
 
 So now open the Web Admin URL.

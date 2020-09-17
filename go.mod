@@ -1,6 +1,6 @@
 module github.com/drakkan/sftpgo
 
-go 1.13
+go 1.14
 
 require (
 	cloud.google.com/go/storage v1.11.0
@@ -8,7 +8,7 @@ require (
 	github.com/alexedwards/argon2id v0.0.0-20200802152012-2464efd3196b
 	github.com/aws/aws-sdk-go v1.34.21
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
-	github.com/fclairamb/ftpserverlib v0.8.1-0.20200828235935-8e22c5f260e1
+	github.com/fclairamb/ftpserverlib v0.8.1-0.20200917000118-04bdfa67808e
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/render v1.0.1
@@ -30,7 +30,7 @@ require (
 	github.com/rs/cors v1.7.1-0.20200626170627-8b4a00bd362b
 	github.com/rs/xid v1.2.1
 	github.com/rs/zerolog v1.19.0
-	github.com/spf13/afero v1.3.5
+	github.com/spf13/afero v1.4.0
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
