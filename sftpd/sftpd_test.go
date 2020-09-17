@@ -373,7 +373,7 @@ func TestOpenReadWrite(t *testing.T) {
 		defer client.Close()
 		sftpFile, err := client.OpenFile(testFileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
 		if assert.NoError(t, err) {
-			testData := []byte("test data")
+			testData := []byte("sample test data")
 			n, err := sftpFile.Write(testData)
 			assert.NoError(t, err)
 			assert.Equal(t, len(testData), n)
@@ -728,6 +728,11 @@ func TestStat(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = client.Stat(testFileName)
 		assert.NoError(t, err)
+		// stat a missing path we should get an os.IsNotExist error
+		_, err = client.Stat("missing path")
+		assert.True(t, os.IsNotExist(err))
+		_, err = client.Lstat("missing path")
+		assert.True(t, os.IsNotExist(err))
 		// mode 0666 and 0444 works on Windows too
 		newPerm := os.FileMode(0666)
 		err = client.Chmod(testFileName, newPerm)
