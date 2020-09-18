@@ -427,6 +427,16 @@ func (S3Fs) IsPermission(err error) bool {
 	return strings.Contains(err.Error(), "403")
 }
 
+// GetPermissionError returns a permission error for this FS
+func (S3Fs) GetPermissionError() error {
+	return errors.New("403 permission denied")
+}
+
+// GetNotExistError returns a not exist error for this FS
+func (S3Fs) GetNotExistError() error {
+	return errors.New("404 no such file or directory")
+}
+
 // CheckRootPath creates the specified local root directory if it does not exists
 func (fs S3Fs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files

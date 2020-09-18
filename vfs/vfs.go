@@ -40,6 +40,8 @@ type Fs interface {
 	ResolvePath(sftpPath string) (string, error)
 	IsNotExist(err error) bool
 	IsPermission(err error) bool
+	GetPermissionError() error
+	GetNotExistError() error
 	ScanRootDirContents() (int, int64, error)
 	GetDirSize(dirname string) (int, int64, error)
 	GetAtomicUploadPath(name string) string
