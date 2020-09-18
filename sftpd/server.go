@@ -311,9 +311,14 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		user.ID, loginType, user.Username, user.HomeDir, remoteAddr.String())
 	dataprovider.UpdateLastLogin(user) //nolint:errcheck
 
+	sshConnection := common.NewSSHConnection(connectionID, conn)
+	common.Connections.AddSSHConnection(sshConnection)
+
+	defer common.Connections.RemoveSSHConnection(connectionID)
+
 	go ssh.DiscardRequests(reqs)
 
-	channelCounter := 0
+	channelCounter := int64(0)
 	for newChannel := range chans {
 		// If its not a session channel we just move on because its not something we
 		// know how to handle at this point.
@@ -331,9 +336,10 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 		}
 
 		channelCounter++
+		sshConnection.UpdateLastActivity()
 		// Channels have a type that is dependent on the protocol. For SFTP this is "subsystem"
 		// with a payload that (should) be "sftp". Discard anything else we receive ("pty", "shell", etc)
-		go func(in <-chan *ssh.Request, counter int) {
+		go func(in <-chan *ssh.Request, counter int64) {
 			for req := range in {
 				ok := false
 				connID := fmt.Sprintf("%v_%v", connectionID, counter)
@@ -353,7 +359,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 				case "exec":
 					// protocol will be set later inside processSSHCommand it could be SSH or SCP
 					connection := Connection{
-						BaseConnection: common.NewBaseConnection(connID, "sshd", user, fs),
+						BaseConnection: common.NewBaseConnection(connID, "sshd_exec", user, fs),
 						ClientVersion:  string(sconn.ClientVersion()),
 						RemoteAddr:     remoteAddr,
 						channel:        channel,

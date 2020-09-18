@@ -68,6 +68,18 @@ func (c *fakeConnection) GetRemoteAddress() string {
 	return ""
 }
 
+type customNetConn struct {
+	net.Conn
+	id       string
+	isClosed bool
+}
+
+func (c *customNetConn) Close() error {
+	Connections.RemoveSSHConnection(c.id)
+	c.isClosed = true
+	return c.Conn.Close()
+}
+
 func TestMain(m *testing.M) {
 	logfilePath := "common_test.log"
 	logger.InitLogger(logfilePath, 5, 1, 28, false, zerolog.DebugLevel)
@@ -168,40 +180,112 @@ func closeDataprovider() error {
 	return dataprovider.Close()
 }
 
+func TestSSHConnections(t *testing.T) {
+	conn1, conn2 := net.Pipe()
+	now := time.Now()
+	sshConn1 := NewSSHConnection("id1", conn1)
+	sshConn2 := NewSSHConnection("id2", conn2)
+	assert.Equal(t, "id1", sshConn1.GetID())
+	assert.Equal(t, "id2", sshConn2.GetID())
+	sshConn1.UpdateLastActivity()
+	assert.GreaterOrEqual(t, sshConn1.GetLastActivity().UnixNano(), now.UnixNano())
+	Connections.AddSSHConnection(sshConn1)
+	Connections.AddSSHConnection(sshConn2)
+	Connections.RLock()
+	assert.Len(t, Connections.sshConnections, 2)
+	Connections.RUnlock()
+	Connections.RemoveSSHConnection(sshConn1.id)
+	Connections.RLock()
+	assert.Len(t, Connections.sshConnections, 1)
+	Connections.RUnlock()
+	Connections.RemoveSSHConnection(sshConn1.id)
+	Connections.RLock()
+	assert.Len(t, Connections.sshConnections, 1)
+	Connections.RUnlock()
+	Connections.RemoveSSHConnection(sshConn2.id)
+	Connections.RLock()
+	assert.Len(t, Connections.sshConnections, 0)
+	Connections.RUnlock()
+	assert.NoError(t, sshConn1.Close())
+	assert.NoError(t, sshConn2.Close())
+}
+
 func TestIdleConnections(t *testing.T) {
 	configCopy := Config
 
 	Config.IdleTimeout = 1
 	Initialize(Config)
 
+	conn1, conn2 := net.Pipe()
+	customConn1 := &customNetConn{
+		Conn: conn1,
+		id:   "id1",
+	}
+	customConn2 := &customNetConn{
+		Conn: conn2,
+		id:   "id2",
+	}
+	sshConn1 := NewSSHConnection(customConn1.id, customConn1)
+	sshConn2 := NewSSHConnection(customConn2.id, customConn2)
+
 	username := "test_user"
 	user := dataprovider.User{
 		Username: username,
 	}
-	c := NewBaseConnection("id1", ProtocolSFTP, user, nil)
+	c := NewBaseConnection(sshConn1.id+"_1", ProtocolSFTP, user, nil)
 	c.lastActivity = time.Now().Add(-24 * time.Hour).UnixNano()
 	fakeConn := &fakeConnection{
 		BaseConnection: c,
 	}
+	// both ssh connections are expired but they should get removed only
+	// if there is no associated connection
+	sshConn1.lastActivity = c.lastActivity
+	sshConn2.lastActivity = c.lastActivity
+	Connections.AddSSHConnection(sshConn1)
 	Connections.Add(fakeConn)
 	assert.Equal(t, Connections.GetActiveSessions(username), 1)
-	c = NewBaseConnection("id2", ProtocolFTP, dataprovider.User{}, nil)
-	c.lastActivity = time.Now().UnixNano()
+	c = NewBaseConnection(sshConn2.id+"_1", ProtocolSSH, user, nil)
 	fakeConn = &fakeConnection{
 		BaseConnection: c,
 	}
+	Connections.AddSSHConnection(sshConn2)
 	Connections.Add(fakeConn)
-	assert.Equal(t, Connections.GetActiveSessions(username), 1)
-	assert.Len(t, Connections.GetStats(), 2)
+	assert.Equal(t, Connections.GetActiveSessions(username), 2)
+
+	cFTP := NewBaseConnection("id2", ProtocolFTP, dataprovider.User{}, nil)
+	cFTP.lastActivity = time.Now().UnixNano()
+	fakeConn = &fakeConnection{
+		BaseConnection: cFTP,
+	}
+	Connections.Add(fakeConn)
+	assert.Equal(t, Connections.GetActiveSessions(username), 2)
+	assert.Len(t, Connections.GetStats(), 3)
+	Connections.RLock()
+	assert.Len(t, Connections.sshConnections, 2)
+	Connections.RUnlock()
 
 	startIdleTimeoutTicker(100 * time.Millisecond)
-	assert.Eventually(t, func() bool { return Connections.GetActiveSessions(username) == 0 }, 1*time.Second, 200*time.Millisecond)
+	assert.Eventually(t, func() bool { return Connections.GetActiveSessions(username) == 1 }, 1*time.Second, 200*time.Millisecond)
+	assert.Eventually(t, func() bool {
+		Connections.RLock()
+		defer Connections.RUnlock()
+		return len(Connections.sshConnections) == 1
+	}, 1*time.Second, 200*time.Millisecond)
 	stopIdleTimeoutTicker()
-	assert.Len(t, Connections.GetStats(), 1)
+	assert.Len(t, Connections.GetStats(), 2)
 	c.lastActivity = time.Now().Add(-24 * time.Hour).UnixNano()
+	cFTP.lastActivity = time.Now().Add(-24 * time.Hour).UnixNano()
+	sshConn2.lastActivity = c.lastActivity
 	startIdleTimeoutTicker(100 * time.Millisecond)
 	assert.Eventually(t, func() bool { return len(Connections.GetStats()) == 0 }, 1*time.Second, 200*time.Millisecond)
+	assert.Eventually(t, func() bool {
+		Connections.RLock()
+		defer Connections.RUnlock()
+		return len(Connections.sshConnections) == 0
+	}, 1*time.Second, 200*time.Millisecond)
 	stopIdleTimeoutTicker()
+	assert.True(t, customConn1.isClosed)
+	assert.True(t, customConn2.isClosed)
 
 	Config = configCopy
 }

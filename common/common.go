@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pires/go-proxyproto"
@@ -336,10 +337,48 @@ func (c *Configuration) ExecutePostConnectHook(remoteAddr, protocol string) erro
 	return err
 }
 
+// SSHConnection defines an ssh connection.
+// Each SSH connection can open several channels for SFTP or SSH commands
+type SSHConnection struct {
+	id           string
+	conn         net.Conn
+	lastActivity int64
+}
+
+// NewSSHConnection returns a new SSHConnection
+func NewSSHConnection(id string, conn net.Conn) *SSHConnection {
+	return &SSHConnection{
+		id:           id,
+		conn:         conn,
+		lastActivity: time.Now().UnixNano(),
+	}
+}
+
+// GetID returns the ID for this SSHConnection
+func (c *SSHConnection) GetID() string {
+	return c.id
+}
+
+// UpdateLastActivity updates last activity for this connection
+func (c *SSHConnection) UpdateLastActivity() {
+	atomic.StoreInt64(&c.lastActivity, time.Now().UnixNano())
+}
+
+// GetLastActivity returns the last connection activity
+func (c *SSHConnection) GetLastActivity() time.Time {
+	return time.Unix(0, atomic.LoadInt64(&c.lastActivity))
+}
+
+// Close closes the underlying network connection
+func (c *SSHConnection) Close() error {
+	return c.conn.Close()
+}
+
 // ActiveConnections holds the currect active connections with the associated transfers
 type ActiveConnections struct {
 	sync.RWMutex
-	connections []ActiveConnection
+	connections    []ActiveConnection
+	sshConnections []*SSHConnection
 }
 
 // GetActiveSessions returns the number of active sessions for the given username.
@@ -431,8 +470,63 @@ func (conns *ActiveConnections) Close(connectionID string) bool {
 	return result
 }
 
+// AddSSHConnection adds a new ssh connection to the active ones
+func (conns *ActiveConnections) AddSSHConnection(c *SSHConnection) {
+	conns.Lock()
+	defer conns.Unlock()
+
+	conns.sshConnections = append(conns.sshConnections, c)
+	logger.Debug(logSender, c.GetID(), "ssh connection added, num open connections: %v", len(conns.sshConnections))
+}
+
+// RemoveSSHConnection removes a connection from the active ones
+func (conns *ActiveConnections) RemoveSSHConnection(connectionID string) {
+	conns.Lock()
+	defer conns.Unlock()
+
+	var c *SSHConnection
+	indexToRemove := -1
+	for i, conn := range conns.sshConnections {
+		if conn.GetID() == connectionID {
+			indexToRemove = i
+			c = conn
+			break
+		}
+	}
+	if indexToRemove >= 0 {
+		conns.sshConnections[indexToRemove] = conns.sshConnections[len(conns.sshConnections)-1]
+		conns.sshConnections[len(conns.sshConnections)-1] = nil
+		conns.sshConnections = conns.sshConnections[:len(conns.sshConnections)-1]
+		logger.Debug(logSender, c.GetID(), "ssh connection removed, num open ssh connections: %v", len(conns.sshConnections))
+	} else {
+		logger.Warn(logSender, "", "ssh connection to remove with id %#v not found!", connectionID)
+	}
+}
+
 func (conns *ActiveConnections) checkIdleConnections() {
 	conns.RLock()
+
+	for _, sshConn := range conns.sshConnections {
+		idleTime := time.Since(sshConn.GetLastActivity())
+		if idleTime > Config.idleTimeoutAsDuration {
+			// we close the an ssh connection if it has no active connections associated
+			idToMatch := fmt.Sprintf("_%v_", sshConn.GetID())
+			toClose := true
+			for _, conn := range conns.connections {
+				if strings.Contains(conn.GetID(), idToMatch) {
+					toClose = false
+					break
+				}
+			}
+			if toClose {
+				defer func(c *SSHConnection) {
+					err := c.Close()
+					logger.Debug(logSender, c.GetID(), "close idle SSH connection, idle time: %v, close err: %v",
+						time.Since(c.GetLastActivity()), err)
+				}(sshConn)
+			}
+		}
+	}
 
 	for _, c := range conns.connections {
 		idleTime := time.Since(c.GetLastActivity())
@@ -442,7 +536,7 @@ func (conns *ActiveConnections) checkIdleConnections() {
 			defer func(conn ActiveConnection, isFTPNoAuth bool) {
 				err := conn.Disconnect()
 				logger.Debug(conn.GetProtocol(), conn.GetID(), "close idle connection, idle time: %v, username: %#v close err: %v",
-					idleTime, conn.GetUsername(), err)
+					time.Since(conn.GetLastActivity()), conn.GetUsername(), err)
 				if isFTPNoAuth {
 					ip := utils.GetIPFromRemoteAddress(c.GetRemoteAddress())
 					logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, c.GetProtocol(), "client idle")
