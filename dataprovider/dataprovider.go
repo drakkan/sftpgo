@@ -999,10 +999,13 @@ func validateFilesystemConfig(user *User) error {
 }
 
 func validateBaseParams(user *User) error {
-	if len(user.Username) == 0 || len(user.HomeDir) == 0 {
-		return &ValidationError{err: "mandatory parameters missing"}
+	if user.Username == "" {
+		return &ValidationError{err: "username is mandatory"}
 	}
-	if len(user.Password) == 0 && len(user.PublicKeys) == 0 {
+	if user.HomeDir == "" {
+		return &ValidationError{err: "home_dir is mandatory"}
+	}
+	if user.Password == "" && len(user.PublicKeys) == 0 {
 		return &ValidationError{err: "please set a password or at least a public_key"}
 	}
 	if !filepath.IsAbs(user.HomeDir) {
