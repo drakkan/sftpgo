@@ -68,8 +68,6 @@ func (c *fakeConnection) GetRemoteAddress() string {
 	return ""
 }
 
-func (c *fakeConnection) SetConnDeadline() {}
-
 func TestMain(m *testing.M) {
 	logfilePath := "common_test.log"
 	logger.InitLogger(logfilePath, 5, 1, 28, false, zerolog.DebugLevel)

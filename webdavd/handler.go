@@ -39,9 +39,6 @@ func (c *Connection) GetRemoteAddress() string {
 	return ""
 }
 
-// SetConnDeadline does nothing
-func (c *Connection) SetConnDeadline() {}
-
 // Disconnect closes the active transfer
 func (c *Connection) Disconnect() error {
 	return c.SignalTransfersAbort()

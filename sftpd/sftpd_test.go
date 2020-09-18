@@ -5368,6 +5368,33 @@ func TestPermsSubDirsSetstat(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestOpenUnhandledChannel(t *testing.T) {
+	u := getTestUser(false)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+
+	config := &ssh.ClientConfig{
+		User: user.Username,
+		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+			return nil
+		},
+		Auth: []ssh.AuthMethod{ssh.Password(defaultPassword)},
+	}
+	conn, err := ssh.Dial("tcp", sftpServerAddr, config)
+	if assert.NoError(t, err) {
+		_, _, err = conn.OpenChannel("unhandled", nil)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "unknown channel type")
+		}
+		err = conn.Close()
+		assert.NoError(t, err)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestPermsSubDirsCommands(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)

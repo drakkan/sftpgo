@@ -48,7 +48,7 @@ type systemCommand struct {
 	quotaCheckPath string
 }
 
-func processSSHCommand(payload []byte, connection *Connection, channel ssh.Channel, enabledSSHCommands []string) bool {
+func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommands []string) bool {
 	var msg sshSubsystemExecMsg
 	if err := ssh.Unmarshal(payload, &msg); err == nil {
 		name, args, err := parseCommandPayload(msg.Command)
@@ -58,7 +58,6 @@ func processSSHCommand(payload []byte, connection *Connection, channel ssh.Chann
 			connection.command = msg.Command
 			if name == scpCmdName && len(args) >= 2 {
 				connection.SetProtocol(common.ProtocolSCP)
-				connection.channel = channel
 				scpCommand := scpCommand{
 					sshCommand: sshCommand{
 						command:    name,
@@ -70,7 +69,6 @@ func processSSHCommand(payload []byte, connection *Connection, channel ssh.Chann
 			}
 			if name != scpCmdName {
 				connection.SetProtocol(common.ProtocolSSH)
-				connection.channel = channel
 				sshCommand := sshCommand{
 					command:    name,
 					connection: connection,

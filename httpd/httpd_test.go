@@ -114,8 +114,6 @@ func (c *fakeConnection) GetRemoteAddress() string {
 	return ""
 }
 
-func (c *fakeConnection) SetConnDeadline() {}
-
 func TestMain(m *testing.M) {
 	homeBasePath = os.TempDir()
 	logfilePath := filepath.Join(configDir, "sftpgo_api_test.log")

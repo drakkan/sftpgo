@@ -42,9 +42,6 @@ func (c *Connection) GetRemoteAddress() string {
 	return c.clientContext.RemoteAddr().String()
 }
 
-// SetConnDeadline does nothing
-func (c *Connection) SetConnDeadline() {}
-
 // Disconnect disconnects the client
 func (c *Connection) Disconnect() error {
 	return c.clientContext.Close(ftpserver.StatusServiceNotAvailable, "connection closed")

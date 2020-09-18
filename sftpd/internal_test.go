@@ -518,7 +518,6 @@ func TestSSHCommandErrors(t *testing.T) {
 	connection := Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, user, fs),
 		channel:        &mockSSHChannel,
-		netConn:        client,
 	}
 	cmd := sshCommand{
 		command:    "md5sum",
@@ -674,7 +673,6 @@ func TestCommandsWithExtensionsFilter(t *testing.T) {
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, user, fs),
 		channel:        &mockSSHChannel,
-		netConn:        client,
 	}
 	cmd := sshCommand{
 		command:    "md5sum",
@@ -747,7 +745,6 @@ func TestSSHCommandsRemoteFs(t *testing.T) {
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, user, fs),
 		channel:        &mockSSHChannel,
-		netConn:        client,
 	}
 	cmd := sshCommand{
 		command:    "md5sum",
@@ -960,7 +957,6 @@ func TestSystemCommandErrors(t *testing.T) {
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, user, fs),
 		channel:        &mockSSHChannel,
-		netConn:        client,
 	}
 	var sshCmd sshCommand
 	if runtime.GOOS == osWindows {
@@ -1268,7 +1264,6 @@ func TestSCPCommandHandleErrors(t *testing.T) {
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, dataprovider.User{}, nil),
 		channel:        &mockSSHChannel,
-		netConn:        client,
 	}
 	scpCommand := scpCommand{
 		sshCommand: sshCommand{
@@ -1309,7 +1304,6 @@ func TestSCPErrorsMockFs(t *testing.T) {
 	}()
 	connection := &Connection{
 		channel:        &mockSSHChannel,
-		netConn:        client,
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, u, fs),
 	}
 	scpCommand := scpCommand{
@@ -1364,7 +1358,6 @@ func TestSCPRecursiveDownloadErrors(t *testing.T) {
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, dataprovider.User{}, fs),
 		channel:        &mockSSHChannel,
-		netConn:        client,
 	}
 	scpCommand := scpCommand{
 		sshCommand: sshCommand{

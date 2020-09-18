@@ -160,7 +160,6 @@ type ActiveConnection interface {
 	GetLastActivity() time.Time
 	GetCommand() string
 	Disconnect() error
-	SetConnDeadline()
 	AddTransfer(t ActiveTransfer)
 	RemoveTransfer(t ActiveTransfer)
 	GetTransfers() []ConnectionTransfer
@@ -405,16 +404,7 @@ func (conns *ActiveConnections) Remove(connectionID string) {
 		conns.connections[len(conns.connections)-1] = nil
 		conns.connections = conns.connections[:len(conns.connections)-1]
 		metrics.UpdateActiveConnectionsSize(len(conns.connections))
-		logger.Debug(c.GetProtocol(), c.GetID(), "connection removed, num open connections: %v",
-			len(conns.connections))
-		// we have finished to send data here and most of the time the underlying network connection
-		// is already closed. Sometime a client can still be reading the last sended data, so we set
-		// a deadline instead of directly closing the network connection.
-		// Setting a deadline on an already closed connection has no effect.
-		// We only need to ensure that a connection will not remain indefinitely open and so the
-		// underlying file descriptor is not released.
-		// This should protect us against buggy clients and edge cases.
-		c.SetConnDeadline()
+		logger.Debug(c.GetProtocol(), c.GetID(), "connection removed, num open connections: %v", len(conns.connections))
 	} else {
 		logger.Warn(logSender, "", "connection to remove with id %#v not found!", connectionID)
 	}

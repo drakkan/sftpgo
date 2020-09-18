@@ -23,7 +23,6 @@ type Connection struct {
 	ClientVersion string
 	// Remote address for this connection
 	RemoteAddr net.Addr
-	netConn    net.Conn
 	channel    ssh.Channel
 	command    string
 }
@@ -36,11 +35,6 @@ func (c *Connection) GetClientVersion() string {
 // GetRemoteAddress return the connected client's address
 func (c *Connection) GetRemoteAddress() string {
 	return c.RemoteAddr.String()
-}
-
-// SetConnDeadline sets a deadline on the network connection so it will be eventually closed
-func (c *Connection) SetConnDeadline() {
-	c.netConn.SetDeadline(time.Now().Add(2 * time.Minute)) //nolint:errcheck
 }
 
 // GetCommand returns the SSH command, if any
@@ -413,11 +407,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, r
 
 // Disconnect disconnects the client closing the network connection
 func (c *Connection) Disconnect() error {
-	if c.channel != nil {
-		err := c.channel.Close()
-		c.Log(logger.LevelInfo, "channel close, err: %v", err)
-	}
-	return c.netConn.Close()
+	return c.channel.Close()
 }
 
 func getOSOpenFlags(requestFlags sftp.FileOpenFlags) (flags int) {
