@@ -124,9 +124,8 @@ func (c *scpCommand) handleCreateDir(dirPath string) error {
 	}
 	if !c.connection.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(dirPath)) {
 		c.connection.Log(logger.LevelWarn, "error creating dir: %#v, permission denied", dirPath)
-		err := c.connection.Fs.GetPermissionError()
-		c.sendErrorMessage(err)
-		return err
+		c.sendErrorMessage(common.ErrPermissionDenied)
+		return common.ErrPermissionDenied
 	}
 
 	err = c.createDir(p)
@@ -240,9 +239,8 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 
 	if !c.connection.User.IsFileAllowed(uploadFilePath) {
 		c.connection.Log(logger.LevelWarn, "writing file %#v is not allowed", uploadFilePath)
-		err := c.connection.Fs.GetPermissionError()
-		c.sendErrorMessage(err)
-		return err
+		c.sendErrorMessage(common.ErrPermissionDenied)
+		return common.ErrPermissionDenied
 	}
 
 	p, err := c.connection.Fs.ResolvePath(uploadFilePath)
@@ -259,9 +257,8 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 	if (statErr == nil && stat.Mode()&os.ModeSymlink == os.ModeSymlink) || c.connection.Fs.IsNotExist(statErr) {
 		if !c.connection.User.HasPerm(dataprovider.PermUpload, path.Dir(uploadFilePath)) {
 			c.connection.Log(logger.LevelWarn, "cannot upload file: %#v, permission denied", uploadFilePath)
-			err := c.connection.Fs.GetPermissionError()
-			c.sendErrorMessage(err)
-			return err
+			c.sendErrorMessage(common.ErrPermissionDenied)
+			return common.ErrPermissionDenied
 		}
 		return c.handleUploadFile(p, filePath, sizeToRead, true, 0, uploadFilePath)
 	}
@@ -281,9 +278,8 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 
 	if !c.connection.User.HasPerm(dataprovider.PermOverwrite, uploadFilePath) {
 		c.connection.Log(logger.LevelWarn, "cannot overwrite file: %#v, permission denied", uploadFilePath)
-		err := c.connection.Fs.GetPermissionError()
-		c.sendErrorMessage(err)
-		return err
+		c.sendErrorMessage(common.ErrPermissionDenied)
+		return common.ErrPermissionDenied
 	}
 
 	if common.Config.IsAtomicUploadEnabled() && c.connection.Fs.IsAtomicUploadSupported() {
@@ -463,9 +459,8 @@ func (c *scpCommand) handleDownload(filePath string) error {
 	if stat.IsDir() {
 		if !c.connection.User.HasPerm(dataprovider.PermDownload, filePath) {
 			c.connection.Log(logger.LevelWarn, "error downloading dir: %#v, permission denied", filePath)
-			err := c.connection.Fs.GetPermissionError()
-			c.sendErrorMessage(err)
-			return err
+			c.sendErrorMessage(common.ErrPermissionDenied)
+			return common.ErrPermissionDenied
 		}
 		err = c.handleRecursiveDownload(p, stat)
 		return err
@@ -473,16 +468,14 @@ func (c *scpCommand) handleDownload(filePath string) error {
 
 	if !c.connection.User.HasPerm(dataprovider.PermDownload, path.Dir(filePath)) {
 		c.connection.Log(logger.LevelWarn, "error downloading dir: %#v, permission denied", filePath)
-		err := c.connection.Fs.GetPermissionError()
-		c.sendErrorMessage(err)
-		return err
+		c.sendErrorMessage(common.ErrPermissionDenied)
+		return common.ErrPermissionDenied
 	}
 
 	if !c.connection.User.IsFileAllowed(filePath) {
 		c.connection.Log(logger.LevelWarn, "reading file %#v is not allowed", filePath)
-		err := c.connection.Fs.GetPermissionError()
-		c.sendErrorMessage(err)
-		return err
+		c.sendErrorMessage(common.ErrPermissionDenied)
+		return common.ErrPermissionDenied
 	}
 
 	file, r, cancelFn, err := c.connection.Fs.Open(p, 0)

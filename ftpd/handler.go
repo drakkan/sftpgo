@@ -101,7 +101,7 @@ func (c *Connection) Remove(name string) error {
 
 	if fi.IsDir() && fi.Mode()&os.ModeSymlink != os.ModeSymlink {
 		c.Log(logger.LevelDebug, "cannot remove %#v is not a file/symlink", p)
-		return c.GetGenericError()
+		return c.GetGenericError(nil)
 	}
 	return c.RemoveFile(p, name, fi)
 }

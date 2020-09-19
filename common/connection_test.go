@@ -227,7 +227,7 @@ func TestRemoveDir(t *testing.T) {
 	assert.NoError(t, err)
 	err = c.RemoveDir(testDir, "testDir")
 	if assert.Error(t, err) {
-		assert.EqualError(t, err, c.GetGenericError().Error())
+		assert.EqualError(t, err, c.GetGenericError(err).Error())
 	}
 	err = os.Remove(testDir)
 	assert.NoError(t, err)
@@ -349,7 +349,7 @@ func TestRename(t *testing.T) {
 	// and so the remaining space cannot be computed
 	err = c.Rename(filepath.Join(user.GetHomeDir(), "adir"), filepath.Join(user.GetHomeDir(), "another"), "/vdir1/sub/a", "/vdir2/b")
 	if assert.Error(t, err) {
-		assert.EqualError(t, err, c.GetGenericError().Error())
+		assert.EqualError(t, err, c.GetGenericError(err).Error())
 	}
 
 	err = os.RemoveAll(mappedPath1)
@@ -409,7 +409,7 @@ func TestCreateSymlink(t *testing.T) {
 	}
 	err = c.CreateSymlink(filepath.Join(user.GetHomeDir(), "b"), mappedPath1, "/vdir1/b", "/vdir2/b")
 	if assert.Error(t, err) {
-		assert.EqualError(t, err, c.GetGenericError().Error())
+		assert.EqualError(t, err, c.GetOpUnsupportedError().Error())
 	}
 	err = c.CreateSymlink(mappedPath1, filepath.Join(mappedPath1, "b"), "/vdir1/a", "/vdir1/b")
 	if assert.Error(t, err) {
@@ -1139,6 +1139,12 @@ func TestErrorsMapping(t *testing.T) {
 			assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
 		} else {
 			assert.EqualError(t, err, ErrGenericFailure.Error())
+		}
+		err = conn.GetFsError(ErrPermissionDenied)
+		if protocol == ProtocolSFTP {
+			assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
+		} else {
+			assert.EqualError(t, err, ErrPermissionDenied.Error())
 		}
 		err = conn.GetFsError(nil)
 		assert.NoError(t, err)

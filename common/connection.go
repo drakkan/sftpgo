@@ -320,7 +320,7 @@ func (c *BaseConnection) RemoveDir(fsPath, virtualPath string) error {
 	}
 	if !fi.IsDir() || fi.Mode()&os.ModeSymlink == os.ModeSymlink {
 		c.Log(logger.LevelDebug, "cannot remove %#v is not a directory", fsPath)
-		return c.GetGenericError()
+		return c.GetGenericError(nil)
 	}
 
 	if err := c.Fs.Remove(fsPath, true); err != nil {
@@ -379,7 +379,7 @@ func (c *BaseConnection) Rename(fsSourcePath, fsTargetPath, virtualSourcePath, v
 	}
 	if !c.hasSpaceForRename(virtualSourcePath, virtualTargetPath, initialSize, fsSourcePath) {
 		c.Log(logger.LevelInfo, "denying cross rename due to space limit")
-		return c.GetGenericError()
+		return c.GetGenericError(ErrQuotaExceeded)
 	}
 	if err := c.Fs.Rename(fsSourcePath, fsTargetPath); err != nil {
 		c.Log(logger.LevelWarn, "failed to rename %#v -> %#v: %+v", fsSourcePath, fsTargetPath, err)
@@ -412,7 +412,7 @@ func (c *BaseConnection) CreateSymlink(fsSourcePath, fsTargetPath, virtualSource
 	}
 	if c.isCrossFoldersRequest(virtualSourcePath, virtualTargetPath) {
 		c.Log(logger.LevelWarn, "cross folder symlink is not supported, src: %v dst: %v", virtualSourcePath, virtualTargetPath)
-		return c.GetGenericError()
+		return c.GetOpUnsupportedError()
 	}
 	if c.User.IsMappedPath(fsSourcePath) {
 		c.Log(logger.LevelWarn, "symlinking a directory mapped as virtual folder is not allowed: %#v", fsSourcePath)
@@ -932,11 +932,14 @@ func (c *BaseConnection) GetOpUnsupportedError() error {
 }
 
 // GetGenericError returns an appropriate generic error for the connection protocol
-func (c *BaseConnection) GetGenericError() error {
+func (c *BaseConnection) GetGenericError(err error) error {
 	switch c.protocol {
 	case ProtocolSFTP:
 		return sftp.ErrSSHFxFailure
 	default:
+		if err == ErrPermissionDenied || err == ErrNotExist || err == ErrOpUnsupported || err == ErrQuotaExceeded {
+			return err
+		}
 		return ErrGenericFailure
 	}
 }
@@ -948,7 +951,7 @@ func (c *BaseConnection) GetFsError(err error) error {
 	} else if c.Fs.IsPermission(err) {
 		return c.GetPermissionDeniedError()
 	} else if err != nil {
-		return c.GetGenericError()
+		return c.GetGenericError(err)
 	}
 	return nil
 }

@@ -183,16 +183,6 @@ func (OsFs) IsPermission(err error) bool {
 	return os.IsPermission(err)
 }
 
-// GetPermissionError returns a permission error for this FS
-func (OsFs) GetPermissionError() error {
-	return os.ErrPermission
-}
-
-// GetNotExistError returns a not exist error for this FS
-func (OsFs) GetNotExistError() error {
-	return os.ErrNotExist
-}
-
 // CheckRootPath creates the root directory if it does not exists
 func (fs OsFs) CheckRootPath(username string, uid int, gid int) bool {
 	var err error
