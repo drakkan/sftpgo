@@ -81,7 +81,7 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 		config.SetFTPDConfig(ftpConf)
 	}
 
-	if webdavPort > 0 {
+	if webdavPort >= 0 {
 		webDavConf := config.GetWebDAVDConfig()
 		if webdavPort > 0 {
 			webDavConf.BindPort = webdavPort
@@ -129,7 +129,9 @@ func (s *Service) getServiceOptionalInfoString() string {
 func (s *Service) advertiseServices(advertiseService, advertiseCredentials bool) {
 	var mDNSServiceSFTP *zeroconf.Server
 	var mDNSServiceFTP *zeroconf.Server
+	var mDNSServiceDAV *zeroconf.Server
 	var err error
+
 	if advertiseService {
 		meta := []string{
 			fmt.Sprintf("version=%v", version.Get().Version),
@@ -144,34 +146,55 @@ func (s *Service) advertiseServices(advertiseService, advertiseCredentials bool)
 			}
 		}
 		sftpdConf := config.GetSFTPDConfig()
-		mDNSServiceSFTP, err = zeroconf.Register(
-			fmt.Sprintf("SFTPGo portable %v", sftpdConf.BindPort), // service instance name
-			"_sftp-ssh._tcp",   // service type and protocol
-			"local.",           // service domain
-			sftpdConf.BindPort, // service port
-			meta,               // service metadata
-			nil,                // register on all network interfaces
-		)
-		if err != nil {
-			mDNSServiceSFTP = nil
-			logger.WarnToConsole("Unable to advertise SFTP service via multicast DNS: %v", err)
-		} else {
-			logger.InfoToConsole("SFTP service advertised via multicast DNS")
+		if sftpdConf.BindPort > 0 {
+			mDNSServiceSFTP, err = zeroconf.Register(
+				fmt.Sprintf("SFTPGo portable %v", sftpdConf.BindPort), // service instance name
+				"_sftp-ssh._tcp",   // service type and protocol
+				"local.",           // service domain
+				sftpdConf.BindPort, // service port
+				meta,               // service metadata
+				nil,                // register on all network interfaces
+			)
+			if err != nil {
+				mDNSServiceSFTP = nil
+				logger.WarnToConsole("Unable to advertise SFTP service via multicast DNS: %v", err)
+			} else {
+				logger.InfoToConsole("SFTP service advertised via multicast DNS")
+			}
 		}
 		ftpdConf := config.GetFTPDConfig()
-		mDNSServiceFTP, err = zeroconf.Register(
-			fmt.Sprintf("SFTPGo portable %v", ftpdConf.BindPort),
-			"_ftp._tcp",
-			"local.",
-			ftpdConf.BindPort,
-			meta,
-			nil,
-		)
-		if err != nil {
-			mDNSServiceFTP = nil
-			logger.WarnToConsole("Unable to advertise FTP service via multicast DNS: %v", err)
-		} else {
-			logger.InfoToConsole("FTP service advertised via multicast DNS")
+		if ftpdConf.BindPort > 0 {
+			mDNSServiceFTP, err = zeroconf.Register(
+				fmt.Sprintf("SFTPGo portable %v", ftpdConf.BindPort),
+				"_ftp._tcp",
+				"local.",
+				ftpdConf.BindPort,
+				meta,
+				nil,
+			)
+			if err != nil {
+				mDNSServiceFTP = nil
+				logger.WarnToConsole("Unable to advertise FTP service via multicast DNS: %v", err)
+			} else {
+				logger.InfoToConsole("FTP service advertised via multicast DNS")
+			}
+		}
+		webdavConf := config.GetWebDAVDConfig()
+		if webdavConf.BindPort > 0 {
+			mDNSServiceDAV, err = zeroconf.Register(
+				fmt.Sprintf("SFTPGo portable %v", webdavConf.BindPort),
+				"_http._tcp",
+				"local.",
+				webdavConf.BindPort,
+				meta,
+				nil,
+			)
+			if err != nil {
+				mDNSServiceDAV = nil
+				logger.WarnToConsole("Unable to advertise WebDAV service via multicast DNS: %v", err)
+			} else {
+				logger.InfoToConsole("WebDAV service advertised via multicast DNS")
+			}
 		}
 	}
 	sig := make(chan os.Signal, 1)
@@ -185,6 +208,10 @@ func (s *Service) advertiseServices(advertiseService, advertiseCredentials bool)
 		if mDNSServiceFTP != nil {
 			logger.InfoToConsole("unregistering multicast DNS FTP service")
 			mDNSServiceFTP.Shutdown()
+		}
+		if mDNSServiceDAV != nil {
+			logger.InfoToConsole("unregistering multicast DNS WebDAV service")
+			mDNSServiceDAV.Shutdown()
 		}
 		s.Stop()
 	}()
