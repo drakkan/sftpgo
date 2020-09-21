@@ -413,7 +413,15 @@ func (fs *OsFs) isSubDir(sub, rootPath string) error {
 		fsLog(fs, logger.LevelWarn, "invalid root path %#v: %v", rootPath, err)
 		return err
 	}
-	if !strings.HasPrefix(sub, parent) {
+	if parent == sub {
+		return nil
+	}
+	if len(sub) < len(parent) {
+		err = fmt.Errorf("path %#v is not inside: %#v", sub, parent)
+		fsLog(fs, logger.LevelWarn, "error: %v ", err)
+		return err
+	}
+	if !strings.HasPrefix(sub, parent+string(os.PathSeparator)) {
 		err = fmt.Errorf("path %#v is not inside: %#v", sub, parent)
 		fsLog(fs, logger.LevelWarn, "error: %v ", err)
 		return err

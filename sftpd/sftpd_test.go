@@ -887,6 +887,9 @@ func TestEscapeHomeDir(t *testing.T) {
 	usePubKey := true
 	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
 	assert.NoError(t, err)
+	dirOutsideHome := filepath.Join(homeBasePath, defaultUsername+"1", "dir")
+	err = os.MkdirAll(dirOutsideHome, os.ModePerm)
+	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
 		defer client.Close()
@@ -899,6 +902,10 @@ func TestEscapeHomeDir(t *testing.T) {
 		assert.Error(t, err, "reading a symbolic link outside home dir should not succeeded")
 		err = os.Remove(linkPath)
 		assert.NoError(t, err)
+		err = os.Symlink(dirOutsideHome, linkPath)
+		assert.NoError(t, err)
+		_, err := client.ReadDir(testDir)
+		assert.Error(t, err, "reading a symbolic link outside home dir should not succeeded")
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(65535)
 		err = createTestFile(testFilePath, testFileSize)
@@ -927,6 +934,8 @@ func TestEscapeHomeDir(t *testing.T) {
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(filepath.Join(homeBasePath, defaultUsername+"1"))
 	assert.NoError(t, err)
 }
 
