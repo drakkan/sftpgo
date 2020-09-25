@@ -204,33 +204,11 @@ $ sftpgo initprovider -c /etc/sftpgo
 
 ## Install SFTPGo systemd service
 
-Create the systemd service file `/etc/systemd/system/sftpgo.service` with the following content:
+Copy the systemd service file.
 
 ```shell
-[Unit]
-Description=SFTPGo Server
-After=network.target postgresql.service
-
-[Service]
-User=sftpgo
-Group=sftpgo
-Type=simple
-WorkingDirectory=/etc/sftpgo
-Environment=SFTPGO_CONFIG_DIR=/etc/sftpgo/
-Environment=SFTPGO_LOG_FILE_PATH=
-EnvironmentFile=-/etc/sftpgo/sftpgo.env
-ExecStart=/usr/bin/sftpgo serve
-ExecReload=/bin/kill -s HUP $MAINPID
-KillMode=mixed
-PrivateTmp=true
-Restart=always
-RestartSec=10s
-
-[Install]
-WantedBy=multi-user.target
+sudo install -Dm644 init/sftpgo.service /etc/systemd/system
 ```
-
-This way SFTPGo will run using the dedicated `sftpgo` user and the service will start after PostgreSQL.
 
 Next, start the SFTPGo service and add it to the system boot.
 

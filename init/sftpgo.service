@@ -3,8 +3,8 @@ Description=SFTPGo Server
 After=network.target
 
 [Service]
-User=root
-Group=root
+User=sftpgo
+Group=sftpgo
 Type=simple
 WorkingDirectory=/etc/sftpgo
 Environment=SFTPGO_CONFIG_DIR=/etc/sftpgo/
