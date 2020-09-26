@@ -6,34 +6,6 @@ This tutorial shows the installation of SFTPGo on Ubuntu 20.04 (Focal Fossa) wit
 
 Before proceeding further you need to have a basic minimal installation of Ubuntu 20.04.
 
-Create the `sftpgo` user with the following command.
-
-```shell
-sudo adduser sftpgo
-```
-
-Type the user password and other info.
-
-Add the `sftpgo` user to the `sudo` group so it will be able to use `sudo`:
-
-```shell
-sudo usermod -a -G sudo sftpgo
-```
-
-Now login using this user. Confirm that you are logged in as `sftpgo` user with the following command.
-
-```shell
-whoami
-```
-
-the output should be `sftpgo`.
-
-NOTE: once you completed this tutorial you can, optionally, remove the user `sftpgo` from the `sudo` group with the following command.
-
-```shell
-sudo delgroup sftpgo sudo
-```
-
 ## Install PostgreSQL
 
 Before installing any packages on the Ubuntu system, update and upgrade all packages using the `apt` commands below.
@@ -89,11 +61,36 @@ grant all privileges on database "sftpgo.db" to "sftpgo";
 
 Exit from the PostgreSQL shell typing `\q`.
 
+## Install SFTPGo
+
+Download a binary SFTPGo [release](https://github.com/drakkan/sftpgo/releases) or a build artifact for the [latest commit](https://github.com/drakkan/sftpgo/actions).
+
+In this tutorial we assume you downloaded the debian build artifact named `sftpgo-v1.0.1-dev.68-x86_64-deb.zip` inside the current directory.
+
+Install `unzip`, if not already installed, and extract the archive with the following commands.
+
+```shell
+sudo apt install unzip
+unzip sftpgo-v1.0.1-dev.68-x86_64-deb.zip
+```
+
+Next install SFTPGo.
+
+```shell
+sudo apt install ./sftpgo_1.0.1-1~dev.68_amd64.deb
+```
+
+After installation SFTPGo should already be running with default configuration and configured to start automatically at boot, check its status using the following command.
+
+```shell
+systemctl status sftpgo
+```
+
 ## Configure AWS credentials
 
 We assume that you want to serve a single S3 bucket and you want to assign different "virtual folders" of this bucket to different SFTPGo virtual users. In this case is very convenient to configure a credential file so SFTPGo will automatically use it and you don't need to specify the same AWS credentials for each user.
 
-You can manually create the `~/.aws/credentials` file and write your AWS credentials like this.
+You can manually create the `/var/lib/sftpgo/.aws/credentials` file and write your AWS credentials like this.
 
 ```shell
 [default]
@@ -119,49 +116,12 @@ Confirm that you can list your bucket contents with the following command.
 aws s3 ls s3://mybucket
 ```
 
-## Install SFTPGo
-
-Download a binary SFTPGo [release](https://github.com/drakkan/sftpgo/releases) or a build artifact for the [latest commit](https://github.com/drakkan/sftpgo/actions).
-
-In this tutorial we assume you downloaded a build artifact named `sftpgo-ubuntu-latest-go1.15.zip` inside the current directory.
-
-Install `unzip`, if not already installed, and extract the archive with the following commands.
+The AWS CLI will create the credential file in `~/.aws/credentials`. The SFTPGo service runs using the `sftpgo` system user whose home directory is `/var/lib/sftpgo` so you need to copy the credentials file to the sftpgo home directory and assign it the proper permissions.
 
 ```shell
-sudo apt install unzip
-mkdir sftpgo_installdir
-unzip sftpgo-ubuntu-latest-go1.15.zip -d sftpgo_installdir
-```
-
-Now change the current directory to `sftpgo_installdir` and install SFTPGo.
-
-```shell
-cd sftpgo_installdir
-
-# create the required directories
-sudo mkdir -p /etc/sftpgo/hostkeys \
-  /var/lib/sftpgo/credentials \
-  /usr/share/sftpgo
-
-# install the sftpgo executable
-sudo install -Dm755 sftpgo /usr/bin/sftpgo
-# install the default configuration file, edit it if required
-sudo install -Dm644 sftpgo.json /etc/sftpgo/
-# override some configuration keys using environment variables
-sudo sh -c 'echo "SFTPGO_HTTPD__TEMPLATES_PATH=/usr/share/sftpgo/templates" > /etc/sftpgo/sftpgo.env'
-sudo sh -c 'echo "SFTPGO_HTTPD__STATIC_FILES_PATH=/usr/share/sftpgo/static" >> /etc/sftpgo/sftpgo.env'
-sudo sh -c 'echo "SFTPGO_HTTPD__BACKUPS_PATH=/var/lib/sftpgo/backups" >> /etc/sftpgo/sftpgo.env'
-sudo sh -c 'echo "SFTPGO_DATA_PROVIDER__CREDENTIALS_PATH=/var/lib/sftpgo/credentials" >> /etc/sftpgo/sftpgo.env'
-sudo sh -c 'echo "SFTPGO_SFTPD__HOST_KEYS=/etc/sftpgo/hostkeys/id_rsa,/etc/sftpgo/hostkeys/id_ecdsa" >> /etc/sftpgo/sftpgo.env'
-# install static files and templates for the web UI
-sudo cp -r static templates /usr/share/sftpgo/
-# create bash completion script and man pages
-sudo sh -c '/usr/bin/sftpgo gen completion bash > /etc/bash_completion.d/sftpgo-completion.bash'
-sudo /usr/bin/sftpgo gen man -d /usr/share/man/man1
-# enable bash completion
-source /etc/bash_completion.d/sftpgo-completion.bash
-# set proper permissions to run SFTPGo as non-root user
-sudo chown -R sftpgo:sftpgo /etc/sftpgo/hostkeys /var/lib/sftpgo
+sudo mkdir /var/lib/sftpgo/.aws
+sudo cp ~/.aws/credentials /var/lib/sftpgo/.aws/
+sudo chown -R sftpgo:sftpgo /var/lib/sftpgo/.aws
 ```
 
 ## Configure SFTPGo
@@ -197,29 +157,15 @@ You can further customize your configuration adding custom actions and other hoo
 Next, initialize the data provider with the following command.
 
 ```shell
-$ sftpgo initprovider -c /etc/sftpgo
+$ sudo su - sftpgo -s /bin/bash -c 'sftpgo initprovider -c /etc/sftpgo'
 2020-09-12T21:07:50.000 DBG Initializing provider: "postgresql" config file: "/etc/sftpgo/sftpgo.json"
 2020-09-12T21:07:50.000 DBG Data provider successfully initialized
 ```
 
-## Install SFTPGo systemd service
-
-Copy the systemd service file.
+Next restart the sftpgo service to use the new configuration and check that it is running.
 
 ```shell
-sudo install -Dm644 init/sftpgo.service /etc/systemd/system
-```
-
-Next, start the SFTPGo service and add it to the system boot.
-
-```shell
-sudo systemctl start sftpgo
-sudo systemctl enable sftpgo
-```
-
-Next, check the SFTPGo service using the following command.
-
-```shell
+sudo systemctl restart sftpgo
 systemctl status sftpgo
 ```
 
@@ -243,7 +189,7 @@ Click `Add` and fill the user details, the minimum required parameters are:
 - `Password` or `Public keys`
 - `Permissions`
 - `Home Dir` can be empty since we defined a default base dir
-- Select `Amazon S3 (Compatible)` as storage and then set `Bucket`, `Region` and optionally a `Key Prefix` if you want to restrict the user to a specific bucket virtual folder. The specified folder does not need to be pre-create. You can leave `Access Key` and `Access Secret` empty since we defined global credentials for the `sftpgo` user and we use this system user to run the SFTPGo service.
+- Select `Amazon S3 (Compatible)` as storage and then set `Bucket`, `Region` and optionally a `Key Prefix` if you want to restrict the user to a specific virtual folder in the bucket. The specified virtual folder does not need to be pre-created. You can leave `Access Key` and `Access Secret` empty since we defined global credentials for the `sftpgo` user and we use this system user to run the SFTPGo service.
 
 You are done! Now you can connect to you SFTPGo instance using any compatible `sftp` client on port `2022`.
 

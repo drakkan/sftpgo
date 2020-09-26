@@ -6,9 +6,11 @@ Run the following instructions from the directory that contains the sftpgo binar
 
 ## Linux
 
+The easiest way to run SFTP as a service on Linux is to download and install the pre-compiled deb/rpm package. This section describes the procedure to use if you prefer to build SFTPGo yourself or if you download a pre-built release as tar.
+
 For Linux, a `systemd` sample [service](../init/sftpgo.service "systemd service") can be found inside the source tree.
 
-Here are some basic instructions to run SFTPGo as service using a dedicated `sftpgo` system account, please run the following commands from the directory where you downloaded SFTPGo:
+Here are some basic instructions to run SFTPGo as service using a dedicated `sftpgo` system account. Please run the following commands from the directory where you downloaded SFTPGo:
 
 ```bash
 # create the sftpgo user and group
@@ -134,4 +136,6 @@ After installing as a Windows Service, please remember to allow network access t
 PS> netsh advfirewall firewall add rule name="SFTPGo Service" dir=in action=allow program="C:\Program Files\SFTPGo\sftpgo.exe"
 ```
 
-(Or through the Windows Firewall GUI.)
+Or through the Windows Firewall GUI.
+
+The Windows installer will register the service and allow network access for it automatically.
