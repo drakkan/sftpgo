@@ -24,6 +24,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v2
@@ -106,6 +108,29 @@ jobs:
           name: sftpgo-${{ matrix.os }}-go${{ matrix.go }}
           path: output
 
+      - name: Build Linux Packages
+        id: build_linux_pkgs
+        if: ${{ matrix.upload-coverage && startsWith(matrix.os, 'ubuntu-') }}
+        run: |
+          cd pkgs
+          ./build.sh
+          PKG_VERSION=$(cat dist/version)
+          echo "::set-output name=pkg-version::${PKG_VERSION}"
+
+      - name: Upload Debian Package
+        if: ${{ matrix.upload-coverage && startsWith(matrix.os, 'ubuntu-') }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-x86_64-deb
+          path: pkgs/dist/deb/*
+
+      - name: Upload RPM Package
+        if: ${{ matrix.upload-coverage && startsWith(matrix.os, 'ubuntu-') }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-x86_64-rpm
+          path: pkgs/dist/rpm/*
+
   test-postgresql-mysql:
     name: Test with PostgreSQL/MySQL
     runs-on: ubuntu-latest
@@ -182,4 +207,4 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v1
         with:
-          version: v1.30
+          version: v1.31

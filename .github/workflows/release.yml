@@ -176,6 +176,17 @@ jobs:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
           OS: ${{ steps.get_os_name.outputs.OS }}
 
+      - name: Prepare Linux Packages
+        id: build_linux_pkgs
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: |
+          cd pkgs
+          ./build.sh
+          PKG_VERSION=${SFTPGO_VERSION:1}
+          echo "::set-output name=pkg-version::${PKG_VERSION}"
+        env:
+          SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
+
       - name: Prepare Release for Windows
         if: startsWith(matrix.os, 'windows-')
         run: |
@@ -256,3 +267,25 @@ jobs:
           asset_path: ./sftpgo_portable_x86_64.zip
           asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_portable_x86_64.zip
           asset_content_type: application/zip
+
+      - name: Upload Debian Package
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.upload_url.outputs.url }}
+          asset_path: ./pkgs/dist/deb/sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_amd64.deb
+          asset_name: sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_amd64.deb
+          asset_content_type: application/vnd.debian.binary-package
+
+      - name: Upload RPM Package
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.upload_url.outputs.url }}
+          asset_path: ./pkgs/dist/rpm/sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.x86_64.rpm
+          asset_name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.x86_64.rpm
+          asset_content_type: application/x-rpm

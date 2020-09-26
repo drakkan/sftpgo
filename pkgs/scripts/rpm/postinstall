@@ -1,0 +1,25 @@
+if [ $1 -eq 1 ]; then
+  # Initial installation
+  # Add user and group
+  if ! getent group sftpgo >/dev/null; then
+    /usr/sbin/groupadd --system sftpgo
+  fi
+  if ! getent passwd sftpgo >/dev/null; then
+    /usr/sbin/useradd --system \
+      --gid sftpgo \
+      --no-create-home \
+      --home-dir /var/lib/sftpgo \
+      --shell /sbin/nologin \
+      --comment "SFTPGo user" \
+      sftpgo
+  fi
+  # initialize data provider
+  /usr/bin/sftpgo initprovider -c /etc/sftpgo
+  # ensure files and folders have the appropriate permissions
+  /usr/bin/chown -R sftpgo:sftpgo /etc/sftpgo /var/lib/sftpgo
+  /usr/bin/chmod 750 /etc/sftpgo /var/lib/sftpgo
+  /usr/bin/chmod 640 /etc/sftpgo/sftpgo.json /etc/sftpgo/sftpgo.env
+  echo "Please be sure to have the python requests library installed if you want to use the REST API CLI"
+fi
+# reload to pick up any changes to systemd files
+/bin/systemctl daemon-reload >/dev/null 2>&1 || :
