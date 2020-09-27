@@ -162,6 +162,26 @@ $ sudo su - sftpgo -s /bin/bash -c 'sftpgo initprovider -c /etc/sftpgo'
 2020-09-12T21:07:50.000 DBG Data provider successfully initialized
 ```
 
+The default sftpgo systemd service will start after the network target, in this setup it is more appropriate to start it after the PostgreSQL service, so override the unit using the following command.
+
+```shell
+sudo systemctl edit sftpgo.service
+```
+
+And override the unit definition with the following snippet.
+
+```shell
+[Unit]
+After=postgresql.service
+```
+
+Confirm that `sftpgo.service` will start after `postgresql.service` with the next command.
+
+```shell
+$ systemctl show sftpgo.service | grep After=
+After=postgresql.service systemd-journald.socket system.slice -.mount systemd-tmpfiles-setup.service network.target sysinit.target basic.target
+```
+
 Next restart the sftpgo service to use the new configuration and check that it is running.
 
 ```shell
@@ -193,4 +213,4 @@ Click `Add` and fill the user details, the minimum required parameters are:
 
 You are done! Now you can connect to you SFTPGo instance using any compatible `sftp` client on port `2022`.
 
-You can mix S3 users with local users but please be aware that we are running the service as the unprivileged `sftpgo` system user so if you set storage as `local` for an SFTPGo virtual user then the home directory for this user need to be owned by the `sftpgo` system user.
+You can mix S3 users with local users but please be aware that we are running the service as the unprivileged `sftpgo` system user so if you set storage as `local` for an SFTPGo virtual user then the home directory for this user must be owned by the `sftpgo` system user. Probably the best choice is to have home directory for local users in paths like `/var/lib/sftpgo/users/<username>`.

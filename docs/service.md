@@ -6,11 +6,15 @@ Run the following instructions from the directory that contains the sftpgo binar
 
 ## Linux
 
-The easiest way to run SFTP as a service on Linux is to download and install the pre-compiled deb/rpm package. This section describes the procedure to use if you prefer to build SFTPGo yourself or if you download a pre-built release as tar.
+The easiest way to run SFTPGo as a service is to download and install the pre-compiled deb/rpm package or use one of the Arch Linux PKGBUILDs we maintain.
 
-For Linux, a `systemd` sample [service](../init/sftpgo.service "systemd service") can be found inside the source tree.
+This section describes the procedure to use if you prefer to build SFTPGo yourself or if you want to download and configure a pre-built release as tar.
 
-Here are some basic instructions to run SFTPGo as service using a dedicated `sftpgo` system account. Please run the following commands from the directory where you downloaded SFTPGo:
+A `systemd` sample [service](../init/sftpgo.service "systemd service") can be found inside the source tree.
+
+Here are some basic instructions to run SFTPGo as service using a dedicated `sftpgo` system account.
+
+Please run the following commands from the directory where you downloaded/compiled SFTPGo:
 
 ```bash
 # create the sftpgo user and group
