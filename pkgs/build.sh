@@ -22,7 +22,7 @@ echo "SFTPGO_HTTPD__STATIC_FILES_PATH=/usr/share/sftpgo/static" >> sftpgo.env
 echo "SFTPGO_HTTPD__BACKUPS_PATH=/var/lib/sftpgo/backups" >> sftpgo.env
 echo "SFTPGO_DATA_PROVIDER__CREDENTIALS_PATH=/var/lib/sftpgo/credentials" >> sftpgo.env
 
-cp ../../sftpgo.json .
+cp ${BASE_DIR}/sftpgo.json .
 sed -i 's/sftpgo.db/\/var\/lib\/sftpgo\/sftpgo.db/g' sftpgo.json
 $BASE_DIR/sftpgo gen completion bash > sftpgo-completion.bash
 $BASE_DIR/sftpgo gen man -d man1

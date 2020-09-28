@@ -26,9 +26,7 @@ import (
 )
 
 var (
-	// we can use fields selection only when we don't need directory-like results
-	// with folders
-	gcsDefaultFieldsSelection = []string{"Name", "Size", "Deleted", "Updated"}
+	gcsDefaultFieldsSelection = []string{"Name", "Size", "Deleted", "Updated", "ContentType"}
 )
 
 // GCSFs is a Fs implementation for Google Cloud Storage.
@@ -93,6 +91,10 @@ func (fs GCSFs) Stat(name string) (os.FileInfo, error) {
 	}
 	prefix := fs.getPrefixForStat(name)
 	query := &storage.Query{Prefix: prefix, Delimiter: "/"}
+	err = query.SetAttrSelection(gcsDefaultFieldsSelection)
+	if err != nil {
+		return nil, err
+	}
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
 	bkt := fs.svc.Bucket(fs.config.Bucket)
@@ -323,6 +325,10 @@ func (fs GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 		}
 	}
 	query := &storage.Query{Prefix: prefix, Delimiter: "/"}
+	err := query.SetAttrSelection(gcsDefaultFieldsSelection)
+	if err != nil {
+		return nil, err
+	}
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
 	bkt := fs.svc.Bucket(fs.config.Bucket)
