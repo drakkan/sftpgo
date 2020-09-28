@@ -430,22 +430,12 @@ func TestContentType(t *testing.T) {
 	ctx := context.Background()
 	baseTransfer := common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFile,
 		common.TransferDownload, 0, 0, 0, false, fs)
-	info := vfs.NewFileInfo(testFilePath, true, 0, time.Now(), false)
-	davFile := newWebDavFile(baseTransfer, nil, nil, info)
-	fi, err := davFile.Stat()
-	if assert.NoError(t, err) {
-		ctype, err := fi.(webDavFileInfo).ContentType(ctx)
-		assert.NoError(t, err)
-		assert.Equal(t, "inode/directory", ctype)
-	}
-	err = davFile.Close()
-	assert.NoError(t, err)
 	fs = newMockOsFs(nil, false, fs.ConnectionID(), user.GetHomeDir())
-	err = ioutil.WriteFile(testFilePath, []byte(""), os.ModePerm)
+	err := ioutil.WriteFile(testFilePath, []byte(""), os.ModePerm)
 	assert.NoError(t, err)
-	fi, err = os.Stat(testFilePath)
+	fi, err := os.Stat(testFilePath)
 	assert.NoError(t, err)
-	davFile = newWebDavFile(baseTransfer, nil, nil, fi)
+	davFile := newWebDavFile(baseTransfer, nil, nil, fi)
 	davFile.Fs = fs
 	fi, err = davFile.Stat()
 	if assert.NoError(t, err) {

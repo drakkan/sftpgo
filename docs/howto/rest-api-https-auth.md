@@ -58,7 +58,7 @@ Setting an empty `bind_address` means that the service will listen on all availa
 Now restart the SFTPGo service to apply the changes.
 
 ```shell
-systemctl restart sftpgo
+sudo systemctl restart sftpgo
 ```
 
 You are done! Now login to the Web Admin interface using the username and password created above.
@@ -108,7 +108,7 @@ Search for the `httpd` section and change it as follow.
 Now restart the SFTPGo service to apply the changes.
 
 ```shell
-systemctl restart sftpgo
+sudo systemctl restart sftpgo
 ```
 
 You are done! Now SFTPGo web admin and REST API are exposed over HTTPS and password protected.

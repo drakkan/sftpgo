@@ -6,27 +6,19 @@ import (
 	"time"
 )
 
-// FileContentTyper is an optional interface for vfs.FileInfo
-type FileContentTyper interface {
-	GetContentType() string
-}
-
 // FileInfo implements os.FileInfo for a Cloud Storage file.
 type FileInfo struct {
 	name        string
 	sizeInBytes int64
 	modTime     time.Time
 	mode        os.FileMode
-	contentType string
 }
 
 // NewFileInfo creates file info.
 func NewFileInfo(name string, isDirectory bool, sizeInBytes int64, modTime time.Time, fullName bool) FileInfo {
 	mode := os.FileMode(0644)
-	contentType := ""
 	if isDirectory {
 		mode = os.FileMode(0755) | os.ModeDir
-		contentType = "inode/directory"
 	}
 	if !fullName {
 		// we have always Unix style paths here
@@ -38,7 +30,6 @@ func NewFileInfo(name string, isDirectory bool, sizeInBytes int64, modTime time.
 		sizeInBytes: sizeInBytes,
 		modTime:     modTime,
 		mode:        mode,
-		contentType: contentType,
 	}
 }
 
@@ -70,13 +61,4 @@ func (fi FileInfo) IsDir() bool {
 // Sys provides the underlying data source (can return nil)
 func (fi FileInfo) Sys() interface{} {
 	return fi.getFileInfoSys()
-}
-
-func (fi *FileInfo) setContentType(contenType string) {
-	fi.contentType = contenType
-}
-
-// GetContentType implements FileContentTyper interface
-func (fi FileInfo) GetContentType() string {
-	return fi.contentType
 }

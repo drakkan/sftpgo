@@ -57,15 +57,8 @@ type webDavFileInfo struct {
 
 // ContentType implements webdav.ContentTyper interface
 func (fi webDavFileInfo) ContentType(ctx context.Context) (string, error) {
-	var contentType string
-	if c, ok := fi.FileInfo.(vfs.FileContentTyper); ok {
-		contentType = c.GetContentType()
-	}
-	if len(contentType) > 0 {
-		return contentType, nil
-	}
-	contentType = mime.TypeByExtension(path.Ext(fi.file.GetVirtualPath()))
-	if len(contentType) > 0 {
+	contentType := mime.TypeByExtension(path.Ext(fi.file.GetVirtualPath()))
+	if contentType != "" {
 		return contentType, nil
 	}
 	if c, ok := fi.file.Fs.(vfs.MimeTyper); ok {
