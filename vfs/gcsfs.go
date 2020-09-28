@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"path"
@@ -181,6 +182,10 @@ func (fs GCSFs) Create(name string, flag int) (*os.File, *PipeWriter, func(), er
 	obj := bkt.Object(name)
 	ctx, cancelFn := context.WithCancel(context.Background())
 	objectWriter := obj.NewWriter(ctx)
+	contentType := mime.TypeByExtension(path.Ext(name))
+	if contentType != "" {
+	    objectWriter.ObjectAttrs.ContentType = contentType
+	}
 	if len(fs.config.StorageClass) > 0 {
 		objectWriter.ObjectAttrs.StorageClass = fs.config.StorageClass
 	}
