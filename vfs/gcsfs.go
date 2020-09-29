@@ -595,12 +595,12 @@ func (fs *GCSFs) getPrefixForStat(name string) string {
 func (fs GCSFs) GetMimeType(name string) (string, error) {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
+
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	obj := bkt.Object(name)
 	attrs, err := obj.Attrs(ctx)
 	if err != nil {
 		return "", err
 	}
-	logger.DebugToConsole("content type: %v", attrs.ContentType)
 	return attrs.ContentType, nil
 }
