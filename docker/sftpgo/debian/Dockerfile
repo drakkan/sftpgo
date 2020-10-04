@@ -40,7 +40,7 @@ ENV WEB_DIR=${BASE_DIR}/${WEB_REL_PATH}
 
 RUN mkdir -p ${DATA_DIR} ${CONFIG_DIR} ${WEB_DIR} ${BACKUPS_DIR}
 RUN groupadd --system -g ${GID} ${GROUPNAME}
-RUN useradd --system --create-home --no-log-init --home-dir ${HOME_DIR} --comment "SFTPGo user" --shell /bin/false --gid ${GID} --uid ${UID} ${USERNAME}
+RUN useradd --system --create-home --no-log-init --home-dir ${HOME_DIR} --comment "SFTPGo user" --shell /usr/sbin/nologin --gid ${GID} --uid ${UID} ${USERNAME}
 
 WORKDIR ${HOME_DIR}
 RUN mkdir -p bin .config/sftpgo

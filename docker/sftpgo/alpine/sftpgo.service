@@ -1,5 +1,5 @@
 [Unit]
-Description=SFTPGo sftp server
+Description=SFTPGo server
 After=docker.service
 
 [Service]
@@ -15,12 +15,16 @@ ExecStart=docker run --name sftpgo \
   --env-file sftpgo-${PUID}.env \
   -e PUID=${PUID} \
   -e GUID=${GUID} \
+  -e SFTPGO_LOG_FILE_PATH= \
+  -e SFTPGO_CONFIG_DIR=/srv/sftpgo/config \
   -e SFTPGO_HTTPD__TEMPLATES_PATH=/srv/sftpgo/web/templates \
   -e SFTPGO_HTTPD__STATIC_FILES_PATH=/srv/sftpgo/web/static \
+  -e SFTPGO_HTTPD__BACKUPS_PATH=/srv/sftpgo/backups \
   -p 8080:8080 \
   -p 2022:2022 \
   -v /home/sftpuser/conf/:/srv/sftpgo/config \
   -v /home/sftpuser/data:/data \
+  -v /home/sftpuser/backups:/srv/sftpgo/backups \
   sftpgo
 ExecStop=docker stop sftpgo
 SyslogIdentifier=sftpgo
