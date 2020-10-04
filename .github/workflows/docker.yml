@@ -42,6 +42,7 @@ jobs:
           echo ::set-output name=version::${VERSION}
           echo ::set-output name=tags::${TAGS}
           echo ::set-output name=created::$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          echo ::set-output name=sha::${GITHUB_SHA::8}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -62,6 +63,8 @@ jobs:
           # push: ${{ github.event_name != 'pull_request' }}
           push: false
           tags: ${{ steps.info.outputs.tags }}
+          build-args: |
+            COMMIT_SHA=${{ steps.info.outputs.sha }}
           labels: |
             org.opencontainers.image.title=${{ github.event.repository.name }}
             org.opencontainers.image.description=${{ github.event.repository.description }}

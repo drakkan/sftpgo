@@ -12,9 +12,13 @@ ARG GOPROXY
 COPY go.mod go.sum ./
 RUN go mod download
 
+ARG COMMIT_SHA
+
 COPY . .
 
-RUN go build -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
+RUN set -xe && \
+    export COMMIT_SHA=${COMMIT_SHA:-$(git describe --always --dirty)} && \
+    go build -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=${COMMIT_SHA} -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
 
 
 FROM alpine:3.12
