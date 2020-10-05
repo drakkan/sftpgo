@@ -141,6 +141,7 @@ func init() {
 					Parallelism: 2,
 				},
 			},
+			UpdateMode: 0,
 		},
 		HTTPDConfig: httpd.Conf{
 			BindPort:           8080,

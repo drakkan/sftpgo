@@ -90,17 +90,17 @@ sftpgo serve
 
 Check out [this documentation](./docs/service.md) if you want to run SFTPGo as a service.
 
-### Data provider initialization
+### Data provider initialization and update
 
-Before starting the SFTPGo server, please ensure that the configured data provider is properly initialized.
+Before starting the SFTPGo server, please ensure that the configured data provider is properly initialized/updated.
 
-SQL based data providers (SQLite, MySQL, PostgreSQL) require the creation of a database containing the required tables. Memory and bolt data providers do not require an initialization.
+SQL based data providers (SQLite, MySQL, PostgreSQL) require the creation of a database containing the required tables. Memory and bolt data providers do not require an initialization but they could require an update to the existing data after upgrading SFTPGo.
 
 For PostgreSQL and MySQL providers, you need to create the configured database.
 
-SFTPGo will attempt to automatically detect if the data privider has been initialized and if not, initialize it on startup.
+SFTPGo will attempt to automatically detect if the data provider is initialized/updated and if not, will attempt to initialize/ update it on startup as needed.
 
-Alternately, you can create the required data provider structure yourself using the `initprovider` command.
+Alternately, you can create/update the required data provider structures yourself using the `initprovider` command.
 
 For example, you can simply execute the following command from the configuration directory:
 
@@ -114,7 +114,7 @@ Take a look at the CLI usage to learn how to specify a different configuration f
 sftpgo initprovider --help
 ```
 
-After the first initialization (manual or automatic), the database structure will be automatically checked and updated, if required, at startup.
+You can also disable automatic data provider checks at startup setting the `update_mode` configuration key to `1`.
 
 ## Tutorials
 

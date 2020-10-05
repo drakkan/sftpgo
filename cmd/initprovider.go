@@ -16,18 +16,20 @@ import (
 var (
 	initProviderCmd = &cobra.Command{
 		Use:   "initprovider",
-		Short: "Initializes the configured data provider",
+		Short: "Initializes and/or updates the configured data provider",
 		Long: `This command reads the data provider connection details from the specified
-configuration file and creates the initial structure.
+configuration file and creates the initial structure or update the existing one,
+as needed.
 
-Some data providers such as bolt and memory does not require an initialization.
+Some data providers such as bolt and memory does not require an initialization
+but they could require an update to the existing data after upgrading SFTPGo.
 
-For SQLite provider the database file will be auto created if missing.
+For SQLite/bolt providers the database file will be auto-created if missing.
 
 For PostgreSQL and MySQL providers you need to create the configured database,
-this command will create the required tables.
+this command will create/update the required tables as needed.
 
-To initialize the data provider from the configuration directory simply use:
+To initialize/update the data provider from the configuration directory simply use:
 
 $ sftpgo initprovider
 
@@ -42,14 +44,14 @@ Please take a look at the usage below to customize the options.`,
 				return
 			}
 			providerConf := config.GetProviderConf()
-			logger.DebugToConsole("Initializing provider: %#v config file: %#v", providerConf.Driver, viper.ConfigFileUsed())
+			logger.InfoToConsole("Initializing provider: %#v config file: %#v", providerConf.Driver, viper.ConfigFileUsed())
 			err = dataprovider.InitializeDatabase(providerConf, configDir)
 			if err == nil {
-				logger.DebugToConsole("Data provider successfully initialized")
+				logger.InfoToConsole("Data provider successfully initialized/updated")
 			} else if err == dataprovider.ErrNoInitRequired {
-				logger.DebugToConsole("%v", err.Error())
+				logger.InfoToConsole("%v", err.Error())
 			} else {
-				logger.WarnToConsole("Unable to initialize data provider: %v", err)
+				logger.WarnToConsole("Unable to initialize/update the data provider: %v", err)
 				os.Exit(1)
 			}
 		},

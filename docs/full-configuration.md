@@ -11,7 +11,7 @@ Usage:
 Available Commands:
   gen          A collection of useful generators
   help         Help about any command
-  initprovider Initializes the configured data provider
+  initprovider Initializes and/or updates the configured data provider
   portable     Serve a single directory
   serve        Start the SFTP Server
 
@@ -143,6 +143,7 @@ The configuration file contains the following sections:
       - `memory`, unsigned integer. The amount of memory used by the algorithm (in kibibytes). Default: 65536.
       - `iterations`, unsigned integer. The number of iterations over the memory. Default: 1.
       - `parallelism`. unsigned 8 bit integer. The number of threads (or lanes) used by the algorithm. Default: 2.
+  - `update_mode`, integer. Defines how the database will be initialized/updated. 0 means automatically. 1 means manually using the initprovider sub-command.
 - **"httpd"**, the configuration for the HTTP server used to serve REST API and to expose the built-in web interface
   - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 8080
   - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"

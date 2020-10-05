@@ -227,8 +227,8 @@ func (p SQLiteProvider) migrateDatabase() error {
 		return err
 	}
 	if dbVersion.Version == sqlDatabaseVersion {
-		providerLog(logger.LevelDebug, "sql database is updated, current version: %v", dbVersion.Version)
-		return nil
+		providerLog(logger.LevelDebug, "sql database is up to date, current version: %v", dbVersion.Version)
+		return ErrNoInitRequired
 	}
 	switch dbVersion.Version {
 	case 1:
@@ -255,12 +255,14 @@ func (p SQLiteProvider) migrateDatabase() error {
 }
 
 func updateSQLiteDatabaseFrom1To2(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 1 -> 2")
 	providerLog(logger.LevelInfo, "updating database version: 1 -> 2")
 	sql := strings.Replace(sqliteV2SQL, "{{users}}", sqlTableUsers, 1)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 2)
 }
 
 func updateSQLiteDatabaseFrom2To3(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 2 -> 3")
 	providerLog(logger.LevelInfo, "updating database version: 2 -> 3")
 	sql := strings.ReplaceAll(sqliteV3SQL, "{{users}}", sqlTableUsers)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 3)

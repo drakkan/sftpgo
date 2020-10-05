@@ -671,5 +671,5 @@ func (p MemoryProvider) initializeDatabase() error {
 }
 
 func (p MemoryProvider) migrateDatabase() error {
-	return nil
+	return ErrNoInitRequired
 }

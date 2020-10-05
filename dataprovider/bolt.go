@@ -712,8 +712,8 @@ func (p BoltProvider) migrateDatabase() error {
 		return err
 	}
 	if dbVersion.Version == boltDatabaseVersion {
-		providerLog(logger.LevelDebug, "bolt database is updated, current version: %v", dbVersion.Version)
-		return nil
+		providerLog(logger.LevelDebug, "bolt database is up to date, current version: %v", dbVersion.Version)
+		return ErrNoInitRequired
 	}
 	switch dbVersion.Version {
 	case 1:
@@ -866,6 +866,7 @@ func getFolderBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
 }
 
 func updateDatabaseFrom1To2(dbHandle *bolt.DB) error {
+	logger.InfoToConsole("updating bolt database version: 1 -> 2")
 	providerLog(logger.LevelInfo, "updating bolt database version: 1 -> 2")
 	usernames, err := getBoltAvailableUsernames(dbHandle)
 	if err != nil {
@@ -887,6 +888,7 @@ func updateDatabaseFrom1To2(dbHandle *bolt.DB) error {
 }
 
 func updateDatabaseFrom2To3(dbHandle *bolt.DB) error {
+	logger.InfoToConsole("updating bolt database version: 2 -> 3")
 	providerLog(logger.LevelInfo, "updating bolt database version: 2 -> 3")
 	users := []User{}
 	err := dbHandle.View(func(tx *bolt.Tx) error {
@@ -941,6 +943,7 @@ func updateDatabaseFrom2To3(dbHandle *bolt.DB) error {
 }
 
 func updateDatabaseFrom3To4(dbHandle *bolt.DB) error {
+	logger.InfoToConsole("updating bolt database version: 3 -> 4")
 	providerLog(logger.LevelInfo, "updating bolt database version: 3 -> 4")
 	foldersToScan := []string{}
 	users := []userCompactVFolders{}

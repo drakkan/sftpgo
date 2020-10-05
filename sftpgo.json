@@ -99,7 +99,8 @@
         "iterations": 1,
         "parallelism": 2
       }
-    }
+    },
+    "update_mode": 0
   },
   "httpd": {
     "bind_port": 8080,

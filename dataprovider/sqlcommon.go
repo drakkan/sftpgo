@@ -899,6 +899,7 @@ func sqlCommonRestoreCompatVirtualFolders(ctx context.Context, users []userCompa
 }
 
 func sqlCommonUpdateDatabaseFrom3To4(sqlV4 string, dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 3 -> 4")
 	providerLog(logger.LevelInfo, "updating database version: 3 -> 4")
 	users, err := sqlCommonGetCompatVirtualFolders(dbHandle)
 	if err != nil {

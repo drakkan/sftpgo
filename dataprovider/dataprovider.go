@@ -99,8 +99,8 @@ var (
 	ErrNoAuthTryed = errors.New("no auth tryed")
 	// ValidProtocols defines all the valid protcols
 	ValidProtocols = []string{"SSH", "FTP", "DAV"}
-	// ErrNoInitRequired defines the error returned by InitProvider if no inizialization is required
-	ErrNoInitRequired = errors.New("Data provider initialization is not required")
+	// ErrNoInitRequired defines the error returned by InitProvider if no inizialization/update is required
+	ErrNoInitRequired = errors.New("The data provider is already up to date")
 	// ErrInvalidCredentials defines the error to return if the supplied credentials are invalid
 	ErrInvalidCredentials = errors.New("Invalid credentials")
 	webDAVUsersCache      sync.Map
@@ -251,6 +251,10 @@ type Config struct {
 	CheckPasswordScope int `json:"check_password_scope" mapstructure:"check_password_scope"`
 	// PasswordHashing defines the configuration for password hashing
 	PasswordHashing PasswordHashing `json:"password_hashing" mapstructure:"password_hashing"`
+	// Defines how the database will be initialized/updated:
+	// - 0 means automatically
+	// - 1 means manually using the initprovider sub-command
+	UpdateMode int `json:"update_mode" mapstructure:"update_mode"`
 }
 
 // BackupData defines the structure for the backup/restore files
@@ -383,19 +387,23 @@ func Initialize(cnf Config, basePath string) error {
 	if err != nil {
 		return err
 	}
-	err = provider.initializeDatabase()
-	if err != nil && err != ErrNoInitRequired {
-		logger.WarnToConsole("Unable to initialize data provider: %v", err)
-		providerLog(logger.LevelWarn, "Unable to initialize data provider: %v", err)
-		return err
-	}
-	if err == nil {
-		logger.DebugToConsole("Data provider successfully initialized")
-	}
-	err = provider.migrateDatabase()
-	if err != nil {
-		providerLog(logger.LevelWarn, "database migration error: %v", err)
-		return err
+	if cnf.UpdateMode == 0 {
+		err = provider.initializeDatabase()
+		if err != nil && err != ErrNoInitRequired {
+			logger.WarnToConsole("Unable to initialize data provider: %v", err)
+			providerLog(logger.LevelWarn, "Unable to initialize data provider: %v", err)
+			return err
+		}
+		if err == nil {
+			logger.DebugToConsole("Data provider successfully initialized")
+		}
+		err = provider.migrateDatabase()
+		if err != nil && err != ErrNoInitRequired {
+			providerLog(logger.LevelWarn, "database migration error: %v", err)
+			return err
+		}
+	} else {
+		providerLog(logger.LevelInfo, "database initialization/migration skipped, manual mode is configured")
 	}
 	argon2Params = &argon2id.Params{
 		Memory:      cnf.PasswordHashing.Argon2Options.Memory,
@@ -458,14 +466,15 @@ func validateSQLTablesPrefix() error {
 func InitializeDatabase(cnf Config, basePath string) error {
 	config = cnf
 
-	if config.Driver == BoltDataProviderName || config.Driver == MemoryDataProviderName {
-		return ErrNoInitRequired
-	}
 	err := createProvider(basePath)
 	if err != nil {
 		return err
 	}
-	return provider.initializeDatabase()
+	err = provider.initializeDatabase()
+	if err != nil && err != ErrNoInitRequired {
+		return err
+	}
+	return provider.migrateDatabase()
 }
 
 // CheckUserAndPass retrieves the SFTP user with the given username and password if a match is found or an error
