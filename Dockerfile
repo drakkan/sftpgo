@@ -36,8 +36,6 @@ RUN mkdir -p /etc/sftpgo /var/lib/sftpgo/{backups,data,host_keys} /srv/sftpgo/we
 RUN addgroup -g 1000 -S sftpgo
 RUN adduser -u 1000 -h /srv/sftpgo -s /sbin/nologin -G sftpgo -S -D -H sftpgo
 
-VOLUME /var/lib/sftpgo
-
 # Override some configuration details
 ENV SFTPGO_CONFIG_DIR=/etc/sftpgo
 ENV SFTPGO_LOG_FILE_PATH=""
@@ -57,5 +55,7 @@ COPY --from=builder /workspace/sftpgo /usr/local/bin/
 RUN chown -R sftpgo:sftpgo /etc/sftpgo /var/lib/sftpgo /srv/sftpgo/web
 
 USER sftpgo
+
+VOLUME /var/lib/sftpgo
 
 CMD sftpgo serve
