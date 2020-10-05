@@ -31,12 +31,12 @@ SHELL ["/bin/bash", "-c"]
 # https://github.com/gliderlabs/docker-alpine/issues/367#issuecomment-424546457
 RUN test ! -e /etc/nsswitch.conf && echo 'hosts: files dns' > /etc/nsswitch.conf
 
-RUN mkdir -p /data /etc/sftpgo /srv/sftpgo/web /srv/sftpgo/backups
+RUN mkdir -p /data /etc/sftpgo /var/lib/sftpgo/backups /srv/sftpgo/web
 
 RUN addgroup -g 1000 -S sftpgo
 RUN adduser -u 1000 -h /srv/sftpgo -s /sbin/nologin -G sftpgo -S -D -H sftpgo
 
-VOLUME ["/data", "/srv/sftpgo/backups"]
+VOLUME ["/data", "/var/lib/sftpgo"]
 
 # Override some configuration details
 ENV SFTPGO_CONFIG_DIR=/etc/sftpgo
@@ -46,14 +46,14 @@ ENV SFTPGO_HTTPD__STATIC_FILES_PATH=/srv/sftpgo/web/static
 
 # Sane defaults, but users should still be able to override this from env vars
 ENV SFTPGO_DATA_PROVIDER__USERS_BASE_DIR=/data
-ENV SFTPGO_HTTPD__BACKUPS_PATH=/srv/sftpgo/backups
+ENV SFTPGO_HTTPD__BACKUPS_PATH=/var/lib/sftpgo/backups
 
 COPY --from=builder /workspace/sftpgo.json /etc/sftpgo/sftpgo.json
 COPY --from=builder /workspace/templates /srv/sftpgo/web/templates
 COPY --from=builder /workspace/static /srv/sftpgo/web/static
 COPY --from=builder /workspace/sftpgo /usr/local/bin/
 
-RUN chown -R sftpgo:sftpgo /data /etc/sftpgo /srv/sftpgo/web /srv/sftpgo/backups
+RUN chown -R sftpgo:sftpgo /data /etc/sftpgo /var/lib/sftpgo /srv/sftpgo/web
 
 USER sftpgo
 
