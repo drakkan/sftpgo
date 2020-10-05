@@ -65,6 +65,6 @@ These properties are stored inside the data provider.
 
 If you want to use your existing accounts, you have these options:
 
-- If your accounts are aleady stored inside a supported database, you can create a database view. Since a view is read only, you have to disable user management and quota tracking so SFTPGo will never try to write to the view
+- If your accounts are already stored inside a supported database, you can create a database view. Since a view is read only, you have to disable user management and quota tracking so SFTPGo will never try to write to the view
 - you can import your users inside SFTPGo. Take a look at [sftpgo_api_cli.py](../examples/rest-api-cli#convert-users-from-other-stores "SFTPGo API CLI example"), it can convert and import users from Linux system users and Pure-FTPd/ProFTPD virtual users
 - you can use an external authentication program

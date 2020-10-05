@@ -5,15 +5,15 @@ To enable dynamic user modification, you must set the absolute path of your prog
 
 The external program can read the following environment variables to get info about the user trying to login:
 
-- `SFTPGO_LOGIND_USER`, it contains the user trying to login serialized as JSON. A JSON serialized user id equal to zero means the user does not exists inside SFTPGo
+- `SFTPGO_LOGIND_USER`, it contains the user trying to login serialized as JSON. A JSON serialized user id equal to zero means the user does not exist inside SFTPGo
 - `SFTPGO_LOGIND_METHOD`, possible values are: `password`, `publickey` and `keyboard-interactive`
 - `SFTPGO_LOGIND_IP`, ip address of the user trying to login
 - `SFTPGO_LOGIND_PROTOCOL`, possible values are `SSH`, `FTP`, `DAV`
 
-The program must write, on its the standard output:
+The program must write, on its standard output:
 
 - an empty string (or no response at all) if the user should not be created/updated
-- or the SFTPGo user, JSON serialized, if you want create or update the given user
+- or the SFTPGo user, JSON serialized, if you want to create or update the given user
 
 If the hook is an HTTP URL then it will be invoked as HTTP POST. The login method, the used protocol and the ip address of the user trying to login are added to the query string, for example `<http_url>?login_method=password&ip=1.2.3.4&protocol=SSH`.
 The request body will contain the user trying to login serialized as JSON. If no modification is needed the HTTP response code must be 204, otherwise the response code must be 200 and the response body a valid SFTPGo user serialized as JSON.
@@ -32,8 +32,8 @@ The program hook must finish within 30 seconds, the HTTP hook will use the globa
 
 If an error happens while executing the hook then login will be denied.
 
-"Dynamic user creation or modification" and "External Authentication" are mutally exclusive, they are quite similar, the difference is that "External Authentication" returns an already authenticated user while using "Dynamic users modification" you simply create or update a user. The authentication will be checked inside SFTPGo.
-In other words while using "External Authentication" the external program receives the credentials of the user trying to login (for example the clear text password) and it need to validate them. While using "Dynamic users modification" the pre-login program receives the user stored inside the dataprovider (it includes the hashed password if any) and it can modify it, after the modification SFTPGo will check the credentials of the user trying to login.
+"Dynamic user creation or modification" and "External Authentication" are mutually exclusive, they are quite similar, the difference is that "External Authentication" returns an already authenticated user while using "Dynamic users modification" you simply create or update a user. The authentication will be checked inside SFTPGo.
+In other words while using "External Authentication" the external program receives the credentials of the user trying to login (for example the cleartext password) and it needs to validate them. While using "Dynamic users modification" the pre-login program receives the user stored inside the dataprovider (it includes the hashed password if any) and it can modify it, after the modification SFTPGo will check the credentials of the user trying to login.
 
 Let's see a very basic example. Our sample program will grant access to the existing user `test_user` only in the time range 10:00-18:00. Other users will not be modified since the program will terminate with no output.
 

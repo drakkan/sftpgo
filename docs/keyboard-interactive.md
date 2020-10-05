@@ -81,11 +81,11 @@ The request body will contain a JSON struct with the following fields:
 - `ip`, string
 - `password`, string. This is the hashed password as stored inside the data provider
 - `answers`, list of string. It will be null for the first request
-- `questions`, list of string. It will contains the previous asked questions. It will be null for the first request
+- `questions`, list of string. It will contain the previously asked questions. It will be null for the first request
 
 The HTTP response code must be 200 and the body must contain the same JSON struct described for the program.
 
-Let's see a basic sample, the configured hook is `http://127.0.0.1:8000/keyIntHookPwd`, as soon as the user try to login, SFTPGo makes this HTTP POST request:
+Let's see a basic sample, the configured hook is `http://127.0.0.1:8000/keyIntHookPwd`, as soon as the user tries to login, SFTPGo makes this HTTP POST request:
 
 ```shell
 POST /keyIntHookPwd HTTP/1.1
@@ -126,7 +126,7 @@ Accept-Encoding: gzip
 {"request_id":"bq1r5r7cdrpd2qtn25ng","username":"a","ip":"127.0.0.1","password":"$pbkdf2-sha512$150000$ClOPkLNujMTL$XktKy0xuJsOfMYBz+f2bIyPTdbvDTSnJ1q+7+zp/HPq5Qojwp6kcpSIiVHiwvbi8P6HFXI/D3UJv9BLcnQFqPA==","answers":["OK"],"questions":["Password: "]}
 ```
 
-Here is the HTTP response that istructs SFTPGo to ask for a new question:
+Here is the HTTP response that instructs SFTPGo to ask for a new question:
 
 ```shell
 HTTP/1.1 200 OK
