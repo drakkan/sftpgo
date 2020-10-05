@@ -55,8 +55,6 @@ COPY --from=builder /workspace/templates /srv/sftpgo/web/templates
 COPY --from=builder /workspace/static /srv/sftpgo/web/static
 COPY --from=builder /workspace/sftpgo /usr/local/bin/
 
-RUN sed -i "s/sqlite/bolt/; s|sftpgo.db|/var/lib/sftpgo/sftpgo.db|" /etc/sftpgo/sftpgo.json
-
 RUN chown -R sftpgo:sftpgo /etc/sftpgo /var/lib/sftpgo /srv/sftpgo/web
 
 USER sftpgo
