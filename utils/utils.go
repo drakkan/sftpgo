@@ -188,6 +188,9 @@ func DecryptData(data string) (string, error) {
 // private key to specified file and the public key to the specified
 // file adding the .pub suffix
 func GenerateRSAKeys(file string) error {
+	if err := createDirPathIfMissing(file, 0700); err != nil {
+		return err
+	}
 	key, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return err
@@ -219,6 +222,9 @@ func GenerateRSAKeys(file string) error {
 // private key to specified file and the public key to the specified
 // file adding the .pub suffix
 func GenerateECDSAKeys(file string) error {
+	if err := createDirPathIfMissing(file, 0700); err != nil {
+		return err
+	}
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return err
@@ -311,4 +317,15 @@ func CleanDirInput(dirInput string) string {
 		}
 	}
 	return filepath.Clean(dirInput)
+}
+
+func createDirPathIfMissing(file string, perm os.FileMode) error {
+	dirPath := filepath.Dir(file)
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		err = os.MkdirAll(dirPath, perm)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

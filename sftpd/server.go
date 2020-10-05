@@ -482,6 +482,8 @@ func (c *Configuration) checkHostKeyAutoGeneration(configDir string) error {
 					logger.InfoToConsole("try to create non-existent host key %#v", k)
 					err = utils.GenerateRSAKeys(k)
 					if err != nil {
+						logger.Warn(logSender, "", "error creating host key %#v: %v", k, err)
+						logger.WarnToConsole("error creating host key %#v: %v", k, err)
 						return err
 					}
 				case defaultPrivateECDSAKeyName:
@@ -489,6 +491,8 @@ func (c *Configuration) checkHostKeyAutoGeneration(configDir string) error {
 					logger.InfoToConsole("try to create non-existent host key %#v", k)
 					err = utils.GenerateECDSAKeys(k)
 					if err != nil {
+						logger.Warn(logSender, "", "error creating host key %#v: %v", k, err)
+						logger.WarnToConsole("error creating host key %#v: %v", k, err)
 						return err
 					}
 				default:
@@ -511,6 +515,8 @@ func (c *Configuration) checkHostKeyAutoGeneration(configDir string) error {
 					err = utils.GenerateECDSAKeys(autoFile)
 				}
 				if err != nil {
+					logger.Warn(logSender, "", "error creating host key %#v: %v", autoFile, err)
+					logger.WarnToConsole("error creating host key %#v: %v", autoFile, err)
 					return err
 				}
 			}
