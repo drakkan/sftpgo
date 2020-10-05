@@ -48,7 +48,6 @@ ENV SFTPGO_HTTPD__STATIC_FILES_PATH=/srv/sftpgo/web/static
 # Sane defaults, but users should still be able to override this from env vars
 ENV SFTPGO_DATA_PROVIDER__USERS_BASE_DIR=/var/lib/sftpgo/data
 ENV SFTPGO_DATA_PROVIDER__CREDENTIALS_PATH=/var/lib/sftpgo/credentials
-ENV SFTPGO_DATA_PROVIDER__NAME=/var/lib/sftpgo/sftpgo.db
 ENV SFTPGO_HTTPD__BACKUPS_PATH=/var/lib/sftpgo/backups
 ENV SFTPGO_SFTPD__HOST_KEYS=/var/lib/sftpgo/host_keys/id_rsa,/var/lib/sftpgo/host_keys/id_ecdsa
 
@@ -56,6 +55,8 @@ COPY --from=builder /workspace/sftpgo.json /etc/sftpgo/sftpgo.json
 COPY --from=builder /workspace/templates /srv/sftpgo/web/templates
 COPY --from=builder /workspace/static /srv/sftpgo/web/static
 COPY --from=builder /workspace/sftpgo /usr/local/bin/
+
+RUN sed -i "s|sftpgo.db|/var/lib/sftpgo/sftpgo.db|" /etc/sftpgo/sftpgo.json
 
 RUN chown -R sftpgo:sftpgo /etc/sftpgo /var/lib/sftpgo /srv/sftpgo/web
 
