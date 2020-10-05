@@ -94,36 +94,42 @@ func RotateLogFile() error {
 
 // Log logs at the specified level for the specified sender
 func Log(level LogLevel, sender string, connectionID string, format string, v ...interface{}) {
+	var ev *zerolog.Event
 	switch level {
 	case LevelDebug:
-		Debug(sender, connectionID, format, v...)
+		ev = logger.Debug()
 	case LevelInfo:
-		Info(sender, connectionID, format, v...)
+		ev = logger.Info()
 	case LevelWarn:
-		Warn(sender, connectionID, format, v...)
+		ev = logger.Warn()
 	default:
-		Error(sender, connectionID, format, v...)
+		ev = logger.Error()
 	}
+	ev.Timestamp().Str("sender", sender)
+	if connectionID != "" {
+		ev.Str("connection_id", connectionID)
+	}
+	ev.Msg(fmt.Sprintf(format, v...))
 }
 
 // Debug logs at debug level for the specified sender
 func Debug(sender string, connectionID string, format string, v ...interface{}) {
-	logger.Debug().Timestamp().Str("sender", sender).Str("connection_id", connectionID).Msg(fmt.Sprintf(format, v...))
+	Log(LevelDebug, sender, connectionID, format, v...)
 }
 
 // Info logs at info level for the specified sender
 func Info(sender string, connectionID string, format string, v ...interface{}) {
-	logger.Info().Timestamp().Str("sender", sender).Str("connection_id", connectionID).Msg(fmt.Sprintf(format, v...))
+	Log(LevelInfo, sender, connectionID, format, v...)
 }
 
 // Warn logs at warn level for the specified sender
 func Warn(sender string, connectionID string, format string, v ...interface{}) {
-	logger.Warn().Timestamp().Str("sender", sender).Str("connection_id", connectionID).Msg(fmt.Sprintf(format, v...))
+	Log(LevelWarn, sender, connectionID, format, v...)
 }
 
 // Error logs at error level for the specified sender
 func Error(sender string, connectionID string, format string, v ...interface{}) {
-	logger.Error().Timestamp().Str("sender", sender).Str("connection_id", connectionID).Msg(fmt.Sprintf(format, v...))
+	Log(LevelError, sender, connectionID, format, v...)
 }
 
 // DebugToConsole logs at debug level to stdout
