@@ -383,6 +383,15 @@ func Initialize(cnf Config, basePath string) error {
 	if err != nil {
 		return err
 	}
+	err = provider.initializeDatabase()
+	if err != nil && err != ErrNoInitRequired {
+		logger.WarnToConsole("Unable to initialize data provider: %v", err)
+		providerLog(logger.LevelWarn, "Unable to initialize data provider: %v", err)
+		return err
+	}
+	if err == nil {
+		logger.DebugToConsole("Data provider successfully initialized")
+	}
 	err = provider.migrateDatabase()
 	if err != nil {
 		providerLog(logger.LevelWarn, "database migration error: %v", err)
