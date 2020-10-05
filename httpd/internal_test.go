@@ -116,10 +116,10 @@ func TestCheckUser(t *testing.T) {
 	assert.Error(t, err)
 	expected.Permissions = make(map[string][]string)
 	actual.Permissions = make(map[string][]string)
-	actual.FsConfig.Provider = 1
+	actual.FsConfig.Provider = dataprovider.S3FilesystemProvider
 	err = checkUser(expected, actual)
 	assert.Error(t, err)
-	actual.FsConfig.Provider = 0
+	actual.FsConfig.Provider = dataprovider.LocalFilesystemProvider
 	expected.VirtualFolders = append(expected.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			MappedPath: os.TempDir(),
@@ -277,10 +277,10 @@ func TestCompareUserFields(t *testing.T) {
 func TestCompareUserFsConfig(t *testing.T) {
 	expected := &dataprovider.User{}
 	actual := &dataprovider.User{}
-	expected.FsConfig.Provider = 1
+	expected.FsConfig.Provider = dataprovider.S3FilesystemProvider
 	err := compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
-	expected.FsConfig.Provider = 0
+	expected.FsConfig.Provider = dataprovider.LocalFilesystemProvider
 	expected.FsConfig.S3Config.Bucket = "bucket"
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
@@ -545,7 +545,7 @@ func TestQuotaScanInvalidFs(t *testing.T) {
 		Username: "test",
 		HomeDir:  os.TempDir(),
 		FsConfig: dataprovider.Filesystem{
-			Provider: 1,
+			Provider: dataprovider.S3FilesystemProvider,
 		},
 	}
 	common.QuotaScans.AddUserQuotaScan(user.Username)

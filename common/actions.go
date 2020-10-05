@@ -60,10 +60,10 @@ func newActionNotification(user *dataprovider.User, operation, filePath, target,
 	bucket := ""
 	endpoint := ""
 	status := 1
-	if user.FsConfig.Provider == 1 {
+	if user.FsConfig.Provider == dataprovider.S3FilesystemProvider {
 		bucket = user.FsConfig.S3Config.Bucket
 		endpoint = user.FsConfig.S3Config.Endpoint
-	} else if user.FsConfig.Provider == 2 {
+	} else if user.FsConfig.Provider == dataprovider.GCSFilesystemProvider {
 		bucket = user.FsConfig.GCSConfig.Bucket
 	}
 	if err == ErrQuotaExceeded {
@@ -78,7 +78,7 @@ func newActionNotification(user *dataprovider.User, operation, filePath, target,
 		TargetPath: target,
 		SSHCmd:     sshCmd,
 		FileSize:   fileSize,
-		FsProvider: user.FsConfig.Provider,
+		FsProvider: int(user.FsConfig.Provider),
 		Bucket:     bucket,
 		Endpoint:   endpoint,
 		Status:     status,

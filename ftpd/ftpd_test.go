@@ -858,7 +858,7 @@ func TestLoginWithIPilters(t *testing.T) {
 
 func TestLoginInvalidFs(t *testing.T) {
 	u := getTestUser()
-	u.FsConfig.Provider = 2
+	u.FsConfig.Provider = dataprovider.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString([]byte("invalid JSON for credentials"))
 	user, _, err := httpd.AddUser(u, http.StatusOK)

@@ -733,7 +733,7 @@ func TestSSHCommandsRemoteFs(t *testing.T) {
 	}()
 	user := dataprovider.User{}
 	user.FsConfig = dataprovider.Filesystem{
-		Provider: 1,
+		Provider: dataprovider.S3FilesystemProvider,
 		S3Config: vfs.S3FsConfig{
 			Bucket:   "s3bucket",
 			Endpoint: "endpoint",

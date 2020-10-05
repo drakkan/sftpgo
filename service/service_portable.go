@@ -219,9 +219,9 @@ func (s *Service) advertiseServices(advertiseService, advertiseCredentials bool)
 
 func (s *Service) getPortableDirToServe() string {
 	var dirToServe string
-	if s.PortableUser.FsConfig.Provider == 1 {
+	if s.PortableUser.FsConfig.Provider == dataprovider.S3FilesystemProvider {
 		dirToServe = s.PortableUser.FsConfig.S3Config.KeyPrefix
-	} else if s.PortableUser.FsConfig.Provider == 2 {
+	} else if s.PortableUser.FsConfig.Provider == dataprovider.GCSFilesystemProvider {
 		dirToServe = s.PortableUser.FsConfig.GCSConfig.KeyPrefix
 	} else {
 		dirToServe = s.PortableUser.HomeDir

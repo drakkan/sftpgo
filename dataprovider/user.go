@@ -119,12 +119,20 @@ type UserFilters struct {
 	MaxUploadFileSize int64 `json:"max_upload_file_size,omitempty"`
 }
 
+// FilesystemProvider defines the supported storages
+type FilesystemProvider int
+
+const (
+	LocalFilesystemProvider FilesystemProvider = iota // Local
+	S3FilesystemProvider                              // Amazon S3 compatible
+	GCSFilesystemProvider                             // Google Cloud Storage
+)
+
 // Filesystem defines cloud storage filesystem details
 type Filesystem struct {
-	// 0 local filesystem, 1 Amazon S3 compatible, 2 Google Cloud Storage
-	Provider  int             `json:"provider"`
-	S3Config  vfs.S3FsConfig  `json:"s3config,omitempty"`
-	GCSConfig vfs.GCSFsConfig `json:"gcsconfig,omitempty"`
+	Provider  FilesystemProvider `json:"provider"`
+	S3Config  vfs.S3FsConfig     `json:"s3config,omitempty"`
+	GCSConfig vfs.GCSFsConfig    `json:"gcsconfig,omitempty"`
 }
 
 // User defines a SFTPGo user
@@ -181,9 +189,9 @@ type User struct {
 
 // GetFilesystem returns the filesystem for this user
 func (u *User) GetFilesystem(connectionID string) (vfs.Fs, error) {
-	if u.FsConfig.Provider == 1 {
+	if u.FsConfig.Provider == S3FilesystemProvider {
 		return vfs.NewS3Fs(connectionID, u.GetHomeDir(), u.FsConfig.S3Config)
-	} else if u.FsConfig.Provider == 2 {
+	} else if u.FsConfig.Provider == GCSFilesystemProvider {
 		config := u.FsConfig.GCSConfig
 		config.CredentialFile = u.getGCSCredentialsFilePath()
 		return vfs.NewGCSFs(connectionID, u.GetHomeDir(), config)
@@ -221,7 +229,7 @@ func (u *User) GetPermissionsForPath(p string) []string {
 // If the path is not inside a virtual folder an error is returned
 func (u *User) GetVirtualFolderForPath(sftpPath string) (vfs.VirtualFolder, error) {
 	var folder vfs.VirtualFolder
-	if len(u.VirtualFolders) == 0 || u.FsConfig.Provider != 0 {
+	if len(u.VirtualFolders) == 0 || u.FsConfig.Provider != LocalFilesystemProvider {
 		return folder, errNoMatchingVirtualFolder
 	}
 	dirsForPath := utils.GetDirsForSFTPPath(sftpPath)
@@ -613,9 +621,9 @@ func (u *User) GetInfoString() string {
 		t := utils.GetTimeFromMsecSinceEpoch(u.LastLogin)
 		result += fmt.Sprintf("Last login: %v ", t.Format("2006-01-02 15:04:05")) // YYYY-MM-DD HH:MM:SS
 	}
-	if u.FsConfig.Provider == 1 {
+	if u.FsConfig.Provider == S3FilesystemProvider {
 		result += "Storage: S3 "
-	} else if u.FsConfig.Provider == 2 {
+	} else if u.FsConfig.Provider == GCSFilesystemProvider {
 		result += "Storage: GCS "
 	}
 	if len(u.PublicKeys) > 0 {

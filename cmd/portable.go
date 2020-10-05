@@ -67,8 +67,9 @@ $ sftpgo portable
 Please take a look at the usage below to customize the serving parameters`,
 		Run: func(cmd *cobra.Command, args []string) {
 			portableDir := directoryToServe
+			fsProvider := dataprovider.FilesystemProvider(portableFsProvider)
 			if !filepath.IsAbs(portableDir) {
-				if portableFsProvider == 0 {
+				if fsProvider == dataprovider.LocalFilesystemProvider {
 					portableDir, _ = filepath.Abs(portableDir)
 				} else {
 					portableDir = os.TempDir()
@@ -77,7 +78,7 @@ Please take a look at the usage below to customize the serving parameters`,
 			permissions := make(map[string][]string)
 			permissions["/"] = portablePermissions
 			portableGCSCredentials := ""
-			if portableFsProvider == 2 && len(portableGCSCredentialsFile) > 0 {
+			if fsProvider == dataprovider.GCSFilesystemProvider && len(portableGCSCredentialsFile) > 0 {
 				fi, err := os.Stat(portableGCSCredentialsFile)
 				if err != nil {
 					fmt.Printf("Invalid GCS credentials file: %v\n", err)
@@ -131,7 +132,7 @@ Please take a look at the usage below to customize the serving parameters`,
 					HomeDir:     portableDir,
 					Status:      1,
 					FsConfig: dataprovider.Filesystem{
-						Provider: portableFsProvider,
+						Provider: dataprovider.FilesystemProvider(portableFsProvider),
 						S3Config: vfs.S3FsConfig{
 							Bucket:            portableS3Bucket,
 							Region:            portableS3Region,
@@ -213,7 +214,7 @@ multicast DNS`)
 advertised via multicast DNS, this
 flag allows to put username/password
 inside the advertised TXT record`)
-	portableCmd.Flags().IntVarP(&portableFsProvider, "fs-provider", "f", 0, `0 means local filesystem,
+	portableCmd.Flags().IntVarP(&portableFsProvider, "fs-provider", "f", int(dataprovider.LocalFilesystemProvider), `0 means local filesystem,
 1 Amazon S3 compatible,
 2 Google Cloud Storage`)
 	portableCmd.Flags().StringVar(&portableS3Bucket, "s3-bucket", "", "")

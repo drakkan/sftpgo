@@ -20,7 +20,7 @@ func TestNewActionNotification(t *testing.T) {
 	user := &dataprovider.User{
 		Username: "username",
 	}
-	user.FsConfig.Provider = 0
+	user.FsConfig.Provider = dataprovider.LocalFilesystemProvider
 	user.FsConfig.S3Config = vfs.S3FsConfig{
 		Bucket:   "s3bucket",
 		Endpoint: "endpoint",
@@ -34,13 +34,13 @@ func TestNewActionNotification(t *testing.T) {
 	assert.Equal(t, 0, len(a.Endpoint))
 	assert.Equal(t, 0, a.Status)
 
-	user.FsConfig.Provider = 1
+	user.FsConfig.Provider = dataprovider.S3FilesystemProvider
 	a = newActionNotification(user, operationDownload, "path", "target", "", ProtocolSSH, 123, nil)
 	assert.Equal(t, "s3bucket", a.Bucket)
 	assert.Equal(t, "endpoint", a.Endpoint)
 	assert.Equal(t, 1, a.Status)
 
-	user.FsConfig.Provider = 2
+	user.FsConfig.Provider = dataprovider.GCSFilesystemProvider
 	a = newActionNotification(user, operationDownload, "path", "target", "", ProtocolSCP, 123, ErrQuotaExceeded)
 	assert.Equal(t, "gcsbucket", a.Bucket)
 	assert.Equal(t, 0, len(a.Endpoint))

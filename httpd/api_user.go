@@ -118,7 +118,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	currentPermissions := user.Permissions
 	currentS3AccessSecret := ""
-	if user.FsConfig.Provider == 1 {
+	if user.FsConfig.Provider == dataprovider.S3FilesystemProvider {
 		currentS3AccessSecret = user.FsConfig.S3Config.AccessSecret
 	}
 	user.Permissions = make(map[string][]string)
@@ -132,7 +132,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		user.Permissions = currentPermissions
 	}
 	// we use the new access secret if different from the old one and not empty
-	if user.FsConfig.Provider == 1 {
+	if user.FsConfig.Provider == dataprovider.S3FilesystemProvider {
 		if utils.RemoveDecryptionKey(currentS3AccessSecret) == user.FsConfig.S3Config.AccessSecret ||
 			(len(user.FsConfig.S3Config.AccessSecret) == 0 && len(user.FsConfig.S3Config.AccessKey) > 0) {
 			user.FsConfig.S3Config.AccessSecret = currentS3AccessSecret
