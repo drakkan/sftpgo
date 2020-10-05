@@ -385,7 +385,7 @@ func TestAddUserInvalidFilters(t *testing.T) {
 
 func TestAddUserInvalidFsConfig(t *testing.T) {
 	u := getTestUser()
-	u.FsConfig.Provider = 1
+	u.FsConfig.Provider = dataprovider.S3FilesystemProvider
 	u.FsConfig.S3Config.Bucket = ""
 	_, _, err := httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -411,7 +411,7 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u = getTestUser()
-	u.FsConfig.Provider = 2
+	u.FsConfig.Provider = dataprovider.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = ""
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -921,7 +921,7 @@ func TestUserFolderMapping(t *testing.T) {
 func TestUserS3Config(t *testing.T) {
 	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
 	assert.NoError(t, err)
-	user.FsConfig.Provider = 1
+	user.FsConfig.Provider = dataprovider.S3FilesystemProvider
 	user.FsConfig.S3Config.Bucket = "test"      //nolint:goconst
 	user.FsConfig.S3Config.Region = "us-east-1" //nolint:goconst
 	user.FsConfig.S3Config.AccessKey = "Server-Access-Key"
@@ -938,7 +938,7 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.AccessSecret = secret
 	user, _, err = httpd.AddUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	user.FsConfig.Provider = 1
+	user.FsConfig.Provider = dataprovider.S3FilesystemProvider
 	user.FsConfig.S3Config.Bucket = "test-bucket"
 	user.FsConfig.S3Config.Region = "us-east-1" //nolint:goconst
 	user.FsConfig.S3Config.AccessKey = "Server-Access-Key1"
@@ -947,7 +947,7 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.UploadConcurrency = 5
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
-	user.FsConfig.Provider = 0
+	user.FsConfig.Provider = dataprovider.LocalFilesystemProvider
 	user.FsConfig.S3Config.Bucket = ""
 	user.FsConfig.S3Config.Region = ""
 	user.FsConfig.S3Config.AccessKey = ""
@@ -959,7 +959,7 @@ func TestUserS3Config(t *testing.T) {
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	// test user without access key and access secret (shared config state)
-	user.FsConfig.Provider = 1
+	user.FsConfig.Provider = dataprovider.S3FilesystemProvider
 	user.FsConfig.S3Config.Bucket = "testbucket"
 	user.FsConfig.S3Config.Region = "us-east-1"
 	user.FsConfig.S3Config.AccessKey = ""
@@ -981,7 +981,7 @@ func TestUserGCSConfig(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(credentialsPath, 0700)
 	assert.NoError(t, err)
-	user.FsConfig.Provider = 2
+	user.FsConfig.Provider = dataprovider.GCSFilesystemProvider
 	user.FsConfig.GCSConfig.Bucket = "test"
 	user.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString([]byte("fake credentials"))
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
@@ -1001,7 +1001,7 @@ func TestUserGCSConfig(t *testing.T) {
 	user.FsConfig.GCSConfig.AutomaticCredentials = 1
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
-	user.FsConfig.Provider = 1
+	user.FsConfig.Provider = dataprovider.S3FilesystemProvider
 	user.FsConfig.S3Config.Bucket = "test1"
 	user.FsConfig.S3Config.Region = "us-east-1"
 	user.FsConfig.S3Config.AccessKey = "Server-Access-Key1"
@@ -1010,7 +1010,7 @@ func TestUserGCSConfig(t *testing.T) {
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir"
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
-	user.FsConfig.Provider = 2
+	user.FsConfig.Provider = dataprovider.GCSFilesystemProvider
 	user.FsConfig.GCSConfig.Bucket = "test1"
 	user.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString([]byte("fake credentials"))
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
@@ -2558,7 +2558,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	err := render.DecodeJSON(rr.Body, &user)
 	assert.NoError(t, err)
-	user.FsConfig.Provider = 1
+	user.FsConfig.Provider = dataprovider.S3FilesystemProvider
 	user.FsConfig.S3Config.Bucket = "test"
 	user.FsConfig.S3Config.Region = "eu-west-1"
 	user.FsConfig.S3Config.AccessKey = "access-key"
@@ -2655,7 +2655,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	credentialsFilePath := filepath.Join(os.TempDir(), "gcs.json")
 	err = createTestFile(credentialsFilePath, 0)
 	assert.NoError(t, err)
-	user.FsConfig.Provider = 2
+	user.FsConfig.Provider = dataprovider.GCSFilesystemProvider
 	user.FsConfig.GCSConfig.Bucket = "test"
 	user.FsConfig.GCSConfig.KeyPrefix = "somedir/subdir/"
 	user.FsConfig.GCSConfig.StorageClass = "standard"

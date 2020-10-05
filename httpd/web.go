@@ -386,10 +386,10 @@ func getFsConfigFromUserPostFields(r *http.Request) (dataprovider.Filesystem, er
 	var fs dataprovider.Filesystem
 	provider, err := strconv.Atoi(r.Form.Get("fs_provider"))
 	if err != nil {
-		provider = 0
+		provider = int(dataprovider.LocalFilesystemProvider)
 	}
-	fs.Provider = provider
-	if fs.Provider == 1 {
+	fs.Provider = dataprovider.FilesystemProvider(provider)
+	if fs.Provider == dataprovider.S3FilesystemProvider {
 		fs.S3Config.Bucket = r.Form.Get("s3_bucket")
 		fs.S3Config.Region = r.Form.Get("s3_region")
 		fs.S3Config.AccessKey = r.Form.Get("s3_access_key")
@@ -405,7 +405,7 @@ func getFsConfigFromUserPostFields(r *http.Request) (dataprovider.Filesystem, er
 		if err != nil {
 			return fs, err
 		}
-	} else if fs.Provider == 2 {
+	} else if fs.Provider == dataprovider.GCSFilesystemProvider {
 		fs.GCSConfig.Bucket = r.Form.Get("gcs_bucket")
 		fs.GCSConfig.StorageClass = r.Form.Get("gcs_storage_class")
 		fs.GCSConfig.KeyPrefix = r.Form.Get("gcs_key_prefix")

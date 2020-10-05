@@ -792,7 +792,7 @@ func validateFolderQuotaLimits(folder vfs.VirtualFolder) error {
 }
 
 func validateUserVirtualFolders(user *User) error {
-	if len(user.VirtualFolders) == 0 || user.FsConfig.Provider != 0 {
+	if len(user.VirtualFolders) == 0 || user.FsConfig.Provider != LocalFilesystemProvider {
 		user.VirtualFolders = []vfs.VirtualFolder{}
 		return nil
 	}
@@ -968,7 +968,7 @@ func validateFilters(user *User) error {
 }
 
 func saveGCSCredentials(user *User) error {
-	if user.FsConfig.Provider != 2 {
+	if user.FsConfig.Provider != GCSFilesystemProvider {
 		return nil
 	}
 	if len(user.FsConfig.GCSConfig.Credentials) == 0 {
@@ -987,7 +987,7 @@ func saveGCSCredentials(user *User) error {
 }
 
 func validateFilesystemConfig(user *User) error {
-	if user.FsConfig.Provider == 1 {
+	if user.FsConfig.Provider == S3FilesystemProvider {
 		err := vfs.ValidateS3FsConfig(&user.FsConfig.S3Config)
 		if err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not validate s3config: %v", err)}
@@ -1003,14 +1003,14 @@ func validateFilesystemConfig(user *User) error {
 			}
 		}
 		return nil
-	} else if user.FsConfig.Provider == 2 {
+	} else if user.FsConfig.Provider == GCSFilesystemProvider {
 		err := vfs.ValidateGCSFsConfig(&user.FsConfig.GCSConfig, user.getGCSCredentialsFilePath())
 		if err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not validate GCS config: %v", err)}
 		}
 		return nil
 	}
-	user.FsConfig.Provider = 0
+	user.FsConfig.Provider = LocalFilesystemProvider
 	user.FsConfig.S3Config = vfs.S3FsConfig{}
 	user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
 	return nil
@@ -1241,16 +1241,16 @@ func comparePbkdf2PasswordAndHash(password, hashedPassword string) (bool, error)
 // HideUserSensitiveData hides user sensitive data
 func HideUserSensitiveData(user *User) User {
 	user.Password = ""
-	if user.FsConfig.Provider == 1 {
+	if user.FsConfig.Provider == S3FilesystemProvider {
 		user.FsConfig.S3Config.AccessSecret = utils.RemoveDecryptionKey(user.FsConfig.S3Config.AccessSecret)
-	} else if user.FsConfig.Provider == 2 {
+	} else if user.FsConfig.Provider == GCSFilesystemProvider {
 		user.FsConfig.GCSConfig.Credentials = ""
 	}
 	return *user
 }
 
 func addCredentialsToUser(user *User) error {
-	if user.FsConfig.Provider != 2 {
+	if user.FsConfig.Provider != GCSFilesystemProvider {
 		return nil
 	}
 	if user.FsConfig.GCSConfig.AutomaticCredentials > 0 {
