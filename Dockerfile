@@ -34,7 +34,7 @@ RUN test ! -e /etc/nsswitch.conf && echo 'hosts: files dns' > /etc/nsswitch.conf
 RUN mkdir -p /etc/sftpgo /var/lib/sftpgo/{backups,data,host_keys} /srv/sftpgo/web
 
 RUN addgroup -g 1000 -S sftpgo
-RUN adduser -u 1000 -h /srv/sftpgo -s /sbin/nologin -G sftpgo -S -D -H sftpgo
+RUN adduser -u 1000 -h /var/lib/sftpgo -s /sbin/nologin -G sftpgo -S -D -H sftpgo
 
 # Override some configuration details
 ENV SFTPGO_CONFIG_DIR=/etc/sftpgo
