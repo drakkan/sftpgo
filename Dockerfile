@@ -36,6 +36,9 @@ RUN mkdir -p /etc/sftpgo /var/lib/sftpgo/{backups,data,host_keys} /srv/sftpgo/we
 RUN addgroup -g 1000 -S sftpgo
 RUN adduser -u 1000 -h /var/lib/sftpgo -s /sbin/nologin -G sftpgo -S -D -H sftpgo
 
+# Install some optional packages used by sftpgo features
+RUN apk add --update --no-cache rsync git mailcap
+
 # Override some configuration details
 ENV SFTPGO_CONFIG_DIR=/etc/sftpgo
 ENV SFTPGO_LOG_FILE_PATH=""
