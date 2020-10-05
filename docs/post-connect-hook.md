@@ -1,12 +1,12 @@
 # Post-connect hook
 
-This hook is executed as soon as a new connection is estabilished. It notifies the connection's IP address and protocol. Based on the received response, the connection is accepted or rejected. Combining this hook with the [Post-login hook](./post-login-hook.md) you can implement your own (even for Protocol) blacklist/whitelist of IP addresses.
+This hook is executed as soon as a new connection is established. It notifies the connection's IP address and protocol. Based on the received response, the connection is accepted or rejected. Combining this hook with the [Post-login hook](./post-login-hook.md) you can implement your own (even for Protocol) blacklist/whitelist of IP addresses.
 
 Please keep in mind that you can easily configure specialized program such as [Fail2ban](http://www.fail2ban.org/) for brute force protection. Executing a hook for each connection can be heavy.
 
 The `post-connect-hook` can be defined as the absolute path of your program or an HTTP URL.
 
-If the hook defines an external program it can reads the following environment variables:
+If the hook defines an external program it can read the following environment variables:
 
 - `SFTPGO_CONNECTION_IP`
 - `SFTPGO_CONNECTION_PROTOCOL`
@@ -21,6 +21,6 @@ If the hook defines an HTTP URL then this URL will be invoked as HTTP GET with t
 - `ip`
 - `protocol`
 
-The connection is accepted if the HTTP response code is `200` otherwise rejeted.
+The connection is accepted if the HTTP response code is `200` otherwise rejected.
 
 The HTTP request will use the global configuration for HTTP clients.

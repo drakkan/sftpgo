@@ -62,7 +62,7 @@ The configuration file contains the following sections:
   - `bind_port`, integer. The port used for serving SFTP requests. Default: 2022
   - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: ""
   - `idle_timeout`, integer. Deprecated, please use the same key in `common` section.
-  - `max_auth_tries` integer. Maximum number of authentication attempts permitted per connection. If set to a negative number, the number of attempts is unlimited. If set to zero, the number of attempts are limited to 6.
+  - `max_auth_tries` integer. Maximum number of authentication attempts permitted per connection. If set to a negative number, the number of attempts is unlimited. If set to zero, the number of attempts is limited to 6.
   - `banner`, string. Identification string used by the server. Leave empty to use the default banner. Default `SFTPGo_<version>`, for example `SSH-2.0-SFTPGo_0.9.5`
   - `upload_mode` integer. Deprecated, please use the same key in `common` section.
   - `actions`, struct. Deprecated, please use the same key in `common` section.
@@ -84,13 +84,13 @@ The configuration file contains the following sections:
   - `bind_port`, integer. The port used for serving FTP requests. 0 means disabled. Default: 0.
   - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "".
   - `banner`, string. Greeting banner displayed when a connection first comes in. Leave empty to use the default banner. Default `SFTPGo <version> ready`, for example `SFTPGo 1.0.0-dev ready`.
-  - `banner_file`, path to the banner file. The contents of the specified file, if any, are diplayed when someone connects to the server. It can be a path relative to the config dir or an absolute one. If set, it overrides the banner string provided by the `banner` option. Leave empty to disable.
+  - `banner_file`, path to the banner file. The contents of the specified file, if any, are displayed when someone connects to the server. It can be a path relative to the config dir or an absolute one. If set, it overrides the banner string provided by the `banner` option. Leave empty to disable.
   - `active_transfers_port_non_20`, boolean. Do not impose the port 20 for active data transfers. Enabling this option allows to run SFTPGo with less privilege. Default: false.
   - `force_passive_ip`, ip address. External IP address to expose for passive connections. Leavy empty to autodetect. Defaut: "".
   - `passive_port_range`, struct containing the key `start` and `end`. Port Range for data connections. Random if not specified. Default range is 50000-50100.
   - `certificate_file`, string. Certificate for FTPS. This can be an absolute path or a path relative to the config dir.
   - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If both the certificate and the private key are provided the server will accept both plain FTP an explicit FTP over TLS. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
-  - `tls_mode`, integer. 0 means accept both cleartext and encrypted sessions. 1 means TLS in required for both control and data connection. Do not enable this blindly, please check that a proper TLS config is in place or no login will be allowed if `tls_mode` is 1.
+  - `tls_mode`, integer. 0 means accept both cleartext and encrypted sessions. 1 means TLS is required for both control and data connection. Do not enable this blindly, please check that a proper TLS config is in place or no login will be allowed if `tls_mode` is 1.
 - **webdavd**, the configuration for the WebDAV server, more info [here](./webdav.md)
   - `bind_port`, integer. The port used for serving WebDAV requests. 0 means disabled. Default: 0.
   - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "".
@@ -130,11 +130,11 @@ The configuration file contains the following sections:
     - `hook`, string. Absolute path to the command to execute or HTTP URL to notify.
   - `external_auth_program`, string. Deprecated, please use `external_auth_hook`.
   - `external_auth_hook`, string. Absolute path to an external program or an HTTP URL to invoke for users authentication. See [External Authentication](./external-auth.md) for more details. Leave empty to disable.
-  - `external_auth_scope`, integer. 0 means all supported authetication scopes (passwords, public keys and keyboard interactive). 1 means passwords only. 2 means public keys only. 4 means key keyboard interactive only. The flags can be combined, for example 6 means public keys and keyboard interactive
+  - `external_auth_scope`, integer. 0 means all supported authentication scopes (passwords, public keys and keyboard interactive). 1 means passwords only. 2 means public keys only. 4 means key keyboard interactive only. The flags can be combined, for example 6 means public keys and keyboard interactive
   - `credentials_path`, string. It defines the directory for storing user provided credential files such as Google Cloud Storage credentials. This can be an absolute path or a path relative to the config dir
   - `pre_login_program`, string. Deprecated, please use `pre_login_hook`.
   - `pre_login_hook`, string. Absolute path to an external program or an HTTP URL to invoke to modify user details just before the login. See [Dynamic user modification](./dynamic-user-mod.md) for more details. Leave empty to disable.
-  - `post_login_hook`, string. Absolute path to an external program or an HTTP URL to invoke to notify a successul or failed login. See [Post-login hook](./post-login-hook.md) for more details. Leave empty to disable.
+  - `post_login_hook`, string. Absolute path to an external program or an HTTP URL to invoke to notify a successful or failed login. See [Post-login hook](./post-login-hook.md) for more details. Leave empty to disable.
   - `post_login_scope`, defines the scope for the post-login hook. 0 means notify both failed and successful logins. 1 means notify failed logins. 2 means notify successful logins.
   - `check_password_hook`, string.  Absolute path to an external program or an HTTP URL to invoke to check the user provided password. See [Check password hook](./check-password-hook.md) for more details. Leave empty to disable.
   - `check_password_scope`, defines the scope for the check password hook. 0 means all protocols, 1 means SSH, 2 means FTP, 4 means WebDAV. You can combine the scopes, for example 6 means FTP and WebDAV.
@@ -159,7 +159,7 @@ The configuration file contains the following sections:
 
 A full example showing the default config (in JSON format) can be found [here](../sftpgo.json).
 
-If you want to use a private host key that use an algorithm/setting different from the auto generated RSA/ECDSA keys, or more than two private keys, you can generate your own keys and replace the empty `keys` array with something like this:
+If you want to use a private host key that uses an algorithm/setting different from the auto generated RSA/ECDSA keys, or more than two private keys, you can generate your own keys and replace the empty `keys` array with something like this:
 
 ```json
 "host_keys": [

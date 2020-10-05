@@ -1,6 +1,6 @@
 # Virtual Folders
 
-A virtual folder is a mapping between a SFTP/SCP virtual path and a filesystem path outside the user home directory.
+A virtual folder is a mapping between an SFTP/SCP virtual path and a filesystem path outside the user home directory.
 The specified paths must be absolute and the virtual path cannot be "/", it must be a sub directory.
 The parent directory to the specified virtual path must exist. SFTPGo will try to automatically create any missing parent directory for the configured virtual folders at user login.
 
@@ -16,7 +16,7 @@ For example if you configure `/tmp/mapped` or `C:\mapped` as mapped path and `/v
 The same virtual folder, identified by the `mapped_path`, can be shared among users and different folder quota limits for each user are supported.
 Folder quota limits can also be included inside the user quota but in this case the folder is considered "private" and sharing it with other users will break user quota calculation.
 
-You don't need to create virtual folders, inside the data provider, to associate them to the users: any missing virtual folder will be automatically created when you add/update an user. You only have to create the folder on the filesystem.
+You don't need to create virtual folders, inside the data provider, to associate them to the users: any missing virtual folder will be automatically created when you add/update a user. You only have to create the folder on the filesystem.
 
 Using the REST API you can:
 

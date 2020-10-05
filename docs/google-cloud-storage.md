@@ -8,6 +8,6 @@ You can optionally specify a [storage class](https://cloud.google.com/storage/do
 
 The configured bucket must exist.
 
-Google Cloud Storage is exposed over HTTPS so if you are running SFTPGo as docker image please be sure to uncomment the line that install `ca-certificates`, inside your `Dockerfile`, to be able to properly verify certificate authorities.
+Google Cloud Storage is exposed over HTTPS so if you are running SFTPGo as docker image please be sure to uncomment the line that installs `ca-certificates`, inside your `Dockerfile`, to be able to properly verify certificate authorities.
 
 This backend is very similar to the [S3](./s3.md) backend, and it has the same limitations.

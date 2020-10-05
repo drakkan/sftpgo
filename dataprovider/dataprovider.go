@@ -202,7 +202,7 @@ type Config struct {
 	// easily write his own authentication hooks.
 	ExternalAuthHook string `json:"external_auth_hook" mapstructure:"external_auth_hook"`
 	// ExternalAuthScope defines the scope for the external authentication hook.
-	// - 0 means all supported authetication scopes, the external hook will be executed for password,
+	// - 0 means all supported authentication scopes, the external hook will be executed for password,
 	//     public key and keyboard interactive authentication
 	// - 1 means passwords only
 	// - 2 means public keys only

@@ -11,7 +11,7 @@ The expected response is a JSON serialized struct containing the following keys:
 - `status` integer. 0 means KO, 1 means OK, 2 means partial success
 - `to_verify` string. For `status` = 2 SFTPGo will check this password against the one stored inside SFTPGo data provider
 
-If the hook defines an external program it can reads the following environment variables:
+If the hook defines an external program it can read the following environment variables:
 
 - `SFTPGO_AUTHD_USERNAME`
 - `SFTPGO_AUTHD_PASSWORD`
@@ -29,7 +29,7 @@ If the hook is an HTTP URL then it will be invoked as HTTP POST. The request bod
 - `ip`
 - `protocol`, possible values are `SSH`, `FTP`, `DAV`
 
-If authentication succeed the HTTP response code must be 200 and the response body must contain the expected JSON serialized response described above.
+If authentication succeeds the HTTP response code must be 200 and the response body must contain the expected JSON serialized response described above.
 
 The program hook must finish within 30 seconds, the HTTP hook timeout will use the global configuration for HTTP clients.
 
