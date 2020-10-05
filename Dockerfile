@@ -31,7 +31,7 @@ SHELL ["/bin/bash", "-c"]
 # https://github.com/gliderlabs/docker-alpine/issues/367#issuecomment-424546457
 RUN test ! -e /etc/nsswitch.conf && echo 'hosts: files dns' > /etc/nsswitch.conf
 
-RUN mkdir -p /etc/sftpgo /var/lib/sftpgo/{backups,data,host_keys} /srv/sftpgo/web
+RUN mkdir -p /etc/sftpgo /var/lib/sftpgo/{backups,data,credentials,host_keys} /srv/sftpgo/web
 
 RUN addgroup -g 1000 -S sftpgo
 RUN adduser -u 1000 -h /var/lib/sftpgo -s /sbin/nologin -G sftpgo -S -D -H sftpgo
@@ -47,6 +47,7 @@ ENV SFTPGO_HTTPD__STATIC_FILES_PATH=/srv/sftpgo/web/static
 
 # Sane defaults, but users should still be able to override this from env vars
 ENV SFTPGO_DATA_PROVIDER__USERS_BASE_DIR=/var/lib/sftpgo/data
+ENV SFTPGO_DATA_PROVIDER__CREDENTIALS_PATH=/var/lib/sftpgo/credentials
 ENV SFTPGO_DATA_PROVIDER__NAME=/var/lib/sftpgo/sftpgo.db
 ENV SFTPGO_HTTPD__BACKUPS_PATH=/var/lib/sftpgo/backups
 ENV SFTPGO_SFTPD__HOST_KEYS=/var/lib/sftpgo/host_keys/id_rsa,/var/lib/sftpgo/host_keys/id_ecdsa
