@@ -18,7 +18,7 @@ if [ $1 -eq 1 ]; then
   # ensure files and folders have the appropriate permissions
   /usr/bin/chown -R sftpgo:sftpgo /etc/sftpgo /var/lib/sftpgo
   /usr/bin/chmod 750 /etc/sftpgo /var/lib/sftpgo
-  /usr/bin/chmod 640 /etc/sftpgo/sftpgo.json /etc/sftpgo/sftpgo.env
+  /usr/bin/chmod 640 /etc/sftpgo/sftpgo.json
   echo "Please be sure to have the python requests library installed if you want to use the REST API CLI"
 fi
 # reload to pick up any changes to systemd files
