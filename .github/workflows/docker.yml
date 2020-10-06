@@ -69,9 +69,10 @@ jobs:
           labels: |
             org.opencontainers.image.title=SFTPGo
             org.opencontainers.image.description=Fully featured and highly configurable SFTP server with optional FTP/S and WebDAV support
-            org.opencontainers.image.url=${{ github.event.repository.html_url }}
-            org.opencontainers.image.source=${{ github.event.repository.clone_url }}
+            org.opencontainers.image.url=https://github.com/users/drakkan/packages/container/package/sftpgo
+            org.opencontainers.image.documentation=https://github.com/drakkan/sftpgo/blob/master/docker/README.md
+            org.opencontainers.image.source=https://github.com/drakkan/sftpgo.git
             org.opencontainers.image.version=${{ steps.info.outputs.version }}
             org.opencontainers.image.created=${{ steps.info.outputs.created }}
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.licenses=${{ github.event.repository.license.spdx_id }}
+            org.opencontainers.image.licenses=GPL-3.0

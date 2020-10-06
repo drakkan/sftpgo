@@ -25,9 +25,6 @@ FROM alpine:3.12
 
 RUN apk add --update --no-cache ca-certificates tzdata bash
 
-# Install some optional packages used by SFTPGo features
-RUN apk add --update --no-cache rsync git mailcap
-
 SHELL ["/bin/bash", "-c"]
 
 # set up nsswitch.conf for Go's "netgo" implementation
@@ -38,6 +35,9 @@ RUN mkdir -p /etc/sftpgo /var/lib/sftpgo /usr/share/sftpgo
 
 RUN addgroup -g 1000 -S sftpgo
 RUN adduser -u 1000 -h /var/lib/sftpgo -s /sbin/nologin -G sftpgo -S -D -H sftpgo
+
+# Install some optional packages used by SFTPGo features
+RUN apk add --update --no-cache rsync git mailcap
 
 # Override some configuration details
 ENV SFTPGO_CONFIG_DIR=/etc/sftpgo
