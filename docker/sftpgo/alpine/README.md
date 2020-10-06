@@ -1,5 +1,7 @@
 # SFTPGo with Docker and Alpine
 
+:warning: The recommended way to run SFTPGo on Docker is to use the official [images](https://github.com/users/drakkan/packages/container/package/sftpgo). The documentation here is now obsolete.
+
 This DockerFile is made to build image to host multiple instances of SFTPGo started with different users.
 
 ## Example

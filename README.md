@@ -62,7 +62,7 @@ SFTPGo is developed and tested on Linux. After each commit, the code is automati
 
 Binary releases for Linux, macOS, and Windows are available. Please visit the [releases](https://github.com/drakkan/sftpgo/releases "releases") page.
 
-Sample Dockerfiles for [Debian](https://www.debian.org) and [Alpine](https://alpinelinux.org) are available inside the source tree [docker](./docker) directory.
+Official Docker images are available. Documentation is [here](./docker/README.md).
 
 Some Linux distro packages are available:
 
@@ -92,7 +92,7 @@ Check out [this documentation](./docs/service.md) if you want to run SFTPGo as a
 
 ### Data provider initialization and update
 
-Before starting the SFTPGo server, please ensure that the configured data provider is properly initialized/updated.
+Before starting the SFTPGo server please ensure that the configured data provider is properly initialized/updated.
 
 SQL based data providers (SQLite, MySQL, PostgreSQL) require the creation of a database containing the required tables. Memory and bolt data providers do not require an initialization but they could require an update to the existing data after upgrading SFTPGo.
 
@@ -114,7 +114,7 @@ Take a look at the CLI usage to learn how to specify a different configuration f
 sftpgo initprovider --help
 ```
 
-You can also disable automatic data provider checks at startup setting the `update_mode` configuration key to `1`.
+You can disable automatic data provider checks/updates at startup by setting the `update_mode` configuration key to `1`.
 
 ## Tutorials
 

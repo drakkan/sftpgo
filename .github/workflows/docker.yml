@@ -2,7 +2,7 @@ name: Docker
 
 on:
   schedule:
-    - cron: '0 10 * * *' # everyday at 10am
+    - cron: '0 4 * * *' # everyday at 4 am UTC
   push:
     branches:
       - master
@@ -65,6 +65,7 @@ jobs:
           tags: ${{ steps.info.outputs.tags }}
           build-args: |
             COMMIT_SHA=${{ steps.info.outputs.sha }}
+          platforms: linux/amd64,linux/arm64
           labels: |
             org.opencontainers.image.title=SFTPGo
             org.opencontainers.image.description=Fully featured and highly configurable SFTP server with optional FTP/S and WebDAV support

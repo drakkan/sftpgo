@@ -25,6 +25,9 @@ FROM alpine:3.12
 
 RUN apk add --update --no-cache ca-certificates tzdata bash
 
+# Install some optional packages used by SFTPGo features
+RUN apk add --update --no-cache rsync git mailcap
+
 SHELL ["/bin/bash", "-c"]
 
 # set up nsswitch.conf for Go's "netgo" implementation
@@ -35,9 +38,6 @@ RUN mkdir -p /etc/sftpgo /var/lib/sftpgo /usr/share/sftpgo
 
 RUN addgroup -g 1000 -S sftpgo
 RUN adduser -u 1000 -h /var/lib/sftpgo -s /sbin/nologin -G sftpgo -S -D -H sftpgo
-
-# Install some optional packages used by sftpgo features
-RUN apk add --update --no-cache rsync git mailcap
 
 # Override some configuration details
 ENV SFTPGO_CONFIG_DIR=/etc/sftpgo
@@ -50,6 +50,7 @@ ENV SFTPGO_DATA_PROVIDER__USERS_BASE_DIR=/var/lib/sftpgo/users
 ENV SFTPGO_DATA_PROVIDER__CREDENTIALS_PATH=/var/lib/sftpgo/credentials
 ENV SFTPGO_HTTPD__BACKUPS_PATH=/var/lib/sftpgo/backups
 ENV SFTPGO_SFTPD__HOST_KEYS=/var/lib/sftpgo/host_keys/id_rsa,/var/lib/sftpgo/host_keys/id_ecdsa
+ENV SFTPGO_HTTPD__BIND_ADDRESS=""
 
 COPY --from=builder /workspace/sftpgo.json /etc/sftpgo/sftpgo.json
 COPY --from=builder /workspace/templates /usr/share/sftpgo/templates
@@ -58,9 +59,9 @@ COPY --from=builder /workspace/sftpgo /usr/local/bin/
 
 RUN sed -i "s|sftpgo.db|/var/lib/sftpgo/sftpgo.db|" /etc/sftpgo/sftpgo.json
 
-RUN chown -R sftpgo:sftpgo /etc/sftpgo /var/lib/sftpgo
-RUN chmod 750 /etc/sftpgo /var/lib/sftpgo
-RUN chmod 640 /etc/sftpgo/sftpgo.json
+RUN chown -R sftpgo:sftpgo /etc/sftpgo && chown sftpgo:sftpgo /var/lib/sftpgo && \
+    chmod 640 /etc/sftpgo/sftpgo.json && \
+    chmod 750 /etc/sftpgo /var/lib/sftpgo
 
 USER sftpgo
 

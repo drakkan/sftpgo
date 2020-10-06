@@ -1,5 +1,7 @@
 # Dockerfile based on Debian stable
 
+:warning: The recommended way to run SFTPGo on Docker is to use the official [images](https://github.com/users/drakkan/packages/container/package/sftpgo). The documentation here is now obsolete.
+
 Please read the comments inside the `Dockerfile` to learn how to customize things for your setup.
 
 You can build the container image using `docker build`, for example:
