@@ -14,16 +14,21 @@ RUN go mod download
 
 ARG COMMIT_SHA
 
+# This ARG allows to disable some optional features and it might be useful if you build the image yourself.
+# For example you can disable S3 and GCS support like this:
+# --build-arg FEATURES=nos3,nogcs
+ARG FEATURES
+
 COPY . .
 
 RUN set -xe && \
     export COMMIT_SHA=${COMMIT_SHA:-$(git describe --always --dirty)} && \
-    go build -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=${COMMIT_SHA} -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -v -o sftpgo
+    go build $(if [ -n "${FEATURES}" ]; then echo "-tags ${FEATURES}"; fi) -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=${COMMIT_SHA} -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -v -o sftpgo
 
 
 FROM alpine:3.12
 
-RUN apk add --update --no-cache ca-certificates tzdata bash
+RUN apk add --update --no-cache ca-certificates tzdata bash mailcap
 
 SHELL ["/bin/bash", "-c"]
 
@@ -37,7 +42,7 @@ RUN addgroup -g 1000 -S sftpgo
 RUN adduser -u 1000 -h /var/lib/sftpgo -s /sbin/nologin -G sftpgo -S -D -H sftpgo
 
 # Install some optional packages used by SFTPGo features
-RUN apk add --update --no-cache rsync git mailcap
+RUN apk add --update --no-cache rsync git
 
 # Override some configuration details
 ENV SFTPGO_CONFIG_DIR=/etc/sftpgo

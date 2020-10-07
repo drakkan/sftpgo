@@ -40,9 +40,10 @@ maintainer: "Nicola Murino <nicola.murino@gmail.com>"
 provides:
   - sftpgo
 description: |
-  SFTPGo is a fully featured and highly configurable
-    SFTP server with optional FTP/S and WebDAV support.
-    It can serve local filesystem, S3, GCS
+  Fully featured and highly configurable SFTP server.
+    SFTPGo has optional FTP/S and WebDAV support.
+    It can serve local filesystem, S3 (Compatible) Object Storages
+    and Google Cloud Storage
 vendor: "SFTPGo"
 homepage: "https://github.com/drakkan/sftpgo"
 license: "GPL-3.0"
