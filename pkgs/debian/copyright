@@ -1,0 +1,11 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: SFTPGo 
+Source: https://github.com/drakkan/sftpgo/releases 
+
+Files: *
+Copyright: 2019-2020 Nicola Murino <nicola.murino@gmail.com>
+License: GPL-3 
+
+License: GPL-3
+ On Debian systems, the complete text of the GNU General Public License
+ version 3 can be found in `/usr/share/common-licenses/GPL-

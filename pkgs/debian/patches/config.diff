@@ -1,0 +1,43 @@
+Index: sftpgo/sftpgo.json
+===================================================================
+--- sftpgo.orig/sftpgo.json
++++ sftpgo/sftpgo.json
+@@ -69,7 +69,7 @@
+   },
+   "data_provider": {
+     "driver": "sqlite",
+-    "name": "sftpgo.db",
++    "name": "/var/lib/sftpgo/sftpgo.db",
+     "host": "",
+     "port": 5432,
+     "username": "",
+@@ -80,14 +80,14 @@
+     "manage_users": 1,
+     "track_quota": 2,
+     "pool_size": 0,
+-    "users_base_dir": "",
++    "users_base_dir": "/var/lib/sftpgo/users",
+     "actions": {
+       "execute_on": [],
+       "hook": ""
+     },
+     "external_auth_hook": "",
+     "external_auth_scope": 0,
+-    "credentials_path": "credentials",
++    "credentials_path": "/var/lib/sftpgo/credentials",
+     "pre_login_hook": "",
+     "post_login_hook": "",
+     "post_login_scope": 0,
+@@ -105,9 +105,9 @@
+   "httpd": {
+     "bind_port": 8080,
+     "bind_address": "127.0.0.1",
+-    "templates_path": "templates",
+-    "static_files_path": "static",
+-    "backups_path": "backups",
++    "templates_path": "/usr/share/sftpgo/templates",
++    "static_files_path": "/usr/share/sftpgo/static",
++    "backups_path": "/var/lib/sftpgo/backups",
+     "auth_user_file": "",
+     "certificate_file": "",
+     "certificate_key_file": ""
