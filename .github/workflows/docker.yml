@@ -2,7 +2,7 @@ name: Docker
 
 on:
   schedule:
-    - cron: '0 4 * * *' # everyday at 4 am UTC
+    - cron: '0 4 * * *' # everyday at 4:00 AM UTC
   push:
     branches:
       - master
@@ -13,7 +13,12 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        docker_pkg: [debian, alpine]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -31,6 +36,7 @@ jobs:
         run: |
           DOCKER_IMAGE=ghcr.io/drakkan/sftpgo
           VERSION=noop
+          DOCKERFILE=Dockerfile
           if [ "${{ github.event_name }}" = "schedule" ]; then
             VERSION=nightly
           elif [[ $GITHUB_REF == refs/tags/* ]]; then
@@ -43,14 +49,25 @@ jobs:
           elif [[ $GITHUB_REF == refs/pull/* ]]; then
             VERSION=pr-${{ github.event.number }}
           fi
+          if [[ $DOCKER_PKG == alpine ]]; then
+            VERSION="$VERSION-alpine"
+            DOCKERFILE=Dockerfile.alpine
+          fi
           TAGS="${DOCKER_IMAGE}:${VERSION}"
           if [[ $GITHUB_REF == refs/tags/* ]]; then
-            TAGS="$TAGS,${DOCKER_IMAGE}:latest"
+            if [[ $DOCKER_PKG == debian ]]; then
+              TAGS="$TAGS,${DOCKER_IMAGE}:latest"
+            else
+              TAGS="$TAGS,${DOCKER_IMAGE}:alpine"
+            fi
           fi
+          echo ::set-output name=dockerfile::${DOCKERFILE}
           echo ::set-output name=version::${VERSION}
           echo ::set-output name=tags::${TAGS}
           echo ::set-output name=created::$(date -u +'%Y-%m-%dT%H:%M:%SZ')
           echo ::set-output name=sha::${GITHUB_SHA::8}
+        env:
+          DOCKER_PKG: ${{ matrix.docker_pkg }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -69,11 +86,12 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v2
         with:
+          file: ./${{ steps.info.outputs.dockerfile }}
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.info.outputs.tags }}
           build-args: |
             COMMIT_SHA=${{ steps.info.outputs.sha }}
-          platforms: linux/amd64,linux/arm64
           labels: |
             org.opencontainers.image.title=${{ fromJson(steps.repo.outputs.result).name }}
             org.opencontainers.image.description=Fully featured and highly configurable SFTP server with optional FTP/S and WebDAV support

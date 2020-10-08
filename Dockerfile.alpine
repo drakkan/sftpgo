@@ -1,6 +1,8 @@
-FROM golang:1.15 as builder
+FROM golang:1.15-alpine AS builder
 
 ENV GOFLAGS="-mod=readonly"
+
+RUN apk add --update --no-cache bash ca-certificates curl git gcc g++
 
 RUN mkdir -p /workspace
 WORKDIR /workspace
@@ -23,21 +25,24 @@ RUN set -xe && \
     export COMMIT_SHA=${COMMIT_SHA:-$(git describe --always --dirty)} && \
     go build $(if [ -n "${FEATURES}" ]; then echo "-tags ${FEATURES}"; fi) -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=${COMMIT_SHA} -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -v -o sftpgo
 
-FROM debian:buster-slim
 
-RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates mime-support && apt-get clean
+FROM alpine:3.12
+
+RUN apk add --update --no-cache ca-certificates tzdata bash mailcap
 
 SHELL ["/bin/bash", "-c"]
 
+# set up nsswitch.conf for Go's "netgo" implementation
+# https://github.com/gliderlabs/docker-alpine/issues/367#issuecomment-424546457
+RUN test ! -e /etc/nsswitch.conf && echo 'hosts: files dns' > /etc/nsswitch.conf
+
 RUN mkdir -p /etc/sftpgo /var/lib/sftpgo /usr/share/sftpgo
 
-RUN groupadd --system -g 1000 sftpgo
-RUN useradd --system --gid sftpgo --no-create-home \
-    --home-dir /var/lib/sftpgo --shell /usr/sbin/nologin \
-    --comment "SFTPGo user" --uid 1000 sftpgo
+RUN addgroup -g 1000 -S sftpgo
+RUN adduser -u 1000 -h /var/lib/sftpgo -s /sbin/nologin -G sftpgo -S -D -H sftpgo
 
 # Install some optional packages used by SFTPGo features
-RUN apt-get update && apt-get install --no-install-recommends -y git rsync && apt-get clean
+RUN apk add --update --no-cache rsync git
 
 # Override some configuration details
 ENV SFTPGO_CONFIG_DIR=/etc/sftpgo
