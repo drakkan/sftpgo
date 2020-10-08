@@ -18,6 +18,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Repo metadata
+        id: repo
+        uses: actions/github-script@v3
+        with:
+          script: |
+            const repo = await github.repos.get(context.repo)
+            return repo.data
+
       - name: Gather image information
         id: info
         run: |
@@ -69,10 +77,10 @@ jobs:
           labels: |
             org.opencontainers.image.title=SFTPGo
             org.opencontainers.image.description=Fully featured and highly configurable SFTP server with optional FTP/S and WebDAV support
-            org.opencontainers.image.url=https://github.com/users/drakkan/packages/container/package/sftpgo
-            org.opencontainers.image.documentation=https://github.com/drakkan/sftpgo/blob/master/docker/README.md
-            org.opencontainers.image.source=https://github.com/drakkan/sftpgo.git
+            org.opencontainers.image.url=${{ fromJson(steps.repo.outputs.result).html_url }}
+            org.opencontainers.image.documentation=${{ fromJson(steps.repo.outputs.result).html_url }}/blob/${{ github.sha }}/docker/README.md
+            org.opencontainers.image.source=${{ fromJson(steps.repo.outputs.result).clone_url }}
             org.opencontainers.image.version=${{ steps.info.outputs.version }}
             org.opencontainers.image.created=${{ steps.info.outputs.created }}
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.licenses=GPL-3.0
+            org.opencontainers.image.licenses=${{ fromJson(steps.repo.outputs.result).license.spdx_id }}
