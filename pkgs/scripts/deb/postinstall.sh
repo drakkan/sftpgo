@@ -18,12 +18,12 @@ if [ "$1" = "configure" ]; then
 
   if [ -z "$2" ]; then
     # initialize data provider
-    /usr/bin/sftpgo initprovider -c /etc/sftpgo
+    sftpgo initprovider -c /etc/sftpgo
     # ensure files and folders have the appropriate permissions
     chown -R sftpgo:sftpgo /etc/sftpgo /var/lib/sftpgo
     chmod 750 /etc/sftpgo /var/lib/sftpgo
     chmod 640 /etc/sftpgo/sftpgo.json
-	echo "Please be sure to have the python3-requests package installed if you want to use the REST API CLI"
+	  echo "Please be sure to have the python3-requests package installed if you want to use the REST API CLI"
   fi
 fi
 

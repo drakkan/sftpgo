@@ -139,7 +139,7 @@ jobs:
           pip install requests
           pip install pygments
           pip install pyinstaller
-          pyinstaller --hidden-import="pkg_resources.py2_warn" --noupx --onefile examples\rest-api-cli\sftpgo_api_cli.py
+          pyinstaller --hidden-import="pkg_resources.py2_warn" --noupx --onefile examples\rest-api-cli\sftpgo_api_cli
 
       - name: Prepare Release for Linux/macOS
         if: startsWith(matrix.os, 'windows-') != true
@@ -160,11 +160,11 @@ jobs:
           else
             cp init/com.github.drakkan.sftpgo.plist output/init/
           fi
-          ./sftpgo gen completion bash > output/bash_completion/sftpgo-completion.bash
+          ./sftpgo gen completion bash > output/bash_completion/sftpgo
           ./sftpgo gen completion zsh > output/zsh_completion/_sftpgo
           ./sftpgo gen man -d output/man/man1
           gzip output/man/man1/*
-          cp examples/rest-api-cli/sftpgo_api_cli.py output/examples/rest-api-cli/
+          cp examples/rest-api-cli/sftpgo_api_cli output/examples/rest-api-cli/
           cd output
           tar cJvf sftpgo_${SFTPGO_VERSION}_${OS}_x86_64.tar.xz *
           cd ..

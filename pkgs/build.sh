@@ -40,19 +40,19 @@ maintainer: "Nicola Murino <nicola.murino@gmail.com>"
 provides:
   - sftpgo
 description: |
-  Fully featured and highly configurable SFTP server.
-    SFTPGo has optional FTP/S and WebDAV support.
-    It can serve local filesystem, S3 (Compatible) Object Storages
-    and Google Cloud Storage
+  Fully featured and highly configurable SFTP server
+  SFTPGo has optional FTP/S and WebDAV support.
+  It can serve local filesystem, S3 (Compatible) Object Storages
+  and Google Cloud Storage
 vendor: "SFTPGo"
 homepage: "https://github.com/drakkan/sftpgo"
 license: "GPL-3.0"
 files:
   ${BASE_DIR}/sftpgo: "/usr/bin/sftpgo"
-  ./sftpgo-completion.bash: "/etc/bash_completion.d/sftpgo-completion.bash"
+  ./sftpgo-completion.bash: "/usr/share/bash-completion/completions/sftpgo"
   ./man1/*: "/usr/share/man/man1/"
   ${BASE_DIR}/init/sftpgo.service: "/lib/systemd/system/sftpgo.service"
-  ${BASE_DIR}/examples/rest-api-cli/sftpgo_api_cli.py: "/usr/bin/sftpgo_api_cli"
+  ${BASE_DIR}/examples/rest-api-cli/sftpgo_api_cli: "/usr/bin/sftpgo_api_cli"
   ${BASE_DIR}/templates/*: "/usr/share/sftpgo/templates/"
   ${BASE_DIR}/static/**/*: "/usr/share/sftpgo/static/"
 
@@ -67,6 +67,7 @@ overrides:
     recommends:
       - bash-completion
       - python3-requests
+      - python3-pygments
     scripts:
       postinstall: ../scripts/deb/postinstall.sh
       preremove: ../scripts/deb/preremove.sh

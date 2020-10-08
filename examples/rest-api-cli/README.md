@@ -1,6 +1,6 @@
 # REST API CLI client
 
-`sftpgo_api_cli.py` is a very simple command line client for `SFTPGo` REST API written in python.
+`sftpgo_api_cli` is a very simple command line client for `SFTPGo` REST API written in python.
 
 It has the following requirements:
 
@@ -11,13 +11,13 @@ It has the following requirements:
 You can see the usage with the following command:
 
 ```console
-python sftpgo_api_cli.py --help
+python sftpgo_api_cli --help
 ```
 
 and
 
 ```console
-python sftpgo_api_cli.py [sub-command] --help
+python sftpgo_api_cli [sub-command] --help
 ```
 
 Basically there is a sub command for each REST API and the following global arguments:
@@ -33,7 +33,7 @@ Basically there is a sub command for each REST API and the following global argu
 
 For each subcommand `--help` shows the available arguments, try for example:
 
-```python sftpgo_api_cli.py add_user --help```
+```python sftpgo_api_cli add_user --help```
 
 Additionally it can convert users to the SFTPGo format from some supported users stores
 
@@ -44,7 +44,7 @@ Let's see a sample usage for each REST API.
 Command:
 
 ```console
-python sftpgo_api_cli.py add-user test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 33 --gid 1000 --max-sessions 2 --quota-size 0 --quota-files 3 --permissions "list" "download" "upload" "delete" "rename" "create_dirs" "overwrite" --subdirs-permissions "/dir1::list,download" "/dir2::*" --upload-bandwidth 100 --download-bandwidth 60 --status 0 --expiration-date 2019-01-01 --allowed-ip "192.168.1.1/32" --fs S3 --s3-bucket test --s3-region eu-west-1 --s3-access-key accesskey --s3-access-secret secret --s3-endpoint "http://127.0.0.1:9000" --s3-storage-class Standard --s3-key-prefix "vfolder/" --s3-upload-part-size 10 --s3-upload-concurrency 4 --denied-login-methods "password" "keyboard-interactive" --allowed-extensions "/dir1::.jpg,.png" "/dir2::.rar,.png" --denied-extensions "/dir3::.zip,.rar" --denied-protocols DAV FTP
+python sftpgo_api_cli add-user test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 33 --gid 1000 --max-sessions 2 --quota-size 0 --quota-files 3 --permissions "list" "download" "upload" "delete" "rename" "create_dirs" "overwrite" --subdirs-permissions "/dir1::list,download" "/dir2::*" --upload-bandwidth 100 --download-bandwidth 60 --status 0 --expiration-date 2019-01-01 --allowed-ip "192.168.1.1/32" --fs S3 --s3-bucket test --s3-region eu-west-1 --s3-access-key accesskey --s3-access-secret secret --s3-endpoint "http://127.0.0.1:9000" --s3-storage-class Standard --s3-key-prefix "vfolder/" --s3-upload-part-size 10 --s3-upload-concurrency 4 --denied-login-methods "password" "keyboard-interactive" --allowed-extensions "/dir1::.jpg,.png" "/dir2::.rar,.png" --denied-extensions "/dir3::.zip,.rar" --denied-protocols DAV FTP
 ```
 
 Output:
@@ -144,7 +144,7 @@ Output:
 Command:
 
 ```console
-python sftpgo_api_cli.py update-user 9576 test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 0 --gid 33 --max-sessions 3 --quota-size 0 --quota-files 4 --permissions "*" --subdirs-permissions "/dir1::list,download,create_symlinks" --upload-bandwidth 90 --download-bandwidth 80 --status 1 --expiration-date "" --allowed-ip "" --denied-ip "192.168.1.0/24" --denied-login-methods "" --fs local --virtual-folders "/vdir1::/tmp/mapped1::-1::-1" "/vdir2::/tmp/mapped2::100::104857600" --allowed-extensions "" --denied-extensions "" --max-upload-file-size 104857600 --denied-protocols ""
+python sftpgo_api_cli update-user 9576 test_username --password "test_pwd" --home-dir="/tmp/test_home_dir" --uid 0 --gid 33 --max-sessions 3 --quota-size 0 --quota-files 4 --permissions "*" --subdirs-permissions "/dir1::list,download,create_symlinks" --upload-bandwidth 90 --download-bandwidth 80 --status 1 --expiration-date "" --allowed-ip "" --denied-ip "192.168.1.0/24" --denied-login-methods "" --fs local --virtual-folders "/vdir1::/tmp/mapped1::-1::-1" "/vdir2::/tmp/mapped2::100::104857600" --allowed-extensions "" --denied-extensions "" --max-upload-file-size 104857600 --denied-protocols ""
 ```
 
 Output:
@@ -164,7 +164,7 @@ You can set the argument `--disconnect` to `1` to disconnect the user, if connec
 Command:
 
 ```console
-python sftpgo_api_cli.py get-user-by-id 9576
+python sftpgo_api_cli get-user-by-id 9576
 ```
 
 Output:
@@ -261,7 +261,7 @@ Output:
 Command:
 
 ```console
-python sftpgo_api_cli.py get-users --limit 1 --offset 0 --username test_username --order DESC
+python sftpgo_api_cli get-users --limit 1 --offset 0 --username test_username --order DESC
 ```
 
 Output:
@@ -326,7 +326,7 @@ Output:
 Command:
 
 ```console
-python sftpgo_api_cli.py get-connections
+python sftpgo_api_cli get-connections
 ```
 
 Output:
@@ -358,7 +358,7 @@ Output:
 Command:
 
 ```console
-python sftpgo_api_cli.py get-folders --limit 1 --offset 0 --folder-path /tmp/mapped1 --order DESC
+python sftpgo_api_cli get-folders --limit 1 --offset 0 --folder-path /tmp/mapped1 --order DESC
 ```
 
 Output:
@@ -381,7 +381,7 @@ Output:
 ## Add folder
 
 ```console
-python sftpgo_api_cli.py add-folder /tmp/mapped_folder
+python sftpgo_api_cli add-folder /tmp/mapped_folder
 ```
 
 Output:
@@ -401,7 +401,7 @@ Output:
 Command:
 
 ```console
-python sftpgo_api_cli.py close-connection f82cfec6a391ad673edd4ae9a144f32ccb59456139f8e1185b070134fffbab7c
+python sftpgo_api_cli close-connection f82cfec6a391ad673edd4ae9a144f32ccb59456139f8e1185b070134fffbab7c
 ```
 
 Output:
@@ -419,7 +419,7 @@ Output:
 Command:
 
 ```console
-python sftpgo_api_cli.py get-quota-scans
+python sftpgo_api_cli get-quota-scans
 ```
 
 ## Start quota scan
@@ -427,7 +427,7 @@ python sftpgo_api_cli.py get-quota-scans
 Command:
 
 ```console
-python sftpgo_api_cli.py start-quota-scan test_username
+python sftpgo_api_cli start-quota-scan test_username
 ```
 
 Output:
@@ -445,7 +445,7 @@ Output:
 Command:
 
 ```console
-python sftpgo_api_cli.py get-folders-quota-scans
+python sftpgo_api_cli get-folders-quota-scans
 ```
 
 ## Start folder quota scan
@@ -453,7 +453,7 @@ python sftpgo_api_cli.py get-folders-quota-scans
 Command:
 
 ```console
-python sftpgo_api_cli.py start-folder-quota-scan /tmp/mapped_folder
+python sftpgo_api_cli start-folder-quota-scan /tmp/mapped_folder
 ```
 
 Output:
@@ -471,7 +471,7 @@ Output:
 Command:
 
 ```console
-python sftpgo_api_cli.py -d update-quota-usage a -S 123 -F 1 -M reset
+python sftpgo_api_cli -d update-quota-usage a -S 123 -F 1 -M reset
 ```
 
 Output:
@@ -489,7 +489,7 @@ Output:
 Command:
 
 ```console
-python sftpgo_api_cli.py -d update-quota-usage /tmp/mapped_folder -S 123 -F 1 -M add
+python sftpgo_api_cli -d update-quota-usage /tmp/mapped_folder -S 123 -F 1 -M add
 ```
 
 Output:
@@ -507,7 +507,7 @@ Output:
 Command:
 
 ```console
-python sftpgo_api_cli.py delete-user 9576
+python sftpgo_api_cli delete-user 9576
 ```
 
 Output:
@@ -523,7 +523,7 @@ Output:
 ## Delete folder
 
 ```console
-python sftpgo_api_cli.py delete-folder /tmp/mapped_folder
+python sftpgo_api_cli delete-folder /tmp/mapped_folder
 ```
 
 Output:
@@ -541,7 +541,7 @@ Output:
 Command:
 
 ```console
-python sftpgo_api_cli.py get-version
+python sftpgo_api_cli get-version
 ```
 
 Output:
@@ -559,7 +559,7 @@ Output:
 Command:
 
 ```console
-python sftpgo_api_cli.py get-provider-status
+python sftpgo_api_cli get-provider-status
 ```
 
 Output:
@@ -577,7 +577,7 @@ Output:
 Command:
 
 ```console
-python sftpgo_api_cli.py dumpdata backup.json --indent 1
+python sftpgo_api_cli dumpdata backup.json --indent 1
 ```
 
 Output:
@@ -595,7 +595,7 @@ Output:
 Command:
 
 ```console
-python sftpgo_api_cli.py loaddata /app/data/backups/backup.json --scan-quota 2 --mode 0
+python sftpgo_api_cli loaddata /app/data/backups/backup.json --scan-quota 2 --mode 0
 ```
 
 Output:
@@ -619,21 +619,21 @@ You can convert users to the SFTPGo format from the following users stores:
 For details give a look at the `convert-users` subcommand usage:
 
 ```console
-python sftpgo_api_cli.py convert-users --help
+python sftpgo_api_cli convert-users --help
 ```
 
 Let's see some examples:
 
 ```console
-python sftpgo_api_cli.py convert-users "" unix-passwd unix_users.json --min-uid 500 --force-uid 1000 --force-gid 1000
+python sftpgo_api_cli convert-users "" unix-passwd unix_users.json --min-uid 500 --force-uid 1000 --force-gid 1000
 ```
 
 ```console
-python sftpgo_api_cli.py convert-users pureftpd.passwd pure-ftpd pure_users.json --usernames "user1" "user2"
+python sftpgo_api_cli convert-users pureftpd.passwd pure-ftpd pure_users.json --usernames "user1" "user2"
 ```
 
 ```console
-python sftpgo_api_cli.py convert-users proftpd.passwd proftpd pro_users.json
+python sftpgo_api_cli convert-users proftpd.passwd proftpd pro_users.json
 ```
 
 The json file generated using the `convert-users` subcommand can be used as input for the `loaddata` subcommand.

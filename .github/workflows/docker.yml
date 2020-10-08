@@ -75,7 +75,7 @@ jobs:
             COMMIT_SHA=${{ steps.info.outputs.sha }}
           platforms: linux/amd64,linux/arm64
           labels: |
-            org.opencontainers.image.title=SFTPGo
+            org.opencontainers.image.title=${{ fromJson(steps.repo.outputs.result).name }}
             org.opencontainers.image.description=Fully featured and highly configurable SFTP server with optional FTP/S and WebDAV support
             org.opencontainers.image.url=${{ fromJson(steps.repo.outputs.result).html_url }}
             org.opencontainers.image.documentation=${{ fromJson(steps.repo.outputs.result).html_url }}/blob/${{ github.sha }}/docker/README.md
