@@ -122,6 +122,7 @@ type UserFilters struct {
 // FilesystemProvider defines the supported storages
 type FilesystemProvider int
 
+// supported values for FilesystemProvider
 const (
 	LocalFilesystemProvider FilesystemProvider = iota // Local
 	S3FilesystemProvider                              // Amazon S3 compatible

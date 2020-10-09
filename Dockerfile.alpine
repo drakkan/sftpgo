@@ -38,8 +38,8 @@ RUN test ! -e /etc/nsswitch.conf && echo 'hosts: files dns' > /etc/nsswitch.conf
 
 RUN mkdir -p /etc/sftpgo /var/lib/sftpgo /usr/share/sftpgo
 
-RUN addgroup -g 1000 -S sftpgo
-RUN adduser -u 1000 -h /var/lib/sftpgo -s /sbin/nologin -G sftpgo -S -D -H sftpgo
+RUN addgroup -g 1000 -S sftpgo && \
+    adduser -u 1000 -h /var/lib/sftpgo -s /sbin/nologin -G sftpgo -S -D -H sftpgo
 
 # Install some optional packages used by SFTPGo features
 RUN apk add --update --no-cache rsync git

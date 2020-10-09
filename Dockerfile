@@ -31,8 +31,8 @@ SHELL ["/bin/bash", "-c"]
 
 RUN mkdir -p /etc/sftpgo /var/lib/sftpgo /usr/share/sftpgo
 
-RUN groupadd --system -g 1000 sftpgo
-RUN useradd --system --gid sftpgo --no-create-home \
+RUN groupadd --system -g 1000 sftpgo && \
+    useradd --system --gid sftpgo --no-create-home \
     --home-dir /var/lib/sftpgo --shell /usr/sbin/nologin \
     --comment "SFTPGo user" --uid 1000 sftpgo
 

@@ -63,21 +63,19 @@ Exit from the PostgreSQL shell typing `\q`.
 
 ## Install SFTPGo
 
-Download a binary SFTPGo [release](https://github.com/drakkan/sftpgo/releases) or a build artifact for the [latest commit](https://github.com/drakkan/sftpgo/actions).
+To install SFTPGo you can use the PPA [here](https://launchpad.net/~sftpgo/+archive/ubuntu/sftpgo).
 
-In this tutorial we assume you downloaded the debian build artifact named `sftpgo-v1.0.1-dev.68-x86_64-deb.zip` inside the current directory.
-
-Install `unzip`, if not already installed, and extract the archive with the following commands.
+Start by adding the PPA.
 
 ```shell
-sudo apt install unzip
-unzip sftpgo-v1.0.1-dev.68-x86_64-deb.zip
+sudo add-apt-repository ppa:sftpgo/sftpgo
+sudo apt-get update
 ```
 
 Next install SFTPGo.
 
 ```shell
-sudo apt install ./sftpgo_1.0.1-1~dev.68_amd64.deb
+sudo apt install sftpgo
 ```
 
 After installation SFTPGo should already be running with default configuration and configured to start automatically at boot, check its status using the following command.
@@ -143,12 +141,10 @@ Search for the `data_provider` section and change it as follow.
     "username": "sftpgo",
     "password": "sftpgo_pg_pwd",
     ...
-    "users_base_dir": "/tmp",
 }
 ```
 
 This way we set the PostgreSQL connection parameters and a default base directory for new users.
-Since we use S3 and not the local filesystem as backend we set `/tmp` as default base directory so when we add a new user the home directory will be automatically defined as the path obtained joining `/tmp` and the username.
 
 If you want to connect to PostgreSQL over a Unix Domain socket you have to set the value `/var/run/postgresql` for the `host` configuration key instead of `127.0.0.1`.
 
@@ -158,11 +154,14 @@ Next, initialize the data provider with the following command.
 
 ```shell
 $ sudo su - sftpgo -s /bin/bash -c 'sftpgo initprovider -c /etc/sftpgo'
-2020-09-12T21:07:50.000 DBG Initializing provider: "postgresql" config file: "/etc/sftpgo/sftpgo.json"
-2020-09-12T21:07:50.000 DBG Data provider successfully initialized
+2020-10-09T21:07:50.000 INF Initializing provider: "postgresql" config file: "/etc/sftpgo/sftpgo.json"
+2020-10-09T21:07:50.000 INF updating database version: 1 -> 2
+2020-10-09T21:07:50.000 INF updating database version: 2 -> 3
+2020-10-09T21:07:50.000 INF updating database version: 3 -> 4
+2020-10-09T21:07:50.000 INF Data provider successfully initialized/updated
 ```
 
-The default sftpgo systemd service will start after the network target, in this setup it is more appropriate to start it after the PostgreSQL service, so override the unit using the following command.
+The default sftpgo systemd service will start after the network target, in this setup it is more appropriate to start it after the PostgreSQL service, so edit the service using the following command.
 
 ```shell
 sudo systemctl edit sftpgo.service
@@ -213,4 +212,4 @@ Click `Add` and fill the user details, the minimum required parameters are:
 
 You are done! Now you can connect to you SFTPGo instance using any compatible `sftp` client on port `2022`.
 
-You can mix S3 users with local users but please be aware that we are running the service as the unprivileged `sftpgo` system user so if you set storage as `local` for an SFTPGo virtual user then the home directory for this user must be owned by the `sftpgo` system user. Probably the best choice is to have home directory for local users in paths like `/var/lib/sftpgo/users/<username>`.
+You can mix S3 users with local users but please be aware that we are running the service as the unprivileged `sftpgo` system user so if you set storage as `local` for an SFTPGo virtual user then the home directory for this user must be owned by the `sftpgo` system user. If you don't specify an home directory the default will be `/var/lib/sftpgo/users/<username>` which should be appropriate.

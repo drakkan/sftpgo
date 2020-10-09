@@ -123,7 +123,7 @@ func (s *WindowsService) RunService() error {
 		return err
 	}
 
-	isIntSess, err := svc.IsAnInteractiveSession()
+	isIntSess, err := svc.IsWindowsService()
 	if err != nil {
 		return err
 	}
