@@ -188,6 +188,10 @@ SFTPGo can easily saturate a Gigabit connection on low end hardware with no spec
 
 More in-depth analysis of performance can be found [here](./docs/performance.md).
 
+## Release Cadence
+
+SFTPGo releases are feature-driven, we don't have a fixed time based schedule. As a rough estimate, you can expect 1 or 2 new releases per year.
+
 ## Acknowledgements
 
 SFTPGo makes use of the third party libraries listed inside [go.mod](./go.mod).
