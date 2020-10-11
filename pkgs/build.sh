@@ -68,6 +68,7 @@ overrides:
       - bash-completion
       - python3-requests
       - python3-pygments
+      - mime-support
     scripts:
       postinstall: ../scripts/deb/postinstall.sh
       preremove: ../scripts/deb/preremove.sh
@@ -75,6 +76,7 @@ overrides:
   rpm:
     recommends:
       - bash-completion
+      - mailcap
       # centos 8 has python3-requests, centos 6/7 python-requests
     scripts:
       postinstall: ../scripts/rpm/postinstall

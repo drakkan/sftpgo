@@ -1,0 +1,10 @@
+Index: sftpgo/examples/rest-api-cli/sftpgo_api_cli
+===================================================================
+--- sftpgo.orig/examples/rest-api-cli/sftpgo_api_cli
++++ sftpgo/examples/rest-api-cli/sftpgo_api_cli
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python
++#!/usr/bin/env python3
+ import argparse
+ import base64
+ from datetime import datetime

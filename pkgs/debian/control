@@ -1,16 +1,16 @@
 Source: sftpgo
-Section: net 
+Section: net
 Priority: optional
 Maintainer: Nicola Murino <nicola.murino@gmail.com>
 Build-Depends: debhelper (>= 10)
 Standards-Version: 4.1.2
-Homepage: https://github.com/drakkan/sftpgo 
-Vcs-Git: https://github.com/drakkan/sftpgo.git 
+Homepage: https://github.com/drakkan/sftpgo
+Vcs-Git: https://github.com/drakkan/sftpgo.git
 
 Package: sftpgo
-Architecture: amd64 
+Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Recommends: bash-completion, python3-requests, python3-pygments
+Recommends: bash-completion, python3-requests, python3-pygments, mime-support
 Description: Fully featured and highly configurable SFTP server
  SFTPGo has optional FTP/S and WebDAV support.
  It can serve local filesystem, S3 (Compatible) Object Storages
