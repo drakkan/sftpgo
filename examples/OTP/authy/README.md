@@ -1,6 +1,6 @@
 # Authy
 
-These example show how-to integrate [Twillo Authy API](https://www.twilio.com/docs/authy/api) for One-Time-Password logins.
+These example show how-to integrate [Twilio Authy API](https://www.twilio.com/docs/authy/api) for One-Time-Password logins.
 
 The examples assume that the user has the free [Authy app](https://authy.com/) installed and uses it to generate offline [TOTP](https://en.wikipedia.org/wiki/Time-based_One-time_Password_algorithm) codes (soft tokens).
 
