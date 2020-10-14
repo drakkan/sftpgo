@@ -1,13 +1,13 @@
 # Official Docker images
 
-SFTPGo provides official Docker images. They are available [here](https://hub.docker.com/r/drakkan/sftpgo).
+SFTPGo provides official Docker images. They are available on [Docker Hub](https://hub.docker.com/r/drakkan/sftpgo).
 
 ## Start a SFTPGo server instance
 
 Starting a SFTPGo instance is simple:
 
 ```shell
-docker run --name some-sftpgo -p 127.0.0.1:8080:8080 -p 2022:2022 -d "sftpgo:edge"
+docker run --name some-sftpgo -p 127.0.0.1:8080:8080 -p 2022:2022 -d "drakkan/sftpgo:edge"
 ```
 
 Now visit [http://localhost:8080/](http://localhost:8080/) and create a new SFTPGo user. The SFTP service is available on port 2022.
@@ -40,7 +40,7 @@ docker run --name some-sftpgo \
     --mount type=bind,source=/my/own/sftpgodata,target=/srv/sftpgo \
     --mount type=bind,source=/my/own/sftpgohome,target=/var/lib/sftpgo \
     -e SFTPGO_HTTPD__BIND_PORT=8090 \
-    -d "sftpgo:edge"
+    -d "drakkan/sftpgo:edge"
 ```
 
 As you can see SFTPGo uses two volumes:
