@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates
 
 SHELL ["/bin/bash", "-c"]
 
-RUN mkdir -p /etc/sftpgo /var/lib/sftpgo /usr/share/sftpgo
+RUN mkdir -p /etc/sftpgo /var/lib/sftpgo /usr/share/sftpgo /srv/sftpgo
 
 RUN groupadd --system -g 1000 sftpgo && \
     useradd --system --gid sftpgo --no-create-home \
@@ -39,32 +39,29 @@ RUN groupadd --system -g 1000 sftpgo && \
 # Install some optional packages used by SFTPGo features
 RUN apt-get update && apt-get install --no-install-recommends -y git rsync && apt-get clean
 
-# Override some configuration details
-ENV SFTPGO_CONFIG_DIR=/etc/sftpgo
-ENV SFTPGO_LOG_FILE_PATH=""
-ENV SFTPGO_HTTPD__TEMPLATES_PATH=/usr/share/sftpgo/templates
-ENV SFTPGO_HTTPD__STATIC_FILES_PATH=/usr/share/sftpgo/static
-
-# Sane defaults, but users should still be able to override this from env vars
-ENV SFTPGO_DATA_PROVIDER__USERS_BASE_DIR=/var/lib/sftpgo/users
-ENV SFTPGO_DATA_PROVIDER__CREDENTIALS_PATH=/var/lib/sftpgo/credentials
-ENV SFTPGO_HTTPD__BACKUPS_PATH=/var/lib/sftpgo/backups
-ENV SFTPGO_SFTPD__HOST_KEYS=/var/lib/sftpgo/host_keys/id_rsa,/var/lib/sftpgo/host_keys/id_ecdsa
-ENV SFTPGO_HTTPD__BIND_ADDRESS=""
-
 COPY --from=builder /workspace/sftpgo.json /etc/sftpgo/sftpgo.json
 COPY --from=builder /workspace/templates /usr/share/sftpgo/templates
 COPY --from=builder /workspace/static /usr/share/sftpgo/static
 COPY --from=builder /workspace/sftpgo /usr/local/bin/
 
-RUN sed -i "s|sftpgo.db|/var/lib/sftpgo/sftpgo.db|" /etc/sftpgo/sftpgo.json
+# Log to the stdout so the logs will be available using docker logs
+ENV SFTPGO_LOG_FILE_PATH=""
+# templates and static paths are inside the container
+ENV SFTPGO_HTTPD__TEMPLATES_PATH=/usr/share/sftpgo/templates
+ENV SFTPGO_HTTPD__STATIC_FILES_PATH=/usr/share/sftpgo/static
 
-RUN chown -R sftpgo:sftpgo /etc/sftpgo && chown sftpgo:sftpgo /var/lib/sftpgo && \
+# Modify the default configuration file
+RUN sed -i "s|\"users_base_dir\": \"\",|\"users_base_dir\": \"/srv/sftpgo/data\",|" /etc/sftpgo/sftpgo.json && \
+    sed -i "s|\"backups\"|\"/srv/sftpgo/backups\"|" /etc/sftpgo/sftpgo.json && \
+    sed -i "s|\"bind_address\": \"127.0.0.1\",|\"bind_address\": \"\",|" /etc/sftpgo/sftpgo.json
+
+RUN chown -R sftpgo:sftpgo /etc/sftpgo && chown sftpgo:sftpgo /var/lib/sftpgo /srv/sftpgo && \
     chmod 640 /etc/sftpgo/sftpgo.json && \
-    chmod 750 /etc/sftpgo /var/lib/sftpgo
+    chmod 750 /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
 
+WORKDIR /var/lib/sftpgo
 USER sftpgo
 
-VOLUME /var/lib/sftpgo
+VOLUME [ "/var/lib/sftpgo", "/srv/sftpgo" ]
 
 CMD sftpgo serve

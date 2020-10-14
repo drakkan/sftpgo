@@ -1,13 +1,13 @@
 # Official Docker images
 
-SFTPGo provides official Docker images. They are available [here](https://github.com/users/drakkan/packages/container/package/sftpgo).
+SFTPGo provides official Docker images. They are available [here](https://hub.docker.com/r/drakkan/sftpgo).
 
 ## Start a SFTPGo server instance
 
 Starting a SFTPGo instance is simple:
 
 ```shell
-docker run --name some-sftpgo -p 127.0.0.1:8080:8080 -p 2022:2022 -d "ghcr.io/drakkan/sftpgo:edge"
+docker run --name some-sftpgo -p 127.0.0.1:8080:8080 -p 2022:2022 -d "sftpgo:edge"
 ```
 
 Now visit [http://localhost:8080/](http://localhost:8080/) and create a new SFTPGo user. The SFTP service is available on port 2022.
@@ -20,12 +20,6 @@ The logs are available through Docker's container log:
 docker logs some-sftpgo
 ```
 
-## Configuration
-
-The runtime configuration can be customized via environment variables that you can set passing the `-e` option to the `docker run` command or inside the `environment` section if you are using [docker stack deploy](https://docs.docker.com/engine/reference/commandline/stack_deploy/) or [docker-compose](https://github.com/docker/compose).
-
-Please take a look [here](../docs/full-configuration.md#environment-variables) to learn how to configure SFTPGo via environment variables.
-
 ## Where to Store Data
 
 Important note: There are several ways to store data used by applications that run in Docker containers. We encourage users of the SFTPGo images to familiarize themselves with the options available, including:
@@ -36,15 +30,28 @@ Important note: There are several ways to store data used by applications that r
 The Docker documentation is a good starting point for understanding the different storage options and variations, and there are multiple blogs and forum postings that discuss and give advice in this area. We will simply show the basic procedure here for the latter option above:
 
 1. Create a data directory on a suitable volume on your host system, e.g. `/my/own/sftpgodata`.
-2. Start your SFTPGo container like this:
+2. Create a home directory for the sftpgo container user on your host system e.g. `/my/own/sftpgohome`.
+3. Start your SFTPGo container like this:
 
 ```shell
 docker run --name some-sftpgo \
     -p 127.0.0.1:8080:8090 \
     -p 2022:2022 \
-    --mount type=bind,source=/my/own/sftpgodata,target=/var/lib/sftpgo \
+    --mount type=bind,source=/my/own/sftpgodata,target=/srv/sftpgo \
+    --mount type=bind,source=/my/own/sftpgohome,target=/var/lib/sftpgo \
     -e SFTPGO_HTTPD__BIND_PORT=8090 \
-    -d "ghcr.io/drakkan/sftpgo:edge"
+    -d "sftpgo:edge"
 ```
 
-The `--mount type=bind,source=/my/own/sftpgodata,target=/var/lib/sftpgo` part of the command mounts the `/my/own/sftpgodata` directory from the underlying host system as `/var/lib/sftpgo` inside the container, where SFTPGo will store its data.
+As you can see SFTPGo uses two volumes:
+
+- `/srv/sftpgo` to handle persistent data. The default home directory for SFTP/FTP/WebDAV users is `/srv/sftpgo/data/<username>`. Backups are stored in `/srv/sftpgo/backups`
+- `/var/lib/sftpgo` is the home directory for the sftpgo system user defined inside the container. This is the container working directory too, host keys will be created here when using the default configuration.
+
+## Configuration
+
+The runtime configuration can be customized via environment variables that you can set passing the `-e` option to the `docker run` command or inside the `environment` section if you are using [docker stack deploy](https://docs.docker.com/engine/reference/commandline/stack_deploy/) or [docker-compose](https://github.com/docker/compose).
+
+Please take a look [here](../docs/full-configuration.md#environment-variables) to learn how to configure SFTPGo via environment variables.
+
+Alternately you can mount your custom configuration file to `/var/lib/sftpgo` or `/var/lib/sftpgo/.config/sftpgo`.

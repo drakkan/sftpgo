@@ -16,8 +16,8 @@ if [ $1 -eq 1 ]; then
   # initialize data provider
   /usr/bin/sftpgo initprovider -c /etc/sftpgo
   # ensure files and folders have the appropriate permissions
-  /usr/bin/chown -R sftpgo:sftpgo /etc/sftpgo /var/lib/sftpgo
-  /usr/bin/chmod 750 /etc/sftpgo /var/lib/sftpgo
+  /usr/bin/chown -R sftpgo:sftpgo /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
+  /usr/bin/chmod 750 /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
   /usr/bin/chmod 640 /etc/sftpgo/sftpgo.json
   echo "Please be sure to have the python requests library installed if you want to use the REST API CLI"
 fi

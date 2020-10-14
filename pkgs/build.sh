@@ -19,10 +19,10 @@ BASE_DIR="../.."
 
 cp ${BASE_DIR}/sftpgo.json .
 sed -i "s|sftpgo.db|/var/lib/sftpgo/sftpgo.db|" sftpgo.json
-sed -i "s|\"users_base_dir\": \"\",|\"users_base_dir\": \"/var/lib/sftpgo/users\",|" sftpgo.json
+sed -i "s|\"users_base_dir\": \"\",|\"users_base_dir\": \"/srv/sftpgo/data\",|" sftpgo.json
 sed -i "s|\"templates\"|\"/usr/share/sftpgo/templates\"|" sftpgo.json
 sed -i "s|\"static\"|\"/usr/share/sftpgo/static\"|" sftpgo.json
-sed -i "s|\"backups\"|\"/var/lib/sftpgo/backups\"|" sftpgo.json
+sed -i "s|\"backups\"|\"/srv/sftpgo/backups\"|" sftpgo.json
 sed -i "s|\"credentials\"|\"/var/lib/sftpgo/credentials\"|" sftpgo.json
 
 $BASE_DIR/sftpgo gen completion bash > sftpgo-completion.bash
@@ -61,6 +61,7 @@ config_files:
 
 empty_folders:
   - /var/lib/sftpgo
+  - /srv/sftpgo/data
 
 overrides:
   deb:

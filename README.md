@@ -117,6 +117,16 @@ sftpgo initprovider --help
 
 You can disable automatic data provider checks/updates at startup by setting the `update_mode` configuration key to `1`.
 
+## Users and folders management
+
+After starting SFTPGo you can manage users and folders using:
+
+- the [web based administration interface](./docs/web-admin.md)
+- the [REST API](./docs/rest-api.md)
+- the sample [REST API CLI](./examples/rest-api-cli)
+
+To support embedded data providers like `bolt` and `SQLite` we can't have a CLI that directly write users and folders to the data provider, we always have to use the REST API.
+
 ## Tutorials
 
 Some step-to-step tutorials can be found inside the source tree [howto](./docs/howto "How-to") directory.
