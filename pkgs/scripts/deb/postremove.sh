@@ -15,4 +15,5 @@ if [ "$1" = "purge" ]; then
 	if [ -x "/usr/bin/deb-systemd-helper" ]; then
 		deb-systemd-helper purge 'sftpgo.service' >/dev/null || true
 		deb-systemd-helper unmask 'sftpgo.service' >/dev/null || true
+	fi
 fi

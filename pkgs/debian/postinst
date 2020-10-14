@@ -28,6 +28,15 @@ if [ "$1" = "configure" ]; then
     chmod 640 /etc/sftpgo/sftpgo.json
     echo "Please be sure to have the python3-requests package installed if you want to use the REST API CLI"
   fi
+
+  # check permissions for /srv/sftpgo and adjust them if needed
+  if [ -d /srv/sftpgo ]; then
+    if [ $(stat -c '%U' /srv/sftpgo) != sftpgo ]; then
+      echo "Set permissions for /srv/sftpgo"
+      chown -R sftpgo:sftpgo /srv/sftpgo
+      chmod 750 /srv/sftpgo
+    fi
+  fi
 fi
 
 #DEBHELPER#

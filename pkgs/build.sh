@@ -61,7 +61,7 @@ config_files:
 
 empty_folders:
   - /var/lib/sftpgo
-  - /srv/sftpgo/data
+  - /srv/sftpgo
 
 overrides:
   deb:
