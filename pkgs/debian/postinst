@@ -29,14 +29,13 @@ if [ "$1" = "configure" ]; then
     echo "Please be sure to have the python3-requests package installed if you want to use the REST API CLI"
   fi
 
-  # check permissions for /srv/sftpgo and adjust them if needed
+  # we added /srv/sftpgo after 1.1.0, we should check if we are upgrading
+  # from this version but a non-recursive chmod/chown shouldn't hurt
   if [ -d /srv/sftpgo ]; then
-    if [ $(stat -c '%U' /srv/sftpgo) != sftpgo ]; then
-      echo "Set permissions for /srv/sftpgo"
-      chown -R sftpgo:sftpgo /srv/sftpgo
-      chmod 750 /srv/sftpgo
-    fi
+    chown sftpgo:sftpgo /srv/sftpgo
+    chmod 750 /srv/sftpgo
   fi
+
 fi
 
 #DEBHELPER#

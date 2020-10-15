@@ -22,13 +22,15 @@ if [ $1 -eq 1 ]; then
   /bin/echo "Please be sure to have the python requests library installed if you want to use the REST API CLI"
 fi
 
-# check permissions for /srv/sftpgo and adjust them if needed
+# adjust permissions for /srv/sftpgo and /var/lib/sftpgo
 if [ -d /srv/sftpgo ]; then
-  if [ $(/usr/bin/stat -c '%U' /srv/sftpgo) != sftpgo ]; then
-    /bin/echo "Set permissions for /srv/sftpgo"
-    /usr/bin/chown -R sftpgo:sftpgo /srv/sftpgo
+    /usr/bin/chown sftpgo:sftpgo /srv/sftpgo
     /usr/bin/chmod 750 /srv/sftpgo
-  fi
+fi
+
+if [ -d /var/lib/sftpgo ]; then
+    /usr/bin/chown sftpgo:sftpgo /var/lib/sftpgo
+    /usr/bin/chmod 750 /var/lib/sftpgo
 fi
 
 # reload to pick up any changes to systemd files
