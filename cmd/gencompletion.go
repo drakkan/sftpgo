@@ -11,24 +11,32 @@ import (
 
 var genCompletionCmd = &cobra.Command{
 	Use:   "completion [bash|zsh|fish|powershell]",
-	Short: "Generate shell completion script to the stdout",
+	Short: "Generate shell completion script",
 	Long: `To load completions:
 
 Bash:
 
 $ source <(sftpgo gen completion bash)
 
-# To load completions for each session, execute once:
+To load completions for each session, execute once:
+
 Linux:
-  $ sftpgo gen completion bash > /etc/bash_completion.d/sftpgo-completion.bash
+
+$ sudo sftpgo gen completion bash > /usr/share/bash-completion/completions/sftpgo
+
 MacOS:
-  $ sftpgo gen completion bash > /usr/local/etc/bash_completion.d/sftpgo-completion.bash
+
+$ sudo sftpgo gen completion bash > /usr/local/etc/bash_completion.d/sftpgo
 
 Zsh:
 
-$ source <(sftpgo gen completion zsh)
+If shell completion is not already enabled in your environment you will need
+to enable it.  You can execute the following once:
 
-# To load completions for each session, execute once:
+$ echo "autoload -U compinit; compinit" >> ~/.zshrc
+
+To load completions for each session, execute once:
+
 $ sftpgo gen completion zsh > "${fpath[1]}/_sftpgo"
 
 Fish:
@@ -36,6 +44,7 @@ Fish:
 $ sftpgo gen completion fish | source
 
 # To load completions for each session, execute once:
+
 $ sftpgo gen completion fish > ~/.config/fish/completions/sftpgo.fish
 `,
 	DisableFlagsInUseLine: true,
