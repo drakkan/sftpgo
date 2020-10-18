@@ -16,7 +16,7 @@ Index: sftpgo/sftpgo.json
      "track_quota": 2,
      "pool_size": 0,
 -    "users_base_dir": "",
-+    "users_base_dir": "/var/lib/sftpgo/users",
++    "users_base_dir": "/srv/sftpgo/data",
      "actions": {
        "execute_on": [],
        "hook": ""
@@ -37,7 +37,14 @@ Index: sftpgo/sftpgo.json
 -    "backups_path": "backups",
 +    "templates_path": "/usr/share/sftpgo/templates",
 +    "static_files_path": "/usr/share/sftpgo/static",
-+    "backups_path": "/var/lib/sftpgo/backups",
++    "backups_path": "/srv/sftpgo/backups",
      "auth_user_file": "",
      "certificate_file": "",
      "certificate_key_file": ""
+@@ -117,4 +117,4 @@
+     "ca_certificates": [],
+     "skip_tls_verify": false
+   }
+-}
+\ No newline at end of file
++}

@@ -62,7 +62,7 @@ SFTPGo is developed and tested on Linux. After each commit, the code is automati
 
 Binary releases for Linux, macOS, and Windows are available. Please visit the [releases](https://github.com/drakkan/sftpgo/releases "releases") page.
 
-Official Docker images are available. Documentation is [here](./docker/README.md).
+An official Docker image is available. Documentation is [here](./docker/README.md).
 
 Some Linux distro packages are available:
 

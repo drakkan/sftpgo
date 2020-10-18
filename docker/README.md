@@ -1,18 +1,35 @@
-# Official Docker images
+# Official Docker image
 
-SFTPGo provides official Docker images. They are available on [Docker Hub](https://hub.docker.com/r/drakkan/sftpgo).
+SFTPGo provides an official Docker image, it is available on [Docker Hub](https://hub.docker.com/r/drakkan/sftpgo).
 
-## Start a SFTPGo server instance
+## Supported tags and respective Dockerfile links
+
+- [v1.1.1, v1.1, v1, latest](https://github.com/drakkan/sftpgo/blob/v1.1.1/Dockerfile)
+- [v1.1.1-alpine, v1.1-alpine, v1-alpine, alpine](https://github.com/drakkan/sftpgo/blob/v1.1.1/Dockerfile.alpine)
+- [edge](../Dockerfile)
+- [edge-alpine](../Dockerfile.alpine)
+
+## How to use the SFTPGo image
+
+### Start a `sftpgo` server instance
 
 Starting a SFTPGo instance is simple:
 
 ```shell
-docker run --name some-sftpgo -p 127.0.0.1:8080:8080 -p 2022:2022 -d "drakkan/sftpgo:edge"
+docker run --name some-sftpgo -p 127.0.0.1:8080:8080 -p 2022:2022 -d "drakkan/sftpgo:tag"
 ```
+
+... where `some-sftpgo` is the name you want to assign to your container, and `tag` is the tag specifying the SFTPGo version you want. See the list above for relevant tags.
 
 Now visit [http://localhost:8080/](http://localhost:8080/) and create a new SFTPGo user. The SFTP service is available on port 2022.
 
-## LOG
+### Container shell access and viewing SFTPGo logs
+
+The docker exec command allows you to run commands inside a Docker container. The following command line will give you a bash shell inside your `sftpgo` container:
+
+```shell
+docker exec -it some-sftpgo bash
+```
 
 The logs are available through Docker's container log:
 
@@ -20,7 +37,7 @@ The logs are available through Docker's container log:
 docker logs some-sftpgo
 ```
 
-## Where to Store Data
+### Where to Store Data
 
 Important note: There are several ways to store data used by applications that run in Docker containers. We encourage users of the SFTPGo images to familiarize themselves with the options available, including:
 
@@ -40,7 +57,7 @@ docker run --name some-sftpgo \
     --mount type=bind,source=/my/own/sftpgodata,target=/srv/sftpgo \
     --mount type=bind,source=/my/own/sftpgohome,target=/var/lib/sftpgo \
     -e SFTPGO_HTTPD__BIND_PORT=8090 \
-    -d "drakkan/sftpgo:edge"
+    -d "drakkan/sftpgo:tag"
 ```
 
 As you can see SFTPGo uses two volumes:
@@ -48,10 +65,24 @@ As you can see SFTPGo uses two volumes:
 - `/srv/sftpgo` to handle persistent data. The default home directory for SFTP/FTP/WebDAV users is `/srv/sftpgo/data/<username>`. Backups are stored in `/srv/sftpgo/backups`
 - `/var/lib/sftpgo` is the home directory for the sftpgo system user defined inside the container. This is the container working directory too, host keys will be created here when using the default configuration.
 
-## Configuration
+### Configuration
 
 The runtime configuration can be customized via environment variables that you can set passing the `-e` option to the `docker run` command or inside the `environment` section if you are using [docker stack deploy](https://docs.docker.com/engine/reference/commandline/stack_deploy/) or [docker-compose](https://github.com/docker/compose).
 
 Please take a look [here](../docs/full-configuration.md#environment-variables) to learn how to configure SFTPGo via environment variables.
 
 Alternately you can mount your custom configuration file to `/var/lib/sftpgo` or `/var/lib/sftpgo/.config/sftpgo`.
+
+## Image Variants
+
+The `sftpgo` images comes in many flavors, each designed for a specific use case. The `edge` and `edge-alpine`tags are updated after each new commit.
+
+### `sftpgo:<version>`
+
+This is the defacto image, it is based on [Debian](https://www.debian.org/), available in [the `debian` official image](https://hub.docker.com/_/debian). If you are unsure about what your needs are, you probably want to use this one.
+
+### `sftpgo:<version>-alpine`
+
+This image is based on the popular [Alpine Linux project](https://alpinelinux.org/), available in [the `alpine` official image](https://hub.docker.com/_/alpine). Alpine Linux is much smaller than most distribution base images (~5MB), and thus leads to much slimmer images in general.
+
+This variant is highly recommended when final image size being as small as possible is desired. The main caveat to note is that it does use [musl libc](https://musl.libc.org/) instead of [glibc and friends](https://www.etalabs.net/compare_libcs.html), so certain software might run into issues depending on the depth of their libc requirements. However, most software doesn't have an issue with this, so this variant is usually a very safe choice. See [this Hacker News comment thread](https://news.ycombinator.com/item?id=10782897) for more discussion of the issues that might arise and some pro/con comparisons of using Alpine-based images.
