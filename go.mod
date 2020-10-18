@@ -20,7 +20,7 @@ require (
 	github.com/lib/pq v1.8.0
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mattn/go-sqlite3 v1.14.4
-	github.com/miekg/dns v1.1.33 // indirect
+	github.com/miekg/dns v1.1.34 // indirect
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/otiai10/copy v1.2.0
 	github.com/pelletier/go-toml v1.8.1 // indirect
@@ -32,7 +32,7 @@ require (
 	github.com/rs/zerolog v1.20.0
 	github.com/spf13/afero v1.4.1
 	github.com/spf13/cast v1.3.1 // indirect
-	github.com/spf13/cobra v1.1.0
+	github.com/spf13/cobra v1.1.1
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.6.1
@@ -41,7 +41,7 @@ require (
 	go.uber.org/automaxprocs v1.3.0
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
 	golang.org/x/net v0.0.0-20201016165138-7b1cca2348c0
-	golang.org/x/sys v0.0.0-20201017003518-b09fb700fbb7
+	golang.org/x/sys v0.0.0-20201018121011-98379d014ca7
 	golang.org/x/tools v0.0.0-20201017001424-6003fad69a88 // indirect
 	google.golang.org/api v0.33.0
 	google.golang.org/appengine v1.6.7 // indirect
@@ -53,7 +53,6 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20200730125632-b21eac28818c
-	github.com/spf13/cobra => github.com/drakkan/cobra v0.0.0-20201017151931-7f8581c4f009
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20201017144935-4e8324213ac3
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20201017144739-aa7ab65e4c0d
 )

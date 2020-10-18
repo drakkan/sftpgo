@@ -43,7 +43,7 @@ Fish:
 
 $ sftpgo gen completion fish | source
 
-# To load completions for each session, execute once:
+To load completions for each session, execute once:
 
 $ sftpgo gen completion fish > ~/.config/fish/completions/sftpgo.fish
 `,
