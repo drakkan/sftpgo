@@ -1,6 +1,6 @@
 # Official Docker image
 
-SFTPGo provides an official Docker image, it is available on [Docker Hub](https://hub.docker.com/r/drakkan/sftpgo).
+SFTPGo provides an official Docker image, it is available on both [Docker Hub](https://hub.docker.com/r/drakkan/sftpgo) and on [GitHub Container Registry](https://github.com/users/drakkan/packages/container/package/sftpgo).
 
 ## Supported tags and respective Dockerfile links
 

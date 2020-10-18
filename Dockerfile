@@ -60,7 +60,7 @@ RUN chown -R sftpgo:sftpgo /etc/sftpgo && chown sftpgo:sftpgo /var/lib/sftpgo /s
     chmod 750 /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
 
 WORKDIR /var/lib/sftpgo
-USER sftpgo
+USER 1000:1000
 
 VOLUME [ "/var/lib/sftpgo", "/srv/sftpgo" ]
 
