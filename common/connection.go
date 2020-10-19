@@ -249,7 +249,7 @@ func (c *BaseConnection) RemoveFile(fsPath, virtualPath string, info os.FileInfo
 	}
 	size := info.Size()
 	action := newActionNotification(&c.User, operationPreDelete, fsPath, "", "", c.protocol, size, nil)
-	actionErr := action.execute()
+	actionErr := actionHandler.Handle(action)
 	if actionErr == nil {
 		c.Log(logger.LevelDebug, "remove for path %#v handled by pre-delete action", fsPath)
 	} else {
@@ -273,7 +273,7 @@ func (c *BaseConnection) RemoveFile(fsPath, virtualPath string, info os.FileInfo
 	}
 	if actionErr != nil {
 		action := newActionNotification(&c.User, operationDelete, fsPath, "", "", c.protocol, size, nil)
-		go action.execute() //nolint:errcheck
+		go actionHandler.Handle(action) // nolint:errcheck
 	}
 	return nil
 }
@@ -392,7 +392,7 @@ func (c *BaseConnection) Rename(fsSourcePath, fsTargetPath, virtualSourcePath, v
 		"", "", "", -1)
 	action := newActionNotification(&c.User, operationRename, fsSourcePath, fsTargetPath, "", c.protocol, 0, nil)
 	// the returned error is used in test cases only, we already log the error inside action.execute
-	go action.execute() //nolint:errcheck
+	go actionHandler.Handle(action) // nolint:errcheck
 
 	return nil
 }

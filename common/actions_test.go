@@ -58,15 +58,15 @@ func TestActionHTTP(t *testing.T) {
 		Username: "username",
 	}
 	a := newActionNotification(user, operationDownload, "path", "target", "", ProtocolSFTP, 123, nil)
-	err := a.execute()
+	err := actionHandler.Handle(a)
 	assert.NoError(t, err)
 
 	Config.Actions.Hook = "http://invalid:1234"
-	err = a.execute()
+	err = actionHandler.Handle(a)
 	assert.Error(t, err)
 
 	Config.Actions.Hook = fmt.Sprintf("http://%v/404", httpAddr)
-	err = a.execute()
+	err = actionHandler.Handle(a)
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, errUnexpectedHTTResponse.Error())
 	}
@@ -91,7 +91,7 @@ func TestActionCMD(t *testing.T) {
 		Username: "username",
 	}
 	a := newActionNotification(user, operationDownload, "path", "target", "", ProtocolSFTP, 123, nil)
-	err = a.execute()
+	err = actionHandler.Handle(a)
 	assert.NoError(t, err)
 
 	SSHCommandActionNotification(user, "path", "target", "sha1sum", nil)
@@ -115,26 +115,26 @@ func TestWrongActions(t *testing.T) {
 	}
 
 	a := newActionNotification(user, operationUpload, "", "", "", ProtocolSFTP, 123, nil)
-	err := a.execute()
+	err := actionHandler.Handle(a)
 	assert.Error(t, err, "action with bad command must fail")
 
 	a.Action = operationDelete
-	err = a.execute()
+	err = actionHandler.Handle(a)
 	assert.EqualError(t, err, errUnconfiguredAction.Error())
 
 	Config.Actions.Hook = "http://foo\x7f.com/"
 	a.Action = operationUpload
-	err = a.execute()
+	err = actionHandler.Handle(a)
 	assert.Error(t, err, "action with bad url must fail")
 
 	Config.Actions.Hook = ""
-	err = a.execute()
+	err = actionHandler.Handle(a)
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, errNoHook.Error())
 	}
 
 	Config.Actions.Hook = "relative path"
-	err = a.execute()
+	err = actionHandler.Handle(a)
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, fmt.Sprintf("invalid notification command %#v", Config.Actions.Hook))
 	}
