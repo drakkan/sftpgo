@@ -5,6 +5,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
@@ -230,12 +231,6 @@ func GenerateECDSAKeys(file string) error {
 		return err
 	}
 
-	o, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		return err
-	}
-	defer o.Close()
-
 	keyBytes, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
 		return err
@@ -245,11 +240,49 @@ func GenerateECDSAKeys(file string) error {
 		Bytes: keyBytes,
 	}
 
+	o, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	defer o.Close()
+
 	if err := pem.Encode(o, priv); err != nil {
 		return err
 	}
 
 	pub, err := ssh.NewPublicKey(&key.PublicKey)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(file+".pub", ssh.MarshalAuthorizedKey(pub), 0600)
+}
+
+// GenerateEd25519Keys generate ed25519 private and public keys and write the
+// private key to specified file and the public key to the specified
+// file adding the .pub suffix
+func GenerateEd25519Keys(file string) error {
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return err
+	}
+	keyBytes, err := x509.MarshalPKCS8PrivateKey(privKey)
+	if err != nil {
+		return err
+	}
+	priv := &pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: keyBytes,
+	}
+	o, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	defer o.Close()
+
+	if err := pem.Encode(o, priv); err != nil {
+		return err
+	}
+	pub, err := ssh.NewPublicKey(pubKey)
 	if err != nil {
 		return err
 	}

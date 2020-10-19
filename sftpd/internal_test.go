@@ -1741,16 +1741,20 @@ func TestLoadHostKeys(t *testing.T) {
 	assert.NoError(t, err)
 	rsaKeyName := filepath.Join(keysDir, defaultPrivateRSAKeyName)
 	ecdsaKeyName := filepath.Join(keysDir, defaultPrivateECDSAKeyName)
+	ed25519KeyName := filepath.Join(keysDir, defaultPrivateEd25519KeyName)
 	nonDefaultKeyName := filepath.Join(keysDir, "akey")
-	c.HostKeys = []string{nonDefaultKeyName, rsaKeyName, ecdsaKeyName}
+	c.HostKeys = []string{nonDefaultKeyName, rsaKeyName, ecdsaKeyName, ed25519KeyName}
 	err = c.checkAndLoadHostKeys(configDir, serverConfig)
 	assert.Error(t, err)
 	assert.FileExists(t, rsaKeyName)
 	assert.FileExists(t, ecdsaKeyName)
+	assert.FileExists(t, ed25519KeyName)
 	assert.NoFileExists(t, nonDefaultKeyName)
 	err = os.Remove(rsaKeyName)
 	assert.NoError(t, err)
 	err = os.Remove(ecdsaKeyName)
+	assert.NoError(t, err)
+	err = os.Remove(ed25519KeyName)
 	assert.NoError(t, err)
 	if runtime.GOOS != osWindows {
 		err = os.Chmod(keysDir, 0551)
@@ -1762,6 +1766,9 @@ func TestLoadHostKeys(t *testing.T) {
 		err = c.checkAndLoadHostKeys(configDir, serverConfig)
 		assert.Error(t, err)
 		c.HostKeys = []string{ecdsaKeyName, rsaKeyName}
+		err = c.checkAndLoadHostKeys(configDir, serverConfig)
+		assert.Error(t, err)
+		c.HostKeys = []string{ed25519KeyName}
 		err = c.checkAndLoadHostKeys(configDir, serverConfig)
 		assert.Error(t, err)
 		err = os.Chmod(keysDir, 0755)

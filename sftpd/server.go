@@ -25,9 +25,10 @@ import (
 )
 
 const (
-	defaultPrivateRSAKeyName    = "id_rsa"
-	defaultPrivateECDSAKeyName  = "id_ecdsa"
-	sourceAddressCriticalOption = "source-address"
+	defaultPrivateRSAKeyName     = "id_rsa"
+	defaultPrivateECDSAKeyName   = "id_ecdsa"
+	defaultPrivateEd25519KeyName = "id_ed25519"
+	sourceAddressCriticalOption  = "source-address"
 )
 
 var (
@@ -471,6 +472,33 @@ func (c *Configuration) checkSSHCommands() {
 	c.EnabledSSHCommands = sshCommands
 }
 
+func (c *Configuration) generateDefaultHostKeys(configDir string) error {
+	var err error
+	defaultHostKeys := []string{defaultPrivateRSAKeyName, defaultPrivateECDSAKeyName, defaultPrivateEd25519KeyName}
+	for _, k := range defaultHostKeys {
+		autoFile := filepath.Join(configDir, k)
+		if _, err = os.Stat(autoFile); os.IsNotExist(err) {
+			logger.Info(logSender, "", "No host keys configured and %#v does not exist; try to create a new host key", autoFile)
+			logger.InfoToConsole("No host keys configured and %#v does not exist; try to create a new host key", autoFile)
+			if k == defaultPrivateRSAKeyName {
+				err = utils.GenerateRSAKeys(autoFile)
+			} else if k == defaultPrivateECDSAKeyName {
+				err = utils.GenerateECDSAKeys(autoFile)
+			} else {
+				err = utils.GenerateEd25519Keys(autoFile)
+			}
+			if err != nil {
+				logger.Warn(logSender, "", "error creating host key %#v: %v", autoFile, err)
+				logger.WarnToConsole("error creating host key %#v: %v", autoFile, err)
+				return err
+			}
+		}
+		c.HostKeys = append(c.HostKeys, k)
+	}
+
+	return err
+}
+
 func (c *Configuration) checkHostKeyAutoGeneration(configDir string) error {
 	for _, k := range c.HostKeys {
 		if filepath.IsAbs(k) {
@@ -495,6 +523,15 @@ func (c *Configuration) checkHostKeyAutoGeneration(configDir string) error {
 						logger.WarnToConsole("error creating host key %#v: %v", k, err)
 						return err
 					}
+				case defaultPrivateEd25519KeyName:
+					logger.Info(logSender, "", "try to create non-existent host key %#v", k)
+					logger.InfoToConsole("try to create non-existent host key %#v", k)
+					err = utils.GenerateEd25519Keys(k)
+					if err != nil {
+						logger.Warn(logSender, "", "error creating host key %#v: %v", k, err)
+						logger.WarnToConsole("error creating host key %#v: %v", k, err)
+						return err
+					}
 				default:
 					logger.Warn(logSender, "", "non-existent host key %#v will not be created", k)
 					logger.WarnToConsole("non-existent host key %#v will not be created", k)
@@ -503,24 +540,8 @@ func (c *Configuration) checkHostKeyAutoGeneration(configDir string) error {
 		}
 	}
 	if len(c.HostKeys) == 0 {
-		defaultKeys := []string{defaultPrivateRSAKeyName, defaultPrivateECDSAKeyName}
-		for _, k := range defaultKeys {
-			autoFile := filepath.Join(configDir, k)
-			if _, err := os.Stat(autoFile); os.IsNotExist(err) {
-				logger.Info(logSender, "", "No host keys configured and %#v does not exist; try to create a new host key", autoFile)
-				logger.InfoToConsole("No host keys configured and %#v does not exist; try to create a new host key", autoFile)
-				if k == defaultPrivateRSAKeyName {
-					err = utils.GenerateRSAKeys(autoFile)
-				} else {
-					err = utils.GenerateECDSAKeys(autoFile)
-				}
-				if err != nil {
-					logger.Warn(logSender, "", "error creating host key %#v: %v", autoFile, err)
-					logger.WarnToConsole("error creating host key %#v: %v", autoFile, err)
-					return err
-				}
-			}
-			c.HostKeys = append(c.HostKeys, k)
+		if err := c.generateDefaultHostKeys(configDir); err != nil {
+			return err
 		}
 	}
 	return nil

@@ -35,7 +35,7 @@ The `serve` command supports the following flags:
 
 Log file can be rotated on demand sending a `SIGUSR1` signal on Unix based systems and using the command `sftpgo service rotatelogs` on Windows.
 
-If you don't configure any private host key, the daemon will use `id_rsa` and `id_ecdsa` in the configuration directory. If these files don't exist, the daemon will attempt to autogenerate them (if the user that executes SFTPGo has write access to the `config-dir`). The server supports any private key format supported by [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/keys.go#L33).
+If you don't configure any private host key, the daemon will use `id_rsa`, `id_ecdsa` and `id_ed25519` in the configuration directory. If these files don't exist, the daemon will attempt to autogenerate them (if the user that executes SFTPGo has write access to the `config-dir`). The server supports any private key format supported by [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/keys.go#L33).
 
 The `gen` command allows to generate completion scripts for your shell and man pages. Currently the man pages visual representation is wrong, take a look at this upstream [bug](https://github.com/spf13/cobra/issues/1049) for more details.
 
@@ -68,7 +68,7 @@ The configuration file contains the following sections:
   - `actions`, struct. Deprecated, please use the same key in `common` section.
   - `keys`, struct array. Deprecated, please use `host_keys`.
     - `private_key`, path to the private key file. It can be a path relative to the config dir or an absolute one.
-  - `host_keys`, list of strings. It contains the daemon's private host keys. Each host key can be defined as a path relative to the configuration directory or an absolute one. If empty, the daemon will search or try to generate `id_rsa` and `id_ecdsa` keys inside the configuration directory. If you configure absolute paths to files named `id_rsa` and/or `id_ecdsa` then SFTPGo will try to generate these keys using the default settings.
+  - `host_keys`, list of strings. It contains the daemon's private host keys. Each host key can be defined as a path relative to the configuration directory or an absolute one. If empty, the daemon will search or try to generate `id_rsa`, `id_ecdsa` and `id_ed25519` keys inside the configuration directory. If you configure absolute paths to files named `id_rsa`, `id_ecdsa` and/or `id_ed25519` then SFTPGo will try to generate these keys using the default settings.
   - `kex_algorithms`, list of strings. Available KEX (Key Exchange) algorithms in preference order. Leave empty to use default values. The supported values can be found here: [`crypto/ssh`](https://github.com/golang/crypto/blob/master/ssh/common.go#L46 "Supported kex algos")
   - `ciphers`, list of strings. Allowed ciphers. Leave empty to use default values. The supported values can be found here: [crypto/ssh](https://github.com/golang/crypto/blob/master/ssh/common.go#L28 "Supported ciphers")
   - `macs`, list of strings. Available MAC (message authentication code) algorithms in preference order. Leave empty to use default values. The supported values can be found here: [crypto/ssh](https://github.com/golang/crypto/blob/master/ssh/common.go#L84 "Supported MACs")
@@ -172,16 +172,17 @@ If you want to use a private host key that uses an algorithm/setting different f
 
 where `id_rsa`, `id_ecdsa` and `id_ed25519`, in this example, are files containing your generated keys. You can use absolute paths or paths relative to the configuration directory.
 
-If you want the default host keys generation in a directory different from the config dir, please specify absolute paths to files named `id_rsa` or `id_ecdsa` like this:
+If you want the default host keys generation in a directory different from the config dir, please specify absolute paths to files named `id_rsa`, `id_ecdsa` or `id_ed25519` like this:
 
 ```json
 "host_keys": [
   "/etc/sftpgo/keys/id_rsa",
-  "/etc/sftpgo/keys/id_ecdsa"
+  "/etc/sftpgo/keys/id_ecdsa",
+  "/etc/sftpgo/keys/id_ed25519"
 ]
 ```
 
-then SFTPGo will try to create `id_rsa` and `id_ecdsa`, if they are missing, inside the existing directory `/etc/sftpgo/keys`.
+then SFTPGo will try to create `id_rsa`, `id_ecdsa` and `id_ed25519`, if they are missing, inside the existing directory `/etc/sftpgo/keys`.
 
 The configuration can be read from JSON, TOML, YAML, HCL, envfile and Java properties config files. If your `config-file` flag is set to `sftpgo` (default value), you need to create a configuration file called `sftpgo.json` or `sftpgo.yaml` and so on inside `config-dir`.
 
