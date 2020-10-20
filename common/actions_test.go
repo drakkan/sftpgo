@@ -179,3 +179,27 @@ func TestPreDeleteAction(t *testing.T) {
 
 	Config.Actions = actionsCopy
 }
+
+type actionHandlerStub struct {
+	called bool
+}
+
+func (h *actionHandlerStub) Handle(notification ActionNotification) error {
+	h.called = true
+
+	return nil
+}
+
+func TestInitializeActionHandler(t *testing.T) {
+	handler := &actionHandlerStub{}
+
+	InitializeActionHandler(handler)
+	t.Cleanup(func() {
+		InitializeActionHandler(defaultActionHandler{})
+	})
+
+	err := actionHandler.Handle(ActionNotification{})
+
+	assert.NoError(t, err)
+	assert.True(t, handler.called)
+}
