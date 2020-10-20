@@ -54,7 +54,7 @@ SFTPGo is developed and tested on Linux. After each commit, the code is automati
 
 ## Requirements
 
-- Go 1.13 or higher as build only dependency.
+- Go 1.14 or higher as build only dependency.
 - A suitable SQL server to use as data provider: PostgreSQL 9.4+ or MySQL 5.6+ or SQLite 3.x.
 - The SQL server is optional: you can choose to use an embedded bolt database as key/value store or an in memory data provider.
 

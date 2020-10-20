@@ -144,7 +144,7 @@ Search for the `data_provider` section and change it as follow.
 }
 ```
 
-This way we set the PostgreSQL connection parameters and a default base directory for new users.
+This way we set the PostgreSQL connection parameters.
 
 If you want to connect to PostgreSQL over a Unix Domain socket you have to set the value `/var/run/postgresql` for the `host` configuration key instead of `127.0.0.1`.
 
@@ -212,4 +212,4 @@ Click `Add` and fill the user details, the minimum required parameters are:
 
 You are done! Now you can connect to you SFTPGo instance using any compatible `sftp` client on port `2022`.
 
-You can mix S3 users with local users but please be aware that we are running the service as the unprivileged `sftpgo` system user so if you set storage as `local` for an SFTPGo virtual user then the home directory for this user must be owned by the `sftpgo` system user. If you don't specify an home directory the default will be `/var/lib/sftpgo/users/<username>` which should be appropriate.
+You can mix S3 users with local users but please be aware that we are running the service as the unprivileged `sftpgo` system user so if you set storage as `local` for an SFTPGo virtual user then the home directory for this user must be owned by the `sftpgo` system user. If you don't specify an home directory the default will be `/srv/sftpgo/data/<username>` which should be appropriate.

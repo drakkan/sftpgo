@@ -23,6 +23,8 @@ docker run --name some-sftpgo -p 127.0.0.1:8080:8080 -p 2022:2022 -d "drakkan/sf
 
 Now visit [http://localhost:8080/](http://localhost:8080/) and create a new SFTPGo user. The SFTP service is available on port 2022.
 
+If you prefer GitHub Container Registry to Docker Hub replace `drakkan/sftpgo:tag` with `ghcr.io/drakkan/sftpgo:tag`.
+
 ### Container shell access and viewing SFTPGo logs
 
 The docker exec command allows you to run commands inside a Docker container. The following command line will give you a bash shell inside your `sftpgo` container:

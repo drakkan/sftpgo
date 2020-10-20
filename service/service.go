@@ -2,6 +2,10 @@
 package service
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/rs/zerolog"
@@ -9,6 +13,7 @@ import (
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/version"
@@ -24,19 +29,23 @@ var (
 
 // Service defines the SFTPGo service
 type Service struct {
-	ConfigDir     string
-	ConfigFile    string
-	LogFilePath   string
-	LogMaxSize    int
-	LogMaxBackups int
-	LogMaxAge     int
-	PortableMode  int
-	PortableUser  dataprovider.User
-	LogCompress   bool
-	LogVerbose    bool
-	Profiler      bool
-	Shutdown      chan bool
-	Error         error
+	ConfigDir         string
+	ConfigFile        string
+	LogFilePath       string
+	LogMaxSize        int
+	LogMaxBackups     int
+	LogMaxAge         int
+	PortableMode      int
+	PortableUser      dataprovider.User
+	LogCompress       bool
+	LogVerbose        bool
+	Profiler          bool
+	LoadDataClean     bool
+	LoadDataFrom      string
+	LoadDataMode      int
+	LoadDataQuotaScan int
+	Shutdown          chan bool
+	Error             error
 }
 
 // Start initializes the service
@@ -84,6 +93,13 @@ func (s *Service) Start() error {
 			logger.ErrorToConsole("error adding portable user: %v", err)
 			return err
 		}
+	}
+
+	err = s.loadInitialData()
+	if err != nil {
+		logger.Error(logSender, "", "unable to load initial data: %v", err)
+		logger.ErrorToConsole("unable to load initial data: %v", err)
+		return err
 	}
 
 	httpConfig := config.GetHTTPConfig()
@@ -164,4 +180,58 @@ func (s *Service) Wait() {
 func (s *Service) Stop() {
 	close(s.Shutdown)
 	logger.Debug(logSender, "", "Service stopped")
+}
+
+func (s *Service) loadInitialData() error {
+	if s.LoadDataFrom == "" {
+		return nil
+	}
+	if !filepath.IsAbs(s.LoadDataFrom) {
+		return fmt.Errorf("invalid input_file %#v, it must be an absolute path", s.LoadDataFrom)
+	}
+	if s.LoadDataMode < 0 || s.LoadDataMode > 1 {
+		return fmt.Errorf("Invalid loaddata-mode %v", s.LoadDataMode)
+	}
+	if s.LoadDataQuotaScan < 0 || s.LoadDataQuotaScan > 2 {
+		return fmt.Errorf("Invalid loaddata-scan %v", s.LoadDataQuotaScan)
+	}
+	info, err := os.Stat(s.LoadDataFrom)
+	if err != nil {
+		return err
+	}
+	if info.Size() > httpd.MaxRestoreSize {
+		return fmt.Errorf("unable to restore input file %#v size too big: %v/%v bytes",
+			s.LoadDataFrom, info.Size(), httpd.MaxRestoreSize)
+	}
+	content, err := ioutil.ReadFile(s.LoadDataFrom)
+	if err != nil {
+		return fmt.Errorf("unable to read input file %#v: %v", s.LoadDataFrom, err)
+	}
+	var dump dataprovider.BackupData
+
+	err = json.Unmarshal(content, &dump)
+	if err != nil {
+		return fmt.Errorf("unable to parse file to restore %#v: %v", s.LoadDataFrom, err)
+	}
+	err = httpd.RestoreFolders(dump.Folders, s.LoadDataFrom, s.LoadDataQuotaScan)
+	if err != nil {
+		return fmt.Errorf("unable to restore folders from file %#v: %v", s.LoadDataFrom, err)
+	}
+	err = httpd.RestoreUsers(dump.Users, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan)
+	if err != nil {
+		return fmt.Errorf("unable to restore users from file %#v: %v", s.LoadDataFrom, err)
+	}
+	logger.Info(logSender, "", "data loaded from file %#v", s.LoadDataFrom)
+	logger.InfoToConsole("data loaded from file %#v", s.LoadDataFrom)
+	if s.LoadDataClean {
+		err = os.Remove(s.LoadDataFrom)
+		if err == nil {
+			logger.Info(logSender, "", "file %#v deleted after successful load", s.LoadDataFrom)
+			logger.InfoToConsole("file %#v deleted after successful load", s.LoadDataFrom)
+		} else {
+			logger.Warn(logSender, "", "unable to delete file %#v after successful load: %v", s.LoadDataFrom, err)
+			logger.WarnToConsole("unable to delete file %#v after successful load: %v", s.LoadDataFrom, err)
+		}
+	}
+	return nil
 }

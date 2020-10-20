@@ -85,9 +85,9 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if fi.Size() > maxRestoreSize {
+	if fi.Size() > MaxRestoreSize {
 		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to restore input file: %#v size too big: %v/%v bytes",
-			inputFile, fi.Size(), maxRestoreSize), http.StatusBadRequest)
+			inputFile, fi.Size(), MaxRestoreSize), http.StatusBadRequest)
 		return
 	}
 
@@ -103,12 +103,12 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = restoreFolders(dump.Folders, inputFile, scanQuota); err != nil {
+	if err = RestoreFolders(dump.Folders, inputFile, scanQuota); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
 
-	if err = restoreUsers(dump.Users, inputFile, mode, scanQuota); err != nil {
+	if err = RestoreUsers(dump.Users, inputFile, mode, scanQuota); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
@@ -140,7 +140,8 @@ func getLoaddataOptions(r *http.Request) (string, int, int, error) {
 	return inputFile, scanQuota, restoreMode, err
 }
 
-func restoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, scanQuota int) error {
+// RestoreFolders restores the specified folders
+func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, scanQuota int) error {
 	for _, folder := range folders {
 		_, err := dataprovider.GetFolderByPath(folder.MappedPath)
 		if err == nil {
@@ -163,7 +164,8 @@ func restoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, scanQuota
 	return nil
 }
 
-func restoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota int) error {
+// RestoreUsers restores the specified users
+func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota int) error {
 	for _, user := range users {
 		u, err := dataprovider.UserExists(user.Username)
 		if err == nil {

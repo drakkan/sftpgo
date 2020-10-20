@@ -13,45 +13,61 @@ import (
 )
 
 const (
-	configDirFlag       = "config-dir"
-	configDirKey        = "config_dir"
-	configFileFlag      = "config-file"
-	configFileKey       = "config_file"
-	logFilePathFlag     = "log-file-path"
-	logFilePathKey      = "log_file_path"
-	logMaxSizeFlag      = "log-max-size"
-	logMaxSizeKey       = "log_max_size"
-	logMaxBackupFlag    = "log-max-backups"
-	logMaxBackupKey     = "log_max_backups"
-	logMaxAgeFlag       = "log-max-age"
-	logMaxAgeKey        = "log_max_age"
-	logCompressFlag     = "log-compress"
-	logCompressKey      = "log_compress"
-	logVerboseFlag      = "log-verbose"
-	logVerboseKey       = "log_verbose"
-	profilerFlag        = "profiler"
-	profilerKey         = "profiler"
-	defaultConfigDir    = "."
-	defaultConfigName   = config.DefaultConfigName
-	defaultLogFile      = "sftpgo.log"
-	defaultLogMaxSize   = 10
-	defaultLogMaxBackup = 5
-	defaultLogMaxAge    = 28
-	defaultLogCompress  = false
-	defaultLogVerbose   = true
-	defaultProfiler     = false
+	configDirFlag            = "config-dir"
+	configDirKey             = "config_dir"
+	configFileFlag           = "config-file"
+	configFileKey            = "config_file"
+	logFilePathFlag          = "log-file-path"
+	logFilePathKey           = "log_file_path"
+	logMaxSizeFlag           = "log-max-size"
+	logMaxSizeKey            = "log_max_size"
+	logMaxBackupFlag         = "log-max-backups"
+	logMaxBackupKey          = "log_max_backups"
+	logMaxAgeFlag            = "log-max-age"
+	logMaxAgeKey             = "log_max_age"
+	logCompressFlag          = "log-compress"
+	logCompressKey           = "log_compress"
+	logVerboseFlag           = "log-verbose"
+	logVerboseKey            = "log_verbose"
+	profilerFlag             = "profiler"
+	profilerKey              = "profiler"
+	loadDataFromFlag         = "loaddata-from"
+	loadDataFromKey          = "loaddata_from"
+	loadDataModeFlag         = "loaddata-mode"
+	loadDataModeKey          = "loaddata_mode"
+	loadDataQuotaScanFlag    = "loaddata-scan"
+	loadDataQuotaScanKey     = "loaddata_scan"
+	loadDataCleanFlag        = "loaddata-clean"
+	loadDataCleanKey         = "loaddata_clean"
+	defaultConfigDir         = "."
+	defaultConfigName        = config.DefaultConfigName
+	defaultLogFile           = "sftpgo.log"
+	defaultLogMaxSize        = 10
+	defaultLogMaxBackup      = 5
+	defaultLogMaxAge         = 28
+	defaultLogCompress       = false
+	defaultLogVerbose        = true
+	defaultProfiler          = false
+	defaultLoadDataFrom      = ""
+	defaultLoadDataMode      = 1
+	defaultLoadDataQuotaScan = 0
+	defaultLoadDataClean     = false
 )
 
 var (
-	configDir     string
-	configFile    string
-	logFilePath   string
-	logMaxSize    int
-	logMaxBackups int
-	logMaxAge     int
-	logCompress   bool
-	logVerbose    bool
-	profiler      bool
+	configDir         string
+	configFile        string
+	logFilePath       string
+	logMaxSize        int
+	logMaxBackups     int
+	logMaxAge         int
+	logCompress       bool
+	logVerbose        bool
+	profiler          bool
+	loadDataFrom      string
+	loadDataMode      int
+	loadDataQuotaScan int
+	loadDataClean     bool
 
 	rootCmd = &cobra.Command{
 		Use:   "sftpgo",
@@ -172,4 +188,51 @@ be accessible via HTTP/HTTPS using the base URL
 This flag can be set using SFTPGO_PROFILER env
 var too.`)
 	viper.BindPFlag(profilerKey, cmd.Flags().Lookup(profilerFlag)) //nolint:errcheck
+
+	viper.SetDefault(loadDataFromKey, defaultLoadDataFrom)
+	viper.BindEnv(loadDataFromKey, "SFTPGO_LOADDATA_FROM") //nolint:errcheck
+	cmd.Flags().StringVar(&loadDataFrom, loadDataFromFlag, viper.GetString(loadDataFromKey),
+		`Load users and folders from this file.
+The file must be specified as absolute path
+and it must contain a backup obtained using
+the "dumpdata" REST API or compatible content.
+This flag can be set using SFTPGO_LOADDATA_FROM
+env var too.
+`)
+	viper.BindPFlag(loadDataFromKey, cmd.Flags().Lookup(loadDataFromFlag)) //nolint:errcheck
+
+	viper.SetDefault(loadDataModeKey, defaultLoadDataMode)
+	viper.BindEnv(loadDataModeKey, "SFTPGO_LOADDATA_MODE") //nolint:errcheck
+	cmd.Flags().IntVar(&loadDataMode, loadDataModeFlag, viper.GetInt(loadDataModeKey),
+		`Restore mode for data to load:
+  0 - new users are added, existing users are
+      updated
+  1 - New users are added, existing users are
+	  not modified
+This flag can be set using SFTPGO_LOADDATA_MODE
+env var too.
+`)
+	viper.BindPFlag(loadDataModeKey, cmd.Flags().Lookup(loadDataModeFlag)) //nolint:errcheck
+
+	viper.SetDefault(loadDataQuotaScanKey, defaultLoadDataQuotaScan)
+	viper.BindEnv(loadDataQuotaScanKey, "SFTPGO_LOADDATA_QUOTA_SCAN") //nolint:errcheck
+	cmd.Flags().IntVar(&loadDataQuotaScan, loadDataQuotaScanFlag, viper.GetInt(loadDataQuotaScanKey),
+		`Quota scan mode after data load:
+  0 - no quota scan
+  1 - scan quota
+  2 - scan quota if the user has quota restrictions
+This flag can be set using SFTPGO_LOADDATA_QUOTA_SCAN
+env var too.
+(default 0)`)
+	viper.BindPFlag(loadDataQuotaScanKey, cmd.Flags().Lookup(loadDataQuotaScanFlag)) //nolint:errcheck
+
+	viper.SetDefault(loadDataCleanKey, defaultLoadDataClean)
+	viper.BindEnv(loadDataCleanKey, "SFTPGO_LOADDATA_CLEAN") //nolint:errcheck
+	cmd.Flags().BoolVar(&loadDataClean, loadDataCleanFlag, viper.GetBool(loadDataCleanKey),
+		`Determine if the loaddata-from file should
+be removed after a successful load. This flag
+can be set using SFTPGO_LOADDATA_CLEAN env var
+too. (default "false")
+`)
+	viper.BindPFlag(logCompressKey, cmd.Flags().Lookup(logCompressFlag)) //nolint:errcheck
 }

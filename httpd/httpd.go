@@ -43,8 +43,9 @@ const (
 	webFoldersPath            = "/web/folders"
 	webFolderPath             = "/web/folder"
 	webStaticFilesPath        = "/static"
-	maxRestoreSize            = 10485760 // 10 MB
-	maxRequestSize            = 1048576  // 1MB
+	// MaxRestoreSize defines the max size for the loaddata input file
+	MaxRestoreSize = 10485760 // 10 MB
+	maxRequestSize = 1048576  // 1MB
 )
 
 var (
