@@ -3,7 +3,6 @@ package httpd_test
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -243,8 +242,12 @@ func TestBasicUserHandling(t *testing.T) {
 	user.UploadBandwidth = 128
 	user.DownloadBandwidth = 64
 	user.ExpirationDate = utils.GetTimeAsMsSinceEpoch(time.Now())
+
+	originalUser := user
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
+	assert.Equal(t, originalUser.ID, user.ID)
+
 	users, _, err := httpd.GetUsers(0, 0, defaultUsername, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(users))
@@ -418,15 +421,16 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.GCSConfig.Bucket = "abucket"
 	u.FsConfig.GCSConfig.StorageClass = "Standard"
 	u.FsConfig.GCSConfig.KeyPrefix = "/somedir/subdir/"
-	u.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString([]byte("test"))
+	u.FsConfig.GCSConfig.Credentials = []byte("test")
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.FsConfig.GCSConfig.KeyPrefix = "somedir/subdir/" //nolint:goconst
-	u.FsConfig.GCSConfig.Credentials = ""
+	u.FsConfig.GCSConfig.Credentials = nil
 	u.FsConfig.GCSConfig.AutomaticCredentials = 0
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.FsConfig.GCSConfig.Credentials = "no base64 encoded"
+
+	u.FsConfig.GCSConfig.Credentials = invalidBase64{}
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 }
@@ -983,21 +987,21 @@ func TestUserGCSConfig(t *testing.T) {
 	assert.NoError(t, err)
 	user.FsConfig.Provider = dataprovider.GCSFilesystemProvider
 	user.FsConfig.GCSConfig.Bucket = "test"
-	user.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString([]byte("fake credentials"))
+	user.FsConfig.GCSConfig.Credentials = []byte("fake credentials")
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	user.Password = defaultPassword
 	user.ID = 0
-	// the user will be added since the credentials file is found
-	user, _, err = httpd.AddUser(user, http.StatusOK)
-	assert.NoError(t, err)
+	user.FsConfig.GCSConfig.Credentials = []byte("fake credentials")
+	user, body, err := httpd.AddUser(user, http.StatusOK)
+	assert.NoError(t, err, string(body))
 	err = os.RemoveAll(credentialsPath)
 	assert.NoError(t, err)
 	err = os.MkdirAll(credentialsPath, 0700)
 	assert.NoError(t, err)
-	user.FsConfig.GCSConfig.Credentials = ""
+	user.FsConfig.GCSConfig.Credentials = nil
 	user.FsConfig.GCSConfig.AutomaticCredentials = 1
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
@@ -1012,7 +1016,7 @@ func TestUserGCSConfig(t *testing.T) {
 	assert.NoError(t, err)
 	user.FsConfig.Provider = dataprovider.GCSFilesystemProvider
 	user.FsConfig.GCSConfig.Bucket = "test1"
-	user.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString([]byte("fake credentials"))
+	user.FsConfig.GCSConfig.Credentials = []byte("fake credentials")
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 
@@ -2955,4 +2959,10 @@ func getMultipartFormData(values url.Values, fileFieldName, filePath string) (by
 	}
 	err := w.Close()
 	return b, w.FormDataContentType(), err
+}
+
+type invalidBase64 []byte
+
+func (b invalidBase64) MarshalJSON() ([]byte, error) {
+	return []byte(`not base64`), nil
 }

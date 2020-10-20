@@ -301,7 +301,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 	fs, err := user.GetFilesystem(connectionID)
 
 	if err != nil {
-		logger.Warn(logSender, "", "could create filesystem for user %#v err: %v", user.Username, err)
+		logger.Warn(logSender, "", "could not create filesystem for user %#v err: %v", user.Username, err)
 		return
 	}
 

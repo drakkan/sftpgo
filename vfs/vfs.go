@@ -121,7 +121,7 @@ type GCSFsConfig struct {
 	// If empty the whole bucket contents will be available
 	KeyPrefix            string `json:"key_prefix,omitempty"`
 	CredentialFile       string `json:"-"`
-	Credentials          string `json:"credentials,omitempty"`
+	Credentials          []byte `json:"credentials,omitempty"`
 	AutomaticCredentials int    `json:"automatic_credentials,omitempty"`
 	StorageClass         string `json:"storage_class,omitempty"`
 }

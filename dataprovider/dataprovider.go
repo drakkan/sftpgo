@@ -967,25 +967,6 @@ func validateFilters(user *User) error {
 	return validateFiltersFileExtensions(user)
 }
 
-func saveGCSCredentials(user *User) error {
-	if user.FsConfig.Provider != GCSFilesystemProvider {
-		return nil
-	}
-	if len(user.FsConfig.GCSConfig.Credentials) == 0 {
-		return nil
-	}
-	decoded, err := base64.StdEncoding.DecodeString(user.FsConfig.GCSConfig.Credentials)
-	if err != nil {
-		return &ValidationError{err: fmt.Sprintf("could not validate GCS credentials: %v", err)}
-	}
-	err = ioutil.WriteFile(user.getGCSCredentialsFilePath(), decoded, 0600)
-	if err != nil {
-		return &ValidationError{err: fmt.Sprintf("could not save GCS credentials: %v", err)}
-	}
-	user.FsConfig.GCSConfig.Credentials = ""
-	return nil
-}
-
 func validateFilesystemConfig(user *User) error {
 	if user.FsConfig.Provider == S3FilesystemProvider {
 		err := vfs.ValidateS3FsConfig(&user.FsConfig.S3Config)
@@ -1076,9 +1057,6 @@ func validateUser(user *User) error {
 		return err
 	}
 	if err := validateFilters(user); err != nil {
-		return err
-	}
-	if err := saveGCSCredentials(user); err != nil {
 		return err
 	}
 	return nil
@@ -1244,7 +1222,7 @@ func HideUserSensitiveData(user *User) User {
 	if user.FsConfig.Provider == S3FilesystemProvider {
 		user.FsConfig.S3Config.AccessSecret = utils.RemoveDecryptionKey(user.FsConfig.S3Config.AccessSecret)
 	} else if user.FsConfig.Provider == GCSFilesystemProvider {
-		user.FsConfig.GCSConfig.Credentials = ""
+		user.FsConfig.GCSConfig.Credentials = nil
 	}
 	return *user
 }
@@ -1256,11 +1234,17 @@ func addCredentialsToUser(user *User) error {
 	if user.FsConfig.GCSConfig.AutomaticCredentials > 0 {
 		return nil
 	}
+
+	// Don't read from file if credentials have already been set
+	if len(user.FsConfig.GCSConfig.Credentials) > 0 {
+		return nil
+	}
+
 	cred, err := ioutil.ReadFile(user.getGCSCredentialsFilePath())
 	if err != nil {
 		return err
 	}
-	user.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString(cred)
+	user.FsConfig.GCSConfig.Credentials = cred
 	return nil
 }
 

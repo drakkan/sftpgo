@@ -352,6 +352,7 @@ func (p BoltProvider) updateUser(user User) error {
 		user.UsedQuotaSize = oldUser.UsedQuotaSize
 		user.UsedQuotaFiles = oldUser.UsedQuotaFiles
 		user.LastLogin = oldUser.LastLogin
+		user.ID = oldUser.ID
 		buf, err := json.Marshal(user)
 		if err != nil {
 			return err

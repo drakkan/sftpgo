@@ -2,7 +2,6 @@ package webdavd_test
 
 import (
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -793,17 +792,29 @@ func TestLoginInvalidFs(t *testing.T) {
 	u := getTestUser()
 	u.FsConfig.Provider = dataprovider.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
-	u.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString([]byte("invalid JSON for credentials"))
+	u.FsConfig.GCSConfig.Credentials = []byte("invalid JSON for credentials")
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
-	// now remove the credentials file so the filesystem creation will fail
+
 	providerConf := config.GetProviderConf()
 	credentialsFile := filepath.Join(providerConf.CredentialsPath, fmt.Sprintf("%v_gcs_credentials.json", u.Username))
 	if !filepath.IsAbs(credentialsFile) {
 		credentialsFile = filepath.Join(configDir, credentialsFile)
 	}
+
+	// write credentials to a file to trigger legacy behaviour
+	err = ioutil.WriteFile(credentialsFile, u.FsConfig.GCSConfig.Credentials, 0600)
+	assert.NoError(t, err)
+
+	// remove dataprovider credentials to force credentials file fallback
+	u.FsConfig.GCSConfig.Credentials = nil
+	err = dataprovider.UpdateUser(u)
+	assert.NoError(t, err)
+
+	// now remove the credentials file so the filesystem creation will fail
 	err = os.Remove(credentialsFile)
 	assert.NoError(t, err)
+
 	client := getWebDavClient(user)
 	assert.Error(t, checkBasicFunc(client))
 

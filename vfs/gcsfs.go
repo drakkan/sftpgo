@@ -60,6 +60,8 @@ func NewGCSFs(connectionID, localTempDir string, config GCSFsConfig) (Fs, error)
 	ctx := context.Background()
 	if fs.config.AutomaticCredentials > 0 {
 		fs.svc, err = storage.NewClient(ctx)
+	} else if len(fs.config.Credentials) > 0 {
+		fs.svc, err = storage.NewClient(ctx, option.WithCredentialsJSON(fs.config.Credentials))
 	} else {
 		fs.svc, err = storage.NewClient(ctx, option.WithCredentialsFile(fs.config.CredentialFile))
 	}

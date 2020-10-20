@@ -1,7 +1,6 @@
 package httpd
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"html/template"
@@ -430,7 +429,7 @@ func getFsConfigFromUserPostFields(r *http.Request) (dataprovider.Filesystem, er
 			}
 			return fs, err
 		}
-		fs.GCSConfig.Credentials = base64.StdEncoding.EncodeToString(fileBytes)
+		fs.GCSConfig.Credentials = fileBytes
 		fs.GCSConfig.AutomaticCredentials = 0
 	}
 	return fs, nil
