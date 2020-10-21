@@ -301,7 +301,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 	fs, err := user.GetFilesystem(connectionID)
 
 	if err != nil {
-		logger.Warn(logSender, "", "could create filesystem for user %#v err: %v", user.Username, err)
+		logger.Warn(logSender, "", "could not create filesystem for user %#v err: %v", user.Username, err)
 		return
 	}
 
@@ -555,14 +555,14 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 	for _, k := range c.HostKeys {
 		hostKey := k
 		if !utils.IsFileInputValid(hostKey) {
-			logger.Warn(logSender, "", "unable to load invalid host key: %#v", hostKey)
-			logger.WarnToConsole("unable to load invalid host key: %#v", hostKey)
+			logger.Warn(logSender, "", "unable to load invalid host key %#v", hostKey)
+			logger.WarnToConsole("unable to load invalid host key %#v", hostKey)
 			continue
 		}
 		if !filepath.IsAbs(hostKey) {
 			hostKey = filepath.Join(configDir, hostKey)
 		}
-		logger.Info(logSender, "", "Loading private host key: %s", hostKey)
+		logger.Info(logSender, "", "Loading private host key %#v", hostKey)
 
 		privateBytes, err := ioutil.ReadFile(hostKey)
 		if err != nil {
@@ -573,6 +573,8 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 		if err != nil {
 			return err
 		}
+		logger.Info(logSender, "", "Host key %#v loaded, type %#v, fingerprint %#v", hostKey,
+			private.PublicKey().Type(), ssh.FingerprintSHA256(private.PublicKey()))
 
 		// Add private key to the server configuration.
 		serverConfig.AddHostKey(private)
