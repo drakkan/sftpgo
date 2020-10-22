@@ -78,6 +78,7 @@
     "connection_string": "",
     "sql_tables_prefix": "",
     "manage_users": 1,
+    "prefer_database_credentials": false,
     "track_quota": 2,
     "pool_size": 0,
     "users_base_dir": "",

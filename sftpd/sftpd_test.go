@@ -1308,6 +1308,52 @@ func TestLoginUserExpiration(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestLoginWithDatabaseCredentials(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.FsConfig.Provider = dataprovider.GCSFilesystemProvider
+	u.FsConfig.GCSConfig.Bucket = "testbucket"
+	u.FsConfig.GCSConfig.Credentials = []byte(`{ "type": "service_account" }`)
+
+	providerConf := config.GetProviderConf()
+	providerConf.PreferDatabaseCredentials = true
+	credentialsFile := filepath.Join(providerConf.CredentialsPath, fmt.Sprintf("%v_gcs_credentials.json", u.Username))
+	if !filepath.IsAbs(credentialsFile) {
+		credentialsFile = filepath.Join(configDir, credentialsFile)
+	}
+
+	assert.NoError(t, dataprovider.Close())
+
+	err := dataprovider.Initialize(providerConf, configDir)
+	assert.NoError(t, err)
+
+	if _, err = os.Stat(credentialsFile); err == nil {
+		// remove the credentials file
+		assert.NoError(t, os.Remove(credentialsFile))
+	}
+
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+
+	_, err = os.Stat(credentialsFile)
+	assert.Error(t, err)
+
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+	}
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	assert.NoError(t, dataprovider.Close())
+	assert.NoError(t, config.LoadConfig(configDir, ""))
+	providerConf = config.GetProviderConf()
+	assert.NoError(t, dataprovider.Initialize(providerConf, configDir))
+}
+
 func TestLoginInvalidFs(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
@@ -1322,15 +1368,6 @@ func TestLoginInvalidFs(t *testing.T) {
 	if !filepath.IsAbs(credentialsFile) {
 		credentialsFile = filepath.Join(configDir, credentialsFile)
 	}
-
-	// write credentials to a file to trigger legacy behaviour
-	err = ioutil.WriteFile(credentialsFile, u.FsConfig.GCSConfig.Credentials, 0600)
-	assert.NoError(t, err)
-
-	// remove dataprovider credentials to force credentials file fallback
-	u.FsConfig.GCSConfig.Credentials = nil
-	err = dataprovider.UpdateUser(u)
-	assert.NoError(t, err)
 
 	// now remove the credentials file so the filesystem creation will fail
 	err = os.Remove(credentialsFile)

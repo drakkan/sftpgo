@@ -720,6 +720,7 @@ func (u *User) getACopy() User {
 		GCSConfig: vfs.GCSFsConfig{
 			Bucket:               u.FsConfig.GCSConfig.Bucket,
 			CredentialFile:       u.FsConfig.GCSConfig.CredentialFile,
+			Credentials:          u.FsConfig.GCSConfig.Credentials,
 			AutomaticCredentials: u.FsConfig.GCSConfig.AutomaticCredentials,
 			StorageClass:         u.FsConfig.GCSConfig.StorageClass,
 			KeyPrefix:            u.FsConfig.GCSConfig.KeyPrefix,

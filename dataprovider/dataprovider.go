@@ -249,12 +249,16 @@ type Config struct {
 	// - 4 means WebDAV
 	// you can combine the scopes, for example 6 means FTP and WebDAV
 	CheckPasswordScope int `json:"check_password_scope" mapstructure:"check_password_scope"`
-	// PasswordHashing defines the configuration for password hashing
-	PasswordHashing PasswordHashing `json:"password_hashing" mapstructure:"password_hashing"`
 	// Defines how the database will be initialized/updated:
 	// - 0 means automatically
 	// - 1 means manually using the initprovider sub-command
 	UpdateMode int `json:"update_mode" mapstructure:"update_mode"`
+	// PasswordHashing defines the configuration for password hashing
+	PasswordHashing PasswordHashing `json:"password_hashing" mapstructure:"password_hashing"`
+	// PreferDatabaseCredentials indicates whether credential files (currently used for Google
+	// Cloud Storage) should be stored in the database instead of in the directory specified by
+	// CredentialsPath.
+	PreferDatabaseCredentials bool `json:"prefer_database_credentials" mapstructure:"prefer_database_credentials"`
 }
 
 // BackupData defines the structure for the backup/restore files
@@ -967,6 +971,24 @@ func validateFilters(user *User) error {
 	return validateFiltersFileExtensions(user)
 }
 
+func saveGCSCredentials(user *User) error {
+	if user.FsConfig.Provider != GCSFilesystemProvider {
+		return nil
+	}
+	if len(user.FsConfig.GCSConfig.Credentials) == 0 {
+		return nil
+	}
+	if config.PreferDatabaseCredentials {
+		return nil
+	}
+	err := ioutil.WriteFile(user.getGCSCredentialsFilePath(), user.FsConfig.GCSConfig.Credentials, 0600)
+	if err != nil {
+		return &ValidationError{err: fmt.Sprintf("could not save GCS credentials: %v", err)}
+	}
+	user.FsConfig.GCSConfig.Credentials = nil
+	return nil
+}
+
 func validateFilesystemConfig(user *User) error {
 	if user.FsConfig.Provider == S3FilesystemProvider {
 		err := vfs.ValidateS3FsConfig(&user.FsConfig.S3Config)
@@ -1057,6 +1079,9 @@ func validateUser(user *User) error {
 		return err
 	}
 	if err := validateFilters(user); err != nil {
+		return err
+	}
+	if err := saveGCSCredentials(user); err != nil {
 		return err
 	}
 	return nil
