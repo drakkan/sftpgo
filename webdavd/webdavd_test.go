@@ -2,7 +2,6 @@ package webdavd_test
 
 import (
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -789,21 +788,69 @@ func TestClientClose(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestLoginWithDatabaseCredentials(t *testing.T) {
+	u := getTestUser()
+	u.FsConfig.Provider = dataprovider.GCSFilesystemProvider
+	u.FsConfig.GCSConfig.Bucket = "test"
+	u.FsConfig.GCSConfig.Credentials = []byte(`{ "type": "service_account" }`)
+
+	providerConf := config.GetProviderConf()
+	providerConf.PreferDatabaseCredentials = true
+	credentialsFile := filepath.Join(providerConf.CredentialsPath, fmt.Sprintf("%v_gcs_credentials.json", u.Username))
+	if !filepath.IsAbs(credentialsFile) {
+		credentialsFile = filepath.Join(configDir, credentialsFile)
+	}
+
+	assert.NoError(t, dataprovider.Close())
+
+	err := dataprovider.Initialize(providerConf, configDir)
+	assert.NoError(t, err)
+
+	if _, err = os.Stat(credentialsFile); err == nil {
+		// remove the credentials file
+		assert.NoError(t, os.Remove(credentialsFile))
+	}
+
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+
+	_, err = os.Stat(credentialsFile)
+	assert.Error(t, err)
+
+	client := getWebDavClient(user)
+
+	err = client.Connect()
+	assert.NoError(t, err)
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	assert.NoError(t, dataprovider.Close())
+	assert.NoError(t, config.LoadConfig(configDir, ""))
+	providerConf = config.GetProviderConf()
+	assert.NoError(t, dataprovider.Initialize(providerConf, configDir))
+}
+
 func TestLoginInvalidFs(t *testing.T) {
 	u := getTestUser()
 	u.FsConfig.Provider = dataprovider.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
-	u.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString([]byte("invalid JSON for credentials"))
+	u.FsConfig.GCSConfig.Credentials = []byte("invalid JSON for credentials")
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
-	// now remove the credentials file so the filesystem creation will fail
+
 	providerConf := config.GetProviderConf()
 	credentialsFile := filepath.Join(providerConf.CredentialsPath, fmt.Sprintf("%v_gcs_credentials.json", u.Username))
 	if !filepath.IsAbs(credentialsFile) {
 		credentialsFile = filepath.Join(configDir, credentialsFile)
 	}
+
+	// now remove the credentials file so the filesystem creation will fail
 	err = os.Remove(credentialsFile)
 	assert.NoError(t, err)
+
 	client := getWebDavClient(user)
 	assert.Error(t, checkBasicFunc(client))
 

@@ -3,7 +3,6 @@
 package cmd
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -77,7 +76,7 @@ Please take a look at the usage below to customize the serving parameters`,
 			}
 			permissions := make(map[string][]string)
 			permissions["/"] = portablePermissions
-			portableGCSCredentials := ""
+			var portableGCSCredentials []byte
 			if fsProvider == dataprovider.GCSFilesystemProvider && len(portableGCSCredentialsFile) > 0 {
 				fi, err := os.Stat(portableGCSCredentialsFile)
 				if err != nil {
@@ -93,7 +92,7 @@ Please take a look at the usage below to customize the serving parameters`,
 				if err != nil {
 					fmt.Printf("Unable to read credentials file: %v\n", err)
 				}
-				portableGCSCredentials = base64.StdEncoding.EncodeToString(creds)
+				portableGCSCredentials = creds
 				portableGCSAutoCredentials = 0
 			}
 			if portableFTPDPort >= 0 && len(portableFTPSCert) > 0 && len(portableFTPSKey) > 0 {

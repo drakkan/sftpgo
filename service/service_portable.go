@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -48,7 +47,7 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 	dataProviderConf := config.GetProviderConf()
 	dataProviderConf.Driver = dataprovider.MemoryDataProviderName
 	dataProviderConf.Name = ""
-	dataProviderConf.CredentialsPath = filepath.Join(os.TempDir(), "credentials")
+	dataProviderConf.PreferDatabaseCredentials = true
 	config.SetProviderConf(dataProviderConf)
 	httpdConf := config.GetHTTPDConfig()
 	httpdConf.BindPort = 0

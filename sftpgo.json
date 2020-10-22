@@ -88,6 +88,7 @@
     "external_auth_hook": "",
     "external_auth_scope": 0,
     "credentials_path": "credentials",
+    "prefer_database_credentials": false,
     "pre_login_hook": "",
     "post_login_hook": "",
     "post_login_scope": 0,

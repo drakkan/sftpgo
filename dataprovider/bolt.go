@@ -348,6 +348,7 @@ func (p BoltProvider) updateUser(user User) error {
 				return err
 			}
 		}
+		user.ID = oldUser.ID
 		user.LastQuotaUpdate = oldUser.LastQuotaUpdate
 		user.UsedQuotaSize = oldUser.UsedQuotaSize
 		user.UsedQuotaFiles = oldUser.UsedQuotaFiles

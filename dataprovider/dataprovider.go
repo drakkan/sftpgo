@@ -249,12 +249,16 @@ type Config struct {
 	// - 4 means WebDAV
 	// you can combine the scopes, for example 6 means FTP and WebDAV
 	CheckPasswordScope int `json:"check_password_scope" mapstructure:"check_password_scope"`
-	// PasswordHashing defines the configuration for password hashing
-	PasswordHashing PasswordHashing `json:"password_hashing" mapstructure:"password_hashing"`
 	// Defines how the database will be initialized/updated:
 	// - 0 means automatically
 	// - 1 means manually using the initprovider sub-command
 	UpdateMode int `json:"update_mode" mapstructure:"update_mode"`
+	// PasswordHashing defines the configuration for password hashing
+	PasswordHashing PasswordHashing `json:"password_hashing" mapstructure:"password_hashing"`
+	// PreferDatabaseCredentials indicates whether credential files (currently used for Google
+	// Cloud Storage) should be stored in the database instead of in the directory specified by
+	// CredentialsPath.
+	PreferDatabaseCredentials bool `json:"prefer_database_credentials" mapstructure:"prefer_database_credentials"`
 }
 
 // BackupData defines the structure for the backup/restore files
@@ -974,15 +978,14 @@ func saveGCSCredentials(user *User) error {
 	if len(user.FsConfig.GCSConfig.Credentials) == 0 {
 		return nil
 	}
-	decoded, err := base64.StdEncoding.DecodeString(user.FsConfig.GCSConfig.Credentials)
-	if err != nil {
-		return &ValidationError{err: fmt.Sprintf("could not validate GCS credentials: %v", err)}
+	if config.PreferDatabaseCredentials {
+		return nil
 	}
-	err = ioutil.WriteFile(user.getGCSCredentialsFilePath(), decoded, 0600)
+	err := ioutil.WriteFile(user.getGCSCredentialsFilePath(), user.FsConfig.GCSConfig.Credentials, 0600)
 	if err != nil {
 		return &ValidationError{err: fmt.Sprintf("could not save GCS credentials: %v", err)}
 	}
-	user.FsConfig.GCSConfig.Credentials = ""
+	user.FsConfig.GCSConfig.Credentials = nil
 	return nil
 }
 
@@ -1244,7 +1247,7 @@ func HideUserSensitiveData(user *User) User {
 	if user.FsConfig.Provider == S3FilesystemProvider {
 		user.FsConfig.S3Config.AccessSecret = utils.RemoveDecryptionKey(user.FsConfig.S3Config.AccessSecret)
 	} else if user.FsConfig.Provider == GCSFilesystemProvider {
-		user.FsConfig.GCSConfig.Credentials = ""
+		user.FsConfig.GCSConfig.Credentials = nil
 	}
 	return *user
 }
@@ -1256,11 +1259,17 @@ func addCredentialsToUser(user *User) error {
 	if user.FsConfig.GCSConfig.AutomaticCredentials > 0 {
 		return nil
 	}
+
+	// Don't read from file if credentials have already been set
+	if len(user.FsConfig.GCSConfig.Credentials) > 0 {
+		return nil
+	}
+
 	cred, err := ioutil.ReadFile(user.getGCSCredentialsFilePath())
 	if err != nil {
 		return err
 	}
-	user.FsConfig.GCSConfig.Credentials = base64.StdEncoding.EncodeToString(cred)
+	user.FsConfig.GCSConfig.Credentials = cred
 	return nil
 }
 

@@ -141,7 +141,8 @@ func init() {
 					Parallelism: 2,
 				},
 			},
-			UpdateMode: 0,
+			UpdateMode:                0,
+			PreferDatabaseCredentials: false,
 		},
 		HTTPDConfig: httpd.Conf{
 			BindPort:           8080,
