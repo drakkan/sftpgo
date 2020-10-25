@@ -767,6 +767,7 @@ func (fs *AzureBlobFs) handleMultipartUpload(ctx context.Context, reader io.Read
 			finished = true
 		} else if err != nil {
 			pool.releaseBuffer(buf)
+			pool.free()
 			return err
 		}
 

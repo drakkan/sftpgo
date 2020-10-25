@@ -25,6 +25,20 @@ Flags:
                                          insensitive. The format is
                                          /dir::ext1,ext2.
                                          For example: "/somedir::.jpg,.png"
+      --az-account-key string
+      --az-account-name string
+      --az-container string
+      --az-endpoint string               Leave empty to use the default:
+                                         "blob.core.windows.net"
+      --az-key-prefix string             Allows to restrict access to the
+                                         virtual folder identified by this
+                                         prefix and its contents
+      --az-sas-url string                Shared access signature URL
+      --az-upload-concurrency int        How many parts are uploaded in
+                                         parallel (default 2)
+      --az-upload-part-size int          The buffer size for multipart uploads
+                                         (MB) (default 4)
+      --az-use-emulator
       --denied-extensions stringArray    Denied file extensions case
                                          insensitive. The format is
                                          /dir::ext1,ext2.
@@ -33,9 +47,10 @@ Flags:
                                          This can be an absolute path or a path
                                          relative to the current directory
                                           (default ".")
-  -f, --fs-provider int                  0 means local filesystem,
-                                         1 Amazon S3 compatible,
-                                         2 Google Cloud Storage
+  -f, --fs-provider int                  0 => local filesystem
+                                         1 => Amazon S3 compatible
+                                         2 => Google Cloud Storage
+                                         3 => Azure Blob Storage
       --ftpd-cert string                 Path to the certificate file for FTPS
       --ftpd-key string                  Path to the key file for FTPS
       --ftpd-port int                    0 means a random unprivileged port,

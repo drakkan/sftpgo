@@ -55,6 +55,15 @@ var (
 	portableWebDAVPort           int
 	portableWebDAVCert           string
 	portableWebDAVKey            string
+	portableAzContainer          string
+	portableAzAccountName        string
+	portableAzAccountKey         string
+	portableAzEndpoint           string
+	portableAzSASURL             string
+	portableAzKeyPrefix          string
+	portableAzULPartSize         int
+	portableAzULConcurrency      int
+	portableAzUseEmulator        bool
 	portableCmd                  = &cobra.Command{
 		Use:   "portable",
 		Short: "Serve a single directory",
@@ -150,6 +159,17 @@ Please take a look at the usage below to customize the serving parameters`,
 							StorageClass:         portableGCSStorageClass,
 							KeyPrefix:            portableGCSKeyPrefix,
 						},
+						AzBlobConfig: vfs.AzBlobFsConfig{
+							Container:         portableAzContainer,
+							AccountName:       portableAzAccountName,
+							AccountKey:        portableAzAccountKey,
+							Endpoint:          portableAzEndpoint,
+							SASURL:            portableAzSASURL,
+							KeyPrefix:         portableAzKeyPrefix,
+							UseEmulator:       portableAzUseEmulator,
+							UploadPartSize:    int64(portableAzULPartSize),
+							UploadConcurrency: portableAzULConcurrency,
+						},
 					},
 					Filters: dataprovider.UserFilters{
 						FileExtensions: parseFileExtensionsFilters(),
@@ -213,9 +233,10 @@ multicast DNS`)
 advertised via multicast DNS, this
 flag allows to put username/password
 inside the advertised TXT record`)
-	portableCmd.Flags().IntVarP(&portableFsProvider, "fs-provider", "f", int(dataprovider.LocalFilesystemProvider), `0 means local filesystem,
-1 Amazon S3 compatible,
-2 Google Cloud Storage`)
+	portableCmd.Flags().IntVarP(&portableFsProvider, "fs-provider", "f", int(dataprovider.LocalFilesystemProvider), `0 => local filesystem
+1 => Amazon S3 compatible
+2 => Google Cloud Storage
+3 => Azure Blob Storage`)
 	portableCmd.Flags().StringVar(&portableS3Bucket, "s3-bucket", "", "")
 	portableCmd.Flags().StringVar(&portableS3Region, "s3-region", "", "")
 	portableCmd.Flags().StringVar(&portableS3AccessKey, "s3-access-key", "", "")
@@ -245,6 +266,20 @@ a JSON credentials file, 1 automatic
 over HTTPS`)
 	portableCmd.Flags().StringVar(&portableWebDAVKey, "webdav-key", "", `Path to the key file for WebDAV over
 HTTPS`)
+	portableCmd.Flags().StringVar(&portableAzContainer, "az-container", "", "")
+	portableCmd.Flags().StringVar(&portableAzAccountName, "az-account-name", "", "")
+	portableCmd.Flags().StringVar(&portableAzAccountKey, "az-account-key", "", "")
+	portableCmd.Flags().StringVar(&portableAzSASURL, "az-sas-url", "", `Shared access signature URL`)
+	portableCmd.Flags().StringVar(&portableAzEndpoint, "az-endpoint", "", `Leave empty to use the default:
+"blob.core.windows.net"`)
+	portableCmd.Flags().StringVar(&portableAzKeyPrefix, "az-key-prefix", "", `Allows to restrict access to the
+virtual folder identified by this
+prefix and its contents`)
+	portableCmd.Flags().IntVar(&portableAzULPartSize, "az-upload-part-size", 4, `The buffer size for multipart uploads
+(MB)`)
+	portableCmd.Flags().IntVar(&portableAzULConcurrency, "az-upload-concurrency", 2, `How many parts are uploaded in
+parallel`)
+	portableCmd.Flags().BoolVar(&portableAzUseEmulator, "az-use-emulator", false, "")
 	rootCmd.AddCommand(portableCmd)
 }
 

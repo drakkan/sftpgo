@@ -27,8 +27,11 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 	if s.PortableMode != 1 {
 		return fmt.Errorf("service is not configured for portable mode")
 	}
-	var err error
 	rand.Seed(time.Now().UnixNano())
+	err := config.LoadConfig(s.ConfigDir, s.ConfigFile)
+	if err != nil {
+		fmt.Printf("error loading configuration file: %v using defaults\n", err)
+	}
 	if len(s.PortableUser.Username) == 0 {
 		s.PortableUser.Username = "user"
 	}

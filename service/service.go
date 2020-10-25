@@ -60,7 +60,7 @@ func (s *Service) Start() error {
 	logger.InitLogger(s.LogFilePath, s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogCompress, logLevel)
 	if s.PortableMode == 1 {
 		logger.EnableConsoleLogger(logLevel)
-		if len(s.LogFilePath) == 0 {
+		if s.LogFilePath == "" {
 			logger.DisableLogger()
 		}
 	}
