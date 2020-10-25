@@ -28,6 +28,11 @@ func TestNewActionNotification(t *testing.T) {
 	user.FsConfig.GCSConfig = vfs.GCSFsConfig{
 		Bucket: "gcsbucket",
 	}
+	user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{
+		Container: "azcontainer",
+		SASURL:    "azsasurl",
+		Endpoint:  "azendpoint",
+	}
 	a := newActionNotification(user, operationDownload, "path", "target", "", ProtocolSFTP, 123, errors.New("fake error"))
 	assert.Equal(t, user.Username, a.Username)
 	assert.Equal(t, 0, len(a.Bucket))
@@ -45,6 +50,18 @@ func TestNewActionNotification(t *testing.T) {
 	assert.Equal(t, "gcsbucket", a.Bucket)
 	assert.Equal(t, 0, len(a.Endpoint))
 	assert.Equal(t, 2, a.Status)
+
+	user.FsConfig.Provider = dataprovider.AzureBlobFilesystemProvider
+	a = newActionNotification(user, operationDownload, "path", "target", "", ProtocolSCP, 123, nil)
+	assert.Equal(t, "azcontainer", a.Bucket)
+	assert.Equal(t, "azsasurl", a.Endpoint)
+	assert.Equal(t, 1, a.Status)
+
+	user.FsConfig.AzBlobConfig.SASURL = ""
+	a = newActionNotification(user, operationDownload, "path", "target", "", ProtocolSCP, 123, nil)
+	assert.Equal(t, "azcontainer", a.Bucket)
+	assert.Equal(t, "azendpoint", a.Endpoint)
+	assert.Equal(t, 1, a.Status)
 }
 
 func TestActionHTTP(t *testing.T) {

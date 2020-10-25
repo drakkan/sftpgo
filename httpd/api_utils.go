@@ -620,6 +620,9 @@ func compareUserFsConfig(expected *dataprovider.User, actual *dataprovider.User)
 	if err := compareGCSConfig(expected, actual); err != nil {
 		return err
 	}
+	if err := compareAzBlobConfig(expected, actual); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -633,8 +636,8 @@ func compareS3Config(expected *dataprovider.User, actual *dataprovider.User) err
 	if expected.FsConfig.S3Config.AccessKey != actual.FsConfig.S3Config.AccessKey {
 		return errors.New("S3 access key mismatch")
 	}
-	if err := checkS3AccessSecret(expected.FsConfig.S3Config.AccessSecret, actual.FsConfig.S3Config.AccessSecret); err != nil {
-		return err
+	if err := checkEncryptedSecret(expected.FsConfig.S3Config.AccessSecret, actual.FsConfig.S3Config.AccessSecret); err != nil {
+		return fmt.Errorf("S3 access secret mismatch: %v", err)
 	}
 	if expected.FsConfig.S3Config.Endpoint != actual.FsConfig.S3Config.Endpoint {
 		return errors.New("S3 endpoint mismatch")
@@ -672,29 +675,61 @@ func compareGCSConfig(expected *dataprovider.User, actual *dataprovider.User) er
 	return nil
 }
 
-func checkS3AccessSecret(expectedAccessSecret, actualAccessSecret string) error {
+func compareAzBlobConfig(expected *dataprovider.User, actual *dataprovider.User) error {
+	if expected.FsConfig.AzBlobConfig.Container != actual.FsConfig.AzBlobConfig.Container {
+		return errors.New("Azure Blob container mismatch")
+	}
+	if expected.FsConfig.AzBlobConfig.AccountName != actual.FsConfig.AzBlobConfig.AccountName {
+		return errors.New("Azure Blob account name mismatch")
+	}
+	if err := checkEncryptedSecret(expected.FsConfig.AzBlobConfig.AccountKey, actual.FsConfig.AzBlobConfig.AccountKey); err != nil {
+		return fmt.Errorf("Azure Blob account key mismatch: %v", err)
+	}
+	if expected.FsConfig.AzBlobConfig.Endpoint != actual.FsConfig.AzBlobConfig.Endpoint {
+		return errors.New("Azure Blob endpoint mismatch")
+	}
+	if expected.FsConfig.AzBlobConfig.SASURL != actual.FsConfig.AzBlobConfig.SASURL {
+		return errors.New("Azure Blob SASL URL mismatch")
+	}
+	if expected.FsConfig.AzBlobConfig.UploadPartSize != actual.FsConfig.AzBlobConfig.UploadPartSize {
+		return errors.New("Azure Blob upload part size mismatch")
+	}
+	if expected.FsConfig.AzBlobConfig.UploadConcurrency != actual.FsConfig.AzBlobConfig.UploadConcurrency {
+		return errors.New("Azure Blob upload concurrency mismatch")
+	}
+	if expected.FsConfig.AzBlobConfig.KeyPrefix != actual.FsConfig.AzBlobConfig.KeyPrefix &&
+		expected.FsConfig.AzBlobConfig.KeyPrefix+"/" != actual.FsConfig.AzBlobConfig.KeyPrefix {
+		return errors.New("Azure Blob key prefix mismatch")
+	}
+	if expected.FsConfig.AzBlobConfig.UseEmulator != actual.FsConfig.AzBlobConfig.UseEmulator {
+		return errors.New("Azure Blob use emulator mismatch")
+	}
+	return nil
+}
+
+func checkEncryptedSecret(expectedAccessSecret, actualAccessSecret string) error {
 	if len(expectedAccessSecret) > 0 {
 		vals := strings.Split(expectedAccessSecret, "$")
 		if strings.HasPrefix(expectedAccessSecret, "$aes$") && len(vals) == 4 {
 			expectedAccessSecret = utils.RemoveDecryptionKey(expectedAccessSecret)
 			if expectedAccessSecret != actualAccessSecret {
-				return fmt.Errorf("S3 access secret mismatch, expected: %v", expectedAccessSecret)
+				return fmt.Errorf("secret mismatch, expected: %v", expectedAccessSecret)
 			}
 		} else {
 			// here we check that actualAccessSecret is aes encrypted without the nonce
 			parts := strings.Split(actualAccessSecret, "$")
 			if !strings.HasPrefix(actualAccessSecret, "$aes$") || len(parts) != 3 {
-				return errors.New("Invalid S3 access secret")
+				return errors.New("invalid secret")
 			}
 			if len(parts) == len(vals) {
 				if expectedAccessSecret != actualAccessSecret {
-					return errors.New("S3 encrypted access secret mismatch")
+					return errors.New("encrypted secret mismatch")
 				}
 			}
 		}
 	} else {
 		if expectedAccessSecret != actualAccessSecret {
-			return errors.New("S3 access secret mismatch")
+			return errors.New("secret mismatch")
 		}
 	}
 	return nil

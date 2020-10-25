@@ -925,10 +925,8 @@ components:
           minLength: 1
         access_key:
           type: string
-          minLength: 1
         access_secret:
           type: string
-          minLength: 1
           description: the access secret is stored encrypted (AES-256-GCM)
         endpoint:
           type: string
@@ -980,6 +978,37 @@ components:
         - bucket
       nullable: true
       description: Google Cloud Storage configuration details
+    AzureBlobFsConfig:
+      type: object
+      properties:
+        container:
+          type: string
+        account_name:
+          type: string
+          description: Storage Account Name, leave blank to use SAS URL
+        account_key:
+          type: string
+          description: Storage Account Key leave blank to use SAS URL. The access key is stored encrypted (AES-256-GCM)
+        sas_url:
+          type: string
+          description: Shared access signature URL, leave blank if using account/key
+        endpoint:
+          type: string
+          description: optional endpoint. Default is "blob.core.windows.net". If you use the emulator the endpoint must include the protocol, for example "http://127.0.0.1:10000"
+        upload_part_size:
+          type: integer
+          description: the buffer size (in MB) to use for multipart uploads. If this value is set to zero, the default value (4MB) will be used.
+        upload_concurrency:
+          type: integer
+          description: the number of parts to upload in parallel. If this value is set to zero, the default value (2) will be used
+        key_prefix:
+          type: string
+          description: key_prefix is similar to a chroot directory for a local filesystem. If specified the user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix, if not empty, must not start with "/" and must end with "/". If empty the whole container contents will be available
+          example: folder/subfolder/
+        use_emulator:
+          type: boolean
+      nullable: true
+      description: Azure Blob Storage configuration details
     FilesystemConfig:
       type: object
       properties:
@@ -989,15 +1018,19 @@ components:
             - 0
             - 1
             - 2
+            - 3
           description: >
             Providers:
-              * `0` - local filesystem
+              * `0` - Local filesystem
               * `1` - S3 Compatible Object Storage
               * `2` - Google Cloud Storage
+              * `3` - Azure Blob Storage
         s3config:
           $ref: '#/components/schemas/S3Config'
         gcsconfig:
           $ref: '#/components/schemas/GCSConfig'
+        azblobconfig:
+          $ref: '#/components/schemas/AzureBlobFsConfig'
       description: Storage filesystem details
     BaseVirtualFolder:
       type: object

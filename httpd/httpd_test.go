@@ -433,6 +433,23 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.GCSConfig.Credentials = invalidBase64{}
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
+
+	u = getTestUser()
+	u.FsConfig.Provider = dataprovider.AzureBlobFilesystemProvider
+	u.FsConfig.AzBlobConfig.SASURL = "http://foo\x7f.com/"
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.FsConfig.AzBlobConfig.SASURL = ""
+	u.FsConfig.AzBlobConfig.AccountName = "name"
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.FsConfig.AzBlobConfig.Container = "container"
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.FsConfig.AzBlobConfig.AccountKey = "key"
+	u.FsConfig.AzBlobConfig.KeyPrefix = "/amedir/subdir/"
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
 }
 
 func TestAddUserInvalidVirtualFolders(t *testing.T) {
@@ -1020,6 +1037,50 @@ func TestUserGCSConfig(t *testing.T) {
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestUserAzureBlobConfig(t *testing.T) {
+	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
+	assert.NoError(t, err)
+	user.FsConfig.Provider = dataprovider.AzureBlobFilesystemProvider
+	user.FsConfig.AzBlobConfig.Container = "test"
+	user.FsConfig.AzBlobConfig.AccountName = "Server-Account-Name"
+	user.FsConfig.AzBlobConfig.AccountKey = "Server-Account-Key"
+	user.FsConfig.AzBlobConfig.Endpoint = "http://127.0.0.1:9000"
+	user.FsConfig.AzBlobConfig.UploadPartSize = 8
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	user.Password = defaultPassword
+	user.ID = 0
+	secret, _ := utils.EncryptData("Server-Account-Key")
+	user.FsConfig.AzBlobConfig.AccountKey = secret
+	user, _, err = httpd.AddUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	user.FsConfig.Provider = dataprovider.AzureBlobFilesystemProvider
+	user.FsConfig.AzBlobConfig.Container = "test-container"
+	user.FsConfig.AzBlobConfig.AccountKey = "Server-Account-Key1"
+	user.FsConfig.AzBlobConfig.Endpoint = "http://localhost:9001"
+	user.FsConfig.AzBlobConfig.KeyPrefix = "somedir/subdir"
+	user.FsConfig.AzBlobConfig.UploadConcurrency = 5
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	user.FsConfig.Provider = dataprovider.LocalFilesystemProvider
+	user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	// test user without access key and access secret (sas)
+	user.FsConfig.Provider = dataprovider.AzureBlobFilesystemProvider
+
+	user.FsConfig.AzBlobConfig.SASURL = "https://myaccount.blob.core.windows.net/pictures/profile.jpg?sv=2012-02-12&st=2009-02-09&se=2009-02-10&sr=c&sp=r&si=YWJjZGVmZw%3d%3d&sig=dD80ihBh5jfNpymO5Hg1IdiJIEvHcJpCMiCMnN%2fRnbI%3d"
+	user.FsConfig.AzBlobConfig.KeyPrefix = "somedir/subdir"
+	user.FsConfig.AzBlobConfig.UploadPartSize = 6
+	user.FsConfig.AzBlobConfig.UploadConcurrency = 4
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
@@ -2735,6 +2796,96 @@ func TestWebUserGCSMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	err = os.Remove(credentialsFilePath)
 	assert.NoError(t, err)
+}
+func TestWebUserAzureBlobMock(t *testing.T) {
+	user := getTestUser()
+	userAsJSON := getUserAsJSON(t, user)
+	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	err := render.DecodeJSON(rr.Body, &user)
+	assert.NoError(t, err)
+	user.FsConfig.Provider = dataprovider.AzureBlobFilesystemProvider
+	user.FsConfig.AzBlobConfig.Container = "container"
+	user.FsConfig.AzBlobConfig.AccountName = "aname"
+	user.FsConfig.AzBlobConfig.AccountKey = "access-skey"
+	user.FsConfig.AzBlobConfig.Endpoint = "http://127.0.0.1:9000/path?b=c"
+	user.FsConfig.AzBlobConfig.KeyPrefix = "somedir/subdir/"
+	user.FsConfig.AzBlobConfig.UploadPartSize = 5
+	user.FsConfig.AzBlobConfig.UploadConcurrency = 4
+	user.FsConfig.AzBlobConfig.UseEmulator = true
+	form := make(url.Values)
+	form.Set("username", user.Username)
+	form.Set("home_dir", user.HomeDir)
+	form.Set("uid", "0")
+	form.Set("gid", strconv.FormatInt(int64(user.GID), 10))
+	form.Set("max_sessions", strconv.FormatInt(int64(user.MaxSessions), 10))
+	form.Set("quota_size", strconv.FormatInt(user.QuotaSize, 10))
+	form.Set("quota_files", strconv.FormatInt(int64(user.QuotaFiles), 10))
+	form.Set("upload_bandwidth", "0")
+	form.Set("download_bandwidth", "0")
+	form.Set("permissions", "*")
+	form.Set("sub_dirs_permissions", "")
+	form.Set("status", strconv.Itoa(user.Status))
+	form.Set("expiration_date", "2020-01-01 00:00:00")
+	form.Set("allowed_ip", "")
+	form.Set("denied_ip", "")
+	form.Set("fs_provider", "3")
+	form.Set("az_container", user.FsConfig.AzBlobConfig.Container)
+	form.Set("az_account_name", user.FsConfig.AzBlobConfig.AccountName)
+	form.Set("az_account_key", user.FsConfig.AzBlobConfig.AccountKey)
+	form.Set("az_sas_url", user.FsConfig.AzBlobConfig.SASURL)
+	form.Set("az_endpoint", user.FsConfig.AzBlobConfig.Endpoint)
+	form.Set("az_key_prefix", user.FsConfig.AzBlobConfig.KeyPrefix)
+	form.Set("az_use_emulator", "checked")
+	form.Set("allowed_extensions", "/dir1::.jpg,.png")
+	form.Set("denied_extensions", "/dir2::.zip")
+	form.Set("max_upload_file_size", "0")
+	// test invalid az_upload_part_size
+	form.Set("az_upload_part_size", "a")
+	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	// test invalid az_upload_concurrency
+	form.Set("az_upload_part_size", strconv.FormatInt(user.FsConfig.AzBlobConfig.UploadPartSize, 10))
+	form.Set("az_upload_concurrency", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	// now add the user
+	form.Set("az_upload_concurrency", strconv.Itoa(user.FsConfig.AzBlobConfig.UploadConcurrency))
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr.Code)
+	req, _ = http.NewRequest(http.MethodGet, userPath+"?limit=1&offset=0&order=ASC&username="+user.Username, nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	var users []dataprovider.User
+	err = render.DecodeJSON(rr.Body, &users)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(users))
+	updateUser := users[0]
+	assert.Equal(t, int64(1577836800000), updateUser.ExpirationDate)
+	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.Container, user.FsConfig.AzBlobConfig.Container)
+	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.AccountName, user.FsConfig.AzBlobConfig.AccountName)
+	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.Endpoint, user.FsConfig.AzBlobConfig.Endpoint)
+	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.SASURL, user.FsConfig.AzBlobConfig.SASURL)
+	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.KeyPrefix, user.FsConfig.AzBlobConfig.KeyPrefix)
+	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.UploadPartSize, user.FsConfig.AzBlobConfig.UploadPartSize)
+	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.UploadConcurrency, user.FsConfig.AzBlobConfig.UploadConcurrency)
+	assert.Equal(t, 2, len(updateUser.Filters.FileExtensions))
+	if !strings.HasPrefix(updateUser.FsConfig.AzBlobConfig.AccountKey, "$aes$") {
+		t.Error("azure account secret is not encrypted")
+	}
+	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
 }
 
 func TestAddWebFoldersMock(t *testing.T) {

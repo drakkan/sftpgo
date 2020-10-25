@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"mime"
 	"os"
 	"path"
 	"path/filepath"
@@ -55,11 +56,11 @@ func NewS3Fs(connectionID, localTempDir string, config S3FsConfig) (Fs, error) {
 	}
 	awsConfig := aws.NewConfig()
 
-	if len(fs.config.Region) > 0 {
+	if fs.config.Region != "" {
 		awsConfig.WithRegion(fs.config.Region)
 	}
 
-	if len(fs.config.AccessSecret) > 0 {
+	if fs.config.AccessSecret != "" {
 		accessSecret, err := utils.DecryptData(fs.config.AccessSecret)
 		if err != nil {
 			return fs, err
@@ -68,7 +69,7 @@ func NewS3Fs(connectionID, localTempDir string, config S3FsConfig) (Fs, error) {
 		awsConfig.Credentials = credentials.NewStaticCredentials(fs.config.AccessKey, fs.config.AccessSecret, "")
 	}
 
-	if len(fs.config.Endpoint) > 0 {
+	if fs.config.Endpoint != "" {
 		awsConfig.Endpoint = aws.String(fs.config.Endpoint)
 		awsConfig.S3ForcePathStyle = aws.Bool(true)
 	}
@@ -96,10 +97,10 @@ func NewS3Fs(connectionID, localTempDir string, config S3FsConfig) (Fs, error) {
 
 // Name returns the name for the Fs implementation
 func (fs S3Fs) Name() string {
-	return fmt.Sprintf("S3Fs bucket: %#v", fs.config.Bucket)
+	return fmt.Sprintf("S3Fs bucket %#v", fs.config.Bucket)
 }
 
-// ConnectionID returns the SSH connection ID associated to this Fs implementation
+// ConnectionID returns the connection ID associated to this Fs implementation
 func (fs S3Fs) ConnectionID() string {
 	return fs.connectionID
 }
@@ -151,7 +152,7 @@ func (fs S3Fs) Stat(name string) (os.FileInfo, error) {
 		return true
 	})
 	metrics.S3ListObjectsCompleted(err)
-	if err == nil && len(result.Name()) == 0 {
+	if err == nil && result.Name() == "" {
 		err = errors.New("404 no such file or directory")
 	}
 	return result, err
@@ -201,11 +202,18 @@ func (fs S3Fs) Create(name string, flag int) (*os.File, *PipeWriter, func(), err
 	go func() {
 		defer cancelFn()
 		key := name
+		var contentType string
+		if flag == -1 {
+			contentType = dirMimeType
+		} else {
+			contentType = mime.TypeByExtension(path.Ext(name))
+		}
 		response, err := uploader.UploadWithContext(ctx, &s3manager.UploadInput{
-			Bucket:       aws.String(fs.config.Bucket),
-			Key:          aws.String(key),
-			Body:         r,
-			StorageClass: utils.NilIfEmpty(fs.config.StorageClass),
+			Bucket:          aws.String(fs.config.Bucket),
+			Key:             aws.String(key),
+			Body:            r,
+			StorageClass:    utils.NilIfEmpty(fs.config.StorageClass),
+			ContentEncoding: utils.NilIfEmpty(contentType),
 		}, func(u *s3manager.Uploader) {
 			u.Concurrency = fs.config.UploadConcurrency
 			u.PartSize = fs.config.UploadPartSize
@@ -300,7 +308,7 @@ func (fs S3Fs) Mkdir(name string) error {
 	if !strings.HasSuffix(name, "/") {
 		name += "/"
 	}
-	_, w, _, err := fs.Create(name, 0)
+	_, w, _, err := fs.Create(name, -1)
 	if err != nil {
 		return err
 	}
@@ -446,6 +454,10 @@ func (fs S3Fs) ScanRootDirContents() (int, int64, error) {
 		Prefix: aws.String(fs.config.KeyPrefix),
 	}, func(page *s3.ListObjectsV2Output, lastPage bool) bool {
 		for _, fileObject := range page.Contents {
+			isDir := strings.HasSuffix(*fileObject.Key, "/")
+			if isDir && *fileObject.Size == 0 {
+				continue
+			}
 			numFiles++
 			size += *fileObject.Size
 		}
@@ -468,7 +480,7 @@ func (S3Fs) GetAtomicUploadPath(name string) string {
 }
 
 // GetRelativePath returns the path for a file relative to the user's home dir.
-// This is the path as seen by SFTP users
+// This is the path as seen by SFTPGo users
 func (fs S3Fs) GetRelativePath(name string) string {
 	rel := path.Clean(name)
 	if rel == "." {
@@ -533,12 +545,12 @@ func (S3Fs) HasVirtualFolders() bool {
 	return true
 }
 
-// ResolvePath returns the matching filesystem path for the specified sftp path
-func (fs S3Fs) ResolvePath(sftpPath string) (string, error) {
-	if !path.IsAbs(sftpPath) {
-		sftpPath = path.Clean("/" + sftpPath)
+// ResolvePath returns the matching filesystem path for the specified virtual path
+func (fs S3Fs) ResolvePath(virtualPath string) (string, error) {
+	if !path.IsAbs(virtualPath) {
+		virtualPath = path.Clean("/" + virtualPath)
 	}
-	return fs.Join("/", fs.config.KeyPrefix, sftpPath), nil
+	return fs.Join("/", fs.config.KeyPrefix, virtualPath), nil
 }
 
 func (fs *S3Fs) resolve(name *string, prefix string) (string, bool) {
@@ -555,14 +567,14 @@ func (fs *S3Fs) resolve(name *string, prefix string) (string, bool) {
 	return result, isDir
 }
 
-func (fs *S3Fs) isEqual(s3Key *string, sftpName string) bool {
-	if *s3Key == sftpName {
+func (fs *S3Fs) isEqual(s3Key *string, virtualName string) bool {
+	if *s3Key == virtualName {
 		return true
 	}
-	if "/"+*s3Key == sftpName {
+	if "/"+*s3Key == virtualName {
 		return true
 	}
-	if "/"+*s3Key == sftpName+"/" {
+	if "/"+*s3Key == virtualName+"/" {
 		return true
 	}
 	return false

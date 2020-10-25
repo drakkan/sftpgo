@@ -118,8 +118,12 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	currentPermissions := user.Permissions
 	currentS3AccessSecret := ""
+	currentAzAccountKey := ""
 	if user.FsConfig.Provider == dataprovider.S3FilesystemProvider {
 		currentS3AccessSecret = user.FsConfig.S3Config.AccessSecret
+	}
+	if user.FsConfig.Provider == dataprovider.AzureBlobFilesystemProvider {
+		currentAzAccountKey = user.FsConfig.AzBlobConfig.AccountKey
 	}
 	user.Permissions = make(map[string][]string)
 	err = render.DecodeJSON(r.Body, &user)
@@ -131,13 +135,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if len(user.Permissions) == 0 {
 		user.Permissions = currentPermissions
 	}
-	// we use the new access secret if different from the old one and not empty
-	if user.FsConfig.Provider == dataprovider.S3FilesystemProvider {
-		if utils.RemoveDecryptionKey(currentS3AccessSecret) == user.FsConfig.S3Config.AccessSecret ||
-			(len(user.FsConfig.S3Config.AccessSecret) == 0 && len(user.FsConfig.S3Config.AccessKey) > 0) {
-			user.FsConfig.S3Config.AccessSecret = currentS3AccessSecret
-		}
-	}
+	updateEncryptedSecrets(&user, currentS3AccessSecret, currentAzAccountKey)
+
 	if user.ID != userID {
 		sendAPIResponse(w, r, err, "user ID in request body does not match user ID in path parameter", http.StatusBadRequest)
 		return
@@ -178,6 +177,22 @@ func disconnectUser(username string) {
 	for _, stat := range common.Connections.GetStats() {
 		if stat.Username == username {
 			common.Connections.Close(stat.ConnectionID)
+		}
+	}
+}
+
+func updateEncryptedSecrets(user *dataprovider.User, currentS3AccessSecret, currentAzAccountKey string) {
+	// we use the new access secret if different from the old one and not empty
+	if user.FsConfig.Provider == dataprovider.S3FilesystemProvider {
+		if utils.RemoveDecryptionKey(currentS3AccessSecret) == user.FsConfig.S3Config.AccessSecret ||
+			(user.FsConfig.S3Config.AccessSecret == "" && user.FsConfig.S3Config.AccessKey != "") {
+			user.FsConfig.S3Config.AccessSecret = currentS3AccessSecret
+		}
+	}
+	if user.FsConfig.Provider == dataprovider.AzureBlobFilesystemProvider {
+		if utils.RemoveDecryptionKey(currentAzAccountKey) == user.FsConfig.AzBlobConfig.AccountKey ||
+			(user.FsConfig.AzBlobConfig.AccountKey == "" && user.FsConfig.AzBlobConfig.AccountName != "") {
+			user.FsConfig.AzBlobConfig.AccountKey = currentAzAccountKey
 		}
 	}
 }

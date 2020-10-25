@@ -5,6 +5,7 @@ go 1.14
 require (
 	cloud.google.com/go v0.69.1 // indirect
 	cloud.google.com/go/storage v1.12.0
+	github.com/Azure/azure-storage-blob-go v0.10.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20200802152012-2464efd3196b
 	github.com/aws/aws-sdk-go v1.35.9

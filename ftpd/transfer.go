@@ -45,38 +45,34 @@ func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, 
 // Read reads the contents to downloads.
 func (t *transfer) Read(p []byte) (n int, err error) {
 	t.Connection.UpdateLastActivity()
-	var readed int
-	var e error
 
-	readed, e = t.reader.Read(p)
-	atomic.AddInt64(&t.BytesSent, int64(readed))
+	n, err = t.reader.Read(p)
+	atomic.AddInt64(&t.BytesSent, int64(n))
 
-	if e != nil && e != io.EOF {
-		t.TransferError(e)
-		return readed, e
+	if err != nil && err != io.EOF {
+		t.TransferError(err)
+		return
 	}
 	t.HandleThrottle()
-	return readed, e
+	return
 }
 
 // Write writes the uploaded contents.
 func (t *transfer) Write(p []byte) (n int, err error) {
 	t.Connection.UpdateLastActivity()
-	var written int
-	var e error
 
-	written, e = t.writer.Write(p)
-	atomic.AddInt64(&t.BytesReceived, int64(written))
+	n, err = t.writer.Write(p)
+	atomic.AddInt64(&t.BytesReceived, int64(n))
 
-	if t.MaxWriteSize > 0 && e == nil && atomic.LoadInt64(&t.BytesReceived) > t.MaxWriteSize {
-		e = common.ErrQuotaExceeded
+	if t.MaxWriteSize > 0 && err == nil && atomic.LoadInt64(&t.BytesReceived) > t.MaxWriteSize {
+		err = common.ErrQuotaExceeded
 	}
-	if e != nil {
-		t.TransferError(e)
-		return written, e
+	if err != nil {
+		t.TransferError(err)
+		return
 	}
 	t.HandleThrottle()
-	return written, e
+	return
 }
 
 // Seek sets the offset to resume an upload or a download

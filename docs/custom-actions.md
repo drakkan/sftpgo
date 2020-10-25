@@ -23,9 +23,9 @@ The external program can also read the following environment variables:
 - `SFTPGO_ACTION_TARGET`, non-empty for `rename` `SFTPGO_ACTION`
 - `SFTPGO_ACTION_SSH_CMD`, non-empty for `ssh_cmd` `SFTPGO_ACTION`
 - `SFTPGO_ACTION_FILE_SIZE`, non-empty for `upload`, `download` and `delete` `SFTPGO_ACTION`
-- `SFTPGO_ACTION_FS_PROVIDER`, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend
-- `SFTPGO_ACTION_BUCKET`, non-empty for S3 and GCS backends
-- `SFTPGO_ACTION_ENDPOINT`, non-empty for S3 backend if configured
+- `SFTPGO_ACTION_FS_PROVIDER`, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend, `3` for Azure Blob Storage backend
+- `SFTPGO_ACTION_BUCKET`, non-empty for S3, GCS and Azure backends
+- `SFTPGO_ACTION_ENDPOINT`, non-empty for S3 and Azure backend if configured. For Azure this is the SAS URL, if configured otherwise the endpoint
 - `SFTPGO_ACTION_STATUS`, integer. 0 means a generic error occurred. 1 means no error, 2 means quota exceeded error
 - `SFTPGO_ACTION_PROTOCOL`, string. Possible values are `SSH`, `SFTP`, `SCP`, `FTP`, `DAV`
 
@@ -40,9 +40,9 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 - `target_path`, not null for `rename` action
 - `ssh_cmd`, not null for `ssh_cmd` action
 - `file_size`, not null for `upload`, `download`, `delete` actions
-- `fs_provider`, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend
-- `bucket`, not null for S3 and GCS backends
-- `endpoint`, not null for S3 backend if configured
+- `fs_provider`, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend, `3` for Azure Blob Storage backend
+- `bucket`, not null for S3, GCS and Azure backends
+- `endpoint`, not null for S3 and Azure backend if configured. For Azure this is the SAS URL, if configured otherwise the endpoint
 - `status`, integer. 0 means a generic error occurred. 1 means no error, 2 means quota exceeded error
 - `protocol`, string. Possible values are `SSH`, `FTP`, `DAV`
 

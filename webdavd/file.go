@@ -122,29 +122,27 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 			f.TransferError(common.ErrOpUnsupported)
 			return 0, common.ErrOpUnsupported
 		}
-		_, r, cancelFn, err := f.Fs.Open(f.GetFsPath(), 0)
+		_, r, cancelFn, e := f.Fs.Open(f.GetFsPath(), 0)
 		f.Lock()
 		f.reader = r
-		f.ErrTransfer = err
+		f.ErrTransfer = e
 		f.BaseTransfer.SetCancelFn(cancelFn)
 		f.startOffset = 0
 		f.Unlock()
-		if err != nil {
-			return 0, err
+		if e != nil {
+			return 0, e
 		}
 	}
-	var readed int
-	var e error
 
-	readed, e = f.reader.Read(p)
-	atomic.AddInt64(&f.BytesSent, int64(readed))
+	n, err = f.reader.Read(p)
+	atomic.AddInt64(&f.BytesSent, int64(n))
 
-	if e != nil && e != io.EOF {
-		f.TransferError(e)
-		return readed, e
+	if err != nil && err != io.EOF {
+		f.TransferError(err)
+		return
 	}
 	f.HandleThrottle()
-	return readed, e
+	return
 }
 
 // Write writes the uploaded contents.
@@ -154,21 +152,19 @@ func (f *webDavFile) Write(p []byte) (n int, err error) {
 	}
 
 	f.Connection.UpdateLastActivity()
-	var written int
-	var e error
 
-	written, e = f.writer.Write(p)
-	atomic.AddInt64(&f.BytesReceived, int64(written))
+	n, err = f.writer.Write(p)
+	atomic.AddInt64(&f.BytesReceived, int64(n))
 
-	if f.MaxWriteSize > 0 && e == nil && atomic.LoadInt64(&f.BytesReceived) > f.MaxWriteSize {
-		e = common.ErrQuotaExceeded
+	if f.MaxWriteSize > 0 && err == nil && atomic.LoadInt64(&f.BytesReceived) > f.MaxWriteSize {
+		err = common.ErrQuotaExceeded
 	}
-	if e != nil {
-		f.TransferError(e)
-		return written, e
+	if err != nil {
+		f.TransferError(err)
+		return
 	}
 	f.HandleThrottle()
-	return written, e
+	return
 }
 
 // Seek sets the offset for the next Read or Write on the writer to offset,

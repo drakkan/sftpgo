@@ -14,6 +14,7 @@ The following build tags are available:
 
 - `nogcs`, disable Google Cloud Storage backend, default enabled
 - `nos3`, disable S3 Compabible Object Storage backends, default enabled
+- `noazblob`, disable Azure Blob Storage backend, default enabled
 - `nobolt`, disable Bolt data provider, default enabled
 - `nomysql`, disable MySQL data provider, default enabled
 - `nopgsql`, disable PostgreSQL data provider, default enabled

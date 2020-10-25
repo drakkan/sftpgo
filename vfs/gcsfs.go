@@ -70,10 +70,10 @@ func NewGCSFs(connectionID, localTempDir string, config GCSFsConfig) (Fs, error)
 
 // Name returns the name for the Fs implementation
 func (fs GCSFs) Name() string {
-	return fmt.Sprintf("GCSFs bucket: %#v", fs.config.Bucket)
+	return fmt.Sprintf("GCSFs bucket %#v", fs.config.Bucket)
 }
 
-// ConnectionID returns the SSH connection ID associated to this Fs implementation
+// ConnectionID returns the connection ID associated to this Fs implementation
 func (fs GCSFs) ConnectionID() string {
 	return fs.connectionID
 }
@@ -82,7 +82,7 @@ func (fs GCSFs) ConnectionID() string {
 func (fs GCSFs) Stat(name string) (os.FileInfo, error) {
 	var result FileInfo
 	var err error
-	if len(name) == 0 || name == "." {
+	if name == "" || name == "." {
 		err := fs.checkIfBucketExists()
 		if err != nil {
 			return result, err
@@ -111,7 +111,7 @@ func (fs GCSFs) Stat(name string) (os.FileInfo, error) {
 			metrics.GCSListObjectsCompleted(err)
 			return result, err
 		}
-		if len(attrs.Prefix) > 0 {
+		if attrs.Prefix != "" {
 			if fs.isEqual(attrs.Prefix, name) {
 				result = NewFileInfo(name, true, 0, time.Now(), false)
 				break
@@ -128,7 +128,7 @@ func (fs GCSFs) Stat(name string) (os.FileInfo, error) {
 		}
 	}
 	metrics.GCSListObjectsCompleted(nil)
-	if len(result.Name()) == 0 {
+	if result.Name() == "" {
 		err = errors.New("404 no such file or directory")
 	}
 	return result, err
@@ -181,7 +181,12 @@ func (fs GCSFs) Create(name string, flag int) (*os.File, *PipeWriter, func(), er
 	obj := bkt.Object(name)
 	ctx, cancelFn := context.WithCancel(context.Background())
 	objectWriter := obj.NewWriter(ctx)
-	contentType := mime.TypeByExtension(path.Ext(name))
+	var contentType string
+	if flag == -1 {
+		contentType = dirMimeType
+	} else {
+		contentType = mime.TypeByExtension(path.Ext(name))
+	}
 	if contentType != "" {
 		objectWriter.ObjectAttrs.ContentType = contentType
 	}
@@ -274,7 +279,7 @@ func (fs GCSFs) Mkdir(name string) error {
 	if !strings.HasSuffix(name, "/") {
 		name += "/"
 	}
-	_, w, _, err := fs.Create(name, 0)
+	_, w, _, err := fs.Create(name, -1)
 	if err != nil {
 		return err
 	}
@@ -322,7 +327,7 @@ func (fs GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	var result []os.FileInfo
 	// dirname must be already cleaned
 	prefix := ""
-	if len(dirname) > 0 && dirname != "." {
+	if dirname != "" && dirname != "." {
 		prefix = strings.TrimPrefix(dirname, "/")
 		if !strings.HasSuffix(prefix, "/") {
 			prefix += "/"
@@ -346,7 +351,7 @@ func (fs GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 			metrics.GCSListObjectsCompleted(err)
 			return result, err
 		}
-		if len(attrs.Prefix) > 0 {
+		if attrs.Prefix != "" {
 			name, _ := fs.resolve(attrs.Prefix, prefix)
 			result = append(result, NewFileInfo(name, true, 0, time.Now(), false))
 		} else {
@@ -442,6 +447,10 @@ func (fs GCSFs) ScanRootDirContents() (int, int64, error) {
 		if !attrs.Deleted.IsZero() {
 			continue
 		}
+		isDir := strings.HasSuffix(attrs.Name, "/")
+		if isDir && attrs.Size == 0 {
+			continue
+		}
 		numFiles++
 		size += attrs.Size
 	}
@@ -456,13 +465,13 @@ func (GCSFs) GetDirSize(dirname string) (int, int64, error) {
 }
 
 // GetAtomicUploadPath returns the path to use for an atomic upload.
-// S3 uploads are already atomic, we never call this method for S3
+// GCS uploads are already atomic, we never call this method for GCS
 func (GCSFs) GetAtomicUploadPath(name string) string {
 	return ""
 }
 
 // GetRelativePath returns the path for a file relative to the user's home dir.
-// This is the path as seen by SFTP users
+// This is the path as seen by SFTPGo users
 func (fs GCSFs) GetRelativePath(name string) string {
 	rel := path.Clean(name)
 	if rel == "." {
@@ -484,7 +493,7 @@ func (fs GCSFs) GetRelativePath(name string) string {
 // directory in the tree, including root
 func (fs GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
 	prefix := ""
-	if len(root) > 0 && root != "." {
+	if root != "" && root != "." {
 		prefix = strings.TrimPrefix(root, "/")
 		if !strings.HasSuffix(prefix, "/") {
 			prefix += "/"
@@ -522,7 +531,7 @@ func (fs GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
 		}
 		err = walkFn(attrs.Name, NewFileInfo(name, isDir, attrs.Size, attrs.Updated, false), nil)
 		if err != nil {
-			break
+			return err
 		}
 	}
 
@@ -541,12 +550,12 @@ func (GCSFs) HasVirtualFolders() bool {
 	return true
 }
 
-// ResolvePath returns the matching filesystem path for the specified sftp path
-func (fs GCSFs) ResolvePath(sftpPath string) (string, error) {
-	if !path.IsAbs(sftpPath) {
-		sftpPath = path.Clean("/" + sftpPath)
+// ResolvePath returns the matching filesystem path for the specified virtual path
+func (fs GCSFs) ResolvePath(virtualPath string) (string, error) {
+	if !path.IsAbs(virtualPath) {
+		virtualPath = path.Clean("/" + virtualPath)
 	}
-	return fs.Join(fs.config.KeyPrefix, strings.TrimPrefix(sftpPath, "/")), nil
+	return fs.Join(fs.config.KeyPrefix, strings.TrimPrefix(virtualPath, "/")), nil
 }
 
 func (fs *GCSFs) resolve(name string, prefix string) (string, bool) {
@@ -558,14 +567,14 @@ func (fs *GCSFs) resolve(name string, prefix string) (string, bool) {
 	return result, isDir
 }
 
-func (fs *GCSFs) isEqual(key string, sftpName string) bool {
-	if key == sftpName {
+func (fs *GCSFs) isEqual(key string, virtualName string) bool {
+	if key == virtualName {
 		return true
 	}
-	if key == sftpName+"/" {
+	if key == virtualName+"/" {
 		return true
 	}
-	if key+"/" == sftpName {
+	if key+"/" == virtualName {
 		return true
 	}
 	return false
@@ -582,7 +591,7 @@ func (fs *GCSFs) checkIfBucketExists() error {
 
 func (fs *GCSFs) getPrefixForStat(name string) string {
 	prefix := path.Dir(name)
-	if prefix == "/" || prefix == "." || len(prefix) == 0 {
+	if prefix == "/" || prefix == "." || prefix == "" {
 		prefix = ""
 	} else {
 		prefix = strings.TrimPrefix(prefix, "/")

@@ -4,6 +4,7 @@ package vfs
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -15,6 +16,8 @@ import (
 
 	"github.com/drakkan/sftpgo/logger"
 )
+
+const dirMimeType = "inode/directory"
 
 // Fs defines the interface for filesystem backends
 type Fs interface {
@@ -126,6 +129,41 @@ type GCSFsConfig struct {
 	StorageClass         string `json:"storage_class,omitempty"`
 }
 
+// AzBlobFsConfig defines the configuration for Azure Blob Storage based filesystem
+type AzBlobFsConfig struct {
+	Container string `json:"container,omitempty"`
+	// Storage Account Name, leave blank to use SAS URL
+	AccountName string `json:"account_name,omitempty"`
+	// Storage Account Key leave blank to use SAS URL.
+	// The access key is stored encrypted (AES-256-GCM)
+	AccountKey string `json:"account_key,omitempty"`
+	// Optional endpoint. Default is "blob.core.windows.net".
+	// If you use the emulator the endpoint must include the protocol,
+	// for example "http://127.0.0.1:10000"
+	Endpoint string `json:"endpoint,omitempty"`
+	// Shared access signature URL, leave blank if using account/key
+	SASURL string `json:"sas_url,omitempty"`
+	// KeyPrefix is similar to a chroot directory for local filesystem.
+	// If specified then the SFTPGo userd will only see objects that starts
+	// with this prefix and so you can restrict access to a specific
+	// folder. The prefix, if not empty, must not start with "/" and must
+	// end with "/".
+	// If empty the whole bucket contents will be available
+	KeyPrefix string `json:"key_prefix,omitempty"`
+	// The buffer size (in MB) to use for multipart uploads.
+	// If this value is set to zero, the default value (1MB) for the Azure SDK will be used.
+	// Please note that if the upload bandwidth between the SFTPGo client and SFTPGo server is
+	// greater than the upload bandwidth between SFTPGo and Azure then the SFTP client have
+	// to wait for the upload of the last parts to Azure after it ends the file upload to SFTPGo,
+	// and it may time out.
+	// Keep this in mind if you customize these parameters.
+	UploadPartSize int64 `json:"upload_part_size,omitempty"`
+	// How many parts are uploaded in parallel
+	UploadConcurrency int `json:"upload_concurrency,omitempty"`
+	// Set to true if you use an Azure emulator such as Azurite
+	UseEmulator bool `json:"use_emulator,omitempty"`
+}
+
 // PipeWriter defines a wrapper for pipeat.PipeWriterAt.
 type PipeWriter struct {
 	writer *pipeat.PipeWriterAt
@@ -194,7 +232,7 @@ func ValidateS3FsConfig(config *S3FsConfig) error {
 	if len(config.AccessSecret) == 0 && len(config.AccessKey) > 0 {
 		return errors.New("access_secret cannot be empty with access_key not empty")
 	}
-	if len(config.KeyPrefix) > 0 {
+	if config.KeyPrefix != "" {
 		if strings.HasPrefix(config.KeyPrefix, "/") {
 			return errors.New("key_prefix cannot start with /")
 		}
@@ -214,10 +252,10 @@ func ValidateS3FsConfig(config *S3FsConfig) error {
 
 // ValidateGCSFsConfig returns nil if the specified GCS config is valid, otherwise an error
 func ValidateGCSFsConfig(config *GCSFsConfig, credentialsFilePath string) error {
-	if len(config.Bucket) == 0 {
+	if config.Bucket == "" {
 		return errors.New("bucket cannot be empty")
 	}
-	if len(config.KeyPrefix) > 0 {
+	if config.KeyPrefix != "" {
 		if strings.HasPrefix(config.KeyPrefix, "/") {
 			return errors.New("key_prefix cannot start with /")
 		}
@@ -234,6 +272,36 @@ func ValidateGCSFsConfig(config *GCSFsConfig, credentialsFilePath string) error 
 		if fi.Size() == 0 {
 			return errors.New("credentials cannot be empty")
 		}
+	}
+	return nil
+}
+
+// ValidateAzBlobFsConfig returns nil if the specified Azure Blob config is valid, otherwise an error
+func ValidateAzBlobFsConfig(config *AzBlobFsConfig) error {
+	if config.SASURL != "" {
+		_, err := url.Parse(config.SASURL)
+		return err
+	}
+	if config.Container == "" {
+		return errors.New("container cannot be empty")
+	}
+	if config.AccountName == "" || config.AccountKey == "" {
+		return errors.New("credentials cannot be empty")
+	}
+	if config.KeyPrefix != "" {
+		if strings.HasPrefix(config.KeyPrefix, "/") {
+			return errors.New("key_prefix cannot start with /")
+		}
+		config.KeyPrefix = path.Clean(config.KeyPrefix)
+		if !strings.HasSuffix(config.KeyPrefix, "/") {
+			config.KeyPrefix += "/"
+		}
+	}
+	if config.UploadPartSize < 0 {
+		return fmt.Errorf("invalid upload part size: %v", config.UploadPartSize)
+	}
+	if config.UploadConcurrency < 0 {
+		return fmt.Errorf("invalid upload concurrency: %v", config.UploadConcurrency)
 	}
 	return nil
 }

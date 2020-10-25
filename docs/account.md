@@ -45,7 +45,7 @@ For each account, the following properties can be configured:
   - `allowed_extensions`, list of, case insensitive, allowed files extension. Shell like expansion is not supported so you have to specify `.jpg` and not `*.jpg`. Any file that does not end with this suffix will be denied
   - `denied_extensions`, list of, case insensitive, denied files extension. Denied file extensions are evaluated before the allowed ones
   - `path`, SFTP/SCP path, if no other specific filter is defined, the filter apply for sub directories too. For example if filters are defined for the paths `/` and `/sub` then the filters for `/` are applied for any file outside the `/sub` directory
-- `fs_provider`, filesystem to serve via SFTP. Local filesystem and S3 Compatible Object Storage are supported
+- `fs_provider`, filesystem to serve via SFTP. Local filesystem, S3 Compatible Object Storage, Google Cloud Storage and Azure Blob Storage are supported
 - `s3_bucket`, required for S3 filesystem
 - `s3_region`, required for S3 filesystem. Must match the region for your bucket. You can find here the list of available [AWS regions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions). For example if your bucket is at `Frankfurt` you have to set the region to `eu-central-1`
 - `s3_access_key`
@@ -60,6 +60,15 @@ For each account, the following properties can be configured:
 - `gcs_automatic_credentials`, integer. Set to 1 to use Application Default Credentials strategy or set to 0 to use explicit credentials via `gcs_credentials`
 - `gcs_storage_class`
 - `gcs_key_prefix`, allows to restrict access to the folder identified by this prefix and its contents
+- `az_container`, Azure Blob Storage container
+- `az_account_name`, Azure account name. leave blank to use SAS URL
+- `az_account_key`, Azure account key. leave blank to use SAS URL. If provided it is stored encrypted (AES-256-GCM)
+- `az_sas_url`, Azure shared access signature URL
+- `az_endpoint`, Default is "blob.core.windows.net". If you use the emulator the endpoint must include the protocol, for example "http://127.0.0.1:10000"
+- `az_upload_part_size`, the buffer size for multipart uploads (MB). Zero means the default (4 MB)
+- `az_upload_concurrency`,  how many parts are uploaded in parallel. Zero means the default (2)
+- `az_key_prefix`,  allows to restrict access to the folder identified by this prefix and its contents
+- `az_use_emulator`, boolean
 
 These properties are stored inside the data provider.
 

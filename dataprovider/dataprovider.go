@@ -995,7 +995,7 @@ func validateFilesystemConfig(user *User) error {
 		if err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not validate s3config: %v", err)}
 		}
-		if len(user.FsConfig.S3Config.AccessSecret) > 0 {
+		if user.FsConfig.S3Config.AccessSecret != "" {
 			vals := strings.Split(user.FsConfig.S3Config.AccessSecret, "$")
 			if !strings.HasPrefix(user.FsConfig.S3Config.AccessSecret, "$aes$") || len(vals) != 4 {
 				accessSecret, err := utils.EncryptData(user.FsConfig.S3Config.AccessSecret)
@@ -1012,10 +1012,27 @@ func validateFilesystemConfig(user *User) error {
 			return &ValidationError{err: fmt.Sprintf("could not validate GCS config: %v", err)}
 		}
 		return nil
+	} else if user.FsConfig.Provider == AzureBlobFilesystemProvider {
+		err := vfs.ValidateAzBlobFsConfig(&user.FsConfig.AzBlobConfig)
+		if err != nil {
+			return &ValidationError{err: fmt.Sprintf("could not validate Azure Blob config: %v", err)}
+		}
+		if user.FsConfig.AzBlobConfig.AccountKey != "" {
+			vals := strings.Split(user.FsConfig.AzBlobConfig.AccountKey, "$")
+			if !strings.HasPrefix(user.FsConfig.AzBlobConfig.AccountKey, "$aes$") || len(vals) != 4 {
+				accountKey, err := utils.EncryptData(user.FsConfig.AzBlobConfig.AccountKey)
+				if err != nil {
+					return &ValidationError{err: fmt.Sprintf("could not encrypt Azure blob account key: %v", err)}
+				}
+				user.FsConfig.AzBlobConfig.AccountKey = accountKey
+			}
+		}
+		return nil
 	}
 	user.FsConfig.Provider = LocalFilesystemProvider
 	user.FsConfig.S3Config = vfs.S3FsConfig{}
 	user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
+	user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
 	return nil
 }
 
@@ -1248,6 +1265,8 @@ func HideUserSensitiveData(user *User) User {
 		user.FsConfig.S3Config.AccessSecret = utils.RemoveDecryptionKey(user.FsConfig.S3Config.AccessSecret)
 	} else if user.FsConfig.Provider == GCSFilesystemProvider {
 		user.FsConfig.GCSConfig.Credentials = nil
+	} else if user.FsConfig.Provider == AzureBlobFilesystemProvider {
+		user.FsConfig.AzBlobConfig.AccountKey = utils.RemoveDecryptionKey(user.FsConfig.AzBlobConfig.AccountKey)
 	}
 	return *user
 }

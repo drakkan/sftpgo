@@ -7,7 +7,7 @@
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
 Fully featured and highly configurable SFTP server with optional FTP/S and WebDAV support, written in Go.
-It can serve local filesystem, S3 or Google Cloud Storage.
+It can serve local filesystem, S3 (compatible) Object Storage, Google Cloud Storage and Azure Blob Storage.
 
 ## Features
 
@@ -172,6 +172,10 @@ Each user can be mapped to the whole bucket or to a bucket virtual folder. This 
 ### Google Cloud Storage backend
 
 Each user can be mapped with a Google Cloud Storage bucket or a bucket virtual folder. This way, the mapped bucket/virtual folder is exposed over SFTP/SCP/FTP/WebDAV. More information about Google Cloud Storage integration can be found [here](./docs/google-cloud-storage.md).
+
+### Azure Blob Storage backend
+
+Each user can be mapped with an Azure Blob Storage container or a container virtual folder. This way, the mapped container/virtual folder is exposed over SFTP/SCP/FTP/WebDAV. More information about Azure Blob Storage integration can be found [here](./docs/azure-blob-storage.md).
 
 ### Other Storage backends
 

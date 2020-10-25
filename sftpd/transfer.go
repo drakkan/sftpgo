@@ -82,20 +82,18 @@ func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, 
 // It handles download bandwidth throttling too
 func (t *transfer) ReadAt(p []byte, off int64) (n int, err error) {
 	t.Connection.UpdateLastActivity()
-	var readed int
-	var e error
 
-	readed, e = t.readerAt.ReadAt(p, off)
-	atomic.AddInt64(&t.BytesSent, int64(readed))
+	n, err = t.readerAt.ReadAt(p, off)
+	atomic.AddInt64(&t.BytesSent, int64(n))
 
-	if e != nil && e != io.EOF {
+	if err != nil && err != io.EOF {
 		if t.GetType() == common.TransferDownload {
-			t.TransferError(e)
+			t.TransferError(err)
 		}
-		return readed, e
+		return
 	}
 	t.HandleThrottle()
-	return readed, e
+	return
 }
 
 // WriteAt writes len(p) bytes to the uploaded file starting at byte offset off and updates the bytes received.
@@ -107,21 +105,19 @@ func (t *transfer) WriteAt(p []byte, off int64) (n int, err error) {
 		t.TransferError(err)
 		return 0, err
 	}
-	var written int
-	var e error
 
-	written, e = t.writerAt.WriteAt(p, off)
-	atomic.AddInt64(&t.BytesReceived, int64(written))
+	n, err = t.writerAt.WriteAt(p, off)
+	atomic.AddInt64(&t.BytesReceived, int64(n))
 
-	if t.MaxWriteSize > 0 && e == nil && atomic.LoadInt64(&t.BytesReceived) > t.MaxWriteSize {
-		e = common.ErrQuotaExceeded
+	if t.MaxWriteSize > 0 && err == nil && atomic.LoadInt64(&t.BytesReceived) > t.MaxWriteSize {
+		err = common.ErrQuotaExceeded
 	}
-	if e != nil {
-		t.TransferError(e)
-		return written, e
+	if err != nil {
+		t.TransferError(err)
+		return
 	}
 	t.HandleThrottle()
-	return written, e
+	return
 }
 
 // Close it is called when the transfer is completed.

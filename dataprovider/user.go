@@ -124,16 +124,18 @@ type FilesystemProvider int
 
 // supported values for FilesystemProvider
 const (
-	LocalFilesystemProvider FilesystemProvider = iota // Local
-	S3FilesystemProvider                              // Amazon S3 compatible
-	GCSFilesystemProvider                             // Google Cloud Storage
+	LocalFilesystemProvider     FilesystemProvider = iota // Local
+	S3FilesystemProvider                                  // Amazon S3 compatible
+	GCSFilesystemProvider                                 // Google Cloud Storage
+	AzureBlobFilesystemProvider                           // Azure Blob Storage
 )
 
 // Filesystem defines cloud storage filesystem details
 type Filesystem struct {
-	Provider  FilesystemProvider `json:"provider"`
-	S3Config  vfs.S3FsConfig     `json:"s3config,omitempty"`
-	GCSConfig vfs.GCSFsConfig    `json:"gcsconfig,omitempty"`
+	Provider     FilesystemProvider `json:"provider"`
+	S3Config     vfs.S3FsConfig     `json:"s3config,omitempty"`
+	GCSConfig    vfs.GCSFsConfig    `json:"gcsconfig,omitempty"`
+	AzBlobConfig vfs.AzBlobFsConfig `json:"azblobconfig,omitempty"`
 }
 
 // User defines a SFTPGo user
@@ -196,6 +198,8 @@ func (u *User) GetFilesystem(connectionID string) (vfs.Fs, error) {
 		config := u.FsConfig.GCSConfig
 		config.CredentialFile = u.getGCSCredentialsFilePath()
 		return vfs.NewGCSFs(connectionID, u.GetHomeDir(), config)
+	} else if u.FsConfig.Provider == AzureBlobFilesystemProvider {
+		return vfs.NewAzBlobFs(connectionID, u.GetHomeDir(), u.FsConfig.AzBlobConfig)
 	}
 	return vfs.NewOsFs(connectionID, u.GetHomeDir(), u.VirtualFolders), nil
 }
@@ -626,6 +630,8 @@ func (u *User) GetInfoString() string {
 		result += "Storage: S3 "
 	} else if u.FsConfig.Provider == GCSFilesystemProvider {
 		result += "Storage: GCS "
+	} else if u.FsConfig.Provider == AzureBlobFilesystemProvider {
+		result += "Storage: Azure "
 	}
 	if len(u.PublicKeys) > 0 {
 		result += fmt.Sprintf("Public keys: %v ", len(u.PublicKeys))
@@ -724,6 +730,17 @@ func (u *User) getACopy() User {
 			AutomaticCredentials: u.FsConfig.GCSConfig.AutomaticCredentials,
 			StorageClass:         u.FsConfig.GCSConfig.StorageClass,
 			KeyPrefix:            u.FsConfig.GCSConfig.KeyPrefix,
+		},
+		AzBlobConfig: vfs.AzBlobFsConfig{
+			Container:         u.FsConfig.AzBlobConfig.Container,
+			AccountName:       u.FsConfig.AzBlobConfig.AccountName,
+			AccountKey:        u.FsConfig.AzBlobConfig.AccountKey,
+			Endpoint:          u.FsConfig.AzBlobConfig.Endpoint,
+			SASURL:            u.FsConfig.AzBlobConfig.SASURL,
+			KeyPrefix:         u.FsConfig.AzBlobConfig.KeyPrefix,
+			UploadPartSize:    u.FsConfig.AzBlobConfig.UploadPartSize,
+			UploadConcurrency: u.FsConfig.AzBlobConfig.UploadConcurrency,
+			UseEmulator:       u.FsConfig.AzBlobConfig.UseEmulator,
 		},
 	}
 

@@ -353,6 +353,47 @@ func TestCompareUserGCSConfig(t *testing.T) {
 	expected.FsConfig.GCSConfig.AutomaticCredentials = 0
 }
 
+func TestCompareUserAzureConfig(t *testing.T) {
+	expected := &dataprovider.User{}
+	actual := &dataprovider.User{}
+	expected.FsConfig.AzBlobConfig.Container = "a"
+	err := compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	expected.FsConfig.AzBlobConfig.Container = ""
+	expected.FsConfig.AzBlobConfig.AccountName = "aname"
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	expected.FsConfig.AzBlobConfig.AccountName = ""
+	expected.FsConfig.AzBlobConfig.AccountKey = "akey"
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	expected.FsConfig.AzBlobConfig.AccountKey = ""
+	expected.FsConfig.AzBlobConfig.Endpoint = "endpt"
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	expected.FsConfig.AzBlobConfig.Endpoint = ""
+	expected.FsConfig.AzBlobConfig.SASURL = "url"
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	expected.FsConfig.AzBlobConfig.SASURL = ""
+	expected.FsConfig.AzBlobConfig.UploadPartSize = 1
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	expected.FsConfig.AzBlobConfig.UploadPartSize = 0
+	expected.FsConfig.AzBlobConfig.UploadConcurrency = 1
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	expected.FsConfig.AzBlobConfig.UploadConcurrency = 0
+	expected.FsConfig.AzBlobConfig.KeyPrefix = "prefix/"
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	expected.FsConfig.AzBlobConfig.KeyPrefix = ""
+	expected.FsConfig.AzBlobConfig.UseEmulator = true
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	expected.FsConfig.AzBlobConfig.UseEmulator = false
+}
+
 func TestGCSWebInvalidFormFile(t *testing.T) {
 	form := make(url.Values)
 	form.Set("username", "test_username")
