@@ -824,6 +824,11 @@ func TestUploadMaxSize(t *testing.T) {
 		assert.Error(t, err)
 		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
 		assert.NoError(t, err)
+		// now test overwrite an existing file with a size bigger than the allowed one
+		err = createTestFile(filepath.Join(user.GetHomeDir(), testFileName1), testFileSize1)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath1, testFileName1, testFileSize1, client, 0)
+		assert.Error(t, err)
 		err = client.Quit()
 		assert.NoError(t, err)
 	}

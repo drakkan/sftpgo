@@ -391,9 +391,6 @@ func (c *Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, r
 		} else {
 			initialSize = fileSize
 		}
-		if maxWriteSize > 0 && isTruncate {
-			maxWriteSize += fileSize
-		}
 	}
 
 	vfs.SetPathPermissions(c.Fs, filePath, c.User.GetUID(), c.User.GetGID())
