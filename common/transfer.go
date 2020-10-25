@@ -227,7 +227,7 @@ func (t *BaseTransfer) Close() error {
 		if err == nil {
 			fileSize = info.Size()
 		}
-		t.Connection.Log(logger.LevelDebug, "upload file size %v stat error %v", fileSize, err)
+		t.Connection.Log(logger.LevelDebug, "uploaded file size %v stat error: %v", fileSize, err)
 		t.updateQuota(numFiles, fileSize)
 		logger.TransferLog(uploadLogSender, t.fsPath, elapsed, atomic.LoadInt64(&t.BytesReceived), t.Connection.User.Username,
 			t.Connection.ID, t.Connection.protocol)

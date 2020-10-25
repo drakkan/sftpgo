@@ -244,7 +244,7 @@ func ValidateS3FsConfig(config *S3FsConfig) error {
 	if config.UploadPartSize != 0 && (config.UploadPartSize < 5 || config.UploadPartSize > 5000) {
 		return errors.New("upload_part_size cannot be != 0, lower than 5 (MB) or greater than 5000 (MB)")
 	}
-	if config.UploadConcurrency < 0 {
+	if config.UploadConcurrency < 0 || config.UploadConcurrency > 64 {
 		return fmt.Errorf("invalid upload concurrency: %v", config.UploadConcurrency)
 	}
 	return nil
@@ -300,7 +300,7 @@ func ValidateAzBlobFsConfig(config *AzBlobFsConfig) error {
 	if config.UploadPartSize < 0 || config.UploadPartSize > 100 {
 		return fmt.Errorf("invalid upload part size: %v", config.UploadPartSize)
 	}
-	if config.UploadConcurrency < 0 {
+	if config.UploadConcurrency < 0 || config.UploadConcurrency > 64 {
 		return fmt.Errorf("invalid upload concurrency: %v", config.UploadConcurrency)
 	}
 	return nil
