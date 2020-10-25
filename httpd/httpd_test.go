@@ -409,6 +409,9 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.S3Config.UploadPartSize = 3
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
+	u.FsConfig.S3Config.UploadPartSize = 5001
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
 	u.FsConfig.S3Config.UploadPartSize = 0
 	u.FsConfig.S3Config.UploadConcurrency = -1
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
@@ -448,6 +451,13 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	assert.NoError(t, err)
 	u.FsConfig.AzBlobConfig.AccountKey = "key"
 	u.FsConfig.AzBlobConfig.KeyPrefix = "/amedir/subdir/"
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.FsConfig.AzBlobConfig.KeyPrefix = "amedir/subdir/"
+	u.FsConfig.AzBlobConfig.UploadPartSize = -1
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.FsConfig.AzBlobConfig.UploadPartSize = 101
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 }
