@@ -306,6 +306,18 @@ var (
 		Help: "The total number of S3 delete object errors",
 	})
 
+	// totalS3HeadObject is the metric that reports the total successful S3 head object requests
+	totalS3HeadObject = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_s3_head_object",
+		Help: "The total number of successful S3 head object requests",
+	})
+
+	// totalS3HeadObjectErrors is the metric that reports the total S3 head object errors
+	totalS3HeadObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_s3_head_object_errors",
+		Help: "The total number of S3 head object errors",
+	})
+
 	// totalS3HeadBucket is the metric that reports the total successful S3 head bucket requests
 	totalS3HeadBucket = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_s3_head_bucket",
@@ -354,7 +366,7 @@ var (
 		Help: "The total GCS download size as bytes, partial downloads are included",
 	})
 
-	// totalS3ListObjects is the metric that reports the total successful GCS list objects requests
+	// totalGCSListObjects is the metric that reports the total successful GCS list objects requests
 	totalGCSListObjects = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_list_objects",
 		Help: "The total number of successful GCS list objects requests",
@@ -366,7 +378,7 @@ var (
 		Help: "The total number of successful GCS copy object requests",
 	})
 
-	// totalGCSDeleteObject is the metric that reports the total successful S3 delete object requests
+	// totalGCSDeleteObject is the metric that reports the total successful GCS delete object requests
 	totalGCSDeleteObject = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_delete_object",
 		Help: "The total number of successful GCS delete object requests",
@@ -390,6 +402,18 @@ var (
 		Help: "The total number of GCS delete object errors",
 	})
 
+	// totalGCSHeadObject is the metric that reports the total successful GCS head object requests
+	totalGCSHeadObject = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_gcs_head_object",
+		Help: "The total number of successful GCS head object requests",
+	})
+
+	// totalGCSHeadObjectErrors is the metric that reports the total GCS head object errors
+	totalGCSHeadObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_gcs_head_object_errors",
+		Help: "The total number of GCS head object errors",
+	})
+
 	// totalGCSHeadBucket is the metric that reports the total successful GCS head bucket requests
 	totalGCSHeadBucket = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_head_bucket",
@@ -400,6 +424,102 @@ var (
 	totalGCSHeadBucketErrors = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_head_bucket_errors",
 		Help: "The total number of GCS head bucket errors",
+	})
+
+	// totalAZUploads is the metric that reports the total number of successful Azure uploads
+	totalAZUploads = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_az_uploads_total",
+		Help: "The total number of successful Azure uploads",
+	})
+
+	// totalAZDownloads is the metric that reports the total number of successful Azure downloads
+	totalAZDownloads = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_az_downloads_total",
+		Help: "The total number of successful Azure downloads",
+	})
+
+	// totalAZUploadErrors is the metric that reports the total number of Azure upload errors
+	totalAZUploadErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_az_upload_errors_total",
+		Help: "The total number of Azure upload errors",
+	})
+
+	// totalAZDownloadErrors is the metric that reports the total number of Azure download errors
+	totalAZDownloadErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_az_download_errors_total",
+		Help: "The total number of Azure download errors",
+	})
+
+	// totalAZUploadSize is the metric that reports the total Azure uploads size as bytes
+	totalAZUploadSize = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_az_upload_size",
+		Help: "The total Azure upload size as bytes, partial uploads are included",
+	})
+
+	// totalAZDownloadSize is the metric that reports the total Azure downloads size as bytes
+	totalAZDownloadSize = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_az_download_size",
+		Help: "The total Azure download size as bytes, partial downloads are included",
+	})
+
+	// totalAZListObjects is the metric that reports the total successful Azure list objects requests
+	totalAZListObjects = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_az_list_objects",
+		Help: "The total number of successful Azure list objects requests",
+	})
+
+	// totalAZCopyObject is the metric that reports the total successful Azure copy object requests
+	totalAZCopyObject = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_az_copy_object",
+		Help: "The total number of successful Azure copy object requests",
+	})
+
+	// totalAZDeleteObject is the metric that reports the total successful Azure delete object requests
+	totalAZDeleteObject = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_az_delete_object",
+		Help: "The total number of successful Azure delete object requests",
+	})
+
+	// totalAZListObjectsError is the metric that reports the total Azure list objects errors
+	totalAZListObjectsErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_az_list_objects_errors",
+		Help: "The total number of Azure list objects errors",
+	})
+
+	// totalAZCopyObjectErrors is the metric that reports the total Azure copy object errors
+	totalAZCopyObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_az_copy_object_errors",
+		Help: "The total number of Azure copy object errors",
+	})
+
+	// totalAZDeleteObjectErrors is the metric that reports the total Azure delete object errors
+	totalAZDeleteObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_az_delete_object_errors",
+		Help: "The total number of Azure delete object errors",
+	})
+
+	// totalAZHeadObject is the metric that reports the total successful Azure head object requests
+	totalAZHeadObject = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_az_head_object",
+		Help: "The total number of successful Azure head object requests",
+	})
+
+	// totalAZHeadObjectErrors is the metric that reports the total Azure head object errors
+	totalAZHeadObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_az_head_object_errors",
+		Help: "The total number of Azure head object errors",
+	})
+
+	// totalAZHeadContainer is the metric that reports the total successful Azure head container requests
+	totalAZHeadContainer = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_az_head_container",
+		Help: "The total number of successful Azure head container requests",
+	})
+
+	// totalAZHeadContainerErrors is the metric that reports the total Azure head container errors
+	totalAZHeadContainerErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_az_head_container_errors",
+		Help: "The total number of Azure head container errors",
 	})
 )
 
@@ -477,7 +597,16 @@ func S3DeleteObjectCompleted(err error) {
 	}
 }
 
-// S3HeadBucketCompleted updates metrics after an S3 head bucket request terminates
+// S3HeadObjectCompleted updates metrics after a S3 head object request terminates
+func S3HeadObjectCompleted(err error) {
+	if err == nil {
+		totalS3HeadObject.Inc()
+	} else {
+		totalS3HeadObjectErrors.Inc()
+	}
+}
+
+// S3HeadBucketCompleted updates metrics after a S3 head bucket request terminates
 func S3HeadBucketCompleted(err error) {
 	if err == nil {
 		totalS3HeadBucket.Inc()
@@ -534,12 +663,87 @@ func GCSDeleteObjectCompleted(err error) {
 	}
 }
 
+// GCSHeadObjectCompleted updates metrics after a GCS head object request terminates
+func GCSHeadObjectCompleted(err error) {
+	if err == nil {
+		totalGCSHeadObject.Inc()
+	} else {
+		totalGCSHeadObjectErrors.Inc()
+	}
+}
+
 // GCSHeadBucketCompleted updates metrics after a GCS head bucket request terminates
 func GCSHeadBucketCompleted(err error) {
 	if err == nil {
 		totalGCSHeadBucket.Inc()
 	} else {
 		totalGCSHeadBucketErrors.Inc()
+	}
+}
+
+// AZTransferCompleted updates metrics after a Azure upload or a download
+func AZTransferCompleted(bytes int64, transferKind int, err error) {
+	if transferKind == 0 {
+		// upload
+		if err == nil {
+			totalAZUploads.Inc()
+		} else {
+			totalAZUploadErrors.Inc()
+		}
+		totalAZUploadSize.Add(float64(bytes))
+	} else {
+		// download
+		if err == nil {
+			totalAZDownloads.Inc()
+		} else {
+			totalAZDownloadErrors.Inc()
+		}
+		totalAZDownloadSize.Add(float64(bytes))
+	}
+}
+
+// AZListObjectsCompleted updates metrics after a Azure list objects request terminates
+func AZListObjectsCompleted(err error) {
+	if err == nil {
+		totalAZListObjects.Inc()
+	} else {
+		totalAZListObjectsErrors.Inc()
+	}
+}
+
+// AZCopyObjectCompleted updates metrics after a Azure copy object request terminates
+func AZCopyObjectCompleted(err error) {
+	if err == nil {
+		totalAZCopyObject.Inc()
+	} else {
+		totalAZCopyObjectErrors.Inc()
+	}
+}
+
+// AZDeleteObjectCompleted updates metrics after a Azure delete object request terminates
+func AZDeleteObjectCompleted(err error) {
+	if err == nil {
+		totalAZDeleteObject.Inc()
+	} else {
+		totalAZDeleteObjectErrors.Inc()
+	}
+}
+
+// AZHeadObjectCompleted updates metrics after a Azure head object request terminates
+func AZHeadObjectCompleted(err error) {
+	if err == nil {
+		totalAZHeadObject.Inc()
+	} else {
+		totalAZHeadObjectErrors.Inc()
+	}
+}
+
+// AZHeadContainerCompleted updates metrics after a Azure head container request terminates
+func AZHeadContainerCompleted(err error) {
+	if err == nil {
+		totalAZHeadContainer.Inc()
+	} else {
+		totalAZHeadContainerErrors.Inc()
 	}
 }
 

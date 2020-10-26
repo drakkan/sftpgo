@@ -125,7 +125,7 @@ type FilesystemProvider int
 // supported values for FilesystemProvider
 const (
 	LocalFilesystemProvider     FilesystemProvider = iota // Local
-	S3FilesystemProvider                                  // Amazon S3 compatible
+	S3FilesystemProvider                                  // AWS S3 compatible
 	GCSFilesystemProvider                                 // Google Cloud Storage
 	AzureBlobFilesystemProvider                           // Azure Blob Storage
 )

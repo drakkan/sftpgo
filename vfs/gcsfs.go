@@ -610,6 +610,7 @@ func (fs GCSFs) GetMimeType(name string) (string, error) {
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	obj := bkt.Object(name)
 	attrs, err := obj.Attrs(ctx)
+	metrics.GCSHeadObjectCompleted(err)
 	if err != nil {
 		return "", err
 	}

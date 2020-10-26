@@ -27,7 +27,7 @@ import (
 	"github.com/drakkan/sftpgo/version"
 )
 
-// S3Fs is a Fs implementation for Amazon S3 compatible object storage.
+// S3Fs is a Fs implementation for AWS S3 compatible object storages
 type S3Fs struct {
 	connectionID   string
 	localTempDir   string
@@ -598,6 +598,7 @@ func (fs S3Fs) GetMimeType(name string) (string, error) {
 		Bucket: aws.String(fs.config.Bucket),
 		Key:    aws.String(name),
 	})
+	metrics.S3HeadObjectCompleted(err)
 	if err != nil {
 		return "", err
 	}

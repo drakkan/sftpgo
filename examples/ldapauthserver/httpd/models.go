@@ -51,7 +51,7 @@ type GCSFsConfig struct {
 
 // SFTPGoFilesystem defines cloud storage filesystem details
 type SFTPGoFilesystem struct {
-	// 0 local filesystem, 1 Amazon S3 compatible, 2 Google Cloud Storage
+	// 0 local filesystem, 1 AWS S3 compatible, 2 Google Cloud Storage
 	Provider  int         `json:"provider"`
 	S3Config  S3FsConfig  `json:"s3config,omitempty"`
 	GCSConfig GCSFsConfig `json:"gcsconfig,omitempty"`

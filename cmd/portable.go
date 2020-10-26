@@ -234,7 +234,7 @@ advertised via multicast DNS, this
 flag allows to put username/password
 inside the advertised TXT record`)
 	portableCmd.Flags().IntVarP(&portableFsProvider, "fs-provider", "f", int(dataprovider.LocalFilesystemProvider), `0 => local filesystem
-1 => Amazon S3 compatible
+1 => AWS S3 compatible
 2 => Google Cloud Storage
 3 => Azure Blob Storage`)
 	portableCmd.Flags().StringVar(&portableS3Bucket, "s3-bucket", "", "")

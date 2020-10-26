@@ -48,7 +48,7 @@ Flags:
                                          relative to the current directory
                                           (default ".")
   -f, --fs-provider int                  0 => local filesystem
-                                         1 => Amazon S3 compatible
+                                         1 => AWS S3 compatible
                                          2 => Google Cloud Storage
                                          3 => Azure Blob Storage
       --ftpd-cert string                 Path to the certificate file for FTPS

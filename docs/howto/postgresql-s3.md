@@ -208,7 +208,7 @@ Click `Add` and fill the user details, the minimum required parameters are:
 - `Password` or `Public keys`
 - `Permissions`
 - `Home Dir` can be empty since we defined a default base dir
-- Select `Amazon S3 (Compatible)` as storage and then set `Bucket`, `Region` and optionally a `Key Prefix` if you want to restrict the user to a specific virtual folder in the bucket. The specified virtual folder does not need to be pre-created. You can leave `Access Key` and `Access Secret` empty since we defined global credentials for the `sftpgo` user and we use this system user to run the SFTPGo service.
+- Select `AWS S3 (Compatible)` as storage and then set `Bucket`, `Region` and optionally a `Key Prefix` if you want to restrict the user to a specific virtual folder in the bucket. The specified virtual folder does not need to be pre-created. You can leave `Access Key` and `Access Secret` empty since we defined global credentials for the `sftpgo` user and we use this system user to run the SFTPGo service.
 
 You are done! Now you can connect to you SFTPGo instance using any compatible `sftp` client on port `2022`.
 
