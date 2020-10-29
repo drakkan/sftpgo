@@ -22,92 +22,95 @@ func GetHTTPRouter() http.Handler {
 
 func initializeRouter(staticFilesPath string, enableProfiler, enableWebAdmin bool) {
 	router = chi.NewRouter()
-	router.Use(middleware.RequestID)
-	router.Use(middleware.RealIP)
-	router.Use(logger.NewStructuredLogger(logger.GetLogger()))
-	router.Use(middleware.Recoverer)
-
-	if enableProfiler {
-		logger.InfoToConsole("enabling the built-in profiler")
-		logger.Info(logSender, "", "enabling the built-in profiler")
-		router.Mount(pprofBasePath, middleware.Profiler())
-	}
-
-	router.NotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sendAPIResponse(w, r, nil, "Not Found", http.StatusNotFound)
-	}))
-
-	router.MethodNotAllowed(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sendAPIResponse(w, r, nil, "Method not allowed", http.StatusMethodNotAllowed)
-	}))
-
-	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, webUsersPath, http.StatusMovedPermanently)
-	})
 
 	router.Group(func(router chi.Router) {
-		router.Use(checkAuth)
+		router.Use(middleware.RequestID)
+		router.Use(middleware.RealIP)
+		router.Use(logger.NewStructuredLogger(logger.GetLogger()))
+		router.Use(middleware.Recoverer)
 
-		router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
+		if enableProfiler {
+			logger.InfoToConsole("enabling the built-in profiler")
+			logger.Info(logSender, "", "enabling the built-in profiler")
+			router.Mount(pprofBasePath, middleware.Profiler())
+		}
+
+		router.NotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			sendAPIResponse(w, r, nil, "Not Found", http.StatusNotFound)
+		}))
+
+		router.MethodNotAllowed(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			sendAPIResponse(w, r, nil, "Method not allowed", http.StatusMethodNotAllowed)
+		}))
+
+		router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, webUsersPath, http.StatusMovedPermanently)
 		})
 
-		metrics.AddMetricsEndpoint(metricsPath, router)
+		router.Group(func(router chi.Router) {
+			router.Use(checkAuth)
 
-		router.Get(versionPath, func(w http.ResponseWriter, r *http.Request) {
-			render.JSON(w, r, version.Get())
-		})
+			router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, webUsersPath, http.StatusMovedPermanently)
+			})
 
-		router.Get(providerStatusPath, func(w http.ResponseWriter, r *http.Request) {
-			err := dataprovider.GetProviderStatus()
-			if err != nil {
-				sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
-			} else {
-				sendAPIResponse(w, r, err, "Alive", http.StatusOK)
+			metrics.AddMetricsEndpoint(metricsPath, router)
+
+			router.Get(versionPath, func(w http.ResponseWriter, r *http.Request) {
+				render.JSON(w, r, version.Get())
+			})
+
+			router.Get(providerStatusPath, func(w http.ResponseWriter, r *http.Request) {
+				err := dataprovider.GetProviderStatus()
+				if err != nil {
+					sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
+				} else {
+					sendAPIResponse(w, r, err, "Alive", http.StatusOK)
+				}
+			})
+
+			router.Get(activeConnectionsPath, func(w http.ResponseWriter, r *http.Request) {
+				render.JSON(w, r, common.Connections.GetStats())
+			})
+
+			router.Delete(activeConnectionsPath+"/{connectionID}", handleCloseConnection)
+			router.Get(quotaScanPath, getQuotaScans)
+			router.Post(quotaScanPath, startQuotaScan)
+			router.Get(quotaScanVFolderPath, getVFolderQuotaScans)
+			router.Post(quotaScanVFolderPath, startVFolderQuotaScan)
+			router.Get(userPath, getUsers)
+			router.Post(userPath, addUser)
+			router.Get(userPath+"/{userID}", getUserByID)
+			router.Put(userPath+"/{userID}", updateUser)
+			router.Delete(userPath+"/{userID}", deleteUser)
+			router.Get(folderPath, getFolders)
+			router.Post(folderPath, addFolder)
+			router.Delete(folderPath, deleteFolderByPath)
+			router.Get(dumpDataPath, dumpData)
+			router.Get(loadDataPath, loadData)
+			router.Put(updateUsedQuotaPath, updateUserQuotaUsage)
+			router.Put(updateFolderUsedQuotaPath, updateVFolderQuotaUsage)
+			if enableWebAdmin {
+				router.Get(webUsersPath, handleGetWebUsers)
+				router.Get(webUserPath, handleWebAddUserGet)
+				router.Get(webUserPath+"/{userID}", handleWebUpdateUserGet)
+				router.Post(webUserPath, handleWebAddUserPost)
+				router.Post(webUserPath+"/{userID}", handleWebUpdateUserPost)
+				router.Get(webConnectionsPath, handleWebGetConnections)
+				router.Get(webFoldersPath, handleWebGetFolders)
+				router.Get(webFolderPath, handleWebAddFolderGet)
+				router.Post(webFolderPath, handleWebAddFolderPost)
 			}
 		})
 
-		router.Get(activeConnectionsPath, func(w http.ResponseWriter, r *http.Request) {
-			render.JSON(w, r, common.Connections.GetStats())
-		})
-
-		router.Delete(activeConnectionsPath+"/{connectionID}", handleCloseConnection)
-		router.Get(quotaScanPath, getQuotaScans)
-		router.Post(quotaScanPath, startQuotaScan)
-		router.Get(quotaScanVFolderPath, getVFolderQuotaScans)
-		router.Post(quotaScanVFolderPath, startVFolderQuotaScan)
-		router.Get(userPath, getUsers)
-		router.Post(userPath, addUser)
-		router.Get(userPath+"/{userID}", getUserByID)
-		router.Put(userPath+"/{userID}", updateUser)
-		router.Delete(userPath+"/{userID}", deleteUser)
-		router.Get(folderPath, getFolders)
-		router.Post(folderPath, addFolder)
-		router.Delete(folderPath, deleteFolderByPath)
-		router.Get(dumpDataPath, dumpData)
-		router.Get(loadDataPath, loadData)
-		router.Put(updateUsedQuotaPath, updateUserQuotaUsage)
-		router.Put(updateFolderUsedQuotaPath, updateVFolderQuotaUsage)
 		if enableWebAdmin {
-			router.Get(webUsersPath, handleGetWebUsers)
-			router.Get(webUserPath, handleWebAddUserGet)
-			router.Get(webUserPath+"/{userID}", handleWebUpdateUserGet)
-			router.Post(webUserPath, handleWebAddUserPost)
-			router.Post(webUserPath+"/{userID}", handleWebUpdateUserPost)
-			router.Get(webConnectionsPath, handleWebGetConnections)
-			router.Get(webFoldersPath, handleWebGetFolders)
-			router.Get(webFolderPath, handleWebAddFolderGet)
-			router.Post(webFolderPath, handleWebAddFolderPost)
+			router.Group(func(router chi.Router) {
+				compressor := middleware.NewCompressor(5)
+				router.Use(compressor.Handler)
+				fileServer(router, webStaticFilesPath, http.Dir(staticFilesPath))
+			})
 		}
 	})
-
-	if enableWebAdmin {
-		router.Group(func(router chi.Router) {
-			compressor := middleware.NewCompressor(5)
-			router.Use(compressor.Handler)
-			fileServer(router, webStaticFilesPath, http.Dir(staticFilesPath))
-		})
-	}
 }
 
 func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
