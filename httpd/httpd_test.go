@@ -2308,6 +2308,13 @@ func TestMetricsMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr.Code)
 }
 
+func TestHealthCheck(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, "/healthz", nil)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	assert.Equal(t, "ok", rr.Body.String())
+}
+
 func TestPProfEndPointMock(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, pprofPath, nil)
 	rr := executeRequest(req)
