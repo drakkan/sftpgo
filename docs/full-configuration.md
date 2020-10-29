@@ -176,7 +176,7 @@ If you want to use a private host key that uses an algorithm/setting different f
 ]
 ```
 
-where `id_rsa`, `id_ecdsa` and `id_ed25519`, in this example, are files containing your generated keys. You can use absolute paths or paths relative to the configuration directory.
+where `id_rsa`, `id_ecdsa` and `id_ed25519`, in this example, are files containing your generated keys. You can use absolute paths or paths relative to the configuration directory specified via the `--config-dir` serve flag. By default the configuration directory is the working directory.
 
 If you want the default host keys generation in a directory different from the config dir, please specify absolute paths to files named `id_rsa`, `id_ecdsa` or `id_ed25519` like this:
 
