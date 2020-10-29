@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/pkg/sftp"
-	"golang.org/x/crypto/ssh"
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
@@ -23,7 +22,7 @@ type Connection struct {
 	ClientVersion string
 	// Remote address for this connection
 	RemoteAddr net.Addr
-	channel    ssh.Channel
+	channel    io.ReadWriteCloser
 	command    string
 }
 

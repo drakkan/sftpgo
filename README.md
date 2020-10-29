@@ -44,6 +44,7 @@ It can serve local filesystem, S3 (compatible) Object Storage, Google Cloud Stor
 - [Web based administration interface](./docs/web-admin.md) to easily manage users, folders and connections.
 - Easy [migration](./examples/rest-api-cli#convert-users-from-other-stores) from Linux system user accounts.
 - [Portable mode](./docs/portable-mode.md): a convenient way to share a single directory on demand.
+- [SFTP subsystem mode](./docs/sftp-subsystem.md): you can use SFTPGo as OpenSSH's SFTP subsystem.
 - Performance analysis using built-in [profiler](./docs/profiling.md).
 - Configuration format is at your choice: JSON, TOML, YAML, HCL, envfile are supported.
 - Log files are accurate and they are saved in the easily parsable JSON format ([more information](./docs/logs.md)).

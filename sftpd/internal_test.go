@@ -1814,3 +1814,35 @@ func TestRecursiveCopyErrors(t *testing.T) {
 	err = sshCmd.checkRecursiveCopyPermissions("adir", "another", "/another")
 	assert.Error(t, err)
 }
+
+func TestSFTPSubSystem(t *testing.T) {
+	permissions := make(map[string][]string)
+	permissions["/"] = []string{dataprovider.PermAny}
+	user := dataprovider.User{
+		Permissions: permissions,
+		HomeDir:     os.TempDir(),
+	}
+	user.FsConfig.Provider = dataprovider.AzureBlobFilesystemProvider
+	err := ServeSubSystemConnection(user, "connID", nil, nil)
+	assert.Error(t, err)
+	user.FsConfig.Provider = dataprovider.LocalFilesystemProvider
+
+	buf := make([]byte, 0, 4096)
+	stdErrBuf := make([]byte, 0, 4096)
+	mockSSHChannel := &MockChannel{
+		Buffer:       bytes.NewBuffer(buf),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+	}
+	// this is 327680 and it will result in packet too long error
+	_, err = mockSSHChannel.Write([]byte{0x00, 0x05, 0x00, 0x00, 0x00, 0x00})
+	assert.NoError(t, err)
+	err = ServeSubSystemConnection(user, "id", mockSSHChannel, mockSSHChannel)
+	assert.EqualError(t, err, "packet too long")
+
+	subsystemChannel := newSubsystemChannel(mockSSHChannel, mockSSHChannel)
+	n, err := subsystemChannel.Write([]byte{0x00})
+	assert.NoError(t, err)
+	assert.Equal(t, n, 1)
+	err = subsystemChannel.Close()
+	assert.NoError(t, err)
+}

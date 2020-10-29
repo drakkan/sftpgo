@@ -384,8 +384,10 @@ func Initialize(cnf Config, basePath string) error {
 	if err = validateHooks(); err != nil {
 		return err
 	}
-	if err = validateCredentialsDir(basePath); err != nil {
-		return err
+	if !cnf.PreferDatabaseCredentials {
+		if err = validateCredentialsDir(basePath); err != nil {
+			return err
+		}
 	}
 	err = createProvider(basePath)
 	if err != nil {

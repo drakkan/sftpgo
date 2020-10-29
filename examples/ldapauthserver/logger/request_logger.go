@@ -58,7 +58,7 @@ func (l *StructuredLoggerEntry) Write(status, bytes int, header http.Header, ela
 		Int("resp_status", status).
 		Int("resp_size", bytes).
 		Int64("elapsed_ms", elapsed.Nanoseconds()/1000000).
-		Msg("")
+		Send()
 }
 
 // Panic logs panics
@@ -69,5 +69,5 @@ func (l *StructuredLoggerEntry) Panic(v interface{}, stack []byte) {
 		Fields(l.fields).
 		Str("stack", string(stack)).
 		Str("panic", fmt.Sprintf("%+v", v)).
-		Msg("")
+		Send()
 }

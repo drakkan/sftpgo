@@ -67,6 +67,14 @@ func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge
 	logger = logger.Level(level)
 }
 
+// InitStdErrLogger configures the logger to write to stderr
+func InitStdErrLogger(level zerolog.Level) {
+	logger = zerolog.New(&logSyncWrapper{
+		output: os.Stderr,
+	}).Level(level)
+	consoleLogger = zerolog.Nop()
+}
+
 // DisableLogger disable the main logger.
 // ConsoleLogger will not be affected
 func DisableLogger() {
@@ -163,7 +171,7 @@ func TransferLog(operation string, path string, elapsed int64, size int64, user 
 		Str("file_path", path).
 		Str("connection_id", connectionID).
 		Str("protocol", protocol).
-		Msg("")
+		Send()
 }
 
 // CommandLog logs an SFTP/SCP/SSH command
@@ -184,7 +192,7 @@ func CommandLog(command, path, target, user, fileMode, connectionID, protocol st
 		Str("ssh_command", sshCommand).
 		Str("connection_id", connectionID).
 		Str("protocol", protocol).
-		Msg("")
+		Send()
 }
 
 // ConnectionFailedLog logs failed attempts to initialize a connection.
@@ -200,7 +208,7 @@ func ConnectionFailedLog(user, ip, loginType, protocol, errorString string) {
 		Str("login_type", loginType).
 		Str("protocol", protocol).
 		Str("error", errorString).
-		Msg("")
+		Send()
 }
 
 func isLogFilePathValid(logFilePath string) bool {

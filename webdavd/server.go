@@ -255,7 +255,7 @@ func writeLog(r *http.Request, err error) {
 		Str("sender", logSender).
 		Fields(fields).
 		Err(err).
-		Msg("")
+		Send()
 }
 
 func checkRemoteAddress(r *http.Request) {
