@@ -23,6 +23,12 @@ func GetHTTPRouter() http.Handler {
 func initializeRouter(staticFilesPath string, enableProfiler, enableWebAdmin bool) {
 	router = chi.NewRouter()
 
+	router.Group(func(r chi.Router) {
+		r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+			render.PlainText(w, r, "ok")
+		})
+	})
+
 	router.Group(func(router chi.Router) {
 		router.Use(middleware.RequestID)
 		router.Use(middleware.RealIP)
