@@ -15,9 +15,12 @@ import (
 	"github.com/eikenb/pipeat"
 
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/utils"
 )
 
 const dirMimeType = "inode/directory"
+
+var validAzAccessTier = []string{"", "Archive", "Hot", "Cool"}
 
 // Fs defines the interface for filesystem backends
 type Fs interface {
@@ -162,6 +165,8 @@ type AzBlobFsConfig struct {
 	UploadConcurrency int `json:"upload_concurrency,omitempty"`
 	// Set to true if you use an Azure emulator such as Azurite
 	UseEmulator bool `json:"use_emulator,omitempty"`
+	// Blob Access Tier
+	AccessTier string `json:"access_tier,omitempty"`
 }
 
 // PipeWriter defines a wrapper for pipeat.PipeWriterAt.
@@ -302,6 +307,9 @@ func ValidateAzBlobFsConfig(config *AzBlobFsConfig) error {
 	}
 	if config.UploadConcurrency < 0 || config.UploadConcurrency > 64 {
 		return fmt.Errorf("invalid upload concurrency: %v", config.UploadConcurrency)
+	}
+	if !utils.IsStringInSlice(config.AccessTier, validAzAccessTier) {
+		return fmt.Errorf("invalid access tier %#v, valid values: \"''%v\"", config.AccessTier, strings.Join(validAzAccessTier, ", "))
 	}
 	return nil
 }

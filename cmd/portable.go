@@ -59,6 +59,7 @@ var (
 	portableAzAccountName        string
 	portableAzAccountKey         string
 	portableAzEndpoint           string
+	portableAzAccessTier         string
 	portableAzSASURL             string
 	portableAzKeyPrefix          string
 	portableAzULPartSize         int
@@ -164,6 +165,7 @@ Please take a look at the usage below to customize the serving parameters`,
 							AccountName:       portableAzAccountName,
 							AccountKey:        portableAzAccountKey,
 							Endpoint:          portableAzEndpoint,
+							AccessTier:        portableAzAccessTier,
 							SASURL:            portableAzSASURL,
 							KeyPrefix:         portableAzKeyPrefix,
 							UseEmulator:       portableAzUseEmulator,
@@ -272,6 +274,8 @@ HTTPS`)
 	portableCmd.Flags().StringVar(&portableAzSASURL, "az-sas-url", "", `Shared access signature URL`)
 	portableCmd.Flags().StringVar(&portableAzEndpoint, "az-endpoint", "", `Leave empty to use the default:
 "blob.core.windows.net"`)
+	portableCmd.Flags().StringVar(&portableAzAccessTier, "az-access-tier", "", `Leave empty to use the default
+container setting`)
 	portableCmd.Flags().StringVar(&portableAzKeyPrefix, "az-key-prefix", "", `Allows to restrict access to the
 virtual folder identified by this
 prefix and its contents`)

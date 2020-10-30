@@ -438,6 +438,7 @@ func getFsConfigFromUserPostFields(r *http.Request) (dataprovider.Filesystem, er
 		fs.AzBlobConfig.SASURL = r.Form.Get("az_sas_url")
 		fs.AzBlobConfig.Endpoint = r.Form.Get("az_endpoint")
 		fs.AzBlobConfig.KeyPrefix = r.Form.Get("az_key_prefix")
+		fs.AzBlobConfig.AccessTier = r.Form.Get("az_access_tier")
 		fs.AzBlobConfig.UseEmulator = len(r.Form.Get("az_use_emulator")) > 0
 		fs.AzBlobConfig.UploadPartSize, err = strconv.ParseInt(r.Form.Get("az_upload_part_size"), 10, 64)
 		if err != nil {

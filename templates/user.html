@@ -438,6 +438,18 @@
     </div>
 
     <div class="form-group row azblob">
+        <label for="idAzAccessTier" class="col-sm-2 col-form-label">Access Tier</label>
+        <div class="col-sm-10">
+            <select class="form-control" id="idAzAccessTier" name="az_access_tier">
+                <option value="" {{if eq .User.FsConfig.AzBlobConfig.AccessTier "" }}selected{{end}}>Default</option>
+                <option value="Hot" {{if eq .User.FsConfig.AzBlobConfig.AccessTier "Hot" }}selected{{end}}>Hot</option>
+                <option value="Cool" {{if eq .User.FsConfig.AzBlobConfig.AccessTier "Cool" }}selected{{end}}>Cool</option>
+                <option value="Archive" {{if eq .User.FsConfig.AzBlobConfig.AccessTier "Archive" }}selected{{end}}>Archive</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-group row azblob">
         <label for="idAzPartSize" class="col-sm-2 col-form-label">UL Part Size (MB)</label>
         <div class="col-sm-3">
             <input type="number" class="form-control" id="idAzPartSize" name="az_upload_part_size" placeholder=""

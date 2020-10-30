@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 2.0.0
+  version: 2.0.1
 
 servers:
 - url: /api/v1
@@ -1001,6 +1001,13 @@ components:
         upload_concurrency:
           type: integer
           description: the number of parts to upload in parallel. If this value is set to zero, the default value (2) will be used
+        access_tier:
+          type: string
+          enum:
+            - ""
+            - "Archive"
+            - "Hot"
+            - "Cool"
         key_prefix:
           type: string
           description: key_prefix is similar to a chroot directory for a local filesystem. If specified the user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix, if not empty, must not start with "/" and must end with "/". If empty the whole container contents will be available

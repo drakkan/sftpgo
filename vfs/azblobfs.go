@@ -143,6 +143,9 @@ func setConfigDefaults(fs *AzureBlobFs) {
 	if fs.config.UploadConcurrency == 0 {
 		fs.config.UploadConcurrency = 2
 	}
+	if fs.config.AccessTier == "" {
+		fs.config.AccessTier = string(azblob.AccessTierNone)
+	}
 }
 
 // Name returns the name for the Fs implementation
@@ -327,7 +330,7 @@ func (fs AzureBlobFs) Rename(source, target string) error {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
 
-	resp, err := dstBlobURL.StartCopyFromURL(ctx, srcURL, md, mac, bac)
+	resp, err := dstBlobURL.StartCopyFromURL(ctx, srcURL, md, mac, bac, azblob.AccessTierType(fs.config.AccessTier), nil)
 	if err != nil {
 		metrics.AZCopyObjectCompleted(err)
 		return err
@@ -831,7 +834,8 @@ func (fs *AzureBlobFs) handleMultipartUpload(ctx context.Context, reader io.Read
 		return poolError
 	}
 
-	_, err := blockBlobURL.CommitBlockList(ctx, blocks, httpHeaders, azblob.Metadata{}, azblob.BlobAccessConditions{})
+	_, err := blockBlobURL.CommitBlockList(ctx, blocks, httpHeaders, azblob.Metadata{}, azblob.BlobAccessConditions{},
+		azblob.AccessTierType(fs.config.AccessTier), nil)
 	return err
 }
 
