@@ -280,22 +280,3 @@ func TestSetGetConfig(t *testing.T) {
 	assert.Equal(t, webDavConf.CertificateFile, config.GetWebDAVDConfig().CertificateFile)
 	assert.Equal(t, webDavConf.CertificateKeyFile, config.GetWebDAVDConfig().CertificateKeyFile)
 }
-
-func TestLoadConfigAutomaticEnv(t *testing.T) {
-	os.Setenv("SFTPGO_SFTPD__BIND_ADDRESS", "127.0.0.1")
-	t.Cleanup(func() {
-		os.Unsetenv("SFTPGO_SFTPD__BIND_ADDRESS")
-	})
-
-	configDir := "./testdata"
-	err := config.LoadConfig(configDir, configName)
-	assert.NoError(t, err)
-	assert.NotEqual(t, httpd.Conf{}, config.GetHTTPConfig())
-	assert.NotEqual(t, dataprovider.Config{}, config.GetProviderConf())
-	assert.NotEqual(t, sftpd.Configuration{}, config.GetSFTPDConfig())
-	assert.NotEqual(t, httpclient.Config{}, config.GetHTTPConfig())
-
-	sftpdConfig := config.GetSFTPDConfig()
-	assert.Equal(t, "sftpgo-test", sftpdConfig.Banner)
-	assert.Equal(t, "127.0.0.1", sftpdConfig.BindAddress)
-}
