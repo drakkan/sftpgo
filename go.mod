@@ -17,12 +17,13 @@ require (
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/grandcat/zeroconf v1.0.0
+	github.com/jeremywohl/flatten v1.0.1
 	github.com/jlaffaye/ftp v0.0.0-20200720194710-13949d38913e
 	github.com/lib/pq v1.8.0
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mattn/go-sqlite3 v1.14.4
 	github.com/miekg/dns v1.1.34 // indirect
-	github.com/mitchellh/mapstructure v1.3.3 // indirect
+	github.com/mitchellh/mapstructure v1.3.3
 	github.com/otiai10/copy v1.2.0
 	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/pires/go-proxyproto v0.2.0

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jeremywohl/flatten"
+	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
 
 	"github.com/drakkan/sftpgo/common"
@@ -257,6 +259,15 @@ func LoadConfig(configDir, configName string) error {
 		logger.WarnToConsole("error loading configuration file: %v. Default configuration will be used.", err)
 		return err
 	}
+
+	err = bindEnv()
+	if err != nil {
+		logger.Warn(logSender, "", "error parsing configuration file: %v. Default configuration will be used: %+v",
+			err, getRedactedGlobalConf())
+		logger.WarnToConsole("error parsing configuration file: %v. Default configuration will be used.", err)
+		return err
+	}
+
 	err = viper.Unmarshal(&globalConf)
 	if err != nil {
 		logger.Warn(logSender, "", "error parsing configuration file: %v. Default configuration will be used: %+v",
@@ -348,4 +359,28 @@ func checkCommonParamsCompatibility() {
 		globalConf.Common.ProxyProtocol = globalConf.SFTPD.ProxyProtocol //nolint:staticcheck
 		globalConf.Common.ProxyAllowed = globalConf.SFTPD.ProxyAllowed   //nolint:staticcheck
 	}
+}
+
+func bindEnv() error {
+	var rawConfig map[string]interface{}
+
+	err := mapstructure.Decode(globalConf, &rawConfig)
+	if err != nil {
+		return err
+	}
+
+	flat, err := flatten.Flatten(rawConfig, "", flatten.DotStyle)
+	if err != nil {
+		return err
+	}
+
+	// Bind each conf fields to environment vars
+	for key := range flat {
+		err := viper.BindEnv(key)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
