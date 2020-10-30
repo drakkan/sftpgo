@@ -200,5 +200,3 @@ Let's see some examples:
 
 - To set sftpd `bind_port`, you need to define the env var `SFTPGO_SFTPD__BIND_PORT`
 - To set the `execute_on` actions, you need to define the env var `SFTPGO_COMMON__ACTIONS__EXECUTE_ON`. For example `SFTPGO_COMMON__ACTIONS__EXECUTE_ON=upload,download`
-
-Please note that in order to override configuration options with environment variables, you need a configuration file containing the options to override, this is a [viper bug](https://github.com/spf13/viper/issues/584). For example, you can deploy the default configuration file and then override the options to customize using environment variables.

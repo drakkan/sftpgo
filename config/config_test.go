@@ -36,11 +36,11 @@ func TestLoadConfigTest(t *testing.T) {
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
 	err = config.LoadConfig(configDir, tempConfigName)
-	assert.NotNil(t, err)
+	assert.NoError(t, err)
 	err = ioutil.WriteFile(configFilePath, []byte("{invalid json}"), os.ModePerm)
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
-	assert.NotNil(t, err)
+	assert.NoError(t, err)
 	err = ioutil.WriteFile(configFilePath, []byte("{\"sftpd\": {\"bind_port\": \"a\"}}"), os.ModePerm)
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, tempConfigName)
@@ -279,4 +279,26 @@ func TestSetGetConfig(t *testing.T) {
 	config.SetWebDAVDConfig(webDavConf)
 	assert.Equal(t, webDavConf.CertificateFile, config.GetWebDAVDConfig().CertificateFile)
 	assert.Equal(t, webDavConf.CertificateKeyFile, config.GetWebDAVDConfig().CertificateKeyFile)
+}
+
+func TestConfigFromEnv(t *testing.T) {
+	os.Setenv("SFTPGO_SFTPD__BIND_ADDRESS", "127.0.0.1")
+	os.Setenv("SFTPGO_DATA_PROVIDER__PASSWORD_HASHING__ARGON2_OPTIONS__ITERATIONS", "41")
+	os.Setenv("SFTPGO_DATA_PROVIDER__POOL_SIZE", "10")
+	os.Setenv("SFTPGO_DATA_PROVIDER__ACTIONS__EXECUTE_ON", "add")
+	t.Cleanup(func() {
+		os.Unsetenv("SFTPGO_SFTPD__BIND_ADDRESS")
+		os.Unsetenv("SFTPGO_DATA_PROVIDER__PASSWORD_HASHING__ARGON2_OPTIONS__ITERATIONS")
+		os.Unsetenv("SFTPGO_DATA_PROVIDER__POOL_SIZE")
+		os.Unsetenv("SFTPGO_DATA_PROVIDER__ACTIONS__EXECUTE_ON")
+	})
+	err := config.LoadConfig(".", "invalid config")
+	assert.NoError(t, err)
+	sftpdConfig := config.GetSFTPDConfig()
+	assert.Equal(t, "127.0.0.1", sftpdConfig.BindAddress)
+	dataProviderConf := config.GetProviderConf()
+	assert.Equal(t, uint32(41), dataProviderConf.PasswordHashing.Argon2Options.Iterations)
+	assert.Equal(t, 10, dataProviderConf.PoolSize)
+	assert.Len(t, dataProviderConf.Actions.ExecuteOn, 1)
+	assert.Contains(t, dataProviderConf.Actions.ExecuteOn, "add")
 }
