@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path"
 	"path/filepath"
@@ -861,4 +862,15 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user4, http.StatusOK)
 	assert.NoError(t, err)
+}
+
+func TestRecoverer(t *testing.T) {
+	c := &Configuration{
+		BindPort: 9000,
+	}
+	server, err := newServer(c, configDir)
+	assert.NoError(t, err)
+	rr := httptest.NewRecorder()
+	server.ServeHTTP(rr, nil)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 }

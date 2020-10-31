@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 
@@ -28,11 +29,16 @@ type scpCommand struct {
 	sshCommand
 }
 
-func (c *scpCommand) handle() error {
+func (c *scpCommand) handle() (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error(logSender, "", "panic in handle scp command: %#v stack strace: %v", r, string(debug.Stack()))
+			err = common.ErrGenericFailure
+		}
+	}()
 	common.Connections.Add(c.connection)
 	defer common.Connections.Remove(c.connection.GetID())
 
-	var err error
 	destPath := c.getDestPath()
 	commandType := c.getCommandType()
 	c.connection.Log(logger.LevelDebug, "handle scp command, args: %v user: %v command type: %v, dest path: %#v",

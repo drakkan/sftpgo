@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -266,6 +267,11 @@ func (c Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.Server
 
 // AcceptInboundConnection handles an inbound connection to the server instance and determines if the request should be served or not.
 func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.ServerConfig) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error(logSender, "", "panic in AcceptInboundConnection: %#v stack strace: %v", r, string(debug.Stack()))
+		}
+	}()
 	// Before beginning a handshake must be performed on the incoming net.Conn
 	// we'll set a Deadline for handshake to complete, the default is 2 minutes as OpenSSH
 	conn.SetDeadline(time.Now().Add(handshakeTimeout)) //nolint:errcheck
@@ -374,6 +380,11 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 }
 
 func (c Configuration) handleSftpConnection(channel ssh.Channel, connection *Connection) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error(logSender, "", "panic in handleSftpConnection: %#v stack strace: %v", r, string(debug.Stack()))
+		}
+	}()
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 

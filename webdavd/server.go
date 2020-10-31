@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"path"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -85,6 +86,12 @@ func (s *webDavServer) listenAndServe() error {
 
 // ServeHTTP implements the http.Handler interface
 func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error(logSender, "", "panic in ServeHTTP: %#v stack strace: %v", r, string(debug.Stack()))
+			http.Error(w, common.ErrGenericFailure.Error(), http.StatusInternalServerError)
+		}
+	}()
 	checkRemoteAddress(r)
 	if err := common.Config.ExecutePostConnectHook(r.RemoteAddr, common.ProtocolWebDAV); err != nil {
 		http.Error(w, common.ErrConnectionDenied.Error(), http.StatusForbidden)

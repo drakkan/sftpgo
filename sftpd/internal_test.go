@@ -1846,3 +1846,28 @@ func TestSFTPSubSystem(t *testing.T) {
 	err = subsystemChannel.Close()
 	assert.NoError(t, err)
 }
+
+func TestRecoverer(t *testing.T) {
+	c := Configuration{}
+	c.AcceptInboundConnection(nil, nil)
+	connID := "connectionID"
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolSFTP, dataprovider.User{}, nil),
+	}
+	c.handleSftpConnection(nil, connection)
+	sshCmd := sshCommand{
+		command:    "cd",
+		connection: connection,
+	}
+	err := sshCmd.handle()
+	assert.EqualError(t, err, common.ErrGenericFailure.Error())
+	scpCmd := scpCommand{
+		sshCommand: sshCommand{
+			command:    "scp",
+			connection: connection,
+		},
+	}
+	err = scpCmd.handle()
+	assert.EqualError(t, err, common.ErrGenericFailure.Error())
+	assert.Len(t, common.Connections.GetStats(), 0)
+}

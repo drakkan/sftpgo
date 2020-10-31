@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"runtime/debug"
 	"strings"
 	"sync"
 
@@ -84,7 +85,13 @@ func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommand
 	return false
 }
 
-func (c *sshCommand) handle() error {
+func (c *sshCommand) handle() (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error(logSender, "", "panic in handle ssh command: %#v stack strace: %v", r, string(debug.Stack()))
+			err = common.ErrGenericFailure
+		}
+	}()
 	common.Connections.Add(c.connection)
 	defer common.Connections.Remove(c.connection.GetID())
 
@@ -108,7 +115,7 @@ func (c *sshCommand) handle() error {
 	} else if c.command == "sftpgo-remove" {
 		return c.handeSFTPGoRemove()
 	}
-	return nil
+	return
 }
 
 func (c *sshCommand) handeSFTPGoCopy() error {

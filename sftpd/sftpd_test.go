@@ -462,13 +462,12 @@ func TestConcurrency(t *testing.T) {
 
 			client, err := getSftpClient(user, usePubKey)
 			if assert.NoError(t, err) {
-				defer client.Close()
-
 				err = checkBasicSFTP(client)
 				assert.NoError(t, err)
 				err = sftpUploadFile(testFilePath, testFileName+strconv.Itoa(counter), testFileSize, client)
 				assert.NoError(t, err)
 				assert.Greater(t, common.Connections.GetActiveSessions(defaultUsername), 0)
+				client.Close()
 			}
 		}(i)
 	}
