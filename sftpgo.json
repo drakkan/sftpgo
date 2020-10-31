@@ -14,7 +14,7 @@
   "sftpd": {
     "bind_port": 2022,
     "bind_address": "",
-    "max_auth_tries": 20,
+    "max_auth_tries": 0,
     "banner": "",
     "host_keys": [],
     "kex_algorithms": [],
