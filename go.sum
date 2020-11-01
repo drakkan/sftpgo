@@ -119,8 +119,8 @@ github.com/drakkan/crypto v0.0.0-20201017144935-4e8324213ac3 h1:zMCXHTGF8QJ7GWQ2
 github.com/drakkan/crypto v0.0.0-20201017144935-4e8324213ac3/go.mod h1:v3bhWOXGYda7H5d2s5t9XA6th3fxW3s0MQxU1R96G/w=
 github.com/drakkan/ftp v0.0.0-20200730125632-b21eac28818c h1:QSXIWohSNn0negBVSKEjKTpdpGEsW7weVW8QNzviLHY=
 github.com/drakkan/ftp v0.0.0-20200730125632-b21eac28818c/go.mod h1:2lmrmq866uF2tnje75wQHzmPXhmSWUt7Gyx2vgK1RCU=
-github.com/drakkan/net v0.0.0-20201030182451-5fdd610a97c6 h1:fjOkkszqlkEO81L1kJgtQ1Hc4rxuLc3cVhIP5arbVeo=
-github.com/drakkan/net v0.0.0-20201030182451-5fdd610a97c6/go.mod h1:sp8m0HH+o8qH0wwXwYZr8TS3Oi6o0r6Gce1SSxlDquU=
+github.com/drakkan/net v0.0.0-20201101072345-49fbbaa64b66 h1:Y92YgfaycEmjy9L6CY633pCrxGtAlV3wh5n4vS7U+os=
+github.com/drakkan/net v0.0.0-20201101072345-49fbbaa64b66/go.mod h1:sp8m0HH+o8qH0wwXwYZr8TS3Oi6o0r6Gce1SSxlDquU=
 github.com/dustin/go-humanize v0.0.0-20171111073723-bb3d318650d4/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/eapache/go-resiliency v1.1.0/go.mod h1:kFI+JgMyC7bLPUVY133qvEBtVayf5mFgVsvEsIPBvNs=
 github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21/go.mod h1:+020luEh2TKB4/GOp8oxxtq0Daoen/Cii55CzbTV6DU=
@@ -134,8 +134,8 @@ github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.m
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
-github.com/fclairamb/ftpserverlib v0.8.1-0.20201007044523-7c6c9f869560 h1:rBqKb2pMRScNXenAhRo3HCS3DBfBW/fNQnYGidNXMtI=
-github.com/fclairamb/ftpserverlib v0.8.1-0.20201007044523-7c6c9f869560/go.mod h1:sMPjxPuoVwwoV87gdPkyTb0dVofmCKpVZCQ3rMVokjc=
+github.com/fclairamb/ftpserverlib v0.9.0 h1:RW20tmYTY06WQdY5l9+iK7ES7Xi/ICgnG/sTXhSwsCY=
+github.com/fclairamb/ftpserverlib v0.9.0/go.mod h1:sMPjxPuoVwwoV87gdPkyTb0dVofmCKpVZCQ3rMVokjc=
 github.com/franela/goblin v0.0.0-20200105215937-c9ffbefa60db/go.mod h1:7dvUGVsVBjqR7JHJk0brhHOZYGmfBYOrK0ZhYMEtBr4=
 github.com/franela/goreq v0.0.0-20171204163338-bcd34c9993f8/go.mod h1:ZhphrRTfi2rbfLwlschooIH4+wKKDR4Pdxhh+TRoA20=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
@@ -378,8 +378,8 @@ github.com/pelletier/go-toml v1.8.1/go.mod h1:T2/BmBdy8dvIRq1a/8aqjN41wvWlN4lrap
 github.com/performancecopilot/speed v3.0.0+incompatible/go.mod h1:/CLtqpZ5gBg1M9iaPbIdPPGyKcA8hKdoy6hAWba7Yac=
 github.com/pierrec/lz4 v1.0.2-0.20190131084431-473cd7ce01a1/go.mod h1:3/3N9NVKO0jef7pBehbT1qWhCMrIgbYNnFAZCqQ5LRc=
 github.com/pierrec/lz4 v2.0.5+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
-github.com/pires/go-proxyproto v0.3.0 h1:++BY4zWOpWha50IDjdnp7+NRTLuOHqMQC5PkgS7I4u4=
-github.com/pires/go-proxyproto v0.3.0/go.mod h1:Odh9VFOZJCf9G8cLW5o435Xf1J95Jw9Gw5rnCjcwzAY=
+github.com/pires/go-proxyproto v0.3.1 h1:eWb52zeDUbSUDBV+8aVCfOy0pnEG6DrDW3cJ/WKdQsk=
+github.com/pires/go-proxyproto v0.3.1/go.mod h1:Odh9VFOZJCf9G8cLW5o435Xf1J95Jw9Gw5rnCjcwzAY=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
@@ -675,7 +675,7 @@ golang.org/x/tools v0.0.0-20200904185747-39188db58858/go.mod h1:Cj7w3i3Rnn0Xh82u
 golang.org/x/tools v0.0.0-20200915173823-2db8f0ff891c/go.mod h1:z6u4i615ZeAfBE4XtMziQW1fSVJXACjjbWkB/mvPzlU=
 golang.org/x/tools v0.0.0-20200918232735-d647fc253266/go.mod h1:z6u4i615ZeAfBE4XtMziQW1fSVJXACjjbWkB/mvPzlU=
 golang.org/x/tools v0.0.0-20201017001424-6003fad69a88/go.mod h1:z6u4i615ZeAfBE4XtMziQW1fSVJXACjjbWkB/mvPzlU=
-golang.org/x/tools v0.0.0-20201030174515-8da1a626af69/go.mod h1:emZCQorbCU4vsT4fOWvOPXz4eW1wZW4PmDk9uLelYpA=
+golang.org/x/tools v0.0.0-20201031021630-582c62ec74d0/go.mod h1:emZCQorbCU4vsT4fOWvOPXz4eW1wZW4PmDk9uLelYpA=
 golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=

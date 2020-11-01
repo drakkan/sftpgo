@@ -2,17 +2,33 @@ openapi: 3.0.3
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 2.0.1
+  version: 2.0.2
 
 servers:
-- url: /api/v1
+  - url: /api/v1
 security:
-- BasicAuth: []
+  - BasicAuth: []
 paths:
+  /healthz:
+    get:
+      servers:
+        - url : /
+      tags:
+        - healthcheck
+      summary: health check
+      description: Health endpoint to check if the application is still running and responding to requests
+      responses:
+        200:
+          description: successful operation
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: ok
   /version:
     get:
       tags:
-      - version
+        - version
       summary: Get version details
       operationId: get_version
       responses:
@@ -33,7 +49,7 @@ paths:
   /providerstatus:
     get:
       tags:
-      - providerstatus
+        - providerstatus
       summary: Get data provider status
       operationId: get_provider_status
       responses:
@@ -56,7 +72,7 @@ paths:
   /connection:
     get:
       tags:
-      - connections
+        - connections
       summary: Get the active users and info about their uploads/downloads
       operationId: get_connections
       responses:
@@ -79,16 +95,16 @@ paths:
   /connection/{connectionID}:
     delete:
       tags:
-      - connections
+        - connections
       summary: Terminate an active connection
       operationId: close_connection
       parameters:
-      - name: connectionID
-        in: path
-        description: ID of the connection to close
-        required: true
-        schema:
-          type: string
+        - name: connectionID
+          in: path
+          description: ID of the connection to close
+          required: true
+          schema:
+            type: string
       responses:
         200:
           description: successful operation
@@ -111,7 +127,7 @@ paths:
   /quota_scan:
     get:
       tags:
-      - quota
+        - quota
       summary: Get the active quota scans for users home directories
       operationId: get_quota_scans
       responses:
@@ -133,7 +149,7 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
     post:
       tags:
-      - quota
+        - quota
       summary: start a new user quota scan
       description: A quota scan update the number of files and their total size for the specified user
       operationId: start_quota_scan
@@ -169,7 +185,7 @@ paths:
   /quota_update:
     put:
       tags:
-      - quota
+        - quota
       summary: update the user used quota limits
       description: Set the current used quota limits for the given user
       operationId: quota_update
@@ -219,7 +235,7 @@ paths:
   /folder_quota_update:
     put:
       tags:
-      - quota
+        - quota
       summary: update the folder used quota limits
       description: Set the current used quota limits for the given folder
       operationId: folder_quota_update
@@ -269,7 +285,7 @@ paths:
   /folder_quota_scan:
     get:
       tags:
-      - quota
+        - quota
       summary: Get the active quota scans for folders
       operationId: get_folders_quota_scans
       responses:
@@ -291,7 +307,7 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
     post:
       tags:
-      - quota
+        - quota
       summary: start a new folder quota scan
       description: A quota scan update the number of files and their total size for the specified folder
       operationId: start_folder_quota_scan
@@ -327,7 +343,7 @@ paths:
   /folder:
     get:
       tags:
-      - folders
+        - folders
       summary: Returns an array with one or more folders
       operationId: get_folders
       parameters:
@@ -384,7 +400,7 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
     post:
       tags:
-      - folders
+        - folders
       summary: Adds a new folder
       operationId: add_folder
       description: a new folder with the specified mapped_path will be added. To update the used quota parameters a quota scan is needed
@@ -413,16 +429,16 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
     delete:
       tags:
-      - folders
+        - folders
       summary: Delete an existing folder
       operationId: delete_folder
       parameters:
-      - name: folder_path
-        in: query
-        description: path to the folder to delete
-        required: true
-        schema:
-          type: string
+        - name: folder_path
+          in: query
+          description: path to the folder to delete
+          required: true
+          schema:
+            type: string
       responses:
         200:
           description: successful operation
@@ -447,7 +463,7 @@ paths:
   /user:
     get:
       tags:
-      - users
+        - users
       summary: Returns an array with one or more users
       description: For security reasons hashed passwords are omitted in the response
       operationId: get_users
@@ -505,7 +521,7 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
     post:
       tags:
-      - users
+        - users
       summary: Adds a new user
       operationId: add_user
       requestBody:
@@ -534,18 +550,18 @@ paths:
   /user/{userID}:
     get:
       tags:
-      - users
+        - users
       summary: Find user by ID
       description: For security reasons the hashed password is omitted in the response
       operationId: get_user_by_id
       parameters:
-      - name: userID
-        in: path
-        description: ID of the user to retrieve
-        required: true
-        schema:
-          type: integer
-          format: int32
+        - name: userID
+          in: path
+          description: ID of the user to retrieve
+          required: true
+          schema:
+            type: integer
+            format: int32
       responses:
         200:
           description: successful operation
@@ -567,28 +583,28 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
     put:
       tags:
-      - users
+        - users
       summary: Update an existing user
       operationId: update_user
       parameters:
-      - name: userID
-        in: path
-        description: ID of the user to update
-        required: true
-        schema:
-          type: integer
-          format: int32
-      - in: query
-        name: disconnect
-        schema:
-          type: integer
-          enum:
-            - 0
-            - 1
-        description: >
-          Disconnect:
-            * `0` The user will not be disconnected and it will continue to use the old configuration until connected. This is the default
-            * `1` The user will be disconnected after a successful update. It must login again and so it will be forced to use the new configuration
+        - name: userID
+          in: path
+          description: ID of the user to update
+          required: true
+          schema:
+            type: integer
+            format: int32
+        - in: query
+          name: disconnect
+          schema:
+            type: integer
+            enum:
+              - 0
+              - 1
+          description: >
+            Disconnect:
+              * `0` The user will not be disconnected and it will continue to use the old configuration until connected. This is the default
+              * `1` The user will be disconnected after a successful update. It must login again and so it will be forced to use the new configuration
       requestBody:
         required: true
         content:
@@ -618,17 +634,17 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
     delete:
       tags:
-      - users
+        - users
       summary: Delete an existing user
       operationId: delete_user
       parameters:
-      - name: userID
-        in: path
-        description: ID of the user to delete
-        required: true
-        schema:
-          type: integer
-          format: int32
+        - name: userID
+          in: path
+          description: ID of the user to delete
+          required: true
+          schema:
+            type: integer
+            format: int32
       responses:
         200:
           description: successful operation
@@ -653,7 +669,7 @@ paths:
   /dumpdata:
     get:
       tags:
-      - maintenance
+        - maintenance
       summary: Backup SFTPGo data serializing them as JSON
       description: The backup is saved to a local file to avoid to expose users hashed passwords over the network. The output of dumpdata can be used as input for loaddata
       operationId: dumpdata
@@ -697,7 +713,7 @@ paths:
   /loaddata:
     get:
       tags:
-      - maintenance
+        - maintenance
       summary: Restore SFTPGo data from a JSON backup
       description: Users and folders will be restored one by one and the restore is stopped if a user/folder cannot be added or updated, so it could happen a partial restore
       operationId: loaddata
