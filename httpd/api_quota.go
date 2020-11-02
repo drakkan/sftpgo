@@ -171,7 +171,7 @@ func doQuotaScan(user dataprovider.User) error {
 
 func doFolderQuotaScan(folder vfs.BaseVirtualFolder) error {
 	defer common.QuotaScans.RemoveVFolderQuotaScan(folder.MappedPath)
-	fs := vfs.NewOsFs("", "", nil).(vfs.OsFs)
+	fs := vfs.NewOsFs("", "", nil).(*vfs.OsFs)
 	numFiles, size, err := fs.GetDirSize(folder.MappedPath)
 	if err != nil {
 		logger.Warn(logSender, "", "error scanning folder %#v: %v", folder.MappedPath, err)

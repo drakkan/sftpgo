@@ -30,7 +30,7 @@ type OsFs struct {
 
 // NewOsFs returns an OsFs object that allows to interact with local Os filesystem
 func NewOsFs(connectionID, rootDir string, virtualFolders []VirtualFolder) Fs {
-	return OsFs{
+	return &OsFs{
 		name:           osFsName,
 		connectionID:   connectionID,
 		rootDir:        rootDir,
@@ -39,17 +39,17 @@ func NewOsFs(connectionID, rootDir string, virtualFolders []VirtualFolder) Fs {
 }
 
 // Name returns the name for the Fs implementation
-func (fs OsFs) Name() string {
+func (fs *OsFs) Name() string {
 	return fs.name
 }
 
 // ConnectionID returns the SSH connection ID associated to this Fs implementation
-func (fs OsFs) ConnectionID() string {
+func (fs *OsFs) ConnectionID() string {
 	return fs.connectionID
 }
 
 // Stat returns a FileInfo describing the named file
-func (fs OsFs) Stat(name string) (os.FileInfo, error) {
+func (fs *OsFs) Stat(name string) (os.FileInfo, error) {
 	fi, err := os.Stat(name)
 	if err != nil {
 		return fi, err
@@ -64,7 +64,7 @@ func (fs OsFs) Stat(name string) (os.FileInfo, error) {
 }
 
 // Lstat returns a FileInfo describing the named file
-func (fs OsFs) Lstat(name string) (os.FileInfo, error) {
+func (fs *OsFs) Lstat(name string) (os.FileInfo, error) {
 	fi, err := os.Lstat(name)
 	if err != nil {
 		return fi, err
@@ -79,13 +79,13 @@ func (fs OsFs) Lstat(name string) (os.FileInfo, error) {
 }
 
 // Open opens the named file for reading
-func (OsFs) Open(name string, offset int64) (*os.File, *pipeat.PipeReaderAt, func(), error) {
+func (*OsFs) Open(name string, offset int64) (*os.File, *pipeat.PipeReaderAt, func(), error) {
 	f, err := os.Open(name)
 	return f, nil, nil, err
 }
 
 // Create creates or opens the named file for writing
-func (OsFs) Create(name string, flag int) (*os.File, *PipeWriter, func(), error) {
+func (*OsFs) Create(name string, flag int) (*os.File, *PipeWriter, func(), error) {
 	var err error
 	var f *os.File
 	if flag == 0 {
@@ -97,28 +97,28 @@ func (OsFs) Create(name string, flag int) (*os.File, *PipeWriter, func(), error)
 }
 
 // Rename renames (moves) source to target
-func (OsFs) Rename(source, target string) error {
+func (*OsFs) Rename(source, target string) error {
 	return os.Rename(source, target)
 }
 
 // Remove removes the named file or (empty) directory.
-func (OsFs) Remove(name string, isDir bool) error {
+func (*OsFs) Remove(name string, isDir bool) error {
 	return os.Remove(name)
 }
 
 // Mkdir creates a new directory with the specified name and default permissions
-func (OsFs) Mkdir(name string) error {
+func (*OsFs) Mkdir(name string) error {
 	return os.Mkdir(name, os.ModePerm)
 }
 
 // Symlink creates source as a symbolic link to target.
-func (OsFs) Symlink(source, target string) error {
+func (*OsFs) Symlink(source, target string) error {
 	return os.Symlink(source, target)
 }
 
 // Readlink returns the destination of the named symbolic link
 // as absolute virtual path
-func (fs OsFs) Readlink(name string) (string, error) {
+func (fs *OsFs) Readlink(name string) (string, error) {
 	p, err := os.Readlink(name)
 	if err != nil {
 		return p, err
@@ -127,28 +127,28 @@ func (fs OsFs) Readlink(name string) (string, error) {
 }
 
 // Chown changes the numeric uid and gid of the named file.
-func (OsFs) Chown(name string, uid int, gid int) error {
+func (*OsFs) Chown(name string, uid int, gid int) error {
 	return os.Chown(name, uid, gid)
 }
 
 // Chmod changes the mode of the named file to mode
-func (OsFs) Chmod(name string, mode os.FileMode) error {
+func (*OsFs) Chmod(name string, mode os.FileMode) error {
 	return os.Chmod(name, mode)
 }
 
 // Chtimes changes the access and modification times of the named file
-func (OsFs) Chtimes(name string, atime, mtime time.Time) error {
+func (*OsFs) Chtimes(name string, atime, mtime time.Time) error {
 	return os.Chtimes(name, atime, mtime)
 }
 
 // Truncate changes the size of the named file
-func (OsFs) Truncate(name string, size int64) error {
+func (*OsFs) Truncate(name string, size int64) error {
 	return os.Truncate(name, size)
 }
 
 // ReadDir reads the directory named by dirname and returns
 // a list of directory entries.
-func (OsFs) ReadDir(dirname string) ([]os.FileInfo, error) {
+func (*OsFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	f, err := os.Open(dirname)
 	if err != nil {
 		return nil, err
@@ -162,29 +162,29 @@ func (OsFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 }
 
 // IsUploadResumeSupported returns true if upload resume is supported
-func (OsFs) IsUploadResumeSupported() bool {
+func (*OsFs) IsUploadResumeSupported() bool {
 	return true
 }
 
 // IsAtomicUploadSupported returns true if atomic upload is supported
-func (OsFs) IsAtomicUploadSupported() bool {
+func (*OsFs) IsAtomicUploadSupported() bool {
 	return true
 }
 
 // IsNotExist returns a boolean indicating whether the error is known to
 // report that a file or directory does not exist
-func (OsFs) IsNotExist(err error) bool {
+func (*OsFs) IsNotExist(err error) bool {
 	return os.IsNotExist(err)
 }
 
 // IsPermission returns a boolean indicating whether the error is known to
 // report that permission is denied.
-func (OsFs) IsPermission(err error) bool {
+func (*OsFs) IsPermission(err error) bool {
 	return os.IsPermission(err)
 }
 
 // CheckRootPath creates the root directory if it does not exists
-func (fs OsFs) CheckRootPath(username string, uid int, gid int) bool {
+func (fs *OsFs) CheckRootPath(username string, uid int, gid int) bool {
 	var err error
 	if _, err = fs.Stat(fs.rootDir); fs.IsNotExist(err) {
 		err = os.MkdirAll(fs.rootDir, os.ModePerm)
@@ -207,7 +207,7 @@ func (fs OsFs) CheckRootPath(username string, uid int, gid int) bool {
 
 // ScanRootDirContents returns the number of files contained in a directory and
 // their size
-func (fs OsFs) ScanRootDirContents() (int, int64, error) {
+func (fs *OsFs) ScanRootDirContents() (int, int64, error) {
 	numFiles, size, err := fs.GetDirSize(fs.rootDir)
 	for _, v := range fs.virtualFolders {
 		if !v.IsIncludedInUserQuota() {
@@ -228,7 +228,7 @@ func (fs OsFs) ScanRootDirContents() (int, int64, error) {
 }
 
 // GetAtomicUploadPath returns the path to use for an atomic upload
-func (OsFs) GetAtomicUploadPath(name string) string {
+func (*OsFs) GetAtomicUploadPath(name string) string {
 	dir := filepath.Dir(name)
 	guid := xid.New().String()
 	return filepath.Join(dir, ".sftpgo-upload."+guid+"."+filepath.Base(name))
@@ -236,7 +236,7 @@ func (OsFs) GetAtomicUploadPath(name string) string {
 
 // GetRelativePath returns the path for a file relative to the user's home dir.
 // This is the path as seen by SFTP users
-func (fs OsFs) GetRelativePath(name string) string {
+func (fs *OsFs) GetRelativePath(name string) string {
 	basePath := fs.rootDir
 	virtualPath := "/"
 	for _, v := range fs.virtualFolders {
@@ -258,17 +258,17 @@ func (fs OsFs) GetRelativePath(name string) string {
 
 // Walk walks the file tree rooted at root, calling walkFn for each file or
 // directory in the tree, including root
-func (OsFs) Walk(root string, walkFn filepath.WalkFunc) error {
+func (*OsFs) Walk(root string, walkFn filepath.WalkFunc) error {
 	return filepath.Walk(root, walkFn)
 }
 
 // Join joins any number of path elements into a single path
-func (OsFs) Join(elem ...string) string {
+func (*OsFs) Join(elem ...string) string {
 	return filepath.Join(elem...)
 }
 
 // ResolvePath returns the matching filesystem path for the specified sftp path
-func (fs OsFs) ResolvePath(sftpPath string) (string, error) {
+func (fs *OsFs) ResolvePath(sftpPath string) (string, error) {
 	if !filepath.IsAbs(fs.rootDir) {
 		return "", fmt.Errorf("Invalid root path: %v", fs.rootDir)
 	}
@@ -295,7 +295,7 @@ func (fs OsFs) ResolvePath(sftpPath string) (string, error) {
 
 // GetDirSize returns the number of files and the size for a folder
 // including any subfolders
-func (fs OsFs) GetDirSize(dirname string) (int, int64, error) {
+func (fs *OsFs) GetDirSize(dirname string) (int, int64, error) {
 	numFiles := 0
 	size := int64(0)
 	isDir, err := IsDirectory(fs, dirname)
@@ -315,7 +315,7 @@ func (fs OsFs) GetDirSize(dirname string) (int, int64, error) {
 }
 
 // HasVirtualFolders returns true if folders are emulated
-func (OsFs) HasVirtualFolders() bool {
+func (*OsFs) HasVirtualFolders() bool {
 	return false
 }
 

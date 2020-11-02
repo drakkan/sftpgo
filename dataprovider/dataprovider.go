@@ -1974,7 +1974,7 @@ func executeAction(operation string, user User) {
 
 // after migrating database to v4 we have to update the quota for the imported folders
 func updateVFoldersQuotaAfterRestore(foldersToScan []string) {
-	fs := vfs.NewOsFs("", "", nil).(vfs.OsFs)
+	fs := vfs.NewOsFs("", "", nil).(*vfs.OsFs)
 	for _, folder := range foldersToScan {
 		providerLog(logger.LevelDebug, "starting quota scan after migration for folder %#v", folder)
 		vfolder, err := provider.getFolderByPath(folder)

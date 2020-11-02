@@ -5688,7 +5688,7 @@ func TestResolveVirtualPaths(t *testing.T) {
 	})
 	err := os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
-	osFs := vfs.NewOsFs("", user.GetHomeDir(), user.VirtualFolders).(vfs.OsFs)
+	osFs := vfs.NewOsFs("", user.GetHomeDir(), user.VirtualFolders).(*vfs.OsFs)
 	b, f := osFs.GetFsPaths("/vdir/a.txt")
 	assert.Equal(t, mappedPath, b)
 	assert.Equal(t, filepath.Join(mappedPath, "a.txt"), f)

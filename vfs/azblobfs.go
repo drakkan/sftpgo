@@ -51,7 +51,7 @@ func init() {
 
 // NewAzBlobFs returns an AzBlobFs object that allows to interact with Azure Blob storage
 func NewAzBlobFs(connectionID, localTempDir string, config AzBlobFsConfig) (Fs, error) {
-	fs := AzureBlobFs{
+	fs := &AzureBlobFs{
 		connectionID:   connectionID,
 		localTempDir:   localTempDir,
 		config:         config,
@@ -68,7 +68,10 @@ func NewAzBlobFs(connectionID, localTempDir string, config AzBlobFsConfig) (Fs, 
 		}
 		fs.config.AccountKey = accountKey
 	}
-	setConfigDefaults(&fs)
+	fs.setConfigDefaults()
+
+	version := version.Get()
+	telemetryValue := fmt.Sprintf("SFTPGo-%v_%v", version.Version, version.CommitHash)
 
 	if fs.config.SASURL != "" {
 		u, err := url.Parse(fs.config.SASURL)
@@ -80,7 +83,7 @@ func NewAzBlobFs(connectionID, localTempDir string, config AzBlobFsConfig) (Fs, 
 				TryTimeout: maxTryTimeout,
 			},
 			Telemetry: azblob.TelemetryOptions{
-				Value: "SFTPGo",
+				Value: telemetryValue,
 			},
 		})
 		// Check if we have container level SAS or account level SAS
@@ -123,7 +126,7 @@ func NewAzBlobFs(connectionID, localTempDir string, config AzBlobFsConfig) (Fs, 
 			TryTimeout: maxTryTimeout,
 		},
 		Telemetry: azblob.TelemetryOptions{
-			Value: "SFTPGo",
+			Value: telemetryValue,
 		},
 	})
 	serviceURL := azblob.NewServiceURL(*u, pipeline)
@@ -132,24 +135,8 @@ func NewAzBlobFs(connectionID, localTempDir string, config AzBlobFsConfig) (Fs, 
 	return fs, nil
 }
 
-func setConfigDefaults(fs *AzureBlobFs) {
-	if fs.config.Endpoint == "" {
-		fs.config.Endpoint = azureDefaultEndpoint
-	}
-	if fs.config.UploadPartSize == 0 {
-		fs.config.UploadPartSize = 4
-	}
-	fs.config.UploadPartSize *= 1024 * 1024
-	if fs.config.UploadConcurrency == 0 {
-		fs.config.UploadConcurrency = 2
-	}
-	if fs.config.AccessTier == "" {
-		fs.config.AccessTier = string(azblob.AccessTierNone)
-	}
-}
-
 // Name returns the name for the Fs implementation
-func (fs AzureBlobFs) Name() string {
+func (fs *AzureBlobFs) Name() string {
 	if fs.config.SASURL != "" {
 		return fmt.Sprintf("Azure Blob SAS URL %#v", fs.config.Container)
 	}
@@ -157,12 +144,12 @@ func (fs AzureBlobFs) Name() string {
 }
 
 // ConnectionID returns the connection ID associated to this Fs implementation
-func (fs AzureBlobFs) ConnectionID() string {
+func (fs *AzureBlobFs) ConnectionID() string {
 	return fs.connectionID
 }
 
 // Stat returns a FileInfo describing the named file
-func (fs AzureBlobFs) Stat(name string) (os.FileInfo, error) {
+func (fs *AzureBlobFs) Stat(name string) (os.FileInfo, error) {
 	if name == "" || name == "." {
 		err := fs.checkIfBucketExists()
 		if err != nil {
@@ -173,59 +160,34 @@ func (fs AzureBlobFs) Stat(name string) (os.FileInfo, error) {
 	if fs.config.KeyPrefix == name+"/" {
 		return NewFileInfo(name, true, 0, time.Now(), false), nil
 	}
-	prefix := fs.getPrefixForStat(name)
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-	defer cancelFn()
 
-	for marker := (azblob.Marker{}); marker.NotDone(); {
-		listBlob, err := fs.containerURL.ListBlobsHierarchySegment(ctx, marker, "/", azblob.ListBlobsSegmentOptions{
-			Details: azblob.BlobListingDetails{
-				Copy:             false,
-				Metadata:         false,
-				Snapshots:        false,
-				UncommittedBlobs: false,
-				Deleted:          false,
-			},
-			Prefix: prefix,
-		})
-		if err != nil {
-			metrics.AZListObjectsCompleted(err)
-			return nil, err
-		}
-		marker = listBlob.NextMarker
-		for _, blobPrefix := range listBlob.Segment.BlobPrefixes {
-			if fs.isEqual(blobPrefix.Name, name) {
-				metrics.AZListObjectsCompleted(nil)
-				return NewFileInfo(name, true, 0, time.Now(), false), nil
-			}
-		}
-		for _, blobInfo := range listBlob.Segment.BlobItems {
-			if fs.isEqual(blobInfo.Name, name) {
-				isDir := false
-				if blobInfo.Properties.ContentType != nil {
-					isDir = (*blobInfo.Properties.ContentType == dirMimeType)
-				}
-				size := int64(0)
-				if blobInfo.Properties.ContentLength != nil {
-					size = *blobInfo.Properties.ContentLength
-				}
-				metrics.AZListObjectsCompleted(nil)
-				return NewFileInfo(name, isDir, size, blobInfo.Properties.LastModified, false), nil
-			}
-		}
+	attrs, err := fs.headObject(name)
+	if err == nil {
+		isDir := (attrs.ContentType() == dirMimeType)
+		metrics.AZListObjectsCompleted(nil)
+		return NewFileInfo(name, isDir, attrs.ContentLength(), attrs.LastModified(), false), nil
 	}
-
-	metrics.AZListObjectsCompleted(nil)
+	if !fs.IsNotExist(err) {
+		return nil, err
+	}
+	// now check if this is a prefix (virtual directory)
+	hasContents, err := fs.hasContents(name)
+	if err != nil {
+		return nil, err
+	}
+	if hasContents {
+		return NewFileInfo(name, true, 0, time.Now(), false), nil
+	}
 	return nil, errors.New("404 no such file or directory")
 }
 
 // Lstat returns a FileInfo describing the named file
-func (fs AzureBlobFs) Lstat(name string) (os.FileInfo, error) {
+func (fs *AzureBlobFs) Lstat(name string) (os.FileInfo, error) {
 	return fs.Stat(name)
 }
 
 // Open opens the named file for reading
-func (fs AzureBlobFs) Open(name string, offset int64) (*os.File, *pipeat.PipeReaderAt, func(), error) {
+func (fs *AzureBlobFs) Open(name string, offset int64) (*os.File, *pipeat.PipeReaderAt, func(), error) {
 	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err
@@ -257,7 +219,7 @@ func (fs AzureBlobFs) Open(name string, offset int64) (*os.File, *pipeat.PipeRea
 }
 
 // Create creates or opens the named file for writing
-func (fs AzureBlobFs) Create(name string, flag int) (*os.File, *PipeWriter, func(), error) {
+func (fs *AzureBlobFs) Create(name string, flag int) (*os.File, *PipeWriter, func(), error) {
 	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err
@@ -304,7 +266,7 @@ func (fs AzureBlobFs) Create(name string, flag int) (*os.File, *PipeWriter, func
 // rename all the contents too and this could take long time: think
 // about directories with thousands of files, for each file we should
 // execute a StartCopyFromURL call.
-func (fs AzureBlobFs) Rename(source, target string) error {
+func (fs *AzureBlobFs) Rename(source, target string) error {
 	if source == target {
 		return nil
 	}
@@ -313,11 +275,11 @@ func (fs AzureBlobFs) Rename(source, target string) error {
 		return err
 	}
 	if fi.IsDir() {
-		contents, err := fs.ReadDir(source)
+		hasContents, err := fs.hasContents(source)
 		if err != nil {
 			return err
 		}
-		if len(contents) > 0 {
+		if hasContents {
 			return fmt.Errorf("Cannot rename non empty directory: %#v", source)
 		}
 	}
@@ -363,13 +325,13 @@ func (fs AzureBlobFs) Rename(source, target string) error {
 }
 
 // Remove removes the named file or (empty) directory.
-func (fs AzureBlobFs) Remove(name string, isDir bool) error {
+func (fs *AzureBlobFs) Remove(name string, isDir bool) error {
 	if isDir {
-		contents, err := fs.ReadDir(name)
+		hasContents, err := fs.hasContents(name)
 		if err != nil {
 			return err
 		}
-		if len(contents) > 0 {
+		if hasContents {
 			return fmt.Errorf("Cannot remove non empty directory: %#v", name)
 		}
 	}
@@ -383,7 +345,7 @@ func (fs AzureBlobFs) Remove(name string, isDir bool) error {
 }
 
 // Mkdir creates a new directory with the specified name and default permissions
-func (fs AzureBlobFs) Mkdir(name string) error {
+func (fs *AzureBlobFs) Mkdir(name string) error {
 	_, err := fs.Stat(name)
 	if !fs.IsNotExist(err) {
 		return err
@@ -396,43 +358,43 @@ func (fs AzureBlobFs) Mkdir(name string) error {
 }
 
 // Symlink creates source as a symbolic link to target.
-func (AzureBlobFs) Symlink(source, target string) error {
+func (*AzureBlobFs) Symlink(source, target string) error {
 	return errors.New("403 symlinks are not supported")
 }
 
 // Readlink returns the destination of the named symbolic link
-func (AzureBlobFs) Readlink(name string) (string, error) {
+func (*AzureBlobFs) Readlink(name string) (string, error) {
 	return "", errors.New("403 readlink is not supported")
 }
 
 // Chown changes the numeric uid and gid of the named file.
 // Silently ignored.
-func (AzureBlobFs) Chown(name string, uid int, gid int) error {
+func (*AzureBlobFs) Chown(name string, uid int, gid int) error {
 	return nil
 }
 
 // Chmod changes the mode of the named file to mode.
 // Silently ignored.
-func (AzureBlobFs) Chmod(name string, mode os.FileMode) error {
+func (*AzureBlobFs) Chmod(name string, mode os.FileMode) error {
 	return nil
 }
 
 // Chtimes changes the access and modification times of the named file.
 // Silently ignored.
-func (AzureBlobFs) Chtimes(name string, atime, mtime time.Time) error {
+func (*AzureBlobFs) Chtimes(name string, atime, mtime time.Time) error {
 	return errors.New("403 chtimes is not supported")
 }
 
 // Truncate changes the size of the named file.
 // Truncate by path is not supported, while truncating an opened
 // file is handled inside base transfer
-func (AzureBlobFs) Truncate(name string, size int64) error {
+func (*AzureBlobFs) Truncate(name string, size int64) error {
 	return errors.New("403 truncate is not supported")
 }
 
 // ReadDir reads the directory named by dirname and returns
 // a list of directory entries.
-func (fs AzureBlobFs) ReadDir(dirname string) ([]os.FileInfo, error) {
+func (fs *AzureBlobFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	var result []os.FileInfo
 	// dirname must be already cleaned
 	prefix := ""
@@ -504,20 +466,20 @@ func (fs AzureBlobFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 
 // IsUploadResumeSupported returns true if upload resume is supported.
 // Upload Resume is not supported on Azure Blob
-func (AzureBlobFs) IsUploadResumeSupported() bool {
+func (*AzureBlobFs) IsUploadResumeSupported() bool {
 	return false
 }
 
 // IsAtomicUploadSupported returns true if atomic upload is supported.
 // Azure Blob uploads are already atomic, we don't need to upload to a temporary
 // file
-func (AzureBlobFs) IsAtomicUploadSupported() bool {
+func (*AzureBlobFs) IsAtomicUploadSupported() bool {
 	return false
 }
 
 // IsNotExist returns a boolean indicating whether the error is known to
 // report that a file or directory does not exist
-func (AzureBlobFs) IsNotExist(err error) bool {
+func (*AzureBlobFs) IsNotExist(err error) bool {
 	if err == nil {
 		return false
 	}
@@ -537,7 +499,7 @@ func (AzureBlobFs) IsNotExist(err error) bool {
 
 // IsPermission returns a boolean indicating whether the error is known to
 // report that permission is denied.
-func (AzureBlobFs) IsPermission(err error) bool {
+func (*AzureBlobFs) IsPermission(err error) bool {
 	if err == nil {
 		return false
 	}
@@ -556,7 +518,7 @@ func (AzureBlobFs) IsPermission(err error) bool {
 }
 
 // CheckRootPath creates the specified local root directory if it does not exists
-func (fs AzureBlobFs) CheckRootPath(username string, uid int, gid int) bool {
+func (fs *AzureBlobFs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
 	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, nil)
 	return osFs.CheckRootPath(username, uid, gid)
@@ -564,7 +526,7 @@ func (fs AzureBlobFs) CheckRootPath(username string, uid int, gid int) bool {
 
 // ScanRootDirContents returns the number of files contained in the bucket,
 // and their size
-func (fs AzureBlobFs) ScanRootDirContents() (int, int64, error) {
+func (fs *AzureBlobFs) ScanRootDirContents() (int, int64, error) {
 	numFiles := 0
 	size := int64(0)
 
@@ -610,19 +572,19 @@ func (fs AzureBlobFs) ScanRootDirContents() (int, int64, error) {
 
 // GetDirSize returns the number of files and the size for a folder
 // including any subfolders
-func (AzureBlobFs) GetDirSize(dirname string) (int, int64, error) {
+func (*AzureBlobFs) GetDirSize(dirname string) (int, int64, error) {
 	return 0, 0, errUnsupported
 }
 
 // GetAtomicUploadPath returns the path to use for an atomic upload.
 // Azure Blob Storage uploads are already atomic, we never call this method
-func (AzureBlobFs) GetAtomicUploadPath(name string) string {
+func (*AzureBlobFs) GetAtomicUploadPath(name string) string {
 	return ""
 }
 
 // GetRelativePath returns the path for a file relative to the user's home dir.
 // This is the path as seen by SFTPGo users
-func (fs AzureBlobFs) GetRelativePath(name string) string {
+func (fs *AzureBlobFs) GetRelativePath(name string) string {
 	rel := path.Clean(name)
 	if rel == "." {
 		rel = ""
@@ -630,7 +592,7 @@ func (fs AzureBlobFs) GetRelativePath(name string) string {
 	if !path.IsAbs(rel) {
 		rel = "/" + rel
 	}
-	if len(fs.config.KeyPrefix) > 0 {
+	if fs.config.KeyPrefix != "" {
 		if !strings.HasPrefix(rel, "/"+fs.config.KeyPrefix) {
 			rel = "/"
 		}
@@ -641,7 +603,7 @@ func (fs AzureBlobFs) GetRelativePath(name string) string {
 
 // Walk walks the file tree rooted at root, calling walkFn for each file or
 // directory in the tree, including root
-func (fs AzureBlobFs) Walk(root string, walkFn filepath.WalkFunc) error {
+func (fs *AzureBlobFs) Walk(root string, walkFn filepath.WalkFunc) error {
 	prefix := ""
 	if root != "" && root != "." {
 		prefix = strings.TrimPrefix(root, "/")
@@ -673,15 +635,14 @@ func (fs AzureBlobFs) Walk(root string, walkFn filepath.WalkFunc) error {
 			if blobInfo.Properties.ContentType != nil {
 				isDir = (*blobInfo.Properties.ContentType == dirMimeType)
 			}
-			name := path.Clean(blobInfo.Name)
-			if len(name) == 0 {
+			if fs.isEqual(blobInfo.Name, prefix) {
 				continue
 			}
 			blobSize := int64(0)
 			if blobInfo.Properties.ContentLength != nil {
 				blobSize = *blobInfo.Properties.ContentLength
 			}
-			err = walkFn(blobInfo.Name, NewFileInfo(name, isDir, blobSize, blobInfo.Properties.LastModified, false), nil)
+			err = walkFn(blobInfo.Name, NewFileInfo(blobInfo.Name, isDir, blobSize, blobInfo.Properties.LastModified, false), nil)
 			if err != nil {
 				return err
 			}
@@ -693,31 +654,36 @@ func (fs AzureBlobFs) Walk(root string, walkFn filepath.WalkFunc) error {
 }
 
 // Join joins any number of path elements into a single path
-func (AzureBlobFs) Join(elem ...string) string {
+func (*AzureBlobFs) Join(elem ...string) string {
 	return strings.TrimPrefix(path.Join(elem...), "/")
 }
 
 // HasVirtualFolders returns true if folders are emulated
-func (AzureBlobFs) HasVirtualFolders() bool {
+func (*AzureBlobFs) HasVirtualFolders() bool {
 	return true
 }
 
 // ResolvePath returns the matching filesystem path for the specified sftp path
-func (fs AzureBlobFs) ResolvePath(virtualPath string) (string, error) {
+func (fs *AzureBlobFs) ResolvePath(virtualPath string) (string, error) {
 	if !path.IsAbs(virtualPath) {
 		virtualPath = path.Clean("/" + virtualPath)
 	}
 	return fs.Join(fs.config.KeyPrefix, strings.TrimPrefix(virtualPath, "/")), nil
 }
 
-// GetMimeType implements MimeTyper interface
-func (fs AzureBlobFs) GetMimeType(name string) (string, error) {
+func (fs *AzureBlobFs) headObject(name string) (*azblob.BlobGetPropertiesResponse, error) {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
 
 	blobBlockURL := fs.containerURL.NewBlockBlobURL(name)
 	response, err := blobBlockURL.GetProperties(ctx, azblob.BlobAccessConditions{})
 	metrics.AZHeadObjectCompleted(err)
+	return response, err
+}
+
+// GetMimeType implements MimeTyper interface
+func (fs *AzureBlobFs) GetMimeType(name string) (string, error) {
+	response, err := fs.headObject(name)
 	if err != nil {
 		return "", err
 	}
@@ -737,6 +703,22 @@ func (fs *AzureBlobFs) isEqual(key string, virtualName string) bool {
 	return false
 }
 
+func (fs *AzureBlobFs) setConfigDefaults() {
+	if fs.config.Endpoint == "" {
+		fs.config.Endpoint = azureDefaultEndpoint
+	}
+	if fs.config.UploadPartSize == 0 {
+		fs.config.UploadPartSize = 4
+	}
+	fs.config.UploadPartSize *= 1024 * 1024
+	if fs.config.UploadConcurrency == 0 {
+		fs.config.UploadConcurrency = 2
+	}
+	if fs.config.AccessTier == "" {
+		fs.config.AccessTier = string(azblob.AccessTierNone)
+	}
+}
+
 func (fs *AzureBlobFs) checkIfBucketExists() error {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
@@ -746,17 +728,35 @@ func (fs *AzureBlobFs) checkIfBucketExists() error {
 	return err
 }
 
-func (fs *AzureBlobFs) getPrefixForStat(name string) string {
-	prefix := path.Dir(name)
-	if prefix == "/" || prefix == "." || prefix == "" {
-		prefix = ""
-	} else {
-		prefix = strings.TrimPrefix(prefix, "/")
+func (fs *AzureBlobFs) hasContents(name string) (bool, error) {
+	result := false
+	prefix := ""
+	if name != "" && name != "." {
+		prefix = strings.TrimPrefix(name, "/")
 		if !strings.HasSuffix(prefix, "/") {
 			prefix += "/"
 		}
 	}
-	return prefix
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	defer cancelFn()
+
+	listBlob, err := fs.containerURL.ListBlobsFlatSegment(ctx, azblob.Marker{}, azblob.ListBlobsSegmentOptions{
+		Details: azblob.BlobListingDetails{
+			Copy:             false,
+			Metadata:         false,
+			Snapshots:        false,
+			UncommittedBlobs: false,
+			Deleted:          false,
+		},
+		Prefix:     prefix,
+		MaxResults: 1,
+	})
+	metrics.AZListObjectsCompleted(err)
+	if err != nil {
+		return result, err
+	}
+	result = len(listBlob.Segment.BlobItems) > 0
+	return result, err
 }
 
 func (fs *AzureBlobFs) handleMultipartUpload(ctx context.Context, reader io.Reader, blockBlobURL azblob.BlockBlobURL,
