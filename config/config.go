@@ -104,7 +104,6 @@ func init() {
 			},
 			Cache: webdavd.Cache{
 				Users: webdavd.UsersCacheConfig{
-					Enabled:        true,
 					ExpirationTime: 0,
 					MaxSize:        50,
 				},
@@ -399,7 +398,6 @@ func setViperDefaults() {
 	viper.SetDefault("webdavd.cors.exposed_headers", globalConf.WebDAVD.Cors.ExposedHeaders)
 	viper.SetDefault("webdavd.cors.allow_credentials", globalConf.WebDAVD.Cors.AllowCredentials)
 	viper.SetDefault("webdavd.cors.max_age", globalConf.WebDAVD.Cors.MaxAge)
-	viper.SetDefault("webdavd.cache.users.enabled", globalConf.WebDAVD.Cache.Users.Enabled)
 	viper.SetDefault("webdavd.cache.users.expiration_time", globalConf.WebDAVD.Cache.Users.ExpirationTime)
 	viper.SetDefault("webdavd.cache.users.max_size", globalConf.WebDAVD.Cache.Users.MaxSize)
 	viper.SetDefault("webdavd.cache.mime_types.enabled", globalConf.WebDAVD.Cache.MimeTypes.Enabled)

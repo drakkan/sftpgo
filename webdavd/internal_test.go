@@ -647,7 +647,6 @@ func TestBasicUsersCache(t *testing.T) {
 		BindPort: 9000,
 		Cache: Cache{
 			Users: UsersCacheConfig{
-				Enabled:        true,
 				MaxSize:        50,
 				ExpirationTime: 1,
 			},
@@ -752,7 +751,6 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 		BindPort: 9000,
 		Cache: Cache{
 			Users: UsersCacheConfig{
-				Enabled:        true,
 				MaxSize:        3,
 				ExpirationTime: 1,
 			},

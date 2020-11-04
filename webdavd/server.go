@@ -104,7 +104,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if path.Clean(r.URL.Path) == "/" && (r.Method == "GET" || r.Method == "PROPFIND" || r.Method == "OPTIONS") {
+	if path.Clean(r.URL.Path) == "/" && (r.Method == http.MethodGet || r.Method == "PROPFIND" || r.Method == http.MethodOptions) {
 		http.Redirect(w, r, path.Join("/", user.Username), http.StatusMovedPermanently)
 		return
 	}
@@ -143,7 +143,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	prefix := path.Join("/", user.Username)
 	// see RFC4918, section 9.4
-	if r.Method == "GET" {
+	if r.Method == http.MethodGet {
 		p := strings.TrimPrefix(path.Clean(r.URL.Path), prefix)
 		info, err := connection.Stat(ctx, p)
 		if err == nil && info.IsDir() {
@@ -170,19 +170,17 @@ func (s *webDavServer) authenticate(r *http.Request) (dataprovider.User, bool, w
 	if !ok {
 		return user, false, nil, err401
 	}
-	if s.config.Cache.Users.Enabled {
-		result, ok := dataprovider.GetCachedWebDAVUser(username)
-		if ok {
-			cachedUser := result.(*dataprovider.CachedUser)
-			if cachedUser.IsExpired() {
-				dataprovider.RemoveCachedWebDAVUser(username)
-			} else {
-				if len(password) > 0 && cachedUser.Password == password {
-					return cachedUser.User, true, cachedUser.LockSystem, nil
-				}
-				updateLoginMetrics(username, r.RemoteAddr, dataprovider.ErrInvalidCredentials)
-				return user, false, nil, dataprovider.ErrInvalidCredentials
+	result, ok := dataprovider.GetCachedWebDAVUser(username)
+	if ok {
+		cachedUser := result.(*dataprovider.CachedUser)
+		if cachedUser.IsExpired() {
+			dataprovider.RemoveCachedWebDAVUser(username)
+		} else {
+			if len(password) > 0 && cachedUser.Password == password {
+				return cachedUser.User, true, cachedUser.LockSystem, nil
 			}
+			updateLoginMetrics(username, r.RemoteAddr, dataprovider.ErrInvalidCredentials)
+			return user, false, nil, dataprovider.ErrInvalidCredentials
 		}
 	}
 	user, err = dataprovider.CheckUserAndPass(username, password, utils.GetIPFromRemoteAddress(r.RemoteAddr), common.ProtocolWebDAV)
@@ -191,7 +189,7 @@ func (s *webDavServer) authenticate(r *http.Request) (dataprovider.User, bool, w
 		return user, false, nil, err
 	}
 	lockSystem := webdav.NewMemLS()
-	if s.config.Cache.Users.Enabled && len(password) > 0 {
+	if password != "" {
 		cachedUser := &dataprovider.CachedUser{
 			User:       user,
 			Password:   password,

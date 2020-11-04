@@ -4,13 +4,12 @@ The experimental `WebDAV` support can be enabled by setting a `bind_port` inside
 
 Each user has his own path like `http/s://<SFTPGo ip>:<WevDAVPORT>/<username>` and it must authenticate using password credentials.
 
-WebDAV is quite a different protocol than SCP/FTP, there is no session concept, each command is a separate HTTP request and must be authenticated, performance can be greatly improved enabling caching for the authenticated users (it is enabled by default). This way SFTPGo don't need to do a dataprovider query and a password check for each request.
-If you enable quota support a dataprovider query is required, to update the user quota, after each file upload.
+WebDAV is quite a different protocol than SCP/FTP, there is no session concept, each command is a separate HTTP request and must be authenticated, to improve performance SFTPGo caches authenticated users. This way SFTPGo don't need to do a dataprovider query and a password check for each request.
 
 The user caching configuration allows to set:
 
 - `expiration_time` in minutes. If a user is cached for more than the specified minutes it will be removed from the cache and a new dataprovider query will be performed. Please note that the `last_login` field will not be updated and `external_auth_hook`, `pre_login_hook` and `check_password_hook` will not be executed if the user is obtained from the cache.
-- `max_size`. Maximum number of users to cache. When this limit is reached the user with the oldest expiration date will be removed from the cache. 0 means no limit however the cache size cannot exceed the number of users so if you have a small number of users you can leave this setting to 0.
+- `max_size`. Maximum number of users to cache. When this limit is reached the user with the oldest expiration date will be removed from the cache. 0 means no limit however the cache size cannot exceed the number of users so if you have a small number of users you can set this value to 0.
 
 Users are automatically removed from the cache after an update/delete.
 

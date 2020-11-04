@@ -72,8 +72,8 @@ func (fi *webDavFileInfo) ContentType(ctx context.Context) (string, error) {
 		return contentType, nil
 	}
 	contentType, err := fi.Fs.GetMimeType(fi.fsPath)
-	mimeTypeCache.addMimeToCache(extension, contentType)
 	if contentType != "" {
+		mimeTypeCache.addMimeToCache(extension, contentType)
 		return contentType, err
 	}
 	return "", webdav.ErrNotImplemented

@@ -36,9 +36,8 @@ type Cors struct {
 
 // UsersCacheConfig defines the cache configuration for users
 type UsersCacheConfig struct {
-	Enabled        bool `json:"enabled" mapstructure:"enabled"`
-	ExpirationTime int  `json:"expiration_time" mapstructure:"expiration_time"`
-	MaxSize        int  `json:"max_size" mapstructure:"max_size"`
+	ExpirationTime int `json:"expiration_time" mapstructure:"expiration_time"`
+	MaxSize        int `json:"max_size" mapstructure:"max_size"`
 }
 
 // MimeCacheConfig defines the cache configuration for mime types

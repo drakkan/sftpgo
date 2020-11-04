@@ -63,7 +63,6 @@
     },
     "cache": {
       "users": {
-        "enabled": true,
         "expiration_time": 0,
         "max_size": 50
       },
