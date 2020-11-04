@@ -14,6 +14,8 @@ import (
 	"golang.org/x/net/webdav"
 
 	"github.com/drakkan/sftpgo/common"
+	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/vfs"
 )
 
@@ -23,13 +25,13 @@ type webDavFile struct {
 	*common.BaseTransfer
 	writer      io.WriteCloser
 	reader      io.ReadCloser
-	isFinished  bool
-	startOffset int64
 	info        os.FileInfo
+	startOffset int64
+	isFinished  bool
+	readTryed   int32
 }
 
-func newWebDavFile(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *pipeat.PipeReaderAt,
-	info os.FileInfo) *webDavFile {
+func newWebDavFile(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *pipeat.PipeReaderAt) *webDavFile {
 	var writer io.WriteCloser
 	var reader io.ReadCloser
 	if baseTransfer.File != nil {
@@ -46,71 +48,104 @@ func newWebDavFile(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter
 		reader:       reader,
 		isFinished:   false,
 		startOffset:  0,
-		info:         info,
+		info:         nil,
+		readTryed:    0,
 	}
 }
 
 type webDavFileInfo struct {
 	os.FileInfo
-	file *webDavFile
+	Fs          vfs.Fs
+	virtualPath string
+	fsPath      string
 }
 
 // ContentType implements webdav.ContentTyper interface
-func (fi webDavFileInfo) ContentType(ctx context.Context) (string, error) {
-	contentType := mime.TypeByExtension(path.Ext(fi.file.GetVirtualPath()))
+func (fi *webDavFileInfo) ContentType(ctx context.Context) (string, error) {
+	extension := path.Ext(fi.virtualPath)
+	contentType := mime.TypeByExtension(extension)
 	if contentType != "" {
 		return contentType, nil
 	}
-	if c, ok := fi.file.Fs.(vfs.MimeTyper); ok {
-		contentType, err := c.GetMimeType(fi.file.GetFsPath())
+	contentType = mimeTypeCache.getMimeFromCache(extension)
+	if contentType != "" {
+		return contentType, nil
+	}
+	contentType, err := fi.Fs.GetMimeType(fi.fsPath)
+	mimeTypeCache.addMimeToCache(extension, contentType)
+	if contentType != "" {
 		return contentType, err
 	}
-	return contentType, webdav.ErrNotImplemented
+	return "", webdav.ErrNotImplemented
 }
 
 // Readdir reads directory entries from the handle
 func (f *webDavFile) Readdir(count int) ([]os.FileInfo, error) {
-	if f.isDir() {
-		return f.Connection.ListDir(f.GetFsPath(), f.GetVirtualPath())
+	if !f.Connection.User.HasPerm(dataprovider.PermListItems, f.GetVirtualPath()) {
+		return nil, f.Connection.GetPermissionDeniedError()
 	}
-	return nil, errors.New("we can only list directories contents, this is not a directory")
+	fileInfos, err := f.Connection.ListDir(f.GetFsPath(), f.GetVirtualPath())
+	if err != nil {
+		return nil, err
+	}
+	result := make([]os.FileInfo, 0, len(fileInfos))
+	for _, fileInfo := range fileInfos {
+		result = append(result, &webDavFileInfo{
+			FileInfo:    fileInfo,
+			Fs:          f.Fs,
+			virtualPath: path.Join(f.GetVirtualPath(), fileInfo.Name()),
+			fsPath:      f.Fs.Join(f.GetFsPath(), fileInfo.Name()),
+		})
+	}
+	return result, nil
 }
 
 // Stat the handle
 func (f *webDavFile) Stat() (os.FileInfo, error) {
-	if f.info != nil {
-		fi := webDavFileInfo{
-			FileInfo: f.info,
-			file:     f,
-		}
-		return fi, nil
+	if f.GetType() == common.TransferDownload && !f.Connection.User.HasPerm(dataprovider.PermListItems, path.Dir(f.GetVirtualPath())) {
+		return nil, f.Connection.GetPermissionDeniedError()
 	}
 	f.Lock()
-	closed := f.isFinished
 	errUpload := f.ErrTransfer
 	f.Unlock()
-	if f.GetType() == common.TransferUpload && closed && errUpload == nil {
-		info := webDavFileInfo{
-			FileInfo: vfs.NewFileInfo(f.GetFsPath(), false, atomic.LoadInt64(&f.BytesReceived), time.Now(), false),
-			file:     f,
+	if f.GetType() == common.TransferUpload && errUpload == nil {
+		info := &webDavFileInfo{
+			FileInfo:    vfs.NewFileInfo(f.GetFsPath(), false, atomic.LoadInt64(&f.BytesReceived), time.Now(), false),
+			Fs:          f.Fs,
+			virtualPath: f.GetVirtualPath(),
+			fsPath:      f.GetFsPath(),
 		}
 		return info, nil
 	}
 	info, err := f.Fs.Stat(f.GetFsPath())
 	if err != nil {
-		return info, err
+		return nil, err
 	}
-	fi := webDavFileInfo{
-		FileInfo: info,
-		file:     f,
+	fi := &webDavFileInfo{
+		FileInfo:    info,
+		Fs:          f.Fs,
+		virtualPath: f.GetVirtualPath(),
+		fsPath:      f.GetFsPath(),
 	}
-	return fi, err
+	return fi, nil
 }
 
 // Read reads the contents to downloads.
 func (f *webDavFile) Read(p []byte) (n int, err error) {
 	if atomic.LoadInt32(&f.AbortTransfer) == 1 {
 		return 0, errTransferAborted
+	}
+	if atomic.LoadInt32(&f.readTryed) == 0 {
+		atomic.StoreInt32(&f.readTryed, 1)
+
+		if !f.Connection.User.HasPerm(dataprovider.PermDownload, path.Dir(f.GetVirtualPath())) {
+			return 0, f.Connection.GetPermissionDeniedError()
+		}
+
+		if !f.Connection.User.IsFileAllowed(f.GetVirtualPath()) {
+			f.Connection.Log(logger.LevelWarn, "reading file %#v is not allowed", f.GetVirtualPath())
+			return 0, f.Connection.GetPermissionDeniedError()
+		}
 	}
 
 	f.Connection.UpdateLastActivity()
@@ -167,6 +202,18 @@ func (f *webDavFile) Write(p []byte) (n int, err error) {
 	return
 }
 
+func (f *webDavFile) updateStatInfo() error {
+	if f.info != nil {
+		return nil
+	}
+	info, err := f.Fs.Stat(f.GetFsPath())
+	if err != nil {
+		return err
+	}
+	f.info = info
+	return nil
+}
+
 // Seek sets the offset for the next Read or Write on the writer to offset,
 // interpreted according to whence: 0 means relative to the origin of the file,
 // 1 means relative to the current offset, and 2 means relative to the end.
@@ -185,7 +232,10 @@ func (f *webDavFile) Seek(offset int64, whence int) (int64, error) {
 		if offset == 0 && readOffset == 0 {
 			if whence == io.SeekStart {
 				return 0, nil
-			} else if whence == io.SeekEnd && f.info != nil {
+			} else if whence == io.SeekEnd {
+				if err := f.updateStatInfo(); err != nil {
+					return 0, err
+				}
 				return f.info.Size(), nil
 			}
 		}
@@ -204,13 +254,11 @@ func (f *webDavFile) Seek(offset int64, whence int) (int64, error) {
 		case io.SeekCurrent:
 			startByte = readOffset + offset
 		case io.SeekEnd:
-			if f.info != nil {
-				startByte = f.info.Size() - offset
-			} else {
-				err := errors.New("unable to get file size, seek from end not possible")
+			if err := f.updateStatInfo(); err != nil {
 				f.TransferError(err)
 				return 0, err
 			}
+			startByte = f.info.Size() - offset
 		}
 
 		_, r, cancelFn, err := f.Fs.Open(f.GetFsPath(), startByte)
@@ -274,16 +322,9 @@ func (f *webDavFile) setFinished() error {
 	return nil
 }
 
-func (f *webDavFile) isDir() bool {
-	if f.info == nil {
-		return false
-	}
-	return f.info.IsDir()
-}
-
 func (f *webDavFile) isTransfer() bool {
 	if f.GetType() == common.TransferDownload {
-		return (f.reader != nil)
+		return atomic.LoadInt32(&f.readTryed) > 0
 	}
 	return true
 }

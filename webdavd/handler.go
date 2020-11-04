@@ -144,52 +144,20 @@ func (c *Connection) OpenFile(ctx context.Context, name string, flag int, perm o
 		return nil, c.GetFsError(err)
 	}
 	if flag == os.O_RDONLY {
-		// Download, Stat or Readdir
-		fi, err := c.Fs.Lstat(p)
-		if err != nil {
-			return nil, c.GetFsError(err)
-		}
-		return c.getFile(p, name, fi)
+		// Download, Stat, Readdir or simply open/close
+		return c.getFile(p, name)
 	}
 	return c.putFile(p, name)
 }
 
-func (c *Connection) getFile(fsPath, virtualPath string, info os.FileInfo) (webdav.File, error) {
+func (c *Connection) getFile(fsPath, virtualPath string) (webdav.File, error) {
 	var err error
-	if info.IsDir() {
-		if !c.User.HasPerm(dataprovider.PermListItems, virtualPath) {
-			return nil, c.GetPermissionDeniedError()
-		}
-		var file *os.File
-		if vfs.IsLocalOsFs(c.Fs) {
-			file, _, _, err = c.Fs.Open(fsPath, 0)
-			if err != nil {
-				c.Log(logger.LevelWarn, "could not open directory %#v for reading: %+v", fsPath, err)
-				return nil, c.GetFsError(err)
-			}
-		}
-		baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, nil, fsPath, virtualPath, common.TransferDownload,
-			0, 0, 0, false, c.Fs)
-
-		return newWebDavFile(baseTransfer, nil, nil, info), nil
-	}
-
-	// we don't know if the file will be downloaded or opened for get properties so we check both permissions
-	if !c.User.HasPerms([]string{dataprovider.PermDownload, dataprovider.PermListItems}, path.Dir(virtualPath)) {
-		return nil, c.GetPermissionDeniedError()
-	}
-
-	if !c.User.IsFileAllowed(virtualPath) {
-		c.Log(logger.LevelWarn, "reading file %#v is not allowed", virtualPath)
-		return nil, c.GetPermissionDeniedError()
-	}
-
 	var file *os.File
 	var r *pipeat.PipeReaderAt
 	var cancelFn func()
 
 	// for cloud fs we open the file when we receive the first read to avoid to download the first part of
-	// the file if it was opened to get stats and not for a real download
+	// the file if it was opened only to do a stat or a readdir and so it ins't a download
 	if vfs.IsLocalOsFs(c.Fs) {
 		file, r, cancelFn, err = c.Fs.Open(fsPath, 0)
 		if err != nil {
@@ -201,7 +169,7 @@ func (c *Connection) getFile(fsPath, virtualPath string, info os.FileInfo) (webd
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, fsPath, virtualPath, common.TransferDownload,
 		0, 0, 0, false, c.Fs)
 
-	return newWebDavFile(baseTransfer, nil, r, info), nil
+	return newWebDavFile(baseTransfer, nil, r), nil
 }
 
 func (c *Connection) putFile(fsPath, virtualPath string) (webdav.File, error) {
@@ -261,7 +229,7 @@ func (c *Connection) handleUploadToNewFile(resolvedPath, filePath, requestPath s
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
 		common.TransferUpload, 0, 0, maxWriteSize, true, c.Fs)
 
-	return newWebDavFile(baseTransfer, w, nil, nil), nil
+	return newWebDavFile(baseTransfer, w, nil), nil
 }
 
 func (c *Connection) handleUploadToExistingFile(resolvedPath, filePath string, fileSize int64,
@@ -311,7 +279,7 @@ func (c *Connection) handleUploadToExistingFile(resolvedPath, filePath string, f
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
 		common.TransferUpload, 0, initialSize, maxWriteSize, false, c.Fs)
 
-	return newWebDavFile(baseTransfer, w, nil, nil), nil
+	return newWebDavFile(baseTransfer, w, nil), nil
 }
 
 type objectMapping struct {

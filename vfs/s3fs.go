@@ -674,7 +674,7 @@ func (fs *S3Fs) headObject(name string) (*s3.HeadObjectOutput, error) {
 	return obj, err
 }
 
-// GetMimeType implements MimeTyper interface
+// GetMimeType returns the content type
 func (fs *S3Fs) GetMimeType(name string) (string, error) {
 	obj, err := fs.headObject(name)
 	if err != nil {

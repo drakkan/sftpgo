@@ -1993,7 +1993,7 @@ func updateVFoldersQuotaAfterRestore(foldersToScan []string) {
 }
 
 // CacheWebDAVUser add a user to the WebDAV cache
-func CacheWebDAVUser(cachedUser CachedUser, maxSize int) {
+func CacheWebDAVUser(cachedUser *CachedUser, maxSize int) {
 	if maxSize > 0 {
 		var cacheSize int
 		var userToRemove string
@@ -2003,10 +2003,10 @@ func CacheWebDAVUser(cachedUser CachedUser, maxSize int) {
 			cacheSize++
 			if len(userToRemove) == 0 {
 				userToRemove = k.(string)
-				expirationTime = v.(CachedUser).Expiration
+				expirationTime = v.(*CachedUser).Expiration
 				return true
 			}
-			expireTime := v.(CachedUser).Expiration
+			expireTime := v.(*CachedUser).Expiration
 			if !expireTime.IsZero() && expireTime.Before(expirationTime) {
 				userToRemove = k.(string)
 				expirationTime = expireTime

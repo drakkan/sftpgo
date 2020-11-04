@@ -74,6 +74,14 @@ These properties are stored inside the data provider.
 
 If you want to use your existing accounts, you have these options:
 
-- If your accounts are already stored inside a supported database, you can create a database view. Since a view is read only, you have to disable user management and quota tracking so SFTPGo will never try to write to the view
 - you can import your users inside SFTPGo. Take a look at [sftpgo_api_cli](../examples/rest-api-cli#convert-users-from-other-stores "SFTPGo API CLI example"), it can convert and import users from Linux system users and Pure-FTPd/ProFTPD virtual users
 - you can use an external authentication program
+
+Please take a look at the [OpenAPI schema](../httpd/schema/openapi.yaml) for the exact definitions of user and folder fields.
+If you need an example you can export a dump using the REST API CLI client or by invoking the `dumpdata` endpoint directly, for example:
+
+```shell
+curl "http://127.0.0.1:8080/api/v1/dumpdata?output_file=dump.json&indent=1"
+```
+
+the dump is a JSON with users and folder.

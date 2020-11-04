@@ -709,7 +709,7 @@ func (fs *GCSFs) headObject(name string) (*storage.ObjectAttrs, error) {
 	return attrs, err
 }
 
-// GetMimeType implements MimeTyper interface
+// GetMimeType returns the content type
 func (fs *GCSFs) GetMimeType(name string) (string, error) {
 	attrs, err := fs.headObject(name)
 	if err != nil {

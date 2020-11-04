@@ -103,9 +103,15 @@ func init() {
 				MaxAge:           0,
 			},
 			Cache: webdavd.Cache{
-				Enabled:        true,
-				ExpirationTime: 0,
-				MaxSize:        50,
+				Users: webdavd.UsersCacheConfig{
+					Enabled:        true,
+					ExpirationTime: 0,
+					MaxSize:        50,
+				},
+				MimeTypes: webdavd.MimeCacheConfig{
+					Enabled: true,
+					MaxSize: 1000,
+				},
 			},
 		},
 		ProviderConf: dataprovider.Config{
@@ -393,9 +399,11 @@ func setViperDefaults() {
 	viper.SetDefault("webdavd.cors.exposed_headers", globalConf.WebDAVD.Cors.ExposedHeaders)
 	viper.SetDefault("webdavd.cors.allow_credentials", globalConf.WebDAVD.Cors.AllowCredentials)
 	viper.SetDefault("webdavd.cors.max_age", globalConf.WebDAVD.Cors.MaxAge)
-	viper.SetDefault("webdavd.cache.enabled", globalConf.WebDAVD.Cache.Enabled)
-	viper.SetDefault("webdavd.cache.expiration_time", globalConf.WebDAVD.Cache.ExpirationTime)
-	viper.SetDefault("webdavd.cache.max_size", globalConf.WebDAVD.Cache.MaxSize)
+	viper.SetDefault("webdavd.cache.users.enabled", globalConf.WebDAVD.Cache.Users.Enabled)
+	viper.SetDefault("webdavd.cache.users.expiration_time", globalConf.WebDAVD.Cache.Users.ExpirationTime)
+	viper.SetDefault("webdavd.cache.users.max_size", globalConf.WebDAVD.Cache.Users.MaxSize)
+	viper.SetDefault("webdavd.cache.mime_types.enabled", globalConf.WebDAVD.Cache.MimeTypes.Enabled)
+	viper.SetDefault("webdavd.cache.mime_types.max_size", globalConf.WebDAVD.Cache.MimeTypes.MaxSize)
 	viper.SetDefault("data_provider.driver", globalConf.ProviderConf.Driver)
 	viper.SetDefault("data_provider.name", globalConf.ProviderConf.Name)
 	viper.SetDefault("data_provider.host", globalConf.ProviderConf.Host)

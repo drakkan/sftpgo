@@ -34,11 +34,23 @@ type Cors struct {
 	MaxAge           int      `json:"max_age" mapstructure:"max_age"`
 }
 
-// Cache configuration
-type Cache struct {
+// UsersCacheConfig defines the cache configuration for users
+type UsersCacheConfig struct {
 	Enabled        bool `json:"enabled" mapstructure:"enabled"`
 	ExpirationTime int  `json:"expiration_time" mapstructure:"expiration_time"`
 	MaxSize        int  `json:"max_size" mapstructure:"max_size"`
+}
+
+// MimeCacheConfig defines the cache configuration for mime types
+type MimeCacheConfig struct {
+	Enabled bool `json:"enabled" mapstructure:"enabled"`
+	MaxSize int  `json:"max_size" mapstructure:"max_size"`
+}
+
+// Cache configuration
+type Cache struct {
+	Users     UsersCacheConfig `json:"users" mapstructure:"users"`
+	MimeTypes MimeCacheConfig  `json:"mime_types" mapstructure:"mime_types"`
 }
 
 // Configuration defines the configuration for the WevDAV server
@@ -63,6 +75,13 @@ type Configuration struct {
 func (c *Configuration) Initialize(configDir string) error {
 	var err error
 	logger.Debug(logSender, "", "initializing WevDav server with config %+v", *c)
+	mimeTypeCache = mimeCache{
+		maxSize:   c.Cache.MimeTypes.MaxSize,
+		mimeTypes: make(map[string]string),
+	}
+	if !c.Cache.MimeTypes.Enabled {
+		mimeTypeCache.maxSize = 0
+	}
 	server, err = newServer(c, configDir)
 	if err != nil {
 		return err

@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/webdav"
+
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
@@ -65,10 +67,11 @@ type CachedUser struct {
 	User       User
 	Expiration time.Time
 	Password   string
+	LockSystem webdav.LockSystem
 }
 
 // IsExpired returns true if the cached user is expired
-func (c CachedUser) IsExpired() bool {
+func (c *CachedUser) IsExpired() bool {
 	if c.Expiration.IsZero() {
 		return false
 	}

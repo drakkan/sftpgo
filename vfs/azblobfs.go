@@ -681,7 +681,7 @@ func (fs *AzureBlobFs) headObject(name string) (*azblob.BlobGetPropertiesRespons
 	return response, err
 }
 
-// GetMimeType implements MimeTyper interface
+// GetMimeType returns the content type
 func (fs *AzureBlobFs) GetMimeType(name string) (string, error) {
 	response, err := fs.headObject(name)
 	if err != nil {

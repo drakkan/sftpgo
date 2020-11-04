@@ -53,10 +53,6 @@ type Fs interface {
 	Walk(root string, walkFn filepath.WalkFunc) error
 	Join(elem ...string) string
 	HasVirtualFolders() bool
-}
-
-// MimeTyper defines an optional interface to get the content type
-type MimeTyper interface {
 	GetMimeType(name string) (string, error)
 }
 

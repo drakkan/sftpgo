@@ -2,6 +2,8 @@ package vfs
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -444,4 +446,22 @@ func (fs *OsFs) createMissingDirs(filePath string, uid, gid int) error {
 		SetPathPermissions(fs, d, uid, gid)
 	}
 	return nil
+}
+
+// GetMimeType returns the content type
+func (fs *OsFs) GetMimeType(name string) (string, error) {
+	f, err := os.OpenFile(name, os.O_RDONLY, 0)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	var buf [512]byte
+	n, err := io.ReadFull(f, buf[:])
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return "", err
+	}
+	ctype := http.DetectContentType(buf[:n])
+	// Rewind file.
+	_, err = f.Seek(0, io.SeekStart)
+	return ctype, err
 }

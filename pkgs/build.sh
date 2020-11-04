@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NFPM_VERSION=1.8.0
+NFPM_VERSION=1.9.0
 
 if [ -z ${SFTPGO_VERSION} ]
 then
@@ -94,7 +94,7 @@ EOF
 
 curl --retry 5 --retry-delay 2 --connect-timeout 10 -L -O \
   https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz
-tar xvf nfpm_1.8.0_Linux_x86_64.tar.gz nfpm
+tar xvf nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz nfpm
 chmod 755 nfpm
 mkdir deb
 ./nfpm -f nfpm.yaml pkg -p deb -t deb
