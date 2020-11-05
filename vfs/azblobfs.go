@@ -151,9 +151,11 @@ func (fs *AzureBlobFs) ConnectionID() string {
 // Stat returns a FileInfo describing the named file
 func (fs *AzureBlobFs) Stat(name string) (os.FileInfo, error) {
 	if name == "" || name == "." {
-		err := fs.checkIfBucketExists()
-		if err != nil {
-			return nil, err
+		if fs.svc != nil {
+			err := fs.checkIfBucketExists()
+			if err != nil {
+				return nil, err
+			}
 		}
 		return NewFileInfo(name, true, 0, time.Now(), false), nil
 	}
