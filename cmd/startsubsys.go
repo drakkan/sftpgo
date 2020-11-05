@@ -22,6 +22,7 @@ import (
 var (
 	logJournalD     = false
 	preserveHomeDir = false
+	baseHomeDir     = ""
 	subsystemCmd    = &cobra.Command{
 		Use:   "startsubsys",
 		Short: "Use SFTPGo as SFTP file transfer subsystem",
@@ -54,8 +55,8 @@ Command-line flags should be specified in the Subsystem declaration.
 			}
 			username := osUser.Username
 			homedir := osUser.HomeDir
-			logger.Info(logSender, connectionID, "starting SFTPGo %v as subsystem, user %#v home dir %#v config dir %#v",
-				version.Get(), username, homedir, configDir)
+			logger.Info(logSender, connectionID, "starting SFTPGo %v as subsystem, user %#v home dir %#v config dir %#v base home dir %#v",
+				version.Get(), username, homedir, configDir, baseHomeDir)
 			err = config.LoadConfig(configDir, configFile)
 			if err != nil {
 				logger.Error(logSender, connectionID, "unable to load configuration: %v", err)
@@ -95,7 +96,12 @@ Command-line flags should be specified in the Subsystem declaration.
 				}
 			} else {
 				user.Username = username
-				user.HomeDir = homedir
+				if baseHomeDir != "" && filepath.IsAbs(baseHomeDir) {
+					user.HomeDir = filepath.Join(baseHomeDir, username)
+				} else {
+					user.HomeDir = filepath.Clean(homedir)
+				}
+				logger.Debug(logSender, connectionID, "home dir for new user %#v", user.HomeDir)
 				user.Password = connectionID
 				user.Permissions = make(map[string][]string)
 				user.Permissions["/"] = []string{dataprovider.PermAny}
@@ -119,6 +125,13 @@ Command-line flags should be specified in the Subsystem declaration.
 func init() {
 	subsystemCmd.Flags().BoolVarP(&preserveHomeDir, "preserve-home", "p", false, `If the user already exists, the existing home
 directory will not be changed`)
+	subsystemCmd.Flags().StringVarP(&baseHomeDir, "base-home-dir", "d", "", `If the user does not exist specify an alternate
+starting directory. The home directory for a new
+user will be:
+
+<base-home-dir>/<username>
+
+base-home-dir must be an absolute path.`)
 	subsystemCmd.Flags().BoolVarP(&logJournalD, "log-to-journald", "j", false, `Send logs to journald. Only available on Linux.
 Use:
 
