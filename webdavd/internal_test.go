@@ -41,30 +41,31 @@ type MockOsFs struct {
 	vfs.Fs
 	err                     error
 	isAtomicUploadSupported bool
+	reader                  *pipeat.PipeReaderAt
 }
 
 // Name returns the name for the Fs implementation
-func (fs MockOsFs) Name() string {
+func (fs *MockOsFs) Name() string {
 	return "mockOsFs"
 }
 
 // Open returns nil
-func (MockOsFs) Open(name string, offset int64) (*os.File, *pipeat.PipeReaderAt, func(), error) {
-	return nil, nil, nil, nil
+func (fs *MockOsFs) Open(name string, offset int64) (*os.File, *pipeat.PipeReaderAt, func(), error) {
+	return nil, fs.reader, nil, nil
 }
 
 // IsUploadResumeSupported returns true if upload resume is supported
-func (MockOsFs) IsUploadResumeSupported() bool {
+func (*MockOsFs) IsUploadResumeSupported() bool {
 	return false
 }
 
 // IsAtomicUploadSupported returns true if atomic upload is supported
-func (fs MockOsFs) IsAtomicUploadSupported() bool {
+func (fs *MockOsFs) IsAtomicUploadSupported() bool {
 	return fs.isAtomicUploadSupported
 }
 
 // Remove removes the named file or (empty) directory.
-func (fs MockOsFs) Remove(name string, isDir bool) error {
+func (fs *MockOsFs) Remove(name string, isDir bool) error {
 	if fs.err != nil {
 		return fs.err
 	}
@@ -72,7 +73,7 @@ func (fs MockOsFs) Remove(name string, isDir bool) error {
 }
 
 // Rename renames (moves) source to target
-func (fs MockOsFs) Rename(source, target string) error {
+func (fs *MockOsFs) Rename(source, target string) error {
 	if fs.err != nil {
 		return fs.err
 	}
@@ -80,7 +81,7 @@ func (fs MockOsFs) Rename(source, target string) error {
 }
 
 // Walk returns a duplicate path for testing
-func (fs MockOsFs) Walk(root string, walkFn filepath.WalkFunc) error {
+func (fs *MockOsFs) Walk(root string, walkFn filepath.WalkFunc) error {
 	if fs.err == errWalkDir {
 		walkFn("fsdpath", vfs.NewFileInfo("dpath", true, 0, time.Now(), false), nil) //nolint:errcheck
 		walkFn("fsdpath", vfs.NewFileInfo("dpath", true, 0, time.Now(), false), nil) //nolint:errcheck
@@ -91,15 +92,16 @@ func (fs MockOsFs) Walk(root string, walkFn filepath.WalkFunc) error {
 }
 
 // GetMimeType returns the content type
-func (fs MockOsFs) GetMimeType(name string) (string, error) {
+func (fs *MockOsFs) GetMimeType(name string) (string, error) {
 	return "application/custom-mime", nil
 }
 
-func newMockOsFs(err error, atomicUpload bool, connectionID, rootDir string) vfs.Fs {
+func newMockOsFs(err error, atomicUpload bool, connectionID, rootDir string, reader *pipeat.PipeReaderAt) vfs.Fs {
 	return &MockOsFs{
 		Fs:                      vfs.NewOsFs(connectionID, rootDir, nil),
 		err:                     err,
 		isAtomicUploadSupported: atomicUpload,
+		reader:                  reader,
 	}
 }
 
@@ -338,7 +340,7 @@ func TestFileAccessErrors(t *testing.T) {
 		assert.EqualError(t, err, os.ErrNotExist.Error())
 	}
 
-	connection.Fs = newMockOsFs(nil, false, fs.ConnectionID(), user.HomeDir)
+	connection.Fs = newMockOsFs(nil, false, fs.ConnectionID(), user.HomeDir, nil)
 	_, err = connection.handleUploadToExistingFile(p, p, 0, path.Join("adir", missingPath))
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, os.ErrNotExist.Error())
@@ -383,33 +385,33 @@ func TestRemoveDirTree(t *testing.T) {
 		assert.True(t, os.IsNotExist(err))
 	}
 
-	connection.Fs = newMockOsFs(nil, false, "mockID", user.HomeDir)
+	connection.Fs = newMockOsFs(nil, false, "mockID", user.HomeDir, nil)
 	err = connection.removeDirTree(p, vpath)
 	if assert.Error(t, err) {
 		assert.True(t, os.IsNotExist(err))
 	}
 
 	errFake := errors.New("fake err")
-	connection.Fs = newMockOsFs(errFake, false, "mockID", user.HomeDir)
+	connection.Fs = newMockOsFs(errFake, false, "mockID", user.HomeDir, nil)
 	err = connection.removeDirTree(p, vpath)
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, errFake.Error())
 	}
 
-	connection.Fs = newMockOsFs(errWalkDir, true, "mockID", user.HomeDir)
+	connection.Fs = newMockOsFs(errWalkDir, true, "mockID", user.HomeDir, nil)
 	err = connection.removeDirTree(p, vpath)
 	if assert.Error(t, err) {
 		assert.True(t, os.IsNotExist(err))
 	}
 
-	connection.Fs = newMockOsFs(errWalkFile, false, "mockID", user.HomeDir)
+	connection.Fs = newMockOsFs(errWalkFile, false, "mockID", user.HomeDir, nil)
 	err = connection.removeDirTree(p, vpath)
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, errWalkFile.Error())
 	}
 
 	connection.User.Permissions["/"] = []string{dataprovider.PermListItems}
-	connection.Fs = newMockOsFs(nil, false, "mockID", user.HomeDir)
+	connection.Fs = newMockOsFs(nil, false, "mockID", user.HomeDir, nil)
 	err = connection.removeDirTree(p, vpath)
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, common.ErrPermissionDenied.Error())
@@ -430,7 +432,7 @@ func TestContentType(t *testing.T) {
 	ctx := context.Background()
 	baseTransfer := common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFile,
 		common.TransferDownload, 0, 0, 0, false, fs)
-	fs = newMockOsFs(nil, false, fs.ConnectionID(), user.GetHomeDir())
+	fs = newMockOsFs(nil, false, fs.ConnectionID(), user.GetHomeDir(), nil)
 	err := ioutil.WriteFile(testFilePath, []byte(""), os.ModePerm)
 	assert.NoError(t, err)
 	davFile := newWebDavFile(baseTransfer, nil, nil)
@@ -524,6 +526,29 @@ func TestTransferReadWriteErrors(t *testing.T) {
 		assert.Equal(t, int64(0), info.Size())
 	}
 
+	r, w, err = pipeat.Pipe()
+	assert.NoError(t, err)
+	mockFs := newMockOsFs(nil, false, fs.ConnectionID(), user.HomeDir, r)
+	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFile,
+		common.TransferDownload, 0, 0, 0, false, mockFs)
+	davFile = newWebDavFile(baseTransfer, nil, nil)
+
+	writeContent := []byte("content\r\n")
+	go func() {
+		n, err := w.Write(writeContent)
+		assert.NoError(t, err)
+		assert.Equal(t, len(writeContent), n)
+		err = w.Close()
+		assert.NoError(t, err)
+	}()
+
+	p = make([]byte, 64)
+	n, err := davFile.Read(p)
+	assert.EqualError(t, err, io.EOF.Error())
+	assert.Equal(t, len(writeContent), n)
+	err = davFile.Close()
+	assert.NoError(t, err)
+
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFile,
 		common.TransferDownload, 0, 0, 0, false, fs)
 	davFile = newWebDavFile(baseTransfer, nil, nil)
@@ -602,13 +627,13 @@ func TestTransferSeek(t *testing.T) {
 		common.TransferDownload, 0, 0, 0, false, fs)
 	davFile = newWebDavFile(baseTransfer, nil, nil)
 	davFile.reader = f
-	davFile.Fs = newMockOsFs(nil, true, fs.ConnectionID(), user.GetHomeDir())
+	davFile.Fs = newMockOsFs(nil, true, fs.ConnectionID(), user.GetHomeDir(), nil)
 	res, err = davFile.Seek(2, io.SeekStart)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(2), res)
 
 	davFile = newWebDavFile(baseTransfer, nil, nil)
-	davFile.Fs = newMockOsFs(nil, true, fs.ConnectionID(), user.GetHomeDir())
+	davFile.Fs = newMockOsFs(nil, true, fs.ConnectionID(), user.GetHomeDir(), nil)
 	res, err = davFile.Seek(2, io.SeekEnd)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(5), res)
@@ -617,7 +642,7 @@ func TestTransferSeek(t *testing.T) {
 		common.TransferDownload, 0, 0, 0, false, fs)
 
 	davFile = newWebDavFile(baseTransfer, nil, nil)
-	davFile.Fs = newMockOsFs(nil, true, fs.ConnectionID(), user.GetHomeDir())
+	davFile.Fs = newMockOsFs(nil, true, fs.ConnectionID(), user.GetHomeDir(), nil)
 	res, err = davFile.Seek(2, io.SeekEnd)
 	assert.True(t, os.IsNotExist(err))
 	assert.Equal(t, int64(0), res)

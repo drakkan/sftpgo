@@ -159,9 +159,11 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 		}
 		_, r, cancelFn, e := f.Fs.Open(f.GetFsPath(), 0)
 		f.Lock()
-		f.reader = r
+		if e == nil {
+			f.reader = r
+			f.BaseTransfer.SetCancelFn(cancelFn)
+		}
 		f.ErrTransfer = e
-		f.BaseTransfer.SetCancelFn(cancelFn)
 		f.startOffset = 0
 		f.Unlock()
 		if e != nil {
@@ -243,6 +245,7 @@ func (f *webDavFile) Seek(offset int64, whence int) (int64, error) {
 		// close the reader and create a new one at startByte
 		if f.reader != nil {
 			f.reader.Close() //nolint:errcheck
+			f.reader = nil
 		}
 		startByte := int64(0)
 		atomic.StoreInt64(&f.BytesReceived, 0)
