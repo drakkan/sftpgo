@@ -44,7 +44,7 @@ docker logs some-sftpgo
 Important note: There are several ways to store data used by applications that run in Docker containers. We encourage users of the SFTPGo images to familiarize themselves with the options available, including:
 
 - Let Docker manage the storage for SFTPGo data by [writing them to disk on the host system using its own internal volume management](https://docs.docker.com/engine/tutorials/dockervolumes/#adding-a-data-volume). This is the default and is easy and fairly transparent to the user. The downside is that the files may be hard to locate for tools and applications that run directly on the host system, i.e. outside containers.
-- Create a data directory on the host system (outside the container) and [mount this to a directory visible from inside the container]((https://docs.docker.com/engine/tutorials/dockervolumes/#mount-a-host-directory-as-a-data-volume)). This places the SFTPGo files in a known location on the host system, and makes it easy for tools and applications on the host system to access the files. The downside is that the user needs to make sure that the directory exists, and that e.g. directory permissions and other security mechanisms on the host system are set up correctly. The SFTPGo images run using `1000` as uid and gid.
+- Create a data directory on the host system (outside the container) and [mount this to a directory visible from inside the container]((https://docs.docker.com/engine/tutorials/dockervolumes/#mount-a-host-directory-as-a-data-volume)). This places the SFTPGo files in a known location on the host system, and makes it easy for tools and applications on the host system to access the files. The downside is that the user needs to make sure that the directory exists, and that e.g. directory permissions and other security mechanisms on the host system are set up correctly. The SFTPGo image runs using `1000` as UID/GID by default.
 
 The Docker documentation is a good starting point for understanding the different storage options and variations, and there are multiple blogs and forum postings that discuss and give advice in this area. We will simply show the basic procedure here for the latter option above:
 
@@ -74,6 +74,29 @@ The runtime configuration can be customized via environment variables that you c
 Please take a look [here](../docs/full-configuration.md#environment-variables) to learn how to configure SFTPGo via environment variables.
 
 Alternately you can mount your custom configuration file to `/var/lib/sftpgo` or `/var/lib/sftpgo/.config/sftpgo`.
+
+### Running as an arbitrary user
+
+The SFTPGo image runs using `1000` as UID/GID by default. If you know the permissions of your data and/or configuration directory are already set appropriately or you have need of running SFTPGo with a specific UID/GID, it is possible to invoke this image with `--user` set to any value (other than `root/0`) in order to achieve the desired access/configuration:
+
+```shell
+$ ls -lnd data
+drwxr-xr-x 2 1100 11000 6  6 nov 09.09 data
+$ ls -lnd config
+drwxr-xr-x 2 1100 11000 6  6 nov 09.19 config
+```
+
+With the above directory permissions, you can start a SFTPGo instance like this:
+
+```shell
+docker run --name some-sftpgo \
+    --user 1100:1100 \
+    -p 127.0.0.1:8080:8080 \
+    -p 2022:2022 \
+    --mount type=bind,source="${PWD}/data",target=/srv/sftpgo \
+    --mount type=bind,source="${PWD}/config",target=/var/lib/sftpgo \
+    -d "drakkan/sftpgo:tag"
+```
 
 ## Image Variants
 

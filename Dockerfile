@@ -55,9 +55,7 @@ RUN sed -i "s|\"users_base_dir\": \"\",|\"users_base_dir\": \"/srv/sftpgo/data\"
     sed -i "s|\"backups\"|\"/srv/sftpgo/backups\"|" /etc/sftpgo/sftpgo.json && \
     sed -i "s|\"bind_address\": \"127.0.0.1\",|\"bind_address\": \"\",|" /etc/sftpgo/sftpgo.json
 
-RUN chown -R sftpgo:sftpgo /etc/sftpgo && chown sftpgo:sftpgo /var/lib/sftpgo /srv/sftpgo && \
-    chmod 640 /etc/sftpgo/sftpgo.json && \
-    chmod 750 /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
+RUN chown -R sftpgo:sftpgo /etc/sftpgo && chown sftpgo:sftpgo /var/lib/sftpgo /srv/sftpgo
 
 WORKDIR /var/lib/sftpgo
 USER 1000:1000
