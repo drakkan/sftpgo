@@ -1,7 +1,7 @@
 #!/bin/bash
 
 NFPM_VERSION=1.9.0
-
+NFPM_ARCH=${NFPM_ARCH:-amd64}
 if [ -z ${SFTPGO_VERSION} ]
 then
   LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
@@ -30,11 +30,11 @@ $BASE_DIR/sftpgo gen man -d man1
 
 cat >nfpm.yaml <<EOF
 name: "sftpgo"
-arch: "amd64"
+arch: "${NFPM_ARCH}"
 platform: "linux"
 version: ${VERSION}
 release: 1
-section: "default"
+section: "net"
 priority: "extra"
 maintainer: "Nicola Murino <nicola.murino@gmail.com>"
 provides:
@@ -48,7 +48,7 @@ vendor: "SFTPGo"
 homepage: "https://github.com/drakkan/sftpgo"
 license: "GPL-3.0"
 files:
-  ${BASE_DIR}/sftpgo: "/usr/bin/sftpgo"
+  ${BASE_DIR}/sftpgo${BIN_SUFFIX}: "/usr/bin/sftpgo"
   ./sftpgo-completion.bash: "/usr/share/bash-completion/completions/sftpgo"
   ./man1/*: "/usr/share/man/man1/"
   ${BASE_DIR}/init/sftpgo.service: "/lib/systemd/system/sftpgo.service"
