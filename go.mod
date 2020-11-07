@@ -57,4 +57,5 @@ replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20200730125632-b21eac28818c
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20201017144935-4e8324213ac3
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20201104142514-34ad2afe5beb
+	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20201105171632-4ab2ef794ae3
 )

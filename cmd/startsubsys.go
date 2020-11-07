@@ -129,7 +129,7 @@ directory will not be changed`)
 starting directory. The home directory for a new
 user will be:
 
-<base-home-dir>/<username>
+[base-home-dir]/[username]
 
 base-home-dir must be an absolute path.`)
 	subsystemCmd.Flags().BoolVarP(&logJournalD, "log-to-journald", "j", false, `Send logs to journald. Only available on Linux.
