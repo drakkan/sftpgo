@@ -5,7 +5,7 @@ on:
     tags: 'v*'
 
 env:
-  GO_VERSION: 1.15
+  GO_VERSION: 1.15.4
 
 jobs:
   create-release:
@@ -145,6 +145,28 @@ jobs:
           pip install pyinstaller
           pyinstaller --hidden-import="pkg_resources.py2_warn" --noupx --onefile examples\rest-api-cli\sftpgo_api_cli
 
+      - name: Gather cross build info
+        id: cross_info
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: |
+          GIT_COMMIT=$(git describe --always)
+          BUILD_DATE=$(date -u +%FT%TZ)
+          echo ::set-output name=sha::${GIT_COMMIT}
+          echo ::set-output name=created::${BUILD_DATE}
+
+      - name: Cross build with xgo
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        uses: crazy-max/ghaction-xgo@v1
+        with:
+          dest: cross
+          prefix: sftpgo
+          targets: linux/arm64
+          v: true
+          x: false
+          race: false
+          ldflags: -s -w -X github.com/drakkan/sftpgo/version.commit=${{ steps.cross_info.outputs.sha }} -X github.com/drakkan/sftpgo/version.date=${{ steps.cross_info.outputs.created }}
+          buildmode: default
+
       - name: Prepare Release for Linux/macOS
         if: startsWith(matrix.os, 'windows-') != true
         run: |
@@ -169,9 +191,17 @@ jobs:
           ./sftpgo gen man -d output/man/man1
           gzip output/man/man1/*
           cp examples/rest-api-cli/sftpgo_api_cli output/examples/rest-api-cli/
+          cp -r output output_arm64
           cd output
           tar cJvf sftpgo_${SFTPGO_VERSION}_${OS}_x86_64.tar.xz *
           cd ..
+          if [ $OS == 'linux' ]
+          then
+            cp cross/sftpgo-linux-arm64 output_arm64/sftpgo
+            cd output_arm64
+            tar cJvf sftpgo_${SFTPGO_VERSION}_${OS}_arm64.tar.xz *
+            cd ..
+          fi
         env:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
           OS: ${{ steps.get_os_name.outputs.OS }}
@@ -180,7 +210,14 @@ jobs:
         id: build_linux_pkgs
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
+          cp -r pkgs pkgs_arm64
           cd pkgs
+          ./build.sh
+          cd ..
+          export NFPM_ARCH=arm64
+          export BIN_SUFFIX=-linux-arm64
+          cp cross/sftpgo${BIN_SUFFIX} .
+          cd pkgs_arm64
           ./build.sh
           PKG_VERSION=${SFTPGO_VERSION:1}
           echo "::set-output name=pkg-version::${PKG_VERSION}"
@@ -246,6 +283,17 @@ jobs:
           asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.tar.xz
           asset_content_type: application/x-xz
 
+      - name: Upload Linux/arm64 Release
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.upload_url.outputs.url }}
+          asset_path: ./output_arm64/sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_arm64.tar.xz
+          asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_arm64.tar.xz
+          asset_content_type: application/x-xz
+
       - name: Upload Windows Release
         if: startsWith(matrix.os, 'windows-')
         uses: actions/upload-release-asset@v1
@@ -288,4 +336,26 @@ jobs:
           upload_url: ${{ steps.upload_url.outputs.url }}
           asset_path: ./pkgs/dist/rpm/sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.x86_64.rpm
           asset_name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.x86_64.rpm
+          asset_content_type: application/x-rpm
+
+      - name: Upload Debian Package arm64
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.upload_url.outputs.url }}
+          asset_path: ./pkgs_arm64/dist/deb/sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_arm64.deb
+          asset_name: sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_arm64.deb
+          asset_content_type: application/vnd.debian.binary-package
+
+      - name: Upload RPM Package arm64
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.upload_url.outputs.url }}
+          asset_path: ./pkgs_arm64/dist/rpm/sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.aarch64.rpm
+          asset_name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.aarch64.rpm
           asset_content_type: application/x-rpm

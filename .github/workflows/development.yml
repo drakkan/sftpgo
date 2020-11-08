@@ -43,28 +43,6 @@ jobs:
           $DATE_TIME = ([datetime]::Now.ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ")) | Out-String
           go build -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/version.date=$DATE_TIME" -o sftpgo.exe
 
-      - name: Gather cross build info
-        id: cross_info
-        if: ${{ matrix.upload-coverage && startsWith(matrix.os, 'ubuntu-') }}
-        run: |
-          GIT_COMMIT=$(git describe --always)
-          BUILD_DATE=$(date -u +%FT%TZ)
-          echo ::set-output name=sha::${GIT_COMMIT}
-          echo ::set-output name=created::${BUILD_DATE}
-
-      - name: Build with xgo
-        if: ${{ matrix.upload-coverage && startsWith(matrix.os, 'ubuntu-') }}
-        uses: crazy-max/ghaction-xgo@v1
-        with:
-          dest: cross
-          prefix: sftpgo
-          targets: linux/arm64
-          v: true
-          x: false
-          race: false
-          ldflags: -s -w -X github.com/drakkan/sftpgo/version.commit=${{ steps.cross_info.outputs.sha }} -X github.com/drakkan/sftpgo/version.date=${{ steps.cross_info.outputs.created }}
-          buildmode: default
-
       - name: Run test cases using SQLite provider
         run: go test -v -p 1 -timeout 10m ./... -coverprofile=coverage.txt -covermode=atomic
 
@@ -92,6 +70,28 @@ jobs:
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: memory
           SFTPGO_DATA_PROVIDER__NAME: ''
+
+      - name: Gather cross build info
+        id: cross_info
+        if: ${{ matrix.upload-coverage && startsWith(matrix.os, 'ubuntu-') }}
+        run: |
+          GIT_COMMIT=$(git describe --always)
+          BUILD_DATE=$(date -u +%FT%TZ)
+          echo ::set-output name=sha::${GIT_COMMIT}
+          echo ::set-output name=created::${BUILD_DATE}
+
+      - name: Cross build with xgo
+        if: ${{ matrix.upload-coverage && startsWith(matrix.os, 'ubuntu-') }}
+        uses: crazy-max/ghaction-xgo@v1
+        with:
+          dest: cross
+          prefix: sftpgo
+          targets: linux/arm64
+          v: true
+          x: false
+          race: false
+          ldflags: -s -w -X github.com/drakkan/sftpgo/version.commit=${{ steps.cross_info.outputs.sha }} -X github.com/drakkan/sftpgo/version.date=${{ steps.cross_info.outputs.created }}
+          buildmode: default
 
       - name: Prepare build artifact for Linux/macOS
         if: startsWith(matrix.os, 'windows-') != true
@@ -131,7 +131,14 @@ jobs:
         id: build_linux_pkgs
         if: ${{ matrix.upload-coverage && startsWith(matrix.os, 'ubuntu-') }}
         run: |
+          cp -r pkgs pkgs_arm64
           cd pkgs
+          ./build.sh
+          cd ..
+          export NFPM_ARCH=arm64
+          export BIN_SUFFIX=-linux-arm64
+          cp cross/sftpgo${BIN_SUFFIX} .
+          cd pkgs_arm64
           ./build.sh
           PKG_VERSION=$(cat dist/version)
           echo "::set-output name=pkg-version::${PKG_VERSION}"
@@ -149,20 +156,6 @@ jobs:
         with:
           name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-x86_64-rpm
           path: pkgs/dist/rpm/*
-
-      - name: Build Linux Packages arm64
-        id: build_linux_pkgs_arm64
-        if: ${{ matrix.upload-coverage && startsWith(matrix.os, 'ubuntu-') }}
-        run: |
-          cp cross/sftpgo-linux-arm64 .
-          cd pkgs
-          rm -rf dist
-          ./build.sh
-          PKG_VERSION=$(cat dist/version)
-          echo "::set-output name=pkg-version::${PKG_VERSION}"
-        env:
-          NFPM_ARCH: arm64
-          BIN_SUFFIX: -linux-arm64
 
       - name: Upload Debian Package arm64
         if: ${{ matrix.upload-coverage && startsWith(matrix.os, 'ubuntu-') }}
