@@ -1680,6 +1680,13 @@ func TestTransferFailingReader(t *testing.T) {
 	err = tr.Close()
 	assert.NoError(t, err)
 
+	tr = newTransfer(baseTransfer, nil, nil, errRead)
+	_, err = tr.ReadAt(buf, 0)
+	assert.EqualError(t, err, errRead.Error())
+
+	err = tr.Close()
+	assert.NoError(t, err)
+
 	err = os.Remove(fsPath)
 	assert.NoError(t, err)
 	assert.Len(t, connection.GetTransfers(), 0)
