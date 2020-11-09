@@ -86,7 +86,7 @@ jobs:
         with:
           dest: cross
           prefix: sftpgo
-          targets: linux/arm64
+          targets: linux/arm64,linux/ppc64le
           v: true
           x: false
           race: false
@@ -108,7 +108,12 @@ jobs:
           ./sftpgo gen completion zsh > output/zsh_completion/_sftpgo
           ./sftpgo gen man -d output/man/man1
           gzip output/man/man1/*
-          cp cross/sftpgo-linux-arm64 output/ || :
+
+      - name: Copy cross compiled Linux binaries
+        if: ${{ matrix.upload-coverage && startsWith(matrix.os, 'ubuntu-') }}
+        run: |
+          cp cross/sftpgo-linux-arm64 output/
+          cp cross/sftpgo-linux-ppc64le output/
 
       - name: Prepare build artifact for Windows
         if: startsWith(matrix.os, 'windows-')
@@ -132,6 +137,7 @@ jobs:
         if: ${{ matrix.upload-coverage && startsWith(matrix.os, 'ubuntu-') }}
         run: |
           cp -r pkgs pkgs_arm64
+          cp -r pkgs pkgs_ppc64le
           cd pkgs
           ./build.sh
           cd ..
@@ -139,6 +145,12 @@ jobs:
           export BIN_SUFFIX=-linux-arm64
           cp cross/sftpgo${BIN_SUFFIX} .
           cd pkgs_arm64
+          ./build.sh
+          cd ..
+          export NFPM_ARCH=ppc64le
+          export BIN_SUFFIX=-linux-ppc64le
+          cp cross/sftpgo${BIN_SUFFIX} .
+          cd pkgs_ppc64le
           ./build.sh
           PKG_VERSION=$(cat dist/version)
           echo "::set-output name=pkg-version::${PKG_VERSION}"
@@ -162,14 +174,28 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-arm64-deb
-          path: pkgs/dist/deb/*
+          path: pkgs_arm64/dist/deb/*
 
       - name: Upload RPM Package arm64
         if: ${{ matrix.upload-coverage && startsWith(matrix.os, 'ubuntu-') }}
         uses: actions/upload-artifact@v2
         with:
           name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-arm64-rpm
-          path: pkgs/dist/rpm/*
+          path: pkgs_arm64/dist/rpm/*
+
+      - name: Upload Debian Package ppc64le
+        if: ${{ matrix.upload-coverage && startsWith(matrix.os, 'ubuntu-') }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-ppc64le-deb
+          path: pkgs_ppc64le/dist/deb/*
+
+      - name: Upload RPM Package ppc64le
+        if: ${{ matrix.upload-coverage && startsWith(matrix.os, 'ubuntu-') }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-ppc64le-rpm
+          path: pkgs_ppc64le/dist/rpm/*
 
   test-postgresql-mysql:
     name: Test with PostgreSQL/MySQL

@@ -5,7 +5,7 @@ on:
     tags: 'v*'
 
 env:
-  GO_VERSION: 1.15
+  GO_VERSION: 1.15.4
 
 jobs:
   create-release:
@@ -160,7 +160,7 @@ jobs:
         with:
           dest: cross
           prefix: sftpgo
-          targets: linux/arm64
+          targets: linux/arm64,linux/ppc64le
           v: true
           x: false
           race: false
@@ -191,7 +191,12 @@ jobs:
           ./sftpgo gen man -d output/man/man1
           gzip output/man/man1/*
           cp examples/rest-api-cli/sftpgo_api_cli output/examples/rest-api-cli/
-          cp -r output output_arm64
+          if [ $OS == 'linux' ]
+          then
+            cp -r output output_arm64
+            cp -r output output_ppc64le
+            cp -r output output_all
+          fi
           cd output
           tar cJvf sftpgo_${SFTPGO_VERSION}_${OS}_x86_64.tar.xz *
           cd ..
@@ -200,6 +205,16 @@ jobs:
             cp cross/sftpgo-linux-arm64 output_arm64/sftpgo
             cd output_arm64
             tar cJvf sftpgo_${SFTPGO_VERSION}_${OS}_arm64.tar.xz *
+            cd ..
+            cp cross/sftpgo-linux-ppc64le output_ppc64le/sftpgo
+            cd output_ppc64le
+            tar cJvf sftpgo_${SFTPGO_VERSION}_${OS}_ppc64le.tar.xz *
+            cd ..
+            mkdir output_all/{arm64,ppc64le}
+            cp cross/sftpgo-linux-arm64 output_all/arm64/sftpgo
+            cp cross/sftpgo-linux-ppc64le output_all/ppc64le/sftpgo
+            cd output_all
+            tar cJvf sftpgo_${SFTPGO_VERSION}_${OS}_bundle.tar.xz *
             cd ..
           fi
         env:
@@ -211,6 +226,7 @@ jobs:
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
           cp -r pkgs pkgs_arm64
+          cp -r pkgs pkgs_ppc64le
           cd pkgs
           ./build.sh
           cd ..
@@ -219,6 +235,13 @@ jobs:
           cp cross/sftpgo${BIN_SUFFIX} .
           cd pkgs_arm64
           ./build.sh
+          cd ..
+          export NFPM_ARCH=ppc64le
+          export BIN_SUFFIX=-linux-ppc64le
+          cp cross/sftpgo${BIN_SUFFIX} .
+          cd pkgs_ppc64le
+          ./build.sh
+          cd ..
           PKG_VERSION=${SFTPGO_VERSION:1}
           echo "::set-output name=pkg-version::${PKG_VERSION}"
         env:
@@ -294,6 +317,28 @@ jobs:
           asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_arm64.tar.xz
           asset_content_type: application/x-xz
 
+      - name: Upload Linux/ppc64le Release
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.upload_url.outputs.url }}
+          asset_path: ./output_ppc64le/sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_ppc64le.tar.xz
+          asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_ppc64le.tar.xz
+          asset_content_type: application/x-xz
+
+      - name: Upload Linux Bundle Release
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.upload_url.outputs.url }}
+          asset_path: ./output_all/sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_bundle.tar.xz
+          asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_bundle.tar.xz
+          asset_content_type: application/x-xz
+
       - name: Upload Windows Release
         if: startsWith(matrix.os, 'windows-')
         uses: actions/upload-release-asset@v1
@@ -358,4 +403,26 @@ jobs:
           upload_url: ${{ steps.upload_url.outputs.url }}
           asset_path: ./pkgs_arm64/dist/rpm/sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.aarch64.rpm
           asset_name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.aarch64.rpm
+          asset_content_type: application/x-rpm
+
+      - name: Upload Debian Package ppc64le
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.upload_url.outputs.url }}
+          asset_path: ./pkgs_ppc64le/dist/deb/sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_ppc64el.deb
+          asset_name: sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_ppc64el.deb
+          asset_content_type: application/vnd.debian.binary-package
+
+      - name: Upload RPM Package ppc64le
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.upload_url.outputs.url }}
+          asset_path: ./pkgs_ppc64le/dist/rpm/sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.ppc64le.rpm
+          asset_name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.ppc64le.rpm
           asset_content_type: application/x-rpm
