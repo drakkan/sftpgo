@@ -98,6 +98,11 @@ docker run --name some-sftpgo \
     -d "drakkan/sftpgo:tag"
 ```
 
+Alternately you can set the following environment variables:
+
+- `SFTPGO_PUID`, sets the numeric user ID to use
+- `SFTPGO_PGID`, sets the numeric group ID to use
+
 ## Image Variants
 
 The `sftpgo` images comes in many flavors, each designed for a specific use case. The `edge` and `edge-alpine`tags are updated after each new commit.
