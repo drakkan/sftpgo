@@ -32,6 +32,9 @@ func (r *failingReader) ReadAt(p []byte, off int64) (n int, err error) {
 }
 
 func (r *failingReader) Close() error {
+	if r.innerReader == nil {
+		return nil
+	}
 	return r.innerReader.Close()
 }
 
@@ -68,6 +71,12 @@ func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, 
 				innerReader: pipeReader,
 				errRead:     errForRead,
 			}
+		}
+	}
+	if baseTransfer.File == nil && errForRead != nil && pipeReader == nil {
+		reader = &failingReader{
+			innerReader: nil,
+			errRead:     errForRead,
 		}
 	}
 	return &transfer{

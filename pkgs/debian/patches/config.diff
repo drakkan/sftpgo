@@ -2,7 +2,7 @@ Index: sftpgo/sftpgo.json
 ===================================================================
 --- sftpgo.orig/sftpgo.json
 +++ sftpgo/sftpgo.json
-@@ -69,7 +69,7 @@
+@@ -74,7 +74,7 @@
    },
    "data_provider": {
      "driver": "sqlite",
@@ -11,7 +11,7 @@ Index: sftpgo/sftpgo.json
      "host": "",
      "port": 5432,
      "username": "",
-@@ -80,14 +80,14 @@
+@@ -85,14 +85,14 @@
      "manage_users": 1,
      "track_quota": 2,
      "pool_size": 0,
@@ -25,10 +25,10 @@ Index: sftpgo/sftpgo.json
      "external_auth_scope": 0,
 -    "credentials_path": "credentials",
 +    "credentials_path": "/var/lib/sftpgo/credentials",
+     "prefer_database_credentials": false,
      "pre_login_hook": "",
      "post_login_hook": "",
-     "post_login_scope": 0,
-@@ -105,9 +105,9 @@
+@@ -111,9 +111,9 @@
    "httpd": {
      "bind_port": 8080,
      "bind_address": "127.0.0.1",
@@ -41,10 +41,3 @@ Index: sftpgo/sftpgo.json
      "auth_user_file": "",
      "certificate_file": "",
      "certificate_key_file": ""
-@@ -117,4 +117,4 @@
-     "ca_certificates": [],
-     "skip_tls_verify": false
-   }
--}
-\ No newline at end of file
-+}

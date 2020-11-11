@@ -28,9 +28,7 @@ RUN set -xe && \
 
 FROM alpine:3.12
 
-RUN apk add --update --no-cache ca-certificates tzdata bash mailcap
-
-SHELL ["/bin/bash", "-c"]
+RUN apk add --update --no-cache ca-certificates tzdata bash mailcap su-exec
 
 # set up nsswitch.conf for Go's "netgo" implementation
 # https://github.com/gliderlabs/docker-alpine/issues/367#issuecomment-424546457
@@ -39,7 +37,7 @@ RUN test ! -e /etc/nsswitch.conf && echo 'hosts: files dns' > /etc/nsswitch.conf
 RUN mkdir -p /etc/sftpgo /var/lib/sftpgo /usr/share/sftpgo /srv/sftpgo
 
 RUN addgroup -g 1000 -S sftpgo && \
-    adduser -u 1000 -h /var/lib/sftpgo -s /sbin/nologin -G sftpgo -S -D -H sftpgo
+    adduser -u 1000 -h /var/lib/sftpgo -s /sbin/nologin -G sftpgo -S -D -H -g "SFTPGo user" sftpgo
 
 # Install some optional packages used by SFTPGo features
 RUN apk add --update --no-cache rsync git
@@ -60,11 +58,14 @@ RUN sed -i "s|\"users_base_dir\": \"\",|\"users_base_dir\": \"/srv/sftpgo/data\"
     sed -i "s|\"backups\"|\"/srv/sftpgo/backups\"|" /etc/sftpgo/sftpgo.json && \
     sed -i "s|\"bind_address\": \"127.0.0.1\",|\"bind_address\": \"\",|" /etc/sftpgo/sftpgo.json
 
-RUN chown -R sftpgo:sftpgo /etc/sftpgo && chown sftpgo:sftpgo /var/lib/sftpgo /srv/sftpgo
+COPY ./docker/scripts/entrypoint-alpine.sh /docker-entrypoint.sh
+
+RUN chown -R sftpgo:sftpgo /etc/sftpgo && chown sftpgo:sftpgo /var/lib/sftpgo /srv/sftpgo && \
+    chmod 755 /docker-entrypoint.sh
 
 WORKDIR /var/lib/sftpgo
-USER 1000:1000
 
 VOLUME [ "/var/lib/sftpgo", "/srv/sftpgo" ]
 
-CMD sftpgo serve
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["sftpgo", "serve"]

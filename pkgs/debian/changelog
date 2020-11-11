@@ -1,3 +1,9 @@
+sftpgo (1.2.0-1ppa1) bionic; urgency=medium
+
+  * New upstream release.
+
+ -- Nicola Murino <nicola.murino@gmail.com>  Sun, 08 Nov 2020 06:59:19 +0100
+
 sftpgo (1.1.1-1ppa2) bionic; urgency=medium
 
   * Fix sftpgo data dir.

@@ -4,8 +4,8 @@ SFTPGo provides an official Docker image, it is available on both [Docker Hub](h
 
 ## Supported tags and respective Dockerfile links
 
-- [v1.1.1, v1.1, v1, latest](https://github.com/drakkan/sftpgo/blob/v1.1.1/Dockerfile)
-- [v1.1.1-alpine, v1.1-alpine, v1-alpine, alpine](https://github.com/drakkan/sftpgo/blob/v1.1.1/Dockerfile.alpine)
+- [v1.2.0, v1.2, v1, latest](https://github.com/drakkan/sftpgo/blob/v1.2.0/Dockerfile)
+- [v1.2.0-alpine, v1.2-alpine, v1-alpine, alpine](https://github.com/drakkan/sftpgo/blob/v1.2.0/Dockerfile.alpine)
 - [edge](../Dockerfile)
 - [edge-alpine](../Dockerfile.alpine)
 
@@ -97,6 +97,11 @@ docker run --name some-sftpgo \
     --mount type=bind,source="${PWD}/config",target=/var/lib/sftpgo \
     -d "drakkan/sftpgo:tag"
 ```
+
+Alternately you can set the following environment variables:
+
+- `SFTPGO_PUID`, sets the numeric user ID to use
+- `SFTPGO_PGID`, sets the numeric group ID to use
 
 ## Image Variants
 
