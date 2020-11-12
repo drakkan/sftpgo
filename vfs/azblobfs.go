@@ -361,37 +361,34 @@ func (fs *AzureBlobFs) Mkdir(name string) error {
 
 // Symlink creates source as a symbolic link to target.
 func (*AzureBlobFs) Symlink(source, target string) error {
-	return errors.New("403 symlinks are not supported")
+	return ErrVfsUnsupported
 }
 
 // Readlink returns the destination of the named symbolic link
 func (*AzureBlobFs) Readlink(name string) (string, error) {
-	return "", errors.New("403 readlink is not supported")
+	return "", ErrVfsUnsupported
 }
 
 // Chown changes the numeric uid and gid of the named file.
-// Silently ignored.
 func (*AzureBlobFs) Chown(name string, uid int, gid int) error {
-	return nil
+	return ErrVfsUnsupported
 }
 
 // Chmod changes the mode of the named file to mode.
-// Silently ignored.
 func (*AzureBlobFs) Chmod(name string, mode os.FileMode) error {
-	return nil
+	return ErrVfsUnsupported
 }
 
 // Chtimes changes the access and modification times of the named file.
-// Silently ignored.
 func (*AzureBlobFs) Chtimes(name string, atime, mtime time.Time) error {
-	return errors.New("403 chtimes is not supported")
+	return ErrVfsUnsupported
 }
 
 // Truncate changes the size of the named file.
 // Truncate by path is not supported, while truncating an opened
 // file is handled inside base transfer
 func (*AzureBlobFs) Truncate(name string, size int64) error {
-	return errors.New("403 truncate is not supported")
+	return ErrVfsUnsupported
 }
 
 // ReadDir reads the directory named by dirname and returns
@@ -519,6 +516,14 @@ func (*AzureBlobFs) IsPermission(err error) bool {
 	return strings.Contains(err.Error(), "403")
 }
 
+// IsNotSupported returns true if the error indicate an unsupported operation
+func (*AzureBlobFs) IsNotSupported(err error) bool {
+	if err == nil {
+		return false
+	}
+	return err == ErrVfsUnsupported
+}
+
 // CheckRootPath creates the specified local root directory if it does not exists
 func (fs *AzureBlobFs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
@@ -575,7 +580,7 @@ func (fs *AzureBlobFs) ScanRootDirContents() (int, int64, error) {
 // GetDirSize returns the number of files and the size for a folder
 // including any subfolders
 func (*AzureBlobFs) GetDirSize(dirname string) (int, int64, error) {
-	return 0, 0, errUnsupported
+	return 0, 0, ErrVfsUnsupported
 }
 
 // GetAtomicUploadPath returns the path to use for an atomic upload.

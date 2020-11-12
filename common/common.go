@@ -223,6 +223,8 @@ type Configuration struct {
 	Actions ProtocolActions `json:"actions" mapstructure:"actions"`
 	// SetstatMode 0 means "normal mode": requests for changing permissions and owner/group are executed.
 	// 1 means "ignore mode": requests for changing permissions and owner/group are silently ignored.
+	// 2 means "ignore mode for cloud fs": requests for changing permissions and owner/group/time are
+	// silently ignored for cloud based filesystem such as S3, GCS, Azure Blob
 	SetstatMode int `json:"setstat_mode" mapstructure:"setstat_mode"`
 	// Support for HAProxy PROXY protocol.
 	// If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable

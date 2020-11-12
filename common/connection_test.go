@@ -496,6 +496,29 @@ func TestSetStat(t *testing.T) {
 	err = c.SetStat(user.GetHomeDir(), "/", &StatAttributes{})
 	assert.NoError(t, err)
 
+	err = c.SetStat(dir2, "/dir1/file", &StatAttributes{
+		Mode:  os.ModePerm,
+		Flags: StatAttrPerms,
+	})
+	assert.NoError(t, err)
+	err = c.SetStat(dir1, "/dir2/file", &StatAttributes{
+		UID:   os.Getuid(),
+		GID:   os.Getgid(),
+		Flags: StatAttrUIDGID,
+	})
+	assert.NoError(t, err)
+	err = c.SetStat(dir1, "/dir3/file", &StatAttributes{
+		Atime: time.Now(),
+		Mtime: time.Now(),
+		Flags: StatAttrTimes,
+	})
+	assert.NoError(t, err)
+
+	Config.SetstatMode = 2
+	assert.False(t, c.ignoreSetStat())
+	c1 := NewBaseConnection("", ProtocolSFTP, user, newMockOsFs(false, fs.ConnectionID(), user.GetHomeDir()))
+	assert.True(t, c1.ignoreSetStat())
+
 	Config.SetstatMode = oldSetStatMode
 	// chmod
 	err = c.SetStat(dir1, "/dir1/file", &StatAttributes{
@@ -1145,6 +1168,12 @@ func TestErrorsMapping(t *testing.T) {
 			assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
 		} else {
 			assert.EqualError(t, err, ErrPermissionDenied.Error())
+		}
+		err = conn.GetFsError(vfs.ErrVfsUnsupported)
+		if protocol == ProtocolSFTP {
+			assert.EqualError(t, err, sftp.ErrSSHFxOpUnsupported.Error())
+		} else {
+			assert.EqualError(t, err, ErrOpUnsupported.Error())
 		}
 		err = conn.GetFsError(nil)
 		assert.NoError(t, err)

@@ -397,17 +397,6 @@ func TestSFTPCmdTargetPath(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 }
 
-func TestSetstatModeIgnore(t *testing.T) {
-	originalMode := common.Config.SetstatMode
-	common.Config.SetstatMode = 1
-	connection := Connection{}
-	request := sftp.NewRequest("Setstat", "invalid")
-	request.Flags = 0
-	err := connection.handleSFTPSetstat("invalid", request)
-	assert.NoError(t, err)
-	common.Config.SetstatMode = originalMode
-}
-
 func TestSFTPGetUsedQuota(t *testing.T) {
 	u := dataprovider.User{}
 	u.HomeDir = "home_rel_path"

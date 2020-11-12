@@ -350,37 +350,34 @@ func (fs *S3Fs) Mkdir(name string) error {
 
 // Symlink creates source as a symbolic link to target.
 func (*S3Fs) Symlink(source, target string) error {
-	return errors.New("403 symlinks are not supported")
+	return ErrVfsUnsupported
 }
 
 // Readlink returns the destination of the named symbolic link
 func (*S3Fs) Readlink(name string) (string, error) {
-	return "", errors.New("403 readlink is not supported")
+	return "", ErrVfsUnsupported
 }
 
 // Chown changes the numeric uid and gid of the named file.
-// Silently ignored.
 func (*S3Fs) Chown(name string, uid int, gid int) error {
-	return nil
+	return ErrVfsUnsupported
 }
 
 // Chmod changes the mode of the named file to mode.
-// Silently ignored.
 func (*S3Fs) Chmod(name string, mode os.FileMode) error {
-	return nil
+	return ErrVfsUnsupported
 }
 
 // Chtimes changes the access and modification times of the named file.
-// Silently ignored.
 func (*S3Fs) Chtimes(name string, atime, mtime time.Time) error {
-	return errors.New("403 chtimes is not supported")
+	return ErrVfsUnsupported
 }
 
 // Truncate changes the size of the named file.
 // Truncate by path is not supported, while truncating an opened
 // file is handled inside base transfer
 func (*S3Fs) Truncate(name string, size int64) error {
-	return errors.New("403 truncate is not supported")
+	return ErrVfsUnsupported
 }
 
 // ReadDir reads the directory named by dirname and returns
@@ -485,6 +482,14 @@ func (*S3Fs) IsPermission(err error) bool {
 	return strings.Contains(err.Error(), "403")
 }
 
+// IsNotSupported returns true if the error indicate an unsupported operation
+func (*S3Fs) IsNotSupported(err error) bool {
+	if err == nil {
+		return false
+	}
+	return err == ErrVfsUnsupported
+}
+
 // CheckRootPath creates the specified local root directory if it does not exists
 func (fs *S3Fs) CheckRootPath(username string, uid int, gid int) bool {
 	// we need a local directory for temporary files
@@ -520,7 +525,7 @@ func (fs *S3Fs) ScanRootDirContents() (int, int64, error) {
 // GetDirSize returns the number of files and the size for a folder
 // including any subfolders
 func (*S3Fs) GetDirSize(dirname string) (int, int64, error) {
-	return 0, 0, errUnsupported
+	return 0, 0, ErrVfsUnsupported
 }
 
 // GetAtomicUploadPath returns the path to use for an atomic upload.

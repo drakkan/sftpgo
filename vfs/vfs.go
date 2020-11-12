@@ -46,6 +46,7 @@ type Fs interface {
 	ResolvePath(sftpPath string) (string, error)
 	IsNotExist(err error) bool
 	IsPermission(err error) bool
+	IsNotSupported(err error) bool
 	ScanRootDirContents() (int, int64, error)
 	GetDirSize(dirname string) (int, int64, error)
 	GetAtomicUploadPath(name string) string
@@ -56,7 +57,7 @@ type Fs interface {
 	GetMimeType(name string) (string, error)
 }
 
-var errUnsupported = errors.New("Not supported")
+var ErrVfsUnsupported = errors.New("Not supported")
 
 // QuotaCheckResult defines the result for a quota check
 type QuotaCheckResult struct {

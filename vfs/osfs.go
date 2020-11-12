@@ -185,6 +185,14 @@ func (*OsFs) IsPermission(err error) bool {
 	return os.IsPermission(err)
 }
 
+// IsNotSupported returns true if the error indicate an unsupported operation
+func (*OsFs) IsNotSupported(err error) bool {
+	if err == nil {
+		return false
+	}
+	return err == ErrVfsUnsupported
+}
+
 // CheckRootPath creates the root directory if it does not exists
 func (fs *OsFs) CheckRootPath(username string, uid int, gid int) bool {
 	var err error
