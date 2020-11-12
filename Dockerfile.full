@@ -1,0 +1,10 @@
+ARG BASE_IMAGE
+
+FROM ${BASE_IMAGE}
+
+USER root
+
+# Install some optional packages used by SFTPGo features
+RUN apt-get update && apt-get install --no-install-recommends -y git rsync && rm -rf /var/lib/apt/lists/*
+
+USER 1000:1000

@@ -34,9 +34,6 @@ RUN groupadd --system -g 1000 sftpgo && \
     --home-dir /var/lib/sftpgo --shell /usr/sbin/nologin \
     --comment "SFTPGo user" --uid 1000 sftpgo
 
-# Install some optional packages used by SFTPGo features
-RUN apt-get update && apt-get install --no-install-recommends -y git rsync && rm -rf /var/lib/apt/lists/*
-
 COPY --from=builder /workspace/sftpgo.json /etc/sftpgo/sftpgo.json
 COPY --from=builder /workspace/templates /usr/share/sftpgo/templates
 COPY --from=builder /workspace/static /usr/share/sftpgo/static

@@ -1,0 +1,10 @@
+ARG BASE_IMAGE
+
+FROM ${BASE_IMAGE}
+
+USER root
+
+# Install some optional packages used by SFTPGo features
+RUN apk add --update --no-cache rsync git
+
+USER 1000:1000
