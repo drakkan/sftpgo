@@ -27,10 +27,10 @@ If you prefer GitHub Container Registry to Docker Hub replace `drakkan/sftpgo:ta
 
 ### Container shell access and viewing SFTPGo logs
 
-The docker exec command allows you to run commands inside a Docker container. The following command line will give you a bash shell inside your `sftpgo` container:
+The docker exec command allows you to run commands inside a Docker container. The following command line will give you a shell inside your `sftpgo` container:
 
 ```shell
-docker exec -it some-sftpgo bash
+docker exec -it some-sftpgo sh
 ```
 
 The logs are available through Docker's container log:
@@ -98,10 +98,14 @@ docker run --name some-sftpgo \
     -d "drakkan/sftpgo:tag"
 ```
 
-Alternately you can set the following environment variables:
+Alternately build your own image using the official one as a base, here is a sample Dockerfile:
 
-- `SFTPGO_PUID`, sets the numeric user ID to use
-- `SFTPGO_PGID`, sets the numeric group ID to use
+```shell
+FROM drakkan/sftpgo:tag
+USER root
+RUN chown -R 1100:1100 /etc/sftpgo && chown 1100:1100 /var/lib/sftpgo /srv/sftpgo
+USER 1100:1100
+```
 
 ## Image Variants
 
