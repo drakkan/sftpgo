@@ -458,58 +458,72 @@ func (c *BaseConnection) ignoreSetStat() bool {
 	return false
 }
 
+func (c *BaseConnection) handleChmod(fsPath, pathForPerms string, attributes *StatAttributes) error {
+	if !c.User.HasPerm(dataprovider.PermChmod, pathForPerms) {
+		return c.GetPermissionDeniedError()
+	}
+	if c.ignoreSetStat() {
+		return nil
+	}
+	if err := c.Fs.Chmod(c.getRealFsPath(fsPath), attributes.Mode); err != nil {
+		c.Log(logger.LevelWarn, "failed to chmod path %#v, mode: %v, err: %+v", fsPath, attributes.Mode.String(), err)
+		return c.GetFsError(err)
+	}
+	logger.CommandLog(chmodLogSender, fsPath, "", c.User.Username, attributes.Mode.String(), c.ID, c.protocol,
+		-1, -1, "", "", "", -1)
+	return nil
+}
+
+func (c *BaseConnection) handleChown(fsPath, pathForPerms string, attributes *StatAttributes) error {
+	if !c.User.HasPerm(dataprovider.PermChown, pathForPerms) {
+		return c.GetPermissionDeniedError()
+	}
+	if c.ignoreSetStat() {
+		return nil
+	}
+	if err := c.Fs.Chown(c.getRealFsPath(fsPath), attributes.UID, attributes.GID); err != nil {
+		c.Log(logger.LevelWarn, "failed to chown path %#v, uid: %v, gid: %v, err: %+v", fsPath, attributes.UID,
+			attributes.GID, err)
+		return c.GetFsError(err)
+	}
+	logger.CommandLog(chownLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, attributes.UID, attributes.GID,
+		"", "", "", -1)
+	return nil
+}
+
+func (c *BaseConnection) handleChtimes(fsPath, pathForPerms string, attributes *StatAttributes) error {
+	if !c.User.HasPerm(dataprovider.PermChtimes, pathForPerms) {
+		return c.GetPermissionDeniedError()
+	}
+	if c.ignoreSetStat() {
+		return nil
+	}
+	if err := c.Fs.Chtimes(c.getRealFsPath(fsPath), attributes.Atime, attributes.Mtime); err != nil {
+		c.Log(logger.LevelWarn, "failed to chtimes for path %#v, access time: %v, modification time: %v, err: %+v",
+			fsPath, attributes.Atime, attributes.Mtime, err)
+		return c.GetFsError(err)
+	}
+	accessTimeString := attributes.Atime.Format(chtimesFormat)
+	modificationTimeString := attributes.Mtime.Format(chtimesFormat)
+	logger.CommandLog(chtimesLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1,
+		accessTimeString, modificationTimeString, "", -1)
+	return nil
+}
+
 // SetStat set StatAttributes for the specified fsPath
-// nolint:gocyclo
 func (c *BaseConnection) SetStat(fsPath, virtualPath string, attributes *StatAttributes) error {
 	pathForPerms := c.getPathForSetStatPerms(fsPath, virtualPath)
 
 	if attributes.Flags&StatAttrPerms != 0 {
-		if !c.User.HasPerm(dataprovider.PermChmod, pathForPerms) {
-			return c.GetPermissionDeniedError()
-		}
-		if c.ignoreSetStat() {
-			return nil
-		}
-		if err := c.Fs.Chmod(c.getRealFsPath(fsPath), attributes.Mode); err != nil {
-			c.Log(logger.LevelWarn, "failed to chmod path %#v, mode: %v, err: %+v", fsPath, attributes.Mode.String(), err)
-			return c.GetFsError(err)
-		}
-		logger.CommandLog(chmodLogSender, fsPath, "", c.User.Username, attributes.Mode.String(), c.ID, c.protocol,
-			-1, -1, "", "", "", -1)
+		return c.handleChmod(fsPath, pathForPerms, attributes)
 	}
 
 	if attributes.Flags&StatAttrUIDGID != 0 {
-		if !c.User.HasPerm(dataprovider.PermChown, pathForPerms) {
-			return c.GetPermissionDeniedError()
-		}
-		if c.ignoreSetStat() {
-			return nil
-		}
-		if err := c.Fs.Chown(c.getRealFsPath(fsPath), attributes.UID, attributes.GID); err != nil {
-			c.Log(logger.LevelWarn, "failed to chown path %#v, uid: %v, gid: %v, err: %+v", fsPath, attributes.UID,
-				attributes.GID, err)
-			return c.GetFsError(err)
-		}
-		logger.CommandLog(chownLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, attributes.UID, attributes.GID,
-			"", "", "", -1)
+		return c.handleChown(fsPath, pathForPerms, attributes)
 	}
 
 	if attributes.Flags&StatAttrTimes != 0 {
-		if !c.User.HasPerm(dataprovider.PermChtimes, pathForPerms) {
-			return c.GetPermissionDeniedError()
-		}
-		if c.ignoreSetStat() {
-			return nil
-		}
-		if err := c.Fs.Chtimes(c.getRealFsPath(fsPath), attributes.Atime, attributes.Mtime); err != nil {
-			c.Log(logger.LevelWarn, "failed to chtimes for path %#v, access time: %v, modification time: %v, err: %+v",
-				fsPath, attributes.Atime, attributes.Mtime, err)
-			return c.GetFsError(err)
-		}
-		accessTimeString := attributes.Atime.Format(chtimesFormat)
-		modificationTimeString := attributes.Mtime.Format(chtimesFormat)
-		logger.CommandLog(chtimesLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1,
-			accessTimeString, modificationTimeString, "", -1)
+		return c.handleChtimes(fsPath, pathForPerms, attributes)
 	}
 
 	if attributes.Flags&StatAttrSize != 0 {

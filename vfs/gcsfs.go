@@ -218,8 +218,12 @@ func (fs *GCSFs) Create(name string, flag int) (*os.File, *PipeWriter, func(), e
 	}
 	go func() {
 		defer cancelFn()
-		defer objectWriter.Close()
+
 		n, err := io.Copy(objectWriter, r)
+		closeErr := objectWriter.Close()
+		if err == nil {
+			err = closeErr
+		}
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, readed bytes: %v, err: %v", name, n, err)

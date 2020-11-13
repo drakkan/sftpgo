@@ -57,6 +57,7 @@ type Fs interface {
 	GetMimeType(name string) (string, error)
 }
 
+// ErrVfsUnsupported defines the error for an unsupported VFS operation
 var ErrVfsUnsupported = errors.New("Not supported")
 
 // QuotaCheckResult defines the result for a quota check
