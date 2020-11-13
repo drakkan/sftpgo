@@ -21,9 +21,6 @@ jobs:
         docker_pkg:
           - debian
           - alpine
-        docker_image:
-          - drakkan/sftpgo
-          - ghcr.io/drakkan/sftpgo
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -67,26 +64,36 @@ jobs:
             DOCKERFILE_SLIM=Dockerfile.alpine
             DOCKERFILE=Dockerfile.full.alpine
           fi
-          TAGS="${DOCKER_IMAGE}:${VERSION}"
-          TAGS_SLIM="${DOCKER_IMAGE}:${VERSION_SLIM}"
+
+          DOCKER_IMAGES=("drakkan/sftpgo" "ghcr.io/drakkan/sftpgo")
+          TAGS="${DOCKER_IMAGES[0]}:${VERSION}"
+          TAGS_SLIM="${DOCKER_IMAGES[0]}:${VERSION_SLIM}"
           BASE_IMAGE="${TAGS_SLIM}"
-          if [[ $GITHUB_REF == refs/tags/* ]]; then
-            if [[ $DOCKER_PKG == debian ]]; then
-              if [[ -n $MAJOR && -n $MINOR ]]; then
-                TAGS="$TAGS,${DOCKER_IMAGE}:${MINOR},${DOCKER_IMAGE}:${MAJOR}"
-                TAGS_SLIM="$TAGS_SLIM,${DOCKER_IMAGE}:${MINOR}-slim,${DOCKER_IMAGE}:${MAJOR}-slim"
-              fi
-              TAGS="$TAGS,${DOCKER_IMAGE}:latest"
-              TAGS_SLIM="$TAGS_SLIM,${DOCKER_IMAGE}:slim"
-            else
-              if [[ -n $MAJOR && -n $MINOR ]]; then
-                TAGS="$TAGS,${DOCKER_IMAGE}:${MINOR}-alpine,${DOCKER_IMAGE}:${MAJOR}-alpine"
-                TAGS_SLIM="$TAGS_SLIM,${DOCKER_IMAGE}:${MINOR}-alpine-slim,${DOCKER_IMAGE}:${MAJOR}-alpine-slim"
-              fi
-              TAGS="$TAGS,${DOCKER_IMAGE}:alpine"
-              TAGS_SLIM="$TAGS_SLIM,${DOCKER_IMAGE}:alpine-slim"
+
+          for DOCKER_IMAGE in ${DOCKER_IMAGES[@]}; do
+            if [[ ${DOCKER_IMAGE} != ${DOCKER_IMAGES[0]} ]]; then
+              TAGS="${TAGS},${DOCKER_IMAGE}:${VERSION}"
+              TAGS_SLIM="${TAGS_SLIM},${DOCKER_IMAGE}:${VERSION_SLIM}"
             fi
-          fi
+            if [[ $GITHUB_REF == refs/tags/* ]]; then
+              if [[ $DOCKER_PKG == debian ]]; then
+                if [[ -n $MAJOR && -n $MINOR ]]; then
+                  TAGS="${TAGS},${DOCKER_IMAGE}:${MINOR},${DOCKER_IMAGE}:${MAJOR}"
+                  TAGS_SLIM="${TAGS_SLIM},${DOCKER_IMAGE}:${MINOR}-slim,${DOCKER_IMAGE}:${MAJOR}-slim"
+                fi
+                TAGS="${TAGS},${DOCKER_IMAGE}:latest"
+                TAGS_SLIM="${TAGS_SLIM},${DOCKER_IMAGE}:slim"
+              else
+                if [[ -n $MAJOR && -n $MINOR ]]; then
+                  TAGS="${TAGS},${DOCKER_IMAGE}:${MINOR}-alpine,${DOCKER_IMAGE}:${MAJOR}-alpine"
+                  TAGS_SLIM="${TAGS_SLIM},${DOCKER_IMAGE}:${MINOR}-alpine-slim,${DOCKER_IMAGE}:${MAJOR}-alpine-slim"
+                fi
+                TAGS="${TAGS},${DOCKER_IMAGE}:alpine"
+                TAGS_SLIM="${TAGS_SLIM},${DOCKER_IMAGE}:alpine-slim"
+              fi
+            fi
+          done
+
           echo ::set-output name=dockerfile::${DOCKERFILE}
           echo ::set-output name=dockerfile-slim::${DOCKERFILE_SLIM}
           echo ::set-output name=version::${VERSION}
@@ -98,15 +105,16 @@ jobs:
           echo ::set-output name=sha::${GITHUB_SHA::8}
         env:
           DOCKER_PKG: ${{ matrix.docker_pkg }}
-          DOCKER_IMAGE: ${{ matrix.docker_image }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
 
-      - uses: docker/setup-buildx-action@v1
+      - name: Set up builder slim
+        uses: docker/setup-buildx-action@v1
         id: builder-slim
 
-      - uses: docker/setup-buildx-action@v1
+      - name: Set up builder full
+        uses: docker/setup-buildx-action@v1
         id: builder-full
 
       - name: Login to Docker Hub
@@ -114,7 +122,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-        if: ${{ github.event_name != 'pull_request' && matrix.docker_image == 'drakkan/sftpgo' }}
+        if: ${{ github.event_name != 'pull_request' }}
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1
@@ -122,7 +130,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.CR_PAT }}
-        if: ${{ github.event_name != 'pull_request' && matrix.docker_image == 'ghcr.io/drakkan/sftpgo' }}
+        if: ${{ github.event_name != 'pull_request' }}
 
       - name: Build and push slim
         uses: docker/build-push-action@v2
