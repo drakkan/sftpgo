@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NFPM_VERSION=1.9.0
+NFPM_VERSION=1.10.1
 NFPM_ARCH=${NFPM_ARCH:-amd64}
 if [ -z ${SFTPGO_VERSION} ]
 then
@@ -18,6 +18,7 @@ cd dist
 BASE_DIR="../.."
 
 cp ${BASE_DIR}/sftpgo.json .
+cp ${BASE_DIR}/examples/rest-api-cli/sftpgo_api_cli .
 sed -i "s|sftpgo.db|/var/lib/sftpgo/sftpgo.db|" sftpgo.json
 sed -i "s|\"users_base_dir\": \"\",|\"users_base_dir\": \"/srv/sftpgo/data\",|" sftpgo.json
 sed -i "s|\"templates\"|\"/usr/share/sftpgo/templates\"|" sftpgo.json
@@ -52,7 +53,7 @@ files:
   ./sftpgo-completion.bash: "/usr/share/bash-completion/completions/sftpgo"
   ./man1/*: "/usr/share/man/man1/"
   ${BASE_DIR}/init/sftpgo.service: "/lib/systemd/system/sftpgo.service"
-  ${BASE_DIR}/examples/rest-api-cli/sftpgo_api_cli: "/usr/bin/sftpgo_api_cli"
+  ./sftpgo_api_cli: "/usr/bin/sftpgo_api_cli"
   ${BASE_DIR}/templates/*: "/usr/share/sftpgo/templates/"
   ${BASE_DIR}/static/**/*: "/usr/share/sftpgo/static/"
 
@@ -67,9 +68,10 @@ overrides:
   deb:
     recommends:
       - bash-completion
+      - mime-support
+    suggests:
       - python3-requests
       - python3-pygments
-      - mime-support
     scripts:
       postinstall: ../scripts/deb/postinstall.sh
       preremove: ../scripts/deb/preremove.sh
@@ -96,7 +98,8 @@ curl --retry 5 --retry-delay 2 --connect-timeout 10 -L -O \
   https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz
 tar xvf nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz nfpm
 chmod 755 nfpm
-mkdir deb
-./nfpm -f nfpm.yaml pkg -p deb -t deb
 mkdir rpm
 ./nfpm -f nfpm.yaml pkg -p rpm -t rpm
+sed -i "s|env python|env python3|" sftpgo_api_cli
+mkdir deb
+./nfpm -f nfpm.yaml pkg -p deb -t deb

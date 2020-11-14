@@ -10,7 +10,8 @@ Vcs-Git: https://github.com/drakkan/sftpgo.git
 Package: sftpgo
 Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Recommends: bash-completion, python3-requests, python3-pygments, mime-support
+Recommends: bash-completion, mime-support
+Suggests: python3-requests, python3-pygments
 Description: Fully featured and highly configurable SFTP server
  SFTPGo has optional FTP/S and WebDAV support.
  It can serve local filesystem, S3 (Compatible) Object Storage,
