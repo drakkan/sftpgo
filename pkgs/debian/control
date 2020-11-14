@@ -8,7 +8,7 @@ Homepage: https://github.com/drakkan/sftpgo
 Vcs-Git: https://github.com/drakkan/sftpgo.git
 
 Package: sftpgo
-Architecture: amd64
+Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: bash-completion, mime-support
 Suggests: python3-requests, python3-pygments

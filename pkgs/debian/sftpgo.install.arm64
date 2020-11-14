@@ -1,0 +1,8 @@
+arm64/sftpgo usr/bin
+examples/rest-api-cli/sftpgo_api_cli usr/bin
+sftpgo.json etc/sftpgo
+init/sftpgo.service lib/systemd/system
+bash_completion/sftpgo usr/share/bash-completion/completions
+man/man1/* usr/share/man/man1
+templates usr/share/sftpgo
+static usr/share/sftpgo
