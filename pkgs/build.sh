@@ -36,7 +36,7 @@ platform: "linux"
 version: ${VERSION}
 release: 1
 section: "net"
-priority: "extra"
+priority: "optional"
 maintainer: "Nicola Murino <nicola.murino@gmail.com>"
 provides:
   - sftpgo
