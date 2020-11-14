@@ -128,7 +128,7 @@ func (e *authenticationError) Error() string {
 }
 
 // Initialize the SFTP server and add a persistent listener to handle inbound SFTP connections.
-func (c Configuration) Initialize(configDir string) error {
+func (c *Configuration) Initialize(configDir string) error {
 	serverConfig := &ssh.ServerConfig{
 		NoClientAuth: false,
 		MaxAuthTries: c.MaxAuthTries,
@@ -205,7 +205,7 @@ func (c Configuration) Initialize(configDir string) error {
 	}
 }
 
-func (c Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig) {
+func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig) {
 	if len(c.KexAlgorithms) > 0 {
 		serverConfig.KeyExchanges = c.KexAlgorithms
 	}
@@ -217,7 +217,7 @@ func (c Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig) 
 	}
 }
 
-func (c Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, configDir string) {
+func (c *Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, configDir string) {
 	if len(c.LoginBannerFile) > 0 {
 		bannerFilePath := c.LoginBannerFile
 		if !filepath.IsAbs(bannerFilePath) {
@@ -236,7 +236,7 @@ func (c Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, conf
 	}
 }
 
-func (c Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.ServerConfig) {
+func (c *Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.ServerConfig) {
 	if len(c.KeyboardInteractiveHook) == 0 {
 		return
 	}
@@ -266,7 +266,7 @@ func (c Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.Server
 }
 
 // AcceptInboundConnection handles an inbound connection to the server instance and determines if the request should be served or not.
-func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.ServerConfig) {
+func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.ServerConfig) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Error(logSender, "", "panic in AcceptInboundConnection: %#v stack strace: %v", r, string(debug.Stack()))
@@ -379,7 +379,7 @@ func (c Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Server
 	}
 }
 
-func (c Configuration) handleSftpConnection(channel ssh.Channel, connection *Connection) {
+func (c *Configuration) handleSftpConnection(channel ssh.Channel, connection *Connection) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Error(logSender, "", "panic in handleSftpConnection: %#v stack strace: %v", r, string(debug.Stack()))
@@ -405,7 +405,7 @@ func (c Configuration) handleSftpConnection(channel ssh.Channel, connection *Con
 	}
 }
 
-func (c Configuration) createHandler(connection *Connection) sftp.Handlers {
+func (c *Configuration) createHandler(connection *Connection) sftp.Handlers {
 	return sftp.Handlers{
 		FileGet:  connection,
 		FilePut:  connection,
@@ -633,7 +633,7 @@ func (c *Configuration) initializeCertChecker(configDir string) error {
 	return nil
 }
 
-func (c Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
+func (c *Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
 	var err error
 	var user dataprovider.User
 	var keyID string
@@ -682,7 +682,7 @@ func (c Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKe
 	return sshPerm, err
 }
 
-func (c Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
+func (c *Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
 	var err error
 	var user dataprovider.User
 	var sshPerm *ssh.Permissions
@@ -699,7 +699,7 @@ func (c Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass [
 	return sshPerm, err
 }
 
-func (c Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMetadata, client ssh.KeyboardInteractiveChallenge) (*ssh.Permissions, error) {
+func (c *Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMetadata, client ssh.KeyboardInteractiveChallenge) (*ssh.Permissions, error) {
 	var err error
 	var user dataprovider.User
 	var sshPerm *ssh.Permissions

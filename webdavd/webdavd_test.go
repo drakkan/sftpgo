@@ -528,18 +528,19 @@ func TestDownloadErrors(t *testing.T) {
 	u.Permissions[path.Join("/", subDir1)] = []string{dataprovider.PermListItems}
 	u.Permissions[path.Join("/", subDir2)] = []string{dataprovider.PermListItems, dataprovider.PermUpload,
 		dataprovider.PermDelete, dataprovider.PermDownload}
+	// use an unknown mime to trigger content type detection
 	u.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
 		{
 			Path:              "/sub2",
 			AllowedExtensions: []string{},
-			DeniedExtensions:  []string{".zip"},
+			DeniedExtensions:  []string{".zipp"},
 		},
 	}
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
 	client := getWebDavClient(user)
-	testFilePath1 := filepath.Join(user.HomeDir, subDir1, "file.zip")
-	testFilePath2 := filepath.Join(user.HomeDir, subDir2, "file.zip")
+	testFilePath1 := filepath.Join(user.HomeDir, subDir1, "file.zipp")
+	testFilePath2 := filepath.Join(user.HomeDir, subDir2, "file.zipp")
 	err = os.MkdirAll(filepath.Dir(testFilePath1), os.ModePerm)
 	assert.NoError(t, err)
 	err = os.MkdirAll(filepath.Dir(testFilePath2), os.ModePerm)
@@ -549,9 +550,9 @@ func TestDownloadErrors(t *testing.T) {
 	err = ioutil.WriteFile(testFilePath2, []byte("file2"), os.ModePerm)
 	assert.NoError(t, err)
 	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
-	err = downloadFile(path.Join("/", subDir1, "file.zip"), localDownloadPath, 5, client)
+	err = downloadFile(path.Join("/", subDir1, "file.zipp"), localDownloadPath, 5, client)
 	assert.Error(t, err)
-	err = downloadFile(path.Join("/", subDir2, "file.zip"), localDownloadPath, 5, client)
+	err = downloadFile(path.Join("/", subDir2, "file.zipp"), localDownloadPath, 5, client)
 	assert.Error(t, err)
 	err = downloadFile(path.Join("missing.zip"), localDownloadPath, 5, client)
 	assert.Error(t, err)

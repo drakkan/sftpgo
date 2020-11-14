@@ -40,7 +40,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.6.1
-	github.com/studio-b12/gowebdav v0.0.0-20200303150724-9380631c29a1
+	github.com/studio-b12/gowebdav v0.0.0-20200929080739-bdacfab94796
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/automaxprocs v1.3.0
 	golang.org/x/crypto v0.0.0-20201112155050-0c6587e931a9

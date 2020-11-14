@@ -136,8 +136,6 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 		return 0, errTransferAborted
 	}
 	if atomic.LoadInt32(&f.readTryed) == 0 {
-		atomic.StoreInt32(&f.readTryed, 1)
-
 		if !f.Connection.User.HasPerm(dataprovider.PermDownload, path.Dir(f.GetVirtualPath())) {
 			return 0, f.Connection.GetPermissionDeniedError()
 		}
@@ -146,6 +144,7 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 			f.Connection.Log(logger.LevelWarn, "reading file %#v is not allowed", f.GetVirtualPath())
 			return 0, f.Connection.GetPermissionDeniedError()
 		}
+		atomic.StoreInt32(&f.readTryed, 1)
 	}
 
 	f.Connection.UpdateLastActivity()
