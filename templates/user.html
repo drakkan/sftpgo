@@ -119,7 +119,7 @@
                 {{- end}}
                 {{- end}}</textarea>
             <small id="subDirsHelpBlock" class="form-text text-muted">
-                One directory per line as dir::perms, for example /somedir::list,download
+                One virtual directory path per line as dir::perms, for example /somedir::list,download
             </small>
         </div>
     </div>
@@ -140,7 +140,7 @@
                 {{$mapping.VirtualPath}}::{{$mapping.MappedPath}}::{{$mapping.QuotaFiles}}::{{$mapping.QuotaSize}}&#10;
                 {{- end}}</textarea>
             <small id="vfHelpBlock" class="form-text text-muted">
-                One mapping per line as vpath::path::[quota_files]::[quota_size(bytes)], for example /vdir::/home/adir or /vdir::C:\adir::10::104857600. Quota -1 means included inside user quota. Ignored for non local filesystems
+                One mapping per line as vpath::fspath::[quota_files]::[quota_size(bytes)], for example /vdir::/home/adir or /vdir::C:\adir::10::104857600. Quota -1 means included inside user quota. Ignored for non local filesystems
             </small>
         </div>
     </div>
