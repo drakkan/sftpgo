@@ -103,9 +103,9 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 	s.advertiseServices(advertiseService, advertiseCredentials)
 
 	logger.InfoToConsole("Portable mode ready, SFTP port: %v, user: %#v, password: %#v, public keys: %v, directory: %#v, "+
-		"permissions: %+v, enabled ssh commands: %v file extensions filters: %+v %v", sftpdConf.BindPort, s.PortableUser.Username,
+		"permissions: %+v, enabled ssh commands: %v file patterns filters: %+v %v", sftpdConf.BindPort, s.PortableUser.Username,
 		printablePassword, s.PortableUser.PublicKeys, s.getPortableDirToServe(), s.PortableUser.Permissions,
-		sftpdConf.EnabledSSHCommands, s.PortableUser.Filters.FileExtensions, s.getServiceOptionalInfoString())
+		sftpdConf.EnabledSSHCommands, s.PortableUser.Filters.FilePatterns, s.getServiceOptionalInfoString())
 	return nil
 }
 

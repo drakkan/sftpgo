@@ -774,6 +774,40 @@ func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) 
 	if err := compareUserFileExtensionsFilters(expected, actual); err != nil {
 		return err
 	}
+	return compareUserFilePatternsFilters(expected, actual)
+}
+
+func checkFilterMatch(expected []string, actual []string) bool {
+	if len(expected) != len(actual) {
+		return false
+	}
+	for _, e := range expected {
+		if !utils.IsStringInSlice(strings.ToLower(e), actual) {
+			return false
+		}
+	}
+	return true
+}
+
+func compareUserFilePatternsFilters(expected *dataprovider.User, actual *dataprovider.User) error {
+	if len(expected.Filters.FilePatterns) != len(actual.Filters.FilePatterns) {
+		return errors.New("file patterns mismatch")
+	}
+	for _, f := range expected.Filters.FilePatterns {
+		found := false
+		for _, f1 := range actual.Filters.FilePatterns {
+			if path.Clean(f.Path) == path.Clean(f1.Path) {
+				if !checkFilterMatch(f.AllowedPatterns, f1.AllowedPatterns) ||
+					!checkFilterMatch(f.DeniedPatterns, f1.DeniedPatterns) {
+					return errors.New("file patterns contents mismatch")
+				}
+				found = true
+			}
+		}
+		if !found {
+			return errors.New("file patterns contents mismatch")
+		}
+	}
 	return nil
 }
 
@@ -785,18 +819,9 @@ func compareUserFileExtensionsFilters(expected *dataprovider.User, actual *datap
 		found := false
 		for _, f1 := range actual.Filters.FileExtensions {
 			if path.Clean(f.Path) == path.Clean(f1.Path) {
-				if len(f.AllowedExtensions) != len(f1.AllowedExtensions) || len(f.DeniedExtensions) != len(f1.DeniedExtensions) {
+				if !checkFilterMatch(f.AllowedExtensions, f1.AllowedExtensions) ||
+					!checkFilterMatch(f.DeniedExtensions, f1.DeniedExtensions) {
 					return errors.New("file extensions contents mismatch")
-				}
-				for _, e := range f.AllowedExtensions {
-					if !utils.IsStringInSlice(e, f1.AllowedExtensions) {
-						return errors.New("file extensions contents mismatch")
-					}
-				}
-				for _, e := range f.DeniedExtensions {
-					if !utils.IsStringInSlice(e, f1.DeniedExtensions) {
-						return errors.New("file extensions contents mismatch")
-					}
 				}
 				found = true
 			}

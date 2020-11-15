@@ -81,23 +81,44 @@ func (c *CachedUser) IsExpired() bool {
 // ExtensionsFilter defines filters based on file extensions.
 // These restrictions do not apply to files listing for performance reasons, so
 // a denied file cannot be downloaded/overwritten/renamed but will still be
-// it will still be listed in the list of files.
+// in the list of files.
 // System commands such as Git and rsync interacts with the filesystem directly
 // and they are not aware about these restrictions so they are not allowed
 // inside paths with extensions filters
 type ExtensionsFilter struct {
-	// SFTP/SCP path, if no other specific filter is defined, the filter apply for
+	// Virtual path, if no other specific filter is defined, the filter apply for
 	// sub directories too.
 	// For example if filters are defined for the paths "/" and "/sub" then the
 	// filters for "/" are applied for any file outside the "/sub" directory
 	Path string `json:"path"`
 	// only files with these, case insensitive, extensions are allowed.
 	// Shell like expansion is not supported so you have to specify ".jpg" and
-	// not "*.jpg"
+	// not "*.jpg". If you want shell like patterns use pattern filters
 	AllowedExtensions []string `json:"allowed_extensions,omitempty"`
 	// files with these, case insensitive, extensions are not allowed.
 	// Denied file extensions are evaluated before the allowed ones
 	DeniedExtensions []string `json:"denied_extensions,omitempty"`
+}
+
+// PatternsFilter defines filters based on shell like patterns.
+// These restrictions do not apply to files listing for performance reasons, so
+// a denied file cannot be downloaded/overwritten/renamed but will still be
+// in the list of files.
+// System commands such as Git and rsync interacts with the filesystem directly
+// and they are not aware about these restrictions so they are not allowed
+// inside paths with extensions filters
+type PatternsFilter struct {
+	// Virtual path, if no other specific filter is defined, the filter apply for
+	// sub directories too.
+	// For example if filters are defined for the paths "/" and "/sub" then the
+	// filters for "/" are applied for any file outside the "/sub" directory
+	Path string `json:"path"`
+	// files with these, case insensitive, patterns are allowed.
+	// Denied file patterns are evaluated before the allowed ones
+	AllowedPatterns []string `json:"allowed_patterns,omitempty"`
+	// files with these, case insensitive, patterns are not allowed.
+	// Denied file patterns are evaluated before the allowed ones
+	DeniedPatterns []string `json:"denied_patterns,omitempty"`
 }
 
 // UserFilters defines additional restrictions for a user
@@ -118,6 +139,8 @@ type UserFilters struct {
 	// filters based on file extensions.
 	// Please note that these restrictions can be easily bypassed.
 	FileExtensions []ExtensionsFilter `json:"file_extensions,omitempty"`
+	// filter based on shell patterns
+	FilePatterns []PatternsFilter `json:"file_patterns,omitempty"`
 	// max size allowed for a single upload, 0 means unlimited
 	MaxUploadFileSize int64 `json:"max_upload_file_size,omitempty"`
 }
@@ -444,11 +467,15 @@ func (u *User) GetAllowedLoginMethods() []string {
 }
 
 // IsFileAllowed returns true if the specified file is allowed by the file restrictions filters
-func (u *User) IsFileAllowed(sftpPath string) bool {
+func (u *User) IsFileAllowed(virtualPath string) bool {
+	return u.isFilePatternAllowed(virtualPath) && u.isFileExtensionAllowed(virtualPath)
+}
+
+func (u *User) isFileExtensionAllowed(virtualPath string) bool {
 	if len(u.Filters.FileExtensions) == 0 {
 		return true
 	}
-	dirsForPath := utils.GetDirsForSFTPPath(path.Dir(sftpPath))
+	dirsForPath := utils.GetDirsForSFTPPath(path.Dir(virtualPath))
 	var filter ExtensionsFilter
 	for _, dir := range dirsForPath {
 		for _, f := range u.Filters.FileExtensions {
@@ -457,12 +484,12 @@ func (u *User) IsFileAllowed(sftpPath string) bool {
 				break
 			}
 		}
-		if len(filter.Path) > 0 {
+		if filter.Path != "" {
 			break
 		}
 	}
-	if len(filter.Path) > 0 {
-		toMatch := strings.ToLower(sftpPath)
+	if filter.Path != "" {
+		toMatch := strings.ToLower(virtualPath)
 		for _, denied := range filter.DeniedExtensions {
 			if strings.HasSuffix(toMatch, denied) {
 				return false
@@ -474,6 +501,42 @@ func (u *User) IsFileAllowed(sftpPath string) bool {
 			}
 		}
 		return len(filter.AllowedExtensions) == 0
+	}
+	return true
+}
+
+func (u *User) isFilePatternAllowed(virtualPath string) bool {
+	if len(u.Filters.FilePatterns) == 0 {
+		return true
+	}
+	dirsForPath := utils.GetDirsForSFTPPath(path.Dir(virtualPath))
+	var filter PatternsFilter
+	for _, dir := range dirsForPath {
+		for _, f := range u.Filters.FilePatterns {
+			if f.Path == dir {
+				filter = f
+				break
+			}
+		}
+		if filter.Path != "" {
+			break
+		}
+	}
+	if filter.Path != "" {
+		toMatch := strings.ToLower(path.Base(virtualPath))
+		for _, denied := range filter.DeniedPatterns {
+			matched, err := path.Match(denied, toMatch)
+			if err != nil || matched {
+				return false
+			}
+		}
+		for _, allowed := range filter.AllowedPatterns {
+			matched, err := path.Match(allowed, toMatch)
+			if err == nil && matched {
+				return true
+			}
+		}
+		return len(filter.AllowedPatterns) == 0
 	}
 	return true
 }
@@ -711,6 +774,8 @@ func (u *User) getACopy() User {
 	copy(filters.DeniedLoginMethods, u.Filters.DeniedLoginMethods)
 	filters.FileExtensions = make([]ExtensionsFilter, len(u.Filters.FileExtensions))
 	copy(filters.FileExtensions, u.Filters.FileExtensions)
+	filters.FilePatterns = make([]PatternsFilter, len(u.Filters.FilePatterns))
+	copy(filters.FilePatterns, u.Filters.FilePatterns)
 	filters.DeniedProtocols = make([]string, len(u.Filters.DeniedProtocols))
 	copy(filters.DeniedProtocols, u.Filters.DeniedProtocols)
 	fsConfig := Filesystem{

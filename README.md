@@ -28,7 +28,7 @@ It can serve local filesystem, S3 (compatible) Object Storage, Google Cloud Stor
 - Per user and per directory permission management: list directory contents, upload, overwrite, download, delete, rename, create directories, create symlinks, change owner/group and mode, change access and modification times.
 - Per user files/folders ownership mapping: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (\*NIX only).
 - Per user IP filters are supported: login can be restricted to specific ranges of IP addresses or to a specific IP address.
-- Per user and per directory file extensions filters are supported: files can be allowed or denied based on their extensions.
+- Per user and per directory shell like patterns filters are supported: files can be allowed or denied based on shell like patterns.
 - Virtual folders are supported: directories outside the user home directory can be exposed as virtual folders.
 - Configurable custom commands and/or HTTP notifications on file upload, download, pre-delete, delete, rename, on SSH commands and on user add, update and delete.
 - Automatically terminating idle connections.

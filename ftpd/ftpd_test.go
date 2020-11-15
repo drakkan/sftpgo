@@ -519,12 +519,20 @@ func TestDownloadErrors(t *testing.T) {
 			DeniedExtensions:  []string{".zip"},
 		},
 	}
+	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+		{
+			Path:            "/sub2",
+			AllowedPatterns: []string{},
+			DeniedPatterns:  []string{"*.jpg"},
+		},
+	}
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, true)
 	if assert.NoError(t, err) {
 		testFilePath1 := filepath.Join(user.HomeDir, subDir1, "file.zip")
 		testFilePath2 := filepath.Join(user.HomeDir, subDir2, "file.zip")
+		testFilePath3 := filepath.Join(user.HomeDir, subDir2, "file.jpg")
 		err = os.MkdirAll(filepath.Dir(testFilePath1), os.ModePerm)
 		assert.NoError(t, err)
 		err = os.MkdirAll(filepath.Dir(testFilePath2), os.ModePerm)
@@ -533,10 +541,14 @@ func TestDownloadErrors(t *testing.T) {
 		assert.NoError(t, err)
 		err = ioutil.WriteFile(testFilePath2, []byte("file2"), os.ModePerm)
 		assert.NoError(t, err)
+		err = ioutil.WriteFile(testFilePath3, []byte("file3"), os.ModePerm)
+		assert.NoError(t, err)
 		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 		err = ftpDownloadFile(path.Join("/", subDir1, "file.zip"), localDownloadPath, 5, client, 0)
 		assert.Error(t, err)
 		err = ftpDownloadFile(path.Join("/", subDir2, "file.zip"), localDownloadPath, 5, client, 0)
+		assert.Error(t, err)
+		err = ftpDownloadFile(path.Join("/", subDir2, "file.jpg"), localDownloadPath, 5, client, 0)
 		assert.Error(t, err)
 		err = ftpDownloadFile("/missing.zip", localDownloadPath, 5, client, 0)
 		assert.Error(t, err)

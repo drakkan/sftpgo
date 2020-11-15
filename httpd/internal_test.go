@@ -218,6 +218,45 @@ func TestCompareUserFilters(t *testing.T) {
 	}
 	err = checkUser(expected, actual)
 	assert.Error(t, err)
+	actual.Filters.FileExtensions = nil
+	actual.Filters.FilePatterns = nil
+	expected.Filters.FileExtensions = nil
+	expected.Filters.FilePatterns = nil
+	expected.Filters.FilePatterns = append(expected.Filters.FilePatterns, dataprovider.PatternsFilter{
+		Path:            "/",
+		AllowedPatterns: []string{"*.jpg", "*.png"},
+		DeniedPatterns:  []string{"*.zip", "*.rar"},
+	})
+	err = checkUser(expected, actual)
+	assert.Error(t, err)
+	actual.Filters.FilePatterns = append(actual.Filters.FilePatterns, dataprovider.PatternsFilter{
+		Path:            "/sub",
+		AllowedPatterns: []string{"*.jpg", "*.png"},
+		DeniedPatterns:  []string{"*.zip", "*.rar"},
+	})
+	err = checkUser(expected, actual)
+	assert.Error(t, err)
+	actual.Filters.FilePatterns[0] = dataprovider.PatternsFilter{
+		Path:            "/",
+		AllowedPatterns: []string{"*.jpg"},
+		DeniedPatterns:  []string{"*.zip", "*.rar"},
+	}
+	err = checkUser(expected, actual)
+	assert.Error(t, err)
+	actual.Filters.FilePatterns[0] = dataprovider.PatternsFilter{
+		Path:            "/",
+		AllowedPatterns: []string{"*.tiff", "*.png"},
+		DeniedPatterns:  []string{"*.zip", "*.rar"},
+	}
+	err = checkUser(expected, actual)
+	assert.Error(t, err)
+	actual.Filters.FilePatterns[0] = dataprovider.PatternsFilter{
+		Path:            "/",
+		AllowedPatterns: []string{"*.jpg", "*.png"},
+		DeniedPatterns:  []string{"*.tar.gz", "*.rar"},
+	}
+	err = checkUser(expected, actual)
+	assert.Error(t, err)
 }
 
 func TestCompareUserFields(t *testing.T) {

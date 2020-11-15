@@ -394,12 +394,12 @@ func (c *Configuration) handleSftpConnection(channel ssh.Channel, connection *Co
 	// Create the server instance for the channel using the handler we created above.
 	server := sftp.NewRequestServer(channel, handler, sftp.WithRSAllocator())
 
+	defer server.Close()
 	if err := server.Serve(); err == io.EOF {
 		connection.Log(logger.LevelDebug, "connection closed, sending exit status")
 		exitStatus := sshSubsystemExitStatus{Status: uint32(0)}
 		_, err = channel.SendRequest("exit-status", false, ssh.Marshal(&exitStatus))
 		connection.Log(logger.LevelDebug, "sent exit status %+v error: %v", exitStatus, err)
-		server.Close()
 	} else if err != nil {
 		connection.Log(logger.LevelWarn, "connection closed with error: %v", err)
 	}

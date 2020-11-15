@@ -32,8 +32,8 @@ var (
 	portablePublicKeys           []string
 	portablePermissions          []string
 	portableSSHCommands          []string
-	portableAllowedExtensions    []string
-	portableDeniedExtensions     []string
+	portableAllowedPatterns      []string
+	portableDeniedPatterns       []string
 	portableFsProvider           int
 	portableS3Bucket             string
 	portableS3Region             string
@@ -174,7 +174,7 @@ Please take a look at the usage below to customize the serving parameters`,
 						},
 					},
 					Filters: dataprovider.UserFilters{
-						FileExtensions: parseFileExtensionsFilters(),
+						FilePatterns: parsePatternsFilesFilters(),
 					},
 				},
 			}
@@ -217,16 +217,16 @@ value`)
 	portableCmd.Flags().StringSliceVarP(&portablePermissions, "permissions", "g", []string{"list", "download"},
 		`User's permissions. "*" means any
 permission`)
-	portableCmd.Flags().StringArrayVar(&portableAllowedExtensions, "allowed-extensions", []string{},
-		`Allowed file extensions case
-insensitive. The format is
-/dir::ext1,ext2.
-For example: "/somedir::.jpg,.png"`)
-	portableCmd.Flags().StringArrayVar(&portableDeniedExtensions, "denied-extensions", []string{},
-		`Denied file extensions case
-insensitive. The format is
-/dir::ext1,ext2.
-For example: "/somedir::.jpg,.png"`)
+	portableCmd.Flags().StringArrayVar(&portableAllowedPatterns, "allowed-patterns", []string{},
+		`Allowed file patterns case insensitive.
+The format is:
+/dir::pattern1,pattern2.
+For example: "/somedir::*.jpg,a*b?.png"`)
+	portableCmd.Flags().StringArrayVar(&portableDeniedPatterns, "denied-patterns", []string{},
+		`Denied file patterns case insensitive.
+The format is:
+/dir::pattern1,pattern2.
+For example: "/somedir::*.jpg,a*b?.png"`)
 	portableCmd.Flags().BoolVarP(&portableAdvertiseService, "advertise-service", "S", false,
 		`Advertise SFTP/FTP service using
 multicast DNS`)
@@ -287,42 +287,42 @@ parallel`)
 	rootCmd.AddCommand(portableCmd)
 }
 
-func parseFileExtensionsFilters() []dataprovider.ExtensionsFilter {
-	var extensions []dataprovider.ExtensionsFilter
-	for _, val := range portableAllowedExtensions {
-		p, exts := getExtensionsFilterValues(strings.TrimSpace(val))
+func parsePatternsFilesFilters() []dataprovider.PatternsFilter {
+	var patterns []dataprovider.PatternsFilter
+	for _, val := range portableAllowedPatterns {
+		p, exts := getPatternsFilterValues(strings.TrimSpace(val))
 		if len(p) > 0 {
-			extensions = append(extensions, dataprovider.ExtensionsFilter{
-				Path:              path.Clean(p),
-				AllowedExtensions: exts,
-				DeniedExtensions:  []string{},
+			patterns = append(patterns, dataprovider.PatternsFilter{
+				Path:            path.Clean(p),
+				AllowedPatterns: exts,
+				DeniedPatterns:  []string{},
 			})
 		}
 	}
-	for _, val := range portableDeniedExtensions {
-		p, exts := getExtensionsFilterValues(strings.TrimSpace(val))
+	for _, val := range portableDeniedPatterns {
+		p, exts := getPatternsFilterValues(strings.TrimSpace(val))
 		if len(p) > 0 {
 			found := false
-			for index, e := range extensions {
+			for index, e := range patterns {
 				if path.Clean(e.Path) == path.Clean(p) {
-					extensions[index].DeniedExtensions = append(extensions[index].DeniedExtensions, exts...)
+					patterns[index].DeniedPatterns = append(patterns[index].DeniedPatterns, exts...)
 					found = true
 					break
 				}
 			}
 			if !found {
-				extensions = append(extensions, dataprovider.ExtensionsFilter{
-					Path:              path.Clean(p),
-					AllowedExtensions: []string{},
-					DeniedExtensions:  exts,
+				patterns = append(patterns, dataprovider.PatternsFilter{
+					Path:            path.Clean(p),
+					AllowedPatterns: []string{},
+					DeniedPatterns:  exts,
 				})
 			}
 		}
 	}
-	return extensions
+	return patterns
 }
 
-func getExtensionsFilterValues(value string) (string, []string) {
+func getPatternsFilterValues(value string) (string, []string) {
 	if strings.Contains(value, "::") {
 		dirExts := strings.Split(value, "::")
 		if len(dirExts) > 1 {
@@ -334,7 +334,7 @@ func getExtensionsFilterValues(value string) (string, []string) {
 					exts = append(exts, cleanedExt)
 				}
 			}
-			if len(dir) > 0 && len(exts) > 0 {
+			if dir != "" && len(exts) > 0 {
 				return dir, exts
 			}
 		}

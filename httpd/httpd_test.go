@@ -378,6 +378,45 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.Filters.FileExtensions = nil
+	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+		{
+			Path:            "relative",
+			AllowedPatterns: []string{},
+			DeniedPatterns:  []string{},
+		},
+	}
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+		{
+			Path:            "/",
+			AllowedPatterns: []string{},
+			DeniedPatterns:  []string{},
+		},
+	}
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+		{
+			Path:            "/subdir",
+			AllowedPatterns: []string{"*.zip"},
+		},
+		{
+			Path:            "/subdir",
+			AllowedPatterns: []string{"*.rar"},
+			DeniedPatterns:  []string{"*.jpg"},
+		},
+	}
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+		{
+			Path:            "/subdir",
+			AllowedPatterns: []string{"a\\"},
+		},
+	}
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
 	u.Filters.DeniedProtocols = []string{"invalid"}
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -688,6 +727,11 @@ func TestUpdateUser(t *testing.T) {
 		Path:              "/subdir",
 		AllowedExtensions: []string{".zip", ".rar"},
 		DeniedExtensions:  []string{".jpg", ".png"},
+	})
+	user.Filters.FilePatterns = append(user.Filters.FilePatterns, dataprovider.PatternsFilter{
+		Path:            "/subdir",
+		AllowedPatterns: []string{"*.zip", "*.rar"},
+		DeniedPatterns:  []string{"*.jpg", "*.png"},
 	})
 	user.Filters.MaxUploadFileSize = 4096
 	user.UploadBandwidth = 1024
@@ -2411,8 +2455,10 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("permissions", "*")
 	form.Set("sub_dirs_permissions", " /subdir::list ,download ")
 	form.Set("virtual_folders", fmt.Sprintf(" /vdir:: %v :: 2 :: 1024", mappedDir))
-	form.Set("allowed_extensions", "/dir1::.jpg,.png")
+	form.Set("allowed_extensions", "/dir2::.jpg,.png\n/dir2::.ico")
 	form.Set("denied_extensions", "/dir1::.zip")
+	form.Set("allowed_patterns", "/dir2::*.jpg,*.png")
+	form.Set("denied_patterns", "/dir1::*.zip")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	// test invalid url escape
 	req, _ := http.NewRequest(http.MethodPost, webUserPath+"?a=%2", &b)
@@ -2546,8 +2592,27 @@ func TestWebUserAddMock(t *testing.T) {
 		assert.Equal(t, v.QuotaFiles, 2)
 		assert.Equal(t, v.QuotaSize, int64(1024))
 	}
-	extFilters := newUser.Filters.FileExtensions[0]
-	assert.True(t, utils.IsStringInSlice(".zip", extFilters.DeniedExtensions))
+	assert.Len(t, newUser.Filters.FileExtensions, 2)
+	for _, filter := range newUser.Filters.FileExtensions {
+		if filter.Path == "/dir1" {
+			assert.True(t, utils.IsStringInSlice(".zip", filter.DeniedExtensions))
+		}
+		if filter.Path == "/dir2" {
+			assert.True(t, utils.IsStringInSlice(".jpg", filter.AllowedExtensions))
+			assert.True(t, utils.IsStringInSlice(".png", filter.AllowedExtensions))
+			assert.True(t, utils.IsStringInSlice(".ico", filter.AllowedExtensions))
+		}
+	}
+	assert.Len(t, newUser.Filters.FilePatterns, 2)
+	for _, filter := range newUser.Filters.FilePatterns {
+		if filter.Path == "/dir1" {
+			assert.True(t, utils.IsStringInSlice("*.zip", filter.DeniedPatterns))
+		}
+		if filter.Path == "/dir2" {
+			assert.True(t, utils.IsStringInSlice("*.jpg", filter.AllowedPatterns))
+			assert.True(t, utils.IsStringInSlice("*.png", filter.AllowedPatterns))
+		}
+	}
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(newUser.ID, 10), nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)

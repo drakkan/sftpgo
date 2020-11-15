@@ -903,6 +903,50 @@ func validatePublicKeys(user *User) error {
 	return nil
 }
 
+func validateFiltersPatternExtensions(user *User) error {
+	if len(user.Filters.FilePatterns) == 0 {
+		user.Filters.FilePatterns = []PatternsFilter{}
+		return nil
+	}
+	filteredPaths := []string{}
+	var filters []PatternsFilter
+	for _, f := range user.Filters.FilePatterns {
+		cleanedPath := filepath.ToSlash(path.Clean(f.Path))
+		if !path.IsAbs(cleanedPath) {
+			return &ValidationError{err: fmt.Sprintf("invalid path %#v for file patterns filter", f.Path)}
+		}
+		if utils.IsStringInSlice(cleanedPath, filteredPaths) {
+			return &ValidationError{err: fmt.Sprintf("duplicate file patterns filter for path %#v", f.Path)}
+		}
+		if len(f.AllowedPatterns) == 0 && len(f.DeniedPatterns) == 0 {
+			return &ValidationError{err: fmt.Sprintf("empty file patterns filter for path %#v", f.Path)}
+		}
+		f.Path = cleanedPath
+		allowed := make([]string, 0, len(f.AllowedPatterns))
+		denied := make([]string, 0, len(f.DeniedPatterns))
+		for _, pattern := range f.AllowedPatterns {
+			_, err := path.Match(pattern, "abc")
+			if err != nil {
+				return &ValidationError{err: fmt.Sprintf("invalid file pattern filter %v", pattern)}
+			}
+			allowed = append(allowed, strings.ToLower(pattern))
+		}
+		for _, pattern := range f.DeniedPatterns {
+			_, err := path.Match(pattern, "abc")
+			if err != nil {
+				return &ValidationError{err: fmt.Sprintf("invalid file pattern filter %v", pattern)}
+			}
+			denied = append(denied, strings.ToLower(pattern))
+		}
+		f.AllowedPatterns = allowed
+		f.DeniedPatterns = denied
+		filters = append(filters, f)
+		filteredPaths = append(filteredPaths, cleanedPath)
+	}
+	user.Filters.FilePatterns = filters
+	return nil
+}
+
 func validateFiltersFileExtensions(user *User) error {
 	if len(user.Filters.FileExtensions) == 0 {
 		user.Filters.FileExtensions = []ExtensionsFilter{}
@@ -922,11 +966,28 @@ func validateFiltersFileExtensions(user *User) error {
 			return &ValidationError{err: fmt.Sprintf("empty file extensions filter for path %#v", f.Path)}
 		}
 		f.Path = cleanedPath
+		allowed := make([]string, 0, len(f.AllowedExtensions))
+		denied := make([]string, 0, len(f.DeniedExtensions))
+		for _, ext := range f.AllowedExtensions {
+			allowed = append(allowed, strings.ToLower(ext))
+		}
+		for _, ext := range f.DeniedExtensions {
+			denied = append(denied, strings.ToLower(ext))
+		}
+		f.AllowedExtensions = allowed
+		f.DeniedExtensions = denied
 		filters = append(filters, f)
 		filteredPaths = append(filteredPaths, cleanedPath)
 	}
 	user.Filters.FileExtensions = filters
 	return nil
+}
+
+func validateFileFilters(user *User) error {
+	if err := validateFiltersFileExtensions(user); err != nil {
+		return err
+	}
+	return validateFiltersPatternExtensions(user)
 }
 
 func validateFilters(user *User) error {
@@ -970,7 +1031,7 @@ func validateFilters(user *User) error {
 			return &ValidationError{err: fmt.Sprintf("invalid protocol: %#v", p)}
 		}
 	}
-	return validateFiltersFileExtensions(user)
+	return validateFileFilters(user)
 }
 
 func saveGCSCredentials(user *User) error {

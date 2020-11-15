@@ -41,10 +41,14 @@ For each account, the following properties can be configured:
   - `SSH`
   - `FTP`
   - `DAV`
-- `file_extensions`, list of struct. These restrictions do not apply to files listing for performance reasons, so a denied file cannot be downloaded/overwritten/renamed but it will still be listed in the list of files. Please note that these restrictions can be easily bypassed. Each struct contains the following fields:
-  - `allowed_extensions`, list of, case insensitive, allowed files extension. Shell like expansion is not supported so you have to specify `.jpg` and not `*.jpg`. Any file that does not end with this suffix will be denied
-  - `denied_extensions`, list of, case insensitive, denied files extension. Denied file extensions are evaluated before the allowed ones
-  - `path`, SFTP/SCP path, if no other specific filter is defined, the filter apply for sub directories too. For example if filters are defined for the paths `/` and `/sub` then the filters for `/` are applied for any file outside the `/sub` directory
+- `file_extensions`, list of struct. Deprecated, please use `file_patterns`. These restrictions do not apply to files listing for performance reasons, so a denied file cannot be downloaded/overwritten/renamed but it will still be in the list of files. Please note that these restrictions can be easily bypassed. Each struct contains the following fields:
+  - `allowed_extensions`, list of, case insensitive, allowed file extensions. Shell like expansion is not supported so you have to specify `.jpg` and not `*.jpg`. Any file that does not end with this suffix will be denied
+  - `denied_extensions`, list of, case insensitive, denied file extensions. Denied file extensions are evaluated before the allowed ones
+  - `path`, exposed virtual path, if no other specific filter is defined, the filter apply for sub directories too. For example if filters are defined for the paths `/` and `/sub` then the filters for `/` are applied for any file outside the `/sub` directory
+- `file_patterns`, list of struct. These restrictions do not apply to files listing for performance reasons, so a denied file cannot be downloaded/overwritten/renamed but it will still be in the list of files. Please note that these restrictions can be easily bypassed. For syntax details take a look [here](https://golang.org/pkg/path/#Match). Each struct contains the following fields:
+  - `allowed_patterns`, list of, case insensitive, allowed file patterns. Examples: `*.jpg`, `a*b?.png`. Any non matching file will be denied
+  - `denied_patterns`, list of, case insensitive, denied file patterns. Denied file patterns are evaluated before the allowed ones
+  - `path`, exposed virtual path, if no other specific filter is defined, the filter apply for sub directories too. For example if filters are defined for the paths `/` and `/sub` then the filters for `/` are applied for any file outside the `/sub` directory
 - `fs_provider`, filesystem to serve via SFTP. Local filesystem (0), S3 Compatible Object Storage (1), Google Cloud Storage (2) and Azure Blob Storage (3) are supported
 - `s3_bucket`, required for S3 filesystem
 - `s3_region`, required for S3 filesystem. Must match the region for your bucket. You can find here the list of available [AWS regions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions). For example if your bucket is at `Frankfurt` you have to set the region to `eu-central-1`

@@ -536,11 +536,19 @@ func TestDownloadErrors(t *testing.T) {
 			DeniedExtensions:  []string{".zipp"},
 		},
 	}
+	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+		{
+			Path:            "/sub2",
+			AllowedPatterns: []string{},
+			DeniedPatterns:  []string{"*.jpg"},
+		},
+	}
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
 	client := getWebDavClient(user)
 	testFilePath1 := filepath.Join(user.HomeDir, subDir1, "file.zipp")
 	testFilePath2 := filepath.Join(user.HomeDir, subDir2, "file.zipp")
+	testFilePath3 := filepath.Join(user.HomeDir, subDir2, "file.jpg")
 	err = os.MkdirAll(filepath.Dir(testFilePath1), os.ModePerm)
 	assert.NoError(t, err)
 	err = os.MkdirAll(filepath.Dir(testFilePath2), os.ModePerm)
@@ -549,10 +557,14 @@ func TestDownloadErrors(t *testing.T) {
 	assert.NoError(t, err)
 	err = ioutil.WriteFile(testFilePath2, []byte("file2"), os.ModePerm)
 	assert.NoError(t, err)
+	err = ioutil.WriteFile(testFilePath3, []byte("file3"), os.ModePerm)
+	assert.NoError(t, err)
 	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 	err = downloadFile(path.Join("/", subDir1, "file.zipp"), localDownloadPath, 5, client)
 	assert.Error(t, err)
 	err = downloadFile(path.Join("/", subDir2, "file.zipp"), localDownloadPath, 5, client)
+	assert.Error(t, err)
+	err = downloadFile(path.Join("/", subDir2, "file.jpg"), localDownloadPath, 5, client)
 	assert.Error(t, err)
 	err = downloadFile(path.Join("missing.zip"), localDownloadPath, 5, client)
 	assert.Error(t, err)
