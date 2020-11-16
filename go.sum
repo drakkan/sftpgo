@@ -121,8 +121,8 @@ github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9 h1:LPH1dEblAOO/LoG7yHP
 github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9/go.mod h1:2lmrmq866uF2tnje75wQHzmPXhmSWUt7Gyx2vgK1RCU=
 github.com/drakkan/net v0.0.0-20201114074615-8a2467084c77 h1:keiJPG0lodjq5Ep9XuDKGRQRC52pp/8NB8/1xbqmw+Y=
 github.com/drakkan/net v0.0.0-20201114074615-8a2467084c77/go.mod h1:sp8m0HH+o8qH0wwXwYZr8TS3Oi6o0r6Gce1SSxlDquU=
-github.com/drakkan/sftp v0.0.0-20201105171632-4ab2ef794ae3 h1:9rug3vpr/986h/KeITYQQx78DErOAkOes+ktVRyTPQQ=
-github.com/drakkan/sftp v0.0.0-20201105171632-4ab2ef794ae3/go.mod h1:fUqqXB5vEgVCZ131L+9say31RAri6aF6KDViawhxKK8=
+github.com/drakkan/sftp v0.0.0-20201116163812-863783342b7c h1:1pl6n1QuqucEf9fPTjkGMvwThWG/I5HOwc5+/7YuLjQ=
+github.com/drakkan/sftp v0.0.0-20201116163812-863783342b7c/go.mod h1:fUqqXB5vEgVCZ131L+9say31RAri6aF6KDViawhxKK8=
 github.com/dustin/go-humanize v0.0.0-20171111073723-bb3d318650d4/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/eapache/go-resiliency v1.1.0/go.mod h1:kFI+JgMyC7bLPUVY133qvEBtVayf5mFgVsvEsIPBvNs=
 github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21/go.mod h1:+020luEh2TKB4/GOp8oxxtq0Daoen/Cii55CzbTV6DU=

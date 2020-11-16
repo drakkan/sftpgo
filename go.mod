@@ -57,7 +57,7 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
-	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20201105171632-4ab2ef794ae3
+	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20201116163812-863783342b7c
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20201114074711-d051624c4fd2
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20201114074615-8a2467084c77
 )
