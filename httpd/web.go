@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"io/ioutil"
 	"net/http"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -314,7 +315,7 @@ func getListFromPostFields(value string) map[string][]string {
 			dirExts := strings.Split(cleaned, "::")
 			if len(dirExts) > 1 {
 				dir := dirExts[0]
-				dir = strings.TrimSpace(dir)
+				dir = path.Clean(strings.TrimSpace(dir))
 				exts := []string{}
 				for _, e := range strings.Split(dirExts[1], ",") {
 					cleanedExt := strings.TrimSpace(e)
@@ -328,6 +329,7 @@ func getListFromPostFields(value string) map[string][]string {
 					} else {
 						result[dir] = exts
 					}
+					result[dir] = utils.RemoveDuplicates(result[dir])
 				}
 			}
 		}
@@ -335,38 +337,74 @@ func getListFromPostFields(value string) map[string][]string {
 	return result
 }
 
-func getFilePatternsFromPostField(value string, extesionsType int) []dataprovider.PatternsFilter {
+func getFilePatternsFromPostField(valueAllowed, valuesDenied string) []dataprovider.PatternsFilter {
 	var result []dataprovider.PatternsFilter
-	for dir, values := range getListFromPostFields(value) {
+	allowedPatterns := getListFromPostFields(valueAllowed)
+	deniedPatterns := getListFromPostFields(valuesDenied)
+
+	for dirAllowed, allowPatterns := range allowedPatterns {
 		filter := dataprovider.PatternsFilter{
-			Path: dir,
+			Path:            dirAllowed,
+			AllowedPatterns: allowPatterns,
 		}
-		if extesionsType == 1 {
-			filter.AllowedPatterns = values
-			filter.DeniedPatterns = []string{}
-		} else {
-			filter.DeniedPatterns = values
-			filter.AllowedPatterns = []string{}
+		for dirDenied, denPatterns := range deniedPatterns {
+			if dirAllowed == dirDenied {
+				filter.DeniedPatterns = denPatterns
+				break
+			}
 		}
 		result = append(result, filter)
+	}
+	for dirDenied, denPatterns := range deniedPatterns {
+		found := false
+		for _, res := range result {
+			if res.Path == dirDenied {
+				found = true
+				break
+			}
+		}
+		if !found {
+			result = append(result, dataprovider.PatternsFilter{
+				Path:           dirDenied,
+				DeniedPatterns: denPatterns,
+			})
+		}
 	}
 	return result
 }
 
-func getFileExtensionsFromPostField(value string, extesionsType int) []dataprovider.ExtensionsFilter {
+func getFileExtensionsFromPostField(valueAllowed, valuesDenied string) []dataprovider.ExtensionsFilter {
 	var result []dataprovider.ExtensionsFilter
-	for dir, values := range getListFromPostFields(value) {
+	allowedExtensions := getListFromPostFields(valueAllowed)
+	deniedExtensions := getListFromPostFields(valuesDenied)
+
+	for dirAllowed, allowedExts := range allowedExtensions {
 		filter := dataprovider.ExtensionsFilter{
-			Path: dir,
+			Path:              dirAllowed,
+			AllowedExtensions: allowedExts,
 		}
-		if extesionsType == 1 {
-			filter.AllowedExtensions = values
-			filter.DeniedExtensions = []string{}
-		} else {
-			filter.DeniedExtensions = values
-			filter.AllowedExtensions = []string{}
+		for dirDenied, deniedExts := range deniedExtensions {
+			if dirAllowed == dirDenied {
+				filter.DeniedExtensions = deniedExts
+				break
+			}
 		}
 		result = append(result, filter)
+	}
+	for dirDenied, deniedExts := range deniedExtensions {
+		found := false
+		for _, res := range result {
+			if res.Path == dirDenied {
+				found = true
+				break
+			}
+		}
+		if !found {
+			result = append(result, dataprovider.ExtensionsFilter{
+				Path:             dirDenied,
+				DeniedExtensions: deniedExts,
+			})
+		}
 	}
 	return result
 }
@@ -377,19 +415,8 @@ func getFiltersFromUserPostFields(r *http.Request) dataprovider.UserFilters {
 	filters.DeniedIP = getSliceFromDelimitedValues(r.Form.Get("denied_ip"), ",")
 	filters.DeniedLoginMethods = r.Form["ssh_login_methods"]
 	filters.DeniedProtocols = r.Form["denied_protocols"]
-	allowedExtensions := getFileExtensionsFromPostField(r.Form.Get("allowed_extensions"), 1)
-	deniedExtensions := getFileExtensionsFromPostField(r.Form.Get("denied_extensions"), 2)
-	extensions := []dataprovider.ExtensionsFilter{}
-	extensions = append(extensions, allowedExtensions...)
-	extensions = append(extensions, deniedExtensions...)
-	filters.FileExtensions = extensions
-	allowedPatterns := getFilePatternsFromPostField(r.Form.Get("allowed_patterns"), 1)
-	deniedPatterns := getFilePatternsFromPostField(r.Form.Get("denied_patterns"), 2)
-	patterns := []dataprovider.PatternsFilter{}
-	patterns = append(patterns, allowedPatterns...)
-	patterns = append(patterns, deniedPatterns...)
-	filters.FilePatterns = patterns
-
+	filters.FileExtensions = getFileExtensionsFromPostField(r.Form.Get("allowed_extensions"), r.Form.Get("denied_extensions"))
+	filters.FilePatterns = getFilePatternsFromPostField(r.Form.Get("allowed_patterns"), r.Form.Get("denied_patterns"))
 	return filters
 }
 

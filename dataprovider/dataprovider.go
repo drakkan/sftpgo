@@ -927,14 +927,14 @@ func validateFiltersPatternExtensions(user *User) error {
 		for _, pattern := range f.AllowedPatterns {
 			_, err := path.Match(pattern, "abc")
 			if err != nil {
-				return &ValidationError{err: fmt.Sprintf("invalid file pattern filter %v", pattern)}
+				return &ValidationError{err: fmt.Sprintf("invalid file pattern filter %#v", pattern)}
 			}
 			allowed = append(allowed, strings.ToLower(pattern))
 		}
 		for _, pattern := range f.DeniedPatterns {
 			_, err := path.Match(pattern, "abc")
 			if err != nil {
-				return &ValidationError{err: fmt.Sprintf("invalid file pattern filter %v", pattern)}
+				return &ValidationError{err: fmt.Sprintf("invalid file pattern filter %#v", pattern)}
 			}
 			denied = append(denied, strings.ToLower(pattern))
 		}

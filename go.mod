@@ -26,7 +26,7 @@ require (
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/otiai10/copy v1.2.0
 	github.com/pelletier/go-toml v1.8.1 // indirect
-	github.com/pires/go-proxyproto v0.3.1
+	github.com/pires/go-proxyproto v0.3.2
 	github.com/pkg/sftp v1.12.1-0.20201002132022-fcaa492add82
 	github.com/prometheus/client_golang v1.8.0
 	github.com/prometheus/common v0.15.0 // indirect
@@ -47,7 +47,7 @@ require (
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	golang.org/x/oauth2 v0.0.0-20201109201403-9fd604954f58 // indirect
 	golang.org/x/sys v0.0.0-20201113233024-12cec1faf1ba
-	golang.org/x/tools v0.0.0-20201113202037-1643af1435f3 // indirect
+	golang.org/x/tools v0.0.0-20201116002733-ac45abd4c88c // indirect
 	google.golang.org/api v0.35.0
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20201113130914-ce600e9a6f9e // indirect

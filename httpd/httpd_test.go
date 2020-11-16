@@ -2455,10 +2455,10 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("permissions", "*")
 	form.Set("sub_dirs_permissions", " /subdir::list ,download ")
 	form.Set("virtual_folders", fmt.Sprintf(" /vdir:: %v :: 2 :: 1024", mappedDir))
-	form.Set("allowed_extensions", "/dir2::.jpg,.png\n/dir2::.ico")
-	form.Set("denied_extensions", "/dir1::.zip")
-	form.Set("allowed_patterns", "/dir2::*.jpg,*.png")
-	form.Set("denied_patterns", "/dir1::*.zip")
+	form.Set("allowed_extensions", "/dir2::.jpg,.png\n/dir2::.ico\n/dir1::.rar")
+	form.Set("denied_extensions", "/dir2::.webp,.webp\n/dir2::.tiff\n/dir1::.zip")
+	form.Set("allowed_patterns", "/dir2::*.jpg,*.png\n/dir1::*.png")
+	form.Set("denied_patterns", "/dir1::*.zip\n/dir3::*.rar\n/dir2::*.mkv")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	// test invalid url escape
 	req, _ := http.NewRequest(http.MethodPost, webUserPath+"?a=%2", &b)
@@ -2595,22 +2595,40 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.Len(t, newUser.Filters.FileExtensions, 2)
 	for _, filter := range newUser.Filters.FileExtensions {
 		if filter.Path == "/dir1" {
+			assert.Len(t, filter.DeniedExtensions, 1)
+			assert.Len(t, filter.AllowedExtensions, 1)
 			assert.True(t, utils.IsStringInSlice(".zip", filter.DeniedExtensions))
+			assert.True(t, utils.IsStringInSlice(".rar", filter.AllowedExtensions))
 		}
 		if filter.Path == "/dir2" {
+			assert.Len(t, filter.DeniedExtensions, 2)
+			assert.Len(t, filter.AllowedExtensions, 3)
 			assert.True(t, utils.IsStringInSlice(".jpg", filter.AllowedExtensions))
 			assert.True(t, utils.IsStringInSlice(".png", filter.AllowedExtensions))
 			assert.True(t, utils.IsStringInSlice(".ico", filter.AllowedExtensions))
+			assert.True(t, utils.IsStringInSlice(".webp", filter.DeniedExtensions))
+			assert.True(t, utils.IsStringInSlice(".tiff", filter.DeniedExtensions))
 		}
 	}
-	assert.Len(t, newUser.Filters.FilePatterns, 2)
+	assert.Len(t, newUser.Filters.FilePatterns, 3)
 	for _, filter := range newUser.Filters.FilePatterns {
 		if filter.Path == "/dir1" {
+			assert.Len(t, filter.DeniedPatterns, 1)
+			assert.Len(t, filter.AllowedPatterns, 1)
+			assert.True(t, utils.IsStringInSlice("*.png", filter.AllowedPatterns))
 			assert.True(t, utils.IsStringInSlice("*.zip", filter.DeniedPatterns))
 		}
 		if filter.Path == "/dir2" {
+			assert.Len(t, filter.DeniedPatterns, 1)
+			assert.Len(t, filter.AllowedPatterns, 2)
 			assert.True(t, utils.IsStringInSlice("*.jpg", filter.AllowedPatterns))
 			assert.True(t, utils.IsStringInSlice("*.png", filter.AllowedPatterns))
+			assert.True(t, utils.IsStringInSlice("*.mkv", filter.DeniedPatterns))
+		}
+		if filter.Path == "/dir3" {
+			assert.Len(t, filter.DeniedPatterns, 1)
+			assert.Len(t, filter.AllowedPatterns, 0)
+			assert.True(t, utils.IsStringInSlice("*.rar", filter.DeniedPatterns))
 		}
 	}
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(newUser.ID, 10), nil)
