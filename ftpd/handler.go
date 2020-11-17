@@ -99,7 +99,7 @@ func (c *Connection) Remove(name string) error {
 		return c.GetFsError(err)
 	}
 
-	if fi.IsDir() && fi.Mode()&os.ModeSymlink != os.ModeSymlink {
+	if fi.IsDir() && fi.Mode()&os.ModeSymlink == 0 {
 		c.Log(logger.LevelDebug, "cannot remove %#v is not a file/symlink", p)
 		return c.GetGenericError(nil)
 	}
@@ -307,7 +307,7 @@ func (c *Connection) uploadFile(fsPath, ftpPath string, flags int) (ftpserver.Fi
 	}
 
 	stat, statErr := c.Fs.Lstat(fsPath)
-	if (statErr == nil && stat.Mode()&os.ModeSymlink == os.ModeSymlink) || c.Fs.IsNotExist(statErr) {
+	if (statErr == nil && stat.Mode()&os.ModeSymlink != 0) || c.Fs.IsNotExist(statErr) {
 		if !c.User.HasPerm(dataprovider.PermUpload, path.Dir(ftpPath)) {
 			return nil, c.GetPermissionDeniedError()
 		}

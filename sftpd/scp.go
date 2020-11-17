@@ -260,7 +260,7 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 		filePath = c.connection.Fs.GetAtomicUploadPath(p)
 	}
 	stat, statErr := c.connection.Fs.Lstat(p)
-	if (statErr == nil && stat.Mode()&os.ModeSymlink == os.ModeSymlink) || c.connection.Fs.IsNotExist(statErr) {
+	if (statErr == nil && stat.Mode()&os.ModeSymlink != 0) || c.connection.Fs.IsNotExist(statErr) {
 		if !c.connection.User.HasPerm(dataprovider.PermUpload, path.Dir(uploadFilePath)) {
 			c.connection.Log(logger.LevelWarn, "cannot upload file: %#v, permission denied", uploadFilePath)
 			c.sendErrorMessage(common.ErrPermissionDenied)
@@ -352,7 +352,7 @@ func (c *scpCommand) handleRecursiveDownload(dirPath string, stat os.FileInfo) e
 		var dirs []string
 		for _, file := range files {
 			filePath := c.connection.Fs.GetRelativePath(c.connection.Fs.Join(dirPath, file.Name()))
-			if file.Mode().IsRegular() || file.Mode()&os.ModeSymlink == os.ModeSymlink {
+			if file.Mode().IsRegular() || file.Mode()&os.ModeSymlink != 0 {
 				err = c.handleDownload(filePath)
 				if err != nil {
 					break

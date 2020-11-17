@@ -50,7 +50,7 @@ func (fs *MockOsFs) Name() string {
 }
 
 // Open returns nil
-func (fs *MockOsFs) Open(name string, offset int64) (*os.File, *pipeat.PipeReaderAt, func(), error) {
+func (fs *MockOsFs) Open(name string, offset int64) (vfs.File, *pipeat.PipeReaderAt, func(), error) {
 	return nil, fs.reader, nil, nil
 }
 

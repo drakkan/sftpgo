@@ -23,7 +23,7 @@ var (
 type BaseTransfer struct { //nolint:maligned
 	ID             uint64
 	Fs             vfs.Fs
-	File           *os.File
+	File           vfs.File
 	Connection     *BaseConnection
 	cancelFn       func()
 	fsPath         string
@@ -42,7 +42,7 @@ type BaseTransfer struct { //nolint:maligned
 }
 
 // NewBaseTransfer returns a new BaseTransfer and adds it to the given connection
-func NewBaseTransfer(file *os.File, conn *BaseConnection, cancelFn func(), fsPath, requestPath string, transferType int,
+func NewBaseTransfer(file vfs.File, conn *BaseConnection, cancelFn func(), fsPath, requestPath string, transferType int,
 	minWriteOffset, initialSize, maxWriteSize int64, isNewFile bool, fs vfs.Fs) *BaseTransfer {
 	t := &BaseTransfer{
 		ID:             conn.GetTransferID(),

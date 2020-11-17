@@ -552,7 +552,7 @@ func (c *sshCommand) hasCopyPermissions(sshSourcePath, sshDestPath string, srcIn
 	}
 	if srcInfo.IsDir() {
 		return c.connection.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(sshDestPath))
-	} else if srcInfo.Mode()&os.ModeSymlink == os.ModeSymlink {
+	} else if srcInfo.Mode()&os.ModeSymlink != 0 {
 		return c.connection.User.HasPerm(dataprovider.PermCreateSymlinks, path.Dir(sshDestPath))
 	}
 	return c.connection.User.HasPerm(dataprovider.PermUpload, path.Dir(sshDestPath))

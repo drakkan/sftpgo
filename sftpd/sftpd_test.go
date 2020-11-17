@@ -753,11 +753,11 @@ func TestStat(t *testing.T) {
 		assert.NoError(t, err)
 		info, err := client.Lstat(symlinkName)
 		if assert.NoError(t, err) {
-			assert.True(t, info.Mode()&os.ModeSymlink == os.ModeSymlink)
+			assert.True(t, info.Mode()&os.ModeSymlink != 0)
 		}
 		info, err = client.Stat(symlinkName)
 		if assert.NoError(t, err) {
-			assert.False(t, info.Mode()&os.ModeSymlink == os.ModeSymlink)
+			assert.False(t, info.Mode()&os.ModeSymlink != 0)
 		}
 		linkName, err := client.ReadLink(symlinkName)
 		assert.NoError(t, err)

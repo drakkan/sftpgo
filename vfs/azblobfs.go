@@ -189,7 +189,7 @@ func (fs *AzureBlobFs) Lstat(name string) (os.FileInfo, error) {
 }
 
 // Open opens the named file for reading
-func (fs *AzureBlobFs) Open(name string, offset int64) (*os.File, *pipeat.PipeReaderAt, func(), error) {
+func (fs *AzureBlobFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func(), error) {
 	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err
@@ -221,7 +221,7 @@ func (fs *AzureBlobFs) Open(name string, offset int64) (*os.File, *pipeat.PipeRe
 }
 
 // Create creates or opens the named file for writing
-func (fs *AzureBlobFs) Create(name string, flag int) (*os.File, *PipeWriter, func(), error) {
+func (fs *AzureBlobFs) Create(name string, flag int) (File, *PipeWriter, func(), error) {
 	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err

@@ -4,6 +4,7 @@ package vfs
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path"
@@ -28,8 +29,8 @@ type Fs interface {
 	ConnectionID() string
 	Stat(name string) (os.FileInfo, error)
 	Lstat(name string) (os.FileInfo, error)
-	Open(name string, offset int64) (*os.File, *pipeat.PipeReaderAt, func(), error)
-	Create(name string, flag int) (*os.File, *PipeWriter, func(), error)
+	Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func(), error)
+	Create(name string, flag int) (File, *PipeWriter, func(), error)
 	Rename(source, target string) error
 	Remove(name string, isDir bool) error
 	Mkdir(name string) error
@@ -55,6 +56,19 @@ type Fs interface {
 	Join(elem ...string) string
 	HasVirtualFolders() bool
 	GetMimeType(name string) (string, error)
+}
+
+// File defines an interface representing a SFTPGo file
+type File interface {
+	io.Reader
+	io.Writer
+	io.Closer
+	io.ReaderAt
+	io.WriterAt
+	io.Seeker
+	Stat() (os.FileInfo, error)
+	Name() string
+	Truncate(size int64) error
 }
 
 // ErrVfsUnsupported defines the error for an unsupported VFS operation

@@ -127,7 +127,7 @@ func (c *Connection) RemoveAll(ctx context.Context, name string) error {
 		return c.GetFsError(err)
 	}
 
-	if fi.IsDir() && fi.Mode()&os.ModeSymlink != os.ModeSymlink {
+	if fi.IsDir() && fi.Mode()&os.ModeSymlink == 0 {
 		return c.removeDirTree(p, name)
 	}
 	return c.RemoveFile(p, name, fi)
@@ -152,7 +152,7 @@ func (c *Connection) OpenFile(ctx context.Context, name string, flag int, perm o
 
 func (c *Connection) getFile(fsPath, virtualPath string) (webdav.File, error) {
 	var err error
-	var file *os.File
+	var file vfs.File
 	var r *pipeat.PipeReaderAt
 	var cancelFn func()
 
@@ -184,7 +184,7 @@ func (c *Connection) putFile(fsPath, virtualPath string) (webdav.File, error) {
 	}
 
 	stat, statErr := c.Fs.Lstat(fsPath)
-	if (statErr == nil && stat.Mode()&os.ModeSymlink == os.ModeSymlink) || c.Fs.IsNotExist(statErr) {
+	if (statErr == nil && stat.Mode()&os.ModeSymlink != 0) || c.Fs.IsNotExist(statErr) {
 		if !c.User.HasPerm(dataprovider.PermUpload, path.Dir(virtualPath)) {
 			return nil, c.GetPermissionDeniedError()
 		}

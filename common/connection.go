@@ -260,7 +260,7 @@ func (c *BaseConnection) RemoveFile(fsPath, virtualPath string, info os.FileInfo
 	}
 
 	logger.CommandLog(removeLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1)
-	if info.Mode()&os.ModeSymlink != os.ModeSymlink {
+	if info.Mode()&os.ModeSymlink == 0 {
 		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(virtualPath))
 		if err == nil {
 			dataprovider.UpdateVirtualFolderQuota(vfolder.BaseVirtualFolder, -1, -size, false) //nolint:errcheck
@@ -318,7 +318,7 @@ func (c *BaseConnection) RemoveDir(fsPath, virtualPath string) error {
 		c.Log(logger.LevelWarn, "failed to remove a dir %#v: stat error: %+v", fsPath, err)
 		return c.GetFsError(err)
 	}
-	if !fi.IsDir() || fi.Mode()&os.ModeSymlink == os.ModeSymlink {
+	if !fi.IsDir() || fi.Mode()&os.ModeSymlink != 0 {
 		c.Log(logger.LevelDebug, "cannot remove %#v is not a directory", fsPath)
 		return c.GetGenericError(nil)
 	}
@@ -638,7 +638,7 @@ func (c *BaseConnection) isRenamePermitted(fsSourcePath, virtualSourcePath, virt
 	if fi != nil {
 		if fi.IsDir() {
 			return c.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(virtualTargetPath))
-		} else if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
+		} else if fi.Mode()&os.ModeSymlink != 0 {
 			return c.User.HasPerm(dataprovider.PermCreateSymlinks, path.Dir(virtualTargetPath))
 		}
 	}

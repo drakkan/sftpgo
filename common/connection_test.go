@@ -806,7 +806,7 @@ func TestRenamePermission(t *testing.T) {
 	}
 	info, err = os.Lstat(tmpDirLink)
 	if assert.NoError(t, err) {
-		assert.True(t, info.Mode()&os.ModeSymlink == os.ModeSymlink)
+		assert.True(t, info.Mode()&os.ModeSymlink != 0)
 		// the source is a symlink and the target has createDirs and upload perm
 		assert.False(t, conn.isRenamePermitted(tmpDir, request.Filepath, request.Target, info))
 	}

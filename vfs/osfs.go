@@ -81,13 +81,13 @@ func (fs *OsFs) Lstat(name string) (os.FileInfo, error) {
 }
 
 // Open opens the named file for reading
-func (*OsFs) Open(name string, offset int64) (*os.File, *pipeat.PipeReaderAt, func(), error) {
+func (*OsFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func(), error) {
 	f, err := os.Open(name)
 	return f, nil, nil, err
 }
 
 // Create creates or opens the named file for writing
-func (*OsFs) Create(name string, flag int) (*os.File, *PipeWriter, func(), error) {
+func (*OsFs) Create(name string, flag int) (File, *PipeWriter, func(), error) {
 	var err error
 	var f *os.File
 	if flag == 0 {

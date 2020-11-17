@@ -113,7 +113,7 @@ func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReader
 	}
 
 	stat, statErr := c.Fs.Lstat(p)
-	if (statErr == nil && stat.Mode()&os.ModeSymlink == os.ModeSymlink) || c.Fs.IsNotExist(statErr) {
+	if (statErr == nil && stat.Mode()&os.ModeSymlink != 0) || c.Fs.IsNotExist(statErr) {
 		if !c.User.HasPerm(dataprovider.PermUpload, path.Dir(request.Filepath)) {
 			return nil, sftp.ErrSSHFxPermissionDenied
 		}
@@ -300,7 +300,7 @@ func (c *Connection) handleSFTPRemove(filePath string, request *sftp.Request) er
 		c.Log(logger.LevelWarn, "failed to remove a file %#v: stat error: %+v", filePath, err)
 		return c.GetFsError(err)
 	}
-	if fi.IsDir() && fi.Mode()&os.ModeSymlink != os.ModeSymlink {
+	if fi.IsDir() && fi.Mode()&os.ModeSymlink == 0 {
 		c.Log(logger.LevelDebug, "cannot remove %#v is not a file/symlink", filePath)
 		return sftp.ErrSSHFxFailure
 	}
