@@ -4,10 +4,10 @@ SFTPGo provides an official Docker image, it is available on both [Docker Hub](h
 
 ## Supported tags and respective Dockerfile links
 
-- [v1.2.1, v1.2, v1, latest](https://github.com/drakkan/sftpgo/blob/v1.2.1/Dockerfile.full)
-- [v1.2.1-alpine, v1.2-alpine, v1-alpine, alpine](https://github.com/drakkan/sftpgo/blob/v1.2.1/Dockerfile.full.alpine)
-- [v1.2.1-slim, v1.2-slim, v1-slim, slim](https://github.com/drakkan/sftpgo/blob/v1.2.1/Dockerfile)
-- [v1.2.1-alpine-slim, v1.2-alpine-slim, v1-alpine-slim, alpine-slim](https://github.com/drakkan/sftpgo/blob/v1.2.1/Dockerfile.alpine)
+- [v1.2.2, v1.2, v1, latest](https://github.com/drakkan/sftpgo/blob/v1.2.2/Dockerfile.full)
+- [v1.2.2-alpine, v1.2-alpine, v1-alpine, alpine](https://github.com/drakkan/sftpgo/blob/v1.2.2/Dockerfile.full.alpine)
+- [v1.2.2-slim, v1.2-slim, v1-slim, slim](https://github.com/drakkan/sftpgo/blob/v1.2.2/Dockerfile)
+- [v1.2.2-alpine-slim, v1.2-alpine-slim, v1-alpine-slim, alpine-slim](https://github.com/drakkan/sftpgo/blob/v1.2.2/Dockerfile.alpine)
 - [edge](../Dockerfile.full)
 - [edge-alpine](../Dockerfile.full.alpine)
 - [edge-slim](../Dockerfile)
