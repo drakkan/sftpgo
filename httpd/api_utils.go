@@ -707,28 +707,19 @@ func compareAzBlobConfig(expected *dataprovider.User, actual *dataprovider.User)
 	return nil
 }
 
-func checkEncryptedSecret(expectedAccessSecret, actualAccessSecret string) error {
-	if len(expectedAccessSecret) > 0 {
-		vals := strings.Split(expectedAccessSecret, "$")
-		if strings.HasPrefix(expectedAccessSecret, "$aes$") && len(vals) == 4 {
-			expectedAccessSecret = utils.RemoveDecryptionKey(expectedAccessSecret)
-			if expectedAccessSecret != actualAccessSecret {
-				return fmt.Errorf("secret mismatch, expected: %v", expectedAccessSecret)
-			}
-		} else {
-			// here we check that actualAccessSecret is aes encrypted without the nonce
-			parts := strings.Split(actualAccessSecret, "$")
-			if !strings.HasPrefix(actualAccessSecret, "$aes$") || len(parts) != 3 {
-				return errors.New("invalid secret")
-			}
-			if len(parts) == len(vals) {
-				if expectedAccessSecret != actualAccessSecret {
-					return errors.New("encrypted secret mismatch")
-				}
-			}
+func checkEncryptedSecret(expected, actual vfs.Secret) error {
+	if expected.IsPlain() && actual.IsEncrypted() {
+		if actual.Payload == "" {
+			return errors.New("invalid secret payload")
+		}
+		if actual.AdditionalData != "" {
+			return errors.New("invalid secret additional data")
+		}
+		if actual.Key != "" {
+			return errors.New("invalid secret key")
 		}
 	} else {
-		if expectedAccessSecret != actualAccessSecret {
+		if expected.Status != actual.Status || expected.Payload != actual.Payload {
 			return errors.New("secret mismatch")
 		}
 	}

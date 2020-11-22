@@ -2,7 +2,6 @@
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -207,9 +206,7 @@ func (s *Service) loadInitialData() error {
 	if err != nil {
 		return fmt.Errorf("unable to read input file %#v: %v", s.LoadDataFrom, err)
 	}
-	var dump dataprovider.BackupData
-
-	err = json.Unmarshal(content, &dump)
+	dump, err := dataprovider.ParseDumpData(content)
 	if err != nil {
 		return fmt.Errorf("unable to parse file to restore %#v: %v", s.LoadDataFrom, err)
 	}

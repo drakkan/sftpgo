@@ -39,6 +39,7 @@ const (
 	page500Body          = "The server is unable to fulfill your request."
 	defaultQueryLimit    = 500
 	webDateTimeFormat    = "2006-01-02 15:04:05" // YYYY-MM-DD HH:MM:SS
+	redactedSecret       = "[**redacted**]"
 )
 
 var (
@@ -81,7 +82,6 @@ type connectionsPage struct {
 
 type userPage struct {
 	basePage
-	IsAdd                bool
 	User                 dataprovider.User
 	RootPerms            []string
 	Error                string
@@ -89,6 +89,10 @@ type userPage struct {
 	ValidSSHLoginMethods []string
 	ValidProtocols       []string
 	RootDirPerms         []string
+	RedactedSecret       string
+	IsAdd                bool
+	IsS3SecretEnc        bool
+	IsAzSecretEnc        bool
 }
 
 type folderPage struct {
@@ -210,6 +214,9 @@ func renderAddUserPage(w http.ResponseWriter, user dataprovider.User, error stri
 		ValidSSHLoginMethods: dataprovider.ValidSSHLoginMethods,
 		ValidProtocols:       dataprovider.ValidProtocols,
 		RootDirPerms:         user.GetPermissionsForPath("/"),
+		IsS3SecretEnc:        user.FsConfig.S3Config.AccessSecret.IsEncrypted(),
+		IsAzSecretEnc:        user.FsConfig.AzBlobConfig.AccountKey.IsEncrypted(),
+		RedactedSecret:       redactedSecret,
 	}
 	renderTemplate(w, templateUser, data)
 }
@@ -224,6 +231,9 @@ func renderUpdateUserPage(w http.ResponseWriter, user dataprovider.User, error s
 		ValidSSHLoginMethods: dataprovider.ValidSSHLoginMethods,
 		ValidProtocols:       dataprovider.ValidProtocols,
 		RootDirPerms:         user.GetPermissionsForPath("/"),
+		IsS3SecretEnc:        user.FsConfig.S3Config.AccessSecret.IsEncrypted(),
+		IsAzSecretEnc:        user.FsConfig.AzBlobConfig.AccountKey.IsEncrypted(),
+		RedactedSecret:       redactedSecret,
 	}
 	renderTemplate(w, templateUser, data)
 }
@@ -420,6 +430,20 @@ func getFiltersFromUserPostFields(r *http.Request) dataprovider.UserFilters {
 	return filters
 }
 
+func getSecretFromFormField(r *http.Request, field string) vfs.Secret {
+	secret := vfs.Secret{
+		Payload: r.Form.Get(field),
+		Status:  vfs.SecretStatusPlain,
+	}
+	if strings.TrimSpace(secret.Payload) == redactedSecret {
+		secret.Status = vfs.SecretStatusRedacted
+	}
+	if strings.TrimSpace(secret.Payload) == "" {
+		secret.Status = ""
+	}
+	return secret
+}
+
 func getFsConfigFromUserPostFields(r *http.Request) (dataprovider.Filesystem, error) {
 	var fs dataprovider.Filesystem
 	provider, err := strconv.Atoi(r.Form.Get("fs_provider"))
@@ -431,7 +455,7 @@ func getFsConfigFromUserPostFields(r *http.Request) (dataprovider.Filesystem, er
 		fs.S3Config.Bucket = r.Form.Get("s3_bucket")
 		fs.S3Config.Region = r.Form.Get("s3_region")
 		fs.S3Config.AccessKey = r.Form.Get("s3_access_key")
-		fs.S3Config.AccessSecret = r.Form.Get("s3_access_secret")
+		fs.S3Config.AccessSecret = getSecretFromFormField(r, "s3_access_secret")
 		fs.S3Config.Endpoint = r.Form.Get("s3_endpoint")
 		fs.S3Config.StorageClass = r.Form.Get("s3_storage_class")
 		fs.S3Config.KeyPrefix = r.Form.Get("s3_key_prefix")
@@ -468,12 +492,15 @@ func getFsConfigFromUserPostFields(r *http.Request) (dataprovider.Filesystem, er
 			}
 			return fs, err
 		}
-		fs.GCSConfig.Credentials = fileBytes
+		fs.GCSConfig.Credentials = vfs.Secret{
+			Status:  vfs.SecretStatusPlain,
+			Payload: string(fileBytes),
+		}
 		fs.GCSConfig.AutomaticCredentials = 0
 	} else if fs.Provider == dataprovider.AzureBlobFilesystemProvider {
 		fs.AzBlobConfig.Container = r.Form.Get("az_container")
 		fs.AzBlobConfig.AccountName = r.Form.Get("az_account_name")
-		fs.AzBlobConfig.AccountKey = r.Form.Get("az_account_key")
+		fs.AzBlobConfig.AccountKey = getSecretFromFormField(r, "az_account_key")
 		fs.AzBlobConfig.SASURL = r.Form.Get("az_sas_url")
 		fs.AzBlobConfig.Endpoint = r.Form.Get("az_endpoint")
 		fs.AzBlobConfig.KeyPrefix = r.Form.Get("az_key_prefix")
@@ -654,6 +681,12 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 	updatedUser.ID = user.ID
 	if len(updatedUser.Password) == 0 {
 		updatedUser.Password = user.Password
+	}
+	if !updatedUser.FsConfig.S3Config.AccessSecret.IsPlain() && !updatedUser.FsConfig.S3Config.AccessSecret.IsEmpty() {
+		updatedUser.FsConfig.S3Config.AccessSecret = user.FsConfig.S3Config.AccessSecret
+	}
+	if !updatedUser.FsConfig.AzBlobConfig.AccountKey.IsPlain() && !updatedUser.FsConfig.AzBlobConfig.AccountKey.IsEmpty() {
+		updatedUser.FsConfig.AzBlobConfig.AccountKey = user.FsConfig.AzBlobConfig.AccountKey
 	}
 	err = dataprovider.UpdateUser(updatedUser)
 	if err == nil {

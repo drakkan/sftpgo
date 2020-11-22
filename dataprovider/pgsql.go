@@ -209,26 +209,44 @@ func (p PGSQLProvider) migrateDatabase() error {
 	}
 	switch dbVersion.Version {
 	case 1:
-		err = updatePGSQLDatabaseFrom1To2(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		err = updatePGSQLDatabaseFrom2To3(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		return updatePGSQLDatabaseFrom3To4(p.dbHandle)
+		return updatePGSQLDatabaseFromV1(p.dbHandle)
 	case 2:
-		err = updatePGSQLDatabaseFrom2To3(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		return updatePGSQLDatabaseFrom3To4(p.dbHandle)
+		return updatePGSQLDatabaseFromV2(p.dbHandle)
 	case 3:
-		return updatePGSQLDatabaseFrom3To4(p.dbHandle)
+		return updatePGSQLDatabaseFromV3(p.dbHandle)
+	case 4:
+		return updatePGSQLDatabaseFromV4(p.dbHandle)
 	default:
 		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
 	}
+}
+
+func updatePGSQLDatabaseFromV1(dbHandle *sql.DB) error {
+	err := updatePGSQLDatabaseFrom1To2(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV2(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV2(dbHandle *sql.DB) error {
+	err := updatePGSQLDatabaseFrom2To3(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV3(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV3(dbHandle *sql.DB) error {
+	err := updatePGSQLDatabaseFrom3To4(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV4(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV4(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom4To5(dbHandle)
 }
 
 func updatePGSQLDatabaseFrom1To2(dbHandle *sql.DB) error {
@@ -247,4 +265,8 @@ func updatePGSQLDatabaseFrom2To3(dbHandle *sql.DB) error {
 
 func updatePGSQLDatabaseFrom3To4(dbHandle *sql.DB) error {
 	return sqlCommonUpdateDatabaseFrom3To4(pgsqlV4SQL, dbHandle)
+}
+
+func updatePGSQLDatabaseFrom4To5(dbHandle *sql.DB) error {
+	return sqlCommonUpdateDatabaseFrom4To5(dbHandle)
 }

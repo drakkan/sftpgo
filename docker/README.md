@@ -79,15 +79,24 @@ Please take a look [here](../docs/full-configuration.md#environment-variables) t
 
 Alternately you can mount your custom configuration file to `/var/lib/sftpgo` or `/var/lib/sftpgo/.config/sftpgo`.
 
+### Loading initial data
+
+Initial data can be loaded in the following ways:
+
+- via the `--loaddata-from` flag or the `SFTPGO_LOADDATA_FROM` environment variable
+- by providing a dump file to the memory provider
+
+Please take a look [here](../docs/full-configuration.md) for more details.
+
 ### Running as an arbitrary user
 
 The SFTPGo image runs using `1000` as UID/GID by default. If you know the permissions of your data and/or configuration directory are already set appropriately or you have need of running SFTPGo with a specific UID/GID, it is possible to invoke this image with `--user` set to any value (other than `root/0`) in order to achieve the desired access/configuration:
 
 ```shell
 $ ls -lnd data
-drwxr-xr-x 2 1100 11000 6  6 nov 09.09 data
+drwxr-xr-x 2 1100 1100 6  7 nov 09.09 data
 $ ls -lnd config
-drwxr-xr-x 2 1100 11000 6  6 nov 09.19 config
+drwxr-xr-x 2 1100 1100 6  7 nov 09.19 config
 ```
 
 With the above directory permissions, you can start a SFTPGo instance like this:

@@ -861,7 +861,10 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 	u := getTestUser()
 	u.FsConfig.Provider = dataprovider.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
-	u.FsConfig.GCSConfig.Credentials = []byte(`{ "type": "service_account" }`)
+	u.FsConfig.GCSConfig.Credentials = vfs.Secret{
+		Status:  vfs.SecretStatusPlain,
+		Payload: `{ "type": "service_account" }`,
+	}
 
 	providerConf := config.GetProviderConf()
 	providerConf.PreferDatabaseCredentials = true
@@ -882,9 +885,12 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
+	assert.Equal(t, vfs.SecretStatusAES256GCM, user.FsConfig.GCSConfig.Credentials.Status)
+	assert.NotEmpty(t, user.FsConfig.GCSConfig.Credentials.Payload)
+	assert.Empty(t, user.FsConfig.GCSConfig.Credentials.AdditionalData)
+	assert.Empty(t, user.FsConfig.GCSConfig.Credentials.Key)
 
-	_, err = os.Stat(credentialsFile)
-	assert.Error(t, err)
+	assert.NoFileExists(t, credentialsFile)
 
 	client := getWebDavClient(user)
 
@@ -906,7 +912,10 @@ func TestLoginInvalidFs(t *testing.T) {
 	u := getTestUser()
 	u.FsConfig.Provider = dataprovider.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
-	u.FsConfig.GCSConfig.Credentials = []byte("invalid JSON for credentials")
+	u.FsConfig.GCSConfig.Credentials = vfs.Secret{
+		Status:  vfs.SecretStatusPlain,
+		Payload: "invalid JSON for credentials",
+	}
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
 

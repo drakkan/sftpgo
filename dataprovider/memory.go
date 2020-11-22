@@ -1,7 +1,6 @@
 package dataprovider
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -300,7 +299,8 @@ func (p MemoryProvider) getUsers(limit int, offset int, order string, username s
 		if offset == 0 {
 			user, err := p.userExistsInternal(username)
 			if err == nil {
-				users = append(users, HideUserSensitiveData(&user))
+				user.HideConfidentialData()
+				users = append(users, user)
 			}
 		}
 		return users, err
@@ -313,7 +313,8 @@ func (p MemoryProvider) getUsers(limit int, offset int, order string, username s
 				continue
 			}
 			user := p.dbHandle.users[username]
-			users = append(users, HideUserSensitiveData(&user))
+			user.HideConfidentialData()
+			users = append(users, user)
 			if len(users) >= limit {
 				break
 			}
@@ -326,7 +327,8 @@ func (p MemoryProvider) getUsers(limit int, offset int, order string, username s
 			}
 			username := p.dbHandle.usernames[i]
 			user := p.dbHandle.users[username]
-			users = append(users, HideUserSensitiveData(&user))
+			user.HideConfidentialData()
+			users = append(users, user)
 			if len(users) >= limit {
 				break
 			}
@@ -624,8 +626,7 @@ func (p MemoryProvider) reloadConfig() error {
 		providerLog(logger.LevelWarn, "error loading users: %v", err)
 		return err
 	}
-	var dump BackupData
-	err = json.Unmarshal(content, &dump)
+	dump, err := ParseDumpData(content)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error loading users: %v", err)
 		return err

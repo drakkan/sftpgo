@@ -4,9 +4,11 @@ package vfs
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"mime"
 	"net/http"
 	"os"
@@ -60,10 +62,28 @@ func NewGCSFs(connectionID, localTempDir string, config GCSFsConfig) (Fs, error)
 	ctx := context.Background()
 	if fs.config.AutomaticCredentials > 0 {
 		fs.svc, err = storage.NewClient(ctx)
-	} else if len(fs.config.Credentials) > 0 {
-		fs.svc, err = storage.NewClient(ctx, option.WithCredentialsJSON(fs.config.Credentials))
+	} else if fs.config.Credentials.IsEncrypted() {
+		err = fs.config.Credentials.Decrypt()
+		if err != nil {
+			return fs, err
+		}
+		fs.svc, err = storage.NewClient(ctx, option.WithCredentialsJSON([]byte(fs.config.Credentials.Payload)))
 	} else {
-		fs.svc, err = storage.NewClient(ctx, option.WithCredentialsFile(fs.config.CredentialFile))
+		var creds []byte
+		creds, err = ioutil.ReadFile(fs.config.CredentialFile)
+		if err != nil {
+			return fs, err
+		}
+		secret := &Secret{}
+		err = json.Unmarshal(creds, secret)
+		if err != nil {
+			return fs, err
+		}
+		err = secret.Decrypt()
+		if err != nil {
+			return fs, err
+		}
+		fs.svc, err = storage.NewClient(ctx, option.WithCredentialsJSON([]byte(secret.Payload)))
 	}
 	return fs, err
 }

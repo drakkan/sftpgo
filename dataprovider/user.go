@@ -230,6 +230,19 @@ func (u *User) GetFilesystem(connectionID string) (vfs.Fs, error) {
 	return vfs.NewOsFs(connectionID, u.GetHomeDir(), u.VirtualFolders), nil
 }
 
+// HideConfidentialData hides user confidential data
+func (u *User) HideConfidentialData() {
+	u.Password = ""
+	switch u.FsConfig.Provider {
+	case S3FilesystemProvider:
+		u.FsConfig.S3Config.AccessSecret.Hide()
+	case GCSFilesystemProvider:
+		u.FsConfig.GCSConfig.Credentials.Hide()
+	case AzureBlobFilesystemProvider:
+		u.FsConfig.AzBlobConfig.AccountKey.Hide()
+	}
+}
+
 // GetPermissionsForPath returns the permissions for the given path.
 // The path must be an SFTP path
 func (u *User) GetPermissionsForPath(p string) []string {
@@ -809,6 +822,7 @@ func (u *User) getACopy() User {
 			UploadPartSize:    u.FsConfig.AzBlobConfig.UploadPartSize,
 			UploadConcurrency: u.FsConfig.AzBlobConfig.UploadConcurrency,
 			UseEmulator:       u.FsConfig.AzBlobConfig.UseEmulator,
+			AccessTier:        u.FsConfig.AzBlobConfig.AccessTier,
 		},
 	}
 

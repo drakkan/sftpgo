@@ -58,7 +58,10 @@ Output:
     "provider": 1,
     "s3config": {
       "access_key": "accesskey",
-      "access_secret": "$aes$6c088ba12b0b261247c8cf331c46d9260b8e58002957d89ad1c0495e3af665cd0227",
+      "access_secret": {
+        "payload": "ac46cec75466ba77e47f536436783b729ca5bbbb53252fda0de51f785a6da11ffb03",
+        "status": "AES-256-GCM"
+      },
       "bucket": "test",
       "endpoint": "http://127.0.0.1:9000",
       "key_prefix": "vfolder/",

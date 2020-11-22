@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 4
+	boltDatabaseVersion = 5
 )
 
 var (
@@ -33,28 +33,6 @@ var (
 // BoltProvider auth provider for bolt key/value store
 type BoltProvider struct {
 	dbHandle *bolt.DB
-}
-
-type compatUserV2 struct {
-	ID                int64    `json:"id"`
-	Username          string   `json:"username"`
-	Password          string   `json:"password,omitempty"`
-	PublicKeys        []string `json:"public_keys,omitempty"`
-	HomeDir           string   `json:"home_dir"`
-	UID               int      `json:"uid"`
-	GID               int      `json:"gid"`
-	MaxSessions       int      `json:"max_sessions"`
-	QuotaSize         int64    `json:"quota_size"`
-	QuotaFiles        int      `json:"quota_files"`
-	Permissions       []string `json:"permissions"`
-	UsedQuotaSize     int64    `json:"used_quota_size"`
-	UsedQuotaFiles    int      `json:"used_quota_files"`
-	LastQuotaUpdate   int64    `json:"last_quota_update"`
-	UploadBandwidth   int64    `json:"upload_bandwidth"`
-	DownloadBandwidth int64    `json:"download_bandwidth"`
-	ExpirationDate    int64    `json:"expiration_date"`
-	LastLogin         int64    `json:"last_login"`
-	Status            int      `json:"status"`
 }
 
 func init() {
@@ -425,7 +403,8 @@ func (p BoltProvider) getUserWithUsername(username string) ([]User, error) {
 	var user User
 	user, err := p.userExists(username)
 	if err == nil {
-		users = append(users, HideUserSensitiveData(&user))
+		user.HideConfidentialData()
+		users = append(users, user)
 		return users, nil
 	}
 	if _, ok := err.(*RecordNotFoundError); ok {
@@ -465,7 +444,8 @@ func (p BoltProvider) getUsers(limit int, offset int, order string, username str
 				}
 				user, err := joinUserAndFolders(v, folderBucket)
 				if err == nil {
-					users = append(users, HideUserSensitiveData(&user))
+					user.HideConfidentialData()
+					users = append(users, user)
 				}
 				if len(users) >= limit {
 					break
@@ -479,7 +459,8 @@ func (p BoltProvider) getUsers(limit int, offset int, order string, username str
 				}
 				user, err := joinUserAndFolders(v, folderBucket)
 				if err == nil {
-					users = append(users, HideUserSensitiveData(&user))
+					user.HideConfidentialData()
+					users = append(users, user)
 				}
 				if len(users) >= limit {
 					break
@@ -718,26 +699,44 @@ func (p BoltProvider) migrateDatabase() error {
 	}
 	switch dbVersion.Version {
 	case 1:
-		err = updateDatabaseFrom1To2(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		err = updateDatabaseFrom2To3(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		return updateDatabaseFrom3To4(p.dbHandle)
+		return updateBoltDatabaseFromV1(p.dbHandle)
 	case 2:
-		err = updateDatabaseFrom2To3(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		return updateDatabaseFrom3To4(p.dbHandle)
+		return updateBoltDatabaseFromV2(p.dbHandle)
 	case 3:
-		return updateDatabaseFrom3To4(p.dbHandle)
+		return updateBoltDatabaseFromV3(p.dbHandle)
+	case 4:
+		return updateBoltDatabaseFromV4(p.dbHandle)
 	default:
 		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
 	}
+}
+
+func updateBoltDatabaseFromV1(dbHandle *bolt.DB) error {
+	err := updateDatabaseFrom1To2(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updateBoltDatabaseFromV2(dbHandle)
+}
+
+func updateBoltDatabaseFromV2(dbHandle *bolt.DB) error {
+	err := updateDatabaseFrom2To3(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updateBoltDatabaseFromV3(dbHandle)
+}
+
+func updateBoltDatabaseFromV3(dbHandle *bolt.DB) error {
+	err := updateDatabaseFrom3To4(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updateBoltDatabaseFromV4(dbHandle)
+}
+
+func updateBoltDatabaseFromV4(dbHandle *bolt.DB) error {
+	return updateDatabaseFrom4To5(dbHandle)
 }
 
 // itob returns an 8-byte big endian representation of v.
@@ -845,6 +844,27 @@ func removeUserFromFolderMapping(folder vfs.VirtualFolder, user User, bucket *bo
 		return bucket.Put([]byte(folder.MappedPath), buf)
 	}
 	return err
+}
+
+func updateV4BoltUser(dbHandle *bolt.DB, user User) error {
+	err := validateUser(&user)
+	if err != nil {
+		return err
+	}
+	return dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, _, err := getBuckets(tx)
+		if err != nil {
+			return err
+		}
+		if u := bucket.Get([]byte(user.Username)); u == nil {
+			return &RecordNotFoundError{err: fmt.Sprintf("username %v does not exist", user.Username)}
+		}
+		buf, err := json.Marshal(user)
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(user.Username), buf)
+	})
 }
 
 func getBuckets(tx *bolt.Tx) (*bolt.Bucket, *bolt.Bucket, error) {
@@ -1005,6 +1025,46 @@ func updateDatabaseFrom3To4(dbHandle *bolt.DB) error {
 		go updateVFoldersQuotaAfterRestore(foldersToScan)
 	}
 	return err
+}
+
+func updateDatabaseFrom4To5(dbHandle *bolt.DB) error {
+	logger.InfoToConsole("updating bolt database version: 4 -> 5")
+	providerLog(logger.LevelInfo, "updating bolt database version: 4 -> 5")
+	users := []User{}
+	err := dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, _, err := getBuckets(tx)
+		if err != nil {
+			return err
+		}
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var compatUser compatUserV4
+			err = json.Unmarshal(v, &compatUser)
+			if err != nil {
+				logger.WarnToConsole("failed to unmarshal v4 user %#v, is it already migrated?", string(k))
+				continue
+			}
+			fsConfig, err := convertFsConfigFromV4(compatUser.FsConfig, compatUser.Username)
+			if err != nil {
+				return err
+			}
+			users = append(users, createUserFromV4(compatUser, fsConfig))
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, user := range users {
+		err = updateV4BoltUser(dbHandle, user)
+		if err != nil {
+			return err
+		}
+		providerLog(logger.LevelInfo, "filesystem config updated for user %#v", user.Username)
+	}
+
+	return updateBoltDatabaseVersion(dbHandle, 5)
 }
 
 func getBoltAvailableUsernames(dbHandle *bolt.DB) ([]string, error) {

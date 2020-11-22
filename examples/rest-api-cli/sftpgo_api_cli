@@ -238,23 +238,30 @@ class SFTPGoApiRequests:
 					az_upload_concurrency, az_key_prefix, az_use_emulator, az_access_tier):
 		fs_config = {'provider':0}
 		if fs_provider == 'S3':
+			secret = {}
+			if s3_access_secret:
+				secret.update({"status":"Plain", "payload":s3_access_secret})
 			s3config = {'bucket':s3_bucket, 'region':s3_region, 'access_key':s3_access_key, 'access_secret':
-					s3_access_secret, 'endpoint':s3_endpoint, 'storage_class':s3_storage_class, 'key_prefix':
+					secret, 'endpoint':s3_endpoint, 'storage_class':s3_storage_class, 'key_prefix':
 					s3_key_prefix, 'upload_part_size':s3_upload_part_size, 'upload_concurrency':s3_upload_concurrency}
 			fs_config.update({'provider':1, 's3config':s3config})
 		elif fs_provider == 'GCS':
-			gcsconfig = {'bucket':gcs_bucket, 'key_prefix':gcs_key_prefix, 'storage_class':gcs_storage_class}
+			gcsconfig = {'bucket':gcs_bucket, 'key_prefix':gcs_key_prefix, 'storage_class':gcs_storage_class,
+						'credentials':{}}
 			if gcs_automatic_credentials == "automatic":
 				gcsconfig.update({'automatic_credentials':1})
 			else:
 				gcsconfig.update({'automatic_credentials':0})
 			if gcs_credentials_file:
 				with open(gcs_credentials_file) as creds:
-					gcsconfig.update({'credentials':base64.b64encode(creds.read().encode('UTF-8')).decode('UTF-8'),
-									'automatic_credentials':0})
+					secret = {"status":"Plain", "payload":creds.read()}
+					gcsconfig.update({'credentials':secret, 'automatic_credentials':0})
 			fs_config.update({'provider':2, 'gcsconfig':gcsconfig})
 		elif fs_provider == "AzureBlob":
-			azureconfig = {'container':az_container, 'account_name':az_account_name, 'account_key':az_account_key,
+			secret = {}
+			if az_account_key:
+				secret.update({"status":"Plain", "payload":az_account_key})
+			azureconfig = {'container':az_container, 'account_name':az_account_name, 'account_key':secret,
 						'sas_url':az_sas_url, 'endpoint':az_endpoint, 'upload_part_size':az_upload_part_size,
 						'upload_concurrency':az_upload_concurrency, 'key_prefix':az_key_prefix, 'use_emulator':
 						az_use_emulator, 'access_tier':az_access_tier}
@@ -609,7 +616,7 @@ def addCommonUserArguments(parser):
 					help='Denied IP/Mask in CIDR notation. For example "192.168.2.0/24" or "2001:db8::/32". Default: %(default)s')
 	parser.add_argument('--denied-patterns', type=str, nargs='*', default=[], help='Denied file patterns case insensitive. '
 					+'The format is /dir::pattern1,pattern2. For example: "/somedir::*.jpg,*.png" "/otherdir/subdir::a*b?.zip,*.rar". ' +
-					'You have to set both denied and allowed patterns to update existing values or none to preserve them.' +
+					' You have to set both denied and allowed patterns to update existing values or none to preserve them.' +
 					' If you only set allowed or denied patterns the missing one is assumed to be an empty list. Default: %(default)s')
 	parser.add_argument('--allowed-patterns', type=str, nargs='*', default=[], help='Allowed file patterns case insensitive. '
 					+'The format is /dir::pattern1,pattern2. For example: "/somedir::*.jpg,a*b?.png" "/otherdir/subdir::*.zip,*.rar". ' +

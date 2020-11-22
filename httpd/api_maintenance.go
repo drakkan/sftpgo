@@ -96,8 +96,7 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	var dump dataprovider.BackupData
-	err = json.Unmarshal(content, &dump)
+	dump, err := dataprovider.ParseDumpData(content)
 	if err != nil {
 		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to parse input file: %#v", inputFile), http.StatusBadRequest)
 		return

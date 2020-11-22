@@ -184,3 +184,11 @@ func getUpdateDBVersionQuery() string {
 func getCompatVirtualFoldersQuery() string {
 	return fmt.Sprintf(`SELECT id,username,virtual_folders FROM %v`, sqlTableUsers)
 }
+
+func getCompatV4FsConfigQuery() string {
+	return fmt.Sprintf(`SELECT id,username,filesystem FROM %v`, sqlTableUsers)
+}
+
+func updateCompatV4FsConfigQuery() string {
+	return fmt.Sprintf(`UPDATE %v SET filesystem=%v WHERE id=%v`, sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1])
+}

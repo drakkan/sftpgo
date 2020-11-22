@@ -332,24 +332,36 @@ func TestCompareUserFsConfig(t *testing.T) {
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
 	expected.FsConfig.S3Config.AccessKey = ""
-	actual.FsConfig.S3Config.AccessSecret = "access secret"
+	actual.FsConfig.S3Config.AccessSecret.Payload = "access secret"
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
 	secret, _ := utils.EncryptData("access secret")
-	actual.FsConfig.S3Config.AccessSecret = ""
-	expected.FsConfig.S3Config.AccessSecret = secret
+	actual.FsConfig.S3Config.AccessSecret.Payload = ""
+	expected.FsConfig.S3Config.AccessSecret.Payload = secret
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
-	expected.FsConfig.S3Config.AccessSecret = utils.RemoveDecryptionKey(secret)
-	actual.FsConfig.S3Config.AccessSecret = utils.RemoveDecryptionKey(secret) + "a"
+	expected.FsConfig.S3Config.AccessSecret.Payload = "test"
+	actual.FsConfig.S3Config.AccessSecret.Payload = ""
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
-	expected.FsConfig.S3Config.AccessSecret = "test"
-	actual.FsConfig.S3Config.AccessSecret = ""
+	expected.FsConfig.S3Config.AccessSecret.Status = vfs.SecretStatusPlain
+	actual.FsConfig.S3Config.AccessSecret.Status = vfs.SecretStatusAES256GCM
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
-	expected.FsConfig.S3Config.AccessSecret = ""
-	actual.FsConfig.S3Config.AccessSecret = ""
+	actual.FsConfig.S3Config.AccessSecret.Payload = "payload"
+	actual.FsConfig.S3Config.AccessSecret.AdditionalData = "data"
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	actual.FsConfig.S3Config.AccessSecret.AdditionalData = ""
+	actual.FsConfig.S3Config.AccessSecret.Key = "key"
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	expected.FsConfig.S3Config.AccessSecret.Status = ""
+	expected.FsConfig.S3Config.AccessSecret.Payload = ""
+	actual.FsConfig.S3Config.AccessSecret.Status = ""
+	actual.FsConfig.S3Config.AccessSecret.Payload = ""
+	actual.FsConfig.S3Config.AccessSecret.AdditionalData = ""
+	actual.FsConfig.S3Config.AccessSecret.Key = ""
 	expected.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/"
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
@@ -403,10 +415,10 @@ func TestCompareUserAzureConfig(t *testing.T) {
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
 	expected.FsConfig.AzBlobConfig.AccountName = ""
-	expected.FsConfig.AzBlobConfig.AccountKey = "akey"
+	expected.FsConfig.AzBlobConfig.AccountKey.Payload = "akey"
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
-	expected.FsConfig.AzBlobConfig.AccountKey = ""
+	expected.FsConfig.AzBlobConfig.AccountKey.Payload = ""
 	expected.FsConfig.AzBlobConfig.Endpoint = "endpt"
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)

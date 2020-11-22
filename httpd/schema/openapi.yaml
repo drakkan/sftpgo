@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 2.0.3
+  version: 2.1.0
 
 servers:
   - url: /api/v1
@@ -11,6 +11,7 @@ security:
 paths:
   /healthz:
     get:
+      security: []
       servers:
         - url : /
       tags:
@@ -956,6 +957,22 @@ components:
           nullable: true
           description: maximum allowed size, as bytes, for a single file upload. The upload will be aborted if/when the size of the file being sent exceeds this limit. 0 means unlimited. This restriction does not apply for SSH system commands such as `git` and `rsync`
       description: Additional restrictions
+    Secret:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - Plain
+            - AES-256-GCM
+            - Redacted
+          description: Set to "Plain" to add or update an existing secret, set to "Redacted" to preserve the existing value
+        payload:
+          type: string
+        key:
+          type: string
+        additional_data:
+          type: string
     S3Config:
       type: object
       properties:
@@ -968,8 +985,7 @@ components:
         access_key:
           type: string
         access_secret:
-          type: string
-          description: the access secret is stored encrypted (AES-256-GCM)
+          $ref: '#/components/schemas/Secret'
         endpoint:
           type: string
           description: optional endpoint
@@ -997,9 +1013,7 @@ components:
           type: string
           minLength: 1
         credentials:
-          type: string
-          format: byte
-          description: Google Cloud Storage JSON credentials base64 encoded. This field must be populated only when adding/updating a user. It will be always omitted, since there are sensitive data, when you search/get users. The credentials will be stored in the configured "credentials_path"
+          $ref: '#/components/schemas/Secret'
         automatic_credentials:
           type: integer
           nullable: true
@@ -1019,7 +1033,7 @@ components:
       required:
         - bucket
       nullable: true
-      description: Google Cloud Storage configuration details
+      description: Google Cloud Storage configuration details. The "credentials" field must be populated only when adding/updating a user. It will be always omitted, since there are sensitive data, when you search/get users
     AzureBlobFsConfig:
       type: object
       properties:
@@ -1029,8 +1043,7 @@ components:
           type: string
           description: Storage Account Name, leave blank to use SAS URL
         account_key:
-          type: string
-          description: Storage Account Key leave blank to use SAS URL. The access key is stored encrypted (AES-256-GCM)
+          $ref: '#/components/schemas/Secret'
         sas_url:
           type: string
           description: Shared access signature URL, leave blank if using account/key

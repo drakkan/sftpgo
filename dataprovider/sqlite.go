@@ -232,26 +232,44 @@ func (p SQLiteProvider) migrateDatabase() error {
 	}
 	switch dbVersion.Version {
 	case 1:
-		err = updateSQLiteDatabaseFrom1To2(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		err = updateSQLiteDatabaseFrom2To3(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		return updateSQLiteDatabaseFrom3To4(p.dbHandle)
+		return updateSQLiteDatabaseFromV1(p.dbHandle)
 	case 2:
-		err = updateSQLiteDatabaseFrom2To3(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		return updateSQLiteDatabaseFrom3To4(p.dbHandle)
+		return updateSQLiteDatabaseFromV2(p.dbHandle)
 	case 3:
-		return updateSQLiteDatabaseFrom3To4(p.dbHandle)
+		return updateSQLiteDatabaseFromV3(p.dbHandle)
+	case 4:
+		return updateSQLiteDatabaseFromV4(p.dbHandle)
 	default:
 		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
 	}
+}
+
+func updateSQLiteDatabaseFromV1(dbHandle *sql.DB) error {
+	err := updateSQLiteDatabaseFrom1To2(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV2(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV2(dbHandle *sql.DB) error {
+	err := updateSQLiteDatabaseFrom2To3(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV3(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV3(dbHandle *sql.DB) error {
+	err := updateSQLiteDatabaseFrom3To4(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV4(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV4(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom4To5(dbHandle)
 }
 
 func updateSQLiteDatabaseFrom1To2(dbHandle *sql.DB) error {
@@ -270,4 +288,8 @@ func updateSQLiteDatabaseFrom2To3(dbHandle *sql.DB) error {
 
 func updateSQLiteDatabaseFrom3To4(dbHandle *sql.DB) error {
 	return sqlCommonUpdateDatabaseFrom3To4(sqliteV4SQL, dbHandle)
+}
+
+func updateSQLiteDatabaseFrom4To5(dbHandle *sql.DB) error {
+	return sqlCommonUpdateDatabaseFrom4To5(dbHandle)
 }

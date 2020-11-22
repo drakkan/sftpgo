@@ -11,7 +11,7 @@ import (
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 func getUsers(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +67,8 @@ func getUserByID(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := dataprovider.GetUserByID(userID)
 	if err == nil {
-		render.JSON(w, r, dataprovider.HideUserSensitiveData(&user))
+		user.HideConfidentialData()
+		render.JSON(w, r, user)
 	} else {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 	}
@@ -81,11 +82,29 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
+	switch user.FsConfig.Provider {
+	case dataprovider.S3FilesystemProvider:
+		if user.FsConfig.S3Config.AccessSecret.IsRedacted() {
+			sendAPIResponse(w, r, errors.New("invalid access_secret"), "", http.StatusBadRequest)
+			return
+		}
+	case dataprovider.GCSFilesystemProvider:
+		if user.FsConfig.GCSConfig.Credentials.IsRedacted() {
+			sendAPIResponse(w, r, errors.New("invalid credentials"), "", http.StatusBadRequest)
+			return
+		}
+	case dataprovider.AzureBlobFilesystemProvider:
+		if user.FsConfig.AzBlobConfig.AccountKey.IsRedacted() {
+			sendAPIResponse(w, r, errors.New("invalid account_key"), "", http.StatusBadRequest)
+			return
+		}
+	}
 	err = dataprovider.AddUser(user)
 	if err == nil {
 		user, err = dataprovider.UserExists(user.Username)
 		if err == nil {
-			render.JSON(w, r, dataprovider.HideUserSensitiveData(&user))
+			user.HideConfidentialData()
+			render.JSON(w, r, user)
 		} else {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 		}
@@ -117,15 +136,22 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentPermissions := user.Permissions
-	currentS3AccessSecret := ""
-	currentAzAccountKey := ""
+	var currentS3AccessSecret vfs.Secret
+	var currentAzAccountKey vfs.Secret
+	var currentGCSCredentials vfs.Secret
 	if user.FsConfig.Provider == dataprovider.S3FilesystemProvider {
 		currentS3AccessSecret = user.FsConfig.S3Config.AccessSecret
 	}
 	if user.FsConfig.Provider == dataprovider.AzureBlobFilesystemProvider {
 		currentAzAccountKey = user.FsConfig.AzBlobConfig.AccountKey
 	}
+	if user.FsConfig.Provider == dataprovider.GCSFilesystemProvider {
+		currentGCSCredentials = user.FsConfig.GCSConfig.Credentials
+	}
 	user.Permissions = make(map[string][]string)
+	user.FsConfig.S3Config = vfs.S3FsConfig{}
+	user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
+	user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
 	err = render.DecodeJSON(r.Body, &user)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
@@ -135,7 +161,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if len(user.Permissions) == 0 {
 		user.Permissions = currentPermissions
 	}
-	updateEncryptedSecrets(&user, currentS3AccessSecret, currentAzAccountKey)
+	updateEncryptedSecrets(&user, currentS3AccessSecret, currentAzAccountKey, currentGCSCredentials)
 
 	if user.ID != userID {
 		sendAPIResponse(w, r, err, "user ID in request body does not match user ID in path parameter", http.StatusBadRequest)
@@ -181,18 +207,21 @@ func disconnectUser(username string) {
 	}
 }
 
-func updateEncryptedSecrets(user *dataprovider.User, currentS3AccessSecret, currentAzAccountKey string) {
-	// we use the new access secret if different from the old one and not empty
+func updateEncryptedSecrets(user *dataprovider.User, currentS3AccessSecret, currentAzAccountKey, currentGCSCredentials vfs.Secret) {
+	// we use the new access secret if plain or empty, otherwise the old value
 	if user.FsConfig.Provider == dataprovider.S3FilesystemProvider {
-		if utils.RemoveDecryptionKey(currentS3AccessSecret) == user.FsConfig.S3Config.AccessSecret ||
-			(user.FsConfig.S3Config.AccessSecret == "" && user.FsConfig.S3Config.AccessKey != "") {
+		if !user.FsConfig.S3Config.AccessSecret.IsPlain() && !user.FsConfig.S3Config.AccessSecret.IsEmpty() {
 			user.FsConfig.S3Config.AccessSecret = currentS3AccessSecret
 		}
 	}
 	if user.FsConfig.Provider == dataprovider.AzureBlobFilesystemProvider {
-		if utils.RemoveDecryptionKey(currentAzAccountKey) == user.FsConfig.AzBlobConfig.AccountKey ||
-			(user.FsConfig.AzBlobConfig.AccountKey == "" && user.FsConfig.AzBlobConfig.AccountName != "") {
+		if !user.FsConfig.AzBlobConfig.AccountKey.IsPlain() && !user.FsConfig.AzBlobConfig.AccountKey.IsEmpty() {
 			user.FsConfig.AzBlobConfig.AccountKey = currentAzAccountKey
+		}
+	}
+	if user.FsConfig.Provider == dataprovider.GCSFilesystemProvider {
+		if !user.FsConfig.GCSConfig.Credentials.IsPlain() && !user.FsConfig.GCSConfig.Credentials.IsEmpty() {
+			user.FsConfig.GCSConfig.Credentials = currentGCSCredentials
 		}
 	}
 }

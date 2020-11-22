@@ -24,7 +24,6 @@ import (
 
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
-	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/version"
 )
 
@@ -61,12 +60,11 @@ func NewAzBlobFs(connectionID, localTempDir string, config AzBlobFsConfig) (Fs, 
 	if err := ValidateAzBlobFsConfig(&fs.config); err != nil {
 		return fs, err
 	}
-	if fs.config.AccountKey != "" {
-		accountKey, err := utils.DecryptData(fs.config.AccountKey)
+	if fs.config.AccountKey.IsEncrypted() {
+		err := fs.config.AccountKey.Decrypt()
 		if err != nil {
 			return fs, err
 		}
-		fs.config.AccountKey = accountKey
 	}
 	fs.setConfigDefaults()
 
@@ -106,7 +104,7 @@ func NewAzBlobFs(connectionID, localTempDir string, config AzBlobFsConfig) (Fs, 
 		return fs, nil
 	}
 
-	credential, err := azblob.NewSharedKeyCredential(fs.config.AccountName, fs.config.AccountKey)
+	credential, err := azblob.NewSharedKeyCredential(fs.config.AccountName, fs.config.AccountKey.Payload)
 	if err != nil {
 		return fs, fmt.Errorf("invalid credentials: %v", err)
 	}

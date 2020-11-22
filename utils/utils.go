@@ -193,6 +193,9 @@ func DecryptData(data string) (string, error) {
 		return result, err
 	}
 	nonceSize := gcm.NonceSize()
+	if len(encrypted) < nonceSize {
+		return result, errors.New("malformed ciphertext")
+	}
 	nonce, ciphertext := encrypted[:nonceSize], encrypted[nonceSize:]
 	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {

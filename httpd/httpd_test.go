@@ -26,6 +26,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/config"
@@ -190,7 +191,7 @@ func TestMain(m *testing.M) {
 	defer testServer.Close()
 
 	exitCode := m.Run()
-	os.Remove(logfilePath)        //nolint:errcheck
+	//os.Remove(logfilePath)        //nolint:errcheck
 	os.RemoveAll(backupsPath)     //nolint:errcheck
 	os.RemoveAll(credentialsPath) //nolint:errcheck
 	os.Remove(certPath)           //nolint:errcheck
@@ -438,10 +439,14 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.S3Config.Bucket = "testbucket"
 	u.FsConfig.S3Config.Region = "eu-west-1"
 	u.FsConfig.S3Config.AccessKey = "access-key"
-	u.FsConfig.S3Config.AccessSecret = "access-secret"
+	u.FsConfig.S3Config.AccessSecret.Payload = "access-secret"
+	u.FsConfig.S3Config.AccessSecret.Status = vfs.SecretStatusRedacted
 	u.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/path?a=b"
 	u.FsConfig.S3Config.StorageClass = "Standard" //nolint:goconst
 	u.FsConfig.S3Config.KeyPrefix = "/adir/subdir/"
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.FsConfig.S3Config.AccessSecret.Status = vfs.SecretStatusPlain
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.FsConfig.S3Config.KeyPrefix = ""
@@ -463,16 +468,20 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.GCSConfig.Bucket = "abucket"
 	u.FsConfig.GCSConfig.StorageClass = "Standard"
 	u.FsConfig.GCSConfig.KeyPrefix = "/somedir/subdir/"
-	u.FsConfig.GCSConfig.Credentials = []byte("test")
+	u.FsConfig.GCSConfig.Credentials.Payload = "test" //nolint:goconst
+	u.FsConfig.GCSConfig.Credentials.Status = vfs.SecretStatusRedacted
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.FsConfig.GCSConfig.Credentials.Status = vfs.SecretStatusPlain
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.FsConfig.GCSConfig.KeyPrefix = "somedir/subdir/" //nolint:goconst
-	u.FsConfig.GCSConfig.Credentials = nil
+	u.FsConfig.GCSConfig.Credentials = vfs.Secret{}
 	u.FsConfig.GCSConfig.AutomaticCredentials = 0
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-
-	u.FsConfig.GCSConfig.Credentials = invalidBase64{}
+	u.FsConfig.GCSConfig.Credentials.Payload = "invalid"
+	u.FsConfig.GCSConfig.Credentials.Status = vfs.SecretStatusAES256GCM
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 
@@ -488,8 +497,12 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.AzBlobConfig.Container = "container"
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.FsConfig.AzBlobConfig.AccountKey = "key"
+	u.FsConfig.AzBlobConfig.AccountKey.Payload = "key"
+	u.FsConfig.AzBlobConfig.AccountKey.Status = vfs.SecretStatusRedacted
 	u.FsConfig.AzBlobConfig.KeyPrefix = "/amedir/subdir/"
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.FsConfig.AzBlobConfig.AccountKey.Status = vfs.SecretStatusPlain
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.FsConfig.AzBlobConfig.KeyPrefix = "amedir/subdir/"
@@ -1000,19 +1013,35 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.Bucket = "test"      //nolint:goconst
 	user.FsConfig.S3Config.Region = "us-east-1" //nolint:goconst
 	user.FsConfig.S3Config.AccessKey = "Server-Access-Key"
-	user.FsConfig.S3Config.AccessSecret = "Server-Access-Secret"
+	user.FsConfig.S3Config.AccessSecret.Payload = "Server-Access-Secret"
+	user.FsConfig.S3Config.AccessSecret.Status = vfs.SecretStatusPlain
 	user.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000"
 	user.FsConfig.S3Config.UploadPartSize = 8
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err)
+	user, body, err := httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err, string(body))
+	assert.Equal(t, vfs.SecretStatusAES256GCM, user.FsConfig.S3Config.AccessSecret.Status)
+	assert.NotEmpty(t, user.FsConfig.S3Config.AccessSecret.Payload)
+	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.AdditionalData)
+	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.Key)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	user.Password = defaultPassword
 	user.ID = 0
-	secret, _ := utils.EncryptData("Server-Access-Secret")
+	secret := vfs.Secret{
+		Payload: "Server-Access-Secret",
+		Status:  vfs.SecretStatusAES256GCM,
+	}
 	user.FsConfig.S3Config.AccessSecret = secret
+	_, _, err = httpd.AddUser(user, http.StatusOK)
+	assert.Error(t, err)
+	user.FsConfig.S3Config.AccessSecret.Status = vfs.SecretStatusPlain
 	user, _, err = httpd.AddUser(user, http.StatusOK)
 	assert.NoError(t, err)
+	initialSecretPayload := user.FsConfig.S3Config.AccessSecret.Payload
+	assert.Equal(t, vfs.SecretStatusAES256GCM, user.FsConfig.S3Config.AccessSecret.Status)
+	assert.NotEmpty(t, initialSecretPayload)
+	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.AdditionalData)
+	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.Key)
 	user.FsConfig.Provider = dataprovider.S3FilesystemProvider
 	user.FsConfig.S3Config.Bucket = "test-bucket"
 	user.FsConfig.S3Config.Region = "us-east-1" //nolint:goconst
@@ -1022,29 +1051,31 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.UploadConcurrency = 5
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
-	user.FsConfig.Provider = dataprovider.LocalFilesystemProvider
-	user.FsConfig.S3Config.Bucket = ""
-	user.FsConfig.S3Config.Region = ""
-	user.FsConfig.S3Config.AccessKey = ""
-	user.FsConfig.S3Config.AccessSecret = ""
-	user.FsConfig.S3Config.Endpoint = ""
-	user.FsConfig.S3Config.KeyPrefix = ""
-	user.FsConfig.S3Config.UploadPartSize = 0
-	user.FsConfig.S3Config.UploadConcurrency = 0
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err)
+	assert.Equal(t, vfs.SecretStatusAES256GCM, user.FsConfig.S3Config.AccessSecret.Status)
+	assert.Equal(t, initialSecretPayload, user.FsConfig.S3Config.AccessSecret.Payload)
+	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.AdditionalData)
+	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.Key)
 	// test user without access key and access secret (shared config state)
 	user.FsConfig.Provider = dataprovider.S3FilesystemProvider
 	user.FsConfig.S3Config.Bucket = "testbucket"
 	user.FsConfig.S3Config.Region = "us-east-1"
 	user.FsConfig.S3Config.AccessKey = ""
-	user.FsConfig.S3Config.AccessSecret = ""
+	user.FsConfig.S3Config.AccessSecret = vfs.Secret{}
 	user.FsConfig.S3Config.Endpoint = ""
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir"
 	user.FsConfig.S3Config.UploadPartSize = 6
 	user.FsConfig.S3Config.UploadConcurrency = 4
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	user, body, err = httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err, string(body))
+	assert.True(t, user.FsConfig.S3Config.AccessSecret.IsEmpty())
+	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
+	user.Password = defaultPassword
+	user.ID = 0
+	// shared credential test for add instead of update
+	user, _, err = httpd.AddUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, user.FsConfig.S3Config.AccessSecret.IsEmpty())
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
@@ -1058,36 +1089,69 @@ func TestUserGCSConfig(t *testing.T) {
 	assert.NoError(t, err)
 	user.FsConfig.Provider = dataprovider.GCSFilesystemProvider
 	user.FsConfig.GCSConfig.Bucket = "test"
-	user.FsConfig.GCSConfig.Credentials = []byte("fake credentials")
+	user.FsConfig.GCSConfig.Credentials.Payload = "fake credentials" //nolint:goconst
+	user.FsConfig.GCSConfig.Credentials.Status = vfs.SecretStatusPlain
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
+	credentialFile := filepath.Join(credentialsPath, fmt.Sprintf("%v_gcs_credentials.json", user.Username))
+	assert.FileExists(t, credentialFile)
+	creds, err := ioutil.ReadFile(credentialFile)
+	assert.NoError(t, err)
+	secret := &vfs.Secret{}
+	err = json.Unmarshal(creds, secret)
+	assert.NoError(t, err)
+	err = secret.Decrypt()
+	assert.NoError(t, err)
+	assert.Equal(t, "fake credentials", secret.Payload)
+	user.FsConfig.GCSConfig.Credentials.Payload = "fake encrypted credentials"
+	user.FsConfig.GCSConfig.Credentials.Status = vfs.SecretStatusAES256GCM
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	assert.FileExists(t, credentialFile)
+	creds, err = ioutil.ReadFile(credentialFile)
+	assert.NoError(t, err)
+	secret = &vfs.Secret{}
+	err = json.Unmarshal(creds, secret)
+	assert.NoError(t, err)
+	err = secret.Decrypt()
+	assert.NoError(t, err)
+	assert.Equal(t, "fake credentials", secret.Payload)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	user.Password = defaultPassword
 	user.ID = 0
-	user.FsConfig.GCSConfig.Credentials = []byte("fake credentials")
+	user.FsConfig.GCSConfig.Credentials.Payload = "fake credentials"
+	user.FsConfig.GCSConfig.Credentials.Status = vfs.SecretStatusAES256GCM
+	_, _, err = httpd.AddUser(user, http.StatusOK)
+	assert.Error(t, err)
+	user.FsConfig.GCSConfig.Credentials.Status = vfs.SecretStatusPlain
 	user, body, err := httpd.AddUser(user, http.StatusOK)
 	assert.NoError(t, err, string(body))
 	err = os.RemoveAll(credentialsPath)
 	assert.NoError(t, err)
 	err = os.MkdirAll(credentialsPath, 0700)
 	assert.NoError(t, err)
-	user.FsConfig.GCSConfig.Credentials = nil
+	user.FsConfig.GCSConfig.Credentials = vfs.Secret{}
 	user.FsConfig.GCSConfig.AutomaticCredentials = 1
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
+	assert.NoFileExists(t, credentialFile)
+	user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
 	user.FsConfig.Provider = dataprovider.S3FilesystemProvider
 	user.FsConfig.S3Config.Bucket = "test1"
 	user.FsConfig.S3Config.Region = "us-east-1"
 	user.FsConfig.S3Config.AccessKey = "Server-Access-Key1"
-	user.FsConfig.S3Config.AccessSecret = "secret"
+	user.FsConfig.S3Config.AccessSecret.Payload = "secret"
+	user.FsConfig.S3Config.AccessSecret.Status = vfs.SecretStatusPlain
 	user.FsConfig.S3Config.Endpoint = "http://localhost:9000"
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir"
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
+	user.FsConfig.S3Config = vfs.S3FsConfig{}
 	user.FsConfig.Provider = dataprovider.GCSFilesystemProvider
 	user.FsConfig.GCSConfig.Bucket = "test1"
-	user.FsConfig.GCSConfig.Credentials = []byte("fake credentials")
+	user.FsConfig.GCSConfig.Credentials.Payload = "fake credentials"
+	user.FsConfig.GCSConfig.Credentials.Status = vfs.SecretStatusPlain
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 
@@ -1101,42 +1165,248 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	user.FsConfig.Provider = dataprovider.AzureBlobFilesystemProvider
 	user.FsConfig.AzBlobConfig.Container = "test"
 	user.FsConfig.AzBlobConfig.AccountName = "Server-Account-Name"
-	user.FsConfig.AzBlobConfig.AccountKey = "Server-Account-Key"
+	user.FsConfig.AzBlobConfig.AccountKey.Payload = "Server-Account-Key"
+	user.FsConfig.AzBlobConfig.AccountKey.Status = vfs.SecretStatusPlain
 	user.FsConfig.AzBlobConfig.Endpoint = "http://127.0.0.1:9000"
 	user.FsConfig.AzBlobConfig.UploadPartSize = 8
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
+	initialPayload := user.FsConfig.AzBlobConfig.AccountKey.Payload
+	assert.Equal(t, vfs.SecretStatusAES256GCM, user.FsConfig.AzBlobConfig.AccountKey.Status)
+	assert.NotEmpty(t, initialPayload)
+	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.AdditionalData)
+	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.Key)
+	user.FsConfig.AzBlobConfig.AccountKey.Status = vfs.SecretStatusAES256GCM
+	user.FsConfig.AzBlobConfig.AccountKey.AdditionalData = "data"
+	user.FsConfig.AzBlobConfig.AccountKey.Key = "fake key"
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	assert.Equal(t, vfs.SecretStatusAES256GCM, user.FsConfig.AzBlobConfig.AccountKey.Status)
+	assert.Equal(t, initialPayload, user.FsConfig.AzBlobConfig.AccountKey.Payload)
+	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.AdditionalData)
+	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.Key)
+
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	user.Password = defaultPassword
 	user.ID = 0
-	secret, _ := utils.EncryptData("Server-Account-Key")
+	secret := vfs.Secret{
+		Payload: "Server-Account-Key",
+		Status:  vfs.SecretStatusAES256GCM,
+	}
 	user.FsConfig.AzBlobConfig.AccountKey = secret
+	_, _, err = httpd.AddUser(user, http.StatusOK)
+	assert.Error(t, err)
+	user.FsConfig.AzBlobConfig.AccountKey = vfs.Secret{
+		Payload: "Server-Account-Key-Test",
+		Status:  vfs.SecretStatusPlain,
+	}
 	user, _, err = httpd.AddUser(user, http.StatusOK)
 	assert.NoError(t, err)
+	initialPayload = user.FsConfig.AzBlobConfig.AccountKey.Payload
+	assert.Equal(t, vfs.SecretStatusAES256GCM, user.FsConfig.AzBlobConfig.AccountKey.Status)
+	assert.NotEmpty(t, initialPayload)
+	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.AdditionalData)
+	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.Key)
 	user.FsConfig.Provider = dataprovider.AzureBlobFilesystemProvider
 	user.FsConfig.AzBlobConfig.Container = "test-container"
-	user.FsConfig.AzBlobConfig.AccountKey = "Server-Account-Key1"
 	user.FsConfig.AzBlobConfig.Endpoint = "http://localhost:9001"
 	user.FsConfig.AzBlobConfig.KeyPrefix = "somedir/subdir"
 	user.FsConfig.AzBlobConfig.UploadConcurrency = 5
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
-	user.FsConfig.Provider = dataprovider.LocalFilesystemProvider
-	user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err)
+	assert.Equal(t, vfs.SecretStatusAES256GCM, user.FsConfig.AzBlobConfig.AccountKey.Status)
+	assert.NotEmpty(t, initialPayload)
+	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.AdditionalData)
+	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.Key)
 	// test user without access key and access secret (sas)
 	user.FsConfig.Provider = dataprovider.AzureBlobFilesystemProvider
-
 	user.FsConfig.AzBlobConfig.SASURL = "https://myaccount.blob.core.windows.net/pictures/profile.jpg?sv=2012-02-12&st=2009-02-09&se=2009-02-10&sr=c&sp=r&si=YWJjZGVmZw%3d%3d&sig=dD80ihBh5jfNpymO5Hg1IdiJIEvHcJpCMiCMnN%2fRnbI%3d"
 	user.FsConfig.AzBlobConfig.KeyPrefix = "somedir/subdir"
+	user.FsConfig.AzBlobConfig.AccountName = ""
+	user.FsConfig.AzBlobConfig.AccountKey = vfs.Secret{}
 	user.FsConfig.AzBlobConfig.UploadPartSize = 6
 	user.FsConfig.AzBlobConfig.UploadConcurrency = 4
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
+	assert.True(t, user.FsConfig.AzBlobConfig.AccountKey.IsEmpty())
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
+	user.Password = defaultPassword
+	user.ID = 0
+	// sas test for add instead of update
+	user, _, err = httpd.AddUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, user.FsConfig.AzBlobConfig.AccountKey.IsEmpty())
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestUserHiddenFields(t *testing.T) {
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	providerConf.PreferDatabaseCredentials = true
+	err = dataprovider.Initialize(providerConf, configDir)
+	assert.NoError(t, err)
+
+	// sensitive data must be hidden but not deleted from the dataprovider
+	usernames := []string{"user1", "user2", "user3"}
+	u1 := getTestUser()
+	u1.Username = usernames[0]
+	u1.FsConfig.Provider = dataprovider.S3FilesystemProvider
+	u1.FsConfig.S3Config.Bucket = "test"
+	u1.FsConfig.S3Config.Region = "us-east-1"
+	u1.FsConfig.S3Config.AccessKey = "S3-Access-Key"
+	u1.FsConfig.S3Config.AccessSecret.Payload = "S3-Access-Secret"
+	u1.FsConfig.S3Config.AccessSecret.Status = vfs.SecretStatusPlain
+	user1, _, err := httpd.AddUser(u1, http.StatusOK)
+	assert.NoError(t, err)
+
+	u2 := getTestUser()
+	u2.Username = usernames[1]
+	u2.FsConfig.Provider = dataprovider.GCSFilesystemProvider
+	u2.FsConfig.GCSConfig.Bucket = "test"
+	u2.FsConfig.GCSConfig.Credentials.Payload = "fake credentials"
+	u2.FsConfig.GCSConfig.Credentials.Status = vfs.SecretStatusPlain
+	user2, _, err := httpd.AddUser(u2, http.StatusOK)
+	assert.NoError(t, err)
+
+	u3 := getTestUser()
+	u3.Username = usernames[2]
+	u3.FsConfig.Provider = dataprovider.AzureBlobFilesystemProvider
+	u3.FsConfig.AzBlobConfig.Container = "test"
+	u3.FsConfig.AzBlobConfig.AccountName = "Server-Account-Name"
+	u3.FsConfig.AzBlobConfig.AccountKey.Payload = "Server-Account-Key"
+	u3.FsConfig.AzBlobConfig.AccountKey.Status = vfs.SecretStatusPlain
+	user3, _, err := httpd.AddUser(u3, http.StatusOK)
+	assert.NoError(t, err)
+
+	users, _, err := httpd.GetUsers(0, 0, "", http.StatusOK)
+	assert.NoError(t, err)
+	assert.GreaterOrEqual(t, len(users), 3)
+	for _, username := range usernames {
+		users, _, err = httpd.GetUsers(0, 0, username, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, users, 1) {
+			user := users[0]
+			assert.Empty(t, user.Password)
+		}
+	}
+	user1, _, err = httpd.GetUserByID(user1.ID, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Empty(t, user1.Password)
+	assert.Empty(t, user1.FsConfig.S3Config.AccessSecret.Key)
+	assert.Empty(t, user1.FsConfig.S3Config.AccessSecret.AdditionalData)
+	assert.NotEmpty(t, user1.FsConfig.S3Config.AccessSecret.Status)
+	assert.NotEmpty(t, user1.FsConfig.S3Config.AccessSecret.Payload)
+
+	user2, _, err = httpd.GetUserByID(user2.ID, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Empty(t, user2.Password)
+	assert.Empty(t, user2.FsConfig.GCSConfig.Credentials.Key)
+	assert.Empty(t, user2.FsConfig.GCSConfig.Credentials.AdditionalData)
+	assert.NotEmpty(t, user2.FsConfig.GCSConfig.Credentials.Status)
+	assert.NotEmpty(t, user2.FsConfig.GCSConfig.Credentials.Payload)
+
+	user3, _, err = httpd.GetUserByID(user3.ID, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Empty(t, user3.Password)
+	assert.Empty(t, user3.FsConfig.AzBlobConfig.AccountKey.Key)
+	assert.Empty(t, user3.FsConfig.AzBlobConfig.AccountKey.AdditionalData)
+	assert.NotEmpty(t, user3.FsConfig.AzBlobConfig.AccountKey.Status)
+	assert.NotEmpty(t, user3.FsConfig.AzBlobConfig.AccountKey.Payload)
+
+	// finally check that we have all the data inside the data provider
+	user1, err = dataprovider.GetUserByID(user1.ID)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, user1.Password)
+	assert.NotEmpty(t, user1.FsConfig.S3Config.AccessSecret.Key)
+	assert.NotEmpty(t, user1.FsConfig.S3Config.AccessSecret.AdditionalData)
+	assert.NotEmpty(t, user1.FsConfig.S3Config.AccessSecret.Status)
+	assert.NotEmpty(t, user1.FsConfig.S3Config.AccessSecret.Payload)
+	err = user1.FsConfig.S3Config.AccessSecret.Decrypt()
+	assert.NoError(t, err)
+	assert.Equal(t, vfs.SecretStatusPlain, user1.FsConfig.S3Config.AccessSecret.Status)
+	assert.Equal(t, u1.FsConfig.S3Config.AccessSecret.Payload, user1.FsConfig.S3Config.AccessSecret.Payload)
+	assert.Empty(t, user1.FsConfig.S3Config.AccessSecret.Key)
+	assert.Empty(t, user1.FsConfig.S3Config.AccessSecret.AdditionalData)
+
+	user2, err = dataprovider.GetUserByID(user2.ID)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, user2.Password)
+	assert.NotEmpty(t, user2.FsConfig.GCSConfig.Credentials.Key)
+	assert.NotEmpty(t, user2.FsConfig.GCSConfig.Credentials.AdditionalData)
+	assert.NotEmpty(t, user2.FsConfig.GCSConfig.Credentials.Status)
+	assert.NotEmpty(t, user2.FsConfig.GCSConfig.Credentials.Payload)
+	err = user2.FsConfig.GCSConfig.Credentials.Decrypt()
+	assert.NoError(t, err)
+	assert.Equal(t, vfs.SecretStatusPlain, user2.FsConfig.GCSConfig.Credentials.Status)
+	assert.Equal(t, u2.FsConfig.GCSConfig.Credentials.Payload, user2.FsConfig.GCSConfig.Credentials.Payload)
+	assert.Empty(t, user2.FsConfig.GCSConfig.Credentials.Key)
+	assert.Empty(t, user2.FsConfig.GCSConfig.Credentials.AdditionalData)
+
+	user3, err = dataprovider.GetUserByID(user3.ID)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, user3.Password)
+	assert.NotEmpty(t, user3.FsConfig.AzBlobConfig.AccountKey.Key)
+	assert.NotEmpty(t, user3.FsConfig.AzBlobConfig.AccountKey.AdditionalData)
+	assert.NotEmpty(t, user3.FsConfig.AzBlobConfig.AccountKey.Status)
+	assert.NotEmpty(t, user3.FsConfig.AzBlobConfig.AccountKey.Payload)
+	err = user3.FsConfig.AzBlobConfig.AccountKey.Decrypt()
+	assert.NoError(t, err)
+	assert.Equal(t, vfs.SecretStatusPlain, user3.FsConfig.AzBlobConfig.AccountKey.Status)
+	assert.Equal(t, u3.FsConfig.AzBlobConfig.AccountKey.Payload, user3.FsConfig.AzBlobConfig.AccountKey.Payload)
+	assert.Empty(t, user3.FsConfig.AzBlobConfig.AccountKey.Key)
+	assert.Empty(t, user3.FsConfig.AzBlobConfig.AccountKey.AdditionalData)
+
+	_, err = httpd.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(user2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(user3, http.StatusOK)
+	assert.NoError(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	providerConf.CredentialsPath = credentialsPath
+	err = os.RemoveAll(credentialsPath)
+	assert.NoError(t, err)
+	err = dataprovider.Initialize(providerConf, configDir)
+	assert.NoError(t, err)
+}
+
+func TestSecretObject(t *testing.T) {
+	s := vfs.Secret{
+		Status:         vfs.SecretStatusPlain,
+		Payload:        "test data",
+		AdditionalData: "username",
+	}
+	require.True(t, s.IsValid())
+	err := s.Encrypt()
+	require.NoError(t, err)
+	require.Equal(t, vfs.SecretStatusAES256GCM, s.Status)
+	require.NotEmpty(t, s.Payload)
+	require.NotEmpty(t, s.Key)
+	require.True(t, s.IsValid())
+	err = s.Decrypt()
+	require.NoError(t, err)
+	require.Equal(t, vfs.SecretStatusPlain, s.Status)
+	require.Equal(t, "test data", s.Payload)
+	require.Empty(t, s.Key)
+
+	oldFormat := "$aes$5b97e3a3324a2f53e2357483383367c0$0ed3132b584742ab217866219da633266782b69b13e50ebc6ddfb7c4fbf2f2a414c6d5f813"
+	s, err = vfs.GetSecretFromCompatString(oldFormat)
+	require.NoError(t, err)
+	require.True(t, s.IsValid())
+	require.Equal(t, vfs.SecretStatusPlain, s.Status)
+	require.Equal(t, "test data", s.Payload)
+	require.Empty(t, s.Key)
 }
 
 func TestUpdateUserNoCredentials(t *testing.T) {
@@ -2727,7 +2997,8 @@ func TestWebUserS3Mock(t *testing.T) {
 	user.FsConfig.S3Config.Bucket = "test"
 	user.FsConfig.S3Config.Region = "eu-west-1"
 	user.FsConfig.S3Config.AccessKey = "access-key"
-	user.FsConfig.S3Config.AccessSecret = "access-secret"
+	user.FsConfig.S3Config.AccessSecret.Payload = "access-secret"
+	user.FsConfig.S3Config.AccessSecret.Status = vfs.SecretStatusPlain
 	user.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/path?a=b"
 	user.FsConfig.S3Config.StorageClass = "Standard"
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir/"
@@ -2753,7 +3024,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("s3_bucket", user.FsConfig.S3Config.Bucket)
 	form.Set("s3_region", user.FsConfig.S3Config.Region)
 	form.Set("s3_access_key", user.FsConfig.S3Config.AccessKey)
-	form.Set("s3_access_secret", user.FsConfig.S3Config.AccessSecret)
+	form.Set("s3_access_secret", user.FsConfig.S3Config.AccessSecret.Payload)
 	form.Set("s3_storage_class", user.FsConfig.S3Config.StorageClass)
 	form.Set("s3_endpoint", user.FsConfig.S3Config.Endpoint)
 	form.Set("s3_key_prefix", user.FsConfig.S3Config.KeyPrefix)
@@ -2800,9 +3071,46 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.S3Config.UploadPartSize, user.FsConfig.S3Config.UploadPartSize)
 	assert.Equal(t, updateUser.FsConfig.S3Config.UploadConcurrency, user.FsConfig.S3Config.UploadConcurrency)
 	assert.Equal(t, 2, len(updateUser.Filters.FileExtensions))
-	if !strings.HasPrefix(updateUser.FsConfig.S3Config.AccessSecret, "$aes$") {
-		t.Error("s3 access secret is not encrypted")
-	}
+	assert.Equal(t, vfs.SecretStatusAES256GCM, updateUser.FsConfig.S3Config.AccessSecret.Status)
+	assert.NotEmpty(t, updateUser.FsConfig.S3Config.AccessSecret.Payload)
+	assert.Empty(t, updateUser.FsConfig.S3Config.AccessSecret.Key)
+	assert.Empty(t, updateUser.FsConfig.S3Config.AccessSecret.AdditionalData)
+	// now check that a redacted password is not saved
+	form.Set("s3_access_secret", "[**redacted**] ")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr.Code)
+	req, _ = http.NewRequest(http.MethodGet, userPath+"?limit=1&offset=0&order=ASC&username="+user.Username, nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	users = nil
+	err = render.DecodeJSON(rr.Body, &users)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(users))
+	lastUpdatedUser := users[0]
+	assert.Equal(t, vfs.SecretStatusAES256GCM, lastUpdatedUser.FsConfig.S3Config.AccessSecret.Status)
+	assert.Equal(t, updateUser.FsConfig.S3Config.AccessSecret.Payload, lastUpdatedUser.FsConfig.S3Config.AccessSecret.Payload)
+	assert.Empty(t, lastUpdatedUser.FsConfig.S3Config.AccessSecret.Key)
+	assert.Empty(t, lastUpdatedUser.FsConfig.S3Config.AccessSecret.AdditionalData)
+	// now clear credentials
+	form.Set("s3_access_key", "")
+	form.Set("s3_access_secret", "")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr.Code)
+	req, _ = http.NewRequest(http.MethodGet, userPath+"?limit=1&offset=0&order=ASC&username="+user.Username, nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	users = nil
+	err = render.DecodeJSON(rr.Body, &users)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(users))
+	assert.True(t, users[0].FsConfig.S3Config.AccessSecret.IsEmpty())
+
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
@@ -2908,7 +3216,8 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	user.FsConfig.Provider = dataprovider.AzureBlobFilesystemProvider
 	user.FsConfig.AzBlobConfig.Container = "container"
 	user.FsConfig.AzBlobConfig.AccountName = "aname"
-	user.FsConfig.AzBlobConfig.AccountKey = "access-skey"
+	user.FsConfig.AzBlobConfig.AccountKey.Payload = "access-skey"
+	user.FsConfig.AzBlobConfig.AccountKey.Status = vfs.SecretStatusPlain
 	user.FsConfig.AzBlobConfig.Endpoint = "http://127.0.0.1:9000/path?b=c"
 	user.FsConfig.AzBlobConfig.KeyPrefix = "somedir/subdir/"
 	user.FsConfig.AzBlobConfig.UploadPartSize = 5
@@ -2933,7 +3242,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	form.Set("fs_provider", "3")
 	form.Set("az_container", user.FsConfig.AzBlobConfig.Container)
 	form.Set("az_account_name", user.FsConfig.AzBlobConfig.AccountName)
-	form.Set("az_account_key", user.FsConfig.AzBlobConfig.AccountKey)
+	form.Set("az_account_key", user.FsConfig.AzBlobConfig.AccountKey.Payload)
 	form.Set("az_sas_url", user.FsConfig.AzBlobConfig.SASURL)
 	form.Set("az_endpoint", user.FsConfig.AzBlobConfig.Endpoint)
 	form.Set("az_key_prefix", user.FsConfig.AzBlobConfig.KeyPrefix)
@@ -2980,9 +3289,29 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.UploadPartSize, user.FsConfig.AzBlobConfig.UploadPartSize)
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.UploadConcurrency, user.FsConfig.AzBlobConfig.UploadConcurrency)
 	assert.Equal(t, 2, len(updateUser.Filters.FileExtensions))
-	if !strings.HasPrefix(updateUser.FsConfig.AzBlobConfig.AccountKey, "$aes$") {
-		t.Error("azure account secret is not encrypted")
-	}
+	assert.Equal(t, vfs.SecretStatusAES256GCM, updateUser.FsConfig.AzBlobConfig.AccountKey.Status)
+	assert.NotEmpty(t, updateUser.FsConfig.AzBlobConfig.AccountKey.Payload)
+	assert.Empty(t, updateUser.FsConfig.AzBlobConfig.AccountKey.Key)
+	assert.Empty(t, updateUser.FsConfig.AzBlobConfig.AccountKey.AdditionalData)
+	// now check that a redacted password is not saved
+	form.Set("az_account_key", "[**redacted**] ")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr.Code)
+	req, _ = http.NewRequest(http.MethodGet, userPath+"?limit=1&offset=0&order=ASC&username="+user.Username, nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	users = nil
+	err = render.DecodeJSON(rr.Body, &users)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(users))
+	lastUpdatedUser := users[0]
+	assert.Equal(t, vfs.SecretStatusAES256GCM, lastUpdatedUser.FsConfig.AzBlobConfig.AccountKey.Status)
+	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.AccountKey.Payload, lastUpdatedUser.FsConfig.AzBlobConfig.AccountKey.Payload)
+	assert.Empty(t, lastUpdatedUser.FsConfig.AzBlobConfig.AccountKey.Key)
+	assert.Empty(t, lastUpdatedUser.FsConfig.AzBlobConfig.AccountKey.AdditionalData)
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
@@ -3210,10 +3539,4 @@ func getMultipartFormData(values url.Values, fileFieldName, filePath string) (by
 	}
 	err := w.Close()
 	return b, w.FormDataContentType(), err
-}
-
-type invalidBase64 []byte
-
-func (b invalidBase64) MarshalJSON() ([]byte, error) {
-	return []byte(`not base64`), nil
 }

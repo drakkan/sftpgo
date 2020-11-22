@@ -210,26 +210,44 @@ func (p MySQLProvider) migrateDatabase() error {
 	}
 	switch dbVersion.Version {
 	case 1:
-		err = updateMySQLDatabaseFrom1To2(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		err = updateMySQLDatabaseFrom2To3(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		return updateMySQLDatabaseFrom3To4(p.dbHandle)
+		return updateMySQLDatabaseFromV1(p.dbHandle)
 	case 2:
-		err = updateMySQLDatabaseFrom2To3(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		return updateMySQLDatabaseFrom3To4(p.dbHandle)
+		return updateMySQLDatabaseFromV2(p.dbHandle)
 	case 3:
-		return updateMySQLDatabaseFrom3To4(p.dbHandle)
+		return updateMySQLDatabaseFromV3(p.dbHandle)
+	case 4:
+		return updateMySQLDatabaseFromV4(p.dbHandle)
 	default:
 		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
 	}
+}
+
+func updateMySQLDatabaseFromV1(dbHandle *sql.DB) error {
+	err := updateMySQLDatabaseFrom1To2(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV2(dbHandle)
+}
+
+func updateMySQLDatabaseFromV2(dbHandle *sql.DB) error {
+	err := updateMySQLDatabaseFrom2To3(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV3(dbHandle)
+}
+
+func updateMySQLDatabaseFromV3(dbHandle *sql.DB) error {
+	err := updateMySQLDatabaseFrom3To4(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV4(dbHandle)
+}
+
+func updateMySQLDatabaseFromV4(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom4To5(dbHandle)
 }
 
 func updateMySQLDatabaseFrom1To2(dbHandle *sql.DB) error {
@@ -248,4 +266,8 @@ func updateMySQLDatabaseFrom2To3(dbHandle *sql.DB) error {
 
 func updateMySQLDatabaseFrom3To4(dbHandle *sql.DB) error {
 	return sqlCommonUpdateDatabaseFrom3To4(mysqlV4SQL, dbHandle)
+}
+
+func updateMySQLDatabaseFrom4To5(dbHandle *sql.DB) error {
+	return sqlCommonUpdateDatabaseFrom4To5(dbHandle)
 }

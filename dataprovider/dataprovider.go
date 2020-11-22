@@ -59,6 +59,9 @@ const (
 	BoltDataProviderName = "bolt"
 	// MemoryDataProviderName name for memory provider
 	MemoryDataProviderName = "memory"
+	// DumpVersion defines the version for the dump.
+	// For restore/load we support the current version and the previous one
+	DumpVersion = 5
 
 	argonPwdPrefix            = "$argon2id$"
 	bcryptPwdPrefix           = "$2a$"
@@ -265,6 +268,7 @@ type Config struct {
 type BackupData struct {
 	Users   []User                  `json:"users"`
 	Folders []vfs.BaseVirtualFolder `json:"folders"`
+	Version int                     `json:"version"`
 }
 
 type keyboardAuthHookRequest struct {
@@ -384,10 +388,8 @@ func Initialize(cnf Config, basePath string) error {
 	if err = validateHooks(); err != nil {
 		return err
 	}
-	if !cnf.PreferDatabaseCredentials {
-		if err = validateCredentialsDir(basePath); err != nil {
-			return err
-		}
+	if err = validateCredentialsDir(basePath, cnf.PreferDatabaseCredentials); err != nil {
+		return err
 	}
 	err = createProvider(basePath)
 	if err != nil {
@@ -689,6 +691,7 @@ func GetFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualF
 // DumpData returns all users and folders
 func DumpData() (BackupData, error) {
 	var data BackupData
+	data.Version = DumpVersion
 	users, err := provider.dumpUsers()
 	if err != nil {
 		return data, err
@@ -700,6 +703,33 @@ func DumpData() (BackupData, error) {
 	data.Users = users
 	data.Folders = folders
 	return data, err
+}
+
+// ParseDumpData tries to parse data as BackupData
+func ParseDumpData(data []byte) (BackupData, error) {
+	var dump BackupData
+	err := json.Unmarshal(data, &dump)
+	if err == nil {
+		return dump, err
+	}
+	dump = BackupData{}
+	// try to parse as version 4
+	var dumpCompat backupDataV4Compat
+	err = json.Unmarshal(data, &dumpCompat)
+	if err != nil {
+		return dump, err
+	}
+	logger.WarnToConsole("You are loading data from an old format, please update to the latest supported one. We only support the current and the previous format.")
+	providerLog(logger.LevelWarn, "You are loading data from an old format, please update to the latest supported one. We only support the current and the previous format.")
+	dump.Folders = dumpCompat.Folders
+	for _, compatUser := range dumpCompat.Users {
+		fsConfig, err := convertFsConfigFromV4(compatUser.FsConfig, compatUser.Username)
+		if err != nil {
+			return dump, err
+		}
+		dump.Users = append(dump.Users, createUserFromV4(compatUser, fsConfig))
+	}
+	return dump, err
 }
 
 // GetProviderStatus returns an error if the provider is not available
@@ -1038,17 +1068,35 @@ func saveGCSCredentials(user *User) error {
 	if user.FsConfig.Provider != GCSFilesystemProvider {
 		return nil
 	}
-	if len(user.FsConfig.GCSConfig.Credentials) == 0 {
+	if user.FsConfig.GCSConfig.Credentials.Payload == "" {
 		return nil
 	}
 	if config.PreferDatabaseCredentials {
+		if user.FsConfig.GCSConfig.Credentials.IsPlain() {
+			user.FsConfig.GCSConfig.Credentials.AdditionalData = user.Username
+			err := user.FsConfig.GCSConfig.Credentials.Encrypt()
+			if err != nil {
+				return err
+			}
+		}
 		return nil
 	}
-	err := ioutil.WriteFile(user.getGCSCredentialsFilePath(), user.FsConfig.GCSConfig.Credentials, 0600)
+	if user.FsConfig.GCSConfig.Credentials.IsPlain() {
+		user.FsConfig.GCSConfig.Credentials.AdditionalData = user.Username
+		err := user.FsConfig.GCSConfig.Credentials.Encrypt()
+		if err != nil {
+			return &ValidationError{err: fmt.Sprintf("could not encrypt GCS credentials: %v", err)}
+		}
+	}
+	creds, err := json.Marshal(user.FsConfig.GCSConfig.Credentials)
+	if err != nil {
+		return &ValidationError{err: fmt.Sprintf("could not marshal GCS credentials: %v", err)}
+	}
+	err = ioutil.WriteFile(user.getGCSCredentialsFilePath(), creds, 0600)
 	if err != nil {
 		return &ValidationError{err: fmt.Sprintf("could not save GCS credentials: %v", err)}
 	}
-	user.FsConfig.GCSConfig.Credentials = nil
+	user.FsConfig.GCSConfig.Credentials = vfs.Secret{}
 	return nil
 }
 
@@ -1058,38 +1106,38 @@ func validateFilesystemConfig(user *User) error {
 		if err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not validate s3config: %v", err)}
 		}
-		if user.FsConfig.S3Config.AccessSecret != "" {
-			vals := strings.Split(user.FsConfig.S3Config.AccessSecret, "$")
-			if !strings.HasPrefix(user.FsConfig.S3Config.AccessSecret, "$aes$") || len(vals) != 4 {
-				accessSecret, err := utils.EncryptData(user.FsConfig.S3Config.AccessSecret)
-				if err != nil {
-					return &ValidationError{err: fmt.Sprintf("could not encrypt s3 access secret: %v", err)}
-				}
-				user.FsConfig.S3Config.AccessSecret = accessSecret
+		if user.FsConfig.S3Config.AccessSecret.IsPlain() {
+			user.FsConfig.S3Config.AccessSecret.AdditionalData = user.Username
+			err = user.FsConfig.S3Config.AccessSecret.Encrypt()
+			if err != nil {
+				return &ValidationError{err: fmt.Sprintf("could not encrypt s3 access secret: %v", err)}
 			}
 		}
+		user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
+		user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
 		return nil
 	} else if user.FsConfig.Provider == GCSFilesystemProvider {
 		err := vfs.ValidateGCSFsConfig(&user.FsConfig.GCSConfig, user.getGCSCredentialsFilePath())
 		if err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not validate GCS config: %v", err)}
 		}
+		user.FsConfig.S3Config = vfs.S3FsConfig{}
+		user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
 		return nil
 	} else if user.FsConfig.Provider == AzureBlobFilesystemProvider {
 		err := vfs.ValidateAzBlobFsConfig(&user.FsConfig.AzBlobConfig)
 		if err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not validate Azure Blob config: %v", err)}
 		}
-		if user.FsConfig.AzBlobConfig.AccountKey != "" {
-			vals := strings.Split(user.FsConfig.AzBlobConfig.AccountKey, "$")
-			if !strings.HasPrefix(user.FsConfig.AzBlobConfig.AccountKey, "$aes$") || len(vals) != 4 {
-				accountKey, err := utils.EncryptData(user.FsConfig.AzBlobConfig.AccountKey)
-				if err != nil {
-					return &ValidationError{err: fmt.Sprintf("could not encrypt Azure blob account key: %v", err)}
-				}
-				user.FsConfig.AzBlobConfig.AccountKey = accountKey
+		if user.FsConfig.AzBlobConfig.AccountKey.IsPlain() {
+			user.FsConfig.AzBlobConfig.AccountKey.AdditionalData = user.Username
+			err = user.FsConfig.AzBlobConfig.AccountKey.Encrypt()
+			if err != nil {
+				return &ValidationError{err: fmt.Sprintf("could not encrypt Azure blob account key: %v", err)}
 			}
 		}
+		user.FsConfig.S3Config = vfs.S3FsConfig{}
+		user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
 		return nil
 	}
 	user.FsConfig.Provider = LocalFilesystemProvider
@@ -1321,19 +1369,6 @@ func comparePbkdf2PasswordAndHash(password, hashedPassword string) (bool, error)
 	return subtle.ConstantTimeCompare(df, expected) == 1, nil
 }
 
-// HideUserSensitiveData hides user sensitive data
-func HideUserSensitiveData(user *User) User {
-	user.Password = ""
-	if user.FsConfig.Provider == S3FilesystemProvider {
-		user.FsConfig.S3Config.AccessSecret = utils.RemoveDecryptionKey(user.FsConfig.S3Config.AccessSecret)
-	} else if user.FsConfig.Provider == GCSFilesystemProvider {
-		user.FsConfig.GCSConfig.Credentials = nil
-	} else if user.FsConfig.Provider == AzureBlobFilesystemProvider {
-		user.FsConfig.AzBlobConfig.AccountKey = utils.RemoveDecryptionKey(user.FsConfig.AzBlobConfig.AccountKey)
-	}
-	return *user
-}
-
 func addCredentialsToUser(user *User) error {
 	if user.FsConfig.Provider != GCSFilesystemProvider {
 		return nil
@@ -1343,7 +1378,7 @@ func addCredentialsToUser(user *User) error {
 	}
 
 	// Don't read from file if credentials have already been set
-	if len(user.FsConfig.GCSConfig.Credentials) > 0 {
+	if user.FsConfig.GCSConfig.Credentials.IsValid() {
 		return nil
 	}
 
@@ -1351,8 +1386,7 @@ func addCredentialsToUser(user *User) error {
 	if err != nil {
 		return err
 	}
-	user.FsConfig.GCSConfig.Credentials = cred
-	return nil
+	return json.Unmarshal(cred, &user.FsConfig.GCSConfig.Credentials)
 }
 
 func getSSLMode() string {
@@ -1396,11 +1430,17 @@ func startAvailabilityTimer() {
 	}()
 }
 
-func validateCredentialsDir(basePath string) error {
+func validateCredentialsDir(basePath string, preferDbCredentials bool) error {
 	if filepath.IsAbs(config.CredentialsPath) {
 		credentialsDirPath = config.CredentialsPath
 	} else {
 		credentialsDirPath = filepath.Join(basePath, config.CredentialsPath)
+	}
+	// if we want to store credentials inside the database just stop here
+	// we just populate credentialsDirPath to be able to use existing users
+	// with credential files
+	if preferDbCredentials {
+		return nil
 	}
 	fi, err := os.Stat(credentialsDirPath)
 	if err == nil {
@@ -2013,7 +2053,7 @@ func executeAction(operation string, user User) {
 		q := url.Query()
 		q.Add("action", operation)
 		url.RawQuery = q.Encode()
-		HideUserSensitiveData(&user)
+		user.HideConfidentialData()
 		userAsJSON, err := json.Marshal(user)
 		if err != nil {
 			return

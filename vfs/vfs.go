@@ -113,7 +113,7 @@ type S3FsConfig struct {
 	KeyPrefix    string `json:"key_prefix,omitempty"`
 	Region       string `json:"region,omitempty"`
 	AccessKey    string `json:"access_key,omitempty"`
-	AccessSecret string `json:"access_secret,omitempty"`
+	AccessSecret Secret `json:"access_secret,omitempty"`
 	Endpoint     string `json:"endpoint,omitempty"`
 	StorageClass string `json:"storage_class,omitempty"`
 	// The buffer size (in MB) to use for multipart uploads. The minimum allowed part size is 5MB,
@@ -137,9 +137,10 @@ type GCSFsConfig struct {
 	// folder. The prefix, if not empty, must not start with "/" and must
 	// end with "/".
 	// If empty the whole bucket contents will be available
-	KeyPrefix            string `json:"key_prefix,omitempty"`
-	CredentialFile       string `json:"-"`
-	Credentials          []byte `json:"credentials,omitempty"`
+	KeyPrefix      string `json:"key_prefix,omitempty"`
+	CredentialFile string `json:"-"`
+	Credentials    Secret `json:"credentials,omitempty"`
+	// 0 explicit, 1 automatic
 	AutomaticCredentials int    `json:"automatic_credentials,omitempty"`
 	StorageClass         string `json:"storage_class,omitempty"`
 }
@@ -151,7 +152,7 @@ type AzBlobFsConfig struct {
 	AccountName string `json:"account_name,omitempty"`
 	// Storage Account Key leave blank to use SAS URL.
 	// The access key is stored encrypted (AES-256-GCM)
-	AccountKey string `json:"account_key,omitempty"`
+	AccountKey Secret `json:"account_key,omitempty"`
 	// Optional endpoint. Default is "blob.core.windows.net".
 	// If you use the emulator the endpoint must include the protocol,
 	// for example "http://127.0.0.1:10000"
@@ -235,19 +236,32 @@ func IsLocalOsFs(fs Fs) bool {
 	return fs.Name() == osFsName
 }
 
-// ValidateS3FsConfig returns nil if the specified s3 config is valid, otherwise an error
-func ValidateS3FsConfig(config *S3FsConfig) error {
-	if len(config.Bucket) == 0 {
-		return errors.New("bucket cannot be empty")
-	}
-	if len(config.Region) == 0 {
-		return errors.New("region cannot be empty")
-	}
-	if len(config.AccessKey) == 0 && len(config.AccessSecret) > 0 {
+func checkS3Credentials(config *S3FsConfig) error {
+	if config.AccessKey == "" && !config.AccessSecret.IsEmpty() {
 		return errors.New("access_key cannot be empty with access_secret not empty")
 	}
-	if len(config.AccessSecret) == 0 && len(config.AccessKey) > 0 {
+	if config.AccessSecret.IsEmpty() && config.AccessKey != "" {
 		return errors.New("access_secret cannot be empty with access_key not empty")
+	}
+	if config.AccessSecret.IsEncrypted() && !config.AccessSecret.IsValid() {
+		return errors.New("invalid encrypted access_secret")
+	}
+	if !config.AccessSecret.IsEmpty() && !config.AccessSecret.IsValidInput() {
+		return errors.New("invalid access_secret")
+	}
+	return nil
+}
+
+// ValidateS3FsConfig returns nil if the specified s3 config is valid, otherwise an error
+func ValidateS3FsConfig(config *S3FsConfig) error {
+	if config.Bucket == "" {
+		return errors.New("bucket cannot be empty")
+	}
+	if config.Region == "" {
+		return errors.New("region cannot be empty")
+	}
+	if err := checkS3Credentials(config); err != nil {
+		return err
 	}
 	if config.KeyPrefix != "" {
 		if strings.HasPrefix(config.KeyPrefix, "/") {
@@ -281,7 +295,10 @@ func ValidateGCSFsConfig(config *GCSFsConfig, credentialsFilePath string) error 
 			config.KeyPrefix += "/"
 		}
 	}
-	if len(config.Credentials) == 0 && config.AutomaticCredentials == 0 {
+	if config.Credentials.IsEncrypted() && !config.Credentials.IsValid() {
+		return errors.New("invalid encrypted credentials")
+	}
+	if !config.Credentials.IsValidInput() && config.AutomaticCredentials == 0 {
 		fi, err := os.Stat(credentialsFilePath)
 		if err != nil {
 			return fmt.Errorf("invalid credentials %v", err)
@@ -302,8 +319,11 @@ func ValidateAzBlobFsConfig(config *AzBlobFsConfig) error {
 	if config.Container == "" {
 		return errors.New("container cannot be empty")
 	}
-	if config.AccountName == "" || config.AccountKey == "" {
-		return errors.New("credentials cannot be empty")
+	if config.AccountName == "" || !config.AccountKey.IsValidInput() {
+		return errors.New("credentials cannot be empty or invalid")
+	}
+	if config.AccountKey.IsEncrypted() && !config.AccountKey.IsValid() {
+		return errors.New("invalid encrypted account_key")
 	}
 	if config.KeyPrefix != "" {
 		if strings.HasPrefix(config.KeyPrefix, "/") {
