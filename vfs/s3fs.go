@@ -652,7 +652,7 @@ func (fs *S3Fs) hasContents(name string) (bool, error) {
 			prefix += "/"
 		}
 	}
-	maxResults := int64(1)
+	maxResults := int64(2)
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
 	results, err := fs.svc.ListObjectsV2WithContext(ctx, &s3.ListObjectsV2Input{
@@ -664,7 +664,16 @@ func (fs *S3Fs) hasContents(name string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return len(results.Contents) > 0, nil
+	// MinIO returns no contents while S3 returns 1 object
+	// with the key equal to the prefix for empty directories
+	for _, obj := range results.Contents {
+		name, _ := fs.resolve(obj.Key, prefix)
+		if name == "" || name == "/" {
+			continue
+		}
+		return true, nil
+	}
+	return false, nil
 }
 
 func (fs *S3Fs) headObject(name string) (*s3.HeadObjectOutput, error) {
