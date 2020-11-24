@@ -154,6 +154,7 @@ jobs:
             org.opencontainers.image.licenses=${{ fromJson(steps.repo.outputs.result).license.spdx_id }}
 
       - name: Build and push full
+        if: ${{ github.event_name != 'pull_request' }}
         uses: docker/build-push-action@v2
         with:
           builder: ${{ steps.builder-full.outputs.name }}
