@@ -73,7 +73,7 @@ type Configuration struct {
 // Initialize configures and starts the WebDav server
 func (c *Configuration) Initialize(configDir string) error {
 	var err error
-	logger.Debug(logSender, "", "initializing WevDav server with config %+v", *c)
+	logger.Debug(logSender, "", "initializing WebDAV server with config %+v", *c)
 	mimeTypeCache = mimeCache{
 		maxSize:   c.Cache.MimeTypes.MaxSize,
 		mimeTypes: make(map[string]string),

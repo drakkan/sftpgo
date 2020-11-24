@@ -582,7 +582,7 @@ type ConnectionStatus struct {
 	Protocol string `json:"protocol"`
 	// active uploads/downloads
 	Transfers []ConnectionTransfer `json:"active_transfers,omitempty"`
-	// SSH command or WevDAV method
+	// SSH command or WebDAV method
 	Command string `json:"command,omitempty"`
 }
 

@@ -240,6 +240,21 @@ func GetHTTPConfig() httpclient.Config {
 	return globalConf.HTTPConfig
 }
 
+// HasServicesToStart returns true if the config defines at least a service to start.
+// Supported services are SFTP, FTP and WebDAV
+func HasServicesToStart() bool {
+	if globalConf.SFTPD.BindPort > 0 {
+		return true
+	}
+	if globalConf.FTPD.BindPort > 0 {
+		return true
+	}
+	if globalConf.WebDAVD.BindPort > 0 {
+		return true
+	}
+	return false
+}
+
 func getRedactedGlobalConf() globalConfig {
 	conf := globalConf
 	conf.ProviderConf.Password = "[redacted]"

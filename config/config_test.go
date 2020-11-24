@@ -281,6 +281,33 @@ func TestSetGetConfig(t *testing.T) {
 	assert.Equal(t, webDavConf.CertificateKeyFile, config.GetWebDAVDConfig().CertificateKeyFile)
 }
 
+func TestServiceToStart(t *testing.T) {
+	configDir := ".."
+	err := config.LoadConfig(configDir, configName)
+	assert.NoError(t, err)
+	assert.True(t, config.HasServicesToStart())
+	sftpdConf := config.GetSFTPDConfig()
+	sftpdConf.BindPort = 0
+	config.SetSFTPDConfig(sftpdConf)
+	assert.False(t, config.HasServicesToStart())
+	ftpdConf := config.GetFTPDConfig()
+	ftpdConf.BindPort = 2121
+	config.SetFTPDConfig(ftpdConf)
+	assert.True(t, config.HasServicesToStart())
+	ftpdConf.BindPort = 0
+	config.SetFTPDConfig(ftpdConf)
+	webdavdConf := config.GetWebDAVDConfig()
+	webdavdConf.BindPort = 9000
+	config.SetWebDAVDConfig(webdavdConf)
+	assert.True(t, config.HasServicesToStart())
+	webdavdConf.BindPort = 0
+	config.SetWebDAVDConfig(webdavdConf)
+	assert.False(t, config.HasServicesToStart())
+	sftpdConf.BindPort = 2022
+	config.SetSFTPDConfig(sftpdConf)
+	assert.True(t, config.HasServicesToStart())
+}
+
 func TestConfigFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_SFTPD__BIND_ADDRESS", "127.0.0.1")
 	os.Setenv("SFTPGO_DATA_PROVIDER__PASSWORD_HASHING__ARGON2_OPTIONS__ITERATIONS", "41")

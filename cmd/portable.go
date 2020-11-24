@@ -206,7 +206,8 @@ func init() {
 This can be an absolute path or a path
 relative to the current directory
 `)
-	portableCmd.Flags().IntVarP(&portableSFTPDPort, "sftpd-port", "s", 0, "0 means a random unprivileged port")
+	portableCmd.Flags().IntVarP(&portableSFTPDPort, "sftpd-port", "s", 0, `0 means a random unprivileged port,
+< 0 disabled`)
 	portableCmd.Flags().IntVar(&portableFTPDPort, "ftpd-port", -1, `0 means a random unprivileged port,
 < 0 disabled`)
 	portableCmd.Flags().IntVar(&portableWebDAVPort, "webdav-port", -1, `0 means a random unprivileged port,
@@ -237,7 +238,7 @@ The format is:
 /dir::pattern1,pattern2.
 For example: "/somedir::*.jpg,a*b?.png"`)
 	portableCmd.Flags().BoolVarP(&portableAdvertiseService, "advertise-service", "S", false,
-		`Advertise SFTP/FTP service using
+		`Advertise configured services using
 multicast DNS`)
 	portableCmd.Flags().BoolVarP(&portableAdvertiseCredentials, "advertise-credentials", "C", false,
 		`If the SFTP/FTP service is

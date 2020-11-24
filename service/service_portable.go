@@ -32,21 +32,7 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 	if err != nil {
 		fmt.Printf("error loading configuration file: %v using defaults\n", err)
 	}
-	if len(s.PortableUser.Username) == 0 {
-		s.PortableUser.Username = "user"
-	}
-	printablePassword := ""
-	if len(s.PortableUser.Password) > 0 {
-		printablePassword = "[redacted]"
-	}
-	if len(s.PortableUser.PublicKeys) == 0 && len(s.PortableUser.Password) == 0 {
-		var b strings.Builder
-		for i := 0; i < 8; i++ {
-			b.WriteRune(chars[rand.Intn(len(chars))])
-		}
-		s.PortableUser.Password = b.String()
-		printablePassword = s.PortableUser.Password
-	}
+	printablePassword := s.configurePortableUser()
 	dataProviderConf := config.GetProviderConf()
 	dataProviderConf.Driver = dataprovider.MemoryDataProviderName
 	dataProviderConf.Name = ""
@@ -57,16 +43,19 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 	config.SetHTTPDConfig(httpdConf)
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.MaxAuthTries = 12
-	if sftpdPort > 0 {
-		sftpdConf.BindPort = sftpdPort
-	} else {
-		// dynamic ports starts from 49152
-		sftpdConf.BindPort = 49152 + rand.Intn(15000)
-	}
-	if utils.IsStringInSlice("*", enabledSSHCommands) {
-		sftpdConf.EnabledSSHCommands = sftpd.GetSupportedSSHCommands()
-	} else {
-		sftpdConf.EnabledSSHCommands = enabledSSHCommands
+	sftpdConf.BindPort = sftpdPort
+	if sftpdPort >= 0 {
+		if sftpdPort > 0 {
+			sftpdConf.BindPort = sftpdPort
+		} else {
+			// dynamic ports starts from 49152
+			sftpdConf.BindPort = 49152 + rand.Intn(15000)
+		}
+		if utils.IsStringInSlice("*", enabledSSHCommands) {
+			sftpdConf.EnabledSSHCommands = sftpd.GetSupportedSSHCommands()
+		} else {
+			sftpdConf.EnabledSSHCommands = enabledSSHCommands
+		}
 	}
 	config.SetSFTPDConfig(sftpdConf)
 
@@ -102,8 +91,8 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 
 	s.advertiseServices(advertiseService, advertiseCredentials)
 
-	logger.InfoToConsole("Portable mode ready, SFTP port: %v, user: %#v, password: %#v, public keys: %v, directory: %#v, "+
-		"permissions: %+v, enabled ssh commands: %v file patterns filters: %+v %v", sftpdConf.BindPort, s.PortableUser.Username,
+	logger.InfoToConsole("Portable mode ready, user: %#v, password: %#v, public keys: %v, directory: %#v, "+
+		"permissions: %+v, enabled ssh commands: %v file patterns filters: %+v %v", s.PortableUser.Username,
 		printablePassword, s.PortableUser.PublicKeys, s.getPortableDirToServe(), s.PortableUser.Permissions,
 		sftpdConf.EnabledSSHCommands, s.PortableUser.Filters.FilePatterns, s.getServiceOptionalInfoString())
 	return nil
@@ -111,15 +100,15 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 
 func (s *Service) getServiceOptionalInfoString() string {
 	var info strings.Builder
+	if config.GetSFTPDConfig().BindPort > 0 {
+		info.WriteString(fmt.Sprintf("SFTP port: %v ", config.GetSFTPDConfig().BindPort))
+	}
 	if config.GetFTPDConfig().BindPort > 0 {
 		info.WriteString(fmt.Sprintf("FTP port: %v ", config.GetFTPDConfig().BindPort))
 	}
 	if config.GetWebDAVDConfig().BindPort > 0 {
-		if info.Len() == 0 {
-			info.WriteString(" ")
-		}
 		scheme := "http"
-		if len(config.GetWebDAVDConfig().CertificateFile) > 0 && len(config.GetWebDAVDConfig().CertificateKeyFile) > 0 {
+		if config.GetWebDAVDConfig().CertificateFile != "" && config.GetWebDAVDConfig().CertificateKeyFile != "" {
 			scheme = "https"
 		}
 		info.WriteString(fmt.Sprintf("WebDAV URL: %v://<your IP>:%v/%v",
@@ -229,4 +218,24 @@ func (s *Service) getPortableDirToServe() string {
 		dirToServe = s.PortableUser.HomeDir
 	}
 	return dirToServe
+}
+
+// configures the portable user and return the printable password if any
+func (s *Service) configurePortableUser() string {
+	if s.PortableUser.Username == "" {
+		s.PortableUser.Username = "user"
+	}
+	printablePassword := ""
+	if len(s.PortableUser.Password) > 0 {
+		printablePassword = "[redacted]"
+	}
+	if len(s.PortableUser.PublicKeys) == 0 && len(s.PortableUser.Password) == 0 {
+		var b strings.Builder
+		for i := 0; i < 8; i++ {
+			b.WriteRune(chars[rand.Intn(len(chars))])
+		}
+		s.PortableUser.Password = b.String()
+		printablePassword = s.PortableUser.Password
+	}
+	return printablePassword
 }

@@ -19,7 +19,7 @@ Flags:
                                         advertised via multicast DNS, this
                                         flag allows to put username/password
                                         inside the advertised TXT record
-  -S, --advertise-service               Advertise SFTP/FTP service using
+  -S, --advertise-service               Advertise configured services using
                                         multicast DNS
       --allowed-patterns stringArray    Allowed file patterns case insensitive.
                                         The format is:
@@ -88,7 +88,8 @@ Flags:
                                         parallel (default 2)
       --s3-upload-part-size int         The buffer size for multipart uploads
                                         (MB) (default 5)
-  -s, --sftpd-port int                  0 means a random unprivileged port
+  -s, --sftpd-port int                  0 means a random unprivileged port,
+                                        < 0 disabled
   -c, --ssh-commands strings            SSH commands to enable.
                                         "*" means any supported SSH command
                                         including scp
