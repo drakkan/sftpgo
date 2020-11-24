@@ -45,7 +45,7 @@ type globalConfig struct {
 	HTTPConfig   httpclient.Config     `json:"http" mapstructure:"http"`
 }
 
-func init() {
+func Init() {
 	// create a default configuration to use if no config file is provided
 	globalConf = globalConfig{
 		Common: common.Configuration{
@@ -115,7 +115,7 @@ func init() {
 		},
 		ProviderConf: dataprovider.Config{
 			Driver:           "sqlite",
-			Name:             "sftpgo.db",
+			Name:             nil,
 			Host:             "",
 			Port:             5432,
 			Username:         "",
@@ -173,6 +173,9 @@ func init() {
 	setViperDefaults()
 	viper.AutomaticEnv()
 	viper.AllowEmptyEnv(true)
+}
+func init() {
+	Init()
 }
 
 // GetCommonConfig returns the common protocols configuration
@@ -283,6 +286,7 @@ func LoadConfig(configDir, configName string) error {
 		logger.WarnToConsole("error parsing configuration file: %v. Default configuration will be used.", err)
 		return err
 	}
+	setConditionalDefaults()
 	checkCommonParamsCompatibility()
 	if strings.TrimSpace(globalConf.SFTPD.Banner) == "" {
 		globalConf.SFTPD.Banner = defaultSFTPDBanner
@@ -325,6 +329,20 @@ func LoadConfig(configDir, configName string) error {
 	checkHostKeyCompatibility()
 	logger.Debug(logSender, "", "config file used: '%#v', config loaded: %+v", viper.ConfigFileUsed(), getRedactedGlobalConf())
 	return err
+}
+
+func setConditionalDefaults() {
+	var conf = &globalConf.ProviderConf
+
+	if conf.Name == nil {
+		var defaultName = "sftpgo.db"
+
+		if conf.Driver == "memory" {
+			defaultName = ""
+		}
+
+		conf.Name = &defaultName
+	}
 }
 
 func checkHostKeyCompatibility() {

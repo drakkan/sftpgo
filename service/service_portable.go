@@ -35,7 +35,7 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 	printablePassword := s.configurePortableUser()
 	dataProviderConf := config.GetProviderConf()
 	dataProviderConf.Driver = dataprovider.MemoryDataProviderName
-	dataProviderConf.Name = ""
+	dataProviderConf.Name = new(string)
 	dataProviderConf.PreferDatabaseCredentials = true
 	config.SetProviderConf(dataProviderConf)
 	httpdConf := config.GetHTTPDConfig()

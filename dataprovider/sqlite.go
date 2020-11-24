@@ -79,7 +79,7 @@ func initializeSQLiteProvider(basePath string) error {
 	var connectionString string
 	logSender = fmt.Sprintf("dataprovider_%v", SQLiteDataProviderName)
 	if len(config.ConnectionString) == 0 {
-		dbPath := config.Name
+		dbPath := *config.Name
 		if !utils.IsFileInputValid(dbPath) {
 			return fmt.Errorf("Invalid database path: %#v", dbPath)
 		}

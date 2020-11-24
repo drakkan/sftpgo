@@ -72,7 +72,7 @@ Command-line flags should be specified in the Subsystem declaration.
 				logger.Debug(logSender, connectionID, "data provider %#v not supported in subsystem mode, using %#v provider",
 					dataProviderConf.Driver, dataprovider.MemoryDataProviderName)
 				dataProviderConf.Driver = dataprovider.MemoryDataProviderName
-				dataProviderConf.Name = ""
+				dataProviderConf.Name = new(string)
 				dataProviderConf.PreferDatabaseCredentials = true
 			}
 			config.SetProviderConf(dataProviderConf)

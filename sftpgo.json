@@ -74,7 +74,7 @@
   },
   "data_provider": {
     "driver": "sqlite",
-    "name": "sftpgo.db",
+    "name": null,
     "host": "",
     "port": 5432,
     "username": "",

@@ -166,9 +166,14 @@ func initializeDataprovider(trackQuota int) (string, error) {
 	if err := viper.ReadInConfig(); err != nil {
 		return "", err
 	}
+	// @TODO Why doesn't this use the config loader? It bypasses setting conditional defaults
 	var cfg providerConf
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return "", err
+	}
+	if cfg.Config.Name == nil {
+		name := "sftpgo.db"
+		cfg.Config.Name = &name
 	}
 	if trackQuota >= 0 && trackQuota <= 2 {
 		cfg.Config.TrackQuota = trackQuota

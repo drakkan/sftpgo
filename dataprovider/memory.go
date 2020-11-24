@@ -44,8 +44,8 @@ type MemoryProvider struct {
 func initializeMemoryProvider(basePath string) error {
 	logSender = fmt.Sprintf("dataprovider_%v", MemoryDataProviderName)
 	configFile := ""
-	if utils.IsFileInputValid(config.Name) {
-		configFile = config.Name
+	if utils.IsFileInputValid(*config.Name) {
+		configFile = *config.Name
 		if !filepath.IsAbs(configFile) {
 			configFile = filepath.Join(basePath, configFile)
 		}

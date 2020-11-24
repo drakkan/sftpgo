@@ -329,3 +329,96 @@ func TestConfigFromEnv(t *testing.T) {
 	assert.Len(t, dataProviderConf.Actions.ExecuteOn, 1)
 	assert.Contains(t, dataProviderConf.Actions.ExecuteOn, "add")
 }
+
+// Ensure that "data_provider.name"'s default value is changed based on "data_provider.driver"
+func TestConditionalDefaultProviderName(t *testing.T) {
+	// Temporarily unset environment variables, because they supersede other configurations.
+	envs := []string{
+		"SFTPGO_DATA_PROVIDER__NAME",
+		"SFTPGO_DATA_PROVIDER__DRIVER",
+	}
+
+	for i := range envs {
+		(func(name string) {
+			currentVal, exists := os.LookupEnv(name)
+
+			if exists {
+				os.Unsetenv(name)
+
+				t.Cleanup(func() {
+					os.Setenv(name, currentVal)
+				})
+			}
+		})(envs[i])
+	}
+
+	configDir := ".."
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+
+	type TestProvider struct {
+		Driver string  `json:"driver"`
+		Name   *string `json:"name"`
+	}
+	type TestJSON struct {
+		DataProvider TestProvider `json:"data_provider"`
+	}
+	loadConfig := func(conf TestJSON) {
+		serializedConfig, err := json.Marshal(conf)
+		assert.NoError(t, err)
+
+		err = ioutil.WriteFile(configFilePath, serializedConfig, os.ModePerm)
+		assert.NoError(t, err)
+
+		config.Init()
+
+		err = config.LoadConfig(configDir, tempConfigName)
+		assert.NoError(t, err)
+	}
+	t.Cleanup(func() {
+		err := os.Remove(configFilePath)
+		assert.NoError(t, err)
+	})
+
+	// @TODO At some point put these tests in a loop.
+	loadConfig(TestJSON{
+		DataProvider: TestProvider{
+			Driver: dataprovider.SQLiteDataProviderName,
+			Name:   nil,
+		},
+	})
+
+	conf := config.GetProviderConf()
+	assert.Equal(t, "sftpgo.db", *conf.Name)
+
+	loadConfig(TestJSON{
+		DataProvider: TestProvider{
+			Driver: dataprovider.BoltDataProviderName,
+			Name:   nil,
+		},
+	})
+
+	conf = config.GetProviderConf()
+	assert.Equal(t, "sftpgo.db", *conf.Name)
+
+	loadConfig(TestJSON{
+		DataProvider: TestProvider{
+			Driver: dataprovider.MemoryDataProviderName,
+			Name:   nil,
+		},
+	})
+
+	conf = config.GetProviderConf()
+	assert.Equal(t, "", *conf.Name)
+
+	str := "TestName"
+	loadConfig(TestJSON{
+		DataProvider: TestProvider{
+			Driver: dataprovider.MemoryDataProviderName,
+			Name:   &str,
+		},
+	})
+
+	conf = config.GetProviderConf()
+	assert.Equal(t, "TestName", *conf.Name)
+}

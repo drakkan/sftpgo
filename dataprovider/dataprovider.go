@@ -156,7 +156,7 @@ type Config struct {
 	Driver string `json:"driver" mapstructure:"driver"`
 	// Database name. For driver sqlite this can be the database name relative to the config dir
 	// or the absolute path to the SQLite database.
-	Name string `json:"name" mapstructure:"name"`
+	Name *string `json:"name" mapstructure:"name"`
 	// Database host
 	Host string `json:"host" mapstructure:"host"`
 	// Database port

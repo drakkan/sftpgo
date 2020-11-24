@@ -72,7 +72,7 @@ func getPGSQLConnectionString(redactedPwd bool) string {
 			password = "[redacted]"
 		}
 		connectionString = fmt.Sprintf("host='%v' port=%v dbname='%v' user='%v' password='%v' sslmode=%v connect_timeout=10",
-			config.Host, config.Port, config.Name, config.Username, password, getSSLMode())
+			config.Host, config.Port, *config.Name, config.Username, password, getSSLMode())
 	} else {
 		connectionString = config.ConnectionString
 	}
