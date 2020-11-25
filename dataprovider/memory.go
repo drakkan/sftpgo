@@ -61,7 +61,10 @@ func initializeMemoryProvider(basePath string) error {
 			configFile:    configFile,
 		},
 	}
-	return provider.reloadConfig()
+	if err := provider.reloadConfig(); err != nil {
+		logger.ErrorToConsole("unable to load initial data: %v", err)
+	}
+	return nil
 }
 
 func (p MemoryProvider) checkAvailability() error {
