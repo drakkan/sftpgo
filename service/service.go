@@ -105,7 +105,6 @@ func (s *Service) Start() error {
 	if err != nil {
 		logger.Error(logSender, "", "unable to load initial data: %v", err)
 		logger.ErrorToConsole("unable to load initial data: %v", err)
-		return err
 	}
 
 	httpConfig := config.GetHTTPConfig()

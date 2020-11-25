@@ -764,7 +764,7 @@ func createProvider(basePath string) error {
 	} else if config.Driver == BoltDataProviderName {
 		err = initializeBoltProvider(basePath)
 	} else if config.Driver == MemoryDataProviderName {
-		err = initializeMemoryProvider(basePath)
+		initializeMemoryProvider(basePath)
 	} else {
 		err = fmt.Errorf("unsupported data provider: %v", config.Driver)
 	}
