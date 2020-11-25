@@ -243,7 +243,7 @@ func TestBasicUserHandling(t *testing.T) {
 	user.UploadBandwidth = 128
 	user.DownloadBandwidth = 64
 	user.ExpirationDate = utils.GetTimeAsMsSinceEpoch(time.Now())
-
+	user.AdditionalInfo = "some free text"
 	originalUser := user
 	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
@@ -2715,6 +2715,7 @@ func TestWebUserAddMock(t *testing.T) {
 	user.UploadBandwidth = 32
 	user.DownloadBandwidth = 64
 	user.UID = 1000
+	user.AdditionalInfo = "info"
 	mappedDir := filepath.Join(os.TempDir(), "mapped")
 	form := make(url.Values)
 	form.Set("username", user.Username)
@@ -2729,6 +2730,7 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("denied_extensions", "/dir2::.webp,.webp\n/dir2::.tiff\n/dir1::.zip")
 	form.Set("allowed_patterns", "/dir2::*.jpg,*.png\n/dir1::*.png")
 	form.Set("denied_patterns", "/dir1::*.zip\n/dir3::*.rar\n/dir2::*.mkv")
+	form.Set("additional_info", user.AdditionalInfo)
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	// test invalid url escape
 	req, _ := http.NewRequest(http.MethodPost, webUserPath+"?a=%2", &b)
@@ -2848,6 +2850,7 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.Equal(t, user.UploadBandwidth, newUser.UploadBandwidth)
 	assert.Equal(t, user.DownloadBandwidth, newUser.DownloadBandwidth)
 	assert.Equal(t, int64(1000), newUser.Filters.MaxUploadFileSize)
+	assert.Equal(t, user.AdditionalInfo, newUser.AdditionalInfo)
 	assert.True(t, utils.IsStringInSlice(testPubKey, newUser.PublicKeys))
 	if val, ok := newUser.Permissions["/subdir"]; ok {
 		assert.True(t, utils.IsStringInSlice(dataprovider.PermListItems, val))
@@ -2926,6 +2929,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	user.QuotaFiles = 2
 	user.QuotaSize = 3
 	user.GID = 1000
+	user.AdditionalInfo = "new additional info"
 	form := make(url.Values)
 	form.Set("username", user.Username)
 	form.Set("home_dir", user.HomeDir)
@@ -2947,6 +2951,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("denied_protocols", common.ProtocolFTP)
 	form.Set("max_upload_file_size", "100")
 	form.Set("disconnect", "1")
+	form.Set("additional_info", user.AdditionalInfo)
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
 	req.Header.Set("Content-Type", contentType)
@@ -2966,6 +2971,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.Equal(t, user.QuotaSize, updateUser.QuotaSize)
 	assert.Equal(t, user.UID, updateUser.UID)
 	assert.Equal(t, user.GID, updateUser.GID)
+	assert.Equal(t, user.AdditionalInfo, updateUser.AdditionalInfo)
 	assert.Equal(t, int64(100), updateUser.Filters.MaxUploadFileSize)
 
 	if val, ok := updateUser.Permissions["/otherdir"]; ok {

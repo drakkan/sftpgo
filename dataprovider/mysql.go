@@ -38,6 +38,7 @@ const (
 		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `unique_mapping` UNIQUE (`user_id`, `folder_id`);" +
 		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `folders_mapping_folder_id_fk_folders_id` FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE CASCADE;" +
 		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `folders_mapping_user_id_fk_users_id` FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;"
+	mysqlV6SQL = "ALTER TABLE `{{users}}` ADD COLUMN `additional_info` longtext NULL;"
 )
 
 // MySQLProvider auth provider for MySQL/MariaDB database
@@ -217,6 +218,8 @@ func (p MySQLProvider) migrateDatabase() error {
 		return updateMySQLDatabaseFromV3(p.dbHandle)
 	case 4:
 		return updateMySQLDatabaseFromV4(p.dbHandle)
+	case 5:
+		return updateMySQLDatabaseFromV5(p.dbHandle)
 	default:
 		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
 	}
@@ -247,7 +250,15 @@ func updateMySQLDatabaseFromV3(dbHandle *sql.DB) error {
 }
 
 func updateMySQLDatabaseFromV4(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom4To5(dbHandle)
+	err := updateMySQLDatabaseFrom4To5(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV5(dbHandle)
+}
+
+func updateMySQLDatabaseFromV5(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom5To6(dbHandle)
 }
 
 func updateMySQLDatabaseFrom1To2(dbHandle *sql.DB) error {
@@ -270,4 +281,11 @@ func updateMySQLDatabaseFrom3To4(dbHandle *sql.DB) error {
 
 func updateMySQLDatabaseFrom4To5(dbHandle *sql.DB) error {
 	return sqlCommonUpdateDatabaseFrom4To5(dbHandle)
+}
+
+func updateMySQLDatabaseFrom5To6(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 5 -> 6")
+	providerLog(logger.LevelInfo, "updating database version: 5 -> 6")
+	sql := strings.Replace(mysqlV6SQL, "{{users}}", sqlTableUsers, 1)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 6)
 }

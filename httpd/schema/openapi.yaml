@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 2.1.0
+  version: 2.1.1
 
 servers:
   - url: /api/v1
@@ -1239,6 +1239,9 @@ components:
           $ref: '#/components/schemas/UserFilters'
         filesystem:
           $ref: '#/components/schemas/FilesystemConfig'
+        additional_info:
+          type: string
+          description: Free form text field for external systems
     Transfer:
       type: object
       properties:

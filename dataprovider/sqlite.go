@@ -63,6 +63,7 @@ ALTER TABLE "new__users" RENAME TO "{{users}}";
 CREATE INDEX "folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_id");
 CREATE INDEX "folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
 `
+	sqliteV6SQL = `ALTER TABLE "{{users}}" ADD COLUMN "additional_info" text NULL;`
 )
 
 // SQLiteProvider auth provider for SQLite database
@@ -239,6 +240,8 @@ func (p SQLiteProvider) migrateDatabase() error {
 		return updateSQLiteDatabaseFromV3(p.dbHandle)
 	case 4:
 		return updateSQLiteDatabaseFromV4(p.dbHandle)
+	case 5:
+		return updateSQLiteDatabaseFromV5(p.dbHandle)
 	default:
 		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
 	}
@@ -269,7 +272,15 @@ func updateSQLiteDatabaseFromV3(dbHandle *sql.DB) error {
 }
 
 func updateSQLiteDatabaseFromV4(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom4To5(dbHandle)
+	err := updateSQLiteDatabaseFrom4To5(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV5(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV5(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom5To6(dbHandle)
 }
 
 func updateSQLiteDatabaseFrom1To2(dbHandle *sql.DB) error {
@@ -292,4 +303,11 @@ func updateSQLiteDatabaseFrom3To4(dbHandle *sql.DB) error {
 
 func updateSQLiteDatabaseFrom4To5(dbHandle *sql.DB) error {
 	return sqlCommonUpdateDatabaseFrom4To5(dbHandle)
+}
+
+func updateSQLiteDatabaseFrom5To6(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 5 -> 6")
+	providerLog(logger.LevelInfo, "updating database version: 5 -> 6")
+	sql := strings.Replace(sqliteV6SQL, "{{users}}", sqlTableUsers, 1)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 6)
 }

@@ -73,6 +73,7 @@ For each account, the following properties can be configured:
 - `az_upload_concurrency`,  how many parts are uploaded in parallel. Zero means the default (2)
 - `az_key_prefix`,  allows to restrict access to the folder identified by this prefix and its contents
 - `az_use_emulator`, boolean
+- `additional_info`, string. Free text field
 
 These properties are stored inside the data provider.
 

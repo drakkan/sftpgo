@@ -704,6 +704,9 @@ func compareAzBlobConfig(expected *dataprovider.User, actual *dataprovider.User)
 	if expected.FsConfig.AzBlobConfig.UseEmulator != actual.FsConfig.AzBlobConfig.UseEmulator {
 		return errors.New("Azure Blob use emulator mismatch")
 	}
+	if expected.FsConfig.AzBlobConfig.AccessTier != actual.FsConfig.AzBlobConfig.AccessTier {
+		return errors.New("Azure Blob access tier mismatch")
+	}
 	return nil
 }
 
@@ -860,6 +863,9 @@ func compareEqualsUserFields(expected *dataprovider.User, actual *dataprovider.U
 	}
 	if expected.ExpirationDate != actual.ExpirationDate {
 		return errors.New("ExpirationDate mismatch")
+	}
+	if expected.AdditionalInfo != actual.AdditionalInfo {
+		return errors.New("AdditionalInfo mismatch")
 	}
 	return nil
 }

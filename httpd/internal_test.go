@@ -311,6 +311,10 @@ func TestCompareUserFields(t *testing.T) {
 	expected.ExpirationDate = 123
 	err = compareEqualsUserFields(expected, actual)
 	assert.Error(t, err)
+	expected.ExpirationDate = 0
+	expected.AdditionalInfo = "info"
+	err = compareEqualsUserFields(expected, actual)
+	assert.Error(t, err)
 }
 
 func TestCompareUserFsConfig(t *testing.T) {
@@ -443,6 +447,10 @@ func TestCompareUserAzureConfig(t *testing.T) {
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
 	expected.FsConfig.AzBlobConfig.UseEmulator = false
+	expected.FsConfig.AzBlobConfig.AccessTier = "Hot"
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	expected.FsConfig.AzBlobConfig.AccessTier = ""
 }
 
 func TestGCSWebInvalidFormFile(t *testing.T) {

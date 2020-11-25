@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 5
+	sqlDatabaseVersion     = 6
 	initialDBVersionSQL    = "INSERT INTO {{schema_version}} (version) VALUES (1);"
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
@@ -218,7 +218,7 @@ func sqlCommonAddUser(user User, dbHandle *sql.DB) error {
 	}
 	_, err = stmt.ExecContext(ctx, user.Username, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
 		user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate, string(filters),
-		string(fsConfig))
+		string(fsConfig), user.AdditionalInfo)
 	if err != nil {
 		sqlCommonRollbackTransaction(tx)
 		return err
@@ -272,7 +272,7 @@ func sqlCommonUpdateUser(user User, dbHandle *sql.DB) error {
 	}
 	_, err = stmt.ExecContext(ctx, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
 		user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate,
-		string(filters), string(fsConfig), user.ID)
+		string(filters), string(fsConfig), user.AdditionalInfo, user.ID)
 	if err != nil {
 		sqlCommonRollbackTransaction(tx)
 		return err
@@ -391,15 +391,18 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 	var publicKey sql.NullString
 	var filters sql.NullString
 	var fsConfig sql.NullString
+	var additionalInfo sql.NullString
 	var err error
 	if row != nil {
 		err = row.Scan(&user.ID, &user.Username, &password, &publicKey, &user.HomeDir, &user.UID, &user.GID, &user.MaxSessions,
 			&user.QuotaSize, &user.QuotaFiles, &permissions, &user.UsedQuotaSize, &user.UsedQuotaFiles, &user.LastQuotaUpdate,
-			&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig)
+			&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig,
+			&additionalInfo)
 	} else {
 		err = rows.Scan(&user.ID, &user.Username, &password, &publicKey, &user.HomeDir, &user.UID, &user.GID, &user.MaxSessions,
 			&user.QuotaSize, &user.QuotaFiles, &permissions, &user.UsedQuotaSize, &user.UsedQuotaFiles, &user.LastQuotaUpdate,
-			&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig)
+			&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig,
+			&additionalInfo)
 	}
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -439,6 +442,9 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 		if err == nil {
 			user.FsConfig = fs
 		}
+	}
+	if additionalInfo.Valid {
+		user.AdditionalInfo = additionalInfo.String
 	}
 	return user, err
 }

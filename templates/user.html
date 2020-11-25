@@ -517,6 +517,17 @@
         </div>
     </div>
 
+    <div class="form-group row">
+        <label for="idAdditionalInfo" class="col-sm-2 col-form-label">Additional info</label>
+        <div class="col-sm-10">
+            <textarea class="form-control" id="idAdditionalInfo" name="additional_info" rows="3"
+                aria-describedby="additionalInfoHelpBlock">{{.User.AdditionalInfo}}</textarea>
+            <small id="additionalInfoHelpBlock" class="form-text text-muted">
+                Free form text field
+            </small>
+        </div>
+    </div>
+
     {{if not .IsAdd}}
     <div class="form-group">
         <div class="form-check">

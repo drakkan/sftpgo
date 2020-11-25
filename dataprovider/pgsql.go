@@ -37,6 +37,7 @@ ALTER TABLE "{{folders_mapping}}" ADD CONSTRAINT "folders_mapping_user_id_fk_use
 CREATE INDEX "folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_id");
 CREATE INDEX "folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
 `
+	pgsqlV6SQL = `ALTER TABLE "{{users}}" ADD COLUMN "additional_info" text NULL;`
 )
 
 // PGSQLProvider auth provider for PostgreSQL database
@@ -216,6 +217,8 @@ func (p PGSQLProvider) migrateDatabase() error {
 		return updatePGSQLDatabaseFromV3(p.dbHandle)
 	case 4:
 		return updatePGSQLDatabaseFromV4(p.dbHandle)
+	case 5:
+		return updatePGSQLDatabaseFromV5(p.dbHandle)
 	default:
 		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
 	}
@@ -246,7 +249,15 @@ func updatePGSQLDatabaseFromV3(dbHandle *sql.DB) error {
 }
 
 func updatePGSQLDatabaseFromV4(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom4To5(dbHandle)
+	err := updatePGSQLDatabaseFrom4To5(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV5(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV5(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom5To6(dbHandle)
 }
 
 func updatePGSQLDatabaseFrom1To2(dbHandle *sql.DB) error {
@@ -269,4 +280,11 @@ func updatePGSQLDatabaseFrom3To4(dbHandle *sql.DB) error {
 
 func updatePGSQLDatabaseFrom4To5(dbHandle *sql.DB) error {
 	return sqlCommonUpdateDatabaseFrom4To5(dbHandle)
+}
+
+func updatePGSQLDatabaseFrom5To6(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 5 -> 6")
+	providerLog(logger.LevelInfo, "updating database version: 5 -> 6")
+	sql := strings.Replace(pgsqlV6SQL, "{{users}}", sqlTableUsers, 1)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 6)
 }
