@@ -677,3 +677,7 @@ func (p MemoryProvider) initializeDatabase() error {
 func (p MemoryProvider) migrateDatabase() error {
 	return ErrNoInitRequired
 }
+
+func (p MemoryProvider) revertDatabase(targetVersion int) error {
+	return errors.New("memory provider does not store data, revert not possible")
+}

@@ -119,6 +119,27 @@ sftpgo initprovider --help
 
 You can disable automatic data provider checks/updates at startup by setting the `update_mode` configuration key to `1`.
 
+If for some reason you want to downgrade SFTPGo, you may need to downgrade your data provider schema and data as well. You can use the `revertprovider` command for this task.
+
+We support the follwing schema versions:
+
+- `6`, this is the current git master
+- `4`, this is the schema for v1.0.0-v1.2.x
+
+So, if you plan to downgrade from git master to 1.2.x, you can prepare your data provider executing the following command from the configuration directory:
+
+```shell
+sftpgo revertprovider --to-version 4
+```
+
+Take a look at the CLI usage to learn how to specify a different configuration file:
+
+```bash
+sftpgo revertprovider --help
+```
+
+The `revertprovider` command is not supported for the memory provider.
+
 ## Users and folders management
 
 After starting SFTPGo you can manage users and folders using:

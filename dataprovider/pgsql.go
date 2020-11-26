@@ -37,7 +37,8 @@ ALTER TABLE "{{folders_mapping}}" ADD CONSTRAINT "folders_mapping_user_id_fk_use
 CREATE INDEX "folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_id");
 CREATE INDEX "folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
 `
-	pgsqlV6SQL = `ALTER TABLE "{{users}}" ADD COLUMN "additional_info" text NULL;`
+	pgsqlV6SQL     = `ALTER TABLE "{{users}}" ADD COLUMN "additional_info" text NULL;`
+	pgsqlV6DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "additional_info" CASCADE;`
 )
 
 // PGSQLProvider auth provider for PostgreSQL database
@@ -220,6 +221,35 @@ func (p PGSQLProvider) migrateDatabase() error {
 	case 5:
 		return updatePGSQLDatabaseFromV5(p.dbHandle)
 	default:
+		if dbVersion.Version > sqlDatabaseVersion {
+			providerLog(logger.LevelWarn, "database version %v is newer than the supported: %v", dbVersion.Version,
+				sqlDatabaseVersion)
+			logger.WarnToConsole("database version %v is newer than the supported: %v", dbVersion.Version,
+				sqlDatabaseVersion)
+			return nil
+		}
+		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
+	}
+}
+
+func (p PGSQLProvider) revertDatabase(targetVersion int) error {
+	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
+	if err != nil {
+		return err
+	}
+	if dbVersion.Version == targetVersion {
+		return fmt.Errorf("current version match target version, nothing to do")
+	}
+	switch dbVersion.Version {
+	case 6:
+		err = downgradePGSQLDatabaseFrom6To5(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		return downgradePGSQLDatabaseFrom5To4(p.dbHandle)
+	case 5:
+		return downgradePGSQLDatabaseFrom5To4(p.dbHandle)
+	default:
 		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
 	}
 }
@@ -287,4 +317,15 @@ func updatePGSQLDatabaseFrom5To6(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "updating database version: 5 -> 6")
 	sql := strings.Replace(pgsqlV6SQL, "{{users}}", sqlTableUsers, 1)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 6)
+}
+
+func downgradePGSQLDatabaseFrom6To5(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 6 -> 5")
+	providerLog(logger.LevelInfo, "downgrading database version: 6 -> 5")
+	sql := strings.Replace(pgsqlV6DownSQL, "{{users}}", sqlTableUsers, 1)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 5)
+}
+
+func downgradePGSQLDatabaseFrom5To4(dbHandle *sql.DB) error {
+	return sqlCommonDowngradeDatabaseFrom5To4(dbHandle)
 }

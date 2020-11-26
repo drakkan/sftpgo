@@ -1,11 +1,13 @@
 package dataprovider
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
 
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
 )
 
@@ -130,6 +132,34 @@ func createUserFromV4(u compatUserV4, fsConfig Filesystem) User {
 	return user
 }
 
+func convertUserToV4(u User, fsConfig compatFilesystemV4) compatUserV4 {
+	user := compatUserV4{
+		ID:                u.ID,
+		Status:            u.Status,
+		Username:          u.Username,
+		ExpirationDate:    u.ExpirationDate,
+		Password:          u.Password,
+		PublicKeys:        u.PublicKeys,
+		HomeDir:           u.HomeDir,
+		VirtualFolders:    u.VirtualFolders,
+		UID:               u.UID,
+		GID:               u.GID,
+		MaxSessions:       u.MaxSessions,
+		QuotaSize:         u.QuotaSize,
+		QuotaFiles:        u.QuotaFiles,
+		Permissions:       u.Permissions,
+		UsedQuotaSize:     u.UsedQuotaSize,
+		UsedQuotaFiles:    u.UsedQuotaFiles,
+		LastQuotaUpdate:   u.LastQuotaUpdate,
+		UploadBandwidth:   u.UploadBandwidth,
+		DownloadBandwidth: u.DownloadBandwidth,
+		LastLogin:         u.LastLogin,
+		Filters:           u.Filters,
+	}
+	user.FsConfig = fsConfig
+	return user
+}
+
 func getCGSCredentialsFromV4(config compatGCSFsConfigV4) (vfs.Secret, error) {
 	var secret vfs.Secret
 	var err error
@@ -148,6 +178,104 @@ func getCGSCredentialsFromV4(config compatGCSFsConfigV4) (vfs.Secret, error) {
 		return secret, nil
 	}
 	return secret, err
+}
+
+func getCGSCredentialsFromV6(config vfs.GCSFsConfig, username string) (string, error) {
+	if config.Credentials.IsEmpty() {
+		config.CredentialFile = filepath.Join(credentialsDirPath, fmt.Sprintf("%v_gcs_credentials.json",
+			username))
+		creds, err := ioutil.ReadFile(config.CredentialFile)
+		if err != nil {
+			return "", err
+		}
+		err = json.Unmarshal(creds, &config.Credentials)
+		if err != nil {
+			return "", err
+		}
+	}
+	if config.Credentials.IsEncrypted() {
+		err := config.Credentials.Decrypt()
+		if err != nil {
+			return "", err
+		}
+		// in V4 GCS credentials were not encrypted
+		return config.Credentials.Payload, nil
+	}
+	return "", nil
+}
+
+func convertFsConfigToV4(fs Filesystem, username string) (compatFilesystemV4, error) {
+	fsV4 := compatFilesystemV4{
+		Provider:     fs.Provider,
+		S3Config:     compatS3FsConfigV4{},
+		AzBlobConfig: compatAzBlobFsConfigV4{},
+		GCSConfig:    compatGCSFsConfigV4{},
+	}
+	switch fs.Provider {
+	case S3FilesystemProvider:
+		fsV4.S3Config = compatS3FsConfigV4{
+			Bucket:            fs.S3Config.Bucket,
+			KeyPrefix:         fs.S3Config.KeyPrefix,
+			Region:            fs.S3Config.Region,
+			AccessKey:         fs.S3Config.AccessKey,
+			AccessSecret:      "",
+			Endpoint:          fs.S3Config.Endpoint,
+			StorageClass:      fs.S3Config.StorageClass,
+			UploadPartSize:    fs.S3Config.UploadPartSize,
+			UploadConcurrency: fs.S3Config.UploadConcurrency,
+		}
+		if fs.S3Config.AccessSecret.IsEncrypted() {
+			err := fs.S3Config.AccessSecret.Decrypt()
+			if err != nil {
+				return fsV4, err
+			}
+			secretV4, err := utils.EncryptData(fs.S3Config.AccessSecret.Payload)
+			if err != nil {
+				return fsV4, err
+			}
+			fsV4.S3Config.AccessSecret = secretV4
+		}
+	case AzureBlobFilesystemProvider:
+		fsV4.AzBlobConfig = compatAzBlobFsConfigV4{
+			Container:         fs.AzBlobConfig.Container,
+			AccountName:       fs.AzBlobConfig.AccountName,
+			AccountKey:        "",
+			Endpoint:          fs.AzBlobConfig.Endpoint,
+			SASURL:            fs.AzBlobConfig.SASURL,
+			KeyPrefix:         fs.AzBlobConfig.KeyPrefix,
+			UploadPartSize:    fs.AzBlobConfig.UploadPartSize,
+			UploadConcurrency: fs.AzBlobConfig.UploadConcurrency,
+			UseEmulator:       fs.AzBlobConfig.UseEmulator,
+			AccessTier:        fs.AzBlobConfig.AccessTier,
+		}
+		if fs.AzBlobConfig.AccountKey.IsEncrypted() {
+			err := fs.AzBlobConfig.AccountKey.Decrypt()
+			if err != nil {
+				return fsV4, err
+			}
+			secretV4, err := utils.EncryptData(fs.AzBlobConfig.AccountKey.Payload)
+			if err != nil {
+				return fsV4, err
+			}
+			fsV4.AzBlobConfig.AccountKey = secretV4
+		}
+	case GCSFilesystemProvider:
+		fsV4.GCSConfig = compatGCSFsConfigV4{
+			Bucket:               fs.GCSConfig.Bucket,
+			KeyPrefix:            fs.GCSConfig.KeyPrefix,
+			CredentialFile:       fs.GCSConfig.CredentialFile,
+			AutomaticCredentials: fs.GCSConfig.AutomaticCredentials,
+			StorageClass:         fs.GCSConfig.StorageClass,
+		}
+		if fs.GCSConfig.AutomaticCredentials == 0 {
+			creds, err := getCGSCredentialsFromV6(fs.GCSConfig, username)
+			if err != nil {
+				return fsV4, err
+			}
+			fsV4.GCSConfig.Credentials = []byte(creds)
+		}
+	}
+	return fsV4, nil
 }
 
 func convertFsConfigFromV4(compatFs compatFilesystemV4, username string) (Filesystem, error) {

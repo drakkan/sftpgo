@@ -948,6 +948,7 @@ func sqlCommonUpdateDatabaseFrom3To4(sqlV4 string, dbHandle *sql.DB) error {
 	return err
 }
 
+//nolint:dupl
 func sqlCommonUpdateDatabaseFrom4To5(dbHandle *sql.DB) error {
 	logger.InfoToConsole("updating database version: 4 -> 5")
 	providerLog(logger.LevelInfo, "updating database version: 4 -> 5")
@@ -1005,6 +1006,26 @@ func sqlCommonUpdateDatabaseFrom4To5(dbHandle *sql.DB) error {
 	return sqlCommonUpdateDatabaseVersion(ctxVersion, dbHandle, 5)
 }
 
+func sqlCommonUpdateV4CompatUser(dbHandle *sql.DB, user compatUserV4) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := updateCompatV4FsConfigQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+
+	fsConfig, err := json.Marshal(user.FsConfig)
+	if err != nil {
+		return err
+	}
+	_, err = stmt.ExecContext(ctx, string(fsConfig), user.ID)
+	return err
+}
+
 func sqlCommonUpdateV4User(dbHandle *sql.DB, user User) error {
 	err := validateFilesystemConfig(&user)
 	if err != nil {
@@ -1031,4 +1052,62 @@ func sqlCommonUpdateV4User(dbHandle *sql.DB, user User) error {
 	}
 	_, err = stmt.ExecContext(ctx, string(fsConfig), user.ID)
 	return err
+}
+
+//nolint:dupl
+func sqlCommonDowngradeDatabaseFrom5To4(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 5 -> 4")
+	providerLog(logger.LevelInfo, "downgrading database version: 5 -> 4")
+	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+	defer cancel()
+	q := getCompatV4FsConfigQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+	rows, err := stmt.QueryContext(ctx)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	users := []compatUserV4{}
+	for rows.Next() {
+		var user User
+		var fsConfigString sql.NullString
+		err = rows.Scan(&user.ID, &user.Username, &fsConfigString)
+		if err != nil {
+			return err
+		}
+		if fsConfigString.Valid {
+			err = json.Unmarshal([]byte(fsConfigString.String), &user.FsConfig)
+			if err != nil {
+				logger.WarnToConsole("failed to unmarshal user %#v to v4, is it already migrated?", user.Username)
+				continue
+			}
+			fsConfig, err := convertFsConfigToV4(user.FsConfig, user.Username)
+			if err != nil {
+				return err
+			}
+			users = append(users, convertUserToV4(user, fsConfig))
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, user := range users {
+		err = sqlCommonUpdateV4CompatUser(dbHandle, user)
+		if err != nil {
+			return err
+		}
+		providerLog(logger.LevelInfo, "filesystem config downgraded for user %#v", user.Username)
+	}
+
+	ctxVersion, cancelVersion := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancelVersion()
+
+	return sqlCommonUpdateDatabaseVersion(ctxVersion, dbHandle, 4)
 }

@@ -377,6 +377,7 @@ type Provider interface {
 	reloadConfig() error
 	initializeDatabase() error
 	migrateDatabase() error
+	revertDatabase(targetVersion int) error
 }
 
 // Initialize the data provider.
@@ -477,6 +478,12 @@ func validateSQLTablesPrefix() error {
 func InitializeDatabase(cnf Config, basePath string) error {
 	config = cnf
 
+	if filepath.IsAbs(config.CredentialsPath) {
+		credentialsDirPath = config.CredentialsPath
+	} else {
+		credentialsDirPath = filepath.Join(basePath, config.CredentialsPath)
+	}
+
 	err := createProvider(basePath)
 	if err != nil {
 		return err
@@ -486,6 +493,27 @@ func InitializeDatabase(cnf Config, basePath string) error {
 		return err
 	}
 	return provider.migrateDatabase()
+}
+
+// RevertDatabase restores schema and/or data to a previous version
+func RevertDatabase(cnf Config, basePath string, targetVersion int) error {
+	config = cnf
+
+	if filepath.IsAbs(config.CredentialsPath) {
+		credentialsDirPath = config.CredentialsPath
+	} else {
+		credentialsDirPath = filepath.Join(basePath, config.CredentialsPath)
+	}
+
+	err := createProvider(basePath)
+	if err != nil {
+		return err
+	}
+	err = provider.initializeDatabase()
+	if err != nil && err != ErrNoInitRequired {
+		return err
+	}
+	return provider.revertDatabase(targetVersion)
 }
 
 // CheckUserAndPass retrieves the SFTP user with the given username and password if a match is found or an error

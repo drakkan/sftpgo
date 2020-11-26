@@ -38,7 +38,8 @@ const (
 		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `unique_mapping` UNIQUE (`user_id`, `folder_id`);" +
 		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `folders_mapping_folder_id_fk_folders_id` FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE CASCADE;" +
 		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `folders_mapping_user_id_fk_users_id` FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;"
-	mysqlV6SQL = "ALTER TABLE `{{users}}` ADD COLUMN `additional_info` longtext NULL;"
+	mysqlV6SQL     = "ALTER TABLE `{{users}}` ADD COLUMN `additional_info` longtext NULL;"
+	mysqlV6DownSQL = "ALTER TABLE `{{users}}` DROP COLUMN `additional_info`;"
 )
 
 // MySQLProvider auth provider for MySQL/MariaDB database
@@ -221,6 +222,35 @@ func (p MySQLProvider) migrateDatabase() error {
 	case 5:
 		return updateMySQLDatabaseFromV5(p.dbHandle)
 	default:
+		if dbVersion.Version > sqlDatabaseVersion {
+			providerLog(logger.LevelWarn, "database version %v is newer than the supported: %v", dbVersion.Version,
+				sqlDatabaseVersion)
+			logger.WarnToConsole("database version %v is newer than the supported: %v", dbVersion.Version,
+				sqlDatabaseVersion)
+			return nil
+		}
+		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
+	}
+}
+
+func (p MySQLProvider) revertDatabase(targetVersion int) error {
+	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
+	if err != nil {
+		return err
+	}
+	if dbVersion.Version == targetVersion {
+		return fmt.Errorf("current version match target version, nothing to do")
+	}
+	switch dbVersion.Version {
+	case 6:
+		err = downgradeMySQLDatabaseFrom6To5(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		return downgradeMySQLDatabaseFrom5To4(p.dbHandle)
+	case 5:
+		return downgradeMySQLDatabaseFrom5To4(p.dbHandle)
+	default:
 		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
 	}
 }
@@ -288,4 +318,15 @@ func updateMySQLDatabaseFrom5To6(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "updating database version: 5 -> 6")
 	sql := strings.Replace(mysqlV6SQL, "{{users}}", sqlTableUsers, 1)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 6)
+}
+
+func downgradeMySQLDatabaseFrom6To5(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 6 -> 5")
+	providerLog(logger.LevelInfo, "downgrading database version: 6 -> 5")
+	sql := strings.Replace(mysqlV6DownSQL, "{{users}}", sqlTableUsers, 1)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 5)
+}
+
+func downgradeMySQLDatabaseFrom5To4(dbHandle *sql.DB) error {
+	return sqlCommonDowngradeDatabaseFrom5To4(dbHandle)
 }
