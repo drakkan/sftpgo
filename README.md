@@ -83,7 +83,7 @@ Alternately, you can [build from source](./docs/build-from-source.md).
 
 A full explanation of all configuration methods can be found [here](./docs/full-configuration.md).
 
-Please make sure to [initialize the data provider](#data-provider-initialization) before running the daemon!
+Please make sure to [initialize the data provider](#data-provider-initialization-and-management) before running the daemon!
 
 To start SFTPGo with the default settings, simply run:
 
@@ -93,7 +93,7 @@ sftpgo serve
 
 Check out [this documentation](./docs/service.md) if you want to run SFTPGo as a service.
 
-### Data provider initialization and update
+### Data provider initialization and management
 
 Before starting the SFTPGo server please ensure that the configured data provider is properly initialized/updated.
 

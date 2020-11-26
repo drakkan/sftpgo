@@ -707,7 +707,7 @@ func (p BoltProvider) migrateDatabase() error {
 	case 4:
 		return updateBoltDatabaseFromV4(p.dbHandle)
 	default:
-		if dbVersion.Version > sqlDatabaseVersion {
+		if dbVersion.Version > boltDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported: %v", dbVersion.Version,
 				boltDatabaseVersion)
 			logger.WarnToConsole("database version %v is newer than the supported: %v", dbVersion.Version,
