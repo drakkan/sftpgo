@@ -1,3 +1,4 @@
+// Package kms provides Key Management Services support
 package kms
 
 import (
