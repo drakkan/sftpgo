@@ -337,7 +337,7 @@
         <label for="idS3AccessSecret" class="col-sm-2 col-form-label">Access Secret</label>
         <div class="col-sm-3">
             <input type="text" class="form-control" id="idS3AccessSecret" name="s3_access_secret" placeholder=""
-                value="{{if .IsS3SecretEnc}}{{.RedactedSecret}}{{else}}{{.User.FsConfig.S3Config.AccessSecret.Payload}}{{end}}" maxlength="1000">
+                value="{{if .IsS3SecretEnc}}{{.RedactedSecret}}{{else}}{{.User.FsConfig.S3Config.AccessSecret.GetPayload}}{{end}}" maxlength="1000">
         </div>
     </div>
 
@@ -448,7 +448,7 @@
         <label for="idAzAccountKey" class="col-sm-2 col-form-label">Account Key</label>
         <div class="col-sm-10">
             <input type="text" class="form-control" id="idAzAccountKey" name="az_account_key" placeholder=""
-                value="{{if .IsAzSecretEnc}}{{.RedactedSecret}}{{else}}{{.User.FsConfig.AzBlobConfig.AccountKey.Payload}}{{end}}" maxlength="1000">
+                value="{{if .IsAzSecretEnc}}{{.RedactedSecret}}{{else}}{{.User.FsConfig.AzBlobConfig.AccountKey.GetPayload}}{{end}}" maxlength="1000">
         </div>
     </div>
 

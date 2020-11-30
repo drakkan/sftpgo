@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	// we import lib/pq here to be able to disable PostgreSQL support using a build tag
 	_ "github.com/lib/pq"
@@ -58,6 +59,12 @@ func initializePGSQLProvider() error {
 		providerLog(logger.LevelDebug, "postgres database handle created, connection string: %#v, pool size: %v",
 			getPGSQLConnectionString(true), config.PoolSize)
 		dbHandle.SetMaxOpenConns(config.PoolSize)
+		if config.PoolSize > 0 {
+			dbHandle.SetMaxIdleConns(config.PoolSize)
+		} else {
+			dbHandle.SetMaxIdleConns(2)
+		}
+		dbHandle.SetConnMaxLifetime(240 * time.Second)
 		provider = PGSQLProvider{dbHandle: dbHandle}
 	} else {
 		providerLog(logger.LevelWarn, "error creating postgres database handler, connection string: %#v, error: %v",

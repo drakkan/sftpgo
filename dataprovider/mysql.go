@@ -59,7 +59,12 @@ func initializeMySQLProvider() error {
 		providerLog(logger.LevelDebug, "mysql database handle created, connection string: %#v, pool size: %v",
 			getMySQLConnectionString(true), config.PoolSize)
 		dbHandle.SetMaxOpenConns(config.PoolSize)
-		dbHandle.SetConnMaxLifetime(1800 * time.Second)
+		if config.PoolSize > 0 {
+			dbHandle.SetMaxIdleConns(config.PoolSize)
+		} else {
+			dbHandle.SetMaxIdleConns(2)
+		}
+		dbHandle.SetConnMaxLifetime(240 * time.Second)
 		provider = MySQLProvider{dbHandle: dbHandle}
 	} else {
 		providerLog(logger.LevelWarn, "error creating mysql database handler, connection string: %#v, error: %v",

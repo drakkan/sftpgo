@@ -42,6 +42,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/drakkan/sftpgo/httpclient"
+	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
@@ -124,6 +125,7 @@ var (
 	sqlTableFoldersMapping  = "folders_mapping"
 	sqlTableSchemaVersion   = "schema_version"
 	argon2Params            *argon2id.Params
+	lastLoginMinDelay       = 10 * time.Minute
 )
 
 type schemaVersion struct {
@@ -577,7 +579,12 @@ func UpdateLastLogin(user User) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
-	return provider.updateLastLogin(user.Username)
+	lastLogin := utils.GetTimeFromMsecSinceEpoch(user.LastLogin)
+	diff := -time.Until(lastLogin)
+	if diff < 0 || diff > lastLoginMinDelay {
+		return provider.updateLastLogin(user.Username)
+	}
+	return nil
 }
 
 // UpdateUserQuota updates the quota for the given SFTP user adding filesAdd and sizeAdd.
@@ -1099,12 +1106,12 @@ func saveGCSCredentials(user *User) error {
 	if user.FsConfig.Provider != GCSFilesystemProvider {
 		return nil
 	}
-	if user.FsConfig.GCSConfig.Credentials.Payload == "" {
+	if user.FsConfig.GCSConfig.Credentials.GetPayload() == "" {
 		return nil
 	}
 	if config.PreferDatabaseCredentials {
 		if user.FsConfig.GCSConfig.Credentials.IsPlain() {
-			user.FsConfig.GCSConfig.Credentials.AdditionalData = user.Username
+			user.FsConfig.GCSConfig.Credentials.SetAdditionalData(user.Username)
 			err := user.FsConfig.GCSConfig.Credentials.Encrypt()
 			if err != nil {
 				return err
@@ -1113,7 +1120,7 @@ func saveGCSCredentials(user *User) error {
 		return nil
 	}
 	if user.FsConfig.GCSConfig.Credentials.IsPlain() {
-		user.FsConfig.GCSConfig.Credentials.AdditionalData = user.Username
+		user.FsConfig.GCSConfig.Credentials.SetAdditionalData(user.Username)
 		err := user.FsConfig.GCSConfig.Credentials.Encrypt()
 		if err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not encrypt GCS credentials: %v", err)}
@@ -1132,7 +1139,7 @@ func saveGCSCredentials(user *User) error {
 	if err != nil {
 		return &ValidationError{err: fmt.Sprintf("could not save GCS credentials: %v", err)}
 	}
-	user.FsConfig.GCSConfig.Credentials = vfs.Secret{}
+	user.FsConfig.GCSConfig.Credentials = kms.NewEmptySecret()
 	return nil
 }
 
@@ -1143,7 +1150,7 @@ func validateFilesystemConfig(user *User) error {
 			return &ValidationError{err: fmt.Sprintf("could not validate s3config: %v", err)}
 		}
 		if user.FsConfig.S3Config.AccessSecret.IsPlain() {
-			user.FsConfig.S3Config.AccessSecret.AdditionalData = user.Username
+			user.FsConfig.S3Config.AccessSecret.SetAdditionalData(user.Username)
 			err = user.FsConfig.S3Config.AccessSecret.Encrypt()
 			if err != nil {
 				return &ValidationError{err: fmt.Sprintf("could not encrypt s3 access secret: %v", err)}
@@ -1166,7 +1173,7 @@ func validateFilesystemConfig(user *User) error {
 			return &ValidationError{err: fmt.Sprintf("could not validate Azure Blob config: %v", err)}
 		}
 		if user.FsConfig.AzBlobConfig.AccountKey.IsPlain() {
-			user.FsConfig.AzBlobConfig.AccountKey.AdditionalData = user.Username
+			user.FsConfig.AzBlobConfig.AccountKey.SetAdditionalData(user.Username)
 			err = user.FsConfig.AzBlobConfig.AccountKey.Encrypt()
 			if err != nil {
 				return &ValidationError{err: fmt.Sprintf("could not encrypt Azure blob account key: %v", err)}
@@ -1220,6 +1227,7 @@ func validateFolder(folder *vfs.BaseVirtualFolder) error {
 }
 
 func validateUser(user *User) error {
+	user.SetEmptySecretsIfNil()
 	buildUserHomeDir(user)
 	if err := validateBaseParams(user); err != nil {
 		return err
@@ -2131,7 +2139,7 @@ func CacheWebDAVUser(cachedUser *CachedUser, maxSize int) {
 		}
 	}
 
-	if len(cachedUser.User.Username) > 0 {
+	if cachedUser.User.Username != "" {
 		webDAVUsersCache.Store(cachedUser.User.Username, cachedUser)
 	}
 }
@@ -2143,7 +2151,7 @@ func GetCachedWebDAVUser(username string) (interface{}, bool) {
 
 // RemoveCachedWebDAVUser removes a cached WebDAV user
 func RemoveCachedWebDAVUser(username string) {
-	if len(username) > 0 {
+	if username != "" {
 		webDAVUsersCache.Delete(username)
 	}
 }

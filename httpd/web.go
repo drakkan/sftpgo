@@ -16,6 +16,7 @@ import (
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/version"
 	"github.com/drakkan/sftpgo/vfs"
@@ -205,6 +206,7 @@ func renderNotFoundPage(w http.ResponseWriter, err error) {
 }
 
 func renderAddUserPage(w http.ResponseWriter, user dataprovider.User, error string) {
+	user.SetEmptySecretsIfNil()
 	data := userPage{
 		basePage:             getBasePageData("Add a new user", webUserPath),
 		IsAdd:                true,
@@ -222,6 +224,7 @@ func renderAddUserPage(w http.ResponseWriter, user dataprovider.User, error stri
 }
 
 func renderUpdateUserPage(w http.ResponseWriter, user dataprovider.User, error string) {
+	user.SetEmptySecretsIfNil()
 	data := userPage{
 		basePage:             getBasePageData("Update user", fmt.Sprintf("%v/%v", webUserPath, user.ID)),
 		IsAdd:                false,
@@ -430,16 +433,13 @@ func getFiltersFromUserPostFields(r *http.Request) dataprovider.UserFilters {
 	return filters
 }
 
-func getSecretFromFormField(r *http.Request, field string) vfs.Secret {
-	secret := vfs.Secret{
-		Payload: r.Form.Get(field),
-		Status:  vfs.SecretStatusPlain,
+func getSecretFromFormField(r *http.Request, field string) *kms.Secret {
+	secret := kms.NewPlainSecret(r.Form.Get(field))
+	if strings.TrimSpace(secret.GetPayload()) == redactedSecret {
+		secret.SetStatus(kms.SecretStatusRedacted)
 	}
-	if strings.TrimSpace(secret.Payload) == redactedSecret {
-		secret.Status = vfs.SecretStatusRedacted
-	}
-	if strings.TrimSpace(secret.Payload) == "" {
-		secret.Status = ""
+	if strings.TrimSpace(secret.GetPayload()) == "" {
+		secret.SetStatus("")
 	}
 	return secret
 }
@@ -492,10 +492,7 @@ func getFsConfigFromUserPostFields(r *http.Request) (dataprovider.Filesystem, er
 			}
 			return fs, err
 		}
-		fs.GCSConfig.Credentials = vfs.Secret{
-			Status:  vfs.SecretStatusPlain,
-			Payload: string(fileBytes),
-		}
+		fs.GCSConfig.Credentials = kms.NewPlainSecret(string(fileBytes))
 		fs.GCSConfig.AutomaticCredentials = 0
 	} else if fs.Provider == dataprovider.AzureBlobFilesystemProvider {
 		fs.AzBlobConfig.Container = r.Form.Get("az_container")
@@ -680,6 +677,7 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	updatedUser.ID = user.ID
+	updatedUser.SetEmptySecretsIfNil()
 	if len(updatedUser.Password) == 0 {
 		updatedUser.Password = user.Password
 	}

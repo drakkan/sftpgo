@@ -12,6 +12,7 @@ import (
 	"github.com/drakkan/sftpgo/ftpd"
 	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/httpd"
+	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
@@ -43,6 +44,7 @@ type globalConfig struct {
 	ProviderConf dataprovider.Config   `json:"data_provider" mapstructure:"data_provider"`
 	HTTPDConfig  httpd.Conf            `json:"httpd" mapstructure:"httpd"`
 	HTTPConfig   httpclient.Config     `json:"http" mapstructure:"http"`
+	KMSConfig    kms.Configuration     `json:"kms" mapstructure:"kms"`
 }
 
 func init() {
@@ -164,6 +166,12 @@ func init() {
 			CACertificates: nil,
 			SkipTLSVerify:  false,
 		},
+		KMSConfig: kms.Configuration{
+			Secrets: kms.Secrets{
+				URL:           "",
+				MasterKeyPath: "",
+			},
+		},
 	}
 
 	viper.SetEnvPrefix(configEnvPrefix)
@@ -238,6 +246,16 @@ func SetProviderConf(config dataprovider.Config) {
 // GetHTTPConfig returns the configuration for HTTP clients
 func GetHTTPConfig() httpclient.Config {
 	return globalConf.HTTPConfig
+}
+
+// GetKMSConfig returns the KMS configuration
+func GetKMSConfig() kms.Configuration {
+	return globalConf.KMSConfig
+}
+
+// SetKMSConfig sets the kms configuration
+func SetKMSConfig(config kms.Configuration) {
+	globalConf.KMSConfig = config
 }
 
 // HasServicesToStart returns true if the config defines at least a service to start.
@@ -456,4 +474,6 @@ func setViperDefaults() {
 	viper.SetDefault("http.timeout", globalConf.HTTPConfig.Timeout)
 	viper.SetDefault("http.ca_certificates", globalConf.HTTPConfig.CACertificates)
 	viper.SetDefault("http.skip_tls_verify", globalConf.HTTPConfig.SkipTLSVerify)
+	viper.SetDefault("kms.secrets.url", globalConf.KMSConfig.Secrets.URL)
+	viper.SetDefault("kms.secrets.master_key_path", globalConf.KMSConfig.Secrets.MasterKeyPath)
 }

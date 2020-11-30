@@ -83,6 +83,11 @@ Command-line flags should be specified in the Subsystem declaration.
 			}
 			httpConfig := config.GetHTTPConfig()
 			httpConfig.Initialize(configDir)
+			kmsConfig := config.GetKMSConfig()
+			if err := kmsConfig.Initialize(); err != nil {
+				logger.Error(logSender, connectionID, "unable to initialize KMS: %v", err)
+				os.Exit(1)
+			}
 			user, err := dataprovider.UserExists(username)
 			if err == nil {
 				if user.HomeDir != filepath.Clean(homedir) && !preserveHomeDir {

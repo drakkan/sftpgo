@@ -14,6 +14,7 @@ import (
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/service"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/version"
@@ -143,13 +144,10 @@ Please take a look at the usage below to customize the serving parameters`,
 					FsConfig: dataprovider.Filesystem{
 						Provider: dataprovider.FilesystemProvider(portableFsProvider),
 						S3Config: vfs.S3FsConfig{
-							Bucket:    portableS3Bucket,
-							Region:    portableS3Region,
-							AccessKey: portableS3AccessKey,
-							AccessSecret: vfs.Secret{
-								Status:  vfs.SecretStatusPlain,
-								Payload: portableS3AccessSecret,
-							},
+							Bucket:            portableS3Bucket,
+							Region:            portableS3Region,
+							AccessKey:         portableS3AccessKey,
+							AccessSecret:      kms.NewPlainSecret(portableS3AccessSecret),
 							Endpoint:          portableS3Endpoint,
 							StorageClass:      portableS3StorageClass,
 							KeyPrefix:         portableS3KeyPrefix,
@@ -157,22 +155,16 @@ Please take a look at the usage below to customize the serving parameters`,
 							UploadConcurrency: portableS3ULConcurrency,
 						},
 						GCSConfig: vfs.GCSFsConfig{
-							Bucket: portableGCSBucket,
-							Credentials: vfs.Secret{
-								Status:  vfs.SecretStatusPlain,
-								Payload: string(portableGCSCredentials),
-							},
+							Bucket:               portableGCSBucket,
+							Credentials:          kms.NewPlainSecret(string(portableGCSCredentials)),
 							AutomaticCredentials: portableGCSAutoCredentials,
 							StorageClass:         portableGCSStorageClass,
 							KeyPrefix:            portableGCSKeyPrefix,
 						},
 						AzBlobConfig: vfs.AzBlobFsConfig{
-							Container:   portableAzContainer,
-							AccountName: portableAzAccountName,
-							AccountKey: vfs.Secret{
-								Status:  vfs.SecretStatusPlain,
-								Payload: portableAzAccountKey,
-							},
+							Container:         portableAzContainer,
+							AccountName:       portableAzAccountName,
+							AccountKey:        kms.NewPlainSecret(portableAzAccountKey),
 							Endpoint:          portableAzEndpoint,
 							AccessTier:        portableAzAccessTier,
 							SASURL:            portableAzSASURL,

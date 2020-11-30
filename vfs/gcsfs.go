@@ -23,6 +23,7 @@ import (
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 
+	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/version"
@@ -62,19 +63,21 @@ func NewGCSFs(connectionID, localTempDir string, config GCSFsConfig) (Fs, error)
 	ctx := context.Background()
 	if fs.config.AutomaticCredentials > 0 {
 		fs.svc, err = storage.NewClient(ctx)
-	} else if fs.config.Credentials.IsEncrypted() {
-		err = fs.config.Credentials.Decrypt()
-		if err != nil {
-			return fs, err
+	} else if !fs.config.Credentials.IsEmpty() {
+		if fs.config.Credentials.IsEncrypted() {
+			err = fs.config.Credentials.Decrypt()
+			if err != nil {
+				return fs, err
+			}
 		}
-		fs.svc, err = storage.NewClient(ctx, option.WithCredentialsJSON([]byte(fs.config.Credentials.Payload)))
+		fs.svc, err = storage.NewClient(ctx, option.WithCredentialsJSON([]byte(fs.config.Credentials.GetPayload())))
 	} else {
 		var creds []byte
 		creds, err = ioutil.ReadFile(fs.config.CredentialFile)
 		if err != nil {
 			return fs, err
 		}
-		secret := &Secret{}
+		secret := kms.NewEmptySecret()
 		err = json.Unmarshal(creds, secret)
 		if err != nil {
 			return fs, err
@@ -83,7 +86,7 @@ func NewGCSFs(connectionID, localTempDir string, config GCSFsConfig) (Fs, error)
 		if err != nil {
 			return fs, err
 		}
-		fs.svc, err = storage.NewClient(ctx, option.WithCredentialsJSON([]byte(secret.Payload)))
+		fs.svc, err = storage.NewClient(ctx, option.WithCredentialsJSON([]byte(secret.GetPayload())))
 	}
 	return fs, err
 }

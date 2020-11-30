@@ -29,7 +29,7 @@ The response is something like this:
 {"message":"User created successfully.","user":{"id":xxxxxxxx},"success":true}
 ```
 
-Save the user id somewhere and add a reference to the matching SFTPGo account.
+Save the user id somewhere and add a reference to the matching SFTPGo account. You could also store this ID in the `additional_info` SFTPGo user field.
 
 After this step you can use the Authy app installed on your phone to generate TOTP codes.
 

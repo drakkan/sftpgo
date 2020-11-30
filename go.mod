@@ -23,6 +23,7 @@ require (
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mattn/go-sqlite3 v1.14.5
 	github.com/miekg/dns v1.1.35 // indirect
+	github.com/minio/sha256-simd v0.1.1
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/otiai10/copy v1.2.0
 	github.com/pelletier/go-toml v1.8.1 // indirect
@@ -43,6 +44,8 @@ require (
 	github.com/studio-b12/gowebdav v0.0.0-20200929080739-bdacfab94796
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/automaxprocs v1.3.0
+	gocloud.dev v0.20.0
+	gocloud.dev/secrets/hashivault v0.20.0
 	golang.org/x/crypto v0.0.0-20201117144127-c1f2f97bffc9
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	golang.org/x/oauth2 v0.0.0-20201109201403-9fd604954f58 // indirect

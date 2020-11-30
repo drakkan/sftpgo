@@ -122,5 +122,11 @@
     "timeout": 20,
     "ca_certificates": [],
     "skip_tls_verify": false
+  },
+  "kms": {
+    "secrets": {
+      "url": "",
+      "master_key_path": ""
+    }
   }
 }

@@ -15,6 +15,7 @@ import (
 
 	"github.com/eikenb/pipeat"
 
+	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 )
@@ -110,12 +111,12 @@ type S3FsConfig struct {
 	// folder. The prefix, if not empty, must not start with "/" and must
 	// end with "/".
 	// If empty the whole bucket contents will be available
-	KeyPrefix    string `json:"key_prefix,omitempty"`
-	Region       string `json:"region,omitempty"`
-	AccessKey    string `json:"access_key,omitempty"`
-	AccessSecret Secret `json:"access_secret,omitempty"`
-	Endpoint     string `json:"endpoint,omitempty"`
-	StorageClass string `json:"storage_class,omitempty"`
+	KeyPrefix    string      `json:"key_prefix,omitempty"`
+	Region       string      `json:"region,omitempty"`
+	AccessKey    string      `json:"access_key,omitempty"`
+	AccessSecret *kms.Secret `json:"access_secret,omitempty"`
+	Endpoint     string      `json:"endpoint,omitempty"`
+	StorageClass string      `json:"storage_class,omitempty"`
 	// The buffer size (in MB) to use for multipart uploads. The minimum allowed part size is 5MB,
 	// and if this value is set to zero, the default value (5MB) for the AWS SDK will be used.
 	// The minimum allowed value is 5.
@@ -137,9 +138,9 @@ type GCSFsConfig struct {
 	// folder. The prefix, if not empty, must not start with "/" and must
 	// end with "/".
 	// If empty the whole bucket contents will be available
-	KeyPrefix      string `json:"key_prefix,omitempty"`
-	CredentialFile string `json:"-"`
-	Credentials    Secret `json:"credentials,omitempty"`
+	KeyPrefix      string      `json:"key_prefix,omitempty"`
+	CredentialFile string      `json:"-"`
+	Credentials    *kms.Secret `json:"credentials,omitempty"`
 	// 0 explicit, 1 automatic
 	AutomaticCredentials int    `json:"automatic_credentials,omitempty"`
 	StorageClass         string `json:"storage_class,omitempty"`
@@ -151,8 +152,8 @@ type AzBlobFsConfig struct {
 	// Storage Account Name, leave blank to use SAS URL
 	AccountName string `json:"account_name,omitempty"`
 	// Storage Account Key leave blank to use SAS URL.
-	// The access key is stored encrypted (AES-256-GCM)
-	AccountKey Secret `json:"account_key,omitempty"`
+	// The access key is stored encrypted based on the kms configuration
+	AccountKey *kms.Secret `json:"account_key,omitempty"`
 	// Optional endpoint. Default is "blob.core.windows.net".
 	// If you use the emulator the endpoint must include the protocol,
 	// for example "http://127.0.0.1:10000"
@@ -254,6 +255,9 @@ func checkS3Credentials(config *S3FsConfig) error {
 
 // ValidateS3FsConfig returns nil if the specified s3 config is valid, otherwise an error
 func ValidateS3FsConfig(config *S3FsConfig) error {
+	if config.AccessSecret == nil {
+		config.AccessSecret = kms.NewEmptySecret()
+	}
 	if config.Bucket == "" {
 		return errors.New("bucket cannot be empty")
 	}
@@ -283,6 +287,9 @@ func ValidateS3FsConfig(config *S3FsConfig) error {
 
 // ValidateGCSFsConfig returns nil if the specified GCS config is valid, otherwise an error
 func ValidateGCSFsConfig(config *GCSFsConfig, credentialsFilePath string) error {
+	if config.Credentials == nil {
+		config.Credentials = kms.NewEmptySecret()
+	}
 	if config.Bucket == "" {
 		return errors.New("bucket cannot be empty")
 	}
@@ -310,8 +317,21 @@ func ValidateGCSFsConfig(config *GCSFsConfig, credentialsFilePath string) error 
 	return nil
 }
 
+func checkAzCredentials(config *AzBlobFsConfig) error {
+	if config.AccountName == "" || !config.AccountKey.IsValidInput() {
+		return errors.New("credentials cannot be empty or invalid")
+	}
+	if config.AccountKey.IsEncrypted() && !config.AccountKey.IsValid() {
+		return errors.New("invalid encrypted account_key")
+	}
+	return nil
+}
+
 // ValidateAzBlobFsConfig returns nil if the specified Azure Blob config is valid, otherwise an error
 func ValidateAzBlobFsConfig(config *AzBlobFsConfig) error {
+	if config.AccountKey == nil {
+		config.AccountKey = kms.NewEmptySecret()
+	}
 	if config.SASURL != "" {
 		_, err := url.Parse(config.SASURL)
 		return err
@@ -319,11 +339,8 @@ func ValidateAzBlobFsConfig(config *AzBlobFsConfig) error {
 	if config.Container == "" {
 		return errors.New("container cannot be empty")
 	}
-	if config.AccountName == "" || !config.AccountKey.IsValidInput() {
-		return errors.New("credentials cannot be empty or invalid")
-	}
-	if config.AccountKey.IsEncrypted() && !config.AccountKey.IsValid() {
-		return errors.New("invalid encrypted account_key")
+	if err := checkAzCredentials(config); err != nil {
+		return err
 	}
 	if config.KeyPrefix != "" {
 		if strings.HasPrefix(config.KeyPrefix, "/") {

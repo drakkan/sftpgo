@@ -109,6 +109,13 @@ func (s *Service) Start() error {
 
 	httpConfig := config.GetHTTPConfig()
 	httpConfig.Initialize(s.ConfigDir)
+	kmsConfig := config.GetKMSConfig()
+	err = kmsConfig.Initialize()
+	if err != nil {
+		logger.Error(logSender, "", "unable to initialize KMS: %v", err)
+		logger.ErrorToConsole("unable to initialize KMS: %v", err)
+		os.Exit(1)
+	}
 
 	s.startServices()
 

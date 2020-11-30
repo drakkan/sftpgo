@@ -60,12 +60,14 @@ func NewS3Fs(connectionID, localTempDir string, config S3FsConfig) (Fs, error) {
 		awsConfig.WithRegion(fs.config.Region)
 	}
 
-	if fs.config.AccessSecret.IsEncrypted() {
-		err := fs.config.AccessSecret.Decrypt()
-		if err != nil {
-			return fs, err
+	if !fs.config.AccessSecret.IsEmpty() {
+		if fs.config.AccessSecret.IsEncrypted() {
+			err := fs.config.AccessSecret.Decrypt()
+			if err != nil {
+				return fs, err
+			}
 		}
-		awsConfig.Credentials = credentials.NewStaticCredentials(fs.config.AccessKey, fs.config.AccessSecret.Payload, "")
+		awsConfig.Credentials = credentials.NewStaticCredentials(fs.config.AccessKey, fs.config.AccessSecret.GetPayload(), "")
 	}
 
 	if fs.config.Endpoint != "" {

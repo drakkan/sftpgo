@@ -60,8 +60,8 @@ Output:
     "s3config": {
       "access_key": "accesskey",
       "access_secret": {
-        "payload": "ac46cec75466ba77e47f536436783b729ca5bbbb53252fda0de51f785a6da11ffb03",
-        "status": "AES-256-GCM"
+        "payload": "dcd07e64a5ef5ede37b978198ca396ea9aee92453208ee2fee6f25407e47bf2119ba8edf2e81f91999bd5386c1a7",
+        "status": "Secretbox"
       },
       "bucket": "test",
       "endpoint": "http://127.0.0.1:9000",
@@ -178,9 +178,16 @@ Output:
   "download_bandwidth": 80,
   "expiration_date": 0,
   "filesystem": {
-    "gcsconfig": {},
+    "azblobconfig": {
+      "account_key": {}
+    },
+    "gcsconfig": {
+      "credentials": {}
+    },
     "provider": 0,
-    "s3config": {}
+    "s3config": {
+      "access_secret": {}
+    }
   },
   "filters": {
     "denied_ip": [
@@ -253,9 +260,16 @@ Output:
     "download_bandwidth": 80,
     "expiration_date": 0,
     "filesystem": {
-      "gcsconfig": {},
+      "azblobconfig": {
+        "account_key": {}
+      },
+      "gcsconfig": {
+        "credentials": {}
+      },
       "provider": 0,
-      "s3config": {}
+      "s3config": {
+        "access_secret": {}
+      }
     },
     "filters": {
       "denied_ip": [

@@ -21,6 +21,7 @@ import (
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/httpclient"
+	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/version"
 	"github.com/drakkan/sftpgo/vfs"
@@ -710,19 +711,41 @@ func compareAzBlobConfig(expected *dataprovider.User, actual *dataprovider.User)
 	return nil
 }
 
-func checkEncryptedSecret(expected, actual vfs.Secret) error {
+func areSecretEquals(expected, actual *kms.Secret) bool {
+	if expected == nil && actual == nil {
+		return true
+	}
+	if expected != nil && expected.IsEmpty() && actual == nil {
+		return true
+	}
+	if actual != nil && actual.IsEmpty() && expected == nil {
+		return true
+	}
+	return false
+}
+
+func checkEncryptedSecret(expected, actual *kms.Secret) error {
+	if areSecretEquals(expected, actual) {
+		return nil
+	}
+	if expected == nil && actual != nil && !actual.IsEmpty() {
+		return errors.New("secret mismatch")
+	}
+	if actual == nil && expected != nil && !expected.IsEmpty() {
+		return errors.New("secret mismatch")
+	}
 	if expected.IsPlain() && actual.IsEncrypted() {
-		if actual.Payload == "" {
+		if actual.GetPayload() == "" {
 			return errors.New("invalid secret payload")
 		}
-		if actual.AdditionalData != "" {
+		if actual.GetAdditionalData() != "" {
 			return errors.New("invalid secret additional data")
 		}
-		if actual.Key != "" {
+		if actual.GetKey() != "" {
 			return errors.New("invalid secret key")
 		}
 	} else {
-		if expected.Status != actual.Status || expected.Payload != actual.Payload {
+		if expected.GetStatus() != actual.GetStatus() || expected.GetPayload() != actual.GetPayload() {
 			return errors.New("secret mismatch")
 		}
 	}

@@ -19,6 +19,7 @@ import (
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
 )
@@ -318,8 +319,11 @@ func TestCompareUserFields(t *testing.T) {
 }
 
 func TestCompareUserFsConfig(t *testing.T) {
+	secretString := "access secret"
 	expected := &dataprovider.User{}
 	actual := &dataprovider.User{}
+	expected.SetEmptySecretsIfNil()
+	actual.SetEmptySecretsIfNil()
 	expected.FsConfig.Provider = dataprovider.S3FilesystemProvider
 	err := compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
@@ -336,36 +340,36 @@ func TestCompareUserFsConfig(t *testing.T) {
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
 	expected.FsConfig.S3Config.AccessKey = ""
-	actual.FsConfig.S3Config.AccessSecret.Payload = "access secret"
+	actual.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret(secretString)
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
-	secret, _ := utils.EncryptData("access secret")
-	actual.FsConfig.S3Config.AccessSecret.Payload = ""
-	expected.FsConfig.S3Config.AccessSecret.Payload = secret
+	secret, err := utils.EncryptData(secretString)
+	assert.NoError(t, err)
+	actual.FsConfig.S3Config.AccessSecret = kms.NewEmptySecret()
+	kmsSecret, err := kms.GetSecretFromCompatString(secret)
+	assert.NoError(t, err)
+	expected.FsConfig.S3Config.AccessSecret = kmsSecret
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
-	expected.FsConfig.S3Config.AccessSecret.Payload = "test"
-	actual.FsConfig.S3Config.AccessSecret.Payload = ""
+	expected.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret(secretString)
+	actual.FsConfig.S3Config.AccessSecret = kms.NewEmptySecret()
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
-	expected.FsConfig.S3Config.AccessSecret.Status = vfs.SecretStatusPlain
-	actual.FsConfig.S3Config.AccessSecret.Status = vfs.SecretStatusAES256GCM
+	expected.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret(secretString)
+	actual.FsConfig.S3Config.AccessSecret = kms.NewSecret(kms.SecretStatusSecretBox, "", "", "")
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
-	actual.FsConfig.S3Config.AccessSecret.Payload = "payload"
-	actual.FsConfig.S3Config.AccessSecret.AdditionalData = "data"
+	actual.FsConfig.S3Config.AccessSecret = kms.NewSecret(kms.SecretStatusSecretBox, secretString, "", "data")
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
-	actual.FsConfig.S3Config.AccessSecret.AdditionalData = ""
-	actual.FsConfig.S3Config.AccessSecret.Key = "key"
+	actual.FsConfig.S3Config.AccessSecret = kms.NewSecret(kms.SecretStatusSecretBox, secretString, "key", "")
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
-	expected.FsConfig.S3Config.AccessSecret.Status = ""
-	expected.FsConfig.S3Config.AccessSecret.Payload = ""
-	actual.FsConfig.S3Config.AccessSecret.Status = ""
-	actual.FsConfig.S3Config.AccessSecret.Payload = ""
-	actual.FsConfig.S3Config.AccessSecret.AdditionalData = ""
-	actual.FsConfig.S3Config.AccessSecret.Key = ""
+	expected.FsConfig.S3Config.AccessSecret = nil
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	expected.FsConfig.S3Config.AccessSecret = kms.NewEmptySecret()
+	actual.FsConfig.S3Config.AccessSecret = kms.NewEmptySecret()
 	expected.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/"
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
@@ -419,10 +423,10 @@ func TestCompareUserAzureConfig(t *testing.T) {
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
 	expected.FsConfig.AzBlobConfig.AccountName = ""
-	expected.FsConfig.AzBlobConfig.AccountKey.Payload = "akey"
+	expected.FsConfig.AzBlobConfig.AccountKey = kms.NewSecret(kms.SecretStatusAWS, "payload", "", "")
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
-	expected.FsConfig.AzBlobConfig.AccountKey.Payload = ""
+	expected.FsConfig.AzBlobConfig.AccountKey = kms.NewEmptySecret()
 	expected.FsConfig.AzBlobConfig.Endpoint = "endpt"
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)

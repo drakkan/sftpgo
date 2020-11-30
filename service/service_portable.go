@@ -15,6 +15,7 @@ import (
 
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
@@ -31,6 +32,11 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 	err := config.LoadConfig(s.ConfigDir, s.ConfigFile)
 	if err != nil {
 		fmt.Printf("error loading configuration file: %v using defaults\n", err)
+	}
+	kmsConfig := config.GetKMSConfig()
+	err = kmsConfig.Initialize()
+	if err != nil {
+		return err
 	}
 	printablePassword := s.configurePortableUser()
 	dataProviderConf := config.GetProviderConf()
@@ -236,6 +242,24 @@ func (s *Service) configurePortableUser() string {
 		}
 		s.PortableUser.Password = b.String()
 		printablePassword = s.PortableUser.Password
+	}
+	// we created the user before to initialize the KMS so we need to create the secret here
+	switch s.PortableUser.FsConfig.Provider {
+	case dataprovider.S3FilesystemProvider:
+		payload := s.PortableUser.FsConfig.S3Config.AccessSecret.GetPayload()
+		if payload != "" {
+			s.PortableUser.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret(payload)
+		}
+	case dataprovider.GCSFilesystemProvider:
+		payload := s.PortableUser.FsConfig.GCSConfig.Credentials.GetPayload()
+		if payload != "" {
+			s.PortableUser.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret(payload)
+		}
+	case dataprovider.AzureBlobFilesystemProvider:
+		payload := s.PortableUser.FsConfig.AzBlobConfig.AccountKey.GetPayload()
+		if payload != "" {
+			s.PortableUser.FsConfig.AzBlobConfig.AccountKey = kms.NewPlainSecret(payload)
+		}
 	}
 	return printablePassword
 }

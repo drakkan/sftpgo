@@ -446,6 +446,7 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 	if additionalInfo.Valid {
 		user.AdditionalInfo = additionalInfo.String
 	}
+	user.SetEmptySecretsIfNil()
 	return user, err
 }
 

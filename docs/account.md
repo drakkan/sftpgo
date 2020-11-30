@@ -28,6 +28,7 @@ For each account, the following properties can be configured:
   - `chtimes` changing file or directory access and modification time is allowed
 - `upload_bandwidth` maximum upload bandwidth as KB/s, 0 means unlimited.
 - `download_bandwidth` maximum download bandwidth as KB/s, 0 means unlimited.
+- `last_login` last user login as unix timestamp in milliseconds. It is saved at most once every 10 minutes
 - `allowed_ip`, List of IP/Mask allowed to login. Any IP address not contained in this list cannot login. IP/Mask must be in CIDR notation as defined in RFC 4632 and RFC 4291, for example "192.0.2.0/24" or "2001:db8::/32"
 - `denied_ip`, List of IP/Mask not allowed to login. If an IP address is both allowed and denied then login will be denied
 - `max_upload_file_size`, max allowed size, as bytes, for a single file upload. The upload will be aborted if/when the size of the file being sent exceeds this limit. 0 means unlimited. This restriction does not apply for SSH system commands such as `git` and `rsync`
@@ -53,20 +54,20 @@ For each account, the following properties can be configured:
 - `s3_bucket`, required for S3 filesystem
 - `s3_region`, required for S3 filesystem. Must match the region for your bucket. You can find here the list of available [AWS regions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions). For example if your bucket is at `Frankfurt` you have to set the region to `eu-central-1`
 - `s3_access_key`
-- `s3_access_secret`, if provided it is stored encrypted (AES-256-GCM). You can leave access key and access secret blank to use credentials from environment
+- `s3_access_secret`, if provided it is stored encrypted based on kms configuration. You can leave access key and access secret blank to use credentials from environment
 - `s3_endpoint`, specifies a S3 endpoint (server) different from AWS. It is not required if you are connecting to AWS
 - `s3_storage_class`, leave blank to use the default or specify a valid AWS [storage class](https://docs.aws.amazon.com/AmazonS3/latest/dev/storage-class-intro.html)
 - `s3_key_prefix`, allows to restrict access to the folder identified by this prefix and its contents
 - `s3_upload_part_size`, the buffer size for multipart uploads (MB). Zero means the default (5 MB). Minimum is 5
 - `s3_upload_concurrency` how many parts are uploaded in parallel
 - `gcs_bucket`, required for GCS filesystem
-- `gcs_credentials`, Google Cloud Storage JSON credentials base64 encoded
+- `gcs_credentials`, Google Cloud Storage JSON credentials base64 encoded. Credentials are stored encrypted based on kms configuration
 - `gcs_automatic_credentials`, integer. Set to 1 to use Application Default Credentials strategy or set to 0 to use explicit credentials via `gcs_credentials`
 - `gcs_storage_class`
 - `gcs_key_prefix`, allows to restrict access to the folder identified by this prefix and its contents
 - `az_container`, Azure Blob Storage container
 - `az_account_name`, Azure account name. leave blank to use SAS URL
-- `az_account_key`, Azure account key. leave blank to use SAS URL. If provided it is stored encrypted (AES-256-GCM)
+- `az_account_key`, Azure account key. leave blank to use SAS URL. If provided it is stored encrypted based on kms configuration
 - `az_sas_url`, Azure shared access signature URL
 - `az_endpoint`, Default is "blob.core.windows.net". If you use the emulator the endpoint must include the protocol, for example "http://127.0.0.1:10000"
 - `az_upload_part_size`, the buffer size for multipart uploads (MB). Zero means the default (4 MB)

@@ -279,6 +279,12 @@ func TestSetGetConfig(t *testing.T) {
 	config.SetWebDAVDConfig(webDavConf)
 	assert.Equal(t, webDavConf.CertificateFile, config.GetWebDAVDConfig().CertificateFile)
 	assert.Equal(t, webDavConf.CertificateKeyFile, config.GetWebDAVDConfig().CertificateKeyFile)
+	kmsConf := config.GetKMSConfig()
+	kmsConf.Secrets.MasterKeyPath = "apath"
+	kmsConf.Secrets.URL = "aurl"
+	config.SetKMSConfig(kmsConf)
+	assert.Equal(t, kmsConf.Secrets.MasterKeyPath, config.GetKMSConfig().Secrets.MasterKeyPath)
+	assert.Equal(t, kmsConf.Secrets.URL, config.GetKMSConfig().Secrets.URL)
 }
 
 func TestServiceToStart(t *testing.T) {
@@ -313,11 +319,15 @@ func TestConfigFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_DATA_PROVIDER__PASSWORD_HASHING__ARGON2_OPTIONS__ITERATIONS", "41")
 	os.Setenv("SFTPGO_DATA_PROVIDER__POOL_SIZE", "10")
 	os.Setenv("SFTPGO_DATA_PROVIDER__ACTIONS__EXECUTE_ON", "add")
+	os.Setenv("SFTPGO_KMS__SECRETS__URL", "local")
+	os.Setenv("SFTPGO_KMS__SECRETS__MASTER_KEY_PATH", "path")
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_SFTPD__BIND_ADDRESS")
 		os.Unsetenv("SFTPGO_DATA_PROVIDER__PASSWORD_HASHING__ARGON2_OPTIONS__ITERATIONS")
 		os.Unsetenv("SFTPGO_DATA_PROVIDER__POOL_SIZE")
 		os.Unsetenv("SFTPGO_DATA_PROVIDER__ACTIONS__EXECUTE_ON")
+		os.Unsetenv("SFTPGO_KMS__SECRETS__URL")
+		os.Unsetenv("SFTPGO_KMS__SECRETS__MASTER_KEY_PATH")
 	})
 	err := config.LoadConfig(".", "invalid config")
 	assert.NoError(t, err)
@@ -328,4 +338,7 @@ func TestConfigFromEnv(t *testing.T) {
 	assert.Equal(t, 10, dataProviderConf.PoolSize)
 	assert.Len(t, dataProviderConf.Actions.ExecuteOn, 1)
 	assert.Contains(t, dataProviderConf.Actions.ExecuteOn, "add")
+	kmsConfig := config.GetKMSConfig()
+	assert.Equal(t, "local", kmsConfig.Secrets.URL)
+	assert.Equal(t, "path", kmsConfig.Secrets.MasterKeyPath)
 }

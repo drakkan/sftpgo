@@ -787,6 +787,7 @@ func joinUserAndFolders(u []byte, foldersBucket *bolt.Bucket) (User, error) {
 		}
 		user.VirtualFolders = folders
 	}
+	user.SetEmptySecretsIfNil()
 	return user, err
 }
 

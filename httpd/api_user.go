@@ -11,6 +11,7 @@ import (
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/vfs"
 )
 
@@ -82,6 +83,7 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
+	user.SetEmptySecretsIfNil()
 	switch user.FsConfig.Provider {
 	case dataprovider.S3FilesystemProvider:
 		if user.FsConfig.S3Config.AccessSecret.IsRedacted() {
@@ -136,9 +138,9 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentPermissions := user.Permissions
-	var currentS3AccessSecret vfs.Secret
-	var currentAzAccountKey vfs.Secret
-	var currentGCSCredentials vfs.Secret
+	var currentS3AccessSecret *kms.Secret
+	var currentAzAccountKey *kms.Secret
+	var currentGCSCredentials *kms.Secret
 	if user.FsConfig.Provider == dataprovider.S3FilesystemProvider {
 		currentS3AccessSecret = user.FsConfig.S3Config.AccessSecret
 	}
@@ -157,6 +159,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
+	user.SetEmptySecretsIfNil()
 	// we use new Permissions if passed otherwise the old ones
 	if len(user.Permissions) == 0 {
 		user.Permissions = currentPermissions
@@ -207,7 +210,7 @@ func disconnectUser(username string) {
 	}
 }
 
-func updateEncryptedSecrets(user *dataprovider.User, currentS3AccessSecret, currentAzAccountKey, currentGCSCredentials vfs.Secret) {
+func updateEncryptedSecrets(user *dataprovider.User, currentS3AccessSecret, currentAzAccountKey, currentGCSCredentials *kms.Secret) {
 	// we use the new access secret if plain or empty, otherwise the old value
 	if user.FsConfig.Provider == dataprovider.S3FilesystemProvider {
 		if !user.FsConfig.S3Config.AccessSecret.IsPlain() && !user.FsConfig.S3Config.AccessSecret.IsEmpty() {

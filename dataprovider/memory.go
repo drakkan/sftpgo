@@ -264,7 +264,8 @@ func (p MemoryProvider) dumpUsers() ([]User, error) {
 		return users, errMemoryProviderClosed
 	}
 	for _, username := range p.dbHandle.usernames {
-		user := p.dbHandle.users[username]
+		u := p.dbHandle.users[username]
+		user := u.getACopy()
 		err = addCredentialsToUser(&user)
 		if err != nil {
 			return users, err
@@ -315,7 +316,8 @@ func (p MemoryProvider) getUsers(limit int, offset int, order string, username s
 			if itNum <= offset {
 				continue
 			}
-			user := p.dbHandle.users[username]
+			u := p.dbHandle.users[username]
+			user := u.getACopy()
 			user.HideConfidentialData()
 			users = append(users, user)
 			if len(users) >= limit {
@@ -329,7 +331,8 @@ func (p MemoryProvider) getUsers(limit int, offset int, order string, username s
 				continue
 			}
 			username := p.dbHandle.usernames[i]
-			user := p.dbHandle.users[username]
+			u := p.dbHandle.users[username]
+			user := u.getACopy()
 			user.HideConfidentialData()
 			users = append(users, user)
 			if len(users) >= limit {

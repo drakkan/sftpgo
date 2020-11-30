@@ -163,6 +163,10 @@ The configuration file contains the following sections:
   - `timeout`, integer. Timeout specifies a time limit, in seconds, for requests.
   - `ca_certificates`, list of strings. List of paths to extra CA certificates to trust. The paths can be absolute or relative to the config dir. Adding trusted CA certificates is a convenient way to use self-signed certificates without defeating the purpose of using TLS.
   - `skip_tls_verify`, boolean. if enabled the HTTP client accepts any TLS certificate presented by the server and any host name in that certificate. In this mode, TLS is susceptible to man-in-the-middle attacks. This should be used only for testing.
+- **kms**, configuration for the Key Management Service, more details can be found [here](./kms.md)
+  - `secrets`
+    - `url`
+    - `master_key_path`
 
 A full example showing the default config (in JSON format) can be found [here](../sftpgo.json).
 

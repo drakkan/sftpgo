@@ -14,6 +14,7 @@ import (
 
 	"golang.org/x/net/webdav"
 
+	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
@@ -768,7 +769,21 @@ func (u User) GetDeniedIPAsString() string {
 	return result
 }
 
+// SetEmptySecretsIfNil sets the secrets to empty if nil
+func (u *User) SetEmptySecretsIfNil() {
+	if u.FsConfig.S3Config.AccessSecret == nil {
+		u.FsConfig.S3Config.AccessSecret = kms.NewEmptySecret()
+	}
+	if u.FsConfig.GCSConfig.Credentials == nil {
+		u.FsConfig.GCSConfig.Credentials = kms.NewEmptySecret()
+	}
+	if u.FsConfig.AzBlobConfig.AccountKey == nil {
+		u.FsConfig.AzBlobConfig.AccountKey = kms.NewEmptySecret()
+	}
+}
+
 func (u *User) getACopy() User {
+	u.SetEmptySecretsIfNil()
 	pubKeys := make([]string, len(u.PublicKeys))
 	copy(pubKeys, u.PublicKeys)
 	virtualFolders := make([]vfs.VirtualFolder, len(u.VirtualFolders))
@@ -799,7 +814,7 @@ func (u *User) getACopy() User {
 			Bucket:            u.FsConfig.S3Config.Bucket,
 			Region:            u.FsConfig.S3Config.Region,
 			AccessKey:         u.FsConfig.S3Config.AccessKey,
-			AccessSecret:      u.FsConfig.S3Config.AccessSecret,
+			AccessSecret:      u.FsConfig.S3Config.AccessSecret.Clone(),
 			Endpoint:          u.FsConfig.S3Config.Endpoint,
 			StorageClass:      u.FsConfig.S3Config.StorageClass,
 			KeyPrefix:         u.FsConfig.S3Config.KeyPrefix,
@@ -809,7 +824,7 @@ func (u *User) getACopy() User {
 		GCSConfig: vfs.GCSFsConfig{
 			Bucket:               u.FsConfig.GCSConfig.Bucket,
 			CredentialFile:       u.FsConfig.GCSConfig.CredentialFile,
-			Credentials:          u.FsConfig.GCSConfig.Credentials,
+			Credentials:          u.FsConfig.GCSConfig.Credentials.Clone(),
 			AutomaticCredentials: u.FsConfig.GCSConfig.AutomaticCredentials,
 			StorageClass:         u.FsConfig.GCSConfig.StorageClass,
 			KeyPrefix:            u.FsConfig.GCSConfig.KeyPrefix,
@@ -817,7 +832,7 @@ func (u *User) getACopy() User {
 		AzBlobConfig: vfs.AzBlobFsConfig{
 			Container:         u.FsConfig.AzBlobConfig.Container,
 			AccountName:       u.FsConfig.AzBlobConfig.AccountName,
-			AccountKey:        u.FsConfig.AzBlobConfig.AccountKey,
+			AccountKey:        u.FsConfig.AzBlobConfig.AccountKey.Clone(),
 			Endpoint:          u.FsConfig.AzBlobConfig.Endpoint,
 			SASURL:            u.FsConfig.AzBlobConfig.SASURL,
 			KeyPrefix:         u.FsConfig.AzBlobConfig.KeyPrefix,

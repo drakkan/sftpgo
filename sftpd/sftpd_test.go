@@ -41,6 +41,7 @@ import (
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/httpd"
+	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
@@ -177,6 +178,12 @@ func TestMain(m *testing.M) {
 
 	httpConfig := config.GetHTTPConfig()
 	httpConfig.Initialize(configDir)
+	kmsConfig := config.GetKMSConfig()
+	err = kmsConfig.Initialize()
+	if err != nil {
+		logger.ErrorToConsole("error initializing kms: %v", err)
+		os.Exit(1)
+	}
 
 	sftpdConf := config.GetSFTPDConfig()
 	httpdConf := config.GetHTTPDConfig()
@@ -1312,10 +1319,7 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.FsConfig.Provider = dataprovider.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "testbucket"
-	u.FsConfig.GCSConfig.Credentials = vfs.Secret{
-		Status:  vfs.SecretStatusPlain,
-		Payload: `{ "type": "service_account" }`,
-	}
+	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret(`{ "type": "service_account" }`)
 
 	providerConf := config.GetProviderConf()
 	providerConf.PreferDatabaseCredentials = true
@@ -1336,10 +1340,10 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
-	assert.Equal(t, vfs.SecretStatusAES256GCM, user.FsConfig.GCSConfig.Credentials.Status)
-	assert.NotEmpty(t, user.FsConfig.GCSConfig.Credentials.Payload)
-	assert.Empty(t, user.FsConfig.GCSConfig.Credentials.AdditionalData)
-	assert.Empty(t, user.FsConfig.GCSConfig.Credentials.Key)
+	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.GCSConfig.Credentials.GetStatus())
+	assert.NotEmpty(t, user.FsConfig.GCSConfig.Credentials.GetPayload())
+	assert.Empty(t, user.FsConfig.GCSConfig.Credentials.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.GCSConfig.Credentials.GetKey())
 
 	assert.NoFileExists(t, credentialsFile)
 
@@ -1364,10 +1368,7 @@ func TestLoginInvalidFs(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.FsConfig.Provider = dataprovider.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
-	u.FsConfig.GCSConfig.Credentials = vfs.Secret{
-		Status:  vfs.SecretStatusPlain,
-		Payload: "invalid JSON for credentials",
-	}
+	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("invalid JSON for credentials")
 	user, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
 

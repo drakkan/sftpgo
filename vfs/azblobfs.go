@@ -104,7 +104,7 @@ func NewAzBlobFs(connectionID, localTempDir string, config AzBlobFsConfig) (Fs, 
 		return fs, nil
 	}
 
-	credential, err := azblob.NewSharedKeyCredential(fs.config.AccountName, fs.config.AccountKey.Payload)
+	credential, err := azblob.NewSharedKeyCredential(fs.config.AccountName, fs.config.AccountKey.GetPayload())
 	if err != nil {
 		return fs, fmt.Errorf("invalid credentials: %v", err)
 	}

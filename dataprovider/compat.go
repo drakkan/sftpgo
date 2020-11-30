@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
@@ -129,6 +130,7 @@ func createUserFromV4(u compatUserV4, fsConfig Filesystem) User {
 		Filters:           u.Filters,
 	}
 	user.FsConfig = fsConfig
+	user.SetEmptySecretsIfNil()
 	return user
 }
 
@@ -160,12 +162,11 @@ func convertUserToV4(u User, fsConfig compatFilesystemV4) compatUserV4 {
 	return user
 }
 
-func getCGSCredentialsFromV4(config compatGCSFsConfigV4) (vfs.Secret, error) {
-	var secret vfs.Secret
+func getCGSCredentialsFromV4(config compatGCSFsConfigV4) (*kms.Secret, error) {
+	secret := kms.NewEmptySecret()
 	var err error
 	if len(config.Credentials) > 0 {
-		secret.Status = vfs.SecretStatusPlain
-		secret.Payload = string(config.Credentials)
+		secret = kms.NewPlainSecret(string(config.Credentials))
 		return secret, nil
 	}
 	if config.CredentialFile != "" {
@@ -173,14 +174,16 @@ func getCGSCredentialsFromV4(config compatGCSFsConfigV4) (vfs.Secret, error) {
 		if err != nil {
 			return secret, err
 		}
-		secret.Status = vfs.SecretStatusPlain
-		secret.Payload = string(creds)
+		secret = kms.NewPlainSecret(string(creds))
 		return secret, nil
 	}
 	return secret, err
 }
 
 func getCGSCredentialsFromV6(config vfs.GCSFsConfig, username string) (string, error) {
+	if config.Credentials == nil {
+		config.Credentials = kms.NewEmptySecret()
+	}
 	if config.Credentials.IsEmpty() {
 		config.CredentialFile = filepath.Join(credentialsDirPath, fmt.Sprintf("%v_gcs_credentials.json",
 			username))
@@ -199,7 +202,7 @@ func getCGSCredentialsFromV6(config vfs.GCSFsConfig, username string) (string, e
 			return "", err
 		}
 		// in V4 GCS credentials were not encrypted
-		return config.Credentials.Payload, nil
+		return config.Credentials.GetPayload(), nil
 	}
 	return "", nil
 }
@@ -229,7 +232,7 @@ func convertFsConfigToV4(fs Filesystem, username string) (compatFilesystemV4, er
 			if err != nil {
 				return fsV4, err
 			}
-			secretV4, err := utils.EncryptData(fs.S3Config.AccessSecret.Payload)
+			secretV4, err := utils.EncryptData(fs.S3Config.AccessSecret.GetPayload())
 			if err != nil {
 				return fsV4, err
 			}
@@ -253,7 +256,7 @@ func convertFsConfigToV4(fs Filesystem, username string) (compatFilesystemV4, er
 			if err != nil {
 				return fsV4, err
 			}
-			secretV4, err := utils.EncryptData(fs.AzBlobConfig.AccountKey.Payload)
+			secretV4, err := utils.EncryptData(fs.AzBlobConfig.AccountKey.GetPayload())
 			if err != nil {
 				return fsV4, err
 			}
@@ -292,14 +295,14 @@ func convertFsConfigFromV4(compatFs compatFilesystemV4, username string) (Filesy
 			KeyPrefix:         compatFs.S3Config.KeyPrefix,
 			Region:            compatFs.S3Config.Region,
 			AccessKey:         compatFs.S3Config.AccessKey,
-			AccessSecret:      vfs.Secret{},
+			AccessSecret:      kms.NewEmptySecret(),
 			Endpoint:          compatFs.S3Config.Endpoint,
 			StorageClass:      compatFs.S3Config.StorageClass,
 			UploadPartSize:    compatFs.S3Config.UploadPartSize,
 			UploadConcurrency: compatFs.S3Config.UploadConcurrency,
 		}
 		if compatFs.S3Config.AccessSecret != "" {
-			secret, err := vfs.GetSecretFromCompatString(compatFs.S3Config.AccessSecret)
+			secret, err := kms.GetSecretFromCompatString(compatFs.S3Config.AccessSecret)
 			if err != nil {
 				providerLog(logger.LevelError, "unable to convert v4 filesystem for user %#v: %v", username, err)
 				return fsConfig, err
@@ -310,7 +313,7 @@ func convertFsConfigFromV4(compatFs compatFilesystemV4, username string) (Filesy
 		fsConfig.AzBlobConfig = vfs.AzBlobFsConfig{
 			Container:         compatFs.AzBlobConfig.Container,
 			AccountName:       compatFs.AzBlobConfig.AccountName,
-			AccountKey:        vfs.Secret{},
+			AccountKey:        kms.NewEmptySecret(),
 			Endpoint:          compatFs.AzBlobConfig.Endpoint,
 			SASURL:            compatFs.AzBlobConfig.SASURL,
 			KeyPrefix:         compatFs.AzBlobConfig.KeyPrefix,
@@ -320,7 +323,7 @@ func convertFsConfigFromV4(compatFs compatFilesystemV4, username string) (Filesy
 			AccessTier:        compatFs.AzBlobConfig.AccessTier,
 		}
 		if compatFs.AzBlobConfig.AccountKey != "" {
-			secret, err := vfs.GetSecretFromCompatString(compatFs.AzBlobConfig.AccountKey)
+			secret, err := kms.GetSecretFromCompatString(compatFs.AzBlobConfig.AccountKey)
 			if err != nil {
 				providerLog(logger.LevelError, "unable to convert v4 filesystem for user %#v: %v", username, err)
 				return fsConfig, err

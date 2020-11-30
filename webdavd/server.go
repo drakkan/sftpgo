@@ -136,10 +136,10 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer common.Connections.Remove(connection.GetID())
 
 	if !isCached {
-		// we update last login and check for home directory only if the user is not cached
+		// we check the home directory only if the user is not cached
 		connection.Fs.CheckRootPath(connection.GetUsername(), user.GetUID(), user.GetGID())
-		dataprovider.UpdateLastLogin(user) //nolint:errcheck
 	}
+	dataprovider.UpdateLastLogin(user) //nolint:errcheck
 
 	prefix := path.Join("/", user.Username)
 	// see RFC4918, section 9.4
