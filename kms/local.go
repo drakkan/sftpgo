@@ -46,7 +46,7 @@ func (s *localSecret) Encrypt() error {
 	if err != nil {
 		return err
 	}
-	key, err := s.deriveKey(secretKey[:])
+	key, err := s.deriveKey(secretKey[:], false)
 	if err != nil {
 		return err
 	}
@@ -60,6 +60,7 @@ func (s *localSecret) Encrypt() error {
 	s.Key = hex.EncodeToString(secretKey[:])
 	s.Payload = base64.StdEncoding.EncodeToString(ciphertext)
 	s.Status = SecretStatusSecretBox
+	s.Mode = s.getEncryptionMode()
 	return nil
 }
 
@@ -75,7 +76,7 @@ func (s *localSecret) Decrypt() error {
 	if err != nil {
 		return err
 	}
-	key, err := s.deriveKey(secretKey[:])
+	key, err := s.deriveKey(secretKey[:], true)
 	if err != nil {
 		return err
 	}
@@ -90,12 +91,13 @@ func (s *localSecret) Decrypt() error {
 	s.Payload = string(plaintext)
 	s.Key = ""
 	s.AdditionalData = ""
+	s.Mode = 0
 	return nil
 }
 
-func (s *localSecret) deriveKey(key []byte) ([32]byte, error) {
+func (s *localSecret) deriveKey(key []byte, isForDecryption bool) ([32]byte, error) {
 	var masterKey []byte
-	if s.masterKey == "" {
+	if s.masterKey == "" || (isForDecryption && s.Mode == 0) {
 		var combined []byte
 		combined = append(combined, key...)
 		if s.AdditionalData != "" {
@@ -117,4 +119,11 @@ func (s *localSecret) deriveKey(key []byte) ([32]byte, error) {
 		return derivedKey, err
 	}
 	return derivedKey, nil
+}
+
+func (s *localSecret) getEncryptionMode() int {
+	if s.masterKey == "" {
+		return 0
+	}
+	return 1
 }

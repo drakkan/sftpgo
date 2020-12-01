@@ -21,6 +21,7 @@ type SecretProvider interface {
 	GetPayload() string
 	GetKey() string
 	GetAdditionalData() string
+	GetMode() int
 	SetKey(string)
 	SetAdditionalData(string)
 	SetStatus(SecretStatus)
@@ -145,6 +146,7 @@ func (s *Secret) MarshalJSON() ([]byte, error) {
 		Payload:        s.provider.GetPayload(),
 		Key:            s.provider.GetKey(),
 		AdditionalData: s.provider.GetAdditionalData(),
+		Mode:           s.provider.GetMode(),
 	})
 }
 
@@ -186,6 +188,7 @@ func (s *Secret) Clone() *Secret {
 		Payload:        s.provider.GetPayload(),
 		Key:            s.provider.GetKey(),
 		AdditionalData: s.provider.GetAdditionalData(),
+		Mode:           s.provider.GetMode(),
 	}
 	switch s.provider.Name() {
 	case builtinProviderName:
@@ -247,6 +250,11 @@ func (s *Secret) GetStatus() SecretStatus {
 // GetKey returns the secret key
 func (s *Secret) GetKey() string {
 	return s.provider.GetKey()
+}
+
+// GetMode returns the secret mode
+func (s *Secret) GetMode() int {
+	return s.provider.GetMode()
 }
 
 // SetAdditionalData sets the given additional data

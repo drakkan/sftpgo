@@ -6,6 +6,8 @@ type baseSecret struct {
 	Payload        string       `json:"payload,omitempty"`
 	Key            string       `json:"key,omitempty"`
 	AdditionalData string       `json:"additional_data,omitempty"`
+	// 1 means encrypted using a master key
+	Mode int `json:"mode,omitempty"`
 }
 
 func (s *baseSecret) GetStatus() SecretStatus {
@@ -18,6 +20,10 @@ func (s *baseSecret) GetPayload() string {
 
 func (s *baseSecret) GetKey() string {
 	return s.Key
+}
+
+func (s *baseSecret) GetMode() int {
+	return s.Mode
 }
 
 func (s *baseSecret) GetAdditionalData() string {

@@ -30,6 +30,7 @@ func (s *baseGCloudSecret) Encrypt() error {
 
 	payload := s.Payload
 	key := ""
+	mode := 0
 	if s.masterKey != "" {
 		localSecret := newLocalSecret(s.baseSecret, s.masterKey)
 		err := localSecret.Encrypt()
@@ -38,6 +39,7 @@ func (s *baseGCloudSecret) Encrypt() error {
 		}
 		payload = localSecret.GetPayload()
 		key = localSecret.GetKey()
+		mode = localSecret.GetMode()
 	}
 
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(defaultTimeout))
@@ -55,6 +57,7 @@ func (s *baseGCloudSecret) Encrypt() error {
 	}
 	s.Payload = base64.StdEncoding.EncodeToString(ciphertext)
 	s.Key = key
+	s.Mode = mode
 	return nil
 }
 
@@ -83,6 +86,7 @@ func (s *baseGCloudSecret) Decrypt() error {
 			Payload:        string(plaintext),
 			Key:            s.Key,
 			AdditionalData: s.AdditionalData,
+			Mode:           s.Mode,
 		}
 		localSecret := newLocalSecret(baseSecret, s.masterKey)
 		err = localSecret.Decrypt()
@@ -95,5 +99,6 @@ func (s *baseGCloudSecret) Decrypt() error {
 	s.Payload = payload
 	s.Key = ""
 	s.AdditionalData = ""
+	s.Mode = 0
 	return nil
 }

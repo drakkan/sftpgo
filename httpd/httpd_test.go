@@ -1390,6 +1390,114 @@ func TestSecretObject(t *testing.T) {
 	require.Empty(t, s.GetKey())
 }
 
+func TestSecretObjectCompatibility(t *testing.T) {
+	// this is manually tested against vault too
+	testPayload := "test payload"
+	s := kms.NewPlainSecret(testPayload)
+	require.True(t, s.IsValid())
+	err := s.Encrypt()
+	require.NoError(t, err)
+	localAsJSON, err := json.Marshal(s)
+	assert.NoError(t, err)
+
+	for _, provider := range []string{kms.SecretStatusRedacted} {
+		kmsConfig := config.GetKMSConfig()
+		assert.Empty(t, kmsConfig.Secrets.MasterKeyPath)
+		if provider == kms.SecretStatusVaultTransit {
+			os.Setenv("VAULT_SERVER_URL", "http://127.0.0.1:8200")
+			os.Setenv("VAULT_SERVER_TOKEN", "s.9lYGq83MbgG5KR5kfebXVyhJ")
+			kmsConfig.Secrets.URL = "hashivault://mykey"
+		}
+		err := kmsConfig.Initialize()
+		assert.NoError(t, err)
+		// encrypt without a master key
+		secret := kms.NewPlainSecret(testPayload)
+		secret.SetAdditionalData("add data")
+		err = secret.Encrypt()
+		assert.NoError(t, err)
+		assert.Equal(t, 0, secret.GetMode())
+		secretClone := secret.Clone()
+		err = secretClone.Decrypt()
+		assert.NoError(t, err)
+		assert.Equal(t, testPayload, secretClone.GetPayload())
+		if provider == kms.SecretStatusVaultTransit {
+			// decrypt the local secret now that the provider is vault
+			secretLocal := kms.NewEmptySecret()
+			err = json.Unmarshal(localAsJSON, secretLocal)
+			assert.NoError(t, err)
+			assert.Equal(t, kms.SecretStatusSecretBox, secretLocal.GetStatus())
+			assert.Equal(t, 0, secretLocal.GetMode())
+			err = secretLocal.Decrypt()
+			assert.NoError(t, err)
+			assert.Equal(t, testPayload, secretLocal.GetPayload())
+			assert.Equal(t, kms.SecretStatusPlain, secretLocal.GetStatus())
+			err = secretLocal.Encrypt()
+			assert.NoError(t, err)
+			assert.Equal(t, kms.SecretStatusSecretBox, secretLocal.GetStatus())
+			assert.Equal(t, 0, secretLocal.GetMode())
+		}
+
+		asJSON, err := json.Marshal(secret)
+		assert.NoError(t, err)
+
+		masterKeyPath := filepath.Join(os.TempDir(), "mkey")
+		err = ioutil.WriteFile(masterKeyPath, []byte("test key"), os.ModePerm)
+		assert.NoError(t, err)
+		config := kms.Configuration{
+			Secrets: kms.Secrets{
+				MasterKeyPath: masterKeyPath,
+			},
+		}
+		if provider == kms.SecretStatusVaultTransit {
+			config.Secrets.URL = "hashivault://mykey"
+		}
+		err = config.Initialize()
+		assert.NoError(t, err)
+
+		// now build the secret from JSON
+		secret = kms.NewEmptySecret()
+		err = json.Unmarshal(asJSON, secret)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, secret.GetMode())
+		err = secret.Decrypt()
+		assert.NoError(t, err)
+		assert.Equal(t, testPayload, secret.GetPayload())
+		err = secret.Encrypt()
+		assert.NoError(t, err)
+		assert.Equal(t, 1, secret.GetMode())
+		err = secret.Decrypt()
+		assert.NoError(t, err)
+		assert.Equal(t, testPayload, secret.GetPayload())
+		if provider == kms.SecretStatusVaultTransit {
+			// decrypt the local secret encryped without a master key now that
+			// the provider is vault and a master key is set.
+			// The provider will not change, the master key will be used
+			secretLocal := kms.NewEmptySecret()
+			err = json.Unmarshal(localAsJSON, secretLocal)
+			assert.NoError(t, err)
+			assert.Equal(t, kms.SecretStatusSecretBox, secretLocal.GetStatus())
+			assert.Equal(t, 0, secretLocal.GetMode())
+			err = secretLocal.Decrypt()
+			assert.NoError(t, err)
+			assert.Equal(t, testPayload, secretLocal.GetPayload())
+			assert.Equal(t, kms.SecretStatusPlain, secretLocal.GetStatus())
+			err = secretLocal.Encrypt()
+			assert.NoError(t, err)
+			assert.Equal(t, kms.SecretStatusSecretBox, secretLocal.GetStatus())
+			assert.Equal(t, 1, secretLocal.GetMode())
+		}
+
+		err = kmsConfig.Initialize()
+		assert.NoError(t, err)
+		err = os.Remove(masterKeyPath)
+		assert.NoError(t, err)
+		if provider == kms.SecretStatusVaultTransit {
+			os.Unsetenv("VAULT_SERVER_URL")
+			os.Unsetenv("VAULT_SERVER_TOKEN")
+		}
+	}
+}
+
 func TestUpdateUserNoCredentials(t *testing.T) {
 	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
 	assert.NoError(t, err)

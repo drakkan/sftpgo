@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 2.1.2
+  version: 2.1.3
 
 servers:
   - url: /api/v1
@@ -977,6 +977,9 @@ components:
           type: string
         additional_data:
           type: string
+        mode:
+          type: integer
+          description: 1 means encrypted using a master key
     S3Config:
       type: object
       properties:
