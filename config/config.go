@@ -290,13 +290,13 @@ func getRedactedGlobalConf() globalConfig {
 // configDir will be added to the configuration search paths.
 // The search path contains by default the current directory and on linux it contains
 // $HOME/.config/sftpgo and /etc/sftpgo too.
-// configName is the name of the configuration to search without extension
-func LoadConfig(configDir, configName string) error {
+// configFile is an absolute or relative path (to the working directory) to the configuration file.
+func LoadConfig(configDir, configFile string) error {
 	var err error
 	viper.AddConfigPath(configDir)
 	setViperAdditionalConfigPaths()
 	viper.AddConfigPath(".")
-	viper.SetConfigName(configName)
+	viper.SetConfigFile(configFile)
 	if err = viper.ReadInConfig(); err != nil {
 		logger.Warn(logSender, "", "error loading configuration file: %v", err)
 		logger.WarnToConsole("error loading configuration file: %v", err)
