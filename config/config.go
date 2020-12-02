@@ -22,10 +22,10 @@ import (
 
 const (
 	logSender = "config"
-	// DefaultConfigName defines the name for the default config file.
+	// configName defines the name for the default config file.
 	// This is the file name without extension, we use viper and so we
 	// support all the config files format supported by viper
-	DefaultConfigName = "sftpgo"
+	configName = "sftpgo"
 	// ConfigEnvPrefix defines a prefix that ENVIRONMENT variables will use
 	configEnvPrefix = "sftpgo"
 )
@@ -184,7 +184,7 @@ func Init() {
 	viper.SetEnvPrefix(configEnvPrefix)
 	replacer := strings.NewReplacer(".", "__")
 	viper.SetEnvKeyReplacer(replacer)
-	viper.SetConfigName(DefaultConfigName)
+	viper.SetConfigName(configName)
 	setViperDefaults()
 	viper.AutomaticEnv()
 	viper.AllowEmptyEnv(true)
