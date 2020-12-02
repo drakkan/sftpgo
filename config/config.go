@@ -233,12 +233,12 @@ func SetHTTPDConfig(config httpd.Conf) {
 	globalConf.HTTPDConfig = config
 }
 
-//GetProviderConf returns the configuration for the data provider
+// GetProviderConf returns the configuration for the data provider
 func GetProviderConf() dataprovider.Config {
 	return globalConf.ProviderConf
 }
 
-//SetProviderConf sets the configuration for the data provider
+// SetProviderConf sets the configuration for the data provider
 func SetProviderConf(config dataprovider.Config) {
 	globalConf.ProviderConf = config
 }
