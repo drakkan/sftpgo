@@ -48,6 +48,13 @@ type globalConfig struct {
 }
 
 func init() {
+	Init()
+}
+
+// Init initializes the global configuration.
+// It is not supposed to be called outside of this package.
+// It is exported to minimize refactoring efforts. Will eventually disappear.
+func Init() {
 	// create a default configuration to use if no config file is provided
 	globalConf = globalConfig{
 		Common: common.Configuration{
