@@ -145,33 +145,8 @@ $ journalctl -o verbose -f
 To see full logs.
 If not set, the logs will be sent to the standard
 error`)
-	viper.SetDefault(configDirKey, defaultConfigDir)
-	viper.BindEnv(configDirKey, "SFTPGO_CONFIG_DIR") //nolint:errcheck // err is not nil only if the key to bind is missing
-	subsystemCmd.Flags().StringVarP(&configDir, configDirFlag, "c", viper.GetString(configDirKey),
-		`Location for SFTPGo config dir. This directory
-should contain the "sftpgo" configuration file
-or the configured config-file and it is used as
-the base for files with a relative path (eg. the
-private keys for the SFTP server, the SQLite
-database if you use SQLite as data provider).
-This flag can be set using SFTPGO_CONFIG_DIR
-env var too.`)
-	viper.BindPFlag(configDirKey, subsystemCmd.Flags().Lookup(configDirFlag)) //nolint:errcheck
 
-	viper.SetDefault(configFileKey, defaultConfigName)
-	viper.BindEnv(configFileKey, "SFTPGO_CONFIG_FILE") //nolint:errcheck
-	subsystemCmd.Flags().StringVarP(&configFile, configFileFlag, "f", viper.GetString(configFileKey),
-		`Name for SFTPGo configuration file. It must be
-the name of a file stored in config-dir not the
-absolute path to the configuration file. The
-specified file name must have no extension we
-automatically load JSON, YAML, TOML, HCL and
-Java properties. Therefore if you set "sftpgo"
-then "sftpgo.json", "sftpgo.yaml" and so on
-are searched.
-This flag can be set using SFTPGO_CONFIG_FILE
-env var too.`)
-	viper.BindPFlag(configFileKey, subsystemCmd.Flags().Lookup(configFileFlag)) //nolint:errcheck
+	addConfigFlags(subsystemCmd)
 
 	viper.SetDefault(logVerboseKey, defaultLogVerbose)
 	viper.BindEnv(logVerboseKey, "SFTPGO_LOG_VERBOSE") //nolint:errcheck
