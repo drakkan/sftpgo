@@ -51,12 +51,11 @@ const (
 )
 
 const (
-	localProviderName    = "Local"
-	builtinProviderName  = "Builtin"
-	awsProviderName      = "AWS"
-	gcpProviderName      = "GCP"
-	vaultProviderName    = "VaultTransit"
-	disabledProviderName = "Disabled"
+	localProviderName   = "Local"
+	builtinProviderName = "Builtin"
+	awsProviderName     = "AWS"
+	gcpProviderName     = "GCP"
+	vaultProviderName   = "VaultTransit"
 )
 
 // Configuration defines the KMS configuration

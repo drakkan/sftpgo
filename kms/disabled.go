@@ -1,4 +1,8 @@
+// +build noawskms nogcpkms novaultkms
+
 package kms
+
+const disabledProviderName = "Disabled"
 
 type disabledSecret struct {
 	baseSecret
