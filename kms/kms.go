@@ -50,6 +50,15 @@ const (
 	SecretStatusRedacted SecretStatus = "Redacted"
 )
 
+const (
+	localProviderName    = "Local"
+	builtinProviderName  = "Builtin"
+	awsProviderName      = "AWS"
+	gcpProviderName      = "GCP"
+	vaultProviderName    = "VaultTransit"
+	disabledProviderName = "Disabled"
+)
+
 // Configuration defines the KMS configuration
 type Configuration struct {
 	Secrets Secrets `json:"secrets" mapstructure:"secrets"`

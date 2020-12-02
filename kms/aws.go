@@ -1,11 +1,20 @@
+// +build !noawskms
+
 package kms
 
-const (
-	awsProviderName = "AWS"
+import (
+	// we import awskms here to be able to disable AWS KMS support using a build tag
+	_ "gocloud.dev/secrets/awskms"
+
+	"github.com/drakkan/sftpgo/version"
 )
 
 type awsSecret struct {
 	baseGCloudSecret
+}
+
+func init() {
+	version.AddFeature("+awskms")
 }
 
 func newAWSSecret(base baseSecret, url, masterKey string) SecretProvider {

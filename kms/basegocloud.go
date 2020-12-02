@@ -6,12 +6,6 @@ import (
 	"time"
 
 	"gocloud.dev/secrets"
-	// import awskms package
-	_ "gocloud.dev/secrets/awskms"
-	// import gcpkms package
-	_ "gocloud.dev/secrets/gcpkms"
-	// import hashivault package
-	_ "gocloud.dev/secrets/hashivault"
 )
 
 type baseGCloudSecret struct {

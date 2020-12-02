@@ -11,10 +11,6 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
-const (
-	localProviderName = "Local"
-)
-
 type localSecret struct {
 	baseSecret
 	masterKey string

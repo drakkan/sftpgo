@@ -1,11 +1,20 @@
+// +build !novaultkms
+
 package kms
 
-const (
-	vaultProviderName = "VaultTransit"
+import (
+	// we import hashivault here to be able to disable Vault support using a build tag
+	_ "gocloud.dev/secrets/hashivault"
+
+	"github.com/drakkan/sftpgo/version"
 )
 
 type vaultSecret struct {
 	baseGCloudSecret
+}
+
+func init() {
+	version.AddFeature("+vaultkms")
 }
 
 func newVaultSecret(base baseSecret, url, masterKey string) SecretProvider {

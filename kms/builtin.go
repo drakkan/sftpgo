@@ -10,10 +10,6 @@ import (
 	"github.com/minio/sha256-simd"
 )
 
-const (
-	builtinProviderName = "Builtin"
-)
-
 type builtinSecret struct {
 	baseSecret
 }

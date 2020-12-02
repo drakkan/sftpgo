@@ -1,14 +1,6 @@
 # Build SFTPGo from source
 
-You can install the package to your [\$GOPATH](https://github.com/golang/go/wiki/GOPATH "GOPATH") with the [go tool](https://golang.org/cmd/go/ "go command") from shell:
-
-```bash
-go get -u github.com/drakkan/sftpgo
-```
-
-Or you can download the sources and use `go build`.
-
-Make sure [Git](https://git-scm.com/downloads) is installed on your machine and in your system's `PATH`.
+Download the sources and use `go build`.
 
 The following build tags are available:
 
@@ -21,6 +13,9 @@ The following build tags are available:
 - `nosqlite`, disable SQLite data provider, default enabled
 - `noportable`, disable portable mode, default enabled
 - `nometrics`, disable Prometheus metrics, default enabled
+- `novaultkms`, disable Vault transit secret engine, default enabled
+- `noawskms`, disable AWS KMS, default enabled
+- `nogcpkms`, disable GCP KMS, default enabled
 
 If no build tag is specified the build will include the default features.
 

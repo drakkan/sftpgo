@@ -1,11 +1,20 @@
+// +build !nogcpkms
+
 package kms
 
-const (
-	gcpProviderName = "GCP"
+import (
+	// we import gcpkms here to be able to disable GCP KMS support using a build tag
+	_ "gocloud.dev/secrets/gcpkms"
+
+	"github.com/drakkan/sftpgo/version"
 )
 
 type gcpSecret struct {
 	baseGCloudSecret
+}
+
+func init() {
+	version.AddFeature("+gcpkms")
 }
 
 func newGCPSecret(base baseSecret, url, masterKey string) SecretProvider {

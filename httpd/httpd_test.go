@@ -1400,10 +1400,10 @@ func TestSecretObjectCompatibility(t *testing.T) {
 	localAsJSON, err := json.Marshal(s)
 	assert.NoError(t, err)
 
-	for _, provider := range []string{kms.SecretStatusRedacted} {
+	for _, secretStatus := range []string{kms.SecretStatusSecretBox} {
 		kmsConfig := config.GetKMSConfig()
 		assert.Empty(t, kmsConfig.Secrets.MasterKeyPath)
-		if provider == kms.SecretStatusVaultTransit {
+		if secretStatus == kms.SecretStatusVaultTransit {
 			os.Setenv("VAULT_SERVER_URL", "http://127.0.0.1:8200")
 			os.Setenv("VAULT_SERVER_TOKEN", "s.9lYGq83MbgG5KR5kfebXVyhJ")
 			kmsConfig.Secrets.URL = "hashivault://mykey"
@@ -1420,7 +1420,7 @@ func TestSecretObjectCompatibility(t *testing.T) {
 		err = secretClone.Decrypt()
 		assert.NoError(t, err)
 		assert.Equal(t, testPayload, secretClone.GetPayload())
-		if provider == kms.SecretStatusVaultTransit {
+		if secretStatus == kms.SecretStatusVaultTransit {
 			// decrypt the local secret now that the provider is vault
 			secretLocal := kms.NewEmptySecret()
 			err = json.Unmarshal(localAsJSON, secretLocal)
@@ -1448,7 +1448,7 @@ func TestSecretObjectCompatibility(t *testing.T) {
 				MasterKeyPath: masterKeyPath,
 			},
 		}
-		if provider == kms.SecretStatusVaultTransit {
+		if secretStatus == kms.SecretStatusVaultTransit {
 			config.Secrets.URL = "hashivault://mykey"
 		}
 		err = config.Initialize()
@@ -1468,7 +1468,7 @@ func TestSecretObjectCompatibility(t *testing.T) {
 		err = secret.Decrypt()
 		assert.NoError(t, err)
 		assert.Equal(t, testPayload, secret.GetPayload())
-		if provider == kms.SecretStatusVaultTransit {
+		if secretStatus == kms.SecretStatusVaultTransit {
 			// decrypt the local secret encryped without a master key now that
 			// the provider is vault and a master key is set.
 			// The provider will not change, the master key will be used
@@ -1491,7 +1491,7 @@ func TestSecretObjectCompatibility(t *testing.T) {
 		assert.NoError(t, err)
 		err = os.Remove(masterKeyPath)
 		assert.NoError(t, err)
-		if provider == kms.SecretStatusVaultTransit {
+		if secretStatus == kms.SecretStatusVaultTransit {
 			os.Unsetenv("VAULT_SERVER_URL")
 			os.Unsetenv("VAULT_SERVER_TOKEN")
 		}
