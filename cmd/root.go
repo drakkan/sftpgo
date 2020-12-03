@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/version"
 )
 
@@ -16,7 +15,6 @@ const (
 	configDirFlag            = "config-dir"
 	configDirKey             = "config_dir"
 	configFileFlag           = "config-file"
-	configFileKey            = "config_file"
 	logFilePathFlag          = "log-file-path"
 	logFilePathKey           = "log_file_path"
 	logMaxSizeFlag           = "log-max-size"
@@ -40,7 +38,6 @@ const (
 	loadDataCleanFlag        = "loaddata-clean"
 	loadDataCleanKey         = "loaddata_clean"
 	defaultConfigDir         = "."
-	defaultConfigName        = config.DefaultConfigName
 	defaultLogFile           = "sftpgo.log"
 	defaultLogMaxSize        = 10
 	defaultLogMaxBackup      = 5
@@ -96,29 +93,21 @@ func addConfigFlags(cmd *cobra.Command) {
 	viper.BindEnv(configDirKey, "SFTPGO_CONFIG_DIR") //nolint:errcheck // err is not nil only if the key to bind is missing
 	cmd.Flags().StringVarP(&configDir, configDirFlag, "c", viper.GetString(configDirKey),
 		`Location for SFTPGo config dir. This directory
-should contain the "sftpgo" configuration file
-or the configured config-file and it is used as
-the base for files with a relative path (eg. the
-private keys for the SFTP server, the SQLite
+should contain the "sftpgo" configuration file.
+It is used as the base for files with a relative path
+(eg. the private keys for the SFTP server, the SQLite
 database if you use SQLite as data provider).
 This flag can be set using SFTPGO_CONFIG_DIR
 env var too.`)
 	viper.BindPFlag(configDirKey, cmd.Flags().Lookup(configDirFlag)) //nolint:errcheck
 
-	viper.SetDefault(configFileKey, defaultConfigName)
-	viper.BindEnv(configFileKey, "SFTPGO_CONFIG_FILE") //nolint:errcheck
-	cmd.Flags().StringVarP(&configFile, configFileFlag, "f", viper.GetString(configFileKey),
-		`Name for SFTPGo configuration file. It must be
-the name of a file stored in config-dir not the
-absolute path to the configuration file. The
-specified file name must have no extension we
-automatically load JSON, YAML, TOML, HCL and
-Java properties. Therefore if you set "sftpgo"
-then "sftpgo.json", "sftpgo.yaml" and so on
-are searched.
+	cmd.Flags().StringVar(&configFile, configFileFlag, os.Getenv("SFTPGO_CONFIG_FILE"),
+		`Path to SFTPGo configuration file. It must be
+an absolute path to a file or a path relative to the working directory.
+The specified file name must have a supported extension
+(JSON, YAML, TOML or Java properties).
 This flag can be set using SFTPGO_CONFIG_FILE
 env var too.`)
-	viper.BindPFlag(configFileKey, cmd.Flags().Lookup(configFileFlag)) //nolint:errcheck
 }
 
 func addServeFlags(cmd *cobra.Command) {

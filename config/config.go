@@ -22,10 +22,10 @@ import (
 
 const (
 	logSender = "config"
-	// DefaultConfigName defines the name for the default config file.
+	// configName defines the name for the default config file.
 	// This is the file name without extension, we use viper and so we
 	// support all the config files format supported by viper
-	DefaultConfigName = "sftpgo"
+	configName = "sftpgo"
 	// ConfigEnvPrefix defines a prefix that ENVIRONMENT variables will use
 	configEnvPrefix = "sftpgo"
 )
@@ -48,6 +48,13 @@ type globalConfig struct {
 }
 
 func init() {
+	Init()
+}
+
+// Init initializes the global configuration.
+// It is not supposed to be called outside of this package.
+// It is exported to minimize refactoring efforts. Will eventually disappear.
+func Init() {
 	// create a default configuration to use if no config file is provided
 	globalConf = globalConfig{
 		Common: common.Configuration{
@@ -177,7 +184,7 @@ func init() {
 	viper.SetEnvPrefix(configEnvPrefix)
 	replacer := strings.NewReplacer(".", "__")
 	viper.SetEnvKeyReplacer(replacer)
-	viper.SetConfigName(DefaultConfigName)
+	viper.SetConfigName(configName)
 	setViperDefaults()
 	viper.AutomaticEnv()
 	viper.AllowEmptyEnv(true)
@@ -233,12 +240,12 @@ func SetHTTPDConfig(config httpd.Conf) {
 	globalConf.HTTPDConfig = config
 }
 
-//GetProviderConf returns the configuration for the data provider
+// GetProviderConf returns the configuration for the data provider
 func GetProviderConf() dataprovider.Config {
 	return globalConf.ProviderConf
 }
 
-//SetProviderConf sets the configuration for the data provider
+// SetProviderConf sets the configuration for the data provider
 func SetProviderConf(config dataprovider.Config) {
 	globalConf.ProviderConf = config
 }
@@ -283,13 +290,13 @@ func getRedactedGlobalConf() globalConfig {
 // configDir will be added to the configuration search paths.
 // The search path contains by default the current directory and on linux it contains
 // $HOME/.config/sftpgo and /etc/sftpgo too.
-// configName is the name of the configuration to search without extension
-func LoadConfig(configDir, configName string) error {
+// configFile is an absolute or relative path (to the working directory) to the configuration file.
+func LoadConfig(configDir, configFile string) error {
 	var err error
 	viper.AddConfigPath(configDir)
 	setViperAdditionalConfigPaths()
 	viper.AddConfigPath(".")
-	viper.SetConfigName(configName)
+	viper.SetConfigFile(configFile)
 	if err = viper.ReadInConfig(); err != nil {
 		logger.Warn(logSender, "", "error loading configuration file: %v", err)
 		logger.WarnToConsole("error loading configuration file: %v", err)
