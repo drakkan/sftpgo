@@ -19,6 +19,7 @@ import (
 
 	"github.com/jlaffaye/ftp"
 	"github.com/rs/zerolog"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/drakkan/sftpgo/common"
@@ -84,7 +85,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		logger.ErrorToConsole("error creating banner file: %v", err)
 	}
-	err = config.LoadConfig(configDir, "")
+	err = config.LoadConfig(configDir, "", viper.New())
 	if err != nil {
 		logger.ErrorToConsole("error loading configuration: %v", err)
 		os.Exit(1)
@@ -289,7 +290,7 @@ func TestLoginExternalAuth(t *testing.T) {
 	u := getTestUser()
 	err := dataprovider.Close()
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "")
+	err = config.LoadConfig(configDir, "", viper.New())
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
@@ -324,7 +325,7 @@ func TestLoginExternalAuth(t *testing.T) {
 	}
 	err = dataprovider.Close()
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "")
+	err = config.LoadConfig(configDir, "", viper.New())
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	err = dataprovider.Initialize(providerConf, configDir)
@@ -340,7 +341,7 @@ func TestPreLoginHook(t *testing.T) {
 	u := getTestUser()
 	err := dataprovider.Close()
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "")
+	err = config.LoadConfig(configDir, "", viper.New())
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), os.ModePerm)
@@ -395,7 +396,7 @@ func TestPreLoginHook(t *testing.T) {
 	assert.NoError(t, err)
 	err = dataprovider.Close()
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "")
+	err = config.LoadConfig(configDir, "", viper.New())
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	err = dataprovider.Initialize(providerConf, configDir)
@@ -924,7 +925,7 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.NoError(t, dataprovider.Close())
-	assert.NoError(t, config.LoadConfig(configDir, ""))
+	assert.NoError(t, config.LoadConfig(configDir, "", viper.New()))
 	providerConf = config.GetProviderConf()
 	assert.NoError(t, dataprovider.Initialize(providerConf, configDir))
 }

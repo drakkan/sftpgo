@@ -21,6 +21,7 @@ $ sftpgo serve
 Please take a look at the usage below to customize the startup options`,
 		Run: func(cmd *cobra.Command, args []string) {
 			service := service.Service{
+				ViperInstance:     viperInstance,
 				ConfigDir:         utils.CleanDirInput(configDir),
 				ConfigFile:        configFile,
 				LogFilePath:       logFilePath,

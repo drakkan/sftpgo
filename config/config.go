@@ -49,11 +49,7 @@ type globalConfig struct {
 }
 
 func init() {
-	setDefaultConfig()
-}
-
-func setDefaultConfig() {
-	// create a default configuration to use if no config file is provided
+	// create a default configuration
 	globalConf = globalConfig{
 		Common: common.Configuration{
 			IdleTimeout: 15,
@@ -178,14 +174,16 @@ func setDefaultConfig() {
 			},
 		},
 	}
+}
 
-	viper.SetEnvPrefix(configEnvPrefix)
+func setViperConfig(v *viper.Viper) {
+	v.SetEnvPrefix(configEnvPrefix)
 	replacer := strings.NewReplacer(".", "__")
-	viper.SetEnvKeyReplacer(replacer)
-	viper.SetConfigName(configName)
-	setViperDefaults()
-	viper.AutomaticEnv()
-	viper.AllowEmptyEnv(true)
+	v.SetEnvKeyReplacer(replacer)
+	v.SetConfigName(configName)
+	setViperDefaults(v)
+	v.AutomaticEnv()
+	v.AllowEmptyEnv(true)
 }
 
 // GetCommonConfig returns the common protocols configuration
@@ -284,14 +282,14 @@ func getRedactedGlobalConf() globalConfig {
 	return conf
 }
 
-func setConfigFile(configDir, configFile string) {
+func setConfigFile(configDir, configFile string, v *viper.Viper) {
 	if configFile == "" {
 		return
 	}
 	if !filepath.IsAbs(configFile) && utils.IsFileInputValid(configFile) {
 		configFile = filepath.Join(configDir, configFile)
 	}
-	viper.SetConfigFile(configFile)
+	v.SetConfigFile(configFile)
 }
 
 // LoadConfig loads the configuration
@@ -299,23 +297,23 @@ func setConfigFile(configDir, configFile string) {
 // The search path contains by default the current directory and on linux it contains
 // $HOME/.config/sftpgo and /etc/sftpgo too.
 // configName is the name of the configuration to search without extension
-func LoadConfig(configDir, configFile string) error {
+func LoadConfig(configDir, configFile string, v *viper.Viper) error {
 	var err error
-	viper.AddConfigPath(configDir)
-	setViperAdditionalConfigPaths()
-	viper.AddConfigPath(".")
-	setConfigFile(configDir, configFile)
-	if err = viper.ReadInConfig(); err != nil {
+	setViperConfig(v)
+	v.AddConfigPath(configDir)
+	setViperAdditionalConfigPaths(v)
+	v.AddConfigPath(".")
+	setConfigFile(configDir, configFile, v)
+	if err = v.ReadInConfig(); err != nil {
 		logger.Warn(logSender, "", "error loading configuration file: %v", err)
 		logger.WarnToConsole("error loading configuration file: %v", err)
 	}
-	err = viper.Unmarshal(&globalConf)
+	err = v.Unmarshal(&globalConf)
 	if err != nil {
 		logger.Warn(logSender, "", "error unmarshaling configuration file: %v, using default configuration: %v",
 			err, getRedactedGlobalConf())
 		logger.WarnToConsole("error unmarshaling configuration file: %v, using default configuration: %v",
 			err, getRedactedGlobalConf())
-		setDefaultConfig()
 		return err
 	}
 	checkCommonParamsCompatibility()
@@ -328,7 +326,7 @@ func LoadConfig(configDir, configFile string) error {
 	if len(globalConf.ProviderConf.UsersBaseDir) > 0 && !utils.IsFileInputValid(globalConf.ProviderConf.UsersBaseDir) {
 		err = fmt.Errorf("invalid users base dir %#v will be ignored", globalConf.ProviderConf.UsersBaseDir)
 		globalConf.ProviderConf.UsersBaseDir = ""
-		viper.Set("data_provider.users_base_dir", globalConf.ProviderConf.UsersBaseDir)
+		v.Set("data_provider.users_base_dir", globalConf.ProviderConf.UsersBaseDir)
 		logger.Warn(logSender, "", "Configuration error: %v", err)
 		logger.WarnToConsole("Configuration error: %v", err)
 	}
@@ -336,7 +334,7 @@ func LoadConfig(configDir, configFile string) error {
 		err = fmt.Errorf("invalid upload_mode 0, 1 and 2 are supported, configured: %v reset upload_mode to 0",
 			globalConf.Common.UploadMode)
 		globalConf.Common.UploadMode = 0
-		viper.Set("common.upload_mode", globalConf.Common.UploadMode)
+		v.Set("common.upload_mode", globalConf.Common.UploadMode)
 		logger.Warn(logSender, "", "Configuration error: %v", err)
 		logger.WarnToConsole("Configuration error: %v", err)
 	}
@@ -344,26 +342,26 @@ func LoadConfig(configDir, configFile string) error {
 		err = fmt.Errorf("invalid proxy_protocol 0, 1 and 2 are supported, configured: %v reset proxy_protocol to 0",
 			globalConf.Common.ProxyProtocol)
 		globalConf.Common.ProxyProtocol = 0
-		viper.Set("common.proxy_protocol", globalConf.Common.ProxyProtocol)
+		v.Set("common.proxy_protocol", globalConf.Common.ProxyProtocol)
 		logger.Warn(logSender, "", "Configuration error: %v", err)
 		logger.WarnToConsole("Configuration error: %v", err)
 	}
 	if globalConf.ProviderConf.ExternalAuthScope < 0 || globalConf.ProviderConf.ExternalAuthScope > 7 {
 		err = fmt.Errorf("invalid external_auth_scope: %v reset to 0", globalConf.ProviderConf.ExternalAuthScope)
 		globalConf.ProviderConf.ExternalAuthScope = 0
-		viper.Set("data_provider.external_auth_scope", globalConf.ProviderConf.ExternalAuthScope)
+		v.Set("data_provider.external_auth_scope", globalConf.ProviderConf.ExternalAuthScope)
 		logger.Warn(logSender, "", "Configuration error: %v", err)
 		logger.WarnToConsole("Configuration error: %v", err)
 	}
 	if globalConf.ProviderConf.CredentialsPath == "" {
 		err = fmt.Errorf("invalid credentials path, reset to \"credentials\"")
 		globalConf.ProviderConf.CredentialsPath = "credentials"
-		viper.Set("data_provider.credentials_path", globalConf.ProviderConf.CredentialsPath)
+		v.Set("data_provider.credentials_path", globalConf.ProviderConf.CredentialsPath)
 		logger.Warn(logSender, "", "Configuration error: %v", err)
 		logger.WarnToConsole("Configuration error: %v", err)
 	}
 	checkHostKeyCompatibility()
-	logger.Debug(logSender, "", "config file used: '%#v', config loaded: %+v", viper.ConfigFileUsed(), getRedactedGlobalConf())
+	logger.Debug(logSender, "", "config file used: '%#v', config loaded: %+v", v.ConfigFileUsed(), getRedactedGlobalConf())
 	return err
 }
 
@@ -409,93 +407,93 @@ func checkCommonParamsCompatibility() {
 	}
 }
 
-func setViperDefaults() {
-	viper.SetDefault("common.idle_timeout", globalConf.Common.IdleTimeout)
-	viper.SetDefault("common.upload_mode", globalConf.Common.UploadMode)
-	viper.SetDefault("common.actions.execute_on", globalConf.Common.Actions.ExecuteOn)
-	viper.SetDefault("common.actions.hook", globalConf.Common.Actions.Hook)
-	viper.SetDefault("common.setstat_mode", globalConf.Common.SetstatMode)
-	viper.SetDefault("common.proxy_protocol", globalConf.Common.ProxyProtocol)
-	viper.SetDefault("common.proxy_allowed", globalConf.Common.ProxyAllowed)
-	viper.SetDefault("common.post_connect_hook", globalConf.Common.PostConnectHook)
-	viper.SetDefault("sftpd.bind_port", globalConf.SFTPD.BindPort)
-	viper.SetDefault("sftpd.bind_address", globalConf.SFTPD.BindAddress)
-	viper.SetDefault("sftpd.max_auth_tries", globalConf.SFTPD.MaxAuthTries)
-	viper.SetDefault("sftpd.banner", globalConf.SFTPD.Banner)
-	viper.SetDefault("sftpd.host_keys", globalConf.SFTPD.HostKeys)
-	viper.SetDefault("sftpd.kex_algorithms", globalConf.SFTPD.KexAlgorithms)
-	viper.SetDefault("sftpd.ciphers", globalConf.SFTPD.Ciphers)
-	viper.SetDefault("sftpd.macs", globalConf.SFTPD.MACs)
-	viper.SetDefault("sftpd.trusted_user_ca_keys", globalConf.SFTPD.TrustedUserCAKeys)
-	viper.SetDefault("sftpd.login_banner_file", globalConf.SFTPD.LoginBannerFile)
-	viper.SetDefault("sftpd.enabled_ssh_commands", globalConf.SFTPD.EnabledSSHCommands)
-	viper.SetDefault("sftpd.keyboard_interactive_auth_hook", globalConf.SFTPD.KeyboardInteractiveHook)
-	viper.SetDefault("sftpd.password_authentication", globalConf.SFTPD.PasswordAuthentication)
-	viper.SetDefault("ftpd.bind_port", globalConf.FTPD.BindPort)
-	viper.SetDefault("ftpd.bind_address", globalConf.FTPD.BindAddress)
-	viper.SetDefault("ftpd.banner", globalConf.FTPD.Banner)
-	viper.SetDefault("ftpd.banner_file", globalConf.FTPD.BannerFile)
-	viper.SetDefault("ftpd.active_transfers_port_non_20", globalConf.FTPD.ActiveTransfersPortNon20)
-	viper.SetDefault("ftpd.force_passive_ip", globalConf.FTPD.ForcePassiveIP)
-	viper.SetDefault("ftpd.passive_port_range.start", globalConf.FTPD.PassivePortRange.Start)
-	viper.SetDefault("ftpd.passive_port_range.end", globalConf.FTPD.PassivePortRange.End)
-	viper.SetDefault("ftpd.certificate_file", globalConf.FTPD.CertificateFile)
-	viper.SetDefault("ftpd.certificate_key_file", globalConf.FTPD.CertificateKeyFile)
-	viper.SetDefault("ftpd.tls_mode", globalConf.FTPD.TLSMode)
-	viper.SetDefault("webdavd.bind_port", globalConf.WebDAVD.BindPort)
-	viper.SetDefault("webdavd.bind_address", globalConf.WebDAVD.BindAddress)
-	viper.SetDefault("webdavd.certificate_file", globalConf.WebDAVD.CertificateFile)
-	viper.SetDefault("webdavd.certificate_key_file", globalConf.WebDAVD.CertificateKeyFile)
-	viper.SetDefault("webdavd.cors.enabled", globalConf.WebDAVD.Cors.Enabled)
-	viper.SetDefault("webdavd.cors.allowed_origins", globalConf.WebDAVD.Cors.AllowedOrigins)
-	viper.SetDefault("webdavd.cors.allowed_methods", globalConf.WebDAVD.Cors.AllowedMethods)
-	viper.SetDefault("webdavd.cors.allowed_headers", globalConf.WebDAVD.Cors.AllowedHeaders)
-	viper.SetDefault("webdavd.cors.exposed_headers", globalConf.WebDAVD.Cors.ExposedHeaders)
-	viper.SetDefault("webdavd.cors.allow_credentials", globalConf.WebDAVD.Cors.AllowCredentials)
-	viper.SetDefault("webdavd.cors.max_age", globalConf.WebDAVD.Cors.MaxAge)
-	viper.SetDefault("webdavd.cache.users.expiration_time", globalConf.WebDAVD.Cache.Users.ExpirationTime)
-	viper.SetDefault("webdavd.cache.users.max_size", globalConf.WebDAVD.Cache.Users.MaxSize)
-	viper.SetDefault("webdavd.cache.mime_types.enabled", globalConf.WebDAVD.Cache.MimeTypes.Enabled)
-	viper.SetDefault("webdavd.cache.mime_types.max_size", globalConf.WebDAVD.Cache.MimeTypes.MaxSize)
-	viper.SetDefault("data_provider.driver", globalConf.ProviderConf.Driver)
-	viper.SetDefault("data_provider.name", globalConf.ProviderConf.Name)
-	viper.SetDefault("data_provider.host", globalConf.ProviderConf.Host)
-	viper.SetDefault("data_provider.port", globalConf.ProviderConf.Port)
-	viper.SetDefault("data_provider.username", globalConf.ProviderConf.Username)
-	viper.SetDefault("data_provider.password", globalConf.ProviderConf.Password)
-	viper.SetDefault("data_provider.sslmode", globalConf.ProviderConf.SSLMode)
-	viper.SetDefault("data_provider.connection_string", globalConf.ProviderConf.ConnectionString)
-	viper.SetDefault("data_provider.sql_tables_prefix", globalConf.ProviderConf.SQLTablesPrefix)
-	viper.SetDefault("data_provider.manage_users", globalConf.ProviderConf.ManageUsers)
-	viper.SetDefault("data_provider.track_quota", globalConf.ProviderConf.TrackQuota)
-	viper.SetDefault("data_provider.pool_size", globalConf.ProviderConf.PoolSize)
-	viper.SetDefault("data_provider.users_base_dir", globalConf.ProviderConf.UsersBaseDir)
-	viper.SetDefault("data_provider.actions.execute_on", globalConf.ProviderConf.Actions.ExecuteOn)
-	viper.SetDefault("data_provider.actions.hook", globalConf.ProviderConf.Actions.Hook)
-	viper.SetDefault("data_provider.external_auth_hook", globalConf.ProviderConf.ExternalAuthHook)
-	viper.SetDefault("data_provider.external_auth_scope", globalConf.ProviderConf.ExternalAuthScope)
-	viper.SetDefault("data_provider.credentials_path", globalConf.ProviderConf.CredentialsPath)
-	viper.SetDefault("data_provider.prefer_database_credentials", globalConf.ProviderConf.PreferDatabaseCredentials)
-	viper.SetDefault("data_provider.pre_login_hook", globalConf.ProviderConf.PreLoginHook)
-	viper.SetDefault("data_provider.post_login_hook", globalConf.ProviderConf.PostLoginHook)
-	viper.SetDefault("data_provider.post_login_scope", globalConf.ProviderConf.PostLoginScope)
-	viper.SetDefault("data_provider.check_password_hook", globalConf.ProviderConf.CheckPasswordHook)
-	viper.SetDefault("data_provider.check_password_scope", globalConf.ProviderConf.CheckPasswordScope)
-	viper.SetDefault("data_provider.password_hashing.argon2_options.memory", globalConf.ProviderConf.PasswordHashing.Argon2Options.Memory)
-	viper.SetDefault("data_provider.password_hashing.argon2_options.iterations", globalConf.ProviderConf.PasswordHashing.Argon2Options.Iterations)
-	viper.SetDefault("data_provider.password_hashing.argon2_options.parallelism", globalConf.ProviderConf.PasswordHashing.Argon2Options.Parallelism)
-	viper.SetDefault("data_provider.update_mode", globalConf.ProviderConf.UpdateMode)
-	viper.SetDefault("httpd.bind_port", globalConf.HTTPDConfig.BindPort)
-	viper.SetDefault("httpd.bind_address", globalConf.HTTPDConfig.BindAddress)
-	viper.SetDefault("httpd.templates_path", globalConf.HTTPDConfig.TemplatesPath)
-	viper.SetDefault("httpd.static_files_path", globalConf.HTTPDConfig.StaticFilesPath)
-	viper.SetDefault("httpd.backups_path", globalConf.HTTPDConfig.BackupsPath)
-	viper.SetDefault("httpd.auth_user_file", globalConf.HTTPDConfig.AuthUserFile)
-	viper.SetDefault("httpd.certificate_file", globalConf.HTTPDConfig.CertificateFile)
-	viper.SetDefault("httpd.certificate_key_file", globalConf.HTTPDConfig.CertificateKeyFile)
-	viper.SetDefault("http.timeout", globalConf.HTTPConfig.Timeout)
-	viper.SetDefault("http.ca_certificates", globalConf.HTTPConfig.CACertificates)
-	viper.SetDefault("http.skip_tls_verify", globalConf.HTTPConfig.SkipTLSVerify)
-	viper.SetDefault("kms.secrets.url", globalConf.KMSConfig.Secrets.URL)
-	viper.SetDefault("kms.secrets.master_key_path", globalConf.KMSConfig.Secrets.MasterKeyPath)
+func setViperDefaults(v *viper.Viper) {
+	v.SetDefault("common.idle_timeout", globalConf.Common.IdleTimeout)
+	v.SetDefault("common.upload_mode", globalConf.Common.UploadMode)
+	v.SetDefault("common.actions.execute_on", globalConf.Common.Actions.ExecuteOn)
+	v.SetDefault("common.actions.hook", globalConf.Common.Actions.Hook)
+	v.SetDefault("common.setstat_mode", globalConf.Common.SetstatMode)
+	v.SetDefault("common.proxy_protocol", globalConf.Common.ProxyProtocol)
+	v.SetDefault("common.proxy_allowed", globalConf.Common.ProxyAllowed)
+	v.SetDefault("common.post_connect_hook", globalConf.Common.PostConnectHook)
+	v.SetDefault("sftpd.bind_port", globalConf.SFTPD.BindPort)
+	v.SetDefault("sftpd.bind_address", globalConf.SFTPD.BindAddress)
+	v.SetDefault("sftpd.max_auth_tries", globalConf.SFTPD.MaxAuthTries)
+	v.SetDefault("sftpd.banner", globalConf.SFTPD.Banner)
+	v.SetDefault("sftpd.host_keys", globalConf.SFTPD.HostKeys)
+	v.SetDefault("sftpd.kex_algorithms", globalConf.SFTPD.KexAlgorithms)
+	v.SetDefault("sftpd.ciphers", globalConf.SFTPD.Ciphers)
+	v.SetDefault("sftpd.macs", globalConf.SFTPD.MACs)
+	v.SetDefault("sftpd.trusted_user_ca_keys", globalConf.SFTPD.TrustedUserCAKeys)
+	v.SetDefault("sftpd.login_banner_file", globalConf.SFTPD.LoginBannerFile)
+	v.SetDefault("sftpd.enabled_ssh_commands", globalConf.SFTPD.EnabledSSHCommands)
+	v.SetDefault("sftpd.keyboard_interactive_auth_hook", globalConf.SFTPD.KeyboardInteractiveHook)
+	v.SetDefault("sftpd.password_authentication", globalConf.SFTPD.PasswordAuthentication)
+	v.SetDefault("ftpd.bind_port", globalConf.FTPD.BindPort)
+	v.SetDefault("ftpd.bind_address", globalConf.FTPD.BindAddress)
+	v.SetDefault("ftpd.banner", globalConf.FTPD.Banner)
+	v.SetDefault("ftpd.banner_file", globalConf.FTPD.BannerFile)
+	v.SetDefault("ftpd.active_transfers_port_non_20", globalConf.FTPD.ActiveTransfersPortNon20)
+	v.SetDefault("ftpd.force_passive_ip", globalConf.FTPD.ForcePassiveIP)
+	v.SetDefault("ftpd.passive_port_range.start", globalConf.FTPD.PassivePortRange.Start)
+	v.SetDefault("ftpd.passive_port_range.end", globalConf.FTPD.PassivePortRange.End)
+	v.SetDefault("ftpd.certificate_file", globalConf.FTPD.CertificateFile)
+	v.SetDefault("ftpd.certificate_key_file", globalConf.FTPD.CertificateKeyFile)
+	v.SetDefault("ftpd.tls_mode", globalConf.FTPD.TLSMode)
+	v.SetDefault("webdavd.bind_port", globalConf.WebDAVD.BindPort)
+	v.SetDefault("webdavd.bind_address", globalConf.WebDAVD.BindAddress)
+	v.SetDefault("webdavd.certificate_file", globalConf.WebDAVD.CertificateFile)
+	v.SetDefault("webdavd.certificate_key_file", globalConf.WebDAVD.CertificateKeyFile)
+	v.SetDefault("webdavd.cors.enabled", globalConf.WebDAVD.Cors.Enabled)
+	v.SetDefault("webdavd.cors.allowed_origins", globalConf.WebDAVD.Cors.AllowedOrigins)
+	v.SetDefault("webdavd.cors.allowed_methods", globalConf.WebDAVD.Cors.AllowedMethods)
+	v.SetDefault("webdavd.cors.allowed_headers", globalConf.WebDAVD.Cors.AllowedHeaders)
+	v.SetDefault("webdavd.cors.exposed_headers", globalConf.WebDAVD.Cors.ExposedHeaders)
+	v.SetDefault("webdavd.cors.allow_credentials", globalConf.WebDAVD.Cors.AllowCredentials)
+	v.SetDefault("webdavd.cors.max_age", globalConf.WebDAVD.Cors.MaxAge)
+	v.SetDefault("webdavd.cache.users.expiration_time", globalConf.WebDAVD.Cache.Users.ExpirationTime)
+	v.SetDefault("webdavd.cache.users.max_size", globalConf.WebDAVD.Cache.Users.MaxSize)
+	v.SetDefault("webdavd.cache.mime_types.enabled", globalConf.WebDAVD.Cache.MimeTypes.Enabled)
+	v.SetDefault("webdavd.cache.mime_types.max_size", globalConf.WebDAVD.Cache.MimeTypes.MaxSize)
+	v.SetDefault("data_provider.driver", globalConf.ProviderConf.Driver)
+	v.SetDefault("data_provider.name", globalConf.ProviderConf.Name)
+	v.SetDefault("data_provider.host", globalConf.ProviderConf.Host)
+	v.SetDefault("data_provider.port", globalConf.ProviderConf.Port)
+	v.SetDefault("data_provider.username", globalConf.ProviderConf.Username)
+	v.SetDefault("data_provider.password", globalConf.ProviderConf.Password)
+	v.SetDefault("data_provider.sslmode", globalConf.ProviderConf.SSLMode)
+	v.SetDefault("data_provider.connection_string", globalConf.ProviderConf.ConnectionString)
+	v.SetDefault("data_provider.sql_tables_prefix", globalConf.ProviderConf.SQLTablesPrefix)
+	v.SetDefault("data_provider.manage_users", globalConf.ProviderConf.ManageUsers)
+	v.SetDefault("data_provider.track_quota", globalConf.ProviderConf.TrackQuota)
+	v.SetDefault("data_provider.pool_size", globalConf.ProviderConf.PoolSize)
+	v.SetDefault("data_provider.users_base_dir", globalConf.ProviderConf.UsersBaseDir)
+	v.SetDefault("data_provider.actions.execute_on", globalConf.ProviderConf.Actions.ExecuteOn)
+	v.SetDefault("data_provider.actions.hook", globalConf.ProviderConf.Actions.Hook)
+	v.SetDefault("data_provider.external_auth_hook", globalConf.ProviderConf.ExternalAuthHook)
+	v.SetDefault("data_provider.external_auth_scope", globalConf.ProviderConf.ExternalAuthScope)
+	v.SetDefault("data_provider.credentials_path", globalConf.ProviderConf.CredentialsPath)
+	v.SetDefault("data_provider.prefer_database_credentials", globalConf.ProviderConf.PreferDatabaseCredentials)
+	v.SetDefault("data_provider.pre_login_hook", globalConf.ProviderConf.PreLoginHook)
+	v.SetDefault("data_provider.post_login_hook", globalConf.ProviderConf.PostLoginHook)
+	v.SetDefault("data_provider.post_login_scope", globalConf.ProviderConf.PostLoginScope)
+	v.SetDefault("data_provider.check_password_hook", globalConf.ProviderConf.CheckPasswordHook)
+	v.SetDefault("data_provider.check_password_scope", globalConf.ProviderConf.CheckPasswordScope)
+	v.SetDefault("data_provider.password_hashing.argon2_options.memory", globalConf.ProviderConf.PasswordHashing.Argon2Options.Memory)
+	v.SetDefault("data_provider.password_hashing.argon2_options.iterations", globalConf.ProviderConf.PasswordHashing.Argon2Options.Iterations)
+	v.SetDefault("data_provider.password_hashing.argon2_options.parallelism", globalConf.ProviderConf.PasswordHashing.Argon2Options.Parallelism)
+	v.SetDefault("data_provider.update_mode", globalConf.ProviderConf.UpdateMode)
+	v.SetDefault("httpd.bind_port", globalConf.HTTPDConfig.BindPort)
+	v.SetDefault("httpd.bind_address", globalConf.HTTPDConfig.BindAddress)
+	v.SetDefault("httpd.templates_path", globalConf.HTTPDConfig.TemplatesPath)
+	v.SetDefault("httpd.static_files_path", globalConf.HTTPDConfig.StaticFilesPath)
+	v.SetDefault("httpd.backups_path", globalConf.HTTPDConfig.BackupsPath)
+	v.SetDefault("httpd.auth_user_file", globalConf.HTTPDConfig.AuthUserFile)
+	v.SetDefault("httpd.certificate_file", globalConf.HTTPDConfig.CertificateFile)
+	v.SetDefault("httpd.certificate_key_file", globalConf.HTTPDConfig.CertificateKeyFile)
+	v.SetDefault("http.timeout", globalConf.HTTPConfig.Timeout)
+	v.SetDefault("http.ca_certificates", globalConf.HTTPConfig.CACertificates)
+	v.SetDefault("http.skip_tls_verify", globalConf.HTTPConfig.SkipTLSVerify)
+	v.SetDefault("kms.secrets.url", globalConf.KMSConfig.Secrets.URL)
+	v.SetDefault("kms.secrets.master_key_path", globalConf.KMSConfig.Secrets.MasterKeyPath)
 }

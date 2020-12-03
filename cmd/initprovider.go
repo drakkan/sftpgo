@@ -5,7 +5,6 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
@@ -38,13 +37,13 @@ Please take a look at the usage below to customize the options.`,
 			logger.DisableLogger()
 			logger.EnableConsoleLogger(zerolog.DebugLevel)
 			configDir = utils.CleanDirInput(configDir)
-			err := config.LoadConfig(configDir, configFile)
+			err := config.LoadConfig(configDir, configFile, viperInstance)
 			if err != nil {
 				logger.WarnToConsole("Unable to initialize data provider, config load error: %v", err)
 				return
 			}
 			providerConf := config.GetProviderConf()
-			logger.InfoToConsole("Initializing provider: %#v config file: %#v", providerConf.Driver, viper.ConfigFileUsed())
+			logger.InfoToConsole("Initializing provider: %#v config file: %#v", providerConf.Driver, viperInstance.ConfigFileUsed())
 			err = dataprovider.InitializeDatabase(providerConf, configDir)
 			if err == nil {
 				logger.InfoToConsole("Data provider successfully initialized/updated")

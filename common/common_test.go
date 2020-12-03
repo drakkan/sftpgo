@@ -84,13 +84,6 @@ func TestMain(m *testing.M) {
 	logfilePath := "common_test.log"
 	logger.InitLogger(logfilePath, 5, 1, 28, false, zerolog.DebugLevel)
 
-	viper.SetEnvPrefix("sftpgo")
-	replacer := strings.NewReplacer(".", "__")
-	viper.SetEnvKeyReplacer(replacer)
-	viper.SetConfigName("sftpgo")
-	viper.AutomaticEnv()
-	viper.AllowEmptyEnv(true)
-
 	driver, err := initializeDataprovider(-1)
 	if err != nil {
 		logger.WarnToConsole("error initializing data provider: %v", err)
@@ -161,13 +154,20 @@ func waitTCPListening(address string) {
 }
 
 func initializeDataprovider(trackQuota int) (string, error) {
+	v := viper.New()
+	v.SetEnvPrefix("sftpgo")
+	replacer := strings.NewReplacer(".", "__")
+	v.SetEnvKeyReplacer(replacer)
+	v.SetConfigName("sftpgo")
+	v.AutomaticEnv()
+	v.AllowEmptyEnv(true)
 	configDir := ".."
-	viper.AddConfigPath(configDir)
-	if err := viper.ReadInConfig(); err != nil {
+	v.AddConfigPath(configDir)
+	if err := v.ReadInConfig(); err != nil {
 		return "", err
 	}
 	var cfg providerConf
-	if err := viper.Unmarshal(&cfg); err != nil {
+	if err := v.Unmarshal(&cfg); err != nil {
 		return "", err
 	}
 	if trackQuota >= 0 && trackQuota <= 2 {

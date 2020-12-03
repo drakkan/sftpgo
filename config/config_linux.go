@@ -5,7 +5,7 @@ package config
 import "github.com/spf13/viper"
 
 // linux specific config search path
-func setViperAdditionalConfigPaths() {
-	viper.AddConfigPath("$HOME/.config/sftpgo")
-	viper.AddConfigPath("/etc/sftpgo")
+func setViperAdditionalConfigPaths(v *viper.Viper) {
+	v.AddConfigPath("$HOME/.config/sftpgo")
+	v.AddConfigPath("/etc/sftpgo")
 }

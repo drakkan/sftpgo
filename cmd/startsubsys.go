@@ -9,7 +9,6 @@ import (
 	"github.com/rs/xid"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/config"
@@ -57,7 +56,7 @@ Command-line flags should be specified in the Subsystem declaration.
 			homedir := osUser.HomeDir
 			logger.Info(logSender, connectionID, "starting SFTPGo %v as subsystem, user %#v home dir %#v config dir %#v base home dir %#v",
 				version.Get(), username, homedir, configDir, baseHomeDir)
-			err = config.LoadConfig(configDir, configFile)
+			err = config.LoadConfig(configDir, configFile, viperInstance)
 			if err != nil {
 				logger.Error(logSender, connectionID, "unable to load configuration: %v", err)
 				os.Exit(1)
@@ -146,13 +145,13 @@ $ journalctl -o verbose -f
 To see full logs.
 If not set, the logs will be sent to the standard
 error`)
-	viper.SetDefault(logVerboseKey, defaultLogVerbose)
-	viper.BindEnv(logVerboseKey, "SFTPGO_LOG_VERBOSE") //nolint:errcheck
-	subsystemCmd.Flags().BoolVarP(&logVerbose, logVerboseFlag, "v", viper.GetBool(logVerboseKey),
+	viperInstance.SetDefault(logVerboseKey, defaultLogVerbose)
+	viperInstance.BindEnv(logVerboseKey, "SFTPGO_LOG_VERBOSE") //nolint:errcheck
+	subsystemCmd.Flags().BoolVarP(&logVerbose, logVerboseFlag, "v", viperInstance.GetBool(logVerboseKey),
 		`Enable verbose logs. This flag can be set
 using SFTPGO_LOG_VERBOSE env var too.
 `)
-	viper.BindPFlag(logVerboseKey, subsystemCmd.Flags().Lookup(logVerboseFlag)) //nolint:errcheck
+	viperInstance.BindPFlag(logVerboseKey, subsystemCmd.Flags().Lookup(logVerboseFlag)) //nolint:errcheck
 
 	rootCmd.AddCommand(subsystemCmd)
 }

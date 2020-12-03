@@ -2,6 +2,8 @@
 
 package config
 
-func setViperAdditionalConfigPaths() {
+import "github.com/spf13/viper"
+
+func setViperAdditionalConfigPaths(v *viper.Viper) {
 
 }

@@ -68,7 +68,8 @@ var (
 	loadDataQuotaScan int
 	loadDataClean     bool
 
-	rootCmd = &cobra.Command{
+	viperInstance = viper.New()
+	rootCmd       = &cobra.Command{
 		Use:   "sftpgo",
 		Short: "Fully featured and highly configurable SFTP server",
 	}
@@ -91,9 +92,9 @@ func Execute() {
 }
 
 func addConfigFlags(cmd *cobra.Command) {
-	viper.SetDefault(configDirKey, defaultConfigDir)
-	viper.BindEnv(configDirKey, "SFTPGO_CONFIG_DIR") //nolint:errcheck // err is not nil only if the key to bind is missing
-	cmd.Flags().StringVarP(&configDir, configDirFlag, "c", viper.GetString(configDirKey),
+	viperInstance.SetDefault(configDirKey, defaultConfigDir)
+	viperInstance.BindEnv(configDirKey, "SFTPGO_CONFIG_DIR") //nolint:errcheck // err is not nil only if the key to bind is missing
+	cmd.Flags().StringVarP(&configDir, configDirFlag, "c", viperInstance.GetString(configDirKey),
 		`Location for the config dir. This directory
 is used as the base for files with a relative
 path, eg. the private keys for the SFTP
@@ -108,11 +109,11 @@ file name is "sftpgo" and therefore
 searched.
 This flag can be set using SFTPGO_CONFIG_DIR
 env var too.`)
-	viper.BindPFlag(configDirKey, cmd.Flags().Lookup(configDirFlag)) //nolint:errcheck
+	viperInstance.BindPFlag(configDirKey, cmd.Flags().Lookup(configDirFlag)) //nolint:errcheck
 
-	viper.SetDefault(configFileKey, defaultConfigFile)
-	viper.BindEnv(configFileKey, "SFTPGO_CONFIG_FILE") //nolint:errcheck
-	cmd.Flags().StringVarP(&configFile, configFileFlag, "f", viper.GetString(configFileKey),
+	viperInstance.SetDefault(configFileKey, defaultConfigFile)
+	viperInstance.BindEnv(configFileKey, "SFTPGO_CONFIG_FILE") //nolint:errcheck
+	cmd.Flags().StringVarP(&configFile, configFileFlag, "f", viperInstance.GetString(configFileKey),
 		`Path to the SFTPGo configuration file.
 This flag explicitly defines the path, name
 and extension of the config file. If must be
@@ -122,80 +123,80 @@ name must have a supported extension (JSON,
 YAML, TOML, HCL or Java properties).
 This flag can be set using SFTPGO_CONFIG_FILE
 env var too.`)
-	viper.BindPFlag(configFileKey, cmd.Flags().Lookup(configFileFlag)) //nolint:errcheck
+	viperInstance.BindPFlag(configFileKey, cmd.Flags().Lookup(configFileFlag)) //nolint:errcheck
 }
 
 func addServeFlags(cmd *cobra.Command) {
 	addConfigFlags(cmd)
 
-	viper.SetDefault(logFilePathKey, defaultLogFile)
-	viper.BindEnv(logFilePathKey, "SFTPGO_LOG_FILE_PATH") //nolint:errcheck
-	cmd.Flags().StringVarP(&logFilePath, logFilePathFlag, "l", viper.GetString(logFilePathKey),
+	viperInstance.SetDefault(logFilePathKey, defaultLogFile)
+	viperInstance.BindEnv(logFilePathKey, "SFTPGO_LOG_FILE_PATH") //nolint:errcheck
+	cmd.Flags().StringVarP(&logFilePath, logFilePathFlag, "l", viperInstance.GetString(logFilePathKey),
 		`Location for the log file. Leave empty to write
 logs to the standard output. This flag can be
 set using SFTPGO_LOG_FILE_PATH env var too.
 `)
-	viper.BindPFlag(logFilePathKey, cmd.Flags().Lookup(logFilePathFlag)) //nolint:errcheck
+	viperInstance.BindPFlag(logFilePathKey, cmd.Flags().Lookup(logFilePathFlag)) //nolint:errcheck
 
-	viper.SetDefault(logMaxSizeKey, defaultLogMaxSize)
-	viper.BindEnv(logMaxSizeKey, "SFTPGO_LOG_MAX_SIZE") //nolint:errcheck
-	cmd.Flags().IntVarP(&logMaxSize, logMaxSizeFlag, "s", viper.GetInt(logMaxSizeKey),
+	viperInstance.SetDefault(logMaxSizeKey, defaultLogMaxSize)
+	viperInstance.BindEnv(logMaxSizeKey, "SFTPGO_LOG_MAX_SIZE") //nolint:errcheck
+	cmd.Flags().IntVarP(&logMaxSize, logMaxSizeFlag, "s", viperInstance.GetInt(logMaxSizeKey),
 		`Maximum size in megabytes of the log file
 before it gets rotated. This flag can be set
 using SFTPGO_LOG_MAX_SIZE env var too. It is
 unused if log-file-path is empty.
 `)
-	viper.BindPFlag(logMaxSizeKey, cmd.Flags().Lookup(logMaxSizeFlag)) //nolint:errcheck
+	viperInstance.BindPFlag(logMaxSizeKey, cmd.Flags().Lookup(logMaxSizeFlag)) //nolint:errcheck
 
-	viper.SetDefault(logMaxBackupKey, defaultLogMaxBackup)
-	viper.BindEnv(logMaxBackupKey, "SFTPGO_LOG_MAX_BACKUPS") //nolint:errcheck
-	cmd.Flags().IntVarP(&logMaxBackups, "log-max-backups", "b", viper.GetInt(logMaxBackupKey),
+	viperInstance.SetDefault(logMaxBackupKey, defaultLogMaxBackup)
+	viperInstance.BindEnv(logMaxBackupKey, "SFTPGO_LOG_MAX_BACKUPS") //nolint:errcheck
+	cmd.Flags().IntVarP(&logMaxBackups, "log-max-backups", "b", viperInstance.GetInt(logMaxBackupKey),
 		`Maximum number of old log files to retain.
 This flag can be set using SFTPGO_LOG_MAX_BACKUPS
 env var too. It is unused if log-file-path is
 empty.`)
-	viper.BindPFlag(logMaxBackupKey, cmd.Flags().Lookup(logMaxBackupFlag)) //nolint:errcheck
+	viperInstance.BindPFlag(logMaxBackupKey, cmd.Flags().Lookup(logMaxBackupFlag)) //nolint:errcheck
 
-	viper.SetDefault(logMaxAgeKey, defaultLogMaxAge)
-	viper.BindEnv(logMaxAgeKey, "SFTPGO_LOG_MAX_AGE") //nolint:errcheck
-	cmd.Flags().IntVarP(&logMaxAge, "log-max-age", "a", viper.GetInt(logMaxAgeKey),
+	viperInstance.SetDefault(logMaxAgeKey, defaultLogMaxAge)
+	viperInstance.BindEnv(logMaxAgeKey, "SFTPGO_LOG_MAX_AGE") //nolint:errcheck
+	cmd.Flags().IntVarP(&logMaxAge, "log-max-age", "a", viperInstance.GetInt(logMaxAgeKey),
 		`Maximum number of days to retain old log files.
 This flag can be set using SFTPGO_LOG_MAX_AGE env
 var too. It is unused if log-file-path is empty.
 `)
-	viper.BindPFlag(logMaxAgeKey, cmd.Flags().Lookup(logMaxAgeFlag)) //nolint:errcheck
+	viperInstance.BindPFlag(logMaxAgeKey, cmd.Flags().Lookup(logMaxAgeFlag)) //nolint:errcheck
 
-	viper.SetDefault(logCompressKey, defaultLogCompress)
-	viper.BindEnv(logCompressKey, "SFTPGO_LOG_COMPRESS") //nolint:errcheck
-	cmd.Flags().BoolVarP(&logCompress, logCompressFlag, "z", viper.GetBool(logCompressKey),
+	viperInstance.SetDefault(logCompressKey, defaultLogCompress)
+	viperInstance.BindEnv(logCompressKey, "SFTPGO_LOG_COMPRESS") //nolint:errcheck
+	cmd.Flags().BoolVarP(&logCompress, logCompressFlag, "z", viperInstance.GetBool(logCompressKey),
 		`Determine if the rotated log files
 should be compressed using gzip. This flag can
 be set using SFTPGO_LOG_COMPRESS env var too.
 It is unused if log-file-path is empty.
 `)
-	viper.BindPFlag(logCompressKey, cmd.Flags().Lookup(logCompressFlag)) //nolint:errcheck
+	viperInstance.BindPFlag(logCompressKey, cmd.Flags().Lookup(logCompressFlag)) //nolint:errcheck
 
-	viper.SetDefault(logVerboseKey, defaultLogVerbose)
-	viper.BindEnv(logVerboseKey, "SFTPGO_LOG_VERBOSE") //nolint:errcheck
-	cmd.Flags().BoolVarP(&logVerbose, logVerboseFlag, "v", viper.GetBool(logVerboseKey),
+	viperInstance.SetDefault(logVerboseKey, defaultLogVerbose)
+	viperInstance.BindEnv(logVerboseKey, "SFTPGO_LOG_VERBOSE") //nolint:errcheck
+	cmd.Flags().BoolVarP(&logVerbose, logVerboseFlag, "v", viperInstance.GetBool(logVerboseKey),
 		`Enable verbose logs. This flag can be set
 using SFTPGO_LOG_VERBOSE env var too.
 `)
-	viper.BindPFlag(logVerboseKey, cmd.Flags().Lookup(logVerboseFlag)) //nolint:errcheck
+	viperInstance.BindPFlag(logVerboseKey, cmd.Flags().Lookup(logVerboseFlag)) //nolint:errcheck
 
-	viper.SetDefault(profilerKey, defaultProfiler)
-	viper.BindEnv(profilerKey, "SFTPGO_PROFILER") //nolint:errcheck
-	cmd.Flags().BoolVarP(&profiler, profilerFlag, "p", viper.GetBool(profilerKey),
+	viperInstance.SetDefault(profilerKey, defaultProfiler)
+	viperInstance.BindEnv(profilerKey, "SFTPGO_PROFILER") //nolint:errcheck
+	cmd.Flags().BoolVarP(&profiler, profilerFlag, "p", viperInstance.GetBool(profilerKey),
 		`Enable the built-in profiler. The profiler will
 be accessible via HTTP/HTTPS using the base URL
 "/debug/pprof/".
 This flag can be set using SFTPGO_PROFILER env
 var too.`)
-	viper.BindPFlag(profilerKey, cmd.Flags().Lookup(profilerFlag)) //nolint:errcheck
+	viperInstance.BindPFlag(profilerKey, cmd.Flags().Lookup(profilerFlag)) //nolint:errcheck
 
-	viper.SetDefault(loadDataFromKey, defaultLoadDataFrom)
-	viper.BindEnv(loadDataFromKey, "SFTPGO_LOADDATA_FROM") //nolint:errcheck
-	cmd.Flags().StringVar(&loadDataFrom, loadDataFromFlag, viper.GetString(loadDataFromKey),
+	viperInstance.SetDefault(loadDataFromKey, defaultLoadDataFrom)
+	viperInstance.BindEnv(loadDataFromKey, "SFTPGO_LOADDATA_FROM") //nolint:errcheck
+	cmd.Flags().StringVar(&loadDataFrom, loadDataFromFlag, viperInstance.GetString(loadDataFromKey),
 		`Load users and folders from this file.
 The file must be specified as absolute path
 and it must contain a backup obtained using
@@ -203,11 +204,11 @@ the "dumpdata" REST API or compatible content.
 This flag can be set using SFTPGO_LOADDATA_FROM
 env var too.
 `)
-	viper.BindPFlag(loadDataFromKey, cmd.Flags().Lookup(loadDataFromFlag)) //nolint:errcheck
+	viperInstance.BindPFlag(loadDataFromKey, cmd.Flags().Lookup(loadDataFromFlag)) //nolint:errcheck
 
-	viper.SetDefault(loadDataModeKey, defaultLoadDataMode)
-	viper.BindEnv(loadDataModeKey, "SFTPGO_LOADDATA_MODE") //nolint:errcheck
-	cmd.Flags().IntVar(&loadDataMode, loadDataModeFlag, viper.GetInt(loadDataModeKey),
+	viperInstance.SetDefault(loadDataModeKey, defaultLoadDataMode)
+	viperInstance.BindEnv(loadDataModeKey, "SFTPGO_LOADDATA_MODE") //nolint:errcheck
+	cmd.Flags().IntVar(&loadDataMode, loadDataModeFlag, viperInstance.GetInt(loadDataModeKey),
 		`Restore mode for data to load:
   0 - new users are added, existing users are
       updated
@@ -216,11 +217,11 @@ env var too.
 This flag can be set using SFTPGO_LOADDATA_MODE
 env var too.
 `)
-	viper.BindPFlag(loadDataModeKey, cmd.Flags().Lookup(loadDataModeFlag)) //nolint:errcheck
+	viperInstance.BindPFlag(loadDataModeKey, cmd.Flags().Lookup(loadDataModeFlag)) //nolint:errcheck
 
-	viper.SetDefault(loadDataQuotaScanKey, defaultLoadDataQuotaScan)
-	viper.BindEnv(loadDataQuotaScanKey, "SFTPGO_LOADDATA_QUOTA_SCAN") //nolint:errcheck
-	cmd.Flags().IntVar(&loadDataQuotaScan, loadDataQuotaScanFlag, viper.GetInt(loadDataQuotaScanKey),
+	viperInstance.SetDefault(loadDataQuotaScanKey, defaultLoadDataQuotaScan)
+	viperInstance.BindEnv(loadDataQuotaScanKey, "SFTPGO_LOADDATA_QUOTA_SCAN") //nolint:errcheck
+	cmd.Flags().IntVar(&loadDataQuotaScan, loadDataQuotaScanFlag, viperInstance.GetInt(loadDataQuotaScanKey),
 		`Quota scan mode after data load:
   0 - no quota scan
   1 - scan quota
@@ -228,15 +229,15 @@ env var too.
 This flag can be set using SFTPGO_LOADDATA_QUOTA_SCAN
 env var too.
 (default 0)`)
-	viper.BindPFlag(loadDataQuotaScanKey, cmd.Flags().Lookup(loadDataQuotaScanFlag)) //nolint:errcheck
+	viperInstance.BindPFlag(loadDataQuotaScanKey, cmd.Flags().Lookup(loadDataQuotaScanFlag)) //nolint:errcheck
 
-	viper.SetDefault(loadDataCleanKey, defaultLoadDataClean)
-	viper.BindEnv(loadDataCleanKey, "SFTPGO_LOADDATA_CLEAN") //nolint:errcheck
-	cmd.Flags().BoolVar(&loadDataClean, loadDataCleanFlag, viper.GetBool(loadDataCleanKey),
+	viperInstance.SetDefault(loadDataCleanKey, defaultLoadDataClean)
+	viperInstance.BindEnv(loadDataCleanKey, "SFTPGO_LOADDATA_CLEAN") //nolint:errcheck
+	cmd.Flags().BoolVar(&loadDataClean, loadDataCleanFlag, viperInstance.GetBool(loadDataCleanKey),
 		`Determine if the loaddata-from file should
 be removed after a successful load. This flag
 can be set using SFTPGO_LOADDATA_CLEAN env var
 too. (default "false")
 `)
-	viper.BindPFlag(logCompressKey, cmd.Flags().Lookup(logCompressFlag)) //nolint:errcheck
+	viperInstance.BindPFlag(logCompressKey, cmd.Flags().Lookup(logCompressFlag)) //nolint:errcheck
 }

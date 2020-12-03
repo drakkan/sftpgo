@@ -23,6 +23,7 @@ sftpgo service install
 Please take a look at the usage below to customize the startup options`,
 		Run: func(cmd *cobra.Command, args []string) {
 			s := service.Service{
+				ViperInstance: viperInstance,
 				ConfigDir:     utils.CleanDirInput(configDir),
 				ConfigFile:    configFile,
 				LogFilePath:   logFilePath,

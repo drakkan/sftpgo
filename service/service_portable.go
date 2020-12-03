@@ -29,7 +29,7 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 		return fmt.Errorf("service is not configured for portable mode")
 	}
 	rand.Seed(time.Now().UnixNano())
-	err := config.LoadConfig(s.ConfigDir, s.ConfigFile)
+	err := config.LoadConfig(s.ConfigDir, s.ConfigFile, s.ViperInstance)
 	if err != nil {
 		fmt.Printf("error loading configuration file: %v using defaults\n", err)
 	}

@@ -21,6 +21,7 @@ var (
 				logFilePath = filepath.Join(configDir, logFilePath)
 			}
 			s := service.Service{
+				ViperInstance: viperInstance,
 				ConfigDir:     configDir,
 				ConfigFile:    configFile,
 				LogFilePath:   logFilePath,

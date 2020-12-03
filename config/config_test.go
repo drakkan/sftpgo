@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/drakkan/sftpgo/common"
@@ -26,8 +27,9 @@ const (
 )
 
 func TestLoadConfigTest(t *testing.T) {
+	v := viper.New()
 	configDir := ".."
-	err := config.LoadConfig(configDir, configFile)
+	err := config.LoadConfig(configDir, configFile, v)
 	assert.NoError(t, err)
 	assert.NotEqual(t, httpd.Conf{}, config.GetHTTPConfig())
 	assert.NotEqual(t, dataprovider.Config{}, config.GetProviderConf())
@@ -35,25 +37,26 @@ func TestLoadConfigTest(t *testing.T) {
 	assert.NotEqual(t, httpclient.Config{}, config.GetHTTPConfig())
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
-	err = config.LoadConfig(configDir, confName)
+	err = config.LoadConfig(configDir, confName, v)
 	assert.NoError(t, err)
 	err = ioutil.WriteFile(configFilePath, []byte("{invalid json}"), os.ModePerm)
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
+	err = config.LoadConfig(configDir, confName, v)
 	assert.NoError(t, err)
 	err = ioutil.WriteFile(configFilePath, []byte("{\"sftpd\": {\"bind_port\": \"a\"}}"), os.ModePerm)
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
+	err = config.LoadConfig(configDir, confName, v)
 	assert.Error(t, err)
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
 }
 
 func TestEmptyBanner(t *testing.T) {
+	v := viper.New()
 	configDir := ".."
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
-	err := config.LoadConfig(configDir, configFile)
+	err := config.LoadConfig(configDir, configFile, v)
 	assert.NoError(t, err)
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.Banner = " "
@@ -62,7 +65,7 @@ func TestEmptyBanner(t *testing.T) {
 	jsonConf, _ := json.Marshal(c)
 	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
+	err = config.LoadConfig(configDir, confName, v)
 	assert.NoError(t, err)
 	sftpdConf = config.GetSFTPDConfig()
 	assert.NotEmpty(t, strings.TrimSpace(sftpdConf.Banner))
@@ -76,7 +79,7 @@ func TestEmptyBanner(t *testing.T) {
 	jsonConf, _ = json.Marshal(c1)
 	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
+	err = config.LoadConfig(configDir, confName, v)
 	assert.NoError(t, err)
 	ftpdConf = config.GetFTPDConfig()
 	assert.NotEmpty(t, strings.TrimSpace(ftpdConf.Banner))
@@ -85,10 +88,11 @@ func TestEmptyBanner(t *testing.T) {
 }
 
 func TestInvalidUploadMode(t *testing.T) {
+	v := viper.New()
 	configDir := ".."
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
-	err := config.LoadConfig(configDir, configFile)
+	err := config.LoadConfig(configDir, configFile, v)
 	assert.NoError(t, err)
 	commonConf := config.GetCommonConfig()
 	commonConf.UploadMode = 10
@@ -98,17 +102,18 @@ func TestInvalidUploadMode(t *testing.T) {
 	assert.NoError(t, err)
 	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
+	err = config.LoadConfig(configDir, confName, v)
 	assert.Error(t, err)
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
 }
 
 func TestInvalidExternalAuthScope(t *testing.T) {
+	v := viper.New()
 	configDir := ".."
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
-	err := config.LoadConfig(configDir, configFile)
+	err := config.LoadConfig(configDir, configFile, v)
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	providerConf.ExternalAuthScope = 10
@@ -118,17 +123,18 @@ func TestInvalidExternalAuthScope(t *testing.T) {
 	assert.NoError(t, err)
 	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
+	err = config.LoadConfig(configDir, confName, v)
 	assert.NotNil(t, err)
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
 }
 
 func TestInvalidCredentialsPath(t *testing.T) {
+	v := viper.New()
 	configDir := ".."
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
-	err := config.LoadConfig(configDir, configFile)
+	err := config.LoadConfig(configDir, configFile, v)
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	providerConf.CredentialsPath = ""
@@ -138,17 +144,18 @@ func TestInvalidCredentialsPath(t *testing.T) {
 	assert.NoError(t, err)
 	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
+	err = config.LoadConfig(configDir, confName, v)
 	assert.Error(t, err)
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
 }
 
 func TestInvalidProxyProtocol(t *testing.T) {
+	v := viper.New()
 	configDir := ".."
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
-	err := config.LoadConfig(configDir, configFile)
+	err := config.LoadConfig(configDir, configFile, v)
 	assert.NoError(t, err)
 	commonConf := config.GetCommonConfig()
 	commonConf.ProxyProtocol = 10
@@ -158,17 +165,18 @@ func TestInvalidProxyProtocol(t *testing.T) {
 	assert.NoError(t, err)
 	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
+	err = config.LoadConfig(configDir, confName, v)
 	assert.NotNil(t, err)
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
 }
 
 func TestInvalidUsersBaseDir(t *testing.T) {
+	v := viper.New()
 	configDir := ".."
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
-	err := config.LoadConfig(configDir, configFile)
+	err := config.LoadConfig(configDir, configFile, v)
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	providerConf.UsersBaseDir = "."
@@ -178,17 +186,18 @@ func TestInvalidUsersBaseDir(t *testing.T) {
 	assert.NoError(t, err)
 	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
+	err = config.LoadConfig(configDir, confName, v)
 	assert.NotNil(t, err)
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
 }
 
 func TestCommonParamsCompatibility(t *testing.T) {
+	v := viper.New()
 	configDir := ".."
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
-	err := config.LoadConfig(configDir, configFile)
+	err := config.LoadConfig(configDir, configFile, v)
 	assert.NoError(t, err)
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.IdleTimeout = 21 //nolint:staticcheck
@@ -204,7 +213,7 @@ func TestCommonParamsCompatibility(t *testing.T) {
 	assert.NoError(t, err)
 	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
+	err = config.LoadConfig(configDir, confName, v)
 	assert.NoError(t, err)
 	commonConf := config.GetCommonConfig()
 	assert.Equal(t, 21, commonConf.IdleTimeout)
@@ -220,10 +229,11 @@ func TestCommonParamsCompatibility(t *testing.T) {
 }
 
 func TestHostKeyCompatibility(t *testing.T) {
+	v := viper.New()
 	configDir := ".."
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
-	err := config.LoadConfig(configDir, configFile)
+	err := config.LoadConfig(configDir, configFile, v)
 	assert.NoError(t, err)
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.Keys = []sftpd.Key{ //nolint:staticcheck
@@ -240,7 +250,7 @@ func TestHostKeyCompatibility(t *testing.T) {
 	assert.NoError(t, err)
 	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
+	err = config.LoadConfig(configDir, confName, v)
 	assert.NoError(t, err)
 	sftpdConf = config.GetSFTPDConfig()
 	assert.Equal(t, 2, len(sftpdConf.HostKeys))
@@ -288,8 +298,9 @@ func TestSetGetConfig(t *testing.T) {
 }
 
 func TestServiceToStart(t *testing.T) {
+	v := viper.New()
 	configDir := ".."
-	err := config.LoadConfig(configDir, configFile)
+	err := config.LoadConfig(configDir, configFile, v)
 	assert.NoError(t, err)
 	assert.True(t, config.HasServicesToStart())
 	sftpdConf := config.GetSFTPDConfig()
@@ -329,7 +340,8 @@ func TestConfigFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_KMS__SECRETS__URL")
 		os.Unsetenv("SFTPGO_KMS__SECRETS__MASTER_KEY_PATH")
 	})
-	err := config.LoadConfig(".", "invalid config")
+	v := viper.New()
+	err := config.LoadConfig(".", "invalid config", v)
 	assert.NoError(t, err)
 	sftpdConfig := config.GetSFTPDConfig()
 	assert.Equal(t, "127.0.0.1", sftpdConfig.BindAddress)

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/rs/zerolog"
+	"github.com/spf13/viper"
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/config"
@@ -44,6 +45,7 @@ type Service struct {
 	LoadDataFrom      string
 	LoadDataMode      int
 	LoadDataQuotaScan int
+	ViperInstance     *viper.Viper
 	Shutdown          chan bool
 	Error             error
 }
@@ -69,7 +71,7 @@ func (s *Service) Start() error {
 		s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogVerbose, s.LogCompress, s.Profiler, s.LoadDataFrom)
 	// in portable mode we don't read configuration from file
 	if s.PortableMode != 1 {
-		err := config.LoadConfig(s.ConfigDir, s.ConfigFile)
+		err := config.LoadConfig(s.ConfigDir, s.ConfigFile, s.ViperInstance)
 		if err != nil {
 			logger.Error(logSender, "", "error loading configuration: %v", err)
 			return err
