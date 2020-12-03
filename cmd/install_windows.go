@@ -64,7 +64,7 @@ func getCustomServeFlags() []string {
 		result = append(result, "--"+configDirFlag)
 		result = append(result, configDir)
 	}
-	if configFile != defaultConfigName {
+	if configFile != defaultConfigFile {
 		result = append(result, "--"+configFileFlag)
 		result = append(result, configFile)
 	}

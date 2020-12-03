@@ -72,6 +72,7 @@ func (s *Service) Start() error {
 		err := config.LoadConfig(s.ConfigDir, s.ConfigFile)
 		if err != nil {
 			logger.Error(logSender, "", "error loading configuration: %v", err)
+			return err
 		}
 	}
 	if !config.HasServicesToStart() {

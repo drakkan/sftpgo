@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/version"
 )
 
@@ -40,7 +39,7 @@ const (
 	loadDataCleanFlag        = "loaddata-clean"
 	loadDataCleanKey         = "loaddata_clean"
 	defaultConfigDir         = "."
-	defaultConfigName        = config.DefaultConfigName
+	defaultConfigFile        = ""
 	defaultLogFile           = "sftpgo.log"
 	defaultLogMaxSize        = 10
 	defaultLogMaxBackup      = 5
@@ -95,27 +94,32 @@ func addConfigFlags(cmd *cobra.Command) {
 	viper.SetDefault(configDirKey, defaultConfigDir)
 	viper.BindEnv(configDirKey, "SFTPGO_CONFIG_DIR") //nolint:errcheck // err is not nil only if the key to bind is missing
 	cmd.Flags().StringVarP(&configDir, configDirFlag, "c", viper.GetString(configDirKey),
-		`Location for SFTPGo config dir. This directory
-should contain the "sftpgo" configuration file
-or the configured config-file and it is used as
-the base for files with a relative path (eg. the
-private keys for the SFTP server, the SQLite
-database if you use SQLite as data provider).
+		`Location for the config dir. This directory
+is used as the base for files with a relative
+path, eg. the private keys for the SFTP
+server or the SQLite database if you use
+SQLite as data provider.
+The configuration file, if not explicitly set,
+is looked for in this dir. We support reading
+from JSON, TOML, YAML, HCL, envfile and Java
+properties config files. The default config
+file name is "sftpgo" and therefore
+"sftpgo.json", "sftpgo.yaml" and so on are
+searched.
 This flag can be set using SFTPGO_CONFIG_DIR
 env var too.`)
 	viper.BindPFlag(configDirKey, cmd.Flags().Lookup(configDirFlag)) //nolint:errcheck
 
-	viper.SetDefault(configFileKey, defaultConfigName)
+	viper.SetDefault(configFileKey, defaultConfigFile)
 	viper.BindEnv(configFileKey, "SFTPGO_CONFIG_FILE") //nolint:errcheck
 	cmd.Flags().StringVarP(&configFile, configFileFlag, "f", viper.GetString(configFileKey),
-		`Name for SFTPGo configuration file. It must be
-the name of a file stored in config-dir not the
-absolute path to the configuration file. The
-specified file name must have no extension we
-automatically load JSON, YAML, TOML, HCL and
-Java properties. Therefore if you set "sftpgo"
-then "sftpgo.json", "sftpgo.yaml" and so on
-are searched.
+		`Path to the SFTPGo configuration file.
+This flag explicitly defines the path, name
+and extension of the config file. If must be
+an absolute path or a path relative to the
+configuration directory. The specified file
+name must have a supported extension (JSON,
+YAML, TOML, HCL or Java properties).
 This flag can be set using SFTPGO_CONFIG_FILE
 env var too.`)
 	viper.BindPFlag(configFileKey, cmd.Flags().Lookup(configFileFlag)) //nolint:errcheck
