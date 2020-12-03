@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/version"
 )
 
@@ -76,6 +77,7 @@ var (
 )
 
 func init() {
+	config.SetViperConfig(viperInstance)
 	rootCmd.Flags().BoolP("version", "v", false, "")
 	rootCmd.Version = version.GetAsString()
 	rootCmd.SetVersionTemplate(`{{printf "SFTPGo "}}{{printf "%s" .Version}}

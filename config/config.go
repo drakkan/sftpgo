@@ -176,7 +176,8 @@ func init() {
 	}
 }
 
-func setViperConfig(v *viper.Viper) {
+// SetViperConfig sets our viper configuration: env vars, config name and defaults
+func SetViperConfig(v *viper.Viper) {
 	v.SetEnvPrefix(configEnvPrefix)
 	replacer := strings.NewReplacer(".", "__")
 	v.SetEnvKeyReplacer(replacer)
@@ -296,10 +297,8 @@ func setConfigFile(configDir, configFile string, v *viper.Viper) {
 // configDir will be added to the configuration search paths.
 // The search path contains by default the current directory and on linux it contains
 // $HOME/.config/sftpgo and /etc/sftpgo too.
-// configName is the name of the configuration to search without extension
 func LoadConfig(configDir, configFile string, v *viper.Viper) error {
 	var err error
-	setViperConfig(v)
 	v.AddConfigPath(configDir)
 	setViperAdditionalConfigPaths(v)
 	v.AddConfigPath(".")
