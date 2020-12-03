@@ -100,7 +100,8 @@ func TestInvalidUploadMode(t *testing.T) {
 	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, confName, getViperInstance())
-	assert.Error(t, err)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, config.GetCommonConfig().UploadMode)
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
 }
@@ -120,7 +121,8 @@ func TestInvalidExternalAuthScope(t *testing.T) {
 	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, confName, getViperInstance())
-	assert.NotNil(t, err)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, config.GetProviderConf().ExternalAuthScope)
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
 }
@@ -140,7 +142,8 @@ func TestInvalidCredentialsPath(t *testing.T) {
 	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, confName, getViperInstance())
-	assert.Error(t, err)
+	assert.NoError(t, err)
+	assert.Equal(t, "credentials", config.GetProviderConf().CredentialsPath)
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
 }
@@ -160,7 +163,8 @@ func TestInvalidProxyProtocol(t *testing.T) {
 	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, confName, getViperInstance())
-	assert.NotNil(t, err)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, config.GetCommonConfig().ProxyProtocol)
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
 }
@@ -180,7 +184,8 @@ func TestInvalidUsersBaseDir(t *testing.T) {
 	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, confName, getViperInstance())
-	assert.NotNil(t, err)
+	assert.NoError(t, err)
+	assert.Equal(t, "", config.GetProviderConf().UsersBaseDir)
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
 }

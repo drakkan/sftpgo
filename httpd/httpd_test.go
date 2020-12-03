@@ -120,7 +120,7 @@ func TestMain(m *testing.M) {
 	homeBasePath = os.TempDir()
 	logfilePath := filepath.Join(configDir, "sftpgo_api_test.log")
 	logger.InitLogger(logfilePath, 5, 1, 28, false, zerolog.DebugLevel)
-	err := config.LoadConfig(configDir, "", viper.New())
+	err := config.LoadConfig(configDir, "", getViperInstance())
 	if err != nil {
 		logger.WarnToConsole("error loading configuration: %v", err)
 		os.Exit(1)
@@ -208,7 +208,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestInitialization(t *testing.T) {
-	err := config.LoadConfig(configDir, "", viper.New())
+	err := config.LoadConfig(configDir, "", getViperInstance())
 	assert.NoError(t, err)
 	invalidFile := "invalid file"
 	httpdConf := config.GetHTTPDConfig()
@@ -1233,7 +1233,7 @@ func TestUserAzureBlobConfig(t *testing.T) {
 func TestUserHiddenFields(t *testing.T) {
 	err := dataprovider.Close()
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "", viper.New())
+	err = config.LoadConfig(configDir, "", getViperInstance())
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	providerConf.PreferDatabaseCredentials = true
@@ -1356,7 +1356,7 @@ func TestUserHiddenFields(t *testing.T) {
 
 	err = dataprovider.Close()
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "", viper.New())
+	err = config.LoadConfig(configDir, "", getViperInstance())
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	providerConf.CredentialsPath = credentialsPath
@@ -1731,7 +1731,7 @@ func TestCloseConnectionAfterUserUpdateDelete(t *testing.T) {
 func TestUserBaseDir(t *testing.T) {
 	err := dataprovider.Close()
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "", viper.New())
+	err = config.LoadConfig(configDir, "", getViperInstance())
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	providerConf.UsersBaseDir = homeBasePath
@@ -1748,7 +1748,7 @@ func TestUserBaseDir(t *testing.T) {
 	assert.NoError(t, err)
 	err = dataprovider.Close()
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "", viper.New())
+	err = config.LoadConfig(configDir, "", getViperInstance())
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	providerConf.CredentialsPath = credentialsPath
@@ -1761,7 +1761,7 @@ func TestUserBaseDir(t *testing.T) {
 func TestQuotaTrackingDisabled(t *testing.T) {
 	err := dataprovider.Close()
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "", viper.New())
+	err = config.LoadConfig(configDir, "", getViperInstance())
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	providerConf.TrackQuota = 0
@@ -1791,7 +1791,7 @@ func TestQuotaTrackingDisabled(t *testing.T) {
 
 	err = dataprovider.Close()
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "", viper.New())
+	err = config.LoadConfig(configDir, "", getViperInstance())
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	providerConf.CredentialsPath = credentialsPath
@@ -1840,7 +1840,7 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.Remove(backupFilePath)
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "", viper.New())
+	err = config.LoadConfig(configDir, "", getViperInstance())
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	providerConf.CredentialsPath = credentialsPath
@@ -1913,7 +1913,7 @@ func TestFolders(t *testing.T) {
 func TestDumpdata(t *testing.T) {
 	err := dataprovider.Close()
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "", viper.New())
+	err = config.LoadConfig(configDir, "", getViperInstance())
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	err = dataprovider.Initialize(providerConf, configDir)
@@ -1943,7 +1943,7 @@ func TestDumpdata(t *testing.T) {
 	}
 	err = dataprovider.Close()
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "", viper.New())
+	err = config.LoadConfig(configDir, "", getViperInstance())
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	providerConf.CredentialsPath = credentialsPath
@@ -3525,7 +3525,7 @@ func TestProviderClosedMock(t *testing.T) {
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/0", strings.NewReader(form.Encode()))
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr.Code)
-	err := config.LoadConfig(configDir, "", viper.New())
+	err := config.LoadConfig(configDir, "", getViperInstance())
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	providerConf.CredentialsPath = credentialsPath
@@ -3644,4 +3644,10 @@ func BenchmarkSecretDecryption(b *testing.B) {
 		err = s.Clone().Decrypt()
 		require.NoError(b, err)
 	}
+}
+
+func getViperInstance() *viper.Viper {
+	v := viper.New()
+	config.SetViperConfig(v)
+	return v
 }

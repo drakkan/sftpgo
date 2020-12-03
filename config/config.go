@@ -323,45 +323,45 @@ func LoadConfig(configDir, configFile string, v *viper.Viper) error {
 		globalConf.FTPD.Banner = defaultFTPDBanner
 	}
 	if len(globalConf.ProviderConf.UsersBaseDir) > 0 && !utils.IsFileInputValid(globalConf.ProviderConf.UsersBaseDir) {
-		err = fmt.Errorf("invalid users base dir %#v will be ignored", globalConf.ProviderConf.UsersBaseDir)
+		warn := fmt.Sprintf("invalid users base dir %#v will be ignored", globalConf.ProviderConf.UsersBaseDir)
 		globalConf.ProviderConf.UsersBaseDir = ""
 		v.Set("data_provider.users_base_dir", globalConf.ProviderConf.UsersBaseDir)
-		logger.Warn(logSender, "", "Configuration error: %v", err)
-		logger.WarnToConsole("Configuration error: %v", err)
+		logger.Warn(logSender, "", "Configuration error: %v", warn)
+		logger.WarnToConsole("Configuration error: %v", warn)
 	}
 	if globalConf.Common.UploadMode < 0 || globalConf.Common.UploadMode > 2 {
-		err = fmt.Errorf("invalid upload_mode 0, 1 and 2 are supported, configured: %v reset upload_mode to 0",
+		warn := fmt.Sprintf("invalid upload_mode 0, 1 and 2 are supported, configured: %v reset upload_mode to 0",
 			globalConf.Common.UploadMode)
 		globalConf.Common.UploadMode = 0
 		v.Set("common.upload_mode", globalConf.Common.UploadMode)
-		logger.Warn(logSender, "", "Configuration error: %v", err)
-		logger.WarnToConsole("Configuration error: %v", err)
+		logger.Warn(logSender, "", "Configuration error: %v", warn)
+		logger.WarnToConsole("Configuration error: %v", warn)
 	}
 	if globalConf.Common.ProxyProtocol < 0 || globalConf.Common.ProxyProtocol > 2 {
-		err = fmt.Errorf("invalid proxy_protocol 0, 1 and 2 are supported, configured: %v reset proxy_protocol to 0",
+		warn := fmt.Sprintf("invalid proxy_protocol 0, 1 and 2 are supported, configured: %v reset proxy_protocol to 0",
 			globalConf.Common.ProxyProtocol)
 		globalConf.Common.ProxyProtocol = 0
 		v.Set("common.proxy_protocol", globalConf.Common.ProxyProtocol)
-		logger.Warn(logSender, "", "Configuration error: %v", err)
-		logger.WarnToConsole("Configuration error: %v", err)
+		logger.Warn(logSender, "", "Configuration error: %v", warn)
+		logger.WarnToConsole("Configuration error: %v", warn)
 	}
 	if globalConf.ProviderConf.ExternalAuthScope < 0 || globalConf.ProviderConf.ExternalAuthScope > 7 {
-		err = fmt.Errorf("invalid external_auth_scope: %v reset to 0", globalConf.ProviderConf.ExternalAuthScope)
+		warn := fmt.Sprintf("invalid external_auth_scope: %v reset to 0", globalConf.ProviderConf.ExternalAuthScope)
 		globalConf.ProviderConf.ExternalAuthScope = 0
 		v.Set("data_provider.external_auth_scope", globalConf.ProviderConf.ExternalAuthScope)
-		logger.Warn(logSender, "", "Configuration error: %v", err)
-		logger.WarnToConsole("Configuration error: %v", err)
+		logger.Warn(logSender, "", "Configuration error: %v", warn)
+		logger.WarnToConsole("Configuration error: %v", warn)
 	}
 	if globalConf.ProviderConf.CredentialsPath == "" {
-		err = fmt.Errorf("invalid credentials path, reset to \"credentials\"")
+		warn := "invalid credentials path, reset to \"credentials\""
 		globalConf.ProviderConf.CredentialsPath = "credentials"
 		v.Set("data_provider.credentials_path", globalConf.ProviderConf.CredentialsPath)
-		logger.Warn(logSender, "", "Configuration error: %v", err)
-		logger.WarnToConsole("Configuration error: %v", err)
+		logger.Warn(logSender, "", "Configuration error: %v", warn)
+		logger.WarnToConsole("Configuration error: %v", warn)
 	}
 	checkHostKeyCompatibility()
 	logger.Debug(logSender, "", "config file used: '%#v', config loaded: %+v", v.ConfigFileUsed(), getRedactedGlobalConf())
-	return err
+	return nil
 }
 
 func checkHostKeyCompatibility() {

@@ -85,7 +85,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		logger.ErrorToConsole("error creating banner file: %v", err)
 	}
-	err = config.LoadConfig(configDir, "", viper.New())
+	err = config.LoadConfig(configDir, "", getViperInstance())
 	if err != nil {
 		logger.ErrorToConsole("error loading configuration: %v", err)
 		os.Exit(1)
@@ -290,7 +290,7 @@ func TestLoginExternalAuth(t *testing.T) {
 	u := getTestUser()
 	err := dataprovider.Close()
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "", viper.New())
+	err = config.LoadConfig(configDir, "", getViperInstance())
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
@@ -325,7 +325,7 @@ func TestLoginExternalAuth(t *testing.T) {
 	}
 	err = dataprovider.Close()
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "", viper.New())
+	err = config.LoadConfig(configDir, "", getViperInstance())
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	err = dataprovider.Initialize(providerConf, configDir)
@@ -341,7 +341,7 @@ func TestPreLoginHook(t *testing.T) {
 	u := getTestUser()
 	err := dataprovider.Close()
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "", viper.New())
+	err = config.LoadConfig(configDir, "", getViperInstance())
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), os.ModePerm)
@@ -396,7 +396,7 @@ func TestPreLoginHook(t *testing.T) {
 	assert.NoError(t, err)
 	err = dataprovider.Close()
 	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "", viper.New())
+	err = config.LoadConfig(configDir, "", getViperInstance())
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	err = dataprovider.Initialize(providerConf, configDir)
@@ -925,7 +925,7 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.NoError(t, dataprovider.Close())
-	assert.NoError(t, config.LoadConfig(configDir, "", viper.New()))
+	assert.NoError(t, config.LoadConfig(configDir, "", getViperInstance()))
 	providerConf = config.GetProviderConf()
 	assert.NoError(t, dataprovider.Initialize(providerConf, configDir))
 }
@@ -1527,4 +1527,10 @@ func createTestFile(path string, size int64) error {
 		return err
 	}
 	return ioutil.WriteFile(path, content, os.ModePerm)
+}
+
+func getViperInstance() *viper.Viper {
+	v := viper.New()
+	config.SetViperConfig(v)
+	return v
 }
