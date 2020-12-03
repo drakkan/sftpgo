@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -22,11 +23,11 @@ import (
 
 const (
 	logSender = "config"
-	// configName defines the name for the default config file.
-	// This is the file name without extension, we use viper and so we
-	// support all the config files format supported by viper
+	// configName defines the name for config file.
+	// This name does not include the extension, viper will search for files
+	// with supported extensions such as "sftpgo.json", "sftpgo.yaml" and so on
 	configName = "sftpgo"
-	// ConfigEnvPrefix defines a prefix that ENVIRONMENT variables will use
+	// ConfigEnvPrefix defines a prefix that environment variables will use
 	configEnvPrefix = "sftpgo"
 )
 
@@ -286,26 +287,35 @@ func getRedactedGlobalConf() globalConfig {
 	return conf
 }
 
+func setConfigFile(configDir, configFile string) {
+	if configFile == "" {
+		return
+	}
+	if !filepath.IsAbs(configFile) && utils.IsFileInputValid(configFile) {
+		configFile = filepath.Join(configDir, configFile)
+	}
+	viper.SetConfigFile(configFile)
+}
+
 // LoadConfig loads the configuration
 // configDir will be added to the configuration search paths.
 // The search path contains by default the current directory and on linux it contains
 // $HOME/.config/sftpgo and /etc/sftpgo too.
-// configFile is an absolute or relative path (to the working directory) to the configuration file.
+// configFile is an absolute or relative path (to the config dir) to the configuration file.
 func LoadConfig(configDir, configFile string) error {
 	var err error
 	viper.AddConfigPath(configDir)
 	setViperAdditionalConfigPaths()
 	viper.AddConfigPath(".")
-	viper.SetConfigFile(configFile)
+	setConfigFile(configDir, configFile)
 	if err = viper.ReadInConfig(); err != nil {
 		logger.Warn(logSender, "", "error loading configuration file: %v", err)
 		logger.WarnToConsole("error loading configuration file: %v", err)
 	}
 	err = viper.Unmarshal(&globalConf)
 	if err != nil {
-		logger.Warn(logSender, "", "error parsing configuration file: %v. Default configuration will be used: %+v",
-			err, getRedactedGlobalConf())
-		logger.WarnToConsole("error parsing configuration file: %v. Default configuration will be used.", err)
+		logger.Warn(logSender, "", "error parsing configuration file: %v", err)
+		logger.WarnToConsole("error parsing configuration file: %v", err)
 		return err
 	}
 	checkCommonParamsCompatibility()
@@ -322,34 +332,34 @@ func LoadConfig(configDir, configFile string) error {
 		logger.WarnToConsole("Configuration error: %v", err)
 	}
 	if globalConf.Common.UploadMode < 0 || globalConf.Common.UploadMode > 2 {
-		err = fmt.Errorf("invalid upload_mode 0, 1 and 2 are supported, configured: %v reset upload_mode to 0",
+		warn := fmt.Sprintf("invalid upload_mode 0, 1 and 2 are supported, configured: %v reset upload_mode to 0",
 			globalConf.Common.UploadMode)
 		globalConf.Common.UploadMode = 0
-		logger.Warn(logSender, "", "Configuration error: %v", err)
-		logger.WarnToConsole("Configuration error: %v", err)
+		logger.Warn(logSender, "", "Configuration error: %v", warn)
+		logger.WarnToConsole("Configuration error: %v", warn)
 	}
 	if globalConf.Common.ProxyProtocol < 0 || globalConf.Common.ProxyProtocol > 2 {
-		err = fmt.Errorf("invalid proxy_protocol 0, 1 and 2 are supported, configured: %v reset proxy_protocol to 0",
+		warn := fmt.Sprintf("invalid proxy_protocol 0, 1 and 2 are supported, configured: %v reset proxy_protocol to 0",
 			globalConf.Common.ProxyProtocol)
 		globalConf.Common.ProxyProtocol = 0
-		logger.Warn(logSender, "", "Configuration error: %v", err)
-		logger.WarnToConsole("Configuration error: %v", err)
+		logger.Warn(logSender, "", "Configuration error: %v", warn)
+		logger.WarnToConsole("Configuration error: %v", warn)
 	}
 	if globalConf.ProviderConf.ExternalAuthScope < 0 || globalConf.ProviderConf.ExternalAuthScope > 7 {
-		err = fmt.Errorf("invalid external_auth_scope: %v reset to 0", globalConf.ProviderConf.ExternalAuthScope)
+		warn := fmt.Sprintf("invalid external_auth_scope: %v reset to 0", globalConf.ProviderConf.ExternalAuthScope)
 		globalConf.ProviderConf.ExternalAuthScope = 0
-		logger.Warn(logSender, "", "Configuration error: %v", err)
-		logger.WarnToConsole("Configuration error: %v", err)
+		logger.Warn(logSender, "", "Configuration error: %v", warn)
+		logger.WarnToConsole("Configuration error: %v", warn)
 	}
-	if len(globalConf.ProviderConf.CredentialsPath) == 0 {
-		err = fmt.Errorf("invalid credentials path, reset to \"credentials\"")
+	if globalConf.ProviderConf.CredentialsPath == "" {
+		warn := "invalid credentials path, reset to \"credentials\""
 		globalConf.ProviderConf.CredentialsPath = "credentials"
-		logger.Warn(logSender, "", "Configuration error: %v", err)
-		logger.WarnToConsole("Configuration error: %v", err)
+		logger.Warn(logSender, "", "Configuration error: %v", warn)
+		logger.WarnToConsole("Configuration error: %v", warn)
 	}
 	checkHostKeyCompatibility()
 	logger.Debug(logSender, "", "config file used: '%#v', config loaded: %+v", viper.ConfigFileUsed(), getRedactedGlobalConf())
-	return err
+	return nil
 }
 
 func checkHostKeyCompatibility() {
