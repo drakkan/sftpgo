@@ -121,6 +121,9 @@ func (f *webDavFile) Stat() (os.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	if vfs.IsCryptOsFs(f.Fs) {
+		info = f.Fs.(*vfs.CryptFs).ConvertFileInfo(info)
+	}
 	fi := &webDavFileInfo{
 		FileInfo:    info,
 		Fs:          f.Fs,
@@ -210,6 +213,9 @@ func (f *webDavFile) updateStatInfo() error {
 	info, err := f.Fs.Stat(f.GetFsPath())
 	if err != nil {
 		return err
+	}
+	if vfs.IsCryptOsFs(f.Fs) {
+		info = f.Fs.(*vfs.CryptFs).ConvertFileInfo(info)
 	}
 	f.info = info
 	return nil

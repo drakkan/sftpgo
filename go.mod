@@ -24,6 +24,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.5
 	github.com/miekg/dns v1.1.35 // indirect
 	github.com/minio/sha256-simd v0.1.1
+	github.com/minio/sio v0.2.1
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/otiai10/copy v1.2.0
 	github.com/pelletier/go-toml v1.8.1 // indirect

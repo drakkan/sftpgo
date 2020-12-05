@@ -174,6 +174,21 @@ func (t *BaseTransfer) TransferError(err error) {
 		atomic.LoadInt64(&t.BytesReceived), elapsed)
 }
 
+func (t *BaseTransfer) getUploadFileSize() (int64, error) {
+	var fileSize int64
+	info, err := t.Fs.Stat(t.fsPath)
+	if err == nil {
+		fileSize = info.Size()
+	}
+	if vfs.IsCryptOsFs(t.Fs) && t.ErrTransfer != nil {
+		errDelete := os.Remove(t.fsPath)
+		if errDelete != nil {
+			t.Connection.Log(logger.LevelWarn, "error removing partial crypto file %#v: %v", t.fsPath, errDelete)
+		}
+	}
+	return fileSize, err
+}
+
 // Close it is called when the transfer is completed.
 // It logs the transfer info, updates the user quota (for uploads)
 // and executes any defined action.
@@ -223,11 +238,10 @@ func (t *BaseTransfer) Close() error {
 		go actionHandler.Handle(action) //nolint:errcheck
 	} else {
 		fileSize := atomic.LoadInt64(&t.BytesReceived) + t.MinWriteOffset
-		info, err := t.Fs.Stat(t.fsPath)
-		if err == nil {
-			fileSize = info.Size()
+		if statSize, err := t.getUploadFileSize(); err == nil {
+			fileSize = statSize
 		}
-		t.Connection.Log(logger.LevelDebug, "uploaded file size %v stat error: %v", fileSize, err)
+		t.Connection.Log(logger.LevelDebug, "uploaded file size %v", fileSize)
 		t.updateQuota(numFiles, fileSize)
 		logger.TransferLog(uploadLogSender, t.fsPath, elapsed, atomic.LoadInt64(&t.BytesReceived), t.Connection.User.Username,
 			t.Connection.ID, t.Connection.protocol)

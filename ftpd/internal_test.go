@@ -377,7 +377,7 @@ func TestUploadOverwriteErrors(t *testing.T) {
 	err = os.Remove(f.Name())
 	assert.NoError(t, err)
 
-	_, err = connection.handleFTPUploadToExistingFile(0, filepath.Join(os.TempDir(), "sub", "file"),
+	_, err = connection.handleFTPUploadToExistingFile(os.O_TRUNC, filepath.Join(os.TempDir(), "sub", "file"),
 		filepath.Join(os.TempDir(), "sub", "file1"), 0, "/sub/file1")
 	assert.Error(t, err)
 	connection.Fs = vfs.NewOsFs(connID, user.GetHomeDir(), nil)

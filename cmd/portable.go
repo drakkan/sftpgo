@@ -66,6 +66,7 @@ var (
 	portableAzULPartSize         int
 	portableAzULConcurrency      int
 	portableAzUseEmulator        bool
+	portableCryptPassphrase      string
 	portableCmd                  = &cobra.Command{
 		Use:   "portable",
 		Short: "Serve a single directory",
@@ -173,6 +174,9 @@ Please take a look at the usage below to customize the serving parameters`,
 							UploadPartSize:    int64(portableAzULPartSize),
 							UploadConcurrency: portableAzULConcurrency,
 						},
+						CryptConfig: vfs.CryptFsConfig{
+							Passphrase: kms.NewPlainSecret(portableCryptPassphrase),
+						},
 					},
 					Filters: dataprovider.UserFilters{
 						FilePatterns: parsePatternsFilesFilters(),
@@ -240,7 +244,8 @@ inside the advertised TXT record`)
 	portableCmd.Flags().IntVarP(&portableFsProvider, "fs-provider", "f", int(dataprovider.LocalFilesystemProvider), `0 => local filesystem
 1 => AWS S3 compatible
 2 => Google Cloud Storage
-3 => Azure Blob Storage`)
+3 => Azure Blob Storage
+4 => Encrypted local filesystem`)
 	portableCmd.Flags().StringVar(&portableS3Bucket, "s3-bucket", "", "")
 	portableCmd.Flags().StringVar(&portableS3Region, "s3-region", "", "")
 	portableCmd.Flags().StringVar(&portableS3AccessKey, "s3-access-key", "", "")
@@ -286,6 +291,7 @@ prefix and its contents`)
 	portableCmd.Flags().IntVar(&portableAzULConcurrency, "az-upload-concurrency", 2, `How many parts are uploaded in
 parallel`)
 	portableCmd.Flags().BoolVar(&portableAzUseEmulator, "az-use-emulator", false, "")
+	portableCmd.Flags().StringVar(&portableCryptPassphrase, "crypto-passphrase", "", `Passphrase for encryption/decryption`)
 	rootCmd.AddCommand(portableCmd)
 }
 

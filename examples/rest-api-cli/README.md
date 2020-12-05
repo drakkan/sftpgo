@@ -55,12 +55,20 @@ Output:
   "download_bandwidth": 60,
   "expiration_date": 1546297200000,
   "filesystem": {
-    "gcsconfig": {},
+    "azblobconfig": {
+      "account_key": {}
+    },
+    "cryptconfig": {
+      "passphrase": {}
+    },
+    "gcsconfig": {
+      "credentials": {}
+    },
     "provider": 1,
     "s3config": {
       "access_key": "accesskey",
       "access_secret": {
-        "payload": "dcd07e64a5ef5ede37b978198ca396ea9aee92453208ee2fee6f25407e47bf2119ba8edf2e81f91999bd5386c1a7",
+        "payload": "ALVIG4egZxRjKH8/8NsJViA7EH5MqsweqmwLhGj4M4AGYgMM2ygF7kbCw+R5aQ==",
         "status": "Secretbox"
       },
       "bucket": "test",
@@ -180,6 +188,9 @@ Output:
   "filesystem": {
     "azblobconfig": {
       "account_key": {}
+    },
+    "cryptconfig": {
+      "passphrase": {}
     },
     "gcsconfig": {
       "credentials": {}

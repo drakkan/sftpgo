@@ -183,6 +183,11 @@ type AzBlobFsConfig struct {
 	AccessTier string `json:"access_tier,omitempty"`
 }
 
+// CryptFsConfig defines the configuration to store local files as encrypted
+type CryptFsConfig struct {
+	Passphrase *kms.Secret `json:"passphrase,omitempty"`
+}
+
 // PipeWriter defines a wrapper for pipeat.PipeWriterAt.
 type PipeWriter struct {
 	writer *pipeat.PipeWriterAt
@@ -232,9 +237,14 @@ func IsDirectory(fs Fs, path string) (bool, error) {
 	return fileInfo.IsDir(), err
 }
 
-// IsLocalOsFs returns true if fs is the local filesystem implementation
+// IsLocalOsFs returns true if fs is a local filesystem implementation
 func IsLocalOsFs(fs Fs) bool {
 	return fs.Name() == osFsName
+}
+
+// IsCryptOsFs returns true if fs is an encrypted local filesystem implementation
+func IsCryptOsFs(fs Fs) bool {
+	return fs.Name() == cryptFsName
 }
 
 func checkS3Credentials(config *S3FsConfig) error {
@@ -359,6 +369,20 @@ func ValidateAzBlobFsConfig(config *AzBlobFsConfig) error {
 	}
 	if !utils.IsStringInSlice(config.AccessTier, validAzAccessTier) {
 		return fmt.Errorf("invalid access tier %#v, valid values: \"''%v\"", config.AccessTier, strings.Join(validAzAccessTier, ", "))
+	}
+	return nil
+}
+
+// ValidateCryptFsConfig returns nil if the specified CryptFs config is valid, otherwise an error
+func ValidateCryptFsConfig(config *CryptFsConfig) error {
+	if config.Passphrase == nil || config.Passphrase.IsEmpty() {
+		return errors.New("invalid passphrase")
+	}
+	if !config.Passphrase.IsValidInput() {
+		return errors.New("passphrase cannot be empty or invalid")
+	}
+	if config.Passphrase.IsEncrypted() && !config.Passphrase.IsValid() {
+		return errors.New("invalid encrypted passphrase")
 	}
 	return nil
 }

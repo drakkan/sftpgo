@@ -389,6 +389,11 @@ func TestCompareUserFsConfig(t *testing.T) {
 	expected.FsConfig.S3Config.UploadConcurrency = 3
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
+	expected.FsConfig.S3Config.UploadConcurrency = 0
+	expected.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("payload")
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	expected.FsConfig.CryptConfig.Passphrase = kms.NewEmptySecret()
 }
 
 func TestCompareUserGCSConfig(t *testing.T) {

@@ -260,6 +260,11 @@ func (s *Service) configurePortableUser() string {
 		if payload != "" {
 			s.PortableUser.FsConfig.AzBlobConfig.AccountKey = kms.NewPlainSecret(payload)
 		}
+	case dataprovider.CryptedFilesystemProvider:
+		payload := s.PortableUser.FsConfig.CryptConfig.Passphrase.GetPayload()
+		if payload != "" {
+			s.PortableUser.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret(payload)
+		}
 	}
 	return printablePassword
 }

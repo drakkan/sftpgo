@@ -624,6 +624,9 @@ func compareUserFsConfig(expected *dataprovider.User, actual *dataprovider.User)
 	if err := compareAzBlobConfig(expected, actual); err != nil {
 		return err
 	}
+	if err := checkEncryptedSecret(expected.FsConfig.CryptConfig.Passphrase, actual.FsConfig.CryptConfig.Passphrase); err != nil {
+		return err
+	}
 	return nil
 }
 

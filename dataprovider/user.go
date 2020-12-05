@@ -155,6 +155,7 @@ const (
 	S3FilesystemProvider                                  // AWS S3 compatible
 	GCSFilesystemProvider                                 // Google Cloud Storage
 	AzureBlobFilesystemProvider                           // Azure Blob Storage
+	CryptedFilesystemProvider                             // Local encrypted
 )
 
 // Filesystem defines cloud storage filesystem details
@@ -163,6 +164,7 @@ type Filesystem struct {
 	S3Config     vfs.S3FsConfig     `json:"s3config,omitempty"`
 	GCSConfig    vfs.GCSFsConfig    `json:"gcsconfig,omitempty"`
 	AzBlobConfig vfs.AzBlobFsConfig `json:"azblobconfig,omitempty"`
+	CryptConfig  vfs.CryptFsConfig  `json:"cryptconfig,omitempty"`
 }
 
 // User defines a SFTPGo user
@@ -221,16 +223,20 @@ type User struct {
 
 // GetFilesystem returns the filesystem for this user
 func (u *User) GetFilesystem(connectionID string) (vfs.Fs, error) {
-	if u.FsConfig.Provider == S3FilesystemProvider {
+	switch u.FsConfig.Provider {
+	case S3FilesystemProvider:
 		return vfs.NewS3Fs(connectionID, u.GetHomeDir(), u.FsConfig.S3Config)
-	} else if u.FsConfig.Provider == GCSFilesystemProvider {
+	case GCSFilesystemProvider:
 		config := u.FsConfig.GCSConfig
 		config.CredentialFile = u.getGCSCredentialsFilePath()
 		return vfs.NewGCSFs(connectionID, u.GetHomeDir(), config)
-	} else if u.FsConfig.Provider == AzureBlobFilesystemProvider {
+	case AzureBlobFilesystemProvider:
 		return vfs.NewAzBlobFs(connectionID, u.GetHomeDir(), u.FsConfig.AzBlobConfig)
+	case CryptedFilesystemProvider:
+		return vfs.NewCryptFs(connectionID, u.GetHomeDir(), u.FsConfig.CryptConfig)
+	default:
+		return vfs.NewOsFs(connectionID, u.GetHomeDir(), u.VirtualFolders), nil
 	}
-	return vfs.NewOsFs(connectionID, u.GetHomeDir(), u.VirtualFolders), nil
 }
 
 // HideConfidentialData hides user confidential data
@@ -243,6 +249,8 @@ func (u *User) HideConfidentialData() {
 		u.FsConfig.GCSConfig.Credentials.Hide()
 	case AzureBlobFilesystemProvider:
 		u.FsConfig.AzBlobConfig.AccountKey.Hide()
+	case CryptedFilesystemProvider:
+		u.FsConfig.CryptConfig.Passphrase.Hide()
 	}
 }
 
@@ -780,6 +788,9 @@ func (u *User) SetEmptySecretsIfNil() {
 	if u.FsConfig.AzBlobConfig.AccountKey == nil {
 		u.FsConfig.AzBlobConfig.AccountKey = kms.NewEmptySecret()
 	}
+	if u.FsConfig.CryptConfig.Passphrase == nil {
+		u.FsConfig.CryptConfig.Passphrase = kms.NewEmptySecret()
+	}
 }
 
 func (u *User) getACopy() User {
@@ -840,6 +851,9 @@ func (u *User) getACopy() User {
 			UploadConcurrency: u.FsConfig.AzBlobConfig.UploadConcurrency,
 			UseEmulator:       u.FsConfig.AzBlobConfig.UseEmulator,
 			AccessTier:        u.FsConfig.AzBlobConfig.AccessTier,
+		},
+		CryptConfig: vfs.CryptFsConfig{
+			Passphrase: u.FsConfig.CryptConfig.Passphrase.Clone(),
 		},
 	}
 

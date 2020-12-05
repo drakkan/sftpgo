@@ -21,6 +21,7 @@ It can serve local filesystem, S3 (compatible) Object Storage, Google Cloud Stor
 - Partial authentication. You can configure multi-step authentication requiring, for example, the user password after successful public key authentication.
 - Per user authentication methods. You can configure the allowed authentication methods for each user.
 - Custom authentication via external programs/HTTP API is supported.
+- [Data At Rest Encryption](./docs/dare.md) is supported.
 - Dynamic user modification before login via external programs/HTTP API is supported.
 - Quota support: accounts can have individual quota expressed as max total size and/or max number of files.
 - Bandwidth throttling is supported, with distinct settings for upload and download.

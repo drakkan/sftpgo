@@ -580,9 +580,9 @@ func TestUploadResume(t *testing.T) {
 		assert.NoError(t, err)
 		initialHash, err := computeHashForFile(sha256.New(), testFilePath)
 		assert.NoError(t, err)
-		donwloadedFileHash, err := computeHashForFile(sha256.New(), localDownloadPath)
+		downloadedFileHash, err := computeHashForFile(sha256.New(), localDownloadPath)
 		assert.NoError(t, err)
-		assert.Equal(t, initialHash, donwloadedFileHash)
+		assert.Equal(t, initialHash, downloadedFileHash)
 		err = sftpUploadResumeFile(testFilePath, testFileName, testFileSize+appendDataSize, true, client)
 		assert.Error(t, err, "file upload resume with invalid offset must fail")
 		err = os.Remove(testFilePath)
@@ -2198,7 +2198,7 @@ func TestQuotaFileReplace(t *testing.T) {
 	testFileSize := int64(65535)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	client, err := getSftpClient(user, usePubKey)
-	if assert.NoError(t, err) {
+	if assert.NoError(t, err) { //nolint:dupl
 		defer client.Close()
 		expectedQuotaSize := user.UsedQuotaSize + testFileSize
 		expectedQuotaFiles := user.UsedQuotaFiles + 1
@@ -6929,6 +6929,8 @@ func TestSCPBasicHandling(t *testing.T) {
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 

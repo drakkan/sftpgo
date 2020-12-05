@@ -1158,6 +1158,7 @@ func validateFilesystemConfig(user *User) error {
 		}
 		user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
 		user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
+		user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
 		return nil
 	} else if user.FsConfig.Provider == GCSFilesystemProvider {
 		err := vfs.ValidateGCSFsConfig(&user.FsConfig.GCSConfig, user.getGCSCredentialsFilePath())
@@ -1166,6 +1167,7 @@ func validateFilesystemConfig(user *User) error {
 		}
 		user.FsConfig.S3Config = vfs.S3FsConfig{}
 		user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
+		user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
 		return nil
 	} else if user.FsConfig.Provider == AzureBlobFilesystemProvider {
 		err := vfs.ValidateAzBlobFsConfig(&user.FsConfig.AzBlobConfig)
@@ -1181,12 +1183,30 @@ func validateFilesystemConfig(user *User) error {
 		}
 		user.FsConfig.S3Config = vfs.S3FsConfig{}
 		user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
+		user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
+		return nil
+	} else if user.FsConfig.Provider == CryptedFilesystemProvider {
+		err := vfs.ValidateCryptFsConfig(&user.FsConfig.CryptConfig)
+		if err != nil {
+			return &ValidationError{err: fmt.Sprintf("could not validate Crypt fs config: %v", err)}
+		}
+		if user.FsConfig.CryptConfig.Passphrase.IsPlain() {
+			user.FsConfig.CryptConfig.Passphrase.SetAdditionalData(user.Username)
+			err = user.FsConfig.CryptConfig.Passphrase.Encrypt()
+			if err != nil {
+				return &ValidationError{err: fmt.Sprintf("could not encrypt Crypt fs passphrase: %v", err)}
+			}
+		}
+		user.FsConfig.S3Config = vfs.S3FsConfig{}
+		user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
+		user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
 		return nil
 	}
 	user.FsConfig.Provider = LocalFilesystemProvider
 	user.FsConfig.S3Config = vfs.S3FsConfig{}
 	user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
 	user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
+	user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
 	return nil
 }
 

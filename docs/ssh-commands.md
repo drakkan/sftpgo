@@ -9,6 +9,7 @@ For system commands we have no direct control on file creation/deletion and so t
 - we cannot avoid to leak real filesystem paths
 - quota check is suboptimal
 - maximum size restriction on single file is not respected
+- data at-rest encryption is not supported
 
  If quota is enabled and SFTPGo receives a system command, the used size and number of files are checked at the command start and not while new files are created/deleted. While the command is running the number of files is not checked, the remaining size is calculated as the difference between the max allowed quota and the used one, and it is checked against the bytes transferred via SSH. The command is aborted if it uploads more bytes than the remaining allowed size calculated at the command start. Anyway, we only see the bytes that the remote command sends to the local one via SSH. These bytes contain both protocol commands and files, and so the size of the files is different from the size transferred via SSH: for example, a command can send compressed files, or a protocol command (few bytes) could delete a big file. To mitigate these issues, quotas are recalculated at the command end with a full scan of the directory specified for the system command. This could be heavy for big directories. If you need system commands and quotas you could consider disabling quota restrictions and periodically update quota usage yourself using the REST API.
 

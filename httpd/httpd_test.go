@@ -515,6 +515,14 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.AzBlobConfig.UploadPartSize = 101
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
+
+	u = getTestUser()
+	u.FsConfig.Provider = dataprovider.CryptedFilesystemProvider
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.FsConfig.CryptConfig.Passphrase = kms.NewSecret(kms.SecretStatusRedacted, "akey", "", "")
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
 }
 
 func TestAddUserInvalidVirtualFolders(t *testing.T) {
@@ -1204,6 +1212,7 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.AzBlobConfig.AccountKey.GetStatus())
 	assert.NotEmpty(t, initialPayload)
+	assert.Equal(t, initialPayload, user.FsConfig.AzBlobConfig.AccountKey.GetPayload())
 	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.GetKey())
 	// test user without access key and access secret (sas)
@@ -1229,6 +1238,58 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUserCryptFs(t *testing.T) {
+	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
+	assert.NoError(t, err)
+	user.FsConfig.Provider = dataprovider.CryptedFilesystemProvider
+	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("crypt passphrase")
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	initialPayload := user.FsConfig.CryptConfig.Passphrase.GetPayload()
+	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.NotEmpty(t, initialPayload)
+	assert.Empty(t, user.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.CryptConfig.Passphrase.GetKey())
+	user.FsConfig.CryptConfig.Passphrase.SetStatus(kms.SecretStatusSecretBox)
+	user.FsConfig.CryptConfig.Passphrase.SetAdditionalData("data")
+	user.FsConfig.CryptConfig.Passphrase.SetKey("fake pass key")
+	user, bb, err := httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err, string(bb))
+	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.Equal(t, initialPayload, user.FsConfig.CryptConfig.Passphrase.GetPayload())
+	assert.Empty(t, user.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.CryptConfig.Passphrase.GetKey())
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	user.Password = defaultPassword
+	user.ID = 0
+	secret := kms.NewSecret(kms.SecretStatusSecretBox, "invalid encrypted payload", "", "")
+	user.FsConfig.CryptConfig.Passphrase = secret
+	_, _, err = httpd.AddUser(user, http.StatusOK)
+	assert.Error(t, err)
+	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("passphrase test")
+	user, _, err = httpd.AddUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	initialPayload = user.FsConfig.CryptConfig.Passphrase.GetPayload()
+	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.NotEmpty(t, initialPayload)
+	assert.Empty(t, user.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.CryptConfig.Passphrase.GetKey())
+	user.FsConfig.Provider = dataprovider.CryptedFilesystemProvider
+	user.FsConfig.CryptConfig.Passphrase.SetKey("pass")
+	user, bb, err = httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err, string(bb))
+	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.NotEmpty(t, initialPayload)
+	assert.Equal(t, initialPayload, user.FsConfig.CryptConfig.Passphrase.GetPayload())
+	assert.Empty(t, user.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.CryptConfig.Passphrase.GetKey())
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestUserHiddenFields(t *testing.T) {
 	err := dataprovider.Close()
 	assert.NoError(t, err)
@@ -1240,7 +1301,7 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.NoError(t, err)
 
 	// sensitive data must be hidden but not deleted from the dataprovider
-	usernames := []string{"user1", "user2", "user3"}
+	usernames := []string{"user1", "user2", "user3", "user4"}
 	u1 := getTestUser()
 	u1.Username = usernames[0]
 	u1.FsConfig.Provider = dataprovider.S3FilesystemProvider
@@ -1268,9 +1329,16 @@ func TestUserHiddenFields(t *testing.T) {
 	user3, _, err := httpd.AddUser(u3, http.StatusOK)
 	assert.NoError(t, err)
 
+	u4 := getTestUser()
+	u4.Username = usernames[3]
+	u4.FsConfig.Provider = dataprovider.CryptedFilesystemProvider
+	u4.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("test passphrase")
+	user4, _, err := httpd.AddUser(u4, http.StatusOK)
+	assert.NoError(t, err)
+
 	users, _, err := httpd.GetUsers(0, 0, "", http.StatusOK)
 	assert.NoError(t, err)
-	assert.GreaterOrEqual(t, len(users), 3)
+	assert.GreaterOrEqual(t, len(users), 4)
 	for _, username := range usernames {
 		users, _, err = httpd.GetUsers(0, 0, username, http.StatusOK)
 		assert.NoError(t, err)
@@ -1302,6 +1370,14 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.Empty(t, user3.FsConfig.AzBlobConfig.AccountKey.GetAdditionalData())
 	assert.NotEmpty(t, user3.FsConfig.AzBlobConfig.AccountKey.GetStatus())
 	assert.NotEmpty(t, user3.FsConfig.AzBlobConfig.AccountKey.GetPayload())
+
+	user4, _, err = httpd.GetUserByID(user4.ID, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Empty(t, user4.Password)
+	assert.Empty(t, user4.FsConfig.CryptConfig.Passphrase.GetKey())
+	assert.Empty(t, user4.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
+	assert.NotEmpty(t, user4.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.NotEmpty(t, user4.FsConfig.CryptConfig.Passphrase.GetPayload())
 
 	// finally check that we have all the data inside the data provider
 	user1, err = dataprovider.GetUserByID(user1.ID)
@@ -1346,11 +1422,27 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.Empty(t, user3.FsConfig.AzBlobConfig.AccountKey.GetKey())
 	assert.Empty(t, user3.FsConfig.AzBlobConfig.AccountKey.GetAdditionalData())
 
+	user4, err = dataprovider.GetUserByID(user4.ID)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, user4.Password)
+	assert.NotEmpty(t, user4.FsConfig.CryptConfig.Passphrase.GetKey())
+	assert.NotEmpty(t, user4.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
+	assert.NotEmpty(t, user4.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.NotEmpty(t, user4.FsConfig.CryptConfig.Passphrase.GetPayload())
+	err = user4.FsConfig.CryptConfig.Passphrase.Decrypt()
+	assert.NoError(t, err)
+	assert.Equal(t, kms.SecretStatusPlain, user4.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.Equal(t, u4.FsConfig.CryptConfig.Passphrase.GetPayload(), user4.FsConfig.CryptConfig.Passphrase.GetPayload())
+	assert.Empty(t, user4.FsConfig.CryptConfig.Passphrase.GetKey())
+	assert.Empty(t, user4.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
+
 	_, err = httpd.RemoveUser(user1, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user2, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user3, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(user4, http.StatusOK)
 	assert.NoError(t, err)
 
 	err = dataprovider.Close()
@@ -3405,6 +3497,87 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.AccountKey.GetPayload(), lastUpdatedUser.FsConfig.AzBlobConfig.AccountKey.GetPayload())
 	assert.Empty(t, lastUpdatedUser.FsConfig.AzBlobConfig.AccountKey.GetKey())
 	assert.Empty(t, lastUpdatedUser.FsConfig.AzBlobConfig.AccountKey.GetAdditionalData())
+	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+}
+
+func TestWebUserCryptMock(t *testing.T) {
+	user := getTestUser()
+	userAsJSON := getUserAsJSON(t, user)
+	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	err := render.DecodeJSON(rr.Body, &user)
+	assert.NoError(t, err)
+	user.FsConfig.Provider = dataprovider.CryptedFilesystemProvider
+	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("crypted passphrase")
+	form := make(url.Values)
+	form.Set("username", user.Username)
+	form.Set("home_dir", user.HomeDir)
+	form.Set("uid", "0")
+	form.Set("gid", strconv.FormatInt(int64(user.GID), 10))
+	form.Set("max_sessions", strconv.FormatInt(int64(user.MaxSessions), 10))
+	form.Set("quota_size", strconv.FormatInt(user.QuotaSize, 10))
+	form.Set("quota_files", strconv.FormatInt(int64(user.QuotaFiles), 10))
+	form.Set("upload_bandwidth", "0")
+	form.Set("download_bandwidth", "0")
+	form.Set("permissions", "*")
+	form.Set("sub_dirs_permissions", "")
+	form.Set("status", strconv.Itoa(user.Status))
+	form.Set("expiration_date", "2020-01-01 00:00:00")
+	form.Set("allowed_ip", "")
+	form.Set("denied_ip", "")
+	form.Set("fs_provider", "4")
+	form.Set("crypt_passphrase", "")
+	form.Set("allowed_extensions", "/dir1::.jpg,.png")
+	form.Set("denied_extensions", "/dir2::.zip")
+	form.Set("max_upload_file_size", "0")
+	// passphrase cannot be empty
+	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	form.Set("crypt_passphrase", user.FsConfig.CryptConfig.Passphrase.GetPayload())
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr.Code)
+	req, _ = http.NewRequest(http.MethodGet, userPath+"?limit=1&offset=0&order=ASC&username="+user.Username, nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	var users []dataprovider.User
+	err = render.DecodeJSON(rr.Body, &users)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(users))
+	updateUser := users[0]
+	assert.Equal(t, int64(1577836800000), updateUser.ExpirationDate)
+	assert.Equal(t, 2, len(updateUser.Filters.FileExtensions))
+	assert.Equal(t, kms.SecretStatusSecretBox, updateUser.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.NotEmpty(t, updateUser.FsConfig.CryptConfig.Passphrase.GetPayload())
+	assert.Empty(t, updateUser.FsConfig.CryptConfig.Passphrase.GetKey())
+	assert.Empty(t, updateUser.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
+	// now check that a redacted password is not saved
+	form.Set("crypt_passphrase", "[**redacted**] ")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr.Code)
+	req, _ = http.NewRequest(http.MethodGet, userPath+"?limit=1&offset=0&order=ASC&username="+user.Username, nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	users = nil
+	err = render.DecodeJSON(rr.Body, &users)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(users))
+	lastUpdatedUser := users[0]
+	assert.Equal(t, kms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.Equal(t, updateUser.FsConfig.CryptConfig.Passphrase.GetPayload(), lastUpdatedUser.FsConfig.CryptConfig.Passphrase.GetPayload())
+	assert.Empty(t, lastUpdatedUser.FsConfig.CryptConfig.Passphrase.GetKey())
+	assert.Empty(t, lastUpdatedUser.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)

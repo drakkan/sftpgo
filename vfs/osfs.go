@@ -215,8 +215,8 @@ func (fs *OsFs) CheckRootPath(username string, uid int, gid int) bool {
 	return (err == nil)
 }
 
-// ScanRootDirContents returns the number of files contained in a directory and
-// their size
+// ScanRootDirContents returns the number of files contained in the root
+// directory and their size
 func (fs *OsFs) ScanRootDirContents() (int, int64, error) {
 	numFiles, size, err := fs.GetDirSize(fs.rootDir)
 	for _, v := range fs.virtualFolders {

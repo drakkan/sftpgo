@@ -100,6 +100,11 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 			sendAPIResponse(w, r, errors.New("invalid account_key"), "", http.StatusBadRequest)
 			return
 		}
+	case dataprovider.CryptedFilesystemProvider:
+		if user.FsConfig.CryptConfig.Passphrase.IsRedacted() {
+			sendAPIResponse(w, r, errors.New("invalid passphrase"), "", http.StatusBadRequest)
+			return
+		}
 	}
 	err = dataprovider.AddUser(user)
 	if err == nil {
@@ -141,6 +146,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	var currentS3AccessSecret *kms.Secret
 	var currentAzAccountKey *kms.Secret
 	var currentGCSCredentials *kms.Secret
+	var currentCryptoPassphrase *kms.Secret
 	if user.FsConfig.Provider == dataprovider.S3FilesystemProvider {
 		currentS3AccessSecret = user.FsConfig.S3Config.AccessSecret
 	}
@@ -150,10 +156,15 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if user.FsConfig.Provider == dataprovider.GCSFilesystemProvider {
 		currentGCSCredentials = user.FsConfig.GCSConfig.Credentials
 	}
+	if user.FsConfig.Provider == dataprovider.CryptedFilesystemProvider {
+		currentCryptoPassphrase = user.FsConfig.CryptConfig.Passphrase
+	}
+
 	user.Permissions = make(map[string][]string)
 	user.FsConfig.S3Config = vfs.S3FsConfig{}
 	user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
 	user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
+	user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
 	err = render.DecodeJSON(r.Body, &user)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
@@ -164,8 +175,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if len(user.Permissions) == 0 {
 		user.Permissions = currentPermissions
 	}
-	updateEncryptedSecrets(&user, currentS3AccessSecret, currentAzAccountKey, currentGCSCredentials)
-
+	updateEncryptedSecrets(&user, currentS3AccessSecret, currentAzAccountKey, currentGCSCredentials, currentCryptoPassphrase)
 	if user.ID != userID {
 		sendAPIResponse(w, r, err, "user ID in request body does not match user ID in path parameter", http.StatusBadRequest)
 		return
@@ -210,7 +220,8 @@ func disconnectUser(username string) {
 	}
 }
 
-func updateEncryptedSecrets(user *dataprovider.User, currentS3AccessSecret, currentAzAccountKey, currentGCSCredentials *kms.Secret) {
+func updateEncryptedSecrets(user *dataprovider.User, currentS3AccessSecret, currentAzAccountKey,
+	currentGCSCredentials *kms.Secret, currentCryptoPassphrase *kms.Secret) {
 	// we use the new access secret if plain or empty, otherwise the old value
 	if user.FsConfig.Provider == dataprovider.S3FilesystemProvider {
 		if !user.FsConfig.S3Config.AccessSecret.IsPlain() && !user.FsConfig.S3Config.AccessSecret.IsEmpty() {
@@ -225,6 +236,11 @@ func updateEncryptedSecrets(user *dataprovider.User, currentS3AccessSecret, curr
 	if user.FsConfig.Provider == dataprovider.GCSFilesystemProvider {
 		if !user.FsConfig.GCSConfig.Credentials.IsPlain() && !user.FsConfig.GCSConfig.Credentials.IsEmpty() {
 			user.FsConfig.GCSConfig.Credentials = currentGCSCredentials
+		}
+	}
+	if user.FsConfig.Provider == dataprovider.CryptedFilesystemProvider {
+		if !user.FsConfig.CryptConfig.Passphrase.IsPlain() && !user.FsConfig.CryptConfig.Passphrase.IsEmpty() {
+			user.FsConfig.CryptConfig.Passphrase = currentCryptoPassphrase
 		}
 	}
 }

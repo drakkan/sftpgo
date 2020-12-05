@@ -50,7 +50,7 @@ For each account, the following properties can be configured:
   - `allowed_patterns`, list of, case insensitive, allowed file patterns. Examples: `*.jpg`, `a*b?.png`. Any non matching file will be denied
   - `denied_patterns`, list of, case insensitive, denied file patterns. Denied file patterns are evaluated before the allowed ones
   - `path`, exposed virtual path, if no other specific filter is defined, the filter apply for sub directories too. For example if filters are defined for the paths `/` and `/sub` then the filters for `/` are applied for any file outside the `/sub` directory
-- `fs_provider`, filesystem to serve via SFTP. Local filesystem (0), S3 Compatible Object Storage (1), Google Cloud Storage (2) and Azure Blob Storage (3) are supported
+- `fs_provider`, filesystem to serve via SFTP. Local filesystem (0), S3 Compatible Object Storage (1), Google Cloud Storage (2), Azure Blob Storage (3) and encrypted local filesystem (4) are supported
 - `s3_bucket`, required for S3 filesystem
 - `s3_region`, required for S3 filesystem. Must match the region for your bucket. You can find here the list of available [AWS regions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions). For example if your bucket is at `Frankfurt` you have to set the region to `eu-central-1`
 - `s3_access_key`
@@ -74,6 +74,7 @@ For each account, the following properties can be configured:
 - `az_upload_concurrency`,  how many parts are uploaded in parallel. Zero means the default (2)
 - `az_key_prefix`,  allows to restrict access to the folder identified by this prefix and its contents
 - `az_use_emulator`, boolean
+- `crypt_passphrase`, passphrase to use for local encryption
 - `additional_info`, string. Free text field
 
 These properties are stored inside the data provider.

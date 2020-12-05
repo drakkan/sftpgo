@@ -41,6 +41,7 @@ Flags:
       --az-upload-part-size int         The buffer size for multipart uploads
                                         (MB) (default 4)
       --az-use-emulator
+      --crypto-passphrase string        Passphrase for encryption/decryption
       --denied-patterns stringArray     Denied file patterns case insensitive.
                                         The format is:
                                         /dir::pattern1,pattern2.
@@ -53,6 +54,7 @@ Flags:
                                         1 => AWS S3 compatible
                                         2 => Google Cloud Storage
                                         3 => Azure Blob Storage
+                                        4 => Encrypted local filesystem
       --ftpd-cert string                Path to the certificate file for FTPS
       --ftpd-key string                 Path to the key file for FTPS
       --ftpd-port int                   0 means a random unprivileged port,

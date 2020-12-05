@@ -404,6 +404,9 @@ func (c *scpCommand) sendDownloadFileData(filePath string, stat os.FileInfo, tra
 			return err
 		}
 	}
+	if vfs.IsCryptOsFs(c.connection.Fs) {
+		stat = c.connection.Fs.(*vfs.CryptFs).ConvertFileInfo(stat)
+	}
 
 	fileSize := stat.Size()
 	readed := int64(0)

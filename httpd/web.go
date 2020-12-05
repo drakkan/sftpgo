@@ -92,8 +92,6 @@ type userPage struct {
 	RootDirPerms         []string
 	RedactedSecret       string
 	IsAdd                bool
-	IsS3SecretEnc        bool
-	IsAzSecretEnc        bool
 }
 
 type folderPage struct {
@@ -216,8 +214,6 @@ func renderAddUserPage(w http.ResponseWriter, user dataprovider.User, error stri
 		ValidSSHLoginMethods: dataprovider.ValidSSHLoginMethods,
 		ValidProtocols:       dataprovider.ValidProtocols,
 		RootDirPerms:         user.GetPermissionsForPath("/"),
-		IsS3SecretEnc:        user.FsConfig.S3Config.AccessSecret.IsEncrypted(),
-		IsAzSecretEnc:        user.FsConfig.AzBlobConfig.AccountKey.IsEncrypted(),
 		RedactedSecret:       redactedSecret,
 	}
 	renderTemplate(w, templateUser, data)
@@ -234,8 +230,6 @@ func renderUpdateUserPage(w http.ResponseWriter, user dataprovider.User, error s
 		ValidSSHLoginMethods: dataprovider.ValidSSHLoginMethods,
 		ValidProtocols:       dataprovider.ValidProtocols,
 		RootDirPerms:         user.GetPermissionsForPath("/"),
-		IsS3SecretEnc:        user.FsConfig.S3Config.AccessSecret.IsEncrypted(),
-		IsAzSecretEnc:        user.FsConfig.AzBlobConfig.AccountKey.IsEncrypted(),
 		RedactedSecret:       redactedSecret,
 	}
 	renderTemplate(w, templateUser, data)
@@ -444,6 +438,76 @@ func getSecretFromFormField(r *http.Request, field string) *kms.Secret {
 	return secret
 }
 
+func getS3Config(r *http.Request) (vfs.S3FsConfig, error) {
+	var err error
+	config := vfs.S3FsConfig{}
+	config.Bucket = r.Form.Get("s3_bucket")
+	config.Region = r.Form.Get("s3_region")
+	config.AccessKey = r.Form.Get("s3_access_key")
+	config.AccessSecret = getSecretFromFormField(r, "s3_access_secret")
+	config.Endpoint = r.Form.Get("s3_endpoint")
+	config.StorageClass = r.Form.Get("s3_storage_class")
+	config.KeyPrefix = r.Form.Get("s3_key_prefix")
+	config.UploadPartSize, err = strconv.ParseInt(r.Form.Get("s3_upload_part_size"), 10, 64)
+	if err != nil {
+		return config, err
+	}
+	config.UploadConcurrency, err = strconv.Atoi(r.Form.Get("s3_upload_concurrency"))
+	return config, err
+}
+
+func getGCSConfig(r *http.Request) (vfs.GCSFsConfig, error) {
+	var err error
+	config := vfs.GCSFsConfig{}
+
+	config.Bucket = r.Form.Get("gcs_bucket")
+	config.StorageClass = r.Form.Get("gcs_storage_class")
+	config.KeyPrefix = r.Form.Get("gcs_key_prefix")
+	autoCredentials := r.Form.Get("gcs_auto_credentials")
+	if autoCredentials != "" {
+		config.AutomaticCredentials = 1
+	} else {
+		config.AutomaticCredentials = 0
+	}
+	credentials, _, err := r.FormFile("gcs_credential_file")
+	if err == http.ErrMissingFile {
+		return config, nil
+	}
+	if err != nil {
+		return config, err
+	}
+	defer credentials.Close()
+	fileBytes, err := ioutil.ReadAll(credentials)
+	if err != nil || len(fileBytes) == 0 {
+		if len(fileBytes) == 0 {
+			err = errors.New("credentials file size must be greater than 0")
+		}
+		return config, err
+	}
+	config.Credentials = kms.NewPlainSecret(string(fileBytes))
+	config.AutomaticCredentials = 0
+	return config, err
+}
+
+func getAzureConfig(r *http.Request) (vfs.AzBlobFsConfig, error) {
+	var err error
+	config := vfs.AzBlobFsConfig{}
+	config.Container = r.Form.Get("az_container")
+	config.AccountName = r.Form.Get("az_account_name")
+	config.AccountKey = getSecretFromFormField(r, "az_account_key")
+	config.SASURL = r.Form.Get("az_sas_url")
+	config.Endpoint = r.Form.Get("az_endpoint")
+	config.KeyPrefix = r.Form.Get("az_key_prefix")
+	config.AccessTier = r.Form.Get("az_access_tier")
+	config.UseEmulator = len(r.Form.Get("az_use_emulator")) > 0
+	config.UploadPartSize, err = strconv.ParseInt(r.Form.Get("az_upload_part_size"), 10, 64)
+	if err != nil {
+		return config, err
+	}
+	config.UploadConcurrency, err = strconv.Atoi(r.Form.Get("az_upload_concurrency"))
+	return config, err
+}
+
 func getFsConfigFromUserPostFields(r *http.Request) (dataprovider.Filesystem, error) {
 	var fs dataprovider.Filesystem
 	provider, err := strconv.Atoi(r.Form.Get("fs_provider"))
@@ -452,65 +516,25 @@ func getFsConfigFromUserPostFields(r *http.Request) (dataprovider.Filesystem, er
 	}
 	fs.Provider = dataprovider.FilesystemProvider(provider)
 	if fs.Provider == dataprovider.S3FilesystemProvider {
-		fs.S3Config.Bucket = r.Form.Get("s3_bucket")
-		fs.S3Config.Region = r.Form.Get("s3_region")
-		fs.S3Config.AccessKey = r.Form.Get("s3_access_key")
-		fs.S3Config.AccessSecret = getSecretFromFormField(r, "s3_access_secret")
-		fs.S3Config.Endpoint = r.Form.Get("s3_endpoint")
-		fs.S3Config.StorageClass = r.Form.Get("s3_storage_class")
-		fs.S3Config.KeyPrefix = r.Form.Get("s3_key_prefix")
-		fs.S3Config.UploadPartSize, err = strconv.ParseInt(r.Form.Get("s3_upload_part_size"), 10, 64)
+		config, err := getS3Config(r)
 		if err != nil {
 			return fs, err
 		}
-		fs.S3Config.UploadConcurrency, err = strconv.Atoi(r.Form.Get("s3_upload_concurrency"))
-		if err != nil {
-			return fs, err
-		}
+		fs.S3Config = config
 	} else if fs.Provider == dataprovider.GCSFilesystemProvider {
-		fs.GCSConfig.Bucket = r.Form.Get("gcs_bucket")
-		fs.GCSConfig.StorageClass = r.Form.Get("gcs_storage_class")
-		fs.GCSConfig.KeyPrefix = r.Form.Get("gcs_key_prefix")
-		autoCredentials := r.Form.Get("gcs_auto_credentials")
-		if len(autoCredentials) > 0 {
-			fs.GCSConfig.AutomaticCredentials = 1
-		} else {
-			fs.GCSConfig.AutomaticCredentials = 0
-		}
-		credentials, _, err := r.FormFile("gcs_credential_file")
-		if err == http.ErrMissingFile {
-			return fs, nil
-		}
+		config, err := getGCSConfig(r)
 		if err != nil {
 			return fs, err
 		}
-		defer credentials.Close()
-		fileBytes, err := ioutil.ReadAll(credentials)
-		if err != nil || len(fileBytes) == 0 {
-			if len(fileBytes) == 0 {
-				err = errors.New("credentials file size must be greater than 0")
-			}
-			return fs, err
-		}
-		fs.GCSConfig.Credentials = kms.NewPlainSecret(string(fileBytes))
-		fs.GCSConfig.AutomaticCredentials = 0
+		fs.GCSConfig = config
 	} else if fs.Provider == dataprovider.AzureBlobFilesystemProvider {
-		fs.AzBlobConfig.Container = r.Form.Get("az_container")
-		fs.AzBlobConfig.AccountName = r.Form.Get("az_account_name")
-		fs.AzBlobConfig.AccountKey = getSecretFromFormField(r, "az_account_key")
-		fs.AzBlobConfig.SASURL = r.Form.Get("az_sas_url")
-		fs.AzBlobConfig.Endpoint = r.Form.Get("az_endpoint")
-		fs.AzBlobConfig.KeyPrefix = r.Form.Get("az_key_prefix")
-		fs.AzBlobConfig.AccessTier = r.Form.Get("az_access_tier")
-		fs.AzBlobConfig.UseEmulator = len(r.Form.Get("az_use_emulator")) > 0
-		fs.AzBlobConfig.UploadPartSize, err = strconv.ParseInt(r.Form.Get("az_upload_part_size"), 10, 64)
+		config, err := getAzureConfig(r)
 		if err != nil {
 			return fs, err
 		}
-		fs.AzBlobConfig.UploadConcurrency, err = strconv.Atoi(r.Form.Get("az_upload_concurrency"))
-		if err != nil {
-			return fs, err
-		}
+		fs.AzBlobConfig = config
+	} else if fs.Provider == dataprovider.CryptedFilesystemProvider {
+		fs.CryptConfig.Passphrase = getSecretFromFormField(r, "crypt_passphrase")
 	}
 	return fs, nil
 }
@@ -686,6 +710,9 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 	}
 	if !updatedUser.FsConfig.AzBlobConfig.AccountKey.IsPlain() && !updatedUser.FsConfig.AzBlobConfig.AccountKey.IsEmpty() {
 		updatedUser.FsConfig.AzBlobConfig.AccountKey = user.FsConfig.AzBlobConfig.AccountKey
+	}
+	if !updatedUser.FsConfig.CryptConfig.Passphrase.IsPlain() && !updatedUser.FsConfig.CryptConfig.Passphrase.IsEmpty() {
+		updatedUser.FsConfig.CryptConfig.Passphrase = user.FsConfig.CryptConfig.Passphrase
 	}
 	err = dataprovider.UpdateUser(updatedUser)
 	if err == nil {

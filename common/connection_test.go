@@ -9,11 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/minio/sio"
 	"github.com/pkg/sftp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/vfs"
 )
 
@@ -458,6 +460,22 @@ func TestDoStat(t *testing.T) {
 		assert.NotEqual(t, int64(4), infoLstat.Size())
 	}
 	assert.False(t, os.SameFile(infoStat, infoLstat))
+
+	fs, err = vfs.NewCryptFs(fs.ConnectionID(), os.TempDir(), vfs.CryptFsConfig{
+		Passphrase: kms.NewPlainSecret("payload"),
+	})
+	assert.NoError(t, err)
+	conn = NewBaseConnection(fs.ConnectionID(), ProtocolFTP, u, fs)
+	dataSize := int64(32768)
+	data := make([]byte, dataSize)
+	err = ioutil.WriteFile(testFile, data, os.ModePerm)
+	assert.NoError(t, err)
+	infoStat, err = conn.DoStat(testFile, 0)
+	assert.NoError(t, err)
+	assert.Less(t, infoStat.Size(), dataSize)
+	encSize, err := sio.EncryptedSize(uint64(infoStat.Size()))
+	assert.NoError(t, err)
+	assert.Equal(t, int64(encSize)+33, dataSize)
 
 	err = os.Remove(testFile)
 	assert.NoError(t, err)

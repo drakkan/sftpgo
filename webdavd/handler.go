@@ -157,7 +157,7 @@ func (c *Connection) getFile(fsPath, virtualPath string) (webdav.File, error) {
 	var cancelFn func()
 
 	// for cloud fs we open the file when we receive the first read to avoid to download the first part of
-	// the file if it was opened only to do a stat or a readdir and so it ins't a download
+	// the file if it was opened only to do a stat or a readdir and so it is not a real download
 	if vfs.IsLocalOsFs(c.Fs) {
 		file, r, cancelFn, err = c.Fs.Open(fsPath, 0)
 		if err != nil {

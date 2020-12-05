@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/vfs"
 )
 
@@ -251,4 +252,25 @@ func TestTransferErrors(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Len(t, conn.GetTransfers(), 0)
+}
+
+func TestRemovePartialCryptoFile(t *testing.T) {
+	testFile := filepath.Join(os.TempDir(), "transfer_test_file")
+	fs, err := vfs.NewCryptFs("id", os.TempDir(), vfs.CryptFsConfig{Passphrase: kms.NewPlainSecret("secret")})
+	require.NoError(t, err)
+	u := dataprovider.User{
+		Username: "test",
+		HomeDir:  os.TempDir(),
+	}
+	conn := NewBaseConnection(fs.ConnectionID(), ProtocolSFTP, u, fs)
+	transfer := NewBaseTransfer(nil, conn, nil, testFile, "/transfer_test_file", TransferUpload, 0, 0, 0, true, fs)
+	transfer.ErrTransfer = errors.New("test error")
+	_, err = transfer.getUploadFileSize()
+	assert.Error(t, err)
+	err = ioutil.WriteFile(testFile, []byte("test data"), os.ModePerm)
+	assert.NoError(t, err)
+	size, err := transfer.getUploadFileSize()
+	assert.NoError(t, err)
+	assert.Equal(t, int64(9), size)
+	assert.NoFileExists(t, testFile)
 }

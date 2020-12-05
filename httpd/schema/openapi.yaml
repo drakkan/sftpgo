@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: SFTPGo
   description: 'SFTPGo REST API'
-  version: 2.1.3
+  version: 2.2.0
 
 servers:
   - url: /api/v1
@@ -1078,6 +1078,12 @@ components:
           type: boolean
       nullable: true
       description: Azure Blob Storage configuration details
+    CryptFsConfig:
+      type: object
+      properties:
+        passphrase:
+          $ref: '#/components/schemas/Secret'
+      description: Crypt filesystem configuration details
     FilesystemConfig:
       type: object
       properties:
@@ -1088,18 +1094,22 @@ components:
             - 1
             - 2
             - 3
+            - 4
           description: >
             Providers:
               * `0` - Local filesystem
               * `1` - S3 Compatible Object Storage
               * `2` - Google Cloud Storage
               * `3` - Azure Blob Storage
+              * `4` - Local filesystem encrypted
         s3config:
           $ref: '#/components/schemas/S3Config'
         gcsconfig:
           $ref: '#/components/schemas/GCSConfig'
         azblobconfig:
           $ref: '#/components/schemas/AzureBlobFsConfig'
+        cryptconfig:
+          $ref: '#/components/schemas/CryptFsConfig'
       description: Storage filesystem details
     BaseVirtualFolder:
       type: object

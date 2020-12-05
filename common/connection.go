@@ -442,10 +442,17 @@ func (c *BaseConnection) getPathForSetStatPerms(fsPath, virtualPath string) stri
 
 // DoStat execute a Stat if mode = 0, Lstat if mode = 1
 func (c *BaseConnection) DoStat(fsPath string, mode int) (os.FileInfo, error) {
+	var info os.FileInfo
+	var err error
 	if mode == 1 {
-		return c.Fs.Lstat(c.getRealFsPath(fsPath))
+		info, err = c.Fs.Lstat(c.getRealFsPath(fsPath))
+	} else {
+		info, err = c.Fs.Stat(c.getRealFsPath(fsPath))
 	}
-	return c.Fs.Stat(c.getRealFsPath(fsPath))
+	if err == nil && vfs.IsCryptOsFs(c.Fs) {
+		info = c.Fs.(*vfs.CryptFs).ConvertFileInfo(info)
+	}
+	return info, err
 }
 
 func (c *BaseConnection) ignoreSetStat() bool {

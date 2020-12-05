@@ -15,9 +15,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/httpclient"
+	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/vfs"
 )
@@ -533,4 +535,19 @@ func TestPostConnectHook(t *testing.T) {
 	}
 
 	Config.PostConnectHook = ""
+}
+
+func TestCryptoConvertFileInfo(t *testing.T) {
+	name := "name"
+	fs, err := vfs.NewCryptFs("connID1", os.TempDir(), vfs.CryptFsConfig{Passphrase: kms.NewPlainSecret("secret")})
+	require.NoError(t, err)
+	cryptFs := fs.(*vfs.CryptFs)
+	info := vfs.NewFileInfo(name, true, 48, time.Now(), false)
+	assert.Equal(t, info, cryptFs.ConvertFileInfo(info))
+	info = vfs.NewFileInfo(name, false, 48, time.Now(), false)
+	assert.NotEqual(t, info.Size(), cryptFs.ConvertFileInfo(info).Size())
+	info = vfs.NewFileInfo(name, false, 33, time.Now(), false)
+	assert.Equal(t, int64(0), cryptFs.ConvertFileInfo(info).Size())
+	info = vfs.NewFileInfo(name, false, 1, time.Now(), false)
+	assert.Equal(t, int64(0), cryptFs.ConvertFileInfo(info).Size())
 }
