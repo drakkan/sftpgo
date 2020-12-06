@@ -1,6 +1,7 @@
 package webdavd_test
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -358,6 +359,43 @@ func TestBasicHandlingCryptFs(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	assert.Len(t, common.Connections.GetStats(), 0)
+}
+
+func TestPropPatch(t *testing.T) {
+	for _, u := range []dataprovider.User{getTestUser(), getTestUserWithCryptFs()} {
+		user, _, err := httpd.AddUser(u, http.StatusOK)
+		assert.NoError(t, err)
+		client := getWebDavClient(user)
+		assert.NoError(t, checkBasicFunc(client))
+
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = uploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		httpClient := httpclient.GetHTTPClient()
+		propatchBody := `<?xml version="1.0" encoding="utf-8" ?><D:propertyupdate xmlns:D="DAV:" xmlns:Z="urn:schemas-microsoft-com:"><D:set><D:prop><Z:Win32CreationTime>Wed, 04 Nov 2020 13:25:51 GMT</Z:Win32CreationTime><Z:Win32LastAccessTime>Sat, 05 Dec 2020 21:16:12 GMT</Z:Win32LastAccessTime><Z:Win32LastModifiedTime>Wed, 04 Nov 2020 13:25:51 GMT</Z:Win32LastModifiedTime><Z:Win32FileAttributes>00000000</Z:Win32FileAttributes></D:prop></D:set></D:propertyupdate>`
+		req, err := http.NewRequest("PROPPATCH", fmt.Sprintf("http://%v/%v/%v", webDavServerAddr, user.Username, testFileName), bytes.NewReader([]byte(propatchBody)))
+		assert.NoError(t, err)
+		req.SetBasicAuth(u.Username, u.Password)
+		resp, err := httpClient.Do(req)
+		assert.NoError(t, err)
+		assert.Equal(t, 207, resp.StatusCode)
+		err = resp.Body.Close()
+		assert.NoError(t, err)
+		info, err := client.Stat(testFileName)
+		if assert.NoError(t, err) {
+			assert.Equal(t, testFileSize, info.Size())
+		}
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		_, err = httpd.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		err = os.RemoveAll(user.GetHomeDir())
+		assert.NoError(t, err)
+		assert.Len(t, common.Connections.GetStats(), 0)
+	}
 }
 
 func TestLoginInvalidPwd(t *testing.T) {

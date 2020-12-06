@@ -143,7 +143,8 @@ func (c *Connection) OpenFile(ctx context.Context, name string, flag int, perm o
 	if err != nil {
 		return nil, c.GetFsError(err)
 	}
-	if flag == os.O_RDONLY {
+
+	if flag == os.O_RDONLY || c.request.Method == "PROPPATCH" {
 		// Download, Stat, Readdir or simply open/close
 		return c.getFile(p, name)
 	}

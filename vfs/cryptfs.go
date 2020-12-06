@@ -328,19 +328,14 @@ func (h *encryptedFileHeader) Store(f *os.File) error {
 }
 
 func (h *encryptedFileHeader) Load(f *os.File) error {
-	vers := make([]byte, 1)
-	_, err := io.ReadFull(f, vers)
+	header := make([]byte, 1+nonceV10Size)
+	_, err := io.ReadFull(f, header)
 	if err != nil {
 		return err
 	}
-	h.version = vers[0]
+	h.version = header[0]
 	if h.version == version10 {
-		nonce := make([]byte, nonceV10Size)
-		_, err := io.ReadFull(f, nonce)
-		if err != nil {
-			return err
-		}
-		h.nonce = nonce
+		h.nonce = header[1:]
 		return nil
 	}
 	return fmt.Errorf("unsupported encryption version: %v", h.version)

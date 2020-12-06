@@ -84,6 +84,20 @@ func (s *webDavServer) listenAndServe() error {
 	return httpServer.ListenAndServe()
 }
 
+func (s *webDavServer) checkRequestMethod(ctx context.Context, r *http.Request, connection *Connection, prefix string) {
+	// see RFC4918, section 9.4
+	if r.Method == http.MethodGet {
+		p := strings.TrimPrefix(path.Clean(r.URL.Path), prefix)
+		info, err := connection.Stat(ctx, p)
+		if err == nil && info.IsDir() {
+			r.Method = "PROPFIND"
+			if r.Header.Get("Depth") == "" {
+				r.Header.Add("Depth", "1")
+			}
+		}
+	}
+}
+
 // ServeHTTP implements the http.Handler interface
 func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
@@ -97,7 +111,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, common.ErrConnectionDenied.Error(), http.StatusForbidden)
 		return
 	}
-	user, isCached, lockSystem, err := s.authenticate(r)
+	user, _, lockSystem, err := s.authenticate(r)
 	if err != nil {
 		w.Header().Set("WWW-Authenticate", "Basic realm=\"SFTPGo WebDAV\"")
 		http.Error(w, err401.Error(), http.StatusUnauthorized)
@@ -135,24 +149,10 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	if !isCached {
-		// we check the home directory only if the user is not cached
-		connection.Fs.CheckRootPath(connection.GetUsername(), user.GetUID(), user.GetGID())
-	}
 	dataprovider.UpdateLastLogin(user) //nolint:errcheck
 
 	prefix := path.Join("/", user.Username)
-	// see RFC4918, section 9.4
-	if r.Method == http.MethodGet {
-		p := strings.TrimPrefix(path.Clean(r.URL.Path), prefix)
-		info, err := connection.Stat(ctx, p)
-		if err == nil && info.IsDir() {
-			r.Method = "PROPFIND"
-			if r.Header.Get("Depth") == "" {
-				r.Header.Add("Depth", "1")
-			}
-		}
-	}
+	s.checkRequestMethod(ctx, r, connection, prefix)
 
 	handler := webdav.Handler{
 		Prefix:     prefix,
@@ -199,8 +199,12 @@ func (s *webDavServer) authenticate(r *http.Request) (dataprovider.User, bool, w
 			cachedUser.Expiration = time.Now().Add(time.Duration(s.config.Cache.Users.ExpirationTime) * time.Minute)
 		}
 		dataprovider.CacheWebDAVUser(cachedUser, s.config.Cache.Users.MaxSize)
+		tempFs, err := user.GetFilesystem("temp")
+		if err == nil {
+			tempFs.CheckRootPath(user.Username, user.UID, user.GID)
+		}
 	}
-	return user, false, lockSystem, err
+	return user, false, lockSystem, nil
 }
 
 func (s *webDavServer) validateUser(user dataprovider.User, r *http.Request) (string, error) {

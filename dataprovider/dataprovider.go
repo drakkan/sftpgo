@@ -582,7 +582,11 @@ func UpdateLastLogin(user User) error {
 	lastLogin := utils.GetTimeFromMsecSinceEpoch(user.LastLogin)
 	diff := -time.Until(lastLogin)
 	if diff < 0 || diff > lastLoginMinDelay {
-		return provider.updateLastLogin(user.Username)
+		err := provider.updateLastLogin(user.Username)
+		if err == nil {
+			updateWebDavCachedUserLastLogin(user.Username)
+		}
+		return err
 	}
 	return nil
 }
@@ -2129,6 +2133,15 @@ func updateVFoldersQuotaAfterRestore(foldersToScan []string) {
 		}
 		err = UpdateVirtualFolderQuota(vfolder, numFiles, size, true)
 		providerLog(logger.LevelDebug, "quota updated for virtual folder %#v, error: %v", vfolder.MappedPath, err)
+	}
+}
+
+func updateWebDavCachedUserLastLogin(username string) {
+	result, ok := webDAVUsersCache.Load(username)
+	if ok {
+		cachedUser := result.(*CachedUser)
+		cachedUser.User.LastLogin = utils.GetTimeAsMsSinceEpoch(time.Now())
+		webDAVUsersCache.Store(cachedUser.User.Username, cachedUser)
 	}
 }
 
