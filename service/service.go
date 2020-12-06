@@ -83,10 +83,17 @@ func (s *Service) Start() error {
 	}
 
 	common.Initialize(config.GetCommonConfig())
+	kmsConfig := config.GetKMSConfig()
+	err := kmsConfig.Initialize()
+	if err != nil {
+		logger.Error(logSender, "", "unable to initialize KMS: %v", err)
+		logger.ErrorToConsole("unable to initialize KMS: %v", err)
+		os.Exit(1)
+	}
 
 	providerConf := config.GetProviderConf()
 
-	err := dataprovider.Initialize(providerConf, s.ConfigDir)
+	err = dataprovider.Initialize(providerConf, s.ConfigDir)
 	if err != nil {
 		logger.Error(logSender, "", "error initializing data provider: %v", err)
 		logger.ErrorToConsole("error initializing data provider: %v", err)
@@ -110,13 +117,6 @@ func (s *Service) Start() error {
 
 	httpConfig := config.GetHTTPConfig()
 	httpConfig.Initialize(s.ConfigDir)
-	kmsConfig := config.GetKMSConfig()
-	err = kmsConfig.Initialize()
-	if err != nil {
-		logger.Error(logSender, "", "unable to initialize KMS: %v", err)
-		logger.ErrorToConsole("unable to initialize KMS: %v", err)
-		os.Exit(1)
-	}
 
 	s.startServices()
 

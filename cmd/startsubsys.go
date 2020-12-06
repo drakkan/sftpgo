@@ -67,6 +67,11 @@ Command-line flags should be specified in the Subsystem declaration.
 			commonConfig.IdleTimeout = 0
 			config.SetCommonConfig(commonConfig)
 			common.Initialize(config.GetCommonConfig())
+			kmsConfig := config.GetKMSConfig()
+			if err := kmsConfig.Initialize(); err != nil {
+				logger.Error(logSender, connectionID, "unable to initialize KMS: %v", err)
+				os.Exit(1)
+			}
 			dataProviderConf := config.GetProviderConf()
 			if dataProviderConf.Driver == dataprovider.SQLiteDataProviderName || dataProviderConf.Driver == dataprovider.BoltDataProviderName {
 				logger.Debug(logSender, connectionID, "data provider %#v not supported in subsystem mode, using %#v provider",
@@ -83,11 +88,6 @@ Command-line flags should be specified in the Subsystem declaration.
 			}
 			httpConfig := config.GetHTTPConfig()
 			httpConfig.Initialize(configDir)
-			kmsConfig := config.GetKMSConfig()
-			if err := kmsConfig.Initialize(); err != nil {
-				logger.Error(logSender, connectionID, "unable to initialize KMS: %v", err)
-				os.Exit(1)
-			}
 			user, err := dataprovider.UserExists(username)
 			if err == nil {
 				if user.HomeDir != filepath.Clean(homedir) && !preserveHomeDir {

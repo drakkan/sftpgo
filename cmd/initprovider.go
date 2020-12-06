@@ -43,6 +43,12 @@ Please take a look at the usage below to customize the options.`,
 				logger.WarnToConsole("Unable to initialize data provider, config load error: %v", err)
 				return
 			}
+			kmsConfig := config.GetKMSConfig()
+			err = kmsConfig.Initialize()
+			if err != nil {
+				logger.ErrorToConsole("unable to initialize KMS: %v", err)
+				os.Exit(1)
+			}
 			providerConf := config.GetProviderConf()
 			logger.InfoToConsole("Initializing provider: %#v config file: %#v", providerConf.Driver, viper.ConfigFileUsed())
 			err = dataprovider.InitializeDatabase(providerConf, configDir)
