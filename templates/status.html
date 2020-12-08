@@ -1,0 +1,73 @@
+{{template "base" .}}
+
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "page_body"}}
+
+<div class="card mb-4 {{ if .Status.SSH.IsActive}}border-left-success{{else}}border-left-info{{end}}">
+    <div class="card-body">
+        <h5 class="card-title">SFTP/SSH server</h5>
+        <p class="card-text">
+            Status: {{ if .Status.SSH.IsActive}}"Started"{{else}}"Stopped"{{end}}
+            {{if .Status.SSH.IsActive}}
+            <br>
+            Address: "{{.Status.SSH.Address}}"
+            <br>
+            Accepted commands: "{{.Status.SSH.SSHCommands}}"
+            <br>
+            {{range .Status.SSH.HostKeys}}
+            <br>
+            Host Key: "{{.Path}}"
+            <br>
+            Fingerprint: "{{.Fingerprint}}"
+            <br>
+            {{end}}
+            {{end}}
+        </p>
+    </div>
+</div>
+
+<div class="card mb-4 {{ if .Status.FTP.IsActive}}border-left-success{{else}}border-left-info{{end}}">
+    <div class="card-body">
+        <h5 class="card-title">FTP server</h5>
+        <p class="card-text">
+            Status: {{ if .Status.FTP.IsActive}}"Started"{{else}}"Stopped"{{end}}
+            {{if .Status.FTP.IsActive}}
+            <br>
+            Address: "{{.Status.FTP.Address}}"
+            <br>
+            Passive port range: "{{.Status.FTP.PassivePortRange.Start}}-{{.Status.FTP.PassivePortRange.End}}"
+            <br>
+            TLS: "{{.Status.FTP.FTPES}}"
+            {{end}}
+        </p>
+    </div>
+</div>
+
+<div class="card mb-4 {{ if .Status.WebDAV.IsActive}}border-left-success{{else}}border-left-info{{end}}">
+    <div class="card-body">
+        <h5 class="card-title">WebDAV server</h5>
+        <p class="card-text">
+            Status: {{ if .Status.WebDAV.IsActive}}"Started"{{else}}"Stopped"{{end}}
+            {{if .Status.WebDAV.IsActive}}
+            <br>
+            Address: "{{.Status.WebDAV.Address}}"
+            <br>
+            Protocol: "{{.Status.WebDAV.Protocol}}"
+            {{end}}
+        </p>
+    </div>
+</div>
+
+<div class="card mb-4 {{ if .Status.DataProvider.IsActive}}border-left-success{{else}}border-left-warning{{end}}">
+    <div class="card-body">
+        <h5 class="card-title">Data provider</h5>
+        <p class="card-text">
+            Status: {{ if .Status.DataProvider.IsActive}}"OK"{{else}}"{{.Status.DataProvider.Error}}"{{end}}
+            <br>
+            Driver: "{{.Status.DataProvider.Driver}}"
+        </p>
+    </div>
+</div>
+
+{{end}}

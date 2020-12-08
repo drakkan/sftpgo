@@ -71,6 +71,12 @@
                     <span>{{.ConnectionsTitle}}</span></a>
             </li>
 
+            <li class="nav-item {{if eq .CurrentURL .StatusURL}}active{{end}}">
+                <a class="nav-link" href="{{.StatusURL}}">
+                    <i class="fas fa-info-circle"></i>
+                    <span>{{.StatusTitle}}</span></a>
+            </li>
+
             <!-- Divider -->
             <hr class="sidebar-divider d-none d-md-block">
 

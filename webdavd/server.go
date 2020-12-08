@@ -33,6 +33,7 @@ var (
 type webDavServer struct {
 	config  *Configuration
 	certMgr *common.CertManager
+	status  ServiceStatus
 }
 
 func newServer(config *Configuration, configDir string) (*webDavServer, error) {
@@ -53,8 +54,12 @@ func newServer(config *Configuration, configDir string) (*webDavServer, error) {
 }
 
 func (s *webDavServer) listenAndServe() error {
+	addr := fmt.Sprintf("%s:%d", s.config.BindAddress, s.config.BindPort)
+	s.status.IsActive = true
+	s.status.Address = addr
+	s.status.Protocol = "HTTP"
 	httpServer := &http.Server{
-		Addr:              fmt.Sprintf("%s:%d", s.config.BindAddress, s.config.BindPort),
+		Addr:              addr,
 		Handler:           server,
 		ReadHeaderTimeout: 30 * time.Second,
 		IdleTimeout:       120 * time.Second,
@@ -75,6 +80,7 @@ func (s *webDavServer) listenAndServe() error {
 		httpServer.Handler = server
 	}
 	if s.certMgr != nil {
+		s.status.Protocol = "HTTPS"
 		httpServer.TLSConfig = &tls.Config{
 			GetCertificate: s.certMgr.GetCertificateFunc(),
 			MinVersion:     tls.VersionTLS12,

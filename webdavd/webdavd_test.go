@@ -157,6 +157,12 @@ func TestMain(m *testing.M) {
 		AllowCredentials: true,
 	}
 
+	status := webdavd.GetStatus()
+	if status.IsActive {
+		logger.ErrorToConsole("webdav server is already active")
+		os.Exit(1)
+	}
+
 	extAuthPath = filepath.Join(homeBasePath, "extauth.sh")
 	preLoginPath = filepath.Join(homeBasePath, "prelogin.sh")
 	postConnectPath = filepath.Join(homeBasePath, "postconnect.sh")
@@ -284,6 +290,8 @@ func TestBasicHandling(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	assert.Len(t, common.Connections.GetStats(), 0)
+	status := webdavd.GetStatus()
+	assert.True(t, status.IsActive)
 }
 
 func TestBasicHandlingCryptFs(t *testing.T) {

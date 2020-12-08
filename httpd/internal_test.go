@@ -549,7 +549,7 @@ func TestApiCallToNotListeningServer(t *testing.T) {
 	assert.Error(t, err)
 	_, _, err = GetVersion(http.StatusOK)
 	assert.Error(t, err)
-	_, _, err = GetProviderStatus(http.StatusOK)
+	_, _, err = GetStatus(http.StatusOK)
 	assert.Error(t, err)
 	_, _, err = Dumpdata("backup.json", "0", http.StatusOK)
 	assert.Error(t, err)

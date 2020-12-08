@@ -152,6 +152,13 @@ type UserActions struct {
 	Hook string `json:"hook" mapstructure:"hook"`
 }
 
+// ProviderStatus defines the provider status
+type ProviderStatus struct {
+	Driver   string `json:"driver"`
+	IsActive bool   `json:"is_active"`
+	Error    string `json:"error"`
+}
+
 // Config provider configuration
 type Config struct {
 	// Driver name, must be one of the SupportedProviders
@@ -775,8 +782,18 @@ func ParseDumpData(data []byte) (BackupData, error) {
 }
 
 // GetProviderStatus returns an error if the provider is not available
-func GetProviderStatus() error {
-	return provider.checkAvailability()
+func GetProviderStatus() ProviderStatus {
+	err := provider.checkAvailability()
+	status := ProviderStatus{
+		Driver: config.Driver,
+	}
+	if err == nil {
+		status.IsActive = true
+	} else {
+		status.IsActive = false
+		status.Error = err.Error()
+	}
+	return status
 }
 
 // Close releases all provider resources.

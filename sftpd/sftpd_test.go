@@ -43,6 +43,7 @@ import (
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
 )
@@ -367,6 +368,8 @@ func TestBasicSFTPHandling(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
+	status := sftpd.GetStatus()
+	assert.True(t, status.IsActive)
 }
 
 func TestOpenReadWrite(t *testing.T) {

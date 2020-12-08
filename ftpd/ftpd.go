@@ -2,6 +2,7 @@
 package ftpd
 
 import (
+	"fmt"
 	"path/filepath"
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
@@ -24,6 +25,14 @@ type PortRange struct {
 	Start int `json:"start" mapstructure:"start"`
 	// Range end
 	End int `json:"end" mapstructure:"end"`
+}
+
+// ServiceStatus defines the service status
+type ServiceStatus struct {
+	IsActive         bool      `json:"is_active"`
+	Address          string    `json:"address"`
+	PassivePortRange PortRange `json:"passive_port_range"`
+	FTPES            string    `json:"ftpes"`
 }
 
 // Configuration defines the configuration for the ftp server
@@ -61,6 +70,19 @@ func (c *Configuration) Initialize(configDir string) error {
 	if err != nil {
 		return err
 	}
+	server.status = ServiceStatus{
+		IsActive:         true,
+		Address:          fmt.Sprintf("%s:%d", c.BindAddress, c.BindPort),
+		PassivePortRange: c.PassivePortRange,
+		FTPES:            "Disabled",
+	}
+	if c.CertificateFile != "" && c.CertificateKeyFile != "" {
+		if c.TLSMode == 1 {
+			server.status.FTPES = "Required"
+		} else {
+			server.status.FTPES = "Enabled"
+		}
+	}
 	ftpServer := ftpserver.NewFtpServer(server)
 	return ftpServer.ListenAndServe()
 }
@@ -71,6 +93,14 @@ func ReloadTLSCertificate() error {
 		return server.certMgr.LoadCertificate(logSender)
 	}
 	return nil
+}
+
+// GetStatus returns the server status
+func GetStatus() ServiceStatus {
+	if server == nil {
+		return ServiceStatus{}
+	}
+	return server.status
 }
 
 func getConfigPath(name, configDir string) string {

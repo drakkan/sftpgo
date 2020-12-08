@@ -16,8 +16,12 @@ import (
 	"github.com/go-chi/chi"
 
 	"github.com/drakkan/sftpgo/common"
+	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/ftpd"
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/webdavd"
 )
 
 const (
@@ -29,7 +33,7 @@ const (
 	userPath                  = "/api/v1/user"
 	versionPath               = "/api/v1/version"
 	folderPath                = "/api/v1/folder"
-	providerStatusPath        = "/api/v1/providerstatus"
+	serverStatusPath          = "/api/v1/status"
 	dumpDataPath              = "/api/v1/dumpdata"
 	loadDataPath              = "/api/v1/loaddata"
 	updateUsedQuotaPath       = "/api/v1/quota_update"
@@ -42,6 +46,7 @@ const (
 	webConnectionsPath        = "/web/connections"
 	webFoldersPath            = "/web/folders"
 	webFolderPath             = "/web/folder"
+	webStatusPath             = "/web/status"
 	webStaticFilesPath        = "/static"
 	// MaxRestoreSize defines the max size for the loaddata input file
 	MaxRestoreSize = 10485760 // 10 MB
@@ -54,6 +59,14 @@ var (
 	httpAuth    httpAuthProvider
 	certMgr     *common.CertManager
 )
+
+// ServicesStatus keep the state of the running services
+type ServicesStatus struct {
+	SSH          sftpd.ServiceStatus         `json:"ssh"`
+	FTP          ftpd.ServiceStatus          `json:"ftp"`
+	WebDAV       webdavd.ServiceStatus       `json:"webdav"`
+	DataProvider dataprovider.ProviderStatus `json:"data_provider"`
+}
 
 // Conf httpd daemon configuration
 type Conf struct {
@@ -154,4 +167,14 @@ func getConfigPath(name, configDir string) string {
 		return filepath.Join(configDir, name)
 	}
 	return name
+}
+
+func getServicesStatus() ServicesStatus {
+	status := ServicesStatus{
+		SSH:          sftpd.GetStatus(),
+		FTP:          ftpd.GetStatus(),
+		WebDAV:       webdavd.GetStatus(),
+		DataProvider: dataprovider.GetProviderStatus(),
+	}
+	return status
 }

@@ -22,7 +22,6 @@ import (
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/vfs"
 )
 
@@ -665,7 +664,9 @@ func TestBasicUsersCache(t *testing.T) {
 	}
 	u.Permissions = make(map[string][]string)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	err := dataprovider.AddUser(u)
+	assert.NoError(t, err)
+	user, err := dataprovider.UserExists(u.Username)
 	assert.NoError(t, err)
 
 	c := &Configuration{
@@ -728,7 +729,7 @@ func TestBasicUsersCache(t *testing.T) {
 		assert.False(t, cachedUser.IsExpired())
 	}
 	// cache is invalidated after a user modification
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	err = dataprovider.UpdateUser(user)
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.False(t, ok)
@@ -739,7 +740,7 @@ func TestBasicUsersCache(t *testing.T) {
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.True(t, ok)
 	// cache is invalidated after user deletion
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	err = dataprovider.DeleteUser(user)
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.False(t, ok)
@@ -757,19 +758,27 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	u.Password = password + "1"
 	u.Permissions = make(map[string][]string)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
-	user1, _, err := httpd.AddUser(u, http.StatusOK)
+	err := dataprovider.AddUser(u)
+	assert.NoError(t, err)
+	user1, err := dataprovider.UserExists(u.Username)
 	assert.NoError(t, err)
 	u.Username = username + "2"
 	u.Password = password + "2"
-	user2, _, err := httpd.AddUser(u, http.StatusOK)
+	err = dataprovider.AddUser(u)
+	assert.NoError(t, err)
+	user2, err := dataprovider.UserExists(u.Username)
 	assert.NoError(t, err)
 	u.Username = username + "3"
 	u.Password = password + "3"
-	user3, _, err := httpd.AddUser(u, http.StatusOK)
+	err = dataprovider.AddUser(u)
+	assert.NoError(t, err)
+	user3, err := dataprovider.UserExists(u.Username)
 	assert.NoError(t, err)
 	u.Username = username + "4"
 	u.Password = password + "4"
-	user4, _, err := httpd.AddUser(u, http.StatusOK)
+	err = dataprovider.AddUser(u)
+	assert.NoError(t, err)
+	user4, err := dataprovider.UserExists(u.Username)
 	assert.NoError(t, err)
 
 	c := &Configuration{
@@ -878,7 +887,7 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	assert.True(t, ok)
 
 	// now remove user1 after an update
-	user1, _, err = httpd.UpdateUser(user1, http.StatusOK, "")
+	err = dataprovider.UpdateUser(user1)
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(user1.Username)
 	assert.False(t, ok)
@@ -905,13 +914,13 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	_, ok = dataprovider.GetCachedWebDAVUser(user4.Username)
 	assert.True(t, ok)
 
-	_, err = httpd.RemoveUser(user1, http.StatusOK)
+	err = dataprovider.DeleteUser(user1)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user2, http.StatusOK)
+	err = dataprovider.DeleteUser(user2)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user3, http.StatusOK)
+	err = dataprovider.DeleteUser(user3)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user4, http.StatusOK)
+	err = dataprovider.DeleteUser(user4)
 	assert.NoError(t, err)
 }
 

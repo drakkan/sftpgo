@@ -155,6 +155,12 @@ func TestMain(m *testing.M) {
 	preLoginPath = filepath.Join(homeBasePath, "prelogin.sh")
 	postConnectPath = filepath.Join(homeBasePath, "postconnect.sh")
 
+	status := ftpd.GetStatus()
+	if status.IsActive {
+		logger.ErrorToConsole("ftpd is already active")
+		os.Exit(1)
+	}
+
 	go func() {
 		logger.Debug(logSender, "", "initializing FTP server with config %+v", ftpdConf)
 		if err := ftpdConf.Initialize(configDir); err != nil {
@@ -183,6 +189,18 @@ func TestMain(m *testing.M) {
 	os.Remove(certPath)
 	os.Remove(keyPath)
 	os.Exit(exitCode)
+}
+
+func TestInitialization(t *testing.T) {
+	ftpdConf := config.GetFTPDConfig()
+	ftpdConf.BindPort = 2121
+	ftpdConf.CertificateFile = filepath.Join(os.TempDir(), "test_ftpd.crt")
+	ftpdConf.CertificateKeyFile = filepath.Join(os.TempDir(), "test_ftpd.key")
+	ftpdConf.TLSMode = 1
+	err := ftpdConf.Initialize(configDir)
+	assert.Error(t, err)
+	status := ftpd.GetStatus()
+	assert.True(t, status.IsActive)
 }
 
 func TestBasicFTPHandling(t *testing.T) {

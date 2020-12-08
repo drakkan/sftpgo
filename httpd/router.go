@@ -9,7 +9,6 @@ import (
 	"github.com/go-chi/render"
 
 	"github.com/drakkan/sftpgo/common"
-	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/version"
@@ -66,13 +65,8 @@ func initializeRouter(staticFilesPath string, enableProfiler, enableWebAdmin boo
 				render.JSON(w, r, version.Get())
 			})
 
-			router.Get(providerStatusPath, func(w http.ResponseWriter, r *http.Request) {
-				err := dataprovider.GetProviderStatus()
-				if err != nil {
-					sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
-				} else {
-					sendAPIResponse(w, r, err, "Alive", http.StatusOK)
-				}
+			router.Get(serverStatusPath, func(w http.ResponseWriter, r *http.Request) {
+				render.JSON(w, r, getServicesStatus())
 			})
 
 			router.Get(activeConnectionsPath, func(w http.ResponseWriter, r *http.Request) {
@@ -106,6 +100,7 @@ func initializeRouter(staticFilesPath string, enableProfiler, enableWebAdmin boo
 				router.Get(webFoldersPath, handleWebGetFolders)
 				router.Get(webFolderPath, handleWebAddFolderGet)
 				router.Post(webFolderPath, handleWebAddFolderPost)
+				router.Get(webStatusPath, handleWebGetStatus)
 			}
 		})
 

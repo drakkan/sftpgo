@@ -18,6 +18,7 @@ var (
 	defaultSSHCommands = []string{"md5sum", "sha1sum", "cd", "pwd", "scp"}
 	sshHashCommands    = []string{"md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum"}
 	systemCommands     = []string{"git-receive-pack", "git-upload-pack", "git-upload-archive", "rsync"}
+	serviceStatus      ServiceStatus
 )
 
 type sshSubsystemExitStatus struct {
@@ -26,6 +27,25 @@ type sshSubsystemExitStatus struct {
 
 type sshSubsystemExecMsg struct {
 	Command string
+}
+
+// HostKey defines the details for a used host key
+type HostKey struct {
+	Path        string `json:"path"`
+	Fingerprint string `json:"fingerprint"`
+}
+
+// ServiceStatus defines the service status
+type ServiceStatus struct {
+	IsActive    bool      `json:"is_active"`
+	Address     string    `json:"address"`
+	SSHCommands string    `json:"ssh_commands"`
+	HostKeys    []HostKey `json:"host_keys"`
+}
+
+// GetStatus returns the server status
+func GetStatus() ServiceStatus {
+	return serviceStatus
 }
 
 // GetDefaultSSHCommands returns the SSH commands enabled as default

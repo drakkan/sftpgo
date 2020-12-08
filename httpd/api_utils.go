@@ -428,17 +428,17 @@ func GetVersion(expectedStatusCode int) (version.Info, []byte, error) {
 	return appVersion, body, err
 }
 
-// GetProviderStatus returns provider status
-func GetProviderStatus(expectedStatusCode int) (map[string]interface{}, []byte, error) {
-	var response map[string]interface{}
+// GetStatus returns the server status
+func GetStatus(expectedStatusCode int) (ServicesStatus, []byte, error) {
+	var response ServicesStatus
 	var body []byte
-	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(providerStatusPath), nil, "")
+	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(serverStatusPath), nil, "")
 	if err != nil {
 		return response, body, err
 	}
 	defer resp.Body.Close()
 	err = checkResponse(resp.StatusCode, expectedStatusCode)
-	if err == nil && (expectedStatusCode == http.StatusOK || expectedStatusCode == http.StatusInternalServerError) {
+	if err == nil && (expectedStatusCode == http.StatusOK) {
 		err = render.DecodeJSON(resp.Body, &response)
 	} else {
 		body, _ = getResponseBody(resp)

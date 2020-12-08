@@ -24,6 +24,7 @@ type Server struct {
 	certMgr      *common.CertManager
 	initialMsg   string
 	statusBanner string
+	status       ServiceStatus
 }
 
 // NewServer returns a new FTP server driver
@@ -37,7 +38,7 @@ func NewServer(config *Configuration, configDir string) (*Server, error) {
 	}
 	certificateFile := getConfigPath(config.CertificateFile, configDir)
 	certificateKeyFile := getConfigPath(config.CertificateKeyFile, configDir)
-	if len(certificateFile) > 0 && len(certificateKeyFile) > 0 {
+	if certificateFile != "" && certificateKeyFile != "" {
 		server.certMgr, err = common.NewCertManager(certificateFile, certificateKeyFile, logSender)
 		if err != nil {
 			return server, err

@@ -30,8 +30,10 @@ const (
 	templateFolders      = "folders.html"
 	templateFolder       = "folder.html"
 	templateMessage      = "message.html"
+	templateStatus       = "status.html"
 	pageUsersTitle       = "Users"
 	pageConnectionsTitle = "Connections"
+	pageStatusTitle      = "Status"
 	pageFoldersTitle     = "Folders"
 	page400Title         = "Bad request"
 	page404Title         = "Not found"
@@ -60,9 +62,11 @@ type basePage struct {
 	FolderURL             string
 	APIFoldersURL         string
 	APIFolderQuotaScanURL string
+	StatusURL             string
 	UsersTitle            string
 	ConnectionsTitle      string
 	FoldersTitle          string
+	StatusTitle           string
 	Version               string
 }
 
@@ -79,6 +83,11 @@ type foldersPage struct {
 type connectionsPage struct {
 	basePage
 	Connections []common.ConnectionStatus
+}
+
+type statusPage struct {
+	basePage
+	Status ServicesStatus
 }
 
 type userPage struct {
@@ -131,12 +140,17 @@ func loadTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateBase),
 		filepath.Join(templatesPath, templateFolder),
 	}
+	statusPath := []string{
+		filepath.Join(templatesPath, templateBase),
+		filepath.Join(templatesPath, templateStatus),
+	}
 	usersTmpl := utils.LoadTemplate(template.ParseFiles(usersPaths...))
 	userTmpl := utils.LoadTemplate(template.ParseFiles(userPaths...))
 	connectionsTmpl := utils.LoadTemplate(template.ParseFiles(connectionsPaths...))
 	messageTmpl := utils.LoadTemplate(template.ParseFiles(messagePath...))
 	foldersTmpl := utils.LoadTemplate(template.ParseFiles(foldersPath...))
 	folderTmpl := utils.LoadTemplate(template.ParseFiles(folderPath...))
+	statusTmpl := utils.LoadTemplate(template.ParseFiles(statusPath...))
 
 	templates[templateUsers] = usersTmpl
 	templates[templateUser] = userTmpl
@@ -144,6 +158,7 @@ func loadTemplates(templatesPath string) {
 	templates[templateMessage] = messageTmpl
 	templates[templateFolders] = foldersTmpl
 	templates[templateFolder] = folderTmpl
+	templates[templateStatus] = statusTmpl
 }
 
 func getBasePageData(title, currentURL string) basePage {
@@ -160,9 +175,11 @@ func getBasePageData(title, currentURL string) basePage {
 		APIFoldersURL:         folderPath,
 		APIFolderQuotaScanURL: quotaScanVFolderPath,
 		ConnectionsURL:        webConnectionsPath,
+		StatusURL:             webStatusPath,
 		UsersTitle:            pageUsersTitle,
 		ConnectionsTitle:      pageConnectionsTitle,
 		FoldersTitle:          pageFoldersTitle,
+		StatusTitle:           pageStatusTitle,
 		Version:               version.GetAsString(),
 	}
 }
@@ -723,6 +740,14 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 	} else {
 		renderUpdateUserPage(w, user, err.Error())
 	}
+}
+
+func handleWebGetStatus(w http.ResponseWriter, r *http.Request) {
+	data := statusPage{
+		basePage: getBasePageData(pageStatusTitle, webStatusPath),
+		Status:   getServicesStatus(),
+	}
+	renderTemplate(w, templateStatus, data)
 }
 
 func handleWebGetConnections(w http.ResponseWriter, r *http.Request) {

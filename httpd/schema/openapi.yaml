@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: SFTPGo
-  description: 'SFTPGo REST API'
-  version: 2.2.0
+  description: SFTPGo REST API
+  version: 2.2.1
 
 servers:
   - url: /api/v1
@@ -29,7 +29,7 @@ paths:
   /version:
     get:
       tags:
-        - version
+        - maintenance
       summary: Get version details
       operationId: get_version
       responses:
@@ -39,29 +39,6 @@ paths:
             application/json:
               schema:
                 $ref : '#/components/schemas/VersionInfo'
-        401:
-          $ref: '#/components/responses/Unauthorized'
-        403:
-          $ref: '#/components/responses/Forbidden'
-        500:
-          $ref: '#/components/responses/InternalServerError'
-        default:
-          $ref: '#/components/responses/DefaultResponse'
-  /providerstatus:
-    get:
-      tags:
-        - providerstatus
-      summary: Get data provider status
-      operationId: get_provider_status
-      responses:
-        200:
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse'
-              example:
-                message: "Alive"
         401:
           $ref: '#/components/responses/Unauthorized'
         403:
@@ -667,12 +644,35 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
+  /status:
+    get:
+      tags:
+        - maintenance
+      summary: Retrieve the status of the active services
+      operationId: get_status
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServicesStatus'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
   /dumpdata:
     get:
       tags:
         - maintenance
-      summary: Backup SFTPGo data serializing them as JSON
-      description: The backup is saved to a local file to avoid to expose users hashed passwords over the network. The output of dumpdata can be used as input for loaddata
+      summary: Backup SFTPGo data as data provider independent JSON
+      description: The backup is saved to a local file to avoid to expose sensitive data over the network. The output of dumpdata can be used as input for loaddata
       operationId: dumpdata
       parameters:
         - in: query
@@ -1339,6 +1339,83 @@ components:
           type: integer
           format: int64
           description: scan start time as unix timestamp in milliseconds
+    SSHHostKey:
+      type: object
+      properties:
+        path:
+          type: string
+        fingerprint:
+          type: string
+    BaseServiceStatus:
+      type: object
+      properties:
+        is_active:
+          type: boolean
+        address:
+          type: string
+          description: TCP address the server listen on in the form "host:port"
+    SSHServiceStatus:
+      allOf:
+        - $ref: '#/components/schemas/BaseServiceStatus'
+        - type: object
+          properties:
+            host_keys:
+              type: array
+              items:
+                $ref: '#/components/schemas/SSHHostKey'
+            ssh_commands:
+              type: string
+              description: accepted SSH commands comma separated
+    FTPPassivePortRange:
+      type: object
+      properties:
+        start:
+          type: integer
+        end:
+          type: integer
+    FTPServiceStatus:
+      allOf:
+        - $ref: '#/components/schemas/BaseServiceStatus'
+        - type: object
+          properties:
+            passive_port_range:
+              $ref: '#/components/schemas/FTPPassivePortRange'
+            ftpes:
+              type: string
+              enum:
+                - Disabled
+                - Enabled
+                - Required
+    WebDAVServiceStatus:
+      allOf:
+        - $ref: '#/components/schemas/BaseServiceStatus'
+        - type: object
+          properties:
+            protocol:
+              type: string
+              enum:
+                - HTTP
+                - HTTPS
+    DataProviderStatus:
+      type: object
+      properties:
+        is_active:
+          type: boolean
+        driver:
+          type: string
+        error:
+          type: string
+    ServicesStatus:
+      type: object
+      properties:
+        ssh:
+          $ref: '#/components/schemas/SSHServiceStatus'
+        ftp:
+          $ref: '#/components/schemas/FTPServiceStatus'
+        webdav:
+          $ref: '#/components/schemas/WebDAVServiceStatus'
+        data_provider:
+          $ref: '#/components/schemas/DataProviderStatus'
     ApiResponse:
       type: object
       properties:

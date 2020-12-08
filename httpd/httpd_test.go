@@ -45,6 +45,7 @@ const (
 	userPath                  = "/api/v1/user"
 	folderPath                = "/api/v1/folder"
 	activeConnectionsPath     = "/api/v1/connection"
+	serverStatusPath          = "/api/v1/status"
 	quotaScanPath             = "/api/v1/quota_scan"
 	quotaScanVFolderPath      = "/api/v1/folder_quota_scan"
 	updateUsedQuotaPath       = "/api/v1/quota_update"
@@ -58,6 +59,7 @@ const (
 	webFoldersPath            = "/web/folders"
 	webFolderPath             = "/web/folder"
 	webConnectionsPath        = "/web/connections"
+	webStatusPath             = "/web/status"
 	configDir                 = ".."
 	httpsCert                 = `-----BEGIN CERTIFICATE-----
 MIICHTCCAaKgAwIBAgIUHnqw7QnB1Bj9oUsNpdb+ZkFPOxMwCgYIKoZIzj0EAwIw
@@ -1763,10 +1765,10 @@ func TestGetVersion(t *testing.T) {
 	assert.Error(t, err, "get version request must succeed, we requested to check a wrong status code")
 }
 
-func TestGetProviderStatus(t *testing.T) {
-	_, _, err := httpd.GetProviderStatus(http.StatusOK)
+func TestGetStatus(t *testing.T) {
+	_, _, err := httpd.GetStatus(http.StatusOK)
 	assert.NoError(t, err)
-	_, _, err = httpd.GetProviderStatus(http.StatusBadRequest)
+	_, _, err = httpd.GetStatus(http.StatusBadRequest)
 	assert.Error(t, err, "get provider status request must succeed, we requested to check a wrong status code")
 }
 
@@ -1905,8 +1907,10 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: "apath"}, http.StatusInternalServerError)
 	assert.NoError(t, err)
-	_, _, err = httpd.GetProviderStatus(http.StatusInternalServerError)
-	assert.NoError(t, err)
+	status, _, err := httpd.GetStatus(http.StatusOK)
+	if assert.NoError(t, err) {
+		assert.False(t, status.DataProvider.IsActive)
+	}
 	_, _, err = httpd.Dumpdata("backup.json", "", http.StatusInternalServerError)
 	assert.NoError(t, err)
 	_, _, err = httpd.GetFolders(0, 0, "", http.StatusInternalServerError)
@@ -2775,6 +2779,12 @@ func TestGetVersionMock(t *testing.T) {
 
 func TestGetConnectionsMock(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, activeConnectionsPath, nil)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+}
+
+func TestGetStatusMock(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, serverStatusPath, nil)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 }
@@ -3709,6 +3719,12 @@ func TestProviderClosedMock(t *testing.T) {
 
 func TestGetWebConnectionsMock(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, webConnectionsPath, nil)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+}
+
+func TestGetWebStatusMock(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, webStatusPath, nil)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 }

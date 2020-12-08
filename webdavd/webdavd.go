@@ -23,6 +23,13 @@ var (
 	server *webDavServer
 )
 
+// ServiceStatus defines the service status
+type ServiceStatus struct {
+	IsActive bool   `json:"is_active"`
+	Address  string `json:"address"`
+	Protocol string `json:"protocol"`
+}
+
 // Cors configuration
 type Cors struct {
 	AllowedOrigins   []string `json:"allowed_origins" mapstructure:"allowed_origins"`
@@ -70,7 +77,15 @@ type Configuration struct {
 	Cache Cache `json:"cache" mapstructure:"cache"`
 }
 
-// Initialize configures and starts the WebDav server
+// GetStatus returns the server status
+func GetStatus() ServiceStatus {
+	if server == nil {
+		return ServiceStatus{}
+	}
+	return server.status
+}
+
+// Initialize configures and starts the WebDAV server
 func (c *Configuration) Initialize(configDir string) error {
 	var err error
 	logger.Debug(logSender, "", "initializing WebDAV server with config %+v", *c)
