@@ -33,7 +33,7 @@ Basically there is a sub command for each REST API and the following global argu
 
 For each subcommand `--help` shows the available arguments, try for example:
 
-```python sftpgo_api_cli add_user --help```
+```python sftpgo_api_cli add-user --help```
 
 Additionally it can convert users to the SFTPGo format from some supported users stores
 
