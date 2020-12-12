@@ -235,6 +235,13 @@ func (s *Secret) IsPlain() bool {
 	return s.provider.GetStatus() == SecretStatusPlain
 }
 
+// IsNotPlainAndNotEmpty returns true if the secret is not plain and not empty.
+// This is an utility method, we update the secret for an existing user
+// if it is empty or plain
+func (s *Secret) IsNotPlainAndNotEmpty() bool {
+	return !s.IsPlain() && !s.IsEmpty()
+}
+
 // IsRedacted returns true if the secret is redacted
 func (s *Secret) IsRedacted() bool {
 	return s.provider.GetStatus() == SecretStatusRedacted

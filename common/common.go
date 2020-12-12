@@ -164,6 +164,7 @@ type ActiveConnection interface {
 	AddTransfer(t ActiveTransfer)
 	RemoveTransfer(t ActiveTransfer)
 	GetTransfers() []ConnectionTransfer
+	CloseFS() error
 }
 
 // StatAttributes defines the attributes for set stat commands
@@ -433,12 +434,14 @@ func (conns *ActiveConnections) Remove(connectionID string) {
 
 	for idx, conn := range conns.connections {
 		if conn.GetID() == connectionID {
+			err := conn.CloseFS()
 			lastIdx := len(conns.connections) - 1
 			conns.connections[idx] = conns.connections[lastIdx]
 			conns.connections[lastIdx] = nil
 			conns.connections = conns.connections[:lastIdx]
 			metrics.UpdateActiveConnectionsSize(lastIdx)
-			logger.Debug(conn.GetProtocol(), conn.GetID(), "connection removed, num open connections: %v", lastIdx)
+			logger.Debug(conn.GetProtocol(), conn.GetID(), "connection removed, close fs error: %v, num open connections: %v",
+				err, lastIdx)
 			return
 		}
 	}

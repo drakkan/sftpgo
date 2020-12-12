@@ -84,6 +84,14 @@ UM2lmBLIXpGgBwYFK4EEACKhZANiAARCjRMqJ85rzMC998X5z761nJ+xL3bkmGVq
 WvrJ51t5OxV0v25NsOgR82CANXUgvhVYs7vNFN+jxtb2aj6Xg+/2G/BNxkaFspIV
 CzgWkxiz7XE4lgUwX44FCXZM3+JeUbI=
 -----END EC PRIVATE KEY-----`
+	sftpPrivateKey = `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACB+RB4yNTZz9mHOkawwUibNdemijVV3ErMeLxWUBlCN/gAAAJA7DjpfOw46
+XwAAAAtzc2gtZWQyNTUxOQAAACB+RB4yNTZz9mHOkawwUibNdemijVV3ErMeLxWUBlCN/g
+AAAEA0E24gi8ab/XRSvJ85TGZJMe6HVmwxSG4ExPfTMwwe2n5EHjI1NnP2Yc6RrDBSJs11
+6aKNVXcSsx4vFZQGUI3+AAAACW5pY29sYUBwMQECAwQ=
+-----END OPENSSH PRIVATE KEY-----`
+	sftpPkeyFingerprint = "SHA256:QVQ06XHZZbYZzqfrsZcf3Yozy2WTnqQPeLOkcJCdbP0"
 )
 
 var (
@@ -523,6 +531,17 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.FsConfig.CryptConfig.Passphrase = kms.NewSecret(kms.SecretStatusRedacted, "akey", "", "")
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u = getTestUser()
+	u.FsConfig.Provider = dataprovider.SFTPFilesystemProvider
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.FsConfig.SFTPConfig.Password = kms.NewSecret(kms.SecretStatusRedacted, "randompkey", "", "")
+	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.FsConfig.SFTPConfig.Password = kms.NewEmptySecret()
+	u.FsConfig.SFTPConfig.PrivateKey = kms.NewSecret(kms.SecretStatusRedacted, "keyforpkey", "", "")
 	_, _, err = httpd.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 }
@@ -1058,8 +1077,8 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.Endpoint = "http://localhost:9000"
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir" //nolint:goconst
 	user.FsConfig.S3Config.UploadConcurrency = 5
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err)
+	user, bb, err := httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err, string(bb))
 	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.S3Config.AccessSecret.GetStatus())
 	assert.Equal(t, initialSecretPayload, user.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.GetAdditionalData())
@@ -1099,8 +1118,8 @@ func TestUserGCSConfig(t *testing.T) {
 	user.FsConfig.Provider = dataprovider.GCSFilesystemProvider
 	user.FsConfig.GCSConfig.Bucket = "test"
 	user.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("fake credentials") //nolint:goconst
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err)
+	user, bb, err := httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err, string(bb))
 	credentialFile := filepath.Join(credentialsPath, fmt.Sprintf("%v_gcs_credentials.json", user.Username))
 	assert.FileExists(t, credentialFile)
 	creds, err := ioutil.ReadFile(credentialFile)
@@ -1292,6 +1311,81 @@ func TestUserCryptFs(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUserSFTPFs(t *testing.T) {
+	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
+	assert.NoError(t, err)
+	user.FsConfig.Provider = dataprovider.SFTPFilesystemProvider
+	user.FsConfig.SFTPConfig.Endpoint = "127.0.0.1:2022"
+	user.FsConfig.SFTPConfig.Username = "sftp_user"
+	user.FsConfig.SFTPConfig.Password = kms.NewPlainSecret("sftp_pwd")
+	user.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret(sftpPrivateKey)
+	user.FsConfig.SFTPConfig.Fingerprints = []string{sftpPkeyFingerprint}
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	assert.Equal(t, "/", user.FsConfig.SFTPConfig.Prefix)
+	initialPwdPayload := user.FsConfig.SFTPConfig.Password.GetPayload()
+	initialPkeyPayload := user.FsConfig.SFTPConfig.PrivateKey.GetPayload()
+	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.Password.GetStatus())
+	assert.NotEmpty(t, initialPwdPayload)
+	assert.Empty(t, user.FsConfig.SFTPConfig.Password.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.SFTPConfig.Password.GetKey())
+	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.PrivateKey.GetStatus())
+	assert.NotEmpty(t, initialPkeyPayload)
+	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetKey())
+	user.FsConfig.SFTPConfig.Password.SetStatus(kms.SecretStatusSecretBox)
+	user.FsConfig.SFTPConfig.Password.SetAdditionalData("adata")
+	user.FsConfig.SFTPConfig.Password.SetKey("fake pwd key")
+	user.FsConfig.SFTPConfig.PrivateKey.SetStatus(kms.SecretStatusSecretBox)
+	user.FsConfig.SFTPConfig.PrivateKey.SetAdditionalData("adata")
+	user.FsConfig.SFTPConfig.PrivateKey.SetKey("fake key")
+	user, bb, err := httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err, string(bb))
+	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.Password.GetStatus())
+	assert.Equal(t, initialPwdPayload, user.FsConfig.SFTPConfig.Password.GetPayload())
+	assert.Empty(t, user.FsConfig.SFTPConfig.Password.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.SFTPConfig.Password.GetKey())
+	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.PrivateKey.GetStatus())
+	assert.Equal(t, initialPkeyPayload, user.FsConfig.SFTPConfig.PrivateKey.GetPayload())
+	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetKey())
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	user.Password = defaultPassword
+	user.ID = 0
+	secret := kms.NewSecret(kms.SecretStatusSecretBox, "invalid encrypted payload", "", "")
+	user.FsConfig.SFTPConfig.Password = secret
+	_, _, err = httpd.AddUser(user, http.StatusOK)
+	assert.Error(t, err)
+	user.FsConfig.SFTPConfig.Password = kms.NewEmptySecret()
+	user.FsConfig.SFTPConfig.PrivateKey = secret
+	_, _, err = httpd.AddUser(user, http.StatusOK)
+	assert.Error(t, err)
+
+	user.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret(sftpPrivateKey)
+	user, _, err = httpd.AddUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	initialPkeyPayload = user.FsConfig.SFTPConfig.PrivateKey.GetPayload()
+	assert.Empty(t, user.FsConfig.SFTPConfig.Password.GetStatus())
+	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.PrivateKey.GetStatus())
+	assert.NotEmpty(t, initialPkeyPayload)
+	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetKey())
+	user.FsConfig.Provider = dataprovider.SFTPFilesystemProvider
+	user.FsConfig.SFTPConfig.PrivateKey.SetKey("k")
+	user, bb, err = httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err, string(bb))
+	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.PrivateKey.GetStatus())
+	assert.NotEmpty(t, initialPkeyPayload)
+	assert.Equal(t, initialPkeyPayload, user.FsConfig.SFTPConfig.PrivateKey.GetPayload())
+	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetKey())
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestUserHiddenFields(t *testing.T) {
 	err := dataprovider.Close()
 	assert.NoError(t, err)
@@ -1303,7 +1397,7 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.NoError(t, err)
 
 	// sensitive data must be hidden but not deleted from the dataprovider
-	usernames := []string{"user1", "user2", "user3", "user4"}
+	usernames := []string{"user1", "user2", "user3", "user4", "user5"}
 	u1 := getTestUser()
 	u1.Username = usernames[0]
 	u1.FsConfig.Provider = dataprovider.S3FilesystemProvider
@@ -1338,9 +1432,21 @@ func TestUserHiddenFields(t *testing.T) {
 	user4, _, err := httpd.AddUser(u4, http.StatusOK)
 	assert.NoError(t, err)
 
+	u5 := getTestUser()
+	u5.Username = usernames[4]
+	u5.FsConfig.Provider = dataprovider.SFTPFilesystemProvider
+	u5.FsConfig.SFTPConfig.Endpoint = "127.0.0.1:2022"
+	u5.FsConfig.SFTPConfig.Username = "sftp_user"
+	u5.FsConfig.SFTPConfig.Password = kms.NewPlainSecret("apassword")
+	u5.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret(sftpPrivateKey)
+	u5.FsConfig.SFTPConfig.Fingerprints = []string{sftpPkeyFingerprint}
+	u5.FsConfig.SFTPConfig.Prefix = "/prefix"
+	user5, _, err := httpd.AddUser(u5, http.StatusOK)
+	assert.NoError(t, err)
+
 	users, _, err := httpd.GetUsers(0, 0, "", http.StatusOK)
 	assert.NoError(t, err)
-	assert.GreaterOrEqual(t, len(users), 4)
+	assert.GreaterOrEqual(t, len(users), 5)
 	for _, username := range usernames {
 		users, _, err = httpd.GetUsers(0, 0, username, http.StatusOK)
 		assert.NoError(t, err)
@@ -1380,6 +1486,19 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.Empty(t, user4.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
 	assert.NotEmpty(t, user4.FsConfig.CryptConfig.Passphrase.GetStatus())
 	assert.NotEmpty(t, user4.FsConfig.CryptConfig.Passphrase.GetPayload())
+
+	user5, _, err = httpd.GetUserByID(user5.ID, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Empty(t, user5.Password)
+	assert.Empty(t, user5.FsConfig.SFTPConfig.Password.GetKey())
+	assert.Empty(t, user5.FsConfig.SFTPConfig.Password.GetAdditionalData())
+	assert.NotEmpty(t, user5.FsConfig.SFTPConfig.Password.GetStatus())
+	assert.NotEmpty(t, user5.FsConfig.SFTPConfig.Password.GetPayload())
+	assert.Empty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetKey())
+	assert.Empty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
+	assert.NotEmpty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetStatus())
+	assert.NotEmpty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetPayload())
+	assert.Equal(t, "/prefix", user5.FsConfig.SFTPConfig.Prefix)
 
 	// finally check that we have all the data inside the data provider
 	user1, err = dataprovider.GetUserByID(user1.ID)
@@ -1438,6 +1557,30 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.Empty(t, user4.FsConfig.CryptConfig.Passphrase.GetKey())
 	assert.Empty(t, user4.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
 
+	user5, err = dataprovider.GetUserByID(user5.ID)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, user5.Password)
+	assert.NotEmpty(t, user5.FsConfig.SFTPConfig.Password.GetKey())
+	assert.NotEmpty(t, user5.FsConfig.SFTPConfig.Password.GetAdditionalData())
+	assert.NotEmpty(t, user5.FsConfig.SFTPConfig.Password.GetStatus())
+	assert.NotEmpty(t, user5.FsConfig.SFTPConfig.Password.GetPayload())
+	err = user5.FsConfig.SFTPConfig.Password.Decrypt()
+	assert.NoError(t, err)
+	assert.Equal(t, kms.SecretStatusPlain, user5.FsConfig.SFTPConfig.Password.GetStatus())
+	assert.Equal(t, u5.FsConfig.SFTPConfig.Password.GetPayload(), user5.FsConfig.SFTPConfig.Password.GetPayload())
+	assert.Empty(t, user5.FsConfig.SFTPConfig.Password.GetKey())
+	assert.Empty(t, user5.FsConfig.SFTPConfig.Password.GetAdditionalData())
+	assert.NotEmpty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetKey())
+	assert.NotEmpty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
+	assert.NotEmpty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetStatus())
+	assert.NotEmpty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetPayload())
+	err = user5.FsConfig.SFTPConfig.PrivateKey.Decrypt()
+	assert.NoError(t, err)
+	assert.Equal(t, kms.SecretStatusPlain, user5.FsConfig.SFTPConfig.PrivateKey.GetStatus())
+	assert.Equal(t, u5.FsConfig.SFTPConfig.PrivateKey.GetPayload(), user5.FsConfig.SFTPConfig.PrivateKey.GetPayload())
+	assert.Empty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetKey())
+	assert.Empty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
+
 	_, err = httpd.RemoveUser(user1, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user2, http.StatusOK)
@@ -1445,6 +1588,8 @@ func TestUserHiddenFields(t *testing.T) {
 	_, err = httpd.RemoveUser(user3, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpd.RemoveUser(user4, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(user5, http.StatusOK)
 	assert.NoError(t, err)
 
 	err = dataprovider.Close()
@@ -3588,6 +3733,111 @@ func TestWebUserCryptMock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.CryptConfig.Passphrase.GetPayload(), lastUpdatedUser.FsConfig.CryptConfig.Passphrase.GetPayload())
 	assert.Empty(t, lastUpdatedUser.FsConfig.CryptConfig.Passphrase.GetKey())
 	assert.Empty(t, lastUpdatedUser.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
+	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+}
+
+func TestWebUserSFTPFsMock(t *testing.T) {
+	user := getTestUser()
+	userAsJSON := getUserAsJSON(t, user)
+	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	err := render.DecodeJSON(rr.Body, &user)
+	assert.NoError(t, err)
+	user.FsConfig.Provider = dataprovider.SFTPFilesystemProvider
+	user.FsConfig.SFTPConfig.Endpoint = "127.0.0.1"
+	user.FsConfig.SFTPConfig.Username = "sftpuser"
+	user.FsConfig.SFTPConfig.Password = kms.NewPlainSecret("pwd")
+	user.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret(sftpPrivateKey)
+	user.FsConfig.SFTPConfig.Fingerprints = []string{sftpPkeyFingerprint}
+	user.FsConfig.SFTPConfig.Prefix = "/home/sftpuser"
+	form := make(url.Values)
+	form.Set("username", user.Username)
+	form.Set("home_dir", user.HomeDir)
+	form.Set("uid", "0")
+	form.Set("gid", strconv.FormatInt(int64(user.GID), 10))
+	form.Set("max_sessions", strconv.FormatInt(int64(user.MaxSessions), 10))
+	form.Set("quota_size", strconv.FormatInt(user.QuotaSize, 10))
+	form.Set("quota_files", strconv.FormatInt(int64(user.QuotaFiles), 10))
+	form.Set("upload_bandwidth", "0")
+	form.Set("download_bandwidth", "0")
+	form.Set("permissions", "*")
+	form.Set("sub_dirs_permissions", "")
+	form.Set("status", strconv.Itoa(user.Status))
+	form.Set("expiration_date", "2020-01-01 00:00:00")
+	form.Set("allowed_ip", "")
+	form.Set("denied_ip", "")
+	form.Set("fs_provider", "5")
+	form.Set("crypt_passphrase", "")
+	form.Set("allowed_extensions", "/dir1::.jpg,.png")
+	form.Set("denied_extensions", "/dir2::.zip")
+	form.Set("max_upload_file_size", "0")
+	// empty sftpconfig
+	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	form.Set("sftp_endpoint", user.FsConfig.SFTPConfig.Endpoint)
+	form.Set("sftp_username", user.FsConfig.SFTPConfig.Username)
+	form.Set("sftp_password", user.FsConfig.SFTPConfig.Password.GetPayload())
+	form.Set("sftp_private_key", user.FsConfig.SFTPConfig.PrivateKey.GetPayload())
+	form.Set("sftp_fingerprints", user.FsConfig.SFTPConfig.Fingerprints[0])
+	form.Set("sftp_prefix", user.FsConfig.SFTPConfig.Prefix)
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr.Code)
+	req, _ = http.NewRequest(http.MethodGet, userPath+"?limit=1&offset=0&order=ASC&username="+user.Username, nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	var users []dataprovider.User
+	err = render.DecodeJSON(rr.Body, &users)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(users))
+	updateUser := users[0]
+	assert.Equal(t, int64(1577836800000), updateUser.ExpirationDate)
+	assert.Equal(t, 2, len(updateUser.Filters.FileExtensions))
+	assert.Equal(t, kms.SecretStatusSecretBox, updateUser.FsConfig.SFTPConfig.Password.GetStatus())
+	assert.NotEmpty(t, updateUser.FsConfig.SFTPConfig.Password.GetPayload())
+	assert.Empty(t, updateUser.FsConfig.SFTPConfig.Password.GetKey())
+	assert.Empty(t, updateUser.FsConfig.SFTPConfig.Password.GetAdditionalData())
+	assert.Equal(t, kms.SecretStatusSecretBox, updateUser.FsConfig.SFTPConfig.PrivateKey.GetStatus())
+	assert.NotEmpty(t, updateUser.FsConfig.SFTPConfig.PrivateKey.GetPayload())
+	assert.Empty(t, updateUser.FsConfig.SFTPConfig.PrivateKey.GetKey())
+	assert.Empty(t, updateUser.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
+	assert.Equal(t, updateUser.FsConfig.SFTPConfig.Prefix, user.FsConfig.SFTPConfig.Prefix)
+	assert.Equal(t, updateUser.FsConfig.SFTPConfig.Username, user.FsConfig.SFTPConfig.Username)
+	assert.Equal(t, updateUser.FsConfig.SFTPConfig.Endpoint, user.FsConfig.SFTPConfig.Endpoint)
+	assert.Len(t, updateUser.FsConfig.SFTPConfig.Fingerprints, 1)
+	assert.Contains(t, updateUser.FsConfig.SFTPConfig.Fingerprints, sftpPkeyFingerprint)
+	// now check that a redacted credentials are not saved
+	form.Set("sftp_password", "[**redacted**] ")
+	form.Set("sftp_private_key", "[**redacted**]")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/"+strconv.FormatInt(user.ID, 10), &b)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr.Code)
+	req, _ = http.NewRequest(http.MethodGet, userPath+"?limit=1&offset=0&order=ASC&username="+user.Username, nil)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+	users = nil
+	err = render.DecodeJSON(rr.Body, &users)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(users))
+	lastUpdatedUser := users[0]
+	assert.Equal(t, kms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.SFTPConfig.Password.GetStatus())
+	assert.Equal(t, updateUser.FsConfig.SFTPConfig.Password.GetPayload(), lastUpdatedUser.FsConfig.SFTPConfig.Password.GetPayload())
+	assert.Empty(t, lastUpdatedUser.FsConfig.SFTPConfig.Password.GetKey())
+	assert.Empty(t, lastUpdatedUser.FsConfig.SFTPConfig.Password.GetAdditionalData())
+	assert.Equal(t, kms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.SFTPConfig.PrivateKey.GetStatus())
+	assert.Equal(t, updateUser.FsConfig.SFTPConfig.PrivateKey.GetPayload(), lastUpdatedUser.FsConfig.SFTPConfig.PrivateKey.GetPayload())
+	assert.Empty(t, lastUpdatedUser.FsConfig.SFTPConfig.PrivateKey.GetKey())
+	assert.Empty(t, lastUpdatedUser.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+strconv.FormatInt(user.ID, 10), nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)

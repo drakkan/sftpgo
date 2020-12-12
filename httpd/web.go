@@ -506,6 +506,18 @@ func getGCSConfig(r *http.Request) (vfs.GCSFsConfig, error) {
 	return config, err
 }
 
+func getSFTPConfig(r *http.Request) vfs.SFTPFsConfig {
+	config := vfs.SFTPFsConfig{}
+	config.Endpoint = r.Form.Get("sftp_endpoint")
+	config.Username = r.Form.Get("sftp_username")
+	config.Password = getSecretFromFormField(r, "sftp_password")
+	config.PrivateKey = getSecretFromFormField(r, "sftp_private_key")
+	fingerprintsFormValue := r.Form.Get("sftp_fingerprints")
+	config.Fingerprints = getSliceFromDelimitedValues(fingerprintsFormValue, "\n")
+	config.Prefix = r.Form.Get("sftp_prefix")
+	return config
+}
+
 func getAzureConfig(r *http.Request) (vfs.AzBlobFsConfig, error) {
 	var err error
 	config := vfs.AzBlobFsConfig{}
@@ -532,26 +544,29 @@ func getFsConfigFromUserPostFields(r *http.Request) (dataprovider.Filesystem, er
 		provider = int(dataprovider.LocalFilesystemProvider)
 	}
 	fs.Provider = dataprovider.FilesystemProvider(provider)
-	if fs.Provider == dataprovider.S3FilesystemProvider {
+	switch fs.Provider {
+	case dataprovider.S3FilesystemProvider:
 		config, err := getS3Config(r)
 		if err != nil {
 			return fs, err
 		}
 		fs.S3Config = config
-	} else if fs.Provider == dataprovider.GCSFilesystemProvider {
-		config, err := getGCSConfig(r)
-		if err != nil {
-			return fs, err
-		}
-		fs.GCSConfig = config
-	} else if fs.Provider == dataprovider.AzureBlobFilesystemProvider {
+	case dataprovider.AzureBlobFilesystemProvider:
 		config, err := getAzureConfig(r)
 		if err != nil {
 			return fs, err
 		}
 		fs.AzBlobConfig = config
-	} else if fs.Provider == dataprovider.CryptedFilesystemProvider {
+	case dataprovider.GCSFilesystemProvider:
+		config, err := getGCSConfig(r)
+		if err != nil {
+			return fs, err
+		}
+		fs.GCSConfig = config
+	case dataprovider.CryptedFilesystemProvider:
 		fs.CryptConfig.Passphrase = getSecretFromFormField(r, "crypt_passphrase")
+	case dataprovider.SFTPFilesystemProvider:
+		fs.SFTPConfig = getSFTPConfig(r)
 	}
 	return fs, nil
 }
@@ -722,15 +737,10 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 	if len(updatedUser.Password) == 0 {
 		updatedUser.Password = user.Password
 	}
-	if !updatedUser.FsConfig.S3Config.AccessSecret.IsPlain() && !updatedUser.FsConfig.S3Config.AccessSecret.IsEmpty() {
-		updatedUser.FsConfig.S3Config.AccessSecret = user.FsConfig.S3Config.AccessSecret
-	}
-	if !updatedUser.FsConfig.AzBlobConfig.AccountKey.IsPlain() && !updatedUser.FsConfig.AzBlobConfig.AccountKey.IsEmpty() {
-		updatedUser.FsConfig.AzBlobConfig.AccountKey = user.FsConfig.AzBlobConfig.AccountKey
-	}
-	if !updatedUser.FsConfig.CryptConfig.Passphrase.IsPlain() && !updatedUser.FsConfig.CryptConfig.Passphrase.IsEmpty() {
-		updatedUser.FsConfig.CryptConfig.Passphrase = user.FsConfig.CryptConfig.Passphrase
-	}
+	updateEncryptedSecrets(&updatedUser, user.FsConfig.S3Config.AccessSecret, user.FsConfig.AzBlobConfig.AccountKey,
+		user.FsConfig.GCSConfig.Credentials, user.FsConfig.CryptConfig.Passphrase, user.FsConfig.SFTPConfig.Password,
+		user.FsConfig.SFTPConfig.PrivateKey)
+
 	err = dataprovider.UpdateUser(updatedUser)
 	if err == nil {
 		if len(r.Form.Get("disconnect")) > 0 {

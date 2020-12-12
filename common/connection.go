@@ -100,6 +100,14 @@ func (c *BaseConnection) GetLastActivity() time.Time {
 	return time.Unix(0, atomic.LoadInt64(&c.lastActivity))
 }
 
+// CloseFS closes the underlying fs
+func (c *BaseConnection) CloseFS() error {
+	if c.Fs != nil {
+		return c.Fs.Close()
+	}
+	return nil
+}
+
 // AddTransfer associates a new transfer to this connection
 func (c *BaseConnection) AddTransfer(t ActiveTransfer) {
 	c.Lock()
@@ -459,7 +467,7 @@ func (c *BaseConnection) ignoreSetStat() bool {
 	if Config.SetstatMode == 1 {
 		return true
 	}
-	if Config.SetstatMode == 2 && !vfs.IsLocalOsFs(c.Fs) {
+	if Config.SetstatMode == 2 && !vfs.IsLocalOrSFTPFs(c.Fs) {
 		return true
 	}
 	return false
@@ -564,7 +572,7 @@ func (c *BaseConnection) truncateFile(fsPath, virtualPath string, size int64) er
 		initialSize = info.Size()
 		err = c.Fs.Truncate(fsPath, size)
 	}
-	if err == nil && vfs.IsLocalOsFs(c.Fs) {
+	if err == nil && vfs.IsLocalOrSFTPFs(c.Fs) {
 		sizeDiff := initialSize - size
 		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(virtualPath))
 		if err == nil {

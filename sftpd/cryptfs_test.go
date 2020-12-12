@@ -298,7 +298,7 @@ func TestQuotaScanCryptFs(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestGetMimeType(t *testing.T) {
+func TestGetMimeTypeCryptFs(t *testing.T) {
 	usePubKey := true
 	user, _, err := httpd.AddUser(getTestUserWithCryptFs(usePubKey), http.StatusOK)
 	assert.NoError(t, err)

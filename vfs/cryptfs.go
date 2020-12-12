@@ -32,7 +32,7 @@ type CryptFs struct {
 
 // NewCryptFs returns a CryptFs object
 func NewCryptFs(connectionID, rootDir string, config CryptFsConfig) (Fs, error) {
-	if err := ValidateCryptFsConfig(&config); err != nil {
+	if err := config.Validate(); err != nil {
 		return nil, err
 	}
 	if config.Passphrase.IsEncrypted() {

@@ -291,14 +291,15 @@ func (fs *OsFs) ResolvePath(sftpPath string) (string, error) {
 		// path chain until we hit a directory that _does_ exist and can be validated.
 		_, err = fs.findFirstExistingDir(r, basePath)
 		if err != nil {
-			fsLog(fs, logger.LevelWarn, "error resolving non-existent path: %#v", err)
+			fsLog(fs, logger.LevelWarn, "error resolving non-existent path %#v", err)
 		}
 		return r, err
 	}
 
 	err = fs.isSubDir(p, basePath)
 	if err != nil {
-		fsLog(fs, logger.LevelWarn, "Invalid path resolution, dir: %#v outside user home: %#v err: %v", p, fs.rootDir, err)
+		fsLog(fs, logger.LevelWarn, "Invalid path resolution, dir %#v original path %#v resolved %#v err: %v",
+			p, sftpPath, r, err)
 	}
 	return r, err
 }
@@ -427,13 +428,11 @@ func (fs *OsFs) isSubDir(sub, rootPath string) error {
 		return nil
 	}
 	if len(sub) < len(parent) {
-		err = fmt.Errorf("path %#v is not inside: %#v", sub, parent)
-		fsLog(fs, logger.LevelWarn, "error: %v ", err)
+		err = fmt.Errorf("path %#v is not inside %#v", sub, parent)
 		return err
 	}
 	if !strings.HasPrefix(sub, parent+string(os.PathSeparator)) {
-		err = fmt.Errorf("path %#v is not inside: %#v", sub, parent)
-		fsLog(fs, logger.LevelWarn, "error: %v ", err)
+		err = fmt.Errorf("path %#v is not inside %#v", sub, parent)
 		return err
 	}
 	return nil
@@ -472,4 +471,9 @@ func (fs *OsFs) GetMimeType(name string) (string, error) {
 	// Rewind file.
 	_, err = f.Seek(0, io.SeekStart)
 	return ctype, err
+}
+
+// Close closes the fs
+func (*OsFs) Close() error {
+	return nil
 }

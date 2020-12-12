@@ -2,6 +2,7 @@ package ftpd
 
 import (
 	"errors"
+	"io"
 	"os"
 	"path"
 	"time"
@@ -398,8 +399,12 @@ func (c *Connection) handleFTPUploadToExistingFile(flags int, resolvedPath, file
 		c.Log(logger.LevelDebug, "upload resume requested, file path: %#v initial size: %v", filePath, fileSize)
 		minWriteOffset = fileSize
 		initialSize = fileSize
+		if vfs.IsSFTPFs(c.Fs) {
+			// we need this since we don't allow resume with wrong offset, we should fix this in pkg/sftp
+			file.Seek(initialSize, io.SeekStart) //nolint:errcheck // for sftp seek cannot file, it simply set the offset
+		}
 	} else {
-		if vfs.IsLocalOsFs(c.Fs) {
+		if vfs.IsLocalOrSFTPFs(c.Fs) {
 			vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 			if err == nil {
 				dataprovider.UpdateVirtualFolderQuota(vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck

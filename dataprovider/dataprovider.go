@@ -831,9 +831,11 @@ func createProvider(basePath string) error {
 }
 
 func buildUserHomeDir(user *User) {
-	if len(user.HomeDir) == 0 {
-		if len(config.UsersBaseDir) > 0 {
+	if user.HomeDir == "" {
+		if config.UsersBaseDir != "" {
 			user.HomeDir = filepath.Join(config.UsersBaseDir, user.Username)
+		} else if user.FsConfig.Provider == SFTPFilesystemProvider {
+			user.HomeDir = filepath.Join(os.TempDir(), user.Username)
 		}
 	}
 }
@@ -1166,61 +1168,61 @@ func saveGCSCredentials(user *User) error {
 
 func validateFilesystemConfig(user *User) error {
 	if user.FsConfig.Provider == S3FilesystemProvider {
-		err := vfs.ValidateS3FsConfig(&user.FsConfig.S3Config)
-		if err != nil {
+		if err := user.FsConfig.S3Config.Validate(); err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not validate s3config: %v", err)}
 		}
-		if user.FsConfig.S3Config.AccessSecret.IsPlain() {
-			user.FsConfig.S3Config.AccessSecret.SetAdditionalData(user.Username)
-			err = user.FsConfig.S3Config.AccessSecret.Encrypt()
-			if err != nil {
-				return &ValidationError{err: fmt.Sprintf("could not encrypt s3 access secret: %v", err)}
-			}
+		if err := user.FsConfig.S3Config.EncryptCredentials(user.Username); err != nil {
+			return &ValidationError{err: fmt.Sprintf("could not encrypt s3 access secret: %v", err)}
 		}
 		user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
 		user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
 		user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
+		user.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
 		return nil
 	} else if user.FsConfig.Provider == GCSFilesystemProvider {
-		err := vfs.ValidateGCSFsConfig(&user.FsConfig.GCSConfig, user.getGCSCredentialsFilePath())
-		if err != nil {
+		if err := user.FsConfig.GCSConfig.Validate(user.getGCSCredentialsFilePath()); err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not validate GCS config: %v", err)}
 		}
 		user.FsConfig.S3Config = vfs.S3FsConfig{}
 		user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
 		user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
+		user.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
 		return nil
 	} else if user.FsConfig.Provider == AzureBlobFilesystemProvider {
-		err := vfs.ValidateAzBlobFsConfig(&user.FsConfig.AzBlobConfig)
-		if err != nil {
+		if err := user.FsConfig.AzBlobConfig.Validate(); err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not validate Azure Blob config: %v", err)}
 		}
-		if user.FsConfig.AzBlobConfig.AccountKey.IsPlain() {
-			user.FsConfig.AzBlobConfig.AccountKey.SetAdditionalData(user.Username)
-			err = user.FsConfig.AzBlobConfig.AccountKey.Encrypt()
-			if err != nil {
-				return &ValidationError{err: fmt.Sprintf("could not encrypt Azure blob account key: %v", err)}
-			}
+		if err := user.FsConfig.AzBlobConfig.EncryptCredentials(user.Username); err != nil {
+			return &ValidationError{err: fmt.Sprintf("could not encrypt Azure blob account key: %v", err)}
 		}
 		user.FsConfig.S3Config = vfs.S3FsConfig{}
 		user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
 		user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
+		user.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
 		return nil
 	} else if user.FsConfig.Provider == CryptedFilesystemProvider {
-		err := vfs.ValidateCryptFsConfig(&user.FsConfig.CryptConfig)
-		if err != nil {
+		if err := user.FsConfig.CryptConfig.Validate(); err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not validate Crypt fs config: %v", err)}
 		}
-		if user.FsConfig.CryptConfig.Passphrase.IsPlain() {
-			user.FsConfig.CryptConfig.Passphrase.SetAdditionalData(user.Username)
-			err = user.FsConfig.CryptConfig.Passphrase.Encrypt()
-			if err != nil {
-				return &ValidationError{err: fmt.Sprintf("could not encrypt Crypt fs passphrase: %v", err)}
-			}
+		if err := user.FsConfig.CryptConfig.EncryptCredentials(user.Username); err != nil {
+			return &ValidationError{err: fmt.Sprintf("could not encrypt Crypt fs passphrase: %v", err)}
 		}
 		user.FsConfig.S3Config = vfs.S3FsConfig{}
 		user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
 		user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
+		user.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
+		return nil
+	} else if user.FsConfig.Provider == SFTPFilesystemProvider {
+		if err := user.FsConfig.SFTPConfig.Validate(); err != nil {
+			return &ValidationError{err: fmt.Sprintf("could not validate SFTP fs config: %v", err)}
+		}
+		if err := user.FsConfig.SFTPConfig.EncryptCredentials(user.Username); err != nil {
+			return &ValidationError{err: fmt.Sprintf("could not encrypt SFTP fs credentials: %v", err)}
+		}
+		user.FsConfig.S3Config = vfs.S3FsConfig{}
+		user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
+		user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
+		user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
 		return nil
 	}
 	user.FsConfig.Provider = LocalFilesystemProvider
@@ -1228,6 +1230,7 @@ func validateFilesystemConfig(user *User) error {
 	user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
 	user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
 	user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
+	user.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
 	return nil
 }
 

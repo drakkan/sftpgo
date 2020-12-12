@@ -82,6 +82,7 @@ func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommand
 			connection.Log(logger.LevelInfo, "ssh command not enabled/supported: %#v", name)
 		}
 	}
+	connection.Fs.Close()
 	return false
 }
 

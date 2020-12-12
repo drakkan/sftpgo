@@ -277,8 +277,10 @@ func convertFsConfigToV4(fs Filesystem, username string) (compatFilesystemV4, er
 			}
 			fsV4.GCSConfig.Credentials = []byte(creds)
 		}
-	case CryptedFilesystemProvider:
-		// crypted provider was not supported in v4, the configuration will be lost
+	default:
+		// a provider not supported in v4, the configuration will be lost
+		providerLog(logger.LevelWarn, "provider %v was not supported in v4, the configuration for the user %#v will be lost",
+			fs.Provider, username)
 		fsV4.Provider = 0
 	}
 	return fsV4, nil

@@ -2,7 +2,6 @@ package common
 
 import (
 	"errors"
-	"os"
 	"path"
 	"sync"
 	"sync/atomic"
@@ -181,7 +180,7 @@ func (t *BaseTransfer) getUploadFileSize() (int64, error) {
 		fileSize = info.Size()
 	}
 	if vfs.IsCryptOsFs(t.Fs) && t.ErrTransfer != nil {
-		errDelete := os.Remove(t.fsPath)
+		errDelete := t.Connection.Fs.Remove(t.fsPath, false)
 		if errDelete != nil {
 			t.Connection.Log(logger.LevelWarn, "error removing partial crypto file %#v: %v", t.fsPath, errDelete)
 		}
@@ -205,7 +204,7 @@ func (t *BaseTransfer) Close() error {
 	metrics.TransferCompleted(atomic.LoadInt64(&t.BytesSent), atomic.LoadInt64(&t.BytesReceived), t.transferType, t.ErrTransfer)
 	if t.ErrTransfer == ErrQuotaExceeded && t.File != nil {
 		// if quota is exceeded we try to remove the partial file for uploads to local filesystem
-		err = os.Remove(t.File.Name())
+		err = t.Connection.Fs.Remove(t.File.Name(), false)
 		if err == nil {
 			numFiles--
 			atomic.StoreInt64(&t.BytesReceived, 0)
@@ -215,11 +214,11 @@ func (t *BaseTransfer) Close() error {
 			t.File.Name(), err)
 	} else if t.transferType == TransferUpload && t.File != nil && t.File.Name() != t.fsPath {
 		if t.ErrTransfer == nil || Config.UploadMode == UploadModeAtomicWithResume {
-			err = os.Rename(t.File.Name(), t.fsPath)
+			err = t.Connection.Fs.Rename(t.File.Name(), t.fsPath)
 			t.Connection.Log(logger.LevelDebug, "atomic upload completed, rename: %#v -> %#v, error: %v",
 				t.File.Name(), t.fsPath, err)
 		} else {
-			err = os.Remove(t.File.Name())
+			err = t.Connection.Fs.Remove(t.File.Name(), false)
 			t.Connection.Log(logger.LevelWarn, "atomic upload completed with error: \"%v\", delete temporary file: %#v, "+
 				"deletion error: %v", t.ErrTransfer, t.File.Name(), err)
 			if err == nil {

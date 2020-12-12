@@ -40,6 +40,7 @@ const (
 	logSender        = "webavdTesting"
 	webDavServerAddr = "127.0.0.1:9090"
 	webDavServerPort = 9090
+	sftpServerAddr   = "127.0.0.1:9022"
 	defaultUsername  = "test_user_dav"
 	defaultPassword  = "test_password"
 	configDir        = ".."
@@ -140,6 +141,11 @@ func TestMain(m *testing.M) {
 	httpdConf.BindPort = 8078
 	httpd.SetBaseURLAndCredentials("http://127.0.0.1:8078", "", "")
 
+	// required to test sftpfs
+	sftpdConf := config.GetSFTPDConfig()
+	sftpdConf.BindPort = 9022
+	sftpdConf.HostKeys = []string{filepath.Join(os.TempDir(), "id_ecdsa")}
+
 	webDavConf := config.GetWebDAVDConfig()
 	webDavConf.BindPort = webDavServerPort
 	webDavConf.Cors = webdavd.Cors{
@@ -182,8 +188,17 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
+	go func() {
+		logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
+		if err := sftpdConf.Initialize(configDir); err != nil {
+			logger.ErrorToConsole("could not start SFTP server: %v", err)
+			os.Exit(1)
+		}
+	}()
+
 	waitTCPListening(fmt.Sprintf("%s:%d", webDavConf.BindAddress, webDavConf.BindPort))
 	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
+	waitTCPListening(fmt.Sprintf("%s:%d", sftpdConf.BindAddress, sftpdConf.BindPort))
 	webdavd.ReloadTLSCertificate() //nolint:errcheck
 
 	exitCode := m.Run()
@@ -218,76 +233,87 @@ func TestInitialization(t *testing.T) {
 func TestBasicHandling(t *testing.T) {
 	u := getTestUser()
 	u.QuotaSize = 6553600
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	localUser, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
-	client := getWebDavClient(user)
-	assert.NoError(t, checkBasicFunc(client))
+	u = getTestSFTPUser()
+	u.QuotaSize = 6553600
+	sftpUser, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	for _, user := range []dataprovider.User{localUser, sftpUser} {
+		client := getWebDavClient(user)
+		assert.NoError(t, checkBasicFunc(client))
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		expectedQuotaSize := testFileSize
+		expectedQuotaFiles := 1
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = uploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		// overwrite an existing file
+		err = uploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
+		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
+		err = client.Rename(testFileName, testFileName+"1", false)
+		assert.NoError(t, err)
+		_, err = client.Stat(testFileName)
+		assert.Error(t, err)
+		// the webdav client hide the error we check the quota
+		err = client.Remove(testFileName)
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
+		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
+		err = client.Remove(testFileName + "1")
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedQuotaFiles-1, user.UsedQuotaFiles)
+		assert.Equal(t, expectedQuotaSize-testFileSize, user.UsedQuotaSize)
+		err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
+		assert.Error(t, err)
+		testDir := "testdir"
+		err = client.Mkdir(testDir, os.ModePerm)
+		assert.NoError(t, err)
+		err = client.MkdirAll(path.Join(testDir, "sub", "sub"), os.ModePerm)
+		assert.NoError(t, err)
+		err = client.MkdirAll(path.Join(testDir, "sub1", "sub1"), os.ModePerm)
+		assert.NoError(t, err)
+		err = client.MkdirAll(path.Join(testDir, "sub2", "sub2"), os.ModePerm)
+		assert.NoError(t, err)
+		err = uploadFile(testFilePath, path.Join(testDir, testFileName+".txt"), testFileSize, client)
+		assert.NoError(t, err)
+		err = uploadFile(testFilePath, path.Join(testDir, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		files, err := client.ReadDir(testDir)
+		assert.NoError(t, err)
+		assert.Len(t, files, 5)
+		err = client.Copy(testDir, testDir+"_copy", false)
+		assert.NoError(t, err)
+		err = client.RemoveAll(testDir)
+		assert.NoError(t, err)
 
-	testFilePath := filepath.Join(homeBasePath, testFileName)
-	testFileSize := int64(65535)
-	expectedQuotaSize := user.UsedQuotaSize + testFileSize
-	expectedQuotaFiles := user.UsedQuotaFiles + 1
-	err = createTestFile(testFilePath, testFileSize)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+		if user.Username == defaultUsername {
+			err = os.RemoveAll(user.GetHomeDir())
+			assert.NoError(t, err)
+		}
+	}
+	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	_, err = httpd.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
-	// overwrite an existing file
-	err = uploadFile(testFilePath, testFileName, testFileSize, client)
-	assert.NoError(t, err)
-	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
-	err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
-	assert.NoError(t, err)
-	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
-	assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
-	err = client.Rename(testFileName, testFileName+"1", false)
-	assert.NoError(t, err)
-	_, err = client.Stat(testFileName)
-	assert.Error(t, err)
-	// the webdav client hide the error we check the quota
-	err = client.Remove(testFileName)
-	assert.NoError(t, err)
-	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
-	assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
-	err = client.Remove(testFileName + "1")
-	assert.NoError(t, err)
-	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedQuotaFiles-1, user.UsedQuotaFiles)
-	assert.Equal(t, expectedQuotaSize-testFileSize, user.UsedQuotaSize)
-	err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
-	assert.Error(t, err)
-	testDir := "testdir"
-	err = client.Mkdir(testDir, os.ModePerm)
-	assert.NoError(t, err)
-	err = client.MkdirAll(path.Join(testDir, "sub", "sub"), os.ModePerm)
-	assert.NoError(t, err)
-	err = client.MkdirAll(path.Join(testDir, "sub1", "sub1"), os.ModePerm)
-	assert.NoError(t, err)
-	err = client.MkdirAll(path.Join(testDir, "sub2", "sub2"), os.ModePerm)
-	assert.NoError(t, err)
-	err = uploadFile(testFilePath, path.Join(testDir, testFileName+".txt"), testFileSize, client)
-	assert.NoError(t, err)
-	err = uploadFile(testFilePath, path.Join(testDir, testFileName), testFileSize, client)
-	assert.NoError(t, err)
-	files, err := client.ReadDir(testDir)
-	assert.NoError(t, err)
-	assert.Len(t, files, 5)
-	err = client.Copy(testDir, testDir+"_copy", false)
-	assert.NoError(t, err)
-	err = client.RemoveAll(testDir)
-	assert.NoError(t, err)
-
-	err = os.Remove(testFilePath)
-	assert.NoError(t, err)
-	err = os.Remove(localDownloadPath)
-	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
+	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 	assert.Len(t, common.Connections.GetStats(), 0)
 	status := webdavd.GetStatus()
@@ -370,11 +396,18 @@ func TestBasicHandlingCryptFs(t *testing.T) {
 }
 
 func TestPropPatch(t *testing.T) {
-	for _, u := range []dataprovider.User{getTestUser(), getTestUserWithCryptFs()} {
+	u := getTestUser()
+	u.Username = u.Username + "1"
+	localUser, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	sftpUser := getTestSFTPUser()
+	sftpUser.FsConfig.SFTPConfig.Username = localUser.Username
+
+	for _, u := range []dataprovider.User{getTestUser(), getTestUserWithCryptFs(), sftpUser} {
 		user, _, err := httpd.AddUser(u, http.StatusOK)
 		assert.NoError(t, err)
 		client := getWebDavClient(user)
-		assert.NoError(t, checkBasicFunc(client))
+		assert.NoError(t, checkBasicFunc(client), sftpUser.Username)
 
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(65535)
@@ -404,6 +437,10 @@ func TestPropPatch(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, common.Connections.GetStats(), 0)
 	}
+	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
 }
 
 func TestLoginInvalidPwd(t *testing.T) {
@@ -807,72 +844,88 @@ func TestDeniedProtocols(t *testing.T) {
 func TestQuotaLimits(t *testing.T) {
 	u := getTestUser()
 	u.QuotaFiles = 1
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	localUser, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
-	testFileSize := int64(65535)
-	testFilePath := filepath.Join(homeBasePath, testFileName)
-	err = createTestFile(testFilePath, testFileSize)
+	u = getTestSFTPUser()
+	u.QuotaFiles = 1
+	sftpUser, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
-	testFileSize1 := int64(131072)
-	testFileName1 := "test_file1.dat"
-	testFilePath1 := filepath.Join(homeBasePath, testFileName1)
-	err = createTestFile(testFilePath1, testFileSize1)
-	assert.NoError(t, err)
-	testFileSize2 := int64(32768)
-	testFileName2 := "test_file2.dat"
-	testFilePath2 := filepath.Join(homeBasePath, testFileName2)
-	err = createTestFile(testFilePath2, testFileSize2)
-	assert.NoError(t, err)
-	client := getWebDavClient(user)
-	// test quota files
-	err = uploadFile(testFilePath, testFileName+".quota", testFileSize, client)
-	assert.NoError(t, err)
-	err = uploadFile(testFilePath, testFileName+".quota1", testFileSize, client)
-	assert.Error(t, err)
-	err = client.Rename(testFileName+".quota", testFileName, false)
-	assert.NoError(t, err)
-	files, err := client.ReadDir("/")
-	assert.NoError(t, err)
-	assert.Len(t, files, 1)
-	// test quota size
-	user.QuotaSize = testFileSize - 1
-	user.QuotaFiles = 0
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err)
-	err = uploadFile(testFilePath, testFileName+".quota", testFileSize, client)
-	assert.Error(t, err)
-	err = client.Rename(testFileName, testFileName+".quota", false)
-	assert.NoError(t, err)
-	// now test quota limits while uploading the current file, we have 1 bytes remaining
-	user.QuotaSize = testFileSize + 1
-	user.QuotaFiles = 0
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err)
-	err = uploadFile(testFilePath1, testFileName1, testFileSize1, client)
-	assert.Error(t, err)
-	_, err = client.Stat(testFileName1)
-	assert.Error(t, err)
-	err = client.Rename(testFileName+".quota", testFileName, false)
-	assert.NoError(t, err)
-	// overwriting an existing file will work if the resulting size is lesser or equal than the current one
-	err = uploadFile(testFilePath, testFileName, testFileSize, client)
-	assert.NoError(t, err)
-	err = uploadFile(testFilePath2, testFileName, testFileSize2, client)
-	assert.NoError(t, err)
-	err = uploadFile(testFilePath1, testFileName, testFileSize1, client)
-	assert.Error(t, err)
-	err = uploadFile(testFilePath2, testFileName, testFileSize2, client)
-	assert.NoError(t, err)
+	for _, user := range []dataprovider.User{localUser, sftpUser} {
+		testFileSize := int64(65535)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		testFileSize1 := int64(131072)
+		testFileName1 := "test_file1.dat"
+		testFilePath1 := filepath.Join(homeBasePath, testFileName1)
+		err = createTestFile(testFilePath1, testFileSize1)
+		assert.NoError(t, err)
+		testFileSize2 := int64(32768)
+		testFileName2 := "test_file2.dat"
+		testFilePath2 := filepath.Join(homeBasePath, testFileName2)
+		err = createTestFile(testFilePath2, testFileSize2)
+		assert.NoError(t, err)
+		client := getWebDavClient(user)
+		// test quota files
+		err = uploadFile(testFilePath, testFileName+".quota", testFileSize, client)
+		assert.NoError(t, err)
+		err = uploadFile(testFilePath, testFileName+".quota1", testFileSize, client)
+		assert.Error(t, err)
+		err = client.Rename(testFileName+".quota", testFileName, false)
+		assert.NoError(t, err)
+		files, err := client.ReadDir("/")
+		assert.NoError(t, err)
+		assert.Len(t, files, 1)
+		// test quota size
+		user.QuotaSize = testFileSize - 1
+		user.QuotaFiles = 0
+		user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+		assert.NoError(t, err)
+		err = uploadFile(testFilePath, testFileName+".quota", testFileSize, client)
+		assert.Error(t, err)
+		err = client.Rename(testFileName, testFileName+".quota", false)
+		assert.NoError(t, err)
+		// now test quota limits while uploading the current file, we have 1 bytes remaining
+		user.QuotaSize = testFileSize + 1
+		user.QuotaFiles = 0
+		user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+		assert.NoError(t, err)
+		err = uploadFile(testFilePath1, testFileName1, testFileSize1, client)
+		assert.Error(t, err)
+		_, err = client.Stat(testFileName1)
+		assert.Error(t, err)
+		err = client.Rename(testFileName+".quota", testFileName, false)
+		assert.NoError(t, err)
+		// overwriting an existing file will work if the resulting size is lesser or equal than the current one
+		err = uploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = uploadFile(testFilePath2, testFileName, testFileSize2, client)
+		assert.NoError(t, err)
+		err = uploadFile(testFilePath1, testFileName, testFileSize1, client)
+		assert.Error(t, err)
+		err = uploadFile(testFilePath2, testFileName, testFileSize2, client)
+		assert.NoError(t, err)
 
-	err = os.Remove(testFilePath)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath1)
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath2)
+		assert.NoError(t, err)
+		if user.Username == defaultUsername {
+			err = os.RemoveAll(user.GetHomeDir())
+			assert.NoError(t, err)
+			user.QuotaFiles = 0
+			user.QuotaSize = 0
+			_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+			assert.NoError(t, err)
+		}
+	}
+	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	err = os.Remove(testFilePath1)
+	_, err = httpd.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
-	err = os.Remove(testFilePath2)
-	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
+	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -880,34 +933,49 @@ func TestUploadMaxSize(t *testing.T) {
 	testFileSize := int64(65535)
 	u := getTestUser()
 	u.Filters.MaxUploadFileSize = testFileSize + 1
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	localUser, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
-	testFilePath := filepath.Join(homeBasePath, testFileName)
-	err = createTestFile(testFilePath, testFileSize)
+	u = getTestSFTPUser()
+	u.Filters.MaxUploadFileSize = testFileSize + 1
+	sftpUser, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
-	testFileSize1 := int64(131072)
-	testFileName1 := "test_file_dav1.dat"
-	testFilePath1 := filepath.Join(homeBasePath, testFileName1)
-	err = createTestFile(testFilePath1, testFileSize1)
-	assert.NoError(t, err)
-	client := getWebDavClient(user)
-	err = uploadFile(testFilePath1, testFileName1, testFileSize1, client)
-	assert.Error(t, err)
-	err = uploadFile(testFilePath, testFileName, testFileSize, client)
-	assert.NoError(t, err)
-	// now test overwrite an existing file with a size bigger than the allowed one
-	err = createTestFile(filepath.Join(user.GetHomeDir(), testFileName1), testFileSize1)
-	assert.NoError(t, err)
-	err = uploadFile(testFilePath1, testFileName1, testFileSize1, client)
-	assert.Error(t, err)
+	for _, user := range []dataprovider.User{localUser, sftpUser} {
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		testFileSize1 := int64(131072)
+		testFileName1 := "test_file_dav1.dat"
+		testFilePath1 := filepath.Join(homeBasePath, testFileName1)
+		err = createTestFile(testFilePath1, testFileSize1)
+		assert.NoError(t, err)
+		client := getWebDavClient(user)
+		err = uploadFile(testFilePath1, testFileName1, testFileSize1, client)
+		assert.Error(t, err)
+		err = uploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		// now test overwrite an existing file with a size bigger than the allowed one
+		err = createTestFile(filepath.Join(user.GetHomeDir(), testFileName1), testFileSize1)
+		assert.NoError(t, err)
+		err = uploadFile(testFilePath1, testFileName1, testFileSize1, client)
+		assert.Error(t, err)
 
-	err = os.Remove(testFilePath)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath1)
+		assert.NoError(t, err)
+		if user.Username == defaultUsername {
+			err = os.RemoveAll(user.GetHomeDir())
+			assert.NoError(t, err)
+			user.Filters.MaxUploadFileSize = 65536000
+			_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+			assert.NoError(t, err)
+		}
+	}
+	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	err = os.Remove(testFilePath1)
+	_, err = httpd.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
+	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -915,75 +983,84 @@ func TestClientClose(t *testing.T) {
 	u := getTestUser()
 	u.UploadBandwidth = 64
 	u.DownloadBandwidth = 64
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	localUser, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
-	testFileSize := int64(1048576)
-	testFilePath := filepath.Join(homeBasePath, testFileName)
-	err = createTestFile(testFilePath, testFileSize)
+	u = getTestSFTPUser()
+	u.UploadBandwidth = 64
+	u.DownloadBandwidth = 64
+	sftpUser, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
-	client := getWebDavClient(user)
-	assert.NoError(t, checkBasicFunc(client))
+	for _, user := range []dataprovider.User{localUser, sftpUser} {
+		testFileSize := int64(1048576)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		client := getWebDavClient(user)
+		assert.NoError(t, checkBasicFunc(client))
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		err = uploadFile(testFilePath, testFileName, testFileSize, client)
-		assert.Error(t, err)
-		wg.Done()
-	}()
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			err = uploadFile(testFilePath, testFileName, testFileSize, client)
+			assert.Error(t, err)
+			wg.Done()
+		}()
 
-	assert.Eventually(t, func() bool {
-		for _, stat := range common.Connections.GetStats() {
-			if len(stat.Transfers) > 0 {
-				return true
+		assert.Eventually(t, func() bool {
+			for _, stat := range common.Connections.GetStats() {
+				if len(stat.Transfers) > 0 {
+					return true
+				}
 			}
-		}
-		return false
-	}, 1*time.Second, 50*time.Millisecond)
+			return false
+		}, 1*time.Second, 50*time.Millisecond)
 
-	for _, stat := range common.Connections.GetStats() {
-		common.Connections.Close(stat.ConnectionID)
-	}
-	wg.Wait()
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
-		1*time.Second, 100*time.Millisecond)
-
-	err = os.Remove(testFilePath)
-	assert.NoError(t, err)
-	testFilePath = filepath.Join(user.HomeDir, testFileName)
-	err = createTestFile(testFilePath, testFileSize)
-	assert.NoError(t, err)
-	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
-
-	wg.Add(1)
-	go func() {
-		err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
-		assert.Error(t, err)
-		wg.Done()
-	}()
-
-	assert.Eventually(t, func() bool {
 		for _, stat := range common.Connections.GetStats() {
-			if len(stat.Transfers) > 0 {
-				return true
-			}
+			common.Connections.Close(stat.ConnectionID)
 		}
-		return false
-	}, 1*time.Second, 50*time.Millisecond)
+		wg.Wait()
+		assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+			1*time.Second, 100*time.Millisecond)
 
-	for _, stat := range common.Connections.GetStats() {
-		common.Connections.Close(stat.ConnectionID)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		testFilePath = filepath.Join(user.HomeDir, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+
+		wg.Add(1)
+		go func() {
+			err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
+			assert.Error(t, err)
+			wg.Done()
+		}()
+
+		assert.Eventually(t, func() bool {
+			for _, stat := range common.Connections.GetStats() {
+				if len(stat.Transfers) > 0 {
+					return true
+				}
+			}
+			return false
+		}, 1*time.Second, 50*time.Millisecond)
+
+		for _, stat := range common.Connections.GetStats() {
+			common.Connections.Close(stat.ConnectionID)
+		}
+		wg.Wait()
+		assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+			1*time.Second, 100*time.Millisecond)
+
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
 	}
-	wg.Wait()
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
-		1*time.Second, 100*time.Millisecond)
 
-	err = os.Remove(localDownloadPath)
+	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpd.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
+	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -1063,7 +1140,14 @@ func TestLoginInvalidFs(t *testing.T) {
 }
 
 func TestBytesRangeRequests(t *testing.T) {
-	for _, u := range []dataprovider.User{getTestUser(), getTestUserWithCryptFs()} {
+	u := getTestUser()
+	u.Username = u.Username + "1"
+	localUser, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	sftpUser := getTestSFTPUser()
+	sftpUser.FsConfig.SFTPConfig.Username = localUser.Username
+
+	for _, u := range []dataprovider.User{getTestUser(), getTestUserWithCryptFs(), sftpUser} {
 		user, _, err := httpd.AddUser(u, http.StatusOK)
 		assert.NoError(t, err)
 		testFileName := "test_file.txt"
@@ -1107,6 +1191,10 @@ func TestBytesRangeRequests(t *testing.T) {
 		err = os.RemoveAll(user.GetHomeDir())
 		assert.NoError(t, err)
 	}
+	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
 }
 
 func TestGETAsPROPFIND(t *testing.T) {
@@ -1274,58 +1362,73 @@ func TestUploadOverwriteVfolder(t *testing.T) {
 func TestMiscCommands(t *testing.T) {
 	u := getTestUser()
 	u.QuotaFiles = 100
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	localUser, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
-	dir := "testDir"
-	client := getWebDavClient(user)
-	err = client.MkdirAll(path.Join(dir, "sub1", "sub2"), os.ModePerm)
+	u = getTestSFTPUser()
+	u.QuotaFiles = 100
+	sftpUser, _, err := httpd.AddUser(u, http.StatusOK)
 	assert.NoError(t, err)
-	testFilePath := filepath.Join(homeBasePath, testFileName)
-	testFileSize := int64(65535)
-	err = createTestFile(testFilePath, testFileSize)
-	assert.NoError(t, err)
-	err = uploadFile(testFilePath, path.Join(dir, testFileName), testFileSize, client)
-	assert.NoError(t, err)
-	err = uploadFile(testFilePath, path.Join(dir, "sub1", testFileName), testFileSize, client)
-	assert.NoError(t, err)
-	err = uploadFile(testFilePath, path.Join(dir, "sub1", "sub2", testFileName), testFileSize, client)
-	assert.NoError(t, err)
-	err = client.Copy(dir, dir+"_copy", false)
-	assert.NoError(t, err)
-	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
-	assert.NoError(t, err)
-	assert.Equal(t, 6, user.UsedQuotaFiles)
-	assert.Equal(t, 6*testFileSize, user.UsedQuotaSize)
-	err = client.Copy(dir, dir+"_copy1", false)
-	assert.NoError(t, err)
-	err = client.Copy(dir+"_copy", dir+"_copy1", false)
-	assert.Error(t, err)
-	err = client.Copy(dir+"_copy", dir+"_copy1", true)
-	assert.NoError(t, err)
-	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
-	assert.NoError(t, err)
-	assert.Equal(t, 9, user.UsedQuotaFiles)
-	assert.Equal(t, 9*testFileSize, user.UsedQuotaSize)
-	err = client.Rename(dir+"_copy1", dir+"_copy2", false)
-	assert.NoError(t, err)
-	err = client.Remove(path.Join(dir+"_copy", testFileName))
-	assert.NoError(t, err)
-	err = client.Rename(dir+"_copy2", dir+"_copy", true)
-	assert.NoError(t, err)
-	err = client.Copy(dir+"_copy", dir+"_copy1", false)
-	assert.NoError(t, err)
-	err = client.RemoveAll(dir + "_copy1")
-	assert.NoError(t, err)
-	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
-	assert.NoError(t, err)
-	assert.Equal(t, 6, user.UsedQuotaFiles)
-	assert.Equal(t, 6*testFileSize, user.UsedQuotaSize)
+	for _, user := range []dataprovider.User{localUser, sftpUser} {
+		dir := "testDir"
+		client := getWebDavClient(user)
+		err = client.MkdirAll(path.Join(dir, "sub1", "sub2"), os.ModePerm)
+		assert.NoError(t, err)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = uploadFile(testFilePath, path.Join(dir, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = uploadFile(testFilePath, path.Join(dir, "sub1", testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = uploadFile(testFilePath, path.Join(dir, "sub1", "sub2", testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = client.Copy(dir, dir+"_copy", false)
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 6, user.UsedQuotaFiles)
+		assert.Equal(t, 6*testFileSize, user.UsedQuotaSize)
+		err = client.Copy(dir, dir+"_copy1", false)
+		assert.NoError(t, err)
+		err = client.Copy(dir+"_copy", dir+"_copy1", false)
+		assert.Error(t, err)
+		err = client.Copy(dir+"_copy", dir+"_copy1", true)
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 9, user.UsedQuotaFiles)
+		assert.Equal(t, 9*testFileSize, user.UsedQuotaSize)
+		err = client.Rename(dir+"_copy1", dir+"_copy2", false)
+		assert.NoError(t, err)
+		err = client.Remove(path.Join(dir+"_copy", testFileName))
+		assert.NoError(t, err)
+		err = client.Rename(dir+"_copy2", dir+"_copy", true)
+		assert.NoError(t, err)
+		err = client.Copy(dir+"_copy", dir+"_copy1", false)
+		assert.NoError(t, err)
+		err = client.RemoveAll(dir + "_copy1")
+		assert.NoError(t, err)
+		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 6, user.UsedQuotaFiles)
+		assert.Equal(t, 6*testFileSize, user.UsedQuotaSize)
 
-	err = os.Remove(testFilePath)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		if user.Username == defaultUsername {
+			err = os.RemoveAll(user.GetHomeDir())
+			assert.NoError(t, err)
+			user.QuotaFiles = 0
+			_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+			assert.NoError(t, err)
+		}
+	}
+	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpd.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
+	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -1418,6 +1521,16 @@ func getTestUser() dataprovider.User {
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = allPerms
 	return user
+}
+
+func getTestSFTPUser() dataprovider.User {
+	u := getTestUser()
+	u.Username = u.Username + "_sftp"
+	u.FsConfig.Provider = dataprovider.SFTPFilesystemProvider
+	u.FsConfig.SFTPConfig.Endpoint = sftpServerAddr
+	u.FsConfig.SFTPConfig.Username = defaultUsername
+	u.FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)
+	return u
 }
 
 func getTestUserWithCryptFs() dataprovider.User {

@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: SFTPGo
   description: SFTPGo REST API
-  version: 2.2.1
+  version: 2.2.2
 
 servers:
   - url: /api/v1
@@ -1084,6 +1084,27 @@ components:
         passphrase:
           $ref: '#/components/schemas/Secret'
       description: Crypt filesystem configuration details
+    SFTPFsConfig:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          description: remote SFTP endpoint as host:port
+        username:
+          type: string
+          description: you can specify a password or private key or both. In the latter case the private key will be tried first.
+        password:
+          $ref: '#/components/schemas/Secret'
+        private_key:
+          $ref: '#/components/schemas/Secret'
+        fingerprints:
+          type: array
+          items:
+            type: string
+          description: SHA256 fingerprints to use for host key verification. If you don't provide any fingerprint the remote host key will not be verified, this is a security risk
+        prefix:
+          type: string
+          description: Specifying a prefix you can restrict all operations to a given path within the remote SFTP server.
     FilesystemConfig:
       type: object
       properties:
@@ -1095,6 +1116,7 @@ components:
             - 2
             - 3
             - 4
+            - 5
           description: >
             Providers:
               * `0` - Local filesystem
@@ -1102,6 +1124,7 @@ components:
               * `2` - Google Cloud Storage
               * `3` - Azure Blob Storage
               * `4` - Local filesystem encrypted
+              * `5` - SFTP
         s3config:
           $ref: '#/components/schemas/S3Config'
         gcsconfig:
@@ -1110,6 +1133,8 @@ components:
           $ref: '#/components/schemas/AzureBlobFsConfig'
         cryptconfig:
           $ref: '#/components/schemas/CryptFsConfig'
+        sftpconfig:
+          $ref: '#/components/schemas/SFTPFsConfig'
       description: Storage filesystem details
     BaseVirtualFolder:
       type: object

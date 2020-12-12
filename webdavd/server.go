@@ -205,9 +205,13 @@ func (s *webDavServer) authenticate(r *http.Request) (dataprovider.User, bool, w
 			cachedUser.Expiration = time.Now().Add(time.Duration(s.config.Cache.Users.ExpirationTime) * time.Minute)
 		}
 		dataprovider.CacheWebDAVUser(cachedUser, s.config.Cache.Users.MaxSize)
-		tempFs, err := user.GetFilesystem("temp")
-		if err == nil {
-			tempFs.CheckRootPath(user.Username, user.UID, user.GID)
+		if user.FsConfig.Provider != dataprovider.SFTPFilesystemProvider {
+			// for sftp fs check root path does nothing so don't open a useless SFTP connection
+			tempFs, err := user.GetFilesystem("temp")
+			if err == nil {
+				tempFs.CheckRootPath(user.Username, user.UID, user.GID)
+				tempFs.Close()
+			}
 		}
 	}
 	return user, false, lockSystem, nil

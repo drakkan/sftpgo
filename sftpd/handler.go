@@ -101,7 +101,7 @@ func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReader
 	}
 
 	var errForRead error
-	if !vfs.IsLocalOsFs(c.Fs) && request.Pflags().Read {
+	if !vfs.IsLocalOrSFTPFs(c.Fs) && request.Pflags().Read {
 		// read and write mode is only supported for local filesystem
 		errForRead = sftp.ErrSSHFxOpUnsupported
 	}
@@ -377,7 +377,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, r
 		minWriteOffset = fileSize
 		initialSize = fileSize
 	} else {
-		if vfs.IsLocalOsFs(c.Fs) && isTruncate {
+		if vfs.IsLocalOrSFTPFs(c.Fs) && isTruncate {
 			vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 			if err == nil {
 				dataprovider.UpdateVirtualFolderQuota(vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck

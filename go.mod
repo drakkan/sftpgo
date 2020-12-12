@@ -37,7 +37,7 @@ require (
 	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
 	github.com/pires/go-proxyproto v0.3.2
-	github.com/pkg/sftp v1.12.1-0.20201118115123-7230c61342c8
+	github.com/pkg/sftp v1.12.1-0.20201128220914-b5b6f3393fe9
 	github.com/prometheus/client_golang v1.8.0
 	github.com/prometheus/common v0.15.0 // indirect
 	github.com/rs/cors v1.7.1-0.20200626170627-8b4a00bd362b
@@ -72,6 +72,7 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
+	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20201211115031-0b6bbc64f191 
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20201206210642-67b183f44ef5
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20201206210821-d337634bad94
 )

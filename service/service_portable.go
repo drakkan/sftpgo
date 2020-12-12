@@ -243,28 +243,47 @@ func (s *Service) configurePortableUser() string {
 		s.PortableUser.Password = b.String()
 		printablePassword = s.PortableUser.Password
 	}
+	s.configurePortableSecrets()
+	return printablePassword
+}
+
+func (s *Service) configurePortableSecrets() {
 	// we created the user before to initialize the KMS so we need to create the secret here
 	switch s.PortableUser.FsConfig.Provider {
 	case dataprovider.S3FilesystemProvider:
 		payload := s.PortableUser.FsConfig.S3Config.AccessSecret.GetPayload()
+		s.PortableUser.FsConfig.S3Config.AccessSecret = kms.NewEmptySecret()
 		if payload != "" {
 			s.PortableUser.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret(payload)
 		}
 	case dataprovider.GCSFilesystemProvider:
 		payload := s.PortableUser.FsConfig.GCSConfig.Credentials.GetPayload()
+		s.PortableUser.FsConfig.GCSConfig.Credentials = kms.NewEmptySecret()
 		if payload != "" {
 			s.PortableUser.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret(payload)
 		}
 	case dataprovider.AzureBlobFilesystemProvider:
 		payload := s.PortableUser.FsConfig.AzBlobConfig.AccountKey.GetPayload()
+		s.PortableUser.FsConfig.AzBlobConfig.AccountKey = kms.NewEmptySecret()
 		if payload != "" {
 			s.PortableUser.FsConfig.AzBlobConfig.AccountKey = kms.NewPlainSecret(payload)
 		}
 	case dataprovider.CryptedFilesystemProvider:
 		payload := s.PortableUser.FsConfig.CryptConfig.Passphrase.GetPayload()
+		s.PortableUser.FsConfig.CryptConfig.Passphrase = kms.NewEmptySecret()
 		if payload != "" {
 			s.PortableUser.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret(payload)
 		}
+	case dataprovider.SFTPFilesystemProvider:
+		payload := s.PortableUser.FsConfig.SFTPConfig.Password.GetPayload()
+		s.PortableUser.FsConfig.SFTPConfig.Password = kms.NewEmptySecret()
+		if payload != "" {
+			s.PortableUser.FsConfig.SFTPConfig.Password = kms.NewPlainSecret(payload)
+		}
+		payload = s.PortableUser.FsConfig.SFTPConfig.PrivateKey.GetPayload()
+		s.PortableUser.FsConfig.SFTPConfig.PrivateKey = kms.NewEmptySecret()
+		if payload != "" {
+			s.PortableUser.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret(payload)
+		}
 	}
-	return printablePassword
 }

@@ -394,6 +394,32 @@ func TestCompareUserFsConfig(t *testing.T) {
 	err = compareUserFsConfig(expected, actual)
 	assert.Error(t, err)
 	expected.FsConfig.CryptConfig.Passphrase = kms.NewEmptySecret()
+	expected.FsConfig.SFTPConfig.Endpoint = "endpoint"
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	expected.FsConfig.SFTPConfig.Endpoint = ""
+	expected.FsConfig.SFTPConfig.Username = "user"
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	expected.FsConfig.SFTPConfig.Username = ""
+	expected.FsConfig.SFTPConfig.Password = kms.NewPlainSecret("sftppwd")
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	expected.FsConfig.SFTPConfig.Password = kms.NewEmptySecret()
+	expected.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret("fake key")
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	expected.FsConfig.SFTPConfig.PrivateKey = kms.NewEmptySecret()
+	expected.FsConfig.SFTPConfig.Prefix = "/home"
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	expected.FsConfig.SFTPConfig.Prefix = ""
+	expected.FsConfig.SFTPConfig.Fingerprints = []string{"sha256:..."}
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
+	actual.FsConfig.SFTPConfig.Fingerprints = []string{"sha256:different"}
+	err = compareUserFsConfig(expected, actual)
+	assert.Error(t, err)
 }
 
 func TestCompareUserGCSConfig(t *testing.T) {

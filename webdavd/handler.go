@@ -159,7 +159,7 @@ func (c *Connection) getFile(fsPath, virtualPath string) (webdav.File, error) {
 
 	// for cloud fs we open the file when we receive the first read to avoid to download the first part of
 	// the file if it was opened only to do a stat or a readdir and so it is not a real download
-	if vfs.IsLocalOsFs(c.Fs) {
+	if vfs.IsLocalOrSFTPFs(c.Fs) {
 		file, r, cancelFn, err = c.Fs.Open(fsPath, 0)
 		if err != nil {
 			c.Log(logger.LevelWarn, "could not open file %#v for reading: %+v", fsPath, err)
@@ -261,7 +261,7 @@ func (c *Connection) handleUploadToExistingFile(resolvedPath, filePath string, f
 		return nil, c.GetFsError(err)
 	}
 	initialSize := int64(0)
-	if vfs.IsLocalOsFs(c.Fs) {
+	if vfs.IsLocalOrSFTPFs(c.Fs) {
 		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 		if err == nil {
 			dataprovider.UpdateVirtualFolderQuota(vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck

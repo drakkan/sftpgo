@@ -37,7 +37,7 @@ var (
 type GCSFs struct {
 	connectionID   string
 	localTempDir   string
-	config         GCSFsConfig
+	config         *GCSFsConfig
 	svc            *storage.Client
 	ctxTimeout     time.Duration
 	ctxLongTimeout time.Duration
@@ -53,11 +53,11 @@ func NewGCSFs(connectionID, localTempDir string, config GCSFsConfig) (Fs, error)
 	fs := &GCSFs{
 		connectionID:   connectionID,
 		localTempDir:   localTempDir,
-		config:         config,
+		config:         &config,
 		ctxTimeout:     30 * time.Second,
 		ctxLongTimeout: 300 * time.Second,
 	}
-	if err = ValidateGCSFsConfig(&fs.config, fs.config.CredentialFile); err != nil {
+	if err = fs.config.Validate(fs.config.CredentialFile); err != nil {
 		return fs, err
 	}
 	ctx := context.Background()
@@ -748,4 +748,9 @@ func (fs *GCSFs) GetMimeType(name string) (string, error) {
 		return "", err
 	}
 	return attrs.ContentType, nil
+}
+
+// Close closes the fs
+func (fs *GCSFs) Close() error {
+	return nil
 }

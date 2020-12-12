@@ -553,7 +553,7 @@ func checkFolder(expected *vfs.BaseVirtualFolder, actual *vfs.BaseVirtualFolder)
 }
 
 func checkUser(expected *dataprovider.User, actual *dataprovider.User) error {
-	if len(actual.Password) > 0 {
+	if actual.Password != "" {
 		return errors.New("User password must not be visible")
 	}
 	if expected.ID <= 0 {
@@ -627,6 +627,9 @@ func compareUserFsConfig(expected *dataprovider.User, actual *dataprovider.User)
 	if err := checkEncryptedSecret(expected.FsConfig.CryptConfig.Passphrase, actual.FsConfig.CryptConfig.Passphrase); err != nil {
 		return err
 	}
+	if err := compareSFTPFsConfig(expected, actual); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -675,6 +678,35 @@ func compareGCSConfig(expected *dataprovider.User, actual *dataprovider.User) er
 	}
 	if expected.FsConfig.GCSConfig.AutomaticCredentials != actual.FsConfig.GCSConfig.AutomaticCredentials {
 		return errors.New("GCS automatic credentials mismatch")
+	}
+	return nil
+}
+
+func compareSFTPFsConfig(expected *dataprovider.User, actual *dataprovider.User) error {
+	if expected.FsConfig.SFTPConfig.Endpoint != actual.FsConfig.SFTPConfig.Endpoint {
+		return errors.New("SFTPFs endpoint mismatch")
+	}
+	if expected.FsConfig.SFTPConfig.Username != actual.FsConfig.SFTPConfig.Username {
+		return errors.New("SFTPFs username mismatch")
+	}
+	if err := checkEncryptedSecret(expected.FsConfig.SFTPConfig.Password, actual.FsConfig.SFTPConfig.Password); err != nil {
+		return fmt.Errorf("SFTPFs password mismatch: %v", err)
+	}
+	if err := checkEncryptedSecret(expected.FsConfig.SFTPConfig.PrivateKey, actual.FsConfig.SFTPConfig.PrivateKey); err != nil {
+		return fmt.Errorf("SFTPFs private key mismatch: %v", err)
+	}
+	if expected.FsConfig.SFTPConfig.Prefix != actual.FsConfig.SFTPConfig.Prefix {
+		if expected.FsConfig.SFTPConfig.Prefix != "" && actual.FsConfig.SFTPConfig.Prefix != "/" {
+			return errors.New("SFTPFs prefix mismatch")
+		}
+	}
+	if len(expected.FsConfig.SFTPConfig.Fingerprints) != len(actual.FsConfig.SFTPConfig.Fingerprints) {
+		return errors.New("SFTPFs fingerprints mismatch")
+	}
+	for _, value := range actual.FsConfig.SFTPConfig.Fingerprints {
+		if !utils.IsStringInSlice(value, expected.FsConfig.SFTPConfig.Fingerprints) {
+			return errors.New("SFTPFs fingerprints mismatch")
+		}
 	}
 	return nil
 }

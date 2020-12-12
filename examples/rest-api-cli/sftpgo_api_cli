@@ -83,7 +83,8 @@ class SFTPGoApiRequests:
 					denied_patterns=[], allowed_patterns=[], s3_upload_part_size=0, s3_upload_concurrency=0,
 					max_upload_file_size=0, denied_protocols=[], az_container='', az_account_name='', az_account_key='',
 					az_sas_url='', az_endpoint='', az_upload_part_size=0, az_upload_concurrency=0, az_key_prefix='',
-					az_use_emulator=False, az_access_tier='', additional_info='', crypto_passphrase=''):
+					az_use_emulator=False, az_access_tier='', additional_info='', crypto_passphrase='', sftp_endpoint='',
+					sftp_username='', sftp_password='', sftp_private_key_path='', sftp_fingerprints=[], sftp_prefix=''):
 		user = {'id':user_id, 'username':username, 'uid':uid, 'gid':gid,
 			'max_sessions':max_sessions, 'quota_size':quota_size, 'quota_files':quota_files,
 			'upload_bandwidth':upload_bandwidth, 'download_bandwidth':download_bandwidth,
@@ -110,7 +111,9 @@ class SFTPGoApiRequests:
 													gcs_automatic_credentials, s3_upload_part_size, s3_upload_concurrency,
 													az_container, az_account_name, az_account_key, az_sas_url,
 													az_endpoint, az_upload_part_size, az_upload_concurrency, az_key_prefix,
-													az_use_emulator, az_access_tier, crypto_passphrase)})
+													az_use_emulator, az_access_tier, crypto_passphrase, sftp_endpoint,
+													sftp_username, sftp_password, sftp_private_key_path,
+													sftp_fingerprints, sftp_prefix)})
 		return user
 
 	def buildVirtualFolders(self, vfolders):
@@ -234,7 +237,8 @@ class SFTPGoApiRequests:
 					s3_storage_class, s3_key_prefix, gcs_bucket, gcs_key_prefix, gcs_storage_class,
 					gcs_credentials_file, gcs_automatic_credentials, s3_upload_part_size, s3_upload_concurrency,
 					az_container, az_account_name, az_account_key, az_sas_url, az_endpoint, az_upload_part_size,
-					az_upload_concurrency, az_key_prefix, az_use_emulator, az_access_tier, crypto_passphrase):
+					az_upload_concurrency, az_key_prefix, az_use_emulator, az_access_tier, crypto_passphrase,
+					sftp_endpoint, sftp_username, sftp_password, sftp_private_key_path, sftp_fingerprints, sftp_prefix):
 		fs_config = {'provider':0}
 		if fs_provider == 'S3':
 			secret = {}
@@ -265,9 +269,20 @@ class SFTPGoApiRequests:
 						'upload_concurrency':az_upload_concurrency, 'key_prefix':az_key_prefix, 'use_emulator':
 						az_use_emulator, 'access_tier':az_access_tier}
 			fs_config.update({'provider':3, 'azblobconfig':azureconfig})
-		elif fs_provider == "Crypto":
-			cryptoconfig = {"passphrase":{"status":"Plain", "payload":crypto_passphrase}}
+		elif fs_provider == 'Crypto':
+			cryptoconfig = {'passphrase':{'status':'Plain', 'payload':crypto_passphrase}}
 			fs_config.update({'provider':4, 'cryptconfig':cryptoconfig})
+		elif fs_provider == 'SFTP':
+			sftpconfig = {'endpoint':sftp_endpoint, 'username':sftp_username, 'fingerprints':sftp_fingerprints,
+						'prefix':sftp_prefix}
+			if sftp_password:
+				pwd = {'status':'Plain', 'payload':sftp_password}
+				sftpconfig.update({'password':pwd})
+			if sftp_private_key_path:
+				with open(sftp_private_key_path) as pkey:
+					key = {'status':'Plain', 'payload':pkey.read()}
+					sftpconfig.update({'private_key':key})
+			fs_config.update({'provider':5, 'sftpconfig':sftpconfig})
 		return fs_config
 
 	def getUsers(self, limit=100, offset=0, order='ASC', username=''):
@@ -288,7 +303,8 @@ class SFTPGoApiRequests:
 			s3_upload_part_size=0, s3_upload_concurrency=0, max_upload_file_size=0, denied_protocols=[], az_container="",
 			az_account_name='', az_account_key='', az_sas_url='', az_endpoint='', az_upload_part_size=0,
 			az_upload_concurrency=0, az_key_prefix='', az_use_emulator=False, az_access_tier='', additional_info='',
-			crypto_passphrase=''):
+			crypto_passphrase='', sftp_endpoint='', sftp_username='', sftp_password='', sftp_private_key_path='',
+			sftp_fingerprints=[], sftp_prefix=''):
 		u = self.buildUserObject(0, username, password, public_keys, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, self.buildPermissions(perms, subdirs_permissions), upload_bandwidth, download_bandwidth,
 			status, expiration_date, allowed_ip, denied_ip, fs_provider, s3_bucket, s3_region, s3_access_key,
@@ -296,7 +312,8 @@ class SFTPGoApiRequests:
 			gcs_credentials_file, gcs_automatic_credentials, denied_login_methods, virtual_folders, denied_patterns,
 			allowed_patterns, s3_upload_part_size, s3_upload_concurrency, max_upload_file_size, denied_protocols,
 			az_container, az_account_name, az_account_key, az_sas_url, az_endpoint, az_upload_part_size,
-			az_upload_concurrency, az_key_prefix, az_use_emulator, az_access_tier, additional_info, crypto_passphrase)
+			az_upload_concurrency, az_key_prefix, az_use_emulator, az_access_tier, additional_info, crypto_passphrase,
+			sftp_endpoint, sftp_username, sftp_password, sftp_private_key_path, sftp_fingerprints, sftp_prefix)
 		r = requests.post(self.userPath, json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
@@ -309,7 +326,8 @@ class SFTPGoApiRequests:
 				allowed_patterns=[], s3_upload_part_size=0, s3_upload_concurrency=0, max_upload_file_size=0,
 				denied_protocols=[], disconnect=0, az_container='', az_account_name='', az_account_key='', az_sas_url='',
 				az_endpoint='', az_upload_part_size=0, az_upload_concurrency=0, az_key_prefix='', az_use_emulator=False,
-				az_access_tier='', additional_info='', crypto_passphrase=''):
+				az_access_tier='', additional_info='', crypto_passphrase='', sftp_endpoint='', sftp_username='',
+				sftp_password='', sftp_private_key_path='', sftp_fingerprints=[], sftp_prefix=''):
 		u = self.buildUserObject(user_id, username, password, public_keys, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, self.buildPermissions(perms, subdirs_permissions), upload_bandwidth, download_bandwidth,
 			status, expiration_date, allowed_ip, denied_ip, fs_provider, s3_bucket, s3_region, s3_access_key,
@@ -317,7 +335,8 @@ class SFTPGoApiRequests:
 			gcs_credentials_file, gcs_automatic_credentials, denied_login_methods, virtual_folders, denied_patterns,
 			allowed_patterns, s3_upload_part_size, s3_upload_concurrency, max_upload_file_size, denied_protocols,
 			az_container, az_account_name, az_account_key, az_sas_url, az_endpoint, az_upload_part_size,
-			az_upload_concurrency, az_key_prefix, az_use_emulator, az_access_tier, additional_info, crypto_passphrase)
+			az_upload_concurrency, az_key_prefix, az_use_emulator, az_access_tier, additional_info, crypto_passphrase,
+			sftp_endpoint, sftp_username, sftp_password, sftp_private_key_path, sftp_fingerprints, sftp_prefix)
 		r = requests.put(urlparse.urljoin(self.userPath, 'user/' + str(user_id)), params={'disconnect':disconnect},
 						json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
@@ -625,7 +644,7 @@ def addCommonUserArguments(parser):
 	parser.add_argument('--allowed-patterns', type=str, nargs='*', default=[], help='Allowed file patterns case insensitive. '
 					+'The format is /dir::pattern1,pattern2. For example: "/somedir::*.jpg,a*b?.png" "/otherdir/subdir::*.zip,*.rar". ' +
 					'Default: %(default)s')
-	parser.add_argument('--fs', type=str, default='local', choices=['local', 'S3', 'GCS', "AzureBlob", "Crypto"],
+	parser.add_argument('--fs', type=str, default='local', choices=['local', 'S3', 'GCS', 'AzureBlob', 'Crypto', 'SFTP'],
 					help='Filesystem provider. Default: %(default)s')
 	parser.add_argument('--s3-bucket', type=str, default='', help='Default: %(default)s')
 	parser.add_argument('--s3-key-prefix', type=str, default='', help='Virtual root directory. If non empty only this ' +
@@ -665,6 +684,12 @@ def addCommonUserArguments(parser):
 	parser.add_argument('--az-use-emulator', type=bool, default=False, help='Default: %(default)s')
 	parser.add_argument('--crypto-passphrase', type=str, default='', help='Passphrase for encryption/decryption, to use ' +
 					'with Crypto filesystem')
+	parser.add_argument('--sftp-endpoint', type=str, default='', help='SFTP endpoint as host:port')
+	parser.add_argument('--sftp-username', type=str, default='', help='Default: %(default)s')
+	parser.add_argument('--sftp-password', type=str, default='', help='Default: %(default)s')
+	parser.add_argument('--sftp-private-key-path', type=str, default='', help='Default: %(default)s')
+	parser.add_argument('--sftp-fingerprints', type=str, nargs='+', default=[], help='Default: %(default)s')
+	parser.add_argument('--sftp-prefix', type=str, default='', help='Default: %(default)s')
 
 
 if __name__ == '__main__':
@@ -821,7 +846,8 @@ if __name__ == '__main__':
 				args.s3_upload_part_size, args.s3_upload_concurrency, args.max_upload_file_size, args.denied_protocols,
 				args.az_container, args.az_account_name, args.az_account_key, args.az_sas_url, args.az_endpoint,
 				args.az_upload_part_size, args.az_upload_concurrency, args.az_key_prefix, args.az_use_emulator,
-				args.az_access_tier, args.additional_info, args.crypto_passphrase)
+				args.az_access_tier, args.additional_info, args.crypto_passphrase, args.sftp_endpoint, args.sftp_username,
+				args.sftp_password, args.sftp_private_key_path, args.sftp_fingerprints, args.sftp_prefix)
 	elif args.command == 'update-user':
 		api.updateUser(args.id, args.username, args.password, args.public_keys, args.home_dir, args.uid, args.gid,
 					args.max_sessions, args.quota_size, args.quota_files, args.permissions, args.upload_bandwidth,
@@ -834,7 +860,9 @@ if __name__ == '__main__':
 					args.s3_upload_concurrency, args.max_upload_file_size, args.denied_protocols, args.disconnect,
 					args.az_container, args.az_account_name, args.az_account_key, args.az_sas_url, args.az_endpoint,
 					args.az_upload_part_size, args.az_upload_concurrency, args.az_key_prefix, args.az_use_emulator,
-					args.az_access_tier, args.additional_info, args.crypto_passphrase)
+					args.az_access_tier, args.additional_info, args.crypto_passphrase, args.sftp_endpoint,
+					args.sftp_username, args.sftp_password, args.sftp_private_key_path, args.sftp_fingerprints,
+					args.sftp_prefix)
 	elif args.command == 'delete-user':
 		api.deleteUser(args.id)
 	elif args.command == 'get-users':

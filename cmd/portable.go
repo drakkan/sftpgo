@@ -67,6 +67,12 @@ var (
 	portableAzULConcurrency      int
 	portableAzUseEmulator        bool
 	portableCryptPassphrase      string
+	portableSFTPEndpoint         string
+	portableSFTPUsername         string
+	portableSFTPPassword         string
+	portableSFTPPrivateKeyPath   string
+	portableSFTPFingerprints     []string
+	portableSFTPPrefix           string
 	portableCmd                  = &cobra.Command{
 		Use:   "portable",
 		Short: "Serve a single directory",
@@ -88,24 +94,24 @@ Please take a look at the usage below to customize the serving parameters`,
 			}
 			permissions := make(map[string][]string)
 			permissions["/"] = portablePermissions
-			var portableGCSCredentials []byte
-			if fsProvider == dataprovider.GCSFilesystemProvider && len(portableGCSCredentialsFile) > 0 {
-				fi, err := os.Stat(portableGCSCredentialsFile)
+			portableGCSCredentials := ""
+			if fsProvider == dataprovider.GCSFilesystemProvider && portableGCSCredentialsFile != "" {
+				contents, err := getFileContents(portableGCSCredentialsFile)
 				if err != nil {
-					fmt.Printf("Invalid GCS credentials file: %v\n", err)
+					fmt.Printf("Unable to get GCS credentials: %v\n", err)
 					os.Exit(1)
 				}
-				if fi.Size() > 1048576 {
-					fmt.Printf("Invalid GCS credentials file: %#v is too big %v/1048576 bytes\n", portableGCSCredentialsFile,
-						fi.Size())
-					os.Exit(1)
-				}
-				creds, err := ioutil.ReadFile(portableGCSCredentialsFile)
-				if err != nil {
-					fmt.Printf("Unable to read credentials file: %v\n", err)
-				}
-				portableGCSCredentials = creds
+				portableGCSCredentials = contents
 				portableGCSAutoCredentials = 0
+			}
+			portableSFTPPrivateKey := ""
+			if fsProvider == dataprovider.SFTPFilesystemProvider && portableSFTPPrivateKeyPath != "" {
+				contents, err := getFileContents(portableSFTPPrivateKeyPath)
+				if err != nil {
+					fmt.Printf("Unable to get SFTP private key: %v\n", err)
+					os.Exit(1)
+				}
+				portableSFTPPrivateKey = contents
 			}
 			if portableFTPDPort >= 0 && len(portableFTPSCert) > 0 && len(portableFTPSKey) > 0 {
 				_, err := common.NewCertManager(portableFTPSCert, portableFTPSKey, "FTP portable")
@@ -157,7 +163,7 @@ Please take a look at the usage below to customize the serving parameters`,
 						},
 						GCSConfig: vfs.GCSFsConfig{
 							Bucket:               portableGCSBucket,
-							Credentials:          kms.NewPlainSecret(string(portableGCSCredentials)),
+							Credentials:          kms.NewPlainSecret(portableGCSCredentials),
 							AutomaticCredentials: portableGCSAutoCredentials,
 							StorageClass:         portableGCSStorageClass,
 							KeyPrefix:            portableGCSKeyPrefix,
@@ -176,6 +182,14 @@ Please take a look at the usage below to customize the serving parameters`,
 						},
 						CryptConfig: vfs.CryptFsConfig{
 							Passphrase: kms.NewPlainSecret(portableCryptPassphrase),
+						},
+						SFTPConfig: vfs.SFTPFsConfig{
+							Endpoint:     portableSFTPEndpoint,
+							Username:     portableSFTPUsername,
+							Password:     kms.NewPlainSecret(portableSFTPPassword),
+							PrivateKey:   kms.NewPlainSecret(portableSFTPPrivateKey),
+							Fingerprints: portableSFTPFingerprints,
+							Prefix:       portableSFTPPrefix,
 						},
 					},
 					Filters: dataprovider.UserFilters{
@@ -245,7 +259,8 @@ inside the advertised TXT record`)
 1 => AWS S3 compatible
 2 => Google Cloud Storage
 3 => Azure Blob Storage
-4 => Encrypted local filesystem`)
+4 => Encrypted local filesystem
+5 => SFTP`)
 	portableCmd.Flags().StringVar(&portableS3Bucket, "s3-bucket", "", "")
 	portableCmd.Flags().StringVar(&portableS3Region, "s3-region", "", "")
 	portableCmd.Flags().StringVar(&portableS3AccessKey, "s3-access-key", "", "")
@@ -292,6 +307,16 @@ prefix and its contents`)
 parallel`)
 	portableCmd.Flags().BoolVar(&portableAzUseEmulator, "az-use-emulator", false, "")
 	portableCmd.Flags().StringVar(&portableCryptPassphrase, "crypto-passphrase", "", `Passphrase for encryption/decryption`)
+	portableCmd.Flags().StringVar(&portableSFTPEndpoint, "sftp-endpoint", "", `SFTP endpoint as host:port for SFTP
+provider`)
+	portableCmd.Flags().StringVar(&portableSFTPUsername, "sftp-username", "", `SFTP user for SFTP provider`)
+	portableCmd.Flags().StringVar(&portableSFTPPassword, "sftp-password", "", `SFTP password for SFTP provider`)
+	portableCmd.Flags().StringVar(&portableSFTPPrivateKeyPath, "sftp-key-path", "", `SFTP private key path for SFTP provider`)
+	portableCmd.Flags().StringSliceVar(&portableSFTPFingerprints, "sftp-fingerprints", []string{}, `SFTP fingerprints to verify remote host
+key for SFTP provider`)
+	portableCmd.Flags().StringVar(&portableSFTPPrefix, "sftp-prefix", "", `SFTP prefix allows restrict all
+operations to a given path within the
+remote SFTP server`)
 	rootCmd.AddCommand(portableCmd)
 }
 
@@ -348,4 +373,19 @@ func getPatternsFilterValues(value string) (string, []string) {
 		}
 	}
 	return "", nil
+}
+
+func getFileContents(name string) (string, error) {
+	fi, err := os.Stat(name)
+	if err != nil {
+		return "", err
+	}
+	if fi.Size() > 1048576 {
+		return "", fmt.Errorf("%#v is too big %v/1048576 bytes", name, fi.Size())
+	}
+	contents, err := ioutil.ReadFile(name)
+	if err != nil {
+		return "", err
+	}
+	return string(contents), nil
 }

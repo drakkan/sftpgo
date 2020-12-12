@@ -78,6 +78,10 @@ Output:
       "storage_class": "Standard",
       "upload_concurrency": 4,
       "upload_part_size": 10
+    },
+    "sftpconfig": {
+      "password": {},
+      "private_key": {}
     }
   },
   "filters": {
@@ -198,6 +202,10 @@ Output:
     "provider": 0,
     "s3config": {
       "access_secret": {}
+    },
+    "sftpconfig": {
+      "password": {},
+      "private_key": {}
     }
   },
   "filters": {
@@ -274,12 +282,19 @@ Output:
       "azblobconfig": {
         "account_key": {}
       },
+      "cryptconfig": {
+        "passphrase": {}
+      },
       "gcsconfig": {
         "credentials": {}
       },
       "provider": 0,
       "s3config": {
         "access_secret": {}
+      },
+      "sftpconfig": {
+        "password": {},
+        "private_key": {}
       }
     },
     "filters": {

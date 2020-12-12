@@ -37,7 +37,7 @@ var maxTryTimeout = time.Hour * 24 * 365
 type AzureBlobFs struct {
 	connectionID   string
 	localTempDir   string
-	config         AzBlobFsConfig
+	config         *AzBlobFsConfig
 	svc            *azblob.ServiceURL
 	containerURL   azblob.ContainerURL
 	ctxTimeout     time.Duration
@@ -53,11 +53,11 @@ func NewAzBlobFs(connectionID, localTempDir string, config AzBlobFsConfig) (Fs, 
 	fs := &AzureBlobFs{
 		connectionID:   connectionID,
 		localTempDir:   localTempDir,
-		config:         config,
+		config:         &config,
 		ctxTimeout:     30 * time.Second,
 		ctxLongTimeout: 300 * time.Second,
 	}
-	if err := ValidateAzBlobFsConfig(&fs.config); err != nil {
+	if err := fs.config.Validate(); err != nil {
 		return fs, err
 	}
 	if fs.config.AccountKey.IsEncrypted() {
@@ -693,6 +693,11 @@ func (fs *AzureBlobFs) GetMimeType(name string) (string, error) {
 		return "", err
 	}
 	return response.ContentType(), nil
+}
+
+// Close closes the fs
+func (*AzureBlobFs) Close() error {
+	return nil
 }
 
 func (fs *AzureBlobFs) isEqual(key string, virtualName string) bool {

@@ -156,6 +156,7 @@ const (
 	GCSFilesystemProvider                                 // Google Cloud Storage
 	AzureBlobFilesystemProvider                           // Azure Blob Storage
 	CryptedFilesystemProvider                             // Local encrypted
+	SFTPFilesystemProvider                                // SFTP
 )
 
 // Filesystem defines cloud storage filesystem details
@@ -165,6 +166,7 @@ type Filesystem struct {
 	GCSConfig    vfs.GCSFsConfig    `json:"gcsconfig,omitempty"`
 	AzBlobConfig vfs.AzBlobFsConfig `json:"azblobconfig,omitempty"`
 	CryptConfig  vfs.CryptFsConfig  `json:"cryptconfig,omitempty"`
+	SFTPConfig   vfs.SFTPFsConfig   `json:"sftpconfig,omitempty"`
 }
 
 // User defines a SFTPGo user
@@ -234,6 +236,8 @@ func (u *User) GetFilesystem(connectionID string) (vfs.Fs, error) {
 		return vfs.NewAzBlobFs(connectionID, u.GetHomeDir(), u.FsConfig.AzBlobConfig)
 	case CryptedFilesystemProvider:
 		return vfs.NewCryptFs(connectionID, u.GetHomeDir(), u.FsConfig.CryptConfig)
+	case SFTPFilesystemProvider:
+		return vfs.NewSFTPFs(connectionID, u.FsConfig.SFTPConfig)
 	default:
 		return vfs.NewOsFs(connectionID, u.GetHomeDir(), u.VirtualFolders), nil
 	}
@@ -251,6 +255,9 @@ func (u *User) HideConfidentialData() {
 		u.FsConfig.AzBlobConfig.AccountKey.Hide()
 	case CryptedFilesystemProvider:
 		u.FsConfig.CryptConfig.Passphrase.Hide()
+	case SFTPFilesystemProvider:
+		u.FsConfig.SFTPConfig.Password.Hide()
+		u.FsConfig.SFTPConfig.PrivateKey.Hide()
 	}
 }
 
@@ -716,12 +723,17 @@ func (u *User) GetInfoString() string {
 		t := utils.GetTimeFromMsecSinceEpoch(u.LastLogin)
 		result += fmt.Sprintf("Last login: %v ", t.Format("2006-01-02 15:04:05")) // YYYY-MM-DD HH:MM:SS
 	}
-	if u.FsConfig.Provider == S3FilesystemProvider {
+	switch u.FsConfig.Provider {
+	case S3FilesystemProvider:
 		result += "Storage: S3 "
-	} else if u.FsConfig.Provider == GCSFilesystemProvider {
+	case GCSFilesystemProvider:
 		result += "Storage: GCS "
-	} else if u.FsConfig.Provider == AzureBlobFilesystemProvider {
+	case AzureBlobFilesystemProvider:
 		result += "Storage: Azure "
+	case CryptedFilesystemProvider:
+		result += "Storage: Encrypted "
+	case SFTPFilesystemProvider:
+		result += "Storage: SFTP "
 	}
 	if len(u.PublicKeys) > 0 {
 		result += fmt.Sprintf("Public keys: %v ", len(u.PublicKeys))
@@ -791,6 +803,12 @@ func (u *User) SetEmptySecretsIfNil() {
 	if u.FsConfig.CryptConfig.Passphrase == nil {
 		u.FsConfig.CryptConfig.Passphrase = kms.NewEmptySecret()
 	}
+	if u.FsConfig.SFTPConfig.Password == nil {
+		u.FsConfig.SFTPConfig.Password = kms.NewEmptySecret()
+	}
+	if u.FsConfig.SFTPConfig.PrivateKey == nil {
+		u.FsConfig.SFTPConfig.PrivateKey = kms.NewEmptySecret()
+	}
 }
 
 func (u *User) getACopy() User {
@@ -855,7 +873,15 @@ func (u *User) getACopy() User {
 		CryptConfig: vfs.CryptFsConfig{
 			Passphrase: u.FsConfig.CryptConfig.Passphrase.Clone(),
 		},
+		SFTPConfig: vfs.SFTPFsConfig{
+			Endpoint:   u.FsConfig.SFTPConfig.Endpoint,
+			Username:   u.FsConfig.SFTPConfig.Username,
+			Password:   u.FsConfig.SFTPConfig.Password.Clone(),
+			PrivateKey: u.FsConfig.SFTPConfig.PrivateKey.Clone(),
+			Prefix:     u.FsConfig.SFTPConfig.Prefix,
+		},
 	}
+	copy(fsConfig.SFTPConfig.Fingerprints, u.FsConfig.SFTPConfig.Fingerprints)
 
 	return User{
 		ID:                u.ID,

@@ -38,7 +38,7 @@ It can serve local filesystem, S3 (compatible) Object Storage, Google Cloud Stor
 - SCP and rsync are supported.
 - FTP/S is supported. You can configure the FTP service to require TLS for both control and data connections.
 - [WebDAV](./docs/webdav.md) is supported.
-- Support for serving local filesystem, S3 Compatible Object Storage and Google Cloud Storage over SFTP/SCP/FTP/WebDAV.
+- Support for serving local filesystem, S3 Compatible Object Storage, Google Cloud Storage, Azure Blob Storage or another SFTP server over SFTP/SCP/FTP/WebDAV.
 - Per user protocols restrictions. You can configure the allowed protocols (SSH/FTP/WebDAV) for each user.
 - [Prometheus metrics](./docs/metrics.md) are exposed.
 - Support for HAProxy PROXY protocol: you can proxy and/or load balance the SFTP/SCP/FTP/WebDAV service without losing the information about the client's address.
@@ -200,6 +200,14 @@ Each user can be mapped with a Google Cloud Storage bucket or a bucket virtual f
 ### Azure Blob Storage backend
 
 Each user can be mapped with an Azure Blob Storage container or a container virtual folder. This way, the mapped container/virtual folder is exposed over SFTP/SCP/FTP/WebDAV. More information about Azure Blob Storage integration can be found [here](./docs/azure-blob-storage.md).
+
+### SFTP backend
+
+Each user can be mapped to another SFTP server account or a subfolder of it. More information can be found [here](./docs/sftpfs.md).
+
+### Encrypted backend
+
+Data at-rest encryption is supported via the [cryptfs backend](./docs/dare.md).
 
 ### Other Storage backends
 
