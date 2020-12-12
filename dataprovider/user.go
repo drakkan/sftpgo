@@ -881,7 +881,10 @@ func (u *User) getACopy() User {
 			Prefix:     u.FsConfig.SFTPConfig.Prefix,
 		},
 	}
-	copy(fsConfig.SFTPConfig.Fingerprints, u.FsConfig.SFTPConfig.Fingerprints)
+	if len(u.FsConfig.SFTPConfig.Fingerprints) > 0 {
+		fsConfig.SFTPConfig.Fingerprints = make([]string, len(u.FsConfig.SFTPConfig.Fingerprints))
+		copy(fsConfig.SFTPConfig.Fingerprints, u.FsConfig.SFTPConfig.Fingerprints)
+	}
 
 	return User{
 		ID:                u.ID,
