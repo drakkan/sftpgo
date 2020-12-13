@@ -6438,44 +6438,56 @@ func TestSSHCommands(t *testing.T) {
 
 func TestSSHFileHash(t *testing.T) {
 	usePubKey := true
-	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	localUser, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
 	assert.NoError(t, err)
-	client, err := getSftpClient(user, usePubKey)
-	if assert.NoError(t, err) {
-		defer client.Close()
-		testFilePath := filepath.Join(homeBasePath, testFileName)
-		testFileSize := int64(65535)
-		err = createTestFile(testFilePath, testFileSize)
-		assert.NoError(t, err)
-		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
-		assert.NoError(t, err)
-		user.Permissions = make(map[string][]string)
-		user.Permissions["/"] = []string{dataprovider.PermUpload}
-		_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
-		assert.NoError(t, err)
-		_, err = runSSHCommand("sha512sum "+testFileName, user, usePubKey)
-		assert.Error(t, err, "hash command with no list permission must fail")
-
-		user.Permissions["/"] = []string{dataprovider.PermAny}
-		_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
-		assert.NoError(t, err)
-
-		initialHash, err := computeHashForFile(sha512.New(), testFilePath)
-		assert.NoError(t, err)
-
-		out, err := runSSHCommand("sha512sum "+testFileName, user, usePubKey)
+	sftpUser, _, err := httpd.AddUser(getTestSFTPUser(usePubKey), http.StatusOK)
+	assert.NoError(t, err)
+	u := getTestUserWithCryptFs(usePubKey)
+	u.Username = u.Username + "_crypt"
+	cryptUser, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	for _, user := range []dataprovider.User{localUser, sftpUser, cryptUser} {
+		client, err := getSftpClient(user, usePubKey)
 		if assert.NoError(t, err) {
-			assert.Contains(t, string(out), initialHash)
-		}
-		_, err = runSSHCommand("sha512sum invalid_path", user, usePubKey)
-		assert.Error(t, err, "hash for an invalid path must fail")
+			defer client.Close()
+			testFilePath := filepath.Join(homeBasePath, testFileName)
+			testFileSize := int64(65535)
+			err = createTestFile(testFilePath, testFileSize)
+			assert.NoError(t, err)
+			err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+			assert.NoError(t, err)
+			user.Permissions = make(map[string][]string)
+			user.Permissions["/"] = []string{dataprovider.PermUpload}
+			_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+			assert.NoError(t, err)
+			_, err = runSSHCommand("sha512sum "+testFileName, user, usePubKey)
+			assert.Error(t, err, "hash command with no list permission must fail")
 
-		err = os.Remove(testFilePath)
-		assert.NoError(t, err)
+			user.Permissions["/"] = []string{dataprovider.PermAny}
+			_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+			assert.NoError(t, err)
+
+			initialHash, err := computeHashForFile(sha512.New(), testFilePath)
+			assert.NoError(t, err)
+
+			out, err := runSSHCommand("sha512sum "+testFileName, user, usePubKey)
+			if assert.NoError(t, err) {
+				assert.Contains(t, string(out), initialHash)
+			}
+			_, err = runSSHCommand("sha512sum invalid_path", user, usePubKey)
+			assert.Error(t, err, "hash for an invalid path must fail")
+
+			err = os.Remove(testFilePath)
+			assert.NoError(t, err)
+		}
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
+	_, err = httpd.RemoveUser(cryptUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 }
 

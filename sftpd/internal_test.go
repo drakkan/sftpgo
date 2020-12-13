@@ -740,8 +740,6 @@ func TestSSHCommandsRemoteFs(t *testing.T) {
 		connection: connection,
 		args:       []string{},
 	}
-	err = cmd.handleHashCommands()
-	assert.Error(t, err, "command must fail for a non local filesystem")
 
 	command, err := cmd.getSystemCommand()
 	assert.NoError(t, err)

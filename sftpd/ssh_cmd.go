@@ -3,7 +3,6 @@ package sftpd
 import (
 	"crypto/md5"
 	"crypto/sha1"
-	"crypto/sha256"
 	"crypto/sha512"
 	"errors"
 	"fmt"
@@ -17,6 +16,7 @@ import (
 	"sync"
 
 	"github.com/google/shlex"
+	"github.com/minio/sha256-simd"
 	fscopy "github.com/otiai10/copy"
 	"golang.org/x/crypto/ssh"
 
@@ -258,9 +258,6 @@ func (c *sshCommand) updateQuota(sshDestPath string, filesNum int, filesSize int
 }
 
 func (c *sshCommand) handleHashCommands() error {
-	if !vfs.IsLocalOsFs(c.connection.Fs) {
-		return c.sendErrorResponse(errUnsupportedConfig)
-	}
 	var h hash.Hash
 	if c.command == "md5sum" {
 		h = md5.New()
@@ -296,7 +293,7 @@ func (c *sshCommand) handleHashCommands() error {
 		if !c.connection.User.HasPerm(dataprovider.PermListItems, sshPath) {
 			return c.sendErrorResponse(common.ErrPermissionDenied)
 		}
-		hash, err := computeHashForFile(h, fsPath)
+		hash, err := c.computeHashForFile(h, fsPath)
 		if err != nil {
 			return c.sendErrorResponse(err)
 		}
@@ -736,14 +733,20 @@ func (c *sshCommand) sendExitStatus(err error) {
 	}
 }
 
-func computeHashForFile(hasher hash.Hash, path string) (string, error) {
+func (c *sshCommand) computeHashForFile(hasher hash.Hash, path string) (string, error) {
 	hash := ""
-	f, err := os.Open(path)
+	f, r, _, err := c.connection.Fs.Open(path, 0)
 	if err != nil {
 		return hash, err
 	}
-	defer f.Close()
-	_, err = io.Copy(hasher, f)
+	var reader io.ReadCloser
+	if f != nil {
+		reader = f
+	} else {
+		reader = r
+	}
+	defer reader.Close()
+	_, err = io.Copy(hasher, reader)
 	if err == nil {
 		hash = fmt.Sprintf("%x", hasher.Sum(nil))
 	}
