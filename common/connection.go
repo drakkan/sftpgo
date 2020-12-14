@@ -20,6 +20,9 @@ import (
 
 // BaseConnection defines common fields for a connection using any supported protocol
 type BaseConnection struct {
+	// last activity for this connection.
+	// Since this is accessed atomically we put as first element of the struct achieve 64 bit alignment
+	lastActivity int64
 	// Unique identifier for the connection
 	ID string
 	// user associated with this connection if any
@@ -29,8 +32,6 @@ type BaseConnection struct {
 	protocol  string
 	Fs        vfs.Fs
 	sync.RWMutex
-	// last activity for this connection
-	lastActivity    int64
 	transferID      uint64
 	activeTransfers []ActiveTransfer
 }

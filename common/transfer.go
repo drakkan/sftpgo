@@ -21,20 +21,20 @@ var (
 // BaseTransfer contains protocols common transfer details for an upload or a download.
 type BaseTransfer struct { //nolint:maligned
 	ID             uint64
+	BytesSent      int64
+	BytesReceived  int64
 	Fs             vfs.Fs
 	File           vfs.File
 	Connection     *BaseConnection
 	cancelFn       func()
 	fsPath         string
+	requestPath    string
 	start          time.Time
-	transferType   int
+	MaxWriteSize   int64
 	MinWriteOffset int64
 	InitialSize    int64
 	isNewFile      bool
-	requestPath    string
-	BytesSent      int64
-	BytesReceived  int64
-	MaxWriteSize   int64
+	transferType   int
 	AbortTransfer  int32
 	sync.Mutex
 	ErrTransfer error
