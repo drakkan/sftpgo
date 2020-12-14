@@ -8,13 +8,13 @@
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
 Fully featured and highly configurable SFTP server with optional FTP/S and WebDAV support, written in Go.
-It can serve local filesystem, S3 (compatible) Object Storage, Google Cloud Storage and Azure Blob Storage.
+Several storage backends are supported: local filesystem, encrypted local filesystem, S3 (compatible) Object Storage, Google Cloud Storage, Azure Blob Storage, SFTP.
 
 ## Features
 
 - SFTPGo uses virtual accounts stored inside a "data provider".
 - SQLite, MySQL, PostgreSQL, bbolt (key/value store in pure Go) and in-memory data providers are supported.
-- Each account is chrooted to its home directory.
+- Each local account is chrooted in its home directory, for cloud-based accounts you can restrict access to a certain base path.
 - Public key and password authentication. Multiple public keys per user are supported.
 - SSH user [certificate authentication](https://cvsweb.openbsd.org/src/usr.bin/ssh/PROTOCOL.certkeys?rev=1.8).
 - Keyboard interactive authentication. You can easily setup a customizable multi-factor authentication.
@@ -38,7 +38,7 @@ It can serve local filesystem, S3 (compatible) Object Storage, Google Cloud Stor
 - SCP and rsync are supported.
 - FTP/S is supported. You can configure the FTP service to require TLS for both control and data connections.
 - [WebDAV](./docs/webdav.md) is supported.
-- Support for serving local filesystem, S3 Compatible Object Storage, Google Cloud Storage, Azure Blob Storage or another SFTP server over SFTP/SCP/FTP/WebDAV.
+- Support for serving local filesystem, encrypted local filesystem, S3 Compatible Object Storage, Google Cloud Storage, Azure Blob Storage or other SFTP accounts over SFTP/SCP/FTP/WebDAV.
 - Per user protocols restrictions. You can configure the allowed protocols (SSH/FTP/WebDAV) for each user.
 - [Prometheus metrics](./docs/metrics.md) are exposed.
 - Support for HAProxy PROXY protocol: you can proxy and/or load balance the SFTP/SCP/FTP/WebDAV service without losing the information about the client's address.
@@ -98,9 +98,7 @@ Check out [this documentation](./docs/service.md) if you want to run SFTPGo as a
 
 Before starting the SFTPGo server please ensure that the configured data provider is properly initialized/updated.
 
-SQL based data providers (SQLite, MySQL, PostgreSQL) require the creation of a database containing the required tables. Memory and bolt data providers do not require an initialization but they could require an update to the existing data after upgrading SFTPGo.
-
-For PostgreSQL and MySQL providers, you need to create the configured database.
+For PostgreSQL and MySQL providers, you need to create the configured database. For SQLite, the configured database will be automatically created at startup. Memory and bolt data providers do not require an initialization but they could require an update to the existing data after upgrading SFTPGo.
 
 SFTPGo will attempt to automatically detect if the data provider is initialized/updated and if not, will attempt to initialize/ update it on startup as needed.
 
@@ -124,7 +122,7 @@ If for some reason you want to downgrade SFTPGo, you may need to downgrade your 
 
 We support the follwing schema versions:
 
-- `6`, this is the current git master
+- `6`, this is the latest version
 - `4`, this is the schema for v1.0.0-v1.2.x
 
 So, if you plan to downgrade from git master to 1.2.x, you can prepare your data provider executing the following command from the configuration directory:
@@ -213,7 +211,7 @@ Data at-rest encryption is supported via the [cryptfs backend](./docs/dare.md).
 
 Adding new storage backends is quite easy:
 
-- implement the [Fs interface](./vfs/vfs.go#L18 "interface for filesystem backends").
+- implement the [Fs interface](./vfs/vfs.go#L28 "interface for filesystem backends").
 - update the user method `GetFilesystem` to return the new backend
 - update the web interface and the REST API CLI
 - add the flags for the new storage backed to the `portable` mode
