@@ -92,8 +92,8 @@ You can manually create the `/var/lib/sftpgo/.aws/credentials` file and write yo
 
 ```shell
 [default]
-aws_access_key_id=AKIAIOSFODNN7EXAMPLE
-aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+aws_access_key_id = AKIAIOSFODNN7EXAMPLE
+aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 ```
 
 Alternately you can install `AWS CLI` and manage the credential using this tool.
