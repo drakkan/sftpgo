@@ -98,8 +98,12 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 
 // ClientConnected is called to send the very first welcome message
 func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
+	if !common.Connections.IsNewConnectionAllowed() {
+		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection refused, configured limit reached")
+		return "", common.ErrConnectionDenied
+	}
 	if err := common.Config.ExecutePostConnectHook(cc.RemoteAddr().String(), common.ProtocolFTP); err != nil {
-		return common.ErrConnectionDenied.Error(), err
+		return "", err
 	}
 	connID := fmt.Sprintf("%v", cc.ID())
 	user := dataprovider.User{}

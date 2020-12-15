@@ -502,6 +502,29 @@ func TestPostConnectHook(t *testing.T) {
 	common.Config.PostConnectHook = ""
 }
 
+func TestMaxConnections(t *testing.T) {
+	oldValue := common.Config.MaxTotalConnections
+	common.Config.MaxTotalConnections = 1
+
+	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getFTPClient(user, true)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		_, err = getFTPClient(user, false)
+		assert.Error(t, err)
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	common.Config.MaxTotalConnections = oldValue
+}
+
 func TestMaxSessions(t *testing.T) {
 	u := getTestUser()
 	u.MaxSessions = 1

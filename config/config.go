@@ -65,9 +65,11 @@ func Init() {
 				ExecuteOn: []string{},
 				Hook:      "",
 			},
-			SetstatMode:   0,
-			ProxyProtocol: 0,
-			ProxyAllowed:  []string{},
+			SetstatMode:         0,
+			ProxyProtocol:       0,
+			ProxyAllowed:        []string{},
+			PostConnectHook:     "",
+			MaxTotalConnections: 0,
 		},
 		SFTPD: sftpd.Configuration{
 			Banner:                  defaultSFTPDBanner,
@@ -413,6 +415,7 @@ func setViperDefaults() {
 	viper.SetDefault("common.proxy_protocol", globalConf.Common.ProxyProtocol)
 	viper.SetDefault("common.proxy_allowed", globalConf.Common.ProxyAllowed)
 	viper.SetDefault("common.post_connect_hook", globalConf.Common.PostConnectHook)
+	viper.SetDefault("common.max_total_connections", globalConf.Common.MaxTotalConnections)
 	viper.SetDefault("sftpd.bind_port", globalConf.SFTPD.BindPort)
 	viper.SetDefault("sftpd.bind_address", globalConf.SFTPD.BindAddress)
 	viper.SetDefault("sftpd.max_auth_tries", globalConf.SFTPD.MaxAuthTries)

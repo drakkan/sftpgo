@@ -2441,6 +2441,31 @@ func TestQuotaDisabledError(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestMaxConnections(t *testing.T) {
+	oldValue := common.Config.MaxTotalConnections
+	common.Config.MaxTotalConnections = 1
+
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+		c, err := getSftpClient(user, usePubKey)
+		if !assert.Error(t, err, "max sessions exceeded, new login should not succeed") {
+			c.Close()
+		}
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	common.Config.MaxTotalConnections = oldValue
+}
+
 func TestMaxSessions(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)

@@ -277,23 +277,22 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 			logger.Error(logSender, "", "panic in AcceptInboundConnection: %#v stack strace: %v", r, string(debug.Stack()))
 		}
 	}()
+	if !common.Connections.IsNewConnectionAllowed() {
+		logger.Log(logger.LevelDebug, common.ProtocolSSH, "", "connection refused, configured limit reached")
+		conn.Close()
+		return
+	}
 	// Before beginning a handshake must be performed on the incoming net.Conn
 	// we'll set a Deadline for handshake to complete, the default is 2 minutes as OpenSSH
 	conn.SetDeadline(time.Now().Add(handshakeTimeout)) //nolint:errcheck
-	remoteAddr := conn.RemoteAddr()
-	if err := common.Config.ExecutePostConnectHook(remoteAddr.String(), common.ProtocolSSH); err != nil {
+	if err := common.Config.ExecutePostConnectHook(conn.RemoteAddr().String(), common.ProtocolSSH); err != nil {
 		conn.Close()
 		return
 	}
 	sconn, chans, reqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
 		logger.Debug(logSender, "", "failed to accept an incoming connection: %v", err)
-		if _, ok := err.(*ssh.ServerAuthError); !ok {
-			ip := utils.GetIPFromRemoteAddress(remoteAddr.String())
-			logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, common.ProtocolSSH, err.Error())
-			metrics.AddNoAuthTryed()
-			dataprovider.ExecutePostLoginHook("", dataprovider.LoginMethodNoAuthTryed, ip, common.ProtocolSSH, err)
-		}
+		checkAuthError(conn, err)
 		return
 	}
 	// handshake completed so remove the deadline, we'll use IdleTimeout configuration from now on
@@ -315,7 +314,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 
 	logger.Log(logger.LevelInfo, common.ProtocolSSH, connectionID,
 		"User id: %d, logged in with: %#v, username: %#v, home_dir: %#v remote addr: %#v",
-		user.ID, loginType, user.Username, user.HomeDir, remoteAddr.String())
+		user.ID, loginType, user.Username, user.HomeDir, conn.RemoteAddr().String())
 	dataprovider.UpdateLastLogin(user) //nolint:errcheck
 
 	sshConnection := common.NewSSHConnection(connectionID, conn)
@@ -354,13 +353,13 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 				switch req.Type {
 				case "subsystem":
 					if string(req.Payload[4:]) == "sftp" {
-						fs, err := user.GetFilesystem(connectionID)
+						fs, err := user.GetFilesystem(connID)
 						if err == nil {
 							ok = true
 							connection := Connection{
 								BaseConnection: common.NewBaseConnection(connID, common.ProtocolSFTP, user, fs),
 								ClientVersion:  string(sconn.ClientVersion()),
-								RemoteAddr:     remoteAddr,
+								RemoteAddr:     conn.RemoteAddr(),
 								channel:        channel,
 							}
 							go c.handleSftpConnection(channel, &connection)
@@ -368,12 +367,12 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 					}
 				case "exec":
 					// protocol will be set later inside processSSHCommand it could be SSH or SCP
-					fs, err := user.GetFilesystem(connectionID)
+					fs, err := user.GetFilesystem(connID)
 					if err == nil {
 						connection := Connection{
 							BaseConnection: common.NewBaseConnection(connID, "sshd_exec", user, fs),
 							ClientVersion:  string(sconn.ClientVersion()),
-							RemoteAddr:     remoteAddr,
+							RemoteAddr:     conn.RemoteAddr(),
 							channel:        channel,
 						}
 						ok = processSSHCommand(req.Payload, &connection, c.EnabledSSHCommands)
@@ -417,6 +416,15 @@ func (c *Configuration) createHandler(connection *Connection) sftp.Handlers {
 		FilePut:  connection,
 		FileCmd:  connection,
 		FileList: connection,
+	}
+}
+
+func checkAuthError(conn net.Conn, err error) {
+	if _, ok := err.(*ssh.ServerAuthError); !ok {
+		ip := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
+		logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, common.ProtocolSSH, err.Error())
+		metrics.AddNoAuthTryed()
+		dataprovider.ExecutePostLoginHook("", dataprovider.LoginMethodNoAuthTryed, ip, common.ProtocolSSH, err)
 	}
 }
 

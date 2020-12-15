@@ -9,7 +9,8 @@
     "setstat_mode": 0,
     "proxy_protocol": 0,
     "proxy_allowed": [],
-    "post_connect_hook": ""
+    "post_connect_hook": "",
+    "max_total_connections": 0
   },
   "sftpd": {
     "bind_port": 2022,

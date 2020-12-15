@@ -650,6 +650,31 @@ func TestPostConnectHook(t *testing.T) {
 	common.Config.PostConnectHook = ""
 }
 
+func TestMaxConnections(t *testing.T) {
+	oldValue := common.Config.MaxTotalConnections
+	common.Config.MaxTotalConnections = 1
+
+	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
+	assert.NoError(t, err)
+	client := getWebDavClient(user)
+	assert.NoError(t, checkBasicFunc(client))
+	// now add a fake connection
+	fs := vfs.NewOsFs("id", os.TempDir(), nil)
+	connection := &webdavd.Connection{
+		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, user, fs),
+	}
+	common.Connections.Add(connection)
+	assert.Error(t, checkBasicFunc(client))
+	common.Connections.Remove(connection.GetID())
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	assert.Len(t, common.Connections.GetStats(), 0)
+
+	common.Config.MaxTotalConnections = oldValue
+}
+
 func TestMaxSessions(t *testing.T) {
 	u := getTestUser()
 	u.MaxSessions = 1

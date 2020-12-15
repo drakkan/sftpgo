@@ -112,6 +112,11 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, common.ErrGenericFailure.Error(), http.StatusInternalServerError)
 		}
 	}()
+	if !common.Connections.IsNewConnectionAllowed() {
+		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection refused, configured limit reached")
+		http.Error(w, common.ErrConnectionDenied.Error(), http.StatusServiceUnavailable)
+		return
+	}
 	checkRemoteAddress(r)
 	if err := common.Config.ExecutePostConnectHook(r.RemoteAddr, common.ProtocolWebDAV); err != nil {
 		http.Error(w, common.ErrConnectionDenied.Error(), http.StatusForbidden)

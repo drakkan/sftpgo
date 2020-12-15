@@ -225,6 +225,26 @@ func TestSSHConnections(t *testing.T) {
 	assert.NoError(t, sshConn3.Close())
 }
 
+func TestMaxConnections(t *testing.T) {
+	oldValue := Config.MaxTotalConnections
+	Config.MaxTotalConnections = 1
+
+	assert.True(t, Connections.IsNewConnectionAllowed())
+	c := NewBaseConnection("id", ProtocolSFTP, dataprovider.User{}, nil)
+	fakeConn := &fakeConnection{
+		BaseConnection: c,
+	}
+	Connections.Add(fakeConn)
+	assert.Len(t, Connections.GetStats(), 1)
+	assert.False(t, Connections.IsNewConnectionAllowed())
+
+	res := Connections.Close(fakeConn.GetID())
+	assert.True(t, res)
+	assert.Eventually(t, func() bool { return len(Connections.GetStats()) == 0 }, 300*time.Millisecond, 50*time.Millisecond)
+
+	Config.MaxTotalConnections = oldValue
+}
+
 func TestIdleConnections(t *testing.T) {
 	configCopy := Config
 
@@ -310,6 +330,7 @@ func TestCloseConnection(t *testing.T) {
 	fakeConn := &fakeConnection{
 		BaseConnection: c,
 	}
+	assert.True(t, Connections.IsNewConnectionAllowed())
 	Connections.Add(fakeConn)
 	assert.Len(t, Connections.GetStats(), 1)
 	res := Connections.Close(fakeConn.GetID())

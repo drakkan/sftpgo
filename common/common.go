@@ -247,7 +247,9 @@ type Configuration struct {
 	// Absolute path to an external program or an HTTP URL to invoke after a user connects
 	// and before he tries to login. It allows you to reject the connection based on the source
 	// ip address. Leave empty do disable.
-	PostConnectHook       string `json:"post_connect_hook" mapstructure:"post_connect_hook"`
+	PostConnectHook string `json:"post_connect_hook" mapstructure:"post_connect_hook"`
+	// Maximum number of concurrent client connections. 0 means unlimited
+	MaxTotalConnections   int `json:"max_total_connections" mapstructure:"max_total_connections"`
 	idleTimeoutAsDuration time.Duration
 	idleLoginTimeout      time.Duration
 }
@@ -542,6 +544,18 @@ func (conns *ActiveConnections) checkIdles() {
 	}
 
 	conns.RUnlock()
+}
+
+// IsNewConnectionAllowed returns false if the maximum number of concurrent allowed connections is exceeded
+func (conns *ActiveConnections) IsNewConnectionAllowed() bool {
+	if Config.MaxTotalConnections == 0 {
+		return true
+	}
+
+	conns.RLock()
+	defer conns.RUnlock()
+
+	return len(conns.connections) < Config.MaxTotalConnections
 }
 
 // GetStats returns stats for active connections
