@@ -315,6 +315,12 @@ func TestSetGetConfig(t *testing.T) {
 	config.SetKMSConfig(kmsConf)
 	assert.Equal(t, kmsConf.Secrets.MasterKeyPath, config.GetKMSConfig().Secrets.MasterKeyPath)
 	assert.Equal(t, kmsConf.Secrets.URL, config.GetKMSConfig().Secrets.URL)
+	telemetryConf := config.GetTelemetryConfig()
+	telemetryConf.BindPort = 10001
+	telemetryConf.BindAddress = "0.0.0.0"
+	config.SetTelemetryConfig(telemetryConf)
+	assert.Equal(t, telemetryConf.BindPort, config.GetTelemetryConfig().BindPort)
+	assert.Equal(t, telemetryConf.BindAddress, config.GetTelemetryConfig().BindAddress)
 }
 
 func TestServiceToStart(t *testing.T) {
