@@ -1467,6 +1467,39 @@ func TestChtimes(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestChown(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("chown is not supported on Windows")
+	}
+	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getFTPClient(user, true)
+	if assert.NoError(t, err) {
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(131072)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.NoError(t, err)
+		code, response, err := client.SendCustomCommand(fmt.Sprintf("SITE CHOWN 1000:1000 %v", testFileName))
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusFileUnavailable, code)
+		assert.Equal(t, "Couldn't chown: operation unsupported", response)
+		err = client.Quit()
+		assert.NoError(t, err)
+
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+	}
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestChmod(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("chmod is partially supported on Windows")

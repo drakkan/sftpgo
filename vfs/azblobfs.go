@@ -194,7 +194,8 @@ func (fs *AzureBlobFs) Open(name string, offset int64) (File, *pipeat.PipeReader
 	}
 	blobBlockURL := fs.containerURL.NewBlockBlobURL(name)
 	ctx, cancelFn := context.WithCancel(context.Background())
-	blobDownloadResponse, err := blobBlockURL.Download(ctx, offset, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
+	blobDownloadResponse, err := blobBlockURL.Download(ctx, offset, azblob.CountToEnd, azblob.BlobAccessConditions{}, false,
+		azblob.ClientProvidedKeyOptions{})
 	if err != nil {
 		r.Close()
 		w.Close()
@@ -302,7 +303,7 @@ func (fs *AzureBlobFs) Rename(source, target string) error {
 	for copyStatus == azblob.CopyStatusPending {
 		// Poll until the copy is complete.
 		time.Sleep(500 * time.Millisecond)
-		propertiesResp, err := dstBlobURL.GetProperties(ctx, azblob.BlobAccessConditions{})
+		propertiesResp, err := dstBlobURL.GetProperties(ctx, azblob.BlobAccessConditions{}, azblob.ClientProvidedKeyOptions{})
 		if err != nil {
 			// A GetProperties failure may be transient, so allow a couple
 			// of them before giving up.
@@ -681,7 +682,7 @@ func (fs *AzureBlobFs) headObject(name string) (*azblob.BlobGetPropertiesRespons
 	defer cancelFn()
 
 	blobBlockURL := fs.containerURL.NewBlockBlobURL(name)
-	response, err := blobBlockURL.GetProperties(ctx, azblob.BlobAccessConditions{})
+	response, err := blobBlockURL.GetProperties(ctx, azblob.BlobAccessConditions{}, azblob.ClientProvidedKeyOptions{})
 	metrics.AZHeadObjectCompleted(err)
 	return response, err
 }
@@ -823,7 +824,8 @@ func (fs *AzureBlobFs) handleMultipartUpload(ctx context.Context, reader io.Read
 			innerCtx, cancelFn := context.WithDeadline(poolCtx, time.Now().Add(blockCtxTimeout))
 			defer cancelFn()
 
-			_, err := blockBlobURL.StageBlock(innerCtx, blockID, bufferReader, azblob.LeaseAccessConditions{}, nil)
+			_, err := blockBlobURL.StageBlock(innerCtx, blockID, bufferReader, azblob.LeaseAccessConditions{}, nil,
+				azblob.ClientProvidedKeyOptions{})
 			if err != nil {
 				errOnce.Do(func() {
 					poolError = err
@@ -845,7 +847,7 @@ func (fs *AzureBlobFs) handleMultipartUpload(ctx context.Context, reader io.Read
 	}
 
 	_, err := blockBlobURL.CommitBlockList(ctx, blocks, httpHeaders, azblob.Metadata{}, azblob.BlobAccessConditions{},
-		azblob.AccessTierType(fs.config.AccessTier), nil)
+		azblob.AccessTierType(fs.config.AccessTier), nil, azblob.ClientProvidedKeyOptions{})
 	return err
 }
 

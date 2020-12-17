@@ -92,7 +92,7 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 		IdleTimeout:              -1,
 		ConnectionTimeout:        20,
 		Banner:                   s.statusBanner,
-		TLSRequired:              s.config.TLSMode,
+		TLSRequired:              ftpserver.TLSRequirement(s.config.TLSMode),
 	}, nil
 }
 

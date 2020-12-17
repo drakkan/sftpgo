@@ -159,6 +159,24 @@ func (c *Connection) Name() string {
 	return c.GetID()
 }
 
+// Chown changes the uid and gid of the named file
+func (c *Connection) Chown(name string, uid, gid int) error {
+	c.UpdateLastActivity()
+
+	return common.ErrOpUnsupported
+	/*p, err := c.Fs.ResolvePath(name)
+	if err != nil {
+		return c.GetFsError(err)
+	}
+	attrs := common.StatAttributes{
+		Flags: common.StatAttrUIDGID,
+		UID:   uid,
+		GID:   gid,
+	}
+
+	return c.SetStat(p, name, &attrs)*/
+}
+
 // Chmod changes the mode of the named file/directory
 func (c *Connection) Chmod(name string, mode os.FileMode) error {
 	c.UpdateLastActivity()
