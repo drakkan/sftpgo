@@ -25,7 +25,7 @@ require (
 	github.com/miekg/dns v1.1.35 // indirect
 	github.com/minio/sha256-simd v0.1.1
 	github.com/minio/sio v0.2.1
-	github.com/otiai10/copy v1.3.0
+	github.com/otiai10/copy v1.3.1-0.20201217133640-745c20085b46
 	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/pires/go-proxyproto v0.3.3
 	github.com/pkg/sftp v1.12.1-0.20201128220914-b5b6f3393fe9
