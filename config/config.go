@@ -16,6 +16,7 @@ import (
 	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
+	"github.com/drakkan/sftpgo/telemetry"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/version"
 	"github.com/drakkan/sftpgo/webdavd"
@@ -38,14 +39,15 @@ var (
 )
 
 type globalConfig struct {
-	Common       common.Configuration  `json:"common" mapstructure:"common"`
-	SFTPD        sftpd.Configuration   `json:"sftpd" mapstructure:"sftpd"`
-	FTPD         ftpd.Configuration    `json:"ftpd" mapstructure:"ftpd"`
-	WebDAVD      webdavd.Configuration `json:"webdavd" mapstructure:"webdavd"`
-	ProviderConf dataprovider.Config   `json:"data_provider" mapstructure:"data_provider"`
-	HTTPDConfig  httpd.Conf            `json:"httpd" mapstructure:"httpd"`
-	HTTPConfig   httpclient.Config     `json:"http" mapstructure:"http"`
-	KMSConfig    kms.Configuration     `json:"kms" mapstructure:"kms"`
+	Common          common.Configuration  `json:"common" mapstructure:"common"`
+	SFTPD           sftpd.Configuration   `json:"sftpd" mapstructure:"sftpd"`
+	FTPD            ftpd.Configuration    `json:"ftpd" mapstructure:"ftpd"`
+	WebDAVD         webdavd.Configuration `json:"webdavd" mapstructure:"webdavd"`
+	ProviderConf    dataprovider.Config   `json:"data_provider" mapstructure:"data_provider"`
+	HTTPDConfig     httpd.Conf            `json:"httpd" mapstructure:"httpd"`
+	HTTPConfig      httpclient.Config     `json:"http" mapstructure:"http"`
+	KMSConfig       kms.Configuration     `json:"kms" mapstructure:"kms"`
+	TelemetryConfig telemetry.Conf        `json:"telemetry" mapstructure:"telemetry"`
 }
 
 func init() {
@@ -182,6 +184,10 @@ func Init() {
 				MasterKeyPath: "",
 			},
 		},
+		TelemetryConfig: telemetry.Conf{
+			BindPort:    10000,
+			BindAddress: "127.0.0.1",
+		},
 	}
 
 	viper.SetEnvPrefix(configEnvPrefix)
@@ -266,6 +272,16 @@ func GetKMSConfig() kms.Configuration {
 // SetKMSConfig sets the kms configuration
 func SetKMSConfig(config kms.Configuration) {
 	globalConf.KMSConfig = config
+}
+
+// GetTelemetryConfig returns the telemetry configuration
+func GetTelemetryConfig() telemetry.Conf {
+	return globalConf.TelemetryConfig
+}
+
+// SetTelemetryConfig sets the telemetry configuration
+func SetTelemetryConfig(config telemetry.Conf) {
+	globalConf.TelemetryConfig = config
 }
 
 // HasServicesToStart returns true if the config defines at least a service to start.
@@ -496,4 +512,6 @@ func setViperDefaults() {
 	viper.SetDefault("http.skip_tls_verify", globalConf.HTTPConfig.SkipTLSVerify)
 	viper.SetDefault("kms.secrets.url", globalConf.KMSConfig.Secrets.URL)
 	viper.SetDefault("kms.secrets.master_key_path", globalConf.KMSConfig.Secrets.MasterKeyPath)
+	viper.SetDefault("telemetry.bind_port", globalConf.TelemetryConfig.BindPort)
+	viper.SetDefault("telemetry.bind_address", globalConf.TelemetryConfig.BindAddress)
 }
