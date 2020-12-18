@@ -119,6 +119,10 @@
     "certificate_file": "",
     "certificate_key_file": ""
   },
+  "telemetry": {
+    "bind_port": 10000,
+    "bind_address": "127.0.0.1"
+  },
   "http": {
     "timeout": 20,
     "ca_certificates": [],

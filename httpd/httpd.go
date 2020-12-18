@@ -39,7 +39,6 @@ const (
 	updateUsedQuotaPath       = "/api/v1/quota_update"
 	updateFolderUsedQuotaPath = "/api/v1/folder_quota_update"
 	metricsPath               = "/metrics"
-	pprofBasePath             = "/debug"
 	webBasePath               = "/web"
 	webUsersPath              = "/web/users"
 	webUserPath               = "/web/user"
@@ -101,7 +100,7 @@ type apiResponse struct {
 }
 
 // Initialize configures and starts the HTTP server
-func (c Conf) Initialize(configDir string, enableProfiler bool) error {
+func (c Conf) Initialize(configDir string) error {
 	var err error
 	logger.Debug(logSender, "", "initializing HTTP server with config %+v", c)
 	backupsPath = getConfigPath(c.BackupsPath, configDir)
@@ -127,7 +126,7 @@ func (c Conf) Initialize(configDir string, enableProfiler bool) error {
 	} else {
 		logger.Info(logSender, "", "built-in web interface disabled, please set templates_path and static_files_path to enable it")
 	}
-	initializeRouter(staticFilesPath, enableProfiler, enableWebAdmin)
+	initializeRouter(staticFilesPath, enableWebAdmin)
 	httpServer := &http.Server{
 		Addr:           fmt.Sprintf("%s:%d", c.BindAddress, c.BindPort),
 		Handler:        router,

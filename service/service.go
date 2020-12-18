@@ -146,7 +146,7 @@ func (s *Service) startServices() {
 
 	if httpdConf.BindPort > 0 {
 		go func() {
-			if err := httpdConf.Initialize(s.ConfigDir, s.Profiler); err != nil {
+			if err := httpdConf.Initialize(s.ConfigDir); err != nil {
 				logger.Error(logSender, "", "could not start HTTP server: %v", err)
 				logger.ErrorToConsole("could not start HTTP server: %v", err)
 				s.Error = err

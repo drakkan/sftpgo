@@ -171,7 +171,7 @@ func TestMain(m *testing.M) {
 	}
 
 	go func() {
-		if err := httpdConf.Initialize(configDir, true); err != nil {
+		if err := httpdConf.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start HTTP server: %v", err)
 			os.Exit(1)
 		}
@@ -196,7 +196,7 @@ func TestMain(m *testing.M) {
 	httpdConf.CertificateKeyFile = keyPath
 
 	go func() {
-		if err := httpdConf.Initialize(configDir, true); err != nil {
+		if err := httpdConf.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start HTTPS server: %v", err)
 			os.Exit(1)
 		}
@@ -223,31 +223,31 @@ func TestInitialization(t *testing.T) {
 	httpdConf := config.GetHTTPDConfig()
 	httpdConf.BackupsPath = "test_backups"
 	httpdConf.AuthUserFile = invalidFile
-	err = httpdConf.Initialize(configDir, true)
+	err = httpdConf.Initialize(configDir)
 	assert.Error(t, err)
 	httpdConf.BackupsPath = backupsPath
 	httpdConf.AuthUserFile = ""
 	httpdConf.CertificateFile = invalidFile
 	httpdConf.CertificateKeyFile = invalidFile
-	err = httpdConf.Initialize(configDir, true)
+	err = httpdConf.Initialize(configDir)
 	assert.Error(t, err)
 	httpdConf.CertificateFile = ""
 	httpdConf.CertificateKeyFile = ""
 	httpdConf.TemplatesPath = "."
-	err = httpdConf.Initialize(configDir, true)
+	err = httpdConf.Initialize(configDir)
 	assert.Error(t, err)
 	err = httpd.ReloadTLSCertificate()
 	assert.NoError(t, err, "reloading TLS Certificate must return nil error if no certificate is configured")
 	httpdConf = config.GetHTTPDConfig()
 	httpdConf.BackupsPath = ".."
-	err = httpdConf.Initialize(configDir, true)
+	err = httpdConf.Initialize(configDir)
 	assert.Error(t, err)
 	httpdConf.BackupsPath = backupsPath
 	httpdConf.CertificateFile = invalidFile
 	httpdConf.CertificateKeyFile = invalidFile
 	httpdConf.StaticFilesPath = ""
 	httpdConf.TemplatesPath = ""
-	err = httpdConf.Initialize(configDir, true)
+	err = httpdConf.Initialize(configDir)
 	assert.Error(t, err)
 }
 
@@ -2963,12 +2963,6 @@ func TestHealthCheck(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 	assert.Equal(t, "ok", rr.Body.String())
-}
-
-func TestPProfEndPointMock(t *testing.T) {
-	req, _ := http.NewRequest(http.MethodGet, pprofPath, nil)
-	rr := executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr.Code)
 }
 
 func TestGetWebRootMock(t *testing.T) {
