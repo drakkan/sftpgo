@@ -52,7 +52,6 @@ const (
 	updateFolderUsedQuotaPath = "/api/v1/folder_quota_update"
 	versionPath               = "/api/v1/version"
 	metricsPath               = "/metrics"
-	pprofPath                 = "/debug/pprof/"
 	webBasePath               = "/web"
 	webUsersPath              = "/web/users"
 	webUserPath               = "/web/user"
