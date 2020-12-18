@@ -15,6 +15,7 @@ import (
 	"github.com/drakkan/sftpgo/ftpd"
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/telemetry"
 	"github.com/drakkan/sftpgo/webdavd"
 )
 

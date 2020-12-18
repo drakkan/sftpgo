@@ -90,8 +90,5 @@ func getCustomServeFlags() []string {
 	if logCompress != defaultLogCompress {
 		result = append(result, "--"+logCompressFlag+"=true")
 	}
-	if profiler != defaultProfiler {
-		result = append(result, "--"+profilerFlag+"=true")
-	}
 	return result
 }
