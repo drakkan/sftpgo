@@ -55,7 +55,7 @@ const (
 var (
 	router      *chi.Mux
 	backupsPath string
-	httpAuth    httpAuthProvider
+	httpAuth    common.HTTPAuthProvider
 	certMgr     *common.CertManager
 )
 
@@ -115,7 +115,7 @@ func (c Conf) Initialize(configDir string) error {
 			staticFilesPath, templatesPath)
 	}
 	authUserFile := getConfigPath(c.AuthUserFile, configDir)
-	httpAuth, err = newBasicAuthProvider(authUserFile)
+	httpAuth, err = common.NewBasicAuthProvider(authUserFile)
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func (c Conf) Initialize(configDir string) error {
 		IdleTimeout:    120 * time.Second,
 		MaxHeaderBytes: 1 << 16, // 64KB
 	}
-	if len(certificateFile) > 0 && len(certificateKeyFile) > 0 {
+	if certificateFile != "" && certificateKeyFile != "" {
 		certMgr, err = common.NewCertManager(certificateFile, certificateKeyFile, logSender)
 		if err != nil {
 			return err
@@ -162,7 +162,7 @@ func getConfigPath(name, configDir string) string {
 	if !utils.IsFileInputValid(name) {
 		return ""
 	}
-	if len(name) > 0 && !filepath.IsAbs(name) {
+	if name != "" && !filepath.IsAbs(name) {
 		return filepath.Join(configDir, name)
 	}
 	return name

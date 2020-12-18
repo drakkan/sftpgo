@@ -46,10 +46,10 @@ func sendHTTPRequest(method, url string, body io.Reader, contentType string) (*h
 	if err != nil {
 		return nil, err
 	}
-	if len(contentType) > 0 {
+	if contentType != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	if len(authUsername) > 0 || len(authPassword) > 0 {
+	if authUsername != "" || authPassword != "" {
 		req.SetBasicAuth(authUsername, authPassword)
 	}
 	return httpclient.GetHTTPClient().Do(req)

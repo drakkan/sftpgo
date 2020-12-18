@@ -11,6 +11,7 @@ import (
 	"github.com/drakkan/sftpgo/ftpd"
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/telemetry"
 	"github.com/drakkan/sftpgo/webdavd"
 )
 
@@ -34,7 +35,11 @@ func registerSigHup() {
 			}
 			err = webdavd.ReloadTLSCertificate()
 			if err != nil {
-				logger.Warn(logSender, "", "error reloading WebDav TLS certificate: %v", err)
+				logger.Warn(logSender, "", "error reloading WebDAV TLS certificate: %v", err)
+			}
+			err = telemetry.ReloadTLSCertificate()
+			if err != nil {
+				logger.Warn(logSender, "", "error reloading telemetry TLS certificate: %v", err)
 			}
 		}
 	}()

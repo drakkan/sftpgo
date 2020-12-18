@@ -39,7 +39,6 @@ type Service struct {
 	PortableUser      dataprovider.User
 	LogCompress       bool
 	LogVerbose        bool
-	Profiler          bool
 	LoadDataClean     bool
 	LoadDataFrom      string
 	LoadDataMode      int
@@ -65,8 +64,8 @@ func (s *Service) Start() error {
 		}
 	}
 	logger.Info(logSender, "", "starting SFTPGo %v, config dir: %v, config file: %v, log max size: %v log max backups: %v "+
-		"log max age: %v log verbose: %v, log compress: %v, profile: %v load data from: %#v", version.GetAsString(), s.ConfigDir, s.ConfigFile,
-		s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogVerbose, s.LogCompress, s.Profiler, s.LoadDataFrom)
+		"log max age: %v log verbose: %v, log compress: %v, load data from: %#v", version.GetAsString(), s.ConfigDir, s.ConfigFile,
+		s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogVerbose, s.LogCompress, s.LoadDataFrom)
 	// in portable mode we don't read configuration from file
 	if s.PortableMode != 1 {
 		err := config.LoadConfig(s.ConfigDir, s.ConfigFile)
@@ -185,7 +184,7 @@ func (s *Service) startServices() {
 	}
 	if telemetryConf.BindPort > 0 {
 		go func() {
-			if err := telemetryConf.Initialize(s.Profiler); err != nil {
+			if err := telemetryConf.Initialize(s.ConfigDir); err != nil {
 				logger.Error(logSender, "", "could not start telemetry server: %v", err)
 				logger.ErrorToConsole("could not start telemetry server: %v", err)
 				s.Error = err

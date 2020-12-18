@@ -591,7 +591,7 @@ func TestBasicAuth(t *testing.T) {
 	authUserData := []byte("test1:$2y$05$bcHSED7aO1cfLto6ZdDBOOKzlwftslVhtpIkRhAtSa4GuLmk5mola\n")
 	err := ioutil.WriteFile(authUserFile, authUserData, os.ModePerm)
 	assert.NoError(t, err)
-	httpAuth, _ = newBasicAuthProvider(authUserFile)
+	httpAuth, _ = common.NewBasicAuthProvider(authUserFile)
 	_, _, err = GetVersion(http.StatusUnauthorized)
 	assert.NoError(t, err)
 	SetBaseURLAndCredentials(httpBaseURL, "test1", "password1")
@@ -652,7 +652,7 @@ func TestBasicAuth(t *testing.T) {
 	err = os.Remove(authUserFile)
 	assert.NoError(t, err)
 	SetBaseURLAndCredentials(httpBaseURL, oldAuthUsername, oldAuthPassword)
-	httpAuth, _ = newBasicAuthProvider("")
+	httpAuth, _ = common.NewBasicAuthProvider("")
 }
 
 func TestCloseConnectionHandler(t *testing.T) {

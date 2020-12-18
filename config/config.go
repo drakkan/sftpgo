@@ -185,8 +185,12 @@ func Init() {
 			},
 		},
 		TelemetryConfig: telemetry.Conf{
-			BindPort:    10000,
-			BindAddress: "127.0.0.1",
+			BindPort:           10000,
+			BindAddress:        "127.0.0.1",
+			EnableProfiler:     false,
+			AuthUserFile:       "",
+			CertificateFile:    "",
+			CertificateKeyFile: "",
 		},
 	}
 
@@ -514,4 +518,8 @@ func setViperDefaults() {
 	viper.SetDefault("kms.secrets.master_key_path", globalConf.KMSConfig.Secrets.MasterKeyPath)
 	viper.SetDefault("telemetry.bind_port", globalConf.TelemetryConfig.BindPort)
 	viper.SetDefault("telemetry.bind_address", globalConf.TelemetryConfig.BindAddress)
+	viper.SetDefault("telemetry.enable_profiler", globalConf.TelemetryConfig.EnableProfiler)
+	viper.SetDefault("telemetry.auth_user_file", globalConf.TelemetryConfig.AuthUserFile)
+	viper.SetDefault("telemetry.certificate_file", globalConf.TelemetryConfig.CertificateFile)
+	viper.SetDefault("telemetry.certificate_key_file", globalConf.TelemetryConfig.CertificateKeyFile)
 }

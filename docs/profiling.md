@@ -1,7 +1,7 @@
 # Profiling SFTPGo
 
 The built-in profiler lets you collect CPU profiles, traces, allocations and heap profiles that allow to identify and correct specific bottlenecks.
-You can enable the built-in profiler using the `--profiler` command flag.
+You can enable the built-in profiler using `telemetry` configuration section inside the configuration file.
 
 Profiling data are exposed via HTTP/HTTPS in the format expected by the [pprof](https://github.com/google/pprof/blob/master/doc/README.md) visualization tool. You can find the index page at the URL `/debug/pprof/`.
 

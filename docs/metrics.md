@@ -1,6 +1,6 @@
 # Metrics
 
-SFTPGo exposes [Prometheus](https://prometheus.io/) metrics at the `/metrics` HTTP endpoint.
+SFTPGo exposes [Prometheus](https://prometheus.io/) metrics at the `/metrics` HTTP endpoint of the telemetry server.
 Several counters and gauges are available, for example:
 
 - Total uploads and downloads
@@ -16,3 +16,5 @@ Several counters and gauges are available, for example:
 - Process information like CPU, memory, file descriptor usage and start time
 
 Please check the `/metrics` page for more details.
+
+We expose the `/metrics` endpoint in both HTTP server and the telemetry server, you should use the one from the telemetry server. The HTTP server `/metrics` endpoint is deprecated and it will be removed in future releases.

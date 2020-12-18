@@ -28,8 +28,6 @@ const (
 	logCompressKey           = "log_compress"
 	logVerboseFlag           = "log-verbose"
 	logVerboseKey            = "log_verbose"
-	profilerFlag             = "profiler"
-	profilerKey              = "profiler"
 	loadDataFromFlag         = "loaddata-from"
 	loadDataFromKey          = "loaddata_from"
 	loadDataModeFlag         = "loaddata-mode"
@@ -46,7 +44,6 @@ const (
 	defaultLogMaxAge         = 28
 	defaultLogCompress       = false
 	defaultLogVerbose        = true
-	defaultProfiler          = false
 	defaultLoadDataFrom      = ""
 	defaultLoadDataMode      = 1
 	defaultLoadDataQuotaScan = 0
@@ -62,7 +59,6 @@ var (
 	logMaxAge         int
 	logCompress       bool
 	logVerbose        bool
-	profiler          bool
 	loadDataFrom      string
 	loadDataMode      int
 	loadDataQuotaScan int
@@ -182,16 +178,6 @@ It is unused if log-file-path is empty.
 using SFTPGO_LOG_VERBOSE env var too.
 `)
 	viper.BindPFlag(logVerboseKey, cmd.Flags().Lookup(logVerboseFlag)) //nolint:errcheck
-
-	viper.SetDefault(profilerKey, defaultProfiler)
-	viper.BindEnv(profilerKey, "SFTPGO_PROFILER") //nolint:errcheck
-	cmd.Flags().BoolVarP(&profiler, profilerFlag, "p", viper.GetBool(profilerKey),
-		`Enable the built-in profiler. The profiler will
-be accessible via HTTP/HTTPS using the base URL
-"/debug/pprof/".
-This flag can be set using SFTPGO_PROFILER env
-var too.`)
-	viper.BindPFlag(profilerKey, cmd.Flags().Lookup(profilerFlag)) //nolint:errcheck
 
 	viper.SetDefault(loadDataFromKey, defaultLoadDataFrom)
 	viper.BindEnv(loadDataFromKey, "SFTPGO_LOADDATA_FROM") //nolint:errcheck

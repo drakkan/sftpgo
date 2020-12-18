@@ -33,7 +33,6 @@ Please take a look at the usage below to customize the startup options`,
 				LoadDataMode:      loadDataMode,
 				LoadDataQuotaScan: loadDataQuotaScan,
 				LoadDataClean:     loadDataClean,
-				Profiler:          profiler,
 				Shutdown:          make(chan bool),
 			}
 			if err := service.Start(); err == nil {

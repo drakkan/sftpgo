@@ -163,6 +163,10 @@ The configuration file contains the following sections:
 - **"telemetry"**, the configuration for the telemetry server, more details [below](#telemetry-server)
   - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 10000
   - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "127.0.0.1"
+  - `enable_profiler`, boolean. Enable the built-in profiler. Default `false`
+  - `auth_user_file`, string. Path to a file used to store usernames and passwords for basic authentication. This can be an absolute path or a path relative to the config dir. We support HTTP basic authentication, and the file format must conform to the one generated using the Apache `htpasswd` tool. The supported password formats are bcrypt (`$2y$` prefix) and md5 crypt (`$apr1$` prefix). If empty, HTTP authentication is disabled. Authentication will be always disabled for the `/healthz` endpoint.
+  - `certificate_file`, string. Certificate for HTTPS. This can be an absolute path or a path relative to the config dir.
+  - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If both the certificate and the private key are provided, the server will expect HTTPS connections. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
 - **"http"**, the configuration for HTTP clients. HTTP clients are used for executing hooks such as the ones used for custom actions, external authentication and pre-login user modifications
   - `timeout`, integer. Timeout specifies a time limit, in seconds, for requests.
   - `ca_certificates`, list of strings. List of paths to extra CA certificates to trust. The paths can be absolute or relative to the config dir. Adding trusted CA certificates is a convenient way to use self-signed certificates without defeating the purpose of using TLS.

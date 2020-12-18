@@ -61,6 +61,7 @@ jobs:
           go test -v -p 1 -timeout 8m ./sftpd -covermode=atomic
           go test -v -p 1 -timeout 2m ./ftpd -covermode=atomic
           go test -v -p 1 -timeout 2m ./webdavd -covermode=atomic
+          go test -v -p 1 -timeout 2m ./telemetry -covermode=atomic
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: bolt
           SFTPGO_DATA_PROVIDER__NAME: 'sftpgo_bolt.db'
