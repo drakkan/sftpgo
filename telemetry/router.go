@@ -15,6 +15,7 @@ import (
 func initializeRouter(enableProfiler bool) {
 	router = chi.NewRouter()
 
+	router.Use(middleware.GetHead)
 	router.Use(middleware.Recoverer)
 
 	router.Group(func(r chi.Router) {

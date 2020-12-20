@@ -22,6 +22,8 @@ func GetHTTPRouter() http.Handler {
 func initializeRouter(staticFilesPath string, enableWebAdmin bool) {
 	router = chi.NewRouter()
 
+	router.Use(middleware.GetHead)
+
 	router.Group(func(r chi.Router) {
 		r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 			render.PlainText(w, r, "ok")
@@ -36,10 +38,6 @@ func initializeRouter(staticFilesPath string, enableWebAdmin bool) {
 
 		router.NotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			sendAPIResponse(w, r, nil, "Not Found", http.StatusNotFound)
-		}))
-
-		router.MethodNotAllowed(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			sendAPIResponse(w, r, nil, "Method not allowed", http.StatusMethodNotAllowed)
 		}))
 
 		router.Get("/", func(w http.ResponseWriter, r *http.Request) {
