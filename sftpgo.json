@@ -13,8 +13,13 @@
     "max_total_connections": 0
   },
   "sftpd": {
-    "bind_port": 2022,
-    "bind_address": "",
+    "bindings": [
+      {
+        "port": 2022,
+        "address": "",
+        "apply_proxy_config": true
+      }
+    ],
     "max_auth_tries": 0,
     "banner": "",
     "host_keys": [],
@@ -34,23 +39,33 @@
     "password_authentication": true
   },
   "ftpd": {
-    "bind_port": 0,
-    "bind_address": "",
+    "bindings": [
+      {
+        "address": "",
+        "port": 0,
+        "apply_proxy_config": true,
+        "tls_mode": 0,
+        "force_passive_ip": ""
+      }
+    ],
     "banner": "",
     "banner_file": "",
-    "active_transfers_port_non_20": false,
-    "force_passive_ip": "",
+    "active_transfers_port_non_20": true,
     "passive_port_range": {
       "start": 50000,
       "end": 50100
     },
     "certificate_file": "",
-    "certificate_key_file": "",
-    "tls_mode": 0
+    "certificate_key_file": ""
   },
   "webdavd": {
-    "bind_port": 0,
-    "bind_address": "",
+    "bindings": [
+      {
+        "address": "",
+        "port": 0,
+        "enable_https": false
+      }
+    ],
     "certificate_file": "",
     "certificate_key_file": "",
     "cors": {

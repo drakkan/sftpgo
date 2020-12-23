@@ -53,13 +53,9 @@ func newServer(config *Configuration, configDir string) (*webDavServer, error) {
 	return server, nil
 }
 
-func (s *webDavServer) listenAndServe() error {
-	addr := fmt.Sprintf("%s:%d", s.config.BindAddress, s.config.BindPort)
-	s.status.IsActive = true
-	s.status.Address = addr
-	s.status.Protocol = "HTTP"
+func (s *webDavServer) listenAndServe(binding Binding) error {
 	httpServer := &http.Server{
-		Addr:              addr,
+		Addr:              binding.GetAddress(),
 		Handler:           server,
 		ReadHeaderTimeout: 30 * time.Second,
 		IdleTimeout:       120 * time.Second,
@@ -76,17 +72,17 @@ func (s *webDavServer) listenAndServe() error {
 			OptionsPassthrough: true,
 		})
 		httpServer.Handler = c.Handler(server)
-	} else {
-		httpServer.Handler = server
 	}
-	if s.certMgr != nil {
-		s.status.Protocol = "HTTPS"
+	if s.certMgr != nil && binding.EnableHTTPS {
+		server.status.Bindings = append(server.status.Bindings, binding)
 		httpServer.TLSConfig = &tls.Config{
 			GetCertificate: s.certMgr.GetCertificateFunc(),
 			MinVersion:     tls.VersionTLS12,
 		}
 		return httpServer.ListenAndServeTLS("", "")
 	}
+	binding.EnableHTTPS = false
+	server.status.Bindings = append(server.status.Bindings, binding)
 	return httpServer.ListenAndServe()
 }
 

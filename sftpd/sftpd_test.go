@@ -190,7 +190,12 @@ func TestMain(m *testing.M) {
 
 	sftpdConf := config.GetSFTPDConfig()
 	httpdConf := config.GetHTTPDConfig()
-	sftpdConf.BindPort = 2022
+	sftpdConf.Bindings = []sftpd.Binding{
+		{
+			Port:             2022,
+			ApplyProxyConfig: true,
+		},
+	}
 	sftpdConf.KexAlgorithms = []string{"curve25519-sha256@libssh.org", "ecdh-sha2-nistp256",
 		"ecdh-sha2-nistp384"}
 	sftpdConf.Ciphers = []string{"chacha20-poly1305@openssh.com", "aes128-gcm@openssh.com",
@@ -250,10 +255,15 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
-	waitTCPListening(fmt.Sprintf("%s:%d", sftpdConf.BindAddress, sftpdConf.BindPort))
+	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
 
-	sftpdConf.BindPort = 2222
+	sftpdConf.Bindings = []sftpd.Binding{
+		{
+			Port:             2222,
+			ApplyProxyConfig: true,
+		},
+	}
 	sftpdConf.PasswordAuthentication = false
 	common.Config.ProxyProtocol = 1
 	go func() {
@@ -265,9 +275,14 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
-	waitTCPListening(fmt.Sprintf("%s:%d", sftpdConf.BindAddress, sftpdConf.BindPort))
+	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 
-	sftpdConf.BindPort = 2224
+	sftpdConf.Bindings = []sftpd.Binding{
+		{
+			Port:             2224,
+			ApplyProxyConfig: true,
+		},
+	}
 	sftpdConf.PasswordAuthentication = true
 	common.Config.ProxyProtocol = 2
 	go func() {
@@ -279,7 +294,7 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
-	waitTCPListening(fmt.Sprintf("%s:%d", sftpdConf.BindAddress, sftpdConf.BindPort))
+	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 	getHostKeysFingerprints(sftpdConf.HostKeys)
 
 	exitCode := m.Run()
@@ -301,7 +316,15 @@ func TestInitialization(t *testing.T) {
 	err := config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	sftpdConf := config.GetSFTPDConfig()
-	sftpdConf.BindPort = 2022
+	sftpdConf.Bindings = []sftpd.Binding{
+		{
+			Port:             2022,
+			ApplyProxyConfig: true,
+		},
+		{
+			Port: 0,
+		},
+	}
 	sftpdConf.LoginBannerFile = "invalid_file"
 	sftpdConf.EnabledSSHCommands = append(sftpdConf.EnabledSSHCommands, "ls")
 	err = sftpdConf.Initialize(configDir)
@@ -312,9 +335,15 @@ func TestInitialization(t *testing.T) {
 	sftpdConf.KeyboardInteractiveHook = filepath.Join(homeBasePath, "invalid_file")
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
-	sftpdConf.BindPort = 4444
+	sftpdConf.Bindings = []sftpd.Binding{
+		{
+			Port:             4444,
+			ApplyProxyConfig: true,
+		},
+	}
 	common.Config.ProxyProtocol = 1
 	common.Config.ProxyAllowed = []string{"1270.0.0.1"}
+	assert.True(t, sftpdConf.Bindings[0].HasProxy())
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
 	sftpdConf.HostKeys = []string{"missing key"}
@@ -324,6 +353,9 @@ func TestInitialization(t *testing.T) {
 	sftpdConf.TrustedUserCAKeys = []string{"missing ca key"}
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
+	sftpdConf.Bindings = nil
+	err = sftpdConf.Initialize(configDir)
+	assert.EqualError(t, err, common.ErrNoBinding.Error())
 }
 
 func TestBasicSFTPHandling(t *testing.T) {

@@ -45,7 +45,7 @@ func (c *Connection) GetRemoteAddress() string {
 
 // Disconnect disconnects the client
 func (c *Connection) Disconnect() error {
-	return c.clientContext.Close(ftpserver.StatusServiceNotAvailable, "connection closed")
+	return c.clientContext.Close(0, "")
 }
 
 // GetCommand returns an empty string

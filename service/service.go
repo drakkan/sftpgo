@@ -129,7 +129,7 @@ func (s *Service) startServices() {
 	webDavDConf := config.GetWebDAVDConfig()
 	telemetryConf := config.GetTelemetryConfig()
 
-	if sftpdConf.BindPort > 0 {
+	if sftpdConf.ShouldBind() {
 		go func() {
 			logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
 			if err := sftpdConf.Initialize(s.ConfigDir); err != nil {
@@ -158,7 +158,7 @@ func (s *Service) startServices() {
 			logger.DebugToConsole("HTTP server not started, disabled in config file")
 		}
 	}
-	if ftpdConf.BindPort > 0 {
+	if ftpdConf.ShouldBind() {
 		go func() {
 			if err := ftpdConf.Initialize(s.ConfigDir); err != nil {
 				logger.Error(logSender, "", "could not start FTP server: %v", err)
@@ -170,7 +170,7 @@ func (s *Service) startServices() {
 	} else {
 		logger.Debug(logSender, "", "FTP server not started, disabled in config file")
 	}
-	if webDavDConf.BindPort > 0 {
+	if webDavDConf.ShouldBind() {
 		go func() {
 			if err := webDavDConf.Initialize(s.ConfigDir); err != nil {
 				logger.Error(logSender, "", "could not start WebDAV server: %v", err)

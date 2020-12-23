@@ -3,7 +3,9 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -33,9 +35,24 @@ const (
 )
 
 var (
-	globalConf         globalConfig
-	defaultSFTPDBanner = fmt.Sprintf("SFTPGo_%v", version.Get().Version)
-	defaultFTPDBanner  = fmt.Sprintf("SFTPGo %v ready", version.Get().Version)
+	globalConf          globalConfig
+	defaultSFTPDBanner  = fmt.Sprintf("SFTPGo_%v", version.Get().Version)
+	defaultFTPDBanner   = fmt.Sprintf("SFTPGo %v ready", version.Get().Version)
+	defaultSFTPDBinding = sftpd.Binding{
+		Address:          "",
+		Port:             2022,
+		ApplyProxyConfig: true,
+	}
+	defaultFTPDBinding = ftpd.Binding{
+		Address:          "",
+		Port:             0,
+		ApplyProxyConfig: true,
+	}
+	defaultWebDAVDBinding = webdavd.Binding{
+		Address:     "",
+		Port:        0,
+		EnableHTTPS: false,
+	}
 )
 
 type globalConfig struct {
@@ -75,8 +92,7 @@ func Init() {
 		},
 		SFTPD: sftpd.Configuration{
 			Banner:                  defaultSFTPDBanner,
-			BindPort:                2022,
-			BindAddress:             "",
+			Bindings:                []sftpd.Binding{defaultSFTPDBinding},
 			MaxAuthTries:            0,
 			HostKeys:                []string{},
 			KexAlgorithms:           []string{},
@@ -89,12 +105,10 @@ func Init() {
 			PasswordAuthentication:  true,
 		},
 		FTPD: ftpd.Configuration{
-			BindPort:                 0,
-			BindAddress:              "",
+			Bindings:                 []ftpd.Binding{defaultFTPDBinding},
 			Banner:                   defaultFTPDBanner,
 			BannerFile:               "",
-			ActiveTransfersPortNon20: false,
-			ForcePassiveIP:           "",
+			ActiveTransfersPortNon20: true,
 			PassivePortRange: ftpd.PortRange{
 				Start: 50000,
 				End:   50100,
@@ -103,8 +117,7 @@ func Init() {
 			CertificateKeyFile: "",
 		},
 		WebDAVD: webdavd.Configuration{
-			BindPort:           0,
-			BindAddress:        "",
+			Bindings:           []webdavd.Binding{defaultWebDAVDBinding},
 			CertificateFile:    "",
 			CertificateKeyFile: "",
 			Cors: webdavd.Cors{
@@ -291,13 +304,13 @@ func SetTelemetryConfig(config telemetry.Conf) {
 // HasServicesToStart returns true if the config defines at least a service to start.
 // Supported services are SFTP, FTP and WebDAV
 func HasServicesToStart() bool {
-	if globalConf.SFTPD.BindPort > 0 {
+	if globalConf.SFTPD.ShouldBind() {
 		return true
 	}
-	if globalConf.FTPD.BindPort > 0 {
+	if globalConf.FTPD.ShouldBind() {
 		return true
 	}
-	if globalConf.WebDAVD.BindPort > 0 {
+	if globalConf.WebDAVD.ShouldBind() {
 		return true
 	}
 	return false
@@ -340,6 +353,8 @@ func LoadConfig(configDir, configFile string) error {
 		logger.WarnToConsole("error parsing configuration file: %v", err)
 		return err
 	}
+	// viper only supports slice of strings from env vars, so we use our custom method
+	loadBindingsFromEnv()
 	checkCommonParamsCompatibility()
 	if strings.TrimSpace(globalConf.SFTPD.Banner) == "" {
 		globalConf.SFTPD.Banner = defaultSFTPDBanner
@@ -426,6 +441,199 @@ func checkCommonParamsCompatibility() {
 	}
 }
 
+func checkSFTPDBindingsCompatibility() {
+	if len(globalConf.SFTPD.Bindings) > 0 {
+		return
+	}
+
+	// we copy deprecated fields to new ones to keep backward compatibility so lint is disabled
+	binding := sftpd.Binding{
+		ApplyProxyConfig: true,
+	}
+	if globalConf.SFTPD.BindPort > 0 { //nolint:staticcheck
+		binding.Port = globalConf.SFTPD.BindPort //nolint:staticcheck
+	}
+	if globalConf.SFTPD.BindAddress != "" { //nolint:staticcheck
+		binding.Address = globalConf.SFTPD.BindAddress //nolint:staticcheck
+	}
+
+	globalConf.SFTPD.Bindings = append(globalConf.SFTPD.Bindings, binding)
+}
+
+func checkFTPDBindingCompatibility() {
+	if len(globalConf.FTPD.Bindings) > 0 {
+		return
+	}
+
+	binding := ftpd.Binding{
+		ApplyProxyConfig: true,
+	}
+
+	if globalConf.FTPD.BindPort > 0 { //nolint:staticcheck
+		binding.Port = globalConf.FTPD.BindPort //nolint:staticcheck
+	}
+	if globalConf.FTPD.BindAddress != "" { //nolint:staticcheck
+		binding.Address = globalConf.FTPD.BindAddress //nolint:staticcheck
+	}
+	if globalConf.FTPD.TLSMode > 0 { //nolint:staticcheck
+		binding.TLSMode = globalConf.FTPD.TLSMode //nolint:staticcheck
+	}
+	if globalConf.FTPD.ForcePassiveIP != "" { //nolint:staticcheck
+		binding.ForcePassiveIP = globalConf.FTPD.ForcePassiveIP //nolint:staticcheck
+	}
+
+	globalConf.FTPD.Bindings = append(globalConf.FTPD.Bindings, binding)
+}
+
+func checkWebDAVDBindingCompatibility() {
+	if len(globalConf.WebDAVD.Bindings) > 0 {
+		return
+	}
+
+	binding := webdavd.Binding{
+		EnableHTTPS: globalConf.WebDAVD.CertificateFile != "" && globalConf.WebDAVD.CertificateKeyFile != "",
+	}
+
+	if globalConf.WebDAVD.BindPort > 0 { //nolint:staticcheck
+		binding.Port = globalConf.WebDAVD.BindPort //nolint:staticcheck
+	}
+	if globalConf.WebDAVD.BindAddress != "" { //nolint:staticcheck
+		binding.Address = globalConf.WebDAVD.BindAddress //nolint:staticcheck
+	}
+
+	globalConf.WebDAVD.Bindings = append(globalConf.WebDAVD.Bindings, binding)
+}
+
+func loadBindingsFromEnv() {
+	checkSFTPDBindingsCompatibility()
+	checkFTPDBindingCompatibility()
+	checkWebDAVDBindingCompatibility()
+
+	maxBindings := make([]int, 10)
+	for idx := range maxBindings {
+		getSFTPDBindindFromEnv(idx)
+		getFTPDBindingFromEnv(idx)
+		getWebDAVDBindingFromEnv(idx)
+	}
+}
+
+func getSFTPDBindindFromEnv(idx int) {
+	binding := sftpd.Binding{}
+	if len(globalConf.SFTPD.Bindings) > idx {
+		binding = globalConf.SFTPD.Bindings[idx]
+	}
+
+	isSet := false
+
+	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_SFTPD__BINDINGS__%v__PORT", idx))
+	if ok {
+		binding.Port = port
+		isSet = true
+	}
+
+	address, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_SFTPD__BINDINGS__%v__ADDRESS", idx))
+	if ok {
+		binding.Address = address
+		isSet = true
+	}
+
+	applyProxyConfig, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_SFTPD__BINDINGS__%v__APPLY_PROXY_CONFIG", idx))
+	if ok {
+		binding.ApplyProxyConfig = applyProxyConfig
+		isSet = true
+	}
+
+	if isSet {
+		if len(globalConf.SFTPD.Bindings) > idx {
+			globalConf.SFTPD.Bindings[idx] = binding
+		} else {
+			globalConf.SFTPD.Bindings = append(globalConf.SFTPD.Bindings, binding)
+		}
+	}
+}
+
+func getFTPDBindingFromEnv(idx int) {
+	binding := ftpd.Binding{}
+	if len(globalConf.FTPD.Bindings) > idx {
+		binding = globalConf.FTPD.Bindings[idx]
+	}
+
+	isSet := false
+
+	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__PORT", idx))
+	if ok {
+		binding.Port = port
+		isSet = true
+	}
+
+	address, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__ADDRESS", idx))
+	if ok {
+		binding.Address = address
+		isSet = true
+	}
+
+	applyProxyConfig, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__APPLY_PROXY_CONFIG", idx))
+	if ok {
+		binding.ApplyProxyConfig = applyProxyConfig
+		isSet = true
+	}
+
+	tlsMode, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__TLS_MODE", idx))
+	if ok {
+		binding.TLSMode = tlsMode
+		isSet = true
+	}
+
+	passiveIP, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__FORCE_PASSIVE_IP", idx))
+	if ok {
+		binding.ForcePassiveIP = passiveIP
+		isSet = true
+	}
+
+	if isSet {
+		if len(globalConf.FTPD.Bindings) > idx {
+			globalConf.FTPD.Bindings[idx] = binding
+		} else {
+			globalConf.FTPD.Bindings = append(globalConf.FTPD.Bindings, binding)
+		}
+	}
+}
+
+func getWebDAVDBindingFromEnv(idx int) {
+	binding := webdavd.Binding{}
+	if len(globalConf.WebDAVD.Bindings) > idx {
+		binding = globalConf.WebDAVD.Bindings[idx]
+	}
+
+	isSet := false
+
+	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__PORT", idx))
+	if ok {
+		binding.Port = port
+		isSet = true
+	}
+
+	address, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__ADDRESS", idx))
+	if ok {
+		binding.Address = address
+		isSet = true
+	}
+
+	enableHTTPS, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__ENABLE_HTTPS", idx))
+	if ok {
+		binding.EnableHTTPS = enableHTTPS
+		isSet = true
+	}
+
+	if isSet {
+		if len(globalConf.WebDAVD.Bindings) > idx {
+			globalConf.WebDAVD.Bindings[idx] = binding
+		} else {
+			globalConf.WebDAVD.Bindings = append(globalConf.WebDAVD.Bindings, binding)
+		}
+	}
+}
+
 func setViperDefaults() {
 	viper.SetDefault("common.idle_timeout", globalConf.Common.IdleTimeout)
 	viper.SetDefault("common.upload_mode", globalConf.Common.UploadMode)
@@ -436,8 +644,6 @@ func setViperDefaults() {
 	viper.SetDefault("common.proxy_allowed", globalConf.Common.ProxyAllowed)
 	viper.SetDefault("common.post_connect_hook", globalConf.Common.PostConnectHook)
 	viper.SetDefault("common.max_total_connections", globalConf.Common.MaxTotalConnections)
-	viper.SetDefault("sftpd.bind_port", globalConf.SFTPD.BindPort)
-	viper.SetDefault("sftpd.bind_address", globalConf.SFTPD.BindAddress)
 	viper.SetDefault("sftpd.max_auth_tries", globalConf.SFTPD.MaxAuthTries)
 	viper.SetDefault("sftpd.banner", globalConf.SFTPD.Banner)
 	viper.SetDefault("sftpd.host_keys", globalConf.SFTPD.HostKeys)
@@ -449,19 +655,13 @@ func setViperDefaults() {
 	viper.SetDefault("sftpd.enabled_ssh_commands", globalConf.SFTPD.EnabledSSHCommands)
 	viper.SetDefault("sftpd.keyboard_interactive_auth_hook", globalConf.SFTPD.KeyboardInteractiveHook)
 	viper.SetDefault("sftpd.password_authentication", globalConf.SFTPD.PasswordAuthentication)
-	viper.SetDefault("ftpd.bind_port", globalConf.FTPD.BindPort)
-	viper.SetDefault("ftpd.bind_address", globalConf.FTPD.BindAddress)
 	viper.SetDefault("ftpd.banner", globalConf.FTPD.Banner)
 	viper.SetDefault("ftpd.banner_file", globalConf.FTPD.BannerFile)
 	viper.SetDefault("ftpd.active_transfers_port_non_20", globalConf.FTPD.ActiveTransfersPortNon20)
-	viper.SetDefault("ftpd.force_passive_ip", globalConf.FTPD.ForcePassiveIP)
 	viper.SetDefault("ftpd.passive_port_range.start", globalConf.FTPD.PassivePortRange.Start)
 	viper.SetDefault("ftpd.passive_port_range.end", globalConf.FTPD.PassivePortRange.End)
 	viper.SetDefault("ftpd.certificate_file", globalConf.FTPD.CertificateFile)
 	viper.SetDefault("ftpd.certificate_key_file", globalConf.FTPD.CertificateKeyFile)
-	viper.SetDefault("ftpd.tls_mode", globalConf.FTPD.TLSMode)
-	viper.SetDefault("webdavd.bind_port", globalConf.WebDAVD.BindPort)
-	viper.SetDefault("webdavd.bind_address", globalConf.WebDAVD.BindAddress)
 	viper.SetDefault("webdavd.certificate_file", globalConf.WebDAVD.CertificateFile)
 	viper.SetDefault("webdavd.certificate_key_file", globalConf.WebDAVD.CertificateKeyFile)
 	viper.SetDefault("webdavd.cors.enabled", globalConf.WebDAVD.Cors.Enabled)
@@ -522,4 +722,28 @@ func setViperDefaults() {
 	viper.SetDefault("telemetry.auth_user_file", globalConf.TelemetryConfig.AuthUserFile)
 	viper.SetDefault("telemetry.certificate_file", globalConf.TelemetryConfig.CertificateFile)
 	viper.SetDefault("telemetry.certificate_key_file", globalConf.TelemetryConfig.CertificateKeyFile)
+}
+
+func lookupBoolFromEnv(envName string) (bool, bool) {
+	value, ok := os.LookupEnv(envName)
+	if ok {
+		converted, err := strconv.ParseBool(value)
+		if err == nil {
+			return converted, ok
+		}
+	}
+
+	return false, false
+}
+
+func lookupIntFromEnv(envName string) (int, bool) {
+	value, ok := os.LookupEnv(envName)
+	if ok {
+		converted, err := strconv.ParseInt(value, 10, 16)
+		if err == nil {
+			return int(converted), ok
+		}
+	}
+
+	return 0, false
 }

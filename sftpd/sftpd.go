@@ -38,7 +38,7 @@ type HostKey struct {
 // ServiceStatus defines the service status
 type ServiceStatus struct {
 	IsActive    bool      `json:"is_active"`
-	Address     string    `json:"address"`
+	Bindings    []Binding `json:"bindings"`
 	SSHCommands string    `json:"ssh_commands"`
 	HostKeys    []HostKey `json:"host_keys"`
 }

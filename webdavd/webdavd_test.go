@@ -32,6 +32,7 @@ import (
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/vfs"
 	"github.com/drakkan/sftpgo/webdavd"
 )
@@ -143,11 +144,19 @@ func TestMain(m *testing.M) {
 
 	// required to test sftpfs
 	sftpdConf := config.GetSFTPDConfig()
-	sftpdConf.BindPort = 9022
+	sftpdConf.Bindings = []sftpd.Binding{
+		{
+			Port: 9022,
+		},
+	}
 	sftpdConf.HostKeys = []string{filepath.Join(os.TempDir(), "id_ecdsa")}
 
 	webDavConf := config.GetWebDAVDConfig()
-	webDavConf.BindPort = webDavServerPort
+	webDavConf.Bindings = []webdavd.Binding{
+		{
+			Port: webDavServerPort,
+		},
+	}
 	webDavConf.Cors = webdavd.Cors{
 		Enabled:        true,
 		AllowedOrigins: []string{"*"},
@@ -196,9 +205,9 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
-	waitTCPListening(fmt.Sprintf("%s:%d", webDavConf.BindAddress, webDavConf.BindPort))
+	waitTCPListening(webDavConf.Bindings[0].GetAddress())
 	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
-	waitTCPListening(fmt.Sprintf("%s:%d", sftpdConf.BindAddress, sftpdConf.BindPort))
+	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 	webdavd.ReloadTLSCertificate() //nolint:errcheck
 
 	exitCode := m.Run()
@@ -213,7 +222,15 @@ func TestMain(m *testing.M) {
 
 func TestInitialization(t *testing.T) {
 	cfg := webdavd.Configuration{
-		BindPort:           1234,
+		Bindings: []webdavd.Binding{
+			{
+				Port:        1234,
+				EnableHTTPS: true,
+			},
+			{
+				Port: 0,
+			},
+		},
 		CertificateFile:    "missing path",
 		CertificateKeyFile: "bad path",
 	}
@@ -221,13 +238,21 @@ func TestInitialization(t *testing.T) {
 	assert.Error(t, err)
 
 	cfg.Cache = config.GetWebDAVDConfig().Cache
-	cfg.BindPort = webDavServerPort
+	cfg.Bindings[0].Port = webDavServerPort
 	cfg.CertificateFile = certPath
 	cfg.CertificateKeyFile = keyPath
 	err = cfg.Initialize(configDir)
 	assert.Error(t, err)
 	err = webdavd.ReloadTLSCertificate()
 	assert.NoError(t, err)
+
+	cfg.Bindings = []webdavd.Binding{
+		{
+			Port: 0,
+		},
+	}
+	err = cfg.Initialize(configDir)
+	assert.EqualError(t, err, common.ErrNoBinding.Error())
 }
 
 func TestBasicHandling(t *testing.T) {

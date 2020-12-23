@@ -88,6 +88,7 @@ var (
 	ErrQuotaExceeded        = errors.New("denying write due to space limit")
 	ErrSkipPermissionsCheck = errors.New("permission check skipped")
 	ErrConnectionDenied     = errors.New("You are not allowed to connect")
+	ErrNoBinding            = errors.New("No binding configured")
 	errNoTransfer           = errors.New("requested transfer not found")
 	errTransferMismatch     = errors.New("transfer mismatch")
 )

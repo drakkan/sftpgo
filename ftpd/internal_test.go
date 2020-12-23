@@ -120,37 +120,56 @@ func newMockOsFs(err, statErr error, atomicUpload bool, connectionID, rootDir st
 }
 
 func TestInitialization(t *testing.T) {
+	oldMgr := certMgr
+	certMgr = nil
+
+	binding := Binding{
+		Port: 2121,
+	}
 	c := &Configuration{
-		BindPort:           2121,
+		Bindings:           []Binding{binding},
 		CertificateFile:    "acert",
 		CertificateKeyFile: "akey",
 	}
+	assert.False(t, binding.HasProxy())
+	assert.Equal(t, "Disabled", binding.GetTLSDescription())
 	err := c.Initialize(configDir)
 	assert.Error(t, err)
 	c.CertificateFile = ""
 	c.CertificateKeyFile = ""
 	c.BannerFile = "afile"
-	server, err := NewServer(c, configDir)
-	if assert.NoError(t, err) {
-		assert.Equal(t, "", server.initialMsg)
-		_, err = server.GetTLSConfig()
-		assert.Error(t, err)
-	}
+	server := NewServer(c, configDir, binding, 0)
+	assert.Equal(t, "", server.initialMsg)
+	_, err = server.GetTLSConfig()
+	assert.Error(t, err)
+
+	binding.TLSMode = 1
+	server = NewServer(c, configDir, binding, 0)
+	_, err = server.GetSettings()
+	assert.Error(t, err)
+
 	err = ReloadTLSCertificate()
 	assert.NoError(t, err)
+
+	certMgr = oldMgr
 }
 
 func TestServerGetSettings(t *testing.T) {
 	oldConfig := common.Config
+
+	binding := Binding{
+		Port:             2121,
+		ApplyProxyConfig: true,
+	}
 	c := &Configuration{
-		BindPort: 2121,
+		Bindings: []Binding{binding},
 		PassivePortRange: PortRange{
 			Start: 10000,
 			End:   11000,
 		},
 	}
-	server, err := NewServer(c, configDir)
-	assert.NoError(t, err)
+	assert.False(t, binding.HasProxy())
+	server := NewServer(c, configDir, binding, 0)
 	settings, err := server.GetSettings()
 	assert.NoError(t, err)
 	assert.Equal(t, 10000, settings.PassiveTransferPortRange.Start)
@@ -158,11 +177,20 @@ func TestServerGetSettings(t *testing.T) {
 
 	common.Config.ProxyProtocol = 1
 	common.Config.ProxyAllowed = []string{"invalid"}
+	assert.True(t, binding.HasProxy())
 	_, err = server.GetSettings()
 	assert.Error(t, err)
-	server.config.BindPort = 8021
+	server.binding.Port = 8021
 	_, err = server.GetSettings()
 	assert.Error(t, err)
+
+	assert.Equal(t, "Plain and explicit", binding.GetTLSDescription())
+
+	binding.TLSMode = 1
+	assert.Equal(t, "Explicit required", binding.GetTLSDescription())
+
+	binding.TLSMode = 2
+	assert.Equal(t, "Implicit", binding.GetTLSDescription())
 
 	common.Config = oldConfig
 }
@@ -171,16 +199,18 @@ func TestUserInvalidParams(t *testing.T) {
 	u := dataprovider.User{
 		HomeDir: "invalid",
 	}
+	binding := Binding{
+		Port: 2121,
+	}
 	c := &Configuration{
-		BindPort: 2121,
+		Bindings: []Binding{binding},
 		PassivePortRange: PortRange{
 			Start: 10000,
 			End:   11000,
 		},
 	}
-	server, err := NewServer(c, configDir)
-	assert.NoError(t, err)
-	_, err = server.validateUser(u, mockFTPClientContext{})
+	server := NewServer(c, configDir, binding, 0)
+	_, err := server.validateUser(u, mockFTPClientContext{})
 	assert.Error(t, err)
 
 	u.Username = "a"

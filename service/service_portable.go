@@ -15,11 +15,13 @@ import (
 
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/ftpd"
 	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/version"
+	"github.com/drakkan/sftpgo/webdavd"
 )
 
 // StartPortableMode starts the service in portable mode
@@ -49,13 +51,17 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 	config.SetHTTPDConfig(httpdConf)
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.MaxAuthTries = 12
-	sftpdConf.BindPort = sftpdPort
+	sftpdConf.Bindings = []sftpd.Binding{
+		{
+			Port: sftpdPort,
+		},
+	}
 	if sftpdPort >= 0 {
 		if sftpdPort > 0 {
-			sftpdConf.BindPort = sftpdPort
+			sftpdConf.Bindings[0].Port = sftpdPort
 		} else {
 			// dynamic ports starts from 49152
-			sftpdConf.BindPort = 49152 + rand.Intn(15000)
+			sftpdConf.Bindings[0].Port = 49152 + rand.Intn(15000)
 		}
 		if utils.IsStringInSlice("*", enabledSSHCommands) {
 			sftpdConf.EnabledSSHCommands = sftpd.GetSupportedSSHCommands()
@@ -67,11 +73,13 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 
 	if ftpPort >= 0 {
 		ftpConf := config.GetFTPDConfig()
+		binding := ftpd.Binding{}
 		if ftpPort > 0 {
-			ftpConf.BindPort = ftpPort
+			binding.Port = ftpPort
 		} else {
-			ftpConf.BindPort = 49152 + rand.Intn(15000)
+			binding.Port = 49152 + rand.Intn(15000)
 		}
+		ftpConf.Bindings = []ftpd.Binding{binding}
 		ftpConf.Banner = fmt.Sprintf("SFTPGo portable %v ready", version.Get().Version)
 		ftpConf.CertificateFile = ftpsCert
 		ftpConf.CertificateKeyFile = ftpsKey
@@ -80,10 +88,11 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 
 	if webdavPort >= 0 {
 		webDavConf := config.GetWebDAVDConfig()
+		binding := webdavd.Binding{}
 		if webdavPort > 0 {
-			webDavConf.BindPort = webdavPort
+			binding.Port = webdavPort
 		} else {
-			webDavConf.BindPort = 49152 + rand.Intn(15000)
+			binding.Port = 49152 + rand.Intn(15000)
 		}
 		webDavConf.CertificateFile = webDavCert
 		webDavConf.CertificateKeyFile = webDavKey
@@ -106,19 +115,19 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 
 func (s *Service) getServiceOptionalInfoString() string {
 	var info strings.Builder
-	if config.GetSFTPDConfig().BindPort > 0 {
-		info.WriteString(fmt.Sprintf("SFTP port: %v ", config.GetSFTPDConfig().BindPort))
+	if config.GetSFTPDConfig().Bindings[0].IsValid() {
+		info.WriteString(fmt.Sprintf("SFTP port: %v ", config.GetSFTPDConfig().Bindings[0].Port))
 	}
-	if config.GetFTPDConfig().BindPort > 0 {
-		info.WriteString(fmt.Sprintf("FTP port: %v ", config.GetFTPDConfig().BindPort))
+	if config.GetFTPDConfig().Bindings[0].IsValid() {
+		info.WriteString(fmt.Sprintf("FTP port: %v ", config.GetFTPDConfig().Bindings[0].Port))
 	}
-	if config.GetWebDAVDConfig().BindPort > 0 {
+	if config.GetWebDAVDConfig().Bindings[0].IsValid() {
 		scheme := "http"
 		if config.GetWebDAVDConfig().CertificateFile != "" && config.GetWebDAVDConfig().CertificateKeyFile != "" {
 			scheme = "https"
 		}
 		info.WriteString(fmt.Sprintf("WebDAV URL: %v://<your IP>:%v/%v",
-			scheme, config.GetWebDAVDConfig().BindPort, s.PortableUser.Username))
+			scheme, config.GetWebDAVDConfig().Bindings[0].Port, s.PortableUser.Username))
 	}
 	return info.String()
 }
@@ -143,14 +152,14 @@ func (s *Service) advertiseServices(advertiseService, advertiseCredentials bool)
 			}
 		}
 		sftpdConf := config.GetSFTPDConfig()
-		if sftpdConf.BindPort > 0 {
+		if sftpdConf.Bindings[0].IsValid() {
 			mDNSServiceSFTP, err = zeroconf.Register(
-				fmt.Sprintf("SFTPGo portable %v", sftpdConf.BindPort), // service instance name
-				"_sftp-ssh._tcp",   // service type and protocol
-				"local.",           // service domain
-				sftpdConf.BindPort, // service port
-				meta,               // service metadata
-				nil,                // register on all network interfaces
+				fmt.Sprintf("SFTPGo portable %v", sftpdConf.Bindings[0].Port), // service instance name
+				"_sftp-ssh._tcp",           // service type and protocol
+				"local.",                   // service domain
+				sftpdConf.Bindings[0].Port, // service port
+				meta,                       // service metadata
+				nil,                        // register on all network interfaces
 			)
 			if err != nil {
 				mDNSServiceSFTP = nil
@@ -160,12 +169,13 @@ func (s *Service) advertiseServices(advertiseService, advertiseCredentials bool)
 			}
 		}
 		ftpdConf := config.GetFTPDConfig()
-		if ftpdConf.BindPort > 0 {
+		if ftpdConf.Bindings[0].IsValid() {
+			port := ftpdConf.Bindings[0].Port
 			mDNSServiceFTP, err = zeroconf.Register(
-				fmt.Sprintf("SFTPGo portable %v", ftpdConf.BindPort),
+				fmt.Sprintf("SFTPGo portable %v", port),
 				"_ftp._tcp",
 				"local.",
-				ftpdConf.BindPort,
+				port,
 				meta,
 				nil,
 			)
@@ -177,12 +187,12 @@ func (s *Service) advertiseServices(advertiseService, advertiseCredentials bool)
 			}
 		}
 		webdavConf := config.GetWebDAVDConfig()
-		if webdavConf.BindPort > 0 {
+		if webdavConf.Bindings[0].IsValid() {
 			mDNSServiceDAV, err = zeroconf.Register(
-				fmt.Sprintf("SFTPGo portable %v", webdavConf.BindPort),
+				fmt.Sprintf("SFTPGo portable %v", webdavConf.Bindings[0].Port),
 				"_http._tcp",
 				"local.",
-				webdavConf.BindPort,
+				webdavConf.Bindings[0].Port,
 				meta,
 				nil,
 			)

@@ -20,31 +20,23 @@ import (
 
 // Server implements the ftpserverlib MainDriver interface
 type Server struct {
+	ID           int
 	config       *Configuration
-	certMgr      *common.CertManager
 	initialMsg   string
 	statusBanner string
-	status       ServiceStatus
+	binding      Binding
 }
 
 // NewServer returns a new FTP server driver
-func NewServer(config *Configuration, configDir string) (*Server, error) {
-	var err error
+func NewServer(config *Configuration, configDir string, binding Binding, id int) *Server {
 	server := &Server{
 		config:       config,
-		certMgr:      nil,
 		initialMsg:   config.Banner,
 		statusBanner: fmt.Sprintf("SFTPGo %v FTP Server", version.Get().Version),
+		binding:      binding,
+		ID:           id,
 	}
-	certificateFile := getConfigPath(config.CertificateFile, configDir)
-	certificateKeyFile := getConfigPath(config.CertificateKeyFile, configDir)
-	if certificateFile != "" && certificateKeyFile != "" {
-		server.certMgr, err = common.NewCertManager(certificateFile, certificateKeyFile, logSender)
-		if err != nil {
-			return server, err
-		}
-	}
-	if len(config.BannerFile) > 0 {
+	if config.BannerFile != "" {
 		bannerFilePath := config.BannerFile
 		if !filepath.IsAbs(bannerFilePath) {
 			bannerFilePath = filepath.Join(configDir, bannerFilePath)
@@ -57,7 +49,7 @@ func NewServer(config *Configuration, configDir string) (*Server, error) {
 			logger.Warn(logSender, "", "unable to read banner file: %v", err)
 		}
 	}
-	return server, err
+	return server
 }
 
 // GetSettings returns FTP server settings
@@ -70,10 +62,10 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 		}
 	}
 	var ftpListener net.Listener
-	if common.Config.ProxyProtocol > 0 {
-		listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.config.BindAddress, s.config.BindPort))
+	if common.Config.ProxyProtocol > 0 && s.binding.ApplyProxyConfig {
+		listener, err := net.Listen("tcp", s.binding.GetAddress())
 		if err != nil {
-			logger.Warn(logSender, "", "error starting listener on address %s:%d: %v", s.config.BindAddress, s.config.BindPort, err)
+			logger.Warn(logSender, "", "error starting listener on address %v: %v", s.binding.GetAddress(), err)
 			return nil, err
 		}
 		ftpListener, err = common.Config.GetProxyListener(listener)
@@ -83,16 +75,24 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 		}
 	}
 
+	if s.binding.TLSMode < 0 || s.binding.TLSMode > 2 {
+		return nil, errors.New("unsupported TLS mode")
+	}
+
+	if s.binding.TLSMode > 0 && certMgr == nil {
+		return nil, errors.New("to enable TLS you need to provide a certificate")
+	}
+
 	return &ftpserver.Settings{
 		Listener:                 ftpListener,
-		ListenAddr:               fmt.Sprintf("%s:%d", s.config.BindAddress, s.config.BindPort),
-		PublicHost:               s.config.ForcePassiveIP,
+		ListenAddr:               s.binding.GetAddress(),
+		PublicHost:               s.binding.ForcePassiveIP,
 		PassiveTransferPortRange: portRange,
 		ActiveTransferPortNon20:  s.config.ActiveTransfersPortNon20,
 		IdleTimeout:              -1,
 		ConnectionTimeout:        20,
 		Banner:                   s.statusBanner,
-		TLSRequired:              ftpserver.TLSRequirement(s.config.TLSMode),
+		TLSRequired:              ftpserver.TLSRequirement(s.binding.TLSMode),
 	}, nil
 }
 
@@ -105,7 +105,7 @@ func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
 	if err := common.Config.ExecutePostConnectHook(cc.RemoteAddr().String(), common.ProtocolFTP); err != nil {
 		return "", err
 	}
-	connID := fmt.Sprintf("%v", cc.ID())
+	connID := fmt.Sprintf("%v_%v", s.ID, cc.ID())
 	user := dataprovider.User{}
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, user, nil),
@@ -117,7 +117,7 @@ func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
 
 // ClientDisconnected is called when the user disconnects, even if he never authenticated
 func (s *Server) ClientDisconnected(cc ftpserver.ClientContext) {
-	connID := fmt.Sprintf("%v_%v", common.ProtocolFTP, cc.ID())
+	connID := fmt.Sprintf("%v_%v_%v", common.ProtocolFTP, s.ID, cc.ID())
 	common.Connections.Remove(connID)
 }
 
@@ -146,9 +146,9 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 
 // GetTLSConfig returns a TLS Certificate to use
 func (s *Server) GetTLSConfig() (*tls.Config, error) {
-	if s.certMgr != nil {
+	if certMgr != nil {
 		return &tls.Config{
-			GetCertificate: s.certMgr.GetCertificateFunc(),
+			GetCertificate: certMgr.GetCertificateFunc(),
 			MinVersion:     tls.VersionTLS12,
 		}, nil
 	}
@@ -193,7 +193,7 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 		return nil, err
 	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(fmt.Sprintf("%v", cc.ID()), common.ProtocolFTP, user, fs),
+		BaseConnection: common.NewBaseConnection(fmt.Sprintf("%v_%v", s.ID, cc.ID()), common.ProtocolFTP, user, fs),
 		clientContext:  cc,
 	}
 	err = common.Connections.Swap(connection)

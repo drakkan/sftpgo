@@ -7,6 +7,7 @@ import (
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
 
+	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 )
@@ -16,8 +17,53 @@ const (
 )
 
 var (
-	server *Server
+	certMgr       *common.CertManager
+	serviceStatus ServiceStatus
 )
+
+// Binding defines the configuration for a network listener
+type Binding struct {
+	// The address to listen on. A blank value means listen on all available network interfaces.
+	Address string `json:"address" mapstructure:"address"`
+	// The port used for serving requests
+	Port int `json:"port" mapstructure:"port"`
+	// apply the proxy configuration, if any, for this binding
+	ApplyProxyConfig bool `json:"apply_proxy_config" mapstructure:"apply_proxy_config"`
+	// set to 1 to require TLS for both data and control connection
+	TLSMode int `json:"tls_mode" mapstructure:"tls_mode"`
+	// External IP address to expose for passive connections.
+	ForcePassiveIP string `json:"force_passive_ip" mapstructure:"force_passive_ip"`
+}
+
+// GetAddress returns the binding address
+func (b *Binding) GetAddress() string {
+	return fmt.Sprintf("%s:%d", b.Address, b.Port)
+}
+
+// IsValid returns true if the binding port is > 0
+func (b *Binding) IsValid() bool {
+	return b.Port > 0
+}
+
+// HasProxy returns true if the proxy protocol is active for this binding
+func (b *Binding) HasProxy() bool {
+	return b.ApplyProxyConfig && common.Config.ProxyProtocol > 0
+}
+
+// GetTLSDescription returns the TLS mode as string
+func (b *Binding) GetTLSDescription() string {
+	if certMgr == nil {
+		return "Disabled"
+	}
+	switch b.TLSMode {
+	case 1:
+		return "Explicit required"
+	case 2:
+		return "Implicit"
+	}
+
+	return "Plain and explicit"
+}
 
 // PortRange defines a port range
 type PortRange struct {
@@ -30,18 +76,19 @@ type PortRange struct {
 // ServiceStatus defines the service status
 type ServiceStatus struct {
 	IsActive         bool      `json:"is_active"`
-	Address          string    `json:"address"`
+	Bindings         []Binding `json:"bindings"`
 	PassivePortRange PortRange `json:"passive_port_range"`
-	FTPES            string    `json:"ftpes"`
 }
 
 // Configuration defines the configuration for the ftp server
 type Configuration struct {
-	// The port used for serving FTP requests
+	// Addresses and ports to bind to
+	Bindings []Binding `json:"bindings" mapstructure:"bindings"`
+	// Deprecated: please use Bindings
 	BindPort int `json:"bind_port" mapstructure:"bind_port"`
-	// The address to listen on. A blank value means listen on all available network interfaces.
+	// Deprecated: please use Bindings
 	BindAddress string `json:"bind_address" mapstructure:"bind_address"`
-	// External IP address to expose for passive connections.
+	// Deprecated: please use Bindings
 	ForcePassiveIP string `json:"force_passive_ip" mapstructure:"force_passive_ip"`
 	// Greeting banner displayed when a connection first comes in
 	Banner string `json:"banner" mapstructure:"banner"`
@@ -58,56 +105,82 @@ type Configuration struct {
 	ActiveTransfersPortNon20 bool `json:"active_transfers_port_non_20" mapstructure:"active_transfers_port_non_20"`
 	// Port Range for data connections. Random if not specified
 	PassivePortRange PortRange `json:"passive_port_range" mapstructure:"passive_port_range"`
-	// set to 1 to require TLS for both data and control connection
+	// Deprecated: please use Bindings
 	TLSMode int `json:"tls_mode" mapstructure:"tls_mode"`
+}
+
+// ShouldBind returns true if there is at least a valid binding
+func (c *Configuration) ShouldBind() bool {
+	for _, binding := range c.Bindings {
+		if binding.IsValid() {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Initialize configures and starts the FTP server
 func (c *Configuration) Initialize(configDir string) error {
-	var err error
 	logger.Debug(logSender, "", "initializing FTP server with config %+v", *c)
-	server, err = NewServer(c, configDir)
-	if err != nil {
-		return err
+	if !c.ShouldBind() {
+		return common.ErrNoBinding
 	}
-	server.status = ServiceStatus{
-		IsActive:         true,
-		Address:          fmt.Sprintf("%s:%d", c.BindAddress, c.BindPort),
-		PassivePortRange: c.PassivePortRange,
-		FTPES:            "Disabled",
-	}
-	if c.CertificateFile != "" && c.CertificateKeyFile != "" {
-		if c.TLSMode == 1 {
-			server.status.FTPES = "Required"
-		} else {
-			server.status.FTPES = "Enabled"
+
+	certificateFile := getConfigPath(c.CertificateFile, configDir)
+	certificateKeyFile := getConfigPath(c.CertificateKeyFile, configDir)
+	if certificateFile != "" && certificateKeyFile != "" {
+		mgr, err := common.NewCertManager(certificateFile, certificateKeyFile, logSender)
+		if err != nil {
+			return err
 		}
+		certMgr = mgr
 	}
-	ftpServer := ftpserver.NewFtpServer(server)
-	return ftpServer.ListenAndServe()
+	serviceStatus = ServiceStatus{
+		Bindings:         nil,
+		PassivePortRange: c.PassivePortRange,
+	}
+
+	exitChannel := make(chan error)
+
+	for idx, binding := range c.Bindings {
+		if !binding.IsValid() {
+			continue
+		}
+
+		server := NewServer(c, configDir, binding, idx)
+
+		go func(s *Server) {
+			ftpServer := ftpserver.NewFtpServer(s)
+			exitChannel <- ftpServer.ListenAndServe()
+		}(server)
+
+		serviceStatus.Bindings = append(serviceStatus.Bindings, binding)
+	}
+
+	serviceStatus.IsActive = true
+
+	return <-exitChannel
 }
 
 // ReloadTLSCertificate reloads the TLS certificate and key from the configured paths
 func ReloadTLSCertificate() error {
-	if server != nil && server.certMgr != nil {
-		return server.certMgr.LoadCertificate(logSender)
+	if certMgr != nil {
+		return certMgr.LoadCertificate(logSender)
 	}
 	return nil
 }
 
 // GetStatus returns the server status
 func GetStatus() ServiceStatus {
-	if server == nil {
-		return ServiceStatus{}
-	}
-	return server.status
+	return serviceStatus
 }
 
 func getConfigPath(name, configDir string) string {
 	if !utils.IsFileInputValid(name) {
 		return ""
 	}
-	if len(name) > 0 && !filepath.IsAbs(name) {
+	if name != "" && !filepath.IsAbs(name) {
 		return filepath.Join(configDir, name)
 	}
 	return name

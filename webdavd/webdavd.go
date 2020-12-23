@@ -2,8 +2,10 @@
 package webdavd
 
 import (
+	"fmt"
 	"path/filepath"
 
+	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 )
@@ -25,9 +27,8 @@ var (
 
 // ServiceStatus defines the service status
 type ServiceStatus struct {
-	IsActive bool   `json:"is_active"`
-	Address  string `json:"address"`
-	Protocol string `json:"protocol"`
+	IsActive bool      `json:"is_active"`
+	Bindings []Binding `json:"bindings"`
 }
 
 // Cors configuration
@@ -59,11 +60,33 @@ type Cache struct {
 	MimeTypes MimeCacheConfig  `json:"mime_types" mapstructure:"mime_types"`
 }
 
+// Binding defines the configuration for a network listener
+type Binding struct {
+	// The address to listen on. A blank value means listen on all available network interfaces.
+	Address string `json:"address" mapstructure:"address"`
+	// The port used for serving requests
+	Port int `json:"port" mapstructure:"port"`
+	// you also need to provide a certificate for enabling HTTPS
+	EnableHTTPS bool `json:"enable_https" mapstructure:"enable_https"`
+}
+
+// GetAddress returns the binding address
+func (b *Binding) GetAddress() string {
+	return fmt.Sprintf("%s:%d", b.Address, b.Port)
+}
+
+// IsValid returns true if the binding port is > 0
+func (b *Binding) IsValid() bool {
+	return b.Port > 0
+}
+
 // Configuration defines the configuration for the WevDAV server
 type Configuration struct {
-	// The port used for serving FTP requests
+	// Addresses and ports to bind to
+	Bindings []Binding `json:"bindings" mapstructure:"bindings"`
+	// Deprecated: please use Bindings
 	BindPort int `json:"bind_port" mapstructure:"bind_port"`
-	// The address to listen on. A blank value means listen on all available network interfaces.
+	// Deprecated: please use Bindings
 	BindAddress string `json:"bind_address" mapstructure:"bind_address"`
 	// If files containing a certificate and matching private key for the server are provided the server will expect
 	// HTTPS connections.
@@ -85,6 +108,17 @@ func GetStatus() ServiceStatus {
 	return server.status
 }
 
+// ShouldBind returns true if there is at least a valid binding
+func (c *Configuration) ShouldBind() bool {
+	for _, binding := range c.Bindings {
+		if binding.IsValid() {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Initialize configures and starts the WebDAV server
 func (c *Configuration) Initialize(configDir string) error {
 	var err error
@@ -96,11 +130,31 @@ func (c *Configuration) Initialize(configDir string) error {
 	if !c.Cache.MimeTypes.Enabled {
 		mimeTypeCache.maxSize = 0
 	}
+	if !c.ShouldBind() {
+		return common.ErrNoBinding
+	}
 	server, err = newServer(c, configDir)
 	if err != nil {
 		return err
 	}
-	return server.listenAndServe()
+
+	server.status.Bindings = nil
+
+	exitChannel := make(chan error)
+
+	for _, binding := range c.Bindings {
+		if !binding.IsValid() {
+			continue
+		}
+
+		go func(binding Binding) {
+			exitChannel <- server.listenAndServe(binding)
+		}(binding)
+	}
+
+	server.status.IsActive = true
+
+	return <-exitChannel
 }
 
 // ReloadTLSCertificate reloads the TLS certificate and key from the configured paths

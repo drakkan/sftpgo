@@ -20,6 +20,7 @@ import (
 	"github.com/jlaffaye/ftp"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/config"
@@ -28,6 +29,7 @@ import (
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/vfs"
 )
 
@@ -145,7 +147,11 @@ func TestMain(m *testing.M) {
 	httpd.SetBaseURLAndCredentials("http://127.0.0.1:8079", "", "")
 
 	ftpdConf := config.GetFTPDConfig()
-	ftpdConf.BindPort = 2121
+	ftpdConf.Bindings = []ftpd.Binding{
+		{
+			Port: 2121,
+		},
+	}
 	ftpdConf.PassivePortRange.Start = 0
 	ftpdConf.PassivePortRange.End = 0
 	ftpdConf.BannerFile = bannerFileName
@@ -154,7 +160,11 @@ func TestMain(m *testing.M) {
 
 	// required to test sftpfs
 	sftpdConf := config.GetSFTPDConfig()
-	sftpdConf.BindPort = 2122
+	sftpdConf.Bindings = []sftpd.Binding{
+		{
+			Port: 2122,
+		},
+	}
 	sftpdConf.HostKeys = []string{filepath.Join(os.TempDir(), "id_ed25519")}
 
 	extAuthPath = filepath.Join(homeBasePath, "extauth.sh")
@@ -190,9 +200,9 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
-	waitTCPListening(fmt.Sprintf("%s:%d", ftpdConf.BindAddress, ftpdConf.BindPort))
+	waitTCPListening(ftpdConf.Bindings[0].GetAddress())
 	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
-	waitTCPListening(fmt.Sprintf("%s:%d", sftpdConf.BindAddress, sftpdConf.BindPort))
+	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 	ftpd.ReloadTLSCertificate() //nolint:errcheck
 
 	exitCode := m.Run()
@@ -206,16 +216,35 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
-func TestInitialization(t *testing.T) {
+func TestInitializationFailure(t *testing.T) {
 	ftpdConf := config.GetFTPDConfig()
-	ftpdConf.BindPort = 2121
+	ftpdConf.Bindings = []ftpd.Binding{}
 	ftpdConf.CertificateFile = filepath.Join(os.TempDir(), "test_ftpd.crt")
 	ftpdConf.CertificateKeyFile = filepath.Join(os.TempDir(), "test_ftpd.key")
-	ftpdConf.TLSMode = 1
 	err := ftpdConf.Initialize(configDir)
-	assert.Error(t, err)
-	status := ftpd.GetStatus()
-	assert.True(t, status.IsActive)
+	require.EqualError(t, err, common.ErrNoBinding.Error())
+	ftpdConf.Bindings = []ftpd.Binding{
+		{
+			Port: 0,
+		},
+		{
+			Port: 2121,
+		},
+	}
+	ftpdConf.BannerFile = "a-missing-file"
+	err = ftpdConf.Initialize(configDir)
+	require.Error(t, err)
+
+	ftpdConf.BannerFile = ""
+	ftpdConf.Bindings[1].TLSMode = 10
+	err = ftpdConf.Initialize(configDir)
+	require.Error(t, err)
+
+	ftpdConf.CertificateFile = ""
+	ftpdConf.CertificateKeyFile = ""
+	ftpdConf.Bindings[1].TLSMode = 1
+	err = ftpdConf.Initialize(configDir)
+	require.Error(t, err)
 }
 
 func TestBasicFTPHandling(t *testing.T) {

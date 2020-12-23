@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pires/go-proxyproto"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 
@@ -36,13 +37,40 @@ var (
 	sftpExtensions = []string{"posix-rename@openssh.com"}
 )
 
+// Binding defines the configuration for a network listener
+type Binding struct {
+	// The address to listen on. A blank value means listen on all available network interfaces.
+	Address string `json:"address" mapstructure:"address"`
+	// The port used for serving requests
+	Port int `json:"port" mapstructure:"port"`
+	// apply the proxy configuration, if any, for this binding
+	ApplyProxyConfig bool `json:"apply_proxy_config" mapstructure:"apply_proxy_config"`
+}
+
+// GetAddress returns the binding address
+func (b *Binding) GetAddress() string {
+	return fmt.Sprintf("%s:%d", b.Address, b.Port)
+}
+
+// IsValid returns true if the binding port is > 0
+func (b *Binding) IsValid() bool {
+	return b.Port > 0
+}
+
+// HasProxy returns true if the proxy protocol is active for this binding
+func (b *Binding) HasProxy() bool {
+	return b.ApplyProxyConfig && common.Config.ProxyProtocol > 0
+}
+
 // Configuration for the SFTP server
 type Configuration struct {
 	// Identification string used by the server
 	Banner string `json:"banner" mapstructure:"banner"`
-	// The port used for serving SFTP requests
+	// Addresses and ports to bind to
+	Bindings []Binding `json:"bindings" mapstructure:"bindings"`
+	// Deprecated: please use Bindings
 	BindPort int `json:"bind_port" mapstructure:"bind_port"`
-	// The address to listen on. A blank value means listen on all available network interfaces.
+	// Deprecated: please use Bindings
 	BindAddress string `json:"bind_address" mapstructure:"bind_address"`
 	// Deprecated: please use the same key in common configuration
 	IdleTimeout int `json:"idle_timeout" mapstructure:"idle_timeout"`
@@ -127,6 +155,17 @@ func (e *authenticationError) Error() string {
 	return fmt.Sprintf("Authentication error: %s", e.err)
 }
 
+// ShouldBind returns true if there is at least a valid binding
+func (c *Configuration) ShouldBind() bool {
+	for _, binding := range c.Bindings {
+		if binding.IsValid() {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Initialize the SFTP server and add a persistent listener to handle inbound SFTP connections.
 func (c *Configuration) Initialize(configDir string) error {
 	serverConfig := &ssh.ServerConfig{
@@ -165,6 +204,10 @@ func (c *Configuration) Initialize(configDir string) error {
 		}
 	}
 
+	if !c.ShouldBind() {
+		return common.ErrNoBinding
+	}
+
 	if err := c.checkAndLoadHostKeys(configDir, serverConfig); err != nil {
 		serviceStatus.HostKeys = nil
 		return err
@@ -181,22 +224,43 @@ func (c *Configuration) Initialize(configDir string) error {
 	c.configureLoginBanner(serverConfig, configDir)
 	c.checkSSHCommands()
 
-	addr := fmt.Sprintf("%s:%d", c.BindAddress, c.BindPort)
-	listener, err := net.Listen("tcp", addr)
-	if err != nil {
-		logger.Warn(logSender, "", "error starting listener on address %s:%d: %v", c.BindAddress, c.BindPort, err)
-		return err
+	exitChannel := make(chan error)
+	serviceStatus.Bindings = nil
+
+	for _, binding := range c.Bindings {
+		if !binding.IsValid() {
+			continue
+		}
+		serviceStatus.Bindings = append(serviceStatus.Bindings, binding)
+
+		go func(binding Binding) {
+			exitChannel <- c.listenAndServe(binding, serverConfig)
+		}(binding)
 	}
-	proxyListener, err := common.Config.GetProxyListener(listener)
-	if err != nil {
-		logger.Warn(logSender, "", "error enabling proxy listener: %v", err)
-		return err
-	}
-	logger.Info(logSender, "", "server listener registered address: %v", listener.Addr().String())
-	serviceStatus.Address = addr
+
 	serviceStatus.IsActive = true
 	serviceStatus.SSHCommands = strings.Join(c.EnabledSSHCommands, ", ")
 
+	return <-exitChannel
+}
+
+func (c *Configuration) listenAndServe(binding Binding, serverConfig *ssh.ServerConfig) error {
+	addr := binding.GetAddress()
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		logger.Warn(logSender, "", "error starting listener on address %v: %v", addr, err)
+		return err
+	}
+	var proxyListener *proxyproto.Listener
+
+	if binding.ApplyProxyConfig {
+		proxyListener, err = common.Config.GetProxyListener(listener)
+		if err != nil {
+			logger.Warn(logSender, "", "error enabling proxy listener: %v", err)
+			return err
+		}
+	}
+	logger.Info(logSender, "", "server listener registered, address: %v", listener.Addr().String())
 	for {
 		var conn net.Conn
 		if proxyListener != nil {

@@ -65,8 +65,12 @@ The configuration file contains the following sections:
   - `post_connect_hook`, string. Absolute path to the command to execute or HTTP URL to notify. See [Post connect hook](./post-connect-hook.md) for more details. Leave empty to disable
   - `max_total_connections`, integer. Maximum number of concurrent client connections. 0 means unlimited
 - **"sftpd"**, the configuration for the SFTP server
-  - `bind_port`, integer. The port used for serving SFTP requests. 0 means disabled. Default: 2022
-  - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: ""
+  - `bindings`, list of structs. Each struct has the following fields:
+    - `port`, integer. The port used for serving SFTP requests. 0 means disabled. Default: 2022
+    - `address`, string. Leave blank to listen on all available network interfaces. Default: ""
+    - `apply_proxy_config`, boolean. If enabled the common proxy configuration, if any, will be applied. Default `true`
+  - `bind_port`, integer. Deprecated, please use `bindings`
+  - `bind_address`, string. Deprecated, please use `bindings`
   - `idle_timeout`, integer. Deprecated, please use the same key in `common` section.
   - `max_auth_tries` integer. Maximum number of authentication attempts permitted per connection. If set to a negative number, the number of attempts is unlimited. If set to zero, the number of attempts is limited to 6.
   - `banner`, string. Identification string used by the server. Leave empty to use the default banner. Default `SFTPGo_<version>`, for example `SSH-2.0-SFTPGo_0.9.5`
@@ -87,21 +91,31 @@ The configuration file contains the following sections:
   - `proxy_protocol`, integer.  Deprecated, please use the same key in `common` section.
   - `proxy_allowed`, list of strings. Deprecated, please use the same key in `common` section.
 - **"ftpd"**, the configuration for the FTP server
-  - `bind_port`, integer. The port used for serving FTP requests. 0 means disabled. Default: 0.
-  - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "".
+  - `bindings`, list of structs. Each struct has the following fields:
+    - `port`, integer. The port used for serving FTP requests. 0 means disabled. Default: 0
+    - `address`, string. Leave blank to listen on all available network interfaces. Default: ""
+    - `apply_proxy_config`, boolean. If enabled the common proxy configuration, if any, will be applied. Default `true`
+    - `tls_mode`, integer. 0 means accept both cleartext and encrypted sessions. 1 means TLS is required for both control and data connection. 2 means implicit TLS. Do not enable this blindly, please check that a proper TLS config is in place if you set `tls_mode` is different from 0.
+    - `force_passive_ip`, ip address. External IP address to expose for passive connections. Leavy empty to autodetect. Defaut: "".
+  - `bind_port`, integer. Deprecated, please use `bindings`
+  - `bind_address`, string. Deprecated, please use `bindings`
   - `banner`, string. Greeting banner displayed when a connection first comes in. Leave empty to use the default banner. Default `SFTPGo <version> ready`, for example `SFTPGo 1.0.0-dev ready`.
   - `banner_file`, path to the banner file. The contents of the specified file, if any, are displayed when someone connects to the server. It can be a path relative to the config dir or an absolute one. If set, it overrides the banner string provided by the `banner` option. Leave empty to disable.
   - `active_transfers_port_non_20`, boolean. Do not impose the port 20 for active data transfers. Enabling this option allows to run SFTPGo with less privilege. Default: false.
-  - `force_passive_ip`, ip address. External IP address to expose for passive connections. Leavy empty to autodetect. Defaut: "".
+  - `force_passive_ip`, ip address.  Deprecated, please use `bindings`
   - `passive_port_range`, struct containing the key `start` and `end`. Port Range for data connections. Random if not specified. Default range is 50000-50100.
   - `certificate_file`, string. Certificate for FTPS. This can be an absolute path or a path relative to the config dir.
-  - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If both the certificate and the private key are provided the server will accept both plain FTP an explicit FTP over TLS. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
-  - `tls_mode`, integer. 0 means accept both cleartext and encrypted sessions. 1 means TLS is required for both control and data connection. Do not enable this blindly, please check that a proper TLS config is in place or no login will be allowed if `tls_mode` is 1.
+  - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. A certificate and the private key are required to enable explicit and implicit TLS. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
+  - `tls_mode`, integer. Deprecated, please use `bindings`
 - **webdavd**, the configuration for the WebDAV server, more info [here](./webdav.md)
-  - `bind_port`, integer. The port used for serving WebDAV requests. 0 means disabled. Default: 0.
-  - `bind_address`, string. Leave blank to listen on all available network interfaces. Default: "".
+  - `bindings`, list of structs. Each struct has the following fields:
+    - `port`, integer. The port used for serving WebDAV requests. 0 means disabled. Default: 0.
+    - `address`, string. Leave blank to listen on all available network interfaces. Default: "".
+    - `enable_https`, boolean. Set to `true` and provide both a certificate and a key file to enable HTTPS connection for this binding. Default `false`
+  - `bind_port`, integer. Deprecated, please use `bindings`
+  - `bind_address`, string. Deprecated, please use `bindings`
   - `certificate_file`, string. Certificate for WebDAV over HTTPS. This can be an absolute path or a path relative to the config dir.
-  - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If both the certificate and the private key are provided the server will expect HTTPS connections. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
+  - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. A certificate and a private key are required to enable HTTPS connections. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
   - `cors` struct containing CORS configuration. SFTPGo uses [Go CORS handler](https://github.com/rs/cors), please refer to upstream documentation for fields meaning and their default values.
     - `enabled`, boolean, set to true to enable CORS.
     - `allowed_origins`, list of strings.
@@ -210,7 +224,7 @@ You can also override all the available configuration options using environment 
 
 Let's see some examples:
 
-- To set sftpd `bind_port`, you need to define the env var `SFTPGO_SFTPD__BIND_PORT`
+- To set the `port` for the first sftpd binding, you need to define the env var `SFTPGO_SFTPD__BINDINGS__0__PORT`
 - To set the `execute_on` actions, you need to define the env var `SFTPGO_COMMON__ACTIONS__EXECUTE_ON`. For example `SFTPGO_COMMON__ACTIONS__EXECUTE_ON=upload,download`
 
 ## Telemetry Server

@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: SFTPGo
   description: SFTPGo REST API
-  version: 2.2.2
+  version: 2.2.3
 
 servers:
   - url: /api/v1
@@ -1371,26 +1371,70 @@ components:
           type: string
         fingerprint:
           type: string
-    BaseServiceStatus:
+    SSHBinding:
+      type: object
+      properties:
+        address:
+          type: string
+          description: TCP address the server listen on
+        port:
+          type: integer
+          description: the port used for serving requests
+        apply_proxy_config:
+          type: boolean
+          description: apply the proxy configuration, if any
+    WebDAVBinding:
+      type: object
+      properties:
+        address:
+          type: string
+          description: TCP address the server listen on
+        port:
+          type: integer
+          description: the port used for serving requests
+        enable_https:
+          type: boolean
+    FTPDBinding:
+      type: object
+      properties:
+        address:
+          type: string
+          description: TCP address the server listen on
+        port:
+          type: integer
+          description: the port used for serving requests
+        apply_proxy_config:
+          type: boolean
+          description: apply the proxy configuration, if any
+        tls_mode:
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+          description: >
+            * `0` - clear or explicit TLS
+            * `1` - explicit TLS required
+            * `2` - implicit TLS
+        force_passive_ip:
+          type: string
+          description: External IP address to expose for passive connections
+    SSHServiceStatus:
       type: object
       properties:
         is_active:
           type: boolean
-        address:
+        bindings:
+          type: array
+          items:
+            $ref: '#/components/schemas/SSHBinding'
+        host_keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/SSHHostKey'
+        ssh_commands:
           type: string
-          description: TCP address the server listen on in the form "host:port"
-    SSHServiceStatus:
-      allOf:
-        - $ref: '#/components/schemas/BaseServiceStatus'
-        - type: object
-          properties:
-            host_keys:
-              type: array
-              items:
-                $ref: '#/components/schemas/SSHHostKey'
-            ssh_commands:
-              type: string
-              description: accepted SSH commands comma separated
+          description: accepted SSH commands comma separated
     FTPPassivePortRange:
       type: object
       properties:
@@ -1399,28 +1443,25 @@ components:
         end:
           type: integer
     FTPServiceStatus:
-      allOf:
-        - $ref: '#/components/schemas/BaseServiceStatus'
-        - type: object
-          properties:
-            passive_port_range:
-              $ref: '#/components/schemas/FTPPassivePortRange'
-            ftpes:
-              type: string
-              enum:
-                - Disabled
-                - Enabled
-                - Required
+      type: object
+      properties:
+        is_active:
+          type: boolean
+        bindings:
+          type: array
+          items:
+            $ref: '#/components/schemas/FTPDBinding'
+        passive_port_range:
+          $ref: '#/components/schemas/FTPPassivePortRange'
     WebDAVServiceStatus:
-      allOf:
-        - $ref: '#/components/schemas/BaseServiceStatus'
-        - type: object
-          properties:
-            protocol:
-              type: string
-              enum:
-                - HTTP
-                - HTTPS
+      type: object
+      properties:
+        is_active:
+          type: boolean
+        bindings:
+          type: array
+          items:
+            $ref: '#/components/schemas/WebDAVBinding'
     DataProviderStatus:
       type: object
       properties:

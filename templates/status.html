@@ -11,8 +11,11 @@
             Status: {{ if .Status.SSH.IsActive}}"Started"{{else}}"Stopped"{{end}}
             {{if .Status.SSH.IsActive}}
             <br>
-            Address: "{{.Status.SSH.Address}}"
+            {{range .Status.SSH.Bindings}}
             <br>
+            Address: "{{.GetAddress}}" {{if .HasProxy}}Proxy: ON{{end}}
+            <br>
+            {{end}}
             Accepted commands: "{{.Status.SSH.SSHCommands}}"
             <br>
             {{range .Status.SSH.HostKeys}}
@@ -34,11 +37,19 @@
             Status: {{ if .Status.FTP.IsActive}}"Started"{{else}}"Stopped"{{end}}
             {{if .Status.FTP.IsActive}}
             <br>
-            Address: "{{.Status.FTP.Address}}"
+            {{range .Status.FTP.Bindings}}
+            <br>
+            Address: "{{.GetAddress}}" {{if .HasProxy}}Proxy: ON{{end}}
+            <br>
+            TLS: "{{.GetTLSDescription}}"
+            {{if .ForcePassiveIP}}
+            <br>
+            PassiveIP: {{.ForcePassiveIP}}
+            {{end}}
+            <br>
+            {{end}}
             <br>
             Passive port range: "{{.Status.FTP.PassivePortRange.Start}}-{{.Status.FTP.PassivePortRange.End}}"
-            <br>
-            TLS: "{{.Status.FTP.FTPES}}"
             {{end}}
         </p>
     </div>
@@ -51,9 +62,13 @@
             Status: {{ if .Status.WebDAV.IsActive}}"Started"{{else}}"Stopped"{{end}}
             {{if .Status.WebDAV.IsActive}}
             <br>
-            Address: "{{.Status.WebDAV.Address}}"
+            {{range .Status.WebDAV.Bindings}}
             <br>
-            Protocol: "{{.Status.WebDAV.Protocol}}"
+            Address: "{{.GetAddress}}"
+            <br>
+            Protocol: {{if .EnableHTTPS}} HTTPS {{else}} HTTP {{end}}
+            <br>
+            {{end}}
             {{end}}
         </p>
     </div>

@@ -159,7 +159,11 @@ func TestUserInvalidParams(t *testing.T) {
 		HomeDir:  "invalid",
 	}
 	c := &Configuration{
-		BindPort: 9000,
+		Bindings: []Binding{
+			{
+				Port: 9000,
+			},
+		},
 	}
 	server, err := newServer(c, configDir)
 	assert.NoError(t, err)
@@ -670,7 +674,11 @@ func TestBasicUsersCache(t *testing.T) {
 	assert.NoError(t, err)
 
 	c := &Configuration{
-		BindPort: 9000,
+		Bindings: []Binding{
+			{
+				Port: 9000,
+			},
+		},
 		Cache: Cache{
 			Users: UsersCacheConfig{
 				MaxSize:        50,
@@ -782,7 +790,11 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	assert.NoError(t, err)
 
 	c := &Configuration{
-		BindPort: 9000,
+		Bindings: []Binding{
+			{
+				Port: 9000,
+			},
+		},
 		Cache: Cache{
 			Users: UsersCacheConfig{
 				MaxSize:        3,
@@ -926,7 +938,11 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 
 func TestRecoverer(t *testing.T) {
 	c := &Configuration{
-		BindPort: 9000,
+		Bindings: []Binding{
+			{
+				Port: 9000,
+			},
+		},
 	}
 	server, err := newServer(c, configDir)
 	assert.NoError(t, err)
