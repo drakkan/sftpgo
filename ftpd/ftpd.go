@@ -141,7 +141,7 @@ func (c *Configuration) Initialize(configDir string) error {
 		PassivePortRange: c.PassivePortRange,
 	}
 
-	exitChannel := make(chan error)
+	exitChannel := make(chan error, 1)
 
 	for idx, binding := range c.Bindings {
 		if !binding.IsValid() {

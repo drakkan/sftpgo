@@ -140,7 +140,7 @@ func (c *Configuration) Initialize(configDir string) error {
 
 	server.status.Bindings = nil
 
-	exitChannel := make(chan error)
+	exitChannel := make(chan error, 1)
 
 	for _, binding := range c.Bindings {
 		if !binding.IsValid() {

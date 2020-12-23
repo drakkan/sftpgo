@@ -1866,3 +1866,71 @@ func TestRecoverer(t *testing.T) {
 	assert.EqualError(t, err, common.ErrGenericFailure.Error())
 	assert.Len(t, common.Connections.GetStats(), 0)
 }
+
+func TestListernerAcceptErrors(t *testing.T) {
+	errFake := errors.New("a fake error")
+	listener := newFakeListener(errFake)
+	c := Configuration{}
+	err := c.serve(listener, nil)
+	require.EqualError(t, err, errFake.Error())
+	err = listener.Close()
+	require.NoError(t, err)
+
+	errNetFake := &fakeNetError{error: errFake}
+	listener = newFakeListener(errNetFake)
+	err = c.serve(listener, nil)
+	require.EqualError(t, err, errFake.Error())
+	err = listener.Close()
+	require.NoError(t, err)
+}
+
+type fakeNetError struct {
+	error
+	count int
+}
+
+func (e *fakeNetError) Timeout() bool {
+	return false
+}
+
+func (e *fakeNetError) Temporary() bool {
+	e.count++
+	return e.count < 10
+}
+
+func (e *fakeNetError) Error() string {
+	return e.error.Error()
+}
+
+type fakeListener struct {
+	server net.Conn
+	client net.Conn
+	err    error
+}
+
+func (l *fakeListener) Accept() (net.Conn, error) {
+	return l.client, l.err
+}
+
+func (l *fakeListener) Close() error {
+	errClient := l.client.Close()
+	errServer := l.server.Close()
+	if errServer != nil {
+		return errServer
+	}
+	return errClient
+}
+
+func (l *fakeListener) Addr() net.Addr {
+	return l.server.LocalAddr()
+}
+
+func newFakeListener(err error) net.Listener {
+	server, client := net.Pipe()
+
+	return &fakeListener{
+		server: server,
+		client: client,
+		err:    err,
+	}
+}

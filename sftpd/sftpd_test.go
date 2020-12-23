@@ -8420,7 +8420,7 @@ func sftpDownloadFile(remoteSourcePath string, localDestPath string, expectedSiz
 }
 
 func sftpUploadNonBlocking(localSourcePath string, remoteDestPath string, expectedSize int64, client *sftp.Client) <-chan error {
-	c := make(chan error)
+	c := make(chan error, 1)
 	go func() {
 		c <- sftpUploadFile(localSourcePath, remoteDestPath, expectedSize, client)
 	}()
@@ -8428,7 +8428,7 @@ func sftpUploadNonBlocking(localSourcePath string, remoteDestPath string, expect
 }
 
 func sftpDownloadNonBlocking(remoteSourcePath string, localDestPath string, expectedSize int64, client *sftp.Client) <-chan error {
-	c := make(chan error)
+	c := make(chan error, 1)
 	go func() {
 		c <- sftpDownloadFile(remoteSourcePath, localDestPath, expectedSize, client)
 	}()

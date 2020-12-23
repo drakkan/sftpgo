@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pires/go-proxyproto"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 
@@ -224,7 +223,7 @@ func (c *Configuration) Initialize(configDir string) error {
 	c.configureLoginBanner(serverConfig, configDir)
 	c.checkSSHCommands()
 
-	exitChannel := make(chan error)
+	exitChannel := make(chan error, 1)
 	serviceStatus.Bindings = nil
 
 	for _, binding := range c.Bindings {
@@ -234,7 +233,27 @@ func (c *Configuration) Initialize(configDir string) error {
 		serviceStatus.Bindings = append(serviceStatus.Bindings, binding)
 
 		go func(binding Binding) {
-			exitChannel <- c.listenAndServe(binding, serverConfig)
+			addr := binding.GetAddress()
+			listener, err := net.Listen("tcp", addr)
+			if err != nil {
+				logger.Warn(logSender, "", "error starting listener on address %v: %v", addr, err)
+				exitChannel <- err
+				return
+			}
+
+			if binding.ApplyProxyConfig {
+				proxyListener, err := common.Config.GetProxyListener(listener)
+				if err != nil {
+					logger.Warn(logSender, "", "error enabling proxy listener: %v", err)
+					exitChannel <- err
+					return
+				}
+				if proxyListener != nil {
+					listener = proxyListener
+				}
+			}
+
+			exitChannel <- c.serve(listener, serverConfig)
 		}(binding)
 	}
 
@@ -244,33 +263,31 @@ func (c *Configuration) Initialize(configDir string) error {
 	return <-exitChannel
 }
 
-func (c *Configuration) listenAndServe(binding Binding, serverConfig *ssh.ServerConfig) error {
-	addr := binding.GetAddress()
-	listener, err := net.Listen("tcp", addr)
-	if err != nil {
-		logger.Warn(logSender, "", "error starting listener on address %v: %v", addr, err)
-		return err
-	}
-	var proxyListener *proxyproto.Listener
+func (c *Configuration) serve(listener net.Listener, serverConfig *ssh.ServerConfig) error {
+	logger.Info(logSender, "", "server listener registered, address: %v", listener.Addr().String())
+	var tempDelay time.Duration // how long to sleep on accept failure
 
-	if binding.ApplyProxyConfig {
-		proxyListener, err = common.Config.GetProxyListener(listener)
+	for {
+		conn, err := listener.Accept()
 		if err != nil {
-			logger.Warn(logSender, "", "error enabling proxy listener: %v", err)
+			if ne, ok := err.(net.Error); ok && ne.Temporary() {
+				if tempDelay == 0 {
+					tempDelay = 5 * time.Millisecond
+				} else {
+					tempDelay *= 2
+				}
+				if max := 1 * time.Second; tempDelay > max {
+					tempDelay = max
+				}
+				logger.Warn(logSender, "", "accept error: %v; retrying in %v", err, tempDelay)
+				time.Sleep(tempDelay)
+				continue
+			}
+			logger.Warn(logSender, "", "unrecoverable accept error: %v", err)
 			return err
 		}
-	}
-	logger.Info(logSender, "", "server listener registered, address: %v", listener.Addr().String())
-	for {
-		var conn net.Conn
-		if proxyListener != nil {
-			conn, err = proxyListener.Accept()
-		} else {
-			conn, err = listener.Accept()
-		}
-		if conn != nil && err == nil {
-			go c.AcceptInboundConnection(conn, serverConfig)
-		}
+
+		go c.AcceptInboundConnection(conn, serverConfig)
 	}
 }
 
