@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/eikenb/pipeat"
@@ -99,6 +100,7 @@ func (c *SFTPFsConfig) EncryptCredentials(additionalData string) error {
 
 // SFTPFs is a Fs implementation for SFTP backends
 type SFTPFs struct {
+	sync.Mutex
 	connectionID string
 	config       *SFTPFsConfig
 	sshClient    *ssh.Client
@@ -476,6 +478,9 @@ func (fs *SFTPFs) GetMimeType(name string) (string, error) {
 
 // Close the connection
 func (fs *SFTPFs) Close() error {
+	fs.Lock()
+	defer fs.Unlock()
+
 	var sftpErr, sshErr error
 	if fs.sftpClient != nil {
 		sftpErr = fs.sftpClient.Close()
@@ -498,6 +503,9 @@ func (fs *SFTPFs) checkConnection() error {
 }
 
 func (fs *SFTPFs) createConnection() error {
+	fs.Lock()
+	defer fs.Unlock()
+
 	var err error
 	clientConfig := &ssh.ClientConfig{
 		User: fs.config.Username,
@@ -547,6 +555,10 @@ func (fs *SFTPFs) wait() {
 	// we don't detect the event.
 	fs.err <- fs.sftpClient.Wait()
 	fsLog(fs, logger.LevelDebug, "sftp channel closed")
+
+	fs.Lock()
+	defer fs.Unlock()
+
 	if fs.sshClient != nil {
 		fs.sshClient.Close()
 	}
