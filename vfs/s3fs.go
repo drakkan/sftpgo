@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"mime"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -297,7 +298,7 @@ func (fs *S3Fs) Rename(source, target string) error {
 	defer cancelFn()
 	_, err = fs.svc.CopyObjectWithContext(ctx, &s3.CopyObjectInput{
 		Bucket:       aws.String(fs.config.Bucket),
-		CopySource:   aws.String(copySource),
+		CopySource:   aws.String(url.PathEscape(copySource)),
 		Key:          aws.String(target),
 		StorageClass: utils.NilIfEmpty(fs.config.StorageClass),
 		ContentType:  utils.NilIfEmpty(contentType),
