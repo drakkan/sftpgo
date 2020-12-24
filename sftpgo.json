@@ -55,6 +55,10 @@
       "start": 50000,
       "end": 50100
     },
+    "disable_active_mode": false,
+    "enable_site": false,
+    "hash_support": 0,
+    "combine_support": 0,
     "certificate_file": "",
     "certificate_key_file": ""
   },

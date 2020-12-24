@@ -51,8 +51,20 @@ func (cc mockFTPClientContext) GetClientVersion() string {
 	return "mock version"
 }
 
-func (cc mockFTPClientContext) Close(code int, message string) error {
+func (cc mockFTPClientContext) Close() error {
 	return nil
+}
+
+func (cc mockFTPClientContext) HasTLSForControl() bool {
+	return false
+}
+
+func (cc mockFTPClientContext) HasTLSForTransfers() bool {
+	return false
+}
+
+func (cc mockFTPClientContext) GetLastCommand() string {
+	return ""
 }
 
 // MockOsFs mockable OsFs
@@ -209,7 +221,7 @@ func TestUserInvalidParams(t *testing.T) {
 			End:   11000,
 		},
 	}
-	server := NewServer(c, configDir, binding, 0)
+	server := NewServer(c, configDir, binding, 3)
 	_, err := server.validateUser(u, mockFTPClientContext{})
 	assert.Error(t, err)
 
@@ -241,7 +253,7 @@ func TestUserInvalidParams(t *testing.T) {
 
 func TestClientVersion(t *testing.T) {
 	mockCC := mockFTPClientContext{}
-	connID := fmt.Sprintf("%v", mockCC.ID())
+	connID := fmt.Sprintf("2_%v", mockCC.ID())
 	user := dataprovider.User{}
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, user, nil),
@@ -258,7 +270,7 @@ func TestClientVersion(t *testing.T) {
 
 func TestDriverMethodsNotImplemented(t *testing.T) {
 	mockCC := mockFTPClientContext{}
-	connID := fmt.Sprintf("%v", mockCC.ID())
+	connID := fmt.Sprintf("2_%v", mockCC.ID())
 	user := dataprovider.User{}
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, user, nil),

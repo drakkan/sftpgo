@@ -1326,7 +1326,7 @@ components:
         command:
           type: string
           nullable: true
-          description: SSH command or WebDAV method
+          description: SSH/FTP command or WebDAV method
         last_activity:
           type: integer
           format: int64

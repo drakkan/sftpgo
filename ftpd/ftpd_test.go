@@ -2,7 +2,9 @@ package ftpd_test
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -37,6 +39,7 @@ const (
 	logSender       = "ftpdTesting"
 	ftpServerAddr   = "127.0.0.1:2121"
 	sftpServerAddr  = "127.0.0.1:2122"
+	ftpSrvAddrTLS   = "127.0.0.1:2124" // ftp server with implicit tls
 	defaultUsername = "test_user_ftp"
 	defaultPassword = "test_password"
 	configDir       = ".."
@@ -157,6 +160,7 @@ func TestMain(m *testing.M) {
 	ftpdConf.BannerFile = bannerFileName
 	ftpdConf.CertificateFile = certPath
 	ftpdConf.CertificateKeyFile = keyPath
+	ftpdConf.EnableSite = true
 
 	// required to test sftpfs
 	sftpdConf := config.GetSFTPDConfig()
@@ -165,7 +169,8 @@ func TestMain(m *testing.M) {
 			Port: 2122,
 		},
 	}
-	sftpdConf.HostKeys = []string{filepath.Join(os.TempDir(), "id_ed25519")}
+	hostKeyPath := filepath.Join(os.TempDir(), "id_ed25519")
+	sftpdConf.HostKeys = []string{hostKeyPath}
 
 	extAuthPath = filepath.Join(homeBasePath, "extauth.sh")
 	preLoginPath = filepath.Join(homeBasePath, "prelogin.sh")
@@ -205,6 +210,35 @@ func TestMain(m *testing.M) {
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 	ftpd.ReloadTLSCertificate() //nolint:errcheck
 
+	ftpdConf = config.GetFTPDConfig()
+	ftpdConf.Bindings = []ftpd.Binding{
+		{
+			Port:    2124,
+			TLSMode: 2,
+		},
+	}
+	ftpdConf.CertificateFile = certPath
+	ftpdConf.CertificateKeyFile = keyPath
+	ftpdConf.EnableSite = false
+	ftpdConf.DisableActiveMode = true
+	ftpdConf.CombineSupport = 1
+	ftpdConf.HASHSupport = 1
+
+	go func() {
+		logger.Debug(logSender, "", "initializing FTP server with config %+v", ftpdConf)
+		if err := ftpdConf.Initialize(configDir); err != nil {
+			logger.ErrorToConsole("could not start FTP server: %v", err)
+			os.Exit(1)
+		}
+	}()
+
+	waitTCPListening(ftpdConf.Bindings[0].GetAddress())
+
+	// ensure all the initial connections to check if the service is alive are disconnected
+	for len(common.Connections.GetStats()) > 0 {
+		time.Sleep(50 * time.Millisecond)
+	}
+
 	exitCode := m.Run()
 	os.Remove(logFilePath)
 	os.Remove(bannerFile)
@@ -213,6 +247,8 @@ func TestMain(m *testing.M) {
 	os.Remove(postConnectPath)
 	os.Remove(certPath)
 	os.Remove(keyPath)
+	os.Remove(hostKeyPath)
+	os.Remove(hostKeyPath + ".pub")
 	os.Exit(exitCode)
 }
 
@@ -1578,6 +1614,218 @@ func TestChmod(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestCombineDisabled(t *testing.T) {
+	u := getTestUser()
+	localUser, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	sftpUser, _, err := httpd.AddUser(getTestSFTPUser(), http.StatusOK)
+	assert.NoError(t, err)
+	for _, user := range []dataprovider.User{localUser, sftpUser} {
+		client, err := getFTPClient(user, true)
+		if assert.NoError(t, err) {
+			err = checkBasicFTP(client)
+			assert.NoError(t, err)
+
+			code, response, err := client.SendCustomCommand("COMB file file.1 file.2")
+			assert.NoError(t, err)
+			assert.Equal(t, ftp.StatusNotImplemented, code)
+			assert.Equal(t, "COMB support is disabled", response)
+
+			err = client.Quit()
+			assert.NoError(t, err)
+		}
+	}
+
+	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestActiveModeDisabled(t *testing.T) {
+	u := getTestUser()
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getFTPClientImplicitTLS(user)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		code, response, err := client.SendCustomCommand("PORT 10,2,0,2,4,31")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusNotAvailable, code)
+		assert.Equal(t, "PORT command is disabled", response)
+
+		code, response, err = client.SendCustomCommand("EPRT |1|132.235.1.2|6275|")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusNotAvailable, code)
+		assert.Equal(t, "EPRT command is disabled", response)
+
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+
+	client, err = getFTPClient(user, false)
+	if assert.NoError(t, err) {
+		code, response, err := client.SendCustomCommand("PORT 10,2,0,2,4,31")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusCommandOK, code)
+		assert.Equal(t, "PORT command successful", response)
+
+		code, response, err = client.SendCustomCommand("EPRT |1|132.235.1.2|6275|")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusCommandOK, code)
+		assert.Equal(t, "EPRT command successful", response)
+
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestSITEDisabled(t *testing.T) {
+	u := getTestUser()
+	user, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getFTPClientImplicitTLS(user)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+
+		code, response, err := client.SendCustomCommand("SITE CHMOD 600 afile.txt")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusBadCommand, code)
+		assert.Equal(t, "SITE support is disabled", response)
+
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestHASH(t *testing.T) {
+	u := getTestUser()
+	localUser, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	sftpUser, _, err := httpd.AddUser(getTestSFTPUser(), http.StatusOK)
+	assert.NoError(t, err)
+	u = getTestUserWithCryptFs()
+	u.Username += "_crypt"
+	cryptUser, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	for _, user := range []dataprovider.User{localUser, sftpUser, cryptUser} {
+		client, err := getFTPClientImplicitTLS(user)
+		if assert.NoError(t, err) {
+			testFilePath := filepath.Join(homeBasePath, testFileName)
+			testFileSize := int64(131072)
+			err = createTestFile(testFilePath, testFileSize)
+			assert.NoError(t, err)
+			err = checkBasicFTP(client)
+			assert.NoError(t, err)
+			err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+			assert.NoError(t, err)
+
+			h := sha256.New()
+			f, err := os.Open(testFilePath)
+			assert.NoError(t, err)
+			_, err = io.Copy(h, f)
+			assert.NoError(t, err)
+			hash := hex.EncodeToString(h.Sum(nil))
+			err = f.Close()
+			assert.NoError(t, err)
+
+			code, response, err := client.SendCustomCommand(fmt.Sprintf("XSHA256 %v", testFileName))
+			assert.NoError(t, err)
+			assert.Equal(t, ftp.StatusRequestedFileActionOK, code)
+			assert.Contains(t, response, hash)
+
+			code, response, err = client.SendCustomCommand(fmt.Sprintf("HASH %v", testFileName))
+			assert.NoError(t, err)
+			assert.Equal(t, ftp.StatusFile, code)
+			assert.Contains(t, response, hash)
+
+			err = client.Quit()
+			assert.NoError(t, err)
+
+			err = os.Remove(testFilePath)
+			assert.NoError(t, err)
+			if user.Username == defaultUsername {
+				err = os.RemoveAll(user.GetHomeDir())
+				assert.NoError(t, err)
+			}
+		}
+	}
+
+	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(cryptUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(cryptUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestCombine(t *testing.T) {
+	u := getTestUser()
+	localUser, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	sftpUser, _, err := httpd.AddUser(getTestSFTPUser(), http.StatusOK)
+	assert.NoError(t, err)
+	for _, user := range []dataprovider.User{localUser, sftpUser} {
+		client, err := getFTPClientImplicitTLS(user)
+		if assert.NoError(t, err) {
+			testFilePath := filepath.Join(homeBasePath, testFileName)
+			testFileSize := int64(131072)
+			err = createTestFile(testFilePath, testFileSize)
+			assert.NoError(t, err)
+			err = checkBasicFTP(client)
+			assert.NoError(t, err)
+			err = ftpUploadFile(testFilePath, testFileName+".1", testFileSize, client, 0)
+			assert.NoError(t, err)
+			err = ftpUploadFile(testFilePath, testFileName+".2", testFileSize, client, 0)
+			assert.NoError(t, err)
+
+			code, response, err := client.SendCustomCommand(fmt.Sprintf("COMB %v %v %v", testFileName, testFileName+".1", testFileName+".2"))
+			assert.NoError(t, err)
+			if user.Username == defaultUsername {
+				assert.Equal(t, ftp.StatusRequestedFileActionOK, code)
+				assert.Equal(t, "COMB succeeded!", response)
+			} else {
+				assert.Equal(t, ftp.StatusFileUnavailable, code)
+				assert.Contains(t, response, "COMB is not supported for this filesystem")
+			}
+
+			err = client.Quit()
+			assert.NoError(t, err)
+
+			err = os.Remove(testFilePath)
+			assert.NoError(t, err)
+			if user.Username == defaultUsername {
+				err = os.RemoveAll(user.GetHomeDir())
+				assert.NoError(t, err)
+			}
+		}
+	}
+
+	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func checkBasicFTP(client *ftp.ServerConn) error {
 	_, err := client.CurrentDir()
 	if err != nil {
@@ -1647,6 +1895,30 @@ func ftpDownloadFile(remoteSourcePath string, localDestPath string, expectedSize
 	return nil
 }
 
+func getFTPClientImplicitTLS(user dataprovider.User) (*ftp.ServerConn, error) {
+	ftpOptions := []ftp.DialOption{ftp.DialWithTimeout(5 * time.Second)}
+	tlsConfig := &tls.Config{
+		ServerName:         "localhost",
+		InsecureSkipVerify: true, // use this for tests only
+		MinVersion:         tls.VersionTLS12,
+	}
+	ftpOptions = append(ftpOptions, ftp.DialWithTLS(tlsConfig))
+	ftpOptions = append(ftpOptions, ftp.DialWithDisabledEPSV(true))
+	client, err := ftp.Dial(ftpSrvAddrTLS, ftpOptions...)
+	if err != nil {
+		return nil, err
+	}
+	pwd := defaultPassword
+	if user.Password != "" {
+		pwd = user.Password
+	}
+	err = client.Login(user.Username, pwd)
+	if err != nil {
+		return nil, err
+	}
+	return client, err
+}
+
 func getFTPClient(user dataprovider.User, useTLS bool) (*ftp.ServerConn, error) {
 	ftpOptions := []ftp.DialOption{ftp.DialWithTimeout(5 * time.Second)}
 	if useTLS {
@@ -1662,7 +1934,7 @@ func getFTPClient(user dataprovider.User, useTLS bool) (*ftp.ServerConn, error) 
 		return nil, err
 	}
 	pwd := defaultPassword
-	if len(user.Password) > 0 {
+	if user.Password != "" {
 		pwd = user.Password
 	}
 	err = client.Login(user.Username, pwd)

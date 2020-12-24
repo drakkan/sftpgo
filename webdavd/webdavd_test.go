@@ -149,7 +149,8 @@ func TestMain(m *testing.M) {
 			Port: 9022,
 		},
 	}
-	sftpdConf.HostKeys = []string{filepath.Join(os.TempDir(), "id_ecdsa")}
+	hostKeyPath := filepath.Join(os.TempDir(), "id_ecdsa")
+	sftpdConf.HostKeys = []string{hostKeyPath}
 
 	webDavConf := config.GetWebDAVDConfig()
 	webDavConf.Bindings = []webdavd.Binding{
@@ -217,6 +218,8 @@ func TestMain(m *testing.M) {
 	os.Remove(postConnectPath)
 	os.Remove(certPath)
 	os.Remove(keyPath)
+	os.Remove(hostKeyPath)
+	os.Remove(hostKeyPath + ".pub")
 	os.Exit(exitCode)
 }
 

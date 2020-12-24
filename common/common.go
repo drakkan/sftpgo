@@ -612,16 +612,23 @@ func (c ConnectionStatus) GetConnectionDuration() string {
 
 // GetConnectionInfo returns connection info.
 // Protocol,Client Version and RemoteAddress are returned.
-// For SSH commands the issued command is returned too.
 func (c ConnectionStatus) GetConnectionInfo() string {
-	result := fmt.Sprintf("%v. Client: %#v From: %#v", c.Protocol, c.ClientVersion, c.RemoteAddress)
-	if c.Protocol == ProtocolSSH && len(c.Command) > 0 {
-		result += fmt.Sprintf(". Command: %#v", c.Command)
+	var result strings.Builder
+
+	result.WriteString(fmt.Sprintf("%v. Client: %#v From: %#v", c.Protocol, c.ClientVersion, c.RemoteAddress))
+
+	if c.Command == "" {
+		return result.String()
 	}
-	if c.Protocol == ProtocolWebDAV && len(c.Command) > 0 {
-		result += fmt.Sprintf(". Method: %#v", c.Command)
+
+	switch c.Protocol {
+	case ProtocolSSH, ProtocolFTP:
+		result.WriteString(fmt.Sprintf(". Command: %#v", c.Command))
+	case ProtocolWebDAV:
+		result.WriteString(fmt.Sprintf(". Method: %#v", c.Command))
 	}
-	return result
+
+	return result.String()
 }
 
 // GetTransfersAsString returns the active transfers as string

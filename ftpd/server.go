@@ -93,6 +93,10 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 		ConnectionTimeout:        20,
 		Banner:                   s.statusBanner,
 		TLSRequired:              ftpserver.TLSRequirement(s.binding.TLSMode),
+		DisableSite:              !s.config.EnableSite,
+		DisableActiveMode:        s.config.DisableActiveMode,
+		EnableHASH:               s.config.HASHSupport > 0,
+		EnableCOMB:               s.config.CombineSupport > 0,
 	}, nil
 }
 
@@ -156,7 +160,7 @@ func (s *Server) GetTLSConfig() (*tls.Config, error) {
 }
 
 func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext) (*Connection, error) {
-	connectionID := fmt.Sprintf("%v_%v", common.ProtocolFTP, cc.ID())
+	connectionID := fmt.Sprintf("%v_%v_%v", common.ProtocolFTP, s.ID, cc.ID())
 	if !filepath.IsAbs(user.HomeDir) {
 		logger.Warn(logSender, connectionID, "user %#v has an invalid home dir: %#v. Home dir must be an absolute path, login not allowed",
 			user.Username, user.HomeDir)

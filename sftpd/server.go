@@ -42,7 +42,7 @@ type Binding struct {
 	Address string `json:"address" mapstructure:"address"`
 	// The port used for serving requests
 	Port int `json:"port" mapstructure:"port"`
-	// apply the proxy configuration, if any, for this binding
+	// Apply the proxy configuration, if any, for this binding
 	ApplyProxyConfig bool `json:"apply_proxy_config" mapstructure:"apply_proxy_config"`
 }
 

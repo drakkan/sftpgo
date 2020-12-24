@@ -752,6 +752,9 @@ func TestBasicUsersCache(t *testing.T) {
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.False(t, ok)
+
+	err = os.RemoveAll(u.GetHomeDir())
+	assert.NoError(t, err)
 }
 
 func TestUsersCacheSizeAndExpiration(t *testing.T) {
@@ -933,6 +936,9 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	err = dataprovider.DeleteUser(user3)
 	assert.NoError(t, err)
 	err = dataprovider.DeleteUser(user4)
+	assert.NoError(t, err)
+
+	err = os.RemoveAll(u.GetHomeDir())
 	assert.NoError(t, err)
 }
 

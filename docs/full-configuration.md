@@ -104,6 +104,10 @@ The configuration file contains the following sections:
   - `active_transfers_port_non_20`, boolean. Do not impose the port 20 for active data transfers. Enabling this option allows to run SFTPGo with less privilege. Default: false.
   - `force_passive_ip`, ip address.  Deprecated, please use `bindings`
   - `passive_port_range`, struct containing the key `start` and `end`. Port Range for data connections. Random if not specified. Default range is 50000-50100.
+  - `disable_active_mode`, boolean. Set to `true` to disable active FTP, default `false`.
+  - `enable_site`, boolean. Set to true to enable the FTP SITE command. We support `chmod` and `symlink` if SITE support is enabled. Default `false`
+  - `hash_support`, integer. Set to `1` to enable FTP commands that allow to calculate the hash value of files. These FTP commands will be enabled: `HASH`, `XCRC`, `MD5/XMD5`, `XSHA/XSHA1`, `XSHA256`, `XSHA512`. Please keep in mind that to calculate the hash we need to read the whole file, for remote backends this means downloading the file, for the encrypted backend this means decrypting the file. Default `0`.
+  - `combine_support`, integer. Set to 1 to enable support for the non standard `COMB` FTP command. Combine is only supported for local filesystem, for cloud backends it has no advantage as it will download the partial files and will upload the combined one. Cloud backends natively support multipart uploads. Default `0`.
   - `certificate_file`, string. Certificate for FTPS. This can be an absolute path or a path relative to the config dir.
   - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. A certificate and the private key are required to enable explicit and implicit TLS. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
   - `tls_mode`, integer. Deprecated, please use `bindings`

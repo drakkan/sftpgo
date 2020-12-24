@@ -27,9 +27,10 @@ type Binding struct {
 	Address string `json:"address" mapstructure:"address"`
 	// The port used for serving requests
 	Port int `json:"port" mapstructure:"port"`
-	// apply the proxy configuration, if any, for this binding
+	// Apply the proxy configuration, if any, for this binding
 	ApplyProxyConfig bool `json:"apply_proxy_config" mapstructure:"apply_proxy_config"`
-	// set to 1 to require TLS for both data and control connection
+	// Set to 1 to require TLS for both data and control connection.
+	// Set to 2 to enable implicit TLS
 	TLSMode int `json:"tls_mode" mapstructure:"tls_mode"`
 	// External IP address to expose for passive connections.
 	ForcePassiveIP string `json:"force_passive_ip" mapstructure:"force_passive_ip"`
@@ -103,10 +104,26 @@ type Configuration struct {
 	CertificateKeyFile string `json:"certificate_key_file" mapstructure:"certificate_key_file"`
 	// Do not impose the port 20 for active data transfer. Enabling this option allows to run SFTPGo with less privilege
 	ActiveTransfersPortNon20 bool `json:"active_transfers_port_non_20" mapstructure:"active_transfers_port_non_20"`
-	// Port Range for data connections. Random if not specified
-	PassivePortRange PortRange `json:"passive_port_range" mapstructure:"passive_port_range"`
+	// Set to true to disable active FTP
+	DisableActiveMode bool `json:"disable_active_mode" mapstructure:"disable_active_mode"`
+	// Set to true to enable the FTP SITE command.
+	// We support chmod and symlink if SITE support is enabled
+	EnableSite bool `json:"enable_site" mapstructure:"enable_site"`
+	// Set to 1 to enable FTP commands that allow to calculate the hash value of files.
+	// These FTP commands will be enabled: HASH, XCRC, MD5/XMD5, XSHA/XSHA1, XSHA256, XSHA512.
+	// Please keep in mind that to calculate the hash we need to read the whole file, for
+	// remote backends this means downloading the file, for the encrypted backend this means
+	// decrypting the file
+	HASHSupport int `json:"hash_support" mapstructure:"hash_support"`
+	// Set to 1 to enable support for the non standard "COMB" FTP command.
+	// Combine is only supported for local filesystem, for cloud backends it has
+	// no advantage as it will download the partial files and will upload the
+	// combined one. Cloud backends natively support multipart uploads.
+	CombineSupport int `json:"combine_support" mapstructure:"combine_support"`
 	// Deprecated: please use Bindings
 	TLSMode int `json:"tls_mode" mapstructure:"tls_mode"`
+	// Port Range for data connections. Random if not specified
+	PassivePortRange PortRange `json:"passive_port_range" mapstructure:"passive_port_range"`
 }
 
 // ShouldBind returns true if there is at least a valid binding

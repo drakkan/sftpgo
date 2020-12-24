@@ -17,7 +17,8 @@ import (
 )
 
 var (
-	errNotImplemented = errors.New("Not implemented")
+	errNotImplemented   = errors.New("Not implemented")
+	errCOMBNotSupported = errors.New("COMB is not supported for this filesystem")
 )
 
 // Connection details for an FTP connection.
@@ -45,12 +46,12 @@ func (c *Connection) GetRemoteAddress() string {
 
 // Disconnect disconnects the client
 func (c *Connection) Disconnect() error {
-	return c.clientContext.Close(0, "")
+	return c.clientContext.Close()
 }
 
 // GetCommand returns an empty string
 func (c *Connection) GetCommand() string {
-	return ""
+	return c.clientContext.GetLastCommand()
 }
 
 // Create is not implemented we use ClientDriverExtentionFileTransfer
@@ -285,6 +286,11 @@ func (c *Connection) GetHandle(name string, flags int, offset int64) (ftpserver.
 	if err != nil {
 		return nil, c.GetFsError(err)
 	}
+
+	if c.GetCommand() == "COMB" && !vfs.IsLocalOsFs(c.Fs) {
+		return nil, errCOMBNotSupported
+	}
+
 	if flags&os.O_WRONLY != 0 {
 		return c.uploadFile(p, name, flags)
 	}
@@ -384,10 +390,11 @@ func (c *Connection) handleFTPUploadToExistingFile(flags int, resolvedPath, file
 		return nil, common.ErrQuotaExceeded
 	}
 	minWriteOffset := int64(0)
-	// ftpserverlib set os.O_WRONLY | os.O_APPEND for APPE
-	// and os.O_WRONLY | os.O_CREATE for REST. If is not APPE
-	// and REST = 0 then os.O_WRONLY | os.O_CREATE | os.O_TRUNC
-	// so if we don't have O_TRUC is a resume
+	// ftpserverlib sets:
+	// - os.O_WRONLY | os.O_APPEND for APPE and COMB
+	// - os.O_WRONLY | os.O_CREATE for REST.
+	// - os.O_WRONLY | os.O_CREATE | os.O_TRUNC if the command is not APPE and REST = 0
+	// so if we don't have O_TRUNC is a resume.
 	isResume := flags&os.O_TRUNC == 0
 	// if there is a size limit remaining size cannot be 0 here, since quotaResult.HasSpace
 	// will return false in this case and we deny the upload before

@@ -113,6 +113,10 @@ func Init() {
 				Start: 50000,
 				End:   50100,
 			},
+			DisableActiveMode:  false,
+			EnableSite:         false,
+			HASHSupport:        0,
+			CombineSupport:     0,
 			CertificateFile:    "",
 			CertificateKeyFile: "",
 		},
@@ -660,6 +664,10 @@ func setViperDefaults() {
 	viper.SetDefault("ftpd.active_transfers_port_non_20", globalConf.FTPD.ActiveTransfersPortNon20)
 	viper.SetDefault("ftpd.passive_port_range.start", globalConf.FTPD.PassivePortRange.Start)
 	viper.SetDefault("ftpd.passive_port_range.end", globalConf.FTPD.PassivePortRange.End)
+	viper.SetDefault("ftpd.disable_active_mode", globalConf.FTPD.DisableActiveMode)
+	viper.SetDefault("ftpd.enable_site", globalConf.FTPD.EnableSite)
+	viper.SetDefault("ftpd.hash_support", globalConf.FTPD.HASHSupport)
+	viper.SetDefault("ftpd.combine_support", globalConf.FTPD.CombineSupport)
 	viper.SetDefault("ftpd.certificate_file", globalConf.FTPD.CertificateFile)
 	viper.SetDefault("ftpd.certificate_key_file", globalConf.FTPD.CertificateKeyFile)
 	viper.SetDefault("webdavd.certificate_file", globalConf.WebDAVD.CertificateFile)
