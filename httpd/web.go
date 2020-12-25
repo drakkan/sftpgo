@@ -678,7 +678,26 @@ func handleGetWebUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
-	renderAddUserPage(w, dataprovider.User{Status: 1}, "")
+	if r.URL.Query().Get("cloneFromId") != "" {
+		id, err := strconv.ParseInt(r.URL.Query().Get("cloneFromId"), 10, 64)
+		if err != nil {
+			renderBadRequestPage(w, err)
+			return
+		}
+		user, err := dataprovider.GetUserByID(id)
+		if err == nil {
+			user.ID = 0
+			user.Username = ""
+			renderAddUserPage(w, user, "")
+		} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+			renderNotFoundPage(w, err)
+		} else {
+			renderInternalServerErrorPage(w, err)
+		}
+	} else {
+		user := dataprovider.User{Status: 1}
+		renderAddUserPage(w, user, "")
+	}
 }
 
 func handleWebUpdateUserGet(w http.ResponseWriter, r *http.Request) {

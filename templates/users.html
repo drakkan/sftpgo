@@ -147,6 +147,16 @@
             enabled: false
         };
 
+        $.fn.dataTable.ext.buttons.clone = {
+            text: 'Clone',
+            action: function (e, dt, node, config) {
+                var userID = dt.row({ selected: true }).data()[0];
+                var path = '{{.UserURL}}' + "?cloneFromId=" + userID;
+                window.location.href = path;
+            },
+            enabled: false
+        };
+
         $.fn.dataTable.ext.buttons.delete = {
             text: 'Delete',
             action: function (e, dt, node, config) {
@@ -212,7 +222,7 @@
                 "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
             select: true,
             buttons: [
-                'add', 'edit', 'delete', 'quota_scan'
+                'add', 'edit', 'clone', 'delete', 'quota_scan'
             ],
             "columnDefs": [
                 {
@@ -230,6 +240,7 @@
             table.button(1).enable(selectedRows == 1);
             table.button(2).enable(selectedRows == 1);
             table.button(3).enable(selectedRows == 1);
+            table.button(4).enable(selectedRows == 1);
         });
     });
 </script>
