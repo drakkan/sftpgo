@@ -12,6 +12,7 @@ import (
 
 	"github.com/eikenb/pipeat"
 	"github.com/rs/xid"
+	"github.com/shirou/gopsutil/v3/disk"
 
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
@@ -476,4 +477,13 @@ func (fs *OsFs) GetMimeType(name string) (string, error) {
 // Close closes the fs
 func (*OsFs) Close() error {
 	return nil
+}
+
+// GetAvailableDiskSize return the available size for the specified path
+func (*OsFs) GetAvailableDiskSize(dirName string) (int64, error) {
+	usage, err := disk.Usage(dirName)
+	if err != nil {
+		return 0, err
+	}
+	return int64(usage.Free), nil
 }

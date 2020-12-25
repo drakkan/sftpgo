@@ -701,6 +701,11 @@ func (*AzureBlobFs) Close() error {
 	return nil
 }
 
+// GetAvailableDiskSize return the available size for the specified path
+func (*AzureBlobFs) GetAvailableDiskSize(dirName string) (int64, error) {
+	return 0, errStorageSizeUnavailable
+}
+
 func (fs *AzureBlobFs) isEqual(key string, virtualName string) bool {
 	if key == virtualName {
 		return true

@@ -703,3 +703,8 @@ func (fs *S3Fs) GetMimeType(name string) (string, error) {
 func (*S3Fs) Close() error {
 	return nil
 }
+
+// GetAvailableDiskSize return the available size for the specified path
+func (*S3Fs) GetAvailableDiskSize(dirName string) (int64, error) {
+	return 0, errStorageSizeUnavailable
+}

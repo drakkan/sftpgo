@@ -1395,7 +1395,7 @@ func TestUploadOverwriteVfolder(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestAllocate(t *testing.T) {
+func TestAllocateAvailable(t *testing.T) {
 	u := getTestUser()
 	mappedPath := filepath.Join(os.TempDir(), "vdir")
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
@@ -1415,6 +1415,16 @@ func TestAllocate(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusCommandOK, code)
 		assert.Equal(t, "Done !", response)
+
+		code, response, err = client.SendCustomCommand("AVBL /vdir")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusFile, code)
+		assert.Equal(t, "110", response)
+
+		code, _, err = client.SendCustomCommand("AVBL")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusFile, code)
+
 		err = client.Quit()
 		assert.NoError(t, err)
 	}
@@ -1442,6 +1452,12 @@ func TestAllocate(t *testing.T) {
 
 		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
 		assert.NoError(t, err)
+
+		code, response, err = client.SendCustomCommand("AVBL")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusFile, code)
+		assert.Equal(t, "1", response)
+
 		// we still have space in vdir
 		code, response, err = client.SendCustomCommand("allo 50")
 		assert.NoError(t, err)
@@ -1475,8 +1491,36 @@ func TestAllocate(t *testing.T) {
 		assert.Equal(t, ftp.StatusFileUnavailable, code)
 		assert.Contains(t, response, common.ErrQuotaExceeded.Error())
 
+		code, response, err = client.SendCustomCommand("AVBL")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusFile, code)
+		assert.Equal(t, "100", response)
+
 		err = client.Quit()
 		assert.NoError(t, err)
+	}
+
+	user.QuotaSize = 50
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	client, err = getFTPClient(user, false)
+	if assert.NoError(t, err) {
+		code, response, err := client.SendCustomCommand("AVBL")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusFile, code)
+		assert.Equal(t, "0", response)
+	}
+
+	user.QuotaSize = 1000
+	user.Filters.MaxUploadFileSize = 1
+	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	client, err = getFTPClient(user, false)
+	if assert.NoError(t, err) {
+		code, response, err := client.SendCustomCommand("AVBL")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusFile, code)
+		assert.Equal(t, "1", response)
 	}
 
 	_, err = httpd.RemoveUser(user, http.StatusOK)
@@ -1486,6 +1530,30 @@ func TestAllocate(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+}
+
+func TestAvailableUnsupportedFs(t *testing.T) {
+	u := getTestUser()
+	localUser, _, err := httpd.AddUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	sftpUser, _, err := httpd.AddUser(getTestSFTPUser(), http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getFTPClient(sftpUser, false)
+	if assert.NoError(t, err) {
+		code, response, err := client.SendCustomCommand("AVBL")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusFileUnavailable, code)
+		assert.Contains(t, response, "unable to get available size for this storage backend")
+
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 }
 

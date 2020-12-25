@@ -22,7 +22,10 @@ import (
 
 const dirMimeType = "inode/directory"
 
-var validAzAccessTier = []string{"", "Archive", "Hot", "Cool"}
+var (
+	validAzAccessTier         = []string{"", "Archive", "Hot", "Cool"}
+	errStorageSizeUnavailable = errors.New("unable to get available size for this storage backend")
+)
 
 // Fs defines the interface for filesystem backends
 type Fs interface {
@@ -57,6 +60,7 @@ type Fs interface {
 	Join(elem ...string) string
 	HasVirtualFolders() bool
 	GetMimeType(name string) (string, error)
+	GetAvailableDiskSize(dirName string) (int64, error)
 	Close() error
 }
 

@@ -494,6 +494,11 @@ func (fs *SFTPFs) Close() error {
 	return sshErr
 }
 
+// GetAvailableDiskSize return the available size for the specified path
+func (*SFTPFs) GetAvailableDiskSize(dirName string) (int64, error) {
+	return 0, errStorageSizeUnavailable
+}
+
 func (fs *SFTPFs) checkConnection() error {
 	err := fs.closed()
 	if err == nil {

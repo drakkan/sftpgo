@@ -49,7 +49,7 @@ func (c *Connection) Disconnect() error {
 	return c.clientContext.Close()
 }
 
-// GetCommand returns an empty string
+// GetCommand returns the last received FTP command
 func (c *Connection) GetCommand() string {
 	return c.clientContext.GetLastCommand()
 }
@@ -209,7 +209,42 @@ func (c *Connection) Chtimes(name string, atime time.Time, mtime time.Time) erro
 	return c.SetStat(p, name, &attrs)
 }
 
-// AllocateSpace implements ClientDriverExtensionAllocate
+// GetAvailableSpace implements ClientDriverExtensionAvailableSpace interface
+func (c *Connection) GetAvailableSpace(dirName string) (int64, error) {
+	c.UpdateLastActivity()
+
+	quotaResult := c.HasSpace(false, path.Join(dirName, "fakefile.txt"))
+
+	if !quotaResult.HasSpace {
+		return 0, nil
+	}
+
+	if quotaResult.AllowedSize == 0 {
+		// no quota restrictions
+		if c.User.Filters.MaxUploadFileSize > 0 {
+			return c.User.Filters.MaxUploadFileSize, nil
+		}
+
+		p, err := c.Fs.ResolvePath(dirName)
+		if err != nil {
+			return 0, c.GetFsError(err)
+		}
+
+		return c.Fs.GetAvailableDiskSize(p)
+	}
+
+	// the available space is the minimum between MaxUploadFileSize, if setted,
+	// and quota allowed size
+	if c.User.Filters.MaxUploadFileSize > 0 {
+		if c.User.Filters.MaxUploadFileSize < quotaResult.AllowedSize {
+			return c.User.Filters.MaxUploadFileSize, nil
+		}
+	}
+
+	return quotaResult.AllowedSize, nil
+}
+
+// AllocateSpace implements ClientDriverExtensionAllocate interface
 func (c *Connection) AllocateSpace(size int) error {
 	c.UpdateLastActivity()
 	// check the max allowed file size first

@@ -754,3 +754,8 @@ func (fs *GCSFs) GetMimeType(name string) (string, error) {
 func (fs *GCSFs) Close() error {
 	return nil
 }
+
+// GetAvailableDiskSize return the available size for the specified path
+func (*GCSFs) GetAvailableDiskSize(dirName string) (int64, error) {
+	return 0, errStorageSizeUnavailable
+}

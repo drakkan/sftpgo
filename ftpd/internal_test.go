@@ -342,6 +342,10 @@ func TestResolvePathErrors(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, common.ErrGenericFailure.Error())
 	}
+	_, err = connection.GetAvailableSpace("")
+	if assert.Error(t, err) {
+		assert.EqualError(t, err, common.ErrGenericFailure.Error())
+	}
 }
 
 func TestUploadFileStatError(t *testing.T) {
