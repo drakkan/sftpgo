@@ -26,7 +26,7 @@ if [ "$1" = "configure" ]; then
     chown -R sftpgo:sftpgo /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
     chmod 750 /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
     chmod 640 /etc/sftpgo/sftpgo.json
-	  echo "Please be sure to have the python3-requests package installed if you want to use the REST API CLI"
+    echo "Please be sure to have the python3-requests package installed if you want to use the REST API CLI"
   fi
 
   # we added /srv/sftpgo after 1.1.0, we should check if we are upgrading
