@@ -3343,23 +3343,25 @@ func TestRenderWebCloneUserMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
 
-	user.FsConfig = dataprovider.Filesystem{
-		Provider: dataprovider.CryptedFilesystemProvider,
-		CryptConfig: vfs.CryptFsConfig{
-			Passphrase: kms.NewPlainSecret("secret"),
-		},
-	}
-	err = user.FsConfig.CryptConfig.Passphrase.Encrypt()
-	assert.NoError(t, err)
-	user.FsConfig.CryptConfig.Passphrase.SetStatus(kms.SecretStatusAWS)
-	user.Password = defaultPassword
-	err = dataprovider.UpdateUser(user)
-	assert.NoError(t, err)
+	if config.GetProviderConf().Driver != "memory" {
+		user.FsConfig = dataprovider.Filesystem{
+			Provider: dataprovider.CryptedFilesystemProvider,
+			CryptConfig: vfs.CryptFsConfig{
+				Passphrase: kms.NewPlainSecret("secret"),
+			},
+		}
+		err = user.FsConfig.CryptConfig.Passphrase.Encrypt()
+		assert.NoError(t, err)
+		user.FsConfig.CryptConfig.Passphrase.SetStatus(kms.SecretStatusAWS)
+		user.Password = defaultPassword
+		err = dataprovider.UpdateUser(user)
+		assert.NoError(t, err)
 
-	req, err = http.NewRequest(http.MethodGet, webUserPath+fmt.Sprintf("?cloneFromId=%v", user.ID), nil)
-	assert.NoError(t, err)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr.Code)
+		req, err = http.NewRequest(http.MethodGet, webUserPath+fmt.Sprintf("?cloneFromId=%v", user.ID), nil)
+		assert.NoError(t, err)
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusInternalServerError, rr.Code)
+	}
 
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
