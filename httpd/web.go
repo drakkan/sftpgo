@@ -688,6 +688,10 @@ func handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			user.ID = 0
 			user.Username = ""
+			if err := user.DecryptSecrets(); err != nil {
+				renderInternalServerErrorPage(w, err)
+				return
+			}
 			renderAddUserPage(w, user, "")
 		} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
 			renderNotFoundPage(w, err)

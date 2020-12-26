@@ -235,6 +235,7 @@ func TestMain(m *testing.M) {
 	waitTCPListening(ftpdConf.Bindings[0].GetAddress())
 
 	// ensure all the initial connections to check if the service is alive are disconnected
+	time.Sleep(100 * time.Millisecond)
 	for len(common.Connections.GetStats()) > 0 {
 		time.Sleep(50 * time.Millisecond)
 	}

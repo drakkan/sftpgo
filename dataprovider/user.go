@@ -261,6 +261,41 @@ func (u *User) HideConfidentialData() {
 	}
 }
 
+// DecryptSecrets tries to decrypts kms secrets
+func (u *User) DecryptSecrets() error {
+	switch u.FsConfig.Provider {
+	case S3FilesystemProvider:
+		if u.FsConfig.S3Config.AccessSecret.IsEncrypted() {
+			return u.FsConfig.S3Config.AccessSecret.Decrypt()
+		}
+	case GCSFilesystemProvider:
+		if u.FsConfig.GCSConfig.Credentials.IsEncrypted() {
+			return u.FsConfig.GCSConfig.Credentials.Decrypt()
+		}
+	case AzureBlobFilesystemProvider:
+		if u.FsConfig.AzBlobConfig.AccountKey.IsEncrypted() {
+			return u.FsConfig.AzBlobConfig.AccountKey.Decrypt()
+		}
+	case CryptedFilesystemProvider:
+		if u.FsConfig.CryptConfig.Passphrase.IsEncrypted() {
+			return u.FsConfig.CryptConfig.Passphrase.Decrypt()
+		}
+	case SFTPFilesystemProvider:
+		if u.FsConfig.SFTPConfig.Password.IsEncrypted() {
+			if err := u.FsConfig.SFTPConfig.Password.Decrypt(); err != nil {
+				return err
+			}
+		}
+		if u.FsConfig.SFTPConfig.PrivateKey.IsEncrypted() {
+			if err := u.FsConfig.SFTPConfig.PrivateKey.Decrypt(); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 // GetPermissionsForPath returns the permissions for the given path.
 // The path must be an SFTP path
 func (u *User) GetPermissionsForPath(p string) []string {

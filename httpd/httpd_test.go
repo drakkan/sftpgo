@@ -2079,6 +2079,10 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.Remove(backupFilePath)
 	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodGet, webUserPath+"?cloneFromId=1234", nil)
+	assert.NoError(t, err)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr.Code)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
@@ -3318,6 +3322,47 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr.Code)
+}
+
+func TestRenderWebCloneUserMock(t *testing.T) {
+	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, webUserPath+"?cloneFromId=a", nil)
+	assert.NoError(t, err)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr.Code)
+
+	req, err = http.NewRequest(http.MethodGet, webUserPath+"?cloneFromId=1234", nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr.Code)
+
+	req, err = http.NewRequest(http.MethodGet, webUserPath+fmt.Sprintf("?cloneFromId=%v", user.ID), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr.Code)
+
+	user.FsConfig = dataprovider.Filesystem{
+		Provider: dataprovider.CryptedFilesystemProvider,
+		CryptConfig: vfs.CryptFsConfig{
+			Passphrase: kms.NewPlainSecret("secret"),
+		},
+	}
+	err = user.FsConfig.CryptConfig.Passphrase.Encrypt()
+	assert.NoError(t, err)
+	user.FsConfig.CryptConfig.Passphrase.SetStatus(kms.SecretStatusAWS)
+	user.Password = defaultPassword
+	err = dataprovider.UpdateUser(user)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, webUserPath+fmt.Sprintf("?cloneFromId=%v", user.ID), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr.Code)
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestWebUserS3Mock(t *testing.T) {

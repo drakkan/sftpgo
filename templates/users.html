@@ -97,7 +97,7 @@
 
     function deleteAction() {
         var table = $('#dataTable').DataTable();
-        table.button(2).enable(false);
+        table.button(3).enable(false);
         var userID = table.row({ selected: true }).data()[0];
         var path = '{{.APIUserURL}}' + "/" + userID;
         $('#deleteModal').modal('hide');
@@ -107,12 +107,12 @@
             dataType: 'json',
             timeout: 15000,
             success: function (result) {
-                table.button(2).enable(true);
+                table.button(3).enable(true);
                 window.location.href = '{{.UsersURL}}';
             },
             error: function ($xhr, textStatus, errorThrown) {
                 console.log("delete error")
-                table.button(2).enable(true);
+                table.button(3).enable(true);
                 var txt = "Unable to delete the selected user";
                 if ($xhr) {
                     var json = $xhr.responseJSON;
@@ -173,7 +173,7 @@
         $.fn.dataTable.ext.buttons.quota_scan = {
             text: 'Quota scan',
             action: function (e, dt, node, config) {
-                table.button(3).enable(false);
+                table.button(4).enable(false);
                 var username = dt.row({ selected: true }).data()[1];
                 var path = '{{.APIQuotaScanURL}}'
                 $.ajax({
@@ -183,7 +183,7 @@
                     data: JSON.stringify({ "username": username }),
                     timeout: 15000,
                     success: function (result) {
-                        table.button(3).enable(true);
+                        table.button(4).enable(true);
                         $('#successTxt').text("Quota scan started for the selected user. Please reload the user's page to check when the scan ends");
                         $('#successMsg').show();
                         setTimeout(function () {
@@ -192,7 +192,7 @@
                     },
                     error: function ($xhr, textStatus, errorThrown) {
                         console.log("quota scan error")
-                        table.button(3).enable(true);
+                        table.button(4).enable(true);
                         var txt = "Unable to update quota for the selected user";
                         if ($xhr) {
                             var json = $xhr.responseJSON;
