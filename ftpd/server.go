@@ -97,6 +97,7 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 		DisableActiveMode:        s.config.DisableActiveMode,
 		EnableHASH:               s.config.HASHSupport > 0,
 		EnableCOMB:               s.config.CombineSupport > 0,
+		DefaultTransferType:      ftpserver.TransferTypeBinary,
 	}, nil
 }
 
