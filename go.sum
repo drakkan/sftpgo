@@ -179,8 +179,8 @@ github.com/envoyproxy/go-control-plane v0.9.7/go.mod h1:cwu0lG7PUMfa9snN8LXBig5y
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/structs v1.1.0/go.mod h1:9NiDSp5zOcgEDl+j00MP/WkGVPOlPRLejGD8Ga6PJ7M=
-github.com/fclairamb/ftpserverlib v0.11.1-0.20201227083946-472e9a1997b4 h1:3Jt6BgcdOpqvIv/WW3vpafOMQDmEYfVWPxe4+EnsLWA=
-github.com/fclairamb/ftpserverlib v0.11.1-0.20201227083946-472e9a1997b4/go.mod h1:X6sAMSYtN0YDPu+nHfyE9dsKPUOrEZ8O5EMgt1xvPwk=
+github.com/fclairamb/ftpserverlib v0.11.1-0.20201228010033-a81903a5fd21 h1:kEcLQsnpN78+LF9XzCHVLV/olyjuxHTQNvKlIEAx/Gc=
+github.com/fclairamb/ftpserverlib v0.11.1-0.20201228010033-a81903a5fd21/go.mod h1:X6sAMSYtN0YDPu+nHfyE9dsKPUOrEZ8O5EMgt1xvPwk=
 github.com/form3tech-oss/jwt-go v3.2.2+incompatible/go.mod h1:pbq4aXjuKjdthFRnoDwaVPLA+WlJuPGy+QneDUgJi2k=
 github.com/fortytw2/leaktest v1.3.0/go.mod h1:jDsjWgpAGjm2CA7WthBh/CdZYEPF31XHquHwclZch5g=
 github.com/franela/goblin v0.0.0-20200105215937-c9ffbefa60db/go.mod h1:7dvUGVsVBjqR7JHJk0brhHOZYGmfBYOrK0ZhYMEtBr4=

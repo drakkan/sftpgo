@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go v1.36.15
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
-	github.com/fclairamb/ftpserverlib v0.11.1-0.20201227083946-472e9a1997b4
+	github.com/fclairamb/ftpserverlib v0.11.1-0.20201228010033-a81903a5fd21
 	github.com/frankban/quicktest v1.11.2 // indirect
 	github.com/go-chi/chi v1.5.1
 	github.com/go-chi/render v1.0.1
