@@ -68,6 +68,9 @@ type Binding struct {
 	Port int `json:"port" mapstructure:"port"`
 	// you also need to provide a certificate for enabling HTTPS
 	EnableHTTPS bool `json:"enable_https" mapstructure:"enable_https"`
+	// set to 1 to require client certificate authentication in addition to basic auth.
+	// You need to define at least a certificate authority for this to work
+	ClientAuthType int `json:"client_auth_type" mapstructure:"client_auth_type"`
 }
 
 // GetAddress returns the binding address
@@ -94,6 +97,8 @@ type Configuration struct {
 	// "paramchange" request to the running service on Windows.
 	CertificateFile    string `json:"certificate_file" mapstructure:"certificate_file"`
 	CertificateKeyFile string `json:"certificate_key_file" mapstructure:"certificate_key_file"`
+	// CACertificates defines the set of root certificate authorities to use to verify client certificates.
+	CACertificates []string `json:"ca_certificates" mapstructure:"ca_certificates"`
 	// CORS configuration
 	Cors Cors `json:"cors" mapstructure:"cors"`
 	// Cache configuration
@@ -169,7 +174,7 @@ func getConfigPath(name, configDir string) string {
 	if !utils.IsFileInputValid(name) {
 		return ""
 	}
-	if len(name) > 0 && !filepath.IsAbs(name) {
+	if name != "" && !filepath.IsAbs(name) {
 		return filepath.Join(configDir, name)
 	}
 	return name

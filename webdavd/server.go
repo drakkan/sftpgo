@@ -44,9 +44,12 @@ func newServer(config *Configuration, configDir string) (*webDavServer, error) {
 	}
 	certificateFile := getConfigPath(config.CertificateFile, configDir)
 	certificateKeyFile := getConfigPath(config.CertificateKeyFile, configDir)
-	if len(certificateFile) > 0 && len(certificateKeyFile) > 0 {
+	if certificateFile != "" && certificateKeyFile != "" {
 		server.certMgr, err = common.NewCertManager(certificateFile, certificateKeyFile, logSender)
 		if err != nil {
+			return server, err
+		}
+		if err := server.certMgr.LoadRootCAs(config.CACertificates, configDir); err != nil {
 			return server, err
 		}
 	}
@@ -78,6 +81,10 @@ func (s *webDavServer) listenAndServe(binding Binding) error {
 		httpServer.TLSConfig = &tls.Config{
 			GetCertificate: s.certMgr.GetCertificateFunc(),
 			MinVersion:     tls.VersionTLS12,
+		}
+		if binding.ClientAuthType == 1 {
+			httpServer.TLSConfig.ClientCAs = s.certMgr.GetRootCAs()
+			httpServer.TLSConfig.ClientAuth = tls.RequireAndVerifyClientCert
 		}
 		return httpServer.ListenAndServeTLS("", "")
 	}

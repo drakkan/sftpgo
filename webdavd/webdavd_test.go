@@ -256,6 +256,24 @@ func TestInitialization(t *testing.T) {
 	}
 	err = cfg.Initialize(configDir)
 	assert.EqualError(t, err, common.ErrNoBinding.Error())
+
+	cfg.CertificateFile = certPath
+	cfg.CertificateKeyFile = keyPath
+	cfg.CACertificates = []string{""}
+
+	cfg.Bindings = []webdavd.Binding{
+		{
+			Port:           9022,
+			ClientAuthType: 1,
+			EnableHTTPS:    true,
+		},
+	}
+	err = cfg.Initialize(configDir)
+	assert.Error(t, err)
+
+	cfg.CACertificates = nil
+	err = cfg.Initialize(configDir)
+	assert.Error(t, err)
 }
 
 func TestBasicHandling(t *testing.T) {

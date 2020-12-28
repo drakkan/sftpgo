@@ -589,6 +589,7 @@ func TestWebDAVBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__2__ADDRESS", "127.0.1.1")
 	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__2__PORT", "9000")
 	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__2__ENABLE_HTTPS", "1")
+	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__2__CLIENT_AUTH_TYPE", "1")
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__1__ADDRESS")
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__1__PORT")
@@ -596,6 +597,7 @@ func TestWebDAVBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__2__ADDRESS")
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__2__PORT")
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__2__ENABLE_HTTPS")
+		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__2__CLIENT_AUTH_TYPE")
 	})
 
 	configDir := ".."
@@ -612,6 +614,7 @@ func TestWebDAVBindingsFromEnv(t *testing.T) {
 	require.Equal(t, 9000, bindings[2].Port)
 	require.Equal(t, "127.0.1.1", bindings[2].Address)
 	require.True(t, bindings[2].EnableHTTPS)
+	require.Equal(t, 1, bindings[2].ClientAuthType)
 }
 
 func TestConfigFromEnv(t *testing.T) {

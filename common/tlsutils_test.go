@@ -56,6 +56,25 @@ func TestLoadCertificate(t *testing.T) {
 		assert.Equal(t, certManager.cert, cert)
 	}
 
+	err = certManager.LoadRootCAs(nil, "")
+	assert.NoError(t, err)
+
+	err = certManager.LoadRootCAs([]string{""}, "")
+	assert.Error(t, err)
+
+	err = certManager.LoadRootCAs([]string{"invalid"}, "")
+	assert.Error(t, err)
+
+	// laoding the key as root CA must fail
+	err = certManager.LoadRootCAs([]string{keyPath}, "")
+	assert.Error(t, err)
+
+	err = certManager.LoadRootCAs([]string{certPath}, "")
+	assert.NoError(t, err)
+
+	rootCa := certManager.GetRootCAs()
+	assert.NotNil(t, rootCa)
+
 	err = os.Remove(certPath)
 	assert.NoError(t, err)
 	err = os.Remove(keyPath)

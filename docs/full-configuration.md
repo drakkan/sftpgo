@@ -116,10 +116,12 @@ The configuration file contains the following sections:
     - `port`, integer. The port used for serving WebDAV requests. 0 means disabled. Default: 0.
     - `address`, string. Leave blank to listen on all available network interfaces. Default: "".
     - `enable_https`, boolean. Set to `true` and provide both a certificate and a key file to enable HTTPS connection for this binding. Default `false`
+    - `client_auth_type`, integer. Set to `1` to require client certificate authentication in addition to basic auth. You need to define at least a certificate authority for this to work. Default: 0.
   - `bind_port`, integer. Deprecated, please use `bindings`
   - `bind_address`, string. Deprecated, please use `bindings`
   - `certificate_file`, string. Certificate for WebDAV over HTTPS. This can be an absolute path or a path relative to the config dir.
   - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. A certificate and a private key are required to enable HTTPS connections. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
+  - `ca_certificates`, list of strings. Set of root certificate authorities to use to verify client certificates.
   - `cors` struct containing CORS configuration. SFTPGo uses [Go CORS handler](https://github.com/rs/cors), please refer to upstream documentation for fields meaning and their default values.
     - `enabled`, boolean, set to true to enable CORS.
     - `allowed_origins`, list of strings.

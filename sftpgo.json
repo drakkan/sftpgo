@@ -67,11 +67,13 @@
       {
         "address": "",
         "port": 0,
-        "enable_https": false
+        "enable_https": false,
+        "client_auth_type": 0
       }
     ],
     "certificate_file": "",
     "certificate_key_file": "",
+    "ca_certificates": [],
     "cors": {
       "enabled": false,
       "allowed_origins": [],

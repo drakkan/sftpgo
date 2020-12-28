@@ -49,9 +49,10 @@ var (
 		ApplyProxyConfig: true,
 	}
 	defaultWebDAVDBinding = webdavd.Binding{
-		Address:     "",
-		Port:        0,
-		EnableHTTPS: false,
+		Address:        "",
+		Port:           0,
+		EnableHTTPS:    false,
+		ClientAuthType: 0,
 	}
 )
 
@@ -124,6 +125,7 @@ func Init() {
 			Bindings:           []webdavd.Binding{defaultWebDAVDBinding},
 			CertificateFile:    "",
 			CertificateKeyFile: "",
+			CACertificates:     []string{},
 			Cors: webdavd.Cors{
 				Enabled:          false,
 				AllowedOrigins:   []string{},
@@ -629,6 +631,12 @@ func getWebDAVDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
+	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx))
+	if ok {
+		binding.ClientAuthType = clientAuthType
+		isSet = true
+	}
+
 	if isSet {
 		if len(globalConf.WebDAVD.Bindings) > idx {
 			globalConf.WebDAVD.Bindings[idx] = binding
@@ -672,6 +680,7 @@ func setViperDefaults() {
 	viper.SetDefault("ftpd.certificate_key_file", globalConf.FTPD.CertificateKeyFile)
 	viper.SetDefault("webdavd.certificate_file", globalConf.WebDAVD.CertificateFile)
 	viper.SetDefault("webdavd.certificate_key_file", globalConf.WebDAVD.CertificateKeyFile)
+	viper.SetDefault("webdavd.ca_certificates", globalConf.WebDAVD.CACertificates)
 	viper.SetDefault("webdavd.cors.enabled", globalConf.WebDAVD.Cors.Enabled)
 	viper.SetDefault("webdavd.cors.allowed_origins", globalConf.WebDAVD.Cors.AllowedOrigins)
 	viper.SetDefault("webdavd.cors.allowed_methods", globalConf.WebDAVD.Cors.AllowedMethods)
