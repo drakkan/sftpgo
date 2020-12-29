@@ -18,6 +18,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -380,4 +381,37 @@ func createDirPathIfMissing(file string, perm os.FileMode) error {
 		}
 	}
 	return nil
+}
+
+// HTTPListenAndServe is a wrapper for ListenAndServe that support both tcp
+// and Unix-domain sockets
+func HTTPListenAndServe(srv *http.Server, address string, port int, isTLS bool) error {
+	var listener net.Listener
+	var err error
+
+	if filepath.IsAbs(address) && runtime.GOOS != "windows" {
+		if !IsFileInputValid(address) {
+			return fmt.Errorf("invalid socket address %#v", address)
+		}
+		err = createDirPathIfMissing(address, os.ModePerm)
+		if err != nil {
+			logger.ErrorToConsole("error creating Unix-domain socket parent dir: %v", err)
+			logger.Error(logSender, "", "error creating Unix-domain socket parent dir: %v", err)
+		}
+		os.Remove(address)
+
+		listener, err = net.Listen("unix", address)
+	} else {
+		listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", address, port))
+	}
+	if err != nil {
+		return err
+	}
+
+	defer listener.Close()
+
+	if isTLS {
+		return srv.ServeTLS(listener, "", "")
+	}
+	return srv.Serve(listener)
 }

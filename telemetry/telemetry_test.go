@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -82,6 +83,22 @@ func TestInitialization(t *testing.T) {
 	require.NoError(t, err)
 	err = os.Remove(keyPath)
 	require.NoError(t, err)
+}
+
+func TestShouldBind(t *testing.T) {
+	c := Conf{
+		BindPort:       10000,
+		EnableProfiler: false,
+	}
+	require.True(t, c.ShouldBind())
+
+	c.BindPort = 0
+	require.False(t, c.ShouldBind())
+
+	if runtime.GOOS != "windows" {
+		c.BindAddress = "/absolute/path"
+		require.True(t, c.ShouldBind())
+	}
 }
 
 func TestRouter(t *testing.T) {

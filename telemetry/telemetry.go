@@ -6,9 +6,9 @@ package telemetry
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net/http"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/go-chi/chi"
@@ -53,6 +53,17 @@ type Conf struct {
 	CertificateKeyFile string `json:"certificate_key_file" mapstructure:"certificate_key_file"`
 }
 
+// ShouldBind returns true if there service must be started
+func (c Conf) ShouldBind() bool {
+	if c.BindPort > 0 {
+		return true
+	}
+	if filepath.IsAbs(c.BindAddress) && runtime.GOOS != "windows" {
+		return true
+	}
+	return false
+}
+
 // Initialize configures and starts the telemetry server.
 func (c Conf) Initialize(configDir string) error {
 	var err error
@@ -66,7 +77,6 @@ func (c Conf) Initialize(configDir string) error {
 	certificateKeyFile := getConfigPath(c.CertificateKeyFile, configDir)
 	initializeRouter(c.EnableProfiler)
 	httpServer := &http.Server{
-		Addr:           fmt.Sprintf("%s:%d", c.BindAddress, c.BindPort),
 		Handler:        router,
 		ReadTimeout:    60 * time.Second,
 		WriteTimeout:   60 * time.Second,
@@ -83,9 +93,9 @@ func (c Conf) Initialize(configDir string) error {
 			MinVersion:     tls.VersionTLS12,
 		}
 		httpServer.TLSConfig = config
-		return httpServer.ListenAndServeTLS("", "")
+		return utils.HTTPListenAndServe(httpServer, c.BindAddress, c.BindPort, true)
 	}
-	return httpServer.ListenAndServe()
+	return utils.HTTPListenAndServe(httpServer, c.BindAddress, c.BindPort, false)
 }
 
 // ReloadTLSCertificate reloads the TLS certificate and key from the configured paths

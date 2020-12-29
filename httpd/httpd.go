@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/go-chi/chi"
@@ -50,6 +51,7 @@ const (
 	// MaxRestoreSize defines the max size for the loaddata input file
 	MaxRestoreSize = 10485760 // 10 MB
 	maxRequestSize = 1048576  // 1MB
+	osWindows      = "windows"
 )
 
 var (
@@ -99,6 +101,17 @@ type apiResponse struct {
 	Message string `json:"message"`
 }
 
+// ShouldBind returns true if there service must be started
+func (c Conf) ShouldBind() bool {
+	if c.BindPort > 0 {
+		return true
+	}
+	if filepath.IsAbs(c.BindAddress) && runtime.GOOS != osWindows {
+		return true
+	}
+	return false
+}
+
 // Initialize configures and starts the HTTP server
 func (c Conf) Initialize(configDir string) error {
 	var err error
@@ -128,7 +141,6 @@ func (c Conf) Initialize(configDir string) error {
 	}
 	initializeRouter(staticFilesPath, enableWebAdmin)
 	httpServer := &http.Server{
-		Addr:           fmt.Sprintf("%s:%d", c.BindAddress, c.BindPort),
 		Handler:        router,
 		ReadTimeout:    60 * time.Second,
 		WriteTimeout:   60 * time.Second,
@@ -145,9 +157,9 @@ func (c Conf) Initialize(configDir string) error {
 			MinVersion:     tls.VersionTLS12,
 		}
 		httpServer.TLSConfig = config
-		return httpServer.ListenAndServeTLS("", "")
+		return utils.HTTPListenAndServe(httpServer, c.BindAddress, c.BindPort, true)
 	}
-	return httpServer.ListenAndServe()
+	return utils.HTTPListenAndServe(httpServer, c.BindAddress, c.BindPort, false)
 }
 
 // ReloadTLSCertificate reloads the TLS certificate and key from the configured paths

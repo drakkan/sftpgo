@@ -143,7 +143,7 @@ func (s *Service) startServices() {
 		logger.Debug(logSender, "", "SFTP server not started, disabled in config file")
 	}
 
-	if httpdConf.BindPort > 0 {
+	if httpdConf.ShouldBind() {
 		go func() {
 			if err := httpdConf.Initialize(s.ConfigDir); err != nil {
 				logger.Error(logSender, "", "could not start HTTP server: %v", err)
@@ -182,7 +182,7 @@ func (s *Service) startServices() {
 	} else {
 		logger.Debug(logSender, "", "WebDAV server not started, disabled in config file")
 	}
-	if telemetryConf.BindPort > 0 {
+	if telemetryConf.ShouldBind() {
 		go func() {
 			if err := telemetryConf.Initialize(s.ConfigDir); err != nil {
 				logger.Error(logSender, "", "could not start telemetry server: %v", err)

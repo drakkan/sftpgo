@@ -16,6 +16,7 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
@@ -28,6 +29,21 @@ const (
 	invalidURL  = "http://foo\x7f.com/"
 	inactiveURL = "http://127.0.0.1:12345"
 )
+
+func TestShouldBind(t *testing.T) {
+	c := Conf{
+		BindPort: 10000,
+	}
+	require.True(t, c.ShouldBind())
+
+	c.BindPort = 0
+	require.False(t, c.ShouldBind())
+
+	if runtime.GOOS != osWindows {
+		c.BindAddress = "/absolute/path"
+		require.True(t, c.ShouldBind())
+	}
+}
 
 func TestGetRespStatus(t *testing.T) {
 	var err error
@@ -631,7 +647,7 @@ func TestBasicAuth(t *testing.T) {
 	SetBaseURLAndCredentials(httpBaseURL, "test3", "password2")
 	_, _, err = GetVersion(http.StatusUnauthorized)
 	assert.NoError(t, err)
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != osWindows {
 		authUserData = append(authUserData, []byte("test5:$apr1$gLnIkRIf$Xr/6aJfmIrihP4b2N2tcs/\n")...)
 		err = ioutil.WriteFile(authUserFile, authUserData, os.ModePerm)
 		assert.NoError(t, err)
