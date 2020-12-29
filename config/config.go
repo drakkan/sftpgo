@@ -47,6 +47,9 @@ var (
 		Address:          "",
 		Port:             0,
 		ApplyProxyConfig: true,
+		TLSMode:          0,
+		ForcePassiveIP:   "",
+		ClientAuthType:   0,
 	}
 	defaultWebDAVDBinding = webdavd.Binding{
 		Address:        "",
@@ -120,6 +123,7 @@ func Init() {
 			CombineSupport:     0,
 			CertificateFile:    "",
 			CertificateKeyFile: "",
+			CACertificates:     []string{},
 		},
 		WebDAVD: webdavd.Configuration{
 			Bindings:           []webdavd.Binding{defaultWebDAVDBinding},
@@ -596,6 +600,12 @@ func getFTPDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
+	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx))
+	if ok {
+		binding.ClientAuthType = clientAuthType
+		isSet = true
+	}
+
 	if isSet {
 		if len(globalConf.FTPD.Bindings) > idx {
 			globalConf.FTPD.Bindings[idx] = binding
@@ -678,6 +688,7 @@ func setViperDefaults() {
 	viper.SetDefault("ftpd.combine_support", globalConf.FTPD.CombineSupport)
 	viper.SetDefault("ftpd.certificate_file", globalConf.FTPD.CertificateFile)
 	viper.SetDefault("ftpd.certificate_key_file", globalConf.FTPD.CertificateKeyFile)
+	viper.SetDefault("ftpd.ca_certificates", globalConf.FTPD.CACertificates)
 	viper.SetDefault("webdavd.certificate_file", globalConf.WebDAVD.CertificateFile)
 	viper.SetDefault("webdavd.certificate_key_file", globalConf.WebDAVD.CertificateKeyFile)
 	viper.SetDefault("webdavd.ca_certificates", globalConf.WebDAVD.CACertificates)

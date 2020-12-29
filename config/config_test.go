@@ -549,6 +549,7 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__APPLY_PROXY_CONFIG", "t")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__TLS_MODE", "1")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__FORCE_PASSIVE_IP", "127.0.1.1")
+	os.Setenv("SFTPGO_FTPD__BINDINGS__9__CLIENT_AUTH_TYPE", "1")
 
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__0__ADDRESS")
@@ -561,6 +562,7 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__APPLY_PROXY_CONFIG")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__TLS_MODE")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__FORCE_PASSIVE_IP")
+		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__CLIENT_AUTH_TYPE")
 	})
 
 	configDir := ".."
@@ -571,13 +573,15 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, 2200, bindings[0].Port)
 	require.Equal(t, "127.0.0.1", bindings[0].Address)
 	require.False(t, bindings[0].ApplyProxyConfig)
-	require.Equal(t, bindings[0].TLSMode, 2)
-	require.Equal(t, bindings[0].ForcePassiveIP, "127.0.1.2")
+	require.Equal(t, 2, bindings[0].TLSMode)
+	require.Equal(t, "127.0.1.2", bindings[0].ForcePassiveIP)
+	require.Equal(t, 0, bindings[0].ClientAuthType)
 	require.Equal(t, 2203, bindings[1].Port)
 	require.Equal(t, "127.0.1.1", bindings[1].Address)
 	require.True(t, bindings[1].ApplyProxyConfig)
-	require.Equal(t, bindings[1].TLSMode, 1)
-	require.Equal(t, bindings[1].ForcePassiveIP, "127.0.1.1")
+	require.Equal(t, 1, bindings[1].TLSMode)
+	require.Equal(t, "127.0.1.1", bindings[1].ForcePassiveIP)
+	require.Equal(t, 1, bindings[1].ClientAuthType)
 }
 
 func TestWebDAVBindingsFromEnv(t *testing.T) {
@@ -611,6 +615,7 @@ func TestWebDAVBindingsFromEnv(t *testing.T) {
 	require.Equal(t, 8000, bindings[1].Port)
 	require.Equal(t, "127.0.0.1", bindings[1].Address)
 	require.False(t, bindings[1].EnableHTTPS)
+	require.Equal(t, 0, bindings[1].ClientAuthType)
 	require.Equal(t, 9000, bindings[2].Port)
 	require.Equal(t, "127.0.1.1", bindings[2].Address)
 	require.True(t, bindings[2].EnableHTTPS)

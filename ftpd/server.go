@@ -152,10 +152,15 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 // GetTLSConfig returns a TLS Certificate to use
 func (s *Server) GetTLSConfig() (*tls.Config, error) {
 	if certMgr != nil {
-		return &tls.Config{
+		tlsConfig := &tls.Config{
 			GetCertificate: certMgr.GetCertificateFunc(),
 			MinVersion:     tls.VersionTLS12,
-		}, nil
+		}
+		if s.binding.ClientAuthType == 1 {
+			tlsConfig.ClientCAs = certMgr.GetRootCAs()
+			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+		}
+		return tlsConfig, nil
 	}
 	return nil, errors.New("no TLS certificate configured")
 }

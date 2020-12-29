@@ -34,6 +34,9 @@ type Binding struct {
 	TLSMode int `json:"tls_mode" mapstructure:"tls_mode"`
 	// External IP address to expose for passive connections.
 	ForcePassiveIP string `json:"force_passive_ip" mapstructure:"force_passive_ip"`
+	// set to 1 to require client certificate authentication in addition to FTP auth.
+	// You need to define at least a certificate authority for this to work
+	ClientAuthType int `json:"client_auth_type" mapstructure:"client_auth_type"`
 }
 
 // GetAddress returns the binding address
@@ -102,6 +105,8 @@ type Configuration struct {
 	// "paramchange" request to the running service on Windows.
 	CertificateFile    string `json:"certificate_file" mapstructure:"certificate_file"`
 	CertificateKeyFile string `json:"certificate_key_file" mapstructure:"certificate_key_file"`
+	// CACertificates defines the set of root certificate authorities to use to verify client certificates.
+	CACertificates []string `json:"ca_certificates" mapstructure:"ca_certificates"`
 	// Do not impose the port 20 for active data transfer. Enabling this option allows to run SFTPGo with less privilege
 	ActiveTransfersPortNon20 bool `json:"active_transfers_port_non_20" mapstructure:"active_transfers_port_non_20"`
 	// Set to true to disable active FTP
@@ -149,6 +154,9 @@ func (c *Configuration) Initialize(configDir string) error {
 	if certificateFile != "" && certificateKeyFile != "" {
 		mgr, err := common.NewCertManager(certificateFile, certificateKeyFile, logSender)
 		if err != nil {
+			return err
+		}
+		if err := mgr.LoadRootCAs(c.CACertificates, configDir); err != nil {
 			return err
 		}
 		certMgr = mgr

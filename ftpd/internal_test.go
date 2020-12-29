@@ -1,6 +1,7 @@
 package ftpd
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -164,6 +165,15 @@ func TestInitialization(t *testing.T) {
 	assert.NoError(t, err)
 
 	certMgr = oldMgr
+
+	binding = Binding{
+		Port:           2121,
+		ClientAuthType: 1,
+	}
+	server = NewServer(c, configDir, binding, 0)
+	cfg, err := server.GetTLSConfig()
+	assert.NoError(t, err)
+	assert.Equal(t, tls.RequireAndVerifyClientCert, cfg.ClientAuth)
 }
 
 func TestServerGetSettings(t *testing.T) {

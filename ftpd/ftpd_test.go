@@ -282,6 +282,14 @@ func TestInitializationFailure(t *testing.T) {
 	ftpdConf.Bindings[1].TLSMode = 1
 	err = ftpdConf.Initialize(configDir)
 	require.Error(t, err)
+
+	certPath := filepath.Join(os.TempDir(), "test_ftpd.crt")
+	keyPath := filepath.Join(os.TempDir(), "test_ftpd.key")
+	ftpdConf.CertificateFile = certPath
+	ftpdConf.CertificateKeyFile = keyPath
+	ftpdConf.CACertificates = []string{"invalid ca cert"}
+	err = ftpdConf.Initialize(configDir)
+	require.Error(t, err)
 }
 
 func TestBasicFTPHandling(t *testing.T) {

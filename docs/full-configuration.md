@@ -97,6 +97,7 @@ The configuration file contains the following sections:
     - `apply_proxy_config`, boolean. If enabled the common proxy configuration, if any, will be applied. Default `true`
     - `tls_mode`, integer. 0 means accept both cleartext and encrypted sessions. 1 means TLS is required for both control and data connection. 2 means implicit TLS. Do not enable this blindly, please check that a proper TLS config is in place if you set `tls_mode` is different from 0.
     - `force_passive_ip`, ip address. External IP address to expose for passive connections. Leavy empty to autodetect. Defaut: "".
+    - `client_auth_type`, integer. Set to `1` to require client certificate authentication in addition to FTP authentication. You need to define at least a certificate authority for this to work. Default: 0.
   - `bind_port`, integer. Deprecated, please use `bindings`
   - `bind_address`, string. Deprecated, please use `bindings`
   - `banner`, string. Greeting banner displayed when a connection first comes in. Leave empty to use the default banner. Default `SFTPGo <version> ready`, for example `SFTPGo 1.0.0-dev ready`.
@@ -110,13 +111,14 @@ The configuration file contains the following sections:
   - `combine_support`, integer. Set to 1 to enable support for the non standard `COMB` FTP command. Combine is only supported for local filesystem, for cloud backends it has no advantage as it will download the partial files and will upload the combined one. Cloud backends natively support multipart uploads. Default `0`.
   - `certificate_file`, string. Certificate for FTPS. This can be an absolute path or a path relative to the config dir.
   - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. A certificate and the private key are required to enable explicit and implicit TLS. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
+  - `ca_certificates`, list of strings. Set of root certificate authorities to use to verify client certificates.
   - `tls_mode`, integer. Deprecated, please use `bindings`
 - **webdavd**, the configuration for the WebDAV server, more info [here](./webdav.md)
   - `bindings`, list of structs. Each struct has the following fields:
     - `port`, integer. The port used for serving WebDAV requests. 0 means disabled. Default: 0.
     - `address`, string. Leave blank to listen on all available network interfaces. Default: "".
     - `enable_https`, boolean. Set to `true` and provide both a certificate and a key file to enable HTTPS connection for this binding. Default `false`
-    - `client_auth_type`, integer. Set to `1` to require client certificate authentication in addition to basic auth. You need to define at least a certificate authority for this to work. Default: 0.
+    - `client_auth_type`, integer. Set to `1` to require client certificate authentication in addition to basic authentication. You need to define at least a certificate authority for this to work. Default: 0.
   - `bind_port`, integer. Deprecated, please use `bindings`
   - `bind_address`, string. Deprecated, please use `bindings`
   - `certificate_file`, string. Certificate for WebDAV over HTTPS. This can be an absolute path or a path relative to the config dir.

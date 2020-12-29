@@ -45,7 +45,8 @@
         "port": 0,
         "apply_proxy_config": true,
         "tls_mode": 0,
-        "force_passive_ip": ""
+        "force_passive_ip": "",
+        "client_auth_type": 0
       }
     ],
     "banner": "",
@@ -60,7 +61,8 @@
     "hash_support": 0,
     "combine_support": 0,
     "certificate_file": "",
-    "certificate_key_file": ""
+    "certificate_key_file": "",
+    "ca_certificates": []
   },
   "webdavd": {
     "bindings": [

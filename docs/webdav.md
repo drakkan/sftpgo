@@ -1,6 +1,6 @@
 # WebDAV
 
-The experimental `WebDAV` support can be enabled by setting a `bind_port` inside the `webdavd` configuration section.
+The experimental `WebDAV` support can be enabled by configuring one or more `bindings` inside the `webdavd` configuration section.
 
 Each user has his own path like `http/s://<SFTPGo ip>:<WevDAVPORT>/<username>` and it must authenticate using password credentials.
 
