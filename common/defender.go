@@ -58,9 +58,9 @@ type DefenderConfig struct {
 	// soft and hard limit
 	EntriesSoftLimit int `json:"entries_soft_limit" mapstructure:"entries_soft_limit"`
 	EntriesHardLimit int `json:"entries_hard_limit" mapstructure:"entries_hard_limit"`
-	// Path to a file with a list of ip addresses and/or networks to never ban
+	// Path to a file containing a list of ip addresses and/or networks to never ban
 	SafeListFile string `json:"safelist_file" mapstructure:"safelist_file"`
-	// Path to a file with a list of ip addresses and/or networks to always ban
+	// Path to a file containing a list of ip addresses and/or networks to always ban
 	BlockListFile string `json:"blocklist_file" mapstructure:"blocklist_file"`
 }
 

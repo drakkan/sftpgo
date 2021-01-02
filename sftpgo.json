@@ -54,8 +54,8 @@
   "ftpd": {
     "bindings": [
       {
-        "address": "",
         "port": 0,
+        "address": "",
         "apply_proxy_config": true,
         "tls_mode": 0,
         "force_passive_ip": "",
@@ -80,8 +80,8 @@
   "webdavd": {
     "bindings": [
       {
-        "address": "",
         "port": 0,
+        "address": "",
         "enable_https": false,
         "client_auth_type": 0
       }

@@ -74,8 +74,8 @@ The configuration file contains the following sections:
     - `observation_time`, integer. Defines the time window, in minutes, for tracking client errors. A host is banned if it has exceeded the defined threshold during the last observation time minutes.
     - `entries_soft_limit`, integer.
     - `entries_hard_limit`, integer. The number of banned IPs and host scores kept in memory will vary between the soft and hard limit.
-    - `safelist_file`, string. Path to a file with a list of ip addresses and/or networks to never ban.
-    - `blocklist_file`, string. Path to a file with a list of ip addresses and/or networks to always ban.
+    - `safelist_file`, string. Path to a file containing a list of ip addresses and/or networks to never ban.
+    - `blocklist_file`, string. Path to a file containing a list of ip addresses and/or networks to always ban.
 - **"sftpd"**, the configuration for the SFTP server
   - `bindings`, list of structs. Each struct has the following fields:
     - `port`, integer. The port used for serving SFTP requests. 0 means disabled. Default: 2022
