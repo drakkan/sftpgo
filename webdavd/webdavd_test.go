@@ -121,7 +121,11 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	common.Initialize(commonConf)
+	err = common.Initialize(commonConf)
+	if err != nil {
+		logger.WarnToConsole("error initializing common: %v", err)
+		os.Exit(1)
+	}
 
 	err = dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
@@ -499,6 +503,49 @@ func TestLoginInvalidPwd(t *testing.T) {
 	client = getWebDavClient(user)
 	assert.Error(t, checkBasicFunc(client))
 	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestLoginNonExistentUser(t *testing.T) {
+	user := getTestUser()
+	client := getWebDavClient(user)
+	assert.Error(t, checkBasicFunc(client))
+}
+
+func TestDefender(t *testing.T) {
+	oldConfig := config.GetCommonConfig()
+
+	cfg := config.GetCommonConfig()
+	cfg.DefenderConfig.Enabled = true
+	cfg.DefenderConfig.Threshold = 3
+
+	err := common.Initialize(cfg)
+	assert.NoError(t, err)
+
+	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
+	assert.NoError(t, err)
+	client := getWebDavClient(user)
+	assert.NoError(t, checkBasicFunc(client))
+
+	for i := 0; i < 3; i++ {
+		user.Password = "wrong_pwd"
+		client = getWebDavClient(user)
+		assert.Error(t, checkBasicFunc(client))
+	}
+
+	user.Password = defaultPassword
+	client = getWebDavClient(user)
+	err = checkBasicFunc(client)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "403")
+	}
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	err = common.Initialize(oldConfig)
 	assert.NoError(t, err)
 }
 

@@ -140,7 +140,11 @@ func TestMain(m *testing.M) {
 	os.RemoveAll(credentialsPath) //nolint:errcheck
 	logger.InfoToConsole("Starting HTTPD tests, provider: %v", providerConf.Driver)
 
-	common.Initialize(config.GetCommonConfig())
+	err = common.Initialize(config.GetCommonConfig())
+	if err != nil {
+		logger.WarnToConsole("error initializing common: %v", err)
+		os.Exit(1)
+	}
 
 	err = dataprovider.Initialize(providerConf, configDir)
 	if err != nil {

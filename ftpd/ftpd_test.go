@@ -127,8 +127,11 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	common.Initialize(commonConf)
-
+	err = common.Initialize(commonConf)
+	if err != nil {
+		logger.WarnToConsole("error initializing common: %v", err)
+		os.Exit(1)
+	}
 	err = dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
 		logger.ErrorToConsole("error initializing data provider: %v", err)
@@ -233,12 +236,7 @@ func TestMain(m *testing.M) {
 	}()
 
 	waitTCPListening(ftpdConf.Bindings[0].GetAddress())
-
-	// ensure all the initial connections to check if the service is alive are disconnected
-	time.Sleep(100 * time.Millisecond)
-	for len(common.Connections.GetStats()) > 0 {
-		time.Sleep(50 * time.Millisecond)
-	}
+	waitNoConnections()
 
 	exitCode := m.Run()
 	os.Remove(logFilePath)
@@ -400,6 +398,12 @@ func TestLoginInvalidPwd(t *testing.T) {
 	assert.Error(t, err)
 	_, err = httpd.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
+}
+
+func TestLoginNonExistentUser(t *testing.T) {
+	user := getTestUser()
+	_, err := getFTPClient(user, false)
+	assert.Error(t, err)
 }
 
 func TestLoginExternalAuth(t *testing.T) {
@@ -597,6 +601,47 @@ func TestMaxConnections(t *testing.T) {
 	assert.NoError(t, err)
 
 	common.Config.MaxTotalConnections = oldValue
+}
+
+func TestDefender(t *testing.T) {
+	oldConfig := config.GetCommonConfig()
+
+	cfg := config.GetCommonConfig()
+	cfg.DefenderConfig.Enabled = true
+	cfg.DefenderConfig.Threshold = 3
+
+	err := common.Initialize(cfg)
+	assert.NoError(t, err)
+
+	user, _, err := httpd.AddUser(getTestUser(), http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getFTPClient(user, false)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+
+	for i := 0; i < 3; i++ {
+		user.Password = "wrong_pwd"
+		_, err = getFTPClient(user, false)
+		assert.Error(t, err)
+	}
+
+	user.Password = defaultPassword
+	_, err = getFTPClient(user, false)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "Access denied, banned client IP")
+	}
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	err = common.Initialize(oldConfig)
+	assert.NoError(t, err)
 }
 
 func TestMaxSessions(t *testing.T) {
@@ -2032,6 +2077,13 @@ func waitTCPListening(address string) {
 		logger.InfoToConsole("tcp server %v now listening\n", address)
 		conn.Close()
 		break
+	}
+}
+
+func waitNoConnections() {
+	time.Sleep(50 * time.Millisecond)
+	for len(common.Connections.GetStats()) > 0 {
+		time.Sleep(50 * time.Millisecond)
 	}
 }
 

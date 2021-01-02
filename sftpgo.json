@@ -10,7 +10,20 @@
     "proxy_protocol": 0,
     "proxy_allowed": [],
     "post_connect_hook": "",
-    "max_total_connections": 0
+    "max_total_connections": 0,
+    "defender": {
+      "enabled": false,
+      "ban_time": 30,
+      "ban_time_increment": 50,
+      "threshold": 15,
+      "score_invalid": 2,
+      "score_valid": 1,
+      "observation_time": 30,
+      "entries_soft_limit": 100,
+      "entries_hard_limit": 150,
+      "safelist_file": "",
+      "blocklist_file": ""
+    }
   },
   "sftpd": {
     "bindings": [

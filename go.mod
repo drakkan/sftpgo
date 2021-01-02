@@ -7,16 +7,17 @@ require (
 	cloud.google.com/go/storage v1.12.0
 	github.com/Azure/azure-storage-blob-go v0.12.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
-	github.com/alexedwards/argon2id v0.0.0-20200802152012-2464efd3196b
-	github.com/aws/aws-sdk-go v1.36.15
+	github.com/alexedwards/argon2id v0.0.0-20201228115903-cf543ebc1f7b
+	github.com/aws/aws-sdk-go v1.36.18
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
-	github.com/fclairamb/ftpserverlib v0.11.1-0.20201228010033-a81903a5fd21
+	github.com/fclairamb/ftpserverlib v0.12.0
 	github.com/frankban/quicktest v1.11.2 // indirect
 	github.com/go-chi/chi v1.5.1
 	github.com/go-chi/render v1.0.1
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
+	github.com/google/uuid v1.1.3 // indirect
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/lib/pq v1.9.0
@@ -42,6 +43,7 @@ require (
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.6.1
 	github.com/studio-b12/gowebdav v0.0.0-20200929080739-bdacfab94796
+	github.com/yl2chen/cidranger v1.0.2
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/automaxprocs v1.3.0
 	gocloud.dev v0.21.0
@@ -50,7 +52,7 @@ require (
 	golang.org/x/net v0.0.0-20201224014010-6772e930b67b
 	golang.org/x/sys v0.0.0-20201223074533-0d417f636930
 	golang.org/x/time v0.0.0-20201208040808-7e3f01d25324 // indirect
-	golang.org/x/tools v0.0.0-20201226215659-b1c90890d22a // indirect
+	golang.org/x/tools v0.0.0-20201230224404-63754364767c // indirect
 	google.golang.org/api v0.36.0
 	google.golang.org/genproto v0.0.0-20201214200347-8c77b98c765d // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect

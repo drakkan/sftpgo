@@ -66,7 +66,10 @@ Command-line flags should be specified in the Subsystem declaration.
 			// idle connection are managed externally
 			commonConfig.IdleTimeout = 0
 			config.SetCommonConfig(commonConfig)
-			common.Initialize(config.GetCommonConfig())
+			if err := common.Initialize(config.GetCommonConfig()); err != nil {
+				logger.Error(logSender, connectionID, "%v", err)
+				os.Exit(1)
+			}
 			kmsConfig := config.GetKMSConfig()
 			if err := kmsConfig.Initialize(); err != nil {
 				logger.Error(logSender, connectionID, "unable to initialize KMS: %v", err)

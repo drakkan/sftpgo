@@ -103,11 +103,16 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 
 // ClientConnected is called to send the very first welcome message
 func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
+	ipAddr := utils.GetIPFromRemoteAddress(cc.RemoteAddr().String())
+	if common.IsBanned(ipAddr) {
+		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection refused, ip %#v is banned", ipAddr)
+		return "Access denied, banned client IP", common.ErrConnectionDenied
+	}
 	if !common.Connections.IsNewConnectionAllowed() {
 		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection refused, configured limit reached")
 		return "", common.ErrConnectionDenied
 	}
-	if err := common.Config.ExecutePostConnectHook(cc.RemoteAddr().String(), common.ProtocolFTP); err != nil {
+	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolFTP); err != nil {
 		return "", err
 	}
 	connID := fmt.Sprintf("%v_%v", s.ID, cc.ID())
@@ -128,23 +133,23 @@ func (s *Server) ClientDisconnected(cc ftpserver.ClientContext) {
 
 // AuthUser authenticates the user and selects an handling driver
 func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string) (ftpserver.ClientDriver, error) {
-	remoteAddr := cc.RemoteAddr().String()
-	user, err := dataprovider.CheckUserAndPass(username, password, utils.GetIPFromRemoteAddress(remoteAddr), common.ProtocolFTP)
+	ipAddr := utils.GetIPFromRemoteAddress(cc.RemoteAddr().String())
+	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, common.ProtocolFTP)
 	if err != nil {
-		updateLoginMetrics(username, remoteAddr, err)
+		updateLoginMetrics(username, ipAddr, err)
 		return nil, err
 	}
 
 	connection, err := s.validateUser(user, cc)
 
-	defer updateLoginMetrics(username, remoteAddr, err)
+	defer updateLoginMetrics(username, ipAddr, err)
 
 	if err != nil {
 		return nil, err
 	}
 	connection.Fs.CheckRootPath(connection.GetUsername(), user.GetUID(), user.GetGID())
 	connection.Log(logger.LevelInfo, "User id: %d, logged in with FTP, username: %#v, home_dir: %#v remote addr: %#v",
-		user.ID, user.Username, user.HomeDir, remoteAddr)
+		user.ID, user.Username, user.HomeDir, cc.RemoteAddr())
 	dataprovider.UpdateLastLogin(user) //nolint:errcheck
 	return connection, nil
 }
@@ -213,12 +218,16 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 	return connection, nil
 }
 
-func updateLoginMetrics(username, remoteAddress string, err error) {
+func updateLoginMetrics(username, ip string, err error) {
 	metrics.AddLoginAttempt(dataprovider.LoginMethodPassword)
-	ip := utils.GetIPFromRemoteAddress(remoteAddress)
 	if err != nil {
 		logger.ConnectionFailedLog(username, ip, dataprovider.LoginMethodPassword,
 			common.ProtocolFTP, err.Error())
+		event := common.HostEventLoginFailed
+		if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+			event = common.HostEventUserNotFound
+		}
+		common.AddDefenderEvent(ip, event)
 	}
 	metrics.AddLoginResult(dataprovider.LoginMethodPassword, err)
 	dataprovider.ExecutePostLoginHook(username, dataprovider.LoginMethodPassword, ip, common.ProtocolFTP, err)

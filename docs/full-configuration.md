@@ -64,6 +64,18 @@ The configuration file contains the following sections:
     - If `proxy_protocol` is set to 2 and we receive a proxy header from an IP that is not in the list then the connection will be rejected
   - `post_connect_hook`, string. Absolute path to the command to execute or HTTP URL to notify. See [Post connect hook](./post-connect-hook.md) for more details. Leave empty to disable
   - `max_total_connections`, integer. Maximum number of concurrent client connections. 0 means unlimited
+  - `defender`, struct containing the defender configuration. See [Defender](./defender.md) for more details.
+    - `enabled`, boolean. Default `false`.
+    - `ban_time`, integer. Ban time in minutes.
+    - `ban_time_increment`, integer. Ban time increment, as a percentage, if a banned host tries to connect again.
+    - `threshold`, integer. Threshold value for banning a client.
+    - `score_invalid`, integer. Score for invalid login attempts, eg. non-existent user accounts or client disconnected for inactivity without authentication attempts.
+    - `score_valid`, integer. Score for valid login attempts, eg. user accounts that exist.
+    - `observation_time`, integer. Defines the time window, in minutes, for tracking client errors. A host is banned if it has exceeded the defined threshold during the last observation time minutes.
+    - `entries_soft_limit`, integer.
+    - `entries_hard_limit`, integer. The number of banned IPs and host scores kept in memory will vary between the soft and hard limit.
+    - `safelist_file`, string. Path to a file with a list of ip addresses and/or networks to never ban.
+    - `blocklist_file`, string. Path to a file with a list of ip addresses and/or networks to always ban.
 - **"sftpd"**, the configuration for the SFTP server
   - `bindings`, list of structs. Each struct has the following fields:
     - `port`, integer. The port used for serving SFTP requests. 0 means disabled. Default: 2022

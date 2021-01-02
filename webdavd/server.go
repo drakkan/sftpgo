@@ -121,11 +121,16 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	checkRemoteAddress(r)
-	if err := common.Config.ExecutePostConnectHook(r.RemoteAddr, common.ProtocolWebDAV); err != nil {
+	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
+	if common.IsBanned(ipAddr) {
 		http.Error(w, common.ErrConnectionDenied.Error(), http.StatusForbidden)
 		return
 	}
-	user, _, lockSystem, err := s.authenticate(r)
+	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolWebDAV); err != nil {
+		http.Error(w, common.ErrConnectionDenied.Error(), http.StatusForbidden)
+		return
+	}
+	user, _, lockSystem, err := s.authenticate(r, ipAddr)
 	if err != nil {
 		w.Header().Set("WWW-Authenticate", "Basic realm=\"SFTPGo WebDAV\"")
 		http.Error(w, err401.Error(), http.StatusUnauthorized)
@@ -139,19 +144,19 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	connectionID, err := s.validateUser(user, r)
 	if err != nil {
-		updateLoginMetrics(user.Username, r.RemoteAddr, err)
+		updateLoginMetrics(user.Username, ipAddr, err)
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 
 	fs, err := user.GetFilesystem(connectionID)
 	if err != nil {
-		updateLoginMetrics(user.Username, r.RemoteAddr, err)
+		updateLoginMetrics(user.Username, ipAddr, err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	updateLoginMetrics(user.Username, r.RemoteAddr, err)
+	updateLoginMetrics(user.Username, ipAddr, err)
 
 	ctx := context.WithValue(r.Context(), requestIDKey, connectionID)
 	ctx = context.WithValue(ctx, requestStartKey, time.Now())
@@ -177,7 +182,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-func (s *webDavServer) authenticate(r *http.Request) (dataprovider.User, bool, webdav.LockSystem, error) {
+func (s *webDavServer) authenticate(r *http.Request, ip string) (dataprovider.User, bool, webdav.LockSystem, error) {
 	var user dataprovider.User
 	var err error
 	username, password, ok := r.BasicAuth()
@@ -193,13 +198,13 @@ func (s *webDavServer) authenticate(r *http.Request) (dataprovider.User, bool, w
 			if len(password) > 0 && cachedUser.Password == password {
 				return cachedUser.User, true, cachedUser.LockSystem, nil
 			}
-			updateLoginMetrics(username, r.RemoteAddr, dataprovider.ErrInvalidCredentials)
+			updateLoginMetrics(username, ip, dataprovider.ErrInvalidCredentials)
 			return user, false, nil, dataprovider.ErrInvalidCredentials
 		}
 	}
-	user, err = dataprovider.CheckUserAndPass(username, password, utils.GetIPFromRemoteAddress(r.RemoteAddr), common.ProtocolWebDAV)
+	user, err = dataprovider.CheckUserAndPass(username, password, ip, common.ProtocolWebDAV)
 	if err != nil {
-		updateLoginMetrics(username, r.RemoteAddr, err)
+		updateLoginMetrics(username, ip, err)
 		return user, false, nil, err
 	}
 	lockSystem := webdav.NewMemLS()
@@ -315,11 +320,15 @@ func checkRemoteAddress(r *http.Request) {
 	}
 }
 
-func updateLoginMetrics(username, remoteAddress string, err error) {
+func updateLoginMetrics(username, ip string, err error) {
 	metrics.AddLoginAttempt(dataprovider.LoginMethodPassword)
-	ip := utils.GetIPFromRemoteAddress(remoteAddress)
 	if err != nil {
 		logger.ConnectionFailedLog(username, ip, dataprovider.LoginMethodPassword, common.ProtocolWebDAV, err.Error())
+		event := common.HostEventLoginFailed
+		if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+			event = common.HostEventUserNotFound
+		}
+		common.AddDefenderEvent(ip, event)
 	}
 	metrics.AddLoginResult(dataprovider.LoginMethodPassword, err)
 	dataprovider.ExecutePostLoginHook(username, dataprovider.LoginMethodPassword, ip, common.ProtocolWebDAV, err)

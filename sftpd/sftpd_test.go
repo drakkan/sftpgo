@@ -171,7 +171,11 @@ func TestMain(m *testing.M) {
 		scriptArgs = "$@"
 	}
 
-	common.Initialize(commonConf)
+	err = common.Initialize(commonConf)
+	if err != nil {
+		logger.WarnToConsole("error initializing common: %v", err)
+		os.Exit(1)
+	}
 
 	err = dataprovider.Initialize(providerConf, configDir)
 	if err != nil {
@@ -213,31 +217,7 @@ func TestMain(m *testing.M) {
 	}
 	sftpdConf.KeyboardInteractiveHook = keyIntAuthPath
 
-	pubKeyPath = filepath.Join(homeBasePath, "ssh_key.pub")
-	privateKeyPath = filepath.Join(homeBasePath, "ssh_key")
-	trustedCAUserKey = filepath.Join(homeBasePath, "ca_user_key")
-	gitWrapPath = filepath.Join(homeBasePath, "gitwrap.sh")
-	extAuthPath = filepath.Join(homeBasePath, "extauth.sh")
-	preLoginPath = filepath.Join(homeBasePath, "prelogin.sh")
-	postConnectPath = filepath.Join(homeBasePath, "postconnect.sh")
-	checkPwdPath = filepath.Join(homeBasePath, "checkpwd.sh")
-	err = ioutil.WriteFile(pubKeyPath, []byte(testPubKey+"\n"), 0600)
-	if err != nil {
-		logger.WarnToConsole("unable to save public key to file: %v", err)
-	}
-	err = ioutil.WriteFile(privateKeyPath, []byte(testPrivateKey+"\n"), 0600)
-	if err != nil {
-		logger.WarnToConsole("unable to save private key to file: %v", err)
-	}
-	err = ioutil.WriteFile(gitWrapPath, []byte(fmt.Sprintf("%v -i %v -oStrictHostKeyChecking=no %v\n",
-		sshPath, privateKeyPath, scriptArgs)), os.ModePerm)
-	if err != nil {
-		logger.WarnToConsole("unable to save gitwrap shell script: %v", err)
-	}
-	err = ioutil.WriteFile(trustedCAUserKey, []byte(testCAUserKey), 0600)
-	if err != nil {
-		logger.WarnToConsole("unable to save trusted CA user key: %v", err)
-	}
+	createInitialFiles(scriptArgs)
 	sftpdConf.TrustedUserCAKeys = append(sftpdConf.TrustedUserCAKeys, trustedCAUserKey)
 
 	go func() {
@@ -485,6 +465,52 @@ func TestBasicSFTPFsHandling(t *testing.T) {
 	_, err = httpd.RemoveUser(baseUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(baseUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestLoginNonExistentUser(t *testing.T) {
+	usePubKey := true
+	user := getTestUser(usePubKey)
+	_, err := getSftpClient(user, usePubKey)
+	assert.Error(t, err)
+}
+
+func TestDefender(t *testing.T) {
+	oldConfig := config.GetCommonConfig()
+
+	cfg := config.GetCommonConfig()
+	cfg.DefenderConfig.Enabled = true
+	cfg.DefenderConfig.Threshold = 3
+
+	err := common.Initialize(cfg)
+	assert.NoError(t, err)
+
+	usePubKey := false
+	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+	}
+
+	for i := 0; i < 3; i++ {
+		user.Password = "wrong_pwd"
+		_, err = getSftpClient(user, usePubKey)
+		assert.Error(t, err)
+	}
+
+	user.Password = defaultPassword
+	_, err = getSftpClient(user, usePubKey)
+	assert.Error(t, err)
+
+	_, err = httpd.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	err = common.Initialize(oldConfig)
 	assert.NoError(t, err)
 }
 
@@ -8719,5 +8745,33 @@ func getHostKeysFingerprints(hostKeys []string) {
 			os.Exit(1)
 		}
 		hostKeyFPs = append(hostKeyFPs, fp)
+	}
+}
+
+func createInitialFiles(scriptArgs string) {
+	pubKeyPath = filepath.Join(homeBasePath, "ssh_key.pub")
+	privateKeyPath = filepath.Join(homeBasePath, "ssh_key")
+	trustedCAUserKey = filepath.Join(homeBasePath, "ca_user_key")
+	gitWrapPath = filepath.Join(homeBasePath, "gitwrap.sh")
+	extAuthPath = filepath.Join(homeBasePath, "extauth.sh")
+	preLoginPath = filepath.Join(homeBasePath, "prelogin.sh")
+	postConnectPath = filepath.Join(homeBasePath, "postconnect.sh")
+	checkPwdPath = filepath.Join(homeBasePath, "checkpwd.sh")
+	err := ioutil.WriteFile(pubKeyPath, []byte(testPubKey+"\n"), 0600)
+	if err != nil {
+		logger.WarnToConsole("unable to save public key to file: %v", err)
+	}
+	err = ioutil.WriteFile(privateKeyPath, []byte(testPrivateKey+"\n"), 0600)
+	if err != nil {
+		logger.WarnToConsole("unable to save private key to file: %v", err)
+	}
+	err = ioutil.WriteFile(gitWrapPath, []byte(fmt.Sprintf("%v -i %v -oStrictHostKeyChecking=no %v\n",
+		sshPath, privateKeyPath, scriptArgs)), os.ModePerm)
+	if err != nil {
+		logger.WarnToConsole("unable to save gitwrap shell script: %v", err)
+	}
+	err = ioutil.WriteFile(trustedCAUserKey, []byte(testCAUserKey), 0600)
+	if err != nil {
+		logger.WarnToConsole("unable to save trusted CA user key: %v", err)
 	}
 }

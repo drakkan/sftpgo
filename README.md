@@ -33,6 +33,7 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - Virtual folders are supported: directories outside the user home directory can be exposed as virtual folders.
 - Configurable custom commands and/or HTTP notifications on file upload, download, pre-delete, delete, rename, on SSH commands and on user add, update and delete.
 - Automatically terminating idle connections.
+- Automatic blocklist management is supported using the built-in [defender](./docs/defender.md).
 - Atomic uploads are configurable.
 - Support for Git repositories over SSH.
 - SCP and rsync are supported.
@@ -222,6 +223,8 @@ Anyway, some backends require a pay per use account (or they offer free account 
 ## Brute force protection
 
 The [connection failed logs](./docs/logs.md) can be used for integration in tools such as [Fail2ban](http://www.fail2ban.org/). Example of [jails](./fail2ban/jails) and [filters](./fail2ban/filters) working with `systemd`/`journald` are available in fail2ban directory.
+
+You can also use the built-in [defender](./docs/defender.md).
 
 ## Account's configuration properties
 

@@ -106,7 +106,7 @@ var (
 	// ErrNoInitRequired defines the error returned by InitProvider if no inizialization/update is required
 	ErrNoInitRequired = errors.New("The data provider is already up to date")
 	// ErrInvalidCredentials defines the error to return if the supplied credentials are invalid
-	ErrInvalidCredentials = errors.New("Invalid credentials")
+	ErrInvalidCredentials = errors.New("invalid credentials")
 	webDAVUsersCache      sync.Map
 	config                Config
 	provider              Provider
@@ -352,7 +352,7 @@ type RecordNotFoundError struct {
 }
 
 func (e *RecordNotFoundError) Error() string {
-	return fmt.Sprintf("Not found: %s", e.err)
+	return fmt.Sprintf("not found: %s", e.err)
 }
 
 // GetQuotaTracking returns the configured mode for user's quota tracking

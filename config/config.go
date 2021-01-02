@@ -93,6 +93,19 @@ func Init() {
 			ProxyAllowed:        []string{},
 			PostConnectHook:     "",
 			MaxTotalConnections: 0,
+			DefenderConfig: common.DefenderConfig{
+				Enabled:          false,
+				BanTime:          30,
+				BanTimeIncrement: 50,
+				Threshold:        15,
+				ScoreInvalid:     2,
+				ScoreValid:       1,
+				ObservationTime:  30,
+				EntriesSoftLimit: 100,
+				EntriesHardLimit: 150,
+				SafeListFile:     "",
+				BlockListFile:    "",
+			},
 		},
 		SFTPD: sftpd.Configuration{
 			Banner:                  defaultSFTPDBanner,
@@ -666,6 +679,17 @@ func setViperDefaults() {
 	viper.SetDefault("common.proxy_allowed", globalConf.Common.ProxyAllowed)
 	viper.SetDefault("common.post_connect_hook", globalConf.Common.PostConnectHook)
 	viper.SetDefault("common.max_total_connections", globalConf.Common.MaxTotalConnections)
+	viper.SetDefault("common.defender.enabled", globalConf.Common.DefenderConfig.Enabled)
+	viper.SetDefault("common.defender.ban_time", globalConf.Common.DefenderConfig.BanTime)
+	viper.SetDefault("common.defender.ban_time_increment", globalConf.Common.DefenderConfig.BanTimeIncrement)
+	viper.SetDefault("common.defender.threshold", globalConf.Common.DefenderConfig.Threshold)
+	viper.SetDefault("common.defender.score_invalid", globalConf.Common.DefenderConfig.ScoreInvalid)
+	viper.SetDefault("common.defender.score_valid", globalConf.Common.DefenderConfig.ScoreValid)
+	viper.SetDefault("common.defender.observation_time", globalConf.Common.DefenderConfig.ObservationTime)
+	viper.SetDefault("common.defender.entries_soft_limit", globalConf.Common.DefenderConfig.EntriesSoftLimit)
+	viper.SetDefault("common.defender.entries_hard_limit", globalConf.Common.DefenderConfig.EntriesHardLimit)
+	viper.SetDefault("common.defender.safelist_file", globalConf.Common.DefenderConfig.SafeListFile)
+	viper.SetDefault("common.defender.blocklist_file", globalConf.Common.DefenderConfig.BlockListFile)
 	viper.SetDefault("sftpd.max_auth_tries", globalConf.SFTPD.MaxAuthTries)
 	viper.SetDefault("sftpd.banner", globalConf.SFTPD.Banner)
 	viper.SetDefault("sftpd.host_keys", globalConf.SFTPD.HostKeys)

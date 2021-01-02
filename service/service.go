@@ -81,9 +81,14 @@ func (s *Service) Start() error {
 		return errors.New(infoString)
 	}
 
-	common.Initialize(config.GetCommonConfig())
+	err := common.Initialize(config.GetCommonConfig())
+	if err != nil {
+		logger.Error(logSender, "", "%v", err)
+		logger.ErrorToConsole("%v", err)
+		os.Exit(1)
+	}
 	kmsConfig := config.GetKMSConfig()
-	err := kmsConfig.Initialize()
+	err = kmsConfig.Initialize()
 	if err != nil {
 		logger.Error(logSender, "", "unable to initialize KMS: %v", err)
 		logger.ErrorToConsole("unable to initialize KMS: %v", err)

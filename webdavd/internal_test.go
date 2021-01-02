@@ -692,12 +692,14 @@ func TestBasicUsersCache(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user.Username), nil)
 	assert.NoError(t, err)
 
-	_, _, _, err = server.authenticate(req) //nolint:dogsled
+	ipAddr := "127.0.0.1"
+
+	_, _, _, err = server.authenticate(req, ipAddr) //nolint:dogsled
 	assert.Error(t, err)
 
 	now := time.Now()
 	req.SetBasicAuth(username, password)
-	_, isCached, _, err := server.authenticate(req)
+	_, isCached, _, err := server.authenticate(req, ipAddr)
 	assert.NoError(t, err)
 	assert.False(t, isCached)
 	// now the user should be cached
@@ -708,14 +710,14 @@ func TestBasicUsersCache(t *testing.T) {
 		assert.False(t, cachedUser.IsExpired())
 		assert.True(t, cachedUser.Expiration.After(now.Add(time.Duration(c.Cache.Users.ExpirationTime)*time.Minute)))
 		// authenticate must return the cached user now
-		authUser, isCached, _, err := server.authenticate(req)
+		authUser, isCached, _, err := server.authenticate(req, ipAddr)
 		assert.NoError(t, err)
 		assert.True(t, isCached)
 		assert.Equal(t, cachedUser.User, authUser)
 	}
 	// a wrong password must fail
 	req.SetBasicAuth(username, "wrong")
-	_, _, _, err = server.authenticate(req) //nolint:dogsled
+	_, _, _, err = server.authenticate(req, ipAddr) //nolint:dogsled
 	assert.EqualError(t, err, dataprovider.ErrInvalidCredentials.Error())
 	req.SetBasicAuth(username, password)
 
@@ -728,7 +730,7 @@ func TestBasicUsersCache(t *testing.T) {
 		assert.True(t, cachedUser.IsExpired())
 	}
 	// now authenticate should get the user from the data provider and update the cache
-	_, isCached, _, err = server.authenticate(req)
+	_, isCached, _, err = server.authenticate(req, ipAddr)
 	assert.NoError(t, err)
 	assert.False(t, isCached)
 	result, ok = dataprovider.GetCachedWebDAVUser(username)
@@ -742,7 +744,7 @@ func TestBasicUsersCache(t *testing.T) {
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.False(t, ok)
 
-	_, isCached, _, err = server.authenticate(req)
+	_, isCached, _, err = server.authenticate(req, ipAddr)
 	assert.NoError(t, err)
 	assert.False(t, isCached)
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
@@ -808,24 +810,25 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	server, err := newServer(c, configDir)
 	assert.NoError(t, err)
 
+	ipAddr := "127.0.1.1"
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user1.Username), nil)
 	assert.NoError(t, err)
 	req.SetBasicAuth(user1.Username, password+"1")
-	_, isCached, _, err := server.authenticate(req)
+	_, isCached, _, err := server.authenticate(req, ipAddr)
 	assert.NoError(t, err)
 	assert.False(t, isCached)
 
 	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user2.Username), nil)
 	assert.NoError(t, err)
 	req.SetBasicAuth(user2.Username, password+"2")
-	_, isCached, _, err = server.authenticate(req)
+	_, isCached, _, err = server.authenticate(req, ipAddr)
 	assert.NoError(t, err)
 	assert.False(t, isCached)
 
 	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user3.Username), nil)
 	assert.NoError(t, err)
 	req.SetBasicAuth(user3.Username, password+"3")
-	_, isCached, _, err = server.authenticate(req)
+	_, isCached, _, err = server.authenticate(req, ipAddr)
 	assert.NoError(t, err)
 	assert.False(t, isCached)
 
@@ -840,7 +843,7 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user4.Username), nil)
 	assert.NoError(t, err)
 	req.SetBasicAuth(user4.Username, password+"4")
-	_, isCached, _, err = server.authenticate(req)
+	_, isCached, _, err = server.authenticate(req, ipAddr)
 	assert.NoError(t, err)
 	assert.False(t, isCached)
 	// user1, the first cached, should be removed now
@@ -857,7 +860,7 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user1.Username), nil)
 	assert.NoError(t, err)
 	req.SetBasicAuth(user1.Username, password+"1")
-	_, isCached, _, err = server.authenticate(req)
+	_, isCached, _, err = server.authenticate(req, ipAddr)
 	assert.NoError(t, err)
 	assert.False(t, isCached)
 	_, ok = dataprovider.GetCachedWebDAVUser(user2.Username)
@@ -873,7 +876,7 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user2.Username), nil)
 	assert.NoError(t, err)
 	req.SetBasicAuth(user2.Username, password+"2")
-	_, isCached, _, err = server.authenticate(req)
+	_, isCached, _, err = server.authenticate(req, ipAddr)
 	assert.NoError(t, err)
 	assert.False(t, isCached)
 	_, ok = dataprovider.GetCachedWebDAVUser(user3.Username)
@@ -889,7 +892,7 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user3.Username), nil)
 	assert.NoError(t, err)
 	req.SetBasicAuth(user3.Username, password+"3")
-	_, isCached, _, err = server.authenticate(req)
+	_, isCached, _, err = server.authenticate(req, ipAddr)
 	assert.NoError(t, err)
 	assert.False(t, isCached)
 	_, ok = dataprovider.GetCachedWebDAVUser(user4.Username)
@@ -910,14 +913,14 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user4.Username), nil)
 	assert.NoError(t, err)
 	req.SetBasicAuth(user4.Username, password+"4")
-	_, isCached, _, err = server.authenticate(req)
+	_, isCached, _, err = server.authenticate(req, ipAddr)
 	assert.NoError(t, err)
 	assert.False(t, isCached)
 
 	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user1.Username), nil)
 	assert.NoError(t, err)
 	req.SetBasicAuth(user1.Username, password+"1")
-	_, isCached, _, err = server.authenticate(req)
+	_, isCached, _, err = server.authenticate(req, ipAddr)
 	assert.NoError(t, err)
 	assert.False(t, isCached)
 	_, ok = dataprovider.GetCachedWebDAVUser(user2.Username)

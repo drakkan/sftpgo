@@ -351,6 +351,18 @@ func (c *Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.Serve
 	}
 }
 
+func canAcceptConnection(ip string) bool {
+	if common.IsBanned(ip) {
+		logger.Log(logger.LevelDebug, common.ProtocolSSH, "", "connection refused, ip %#v is banned", ip)
+		return false
+	}
+	if !common.Connections.IsNewConnectionAllowed() {
+		logger.Log(logger.LevelDebug, common.ProtocolSSH, "", "connection refused, configured limit reached")
+		return false
+	}
+	return true
+}
+
 // AcceptInboundConnection handles an inbound connection to the server instance and determines if the request should be served or not.
 func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.ServerConfig) {
 	defer func() {
@@ -358,22 +370,22 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 			logger.Error(logSender, "", "panic in AcceptInboundConnection: %#v stack strace: %v", r, string(debug.Stack()))
 		}
 	}()
-	if !common.Connections.IsNewConnectionAllowed() {
-		logger.Log(logger.LevelDebug, common.ProtocolSSH, "", "connection refused, configured limit reached")
+	ipAddr := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
+	if !canAcceptConnection(ipAddr) {
 		conn.Close()
 		return
 	}
 	// Before beginning a handshake must be performed on the incoming net.Conn
 	// we'll set a Deadline for handshake to complete, the default is 2 minutes as OpenSSH
 	conn.SetDeadline(time.Now().Add(handshakeTimeout)) //nolint:errcheck
-	if err := common.Config.ExecutePostConnectHook(conn.RemoteAddr().String(), common.ProtocolSSH); err != nil {
+	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolSSH); err != nil {
 		conn.Close()
 		return
 	}
 	sconn, chans, reqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
 		logger.Debug(logSender, "", "failed to accept an incoming connection: %v", err)
-		checkAuthError(conn, err)
+		checkAuthError(ipAddr, err)
 		return
 	}
 	// handshake completed so remove the deadline, we'll use IdleTimeout configuration from now on
@@ -395,7 +407,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 
 	logger.Log(logger.LevelInfo, common.ProtocolSSH, connectionID,
 		"User id: %d, logged in with: %#v, username: %#v, home_dir: %#v remote addr: %#v",
-		user.ID, loginType, user.Username, user.HomeDir, conn.RemoteAddr().String())
+		user.ID, loginType, user.Username, user.HomeDir, ipAddr)
 	dataprovider.UpdateLastLogin(user) //nolint:errcheck
 
 	sshConnection := common.NewSSHConnection(connectionID, conn)
@@ -500,11 +512,26 @@ func (c *Configuration) createHandler(connection *Connection) sftp.Handlers {
 	}
 }
 
-func checkAuthError(conn net.Conn, err error) {
-	if _, ok := err.(*ssh.ServerAuthError); !ok {
-		ip := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
+func checkAuthError(ip string, err error) {
+	if authErrors, ok := err.(*ssh.ServerAuthError); ok {
+		// check public key auth errors here
+		for _, err := range authErrors.Errors {
+			if err != nil {
+				// these checks should be improved, we should check for error type and not error strings
+				if strings.Contains(err.Error(), "public key credentials") {
+					event := common.HostEventLoginFailed
+					if strings.Contains(err.Error(), "not found") {
+						event = common.HostEventUserNotFound
+					}
+					common.AddDefenderEvent(ip, event)
+					break
+				}
+			}
+		}
+	} else {
 		logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, common.ProtocolSSH, err.Error())
 		metrics.AddNoAuthTryed()
+		common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
 		dataprovider.ExecutePostLoginHook("", dataprovider.LoginMethodNoAuthTryed, ip, common.ProtocolSSH, err)
 	}
 }
@@ -757,25 +784,25 @@ func (c *Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubK
 
 	connectionID := hex.EncodeToString(conn.SessionID())
 	method := dataprovider.SSHLoginMethodPublicKey
+	ipAddr := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
 	cert, ok := pubKey.(*ssh.Certificate)
 	if ok {
 		if cert.CertType != ssh.UserCert {
 			err = fmt.Errorf("ssh: cert has type %d", cert.CertType)
-			updateLoginMetrics(conn, method, err)
+			updateLoginMetrics(conn, ipAddr, method, err)
 			return nil, err
 		}
 		if !c.certChecker.IsUserAuthority(cert.SignatureKey) {
 			err = fmt.Errorf("ssh: certificate signed by unrecognized authority")
-			updateLoginMetrics(conn, method, err)
+			updateLoginMetrics(conn, ipAddr, method, err)
 			return nil, err
 		}
 		if err := c.certChecker.CheckCert(conn.User(), cert); err != nil {
-			updateLoginMetrics(conn, method, err)
+			updateLoginMetrics(conn, ipAddr, method, err)
 			return nil, err
 		}
 		certPerm = &cert.Permissions
 	}
-	ipAddr := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
 	if user, keyID, err = dataprovider.CheckUserAndPubKey(conn.User(), pubKey.Marshal(), ipAddr, common.ProtocolSSH); err == nil {
 		if user.IsPartialAuth(method) {
 			logger.Debug(logSender, connectionID, "user %#v authenticated with partial success", conn.User())
@@ -793,7 +820,7 @@ func (c *Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubK
 			}
 		}
 	}
-	updateLoginMetrics(conn, method, err)
+	updateLoginMetrics(conn, ipAddr, method, err)
 	return sshPerm, err
 }
 
@@ -810,7 +837,7 @@ func (c *Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass 
 	if user, err = dataprovider.CheckUserAndPass(conn.User(), string(pass), ipAddr, common.ProtocolSSH); err == nil {
 		sshPerm, err = loginUser(user, method, "", conn)
 	}
-	updateLoginMetrics(conn, method, err)
+	updateLoginMetrics(conn, ipAddr, method, err)
 	return sshPerm, err
 }
 
@@ -828,15 +855,24 @@ func (c *Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMeta
 		ipAddr, common.ProtocolSSH); err == nil {
 		sshPerm, err = loginUser(user, method, "", conn)
 	}
-	updateLoginMetrics(conn, method, err)
+	updateLoginMetrics(conn, ipAddr, method, err)
 	return sshPerm, err
 }
 
-func updateLoginMetrics(conn ssh.ConnMetadata, method string, err error) {
+func updateLoginMetrics(conn ssh.ConnMetadata, ip, method string, err error) {
 	metrics.AddLoginAttempt(method)
-	ip := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
 	if err != nil {
 		logger.ConnectionFailedLog(conn.User(), ip, method, common.ProtocolSSH, err.Error())
+		if method != dataprovider.SSHLoginMethodPublicKey {
+			// some clients try all available public keys for a user, we
+			// record failed login key auth only once for session if the
+			// authentication fails in checkAuthError
+			event := common.HostEventLoginFailed
+			if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+				event = common.HostEventUserNotFound
+			}
+			common.AddDefenderEvent(ip, event)
+		}
 	}
 	metrics.AddLoginResult(method, err)
 	dataprovider.ExecutePostLoginHook(conn.User(), method, ip, common.ProtocolSSH, err)
