@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: SFTPGo
   description: SFTPGo REST API
-  version: 2.2.4
+  version: 2.3.0
 
 servers:
   - url: /api/v1
@@ -92,6 +92,101 @@ paths:
                 $ref: '#/components/schemas/ApiResponse'
               example:
                 message: "Connection closed"
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /defender/ban_time:
+    get:
+      tags:
+        - defender
+      summary: Returns the ban time for the specified IPv4/IPv6 address
+      operationId: get_ban_time
+      parameters:
+        - in: query
+          name: ip
+          required: true
+          description: IPv4/IPv6 address
+          schema:
+            type: string
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BanStatus'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /defender/unban:
+    post:
+      tags:
+        - defender
+      summary: Removes the specified IPv6/IPv6 from the banned ones
+      operationId: unban_host
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ip:
+                  type: string
+                  description: IPv4/IPv6 address to remove
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /defender/score:
+    get:
+      tags:
+        - defender
+      summary: Returns the score for the specified IPv4/IPv6 address
+      operationId: get_score
+      parameters:
+        - in: query
+          name: ip
+          required: true
+          description: IPv4/IPv6 address
+          schema:
+            type: string
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoreStatus'
         401:
           $ref: '#/components/responses/Unauthorized'
         403:
@@ -1488,6 +1583,25 @@ components:
           $ref: '#/components/schemas/WebDAVServiceStatus'
         data_provider:
           $ref: '#/components/schemas/DataProviderStatus'
+        defender:
+          type: object
+          properties:
+            is_active:
+              type: boolean
+    BanStatus:
+      type: object
+      properties:
+        date_time:
+          type: string
+          format: date-time
+          nullable: true
+          description: if null the host is not banned
+    ScoreStatus:
+      type: object
+      properties:
+        score:
+          type: integer
+          description: if 0 the host is not listed
     ApiResponse:
       type: object
       properties:

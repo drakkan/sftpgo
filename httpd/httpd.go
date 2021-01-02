@@ -39,6 +39,9 @@ const (
 	loadDataPath              = "/api/v1/loaddata"
 	updateUsedQuotaPath       = "/api/v1/quota_update"
 	updateFolderUsedQuotaPath = "/api/v1/folder_quota_update"
+	defenderBanTime           = "/api/v1/defender/ban_time"
+	defenderUnban             = "/api/v1/defender/unban"
+	defenderScore             = "/api/v1/defender/score"
 	metricsPath               = "/metrics"
 	webBasePath               = "/web"
 	webUsersPath              = "/web/users"
@@ -61,12 +64,17 @@ var (
 	certMgr     *common.CertManager
 )
 
+type defenderStatus struct {
+	IsActive bool `json:"is_active"`
+}
+
 // ServicesStatus keep the state of the running services
 type ServicesStatus struct {
 	SSH          sftpd.ServiceStatus         `json:"ssh"`
 	FTP          ftpd.ServiceStatus          `json:"ftp"`
 	WebDAV       webdavd.ServiceStatus       `json:"webdav"`
 	DataProvider dataprovider.ProviderStatus `json:"data_provider"`
+	Defender     defenderStatus              `json:"defender"`
 }
 
 // Conf httpd daemon configuration
@@ -186,6 +194,9 @@ func getServicesStatus() ServicesStatus {
 		FTP:          ftpd.GetStatus(),
 		WebDAV:       webdavd.GetStatus(),
 		DataProvider: dataprovider.GetProviderStatus(),
+		Defender: defenderStatus{
+			IsActive: common.Config.DefenderConfig.Enabled,
+		},
 	}
 	return status
 }

@@ -238,6 +238,10 @@ func TestDefenderIntegration(t *testing.T) {
 	AddDefenderEvent(ip, HostEventNoLoginTried)
 	assert.False(t, IsBanned(ip))
 
+	assert.Nil(t, GetDefenderBanTime(ip))
+	assert.False(t, Unban(ip))
+	assert.Equal(t, 0, GetDefenderScore(ip))
+
 	Config.DefenderConfig = DefenderConfig{
 		Enabled:          true,
 		BanTime:          10,
@@ -257,8 +261,17 @@ func TestDefenderIntegration(t *testing.T) {
 
 	AddDefenderEvent(ip, HostEventNoLoginTried)
 	assert.False(t, IsBanned(ip))
+	assert.Equal(t, 2, GetDefenderScore(ip))
+	assert.False(t, Unban(ip))
+	assert.Nil(t, GetDefenderBanTime(ip))
+
 	AddDefenderEvent(ip, HostEventLoginFailed)
 	assert.True(t, IsBanned(ip))
+	assert.Equal(t, 0, GetDefenderScore(ip))
+	assert.NotNil(t, GetDefenderBanTime(ip))
+	assert.True(t, Unban(ip))
+	assert.Nil(t, GetDefenderBanTime(ip))
+	assert.False(t, Unban(ip))
 
 	Config = configCopy
 }

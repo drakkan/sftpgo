@@ -74,6 +74,15 @@
     </div>
 </div>
 
+<div class="card mb-4 {{ if .Status.Defender.IsActive}}border-left-success{{else}}border-left-info{{end}}">
+    <div class="card-body">
+        <h5 class="card-title">Defender</h5>
+        <p class="card-text">
+            Status: {{ if .Status.Defender.IsActive}}"Enabled"{{else}}"Disabled"{{end}}
+        </p>
+    </div>
+</div>
+
 <div class="card mb-4 {{ if .Status.DataProvider.IsActive}}border-left-success{{else}}border-left-warning{{end}}">
     <div class="card-body">
         <h5 class="card-title">Data provider</h5>

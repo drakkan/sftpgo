@@ -134,6 +134,34 @@ func IsBanned(ip string) bool {
 	return Config.defender.IsBanned(ip)
 }
 
+// GetDefenderBanTime returns the ban time for the given IP
+// or nil if the IP is not banned or the defender is disabled
+func GetDefenderBanTime(ip string) *time.Time {
+	if Config.defender == nil {
+		return nil
+	}
+
+	return Config.defender.GetBanTime(ip)
+}
+
+// Unban removes the specified IP address from the banned ones
+func Unban(ip string) bool {
+	if Config.defender == nil {
+		return false
+	}
+
+	return Config.defender.Unban(ip)
+}
+
+// GetDefenderScore returns the score for the given IP
+func GetDefenderScore(ip string) int {
+	if Config.defender == nil {
+		return 0
+	}
+
+	return Config.defender.GetScore(ip)
+}
+
 // AddDefenderEvent adds the specified defender event for the given IP
 func AddDefenderEvent(ip string, event HostEvent) {
 	if Config.defender == nil {

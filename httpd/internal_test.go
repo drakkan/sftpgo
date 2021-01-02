@@ -545,6 +545,10 @@ func TestApiCallsWithBadURL(t *testing.T) {
 	assert.Error(t, err)
 	_, _, err = Loaddata("/tmp/backup.json", "", "", http.StatusBadRequest)
 	assert.Error(t, err)
+	_, _, err = GetBanTime("", http.StatusBadRequest)
+	assert.Error(t, err)
+	_, _, err = GetScore("", http.StatusBadRequest)
+	assert.Error(t, err)
 	SetBaseURLAndCredentials(oldBaseURL, oldAuthUsername, oldAuthPassword)
 }
 
@@ -597,6 +601,13 @@ func TestApiCallToNotListeningServer(t *testing.T) {
 	assert.Error(t, err)
 	_, _, err = Loaddata("/tmp/backup.json", "", "", http.StatusOK)
 	assert.Error(t, err)
+	_, _, err = GetBanTime("", http.StatusBadRequest)
+	assert.Error(t, err)
+	_, _, err = GetScore("", http.StatusBadRequest)
+	assert.Error(t, err)
+	err = UnbanIP("", http.StatusBadRequest)
+	assert.Error(t, err)
+
 	SetBaseURLAndCredentials(oldBaseURL, oldAuthUsername, oldAuthPassword)
 }
 

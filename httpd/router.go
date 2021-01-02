@@ -82,6 +82,9 @@ func initializeRouter(staticFilesPath string, enableWebAdmin bool) {
 			router.Get(loadDataPath, loadData)
 			router.Put(updateUsedQuotaPath, updateUserQuotaUsage)
 			router.Put(updateFolderUsedQuotaPath, updateVFolderQuotaUsage)
+			router.Get(defenderBanTime, getBanTime)
+			router.Get(defenderScore, getScore)
+			router.Post(defenderUnban, unban)
 			if enableWebAdmin {
 				router.Get(webUsersPath, handleGetWebUsers)
 				router.Get(webUserPath, handleWebAddUserGet)

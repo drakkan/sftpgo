@@ -50,6 +50,7 @@ const (
 	quotaScanVFolderPath      = "/api/v1/folder_quota_scan"
 	updateUsedQuotaPath       = "/api/v1/quota_update"
 	updateFolderUsedQuotaPath = "/api/v1/folder_quota_update"
+	defenderUnban             = "/api/v1/defender/unban"
 	versionPath               = "/api/v1/version"
 	metricsPath               = "/metrics"
 	webBasePath               = "/web"
@@ -2200,6 +2201,71 @@ func TestDumpdata(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestDefenderAPI(t *testing.T) {
+	oldConfig := config.GetCommonConfig()
+
+	cfg := config.GetCommonConfig()
+	cfg.DefenderConfig.Enabled = true
+	cfg.DefenderConfig.Threshold = 3
+
+	err := common.Initialize(cfg)
+	require.NoError(t, err)
+
+	ip := "::1"
+
+	response, _, err := httpd.GetBanTime(ip, http.StatusOK)
+	require.NoError(t, err)
+	banTime, ok := response["date_time"]
+	require.True(t, ok)
+	assert.Nil(t, banTime)
+
+	response, _, err = httpd.GetScore(ip, http.StatusOK)
+	require.NoError(t, err)
+	score, ok := response["score"]
+	require.True(t, ok)
+	assert.Equal(t, float64(0), score)
+
+	err = httpd.UnbanIP(ip, http.StatusNotFound)
+	require.NoError(t, err)
+
+	common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
+	response, _, err = httpd.GetScore(ip, http.StatusOK)
+	require.NoError(t, err)
+	score, ok = response["score"]
+	require.True(t, ok)
+	assert.Equal(t, float64(2), score)
+
+	common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
+	response, _, err = httpd.GetBanTime(ip, http.StatusOK)
+	require.NoError(t, err)
+	banTime, ok = response["date_time"]
+	require.True(t, ok)
+	assert.NotNil(t, banTime)
+
+	err = httpd.UnbanIP(ip, http.StatusOK)
+	require.NoError(t, err)
+
+	err = httpd.UnbanIP(ip, http.StatusNotFound)
+	require.NoError(t, err)
+
+	err = common.Initialize(oldConfig)
+	require.NoError(t, err)
+}
+
+func TestDefenderAPIErrors(t *testing.T) {
+	_, _, err := httpd.GetBanTime("", http.StatusBadRequest)
+	require.NoError(t, err)
+
+	_, _, err = httpd.GetBanTime("invalid", http.StatusBadRequest)
+	require.NoError(t, err)
+
+	_, _, err = httpd.GetScore("", http.StatusBadRequest)
+	require.NoError(t, err)
+
+	err = httpd.UnbanIP("", http.StatusBadRequest)
+	require.NoError(t, err)
+}
+
 func TestLoaddata(t *testing.T) {
 	mappedPath := filepath.Join(os.TempDir(), "restored_folder")
 	user := getTestUser()
@@ -2421,6 +2487,12 @@ func TestAddUserInvalidPermsMock(t *testing.T) {
 
 func TestAddFolderInvalidJsonMock(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, folderPath, bytes.NewBuffer([]byte("invalid json")))
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr.Code)
+}
+
+func TestUnbanInvalidJsonMock(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodPost, defenderUnban, bytes.NewBuffer([]byte("invalid json")))
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr.Code)
 }

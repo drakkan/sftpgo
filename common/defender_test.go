@@ -142,6 +142,9 @@ func TestBasicDefender(t *testing.T) {
 		assert.True(t, newBanTime.After(*banTime))
 	}
 
+	assert.True(t, defender.Unban(testIP3))
+	assert.False(t, defender.Unban(testIP3))
+
 	err = os.Remove(slFile)
 	assert.NoError(t, err)
 	err = os.Remove(blFile)

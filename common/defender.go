@@ -32,6 +32,7 @@ type Defender interface {
 	IsBanned(ip string) bool
 	GetBanTime(ip string) *time.Time
 	GetScore(ip string) int
+	Unban(ip string) bool
 }
 
 // DefenderConfig defines the "defender" configuration
@@ -195,6 +196,19 @@ func (d *memoryDefender) IsBanned(ip string) bool {
 
 	if d.blockList != nil && d.blockList.isListed(ip) {
 		// permanent ban
+		return true
+	}
+
+	return false
+}
+
+// Unban removes the specified IP address from the banned ones
+func (d *memoryDefender) Unban(ip string) bool {
+	d.Lock()
+	defer d.Unlock()
+
+	if _, ok := d.banned[ip]; ok {
+		delete(d.banned, ip)
 		return true
 	}
 
