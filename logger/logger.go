@@ -40,6 +40,24 @@ var (
 	rollingLogger *lumberjack.Logger
 )
 
+// StdLoggerWrapper is a wrapper for standard logger compatibility
+type StdLoggerWrapper struct {
+	Sender string
+}
+
+// Write implements the io.Writer interface. This is useful to set as a writer
+// for the standard library log.
+func (l *StdLoggerWrapper) Write(p []byte) (n int, err error) {
+	n = len(p)
+	if n > 0 && p[n-1] == '\n' {
+		// Trim CR added by stdlog.
+		p = p[0 : n-1]
+	}
+
+	Log(LevelError, l.Sender, "", string(p))
+	return
+}
+
 // GetLogger get the configured logger instance
 func GetLogger() *zerolog.Logger {
 	return &logger

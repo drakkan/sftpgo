@@ -6,6 +6,7 @@ package telemetry
 
 import (
 	"crypto/tls"
+	"log"
 	"net/http"
 	"path/filepath"
 	"runtime"
@@ -82,6 +83,7 @@ func (c Conf) Initialize(configDir string) error {
 		WriteTimeout:   60 * time.Second,
 		IdleTimeout:    120 * time.Second,
 		MaxHeaderBytes: 1 << 14, // 16KB
+		ErrorLog:       log.New(&logger.StdLoggerWrapper{Sender: logSender}, "", 0),
 	}
 	if certificateFile != "" && certificateKeyFile != "" {
 		certMgr, err = common.NewCertManager(certificateFile, certificateKeyFile, logSender)
