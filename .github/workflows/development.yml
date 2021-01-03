@@ -15,9 +15,9 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         upload-coverage: [true]
         include:
-          - go: 1.14
-            os: ubuntu-latest
-            upload-coverage: false
+          #- go: 1.14
+          #  os: ubuntu-latest
+          #  upload-coverage: false
           - go: 1.15
             os: windows-latest
             upload-coverage: false
