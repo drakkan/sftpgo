@@ -26,8 +26,7 @@ import (
 )
 
 const (
-	configDir = ".."
-	testFile  = "test_dav_file"
+	testFile = "test_dav_file"
 )
 
 var (
@@ -165,8 +164,11 @@ func TestUserInvalidParams(t *testing.T) {
 			},
 		},
 	}
-	server, err := newServer(c, configDir)
-	assert.NoError(t, err)
+
+	server := webDavServer{
+		config:  c,
+		binding: c.Bindings[0],
+	}
 
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", u.Username), nil)
 	assert.NoError(t, err)
@@ -686,8 +688,10 @@ func TestBasicUsersCache(t *testing.T) {
 			},
 		},
 	}
-	server, err := newServer(c, configDir)
-	assert.NoError(t, err)
+	server := webDavServer{
+		config:  c,
+		binding: c.Bindings[0],
+	}
 
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user.Username), nil)
 	assert.NoError(t, err)
@@ -807,8 +811,10 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 			},
 		},
 	}
-	server, err := newServer(c, configDir)
-	assert.NoError(t, err)
+	server := webDavServer{
+		config:  c,
+		binding: c.Bindings[0],
+	}
 
 	ipAddr := "127.0.1.1"
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user1.Username), nil)
@@ -953,8 +959,10 @@ func TestRecoverer(t *testing.T) {
 			},
 		},
 	}
-	server, err := newServer(c, configDir)
-	assert.NoError(t, err)
+	server := webDavServer{
+		config:  c,
+		binding: c.Bindings[0],
+	}
 	rr := httptest.NewRecorder()
 	server.ServeHTTP(rr, nil)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)

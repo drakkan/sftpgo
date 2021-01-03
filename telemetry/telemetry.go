@@ -93,9 +93,9 @@ func (c Conf) Initialize(configDir string) error {
 			MinVersion:     tls.VersionTLS12,
 		}
 		httpServer.TLSConfig = config
-		return utils.HTTPListenAndServe(httpServer, c.BindAddress, c.BindPort, true)
+		return utils.HTTPListenAndServe(httpServer, c.BindAddress, c.BindPort, true, logSender)
 	}
-	return utils.HTTPListenAndServe(httpServer, c.BindAddress, c.BindPort, false)
+	return utils.HTTPListenAndServe(httpServer, c.BindAddress, c.BindPort, false, logSender)
 }
 
 // ReloadTLSCertificate reloads the TLS certificate and key from the configured paths

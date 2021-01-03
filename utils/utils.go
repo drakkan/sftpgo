@@ -385,7 +385,7 @@ func createDirPathIfMissing(file string, perm os.FileMode) error {
 
 // HTTPListenAndServe is a wrapper for ListenAndServe that support both tcp
 // and Unix-domain sockets
-func HTTPListenAndServe(srv *http.Server, address string, port int, isTLS bool) error {
+func HTTPListenAndServe(srv *http.Server, address string, port int, isTLS bool, logSender string) error {
 	var listener net.Listener
 	var err error
 
@@ -407,6 +407,8 @@ func HTTPListenAndServe(srv *http.Server, address string, port int, isTLS bool) 
 	if err != nil {
 		return err
 	}
+
+	logger.Info(logSender, "", "server listener registered, address: %v TLS enabled: %v", listener.Addr().String(), isTLS)
 
 	defer listener.Close()
 

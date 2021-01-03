@@ -22,7 +22,9 @@ const (
 )
 
 var (
-	server *webDavServer
+	//server *webDavServer
+	certMgr       *common.CertManager
+	serviceStatus ServiceStatus
 )
 
 // ServiceStatus defines the service status
@@ -107,10 +109,7 @@ type Configuration struct {
 
 // GetStatus returns the server status
 func GetStatus() ServiceStatus {
-	if server == nil {
-		return ServiceStatus{}
-	}
-	return server.status
+	return serviceStatus
 }
 
 // ShouldBind returns true if there is at least a valid binding
@@ -126,7 +125,6 @@ func (c *Configuration) ShouldBind() bool {
 
 // Initialize configures and starts the WebDAV server
 func (c *Configuration) Initialize(configDir string) error {
-	var err error
 	logger.Debug(logSender, "", "initializing WebDAV server with config %+v", *c)
 	mimeTypeCache = mimeCache{
 		maxSize:   c.Cache.MimeTypes.MaxSize,
@@ -138,12 +136,23 @@ func (c *Configuration) Initialize(configDir string) error {
 	if !c.ShouldBind() {
 		return common.ErrNoBinding
 	}
-	server, err = newServer(c, configDir)
-	if err != nil {
-		return err
+
+	certificateFile := getConfigPath(c.CertificateFile, configDir)
+	certificateKeyFile := getConfigPath(c.CertificateKeyFile, configDir)
+	if certificateFile != "" && certificateKeyFile != "" {
+		mgr, err := common.NewCertManager(certificateFile, certificateKeyFile, logSender)
+		if err != nil {
+			return err
+		}
+		if err := mgr.LoadRootCAs(c.CACertificates, configDir); err != nil {
+			return err
+		}
+		certMgr = mgr
 	}
 
-	server.status.Bindings = nil
+	serviceStatus = ServiceStatus{
+		Bindings: nil,
+	}
 
 	exitChannel := make(chan error, 1)
 
@@ -153,19 +162,23 @@ func (c *Configuration) Initialize(configDir string) error {
 		}
 
 		go func(binding Binding) {
-			exitChannel <- server.listenAndServe(binding)
+			server := webDavServer{
+				config:  c,
+				binding: binding,
+			}
+			exitChannel <- server.listenAndServe()
 		}(binding)
 	}
 
-	server.status.IsActive = true
+	serviceStatus.IsActive = true
 
 	return <-exitChannel
 }
 
 // ReloadTLSCertificate reloads the TLS certificate and key from the configured paths
 func ReloadTLSCertificate() error {
-	if server != nil && server.certMgr != nil {
-		return server.certMgr.LoadCertificate(logSender)
+	if certMgr != nil {
+		return certMgr.LoadCertificate(logSender)
 	}
 	return nil
 }

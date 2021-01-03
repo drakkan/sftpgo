@@ -32,34 +32,13 @@ var (
 
 type webDavServer struct {
 	config  *Configuration
-	certMgr *common.CertManager
-	status  ServiceStatus
+	binding Binding
 }
 
-func newServer(config *Configuration, configDir string) (*webDavServer, error) {
-	var err error
-	server := &webDavServer{
-		config:  config,
-		certMgr: nil,
-	}
-	certificateFile := getConfigPath(config.CertificateFile, configDir)
-	certificateKeyFile := getConfigPath(config.CertificateKeyFile, configDir)
-	if certificateFile != "" && certificateKeyFile != "" {
-		server.certMgr, err = common.NewCertManager(certificateFile, certificateKeyFile, logSender)
-		if err != nil {
-			return server, err
-		}
-		if err := server.certMgr.LoadRootCAs(config.CACertificates, configDir); err != nil {
-			return server, err
-		}
-	}
-	return server, nil
-}
-
-func (s *webDavServer) listenAndServe(binding Binding) error {
+func (s *webDavServer) listenAndServe() error {
 	httpServer := &http.Server{
-		Addr:              binding.GetAddress(),
-		Handler:           server,
+		Addr:              s.binding.GetAddress(),
+		Handler:           s,
 		ReadHeaderTimeout: 30 * time.Second,
 		IdleTimeout:       120 * time.Second,
 		MaxHeaderBytes:    1 << 16, // 64KB
@@ -74,22 +53,24 @@ func (s *webDavServer) listenAndServe(binding Binding) error {
 			AllowCredentials:   s.config.Cors.AllowCredentials,
 			OptionsPassthrough: true,
 		})
-		httpServer.Handler = c.Handler(server)
+		httpServer.Handler = c.Handler(s)
 	}
-	if s.certMgr != nil && binding.EnableHTTPS {
-		server.status.Bindings = append(server.status.Bindings, binding)
+	if certMgr != nil && s.binding.EnableHTTPS {
+		serviceStatus.Bindings = append(serviceStatus.Bindings, s.binding)
 		httpServer.TLSConfig = &tls.Config{
-			GetCertificate: s.certMgr.GetCertificateFunc(),
+			GetCertificate: certMgr.GetCertificateFunc(),
 			MinVersion:     tls.VersionTLS12,
 		}
-		if binding.ClientAuthType == 1 {
-			httpServer.TLSConfig.ClientCAs = s.certMgr.GetRootCAs()
+		if s.binding.ClientAuthType == 1 {
+			httpServer.TLSConfig.ClientCAs = certMgr.GetRootCAs()
 			httpServer.TLSConfig.ClientAuth = tls.RequireAndVerifyClientCert
 		}
+		logger.Info(logSender, "", "starting HTTPS serving, binding: %v", s.binding.GetAddress())
 		return httpServer.ListenAndServeTLS("", "")
 	}
-	binding.EnableHTTPS = false
-	server.status.Bindings = append(server.status.Bindings, binding)
+	s.binding.EnableHTTPS = false
+	serviceStatus.Bindings = append(serviceStatus.Bindings, s.binding)
+	logger.Info(logSender, "", "starting HTTP serving, binding: %v", s.binding.GetAddress())
 	return httpServer.ListenAndServe()
 }
 
