@@ -211,7 +211,7 @@ func TestMain(m *testing.M) {
 	waitTCPListening(ftpdConf.Bindings[0].GetAddress())
 	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
-	ftpd.ReloadTLSCertificate() //nolint:errcheck
+	ftpd.ReloadCertificateMgr() //nolint:errcheck
 
 	ftpdConf = config.GetFTPDConfig()
 	ftpdConf.Bindings = []ftpd.Binding{
@@ -286,6 +286,11 @@ func TestInitializationFailure(t *testing.T) {
 	ftpdConf.CertificateFile = certPath
 	ftpdConf.CertificateKeyFile = keyPath
 	ftpdConf.CACertificates = []string{"invalid ca cert"}
+	err = ftpdConf.Initialize(configDir)
+	require.Error(t, err)
+
+	ftpdConf.CACertificates = nil
+	ftpdConf.CARevocationLists = []string{""}
 	err = ftpdConf.Initialize(configDir)
 	require.Error(t, err)
 }

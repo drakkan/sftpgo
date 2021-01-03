@@ -25,21 +25,21 @@ func registerSigHup() {
 			if err != nil {
 				logger.Warn(logSender, "", "error reloading dataprovider configuration: %v", err)
 			}
-			err = httpd.ReloadTLSCertificate()
+			err = httpd.ReloadCertificateMgr()
 			if err != nil {
-				logger.Warn(logSender, "", "error reloading TLS certificate: %v", err)
+				logger.Warn(logSender, "", "error reloading cert manager: %v", err)
 			}
-			err = ftpd.ReloadTLSCertificate()
+			err = ftpd.ReloadCertificateMgr()
 			if err != nil {
-				logger.Warn(logSender, "", "error reloading FTPD TLS certificate: %v", err)
+				logger.Warn(logSender, "", "error reloading FTPD cert manager: %v", err)
 			}
-			err = webdavd.ReloadTLSCertificate()
+			err = webdavd.ReloadCertificateMgr()
 			if err != nil {
-				logger.Warn(logSender, "", "error reloading WebDAV TLS certificate: %v", err)
+				logger.Warn(logSender, "", "error reloading WebDAV cert manager: %v", err)
 			}
-			err = telemetry.ReloadTLSCertificate()
+			err = telemetry.ReloadCertificateMgr()
 			if err != nil {
-				logger.Warn(logSender, "", "error reloading telemetry TLS certificate: %v", err)
+				logger.Warn(logSender, "", "error reloading telemetry cert manager: %v", err)
 			}
 		}
 	}()

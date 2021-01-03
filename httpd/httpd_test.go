@@ -206,7 +206,7 @@ func TestMain(m *testing.M) {
 		}
 	}()
 	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
-	httpd.ReloadTLSCertificate() //nolint:errcheck
+	httpd.ReloadCertificateMgr() //nolint:errcheck
 
 	testServer = httptest.NewServer(httpd.GetHTTPRouter())
 	defer testServer.Close()
@@ -240,7 +240,7 @@ func TestInitialization(t *testing.T) {
 	httpdConf.TemplatesPath = "."
 	err = httpdConf.Initialize(configDir)
 	assert.Error(t, err)
-	err = httpd.ReloadTLSCertificate()
+	err = httpd.ReloadCertificateMgr()
 	assert.NoError(t, err, "reloading TLS Certificate must return nil error if no certificate is configured")
 	httpdConf = config.GetHTTPDConfig()
 	httpdConf.BackupsPath = ".."

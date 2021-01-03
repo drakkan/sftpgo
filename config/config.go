@@ -137,12 +137,14 @@ func Init() {
 			CertificateFile:    "",
 			CertificateKeyFile: "",
 			CACertificates:     []string{},
+			CARevocationLists:  []string{},
 		},
 		WebDAVD: webdavd.Configuration{
 			Bindings:           []webdavd.Binding{defaultWebDAVDBinding},
 			CertificateFile:    "",
 			CertificateKeyFile: "",
 			CACertificates:     []string{},
+			CARevocationLists:  []string{},
 			Cors: webdavd.Cors{
 				Enabled:          false,
 				AllowedOrigins:   []string{},
@@ -713,9 +715,11 @@ func setViperDefaults() {
 	viper.SetDefault("ftpd.certificate_file", globalConf.FTPD.CertificateFile)
 	viper.SetDefault("ftpd.certificate_key_file", globalConf.FTPD.CertificateKeyFile)
 	viper.SetDefault("ftpd.ca_certificates", globalConf.FTPD.CACertificates)
+	viper.SetDefault("ftpd.ca_revocation_lists", globalConf.FTPD.CARevocationLists)
 	viper.SetDefault("webdavd.certificate_file", globalConf.WebDAVD.CertificateFile)
 	viper.SetDefault("webdavd.certificate_key_file", globalConf.WebDAVD.CertificateKeyFile)
 	viper.SetDefault("webdavd.ca_certificates", globalConf.WebDAVD.CACertificates)
+	viper.SetDefault("webdavd.ca_revocation_lists", globalConf.WebDAVD.CARevocationLists)
 	viper.SetDefault("webdavd.cors.enabled", globalConf.WebDAVD.Cors.Enabled)
 	viper.SetDefault("webdavd.cors.allowed_origins", globalConf.WebDAVD.Cors.AllowedOrigins)
 	viper.SetDefault("webdavd.cors.allowed_methods", globalConf.WebDAVD.Cors.AllowedMethods)

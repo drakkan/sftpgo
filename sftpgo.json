@@ -75,7 +75,8 @@
     "combine_support": 0,
     "certificate_file": "",
     "certificate_key_file": "",
-    "ca_certificates": []
+    "ca_certificates": [],
+    "ca_revocation_lists": []
   },
   "webdavd": {
     "bindings": [
@@ -89,6 +90,7 @@
     "certificate_file": "",
     "certificate_key_file": "",
     "ca_certificates": [],
+    "ca_revocation_lists": [],
     "cors": {
       "enabled": false,
       "allowed_origins": [],

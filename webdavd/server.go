@@ -3,6 +3,7 @@ package webdavd
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"log"
@@ -66,6 +67,7 @@ func (s *webDavServer) listenAndServe() error {
 		if s.binding.ClientAuthType == 1 {
 			httpServer.TLSConfig.ClientCAs = certMgr.GetRootCAs()
 			httpServer.TLSConfig.ClientAuth = tls.RequireAndVerifyClientCert
+			httpServer.TLSConfig.VerifyConnection = s.verifyTLSConnection
 		}
 		logger.Info(logSender, "", "starting HTTPS serving, binding: %v", s.binding.GetAddress())
 		return httpServer.ListenAndServeTLS("", "")
@@ -74,6 +76,33 @@ func (s *webDavServer) listenAndServe() error {
 	serviceStatus.Bindings = append(serviceStatus.Bindings, s.binding)
 	logger.Info(logSender, "", "starting HTTP serving, binding: %v", s.binding.GetAddress())
 	return httpServer.ListenAndServe()
+}
+
+func (s *webDavServer) verifyTLSConnection(state tls.ConnectionState) error {
+	if certMgr != nil {
+		var clientCrt *x509.Certificate
+		var clientCrtName string
+		if len(state.PeerCertificates) > 0 {
+			clientCrt = state.PeerCertificates[0]
+			clientCrtName = clientCrt.Subject.String()
+		}
+		if len(state.VerifiedChains) == 0 {
+			logger.Warn(logSender, "", "TLS connection cannot be verified: unable to get verification chain")
+			return errors.New("TLS connection cannot be verified: unable to get verification chain")
+		}
+		for _, verifiedChain := range state.VerifiedChains {
+			var caCrt *x509.Certificate
+			if len(verifiedChain) > 0 {
+				caCrt = verifiedChain[len(verifiedChain)-1]
+			}
+			if certMgr.IsRevoked(clientCrt, caCrt) {
+				logger.Debug(logSender, "", "tls handshake error, client certificate %#v has been revoked", clientCrtName)
+				return common.ErrCrtRevoked
+			}
+		}
+	}
+
+	return nil
 }
 
 func (s *webDavServer) checkRequestMethod(ctx context.Context, r *http.Request, connection *Connection, prefix string) {

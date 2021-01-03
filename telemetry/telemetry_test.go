@@ -53,7 +53,7 @@ func TestInitialization(t *testing.T) {
 	err = c.Initialize(".")
 	require.Error(t, err)
 
-	err = ReloadTLSCertificate()
+	err = ReloadCertificateMgr()
 	require.NoError(t, err)
 
 	c.AuthUserFile = ""
@@ -76,7 +76,7 @@ func TestInitialization(t *testing.T) {
 	err = c.Initialize(".")
 	require.Error(t, err)
 
-	err = ReloadTLSCertificate()
+	err = ReloadCertificateMgr()
 	require.NoError(t, err)
 
 	err = os.Remove(certPath)

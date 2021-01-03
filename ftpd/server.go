@@ -2,6 +2,7 @@ package ftpd
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -149,7 +150,7 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 	}
 	connection.Fs.CheckRootPath(connection.GetUsername(), user.GetUID(), user.GetGID())
 	connection.Log(logger.LevelInfo, "User id: %d, logged in with FTP, username: %#v, home_dir: %#v remote addr: %#v",
-		user.ID, user.Username, user.HomeDir, cc.RemoteAddr())
+		user.ID, user.Username, user.HomeDir, ipAddr)
 	dataprovider.UpdateLastLogin(user) //nolint:errcheck
 	return connection, nil
 }
@@ -164,10 +165,38 @@ func (s *Server) GetTLSConfig() (*tls.Config, error) {
 		if s.binding.ClientAuthType == 1 {
 			tlsConfig.ClientCAs = certMgr.GetRootCAs()
 			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+			tlsConfig.VerifyConnection = s.verifyTLSConnection
 		}
 		return tlsConfig, nil
 	}
 	return nil, errors.New("no TLS certificate configured")
+}
+
+func (s *Server) verifyTLSConnection(state tls.ConnectionState) error {
+	if certMgr != nil {
+		var clientCrt *x509.Certificate
+		var clientCrtName string
+		if len(state.PeerCertificates) > 0 {
+			clientCrt = state.PeerCertificates[0]
+			clientCrtName = clientCrt.Subject.String()
+		}
+		if len(state.VerifiedChains) == 0 {
+			logger.Warn(logSender, "", "TLS connection cannot be verified: unable to get verification chain")
+			return errors.New("TLS connection cannot be verified: unable to get verification chain")
+		}
+		for _, verifiedChain := range state.VerifiedChains {
+			var caCrt *x509.Certificate
+			if len(verifiedChain) > 0 {
+				caCrt = verifiedChain[len(verifiedChain)-1]
+			}
+			if certMgr.IsRevoked(clientCrt, caCrt) {
+				logger.Debug(logSender, "", "tls handshake error, client certificate %#v has beed revoked", clientCrtName)
+				return common.ErrCrtRevoked
+			}
+		}
+	}
+
+	return nil
 }
 
 func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext) (*Connection, error) {

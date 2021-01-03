@@ -123,7 +123,8 @@ The configuration file contains the following sections:
   - `combine_support`, integer. Set to 1 to enable support for the non standard `COMB` FTP command. Combine is only supported for local filesystem, for cloud backends it has no advantage as it will download the partial files and will upload the combined one. Cloud backends natively support multipart uploads. Default `0`.
   - `certificate_file`, string. Certificate for FTPS. This can be an absolute path or a path relative to the config dir.
   - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. A certificate and the private key are required to enable explicit and implicit TLS. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
-  - `ca_certificates`, list of strings. Set of root certificate authorities to use to verify client certificates.
+  - `ca_certificates`, list of strings. Set of root certificate authorities to be used to verify client certificates.
+  - `ca_revocation_lists`, list of strings. Set a revocation lists, one for each root CA, to be used to check if a client certificate has been revoked. The revocation lists can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
   - `tls_mode`, integer. Deprecated, please use `bindings`
 - **webdavd**, the configuration for the WebDAV server, more info [here](./webdav.md)
   - `bindings`, list of structs. Each struct has the following fields:
@@ -135,7 +136,8 @@ The configuration file contains the following sections:
   - `bind_address`, string. Deprecated, please use `bindings`
   - `certificate_file`, string. Certificate for WebDAV over HTTPS. This can be an absolute path or a path relative to the config dir.
   - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. A certificate and a private key are required to enable HTTPS connections. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
-  - `ca_certificates`, list of strings. Set of root certificate authorities to use to verify client certificates.
+  - `ca_certificates`, list of strings. Set of root certificate authorities to be used to verify client certificates.
+  - `ca_revocation_lists`, list of strings. Set a revocation lists, one for each root CA, to be used to check if a client certificate has been revoked. The revocation lists can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
   - `cors` struct containing CORS configuration. SFTPGo uses [Go CORS handler](https://github.com/rs/cors), please refer to upstream documentation for fields meaning and their default values.
     - `enabled`, boolean, set to true to enable CORS.
     - `allowed_origins`, list of strings.

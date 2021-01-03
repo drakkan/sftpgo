@@ -89,6 +89,7 @@ var (
 	ErrSkipPermissionsCheck = errors.New("permission check skipped")
 	ErrConnectionDenied     = errors.New("you are not allowed to connect")
 	ErrNoBinding            = errors.New("no binding configured")
+	ErrCrtRevoked           = errors.New("your certificate has been revoked")
 	errNoTransfer           = errors.New("requested transfer not found")
 	errTransferMismatch     = errors.New("transfer mismatch")
 )

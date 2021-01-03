@@ -105,8 +105,11 @@ type Configuration struct {
 	// "paramchange" request to the running service on Windows.
 	CertificateFile    string `json:"certificate_file" mapstructure:"certificate_file"`
 	CertificateKeyFile string `json:"certificate_key_file" mapstructure:"certificate_key_file"`
-	// CACertificates defines the set of root certificate authorities to use to verify client certificates.
+	// CACertificates defines the set of root certificate authorities to be used to verify client certificates.
 	CACertificates []string `json:"ca_certificates" mapstructure:"ca_certificates"`
+	// CARevocationLists defines a set a revocation lists, one for each root CA, to be used to check
+	// if a client certificate has been revoked
+	CARevocationLists []string `json:"ca_revocation_lists" mapstructure:"ca_revocation_lists"`
 	// Do not impose the port 20 for active data transfer. Enabling this option allows to run SFTPGo with less privilege
 	ActiveTransfersPortNon20 bool `json:"active_transfers_port_non_20" mapstructure:"active_transfers_port_non_20"`
 	// Set to true to disable active FTP
@@ -152,11 +155,16 @@ func (c *Configuration) Initialize(configDir string) error {
 	certificateFile := getConfigPath(c.CertificateFile, configDir)
 	certificateKeyFile := getConfigPath(c.CertificateKeyFile, configDir)
 	if certificateFile != "" && certificateKeyFile != "" {
-		mgr, err := common.NewCertManager(certificateFile, certificateKeyFile, logSender)
+		mgr, err := common.NewCertManager(certificateFile, certificateKeyFile, configDir, logSender)
 		if err != nil {
 			return err
 		}
-		if err := mgr.LoadRootCAs(c.CACertificates, configDir); err != nil {
+		mgr.SetCACertificates(c.CACertificates)
+		if err := mgr.LoadRootCAs(); err != nil {
+			return err
+		}
+		mgr.SetCARevocationLists(c.CARevocationLists)
+		if err := mgr.LoadCRLs(); err != nil {
 			return err
 		}
 		certMgr = mgr
@@ -189,10 +197,10 @@ func (c *Configuration) Initialize(configDir string) error {
 	return <-exitChannel
 }
 
-// ReloadTLSCertificate reloads the TLS certificate and key from the configured paths
-func ReloadTLSCertificate() error {
+// ReloadCertificateMgr reloads the certificate manager
+func ReloadCertificateMgr() error {
 	if certMgr != nil {
-		return certMgr.LoadCertificate(logSender)
+		return certMgr.Reload()
 	}
 	return nil
 }

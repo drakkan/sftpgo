@@ -86,7 +86,7 @@ func (c Conf) Initialize(configDir string) error {
 		ErrorLog:       log.New(&logger.StdLoggerWrapper{Sender: logSender}, "", 0),
 	}
 	if certificateFile != "" && certificateKeyFile != "" {
-		certMgr, err = common.NewCertManager(certificateFile, certificateKeyFile, logSender)
+		certMgr, err = common.NewCertManager(certificateFile, certificateKeyFile, configDir, logSender)
 		if err != nil {
 			return err
 		}
@@ -100,10 +100,10 @@ func (c Conf) Initialize(configDir string) error {
 	return utils.HTTPListenAndServe(httpServer, c.BindAddress, c.BindPort, false, logSender)
 }
 
-// ReloadTLSCertificate reloads the TLS certificate and key from the configured paths
-func ReloadTLSCertificate() error {
+// ReloadCertificateMgr reloads the certificate manager
+func ReloadCertificateMgr() error {
 	if certMgr != nil {
-		return certMgr.LoadCertificate(logSender)
+		return certMgr.Reload()
 	}
 	return nil
 }

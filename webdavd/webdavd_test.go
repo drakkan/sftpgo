@@ -213,7 +213,7 @@ func TestMain(m *testing.M) {
 	waitTCPListening(webDavConf.Bindings[0].GetAddress())
 	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
-	webdavd.ReloadTLSCertificate() //nolint:errcheck
+	webdavd.ReloadCertificateMgr() //nolint:errcheck
 
 	exitCode := m.Run()
 	os.Remove(logFilePath)
@@ -250,7 +250,7 @@ func TestInitialization(t *testing.T) {
 	cfg.CertificateKeyFile = keyPath
 	err = cfg.Initialize(configDir)
 	assert.Error(t, err)
-	err = webdavd.ReloadTLSCertificate()
+	err = webdavd.ReloadCertificateMgr()
 	assert.NoError(t, err)
 
 	cfg.Bindings = []webdavd.Binding{
@@ -276,6 +276,11 @@ func TestInitialization(t *testing.T) {
 	assert.Error(t, err)
 
 	cfg.CACertificates = nil
+	cfg.CARevocationLists = []string{""}
+	err = cfg.Initialize(configDir)
+	assert.Error(t, err)
+
+	cfg.CARevocationLists = nil
 	err = cfg.Initialize(configDir)
 	assert.Error(t, err)
 }
