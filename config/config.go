@@ -2,6 +2,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -369,8 +370,16 @@ func LoadConfig(configDir, configFile string) error {
 	viper.AddConfigPath(".")
 	setConfigFile(configDir, configFile)
 	if err = viper.ReadInConfig(); err != nil {
-		logger.Warn(logSender, "", "error loading configuration file: %v", err)
-		logger.WarnToConsole("error loading configuration file: %v", err)
+		// if the user specify a configuration file we get os.ErrNotExist.
+		// viper.ConfigFileNotFoundError is returned if viper is unable
+		// to find sftpgo.{json,yaml, etc..} in any of the search paths
+		if errors.As(err, &viper.ConfigFileNotFoundError{}) {
+			logger.Debug(logSender, "", "no configuration file found")
+		} else {
+			// should we return the error and not start here?
+			logger.Warn(logSender, "", "error loading configuration file: %v", err)
+			logger.WarnToConsole("error loading configuration file: %v", err)
+		}
 	}
 	err = viper.Unmarshal(&globalConf)
 	if err != nil {
