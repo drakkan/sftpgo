@@ -126,6 +126,15 @@ func Initialize(c Configuration) error {
 	return nil
 }
 
+// ReloadDefender reloads the defender's block and safe lists
+func ReloadDefender() error {
+	if Config.defender == nil {
+		return nil
+	}
+
+	return Config.defender.Reload()
+}
+
 // IsBanned returns true if the specified IP address is banned
 func IsBanned(ip string) bool {
 	if Config.defender == nil {

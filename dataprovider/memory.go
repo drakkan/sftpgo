@@ -93,7 +93,7 @@ func (p MemoryProvider) validateUserAndPass(username, password, ip, protocol str
 	}
 	user, err := p.userExists(username)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user %#v, error: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, err
 	}
 	return checkUserAndPass(user, password, ip, protocol)
@@ -106,7 +106,7 @@ func (p MemoryProvider) validateUserAndPubKey(username string, pubKey []byte) (U
 	}
 	user, err := p.userExists(username)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user %#v, error: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, "", err
 	}
 	return checkUserAndPubKey(user, pubKey)

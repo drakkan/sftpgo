@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/ftpd"
 	"github.com/drakkan/sftpgo/httpd"
@@ -40,6 +41,10 @@ func registerSigHup() {
 			err = telemetry.ReloadCertificateMgr()
 			if err != nil {
 				logger.Warn(logSender, "", "error reloading telemetry cert manager: %v", err)
+			}
+			err = common.ReloadDefender()
+			if err != nil {
+				logger.Warn(logSender, "", "error reloading defender's lists: %v", err)
 			}
 		}
 	}()

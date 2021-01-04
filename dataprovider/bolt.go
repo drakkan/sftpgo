@@ -106,7 +106,7 @@ func (p BoltProvider) validateUserAndPass(username, password, ip, protocol strin
 	}
 	user, err := p.userExists(username)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user: %v, error: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, err
 	}
 	return checkUserAndPass(user, password, ip, protocol)
@@ -119,7 +119,7 @@ func (p BoltProvider) validateUserAndPubKey(username string, pubKey []byte) (Use
 	}
 	user, err := p.userExists(username)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user: %v, error: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, "", err
 	}
 	return checkUserAndPubKey(user, pubKey)

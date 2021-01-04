@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sys/windows/svc/eventlog"
 	"golang.org/x/sys/windows/svc/mgr"
 
+	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/ftpd"
 	"github.com/drakkan/sftpgo/httpd"
@@ -107,6 +108,10 @@ loop:
 			err = telemetry.ReloadCertificateMgr()
 			if err != nil {
 				logger.Warn(logSender, "", "error reloading telemetry cert manager: %v", err)
+			}
+			err = common.ReloadDefender()
+			if err != nil {
+				logger.Warn(logSender, "", "error reloading defender's lists: %v", err)
 			}
 		case rotateLogCmd:
 			logger.Debug(logSender, "", "Received log file rotation request")

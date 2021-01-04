@@ -53,7 +53,7 @@ func sqlCommonValidateUserAndPass(username, password, ip, protocol string, dbHan
 	}
 	user, err := getUserByUsername(username, dbHandle)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user: %v, error: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, err
 	}
 	return checkUserAndPass(user, password, ip, protocol)
@@ -66,7 +66,7 @@ func sqlCommonValidateUserAndPubKey(username string, pubKey []byte, dbHandle *sq
 	}
 	user, err := getUserByUsername(username, dbHandle)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user: %v, error: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, "", err
 	}
 	return checkUserAndPubKey(user, pubKey)

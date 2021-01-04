@@ -33,6 +33,7 @@ type Defender interface {
 	GetBanTime(ip string) *time.Time
 	GetScore(ip string) int
 	Unban(ip string) bool
+	Reload() error
 }
 
 // DefenderConfig defines the "defender" configuration
@@ -153,16 +154,34 @@ func newInMemoryDefender(config *DefenderConfig) (Defender, error) {
 		banned: make(map[string]time.Time),
 	}
 
-	defender.blockList, err = loadHostListFromFile(config.BlockListFile)
-	if err != nil {
-		return nil, err
-	}
-	defender.safeList, err = loadHostListFromFile(config.SafeListFile)
-	if err != nil {
+	if err := defender.Reload(); err != nil {
 		return nil, err
 	}
 
 	return defender, nil
+}
+
+// Reload reloads block and safe lists
+func (d *memoryDefender) Reload() error {
+	blockList, err := loadHostListFromFile(d.config.BlockListFile)
+	if err != nil {
+		return err
+	}
+
+	d.Lock()
+	d.blockList = blockList
+	d.Unlock()
+
+	safeList, err := loadHostListFromFile(d.config.SafeListFile)
+	if err != nil {
+		return err
+	}
+
+	d.Lock()
+	d.safeList = safeList
+	d.Unlock()
+
+	return nil
 }
 
 // IsBanned returns true if the specified IP is banned

@@ -235,6 +235,8 @@ func TestDefenderIntegration(t *testing.T) {
 
 	ip := "127.1.1.1"
 
+	assert.Nil(t, ReloadDefender())
+
 	AddDefenderEvent(ip, HostEventNoLoginTried)
 	assert.False(t, IsBanned(ip))
 
@@ -258,6 +260,7 @@ func TestDefenderIntegration(t *testing.T) {
 	Config.DefenderConfig.Threshold = 3
 	err = Initialize(Config)
 	assert.NoError(t, err)
+	assert.Nil(t, ReloadDefender())
 
 	AddDefenderEvent(ip, HostEventNoLoginTried)
 	assert.False(t, IsBanned(ip))

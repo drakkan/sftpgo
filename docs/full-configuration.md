@@ -75,7 +75,7 @@ The configuration file contains the following sections:
     - `entries_soft_limit`, integer.
     - `entries_hard_limit`, integer. The number of banned IPs and host scores kept in memory will vary between the soft and hard limit.
     - `safelist_file`, string. Path to a file containing a list of ip addresses and/or networks to never ban.
-    - `blocklist_file`, string. Path to a file containing a list of ip addresses and/or networks to always ban.
+    - `blocklist_file`, string. Path to a file containing a list of ip addresses and/or networks to always ban. The lists can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows. An host that is already banned will not be automatically unbanned if you put it inside the safe list, you have to unban it using the REST API.
 - **"sftpd"**, the configuration for the SFTP server
   - `bindings`, list of structs. Each struct has the following fields:
     - `port`, integer. The port used for serving SFTP requests. 0 means disabled. Default: 2022
