@@ -541,7 +541,7 @@ func (c *scpCommand) readConfirmationMessage() error {
 				break
 			}
 			if n > 0 {
-				msg.WriteString(string(readed))
+				msg.Write(readed)
 			}
 		}
 		c.connection.Log(logger.LevelInfo, "scp error message received: %v is error: %v", msg.String(), isError)
@@ -567,7 +567,7 @@ func (c *scpCommand) readProtocolMessage() (string, error) {
 			if n == 1 && readed[0] == newLine[0] {
 				break
 			}
-			command.WriteString(string(readed))
+			command.Write(readed)
 		}
 	}
 	if err != nil {
@@ -605,7 +605,6 @@ func (c *scpCommand) sendProtocolMessage(message string) error {
 }
 
 // get the next upload protocol message ignoring T command if any
-// we use our own user setting for permissions
 func (c *scpCommand) getNextUploadProtocolMessage() (string, error) {
 	var command string
 	var err error
@@ -631,6 +630,8 @@ func (c *scpCommand) createDir(dirPath string) error {
 	var isDir bool
 	isDir, err = vfs.IsDirectory(c.connection.Fs, dirPath)
 	if err == nil && isDir {
+		// if this is a virtual dir the resolved path will exist, we don't need a specific check
+		// TODO: remember to check if it's okay when we'll add virtual folders support to cloud backends
 		c.connection.Log(logger.LevelDebug, "directory %#v already exists", dirPath)
 		return nil
 	}
@@ -675,7 +676,7 @@ func (c *scpCommand) parseUploadMessage(command string) (int64, string, error) {
 			return size, name, err
 		}
 	} else {
-		err = fmt.Errorf("Error splitting upload message: %#v", command)
+		err = fmt.Errorf("unable to split upload message: %#v", command)
 		c.connection.Log(logger.LevelWarn, "error: %v", err)
 		c.sendErrorMessage(err)
 		return size, name, err
