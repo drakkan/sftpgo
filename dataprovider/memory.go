@@ -88,7 +88,7 @@ func (p MemoryProvider) close() error {
 
 func (p MemoryProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
 	var user User
-	if len(password) == 0 {
+	if password == "" {
 		return user, errors.New("Credentials cannot be null or empty")
 	}
 	user, err := p.userExists(username)
@@ -178,13 +178,13 @@ func (p MemoryProvider) getUsedQuota(username string) (int, int64, error) {
 	return user.UsedQuotaFiles, user.UsedQuotaSize, err
 }
 
-func (p MemoryProvider) addUser(user User) error {
+func (p MemoryProvider) addUser(user *User) error {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return errMemoryProviderClosed
 	}
-	err := validateUser(&user)
+	err := validateUser(user)
 	if err != nil {
 		return err
 	}
@@ -198,20 +198,20 @@ func (p MemoryProvider) addUser(user User) error {
 	user.UsedQuotaFiles = 0
 	user.LastLogin = 0
 	user.VirtualFolders = p.joinVirtualFoldersFields(user)
-	p.dbHandle.users[user.Username] = user
+	p.dbHandle.users[user.Username] = user.getACopy()
 	p.dbHandle.usersIdx[user.ID] = user.Username
 	p.dbHandle.usernames = append(p.dbHandle.usernames, user.Username)
 	sort.Strings(p.dbHandle.usernames)
 	return nil
 }
 
-func (p MemoryProvider) updateUser(user User) error {
+func (p MemoryProvider) updateUser(user *User) error {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return errMemoryProviderClosed
 	}
-	err := validateUser(&user)
+	err := validateUser(user)
 	if err != nil {
 		return err
 	}
@@ -227,11 +227,12 @@ func (p MemoryProvider) updateUser(user User) error {
 	user.UsedQuotaSize = u.UsedQuotaSize
 	user.UsedQuotaFiles = u.UsedQuotaFiles
 	user.LastLogin = u.LastLogin
-	p.dbHandle.users[user.Username] = user
+	// pre-login and external auth hook will use the passed *user so save a copy
+	p.dbHandle.users[user.Username] = user.getACopy()
 	return nil
 }
 
-func (p MemoryProvider) deleteUser(user User) error {
+func (p MemoryProvider) deleteUser(user *User) error {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
@@ -247,7 +248,7 @@ func (p MemoryProvider) deleteUser(user User) error {
 	delete(p.dbHandle.users, user.Username)
 	delete(p.dbHandle.usersIdx, user.ID)
 	// this could be more efficient
-	p.dbHandle.usernames = []string{}
+	p.dbHandle.usernames = make([]string, 0, len(p.dbHandle.users))
 	for username := range p.dbHandle.users {
 		p.dbHandle.usernames = append(p.dbHandle.usernames, username)
 	}
@@ -396,7 +397,7 @@ func (p MemoryProvider) getUsedFolderQuota(mappedPath string) (int, int64, error
 	return folder.UsedQuotaFiles, folder.UsedQuotaSize, err
 }
 
-func (p MemoryProvider) joinVirtualFoldersFields(user User) []vfs.VirtualFolder {
+func (p MemoryProvider) joinVirtualFoldersFields(user *User) []vfs.VirtualFolder {
 	var folders []vfs.VirtualFolder
 	for _, folder := range user.VirtualFolders {
 		f, err := p.addOrGetFolderInternal(folder.MappedPath, user.Username, folder.UsedQuotaSize, folder.UsedQuotaFiles,
@@ -522,13 +523,13 @@ func (p MemoryProvider) getFolderByPath(mappedPath string) (vfs.BaseVirtualFolde
 	return p.folderExistsInternal(mappedPath)
 }
 
-func (p MemoryProvider) addFolder(folder vfs.BaseVirtualFolder) error {
+func (p MemoryProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return errMemoryProviderClosed
 	}
-	err := validateFolder(&folder)
+	err := validateFolder(folder)
 	if err != nil {
 		return err
 	}
@@ -537,13 +538,13 @@ func (p MemoryProvider) addFolder(folder vfs.BaseVirtualFolder) error {
 		return fmt.Errorf("folder %#v already exists", folder.MappedPath)
 	}
 	folder.ID = p.getNextFolderID()
-	p.dbHandle.vfolders[folder.MappedPath] = folder
+	p.dbHandle.vfolders[folder.MappedPath] = *folder
 	p.dbHandle.vfoldersPaths = append(p.dbHandle.vfoldersPaths, folder.MappedPath)
 	sort.Strings(p.dbHandle.vfoldersPaths)
 	return nil
 }
 
-func (p MemoryProvider) deleteFolder(folder vfs.BaseVirtualFolder) error {
+func (p MemoryProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
@@ -644,8 +645,9 @@ func (p MemoryProvider) reloadConfig() error {
 			logger.Debug(logSender, "", "folder %#v already exists, restore not needed", folder.MappedPath)
 			continue
 		}
+		folder := folder // pin
 		folder.Users = nil
-		err = p.addFolder(folder)
+		err = p.addFolder(&folder)
 		if err != nil {
 			providerLog(logger.LevelWarn, "error adding folder %#v: %v", folder.MappedPath, err)
 			return err
@@ -653,15 +655,16 @@ func (p MemoryProvider) reloadConfig() error {
 	}
 	for _, user := range dump.Users {
 		u, err := p.userExists(user.Username)
+		user := user // pin
 		if err == nil {
 			user.ID = u.ID
-			err = p.updateUser(user)
+			err = p.updateUser(&user)
 			if err != nil {
 				providerLog(logger.LevelWarn, "error updating user %#v: %v", user.Username, err)
 				return err
 			}
 		} else {
-			err = p.addUser(user)
+			err = p.addUser(&user)
 			if err != nil {
 				providerLog(logger.LevelWarn, "error adding user %#v: %v", user.Username, err)
 				return err

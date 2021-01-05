@@ -323,7 +323,7 @@ func (c *Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, con
 }
 
 func (c *Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.ServerConfig) {
-	if len(c.KeyboardInteractiveHook) == 0 {
+	if c.KeyboardInteractiveHook == "" {
 		return
 	}
 	if !strings.HasPrefix(c.KeyboardInteractiveHook, "http") {

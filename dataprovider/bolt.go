@@ -101,7 +101,7 @@ func (p BoltProvider) checkAvailability() error {
 
 func (p BoltProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
 	var user User
-	if len(password) == 0 {
+	if password == "" {
 		return user, errors.New("Credentials cannot be null or empty")
 	}
 	user, err := p.userExists(username)
@@ -246,8 +246,8 @@ func (p BoltProvider) userExists(username string) (User, error) {
 	return user, err
 }
 
-func (p BoltProvider) addUser(user User) error {
-	err := validateUser(&user)
+func (p BoltProvider) addUser(user *User) error {
+	err := validateUser(user)
 	if err != nil {
 		return err
 	}
@@ -291,8 +291,8 @@ func (p BoltProvider) addUser(user User) error {
 	})
 }
 
-func (p BoltProvider) updateUser(user User) error {
-	err := validateUser(&user)
+func (p BoltProvider) updateUser(user *User) error {
+	err := validateUser(user)
 	if err != nil {
 		return err
 	}
@@ -315,7 +315,7 @@ func (p BoltProvider) updateUser(user User) error {
 			return err
 		}
 		for _, folder := range oldUser.VirtualFolders {
-			err = removeUserFromFolderMapping(folder, oldUser, folderBucket)
+			err = removeUserFromFolderMapping(folder, &oldUser, folderBucket)
 			if err != nil {
 				return err
 			}
@@ -339,7 +339,7 @@ func (p BoltProvider) updateUser(user User) error {
 	})
 }
 
-func (p BoltProvider) deleteUser(user User) error {
+func (p BoltProvider) deleteUser(user *User) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket, idxBucket, err := getBuckets(tx)
 		if err != nil {
@@ -567,8 +567,8 @@ func (p BoltProvider) getFolderByPath(name string) (vfs.BaseVirtualFolder, error
 	return folder, err
 }
 
-func (p BoltProvider) addFolder(folder vfs.BaseVirtualFolder) error {
-	err := validateFolder(&folder)
+func (p BoltProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
+	err := validateFolder(folder)
 	if err != nil {
 		return err
 	}
@@ -580,12 +580,12 @@ func (p BoltProvider) addFolder(folder vfs.BaseVirtualFolder) error {
 		if f := bucket.Get([]byte(folder.MappedPath)); f != nil {
 			return fmt.Errorf("folder %v already exists", folder.MappedPath)
 		}
-		_, err = addFolderInternal(folder, bucket)
+		_, err = addFolderInternal(*folder, bucket)
 		return err
 	})
 }
 
-func (p BoltProvider) deleteFolder(folder vfs.BaseVirtualFolder) error {
+func (p BoltProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket, err := getFolderBucket(tx)
 		if err != nil {
@@ -816,7 +816,7 @@ func addFolderInternal(folder vfs.BaseVirtualFolder, bucket *bolt.Bucket) (vfs.B
 	return folder, err
 }
 
-func addUserToFolderMapping(folder vfs.VirtualFolder, user User, bucket *bolt.Bucket) error {
+func addUserToFolderMapping(folder vfs.VirtualFolder, user *User, bucket *bolt.Bucket) error {
 	var baseFolder vfs.BaseVirtualFolder
 	var err error
 	if f := bucket.Get([]byte(folder.MappedPath)); f == nil {
@@ -842,7 +842,7 @@ func addUserToFolderMapping(folder vfs.VirtualFolder, user User, bucket *bolt.Bu
 	return err
 }
 
-func removeUserFromFolderMapping(folder vfs.VirtualFolder, user User, bucket *bolt.Bucket) error {
+func removeUserFromFolderMapping(folder vfs.VirtualFolder, user *User, bucket *bolt.Bucket) error {
 	var f []byte
 	if f = bucket.Get([]byte(folder.MappedPath)); f == nil {
 		// the folder does not exists so there is no associated user
@@ -940,7 +940,7 @@ func updateDatabaseFrom1To2(dbHandle *bolt.DB) error {
 			return err
 		}
 		user.Status = 1
-		err = provider.updateUser(user)
+		err = provider.updateUser(&user)
 		if err != nil {
 			return err
 		}
@@ -994,7 +994,8 @@ func updateDatabaseFrom2To3(dbHandle *bolt.DB) error {
 	}
 
 	for _, user := range users {
-		err = provider.updateUser(user)
+		user := user
+		err = provider.updateUser(&user)
 		if err != nil {
 			return err
 		}
@@ -1053,7 +1054,7 @@ func updateDatabaseFrom3To4(dbHandle *bolt.DB) error {
 			}
 		}
 		user.VirtualFolders = folders
-		err = provider.updateUser(user)
+		err = provider.updateUser(&user)
 		providerLog(logger.LevelInfo, "number of virtual folders to restore %v, user %#v, error: %v", len(user.VirtualFolders),
 			user.Username, err)
 		if err != nil {

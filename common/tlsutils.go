@@ -171,19 +171,15 @@ func (m *CertManager) LoadRootCAs() error {
 	return nil
 }
 
-// SetCACertificates sets the root CA authorities file paths
+// SetCACertificates sets the root CA authorities file paths.
+// This should not be changed at runtime
 func (m *CertManager) SetCACertificates(caCertificates []string) {
-	m.Lock()
-	defer m.Unlock()
-
 	m.caCertificates = caCertificates
 }
 
-// SetCARevocationLists sets the CA revocation lists file paths
+// SetCARevocationLists sets the CA revocation lists file paths.
+// This should not be changed at runtime
 func (m *CertManager) SetCARevocationLists(caRevocationLists []string) {
-	m.Lock()
-	defer m.Unlock()
-
 	m.caRevocationLists = caRevocationLists
 }
 

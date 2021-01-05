@@ -106,7 +106,7 @@ func (s *Service) Start() error {
 
 	if s.PortableMode == 1 {
 		// create the user for portable mode
-		err = dataprovider.AddUser(s.PortableUser)
+		err = dataprovider.AddUser(&s.PortableUser)
 		if err != nil {
 			logger.ErrorToConsole("error adding portable user: %v", err)
 			return err

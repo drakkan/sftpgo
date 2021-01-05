@@ -63,7 +63,7 @@ func addFolder(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	err = dataprovider.AddFolder(folder)
+	err = dataprovider.AddFolder(&folder)
 	if err == nil {
 		folder, err = dataprovider.GetFolderByPath(folder.MappedPath)
 		if err == nil {
@@ -81,7 +81,7 @@ func deleteFolderByPath(w http.ResponseWriter, r *http.Request) {
 	if _, ok := r.URL.Query()["folder_path"]; ok {
 		folderPath = r.URL.Query().Get("folder_path")
 	}
-	if len(folderPath) == 0 {
+	if folderPath == "" {
 		err := errors.New("a non-empty folder path is required")
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
@@ -92,7 +92,7 @@ func deleteFolderByPath(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	err = dataprovider.DeleteFolder(folder)
+	err = dataprovider.DeleteFolder(&folder)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
 	} else {

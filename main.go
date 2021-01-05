@@ -1,6 +1,5 @@
 // Fully featured and highly configurable SFTP server with optional
-// FTP/S and WebDAV support. It can serve local filesystem, S3 or
-// Google Cloud Storage.
+// FTP/S and WebDAV support.
 // For more details about features, installation, configuration and usage
 // please refer to the README inside the source tree:
 // https://github.com/drakkan/sftpgo/blob/master/README.md

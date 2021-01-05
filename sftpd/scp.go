@@ -668,7 +668,7 @@ func (c *scpCommand) parseUploadMessage(command string) (int64, string, error) {
 			return size, name, err
 		}
 		name = parts[2]
-		if len(name) == 0 {
+		if name == "" {
 			err = fmt.Errorf("error getting name from upload message, cannot be empty")
 			c.connection.Log(logger.LevelWarn, "error: %v", err)
 			c.sendErrorMessage(err)

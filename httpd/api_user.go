@@ -115,7 +115,7 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	err = dataprovider.AddUser(user)
+	err = dataprovider.AddUser(&user)
 	if err == nil {
 		user, err = dataprovider.UserExists(user.Username)
 		if err == nil {
@@ -181,7 +181,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "user ID in request body does not match user ID in path parameter", http.StatusBadRequest)
 		return
 	}
-	err = dataprovider.UpdateUser(user)
+	err = dataprovider.UpdateUser(&user)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 	} else {
@@ -204,7 +204,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	err = dataprovider.DeleteUser(user)
+	err = dataprovider.DeleteUser(&user)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
 	} else {

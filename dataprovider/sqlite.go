@@ -93,7 +93,7 @@ func initializeSQLiteProvider(basePath string) error {
 	var err error
 	var connectionString string
 	logSender = fmt.Sprintf("dataprovider_%v", SQLiteDataProviderName)
-	if len(config.ConnectionString) == 0 {
+	if config.ConnectionString == "" {
 		dbPath := config.Name
 		if !utils.IsFileInputValid(dbPath) {
 			return fmt.Errorf("Invalid database path: %#v", dbPath)
@@ -149,15 +149,15 @@ func (p SQLiteProvider) userExists(username string) (User, error) {
 	return sqlCommonCheckUserExists(username, p.dbHandle)
 }
 
-func (p SQLiteProvider) addUser(user User) error {
+func (p SQLiteProvider) addUser(user *User) error {
 	return sqlCommonAddUser(user, p.dbHandle)
 }
 
-func (p SQLiteProvider) updateUser(user User) error {
+func (p SQLiteProvider) updateUser(user *User) error {
 	return sqlCommonUpdateUser(user, p.dbHandle)
 }
 
-func (p SQLiteProvider) deleteUser(user User) error {
+func (p SQLiteProvider) deleteUser(user *User) error {
 	return sqlCommonDeleteUser(user, p.dbHandle)
 }
 
@@ -183,11 +183,11 @@ func (p SQLiteProvider) getFolderByPath(mappedPath string) (vfs.BaseVirtualFolde
 	return sqlCommonCheckFolderExists(ctx, mappedPath, p.dbHandle)
 }
 
-func (p SQLiteProvider) addFolder(folder vfs.BaseVirtualFolder) error {
+func (p SQLiteProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 	return sqlCommonAddFolder(folder, p.dbHandle)
 }
 
-func (p SQLiteProvider) deleteFolder(folder vfs.BaseVirtualFolder) error {
+func (p SQLiteProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 	return sqlCommonDeleteFolder(folder, p.dbHandle)
 }
 

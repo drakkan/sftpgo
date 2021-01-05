@@ -367,17 +367,17 @@ type Provider interface {
 	updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error
 	getUsedQuota(username string) (int, int64, error)
 	userExists(username string) (User, error)
-	addUser(user User) error
-	updateUser(user User) error
-	deleteUser(user User) error
+	addUser(user *User) error
+	updateUser(user *User) error
+	deleteUser(user *User) error
 	getUsers(limit int, offset int, order string, username string) ([]User, error)
 	dumpUsers() ([]User, error)
 	getUserByID(ID int64) (User, error)
 	updateLastLogin(username string) error
 	getFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error)
 	getFolderByPath(mappedPath string) (vfs.BaseVirtualFolder, error)
-	addFolder(folder vfs.BaseVirtualFolder) error
-	deleteFolder(folder vfs.BaseVirtualFolder) error
+	addFolder(folder *vfs.BaseVirtualFolder) error
+	deleteFolder(folder *vfs.BaseVirtualFolder) error
 	updateFolderQuota(mappedPath string, filesAdd int, sizeAdd int64, reset bool) error
 	getUsedFolderQuota(mappedPath string) (int, int64, error)
 	dumpFolders() ([]vfs.BaseVirtualFolder, error)
@@ -439,16 +439,16 @@ func Initialize(cnf Config, basePath string) error {
 
 func validateHooks() error {
 	var hooks []string
-	if len(config.PreLoginHook) > 0 && !strings.HasPrefix(config.PreLoginHook, "http") {
+	if config.PreLoginHook != "" && !strings.HasPrefix(config.PreLoginHook, "http") {
 		hooks = append(hooks, config.PreLoginHook)
 	}
-	if len(config.ExternalAuthHook) > 0 && !strings.HasPrefix(config.ExternalAuthHook, "http") {
+	if config.ExternalAuthHook != "" && !strings.HasPrefix(config.ExternalAuthHook, "http") {
 		hooks = append(hooks, config.ExternalAuthHook)
 	}
-	if len(config.PostLoginHook) > 0 && !strings.HasPrefix(config.PostLoginHook, "http") {
+	if config.PostLoginHook != "" && !strings.HasPrefix(config.PostLoginHook, "http") {
 		hooks = append(hooks, config.PostLoginHook)
 	}
-	if len(config.CheckPasswordHook) > 0 && !strings.HasPrefix(config.CheckPasswordHook, "http") {
+	if config.CheckPasswordHook != "" && !strings.HasPrefix(config.CheckPasswordHook, "http") {
 		hooks = append(hooks, config.CheckPasswordHook)
 	}
 
@@ -527,14 +527,14 @@ func RevertDatabase(cnf Config, basePath string, targetVersion int) error {
 
 // CheckUserAndPass retrieves the SFTP user with the given username and password if a match is found or an error
 func CheckUserAndPass(username, password, ip, protocol string) (User, error) {
-	if len(config.ExternalAuthHook) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&1 != 0) {
+	if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&1 != 0) {
 		user, err := doExternalAuth(username, password, nil, "", ip, protocol)
 		if err != nil {
 			return user, err
 		}
 		return checkUserAndPass(user, password, ip, protocol)
 	}
-	if len(config.PreLoginHook) > 0 {
+	if config.PreLoginHook != "" {
 		user, err := executePreLoginHook(username, LoginMethodPassword, ip, protocol)
 		if err != nil {
 			return user, err
@@ -546,14 +546,14 @@ func CheckUserAndPass(username, password, ip, protocol string) (User, error) {
 
 // CheckUserAndPubKey retrieves the SFTP user with the given username and public key if a match is found or an error
 func CheckUserAndPubKey(username string, pubKey []byte, ip, protocol string) (User, string, error) {
-	if len(config.ExternalAuthHook) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&2 != 0) {
+	if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&2 != 0) {
 		user, err := doExternalAuth(username, "", pubKey, "", ip, protocol)
 		if err != nil {
 			return user, "", err
 		}
 		return checkUserAndPubKey(user, pubKey)
 	}
-	if len(config.PreLoginHook) > 0 {
+	if config.PreLoginHook != "" {
 		user, err := executePreLoginHook(username, SSHLoginMethodPublicKey, ip, protocol)
 		if err != nil {
 			return user, "", err
@@ -568,9 +568,9 @@ func CheckUserAndPubKey(username string, pubKey []byte, ip, protocol string) (Us
 func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (User, error) {
 	var user User
 	var err error
-	if len(config.ExternalAuthHook) > 0 && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&4 != 0) {
+	if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&4 != 0) {
 		user, err = doExternalAuth(username, "", nil, "1", ip, protocol)
-	} else if len(config.PreLoginHook) > 0 {
+	} else if config.PreLoginHook != "" {
 		user, err = executePreLoginHook(username, SSHLoginMethodKeyboardInteractive, ip, protocol)
 	} else {
 		user, err = provider.userExists(username)
@@ -653,41 +653,41 @@ func UserExists(username string) (User, error) {
 
 // AddUser adds a new SFTPGo user.
 // ManageUsers configuration must be set to 1 to enable this method
-func AddUser(user User) error {
+func AddUser(user *User) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
 	err := provider.addUser(user)
 	if err == nil {
-		go executeAction(operationAdd, user)
+		go executeAction(operationAdd, *user)
 	}
 	return err
 }
 
 // UpdateUser updates an existing SFTPGo user.
 // ManageUsers configuration must be set to 1 to enable this method
-func UpdateUser(user User) error {
+func UpdateUser(user *User) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
 	err := provider.updateUser(user)
 	if err == nil {
 		RemoveCachedWebDAVUser(user.Username)
-		go executeAction(operationUpdate, user)
+		go executeAction(operationUpdate, *user)
 	}
 	return err
 }
 
 // DeleteUser deletes an existing SFTPGo user.
 // ManageUsers configuration must be set to 1 to enable this method
-func DeleteUser(user User) error {
+func DeleteUser(user *User) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
 	err := provider.deleteUser(user)
 	if err == nil {
 		RemoveCachedWebDAVUser(user.Username)
-		go executeAction(operationDelete, user)
+		go executeAction(operationDelete, *user)
 	}
 	return err
 }
@@ -711,7 +711,7 @@ func GetUserByID(ID int64) (User, error) {
 
 // AddFolder adds a new virtual folder.
 // ManageUsers configuration must be set to 1 to enable this method
-func AddFolder(folder vfs.BaseVirtualFolder) error {
+func AddFolder(folder *vfs.BaseVirtualFolder) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
@@ -720,7 +720,7 @@ func AddFolder(folder vfs.BaseVirtualFolder) error {
 
 // DeleteFolder deletes an existing folder.
 // ManageUsers configuration must be set to 1 to enable this method
-func DeleteFolder(folder vfs.BaseVirtualFolder) error {
+func DeleteFolder(folder *vfs.BaseVirtualFolder) error {
 	if config.ManageUsers == 0 {
 		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
@@ -1303,7 +1303,7 @@ func validateUser(user *User) error {
 	return nil
 }
 
-func checkLoginConditions(user User) error {
+func checkLoginConditions(user *User) error {
 	if user.Status < 1 {
 		return fmt.Errorf("user %#v is disabled", user.Username)
 	}
@@ -1344,11 +1344,11 @@ func isPasswordOK(user *User, password string) (bool, error) {
 }
 
 func checkUserAndPass(user User, password, ip, protocol string) (User, error) {
-	err := checkLoginConditions(user)
+	err := checkLoginConditions(&user)
 	if err != nil {
 		return user, err
 	}
-	if len(user.Password) == 0 {
+	if user.Password == "" {
 		return user, errors.New("Credentials cannot be null or empty")
 	}
 	hookResponse, err := executeCheckPasswordHook(user.Username, password, ip, protocol)
@@ -1378,7 +1378,7 @@ func checkUserAndPass(user User, password, ip, protocol string) (User, error) {
 }
 
 func checkUserAndPubKey(user User, pubKey []byte) (User, string, error) {
-	err := checkLoginConditions(user)
+	err := checkLoginConditions(&user)
 	if err != nil {
 		return user, "", err
 	}
@@ -1731,7 +1731,7 @@ func doKeyboardInteractiveAuth(user User, authHook string, client ssh.KeyboardIn
 	if authResult != 1 {
 		return user, fmt.Errorf("keyboard interactive auth failed, result: %v", authResult)
 	}
-	err = checkLoginConditions(user)
+	err = checkLoginConditions(&user)
 	if err != nil {
 		return user, err
 	}
@@ -1739,7 +1739,7 @@ func doKeyboardInteractiveAuth(user User, authHook string, client ssh.KeyboardIn
 }
 
 func isCheckPasswordHookDefined(protocol string) bool {
-	if len(config.CheckPasswordHook) == 0 {
+	if config.CheckPasswordHook == "" {
 		return false
 	}
 	if config.CheckPasswordScope == 0 {
@@ -1900,20 +1900,23 @@ func executePreLoginHook(username, loginMethod, ip, protocol string) (User, erro
 	u.LastQuotaUpdate = userLastQuotaUpdate
 	u.LastLogin = userLastLogin
 	if userID == 0 {
-		err = provider.addUser(u)
+		err = provider.addUser(&u)
 	} else {
-		err = provider.updateUser(u)
+		err = provider.updateUser(&u)
 	}
 	if err != nil {
 		return u, err
 	}
 	providerLog(logger.LevelDebug, "user %#v added/updated from pre-login hook response, id: %v", username, userID)
-	return provider.userExists(username)
+	if userID == 0 {
+		return provider.userExists(username)
+	}
+	return u, nil
 }
 
 // ExecutePostLoginHook executes the post login hook if defined
 func ExecutePostLoginHook(username, loginMethod, ip, protocol string, err error) {
-	if len(config.PostLoginHook) == 0 {
+	if config.PostLoginHook == "" {
 		return
 	}
 	if config.PostLoginScope == 1 && err == nil {
@@ -2047,7 +2050,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 	if len(pkey) > 0 && !utils.IsStringPrefixInSlice(pkey, user.PublicKeys) {
 		user.PublicKeys = append(user.PublicKeys, pkey)
 	}
-	// some users want to map multiple login usernames with a single SGTPGo account
+	// some users want to map multiple login usernames with a single SFTPGo account
 	// for example an SFTP user logins using "user1" or "user2" and the external auth
 	// returns "user" in both cases, so we use the username returned from
 	// external auth and not the one used to login
@@ -2058,10 +2061,10 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		user.UsedQuotaFiles = u.UsedQuotaFiles
 		user.LastQuotaUpdate = u.LastQuotaUpdate
 		user.LastLogin = u.LastLogin
-		err = provider.updateUser(user)
-	} else {
-		err = provider.addUser(user)
+		err = provider.updateUser(&user)
+		return user, err
 	}
+	err = provider.addUser(&user)
 	if err != nil {
 		return user, err
 	}
@@ -2174,7 +2177,7 @@ func CacheWebDAVUser(cachedUser *CachedUser, maxSize int) {
 
 		webDAVUsersCache.Range(func(k, v interface{}) bool {
 			cacheSize++
-			if len(userToRemove) == 0 {
+			if userToRemove == "" {
 				userToRemove = k.(string)
 				expirationTime = v.(*CachedUser).Expiration
 				return true

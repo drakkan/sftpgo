@@ -74,7 +74,7 @@ func initializeMySQLProvider() error {
 }
 func getMySQLConnectionString(redactedPwd bool) string {
 	var connectionString string
-	if len(config.ConnectionString) == 0 {
+	if config.ConnectionString == "" {
 		password := config.Password
 		if redactedPwd {
 			password = "[redacted]"
@@ -119,15 +119,15 @@ func (p MySQLProvider) userExists(username string) (User, error) {
 	return sqlCommonCheckUserExists(username, p.dbHandle)
 }
 
-func (p MySQLProvider) addUser(user User) error {
+func (p MySQLProvider) addUser(user *User) error {
 	return sqlCommonAddUser(user, p.dbHandle)
 }
 
-func (p MySQLProvider) updateUser(user User) error {
+func (p MySQLProvider) updateUser(user *User) error {
 	return sqlCommonUpdateUser(user, p.dbHandle)
 }
 
-func (p MySQLProvider) deleteUser(user User) error {
+func (p MySQLProvider) deleteUser(user *User) error {
 	return sqlCommonDeleteUser(user, p.dbHandle)
 }
 
@@ -153,11 +153,11 @@ func (p MySQLProvider) getFolderByPath(mappedPath string) (vfs.BaseVirtualFolder
 	return sqlCommonCheckFolderExists(ctx, mappedPath, p.dbHandle)
 }
 
-func (p MySQLProvider) addFolder(folder vfs.BaseVirtualFolder) error {
+func (p MySQLProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 	return sqlCommonAddFolder(folder, p.dbHandle)
 }
 
-func (p MySQLProvider) deleteFolder(folder vfs.BaseVirtualFolder) error {
+func (p MySQLProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 	return sqlCommonDeleteFolder(folder, p.dbHandle)
 }
 

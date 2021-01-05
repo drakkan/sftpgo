@@ -129,10 +129,10 @@ func (c Conf) Initialize(configDir string) error {
 	staticFilesPath := getConfigPath(c.StaticFilesPath, configDir)
 	templatesPath := getConfigPath(c.TemplatesPath, configDir)
 	enableWebAdmin := len(staticFilesPath) > 0 || len(templatesPath) > 0
-	if len(backupsPath) == 0 {
+	if backupsPath == "" {
 		return fmt.Errorf("Required directory is invalid, backup path %#v", backupsPath)
 	}
-	if enableWebAdmin && (len(staticFilesPath) == 0 || len(templatesPath) == 0) {
+	if enableWebAdmin && (staticFilesPath == "" || templatesPath == "") {
 		return fmt.Errorf("Required directory is invalid, static file path: %#v template path: %#v",
 			staticFilesPath, templatesPath)
 	}

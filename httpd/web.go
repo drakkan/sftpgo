@@ -727,7 +727,7 @@ func handleWebAddUserPost(w http.ResponseWriter, r *http.Request) {
 		renderAddUserPage(w, user, err.Error())
 		return
 	}
-	err = dataprovider.AddUser(user)
+	err = dataprovider.AddUser(&user)
 	if err == nil {
 		http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
 	} else {
@@ -764,7 +764,7 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 		user.FsConfig.GCSConfig.Credentials, user.FsConfig.CryptConfig.Passphrase, user.FsConfig.SFTPConfig.Password,
 		user.FsConfig.SFTPConfig.PrivateKey)
 
-	err = dataprovider.UpdateUser(updatedUser)
+	err = dataprovider.UpdateUser(&updatedUser)
 	if err == nil {
 		if len(r.Form.Get("disconnect")) > 0 {
 			disconnectUser(user.Username)
@@ -806,7 +806,7 @@ func handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
 	}
 	folder.MappedPath = r.Form.Get("mapped_path")
 
-	err = dataprovider.AddFolder(folder)
+	err = dataprovider.AddFolder(&folder)
 	if err == nil {
 		http.Redirect(w, r, webFoldersPath, http.StatusSeeOther)
 	} else {

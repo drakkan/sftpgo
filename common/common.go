@@ -364,7 +364,7 @@ func (c *Configuration) GetProxyListener(listener net.Listener) (*proxyproto.Lis
 
 // ExecutePostConnectHook executes the post connect hook if defined
 func (c *Configuration) ExecutePostConnectHook(ipAddr, protocol string) error {
-	if len(c.PostConnectHook) == 0 {
+	if c.PostConnectHook == "" {
 		return nil
 	}
 	if strings.HasPrefix(c.PostConnectHook, "http") {
@@ -594,7 +594,7 @@ func (conns *ActiveConnections) checkIdles() {
 
 	for _, c := range conns.connections {
 		idleTime := time.Since(c.GetLastActivity())
-		isUnauthenticatedFTPUser := (c.GetProtocol() == ProtocolFTP && len(c.GetUsername()) == 0)
+		isUnauthenticatedFTPUser := (c.GetProtocol() == ProtocolFTP && c.GetUsername() == "")
 
 		if idleTime > Config.idleTimeoutAsDuration || (isUnauthenticatedFTPUser && idleTime > Config.idleLoginTimeout) {
 			defer func(conn ActiveConnection, isFTPNoAuth bool) {

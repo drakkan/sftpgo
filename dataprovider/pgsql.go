@@ -75,7 +75,7 @@ func initializePGSQLProvider() error {
 
 func getPGSQLConnectionString(redactedPwd bool) string {
 	var connectionString string
-	if len(config.ConnectionString) == 0 {
+	if config.ConnectionString == "" {
 		password := config.Password
 		if redactedPwd {
 			password = "[redacted]"
@@ -120,15 +120,15 @@ func (p PGSQLProvider) userExists(username string) (User, error) {
 	return sqlCommonCheckUserExists(username, p.dbHandle)
 }
 
-func (p PGSQLProvider) addUser(user User) error {
+func (p PGSQLProvider) addUser(user *User) error {
 	return sqlCommonAddUser(user, p.dbHandle)
 }
 
-func (p PGSQLProvider) updateUser(user User) error {
+func (p PGSQLProvider) updateUser(user *User) error {
 	return sqlCommonUpdateUser(user, p.dbHandle)
 }
 
-func (p PGSQLProvider) deleteUser(user User) error {
+func (p PGSQLProvider) deleteUser(user *User) error {
 	return sqlCommonDeleteUser(user, p.dbHandle)
 }
 
@@ -154,11 +154,11 @@ func (p PGSQLProvider) getFolderByPath(mappedPath string) (vfs.BaseVirtualFolder
 	return sqlCommonCheckFolderExists(ctx, mappedPath, p.dbHandle)
 }
 
-func (p PGSQLProvider) addFolder(folder vfs.BaseVirtualFolder) error {
+func (p PGSQLProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 	return sqlCommonAddFolder(folder, p.dbHandle)
 }
 
-func (p PGSQLProvider) deleteFolder(folder vfs.BaseVirtualFolder) error {
+func (p PGSQLProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 	return sqlCommonDeleteFolder(folder, p.dbHandle)
 }
 

@@ -207,7 +207,7 @@ func (s *webDavServer) authenticate(r *http.Request, ip string) (dataprovider.Us
 		if cachedUser.IsExpired() {
 			dataprovider.RemoveCachedWebDAVUser(username)
 		} else {
-			if len(password) > 0 && cachedUser.Password == password {
+			if password != "" && cachedUser.Password == password {
 				return cachedUser.User, true, cachedUser.LockSystem, nil
 			}
 			updateLoginMetrics(username, ip, dataprovider.ErrInvalidCredentials)

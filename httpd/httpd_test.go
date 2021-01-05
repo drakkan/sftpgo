@@ -3430,7 +3430,7 @@ func TestRenderWebCloneUserMock(t *testing.T) {
 		assert.NoError(t, err)
 		user.FsConfig.CryptConfig.Passphrase.SetStatus(kms.SecretStatusAWS)
 		user.Password = defaultPassword
-		err = dataprovider.UpdateUser(user)
+		err = dataprovider.UpdateUser(&user)
 		assert.NoError(t, err)
 
 		req, err = http.NewRequest(http.MethodGet, webUserPath+fmt.Sprintf("?cloneFromId=%v", user.ID), nil)
