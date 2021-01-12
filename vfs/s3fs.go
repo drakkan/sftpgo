@@ -123,7 +123,8 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 	if err == nil {
 		objSize := *obj.ContentLength
 		objectModTime := *obj.LastModified
-		return NewFileInfo(name, false, objSize, objectModTime, false), nil
+		isDir := *obj.ContentType == dirMimeType
+		return NewFileInfo(name, isDir, objSize, objectModTime, false), nil
 	}
 	if !fs.IsNotExist(err) {
 		return result, err
@@ -141,8 +142,7 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 	if err == nil {
 		objSize := *obj.ContentLength
 		objectModTime := *obj.LastModified
-		isDir := *obj.ContentType == dirMimeType
-		return NewFileInfo(name, isDir, objSize, objectModTime, false), nil
+		return NewFileInfo(name, true, objSize, objectModTime, false), nil
 	}
 	if !fs.IsNotExist(err) {
 		return result, err
