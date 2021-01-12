@@ -5,7 +5,6 @@ package vfs
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -138,46 +137,13 @@ func (fs *GCSFs) Stat(name string) (os.FileInfo, error) {
 
 func (fs *GCSFs) getStatCompat(name string) (os.FileInfo, error) {
 	var result FileInfo
-	prefix := fs.getPrefixForStat(name)
-	query := &storage.Query{Prefix: prefix, Delimiter: "/"}
-	err := query.SetAttrSelection(gcsDefaultFieldsSelection)
+	attrs, err := fs.headObject(name + "/")
 	if err != nil {
-		return nil, err
+		return result, err
 	}
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-	defer cancelFn()
-	bkt := fs.svc.Bucket(fs.config.Bucket)
-	it := bkt.Objects(ctx, query)
-	for {
-		attrs, err := it.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			metrics.GCSListObjectsCompleted(err)
-			return result, err
-		}
-		if attrs.Prefix != "" {
-			if fs.isEqual(attrs.Prefix, name) {
-				result = NewFileInfo(name, true, 0, time.Now(), false)
-				break
-			}
-		} else {
-			if !attrs.Deleted.IsZero() {
-				continue
-			}
-			if fs.isEqual(attrs.Name, name) {
-				isDir := strings.HasSuffix(attrs.Name, "/")
-				result = NewFileInfo(name, isDir, attrs.Size, attrs.Updated, false)
-				break
-			}
-		}
-	}
-	metrics.GCSListObjectsCompleted(nil)
-	if result.Name() == "" {
-		err = errors.New("404 no such file or directory")
-	}
-	return result, err
+	objSize := attrs.Size
+	objectModTime := attrs.Updated
+	return NewFileInfo(name, true, objSize, objectModTime, false), nil
 }
 
 // Lstat returns a FileInfo describing the named file
@@ -642,19 +608,6 @@ func (fs *GCSFs) resolve(name string, prefix string) (string, bool) {
 	return result, isDir
 }
 
-func (fs *GCSFs) isEqual(key string, virtualName string) bool {
-	if key == virtualName {
-		return true
-	}
-	if key == virtualName+"/" {
-		return true
-	}
-	if key+"/" == virtualName {
-		return true
-	}
-	return false
-}
-
 func (fs *GCSFs) checkIfBucketExists() error {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
@@ -710,19 +663,6 @@ func (fs *GCSFs) getPrefix(name string) string {
 	prefix := ""
 	if name != "" && name != "." && name != "/" {
 		prefix = strings.TrimPrefix(name, "/")
-		if !strings.HasSuffix(prefix, "/") {
-			prefix += "/"
-		}
-	}
-	return prefix
-}
-
-func (fs *GCSFs) getPrefixForStat(name string) string {
-	prefix := path.Dir(name)
-	if prefix == "/" || prefix == "." || prefix == "" {
-		prefix = ""
-	} else {
-		prefix = strings.TrimPrefix(prefix, "/")
 		if !strings.HasSuffix(prefix, "/") {
 			prefix += "/"
 		}
