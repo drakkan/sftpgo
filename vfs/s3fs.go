@@ -139,7 +139,10 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 	// with a forwarding slash.
 	obj, err = fs.headObject(strings.TrimPrefix(name, "/") + "/")
 	if err == nil {
-		return NewFileInfo(name, true, 0, time.Now(), false), nil
+		objSize := *obj.ContentLength
+		objectModTime := *obj.LastModified
+		isDir := *obj.ContentType == dirMimeType
+		return NewFileInfo(name, isDir, objSize, objectModTime, false), nil
 	}
 	if !fs.IsNotExist(err) {
 		return result, err
@@ -584,19 +587,6 @@ func (fs *S3Fs) resolve(name *string, prefix string) (string, bool) {
 		result = result[:i]
 	}
 	return result, isDir
-}
-
-func (fs *S3Fs) isEqual(s3Key *string, virtualName string) bool {
-	if *s3Key == virtualName {
-		return true
-	}
-	if "/"+*s3Key == virtualName {
-		return true
-	}
-	if "/"+*s3Key == virtualName+"/" {
-		return true
-	}
-	return false
 }
 
 func (fs *S3Fs) checkIfBucketExists() error {
