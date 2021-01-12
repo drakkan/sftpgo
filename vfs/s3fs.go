@@ -4,7 +4,6 @@ package vfs
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"mime"
 	"net/url"
@@ -142,7 +141,7 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 	if err == nil {
 		return NewFileInfo(name, true, 0, time.Now(), false), nil
 	}
-	if !fs.IsNotExists(err) {
+	if !fs.IsNotExist(err) {
 		return result, err
 	}
 	return nil, err
