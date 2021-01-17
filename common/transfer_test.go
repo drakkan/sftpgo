@@ -57,8 +57,8 @@ func TestTransferThrottling(t *testing.T) {
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), nil)
 	testFileSize := int64(131072)
-	wantedUploadElapsed := 1000 * (testFileSize / 1000) / u.UploadBandwidth
-	wantedDownloadElapsed := 1000 * (testFileSize / 1000) / u.DownloadBandwidth
+	wantedUploadElapsed := 1000 * (testFileSize / 1024) / u.UploadBandwidth
+	wantedDownloadElapsed := 1000 * (testFileSize / 1024) / u.DownloadBandwidth
 	// some tolerance
 	wantedUploadElapsed -= wantedDownloadElapsed / 10
 	wantedDownloadElapsed -= wantedDownloadElapsed / 10

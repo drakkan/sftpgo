@@ -87,9 +87,9 @@
 
 function deleteAction() {
         var table = $('#dataTable').DataTable();
-        table.button(1).enable(false);
+        table.button('delete:name').enable(false);
         var folderPath = table.row({ selected: true }).data()[0];
-        var path = '{{.APIFoldersURL}}' + "?folder_path=" + encodeURIComponent(folderPath);
+        var path = '{{.FolderURL}}' + "?folder_path=" + encodeURIComponent(folderPath);
         $('#deleteModal').modal('hide');
         $.ajax({
             url: path,
@@ -97,12 +97,11 @@ function deleteAction() {
             dataType: 'json',
             timeout: 15000,
             success: function (result) {
-                table.button(1).enable(true);
+                table.button('delete:name').enable(true);
                 window.location.href = '{{.FoldersURL}}';
             },
             error: function ($xhr, textStatus, errorThrown) {
-                console.log("delete error")
-                table.button(1).enable(true);
+                table.button('delete:name').enable(true);
                 var txt = "Unable to delete the selected folder";
                 if ($xhr) {
                     var json = $xhr.responseJSON;
@@ -122,6 +121,7 @@ function deleteAction() {
     $(document).ready(function () {
         $.fn.dataTable.ext.buttons.add = {
             text: 'Add',
+            name: 'add',
             action: function (e, dt, node, config) {
                 window.location.href = '{{.FolderURL}}';
             }
@@ -129,6 +129,7 @@ function deleteAction() {
 
         $.fn.dataTable.ext.buttons.delete = {
             text: 'Delete',
+            name: 'delete',
             action: function (e, dt, node, config) {
                 $('#deleteModal').modal('show');
             },
@@ -137,10 +138,11 @@ function deleteAction() {
 
         $.fn.dataTable.ext.buttons.quota_scan = {
             text: 'Quota scan',
+            name: 'quota_scan',
             action: function (e, dt, node, config) {
-                table.button(2).enable(false);
+                dt.button('quota_scan:name').enable(false);
                 var folderPath = dt.row({ selected: true }).data()[0];
-                var path = '{{.APIFolderQuotaScanURL}}'
+                var path = '{{.FolderQuotaScanURL}}'
                 $.ajax({
                     url: path,
                     type: 'POST',
@@ -148,7 +150,7 @@ function deleteAction() {
                     data: JSON.stringify({ "mapped_path": folderPath }),
                     timeout: 15000,
                     success: function (result) {
-                        table.button(2).enable(true);
+                        dt.button('quota_scan:name').enable(true);
                         $('#successTxt').text("Quota scan started for the selected folder. Please reload the folders page to check when the scan ends");
                         $('#successMsg').show();
                         setTimeout(function () {
@@ -156,8 +158,7 @@ function deleteAction() {
                         }, 5000);
                     },
                     error: function ($xhr, textStatus, errorThrown) {
-                        console.log("quota scan error")
-                        table.button(2).enable(true);
+                        dt.button('quota_scan:name').enable(true);
                         var txt = "Unable to update quota for the selected folder";
                         if ($xhr) {
                             var json = $xhr.responseJSON;
@@ -186,17 +187,31 @@ function deleteAction() {
                 "<'row'<'col-sm-12'tr>>" +
                 "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
             select: true,
-            buttons: [
-                'add','delete', 'quota_scan'
-            ],
+            buttons: [],
             "scrollX": false,
             "order": [[0, 'asc']]
         });
 
+        {{if .LoggedAdmin.HasPermission "quota_scans"}}
+        table.button().add(0,'quota_scan');
+        {{end}}
+
+        {{if .LoggedAdmin.HasPermission "del_users"}}
+        table.button().add(0,'delete');
+        {{end}}
+
+        {{if .LoggedAdmin.HasPermission "add_users"}}
+        table.button().add(0,'add');
+        {{end}}
+
         table.on('select deselect', function () {
             var selectedRows = table.rows({ selected: true }).count();
-            table.button(1).enable(selectedRows == 1);
-            table.button(2).enable(selectedRows == 1);
+            {{if .LoggedAdmin.HasPermission "del_users"}}
+            table.button('delete:name').enable(selectedRows == 1);
+            {{end}}
+            {{if .LoggedAdmin.HasPermission "quota_scans"}}
+            table.button('quota_scan:name').enable(selectedRows == 1);
+            {{end}}
         });
 
     });

@@ -12,6 +12,7 @@ const (
 	selectUserFields = "id,username,password,public_keys,home_dir,uid,gid,max_sessions,quota_size,quota_files,permissions,used_quota_size," +
 		"used_quota_files,last_quota_update,upload_bandwidth,download_bandwidth,expiration_date,last_login,status,filters,filesystem,additional_info"
 	selectFolderFields = "id,path,used_quota_size,used_quota_files,last_quota_update"
+	selectAdminFields  = "id,username,password,status,email,permissions,filters,additional_info"
 )
 
 func getSQLPlaceholders() []string {
@@ -26,19 +27,40 @@ func getSQLPlaceholders() []string {
 	return placeholders
 }
 
+func getAdminByUsernameQuery() string {
+	return fmt.Sprintf(`SELECT %v FROM %v WHERE username = %v`, selectAdminFields, sqlTableAdmins, sqlPlaceholders[0])
+}
+
+func getAdminsQuery(order string) string {
+	return fmt.Sprintf(`SELECT %v FROM %v ORDER BY username %v LIMIT %v OFFSET %v`, selectAdminFields, sqlTableAdmins,
+		order, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getDumpAdminsQuery() string {
+	return fmt.Sprintf(`SELECT %v FROM %v`, selectAdminFields, sqlTableAdmins)
+}
+
+func getAddAdminQuery() string {
+	return fmt.Sprintf(`INSERT INTO %v (username,password,status,email,permissions,filters,additional_info)
+		VALUES (%v,%v,%v,%v,%v,%v,%v)`, sqlTableAdmins, sqlPlaceholders[0], sqlPlaceholders[1],
+		sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6])
+}
+
+func getUpdateAdminQuery() string {
+	return fmt.Sprintf(`UPDATE %v SET password=%v,status=%v,email=%v,permissions=%v,filters=%v,additional_info=%v
+		WHERE username = %v`, sqlTableAdmins, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2],
+		sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6])
+}
+
+func getDeleteAdminQuery() string {
+	return fmt.Sprintf(`DELETE FROM %v WHERE username = %v`, sqlTableAdmins, sqlPlaceholders[0])
+}
+
 func getUserByUsernameQuery() string {
 	return fmt.Sprintf(`SELECT %v FROM %v WHERE username = %v`, selectUserFields, sqlTableUsers, sqlPlaceholders[0])
 }
 
-func getUserByIDQuery() string {
-	return fmt.Sprintf(`SELECT %v FROM %v WHERE id = %v`, selectUserFields, sqlTableUsers, sqlPlaceholders[0])
-}
-
-func getUsersQuery(order string, username string) string {
-	if len(username) > 0 {
-		return fmt.Sprintf(`SELECT %v FROM %v WHERE username = %v ORDER BY username %v LIMIT %v OFFSET %v`,
-			selectUserFields, sqlTableUsers, sqlPlaceholders[0], order, sqlPlaceholders[1], sqlPlaceholders[2])
-	}
+func getUsersQuery(order string) string {
 	return fmt.Sprintf(`SELECT %v FROM %v ORDER BY username %v LIMIT %v OFFSET %v`, selectUserFields, sqlTableUsers,
 		order, sqlPlaceholders[0], sqlPlaceholders[1])
 }

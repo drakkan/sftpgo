@@ -18,7 +18,6 @@ cd dist
 BASE_DIR="../.."
 
 cp ${BASE_DIR}/sftpgo.json .
-cp ${BASE_DIR}/examples/rest-api-cli/sftpgo_api_cli .
 sed -i "s|sftpgo.db|/var/lib/sftpgo/sftpgo.db|" sftpgo.json
 sed -i "s|\"users_base_dir\": \"\",|\"users_base_dir\": \"/srv/sftpgo/data\",|" sftpgo.json
 sed -i "s|\"templates\"|\"/usr/share/sftpgo/templates\"|" sftpgo.json
@@ -61,9 +60,6 @@ contents:
   - src: "${BASE_DIR}/init/sftpgo.service"
     dst: "/lib/systemd/system/sftpgo.service"
 
-  - src: "./sftpgo_api_cli"
-    dst: "/usr/bin/sftpgo_api_cli"
-
   - src: "${BASE_DIR}/templates/*"
     dst: "/usr/share/sftpgo/templates/"
 
@@ -84,9 +80,6 @@ overrides:
     recommends:
       - bash-completion
       - mime-support
-    suggests:
-      - python3-requests
-      - python3-pygments
     scripts:
       postinstall: ../scripts/deb/postinstall.sh
       preremove: ../scripts/deb/preremove.sh
@@ -95,7 +88,6 @@ overrides:
     recommends:
       - bash-completion
       - mailcap
-      # centos 8 has python3-requests, centos 6/7 python-requests
     scripts:
       postinstall: ../scripts/rpm/postinstall
       preremove: ../scripts/rpm/preremove
@@ -112,6 +104,5 @@ tar xvf nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz nfpm
 chmod 755 nfpm
 mkdir rpm
 ./nfpm -f nfpm.yaml pkg -p rpm -t rpm
-sed -i "s|env python|env python3|" sftpgo_api_cli
 mkdir deb
 ./nfpm -f nfpm.yaml pkg -p deb -t deb

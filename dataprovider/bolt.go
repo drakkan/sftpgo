@@ -3,7 +3,6 @@
 package dataprovider
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,11 +22,12 @@ const (
 )
 
 var (
-	usersBucket      = []byte("users")
-	usersIDIdxBucket = []byte("users_id_idx")
-	foldersBucket    = []byte("folders")
-	dbVersionBucket  = []byte("db_version")
-	dbVersionKey     = []byte("version")
+	usersBucket = []byte("users")
+	//usersIDIdxBucket = []byte("users_id_idx")
+	foldersBucket   = []byte("folders")
+	adminsBucket    = []byte("admins")
+	dbVersionBucket = []byte("db_version")
+	dbVersionKey    = []byte("version")
 )
 
 // BoltProvider auth provider for bolt key/value store
@@ -63,10 +63,6 @@ func initializeBoltProvider(basePath string) error {
 			providerLog(logger.LevelWarn, "error creating users bucket: %v", err)
 			return err
 		}
-		err = dbHandle.Update(func(tx *bolt.Tx) error {
-			_, e := tx.CreateBucketIfNotExists(usersIDIdxBucket)
-			return e
-		})
 		if err != nil {
 			providerLog(logger.LevelWarn, "error creating username idx bucket: %v", err)
 			return err
@@ -76,7 +72,15 @@ func initializeBoltProvider(basePath string) error {
 			return e
 		})
 		if err != nil {
-			providerLog(logger.LevelWarn, "error creating username idx bucket: %v", err)
+			providerLog(logger.LevelWarn, "error creating folders bucket: %v", err)
+			return err
+		}
+		err = dbHandle.Update(func(tx *bolt.Tx) error {
+			_, e := tx.CreateBucketIfNotExists(adminsBucket)
+			return e
+		})
+		if err != nil {
+			providerLog(logger.LevelWarn, "error creating admins bucket: %v", err)
 			return err
 		}
 		err = dbHandle.Update(func(tx *bolt.Tx) error {
@@ -87,19 +91,19 @@ func initializeBoltProvider(basePath string) error {
 			providerLog(logger.LevelWarn, "error creating database version bucket: %v", err)
 			return err
 		}
-		provider = BoltProvider{dbHandle: dbHandle}
+		provider = &BoltProvider{dbHandle: dbHandle}
 	} else {
 		providerLog(logger.LevelWarn, "error creating bolt key/value store handler: %v", err)
 	}
 	return err
 }
 
-func (p BoltProvider) checkAvailability() error {
+func (p *BoltProvider) checkAvailability() error {
 	_, err := getBoltDatabaseVersion(p.dbHandle)
 	return err
 }
 
-func (p BoltProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
+func (p *BoltProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
 	var user User
 	if password == "" {
 		return user, errors.New("Credentials cannot be null or empty")
@@ -112,7 +116,17 @@ func (p BoltProvider) validateUserAndPass(username, password, ip, protocol strin
 	return checkUserAndPass(user, password, ip, protocol)
 }
 
-func (p BoltProvider) validateUserAndPubKey(username string, pubKey []byte) (User, string, error) {
+func (p *BoltProvider) validateAdminAndPass(username, password, ip string) (Admin, error) {
+	admin, err := p.adminExists(username)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error authenticating admin %#v: %v", username, err)
+		return admin, err
+	}
+	err = admin.checkUserAndPass(password, ip)
+	return admin, err
+}
+
+func (p *BoltProvider) validateUserAndPubKey(username string, pubKey []byte) (User, string, error) {
 	var user User
 	if len(pubKey) == 0 {
 		return user, "", errors.New("Credentials cannot be null or empty")
@@ -125,36 +139,9 @@ func (p BoltProvider) validateUserAndPubKey(username string, pubKey []byte) (Use
 	return checkUserAndPubKey(user, pubKey)
 }
 
-func (p BoltProvider) getUserByID(ID int64) (User, error) {
-	var user User
-	err := p.dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, idxBucket, err := getBuckets(tx)
-		if err != nil {
-			return err
-		}
-		userIDAsBytes := itob(ID)
-		username := idxBucket.Get(userIDAsBytes)
-		if username == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("user with ID %v does not exist", ID)}
-		}
-		u := bucket.Get(username)
-		if u == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("username %#v and ID: %v does not exist", string(username), ID)}
-		}
-		folderBucket, err := getFolderBucket(tx)
-		if err != nil {
-			return err
-		}
-		user, err = joinUserAndFolders(u, folderBucket)
-		return err
-	})
-
-	return user, err
-}
-
-func (p BoltProvider) updateLastLogin(username string) error {
+func (p *BoltProvider) updateLastLogin(username string) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
-		bucket, _, err := getBuckets(tx)
+		bucket, err := getUsersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -182,9 +169,9 @@ func (p BoltProvider) updateLastLogin(username string) error {
 	})
 }
 
-func (p BoltProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
+func (p *BoltProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
-		bucket, _, err := getBuckets(tx)
+		bucket, err := getUsersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -216,7 +203,7 @@ func (p BoltProvider) updateQuota(username string, filesAdd int, sizeAdd int64, 
 	})
 }
 
-func (p BoltProvider) getUsedQuota(username string) (int, int64, error) {
+func (p *BoltProvider) getUsedQuota(username string) (int, int64, error) {
 	user, err := p.userExists(username)
 	if err != nil {
 		providerLog(logger.LevelWarn, "unable to get quota for user %v error: %v", username, err)
@@ -225,10 +212,173 @@ func (p BoltProvider) getUsedQuota(username string) (int, int64, error) {
 	return user.UsedQuotaFiles, user.UsedQuotaSize, err
 }
 
-func (p BoltProvider) userExists(username string) (User, error) {
+func (p *BoltProvider) adminExists(username string) (Admin, error) {
+	var admin Admin
+
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := getAdminBucket(tx)
+		if err != nil {
+			return err
+		}
+		a := bucket.Get([]byte(username))
+		if a == nil {
+			return &RecordNotFoundError{err: fmt.Sprintf("admin %v does not exist", username)}
+		}
+		return json.Unmarshal(a, &admin)
+	})
+
+	return admin, err
+}
+
+func (p *BoltProvider) addAdmin(admin *Admin) error {
+	err := admin.validate()
+	if err != nil {
+		return err
+	}
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getAdminBucket(tx)
+		if err != nil {
+			return err
+		}
+		if a := bucket.Get([]byte(admin.Username)); a != nil {
+			return fmt.Errorf("admin %v already exists", admin.Username)
+		}
+		id, err := bucket.NextSequence()
+		if err != nil {
+			return err
+		}
+		admin.ID = int64(id)
+		buf, err := json.Marshal(admin)
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(admin.Username), buf)
+	})
+}
+
+func (p *BoltProvider) updateAdmin(admin *Admin) error {
+	err := admin.validate()
+	if err != nil {
+		return err
+	}
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getAdminBucket(tx)
+		if err != nil {
+			return err
+		}
+		var a []byte
+
+		if a = bucket.Get([]byte(admin.Username)); a == nil {
+			return &RecordNotFoundError{err: fmt.Sprintf("admin %v does not exist", admin.Username)}
+		}
+		var oldAdmin Admin
+		err = json.Unmarshal(a, &oldAdmin)
+		if err != nil {
+			return err
+		}
+
+		admin.ID = oldAdmin.ID
+		buf, err := json.Marshal(admin)
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(admin.Username), buf)
+	})
+}
+
+func (p *BoltProvider) deleteAdmin(admin *Admin) error {
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getAdminBucket(tx)
+		if err != nil {
+			return err
+		}
+
+		if bucket.Get([]byte(admin.Username)) == nil {
+			return &RecordNotFoundError{err: fmt.Sprintf("admin %v does not exist", admin.Username)}
+		}
+
+		return bucket.Delete([]byte(admin.Username))
+	})
+}
+
+func (p *BoltProvider) getAdmins(limit int, offset int, order string) ([]Admin, error) {
+	admins := make([]Admin, 0, limit)
+
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := getAdminBucket(tx)
+		if err != nil {
+			return err
+		}
+		cursor := bucket.Cursor()
+		itNum := 0
+		if order == OrderASC {
+			for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+				itNum++
+				if itNum <= offset {
+					continue
+				}
+				var admin Admin
+				err = json.Unmarshal(v, &admin)
+				if err != nil {
+					return err
+				}
+				admin.HideConfidentialData()
+				admins = append(admins, admin)
+				if len(admins) >= limit {
+					break
+				}
+			}
+		} else {
+			for k, v := cursor.Last(); k != nil; k, v = cursor.Prev() {
+				itNum++
+				if itNum <= offset {
+					continue
+				}
+				var admin Admin
+				err = json.Unmarshal(v, &admin)
+				if err != nil {
+					return err
+				}
+				admin.HideConfidentialData()
+				admins = append(admins, admin)
+				if len(admins) >= limit {
+					break
+				}
+			}
+		}
+		return err
+	})
+
+	return admins, err
+}
+
+func (p *BoltProvider) dumpAdmins() ([]Admin, error) {
+	admins := make([]Admin, 0, 30)
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := getAdminBucket(tx)
+		if err != nil {
+			return err
+		}
+
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var admin Admin
+			err = json.Unmarshal(v, &admin)
+			if err != nil {
+				return err
+			}
+			admins = append(admins, admin)
+		}
+		return err
+	})
+
+	return admins, err
+}
+
+func (p *BoltProvider) userExists(username string) (User, error) {
 	var user User
 	err := p.dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, _, err := getBuckets(tx)
+		bucket, err := getUsersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -246,13 +396,13 @@ func (p BoltProvider) userExists(username string) (User, error) {
 	return user, err
 }
 
-func (p BoltProvider) addUser(user *User) error {
+func (p *BoltProvider) addUser(user *User) error {
 	err := validateUser(user)
 	if err != nil {
 		return err
 	}
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
-		bucket, idxBucket, err := getBuckets(tx)
+		bucket, err := getUsersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -282,22 +432,17 @@ func (p BoltProvider) addUser(user *User) error {
 		if err != nil {
 			return err
 		}
-		err = bucket.Put([]byte(user.Username), buf)
-		if err != nil {
-			return err
-		}
-		userIDAsBytes := itob(user.ID)
-		return idxBucket.Put(userIDAsBytes, []byte(user.Username))
+		return bucket.Put([]byte(user.Username), buf)
 	})
 }
 
-func (p BoltProvider) updateUser(user *User) error {
+func (p *BoltProvider) updateUser(user *User) error {
 	err := validateUser(user)
 	if err != nil {
 		return err
 	}
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
-		bucket, _, err := getBuckets(tx)
+		bucket, err := getUsersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -339,9 +484,9 @@ func (p BoltProvider) updateUser(user *User) error {
 	})
 }
 
-func (p BoltProvider) deleteUser(user *User) error {
+func (p *BoltProvider) deleteUser(user *User) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
-		bucket, idxBucket, err := getBuckets(tx)
+		bucket, err := getUsersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -357,23 +502,18 @@ func (p BoltProvider) deleteUser(user *User) error {
 				}
 			}
 		}
-		userIDAsBytes := itob(user.ID)
-		userName := idxBucket.Get(userIDAsBytes)
-		if userName == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("user with id %v does not exist", user.ID)}
+		exists := bucket.Get([]byte(user.Username))
+		if exists == nil {
+			return &RecordNotFoundError{err: fmt.Sprintf("user %#v does not exist", user.Username)}
 		}
-		err = bucket.Delete(userName)
-		if err != nil {
-			return err
-		}
-		return idxBucket.Delete(userIDAsBytes)
+		return bucket.Delete([]byte(user.Username))
 	})
 }
 
-func (p BoltProvider) dumpUsers() ([]User, error) {
+func (p *BoltProvider) dumpUsers() ([]User, error) {
 	users := make([]User, 0, 100)
 	err := p.dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, _, err := getBuckets(tx)
+		bucket, err := getUsersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -398,35 +538,14 @@ func (p BoltProvider) dumpUsers() ([]User, error) {
 	return users, err
 }
 
-func (p BoltProvider) getUserWithUsername(username string) ([]User, error) {
-	users := []User{}
-	var user User
-	user, err := p.userExists(username)
-	if err == nil {
-		user.HideConfidentialData()
-		users = append(users, user)
-		return users, nil
-	}
-	if _, ok := err.(*RecordNotFoundError); ok {
-		err = nil
-	}
-	return users, err
-}
-
-func (p BoltProvider) getUsers(limit int, offset int, order string, username string) ([]User, error) {
+func (p *BoltProvider) getUsers(limit int, offset int, order string) ([]User, error) {
 	users := make([]User, 0, limit)
 	var err error
 	if limit <= 0 {
 		return users, err
 	}
-	if len(username) > 0 {
-		if offset == 0 {
-			return p.getUserWithUsername(username)
-		}
-		return users, err
-	}
 	err = p.dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, _, err := getBuckets(tx)
+		bucket, err := getUsersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -472,7 +591,7 @@ func (p BoltProvider) getUsers(limit int, offset int, order string, username str
 	return users, err
 }
 
-func (p BoltProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
+func (p *BoltProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	folders := make([]vfs.BaseVirtualFolder, 0, 50)
 	err := p.dbHandle.View(func(tx *bolt.Tx) error {
 		bucket, err := getFolderBucket(tx)
@@ -493,7 +612,7 @@ func (p BoltProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	return folders, err
 }
 
-func (p BoltProvider) getFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error) {
+func (p *BoltProvider) getFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error) {
 	folders := make([]vfs.BaseVirtualFolder, 0, limit)
 	var err error
 	if limit <= 0 {
@@ -554,7 +673,7 @@ func (p BoltProvider) getFolders(limit, offset int, order, folderPath string) ([
 	return folders, err
 }
 
-func (p BoltProvider) getFolderByPath(name string) (vfs.BaseVirtualFolder, error) {
+func (p *BoltProvider) getFolderByPath(name string) (vfs.BaseVirtualFolder, error) {
 	var folder vfs.BaseVirtualFolder
 	err := p.dbHandle.View(func(tx *bolt.Tx) error {
 		bucket, err := getFolderBucket(tx)
@@ -567,7 +686,7 @@ func (p BoltProvider) getFolderByPath(name string) (vfs.BaseVirtualFolder, error
 	return folder, err
 }
 
-func (p BoltProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
+func (p *BoltProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 	err := validateFolder(folder)
 	if err != nil {
 		return err
@@ -585,13 +704,13 @@ func (p BoltProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 	})
 }
 
-func (p BoltProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
+func (p *BoltProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket, err := getFolderBucket(tx)
 		if err != nil {
 			return err
 		}
-		usersBucket, _, err := getBuckets(tx)
+		usersBucket, err := getUsersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -635,7 +754,7 @@ func (p BoltProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 	})
 }
 
-func (p BoltProvider) updateFolderQuota(mappedPath string, filesAdd int, sizeAdd int64, reset bool) error {
+func (p *BoltProvider) updateFolderQuota(mappedPath string, filesAdd int, sizeAdd int64, reset bool) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket, err := getFolderBucket(tx)
 		if err != nil {
@@ -666,7 +785,7 @@ func (p BoltProvider) updateFolderQuota(mappedPath string, filesAdd int, sizeAdd
 	})
 }
 
-func (p BoltProvider) getUsedFolderQuota(mappedPath string) (int, int64, error) {
+func (p *BoltProvider) getUsedFolderQuota(mappedPath string) (int, int64, error) {
 	folder, err := p.getFolderByPath(mappedPath)
 	if err != nil {
 		providerLog(logger.LevelWarn, "unable to get quota for folder %#v error: %v", mappedPath, err)
@@ -675,20 +794,20 @@ func (p BoltProvider) getUsedFolderQuota(mappedPath string) (int, int64, error) 
 	return folder.UsedQuotaFiles, folder.UsedQuotaSize, err
 }
 
-func (p BoltProvider) close() error {
+func (p *BoltProvider) close() error {
 	return p.dbHandle.Close()
 }
 
-func (p BoltProvider) reloadConfig() error {
+func (p *BoltProvider) reloadConfig() error {
 	return nil
 }
 
 // initializeDatabase does nothing, no initilization is needed for bolt provider
-func (p BoltProvider) initializeDatabase() error {
+func (p *BoltProvider) initializeDatabase() error {
 	return ErrNoInitRequired
 }
 
-func (p BoltProvider) migrateDatabase() error {
+func (p *BoltProvider) migrateDatabase() error {
 	dbVersion, err := getBoltDatabaseVersion(p.dbHandle)
 	if err != nil {
 		return err
@@ -718,7 +837,7 @@ func (p BoltProvider) migrateDatabase() error {
 	}
 }
 
-func (p BoltProvider) revertDatabase(targetVersion int) error {
+func (p *BoltProvider) revertDatabase(targetVersion int) error {
 	dbVersion, err := getBoltDatabaseVersion(p.dbHandle)
 	if err != nil {
 		return err
@@ -762,16 +881,12 @@ func updateBoltDatabaseFromV4(dbHandle *bolt.DB) error {
 	return updateDatabaseFrom4To5(dbHandle)
 }
 
-// itob returns an 8-byte big endian representation of v.
-func itob(v int64) []byte {
-	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, uint64(v))
-	return b
-}
-
 func joinUserAndFolders(u []byte, foldersBucket *bolt.Bucket) (User, error) {
 	var user User
 	err := json.Unmarshal(u, &user)
+	if err != nil {
+		return user, err
+	}
 	if len(user.VirtualFolders) > 0 {
 		var folders []vfs.VirtualFolder
 		for _, folder := range user.VirtualFolders {
@@ -872,7 +987,7 @@ func removeUserFromFolderMapping(folder vfs.VirtualFolder, user *User, bucket *b
 
 func updateV4BoltCompatUser(dbHandle *bolt.DB, user compatUserV4) error {
 	return dbHandle.Update(func(tx *bolt.Tx) error {
-		bucket, _, err := getBuckets(tx)
+		bucket, err := getUsersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -893,7 +1008,7 @@ func updateV4BoltUser(dbHandle *bolt.DB, user User) error {
 		return err
 	}
 	return dbHandle.Update(func(tx *bolt.Tx) error {
-		bucket, _, err := getBuckets(tx)
+		bucket, err := getUsersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -908,14 +1023,23 @@ func updateV4BoltUser(dbHandle *bolt.DB, user User) error {
 	})
 }
 
-func getBuckets(tx *bolt.Tx) (*bolt.Bucket, *bolt.Bucket, error) {
+func getAdminBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
+	var err error
+
+	bucket := tx.Bucket(adminsBucket)
+	if bucket == nil {
+		err = errors.New("unable to find admin bucket, bolt database structure not correcly defined")
+	}
+	return bucket, err
+}
+
+func getUsersBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
 	var err error
 	bucket := tx.Bucket(usersBucket)
-	idxBucket := tx.Bucket(usersIDIdxBucket)
-	if bucket == nil || idxBucket == nil {
-		err = fmt.Errorf("unable to find required buckets, bolt database structure not correcly defined")
+	if bucket == nil {
+		err = errors.New("unable to find required buckets, bolt database structure not correcly defined")
 	}
-	return bucket, idxBucket, err
+	return bucket, err
 }
 
 func getFolderBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
@@ -954,7 +1078,7 @@ func updateDatabaseFrom2To3(dbHandle *bolt.DB) error {
 	providerLog(logger.LevelInfo, "updating bolt database version: 2 -> 3")
 	users := []User{}
 	err := dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, _, err := getBuckets(tx)
+		bucket, err := getUsersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -1011,7 +1135,7 @@ func updateDatabaseFrom3To4(dbHandle *bolt.DB) error {
 	foldersToScan := []string{}
 	users := []userCompactVFolders{}
 	err := dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, _, err := getBuckets(tx)
+		bucket, err := getUsersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -1075,7 +1199,7 @@ func downgradeBoltDatabaseFrom5To4(dbHandle *bolt.DB) error {
 	providerLog(logger.LevelInfo, "downgrading bolt database version: 5 -> 4")
 	users := []compatUserV4{}
 	err := dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, _, err := getBuckets(tx)
+		bucket, err := getUsersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -1116,7 +1240,7 @@ func updateDatabaseFrom4To5(dbHandle *bolt.DB) error {
 	providerLog(logger.LevelInfo, "updating bolt database version: 4 -> 5")
 	users := []User{}
 	err := dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, _, err := getBuckets(tx)
+		bucket, err := getUsersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -1154,13 +1278,13 @@ func updateDatabaseFrom4To5(dbHandle *bolt.DB) error {
 func getBoltAvailableUsernames(dbHandle *bolt.DB) ([]string, error) {
 	usernames := []string{}
 	err := dbHandle.View(func(tx *bolt.Tx) error {
-		_, idxBucket, err := getBuckets(tx)
+		bucket, err := getUsersBucket(tx)
 		if err != nil {
 			return err
 		}
-		cursor := idxBucket.Cursor()
-		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
-			usernames = append(usernames, string(v))
+		cursor := bucket.Cursor()
+		for k, _ := cursor.First(); k != nil; k, _ = cursor.Next() {
+			usernames = append(usernames, string(k))
 		}
 		return nil
 	})

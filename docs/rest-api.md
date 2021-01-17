@@ -4,32 +4,40 @@ SFTPGo exposes REST API to manage, backup, and restore users and folders, and to
 
 If quota tracking is enabled in the configuration file, then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP/SCP, or if you change `track_quota` from `2` to `1`, you can rescan the users home dir and update the used quota using the REST API.
 
-REST API can be protected using HTTP basic authentication and exposed via HTTPS. If you need more advanced security features, you can setup a reverse proxy using an HTTP Server such as Apache or NGNIX.
+REST API are protected using JSON Web Tokens (JWT) authentication and can be exposed over HTTPS.
 
-For example, you can keep SFTPGo listening on localhost and expose it externally configuring a reverse proxy using Apache HTTP Server this way:
+The default credentials are:
 
-```shell
-ProxyPass /api/v1 http://127.0.0.1:8080/api/v1
-ProxyPassReverse /api/v1 http://127.0.0.1:8080/api/v1
+- username: `admin`
+- password: `password`
+
+You can get a JWT token using the `/api/v2/token` endpoint, you need to authenticate using HTTP Basic authentication and the credentials of an active administrator. Here is a sample response:
+
+```json
+{"access_token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2MTA4NzU5NDksImp0aSI6ImMwMjAzbGZjZHJwZDRsMGMxanZnIiwibmJmIjoxNjEwODc1MzE5LCJwZXJtaXNzaW9ucyI6WyIqIl0sInN1YiI6ImlHZ010NlZNU3AzN2tld3hMR3lUV1l2b2p1a2ttSjBodXlJZHBzSWRyOFE9IiwidXNlcm5hbWUiOiJhZG1pbiJ9.dt-UwcWdEMwoGauuiQw8BmgpBAv4YlTaXkyNK-7iRJ4","expires_at":"2021-01-17T09:32:29Z"}
 ```
 
-and you can add authentication with something like this:
+once the access token has expired, you need to get a new one.
 
-```shell
-<Location /api/v1>
-  AuthType Digest
-  AuthName "Private"
-  AuthDigestDomain "/api/v1"
-  AuthDigestProvider file
-  AuthUserFile "/etc/httpd/conf/auth_digest"
-  Require valid-user
-</Location>
-```
+JWT tokens are not stored and we use a randomly generated secret to sign them so if you restart SFTPGo all the previous tokens will be invalidated and you will get a 401 HTTP response code.
 
-and, of course, you can configure the web server to use HTTPS.
+You can create other administrator and assign them the following permissions:
+
+- add users
+- edit users
+- del users
+- view users
+- view connections
+- close connections
+- view server status
+- view and start quota scans
+- view defender
+- manage defender
+- manage system
+- manage admins
+
+You can also restrict administrator access based on the source IP address. If you are running SFTPGo behind a reverse proxy you need to allow both the proxy IP address and the real client IP.
 
 The OpenAPI 3 schema for the exposed API can be found inside the source tree: [openapi.yaml](../httpd/schema/openapi.yaml "OpenAPI 3 specs").
 
-A sample CLI client for the REST API can be found inside the source tree [rest-api-cli](../examples/rest-api-cli) directory.
-
-You can also generate your own REST client in your preferred programming language, or even bash scripts, using an OpenAPI generator such as [swagger-codegen](https://github.com/swagger-api/swagger-codegen) or [OpenAPI Generator](https://openapi-generator.tech/)
+You can generate your own REST client in your preferred programming language, or even bash scripts, using an OpenAPI generator such as [swagger-codegen](https://github.com/swagger-api/swagger-codegen) or [OpenAPI Generator](https://openapi-generator.tech/).

@@ -38,7 +38,7 @@ The `defender` can also load a permanent block list and/or a safe list of ip add
 - `safelist_file`, defines the path to a file containing a list of ip addresses and/or networks to never ban.
 - `blocklist_file`, defines the path to a file containing a list of ip addresses and/or networks to always ban.
 
-These list must be stored as JSON with the following schema:
+These list must be stored as JSON conforming to the following schema:
 
 - `addresses`, list of strings. Each string must be a valid IPv4/IPv6 address.
 - `networks`, list of strings. Each string must be a valid IPv4/IPv6 CIDR address.

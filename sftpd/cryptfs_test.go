@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/httpd"
+	"github.com/drakkan/sftpgo/httpdtest"
 	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/vfs"
 )
@@ -27,7 +27,7 @@ func TestBasicSFTPCryptoHandling(t *testing.T) {
 	usePubKey := false
 	u := getTestUserWithCryptFs(usePubKey)
 	u.QuotaSize = 6553600
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -56,7 +56,7 @@ func TestBasicSFTPCryptoHandling(t *testing.T) {
 		if assert.NoError(t, err) {
 			assert.Equal(t, encryptedFileSize, info.Size())
 		}
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
@@ -73,7 +73,7 @@ func TestBasicSFTPCryptoHandling(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = client.Lstat(testFileName)
 		assert.Error(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQuotaFiles-1, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize-encryptedFileSize, user.UsedQuotaSize)
@@ -82,7 +82,7 @@ func TestBasicSFTPCryptoHandling(t *testing.T) {
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -93,7 +93,7 @@ func TestOpenReadWriteCryptoFs(t *testing.T) {
 	usePubKey := false
 	u := getTestUserWithCryptFs(usePubKey)
 	u.QuotaSize = 6553600
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -113,7 +113,7 @@ func TestOpenReadWriteCryptoFs(t *testing.T) {
 			assert.NoError(t, err)
 		}
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -122,7 +122,7 @@ func TestOpenReadWriteCryptoFs(t *testing.T) {
 func TestEmptyFile(t *testing.T) {
 	usePubKey := true
 	u := getTestUserWithCryptFs(usePubKey)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -152,7 +152,7 @@ func TestEmptyFile(t *testing.T) {
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -162,7 +162,7 @@ func TestUploadResumeCryptFs(t *testing.T) {
 	// upload resume is not supported
 	usePubKey := true
 	u := getTestUserWithCryptFs(usePubKey)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -183,7 +183,7 @@ func TestUploadResumeCryptFs(t *testing.T) {
 			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -193,7 +193,7 @@ func TestQuotaFileReplaceCryptFs(t *testing.T) {
 	usePubKey := false
 	u := getTestUserWithCryptFs(usePubKey)
 	u.QuotaFiles = 1000
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -213,7 +213,7 @@ func TestQuotaFileReplaceCryptFs(t *testing.T) {
 		// now replace the same file, the quota must not change
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
@@ -221,7 +221,7 @@ func TestQuotaFileReplaceCryptFs(t *testing.T) {
 		// replacing a symlink is like uploading a new file
 		err = client.Symlink(testFileName, testFileName+".link")
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
@@ -229,14 +229,14 @@ func TestQuotaFileReplaceCryptFs(t *testing.T) {
 		expectedQuotaSize = expectedQuotaSize + encryptedFileSize
 		err = sftpUploadFile(testFilePath, testFileName+".link", testFileSize, client)
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
 	}
 	// now set a quota size restriction and upload the same file, upload should fail for space limit exceeded
 	user.QuotaSize = encryptedFileSize*2 - 1
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -246,7 +246,7 @@ func TestQuotaFileReplaceCryptFs(t *testing.T) {
 		err = client.Remove(testFileName)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
@@ -256,7 +256,7 @@ func TestQuotaFileReplaceCryptFs(t *testing.T) {
 
 func TestQuotaScanCryptFs(t *testing.T) {
 	usePubKey := false
-	user, _, err := httpd.AddUser(getTestUserWithCryptFs(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUserWithCryptFs(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	testFileSize := int64(65535)
 	encryptedFileSize, err := getEncryptedFileSize(testFileSize)
@@ -274,25 +274,25 @@ func TestQuotaScanCryptFs(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	// create user with the same home dir, so there is at least an untracked file
-	user, _, err = httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err = httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
-	_, err = httpd.StartQuotaScan(user, http.StatusAccepted)
+	_, err = httpdtest.StartQuotaScan(user, http.StatusAccepted)
 	assert.NoError(t, err)
 	assert.Eventually(t, func() bool {
-		scans, _, err := httpd.GetQuotaScans(http.StatusOK)
+		scans, _, err := httpdtest.GetQuotaScans(http.StatusOK)
 		if err == nil {
 			return len(scans) == 0
 		}
 		return false
 	}, 1*time.Second, 50*time.Millisecond)
-	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 	assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -300,7 +300,7 @@ func TestQuotaScanCryptFs(t *testing.T) {
 
 func TestGetMimeTypeCryptFs(t *testing.T) {
 	usePubKey := true
-	user, _, err := httpd.AddUser(getTestUserWithCryptFs(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUserWithCryptFs(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -325,7 +325,7 @@ func TestGetMimeTypeCryptFs(t *testing.T) {
 		assert.Equal(t, "text/plain; charset=utf-8", mime)
 	}
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -334,7 +334,7 @@ func TestGetMimeTypeCryptFs(t *testing.T) {
 func TestTruncate(t *testing.T) {
 	// truncate is not supported
 	usePubKey := true
-	user, _, err := httpd.AddUser(getTestUserWithCryptFs(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUserWithCryptFs(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -352,7 +352,7 @@ func TestTruncate(t *testing.T) {
 		assert.Error(t, err)
 	}
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -365,7 +365,7 @@ func TestSCPBasicHandlingCryptoFs(t *testing.T) {
 	usePubKey := true
 	u := getTestUserWithCryptFs(usePubKey)
 	u.QuotaSize = 6553600
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	testFileSize := int64(131074)
@@ -395,20 +395,20 @@ func TestSCPBasicHandlingCryptoFs(t *testing.T) {
 	}
 	err = os.Remove(localPath)
 	assert.NoError(t, err)
-	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 	assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
 	// now overwrite the existing file
 	err = scpUpload(testFilePath, remoteUpPath, false, false)
 	assert.NoError(t, err)
-	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 	assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
 
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -422,7 +422,7 @@ func TestSCPRecursiveCryptFs(t *testing.T) {
 	}
 	usePubKey := true
 	u := getTestUserWithCryptFs(usePubKey)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testBaseDirName := "atestdir"
 	testBaseDirPath := filepath.Join(homeBasePath, testBaseDirName)
@@ -467,7 +467,7 @@ func TestSCPRecursiveCryptFs(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
 

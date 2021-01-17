@@ -15,5 +15,5 @@ SFTPGo supports checking passwords stored with bcrypt, pbkdf2, md5crypt and sha5
 
 If you want to use your existing accounts, you have these options:
 
-- you can import your users inside SFTPGo. Take a look at [sftpgo_api_cli](../examples/rest-api-cli#convert-users-from-other-stores "SFTPGo API CLI example"), it can convert and import users from Linux system users and Pure-FTPd/ProFTPD virtual users
+- you can import your users inside SFTPGo. Take a look at [convert users](.../examples/convertusers) script, it can convert and import users from Linux system users and Pure-FTPd/ProFTPD virtual users
 - you can use an external authentication program

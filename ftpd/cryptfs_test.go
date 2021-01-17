@@ -14,14 +14,14 @@ import (
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/httpd"
+	"github.com/drakkan/sftpgo/httpdtest"
 	"github.com/drakkan/sftpgo/kms"
 )
 
 func TestBasicFTPHandlingCryptFs(t *testing.T) {
 	u := getTestUserWithCryptFs()
 	u.QuotaSize = 6553600
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, true)
 	if assert.NoError(t, err) {
@@ -56,7 +56,7 @@ func TestBasicFTPHandlingCryptFs(t *testing.T) {
 			assert.Len(t, list, 1)
 			assert.Equal(t, testFileSize, int64(list[0].Size))
 		}
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
@@ -66,7 +66,7 @@ func TestBasicFTPHandlingCryptFs(t *testing.T) {
 		assert.Error(t, err)
 		err = client.Delete(testFileName + "1")
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQuotaFiles-1, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize-encryptedFileSize, user.UsedQuotaSize)
@@ -108,7 +108,7 @@ func TestBasicFTPHandlingCryptFs(t *testing.T) {
 		err = client.Quit()
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -117,7 +117,7 @@ func TestBasicFTPHandlingCryptFs(t *testing.T) {
 
 func TestZeroBytesTransfersCryptFs(t *testing.T) {
 	u := getTestUserWithCryptFs()
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, true)
 	if assert.NoError(t, err) {
@@ -146,7 +146,7 @@ func TestZeroBytesTransfersCryptFs(t *testing.T) {
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -154,7 +154,7 @@ func TestZeroBytesTransfersCryptFs(t *testing.T) {
 
 func TestResumeCryptFs(t *testing.T) {
 	u := getTestUserWithCryptFs()
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, true)
 	if assert.NoError(t, err) {
@@ -207,7 +207,7 @@ func TestResumeCryptFs(t *testing.T) {
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)

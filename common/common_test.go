@@ -179,7 +179,7 @@ func initializeDataprovider(trackQuota int) (string, error) {
 	if trackQuota >= 0 && trackQuota <= 2 {
 		cfg.Config.TrackQuota = trackQuota
 	}
-	return cfg.Config.Driver, dataprovider.Initialize(cfg.Config, configDir)
+	return cfg.Config.Driver, dataprovider.Initialize(cfg.Config, configDir, true)
 }
 
 func closeDataprovider() error {

@@ -6,13 +6,12 @@ import (
 	"html/template"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/go-chi/chi"
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
@@ -26,16 +25,23 @@ const (
 	templateBase         = "base.html"
 	templateUsers        = "users.html"
 	templateUser         = "user.html"
+	templateAdmins       = "admins.html"
+	templateAdmin        = "admin.html"
 	templateConnections  = "connections.html"
 	templateFolders      = "folders.html"
 	templateFolder       = "folder.html"
 	templateMessage      = "message.html"
 	templateStatus       = "status.html"
+	templateLogin        = "login.html"
+	templateChangePwd    = "changepwd.html"
 	pageUsersTitle       = "Users"
+	pageAdminsTitle      = "Admins"
 	pageConnectionsTitle = "Connections"
 	pageStatusTitle      = "Status"
 	pageFoldersTitle     = "Folders"
+	pageChangePwdTitle   = "Change password"
 	page400Title         = "Bad request"
+	page403Title         = "Forbidden"
 	page404Title         = "Not found"
 	page404Body          = "The page you are looking for does not exist."
 	page500Title         = "Internal Server Error"
@@ -50,29 +56,37 @@ var (
 )
 
 type basePage struct {
-	Title                 string
-	CurrentURL            string
-	UsersURL              string
-	UserURL               string
-	APIUserURL            string
-	APIConnectionsURL     string
-	APIQuotaScanURL       string
-	ConnectionsURL        string
-	FoldersURL            string
-	FolderURL             string
-	APIFoldersURL         string
-	APIFolderQuotaScanURL string
-	StatusURL             string
-	UsersTitle            string
-	ConnectionsTitle      string
-	FoldersTitle          string
-	StatusTitle           string
-	Version               string
+	Title              string
+	CurrentURL         string
+	UsersURL           string
+	UserURL            string
+	AdminsURL          string
+	AdminURL           string
+	QuotaScanURL       string
+	ConnectionsURL     string
+	FoldersURL         string
+	FolderURL          string
+	LogoutURL          string
+	ChangeAdminPwdURL  string
+	FolderQuotaScanURL string
+	StatusURL          string
+	UsersTitle         string
+	AdminsTitle        string
+	ConnectionsTitle   string
+	FoldersTitle       string
+	StatusTitle        string
+	Version            string
+	LoggedAdmin        *dataprovider.Admin
 }
 
 type usersPage struct {
 	basePage
 	Users []dataprovider.User
+}
+
+type adminsPage struct {
+	basePage
+	Admins []dataprovider.Admin
 }
 
 type foldersPage struct {
@@ -103,6 +117,18 @@ type userPage struct {
 	IsAdd                bool
 }
 
+type adminPage struct {
+	basePage
+	Admin *dataprovider.Admin
+	Error string
+	IsAdd bool
+}
+
+type changePwdPage struct {
+	basePage
+	Error string
+}
+
 type folderPage struct {
 	basePage
 	Folder vfs.BaseVirtualFolder
@@ -115,6 +141,12 @@ type messagePage struct {
 	Success string
 }
 
+type loginPage struct {
+	CurrentURL string
+	Version    string
+	Error      string
+}
+
 func loadTemplates(templatesPath string) {
 	usersPaths := []string{
 		filepath.Join(templatesPath, templateBase),
@@ -123,6 +155,18 @@ func loadTemplates(templatesPath string) {
 	userPaths := []string{
 		filepath.Join(templatesPath, templateBase),
 		filepath.Join(templatesPath, templateUser),
+	}
+	adminsPaths := []string{
+		filepath.Join(templatesPath, templateBase),
+		filepath.Join(templatesPath, templateAdmins),
+	}
+	adminPaths := []string{
+		filepath.Join(templatesPath, templateBase),
+		filepath.Join(templatesPath, templateAdmin),
+	}
+	changePwdPaths := []string{
+		filepath.Join(templatesPath, templateBase),
+		filepath.Join(templatesPath, templateChangePwd),
 	}
 	connectionsPaths := []string{
 		filepath.Join(templatesPath, templateBase),
@@ -144,43 +188,57 @@ func loadTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateBase),
 		filepath.Join(templatesPath, templateStatus),
 	}
+	loginPath := []string{
+		filepath.Join(templatesPath, templateLogin),
+	}
 	usersTmpl := utils.LoadTemplate(template.ParseFiles(usersPaths...))
 	userTmpl := utils.LoadTemplate(template.ParseFiles(userPaths...))
+	adminsTmpl := utils.LoadTemplate(template.ParseFiles(adminsPaths...))
+	adminTmpl := utils.LoadTemplate(template.ParseFiles(adminPaths...))
 	connectionsTmpl := utils.LoadTemplate(template.ParseFiles(connectionsPaths...))
 	messageTmpl := utils.LoadTemplate(template.ParseFiles(messagePath...))
 	foldersTmpl := utils.LoadTemplate(template.ParseFiles(foldersPath...))
 	folderTmpl := utils.LoadTemplate(template.ParseFiles(folderPath...))
 	statusTmpl := utils.LoadTemplate(template.ParseFiles(statusPath...))
+	loginTmpl := utils.LoadTemplate(template.ParseFiles(loginPath...))
+	changePwdTmpl := utils.LoadTemplate(template.ParseFiles(changePwdPaths...))
 
 	templates[templateUsers] = usersTmpl
 	templates[templateUser] = userTmpl
+	templates[templateAdmins] = adminsTmpl
+	templates[templateAdmin] = adminTmpl
 	templates[templateConnections] = connectionsTmpl
 	templates[templateMessage] = messageTmpl
 	templates[templateFolders] = foldersTmpl
 	templates[templateFolder] = folderTmpl
 	templates[templateStatus] = statusTmpl
+	templates[templateLogin] = loginTmpl
+	templates[templateChangePwd] = changePwdTmpl
 }
 
-func getBasePageData(title, currentURL string) basePage {
+func getBasePageData(title, currentURL string, r *http.Request) basePage {
 	return basePage{
-		Title:                 title,
-		CurrentURL:            currentURL,
-		UsersURL:              webUsersPath,
-		UserURL:               webUserPath,
-		FoldersURL:            webFoldersPath,
-		FolderURL:             webFolderPath,
-		APIUserURL:            userPath,
-		APIConnectionsURL:     activeConnectionsPath,
-		APIQuotaScanURL:       quotaScanPath,
-		APIFoldersURL:         folderPath,
-		APIFolderQuotaScanURL: quotaScanVFolderPath,
-		ConnectionsURL:        webConnectionsPath,
-		StatusURL:             webStatusPath,
-		UsersTitle:            pageUsersTitle,
-		ConnectionsTitle:      pageConnectionsTitle,
-		FoldersTitle:          pageFoldersTitle,
-		StatusTitle:           pageStatusTitle,
-		Version:               version.GetAsString(),
+		Title:              title,
+		CurrentURL:         currentURL,
+		UsersURL:           webUsersPath,
+		UserURL:            webUserPath,
+		AdminsURL:          webAdminsPath,
+		AdminURL:           webAdminPath,
+		FoldersURL:         webFoldersPath,
+		FolderURL:          webFolderPath,
+		LogoutURL:          webLogoutPath,
+		ChangeAdminPwdURL:  webChangeAdminPwdPath,
+		QuotaScanURL:       webQuotaScanPath,
+		ConnectionsURL:     webConnectionsPath,
+		StatusURL:          webStatusPath,
+		FolderQuotaScanURL: webScanVFolderPath,
+		UsersTitle:         pageUsersTitle,
+		AdminsTitle:        pageAdminsTitle,
+		ConnectionsTitle:   pageConnectionsTitle,
+		FoldersTitle:       pageFoldersTitle,
+		StatusTitle:        pageStatusTitle,
+		Version:            version.GetAsString(),
+		LoggedAdmin:        getAdminFromToken(r),
 	}
 }
 
@@ -191,16 +249,16 @@ func renderTemplate(w http.ResponseWriter, tmplName string, data interface{}) {
 	}
 }
 
-func renderMessagePage(w http.ResponseWriter, title, body string, statusCode int, err error, message string) {
+func renderMessagePage(w http.ResponseWriter, r *http.Request, title, body string, statusCode int, err error, message string) {
 	var errorString string
-	if len(body) > 0 {
+	if body != "" {
 		errorString = body + " "
 	}
 	if err != nil {
 		errorString += err.Error()
 	}
 	data := messagePage{
-		basePage: getBasePageData(title, ""),
+		basePage: getBasePageData(title, "", r),
 		Error:    errorString,
 		Success:  message,
 	}
@@ -208,22 +266,51 @@ func renderMessagePage(w http.ResponseWriter, title, body string, statusCode int
 	renderTemplate(w, templateMessage, data)
 }
 
-func renderInternalServerErrorPage(w http.ResponseWriter, err error) {
-	renderMessagePage(w, page500Title, page500Body, http.StatusInternalServerError, err, "")
+func renderInternalServerErrorPage(w http.ResponseWriter, r *http.Request, err error) {
+	renderMessagePage(w, r, page500Title, page500Body, http.StatusInternalServerError, err, "")
 }
 
-func renderBadRequestPage(w http.ResponseWriter, err error) {
-	renderMessagePage(w, page400Title, "", http.StatusBadRequest, err, "")
+func renderBadRequestPage(w http.ResponseWriter, r *http.Request, err error) {
+	renderMessagePage(w, r, page400Title, "", http.StatusBadRequest, err, "")
 }
 
-func renderNotFoundPage(w http.ResponseWriter, err error) {
-	renderMessagePage(w, page404Title, page404Body, http.StatusNotFound, err, "")
+func renderForbiddenPage(w http.ResponseWriter, r *http.Request, body string) {
+	renderMessagePage(w, r, page403Title, "", http.StatusForbidden, nil, body)
 }
 
-func renderAddUserPage(w http.ResponseWriter, user dataprovider.User, error string) {
+func renderNotFoundPage(w http.ResponseWriter, r *http.Request, err error) {
+	renderMessagePage(w, r, page404Title, page404Body, http.StatusNotFound, err, "")
+}
+
+func renderChangePwdPage(w http.ResponseWriter, r *http.Request, error string) {
+	data := changePwdPage{
+		basePage: getBasePageData(pageChangePwdTitle, webChangeAdminPwdPath, r),
+		Error:    error,
+	}
+
+	renderTemplate(w, templateChangePwd, data)
+}
+
+func renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Request, admin *dataprovider.Admin,
+	error string, isAdd bool) {
+	currentURL := webAdminPath
+	if !isAdd {
+		currentURL = fmt.Sprintf("%v/%v", webAdminPath, url.PathEscape(admin.Username))
+	}
+	data := adminPage{
+		basePage: getBasePageData("Add a new user", currentURL, r),
+		Admin:    admin,
+		Error:    error,
+		IsAdd:    isAdd,
+	}
+
+	renderTemplate(w, templateAdmin, data)
+}
+
+func renderAddUserPage(w http.ResponseWriter, r *http.Request, user dataprovider.User, error string) {
 	user.SetEmptySecretsIfNil()
 	data := userPage{
-		basePage:             getBasePageData("Add a new user", webUserPath),
+		basePage:             getBasePageData("Add a new user", webUserPath, r),
 		IsAdd:                true,
 		Error:                error,
 		User:                 user,
@@ -236,10 +323,10 @@ func renderAddUserPage(w http.ResponseWriter, user dataprovider.User, error stri
 	renderTemplate(w, templateUser, data)
 }
 
-func renderUpdateUserPage(w http.ResponseWriter, user dataprovider.User, error string) {
+func renderUpdateUserPage(w http.ResponseWriter, r *http.Request, user dataprovider.User, error string) {
 	user.SetEmptySecretsIfNil()
 	data := userPage{
-		basePage:             getBasePageData("Update user", fmt.Sprintf("%v/%v", webUserPath, user.ID)),
+		basePage:             getBasePageData("Update user", fmt.Sprintf("%v/%v", webUserPath, url.PathEscape(user.Username)), r),
 		IsAdd:                false,
 		Error:                error,
 		User:                 user,
@@ -252,9 +339,9 @@ func renderUpdateUserPage(w http.ResponseWriter, user dataprovider.User, error s
 	renderTemplate(w, templateUser, data)
 }
 
-func renderAddFolderPage(w http.ResponseWriter, folder vfs.BaseVirtualFolder, error string) {
+func renderAddFolderPage(w http.ResponseWriter, r *http.Request, folder vfs.BaseVirtualFolder, error string) {
 	data := folderPage{
-		basePage: getBasePageData("Add a new folder", webFolderPath),
+		basePage: getBasePageData("Add a new folder", webFolderPath, r),
 		Error:    error,
 		Folder:   folder,
 	}
@@ -571,6 +658,26 @@ func getFsConfigFromUserPostFields(r *http.Request) (dataprovider.Filesystem, er
 	return fs, nil
 }
 
+func getAdminFromPostFields(r *http.Request) (dataprovider.Admin, error) {
+	var admin dataprovider.Admin
+	err := r.ParseForm()
+	if err != nil {
+		return admin, err
+	}
+	status, err := strconv.Atoi(r.Form.Get("status"))
+	if err != nil {
+		return admin, err
+	}
+	admin.Username = r.Form.Get("username")
+	admin.Password = r.Form.Get("password")
+	admin.Permissions = r.Form["permissions"]
+	admin.Email = r.Form.Get("email")
+	admin.Status = status
+	admin.Filters.AllowList = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")
+	admin.AdditionalInfo = r.Form.Get("additional_info")
+	return admin, nil
+}
+
 func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	var user dataprovider.User
 	err := r.ParseMultipartForm(maxRequestSize)
@@ -649,6 +756,152 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	return user, err
 }
 
+func renderLoginPage(w http.ResponseWriter, error string) {
+	data := loginPage{
+		CurrentURL: webLoginPath,
+		Version:    version.Get().Version,
+		Error:      error,
+	}
+	renderTemplate(w, templateLogin, data)
+}
+
+func handleWebAdminChangePwd(w http.ResponseWriter, r *http.Request) {
+	renderChangePwdPage(w, r, "")
+}
+
+func handleWebAdminChangePwdPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	err := r.ParseForm()
+	if err != nil {
+		renderChangePwdPage(w, r, err.Error())
+		return
+	}
+	err = doChangeAdminPassword(r, r.Form.Get("current_password"), r.Form.Get("new_password1"),
+		r.Form.Get("new_password2"))
+	if err != nil {
+		renderChangePwdPage(w, r, err.Error())
+		return
+	}
+	handleWebLogout(w, r)
+}
+
+func handleWebLogout(w http.ResponseWriter, r *http.Request) {
+	c := jwtTokenClaims{}
+	c.removeCookie(w)
+
+	http.Redirect(w, r, webLoginPath, http.StatusFound)
+}
+
+func handleWebLogin(w http.ResponseWriter, r *http.Request) {
+	renderLoginPage(w, "")
+}
+
+func handleGetWebAdmins(w http.ResponseWriter, r *http.Request) {
+	limit := defaultQueryLimit
+	if _, ok := r.URL.Query()["qlimit"]; ok {
+		var err error
+		limit, err = strconv.Atoi(r.URL.Query().Get("qlimit"))
+		if err != nil {
+			limit = defaultQueryLimit
+		}
+	}
+	admins := make([]dataprovider.Admin, 0, limit)
+	for {
+		a, err := dataprovider.GetAdmins(limit, len(admins), dataprovider.OrderASC)
+		if err != nil {
+			renderInternalServerErrorPage(w, r, err)
+			return
+		}
+		admins = append(admins, a...)
+		if len(a) < limit {
+			break
+		}
+	}
+	data := adminsPage{
+		basePage: getBasePageData(pageAdminsTitle, webAdminsPath, r),
+		Admins:   admins,
+	}
+	renderTemplate(w, templateAdmins, data)
+}
+
+func handleWebAddAdminGet(w http.ResponseWriter, r *http.Request) {
+	admin := &dataprovider.Admin{Status: 1}
+	renderAddUpdateAdminPage(w, r, admin, "", true)
+}
+
+func handleWebUpdateAdminGet(w http.ResponseWriter, r *http.Request) {
+	username := getURLParam(r, "username")
+	admin, err := dataprovider.AdminExists(username)
+	if err == nil {
+		renderAddUpdateAdminPage(w, r, &admin, "", false)
+	} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+		renderNotFoundPage(w, r, err)
+	} else {
+		renderInternalServerErrorPage(w, r, err)
+	}
+}
+
+func handleWebAddAdminPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	admin, err := getAdminFromPostFields(r)
+	if err != nil {
+		renderAddUpdateAdminPage(w, r, &admin, err.Error(), true)
+		return
+	}
+	err = dataprovider.AddAdmin(&admin)
+	if err != nil {
+		renderAddUpdateAdminPage(w, r, &admin, err.Error(), true)
+		return
+	}
+	http.Redirect(w, r, webAdminsPath, http.StatusSeeOther)
+}
+
+func handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	username := getURLParam(r, "username")
+	admin, err := dataprovider.AdminExists(username)
+	if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+		renderNotFoundPage(w, r, err)
+		return
+	} else if err != nil {
+		renderInternalServerErrorPage(w, r, err)
+		return
+	}
+
+	updatedAdmin, err := getAdminFromPostFields(r)
+	if err != nil {
+		renderAddUpdateAdminPage(w, r, &updatedAdmin, err.Error(), false)
+		return
+	}
+	updatedAdmin.ID = admin.ID
+	updatedAdmin.Username = admin.Username
+	if updatedAdmin.Password == "" {
+		updatedAdmin.Password = admin.Password
+	}
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		renderAddUpdateAdminPage(w, r, &updatedAdmin, fmt.Sprintf("Invalid token claims: %v", err), false)
+		return
+	}
+	if username == claims.Username {
+		if claims.isCriticalPermRemoved(updatedAdmin.Permissions) {
+			renderAddUpdateAdminPage(w, r, &updatedAdmin, "You cannot remove these permissions to yourself", false)
+			return
+		}
+		if updatedAdmin.Status == 0 {
+			renderAddUpdateAdminPage(w, r, &updatedAdmin, "You cannot disable yourself", false)
+			return
+		}
+	}
+	err = dataprovider.UpdateAdmin(&updatedAdmin)
+	if err != nil {
+		renderAddUpdateAdminPage(w, r, &admin, err.Error(), false)
+		return
+	}
+	http.Redirect(w, r, webAdminsPath, http.StatusSeeOther)
+}
+
 func handleGetWebUsers(w http.ResponseWriter, r *http.Request) {
 	limit := defaultQueryLimit
 	if _, ok := r.URL.Query()["qlimit"]; ok {
@@ -660,9 +913,9 @@ func handleGetWebUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	users := make([]dataprovider.User, 0, limit)
 	for {
-		u, err := dataprovider.GetUsers(limit, len(users), dataprovider.OrderASC, "")
+		u, err := dataprovider.GetUsers(limit, len(users), dataprovider.OrderASC)
 		if err != nil {
-			renderInternalServerErrorPage(w, err)
+			renderInternalServerErrorPage(w, r, err)
 			return
 		}
 		users = append(users, u...)
@@ -671,52 +924,44 @@ func handleGetWebUsers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	data := usersPage{
-		basePage: getBasePageData(pageUsersTitle, webUsersPath),
+		basePage: getBasePageData(pageUsersTitle, webUsersPath, r),
 		Users:    users,
 	}
 	renderTemplate(w, templateUsers, data)
 }
 
 func handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Query().Get("cloneFromId") != "" {
-		id, err := strconv.ParseInt(r.URL.Query().Get("cloneFromId"), 10, 64)
-		if err != nil {
-			renderBadRequestPage(w, err)
-			return
-		}
-		user, err := dataprovider.GetUserByID(id)
+	if r.URL.Query().Get("cloneFrom") != "" {
+		username := r.URL.Query().Get("cloneFrom")
+		user, err := dataprovider.UserExists(username)
 		if err == nil {
 			user.ID = 0
 			user.Username = ""
 			if err := user.DecryptSecrets(); err != nil {
-				renderInternalServerErrorPage(w, err)
+				renderInternalServerErrorPage(w, r, err)
 				return
 			}
-			renderAddUserPage(w, user, "")
+			renderAddUserPage(w, r, user, "")
 		} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
-			renderNotFoundPage(w, err)
+			renderNotFoundPage(w, r, err)
 		} else {
-			renderInternalServerErrorPage(w, err)
+			renderInternalServerErrorPage(w, r, err)
 		}
 	} else {
 		user := dataprovider.User{Status: 1}
-		renderAddUserPage(w, user, "")
+		renderAddUserPage(w, r, user, "")
 	}
 }
 
 func handleWebUpdateUserGet(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "userID"), 10, 64)
-	if err != nil {
-		renderBadRequestPage(w, err)
-		return
-	}
-	user, err := dataprovider.GetUserByID(id)
+	username := getURLParam(r, "username")
+	user, err := dataprovider.UserExists(username)
 	if err == nil {
-		renderUpdateUserPage(w, user, "")
+		renderUpdateUserPage(w, r, user, "")
 	} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
-		renderNotFoundPage(w, err)
+		renderNotFoundPage(w, r, err)
 	} else {
-		renderInternalServerErrorPage(w, err)
+		renderInternalServerErrorPage(w, r, err)
 	}
 }
 
@@ -724,40 +969,37 @@ func handleWebAddUserPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	user, err := getUserFromPostFields(r)
 	if err != nil {
-		renderAddUserPage(w, user, err.Error())
+		renderAddUserPage(w, r, user, err.Error())
 		return
 	}
 	err = dataprovider.AddUser(&user)
 	if err == nil {
 		http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
 	} else {
-		renderAddUserPage(w, user, err.Error())
+		renderAddUserPage(w, r, user, err.Error())
 	}
 }
 
 func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	id, err := strconv.ParseInt(chi.URLParam(r, "userID"), 10, 64)
-	if err != nil {
-		renderBadRequestPage(w, err)
-		return
-	}
-	user, err := dataprovider.GetUserByID(id)
+	username := getURLParam(r, "username")
+	user, err := dataprovider.UserExists(username)
 	if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
-		renderNotFoundPage(w, err)
+		renderNotFoundPage(w, r, err)
 		return
 	} else if err != nil {
-		renderInternalServerErrorPage(w, err)
+		renderInternalServerErrorPage(w, r, err)
 		return
 	}
 	updatedUser, err := getUserFromPostFields(r)
 	if err != nil {
-		renderUpdateUserPage(w, user, err.Error())
+		renderUpdateUserPage(w, r, user, err.Error())
 		return
 	}
 	updatedUser.ID = user.ID
+	updatedUser.Username = user.Username
 	updatedUser.SetEmptySecretsIfNil()
-	if len(updatedUser.Password) == 0 {
+	if updatedUser.Password == "" {
 		updatedUser.Password = user.Password
 	}
 	updateEncryptedSecrets(&updatedUser, user.FsConfig.S3Config.AccessSecret, user.FsConfig.AzBlobConfig.AccountKey,
@@ -771,13 +1013,13 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 		}
 		http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
 	} else {
-		renderUpdateUserPage(w, user, err.Error())
+		renderUpdateUserPage(w, r, user, err.Error())
 	}
 }
 
 func handleWebGetStatus(w http.ResponseWriter, r *http.Request) {
 	data := statusPage{
-		basePage: getBasePageData(pageStatusTitle, webStatusPath),
+		basePage: getBasePageData(pageStatusTitle, webStatusPath, r),
 		Status:   getServicesStatus(),
 	}
 	renderTemplate(w, templateStatus, data)
@@ -786,14 +1028,14 @@ func handleWebGetStatus(w http.ResponseWriter, r *http.Request) {
 func handleWebGetConnections(w http.ResponseWriter, r *http.Request) {
 	connectionStats := common.Connections.GetStats()
 	data := connectionsPage{
-		basePage:    getBasePageData(pageConnectionsTitle, webConnectionsPath),
+		basePage:    getBasePageData(pageConnectionsTitle, webConnectionsPath, r),
 		Connections: connectionStats,
 	}
 	renderTemplate(w, templateConnections, data)
 }
 
 func handleWebAddFolderGet(w http.ResponseWriter, r *http.Request) {
-	renderAddFolderPage(w, vfs.BaseVirtualFolder{}, "")
+	renderAddFolderPage(w, r, vfs.BaseVirtualFolder{}, "")
 }
 
 func handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
@@ -801,7 +1043,7 @@ func handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
 	folder := vfs.BaseVirtualFolder{}
 	err := r.ParseForm()
 	if err != nil {
-		renderAddFolderPage(w, folder, err.Error())
+		renderAddFolderPage(w, r, folder, err.Error())
 		return
 	}
 	folder.MappedPath = r.Form.Get("mapped_path")
@@ -810,7 +1052,7 @@ func handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		http.Redirect(w, r, webFoldersPath, http.StatusSeeOther)
 	} else {
-		renderAddFolderPage(w, folder, err.Error())
+		renderAddFolderPage(w, r, folder, err.Error())
 	}
 }
 
@@ -827,7 +1069,7 @@ func handleWebGetFolders(w http.ResponseWriter, r *http.Request) {
 	for {
 		f, err := dataprovider.GetFolders(limit, len(folders), dataprovider.OrderASC, "")
 		if err != nil {
-			renderInternalServerErrorPage(w, err)
+			renderInternalServerErrorPage(w, r, err)
 			return
 		}
 		folders = append(folders, f...)
@@ -837,7 +1079,7 @@ func handleWebGetFolders(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := foldersPage{
-		basePage: getBasePageData(pageFoldersTitle, webFoldersPath),
+		basePage: getBasePageData(pageFoldersTitle, webFoldersPath, r),
 		Folders:  folders,
 	}
 	renderTemplate(w, templateFolders, data)

@@ -50,7 +50,7 @@
         <label for="idPassword" class="col-sm-2 col-form-label">Password</label>
         <div class="col-sm-10">
             <input type="password" class="form-control" id="idPassword" name="password" placeholder=""
-                autocomplete="new-password" {{if not .IsAdd}}aria-describedby="pwdHelpBlock" {{end}}>
+                {{if not .IsAdd}}aria-describedby="pwdHelpBlock" {{end}}>
             {{if not .IsAdd}}
             <small id="pwdHelpBlock" class="form-text text-muted">
                 If empty the current password will not be changed

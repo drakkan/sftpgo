@@ -15,7 +15,8 @@
     <link rel="shortcut icon" href="/static/favicon.ico" />
 
     <!-- Custom fonts for this template-->
-    <link href="/static/vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
+    <link href="/static/vendor/fontawesome-free/css/fontawesome.min.css" rel="stylesheet" type="text/css">
+    <link href="/static/vendor/fontawesome-free/css/solid.min.css" rel="stylesheet" type="text/css">
     <link href="/static/css/fonts.css" rel="stylesheet">
 
     <!-- Custom styles for this template-->
@@ -38,6 +39,7 @@
     <!-- Page Wrapper -->
     <div id="wrapper">
 
+        {{if .LoggedAdmin.Username}}
         <!-- Sidebar -->
         <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
 
@@ -52,10 +54,10 @@
             <!-- Divider -->
             <hr class="sidebar-divider my-0">
 
-
+            {{ if .LoggedAdmin.HasPermission "view_users"}}
             <li class="nav-item {{if eq .CurrentURL .UsersURL}}active{{end}}">
                 <a class="nav-link" href="{{.UsersURL}}">
-                    <i class="fas fa-fw fa-user"></i>
+                    <i class="fas fa-users"></i>
                     <span>{{.UsersTitle}}</span></a>
             </li>
 
@@ -64,18 +66,31 @@
                     <i class="fas fa-folder"></i>
                     <span>{{.FoldersTitle}}</span></a>
             </li>
+            {{end}}
 
+            {{ if .LoggedAdmin.HasPermission "view_conns"}}
             <li class="nav-item {{if eq .CurrentURL .ConnectionsURL}}active{{end}}">
                 <a class="nav-link" href="{{.ConnectionsURL}}">
                     <i class="fas fa-exchange-alt"></i>
                     <span>{{.ConnectionsTitle}}</span></a>
             </li>
+            {{end}}
 
+            {{ if .LoggedAdmin.HasPermission "manage_admins"}}
+            <li class="nav-item {{if eq .CurrentURL .AdminsURL}}active{{end}}">
+                <a class="nav-link" href="{{.AdminsURL}}">
+                    <i class="fas fa-user-cog"></i>
+                    <span>{{.AdminsTitle}}</span></a>
+            </li>
+            {{end}}
+
+            {{ if .LoggedAdmin.HasPermission "view_status"}}
             <li class="nav-item {{if eq .CurrentURL .StatusURL}}active{{end}}">
                 <a class="nav-link" href="{{.StatusURL}}">
                     <i class="fas fa-info-circle"></i>
                     <span>{{.StatusTitle}}</span></a>
             </li>
+            {{end}}
 
             <!-- Divider -->
             <hr class="sidebar-divider d-none d-md-block">
@@ -87,6 +102,7 @@
 
         </ul>
         <!-- End of Sidebar -->
+        {{end}}
 
         <!-- Content Wrapper -->
         <div id="content-wrapper" class="d-flex flex-column">
@@ -94,11 +110,43 @@
             <!-- Main Content -->
             <div id="content">
 
+                {{if .LoggedAdmin.Username}}
                 <!-- Topbar -->
-                <nav class="mb-4 static-top">
+                <nav class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow">
+
+                    <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3">
+                        <i class="fa fa-bars"></i>
+                    </button>
+
+                    <!-- Topbar Navbar -->
+                    <ul class="navbar-nav ml-auto">
+
+                        <!-- Nav Item - User Information -->
+                        <li class="nav-item dropdown no-arrow">
+                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-toggle="dropdown"
+                                aria-haspopup="true" aria-expanded="false">
+                                <span class="mr-2 d-none d-lg-inline text-gray-600 small">{{.LoggedAdmin.Username}}</span>
+                                <img class="img-profile rounded-circle" src="/static/img/undraw_profile.svg">
+                            </a>
+                            <!-- Dropdown - User Information -->
+                            <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in" aria-labelledby="userDropdown">
+                                <a class="dropdown-item" href="{{.ChangeAdminPwdURL}}">
+                                    <i class="fas fa-key fa-sm fa-fw mr-2 text-gray-400"></i>
+                                    Change password
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item" href="#" data-toggle="modal" data-target="#logoutModal">
+                                    <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
+                                    Logout
+                                </a>
+                            </div>
+                        </li>
+
+                    </ul>
 
                 </nav>
                 <!-- End of Topbar -->
+                {{end}}
 
                 <!-- Begin Page Content -->
                 <div class="container-fluid">
@@ -110,7 +158,7 @@
 
             </div>
             <!-- End of Main Content -->
-
+            {{if .LoggedAdmin.Username}}
             <!-- Footer -->
             <footer class="sticky-footer bg-white">
                 <div class="container my-auto">
@@ -120,6 +168,7 @@
                 </div>
             </footer>
             <!-- End of Footer -->
+            {{end}}
 
         </div>
         <!-- End of Content Wrapper -->
@@ -131,6 +180,26 @@
     <a class="scroll-to-top rounded" href="#page-top">
         <i class="fas fa-angle-up"></i>
     </a>
+
+    <!-- Logout Modal-->
+    <div class="modal fade" id="logoutModal" tabindex="-1" role="dialog" aria-labelledby="modalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalLabel">Ready to Leave?</h5>
+                    <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+                <div class="modal-body">Select "Logout" below if you are ready to end your current session.</div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
+                    <a class="btn btn-primary" href="{{.LogoutURL}}">Logout</a>
+                </div>
+            </div>
+        </div>
+    </div>
 
     {{block "dialog" .}}{{end}}
 

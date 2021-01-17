@@ -20,7 +20,7 @@ import (
 	"github.com/drakkan/sftpgo/vfs"
 )
 
-// Available permissions for SFTP users
+// Available permissions for SFTPGo users
 const (
 	// All permissions are granted
 	PermAny = "*"
@@ -802,26 +802,12 @@ func (u *User) GetExpirationDateAsString() string {
 
 // GetAllowedIPAsString returns the allowed IP as comma separated string
 func (u User) GetAllowedIPAsString() string {
-	result := ""
-	for _, IPMask := range u.Filters.AllowedIP {
-		if len(result) > 0 {
-			result += ","
-		}
-		result += IPMask
-	}
-	return result
+	return strings.Join(u.Filters.AllowedIP, ",")
 }
 
 // GetDeniedIPAsString returns the denied IP as comma separated string
 func (u User) GetDeniedIPAsString() string {
-	result := ""
-	for _, IPMask := range u.Filters.DeniedIP {
-		if len(result) > 0 {
-			result += ","
-		}
-		result += IPMask
-	}
-	return result
+	return strings.Join(u.Filters.DeniedIP, ",")
 }
 
 // SetEmptySecretsIfNil sets the secrets to empty if nil

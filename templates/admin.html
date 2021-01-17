@@ -1,0 +1,92 @@
+{{template "base" .}}
+
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "page_body"}}
+<!-- Page Heading -->
+<h1 class="h5 mb-4 text-gray-800">{{if .IsAdd}}Add a new admin{{else}}Edit admin{{end}}</h1>
+{{if .Error}}
+<div class="card mb-4 border-left-warning">
+    <div class="card-body text-form-error">{{.Error}}</div>
+</div>
+{{end}}
+<form id="admin_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
+    <div class="form-group row">
+        <label for="idUsername" class="col-sm-2 col-form-label">Username</label>
+        <div class="col-sm-10">
+            <input type="text" class="form-control" id="idUsername" name="username" placeholder=""
+                value="{{.Admin.Username}}" maxlength="255" autocomplete="nope" required
+                {{if not .IsAdd}}readonly{{end}}>
+        </div>
+    </div>
+
+    <div class="form-group row">
+        <label for="idStatus" class="col-sm-2 col-form-label">Status</label>
+        <div class="col-sm-10">
+            <select class="form-control" id="idStatus" name="status">
+                <option value="1" {{if eq .Admin.Status 1 }}selected{{end}}>Active</option>
+                <option value="0" {{if eq .Admin.Status 0 }}selected{{end}}>Inactive</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-group row">
+        <label for="idPassword" class="col-sm-2 col-form-label">Password</label>
+        <div class="col-sm-10">
+            <input type="password" class="form-control" id="idPassword" name="password" placeholder=""
+                {{if not .IsAdd}}aria-describedby="pwdHelpBlock" {{end}}>
+            {{if not .IsAdd}}
+            <small id="pwdHelpBlock" class="form-text text-muted">
+                If empty the current password will not be changed
+            </small>
+            {{end}}
+        </div>
+    </div>
+
+    <div class="form-group row">
+        <label for="idPermissions" class="col-sm-2 col-form-label">Permissions</label>
+        <div class="col-sm-10">
+            <select class="form-control" id="idPermissions" name="permissions" required multiple>
+                {{range $validPerm := .Admin.GetValidPerms}}
+                <option value="{{$validPerm}}"
+                    {{range $perm := $.Admin.Permissions }}{{if eq $perm $validPerm}}selected{{end}}{{end}}>{{$validPerm}}
+                </option>
+                {{end}}
+            </select>
+        </div>
+    </div>
+
+    <div class="form-group row">
+        <label for="idEmail" class="col-sm-2 col-form-label">Email</label>
+        <div class="col-sm-10">
+            <input type="text" class="form-control" id="idEmail" name="email" placeholder=""
+                value="{{.Admin.Email}}" maxlength="255">
+        </div>
+    </div>
+
+    <div class="form-group row">
+        <label for="idAllowedIP" class="col-sm-2 col-form-label">Allowed IP/Mask</label>
+        <div class="col-sm-10">
+            <input type="text" class="form-control" id="idAllowedIP" name="allowed_ip" placeholder=""
+                value="{{.Admin.GetAllowedIPAsString}}" maxlength="255" aria-describedby="allowedIPHelpBlock">
+            <small id="allowedIPHelpBlock" class="form-text text-muted">
+                Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
+            </small>
+        </div>
+    </div>
+
+    <div class="form-group row">
+        <label for="idAdditionalInfo" class="col-sm-2 col-form-label">Additional info</label>
+        <div class="col-sm-10">
+            <textarea class="form-control" id="idAdditionalInfo" name="additional_info" rows="3"
+                aria-describedby="additionalInfoHelpBlock">{{.Admin.AdditionalInfo}}</textarea>
+            <small id="additionalInfoHelpBlock" class="form-text text-muted">
+                Free form text field
+            </small>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary float-right mt-3 mb-5 px-5 px-3">Submit</button>
+</form>
+
+{{end}}

@@ -1,5 +1,7 @@
 # REST API CLI client
 
+:warning: This sample client is deprecated and it will work only with api V1 (SFTPGo <= 1.2.2). You can easily build your own client from the OpenAPI schema.
+
 `sftpgo_api_cli` is a very simple command line client for `SFTPGo` REST API written in python.
 
 It has the following requirements:

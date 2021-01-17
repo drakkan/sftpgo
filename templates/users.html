@@ -97,22 +97,21 @@
 
     function deleteAction() {
         var table = $('#dataTable').DataTable();
-        table.button(3).enable(false);
-        var userID = table.row({ selected: true }).data()[0];
-        var path = '{{.APIUserURL}}' + "/" + userID;
+        table.button('delete:name').enable(false);
+        var username = table.row({ selected: true }).data()[1];
+        var path = '{{.UserURL}}' + "/" + username;
         $('#deleteModal').modal('hide');
         $.ajax({
-            url: path,
+            url: encodeURI(path),
             type: 'DELETE',
             dataType: 'json',
             timeout: 15000,
             success: function (result) {
-                table.button(3).enable(true);
+                table.button('delete:name').enable(true);
                 window.location.href = '{{.UsersURL}}';
             },
             error: function ($xhr, textStatus, errorThrown) {
-                console.log("delete error")
-                table.button(3).enable(true);
+                table.button('delete:name').enable(true);
                 var txt = "Unable to delete the selected user";
                 if ($xhr) {
                     var json = $xhr.responseJSON;
@@ -132,6 +131,7 @@
     $(document).ready(function () {
         $.fn.dataTable.ext.buttons.add = {
             text: 'Add',
+            name: 'add',
             action: function (e, dt, node, config) {
                 window.location.href = '{{.UserURL}}';
             }
@@ -139,19 +139,21 @@
 
         $.fn.dataTable.ext.buttons.edit = {
             text: 'Edit',
+            name: 'edit',
             action: function (e, dt, node, config) {
-                var userID = dt.row({ selected: true }).data()[0];
-                var path = '{{.UserURL}}' + "/" + userID;
-                window.location.href = path;
+                var username = dt.row({ selected: true }).data()[1];
+                var path = '{{.UserURL}}' + "/" + username;
+                window.location.href = encodeURI(path);
             },
             enabled: false
         };
 
         $.fn.dataTable.ext.buttons.clone = {
             text: 'Clone',
+            name: 'clone',
             action: function (e, dt, node, config) {
-                var userID = dt.row({ selected: true }).data()[0];
-                var path = '{{.UserURL}}' + "?cloneFromId=" + userID;
+                var username = dt.row({ selected: true }).data()[1];
+                var path = '{{.UserURL}}' + "?cloneFrom=" + encodeURIComponent(username);
                 window.location.href = path;
             },
             enabled: false
@@ -159,6 +161,7 @@
 
         $.fn.dataTable.ext.buttons.delete = {
             text: 'Delete',
+            name: 'delete',
             action: function (e, dt, node, config) {
                 /*console.log("delete clicked, num row selected: " + dt.rows({ selected: true }).count());
                 var data = dt.rows({ selected: true }).data();
@@ -172,10 +175,11 @@
 
         $.fn.dataTable.ext.buttons.quota_scan = {
             text: 'Quota scan',
+            name: 'quota_scan',
             action: function (e, dt, node, config) {
-                table.button(4).enable(false);
+                dt.button('quota_scan:name').enable(false);
                 var username = dt.row({ selected: true }).data()[1];
-                var path = '{{.APIQuotaScanURL}}'
+                var path = '{{.QuotaScanURL}}'
                 $.ajax({
                     url: path,
                     type: 'POST',
@@ -183,7 +187,7 @@
                     data: JSON.stringify({ "username": username }),
                     timeout: 15000,
                     success: function (result) {
-                        table.button(4).enable(true);
+                        dt.button('quota_scan:name').enable(true);
                         $('#successTxt').text("Quota scan started for the selected user. Please reload the user's page to check when the scan ends");
                         $('#successMsg').show();
                         setTimeout(function () {
@@ -191,8 +195,7 @@
                         }, 5000);
                     },
                     error: function ($xhr, textStatus, errorThrown) {
-                        console.log("quota scan error")
-                        table.button(4).enable(true);
+                        dt.button('quota_scan:name').enable(true);
                         var txt = "Unable to update quota for the selected user";
                         if ($xhr) {
                             var json = $xhr.responseJSON;
@@ -221,9 +224,7 @@
                 "<'row'<'col-sm-12'tr>>" +
                 "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
             select: true,
-            buttons: [
-                'add', 'edit', 'clone', 'delete', 'quota_scan'
-            ],
+            buttons: [],
             "columnDefs": [
                 {
                     "targets": [0],
@@ -235,12 +236,41 @@
             "order": [[1, 'asc']]
         });
 
+        {{if .LoggedAdmin.HasPermission "quota_scans"}}
+        table.button().add(0,'quota_scan');
+        {{end}}
+
+        {{if .LoggedAdmin.HasPermission "del_users"}}
+        table.button().add(0,'delete');
+        {{end}}
+
+        {{if .LoggedAdmin.HasPermission "add_users"}}
+        table.button().add(0,'clone');
+        {{end}}
+
+        {{if .LoggedAdmin.HasPermission "edit_users"}}
+        table.button().add(0,'edit');
+        {{end}}
+
+        {{if .LoggedAdmin.HasPermission "add_users"}}
+        table.button().add(0,'add');
+        {{end}}
+
+
         table.on('select deselect', function () {
             var selectedRows = table.rows({ selected: true }).count();
-            table.button(1).enable(selectedRows == 1);
-            table.button(2).enable(selectedRows == 1);
-            table.button(3).enable(selectedRows == 1);
-            table.button(4).enable(selectedRows == 1);
+            {{if .LoggedAdmin.HasPermission "edit_users"}}
+            table.button('edit:name').enable(selectedRows == 1);
+            {{end}}
+            {{if .LoggedAdmin.HasPermission "add_users"}}
+            table.button('clone:name').enable(selectedRows == 1);
+            {{end}}
+            {{if .LoggedAdmin.HasPermission "del_users"}}
+            table.button('delete:name').enable(selectedRows == 1);
+            {{end}}
+            {{if .LoggedAdmin.HasPermission "quota_scans"}}
+            table.button('quota_scan:name').enable(selectedRows == 1);
+            {{end}}
         });
     });
 </script>

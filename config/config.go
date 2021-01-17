@@ -175,7 +175,6 @@ func Init() {
 			Password:         "",
 			ConnectionString: "",
 			SQLTablesPrefix:  "",
-			ManageUsers:      1,
 			SSLMode:          0,
 			TrackQuota:       1,
 			PoolSize:         0,
@@ -208,7 +207,6 @@ func Init() {
 			TemplatesPath:      "templates",
 			StaticFilesPath:    "static",
 			BackupsPath:        "backups",
-			AuthUserFile:       "",
 			CertificateFile:    "",
 			CertificateKeyFile: "",
 		},
@@ -749,7 +747,6 @@ func setViperDefaults() {
 	viper.SetDefault("data_provider.sslmode", globalConf.ProviderConf.SSLMode)
 	viper.SetDefault("data_provider.connection_string", globalConf.ProviderConf.ConnectionString)
 	viper.SetDefault("data_provider.sql_tables_prefix", globalConf.ProviderConf.SQLTablesPrefix)
-	viper.SetDefault("data_provider.manage_users", globalConf.ProviderConf.ManageUsers)
 	viper.SetDefault("data_provider.track_quota", globalConf.ProviderConf.TrackQuota)
 	viper.SetDefault("data_provider.pool_size", globalConf.ProviderConf.PoolSize)
 	viper.SetDefault("data_provider.users_base_dir", globalConf.ProviderConf.UsersBaseDir)
@@ -773,7 +770,6 @@ func setViperDefaults() {
 	viper.SetDefault("httpd.templates_path", globalConf.HTTPDConfig.TemplatesPath)
 	viper.SetDefault("httpd.static_files_path", globalConf.HTTPDConfig.StaticFilesPath)
 	viper.SetDefault("httpd.backups_path", globalConf.HTTPDConfig.BackupsPath)
-	viper.SetDefault("httpd.auth_user_file", globalConf.HTTPDConfig.AuthUserFile)
 	viper.SetDefault("httpd.certificate_file", globalConf.HTTPDConfig.CertificateFile)
 	viper.SetDefault("httpd.certificate_key_file", globalConf.HTTPDConfig.CertificateKeyFile)
 	viper.SetDefault("http.timeout", globalConf.HTTPConfig.Timeout)

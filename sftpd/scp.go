@@ -152,6 +152,7 @@ func (c *scpCommand) getUploadFileData(sizeToRead int64, transfer *transfer) err
 	}
 
 	if sizeToRead > 0 {
+		// we could replace this method with io.CopyN implementing "Write" method in transfer struct
 		remaining := sizeToRead
 		buf := make([]byte, int64(math.Min(32768, float64(sizeToRead))))
 		for {
@@ -420,6 +421,7 @@ func (c *scpCommand) sendDownloadFileData(filePath string, stat os.FileInfo, tra
 		return err
 	}
 
+	// we could replace this method with io.CopyN implementing "Read" method in transfer struct
 	buf := make([]byte, 32768)
 	var n int
 	for {

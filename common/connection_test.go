@@ -1057,10 +1057,10 @@ func TestHasSpace(t *testing.T) {
 	quotaResult = c.HasSpace(true, "/vdir/file1")
 	assert.False(t, quotaResult.HasSpace)
 
-	err = dataprovider.DeleteUser(&user)
+	err = dataprovider.DeleteUser(user.Username)
 	assert.NoError(t, err)
 
-	err = dataprovider.DeleteFolder(&folder)
+	err = dataprovider.DeleteFolder(folder.MappedPath)
 	assert.NoError(t, err)
 }
 
@@ -1133,7 +1133,7 @@ func TestUpdateQuotaMoveVFolders(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 1, folder2.UsedQuotaFiles)
 	assert.Equal(t, int64(100), folder2.UsedQuotaSize)
-	user, err = dataprovider.GetUserByID(user.ID)
+	user, err = dataprovider.UserExists(user.Username)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, user.UsedQuotaFiles)
 	assert.Equal(t, int64(100), user.UsedQuotaSize)
@@ -1143,16 +1143,16 @@ func TestUpdateQuotaMoveVFolders(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 2, folder2.UsedQuotaFiles)
 	assert.Equal(t, int64(200), folder2.UsedQuotaSize)
-	user, err = dataprovider.GetUserByID(user.ID)
+	user, err = dataprovider.UserExists(user.Username)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, user.UsedQuotaFiles)
 	assert.Equal(t, int64(100), user.UsedQuotaSize)
 
-	err = dataprovider.DeleteUser(&user)
+	err = dataprovider.DeleteUser(user.Username)
 	assert.NoError(t, err)
-	err = dataprovider.DeleteFolder(&folder1)
+	err = dataprovider.DeleteFolder(folder1.MappedPath)
 	assert.NoError(t, err)
-	err = dataprovider.DeleteFolder(&folder2)
+	err = dataprovider.DeleteFolder(folder2.MappedPath)
 	assert.NoError(t, err)
 }
 

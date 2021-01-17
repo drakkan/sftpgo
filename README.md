@@ -46,7 +46,7 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - Support for HAProxy PROXY protocol: you can proxy and/or load balance the SFTP/SCP/FTP/WebDAV service without losing the information about the client's address.
 - [REST API](./docs/rest-api.md) for users and folders management, backup, restore and real time reports of the active connections with possibility of forcibly closing a connection.
 - [Web based administration interface](./docs/web-admin.md) to easily manage users, folders and connections.
-- Easy [migration](./examples/rest-api-cli#convert-users-from-other-stores) from Linux system user accounts.
+- Easy [migration](./examples/convertusers) from Linux system user accounts.
 - [Portable mode](./docs/portable-mode.md): a convenient way to share a single directory on demand.
 - [SFTP subsystem mode](./docs/sftp-subsystem.md): you can use SFTPGo as OpenSSH's SFTP subsystem.
 - Performance analysis using built-in [profiler](./docs/profiling.md).
@@ -147,7 +147,6 @@ After starting SFTPGo you can manage users and folders using:
 
 - the [web based administration interface](./docs/web-admin.md)
 - the [REST API](./docs/rest-api.md)
-- the sample [REST API CLI](./examples/rest-api-cli)
 
 To support embedded data providers like `bolt` and `SQLite` we can't have a CLI that directly write users and folders to the data provider, we always have to use the REST API.
 

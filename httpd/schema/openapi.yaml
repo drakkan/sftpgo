@@ -2,12 +2,12 @@ openapi: 3.0.3
 info:
   title: SFTPGo
   description: SFTPGo REST API
-  version: 2.3.0
+  version: 2.4.0
 
 servers:
-  - url: /api/v1
+  - url: /api/v2
 security:
-  - BasicAuth: []
+  - BearerAuth: []
 paths:
   /healthz:
     get:
@@ -26,6 +26,29 @@ paths:
               schema:
                 type: string
                 example: ok
+  /token:
+    get:
+      security:
+        - BasicAuth: []
+      tags:
+        - token
+      summary: Get an access token
+      operationId: get_token
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref : '#/components/schemas/Token'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
   /version:
     get:
       tags:
@@ -47,7 +70,34 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
-  /connection:
+  /changepwd/admin:
+    put:
+      tags:
+        - admins
+      summary: Change the password for the logged in admin
+      operationId: change_admin_password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PwdChange'
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref : '#/components/schemas/ApiResponse'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /connections:
     get:
       tags:
         - connections
@@ -70,7 +120,7 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
-  /connection/{connectionID}:
+  /connections/{connectionID}:
     delete:
       tags:
         - connections
@@ -102,7 +152,7 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
-  /defender/ban_time:
+  /defender/bantime:
     get:
       tags:
         - defender
@@ -197,7 +247,7 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
-  /quota_scan:
+  /quota-scans:
     get:
       tags:
         - quota
@@ -255,7 +305,7 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
-  /quota_update:
+  /quota-update:
     put:
       tags:
         - quota
@@ -305,7 +355,7 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
-  /folder_quota_update:
+  /folder-quota-update:
     put:
       tags:
         - quota
@@ -355,7 +405,7 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
-  /folder_quota_scan:
+  /folder-quota-scans:
     get:
       tags:
         - quota
@@ -413,7 +463,7 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
-  /folder:
+  /folders:
     get:
       tags:
         - folders
@@ -484,7 +534,7 @@ paths:
             schema:
               $ref : '#/components/schemas/BaseVirtualFolder'
       responses:
-        200:
+        201:
           description: successful operation
           content:
             application/json:
@@ -533,7 +583,193 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
-  /user:
+  /admins:
+    get:
+      tags:
+        - admins
+      summary: Returns an array with one or more admins
+      description: For security reasons hashed passwords are omitted in the response
+      operationId: get_admins
+      parameters:
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          required: false
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+          required: false
+          description: The maximum number of items to return. Max value is 500, default is 100
+        - in: query
+          name: order
+          required: false
+          description: Ordering admins by username. Default ASC
+          schema:
+             type: string
+             enum:
+                - ASC
+                - DESC
+             example: ASC
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref : '#/components/schemas/Admin'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    post:
+      tags:
+        - admins
+      summary: Adds a new admin
+      operationId: add_admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref : '#/components/schemas/Admin'
+      responses:
+        201:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref : '#/components/schemas/Admin'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /admins/{username}:
+    get:
+      tags:
+        - admins
+      summary: Find admin by username
+      description: For security reasons the hashed password is omitted in the response
+      operationId: get_admin_by_username
+      parameters:
+        - name: username
+          in: path
+          description: username of the admin to retrieve
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref : '#/components/schemas/Admin'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    put:
+      tags:
+        - admins
+      summary: Update an existing admin
+      operationId: update_admin
+      parameters:
+        - name: username
+          in: path
+          description: username of the admin to update
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref : '#/components/schemas/Admin'
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref : '#/components/schemas/ApiResponse'
+              example:
+                message: "User updated"
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    delete:
+      tags:
+        - admins
+      summary: Delete an existing admin
+      operationId: delete_admin
+      parameters:
+        - name: username
+          in: path
+          description: username of the admin to delete
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref : '#/components/schemas/ApiResponse'
+              example:
+                message: "User deleted"
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /users:
     get:
       tags:
         - users
@@ -567,12 +803,6 @@ paths:
                 - ASC
                 - DESC
              example: ASC
-        - in: query
-          name: username
-          required: false
-          description: Filter by username, extact match case sensitive
-          schema:
-             type: string
       responses:
         200:
           description: successful operation
@@ -604,7 +834,7 @@ paths:
             schema:
               $ref : '#/components/schemas/User'
       responses:
-        200:
+        201:
           description: successful operation
           content:
             application/json:
@@ -620,21 +850,20 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
-  /user/{userID}:
+  /users/{username}:
     get:
       tags:
         - users
-      summary: Find user by ID
+      summary: Find user by username
       description: For security reasons the hashed password is omitted in the response
-      operationId: get_user_by_id
+      operationId: get_user_by_username
       parameters:
-        - name: userID
+        - name: username
           in: path
-          description: ID of the user to retrieve
+          description: username of the user to retrieve
           required: true
           schema:
-            type: integer
-            format: int32
+            type: string
       responses:
         200:
           description: successful operation
@@ -660,13 +889,12 @@ paths:
       summary: Update an existing user
       operationId: update_user
       parameters:
-        - name: userID
+        - name: username
           in: path
-          description: ID of the user to update
+          description: username of the user to update
           required: true
           schema:
-            type: integer
-            format: int32
+            type: string
         - in: query
           name: disconnect
           schema:
@@ -711,13 +939,12 @@ paths:
       summary: Delete an existing user
       operationId: delete_user
       parameters:
-        - name: userID
+        - name: username
           in: path
-          description: ID of the user to delete
+          description: username of the user to delete
           required: true
           schema:
-            type: integer
-            format: int32
+            type: string
       responses:
         200:
           description: successful operation
@@ -949,6 +1176,22 @@ components:
         minItems: 1
       minProperties: 1
       description: hash map with directory as key and an array of permissions as value. Directories must be absolute paths, permissions for root directory ("/") are required
+    AdminPermissions:
+      type: string
+      enum:
+        - '*'
+        - 'add_users'
+        - 'edit_users'
+        - 'del_users'
+        - 'view_users'
+        - 'view_conns'
+        - 'close_conns'
+        - 'view_status'
+        - 'manage_admins'
+        - 'quota_scans'
+        - 'manage_system'
+        - 'manage_defender'
+        - 'view_defender'
     LoginMethods:
       type: string
       enum:
@@ -975,14 +1218,12 @@ components:
           type: array
           items:
             type: string
-          nullable: true
           description: list of, case insensitive, allowed shell like file patterns.
           example: [ "*.jpg", "a*b?.png" ]
         denied_patterns:
           type: array
           items:
             type: string
-          nullable: true
           description: list of, case insensitive, denied shell like file patterns. Denied patterns are evaluated before the allowed ones
           example: [ "*.zip" ]
     ExtensionsFilter:
@@ -995,14 +1236,12 @@ components:
           type: array
           items:
             type: string
-          nullable: true
           description: list of, case insensitive, allowed files extension. Shell like expansion is not supported so you have to specify `.jpg` and not `*.jpg`
           example: [ ".jpg", ".png" ]
         denied_extensions:
           type: array
           items:
             type: string
-          nullable: true
           description: list of, case insensitive, denied files extension. Denied file extensions are evaluated before the allowed ones
           example: [ ".zip" ]
     UserFilters:
@@ -1012,44 +1251,37 @@ components:
           type: array
           items:
             type: string
-          nullable: true
           description: only clients connecting from these IP/Mask are allowed. IP/Mask must be in CIDR notation as defined in RFC 4632 and RFC 4291, for example "192.0.2.0/24" or "2001:db8::/32"
           example: [ "192.0.2.0/24", "2001:db8::/32" ]
         denied_ip:
           type: array
           items:
             type: string
-          nullable: true
           description: clients connecting from these IP/Mask are not allowed. Denied rules are evaluated before allowed ones
           example: [ "172.16.0.0/16" ]
         denied_login_methods:
           type: array
           items:
             $ref: '#/components/schemas/LoginMethods'
-          nullable: true
           description: if null or empty any available login method is allowed
         denied_protocols:
           type: array
           items:
             $ref: '#/components/schemas/SupportedProtocols'
-          nullable: true
           description: if null or empty any available protocol is allowed
         file_patterns:
           type: array
           items:
             $ref: '#/components/schemas/PatternsFilter'
-          nullable: true
           description: filters based on shell like file patterns. These restrictions do not apply to files listing for performance reasons, so a denied file cannot be downloaded/overwritten/renamed but it will still be in the list of files. Please note that these restrictions can be easily bypassed
         file_extensions:
           type: array
           items:
             $ref: '#/components/schemas/ExtensionsFilter'
-          nullable: true
           description: filters based on shell like patterns. Deprecated, use file_patterns. These restrictions do not apply to files listing for performance reasons, so a denied file cannot be downloaded/overwritten/renamed but it will still be in the list of files. Please note that these restrictions can be easily bypassed
         max_upload_file_size:
           type: integer
           format: int64
-          nullable: true
           description: maximum allowed size, as bytes, for a single file upload. The upload will be aborted if/when the size of the file being sent exceeds this limit. 0 means unlimited. This restriction does not apply for SSH system commands such as `git` and `rsync`
       description: Additional restrictions
     Secret:
@@ -1106,7 +1338,6 @@ components:
       required:
         - bucket
         - region
-      nullable: true
       description: S3 Compatible Object Storage configuration details
     GCSConfig:
       type: object
@@ -1118,7 +1349,6 @@ components:
           $ref: '#/components/schemas/Secret'
         automatic_credentials:
           type: integer
-          nullable: true
           enum:
             - 0
             - 1
@@ -1134,7 +1364,6 @@ components:
           example: folder/subfolder/
       required:
         - bucket
-      nullable: true
       description: Google Cloud Storage configuration details. The "credentials" field must be populated only when adding/updating a user. It will be always omitted, since there are sensitive data, when you search/get users
     AzureBlobFsConfig:
       type: object
@@ -1171,7 +1400,6 @@ components:
           example: folder/subfolder/
         use_emulator:
           type: boolean
-      nullable: true
       description: Azure Blob Storage configuration details
     CryptFsConfig:
       type: object
@@ -1253,7 +1481,6 @@ components:
           description: Last quota update as unix timestamp in milliseconds
         users:
           type: array
-          nullable: true
           items:
             type: string
           description: list of usernames associated with this virtual folder
@@ -1303,13 +1530,12 @@ components:
           description: expiration date as unix timestamp in milliseconds. An expired account cannot login. 0 means no expiration
         password:
           type: string
-          nullable: true
+          format: password
           description: password or public key/SSH user certificate are mandatory. If the password has no known hashing algo prefix it will be stored using argon2id. You can send a password hashed as bcrypt or pbkdf2 and it will be stored as is. For security reasons this field is omitted when you search/get users
         public_keys:
           type: array
           items:
             type: string
-          nullable: true
           description: a password or at least one public key/SSH user certificate are mandatory.
         home_dir:
           type: string
@@ -1318,7 +1544,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/VirtualFolder'
-          nullable: true
           description: mapping between virtual SFTPGo paths and filesystem paths outside the user home directory. Supported for local filesystem only. If one or more of the specified folders are not inside the dataprovider they will be automatically created. You have to create the folder on the filesystem yourself
         uid:
           type: integer
@@ -1379,6 +1604,50 @@ components:
         additional_info:
           type: string
           description: Free form text field for external systems
+    AdminFilters:
+      type: object
+      properties:
+        allow_list:
+          type: array
+          items:
+            type: string
+          description: only clients connecting from these IP/Mask are allowed. IP/Mask must be in CIDR notation as defined in RFC 4632 and RFC 4291, for example "192.0.2.0/24" or "2001:db8::/32"
+          example: [ "192.0.2.0/24", "2001:db8::/32" ]
+    Admin:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+        status:
+          type: integer
+          enum:
+            - 0
+            - 1
+          description: >
+            status:
+              * `0` user is disabled, login is not allowed
+              * `1` user is enabled
+        username:
+          type: string
+          description: username is unique
+        password:
+          type: string
+          format: password
+          description: Admin password. For security reasons this field is omitted when you search/get admins
+        email:
+          type: string
+          format: email
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminPermissions'
+        filters:
+          $ref: '#/components/schemas/AdminFilters'
+        additional_info:
+          type: string
+          description: Free form text field
     Transfer:
       type: object
       properties:
@@ -1409,7 +1678,6 @@ components:
           description: unique connection identifier
         client_version:
           type: string
-          nullable: true
           description: client version
         remote_address:
           type: string
@@ -1420,7 +1688,6 @@ components:
           description: connection time as unix timestamp in milliseconds
         command:
           type: string
-          nullable: true
           description: SSH/FTP command or WebDAV method
         last_activity:
           type: integer
@@ -1436,7 +1703,6 @@ components:
             - DAV
         active_transfers:
           type: array
-          nullable: true
           items:
             $ref : '#/components/schemas/Transfer'
     QuotaScan:
@@ -1602,6 +1868,13 @@ components:
         score:
           type: integer
           description: if 0 the host is not listed
+    PwdChange:
+      type: object
+      properties:
+        current_password:
+          type: string
+        new_password:
+          type: string
     ApiResponse:
       type: object
       properties:
@@ -1610,7 +1883,6 @@ components:
           description: message, can be empty
         error:
           type: string
-          nullable: true
           description: error description if any
     VersionInfo:
       type: object
@@ -1626,7 +1898,19 @@ components:
           items:
             type: string
           description: Features for the current build. Available features are "portable", "bolt", "mysql", "sqlite", "pgsql", "s3", "gcs", "metrics". If a feature is available it has a "+" prefix, otherwise a "-" prefix
+    Token:
+      type: object
+      properties:
+        access_token:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
   securitySchemes:
     BasicAuth:
       type: http
       scheme: basic
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

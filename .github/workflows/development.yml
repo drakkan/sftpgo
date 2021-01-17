@@ -98,13 +98,11 @@ jobs:
         if: startsWith(matrix.os, 'windows-') != true
         run: |
           mkdir -p output/{bash_completion,zsh_completion}
-          mkdir -p output/examples/rest-api-cli
           cp sftpgo output/
           cp sftpgo.json output/
           cp -r templates output/
           cp -r static output/
           cp -r init output/
-          cp examples/rest-api-cli/sftpgo_api_cli output/examples/rest-api-cli/
           ./sftpgo gen completion bash > output/bash_completion/sftpgo
           ./sftpgo gen completion zsh > output/zsh_completion/_sftpgo
           ./sftpgo gen man -d output/man/man1

@@ -1,12 +1,12 @@
 package httpd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 
-	"github.com/go-chi/chi"
 	"github.com/go-chi/render"
 
 	"github.com/drakkan/sftpgo/common"
@@ -16,11 +16,11 @@ import (
 )
 
 func getUsers(w http.ResponseWriter, r *http.Request) {
+	var err error
+
 	limit := 100
 	offset := 0
 	order := dataprovider.OrderASC
-	username := ""
-	var err error
 	if _, ok := r.URL.Query()["limit"]; ok {
 		limit, err = strconv.Atoi(r.URL.Query().Get("limit"))
 		if err != nil {
@@ -48,10 +48,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if _, ok := r.URL.Query()["username"]; ok {
-		username = r.URL.Query().Get("username")
-	}
-	users, err := dataprovider.GetUsers(limit, offset, order, username)
+	users, err := dataprovider.GetUsers(limit, offset, order)
 	if err == nil {
 		render.JSON(w, r, users)
 	} else {
@@ -59,19 +56,23 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getUserByID(w http.ResponseWriter, r *http.Request) {
-	userID, err := strconv.ParseInt(chi.URLParam(r, "userID"), 10, 64)
+func getUserByUsername(w http.ResponseWriter, r *http.Request) {
+	username := getURLParam(r, "username")
+	renderUser(w, r, username, http.StatusOK)
+}
+
+func renderUser(w http.ResponseWriter, r *http.Request, username string, status int) {
+	user, err := dataprovider.UserExists(username)
 	if err != nil {
-		err = errors.New("Invalid userID")
-		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	user, err := dataprovider.GetUserByID(userID)
-	if err == nil {
-		user.HideConfidentialData()
-		render.JSON(w, r, user)
+	user.HideConfidentialData()
+	if status != http.StatusOK {
+		ctx := context.WithValue(r.Context(), render.StatusCtxKey, http.StatusCreated)
+		render.JSON(w, r.WithContext(ctx), user)
 	} else {
-		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		render.JSON(w, r, user)
 	}
 }
 
@@ -116,27 +117,18 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	err = dataprovider.AddUser(&user)
-	if err == nil {
-		user, err = dataprovider.UserExists(user.Username)
-		if err == nil {
-			user.HideConfidentialData()
-			render.JSON(w, r, user)
-		} else {
-			sendAPIResponse(w, r, err, "", getRespStatus(err))
-		}
-	} else {
+	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
 	}
+	renderUser(w, r, user.Username, http.StatusCreated)
 }
 
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	userID, err := strconv.ParseInt(chi.URLParam(r, "userID"), 10, 64)
-	if err != nil {
-		err = errors.New("Invalid userID")
-		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
-		return
-	}
+	var err error
+
+	username := getURLParam(r, "username")
 	disconnect := 0
 	if _, ok := r.URL.Query()["disconnect"]; ok {
 		disconnect, err = strconv.Atoi(r.URL.Query().Get("disconnect"))
@@ -146,11 +138,12 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	user, err := dataprovider.GetUserByID(userID)
+	user, err := dataprovider.UserExists(username)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
+	userID := user.ID
 	currentPermissions := user.Permissions
 	currentS3AccessSecret := user.FsConfig.S3Config.AccessSecret
 	currentAzAccountKey := user.FsConfig.AzBlobConfig.AccountKey
@@ -170,6 +163,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
+	user.ID = userID
+	user.Username = username
 	user.SetEmptySecretsIfNil()
 	// we use new Permissions if passed otherwise the old ones
 	if len(user.Permissions) == 0 {
@@ -177,40 +172,26 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	updateEncryptedSecrets(&user, currentS3AccessSecret, currentAzAccountKey, currentGCSCredentials, currentCryptoPassphrase,
 		currentSFTPPassword, currentSFTPKey)
-	if user.ID != userID {
-		sendAPIResponse(w, r, err, "user ID in request body does not match user ID in path parameter", http.StatusBadRequest)
-		return
-	}
 	err = dataprovider.UpdateUser(&user)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
-	} else {
-		sendAPIResponse(w, r, err, "User updated", http.StatusOK)
-		if disconnect == 1 {
-			disconnectUser(user.Username)
-		}
+		return
+	}
+	sendAPIResponse(w, r, err, "User updated", http.StatusOK)
+	if disconnect == 1 {
+		disconnectUser(user.Username)
 	}
 }
 
 func deleteUser(w http.ResponseWriter, r *http.Request) {
-	userID, err := strconv.ParseInt(chi.URLParam(r, "userID"), 10, 64)
-	if err != nil {
-		err = errors.New("Invalid userID")
-		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
-		return
-	}
-	user, err := dataprovider.GetUserByID(userID)
+	username := getURLParam(r, "username")
+	err := dataprovider.DeleteUser(username)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	err = dataprovider.DeleteUser(&user)
-	if err != nil {
-		sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
-	} else {
-		sendAPIResponse(w, r, err, "User deleted", http.StatusOK)
-		disconnectUser(user.Username)
-	}
+	sendAPIResponse(w, r, err, "User deleted", http.StatusOK)
+	disconnectUser(username)
 }
 
 func disconnectUser(username string) {

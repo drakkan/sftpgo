@@ -26,12 +26,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/xid"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/drakkan/sftpgo/logger"
 )
 
-const logSender = "utils"
+const (
+	logSender = "utils"
+)
 
 // IsStringInSlice searches a string in a slice and returns true if the string is found
 func IsStringInSlice(obj string, list []string) bool {
@@ -381,6 +384,22 @@ func createDirPathIfMissing(file string, perm os.FileMode) error {
 		}
 	}
 	return nil
+}
+
+// GenerateRandomBytes generates the secret to use for JWT auth
+func GenerateRandomBytes(length int) []byte {
+	b := make([]byte, length)
+	_, err := io.ReadFull(rand.Reader, b)
+	if err != nil {
+		return b
+	}
+
+	b = xid.New().Bytes()
+	for len(b) < length {
+		b = append(b, xid.New().Bytes()...)
+	}
+
+	return b[:length]
 }
 
 // HTTPListenAndServe is a wrapper for ListenAndServe that support both tcp

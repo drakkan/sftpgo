@@ -112,7 +112,13 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug(logSender, "", "backup restored, users: %v", len(dump.Users))
+	if err = RestoreAdmins(dump.Admins, inputFile, mode); err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+
+	logger.Debug(logSender, "", "backup restored, users: %v, folders: %v, admins: %vs",
+		len(dump.Users), len(dump.Folders), len(dump.Admins))
 	sendAPIResponse(w, r, err, "Data restored", http.StatusOK)
 }
 
@@ -164,6 +170,33 @@ func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, scanQuota
 	return nil
 }
 
+// RestoreAdmins restores the specified admins
+func RestoreAdmins(admins []dataprovider.Admin, inputFile string, mode int) error {
+	for _, admin := range admins {
+		admin := admin // pin
+		a, err := dataprovider.AdminExists(admin.Username)
+		if err == nil {
+			if mode == 1 {
+				logger.Debug(logSender, "", "loaddata mode 1, existing admin %#v not updated", a.Username)
+				continue
+			}
+			admin.ID = a.ID
+			err = dataprovider.UpdateAdmin(&admin)
+			admin.Password = redactedSecret
+			logger.Debug(logSender, "", "restoring existing admin: %+v, dump file: %#v, error: %v", admin, inputFile, err)
+		} else {
+			err = dataprovider.AddAdmin(&admin)
+			admin.Password = redactedSecret
+			logger.Debug(logSender, "", "adding new admin: %+v, dump file: %#v, error: %v", admin, inputFile, err)
+		}
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // RestoreUsers restores the specified users
 func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota int) error {
 	for _, user := range users {
@@ -176,14 +209,14 @@ func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota i
 			}
 			user.ID = u.ID
 			err = dataprovider.UpdateUser(&user)
-			user.Password = "[redacted]"
+			user.Password = redactedSecret
 			logger.Debug(logSender, "", "restoring existing user: %+v, dump file: %#v, error: %v", user, inputFile, err)
 			if mode == 2 && err == nil {
 				disconnectUser(user.Username)
 			}
 		} else {
 			err = dataprovider.AddUser(&user)
-			user.Password = "[redacted]"
+			user.Password = redactedSecret
 			logger.Debug(logSender, "", "adding new user: %+v, dump file: %#v, error: %v", user, inputFile, err)
 		}
 		if err != nil {

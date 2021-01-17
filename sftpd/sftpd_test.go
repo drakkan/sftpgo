@@ -40,7 +40,7 @@ import (
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/httpd"
+	"github.com/drakkan/sftpgo/httpdtest"
 	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/sftpd"
@@ -177,7 +177,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	if err != nil {
 		logger.ErrorToConsole("error initializing data provider: %v", err)
 		os.Exit(1)
@@ -342,7 +342,7 @@ func TestBasicSFTPHandling(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.QuotaSize = 6553600
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -362,7 +362,7 @@ func TestBasicSFTPHandling(t *testing.T) {
 		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
@@ -370,7 +370,7 @@ func TestBasicSFTPHandling(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = client.Lstat(testFileName)
 		assert.Error(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQuotaFiles-1, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize-testFileSize, user.UsedQuotaSize)
@@ -379,7 +379,7 @@ func TestBasicSFTPHandling(t *testing.T) {
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -389,11 +389,11 @@ func TestBasicSFTPHandling(t *testing.T) {
 
 func TestBasicSFTPFsHandling(t *testing.T) {
 	usePubKey := true
-	baseUser, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	baseUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	u := getTestSFTPUser(usePubKey)
 	u.QuotaSize = 6553600
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -412,7 +412,7 @@ func TestBasicSFTPFsHandling(t *testing.T) {
 		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
@@ -434,7 +434,7 @@ func TestBasicSFTPFsHandling(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = client.Lstat(testFileName)
 		assert.Error(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 0, user.UsedQuotaFiles)
 		assert.Equal(t, int64(0), user.UsedQuotaSize)
@@ -449,7 +449,7 @@ func TestBasicSFTPFsHandling(t *testing.T) {
 			assert.False(t, contents[0].IsDir())
 			assert.True(t, contents[0].Mode().IsRegular())
 		}
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
@@ -460,9 +460,9 @@ func TestBasicSFTPFsHandling(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(baseUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(baseUser.GetHomeDir())
 	assert.NoError(t, err)
@@ -486,7 +486,7 @@ func TestDefender(t *testing.T) {
 	assert.NoError(t, err)
 
 	usePubKey := false
-	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -505,7 +505,7 @@ func TestDefender(t *testing.T) {
 	_, err = getSftpClient(user, usePubKey)
 	assert.Error(t, err)
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -518,11 +518,11 @@ func TestOpenReadWrite(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.QuotaSize = 6553600
-	localUser, _, err := httpd.AddUser(u, http.StatusOK)
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	u = getTestSFTPUser(usePubKey)
 	u.QuotaSize = 6553600
-	sftpUser, _, err := httpd.AddUser(u, http.StatusOK)
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	for _, user := range []dataprovider.User{localUser, sftpUser} {
 		client, err := getSftpClient(user, usePubKey)
@@ -558,9 +558,9 @@ func TestOpenReadWrite(t *testing.T) {
 			}
 		}
 	}
-	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
@@ -571,11 +571,11 @@ func TestOpenReadWritePerm(t *testing.T) {
 	u := getTestUser(usePubKey)
 	// we cannot read inside "/sub", rename is needed otherwise the atomic upload will fail for the sftpfs user
 	u.Permissions["/sub"] = []string{dataprovider.PermUpload, dataprovider.PermListItems, dataprovider.PermRename}
-	localUser, _, err := httpd.AddUser(u, http.StatusOK)
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	u = getTestSFTPUser(usePubKey)
 	u.Permissions["/sub"] = []string{dataprovider.PermUpload, dataprovider.PermListItems}
-	sftpUser, _, err := httpd.AddUser(u, http.StatusOK)
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	for _, user := range []dataprovider.User{localUser, sftpUser} {
 		client, err := getSftpClient(user, usePubKey)
@@ -604,9 +604,9 @@ func TestOpenReadWritePerm(t *testing.T) {
 			}
 		}
 	}
-	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
@@ -617,7 +617,7 @@ func TestConcurrency(t *testing.T) {
 	numLogins := 50
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = numLogins + 1
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	var wg sync.WaitGroup
 	testFilePath := filepath.Join(homeBasePath, testFileName)
@@ -691,7 +691,7 @@ func TestConcurrency(t *testing.T) {
 
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -699,7 +699,7 @@ func TestConcurrency(t *testing.T) {
 
 func TestProxyProtocol(t *testing.T) {
 	usePubKey := true
-	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	// remove the home dir to test auto creation
 	err = os.RemoveAll(user.HomeDir)
@@ -713,7 +713,7 @@ func TestProxyProtocol(t *testing.T) {
 	if !assert.Error(t, err) {
 		client.Close()
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -722,12 +722,12 @@ func TestProxyProtocol(t *testing.T) {
 func TestUploadResume(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
-	localUser, _, err := httpd.AddUser(u, http.StatusOK)
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 	u = getTestSFTPUser(usePubKey)
-	sftpUser, _, err := httpd.AddUser(u, http.StatusOK)
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	for _, user := range []dataprovider.User{localUser, sftpUser} {
 		client, err := getSftpClient(user, usePubKey)
@@ -764,9 +764,9 @@ func TestUploadResume(t *testing.T) {
 			}
 		}
 	}
-	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
@@ -774,7 +774,7 @@ func TestUploadResume(t *testing.T) {
 
 func TestDirCommands(t *testing.T) {
 	usePubKey := false
-	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	// remove the home dir to test auto creation
 	err = os.RemoveAll(user.HomeDir)
@@ -814,7 +814,7 @@ func TestDirCommands(t *testing.T) {
 		err = client.RemoveDirectory("/test")
 		assert.Error(t, err, "remove missing path must fail")
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -822,7 +822,7 @@ func TestDirCommands(t *testing.T) {
 
 func TestRemove(t *testing.T) {
 	usePubKey := true
-	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -852,7 +852,7 @@ func TestRemove(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -860,7 +860,7 @@ func TestRemove(t *testing.T) {
 
 func TestLink(t *testing.T) {
 	usePubKey := false
-	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -887,7 +887,7 @@ func TestLink(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -895,9 +895,9 @@ func TestLink(t *testing.T) {
 
 func TestStat(t *testing.T) {
 	usePubKey := false
-	localUser, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	localUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
-	sftpUser, _, err := httpd.AddUser(getTestSFTPUser(usePubKey), http.StatusOK)
+	sftpUser, _, err := httpdtest.AddUser(getTestSFTPUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	for _, user := range []dataprovider.User{localUser, sftpUser} {
 		client, err := getSftpClient(user, usePubKey)
@@ -987,9 +987,9 @@ func TestStat(t *testing.T) {
 			}
 		}
 	}
-	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
@@ -1000,9 +1000,9 @@ func TestStatChownChmod(t *testing.T) {
 		t.Skip("chown is not supported on Windows, chmod is partially supported")
 	}
 	usePubKey := true
-	localUser, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	localUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
-	sftpUser, _, err := httpd.AddUser(getTestSFTPUser(usePubKey), http.StatusOK)
+	sftpUser, _, err := httpdtest.AddUser(getTestSFTPUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	for _, user := range []dataprovider.User{localUser, sftpUser} {
 		client, err := getSftpClient(user, usePubKey)
@@ -1036,9 +1036,9 @@ func TestStatChownChmod(t *testing.T) {
 			}
 		}
 	}
-	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
@@ -1046,9 +1046,9 @@ func TestStatChownChmod(t *testing.T) {
 
 func TestSFTPFsLoginWrongFingerprint(t *testing.T) {
 	usePubKey := true
-	localUser, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	localUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
-	sftpUser, _, err := httpd.AddUser(getTestSFTPUser(usePubKey), http.StatusOK)
+	sftpUser, _, err := httpdtest.AddUser(getTestSFTPUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 
 	client, err := getSftpClient(sftpUser, usePubKey)
@@ -1059,7 +1059,7 @@ func TestSFTPFsLoginWrongFingerprint(t *testing.T) {
 	}
 
 	sftpUser.FsConfig.SFTPConfig.Fingerprints = append(sftpUser.FsConfig.SFTPConfig.Fingerprints, "wrong")
-	_, _, err = httpd.UpdateUser(sftpUser, http.StatusOK, "")
+	_, _, err = httpdtest.UpdateUser(sftpUser, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(sftpUser, usePubKey)
 	if assert.NoError(t, err) {
@@ -1069,14 +1069,14 @@ func TestSFTPFsLoginWrongFingerprint(t *testing.T) {
 	}
 
 	sftpUser.FsConfig.SFTPConfig.Fingerprints = []string{"wrong"}
-	_, _, err = httpd.UpdateUser(sftpUser, http.StatusOK, "")
+	_, _, err = httpdtest.UpdateUser(sftpUser, http.StatusOK, "")
 	assert.NoError(t, err)
 	_, err = getSftpClient(sftpUser, usePubKey)
 	assert.Error(t, err)
 
-	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
@@ -1084,9 +1084,9 @@ func TestSFTPFsLoginWrongFingerprint(t *testing.T) {
 
 func TestChtimes(t *testing.T) {
 	usePubKey := false
-	localUser, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	localUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
-	sftpUser, _, err := httpd.AddUser(getTestSFTPUser(usePubKey), http.StatusOK)
+	sftpUser, _, err := httpdtest.AddUser(getTestSFTPUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	for _, user := range []dataprovider.User{localUser, sftpUser} {
 		client, err := getSftpClient(user, usePubKey)
@@ -1124,9 +1124,9 @@ func TestChtimes(t *testing.T) {
 			}
 		}
 	}
-	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
@@ -1135,7 +1135,7 @@ func TestChtimes(t *testing.T) {
 // basic tests to verify virtual chroot, should be improved to cover more cases ...
 func TestEscapeHomeDir(t *testing.T) {
 	usePubKey := true
-	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	dirOutsideHome := filepath.Join(homeBasePath, defaultUsername+"1", "dir")
 	err = os.MkdirAll(dirOutsideHome, os.ModePerm)
@@ -1186,7 +1186,7 @@ func TestEscapeHomeDir(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1196,7 +1196,7 @@ func TestEscapeHomeDir(t *testing.T) {
 
 func TestEscapeSFTPFsPrefix(t *testing.T) {
 	usePubKey := false
-	localUser, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	localUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	u := getTestSFTPUser(usePubKey)
 	sftpPrefix := "/prefix"
@@ -1205,7 +1205,7 @@ func TestEscapeSFTPFsPrefix(t *testing.T) {
 	out1 := "out1"
 	out2 := "out2"
 	u.FsConfig.SFTPConfig.Prefix = sftpPrefix
-	sftpUser, _, err := httpd.AddUser(u, http.StatusOK)
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(localUser, usePubKey)
 	if assert.NoError(t, err) {
@@ -1238,9 +1238,9 @@ func TestEscapeSFTPFsPrefix(t *testing.T) {
 		assert.Error(t, err)
 	}
 
-	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
@@ -1248,9 +1248,9 @@ func TestEscapeSFTPFsPrefix(t *testing.T) {
 
 func TestGetMimeTypeSFTPFs(t *testing.T) {
 	usePubKey := false
-	localUser, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	localUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
-	sftpUser, _, err := httpd.AddUser(getTestSFTPUser(usePubKey), http.StatusOK)
+	sftpUser, _, err := httpdtest.AddUser(getTestSFTPUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(localUser, usePubKey)
 	if assert.NoError(t, err) {
@@ -1276,9 +1276,9 @@ func TestGetMimeTypeSFTPFs(t *testing.T) {
 		assert.Equal(t, "text/plain; charset=utf-8", mime)
 	}
 
-	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
@@ -1288,7 +1288,7 @@ func TestHomeSpecialChars(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	u.HomeDir = filepath.Join(homeBasePath, "abc açà#&%lk")
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -1308,7 +1308,7 @@ func TestHomeSpecialChars(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1317,13 +1317,13 @@ func TestHomeSpecialChars(t *testing.T) {
 func TestLogin(t *testing.T) {
 	u := getTestUser(false)
 	u.PublicKeys = []string{testPubKey}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, false)
 	if assert.NoError(t, err) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Greater(t, user.LastLogin, int64(0), "last login must be updated after a successful login: %v", user.LastLogin)
 	}
@@ -1340,7 +1340,7 @@ func TestLogin(t *testing.T) {
 	// testPubKey1 is not authorized
 	user.PublicKeys = []string{testPubKey1}
 	user.Password = ""
-	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, true)
 	if !assert.Error(t, err, "login with invalid public key must fail") {
@@ -1349,14 +1349,14 @@ func TestLogin(t *testing.T) {
 	// login a user with multiple public keys, only the second one is valid
 	user.PublicKeys = []string{testPubKey1, testPubKey}
 	user.Password = ""
-	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, true)
 	if assert.NoError(t, err) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1365,7 +1365,7 @@ func TestLogin(t *testing.T) {
 func TestLoginUserCert(t *testing.T) {
 	u := getTestUser(true)
 	u.PublicKeys = []string{testCertValid, testCertUntrustedCA, testHostCert, testCertOtherSourceAddress, testCertExpired}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	// try login using a cert signed from a trusted CA
 	signer, err := getSignerForUserCert([]byte(testCertValid))
@@ -1403,14 +1403,14 @@ func TestLoginUserCert(t *testing.T) {
 	if !assert.Error(t, err) {
 		client.Close()
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
 	// now login with a username not in the set of valid principals for the given certificate
 	u.Username += "1"
-	user, _, err = httpd.AddUser(u, http.StatusOK)
+	user, _, err = httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
 	signer, err = getSignerForUserCert([]byte(testCertValid))
@@ -1420,7 +1420,7 @@ func TestLoginUserCert(t *testing.T) {
 		client.Close()
 	}
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1435,7 +1435,7 @@ func TestMultiStepLoginKeyAndPwd(t *testing.T) {
 		dataprovider.LoginMethodPassword,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}...)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, true)
 	if !assert.Error(t, err, "login with public key is disallowed and must fail") {
@@ -1465,7 +1465,7 @@ func TestMultiStepLoginKeyAndPwd(t *testing.T) {
 	}
 	_, err = getCustomAuthSftpClient(user, authMethods, "")
 	assert.Error(t, err, "multi step auth login with wrong order must fail")
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1483,7 +1483,7 @@ func TestMultiStepLoginKeyAndKeyInt(t *testing.T) {
 		dataprovider.LoginMethodPassword,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}...)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	err = ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), os.ModePerm)
 	assert.NoError(t, err)
@@ -1532,7 +1532,7 @@ func TestMultiStepLoginKeyAndKeyInt(t *testing.T) {
 		dataprovider.LoginMethodPassword,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}...)
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	_, err = getCustomAuthSftpClient(user, authMethods, sftpSrvAddr2222)
 	assert.Error(t, err)
@@ -1542,7 +1542,7 @@ func TestMultiStepLoginKeyAndKeyInt(t *testing.T) {
 		client.Close()
 	}
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1558,7 +1558,7 @@ func TestMultiStepLoginCertAndPwd(t *testing.T) {
 		dataprovider.LoginMethodPassword,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}...)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	signer, err := getSignerForUserCert([]byte(testCertValid))
 	assert.NoError(t, err)
@@ -1583,7 +1583,7 @@ func TestMultiStepLoginCertAndPwd(t *testing.T) {
 		client.Close()
 	}
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1591,25 +1591,25 @@ func TestMultiStepLoginCertAndPwd(t *testing.T) {
 
 func TestLoginUserStatus(t *testing.T) {
 	usePubKey := true
-	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Greater(t, user.LastLogin, int64(0), "last login must be updated after a successful login: %v", user.LastLogin)
 	}
 	user.Status = 0
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if !assert.Error(t, err, "login for a disabled user must fail") {
 		client.Close()
 	}
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1617,32 +1617,32 @@ func TestLoginUserStatus(t *testing.T) {
 
 func TestLoginUserExpiration(t *testing.T) {
 	usePubKey := true
-	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Greater(t, user.LastLogin, int64(0), "last login must be updated after a successful login: %v", user.LastLogin)
 	}
 	user.ExpirationDate = utils.GetTimeAsMsSinceEpoch(time.Now()) - 120000
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if !assert.Error(t, err, "login for an expired user must fail") {
 		client.Close()
 	}
 	user.ExpirationDate = utils.GetTimeAsMsSinceEpoch(time.Now()) + 120000
-	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1664,7 +1664,7 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 
 	assert.NoError(t, dataprovider.Close())
 
-	err := dataprovider.Initialize(providerConf, configDir)
+	err := dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
 	if _, err = os.Stat(credentialsFile); err == nil {
@@ -1672,7 +1672,7 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 		assert.NoError(t, os.Remove(credentialsFile))
 	}
 
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.GCSConfig.Credentials.GetStatus())
 	assert.NotEmpty(t, user.FsConfig.GCSConfig.Credentials.GetPayload())
@@ -1686,7 +1686,7 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 		defer client.Close()
 	}
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1694,7 +1694,7 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 	assert.NoError(t, dataprovider.Close())
 	assert.NoError(t, config.LoadConfig(configDir, ""))
 	providerConf = config.GetProviderConf()
-	assert.NoError(t, dataprovider.Initialize(providerConf, configDir))
+	assert.NoError(t, dataprovider.Initialize(providerConf, configDir, true))
 }
 
 func TestLoginInvalidFs(t *testing.T) {
@@ -1703,7 +1703,7 @@ func TestLoginInvalidFs(t *testing.T) {
 	u.FsConfig.Provider = dataprovider.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("invalid JSON for credentials")
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
 	providerConf := config.GetProviderConf()
@@ -1721,7 +1721,7 @@ func TestLoginInvalidFs(t *testing.T) {
 		client.Close()
 	}
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1730,14 +1730,14 @@ func TestLoginInvalidFs(t *testing.T) {
 func TestDeniedProtocols(t *testing.T) {
 	u := getTestUser(true)
 	u.Filters.DeniedProtocols = []string{common.ProtocolSSH}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, true)
 	if !assert.Error(t, err, "SSH protocol is disabled, authentication must fail") {
 		client.Close()
 	}
 	user.Filters.DeniedProtocols = []string{common.ProtocolFTP, common.ProtocolWebDAV}
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, true)
 	if assert.NoError(t, err) {
@@ -1745,7 +1745,7 @@ func TestDeniedProtocols(t *testing.T) {
 		assert.NoError(t, checkBasicSFTP(client))
 	}
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1754,14 +1754,14 @@ func TestDeniedProtocols(t *testing.T) {
 func TestDeniedLoginMethods(t *testing.T) {
 	u := getTestUser(true)
 	u.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodPublicKey, dataprovider.LoginMethodPassword}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, true)
 	if !assert.Error(t, err, "public key login is disabled, authentication must fail") {
 		client.Close()
 	}
 	user.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodKeyboardInteractive, dataprovider.LoginMethodPassword}
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, true)
 	if assert.NoError(t, err) {
@@ -1769,7 +1769,7 @@ func TestDeniedLoginMethods(t *testing.T) {
 		assert.NoError(t, checkBasicSFTP(client))
 	}
 	user.Password = defaultPassword
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 
 	client, err = getSftpClient(user, false)
@@ -1777,14 +1777,14 @@ func TestDeniedLoginMethods(t *testing.T) {
 		client.Close()
 	}
 	user.Filters.DeniedLoginMethods = []string{dataprovider.SSHLoginMethodKeyboardInteractive, dataprovider.SSHLoginMethodPublicKey}
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, false)
 	if assert.NoError(t, err) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1795,18 +1795,18 @@ func TestLoginWithIPFilters(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.Filters.DeniedIP = []string{"192.167.0.0/24", "172.18.0.0/16"}
 	u.Filters.AllowedIP = []string{}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Greater(t, user.LastLogin, int64(0), "last login must be updated after a successful login: %v", user.LastLogin)
 	}
 	user.Filters.AllowedIP = []string{"127.0.0.0/8"}
-	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -1814,13 +1814,13 @@ func TestLoginWithIPFilters(t *testing.T) {
 		assert.NoError(t, checkBasicSFTP(client))
 	}
 	user.Filters.AllowedIP = []string{"172.19.0.0/16"}
-	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if !assert.Error(t, err, "login from an not allowed IP must fail") {
 		client.Close()
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1828,19 +1828,19 @@ func TestLoginWithIPFilters(t *testing.T) {
 
 func TestLoginAfterUserUpdateEmptyPwd(t *testing.T) {
 	usePubKey := false
-	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	user.Password = ""
 	user.PublicKeys = []string{}
 	// password and public key should remain unchanged
-	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1848,19 +1848,19 @@ func TestLoginAfterUserUpdateEmptyPwd(t *testing.T) {
 
 func TestLoginAfterUserUpdateEmptyPubKey(t *testing.T) {
 	usePubKey := true
-	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	user.Password = ""
 	user.PublicKeys = []string{}
 	// password and public key should remain unchanged
-	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1870,7 +1870,7 @@ func TestLoginKeyboardInteractiveAuth(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")
 	}
-	user, _, err := httpd.AddUser(getTestUser(false), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUser(false), http.StatusCreated)
 	assert.NoError(t, err)
 	err = ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), os.ModePerm)
 	assert.NoError(t, err)
@@ -1880,14 +1880,14 @@ func TestLoginKeyboardInteractiveAuth(t *testing.T) {
 		assert.NoError(t, checkBasicSFTP(client))
 	}
 	user.Status = 0
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getKeyboardInteractiveSftpClient(user, []string{"1", "2"})
 	if !assert.Error(t, err, "keyboard interactive auth must fail the user is disabled") {
 		client.Close()
 	}
 	user.Status = 1
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	err = ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, -1), os.ModePerm)
 	assert.NoError(t, err)
@@ -1907,7 +1907,7 @@ func TestLoginKeyboardInteractiveAuth(t *testing.T) {
 	if !assert.Error(t, err, "keyboard interactive auth must fail the script returned bad json") {
 		client.Close()
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1927,10 +1927,10 @@ func TestPreLoginScript(t *testing.T) {
 	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.PreLoginHook = preLoginPath
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(u, usePubKey)
 	if assert.NoError(t, err) {
@@ -1950,7 +1950,7 @@ func TestPreLoginScript(t *testing.T) {
 	if !assert.Error(t, err, "pre-login script returned a disabled user, login must fail") {
 		client.Close()
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1959,7 +1959,7 @@ func TestPreLoginScript(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 	err = os.Remove(preLoginPath)
 	assert.NoError(t, err)
@@ -1979,22 +1979,19 @@ func TestPreLoginUserCreation(t *testing.T) {
 	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.PreLoginHook = preLoginPath
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
-	users, _, err := httpd.GetUsers(0, 0, defaultUsername, http.StatusOK)
+	user, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusNotFound)
 	assert.NoError(t, err)
-	assert.Equal(t, 0, len(users))
 	client, err := getSftpClient(u, usePubKey)
 	if assert.NoError(t, err) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
 	}
-	users, _, err = httpd.GetUsers(0, 0, defaultUsername, http.StatusOK)
+	user, _, err = httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
 	assert.NoError(t, err)
-	assert.Equal(t, 1, len(users))
-	user := users[0]
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -2003,7 +2000,7 @@ func TestPreLoginUserCreation(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 	err = os.Remove(preLoginPath)
 	assert.NoError(t, err)
@@ -2017,7 +2014,7 @@ func TestPostConnectHook(t *testing.T) {
 
 	usePubKey := true
 	u := getTestUser(usePubKey)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	err = ioutil.WriteFile(postConnectPath, getPostConnectScriptContent(0), os.ModePerm)
 	assert.NoError(t, err)
@@ -2034,7 +2031,7 @@ func TestPostConnectHook(t *testing.T) {
 		client.Close()
 	}
 
-	common.Config.PostConnectHook = "http://127.0.0.1:8080/api/v1/version"
+	common.Config.PostConnectHook = "http://127.0.0.1:8080/healthz"
 
 	client, err = getSftpClient(u, usePubKey)
 	if assert.NoError(t, err) {
@@ -2049,7 +2046,7 @@ func TestPostConnectHook(t *testing.T) {
 		client.Close()
 	}
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -2073,9 +2070,9 @@ func TestCheckPwdHook(t *testing.T) {
 	assert.NoError(t, err)
 	providerConf.CheckPasswordHook = checkPwdPath
 	providerConf.CheckPasswordScope = 1
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
 	client, err := getSftpClient(user, usePubKey)
@@ -2101,15 +2098,15 @@ func TestCheckPwdHook(t *testing.T) {
 		assert.NoError(t, err)
 		client.Close()
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 
 	err = dataprovider.Close()
 	assert.NoError(t, err)
 	providerConf.CheckPasswordScope = 6
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
-	user, _, err = httpd.AddUser(u, http.StatusOK)
+	user, _, err = httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	user.Password = defaultPassword + "1"
 	client, err = getSftpClient(user, usePubKey)
@@ -2117,7 +2114,7 @@ func TestCheckPwdHook(t *testing.T) {
 		client.Close()
 	}
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -2127,7 +2124,7 @@ func TestCheckPwdHook(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 	err = os.Remove(checkPwdPath)
 	assert.NoError(t, err)
@@ -2149,7 +2146,7 @@ func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
 	testFileSize := int64(65535)
@@ -2179,26 +2176,23 @@ func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
 	}
-	users, _, err := httpd.GetUsers(0, 0, defaultUsername, http.StatusOK)
+	user, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
 	assert.NoError(t, err)
-	if assert.Equal(t, 1, len(users)) {
-		user := users[0]
-		assert.Equal(t, 0, len(user.PublicKeys))
-		assert.Equal(t, testFileSize, user.UsedQuotaSize)
-		assert.Equal(t, 1, user.UsedQuotaFiles)
+	assert.Equal(t, 0, len(user.PublicKeys))
+	assert.Equal(t, testFileSize, user.UsedQuotaSize)
+	assert.Equal(t, 1, user.UsedQuotaFiles)
 
-		_, err = httpd.RemoveUser(user, http.StatusOK)
-		assert.NoError(t, err)
-		err = os.RemoveAll(user.GetHomeDir())
-		assert.NoError(t, err)
-	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
 
 	err = dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 	err = os.Remove(extAuthPath)
 	assert.NoError(t, err)
@@ -2221,7 +2215,7 @@ func TestExternalAuthDifferentUsername(t *testing.T) {
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
 	// the user logins using "defaultUsername" and the external auth returns "extAuthUsername"
@@ -2246,30 +2240,26 @@ func TestExternalAuthDifferentUsername(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	users, _, err := httpd.GetUsers(0, 0, defaultUsername, http.StatusOK)
+	_, _, err = httpdtest.GetUserByUsername(defaultUsername, http.StatusNotFound)
 	assert.NoError(t, err)
-	assert.Equal(t, 0, len(users))
 
-	users, _, err = httpd.GetUsers(0, 0, extAuthUsername, http.StatusOK)
+	user, _, err := httpdtest.GetUserByUsername(extAuthUsername, http.StatusOK)
 	assert.NoError(t, err)
-	if assert.Equal(t, 1, len(users)) {
-		user := users[0]
-		assert.Equal(t, 0, len(user.PublicKeys))
-		assert.Equal(t, testFileSize, user.UsedQuotaSize)
-		assert.Equal(t, 1, user.UsedQuotaFiles)
+	assert.Equal(t, 0, len(user.PublicKeys))
+	assert.Equal(t, testFileSize, user.UsedQuotaSize)
+	assert.Equal(t, 1, user.UsedQuotaFiles)
 
-		_, err = httpd.RemoveUser(user, http.StatusOK)
-		assert.NoError(t, err)
-		err = os.RemoveAll(user.GetHomeDir())
-		assert.NoError(t, err)
-	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
 
 	err = dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 	err = os.Remove(extAuthPath)
 	assert.NoError(t, err)
@@ -2306,7 +2296,7 @@ func TestLoginExternalAuth(t *testing.T) {
 		assert.NoError(t, err)
 		providerConf.ExternalAuthHook = extAuthPath
 		providerConf.ExternalAuthScope = authScope
-		err = dataprovider.Initialize(providerConf, configDir)
+		err = dataprovider.Initialize(providerConf, configDir, true)
 		assert.NoError(t, err)
 
 		client, err := getSftpClient(u, usePubKey)
@@ -2325,30 +2315,27 @@ func TestLoginExternalAuth(t *testing.T) {
 		if !assert.Error(t, err, "external auth login with valid user but invalid auth scope must fail") {
 			client.Close()
 		}
-		users, _, err := httpd.GetUsers(0, 0, defaultUsername, http.StatusOK)
+		user, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, users, 1) {
-			user := users[0]
-			if assert.Len(t, user.VirtualFolders, 1) {
-				folder := user.VirtualFolders[0]
-				assert.Equal(t, mappedPath, folder.MappedPath)
-				assert.Equal(t, 1+authScope, folder.QuotaFiles)
-				assert.Equal(t, 10+int64(authScope), folder.QuotaSize)
-			}
-			_, err = httpd.RemoveUser(user, http.StatusOK)
-			assert.NoError(t, err)
-			err = os.RemoveAll(user.GetHomeDir())
-			assert.NoError(t, err)
+		if assert.Len(t, user.VirtualFolders, 1) {
+			folder := user.VirtualFolders[0]
+			assert.Equal(t, mappedPath, folder.MappedPath)
+			assert.Equal(t, 1+authScope, folder.QuotaFiles)
+			assert.Equal(t, 10+int64(authScope), folder.QuotaSize)
 		}
+		_, err = httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		err = os.RemoveAll(user.GetHomeDir())
+		assert.NoError(t, err)
 
-		_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
+		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
 		assert.NoError(t, err)
 		err = dataprovider.Close()
 		assert.NoError(t, err)
 		err = config.LoadConfig(configDir, "")
 		assert.NoError(t, err)
 		providerConf = config.GetProviderConf()
-		err = dataprovider.Initialize(providerConf, configDir)
+		err = dataprovider.Initialize(providerConf, configDir, true)
 		assert.NoError(t, err)
 		err = os.Remove(extAuthPath)
 		assert.NoError(t, err)
@@ -2370,7 +2357,7 @@ func TestLoginExternalAuthInteractive(t *testing.T) {
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 4
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
 	err = ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), os.ModePerm)
@@ -2391,11 +2378,9 @@ func TestLoginExternalAuthInteractive(t *testing.T) {
 	if !assert.Error(t, err, "external auth login with valid user but invalid auth scope must fail") {
 		client.Close()
 	}
-	users, _, err := httpd.GetUsers(0, 0, defaultUsername, http.StatusOK)
+	user, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
 	assert.NoError(t, err)
-	assert.Equal(t, 1, len(users))
-	user := users[0]
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -2405,7 +2390,7 @@ func TestLoginExternalAuthInteractive(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 	err = os.Remove(extAuthPath)
 	assert.NoError(t, err)
@@ -2426,7 +2411,7 @@ func TestLoginExternalAuthErrors(t *testing.T) {
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
 	client, err := getSftpClient(u, usePubKey)
@@ -2440,16 +2425,15 @@ func TestLoginExternalAuthErrors(t *testing.T) {
 	if !assert.Error(t, err, "login must fail, external auth returns a non json response") {
 		client.Close()
 	}
-	users, _, err := httpd.GetUsers(0, 0, defaultUsername, http.StatusOK)
+	_, _, err = httpdtest.GetUserByUsername(defaultUsername, http.StatusNotFound)
 	assert.NoError(t, err)
-	assert.Equal(t, 0, len(users))
 
 	err = dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 	err = os.Remove(extAuthPath)
 	assert.NoError(t, err)
@@ -2462,12 +2446,12 @@ func TestQuotaDisabledError(t *testing.T) {
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	providerConf.TrackQuota = 0
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 1
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -2485,7 +2469,7 @@ func TestQuotaDisabledError(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -2495,7 +2479,7 @@ func TestQuotaDisabledError(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 }
 
@@ -2505,7 +2489,7 @@ func TestMaxConnections(t *testing.T) {
 
 	usePubKey := true
 	u := getTestUser(usePubKey)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -2516,7 +2500,7 @@ func TestMaxConnections(t *testing.T) {
 			c.Close()
 		}
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -2529,7 +2513,7 @@ func TestMaxSessions(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.Username += "1"
 	u.MaxSessions = 1
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -2540,7 +2524,7 @@ func TestMaxSessions(t *testing.T) {
 			c.Close()
 		}
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -2550,11 +2534,11 @@ func TestQuotaFileReplace(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 1000
-	localUser, _, err := httpd.AddUser(u, http.StatusOK)
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	u = getTestSFTPUser(usePubKey)
 	u.QuotaFiles = 1000
-	sftpUser, _, err := httpd.AddUser(u, http.StatusOK)
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testFileSize := int64(65535)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
@@ -2571,7 +2555,7 @@ func TestQuotaFileReplace(t *testing.T) {
 			// now replace the same file, the quota must not change
 			err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 			assert.NoError(t, err)
-			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 			assert.NoError(t, err)
 			assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 			assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
@@ -2579,7 +2563,7 @@ func TestQuotaFileReplace(t *testing.T) {
 			// replacing a symlink is like uploading a new file
 			err = client.Symlink(testFileName, testFileName+".link")
 			assert.NoError(t, err)
-			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 			assert.NoError(t, err)
 			assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 			assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
@@ -2587,14 +2571,14 @@ func TestQuotaFileReplace(t *testing.T) {
 			expectedQuotaSize += testFileSize
 			err = sftpUploadFile(testFilePath, testFileName+".link", testFileSize, client)
 			assert.NoError(t, err)
-			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 			assert.NoError(t, err)
 			assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 			assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
 		}
 		// now set a quota size restriction and upload the same file, upload should fail for space limit exceeded
 		user.QuotaSize = testFileSize*2 - 1
-		user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+		user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 		assert.NoError(t, err)
 		client, err = getSftpClient(user, usePubKey)
 		if assert.NoError(t, err) {
@@ -2609,16 +2593,16 @@ func TestQuotaFileReplace(t *testing.T) {
 			assert.NoError(t, err)
 			user.UsedQuotaFiles = 0
 			user.UsedQuotaSize = 0
-			_, err = httpd.UpdateQuotaUsage(user, "reset", http.StatusOK)
+			_, err = httpdtest.UpdateQuotaUsage(user, "reset", http.StatusOK)
 			assert.NoError(t, err)
 			user.QuotaSize = 0
-			_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+			_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 			assert.NoError(t, err)
 		}
 	}
-	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
@@ -2630,11 +2614,11 @@ func TestQuotaRename(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 1000
-	localUser, _, err := httpd.AddUser(u, http.StatusOK)
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	u = getTestSFTPUser(usePubKey)
 	u.QuotaFiles = 1000
-	sftpUser, _, err := httpd.AddUser(u, http.StatusOK)
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testFileSize := int64(65535)
 	testFileSize1 := int64(65537)
@@ -2655,13 +2639,13 @@ func TestQuotaRename(t *testing.T) {
 			assert.NoError(t, err)
 			err = sftpUploadFile(testFilePath1, testFileName1, testFileSize1, client)
 			assert.NoError(t, err)
-			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 			assert.NoError(t, err)
 			assert.Equal(t, 2, user.UsedQuotaFiles)
 			assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
 			err = client.Rename(testFileName1, testFileName+".rename")
 			assert.NoError(t, err)
-			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 			assert.NoError(t, err)
 			assert.Equal(t, 1, user.UsedQuotaFiles)
 			assert.Equal(t, testFileSize1, user.UsedQuotaSize)
@@ -2680,7 +2664,7 @@ func TestQuotaRename(t *testing.T) {
 			assert.NoError(t, err)
 			err = client.Rename("testdir", "testdir1")
 			assert.Error(t, err)
-			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 			assert.NoError(t, err)
 			assert.Equal(t, 2, user.UsedQuotaFiles)
 			assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
@@ -2691,13 +2675,13 @@ func TestQuotaRename(t *testing.T) {
 			assert.NoError(t, err)
 			err = sftpUploadFile(testFilePath1, path.Join(testDir, testFileName1), testFileSize1, client)
 			assert.NoError(t, err)
-			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 			assert.NoError(t, err)
 			assert.Equal(t, 4, user.UsedQuotaFiles)
 			assert.Equal(t, testFileSize*2+testFileSize1*2, user.UsedQuotaSize)
 			err = client.Rename(testDir, testDir+"1")
 			assert.NoError(t, err)
-			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 			assert.NoError(t, err)
 			assert.Equal(t, 4, user.UsedQuotaFiles)
 			assert.Equal(t, testFileSize*2+testFileSize1*2, user.UsedQuotaSize)
@@ -2706,14 +2690,14 @@ func TestQuotaRename(t *testing.T) {
 				assert.NoError(t, err)
 				user.UsedQuotaFiles = 0
 				user.UsedQuotaSize = 0
-				_, err = httpd.UpdateQuotaUsage(user, "reset", http.StatusOK)
+				_, err = httpdtest.UpdateQuotaUsage(user, "reset", http.StatusOK)
 				assert.NoError(t, err)
 			}
 		}
 	}
-	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
@@ -2725,7 +2709,7 @@ func TestQuotaRename(t *testing.T) {
 
 func TestQuotaScan(t *testing.T) {
 	usePubKey := false
-	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	testFileSize := int64(65535)
 	expectedQuotaSize := user.UsedQuotaSize + testFileSize
@@ -2741,25 +2725,25 @@ func TestQuotaScan(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	// create user with the same home dir, so there is at least an untracked file
-	user, _, err = httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err = httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
-	_, err = httpd.StartQuotaScan(user, http.StatusAccepted)
+	_, err = httpdtest.StartQuotaScan(user, http.StatusAccepted)
 	assert.NoError(t, err)
 	assert.Eventually(t, func() bool {
-		scans, _, err := httpd.GetQuotaScans(http.StatusOK)
+		scans, _, err := httpdtest.GetQuotaScans(http.StatusOK)
 		if err == nil {
 			return len(scans) == 0
 		}
 		return false
 	}, 1*time.Second, 50*time.Millisecond)
-	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 	assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -2780,11 +2764,11 @@ func TestQuotaLimits(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 1
-	localUser, _, err := httpd.AddUser(u, http.StatusOK)
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	u = getTestSFTPUser(usePubKey)
 	u.QuotaFiles = 1
-	sftpUser, _, err := httpd.AddUser(u, http.StatusOK)
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testFileSize := int64(65535)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
@@ -2816,7 +2800,7 @@ func TestQuotaLimits(t *testing.T) {
 		// test quota size
 		user.QuotaSize = testFileSize - 1
 		user.QuotaFiles = 0
-		user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+		user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 		assert.NoError(t, err)
 		client, err = getSftpClient(user, usePubKey)
 		if assert.NoError(t, err) {
@@ -2831,7 +2815,7 @@ func TestQuotaLimits(t *testing.T) {
 		// now test quota limits while uploading the current file, we have 1 bytes remaining
 		user.QuotaSize = testFileSize + 1
 		user.QuotaFiles = 0
-		user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+		user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 		assert.NoError(t, err)
 		client, err = getSftpClient(user, usePubKey)
 		if assert.NoError(t, err) {
@@ -2857,7 +2841,7 @@ func TestQuotaLimits(t *testing.T) {
 			assert.NoError(t, err)
 			user.UsedQuotaFiles = 0
 			user.UsedQuotaSize = 0
-			_, err = httpd.UpdateQuotaUsage(user, "reset", http.StatusOK)
+			_, err = httpdtest.UpdateQuotaUsage(user, "reset", http.StatusOK)
 			assert.NoError(t, err)
 		}
 	}
@@ -2867,9 +2851,9 @@ func TestQuotaLimits(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.Remove(testFilePath2)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
@@ -2880,7 +2864,7 @@ func TestUploadMaxSize(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.Filters.MaxUploadFileSize = testFileSize + 1
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	err = createTestFile(testFilePath, testFileSize)
@@ -2907,7 +2891,7 @@ func TestUploadMaxSize(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.Remove(testFilePath1)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -2919,12 +2903,12 @@ func TestBandwidthAndConnections(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.UploadBandwidth = 120
 	u.DownloadBandwidth = 100
-	wantedUploadElapsed := 1000 * (testFileSize / 1000) / u.UploadBandwidth
-	wantedDownloadElapsed := 1000 * (testFileSize / 1000) / u.DownloadBandwidth
+	wantedUploadElapsed := 1000 * (testFileSize / 1024) / u.UploadBandwidth
+	wantedDownloadElapsed := 1000 * (testFileSize / 1024) / u.DownloadBandwidth
 	// 100 ms tolerance
 	wantedUploadElapsed -= 100
 	wantedDownloadElapsed -= 100
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -2964,7 +2948,7 @@ func TestBandwidthAndConnections(t *testing.T) {
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -2974,7 +2958,7 @@ func TestBandwidthAndConnections(t *testing.T) {
 func TestPatternsFilters(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testFileSize := int64(131072)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
@@ -2996,7 +2980,7 @@ func TestPatternsFilters(t *testing.T) {
 			DeniedPatterns:  []string{},
 		},
 	}
-	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -3016,7 +3000,7 @@ func TestPatternsFilters(t *testing.T) {
 		err = client.Rename("dir.zip", "dir1.zip")
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
@@ -3030,7 +3014,7 @@ func TestPatternsFilters(t *testing.T) {
 func TestExtensionsFilters(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testFileSize := int64(131072)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
@@ -3061,7 +3045,7 @@ func TestExtensionsFilters(t *testing.T) {
 			DeniedPatterns:  []string{},
 		},
 	}
-	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -3083,7 +3067,7 @@ func TestExtensionsFilters(t *testing.T) {
 		err = client.Rename("dir.zip", "dir1.zip")
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
@@ -3113,7 +3097,7 @@ func TestVirtualFolders(t *testing.T) {
 
 	err := os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -3188,9 +3172,9 @@ func TestVirtualFolders(t *testing.T) {
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -3250,7 +3234,7 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 		assert.NoError(t, err)
 		err = os.MkdirAll(mappedPath2, os.ModePerm)
 		assert.NoError(t, err)
-		user, _, err := httpd.AddUser(u, http.StatusOK)
+		user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 		assert.NoError(t, err)
 		client, err := getSftpClient(user, usePubKey)
 		if assert.NoError(t, err) {
@@ -3293,11 +3277,11 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 			err = client.Rename(path.Join(vdirPath1, testFileName+".rename"), testFileName)
 			assert.Error(t, err)
 		}
-		_, err = httpd.RemoveUser(user, http.StatusOK)
+		_, err = httpdtest.RemoveUser(user, http.StatusOK)
 		assert.NoError(t, err)
-		_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
 		assert.NoError(t, err)
-		_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
 		assert.NoError(t, err)
 		err = os.RemoveAll(user.GetHomeDir())
 		assert.NoError(t, err)
@@ -3325,11 +3309,11 @@ func TestTruncateQuotaLimits(t *testing.T) {
 		VirtualPath: vdirPath,
 		QuotaFiles:  10,
 	})
-	localUser, _, err := httpd.AddUser(u, http.StatusOK)
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	u = getTestSFTPUser(usePubKey)
 	u.QuotaSize = 20
-	sftpUser, _, err := httpd.AddUser(u, http.StatusOK)
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	for _, user := range []dataprovider.User{localUser, sftpUser} {
 		client, err := getSftpClient(user, usePubKey)
@@ -3345,7 +3329,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 				assert.NoError(t, err)
 				expectedQuotaFiles := 0
 				expectedQuotaSize := int64(2)
-				user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+				user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 				assert.NoError(t, err)
 				assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 				assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
@@ -3357,7 +3341,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 				err = f.Truncate(5)
 				assert.NoError(t, err)
 				expectedQuotaSize = int64(5)
-				user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+				user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 				assert.NoError(t, err)
 				assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 				assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
@@ -3370,7 +3354,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 				assert.NoError(t, err)
 				expectedQuotaFiles = 1
 				expectedQuotaSize = int64(5) + int64(len(data))
-				user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+				user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 				assert.NoError(t, err)
 				assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 				assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
@@ -3378,7 +3362,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 			// now truncate by path
 			err = client.Truncate(testFileName, 5)
 			assert.NoError(t, err)
-			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 			assert.NoError(t, err)
 			assert.Equal(t, 1, user.UsedQuotaFiles)
 			assert.Equal(t, int64(5), user.UsedQuotaSize)
@@ -3387,7 +3371,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 			if assert.NoError(t, err) {
 				err = f.Close()
 				assert.NoError(t, err)
-				user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+				user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 				assert.NoError(t, err)
 				assert.Equal(t, 1, user.UsedQuotaFiles)
 				assert.Equal(t, int64(5), user.UsedQuotaSize)
@@ -3397,7 +3381,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 			if assert.NoError(t, err) {
 				err = f.Close()
 				assert.NoError(t, err)
-				user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+				user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 				assert.NoError(t, err)
 				assert.Equal(t, 1, user.UsedQuotaFiles)
 				assert.Equal(t, int64(0), user.UsedQuotaSize)
@@ -3410,7 +3394,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 				assert.Equal(t, len(data), n)
 				err = f.Truncate(11)
 				assert.NoError(t, err)
-				user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+				user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 				assert.NoError(t, err)
 				assert.Equal(t, 1, user.UsedQuotaFiles)
 				assert.Equal(t, int64(11), user.UsedQuotaSize)
@@ -3421,7 +3405,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 				assert.Equal(t, len(data), n)
 				err = f.Truncate(5)
 				assert.NoError(t, err)
-				user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+				user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 				assert.NoError(t, err)
 				assert.Equal(t, 1, user.UsedQuotaFiles)
 				assert.Equal(t, int64(5), user.UsedQuotaSize)
@@ -3432,7 +3416,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 				assert.Equal(t, len(data), n)
 				err = f.Truncate(12)
 				assert.NoError(t, err)
-				user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+				user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 				assert.NoError(t, err)
 				assert.Equal(t, 1, user.UsedQuotaFiles)
 				assert.Equal(t, int64(12), user.UsedQuotaSize)
@@ -3445,7 +3429,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 				err = f.Close()
 				assert.Error(t, err)
 				// the file is deleted
-				user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+				user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 				assert.NoError(t, err)
 				assert.Equal(t, 0, user.UsedQuotaFiles)
 				assert.Equal(t, int64(0), user.UsedQuotaSize)
@@ -3463,7 +3447,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 					assert.NoError(t, err)
 					expectedQuotaFiles := 0
 					expectedQuotaSize := int64(2)
-					folder, _, err := httpd.GetFolders(0, 0, mappedPath, http.StatusOK)
+					folder, _, err := httpdtest.GetFolders(0, 0, mappedPath, http.StatusOK)
 					assert.NoError(t, err)
 					if assert.Len(t, folder, 1) {
 						fold := folder[0]
@@ -3473,7 +3457,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 					err = f.Close()
 					assert.NoError(t, err)
 					expectedQuotaFiles = 1
-					folder, _, err = httpd.GetFolders(0, 0, mappedPath, http.StatusOK)
+					folder, _, err = httpdtest.GetFolders(0, 0, mappedPath, http.StatusOK)
 					assert.NoError(t, err)
 					if assert.Len(t, folder, 1) {
 						fold := folder[0]
@@ -3483,7 +3467,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 				}
 				err = client.Truncate(vfileName, 1)
 				assert.NoError(t, err)
-				folder, _, err := httpd.GetFolders(0, 0, mappedPath, http.StatusOK)
+				folder, _, err := httpdtest.GetFolders(0, 0, mappedPath, http.StatusOK)
 				assert.NoError(t, err)
 				if assert.Len(t, folder, 1) {
 					fold := folder[0]
@@ -3495,21 +3479,21 @@ func TestTruncateQuotaLimits(t *testing.T) {
 				assert.NoError(t, err)
 				user.UsedQuotaFiles = 0
 				user.UsedQuotaSize = 0
-				_, err = httpd.UpdateQuotaUsage(user, "reset", http.StatusOK)
+				_, err = httpdtest.UpdateQuotaUsage(user, "reset", http.StatusOK)
 				assert.NoError(t, err)
 				user.QuotaSize = 0
-				_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+				_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 				assert.NoError(t, err)
 			}
 		}
 	}
-	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath)
 	assert.NoError(t, err)
@@ -3565,7 +3549,7 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath3, os.ModePerm)
 	assert.NoError(t, err)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -3637,13 +3621,13 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 		err = client.Rename(aDir, path.Join(vdirPath3, aDir))
 		assert.Error(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath3}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath3}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -3689,7 +3673,7 @@ func TestVirtualFoldersQuotaValues(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -3711,18 +3695,18 @@ func TestVirtualFoldersQuotaValues(t *testing.T) {
 		assert.NoError(t, err)
 		expectedQuotaFiles := 2
 		expectedQuotaSize := testFileSize * 2
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
-		folder, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err := httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize, f.UsedQuotaSize)
 			assert.Equal(t, 1, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -3735,14 +3719,14 @@ func TestVirtualFoldersQuotaValues(t *testing.T) {
 		err = client.Remove(path.Join(vdirPath2, testFileName))
 		assert.NoError(t, err)
 
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, int64(0), f.UsedQuotaSize)
 			assert.Equal(t, 0, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -3752,11 +3736,11 @@ func TestVirtualFoldersQuotaValues(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -3796,7 +3780,7 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -3828,18 +3812,18 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath1, path.Join(vdirPath2, dir2, testFileName1), testFileSize1, client)
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
-		folder, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err := httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
 			assert.Equal(t, 2, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -3859,11 +3843,11 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 		// - vdir2/dir2/testFileName1
 		err = client.Rename(path.Join(vdirPath1, dir1, testFileName), path.Join(vdirPath1, dir1, testFileName+".rename"))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -3877,18 +3861,18 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 		// - vdir2/dir2/testFileName1
 		err = client.Rename(path.Join(vdirPath2, dir1, testFileName), path.Join(vdirPath2, dir1, testFileName+".rename"))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
 			assert.Equal(t, 2, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -3901,18 +3885,18 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 		// - vdir2/dir1/testFileName.rename (initial testFileName1)
 		err = client.Rename(path.Join(vdirPath2, dir2, testFileName1), path.Join(vdirPath2, dir1, testFileName+".rename"))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
 			assert.Equal(t, 1, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -3924,18 +3908,18 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 		// - vdir2/dir1/testFileName.rename (initial testFileName1)
 		err = client.Rename(path.Join(vdirPath1, dir2, testFileName1), path.Join(vdirPath1, dir1, testFileName+".rename"))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
 			assert.Equal(t, 1, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -3951,18 +3935,18 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Rename(path.Join(vdirPath2, dir1), path.Join(vdirPath2, dir2))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
 			assert.Equal(t, 1, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -3975,11 +3959,11 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 		err = os.Remove(testFilePath1)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -4019,7 +4003,7 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -4064,18 +4048,18 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 		// - vdir2/dir1/testFileName1.rename
 		err = client.Rename(path.Join(vdirPath1, dir2, testFileName1), path.Join(vdirPath2, dir1, testFileName1+".rename"))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize, user.UsedQuotaSize)
-		folder, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err := httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize, f.UsedQuotaSize)
 			assert.Equal(t, 1, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4089,18 +4073,18 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 		// - vdir2/dir1/testFileName1.rename
 		err = client.Rename(path.Join(vdirPath2, dir1, testFileName), path.Join(vdirPath1, dir2, testFileName+".rename"))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize*2, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize*2, f.UsedQuotaSize)
 			assert.Equal(t, 2, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4113,18 +4097,18 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 		// - vdir2/dir1/testFileName1.rename
 		err = client.Rename(path.Join(vdirPath1, dir1, testFileName), path.Join(vdirPath2, dir2, testFileName1))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize, f.UsedQuotaSize)
 			assert.Equal(t, 1, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4136,18 +4120,18 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 		// - vdir2/dir2/testFileName1 (is the initial testFileName)
 		err = client.Rename(path.Join(vdirPath2, dir1, testFileName1+".rename"), path.Join(vdirPath1, dir2, testFileName+".rename"))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
 			assert.Equal(t, 1, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4173,18 +4157,18 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 		// rename directories between the two virtual folders
 		err = client.Rename(path.Join(vdirPath2, dir2), path.Join(vdirPath1, dir1))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 5, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize1*3+testFileSize*2, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize1*3+testFileSize*2, f.UsedQuotaSize)
 			assert.Equal(t, 5, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4194,18 +4178,18 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 		// now move on vpath2
 		err = client.Rename(path.Join(vdirPath1, dir2), path.Join(vdirPath2, dir1))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 3, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize1*2+testFileSize, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize1*2+testFileSize, f.UsedQuotaSize)
 			assert.Equal(t, 3, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4218,11 +4202,11 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 		err = os.Remove(testFilePath1)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -4262,7 +4246,7 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -4307,18 +4291,18 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 		// - vdir2/dir2/testFileName1
 		err = client.Rename(path.Join(vdirPath1, dir1, testFileName), path.Join(testFileName))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
-		folder, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err := httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
 			assert.Equal(t, 1, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4332,18 +4316,18 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 		// - vdir2/dir1/testFileName
 		err = client.Rename(path.Join(vdirPath2, dir2, testFileName1), path.Join(testFileName1))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 3, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
 			assert.Equal(t, 1, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4356,18 +4340,18 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 		// - vdir2/dir1/testFileName
 		err = client.Rename(path.Join(vdirPath1, dir2, testFileName1), path.Join(testFileName))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize1+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, int64(0), f.UsedQuotaSize)
 			assert.Equal(t, 0, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4379,18 +4363,18 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 		// - testFileName1 (initial testFileName)
 		err = client.Rename(path.Join(vdirPath2, dir1, testFileName), path.Join(testFileName1))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, int64(0), f.UsedQuotaSize)
 			assert.Equal(t, 0, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4414,18 +4398,18 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 		// - dir1/testFileName1
 		err = client.Rename(path.Join(vdirPath2, dir1), dir1)
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 6, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize*3+testFileSize1*3, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
 			assert.Equal(t, 2, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4440,18 +4424,18 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 		// - dir1/testFileName1
 		err = client.Rename(path.Join(vdirPath1, dir1), dir2)
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 6, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize*3+testFileSize1*3, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, int64(0), f.UsedQuotaSize)
 			assert.Equal(t, 0, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4464,11 +4448,11 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 		err = os.Remove(testFilePath1)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -4508,7 +4492,7 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -4545,11 +4529,11 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 		// - /vdir1/dir1/testFileName1
 		err = client.Rename(testFileName1, path.Join(vdirPath1, dir1, testFileName1))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
-		folder, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err := httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4561,11 +4545,11 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 		// - /vdir1/dir1/testFileName1
 		err = client.Rename(testFileName, path.Join(vdirPath2, dir1, testFileName))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4581,7 +4565,7 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath1, testFileName1, testFileSize1, client)
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 3, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1+testFileSize1, user.UsedQuotaSize)
@@ -4591,18 +4575,18 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 		// - /vdir2/dir1/testFileName
 		err = client.Rename(testFileName, path.Join(vdirPath1, dir1, testFileName1))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize, f.UsedQuotaSize)
 			assert.Equal(t, 1, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4614,18 +4598,18 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 		// - /vdir2/dir1/testFileName (initial testFileName1)
 		err = client.Rename(testFileName1, path.Join(vdirPath2, dir1, testFileName))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize, f.UsedQuotaSize)
 			assert.Equal(t, 1, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4643,18 +4627,18 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 		// - /dir1/testFileName1
 		// - /vdir1/dir1/testFileName1 (initial testFileName)
 		// - /vdir2/dir1/testFileName (initial testFileName1)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 3, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize*2+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize, f.UsedQuotaSize)
 			assert.Equal(t, 1, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4667,18 +4651,18 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 		// - /vdir2/dir1/testFileName (initial testFileName1)
 		err = client.Rename(dir1, path.Join(vdirPath1, "adir"))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 3, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize*2+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize*2+testFileSize1, f.UsedQuotaSize)
 			assert.Equal(t, 3, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4699,18 +4683,18 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 		// - /vdir2/adir/testFileName1
 		err = client.Rename(dir1, path.Join(vdirPath2, "adir"))
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 3, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize*2+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize*2+testFileSize1, f.UsedQuotaSize)
 			assert.Equal(t, 3, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -4723,11 +4707,11 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 		err = os.Remove(testFilePath1)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -4766,7 +4750,7 @@ func TestVirtualFoldersLink(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -4815,11 +4799,11 @@ func TestVirtualFoldersLink(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -4836,7 +4820,7 @@ func TestOverlappedMappedFolders(t *testing.T) {
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	providerConf.TrackQuota = 0
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
 	usePubKey := false
@@ -4862,7 +4846,7 @@ func TestOverlappedMappedFolders(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -4912,7 +4896,7 @@ func TestOverlappedMappedFolders(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
-	err = dataprovider.Initialize(providerConf, configDir)
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
 	if providerConf.Driver != dataprovider.MemoryDataProviderName {
@@ -4921,15 +4905,15 @@ func TestOverlappedMappedFolders(t *testing.T) {
 			client.Close()
 		}
 
-		_, err = httpd.RemoveUser(user, http.StatusOK)
+		_, err = httpdtest.RemoveUser(user, http.StatusOK)
 		assert.NoError(t, err)
-		_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
 		assert.NoError(t, err)
-		_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
 		assert.NoError(t, err)
 	}
 
-	_, _, err = httpd.AddUser(u, http.StatusOK)
+	_, _, err = httpdtest.AddUser(u, http.StatusCreated)
 	assert.Error(t, err)
 
 	err = os.RemoveAll(user.GetHomeDir())
@@ -5029,27 +5013,27 @@ func TestVirtualFolderQuotaScan(t *testing.T) {
 	assert.NoError(t, err)
 	expectedQuotaSize := testFileSize
 	expectedQuotaFiles := 1
-	folder, _, err := httpd.AddFolder(vfs.BaseVirtualFolder{
+	folder, _, err := httpdtest.AddFolder(vfs.BaseVirtualFolder{
 		MappedPath: mappedPath,
-	}, http.StatusOK)
+	}, http.StatusCreated)
 	assert.NoError(t, err)
-	_, err = httpd.StartFolderQuotaScan(folder, http.StatusAccepted)
+	_, err = httpdtest.StartFolderQuotaScan(folder, http.StatusAccepted)
 	assert.NoError(t, err)
 	assert.Eventually(t, func() bool {
-		scans, _, err := httpd.GetFoldersQuotaScans(http.StatusOK)
+		scans, _, err := httpdtest.GetFoldersQuotaScans(http.StatusOK)
 		if err == nil {
 			return len(scans) == 0
 		}
 		return false
 	}, 1*time.Second, 50*time.Millisecond)
-	folders, _, err := httpd.GetFolders(0, 0, mappedPath, http.StatusOK)
+	folders, _, err := httpdtest.GetFolders(0, 0, mappedPath, http.StatusOK)
 	assert.NoError(t, err)
 	if assert.Len(t, folders, 1) {
 		folder = folders[0]
 		assert.Equal(t, expectedQuotaFiles, folder.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize, folder.UsedQuotaSize)
 	}
-	_, err = httpd.RemoveFolder(folder, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath)
 	assert.NoError(t, err)
@@ -5103,7 +5087,7 @@ func TestVFolderQuotaSize(t *testing.T) {
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5119,33 +5103,33 @@ func TestVFolderQuotaSize(t *testing.T) {
 		// now vdir2 is over quota
 		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, testFileName+".quota"), testFileSize, client)
 		assert.Error(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize, user.UsedQuotaSize)
 		// remove a file
 		err = client.Remove(testFileName)
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 0, user.UsedQuotaFiles)
 		assert.Equal(t, int64(0), user.UsedQuotaSize)
 		// upload to vdir1 must work now
 		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, testFileName), testFileSize, client)
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize, user.UsedQuotaSize)
 
-		folder, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err := httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize, f.UsedQuotaSize)
 			assert.Equal(t, 1, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -5164,7 +5148,7 @@ func TestVFolderQuotaSize(t *testing.T) {
 		QuotaFiles:  10,
 		QuotaSize:   testFileSize*2 + 1,
 	})
-	user1, _, err := httpd.AddUser(u, http.StatusOK)
+	user1, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err = getSftpClient(user1, usePubKey)
 	if assert.NoError(t, err) {
@@ -5176,14 +5160,14 @@ func TestVFolderQuotaSize(t *testing.T) {
 		assert.Error(t, err)
 	}
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user1, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
 	assert.NoError(t, err)
 
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5196,7 +5180,7 @@ func TestVFolderQuotaSize(t *testing.T) {
 func TestMissingFile(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5207,7 +5191,7 @@ func TestMissingFile(t *testing.T) {
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5219,7 +5203,7 @@ func TestOpenError(t *testing.T) {
 	}
 	usePubKey := false
 	u := getTestUser(usePubKey)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5264,7 +5248,7 @@ func TestOpenError(t *testing.T) {
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5273,7 +5257,7 @@ func TestOpenError(t *testing.T) {
 func TestOverwriteDirWithFile(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5298,7 +5282,7 @@ func TestOverwriteDirWithFile(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5318,7 +5302,7 @@ func TestHashedPasswords(t *testing.T) {
 	for pwd, clearPwd := range pwdMapping {
 		u := getTestUser(usePubKey)
 		u.Password = pwd
-		user, _, err := httpd.AddUser(u, http.StatusOK)
+		user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 		assert.NoError(t, err)
 		user.Password = clearPwd
 		client, err := getSftpClient(user, usePubKey)
@@ -5331,7 +5315,7 @@ func TestHashedPasswords(t *testing.T) {
 		if !assert.Error(t, err, "login with wrong password must fail") {
 			client.Close()
 		}
-		_, err = httpd.RemoveUser(user, http.StatusOK)
+		_, err = httpdtest.RemoveUser(user, http.StatusOK)
 		assert.NoError(t, err)
 		err = os.RemoveAll(user.GetHomeDir())
 		assert.NoError(t, err)
@@ -5355,7 +5339,7 @@ func TestPasswordsHashPbkdf2Sha256_389DS(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
 	u.Password = pbkdf2Pwd
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	user.Password = pbkdf2ClearPwd
 	client, err := getSftpClient(user, usePubKey)
@@ -5368,7 +5352,7 @@ func TestPasswordsHashPbkdf2Sha256_389DS(t *testing.T) {
 	if !assert.Error(t, err, "login with wrong password must fail") {
 		client.Close()
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5381,7 +5365,7 @@ func TestPermList(t *testing.T) {
 		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite, dataprovider.PermChmod,
 		dataprovider.PermChown, dataprovider.PermChtimes}
 	u.Permissions["/sub"] = []string{dataprovider.PermCreateSymlinks, dataprovider.PermListItems}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5408,7 +5392,7 @@ func TestPermList(t *testing.T) {
 		_, err = client.ReadLink(path.Join("/sub", testFileName))
 		assert.Error(t, err, "read remote link without permission on targe dir should not succeed")
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5420,7 +5404,7 @@ func TestPermDownload(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermUpload, dataprovider.PermDelete, dataprovider.PermRename,
 		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite, dataprovider.PermChmod,
 		dataprovider.PermChown, dataprovider.PermChtimes}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5441,7 +5425,7 @@ func TestPermDownload(t *testing.T) {
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5453,7 +5437,7 @@ func TestPermUpload(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermDelete, dataprovider.PermRename,
 		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite, dataprovider.PermChmod,
 		dataprovider.PermChown, dataprovider.PermChtimes}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5467,7 +5451,7 @@ func TestPermUpload(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5479,7 +5463,7 @@ func TestPermOverwrite(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
 		dataprovider.PermRename, dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermChmod,
 		dataprovider.PermChown, dataprovider.PermChtimes}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5495,7 +5479,7 @@ func TestPermOverwrite(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5507,7 +5491,7 @@ func TestPermDelete(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermRename,
 		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite, dataprovider.PermChmod,
 		dataprovider.PermChown, dataprovider.PermChtimes}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5523,7 +5507,7 @@ func TestPermDelete(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5536,7 +5520,7 @@ func TestPermRename(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload,
 		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite, dataprovider.PermChmod,
 		dataprovider.PermChown, dataprovider.PermChtimes}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5554,7 +5538,7 @@ func TestPermRename(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5567,7 +5551,7 @@ func TestPermRenameOverwrite(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
 		dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermChmod, dataprovider.PermRename,
 		dataprovider.PermChown, dataprovider.PermChtimes}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5589,7 +5573,7 @@ func TestPermRenameOverwrite(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5601,7 +5585,7 @@ func TestPermCreateDirs(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
 		dataprovider.PermRename, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite, dataprovider.PermChmod,
 		dataprovider.PermChown, dataprovider.PermChtimes}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5609,7 +5593,7 @@ func TestPermCreateDirs(t *testing.T) {
 		err = client.Mkdir("testdir")
 		assert.Error(t, err, "mkdir without permission should not succeed")
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5622,7 +5606,7 @@ func TestPermSymlink(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
 		dataprovider.PermRename, dataprovider.PermCreateDirs, dataprovider.PermOverwrite, dataprovider.PermChmod, dataprovider.PermChown,
 		dataprovider.PermChtimes}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5640,7 +5624,7 @@ func TestPermSymlink(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5652,7 +5636,7 @@ func TestPermChmod(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
 		dataprovider.PermRename, dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite,
 		dataprovider.PermChown, dataprovider.PermChtimes}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5670,7 +5654,7 @@ func TestPermChmod(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5683,7 +5667,7 @@ func TestPermChown(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
 		dataprovider.PermRename, dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite,
 		dataprovider.PermChmod, dataprovider.PermChtimes}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5701,7 +5685,7 @@ func TestPermChown(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5714,7 +5698,7 @@ func TestPermChtimes(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDelete,
 		dataprovider.PermRename, dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermOverwrite,
 		dataprovider.PermChmod, dataprovider.PermChown}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5732,7 +5716,7 @@ func TestPermChtimes(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5743,7 +5727,7 @@ func TestSubDirsUploads(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
 	u.Permissions["/subdir"] = []string{dataprovider.PermChtimes, dataprovider.PermDownload, dataprovider.PermOverwrite}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5794,7 +5778,7 @@ func TestSubDirsUploads(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5805,7 +5789,7 @@ func TestSubDirsOverwrite(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
 	u.Permissions["/subdir"] = []string{dataprovider.PermOverwrite, dataprovider.PermListItems}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5825,7 +5809,7 @@ func TestSubDirsOverwrite(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5836,7 +5820,7 @@ func TestSubDirsDownloads(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
 	u.Permissions["/subdir"] = []string{dataprovider.PermChmod, dataprovider.PermUpload, dataprovider.PermListItems}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5868,7 +5852,7 @@ func TestSubDirsDownloads(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5881,7 +5865,7 @@ func TestPermsSubDirsSetstat(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermCreateDirs}
 	u.Permissions["/subdir"] = []string{dataprovider.PermAny}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5904,7 +5888,7 @@ func TestPermsSubDirsSetstat(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5912,7 +5896,7 @@ func TestPermsSubDirsSetstat(t *testing.T) {
 
 func TestOpenUnhandledChannel(t *testing.T) {
 	u := getTestUser(false)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
 	config := &ssh.ClientConfig{
@@ -5931,7 +5915,7 @@ func TestOpenUnhandledChannel(t *testing.T) {
 		err = conn.Close()
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5943,7 +5927,7 @@ func TestPermsSubDirsCommands(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermAny}
 	u.Permissions["/subdir"] = []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermCreateDirs}
 	u.Permissions["/subdir/otherdir"] = []string{dataprovider.PermListItems, dataprovider.PermDownload}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -5978,7 +5962,7 @@ func TestPermsSubDirsCommands(t *testing.T) {
 		err = client.RemoveDirectory("/otherdir1")
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5989,12 +5973,12 @@ func TestRootDirCommands(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
 	u.Permissions["/subdir"] = []string{dataprovider.PermDownload, dataprovider.PermUpload}
-	localUser, _, err := httpd.AddUser(u, http.StatusOK)
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	u = getTestSFTPUser(usePubKey)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
 	u.Permissions["/subdir"] = []string{dataprovider.PermDownload, dataprovider.PermUpload}
-	sftpUser, _, err := httpd.AddUser(u, http.StatusOK)
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	for _, user := range []dataprovider.User{localUser, sftpUser} {
 		client, err := getSftpClient(user, usePubKey)
@@ -6012,13 +5996,13 @@ func TestRootDirCommands(t *testing.T) {
 			assert.NoError(t, err)
 			user.Permissions = make(map[string][]string)
 			user.Permissions["/"] = []string{dataprovider.PermAny}
-			_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+			_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 			assert.NoError(t, err)
 		}
 	}
-	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
@@ -6487,7 +6471,7 @@ func TestGetVirtualFolderForPath(t *testing.T) {
 
 func TestSSHCommands(t *testing.T) {
 	usePubKey := false
-	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	_, err = runSSHCommand("ls", user, usePubKey)
 	assert.Error(t, err, "unsupported ssh command must fail")
@@ -6515,19 +6499,19 @@ func TestSSHCommands(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, string(out), "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
 
 func TestSSHFileHash(t *testing.T) {
 	usePubKey := true
-	localUser, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	localUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
-	sftpUser, _, err := httpd.AddUser(getTestSFTPUser(usePubKey), http.StatusOK)
+	sftpUser, _, err := httpdtest.AddUser(getTestSFTPUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	u := getTestUserWithCryptFs(usePubKey)
 	u.Username = u.Username + "_crypt"
-	cryptUser, _, err := httpd.AddUser(u, http.StatusOK)
+	cryptUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	for _, user := range []dataprovider.User{localUser, sftpUser, cryptUser} {
 		client, err := getSftpClient(user, usePubKey)
@@ -6541,13 +6525,13 @@ func TestSSHFileHash(t *testing.T) {
 			assert.NoError(t, err)
 			user.Permissions = make(map[string][]string)
 			user.Permissions["/"] = []string{dataprovider.PermUpload}
-			_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+			_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 			assert.NoError(t, err)
 			_, err = runSSHCommand("sha512sum "+testFileName, user, usePubKey)
 			assert.Error(t, err, "hash command with no list permission must fail")
 
 			user.Permissions["/"] = []string{dataprovider.PermAny}
-			_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+			_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 			assert.NoError(t, err)
 
 			initialHash, err := computeHashForFile(sha512.New(), testFilePath)
@@ -6564,11 +6548,11 @@ func TestSSHFileHash(t *testing.T) {
 			assert.NoError(t, err)
 		}
 	}
-	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(cryptUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(cryptUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
@@ -6608,7 +6592,7 @@ func TestSSHCopy(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testDir := "adir"
 	testDir1 := "adir1"
@@ -6644,18 +6628,18 @@ func TestSSHCopy(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Symlink(path.Join(testDir, testFileName), testFileName)
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 4, user.UsedQuotaFiles)
 		assert.Equal(t, 2*testFileSize+2*testFileSize1, user.UsedQuotaSize)
-		folder, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err := httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
 			assert.Equal(t, 2, f.UsedQuotaFiles)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -6678,7 +6662,7 @@ func TestSSHCopy(t *testing.T) {
 			if assert.NoError(t, err) {
 				assert.True(t, fi.IsDir())
 			}
-			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 			assert.NoError(t, err)
 			assert.Equal(t, 6, user.UsedQuotaFiles)
 			assert.Equal(t, 3*testFileSize+3*testFileSize1, user.UsedQuotaSize)
@@ -6695,7 +6679,7 @@ func TestSSHCopy(t *testing.T) {
 			if assert.NoError(t, err) {
 				assert.True(t, fi.Mode().IsRegular())
 			}
-			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 			assert.NoError(t, err)
 			assert.Equal(t, 7, user.UsedQuotaFiles)
 			assert.Equal(t, 4*testFileSize+3*testFileSize1, user.UsedQuotaSize)
@@ -6708,11 +6692,11 @@ func TestSSHCopy(t *testing.T) {
 			if assert.NoError(t, err) {
 				assert.True(t, fi.IsDir())
 			}
-			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 			assert.NoError(t, err)
 			assert.Equal(t, 7, user.UsedQuotaFiles)
 			assert.Equal(t, 4*testFileSize+3*testFileSize1, user.UsedQuotaSize)
-			folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+			folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 			assert.NoError(t, err)
 			if assert.Len(t, folder, 1) {
 				f := folder[0]
@@ -6726,11 +6710,11 @@ func TestSSHCopy(t *testing.T) {
 			assert.Equal(t, "OK\n", string(out))
 			_, err := client.Stat(path.Join(vdirPath2, testDir1+"copy"))
 			assert.NoError(t, err)
-			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 			assert.NoError(t, err)
 			assert.Equal(t, 9, user.UsedQuotaFiles)
 			assert.Equal(t, 5*testFileSize+4*testFileSize1, user.UsedQuotaSize)
-			folder, _, err = httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+			folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 			assert.NoError(t, err)
 			if assert.Len(t, folder, 1) {
 				f := folder[0]
@@ -6778,11 +6762,11 @@ func TestSSHCopy(t *testing.T) {
 		err = os.Remove(testFilePath1)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -6800,7 +6784,7 @@ func TestSSHCopyPermissions(t *testing.T) {
 		dataprovider.PermListItems}
 	u.Permissions["/dir3"] = []string{dataprovider.PermCreateDirs, dataprovider.PermCreateSymlinks, dataprovider.PermDownload,
 		dataprovider.PermListItems}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -6848,7 +6832,7 @@ func TestSSHCopyPermissions(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -6892,7 +6876,7 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -6933,18 +6917,18 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath2, testDir)), user, usePubKey)
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 0, user.UsedQuotaFiles)
 		assert.Equal(t, int64(0), user.UsedQuotaSize)
-		folder, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		folder, _, err := httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
 			assert.Equal(t, 0, f.UsedQuotaFiles)
 			assert.Equal(t, int64(0), f.UsedQuotaSize)
 		}
-		folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, folder, 1) {
 			f := folder[0]
@@ -6977,7 +6961,7 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 		user.QuotaSize = testFileSize * 10
 		user.VirtualFolders[1].QuotaSize = testFileSize
 		user.VirtualFolders[1].QuotaFiles = 10
-		user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+		user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.QuotaFiles)
 		assert.Equal(t, testFileSize*10, user.QuotaSize)
@@ -7002,11 +6986,11 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -7044,7 +7028,7 @@ func TestSSHRemove(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -7090,7 +7074,7 @@ func TestSSHRemove(t *testing.T) {
 			assert.Equal(t, "OK\n", string(out))
 			_, err := client.Stat(testFileName)
 			assert.Error(t, err)
-			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 			assert.NoError(t, err)
 			assert.Equal(t, 3, user.UsedQuotaFiles)
 			assert.Equal(t, testFileSize+2*testFileSize1, user.UsedQuotaSize)
@@ -7100,7 +7084,7 @@ func TestSSHRemove(t *testing.T) {
 			assert.Equal(t, "OK\n", string(out))
 			_, err := client.Stat(path.Join(vdirPath1, testFileName))
 			assert.Error(t, err)
-			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 			assert.NoError(t, err)
 			assert.Equal(t, 1, user.UsedQuotaFiles)
 			assert.Equal(t, testFileSize1, user.UsedQuotaSize)
@@ -7127,7 +7111,7 @@ func TestSSHRemove(t *testing.T) {
 
 	// test remove dir with no delete perm
 	user.Permissions["/"] = []string{dataprovider.PermUpload, dataprovider.PermDownload, dataprovider.PermListItems}
-	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -7136,11 +7120,11 @@ func TestSSHRemove(t *testing.T) {
 		assert.Error(t, err)
 	}
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -7156,7 +7140,7 @@ func TestBasicGitCommands(t *testing.T) {
 	}
 	usePubKey := true
 	u := getTestUser(usePubKey)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
 	repoName := "testrepo" //nolint:goconst
@@ -7175,7 +7159,7 @@ func TestBasicGitCommands(t *testing.T) {
 	assert.NoError(t, err, "unexpected error, out: %v", string(out))
 
 	user.QuotaFiles = 100000
-	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 
 	out, err = pushToGitRepo(clonePath)
@@ -7186,10 +7170,10 @@ func TestBasicGitCommands(t *testing.T) {
 	out, err = addFileToGitRepo(clonePath, 131072)
 	assert.NoError(t, err, "unexpected error, out: %v", string(out))
 
-	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	user.QuotaSize = user.UsedQuotaSize + 1
-	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	out, err = pushToGitRepo(clonePath)
 	assert.Error(t, err, "git push must fail if quota is exceeded, out: %v", string(out))
@@ -7202,7 +7186,7 @@ func TestBasicGitCommands(t *testing.T) {
 	err = os.Chmod(aDir, os.ModePerm)
 	assert.NoError(t, err)
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 
 	err = os.RemoveAll(user.GetHomeDir())
@@ -7231,7 +7215,7 @@ func TestGitQuotaVirtualFolders(t *testing.T) {
 	})
 	err := os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
@@ -7263,12 +7247,12 @@ func TestGitQuotaVirtualFolders(t *testing.T) {
 	out, err = pushToGitRepo(clonePath)
 	assert.NoError(t, err, "unexpected error, out: %v", string(out))
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath)
 	assert.NoError(t, err)
@@ -7282,7 +7266,7 @@ func TestGitErrors(t *testing.T) {
 	}
 	usePubKey := true
 	u := getTestUser(usePubKey)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	repoName := "testrepo"
 	clonePath := filepath.Join(homeBasePath, repoName)
@@ -7293,7 +7277,7 @@ func TestGitErrors(t *testing.T) {
 	out, err := cloneGitRepo(homeBasePath, "/"+repoName, user.Username)
 	assert.Error(t, err, "cloning a missing repo must fail, out: %v", string(out))
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -7309,11 +7293,11 @@ func TestSCPBasicHandling(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	u.QuotaSize = 6553600
-	localUser, _, err := httpd.AddUser(u, http.StatusOK)
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	u = getTestSFTPUser(usePubKey)
 	u.QuotaSize = 6553600
-	sftpUser, _, err := httpd.AddUser(u, http.StatusOK)
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
 	testFilePath := filepath.Join(homeBasePath, testFileName)
@@ -7339,7 +7323,7 @@ func TestSCPBasicHandling(t *testing.T) {
 		}
 		err = os.Remove(localPath)
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
@@ -7349,9 +7333,9 @@ func TestSCPBasicHandling(t *testing.T) {
 		}
 	}
 
-	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
@@ -7366,11 +7350,11 @@ func TestSCPUploadFileOverwrite(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 1000
-	localUser, _, err := httpd.AddUser(u, http.StatusOK)
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	u = getTestSFTPUser(usePubKey)
 	u.QuotaFiles = 1000
-	sftpUser, _, err := httpd.AddUser(u, http.StatusOK)
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	testFileSize := int64(32760)
@@ -7383,7 +7367,7 @@ func TestSCPUploadFileOverwrite(t *testing.T) {
 		// test a new upload that must overwrite the existing file
 		err = scpUpload(testFilePath, remoteUpPath, true, false)
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, testFileSize, user.UsedQuotaSize)
 		assert.Equal(t, 1, user.UsedQuotaFiles)
@@ -7403,14 +7387,14 @@ func TestSCPUploadFileOverwrite(t *testing.T) {
 			defer client.Close()
 			err = client.Symlink(testFileName, testFileName+".link")
 			assert.NoError(t, err)
-			user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 			assert.NoError(t, err)
 			assert.Equal(t, testFileSize, user.UsedQuotaSize)
 			assert.Equal(t, 1, user.UsedQuotaFiles)
 		}
 		err = scpUpload(testFilePath, remoteUpPath+".link", true, false)
 		assert.NoError(t, err)
-		user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, testFileSize*2, user.UsedQuotaSize)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
@@ -7424,11 +7408,11 @@ func TestSCPUploadFileOverwrite(t *testing.T) {
 	}
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -7437,9 +7421,9 @@ func TestSCPRecursive(t *testing.T) {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
-	localUser, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	localUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
-	sftpUser, _, err := httpd.AddUser(getTestSFTPUser(usePubKey), http.StatusOK)
+	sftpUser, _, err := httpdtest.AddUser(getTestSFTPUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	testBaseDirName := "test_dir"
 	testBaseDirPath := filepath.Join(homeBasePath, testBaseDirName)
@@ -7493,11 +7477,11 @@ func TestSCPRecursive(t *testing.T) {
 
 	err = os.RemoveAll(testBaseDirPath)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(sftpUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(localUser, http.StatusOK)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -7507,7 +7491,7 @@ func TestSCPExtensionsFilter(t *testing.T) {
 	}
 	usePubKey := true
 	u := getTestUser(usePubKey)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testFileSize := int64(131072)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
@@ -7525,14 +7509,14 @@ func TestSCPExtensionsFilter(t *testing.T) {
 			DeniedExtensions:  []string{},
 		},
 	}
-	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	err = scpDownload(localPath, remoteDownPath, false, false)
 	assert.Error(t, err, "scp download must fail")
 	err = scpUpload(testFilePath, remoteUpPath, false, false)
 	assert.Error(t, err, "scp upload must fail")
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
@@ -7550,7 +7534,7 @@ func TestSCPUploadMaxSize(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	u.Filters.MaxUploadFileSize = testFileSize + 1
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	err = createTestFile(testFilePath, testFileSize)
@@ -7569,7 +7553,7 @@ func TestSCPUploadMaxSize(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.Remove(testFilePath1)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -7591,7 +7575,7 @@ func TestSCPVirtualFolders(t *testing.T) {
 	})
 	err := os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testBaseDirName := "test_dir"
 	testBaseDirPath := filepath.Join(homeBasePath, testBaseDirName)
@@ -7611,9 +7595,9 @@ func TestSCPVirtualFolders(t *testing.T) {
 	err = scpDownload(testBaseDirDownPath, remoteDownPath, true, true)
 	assert.NoError(t, err)
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(testBaseDirPath)
 	assert.NoError(t, err)
@@ -7656,7 +7640,7 @@ func TestSCPVirtualFoldersQuota(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testBaseDirName := "test_dir"
 	testBaseDirPath := filepath.Join(homeBasePath, testBaseDirName)
@@ -7688,18 +7672,18 @@ func TestSCPVirtualFoldersQuota(t *testing.T) {
 	assert.NoError(t, err)
 	expectedQuotaFiles := 2
 	expectedQuotaSize := testFileSize * 2
-	user, _, err = httpd.GetUserByID(user.ID, http.StatusOK)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 	assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
-	folder, _, err := httpd.GetFolders(0, 0, mappedPath1, http.StatusOK)
+	folder, _, err := httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
 	assert.NoError(t, err)
 	if assert.Len(t, folder, 1) {
 		f := folder[0]
 		assert.Equal(t, expectedQuotaSize, f.UsedQuotaSize)
 		assert.Equal(t, expectedQuotaFiles, f.UsedQuotaFiles)
 	}
-	folder, _, err = httpd.GetFolders(0, 0, mappedPath2, http.StatusOK)
+	folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
 	assert.NoError(t, err)
 	if assert.Len(t, folder, 1) {
 		f := folder[0]
@@ -7707,11 +7691,11 @@ func TestSCPVirtualFoldersQuota(t *testing.T) {
 		assert.Equal(t, expectedQuotaFiles, f.UsedQuotaFiles)
 	}
 
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(testBaseDirPath)
 	assert.NoError(t, err)
@@ -7733,7 +7717,7 @@ func TestSCPPermsSubDirs(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
 	u.Permissions["/somedir"] = []string{dataprovider.PermListItems, dataprovider.PermUpload}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	localPath := filepath.Join(homeBasePath, "scp_download.dat")
 	subPath := filepath.Join(user.GetHomeDir(), "somedir")
@@ -7761,7 +7745,7 @@ func TestSCPPermsSubDirs(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -7772,7 +7756,7 @@ func TestSCPPermCreateDirs(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	u.Permissions["/"] = []string{dataprovider.PermDownload, dataprovider.PermUpload}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	testFileSize := int64(32760)
@@ -7795,7 +7779,7 @@ func TestSCPPermCreateDirs(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -7806,7 +7790,7 @@ func TestSCPPermUpload(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	u.Permissions["/"] = []string{dataprovider.PermDownload, dataprovider.PermCreateDirs}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	testFileSize := int64(65536)
@@ -7819,7 +7803,7 @@ func TestSCPPermUpload(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -7830,7 +7814,7 @@ func TestSCPPermOverwrite(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	u.Permissions["/"] = []string{dataprovider.PermUpload, dataprovider.PermCreateDirs}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	testFileSize := int64(65536)
@@ -7846,7 +7830,7 @@ func TestSCPPermOverwrite(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -7857,7 +7841,7 @@ func TestSCPPermDownload(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	u.Permissions["/"] = []string{dataprovider.PermUpload, dataprovider.PermCreateDirs}
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	testFileSize := int64(65537)
@@ -7875,7 +7859,7 @@ func TestSCPPermDownload(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -7888,7 +7872,7 @@ func TestSCPQuotaSize(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 1
 	u.QuotaSize = testFileSize + 1
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	err = createTestFile(testFilePath, testFileSize)
@@ -7912,7 +7896,7 @@ func TestSCPQuotaSize(t *testing.T) {
 	// now test quota limits while uploading the current file, we have 1 bytes remaining
 	user.QuotaSize = testFileSize + 1
 	user.QuotaFiles = 0
-	user, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	err = scpUpload(testFilePath2, remoteUpPath+".quota", true, false)
 	assert.Error(t, err, "user is over quota scp upload must fail")
@@ -7931,7 +7915,7 @@ func TestSCPQuotaSize(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -7940,7 +7924,7 @@ func TestSCPEscapeHomeDir(t *testing.T) {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
-	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	err = os.MkdirAll(user.GetHomeDir(), os.ModePerm)
 	assert.NoError(t, err)
@@ -7967,7 +7951,7 @@ func TestSCPEscapeHomeDir(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -7976,7 +7960,7 @@ func TestSCPUploadPaths(t *testing.T) {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
-	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	testFileSize := int64(65535)
@@ -8002,7 +7986,7 @@ func TestSCPUploadPaths(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.Remove(localPath)
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -8011,7 +7995,7 @@ func TestSCPOverwriteDirWithFile(t *testing.T) {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
-	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	testFileSize := int64(65535)
@@ -8026,7 +8010,7 @@ func TestSCPOverwriteDirWithFile(t *testing.T) {
 
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -8038,12 +8022,12 @@ func TestSCPRemoteToRemote(t *testing.T) {
 		t.Skip("scp between remote hosts is not supported on Windows")
 	}
 	usePubKey := true
-	user, _, err := httpd.AddUser(getTestUser(usePubKey), http.StatusOK)
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	u := getTestUser(usePubKey)
 	u.Username += "1"
 	u.HomeDir += "1"
-	user1, _, err := httpd.AddUser(u, http.StatusOK)
+	user1, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	testFileSize := int64(65535)
@@ -8057,11 +8041,11 @@ func TestSCPRemoteToRemote(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user1.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user1, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -8070,7 +8054,7 @@ func TestSCPErrors(t *testing.T) {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	u := getTestUser(true)
-	user, _, err := httpd.AddUser(u, http.StatusOK)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testFileSize := int64(524288)
 	testFilePath := filepath.Join(homeBasePath, testFileName)
@@ -8083,7 +8067,7 @@ func TestSCPErrors(t *testing.T) {
 	assert.NoError(t, err)
 	user.UploadBandwidth = 512
 	user.DownloadBandwidth = 512
-	_, _, err = httpd.UpdateUser(user, http.StatusOK, "")
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	cmd := getScpDownloadCommand(localPath, remoteDownPath, false, false)
 	go func() {
@@ -8114,7 +8098,7 @@ func TestSCPErrors(t *testing.T) {
 	os.Remove(localPath)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpd.RemoveUser(user, http.StatusOK)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
 

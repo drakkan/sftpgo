@@ -97,7 +97,7 @@ func (s *Service) Start() error {
 
 	providerConf := config.GetProviderConf()
 
-	err = dataprovider.Initialize(providerConf, s.ConfigDir)
+	err = dataprovider.Initialize(providerConf, s.ConfigDir, s.PortableMode == 0)
 	if err != nil {
 		logger.Error(logSender, "", "error initializing data provider: %v", err)
 		logger.ErrorToConsole("error initializing data provider: %v", err)

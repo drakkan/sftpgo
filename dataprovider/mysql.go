@@ -40,6 +40,10 @@ const (
 		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `folders_mapping_user_id_fk_users_id` FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;"
 	mysqlV6SQL     = "ALTER TABLE `{{users}}` ADD COLUMN `additional_info` longtext NULL;"
 	mysqlV6DownSQL = "ALTER TABLE `{{users}}` DROP COLUMN `additional_info`;"
+	mysqlV7SQL     = "CREATE TABLE `{{admins}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `username` varchar(255) NOT NULL UNIQUE, " +
+		"`password` varchar(255) NOT NULL, `email` varchar(255) NULL, `status` integer NOT NULL, `permissions` longtext NOT NULL, " +
+		"`filters` longtext NULL, `additional_info` longtext NULL);"
+	mysqlV7DownSQL = "DROP TABLE `{{admins}}` CASCADE;"
 )
 
 // MySQLProvider auth provider for MySQL/MariaDB database
@@ -65,7 +69,7 @@ func initializeMySQLProvider() error {
 			dbHandle.SetMaxIdleConns(2)
 		}
 		dbHandle.SetConnMaxLifetime(240 * time.Second)
-		provider = MySQLProvider{dbHandle: dbHandle}
+		provider = &MySQLProvider{dbHandle: dbHandle}
 	} else {
 		providerLog(logger.LevelWarn, "error creating mysql database handler, connection string: %#v, error: %v",
 			getMySQLConnectionString(true), err)
@@ -87,98 +91,122 @@ func getMySQLConnectionString(redactedPwd bool) string {
 	return connectionString
 }
 
-func (p MySQLProvider) checkAvailability() error {
+func (p *MySQLProvider) checkAvailability() error {
 	return sqlCommonCheckAvailability(p.dbHandle)
 }
 
-func (p MySQLProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
+func (p *MySQLProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
 	return sqlCommonValidateUserAndPass(username, password, ip, protocol, p.dbHandle)
 }
 
-func (p MySQLProvider) validateUserAndPubKey(username string, publicKey []byte) (User, string, error) {
+func (p *MySQLProvider) validateUserAndPubKey(username string, publicKey []byte) (User, string, error) {
 	return sqlCommonValidateUserAndPubKey(username, publicKey, p.dbHandle)
 }
 
-func (p MySQLProvider) getUserByID(ID int64) (User, error) {
-	return sqlCommonGetUserByID(ID, p.dbHandle)
-}
-
-func (p MySQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
+func (p *MySQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
 	return sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
 }
 
-func (p MySQLProvider) getUsedQuota(username string) (int, int64, error) {
+func (p *MySQLProvider) getUsedQuota(username string) (int, int64, error) {
 	return sqlCommonGetUsedQuota(username, p.dbHandle)
 }
 
-func (p MySQLProvider) updateLastLogin(username string) error {
+func (p *MySQLProvider) updateLastLogin(username string) error {
 	return sqlCommonUpdateLastLogin(username, p.dbHandle)
 }
 
-func (p MySQLProvider) userExists(username string) (User, error) {
-	return sqlCommonCheckUserExists(username, p.dbHandle)
+func (p *MySQLProvider) userExists(username string) (User, error) {
+	return sqlCommonGetUserByUsername(username, p.dbHandle)
 }
 
-func (p MySQLProvider) addUser(user *User) error {
+func (p *MySQLProvider) addUser(user *User) error {
 	return sqlCommonAddUser(user, p.dbHandle)
 }
 
-func (p MySQLProvider) updateUser(user *User) error {
+func (p *MySQLProvider) updateUser(user *User) error {
 	return sqlCommonUpdateUser(user, p.dbHandle)
 }
 
-func (p MySQLProvider) deleteUser(user *User) error {
+func (p *MySQLProvider) deleteUser(user *User) error {
 	return sqlCommonDeleteUser(user, p.dbHandle)
 }
 
-func (p MySQLProvider) dumpUsers() ([]User, error) {
+func (p *MySQLProvider) dumpUsers() ([]User, error) {
 	return sqlCommonDumpUsers(p.dbHandle)
 }
 
-func (p MySQLProvider) getUsers(limit int, offset int, order string, username string) ([]User, error) {
-	return sqlCommonGetUsers(limit, offset, order, username, p.dbHandle)
+func (p *MySQLProvider) getUsers(limit int, offset int, order string) ([]User, error) {
+	return sqlCommonGetUsers(limit, offset, order, p.dbHandle)
 }
 
-func (p MySQLProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
+func (p *MySQLProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	return sqlCommonDumpFolders(p.dbHandle)
 }
 
-func (p MySQLProvider) getFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error) {
+func (p *MySQLProvider) getFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error) {
 	return sqlCommonGetFolders(limit, offset, order, folderPath, p.dbHandle)
 }
 
-func (p MySQLProvider) getFolderByPath(mappedPath string) (vfs.BaseVirtualFolder, error) {
+func (p *MySQLProvider) getFolderByPath(mappedPath string) (vfs.BaseVirtualFolder, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 	return sqlCommonCheckFolderExists(ctx, mappedPath, p.dbHandle)
 }
 
-func (p MySQLProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
+func (p *MySQLProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 	return sqlCommonAddFolder(folder, p.dbHandle)
 }
 
-func (p MySQLProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
+func (p *MySQLProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 	return sqlCommonDeleteFolder(folder, p.dbHandle)
 }
 
-func (p MySQLProvider) updateFolderQuota(mappedPath string, filesAdd int, sizeAdd int64, reset bool) error {
+func (p *MySQLProvider) updateFolderQuota(mappedPath string, filesAdd int, sizeAdd int64, reset bool) error {
 	return sqlCommonUpdateFolderQuota(mappedPath, filesAdd, sizeAdd, reset, p.dbHandle)
 }
 
-func (p MySQLProvider) getUsedFolderQuota(mappedPath string) (int, int64, error) {
+func (p *MySQLProvider) getUsedFolderQuota(mappedPath string) (int, int64, error) {
 	return sqlCommonGetFolderUsedQuota(mappedPath, p.dbHandle)
 }
 
-func (p MySQLProvider) close() error {
+func (p *MySQLProvider) adminExists(username string) (Admin, error) {
+	return sqlCommonGetAdminByUsername(username, p.dbHandle)
+}
+
+func (p *MySQLProvider) addAdmin(admin *Admin) error {
+	return sqlCommonAddAdmin(admin, p.dbHandle)
+}
+
+func (p *MySQLProvider) updateAdmin(admin *Admin) error {
+	return sqlCommonUpdateAdmin(admin, p.dbHandle)
+}
+
+func (p *MySQLProvider) deleteAdmin(admin *Admin) error {
+	return sqlCommonDeleteAdmin(admin, p.dbHandle)
+}
+
+func (p *MySQLProvider) getAdmins(limit int, offset int, order string) ([]Admin, error) {
+	return sqlCommonGetAdmins(limit, offset, order, p.dbHandle)
+}
+
+func (p *MySQLProvider) dumpAdmins() ([]Admin, error) {
+	return sqlCommonDumpAdmins(p.dbHandle)
+}
+
+func (p *MySQLProvider) validateAdminAndPass(username, password, ip string) (Admin, error) {
+	return sqlCommonValidateAdminAndPass(username, password, ip, p.dbHandle)
+}
+
+func (p *MySQLProvider) close() error {
 	return p.dbHandle.Close()
 }
 
-func (p MySQLProvider) reloadConfig() error {
+func (p *MySQLProvider) reloadConfig() error {
 	return nil
 }
 
 // initializeDatabase creates the initial database structure
-func (p MySQLProvider) initializeDatabase() error {
+func (p *MySQLProvider) initializeDatabase() error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, false)
 	if err == nil && dbVersion.Version > 0 {
 		return ErrNoInitRequired
@@ -206,7 +234,7 @@ func (p MySQLProvider) initializeDatabase() error {
 	return tx.Commit()
 }
 
-func (p MySQLProvider) migrateDatabase() error {
+func (p *MySQLProvider) migrateDatabase() error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
 		return err
@@ -226,6 +254,8 @@ func (p MySQLProvider) migrateDatabase() error {
 		return updateMySQLDatabaseFromV4(p.dbHandle)
 	case 5:
 		return updateMySQLDatabaseFromV5(p.dbHandle)
+	case 6:
+		return updateMySQLDatabaseFromV6(p.dbHandle)
 	default:
 		if dbVersion.Version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported: %v", dbVersion.Version,
@@ -238,7 +268,7 @@ func (p MySQLProvider) migrateDatabase() error {
 	}
 }
 
-func (p MySQLProvider) revertDatabase(targetVersion int) error {
+func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
 		return err
@@ -247,6 +277,16 @@ func (p MySQLProvider) revertDatabase(targetVersion int) error {
 		return fmt.Errorf("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
+	case 7:
+		err = downgradeMySQLDatabaseFrom7To6(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		err = downgradeMySQLDatabaseFrom6To5(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		return downgradeMySQLDatabaseFrom5To4(p.dbHandle)
 	case 6:
 		err = downgradeMySQLDatabaseFrom6To5(p.dbHandle)
 		if err != nil {
@@ -293,7 +333,15 @@ func updateMySQLDatabaseFromV4(dbHandle *sql.DB) error {
 }
 
 func updateMySQLDatabaseFromV5(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom5To6(dbHandle)
+	err := updateMySQLDatabaseFrom5To6(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV6(dbHandle)
+}
+
+func updateMySQLDatabaseFromV6(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom6To7(dbHandle)
 }
 
 func updateMySQLDatabaseFrom1To2(dbHandle *sql.DB) error {
@@ -322,6 +370,20 @@ func updateMySQLDatabaseFrom5To6(dbHandle *sql.DB) error {
 	logger.InfoToConsole("updating database version: 5 -> 6")
 	providerLog(logger.LevelInfo, "updating database version: 5 -> 6")
 	sql := strings.Replace(mysqlV6SQL, "{{users}}", sqlTableUsers, 1)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 6)
+}
+
+func updateMySQLDatabaseFrom6To7(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 6 -> 7")
+	providerLog(logger.LevelInfo, "updating database version: 6 -> 7")
+	sql := strings.Replace(mysqlV7SQL, "{{admins}}", sqlTableAdmins, 1)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 7)
+}
+
+func downgradeMySQLDatabaseFrom7To6(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 7 -> 6")
+	providerLog(logger.LevelInfo, "downgrading database version: 7 -> 6")
+	sql := strings.Replace(mysqlV7DownSQL, "{{admins}}", sqlTableAdmins, 1)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 6)
 }
 

@@ -24,6 +24,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -62,7 +63,7 @@ const (
 	MemoryDataProviderName = "memory"
 	// DumpVersion defines the version for the dump.
 	// For restore/load we support the current version and the previous one
-	DumpVersion = 5
+	DumpVersion = 6
 
 	argonPwdPrefix            = "$argon2id$"
 	bcryptPwdPrefix           = "$2a$"
@@ -73,7 +74,6 @@ const (
 	md5cryptPwdPrefix         = "$1$"
 	md5cryptApr1PwdPrefix     = "$apr1$"
 	sha512cryptPwdPrefix      = "$6$"
-	manageUsersDisabledError  = "please set manage_users to 1 in your configuration to enable this method"
 	trackQuotaDisabledError   = "please enable track_quota in your configuration to use this method"
 	operationAdd              = "add"
 	operationUpdate           = "update"
@@ -123,9 +123,11 @@ var (
 	sqlTableUsers           = "users"
 	sqlTableFolders         = "folders"
 	sqlTableFoldersMapping  = "folders_mapping"
+	sqlTableAdmins          = "admins"
 	sqlTableSchemaVersion   = "schema_version"
 	argon2Params            *argon2id.Params
 	lastLoginMinDelay       = 10 * time.Minute
+	usernameRegex           = regexp.MustCompile("^[a-zA-Z0-9-_.~]+$")
 )
 
 type schemaVersion struct {
@@ -185,8 +187,6 @@ type Config struct {
 	ConnectionString string `json:"connection_string" mapstructure:"connection_string"`
 	// prefix for SQL tables
 	SQLTablesPrefix string `json:"sql_tables_prefix" mapstructure:"sql_tables_prefix"`
-	// Set to 0 to disable users management, 1 to enable
-	ManageUsers int `json:"manage_users" mapstructure:"manage_users"`
 	// Set the preferred way to track users quota between the following choices:
 	// 0, disable quota tracking. REST API to scan user dir and update quota will do nothing
 	// 1, quota is updated each time a user upload or delete a file even if the user has no quota restrictions
@@ -277,6 +277,7 @@ type Config struct {
 type BackupData struct {
 	Users   []User                  `json:"users"`
 	Folders []vfs.BaseVirtualFolder `json:"folders"`
+	Admins  []Admin                 `json:"admins"`
 	Version int                     `json:"version"`
 }
 
@@ -334,6 +335,13 @@ func (e *ValidationError) Error() string {
 	return fmt.Sprintf("Validation error: %s", e.err)
 }
 
+// NewValidationError returns a validation errors
+func NewValidationError(error string) *ValidationError {
+	return &ValidationError{
+		err: error,
+	}
+}
+
 // MethodDisabledError raised if a method is disabled in config file.
 // For example, if user management is disabled, this error is raised
 // every time a user operation is done using the REST API
@@ -370,9 +378,8 @@ type Provider interface {
 	addUser(user *User) error
 	updateUser(user *User) error
 	deleteUser(user *User) error
-	getUsers(limit int, offset int, order string, username string) ([]User, error)
+	getUsers(limit int, offset int, order string) ([]User, error)
 	dumpUsers() ([]User, error)
-	getUserByID(ID int64) (User, error)
 	updateLastLogin(username string) error
 	getFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error)
 	getFolderByPath(mappedPath string) (vfs.BaseVirtualFolder, error)
@@ -381,6 +388,13 @@ type Provider interface {
 	updateFolderQuota(mappedPath string, filesAdd int, sizeAdd int64, reset bool) error
 	getUsedFolderQuota(mappedPath string) (int, int64, error)
 	dumpFolders() ([]vfs.BaseVirtualFolder, error)
+	adminExists(username string) (Admin, error)
+	addAdmin(admin *Admin) error
+	updateAdmin(admin *Admin) error
+	deleteAdmin(admin *Admin) error
+	getAdmins(limit int, offset int, order string) ([]Admin, error)
+	dumpAdmins() ([]Admin, error)
+	validateAdminAndPass(username, password, ip string) (Admin, error)
 	checkAvailability() error
 	close() error
 	reloadConfig() error
@@ -391,7 +405,7 @@ type Provider interface {
 
 // Initialize the data provider.
 // An error is returned if the configured driver is invalid or if the data provider cannot be initialized
-func Initialize(cnf Config, basePath string) error {
+func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 	var err error
 	config = cnf
 
@@ -408,6 +422,13 @@ func Initialize(cnf Config, basePath string) error {
 	if err != nil {
 		return err
 	}
+	argon2Params = &argon2id.Params{
+		Memory:      cnf.PasswordHashing.Argon2Options.Memory,
+		Iterations:  cnf.PasswordHashing.Argon2Options.Iterations,
+		Parallelism: cnf.PasswordHashing.Argon2Options.Parallelism,
+		SaltLength:  16,
+		KeyLength:   32,
+	}
 	if cnf.UpdateMode == 0 {
 		err = provider.initializeDatabase()
 		if err != nil && err != ErrNoInitRequired {
@@ -423,15 +444,15 @@ func Initialize(cnf Config, basePath string) error {
 			providerLog(logger.LevelWarn, "database migration error: %v", err)
 			return err
 		}
+		if checkAdmins {
+			err = checkDefaultAdmin()
+			if err != nil {
+				providerLog(logger.LevelWarn, "check default admin error: %v", err)
+				return err
+			}
+		}
 	} else {
 		providerLog(logger.LevelInfo, "database initialization/migration skipped, manual mode is configured")
-	}
-	argon2Params = &argon2id.Params{
-		Memory:      cnf.PasswordHashing.Argon2Options.Memory,
-		Iterations:  cnf.PasswordHashing.Argon2Options.Iterations,
-		Parallelism: cnf.PasswordHashing.Argon2Options.Parallelism,
-		SaltLength:  16,
-		KeyLength:   32,
 	}
 	startAvailabilityTimer()
 	return nil
@@ -476,11 +497,27 @@ func validateSQLTablesPrefix() error {
 		sqlTableUsers = config.SQLTablesPrefix + sqlTableUsers
 		sqlTableFolders = config.SQLTablesPrefix + sqlTableFolders
 		sqlTableFoldersMapping = config.SQLTablesPrefix + sqlTableFoldersMapping
+		sqlTableAdmins = config.SQLTablesPrefix + sqlTableAdmins
 		sqlTableSchemaVersion = config.SQLTablesPrefix + sqlTableSchemaVersion
-		providerLog(logger.LevelDebug, "sql table for users %#v, folders %#v folders mapping %#v schema version %#v",
-			sqlTableUsers, sqlTableFolders, sqlTableFoldersMapping, sqlTableSchemaVersion)
+		providerLog(logger.LevelDebug, "sql table for users %#v, folders %#v folders mapping %#v admins %#v schema version %#v",
+			sqlTableUsers, sqlTableFolders, sqlTableFoldersMapping, sqlTableAdmins, sqlTableSchemaVersion)
 	}
 	return nil
+}
+
+func checkDefaultAdmin() error {
+	admins, err := provider.getAdmins(1, 0, OrderASC)
+	if err != nil {
+		return err
+	}
+	if len(admins) > 0 {
+		return nil
+	}
+	logger.Debug(logSender, "", "no admins found, try to create the default one")
+	// we need to create the default admin
+	admin := &Admin{}
+	admin.setDefaults()
+	return provider.addAdmin(admin)
 }
 
 // InitializeDatabase creates the initial database structure
@@ -523,6 +560,11 @@ func RevertDatabase(cnf Config, basePath string, targetVersion int) error {
 		return err
 	}
 	return provider.revertDatabase(targetVersion)
+}
+
+// CheckAdminAndPass validates the given admin and password connecting from ip
+func CheckAdminAndPass(username, password, ip string) (Admin, error) {
+	return provider.validateAdminAndPass(username, password, ip)
 }
 
 // CheckUserAndPass retrieves the SFTP user with the given username and password if a match is found or an error
@@ -583,9 +625,6 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 
 // UpdateLastLogin updates the last login fields for the given SFTP user
 func UpdateLastLogin(user User) error {
-	if config.ManageUsers == 0 {
-		return &MethodDisabledError{err: manageUsersDisabledError}
-	}
 	lastLogin := utils.GetTimeFromMsecSinceEpoch(user.LastLogin)
 	diff := -time.Until(lastLogin)
 	if diff < 0 || diff > lastLoginMinDelay {
@@ -606,9 +645,6 @@ func UpdateUserQuota(user User, filesAdd int, sizeAdd int64, reset bool) error {
 	} else if config.TrackQuota == 2 && !reset && !user.HasQuotaRestrictions() {
 		return nil
 	}
-	if config.ManageUsers == 0 {
-		return &MethodDisabledError{err: manageUsersDisabledError}
-	}
 	if filesAdd == 0 && sizeAdd == 0 && !reset {
 		return nil
 	}
@@ -620,9 +656,6 @@ func UpdateUserQuota(user User, filesAdd int, sizeAdd int64, reset bool) error {
 func UpdateVirtualFolderQuota(vfolder vfs.BaseVirtualFolder, filesAdd int, sizeAdd int64, reset bool) error {
 	if config.TrackQuota == 0 {
 		return &MethodDisabledError{err: trackQuotaDisabledError}
-	}
-	if config.ManageUsers == 0 {
-		return &MethodDisabledError{err: manageUsersDisabledError}
 	}
 	if filesAdd == 0 && sizeAdd == 0 && !reset {
 		return nil
@@ -646,17 +679,37 @@ func GetUsedVirtualFolderQuota(mappedPath string) (int, int64, error) {
 	return provider.getUsedFolderQuota(mappedPath)
 }
 
-// UserExists checks if the given SFTP username exists, returns an error if no match is found
+// AddAdmin adds a new SFTPGo admin
+func AddAdmin(admin *Admin) error {
+	return provider.addAdmin(admin)
+}
+
+// UpdateAdmin updates an existing SFTPGo admin
+func UpdateAdmin(admin *Admin) error {
+	return provider.updateAdmin(admin)
+}
+
+// DeleteAdmin deletes an existing SFTPGo admin
+func DeleteAdmin(username string) error {
+	admin, err := provider.adminExists(username)
+	if err != nil {
+		return err
+	}
+	return provider.deleteAdmin(&admin)
+}
+
+// AdminExists returns the given admins if it exists
+func AdminExists(username string) (Admin, error) {
+	return provider.adminExists(username)
+}
+
+// UserExists checks if the given SFTPGo username exists, returns an error if no match is found
 func UserExists(username string) (User, error) {
 	return provider.userExists(username)
 }
 
 // AddUser adds a new SFTPGo user.
-// ManageUsers configuration must be set to 1 to enable this method
 func AddUser(user *User) error {
-	if config.ManageUsers == 0 {
-		return &MethodDisabledError{err: manageUsersDisabledError}
-	}
 	err := provider.addUser(user)
 	if err == nil {
 		go executeAction(operationAdd, *user)
@@ -665,11 +718,7 @@ func AddUser(user *User) error {
 }
 
 // UpdateUser updates an existing SFTPGo user.
-// ManageUsers configuration must be set to 1 to enable this method
 func UpdateUser(user *User) error {
-	if config.ManageUsers == 0 {
-		return &MethodDisabledError{err: manageUsersDisabledError}
-	}
 	err := provider.updateUser(user)
 	if err == nil {
 		RemoveCachedWebDAVUser(user.Username)
@@ -679,15 +728,15 @@ func UpdateUser(user *User) error {
 }
 
 // DeleteUser deletes an existing SFTPGo user.
-// ManageUsers configuration must be set to 1 to enable this method
-func DeleteUser(user *User) error {
-	if config.ManageUsers == 0 {
-		return &MethodDisabledError{err: manageUsersDisabledError}
+func DeleteUser(username string) error {
+	user, err := provider.userExists(username)
+	if err != nil {
+		return err
 	}
-	err := provider.deleteUser(user)
+	err = provider.deleteUser(&user)
 	if err == nil {
 		RemoveCachedWebDAVUser(user.Username)
-		go executeAction(operationDelete, *user)
+		go executeAction(operationDelete, user)
 	}
 	return err
 }
@@ -699,32 +748,28 @@ func ReloadConfig() error {
 	return provider.reloadConfig()
 }
 
-// GetUsers returns an array of users respecting limit and offset and filtered by username exact match if not empty
-func GetUsers(limit, offset int, order string, username string) ([]User, error) {
-	return provider.getUsers(limit, offset, order, username)
+// GetAdmins returns an array of admins respecting limit and offset
+func GetAdmins(limit, offset int, order string) ([]Admin, error) {
+	return provider.getAdmins(limit, offset, order)
 }
 
-// GetUserByID returns the user with the given database ID if a match is found or an error
-func GetUserByID(ID int64) (User, error) {
-	return provider.getUserByID(ID)
+// GetUsers returns an array of users respecting limit and offset and filtered by username exact match if not empty
+func GetUsers(limit, offset int, order string) ([]User, error) {
+	return provider.getUsers(limit, offset, order)
 }
 
 // AddFolder adds a new virtual folder.
-// ManageUsers configuration must be set to 1 to enable this method
 func AddFolder(folder *vfs.BaseVirtualFolder) error {
-	if config.ManageUsers == 0 {
-		return &MethodDisabledError{err: manageUsersDisabledError}
-	}
 	return provider.addFolder(folder)
 }
 
 // DeleteFolder deletes an existing folder.
-// ManageUsers configuration must be set to 1 to enable this method
-func DeleteFolder(folder *vfs.BaseVirtualFolder) error {
-	if config.ManageUsers == 0 {
-		return &MethodDisabledError{err: manageUsersDisabledError}
+func DeleteFolder(folderPath string) error {
+	folder, err := provider.getFolderByPath(folderPath)
+	if err != nil {
+		return err
 	}
-	return provider.deleteFolder(folder)
+	return provider.deleteFolder(&folder)
 }
 
 // GetFolderByPath returns the folder with the specified path if any
@@ -740,7 +785,6 @@ func GetFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualF
 // DumpData returns all users and folders
 func DumpData() (BackupData, error) {
 	var data BackupData
-	data.Version = DumpVersion
 	users, err := provider.dumpUsers()
 	if err != nil {
 		return data, err
@@ -749,8 +793,14 @@ func DumpData() (BackupData, error) {
 	if err != nil {
 		return data, err
 	}
+	admins, err := provider.dumpAdmins()
+	if err != nil {
+		return data, err
+	}
 	data.Users = users
 	data.Folders = folders
+	data.Admins = admins
+	data.Version = DumpVersion
 	return data, err
 }
 
@@ -974,7 +1024,7 @@ func validatePermissions(user *User) error {
 		if utils.IsStringInSlice(PermAny, perms) {
 			permissions[cleanedDir] = []string{PermAny}
 		} else {
-			permissions[cleanedDir] = perms
+			permissions[cleanedDir] = utils.RemoveDuplicates(perms)
 		}
 	}
 	user.Permissions = permissions
@@ -1238,6 +1288,9 @@ func validateBaseParams(user *User) error {
 	if user.Username == "" {
 		return &ValidationError{err: "username is mandatory"}
 	}
+	if !usernameRegex.MatchString(user.Username) {
+		return &ValidationError{err: fmt.Sprintf("username %#v is not valid", user.Username)}
+	}
 	if user.HomeDir == "" {
 		return &ValidationError{err: "home_dir is mandatory"}
 	}
@@ -1251,7 +1304,7 @@ func validateBaseParams(user *User) error {
 }
 
 func createUserPasswordHash(user *User) error {
-	if len(user.Password) > 0 && !utils.IsStringPrefixInSlice(user.Password, hashPwdPrefixes) {
+	if user.Password != "" && !utils.IsStringPrefixInSlice(user.Password, hashPwdPrefixes) {
 		pwd, err := argon2id.CreateHash(user.Password, argon2Params)
 		if err != nil {
 			return err

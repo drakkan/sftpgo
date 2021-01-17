@@ -1,6 +1,7 @@
 package httpd
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -64,16 +65,21 @@ func addFolder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err = dataprovider.AddFolder(&folder)
-	if err == nil {
-		folder, err = dataprovider.GetFolderByPath(folder.MappedPath)
-		if err == nil {
-			render.JSON(w, r, folder)
-		} else {
-			sendAPIResponse(w, r, err, "", getRespStatus(err))
-		}
-	} else {
+	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
 	}
+	renderFolder(w, r, folder.MappedPath)
+}
+
+func renderFolder(w http.ResponseWriter, r *http.Request, mappedPath string) {
+	folder, err := dataprovider.GetFolderByPath(mappedPath)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	ctx := context.WithValue(r.Context(), render.StatusCtxKey, http.StatusCreated)
+	render.JSON(w, r.WithContext(ctx), folder)
 }
 
 func deleteFolderByPath(w http.ResponseWriter, r *http.Request) {
@@ -87,15 +93,10 @@ func deleteFolderByPath(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	folder, err := dataprovider.GetFolderByPath(folderPath)
+	err := dataprovider.DeleteFolder(folderPath)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	err = dataprovider.DeleteFolder(&folder)
-	if err != nil {
-		sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
-	} else {
-		sendAPIResponse(w, r, err, "Folder deleted", http.StatusOK)
-	}
+	sendAPIResponse(w, r, err, "Folder deleted", http.StatusOK)
 }

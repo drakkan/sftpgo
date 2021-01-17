@@ -61,8 +61,6 @@ sudo systemctl start sftpgo
 sudo systemctl status sftpgo
 # automatically start sftpgo on boot
 sudo systemctl enable sftpgo
-# optional, install the REST API CLI. It requires python-requests to run
-sudo install -Dm755 examples/rest-api-cli/sftpgo_api_cli /usr/bin/sftpgo_api_cli
 # optional, create shell completion script, for example for bash
 sudo sh -c '/usr/bin/sftpgo gen completion bash > /usr/share/bash-completion/completions/sftpgo'
 # optional, create man pages
@@ -102,8 +100,6 @@ sudo ln -s /usr/local/opt/sftpgo/init/com.github.drakkan.sftpgo.plist /Library/L
 sudo launchctl load -w /Library/LaunchDaemons/com.github.drakkan.sftpgo.plist
 # verify that the service is started
 sudo launchctl list com.github.drakkan.sftpgo
-# optional, install the REST API CLI. It requires python-requests to run, this python module is not installed by default
-sudo cp examples/rest-api-cli/sftpgo_api_cli /usr/local/opt/sftpgo/bin/
 ```
 
 ## Windows

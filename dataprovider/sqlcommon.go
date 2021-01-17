@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 6
+	sqlDatabaseVersion     = 7
 	initialDBVersionSQL    = "INSERT INTO {{schema_version}} (version) VALUES (1);"
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
@@ -26,7 +26,174 @@ type sqlQuerier interface {
 	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
 }
 
-func getUserByUsername(username string, dbHandle sqlQuerier) (User, error) {
+type sqlScanner interface {
+	Scan(dest ...interface{}) error
+}
+
+func sqlCommonGetAdminByUsername(username string, dbHandle sqlQuerier) (Admin, error) {
+	var admin Admin
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	q := getAdminByUsernameQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return admin, err
+	}
+	defer stmt.Close()
+	row := stmt.QueryRowContext(ctx, username)
+
+	return getAdminFromDbRow(row)
+}
+
+func sqlCommonValidateAdminAndPass(username, password, ip string, dbHandle *sql.DB) (Admin, error) {
+	admin, err := sqlCommonGetAdminByUsername(username, dbHandle)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error authenticating admin %#v: %v", username, err)
+		return admin, err
+	}
+	err = admin.checkUserAndPass(password, ip)
+	return admin, err
+}
+
+func sqlCommonAddAdmin(admin *Admin, dbHandle *sql.DB) error {
+	err := admin.validate()
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	q := getAddAdminQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+
+	perms, err := json.Marshal(admin.Permissions)
+	if err != nil {
+		return err
+	}
+
+	filters, err := json.Marshal(admin.Filters)
+	if err != nil {
+		return err
+	}
+
+	_, err = stmt.ExecContext(ctx, admin.Username, admin.Password, admin.Status, admin.Email, string(perms),
+		string(filters), admin.AdditionalInfo)
+	return err
+}
+
+func sqlCommonUpdateAdmin(admin *Admin, dbHandle *sql.DB) error {
+	err := admin.validate()
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	q := getUpdateAdminQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+
+	perms, err := json.Marshal(admin.Permissions)
+	if err != nil {
+		return err
+	}
+
+	filters, err := json.Marshal(admin.Filters)
+	if err != nil {
+		return err
+	}
+
+	_, err = stmt.ExecContext(ctx, admin.Password, admin.Status, admin.Email, string(perms), string(filters),
+		admin.AdditionalInfo, admin.Username)
+	return err
+}
+
+func sqlCommonDeleteAdmin(admin *Admin, dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	q := getDeleteAdminQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.ExecContext(ctx, admin.Username)
+	return err
+}
+
+func sqlCommonGetAdmins(limit, offset int, order string, dbHandle sqlQuerier) ([]Admin, error) {
+	admins := make([]Admin, 0, limit)
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	q := getAdminsQuery(order)
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.QueryContext(ctx, limit, offset)
+	if err != nil {
+		return admins, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		a, err := getAdminFromDbRow(rows)
+		if err != nil {
+			return admins, err
+		}
+		a.HideConfidentialData()
+		admins = append(admins, a)
+	}
+
+	return admins, rows.Err()
+}
+
+func sqlCommonDumpAdmins(dbHandle sqlQuerier) ([]Admin, error) {
+	admins := make([]Admin, 0, 30)
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	q := getDumpAdminsQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.QueryContext(ctx)
+	if err != nil {
+		return admins, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		a, err := getAdminFromDbRow(rows)
+		if err != nil {
+			return admins, err
+		}
+		admins = append(admins, a)
+	}
+
+	return admins, rows.Err()
+}
+
+func sqlCommonGetUserByUsername(username string, dbHandle sqlQuerier) (User, error) {
 	var user User
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
@@ -39,7 +206,7 @@ func getUserByUsername(username string, dbHandle sqlQuerier) (User, error) {
 	defer stmt.Close()
 
 	row := stmt.QueryRowContext(ctx, username)
-	user, err = getUserFromDbRow(row, nil)
+	user, err = getUserFromDbRow(row)
 	if err != nil {
 		return user, err
 	}
@@ -51,7 +218,7 @@ func sqlCommonValidateUserAndPass(username, password, ip, protocol string, dbHan
 	if password == "" {
 		return user, errors.New("Credentials cannot be null or empty")
 	}
-	user, err := getUserByUsername(username, dbHandle)
+	user, err := sqlCommonGetUserByUsername(username, dbHandle)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, err
@@ -64,7 +231,7 @@ func sqlCommonValidateUserAndPubKey(username string, pubKey []byte, dbHandle *sq
 	if len(pubKey) == 0 {
 		return user, "", errors.New("Credentials cannot be null or empty")
 	}
-	user, err := getUserByUsername(username, dbHandle)
+	user, err := sqlCommonGetUserByUsername(username, dbHandle)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, "", err
@@ -76,26 +243,6 @@ func sqlCommonCheckAvailability(dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 	return dbHandle.PingContext(ctx)
-}
-
-func sqlCommonGetUserByID(ID int64, dbHandle *sql.DB) (User, error) {
-	var user User
-	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
-	defer cancel()
-	q := getUserByIDQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
-		return user, err
-	}
-	defer stmt.Close()
-
-	row := stmt.QueryRowContext(ctx, ID)
-	user, err = getUserFromDbRow(row, nil)
-	if err != nil {
-		return user, err
-	}
-	return getUserWithVirtualFolders(user, dbHandle)
 }
 
 func sqlCommonUpdateQuota(username string, filesAdd int, sizeAdd int64, reset bool, dbHandle *sql.DB) error {
@@ -156,25 +303,6 @@ func sqlCommonUpdateLastLogin(username string, dbHandle *sql.DB) error {
 		providerLog(logger.LevelWarn, "error updating last login for user %#v: %v", username, err)
 	}
 	return err
-}
-
-func sqlCommonCheckUserExists(username string, dbHandle *sql.DB) (User, error) {
-	var user User
-	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
-	defer cancel()
-	q := getUserByUsernameQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
-		return user, err
-	}
-	defer stmt.Close()
-	row := stmt.QueryRowContext(ctx, username)
-	user, err = getUserFromDbRow(row, nil)
-	if err != nil {
-		return user, err
-	}
-	return getUserWithVirtualFolders(user, dbHandle)
 }
 
 func sqlCommonAddUser(user *User, dbHandle *sql.DB) error {
@@ -317,7 +445,7 @@ func sqlCommonDumpUsers(dbHandle sqlQuerier) ([]User, error) {
 
 	defer rows.Close()
 	for rows.Next() {
-		u, err := getUserFromDbRow(nil, rows)
+		u, err := getUserFromDbRow(rows)
 		if err != nil {
 			return users, err
 		}
@@ -327,30 +455,30 @@ func sqlCommonDumpUsers(dbHandle sqlQuerier) ([]User, error) {
 		}
 		users = append(users, u)
 	}
+	err = rows.Err()
+	if err != nil {
+		return users, err
+	}
 	return getUsersWithVirtualFolders(users, dbHandle)
 }
 
-func sqlCommonGetUsers(limit int, offset int, order string, username string, dbHandle sqlQuerier) ([]User, error) {
+func sqlCommonGetUsers(limit int, offset int, order string, dbHandle sqlQuerier) ([]User, error) {
 	users := make([]User, 0, limit)
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getUsersQuery(order, username)
+	q := getUsersQuery(order)
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
 		return nil, err
 	}
 	defer stmt.Close()
-	var rows *sql.Rows
-	if len(username) > 0 {
-		rows, err = stmt.QueryContext(ctx, username, limit, offset) //nolint:rowserrcheck // rows.Err() is checked
-	} else {
-		rows, err = stmt.QueryContext(ctx, limit, offset) //nolint:rowserrcheck // rows.Err() is checked
-	}
+
+	rows, err := stmt.QueryContext(ctx, limit, offset)
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
-			u, err := getUserFromDbRow(nil, rows)
+			u, err := getUserFromDbRow(rows)
 			if err != nil {
 				return users, err
 			}
@@ -384,7 +512,47 @@ func updateUserPermissionsFromDb(user *User, permissions string) error {
 	return err
 }
 
-func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
+func getAdminFromDbRow(row sqlScanner) (Admin, error) {
+	var admin Admin
+	var email, filters, additionalInfo, permissions sql.NullString
+
+	err := row.Scan(&admin.ID, &admin.Username, &admin.Password, &admin.Status, &email, &permissions,
+		&filters, &additionalInfo)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return admin, &RecordNotFoundError{err: err.Error()}
+		}
+		return admin, err
+	}
+
+	if permissions.Valid {
+		var perms []string
+		err = json.Unmarshal([]byte(permissions.String), &perms)
+		if err != nil {
+			return admin, err
+		}
+		admin.Permissions = perms
+	}
+
+	if email.Valid {
+		admin.Email = email.String
+	}
+	if filters.Valid {
+		var adminFilters AdminFilters
+		err = json.Unmarshal([]byte(filters.String), &adminFilters)
+		if err == nil {
+			admin.Filters = adminFilters
+		}
+	}
+	if additionalInfo.Valid {
+		admin.AdditionalInfo = additionalInfo.String
+	}
+
+	return admin, err
+}
+
+func getUserFromDbRow(row sqlScanner) (User, error) {
 	var user User
 	var permissions sql.NullString
 	var password sql.NullString
@@ -392,18 +560,11 @@ func getUserFromDbRow(row *sql.Row, rows *sql.Rows) (User, error) {
 	var filters sql.NullString
 	var fsConfig sql.NullString
 	var additionalInfo sql.NullString
-	var err error
-	if row != nil {
-		err = row.Scan(&user.ID, &user.Username, &password, &publicKey, &user.HomeDir, &user.UID, &user.GID, &user.MaxSessions,
-			&user.QuotaSize, &user.QuotaFiles, &permissions, &user.UsedQuotaSize, &user.UsedQuotaFiles, &user.LastQuotaUpdate,
-			&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig,
-			&additionalInfo)
-	} else {
-		err = rows.Scan(&user.ID, &user.Username, &password, &publicKey, &user.HomeDir, &user.UID, &user.GID, &user.MaxSessions,
-			&user.QuotaSize, &user.QuotaFiles, &permissions, &user.UsedQuotaSize, &user.UsedQuotaFiles, &user.LastQuotaUpdate,
-			&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig,
-			&additionalInfo)
-	}
+
+	err := row.Scan(&user.ID, &user.Username, &password, &publicKey, &user.HomeDir, &user.UID, &user.GID, &user.MaxSessions,
+		&user.QuotaSize, &user.QuotaFiles, &permissions, &user.UsedQuotaSize, &user.UsedQuotaFiles, &user.LastQuotaUpdate,
+		&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig,
+		&additionalInfo)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return user, &RecordNotFoundError{err: err.Error()}

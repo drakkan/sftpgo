@@ -293,8 +293,8 @@ func (t *BaseTransfer) HandleThrottle() {
 	if wantedBandwidth > 0 {
 		// real and wanted elapsed as milliseconds, bytes as kilobytes
 		realElapsed := time.Since(t.start).Nanoseconds() / 1000000
-		// trasferredBytes / 1000 = KB/s, we multiply for 1000 to get milliseconds
-		wantedElapsed := 1000 * (trasferredBytes / 1000) / wantedBandwidth
+		// trasferredBytes / 1024 = KB/s, we multiply for 1000 to get milliseconds
+		wantedElapsed := 1000 * (trasferredBytes / 1024) / wantedBandwidth
 		if wantedElapsed > realElapsed {
 			toSleep := time.Duration(wantedElapsed - realElapsed)
 			time.Sleep(toSleep * time.Millisecond)

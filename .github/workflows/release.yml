@@ -94,12 +94,6 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Set up Python
-        if: startsWith(matrix.os, 'windows-')
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.x
-
       - name: Build for Linux/macOS
         if: startsWith(matrix.os, 'windows-') != true
         run: go build -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
@@ -136,15 +130,6 @@ jobs:
         env:
           MATRIX_OS: ${{ matrix.os }}
 
-      - name: Build REST API CLI for Windows
-        if: startsWith(matrix.os, 'windows-')
-        run: |
-          python -m pip install --upgrade pip setuptools wheel
-          pip install requests
-          pip install pygments
-          pip install pyinstaller
-          pyinstaller --hidden-import="pkg_resources.py2_warn" --noupx --onefile examples\rest-api-cli\sftpgo_api_cli
-
       - name: Gather cross build info
         id: cross_info
         if: ${{ matrix.os == 'ubuntu-latest' }}
@@ -170,7 +155,7 @@ jobs:
       - name: Prepare Release for Linux/macOS
         if: startsWith(matrix.os, 'windows-') != true
         run: |
-          mkdir -p output/{init,examples/rest-api-cli,sqlite,bash_completion,zsh_completion}
+          mkdir -p output/{init,sqlite,bash_completion,zsh_completion}
           echo "For documentation please take a look here:" > output/README.txt
           echo "" >> output/README.txt
           echo "https://github.com/drakkan/sftpgo/blob/${SFTPGO_VERSION}/README.md" >> output/README.txt
@@ -190,7 +175,6 @@ jobs:
           ./sftpgo gen completion zsh > output/zsh_completion/_sftpgo
           ./sftpgo gen man -d output/man/man1
           gzip output/man/man1/*
-          cp examples/rest-api-cli/sftpgo_api_cli output/examples/rest-api-cli/
           if [ $OS == 'linux' ]
           then
             cp -r output output_arm64
@@ -254,7 +238,6 @@ jobs:
           copy .\sftpgo.exe .\output
           copy .\sftpgo.json .\output
           copy .\sftpgo.db .\output
-          copy .\dist\sftpgo_api_cli.exe .\output
           copy .\LICENSE .\output\LICENSE.txt
           mkdir output\templates
           xcopy .\templates .\output\templates\ /E
@@ -268,11 +251,10 @@ jobs:
       - name: Prepare Portable Release for Windows
         if: startsWith(matrix.os, 'windows-')
         run: |
-          mkdir win-portable\examples\rest-api-cli
+          mkdir win-portable
           copy .\sftpgo.exe .\win-portable
           copy .\sftpgo.json .\win-portable
           copy .\sftpgo.db .\win-portable
-          copy .\dist\sftpgo_api_cli.exe .\win-portable\examples\rest-api-cli
           copy .\LICENSE .\win-portable\LICENSE.txt
           mkdir win-portable\templates
           xcopy .\templates .\win-portable\templates\ /E

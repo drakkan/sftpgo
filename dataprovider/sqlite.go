@@ -78,6 +78,10 @@ INSERT INTO "new__users" ("id", "username", "password", "public_keys", "home_dir
 DROP TABLE "{{users}}";
 ALTER TABLE "new__users" RENAME TO "{{users}}";
 `
+	sqliteV7SQL = `CREATE TABLE "{{admins}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "username" varchar(255) NOT NULL UNIQUE,
+"password" varchar(255) NOT NULL, "email" varchar(255) NULL, "status" integer NOT NULL, "permissions" text NOT NULL, "filters" text NULL,
+"additional_info" text NULL);`
+	sqliteV7DownSQL = `DROP TABLE "{{admins}}";`
 )
 
 // SQLiteProvider auth provider for SQLite database
@@ -109,7 +113,7 @@ func initializeSQLiteProvider(basePath string) error {
 	if err == nil {
 		providerLog(logger.LevelDebug, "sqlite database handle created, connection string: %#v", connectionString)
 		dbHandle.SetMaxOpenConns(1)
-		provider = SQLiteProvider{dbHandle: dbHandle}
+		provider = &SQLiteProvider{dbHandle: dbHandle}
 	} else {
 		providerLog(logger.LevelWarn, "error creating sqlite database handler, connection string: %#v, error: %v",
 			connectionString, err)
@@ -117,98 +121,122 @@ func initializeSQLiteProvider(basePath string) error {
 	return err
 }
 
-func (p SQLiteProvider) checkAvailability() error {
+func (p *SQLiteProvider) checkAvailability() error {
 	return sqlCommonCheckAvailability(p.dbHandle)
 }
 
-func (p SQLiteProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
+func (p *SQLiteProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
 	return sqlCommonValidateUserAndPass(username, password, ip, protocol, p.dbHandle)
 }
 
-func (p SQLiteProvider) validateUserAndPubKey(username string, publicKey []byte) (User, string, error) {
+func (p *SQLiteProvider) validateUserAndPubKey(username string, publicKey []byte) (User, string, error) {
 	return sqlCommonValidateUserAndPubKey(username, publicKey, p.dbHandle)
 }
 
-func (p SQLiteProvider) getUserByID(ID int64) (User, error) {
-	return sqlCommonGetUserByID(ID, p.dbHandle)
-}
-
-func (p SQLiteProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
+func (p *SQLiteProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
 	return sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
 }
 
-func (p SQLiteProvider) getUsedQuota(username string) (int, int64, error) {
+func (p *SQLiteProvider) getUsedQuota(username string) (int, int64, error) {
 	return sqlCommonGetUsedQuota(username, p.dbHandle)
 }
 
-func (p SQLiteProvider) updateLastLogin(username string) error {
+func (p *SQLiteProvider) updateLastLogin(username string) error {
 	return sqlCommonUpdateLastLogin(username, p.dbHandle)
 }
 
-func (p SQLiteProvider) userExists(username string) (User, error) {
-	return sqlCommonCheckUserExists(username, p.dbHandle)
+func (p *SQLiteProvider) userExists(username string) (User, error) {
+	return sqlCommonGetUserByUsername(username, p.dbHandle)
 }
 
-func (p SQLiteProvider) addUser(user *User) error {
+func (p *SQLiteProvider) addUser(user *User) error {
 	return sqlCommonAddUser(user, p.dbHandle)
 }
 
-func (p SQLiteProvider) updateUser(user *User) error {
+func (p *SQLiteProvider) updateUser(user *User) error {
 	return sqlCommonUpdateUser(user, p.dbHandle)
 }
 
-func (p SQLiteProvider) deleteUser(user *User) error {
+func (p *SQLiteProvider) deleteUser(user *User) error {
 	return sqlCommonDeleteUser(user, p.dbHandle)
 }
 
-func (p SQLiteProvider) dumpUsers() ([]User, error) {
+func (p *SQLiteProvider) dumpUsers() ([]User, error) {
 	return sqlCommonDumpUsers(p.dbHandle)
 }
 
-func (p SQLiteProvider) getUsers(limit int, offset int, order string, username string) ([]User, error) {
-	return sqlCommonGetUsers(limit, offset, order, username, p.dbHandle)
+func (p *SQLiteProvider) getUsers(limit int, offset int, order string) ([]User, error) {
+	return sqlCommonGetUsers(limit, offset, order, p.dbHandle)
 }
 
-func (p SQLiteProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
+func (p *SQLiteProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	return sqlCommonDumpFolders(p.dbHandle)
 }
 
-func (p SQLiteProvider) getFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error) {
+func (p *SQLiteProvider) getFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error) {
 	return sqlCommonGetFolders(limit, offset, order, folderPath, p.dbHandle)
 }
 
-func (p SQLiteProvider) getFolderByPath(mappedPath string) (vfs.BaseVirtualFolder, error) {
+func (p *SQLiteProvider) getFolderByPath(mappedPath string) (vfs.BaseVirtualFolder, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 	return sqlCommonCheckFolderExists(ctx, mappedPath, p.dbHandle)
 }
 
-func (p SQLiteProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
+func (p *SQLiteProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 	return sqlCommonAddFolder(folder, p.dbHandle)
 }
 
-func (p SQLiteProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
+func (p *SQLiteProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 	return sqlCommonDeleteFolder(folder, p.dbHandle)
 }
 
-func (p SQLiteProvider) updateFolderQuota(mappedPath string, filesAdd int, sizeAdd int64, reset bool) error {
+func (p *SQLiteProvider) updateFolderQuota(mappedPath string, filesAdd int, sizeAdd int64, reset bool) error {
 	return sqlCommonUpdateFolderQuota(mappedPath, filesAdd, sizeAdd, reset, p.dbHandle)
 }
 
-func (p SQLiteProvider) getUsedFolderQuota(mappedPath string) (int, int64, error) {
+func (p *SQLiteProvider) getUsedFolderQuota(mappedPath string) (int, int64, error) {
 	return sqlCommonGetFolderUsedQuota(mappedPath, p.dbHandle)
 }
 
-func (p SQLiteProvider) close() error {
+func (p *SQLiteProvider) adminExists(username string) (Admin, error) {
+	return sqlCommonGetAdminByUsername(username, p.dbHandle)
+}
+
+func (p *SQLiteProvider) addAdmin(admin *Admin) error {
+	return sqlCommonAddAdmin(admin, p.dbHandle)
+}
+
+func (p *SQLiteProvider) updateAdmin(admin *Admin) error {
+	return sqlCommonUpdateAdmin(admin, p.dbHandle)
+}
+
+func (p *SQLiteProvider) deleteAdmin(admin *Admin) error {
+	return sqlCommonDeleteAdmin(admin, p.dbHandle)
+}
+
+func (p *SQLiteProvider) getAdmins(limit int, offset int, order string) ([]Admin, error) {
+	return sqlCommonGetAdmins(limit, offset, order, p.dbHandle)
+}
+
+func (p *SQLiteProvider) dumpAdmins() ([]Admin, error) {
+	return sqlCommonDumpAdmins(p.dbHandle)
+}
+
+func (p *SQLiteProvider) validateAdminAndPass(username, password, ip string) (Admin, error) {
+	return sqlCommonValidateAdminAndPass(username, password, ip, p.dbHandle)
+}
+
+func (p *SQLiteProvider) close() error {
 	return p.dbHandle.Close()
 }
 
-func (p SQLiteProvider) reloadConfig() error {
+func (p *SQLiteProvider) reloadConfig() error {
 	return nil
 }
 
 // initializeDatabase creates the initial database structure
-func (p SQLiteProvider) initializeDatabase() error {
+func (p *SQLiteProvider) initializeDatabase() error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, false)
 	if err == nil && dbVersion.Version > 0 {
 		return ErrNoInitRequired
@@ -236,7 +264,7 @@ func (p SQLiteProvider) initializeDatabase() error {
 	return tx.Commit()
 }
 
-func (p SQLiteProvider) migrateDatabase() error {
+func (p *SQLiteProvider) migrateDatabase() error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
 		return err
@@ -256,6 +284,8 @@ func (p SQLiteProvider) migrateDatabase() error {
 		return updateSQLiteDatabaseFromV4(p.dbHandle)
 	case 5:
 		return updateSQLiteDatabaseFromV5(p.dbHandle)
+	case 6:
+		return updateSQLiteDatabaseFromV6(p.dbHandle)
 	default:
 		if dbVersion.Version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported: %v", dbVersion.Version,
@@ -268,7 +298,7 @@ func (p SQLiteProvider) migrateDatabase() error {
 	}
 }
 
-func (p SQLiteProvider) revertDatabase(targetVersion int) error {
+func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
 		return err
@@ -277,6 +307,16 @@ func (p SQLiteProvider) revertDatabase(targetVersion int) error {
 		return fmt.Errorf("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
+	case 7:
+		err = downgradeSQLiteDatabaseFrom7To6(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		err = downgradeSQLiteDatabaseFrom6To5(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		return downgradeSQLiteDatabaseFrom5To4(p.dbHandle)
 	case 6:
 		err = downgradeSQLiteDatabaseFrom6To5(p.dbHandle)
 		if err != nil {
@@ -323,7 +363,15 @@ func updateSQLiteDatabaseFromV4(dbHandle *sql.DB) error {
 }
 
 func updateSQLiteDatabaseFromV5(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom5To6(dbHandle)
+	err := updateSQLiteDatabaseFrom5To6(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV6(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV6(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom6To7(dbHandle)
 }
 
 func updateSQLiteDatabaseFrom1To2(dbHandle *sql.DB) error {
@@ -352,6 +400,20 @@ func updateSQLiteDatabaseFrom5To6(dbHandle *sql.DB) error {
 	logger.InfoToConsole("updating database version: 5 -> 6")
 	providerLog(logger.LevelInfo, "updating database version: 5 -> 6")
 	sql := strings.Replace(sqliteV6SQL, "{{users}}", sqlTableUsers, 1)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 6)
+}
+
+func updateSQLiteDatabaseFrom6To7(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 6 -> 7")
+	providerLog(logger.LevelInfo, "updating database version: 6 -> 7")
+	sql := strings.Replace(sqliteV7SQL, "{{admins}}", sqlTableAdmins, 1)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 7)
+}
+
+func downgradeSQLiteDatabaseFrom7To6(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 7 -> 6")
+	providerLog(logger.LevelInfo, "downgrading database version: 7 -> 6")
+	sql := strings.Replace(sqliteV7DownSQL, "{{admins}}", sqlTableAdmins, 1)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 6)
 }
 
