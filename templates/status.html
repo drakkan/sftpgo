@@ -16,7 +16,7 @@
             Address: "{{.GetAddress}}" {{if .HasProxy}}Proxy: ON{{end}}
             <br>
             {{end}}
-            Accepted commands: "{{.Status.SSH.SSHCommands}}"
+            Accepted commands: "{{.Status.SSH.GetSSHCommandsAsString}}"
             <br>
             {{range .Status.SSH.HostKeys}}
             <br>

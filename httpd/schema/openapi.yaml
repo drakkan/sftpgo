@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: SFTPGo
   description: SFTPGo REST API
-  version: 2.4.0
+  version: 2.4.1
 
 servers:
   - url: /api/v2
@@ -327,7 +327,7 @@ paths:
             example: reset
       requestBody:
         required: true
-        description: The only user mandatory fields are username,used_quota_size and used_quota_files. Please note that if the quota fields are missing they will default to 0
+        description: The only user mandatory fields are username, used_quota_size and used_quota_files. Please note that if the quota fields are missing they will default to 0
         content:
           application/json:
             schema:
@@ -723,7 +723,7 @@ paths:
               schema:
                 $ref : '#/components/schemas/ApiResponse'
               example:
-                message: "User updated"
+                message: "Admin updated"
         400:
           $ref: '#/components/responses/BadRequest'
         401:
@@ -756,7 +756,7 @@ paths:
               schema:
                 $ref : '#/components/schemas/ApiResponse'
               example:
-                message: "User deleted"
+                message: "Admin deleted"
         400:
           $ref: '#/components/responses/BadRequest'
         401:
@@ -1688,7 +1688,7 @@ components:
           description: connection time as unix timestamp in milliseconds
         command:
           type: string
-          description: SSH/FTP command or WebDAV method
+          description: Last SSH/FTP command or WebDAV method
         last_activity:
           type: integer
           format: int64
@@ -1795,13 +1795,16 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SSHBinding'
+          nullable: true
         host_keys:
           type: array
           items:
             $ref: '#/components/schemas/SSHHostKey'
+          nullable: true
         ssh_commands:
-          type: string
-          description: accepted SSH commands comma separated
+          type: array
+          items:
+            type: string
     FTPPassivePortRange:
       type: object
       properties:
@@ -1818,6 +1821,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FTPDBinding'
+          nullable: true
         passive_port_range:
           $ref: '#/components/schemas/FTPPassivePortRange'
     WebDAVServiceStatus:
@@ -1829,6 +1833,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/WebDAVBinding'
+          nullable: true
     DataProviderStatus:
       type: object
       properties:

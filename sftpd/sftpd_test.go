@@ -385,6 +385,8 @@ func TestBasicSFTPHandling(t *testing.T) {
 	assert.NoError(t, err)
 	status := sftpd.GetStatus()
 	assert.True(t, status.IsActive)
+	sshCommands := status.GetSSHCommandsAsString()
+	assert.NotEmpty(t, sshCommands)
 }
 
 func TestBasicSFTPFsHandling(t *testing.T) {

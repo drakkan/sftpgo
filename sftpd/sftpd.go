@@ -4,6 +4,7 @@
 package sftpd
 
 import (
+	"strings"
 	"time"
 )
 
@@ -39,8 +40,13 @@ type HostKey struct {
 type ServiceStatus struct {
 	IsActive    bool      `json:"is_active"`
 	Bindings    []Binding `json:"bindings"`
-	SSHCommands string    `json:"ssh_commands"`
+	SSHCommands []string  `json:"ssh_commands"`
 	HostKeys    []HostKey `json:"host_keys"`
+}
+
+// GetSSHCommandsAsString returns enabled SSH commands as comma separated string
+func (s ServiceStatus) GetSSHCommandsAsString() string {
+	return strings.Join(s.SSHCommands, ", ")
 }
 
 // GetStatus returns the server status

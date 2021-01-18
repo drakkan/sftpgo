@@ -131,7 +131,7 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	sendAPIResponse(w, r, nil, "Update admin", http.StatusOK)
+	sendAPIResponse(w, r, nil, "Admin updated", http.StatusOK)
 }
 
 func deleteAdmin(w http.ResponseWriter, r *http.Request) {

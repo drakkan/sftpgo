@@ -41,3 +41,5 @@ You can also restrict administrator access based on the source IP address. If yo
 The OpenAPI 3 schema for the exposed API can be found inside the source tree: [openapi.yaml](../httpd/schema/openapi.yaml "OpenAPI 3 specs").
 
 You can generate your own REST client in your preferred programming language, or even bash scripts, using an OpenAPI generator such as [swagger-codegen](https://github.com/swagger-api/swagger-codegen) or [OpenAPI Generator](https://openapi-generator.tech/).
+
+You can also use [Swagger UI](https://github.com/swagger-api/swagger-ui).

@@ -258,7 +258,7 @@ func (c *Configuration) Initialize(configDir string) error {
 	}
 
 	serviceStatus.IsActive = true
-	serviceStatus.SSHCommands = strings.Join(c.EnabledSSHCommands, ", ")
+	serviceStatus.SSHCommands = c.EnabledSSHCommands
 
 	return <-exitChannel
 }
