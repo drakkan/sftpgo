@@ -74,6 +74,28 @@ func (s *WindowsService) Execute(args []string, r <-chan svc.ChangeRequest, chan
 	if err := s.Service.Start(); err != nil {
 		return true, 1
 	}
+
+	wasStopped := make(chan bool, 1)
+
+	go func() {
+		s.Service.Wait()
+
+		select {
+		case <-wasStopped:
+			// the service was stopped nothing to do
+			logger.Debug(logSender, "", "Windows Service was stopped")
+			return
+		default:
+			// the server failed while running, we must be sure to exit the process.
+			// The defined recovery action will be executed.
+			logger.Debug(logSender, "", "Service wait ended, error: %v", s.Service.Error)
+			if s.Service.Error == nil {
+				os.Exit(0)
+			} else {
+				os.Exit(1)
+			}
+		}
+	}()
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 loop:
 	for {
@@ -85,6 +107,7 @@ loop:
 		case svc.Stop, svc.Shutdown:
 			logger.Debug(logSender, "", "Received service stop request")
 			changes <- svc.Status{State: svc.StopPending}
+			wasStopped <- true
 			s.Service.Stop()
 			break loop
 		case svc.ParamChange:
@@ -237,17 +260,18 @@ func (s *WindowsService) Install(args ...string) error {
 	recoveryActions := []mgr.RecoveryAction{
 		{
 			Type:  mgr.ServiceRestart,
-			Delay: 0,
+			Delay: 5 * time.Second,
 		},
 		{
 			Type:  mgr.ServiceRestart,
 			Delay: 60 * time.Second,
 		},
 		{
-			Type: mgr.NoAction,
+			Type:  mgr.ServiceRestart,
+			Delay: 90 * time.Second,
 		},
 	}
-	err = service.SetRecoveryActions(recoveryActions, uint32(3600))
+	err = service.SetRecoveryActions(recoveryActions, uint32(300))
 	if err != nil {
 		service.Delete()
 		return fmt.Errorf("unable to set recovery actions: %v", err)
