@@ -300,9 +300,9 @@ func TestSetGetConfig(t *testing.T) {
 	config.SetProviderConf(dataProviderConf)
 	assert.Equal(t, dataProviderConf.Host, config.GetProviderConf().Host)
 	httpdConf := config.GetHTTPDConfig()
-	httpdConf.BindAddress = "0.0.0.0"
+	httpdConf.Bindings = append(httpdConf.Bindings, httpd.Binding{Address: "0.0.0.0"})
 	config.SetHTTPDConfig(httpdConf)
-	assert.Equal(t, httpdConf.BindAddress, config.GetHTTPDConfig().BindAddress)
+	assert.Equal(t, httpdConf.Bindings[0].Address, config.GetHTTPDConfig().Bindings[0].Address)
 	commonConf := config.GetCommonConfig()
 	commonConf.IdleTimeout = 10
 	config.SetCommonConfig(commonConf)
@@ -513,6 +513,57 @@ func TestWebDAVDBindingsCompatibility(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+//nolint:dupl
+func TestHTTPDBindingsCompatibility(t *testing.T) {
+	reset()
+
+	configDir := ".."
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+	err := config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	httpdConf := config.GetHTTPDConfig()
+	require.Len(t, httpdConf.Bindings, 1)
+	httpdConf.Bindings = nil
+	httpdConf.BindPort = 9080           //nolint:staticcheck
+	httpdConf.BindAddress = "127.1.1.1" //nolint:staticcheck
+	c := make(map[string]httpd.Conf)
+	c["httpd"] = httpdConf
+	jsonConf, err := json.Marshal(c)
+	assert.NoError(t, err)
+	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, confName)
+	assert.NoError(t, err)
+	httpdConf = config.GetHTTPDConfig()
+	// even if there is no binding configuration in httpd conf we load the default
+	require.Len(t, httpdConf.Bindings, 1)
+	require.Equal(t, 8080, httpdConf.Bindings[0].Port)
+	require.Equal(t, "127.0.0.1", httpdConf.Bindings[0].Address)
+	require.False(t, httpdConf.Bindings[0].EnableHTTPS)
+	require.True(t, httpdConf.Bindings[0].EnableWebAdmin)
+	// now set the global value to nil and reload the configuration
+	// this time we should get the values setted using the deprecated configuration
+	httpdConf.Bindings = nil
+	httpdConf.BindPort = 10080 //nolint:staticcheck
+	httpdConf.BindAddress = "" //nolint:staticcheck
+	config.SetHTTPDConfig(httpdConf)
+	require.Nil(t, config.GetHTTPDConfig().Bindings)
+	require.Equal(t, 10080, config.GetHTTPDConfig().BindPort) //nolint:staticcheck
+	require.Empty(t, config.GetHTTPDConfig().BindAddress)     //nolint:staticcheck
+
+	err = config.LoadConfig(configDir, confName)
+	assert.NoError(t, err)
+	httpdConf = config.GetHTTPDConfig()
+	require.Len(t, httpdConf.Bindings, 1)
+	require.Equal(t, 9080, httpdConf.Bindings[0].Port)
+	require.Equal(t, "127.1.1.1", httpdConf.Bindings[0].Address)
+	require.False(t, httpdConf.Bindings[0].EnableHTTPS)
+	require.True(t, httpdConf.Bindings[0].EnableWebAdmin)
+	err = os.Remove(configFilePath)
+	assert.NoError(t, err)
+}
+
 func TestSFTPDBindingsFromEnv(t *testing.T) {
 	reset()
 
@@ -627,6 +678,57 @@ func TestWebDAVBindingsFromEnv(t *testing.T) {
 	require.Equal(t, 9000, bindings[2].Port)
 	require.Equal(t, "127.0.1.1", bindings[2].Address)
 	require.True(t, bindings[2].EnableHTTPS)
+	require.Equal(t, 1, bindings[2].ClientAuthType)
+}
+
+func TestHTTPDBindingsFromEnv(t *testing.T) {
+	reset()
+
+	sockPath := filepath.Clean(os.TempDir())
+
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__ADDRESS", sockPath)
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__PORT", "0")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__1__ADDRESS", "127.0.0.1")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__1__PORT", "8000")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__1__ENABLE_HTTPS", "0")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__1__ENABLE_WEB_ADMIN", "1")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__ADDRESS", "127.0.1.1")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__PORT", "9000")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_WEB_ADMIN", "0")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_HTTPS", "1")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__CLIENT_AUTH_TYPE", "1")
+	t.Cleanup(func() {
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__ADDRESS")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__PORT")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__1__ADDRESS")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__1__PORT")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__1__ENABLE_HTTPS")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__1__ENABLE_WEB_ADMIN")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__ADDRESS")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__PORT")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_HTTPS")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_WEB_ADMIN")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__CLIENT_AUTH_TYPE")
+	})
+
+	configDir := ".."
+	err := config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	bindings := config.GetHTTPDConfig().Bindings
+	require.Len(t, bindings, 3)
+	require.Equal(t, 0, bindings[0].Port)
+	require.Equal(t, sockPath, bindings[0].Address)
+	require.False(t, bindings[0].EnableHTTPS)
+	require.True(t, bindings[0].EnableWebAdmin)
+	require.Equal(t, 8000, bindings[1].Port)
+	require.Equal(t, "127.0.0.1", bindings[1].Address)
+	require.False(t, bindings[1].EnableHTTPS)
+	require.True(t, bindings[1].EnableWebAdmin)
+
+	require.Equal(t, 9000, bindings[2].Port)
+	require.Equal(t, "127.0.1.1", bindings[2].Address)
+	require.True(t, bindings[2].EnableHTTPS)
+	require.False(t, bindings[2].EnableWebAdmin)
 	require.Equal(t, 1, bindings[2].ClientAuthType)
 }
 

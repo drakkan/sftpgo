@@ -2,6 +2,8 @@ package httpd
 
 import (
 	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -27,14 +29,11 @@ type httpdServer struct {
 	tokenAuth       *jwtauth.JWTAuth
 }
 
-func newHttpdServer(bindAddress string, bindPort int, staticFilesPath string, enableWebAdmin bool) *httpdServer {
+func newHttpdServer(b Binding, staticFilesPath string, enableWebAdmin bool) *httpdServer {
 	return &httpdServer{
-		binding: Binding{
-			Address: bindAddress,
-			Port:    bindPort,
-		},
+		binding:         b,
 		staticFilesPath: staticFilesPath,
-		enableWebAdmin:  enableWebAdmin,
+		enableWebAdmin:  enableWebAdmin && b.EnableWebAdmin,
 	}
 }
 
@@ -48,15 +47,47 @@ func (s *httpdServer) listenAndServe() error {
 		MaxHeaderBytes: 1 << 16, // 64KB
 		ErrorLog:       log.New(&logger.StdLoggerWrapper{Sender: logSender}, "", 0),
 	}
-	if certMgr != nil {
+	if certMgr != nil && s.binding.EnableHTTPS {
 		config := &tls.Config{
 			GetCertificate: certMgr.GetCertificateFunc(),
 			MinVersion:     tls.VersionTLS12,
 		}
 		httpServer.TLSConfig = config
+		if s.binding.ClientAuthType == 1 {
+			httpServer.TLSConfig.ClientCAs = certMgr.GetRootCAs()
+			httpServer.TLSConfig.ClientAuth = tls.RequireAndVerifyClientCert
+			httpServer.TLSConfig.VerifyConnection = s.verifyTLSConnection
+		}
 		return utils.HTTPListenAndServe(httpServer, s.binding.Address, s.binding.Port, true, logSender)
 	}
 	return utils.HTTPListenAndServe(httpServer, s.binding.Address, s.binding.Port, false, logSender)
+}
+
+func (s *httpdServer) verifyTLSConnection(state tls.ConnectionState) error {
+	if certMgr != nil {
+		var clientCrt *x509.Certificate
+		var clientCrtName string
+		if len(state.PeerCertificates) > 0 {
+			clientCrt = state.PeerCertificates[0]
+			clientCrtName = clientCrt.Subject.String()
+		}
+		if len(state.VerifiedChains) == 0 {
+			logger.Warn(logSender, "", "TLS connection cannot be verified: unable to get verification chain")
+			return errors.New("TLS connection cannot be verified: unable to get verification chain")
+		}
+		for _, verifiedChain := range state.VerifiedChains {
+			var caCrt *x509.Certificate
+			if len(verifiedChain) > 0 {
+				caCrt = verifiedChain[len(verifiedChain)-1]
+			}
+			if certMgr.IsRevoked(clientCrt, caCrt) {
+				logger.Debug(logSender, "", "tls handshake error, client certificate %#v has been revoked", clientCrtName)
+				return common.ErrCrtRevoked
+			}
+		}
+	}
+
+	return nil
 }
 
 func (s *httpdServer) refreshCookie(next http.Handler) http.Handler {

@@ -149,7 +149,7 @@ func TestMain(m *testing.M) {
 	}
 
 	httpdConf := config.GetHTTPDConfig()
-	httpdConf.BindPort = 8079
+	httpdConf.Bindings[0].Port = 8079
 	httpdtest.SetBaseURL("http://127.0.0.1:8079")
 
 	ftpdConf := config.GetFTPDConfig()
@@ -209,7 +209,7 @@ func TestMain(m *testing.M) {
 	}()
 
 	waitTCPListening(ftpdConf.Bindings[0].GetAddress())
-	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
+	waitTCPListening(httpdConf.Bindings[0].GetAddress())
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 	ftpd.ReloadCertificateMgr() //nolint:errcheck
 

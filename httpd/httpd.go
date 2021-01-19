@@ -75,6 +75,30 @@ type Binding struct {
 	Address string `json:"address" mapstructure:"address"`
 	// The port used for serving requests
 	Port int `json:"port" mapstructure:"port"`
+	// Enable the built-in admin interface.
+	// You have to define TemplatesPath and StaticFilesPath for this to work
+	EnableWebAdmin bool `json:"enable_web_admin" mapstructure:"enable_web_admin"`
+	// you also need to provide a certificate for enabling HTTPS
+	EnableHTTPS bool `json:"enable_https" mapstructure:"enable_https"`
+	// set to 1 to require client certificate authentication in addition to basic auth.
+	// You need to define at least a certificate authority for this to work
+	ClientAuthType int `json:"client_auth_type" mapstructure:"client_auth_type"`
+}
+
+// GetAddress returns the binding address
+func (b *Binding) GetAddress() string {
+	return fmt.Sprintf("%s:%d", b.Address, b.Port)
+}
+
+// IsValid returns true if the binding is valid
+func (b *Binding) IsValid() bool {
+	if b.Port > 0 {
+		return true
+	}
+	if filepath.IsAbs(b.Address) && runtime.GOOS != osWindows {
+		return true
+	}
+	return false
 }
 
 type defenderStatus struct {
@@ -92,9 +116,11 @@ type ServicesStatus struct {
 
 // Conf httpd daemon configuration
 type Conf struct {
-	// The port used for serving HTTP requests. 0 disable the HTTP server. Default: 8080
+	// Addresses and ports to bind to
+	Bindings []Binding `json:"bindings" mapstructure:"bindings"`
+	// Deprecated: please use Bindings
 	BindPort int `json:"bind_port" mapstructure:"bind_port"`
-	// The address to listen on. A blank value means listen on all available network interfaces. Default: "127.0.0.1"
+	// Deprecated: please use Bindings
 	BindAddress string `json:"bind_address" mapstructure:"bind_address"`
 	// Path to the HTML web templates. This can be an absolute path or a path relative to the config dir
 	TemplatesPath string `json:"templates_path" mapstructure:"templates_path"`
@@ -109,6 +135,11 @@ type Conf struct {
 	// "paramchange" request to the running service on Windows.
 	CertificateFile    string `json:"certificate_file" mapstructure:"certificate_file"`
 	CertificateKeyFile string `json:"certificate_key_file" mapstructure:"certificate_key_file"`
+	// CACertificates defines the set of root certificate authorities to be used to verify client certificates.
+	CACertificates []string `json:"ca_certificates" mapstructure:"ca_certificates"`
+	// CARevocationLists defines a set a revocation lists, one for each root CA, to be used to check
+	// if a client certificate has been revoked
+	CARevocationLists []string `json:"ca_revocation_lists" mapstructure:"ca_revocation_lists"`
 }
 
 type apiResponse struct {
@@ -116,20 +147,19 @@ type apiResponse struct {
 	Message string `json:"message"`
 }
 
-// ShouldBind returns true if there service must be started
-func (c Conf) ShouldBind() bool {
-	if c.BindPort > 0 {
-		return true
+// ShouldBind returns true if there is at least a valid binding
+func (c *Conf) ShouldBind() bool {
+	for _, binding := range c.Bindings {
+		if binding.IsValid() {
+			return true
+		}
 	}
-	if filepath.IsAbs(c.BindAddress) && runtime.GOOS != osWindows {
-		return true
-	}
+
 	return false
 }
 
 // Initialize configures and starts the HTTP server
-func (c Conf) Initialize(configDir string) error {
-	var err error
+func (c *Conf) Initialize(configDir string) error {
 	logger.Debug(logSender, "", "initializing HTTP server with config %+v", c)
 	backupsPath = getConfigPath(c.BackupsPath, configDir)
 	staticFilesPath := getConfigPath(c.StaticFilesPath, configDir)
@@ -150,13 +180,36 @@ func (c Conf) Initialize(configDir string) error {
 		logger.Info(logSender, "", "built-in web interface disabled, please set templates_path and static_files_path to enable it")
 	}
 	if certificateFile != "" && certificateKeyFile != "" {
-		certMgr, err = common.NewCertManager(certificateFile, certificateKeyFile, configDir, logSender)
+		mgr, err := common.NewCertManager(certificateFile, certificateKeyFile, configDir, logSender)
 		if err != nil {
 			return err
 		}
+		mgr.SetCACertificates(c.CACertificates)
+		if err := mgr.LoadRootCAs(); err != nil {
+			return err
+		}
+		mgr.SetCARevocationLists(c.CARevocationLists)
+		if err := mgr.LoadCRLs(); err != nil {
+			return err
+		}
+		certMgr = mgr
 	}
-	server := newHttpdServer(c.BindAddress, c.BindPort, staticFilesPath, enableWebAdmin)
-	return server.listenAndServe()
+
+	exitChannel := make(chan error, 1)
+
+	for _, binding := range c.Bindings {
+		if !binding.IsValid() {
+			continue
+		}
+
+		go func(b Binding) {
+			server := newHttpdServer(b, staticFilesPath, enableWebAdmin)
+
+			exitChannel <- server.listenAndServe()
+		}(binding)
+	}
+
+	return <-exitChannel
 }
 
 func isWebAdminRequest(r *http.Request) bool {
@@ -220,7 +273,12 @@ func fileServer(r chi.Router, path string, root http.FileSystem) {
 
 // GetHTTPRouter returns an HTTP handler suitable to use for test cases
 func GetHTTPRouter() http.Handler {
-	server := newHttpdServer("", 8080, "../static", true)
+	b := Binding{
+		Address:        "",
+		Port:           8080,
+		EnableWebAdmin: true,
+	}
+	server := newHttpdServer(b, "../static", true)
 	server.initializeRouter()
 	return server.router
 }

@@ -47,7 +47,7 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 	dataProviderConf.PreferDatabaseCredentials = true
 	config.SetProviderConf(dataProviderConf)
 	httpdConf := config.GetHTTPDConfig()
-	httpdConf.BindPort = 0
+	httpdConf.Bindings = nil
 	config.SetHTTPDConfig(httpdConf)
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.MaxAuthTries = 12

@@ -147,13 +147,22 @@
     "update_mode": 0
   },
   "httpd": {
-    "bind_port": 8080,
-    "bind_address": "127.0.0.1",
+    "bindings": [
+      {
+        "port": 8080,
+        "address": "127.0.0.1",
+        "enable_web_admin": true,
+        "enable_https": false,
+        "client_auth_type": 0
+      }
+    ],
     "templates_path": "templates",
     "static_files_path": "static",
     "backups_path": "backups",
     "certificate_file": "",
-    "certificate_key_file": ""
+    "certificate_key_file": "",
+    "ca_certificates": [],
+    "ca_revocation_lists": []
   },
   "telemetry": {
     "bind_port": 10000,

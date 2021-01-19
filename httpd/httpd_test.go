@@ -179,7 +179,7 @@ func TestMain(m *testing.M) {
 
 	httpdConf := config.GetHTTPDConfig()
 
-	httpdConf.BindPort = 8081
+	httpdConf.Bindings[0].Port = 8081
 	httpdtest.SetBaseURL(httpBaseURL)
 	backupsPath = filepath.Join(os.TempDir(), "test_backups")
 	httpdConf.BackupsPath = backupsPath
@@ -196,7 +196,8 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
-	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
+	waitTCPListening(httpdConf.Bindings[0].GetAddress())
+	httpd.ReloadCertificateMgr() //nolint:errcheck
 	// now start an https server
 	certPath := filepath.Join(os.TempDir(), "test.crt")
 	keyPath := filepath.Join(os.TempDir(), "test.key")
@@ -210,9 +211,11 @@ func TestMain(m *testing.M) {
 		logger.ErrorToConsole("error writing HTTPS private key: %v", err)
 		os.Exit(1)
 	}
-	httpdConf.BindPort = 8443
+	httpdConf.Bindings[0].Port = 8443
+	httpdConf.Bindings[0].EnableHTTPS = true
 	httpdConf.CertificateFile = certPath
 	httpdConf.CertificateKeyFile = keyPath
+	httpdConf.Bindings = append(httpdConf.Bindings, httpd.Binding{})
 
 	go func() {
 		if err := httpdConf.Initialize(configDir); err != nil {
@@ -220,7 +223,7 @@ func TestMain(m *testing.M) {
 			os.Exit(1)
 		}
 	}()
-	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
+	waitTCPListening(httpdConf.Bindings[0].GetAddress())
 	httpd.ReloadCertificateMgr() //nolint:errcheck
 
 	testServer = httptest.NewServer(httpd.GetHTTPRouter())
@@ -250,8 +253,6 @@ func TestInitialization(t *testing.T) {
 	httpdConf.TemplatesPath = "."
 	err = httpdConf.Initialize(configDir)
 	assert.Error(t, err)
-	err = httpd.ReloadCertificateMgr()
-	assert.NoError(t, err, "reloading TLS Certificate must return nil error if no certificate is configured")
 	httpdConf = config.GetHTTPDConfig()
 	httpdConf.BackupsPath = ".."
 	err = httpdConf.Initialize(configDir)
@@ -261,6 +262,21 @@ func TestInitialization(t *testing.T) {
 	httpdConf.CertificateKeyFile = invalidFile
 	httpdConf.StaticFilesPath = ""
 	httpdConf.TemplatesPath = ""
+	err = httpdConf.Initialize(configDir)
+	assert.Error(t, err)
+	httpdConf.CertificateFile = filepath.Join(os.TempDir(), "test.crt")
+	httpdConf.CertificateKeyFile = filepath.Join(os.TempDir(), "test.key")
+	httpdConf.CACertificates = append(httpdConf.CACertificates, invalidFile)
+	err = httpdConf.Initialize(configDir)
+	assert.Error(t, err)
+	httpdConf.CACertificates = nil
+	httpdConf.CARevocationLists = append(httpdConf.CARevocationLists, invalidFile)
+	err = httpdConf.Initialize(configDir)
+	assert.Error(t, err)
+	httpdConf.CARevocationLists = nil
+	httpdConf.Bindings[0].Port = 8081
+	httpdConf.Bindings[0].EnableHTTPS = true
+	httpdConf.Bindings[0].ClientAuthType = 1
 	err = httpdConf.Initialize(configDir)
 	assert.Error(t, err)
 }

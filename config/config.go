@@ -58,6 +58,13 @@ var (
 		EnableHTTPS:    false,
 		ClientAuthType: 0,
 	}
+	defaultHTTPDBinding = httpd.Binding{
+		Address:        "127.0.0.1",
+		Port:           8080,
+		EnableWebAdmin: true,
+		EnableHTTPS:    false,
+		ClientAuthType: 0,
+	}
 )
 
 type globalConfig struct {
@@ -202,8 +209,7 @@ func Init() {
 			PreferDatabaseCredentials: false,
 		},
 		HTTPDConfig: httpd.Conf{
-			BindPort:           8080,
-			BindAddress:        "127.0.0.1",
+			Bindings:           []httpd.Binding{defaultHTTPDBinding},
 			TemplatesPath:      "templates",
 			StaticFilesPath:    "static",
 			BackupsPath:        "backups",
@@ -536,16 +542,38 @@ func checkWebDAVDBindingCompatibility() {
 	globalConf.WebDAVD.Bindings = append(globalConf.WebDAVD.Bindings, binding)
 }
 
+func checkHTTPDBindingCompatibility() {
+	if len(globalConf.HTTPDConfig.Bindings) > 0 {
+		return
+	}
+
+	binding := httpd.Binding{
+		EnableWebAdmin: globalConf.HTTPDConfig.StaticFilesPath != "" && globalConf.HTTPDConfig.TemplatesPath != "",
+		EnableHTTPS:    globalConf.HTTPDConfig.CertificateFile != "" && globalConf.HTTPDConfig.CertificateKeyFile != "",
+	}
+
+	if globalConf.HTTPDConfig.BindPort > 0 { //nolint:staticcheck
+		binding.Port = globalConf.HTTPDConfig.BindPort //nolint:staticcheck
+	}
+	if globalConf.HTTPDConfig.BindAddress != "" { //nolint:staticcheck
+		binding.Address = globalConf.HTTPDConfig.BindAddress //nolint:staticcheck
+	}
+
+	globalConf.HTTPDConfig.Bindings = append(globalConf.HTTPDConfig.Bindings, binding)
+}
+
 func loadBindingsFromEnv() {
 	checkSFTPDBindingsCompatibility()
 	checkFTPDBindingCompatibility()
 	checkWebDAVDBindingCompatibility()
+	checkHTTPDBindingCompatibility()
 
 	maxBindings := make([]int, 10)
 	for idx := range maxBindings {
 		getSFTPDBindindFromEnv(idx)
 		getFTPDBindingFromEnv(idx)
 		getWebDAVDBindingFromEnv(idx)
+		getHTTPDBindingFromEnv(idx)
 	}
 }
 
@@ -678,6 +706,53 @@ func getWebDAVDBindingFromEnv(idx int) {
 	}
 }
 
+func getHTTPDBindingFromEnv(idx int) {
+	binding := httpd.Binding{}
+	if len(globalConf.HTTPDConfig.Bindings) > idx {
+		binding = globalConf.HTTPDConfig.Bindings[idx]
+	}
+
+	isSet := false
+
+	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__PORT", idx))
+	if ok {
+		binding.Port = port
+		isSet = true
+	}
+
+	address, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ADDRESS", idx))
+	if ok {
+		binding.Address = address
+		isSet = true
+	}
+
+	enableWebAdmin, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ENABLE_WEB_ADMIN", idx))
+	if ok {
+		binding.EnableWebAdmin = enableWebAdmin
+		isSet = true
+	}
+
+	enableHTTPS, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ENABLE_HTTPS", idx))
+	if ok {
+		binding.EnableHTTPS = enableHTTPS
+		isSet = true
+	}
+
+	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx))
+	if ok {
+		binding.ClientAuthType = clientAuthType
+		isSet = true
+	}
+
+	if isSet {
+		if len(globalConf.HTTPDConfig.Bindings) > idx {
+			globalConf.HTTPDConfig.Bindings[idx] = binding
+		} else {
+			globalConf.HTTPDConfig.Bindings = append(globalConf.HTTPDConfig.Bindings, binding)
+		}
+	}
+}
+
 func setViperDefaults() {
 	viper.SetDefault("common.idle_timeout", globalConf.Common.IdleTimeout)
 	viper.SetDefault("common.upload_mode", globalConf.Common.UploadMode)
@@ -765,13 +840,13 @@ func setViperDefaults() {
 	viper.SetDefault("data_provider.password_hashing.argon2_options.iterations", globalConf.ProviderConf.PasswordHashing.Argon2Options.Iterations)
 	viper.SetDefault("data_provider.password_hashing.argon2_options.parallelism", globalConf.ProviderConf.PasswordHashing.Argon2Options.Parallelism)
 	viper.SetDefault("data_provider.update_mode", globalConf.ProviderConf.UpdateMode)
-	viper.SetDefault("httpd.bind_port", globalConf.HTTPDConfig.BindPort)
-	viper.SetDefault("httpd.bind_address", globalConf.HTTPDConfig.BindAddress)
 	viper.SetDefault("httpd.templates_path", globalConf.HTTPDConfig.TemplatesPath)
 	viper.SetDefault("httpd.static_files_path", globalConf.HTTPDConfig.StaticFilesPath)
 	viper.SetDefault("httpd.backups_path", globalConf.HTTPDConfig.BackupsPath)
 	viper.SetDefault("httpd.certificate_file", globalConf.HTTPDConfig.CertificateFile)
 	viper.SetDefault("httpd.certificate_key_file", globalConf.HTTPDConfig.CertificateKeyFile)
+	viper.SetDefault("httpd.ca_certificates", globalConf.HTTPDConfig.CACertificates)
+	viper.SetDefault("httpd.ca_revocation_lists", globalConf.HTTPDConfig.CARevocationLists)
 	viper.SetDefault("http.timeout", globalConf.HTTPConfig.Timeout)
 	viper.SetDefault("http.ca_certificates", globalConf.HTTPConfig.CACertificates)
 	viper.SetDefault("http.skip_tls_verify", globalConf.HTTPConfig.SkipTLSVerify)

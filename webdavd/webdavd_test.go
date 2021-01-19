@@ -143,7 +143,7 @@ func TestMain(m *testing.M) {
 	}
 
 	httpdConf := config.GetHTTPDConfig()
-	httpdConf.BindPort = 8078
+	httpdConf.Bindings[0].Port = 8078
 	httpdtest.SetBaseURL("http://127.0.0.1:8078")
 
 	// required to test sftpfs
@@ -211,7 +211,7 @@ func TestMain(m *testing.M) {
 	}()
 
 	waitTCPListening(webDavConf.Bindings[0].GetAddress())
-	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
+	waitTCPListening(httpdConf.Bindings[0].GetAddress())
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 	webdavd.ReloadCertificateMgr() //nolint:errcheck
 

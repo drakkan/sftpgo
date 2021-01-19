@@ -21,6 +21,8 @@ once the access token has expired, you need to get a new one.
 
 JWT tokens are not stored and we use a randomly generated secret to sign them so if you restart SFTPGo all the previous tokens will be invalidated and you will get a 401 HTTP response code.
 
+If you define multiple bindings, each binding will sign JWT tokens with a different secret so the token generated for a binding is not valid for the other ones.
+
 You can create other administrator and assign them the following permissions:
 
 - add users

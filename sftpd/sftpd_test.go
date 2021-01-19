@@ -236,7 +236,7 @@ func TestMain(m *testing.M) {
 	}()
 
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
-	waitTCPListening(fmt.Sprintf("%s:%d", httpdConf.BindAddress, httpdConf.BindPort))
+	waitTCPListening(httpdConf.Bindings[0].GetAddress())
 
 	sftpdConf.Bindings = []sftpd.Binding{
 		{
