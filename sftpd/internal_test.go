@@ -1069,6 +1069,78 @@ func TestSCPFileMode(t *testing.T) {
 	assert.Equal(t, "1044", mode)
 }
 
+func TestSCPUploadError(t *testing.T) {
+	buf := make([]byte, 65535)
+	stdErrBuf := make([]byte, 65535)
+	writeErr := fmt.Errorf("test write error")
+	mockSSHChannel := MockChannel{
+		Buffer:       bytes.NewBuffer(buf),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+		ReadError:    nil,
+		WriteError:   writeErr,
+	}
+	user := dataprovider.User{
+		HomeDir:     filepath.Join(os.TempDir()),
+		Permissions: make(map[string][]string),
+	}
+	user.Permissions["/"] = []string{dataprovider.PermAny}
+	fs := vfs.NewOsFs("", user.HomeDir, nil)
+
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, user, fs),
+		channel:        &mockSSHChannel,
+	}
+	scpCommand := scpCommand{
+		sshCommand: sshCommand{
+			command:    "scp",
+			connection: connection,
+			args:       []string{"-t", "/"},
+		},
+	}
+	err := scpCommand.handle()
+	assert.EqualError(t, err, writeErr.Error())
+
+	mockSSHChannel = MockChannel{
+		Buffer:       bytes.NewBuffer([]byte("D0755 0 testdir\n")),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+		ReadError:    nil,
+		WriteError:   writeErr,
+	}
+	err = scpCommand.handleRecursiveUpload()
+	assert.EqualError(t, err, writeErr.Error())
+
+	mockSSHChannel = MockChannel{
+		Buffer:       bytes.NewBuffer([]byte("D0755 a testdir\n")),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+		ReadError:    nil,
+		WriteError:   nil,
+	}
+	err = scpCommand.handleRecursiveUpload()
+	assert.Error(t, err)
+}
+
+func TestSCPInvalidEndDir(t *testing.T) {
+	stdErrBuf := make([]byte, 65535)
+	mockSSHChannel := MockChannel{
+		Buffer:       bytes.NewBuffer([]byte("E\n")),
+		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
+	}
+	fs := vfs.NewOsFs("", os.TempDir(), nil)
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, dataprovider.User{}, fs),
+		channel:        &mockSSHChannel,
+	}
+	scpCommand := scpCommand{
+		sshCommand: sshCommand{
+			command:    "scp",
+			connection: connection,
+			args:       []string{"-t", "/tmp"},
+		},
+	}
+	err := scpCommand.handleRecursiveUpload()
+	assert.EqualError(t, err, "unacceptable end dir command")
+}
+
 func TestSCPParseUploadMessage(t *testing.T) {
 	buf := make([]byte, 65535)
 	stdErrBuf := make([]byte, 65535)

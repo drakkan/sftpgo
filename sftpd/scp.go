@@ -1,6 +1,7 @@
 package sftpd
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -45,6 +46,10 @@ func (c *scpCommand) handle() (err error) {
 		c.args, c.connection.User.Username, commandType, destPath)
 	if commandType == "-t" {
 		// -t means "to", so upload
+		err = c.sendConfirmationMessage()
+		if err != nil {
+			return err
+		}
 		err = c.handleRecursiveUpload()
 		if err != nil {
 			return err
@@ -68,31 +73,24 @@ func (c *scpCommand) handle() (err error) {
 }
 
 func (c *scpCommand) handleRecursiveUpload() error {
-	var err error
 	numDirs := 0
 	destPath := c.getDestPath()
 	for {
-		err = c.sendConfirmationMessage()
-		if err != nil {
-			return err
-		}
 		command, err := c.getNextUploadProtocolMessage()
 		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
 			return err
 		}
 		if strings.HasPrefix(command, "E") {
 			numDirs--
 			c.connection.Log(logger.LevelDebug, "received end dir command, num dirs: %v", numDirs)
-			if numDirs == 0 {
-				// upload is now complete send confirmation message
-				err = c.sendConfirmationMessage()
-				if err != nil {
-					return err
-				}
-			} else {
-				// the destination dir is now the parent directory
-				destPath = path.Join(destPath, "..")
+			if numDirs < 0 {
+				return errors.New("unacceptable end dir command")
 			}
+			// the destination dir is now the parent directory
+			destPath = path.Join(destPath, "..")
 		} else {
 			sizeToRead, name, err := c.parseUploadMessage(command)
 			if err != nil {
@@ -113,11 +111,11 @@ func (c *scpCommand) handleRecursiveUpload() error {
 				}
 			}
 		}
-		if err != nil || numDirs == 0 {
-			break
+		err = c.sendConfirmationMessage()
+		if err != nil {
+			return err
 		}
 	}
-	return err
 }
 
 func (c *scpCommand) handleCreateDir(dirPath string) error {
@@ -189,7 +187,7 @@ func (c *scpCommand) getUploadFileData(sizeToRead int64, transfer *transfer) err
 		c.sendErrorMessage(err)
 		return err
 	}
-	return c.sendConfirmationMessage()
+	return nil
 }
 
 func (c *scpCommand) handleUploadFile(resolvedPath, filePath string, sizeToRead int64, isNewFile bool, fileSize int64, requestPath string) error {
@@ -572,7 +570,7 @@ func (c *scpCommand) readProtocolMessage() (string, error) {
 			command.Write(readed)
 		}
 	}
-	if err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		c.connection.channel.Close()
 	}
 	return command.String(), err

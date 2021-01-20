@@ -712,7 +712,8 @@ func (c *sshCommand) sendExitStatus(err error) {
 	exitStatus := sshSubsystemExitStatus{
 		Status: status,
 	}
-	c.connection.channel.(ssh.Channel).SendRequest("exit-status", false, ssh.Marshal(&exitStatus)) //nolint:errcheck
+	_, err = c.connection.channel.(ssh.Channel).SendRequest("exit-status", false, ssh.Marshal(&exitStatus))
+	c.connection.Log(logger.LevelDebug, "exit status sent, error: %v", err)
 	c.connection.channel.Close()
 	// for scp we notify single uploads/downloads
 	if c.command != scpCmdName {
