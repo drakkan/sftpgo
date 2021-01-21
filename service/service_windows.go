@@ -68,6 +68,26 @@ func (s Status) String() string {
 	}
 }
 
+func (s *WindowsService) handleExit(wasStopped chan bool) {
+	s.Service.Wait()
+
+	select {
+	case <-wasStopped:
+		// the service was stopped nothing to do
+		logger.Debug(logSender, "", "Windows Service was stopped")
+		return
+	default:
+		// the server failed while running, we must be sure to exit the process.
+		// The defined recovery action will be executed.
+		logger.Debug(logSender, "", "Service wait ended, error: %v", s.Service.Error)
+		if s.Service.Error == nil {
+			os.Exit(0)
+		} else {
+			os.Exit(1)
+		}
+	}
+}
+
 func (s *WindowsService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptParamChange | acceptRotateLog
 	changes <- svc.Status{State: svc.StartPending}
@@ -77,25 +97,8 @@ func (s *WindowsService) Execute(args []string, r <-chan svc.ChangeRequest, chan
 
 	wasStopped := make(chan bool, 1)
 
-	go func() {
-		s.Service.Wait()
+	go s.handleExit(wasStopped)
 
-		select {
-		case <-wasStopped:
-			// the service was stopped nothing to do
-			logger.Debug(logSender, "", "Windows Service was stopped")
-			return
-		default:
-			// the server failed while running, we must be sure to exit the process.
-			// The defined recovery action will be executed.
-			logger.Debug(logSender, "", "Service wait ended, error: %v", s.Service.Error)
-			if s.Service.Error == nil {
-				os.Exit(0)
-			} else {
-				os.Exit(1)
-			}
-		}
-	}()
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 loop:
 	for {
