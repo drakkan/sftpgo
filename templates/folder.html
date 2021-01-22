@@ -3,21 +3,27 @@
 {{define "title"}}{{.Title}}{{end}}
 
 {{define "page_body"}}
-<h1 class="h5 mb-4 text-gray-800">Add a new folder</h1>
-{{if .Error}}
-<div class="card mb-4 border-left-warning">
-    <div class="card-body text-form-error">{{.Error}}</div>
-</div>
-{{end}}
-<form id="folder_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
-    <div class="form-group row">
-        <label for="idMappedPath" class="col-sm-2 col-form-label">Absolute Path</label>
-        <div class="col-sm-10">
-            <input type="text" class="form-control" id="idMappedPath" name="mapped_path" placeholder=""
-                value="{{.Folder.MappedPath}}" maxlength="512" autocomplete="nope" required>
-        </div>
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Add a new folder</h6>
     </div>
+    <div class="card-body">
+        {{if .Error}}
+        <div class="card mb-4 border-left-warning">
+            <div class="card-body text-form-error">{{.Error}}</div>
+        </div>
+        {{end}}
+        <form id="folder_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
+            <div class="form-group row">
+                <label for="idMappedPath" class="col-sm-2 col-form-label">Absolute Path</label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control" id="idMappedPath" name="mapped_path" placeholder=""
+                        value="{{.Folder.MappedPath}}" maxlength="512" autocomplete="nope" required>
+                </div>
+            </div>
 
-    <button type="submit" class="btn btn-primary float-right mt-3 mb-5 px-5 px-3">Submit</button>
-</form>
+            <button type="submit" class="btn btn-primary float-right mt-3 px-5 px-3">Submit</button>
+        </form>
+    </div>
+</div>
 {{end}}

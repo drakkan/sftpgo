@@ -486,7 +486,7 @@ func RemoveFolder(folder vfs.BaseVirtualFolder, expectedStatusCode int) ([]byte,
 		return body, err
 	}
 	q := url.Query()
-	q.Add("folder_path", folder.MappedPath)
+	q.Add("folder-path", folder.MappedPath)
 	url.RawQuery = q.Encode()
 	resp, err := sendHTTPRequest(http.MethodDelete, url.String(), nil, "", getDefaultToken())
 	if err != nil {
@@ -510,7 +510,7 @@ func GetFolders(limit int64, offset int64, mappedPath string, expectedStatusCode
 	}
 	if len(mappedPath) > 0 {
 		q := url.Query()
-		q.Add("folder_path", mappedPath)
+		q.Add("folder-path", mappedPath)
 		url.RawQuery = q.Encode()
 	}
 	resp, err := sendHTTPRequest(http.MethodGet, url.String(), nil, "", getDefaultToken())
@@ -678,7 +678,7 @@ func UnbanIP(ip string, expectedStatusCode int) error {
 
 // Dumpdata requests a backup to outputFile.
 // outputFile is relative to the configured backups_path
-func Dumpdata(outputFile, indent string, expectedStatusCode int) (map[string]interface{}, []byte, error) {
+func Dumpdata(outputFile, outputData, indent string, expectedStatusCode int) (map[string]interface{}, []byte, error) {
 	var response map[string]interface{}
 	var body []byte
 	url, err := url.Parse(buildURLRelativeToBase(dumpDataPath))
@@ -686,8 +686,13 @@ func Dumpdata(outputFile, indent string, expectedStatusCode int) (map[string]int
 		return response, body, err
 	}
 	q := url.Query()
-	q.Add("output_file", outputFile)
-	if len(indent) > 0 {
+	if outputData != "" {
+		q.Add("output-data", outputData)
+	}
+	if outputFile != "" {
+		q.Add("output-file", outputFile)
+	}
+	if indent != "" {
 		q.Add("indent", indent)
 	}
 	url.RawQuery = q.Encode()
@@ -706,8 +711,6 @@ func Dumpdata(outputFile, indent string, expectedStatusCode int) (map[string]int
 }
 
 // Loaddata restores a backup.
-// New users are added, existing users are updated. Users will be restored one by one and the restore is stopped if a
-// user cannot be added/updated, so it could happen a partial restore
 func Loaddata(inputFile, scanQuota, mode string, expectedStatusCode int) (map[string]interface{}, []byte, error) {
 	var response map[string]interface{}
 	var body []byte
@@ -716,15 +719,45 @@ func Loaddata(inputFile, scanQuota, mode string, expectedStatusCode int) (map[st
 		return response, body, err
 	}
 	q := url.Query()
-	q.Add("input_file", inputFile)
-	if len(scanQuota) > 0 {
-		q.Add("scan_quota", scanQuota)
+	q.Add("input-file", inputFile)
+	if scanQuota != "" {
+		q.Add("scan-quota", scanQuota)
 	}
-	if len(mode) > 0 {
+	if mode != "" {
 		q.Add("mode", mode)
 	}
 	url.RawQuery = q.Encode()
 	resp, err := sendHTTPRequest(http.MethodGet, url.String(), nil, "", getDefaultToken())
+	if err != nil {
+		return response, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &response)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return response, body, err
+}
+
+// LoaddataFromPostBody restores a backup
+func LoaddataFromPostBody(data []byte, scanQuota, mode string, expectedStatusCode int) (map[string]interface{}, []byte, error) {
+	var response map[string]interface{}
+	var body []byte
+	url, err := url.Parse(buildURLRelativeToBase(loadDataPath))
+	if err != nil {
+		return response, body, err
+	}
+	q := url.Query()
+	if scanQuota != "" {
+		q.Add("scan-quota", scanQuota)
+	}
+	if mode != "" {
+		q.Add("mode", mode)
+	}
+	url.RawQuery = q.Encode()
+	resp, err := sendHTTPRequest(http.MethodPost, url.String(), bytes.NewReader(data), "", getDefaultToken())
 	if err != nil {
 		return response, body, err
 	}

@@ -302,6 +302,7 @@ func (s *httpdServer) initializeRouter() {
 			router.With(checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(folderPath, deleteFolderByPath)
 			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(dumpDataPath, dumpData)
 			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(loadDataPath, loadData)
+			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(loadDataPath, loadDataFromRequest)
 			router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Put(updateUsedQuotaPath, updateUserQuotaUsage)
 			router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Put(updateFolderUsedQuotaPath, updateVFolderQuotaUsage)
 			router.With(checkPerm(dataprovider.PermAdminViewDefender)).Get(defenderBanTime, getBanTime)
@@ -365,6 +366,9 @@ func (s *httpdServer) initializeRouter() {
 				router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Post(webScanVFolderPath, startVFolderQuotaScan)
 				router.With(checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(webUserPath+"/{username}", deleteUser)
 				router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Post(webQuotaScanPath, startQuotaScan)
+				router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(webMaintenancePath, handleWebMaintenance)
+				router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(webBackupPath, dumpData)
+				router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(webRestorePath, handleWebRestore)
 			})
 
 			router.Group(func(router chi.Router) {

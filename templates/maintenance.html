@@ -1,0 +1,64 @@
+{{template "base" .}}
+
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "page_body"}}
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Restore</h6>
+    </div>
+    <div class="card-body">
+        {{if .Error}}
+        <div class="card mb-4 border-left-warning">
+            <div class="card-body text-form-error">{{.Error}}</div>
+        </div>
+        {{end}}
+        <form id="restore_form" enctype="multipart/form-data" action="{{.RestorePath}}" method="POST">
+            <div class="form-group row">
+                <label for="idBackupFile" class="col-sm-2 col-form-label">Backup file</label>
+                <div class="col-sm-10">
+                    <input type="file" class="form-control-file" id="idBackupFile" name="backup_file"
+                        aria-describedby="BackupFileHelpBlock">
+                    <small id="BackupFileHelpBlock" class="form-text text-muted">
+                        Restore data from a JSON backup file
+                    </small>
+                </div>
+            </div>
+            <div class="form-group row">
+                <label for="idMode" class="col-sm-2 col-form-label">Mode</label>
+                <div class="col-sm-10">
+                    <select class="form-control" id="idMode" name="mode">
+                        <option value="1">add only</option>
+                        <option value="0">add and update</option>
+                        <option value="2">add, update and disconnect</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group row">
+                <label for="idQuota" class="col-sm-2 col-form-label">After restore</label>
+                <div class="col-sm-10">
+                    <select class="form-control" id="idQuota" name="quota">
+                        <option value="0">no quota update</option>
+                        <option value="1">update quota</option>
+                        <option value="2">update quota if the user has quota restrictions</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary float-right mt-3 px-5 px-3">Restore</button>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Backup</h6>
+    </div>
+    <div class="card-body">
+        <a class="btn btn-primary" href="{{.BackupPath}}?output-data=1" target="_blank">Backup your data</a>
+    </div>
+</div>
+{{end}}
+
+{{define "extra_js"}}
+
+{{end}}

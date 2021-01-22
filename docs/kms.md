@@ -13,7 +13,7 @@ We use [Go CDK](https://gocloud.dev/howto/secrets/) to access several key manage
 
 ### Local provider
 
-If the `url` is empty SFTPGo uses local encryption for keeping secrets. Internally, it uses the [NaCl secret box](https://godoc.org/golang.org/x/crypto/nacl/secretbox) algorithm to perform encryption and authentication.
+If the `url` is empty SFTPGo uses local encryption for keeping secrets. Internally, it uses the [NaCl secret box](https://pkg.go.dev/golang.org/x/crypto/nacl/secretbox) algorithm to perform encryption and authentication.
 
 We first generate a random key, then the per-object encryption key is derived from this random key in the following way:
 

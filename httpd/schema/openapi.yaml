@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: SFTPGo
   description: SFTPGo REST API
-  version: 2.4.1
+  version: 2.4.2
 
 servers:
   - url: /api/v2
@@ -497,7 +497,7 @@ paths:
                 - DESC
              example: ASC
         - in: query
-          name: folder_path
+          name: folder-path
           required: false
           description: Filter by folder path, extact match case sensitive
           schema:
@@ -556,7 +556,7 @@ paths:
       summary: Delete an existing folder
       operationId: delete_folder
       parameters:
-        - name: folder_path
+        - name: folder-path
           in: query
           description: path to the folder to delete
           required: true
@@ -994,15 +994,25 @@ paths:
       tags:
         - maintenance
       summary: Backup SFTPGo data as data provider independent JSON
-      description: The backup is saved to a local file to avoid to expose sensitive data over the network. The output of dumpdata can be used as input for loaddata
+      description: The backup can be saved in a local file on the server, to avoid exposing sensitive data over the network, or returned as response body. The output of dumpdata can be used as input for loaddata
       operationId: dumpdata
       parameters:
         - in: query
-          name: output_file
+          name: output-file
           schema:
             type: string
-          required: true
-          description: Path for the file to write the JSON serialized data to. This path is relative to the configured "backups_path". If this file already exists it will be overwritten
+          description: Path for the file to write the JSON serialized data to. This path is relative to the configured "backups_path". If this file already exists it will be overwritten. To return the backup as response body set `output_data` to true instead.
+        - in: query
+          name: output-data
+          schema:
+            type: integer
+            enum:
+              - 0
+              - 1
+          description: >
+            output_data:
+              * `0` or any other value != 1, the backup will be saved to a file on the server, `output_file` is required
+              * `1` the backup will be returned as response body
         - in: query
           name: indent
           schema:
@@ -1020,9 +1030,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref : '#/components/schemas/ApiResponse'
-              example:
-                message: "Data saved"
+                oneOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - $ref: '#/components/schemas/BackupData'
         400:
           $ref: '#/components/responses/BadRequest'
         401:
@@ -1034,46 +1044,78 @@ paths:
         default:
           $ref: '#/components/responses/DefaultResponse'
   /loaddata:
+    parameters:
+      - in: query
+        name: scan-quota
+        schema:
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+        description: >
+          Quota scan:
+            * `0` no quota scan is done, the imported users/folders will have used_quota_size and used_quota_files = 0 or the existing values if they already exists. This is the default
+            * `1` scan quota
+            * `2` scan quota if the user has quota restrictions
+          required: false
+      - in: query
+        name: mode
+        schema:
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+        description: >
+          Mode:
+            * `0` New users/admins are added, existing users/admins are updated. This is the default
+            * `1` New users/admins are added, existing users/admins are not modified
+            * `2` New users are added, existing users are updated and, if connected, they are disconnected and so forced to use the new configuration
     get:
       tags:
         - maintenance
-      summary: Restore SFTPGo data from a JSON backup
-      description: Users and folders will be restored one by one and the restore is stopped if a user/folder cannot be added or updated, so it could happen a partial restore
-      operationId: loaddata
+      summary: Restore SFTPGo data from a JSON backup file on the server
+      description: Users, folders and admins will be restored one by one and the restore is stopped if a user/folder/admin cannot be added or updated, so it could happen a partial restore
+      operationId: loaddata_from_file
       parameters:
         - in: query
-          name: input_file
+          name: input-file
           schema:
             type: string
           required: true
           description: Path for the file to read the JSON serialized data from. This can be an absolute path or a path relative to the configured "backups_path". The max allowed file size is 10MB
-        - in: query
-          name: scan_quota
-          schema:
-            type: integer
-            enum:
-              - 0
-              - 1
-              - 2
-          description: >
-            Quota scan:
-              * `0` no quota scan is done, the imported users will have used_quota_size and used_quota_files = 0 or the existing values if they already exists. This is the default
-              * `1` scan quota
-              * `2` scan quota if the user has quota restrictions
-          required: false
-        - in: query
-          name: mode
-          schema:
-            type: integer
-            enum:
-              - 0
-              - 1
-              - 2
-            description: >
-              Mode:
-                * `0` New users are added, existing users are updated. This is the default
-                * `1` New users are added, existing users are not modified
-                * `2` New users are added, existing users are updated and, if connected, they are disconnected and so forced to use the new configuration
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref : '#/components/schemas/ApiResponse'
+              example:
+                message: "Data restored"
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    post:
+      tags:
+        - maintenance
+      summary: Restore SFTPGo data from a JSON backup
+      description: Users, folders and admins will be restored one by one and the restore is stopped if a user/folder/admin cannot be added or updated, so it could happen a partial restore
+      operationId: loaddata_from_request_body
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref : '#/components/schemas/BackupData'
       responses:
         200:
           description: successful operation
@@ -1873,6 +1915,23 @@ components:
         score:
           type: integer
           description: if 0 the host is not listed
+    BackupData:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        folders:
+          type: array
+          items:
+            $ref: '#/components/schemas/BaseVirtualFolder'
+        admins:
+          type: array
+          items:
+            $ref: '#/components/schemas/Admin'
+        version:
+          type: integer
     PwdChange:
       type: object
       properties:

@@ -45,8 +45,8 @@ func getFolders(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if _, ok := r.URL.Query()["folder_path"]; ok {
-		folderPath = r.URL.Query().Get("folder_path")
+	if _, ok := r.URL.Query()["folder-path"]; ok {
+		folderPath = r.URL.Query().Get("folder-path")
 	}
 	folders, err := dataprovider.GetFolders(limit, offset, order, folderPath)
 	if err == nil {
@@ -84,8 +84,8 @@ func renderFolder(w http.ResponseWriter, r *http.Request, mappedPath string) {
 
 func deleteFolderByPath(w http.ResponseWriter, r *http.Request) {
 	var folderPath string
-	if _, ok := r.URL.Query()["folder_path"]; ok {
-		folderPath = r.URL.Query().Get("folder_path")
+	if _, ok := r.URL.Query()["folder-path"]; ok {
+		folderPath = r.URL.Query().Get("folder-path")
 	}
 	if folderPath == "" {
 		err := errors.New("a non-empty folder path is required")

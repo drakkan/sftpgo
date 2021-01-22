@@ -34,12 +34,14 @@ const (
 	templateStatus       = "status.html"
 	templateLogin        = "login.html"
 	templateChangePwd    = "changepwd.html"
+	templateMaintenance  = "maintenance.html"
 	pageUsersTitle       = "Users"
 	pageAdminsTitle      = "Admins"
 	pageConnectionsTitle = "Connections"
 	pageStatusTitle      = "Status"
 	pageFoldersTitle     = "Folders"
 	pageChangePwdTitle   = "Change password"
+	pageMaintenanceTitle = "Maintenance"
 	page400Title         = "Bad request"
 	page403Title         = "Forbidden"
 	page404Title         = "Not found"
@@ -70,11 +72,13 @@ type basePage struct {
 	ChangeAdminPwdURL  string
 	FolderQuotaScanURL string
 	StatusURL          string
+	MaintenanceURL     string
 	UsersTitle         string
 	AdminsTitle        string
 	ConnectionsTitle   string
 	FoldersTitle       string
 	StatusTitle        string
+	MaintenanceTitle   string
 	Version            string
 	LoggedAdmin        *dataprovider.Admin
 }
@@ -127,6 +131,13 @@ type adminPage struct {
 type changePwdPage struct {
 	basePage
 	Error string
+}
+
+type maintenancePage struct {
+	basePage
+	BackupPath  string
+	RestorePath string
+	Error       string
 }
 
 type folderPage struct {
@@ -191,6 +202,10 @@ func loadTemplates(templatesPath string) {
 	loginPath := []string{
 		filepath.Join(templatesPath, templateLogin),
 	}
+	maintenancePath := []string{
+		filepath.Join(templatesPath, templateBase),
+		filepath.Join(templatesPath, templateMaintenance),
+	}
 	usersTmpl := utils.LoadTemplate(template.ParseFiles(usersPaths...))
 	userTmpl := utils.LoadTemplate(template.ParseFiles(userPaths...))
 	adminsTmpl := utils.LoadTemplate(template.ParseFiles(adminsPaths...))
@@ -202,6 +217,7 @@ func loadTemplates(templatesPath string) {
 	statusTmpl := utils.LoadTemplate(template.ParseFiles(statusPath...))
 	loginTmpl := utils.LoadTemplate(template.ParseFiles(loginPath...))
 	changePwdTmpl := utils.LoadTemplate(template.ParseFiles(changePwdPaths...))
+	maintenanceTmpl := utils.LoadTemplate(template.ParseFiles(maintenancePath...))
 
 	templates[templateUsers] = usersTmpl
 	templates[templateUser] = userTmpl
@@ -214,6 +230,7 @@ func loadTemplates(templatesPath string) {
 	templates[templateStatus] = statusTmpl
 	templates[templateLogin] = loginTmpl
 	templates[templateChangePwd] = changePwdTmpl
+	templates[templateMaintenance] = maintenanceTmpl
 }
 
 func getBasePageData(title, currentURL string, r *http.Request) basePage {
@@ -232,11 +249,13 @@ func getBasePageData(title, currentURL string, r *http.Request) basePage {
 		ConnectionsURL:     webConnectionsPath,
 		StatusURL:          webStatusPath,
 		FolderQuotaScanURL: webScanVFolderPath,
+		MaintenanceURL:     webMaintenancePath,
 		UsersTitle:         pageUsersTitle,
 		AdminsTitle:        pageAdminsTitle,
 		ConnectionsTitle:   pageConnectionsTitle,
 		FoldersTitle:       pageFoldersTitle,
 		StatusTitle:        pageStatusTitle,
+		MaintenanceTitle:   pageMaintenanceTitle,
 		Version:            version.GetAsString(),
 		LoggedAdmin:        getAdminFromToken(r),
 	}
@@ -289,6 +308,17 @@ func renderChangePwdPage(w http.ResponseWriter, r *http.Request, error string) {
 	}
 
 	renderTemplate(w, templateChangePwd, data)
+}
+
+func renderMaintenancePage(w http.ResponseWriter, r *http.Request, error string) {
+	data := maintenancePage{
+		basePage:    getBasePageData(pageMaintenanceTitle, webMaintenancePath, r),
+		BackupPath:  webBackupPath,
+		RestorePath: webRestorePath,
+		Error:       error,
+	}
+
+	renderTemplate(w, templateMaintenance, data)
 }
 
 func renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Request, admin *dataprovider.Admin,
@@ -794,6 +824,50 @@ func handleWebLogout(w http.ResponseWriter, r *http.Request) {
 
 func handleWebLogin(w http.ResponseWriter, r *http.Request) {
 	renderLoginPage(w, "")
+}
+
+func handleWebMaintenance(w http.ResponseWriter, r *http.Request) {
+	renderMaintenancePage(w, r, "")
+}
+
+func handleWebRestore(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseMultipartForm(MaxRestoreSize)
+	if err != nil {
+		renderMaintenancePage(w, r, err.Error())
+		return
+	}
+	restoreMode, err := strconv.Atoi(r.Form.Get("mode"))
+	if err != nil {
+		renderMaintenancePage(w, r, err.Error())
+		return
+	}
+	scanQuota, err := strconv.Atoi(r.Form.Get("quota"))
+	if err != nil {
+		renderMaintenancePage(w, r, err.Error())
+		return
+	}
+	backupFile, _, err := r.FormFile("backup_file")
+	if err != nil {
+		renderMaintenancePage(w, r, err.Error())
+		return
+	}
+	defer backupFile.Close()
+
+	backupContent, err := ioutil.ReadAll(backupFile)
+	if err != nil || len(backupContent) == 0 {
+		if len(backupContent) == 0 {
+			err = errors.New("backup file size must be greater than 0")
+		}
+		renderMaintenancePage(w, r, err.Error())
+		return
+	}
+
+	if err := restoreBackup(backupContent, "", scanQuota, restoreMode); err != nil {
+		renderMaintenancePage(w, r, err.Error())
+		return
+	}
+
+	renderMessagePage(w, r, "Data restored", "", http.StatusOK, nil, "Your backup was successfully restored")
 }
 
 func handleGetWebAdmins(w http.ResponseWriter, r *http.Request) {

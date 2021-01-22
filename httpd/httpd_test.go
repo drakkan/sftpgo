@@ -73,6 +73,8 @@ const (
 	webStatusPath             = "/web/status"
 	webAdminsPath             = "/web/admins"
 	webAdminPath              = "/web/admin"
+	webMaintenancePath        = "/web/maintenance"
+	webRestorePath            = "/web/restore"
 	webChangeAdminPwdPath     = "/web/changepwd/admin"
 	httpBaseURL               = "http://127.0.0.1:8081"
 	configDir                 = ".."
@@ -2179,7 +2181,7 @@ func TestProviderErrors(t *testing.T) {
 	if assert.NoError(t, err) {
 		assert.False(t, status.DataProvider.IsActive)
 	}
-	_, _, err = httpdtest.Dumpdata("backup.json", "", http.StatusInternalServerError)
+	_, _, err = httpdtest.Dumpdata("backup.json", "", "", http.StatusInternalServerError)
 	assert.NoError(t, err)
 	_, _, err = httpdtest.GetFolders(0, 0, "", http.StatusInternalServerError)
 	assert.NoError(t, err)
@@ -2296,25 +2298,35 @@ func TestDumpdata(t *testing.T) {
 	providerConf := config.GetProviderConf()
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
-	_, _, err = httpdtest.Dumpdata("", "", http.StatusBadRequest)
+	_, _, err = httpdtest.Dumpdata("", "", "", http.StatusBadRequest)
 	assert.NoError(t, err)
-	_, _, err = httpdtest.Dumpdata(filepath.Join(backupsPath, "backup.json"), "", http.StatusBadRequest)
+	_, _, err = httpdtest.Dumpdata(filepath.Join(backupsPath, "backup.json"), "", "", http.StatusBadRequest)
 	assert.NoError(t, err)
-	_, _, err = httpdtest.Dumpdata("../backup.json", "", http.StatusBadRequest)
+	_, _, err = httpdtest.Dumpdata("../backup.json", "", "", http.StatusBadRequest)
 	assert.NoError(t, err)
-	_, _, err = httpdtest.Dumpdata("backup.json", "0", http.StatusOK)
+	_, _, err = httpdtest.Dumpdata("backup.json", "", "0", http.StatusOK)
 	assert.NoError(t, err)
-	_, _, err = httpdtest.Dumpdata("backup.json", "1", http.StatusOK)
+	response, _, err := httpdtest.Dumpdata("", "1", "0", http.StatusOK)
+	assert.NoError(t, err)
+	_, ok := response["admins"]
+	assert.True(t, ok)
+	_, ok = response["users"]
+	assert.True(t, ok)
+	_, ok = response["folders"]
+	assert.True(t, ok)
+	_, ok = response["version"]
+	assert.True(t, ok)
+	_, _, err = httpdtest.Dumpdata("backup.json", "", "1", http.StatusOK)
 	assert.NoError(t, err)
 	err = os.Remove(filepath.Join(backupsPath, "backup.json"))
 	assert.NoError(t, err)
 	if runtime.GOOS != "windows" {
 		err = os.Chmod(backupsPath, 0001)
 		assert.NoError(t, err)
-		_, _, err = httpdtest.Dumpdata("bck.json", "", http.StatusInternalServerError)
+		_, _, err = httpdtest.Dumpdata("bck.json", "", "", http.StatusInternalServerError)
 		assert.NoError(t, err)
 		// subdir cannot be created
-		_, _, err = httpdtest.Dumpdata(filepath.Join("subdir", "bck.json"), "", http.StatusInternalServerError)
+		_, _, err = httpdtest.Dumpdata(filepath.Join("subdir", "bck.json"), "", "", http.StatusInternalServerError)
 		assert.NoError(t, err)
 		err = os.Chmod(backupsPath, 0755)
 		assert.NoError(t, err)
@@ -2394,6 +2406,63 @@ func TestDefenderAPIErrors(t *testing.T) {
 
 	err = httpdtest.UnbanIP("", http.StatusBadRequest)
 	require.NoError(t, err)
+}
+
+func TestLoaddataFromPostBody(t *testing.T) {
+	mappedPath := filepath.Join(os.TempDir(), "restored_folder")
+	user := getTestUser()
+	user.ID = 1
+	user.Username = "test_user_restored"
+	admin := getTestAdmin()
+	admin.ID = 1
+	admin.Username = "test_admin_restored"
+	backupData := dataprovider.BackupData{}
+	backupData.Users = append(backupData.Users, user)
+	backupData.Admins = append(backupData.Admins, admin)
+	backupData.Folders = []vfs.BaseVirtualFolder{
+		{
+			MappedPath:      mappedPath,
+			UsedQuotaSize:   123,
+			UsedQuotaFiles:  456,
+			LastQuotaUpdate: 789,
+			Users:           []string{"user"},
+		},
+		{
+			MappedPath: mappedPath,
+		},
+	}
+	backupContent, err := json.Marshal(backupData)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.LoaddataFromPostBody(nil, "0", "0", http.StatusBadRequest)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.LoaddataFromPostBody(backupContent, "a", "0", http.StatusBadRequest)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.LoaddataFromPostBody([]byte("invalid content"), "0", "0", http.StatusBadRequest)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.LoaddataFromPostBody(backupContent, "0", "0", http.StatusOK)
+	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+
+	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+
+	folders, _, err := httpdtest.GetFolders(1, 0, mappedPath, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, folders, 1) {
+		folder := folders[0]
+		assert.Equal(t, mappedPath, folder.MappedPath)
+		assert.Equal(t, int64(123), folder.UsedQuotaSize)
+		assert.Equal(t, 456, folder.UsedQuotaFiles)
+		assert.Equal(t, int64(789), folder.LastQuotaUpdate)
+		assert.Len(t, folder.Users, 0)
+		_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
+		assert.NoError(t, err)
+	}
 }
 
 func TestLoaddata(t *testing.T) {
@@ -3269,7 +3338,7 @@ func TestUpdateFolderQuotaUsageMock(t *testing.T) {
 	url, err := url.Parse(folderPath)
 	assert.NoError(t, err)
 	q := url.Query()
-	q.Add("folder_path", mappedPath)
+	q.Add("folder-path", mappedPath)
 	url.RawQuery = q.Encode()
 	req, _ = http.NewRequest(http.MethodGet, url.String(), nil)
 	setBearerForReq(req, token)
@@ -3298,7 +3367,7 @@ func TestUpdateFolderQuotaUsageMock(t *testing.T) {
 	url, err = url.Parse(folderPath)
 	assert.NoError(t, err)
 	q = url.Query()
-	q.Add("folder_path", mappedPath)
+	q.Add("folder-path", mappedPath)
 	url.RawQuery = q.Encode()
 	req, _ = http.NewRequest(http.MethodDelete, url.String(), nil)
 	setBearerForReq(req, token)
@@ -3360,7 +3429,7 @@ func TestStartFolderQuotaScanMock(t *testing.T) {
 	url, err := url.Parse(folderPath)
 	assert.NoError(t, err)
 	q := url.Query()
-	q.Add("folder_path", mappedPath)
+	q.Add("folder-path", mappedPath)
 	url.RawQuery = q.Encode()
 	req, _ = http.NewRequest(http.MethodDelete, url.String(), nil)
 	setBearerForReq(req, token)
@@ -3435,7 +3504,7 @@ func TestGetFoldersMock(t *testing.T) {
 	url, err := url.Parse(folderPath + "?limit=510&offset=0&order=DESC")
 	assert.NoError(t, err)
 	q := url.Query()
-	q.Add("folder_path", mappedPath)
+	q.Add("folder-path", mappedPath)
 	url.RawQuery = q.Encode()
 	req, _ = http.NewRequest(http.MethodGet, url.String(), nil)
 	setBearerForReq(req, token)
@@ -3460,7 +3529,7 @@ func TestGetFoldersMock(t *testing.T) {
 	url, err = url.Parse(folderPath)
 	assert.NoError(t, err)
 	q = url.Query()
-	q.Add("folder_path", mappedPath)
+	q.Add("folder-path", mappedPath)
 	url.RawQuery = q.Encode()
 	req, _ = http.NewRequest(http.MethodDelete, url.String(), nil)
 	setBearerForReq(req, token)
@@ -3974,6 +4043,100 @@ func TestAdminUpdateSelfMock(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "You cannot disable yourself")
 }
 
+func TestWebMaintenanceMock(t *testing.T) {
+	token, err := getJWTTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	req, _ := http.NewRequest(http.MethodGet, webMaintenancePath, nil)
+	setJWTCookieForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	form := make(url.Values)
+	form.Set("mode", "a")
+	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webRestorePath, &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	form.Set("mode", "0")
+	form.Set("quota", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webRestorePath, &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	form.Set("quota", "0")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webRestorePath, &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, _ = http.NewRequest(http.MethodPost, webRestorePath+"?a=%3", &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	backupFilePath := filepath.Join(os.TempDir(), "backup.json")
+	err = createTestFile(backupFilePath, 0)
+	assert.NoError(t, err)
+
+	b, contentType, _ = getMultipartFormData(form, "backup_file", backupFilePath)
+	req, _ = http.NewRequest(http.MethodPost, webRestorePath, &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	err = createTestFile(backupFilePath, 10)
+	assert.NoError(t, err)
+
+	b, contentType, _ = getMultipartFormData(form, "backup_file", backupFilePath)
+	req, _ = http.NewRequest(http.MethodPost, webRestorePath, &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	user := getTestUser()
+	user.ID = 1
+	user.Username = "test_user_web_restore"
+	admin := getTestAdmin()
+	admin.ID = 1
+	admin.Username = "test_admin_web_restore"
+	backupData := dataprovider.BackupData{}
+	backupData.Users = append(backupData.Users, user)
+	backupData.Admins = append(backupData.Admins, admin)
+	backupContent, err := json.Marshal(backupData)
+	assert.NoError(t, err)
+	err = ioutil.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	assert.NoError(t, err)
+
+	b, contentType, _ = getMultipartFormData(form, "backup_file", backupFilePath)
+	req, _ = http.NewRequest(http.MethodPost, webRestorePath, &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Your backup was successfully restored")
+
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+
+	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestWebUserAddMock(t *testing.T) {
 	token, err := getJWTTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -4190,7 +4353,7 @@ func TestWebUserAddMock(t *testing.T) {
 	url, err := url.Parse(folderPath)
 	assert.NoError(t, err)
 	q := url.Query()
-	q.Add("folder_path", mappedDir)
+	q.Add("folder-path", mappedDir)
 	url.RawQuery = q.Encode()
 	req, _ = http.NewRequest(http.MethodDelete, url.String(), nil)
 	setJWTCookieForReq(req, token)
@@ -4904,7 +5067,7 @@ func TestAddWebFoldersMock(t *testing.T) {
 	url, err := url.Parse(folderPath)
 	assert.NoError(t, err)
 	q := url.Query()
-	q.Add("folder_path", mappedPath)
+	q.Add("folder-path", mappedPath)
 	url.RawQuery = q.Encode()
 	req, _ = http.NewRequest(http.MethodGet, url.String(), nil)
 	setJWTCookieForReq(req, token)
@@ -4920,7 +5083,7 @@ func TestAddWebFoldersMock(t *testing.T) {
 	url, err = url.Parse(folderPath)
 	assert.NoError(t, err)
 	q = url.Query()
-	q.Add("folder_path", mappedPath)
+	q.Add("folder-path", mappedPath)
 	url.RawQuery = q.Encode()
 	req, _ = http.NewRequest(http.MethodDelete, url.String(), nil)
 	setJWTCookieForReq(req, token)
@@ -4970,7 +5133,7 @@ func TestWebFoldersMock(t *testing.T) {
 		url, err := url.Parse(folderPath)
 		assert.NoError(t, err)
 		q := url.Query()
-		q.Add("folder_path", folder.MappedPath)
+		q.Add("folder-path", folder.MappedPath)
 		url.RawQuery = q.Encode()
 		req, _ := http.NewRequest(http.MethodDelete, url.String(), nil)
 		setJWTCookieForReq(req, token)

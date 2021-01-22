@@ -84,6 +84,14 @@
             </li>
             {{end}}
 
+            {{ if .LoggedAdmin.HasPermission "manage_system"}}
+            <li class="nav-item {{if eq .CurrentURL .MaintenanceURL}}active{{end}}">
+                <a class="nav-link" href="{{.MaintenanceURL}}">
+                    <i class="fas fa-wrench"></i>
+                    <span>{{.MaintenanceTitle}}</span></a>
+            </li>
+            {{end}}
+
             {{ if .LoggedAdmin.HasPermission "view_status"}}
             <li class="nav-item {{if eq .CurrentURL .StatusURL}}active{{end}}">
                 <a class="nav-link" href="{{.StatusURL}}">
