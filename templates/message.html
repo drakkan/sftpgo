@@ -11,13 +11,13 @@
     </div>
     <div class="card-body">
         {{if .Error}}
-        <div class="card mb-4 border-left-warning">
+        <div class="card mb-2 border-left-warning">
             <div class="card-body text-form-error">{{.Error}}</div>
         </div>
         {{end}}
 
         {{if .Success}}
-        <div class="card mb-4 border-left-success">
+        <div class="card mb-2 border-left-success">
             <div class="card-body">{{.Success}}</div>
         </div>
         {{end}}

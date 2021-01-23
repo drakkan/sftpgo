@@ -102,7 +102,7 @@ func (fs *GCSFs) ConnectionID() string {
 
 // Stat returns a FileInfo describing the named file
 func (fs *GCSFs) Stat(name string) (os.FileInfo, error) {
-	var result FileInfo
+	var result *FileInfo
 	var err error
 	if name == "" || name == "." {
 		err := fs.checkIfBucketExists()
@@ -136,7 +136,7 @@ func (fs *GCSFs) Stat(name string) (os.FileInfo, error) {
 }
 
 func (fs *GCSFs) getStatCompat(name string) (os.FileInfo, error) {
-	var result FileInfo
+	var result *FileInfo
 	attrs, err := fs.headObject(name + "/")
 	if err != nil {
 		return result, err

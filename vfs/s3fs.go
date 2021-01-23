@@ -108,7 +108,7 @@ func (fs *S3Fs) ConnectionID() string {
 
 // Stat returns a FileInfo describing the named file
 func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
-	var result FileInfo
+	var result *FileInfo
 	if name == "/" || name == "." {
 		err := fs.checkIfBucketExists()
 		if err != nil {
@@ -144,7 +144,7 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 }
 
 func (fs *S3Fs) getStatForDir(name string) (os.FileInfo, error) {
-	var result FileInfo
+	var result *FileInfo
 	obj, err := fs.headObject(name + "/")
 	if err != nil {
 		return result, err
