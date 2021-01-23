@@ -147,7 +147,11 @@ func (fs *SFTPFs) Stat(name string) (os.FileInfo, error) {
 	if err := fs.checkConnection(); err != nil {
 		return nil, err
 	}
-	return fs.sftpClient.Stat(name)
+	info, err := fs.sftpClient.Stat(name)
+	if err != nil {
+		return nil, err
+	}
+	return NewFileInfo(info.Name(), info.IsDir(), info.Size(), info.ModTime(), false), nil
 }
 
 // Lstat returns a FileInfo describing the named file
@@ -155,7 +159,11 @@ func (fs *SFTPFs) Lstat(name string) (os.FileInfo, error) {
 	if err := fs.checkConnection(); err != nil {
 		return nil, err
 	}
-	return fs.sftpClient.Lstat(name)
+	info, err := fs.sftpClient.Lstat(name)
+	if err != nil {
+		return nil, err
+	}
+	return NewFileInfo(info.Name(), info.IsDir(), info.Size(), info.ModTime(), false), nil
 }
 
 // Open opens the named file for reading
@@ -260,7 +268,14 @@ func (fs *SFTPFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	if err := fs.checkConnection(); err != nil {
 		return nil, err
 	}
-	return fs.sftpClient.ReadDir(dirname)
+	entries, err := fs.sftpClient.ReadDir(dirname)
+	if err != nil {
+		return nil, err
+	}
+	for idx, entry := range entries {
+		entries[idx] = NewFileInfo(entry.Name(), entry.IsDir(), entry.Size(), entry.ModTime(), false)
+	}
+	return entries, nil
 }
 
 // IsUploadResumeSupported returns true if upload resume is supported.
