@@ -3,19 +3,26 @@
 {{define "title"}}{{.Title}}{{end}}
 
 {{define "page_body"}}
-{{if .LoggedAdmin.Username}}
-<h1 class="h5 mb-4 text-gray-800">{{.Title}}</h1>
-{{if .Error}}
-<div class="card mb-4 border-left-warning">
-    <div class="card-body text-form-error">{{.Error}}</div>
-</div>
-{{end}}
 
-{{if .Success}}
-<div class="card mb-4 border-left-success">
-    <div class="card-body">{{.Success}}</div>
+{{if .LoggedAdmin.Username}}
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">{{.Title}}</h6>
+    </div>
+    <div class="card-body">
+        {{if .Error}}
+        <div class="card mb-4 border-left-warning">
+            <div class="card-body text-form-error">{{.Error}}</div>
+        </div>
+        {{end}}
+
+        {{if .Success}}
+        <div class="card mb-4 border-left-success">
+            <div class="card-body">{{.Success}}</div>
+        </div>
+        {{end}}
+    </div>
 </div>
-{{end}}
 {{else}}
 <div class="row justify-content-center">
 
@@ -48,4 +55,5 @@
     </div>
 </div>
 {{end}}
+
 {{end}}

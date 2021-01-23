@@ -4,93 +4,102 @@
 
 {{define "page_body"}}
 
-<div class="card mb-4 {{ if .Status.SSH.IsActive}}border-left-success{{else}}border-left-info{{end}}">
-    <div class="card-body">
-        <h5 class="card-title">SFTP/SSH server</h5>
-        <p class="card-text">
-            Status: {{ if .Status.SSH.IsActive}}"Started"{{else}}"Stopped"{{end}}
-            {{if .Status.SSH.IsActive}}
-            <br>
-            {{range .Status.SSH.Bindings}}
-            <br>
-            Address: "{{.GetAddress}}" {{if .HasProxy}}Proxy: ON{{end}}
-            <br>
-            {{end}}
-            Accepted commands: "{{.Status.SSH.GetSSHCommandsAsString}}"
-            <br>
-            {{range .Status.SSH.HostKeys}}
-            <br>
-            Host Key: "{{.Path}}"
-            <br>
-            Fingerprint: "{{.Fingerprint}}"
-            <br>
-            {{end}}
-            {{end}}
-        </p>
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Services</h6>
     </div>
-</div>
-
-<div class="card mb-4 {{ if .Status.FTP.IsActive}}border-left-success{{else}}border-left-info{{end}}">
     <div class="card-body">
-        <h5 class="card-title">FTP server</h5>
-        <p class="card-text">
-            Status: {{ if .Status.FTP.IsActive}}"Started"{{else}}"Stopped"{{end}}
-            {{if .Status.FTP.IsActive}}
-            <br>
-            {{range .Status.FTP.Bindings}}
-            <br>
-            Address: "{{.GetAddress}}" {{if .HasProxy}}Proxy: ON{{end}}
-            <br>
-            TLS: "{{.GetTLSDescription}}"
-            {{if .ForcePassiveIP}}
-            <br>
-            PassiveIP: {{.ForcePassiveIP}}
-            {{end}}
-            <br>
-            {{end}}
-            <br>
-            Passive port range: "{{.Status.FTP.PassivePortRange.Start}}-{{.Status.FTP.PassivePortRange.End}}"
-            {{end}}
-        </p>
-    </div>
-</div>
+        <div class="card mb-4 {{ if .Status.SSH.IsActive}}border-left-success{{else}}border-left-info{{end}}">
+            <div class="card-body">
+                <h6 class="card-title font-weight-bold">SFTP/SSH server</h6>
+                <p class="card-text">
+                    Status: {{ if .Status.SSH.IsActive}}"Started"{{else}}"Stopped"{{end}}
+                    {{if .Status.SSH.IsActive}}
+                    <br>
+                    {{range .Status.SSH.Bindings}}
+                    <br>
+                    Address: "{{.GetAddress}}" {{if .HasProxy}}Proxy: ON{{end}}
+                    <br>
+                    {{end}}
+                    Accepted commands: "{{.Status.SSH.GetSSHCommandsAsString}}"
+                    <br>
+                    {{range .Status.SSH.HostKeys}}
+                    <br>
+                    Host Key: "{{.Path}}"
+                    <br>
+                    Fingerprint: "{{.Fingerprint}}"
+                    <br>
+                    {{end}}
+                    {{end}}
+                </p>
+            </div>
+        </div>
 
-<div class="card mb-4 {{ if .Status.WebDAV.IsActive}}border-left-success{{else}}border-left-info{{end}}">
-    <div class="card-body">
-        <h5 class="card-title">WebDAV server</h5>
-        <p class="card-text">
-            Status: {{ if .Status.WebDAV.IsActive}}"Started"{{else}}"Stopped"{{end}}
-            {{if .Status.WebDAV.IsActive}}
-            <br>
-            {{range .Status.WebDAV.Bindings}}
-            <br>
-            Address: "{{.GetAddress}}"
-            <br>
-            Protocol: {{if .EnableHTTPS}} HTTPS {{else}} HTTP {{end}}
-            <br>
-            {{end}}
-            {{end}}
-        </p>
-    </div>
-</div>
+        <div class="card mb-4 {{ if .Status.FTP.IsActive}}border-left-success{{else}}border-left-info{{end}}">
+            <div class="card-body">
+                <h6 class="card-title font-weight-bold">FTP server</h6>
+                <p class="card-text">
+                    Status: {{ if .Status.FTP.IsActive}}"Started"{{else}}"Stopped"{{end}}
+                    {{if .Status.FTP.IsActive}}
+                    <br>
+                    {{range .Status.FTP.Bindings}}
+                    <br>
+                    Address: "{{.GetAddress}}" {{if .HasProxy}}Proxy: ON{{end}}
+                    <br>
+                    TLS: "{{.GetTLSDescription}}"
+                    {{if .ForcePassiveIP}}
+                    <br>
+                    PassiveIP: {{.ForcePassiveIP}}
+                    {{end}}
+                    <br>
+                    {{end}}
+                    <br>
+                    Passive port range: "{{.Status.FTP.PassivePortRange.Start}}-{{.Status.FTP.PassivePortRange.End}}"
+                    {{end}}
+                </p>
+            </div>
+        </div>
 
-<div class="card mb-4 {{ if .Status.Defender.IsActive}}border-left-success{{else}}border-left-info{{end}}">
-    <div class="card-body">
-        <h5 class="card-title">Defender</h5>
-        <p class="card-text">
-            Status: {{ if .Status.Defender.IsActive}}"Enabled"{{else}}"Disabled"{{end}}
-        </p>
-    </div>
-</div>
+        <div class="card mb-4 {{ if .Status.WebDAV.IsActive}}border-left-success{{else}}border-left-info{{end}}">
+            <div class="card-body">
+                <h6 class="card-title font-weight-bold">WebDAV server</h6>
+                <p class="card-text">
+                    Status: {{ if .Status.WebDAV.IsActive}}"Started"{{else}}"Stopped"{{end}}
+                    {{if .Status.WebDAV.IsActive}}
+                    <br>
+                    {{range .Status.WebDAV.Bindings}}
+                    <br>
+                    Address: "{{.GetAddress}}"
+                    <br>
+                    Protocol: {{if .EnableHTTPS}} HTTPS {{else}} HTTP {{end}}
+                    <br>
+                    {{end}}
+                    {{end}}
+                </p>
+            </div>
+        </div>
 
-<div class="card mb-4 {{ if .Status.DataProvider.IsActive}}border-left-success{{else}}border-left-warning{{end}}">
-    <div class="card-body">
-        <h5 class="card-title">Data provider</h5>
-        <p class="card-text">
-            Status: {{ if .Status.DataProvider.IsActive}}"OK"{{else}}"{{.Status.DataProvider.Error}}"{{end}}
-            <br>
-            Driver: "{{.Status.DataProvider.Driver}}"
-        </p>
+        <div class="card mb-4 {{ if .Status.Defender.IsActive}}border-left-success{{else}}border-left-info{{end}}">
+            <div class="card-body">
+                <h6 class="card-title font-weight-bold">Defender</h6>
+                <p class="card-text">
+                    Status: {{ if .Status.Defender.IsActive}}"Enabled"{{else}}"Disabled"{{end}}
+                </p>
+            </div>
+        </div>
+
+        <div
+            class="card mb-4 {{ if .Status.DataProvider.IsActive}}border-left-success{{else}}border-left-warning{{end}}">
+            <div class="card-body">
+                <h6 class="card-title font-weight-bold">Data provider</h6>
+                <p class="card-text">
+                    Status: {{ if .Status.DataProvider.IsActive}}"OK"{{else}}"{{.Status.DataProvider.Error}}"{{end}}
+                    <br>
+                    Driver: "{{.Status.DataProvider.Driver}}"
+                </p>
+            </div>
+        </div>
+
     </div>
 </div>
 

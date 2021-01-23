@@ -2944,7 +2944,9 @@ func TestBandwidthAndConnections(t *testing.T) {
 		}
 		err = <-c
 		assert.Error(t, err, "connection closed while uploading: the upload must fail")
-		assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 1*time.Second, 50*time.Millisecond)
+		assert.Eventually(t, func() bool {
+			return len(common.Connections.GetStats()) == 0
+		}, 10*time.Second, 200*time.Millisecond)
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 		err = os.Remove(localDownloadPath)
