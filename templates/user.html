@@ -113,10 +113,10 @@
                 <div class="col-sm-10">
                     <textarea class="form-control" id="idSubDirsPermissions" name="sub_dirs_permissions" rows="3"
                         aria-describedby="subDirsHelpBlock">{{range $dir, $perms := .User.Permissions -}}
-                {{if ne $dir "/" -}}
-                {{$dir}}::{{range $index, $p := $perms}}{{if $index}},{{end}}{{$p}}{{end}}&#10;
-                {{- end}}
-                {{- end}}</textarea>
+                        {{if ne $dir "/" -}}
+                        {{$dir}}::{{range $index, $p := $perms}}{{if $index}},{{end}}{{$p}}{{end}}&#10;
+                        {{- end}}
+                        {{- end}}</textarea>
                     <small id="subDirsHelpBlock" class="form-text text-muted">
                         One exposed virtual directory path per line as /dir::perms, for example /somedir::list,download
                     </small>
@@ -136,8 +136,8 @@
                 <div class="col-sm-10">
                     <textarea class="form-control" id="idVirtualFolders" name="virtual_folders" rows="3"
                         aria-describedby="vfHelpBlock">{{range $index, $mapping := .User.VirtualFolders -}}
-                {{$mapping.VirtualPath}}::{{$mapping.MappedPath}}::{{$mapping.QuotaFiles}}::{{$mapping.QuotaSize}}&#10;
-                {{- end}}</textarea>
+                        {{$mapping.VirtualPath}}::{{$mapping.MappedPath}}::{{$mapping.QuotaFiles}}::{{$mapping.QuotaSize}}&#10;
+                        {{- end}}</textarea>
                     <small id="vfHelpBlock" class="form-text text-muted">
                         One mapping per line as vpath::fspath::[quota_files]::[quota_size(bytes)], for example
                         /vdir::/home/adir or /vdir::C:\adir::10::104857600. Quota -1 means included inside user quota.
@@ -248,10 +248,10 @@
                 <div class="col-sm-10">
                     <textarea class="form-control" id="idFilePatternsDenied" name="denied_patterns" rows="3"
                         aria-describedby="deniedPatternsHelpBlock">{{range $index, $filter := .User.Filters.FilePatterns -}}
-                {{if $filter.DeniedPatterns -}}
-                {{$filter.Path}}::{{range $idx, $p := $filter.DeniedPatterns}}{{if $idx}},{{end}}{{$p}}{{end}}&#10;
-                {{- end}}
-                {{- end}}</textarea>
+                        {{if $filter.DeniedPatterns -}}
+                        {{$filter.Path}}::{{range $idx, $p := $filter.DeniedPatterns}}{{if $idx}},{{end}}{{$p}}{{end}}&#10;
+                        {{- end}}
+                        {{- end}}</textarea>
                     <small id="deniedPatternsHelpBlock" class="form-text text-muted">
                         One exposed virtual directory per line as /dir::pattern1,pattern2, for example
                         /subdir::*.zip,*.rar
@@ -264,10 +264,10 @@
                 <div class="col-sm-10">
                     <textarea class="form-control" id="idFilePatternsAllowed" name="allowed_patterns" rows="3"
                         aria-describedby="allowedPatternsHelpBlock">{{range $index, $filter := .User.Filters.FilePatterns -}}
-                {{if $filter.AllowedPatterns -}}
-                {{$filter.Path}}::{{range $idx, $p := $filter.AllowedPatterns}}{{if $idx}},{{end}}{{$p}}{{end}}&#10;
-                {{- end}}
-                {{- end}}</textarea>
+                        {{if $filter.AllowedPatterns -}}
+                        {{$filter.Path}}::{{range $idx, $p := $filter.AllowedPatterns}}{{if $idx}},{{end}}{{$p}}{{end}}&#10;
+                        {{- end}}
+                        {{- end}}</textarea>
                     <small id="allowedPatternsHelpBlock" class="form-text text-muted">
                         One exposed virtual directory per line as /dir::pattern1,pattern2, for example
                         /somedir::*.jpg,*.png
@@ -280,10 +280,10 @@
                 <div class="col-sm-10">
                     <textarea class="form-control" id="idFilesExtensionsDenied" name="denied_extensions" rows="3"
                         aria-describedby="deniedExtensionsHelpBlock">{{range $index, $filter := .User.Filters.FileExtensions -}}
-                {{if $filter.DeniedExtensions -}}
-                {{$filter.Path}}::{{range $idx, $p := $filter.DeniedExtensions}}{{if $idx}},{{end}}{{$p}}{{end}}&#10;
-                {{- end}}
-                {{- end}}</textarea>
+                        {{if $filter.DeniedExtensions -}}
+                        {{$filter.Path}}::{{range $idx, $p := $filter.DeniedExtensions}}{{if $idx}},{{end}}{{$p}}{{end}}&#10;
+                        {{- end}}
+                        {{- end}}</textarea>
                     <small id="deniedExtensionsHelpBlock" class="form-text text-muted">
                         One exposed virtual directory per line as /dir::extension1,extension2, for example
                         /subdir::.zip,.rar. Deprecated, use file patterns
@@ -296,10 +296,10 @@
                 <div class="col-sm-10">
                     <textarea class="form-control" id="idFilesExtensionsAllowed" name="allowed_extensions" rows="3"
                         aria-describedby="allowedExtensionsHelpBlock">{{range $index, $filter := .User.Filters.FileExtensions -}}
-                {{if $filter.AllowedExtensions -}}
-                {{$filter.Path}}::{{range $idx, $p := $filter.AllowedExtensions}}{{if $idx}},{{end}}{{$p}}{{end}}&#10;
-                {{- end}}
-                {{- end}}</textarea>
+                        {{if $filter.AllowedExtensions -}}
+                        {{$filter.Path}}::{{range $idx, $p := $filter.AllowedExtensions}}{{if $idx}},{{end}}{{$p}}{{end}}&#10;
+                        {{- end}}
+                        {{- end}}</textarea>
                     <small id="allowedExtensionsHelpBlock" class="form-text text-muted">
                         One exposed virtual directory per line as /dir::extension1,extension2, for example
                         /somedir::.jpg,.png. Deprecated, use file patterns
