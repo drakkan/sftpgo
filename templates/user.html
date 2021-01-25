@@ -11,7 +11,7 @@
 <!-- Page Heading -->
 <div class="card shadow mb-4">
     <div class="card-header py-3">
-        <h6 class="m-0 font-weight-bold text-primary">{{if .IsAdd}}Add a new user{{else}}Edit user{{end}}</h6>
+        <h6 class="m-0 font-weight-bold text-primary">{{.Title}}</h6>
     </div>
     <div class="card-body">
         {{if .Error}}
@@ -19,14 +19,47 @@
             <div class="card-body text-form-error">{{.Error}}</div>
         </div>
         {{end}}
-        <form id="user_form" enctype="multipart/form-data" action="{{.CurrentURL}}" method="POST" autocomplete="off">
+        {{if eq .Mode 3}}
+        <div class="card mb-4 border-left-info">
+            <div class="card-body">
+                Generate a data provider independent JSON file to create new users or update existing ones.
+                <br>
+                The following placeholders are supported:
+                <br><br>
+                <ul>
+                    <li><span class="text-success">%username%</span> will be replaced with the specified username</li>
+                    <li><span class="text-success">%password%</span> will be replaced with the specified password</li>
+                </ul>
+                The generated users file can be imported from the "Maintenance" section.
+                {{if .User.Username}}
+                <br>
+                Please note that no credentials were copied from user "{{.User.Username}}", you have to set them explicitly.
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+        <form id="user_form" enctype="multipart/form-data" action="{{.CurrentURL}}" method="POST" autocomplete="off" {{if eq .Mode 3}}target="_blank"{{end}}>
+            {{if eq .Mode 3}}
+            <div class="form-group row">
+                <label for="idUsers" class="col-sm-2 col-form-label">Users</label>
+                <div class="col-sm-10">
+                    <textarea class="form-control" id="idUsers" name="users" rows="5" required
+                        aria-describedby="usersHelpBlock"></textarea>
+                    <small id="usersHelpBlock" class="form-text text-muted">
+                        Specify the username and at least one of the password and public key. Each line must be username::password::public-key
+                    </small>
+                </div>
+            </div>
+            <input type="hidden" name="username" id="idUsername" value="{{.User.Username}}">
+            {{else}}
             <div class="form-group row">
                 <label for="idUsername" class="col-sm-2 col-form-label">Username</label>
                 <div class="col-sm-10">
                     <input type="text" class="form-control" id="idUsername" name="username" placeholder=""
-                        value="{{.User.Username}}" maxlength="255" autocomplete="nope" required {{if not .IsAdd}}readonly{{end}}>
+                        value="{{.User.Username}}" maxlength="255" autocomplete="nope" required {{if ge .Mode 2}}readonly{{end}}>
                 </div>
             </div>
+            {{end}}
 
             <div class="form-group row">
                 <label for="idStatus" class="col-sm-2 col-form-label">Status</label>
@@ -48,12 +81,12 @@
                     </div>
                 </div>
             </div>
-
+            {{if ne .Mode 3}}
             <div class="form-group row">
                 <label for="idPassword" class="col-sm-2 col-form-label">Password</label>
                 <div class="col-sm-10">
-                    <input type="password" class="form-control" id="idPassword" name="password" placeholder="" {{if not .IsAdd}}aria-describedby="pwdHelpBlock" {{end}}>
-                    {{if not .IsAdd}}
+                    <input type="password" class="form-control" id="idPassword" name="password" placeholder="" {{if eq .Mode 2}}aria-describedby="pwdHelpBlock" {{end}}>
+                    {{if eq .Mode 2}}
                     <small id="pwdHelpBlock" class="form-text text-muted">
                         If empty the current password will not be changed
                     </small>
@@ -71,7 +104,7 @@
                     </small>
                 </div>
             </div>
-
+            {{end}}
             <div class="form-group row">
                 <label for="idProtocols" class="col-sm-2 col-form-label">Denied protocols</label>
                 <div class="col-sm-10">
@@ -612,7 +645,7 @@
                 </div>
             </div>
 
-            {{if not .IsAdd}}
+            {{if eq .Mode 2}}
             <div class="form-group">
                 <div class="form-check">
                     <input type="checkbox" class="form-check-input" id="idDisconnect" name="disconnect"
@@ -626,7 +659,7 @@
             {{end}}
 
             <input type="hidden" name="expiration_date" id="hidden_start_datetime" value="">
-            <button type="submit" class="btn btn-primary float-right mt-3 px-5 px-3">Submit</button>
+            <button type="submit" class="btn btn-primary float-right mt-3 px-5 px-3">{{if eq .Mode 3}}Generate and export users{{else}}Submit{{end}}</button>
         </form>
     </div>
 </div>

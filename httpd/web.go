@@ -13,12 +13,22 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/render"
+
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/version"
 	"github.com/drakkan/sftpgo/vfs"
+)
+
+type userPageMode int
+
+const (
+	userPageModeAdd userPageMode = iota + 1
+	userPageModeUpdate
+	userPageModeTemplate
 )
 
 const (
@@ -62,6 +72,7 @@ type basePage struct {
 	CurrentURL         string
 	UsersURL           string
 	UserURL            string
+	UserTemplateURL    string
 	AdminsURL          string
 	AdminURL           string
 	QuotaScanURL       string
@@ -110,7 +121,7 @@ type statusPage struct {
 
 type userPage struct {
 	basePage
-	User                 dataprovider.User
+	User                 *dataprovider.User
 	RootPerms            []string
 	Error                string
 	ValidPerms           []string
@@ -118,7 +129,7 @@ type userPage struct {
 	ValidProtocols       []string
 	RootDirPerms         []string
 	RedactedSecret       string
-	IsAdd                bool
+	Mode                 userPageMode
 }
 
 type adminPage struct {
@@ -156,6 +167,12 @@ type loginPage struct {
 	CurrentURL string
 	Version    string
 	Error      string
+}
+
+type userTemplateFields struct {
+	Username  string
+	Password  string
+	PublicKey string
 }
 
 func loadTemplates(templatesPath string) {
@@ -239,6 +256,7 @@ func getBasePageData(title, currentURL string, r *http.Request) basePage {
 		CurrentURL:         currentURL,
 		UsersURL:           webUsersPath,
 		UserURL:            webUserPath,
+		UserTemplateURL:    webTemplateUser,
 		AdminsURL:          webAdminsPath,
 		AdminURL:           webAdminPath,
 		FoldersURL:         webFoldersPath,
@@ -337,27 +355,23 @@ func renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Request, admin *dat
 	renderTemplate(w, templateAdmin, data)
 }
 
-func renderAddUserPage(w http.ResponseWriter, r *http.Request, user dataprovider.User, error string) {
+func renderUserPage(w http.ResponseWriter, r *http.Request, user *dataprovider.User, mode userPageMode, error string) {
 	user.SetEmptySecretsIfNil()
-	data := userPage{
-		basePage:             getBasePageData("Add a new user", webUserPath, r),
-		IsAdd:                true,
-		Error:                error,
-		User:                 user,
-		ValidPerms:           dataprovider.ValidPerms,
-		ValidSSHLoginMethods: dataprovider.ValidSSHLoginMethods,
-		ValidProtocols:       dataprovider.ValidProtocols,
-		RootDirPerms:         user.GetPermissionsForPath("/"),
-		RedactedSecret:       redactedSecret,
+	var title, currentURL string
+	switch mode {
+	case userPageModeAdd:
+		title = "Add a new user"
+		currentURL = webUserPath
+	case userPageModeUpdate:
+		title = "Update user"
+		currentURL = fmt.Sprintf("%v/%v", webUserPath, url.PathEscape(user.Username))
+	case userPageModeTemplate:
+		title = "User template"
+		currentURL = webTemplateUser
 	}
-	renderTemplate(w, templateUser, data)
-}
-
-func renderUpdateUserPage(w http.ResponseWriter, r *http.Request, user dataprovider.User, error string) {
-	user.SetEmptySecretsIfNil()
 	data := userPage{
-		basePage:             getBasePageData("Update user", fmt.Sprintf("%v/%v", webUserPath, url.PathEscape(user.Username)), r),
-		IsAdd:                false,
+		basePage:             getBasePageData(title, currentURL, r),
+		Mode:                 mode,
 		Error:                error,
 		User:                 user,
 		ValidPerms:           dataprovider.ValidPerms,
@@ -376,6 +390,33 @@ func renderAddFolderPage(w http.ResponseWriter, r *http.Request, folder vfs.Base
 		Folder:   folder,
 	}
 	renderTemplate(w, templateFolder, data)
+}
+
+func getUsersForTemplate(r *http.Request) []userTemplateFields {
+	var res []userTemplateFields
+	formValue := r.Form.Get("users")
+	for _, cleaned := range getSliceFromDelimitedValues(formValue, "\n") {
+		if strings.Contains(cleaned, "::") {
+			mapping := strings.Split(cleaned, "::")
+			if len(mapping) > 1 {
+				username := strings.TrimSpace(mapping[0])
+				password := strings.TrimSpace(mapping[1])
+				var publicKey string
+				if len(mapping) > 2 {
+					publicKey = strings.TrimSpace(mapping[2])
+				}
+				if username == "" || (password == "" && publicKey == "") {
+					continue
+				}
+				res = append(res, userTemplateFields{
+					Username:  username,
+					Password:  password,
+					PublicKey: publicKey,
+				})
+			}
+		}
+	}
+	return res
 }
 
 func getVirtualFoldersFromPostFields(r *http.Request) []vfs.VirtualFolder {
@@ -429,7 +470,7 @@ func getUserPermissionsFromPostFields(r *http.Request) map[string][]string {
 						perms = append(perms, cleanedPerm)
 					}
 				}
-				if len(dir) > 0 {
+				if dir != "" {
 					permissions[dir] = perms
 				}
 			}
@@ -442,7 +483,7 @@ func getSliceFromDelimitedValues(values, delimiter string) []string {
 	result := []string{}
 	for _, v := range strings.Split(values, delimiter) {
 		cleaned := strings.TrimSpace(v)
-		if len(cleaned) > 0 {
+		if cleaned != "" {
 			result = append(result, cleaned)
 		}
 	}
@@ -707,6 +748,128 @@ func getAdminFromPostFields(r *http.Request) (dataprovider.Admin, error) {
 	admin.AdditionalInfo = r.Form.Get("additional_info")
 	return admin, nil
 }
+
+func replacePlaceholders(field string, replacements map[string]string) string {
+	for k, v := range replacements {
+		field = strings.ReplaceAll(field, k, v)
+	}
+	return field
+}
+
+func getCryptFsFromTemplate(fsConfig vfs.CryptFsConfig, replacements map[string]string) vfs.CryptFsConfig {
+	if fsConfig.Passphrase != nil {
+		if fsConfig.Passphrase.IsPlain() {
+			payload := replacePlaceholders(fsConfig.Passphrase.GetPayload(), replacements)
+			fsConfig.Passphrase = kms.NewPlainSecret(payload)
+		}
+	}
+	return fsConfig
+}
+
+func getS3FsFromTemplate(fsConfig vfs.S3FsConfig, replacements map[string]string) vfs.S3FsConfig {
+	fsConfig.KeyPrefix = replacePlaceholders(fsConfig.KeyPrefix, replacements)
+	fsConfig.AccessKey = replacePlaceholders(fsConfig.AccessKey, replacements)
+	if fsConfig.AccessSecret != nil && fsConfig.AccessSecret.IsPlain() {
+		payload := replacePlaceholders(fsConfig.AccessSecret.GetPayload(), replacements)
+		fsConfig.AccessSecret = kms.NewPlainSecret(payload)
+	}
+	return fsConfig
+}
+
+func getGCSFsFromTemplate(fsConfig vfs.GCSFsConfig, replacements map[string]string) vfs.GCSFsConfig {
+	fsConfig.KeyPrefix = replacePlaceholders(fsConfig.KeyPrefix, replacements)
+	return fsConfig
+}
+
+func getAzBlobFsFromTemplate(fsConfig vfs.AzBlobFsConfig, replacements map[string]string) vfs.AzBlobFsConfig {
+	fsConfig.KeyPrefix = replacePlaceholders(fsConfig.KeyPrefix, replacements)
+	fsConfig.AccountName = replacePlaceholders(fsConfig.AccountName, replacements)
+	if fsConfig.AccountKey != nil && fsConfig.AccountKey.IsPlain() {
+		payload := replacePlaceholders(fsConfig.AccountKey.GetPayload(), replacements)
+		fsConfig.AccountKey = kms.NewPlainSecret(payload)
+	}
+	return fsConfig
+}
+
+func getSFTPFsFromTemplate(fsConfig vfs.SFTPFsConfig, replacements map[string]string) vfs.SFTPFsConfig {
+	fsConfig.Prefix = replacePlaceholders(fsConfig.Prefix, replacements)
+	fsConfig.Username = replacePlaceholders(fsConfig.Username, replacements)
+	if fsConfig.Password != nil && fsConfig.Password.IsPlain() {
+		payload := replacePlaceholders(fsConfig.Password.GetPayload(), replacements)
+		fsConfig.Password = kms.NewPlainSecret(payload)
+	}
+	return fsConfig
+}
+
+func getUserFromTemplate(user dataprovider.User, template userTemplateFields) dataprovider.User {
+	user.Username = template.Username
+	user.Password = template.Password
+	user.PublicKeys = nil
+	if template.PublicKey != "" {
+		user.PublicKeys = append(user.PublicKeys, template.PublicKey)
+	}
+	replacements := make(map[string]string)
+	replacements["%username%"] = user.Username
+	user.Password = replacePlaceholders(user.Password, replacements)
+	replacements["%password%"] = user.Password
+
+	user.HomeDir = replacePlaceholders(user.HomeDir, replacements)
+	var vfolders []vfs.VirtualFolder
+	for _, vfolder := range user.VirtualFolders {
+		vfolder.MappedPath = replacePlaceholders(vfolder.MappedPath, replacements)
+		vfolders = append(vfolders, vfolder)
+	}
+	user.VirtualFolders = vfolders
+	user.AdditionalInfo = replacePlaceholders(user.AdditionalInfo, replacements)
+
+	switch user.FsConfig.Provider {
+	case dataprovider.CryptedFilesystemProvider:
+		user.FsConfig.CryptConfig = getCryptFsFromTemplate(user.FsConfig.CryptConfig, replacements)
+	case dataprovider.S3FilesystemProvider:
+		user.FsConfig.S3Config = getS3FsFromTemplate(user.FsConfig.S3Config, replacements)
+	case dataprovider.GCSFilesystemProvider:
+		user.FsConfig.GCSConfig = getGCSFsFromTemplate(user.FsConfig.GCSConfig, replacements)
+	case dataprovider.AzureBlobFilesystemProvider:
+		user.FsConfig.AzBlobConfig = getAzBlobFsFromTemplate(user.FsConfig.AzBlobConfig, replacements)
+	case dataprovider.SFTPFilesystemProvider:
+		user.FsConfig.SFTPConfig = getSFTPFsFromTemplate(user.FsConfig.SFTPConfig, replacements)
+	}
+
+	return user
+}
+
+/*func decryptSecretsForTemplateUser(user *dataprovider.User) error {
+	user.SetEmptySecretsIfNil()
+	switch user.FsConfig.Provider {
+	case dataprovider.CryptedFilesystemProvider:
+		if user.FsConfig.CryptConfig.Passphrase.IsEncrypted() {
+			return user.FsConfig.CryptConfig.Passphrase.Decrypt()
+		}
+	case dataprovider.S3FilesystemProvider:
+		if user.FsConfig.S3Config.AccessSecret.IsEncrypted() {
+			return user.FsConfig.S3Config.AccessSecret.Decrypt()
+		}
+	case dataprovider.GCSFilesystemProvider:
+		if user.FsConfig.GCSConfig.Credentials.IsEncrypted() {
+			return user.FsConfig.GCSConfig.Credentials.Decrypt()
+		}
+	case dataprovider.AzureBlobFilesystemProvider:
+		if user.FsConfig.AzBlobConfig.AccountKey.IsEncrypted() {
+			return user.FsConfig.AzBlobConfig.AccountKey.Decrypt()
+		}
+	case dataprovider.SFTPFilesystemProvider:
+		if user.FsConfig.SFTPConfig.Password.IsEncrypted() {
+			if err := user.FsConfig.SFTPConfig.Password.Decrypt(); err != nil {
+				return err
+			}
+		}
+		if user.FsConfig.SFTPConfig.PrivateKey.IsEncrypted() {
+			return user.FsConfig.SFTPConfig.PrivateKey.Decrypt()
+		}
+	}
+
+	return nil
+}*/
 
 func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	var user dataprovider.User
@@ -1004,18 +1167,13 @@ func handleGetWebUsers(w http.ResponseWriter, r *http.Request) {
 	renderTemplate(w, templateUsers, data)
 }
 
-func handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Query().Get("cloneFrom") != "" {
-		username := r.URL.Query().Get("cloneFrom")
+func handleWebTemplateUserGet(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("from") != "" {
+		username := r.URL.Query().Get("from")
 		user, err := dataprovider.UserExists(username)
 		if err == nil {
-			user.ID = 0
-			user.Username = ""
-			if err := user.DecryptSecrets(); err != nil {
-				renderInternalServerErrorPage(w, r, err)
-				return
-			}
-			renderAddUserPage(w, r, user, "")
+			user.SetEmptySecrets()
+			renderUserPage(w, r, &user, userPageModeTemplate, "")
 		} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
 			renderNotFoundPage(w, r, err)
 		} else {
@@ -1023,7 +1181,57 @@ func handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		user := dataprovider.User{Status: 1}
-		renderAddUserPage(w, r, user, "")
+		renderUserPage(w, r, &user, userPageModeTemplate, "")
+	}
+}
+
+func handleWebTemplateUserPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	templateUser, err := getUserFromPostFields(r)
+	if err != nil {
+		renderMessagePage(w, r, "Error parsing user fields", "", http.StatusBadRequest, err, "")
+		return
+	}
+
+	var dump dataprovider.BackupData
+	dump.Version = dataprovider.DumpVersion
+
+	userTmplFields := getUsersForTemplate(r)
+	for _, tmpl := range userTmplFields {
+		u := getUserFromTemplate(templateUser, tmpl)
+		if err := dataprovider.ValidateUser(&u); err != nil {
+			renderMessagePage(w, r, fmt.Sprintf("Error validating user %#v", u.Username), "", http.StatusBadRequest, err, "")
+			return
+		}
+		dump.Users = append(dump.Users, u)
+	}
+
+	if len(dump.Users) == 0 {
+		renderMessagePage(w, r, "No users to export", "No valid users found, export is not possible", http.StatusBadRequest, nil, "")
+		return
+	}
+
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"sftpgo-%v-users-from-template.json\"", len(dump.Users)))
+	render.JSON(w, r, dump)
+}
+
+func handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("clone-from") != "" {
+		username := r.URL.Query().Get("clone-from")
+		user, err := dataprovider.UserExists(username)
+		if err == nil {
+			user.ID = 0
+			user.Username = ""
+			user.SetEmptySecrets()
+			renderUserPage(w, r, &user, userPageModeAdd, "")
+		} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+			renderNotFoundPage(w, r, err)
+		} else {
+			renderInternalServerErrorPage(w, r, err)
+		}
+	} else {
+		user := dataprovider.User{Status: 1}
+		renderUserPage(w, r, &user, userPageModeAdd, "")
 	}
 }
 
@@ -1031,7 +1239,7 @@ func handleWebUpdateUserGet(w http.ResponseWriter, r *http.Request) {
 	username := getURLParam(r, "username")
 	user, err := dataprovider.UserExists(username)
 	if err == nil {
-		renderUpdateUserPage(w, r, user, "")
+		renderUserPage(w, r, &user, userPageModeUpdate, "")
 	} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
 		renderNotFoundPage(w, r, err)
 	} else {
@@ -1043,14 +1251,14 @@ func handleWebAddUserPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	user, err := getUserFromPostFields(r)
 	if err != nil {
-		renderAddUserPage(w, r, user, err.Error())
+		renderUserPage(w, r, &user, userPageModeAdd, err.Error())
 		return
 	}
 	err = dataprovider.AddUser(&user)
 	if err == nil {
 		http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
 	} else {
-		renderAddUserPage(w, r, user, err.Error())
+		renderUserPage(w, r, &user, userPageModeAdd, err.Error())
 	}
 }
 
@@ -1067,7 +1275,7 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 	}
 	updatedUser, err := getUserFromPostFields(r)
 	if err != nil {
-		renderUpdateUserPage(w, r, user, err.Error())
+		renderUserPage(w, r, &user, userPageModeUpdate, err.Error())
 		return
 	}
 	updatedUser.ID = user.ID
@@ -1087,7 +1295,7 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 		}
 		http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
 	} else {
-		renderUpdateUserPage(w, r, user, err.Error())
+		renderUserPage(w, r, &user, userPageModeUpdate, err.Error())
 	}
 }
 

@@ -60,6 +60,7 @@ const (
 	webScanVFolderPath        = "/web/folder-quota-scans"
 	webQuotaScanPath          = "/web/quota-scans"
 	webChangeAdminPwdPath     = "/web/changepwd/admin"
+	webTemplateUser           = "/web/template/user"
 	webStaticFilesPath        = "/static"
 	// MaxRestoreSize defines the max size for the loaddata input file
 	MaxRestoreSize = 10485760 // 10 MB

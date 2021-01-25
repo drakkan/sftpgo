@@ -1323,7 +1323,9 @@ func validateFolder(folder *vfs.BaseVirtualFolder) error {
 	return nil
 }
 
-func validateUser(user *User) error {
+// ValidateUser returns an error if the user is not valid
+// FIXME: this should be defined as User struct method
+func ValidateUser(user *User) error {
 	user.SetEmptySecretsIfNil()
 	buildUserHomeDir(user)
 	if err := validateBaseParams(user); err != nil {

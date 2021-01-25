@@ -261,6 +261,16 @@ func (u *User) HideConfidentialData() {
 	}
 }
 
+// SetEmptySecrets sets to empty any user secret
+func (u *User) SetEmptySecrets() {
+	u.FsConfig.S3Config.AccessSecret = kms.NewEmptySecret()
+	u.FsConfig.GCSConfig.Credentials = kms.NewEmptySecret()
+	u.FsConfig.AzBlobConfig.AccountKey = kms.NewEmptySecret()
+	u.FsConfig.CryptConfig.Passphrase = kms.NewEmptySecret()
+	u.FsConfig.SFTPConfig.Password = kms.NewEmptySecret()
+	u.FsConfig.SFTPConfig.PrivateKey = kms.NewEmptySecret()
+}
+
 // DecryptSecrets tries to decrypts kms secrets
 func (u *User) DecryptSecrets() error {
 	switch u.FsConfig.Provider {
@@ -801,12 +811,12 @@ func (u *User) GetExpirationDateAsString() string {
 }
 
 // GetAllowedIPAsString returns the allowed IP as comma separated string
-func (u User) GetAllowedIPAsString() string {
+func (u *User) GetAllowedIPAsString() string {
 	return strings.Join(u.Filters.AllowedIP, ",")
 }
 
 // GetDeniedIPAsString returns the denied IP as comma separated string
-func (u User) GetDeniedIPAsString() string {
+func (u *User) GetDeniedIPAsString() string {
 	return strings.Join(u.Filters.DeniedIP, ",")
 }
 

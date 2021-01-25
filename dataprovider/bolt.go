@@ -397,7 +397,7 @@ func (p *BoltProvider) userExists(username string) (User, error) {
 }
 
 func (p *BoltProvider) addUser(user *User) error {
-	err := validateUser(user)
+	err := ValidateUser(user)
 	if err != nil {
 		return err
 	}
@@ -437,7 +437,7 @@ func (p *BoltProvider) addUser(user *User) error {
 }
 
 func (p *BoltProvider) updateUser(user *User) error {
-	err := validateUser(user)
+	err := ValidateUser(user)
 	if err != nil {
 		return err
 	}
@@ -1003,7 +1003,7 @@ func updateV4BoltCompatUser(dbHandle *bolt.DB, user compatUserV4) error {
 }
 
 func updateV4BoltUser(dbHandle *bolt.DB, user User) error {
-	err := validateUser(&user)
+	err := ValidateUser(&user)
 	if err != nil {
 		return err
 	}

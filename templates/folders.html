@@ -89,7 +89,7 @@ function deleteAction() {
         var table = $('#dataTable').DataTable();
         table.button('delete:name').enable(false);
         var folderPath = table.row({ selected: true }).data()[0];
-        var path = '{{.FolderURL}}' + "?folder_path=" + encodeURIComponent(folderPath);
+        var path = '{{.FolderURL}}' + "?folder-path=" + encodeURIComponent(folderPath);
         $('#deleteModal').modal('hide');
         $.ajax({
             url: path,

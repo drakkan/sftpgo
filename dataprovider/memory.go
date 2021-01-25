@@ -185,7 +185,7 @@ func (p *MemoryProvider) addUser(user *User) error {
 	if p.dbHandle.isClosed {
 		return errMemoryProviderClosed
 	}
-	err := validateUser(user)
+	err := ValidateUser(user)
 	if err != nil {
 		return err
 	}
@@ -211,7 +211,7 @@ func (p *MemoryProvider) updateUser(user *User) error {
 	if p.dbHandle.isClosed {
 		return errMemoryProviderClosed
 	}
-	err := validateUser(user)
+	err := ValidateUser(user)
 	if err != nil {
 		return err
 	}

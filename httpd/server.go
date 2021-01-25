@@ -369,6 +369,9 @@ func (s *httpdServer) initializeRouter() {
 				router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(webMaintenancePath, handleWebMaintenance)
 				router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(webBackupPath, dumpData)
 				router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(webRestorePath, handleWebRestore)
+				router.With(checkPerm(dataprovider.PermAdminManageSystem), s.refreshCookie).
+					Get(webTemplateUser, handleWebTemplateUserGet)
+				router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(webTemplateUser, handleWebTemplateUserPost)
 			})
 
 			router.Group(func(router chi.Router) {

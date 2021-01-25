@@ -29,7 +29,9 @@ import (
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 const (
@@ -704,4 +706,52 @@ func TestVerifyTLSConnection(t *testing.T) {
 	assert.NoError(t, err)
 
 	certMgr = oldCertMgr
+}
+
+func TestGetUserFromTemplate(t *testing.T) {
+	user := dataprovider.User{
+		Status: 1,
+	}
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: "dir%username%",
+		},
+	})
+
+	username := "userTemplate"
+	password := "pwdTemplate"
+	templateFields := userTemplateFields{
+		Username: username,
+		Password: password,
+	}
+
+	userTemplate := getUserFromTemplate(user, templateFields)
+	require.Len(t, userTemplate.VirtualFolders, 1)
+	require.Equal(t, "dir"+username, userTemplate.VirtualFolders[0].MappedPath)
+
+	user.FsConfig.Provider = dataprovider.CryptedFilesystemProvider
+	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("%password%")
+	userTemplate = getUserFromTemplate(user, templateFields)
+	require.Equal(t, password, userTemplate.FsConfig.CryptConfig.Passphrase.GetPayload())
+
+	user.FsConfig.Provider = dataprovider.GCSFilesystemProvider
+	user.FsConfig.GCSConfig.KeyPrefix = "%username%%password%"
+	userTemplate = getUserFromTemplate(user, templateFields)
+	require.Equal(t, username+password, userTemplate.FsConfig.GCSConfig.KeyPrefix)
+
+	user.FsConfig.Provider = dataprovider.AzureBlobFilesystemProvider
+	user.FsConfig.AzBlobConfig.KeyPrefix = "a%username%"
+	user.FsConfig.AzBlobConfig.AccountKey = kms.NewPlainSecret("pwd%password%%username%")
+	userTemplate = getUserFromTemplate(user, templateFields)
+	require.Equal(t, "a"+username, userTemplate.FsConfig.AzBlobConfig.KeyPrefix)
+	require.Equal(t, "pwd"+password+username, userTemplate.FsConfig.AzBlobConfig.AccountKey.GetPayload())
+
+	user.FsConfig.Provider = dataprovider.SFTPFilesystemProvider
+	user.FsConfig.SFTPConfig.Prefix = "%username%"
+	user.FsConfig.SFTPConfig.Username = "sftp_%username%"
+	user.FsConfig.SFTPConfig.Password = kms.NewPlainSecret("sftp%password%")
+	userTemplate = getUserFromTemplate(user, templateFields)
+	require.Equal(t, username, userTemplate.FsConfig.SFTPConfig.Prefix)
+	require.Equal(t, "sftp_"+username, userTemplate.FsConfig.SFTPConfig.Username)
+	require.Equal(t, "sftp"+password, userTemplate.FsConfig.SFTPConfig.Password.GetPayload())
 }

@@ -306,7 +306,7 @@ func sqlCommonUpdateLastLogin(username string, dbHandle *sql.DB) error {
 }
 
 func sqlCommonAddUser(user *User, dbHandle *sql.DB) error {
-	err := validateUser(user)
+	err := ValidateUser(user)
 	if err != nil {
 		return err
 	}
@@ -360,7 +360,7 @@ func sqlCommonAddUser(user *User, dbHandle *sql.DB) error {
 }
 
 func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
-	err := validateUser(user)
+	err := ValidateUser(user)
 	if err != nil {
 		return err
 	}

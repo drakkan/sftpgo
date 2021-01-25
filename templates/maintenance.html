@@ -5,7 +5,7 @@
 {{define "page_body"}}
 <div class="card shadow mb-4">
     <div class="card-header py-3">
-        <h6 class="m-0 font-weight-bold text-primary">Restore</h6>
+        <h6 class="m-0 font-weight-bold text-primary">Import</h6>
     </div>
     <div class="card-body">
         {{if .Error}}
@@ -20,7 +20,7 @@
                     <input type="file" class="form-control-file" id="idBackupFile" name="backup_file"
                         aria-describedby="BackupFileHelpBlock">
                     <small id="BackupFileHelpBlock" class="form-text text-muted">
-                        Restore data from a JSON backup file
+                        Import data from a JSON backup file
                     </small>
                 </div>
             </div>
@@ -44,7 +44,7 @@
                     </select>
                 </div>
             </div>
-            <button type="submit" class="btn btn-primary float-right mt-3 px-5 px-3">Restore</button>
+            <button type="submit" class="btn btn-primary float-right mt-3 px-5 px-3">Import</button>
         </form>
     </div>
 </div>

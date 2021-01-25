@@ -76,6 +76,7 @@ const (
 	webMaintenancePath        = "/web/maintenance"
 	webRestorePath            = "/web/restore"
 	webChangeAdminPwdPath     = "/web/changepwd/admin"
+	webTemplateUser           = "/web/template/user"
 	httpBaseURL               = "http://127.0.0.1:8081"
 	configDir                 = ".."
 	httpsCert                 = `-----BEGIN CERTIFICATE-----
@@ -2214,10 +2215,15 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.Remove(backupFilePath)
 	assert.NoError(t, err)
-	req, err := http.NewRequest(http.MethodGet, webUserPath+"?cloneFrom=user", nil)
+	req, err := http.NewRequest(http.MethodGet, webUserPath+"?clone-from=user", nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, testServerToken)
 	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	req, err = http.NewRequest(http.MethodGet, webTemplateUser+"?from=auser", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, testServerToken)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
@@ -4439,47 +4445,161 @@ func TestWebUserUpdateMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 }
 
+func TestRenderUserTemplateMock(t *testing.T) {
+	token, err := getJWTTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodGet, webTemplateUser, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, webTemplateUser+fmt.Sprintf("?from=%v", user.Username), nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webTemplateUser+"?from=unknown", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestRenderWebCloneUserMock(t *testing.T) {
 	token, err := getJWTTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
 
-	req, err := http.NewRequest(http.MethodGet, webUserPath+fmt.Sprintf("?cloneFrom=%v", user.Username), nil)
+	req, err := http.NewRequest(http.MethodGet, webUserPath+fmt.Sprintf("?clone-from=%v", user.Username), nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
-	req, err = http.NewRequest(http.MethodGet, webUserPath+fmt.Sprintf("?cloneFrom=%v", altAdminPassword), nil)
+	req, err = http.NewRequest(http.MethodGet, webUserPath+fmt.Sprintf("?clone-from=%v", altAdminPassword), nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
-	if config.GetProviderConf().Driver != "memory" {
-		user.FsConfig = dataprovider.Filesystem{
-			Provider: dataprovider.CryptedFilesystemProvider,
-			CryptConfig: vfs.CryptFsConfig{
-				Passphrase: kms.NewPlainSecret("secret"),
-			},
-		}
-		err = user.FsConfig.CryptConfig.Passphrase.Encrypt()
-		assert.NoError(t, err)
-		user.FsConfig.CryptConfig.Passphrase.SetStatus(kms.SecretStatusAWS)
-		user.Password = defaultPassword
-		err = dataprovider.UpdateUser(&user)
-		assert.NoError(t, err)
-
-		req, err = http.NewRequest(http.MethodGet, webUserPath+fmt.Sprintf("?cloneFrom=%v", user.Username), nil)
-		assert.NoError(t, err)
-		setJWTCookieForReq(req, token)
-		rr = executeRequest(req)
-		checkResponseCode(t, http.StatusInternalServerError, rr)
-	}
-
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
+}
+
+func TestUserTemplateMock(t *testing.T) {
+	token, err := getJWTTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	user := getTestUser()
+	user.FsConfig.Provider = dataprovider.S3FilesystemProvider
+	user.FsConfig.S3Config.Bucket = "test"
+	user.FsConfig.S3Config.Region = "eu-central-1"
+	user.FsConfig.S3Config.AccessKey = "%username%"
+	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir/"
+	user.FsConfig.S3Config.UploadPartSize = 5
+	user.FsConfig.S3Config.UploadConcurrency = 4
+	form := make(url.Values)
+	form.Set("username", user.Username)
+	form.Set("home_dir", filepath.Join(os.TempDir(), "%username%"))
+	form.Set("uid", "0")
+	form.Set("gid", strconv.FormatInt(int64(user.GID), 10))
+	form.Set("max_sessions", strconv.FormatInt(int64(user.MaxSessions), 10))
+	form.Set("quota_size", strconv.FormatInt(user.QuotaSize, 10))
+	form.Set("quota_files", strconv.FormatInt(int64(user.QuotaFiles), 10))
+	form.Set("upload_bandwidth", "0")
+	form.Set("download_bandwidth", "0")
+	form.Set("permissions", "*")
+	form.Set("sub_dirs_permissions", "")
+	form.Set("status", strconv.Itoa(user.Status))
+	form.Set("expiration_date", "2020-01-01 00:00:00")
+	form.Set("allowed_ip", "")
+	form.Set("denied_ip", "")
+	form.Set("fs_provider", "1")
+	form.Set("s3_bucket", user.FsConfig.S3Config.Bucket)
+	form.Set("s3_region", user.FsConfig.S3Config.Region)
+	form.Set("s3_access_key", "%username%")
+	form.Set("s3_access_secret", "%password%")
+	form.Set("s3_key_prefix", "base/%username%")
+	form.Set("allowed_extensions", "/dir1::.jpg,.png")
+	form.Set("denied_extensions", "/dir2::.zip")
+	form.Set("max_upload_file_size", "0")
+	// test invalid s3_upload_part_size
+	form.Set("s3_upload_part_size", "a")
+	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, _ := http.NewRequest(http.MethodPost, path.Join(webTemplateUser), &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	form.Set("s3_upload_part_size", strconv.FormatInt(user.FsConfig.S3Config.UploadPartSize, 10))
+	form.Set("s3_upload_concurrency", strconv.Itoa(user.FsConfig.S3Config.UploadConcurrency))
+
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webTemplateUser), &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	form.Set("users", "user1::password1::invalid-pkey")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webTemplateUser), &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	require.Contains(t, rr.Body.String(), "Error validating user")
+
+	form.Set("users", "user1:password1")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webTemplateUser), &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	require.Contains(t, rr.Body.String(), "No valid users found, export is not possible")
+
+	form.Set("users", "user1::password1\nuser2::password2::"+testPubKey+"\nuser3::::")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webTemplateUser), &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	var dump dataprovider.BackupData
+	err = json.Unmarshal(rr.Body.Bytes(), &dump)
+	require.NoError(t, err)
+	require.Len(t, dump.Users, 2)
+	user1 := dump.Users[0]
+	user2 := dump.Users[1]
+	require.Equal(t, "user1", user1.Username)
+	require.Equal(t, dataprovider.S3FilesystemProvider, user1.FsConfig.Provider)
+	require.Equal(t, "user2", user2.Username)
+	require.Equal(t, dataprovider.S3FilesystemProvider, user2.FsConfig.Provider)
+	require.Len(t, user2.PublicKeys, 1)
+	require.Equal(t, filepath.Join(os.TempDir(), user1.Username), user1.HomeDir)
+	require.Equal(t, filepath.Join(os.TempDir(), user2.Username), user2.HomeDir)
+	require.Equal(t, user1.Username, user1.FsConfig.S3Config.AccessKey)
+	require.Equal(t, user2.Username, user2.FsConfig.S3Config.AccessKey)
+	require.Equal(t, path.Join("base", user1.Username)+"/", user1.FsConfig.S3Config.KeyPrefix)
+	require.Equal(t, path.Join("base", user2.Username)+"/", user2.FsConfig.S3Config.KeyPrefix)
+	require.True(t, user1.FsConfig.S3Config.AccessSecret.IsEncrypted())
+	err = user1.FsConfig.S3Config.AccessSecret.Decrypt()
+	require.NoError(t, err)
+	require.Equal(t, "password1", user1.FsConfig.S3Config.AccessSecret.GetPayload())
+	require.True(t, user2.FsConfig.S3Config.AccessSecret.IsEncrypted())
+	err = user2.FsConfig.S3Config.AccessSecret.Decrypt()
+	require.NoError(t, err)
+	require.Equal(t, "password2", user2.FsConfig.S3Config.AccessSecret.GetPayload())
 }
 
 func TestWebUserS3Mock(t *testing.T) {
