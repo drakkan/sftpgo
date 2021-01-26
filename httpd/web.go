@@ -980,7 +980,7 @@ func handleWebAdminChangePwdPost(w http.ResponseWriter, r *http.Request) {
 
 func handleWebLogout(w http.ResponseWriter, r *http.Request) {
 	c := jwtTokenClaims{}
-	c.removeCookie(w)
+	c.removeCookie(w, r)
 
 	http.Redirect(w, r, webLoginPath, http.StatusFound)
 }

@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/go-chi/chi"
 
@@ -26,6 +28,7 @@ import (
 const (
 	logSender                 = "httpd"
 	tokenPath                 = "/api/v2/token"
+	logoutPath                = "/api/v2/logout"
 	activeConnectionsPath     = "/api/v2/connections"
 	quotaScanPath             = "/api/v2/quota-scans"
 	quotaScanVFolderPath      = "/api/v2/folder-quota-scans"
@@ -69,8 +72,11 @@ const (
 )
 
 var (
-	backupsPath string
-	certMgr     *common.CertManager
+	backupsPath            string
+	certMgr                *common.CertManager
+	jwtTokensCleanupTicker *time.Ticker
+	jwtTokensCleanupDone   chan bool
+	invalidatedJWTTokens   sync.Map
 )
 
 // Binding defines the configuration for a network listener
@@ -213,6 +219,7 @@ func (c *Conf) Initialize(configDir string) error {
 		}(binding)
 	}
 
+	startJWTTokensCleanupTicker(tokenDuration)
 	return <-exitChannel
 }
 
@@ -285,4 +292,40 @@ func GetHTTPRouter() http.Handler {
 	server := newHttpdServer(b, "../static", true)
 	server.initializeRouter()
 	return server.router
+}
+
+// the ticker cannot be started/stopped from multiple goroutines
+func startJWTTokensCleanupTicker(duration time.Duration) {
+	stopJWTTokensCleanupTicker()
+	jwtTokensCleanupTicker = time.NewTicker(duration)
+	jwtTokensCleanupDone = make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-jwtTokensCleanupDone:
+				return
+			case <-jwtTokensCleanupTicker.C:
+				cleanupExpiredJWTTokens()
+			}
+		}
+	}()
+}
+
+func stopJWTTokensCleanupTicker() {
+	if jwtTokensCleanupTicker != nil {
+		jwtTokensCleanupTicker.Stop()
+		jwtTokensCleanupDone <- true
+		jwtTokensCleanupTicker = nil
+	}
+}
+
+func cleanupExpiredJWTTokens() {
+	invalidatedJWTTokens.Range(func(key, value interface{}) bool {
+		exp, ok := value.(time.Time)
+		if !ok || exp.Before(time.Now().UTC()) {
+			invalidatedJWTTokens.Delete(key)
+		}
+		return true
+	})
 }

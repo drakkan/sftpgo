@@ -137,6 +137,11 @@ func (s *httpdServer) handleWebLoginPost(w http.ResponseWriter, r *http.Request)
 	http.Redirect(w, r, webUsersPath, http.StatusFound)
 }
 
+func (s *httpdServer) logout(w http.ResponseWriter, r *http.Request) {
+	invalidateToken(r)
+	sendAPIResponse(w, r, nil, "Your token has been invalidated", http.StatusOK)
+}
+
 func (s *httpdServer) getToken(w http.ResponseWriter, r *http.Request) {
 	username, password, ok := r.BasicAuth()
 	if !ok {
@@ -274,6 +279,7 @@ func (s *httpdServer) initializeRouter() {
 				render.JSON(w, r, version.Get())
 			})
 
+			router.Get(logoutPath, s.logout)
 			router.Put(adminPwdPath, changeAdminPassword)
 
 			router.With(checkPerm(dataprovider.PermAdminViewServerStatus)).

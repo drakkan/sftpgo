@@ -37,6 +37,11 @@ func jwtAuthenticator(next http.Handler) http.Handler {
 			sendAPIResponse(w, r, err, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}
+		if isTokenInvalidated(r) {
+			logger.Debug(logSender, "", "the token has been invalidated")
+			sendAPIResponse(w, r, nil, "Your token is no longer valid", http.StatusUnauthorized)
+			return
+		}
 
 		// Token is authenticated, pass it through
 		next.ServeHTTP(w, r)
@@ -56,6 +61,11 @@ func jwtAuthenticatorWeb(next http.Handler) http.Handler {
 		err = jwt.Validate(token)
 		if token == nil || err != nil {
 			logger.Debug(logSender, "", "error validating web jwt token: %v", err)
+			http.Redirect(w, r, webLoginPath, http.StatusFound)
+			return
+		}
+		if isTokenInvalidated(r) {
+			logger.Debug(logSender, "", "the token has been invalidated")
 			http.Redirect(w, r, webLoginPath, http.StatusFound)
 			return
 		}

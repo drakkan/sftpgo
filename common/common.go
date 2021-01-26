@@ -181,6 +181,7 @@ func AddDefenderEvent(ip string, event HostEvent) {
 	Config.defender.AddEvent(ip, event)
 }
 
+// the ticker cannot be started/stopped from multiple goroutines
 func startIdleTimeoutTicker(duration time.Duration) {
 	stopIdleTimeoutTicker()
 	idleTimeoutTicker = time.NewTicker(duration)

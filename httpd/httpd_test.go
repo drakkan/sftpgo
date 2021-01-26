@@ -61,6 +61,7 @@ const (
 	updateFolderUsedQuotaPath = "/api/v2/folder-quota-update"
 	defenderUnban             = "/api/v2/defender/unban"
 	versionPath               = "/api/v2/version"
+	logoutPath                = "/api/v2/logout"
 	healthzPath               = "/healthz"
 	webBasePath               = "/web"
 	webLoginPath              = "/web/login"
@@ -3635,6 +3636,26 @@ func TestWebNotFoundURI(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
+func TestLogout(t *testing.T) {
+	token, err := getJWTTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	req, _ := http.NewRequest(http.MethodGet, serverStatusPath, nil)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, _ = http.NewRequest(http.MethodGet, logoutPath, nil)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, _ = http.NewRequest(http.MethodGet, serverStatusPath, nil)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+	assert.Contains(t, rr.Body.String(), "Your token is no longer valid")
+}
+
 func TestWebLoginMock(t *testing.T) {
 	form := getAdminLoginForm(defaultTokenAuthUser, defaultTokenAuthPass)
 	req, _ := http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -3656,12 +3677,29 @@ func TestWebLoginMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
+	req, _ = http.NewRequest(http.MethodGet, webStatusPath, nil)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
 	req, _ = http.NewRequest(http.MethodGet, webLogoutPath, nil)
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 	cookie = rr.Header().Get("Cookie")
 	assert.Empty(t, cookie)
+
+	req, _ = http.NewRequest(http.MethodGet, serverStatusPath, nil)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+	assert.Contains(t, rr.Body.String(), "Your token is no longer valid")
+
+	req, _ = http.NewRequest(http.MethodGet, webStatusPath, nil)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+
 	// now try using wrong credentials
 	form = getAdminLoginForm(defaultTokenAuthUser, "wrong pwd")
 	req, _ = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))

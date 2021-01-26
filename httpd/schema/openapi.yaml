@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: SFTPGo
   description: SFTPGo REST API
-  version: 2.4.2
+  version: 2.4.3
 
 servers:
   - url: /api/v2
@@ -41,6 +41,27 @@ paths:
             application/json:
               schema:
                 $ref : '#/components/schemas/Token'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /logout:
+    get:
+      tags:
+        - token
+      summary: invalidate the access token
+      operationId: logout
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref : '#/components/schemas/ApiResponse'
         401:
           $ref: '#/components/responses/Unauthorized'
         403:

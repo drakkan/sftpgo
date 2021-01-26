@@ -123,7 +123,7 @@ func (c *jwtTokenClaims) createAndSetCookie(w http.ResponseWriter, tokenAuth *jw
 	return nil
 }
 
-func (c *jwtTokenClaims) removeCookie(w http.ResponseWriter) {
+func (c *jwtTokenClaims) removeCookie(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "jwt",
 		Value:    "",
@@ -131,6 +131,37 @@ func (c *jwtTokenClaims) removeCookie(w http.ResponseWriter) {
 		MaxAge:   -1,
 		HttpOnly: true,
 	})
+	invalidateToken(r)
+}
+
+func isTokenInvalidated(r *http.Request) bool {
+	isTokenFound := false
+	token := jwtauth.TokenFromHeader(r)
+	if token != "" {
+		isTokenFound = true
+		if _, ok := invalidatedJWTTokens.Load(token); ok {
+			return true
+		}
+	}
+	token = jwtauth.TokenFromCookie(r)
+	if token != "" {
+		isTokenFound = true
+		if _, ok := invalidatedJWTTokens.Load(token); ok {
+			return true
+		}
+	}
+	return !isTokenFound
+}
+
+func invalidateToken(r *http.Request) {
+	tokenString := jwtauth.TokenFromHeader(r)
+	if tokenString != "" {
+		invalidatedJWTTokens.Store(tokenString, time.Now().UTC().Add(tokenDuration))
+	}
+	tokenString = jwtauth.TokenFromCookie(r)
+	if tokenString != "" {
+		invalidatedJWTTokens.Store(tokenString, time.Now().UTC().Add(tokenDuration))
+	}
 }
 
 func getAdminFromToken(r *http.Request) *dataprovider.Admin {

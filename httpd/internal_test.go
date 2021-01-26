@@ -755,3 +755,32 @@ func TestGetUserFromTemplate(t *testing.T) {
 	require.Equal(t, "sftp_"+username, userTemplate.FsConfig.SFTPConfig.Username)
 	require.Equal(t, "sftp"+password, userTemplate.FsConfig.SFTPConfig.Password.GetPayload())
 }
+
+func TestJWTTokenCleanup(t *testing.T) {
+	server := httpdServer{
+		tokenAuth: jwtauth.New("HS256", utils.GenerateRandomBytes(32), nil),
+	}
+	admin := dataprovider.Admin{
+		Username:    "newtestadmin",
+		Password:    "password",
+		Permissions: []string{dataprovider.PermAdminAny},
+	}
+	claims := make(map[string]interface{})
+	claims[claimUsernameKey] = admin.Username
+	claims[claimPermissionsKey] = admin.Permissions
+	claims[jwt.SubjectKey] = admin.GetSignature()
+	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
+	_, token, err := server.tokenAuth.Encode(claims)
+	assert.NoError(t, err)
+
+	req, _ := http.NewRequest(http.MethodGet, versionPath, nil)
+	assert.True(t, isTokenInvalidated(req))
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %v", token))
+
+	invalidatedJWTTokens.Store(token, time.Now().UTC().Add(-tokenDuration))
+	require.True(t, isTokenInvalidated(req))
+	startJWTTokensCleanupTicker(100 * time.Millisecond)
+	assert.Eventually(t, func() bool { return !isTokenInvalidated(req) }, 1*time.Second, 200*time.Millisecond)
+	stopJWTTokensCleanupTicker()
+}
