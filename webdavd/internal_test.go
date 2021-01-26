@@ -379,7 +379,7 @@ func TestOrderDirsToRemove(t *testing.T) {
 }
 
 func TestUserInvalidParams(t *testing.T) {
-	u := dataprovider.User{
+	u := &dataprovider.User{
 		Username: "username",
 		HomeDir:  "invalid",
 	}

@@ -534,7 +534,7 @@ func checkAuthError(ip string, err error) {
 		logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, common.ProtocolSSH, err.Error())
 		metrics.AddNoAuthTryed()
 		common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
-		dataprovider.ExecutePostLoginHook("", dataprovider.LoginMethodNoAuthTryed, ip, common.ProtocolSSH, err)
+		dataprovider.ExecutePostLoginHook(&dataprovider.User{}, dataprovider.LoginMethodNoAuthTryed, ip, common.ProtocolSSH, err)
 	}
 }
 
@@ -791,16 +791,19 @@ func (c *Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubK
 	if ok {
 		if cert.CertType != ssh.UserCert {
 			err = fmt.Errorf("ssh: cert has type %d", cert.CertType)
-			updateLoginMetrics(conn, ipAddr, method, err)
+			user.Username = conn.User()
+			updateLoginMetrics(&user, ipAddr, method, err)
 			return nil, err
 		}
 		if !c.certChecker.IsUserAuthority(cert.SignatureKey) {
 			err = fmt.Errorf("ssh: certificate signed by unrecognized authority")
-			updateLoginMetrics(conn, ipAddr, method, err)
+			user.Username = conn.User()
+			updateLoginMetrics(&user, ipAddr, method, err)
 			return nil, err
 		}
 		if err := c.certChecker.CheckCert(conn.User(), cert); err != nil {
-			updateLoginMetrics(conn, ipAddr, method, err)
+			user.Username = conn.User()
+			updateLoginMetrics(&user, ipAddr, method, err)
 			return nil, err
 		}
 		certPerm = &cert.Permissions
@@ -822,7 +825,8 @@ func (c *Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubK
 			}
 		}
 	}
-	updateLoginMetrics(conn, ipAddr, method, err)
+	user.Username = conn.User()
+	updateLoginMetrics(&user, ipAddr, method, err)
 	return sshPerm, err
 }
 
@@ -839,7 +843,8 @@ func (c *Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass 
 	if user, err = dataprovider.CheckUserAndPass(conn.User(), string(pass), ipAddr, common.ProtocolSSH); err == nil {
 		sshPerm, err = loginUser(user, method, "", conn)
 	}
-	updateLoginMetrics(conn, ipAddr, method, err)
+	user.Username = conn.User()
+	updateLoginMetrics(&user, ipAddr, method, err)
 	return sshPerm, err
 }
 
@@ -857,14 +862,15 @@ func (c *Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMeta
 		ipAddr, common.ProtocolSSH); err == nil {
 		sshPerm, err = loginUser(user, method, "", conn)
 	}
-	updateLoginMetrics(conn, ipAddr, method, err)
+	user.Username = conn.User()
+	updateLoginMetrics(&user, ipAddr, method, err)
 	return sshPerm, err
 }
 
-func updateLoginMetrics(conn ssh.ConnMetadata, ip, method string, err error) {
+func updateLoginMetrics(user *dataprovider.User, ip, method string, err error) {
 	metrics.AddLoginAttempt(method)
 	if err != nil {
-		logger.ConnectionFailedLog(conn.User(), ip, method, common.ProtocolSSH, err.Error())
+		logger.ConnectionFailedLog(user.Username, ip, method, common.ProtocolSSH, err.Error())
 		if method != dataprovider.SSHLoginMethodPublicKey {
 			// some clients try all available public keys for a user, we
 			// record failed login key auth only once for session if the
@@ -877,5 +883,5 @@ func updateLoginMetrics(conn ssh.ConnMetadata, ip, method string, err error) {
 		}
 	}
 	metrics.AddLoginResult(method, err)
-	dataprovider.ExecutePostLoginHook(conn.User(), method, ip, common.ProtocolSSH, err)
+	dataprovider.ExecutePostLoginHook(user, method, ip, common.ProtocolSSH, err)
 }

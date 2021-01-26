@@ -606,7 +606,7 @@ func (conns *ActiveConnections) checkIdles() {
 					logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, c.GetProtocol(), "client idle")
 					metrics.AddNoAuthTryed()
 					AddDefenderEvent(ip, HostEventNoLoginTried)
-					dataprovider.ExecutePostLoginHook("", dataprovider.LoginMethodNoAuthTryed, ip, c.GetProtocol(),
+					dataprovider.ExecutePostLoginHook(&dataprovider.User{}, dataprovider.LoginMethodNoAuthTryed, ip, c.GetProtocol(),
 						dataprovider.ErrNoAuthTryed)
 				}
 			}(c, isUnauthenticatedFTPUser)

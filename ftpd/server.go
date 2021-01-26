@@ -137,13 +137,14 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 	ipAddr := utils.GetIPFromRemoteAddress(cc.RemoteAddr().String())
 	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, common.ProtocolFTP)
 	if err != nil {
-		updateLoginMetrics(username, ipAddr, err)
+		user.Username = username
+		updateLoginMetrics(&user, ipAddr, err)
 		return nil, err
 	}
 
 	connection, err := s.validateUser(user, cc)
 
-	defer updateLoginMetrics(username, ipAddr, err)
+	defer updateLoginMetrics(&user, ipAddr, err)
 
 	if err != nil {
 		return nil, err
@@ -247,10 +248,10 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 	return connection, nil
 }
 
-func updateLoginMetrics(username, ip string, err error) {
+func updateLoginMetrics(user *dataprovider.User, ip string, err error) {
 	metrics.AddLoginAttempt(dataprovider.LoginMethodPassword)
 	if err != nil {
-		logger.ConnectionFailedLog(username, ip, dataprovider.LoginMethodPassword,
+		logger.ConnectionFailedLog(user.Username, ip, dataprovider.LoginMethodPassword,
 			common.ProtocolFTP, err.Error())
 		event := common.HostEventLoginFailed
 		if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
@@ -259,5 +260,5 @@ func updateLoginMetrics(username, ip string, err error) {
 		common.AddDefenderEvent(ip, event)
 	}
 	metrics.AddLoginResult(dataprovider.LoginMethodPassword, err)
-	dataprovider.ExecutePostLoginHook(username, dataprovider.LoginMethodPassword, ip, common.ProtocolFTP, err)
+	dataprovider.ExecutePostLoginHook(user, dataprovider.LoginMethodPassword, ip, common.ProtocolFTP, err)
 }

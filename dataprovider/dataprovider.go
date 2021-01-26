@@ -712,7 +712,7 @@ func UserExists(username string) (User, error) {
 func AddUser(user *User) error {
 	err := provider.addUser(user)
 	if err == nil {
-		go executeAction(operationAdd, *user)
+		executeAction(operationAdd, user)
 	}
 	return err
 }
@@ -722,7 +722,7 @@ func UpdateUser(user *User) error {
 	err := provider.updateUser(user)
 	if err == nil {
 		RemoveCachedWebDAVUser(user.Username)
-		go executeAction(operationUpdate, *user)
+		executeAction(operationUpdate, user)
 	}
 	return err
 }
@@ -736,7 +736,7 @@ func DeleteUser(username string) error {
 	err = provider.deleteUser(&user)
 	if err == nil {
 		RemoveCachedWebDAVUser(user.Username)
-		go executeAction(operationDelete, user)
+		executeAction(operationDelete, &user)
 	}
 	return err
 }
@@ -1970,7 +1970,7 @@ func executePreLoginHook(username, loginMethod, ip, protocol string) (User, erro
 }
 
 // ExecutePostLoginHook executes the post login hook if defined
-func ExecutePostLoginHook(username, loginMethod, ip, protocol string, err error) {
+func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err error) {
 	if config.PostLoginHook == "" {
 		return
 	}
@@ -1981,10 +1981,17 @@ func ExecutePostLoginHook(username, loginMethod, ip, protocol string, err error)
 		return
 	}
 
-	go func(username, loginMethod, ip, protocol string, err error) {
-		status := 0
+	go func() {
+		status := "0"
 		if err == nil {
-			status = 1
+			status = "1"
+		}
+
+		user.HideConfidentialData()
+		userAsJSON, err := json.Marshal(user)
+		if err != nil {
+			providerLog(logger.LevelWarn, "error serializing user in post login hook: %v", err)
+			return
 		}
 		if strings.HasPrefix(config.PostLoginHook, "http") {
 			var url *url.URL
@@ -1993,22 +2000,17 @@ func ExecutePostLoginHook(username, loginMethod, ip, protocol string, err error)
 				providerLog(logger.LevelDebug, "Invalid post-login hook %#v", config.PostLoginHook)
 				return
 			}
-			postReq := make(map[string]interface{})
-			postReq["username"] = username
-			postReq["login_method"] = loginMethod
-			postReq["ip"] = ip
-			postReq["protocol"] = protocol
-			postReq["status"] = status
+			q := url.Query()
+			q.Add("login_method", loginMethod)
+			q.Add("ip", ip)
+			q.Add("protocol", protocol)
+			q.Add("status", status)
+			url.RawQuery = q.Encode()
 
-			postAsJSON, err := json.Marshal(postReq)
-			if err != nil {
-				providerLog(logger.LevelWarn, "error serializing post login request: %v", err)
-				return
-			}
 			startTime := time.Now()
 			respCode := 0
 			httpClient := httpclient.GetHTTPClient()
-			resp, err := httpClient.Post(url.String(), "application/json", bytes.NewBuffer(postAsJSON))
+			resp, err := httpClient.Post(url.String(), "application/json", bytes.NewBuffer(userAsJSON))
 			if err == nil {
 				respCode = resp.StatusCode
 				resp.Body.Close()
@@ -2021,7 +2023,7 @@ func ExecutePostLoginHook(username, loginMethod, ip, protocol string, err error)
 		defer cancel()
 		cmd := exec.CommandContext(ctx, config.PostLoginHook)
 		cmd.Env = append(os.Environ(),
-			fmt.Sprintf("SFTPGO_LOGIND_USER=%v", username),
+			fmt.Sprintf("SFTPGO_LOGIND_USER=%v", string(userAsJSON)),
 			fmt.Sprintf("SFTPGO_LOGIND_IP=%v", ip),
 			fmt.Sprintf("SFTPGO_LOGIND_METHOD=%v", loginMethod),
 			fmt.Sprintf("SFTPGO_LOGIND_STATUS=%v", status),
@@ -2029,7 +2031,7 @@ func ExecutePostLoginHook(username, loginMethod, ip, protocol string, err error)
 		startTime := time.Now()
 		err = cmd.Run()
 		providerLog(logger.LevelDebug, "post login hook executed, elapsed %v err: %v", time.Since(startTime), err)
-	}(username, loginMethod, ip, protocol, err)
+	}()
 }
 
 func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, protocol string) ([]byte, error) {
@@ -2130,17 +2132,21 @@ func providerLog(level logger.LogLevel, format string, v ...interface{}) {
 	logger.Log(level, logSender, "", format, v...)
 }
 
-func executeNotificationCommand(operation string, user User) error {
+func executeNotificationCommand(operation string, commandArgs []string, userAsJSON []byte) error {
 	if !filepath.IsAbs(config.Actions.Hook) {
 		err := fmt.Errorf("invalid notification command %#v", config.Actions.Hook)
 		logger.Warn(logSender, "", "unable to execute notification command: %v", err)
 		return err
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	commandArgs := user.getNotificationFieldsAsSlice(operation)
+
 	cmd := exec.CommandContext(ctx, config.Actions.Hook, commandArgs...)
-	cmd.Env = append(os.Environ(), user.getNotificationFieldsAsEnvVars(operation)...)
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("SFTPGO_USER_ACTION=%v", operation),
+		fmt.Sprintf("SFTPGO_USER=%v", string(userAsJSON)))
+
 	startTime := time.Now()
 	err := cmd.Run()
 	providerLog(logger.LevelDebug, "executed command %#v with arguments: %+v, elapsed: %v, error: %v",
@@ -2148,50 +2154,54 @@ func executeNotificationCommand(operation string, user User) error {
 	return err
 }
 
-// executed in a goroutine
-func executeAction(operation string, user User) {
+func executeAction(operation string, user *User) {
 	if !utils.IsStringInSlice(operation, config.Actions.ExecuteOn) {
 		return
 	}
-	if len(config.Actions.Hook) == 0 {
+	if config.Actions.Hook == "" {
 		return
 	}
-	if operation != operationDelete {
-		var err error
-		user, err = provider.userExists(user.Username)
-		if err != nil {
-			providerLog(logger.LevelWarn, "unable to get the user to notify for operation %#v: %v", operation, err)
-			return
+
+	go func() {
+		if operation != operationDelete {
+			var err error
+			u, err := provider.userExists(user.Username)
+			if err != nil {
+				providerLog(logger.LevelWarn, "unable to get the user to notify for operation %#v: %v", operation, err)
+				return
+			}
+			user = &u
 		}
-	}
-	if strings.HasPrefix(config.Actions.Hook, "http") {
-		var url *url.URL
-		url, err := url.Parse(config.Actions.Hook)
-		if err != nil {
-			providerLog(logger.LevelWarn, "Invalid http_notification_url %#v for operation %#v: %v", config.Actions.Hook, operation, err)
-			return
-		}
-		q := url.Query()
-		q.Add("action", operation)
-		url.RawQuery = q.Encode()
 		user.HideConfidentialData()
 		userAsJSON, err := json.Marshal(user)
 		if err != nil {
+			providerLog(logger.LevelWarn, "unable to serialize user as JSON for operation %#v: %v", operation, err)
 			return
 		}
-		startTime := time.Now()
-		httpClient := httpclient.GetHTTPClient()
-		resp, err := httpClient.Post(url.String(), "application/json", bytes.NewBuffer(userAsJSON))
-		respCode := 0
-		if err == nil {
-			respCode = resp.StatusCode
-			resp.Body.Close()
+		if strings.HasPrefix(config.Actions.Hook, "http") {
+			var url *url.URL
+			url, err := url.Parse(config.Actions.Hook)
+			if err != nil {
+				providerLog(logger.LevelWarn, "Invalid http_notification_url %#v for operation %#v: %v", config.Actions.Hook, operation, err)
+				return
+			}
+			q := url.Query()
+			q.Add("action", operation)
+			url.RawQuery = q.Encode()
+			startTime := time.Now()
+			httpClient := httpclient.GetHTTPClient()
+			resp, err := httpClient.Post(url.String(), "application/json", bytes.NewBuffer(userAsJSON))
+			respCode := 0
+			if err == nil {
+				respCode = resp.StatusCode
+				resp.Body.Close()
+			}
+			providerLog(logger.LevelDebug, "notified operation %#v to URL: %v status code: %v, elapsed: %v err: %v",
+				operation, url.String(), respCode, time.Since(startTime), err)
+		} else {
+			executeNotificationCommand(operation, user.getNotificationFieldsAsSlice(operation), userAsJSON) //nolint:errcheck // the error is used in test cases only
 		}
-		providerLog(logger.LevelDebug, "notified operation %#v to URL: %v status code: %v, elapsed: %v err: %v",
-			operation, url.String(), respCode, time.Since(startTime), err)
-	} else {
-		executeNotificationCommand(operation, user) //nolint:errcheck // the error is used in test cases only
-	}
+	}()
 }
 
 // after migrating database to v4 we have to update the quota for the imported folders

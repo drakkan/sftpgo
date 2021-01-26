@@ -955,24 +955,6 @@ func (u *User) getNotificationFieldsAsSlice(action string) []string {
 	}
 }
 
-func (u *User) getNotificationFieldsAsEnvVars(action string) []string {
-	return []string{fmt.Sprintf("SFTPGO_USER_ACTION=%v", action),
-		fmt.Sprintf("SFTPGO_USER_USERNAME=%v", u.Username),
-		fmt.Sprintf("SFTPGO_USER_PASSWORD=%v", u.Password),
-		fmt.Sprintf("SFTPGO_USER_ID=%v", u.ID),
-		fmt.Sprintf("SFTPGO_USER_STATUS=%v", u.Status),
-		fmt.Sprintf("SFTPGO_USER_EXPIRATION_DATE=%v", u.ExpirationDate),
-		fmt.Sprintf("SFTPGO_USER_HOME_DIR=%v", u.HomeDir),
-		fmt.Sprintf("SFTPGO_USER_UID=%v", u.UID),
-		fmt.Sprintf("SFTPGO_USER_GID=%v", u.GID),
-		fmt.Sprintf("SFTPGO_USER_QUOTA_FILES=%v", u.QuotaFiles),
-		fmt.Sprintf("SFTPGO_USER_QUOTA_SIZE=%v", u.QuotaSize),
-		fmt.Sprintf("SFTPGO_USER_UPLOAD_BANDWIDTH=%v", u.UploadBandwidth),
-		fmt.Sprintf("SFTPGO_USER_DOWNLOAD_BANDWIDTH=%v", u.DownloadBandwidth),
-		fmt.Sprintf("SFTPGO_USER_MAX_SESSIONS=%v", u.MaxSessions),
-		fmt.Sprintf("SFTPGO_USER_FS_PROVIDER=%v", u.FsConfig.Provider)}
-}
-
 func (u *User) getGCSCredentialsFilePath() string {
 	return filepath.Join(credentialsDirPath, fmt.Sprintf("%v_gcs_credentials.json", u.Username))
 }
