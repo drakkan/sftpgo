@@ -107,7 +107,7 @@ func (c *jwtTokenClaims) createTokenResponse(tokenAuth *jwtauth.JWTAuth) (map[st
 	return response, nil
 }
 
-func (c *jwtTokenClaims) createAndSetCookie(w http.ResponseWriter, tokenAuth *jwtauth.JWTAuth) error {
+func (c *jwtTokenClaims) createAndSetCookie(w http.ResponseWriter, r *http.Request, tokenAuth *jwtauth.JWTAuth) error {
 	resp, err := c.createTokenResponse(tokenAuth)
 	if err != nil {
 		return err
@@ -118,6 +118,7 @@ func (c *jwtTokenClaims) createAndSetCookie(w http.ResponseWriter, tokenAuth *jw
 		Path:     webBasePath,
 		Expires:  time.Now().Add(tokenDuration),
 		HttpOnly: true,
+		Secure:   r.TLS != nil,
 	})
 
 	return nil
@@ -130,6 +131,7 @@ func (c *jwtTokenClaims) removeCookie(w http.ResponseWriter, r *http.Request) {
 		Path:     webBasePath,
 		MaxAge:   -1,
 		HttpOnly: true,
+		Secure:   r.TLS != nil,
 	})
 	invalidateToken(r)
 }

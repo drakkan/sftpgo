@@ -128,7 +128,7 @@ func (s *httpdServer) handleWebLoginPost(w http.ResponseWriter, r *http.Request)
 		Signature:   admin.GetSignature(),
 	}
 
-	err = c.createAndSetCookie(w, s.tokenAuth)
+	err = c.createAndSetCookie(w, r, s.tokenAuth)
 	if err != nil {
 		renderLoginPage(w, err.Error())
 		return
@@ -224,7 +224,7 @@ func (s *httpdServer) checkCookieExpiration(w http.ResponseWriter, r *http.Reque
 		}
 	}
 	logger.Debug(logSender, "", "cookie refreshed for admin %#v", admin.Username)
-	tokenClaims.createAndSetCookie(w, s.tokenAuth) //nolint:errcheck
+	tokenClaims.createAndSetCookie(w, r, s.tokenAuth) //nolint:errcheck
 }
 
 func (s *httpdServer) updateContextFromCookie(r *http.Request) *http.Request {
