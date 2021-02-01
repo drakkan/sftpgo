@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 5
+	boltDatabaseVersion = 6
 )
 
 var (
@@ -612,20 +612,10 @@ func (p *BoltProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	return folders, err
 }
 
-func (p *BoltProvider) getFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error) {
+func (p *BoltProvider) getFolders(limit, offset int, order string) ([]vfs.BaseVirtualFolder, error) {
 	folders := make([]vfs.BaseVirtualFolder, 0, limit)
 	var err error
 	if limit <= 0 {
-		return folders, err
-	}
-	if len(folderPath) > 0 {
-		if offset == 0 {
-			var folder vfs.BaseVirtualFolder
-			folder, err = p.getFolderByPath(folderPath)
-			if err == nil {
-				folders = append(folders, folder)
-			}
-		}
 		return folders, err
 	}
 	err = p.dbHandle.View(func(tx *bolt.Tx) error {
@@ -673,7 +663,7 @@ func (p *BoltProvider) getFolders(limit, offset int, order, folderPath string) (
 	return folders, err
 }
 
-func (p *BoltProvider) getFolderByPath(name string) (vfs.BaseVirtualFolder, error) {
+func (p *BoltProvider) getFolderByName(name string) (vfs.BaseVirtualFolder, error) {
 	var folder vfs.BaseVirtualFolder
 	err := p.dbHandle.View(func(tx *bolt.Tx) error {
 		bucket, err := getFolderBucket(tx)
@@ -696,11 +686,46 @@ func (p *BoltProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 		if err != nil {
 			return err
 		}
-		if f := bucket.Get([]byte(folder.MappedPath)); f != nil {
-			return fmt.Errorf("folder %v already exists", folder.MappedPath)
+		if f := bucket.Get([]byte(folder.Name)); f != nil {
+			return fmt.Errorf("folder %v already exists", folder.Name)
 		}
+		folder.Users = nil
 		_, err = addFolderInternal(*folder, bucket)
 		return err
+	})
+}
+
+func (p *BoltProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
+	err := validateFolder(folder)
+	if err != nil {
+		return err
+	}
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getFolderBucket(tx)
+		if err != nil {
+			return err
+		}
+		var f []byte
+
+		if f = bucket.Get([]byte(folder.Name)); f == nil {
+			return &RecordNotFoundError{err: fmt.Sprintf("folder %v does not exist", folder.Name)}
+		}
+		var oldFolder vfs.BaseVirtualFolder
+		err = json.Unmarshal(f, &oldFolder)
+		if err != nil {
+			return err
+		}
+
+		folder.ID = oldFolder.ID
+		folder.LastQuotaUpdate = oldFolder.LastQuotaUpdate
+		folder.UsedQuotaFiles = oldFolder.UsedQuotaFiles
+		folder.UsedQuotaSize = oldFolder.UsedQuotaSize
+		folder.Users = oldFolder.Users
+		buf, err := json.Marshal(folder)
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(folder.Name), buf)
 	})
 }
 
@@ -715,8 +740,8 @@ func (p *BoltProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 			return err
 		}
 		var f []byte
-		if f = bucket.Get([]byte(folder.MappedPath)); f == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("folder %v does not exist", folder.MappedPath)}
+		if f = bucket.Get([]byte(folder.Name)); f == nil {
+			return &RecordNotFoundError{err: fmt.Sprintf("folder %v does not exist", folder.Name)}
 		}
 		var folder vfs.BaseVirtualFolder
 		err = json.Unmarshal(f, &folder)
@@ -735,7 +760,7 @@ func (p *BoltProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 			}
 			var folders []vfs.VirtualFolder
 			for _, userFolder := range user.VirtualFolders {
-				if folder.MappedPath != userFolder.MappedPath {
+				if folder.Name != userFolder.Name {
 					folders = append(folders, userFolder)
 				}
 			}
@@ -750,19 +775,19 @@ func (p *BoltProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 			}
 		}
 
-		return bucket.Delete([]byte(folder.MappedPath))
+		return bucket.Delete([]byte(folder.Name))
 	})
 }
 
-func (p *BoltProvider) updateFolderQuota(mappedPath string, filesAdd int, sizeAdd int64, reset bool) error {
+func (p *BoltProvider) updateFolderQuota(name string, filesAdd int, sizeAdd int64, reset bool) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket, err := getFolderBucket(tx)
 		if err != nil {
 			return err
 		}
 		var f []byte
-		if f = bucket.Get([]byte(mappedPath)); f == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("folder %v does not exist, unable to update quota", mappedPath)}
+		if f = bucket.Get([]byte(name)); f == nil {
+			return &RecordNotFoundError{err: fmt.Sprintf("folder %#v does not exist, unable to update quota", name)}
 		}
 		var folder vfs.BaseVirtualFolder
 		err = json.Unmarshal(f, &folder)
@@ -781,14 +806,14 @@ func (p *BoltProvider) updateFolderQuota(mappedPath string, filesAdd int, sizeAd
 		if err != nil {
 			return err
 		}
-		return bucket.Put([]byte(folder.MappedPath), buf)
+		return bucket.Put([]byte(folder.Name), buf)
 	})
 }
 
-func (p *BoltProvider) getUsedFolderQuota(mappedPath string) (int, int64, error) {
-	folder, err := p.getFolderByPath(mappedPath)
+func (p *BoltProvider) getUsedFolderQuota(name string) (int, int64, error) {
+	folder, err := p.getFolderByName(name)
 	if err != nil {
-		providerLog(logger.LevelWarn, "unable to get quota for folder %#v error: %v", mappedPath, err)
+		providerLog(logger.LevelWarn, "unable to get quota for folder %#v error: %v", name, err)
 		return 0, 0, err
 	}
 	return folder.UsedQuotaFiles, folder.UsedQuotaSize, err
@@ -825,6 +850,8 @@ func (p *BoltProvider) migrateDatabase() error {
 		return updateBoltDatabaseFromV3(p.dbHandle)
 	case 4:
 		return updateBoltDatabaseFromV4(p.dbHandle)
+	case 5:
+		return updateBoltDatabaseFromV5(p.dbHandle)
 	default:
 		if dbVersion.Version > boltDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported: %v", dbVersion.Version,
@@ -847,6 +874,12 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 	}
 	switch dbVersion.Version {
 	case 5:
+		return downgradeBoltDatabaseFrom5To4(p.dbHandle)
+	case 6:
+		err := downgradeBoltDatabaseFrom6To5(p.dbHandle)
+		if err != nil {
+			return err
+		}
 		return downgradeBoltDatabaseFrom5To4(p.dbHandle)
 	default:
 		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
@@ -878,7 +911,15 @@ func updateBoltDatabaseFromV3(dbHandle *bolt.DB) error {
 }
 
 func updateBoltDatabaseFromV4(dbHandle *bolt.DB) error {
-	return updateDatabaseFrom4To5(dbHandle)
+	err := updateDatabaseFrom4To5(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updateBoltDatabaseFromV5(dbHandle)
+}
+
+func updateBoltDatabaseFromV5(dbHandle *bolt.DB) error {
+	return updateDatabaseFrom5To6(dbHandle)
 }
 
 func joinUserAndFolders(u []byte, foldersBucket *bolt.Bucket) (User, error) {
@@ -890,10 +931,11 @@ func joinUserAndFolders(u []byte, foldersBucket *bolt.Bucket) (User, error) {
 	if len(user.VirtualFolders) > 0 {
 		var folders []vfs.VirtualFolder
 		for _, folder := range user.VirtualFolders {
-			baseFolder, err := folderExistsInternal(folder.MappedPath, foldersBucket)
+			baseFolder, err := folderExistsInternal(folder.Name, foldersBucket)
 			if err != nil {
 				continue
 			}
+			folder.MappedPath = baseFolder.MappedPath
 			folder.UsedQuotaFiles = baseFolder.UsedQuotaFiles
 			folder.UsedQuotaSize = baseFolder.UsedQuotaSize
 			folder.LastQuotaUpdate = baseFolder.LastQuotaUpdate
@@ -927,15 +969,18 @@ func addFolderInternal(folder vfs.BaseVirtualFolder, bucket *bolt.Bucket) (vfs.B
 	if err != nil {
 		return folder, err
 	}
-	err = bucket.Put([]byte(folder.MappedPath), buf)
+	err = bucket.Put([]byte(folder.Name), buf)
 	return folder, err
 }
 
 func addUserToFolderMapping(folder vfs.VirtualFolder, user *User, bucket *bolt.Bucket) error {
 	var baseFolder vfs.BaseVirtualFolder
 	var err error
-	if f := bucket.Get([]byte(folder.MappedPath)); f == nil {
+	if f := bucket.Get([]byte(folder.Name)); f == nil {
 		// folder does not exists, try to create
+		folder.LastQuotaUpdate = 0
+		folder.UsedQuotaFiles = 0
+		folder.UsedQuotaSize = 0
 		baseFolder, err = addFolderInternal(folder.BaseVirtualFolder, bucket)
 	} else {
 		err = json.Unmarshal(f, &baseFolder)
@@ -949,7 +994,7 @@ func addUserToFolderMapping(folder vfs.VirtualFolder, user *User, bucket *bolt.B
 		if err != nil {
 			return err
 		}
-		err = bucket.Put([]byte(folder.MappedPath), buf)
+		err = bucket.Put([]byte(folder.Name), buf)
 		if err != nil {
 			return err
 		}
@@ -959,7 +1004,7 @@ func addUserToFolderMapping(folder vfs.VirtualFolder, user *User, bucket *bolt.B
 
 func removeUserFromFolderMapping(folder vfs.VirtualFolder, user *User, bucket *bolt.Bucket) error {
 	var f []byte
-	if f = bucket.Get([]byte(folder.MappedPath)); f == nil {
+	if f = bucket.Get([]byte(folder.Name)); f == nil {
 		// the folder does not exists so there is no associated user
 		return nil
 	}
@@ -980,7 +1025,7 @@ func removeUserFromFolderMapping(folder vfs.VirtualFolder, user *User, bucket *b
 		if err != nil {
 			return err
 		}
-		return bucket.Put([]byte(folder.MappedPath), buf)
+		return bucket.Put([]byte(folder.Name), buf)
 	}
 	return err
 }
@@ -1186,11 +1231,11 @@ func updateDatabaseFrom3To4(dbHandle *bolt.DB) error {
 		}
 	}
 
-	err = updateBoltDatabaseVersion(dbHandle, 4)
-	if err == nil {
+	return updateBoltDatabaseVersion(dbHandle, 4)
+	/*if err == nil {
 		go updateVFoldersQuotaAfterRestore(foldersToScan)
 	}
-	return err
+	return err*/
 }
 
 //nolint:dupl
@@ -1272,6 +1317,126 @@ func updateDatabaseFrom4To5(dbHandle *bolt.DB) error {
 		providerLog(logger.LevelInfo, "filesystem config updated for user %#v", user.Username)
 	}
 
+	return updateBoltDatabaseVersion(dbHandle, 5)
+}
+
+// this compat code will be removed after 2.0.0, ignore the lint warning for now
+//nolint:gocyclo
+func updateDatabaseFrom5To6(dbHandle *bolt.DB) error {
+	logger.InfoToConsole("updating bolt database version: 5 -> 6")
+	providerLog(logger.LevelInfo, "updating bolt database version: 5 -> 6")
+	err := dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getFolderBucket(tx)
+		if err != nil {
+			return err
+		}
+		usersBucket, err := getUsersBucket(tx)
+		if err != nil {
+			return err
+		}
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			if filepath.IsAbs(string(k)) {
+				var folder vfs.BaseVirtualFolder
+				err = json.Unmarshal(v, &folder)
+				if err != nil {
+					return err
+				}
+				folder.Name = fmt.Sprintf("Folder%v", folder.ID)
+				buf, err := json.Marshal(folder)
+				if err != nil {
+					return err
+				}
+				// insert the folder with the new structure
+				err = bucket.Put([]byte(folder.Name), buf)
+				if err != nil {
+					return err
+				}
+				// delete the folder with the old structure
+				err = bucket.Delete(k)
+				if err != nil {
+					return err
+				}
+				// update users mapping
+				for _, username := range folder.Users {
+					var u []byte
+					if u = usersBucket.Get([]byte(username)); u == nil {
+						continue
+					}
+					var user User
+					err = json.Unmarshal(u, &user)
+					if err != nil {
+						return err
+					}
+					var folders []vfs.VirtualFolder
+					for _, userFolder := range user.VirtualFolders {
+						if folder.MappedPath == userFolder.MappedPath {
+							userFolder.Name = folder.Name
+						}
+						folders = append(folders, userFolder)
+					}
+					user.VirtualFolders = folders
+					buf, err := json.Marshal(user)
+					if err != nil {
+						return err
+					}
+					err = usersBucket.Put([]byte(user.Username), buf)
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return updateBoltDatabaseVersion(dbHandle, 6)
+}
+
+func downgradeBoltDatabaseFrom6To5(dbHandle *bolt.DB) error {
+	logger.InfoToConsole("downgrading bolt database version: 6 -> 5")
+	providerLog(logger.LevelInfo, "downgrading bolt database version: 6 -> 5")
+	// best effort we'll remove this code soon
+	err := dbHandle.Update(func(tx *bolt.Tx) error {
+		// just update the folder keys
+		bucket, err := getFolderBucket(tx)
+		if err != nil {
+			return err
+		}
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			if !filepath.IsAbs(string(k)) {
+				var folder vfs.BaseVirtualFolder
+				err = json.Unmarshal(v, &folder)
+				if err != nil {
+					return err
+				}
+				if filepath.IsAbs(folder.MappedPath) {
+					buf, err := json.Marshal(folder)
+					if err != nil {
+						return err
+					}
+					// insert the folder with the old key
+					err = bucket.Put([]byte(folder.MappedPath), buf)
+					if err != nil {
+						return err
+					}
+					// delete the folder with the new key
+					err = bucket.Delete(k)
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
 	return updateBoltDatabaseVersion(dbHandle, 5)
 }
 

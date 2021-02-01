@@ -84,16 +84,16 @@ func updateVFolderQuotaUsage(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	folder, err := dataprovider.GetFolderByPath(f.MappedPath)
+	folder, err := dataprovider.GetFolderByName(f.Name)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if !common.QuotaScans.AddVFolderQuotaScan(folder.MappedPath) {
+	if !common.QuotaScans.AddVFolderQuotaScan(folder.Name) {
 		sendAPIResponse(w, r, err, "A quota scan is in progress for this folder", http.StatusConflict)
 		return
 	}
-	defer common.QuotaScans.RemoveVFolderQuotaScan(folder.MappedPath)
+	defer common.QuotaScans.RemoveVFolderQuotaScan(folder.Name)
 	err = dataprovider.UpdateVirtualFolderQuota(folder, f.UsedQuotaFiles, f.UsedQuotaSize, mode == quotaUpdateModeReset)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -139,12 +139,12 @@ func startVFolderQuotaScan(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	folder, err := dataprovider.GetFolderByPath(f.MappedPath)
+	folder, err := dataprovider.GetFolderByName(f.Name)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if common.QuotaScans.AddVFolderQuotaScan(folder.MappedPath) {
+	if common.QuotaScans.AddVFolderQuotaScan(folder.Name) {
 		go doFolderQuotaScan(folder) //nolint:errcheck
 		sendAPIResponse(w, r, err, "Scan started", http.StatusAccepted)
 	} else {
@@ -171,7 +171,7 @@ func doQuotaScan(user dataprovider.User) error {
 }
 
 func doFolderQuotaScan(folder vfs.BaseVirtualFolder) error {
-	defer common.QuotaScans.RemoveVFolderQuotaScan(folder.MappedPath)
+	defer common.QuotaScans.RemoveVFolderQuotaScan(folder.Name)
 	fs := vfs.NewOsFs("", "", nil).(*vfs.OsFs)
 	numFiles, size, err := fs.GetDirSize(folder.MappedPath)
 	if err != nil {
@@ -179,7 +179,7 @@ func doFolderQuotaScan(folder vfs.BaseVirtualFolder) error {
 		return err
 	}
 	err = dataprovider.UpdateVirtualFolderQuota(folder, numFiles, size, true)
-	logger.Debug(logSender, "", "virtual folder %#v scanned, error: %v", folder.MappedPath, err)
+	logger.Debug(logSender, "", "virtual folder %#v scanned, error: %v", folder.Name, err)
 	return err
 }
 

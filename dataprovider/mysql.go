@@ -44,6 +44,15 @@ const (
 		"`password` varchar(255) NOT NULL, `email` varchar(255) NULL, `status` integer NOT NULL, `permissions` longtext NOT NULL, " +
 		"`filters` longtext NULL, `additional_info` longtext NULL);"
 	mysqlV7DownSQL = "DROP TABLE `{{admins}}` CASCADE;"
+	mysqlV8SQL     = "ALTER TABLE `{{folders}}` ADD COLUMN `name` varchar(255) NULL;" +
+		"ALTER TABLE `{{folders}}` MODIFY `path` varchar(512) NULL;" +
+		"ALTER TABLE `{{folders}}` DROP INDEX `path`;" +
+		"UPDATE `{{folders}}` f1 SET name = (SELECT CONCAT('folder',f2.id) FROM `{{folders}}` f2 WHERE f2.id = f1.id);" +
+		"ALTER TABLE `{{folders}}` MODIFY `name` varchar(255) NOT NULL;" +
+		"ALTER TABLE `folders` ADD CONSTRAINT `name` UNIQUE (`name`);"
+	mysqlV8DownSQL = "ALTER TABLE `{{folders}}` DROP COLUMN `name`;" +
+		"ALTER TABLE `{{folders}}` MODIFY `path` varchar(512) NOT NULL;" +
+		"ALTER TABLE `{{folders}}` ADD CONSTRAINT `path` UNIQUE (`path`);"
 )
 
 // MySQLProvider auth provider for MySQL/MariaDB database
@@ -143,30 +152,34 @@ func (p *MySQLProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	return sqlCommonDumpFolders(p.dbHandle)
 }
 
-func (p *MySQLProvider) getFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error) {
-	return sqlCommonGetFolders(limit, offset, order, folderPath, p.dbHandle)
+func (p *MySQLProvider) getFolders(limit, offset int, order string) ([]vfs.BaseVirtualFolder, error) {
+	return sqlCommonGetFolders(limit, offset, order, p.dbHandle)
 }
 
-func (p *MySQLProvider) getFolderByPath(mappedPath string) (vfs.BaseVirtualFolder, error) {
+func (p *MySQLProvider) getFolderByName(name string) (vfs.BaseVirtualFolder, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	return sqlCommonCheckFolderExists(ctx, mappedPath, p.dbHandle)
+	return sqlCommonGetFolderByName(ctx, name, p.dbHandle)
 }
 
 func (p *MySQLProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 	return sqlCommonAddFolder(folder, p.dbHandle)
 }
 
+func (p *MySQLProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
+	return sqlCommonUpdateFolder(folder, p.dbHandle)
+}
+
 func (p *MySQLProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 	return sqlCommonDeleteFolder(folder, p.dbHandle)
 }
 
-func (p *MySQLProvider) updateFolderQuota(mappedPath string, filesAdd int, sizeAdd int64, reset bool) error {
-	return sqlCommonUpdateFolderQuota(mappedPath, filesAdd, sizeAdd, reset, p.dbHandle)
+func (p *MySQLProvider) updateFolderQuota(name string, filesAdd int, sizeAdd int64, reset bool) error {
+	return sqlCommonUpdateFolderQuota(name, filesAdd, sizeAdd, reset, p.dbHandle)
 }
 
-func (p *MySQLProvider) getUsedFolderQuota(mappedPath string) (int, int64, error) {
-	return sqlCommonGetFolderUsedQuota(mappedPath, p.dbHandle)
+func (p *MySQLProvider) getUsedFolderQuota(name string) (int, int64, error) {
+	return sqlCommonGetFolderUsedQuota(name, p.dbHandle)
 }
 
 func (p *MySQLProvider) adminExists(username string) (Admin, error) {
@@ -256,6 +269,8 @@ func (p *MySQLProvider) migrateDatabase() error {
 		return updateMySQLDatabaseFromV5(p.dbHandle)
 	case 6:
 		return updateMySQLDatabaseFromV6(p.dbHandle)
+	case 7:
+		return updateMySQLDatabaseFromV7(p.dbHandle)
 	default:
 		if dbVersion.Version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported: %v", dbVersion.Version,
@@ -268,6 +283,7 @@ func (p *MySQLProvider) migrateDatabase() error {
 	}
 }
 
+//nolint:dupl
 func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
@@ -277,6 +293,20 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 		return fmt.Errorf("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
+	case 8:
+		err = downgradeMySQLDatabaseFrom8To7(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		err = downgradeMySQLDatabaseFrom7To6(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		err = downgradeMySQLDatabaseFrom6To5(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		return downgradeMySQLDatabaseFrom5To4(p.dbHandle)
 	case 7:
 		err = downgradeMySQLDatabaseFrom7To6(p.dbHandle)
 		if err != nil {
@@ -341,7 +371,15 @@ func updateMySQLDatabaseFromV5(dbHandle *sql.DB) error {
 }
 
 func updateMySQLDatabaseFromV6(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom6To7(dbHandle)
+	err := updateMySQLDatabaseFrom6To7(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV7(dbHandle)
+}
+
+func updateMySQLDatabaseFromV7(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom7To8(dbHandle)
 }
 
 func updateMySQLDatabaseFrom1To2(dbHandle *sql.DB) error {
@@ -377,6 +415,20 @@ func updateMySQLDatabaseFrom6To7(dbHandle *sql.DB) error {
 	logger.InfoToConsole("updating database version: 6 -> 7")
 	providerLog(logger.LevelInfo, "updating database version: 6 -> 7")
 	sql := strings.Replace(mysqlV7SQL, "{{admins}}", sqlTableAdmins, 1)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 7)
+}
+
+func updateMySQLDatabaseFrom7To8(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 7 -> 8")
+	providerLog(logger.LevelInfo, "updating database version: 7 -> 8")
+	sql := strings.ReplaceAll(mysqlV8SQL, "{{folders}}", sqlTableFolders)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 8)
+}
+
+func downgradeMySQLDatabaseFrom8To7(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 8 -> 7")
+	providerLog(logger.LevelInfo, "downgrading database version: 8 -> 7")
+	sql := strings.ReplaceAll(mysqlV8DownSQL, "{{folders}}", sqlTableFolders)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 7)
 }
 

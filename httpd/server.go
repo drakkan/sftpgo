@@ -304,8 +304,10 @@ func (s *httpdServer) initializeRouter() {
 			router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Put(userPath+"/{username}", updateUser)
 			router.With(checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(userPath+"/{username}", deleteUser)
 			router.With(checkPerm(dataprovider.PermAdminViewUsers)).Get(folderPath, getFolders)
+			router.With(checkPerm(dataprovider.PermAdminViewUsers)).Get(folderPath+"/{name}", getFolderByName)
 			router.With(checkPerm(dataprovider.PermAdminAddUsers)).Post(folderPath, addFolder)
-			router.With(checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(folderPath, deleteFolderByPath)
+			router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Put(folderPath+"/{name}", updateFolder)
+			router.With(checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(folderPath+"/{name}", deleteFolder)
 			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(dumpDataPath, dumpData)
 			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(loadDataPath, loadData)
 			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(loadDataPath, loadDataFromRequest)
@@ -368,7 +370,10 @@ func (s *httpdServer) initializeRouter() {
 				router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Delete(webAdminPath+"/{username}", deleteAdmin)
 				router.With(checkPerm(dataprovider.PermAdminCloseConnections)).
 					Delete(webConnectionsPath+"/{connectionID}", handleCloseConnection)
-				router.With(checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(webFolderPath, deleteFolderByPath)
+				router.With(checkPerm(dataprovider.PermAdminChangeUsers), s.refreshCookie).
+					Get(webFolderPath+"/{name}", handleWebUpdateFolderGet)
+				router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Post(webFolderPath+"/{name}", handleWebUpdateFolderPost)
+				router.With(checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(webFolderPath+"/{name}", deleteFolder)
 				router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Post(webScanVFolderPath, startVFolderQuotaScan)
 				router.With(checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(webUserPath+"/{username}", deleteUser)
 				router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Post(webQuotaScanPath, startQuotaScan)

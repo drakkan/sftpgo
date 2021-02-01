@@ -115,7 +115,7 @@
     "driver": "sqlite",
     "name": "sftpgo.db",
     "host": "",
-    "port": 5432,
+    "port": 0,
     "username": "",
     "password": "",
     "sslmode": 0,

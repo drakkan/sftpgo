@@ -45,6 +45,17 @@ CREATE INDEX "folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
 "filters" text NULL, "additional_info" text NULL);
 `
 	pgsqlV7DownSQL = `DROP TABLE "{{admins}}" CASCADE;`
+	pgsqlV8SQL     = `ALTER TABLE "{{folders}}" ADD COLUMN "name" varchar(255) NULL;
+ALTER TABLE "folders" ALTER COLUMN "path" DROP NOT NULL;
+ALTER TABLE "{{folders}}" DROP CONSTRAINT IF EXISTS folders_path_key;
+UPDATE "{{folders}}" f1 SET name = (SELECT CONCAT('folder',f2.id) FROM "{{folders}}" f2 WHERE f2.id = f1.id);
+ALTER TABLE "{{folders}}" ALTER COLUMN "name" SET NOT NULL;
+ALTER TABLE "{{folders}}" ADD CONSTRAINT "folders_name_uniq" UNIQUE ("name");
+`
+	pgsqlV8DownSQL = `ALTER TABLE "{{folders}}" DROP COLUMN "name" CASCADE;
+ALTER TABLE "{{folders}}" ALTER COLUMN "path" SET NOT NULL;
+ALTER TABLE "{{folders}}" ADD CONSTRAINT folders_path_key UNIQUE (path);
+`
 )
 
 // PGSQLProvider auth provider for PostgreSQL database
@@ -145,30 +156,34 @@ func (p *PGSQLProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	return sqlCommonDumpFolders(p.dbHandle)
 }
 
-func (p *PGSQLProvider) getFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error) {
-	return sqlCommonGetFolders(limit, offset, order, folderPath, p.dbHandle)
+func (p *PGSQLProvider) getFolders(limit, offset int, order string) ([]vfs.BaseVirtualFolder, error) {
+	return sqlCommonGetFolders(limit, offset, order, p.dbHandle)
 }
 
-func (p *PGSQLProvider) getFolderByPath(mappedPath string) (vfs.BaseVirtualFolder, error) {
+func (p *PGSQLProvider) getFolderByName(name string) (vfs.BaseVirtualFolder, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	return sqlCommonCheckFolderExists(ctx, mappedPath, p.dbHandle)
+	return sqlCommonGetFolderByName(ctx, name, p.dbHandle)
 }
 
 func (p *PGSQLProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 	return sqlCommonAddFolder(folder, p.dbHandle)
 }
 
+func (p *PGSQLProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
+	return sqlCommonUpdateFolder(folder, p.dbHandle)
+}
+
 func (p *PGSQLProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 	return sqlCommonDeleteFolder(folder, p.dbHandle)
 }
 
-func (p *PGSQLProvider) updateFolderQuota(mappedPath string, filesAdd int, sizeAdd int64, reset bool) error {
-	return sqlCommonUpdateFolderQuota(mappedPath, filesAdd, sizeAdd, reset, p.dbHandle)
+func (p *PGSQLProvider) updateFolderQuota(name string, filesAdd int, sizeAdd int64, reset bool) error {
+	return sqlCommonUpdateFolderQuota(name, filesAdd, sizeAdd, reset, p.dbHandle)
 }
 
-func (p *PGSQLProvider) getUsedFolderQuota(mappedPath string) (int, int64, error) {
-	return sqlCommonGetFolderUsedQuota(mappedPath, p.dbHandle)
+func (p *PGSQLProvider) getUsedFolderQuota(name string) (int, int64, error) {
+	return sqlCommonGetFolderUsedQuota(name, p.dbHandle)
 }
 
 func (p *PGSQLProvider) adminExists(username string) (Admin, error) {
@@ -258,6 +273,8 @@ func (p *PGSQLProvider) migrateDatabase() error {
 		return updatePGSQLDatabaseFromV5(p.dbHandle)
 	case 6:
 		return updatePGSQLDatabaseFromV6(p.dbHandle)
+	case 7:
+		return updatePGSQLDatabaseFromV7(p.dbHandle)
 	default:
 		if dbVersion.Version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported: %v", dbVersion.Version,
@@ -270,6 +287,7 @@ func (p *PGSQLProvider) migrateDatabase() error {
 	}
 }
 
+//nolint:dupl
 func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
@@ -279,6 +297,20 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 		return fmt.Errorf("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
+	case 8:
+		err = downgradePGSQLDatabaseFrom8To7(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		err = downgradePGSQLDatabaseFrom7To6(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		err = downgradePGSQLDatabaseFrom6To5(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		return downgradePGSQLDatabaseFrom5To4(p.dbHandle)
 	case 7:
 		err = downgradePGSQLDatabaseFrom7To6(p.dbHandle)
 		if err != nil {
@@ -343,7 +375,15 @@ func updatePGSQLDatabaseFromV5(dbHandle *sql.DB) error {
 }
 
 func updatePGSQLDatabaseFromV6(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom6To7(dbHandle)
+	err := updatePGSQLDatabaseFrom6To7(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV7(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV7(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom7To8(dbHandle)
 }
 
 func updatePGSQLDatabaseFrom1To2(dbHandle *sql.DB) error {
@@ -379,6 +419,20 @@ func updatePGSQLDatabaseFrom6To7(dbHandle *sql.DB) error {
 	logger.InfoToConsole("updating database version: 6 -> 7")
 	providerLog(logger.LevelInfo, "updating database version: 6 -> 7")
 	sql := strings.Replace(pgsqlV7SQL, "{{admins}}", sqlTableAdmins, 1)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 7)
+}
+
+func updatePGSQLDatabaseFrom7To8(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 7 -> 8")
+	providerLog(logger.LevelInfo, "updating database version: 7 -> 8")
+	sql := strings.ReplaceAll(pgsqlV8SQL, "{{folders}}", sqlTableFolders)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 8)
+}
+
+func downgradePGSQLDatabaseFrom8To7(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 8 -> 7")
+	providerLog(logger.LevelInfo, "downgrading database version: 8 -> 7")
+	sql := strings.ReplaceAll(pgsqlV8DownSQL, "{{folders}}", sqlTableAdmins)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 7)
 }
 

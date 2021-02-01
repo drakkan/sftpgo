@@ -2272,6 +2272,7 @@ func TestLoginExternalAuth(t *testing.T) {
 		t.Skip("this test is not available on Windows")
 	}
 	mappedPath := filepath.Join(os.TempDir(), "vdir1")
+	folderName := filepath.Base(mappedPath)
 	extAuthScopes := []int{1, 2}
 	for _, authScope := range extAuthScopes {
 		var usePubKey bool
@@ -2283,6 +2284,7 @@ func TestLoginExternalAuth(t *testing.T) {
 		u := getTestUser(usePubKey)
 		u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       folderName,
 				MappedPath: mappedPath,
 			},
 			VirtualPath: "/vpath",
@@ -2321,6 +2323,7 @@ func TestLoginExternalAuth(t *testing.T) {
 		assert.NoError(t, err)
 		if assert.Len(t, user.VirtualFolders, 1) {
 			folder := user.VirtualFolders[0]
+			assert.Equal(t, folderName, folder.Name)
 			assert.Equal(t, mappedPath, folder.MappedPath)
 			assert.Equal(t, 1+authScope, folder.QuotaFiles)
 			assert.Equal(t, 10+int64(authScope), folder.QuotaSize)
@@ -2330,7 +2333,7 @@ func TestLoginExternalAuth(t *testing.T) {
 		err = os.RemoveAll(user.GetHomeDir())
 		assert.NoError(t, err)
 
-		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
+		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
 		assert.NoError(t, err)
 		err = dataprovider.Close()
 		assert.NoError(t, err)
@@ -3085,11 +3088,13 @@ func TestVirtualFolders(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	mappedPath := filepath.Join(os.TempDir(), "vdir")
+	folderName := filepath.Base(mappedPath)
 	vdirPath := "/vdir/subdir"
 	testDir := "/userDir"
 	testDir1 := "/userDir1"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName,
 			MappedPath: mappedPath,
 		},
 		VirtualPath: vdirPath,
@@ -3178,7 +3183,7 @@ func TestVirtualFolders(t *testing.T) {
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -3191,11 +3196,14 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 	u1 := getTestUser(usePubKey)
 	u1.QuotaFiles = 1
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	folderName1 := filepath.Base(mappedPath1)
 	vdirPath1 := "/vdir1" //nolint:goconst
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	folderName2 := filepath.Base(mappedPath2)
 	vdirPath2 := "/vdir2" //nolint:goconst
 	u1.VirtualFolders = append(u1.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
 			MappedPath: mappedPath1,
 		},
 		VirtualPath: vdirPath1,
@@ -3204,6 +3212,7 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 	})
 	u1.VirtualFolders = append(u1.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName2,
 			MappedPath: mappedPath2,
 		},
 		VirtualPath: vdirPath2,
@@ -3218,6 +3227,7 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 	u2.QuotaSize = testFileSize + 1
 	u2.VirtualFolders = append(u2.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
 			MappedPath: mappedPath1,
 		},
 		VirtualPath: vdirPath1,
@@ -3226,6 +3236,7 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 	})
 	u2.VirtualFolders = append(u2.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName2,
 			MappedPath: mappedPath2,
 		},
 		VirtualPath: vdirPath2,
@@ -3283,9 +3294,9 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 		}
 		_, err = httpdtest.RemoveUser(user, http.StatusOK)
 		assert.NoError(t, err)
-		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 		assert.NoError(t, err)
-		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
 		assert.NoError(t, err)
 		err = os.RemoveAll(user.GetHomeDir())
 		assert.NoError(t, err)
@@ -3303,11 +3314,13 @@ func TestTruncateQuotaLimits(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.QuotaSize = 20
 	mappedPath := filepath.Join(os.TempDir(), "mapped")
+	folderName := filepath.Base(mappedPath)
 	err := os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
 	vdirPath := "/vmapped"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName,
 			MappedPath: mappedPath,
 		},
 		VirtualPath: vdirPath,
@@ -3451,33 +3464,24 @@ func TestTruncateQuotaLimits(t *testing.T) {
 					assert.NoError(t, err)
 					expectedQuotaFiles := 0
 					expectedQuotaSize := int64(2)
-					folder, _, err := httpdtest.GetFolders(0, 0, mappedPath, http.StatusOK)
+					fold, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
 					assert.NoError(t, err)
-					if assert.Len(t, folder, 1) {
-						fold := folder[0]
-						assert.Equal(t, expectedQuotaSize, fold.UsedQuotaSize)
-						assert.Equal(t, expectedQuotaFiles, fold.UsedQuotaFiles)
-					}
+					assert.Equal(t, expectedQuotaSize, fold.UsedQuotaSize)
+					assert.Equal(t, expectedQuotaFiles, fold.UsedQuotaFiles)
 					err = f.Close()
 					assert.NoError(t, err)
 					expectedQuotaFiles = 1
-					folder, _, err = httpdtest.GetFolders(0, 0, mappedPath, http.StatusOK)
+					fold, _, err = httpdtest.GetFolderByName(folderName, http.StatusOK)
 					assert.NoError(t, err)
-					if assert.Len(t, folder, 1) {
-						fold := folder[0]
-						assert.Equal(t, expectedQuotaSize, fold.UsedQuotaSize)
-						assert.Equal(t, expectedQuotaFiles, fold.UsedQuotaFiles)
-					}
+					assert.Equal(t, expectedQuotaSize, fold.UsedQuotaSize)
+					assert.Equal(t, expectedQuotaFiles, fold.UsedQuotaFiles)
 				}
 				err = client.Truncate(vfileName, 1)
 				assert.NoError(t, err)
-				folder, _, err := httpdtest.GetFolders(0, 0, mappedPath, http.StatusOK)
+				fold, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
 				assert.NoError(t, err)
-				if assert.Len(t, folder, 1) {
-					fold := folder[0]
-					assert.Equal(t, int64(1), fold.UsedQuotaSize)
-					assert.Equal(t, 1, fold.UsedQuotaFiles)
-				}
+				assert.Equal(t, int64(1), fold.UsedQuotaSize)
+				assert.Equal(t, 1, fold.UsedQuotaFiles)
 				// cleanup
 				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
@@ -3497,7 +3501,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath)
 	assert.NoError(t, err)
@@ -3518,13 +3522,17 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 	u.QuotaFiles = 0
 	u.QuotaSize = 0
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	folderName1 := filepath.Base(mappedPath1)
 	vdirPath1 := "/vdir1"
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	folderName2 := filepath.Base(mappedPath2)
 	vdirPath2 := "/vdir2"
 	mappedPath3 := filepath.Join(os.TempDir(), "vdir3")
+	folderName3 := filepath.Base(mappedPath3)
 	vdirPath3 := "/vdir3"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
 			MappedPath: mappedPath1,
 		},
 		VirtualPath: vdirPath1,
@@ -3534,6 +3542,7 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			MappedPath: mappedPath2,
+			Name:       folderName2,
 		},
 		VirtualPath: vdirPath2,
 		QuotaFiles:  0,
@@ -3541,6 +3550,7 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName3,
 			MappedPath: mappedPath3,
 		},
 		VirtualPath: vdirPath3,
@@ -3627,11 +3637,11 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath3}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName3}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -3653,10 +3663,13 @@ func TestVirtualFoldersQuotaValues(t *testing.T) {
 	u.QuotaFiles = 100
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
 	vdirPath1 := "/vdir1" //nolint:goconst
+	folderName1 := filepath.Base(mappedPath1)
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
 	vdirPath2 := "/vdir2" //nolint:goconst
+	folderName2 := filepath.Base(mappedPath2)
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
 			MappedPath: mappedPath1,
 		},
 		VirtualPath: vdirPath1,
@@ -3666,6 +3679,7 @@ func TestVirtualFoldersQuotaValues(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName2,
 			MappedPath: mappedPath2,
 		},
 		VirtualPath: vdirPath2,
@@ -3703,48 +3717,36 @@ func TestVirtualFoldersQuotaValues(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
-		folder, _, err := httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err := httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
 
 		err = client.Remove(path.Join(vdirPath1, testFileName))
 		assert.NoError(t, err)
 		err = client.Remove(path.Join(vdirPath2, testFileName))
 		assert.NoError(t, err)
 
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, int64(0), f.UsedQuotaSize)
-			assert.Equal(t, 0, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, int64(0), f.UsedQuotaSize)
+		assert.Equal(t, 0, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, int64(0), f.UsedQuotaSize)
-			assert.Equal(t, 0, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, int64(0), f.UsedQuotaSize)
+		assert.Equal(t, 0, f.UsedQuotaFiles)
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -3760,10 +3762,13 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 	u.QuotaFiles = 100
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
 	vdirPath1 := "/vdir1"
+	folderName1 := filepath.Base(mappedPath1)
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
 	vdirPath2 := "/vdir2"
+	folderName2 := filepath.Base(mappedPath2)
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
 			MappedPath: mappedPath1,
 		},
 		VirtualPath: vdirPath1,
@@ -3773,6 +3778,7 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName2,
 			MappedPath: mappedPath2,
 		},
 		VirtualPath: vdirPath2,
@@ -3820,20 +3826,14 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
-		folder, _, err := httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err := httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 2, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 2, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 2, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 2, f.UsedQuotaFiles)
 		// initial files:
 		// - vdir1/dir1/testFileName
 		// - vdir1/dir2/testFileName1
@@ -3851,13 +3851,10 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 2, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 2, f.UsedQuotaFiles)
 		// rename a file inside vdir2, it isn't included inside user quota, so we have:
 		// - vdir1/dir1/testFileName.rename
 		// - vdir1/dir2/testFileName1
@@ -3869,20 +3866,14 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 2, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 2, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 2, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 2, f.UsedQuotaFiles)
 		// rename a file inside vdir2 overwriting an existing, we now have:
 		// - vdir1/dir1/testFileName.rename
 		// - vdir1/dir2/testFileName1
@@ -3893,20 +3884,14 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 2, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 2, f.UsedQuotaFiles)
 		// rename a file inside vdir1 overwriting an existing, we now have:
 		// - vdir1/dir1/testFileName.rename (initial testFileName1)
 		// - vdir2/dir1/testFileName.rename (initial testFileName1)
@@ -3916,20 +3901,14 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
 		// rename a directory inside the same virtual folder, quota should not change
 		err = client.RemoveDirectory(path.Join(vdirPath1, dir2))
 		assert.NoError(t, err)
@@ -3943,20 +3922,14 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
 
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
@@ -3965,9 +3938,9 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -3982,11 +3955,14 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 100
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	folderName1 := filepath.Base(mappedPath1)
 	vdirPath1 := "/vdir1"
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	folderName2 := filepath.Base(mappedPath2)
 	vdirPath2 := "/vdir2"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
 			MappedPath: mappedPath1,
 		},
 		VirtualPath: vdirPath1,
@@ -3996,6 +3972,7 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName2,
 			MappedPath: mappedPath2,
 		},
 		VirtualPath: vdirPath2,
@@ -4056,20 +4033,14 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize, user.UsedQuotaSize)
-		folder, _, err := httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err := httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize+testFileSize1+testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 3, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize+testFileSize1+testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 3, f.UsedQuotaFiles)
 		// rename a file from vdir2 to vdir1, vdir2 is not included inside user quota, so we have:
 		// - vdir1/dir1/testFileName
 		// - vdir1/dir2/testFileName.rename
@@ -4081,20 +4052,14 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize*2, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize*2, f.UsedQuotaSize)
-			assert.Equal(t, 2, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize*2, f.UsedQuotaSize)
+		assert.Equal(t, 2, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize1*2, f.UsedQuotaSize)
-			assert.Equal(t, 2, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize1*2, f.UsedQuotaSize)
+		assert.Equal(t, 2, f.UsedQuotaFiles)
 		// rename a file from vdir1 to vdir2 overwriting an existing file, vdir1 is included inside user quota, so we have:
 		// - vdir1/dir2/testFileName.rename
 		// - vdir2/dir2/testFileName1 (is the initial testFileName)
@@ -4105,20 +4070,14 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize1+testFileSize, f.UsedQuotaSize)
-			assert.Equal(t, 2, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize1+testFileSize, f.UsedQuotaSize)
+		assert.Equal(t, 2, f.UsedQuotaFiles)
 		// rename a file from vdir2 to vdir1 overwriting an existing file, vdir2 is not included inside user quota, so we have:
 		// - vdir1/dir2/testFileName.rename (is the initial testFileName1)
 		// - vdir2/dir2/testFileName1 (is the initial testFileName)
@@ -4128,20 +4087,14 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
 
 		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, dir2, testFileName), testFileSize, client)
 		assert.NoError(t, err)
@@ -4165,20 +4118,14 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 5, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize1*3+testFileSize*2, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize1*3+testFileSize*2, f.UsedQuotaSize)
-			assert.Equal(t, 5, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize1*3+testFileSize*2, f.UsedQuotaSize)
+		assert.Equal(t, 5, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, int64(0), f.UsedQuotaSize)
-			assert.Equal(t, 0, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, int64(0), f.UsedQuotaSize)
+		assert.Equal(t, 0, f.UsedQuotaFiles)
 		// now move on vpath2
 		err = client.Rename(path.Join(vdirPath1, dir2), path.Join(vdirPath2, dir1))
 		assert.NoError(t, err)
@@ -4186,20 +4133,14 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 3, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize1*2+testFileSize, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize1*2+testFileSize, f.UsedQuotaSize)
-			assert.Equal(t, 3, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize1*2+testFileSize, f.UsedQuotaSize)
+		assert.Equal(t, 3, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 2, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 2, f.UsedQuotaFiles)
 
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
@@ -4208,9 +4149,9 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -4225,11 +4166,14 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 100
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	folderName1 := filepath.Base(mappedPath1)
 	vdirPath1 := "/vdir1"
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	folderName2 := filepath.Base(mappedPath2)
 	vdirPath2 := "/vdir2"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
 			MappedPath: mappedPath1,
 		},
 		VirtualPath: vdirPath1,
@@ -4239,6 +4183,7 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName2,
 			MappedPath: mappedPath2,
 		},
 		VirtualPath: vdirPath2,
@@ -4299,20 +4244,14 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
-		folder, _, err := httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err := httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 2, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 2, f.UsedQuotaFiles)
 		// rename a file from vdir2 to the user home dir, vdir2 is not included in user quota so we have:
 		// - testFileName
 		// - testFileName1
@@ -4324,20 +4263,14 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 3, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
 		// rename a file from vdir1 to the user home dir overwriting an existing file, vdir1 is included in user quota so we have:
 		// - testFileName (initial testFileName1)
 		// - testFileName1
@@ -4348,20 +4281,14 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize1+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, int64(0), f.UsedQuotaSize)
-			assert.Equal(t, 0, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, int64(0), f.UsedQuotaSize)
+		assert.Equal(t, 0, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
 		// rename a file from vdir2 to the user home dir overwriting an existing file, vdir2 is not included in user quota so we have:
 		// - testFileName (initial testFileName1)
 		// - testFileName1 (initial testFileName)
@@ -4371,20 +4298,14 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, int64(0), f.UsedQuotaSize)
-			assert.Equal(t, 0, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, int64(0), f.UsedQuotaSize)
+		assert.Equal(t, 0, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, int64(0), f.UsedQuotaSize)
-			assert.Equal(t, 0, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, int64(0), f.UsedQuotaSize)
+		assert.Equal(t, 0, f.UsedQuotaFiles)
 		// dir rename
 		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, dir1, testFileName), testFileSize, client)
 		assert.NoError(t, err)
@@ -4406,20 +4327,14 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 6, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize*3+testFileSize1*3, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 2, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 2, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, int64(0), f.UsedQuotaSize)
-			assert.Equal(t, 0, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, int64(0), f.UsedQuotaSize)
+		assert.Equal(t, 0, f.UsedQuotaFiles)
 		// - testFileName (initial testFileName1)
 		// - testFileName1 (initial testFileName)
 		// - dir2/testFileName
@@ -4432,20 +4347,14 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 6, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize*3+testFileSize1*3, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, int64(0), f.UsedQuotaSize)
-			assert.Equal(t, 0, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, int64(0), f.UsedQuotaSize)
+		assert.Equal(t, 0, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, int64(0), f.UsedQuotaSize)
-			assert.Equal(t, 0, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, int64(0), f.UsedQuotaSize)
+		assert.Equal(t, 0, f.UsedQuotaFiles)
 
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
@@ -4454,9 +4363,9 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -4471,11 +4380,14 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 100
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	folderName1 := filepath.Base(mappedPath1)
 	vdirPath1 := "/vdir1"
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	folderName2 := filepath.Base(mappedPath2)
 	vdirPath2 := "/vdir2"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
 			MappedPath: mappedPath1,
 		},
 		VirtualPath: vdirPath1,
@@ -4485,6 +4397,7 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName2,
 			MappedPath: mappedPath2,
 		},
 		VirtualPath: vdirPath2,
@@ -4537,13 +4450,10 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
-		folder, _, err := httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err := httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
 		// rename a file from user home dir to vdir2, vdir2 is not included in user quota so we have:
 		// - /vdir2/dir1/testFileName
 		// - /vdir1/dir1/testFileName1
@@ -4553,13 +4463,10 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
 		// upload two new files to the user home dir so we have:
 		// - testFileName
 		// - testFileName1
@@ -4583,20 +4490,14 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
 		// rename a file from user home dir to vdir2 overwriting an existing file, vdir2 is not included in user quota so we have:
 		// - /vdir1/dir1/testFileName1 (initial testFileName)
 		// - /vdir2/dir1/testFileName (initial testFileName1)
@@ -4606,20 +4507,14 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
 
 		err = client.Mkdir(dir1)
 		assert.NoError(t, err)
@@ -4635,20 +4530,14 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 3, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize*2+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
 		// - /vdir1/adir/testFileName
 		// - /vdir1/adir/testFileName1
 		// - /vdir1/dir1/testFileName1 (initial testFileName)
@@ -4659,20 +4548,14 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 3, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize*2+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize*2+testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 3, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize*2+testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 3, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
 		err = client.Mkdir(dir1)
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, path.Join(dir1, testFileName), testFileSize, client)
@@ -4691,20 +4574,14 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 3, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize*2+testFileSize1, user.UsedQuotaSize)
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize*2+testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 3, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize*2+testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 3, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize1*2+testFileSize, f.UsedQuotaSize)
-			assert.Equal(t, 3, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize1*2+testFileSize, f.UsedQuotaSize)
+		assert.Equal(t, 3, f.UsedQuotaFiles)
 
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
@@ -4713,9 +4590,9 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -4729,11 +4606,14 @@ func TestVirtualFoldersLink(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	folderName1 := filepath.Base(mappedPath1)
 	vdirPath1 := "/vdir1"
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	folderName2 := filepath.Base(mappedPath2)
 	vdirPath2 := "/vdir2"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
 			MappedPath: mappedPath1,
 		},
 		VirtualPath: vdirPath1,
@@ -4743,6 +4623,7 @@ func TestVirtualFoldersLink(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName2,
 			MappedPath: mappedPath2,
 		},
 		VirtualPath: vdirPath2,
@@ -4805,9 +4686,9 @@ func TestVirtualFoldersLink(t *testing.T) {
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -4831,17 +4712,21 @@ func TestOverlappedMappedFolders(t *testing.T) {
 	u := getTestUser(usePubKey)
 	subDir := "subdir"
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	folderName1 := filepath.Base(mappedPath1)
 	vdirPath1 := "/vdir1"
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir1", subDir)
+	folderName2 := filepath.Base(mappedPath2)
 	vdirPath2 := "/vdir2"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
 			MappedPath: mappedPath1,
 		},
 		VirtualPath: vdirPath1,
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName2,
 			MappedPath: mappedPath2,
 		},
 		VirtualPath: vdirPath2,
@@ -4911,9 +4796,9 @@ func TestOverlappedMappedFolders(t *testing.T) {
 
 		_, err = httpdtest.RemoveUser(user, http.StatusOK)
 		assert.NoError(t, err)
-		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 		assert.NoError(t, err)
-		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
 		assert.NoError(t, err)
 	}
 
@@ -4931,34 +4816,42 @@ func TestOverlappedMappedFolders(t *testing.T) {
 func TestResolveOverlappedMappedPaths(t *testing.T) {
 	u := getTestUser(false)
 	mappedPath1 := filepath.Join(os.TempDir(), "mapped1", "subdir")
+	folderName1 := filepath.Base(mappedPath1)
 	vdirPath1 := "/vdir1/subdir"
 	mappedPath2 := filepath.Join(os.TempDir(), "mapped2")
+	folderName2 := filepath.Base(mappedPath2)
 	vdirPath2 := "/vdir2/subdir"
 	mappedPath3 := filepath.Join(os.TempDir(), "mapped1")
+	folderName3 := filepath.Base(mappedPath3)
 	vdirPath3 := "/vdir3"
 	mappedPath4 := filepath.Join(os.TempDir(), "mapped1", "subdir", "vdir4")
+	folderName4 := filepath.Base(mappedPath4)
 	vdirPath4 := "/vdir4"
 	u.VirtualFolders = []vfs.VirtualFolder{
 		{
 			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       folderName1,
 				MappedPath: mappedPath1,
 			},
 			VirtualPath: vdirPath1,
 		},
 		{
 			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       folderName2,
 				MappedPath: mappedPath2,
 			},
 			VirtualPath: vdirPath2,
 		},
 		{
 			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       folderName3,
 				MappedPath: mappedPath3,
 			},
 			VirtualPath: vdirPath3,
 		},
 		{
 			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       folderName4,
 				MappedPath: mappedPath4,
 			},
 			VirtualPath: vdirPath4,
@@ -5009,6 +4902,7 @@ func TestResolveOverlappedMappedPaths(t *testing.T) {
 
 func TestVirtualFolderQuotaScan(t *testing.T) {
 	mappedPath := filepath.Join(os.TempDir(), "mapped_dir")
+	folderName := filepath.Base(mappedPath)
 	err := os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
 	testFileSize := int64(65535)
@@ -5018,6 +4912,7 @@ func TestVirtualFolderQuotaScan(t *testing.T) {
 	expectedQuotaSize := testFileSize
 	expectedQuotaFiles := 1
 	folder, _, err := httpdtest.AddFolder(vfs.BaseVirtualFolder{
+		Name:       folderName,
 		MappedPath: mappedPath,
 	}, http.StatusCreated)
 	assert.NoError(t, err)
@@ -5030,13 +4925,10 @@ func TestVirtualFolderQuotaScan(t *testing.T) {
 		}
 		return false
 	}, 1*time.Second, 50*time.Millisecond)
-	folders, _, err := httpdtest.GetFolders(0, 0, mappedPath, http.StatusOK)
+	folder, _, err = httpdtest.GetFolderByName(folderName, http.StatusOK)
 	assert.NoError(t, err)
-	if assert.Len(t, folders, 1) {
-		folder = folders[0]
-		assert.Equal(t, expectedQuotaFiles, folder.UsedQuotaFiles)
-		assert.Equal(t, expectedQuotaSize, folder.UsedQuotaSize)
-	}
+	assert.Equal(t, expectedQuotaFiles, folder.UsedQuotaFiles)
+	assert.Equal(t, expectedQuotaSize, folder.UsedQuotaSize)
 	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath)
@@ -5044,16 +4936,16 @@ func TestVirtualFolderQuotaScan(t *testing.T) {
 }
 
 func TestVFolderMultipleQuotaScan(t *testing.T) {
-	folderPath := filepath.Join(os.TempDir(), "folder_path")
-	res := common.QuotaScans.AddVFolderQuotaScan(folderPath)
+	folderName := "folder_name"
+	res := common.QuotaScans.AddVFolderQuotaScan(folderName)
 	assert.True(t, res)
-	res = common.QuotaScans.AddVFolderQuotaScan(folderPath)
+	res = common.QuotaScans.AddVFolderQuotaScan(folderName)
 	assert.False(t, res)
-	res = common.QuotaScans.RemoveVFolderQuotaScan(folderPath)
+	res = common.QuotaScans.RemoveVFolderQuotaScan(folderName)
 	assert.True(t, res)
 	activeScans := common.QuotaScans.GetVFoldersQuotaScans()
 	assert.Len(t, activeScans, 0)
-	res = common.QuotaScans.RemoveVFolderQuotaScan(folderPath)
+	res = common.QuotaScans.RemoveVFolderQuotaScan(folderName)
 	assert.False(t, res)
 }
 
@@ -5064,11 +4956,14 @@ func TestVFolderQuotaSize(t *testing.T) {
 	u.QuotaFiles = 1
 	u.QuotaSize = testFileSize + 1
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	folderName1 := filepath.Base(mappedPath1)
 	vdirPath1 := "/vpath1"
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	folderName2 := filepath.Base(mappedPath2)
 	vdirPath2 := "/vpath2"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
 			MappedPath: mappedPath1,
 		},
 		VirtualPath: vdirPath1,
@@ -5078,6 +4973,7 @@ func TestVFolderQuotaSize(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName2,
 			MappedPath: mappedPath2,
 		},
 		VirtualPath: vdirPath2,
@@ -5126,26 +5022,21 @@ func TestVFolderQuotaSize(t *testing.T) {
 		assert.Equal(t, 1, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize, user.UsedQuotaSize)
 
-		folder, _, err := httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err := httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize, f.UsedQuotaSize)
-			assert.Equal(t, 1, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize, f.UsedQuotaSize)
+		assert.Equal(t, 1, f.UsedQuotaFiles)
 	}
 	// now create another user with the same shared folder but a different quota limit
 	u.Username = defaultUsername + "1"
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName2,
 			MappedPath: mappedPath2,
 		},
 		VirtualPath: vdirPath2,
@@ -5169,9 +5060,9 @@ func TestVFolderQuotaSize(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
 	assert.NoError(t, err)
 
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -6567,11 +6458,14 @@ func TestSSHCopy(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 100
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	folderName1 := filepath.Base(mappedPath1)
 	vdirPath1 := "/vdir1/subdir"
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	folderName2 := filepath.Base(mappedPath2)
 	vdirPath2 := "/vdir2/subdir"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
 			MappedPath: mappedPath1,
 		},
 		VirtualPath: vdirPath1,
@@ -6580,6 +6474,7 @@ func TestSSHCopy(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName2,
 			MappedPath: mappedPath2,
 		},
 		VirtualPath: vdirPath2,
@@ -6636,20 +6531,14 @@ func TestSSHCopy(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 4, user.UsedQuotaFiles)
 		assert.Equal(t, 2*testFileSize+2*testFileSize1, user.UsedQuotaSize)
-		folder, _, err := httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err := httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 2, f.UsedQuotaFiles)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 2, f.UsedQuotaFiles)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
-			assert.Equal(t, 2, f.UsedQuotaFiles)
-		}
+		assert.Equal(t, testFileSize+testFileSize1, f.UsedQuotaSize)
+		assert.Equal(t, 2, f.UsedQuotaFiles)
 
 		_, err = client.Stat(testDir1)
 		assert.Error(t, err)
@@ -6700,13 +6589,10 @@ func TestSSHCopy(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, 7, user.UsedQuotaFiles)
 			assert.Equal(t, 4*testFileSize+3*testFileSize1, user.UsedQuotaSize)
-			folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+			f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 			assert.NoError(t, err)
-			if assert.Len(t, folder, 1) {
-				f := folder[0]
-				assert.Equal(t, testFileSize*2+testFileSize1*2, f.UsedQuotaSize)
-				assert.Equal(t, 4, f.UsedQuotaFiles)
-			}
+			assert.Equal(t, testFileSize*2+testFileSize1*2, f.UsedQuotaSize)
+			assert.Equal(t, 4, f.UsedQuotaFiles)
 		}
 		out, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir1), path.Join(vdirPath1, testDir1+"copy")),
 			user, usePubKey)
@@ -6718,13 +6604,10 @@ func TestSSHCopy(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, 9, user.UsedQuotaFiles)
 			assert.Equal(t, 5*testFileSize+4*testFileSize1, user.UsedQuotaSize)
-			folder, _, err = httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+			f, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
 			assert.NoError(t, err)
-			if assert.Len(t, folder, 1) {
-				f := folder[0]
-				assert.Equal(t, 2*testFileSize+2*testFileSize1, f.UsedQuotaSize)
-				assert.Equal(t, 4, f.UsedQuotaFiles)
-			}
+			assert.Equal(t, 2*testFileSize+2*testFileSize1, f.UsedQuotaSize)
+			assert.Equal(t, 4, f.UsedQuotaFiles)
 		}
 
 		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath2, ".."), "newdir"), user, usePubKey)
@@ -6768,9 +6651,9 @@ func TestSSHCopy(t *testing.T) {
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -6851,11 +6734,14 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 	u.QuotaFiles = 3
 	u.QuotaSize = testFileSize + testFileSize1 + 1
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	folderName1 := filepath.Base(mappedPath1)
 	vdirPath1 := "/vdir1"
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	folderName2 := filepath.Base(mappedPath2)
 	vdirPath2 := "/vdir2"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
 			MappedPath: mappedPath1,
 		},
 		VirtualPath: vdirPath1,
@@ -6864,6 +6750,7 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName2,
 			MappedPath: mappedPath2,
 		},
 		VirtualPath: vdirPath2,
@@ -6925,20 +6812,14 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 0, user.UsedQuotaFiles)
 		assert.Equal(t, int64(0), user.UsedQuotaSize)
-		folder, _, err := httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+		f, _, err := httpdtest.GetFolderByName(folderName1, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, 0, f.UsedQuotaFiles)
-			assert.Equal(t, int64(0), f.UsedQuotaSize)
-		}
-		folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+		assert.Equal(t, 0, f.UsedQuotaFiles)
+		assert.Equal(t, int64(0), f.UsedQuotaSize)
+		f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 		assert.NoError(t, err)
-		if assert.Len(t, folder, 1) {
-			f := folder[0]
-			assert.Equal(t, 0, f.UsedQuotaFiles)
-			assert.Equal(t, int64(0), f.UsedQuotaSize)
-		}
+		assert.Equal(t, 0, f.UsedQuotaFiles)
+		assert.Equal(t, int64(0), f.UsedQuotaSize)
 		err = client.Mkdir(path.Join(vdirPath1, testDir))
 		assert.NoError(t, err)
 		err = client.Mkdir(path.Join(vdirPath2, testDir))
@@ -6992,9 +6873,9 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -7009,11 +6890,14 @@ func TestSSHRemove(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 100
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	folderName1 := filepath.Base(mappedPath1)
 	vdirPath1 := "/vdir1/sub"
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	folderName2 := filepath.Base(mappedPath2)
 	vdirPath2 := "/vdir2/sub"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
 			MappedPath: mappedPath1,
 		},
 		VirtualPath: vdirPath1,
@@ -7022,6 +6906,7 @@ func TestSSHRemove(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName2,
 			MappedPath: mappedPath2,
 		},
 		VirtualPath: vdirPath2,
@@ -7126,9 +7011,9 @@ func TestSSHRemove(t *testing.T) {
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -7209,8 +7094,10 @@ func TestGitQuotaVirtualFolders(t *testing.T) {
 	u.QuotaFiles = 1
 	u.QuotaSize = 131072
 	mappedPath := filepath.Join(os.TempDir(), "repo")
+	folderName := filepath.Base(mappedPath)
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName,
 			MappedPath: mappedPath,
 		},
 		VirtualPath: "/" + repoName,
@@ -7256,7 +7143,7 @@ func TestGitQuotaVirtualFolders(t *testing.T) {
 
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath)
 	assert.NoError(t, err)
@@ -7570,9 +7457,11 @@ func TestSCPVirtualFolders(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	mappedPath := filepath.Join(os.TempDir(), "vdir")
+	folderName := filepath.Base(mappedPath)
 	vdirPath := "/vdir"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName,
 			MappedPath: mappedPath,
 		},
 		VirtualPath: vdirPath,
@@ -7601,7 +7490,7 @@ func TestSCPVirtualFolders(t *testing.T) {
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(testBaseDirPath)
 	assert.NoError(t, err)
@@ -7621,11 +7510,14 @@ func TestSCPVirtualFoldersQuota(t *testing.T) {
 	u := getTestUser(usePubKey)
 	u.QuotaFiles = 100
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	folderName1 := filepath.Base(mappedPath1)
 	vdirPath1 := "/vdir1"
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	folderName2 := filepath.Base(mappedPath2)
 	vdirPath2 := "/vdir2"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
 			MappedPath: mappedPath1,
 		},
 		VirtualPath: vdirPath1,
@@ -7634,6 +7526,7 @@ func TestSCPVirtualFoldersQuota(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName2,
 			MappedPath: mappedPath2,
 		},
 		VirtualPath: vdirPath2,
@@ -7680,26 +7573,20 @@ func TestSCPVirtualFoldersQuota(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 	assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
-	folder, _, err := httpdtest.GetFolders(0, 0, mappedPath1, http.StatusOK)
+	f, _, err := httpdtest.GetFolderByName(folderName1, http.StatusOK)
 	assert.NoError(t, err)
-	if assert.Len(t, folder, 1) {
-		f := folder[0]
-		assert.Equal(t, expectedQuotaSize, f.UsedQuotaSize)
-		assert.Equal(t, expectedQuotaFiles, f.UsedQuotaFiles)
-	}
-	folder, _, err = httpdtest.GetFolders(0, 0, mappedPath2, http.StatusOK)
+	assert.Equal(t, expectedQuotaSize, f.UsedQuotaSize)
+	assert.Equal(t, expectedQuotaFiles, f.UsedQuotaFiles)
+	f, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
 	assert.NoError(t, err)
-	if assert.Len(t, folder, 1) {
-		f := folder[0]
-		assert.Equal(t, expectedQuotaSize, f.UsedQuotaSize)
-		assert.Equal(t, expectedQuotaFiles, f.UsedQuotaFiles)
-	}
+	assert.Equal(t, expectedQuotaSize, f.UsedQuotaSize)
+	assert.Equal(t, expectedQuotaFiles, f.UsedQuotaFiles)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath1}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath2}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(testBaseDirPath)
 	assert.NoError(t, err)

@@ -2,8 +2,10 @@ package httpd
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/go-chi/render"
 
@@ -51,4 +53,40 @@ func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
 	} else {
 		sendAPIResponse(w, r, nil, "Not Found", http.StatusNotFound)
 	}
+}
+
+func getSearchFilters(w http.ResponseWriter, r *http.Request) (int, int, string, error) {
+	var err error
+	limit := 100
+	offset := 0
+	order := dataprovider.OrderASC
+	if _, ok := r.URL.Query()["limit"]; ok {
+		limit, err = strconv.Atoi(r.URL.Query().Get("limit"))
+		if err != nil {
+			err = errors.New("Invalid limit")
+			sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+			return limit, offset, order, err
+		}
+		if limit > 500 {
+			limit = 500
+		}
+	}
+	if _, ok := r.URL.Query()["offset"]; ok {
+		offset, err = strconv.Atoi(r.URL.Query().Get("offset"))
+		if err != nil {
+			err = errors.New("Invalid offset")
+			sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+			return limit, offset, order, err
+		}
+	}
+	if _, ok := r.URL.Query()["order"]; ok {
+		order = r.URL.Query().Get("order")
+		if order != dataprovider.OrderASC && order != dataprovider.OrderDESC {
+			err = errors.New("Invalid order")
+			sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+			return limit, offset, order, err
+		}
+	}
+
+	return limit, offset, order, err
 }

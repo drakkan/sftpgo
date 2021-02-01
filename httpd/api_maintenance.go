@@ -153,7 +153,7 @@ func restoreBackup(content []byte, inputFile string, scanQuota, mode int) error 
 		return dataprovider.NewValidationError(fmt.Sprintf("Unable to parse backup content: %v", err))
 	}
 
-	if err = RestoreFolders(dump.Folders, inputFile, scanQuota); err != nil {
+	if err = RestoreFolders(dump.Folders, inputFile, mode, scanQuota); err != nil {
 		return err
 	}
 
@@ -197,23 +197,29 @@ func getLoaddataOptions(r *http.Request) (string, int, int, error) {
 }
 
 // RestoreFolders restores the specified folders
-func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, scanQuota int) error {
+func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, mode, scanQuota int) error {
 	for _, folder := range folders {
-		_, err := dataprovider.GetFolderByPath(folder.MappedPath)
-		if err == nil {
-			logger.Debug(logSender, "", "folder %#v already exists, restore not needed", folder.MappedPath)
-			continue
-		}
 		folder := folder // pin
-		folder.Users = nil
-		err = dataprovider.AddFolder(&folder)
-		logger.Debug(logSender, "", "adding new folder: %+v, dump file: %#v, error: %v", folder, inputFile, err)
+		f, err := dataprovider.GetFolderByName(folder.Name)
+		if err == nil {
+			if mode == 1 {
+				logger.Debug(logSender, "", "loaddata mode 1, existing folder %#v not updated", folder.Name)
+				continue
+			}
+			folder.ID = f.ID
+			err = dataprovider.UpdateFolder(&folder)
+			logger.Debug(logSender, "", "restoring existing folder: %+v, dump file: %#v, error: %v", folder, inputFile, err)
+		} else {
+			folder.Users = nil
+			err = dataprovider.AddFolder(&folder)
+			logger.Debug(logSender, "", "adding new folder: %+v, dump file: %#v, error: %v", folder, inputFile, err)
+		}
 		if err != nil {
 			return err
 		}
 		if scanQuota >= 1 {
-			if common.QuotaScans.AddVFolderQuotaScan(folder.MappedPath) {
-				logger.Debug(logSender, "", "starting quota scan for restored folder: %#v", folder.MappedPath)
+			if common.QuotaScans.AddVFolderQuotaScan(folder.Name) {
+				logger.Debug(logSender, "", "starting quota scan for restored folder: %#v", folder.Name)
 				go doFolderQuotaScan(folder) //nolint:errcheck
 			}
 		}

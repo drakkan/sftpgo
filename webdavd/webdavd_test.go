@@ -1414,8 +1414,10 @@ func TestUploadOverwriteVfolder(t *testing.T) {
 	u := getTestUser()
 	vdir := "/vdir"
 	mappedPath := filepath.Join(os.TempDir(), "mappedDir")
+	folderName := filepath.Base(mappedPath)
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName,
 			MappedPath: mappedPath,
 		},
 		VirtualPath: vdir,
@@ -1448,27 +1450,21 @@ func TestUploadOverwriteVfolder(t *testing.T) {
 	assert.NoError(t, err)
 	err = uploadFile(testFilePath, path.Join(vdir, testFileName), testFileSize, client)
 	assert.NoError(t, err)
-	folder, _, err := httpdtest.GetFolders(0, 0, mappedPath, http.StatusOK)
+	folder, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
 	assert.NoError(t, err)
-	if assert.Len(t, folder, 1) {
-		f := folder[0]
-		assert.Equal(t, testFileSize, f.UsedQuotaSize)
-		assert.Equal(t, 1, f.UsedQuotaFiles)
-	}
+	assert.Equal(t, testFileSize, folder.UsedQuotaSize)
+	assert.Equal(t, 1, folder.UsedQuotaFiles)
 	err = uploadFile(testFilePath, path.Join(vdir, testFileName), testFileSize, client)
 	assert.NoError(t, err)
-	folder, _, err = httpdtest.GetFolders(0, 0, mappedPath, http.StatusOK)
+	folder, _, err = httpdtest.GetFolderByName(folderName, http.StatusOK)
 	assert.NoError(t, err)
-	if assert.Len(t, folder, 1) {
-		f := folder[0]
-		assert.Equal(t, testFileSize, f.UsedQuotaSize)
-		assert.Equal(t, 1, f.UsedQuotaFiles)
-	}
+	assert.Equal(t, testFileSize, folder.UsedQuotaSize)
+	assert.Equal(t, 1, folder.UsedQuotaFiles)
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{MappedPath: mappedPath}, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)

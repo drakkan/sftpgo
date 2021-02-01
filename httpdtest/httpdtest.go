@@ -264,15 +264,14 @@ func AddAdmin(admin dataprovider.Admin, expectedStatusCode int) (dataprovider.Ad
 	return newAdmin, body, err
 }
 
-// UpdateAdmin updates an existing admin and checks the received HTTP Status code against expectedStatusCode.
+// UpdateAdmin updates an existing admin and checks the received HTTP Status code against expectedStatusCode
 func UpdateAdmin(admin dataprovider.Admin, expectedStatusCode int) (dataprovider.Admin, []byte, error) {
 	var newAdmin dataprovider.Admin
 	var body []byte
 
 	asJSON, _ := json.Marshal(admin)
 	resp, err := sendHTTPRequest(http.MethodPut, buildURLRelativeToBase(adminPath, url.PathEscape(admin.Username)),
-		bytes.NewBuffer(asJSON), "application/json",
-		getDefaultToken())
+		bytes.NewBuffer(asJSON), "application/json", getDefaultToken())
 	if err != nil {
 		return newAdmin, body, err
 	}
@@ -477,18 +476,38 @@ func AddFolder(folder vfs.BaseVirtualFolder, expectedStatusCode int) (vfs.BaseVi
 	return newFolder, body, err
 }
 
+// UpdateFolder updates an existing folder and checks the received HTTP Status code against expectedStatusCode.
+func UpdateFolder(folder vfs.BaseVirtualFolder, expectedStatusCode int) (vfs.BaseVirtualFolder, []byte, error) {
+	var updatedFolder vfs.BaseVirtualFolder
+	var body []byte
+
+	folderAsJSON, _ := json.Marshal(folder)
+	resp, err := sendHTTPRequest(http.MethodPut, buildURLRelativeToBase(folderPath, url.PathEscape(folder.Name)),
+		bytes.NewBuffer(folderAsJSON), "application/json", getDefaultToken())
+	if err != nil {
+		return updatedFolder, body, err
+	}
+	defer resp.Body.Close()
+	body, _ = getResponseBody(resp)
+
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if expectedStatusCode != http.StatusOK {
+		return updatedFolder, body, err
+	}
+	if err == nil {
+		updatedFolder, body, err = GetFolderByName(folder.Name, expectedStatusCode)
+	}
+	if err == nil {
+		err = checkFolder(&folder, &updatedFolder)
+	}
+	return updatedFolder, body, err
+}
+
 // RemoveFolder removes an existing user and checks the received HTTP Status code against expectedStatusCode.
 func RemoveFolder(folder vfs.BaseVirtualFolder, expectedStatusCode int) ([]byte, error) {
 	var body []byte
-	baseURL := buildURLRelativeToBase(folderPath)
-	url, err := url.Parse(baseURL)
-	if err != nil {
-		return body, err
-	}
-	q := url.Query()
-	q.Add("folder-path", folder.MappedPath)
-	url.RawQuery = q.Encode()
-	resp, err := sendHTTPRequest(http.MethodDelete, url.String(), nil, "", getDefaultToken())
+	resp, err := sendHTTPRequest(http.MethodDelete, buildURLRelativeToBase(folderPath, url.PathEscape(folder.Name)),
+		nil, "", getDefaultToken())
 	if err != nil {
 		return body, err
 	}
@@ -497,21 +516,35 @@ func RemoveFolder(folder vfs.BaseVirtualFolder, expectedStatusCode int) ([]byte,
 	return body, checkResponse(resp.StatusCode, expectedStatusCode)
 }
 
+// GetFolderByName gets a folder by name and checks the received HTTP Status code against expectedStatusCode.
+func GetFolderByName(name string, expectedStatusCode int) (vfs.BaseVirtualFolder, []byte, error) {
+	var folder vfs.BaseVirtualFolder
+	var body []byte
+	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(folderPath, url.PathEscape(name)),
+		nil, "", getDefaultToken())
+	if err != nil {
+		return folder, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &folder)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return folder, body, err
+}
+
 // GetFolders returns a list of folders and checks the received HTTP Status code against expectedStatusCode.
 // The number of results can be limited specifying a limit.
 // Some results can be skipped specifying an offset.
 // The results can be filtered specifying a folder path, the folder path filter is an exact match
-func GetFolders(limit int64, offset int64, mappedPath string, expectedStatusCode int) ([]vfs.BaseVirtualFolder, []byte, error) {
+func GetFolders(limit int64, offset int64, expectedStatusCode int) ([]vfs.BaseVirtualFolder, []byte, error) {
 	var folders []vfs.BaseVirtualFolder
 	var body []byte
 	url, err := addLimitAndOffsetQueryParams(buildURLRelativeToBase(folderPath), limit, offset)
 	if err != nil {
 		return folders, body, err
-	}
-	if len(mappedPath) > 0 {
-		q := url.Query()
-		q.Add("folder-path", mappedPath)
-		url.RawQuery = q.Encode()
 	}
 	resp, err := sendHTTPRequest(http.MethodGet, url.String(), nil, "", getDefaultToken())
 	if err != nil {
@@ -791,6 +824,9 @@ func checkFolder(expected *vfs.BaseVirtualFolder, actual *vfs.BaseVirtualFolder)
 		if actual.ID != expected.ID {
 			return errors.New("folder ID mismatch")
 		}
+	}
+	if expected.Name != actual.Name {
+		return errors.New("name mismatch")
 	}
 	if expected.MappedPath != actual.MappedPath {
 		return errors.New("mapped path mismatch")

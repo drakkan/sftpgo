@@ -797,7 +797,7 @@ func (c *BaseConnection) HasSpace(checkFiles bool, requestPath string) vfs.Quota
 		}
 		result.QuotaSize = vfolder.QuotaSize
 		result.QuotaFiles = vfolder.QuotaFiles
-		result.UsedFiles, result.UsedSize, err = dataprovider.GetUsedVirtualFolderQuota(vfolder.MappedPath)
+		result.UsedFiles, result.UsedSize, err = dataprovider.GetUsedVirtualFolderQuota(vfolder.Name)
 	} else {
 		if c.User.HasNoQuotaRestrictions(checkFiles) {
 			return result

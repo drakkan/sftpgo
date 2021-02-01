@@ -1,6 +1,6 @@
 # Key Management Services
 
-SFTPGo stores sensitive data such as Cloud accounts credentials or passphrases to derive per-object encryption keys. These data are stored as ciphertext and only loaded to RAM in plaintext when needed.
+SFTPGo stores sensitive data such as Cloud account credentials or passphrases to derive per-object encryption keys. These data are stored as ciphertext and only loaded to RAM in plaintext when needed.
 
 ## Supported Services for encryption and decryption
 

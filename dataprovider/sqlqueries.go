@@ -11,7 +11,7 @@ import (
 const (
 	selectUserFields = "id,username,password,public_keys,home_dir,uid,gid,max_sessions,quota_size,quota_files,permissions,used_quota_size," +
 		"used_quota_files,last_quota_update,upload_bandwidth,download_bandwidth,expiration_date,last_login,status,filters,filesystem,additional_info"
-	selectFolderFields = "id,path,used_quota_size,used_quota_files,last_quota_update"
+	selectFolderFields = "id,path,used_quota_size,used_quota_files,last_quota_update,name"
 	selectAdminFields  = "id,username,password,status,email,permissions,filters,additional_info"
 )
 
@@ -114,13 +114,17 @@ func getDeleteUserQuery() string {
 	return fmt.Sprintf(`DELETE FROM %v WHERE id = %v`, sqlTableUsers, sqlPlaceholders[0])
 }
 
-func getFolderByPathQuery() string {
-	return fmt.Sprintf(`SELECT %v FROM %v WHERE path = %v`, selectFolderFields, sqlTableFolders, sqlPlaceholders[0])
+func getFolderByNameQuery() string {
+	return fmt.Sprintf(`SELECT %v FROM %v WHERE name = %v`, selectFolderFields, sqlTableFolders, sqlPlaceholders[0])
 }
 
 func getAddFolderQuery() string {
-	return fmt.Sprintf(`INSERT INTO %v (path,used_quota_size,used_quota_files,last_quota_update) VALUES (%v,%v,%v,%v)`,
-		sqlTableFolders, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
+	return fmt.Sprintf(`INSERT INTO %v (path,used_quota_size,used_quota_files,last_quota_update,name) VALUES (%v,%v,%v,%v,%v)`,
+		sqlTableFolders, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4])
+}
+
+func getUpdateFolderQuery() string {
+	return fmt.Sprintf(`UPDATE %v SET path = %v WHERE name = %v`, sqlTableFolders, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
 func getDeleteFolderQuery() string {
@@ -138,26 +142,22 @@ func getAddFolderMappingQuery() string {
 		sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlTableUsers, sqlPlaceholders[4])
 }
 
-func getFoldersQuery(order, folderPath string) string {
-	if len(folderPath) > 0 {
-		return fmt.Sprintf(`SELECT %v FROM %v WHERE path = %v ORDER BY path %v LIMIT %v OFFSET %v`,
-			selectFolderFields, sqlTableFolders, sqlPlaceholders[0], order, sqlPlaceholders[1], sqlPlaceholders[2])
-	}
-	return fmt.Sprintf(`SELECT %v FROM %v ORDER BY path %v LIMIT %v OFFSET %v`, selectFolderFields, sqlTableFolders,
+func getFoldersQuery(order string) string {
+	return fmt.Sprintf(`SELECT %v FROM %v ORDER BY name %v LIMIT %v OFFSET %v`, selectFolderFields, sqlTableFolders,
 		order, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
 func getUpdateFolderQuotaQuery(reset bool) string {
 	if reset {
 		return fmt.Sprintf(`UPDATE %v SET used_quota_size = %v,used_quota_files = %v,last_quota_update = %v
-			WHERE path = %v`, sqlTableFolders, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
+			WHERE name = %v`, sqlTableFolders, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
 	}
 	return fmt.Sprintf(`UPDATE %v SET used_quota_size = used_quota_size + %v,used_quota_files = used_quota_files + %v,last_quota_update = %v
-		WHERE path = %v`, sqlTableFolders, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
+		WHERE name = %v`, sqlTableFolders, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
 }
 
 func getQuotaFolderQuery() string {
-	return fmt.Sprintf(`SELECT used_quota_size,used_quota_files FROM %v WHERE path = %v`, sqlTableFolders,
+	return fmt.Sprintf(`SELECT used_quota_size,used_quota_files FROM %v WHERE name = %v`, sqlTableFolders,
 		sqlPlaceholders[0])
 }
 
@@ -174,7 +174,7 @@ func getRelatedFoldersForUsersQuery(users []User) string {
 	if sb.Len() > 0 {
 		sb.WriteString(")")
 	}
-	return fmt.Sprintf(`SELECT f.id,f.path,f.used_quota_size,f.used_quota_files,f.last_quota_update,fm.virtual_path,fm.quota_size,fm.quota_files,fm.user_id
+	return fmt.Sprintf(`SELECT f.id,f.name,f.path,f.used_quota_size,f.used_quota_files,f.last_quota_update,fm.virtual_path,fm.quota_size,fm.quota_files,fm.user_id
 		FROM %v f INNER JOIN %v fm ON f.id = fm.folder_id WHERE fm.user_id IN %v ORDER BY fm.user_id`, sqlTableFolders,
 		sqlTableFoldersMapping, sb.String())
 }
@@ -204,9 +204,9 @@ func getUpdateDBVersionQuery() string {
 	return fmt.Sprintf(`UPDATE %v SET version=%v`, sqlTableSchemaVersion, sqlPlaceholders[0])
 }
 
-func getCompatVirtualFoldersQuery() string {
+/*func getCompatVirtualFoldersQuery() string {
 	return fmt.Sprintf(`SELECT id,username,virtual_folders FROM %v`, sqlTableUsers)
-}
+}*/
 
 func getCompatV4FsConfigQuery() string {
 	return fmt.Sprintf(`SELECT id,username,filesystem FROM %v`, sqlTableUsers)

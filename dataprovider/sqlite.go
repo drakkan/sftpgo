@@ -82,6 +82,22 @@ ALTER TABLE "new__users" RENAME TO "{{users}}";
 "password" varchar(255) NOT NULL, "email" varchar(255) NULL, "status" integer NOT NULL, "permissions" text NOT NULL, "filters" text NULL,
 "additional_info" text NULL);`
 	sqliteV7DownSQL = `DROP TABLE "{{admins}}";`
+	sqliteV8SQL     = `CREATE TABLE "new__folders" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+"name" varchar(255) NOT NULL UNIQUE, "path" varchar(512) NULL, "used_quota_size" bigint NOT NULL,
+"used_quota_files" integer NOT NULL, "last_quota_update" bigint NOT NULL);
+INSERT INTO "new__folders" ("id", "path", "used_quota_size", "used_quota_files", "last_quota_update", "name")
+SELECT "id", "path", "used_quota_size", "used_quota_files", "last_quota_update", ('folder' || "id") FROM "{{folders}}";
+DROP TABLE "{{folders}}";
+ALTER TABLE "new__folders" RENAME TO "{{folders}}";
+`
+	sqliteV8DownSQL = `CREATE TABLE "new__folders" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+"path" varchar(512) NOT NULL UNIQUE, "used_quota_size" bigint NOT NULL, "used_quota_files" integer NOT NULL,
+"last_quota_update" bigint NOT NULL);
+INSERT INTO "new__folders" ("id", "path", "used_quota_size", "used_quota_files", "last_quota_update")
+SELECT "id", "path", "used_quota_size", "used_quota_files", "last_quota_update" FROM "{{folders}}";
+DROP TABLE "{{folders}}";
+ALTER TABLE "new__folders" RENAME TO "{{folders}}";
+`
 )
 
 // SQLiteProvider auth provider for SQLite database
@@ -173,30 +189,34 @@ func (p *SQLiteProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	return sqlCommonDumpFolders(p.dbHandle)
 }
 
-func (p *SQLiteProvider) getFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error) {
-	return sqlCommonGetFolders(limit, offset, order, folderPath, p.dbHandle)
+func (p *SQLiteProvider) getFolders(limit, offset int, order string) ([]vfs.BaseVirtualFolder, error) {
+	return sqlCommonGetFolders(limit, offset, order, p.dbHandle)
 }
 
-func (p *SQLiteProvider) getFolderByPath(mappedPath string) (vfs.BaseVirtualFolder, error) {
+func (p *SQLiteProvider) getFolderByName(name string) (vfs.BaseVirtualFolder, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	return sqlCommonCheckFolderExists(ctx, mappedPath, p.dbHandle)
+	return sqlCommonGetFolderByName(ctx, name, p.dbHandle)
 }
 
 func (p *SQLiteProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 	return sqlCommonAddFolder(folder, p.dbHandle)
 }
 
+func (p *SQLiteProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
+	return sqlCommonUpdateFolder(folder, p.dbHandle)
+}
+
 func (p *SQLiteProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 	return sqlCommonDeleteFolder(folder, p.dbHandle)
 }
 
-func (p *SQLiteProvider) updateFolderQuota(mappedPath string, filesAdd int, sizeAdd int64, reset bool) error {
-	return sqlCommonUpdateFolderQuota(mappedPath, filesAdd, sizeAdd, reset, p.dbHandle)
+func (p *SQLiteProvider) updateFolderQuota(name string, filesAdd int, sizeAdd int64, reset bool) error {
+	return sqlCommonUpdateFolderQuota(name, filesAdd, sizeAdd, reset, p.dbHandle)
 }
 
-func (p *SQLiteProvider) getUsedFolderQuota(mappedPath string) (int, int64, error) {
-	return sqlCommonGetFolderUsedQuota(mappedPath, p.dbHandle)
+func (p *SQLiteProvider) getUsedFolderQuota(name string) (int, int64, error) {
+	return sqlCommonGetFolderUsedQuota(name, p.dbHandle)
 }
 
 func (p *SQLiteProvider) adminExists(username string) (Admin, error) {
@@ -286,6 +306,8 @@ func (p *SQLiteProvider) migrateDatabase() error {
 		return updateSQLiteDatabaseFromV5(p.dbHandle)
 	case 6:
 		return updateSQLiteDatabaseFromV6(p.dbHandle)
+	case 7:
+		return updateSQLiteDatabaseFromV7(p.dbHandle)
 	default:
 		if dbVersion.Version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported: %v", dbVersion.Version,
@@ -298,6 +320,7 @@ func (p *SQLiteProvider) migrateDatabase() error {
 	}
 }
 
+//nolint:dupl
 func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
@@ -307,6 +330,20 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 		return fmt.Errorf("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
+	case 8:
+		err = downgradeSQLiteDatabaseFrom8To7(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		err = downgradeSQLiteDatabaseFrom7To6(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		err = downgradeSQLiteDatabaseFrom6To5(p.dbHandle)
+		if err != nil {
+			return err
+		}
+		return downgradeSQLiteDatabaseFrom5To4(p.dbHandle)
 	case 7:
 		err = downgradeSQLiteDatabaseFrom7To6(p.dbHandle)
 		if err != nil {
@@ -371,7 +408,15 @@ func updateSQLiteDatabaseFromV5(dbHandle *sql.DB) error {
 }
 
 func updateSQLiteDatabaseFromV6(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom6To7(dbHandle)
+	err := updateSQLiteDatabaseFrom6To7(dbHandle)
+	if err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV7(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV7(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom7To8(dbHandle)
 }
 
 func updateSQLiteDatabaseFrom1To2(dbHandle *sql.DB) error {
@@ -408,6 +453,42 @@ func updateSQLiteDatabaseFrom6To7(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "updating database version: 6 -> 7")
 	sql := strings.Replace(sqliteV7SQL, "{{admins}}", sqlTableAdmins, 1)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 7)
+}
+
+func updateSQLiteDatabaseFrom7To8(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 7 -> 8")
+	providerLog(logger.LevelInfo, "updating database version: 7 -> 8")
+	if err := setPragmaFK(dbHandle, "OFF"); err != nil {
+		return err
+	}
+	sql := strings.ReplaceAll(sqliteV8SQL, "{{folders}}", sqlTableFolders)
+	if err := sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 8); err != nil {
+		return err
+	}
+	return setPragmaFK(dbHandle, "ON")
+}
+
+func setPragmaFK(dbHandle *sql.DB, value string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+	defer cancel()
+
+	sql := fmt.Sprintf("PRAGMA foreign_keys=%v;", value)
+
+	_, err := dbHandle.ExecContext(ctx, sql)
+	return err
+}
+
+func downgradeSQLiteDatabaseFrom8To7(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 8 -> 7")
+	providerLog(logger.LevelInfo, "downgrading database version: 8 -> 7")
+	if err := setPragmaFK(dbHandle, "OFF"); err != nil {
+		return err
+	}
+	sql := strings.ReplaceAll(sqliteV8DownSQL, "{{folders}}", sqlTableFolders)
+	if err := sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 7); err != nil {
+		return err
+	}
+	return setPragmaFK(dbHandle, "ON")
 }
 
 func downgradeSQLiteDatabaseFrom7To6(dbHandle *sql.DB) error {

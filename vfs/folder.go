@@ -13,7 +13,8 @@ import (
 // quota limits or a different virtual path.
 type BaseVirtualFolder struct {
 	ID            int64  `json:"id"`
-	MappedPath    string `json:"mapped_path"`
+	Name          string `json:"name"`
+	MappedPath    string `json:"mapped_path,omitempty"`
 	UsedQuotaSize int64  `json:"used_quota_size"`
 	// Used quota as number of files
 	UsedQuotaFiles int `json:"used_quota_files"`
@@ -21,6 +22,21 @@ type BaseVirtualFolder struct {
 	LastQuotaUpdate int64 `json:"last_quota_update"`
 	// list of usernames associated with this virtual folder
 	Users []string `json:"users,omitempty"`
+}
+
+// GetACopy returns a copy
+func (v *BaseVirtualFolder) GetACopy() BaseVirtualFolder {
+	users := make([]string, len(v.Users))
+	copy(users, v.Users)
+	return BaseVirtualFolder{
+		ID:              v.ID,
+		Name:            v.Name,
+		MappedPath:      v.MappedPath,
+		UsedQuotaSize:   v.UsedQuotaSize,
+		UsedQuotaFiles:  v.UsedQuotaFiles,
+		LastQuotaUpdate: v.LastQuotaUpdate,
+		Users:           users,
+	}
 }
 
 // GetUsersAsString returns the list of users as comma separated string

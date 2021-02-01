@@ -16,38 +16,11 @@ import (
 )
 
 func getUsers(w http.ResponseWriter, r *http.Request) {
-	var err error
+	limit, offset, order, err := getSearchFilters(w, r)
+	if err != nil {
+		return
+	}
 
-	limit := 100
-	offset := 0
-	order := dataprovider.OrderASC
-	if _, ok := r.URL.Query()["limit"]; ok {
-		limit, err = strconv.Atoi(r.URL.Query().Get("limit"))
-		if err != nil {
-			err = errors.New("Invalid limit")
-			sendAPIResponse(w, r, err, "", http.StatusBadRequest)
-			return
-		}
-		if limit > 500 {
-			limit = 500
-		}
-	}
-	if _, ok := r.URL.Query()["offset"]; ok {
-		offset, err = strconv.Atoi(r.URL.Query().Get("offset"))
-		if err != nil {
-			err = errors.New("Invalid offset")
-			sendAPIResponse(w, r, err, "", http.StatusBadRequest)
-			return
-		}
-	}
-	if _, ok := r.URL.Query()["order"]; ok {
-		order = r.URL.Query().Get("order")
-		if order != dataprovider.OrderASC && order != dataprovider.OrderDESC {
-			err = errors.New("Invalid order")
-			sendAPIResponse(w, r, err, "", http.StatusBadRequest)
-			return
-		}
-	}
 	users, err := dataprovider.GetUsers(limit, offset, order)
 	if err == nil {
 		render.JSON(w, r, users)
@@ -69,7 +42,7 @@ func renderUser(w http.ResponseWriter, r *http.Request, username string, status 
 	}
 	user.HideConfidentialData()
 	if status != http.StatusOK {
-		ctx := context.WithValue(r.Context(), render.StatusCtxKey, http.StatusCreated)
+		ctx := context.WithValue(r.Context(), render.StatusCtxKey, status)
 		render.JSON(w, r.WithContext(ctx), user)
 	} else {
 		render.JSON(w, r, user)

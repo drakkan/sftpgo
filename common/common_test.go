@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync/atomic"
@@ -21,6 +22,7 @@ import (
 	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
 )
 
@@ -528,11 +530,11 @@ func TestQuotaScans(t *testing.T) {
 	assert.False(t, QuotaScans.RemoveUserQuotaScan(username))
 	assert.Len(t, QuotaScans.GetUsersQuotaScans(), 0)
 
-	folderName := "/folder"
+	folderName := "folder"
 	assert.True(t, QuotaScans.AddVFolderQuotaScan(folderName))
 	assert.False(t, QuotaScans.AddVFolderQuotaScan(folderName))
 	if assert.Len(t, QuotaScans.GetVFoldersQuotaScans(), 1) {
-		assert.Equal(t, QuotaScans.GetVFoldersQuotaScans()[0].MappedPath, folderName)
+		assert.Equal(t, QuotaScans.GetVFoldersQuotaScans()[0].Name, folderName)
 	}
 
 	assert.True(t, QuotaScans.RemoveVFolderQuotaScan(folderName))
@@ -623,4 +625,28 @@ func TestCryptoConvertFileInfo(t *testing.T) {
 	assert.Equal(t, int64(0), cryptFs.ConvertFileInfo(info).Size())
 	info = vfs.NewFileInfo(name, false, 1, time.Now(), false)
 	assert.Equal(t, int64(0), cryptFs.ConvertFileInfo(info).Size())
+}
+
+func TestFolderCopy(t *testing.T) {
+	folder := vfs.BaseVirtualFolder{
+		ID:              1,
+		Name:            "name",
+		MappedPath:      filepath.Clean(os.TempDir()),
+		UsedQuotaSize:   4096,
+		UsedQuotaFiles:  2,
+		LastQuotaUpdate: utils.GetTimeAsMsSinceEpoch(time.Now()),
+		Users:           []string{"user1", "user2"},
+	}
+	folderCopy := folder.GetACopy()
+	folder.ID = 2
+	folder.Users = []string{"user3"}
+	require.Len(t, folderCopy.Users, 2)
+	require.True(t, utils.IsStringInSlice("user1", folderCopy.Users))
+	require.True(t, utils.IsStringInSlice("user2", folderCopy.Users))
+	require.Equal(t, int64(1), folderCopy.ID)
+	require.Equal(t, folder.Name, folderCopy.Name)
+	require.Equal(t, folder.MappedPath, folderCopy.MappedPath)
+	require.Equal(t, folder.UsedQuotaSize, folderCopy.UsedQuotaSize)
+	require.Equal(t, folder.UsedQuotaFiles, folderCopy.UsedQuotaFiles)
+	require.Equal(t, folder.LastQuotaUpdate, folderCopy.LastQuotaUpdate)
 }

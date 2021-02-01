@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: SFTPGo
   description: SFTPGo REST API
-  version: 2.4.3
+  version: 2.4.4
 
 servers:
   - url: /api/v2
@@ -517,12 +517,6 @@ paths:
                 - ASC
                 - DESC
              example: ASC
-        - in: query
-          name: folder-path
-          required: false
-          description: Filter by folder path, extact match case sensitive
-          schema:
-             type: string
       responses:
         200:
           description: successful operation
@@ -571,18 +565,50 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
-    delete:
+  /folders/{name}:
+    parameters:
+      - name: name
+        in: path
+        description: folder name
+        required: true
+        schema:
+          type: string
+    get:
       tags:
         - folders
-      summary: Delete an existing folder
-      operationId: delete_folder
-      parameters:
-        - name: folder-path
-          in: query
-          description: path to the folder to delete
-          required: true
-          schema:
-            type: string
+      summary: Find user by name
+      description: For security reasons the hashed password is omitted in the response
+      operationId: get_folder_by_name
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref : '#/components/schemas/BaseVirtualFolder'
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    put:
+      tags:
+        - folders
+      summary: Update an existing user
+      operationId: update_folder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref : '#/components/schemas/BaseVirtualFolder'
       responses:
         200:
           description: successful operation
@@ -591,7 +617,33 @@ paths:
               schema:
                 $ref : '#/components/schemas/ApiResponse'
               example:
-                message: "Folder deleted"
+                message: "User updated"
+        400:
+          $ref: '#/components/responses/BadRequest'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    delete:
+      tags:
+        - folders
+      summary: Delete an existing folder
+      operationId: delete_folder
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref : '#/components/schemas/ApiResponse'
+              example:
+                message: "User deleted"
         400:
           $ref: '#/components/responses/BadRequest'
         401:
@@ -686,19 +738,19 @@ paths:
         default:
           $ref: '#/components/responses/DefaultResponse'
   /admins/{username}:
+    parameters:
+      - name: username
+        in: path
+        description: the admin username
+        required: true
+        schema:
+          type: string
     get:
       tags:
         - admins
       summary: Find admin by username
       description: For security reasons the hashed password is omitted in the response
       operationId: get_admin_by_username
-      parameters:
-        - name: username
-          in: path
-          description: username of the admin to retrieve
-          required: true
-          schema:
-            type: string
       responses:
         200:
           description: successful operation
@@ -723,13 +775,6 @@ paths:
         - admins
       summary: Update an existing admin
       operationId: update_admin
-      parameters:
-        - name: username
-          in: path
-          description: username of the admin to update
-          required: true
-          schema:
-            type: string
       requestBody:
         required: true
         content:
@@ -762,13 +807,6 @@ paths:
         - admins
       summary: Delete an existing admin
       operationId: delete_admin
-      parameters:
-        - name: username
-          in: path
-          description: username of the admin to delete
-          required: true
-          schema:
-            type: string
       responses:
         200:
           description: successful operation
@@ -872,19 +910,19 @@ paths:
         default:
           $ref: '#/components/responses/DefaultResponse'
   /users/{username}:
+    parameters:
+      - name: username
+        in: path
+        description: the username
+        required: true
+        schema:
+          type: string
     get:
       tags:
         - users
       summary: Find user by username
       description: For security reasons the hashed password is omitted in the response
       operationId: get_user_by_username
-      parameters:
-        - name: username
-          in: path
-          description: username of the user to retrieve
-          required: true
-          schema:
-            type: string
       responses:
         200:
           description: successful operation
@@ -910,12 +948,6 @@ paths:
       summary: Update an existing user
       operationId: update_user
       parameters:
-        - name: username
-          in: path
-          description: username of the user to update
-          required: true
-          schema:
-            type: string
         - in: query
           name: disconnect
           schema:
@@ -959,13 +991,6 @@ paths:
         - users
       summary: Delete an existing user
       operationId: delete_user
-      parameters:
-        - name: username
-          in: path
-          description: username of the user to delete
-          required: true
-          schema:
-            type: string
       responses:
         200:
           description: successful operation
@@ -1529,9 +1554,12 @@ components:
           type: integer
           format: int32
           minimum: 1
+        name:
+          type: string
+          description: unique name for this virtual folder
         mapped_path:
           type: string
-          description: absolute filesystem path to use as virtual folder. This field is unique
+          description: absolute filesystem path to use as virtual folder
         used_quota_size:
           type: integer
           format: int64

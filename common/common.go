@@ -723,8 +723,8 @@ type ActiveQuotaScan struct {
 
 // ActiveVirtualFolderQuotaScan defines an active quota scan for a virtual folder
 type ActiveVirtualFolderQuotaScan struct {
-	// folder path to which the quota scan refers
-	MappedPath string `json:"mapped_path"`
+	// folder name to which the quota scan refers
+	Name string `json:"name"`
 	// quota scan start time as unix timestamp in milliseconds
 	StartTime int64 `json:"start_time"`
 }
@@ -796,31 +796,31 @@ func (s *ActiveScans) GetVFoldersQuotaScans() []ActiveVirtualFolderQuotaScan {
 
 // AddVFolderQuotaScan adds a virtual folder to the ones with active quota scans.
 // Returns false if the folder has a quota scan already running
-func (s *ActiveScans) AddVFolderQuotaScan(folderPath string) bool {
+func (s *ActiveScans) AddVFolderQuotaScan(folderName string) bool {
 	s.Lock()
 	defer s.Unlock()
 
 	for _, scan := range s.FolderScans {
-		if scan.MappedPath == folderPath {
+		if scan.Name == folderName {
 			return false
 		}
 	}
 	s.FolderScans = append(s.FolderScans, ActiveVirtualFolderQuotaScan{
-		MappedPath: folderPath,
-		StartTime:  utils.GetTimeAsMsSinceEpoch(time.Now()),
+		Name:      folderName,
+		StartTime: utils.GetTimeAsMsSinceEpoch(time.Now()),
 	})
 	return true
 }
 
 // RemoveVFolderQuotaScan removes a folder from the ones with active quota scans.
 // Returns false if the folder has no active quota scans
-func (s *ActiveScans) RemoveVFolderQuotaScan(folderPath string) bool {
+func (s *ActiveScans) RemoveVFolderQuotaScan(folderName string) bool {
 	s.Lock()
 	defer s.Unlock()
 
 	indexToRemove := -1
 	for i, scan := range s.FolderScans {
-		if scan.MappedPath == folderPath {
+		if scan.Name == folderName {
 			indexToRemove = i
 			break
 		}

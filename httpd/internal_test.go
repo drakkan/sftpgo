@@ -608,7 +608,7 @@ func TestChangePwdValidationErrors(t *testing.T) {
 func TestRenderUnexistingFolder(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodPost, folderPath, nil)
-	renderFolder(rr, req, "path not mapped")
+	renderFolder(rr, req, "path not mapped", http.StatusOK)
 	assert.Equal(t, http.StatusNotFound, rr.Code)
 }
 
@@ -714,7 +714,7 @@ func TestGetUserFromTemplate(t *testing.T) {
 	}
 	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			MappedPath: "dir%username%",
+			Name: "Folder%username%",
 		},
 	})
 
@@ -727,7 +727,7 @@ func TestGetUserFromTemplate(t *testing.T) {
 
 	userTemplate := getUserFromTemplate(user, templateFields)
 	require.Len(t, userTemplate.VirtualFolders, 1)
-	require.Equal(t, "dir"+username, userTemplate.VirtualFolders[0].MappedPath)
+	require.Equal(t, "Folder"+username, userTemplate.VirtualFolders[0].Name)
 
 	user.FsConfig.Provider = dataprovider.CryptedFilesystemProvider
 	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("%password%")

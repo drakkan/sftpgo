@@ -169,11 +169,11 @@
                 <div class="col-sm-10">
                     <textarea class="form-control" id="idVirtualFolders" name="virtual_folders" rows="3"
                         aria-describedby="vfHelpBlock">{{range $index, $mapping := .User.VirtualFolders -}}
-                        {{$mapping.VirtualPath}}::{{$mapping.MappedPath}}::{{$mapping.QuotaFiles}}::{{$mapping.QuotaSize}}&#10;
+                        {{$mapping.VirtualPath}}::{{$mapping.Name}}::{{$mapping.QuotaFiles}}::{{$mapping.QuotaSize}}&#10;
                         {{- end}}</textarea>
                     <small id="vfHelpBlock" class="form-text text-muted">
-                        One mapping per line as vpath::fspath::[quota_files]::[quota_size(bytes)], for example
-                        /vdir::/home/adir or /vdir::C:\adir::10::104857600. Quota -1 means included inside user quota.
+                        One mapping per line as vpath::folder-name::[quota_files]::[quota_size(bytes)], for example
+                        /vdir::afolder or /vdir::afolder::10::104857600. Quota -1 means included inside user quota.
                         Ignored for non local filesystems
                     </small>
                 </div>

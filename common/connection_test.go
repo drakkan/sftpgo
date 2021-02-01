@@ -1013,11 +1013,13 @@ func TestHasSpace(t *testing.T) {
 		Password: userTestPwd,
 	}
 	mappedPath := filepath.Join(os.TempDir(), "vdir")
+	folderName := "testFolder"
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			MappedPath: mappedPath,
+			Name:       folderName,
 		},
 		VirtualPath: "/vdir",
 		QuotaFiles:  -1,
@@ -1050,7 +1052,7 @@ func TestHasSpace(t *testing.T) {
 	quotaResult = c.HasSpace(true, "/file")
 	assert.True(t, quotaResult.HasSpace)
 
-	folder, err := dataprovider.GetFolderByPath(mappedPath)
+	folder, err := dataprovider.GetFolderByName(folderName)
 	assert.NoError(t, err)
 	err = dataprovider.UpdateVirtualFolderQuota(folder, 10, 1048576, true)
 	assert.NoError(t, err)
@@ -1060,7 +1062,7 @@ func TestHasSpace(t *testing.T) {
 	err = dataprovider.DeleteUser(user.Username)
 	assert.NoError(t, err)
 
-	err = dataprovider.DeleteFolder(folder.MappedPath)
+	err = dataprovider.DeleteFolder(folder.Name)
 	assert.NoError(t, err)
 }
 
@@ -1071,6 +1073,8 @@ func TestUpdateQuotaMoveVFolders(t *testing.T) {
 		Password:   userTestPwd,
 		QuotaFiles: 100,
 	}
+	folderName1 := "testFolder1"
+	folderName2 := "testFolder2"
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
 	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
 	user.Permissions = make(map[string][]string)
@@ -1078,6 +1082,7 @@ func TestUpdateQuotaMoveVFolders(t *testing.T) {
 	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			MappedPath: mappedPath1,
+			Name:       folderName1,
 		},
 		VirtualPath: "/vdir1",
 		QuotaFiles:  -1,
@@ -1086,6 +1091,7 @@ func TestUpdateQuotaMoveVFolders(t *testing.T) {
 	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			MappedPath: mappedPath2,
+			Name:       folderName2,
 		},
 		VirtualPath: "/vdir2",
 		QuotaFiles:  -1,
@@ -1095,9 +1101,9 @@ func TestUpdateQuotaMoveVFolders(t *testing.T) {
 	assert.NoError(t, err)
 	user, err = dataprovider.UserExists(user.Username)
 	assert.NoError(t, err)
-	folder1, err := dataprovider.GetFolderByPath(mappedPath1)
+	folder1, err := dataprovider.GetFolderByName(folderName1)
 	assert.NoError(t, err)
-	folder2, err := dataprovider.GetFolderByPath(mappedPath2)
+	folder2, err := dataprovider.GetFolderByName(folderName2)
 	assert.NoError(t, err)
 	err = dataprovider.UpdateVirtualFolderQuota(folder1, 1, 100, true)
 	assert.NoError(t, err)
@@ -1107,21 +1113,21 @@ func TestUpdateQuotaMoveVFolders(t *testing.T) {
 	assert.NoError(t, err)
 	c := NewBaseConnection("", ProtocolSFTP, user, fs)
 	c.updateQuotaMoveBetweenVFolders(user.VirtualFolders[0], user.VirtualFolders[1], -1, 100, 1)
-	folder1, err = dataprovider.GetFolderByPath(mappedPath1)
+	folder1, err = dataprovider.GetFolderByName(folderName1)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, folder1.UsedQuotaFiles)
 	assert.Equal(t, int64(0), folder1.UsedQuotaSize)
-	folder2, err = dataprovider.GetFolderByPath(mappedPath2)
+	folder2, err = dataprovider.GetFolderByName(folderName2)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, folder2.UsedQuotaFiles)
 	assert.Equal(t, int64(250), folder2.UsedQuotaSize)
 
 	c.updateQuotaMoveBetweenVFolders(user.VirtualFolders[1], user.VirtualFolders[0], 10, 100, 1)
-	folder1, err = dataprovider.GetFolderByPath(mappedPath1)
+	folder1, err = dataprovider.GetFolderByName(folderName1)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, folder1.UsedQuotaFiles)
 	assert.Equal(t, int64(90), folder1.UsedQuotaSize)
-	folder2, err = dataprovider.GetFolderByPath(mappedPath2)
+	folder2, err = dataprovider.GetFolderByName(folderName2)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, folder2.UsedQuotaFiles)
 	assert.Equal(t, int64(150), folder2.UsedQuotaSize)
@@ -1129,7 +1135,7 @@ func TestUpdateQuotaMoveVFolders(t *testing.T) {
 	err = dataprovider.UpdateUserQuota(user, 1, 100, true)
 	assert.NoError(t, err)
 	c.updateQuotaMoveFromVFolder(user.VirtualFolders[1], -1, 50, 1)
-	folder2, err = dataprovider.GetFolderByPath(mappedPath2)
+	folder2, err = dataprovider.GetFolderByName(folderName2)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, folder2.UsedQuotaFiles)
 	assert.Equal(t, int64(100), folder2.UsedQuotaSize)
@@ -1139,7 +1145,7 @@ func TestUpdateQuotaMoveVFolders(t *testing.T) {
 	assert.Equal(t, int64(100), user.UsedQuotaSize)
 
 	c.updateQuotaMoveToVFolder(user.VirtualFolders[1], -1, 100, 1)
-	folder2, err = dataprovider.GetFolderByPath(mappedPath2)
+	folder2, err = dataprovider.GetFolderByName(folderName2)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, folder2.UsedQuotaFiles)
 	assert.Equal(t, int64(200), folder2.UsedQuotaSize)
@@ -1150,9 +1156,9 @@ func TestUpdateQuotaMoveVFolders(t *testing.T) {
 
 	err = dataprovider.DeleteUser(user.Username)
 	assert.NoError(t, err)
-	err = dataprovider.DeleteFolder(folder1.MappedPath)
+	err = dataprovider.DeleteFolder(folder1.Name)
 	assert.NoError(t, err)
-	err = dataprovider.DeleteFolder(folder2.MappedPath)
+	err = dataprovider.DeleteFolder(folder2.Name)
 	assert.NoError(t, err)
 }
 

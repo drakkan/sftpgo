@@ -27,6 +27,7 @@
             <table class="table table-striped table-bordered" id="dataTable" width="100%" cellspacing="0">
                 <thead>
                     <tr>
+                        <th>Name</th>
                         <th>Path</th>
                         <th>Quota</th>
                         <th>Used by</th>
@@ -35,6 +36,7 @@
                 <tbody>
                     {{range .Folders}}
                     <tr>
+                        <td>{{.Name}}</td>
                         <td>{{.MappedPath}}</td>
                         <td>{{.GetQuotaSummary}}</td>
                         <td>{{.GetUsersAsString}}</td>
@@ -88,11 +90,11 @@
 function deleteAction() {
         var table = $('#dataTable').DataTable();
         table.button('delete:name').enable(false);
-        var folderPath = table.row({ selected: true }).data()[0];
-        var path = '{{.FolderURL}}' + "?folder-path=" + encodeURIComponent(folderPath);
+        var folderName = table.row({ selected: true }).data()[0];
+        var path = '{{.FolderURL}}' + "/" + folderName;
         $('#deleteModal').modal('hide');
         $.ajax({
-            url: path,
+            url: encodeURI(path),
             type: 'DELETE',
             dataType: 'json',
             timeout: 15000,
@@ -127,6 +129,17 @@ function deleteAction() {
             }
         };
 
+        $.fn.dataTable.ext.buttons.edit = {
+            text: 'Edit',
+            name: 'edit',
+            action: function (e, dt, node, config) {
+                var folderName = table.row({ selected: true }).data()[0];
+                var path = '{{.FolderURL}}' + "/" + folderName;
+                window.location.href = encodeURI(path);
+            },
+            enabled: false
+        };
+
         $.fn.dataTable.ext.buttons.delete = {
             text: 'Delete',
             name: 'delete',
@@ -141,13 +154,13 @@ function deleteAction() {
             name: 'quota_scan',
             action: function (e, dt, node, config) {
                 dt.button('quota_scan:name').enable(false);
-                var folderPath = dt.row({ selected: true }).data()[0];
+                var folderName = dt.row({ selected: true }).data()[0];
                 var path = '{{.FolderQuotaScanURL}}'
                 $.ajax({
                     url: path,
                     type: 'POST',
                     dataType: 'json',
-                    data: JSON.stringify({ "mapped_path": folderPath }),
+                    data: JSON.stringify({ "name": folderName }),
                     timeout: 15000,
                     success: function (result) {
                         dt.button('quota_scan:name').enable(true);
@@ -202,6 +215,10 @@ function deleteAction() {
         table.button().add(0,'delete');
         {{end}}
 
+        {{if .LoggedAdmin.HasPermission "edit_users"}}
+        table.button().add(0,'edit');
+        {{end}}
+
         {{if .LoggedAdmin.HasPermission "add_users"}}
         table.button().add(0,'add');
         {{end}}
@@ -210,6 +227,9 @@ function deleteAction() {
             var selectedRows = table.rows({ selected: true }).count();
             {{if .LoggedAdmin.HasPermission "del_users"}}
             table.button('delete:name').enable(selectedRows == 1);
+            {{end}}
+            {{if .LoggedAdmin.HasPermission "edit_users"}}
+            table.button('edit:name').enable(selectedRows == 1);
             {{end}}
             {{if .LoggedAdmin.HasPermission "quota_scans"}}
             table.button('quota_scan:name').enable(selectedRows == 1);

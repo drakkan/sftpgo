@@ -281,6 +281,56 @@ type BackupData struct {
 	Version int                     `json:"version"`
 }
 
+// HasFolder returns true if the folder with the given name is included
+func (d *BackupData) HasFolder(name string) bool {
+	for _, folder := range d.Folders {
+		if folder.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (d *BackupData) checkFolderNames() {
+	if len(d.Folders) == 0 {
+		return
+	}
+	if d.Folders[0].Name != "" {
+		return
+	}
+	logger.WarnToConsole("You are loading folders without a name, please update to the latest supported format. This compatibility layer will be removed soon.")
+	providerLog(logger.LevelWarn, "You are loading folders without a name, please update to the latest supported format. This compatibility layer will be removed soon.")
+	folders := make([]vfs.BaseVirtualFolder, 0, len(d.Folders))
+	for idx, folder := range d.Folders {
+		if folder.Name == "" {
+			folder.Name = fmt.Sprintf("Folder%v", idx)
+		}
+		folders = append(folders, folder)
+	}
+	d.Folders = folders
+	users := make([]User, 0, len(d.Users))
+	for _, user := range d.Users {
+		if len(user.VirtualFolders) > 0 {
+			vfolders := make([]vfs.VirtualFolder, 0, len(user.VirtualFolders))
+			for _, vfolder := range user.VirtualFolders {
+				if vfolder.Name == "" {
+					for _, f := range d.Folders {
+						if f.MappedPath == vfolder.MappedPath {
+							vfolder.Name = f.Name
+						}
+					}
+				}
+				if vfolder.Name != "" {
+					vfolders = append(vfolders, vfolder)
+				}
+			}
+			user.VirtualFolders = vfolders
+		}
+		users = append(users, user)
+	}
+	d.Users = users
+}
+
 type keyboardAuthHookRequest struct {
 	RequestID string   `json:"request_id"`
 	Username  string   `json:"username,omitempty"`
@@ -381,12 +431,13 @@ type Provider interface {
 	getUsers(limit int, offset int, order string) ([]User, error)
 	dumpUsers() ([]User, error)
 	updateLastLogin(username string) error
-	getFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error)
-	getFolderByPath(mappedPath string) (vfs.BaseVirtualFolder, error)
+	getFolders(limit, offset int, order string) ([]vfs.BaseVirtualFolder, error)
+	getFolderByName(name string) (vfs.BaseVirtualFolder, error)
 	addFolder(folder *vfs.BaseVirtualFolder) error
+	updateFolder(folder *vfs.BaseVirtualFolder) error
 	deleteFolder(folder *vfs.BaseVirtualFolder) error
-	updateFolderQuota(mappedPath string, filesAdd int, sizeAdd int64, reset bool) error
-	getUsedFolderQuota(mappedPath string) (int, int64, error)
+	updateFolderQuota(name string, filesAdd int, sizeAdd int64, reset bool) error
+	getUsedFolderQuota(name string) (int, int64, error)
 	dumpFolders() ([]vfs.BaseVirtualFolder, error)
 	adminExists(username string) (Admin, error)
 	addAdmin(admin *Admin) error
@@ -660,7 +711,7 @@ func UpdateVirtualFolderQuota(vfolder vfs.BaseVirtualFolder, filesAdd int, sizeA
 	if filesAdd == 0 && sizeAdd == 0 && !reset {
 		return nil
 	}
-	return provider.updateFolderQuota(vfolder.MappedPath, filesAdd, sizeAdd, reset)
+	return provider.updateFolderQuota(vfolder.Name, filesAdd, sizeAdd, reset)
 }
 
 // GetUsedQuota returns the used quota for the given SFTP user.
@@ -672,11 +723,11 @@ func GetUsedQuota(username string) (int, int64, error) {
 }
 
 // GetUsedVirtualFolderQuota returns the used quota for the given virtual folder.
-func GetUsedVirtualFolderQuota(mappedPath string) (int, int64, error) {
+func GetUsedVirtualFolderQuota(name string) (int, int64, error) {
 	if config.TrackQuota == 0 {
 		return 0, 0, &MethodDisabledError{err: trackQuotaDisabledError}
 	}
-	return provider.getUsedFolderQuota(mappedPath)
+	return provider.getUsedFolderQuota(name)
 }
 
 // AddAdmin adds a new SFTPGo admin
@@ -763,23 +814,28 @@ func AddFolder(folder *vfs.BaseVirtualFolder) error {
 	return provider.addFolder(folder)
 }
 
+// UpdateFolder updates the specified virtual folder
+func UpdateFolder(folder *vfs.BaseVirtualFolder) error {
+	return provider.updateFolder(folder)
+}
+
 // DeleteFolder deletes an existing folder.
-func DeleteFolder(folderPath string) error {
-	folder, err := provider.getFolderByPath(folderPath)
+func DeleteFolder(folderName string) error {
+	folder, err := provider.getFolderByName(folderName)
 	if err != nil {
 		return err
 	}
 	return provider.deleteFolder(&folder)
 }
 
-// GetFolderByPath returns the folder with the specified path if any
-func GetFolderByPath(mappedPath string) (vfs.BaseVirtualFolder, error) {
-	return provider.getFolderByPath(mappedPath)
+// GetFolderByName returns the folder with the specified name if any
+func GetFolderByName(name string) (vfs.BaseVirtualFolder, error) {
+	return provider.getFolderByName(name)
 }
 
 // GetFolders returns an array of folders respecting limit and offset
-func GetFolders(limit, offset int, order, folderPath string) ([]vfs.BaseVirtualFolder, error) {
-	return provider.getFolders(limit, offset, order, folderPath)
+func GetFolders(limit, offset int, order string) ([]vfs.BaseVirtualFolder, error) {
+	return provider.getFolders(limit, offset, order)
 }
 
 // DumpData returns all users and folders
@@ -809,6 +865,7 @@ func ParseDumpData(data []byte) (BackupData, error) {
 	var dump BackupData
 	err := json.Unmarshal(data, &dump)
 	if err == nil {
+		dump.checkFolderNames()
 		return dump, err
 	}
 	dump = BackupData{}
@@ -828,6 +885,7 @@ func ParseDumpData(data []byte) (BackupData, error) {
 		}
 		dump.Users = append(dump.Users, createUserFromV4(compatUser, fsConfig))
 	}
+	dump.checkFolderNames()
 	return dump, err
 }
 
@@ -929,13 +987,30 @@ func validateFolderQuotaLimits(folder vfs.VirtualFolder) error {
 		return &ValidationError{err: fmt.Sprintf("invalid quota_size: %v folder path %#v", folder.QuotaSize, folder.MappedPath)}
 	}
 	if folder.QuotaFiles < -1 {
-		return &ValidationError{err: fmt.Sprintf("invalid quota_file: %v folder path %#v", folder.QuotaSize, folder.MappedPath)}
+		return &ValidationError{err: fmt.Sprintf("invalid quota_file: %v folder path %#v", folder.QuotaFiles, folder.MappedPath)}
 	}
 	if (folder.QuotaSize == -1 && folder.QuotaFiles != -1) || (folder.QuotaFiles == -1 && folder.QuotaSize != -1) {
 		return &ValidationError{err: fmt.Sprintf("virtual folder quota_size and quota_files must be both -1 or >= 0, quota_size: %v quota_files: %v",
 			folder.QuotaFiles, folder.QuotaSize)}
 	}
 	return nil
+}
+
+func getVirtualFolderIfInvalid(folder *vfs.BaseVirtualFolder) *vfs.BaseVirtualFolder {
+	if err := validateFolder(folder); err == nil {
+		return folder
+	}
+	// we try to get the folder from the data provider if only the Name is populated
+	if folder.MappedPath != "" {
+		return folder
+	}
+	if folder.Name == "" {
+		return folder
+	}
+	if f, err := GetFolderByName(folder.Name); err == nil {
+		return &f
+	}
+	return folder
 }
 
 func validateUserVirtualFolders(user *User) error {
@@ -953,21 +1028,20 @@ func validateUserVirtualFolders(user *User) error {
 		if err := validateFolderQuotaLimits(v); err != nil {
 			return err
 		}
-		cleanedMPath := filepath.Clean(v.MappedPath)
-		if !filepath.IsAbs(cleanedMPath) {
-			return &ValidationError{err: fmt.Sprintf("invalid mapped folder %#v", v.MappedPath)}
+		folder := getVirtualFolderIfInvalid(&v.BaseVirtualFolder)
+		if err := validateFolder(folder); err != nil {
+			return err
 		}
+		cleanedMPath := folder.MappedPath
 		if isMappedDirOverlapped(cleanedMPath, user.GetHomeDir()) {
 			return &ValidationError{err: fmt.Sprintf("invalid mapped folder %#v cannot be inside or contain the user home dir %#v",
-				v.MappedPath, user.GetHomeDir())}
+				folder.MappedPath, user.GetHomeDir())}
 		}
 		virtualFolders = append(virtualFolders, vfs.VirtualFolder{
-			BaseVirtualFolder: vfs.BaseVirtualFolder{
-				MappedPath: cleanedMPath,
-			},
-			VirtualPath: cleanedVPath,
-			QuotaSize:   v.QuotaSize,
-			QuotaFiles:  v.QuotaFiles,
+			BaseVirtualFolder: *folder,
+			VirtualPath:       cleanedVPath,
+			QuotaSize:         v.QuotaSize,
+			QuotaFiles:        v.QuotaFiles,
 		})
 		for k, virtual := range mappedPaths {
 			if GetQuotaTracking() > 0 {
@@ -1315,9 +1389,15 @@ func createUserPasswordHash(user *User) error {
 }
 
 func validateFolder(folder *vfs.BaseVirtualFolder) error {
+	if folder.Name == "" {
+		return &ValidationError{err: "folder name is mandatory"}
+	}
+	if !usernameRegex.MatchString(folder.Name) {
+		return &ValidationError{err: fmt.Sprintf("folder name %#v is not valid", folder.Name)}
+	}
 	cleanedMPath := filepath.Clean(folder.MappedPath)
 	if !filepath.IsAbs(cleanedMPath) {
-		return &ValidationError{err: fmt.Sprintf("invalid mapped folder %#v", folder.MappedPath)}
+		return &ValidationError{err: fmt.Sprintf("invalid folder mapped path %#v", folder.MappedPath)}
 	}
 	folder.MappedPath = cleanedMPath
 	return nil
@@ -2205,7 +2285,7 @@ func executeAction(operation string, user *User) {
 }
 
 // after migrating database to v4 we have to update the quota for the imported folders
-func updateVFoldersQuotaAfterRestore(foldersToScan []string) {
+/*func updateVFoldersQuotaAfterRestore(foldersToScan []string) {
 	fs := vfs.NewOsFs("", "", nil).(*vfs.OsFs)
 	for _, folder := range foldersToScan {
 		providerLog(logger.LevelDebug, "starting quota scan after migration for folder %#v", folder)
@@ -2222,7 +2302,7 @@ func updateVFoldersQuotaAfterRestore(foldersToScan []string) {
 		err = UpdateVirtualFolderQuota(vfolder, numFiles, size, true)
 		providerLog(logger.LevelDebug, "quota updated for virtual folder %#v, error: %v", vfolder.MappedPath, err)
 	}
-}
+}*/
 
 func updateWebDavCachedUserLastLogin(username string) {
 	result, ok := webDAVUsersCache.Load(username)

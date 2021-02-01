@@ -31,6 +31,13 @@ const (
 	userPageModeTemplate
 )
 
+type folderPageMode int
+
+const (
+	folderPageModeAdd folderPageMode = iota + 1
+	folderPageModeUpdate
+)
+
 const (
 	templateBase         = "base.html"
 	templateUsers        = "users.html"
@@ -155,6 +162,7 @@ type folderPage struct {
 	basePage
 	Folder vfs.BaseVirtualFolder
 	Error  string
+	Mode   folderPageMode
 }
 
 type messagePage struct {
@@ -383,11 +391,21 @@ func renderUserPage(w http.ResponseWriter, r *http.Request, user *dataprovider.U
 	renderTemplate(w, templateUser, data)
 }
 
-func renderAddFolderPage(w http.ResponseWriter, r *http.Request, folder vfs.BaseVirtualFolder, error string) {
+func renderFolderPage(w http.ResponseWriter, r *http.Request, folder vfs.BaseVirtualFolder, mode folderPageMode, error string) {
+	var title, currentURL string
+	switch mode {
+	case folderPageModeAdd:
+		title = "Add a new folder"
+		currentURL = webFolderPath
+	case folderPageModeUpdate:
+		title = "Update folder"
+		currentURL = fmt.Sprintf("%v/%v", webFolderPath, url.PathEscape(folder.Name))
+	}
 	data := folderPage{
-		basePage: getBasePageData("Add a new folder", webFolderPath, r),
+		basePage: getBasePageData(title, currentURL, r),
 		Error:    error,
 		Folder:   folder,
+		Mode:     mode,
 	}
 	renderTemplate(w, templateFolder, data)
 }
@@ -395,6 +413,7 @@ func renderAddFolderPage(w http.ResponseWriter, r *http.Request, folder vfs.Base
 func getUsersForTemplate(r *http.Request) []userTemplateFields {
 	var res []userTemplateFields
 	formValue := r.Form.Get("users")
+	users := make(map[string]bool)
 	for _, cleaned := range getSliceFromDelimitedValues(formValue, "\n") {
 		if strings.Contains(cleaned, "::") {
 			mapping := strings.Split(cleaned, "::")
@@ -408,6 +427,11 @@ func getUsersForTemplate(r *http.Request) []userTemplateFields {
 				if username == "" || (password == "" && publicKey == "") {
 					continue
 				}
+				if _, ok := users[username]; ok {
+					continue
+				}
+
+				users[username] = true
 				res = append(res, userTemplateFields{
 					Username:  username,
 					Password:  password,
@@ -428,7 +452,7 @@ func getVirtualFoldersFromPostFields(r *http.Request) []vfs.VirtualFolder {
 			if len(mapping) > 1 {
 				vfolder := vfs.VirtualFolder{
 					BaseVirtualFolder: vfs.BaseVirtualFolder{
-						MappedPath: strings.TrimSpace(mapping[1]),
+						Name: strings.TrimSpace(mapping[1]),
 					},
 					VirtualPath: strings.TrimSpace(mapping[0]),
 					QuotaFiles:  -1,
@@ -816,7 +840,8 @@ func getUserFromTemplate(user dataprovider.User, template userTemplateFields) da
 	user.HomeDir = replacePlaceholders(user.HomeDir, replacements)
 	var vfolders []vfs.VirtualFolder
 	for _, vfolder := range user.VirtualFolders {
-		vfolder.MappedPath = replacePlaceholders(vfolder.MappedPath, replacements)
+		vfolder.Name = replacePlaceholders(vfolder.Name, replacements)
+		vfolder.VirtualPath = replacePlaceholders(vfolder.VirtualPath, replacements)
 		vfolders = append(vfolders, vfolder)
 	}
 	user.VirtualFolders = vfolders
@@ -837,39 +862,6 @@ func getUserFromTemplate(user dataprovider.User, template userTemplateFields) da
 
 	return user
 }
-
-/*func decryptSecretsForTemplateUser(user *dataprovider.User) error {
-	user.SetEmptySecretsIfNil()
-	switch user.FsConfig.Provider {
-	case dataprovider.CryptedFilesystemProvider:
-		if user.FsConfig.CryptConfig.Passphrase.IsEncrypted() {
-			return user.FsConfig.CryptConfig.Passphrase.Decrypt()
-		}
-	case dataprovider.S3FilesystemProvider:
-		if user.FsConfig.S3Config.AccessSecret.IsEncrypted() {
-			return user.FsConfig.S3Config.AccessSecret.Decrypt()
-		}
-	case dataprovider.GCSFilesystemProvider:
-		if user.FsConfig.GCSConfig.Credentials.IsEncrypted() {
-			return user.FsConfig.GCSConfig.Credentials.Decrypt()
-		}
-	case dataprovider.AzureBlobFilesystemProvider:
-		if user.FsConfig.AzBlobConfig.AccountKey.IsEncrypted() {
-			return user.FsConfig.AzBlobConfig.AccountKey.Decrypt()
-		}
-	case dataprovider.SFTPFilesystemProvider:
-		if user.FsConfig.SFTPConfig.Password.IsEncrypted() {
-			if err := user.FsConfig.SFTPConfig.Password.Decrypt(); err != nil {
-				return err
-			}
-		}
-		if user.FsConfig.SFTPConfig.PrivateKey.IsEncrypted() {
-			return user.FsConfig.SFTPConfig.PrivateKey.Decrypt()
-		}
-	}
-
-	return nil
-}*/
 
 func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	var user dataprovider.User
@@ -1204,6 +1196,11 @@ func handleWebTemplateUserPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		dump.Users = append(dump.Users, u)
+		for _, folder := range u.VirtualFolders {
+			if !dump.HasFolder(folder.Name) {
+				dump.Folders = append(dump.Folders, folder.BaseVirtualFolder)
+			}
+		}
 	}
 
 	if len(dump.Users) == 0 {
@@ -1317,7 +1314,7 @@ func handleWebGetConnections(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebAddFolderGet(w http.ResponseWriter, r *http.Request) {
-	renderAddFolderPage(w, r, vfs.BaseVirtualFolder{}, "")
+	renderFolderPage(w, r, vfs.BaseVirtualFolder{}, folderPageModeAdd, "")
 }
 
 func handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
@@ -1325,17 +1322,56 @@ func handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
 	folder := vfs.BaseVirtualFolder{}
 	err := r.ParseForm()
 	if err != nil {
-		renderAddFolderPage(w, r, folder, err.Error())
+		renderFolderPage(w, r, folder, folderPageModeAdd, err.Error())
 		return
 	}
 	folder.MappedPath = r.Form.Get("mapped_path")
+	folder.Name = r.Form.Get("name")
 
 	err = dataprovider.AddFolder(&folder)
 	if err == nil {
 		http.Redirect(w, r, webFoldersPath, http.StatusSeeOther)
 	} else {
-		renderAddFolderPage(w, r, folder, err.Error())
+		renderFolderPage(w, r, folder, folderPageModeAdd, err.Error())
 	}
+}
+
+func handleWebUpdateFolderGet(w http.ResponseWriter, r *http.Request) {
+	name := getURLParam(r, "name")
+	folder, err := dataprovider.GetFolderByName(name)
+	if err == nil {
+		renderFolderPage(w, r, folder, folderPageModeUpdate, "")
+	} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+		renderNotFoundPage(w, r, err)
+	} else {
+		renderInternalServerErrorPage(w, r, err)
+	}
+}
+
+func handleWebUpdateFolderPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	name := getURLParam(r, "name")
+	folder, err := dataprovider.GetFolderByName(name)
+	if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+		renderNotFoundPage(w, r, err)
+		return
+	} else if err != nil {
+		renderInternalServerErrorPage(w, r, err)
+		return
+	}
+
+	err = r.ParseForm()
+	if err != nil {
+		renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())
+		return
+	}
+	folder.MappedPath = r.Form.Get("mapped_path")
+	err = dataprovider.UpdateFolder(&folder)
+	if err != nil {
+		renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())
+		return
+	}
+	http.Redirect(w, r, webFoldersPath, http.StatusSeeOther)
 }
 
 func handleWebGetFolders(w http.ResponseWriter, r *http.Request) {
@@ -1349,7 +1385,7 @@ func handleWebGetFolders(w http.ResponseWriter, r *http.Request) {
 	}
 	folders := make([]vfs.BaseVirtualFolder, 0, limit)
 	for {
-		f, err := dataprovider.GetFolders(limit, len(folders), dataprovider.OrderASC, "")
+		f, err := dataprovider.GetFolders(limit, len(folders), dataprovider.OrderASC)
 		if err != nil {
 			renderInternalServerErrorPage(w, r, err)
 			return

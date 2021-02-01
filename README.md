@@ -39,7 +39,7 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - SCP and rsync are supported.
 - FTP/S is supported. You can configure the FTP service to require TLS for both control and data connections.
 - [WebDAV](./docs/webdav.md) is supported.
-- Two-Way TLS authentication, aka TLS with client certificate authentication, is supported for FTPS and WebDAV over HTTPS.
+- Two-Way TLS authentication, aka TLS with client certificate authentication, is supported for REST API/Web Admin, FTPS and WebDAV over HTTPS.
 - Support for serving local filesystem, encrypted local filesystem, S3 Compatible Object Storage, Google Cloud Storage, Azure Blob Storage or other SFTP accounts over SFTP/SCP/FTP/WebDAV.
 - Per user protocols restrictions. You can configure the allowed protocols (SSH/FTP/WebDAV) for each user.
 - [Prometheus metrics](./docs/metrics.md) are exposed.
