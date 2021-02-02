@@ -272,7 +272,7 @@ func (s *httpdServer) initializeRouter() {
 		router.Get(tokenPath, s.getToken)
 
 		router.Group(func(router chi.Router) {
-			router.Use(jwtauth.Verifier(s.tokenAuth))
+			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromHeader))
 			router.Use(jwtAuthenticator)
 
 			router.Get(versionPath, func(w http.ResponseWriter, r *http.Request) {
@@ -336,7 +336,7 @@ func (s *httpdServer) initializeRouter() {
 			router.Post(webLoginPath, s.handleWebLoginPost)
 
 			router.Group(func(router chi.Router) {
-				router.Use(jwtauth.Verifier(s.tokenAuth))
+				router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie))
 				router.Use(jwtAuthenticatorWeb)
 
 				router.Get(webLogoutPath, handleWebLogout)

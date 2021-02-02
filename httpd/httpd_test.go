@@ -3796,6 +3796,35 @@ func TestLogout(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Your token is no longer valid")
 }
 
+func TestTokenHeaderCookie(t *testing.T) {
+	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+
+	req, _ := http.NewRequest(http.MethodGet, serverStatusPath, nil)
+	setJWTCookieForReq(req, apiToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+	assert.Contains(t, rr.Body.String(), "no token found")
+
+	req, _ = http.NewRequest(http.MethodGet, serverStatusPath, nil)
+	setBearerForReq(req, apiToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, _ = http.NewRequest(http.MethodGet, webStatusPath, nil)
+	setBearerForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
+
+	req, _ = http.NewRequest(http.MethodGet, webStatusPath, nil)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+}
+
 func TestTokenAudience(t *testing.T) {
 	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -3803,12 +3832,12 @@ func TestTokenAudience(t *testing.T) {
 	assert.NoError(t, err)
 
 	req, _ := http.NewRequest(http.MethodGet, serverStatusPath, nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
 	req, _ = http.NewRequest(http.MethodGet, serverStatusPath, nil)
-	setJWTCookieForReq(req, webToken)
+	setBearerForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusUnauthorized, rr)
 	assert.Contains(t, rr.Body.String(), "Your token audience is not valid")
@@ -3832,7 +3861,7 @@ func TestWebLoginMock(t *testing.T) {
 	assert.NoError(t, err)
 
 	req, _ := http.NewRequest(http.MethodGet, serverStatusPath, nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
@@ -3860,7 +3889,7 @@ func TestWebLoginMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 
 	req, _ = http.NewRequest(http.MethodGet, serverStatusPath, nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusUnauthorized, rr)
 	assert.Contains(t, rr.Body.String(), "Your token is no longer valid")
@@ -3978,7 +4007,7 @@ func TestBasicWebUsersMock(t *testing.T) {
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
 	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
-	setJWTCookieForReq(req, token)
+	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
 	err = render.DecodeJSON(rr.Body, &user)
@@ -3987,7 +4016,7 @@ func TestBasicWebUsersMock(t *testing.T) {
 	user1.Username += "1"
 	user1AsJSON := getUserAsJSON(t, user1)
 	req, _ = http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(user1AsJSON))
-	setJWTCookieForReq(req, token)
+	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
 	err = render.DecodeJSON(rr.Body, &user1)
@@ -4513,7 +4542,7 @@ func TestWebUserAddMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	newUser := dataprovider.User{}
@@ -4579,11 +4608,11 @@ func TestWebUserAddMock(t *testing.T) {
 		}
 	}
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, newUser.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(folderPath, folderName), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 }
@@ -4596,7 +4625,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
 	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
 	err = render.DecodeJSON(rr.Body, &user)
@@ -4635,7 +4664,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	var updateUser dataprovider.User
@@ -4663,7 +4692,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.True(t, utils.IsStringInSlice(".zip", updateUser.Filters.FileExtensions[0].DeniedExtensions))
 	req, err = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
 	assert.NoError(t, err)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 }
@@ -4903,7 +4932,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
 	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
 	err = render.DecodeJSON(rr.Body, &user)
@@ -4971,7 +5000,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	var updateUser dataprovider.User
@@ -5000,7 +5029,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
@@ -5021,7 +5050,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	var userGet dataprovider.User
@@ -5030,7 +5059,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.True(t, userGet.FsConfig.S3Config.AccessSecret.IsEmpty())
 
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 }
@@ -5044,7 +5073,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	userAsJSON := getUserAsJSON(t, user)
 	req, err := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
 	assert.NoError(t, err)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
 	err = render.DecodeJSON(rr.Body, &user)
@@ -5099,7 +5128,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	var updateUser dataprovider.User
@@ -5119,7 +5148,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	updateUser = dataprovider.User{}
@@ -5127,7 +5156,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 1, updateUser.FsConfig.GCSConfig.AutomaticCredentials)
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	err = os.Remove(credentialsFilePath)
@@ -5141,7 +5170,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
 	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
 	err = render.DecodeJSON(rr.Body, &user)
@@ -5208,7 +5237,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	var updateUser dataprovider.User
@@ -5236,7 +5265,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	var lastUpdatedUser dataprovider.User
@@ -5247,7 +5276,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	assert.Empty(t, lastUpdatedUser.FsConfig.AzBlobConfig.AccountKey.GetKey())
 	assert.Empty(t, lastUpdatedUser.FsConfig.AzBlobConfig.AccountKey.GetAdditionalData())
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 }
@@ -5260,7 +5289,7 @@ func TestWebUserCryptMock(t *testing.T) {
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
 	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
 	err = render.DecodeJSON(rr.Body, &user)
@@ -5303,7 +5332,7 @@ func TestWebUserCryptMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	var updateUser dataprovider.User
@@ -5324,7 +5353,7 @@ func TestWebUserCryptMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	var lastUpdatedUser dataprovider.User
@@ -5335,7 +5364,7 @@ func TestWebUserCryptMock(t *testing.T) {
 	assert.Empty(t, lastUpdatedUser.FsConfig.CryptConfig.Passphrase.GetKey())
 	assert.Empty(t, lastUpdatedUser.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 }
@@ -5348,7 +5377,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
 	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
 	err = render.DecodeJSON(rr.Body, &user)
@@ -5401,7 +5430,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	var updateUser dataprovider.User
@@ -5432,7 +5461,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	var lastUpdatedUser dataprovider.User
@@ -5447,7 +5476,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	assert.Empty(t, lastUpdatedUser.FsConfig.SFTPConfig.PrivateKey.GetKey())
 	assert.Empty(t, lastUpdatedUser.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 }
@@ -5492,7 +5521,7 @@ func TestAddWebFoldersMock(t *testing.T) {
 
 	var folder vfs.BaseVirtualFolder
 	req, _ = http.NewRequest(http.MethodGet, path.Join(folderPath, folderName), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	err = render.DecodeJSON(rr.Body, &folder)
@@ -5501,7 +5530,7 @@ func TestAddWebFoldersMock(t *testing.T) {
 	assert.Equal(t, folderName, folder.Name)
 	// cleanup
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(folderPath, folderName), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 }
@@ -5567,7 +5596,7 @@ func TestUpdateWebFolderMock(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, rr)
 
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(folderPath, folderName), nil)
-	setJWTCookieForReq(req, apiToken)
+	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 }
@@ -5595,7 +5624,7 @@ func TestWebFoldersMock(t *testing.T) {
 		folderAsJSON, err := json.Marshal(folder)
 		assert.NoError(t, err)
 		req, _ := http.NewRequest(http.MethodPost, folderPath, bytes.NewBuffer(folderAsJSON))
-		setJWTCookieForReq(req, apiToken)
+		setBearerForReq(req, apiToken)
 		rr := executeRequest(req)
 		checkResponseCode(t, http.StatusCreated, rr)
 	}
@@ -5618,7 +5647,7 @@ func TestWebFoldersMock(t *testing.T) {
 
 	for _, folder := range folders {
 		req, _ := http.NewRequest(http.MethodDelete, path.Join(folderPath, folder.Name), nil)
-		setJWTCookieForReq(req, apiToken)
+		setBearerForReq(req, apiToken)
 		rr := executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr)
 	}
@@ -5812,9 +5841,9 @@ func getJWTWebTokenFromTestServer(username, password string) (string, error) {
 	if rr.Code != http.StatusFound {
 		return "", fmt.Errorf("unexpected  status code %v", rr)
 	}
-	cookie := rr.Header().Get("Set-Cookie")
-	if strings.HasPrefix(cookie, "jwt=") {
-		return cookie[4:], nil
+	cookie := strings.Split(rr.Header().Get("Set-Cookie"), ";")
+	if strings.HasPrefix(cookie[0], "jwt=") {
+		return cookie[0][4:], nil
 	}
 	return "", errors.New("no cookie found")
 }

@@ -39,7 +39,7 @@ func jwtAuthenticator(next http.Handler) http.Handler {
 			return
 		}
 		if !utils.IsStringInSlice(tokenAudienceAPI, token.Audience()) {
-			logger.Debug(logSender, "", "the token audience is not valid")
+			logger.Debug(logSender, "", "the token audience is not valid for API usage")
 			sendAPIResponse(w, r, nil, "Your token audience is not valid", http.StatusUnauthorized)
 			return
 		}
@@ -71,7 +71,7 @@ func jwtAuthenticatorWeb(next http.Handler) http.Handler {
 			return
 		}
 		if !utils.IsStringInSlice(tokenAudienceWeb, token.Audience()) {
-			logger.Debug(logSender, "", "the token audience is not valid")
+			logger.Debug(logSender, "", "the token audience is not valid for Web usage")
 			http.Redirect(w, r, webLoginPath, http.StatusFound)
 			return
 		}
