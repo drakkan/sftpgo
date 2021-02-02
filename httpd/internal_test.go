@@ -352,7 +352,7 @@ func TestUpdateWebAdminInvalidClaims(t *testing.T) {
 		Permissions: admin.Permissions,
 		Signature:   admin.GetSignature(),
 	}
-	token, err := c.createTokenResponse(server.tokenAuth)
+	token, err := c.createTokenResponse(server.tokenAuth, tokenAudienceWeb)
 	assert.NoError(t, err)
 
 	form := make(url.Values)

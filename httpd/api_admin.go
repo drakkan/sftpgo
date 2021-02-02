@@ -173,13 +173,13 @@ func changeAdminPassword(w http.ResponseWriter, r *http.Request) {
 
 func doChangeAdminPassword(r *http.Request, currentPassword, newPassword, confirmNewPassword string) error {
 	if currentPassword == "" || newPassword == "" || confirmNewPassword == "" {
-		return dataprovider.NewValidationError("Please provide the current password and the new one two times")
+		return dataprovider.NewValidationError("please provide the current password and the new one two times")
 	}
 	if newPassword != confirmNewPassword {
-		return dataprovider.NewValidationError("The two password fields do not match")
+		return dataprovider.NewValidationError("the two password fields do not match")
 	}
 	if currentPassword == newPassword {
-		return dataprovider.NewValidationError("The new password must be different from the current one")
+		return dataprovider.NewValidationError("the new password must be different from the current one")
 	}
 	claims, err := getTokenClaims(r)
 	if err != nil {
@@ -191,7 +191,7 @@ func doChangeAdminPassword(r *http.Request, currentPassword, newPassword, confir
 	}
 	match, err := admin.CheckPassword(currentPassword)
 	if !match || err != nil {
-		return dataprovider.NewValidationError("Current password does not match")
+		return dataprovider.NewValidationError("current password does not match")
 	}
 
 	admin.Password = newPassword

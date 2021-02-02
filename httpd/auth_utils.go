@@ -12,6 +12,13 @@ import (
 	"github.com/drakkan/sftpgo/utils"
 )
 
+type tokenAudience = string
+
+const (
+	tokenAudienceWeb tokenAudience = "Web"
+	tokenAudienceAPI tokenAudience = "API"
+)
+
 const (
 	claimUsernameKey    = "username"
 	claimPermissionsKey = "permissions"
@@ -87,13 +94,14 @@ func (c *jwtTokenClaims) hasPerm(perm string) bool {
 	return utils.IsStringInSlice(perm, c.Permissions)
 }
 
-func (c *jwtTokenClaims) createTokenResponse(tokenAuth *jwtauth.JWTAuth) (map[string]interface{}, error) {
+func (c *jwtTokenClaims) createTokenResponse(tokenAuth *jwtauth.JWTAuth, audience tokenAudience) (map[string]interface{}, error) {
 	claims := c.asMap()
 	now := time.Now().UTC()
 
 	claims[jwt.JwtIDKey] = xid.New().String()
 	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
 	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
+	claims[jwt.AudienceKey] = audience
 
 	token, tokenString, err := tokenAuth.Encode(claims)
 	if err != nil {
@@ -108,7 +116,7 @@ func (c *jwtTokenClaims) createTokenResponse(tokenAuth *jwtauth.JWTAuth) (map[st
 }
 
 func (c *jwtTokenClaims) createAndSetCookie(w http.ResponseWriter, r *http.Request, tokenAuth *jwtauth.JWTAuth) error {
-	resp, err := c.createTokenResponse(tokenAuth)
+	resp, err := c.createTokenResponse(tokenAuth, tokenAudienceWeb)
 	if err != nil {
 		return err
 	}

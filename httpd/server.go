@@ -175,7 +175,7 @@ func (s *httpdServer) checkAddrAndSendToken(w http.ResponseWriter, r *http.Reque
 		Signature:   admin.GetSignature(),
 	}
 
-	resp, err := c.createTokenResponse(s.tokenAuth)
+	resp, err := c.createTokenResponse(s.tokenAuth, tokenAudienceAPI)
 
 	if err != nil {
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
