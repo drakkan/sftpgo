@@ -105,18 +105,23 @@ func (s *webDavServer) verifyTLSConnection(state tls.ConnectionState) error {
 	return nil
 }
 
-func (s *webDavServer) checkRequestMethod(ctx context.Context, r *http.Request, connection *Connection, prefix string) {
+// returns true if a response was sent
+func (s *webDavServer) checkRequestMethod(ctx context.Context, r *http.Request, connection *Connection, prefix string) bool {
 	// see RFC4918, section 9.4
-	if r.Method == http.MethodGet {
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
 		p := strings.TrimPrefix(path.Clean(r.URL.Path), prefix)
 		info, err := connection.Stat(ctx, p)
 		if err == nil && info.IsDir() {
+			if r.Method == http.MethodHead {
+				return true
+			}
 			r.Method = "PROPFIND"
 			if r.Header.Get("Depth") == "" {
 				r.Header.Add("Depth", "1")
 			}
 		}
 	}
+	return false
 }
 
 // ServeHTTP implements the http.Handler interface
@@ -183,7 +188,12 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	dataprovider.UpdateLastLogin(user) //nolint:errcheck
 
 	prefix := path.Join("/", user.Username)
-	s.checkRequestMethod(ctx, r, connection, prefix)
+	if s.checkRequestMethod(ctx, r, connection, prefix) {
+		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+		w.WriteHeader(http.StatusMultiStatus)
+		w.Write([]byte("")) //nolint:errcheck
+		return
+	}
 
 	handler := webdav.Handler{
 		Prefix:     prefix,

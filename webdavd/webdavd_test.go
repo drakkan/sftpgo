@@ -1314,6 +1314,29 @@ func TestBytesRangeRequests(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestHEAD(t *testing.T) {
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	rootPath := fmt.Sprintf("http://%v/%v", webDavServerAddr, user.Username)
+	httpClient := httpclient.GetHTTPClient()
+	req, err := http.NewRequest(http.MethodHead, rootPath, nil)
+	if assert.NoError(t, err) {
+		req.SetBasicAuth(u.Username, u.Password)
+		resp, err := httpClient.Do(req)
+		if assert.NoError(t, err) {
+			assert.Equal(t, http.StatusMultiStatus, resp.StatusCode)
+			assert.Equal(t, "text/xml; charset=utf-8", resp.Header.Get("Content-Type"))
+			resp.Body.Close()
+		}
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestGETAsPROPFIND(t *testing.T) {
 	u := getTestUser()
 	subDir1 := "/sub1"
