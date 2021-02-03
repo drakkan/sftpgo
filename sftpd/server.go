@@ -456,6 +456,8 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 								channel:        channel,
 							}
 							go c.handleSftpConnection(channel, &connection)
+						} else {
+							logger.Debug(logSender, connID, "unable to create filesystem: %v", err)
 						}
 					}
 				case "exec":
@@ -469,6 +471,8 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 							channel:        channel,
 						}
 						ok = processSSHCommand(req.Payload, &connection, c.EnabledSSHCommands)
+					} else {
+						logger.Debug(sshCommandLogSender, connID, "unable to create filesystem: %v", err)
 					}
 				}
 				if req.WantReply {

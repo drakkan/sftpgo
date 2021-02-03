@@ -1070,10 +1070,17 @@ func TestSFTPFsLoginWrongFingerprint(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
+	out, err := runSSHCommand("md5sum", sftpUser, usePubKey)
+	assert.NoError(t, err)
+	assert.Contains(t, string(out), "d41d8cd98f00b204e9800998ecf8427e")
+
 	sftpUser.FsConfig.SFTPConfig.Fingerprints = []string{"wrong"}
 	_, _, err = httpdtest.UpdateUser(sftpUser, http.StatusOK, "")
 	assert.NoError(t, err)
 	_, err = getSftpClient(sftpUser, usePubKey)
+	assert.Error(t, err)
+
+	_, err = runSSHCommand("md5sum", sftpUser, usePubKey)
 	assert.Error(t, err)
 
 	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
