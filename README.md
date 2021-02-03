@@ -242,8 +242,16 @@ SFTPGo releases are feature-driven, we don't have a fixed time based schedule. A
 ## Acknowledgements
 
 SFTPGo makes use of the third party libraries listed inside [go.mod](./go.mod).
-Some code was initially taken from [Pterodactyl SFTP Server](https://github.com/pterodactyl/sftp-server).
+
 We are very grateful to all the people who contributed with ideas and/or pull requests.
+
+Thank you [ysura](https://www.ysura.com/) for granting me stable access to a test AWS S3 account.
+
+## Sponsors
+
+I'd like to make SFTPGo into a sustainable long term project and your [sponsorship](https://github.com/sponsors/drakkan) will really help :heart:
+
+Bronze, Silver and Gold sponsors will be listed here (if they wish).
 
 ## License
 
