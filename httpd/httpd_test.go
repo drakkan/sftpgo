@@ -29,6 +29,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/net/html"
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/config"
@@ -50,6 +51,7 @@ const (
 	defaultTokenAuthPass      = "password"
 	altAdminUsername          = "newTestAdmin"
 	altAdminPassword          = "password1"
+	csrfFormToken             = "_form_token"
 	userPath                  = "/api/v2/users"
 	adminPath                 = "/api/v2/admins"
 	adminPwdPath              = "/api/v2/changepwd/admin"
@@ -3899,8 +3901,10 @@ func TestWebLoginMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
 	// now try using wrong credentials
-	form := getAdminLoginForm(defaultTokenAuthUser, "wrong pwd")
+	form := getAdminLoginForm(defaultTokenAuthUser, "wrong pwd", csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
@@ -3914,7 +3918,7 @@ func TestWebLoginMock(t *testing.T) {
 	_, _, err = httpdtest.AddAdmin(a, http.StatusCreated)
 	assert.NoError(t, err)
 
-	form = getAdminLoginForm(altAdminUsername, altAdminPassword)
+	form = getAdminLoginForm(altAdminUsername, altAdminPassword, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.RemoteAddr = "127.1.1.1:1234"
@@ -3935,6 +3939,15 @@ func TestWebLoginMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "Login from IP 127.0.1.1:4567 is not allowed")
+
+	// invalid csrf token
+	form = getAdminLoginForm(altAdminUsername, altAdminPassword, "invalid csrf")
+	req, _ = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.RemoteAddr = "10.9.9.8:1234"
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to verify form token")
 
 	req, _ = http.NewRequest(http.MethodGet, webLoginPath, nil)
 	rr = executeRequest(req)
@@ -3973,6 +3986,8 @@ func TestWebAdminPwdChange(t *testing.T) {
 
 	token, err := getJWTWebTokenFromTestServer(admin.Username, altAdminPassword)
 	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
 	req, _ := http.NewRequest(http.MethodGet, webChangeAdminPwdPath, nil)
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
@@ -3981,6 +3996,15 @@ func TestWebAdminPwdChange(t *testing.T) {
 	form.Set("current_password", altAdminPassword)
 	form.Set("new_password1", altAdminPassword)
 	form.Set("new_password2", altAdminPassword)
+	// no csrf token
+	req, _ = http.NewRequest(http.MethodPost, webChangeAdminPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webChangeAdminPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
@@ -4047,8 +4071,11 @@ func TestBasicWebUsersMock(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set("username", user.Username)
+	form.Set(csrfFormToken, csrfToken)
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
 	setJWTCookieForReq(req, webToken)
@@ -4075,9 +4102,16 @@ func TestBasicWebUsersMock(t *testing.T) {
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(webUserPath, user.Username), nil)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Invalid token")
+	req, _ = http.NewRequest(http.MethodDelete, path.Join(webUserPath, user.Username), nil)
+	setJWTCookieForReq(req, webToken)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(webUserPath, user1.Username), nil)
 	setJWTCookieForReq(req, webToken)
+	setCSRFHeaderForReq(req, csrfToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 }
@@ -4088,15 +4122,26 @@ func TestWebAdminBasicMock(t *testing.T) {
 	admin := getTestAdmin()
 	admin.Username = altAdminUsername
 	admin.Password = altAdminPassword
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set("username", admin.Username)
 	form.Set("password", "")
-	form.Set("status", "a") // invalid status
+	form.Set("status", "1")
 	form.Set("permissions", "*")
 	req, _ := http.NewRequest(http.MethodPost, webAdminPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("status", "a")
+	req, _ = http.NewRequest(http.MethodPost, webAdminPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
 	form.Set("status", "1")
@@ -4137,6 +4182,15 @@ func TestWebAdminBasicMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 
+	form.Set(csrfFormToken, "invalid csrf")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webAdminPath, altAdminUsername), bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
 	form.Set("email", "not-an-email")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webAdminPath, altAdminUsername), bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -4178,6 +4232,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(webAdminPath, altAdminUsername), nil)
 	setJWTCookieForReq(req, token)
+	setCSRFHeaderForReq(req, csrfToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
@@ -4186,9 +4241,16 @@ func TestWebAdminBasicMock(t *testing.T) {
 
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(webAdminPath, defaultTokenAuthUser), nil)
 	setJWTCookieForReq(req, token)
+	setCSRFHeaderForReq(req, csrfToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "You cannot delete yourself")
+
+	req, _ = http.NewRequest(http.MethodDelete, path.Join(webAdminPath, defaultTokenAuthUser), nil)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Invalid token")
 }
 
 func TestWebAdminPermissions(t *testing.T) {
@@ -4267,12 +4329,15 @@ func TestAdminUpdateSelfMock(t *testing.T) {
 	assert.NoError(t, err)
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set("username", admin.Username)
 	form.Set("password", admin.Password)
 	form.Set("status", "0")
 	form.Set("permissions", dataprovider.PermAdminAddUsers)
 	form.Set("permissions", dataprovider.PermAdminCloseConnections)
+	form.Set(csrfFormToken, csrfToken)
 	req, _ := http.NewRequest(http.MethodPost, path.Join(webAdminPath, defaultTokenAuthUser), bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
@@ -4296,10 +4361,21 @@ func TestWebMaintenanceMock(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
 
 	form := make(url.Values)
 	form.Set("mode", "a")
 	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webRestorePath, &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webRestorePath, &b)
 	setJWTCookieForReq(req, token)
 	req.Header.Set("Content-Type", contentType)
@@ -4388,6 +4464,8 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
 	user := getTestUser()
 	user.UploadBandwidth = 32
 	user.DownloadBandwidth = 64
@@ -4407,6 +4485,7 @@ func TestWebUserAddMock(t *testing.T) {
 	checkResponseCode(t, http.StatusCreated, rr)
 
 	form := make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
 	form.Set("home_dir", user.HomeDir)
 	form.Set("password", user.Password)
@@ -4528,6 +4607,16 @@ func TestWebUserAddMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	form.Set("max_upload_file_size", "1000")
+	form.Set(csrfFormToken, "invalid form token")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
 	setJWTCookieForReq(req, webToken)
@@ -4622,6 +4711,8 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
 	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
@@ -4662,7 +4753,17 @@ func TestWebUserUpdateMock(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
+
 	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
 	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
@@ -4755,6 +4856,8 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
 	user := getTestUser()
 	form := make(url.Values)
 	form.Set("username", user.Username)
@@ -4779,6 +4882,15 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	req.Header.Set("Content-Type", contentType)
 	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	require.Contains(t, rr.Body.String(), "Unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webTemplateUser), &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	require.Contains(t, rr.Body.String(), "invalid folder mapped path")
 
@@ -4828,7 +4940,10 @@ func TestUserTemplateMock(t *testing.T) {
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir/"
 	user.FsConfig.S3Config.UploadPartSize = 5
 	user.FsConfig.S3Config.UploadConcurrency = 4
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
 	form := make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
 	form.Set("home_dir", filepath.Join(os.TempDir(), "%username%"))
 	form.Set("uid", "0")
@@ -4929,6 +5044,8 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
 	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
@@ -4948,6 +5065,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	user.FsConfig.S3Config.UploadPartSize = 5
 	user.FsConfig.S3Config.UploadConcurrency = 4
 	form := make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
 	form.Set("home_dir", user.HomeDir)
 	form.Set("uid", "0")
@@ -5069,6 +5187,8 @@ func TestWebUserGCSMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
 	req, err := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
@@ -5086,6 +5206,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	user.FsConfig.GCSConfig.KeyPrefix = "somedir/subdir/"
 	user.FsConfig.GCSConfig.StorageClass = "standard"
 	form := make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
 	form.Set("home_dir", user.HomeDir)
 	form.Set("uid", "0")
@@ -5167,6 +5288,8 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
 	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
@@ -5185,6 +5308,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	user.FsConfig.AzBlobConfig.UploadConcurrency = 4
 	user.FsConfig.AzBlobConfig.UseEmulator = true
 	form := make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
 	form.Set("home_dir", user.HomeDir)
 	form.Set("uid", "0")
@@ -5286,6 +5410,8 @@ func TestWebUserCryptMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
 	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
@@ -5297,6 +5423,7 @@ func TestWebUserCryptMock(t *testing.T) {
 	user.FsConfig.Provider = dataprovider.CryptedFilesystemProvider
 	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("crypted passphrase")
 	form := make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
 	form.Set("home_dir", user.HomeDir)
 	form.Set("uid", "0")
@@ -5374,6 +5501,8 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
 	user := getTestUser()
 	userAsJSON := getUserAsJSON(t, user)
 	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
@@ -5390,6 +5519,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	user.FsConfig.SFTPConfig.Fingerprints = []string{sftpPkeyFingerprint}
 	user.FsConfig.SFTPConfig.Prefix = "/home/sftpuser"
 	form := make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
 	form.Set("home_dir", user.HomeDir)
 	form.Set("uid", "0")
@@ -5486,6 +5616,8 @@ func TestAddWebFoldersMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
 	mappedPath := filepath.Clean(os.TempDir())
 	folderName := filepath.Base(mappedPath)
 	form := make(url.Values)
@@ -5496,6 +5628,15 @@ func TestAddWebFoldersMock(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webFolderPath, strings.NewReader(form.Encode()))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 	// adding the same folder will fail since the name must be unique
 	req, err = http.NewRequest(http.MethodPost, webFolderPath, strings.NewReader(form.Encode()))
@@ -5540,6 +5681,8 @@ func TestUpdateWebFolderMock(t *testing.T) {
 	assert.NoError(t, err)
 	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
 	folderName := "vfolderupdate"
 	folder := vfs.BaseVirtualFolder{
 		Name:       folderName,
@@ -5551,11 +5694,21 @@ func TestUpdateWebFolderMock(t *testing.T) {
 	form := make(url.Values)
 	form.Set("mapped_path", newMappedPath)
 	form.Set("name", folderName)
+	form.Set(csrfFormToken, "")
 	req, err := http.NewRequest(http.MethodPost, path.Join(webFolderPath, folderName), strings.NewReader(form.Encode()))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, webToken)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webFolderPath, folderName), strings.NewReader(form.Encode()))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 
 	// parse form error
@@ -5595,8 +5748,22 @@ func TestUpdateWebFolderMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
-	req, _ = http.NewRequest(http.MethodDelete, path.Join(folderPath, folderName), nil)
-	setBearerForReq(req, apiToken)
+	req, _ = http.NewRequest(http.MethodDelete, path.Join(webFolderPath, folderName), nil)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Invalid token")
+
+	req, _ = http.NewRequest(http.MethodDelete, path.Join(webFolderPath, folderName), nil)
+	setJWTCookieForReq(req, apiToken) // api token is not accepted
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
+
+	req, _ = http.NewRequest(http.MethodDelete, path.Join(webFolderPath, folderName), nil)
+	setJWTCookieForReq(req, webToken)
+	setCSRFHeaderForReq(req, csrfToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 }
@@ -5656,6 +5823,8 @@ func TestWebFoldersMock(t *testing.T) {
 func TestProviderClosedMock(t *testing.T) {
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
 	dataprovider.Close()
 	req, _ := http.NewRequest(http.MethodGet, webFoldersPath, nil)
 	setJWTCookieForReq(req, token)
@@ -5670,6 +5839,7 @@ func TestProviderClosedMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 	form := make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", "test")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"/0", strings.NewReader(form.Encode()))
 	setJWTCookieForReq(req, token)
@@ -5710,13 +5880,34 @@ func TestProviderClosedMock(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestGetWebConnectionsMock(t *testing.T) {
+func TestWebConnectionsMock(t *testing.T) {
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
 	req, _ := http.NewRequest(http.MethodGet, webConnectionsPath, nil)
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+
+	req, _ = http.NewRequest(http.MethodDelete, path.Join(webConnectionsPath, "id"), nil)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Invalid token")
+
+	req, _ = http.NewRequest(http.MethodDelete, path.Join(webConnectionsPath, "id"), nil)
+	setJWTCookieForReq(req, token)
+	setCSRFHeaderForReq(req, "csrfToken")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Invalid token")
+
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
+	req, _ = http.NewRequest(http.MethodDelete, path.Join(webConnectionsPath, "id"), nil)
+	setJWTCookieForReq(req, token)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
 }
 
 func TestGetWebStatusMock(t *testing.T) {
@@ -5776,11 +5967,63 @@ func getUserAsJSON(t *testing.T, user dataprovider.User) []byte {
 	return json
 }
 
-func getAdminLoginForm(username, password string) url.Values {
+func getCSRFToken() (string, error) {
+	req, err := http.NewRequest(http.MethodGet, httpBaseURL+webLoginPath, nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := httpclient.GetHTTPClient().Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	defer resp.Body.Close()
+
+	doc, err := html.Parse(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var csrfToken string
+	var f func(*html.Node)
+
+	f = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "input" {
+			var name, value string
+			for _, attr := range n.Attr {
+				if attr.Key == "value" {
+					value = attr.Val
+				}
+				if attr.Key == "name" {
+					name = attr.Val
+				}
+			}
+			if name == csrfFormToken {
+				csrfToken = value
+				return
+			}
+		}
+
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			f(c)
+		}
+	}
+
+	f(doc)
+
+	return csrfToken, nil
+}
+
+func getAdminLoginForm(username, password, csrfToken string) url.Values {
 	form := make(url.Values)
 	form.Set("username", username)
 	form.Set("password", password)
+	form.Set(csrfFormToken, csrfToken)
 	return form
+}
+
+func setCSRFHeaderForReq(req *http.Request, csrfToken string) {
+	req.Header.Set("X-CSRF-TOKEN", csrfToken)
 }
 
 func setBearerForReq(req *http.Request, jwtToken string) {
@@ -5807,7 +6050,11 @@ func getJWTAPITokenFromTestServer(username, password string) (string, error) {
 }
 
 func getJWTWebToken(username, password string) (string, error) {
-	form := getAdminLoginForm(username, password)
+	csrfToken, err := getCSRFToken()
+	if err != nil {
+		return "", err
+	}
+	form := getAdminLoginForm(username, password, csrfToken)
 	req, _ := http.NewRequest(http.MethodPost, httpBaseURL+webLoginPath,
 		bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -5834,7 +6081,11 @@ func getJWTWebToken(username, password string) (string, error) {
 }
 
 func getJWTWebTokenFromTestServer(username, password string) (string, error) {
-	form := getAdminLoginForm(username, password)
+	csrfToken, err := getCSRFToken()
+	if err != nil {
+		return "", err
+	}
+	form := getAdminLoginForm(username, password, csrfToken)
 	req, _ := http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := executeRequest(req)

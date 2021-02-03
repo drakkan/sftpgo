@@ -2,6 +2,7 @@ package httpd
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/jwtauth"
@@ -11,9 +12,15 @@ import (
 	"github.com/drakkan/sftpgo/utils"
 )
 
-type ctxKeyConnAddr int
+var connAddrKey = &contextKey{"connection address"}
 
-const connAddrKey ctxKeyConnAddr = 0
+type contextKey struct {
+	name string
+}
+
+func (k *contextKey) String() string {
+	return "context value " + k.name
+}
 
 func saveConnectionAddress(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -26,14 +33,14 @@ func jwtAuthenticator(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, _, err := jwtauth.FromContext(r.Context())
 
-		if err != nil {
+		if err != nil || token == nil {
 			logger.Debug(logSender, "", "error getting jwt token: %v", err)
 			sendAPIResponse(w, r, err, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}
 
 		err = jwt.Validate(token)
-		if token == nil || err != nil {
+		if err != nil {
 			logger.Debug(logSender, "", "error validating jwt token: %v", err)
 			sendAPIResponse(w, r, err, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
@@ -58,14 +65,14 @@ func jwtAuthenticatorWeb(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, _, err := jwtauth.FromContext(r.Context())
 
-		if err != nil {
+		if err != nil || token == nil {
 			logger.Debug(logSender, "", "error getting web jwt token: %v", err)
 			http.Redirect(w, r, webLoginPath, http.StatusFound)
 			return
 		}
 
 		err = jwt.Validate(token)
-		if token == nil || err != nil {
+		if err != nil {
 			logger.Debug(logSender, "", "error validating web jwt token: %v", err)
 			http.Redirect(w, r, webLoginPath, http.StatusFound)
 			return
@@ -113,4 +120,24 @@ func checkPerm(perm string) func(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func verifyCSRFHeader(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tokenString := r.Header.Get(csrfHeaderToken)
+		token, err := jwtauth.VerifyToken(csrfTokenAuth, tokenString)
+		if err != nil || token == nil {
+			logger.Debug(logSender, "", "error validating CSRF header: %v", err)
+			sendAPIResponse(w, r, err, "Invalid token", http.StatusForbidden)
+			return
+		}
+
+		if !utils.IsStringInSlice(tokenAudienceCSRF, token.Audience()) {
+			logger.Debug(logSender, "", "error validating CSRF header audience")
+			sendAPIResponse(w, r, errors.New("The token is not valid"), "", http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }

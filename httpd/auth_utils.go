@@ -1,6 +1,8 @@
 package httpd
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -9,14 +11,16 @@ import (
 	"github.com/rs/xid"
 
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 )
 
 type tokenAudience = string
 
 const (
-	tokenAudienceWeb tokenAudience = "Web"
-	tokenAudienceAPI tokenAudience = "API"
+	tokenAudienceWeb  tokenAudience = "Web"
+	tokenAudienceAPI  tokenAudience = "API"
+	tokenAudienceCSRF tokenAudience = "CSRF"
 )
 
 const (
@@ -185,4 +189,36 @@ func getAdminFromToken(r *http.Request) *dataprovider.Admin {
 	admin.Username = tokenClaims.Username
 	admin.Permissions = tokenClaims.Permissions
 	return admin
+}
+
+func createCSRFToken() string {
+	claims := make(map[string]interface{})
+	now := time.Now().UTC()
+
+	claims[jwt.JwtIDKey] = xid.New().String()
+	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
+	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
+	claims[jwt.AudienceKey] = tokenAudienceCSRF
+
+	_, tokenString, err := csrfTokenAuth.Encode(claims)
+	if err != nil {
+		logger.Debug(logSender, "", "unable to create CSRF token: %v", err)
+		return ""
+	}
+	return tokenString
+}
+
+func verifyCSRFToken(tokenString string) error {
+	token, err := jwtauth.VerifyToken(csrfTokenAuth, tokenString)
+	if err != nil || token == nil {
+		logger.Debug(logSender, "", "error validating CSRF: %v", err)
+		return fmt.Errorf("Unable to verify form token: %v", err)
+	}
+
+	if !utils.IsStringInSlice(tokenAudienceCSRF, token.Audience()) {
+		logger.Debug(logSender, "", "error validating CSRF token audience")
+		return errors.New("The form token is not valid")
+	}
+
+	return nil
 }

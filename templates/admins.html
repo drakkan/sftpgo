@@ -99,6 +99,7 @@
             url: path,
             type: 'DELETE',
             dataType: 'json',
+            headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
             timeout: 15000,
             success: function (result) {
                 table.button('delete:name').enable(true);

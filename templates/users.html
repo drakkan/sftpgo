@@ -105,6 +105,7 @@
             url: encodeURI(path),
             type: 'DELETE',
             dataType: 'json',
+            headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
             timeout: 15000,
             success: function (result) {
                 table.button('delete:name').enable(true);
@@ -199,6 +200,7 @@
                     url: path,
                     type: 'POST',
                     dataType: 'json',
+                    headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
                     data: JSON.stringify({ "username": username }),
                     timeout: 15000,
                     success: function (result) {

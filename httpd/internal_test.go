@@ -24,6 +24,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/jwtauth"
 	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/rs/xid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -356,6 +357,7 @@ func TestUpdateWebAdminInvalidClaims(t *testing.T) {
 	assert.NoError(t, err)
 
 	form := make(url.Values)
+	form.Set(csrfFormToken, createCSRFToken())
 	form.Set("status", "1")
 	req, _ := http.NewRequest(http.MethodPost, path.Join(webAdminPath, "admin"), bytes.NewBuffer([]byte(form.Encode())))
 	rctx := chi.NewRouteContext()
@@ -366,6 +368,49 @@ func TestUpdateWebAdminInvalidClaims(t *testing.T) {
 	handleWebUpdateAdminPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+}
+
+func TestCSRFToken(t *testing.T) {
+	// invalid token
+	err := verifyCSRFToken("token")
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "Unable to verify form token")
+	}
+	// bad audience
+	claims := make(map[string]interface{})
+	now := time.Now().UTC()
+
+	claims[jwt.JwtIDKey] = xid.New().String()
+	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
+	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
+	claims[jwt.AudienceKey] = tokenAudienceAPI
+
+	_, tokenString, err := csrfTokenAuth.Encode(claims)
+	assert.NoError(t, err)
+	err = verifyCSRFToken(tokenString)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "form token is not valid")
+	}
+
+	r := GetHTTPRouter()
+	fn := verifyCSRFHeader(r)
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodDelete, path.Join(userPath, "username"), nil)
+	fn.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token")
+
+	req.Header.Set(csrfHeaderToken, tokenString)
+	rr = httptest.NewRecorder()
+	fn.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), "The token is not valid")
+
+	csrfTokenAuth = jwtauth.New("PS256", utils.GenerateRandomBytes(32), nil)
+	tokenString = createCSRFToken()
+	assert.Empty(t, tokenString)
+
+	csrfTokenAuth = jwtauth.New("HS256", utils.GenerateRandomBytes(32), nil)
 }
 
 func TestCreateTokenError(t *testing.T) {
@@ -386,6 +431,7 @@ func TestCreateTokenError(t *testing.T) {
 	form := make(url.Values)
 	form.Set("username", admin.Username)
 	form.Set("password", admin.Password)
+	form.Set(csrfFormToken, createCSRFToken())
 	req, _ = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = "127.0.0.1:1234"
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -470,6 +516,7 @@ func TestAdminAllowListConnAddr(t *testing.T) {
 	req.RemoteAddr = "192.168.1.16:1234"
 	server.checkAddrAndSendToken(rr, req.WithContext(ctx), admin)
 	assert.Equal(t, http.StatusForbidden, rr.Code, rr.Body.String())
+	assert.Equal(t, "context value connection address", connAddrKey.String())
 }
 
 func TestUpdateContextFromCookie(t *testing.T) {

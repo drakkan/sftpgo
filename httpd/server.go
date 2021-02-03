@@ -109,6 +109,10 @@ func (s *httpdServer) handleWebLoginPost(w http.ResponseWriter, r *http.Request)
 		renderLoginPage(w, "Invalid credentials")
 		return
 	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderLoginPage(w, err.Error())
+		return
+	}
 	admin, err := dataprovider.CheckAdminAndPass(username, password, utils.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		renderLoginPage(w, err.Error())
@@ -367,16 +371,21 @@ func (s *httpdServer) initializeRouter() {
 					Get(webAdminPath+"/{username}", handleWebUpdateAdminGet)
 				router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Post(webAdminPath, handleWebAddAdminPost)
 				router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Post(webAdminPath+"/{username}", handleWebUpdateAdminPost)
-				router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Delete(webAdminPath+"/{username}", deleteAdmin)
-				router.With(checkPerm(dataprovider.PermAdminCloseConnections)).
+				router.With(checkPerm(dataprovider.PermAdminManageAdmins), verifyCSRFHeader).
+					Delete(webAdminPath+"/{username}", deleteAdmin)
+				router.With(checkPerm(dataprovider.PermAdminCloseConnections), verifyCSRFHeader).
 					Delete(webConnectionsPath+"/{connectionID}", handleCloseConnection)
 				router.With(checkPerm(dataprovider.PermAdminChangeUsers), s.refreshCookie).
 					Get(webFolderPath+"/{name}", handleWebUpdateFolderGet)
 				router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Post(webFolderPath+"/{name}", handleWebUpdateFolderPost)
-				router.With(checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(webFolderPath+"/{name}", deleteFolder)
-				router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Post(webScanVFolderPath, startVFolderQuotaScan)
-				router.With(checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(webUserPath+"/{username}", deleteUser)
-				router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Post(webQuotaScanPath, startQuotaScan)
+				router.With(checkPerm(dataprovider.PermAdminDeleteUsers), verifyCSRFHeader).
+					Delete(webFolderPath+"/{name}", deleteFolder)
+				router.With(checkPerm(dataprovider.PermAdminQuotaScans), verifyCSRFHeader).
+					Post(webScanVFolderPath, startVFolderQuotaScan)
+				router.With(checkPerm(dataprovider.PermAdminDeleteUsers), verifyCSRFHeader).
+					Delete(webUserPath+"/{username}", deleteUser)
+				router.With(checkPerm(dataprovider.PermAdminQuotaScans), verifyCSRFHeader).
+					Post(webQuotaScanPath, startQuotaScan)
 				router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(webMaintenancePath, handleWebMaintenance)
 				router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(webBackupPath, dumpData)
 				router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(webRestorePath, handleWebRestore)

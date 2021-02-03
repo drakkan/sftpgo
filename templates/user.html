@@ -583,7 +583,10 @@
                 <label for="idSFTPEndpoint" class="col-sm-2 col-form-label">Endpoint</label>
                 <div class="col-sm-3">
                     <input type="text" class="form-control" id="idSFTPEndpoint" name="sftp_endpoint" placeholder=""
-                        value="{{.User.FsConfig.SFTPConfig.Endpoint}}" maxlength="255">
+                        value="{{.User.FsConfig.SFTPConfig.Endpoint}}" maxlength="255" aria-describedby="SFTPEndpointHelpBlock">
+                    <small id="SFTPEndpointHelpBlock" class="form-text text-muted">
+                            Endpoint as host:port, port is always required
+                    </small>
                 </div>
                 <div class="col-sm-2"></div>
                 <label for="idSFTPUsername" class="col-sm-2 col-form-label">Username</label>
@@ -659,6 +662,7 @@
             {{end}}
 
             <input type="hidden" name="expiration_date" id="hidden_start_datetime" value="">
+            <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
             <button type="submit" class="btn btn-primary float-right mt-3 px-5 px-3">{{if eq .Mode 3}}Generate and export users{{else}}Submit{{end}}</button>
         </form>
     </div>

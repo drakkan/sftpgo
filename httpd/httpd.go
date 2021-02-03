@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi"
+	"github.com/go-chi/jwtauth"
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
@@ -77,6 +78,7 @@ var (
 	jwtTokensCleanupTicker *time.Ticker
 	jwtTokensCleanupDone   chan bool
 	invalidatedJWTTokens   sync.Map
+	csrfTokenAuth          *jwtauth.JWTAuth
 )
 
 // Binding defines the configuration for a network listener
@@ -204,6 +206,8 @@ func (c *Conf) Initialize(configDir string) error {
 		}
 		certMgr = mgr
 	}
+
+	csrfTokenAuth = jwtauth.New("HS256", utils.GenerateRandomBytes(32), nil)
 
 	exitChannel := make(chan error, 1)
 

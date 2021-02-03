@@ -68,6 +68,8 @@ const (
 	defaultQueryLimit    = 500
 	webDateTimeFormat    = "2006-01-02 15:04:05" // YYYY-MM-DD HH:MM:SS
 	redactedSecret       = "[**redacted**]"
+	csrfFormToken        = "_form_token"
+	csrfHeaderToken      = "X-CSRF-TOKEN"
 )
 
 var (
@@ -98,6 +100,7 @@ type basePage struct {
 	StatusTitle        string
 	MaintenanceTitle   string
 	Version            string
+	CSRFToken          string
 	LoggedAdmin        *dataprovider.Admin
 }
 
@@ -175,6 +178,7 @@ type loginPage struct {
 	CurrentURL string
 	Version    string
 	Error      string
+	CSRFToken  string
 }
 
 type userTemplateFields struct {
@@ -259,6 +263,10 @@ func loadTemplates(templatesPath string) {
 }
 
 func getBasePageData(title, currentURL string, r *http.Request) basePage {
+	var csrfToken string
+	if currentURL != "" {
+		csrfToken = createCSRFToken()
+	}
 	return basePage{
 		Title:              title,
 		CurrentURL:         currentURL,
@@ -284,6 +292,7 @@ func getBasePageData(title, currentURL string, r *http.Request) basePage {
 		MaintenanceTitle:   pageMaintenanceTitle,
 		Version:            version.GetAsString(),
 		LoggedAdmin:        getAdminFromToken(r),
+		CSRFToken:          csrfToken,
 	}
 }
 
@@ -946,6 +955,7 @@ func renderLoginPage(w http.ResponseWriter, error string) {
 		CurrentURL: webLoginPath,
 		Version:    version.Get().Version,
 		Error:      error,
+		CSRFToken:  createCSRFToken(),
 	}
 	renderTemplate(w, templateLogin, data)
 }
@@ -959,6 +969,10 @@ func handleWebAdminChangePwdPost(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		renderChangePwdPage(w, r, err.Error())
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderForbiddenPage(w, r, err.Error())
 		return
 	}
 	err = doChangeAdminPassword(r, r.Form.Get("current_password"), r.Form.Get("new_password1"),
@@ -989,6 +1003,10 @@ func handleWebRestore(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseMultipartForm(MaxRestoreSize)
 	if err != nil {
 		renderMaintenancePage(w, r, err.Error())
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderForbiddenPage(w, r, err.Error())
 		return
 	}
 	restoreMode, err := strconv.Atoi(r.Form.Get("mode"))
@@ -1077,6 +1095,10 @@ func handleWebAddAdminPost(w http.ResponseWriter, r *http.Request) {
 		renderAddUpdateAdminPage(w, r, &admin, err.Error(), true)
 		return
 	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderForbiddenPage(w, r, err.Error())
+		return
+	}
 	err = dataprovider.AddAdmin(&admin)
 	if err != nil {
 		renderAddUpdateAdminPage(w, r, &admin, err.Error(), true)
@@ -1101,6 +1123,10 @@ func handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Request) {
 	updatedAdmin, err := getAdminFromPostFields(r)
 	if err != nil {
 		renderAddUpdateAdminPage(w, r, &updatedAdmin, err.Error(), false)
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderForbiddenPage(w, r, err.Error())
 		return
 	}
 	updatedAdmin.ID = admin.ID
@@ -1184,6 +1210,10 @@ func handleWebTemplateUserPost(w http.ResponseWriter, r *http.Request) {
 		renderMessagePage(w, r, "Error parsing user fields", "", http.StatusBadRequest, err, "")
 		return
 	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderForbiddenPage(w, r, err.Error())
+		return
+	}
 
 	var dump dataprovider.BackupData
 	dump.Version = dataprovider.DumpVersion
@@ -1251,6 +1281,10 @@ func handleWebAddUserPost(w http.ResponseWriter, r *http.Request) {
 		renderUserPage(w, r, &user, userPageModeAdd, err.Error())
 		return
 	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderForbiddenPage(w, r, err.Error())
+		return
+	}
 	err = dataprovider.AddUser(&user)
 	if err == nil {
 		http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
@@ -1273,6 +1307,10 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 	updatedUser, err := getUserFromPostFields(r)
 	if err != nil {
 		renderUserPage(w, r, &user, userPageModeUpdate, err.Error())
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderForbiddenPage(w, r, err.Error())
 		return
 	}
 	updatedUser.ID = user.ID
@@ -1325,6 +1363,10 @@ func handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
 		renderFolderPage(w, r, folder, folderPageModeAdd, err.Error())
 		return
 	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderForbiddenPage(w, r, err.Error())
+		return
+	}
 	folder.MappedPath = r.Form.Get("mapped_path")
 	folder.Name = r.Form.Get("name")
 
@@ -1363,6 +1405,10 @@ func handleWebUpdateFolderPost(w http.ResponseWriter, r *http.Request) {
 	err = r.ParseForm()
 	if err != nil {
 		renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderForbiddenPage(w, r, err.Error())
 		return
 	}
 	folder.MappedPath = r.Form.Get("mapped_path")
