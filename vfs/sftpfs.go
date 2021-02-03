@@ -55,6 +55,10 @@ func (c *SFTPFsConfig) Validate() error {
 	if c.Endpoint == "" {
 		return errors.New("endpoint cannot be empty")
 	}
+	_, _, err := net.SplitHostPort(c.Endpoint)
+	if err != nil {
+		return fmt.Errorf("invalid endpoint: %v", err)
+	}
 	if c.Username == "" {
 		return errors.New("username cannot be empty")
 	}

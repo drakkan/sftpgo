@@ -1463,11 +1463,16 @@ func TestUserSFTPFs(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
 	user.FsConfig.Provider = dataprovider.SFTPFilesystemProvider
-	user.FsConfig.SFTPConfig.Endpoint = "127.0.0.1:2022"
+	user.FsConfig.SFTPConfig.Endpoint = "127.0.0.1" // missing port
 	user.FsConfig.SFTPConfig.Username = "sftp_user"
 	user.FsConfig.SFTPConfig.Password = kms.NewPlainSecret("sftp_pwd")
 	user.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret(sftpPrivateKey)
 	user.FsConfig.SFTPConfig.Fingerprints = []string{sftpPkeyFingerprint}
+	_, resp, err := httpdtest.UpdateUser(user, http.StatusBadRequest, "")
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid endpoint")
+
+	user.FsConfig.SFTPConfig.Endpoint = "127.0.0.1:2022"
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	assert.Equal(t, "/", user.FsConfig.SFTPConfig.Prefix)
@@ -5512,7 +5517,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	err = render.DecodeJSON(rr.Body, &user)
 	assert.NoError(t, err)
 	user.FsConfig.Provider = dataprovider.SFTPFilesystemProvider
-	user.FsConfig.SFTPConfig.Endpoint = "127.0.0.1"
+	user.FsConfig.SFTPConfig.Endpoint = "127.0.0.1:22"
 	user.FsConfig.SFTPConfig.Username = "sftpuser"
 	user.FsConfig.SFTPConfig.Password = kms.NewPlainSecret("pwd")
 	user.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret(sftpPrivateKey)
