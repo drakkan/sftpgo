@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/middleware"
 	"github.com/rs/cors"
 	"github.com/rs/xid"
 	"golang.org/x/net/webdav"
@@ -37,9 +38,10 @@ type webDavServer struct {
 }
 
 func (s *webDavServer) listenAndServe() error {
+	compressor := middleware.NewCompressor(5, "text/*")
+	handler := compressor.Handler(s)
 	httpServer := &http.Server{
 		Addr:              s.binding.GetAddress(),
-		Handler:           s,
 		ReadHeaderTimeout: 30 * time.Second,
 		IdleTimeout:       120 * time.Second,
 		MaxHeaderBytes:    1 << 16, // 64KB
@@ -55,8 +57,9 @@ func (s *webDavServer) listenAndServe() error {
 			AllowCredentials:   s.config.Cors.AllowCredentials,
 			OptionsPassthrough: true,
 		})
-		httpServer.Handler = c.Handler(s)
+		handler = c.Handler(handler)
 	}
+	httpServer.Handler = handler
 	if certMgr != nil && s.binding.EnableHTTPS {
 		serviceStatus.Bindings = append(serviceStatus.Bindings, s.binding)
 		httpServer.TLSConfig = &tls.Config{
