@@ -392,6 +392,9 @@ func (s *httpdServer) initializeRouter() {
 				router.With(checkPerm(dataprovider.PermAdminManageSystem), s.refreshCookie).
 					Get(webTemplateUser, handleWebTemplateUserGet)
 				router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(webTemplateUser, handleWebTemplateUserPost)
+				router.With(checkPerm(dataprovider.PermAdminManageSystem), s.refreshCookie).
+					Get(webTemplateFolder, handleWebTemplateFolderGet)
+				router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(webTemplateFolder, handleWebTemplateFolderPost)
 			})
 
 			router.Group(func(router chi.Router) {

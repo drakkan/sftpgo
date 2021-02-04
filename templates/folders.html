@@ -141,6 +141,21 @@ function deleteAction() {
             enabled: false
         };
 
+        $.fn.dataTable.ext.buttons.template = {
+            text: 'Template',
+            name: 'template',
+            action: function (e, dt, node, config) {
+                var selectedRows = table.rows({ selected: true }).count();
+                if (selectedRows == 1){
+                    var folderName = table.row({ selected: true }).data()[0];
+                    var path = '{{.FolderTemplateURL}}' + "?from=" + encodeURIComponent(folderName);
+                    window.location.href = path;
+                } else {
+                    window.location.href = '{{.FolderTemplateURL}}';
+                }
+            }
+        };
+
         $.fn.dataTable.ext.buttons.delete = {
             text: 'Delete',
             name: 'delete',
@@ -211,6 +226,10 @@ function deleteAction() {
 
         {{if .LoggedAdmin.HasPermission "quota_scans"}}
         table.button().add(0,'quota_scan');
+        {{end}}
+
+        {{if .LoggedAdmin.HasPermission "manage_system"}}
+        table.button().add(0,'template');
         {{end}}
 
         {{if .LoggedAdmin.HasPermission "del_users"}}

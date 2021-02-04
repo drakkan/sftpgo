@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/jwtauth"
 	"github.com/go-chi/render"
@@ -18,36 +17,9 @@ type adminPwd struct {
 }
 
 func getAdmins(w http.ResponseWriter, r *http.Request) {
-	limit := 100
-	offset := 0
-	order := dataprovider.OrderASC
-	var err error
-	if _, ok := r.URL.Query()["limit"]; ok {
-		limit, err = strconv.Atoi(r.URL.Query().Get("limit"))
-		if err != nil {
-			err = errors.New("Invalid limit")
-			sendAPIResponse(w, r, err, "", http.StatusBadRequest)
-			return
-		}
-		if limit > 500 {
-			limit = 500
-		}
-	}
-	if _, ok := r.URL.Query()["offset"]; ok {
-		offset, err = strconv.Atoi(r.URL.Query().Get("offset"))
-		if err != nil {
-			err = errors.New("Invalid offset")
-			sendAPIResponse(w, r, err, "", http.StatusBadRequest)
-			return
-		}
-	}
-	if _, ok := r.URL.Query()["order"]; ok {
-		order = r.URL.Query().Get("order")
-		if order != dataprovider.OrderASC && order != dataprovider.OrderDESC {
-			err = errors.New("Invalid order")
-			sendAPIResponse(w, r, err, "", http.StatusBadRequest)
-			return
-		}
+	limit, offset, order, err := getSearchFilters(w, r)
+	if err != nil {
+		return
 	}
 
 	admins, err := dataprovider.GetAdmins(limit, offset, order)

@@ -37,8 +37,7 @@ type webDavServer struct {
 	binding Binding
 }
 
-func (s *webDavServer) listenAndServe() error {
-	compressor := middleware.NewCompressor(5, "text/*")
+func (s *webDavServer) listenAndServe(compressor *middleware.Compressor) error {
 	handler := compressor.Handler(s)
 	httpServer := &http.Server{
 		Addr:              s.binding.GetAddress(),

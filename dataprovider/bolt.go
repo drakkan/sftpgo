@@ -677,7 +677,7 @@ func (p *BoltProvider) getFolderByName(name string) (vfs.BaseVirtualFolder, erro
 }
 
 func (p *BoltProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
-	err := validateFolder(folder)
+	err := ValidateFolder(folder)
 	if err != nil {
 		return err
 	}
@@ -696,7 +696,7 @@ func (p *BoltProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 }
 
 func (p *BoltProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
-	err := validateFolder(folder)
+	err := ValidateFolder(folder)
 	if err != nil {
 		return err
 	}

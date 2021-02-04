@@ -669,7 +669,7 @@ func sqlCommonAddOrGetFolder(ctx context.Context, baseFolder vfs.BaseVirtualFold
 }
 
 func sqlCommonAddFolder(folder *vfs.BaseVirtualFolder, dbHandle sqlQuerier) error {
-	err := validateFolder(folder)
+	err := ValidateFolder(folder)
 	if err != nil {
 		return err
 	}
@@ -688,7 +688,7 @@ func sqlCommonAddFolder(folder *vfs.BaseVirtualFolder, dbHandle sqlQuerier) erro
 }
 
 func sqlCommonUpdateFolder(folder *vfs.BaseVirtualFolder, dbHandle *sql.DB) error {
-	err := validateFolder(folder)
+	err := ValidateFolder(folder)
 	if err != nil {
 		return err
 	}

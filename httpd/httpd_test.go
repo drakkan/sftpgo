@@ -81,6 +81,7 @@ const (
 	webRestorePath            = "/web/restore"
 	webChangeAdminPwdPath     = "/web/changepwd/admin"
 	webTemplateUser           = "/web/template/user"
+	webTemplateFolder         = "/web/template/folder"
 	httpBaseURL               = "http://127.0.0.1:8081"
 	configDir                 = ".."
 	httpsCert                 = `-----BEGIN CERTIFICATE-----
@@ -2321,6 +2322,11 @@ func TestProviderErrors(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 	req, err = http.NewRequest(http.MethodGet, webTemplateUser+"?from=auser", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, testServerToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	req, err = http.NewRequest(http.MethodGet, webTemplateFolder+"?from=afolder", nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, testServerToken)
 	rr = executeRequest(req)
@@ -4803,6 +4809,38 @@ func TestWebUserUpdateMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 }
 
+func TestRenderFolderTemplateMock(t *testing.T) {
+	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodGet, webTemplateFolder, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	folder := vfs.BaseVirtualFolder{
+		Name:       "templatefolder",
+		MappedPath: filepath.Join(os.TempDir(), "mapped"),
+	}
+	folder, _, err = httpdtest.AddFolder(folder, http.StatusCreated)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, webTemplateFolder+fmt.Sprintf("?from=%v", folder.Name), nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webTemplateFolder+"?from=unknown-folder", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestRenderUserTemplateMock(t *testing.T) {
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -4976,7 +5014,7 @@ func TestUserTemplateMock(t *testing.T) {
 	// test invalid s3_upload_part_size
 	form.Set("s3_upload_part_size", "a")
 	b, contentType, _ := getMultipartFormData(form, "", "")
-	req, _ := http.NewRequest(http.MethodPost, path.Join(webTemplateUser), &b)
+	req, _ := http.NewRequest(http.MethodPost, webTemplateUser, &b)
 	setJWTCookieForReq(req, token)
 	req.Header.Set("Content-Type", contentType)
 	rr := executeRequest(req)
@@ -4985,7 +5023,7 @@ func TestUserTemplateMock(t *testing.T) {
 	form.Set("s3_upload_concurrency", strconv.Itoa(user.FsConfig.S3Config.UploadConcurrency))
 
 	b, contentType, _ = getMultipartFormData(form, "", "")
-	req, _ = http.NewRequest(http.MethodPost, path.Join(webTemplateUser), &b)
+	req, _ = http.NewRequest(http.MethodPost, webTemplateUser, &b)
 	setJWTCookieForReq(req, token)
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
@@ -4993,7 +5031,7 @@ func TestUserTemplateMock(t *testing.T) {
 
 	form.Set("users", "user1::password1::invalid-pkey")
 	b, contentType, _ = getMultipartFormData(form, "", "")
-	req, _ = http.NewRequest(http.MethodPost, path.Join(webTemplateUser), &b)
+	req, _ = http.NewRequest(http.MethodPost, webTemplateUser, &b)
 	setJWTCookieForReq(req, token)
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
@@ -5002,7 +5040,7 @@ func TestUserTemplateMock(t *testing.T) {
 
 	form.Set("users", "user1:password1")
 	b, contentType, _ = getMultipartFormData(form, "", "")
-	req, _ = http.NewRequest(http.MethodPost, path.Join(webTemplateUser), &b)
+	req, _ = http.NewRequest(http.MethodPost, webTemplateUser, &b)
 	setJWTCookieForReq(req, token)
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
@@ -5011,7 +5049,7 @@ func TestUserTemplateMock(t *testing.T) {
 
 	form.Set("users", "user1::password1\nuser2::password2::"+testPubKey+"\nuser3::::")
 	b, contentType, _ = getMultipartFormData(form, "", "")
-	req, _ = http.NewRequest(http.MethodPost, path.Join(webTemplateUser), &b)
+	req, _ = http.NewRequest(http.MethodPost, webTemplateUser, &b)
 	setJWTCookieForReq(req, token)
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
@@ -5021,6 +5059,8 @@ func TestUserTemplateMock(t *testing.T) {
 	err = json.Unmarshal(rr.Body.Bytes(), &dump)
 	require.NoError(t, err)
 	require.Len(t, dump.Users, 2)
+	require.Len(t, dump.Admins, 0)
+	require.Len(t, dump.Folders, 0)
 	user1 := dump.Users[0]
 	user2 := dump.Users[1]
 	require.Equal(t, "user1", user1.Username)
@@ -5042,6 +5082,71 @@ func TestUserTemplateMock(t *testing.T) {
 	err = user2.FsConfig.S3Config.AccessSecret.Decrypt()
 	require.NoError(t, err)
 	require.Equal(t, "password2", user2.FsConfig.S3Config.AccessSecret.GetPayload())
+}
+
+func TestFolderTemplateMock(t *testing.T) {
+	folderName := "vfolder-template"
+	mappedPath := filepath.Join(os.TempDir(), "%name%mapped%name%path")
+	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken()
+	assert.NoError(t, err)
+	form := make(url.Values)
+	form.Set("name", folderName)
+	form.Set("mapped_path", mappedPath)
+	form.Set("folders", "folder1\nfolder2\nfolder3\nfolder1\n\n\n")
+	contentType := "application/x-www-form-urlencoded"
+	req, _ := http.NewRequest(http.MethodPost, webTemplateFolder, bytes.NewBuffer([]byte(form.Encode())))
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+
+	req, _ = http.NewRequest(http.MethodPost, webTemplateFolder+"?param=p%C3%AO%GG", bytes.NewBuffer([]byte(form.Encode())))
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Error parsing folders fields")
+
+	req, _ = http.NewRequest(http.MethodPost, webTemplateFolder, bytes.NewBuffer([]byte(form.Encode())))
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	var dump dataprovider.BackupData
+	err = json.Unmarshal(rr.Body.Bytes(), &dump)
+	require.NoError(t, err)
+	require.Len(t, dump.Users, 0)
+	require.Len(t, dump.Admins, 0)
+	require.Len(t, dump.Folders, 3)
+	require.Equal(t, "folder1", dump.Folders[0].Name)
+	require.True(t, strings.HasSuffix(dump.Folders[0].MappedPath, "folder1mappedfolder1path"))
+	require.Equal(t, "folder2", dump.Folders[1].Name)
+	require.True(t, strings.HasSuffix(dump.Folders[1].MappedPath, "folder2mappedfolder2path"))
+	require.Equal(t, "folder3", dump.Folders[2].Name)
+	require.True(t, strings.HasSuffix(dump.Folders[2].MappedPath, "folder3mappedfolder3path"))
+
+	form.Set("folders", "\n\n\n")
+	req, _ = http.NewRequest(http.MethodPost, webTemplateFolder, bytes.NewBuffer([]byte(form.Encode())))
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "No folders to export")
+
+	form.Set("folders", "name")
+	form.Set("mapped_path", "relative-path")
+	req, _ = http.NewRequest(http.MethodPost, webTemplateFolder, bytes.NewBuffer([]byte(form.Encode())))
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Error validating folder")
 }
 
 func TestWebUserS3Mock(t *testing.T) {

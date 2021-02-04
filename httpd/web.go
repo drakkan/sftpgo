@@ -36,6 +36,7 @@ type folderPageMode int
 const (
 	folderPageModeAdd folderPageMode = iota + 1
 	folderPageModeUpdate
+	folderPageModeTemplate
 )
 
 const (
@@ -88,6 +89,7 @@ type basePage struct {
 	ConnectionsURL     string
 	FoldersURL         string
 	FolderURL          string
+	FolderTemplateURL  string
 	LogoutURL          string
 	ChangeAdminPwdURL  string
 	FolderQuotaScanURL string
@@ -277,6 +279,7 @@ func getBasePageData(title, currentURL string, r *http.Request) basePage {
 		AdminURL:           webAdminPath,
 		FoldersURL:         webFoldersPath,
 		FolderURL:          webFolderPath,
+		FolderTemplateURL:  webTemplateFolder,
 		LogoutURL:          webLogoutPath,
 		ChangeAdminPwdURL:  webChangeAdminPwdPath,
 		QuotaScanURL:       webQuotaScanPath,
@@ -409,6 +412,9 @@ func renderFolderPage(w http.ResponseWriter, r *http.Request, folder vfs.BaseVir
 	case folderPageModeUpdate:
 		title = "Update folder"
 		currentURL = fmt.Sprintf("%v/%v", webFolderPath, url.PathEscape(folder.Name))
+	case folderPageModeTemplate:
+		title = "Folder template"
+		currentURL = webTemplateFolder
 	}
 	data := folderPage{
 		basePage: getBasePageData(title, currentURL, r),
@@ -417,6 +423,20 @@ func renderFolderPage(w http.ResponseWriter, r *http.Request, folder vfs.BaseVir
 		Mode:     mode,
 	}
 	renderTemplate(w, templateFolder, data)
+}
+
+func getFoldersForTemplate(r *http.Request) []string {
+	var res []string
+	formValue := r.Form.Get("folders")
+	folders := make(map[string]bool)
+	for _, name := range getSliceFromDelimitedValues(formValue, "\n") {
+		if _, ok := folders[name]; ok {
+			continue
+		}
+		folders[name] = true
+		res = append(res, name)
+	}
+	return res
 }
 
 func getUsersForTemplate(r *http.Request) []userTemplateFields {
@@ -787,6 +807,16 @@ func replacePlaceholders(field string, replacements map[string]string) string {
 		field = strings.ReplaceAll(field, k, v)
 	}
 	return field
+}
+
+func getFolderFromTemplate(folder vfs.BaseVirtualFolder, name string) vfs.BaseVirtualFolder {
+	folder.Name = name
+	replacements := make(map[string]string)
+	replacements["%name%"] = folder.Name
+
+	folder.MappedPath = replacePlaceholders(folder.MappedPath, replacements)
+
+	return folder
 }
 
 func getCryptFsFromTemplate(fsConfig vfs.CryptFsConfig, replacements map[string]string) vfs.CryptFsConfig {
@@ -1183,6 +1213,61 @@ func handleGetWebUsers(w http.ResponseWriter, r *http.Request) {
 		Users:    users,
 	}
 	renderTemplate(w, templateUsers, data)
+}
+
+func handleWebTemplateFolderGet(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("from") != "" {
+		name := r.URL.Query().Get("from")
+		folder, err := dataprovider.GetFolderByName(name)
+		if err == nil {
+			renderFolderPage(w, r, folder, folderPageModeTemplate, "")
+		} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+			renderNotFoundPage(w, r, err)
+		} else {
+			renderInternalServerErrorPage(w, r, err)
+		}
+	} else {
+		folder := vfs.BaseVirtualFolder{}
+		renderFolderPage(w, r, folder, folderPageModeTemplate, "")
+	}
+}
+
+func handleWebTemplateFolderPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	templateFolder := vfs.BaseVirtualFolder{}
+	err := r.ParseForm()
+	if err != nil {
+		renderMessagePage(w, r, "Error parsing folders fields", "", http.StatusBadRequest, err, "")
+		return
+	}
+
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderForbiddenPage(w, r, err.Error())
+		return
+	}
+
+	templateFolder.MappedPath = r.Form.Get("mapped_path")
+
+	var dump dataprovider.BackupData
+	dump.Version = dataprovider.DumpVersion
+
+	foldersFields := getFoldersForTemplate(r)
+	for _, tmpl := range foldersFields {
+		f := getFolderFromTemplate(templateFolder, tmpl)
+		if err := dataprovider.ValidateFolder(&f); err != nil {
+			renderMessagePage(w, r, fmt.Sprintf("Error validating folder %#v", f.Name), "", http.StatusBadRequest, err, "")
+			return
+		}
+		dump.Folders = append(dump.Folders, f)
+	}
+
+	if len(dump.Folders) == 0 {
+		renderMessagePage(w, r, "No folders to export", "No valid folders found, export is not possible", http.StatusBadRequest, nil, "")
+		return
+	}
+
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"sftpgo-%v-folders-from-template.json\"", len(dump.Folders)))
+	render.JSON(w, r, dump)
 }
 
 func handleWebTemplateUserGet(w http.ResponseWriter, r *http.Request) {

@@ -997,7 +997,7 @@ func validateFolderQuotaLimits(folder vfs.VirtualFolder) error {
 }
 
 func getVirtualFolderIfInvalid(folder *vfs.BaseVirtualFolder) *vfs.BaseVirtualFolder {
-	if err := validateFolder(folder); err == nil {
+	if err := ValidateFolder(folder); err == nil {
 		return folder
 	}
 	// we try to get the folder from the data provider if only the Name is populated
@@ -1029,7 +1029,7 @@ func validateUserVirtualFolders(user *User) error {
 			return err
 		}
 		folder := getVirtualFolderIfInvalid(&v.BaseVirtualFolder)
-		if err := validateFolder(folder); err != nil {
+		if err := ValidateFolder(folder); err != nil {
 			return err
 		}
 		cleanedMPath := folder.MappedPath
@@ -1388,7 +1388,9 @@ func createUserPasswordHash(user *User) error {
 	return nil
 }
 
-func validateFolder(folder *vfs.BaseVirtualFolder) error {
+// ValidateFolder returns an error if the folder is not valid
+// FIXME: this should be defined as Folder struct method
+func ValidateFolder(folder *vfs.BaseVirtualFolder) error {
 	if folder.Name == "" {
 		return &ValidationError{err: "folder name is mandatory"}
 	}

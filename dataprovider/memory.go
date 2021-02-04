@@ -651,7 +651,7 @@ func (p *MemoryProvider) getFolderByName(name string) (vfs.BaseVirtualFolder, er
 }
 
 func (p *MemoryProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
-	err := validateFolder(folder)
+	err := ValidateFolder(folder)
 	if err != nil {
 		return err
 	}
@@ -675,7 +675,7 @@ func (p *MemoryProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 }
 
 func (p *MemoryProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
-	err := validateFolder(folder)
+	err := ValidateFolder(folder)
 	if err != nil {
 		return err
 	}

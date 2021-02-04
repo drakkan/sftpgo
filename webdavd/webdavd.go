@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/go-chi/chi/middleware"
+
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
@@ -157,6 +159,7 @@ func (c *Configuration) Initialize(configDir string) error {
 		}
 		certMgr = mgr
 	}
+	compressor := middleware.NewCompressor(5, "text/*")
 
 	serviceStatus = ServiceStatus{
 		Bindings: nil,
@@ -174,7 +177,7 @@ func (c *Configuration) Initialize(configDir string) error {
 				config:  c,
 				binding: binding,
 			}
-			exitChannel <- server.listenAndServe()
+			exitChannel <- server.listenAndServe(compressor)
 		}(binding)
 	}
 
