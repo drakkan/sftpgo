@@ -21,6 +21,8 @@ import (
 	"github.com/drakkan/sftpgo/version"
 )
 
+var compressor = middleware.NewCompressor(5)
+
 type httpdServer struct {
 	binding         Binding
 	staticFilesPath string
@@ -398,7 +400,6 @@ func (s *httpdServer) initializeRouter() {
 			})
 
 			router.Group(func(router chi.Router) {
-				compressor := middleware.NewCompressor(5)
 				router.Use(compressor.Handler)
 				fileServer(router, webStaticFilesPath, http.Dir(s.staticFilesPath))
 			})
