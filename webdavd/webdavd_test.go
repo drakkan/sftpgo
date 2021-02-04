@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -472,7 +471,7 @@ func TestPropPatch(t *testing.T) {
 		assert.NoError(t, err)
 		httpClient := httpclient.GetHTTPClient()
 		propatchBody := `<?xml version="1.0" encoding="utf-8" ?><D:propertyupdate xmlns:D="DAV:" xmlns:Z="urn:schemas-microsoft-com:"><D:set><D:prop><Z:Win32CreationTime>Wed, 04 Nov 2020 13:25:51 GMT</Z:Win32CreationTime><Z:Win32LastAccessTime>Sat, 05 Dec 2020 21:16:12 GMT</Z:Win32LastAccessTime><Z:Win32LastModifiedTime>Wed, 04 Nov 2020 13:25:51 GMT</Z:Win32LastModifiedTime><Z:Win32FileAttributes>00000000</Z:Win32FileAttributes></D:prop></D:set></D:propertyupdate>`
-		req, err := http.NewRequest("PROPPATCH", fmt.Sprintf("http://%v/%v/%v", webDavServerAddr, user.Username, testFileName), bytes.NewReader([]byte(propatchBody)))
+		req, err := http.NewRequest("PROPPATCH", fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName), bytes.NewReader([]byte(propatchBody)))
 		assert.NoError(t, err)
 		req.SetBasicAuth(u.Username, u.Password)
 		resp, err := httpClient.Do(req)
@@ -551,68 +550,6 @@ func TestDefender(t *testing.T) {
 	assert.NoError(t, err)
 
 	err = common.Initialize(oldConfig)
-	assert.NoError(t, err)
-}
-
-func TestLoginInvalidURL(t *testing.T) {
-	u := getTestUser()
-	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.NoError(t, err)
-	u1 := getTestUser()
-	u1.Username = user.Username + "1"
-	user1, _, err := httpdtest.AddUser(u1, http.StatusCreated)
-	assert.NoError(t, err)
-	rootPath := fmt.Sprintf("http://%v/%v", webDavServerAddr, user.Username+"1")
-	client := gowebdav.NewClient(rootPath, user.Username, defaultPassword)
-	client.SetTimeout(5 * time.Second)
-	assert.Error(t, checkBasicFunc(client))
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
-	assert.NoError(t, err)
-}
-
-func TestRootRedirect(t *testing.T) {
-	errRedirect := errors.New("redirect error")
-	u := getTestUser()
-	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.NoError(t, err)
-	client := getWebDavClient(user)
-	assert.NoError(t, checkBasicFunc(client))
-	rootPath := fmt.Sprintf("http://%v/", webDavServerAddr)
-	httpClient := httpclient.GetHTTPClient()
-	httpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		return errRedirect
-	}
-	req, err := http.NewRequest(http.MethodOptions, rootPath, nil)
-	assert.NoError(t, err)
-	req.SetBasicAuth(u.Username, u.Password)
-	resp, err := httpClient.Do(req)
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), errRedirect.Error())
-	}
-	err = resp.Body.Close()
-	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodGet, rootPath, nil)
-	assert.NoError(t, err)
-	req.SetBasicAuth(u.Username, u.Password)
-	resp, err = httpClient.Do(req)
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), errRedirect.Error())
-	}
-	err = resp.Body.Close()
-	assert.NoError(t, err)
-	req, err = http.NewRequest("PROPFIND", rootPath, nil)
-	assert.NoError(t, err)
-	req.SetBasicAuth(u.Username, u.Password)
-	resp, err = httpClient.Do(req)
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), errRedirect.Error())
-	}
-	err = resp.Body.Close()
-	assert.NoError(t, err)
-
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -1275,7 +1212,7 @@ func TestBytesRangeRequests(t *testing.T) {
 		client := getWebDavClient(user)
 		err = uploadFile(testFilePath, testFileName, int64(len(fileContent)), client)
 		assert.NoError(t, err)
-		remotePath := fmt.Sprintf("http://%v/%v/%v", webDavServerAddr, user.Username, testFileName)
+		remotePath := fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName)
 		req, err := http.NewRequest(http.MethodGet, remotePath, nil)
 		if assert.NoError(t, err) {
 			httpClient := httpclient.GetHTTPClient()
@@ -1318,7 +1255,7 @@ func TestHEAD(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	rootPath := fmt.Sprintf("http://%v/%v", webDavServerAddr, user.Username)
+	rootPath := fmt.Sprintf("http://%v", webDavServerAddr)
 	httpClient := httpclient.GetHTTPClient()
 	req, err := http.NewRequest(http.MethodHead, rootPath, nil)
 	if assert.NoError(t, err) {
@@ -1343,7 +1280,7 @@ func TestGETAsPROPFIND(t *testing.T) {
 	u.Permissions[subDir1] = []string{dataprovider.PermUpload, dataprovider.PermCreateDirs}
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	rootPath := fmt.Sprintf("http://%v/%v", webDavServerAddr, user.Username)
+	rootPath := fmt.Sprintf("http://%v/", webDavServerAddr)
 	httpClient := httpclient.GetHTTPClient()
 	req, err := http.NewRequest(http.MethodGet, rootPath, nil)
 	if assert.NoError(t, err) {
@@ -1357,7 +1294,7 @@ func TestGETAsPROPFIND(t *testing.T) {
 	client := getWebDavClient(user)
 	err = client.MkdirAll(path.Join(subDir1, "sub", "sub1"), os.ModePerm)
 	assert.NoError(t, err)
-	subPath := fmt.Sprintf("http://%v/%v", webDavServerAddr, path.Join(user.Username, subDir1))
+	subPath := fmt.Sprintf("http://%v/%v", webDavServerAddr, subDir1)
 	req, err = http.NewRequest(http.MethodGet, subPath, nil)
 	if assert.NoError(t, err) {
 		req.SetBasicAuth(u.Username, u.Password)
@@ -1370,7 +1307,7 @@ func TestGETAsPROPFIND(t *testing.T) {
 		}
 	}
 	// we cannot stat the sub at all
-	subPath1 := fmt.Sprintf("http://%v/%v", webDavServerAddr, path.Join(user.Username, subDir1, "sub"))
+	subPath1 := fmt.Sprintf("http://%v/%v", webDavServerAddr, path.Join(subDir1, "sub"))
 	req, err = http.NewRequest(http.MethodGet, subPath1, nil)
 	if assert.NoError(t, err) {
 		req.SetBasicAuth(u.Username, u.Password)
@@ -1622,7 +1559,7 @@ func downloadFile(remoteSourcePath string, localDestPath string, expectedSize in
 }
 
 func getWebDavClient(user dataprovider.User) *gowebdav.Client {
-	rootPath := fmt.Sprintf("http://%v/%v", webDavServerAddr, user.Username)
+	rootPath := fmt.Sprintf("http://%v/", webDavServerAddr)
 	pwd := defaultPassword
 	if len(user.Password) > 0 {
 		pwd = user.Password

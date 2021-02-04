@@ -27,7 +27,6 @@ import (
 
 var (
 	err401        = errors.New("Unauthorized")
-	err403        = errors.New("Forbidden")
 	xForwardedFor = http.CanonicalHeaderKey("X-Forwarded-For")
 	xRealIP       = http.CanonicalHeaderKey("X-Real-IP")
 )
@@ -105,11 +104,11 @@ func (s *webDavServer) verifyTLSConnection(state tls.ConnectionState) error {
 	return nil
 }
 
-// returns true if a response was sent
-func (s *webDavServer) checkRequestMethod(ctx context.Context, r *http.Request, connection *Connection, prefix string) bool {
+// returns true if we have to handle a HEAD response, for a directory, ourself
+func (s *webDavServer) checkRequestMethod(ctx context.Context, r *http.Request, connection *Connection) bool {
 	// see RFC4918, section 9.4
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {
-		p := strings.TrimPrefix(path.Clean(r.URL.Path), prefix)
+		p := path.Clean(r.URL.Path)
 		info, err := connection.Stat(ctx, p)
 		if err == nil && info.IsDir() {
 			if r.Method == http.MethodHead {
@@ -154,11 +153,6 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if path.Clean(r.URL.Path) == "/" && (r.Method == http.MethodGet || r.Method == "PROPFIND" || r.Method == http.MethodOptions) {
-		http.Redirect(w, r, path.Join("/", user.Username), http.StatusMovedPermanently)
-		return
-	}
-
 	connectionID, err := s.validateUser(&user, r)
 	if err != nil {
 		updateLoginMetrics(&user, ipAddr, err)
@@ -187,8 +181,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	dataprovider.UpdateLastLogin(user) //nolint:errcheck
 
-	prefix := path.Join("/", user.Username)
-	if s.checkRequestMethod(ctx, r, connection, prefix) {
+	if s.checkRequestMethod(ctx, r, connection) {
 		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 		w.WriteHeader(http.StatusMultiStatus)
 		w.Write([]byte("")) //nolint:errcheck
@@ -196,7 +189,6 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	handler := webdav.Handler{
-		Prefix:     prefix,
 		FileSystem: connection,
 		LockSystem: lockSystem,
 		Logger:     writeLog,
@@ -256,12 +248,6 @@ func (s *webDavServer) authenticate(r *http.Request, ip string) (dataprovider.Us
 func (s *webDavServer) validateUser(user *dataprovider.User, r *http.Request) (string, error) {
 	connID := xid.New().String()
 	connectionID := fmt.Sprintf("%v_%v", common.ProtocolWebDAV, connID)
-
-	uriSegments := strings.Split(path.Clean(r.URL.Path), "/")
-	if len(uriSegments) < 2 || uriSegments[1] != user.Username {
-		logger.Debug(logSender, connectionID, "URI %#v not allowed for user %#v", r.URL.Path, user.Username)
-		return connID, err403
-	}
 
 	if !filepath.IsAbs(user.HomeDir) {
 		logger.Warn(logSender, connectionID, "user %#v has an invalid home dir: %#v. Home dir must be an absolute path, login not allowed",
