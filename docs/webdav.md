@@ -1,8 +1,8 @@
 # WebDAV
 
-The experimental `WebDAV` support can be enabled by configuring one or more `bindings` inside the `webdavd` configuration section.
+The `WebDAV` support can be enabled by configuring one or more `bindings` inside the `webdavd` configuration section.
 
-Each user has his own path like `http/s://<SFTPGo ip>:<WevDAVPORT>/<username>` and it must authenticate using password credentials.
+Each user can access their home directory using the path `http/s://<SFTPGo ip>:<WevDAVPORT>/`.
 
 WebDAV is quite a different protocol than SCP/FTP, there is no session concept, each command is a separate HTTP request and must be authenticated, to improve performance SFTPGo caches authenticated users. This way SFTPGo don't need to do a dataprovider query and a password check for each request.
 
