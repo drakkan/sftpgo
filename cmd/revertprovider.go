@@ -26,11 +26,15 @@ Please take a look at the usage below to customize the options.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			logger.DisableLogger()
 			logger.EnableConsoleLogger(zerolog.DebugLevel)
+			if revertProviderTargetVersion != 4 {
+				logger.WarnToConsole("Unsupported target version, 4 is the only supported one")
+				os.Exit(1)
+			}
 			configDir = utils.CleanDirInput(configDir)
 			err := config.LoadConfig(configDir, configFile)
 			if err != nil {
 				logger.WarnToConsole("Unable to initialize data provider, config load error: %v", err)
-				return
+				os.Exit(1)
 			}
 			kmsConfig := config.GetKMSConfig()
 			err = kmsConfig.Initialize()
@@ -54,6 +58,7 @@ Please take a look at the usage below to customize the options.`,
 func init() {
 	addConfigFlags(revertProviderCmd)
 	revertProviderCmd.Flags().IntVar(&revertProviderTargetVersion, "to-version", 0, `4 means the version supported in v1.0.0-v1.2.x`)
+	revertProviderCmd.MarkFlagRequired("to-version") //nolint:errcheck
 
 	rootCmd.AddCommand(revertProviderCmd)
 }
