@@ -48,7 +48,7 @@ ENV SFTPGO_HTTPD__STATIC_FILES_PATH=/usr/share/sftpgo/static
 # Modify the default configuration file
 RUN sed -i "s|\"users_base_dir\": \"\",|\"users_base_dir\": \"/srv/sftpgo/data\",|" /etc/sftpgo/sftpgo.json && \
     sed -i "s|\"backups\"|\"/srv/sftpgo/backups\"|" /etc/sftpgo/sftpgo.json && \
-    sed -i "s|\"bind_address\": \"127.0.0.1\",|\"bind_address\": \"\",|" /etc/sftpgo/sftpgo.json
+    sed -i "s|\"address\": \"127.0.0.1\",|\"address\": \"\",|" /etc/sftpgo/sftpgo.json
 
 COPY ./docker/scripts/entrypoint.sh /docker-entrypoint.sh
 
