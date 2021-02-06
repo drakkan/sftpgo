@@ -480,7 +480,7 @@ func checkCommonParamsCompatibility() {
 }
 
 func checkSFTPDBindingsCompatibility() {
-	if len(globalConf.SFTPD.Bindings) > 0 {
+	if globalConf.SFTPD.BindPort == 0 { //nolint:staticcheck
 		return
 	}
 
@@ -495,11 +495,11 @@ func checkSFTPDBindingsCompatibility() {
 		binding.Address = globalConf.SFTPD.BindAddress //nolint:staticcheck
 	}
 
-	globalConf.SFTPD.Bindings = append(globalConf.SFTPD.Bindings, binding)
+	globalConf.SFTPD.Bindings = []sftpd.Binding{binding}
 }
 
 func checkFTPDBindingCompatibility() {
-	if len(globalConf.FTPD.Bindings) > 0 {
+	if globalConf.FTPD.BindPort == 0 { //nolint:staticcheck
 		return
 	}
 
@@ -520,11 +520,11 @@ func checkFTPDBindingCompatibility() {
 		binding.ForcePassiveIP = globalConf.FTPD.ForcePassiveIP //nolint:staticcheck
 	}
 
-	globalConf.FTPD.Bindings = append(globalConf.FTPD.Bindings, binding)
+	globalConf.FTPD.Bindings = []ftpd.Binding{binding}
 }
 
 func checkWebDAVDBindingCompatibility() {
-	if len(globalConf.WebDAVD.Bindings) > 0 {
+	if globalConf.WebDAVD.BindPort == 0 { //nolint:staticcheck
 		return
 	}
 
@@ -539,11 +539,11 @@ func checkWebDAVDBindingCompatibility() {
 		binding.Address = globalConf.WebDAVD.BindAddress //nolint:staticcheck
 	}
 
-	globalConf.WebDAVD.Bindings = append(globalConf.WebDAVD.Bindings, binding)
+	globalConf.WebDAVD.Bindings = []webdavd.Binding{binding}
 }
 
 func checkHTTPDBindingCompatibility() {
-	if len(globalConf.HTTPDConfig.Bindings) > 0 {
+	if globalConf.HTTPDConfig.BindPort == 0 { //nolint:staticcheck
 		return
 	}
 
@@ -559,7 +559,7 @@ func checkHTTPDBindingCompatibility() {
 		binding.Address = globalConf.HTTPDConfig.BindAddress //nolint:staticcheck
 	}
 
-	globalConf.HTTPDConfig.Bindings = append(globalConf.HTTPDConfig.Bindings, binding)
+	globalConf.HTTPDConfig.Bindings = []httpd.Binding{binding}
 }
 
 func loadBindingsFromEnv() {

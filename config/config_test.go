@@ -362,7 +362,6 @@ func TestServiceToStart(t *testing.T) {
 	assert.True(t, config.HasServicesToStart())
 }
 
-//nolint:dupl
 func TestSFTPDBindingsCompatibility(t *testing.T) {
 	reset()
 
@@ -385,20 +384,11 @@ func TestSFTPDBindingsCompatibility(t *testing.T) {
 	err = config.LoadConfig(configDir, confName)
 	assert.NoError(t, err)
 	sftpdConf = config.GetSFTPDConfig()
-	// even if there is no binding configuration in sftpd conf we load the default
+	// the default binding should be replaced with the deprecated configuration
 	require.Len(t, sftpdConf.Bindings, 1)
-	require.Equal(t, 2022, sftpdConf.Bindings[0].Port)
-	require.Empty(t, sftpdConf.Bindings[0].Address)
+	require.Equal(t, 9022, sftpdConf.Bindings[0].Port)
+	require.Equal(t, "127.0.0.1", sftpdConf.Bindings[0].Address)
 	require.True(t, sftpdConf.Bindings[0].ApplyProxyConfig)
-	// now set the global value to nil and reload the configuration
-	// this time we should get the values setted using the deprecated configuration
-	sftpdConf.Bindings = nil
-	sftpdConf.BindPort = 2022  //nolint:staticcheck
-	sftpdConf.BindAddress = "" //nolint:staticcheck
-	config.SetSFTPDConfig(sftpdConf)
-	require.Nil(t, config.GetSFTPDConfig().Bindings)
-	require.Equal(t, 2022, config.GetSFTPDConfig().BindPort) //nolint:staticcheck
-	require.Empty(t, config.GetSFTPDConfig().BindAddress)    //nolint:staticcheck
 
 	err = config.LoadConfig(configDir, confName)
 	assert.NoError(t, err)
@@ -411,7 +401,6 @@ func TestSFTPDBindingsCompatibility(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-//nolint:dupl
 func TestFTPDBindingsCompatibility(t *testing.T) {
 	reset()
 
@@ -436,24 +425,7 @@ func TestFTPDBindingsCompatibility(t *testing.T) {
 	err = config.LoadConfig(configDir, confName)
 	assert.NoError(t, err)
 	ftpdConf = config.GetFTPDConfig()
-	// even if there is no binding configuration in ftpd conf we load the default
-	require.Len(t, ftpdConf.Bindings, 1)
-	require.Equal(t, 0, ftpdConf.Bindings[0].Port)
-	require.Empty(t, ftpdConf.Bindings[0].Address)
-	require.True(t, ftpdConf.Bindings[0].ApplyProxyConfig)
-	// now set the global value to nil and reload the configuration
-	// this time we should get the values setted using the deprecated configuration
-	ftpdConf.Bindings = nil
-	ftpdConf.BindPort = 0     //nolint:staticcheck
-	ftpdConf.BindAddress = "" //nolint:staticcheck
-	config.SetFTPDConfig(ftpdConf)
-	require.Nil(t, config.GetFTPDConfig().Bindings)
-	require.Equal(t, 0, config.GetFTPDConfig().BindPort) //nolint:staticcheck
-	require.Empty(t, config.GetFTPDConfig().BindAddress) //nolint:staticcheck
-
-	err = config.LoadConfig(configDir, confName)
-	assert.NoError(t, err)
-	ftpdConf = config.GetFTPDConfig()
+	// the default binding should be replaced with the deprecated configuration
 	require.Len(t, ftpdConf.Bindings, 1)
 	require.Equal(t, 9022, ftpdConf.Bindings[0].Port)
 	require.Equal(t, "127.1.0.1", ftpdConf.Bindings[0].Address)
@@ -464,7 +436,6 @@ func TestFTPDBindingsCompatibility(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-//nolint:dupl
 func TestWebDAVDBindingsCompatibility(t *testing.T) {
 	reset()
 
@@ -487,24 +458,7 @@ func TestWebDAVDBindingsCompatibility(t *testing.T) {
 	err = config.LoadConfig(configDir, confName)
 	assert.NoError(t, err)
 	webdavConf = config.GetWebDAVDConfig()
-	// even if there is no binding configuration in webdav conf we load the default
-	require.Len(t, webdavConf.Bindings, 1)
-	require.Equal(t, 0, webdavConf.Bindings[0].Port)
-	require.Empty(t, webdavConf.Bindings[0].Address)
-	require.False(t, webdavConf.Bindings[0].EnableHTTPS)
-	// now set the global value to nil and reload the configuration
-	// this time we should get the values setted using the deprecated configuration
-	webdavConf.Bindings = nil
-	webdavConf.BindPort = 10080 //nolint:staticcheck
-	webdavConf.BindAddress = "" //nolint:staticcheck
-	config.SetWebDAVDConfig(webdavConf)
-	require.Nil(t, config.GetWebDAVDConfig().Bindings)
-	require.Equal(t, 10080, config.GetWebDAVDConfig().BindPort) //nolint:staticcheck
-	require.Empty(t, config.GetWebDAVDConfig().BindAddress)     //nolint:staticcheck
-
-	err = config.LoadConfig(configDir, confName)
-	assert.NoError(t, err)
-	webdavConf = config.GetWebDAVDConfig()
+	// the default binding should be replaced with the deprecated configuration
 	require.Len(t, webdavConf.Bindings, 1)
 	require.Equal(t, 9080, webdavConf.Bindings[0].Port)
 	require.Equal(t, "127.0.0.1", webdavConf.Bindings[0].Address)
@@ -513,7 +467,6 @@ func TestWebDAVDBindingsCompatibility(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-//nolint:dupl
 func TestHTTPDBindingsCompatibility(t *testing.T) {
 	reset()
 
@@ -536,25 +489,7 @@ func TestHTTPDBindingsCompatibility(t *testing.T) {
 	err = config.LoadConfig(configDir, confName)
 	assert.NoError(t, err)
 	httpdConf = config.GetHTTPDConfig()
-	// even if there is no binding configuration in httpd conf we load the default
-	require.Len(t, httpdConf.Bindings, 1)
-	require.Equal(t, 8080, httpdConf.Bindings[0].Port)
-	require.Equal(t, "127.0.0.1", httpdConf.Bindings[0].Address)
-	require.False(t, httpdConf.Bindings[0].EnableHTTPS)
-	require.True(t, httpdConf.Bindings[0].EnableWebAdmin)
-	// now set the global value to nil and reload the configuration
-	// this time we should get the values setted using the deprecated configuration
-	httpdConf.Bindings = nil
-	httpdConf.BindPort = 10080 //nolint:staticcheck
-	httpdConf.BindAddress = "" //nolint:staticcheck
-	config.SetHTTPDConfig(httpdConf)
-	require.Nil(t, config.GetHTTPDConfig().Bindings)
-	require.Equal(t, 10080, config.GetHTTPDConfig().BindPort) //nolint:staticcheck
-	require.Empty(t, config.GetHTTPDConfig().BindAddress)     //nolint:staticcheck
-
-	err = config.LoadConfig(configDir, confName)
-	assert.NoError(t, err)
-	httpdConf = config.GetHTTPDConfig()
+	// the default binding should be replaced with the deprecated configuration
 	require.Len(t, httpdConf.Bindings, 1)
 	require.Equal(t, 9080, httpdConf.Bindings[0].Port)
 	require.Equal(t, "127.1.1.1", httpdConf.Bindings[0].Address)
