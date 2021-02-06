@@ -1,4 +1,4 @@
-FROM golang:1.15-alpine AS builder
+FROM golang:1.15-alpine3.12 AS builder
 
 ENV GOFLAGS="-mod=readonly"
 
@@ -26,7 +26,7 @@ RUN set -xe && \
     go build $(if [ -n "${FEATURES}" ]; then echo "-tags ${FEATURES}"; fi) -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=${COMMIT_SHA} -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -v -o sftpgo
 
 
-FROM alpine:3.13
+FROM alpine:3.12
 
 RUN apk add --update --no-cache ca-certificates tzdata mailcap
 
