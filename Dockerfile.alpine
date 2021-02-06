@@ -26,7 +26,7 @@ RUN set -xe && \
     go build $(if [ -n "${FEATURES}" ]; then echo "-tags ${FEATURES}"; fi) -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=${COMMIT_SHA} -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -v -o sftpgo
 
 
-FROM alpine:3.12
+FROM alpine:3.13
 
 RUN apk add --update --no-cache ca-certificates tzdata mailcap
 
