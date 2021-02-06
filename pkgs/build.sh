@@ -41,7 +41,7 @@ description: |
   Fully featured and highly configurable SFTP server
   SFTPGo has optional FTP/S and WebDAV support.
   It can serve local filesystem, S3 (Compatible) Object Storage,
-  Google Cloud Storage and Azure Blob Storage.
+  Google Cloud Storage, Azure Blob Storage, SFTP.
 vendor: "SFTPGo"
 homepage: "https://github.com/drakkan/sftpgo"
 license: "GPL-3.0"

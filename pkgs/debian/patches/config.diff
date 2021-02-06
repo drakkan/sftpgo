@@ -2,17 +2,17 @@ Index: sftpgo/sftpgo.json
 ===================================================================
 --- sftpgo.orig/sftpgo.json
 +++ sftpgo/sftpgo.json
-@@ -74,7 +74,7 @@
+@@ -113,7 +113,7 @@
    },
    "data_provider": {
      "driver": "sqlite",
 -    "name": "sftpgo.db",
 +    "name": "/var/lib/sftpgo/sftpgo.db",
      "host": "",
-     "port": 5432,
+     "port": 0,
      "username": "",
-@@ -85,14 +85,14 @@
-     "manage_users": 1,
+@@ -123,14 +123,14 @@
+     "sql_tables_prefix": "",
      "track_quota": 2,
      "pool_size": 0,
 -    "users_base_dir": "",
@@ -28,16 +28,16 @@ Index: sftpgo/sftpgo.json
      "prefer_database_credentials": false,
      "pre_login_hook": "",
      "post_login_hook": "",
-@@ -111,9 +111,9 @@
-   "httpd": {
-     "bind_port": 8080,
-     "bind_address": "127.0.0.1",
+@@ -156,9 +156,9 @@
+         "client_auth_type": 0
+       }
+     ],
 -    "templates_path": "templates",
 -    "static_files_path": "static",
 -    "backups_path": "backups",
 +    "templates_path": "/usr/share/sftpgo/templates",
 +    "static_files_path": "/usr/share/sftpgo/static",
 +    "backups_path": "/srv/sftpgo/backups",
-     "auth_user_file": "",
      "certificate_file": "",
-     "certificate_key_file": ""
+     "certificate_key_file": "",
+     "ca_certificates": [],

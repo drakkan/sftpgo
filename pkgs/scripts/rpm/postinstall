@@ -19,7 +19,6 @@ if [ $1 -eq 1 ]; then
   /usr/bin/chown -R sftpgo:sftpgo /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
   /usr/bin/chmod 750 /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
   /usr/bin/chmod 640 /etc/sftpgo/sftpgo.json
-  /bin/echo "Please be sure to have the python requests library installed if you want to use the REST API CLI"
 fi
 
 # adjust permissions for /srv/sftpgo and /var/lib/sftpgo
