@@ -47,9 +47,9 @@ const (
 	mysqlV8SQL     = "ALTER TABLE `{{folders}}` ADD COLUMN `name` varchar(255) NULL;" +
 		"ALTER TABLE `{{folders}}` MODIFY `path` varchar(512) NULL;" +
 		"ALTER TABLE `{{folders}}` DROP INDEX `path`;" +
-		"UPDATE `{{folders}}` f1 SET name = (SELECT CONCAT('folder',f2.id) FROM `{{folders}}` f2 WHERE f2.id = f1.id);" +
+		"UPDATE `{{folders}}` f1 SET name = CONCAT('folder',f1.id);" +
 		"ALTER TABLE `{{folders}}` MODIFY `name` varchar(255) NOT NULL;" +
-		"ALTER TABLE `folders` ADD CONSTRAINT `name` UNIQUE (`name`);"
+		"ALTER TABLE `{{folders}}` ADD CONSTRAINT `name` UNIQUE (`name`);"
 	mysqlV8DownSQL = "ALTER TABLE `{{folders}}` DROP COLUMN `name`;" +
 		"ALTER TABLE `{{folders}}` MODIFY `path` varchar(512) NOT NULL;" +
 		"ALTER TABLE `{{folders}}` ADD CONSTRAINT `path` UNIQUE (`path`);"
