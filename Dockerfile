@@ -32,12 +32,14 @@ RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates
 
 RUN if [ "${INSTALL_OPTIONAL_PACKAGES}" = "true" ]; then apt-get update && apt-get install --no-install-recommends -y git rsync && rm -rf /var/lib/apt/lists/*; fi
 
-RUN mkdir -p /etc/sftpgo /var/lib/sftpgo /usr/share/sftpgo /srv/sftpgo
+RUN mkdir -p /etc/sftpgo /var/lib/sftpgo /usr/share/sftpgo /srv/sftpgo/{data,backups}
 
 RUN groupadd --system -g 1000 sftpgo && \
     useradd --system --gid sftpgo --no-create-home \
     --home-dir /var/lib/sftpgo --shell /usr/sbin/nologin \
     --comment "SFTPGo user" --uid 1000 sftpgo
+
+RUN chown -R 1000:1000 /srv/sftpgo
 
 COPY --from=builder /workspace/sftpgo.json /etc/sftpgo/sftpgo.json
 COPY --from=builder /workspace/templates /usr/share/sftpgo/templates

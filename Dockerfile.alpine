@@ -39,10 +39,12 @@ RUN if [ "${INSTALL_OPTIONAL_PACKAGES}" = "true" ]; then apk add --update --no-c
 # https://github.com/gliderlabs/docker-alpine/issues/367#issuecomment-424546457
 RUN test ! -e /etc/nsswitch.conf && echo 'hosts: files dns' > /etc/nsswitch.conf
 
-RUN mkdir -p /etc/sftpgo /var/lib/sftpgo /usr/share/sftpgo /srv/sftpgo
+RUN mkdir -p /etc/sftpgo /var/lib/sftpgo /usr/share/sftpgo /srv/sftpgo/{data,backups}
 
 RUN addgroup -g 1000 -S sftpgo && \
     adduser -u 1000 -h /var/lib/sftpgo -s /sbin/nologin -G sftpgo -S -D -H -g "SFTPGo user" sftpgo
+
+RUN chown -R 1000:1000 /srv/sftpgo
 
 COPY --from=builder /workspace/sftpgo.json /etc/sftpgo/sftpgo.json
 COPY --from=builder /workspace/templates /usr/share/sftpgo/templates
