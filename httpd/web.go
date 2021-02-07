@@ -519,7 +519,7 @@ func getUserPermissionsFromPostFields(r *http.Request) map[string][]string {
 				perms := []string{}
 				for _, p := range strings.Split(dirPerms[1], ",") {
 					cleanedPerm := strings.TrimSpace(p)
-					if len(cleanedPerm) > 0 {
+					if cleanedPerm != "" {
 						perms = append(perms, cleanedPerm)
 					}
 				}
