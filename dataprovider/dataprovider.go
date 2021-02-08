@@ -1363,7 +1363,8 @@ func validateBaseParams(user *User) error {
 		return &ValidationError{err: "username is mandatory"}
 	}
 	if !usernameRegex.MatchString(user.Username) {
-		return &ValidationError{err: fmt.Sprintf("username %#v is not valid", user.Username)}
+		return &ValidationError{err: fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
+			user.Username)}
 	}
 	if user.HomeDir == "" {
 		return &ValidationError{err: "home_dir is mandatory"}
@@ -1395,7 +1396,8 @@ func ValidateFolder(folder *vfs.BaseVirtualFolder) error {
 		return &ValidationError{err: "folder name is mandatory"}
 	}
 	if !usernameRegex.MatchString(folder.Name) {
-		return &ValidationError{err: fmt.Sprintf("folder name %#v is not valid", folder.Name)}
+		return &ValidationError{err: fmt.Sprintf("folder name %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
+			folder.Name)}
 	}
 	cleanedMPath := filepath.Clean(folder.MappedPath)
 	if !filepath.IsAbs(cleanedMPath) {

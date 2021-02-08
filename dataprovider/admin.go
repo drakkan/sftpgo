@@ -70,7 +70,7 @@ func (a *Admin) validate() error {
 		return &ValidationError{err: "please set a password"}
 	}
 	if !usernameRegex.MatchString(a.Username) {
-		return &ValidationError{err: fmt.Sprintf("username %#v is not valid", a.Username)}
+		return &ValidationError{err: fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~", a.Username)}
 	}
 	if a.Password != "" && !strings.HasPrefix(a.Password, argonPwdPrefix) {
 		pwd, err := argon2id.CreateHash(a.Password, argon2Params)

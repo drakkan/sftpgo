@@ -55,8 +55,6 @@ RUN sed -i "s|\"users_base_dir\": \"\",|\"users_base_dir\": \"/srv/sftpgo/data\"
     sed -i "s|\"backups\"|\"/srv/sftpgo/backups\"|" /etc/sftpgo/sftpgo.json && \
     sed -i "s|\"address\": \"127.0.0.1\",|\"address\": \"\",|" /etc/sftpgo/sftpgo.json
 
-COPY ./docker/scripts/entrypoint.sh /docker-entrypoint.sh
-
 RUN chown -R sftpgo:sftpgo /etc/sftpgo && chown sftpgo:sftpgo /var/lib/sftpgo /srv/sftpgo
 
 WORKDIR /var/lib/sftpgo
