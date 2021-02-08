@@ -3,6 +3,7 @@ package config_test
 import (
 	"encoding/json"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -788,4 +789,50 @@ func TestConfigFromEnv(t *testing.T) {
 	assert.Len(t, telemetryConfig.TLSCipherSuites, 2)
 	assert.Equal(t, "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA", telemetryConfig.TLSCipherSuites[0])
 	assert.Equal(t, "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA", telemetryConfig.TLSCipherSuites[1])
+}
+
+//goland:noinspection GoUnhandledErrorResult
+func TestFSMetaFromEnv(t *testing.T) {
+	reset()
+
+	os.Setenv("SFTPGO_FSMETA__ENABLED", "true")
+	os.Setenv("SFTPGO_FSMETA__DATABASE", "sftpgo")
+	os.Setenv("SFTPGO_FSMETA__SCHEMA", "fsmeta")
+	os.Setenv("SFTPGO_FSMETA__HOST", "127.0.0.1")
+	os.Setenv("SFTPGO_FSMETA__PORT", "5432")
+	os.Setenv("SFTPGO_FSMETA__USERNAME", "user1")
+	os.Setenv("SFTPGO_FSMETA__PASSWORD", "pass1")
+	os.Setenv("SFTPGO_FSMETA__SSLMODE", "1")
+	os.Setenv("SFTPGO_FSMETA__POOL_SIZE", "3")
+
+	t.Cleanup(func() {
+		os.Unsetenv("SFTPGO_FSMETA__ENABLED")
+		os.Unsetenv("SFTPGO_FSMETA__DATABASE")
+		os.Unsetenv("SFTPGO_FSMETA__SCHEMA")
+		os.Unsetenv("SFTPGO_FSMETA__HOST")
+		os.Unsetenv("SFTPGO_FSMETA__PORT")
+		os.Unsetenv("SFTPGO_FSMETA__USERNAME")
+		os.Unsetenv("SFTPGO_FSMETA__PASSWORD")
+		os.Unsetenv("SFTPGO_FSMETA__SSLMODE")
+		os.Unsetenv("SFTPGO_FSMETA__POOL_SIZE")
+	})
+
+	err := config.LoadConfig(".", "invalid config")
+	assert.NoError(t, err)
+	fsMetaConfig := config.GetFSMetaConfig()
+	assert.True(t, fsMetaConfig.Enabled)
+	assert.Equal(t, `sftpgo`, fsMetaConfig.Database)
+	assert.Equal(t, "fsmeta", fsMetaConfig.Schema)
+	assert.Equal(t, `127.0.0.1`, fsMetaConfig.Host)
+	assert.Equal(t, 5432, fsMetaConfig.Port)
+	assert.Equal(t, "user1", fsMetaConfig.Username)
+	assert.Equal(t, "pass1", fsMetaConfig.Password)
+	assert.Equal(t, 1, fsMetaConfig.SSLMode)
+	assert.Equal(t, 3, fsMetaConfig.PoolSize)
+
+	extraValues := url.Values{}
+	extraValues.Set(`x-migrations-table`, `fsmeta_schema_migrations`)
+
+	assert.Equal(t, `postgres://user1:pass1@127.0.0.1:5432/sftpgo?connect_timeout=10&search_path=fsmeta&sslmode=require`, fsMetaConfig.GetDSN(false, nil))
+	assert.Equal(t, `postgres://user1@127.0.0.1:5432/sftpgo?connect_timeout=10&search_path=fsmeta&sslmode=require&x-migrations-table=fsmeta_schema_migrations`, fsMetaConfig.GetDSN(true, extraValues))
 }

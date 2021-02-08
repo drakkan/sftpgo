@@ -1,0 +1,6 @@
+BEGIN;
+
+DROP TABLE IF EXISTS fsmeta_files;
+DROP TABLE IF EXISTS fsmeta_folders;
+
+COMMIT;

@@ -40,6 +40,12 @@ func (c *scpCommand) handle() (err error) {
 	common.Connections.Add(c.connection)
 	defer common.Connections.Remove(c.connection.GetID())
 
+	if c.connection.SFTPOnly {
+		_, _ = c.connection.channel.Write([]byte("This service allows sftp connections only.\n"))
+		_ = c.connection.channel.Close()
+		return nil
+	}
+
 	destPath := c.getDestPath()
 	commandType := c.getCommandType()
 	c.connection.Log(logger.LevelDebug, "handle scp command, args: %v user: %v command type: %v, dest path: %#v",

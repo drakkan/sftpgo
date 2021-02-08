@@ -97,7 +97,10 @@ func (c *sshCommand) handle() (err error) {
 	defer common.Connections.Remove(c.connection.GetID())
 
 	c.connection.UpdateLastActivity()
-	if utils.IsStringInSlice(c.command, sshHashCommands) {
+	if c.connection.SFTPOnly {
+		_, _ = c.connection.channel.Write([]byte("This service allows sftp connections only.\n"))
+		c.sendExitStatus(errors.New(`only allows sftp connections`))
+	} else if utils.IsStringInSlice(c.command, sshHashCommands) {
 		return c.handleHashCommands()
 	} else if utils.IsStringInSlice(c.command, systemCommands) {
 		command, err := c.getSystemCommand()

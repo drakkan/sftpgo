@@ -49,7 +49,9 @@
       "scp"
     ],
     "keyboard_interactive_auth_hook": "",
-    "password_authentication": true
+    "password_authentication": true,
+    "folder_prefix": "",
+    "sftp_only": false
   },
   "ftpd": {
     "bindings": [

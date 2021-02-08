@@ -13,6 +13,7 @@ import (
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/config"
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/fsmeta"
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
@@ -105,6 +106,13 @@ func (s *Service) Start() error {
 	if err != nil {
 		logger.Error(logSender, "", "error initializing data provider: %v", err)
 		logger.ErrorToConsole("error initializing data provider: %v", err)
+		return err
+	}
+
+	fsMetaConfig := config.GetFSMetaConfig()
+	if err := fsmeta.Initialize(fsMetaConfig); err != nil {
+		logger.Error(logSender, "", "error initializing fsmeta provider: %v", err)
+		logger.ErrorToConsole("error initializing fsmeta provider: %v", err)
 		return err
 	}
 

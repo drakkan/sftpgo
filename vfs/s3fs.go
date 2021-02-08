@@ -18,10 +18,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/eikenb/pipeat"
 	"github.com/pkg/sftp"
 
+	"github.com/drakkan/sftpgo/fsmeta"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
@@ -33,7 +35,7 @@ type S3Fs struct {
 	connectionID   string
 	localTempDir   string
 	config         *S3FsConfig
-	svc            *s3.S3
+	svc            s3iface.S3API
 	ctxTimeout     time.Duration
 	ctxLongTimeout time.Duration
 }
@@ -125,6 +127,13 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 		// a "dir" has a trailing "/" so we cannot have a directory here
 		objSize := *obj.ContentLength
 		objectModTime := *obj.LastModified
+		if fsmeta.Enabled {
+			if MetaLastModified, metaErr := fsmeta.MetaHelper(obj.Metadata).GetTime(fsmeta.S3MetaKey); metaErr == nil {
+				if !MetaLastModified.IsZero() {
+					objectModTime = MetaLastModified
+				}
+			}
+		}
 		return NewFileInfo(name, false, objSize, objectModTime, false), nil
 	}
 	if !fs.IsNotExist(err) {
@@ -208,6 +217,7 @@ func (fs *S3Fs) Create(name string, flag int) (File, *PipeWriter, func(), error)
 		response, err := uploader.UploadWithContext(ctx, &s3manager.UploadInput{
 			Bucket:       aws.String(fs.config.Bucket),
 			Key:          aws.String(key),
+			Metadata:     fsmeta.NewS3Metadata(time.Now()),
 			Body:         r,
 			StorageClass: utils.NilIfEmpty(fs.config.StorageClass),
 			ContentType:  utils.NilIfEmpty(contentType),
@@ -369,6 +379,8 @@ func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
+	var provider fsmeta.Provider
+	var fsMetaErr error
 	err := fs.svc.ListObjectsV2PagesWithContext(ctx, &s3.ListObjectsV2Input{
 		Bucket:    aws.String(fs.config.Bucket),
 		Prefix:    aws.String(prefix),
@@ -386,6 +398,12 @@ func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 			result = append(result, NewFileInfo(name, true, 0, time.Now(), false))
 			prefixes[name] = true
 		}
+
+		provider, fsMetaErr = fs.preloadFSMetaData(ctx, prefix, page.Contents)
+		if fsMetaErr != nil {
+			return false
+		}
+
 		for _, fileObject := range page.Contents {
 			objectSize := *fileObject.Size
 			objectModTime := *fileObject.LastModified
@@ -399,12 +417,39 @@ func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 				}
 				prefixes[name] = true
 			}
+
+			if Meta, err := provider.Get(ctx, fsmeta.Key{
+				Path:      *fileObject.Key,
+				ETag:      *fileObject.ETag,
+				StoreTime: *fileObject.LastModified,
+				Size:      *fileObject.Size,
+			}); err == nil && !Meta.LastModified.IsZero() {
+				objectModTime = Meta.LastModified
+			}
+
 			result = append(result, NewFileInfo(name, (isDir && objectSize == 0), objectSize, objectModTime, false))
 		}
 		return true
 	})
+
+	if fsMetaErr != nil {
+		return result, fsMetaErr
+	}
+
 	metrics.S3ListObjectsCompleted(err)
 	return result, err
+}
+
+func (fs *S3Fs) preloadFSMetaData(ctx context.Context, Prefix string, Objects []*s3.Object) (fsmeta.Provider, error) {
+	if fsmeta.Enabled && len(Objects) > 0 {
+		From := *Objects[0].Key
+		To := *Objects[len(Objects)-1].Key
+
+		Provider := fsmeta.DefaultFactory.New(fs.svc, fs.config.Bucket)
+		err := Provider.Preload(ctx, Prefix, From, To)
+		return Provider, err
+	}
+	return fsmeta.EmptyProvider, nil
 }
 
 // IsUploadResumeSupported returns true if upload resume is supported.

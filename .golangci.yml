@@ -32,7 +32,7 @@ linters:
     - unconvert
     - unparam
     - bodyclose
-    - gocyclo
+    # - gocyclo
     - misspell
     - maligned
     - whitespace

@@ -22,8 +22,10 @@ type Connection struct {
 	ClientVersion string
 	// Remote address for this connection
 	RemoteAddr net.Addr
-	channel    io.ReadWriteCloser
-	command    string
+	// SFTPOnly only allow SFTP Subsystem connections
+	SFTPOnly bool
+	channel  io.ReadWriteCloser
+	command  string
 }
 
 // GetClientVersion returns the connected client's version
