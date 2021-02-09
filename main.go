@@ -2,7 +2,7 @@
 // FTP/S and WebDAV support.
 // For more details about features, installation, configuration and usage
 // please refer to the README inside the source tree:
-// https://github.com/drakkan/sftpgo/blob/master/README.md
+// https://github.com/drakkan/sftpgo/blob/main/README.md
 package main // import "github.com/drakkan/sftpgo"
 
 import (

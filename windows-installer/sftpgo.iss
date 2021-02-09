@@ -9,7 +9,7 @@
 #if GetEnv("SFTPGO_ISS_DOC_URL") != ""
     #define DocURL GetEnv("SFTPGO_ISS_DOC_URL")
 #else
-    #define DocURL "https://github.com/drakkan/sftpgo/blob/master/README.md"
+    #define DocURL "https://github.com/drakkan/sftpgo/blob/main/README.md"
 #endif
 #define MyAppExeName "sftpgo.exe"
 #define MyAppDir "..\output"

@@ -1,7 +1,7 @@
 # SFTPGo
 
-![CI Status](https://github.com/drakkan/sftpgo/workflows/CI/badge.svg?branch=master&event=push)
-[![Code Coverage](https://codecov.io/gh/drakkan/sftpgo/branch/master/graph/badge.svg)](https://codecov.io/gh/drakkan/sftpgo/branch/master)
+![CI Status](https://github.com/drakkan/sftpgo/workflows/CI/badge.svg?branch=main&event=push)
+[![Code Coverage](https://codecov.io/gh/drakkan/sftpgo/branch/main/graph/badge.svg)](https://codecov.io/gh/drakkan/sftpgo/branch/main)
 [![Go Report Card](https://goreportcard.com/badge/github.com/drakkan/sftpgo)](https://goreportcard.com/report/github.com/drakkan/sftpgo)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Docker Pulls](https://img.shields.io/docker/pulls/drakkan/sftpgo)](https://hub.docker.com/r/drakkan/sftpgo)
@@ -74,7 +74,7 @@ Some Linux distro packages are available:
 - For Arch Linux via AUR:
   - [sftpgo](https://aur.archlinux.org/packages/sftpgo/). This package follows stable releases. It requires `git`, `gcc` and `go` to build.
   - [sftpgo-bin](https://aur.archlinux.org/packages/sftpgo-bin/). This package follows stable releases downloading the prebuilt linux binary from GitHub. It does not require `git`, `gcc` and `go` to build.
-  - [sftpgo-git](https://aur.archlinux.org/packages/sftpgo-git/). This package builds and installs the latest git master. It requires `git`, `gcc` and `go` to build.
+  - [sftpgo-git](https://aur.archlinux.org/packages/sftpgo-git/). This package builds and installs the latest git `main` branch. It requires `git`, `gcc` and `go` to build.
 - Deb and RPM packages are built after each commit and for each release.
 - For Ubuntu a PPA is available [here](https://launchpad.net/~sftpgo/+archive/ubuntu/sftpgo).
 
@@ -124,10 +124,10 @@ If for some reason you want to downgrade SFTPGo, you may need to downgrade your 
 
 We support the follwing schema versions:
 
-- `6`, this is the latest version
+- `8`, this is the latest version
 - `4`, this is the schema for v1.0.0-v1.2.x
 
-So, if you plan to downgrade from git master to 1.2.x, you can prepare your data provider executing the following command from the configuration directory:
+So, if you plan to downgrade from 2.0.x to 1.2.x, you can prepare your data provider executing the following command from the configuration directory:
 
 ```shell
 sftpgo revertprovider --to-version 4
