@@ -66,10 +66,12 @@ docker run --name some-sftpgo \
     -d "drakkan/sftpgo:tag"
 ```
 
-As you can see SFTPGo uses two volumes:
+As you can see SFTPGo uses two main volumes:
 
 - `/srv/sftpgo` to handle persistent data. The default home directory for SFTP/FTP/WebDAV users is `/srv/sftpgo/data/<username>`. Backups are stored in `/srv/sftpgo/backups`
 - `/var/lib/sftpgo` is the home directory for the sftpgo system user defined inside the container. This is the container working directory too, host keys will be created here when using the default configuration.
+
+If you want to get fine grained control, you can also mount `/srv/sftpgo/data` and `/srv/sftpgo/backups` as separate volumes instead of mounting `/srv/sftpgo`.
 
 ### Configuration
 
