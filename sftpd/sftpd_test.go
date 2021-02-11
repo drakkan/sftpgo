@@ -456,6 +456,12 @@ func TestBasicSFTPFsHandling(t *testing.T) {
 		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
 
+		stat, err := client.StatVFS("/")
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(u.QuotaSize/4096), stat.Blocks)
+		assert.Equal(t, uint64((u.QuotaSize-testFileSize)/4096), stat.Bfree)
+		assert.Equal(t, uint64(1), stat.Files-stat.Ffree)
+
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 		err = os.Remove(localDownloadPath)
@@ -6368,6 +6374,136 @@ func TestGetVirtualFolderForPath(t *testing.T) {
 	_, err = user.GetVirtualFolderForPath("/vdir/sub1/file")
 	assert.Error(t, err)
 	folder, err = user.GetVirtualFolderForPath(vdirPath)
+	assert.NoError(t, err)
+}
+
+func TestStatVFS(t *testing.T) {
+	usePubKey := false
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	assert.NoError(t, err)
+	testFileSize := int64(65535)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+
+		stat, err := client.StatVFS("/")
+		assert.NoError(t, err)
+		assert.Greater(t, stat.ID, uint32(0))
+		assert.Greater(t, stat.Blocks, uint64(0))
+		assert.Greater(t, stat.Bsize, uint64(0))
+
+		_, err = client.StatVFS("missing-path")
+		assert.Error(t, err)
+		assert.True(t, os.IsNotExist(err))
+	}
+	user.QuotaFiles = 100
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	client, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+
+		stat, err := client.StatVFS("/")
+		assert.NoError(t, err)
+		assert.Greater(t, stat.ID, uint32(0))
+		assert.Greater(t, stat.Blocks, uint64(0))
+		assert.Greater(t, stat.Bsize, uint64(0))
+		assert.Equal(t, uint64(100), stat.Files)
+		assert.Equal(t, uint64(99), stat.Ffree)
+	}
+
+	user.QuotaSize = 8192
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	client, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+
+		stat, err := client.StatVFS("/")
+		assert.NoError(t, err)
+		assert.Greater(t, stat.ID, uint32(0))
+		assert.Greater(t, stat.Blocks, uint64(0))
+		assert.Greater(t, stat.Bsize, uint64(0))
+		assert.Equal(t, uint64(100), stat.Files)
+		assert.Equal(t, uint64(0), stat.Ffree)
+		assert.Equal(t, uint64(2), stat.Blocks)
+		assert.Equal(t, uint64(0), stat.Bfree)
+	}
+	user.QuotaFiles = 0
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	client, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+
+		stat, err := client.StatVFS("/")
+		assert.NoError(t, err)
+		assert.Greater(t, stat.ID, uint32(0))
+		assert.Greater(t, stat.Blocks, uint64(0))
+		assert.Greater(t, stat.Bsize, uint64(0))
+		assert.Greater(t, stat.Files, uint64(0))
+		assert.Equal(t, uint64(0), stat.Ffree)
+		assert.Equal(t, uint64(2), stat.Blocks)
+		assert.Equal(t, uint64(0), stat.Bfree)
+	}
+
+	user.QuotaSize = 1
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	client, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+
+		stat, err := client.StatVFS("/")
+		assert.NoError(t, err)
+		assert.Greater(t, stat.ID, uint32(0))
+		assert.Equal(t, uint64(1), stat.Blocks)
+		assert.Equal(t, uint64(1), stat.Bsize)
+		assert.Greater(t, stat.Files, uint64(0))
+		assert.Equal(t, uint64(0), stat.Ffree)
+		assert.Equal(t, uint64(1), stat.Blocks)
+		assert.Equal(t, uint64(0), stat.Bfree)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestStatVFSCloudBackend(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.FsConfig.Provider = dataprovider.AzureBlobFilesystemProvider
+	u.FsConfig.AzBlobConfig.SASURL = "https://myaccount.blob.core.windows.net/sasurl"
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+
+		err = dataprovider.UpdateUserQuota(user, 100, 8192, true)
+		assert.NoError(t, err)
+		stat, err := client.StatVFS("/")
+		assert.NoError(t, err)
+		assert.Greater(t, stat.ID, uint32(0))
+		assert.Greater(t, stat.Blocks, uint64(0))
+		assert.Greater(t, stat.Bsize, uint64(0))
+		assert.Equal(t, uint64(1000000+100), stat.Files)
+		assert.Equal(t, uint64(2147483648+2), stat.Blocks)
+		assert.Equal(t, uint64(1000000), stat.Ffree)
+		assert.Equal(t, uint64(2147483648), stat.Bfree)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
 

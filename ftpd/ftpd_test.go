@@ -16,6 +16,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"testing"
 	"time"
 
@@ -1585,7 +1586,7 @@ func TestAllocateAvailable(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestAvailableUnsupportedFs(t *testing.T) {
+func TestAvailableSFTPFs(t *testing.T) {
 	u := getTestUser()
 	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -1593,10 +1594,12 @@ func TestAvailableUnsupportedFs(t *testing.T) {
 	assert.NoError(t, err)
 	client, err := getFTPClient(sftpUser, false)
 	if assert.NoError(t, err) {
-		code, response, err := client.SendCustomCommand("AVBL")
+		code, response, err := client.SendCustomCommand("AVBL /")
 		assert.NoError(t, err)
-		assert.Equal(t, ftp.StatusFileUnavailable, code)
-		assert.Contains(t, response, "unable to get available size for this storage backend")
+		assert.Equal(t, ftp.StatusFile, code)
+		avblSize, err := strconv.ParseInt(response, 10, 64)
+		assert.NoError(t, err)
+		assert.Greater(t, avblSize, int64(0))
 
 		err = client.Quit()
 		assert.NoError(t, err)

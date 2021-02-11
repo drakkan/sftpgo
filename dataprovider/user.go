@@ -718,22 +718,16 @@ func (u *User) GetQuotaSummary() string {
 func (u *User) GetPermissionsAsString() string {
 	result := ""
 	for dir, perms := range u.Permissions {
-		var dirPerms string
-		for _, p := range perms {
-			if len(dirPerms) > 0 {
-				dirPerms += ", "
-			}
-			dirPerms += p
-		}
+		dirPerms := strings.Join(perms, ", ")
 		dp := fmt.Sprintf("%#v: %#v", dir, dirPerms)
 		if dir == "/" {
-			if len(result) > 0 {
+			if result != "" {
 				result = dp + ", " + result
 			} else {
 				result = dp
 			}
 		} else {
-			if len(result) > 0 {
+			if result != "" {
 				result += ", "
 			}
 			result += dp

@@ -21,6 +21,7 @@ import (
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/eikenb/pipeat"
+	"github.com/pkg/sftp"
 
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
@@ -702,8 +703,8 @@ func (*AzureBlobFs) Close() error {
 }
 
 // GetAvailableDiskSize return the available size for the specified path
-func (*AzureBlobFs) GetAvailableDiskSize(dirName string) (int64, error) {
-	return 0, errStorageSizeUnavailable
+func (*AzureBlobFs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
+	return nil, ErrStorageSizeUnavailable
 }
 
 func (fs *AzureBlobFs) isEqual(key string, virtualName string) bool {

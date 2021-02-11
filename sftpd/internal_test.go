@@ -376,6 +376,11 @@ func TestWithInvalidHome(t *testing.T) {
 	}
 	_, err = c.Fs.ResolvePath("../upper_path")
 	assert.Error(t, err, "tested path is not a home subdir")
+	_, err = c.StatVFS(&sftp.Request{
+		Method:   "StatVFS",
+		Filepath: "../unresolvable-path",
+	})
+	assert.Error(t, err)
 }
 
 func TestSFTPCmdTargetPath(t *testing.T) {
@@ -408,7 +413,7 @@ func TestSFTPGetUsedQuota(t *testing.T) {
 	connection := Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, u, nil),
 	}
-	quotaResult := connection.HasSpace(false, "/")
+	quotaResult := connection.HasSpace(false, false, "/")
 	assert.False(t, quotaResult.HasSpace)
 }
 

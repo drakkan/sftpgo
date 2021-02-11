@@ -253,11 +253,43 @@ func (c *Connection) Lstat(request *sftp.Request) (sftp.ListerAt, error) {
 	return listerAt([]os.FileInfo{s}), nil
 }
 
+// StatVFS implements StatVFSFileCmder interface
+func (c *Connection) StatVFS(r *sftp.Request) (*sftp.StatVFS, error) {
+	c.UpdateLastActivity()
+
+	// we are assuming that r.Filepath is a dir, this could be wrong but should
+	// not produce any side effect here.
+	// we don't consider c.User.Filters.MaxUploadFileSize, we return disk stats here
+	// not the limit for a single file upload
+	quotaResult := c.HasSpace(true, true, path.Join(r.Filepath, "fakefile.txt"))
+
+	p, err := c.Fs.ResolvePath(r.Filepath)
+	if err != nil {
+		return nil, c.GetFsError(err)
+	}
+
+	if !quotaResult.HasSpace {
+		return c.getStatVFSFromQuotaResult(p, quotaResult), nil
+	}
+
+	if quotaResult.QuotaSize == 0 && quotaResult.QuotaFiles == 0 {
+		// no quota restrictions
+		statvfs, err := c.Fs.GetAvailableDiskSize(p)
+		if err == vfs.ErrStorageSizeUnavailable {
+			return c.getStatVFSFromQuotaResult(p, quotaResult), nil
+		}
+		return statvfs, err
+	}
+
+	// there is free space but some limits are configured
+	return c.getStatVFSFromQuotaResult(p, quotaResult), nil
+}
+
 func (c *Connection) getSFTPCmdTargetPath(requestTarget string) (string, error) {
 	var target string
 	// If a target is provided in this request validate that it is going to the correct
 	// location for the server. If it is not, return an error
-	if len(requestTarget) > 0 {
+	if requestTarget != "" {
 		var err error
 		target, err = c.Fs.ResolvePath(requestTarget)
 		if err != nil {
@@ -309,7 +341,7 @@ func (c *Connection) handleSFTPRemove(filePath string, request *sftp.Request) er
 }
 
 func (c *Connection) handleSFTPUploadToNewFile(resolvedPath, filePath, requestPath string, errForRead error) (sftp.WriterAtReaderAt, error) {
-	quotaResult := c.HasSpace(true, requestPath)
+	quotaResult := c.HasSpace(true, false, requestPath)
 	if !quotaResult.HasSpace {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, sftp.ErrSSHFxFailure
@@ -336,7 +368,7 @@ func (c *Connection) handleSFTPUploadToNewFile(resolvedPath, filePath, requestPa
 func (c *Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, resolvedPath, filePath string,
 	fileSize int64, requestPath string, errForRead error) (sftp.WriterAtReaderAt, error) {
 	var err error
-	quotaResult := c.HasSpace(false, requestPath)
+	quotaResult := c.HasSpace(false, false, requestPath)
 	if !quotaResult.HasSpace {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, sftp.ErrSSHFxFailure
@@ -404,6 +436,52 @@ func (c *Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, r
 // Disconnect disconnects the client closing the network connection
 func (c *Connection) Disconnect() error {
 	return c.channel.Close()
+}
+
+func (c *Connection) getStatVFSFromQuotaResult(name string, quotaResult vfs.QuotaCheckResult) *sftp.StatVFS {
+	if quotaResult.QuotaSize == 0 || quotaResult.QuotaFiles == 0 {
+		s, err := c.Fs.GetAvailableDiskSize(name)
+		if err == nil {
+			if quotaResult.QuotaSize == 0 {
+				quotaResult.QuotaSize = int64(s.TotalSpace())
+			}
+			if quotaResult.QuotaFiles == 0 {
+				quotaResult.QuotaFiles = int(s.Files)
+			}
+		}
+	}
+	// if we are unable to get quota size or quota files we add some arbitrary values
+	if quotaResult.QuotaSize == 0 {
+		quotaResult.QuotaSize = quotaResult.UsedSize + 8*1024*1024*1024*1024 // 8TB
+	}
+	if quotaResult.QuotaFiles == 0 {
+		quotaResult.QuotaFiles = quotaResult.UsedFiles + 1000000 // 1 million
+	}
+
+	bsize := uint64(4096)
+	for bsize > uint64(quotaResult.QuotaSize) {
+		bsize = bsize / 4
+	}
+	blocks := uint64(quotaResult.QuotaSize) / bsize
+	bfree := uint64(quotaResult.QuotaSize-quotaResult.UsedSize) / bsize
+	files := uint64(quotaResult.QuotaFiles)
+	ffree := uint64(quotaResult.QuotaFiles - quotaResult.UsedFiles)
+	if !quotaResult.HasSpace {
+		bfree = 0
+		ffree = 0
+	}
+
+	return &sftp.StatVFS{
+		Bsize:   bsize,
+		Frsize:  bsize,
+		Blocks:  blocks,
+		Bfree:   bfree,
+		Bavail:  bfree,
+		Files:   files,
+		Ffree:   ffree,
+		Favail:  ffree,
+		Namemax: 255,
+	}
 }
 
 func getOSOpenFlags(requestFlags sftp.FileOpenFlags) (flags int) {

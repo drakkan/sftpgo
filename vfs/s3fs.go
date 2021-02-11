@@ -20,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/eikenb/pipeat"
+	"github.com/pkg/sftp"
 
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
@@ -661,6 +662,6 @@ func (*S3Fs) Close() error {
 }
 
 // GetAvailableDiskSize return the available size for the specified path
-func (*S3Fs) GetAvailableDiskSize(dirName string) (int64, error) {
-	return 0, errStorageSizeUnavailable
+func (*S3Fs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
+	return nil, ErrStorageSizeUnavailable
 }

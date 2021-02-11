@@ -705,7 +705,7 @@ func (c ConnectionStatus) GetConnectionInfo() string {
 func (c ConnectionStatus) GetTransfersAsString() string {
 	result := ""
 	for _, t := range c.Transfers {
-		if len(result) > 0 {
+		if result != "" {
 			result += ". "
 		}
 		result += t.getConnectionTransferAsString()

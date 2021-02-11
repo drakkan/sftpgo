@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/eikenb/pipeat"
+	"github.com/pkg/sftp"
 
 	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/logger"
@@ -23,8 +24,9 @@ import (
 const dirMimeType = "inode/directory"
 
 var (
-	validAzAccessTier         = []string{"", "Archive", "Hot", "Cool"}
-	errStorageSizeUnavailable = errors.New("unable to get available size for this storage backend")
+	validAzAccessTier = []string{"", "Archive", "Hot", "Cool"}
+	// ErrStorageSizeUnavailable is returned if the storage backend does not support getting the size
+	ErrStorageSizeUnavailable = errors.New("unable to get available size for this storage backend")
 )
 
 // Fs defines the interface for filesystem backends
@@ -60,7 +62,7 @@ type Fs interface {
 	Join(elem ...string) string
 	HasVirtualFolders() bool
 	GetMimeType(name string) (string, error)
-	GetAvailableDiskSize(dirName string) (int64, error)
+	GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error)
 	Close() error
 }
 

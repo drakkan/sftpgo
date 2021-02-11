@@ -272,7 +272,7 @@ func (s *Service) loadInitialData() error {
 func (s *Service) restoreDump(dump dataprovider.BackupData) error {
 	err := httpd.RestoreAdmins(dump.Admins, s.LoadDataFrom, s.LoadDataMode)
 	if err != nil {
-		return fmt.Errorf("unable to restore folders from file %#v: %v", s.LoadDataFrom, err)
+		return fmt.Errorf("unable to restore admins from file %#v: %v", s.LoadDataFrom, err)
 	}
 	err = httpd.RestoreFolders(dump.Folders, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan)
 	if err != nil {

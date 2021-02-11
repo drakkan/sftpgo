@@ -18,6 +18,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/eikenb/pipeat"
+	"github.com/pkg/sftp"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
@@ -696,6 +697,6 @@ func (fs *GCSFs) Close() error {
 }
 
 // GetAvailableDiskSize return the available size for the specified path
-func (*GCSFs) GetAvailableDiskSize(dirName string) (int64, error) {
-	return 0, errStorageSizeUnavailable
+func (*GCSFs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
+	return nil, ErrStorageSizeUnavailable
 }

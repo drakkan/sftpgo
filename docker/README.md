@@ -62,7 +62,7 @@ docker run --name some-sftpgo \
     -p 2022:2022 \
     --mount type=bind,source=/my/own/sftpgodata,target=/srv/sftpgo \
     --mount type=bind,source=/my/own/sftpgohome,target=/var/lib/sftpgo \
-    -e SFTPGO_HTTPD__BIND_PORT=8090 \
+    -e SFTPGO_HTTPD__BINDINGS__0__PORT=8090 \
     -d "drakkan/sftpgo:tag"
 ```
 

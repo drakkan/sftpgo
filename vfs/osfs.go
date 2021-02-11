@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/eikenb/pipeat"
+	"github.com/pkg/sftp"
 	"github.com/rs/xid"
-	"github.com/shirou/gopsutil/v3/disk"
 
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
@@ -480,10 +480,6 @@ func (*OsFs) Close() error {
 }
 
 // GetAvailableDiskSize return the available size for the specified path
-func (*OsFs) GetAvailableDiskSize(dirName string) (int64, error) {
-	usage, err := disk.Usage(dirName)
-	if err != nil {
-		return 0, err
-	}
-	return int64(usage.Free), nil
+func (*OsFs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
+	return getStatFS(dirName)
 }

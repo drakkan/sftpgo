@@ -400,7 +400,7 @@ func LoadConfig(configDir, configFile string) error {
 	if strings.TrimSpace(globalConf.FTPD.Banner) == "" {
 		globalConf.FTPD.Banner = defaultFTPDBanner
 	}
-	if len(globalConf.ProviderConf.UsersBaseDir) > 0 && !utils.IsFileInputValid(globalConf.ProviderConf.UsersBaseDir) {
+	if globalConf.ProviderConf.UsersBaseDir != "" && !utils.IsFileInputValid(globalConf.ProviderConf.UsersBaseDir) {
 		err = fmt.Errorf("invalid users base dir %#v will be ignored", globalConf.ProviderConf.UsersBaseDir)
 		globalConf.ProviderConf.UsersBaseDir = ""
 		logger.Warn(logSender, "", "Configuration error: %v", err)
@@ -455,7 +455,7 @@ func checkCommonParamsCompatibility() {
 		logger.WarnToConsole("sftpd.idle_timeout is deprecated, please use common.idle_timeout")
 		globalConf.Common.IdleTimeout = globalConf.SFTPD.IdleTimeout //nolint:staticcheck
 	}
-	if len(globalConf.SFTPD.Actions.Hook) > 0 && len(globalConf.Common.Actions.Hook) == 0 { //nolint:staticcheck
+	if globalConf.SFTPD.Actions.Hook != "" && len(globalConf.Common.Actions.Hook) == 0 { //nolint:staticcheck
 		logger.Warn(logSender, "", "sftpd.actions is deprecated, please use common.actions")
 		logger.WarnToConsole("sftpd.actions is deprecated, please use common.actions")
 		globalConf.Common.Actions.ExecuteOn = globalConf.SFTPD.Actions.ExecuteOn //nolint:staticcheck

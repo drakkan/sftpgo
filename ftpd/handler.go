@@ -213,8 +213,7 @@ func (c *Connection) Chtimes(name string, atime time.Time, mtime time.Time) erro
 func (c *Connection) GetAvailableSpace(dirName string) (int64, error) {
 	c.UpdateLastActivity()
 
-	quotaResult := c.HasSpace(false, path.Join(dirName, "fakefile.txt"))
-
+	quotaResult := c.HasSpace(false, false, path.Join(dirName, "fakefile.txt"))
 	if !quotaResult.HasSpace {
 		return 0, nil
 	}
@@ -230,7 +229,11 @@ func (c *Connection) GetAvailableSpace(dirName string) (int64, error) {
 			return 0, c.GetFsError(err)
 		}
 
-		return c.Fs.GetAvailableDiskSize(p)
+		statVFS, err := c.Fs.GetAvailableDiskSize(p)
+		if err != nil {
+			return 0, c.GetFsError(err)
+		}
+		return int64(statVFS.FreeSpace()), nil
 	}
 
 	// the available space is the minimum between MaxUploadFileSize, if setted,
@@ -260,7 +263,7 @@ func (c *Connection) AllocateSpace(size int) error {
 		folders = append(folders, path.Join(v.VirtualPath, "fakefile.txt"))
 	}
 	for _, f := range folders {
-		quotaResult := c.HasSpace(false, f)
+		quotaResult := c.HasSpace(false, false, f)
 		if quotaResult.HasSpace {
 			if quotaResult.QuotaSize == 0 {
 				// unlimited size is allowed
@@ -393,7 +396,7 @@ func (c *Connection) uploadFile(fsPath, ftpPath string, flags int) (ftpserver.Fi
 }
 
 func (c *Connection) handleFTPUploadToNewFile(resolvedPath, filePath, requestPath string) (ftpserver.FileTransfer, error) {
-	quotaResult := c.HasSpace(true, requestPath)
+	quotaResult := c.HasSpace(true, false, requestPath)
 	if !quotaResult.HasSpace {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, common.ErrQuotaExceeded
@@ -419,7 +422,7 @@ func (c *Connection) handleFTPUploadToNewFile(resolvedPath, filePath, requestPat
 func (c *Connection) handleFTPUploadToExistingFile(flags int, resolvedPath, filePath string, fileSize int64,
 	requestPath string) (ftpserver.FileTransfer, error) {
 	var err error
-	quotaResult := c.HasSpace(false, requestPath)
+	quotaResult := c.HasSpace(false, false, requestPath)
 	if !quotaResult.HasSpace {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, common.ErrQuotaExceeded

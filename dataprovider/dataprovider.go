@@ -2015,7 +2015,7 @@ func executePreLoginHook(username, loginMethod, ip, protocol string) (User, erro
 	if err != nil {
 		return u, fmt.Errorf("Pre-login hook error: %v", err)
 	}
-	if len(strings.TrimSpace(string(out))) == 0 {
+	if strings.TrimSpace(string(out)) == "" {
 		providerLog(logger.LevelDebug, "empty response from pre-login hook, no modification requested for user %#v id: %v",
 			username, u.ID)
 		if u.ID == 0 {
@@ -2182,13 +2182,13 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 	if err != nil {
 		return user, fmt.Errorf("Invalid external auth response: %v", err)
 	}
-	if len(user.Username) == 0 {
+	if user.Username == "" {
 		return user, ErrInvalidCredentials
 	}
-	if len(password) > 0 {
+	if password != "" {
 		user.Password = password
 	}
-	if len(pkey) > 0 && !utils.IsStringPrefixInSlice(pkey, user.PublicKeys) {
+	if pkey != "" && !utils.IsStringPrefixInSlice(pkey, user.PublicKeys) {
 		user.PublicKeys = append(user.PublicKeys, pkey)
 	}
 	// some users want to map multiple login usernames with a single SFTPGo account

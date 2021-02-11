@@ -309,7 +309,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 		return c.sendErrorResponse(errUnsupportedConfig)
 	}
 	sshDestPath := c.getDestPath()
-	quotaResult := c.connection.HasSpace(true, command.quotaCheckPath)
+	quotaResult := c.connection.HasSpace(true, false, command.quotaCheckPath)
 	if !quotaResult.HasSpace {
 		return c.sendErrorResponse(common.ErrQuotaExceeded)
 	}
@@ -640,7 +640,7 @@ func (c *sshCommand) checkCopyDestination(fsDestPath string) error {
 }
 
 func (c *sshCommand) checkCopyQuota(numFiles int, filesSize int64, requestPath string) error {
-	quotaResult := c.connection.HasSpace(true, requestPath)
+	quotaResult := c.connection.HasSpace(true, false, requestPath)
 	if !quotaResult.HasSpace {
 		return common.ErrQuotaExceeded
 	}

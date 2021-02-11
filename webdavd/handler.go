@@ -211,7 +211,7 @@ func (c *Connection) putFile(fsPath, virtualPath string) (webdav.File, error) {
 }
 
 func (c *Connection) handleUploadToNewFile(resolvedPath, filePath, requestPath string) (webdav.File, error) {
-	quotaResult := c.HasSpace(true, requestPath)
+	quotaResult := c.HasSpace(true, false, requestPath)
 	if !quotaResult.HasSpace {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, common.ErrQuotaExceeded
@@ -236,7 +236,7 @@ func (c *Connection) handleUploadToNewFile(resolvedPath, filePath, requestPath s
 func (c *Connection) handleUploadToExistingFile(resolvedPath, filePath string, fileSize int64,
 	requestPath string) (webdav.File, error) {
 	var err error
-	quotaResult := c.HasSpace(false, requestPath)
+	quotaResult := c.HasSpace(false, false, requestPath)
 	if !quotaResult.HasSpace {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, common.ErrQuotaExceeded

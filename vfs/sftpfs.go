@@ -503,6 +503,17 @@ func (fs *SFTPFs) GetMimeType(name string) (string, error) {
 	return ctype, err
 }
 
+// GetAvailableDiskSize return the available size for the specified path
+func (fs *SFTPFs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
+	if err := fs.checkConnection(); err != nil {
+		return nil, err
+	}
+	if _, ok := fs.sftpClient.HasExtension("statvfs@openssh.com"); !ok {
+		return nil, ErrStorageSizeUnavailable
+	}
+	return fs.sftpClient.StatVFS(dirName)
+}
+
 // Close the connection
 func (fs *SFTPFs) Close() error {
 	fs.Lock()
@@ -519,11 +530,6 @@ func (fs *SFTPFs) Close() error {
 		return sftpErr
 	}
 	return sshErr
-}
-
-// GetAvailableDiskSize return the available size for the specified path
-func (*SFTPFs) GetAvailableDiskSize(dirName string) (int64, error) {
-	return 0, errStorageSizeUnavailable
 }
 
 func (fs *SFTPFs) checkConnection() error {

@@ -683,7 +683,7 @@ func (c *BaseConnection) hasSpaceForRename(virtualSourcePath, virtualTargetPath 
 		// rename between user root dir and a virtual folder included in user quota
 		return true
 	}
-	quotaResult := c.HasSpace(true, virtualTargetPath)
+	quotaResult := c.HasSpace(true, false, virtualTargetPath)
 	return c.hasSpaceForCrossRename(quotaResult, initialSize, fsSourcePath)
 }
 
@@ -774,7 +774,7 @@ func (c *BaseConnection) GetMaxWriteSize(quotaResult vfs.QuotaCheckResult, isRes
 }
 
 // HasSpace checks user's quota usage
-func (c *BaseConnection) HasSpace(checkFiles bool, requestPath string) vfs.QuotaCheckResult {
+func (c *BaseConnection) HasSpace(checkFiles, getUsage bool, requestPath string) vfs.QuotaCheckResult {
 	result := vfs.QuotaCheckResult{
 		HasSpace:     true,
 		AllowedSize:  0,
@@ -792,14 +792,14 @@ func (c *BaseConnection) HasSpace(checkFiles bool, requestPath string) vfs.Quota
 	var vfolder vfs.VirtualFolder
 	vfolder, err = c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 	if err == nil && !vfolder.IsIncludedInUserQuota() {
-		if vfolder.HasNoQuotaRestrictions(checkFiles) {
+		if vfolder.HasNoQuotaRestrictions(checkFiles) && !getUsage {
 			return result
 		}
 		result.QuotaSize = vfolder.QuotaSize
 		result.QuotaFiles = vfolder.QuotaFiles
 		result.UsedFiles, result.UsedSize, err = dataprovider.GetUsedVirtualFolderQuota(vfolder.Name)
 	} else {
-		if c.User.HasNoQuotaRestrictions(checkFiles) {
+		if c.User.HasNoQuotaRestrictions(checkFiles) && !getUsage {
 			return result
 		}
 		result.QuotaSize = c.User.QuotaSize
@@ -981,9 +981,13 @@ func (c *BaseConnection) GetOpUnsupportedError() error {
 func (c *BaseConnection) GetGenericError(err error) error {
 	switch c.protocol {
 	case ProtocolSFTP:
+		if err == vfs.ErrStorageSizeUnavailable {
+			return sftp.ErrSSHFxOpUnsupported
+		}
 		return sftp.ErrSSHFxFailure
 	default:
-		if err == ErrPermissionDenied || err == ErrNotExist || err == ErrOpUnsupported || err == ErrQuotaExceeded {
+		if err == ErrPermissionDenied || err == ErrNotExist || err == ErrOpUnsupported ||
+			err == ErrQuotaExceeded || err == vfs.ErrStorageSizeUnavailable {
 			return err
 		}
 		return ErrGenericFailure

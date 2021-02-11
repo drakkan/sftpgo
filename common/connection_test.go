@@ -917,7 +917,7 @@ func TestHasSpaceForRename(t *testing.T) {
 	c := NewBaseConnection("", ProtocolSFTP, user, fs)
 	// with quota tracking disabled hasSpaceForRename will always return true
 	assert.True(t, c.hasSpaceForRename("", "", 0, ""))
-	quotaResult := c.HasSpace(true, "")
+	quotaResult := c.HasSpace(true, false, "")
 	assert.True(t, quotaResult.HasSpace)
 
 	err = closeDataprovider()
@@ -1028,7 +1028,7 @@ func TestHasSpace(t *testing.T) {
 	fs, err := user.GetFilesystem("id")
 	assert.NoError(t, err)
 	c := NewBaseConnection("", ProtocolSFTP, user, fs)
-	quotaResult := c.HasSpace(true, "/")
+	quotaResult := c.HasSpace(true, false, "/")
 	assert.True(t, quotaResult.HasSpace)
 
 	user.VirtualFolders[0].QuotaFiles = 0
@@ -1038,7 +1038,7 @@ func TestHasSpace(t *testing.T) {
 	user, err = dataprovider.UserExists(user.Username)
 	assert.NoError(t, err)
 	c.User = user
-	quotaResult = c.HasSpace(true, "/vdir/file")
+	quotaResult = c.HasSpace(true, false, "/vdir/file")
 	assert.True(t, quotaResult.HasSpace)
 
 	user.VirtualFolders[0].QuotaFiles = 10
@@ -1046,17 +1046,17 @@ func TestHasSpace(t *testing.T) {
 	err = dataprovider.UpdateUser(&user)
 	assert.NoError(t, err)
 	c.User = user
-	quotaResult = c.HasSpace(true, "/vdir/file1")
+	quotaResult = c.HasSpace(true, false, "/vdir/file1")
 	assert.True(t, quotaResult.HasSpace)
 
-	quotaResult = c.HasSpace(true, "/file")
+	quotaResult = c.HasSpace(true, false, "/file")
 	assert.True(t, quotaResult.HasSpace)
 
 	folder, err := dataprovider.GetFolderByName(folderName)
 	assert.NoError(t, err)
 	err = dataprovider.UpdateVirtualFolderQuota(folder, 10, 1048576, true)
 	assert.NoError(t, err)
-	quotaResult = c.HasSpace(true, "/vdir/file1")
+	quotaResult = c.HasSpace(true, false, "/vdir/file1")
 	assert.False(t, quotaResult.HasSpace)
 
 	err = dataprovider.DeleteUser(user.Username)
@@ -1198,6 +1198,12 @@ func TestErrorsMapping(t *testing.T) {
 			assert.EqualError(t, err, sftp.ErrSSHFxOpUnsupported.Error())
 		} else {
 			assert.EqualError(t, err, ErrOpUnsupported.Error())
+		}
+		err = conn.GetFsError(vfs.ErrStorageSizeUnavailable)
+		if protocol == ProtocolSFTP {
+			assert.EqualError(t, err, sftp.ErrSSHFxOpUnsupported.Error())
+		} else {
+			assert.EqualError(t, err, vfs.ErrStorageSizeUnavailable.Error())
 		}
 		err = conn.GetFsError(nil)
 		assert.NoError(t, err)

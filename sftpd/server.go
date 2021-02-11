@@ -33,7 +33,7 @@ const (
 )
 
 var (
-	sftpExtensions = []string{"posix-rename@openssh.com"}
+	sftpExtensions = []string{"statvfs@openssh.com"}
 )
 
 // Binding defines the configuration for a network listener

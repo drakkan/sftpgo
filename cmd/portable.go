@@ -325,7 +325,7 @@ func parsePatternsFilesFilters() []dataprovider.PatternsFilter {
 	var patterns []dataprovider.PatternsFilter
 	for _, val := range portableAllowedPatterns {
 		p, exts := getPatternsFilterValues(strings.TrimSpace(val))
-		if len(p) > 0 {
+		if p != "" {
 			patterns = append(patterns, dataprovider.PatternsFilter{
 				Path:            path.Clean(p),
 				AllowedPatterns: exts,
@@ -335,7 +335,7 @@ func parsePatternsFilesFilters() []dataprovider.PatternsFilter {
 	}
 	for _, val := range portableDeniedPatterns {
 		p, exts := getPatternsFilterValues(strings.TrimSpace(val))
-		if len(p) > 0 {
+		if p != "" {
 			found := false
 			for index, e := range patterns {
 				if path.Clean(e.Path) == path.Clean(p) {
@@ -364,7 +364,7 @@ func getPatternsFilterValues(value string) (string, []string) {
 			exts := []string{}
 			for _, e := range strings.Split(dirExts[1], ",") {
 				cleanedExt := strings.TrimSpace(e)
-				if len(cleanedExt) > 0 {
+				if cleanedExt != "" {
 					exts = append(exts, cleanedExt)
 				}
 			}

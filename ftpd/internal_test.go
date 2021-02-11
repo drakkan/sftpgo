@@ -616,6 +616,27 @@ func TestUploadFileStatError(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestAVBLErrors(t *testing.T) {
+	user := dataprovider.User{
+		Username: "user",
+		HomeDir:  filepath.Clean(os.TempDir()),
+	}
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{dataprovider.PermAny}
+	mockCC := mockFTPClientContext{}
+	connID := fmt.Sprintf("%v", mockCC.ID())
+	fs := newMockOsFs(nil, nil, false, connID, user.GetHomeDir())
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, user, fs),
+		clientContext:  mockCC,
+	}
+	_, err := connection.GetAvailableSpace("/")
+	assert.NoError(t, err)
+	_, err = connection.GetAvailableSpace("/missing-path")
+	assert.Error(t, err)
+	assert.True(t, os.IsNotExist(err))
+}
+
 func TestUploadOverwriteErrors(t *testing.T) {
 	user := dataprovider.User{
 		Username: "user",
