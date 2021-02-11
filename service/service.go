@@ -248,13 +248,9 @@ func (s *Service) loadInitialData() error {
 	if err != nil {
 		return fmt.Errorf("unable to parse file to restore %#v: %v", s.LoadDataFrom, err)
 	}
-	err = httpd.RestoreFolders(dump.Folders, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan)
+	err = s.restoreDump(dump)
 	if err != nil {
-		return fmt.Errorf("unable to restore folders from file %#v: %v", s.LoadDataFrom, err)
-	}
-	err = httpd.RestoreUsers(dump.Users, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan)
-	if err != nil {
-		return fmt.Errorf("unable to restore users from file %#v: %v", s.LoadDataFrom, err)
+		return err
 	}
 	logger.Info(logSender, "", "data loaded from file %#v mode: %v, quota scan %v", s.LoadDataFrom,
 		s.LoadDataMode, s.LoadDataQuotaScan)
@@ -269,6 +265,22 @@ func (s *Service) loadInitialData() error {
 			logger.Warn(logSender, "", "unable to delete file %#v after successful load: %v", s.LoadDataFrom, err)
 			logger.WarnToConsole("unable to delete file %#v after successful load: %v", s.LoadDataFrom, err)
 		}
+	}
+	return nil
+}
+
+func (s *Service) restoreDump(dump dataprovider.BackupData) error {
+	err := httpd.RestoreAdmins(dump.Admins, s.LoadDataFrom, s.LoadDataMode)
+	if err != nil {
+		return fmt.Errorf("unable to restore folders from file %#v: %v", s.LoadDataFrom, err)
+	}
+	err = httpd.RestoreFolders(dump.Folders, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan)
+	if err != nil {
+		return fmt.Errorf("unable to restore folders from file %#v: %v", s.LoadDataFrom, err)
+	}
+	err = httpd.RestoreUsers(dump.Users, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan)
+	if err != nil {
+		return fmt.Errorf("unable to restore users from file %#v: %v", s.LoadDataFrom, err)
 	}
 	return nil
 }
