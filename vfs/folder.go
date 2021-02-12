@@ -49,7 +49,7 @@ func (v *BaseVirtualFolder) GetQuotaSummary() string {
 	var result string
 	result = "Files: " + strconv.Itoa(v.UsedQuotaFiles)
 	if v.UsedQuotaSize > 0 {
-		result += ". Size: " + utils.ByteCountSI(v.UsedQuotaSize)
+		result += ". Size: " + utils.ByteCountIEC(v.UsedQuotaSize)
 	}
 	if v.LastQuotaUpdate > 0 {
 		t := utils.GetTimeFromMsecSinceEpoch(v.LastQuotaUpdate)

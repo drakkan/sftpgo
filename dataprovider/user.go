@@ -706,9 +706,9 @@ func (u *User) GetQuotaSummary() string {
 		result += "/" + strconv.Itoa(u.QuotaFiles)
 	}
 	if u.UsedQuotaSize > 0 || u.QuotaSize > 0 {
-		result += ". Size: " + utils.ByteCountSI(u.UsedQuotaSize)
+		result += ". Size: " + utils.ByteCountIEC(u.UsedQuotaSize)
 		if u.QuotaSize > 0 {
-			result += "/" + utils.ByteCountSI(u.QuotaSize)
+			result += "/" + utils.ByteCountIEC(u.QuotaSize)
 		}
 	}
 	return result
@@ -740,13 +740,13 @@ func (u *User) GetPermissionsAsString() string {
 func (u *User) GetBandwidthAsString() string {
 	result := "Download: "
 	if u.DownloadBandwidth > 0 {
-		result += utils.ByteCountSI(u.DownloadBandwidth*1000) + "/s."
+		result += utils.ByteCountIEC(u.DownloadBandwidth*1000) + "/s."
 	} else {
 		result += "unlimited."
 	}
 	result += " Upload: "
 	if u.UploadBandwidth > 0 {
-		result += utils.ByteCountSI(u.UploadBandwidth*1000) + "/s."
+		result += utils.ByteCountIEC(u.UploadBandwidth*1000) + "/s."
 	} else {
 		result += "unlimited."
 	}

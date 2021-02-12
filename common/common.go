@@ -267,7 +267,7 @@ func (t *ConnectionTransfer) getConnectionTransferAsString() string {
 	if t.Size > 0 {
 		elapsed := time.Since(utils.GetTimeFromMsecSinceEpoch(t.StartTime))
 		speed := float64(t.Size) / float64(utils.GetTimeAsMsSinceEpoch(time.Now())-t.StartTime)
-		result += fmt.Sprintf("Size: %#v Elapsed: %#v Speed: \"%.1f KB/s\"", utils.ByteCountSI(t.Size),
+		result += fmt.Sprintf("Size: %#v Elapsed: %#v Speed: \"%.1f KB/s\"", utils.ByteCountIEC(t.Size),
 			utils.GetDurationAsString(elapsed), speed)
 	}
 	return result
