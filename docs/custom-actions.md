@@ -46,7 +46,7 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 - `status`, integer. 0 means a generic error occurred. 1 means no error, 2 means quota exceeded error
 - `protocol`, string. Possible values are `SSH`, `FTP`, `DAV`
 
-The HTTP request will use the global configuration for HTTP clients.
+The HTTP hook will use the global configuration for HTTP clients and will respect the retry configurations.
 
 The `actions` struct inside the "data_provider" configuration section allows you to configure actions on user add, update, delete.
 
@@ -73,4 +73,4 @@ The program must finish within 15 seconds.
 
 If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. The action is added to the query string, for example `<hook>?action=update`, and the user is sent serialized as JSON inside the POST body with sensitive fields removed.
 
-The HTTP request will use the global configuration for HTTP clients.
+The HTTP hook will use the global configuration for HTTP clients and will respect the retry configurations.

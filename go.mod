@@ -23,6 +23,7 @@ require (
 	github.com/google/wire v0.5.0 // indirect
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
+	github.com/hashicorp/go-retryablehttp v0.6.8
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/lestrrat-go/jwx v1.1.1
 	github.com/lib/pq v1.9.0

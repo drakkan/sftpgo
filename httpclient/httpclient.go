@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/hashicorp/go-retryablehttp"
+
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 )
@@ -16,8 +18,14 @@ import (
 // HTTP clients are used for executing hooks such as the ones used for
 // custom actions, external authentication and pre-login user modifications
 type Config struct {
-	// Timeout specifies a time limit, in seconds, for requests
+	// Timeout specifies a time limit, in seconds, for a request
 	Timeout int64 `json:"timeout" mapstructure:"timeout"`
+	// RetryWaitMin defines the minimum waiting time between attempts in seconds
+	RetryWaitMin int `json:"retry_wait_min" mapstructure:"retry_wait_min"`
+	// RetryWaitMax defines the minimum waiting time between attempts in seconds
+	RetryWaitMax int `json:"retry_wait_max" mapstructure:"retry_wait_max"`
+	// RetryMax defines the maximum number of attempts
+	RetryMax int `json:"retry_max" mapstructure:"retry_max"`
 	// CACertificates defines extra CA certificates to trust.
 	// The paths can be absolute or relative to the config dir.
 	// Adding trusted CA certificates is a convenient way to use self-signed
@@ -29,6 +37,7 @@ type Config struct {
 	// This should be used only for testing.
 	SkipTLSVerify   bool `json:"skip_tls_verify" mapstructure:"skip_tls_verify"`
 	customTransport *http.Transport
+	tlsConfig       *tls.Config
 }
 
 const logSender = "httpclient"
@@ -49,6 +58,7 @@ func (c Config) Initialize(configDir string) {
 	}
 	customTransport.TLSClientConfig.InsecureSkipVerify = c.SkipTLSVerify
 	httpConfig.customTransport = customTransport
+	httpConfig.tlsConfig = customTransport.TLSClientConfig
 }
 
 // loadCACerts returns system cert pools and try to add the configured
@@ -89,4 +99,18 @@ func GetHTTPClient() *http.Client {
 		Timeout:   time.Duration(httpConfig.Timeout) * time.Second,
 		Transport: httpConfig.customTransport,
 	}
+}
+
+// GetRetraybleHTTPClient returns an HTTP client that retry a request on error.
+// It uses the configured retry parameters
+func GetRetraybleHTTPClient() *retryablehttp.Client {
+	client := retryablehttp.NewClient()
+	client.HTTPClient.Timeout = time.Duration(httpConfig.Timeout) * time.Second
+	client.HTTPClient.Transport.(*http.Transport).TLSClientConfig = httpConfig.tlsConfig
+	client.Logger = &logger.LeveledLogger{Sender: "RetryableHTTPClient"}
+	client.RetryWaitMin = time.Duration(httpConfig.RetryWaitMin) * time.Second
+	client.RetryWaitMax = time.Duration(httpConfig.RetryWaitMax) * time.Second
+	client.RetryMax = httpConfig.RetryMax
+
+	return client
 }

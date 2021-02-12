@@ -212,7 +212,7 @@ func TestInitializeActionHandler(t *testing.T) {
 
 	InitializeActionHandler(handler)
 	t.Cleanup(func() {
-		InitializeActionHandler(defaultActionHandler{})
+		InitializeActionHandler(&defaultActionHandler{})
 	})
 
 	err := actionHandler.Handle(ActionNotification{})

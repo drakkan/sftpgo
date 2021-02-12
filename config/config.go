@@ -218,6 +218,9 @@ func Init() {
 		},
 		HTTPConfig: httpclient.Config{
 			Timeout:        20,
+			RetryWaitMin:   2,
+			RetryWaitMax:   30,
+			RetryMax:       3,
 			CACertificates: nil,
 			SkipTLSVerify:  false,
 		},
@@ -848,6 +851,9 @@ func setViperDefaults() {
 	viper.SetDefault("httpd.ca_certificates", globalConf.HTTPDConfig.CACertificates)
 	viper.SetDefault("httpd.ca_revocation_lists", globalConf.HTTPDConfig.CARevocationLists)
 	viper.SetDefault("http.timeout", globalConf.HTTPConfig.Timeout)
+	viper.SetDefault("http.retry_wait_min", globalConf.HTTPConfig.RetryWaitMin)
+	viper.SetDefault("http.retry_wait_max", globalConf.HTTPConfig.RetryWaitMax)
+	viper.SetDefault("http.retry_max", globalConf.HTTPConfig.RetryMax)
 	viper.SetDefault("http.ca_certificates", globalConf.HTTPConfig.CACertificates)
 	viper.SetDefault("http.skip_tls_verify", globalConf.HTTPConfig.SkipTLSVerify)
 	viper.SetDefault("kms.secrets.url", globalConf.KMSConfig.Secrets.URL)

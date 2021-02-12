@@ -34,7 +34,7 @@ type ProtocolActions struct {
 	Hook string `json:"hook" mapstructure:"hook"`
 }
 
-var actionHandler ActionHandler = defaultActionHandler{}
+var actionHandler ActionHandler = &defaultActionHandler{}
 
 // InitializeActionHandler lets the user choose an action handler implementation.
 //
@@ -116,7 +116,7 @@ func newActionNotification(
 
 type defaultActionHandler struct{}
 
-func (h defaultActionHandler) Handle(notification ActionNotification) error {
+func (h *defaultActionHandler) Handle(notification ActionNotification) error {
 	if !utils.IsStringInSlice(notification.Action, Config.Actions.ExecuteOn) {
 		return errUnconfiguredAction
 	}
@@ -134,7 +134,7 @@ func (h defaultActionHandler) Handle(notification ActionNotification) error {
 	return h.handleCommand(notification)
 }
 
-func (h defaultActionHandler) handleHTTP(notification ActionNotification) error {
+func (h *defaultActionHandler) handleHTTP(notification ActionNotification) error {
 	u, err := url.Parse(Config.Actions.Hook)
 	if err != nil {
 		logger.Warn(notification.Protocol, "", "Invalid hook %#v for operation %#v: %v", Config.Actions.Hook, notification.Action, err)
@@ -145,7 +145,7 @@ func (h defaultActionHandler) handleHTTP(notification ActionNotification) error 
 	startTime := time.Now()
 	respCode := 0
 
-	httpClient := httpclient.GetHTTPClient()
+	httpClient := httpclient.GetRetraybleHTTPClient()
 
 	var b bytes.Buffer
 	_ = json.NewEncoder(&b).Encode(notification)
@@ -165,7 +165,7 @@ func (h defaultActionHandler) handleHTTP(notification ActionNotification) error 
 	return err
 }
 
-func (h defaultActionHandler) handleCommand(notification ActionNotification) error {
+func (h *defaultActionHandler) handleCommand(notification ActionNotification) error {
 	if !filepath.IsAbs(Config.Actions.Hook) {
 		err := fmt.Errorf("invalid notification command %#v", Config.Actions.Hook)
 		logger.Warn(notification.Protocol, "", "unable to execute notification command: %v", err)

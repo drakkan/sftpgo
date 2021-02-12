@@ -2093,7 +2093,7 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 
 			startTime := time.Now()
 			respCode := 0
-			httpClient := httpclient.GetHTTPClient()
+			httpClient := httpclient.GetRetraybleHTTPClient()
 			resp, err := httpClient.Post(url.String(), "application/json", bytes.NewBuffer(userAsJSON))
 			if err == nil {
 				respCode = resp.StatusCode
@@ -2273,7 +2273,7 @@ func executeAction(operation string, user *User) {
 			q.Add("action", operation)
 			url.RawQuery = q.Encode()
 			startTime := time.Now()
-			httpClient := httpclient.GetHTTPClient()
+			httpClient := httpclient.GetRetraybleHTTPClient()
 			resp, err := httpClient.Post(url.String(), "application/json", bytes.NewBuffer(userAsJSON))
 			respCode := 0
 			if err == nil {
