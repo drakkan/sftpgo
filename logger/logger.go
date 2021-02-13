@@ -64,15 +64,16 @@ type LeveledLogger struct {
 }
 
 func (l *LeveledLogger) addKeysAndValues(ev *zerolog.Event, keysAndValues ...interface{}) {
-	for i := 0; i < len(keysAndValues); {
-		if i == len(keysAndValues)-1 {
-			break
-		}
+	kvLen := len(keysAndValues)
+	if kvLen%2 != 0 {
+		extra := keysAndValues[kvLen-1]
+		keysAndValues = append(keysAndValues[:kvLen-1], "EXTRA_VALUE_AT_END", extra)
+	}
+	for i := 0; i < len(keysAndValues); i = i + 2 {
 		key, val := keysAndValues[i], keysAndValues[i+1]
 		if keyStr, ok := key.(string); ok {
 			ev.Str(keyStr, fmt.Sprintf("%v", val))
 		}
-		i += 2
 	}
 }
 
@@ -81,7 +82,7 @@ func (l *LeveledLogger) Error(msg string, keysAndValues ...interface{}) {
 	ev := logger.Error()
 	ev.Timestamp().Str("sender", l.Sender)
 	l.addKeysAndValues(ev, keysAndValues...)
-	ev.Send()
+	ev.Msg(msg)
 }
 
 // Info logs at info level for the specified sender
@@ -89,7 +90,7 @@ func (l *LeveledLogger) Info(msg string, keysAndValues ...interface{}) {
 	ev := logger.Info()
 	ev.Timestamp().Str("sender", l.Sender)
 	l.addKeysAndValues(ev, keysAndValues...)
-	ev.Send()
+	ev.Msg(msg)
 }
 
 // Debug logs at debug level for the specified sender
@@ -97,7 +98,7 @@ func (l *LeveledLogger) Debug(msg string, keysAndValues ...interface{}) {
 	ev := logger.Debug()
 	ev.Timestamp().Str("sender", l.Sender)
 	l.addKeysAndValues(ev, keysAndValues...)
-	ev.Send()
+	ev.Msg(msg)
 }
 
 // Warn logs at warn level for the specified sender
@@ -105,7 +106,7 @@ func (l *LeveledLogger) Warn(msg string, keysAndValues ...interface{}) {
 	ev := logger.Warn()
 	ev.Timestamp().Str("sender", l.Sender)
 	l.addKeysAndValues(ev, keysAndValues...)
-	ev.Send()
+	ev.Msg(msg)
 }
 
 // GetLogger get the configured logger instance

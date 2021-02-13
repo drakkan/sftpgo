@@ -46,6 +46,16 @@ $ sftpgo gen completion fish | source
 To load completions for each session, execute once:
 
 $ sftpgo gen completion fish > ~/.config/fish/completions/sftpgo.fish
+
+Powershell:
+
+PS> sftpgo gen completion powershell | Out-String | Invoke-Expression
+
+To load completions for every new session, run:
+
+PS> sftpgo gen completion powershell > sftpgo.ps1
+
+and source this file from your powershell profile.
 `,
 	DisableFlagsInUseLine: true,
 	ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
@@ -62,7 +72,7 @@ $ sftpgo gen completion fish > ~/.config/fish/completions/sftpgo.fish
 		case "fish":
 			err = cmd.Root().GenFishCompletion(os.Stdout, true)
 		case "powershell":
-			err = cmd.Root().GenPowerShellCompletion(os.Stdout)
+			err = cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
 		}
 		if err != nil {
 			logger.WarnToConsole("Unable to generate shell completion script: %v", err)
