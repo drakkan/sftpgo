@@ -47,8 +47,7 @@ type Service struct {
 	Error             error
 }
 
-// Start initializes the service
-func (s *Service) Start() error {
+func (s *Service) initLogger() {
 	logLevel := zerolog.DebugLevel
 	if !s.LogVerbose {
 		logLevel = zerolog.InfoLevel
@@ -63,6 +62,11 @@ func (s *Service) Start() error {
 			logger.DisableLogger()
 		}
 	}
+}
+
+// Start initializes the service
+func (s *Service) Start() error {
+	s.initLogger()
 	logger.Info(logSender, "", "starting SFTPGo %v, config dir: %v, config file: %v, log max size: %v log max backups: %v "+
 		"log max age: %v log verbose: %v, log compress: %v, load data from: %#v", version.GetAsString(), s.ConfigDir, s.ConfigFile,
 		s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogVerbose, s.LogCompress, s.LoadDataFrom)
@@ -120,7 +124,12 @@ func (s *Service) Start() error {
 	}
 
 	httpConfig := config.GetHTTPConfig()
-	httpConfig.Initialize(s.ConfigDir)
+	err = httpConfig.Initialize(s.ConfigDir)
+	if err != nil {
+		logger.Error(logSender, "", "error initializing http client: %v", err)
+		logger.ErrorToConsole("error initializing http client: %v", err)
+		return err
+	}
 
 	s.startServices()
 

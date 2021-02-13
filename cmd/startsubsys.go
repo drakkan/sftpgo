@@ -90,7 +90,10 @@ Command-line flags should be specified in the Subsystem declaration.
 				os.Exit(1)
 			}
 			httpConfig := config.GetHTTPConfig()
-			httpConfig.Initialize(configDir)
+			if err := httpConfig.Initialize(configDir); err != nil {
+				logger.Error(logSender, connectionID, "unable to initialize http client: %v", err)
+				os.Exit(1)
+			}
 			user, err := dataprovider.UserExists(username)
 			if err == nil {
 				if user.HomeDir != filepath.Clean(homedir) && !preserveHomeDir {

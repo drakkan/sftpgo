@@ -667,6 +667,67 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, 1, bindings[2].ClientAuthType)
 }
 
+func TestHTTPClientCertificatesFromEnv(t *testing.T) {
+	reset()
+
+	configDir := ".."
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+	err := config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	httpConf := config.GetHTTPConfig()
+	httpConf.Certificates = append(httpConf.Certificates, httpclient.TLSKeyPair{
+		Cert: "cert",
+		Key:  "key",
+	})
+	c := make(map[string]httpclient.Config)
+	c["http"] = httpConf
+	jsonConf, err := json.Marshal(c)
+	require.NoError(t, err)
+	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
+	require.NoError(t, err)
+	err = config.LoadConfig(configDir, confName)
+	require.NoError(t, err)
+	require.Len(t, config.GetHTTPConfig().Certificates, 1)
+	require.Equal(t, "cert", config.GetHTTPConfig().Certificates[0].Cert)
+	require.Equal(t, "key", config.GetHTTPConfig().Certificates[0].Key)
+
+	os.Setenv("SFTPGO_HTTP__CERTIFICATES__0__CERT", "cert0")
+	os.Setenv("SFTPGO_HTTP__CERTIFICATES__0__KEY", "key0")
+	os.Setenv("SFTPGO_HTTP__CERTIFICATES__8__CERT", "cert8")
+	os.Setenv("SFTPGO_HTTP__CERTIFICATES__9__CERT", "cert9")
+	os.Setenv("SFTPGO_HTTP__CERTIFICATES__9__KEY", "key9")
+
+	t.Cleanup(func() {
+		os.Unsetenv("SFTPGO_HTTP__CERTIFICATES__0__CERT")
+		os.Unsetenv("SFTPGO_HTTP__CERTIFICATES__0__KEY")
+		os.Unsetenv("SFTPGO_HTTP__CERTIFICATES__8__CERT")
+		os.Unsetenv("SFTPGO_HTTP__CERTIFICATES__9__CERT")
+		os.Unsetenv("SFTPGO_HTTP__CERTIFICATES__9__KEY")
+	})
+
+	err = config.LoadConfig(configDir, confName)
+	require.NoError(t, err)
+	require.Len(t, config.GetHTTPConfig().Certificates, 2)
+	require.Equal(t, "cert0", config.GetHTTPConfig().Certificates[0].Cert)
+	require.Equal(t, "key0", config.GetHTTPConfig().Certificates[0].Key)
+	require.Equal(t, "cert9", config.GetHTTPConfig().Certificates[1].Cert)
+	require.Equal(t, "key9", config.GetHTTPConfig().Certificates[1].Key)
+
+	err = os.Remove(configFilePath)
+	assert.NoError(t, err)
+
+	config.Init()
+
+	err = config.LoadConfig(configDir, "")
+	require.NoError(t, err)
+	require.Len(t, config.GetHTTPConfig().Certificates, 2)
+	require.Equal(t, "cert0", config.GetHTTPConfig().Certificates[0].Cert)
+	require.Equal(t, "key0", config.GetHTTPConfig().Certificates[0].Key)
+	require.Equal(t, "cert9", config.GetHTTPConfig().Certificates[1].Cert)
+	require.Equal(t, "key9", config.GetHTTPConfig().Certificates[1].Key)
+}
+
 func TestConfigFromEnv(t *testing.T) {
 	reset()
 

@@ -222,6 +222,7 @@ func Init() {
 			RetryWaitMax:   30,
 			RetryMax:       3,
 			CACertificates: nil,
+			Certificates:   nil,
 			SkipTLSVerify:  false,
 		},
 		KMSConfig: kms.Configuration{
@@ -577,6 +578,7 @@ func loadBindingsFromEnv() {
 		getFTPDBindingFromEnv(idx)
 		getWebDAVDBindingFromEnv(idx)
 		getHTTPDBindingFromEnv(idx)
+		getHTTPClientCertificatesFromEnv(idx)
 	}
 }
 
@@ -752,6 +754,28 @@ func getHTTPDBindingFromEnv(idx int) {
 			globalConf.HTTPDConfig.Bindings[idx] = binding
 		} else {
 			globalConf.HTTPDConfig.Bindings = append(globalConf.HTTPDConfig.Bindings, binding)
+		}
+	}
+}
+
+func getHTTPClientCertificatesFromEnv(idx int) {
+	tlsCert := httpclient.TLSKeyPair{}
+
+	cert, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTP__CERTIFICATES__%v__CERT", idx))
+	if ok {
+		tlsCert.Cert = cert
+	}
+
+	key, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTP__CERTIFICATES__%v__KEY", idx))
+	if ok {
+		tlsCert.Key = key
+	}
+
+	if tlsCert.Cert != "" && tlsCert.Key != "" {
+		if len(globalConf.HTTPConfig.Certificates) > idx {
+			globalConf.HTTPConfig.Certificates[idx] = tlsCert
+		} else {
+			globalConf.HTTPConfig.Certificates = append(globalConf.HTTPConfig.Certificates, tlsCert)
 		}
 	}
 }

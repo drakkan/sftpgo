@@ -184,7 +184,7 @@ func TestMain(m *testing.M) {
 	}
 
 	httpConfig := config.GetHTTPConfig()
-	httpConfig.Initialize(configDir)
+	httpConfig.Initialize(configDir) //nolint:errcheck
 	kmsConfig := config.GetKMSConfig()
 	err = kmsConfig.Initialize()
 	if err != nil {

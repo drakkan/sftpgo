@@ -178,6 +178,7 @@
     "retry_wait_max": 30,
     "retry_max": 3,
     "ca_certificates": [],
+    "certificates": [],
     "skip_tls_verify": false
   },
   "kms": {

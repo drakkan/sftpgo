@@ -215,6 +215,9 @@ The configuration file contains the following sections:
   - `retry_wait_max`, integer. Defines the maximum waiting time between attempts in seconds. The backoff algorithm will perform exponential backoff based on the attempt number and limited by the provided minimum and maximum durations.
   - `retry_max`, integer. Defines the maximum number of retries if the first request fails.
   - `ca_certificates`, list of strings. List of paths to extra CA certificates to trust. The paths can be absolute or relative to the config dir. Adding trusted CA certificates is a convenient way to use self-signed certificates without defeating the purpose of using TLS.
+  - `certificates`, list of certificate for mutual TLS. Each certificate is a struct with the following fields:
+    - `cert`, string. Path to the certificate file. The path can be absolute or relative to the config dir.
+    - `key`, string. Path to the key file. The path can be absolute or relative to the config dir.
   - `skip_tls_verify`, boolean. if enabled the HTTP client accepts any TLS certificate presented by the server and any host name in that certificate. In this mode, TLS is susceptible to man-in-the-middle attacks. This should be used only for testing.
 - **kms**, configuration for the Key Management Service, more details can be found [here](./kms.md)
   - `secrets`

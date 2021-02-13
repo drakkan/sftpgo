@@ -109,7 +109,7 @@ func TestMain(m *testing.M) {
 	httpConfig := httpclient.Config{
 		Timeout: 5,
 	}
-	httpConfig.Initialize(configDir)
+	httpConfig.Initialize(configDir) //nolint:errcheck
 
 	go func() {
 		// start a test HTTP server to receive action notifications
