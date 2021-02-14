@@ -428,7 +428,7 @@ func IsCryptOsFs(fs Fs) bool {
 	return fs.Name() == cryptFsName
 }
 
-// IsSFTPFs returns true if fs is a SFTP filesystem
+// IsSFTPFs returns true if fs is an SFTP filesystem
 func IsSFTPFs(fs Fs) bool {
 	return strings.HasPrefix(fs.Name(), sftpFsName)
 }

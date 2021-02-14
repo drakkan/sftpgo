@@ -1,6 +1,6 @@
-# Expose Web Admin and REST API over HTTPS and password protected
+# Expose Web Admin and REST API over HTTPS
 
-This tutorial shows how to expose the SFTPGo web interface and REST API over HTTPS and password protect them.
+This tutorial shows how to expose the SFTPGo web interface and REST API over HTTPS.
 
 ## Preliminary Note
 
@@ -11,57 +11,6 @@ We assume:
 - you are running SFTPGo as service using the dedicated `sftpgo` system user
 - the SFTPGo configuration directory is `/etc/sftpgo`
 - you are running SFTPGo on Ubuntu 20.04, however this instructions can be easily adapted for other Linux variants.
-
-## Authentication Setup
-
-First install the `htpasswd` tool. We use this tool to create the users for the Web Admin/REST API.
-
-```shell
-sudo apt install apache2-utils
-```
-
-Create a user for web based authentication.
-
-```shell
-sudo htpasswd -B -c /etc/sftpgo/httpauth sftpgoweb
-```
-
-If you want to create additional users omit the `-c` option.
-
-```shell
-sudo htpasswd -B /etc/sftpgo/httpauth anotheruser
-```
-
-Next open the SFTPGo configuration.
-
-```shell
-sudo vi /etc/sftpgo/sftpgo.json
-```
-
-Search for the `httpd` section and change it as follow.
-
-```json
-  "httpd": {
-    "bind_port": 8080,
-    "bind_address": "",
-    "templates_path": "templates",
-    "static_files_path": "static",
-    "backups_path": "backups",
-    "auth_user_file": "/etc/sftpgo/httpauth",
-    "certificate_file": "",
-    "certificate_key_file": ""
-  }
-```
-
-Setting an empty `bind_address` means that the service will listen on all available network interfaces and so it will be exposed over the network.
-
-Now restart the SFTPGo service to apply the changes.
-
-```shell
-sudo systemctl restart sftpgo
-```
-
-You are done! Now login to the Web Admin interface using the username and password created above.
 
 ## Creation of a Self-Signed Certificate
 
@@ -94,16 +43,26 @@ Search for the `httpd` section and change it as follow.
 
 ```json
   "httpd": {
-    "bind_port": 8080,
-    "bind_address": "",
-    "templates_path": "templates",
-    "static_files_path": "static",
-    "backups_path": "backups",
-    "auth_user_file": "/etc/sftpgo/httpauth",
+    "bindings": [
+      {
+        "port": 8080,
+        "address": "",
+        "enable_web_admin": true,
+        "enable_https": false,
+        "client_auth_type": 0
+      }
+    ],
+    "templates_path": "/usr/share/sftpgo/templates",
+    "static_files_path": "/usr/share/sftpgo/static",
+    "backups_path": "/srv/sftpgo/backups",
     "certificate_file": "/etc/sftpgo/ssl/sftpgo.crt",
-    "certificate_key_file": "/etc/sftpgo/ssl/sftpgo.key"
-  }
+    "certificate_key_file": "/etc/sftpgo/ssl/sftpgo.key",
+    "ca_certificates": [],
+    "ca_revocation_lists": []
+  },
 ```
+
+The configuration keys `certificate_file` and `certificate_key_file` point to the certificate and key we previously created. Setting an empty `address` means that the service will listen on all available network interfaces.
 
 Now restart the SFTPGo service to apply the changes.
 
@@ -111,7 +70,7 @@ Now restart the SFTPGo service to apply the changes.
 sudo systemctl restart sftpgo
 ```
 
-You are done! Now SFTPGo web admin and REST API are exposed over HTTPS and password protected.
+You are done! Now SFTPGo web admin and REST API are exposed over HTTPS.
 
 You can easily replace the self-signed certificate used here with a properly signed certificate.
 

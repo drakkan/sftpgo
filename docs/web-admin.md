@@ -10,4 +10,4 @@ The default credentials are:
 - username: `admin`
 - password: `password`
 
-The web interface can be exposed over HTTPS.
+The web interface can be exposed via HTTPS and may require mutual TLS authentication in addition to administrator credentials.

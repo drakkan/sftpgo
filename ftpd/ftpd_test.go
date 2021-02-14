@@ -2071,11 +2071,11 @@ func waitTCPListening(address string) {
 	for {
 		conn, err := net.Dial("tcp", address)
 		if err != nil {
-			logger.WarnToConsole("tcp server %v not listening: %v\n", address, err)
+			logger.WarnToConsole("tcp server %v not listening: %v", address, err)
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
-		logger.InfoToConsole("tcp server %v now listening\n", address)
+		logger.InfoToConsole("tcp server %v now listening", address)
 		conn.Close()
 		break
 	}

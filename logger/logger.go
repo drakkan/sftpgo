@@ -229,7 +229,7 @@ func ErrorToConsole(format string, v ...interface{}) {
 	consoleLogger.Error().Msg(fmt.Sprintf(format, v...))
 }
 
-// TransferLog logs an SFTP/SCP upload or download
+// TransferLog logs uploads or downloads
 func TransferLog(operation string, path string, elapsed int64, size int64, user string, connectionID string, protocol string) {
 	logger.Info().
 		Timestamp().

@@ -1,13 +1,16 @@
 # Account's configuration properties
 
-Please take a look at the [OpenAPI schema](../httpd/schema/openapi.yaml) for the exact definitions of user and folder fields.
-If you need an example you can export a dump using the REST API CLI client or by invoking the `dumpdata` endpoint directly, for example:
+Please take a look at the [OpenAPI schema](../httpd/schema/openapi.yaml) for the exact definitions of user, folder and admin fields.
+If you need an example you can export a dump using the Web Admin or by invoking the `dumpdata` endpoint directly, you need to obtain an access token first, for example:
 
 ```shell
-curl "http://127.0.0.1:8080/api/v1/dumpdata?output_file=dump.json&indent=1"
+$ curl "http://admin:password@127.0.0.1:8080/api/v2/token"
+{"access_token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiQVBJIl0sImV4cCI6MTYxMzMzNTI2MSwianRpIjoiYzBrb2gxZmNkcnBjaHNzMGZwZmciLCJuYmYiOjE2MTMzMzQ2MzEsInBlcm1pc3Npb25zIjpbIioiXSwic3ViIjoiYUJ0SHUwMHNBUmxzZ29yeEtLQ1pZZWVqSTRKVTlXbThHSGNiVWtWVmc1TT0iLCJ1c2VybmFtZSI6ImFkbWluIn0.WiyqvUF-92zCr--y4Q_sxn-tPnISFzGZd_exsG-K7ME","expires_at":"2021-02-14T20:41:01Z"}
+
+curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiQVBJIl0sImV4cCI6MTYxMzMzNTI2MSwianRpIjoiYzBrb2gxZmNkcnBjaHNzMGZwZmciLCJuYmYiOjE2MTMzMzQ2MzEsInBlcm1pc3Npb25zIjpbIioiXSwic3ViIjoiYUJ0SHUwMHNBUmxzZ29yeEtLQ1pZZWVqSTRKVTlXbThHSGNiVWtWVmc1TT0iLCJ1c2VybmFtZSI6ImFkbWluIn0.WiyqvUF-92zCr--y4Q_sxn-tPnISFzGZd_exsG-K7ME" "http://127.0.0.1:8080/api/v2/dumpdata?output-data=1"
 ```
 
-the dump is a JSON with users and folder.
+the dump is a JSON with users, folder and admins.
 
 These properties are stored inside the configured data provider.
 

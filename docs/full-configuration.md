@@ -158,7 +158,7 @@ The configuration file contains the following sections:
   - `username`, string. Database user. Leave empty for drivers `sqlite`, `bolt` and `memory`
   - `password`, string. Database password. Leave empty for drivers `sqlite`, `bolt` and `memory`
   - `sslmode`, integer. Used for drivers `mysql` and `postgresql`. 0 disable SSL/TLS connections, 1 require ssl, 2 set ssl mode to `verify-ca` for driver `postgresql` and `skip-verify` for driver `mysql`, 3 set ssl mode to `verify-full` for driver `postgresql` and `preferred` for driver `mysql`
-  - `connectionstring`, string. Provide a custom database connection string. If not empty, this connection string will be used instead of building one using the previous parameters. Leave empty for drivers `bolt` and `memory`
+  - `connection_string`, string. Provide a custom database connection string. If not empty, this connection string will be used instead of building one using the previous parameters. Leave empty for drivers `bolt` and `memory`
   - `sql_tables_prefix`, string. Prefix for SQL tables
   - `track_quota`, integer. Set the preferred mode to track users quota between the following choices:
     - 0, disable quota tracking. REST API to scan users home directories/virtual folders and update quota will do nothing
