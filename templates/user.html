@@ -85,12 +85,7 @@
             <div class="form-group row">
                 <label for="idPassword" class="col-sm-2 col-form-label">Password</label>
                 <div class="col-sm-10">
-                    <input type="password" class="form-control" id="idPassword" name="password" placeholder="" {{if eq .Mode 2}}aria-describedby="pwdHelpBlock" {{end}}>
-                    {{if eq .Mode 2}}
-                    <small id="pwdHelpBlock" class="form-text text-muted">
-                        If empty the current password will not be changed
-                    </small>
-                    {{end}}
+                    <input type="password" class="form-control" id="idPassword" name="password" value="{{.User.Password}}" placeholder="">
                 </div>
             </div>
 

@@ -1379,7 +1379,7 @@ func validateBaseParams(user *User) error {
 }
 
 func createUserPasswordHash(user *User) error {
-	if user.Password != "" && !utils.IsStringPrefixInSlice(user.Password, hashPwdPrefixes) {
+	if user.Password != "" && !user.IsPasswordHashed() {
 		pwd, err := argon2id.CreateHash(user.Password, argon2Params)
 		if err != nil {
 			return err

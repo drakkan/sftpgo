@@ -115,6 +115,7 @@ AAAEA0E24gi8ab/XRSvJ85TGZJMe6HVmwxSG4ExPfTMwwe2n5EHjI1NnP2Yc6RrDBSJs11
 6aKNVXcSsx4vFZQGUI3+AAAACW5pY29sYUBwMQECAwQ=
 -----END OPENSSH PRIVATE KEY-----`
 	sftpPkeyFingerprint = "SHA256:QVQ06XHZZbYZzqfrsZcf3Yozy2WTnqQPeLOkcJCdbP0"
+	redactedSecret      = "[**redacted**]"
 )
 
 var (
@@ -899,20 +900,62 @@ func TestAddUserInvalidVirtualFolders(t *testing.T) {
 
 func TestUserPublicKey(t *testing.T) {
 	u := getTestUser()
+	u.Password = ""
 	invalidPubKey := "invalid"
-	validPubKey := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"
 	u.PublicKeys = []string{invalidPubKey}
 	_, _, err := httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.PublicKeys = []string{validPubKey}
+	u.PublicKeys = []string{testPubKey}
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	user.PublicKeys = []string{validPubKey, invalidPubKey}
+
+	dbUser, err := dataprovider.UserExists(u.Username)
+	assert.NoError(t, err)
+	assert.Empty(t, dbUser.Password)
+	assert.False(t, dbUser.IsPasswordHashed())
+
+	user.PublicKeys = []string{testPubKey, invalidPubKey}
 	_, _, err = httpdtest.UpdateUser(user, http.StatusBadRequest, "")
 	assert.NoError(t, err)
-	user.PublicKeys = []string{validPubKey, validPubKey, validPubKey}
+	user.PublicKeys = []string{testPubKey, testPubKey, testPubKey}
+	user.Password = defaultPassword
 	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
+
+	dbUser, err = dataprovider.UserExists(u.Username)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, dbUser.Password)
+	assert.True(t, dbUser.IsPasswordHashed())
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestUpdateUserEmptyPassword(t *testing.T) {
+	u := getTestUser()
+	u.PublicKeys = []string{testPubKey}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	// the password is not empty
+	dbUser, err := dataprovider.UserExists(u.Username)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, dbUser.Password)
+	assert.True(t, dbUser.IsPasswordHashed())
+	// now update the user and set an empty password
+	customUser := make(map[string]interface{})
+	customUser["password"] = ""
+	asJSON, err := json.Marshal(customUser)
+	assert.NoError(t, err)
+	userNoPwd, _, err := httpdtest.UpdateUserWithJSON(user, http.StatusOK, "", asJSON)
+	assert.NoError(t, err)
+	assert.Equal(t, user, userNoPwd) // the password is hidden so the user must be equal
+	// check the password within the data provider
+	dbUser, err = dataprovider.UserExists(u.Username)
+	assert.NoError(t, err)
+	assert.Empty(t, dbUser.Password)
+	assert.False(t, dbUser.IsPasswordHashed())
+
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
@@ -4634,6 +4677,11 @@ func TestWebUserAddMock(t *testing.T) {
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	dbUser, err := dataprovider.UserExists(user.Username)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, dbUser.Password)
+	assert.True(t, dbUser.IsPasswordHashed())
 	// the user already exists, was created with the above request
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
@@ -4730,6 +4778,10 @@ func TestWebUserUpdateMock(t *testing.T) {
 	setBearerForReq(req, apiToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
+	dbUser, err := dataprovider.UserExists(user.Username)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, dbUser.Password)
+	assert.True(t, dbUser.IsPasswordHashed())
 	err = render.DecodeJSON(rr.Body, &user)
 	assert.NoError(t, err)
 	user.MaxSessions = 1
@@ -4739,6 +4791,8 @@ func TestWebUserUpdateMock(t *testing.T) {
 	user.AdditionalInfo = "new additional info"
 	form := make(url.Values)
 	form.Set("username", user.Username)
+	form.Set("password", "")
+	form.Set("public_keys", testPubKey)
 	form.Set("home_dir", user.HomeDir)
 	form.Set("uid", "0")
 	form.Set("gid", strconv.FormatInt(int64(user.GID), 10))
@@ -4774,6 +4828,36 @@ func TestWebUserUpdateMock(t *testing.T) {
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
+	dbUser, err = dataprovider.UserExists(user.Username)
+	assert.NoError(t, err)
+	assert.Empty(t, dbUser.Password)
+	assert.False(t, dbUser.IsPasswordHashed())
+
+	form.Set("password", defaultPassword)
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	dbUser, err = dataprovider.UserExists(user.Username)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, dbUser.Password)
+	assert.True(t, dbUser.IsPasswordHashed())
+	prevPwd := dbUser.Password
+
+	form.Set("password", redactedSecret)
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	dbUser, err = dataprovider.UserExists(user.Username)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, dbUser.Password)
+	assert.True(t, dbUser.IsPasswordHashed())
+	assert.Equal(t, prevPwd, dbUser.Password)
 
 	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
 	setBearerForReq(req, apiToken)
@@ -5177,6 +5261,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
+	form.Set("password", redactedSecret)
 	form.Set("home_dir", user.HomeDir)
 	form.Set("uid", "0")
 	form.Set("gid", strconv.FormatInt(int64(user.GID), 10))
@@ -5249,7 +5334,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.Empty(t, updateUser.FsConfig.S3Config.AccessSecret.GetKey())
 	assert.Empty(t, updateUser.FsConfig.S3Config.AccessSecret.GetAdditionalData())
 	// now check that a redacted password is not saved
-	form.Set("s3_access_secret", "[**redacted**] ")
+	form.Set("s3_access_secret", redactedSecret)
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
 	setJWTCookieForReq(req, webToken)
@@ -5318,6 +5403,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
+	form.Set("password", redactedSecret)
 	form.Set("home_dir", user.HomeDir)
 	form.Set("uid", "0")
 	form.Set("gid", strconv.FormatInt(int64(user.GID), 10))
@@ -5420,6 +5506,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
+	form.Set("password", redactedSecret)
 	form.Set("home_dir", user.HomeDir)
 	form.Set("uid", "0")
 	form.Set("gid", strconv.FormatInt(int64(user.GID), 10))
@@ -5491,7 +5578,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	assert.Empty(t, updateUser.FsConfig.AzBlobConfig.AccountKey.GetKey())
 	assert.Empty(t, updateUser.FsConfig.AzBlobConfig.AccountKey.GetAdditionalData())
 	// now check that a redacted password is not saved
-	form.Set("az_account_key", "[**redacted**] ")
+	form.Set("az_account_key", redactedSecret+" ")
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
 	setJWTCookieForReq(req, webToken)
@@ -5535,6 +5622,7 @@ func TestWebUserCryptMock(t *testing.T) {
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
+	form.Set("password", redactedSecret)
 	form.Set("home_dir", user.HomeDir)
 	form.Set("uid", "0")
 	form.Set("gid", strconv.FormatInt(int64(user.GID), 10))
@@ -5582,7 +5670,7 @@ func TestWebUserCryptMock(t *testing.T) {
 	assert.Empty(t, updateUser.FsConfig.CryptConfig.Passphrase.GetKey())
 	assert.Empty(t, updateUser.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
 	// now check that a redacted password is not saved
-	form.Set("crypt_passphrase", "[**redacted**] ")
+	form.Set("crypt_passphrase", redactedSecret+" ")
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
 	setJWTCookieForReq(req, webToken)
@@ -5631,6 +5719,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
+	form.Set("password", redactedSecret)
 	form.Set("home_dir", user.HomeDir)
 	form.Set("uid", "0")
 	form.Set("gid", strconv.FormatInt(int64(user.GID), 10))
@@ -5692,8 +5781,8 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	assert.Len(t, updateUser.FsConfig.SFTPConfig.Fingerprints, 1)
 	assert.Contains(t, updateUser.FsConfig.SFTPConfig.Fingerprints, sftpPkeyFingerprint)
 	// now check that a redacted credentials are not saved
-	form.Set("sftp_password", "[**redacted**] ")
-	form.Set("sftp_private_key", "[**redacted**]")
+	form.Set("sftp_password", redactedSecret+" ")
+	form.Set("sftp_private_key", redactedSecret)
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
 	setJWTCookieForReq(req, webToken)

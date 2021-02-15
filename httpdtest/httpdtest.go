@@ -152,15 +152,14 @@ func AddUser(user dataprovider.User, expectedStatusCode int) (dataprovider.User,
 	return newUser, body, err
 }
 
-// UpdateUser updates an existing user and checks the received HTTP Status code against expectedStatusCode.
-func UpdateUser(user dataprovider.User, expectedStatusCode int, disconnect string) (dataprovider.User, []byte, error) {
+// UpdateUserWithJSON update a user using the provided JSON as POST body
+func UpdateUserWithJSON(user dataprovider.User, expectedStatusCode int, disconnect string, userAsJSON []byte) (dataprovider.User, []byte, error) {
 	var newUser dataprovider.User
 	var body []byte
 	url, err := addDisconnectQueryParam(buildURLRelativeToBase(userPath, url.PathEscape(user.Username)), disconnect)
 	if err != nil {
 		return user, body, err
 	}
-	userAsJSON, _ := json.Marshal(user)
 	resp, err := sendHTTPRequest(http.MethodPut, url.String(), bytes.NewBuffer(userAsJSON), "application/json",
 		getDefaultToken())
 	if err != nil {
@@ -179,6 +178,12 @@ func UpdateUser(user dataprovider.User, expectedStatusCode int, disconnect strin
 		err = checkUser(&user, &newUser)
 	}
 	return newUser, body, err
+}
+
+// UpdateUser updates an existing user and checks the received HTTP Status code against expectedStatusCode.
+func UpdateUser(user dataprovider.User, expectedStatusCode int, disconnect string) (dataprovider.User, []byte, error) {
+	userAsJSON, _ := json.Marshal(user)
+	return UpdateUserWithJSON(user, expectedStatusCode, disconnect, userAsJSON)
 }
 
 // RemoveUser removes an existing user and checks the received HTTP Status code against expectedStatusCode.

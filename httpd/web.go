@@ -389,6 +389,9 @@ func renderUserPage(w http.ResponseWriter, r *http.Request, user *dataprovider.U
 		title = "User template"
 		currentURL = webTemplateUser
 	}
+	if user.Password != "" && user.IsPasswordHashed() && mode == userPageModeUpdate {
+		user.Password = redactedSecret
+	}
 	data := userPage{
 		basePage:             getBasePageData(title, currentURL, r),
 		Mode:                 mode,
@@ -1334,6 +1337,7 @@ func handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			user.ID = 0
 			user.Username = ""
+			user.Password = ""
 			user.SetEmptySecrets()
 			renderUserPage(w, r, &user, userPageModeAdd, "")
 		} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
@@ -1401,7 +1405,7 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 	updatedUser.ID = user.ID
 	updatedUser.Username = user.Username
 	updatedUser.SetEmptySecretsIfNil()
-	if updatedUser.Password == "" {
+	if updatedUser.Password == redactedSecret {
 		updatedUser.Password = user.Password
 	}
 	updateEncryptedSecrets(&updatedUser, user.FsConfig.S3Config.AccessSecret, user.FsConfig.AzBlobConfig.AccountKey,
