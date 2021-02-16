@@ -625,14 +625,14 @@ func CheckUserAndPass(username, password, ip, protocol string) (User, error) {
 		if err != nil {
 			return user, err
 		}
-		return checkUserAndPass(user, password, ip, protocol)
+		return checkUserAndPass(&user, password, ip, protocol)
 	}
 	if config.PreLoginHook != "" {
 		user, err := executePreLoginHook(username, LoginMethodPassword, ip, protocol)
 		if err != nil {
 			return user, err
 		}
-		return checkUserAndPass(user, password, ip, protocol)
+		return checkUserAndPass(&user, password, ip, protocol)
 	}
 	return provider.validateUserAndPass(username, password, ip, protocol)
 }
@@ -644,14 +644,14 @@ func CheckUserAndPubKey(username string, pubKey []byte, ip, protocol string) (Us
 		if err != nil {
 			return user, "", err
 		}
-		return checkUserAndPubKey(user, pubKey)
+		return checkUserAndPubKey(&user, pubKey)
 	}
 	if config.PreLoginHook != "" {
 		user, err := executePreLoginHook(username, SSHLoginMethodPublicKey, ip, protocol)
 		if err != nil {
 			return user, "", err
 		}
-		return checkUserAndPubKey(user, pubKey)
+		return checkUserAndPubKey(&user, pubKey)
 	}
 	return provider.validateUserAndPubKey(username, pubKey)
 }
@@ -671,11 +671,11 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 	if err != nil {
 		return user, err
 	}
-	return doKeyboardInteractiveAuth(user, authHook, client, ip, protocol)
+	return doKeyboardInteractiveAuth(&user, authHook, client, ip, protocol)
 }
 
 // UpdateLastLogin updates the last login fields for the given SFTP user
-func UpdateLastLogin(user User) error {
+func UpdateLastLogin(user *User) error {
 	lastLogin := utils.GetTimeFromMsecSinceEpoch(user.LastLogin)
 	diff := -time.Until(lastLogin)
 	if diff < 0 || diff > lastLoginMinDelay {
@@ -690,7 +690,7 @@ func UpdateLastLogin(user User) error {
 
 // UpdateUserQuota updates the quota for the given SFTP user adding filesAdd and sizeAdd.
 // If reset is true filesAdd and sizeAdd indicates the total files and the total size instead of the difference.
-func UpdateUserQuota(user User, filesAdd int, sizeAdd int64, reset bool) error {
+func UpdateUserQuota(user *User, filesAdd int, sizeAdd int64, reset bool) error {
 	if config.TrackQuota == 0 {
 		return &MethodDisabledError{err: trackQuotaDisabledError}
 	} else if config.TrackQuota == 2 && !reset && !user.HasQuotaRestrictions() {
@@ -704,7 +704,7 @@ func UpdateUserQuota(user User, filesAdd int, sizeAdd int64, reset bool) error {
 
 // UpdateVirtualFolderQuota updates the quota for the given virtual folder adding filesAdd and sizeAdd.
 // If reset is true filesAdd and sizeAdd indicates the total files and the total size instead of the difference.
-func UpdateVirtualFolderQuota(vfolder vfs.BaseVirtualFolder, filesAdd int, sizeAdd int64, reset bool) error {
+func UpdateVirtualFolderQuota(vfolder *vfs.BaseVirtualFolder, filesAdd int, sizeAdd int64, reset bool) error {
 	if config.TrackQuota == 0 {
 		return &MethodDisabledError{err: trackQuotaDisabledError}
 	}
@@ -1482,53 +1482,53 @@ func isPasswordOK(user *User, password string) (bool, error) {
 	return match, err
 }
 
-func checkUserAndPass(user User, password, ip, protocol string) (User, error) {
-	err := checkLoginConditions(&user)
+func checkUserAndPass(user *User, password, ip, protocol string) (User, error) {
+	err := checkLoginConditions(user)
 	if err != nil {
-		return user, err
+		return *user, err
 	}
 	if user.Password == "" {
-		return user, errors.New("Credentials cannot be null or empty")
+		return *user, errors.New("Credentials cannot be null or empty")
 	}
 	hookResponse, err := executeCheckPasswordHook(user.Username, password, ip, protocol)
 	if err != nil {
 		providerLog(logger.LevelDebug, "error executing check password hook: %v", err)
-		return user, errors.New("Unable to check credentials")
+		return *user, errors.New("Unable to check credentials")
 	}
 	switch hookResponse.Status {
 	case -1:
 		// no hook configured
 	case 1:
 		providerLog(logger.LevelDebug, "password accepted by check password hook")
-		return user, nil
+		return *user, nil
 	case 2:
 		providerLog(logger.LevelDebug, "partial success from check password hook")
 		password = hookResponse.ToVerify
 	default:
 		providerLog(logger.LevelDebug, "password rejected by check password hook, status: %v", hookResponse.Status)
-		return user, ErrInvalidCredentials
+		return *user, ErrInvalidCredentials
 	}
 
-	match, err := isPasswordOK(&user, password)
+	match, err := isPasswordOK(user, password)
 	if !match {
 		err = ErrInvalidCredentials
 	}
-	return user, err
+	return *user, err
 }
 
-func checkUserAndPubKey(user User, pubKey []byte) (User, string, error) {
-	err := checkLoginConditions(&user)
+func checkUserAndPubKey(user *User, pubKey []byte) (User, string, error) {
+	err := checkLoginConditions(user)
 	if err != nil {
-		return user, "", err
+		return *user, "", err
 	}
 	if len(user.PublicKeys) == 0 {
-		return user, "", ErrInvalidCredentials
+		return *user, "", ErrInvalidCredentials
 	}
 	for i, k := range user.PublicKeys {
 		storedPubKey, comment, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
 		if err != nil {
 			providerLog(logger.LevelWarn, "error parsing stored public key %d for user %v: %v", i, user.Username, err)
-			return user, "", err
+			return *user, "", err
 		}
 		if bytes.Equal(storedPubKey.Marshal(), pubKey) {
 			certInfo := ""
@@ -1537,10 +1537,10 @@ func checkUserAndPubKey(user User, pubKey []byte) (User, string, error) {
 				certInfo = fmt.Sprintf(" %v ID: %v Serial: %v CA: %v", cert.Type(), cert.KeyId, cert.Serial,
 					ssh.FingerprintSHA256(cert.SignatureKey))
 			}
-			return user, fmt.Sprintf("%v:%v%v", ssh.FingerprintSHA256(storedPubKey), comment, certInfo), nil
+			return *user, fmt.Sprintf("%v:%v%v", ssh.FingerprintSHA256(storedPubKey), comment, certInfo), nil
 		}
 	}
-	return user, "", ErrInvalidCredentials
+	return *user, "", ErrInvalidCredentials
 }
 
 func compareUnixPasswordAndHash(user *User, password string) (bool, error) {
@@ -1712,7 +1712,7 @@ func sendKeyboardAuthHTTPReq(url *url.URL, request keyboardAuthHookRequest) (key
 	return response, err
 }
 
-func executeKeyboardInteractiveHTTPHook(user User, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (int, error) {
+func executeKeyboardInteractiveHTTPHook(user *User, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (int, error) {
 	authResult := 0
 	var url *url.URL
 	url, err := url.Parse(authHook)
@@ -1754,7 +1754,7 @@ func executeKeyboardInteractiveHTTPHook(user User, authHook string, client ssh.K
 }
 
 func getKeyboardInteractiveAnswers(client ssh.KeyboardInteractiveChallenge, response keyboardAuthHookResponse,
-	user User, ip, protocol string) ([]string, error) {
+	user *User, ip, protocol string) ([]string, error) {
 	questions := response.Questions
 	answers, err := client(user.Username, response.Instruction, questions, response.Echos)
 	if err != nil {
@@ -1779,7 +1779,7 @@ func getKeyboardInteractiveAnswers(client ssh.KeyboardInteractiveChallenge, resp
 }
 
 func handleProgramInteractiveQuestions(client ssh.KeyboardInteractiveChallenge, response keyboardAuthHookResponse,
-	user User, stdin io.WriteCloser, ip, protocol string) error {
+	user *User, stdin io.WriteCloser, ip, protocol string) error {
 	answers, err := getKeyboardInteractiveAnswers(client, response, user, ip, protocol)
 	if err != nil {
 		return err
@@ -1798,7 +1798,7 @@ func handleProgramInteractiveQuestions(client ssh.KeyboardInteractiveChallenge, 
 	return nil
 }
 
-func executeKeyboardInteractiveProgram(user User, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (int, error) {
+func executeKeyboardInteractiveProgram(user *User, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (int, error) {
 	authResult := 0
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -1856,7 +1856,7 @@ func executeKeyboardInteractiveProgram(user User, authHook string, client ssh.Ke
 	return authResult, err
 }
 
-func doKeyboardInteractiveAuth(user User, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (User, error) {
+func doKeyboardInteractiveAuth(user *User, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (User, error) {
 	var authResult int
 	var err error
 	if strings.HasPrefix(authHook, "http") {
@@ -1865,16 +1865,16 @@ func doKeyboardInteractiveAuth(user User, authHook string, client ssh.KeyboardIn
 		authResult, err = executeKeyboardInteractiveProgram(user, authHook, client, ip, protocol)
 	}
 	if err != nil {
-		return user, err
+		return *user, err
 	}
 	if authResult != 1 {
-		return user, fmt.Errorf("keyboard interactive auth failed, result: %v", authResult)
+		return *user, fmt.Errorf("keyboard interactive auth failed, result: %v", authResult)
 	}
-	err = checkLoginConditions(&user)
+	err = checkLoginConditions(user)
 	if err != nil {
-		return user, err
+		return *user, err
 	}
-	return user, nil
+	return *user, nil
 }
 
 func isCheckPasswordHookDefined(protocol string) bool {

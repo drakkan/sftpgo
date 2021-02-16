@@ -35,7 +35,7 @@ func newSubsystemChannel(reader io.Reader, writer io.Writer) *subsystemChannel {
 }
 
 // ServeSubSystemConnection handles a connection as SSH subsystem
-func ServeSubSystemConnection(user dataprovider.User, connectionID string, reader io.Reader, writer io.Writer) error {
+func ServeSubSystemConnection(user *dataprovider.User, connectionID string, reader io.Reader, writer io.Writer) error {
 	fs, err := user.GetFilesystem(connectionID)
 	if err != nil {
 		return err
@@ -44,7 +44,7 @@ func ServeSubSystemConnection(user dataprovider.User, connectionID string, reade
 	dataprovider.UpdateLastLogin(user) //nolint:errcheck
 
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolSFTP, user, fs),
+		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolSFTP, *user, fs),
 		ClientVersion:  "",
 		RemoteAddr:     &net.IPAddr{},
 		channel:        newSubsystemChannel(reader, writer),

@@ -408,7 +408,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 	logger.Log(logger.LevelInfo, common.ProtocolSSH, connectionID,
 		"User id: %d, logged in with: %#v, username: %#v, home_dir: %#v remote addr: %#v",
 		user.ID, loginType, user.Username, user.HomeDir, ipAddr)
-	dataprovider.UpdateLastLogin(user) //nolint:errcheck
+	dataprovider.UpdateLastLogin(&user) //nolint:errcheck
 
 	sshConnection := common.NewSSHConnection(connectionID, conn)
 	common.Connections.AddSSHConnection(sshConnection)
@@ -557,7 +557,7 @@ func checkRootPath(user *dataprovider.User, connectionID string) error {
 	return nil
 }
 
-func loginUser(user dataprovider.User, loginMethod, publicKey string, conn ssh.ConnMetadata) (*ssh.Permissions, error) {
+func loginUser(user *dataprovider.User, loginMethod, publicKey string, conn ssh.ConnMetadata) (*ssh.Permissions, error) {
 	connectionID := ""
 	if conn != nil {
 		connectionID = hex.EncodeToString(conn.SessionID())
@@ -817,7 +817,7 @@ func (c *Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubK
 			logger.Debug(logSender, connectionID, "user %#v authenticated with partial success", conn.User())
 			return certPerm, ssh.ErrPartialSuccess
 		}
-		sshPerm, err = loginUser(user, method, keyID, conn)
+		sshPerm, err = loginUser(&user, method, keyID, conn)
 		if err == nil && certPerm != nil {
 			// if we have a SSH user cert we need to merge certificate permissions with our ones
 			// we only set Extensions, so CriticalOptions are always the ones from the certificate
@@ -845,7 +845,7 @@ func (c *Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass 
 	}
 	ipAddr := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
 	if user, err = dataprovider.CheckUserAndPass(conn.User(), string(pass), ipAddr, common.ProtocolSSH); err == nil {
-		sshPerm, err = loginUser(user, method, "", conn)
+		sshPerm, err = loginUser(&user, method, "", conn)
 	}
 	user.Username = conn.User()
 	updateLoginMetrics(&user, ipAddr, method, err)
@@ -864,7 +864,7 @@ func (c *Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMeta
 	ipAddr := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
 	if user, err = dataprovider.CheckKeyboardInteractiveAuth(conn.User(), c.KeyboardInteractiveHook, client,
 		ipAddr, common.ProtocolSSH); err == nil {
-		sshPerm, err = loginUser(user, method, "", conn)
+		sshPerm, err = loginUser(&user, method, "", conn)
 	}
 	user.Username = conn.User()
 	updateLoginMetrics(&user, ipAddr, method, err)

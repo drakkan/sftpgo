@@ -630,13 +630,13 @@ func (conns *ActiveConnections) IsNewConnectionAllowed() bool {
 }
 
 // GetStats returns stats for active connections
-func (conns *ActiveConnections) GetStats() []ConnectionStatus {
+func (conns *ActiveConnections) GetStats() []*ConnectionStatus {
 	conns.RLock()
 	defer conns.RUnlock()
 
-	stats := make([]ConnectionStatus, 0, len(conns.connections))
+	stats := make([]*ConnectionStatus, 0, len(conns.connections))
 	for _, c := range conns.connections {
-		stat := ConnectionStatus{
+		stat := &ConnectionStatus{
 			Username:       c.GetUsername(),
 			ConnectionID:   c.GetID(),
 			ClientVersion:  c.GetClientVersion(),
@@ -675,14 +675,14 @@ type ConnectionStatus struct {
 }
 
 // GetConnectionDuration returns the connection duration as string
-func (c ConnectionStatus) GetConnectionDuration() string {
+func (c *ConnectionStatus) GetConnectionDuration() string {
 	elapsed := time.Since(utils.GetTimeFromMsecSinceEpoch(c.ConnectionTime))
 	return utils.GetDurationAsString(elapsed)
 }
 
 // GetConnectionInfo returns connection info.
 // Protocol,Client Version and RemoteAddress are returned.
-func (c ConnectionStatus) GetConnectionInfo() string {
+func (c *ConnectionStatus) GetConnectionInfo() string {
 	var result strings.Builder
 
 	result.WriteString(fmt.Sprintf("%v. Client: %#v From: %#v", c.Protocol, c.ClientVersion, c.RemoteAddress))
@@ -702,7 +702,7 @@ func (c ConnectionStatus) GetConnectionInfo() string {
 }
 
 // GetTransfersAsString returns the active transfers as string
-func (c ConnectionStatus) GetTransfersAsString() string {
+func (c *ConnectionStatus) GetTransfersAsString() string {
 	result := ""
 	for _, t := range c.Transfers {
 		if result != "" {

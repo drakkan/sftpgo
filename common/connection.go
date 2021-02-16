@@ -37,10 +37,10 @@ type BaseConnection struct {
 }
 
 // NewBaseConnection returns a new BaseConnection
-func NewBaseConnection(ID, protocol string, user dataprovider.User, fs vfs.Fs) *BaseConnection {
-	connID := ID
+func NewBaseConnection(id, protocol string, user dataprovider.User, fs vfs.Fs) *BaseConnection {
+	connID := id
 	if utils.IsStringInSlice(protocol, supportedProtocols) {
-		connID = fmt.Sprintf("%v_%v", protocol, ID)
+		connID = fmt.Sprintf("%v_%v", protocol, id)
 	}
 	return &BaseConnection{
 		ID:           connID,
@@ -272,12 +272,12 @@ func (c *BaseConnection) RemoveFile(fsPath, virtualPath string, info os.FileInfo
 	if info.Mode()&os.ModeSymlink == 0 {
 		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(virtualPath))
 		if err == nil {
-			dataprovider.UpdateVirtualFolderQuota(vfolder.BaseVirtualFolder, -1, -size, false) //nolint:errcheck
+			dataprovider.UpdateVirtualFolderQuota(&vfolder.BaseVirtualFolder, -1, -size, false) //nolint:errcheck
 			if vfolder.IsIncludedInUserQuota() {
-				dataprovider.UpdateUserQuota(c.User, -1, -size, false) //nolint:errcheck
+				dataprovider.UpdateUserQuota(&c.User, -1, -size, false) //nolint:errcheck
 			}
 		} else {
-			dataprovider.UpdateUserQuota(c.User, -1, -size, false) //nolint:errcheck
+			dataprovider.UpdateUserQuota(&c.User, -1, -size, false) //nolint:errcheck
 		}
 	}
 	if actionErr != nil {
@@ -577,12 +577,12 @@ func (c *BaseConnection) truncateFile(fsPath, virtualPath string, size int64) er
 		sizeDiff := initialSize - size
 		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(virtualPath))
 		if err == nil {
-			dataprovider.UpdateVirtualFolderQuota(vfolder.BaseVirtualFolder, 0, -sizeDiff, false) //nolint:errcheck
+			dataprovider.UpdateVirtualFolderQuota(&vfolder.BaseVirtualFolder, 0, -sizeDiff, false) //nolint:errcheck
 			if vfolder.IsIncludedInUserQuota() {
-				dataprovider.UpdateUserQuota(c.User, 0, -sizeDiff, false) //nolint:errcheck
+				dataprovider.UpdateUserQuota(&c.User, 0, -sizeDiff, false) //nolint:errcheck
 			}
 		} else {
-			dataprovider.UpdateUserQuota(c.User, 0, -sizeDiff, false) //nolint:errcheck
+			dataprovider.UpdateUserQuota(&c.User, 0, -sizeDiff, false) //nolint:errcheck
 		}
 	}
 	return err
@@ -835,64 +835,64 @@ func (c *BaseConnection) isCrossFoldersRequest(virtualSourcePath, virtualTargetP
 	return true
 }
 
-func (c *BaseConnection) updateQuotaMoveBetweenVFolders(sourceFolder, dstFolder vfs.VirtualFolder, initialSize,
+func (c *BaseConnection) updateQuotaMoveBetweenVFolders(sourceFolder, dstFolder *vfs.VirtualFolder, initialSize,
 	filesSize int64, numFiles int) {
 	if sourceFolder.MappedPath == dstFolder.MappedPath {
 		// both files are inside the same virtual folder
 		if initialSize != -1 {
-			dataprovider.UpdateVirtualFolderQuota(dstFolder.BaseVirtualFolder, -numFiles, -initialSize, false) //nolint:errcheck
+			dataprovider.UpdateVirtualFolderQuota(&dstFolder.BaseVirtualFolder, -numFiles, -initialSize, false) //nolint:errcheck
 			if dstFolder.IsIncludedInUserQuota() {
-				dataprovider.UpdateUserQuota(c.User, -numFiles, -initialSize, false) //nolint:errcheck
+				dataprovider.UpdateUserQuota(&c.User, -numFiles, -initialSize, false) //nolint:errcheck
 			}
 		}
 		return
 	}
 	// files are inside different virtual folders
-	dataprovider.UpdateVirtualFolderQuota(sourceFolder.BaseVirtualFolder, -numFiles, -filesSize, false) //nolint:errcheck
+	dataprovider.UpdateVirtualFolderQuota(&sourceFolder.BaseVirtualFolder, -numFiles, -filesSize, false) //nolint:errcheck
 	if sourceFolder.IsIncludedInUserQuota() {
-		dataprovider.UpdateUserQuota(c.User, -numFiles, -filesSize, false) //nolint:errcheck
+		dataprovider.UpdateUserQuota(&c.User, -numFiles, -filesSize, false) //nolint:errcheck
 	}
 	if initialSize == -1 {
-		dataprovider.UpdateVirtualFolderQuota(dstFolder.BaseVirtualFolder, numFiles, filesSize, false) //nolint:errcheck
+		dataprovider.UpdateVirtualFolderQuota(&dstFolder.BaseVirtualFolder, numFiles, filesSize, false) //nolint:errcheck
 		if dstFolder.IsIncludedInUserQuota() {
-			dataprovider.UpdateUserQuota(c.User, numFiles, filesSize, false) //nolint:errcheck
+			dataprovider.UpdateUserQuota(&c.User, numFiles, filesSize, false) //nolint:errcheck
 		}
 	} else {
 		// we cannot have a directory here, initialSize != -1 only for files
-		dataprovider.UpdateVirtualFolderQuota(dstFolder.BaseVirtualFolder, 0, filesSize-initialSize, false) //nolint:errcheck
+		dataprovider.UpdateVirtualFolderQuota(&dstFolder.BaseVirtualFolder, 0, filesSize-initialSize, false) //nolint:errcheck
 		if dstFolder.IsIncludedInUserQuota() {
-			dataprovider.UpdateUserQuota(c.User, 0, filesSize-initialSize, false) //nolint:errcheck
+			dataprovider.UpdateUserQuota(&c.User, 0, filesSize-initialSize, false) //nolint:errcheck
 		}
 	}
 }
 
-func (c *BaseConnection) updateQuotaMoveFromVFolder(sourceFolder vfs.VirtualFolder, initialSize, filesSize int64, numFiles int) {
+func (c *BaseConnection) updateQuotaMoveFromVFolder(sourceFolder *vfs.VirtualFolder, initialSize, filesSize int64, numFiles int) {
 	// move between a virtual folder and the user home dir
-	dataprovider.UpdateVirtualFolderQuota(sourceFolder.BaseVirtualFolder, -numFiles, -filesSize, false) //nolint:errcheck
+	dataprovider.UpdateVirtualFolderQuota(&sourceFolder.BaseVirtualFolder, -numFiles, -filesSize, false) //nolint:errcheck
 	if sourceFolder.IsIncludedInUserQuota() {
-		dataprovider.UpdateUserQuota(c.User, -numFiles, -filesSize, false) //nolint:errcheck
+		dataprovider.UpdateUserQuota(&c.User, -numFiles, -filesSize, false) //nolint:errcheck
 	}
 	if initialSize == -1 {
-		dataprovider.UpdateUserQuota(c.User, numFiles, filesSize, false) //nolint:errcheck
+		dataprovider.UpdateUserQuota(&c.User, numFiles, filesSize, false) //nolint:errcheck
 	} else {
 		// we cannot have a directory here, initialSize != -1 only for files
-		dataprovider.UpdateUserQuota(c.User, 0, filesSize-initialSize, false) //nolint:errcheck
+		dataprovider.UpdateUserQuota(&c.User, 0, filesSize-initialSize, false) //nolint:errcheck
 	}
 }
 
-func (c *BaseConnection) updateQuotaMoveToVFolder(dstFolder vfs.VirtualFolder, initialSize, filesSize int64, numFiles int) {
+func (c *BaseConnection) updateQuotaMoveToVFolder(dstFolder *vfs.VirtualFolder, initialSize, filesSize int64, numFiles int) {
 	// move between the user home dir and a virtual folder
-	dataprovider.UpdateUserQuota(c.User, -numFiles, -filesSize, false) //nolint:errcheck
+	dataprovider.UpdateUserQuota(&c.User, -numFiles, -filesSize, false) //nolint:errcheck
 	if initialSize == -1 {
-		dataprovider.UpdateVirtualFolderQuota(dstFolder.BaseVirtualFolder, numFiles, filesSize, false) //nolint:errcheck
+		dataprovider.UpdateVirtualFolderQuota(&dstFolder.BaseVirtualFolder, numFiles, filesSize, false) //nolint:errcheck
 		if dstFolder.IsIncludedInUserQuota() {
-			dataprovider.UpdateUserQuota(c.User, numFiles, filesSize, false) //nolint:errcheck
+			dataprovider.UpdateUserQuota(&c.User, numFiles, filesSize, false) //nolint:errcheck
 		}
 	} else {
 		// we cannot have a directory here, initialSize != -1 only for files
-		dataprovider.UpdateVirtualFolderQuota(dstFolder.BaseVirtualFolder, 0, filesSize-initialSize, false) //nolint:errcheck
+		dataprovider.UpdateVirtualFolderQuota(&dstFolder.BaseVirtualFolder, 0, filesSize-initialSize, false) //nolint:errcheck
 		if dstFolder.IsIncludedInUserQuota() {
-			dataprovider.UpdateUserQuota(c.User, 0, filesSize-initialSize, false) //nolint:errcheck
+			dataprovider.UpdateUserQuota(&c.User, 0, filesSize-initialSize, false) //nolint:errcheck
 		}
 	}
 }
@@ -909,7 +909,7 @@ func (c *BaseConnection) updateQuotaAfterRename(virtualSourcePath, virtualTarget
 		// both files are contained inside the user home dir
 		if initialSize != -1 {
 			// we cannot have a directory here
-			dataprovider.UpdateUserQuota(c.User, -1, -initialSize, false) //nolint:errcheck
+			dataprovider.UpdateUserQuota(&c.User, -1, -initialSize, false) //nolint:errcheck
 		}
 		return nil
 	}
@@ -932,13 +932,13 @@ func (c *BaseConnection) updateQuotaAfterRename(virtualSourcePath, virtualTarget
 		return err
 	}
 	if errSrc == nil && errDst == nil {
-		c.updateQuotaMoveBetweenVFolders(sourceFolder, dstFolder, initialSize, filesSize, numFiles)
+		c.updateQuotaMoveBetweenVFolders(&sourceFolder, &dstFolder, initialSize, filesSize, numFiles)
 	}
 	if errSrc == nil && errDst != nil {
-		c.updateQuotaMoveFromVFolder(sourceFolder, initialSize, filesSize, numFiles)
+		c.updateQuotaMoveFromVFolder(&sourceFolder, initialSize, filesSize, numFiles)
 	}
 	if errSrc != nil && errDst == nil {
-		c.updateQuotaMoveToVFolder(dstFolder, initialSize, filesSize, numFiles)
+		c.updateQuotaMoveToVFolder(&dstFolder, initialSize, filesSize, numFiles)
 	}
 	return nil
 }

@@ -6490,7 +6490,7 @@ func TestStatVFSCloudBackend(t *testing.T) {
 	if assert.NoError(t, err) {
 		defer client.Close()
 
-		err = dataprovider.UpdateUserQuota(user, 100, 8192, true)
+		err = dataprovider.UpdateUserQuota(&user, 100, 8192, true)
 		assert.NoError(t, err)
 		stat, err := client.StatVFS("/")
 		assert.NoError(t, err)

@@ -365,7 +365,7 @@ func TestUploadFiles(t *testing.T) {
 func TestWithInvalidHome(t *testing.T) {
 	u := dataprovider.User{}
 	u.HomeDir = "home_rel_path" //nolint:goconst
-	_, err := loginUser(u, dataprovider.LoginMethodPassword, "", nil)
+	_, err := loginUser(&u, dataprovider.LoginMethodPassword, "", nil)
 	assert.Error(t, err, "login a user with an invalid home_dir must fail")
 
 	u.HomeDir = os.TempDir()
@@ -1890,7 +1890,7 @@ func TestRecursiveCopyErrors(t *testing.T) {
 func TestSFTPSubSystem(t *testing.T) {
 	permissions := make(map[string][]string)
 	permissions["/"] = []string{dataprovider.PermAny}
-	user := dataprovider.User{
+	user := &dataprovider.User{
 		Permissions: permissions,
 		HomeDir:     os.TempDir(),
 	}

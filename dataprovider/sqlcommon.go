@@ -224,7 +224,7 @@ func sqlCommonValidateUserAndPass(username, password, ip, protocol string, dbHan
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, err
 	}
-	return checkUserAndPass(user, password, ip, protocol)
+	return checkUserAndPass(&user, password, ip, protocol)
 }
 
 func sqlCommonValidateUserAndPubKey(username string, pubKey []byte, dbHandle *sql.DB) (User, string, error) {
@@ -237,7 +237,7 @@ func sqlCommonValidateUserAndPubKey(username string, pubKey []byte, dbHandle *sq
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, "", err
 	}
-	return checkUserAndPubKey(user, pubKey)
+	return checkUserAndPubKey(&user, pubKey)
 }
 
 func sqlCommonCheckAvailability(dbHandle *sql.DB) error {
@@ -313,6 +313,7 @@ func sqlCommonAddUser(user *User, dbHandle *sql.DB) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	tx, err := dbHandle.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -321,40 +322,33 @@ func sqlCommonAddUser(user *User, dbHandle *sql.DB) error {
 	stmt, err := tx.PrepareContext(ctx, q)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	defer stmt.Close()
 	permissions, err := user.GetPermissionsAsJSON()
 	if err != nil {
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	publicKeys, err := user.GetPublicKeysAsJSON()
 	if err != nil {
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	filters, err := user.GetFiltersAsJSON()
 	if err != nil {
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	fsConfig, err := user.GetFsConfigAsJSON()
 	if err != nil {
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	_, err = stmt.ExecContext(ctx, user.Username, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
 		user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate, string(filters),
 		string(fsConfig), user.AdditionalInfo)
 	if err != nil {
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	err = generateVirtualFoldersMapping(ctx, user, tx)
 	if err != nil {
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	return tx.Commit()
@@ -367,6 +361,7 @@ func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	tx, err := dbHandle.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -375,40 +370,33 @@ func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
 	stmt, err := tx.PrepareContext(ctx, q)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	defer stmt.Close()
 	permissions, err := user.GetPermissionsAsJSON()
 	if err != nil {
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	publicKeys, err := user.GetPublicKeysAsJSON()
 	if err != nil {
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	filters, err := user.GetFiltersAsJSON()
 	if err != nil {
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	fsConfig, err := user.GetFsConfigAsJSON()
 	if err != nil {
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	_, err = stmt.ExecContext(ctx, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
 		user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate,
 		string(filters), string(fsConfig), user.AdditionalInfo, user.ID)
 	if err != nil {
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	err = generateVirtualFoldersMapping(ctx, user, tx)
 	if err != nil {
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	return tx.Commit()
@@ -979,13 +967,6 @@ func sqlCommonGetFolderUsedQuota(mappedPath string, dbHandle *sql.DB) (int, int6
 	return usedFiles, usedSize, err
 }
 
-func sqlCommonRollbackTransaction(tx *sql.Tx) {
-	err := tx.Rollback()
-	if err != nil {
-		providerLog(logger.LevelWarn, "error rolling back transaction: %v", err)
-	}
-}
-
 func sqlCommonGetDatabaseVersion(dbHandle *sql.DB, showInitWarn bool) (schemaVersion, error) {
 	var result schemaVersion
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
@@ -1030,13 +1011,11 @@ func sqlCommonExecSQLAndUpdateDBVersion(dbHandle *sql.DB, sql []string, newVersi
 		}
 		_, err = tx.ExecContext(ctx, q)
 		if err != nil {
-			sqlCommonRollbackTransaction(tx)
 			return err
 		}
 	}
 	err = sqlCommonUpdateDatabaseVersion(ctx, tx, newVersion)
 	if err != nil {
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	return tx.Commit()
@@ -1130,6 +1109,7 @@ func sqlCommonUpdateDatabaseFrom3To4(sqlV4 string, dbHandle *sql.DB) error {
 	sql = strings.ReplaceAll(sql, "{{folders_mapping}}", sqlTableFoldersMapping)
 	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
 	defer cancel()
+
 	tx, err := dbHandle.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -1140,25 +1120,14 @@ func sqlCommonUpdateDatabaseFrom3To4(sqlV4 string, dbHandle *sql.DB) error {
 		}
 		_, err = tx.ExecContext(ctx, q)
 		if err != nil {
-			sqlCommonRollbackTransaction(tx)
 			return err
 		}
 	}
-	/*_, err = sqlCommonRestoreCompatVirtualFolders(ctx, users, tx)
-	if err != nil {
-		sqlCommonRollbackTransaction(tx)
-		return err
-	}*/
 	err = sqlCommonUpdateDatabaseVersion(ctx, tx, 4)
 	if err != nil {
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	return tx.Commit()
-	/*if err == nil {
-		go updateVFoldersQuotaAfterRestore(foldersToScan)
-	}
-	return err*/
 }
 
 //nolint:dupl

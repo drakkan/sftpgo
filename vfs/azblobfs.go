@@ -253,7 +253,7 @@ func (fs *AzureBlobFs) Create(name string, flag int) (File, *PipeWriter, func(),
 		// if we shutdown Azurite while uploading it hangs, so we use our own wrapper for
 		// the low level functions
 		_, err := azblob.UploadStreamToBlockBlob(ctx, r, blobBlockURL, uploadOptions)*/
-		err := fs.handleMultipartUpload(ctx, r, blobBlockURL, headers)
+		err := fs.handleMultipartUpload(ctx, r, &blobBlockURL, &headers)
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, readed bytes: %v, err: %v", name, r.GetReadedBytes(), err)
@@ -438,7 +438,8 @@ func (fs *AzureBlobFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 			result = append(result, NewFileInfo(name, true, 0, time.Now(), false))
 			prefixes[strings.TrimSuffix(name, "/")] = true
 		}
-		for _, blobInfo := range listBlob.Segment.BlobItems {
+		for idx := range listBlob.Segment.BlobItems {
+			blobInfo := &listBlob.Segment.BlobItems[idx]
 			name := strings.TrimPrefix(blobInfo.Name, prefix)
 			size := int64(0)
 			if blobInfo.Properties.ContentLength != nil {
@@ -556,7 +557,8 @@ func (fs *AzureBlobFs) ScanRootDirContents() (int, int64, error) {
 			return numFiles, size, err
 		}
 		marker = listBlob.NextMarker
-		for _, blobInfo := range listBlob.Segment.BlobItems {
+		for idx := range listBlob.Segment.BlobItems {
+			blobInfo := &listBlob.Segment.BlobItems[idx]
 			isDir := false
 			if blobInfo.Properties.ContentType != nil {
 				isDir = (*blobInfo.Properties.ContentType == dirMimeType)
@@ -637,7 +639,8 @@ func (fs *AzureBlobFs) Walk(root string, walkFn filepath.WalkFunc) error {
 			return err
 		}
 		marker = listBlob.NextMarker
-		for _, blobInfo := range listBlob.Segment.BlobItems {
+		for idx := range listBlob.Segment.BlobItems {
+			blobInfo := &listBlob.Segment.BlobItems[idx]
 			isDir := false
 			if blobInfo.Properties.ContentType != nil {
 				isDir = (*blobInfo.Properties.ContentType == dirMimeType)
@@ -776,8 +779,8 @@ func (fs *AzureBlobFs) hasContents(name string) (bool, error) {
 	return result, err
 }
 
-func (fs *AzureBlobFs) handleMultipartUpload(ctx context.Context, reader io.Reader, blockBlobURL azblob.BlockBlobURL,
-	httpHeaders azblob.BlobHTTPHeaders) error {
+func (fs *AzureBlobFs) handleMultipartUpload(ctx context.Context, reader io.Reader, blockBlobURL *azblob.BlockBlobURL,
+	httpHeaders *azblob.BlobHTTPHeaders) error {
 	partSize := fs.config.UploadPartSize
 	guard := make(chan struct{}, fs.config.UploadConcurrency)
 	blockCtxTimeout := time.Duration(fs.config.UploadPartSize/(1024*1024)) * time.Minute
@@ -852,7 +855,7 @@ func (fs *AzureBlobFs) handleMultipartUpload(ctx context.Context, reader io.Read
 		return poolError
 	}
 
-	_, err := blockBlobURL.CommitBlockList(ctx, blocks, httpHeaders, azblob.Metadata{}, azblob.BlobAccessConditions{},
+	_, err := blockBlobURL.CommitBlockList(ctx, blocks, *httpHeaders, azblob.Metadata{}, azblob.BlobAccessConditions{},
 		azblob.AccessTierType(fs.config.AccessTier), nil, azblob.ClientProvidedKeyOptions{})
 	return err
 }

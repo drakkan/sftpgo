@@ -22,8 +22,7 @@ const (
 )
 
 var (
-	usersBucket = []byte("users")
-	//usersIDIdxBucket = []byte("users_id_idx")
+	usersBucket     = []byte("users")
 	foldersBucket   = []byte("folders")
 	adminsBucket    = []byte("admins")
 	dbVersionBucket = []byte("db_version")
@@ -113,7 +112,7 @@ func (p *BoltProvider) validateUserAndPass(username, password, ip, protocol stri
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, err
 	}
-	return checkUserAndPass(user, password, ip, protocol)
+	return checkUserAndPass(&user, password, ip, protocol)
 }
 
 func (p *BoltProvider) validateAdminAndPass(username, password, ip string) (Admin, error) {
@@ -136,7 +135,7 @@ func (p *BoltProvider) validateUserAndPubKey(username string, pubKey []byte) (Us
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, "", err
 	}
-	return checkUserAndPubKey(user, pubKey)
+	return checkUserAndPubKey(&user, pubKey)
 }
 
 func (p *BoltProvider) updateLastLogin(username string) error {

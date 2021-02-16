@@ -52,7 +52,7 @@ func SSHCommandActionNotification(user *dataprovider.User, filePath, target, ssh
 
 // ActionHandler handles a notification for a Protocol Action.
 type ActionHandler interface {
-	Handle(notification ActionNotification) error
+	Handle(notification *ActionNotification) error
 }
 
 // ActionNotification defines a notification for a Protocol Action.
@@ -75,7 +75,7 @@ func newActionNotification(
 	operation, filePath, target, sshCmd, protocol string,
 	fileSize int64,
 	err error,
-) ActionNotification {
+) *ActionNotification {
 	var bucket, endpoint string
 	status := 1
 
@@ -99,7 +99,7 @@ func newActionNotification(
 		status = 0
 	}
 
-	return ActionNotification{
+	return &ActionNotification{
 		Action:     operation,
 		Username:   user.Username,
 		Path:       filePath,
@@ -116,7 +116,7 @@ func newActionNotification(
 
 type defaultActionHandler struct{}
 
-func (h *defaultActionHandler) Handle(notification ActionNotification) error {
+func (h *defaultActionHandler) Handle(notification *ActionNotification) error {
 	if !utils.IsStringInSlice(notification.Action, Config.Actions.ExecuteOn) {
 		return errUnconfiguredAction
 	}
@@ -134,7 +134,7 @@ func (h *defaultActionHandler) Handle(notification ActionNotification) error {
 	return h.handleCommand(notification)
 }
 
-func (h *defaultActionHandler) handleHTTP(notification ActionNotification) error {
+func (h *defaultActionHandler) handleHTTP(notification *ActionNotification) error {
 	u, err := url.Parse(Config.Actions.Hook)
 	if err != nil {
 		logger.Warn(notification.Protocol, "", "Invalid hook %#v for operation %#v: %v", Config.Actions.Hook, notification.Action, err)
@@ -165,7 +165,7 @@ func (h *defaultActionHandler) handleHTTP(notification ActionNotification) error
 	return err
 }
 
-func (h *defaultActionHandler) handleCommand(notification ActionNotification) error {
+func (h *defaultActionHandler) handleCommand(notification *ActionNotification) error {
 	if !filepath.IsAbs(Config.Actions.Hook) {
 		err := fmt.Errorf("invalid notification command %#v", Config.Actions.Hook)
 		logger.Warn(notification.Protocol, "", "unable to execute notification command: %v", err)
@@ -188,7 +188,7 @@ func (h *defaultActionHandler) handleCommand(notification ActionNotification) er
 	return err
 }
 
-func notificationAsEnvVars(notification ActionNotification) []string {
+func notificationAsEnvVars(notification *ActionNotification) []string {
 	return []string{
 		fmt.Sprintf("SFTPGO_ACTION=%v", notification.Action),
 		fmt.Sprintf("SFTPGO_ACTION_USERNAME=%v", notification.Username),

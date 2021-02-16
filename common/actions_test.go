@@ -201,7 +201,7 @@ type actionHandlerStub struct {
 	called bool
 }
 
-func (h *actionHandlerStub) Handle(notification ActionNotification) error {
+func (h *actionHandlerStub) Handle(notification *ActionNotification) error {
 	h.called = true
 
 	return nil
@@ -215,7 +215,7 @@ func TestInitializeActionHandler(t *testing.T) {
 		InitializeActionHandler(&defaultActionHandler{})
 	})
 
-	err := actionHandler.Handle(ActionNotification{})
+	err := actionHandler.Handle(&ActionNotification{})
 
 	assert.NoError(t, err)
 	assert.True(t, handler.called)

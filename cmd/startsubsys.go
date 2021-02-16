@@ -122,7 +122,7 @@ Command-line flags should be specified in the Subsystem declaration.
 					os.Exit(1)
 				}
 			}
-			err = sftpd.ServeSubSystemConnection(user, connectionID, os.Stdin, os.Stdout)
+			err = sftpd.ServeSubSystemConnection(&user, connectionID, os.Stdin, os.Stdout)
 			if err != nil && err != io.EOF {
 				logger.Warn(logSender, connectionID, "serving subsystem finished with error: %v", err)
 				os.Exit(1)

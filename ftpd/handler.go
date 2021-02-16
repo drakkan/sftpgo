@@ -470,12 +470,12 @@ func (c *Connection) handleFTPUploadToExistingFile(flags int, resolvedPath, file
 		if vfs.IsLocalOrSFTPFs(c.Fs) {
 			vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 			if err == nil {
-				dataprovider.UpdateVirtualFolderQuota(vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck
+				dataprovider.UpdateVirtualFolderQuota(&vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck
 				if vfolder.IsIncludedInUserQuota() {
-					dataprovider.UpdateUserQuota(c.User, 0, -fileSize, false) //nolint:errcheck
+					dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false) //nolint:errcheck
 				}
 			} else {
-				dataprovider.UpdateUserQuota(c.User, 0, -fileSize, false) //nolint:errcheck
+				dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false) //nolint:errcheck
 			}
 		} else {
 			initialSize = fileSize

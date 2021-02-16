@@ -69,7 +69,7 @@ func (l *LeveledLogger) addKeysAndValues(ev *zerolog.Event, keysAndValues ...int
 		extra := keysAndValues[kvLen-1]
 		keysAndValues = append(keysAndValues[:kvLen-1], "EXTRA_VALUE_AT_END", extra)
 	}
-	for i := 0; i < len(keysAndValues); i = i + 2 {
+	for i := 0; i < len(keysAndValues); i += 2 {
 		key, val := keysAndValues[i], keysAndValues[i+1]
 		if keyStr, ok := key.(string); ok {
 			ev.Str(keyStr, fmt.Sprintf("%v", val))

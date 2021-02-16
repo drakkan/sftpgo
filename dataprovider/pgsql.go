@@ -229,23 +229,23 @@ func (p *PGSQLProvider) initializeDatabase() error {
 		return ErrNoInitRequired
 	}
 	sqlUsers := strings.Replace(pgsqlUsersTableSQL, "{{users}}", sqlTableUsers, 1)
-	tx, err := p.dbHandle.Begin()
+	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+	defer cancel()
+
+	tx, err := p.dbHandle.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	_, err = tx.Exec(sqlUsers)
 	if err != nil {
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	_, err = tx.Exec(strings.Replace(pgsqlSchemaTableSQL, "{{schema_version}}", sqlTableSchemaVersion, 1))
 	if err != nil {
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	_, err = tx.Exec(strings.Replace(initialDBVersionSQL, "{{schema_version}}", sqlTableSchemaVersion, 1))
 	if err != nil {
-		sqlCommonRollbackTransaction(tx)
 		return err
 	}
 	return tx.Commit()

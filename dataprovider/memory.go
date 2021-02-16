@@ -99,7 +99,7 @@ func (p *MemoryProvider) validateUserAndPass(username, password, ip, protocol st
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, err
 	}
-	return checkUserAndPass(user, password, ip, protocol)
+	return checkUserAndPass(&user, password, ip, protocol)
 }
 
 func (p *MemoryProvider) validateUserAndPubKey(username string, pubKey []byte) (User, string, error) {
@@ -112,7 +112,7 @@ func (p *MemoryProvider) validateUserAndPubKey(username string, pubKey []byte) (
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, "", err
 	}
-	return checkUserAndPubKey(user, pubKey)
+	return checkUserAndPubKey(&user, pubKey)
 }
 
 func (p *MemoryProvider) validateAdminAndPass(username, password, ip string) (Admin, error) {
