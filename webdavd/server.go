@@ -62,9 +62,13 @@ func (s *webDavServer) listenAndServe(compressor *middleware.Compressor) error {
 	if certMgr != nil && s.binding.EnableHTTPS {
 		serviceStatus.Bindings = append(serviceStatus.Bindings, s.binding)
 		httpServer.TLSConfig = &tls.Config{
-			GetCertificate: certMgr.GetCertificateFunc(),
-			MinVersion:     tls.VersionTLS12,
+			GetCertificate:           certMgr.GetCertificateFunc(),
+			MinVersion:               tls.VersionTLS12,
+			CipherSuites:             utils.GetTLSCiphersFromNames(s.binding.TLSCipherSuites),
+			PreferServerCipherSuites: true,
 		}
+		logger.Debug(logSender, "", "configured TLS cipher suites for binding %#v: %v", s.binding.GetAddress(),
+			httpServer.TLSConfig.CipherSuites)
 		if s.binding.ClientAuthType == 1 {
 			httpServer.TLSConfig.ClientCAs = certMgr.GetRootCAs()
 			httpServer.TLSConfig.ClientAuth = tls.RequireAndVerifyClientCert

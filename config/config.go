@@ -51,19 +51,22 @@ var (
 		TLSMode:          0,
 		ForcePassiveIP:   "",
 		ClientAuthType:   0,
+		TLSCipherSuites:  nil,
 	}
 	defaultWebDAVDBinding = webdavd.Binding{
-		Address:        "",
-		Port:           0,
-		EnableHTTPS:    false,
-		ClientAuthType: 0,
+		Address:         "",
+		Port:            0,
+		EnableHTTPS:     false,
+		ClientAuthType:  0,
+		TLSCipherSuites: nil,
 	}
 	defaultHTTPDBinding = httpd.Binding{
-		Address:        "127.0.0.1",
-		Port:           8080,
-		EnableWebAdmin: true,
-		EnableHTTPS:    false,
-		ClientAuthType: 0,
+		Address:         "127.0.0.1",
+		Port:            8080,
+		EnableWebAdmin:  true,
+		EnableHTTPS:     false,
+		ClientAuthType:  0,
+		TLSCipherSuites: nil,
 	}
 )
 
@@ -238,6 +241,7 @@ func Init() {
 			AuthUserFile:       "",
 			CertificateFile:    "",
 			CertificateKeyFile: "",
+			TLSCipherSuites:    nil,
 		},
 	}
 
@@ -661,6 +665,12 @@ func getFTPDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
+	tlsCiphers, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__TLS_CIPHER_SUITES", idx))
+	if ok {
+		binding.TLSCipherSuites = tlsCiphers
+		isSet = true
+	}
+
 	if isSet {
 		if len(globalConf.FTPD.Bindings) > idx {
 			globalConf.FTPD.Bindings[idx] = binding
@@ -699,6 +709,12 @@ func getWebDAVDBindingFromEnv(idx int) {
 	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx))
 	if ok {
 		binding.ClientAuthType = clientAuthType
+		isSet = true
+	}
+
+	tlsCiphers, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__TLS_CIPHER_SUITES", idx))
+	if ok {
+		binding.TLSCipherSuites = tlsCiphers
 		isSet = true
 	}
 
@@ -746,6 +762,12 @@ func getHTTPDBindingFromEnv(idx int) {
 	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx))
 	if ok {
 		binding.ClientAuthType = clientAuthType
+		isSet = true
+	}
+
+	tlsCiphers, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__TLS_CIPHER_SUITES", idx))
+	if ok {
+		binding.TLSCipherSuites = tlsCiphers
 		isSet = true
 	}
 
@@ -888,6 +910,7 @@ func setViperDefaults() {
 	viper.SetDefault("telemetry.auth_user_file", globalConf.TelemetryConfig.AuthUserFile)
 	viper.SetDefault("telemetry.certificate_file", globalConf.TelemetryConfig.CertificateFile)
 	viper.SetDefault("telemetry.certificate_key_file", globalConf.TelemetryConfig.CertificateKeyFile)
+	viper.SetDefault("telemetry.tls_cipher_suites", globalConf.TelemetryConfig.TLSCipherSuites)
 }
 
 func lookupBoolFromEnv(envName string) (bool, bool) {
@@ -912,4 +935,16 @@ func lookupIntFromEnv(envName string) (int, bool) {
 	}
 
 	return 0, false
+}
+
+func lookupStringListFromEnv(envName string) ([]string, bool) {
+	value, ok := os.LookupEnv(envName)
+	if ok {
+		var result []string
+		for _, v := range strings.Split(value, ",") {
+			result = append(result, strings.TrimSpace(v))
+		}
+		return result, true
+	}
+	return nil, false
 }

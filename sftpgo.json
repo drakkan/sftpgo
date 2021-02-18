@@ -59,7 +59,8 @@
         "apply_proxy_config": true,
         "tls_mode": 0,
         "force_passive_ip": "",
-        "client_auth_type": 0
+        "client_auth_type": 0,
+        "tls_cipher_suites": []
       }
     ],
     "banner": "",
@@ -84,7 +85,8 @@
         "port": 0,
         "address": "",
         "enable_https": false,
-        "client_auth_type": 0
+        "client_auth_type": 0,
+        "tls_cipher_suites": []
       }
     ],
     "certificate_file": "",
@@ -153,7 +155,8 @@
         "address": "127.0.0.1",
         "enable_web_admin": true,
         "enable_https": false,
-        "client_auth_type": 0
+        "client_auth_type": 0,
+        "tls_cipher_suites": []
       }
     ],
     "templates_path": "templates",
@@ -170,7 +173,8 @@
     "enable_profiler": false,
     "auth_user_file": "",
     "certificate_file": "",
-    "certificate_key_file": ""
+    "certificate_key_file": "",
+    "tls_cipher_suites": []
   },
   "http": {
     "timeout": 20,
