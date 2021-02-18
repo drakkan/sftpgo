@@ -538,6 +538,7 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_FTPD__BINDINGS__0__APPLY_PROXY_CONFIG", "f")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__0__TLS_MODE", "2")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__0__FORCE_PASSIVE_IP", "127.0.1.2")
+	os.Setenv("SFTPGO_FTPD__BINDINGS__0__TLS_CIPHER_SUITES", "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__ADDRESS", "127.0.1.1")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__PORT", "2203")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__APPLY_PROXY_CONFIG", "t")
@@ -551,6 +552,7 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__0__APPLY_PROXY_CONFIG")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__0__TLS_MODE")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__0__FORCE_PASSIVE_IP")
+		os.Unsetenv("SFTPGO_FTPD__BINDINGS__0__TLS_CIPHER_SUITES")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__ADDRESS")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__PORT")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__APPLY_PROXY_CONFIG")
@@ -570,12 +572,16 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, 2, bindings[0].TLSMode)
 	require.Equal(t, "127.0.1.2", bindings[0].ForcePassiveIP)
 	require.Equal(t, 0, bindings[0].ClientAuthType)
+	require.Len(t, bindings[0].TLSCipherSuites, 2)
+	require.Equal(t, "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256", bindings[0].TLSCipherSuites[0])
+	require.Equal(t, "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", bindings[0].TLSCipherSuites[1])
 	require.Equal(t, 2203, bindings[1].Port)
 	require.Equal(t, "127.0.1.1", bindings[1].Address)
 	require.True(t, bindings[1].ApplyProxyConfig)
 	require.Equal(t, 1, bindings[1].TLSMode)
 	require.Equal(t, "127.0.1.1", bindings[1].ForcePassiveIP)
 	require.Equal(t, 1, bindings[1].ClientAuthType)
+	require.Nil(t, bindings[1].TLSCipherSuites)
 }
 
 func TestWebDAVBindingsFromEnv(t *testing.T) {
@@ -584,6 +590,7 @@ func TestWebDAVBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__1__ADDRESS", "127.0.0.1")
 	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__1__PORT", "8000")
 	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__1__ENABLE_HTTPS", "0")
+	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__1__TLS_CIPHER_SUITES", "TLS_RSA_WITH_AES_128_CBC_SHA ")
 	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__2__ADDRESS", "127.0.1.1")
 	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__2__PORT", "9000")
 	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__2__ENABLE_HTTPS", "1")
@@ -592,6 +599,7 @@ func TestWebDAVBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__1__ADDRESS")
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__1__PORT")
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__1__ENABLE_HTTPS")
+		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__1__TLS_CIPHER_SUITES")
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__2__ADDRESS")
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__2__PORT")
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__2__ENABLE_HTTPS")
@@ -606,14 +614,18 @@ func TestWebDAVBindingsFromEnv(t *testing.T) {
 	require.Equal(t, 0, bindings[0].Port)
 	require.Empty(t, bindings[0].Address)
 	require.False(t, bindings[0].EnableHTTPS)
+	require.Len(t, bindings[0].TLSCipherSuites, 0)
 	require.Equal(t, 8000, bindings[1].Port)
 	require.Equal(t, "127.0.0.1", bindings[1].Address)
 	require.False(t, bindings[1].EnableHTTPS)
 	require.Equal(t, 0, bindings[1].ClientAuthType)
+	require.Len(t, bindings[1].TLSCipherSuites, 1)
+	require.Equal(t, "TLS_RSA_WITH_AES_128_CBC_SHA", bindings[1].TLSCipherSuites[0])
 	require.Equal(t, 9000, bindings[2].Port)
 	require.Equal(t, "127.0.1.1", bindings[2].Address)
 	require.True(t, bindings[2].EnableHTTPS)
 	require.Equal(t, 1, bindings[2].ClientAuthType)
+	require.Nil(t, bindings[2].TLSCipherSuites)
 }
 
 func TestHTTPDBindingsFromEnv(t *testing.T) {
@@ -623,6 +635,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__ADDRESS", sockPath)
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__PORT", "0")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__TLS_CIPHER_SUITES", " TLS_AES_128_GCM_SHA256")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__1__ADDRESS", "127.0.0.1")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__1__PORT", "8000")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__1__ENABLE_HTTPS", "0")
@@ -632,9 +645,11 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_WEB_ADMIN", "0")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_HTTPS", "1")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__CLIENT_AUTH_TYPE", "1")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__TLS_CIPHER_SUITES", " TLS_AES_256_GCM_SHA384 , TLS_CHACHA20_POLY1305_SHA256")
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__ADDRESS")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__PORT")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__TLS_CIPHER_SUITES")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__1__ADDRESS")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__1__PORT")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__1__ENABLE_HTTPS")
@@ -644,6 +659,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_HTTPS")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_WEB_ADMIN")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__CLIENT_AUTH_TYPE")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__TLS_CIPHER_SUITES")
 	})
 
 	configDir := ".."
@@ -655,16 +671,22 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, sockPath, bindings[0].Address)
 	require.False(t, bindings[0].EnableHTTPS)
 	require.True(t, bindings[0].EnableWebAdmin)
+	require.Len(t, bindings[0].TLSCipherSuites, 1)
+	require.Equal(t, "TLS_AES_128_GCM_SHA256", bindings[0].TLSCipherSuites[0])
 	require.Equal(t, 8000, bindings[1].Port)
 	require.Equal(t, "127.0.0.1", bindings[1].Address)
 	require.False(t, bindings[1].EnableHTTPS)
 	require.True(t, bindings[1].EnableWebAdmin)
+	require.Nil(t, bindings[1].TLSCipherSuites)
 
 	require.Equal(t, 9000, bindings[2].Port)
 	require.Equal(t, "127.0.1.1", bindings[2].Address)
 	require.True(t, bindings[2].EnableHTTPS)
 	require.False(t, bindings[2].EnableWebAdmin)
 	require.Equal(t, 1, bindings[2].ClientAuthType)
+	require.Len(t, bindings[2].TLSCipherSuites, 2)
+	require.Equal(t, "TLS_AES_256_GCM_SHA384", bindings[2].TLSCipherSuites[0])
+	require.Equal(t, "TLS_CHACHA20_POLY1305_SHA256", bindings[2].TLSCipherSuites[1])
 }
 
 func TestHTTPClientCertificatesFromEnv(t *testing.T) {
@@ -738,6 +760,7 @@ func TestConfigFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_DATA_PROVIDER__ACTIONS__EXECUTE_ON", "add")
 	os.Setenv("SFTPGO_KMS__SECRETS__URL", "local")
 	os.Setenv("SFTPGO_KMS__SECRETS__MASTER_KEY_PATH", "path")
+	os.Setenv("SFTPGO_TELEMETRY__TLS_CIPHER_SUITES", "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA")
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_SFTPD__BINDINGS__0__ADDRESS")
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__0__PORT")
@@ -746,6 +769,7 @@ func TestConfigFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_DATA_PROVIDER__ACTIONS__EXECUTE_ON")
 		os.Unsetenv("SFTPGO_KMS__SECRETS__URL")
 		os.Unsetenv("SFTPGO_KMS__SECRETS__MASTER_KEY_PATH")
+		os.Unsetenv("SFTPGO_TELEMETRY__TLS_CIPHER_SUITES")
 	})
 	err := config.LoadConfig(".", "invalid config")
 	assert.NoError(t, err)
@@ -760,4 +784,8 @@ func TestConfigFromEnv(t *testing.T) {
 	kmsConfig := config.GetKMSConfig()
 	assert.Equal(t, "local", kmsConfig.Secrets.URL)
 	assert.Equal(t, "path", kmsConfig.Secrets.MasterKeyPath)
+	telemetryConfig := config.GetTelemetryConfig()
+	assert.Len(t, telemetryConfig.TLSCipherSuites, 2)
+	assert.Equal(t, "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA", telemetryConfig.TLSCipherSuites[0])
+	assert.Equal(t, "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA", telemetryConfig.TLSCipherSuites[1])
 }

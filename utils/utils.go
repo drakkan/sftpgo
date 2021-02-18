@@ -9,6 +9,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
@@ -435,4 +436,19 @@ func HTTPListenAndServe(srv *http.Server, address string, port int, isTLS bool, 
 		return srv.ServeTLS(listener, "", "")
 	}
 	return srv.Serve(listener)
+}
+
+// GetTLSCiphersFromNames returns the TLS ciphers from the specified names
+func GetTLSCiphersFromNames(cipherNames []string) []uint16 {
+	var ciphers []uint16
+
+	for _, name := range RemoveDuplicates(cipherNames) {
+		for _, c := range tls.CipherSuites() {
+			if c.Name == strings.TrimSpace(name) {
+				ciphers = append(ciphers, c.ID)
+			}
+		}
+	}
+
+	return ciphers
 }

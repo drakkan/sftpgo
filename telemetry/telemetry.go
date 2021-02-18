@@ -52,6 +52,17 @@ type Conf struct {
 	// "paramchange" request to the running service on Windows.
 	CertificateFile    string `json:"certificate_file" mapstructure:"certificate_file"`
 	CertificateKeyFile string `json:"certificate_key_file" mapstructure:"certificate_key_file"`
+	// TLSCipherSuites is a list of supported cipher suites for TLS version 1.2.
+	// If CipherSuites is nil/empty, a default list of secure cipher suites
+	// is used, with a preference order based on hardware performance.
+	// Note that TLS 1.3 ciphersuites are not configurable.
+	// The supported ciphersuites names are defined here:
+	//
+	// https://github.com/golang/go/blob/master/src/crypto/tls/cipher_suites.go#L52
+	//
+	// any invalid name will be silently ignored.
+	// The order matters, the ciphers listed first will be the preferred ones.
+	TLSCipherSuites []string `json:"tls_cipher_suites" mapstructure:"tls_cipher_suites"`
 }
 
 // ShouldBind returns true if there service must be started
@@ -91,9 +102,12 @@ func (c Conf) Initialize(configDir string) error {
 			return err
 		}
 		config := &tls.Config{
-			GetCertificate: certMgr.GetCertificateFunc(),
-			MinVersion:     tls.VersionTLS12,
+			GetCertificate:           certMgr.GetCertificateFunc(),
+			MinVersion:               tls.VersionTLS12,
+			CipherSuites:             utils.GetTLSCiphersFromNames(c.TLSCipherSuites),
+			PreferServerCipherSuites: true,
 		}
+		logger.Debug(logSender, "", "configured TLS cipher suites: %v", config.CipherSuites)
 		httpServer.TLSConfig = config
 		return utils.HTTPListenAndServe(httpServer, c.BindAddress, c.BindPort, true, logSender)
 	}

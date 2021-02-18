@@ -37,6 +37,17 @@ type Binding struct {
 	// set to 1 to require client certificate authentication in addition to FTP auth.
 	// You need to define at least a certificate authority for this to work
 	ClientAuthType int `json:"client_auth_type" mapstructure:"client_auth_type"`
+	// TLSCipherSuites is a list of supported cipher suites for TLS version 1.2.
+	// If CipherSuites is nil/empty, a default list of secure cipher suites
+	// is used, with a preference order based on hardware performance.
+	// Note that TLS 1.3 ciphersuites are not configurable.
+	// The supported ciphersuites names are defined here:
+	//
+	// https://github.com/golang/go/blob/master/src/crypto/tls/cipher_suites.go#L52
+	//
+	// any invalid name will be silently ignored.
+	// The order matters, the ciphers listed first will be the preferred ones.
+	TLSCipherSuites []string `json:"tls_cipher_suites" mapstructure:"tls_cipher_suites"`
 }
 
 // GetAddress returns the binding address

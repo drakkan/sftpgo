@@ -51,9 +51,13 @@ func (s *httpdServer) listenAndServe() error {
 	}
 	if certMgr != nil && s.binding.EnableHTTPS {
 		config := &tls.Config{
-			GetCertificate: certMgr.GetCertificateFunc(),
-			MinVersion:     tls.VersionTLS12,
+			GetCertificate:           certMgr.GetCertificateFunc(),
+			MinVersion:               tls.VersionTLS12,
+			CipherSuites:             utils.GetTLSCiphersFromNames(s.binding.TLSCipherSuites),
+			PreferServerCipherSuites: true,
 		}
+		logger.Debug(logSender, "", "configured TLS cipher suites for binding %#v: %v", s.binding.GetAddress(),
+			config.CipherSuites)
 		httpServer.TLSConfig = config
 		if s.binding.ClientAuthType == 1 {
 			httpServer.TLSConfig.ClientCAs = certMgr.GetRootCAs()
