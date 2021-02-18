@@ -85,7 +85,7 @@ jobs:
         if: ${{ matrix.upload-coverage && startsWith(matrix.os, 'ubuntu-') }}
         uses: crazy-max/ghaction-xgo@v1
         with:
-          go-version: 1.15.x
+          go_version: 1.15.x
           dest: cross
           prefix: sftpgo
           targets: linux/arm64,linux/ppc64le
