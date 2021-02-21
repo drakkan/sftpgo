@@ -12,12 +12,8 @@ jobs:
     strategy:
       matrix:
         go: [1.15]
-        os: [ubuntu-18.04, macos-10.15]
-        upload-coverage: [true]
-        include:
-          - go: 1.15
-            os: windows-2019
-            upload-coverage: false
+        os: [ubuntu-18.04, macos-10.15, windows-2019]
+        upload-coverage: [false]
 
     steps:
       - uses: actions/checkout@v2
