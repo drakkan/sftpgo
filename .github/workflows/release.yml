@@ -10,7 +10,7 @@ env:
 jobs:
   create-release:
     name: Create
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     steps:
       - name: Create Release
         id: create_release
@@ -36,7 +36,7 @@ jobs:
   release-sources-with-deps:
     name: Publish sources
     needs: create-release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
       - name: Set up Go
@@ -85,7 +85,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-18.04, macos-10.15, windows-2019]
 
     steps:
       - uses: actions/checkout@v2
@@ -117,10 +117,10 @@ jobs:
       - name: Get OS name
         id: get_os_name
         run: |
-          if [ $MATRIX_OS == 'ubuntu-latest' ]
+          if [ $MATRIX_OS == 'ubuntu-18.04' ]
           then
             echo ::set-output name=OS::linux
-          elif [ $MATRIX_OS == 'macos-latest' ]
+          elif [ $MATRIX_OS == 'macos-10.15' ]
           then
             echo ::set-output name=OS::macOS
           else
@@ -132,7 +132,7 @@ jobs:
 
       - name: Gather cross build info
         id: cross_info
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.os == 'ubuntu-18.04' }}
         run: |
           GIT_COMMIT=$(git describe --always)
           BUILD_DATE=$(date -u +%FT%TZ)
@@ -140,7 +140,7 @@ jobs:
           echo ::set-output name=created::${BUILD_DATE}
 
       - name: Cross build with xgo
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.os == 'ubuntu-18.04' }}
         uses: crazy-max/ghaction-xgo@v1
         with:
           go_version: ${{ env.GO_VERSION }}
@@ -208,7 +208,7 @@ jobs:
 
       - name: Prepare Linux Packages
         id: build_linux_pkgs
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.os == 'ubuntu-18.04' }}
         run: |
           cp -r pkgs pkgs_arm64
           cp -r pkgs pkgs_ppc64le
@@ -290,7 +290,7 @@ jobs:
           asset_content_type: application/x-xz
 
       - name: Upload Linux/arm64 Release
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.os == 'ubuntu-18.04' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -301,7 +301,7 @@ jobs:
           asset_content_type: application/x-xz
 
       - name: Upload Linux/ppc64le Release
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.os == 'ubuntu-18.04' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -312,7 +312,7 @@ jobs:
           asset_content_type: application/x-xz
 
       - name: Upload Linux Bundle Release
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.os == 'ubuntu-18.04' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -345,7 +345,7 @@ jobs:
           asset_content_type: application/zip
 
       - name: Upload Debian Package
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.os == 'ubuntu-18.04' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -356,7 +356,7 @@ jobs:
           asset_content_type: application/vnd.debian.binary-package
 
       - name: Upload RPM Package
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.os == 'ubuntu-18.04' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -367,7 +367,7 @@ jobs:
           asset_content_type: application/x-rpm
 
       - name: Upload Debian Package arm64
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.os == 'ubuntu-18.04' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -378,7 +378,7 @@ jobs:
           asset_content_type: application/vnd.debian.binary-package
 
       - name: Upload RPM Package arm64
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.os == 'ubuntu-18.04' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -389,7 +389,7 @@ jobs:
           asset_content_type: application/x-rpm
 
       - name: Upload Debian Package ppc64le
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.os == 'ubuntu-18.04' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -400,7 +400,7 @@ jobs:
           asset_content_type: application/vnd.debian.binary-package
 
       - name: Upload RPM Package ppc64le
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.os == 'ubuntu-18.04' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

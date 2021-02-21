@@ -1,11 +1,7 @@
 name: Docker
 
 on:
-  #schedule:
-  #  - cron: '0 4 * * *' # everyday at 4:00 AM UTC
   push:
-    branches:
-      - main
     tags:
       - v*
   pull_request:
@@ -17,7 +13,7 @@ jobs:
     strategy:
       matrix:
         os:
-          - ubuntu-latest
+          - ubuntu-18.04
         docker_pkg:
           - debian
           - alpine
