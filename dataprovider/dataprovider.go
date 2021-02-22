@@ -104,7 +104,7 @@ var (
 	// ValidProtocols defines all the valid protcols
 	ValidProtocols = []string{"SSH", "FTP", "DAV"}
 	// ErrNoInitRequired defines the error returned by InitProvider if no inizialization/update is required
-	ErrNoInitRequired = errors.New("The data provider is already up to date")
+	ErrNoInitRequired = errors.New("The data provider is up to date")
 	// ErrInvalidCredentials defines the error to return if the supplied credentials are invalid
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	webDAVUsersCache      sync.Map
@@ -291,46 +291,6 @@ func (d *BackupData) HasFolder(name string) bool {
 	return false
 }
 
-func (d *BackupData) checkFolderNames() {
-	if len(d.Folders) == 0 {
-		return
-	}
-	if d.Folders[0].Name != "" {
-		return
-	}
-	logger.WarnToConsole("You are loading folders without a name, please update to the latest supported format. This compatibility layer will be removed soon.")
-	providerLog(logger.LevelWarn, "You are loading folders without a name, please update to the latest supported format. This compatibility layer will be removed soon.")
-	folders := make([]vfs.BaseVirtualFolder, 0, len(d.Folders))
-	for idx, folder := range d.Folders {
-		if folder.Name == "" {
-			folder.Name = fmt.Sprintf("Folder%v", idx)
-		}
-		folders = append(folders, folder)
-	}
-	d.Folders = folders
-	users := make([]User, 0, len(d.Users))
-	for _, user := range d.Users {
-		if len(user.VirtualFolders) > 0 {
-			vfolders := make([]vfs.VirtualFolder, 0, len(user.VirtualFolders))
-			for _, vfolder := range user.VirtualFolders {
-				if vfolder.Name == "" {
-					for _, f := range d.Folders {
-						if f.MappedPath == vfolder.MappedPath {
-							vfolder.Name = f.Name
-						}
-					}
-				}
-				if vfolder.Name != "" {
-					vfolders = append(vfolders, vfolder)
-				}
-			}
-			user.VirtualFolders = vfolders
-		}
-		users = append(users, user)
-	}
-	d.Users = users
-}
-
 type keyboardAuthHookRequest struct {
 	RequestID string   `json:"request_id"`
 	Username  string   `json:"username,omitempty"`
@@ -361,18 +321,6 @@ type checkPasswordResponse struct {
 	// for status = 2 this is the password to check against the one stored
 	// inside the SFTPGo data provider
 	ToVerify string `json:"to_verify"`
-}
-
-type virtualFoldersCompact struct {
-	VirtualPath      string `json:"virtual_path"`
-	MappedPath       string `json:"mapped_path"`
-	ExcludeFromQuota bool   `json:"exclude_from_quota"`
-}
-
-type userCompactVFolders struct {
-	ID             int64                   `json:"id"`
-	Username       string                  `json:"username"`
-	VirtualFolders []virtualFoldersCompact `json:"virtual_folders"`
 }
 
 // ValidationError raised if input data is not valid
@@ -864,28 +812,6 @@ func DumpData() (BackupData, error) {
 func ParseDumpData(data []byte) (BackupData, error) {
 	var dump BackupData
 	err := json.Unmarshal(data, &dump)
-	if err == nil {
-		dump.checkFolderNames()
-		return dump, err
-	}
-	dump = BackupData{}
-	// try to parse as version 4
-	var dumpCompat backupDataV4Compat
-	err = json.Unmarshal(data, &dumpCompat)
-	if err != nil {
-		return dump, err
-	}
-	logger.WarnToConsole("You are loading data from an old format, please update to the latest supported one. We only support the current and the previous format.")
-	providerLog(logger.LevelWarn, "You are loading data from an old format, please update to the latest supported one. We only support the current and the previous format.")
-	dump.Folders = dumpCompat.Folders
-	for _, compatUser := range dumpCompat.Users {
-		fsConfig, err := convertFsConfigFromV4(compatUser.FsConfig, compatUser.Username)
-		if err != nil {
-			return dump, err
-		}
-		dump.Users = append(dump.Users, createUserFromV4(compatUser, fsConfig))
-	}
-	dump.checkFolderNames()
 	return dump, err
 }
 

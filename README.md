@@ -120,26 +120,41 @@ sftpgo initprovider --help
 
 You can disable automatic data provider checks/updates at startup by setting the `update_mode` configuration key to `1`.
 
+## Upgrading
+
+SFTPGo supports upgrading from the previous release branch to the current one.
+Some examples for supported upgrade paths are:
+
+- from 1.2.x to 2.0.x
+- from 2.0.x to 2.1.x and so on.
+
+For supported upgrade paths, the data and schema are migrated automatically, alternately you can use the `initprovider` command.
+
+So if, for example, you want to upgrade from a version before 1.2.x to 2.0.x, you must first install version 1.2.x, update the data provider and finally install the version 2.0.x. It is recommended to always install the latest available minor version, ie do not install 1.2.0 if 1.2.2 is available.
+
+Loading data from a provider independent JSON dump is supported from the previous release branch to the current one too. After updating SFTPGo it is advisable to load the old dump and regenerate it from the new version.
+
+## Downgrading
+
 If for some reason you want to downgrade SFTPGo, you may need to downgrade your data provider schema and data as well. You can use the `revertprovider` command for this task.
 
-We support the follwing schema versions:
+As for upgrading, SFTPGo supports downgrading from the previous release branch to the current one.
 
-- `8`, this is the latest version
-- `4`, this is the schema for v1.0.0-v1.2.x
-
-So, if you plan to downgrade from 2.0.x to 1.2.x, you can prepare your data provider executing the following command from the configuration directory:
+So, if you plan to downgrade from 2.0.x to 1.2.x, before uninstalling 2.0.x version, you can prepare your data provider executing the following command from the configuration directory:
 
 ```shell
 sftpgo revertprovider --to-version 4
 ```
 
-Take a look at the CLI usage to learn how to specify a different configuration file:
+Take a look at the CLI usage to see the supported parameter for the `--to-version` argument and to learn how to specify a different configuration file:
 
-```bash
+```shell
 sftpgo revertprovider --help
 ```
 
 The `revertprovider` command is not supported for the memory provider.
+
+Please note that we only support the current release branch and the current main branch, if you find a bug it is better to report it rather than downgrading to an older unsupported version.
 
 ## Users and folders management
 

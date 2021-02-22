@@ -16,7 +16,6 @@ import (
 
 const (
 	sqlDatabaseVersion     = 8
-	initialDBVersionSQL    = "INSERT INTO {{schema_version}} (version) VALUES (1);"
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -482,25 +481,6 @@ func sqlCommonGetUsers(limit int, offset int, order string, dbHandle sqlQuerier)
 	return getUsersWithVirtualFolders(users, dbHandle)
 }
 
-func updateUserPermissionsFromDb(user *User, permissions string) error {
-	var err error
-	perms := make(map[string][]string)
-	err = json.Unmarshal([]byte(permissions), &perms)
-	if err == nil {
-		user.Permissions = perms
-	} else {
-		// compatibility layer: until version 0.9.4 permissions were a string list
-		var list []string
-		err = json.Unmarshal([]byte(permissions), &list)
-		if err != nil {
-			return err
-		}
-		perms["/"] = list
-		user.Permissions = perms
-	}
-	return err
-}
-
 func getAdminFromDbRow(row sqlScanner) (Admin, error) {
 	var admin Admin
 	var email, filters, additionalInfo, permissions sql.NullString
@@ -574,10 +554,13 @@ func getUserFromDbRow(row sqlScanner) (User, error) {
 		}
 	}
 	if permissions.Valid {
-		err = updateUserPermissionsFromDb(&user, permissions.String)
+		perms := make(map[string][]string)
+		err = json.Unmarshal([]byte(permissions.String), &perms)
 		if err != nil {
-			return user, err
+			providerLog(logger.LevelDebug, "unable to deserialize permissions for user %#v: %v", user.Username, err)
+			return user, fmt.Errorf("unable to deserialize permissions for user %#v: %v", user.Username, err)
 		}
+		user.Permissions = perms
 	}
 	if filters.Valid {
 		var userFilters UserFilters
@@ -1019,277 +1002,4 @@ func sqlCommonExecSQLAndUpdateDBVersion(dbHandle *sql.DB, sql []string, newVersi
 		return err
 	}
 	return tx.Commit()
-}
-
-/*func sqlCommonGetCompatVirtualFolders(dbHandle *sql.DB) ([]userCompactVFolders, error) {
-	users := []userCompactVFolders{}
-	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
-	defer cancel()
-	q := getCompatVirtualFoldersQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
-	rows, err := stmt.QueryContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var user userCompactVFolders
-		var virtualFolders sql.NullString
-		err = rows.Scan(&user.ID, &user.Username, &virtualFolders)
-		if err != nil {
-			return nil, err
-		}
-		if virtualFolders.Valid {
-			var list []virtualFoldersCompact
-			err = json.Unmarshal([]byte(virtualFolders.String), &list)
-			if err == nil && len(list) > 0 {
-				user.VirtualFolders = list
-				users = append(users, user)
-			}
-		}
-	}
-	return users, rows.Err()
-}*/
-
-/*func sqlCommonRestoreCompatVirtualFolders(ctx context.Context, users []userCompactVFolders, dbHandle sqlQuerier) ([]string, error) {
-	foldersToScan := []string{}
-	for _, user := range users {
-		for _, vfolder := range user.VirtualFolders {
-			providerLog(logger.LevelInfo, "restoring virtual folder: %+v for user %#v", vfolder, user.Username)
-			// -1 means included in user quota, 0 means unlimited
-			quotaSize := int64(-1)
-			quotaFiles := -1
-			if vfolder.ExcludeFromQuota {
-				quotaFiles = 0
-				quotaSize = 0
-			}
-			b, err := sqlCommonAddOrGetFolder(ctx, vfolder.MappedPath, 0, 0, 0, dbHandle)
-			if err != nil {
-				providerLog(logger.LevelWarn, "error restoring virtual folder for user %#v: %v", user.Username, err)
-				return foldersToScan, err
-			}
-			u := User{
-				ID:       user.ID,
-				Username: user.Username,
-			}
-			f := vfs.VirtualFolder{
-				BaseVirtualFolder: b,
-				VirtualPath:       vfolder.VirtualPath,
-				QuotaSize:         quotaSize,
-				QuotaFiles:        quotaFiles,
-			}
-			err = sqlCommonAddFolderMapping(ctx, &u, f, dbHandle)
-			if err != nil {
-				providerLog(logger.LevelWarn, "error adding virtual folder mapping for user %#v: %v", user.Username, err)
-				return foldersToScan, err
-			}
-			if !utils.IsStringInSlice(vfolder.MappedPath, foldersToScan) {
-				foldersToScan = append(foldersToScan, vfolder.MappedPath)
-			}
-			providerLog(logger.LevelInfo, "virtual folder: %+v for user %#v successfully restored", vfolder, user.Username)
-		}
-	}
-	return foldersToScan, nil
-}*/
-
-func sqlCommonUpdateDatabaseFrom3To4(sqlV4 string, dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 3 -> 4")
-	providerLog(logger.LevelInfo, "updating database version: 3 -> 4")
-	/*users, err := sqlCommonGetCompatVirtualFolders(dbHandle)
-	if err != nil {
-		return err
-	}*/
-	sql := strings.ReplaceAll(sqlV4, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
-	sql = strings.ReplaceAll(sql, "{{folders_mapping}}", sqlTableFoldersMapping)
-	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
-	defer cancel()
-
-	tx, err := dbHandle.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	for _, q := range strings.Split(sql, ";") {
-		if strings.TrimSpace(q) == "" {
-			continue
-		}
-		_, err = tx.ExecContext(ctx, q)
-		if err != nil {
-			return err
-		}
-	}
-	err = sqlCommonUpdateDatabaseVersion(ctx, tx, 4)
-	if err != nil {
-		return err
-	}
-	return tx.Commit()
-}
-
-//nolint:dupl
-func sqlCommonUpdateDatabaseFrom4To5(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 4 -> 5")
-	providerLog(logger.LevelInfo, "updating database version: 4 -> 5")
-	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
-	defer cancel()
-	q := getCompatV4FsConfigQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	rows, err := stmt.QueryContext(ctx)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	users := []User{}
-	for rows.Next() {
-		var compatUser compatUserV4
-		var fsConfigString sql.NullString
-		err = rows.Scan(&compatUser.ID, &compatUser.Username, &fsConfigString)
-		if err != nil {
-			return err
-		}
-		if fsConfigString.Valid {
-			err = json.Unmarshal([]byte(fsConfigString.String), &compatUser.FsConfig)
-			if err != nil {
-				logger.WarnToConsole("failed to unmarshal v4 user %#v, is it already migrated?", compatUser.Username)
-				continue
-			}
-			fsConfig, err := convertFsConfigFromV4(compatUser.FsConfig, compatUser.Username)
-			if err != nil {
-				return err
-			}
-			users = append(users, createUserFromV4(compatUser, fsConfig))
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
-
-	for _, user := range users {
-		err = sqlCommonUpdateV4User(dbHandle, user)
-		if err != nil {
-			return err
-		}
-		providerLog(logger.LevelInfo, "filesystem config updated for user %#v", user.Username)
-	}
-
-	ctxVersion, cancelVersion := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
-	defer cancelVersion()
-
-	return sqlCommonUpdateDatabaseVersion(ctxVersion, dbHandle, 5)
-}
-
-func sqlCommonUpdateV4CompatUser(dbHandle *sql.DB, user compatUserV4) error {
-	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
-	defer cancel()
-
-	q := updateCompatV4FsConfigQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-
-	fsConfig, err := json.Marshal(user.FsConfig)
-	if err != nil {
-		return err
-	}
-	_, err = stmt.ExecContext(ctx, string(fsConfig), user.ID)
-	return err
-}
-
-func sqlCommonUpdateV4User(dbHandle *sql.DB, user User) error {
-	err := validateFilesystemConfig(&user)
-	if err != nil {
-		return err
-	}
-	err = saveGCSCredentials(&user)
-	if err != nil {
-		return err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
-	defer cancel()
-
-	q := updateCompatV4FsConfigQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-
-	fsConfig, err := user.GetFsConfigAsJSON()
-	if err != nil {
-		return err
-	}
-	_, err = stmt.ExecContext(ctx, string(fsConfig), user.ID)
-	return err
-}
-
-//nolint:dupl
-func sqlCommonDowngradeDatabaseFrom5To4(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 5 -> 4")
-	providerLog(logger.LevelInfo, "downgrading database version: 5 -> 4")
-	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
-	defer cancel()
-	q := getCompatV4FsConfigQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	rows, err := stmt.QueryContext(ctx)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	users := []compatUserV4{}
-	for rows.Next() {
-		var user User
-		var fsConfigString sql.NullString
-		err = rows.Scan(&user.ID, &user.Username, &fsConfigString)
-		if err != nil {
-			return err
-		}
-		if fsConfigString.Valid {
-			err = json.Unmarshal([]byte(fsConfigString.String), &user.FsConfig)
-			if err != nil {
-				logger.WarnToConsole("failed to unmarshal user %#v to v4, is it already migrated?", user.Username)
-				continue
-			}
-			fsConfig, err := convertFsConfigToV4(user.FsConfig, user.Username)
-			if err != nil {
-				return err
-			}
-			users = append(users, convertUserToV4(user, fsConfig))
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
-
-	for _, user := range users {
-		err = sqlCommonUpdateV4CompatUser(dbHandle, user)
-		if err != nil {
-			return err
-		}
-		providerLog(logger.LevelInfo, "filesystem config downgraded for user %#v", user.Username)
-	}
-
-	ctxVersion, cancelVersion := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
-	defer cancelVersion()
-
-	return sqlCommonUpdateDatabaseVersion(ctxVersion, dbHandle, 4)
 }

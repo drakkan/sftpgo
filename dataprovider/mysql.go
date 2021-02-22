@@ -5,6 +5,7 @@ package dataprovider
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -18,41 +19,26 @@ import (
 )
 
 const (
-	mysqlUsersTableSQL = "CREATE TABLE `{{users}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
-		"`username` varchar(255) NOT NULL UNIQUE, `password` varchar(255) NULL, `public_keys` longtext NULL, " +
-		"`home_dir` varchar(255) NOT NULL, `uid` integer NOT NULL, `gid` integer NOT NULL, `max_sessions` integer NOT NULL, " +
-		" `quota_size` bigint NOT NULL, `quota_files` integer NOT NULL, `permissions` longtext NOT NULL, " +
-		"`used_quota_size` bigint NOT NULL, `used_quota_files` integer NOT NULL, `last_quota_update` bigint NOT NULL, " +
-		"`upload_bandwidth` integer NOT NULL, `download_bandwidth` integer NOT NULL, `expiration_date` bigint(20) NOT NULL, " +
-		"`last_login` bigint(20) NOT NULL, `status` int(11) NOT NULL, `filters` longtext DEFAULT NULL, " +
-		"`filesystem` longtext DEFAULT NULL);"
-	mysqlSchemaTableSQL = "CREATE TABLE `{{schema_version}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `version` integer NOT NULL);"
-	mysqlV2SQL          = "ALTER TABLE `{{users}}` ADD COLUMN `virtual_folders` longtext NULL;"
-	mysqlV3SQL          = "ALTER TABLE `{{users}}` MODIFY `password` longtext NULL;"
-	mysqlV4SQL          = "CREATE TABLE `{{folders}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `path` varchar(512) NOT NULL UNIQUE," +
-		"`used_quota_size` bigint NOT NULL, `used_quota_files` integer NOT NULL, `last_quota_update` bigint NOT NULL);" +
-		"ALTER TABLE `{{users}}` MODIFY `home_dir` varchar(512) NOT NULL;" +
-		"ALTER TABLE `{{users}}` DROP COLUMN `virtual_folders`;" +
+	mysqlInitialSQL = "CREATE TABLE `{{schema_version}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `version` integer NOT NULL);" +
+		"CREATE TABLE `{{admins}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `username` varchar(255) NOT NULL UNIQUE, " +
+		"`password` varchar(255) NOT NULL, `email` varchar(255) NULL, `status` integer NOT NULL, `permissions` longtext NOT NULL, " +
+		"`filters` longtext NULL, `additional_info` longtext NULL);" +
+		"CREATE TABLE `{{folders}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `name` varchar(255) NOT NULL UNIQUE, " +
+		"`path` varchar(512) NULL, `used_quota_size` bigint NOT NULL, `used_quota_files` integer NOT NULL, " +
+		"`last_quota_update` bigint NOT NULL);" +
+		"CREATE TABLE `{{users}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `status` integer NOT NULL, " +
+		"`expiration_date` bigint NOT NULL, `username` varchar(255) NOT NULL UNIQUE, `password` longtext NULL, " +
+		"`public_keys` longtext NULL, `home_dir` varchar(512) NOT NULL, `uid` integer NOT NULL, `gid` integer NOT NULL, " +
+		"`max_sessions` integer NOT NULL, `quota_size` bigint NOT NULL, `quota_files` integer NOT NULL, " +
+		"`permissions` longtext NOT NULL, `used_quota_size` bigint NOT NULL, `used_quota_files` integer NOT NULL, " +
+		"`last_quota_update` bigint NOT NULL, `upload_bandwidth` integer NOT NULL, `download_bandwidth` integer NOT NULL, " +
+		"`last_login` bigint NOT NULL, `filters` longtext NULL, `filesystem` longtext NULL, `additional_info` longtext NULL);" +
 		"CREATE TABLE `{{folders_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `virtual_path` varchar(512) NOT NULL, " +
 		"`quota_size` bigint NOT NULL, `quota_files` integer NOT NULL, `folder_id` integer NOT NULL, `user_id` integer NOT NULL);" +
 		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `unique_mapping` UNIQUE (`user_id`, `folder_id`);" +
 		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `folders_mapping_folder_id_fk_folders_id` FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE CASCADE;" +
-		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `folders_mapping_user_id_fk_users_id` FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;"
-	mysqlV6SQL     = "ALTER TABLE `{{users}}` ADD COLUMN `additional_info` longtext NULL;"
-	mysqlV6DownSQL = "ALTER TABLE `{{users}}` DROP COLUMN `additional_info`;"
-	mysqlV7SQL     = "CREATE TABLE `{{admins}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `username` varchar(255) NOT NULL UNIQUE, " +
-		"`password` varchar(255) NOT NULL, `email` varchar(255) NULL, `status` integer NOT NULL, `permissions` longtext NOT NULL, " +
-		"`filters` longtext NULL, `additional_info` longtext NULL);"
-	mysqlV7DownSQL = "DROP TABLE `{{admins}}` CASCADE;"
-	mysqlV8SQL     = "ALTER TABLE `{{folders}}` ADD COLUMN `name` varchar(255) NULL;" +
-		"ALTER TABLE `{{folders}}` MODIFY `path` varchar(512) NULL;" +
-		"ALTER TABLE `{{folders}}` DROP INDEX `path`;" +
-		"UPDATE `{{folders}}` f1 SET name = CONCAT('folder',f1.id);" +
-		"ALTER TABLE `{{folders}}` MODIFY `name` varchar(255) NOT NULL;" +
-		"ALTER TABLE `{{folders}}` ADD CONSTRAINT `name` UNIQUE (`name`);"
-	mysqlV8DownSQL = "ALTER TABLE `{{folders}}` DROP COLUMN `name`;" +
-		"ALTER TABLE `{{folders}}` MODIFY `path` varchar(512) NOT NULL;" +
-		"ALTER TABLE `{{folders}}` ADD CONSTRAINT `path` UNIQUE (`path`);"
+		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `folders_mapping_user_id_fk_users_id` FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;" +
+		"INSERT INTO {{schema_version}} (version) VALUES (8);"
 )
 
 // MySQLProvider auth provider for MySQL/MariaDB database
@@ -224,27 +210,13 @@ func (p *MySQLProvider) initializeDatabase() error {
 	if err == nil && dbVersion.Version > 0 {
 		return ErrNoInitRequired
 	}
-	sqlUsers := strings.Replace(mysqlUsersTableSQL, "{{users}}", sqlTableUsers, 1)
-	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
-	defer cancel()
+	initialSQL := strings.ReplaceAll(mysqlInitialSQL, "{{schema_version}}", sqlTableSchemaVersion)
+	initialSQL = strings.ReplaceAll(initialSQL, "{{admins}}", sqlTableAdmins)
+	initialSQL = strings.ReplaceAll(initialSQL, "{{folders}}", sqlTableFolders)
+	initialSQL = strings.ReplaceAll(initialSQL, "{{users}}", sqlTableUsers)
+	initialSQL = strings.ReplaceAll(initialSQL, "{{folders_mapping}}", sqlTableFoldersMapping)
 
-	tx, err := p.dbHandle.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	_, err = tx.Exec(sqlUsers)
-	if err != nil {
-		return err
-	}
-	_, err = tx.Exec(strings.Replace(mysqlSchemaTableSQL, "{{schema_version}}", sqlTableSchemaVersion, 1))
-	if err != nil {
-		return err
-	}
-	_, err = tx.Exec(strings.Replace(initialDBVersionSQL, "{{schema_version}}", sqlTableSchemaVersion, 1))
-	if err != nil {
-		return err
-	}
-	return tx.Commit()
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(initialSQL, ";"), 8)
 }
 
 func (p *MySQLProvider) migrateDatabase() error {
@@ -252,200 +224,35 @@ func (p *MySQLProvider) migrateDatabase() error {
 	if err != nil {
 		return err
 	}
-	if dbVersion.Version == sqlDatabaseVersion {
-		providerLog(logger.LevelDebug, "sql database is up to date, current version: %v", dbVersion.Version)
+
+	switch version := dbVersion.Version; {
+	case version == sqlDatabaseVersion:
+		providerLog(logger.LevelDebug, "sql database is up to date, current version: %v", version)
 		return ErrNoInitRequired
-	}
-	switch dbVersion.Version {
-	case 1:
-		return updateMySQLDatabaseFromV1(p.dbHandle)
-	case 2:
-		return updateMySQLDatabaseFromV2(p.dbHandle)
-	case 3:
-		return updateMySQLDatabaseFromV3(p.dbHandle)
-	case 4:
-		return updateMySQLDatabaseFromV4(p.dbHandle)
-	case 5:
-		return updateMySQLDatabaseFromV5(p.dbHandle)
-	case 6:
-		return updateMySQLDatabaseFromV6(p.dbHandle)
-	case 7:
-		return updateMySQLDatabaseFromV7(p.dbHandle)
+	case version < 8:
+		err = fmt.Errorf("database version %v is too old, please see the upgrading docs", version)
+		providerLog(logger.LevelError, "%v", err)
+		logger.ErrorToConsole("%v", err)
+		return err
 	default:
-		if dbVersion.Version > sqlDatabaseVersion {
-			providerLog(logger.LevelWarn, "database version %v is newer than the supported: %v", dbVersion.Version,
+		if version > sqlDatabaseVersion {
+			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
 				sqlDatabaseVersion)
-			logger.WarnToConsole("database version %v is newer than the supported: %v", dbVersion.Version,
+			logger.WarnToConsole("database version %v is newer than the supported one: %v", version,
 				sqlDatabaseVersion)
 			return nil
 		}
-		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
+		return fmt.Errorf("Database version not handled: %v", version)
 	}
 }
 
-//nolint:dupl
 func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
 		return err
 	}
 	if dbVersion.Version == targetVersion {
-		return fmt.Errorf("current version match target version, nothing to do")
+		return errors.New("current version match target version, nothing to do")
 	}
-	switch dbVersion.Version {
-	case 8:
-		err = downgradeMySQLDatabaseFrom8To7(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		err = downgradeMySQLDatabaseFrom7To6(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		err = downgradeMySQLDatabaseFrom6To5(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		return downgradeMySQLDatabaseFrom5To4(p.dbHandle)
-	case 7:
-		err = downgradeMySQLDatabaseFrom7To6(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		err = downgradeMySQLDatabaseFrom6To5(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		return downgradeMySQLDatabaseFrom5To4(p.dbHandle)
-	case 6:
-		err = downgradeMySQLDatabaseFrom6To5(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		return downgradeMySQLDatabaseFrom5To4(p.dbHandle)
-	case 5:
-		return downgradeMySQLDatabaseFrom5To4(p.dbHandle)
-	default:
-		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
-	}
-}
-
-func updateMySQLDatabaseFromV1(dbHandle *sql.DB) error {
-	err := updateMySQLDatabaseFrom1To2(dbHandle)
-	if err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV2(dbHandle)
-}
-
-func updateMySQLDatabaseFromV2(dbHandle *sql.DB) error {
-	err := updateMySQLDatabaseFrom2To3(dbHandle)
-	if err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV3(dbHandle)
-}
-
-func updateMySQLDatabaseFromV3(dbHandle *sql.DB) error {
-	err := updateMySQLDatabaseFrom3To4(dbHandle)
-	if err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV4(dbHandle)
-}
-
-func updateMySQLDatabaseFromV4(dbHandle *sql.DB) error {
-	err := updateMySQLDatabaseFrom4To5(dbHandle)
-	if err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV5(dbHandle)
-}
-
-func updateMySQLDatabaseFromV5(dbHandle *sql.DB) error {
-	err := updateMySQLDatabaseFrom5To6(dbHandle)
-	if err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV6(dbHandle)
-}
-
-func updateMySQLDatabaseFromV6(dbHandle *sql.DB) error {
-	err := updateMySQLDatabaseFrom6To7(dbHandle)
-	if err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV7(dbHandle)
-}
-
-func updateMySQLDatabaseFromV7(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom7To8(dbHandle)
-}
-
-func updateMySQLDatabaseFrom1To2(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 1 -> 2")
-	providerLog(logger.LevelInfo, "updating database version: 1 -> 2")
-	sql := strings.Replace(mysqlV2SQL, "{{users}}", sqlTableUsers, 1)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 2)
-}
-
-func updateMySQLDatabaseFrom2To3(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 2 -> 3")
-	providerLog(logger.LevelInfo, "updating database version: 2 -> 3")
-	sql := strings.Replace(mysqlV3SQL, "{{users}}", sqlTableUsers, 1)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 3)
-}
-
-func updateMySQLDatabaseFrom3To4(dbHandle *sql.DB) error {
-	return sqlCommonUpdateDatabaseFrom3To4(mysqlV4SQL, dbHandle)
-}
-
-func updateMySQLDatabaseFrom4To5(dbHandle *sql.DB) error {
-	return sqlCommonUpdateDatabaseFrom4To5(dbHandle)
-}
-
-func updateMySQLDatabaseFrom5To6(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 5 -> 6")
-	providerLog(logger.LevelInfo, "updating database version: 5 -> 6")
-	sql := strings.Replace(mysqlV6SQL, "{{users}}", sqlTableUsers, 1)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 6)
-}
-
-func updateMySQLDatabaseFrom6To7(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 6 -> 7")
-	providerLog(logger.LevelInfo, "updating database version: 6 -> 7")
-	sql := strings.Replace(mysqlV7SQL, "{{admins}}", sqlTableAdmins, 1)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 7)
-}
-
-func updateMySQLDatabaseFrom7To8(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 7 -> 8")
-	providerLog(logger.LevelInfo, "updating database version: 7 -> 8")
-	sql := strings.ReplaceAll(mysqlV8SQL, "{{folders}}", sqlTableFolders)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 8)
-}
-
-func downgradeMySQLDatabaseFrom8To7(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 8 -> 7")
-	providerLog(logger.LevelInfo, "downgrading database version: 8 -> 7")
-	sql := strings.ReplaceAll(mysqlV8DownSQL, "{{folders}}", sqlTableFolders)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 7)
-}
-
-func downgradeMySQLDatabaseFrom7To6(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 7 -> 6")
-	providerLog(logger.LevelInfo, "downgrading database version: 7 -> 6")
-	sql := strings.Replace(mysqlV7DownSQL, "{{admins}}", sqlTableAdmins, 1)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 6)
-}
-
-func downgradeMySQLDatabaseFrom6To5(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 6 -> 5")
-	providerLog(logger.LevelInfo, "downgrading database version: 6 -> 5")
-	sql := strings.Replace(mysqlV6DownSQL, "{{users}}", sqlTableUsers, 1)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 5)
-}
-
-func downgradeMySQLDatabaseFrom5To4(dbHandle *sql.DB) error {
-	return sqlCommonDowngradeDatabaseFrom5To4(dbHandle)
+	return errors.New("the current version cannot be reverted")
 }

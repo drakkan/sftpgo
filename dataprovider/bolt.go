@@ -836,30 +836,24 @@ func (p *BoltProvider) migrateDatabase() error {
 	if err != nil {
 		return err
 	}
-	if dbVersion.Version == boltDatabaseVersion {
-		providerLog(logger.LevelDebug, "bolt database is up to date, current version: %v", dbVersion.Version)
+	switch version := dbVersion.Version; {
+	case version == boltDatabaseVersion:
+		providerLog(logger.LevelDebug, "bolt database is up to date, current version: %v", version)
 		return ErrNoInitRequired
-	}
-	switch dbVersion.Version {
-	case 1:
-		return updateBoltDatabaseFromV1(p.dbHandle)
-	case 2:
-		return updateBoltDatabaseFromV2(p.dbHandle)
-	case 3:
-		return updateBoltDatabaseFromV3(p.dbHandle)
-	case 4:
-		return updateBoltDatabaseFromV4(p.dbHandle)
-	case 5:
-		return updateBoltDatabaseFromV5(p.dbHandle)
+	case version < 6:
+		err = fmt.Errorf("database version %v is too old, please see the upgrading docs", version)
+		providerLog(logger.LevelError, "%v", err)
+		logger.ErrorToConsole("%v", err)
+		return err
 	default:
-		if dbVersion.Version > boltDatabaseVersion {
-			providerLog(logger.LevelWarn, "database version %v is newer than the supported: %v", dbVersion.Version,
+		if version > boltDatabaseVersion {
+			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
 				boltDatabaseVersion)
-			logger.WarnToConsole("database version %v is newer than the supported: %v", dbVersion.Version,
+			logger.WarnToConsole("database version %v is newer than the supported one: %v", version,
 				boltDatabaseVersion)
 			return nil
 		}
-		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
+		return fmt.Errorf("Database version not handled: %v", version)
 	}
 }
 
@@ -868,57 +862,13 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 	if err != nil {
 		return err
 	}
+	if targetVersion == 8 {
+		targetVersion = 6
+	}
 	if dbVersion.Version == targetVersion {
-		return fmt.Errorf("current version match target version, nothing to do")
+		return errors.New("current version match target version, nothing to do")
 	}
-	switch dbVersion.Version {
-	case 5:
-		return downgradeBoltDatabaseFrom5To4(p.dbHandle)
-	case 6:
-		err := downgradeBoltDatabaseFrom6To5(p.dbHandle)
-		if err != nil {
-			return err
-		}
-		return downgradeBoltDatabaseFrom5To4(p.dbHandle)
-	default:
-		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
-	}
-}
-
-func updateBoltDatabaseFromV1(dbHandle *bolt.DB) error {
-	err := updateDatabaseFrom1To2(dbHandle)
-	if err != nil {
-		return err
-	}
-	return updateBoltDatabaseFromV2(dbHandle)
-}
-
-func updateBoltDatabaseFromV2(dbHandle *bolt.DB) error {
-	err := updateDatabaseFrom2To3(dbHandle)
-	if err != nil {
-		return err
-	}
-	return updateBoltDatabaseFromV3(dbHandle)
-}
-
-func updateBoltDatabaseFromV3(dbHandle *bolt.DB) error {
-	err := updateDatabaseFrom3To4(dbHandle)
-	if err != nil {
-		return err
-	}
-	return updateBoltDatabaseFromV4(dbHandle)
-}
-
-func updateBoltDatabaseFromV4(dbHandle *bolt.DB) error {
-	err := updateDatabaseFrom4To5(dbHandle)
-	if err != nil {
-		return err
-	}
-	return updateBoltDatabaseFromV5(dbHandle)
-}
-
-func updateBoltDatabaseFromV5(dbHandle *bolt.DB) error {
-	return updateDatabaseFrom5To6(dbHandle)
+	return errors.New("the current version cannot be reverted")
 }
 
 func joinUserAndFolders(u []byte, foldersBucket *bolt.Bucket) (User, error) {
@@ -1029,44 +979,6 @@ func removeUserFromFolderMapping(folder vfs.VirtualFolder, user *User, bucket *b
 	return err
 }
 
-func updateV4BoltCompatUser(dbHandle *bolt.DB, user compatUserV4) error {
-	return dbHandle.Update(func(tx *bolt.Tx) error {
-		bucket, err := getUsersBucket(tx)
-		if err != nil {
-			return err
-		}
-		if u := bucket.Get([]byte(user.Username)); u == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("username %v does not exist", user.Username)}
-		}
-		buf, err := json.Marshal(user)
-		if err != nil {
-			return err
-		}
-		return bucket.Put([]byte(user.Username), buf)
-	})
-}
-
-func updateV4BoltUser(dbHandle *bolt.DB, user User) error {
-	err := ValidateUser(&user)
-	if err != nil {
-		return err
-	}
-	return dbHandle.Update(func(tx *bolt.Tx) error {
-		bucket, err := getUsersBucket(tx)
-		if err != nil {
-			return err
-		}
-		if u := bucket.Get([]byte(user.Username)); u == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("username %v does not exist", user.Username)}
-		}
-		buf, err := json.Marshal(user)
-		if err != nil {
-			return err
-		}
-		return bucket.Put([]byte(user.Username), buf)
-	})
-}
-
 func getAdminBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
 	var err error
 
@@ -1095,367 +1007,6 @@ func getFolderBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
 	return bucket, err
 }
 
-func updateDatabaseFrom1To2(dbHandle *bolt.DB) error {
-	logger.InfoToConsole("updating bolt database version: 1 -> 2")
-	providerLog(logger.LevelInfo, "updating bolt database version: 1 -> 2")
-	usernames, err := getBoltAvailableUsernames(dbHandle)
-	if err != nil {
-		return err
-	}
-	for _, u := range usernames {
-		user, err := provider.userExists(u)
-		if err != nil {
-			return err
-		}
-		user.Status = 1
-		err = provider.updateUser(&user)
-		if err != nil {
-			return err
-		}
-		providerLog(logger.LevelInfo, "user %#v updated, \"status\" setted to 1", user.Username)
-	}
-	return updateBoltDatabaseVersion(dbHandle, 2)
-}
-
-func updateDatabaseFrom2To3(dbHandle *bolt.DB) error {
-	logger.InfoToConsole("updating bolt database version: 2 -> 3")
-	providerLog(logger.LevelInfo, "updating bolt database version: 2 -> 3")
-	users := []User{}
-	err := dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, err := getUsersBucket(tx)
-		if err != nil {
-			return err
-		}
-		cursor := bucket.Cursor()
-		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
-			var compatUser compatUserV2
-			err = json.Unmarshal(v, &compatUser)
-			if err == nil {
-				user := User{}
-				user.ID = compatUser.ID
-				user.Username = compatUser.Username
-				user.Password = compatUser.Password
-				user.PublicKeys = compatUser.PublicKeys
-				user.HomeDir = compatUser.HomeDir
-				user.UID = compatUser.UID
-				user.GID = compatUser.GID
-				user.MaxSessions = compatUser.MaxSessions
-				user.QuotaSize = compatUser.QuotaSize
-				user.QuotaFiles = compatUser.QuotaFiles
-				user.Permissions = make(map[string][]string)
-				user.Permissions["/"] = compatUser.Permissions
-				user.UsedQuotaSize = compatUser.UsedQuotaSize
-				user.UsedQuotaFiles = compatUser.UsedQuotaFiles
-				user.LastQuotaUpdate = compatUser.LastQuotaUpdate
-				user.UploadBandwidth = compatUser.UploadBandwidth
-				user.DownloadBandwidth = compatUser.DownloadBandwidth
-				user.ExpirationDate = compatUser.ExpirationDate
-				user.LastLogin = compatUser.LastLogin
-				user.Status = compatUser.Status
-				users = append(users, user)
-			}
-		}
-		return err
-	})
-	if err != nil {
-		return err
-	}
-
-	for _, user := range users {
-		user := user
-		err = provider.updateUser(&user)
-		if err != nil {
-			return err
-		}
-		providerLog(logger.LevelInfo, "user %#v updated, \"permissions\" setted to %+v", user.Username, user.Permissions)
-	}
-
-	return updateBoltDatabaseVersion(dbHandle, 3)
-}
-
-func updateDatabaseFrom3To4(dbHandle *bolt.DB) error {
-	logger.InfoToConsole("updating bolt database version: 3 -> 4")
-	providerLog(logger.LevelInfo, "updating bolt database version: 3 -> 4")
-	foldersToScan := []string{}
-	users := []userCompactVFolders{}
-	err := dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, err := getUsersBucket(tx)
-		if err != nil {
-			return err
-		}
-		cursor := bucket.Cursor()
-		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
-			var compatUser userCompactVFolders
-			err = json.Unmarshal(v, &compatUser)
-			if err == nil && len(compatUser.VirtualFolders) > 0 {
-				users = append(users, compatUser)
-			}
-		}
-		return err
-	})
-	if err != nil {
-		return err
-	}
-	for _, u := range users {
-		user, err := provider.userExists(u.Username)
-		if err != nil {
-			return err
-		}
-		var folders []vfs.VirtualFolder
-		for _, f := range u.VirtualFolders {
-			providerLog(logger.LevelInfo, "restoring virtual folder: %+v for user %#v", f, user.Username)
-			quotaSize := int64(-1)
-			quotaFiles := -1
-			if f.ExcludeFromQuota {
-				quotaSize = 0
-				quotaFiles = 0
-			}
-			folder := vfs.VirtualFolder{
-				QuotaSize:   quotaSize,
-				QuotaFiles:  quotaFiles,
-				VirtualPath: f.VirtualPath,
-			}
-			folder.MappedPath = f.MappedPath
-			folders = append(folders, folder)
-			if !utils.IsStringInSlice(folder.MappedPath, foldersToScan) {
-				foldersToScan = append(foldersToScan, folder.MappedPath)
-			}
-		}
-		user.VirtualFolders = folders
-		err = provider.updateUser(&user)
-		providerLog(logger.LevelInfo, "number of virtual folders to restore %v, user %#v, error: %v", len(user.VirtualFolders),
-			user.Username, err)
-		if err != nil {
-			return err
-		}
-	}
-
-	return updateBoltDatabaseVersion(dbHandle, 4)
-	/*if err == nil {
-		go updateVFoldersQuotaAfterRestore(foldersToScan)
-	}
-	return err*/
-}
-
-//nolint:dupl
-func downgradeBoltDatabaseFrom5To4(dbHandle *bolt.DB) error {
-	logger.InfoToConsole("downgrading bolt database version: 5 -> 4")
-	providerLog(logger.LevelInfo, "downgrading bolt database version: 5 -> 4")
-	users := []compatUserV4{}
-	err := dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, err := getUsersBucket(tx)
-		if err != nil {
-			return err
-		}
-		cursor := bucket.Cursor()
-		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
-			var user User
-			err = json.Unmarshal(v, &user)
-			if err != nil {
-				logger.WarnToConsole("failed to unmarshal user %#v to v4, is it already migrated?", string(k))
-				continue
-			}
-			fsConfig, err := convertFsConfigToV4(user.FsConfig, user.Username)
-			if err != nil {
-				return err
-			}
-			users = append(users, convertUserToV4(user, fsConfig))
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	for _, user := range users {
-		err = updateV4BoltCompatUser(dbHandle, user)
-		if err != nil {
-			return err
-		}
-		providerLog(logger.LevelInfo, "filesystem config updated for user %#v", user.Username)
-	}
-
-	return updateBoltDatabaseVersion(dbHandle, 4)
-}
-
-//nolint:dupl
-func updateDatabaseFrom4To5(dbHandle *bolt.DB) error {
-	logger.InfoToConsole("updating bolt database version: 4 -> 5")
-	providerLog(logger.LevelInfo, "updating bolt database version: 4 -> 5")
-	users := []User{}
-	err := dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, err := getUsersBucket(tx)
-		if err != nil {
-			return err
-		}
-		cursor := bucket.Cursor()
-		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
-			var compatUser compatUserV4
-			err = json.Unmarshal(v, &compatUser)
-			if err != nil {
-				logger.WarnToConsole("failed to unmarshal v4 user %#v, is it already migrated?", string(k))
-				continue
-			}
-			fsConfig, err := convertFsConfigFromV4(compatUser.FsConfig, compatUser.Username)
-			if err != nil {
-				return err
-			}
-			users = append(users, createUserFromV4(compatUser, fsConfig))
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	for _, user := range users {
-		err = updateV4BoltUser(dbHandle, user)
-		if err != nil {
-			return err
-		}
-		providerLog(logger.LevelInfo, "filesystem config updated for user %#v", user.Username)
-	}
-
-	return updateBoltDatabaseVersion(dbHandle, 5)
-}
-
-// this compat code will be removed after 2.0.0, ignore the lint warning for now
-//nolint:gocyclo
-func updateDatabaseFrom5To6(dbHandle *bolt.DB) error {
-	logger.InfoToConsole("updating bolt database version: 5 -> 6")
-	providerLog(logger.LevelInfo, "updating bolt database version: 5 -> 6")
-	err := dbHandle.Update(func(tx *bolt.Tx) error {
-		bucket, err := getFolderBucket(tx)
-		if err != nil {
-			return err
-		}
-		usersBucket, err := getUsersBucket(tx)
-		if err != nil {
-			return err
-		}
-		cursor := bucket.Cursor()
-		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
-			if filepath.IsAbs(string(k)) {
-				var folder vfs.BaseVirtualFolder
-				err = json.Unmarshal(v, &folder)
-				if err != nil {
-					return err
-				}
-				folder.Name = fmt.Sprintf("Folder%v", folder.ID)
-				buf, err := json.Marshal(folder)
-				if err != nil {
-					return err
-				}
-				// insert the folder with the new structure
-				err = bucket.Put([]byte(folder.Name), buf)
-				if err != nil {
-					return err
-				}
-				// delete the folder with the old structure
-				err = bucket.Delete(k)
-				if err != nil {
-					return err
-				}
-				// update users mapping
-				for _, username := range folder.Users {
-					var u []byte
-					if u = usersBucket.Get([]byte(username)); u == nil {
-						continue
-					}
-					var user User
-					err = json.Unmarshal(u, &user)
-					if err != nil {
-						return err
-					}
-					var folders []vfs.VirtualFolder
-					for _, userFolder := range user.VirtualFolders {
-						if folder.MappedPath == userFolder.MappedPath {
-							userFolder.Name = folder.Name
-						}
-						folders = append(folders, userFolder)
-					}
-					user.VirtualFolders = folders
-					buf, err := json.Marshal(user)
-					if err != nil {
-						return err
-					}
-					err = usersBucket.Put([]byte(user.Username), buf)
-					if err != nil {
-						return err
-					}
-				}
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	return updateBoltDatabaseVersion(dbHandle, 6)
-}
-
-func downgradeBoltDatabaseFrom6To5(dbHandle *bolt.DB) error {
-	logger.InfoToConsole("downgrading bolt database version: 6 -> 5")
-	providerLog(logger.LevelInfo, "downgrading bolt database version: 6 -> 5")
-	// best effort we'll remove this code soon
-	err := dbHandle.Update(func(tx *bolt.Tx) error {
-		// just update the folder keys
-		bucket, err := getFolderBucket(tx)
-		if err != nil {
-			return err
-		}
-		cursor := bucket.Cursor()
-		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
-			if !filepath.IsAbs(string(k)) {
-				var folder vfs.BaseVirtualFolder
-				err = json.Unmarshal(v, &folder)
-				if err != nil {
-					return err
-				}
-				if filepath.IsAbs(folder.MappedPath) {
-					buf, err := json.Marshal(folder)
-					if err != nil {
-						return err
-					}
-					// insert the folder with the old key
-					err = bucket.Put([]byte(folder.MappedPath), buf)
-					if err != nil {
-						return err
-					}
-					// delete the folder with the new key
-					err = bucket.Delete(k)
-					if err != nil {
-						return err
-					}
-				}
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	return updateBoltDatabaseVersion(dbHandle, 5)
-}
-
-func getBoltAvailableUsernames(dbHandle *bolt.DB) ([]string, error) {
-	usernames := []string{}
-	err := dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, err := getUsersBucket(tx)
-		if err != nil {
-			return err
-		}
-		cursor := bucket.Cursor()
-		for k, _ := cursor.First(); k != nil; k, _ = cursor.Next() {
-			usernames = append(usernames, string(k))
-		}
-		return nil
-	})
-
-	return usernames, err
-}
-
 func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 	var dbVersion schemaVersion
 	err := dbHandle.View(func(tx *bolt.Tx) error {
@@ -1466,7 +1017,7 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 		v := bucket.Get(dbVersionKey)
 		if v == nil {
 			dbVersion = schemaVersion{
-				Version: 1,
+				Version: 6,
 			}
 			return nil
 		}
@@ -1475,7 +1026,7 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 	return dbVersion, err
 }
 
-func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
+/*func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
 	err := dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(dbVersionBucket)
 		if bucket == nil {
@@ -1491,4 +1042,4 @@ func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
 		return bucket.Put(dbVersionKey, buf)
 	})
 	return err
-}
+}*/
