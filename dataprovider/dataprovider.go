@@ -2214,26 +2214,6 @@ func executeAction(operation string, user *User) {
 	}()
 }
 
-// after migrating database to v4 we have to update the quota for the imported folders
-/*func updateVFoldersQuotaAfterRestore(foldersToScan []string) {
-	fs := vfs.NewOsFs("", "", nil).(*vfs.OsFs)
-	for _, folder := range foldersToScan {
-		providerLog(logger.LevelDebug, "starting quota scan after migration for folder %#v", folder)
-		vfolder, err := provider.getFolderByPath(folder)
-		if err != nil {
-			providerLog(logger.LevelWarn, "error getting folder to scan %#v: %v", folder, err)
-			continue
-		}
-		numFiles, size, err := fs.GetDirSize(folder)
-		if err != nil {
-			providerLog(logger.LevelWarn, "error scanning folder %#v: %v", folder, err)
-			continue
-		}
-		err = UpdateVirtualFolderQuota(vfolder, numFiles, size, true)
-		providerLog(logger.LevelDebug, "quota updated for virtual folder %#v, error: %v", vfolder.MappedPath, err)
-	}
-}*/
-
 func updateWebDavCachedUserLastLogin(username string) {
 	result, ok := webDAVUsersCache.Load(username)
 	if ok {
