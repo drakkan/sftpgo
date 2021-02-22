@@ -5,6 +5,7 @@ package vfs
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -127,24 +128,13 @@ func (fs *GCSFs) Stat(name string) (os.FileInfo, error) {
 	}
 	// now check if this is a prefix (virtual directory)
 	hasContents, err := fs.hasContents(name)
-	if err == nil && hasContents {
-		return NewFileInfo(name, true, 0, time.Now(), false), nil
-	} else if err != nil {
+	if err != nil {
 		return nil, err
 	}
-	// search a dir ending with "/" for backward compatibility
-	return fs.getStatCompat(name)
-}
-
-func (fs *GCSFs) getStatCompat(name string) (os.FileInfo, error) {
-	var result *FileInfo
-	attrs, err := fs.headObject(name + "/")
-	if err != nil {
-		return result, err
+	if hasContents {
+		return NewFileInfo(name, true, 0, time.Now(), false), nil
 	}
-	objSize := attrs.Size
-	objectModTime := attrs.Updated
-	return NewFileInfo(name, true, objSize, objectModTime, false), nil
+	return nil, errors.New("404 no such file or directory")
 }
 
 // Lstat returns a FileInfo describing the named file

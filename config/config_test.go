@@ -19,7 +19,6 @@ import (
 	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/sftpd"
-	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/webdavd"
 )
 
@@ -214,76 +213,6 @@ func TestInvalidUsersBaseDir(t *testing.T) {
 	err = config.LoadConfig(configDir, confName)
 	assert.NoError(t, err)
 	assert.Empty(t, config.GetProviderConf().UsersBaseDir)
-	err = os.Remove(configFilePath)
-	assert.NoError(t, err)
-}
-
-func TestCommonParamsCompatibility(t *testing.T) {
-	reset()
-
-	configDir := ".."
-	confName := tempConfigName + ".json"
-	configFilePath := filepath.Join(configDir, confName)
-	err := config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	sftpdConf := config.GetSFTPDConfig()
-	sftpdConf.IdleTimeout = 21 //nolint:staticcheck
-	sftpdConf.Actions.Hook = "http://hook"
-	sftpdConf.Actions.ExecuteOn = []string{"upload"}
-	sftpdConf.SetstatMode = 1                                //nolint:staticcheck
-	sftpdConf.UploadMode = common.UploadModeAtomicWithResume //nolint:staticcheck
-	sftpdConf.ProxyProtocol = 1                              //nolint:staticcheck
-	sftpdConf.ProxyAllowed = []string{"192.168.1.1"}         //nolint:staticcheck
-	c := make(map[string]sftpd.Configuration)
-	c["sftpd"] = sftpdConf
-	jsonConf, err := json.Marshal(c)
-	assert.NoError(t, err)
-	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
-	assert.NoError(t, err)
-	commonConf := config.GetCommonConfig()
-	assert.Equal(t, 21, commonConf.IdleTimeout)
-	assert.Equal(t, "http://hook", commonConf.Actions.Hook)
-	assert.Len(t, commonConf.Actions.ExecuteOn, 1)
-	assert.True(t, utils.IsStringInSlice("upload", commonConf.Actions.ExecuteOn))
-	assert.Equal(t, 1, commonConf.SetstatMode)
-	assert.Equal(t, 1, commonConf.ProxyProtocol)
-	assert.Len(t, commonConf.ProxyAllowed, 1)
-	assert.True(t, utils.IsStringInSlice("192.168.1.1", commonConf.ProxyAllowed))
-	err = os.Remove(configFilePath)
-	assert.NoError(t, err)
-}
-
-func TestHostKeyCompatibility(t *testing.T) {
-	reset()
-
-	configDir := ".."
-	confName := tempConfigName + ".json"
-	configFilePath := filepath.Join(configDir, confName)
-	err := config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	sftpdConf := config.GetSFTPDConfig()
-	sftpdConf.Keys = []sftpd.Key{ //nolint:staticcheck
-		{
-			PrivateKey: "rsa",
-		},
-		{
-			PrivateKey: "ecdsa",
-		},
-	}
-	c := make(map[string]sftpd.Configuration)
-	c["sftpd"] = sftpdConf
-	jsonConf, err := json.Marshal(c)
-	assert.NoError(t, err)
-	err = ioutil.WriteFile(configFilePath, jsonConf, os.ModePerm)
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
-	assert.NoError(t, err)
-	sftpdConf = config.GetSFTPDConfig()
-	assert.Equal(t, 2, len(sftpdConf.HostKeys))
-	assert.True(t, utils.IsStringInSlice("rsa", sftpdConf.HostKeys))
-	assert.True(t, utils.IsStringInSlice("ecdsa", sftpdConf.HostKeys))
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
 }
