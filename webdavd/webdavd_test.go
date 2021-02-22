@@ -1561,7 +1561,7 @@ func downloadFile(remoteSourcePath string, localDestPath string, expectedSize in
 func getWebDavClient(user dataprovider.User) *gowebdav.Client {
 	rootPath := fmt.Sprintf("http://%v/", webDavServerAddr)
 	pwd := defaultPassword
-	if len(user.Password) > 0 {
+	if user.Password != "" {
 		pwd = user.Password
 	}
 	client := gowebdav.NewClient(rootPath, user.Username, pwd)

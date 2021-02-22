@@ -8247,7 +8247,7 @@ func getSftpClientWithAddr(user dataprovider.User, usePubKey bool, addr string) 
 		}
 		config.Auth = []ssh.AuthMethod{ssh.PublicKeys(signer)}
 	} else {
-		if len(user.Password) > 0 {
+		if user.Password != "" {
 			config.Auth = []ssh.AuthMethod{ssh.Password(user.Password)}
 		} else {
 			config.Auth = []ssh.AuthMethod{ssh.Password(defaultPassword)}
@@ -8370,8 +8370,8 @@ func sftpUploadFile(localSourcePath string, remoteDestPath string, expectedSize 
 		destFile.Close()
 		return err
 	}
-	// we need to close the file to trigger the close method on server
-	// we cannot defer closing or Lstat will fail for uploads in atomic mode
+	// we need to close the file to trigger the server side close method
+	// we cannot defer closing otherwise Stat will fail for upload atomic mode
 	destFile.Close()
 	if expectedSize > 0 {
 		fi, err := client.Stat(remoteDestPath)
@@ -8417,8 +8417,8 @@ func sftpUploadResumeFile(localSourcePath string, remoteDestPath string, expecte
 		destFile.Close()
 		return err
 	}
-	// we need to close the file to trigger the close method on server
-	// we cannot defer closing or Lstat will fail for upload atomic mode
+	// we need to close the file to trigger the server side close method
+	// we cannot defer closing otherwise Stat will fail for upload atomic mode
 	destFile.Close()
 	if expectedSize > 0 {
 		fi, err := client.Lstat(remoteDestPath)

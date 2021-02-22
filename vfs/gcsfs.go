@@ -275,11 +275,6 @@ func (fs *GCSFs) Remove(name string, isDir bool) error {
 
 	err := fs.svc.Bucket(fs.config.Bucket).Object(name).Delete(ctx)
 	metrics.GCSDeleteObjectCompleted(err)
-	if fs.IsNotExist(err) && isDir {
-		name = name + "/"
-		err = fs.svc.Bucket(fs.config.Bucket).Object(name).Delete(ctx)
-		metrics.GCSDeleteObjectCompleted(err)
-	}
 	return err
 }
 
