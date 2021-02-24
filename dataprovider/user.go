@@ -219,6 +219,8 @@ type User struct {
 	Filters UserFilters `json:"filters"`
 	// Filesystem configuration details
 	FsConfig Filesystem `json:"filesystem"`
+	// optional description, for example full name
+	Description string `json:"description,omitempty"`
 	// free form text field for external systems
 	AdditionalInfo string `json:"additional_info,omitempty"`
 }
@@ -940,6 +942,7 @@ func (u *User) getACopy() User {
 		Filters:           filters,
 		FsConfig:          fsConfig,
 		AdditionalInfo:    u.AdditionalInfo,
+		Description:       u.Description,
 	}
 }
 

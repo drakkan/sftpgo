@@ -63,7 +63,7 @@ const (
 	MemoryDataProviderName = "memory"
 	// DumpVersion defines the version for the dump.
 	// For restore/load we support the current version and the previous one
-	DumpVersion = 6
+	DumpVersion = 7
 
 	argonPwdPrefix            = "$argon2id$"
 	bcryptPwdPrefix           = "$2a$"

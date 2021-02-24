@@ -39,6 +39,14 @@ const (
 		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `folders_mapping_folder_id_fk_folders_id` FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE CASCADE;" +
 		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `folders_mapping_user_id_fk_users_id` FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;" +
 		"INSERT INTO {{schema_version}} (version) VALUES (8);"
+	mysqlV9SQL = "ALTER TABLE `{{admins}}` ADD COLUMN `description` varchar(512) NULL;" +
+		"ALTER TABLE `{{folders}}` ADD COLUMN `description` varchar(512) NULL;" +
+		"ALTER TABLE `{{folders}}` ADD COLUMN `filesystem` longtext NULL;" +
+		"ALTER TABLE `{{users}}` ADD COLUMN `description` varchar(512) NULL;"
+	mysqlV9DownSQL = "ALTER TABLE `{{users}}` DROP COLUMN `description`;" +
+		"ALTER TABLE `{{folders}}` DROP COLUMN `filesystem`;" +
+		"ALTER TABLE `{{folders}}` DROP COLUMN `description`;" +
+		"ALTER TABLE `{{admins}}` DROP COLUMN `description`;"
 )
 
 // MySQLProvider auth provider for MySQL/MariaDB database
@@ -234,6 +242,8 @@ func (p *MySQLProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 8:
+		return updateMySQLDatabaseFromV8(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -254,5 +264,37 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	if dbVersion.Version == targetVersion {
 		return errors.New("current version match target version, nothing to do")
 	}
-	return errors.New("the current version cannot be reverted")
+
+	switch dbVersion.Version {
+	case 9:
+		return downgradeMySQLDatabaseFromV9(p.dbHandle)
+	default:
+		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
+	}
+}
+
+func updateMySQLDatabaseFromV8(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom8To9(dbHandle)
+}
+
+func downgradeMySQLDatabaseFromV9(dbHandle *sql.DB) error {
+	return downgradeMySQLDatabaseFrom9To8(dbHandle)
+}
+
+func updateMySQLDatabaseFrom8To9(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 8 -> 9")
+	providerLog(logger.LevelInfo, "updating database version: 8 -> 9")
+	sql := strings.ReplaceAll(mysqlV9SQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 9)
+}
+
+func downgradeMySQLDatabaseFrom9To8(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 9 -> 8")
+	providerLog(logger.LevelInfo, "downgrading database version: 9 -> 8")
+	sql := strings.ReplaceAll(mysqlV9DownSQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 8)
 }

@@ -2033,8 +2033,9 @@ func TestStartQuotaScan(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	folder := vfs.BaseVirtualFolder{
-		Name:       "vfolder",
-		MappedPath: filepath.Join(os.TempDir(), "folder"),
+		Name:        "vfolder",
+		MappedPath:  filepath.Join(os.TempDir(), "folder"),
+		Description: "virtual folder",
 	}
 	_, _, err = httpdtest.AddFolder(folder, http.StatusCreated)
 	assert.NoError(t, err)
@@ -2444,9 +2445,11 @@ func TestFolders(t *testing.T) {
 	_, _, err = httpdtest.UpdateFolder(folder1, http.StatusBadRequest)
 	assert.NoError(t, err)
 	folder1.MappedPath = filepath.Join(os.TempDir(), "updated")
+	folder1.Description = "updated folder description"
 	f, _, err = httpdtest.UpdateFolder(folder1, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, folder1.MappedPath, f.MappedPath)
+	assert.Equal(t, folder1.Description, f.Description)
 
 	_, err = httpdtest.RemoveFolder(folder1, http.StatusOK)
 	assert.NoError(t, err)
@@ -2632,6 +2635,7 @@ func TestLoaddataFromPostBody(t *testing.T) {
 func TestLoaddata(t *testing.T) {
 	mappedPath := filepath.Join(os.TempDir(), "restored_folder")
 	folderName := filepath.Base(mappedPath)
+	foldeDesc := "restored folder desc"
 	user := getTestUser()
 	user.ID = 1
 	user.Username = "test_user_restore"
@@ -2651,8 +2655,9 @@ func TestLoaddata(t *testing.T) {
 			Users:           []string{"user"},
 		},
 		{
-			MappedPath: mappedPath,
-			Name:       folderName,
+			MappedPath:  mappedPath,
+			Name:        folderName,
+			Description: foldeDesc,
 		},
 	}
 	backupContent, err := json.Marshal(backupData)
@@ -2698,6 +2703,7 @@ func TestLoaddata(t *testing.T) {
 	assert.Equal(t, int64(123), folder.UsedQuotaSize)
 	assert.Equal(t, 456, folder.UsedQuotaFiles)
 	assert.Equal(t, int64(789), folder.LastQuotaUpdate)
+	assert.Equal(t, foldeDesc, folder.Description)
 	assert.Len(t, folder.Users, 0)
 	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
@@ -2765,7 +2771,9 @@ func TestLoaddataMode(t *testing.T) {
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
 	assert.NoError(t, err)
 	oldInfo := admin.AdditionalInfo
+	oldDesc := admin.Description
 	admin.AdditionalInfo = "newInfo"
+	admin.Description = "newDesc"
 	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
 
@@ -2797,6 +2805,7 @@ func TestLoaddataMode(t *testing.T) {
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.NotEqual(t, oldInfo, admin.AdditionalInfo)
+	assert.NotEqual(t, oldDesc, admin.Description)
 
 	_, _, err = httpdtest.Loaddata(backupFilePath, "0", "2", http.StatusOK)
 	assert.NoError(t, err)
@@ -4183,6 +4192,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	form.Set("password", "")
 	form.Set("status", "1")
 	form.Set("permissions", "*")
+	form.Set("description", admin.Description)
 	req, _ := http.NewRequest(http.MethodPost, webAdminPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
@@ -4525,6 +4535,7 @@ func TestWebUserAddMock(t *testing.T) {
 	user.DownloadBandwidth = 64
 	user.UID = 1000
 	user.AdditionalInfo = "info"
+	user.Description = "user dsc"
 	mappedDir := filepath.Join(os.TempDir(), "mapped")
 	folderName := filepath.Base(mappedDir)
 	f := vfs.BaseVirtualFolder{
@@ -4553,6 +4564,7 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("allowed_patterns", "/dir2::*.jpg,*.png\n/dir1::*.png")
 	form.Set("denied_patterns", "/dir1::*.zip\n/dir3::*.rar\n/dir2::*.mkv")
 	form.Set("additional_info", user.AdditionalInfo)
+	form.Set("description", user.Description)
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	// test invalid url escape
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"?a=%2", &b)
@@ -4701,6 +4713,7 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.Equal(t, user.DownloadBandwidth, newUser.DownloadBandwidth)
 	assert.Equal(t, int64(1000), newUser.Filters.MaxUploadFileSize)
 	assert.Equal(t, user.AdditionalInfo, newUser.AdditionalInfo)
+	assert.Equal(t, user.Description, newUser.Description)
 	assert.True(t, utils.IsStringInSlice(testPubKey, newUser.PublicKeys))
 	if val, ok := newUser.Permissions["/subdir"]; ok {
 		assert.True(t, utils.IsStringInSlice(dataprovider.PermListItems, val))
@@ -4813,6 +4826,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("max_upload_file_size", "100")
 	form.Set("disconnect", "1")
 	form.Set("additional_info", user.AdditionalInfo)
+	form.Set("description", user.Description)
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
 	setJWTCookieForReq(req, webToken)
@@ -4873,6 +4887,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.Equal(t, user.UID, updateUser.UID)
 	assert.Equal(t, user.GID, updateUser.GID)
 	assert.Equal(t, user.AdditionalInfo, updateUser.AdditionalInfo)
+	assert.Equal(t, user.Description, updateUser.Description)
 	assert.Equal(t, int64(100), updateUser.Filters.MaxUploadFileSize)
 
 	if val, ok := updateUser.Permissions["/otherdir"]; ok {
@@ -4903,8 +4918,9 @@ func TestRenderFolderTemplateMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 
 	folder := vfs.BaseVirtualFolder{
-		Name:       "templatefolder",
-		MappedPath: filepath.Join(os.TempDir(), "mapped"),
+		Name:        "templatefolder",
+		MappedPath:  filepath.Join(os.TempDir(), "mapped"),
+		Description: "template folder desc",
 	}
 	folder, _, err = httpdtest.AddFolder(folder, http.StatusCreated)
 	assert.NoError(t, err)
@@ -4977,8 +4993,9 @@ func TestRenderWebCloneUserMock(t *testing.T) {
 
 func TestUserTemplateWithFoldersMock(t *testing.T) {
 	folder := vfs.BaseVirtualFolder{
-		Name:       "vfolder",
-		MappedPath: filepath.Join(os.TempDir(), "mapped"),
+		Name:        "vfolder",
+		MappedPath:  filepath.Join(os.TempDir(), "mapped"),
+		Description: "vfolder desc with spéciàl ch@rs",
 	}
 
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
@@ -5002,6 +5019,7 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 	form.Set("expiration_date", "2020-01-01 00:00:00")
 	form.Set("fs_provider", "0")
 	form.Set("max_upload_file_size", "0")
+	form.Set("description", "desc %username% %password%")
 	form.Set("virtual_folders", "/vdir%username%::"+folder.Name+"::-1::-1")
 	form.Set("users", "auser1::password1\nauser2::password2::"+testPubKey+"\nauser1::password")
 	b, contentType, _ := getMultipartFormData(form, "", "")
@@ -5041,10 +5059,13 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 	folder1 := dump.Folders[0]
 	assert.Equal(t, "auser1", user1.Username)
 	assert.Equal(t, "auser2", user2.Username)
+	assert.Equal(t, "desc auser1 password1", user1.Description)
+	assert.Equal(t, "desc auser2 password2", user2.Description)
 	assert.Equal(t, filepath.Join(os.TempDir(), user1.Username), user1.HomeDir)
 	assert.Equal(t, filepath.Join(os.TempDir(), user2.Username), user2.HomeDir)
 	assert.Equal(t, folder.Name, folder1.Name)
 	assert.Equal(t, folder.MappedPath, folder1.MappedPath)
+	assert.Equal(t, folder.Description, folder1.Description)
 	assert.Len(t, user1.PublicKeys, 0)
 	assert.Len(t, user2.PublicKeys, 1)
 	assert.Len(t, user1.VirtualFolders, 1)
@@ -5178,6 +5199,7 @@ func TestFolderTemplateMock(t *testing.T) {
 	form := make(url.Values)
 	form.Set("name", folderName)
 	form.Set("mapped_path", mappedPath)
+	form.Set("description", "desc folder %name%")
 	form.Set("folders", "folder1\nfolder2\nfolder3\nfolder1\n\n\n")
 	contentType := "application/x-www-form-urlencoded"
 	req, _ := http.NewRequest(http.MethodPost, webTemplateFolder, bytes.NewBuffer([]byte(form.Encode())))
@@ -5209,10 +5231,13 @@ func TestFolderTemplateMock(t *testing.T) {
 	require.Len(t, dump.Admins, 0)
 	require.Len(t, dump.Folders, 3)
 	require.Equal(t, "folder1", dump.Folders[0].Name)
+	require.Equal(t, "desc folder folder1", dump.Folders[0].Description)
 	require.True(t, strings.HasSuffix(dump.Folders[0].MappedPath, "folder1mappedfolder1path"))
 	require.Equal(t, "folder2", dump.Folders[1].Name)
+	require.Equal(t, "desc folder folder2", dump.Folders[1].Description)
 	require.True(t, strings.HasSuffix(dump.Folders[1].MappedPath, "folder2mappedfolder2path"))
 	require.Equal(t, "folder3", dump.Folders[2].Name)
+	require.Equal(t, "desc folder folder3", dump.Folders[2].Description)
 	require.True(t, strings.HasSuffix(dump.Folders[2].MappedPath, "folder3mappedfolder3path"))
 
 	form.Set("folders", "\n\n\n")
@@ -5258,6 +5283,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir/"
 	user.FsConfig.S3Config.UploadPartSize = 5
 	user.FsConfig.S3Config.UploadConcurrency = 4
+	user.Description = "s3 tèst user"
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
@@ -5287,6 +5313,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("allowed_extensions", "/dir1::.jpg,.png")
 	form.Set("denied_extensions", "/dir2::.zip")
 	form.Set("max_upload_file_size", "0")
+	form.Set("description", user.Description)
 	// test invalid s3_upload_part_size
 	form.Set("s3_upload_part_size", "a")
 	b, contentType, _ := getMultipartFormData(form, "", "")
@@ -5333,6 +5360,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.NotEmpty(t, updateUser.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Empty(t, updateUser.FsConfig.S3Config.AccessSecret.GetKey())
 	assert.Empty(t, updateUser.FsConfig.S3Config.AccessSecret.GetAdditionalData())
+	assert.Equal(t, user.Description, updateUser.Description)
 	// now check that a redacted password is not saved
 	form.Set("s3_access_secret", redactedSecret)
 	b, contentType, _ = getMultipartFormData(form, "", "")
@@ -5819,9 +5847,11 @@ func TestAddWebFoldersMock(t *testing.T) {
 	assert.NoError(t, err)
 	mappedPath := filepath.Clean(os.TempDir())
 	folderName := filepath.Base(mappedPath)
+	folderDesc := "a simple desc"
 	form := make(url.Values)
 	form.Set("mapped_path", mappedPath)
 	form.Set("name", folderName)
+	form.Set("description", folderDesc)
 	req, err := http.NewRequest(http.MethodPost, webFolderPath, strings.NewReader(form.Encode()))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, webToken)
@@ -5868,6 +5898,7 @@ func TestAddWebFoldersMock(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, mappedPath, folder.MappedPath)
 	assert.Equal(t, folderName, folder.Name)
+	assert.Equal(t, folderDesc, folder.Description)
 	// cleanup
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(folderPath, folderName), nil)
 	setBearerForReq(req, apiToken)
@@ -5883,9 +5914,11 @@ func TestUpdateWebFolderMock(t *testing.T) {
 	csrfToken, err := getCSRFToken()
 	assert.NoError(t, err)
 	folderName := "vfolderupdate"
+	folderDesc := "updated desc"
 	folder := vfs.BaseVirtualFolder{
-		Name:       folderName,
-		MappedPath: filepath.Join(os.TempDir(), "folderupdate"),
+		Name:        folderName,
+		MappedPath:  filepath.Join(os.TempDir(), "folderupdate"),
+		Description: "dsc",
 	}
 	_, _, err = httpdtest.AddFolder(folder, http.StatusCreated)
 	newMappedPath := folder.MappedPath + "1"
@@ -5893,6 +5926,7 @@ func TestUpdateWebFolderMock(t *testing.T) {
 	form := make(url.Values)
 	form.Set("mapped_path", newMappedPath)
 	form.Set("name", folderName)
+	form.Set("description", folderDesc)
 	form.Set(csrfFormToken, "")
 	req, err := http.NewRequest(http.MethodPost, path.Join(webFolderPath, folderName), strings.NewReader(form.Encode()))
 	assert.NoError(t, err)
@@ -5909,6 +5943,16 @@ func TestUpdateWebFolderMock(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	req, _ = http.NewRequest(http.MethodGet, path.Join(folderPath, folderName), nil)
+	setBearerForReq(req, apiToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	err = render.DecodeJSON(rr.Body, &folder)
+	assert.NoError(t, err)
+	assert.Equal(t, newMappedPath, folder.MappedPath)
+	assert.Equal(t, folderName, folder.Name)
+	assert.Equal(t, folderDesc, folder.Description)
 
 	// parse form error
 	req, err = http.NewRequest(http.MethodPost, path.Join(webFolderPath, folderName)+"??a=a%B3%A2%G3", strings.NewReader(form.Encode()))
@@ -5976,29 +6020,57 @@ func TestWebFoldersMock(t *testing.T) {
 	mappedPath2 := filepath.Join(os.TempDir(), "vfolder2")
 	folderName1 := filepath.Base(mappedPath1)
 	folderName2 := filepath.Base(mappedPath2)
+	folderDesc1 := "vfolder1 desc"
+	folderDesc2 := "vfolder2 desc"
 	folders := []vfs.BaseVirtualFolder{
 		{
-			Name:       folderName1,
-			MappedPath: mappedPath1,
+			Name:        folderName1,
+			MappedPath:  mappedPath1,
+			Description: folderDesc1,
 		},
 		{
-			Name:       folderName2,
-			MappedPath: mappedPath2,
+			Name:        folderName2,
+			MappedPath:  mappedPath2,
+			Description: folderDesc2,
 		},
 	}
 	for _, folder := range folders {
 		folderAsJSON, err := json.Marshal(folder)
 		assert.NoError(t, err)
-		req, _ := http.NewRequest(http.MethodPost, folderPath, bytes.NewBuffer(folderAsJSON))
+		req, err := http.NewRequest(http.MethodPost, folderPath, bytes.NewBuffer(folderAsJSON))
+		assert.NoError(t, err)
 		setBearerForReq(req, apiToken)
 		rr := executeRequest(req)
 		checkResponseCode(t, http.StatusCreated, rr)
 	}
 
-	req, err := http.NewRequest(http.MethodGet, webFoldersPath, nil)
+	req, err := http.NewRequest(http.MethodGet, folderPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, apiToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var foldersGet []vfs.BaseVirtualFolder
+	err = render.DecodeJSON(rr.Body, &foldersGet)
+	assert.NoError(t, err)
+	numFound := 0
+	for _, f := range foldersGet {
+		if f.Name == folderName1 {
+			assert.Equal(t, mappedPath1, f.MappedPath)
+			assert.Equal(t, folderDesc1, f.Description)
+			numFound++
+		}
+		if f.Name == folderName2 {
+			assert.Equal(t, mappedPath2, f.MappedPath)
+			assert.Equal(t, folderDesc2, f.Description)
+			numFound++
+		}
+	}
+	assert.Equal(t, 2, numFound)
+
+	req, err = http.NewRequest(http.MethodGet, webFoldersPath, nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, webToken)
-	rr := executeRequest(req)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	req, err = http.NewRequest(http.MethodGet, webFoldersPath+"?qlimit=a", nil)
 	assert.NoError(t, err)
@@ -6145,15 +6217,17 @@ func getTestAdmin() dataprovider.Admin {
 		Status:      1,
 		Permissions: []string{dataprovider.PermAdminAny},
 		Email:       "admin@example.com",
+		Description: "test admin",
 	}
 }
 
 func getTestUser() dataprovider.User {
 	user := dataprovider.User{
-		Username: defaultUsername,
-		Password: defaultPassword,
-		HomeDir:  filepath.Join(homeBasePath, defaultUsername),
-		Status:   1,
+		Username:    defaultUsername,
+		Password:    defaultPassword,
+		HomeDir:     filepath.Join(homeBasePath, defaultUsername),
+		Status:      1,
+		Description: "test user",
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = defaultPerms

@@ -802,6 +802,7 @@ func getAdminFromPostFields(r *http.Request) (dataprovider.Admin, error) {
 	admin.Status = status
 	admin.Filters.AllowList = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")
 	admin.AdditionalInfo = r.Form.Get("additional_info")
+	admin.Description = r.Form.Get("description")
 	return admin, nil
 }
 
@@ -818,6 +819,7 @@ func getFolderFromTemplate(folder vfs.BaseVirtualFolder, name string) vfs.BaseVi
 	replacements["%name%"] = folder.Name
 
 	folder.MappedPath = replacePlaceholders(folder.MappedPath, replacements)
+	folder.Description = replacePlaceholders(folder.Description, replacements)
 
 	return folder
 }
@@ -887,6 +889,7 @@ func getUserFromTemplate(user dataprovider.User, template userTemplateFields) da
 		vfolders = append(vfolders, vfolder)
 	}
 	user.VirtualFolders = vfolders
+	user.Description = replacePlaceholders(user.Description, replacements)
 	user.AdditionalInfo = replacePlaceholders(user.AdditionalInfo, replacements)
 
 	switch user.FsConfig.Provider {
@@ -977,6 +980,7 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 		Filters:           getFiltersFromUserPostFields(r),
 		FsConfig:          fsConfig,
 		AdditionalInfo:    r.Form.Get("additional_info"),
+		Description:       r.Form.Get("description"),
 	}
 	maxFileSize, err := strconv.ParseInt(r.Form.Get("max_upload_file_size"), 10, 64)
 	user.Filters.MaxUploadFileSize = maxFileSize
@@ -1250,6 +1254,7 @@ func handleWebTemplateFolderPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	templateFolder.MappedPath = r.Form.Get("mapped_path")
+	templateFolder.Description = r.Form.Get("description")
 
 	var dump dataprovider.BackupData
 	dump.Version = dataprovider.DumpVersion
@@ -1458,6 +1463,7 @@ func handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
 	}
 	folder.MappedPath = r.Form.Get("mapped_path")
 	folder.Name = r.Form.Get("name")
+	folder.Description = r.Form.Get("description")
 
 	err = dataprovider.AddFolder(&folder)
 	if err == nil {
@@ -1501,6 +1507,7 @@ func handleWebUpdateFolderPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	folder.MappedPath = r.Form.Get("mapped_path")
+	folder.Description = r.Form.Get("description")
 	err = dataprovider.UpdateFolder(&folder)
 	if err != nil {
 		renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())

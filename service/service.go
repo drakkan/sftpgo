@@ -257,7 +257,7 @@ func (s *Service) loadInitialData() error {
 	if err != nil {
 		return fmt.Errorf("unable to parse file to restore %#v: %v", s.LoadDataFrom, err)
 	}
-	err = s.restoreDump(dump)
+	err = s.restoreDump(&dump)
 	if err != nil {
 		return err
 	}
@@ -278,7 +278,7 @@ func (s *Service) loadInitialData() error {
 	return nil
 }
 
-func (s *Service) restoreDump(dump dataprovider.BackupData) error {
+func (s *Service) restoreDump(dump *dataprovider.BackupData) error {
 	err := httpd.RestoreAdmins(dump.Admins, s.LoadDataFrom, s.LoadDataMode)
 	if err != nil {
 		return fmt.Errorf("unable to restore admins from file %#v: %v", s.LoadDataFrom, err)

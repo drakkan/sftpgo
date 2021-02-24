@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: SFTPGo
   description: SFTPGo REST API
-  version: 2.4.4
+  version: 2.4.5
 
 servers:
   - url: /api/v2
@@ -1560,6 +1560,9 @@ components:
         mapped_path:
           type: string
           description: absolute filesystem path to use as virtual folder
+        description:
+          type: string
+          description: optional description
         used_quota_size:
           type: integer
           format: int64
@@ -1575,8 +1578,6 @@ components:
           items:
             type: string
           description: list of usernames associated with this virtual folder
-      required:
-        - mapped_path
       description: defines the path for the virtual folder and the used quota limits. The same folder can be shared among multiple users and each user can have different quota limits or a different virtual path.
     VirtualFolder:
       allOf:
@@ -1615,6 +1616,9 @@ components:
         username:
           type: string
           description: username is unique
+        description:
+          type: string
+          description: optional description, for example the user full name
         expiration_date:
           type: integer
           format: int64
@@ -1723,6 +1727,9 @@ components:
         username:
           type: string
           description: username is unique
+        description:
+          type: string
+          description: optional description, for example the admin full name
         password:
           type: string
           format: password

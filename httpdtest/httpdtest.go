@@ -845,6 +845,9 @@ func checkFolder(expected *vfs.BaseVirtualFolder, actual *vfs.BaseVirtualFolder)
 	if expected.UsedQuotaFiles != actual.UsedQuotaFiles {
 		return errors.New("used quota files mismatch")
 	}
+	if expected.Description != actual.Description {
+		return errors.New("Description mismatch")
+	}
 	if len(expected.Users) != len(actual.Users) {
 		return errors.New("folder users mismatch")
 	}
@@ -869,17 +872,8 @@ func checkAdmin(expected *dataprovider.Admin, actual *dataprovider.Admin) error 
 			return errors.New("admin ID mismatch")
 		}
 	}
-	if expected.Username != actual.Username {
-		return errors.New("Username mismatch")
-	}
-	if expected.Email != actual.Email {
-		return errors.New("Email mismatch")
-	}
-	if expected.Status != actual.Status {
-		return errors.New("Status mismatch")
-	}
-	if expected.AdditionalInfo != actual.AdditionalInfo {
-		return errors.New("AdditionalInfo mismatch")
+	if err := compareAdminEqualFields(expected, actual); err != nil {
+		return err
 	}
 	if len(expected.Permissions) != len(actual.Permissions) {
 		return errors.New("Permissions mismatch")
@@ -898,6 +892,25 @@ func checkAdmin(expected *dataprovider.Admin, actual *dataprovider.Admin) error 
 		}
 	}
 
+	return nil
+}
+
+func compareAdminEqualFields(expected *dataprovider.Admin, actual *dataprovider.Admin) error {
+	if expected.Username != actual.Username {
+		return errors.New("Username mismatch")
+	}
+	if expected.Email != actual.Email {
+		return errors.New("Email mismatch")
+	}
+	if expected.Status != actual.Status {
+		return errors.New("Status mismatch")
+	}
+	if expected.Description != actual.Description {
+		return errors.New("Description mismatch")
+	}
+	if expected.AdditionalInfo != actual.AdditionalInfo {
+		return errors.New("AdditionalInfo mismatch")
+	}
 	return nil
 }
 
@@ -1273,6 +1286,9 @@ func compareEqualsUserFields(expected *dataprovider.User, actual *dataprovider.U
 	}
 	if expected.AdditionalInfo != actual.AdditionalInfo {
 		return errors.New("AdditionalInfo mismatch")
+	}
+	if expected.Description != actual.Description {
+		return errors.New("Description mismatch")
 	}
 	return nil
 }

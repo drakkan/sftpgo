@@ -59,6 +59,7 @@ type Admin struct {
 	Email          string       `json:"email"`
 	Permissions    []string     `json:"permissions"`
 	Filters        AdminFilters `json:"filters,omitempty"`
+	Description    string       `json:"description,omitempty"`
 	AdditionalInfo string       `json:"additional_info,omitempty"`
 }
 
@@ -216,6 +217,7 @@ func (a *Admin) getACopy() Admin {
 		Permissions:    permissions,
 		Filters:        filters,
 		AdditionalInfo: a.AdditionalInfo,
+		Description:    a.Description,
 	}
 }
 

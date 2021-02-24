@@ -15,6 +15,7 @@ type BaseVirtualFolder struct {
 	ID            int64  `json:"id"`
 	Name          string `json:"name"`
 	MappedPath    string `json:"mapped_path,omitempty"`
+	Description   string `json:"description,omitempty"`
 	UsedQuotaSize int64  `json:"used_quota_size"`
 	// Used quota as number of files
 	UsedQuotaFiles int `json:"used_quota_files"`
@@ -31,6 +32,7 @@ func (v *BaseVirtualFolder) GetACopy() BaseVirtualFolder {
 	return BaseVirtualFolder{
 		ID:              v.ID,
 		Name:            v.Name,
+		Description:     v.Description,
 		MappedPath:      v.MappedPath,
 		UsedQuotaSize:   v.UsedQuotaSize,
 		UsedQuotaFiles:  v.UsedQuotaFiles,

@@ -42,6 +42,40 @@ CREATE INDEX "folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_i
 CREATE INDEX "folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
 INSERT INTO {{schema_version}} (version) VALUES (8);
 `
+	sqliteV9SQL = `ALTER TABLE "{{admins}}" ADD COLUMN "description" varchar(512) NULL;
+ALTER TABLE "{{folders}}" ADD COLUMN "description" varchar(512) NULL;
+ALTER TABLE "{{folders}}" ADD COLUMN "filesystem" text NULL;
+ALTER TABLE "{{users}}" ADD COLUMN "description" varchar(512) NULL;
+`
+	sqliteV9DownSQL = `CREATE TABLE "new__users" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "status" integer NOT NULL,
+"expiration_date" bigint NOT NULL, "username" varchar(255) NOT NULL UNIQUE, "password" text NULL, "public_keys" text NULL,
+"home_dir" varchar(512) NOT NULL, "uid" integer NOT NULL, "gid" integer NOT NULL, "max_sessions" integer NOT NULL,
+"quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "permissions" text NOT NULL, "used_quota_size" bigint NOT NULL,
+"used_quota_files" integer NOT NULL, "last_quota_update" bigint NOT NULL, "upload_bandwidth" integer NOT NULL,
+"download_bandwidth" integer NOT NULL, "last_login" bigint NOT NULL, "filters" text NULL, "filesystem" text NULL,
+"additional_info" text NULL);
+INSERT INTO "new__users" ("id", "status", "expiration_date", "username", "password", "public_keys", "home_dir", "uid", "gid",
+"max_sessions", "quota_size", "quota_files", "permissions", "used_quota_size", "used_quota_files", "last_quota_update",
+"upload_bandwidth", "download_bandwidth", "last_login", "filters", "filesystem", "additional_info")
+SELECT "id", "status", "expiration_date", "username", "password", "public_keys", "home_dir", "uid", "gid", "max_sessions",
+"quota_size", "quota_files", "permissions", "used_quota_size", "used_quota_files", "last_quota_update", "upload_bandwidth",
+"download_bandwidth", "last_login", "filters", "filesystem", "additional_info" FROM "{{users}}";
+DROP TABLE "{{users}}";
+ALTER TABLE "new__users" RENAME TO "{{users}}";
+CREATE TABLE "new__admins" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "username" varchar(255) NOT NULL UNIQUE,
+"password" varchar(255) NOT NULL, "email" varchar(255) NULL, "status" integer NOT NULL, "permissions" text NOT NULL,
+"filters" text NULL, "additional_info" text NULL);
+INSERT INTO "new__admins" ("id", "username", "password", "email", "status", "permissions", "filters", "additional_info")
+SELECT "id", "username", "password", "email", "status", "permissions", "filters", "additional_info" FROM "{{admins}}";
+DROP TABLE "{{admins}}";
+ALTER TABLE "new__admins" RENAME TO "{{admins}}";
+CREATE TABLE "new__folders" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "name" varchar(255) NOT NULL UNIQUE,
+"path" varchar(512) NULL, "used_quota_size" bigint NOT NULL, "used_quota_files" integer NOT NULL, "last_quota_update" bigint NOT NULL);
+INSERT INTO "new__folders" ("id", "name", "path", "used_quota_size", "used_quota_files", "last_quota_update")
+SELECT "id", "name", "path", "used_quota_size", "used_quota_files", "last_quota_update" FROM "{{folders}}";
+DROP TABLE "{{folders}}";
+ALTER TABLE "new__folders" RENAME TO "{{folders}}";
+`
 )
 
 // SQLiteProvider auth provider for SQLite database
@@ -229,6 +263,8 @@ func (p *SQLiteProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 8:
+		return updateSQLiteDatabaseFromV8(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -249,5 +285,53 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	if dbVersion.Version == targetVersion {
 		return errors.New("current version match target version, nothing to do")
 	}
-	return errors.New("the current version cannot be reverted")
+
+	switch dbVersion.Version {
+	case 9:
+		return downgradeSQLiteDatabaseFromV9(p.dbHandle)
+	default:
+		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
+	}
+}
+
+func updateSQLiteDatabaseFromV8(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom8To9(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV9(dbHandle *sql.DB) error {
+	return downgradeSQLiteDatabaseFrom9To8(dbHandle)
+}
+
+func updateSQLiteDatabaseFrom8To9(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 8 -> 9")
+	providerLog(logger.LevelInfo, "updating database version: 8 -> 9")
+	sql := strings.ReplaceAll(sqliteV9SQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 9)
+}
+
+func downgradeSQLiteDatabaseFrom9To8(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 9 -> 8")
+	providerLog(logger.LevelInfo, "downgrading database version: 9 -> 8")
+	if err := setPragmaFK(dbHandle, "OFF"); err != nil {
+		return err
+	}
+	sql := strings.ReplaceAll(sqliteV9DownSQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
+	if err := sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 8); err != nil {
+		return err
+	}
+	return setPragmaFK(dbHandle, "ON")
+}
+
+func setPragmaFK(dbHandle *sql.DB, value string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+	defer cancel()
+
+	sql := fmt.Sprintf("PRAGMA foreign_keys=%v;", value)
+
+	_, err := dbHandle.ExecContext(ctx, sql)
+	return err
 }

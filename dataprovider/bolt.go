@@ -862,7 +862,7 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 	if err != nil {
 		return err
 	}
-	if targetVersion == 8 {
+	if targetVersion >= 8 {
 		targetVersion = 6
 	}
 	if dbVersion.Version == targetVersion {

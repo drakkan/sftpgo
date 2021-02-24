@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 8
+	sqlDatabaseVersion     = 9
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -83,7 +83,7 @@ func sqlCommonAddAdmin(admin *Admin, dbHandle *sql.DB) error {
 	}
 
 	_, err = stmt.ExecContext(ctx, admin.Username, admin.Password, admin.Status, admin.Email, string(perms),
-		string(filters), admin.AdditionalInfo)
+		string(filters), admin.AdditionalInfo, admin.Description)
 	return err
 }
 
@@ -114,7 +114,7 @@ func sqlCommonUpdateAdmin(admin *Admin, dbHandle *sql.DB) error {
 	}
 
 	_, err = stmt.ExecContext(ctx, admin.Password, admin.Status, admin.Email, string(perms), string(filters),
-		admin.AdditionalInfo, admin.Username)
+		admin.AdditionalInfo, admin.Description, admin.Username)
 	return err
 }
 
@@ -342,7 +342,7 @@ func sqlCommonAddUser(user *User, dbHandle *sql.DB) error {
 	}
 	_, err = stmt.ExecContext(ctx, user.Username, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
 		user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate, string(filters),
-		string(fsConfig), user.AdditionalInfo)
+		string(fsConfig), user.AdditionalInfo, user.Description)
 	if err != nil {
 		return err
 	}
@@ -390,7 +390,7 @@ func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
 	}
 	_, err = stmt.ExecContext(ctx, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
 		user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate,
-		string(filters), string(fsConfig), user.AdditionalInfo, user.ID)
+		string(filters), string(fsConfig), user.AdditionalInfo, user.Description, user.ID)
 	if err != nil {
 		return err
 	}
@@ -483,10 +483,10 @@ func sqlCommonGetUsers(limit int, offset int, order string, dbHandle sqlQuerier)
 
 func getAdminFromDbRow(row sqlScanner) (Admin, error) {
 	var admin Admin
-	var email, filters, additionalInfo, permissions sql.NullString
+	var email, filters, additionalInfo, permissions, description sql.NullString
 
 	err := row.Scan(&admin.ID, &admin.Username, &admin.Password, &admin.Status, &email, &permissions,
-		&filters, &additionalInfo)
+		&filters, &additionalInfo, &description)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -517,6 +517,9 @@ func getAdminFromDbRow(row sqlScanner) (Admin, error) {
 	if additionalInfo.Valid {
 		admin.AdditionalInfo = additionalInfo.String
 	}
+	if description.Valid {
+		admin.Description = description.String
+	}
 
 	return admin, err
 }
@@ -528,12 +531,12 @@ func getUserFromDbRow(row sqlScanner) (User, error) {
 	var publicKey sql.NullString
 	var filters sql.NullString
 	var fsConfig sql.NullString
-	var additionalInfo sql.NullString
+	var additionalInfo, description sql.NullString
 
 	err := row.Scan(&user.ID, &user.Username, &password, &publicKey, &user.HomeDir, &user.UID, &user.GID, &user.MaxSessions,
 		&user.QuotaSize, &user.QuotaFiles, &permissions, &user.UsedQuotaSize, &user.UsedQuotaFiles, &user.LastQuotaUpdate,
 		&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig,
-		&additionalInfo)
+		&additionalInfo, &description)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return user, &RecordNotFoundError{err: err.Error()}
@@ -579,6 +582,9 @@ func getUserFromDbRow(row sqlScanner) (User, error) {
 	if additionalInfo.Valid {
 		user.AdditionalInfo = additionalInfo.String
 	}
+	if description.Valid {
+		user.Description = description.String
+	}
 	user.SetEmptySecretsIfNil()
 	return user, err
 }
@@ -593,14 +599,17 @@ func sqlCommonCheckFolderExists(ctx context.Context, name string, dbHandle sqlQu
 	}
 	defer stmt.Close()
 	row := stmt.QueryRowContext(ctx, name)
-	var mappedPath sql.NullString
+	var mappedPath, description sql.NullString
 	err = row.Scan(&folder.ID, &mappedPath, &folder.UsedQuotaSize, &folder.UsedQuotaFiles, &folder.LastQuotaUpdate,
-		&folder.Name)
+		&folder.Name, &description)
 	if err == sql.ErrNoRows {
 		return folder, &RecordNotFoundError{err: err.Error()}
 	}
 	if mappedPath.Valid {
 		folder.MappedPath = mappedPath.String
+	}
+	if description.Valid {
+		folder.Description = description.String
 	}
 	return folder, err
 }
@@ -654,7 +663,7 @@ func sqlCommonAddFolder(folder *vfs.BaseVirtualFolder, dbHandle sqlQuerier) erro
 	}
 	defer stmt.Close()
 	_, err = stmt.ExecContext(ctx, folder.MappedPath, folder.UsedQuotaSize, folder.UsedQuotaFiles,
-		folder.LastQuotaUpdate, folder.Name)
+		folder.LastQuotaUpdate, folder.Name, folder.Description)
 	return err
 }
 
@@ -672,7 +681,7 @@ func sqlCommonUpdateFolder(folder *vfs.BaseVirtualFolder, dbHandle *sql.DB) erro
 		return err
 	}
 	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, folder.MappedPath, folder.Name)
+	_, err = stmt.ExecContext(ctx, folder.MappedPath, folder.Description, folder.Name)
 	return err
 }
 
@@ -708,14 +717,17 @@ func sqlCommonDumpFolders(dbHandle sqlQuerier) ([]vfs.BaseVirtualFolder, error) 
 	defer rows.Close()
 	for rows.Next() {
 		var folder vfs.BaseVirtualFolder
-		var mappedPath sql.NullString
+		var mappedPath, description sql.NullString
 		err = rows.Scan(&folder.ID, &mappedPath, &folder.UsedQuotaSize, &folder.UsedQuotaFiles,
-			&folder.LastQuotaUpdate, &folder.Name)
+			&folder.LastQuotaUpdate, &folder.Name, &description)
 		if err != nil {
 			return folders, err
 		}
 		if mappedPath.Valid {
 			folder.MappedPath = mappedPath.String
+		}
+		if description.Valid {
+			folder.Description = description.String
 		}
 		folders = append(folders, folder)
 	}
@@ -745,14 +757,17 @@ func sqlCommonGetFolders(limit, offset int, order string, dbHandle sqlQuerier) (
 	defer rows.Close()
 	for rows.Next() {
 		var folder vfs.BaseVirtualFolder
-		var mappedPath sql.NullString
+		var mappedPath, description sql.NullString
 		err = rows.Scan(&folder.ID, &mappedPath, &folder.UsedQuotaSize, &folder.UsedQuotaFiles,
-			&folder.LastQuotaUpdate, &folder.Name)
+			&folder.LastQuotaUpdate, &folder.Name, &description)
 		if err != nil {
 			return folders, err
 		}
 		if mappedPath.Valid {
 			folder.MappedPath = mappedPath.String
+		}
+		if description.Valid {
+			folder.Description = description.String
 		}
 		folders = append(folders, folder)
 	}

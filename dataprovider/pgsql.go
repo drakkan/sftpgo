@@ -44,6 +44,16 @@ CREATE INDEX "folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_i
 CREATE INDEX "folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
 INSERT INTO {{schema_version}} (version) VALUES (8);
 `
+	pgsqlV9SQL = `ALTER TABLE "{{admins}}" ADD COLUMN "description" varchar(512) NULL;
+ALTER TABLE "{{folders}}" ADD COLUMN "description" varchar(512) NULL;
+ALTER TABLE "{{folders}}" ADD COLUMN "filesystem" text NULL;
+ALTER TABLE "{{users}}" ADD COLUMN "description" varchar(512) NULL;
+`
+	pgsqlV9DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "description" CASCADE;
+ALTER TABLE "{{folders}}" DROP COLUMN "filesystem" CASCADE;
+ALTER TABLE "{{folders}}" DROP COLUMN "description" CASCADE;
+ALTER TABLE "{{admins}}" DROP COLUMN "description" CASCADE;
+`
 )
 
 // PGSQLProvider auth provider for PostgreSQL database
@@ -240,6 +250,8 @@ func (p *PGSQLProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 8:
+		return updatePGSQLDatabaseFromV8(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -260,5 +272,37 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	if dbVersion.Version == targetVersion {
 		return errors.New("current version match target version, nothing to do")
 	}
-	return errors.New("the current version cannot be reverted")
+
+	switch dbVersion.Version {
+	case 9:
+		return downgradePGSQLDatabaseFromV9(p.dbHandle)
+	default:
+		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
+	}
+}
+
+func updatePGSQLDatabaseFromV8(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom8To9(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV9(dbHandle *sql.DB) error {
+	return downgradePGSQLDatabaseFrom9To8(dbHandle)
+}
+
+func updatePGSQLDatabaseFrom8To9(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 8 -> 9")
+	providerLog(logger.LevelInfo, "updating database version: 8 -> 9")
+	sql := strings.ReplaceAll(pgsqlV9SQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 9)
+}
+
+func downgradePGSQLDatabaseFrom9To8(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 9 -> 8")
+	providerLog(logger.LevelInfo, "downgrading database version: 9 -> 8")
+	sql := strings.ReplaceAll(pgsqlV9DownSQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 8)
 }
