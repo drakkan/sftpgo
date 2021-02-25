@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -87,7 +86,7 @@ func TestMain(m *testing.M) {
 	bannerFileName := "banner_file"
 	bannerFile := filepath.Join(configDir, bannerFileName)
 	logger.InitLogger(logFilePath, 5, 1, 28, false, zerolog.DebugLevel)
-	err := ioutil.WriteFile(bannerFile, []byte("SFTPGo test ready\nsimple banner line\n"), os.ModePerm)
+	err := os.WriteFile(bannerFile, []byte("SFTPGo test ready\nsimple banner line\n"), os.ModePerm)
 	if err != nil {
 		logger.ErrorToConsole("error creating banner file: %v", err)
 	}
@@ -117,12 +116,12 @@ func TestMain(m *testing.M) {
 
 	certPath := filepath.Join(os.TempDir(), "test_ftpd.crt")
 	keyPath := filepath.Join(os.TempDir(), "test_ftpd.key")
-	err = ioutil.WriteFile(certPath, []byte(ftpsCert), os.ModePerm)
+	err = os.WriteFile(certPath, []byte(ftpsCert), os.ModePerm)
 	if err != nil {
 		logger.ErrorToConsole("error writing FTPS certificate: %v", err)
 		os.Exit(1)
 	}
-	err = ioutil.WriteFile(keyPath, []byte(ftpsKey), os.ModePerm)
+	err = os.WriteFile(keyPath, []byte(ftpsKey), os.ModePerm)
 	if err != nil {
 		logger.ErrorToConsole("error writing FTPS private key: %v", err)
 		os.Exit(1)
@@ -422,7 +421,7 @@ func TestLoginExternalAuth(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
@@ -471,7 +470,7 @@ func TestPreLoginHook(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), os.ModePerm)
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.PreLoginHook = preLoginPath
 	err = dataprovider.Initialize(providerConf, configDir, true)
@@ -498,7 +497,7 @@ func TestPreLoginHook(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(user, true), os.ModePerm)
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(user, true), os.ModePerm)
 	assert.NoError(t, err)
 	client, err = getFTPClient(u, false)
 	if !assert.Error(t, err) {
@@ -506,7 +505,7 @@ func TestPreLoginHook(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	user.Status = 0
-	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(user, false), os.ModePerm)
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(user, false), os.ModePerm)
 	assert.NoError(t, err)
 	client, err = getFTPClient(u, false)
 	if !assert.Error(t, err, "pre-login script returned a disabled user, login must fail") {
@@ -538,7 +537,7 @@ func TestPostConnectHook(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(postConnectPath, getPostConnectScriptContent(0), os.ModePerm)
+	err = os.WriteFile(postConnectPath, getPostConnectScriptContent(0), os.ModePerm)
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, true)
 	if assert.NoError(t, err) {
@@ -547,7 +546,7 @@ func TestPostConnectHook(t *testing.T) {
 		err := client.Quit()
 		assert.NoError(t, err)
 	}
-	err = ioutil.WriteFile(postConnectPath, getPostConnectScriptContent(1), os.ModePerm)
+	err = os.WriteFile(postConnectPath, getPostConnectScriptContent(1), os.ModePerm)
 	assert.NoError(t, err)
 	client, err = getFTPClient(user, true)
 	if !assert.Error(t, err) {
@@ -676,7 +675,7 @@ func TestZeroBytesTransfers(t *testing.T) {
 			err = checkBasicFTP(client)
 			assert.NoError(t, err)
 			localDownloadPath := filepath.Join(homeBasePath, "empty_download")
-			err = ioutil.WriteFile(localDownloadPath, []byte(""), os.ModePerm)
+			err = os.WriteFile(localDownloadPath, []byte(""), os.ModePerm)
 			assert.NoError(t, err)
 			err = ftpUploadFile(localDownloadPath, testFileName, 0, client, 0)
 			assert.NoError(t, err)
@@ -734,11 +733,11 @@ func TestDownloadErrors(t *testing.T) {
 		assert.NoError(t, err)
 		err = os.MkdirAll(filepath.Dir(testFilePath2), os.ModePerm)
 		assert.NoError(t, err)
-		err = ioutil.WriteFile(testFilePath1, []byte("file1"), os.ModePerm)
+		err = os.WriteFile(testFilePath1, []byte("file1"), os.ModePerm)
 		assert.NoError(t, err)
-		err = ioutil.WriteFile(testFilePath2, []byte("file2"), os.ModePerm)
+		err = os.WriteFile(testFilePath2, []byte("file2"), os.ModePerm)
 		assert.NoError(t, err)
-		err = ioutil.WriteFile(testFilePath3, []byte("file3"), os.ModePerm)
+		err = os.WriteFile(testFilePath3, []byte("file3"), os.ModePerm)
 		assert.NoError(t, err)
 		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 		err = ftpDownloadFile(path.Join("/", subDir1, "file.zip"), localDownloadPath, 5, client, 0)
@@ -836,19 +835,19 @@ func TestResume(t *testing.T) {
 		if assert.NoError(t, err) {
 			testFilePath := filepath.Join(homeBasePath, testFileName)
 			data := []byte("test data")
-			err = ioutil.WriteFile(testFilePath, data, os.ModePerm)
+			err = os.WriteFile(testFilePath, data, os.ModePerm)
 			assert.NoError(t, err)
 			err = ftpUploadFile(testFilePath, testFileName, int64(len(data)), client, 0)
 			assert.NoError(t, err)
 			err = ftpUploadFile(testFilePath, testFileName, int64(len(data)+5), client, 5)
 			assert.NoError(t, err)
-			readed, err := ioutil.ReadFile(filepath.Join(user.GetHomeDir(), testFileName))
+			readed, err := os.ReadFile(filepath.Join(user.GetHomeDir(), testFileName))
 			assert.NoError(t, err)
 			assert.Equal(t, "test test data", string(readed))
 			localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 			err = ftpDownloadFile(testFileName, localDownloadPath, int64(len(data)), client, 5)
 			assert.NoError(t, err)
-			readed, err = ioutil.ReadFile(localDownloadPath)
+			readed, err = os.ReadFile(localDownloadPath)
 			assert.NoError(t, err)
 			assert.Equal(t, data, readed)
 			err = client.Delete(testFileName)
@@ -867,7 +866,7 @@ func TestResume(t *testing.T) {
 				assert.Equal(t, int64(2*len(data)), size)
 				err = ftpDownloadFile(testFileName, localDownloadPath, int64(2*len(data)), client, 0)
 				assert.NoError(t, err)
-				readed, err = ioutil.ReadFile(localDownloadPath)
+				readed, err = os.ReadFile(localDownloadPath)
 				assert.NoError(t, err)
 				expected := append(data, data...)
 				assert.Equal(t, expected, readed)
@@ -2165,5 +2164,5 @@ func createTestFile(path string, size int64) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, content, os.ModePerm)
+	return os.WriteFile(path, content, os.ModePerm)
 }

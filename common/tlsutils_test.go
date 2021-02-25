@@ -3,7 +3,6 @@ package common
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -273,13 +272,13 @@ func TestLoadCertificate(t *testing.T) {
 	caCrlPath := filepath.Join(os.TempDir(), "testcrl.crt")
 	certPath := filepath.Join(os.TempDir(), "test.crt")
 	keyPath := filepath.Join(os.TempDir(), "test.key")
-	err := ioutil.WriteFile(caCrtPath, []byte(caCRT), os.ModePerm)
+	err := os.WriteFile(caCrtPath, []byte(caCRT), os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(caCrlPath, []byte(caCRL), os.ModePerm)
+	err = os.WriteFile(caCrlPath, []byte(caCRL), os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(certPath, []byte(serverCert), os.ModePerm)
+	err = os.WriteFile(certPath, []byte(serverCert), os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(keyPath, []byte(serverKey), os.ModePerm)
+	err = os.WriteFile(keyPath, []byte(serverKey), os.ModePerm)
 	assert.NoError(t, err)
 	certManager, err := NewCertManager(certPath, keyPath, configDir, logSenderTest)
 	assert.NoError(t, err)

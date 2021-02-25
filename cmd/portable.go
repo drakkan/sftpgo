@@ -4,7 +4,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -384,7 +383,7 @@ func getFileContents(name string) (string, error) {
 	if fi.Size() > 1048576 {
 		return "", fmt.Errorf("%#v is too big %v/1048576 bytes", name, fi.Size())
 	}
-	contents, err := ioutil.ReadFile(name)
+	contents, err := os.ReadFile(name)
 	if err != nil {
 		return "", err
 	}

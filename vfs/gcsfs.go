@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net/http"
 	"os"
@@ -74,7 +73,7 @@ func NewGCSFs(connectionID, localTempDir string, config GCSFsConfig) (Fs, error)
 		fs.svc, err = storage.NewClient(ctx, option.WithCredentialsJSON([]byte(fs.config.Credentials.GetPayload())))
 	} else {
 		var creds []byte
-		creds, err = ioutil.ReadFile(fs.config.CredentialFile)
+		creds, err = os.ReadFile(fs.config.CredentialFile)
 		if err != nil {
 			return fs, err
 		}

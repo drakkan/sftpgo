@@ -4,7 +4,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -249,7 +248,7 @@ func (s *Service) loadInitialData() error {
 		return fmt.Errorf("unable to restore input file %#v size too big: %v/%v bytes",
 			s.LoadDataFrom, info.Size(), httpd.MaxRestoreSize)
 	}
-	content, err := ioutil.ReadFile(s.LoadDataFrom)
+	content, err := os.ReadFile(s.LoadDataFrom)
 	if err != nil {
 		return fmt.Errorf("unable to read input file %#v: %v", s.LoadDataFrom, err)
 	}

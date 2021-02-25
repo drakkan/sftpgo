@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -309,7 +308,7 @@ func (c *Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, con
 		if !filepath.IsAbs(bannerFilePath) {
 			bannerFilePath = filepath.Join(configDir, bannerFilePath)
 		}
-		bannerContent, err := ioutil.ReadFile(bannerFilePath)
+		bannerContent, err := os.ReadFile(bannerFilePath)
 		if err == nil {
 			banner := string(bannerContent)
 			serverConfig.BannerCallback = func(conn ssh.ConnMetadata) string {
@@ -718,7 +717,7 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 		}
 		logger.Info(logSender, "", "Loading private host key %#v", hostKey)
 
-		privateBytes, err := ioutil.ReadFile(hostKey)
+		privateBytes, err := os.ReadFile(hostKey)
 		if err != nil {
 			return err
 		}
@@ -751,7 +750,7 @@ func (c *Configuration) initializeCertChecker(configDir string) error {
 		if !filepath.IsAbs(keyPath) {
 			keyPath = filepath.Join(configDir, keyPath)
 		}
-		keyBytes, err := ioutil.ReadFile(keyPath)
+		keyBytes, err := os.ReadFile(keyPath)
 		if err != nil {
 			logger.Warn(logSender, "", "error loading trusted user CA key %#v: %v", keyPath, err)
 			logger.WarnToConsole("error loading trusted user CA key %#v: %v", keyPath, err)

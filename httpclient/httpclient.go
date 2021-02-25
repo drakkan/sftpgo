@@ -4,8 +4,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -95,7 +95,7 @@ func (c *Config) loadCACerts(configDir string) (*x509.CertPool, error) {
 		if !filepath.IsAbs(ca) {
 			ca = filepath.Join(configDir, ca)
 		}
-		certs, err := ioutil.ReadFile(ca)
+		certs, err := os.ReadFile(ca)
 		if err != nil {
 			return nil, fmt.Errorf("unable to load CA certificate: %v", err)
 		}

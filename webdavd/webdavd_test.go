@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -109,12 +108,12 @@ func TestMain(m *testing.M) {
 
 	certPath = filepath.Join(os.TempDir(), "test_dav.crt")
 	keyPath = filepath.Join(os.TempDir(), "test_dav.key")
-	err = ioutil.WriteFile(certPath, []byte(webDavCert), os.ModePerm)
+	err = os.WriteFile(certPath, []byte(webDavCert), os.ModePerm)
 	if err != nil {
 		logger.ErrorToConsole("error writing WebDAV certificate: %v", err)
 		os.Exit(1)
 	}
-	err = ioutil.WriteFile(keyPath, []byte(webDavKey), os.ModePerm)
+	err = os.WriteFile(keyPath, []byte(webDavKey), os.ModePerm)
 	if err != nil {
 		logger.ErrorToConsole("error writing WebDAV private key: %v", err)
 		os.Exit(1)
@@ -563,7 +562,7 @@ func TestLoginExternalAuth(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
@@ -602,7 +601,7 @@ func TestPreLoginHook(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), os.ModePerm)
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.PreLoginHook = preLoginPath
 	err = dataprovider.Initialize(providerConf, configDir, true)
@@ -617,7 +616,7 @@ func TestPreLoginHook(t *testing.T) {
 	// test login with an existing user
 	client = getWebDavClient(user)
 	assert.NoError(t, checkBasicFunc(client))
-	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(user, true), os.ModePerm)
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(user, true), os.ModePerm)
 	assert.NoError(t, err)
 	// update the user to remove it from the cache
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
@@ -628,7 +627,7 @@ func TestPreLoginHook(t *testing.T) {
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	user.Status = 0
-	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(user, false), os.ModePerm)
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(user, false), os.ModePerm)
 	assert.NoError(t, err)
 	client = getWebDavClient(user)
 	assert.Error(t, checkBasicFunc(client))
@@ -657,11 +656,11 @@ func TestPostConnectHook(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(postConnectPath, getPostConnectScriptContent(0), os.ModePerm)
+	err = os.WriteFile(postConnectPath, getPostConnectScriptContent(0), os.ModePerm)
 	assert.NoError(t, err)
 	client := getWebDavClient(user)
 	assert.NoError(t, checkBasicFunc(client))
-	err = ioutil.WriteFile(postConnectPath, getPostConnectScriptContent(1), os.ModePerm)
+	err = os.WriteFile(postConnectPath, getPostConnectScriptContent(1), os.ModePerm)
 	assert.NoError(t, err)
 	assert.Error(t, checkBasicFunc(client))
 
@@ -774,11 +773,11 @@ func TestDownloadErrors(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(filepath.Dir(testFilePath2), os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(testFilePath1, []byte("file1"), os.ModePerm)
+	err = os.WriteFile(testFilePath1, []byte("file1"), os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(testFilePath2, []byte("file2"), os.ModePerm)
+	err = os.WriteFile(testFilePath2, []byte("file2"), os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(testFilePath3, []byte("file3"), os.ModePerm)
+	err = os.WriteFile(testFilePath3, []byte("file3"), os.ModePerm)
 	assert.NoError(t, err)
 	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 	err = downloadFile(path.Join("/", subDir1, "file.zipp"), localDownloadPath, 5, client)
@@ -1207,7 +1206,7 @@ func TestBytesRangeRequests(t *testing.T) {
 		testFileName := "test_file.txt"
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		fileContent := []byte("test file contents")
-		err = ioutil.WriteFile(testFilePath, fileContent, os.ModePerm)
+		err = os.WriteFile(testFilePath, fileContent, os.ModePerm)
 		assert.NoError(t, err)
 		client := getWebDavClient(user)
 		err = uploadFile(testFilePath, testFileName, int64(len(fileContent)), client)
@@ -1222,7 +1221,7 @@ func TestBytesRangeRequests(t *testing.T) {
 			if assert.NoError(t, err) {
 				defer resp.Body.Close()
 				assert.Equal(t, http.StatusPartialContent, resp.StatusCode)
-				bodyBytes, err := ioutil.ReadAll(resp.Body)
+				bodyBytes, err := io.ReadAll(resp.Body)
 				assert.NoError(t, err)
 				assert.Equal(t, "file contents", string(bodyBytes))
 			}
@@ -1231,7 +1230,7 @@ func TestBytesRangeRequests(t *testing.T) {
 			if assert.NoError(t, err) {
 				defer resp.Body.Close()
 				assert.Equal(t, http.StatusPartialContent, resp.StatusCode)
-				bodyBytes, err := ioutil.ReadAll(resp.Body)
+				bodyBytes, err := io.ReadAll(resp.Body)
 				assert.NoError(t, err)
 				assert.Equal(t, "file", string(bodyBytes))
 			}
@@ -1672,5 +1671,5 @@ func createTestFile(path string, size int64) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, content, os.ModePerm)
+	return os.WriteFile(path, content, os.ModePerm)
 }

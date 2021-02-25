@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -604,7 +603,7 @@ func TestUploadFileStatError(t *testing.T) {
 	testFile := filepath.Join(user.HomeDir, "test", "testfile")
 	err := os.MkdirAll(filepath.Dir(testFile), os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(testFile, []byte("data"), os.ModePerm)
+	err = os.WriteFile(testFile, []byte("data"), os.ModePerm)
 	assert.NoError(t, err)
 	err = os.Chmod(filepath.Dir(testFile), 0001)
 	assert.NoError(t, err)
@@ -658,7 +657,7 @@ func TestUploadOverwriteErrors(t *testing.T) {
 		assert.EqualError(t, err, common.ErrOpUnsupported.Error())
 	}
 
-	f, err := ioutil.TempFile("", "temp")
+	f, err := os.CreateTemp("", "temp")
 	assert.NoError(t, err)
 	err = f.Close()
 	assert.NoError(t, err)
@@ -762,11 +761,11 @@ func TestVerifyTLSConnection(t *testing.T) {
 	caCrlPath := filepath.Join(os.TempDir(), "testcrl.crt")
 	certPath := filepath.Join(os.TempDir(), "test.crt")
 	keyPath := filepath.Join(os.TempDir(), "test.key")
-	err := ioutil.WriteFile(caCrlPath, []byte(caCRL), os.ModePerm)
+	err := os.WriteFile(caCrlPath, []byte(caCRL), os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(certPath, []byte(ftpsCert), os.ModePerm)
+	err = os.WriteFile(certPath, []byte(ftpsCert), os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(keyPath, []byte(ftpsKey), os.ModePerm)
+	err = os.WriteFile(keyPath, []byte(ftpsKey), os.ModePerm)
 	assert.NoError(t, err)
 
 	certMgr, err = common.NewCertManager(certPath, keyPath, "", "ftp_test")

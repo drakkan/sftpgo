@@ -5,7 +5,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -104,7 +104,7 @@ func (m *CertManager) LoadCRLs() error {
 		if revocationList != "" && !filepath.IsAbs(revocationList) {
 			revocationList = filepath.Join(m.configDir, revocationList)
 		}
-		crlBytes, err := ioutil.ReadFile(revocationList)
+		crlBytes, err := os.ReadFile(revocationList)
 		if err != nil {
 			logger.Warn(m.logSender, "unable to read revocation list %#v", revocationList)
 			return err
@@ -151,7 +151,7 @@ func (m *CertManager) LoadRootCAs() error {
 		if rootCA != "" && !filepath.IsAbs(rootCA) {
 			rootCA = filepath.Join(m.configDir, rootCA)
 		}
-		crt, err := ioutil.ReadFile(rootCA)
+		crt, err := os.ReadFile(rootCA)
 		if err != nil {
 			return err
 		}

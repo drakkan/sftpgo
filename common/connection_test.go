@@ -1,7 +1,6 @@
 package common
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -165,7 +164,7 @@ func TestRemoveFile(t *testing.T) {
 		assert.EqualError(t, err, c.GetPermissionDeniedError().Error())
 	}
 	testFile := filepath.Join(mappedPath, "afile")
-	err = ioutil.WriteFile(testFile, []byte("test data"), os.ModePerm)
+	err = os.WriteFile(testFile, []byte("test data"), os.ModePerm)
 	assert.NoError(t, err)
 	info, err := os.Stat(testFile)
 	assert.NoError(t, err)
@@ -225,7 +224,7 @@ func TestRemoveDir(t *testing.T) {
 	testDir := filepath.Join(user.GetHomeDir(), "testDir")
 	err = c.RemoveDir(testDir, "testDir")
 	assert.Error(t, err)
-	err = ioutil.WriteFile(testDir, []byte("data"), os.ModePerm)
+	err = os.WriteFile(testDir, []byte("data"), os.ModePerm)
 	assert.NoError(t, err)
 	err = c.RemoveDir(testDir, "testDir")
 	if assert.Error(t, err) {
@@ -308,10 +307,10 @@ func TestRename(t *testing.T) {
 	err = c.Rename("missing", "", "", "")
 	assert.Error(t, err)
 	testFile := filepath.Join(user.GetHomeDir(), "file")
-	err = ioutil.WriteFile(testFile, []byte("data"), os.ModePerm)
+	err = os.WriteFile(testFile, []byte("data"), os.ModePerm)
 	assert.NoError(t, err)
 	testSubFile := filepath.Join(user.GetHomeDir(), "sub", "file")
-	err = ioutil.WriteFile(testSubFile, []byte("data"), os.ModePerm)
+	err = os.WriteFile(testSubFile, []byte("data"), os.ModePerm)
 	assert.NoError(t, err)
 	err = c.Rename(testSubFile, filepath.Join(user.GetHomeDir(), "file"), "/sub/file", "/file")
 	if assert.Error(t, err) {
@@ -343,7 +342,7 @@ func TestRename(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(filepath.Join(user.GetHomeDir(), "adir"), os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(filepath.Join(user.GetHomeDir(), "adir", "file"), []byte("data"), os.ModePerm)
+	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "adir", "file"), []byte("data"), os.ModePerm)
 	assert.NoError(t, err)
 	err = c.Rename(filepath.Join(user.GetHomeDir(), "adir", "file"), filepath.Join(user.GetHomeDir(), "file"), "/adir/file", "/file")
 	assert.NoError(t, err)
@@ -446,7 +445,7 @@ func TestDoStat(t *testing.T) {
 	}
 	u.Permissions = make(map[string][]string)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
-	err := ioutil.WriteFile(testFile, []byte("data"), os.ModePerm)
+	err := os.WriteFile(testFile, []byte("data"), os.ModePerm)
 	require.NoError(t, err)
 	err = os.Symlink(testFile, testFile+".sym")
 	require.NoError(t, err)
@@ -468,7 +467,7 @@ func TestDoStat(t *testing.T) {
 	conn = NewBaseConnection(fs.ConnectionID(), ProtocolFTP, u, fs)
 	dataSize := int64(32768)
 	data := make([]byte, dataSize)
-	err = ioutil.WriteFile(testFile, data, os.ModePerm)
+	err = os.WriteFile(testFile, data, os.ModePerm)
 	assert.NoError(t, err)
 	infoStat, err = conn.DoStat(testFile, 0)
 	assert.NoError(t, err)
@@ -615,7 +614,7 @@ func TestSetStat(t *testing.T) {
 	assert.Error(t, err)
 
 	filePath := filepath.Join(user.GetHomeDir(), "afile.txt")
-	err = ioutil.WriteFile(filePath, []byte("hello"), os.ModePerm)
+	err = os.WriteFile(filePath, []byte("hello"), os.ModePerm)
 	assert.NoError(t, err)
 	err = c.SetStat(filePath, "/afile.txt", &StatAttributes{
 		Flags: StatAttrSize,
@@ -641,7 +640,7 @@ func TestSetStat(t *testing.T) {
 	})
 
 	filePath = filepath.Join(vDir, "afile.txt")
-	err = ioutil.WriteFile(filePath, []byte("hello"), os.ModePerm)
+	err = os.WriteFile(filePath, []byte("hello"), os.ModePerm)
 	assert.NoError(t, err)
 	err = c.SetStat(filePath, "/vpath/afile.txt", &StatAttributes{
 		Flags: StatAttrSize,
@@ -678,7 +677,7 @@ func TestSpaceForCrossRename(t *testing.T) {
 		testDir := filepath.Join(os.TempDir(), "dir")
 		err = os.MkdirAll(testDir, os.ModePerm)
 		assert.NoError(t, err)
-		err = ioutil.WriteFile(filepath.Join(testDir, "afile.txt"), []byte("content"), os.ModePerm)
+		err = os.WriteFile(filepath.Join(testDir, "afile.txt"), []byte("content"), os.ModePerm)
 		assert.NoError(t, err)
 		err = os.Chmod(testDir, 0001)
 		assert.NoError(t, err)
@@ -690,7 +689,7 @@ func TestSpaceForCrossRename(t *testing.T) {
 	}
 
 	testFile := filepath.Join(os.TempDir(), "afile.txt")
-	err = ioutil.WriteFile(testFile, []byte("test data"), os.ModePerm)
+	err = os.WriteFile(testFile, []byte("test data"), os.ModePerm)
 	assert.NoError(t, err)
 	quotaResult = vfs.QuotaCheckResult{
 		HasSpace:  false,
@@ -732,9 +731,9 @@ func TestSpaceForCrossRename(t *testing.T) {
 	testDir := filepath.Join(os.TempDir(), "testDir")
 	err = os.MkdirAll(testDir, os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(filepath.Join(testDir, "1"), []byte("1"), os.ModePerm)
+	err = os.WriteFile(filepath.Join(testDir, "1"), []byte("1"), os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(filepath.Join(testDir, "2"), []byte("2"), os.ModePerm)
+	err = os.WriteFile(filepath.Join(testDir, "2"), []byte("2"), os.ModePerm)
 	assert.NoError(t, err)
 	quotaResult = vfs.QuotaCheckResult{
 		HasSpace:   true,
@@ -848,7 +847,7 @@ func TestRenamePermission(t *testing.T) {
 	dir6 := filepath.Join(conn.User.HomeDir, "dir6")
 	err = os.MkdirAll(filepath.Join(dir3, "subdir"), os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(filepath.Join(dir3, "subdir", "testfile"), []byte("test"), os.ModePerm)
+	err = os.WriteFile(filepath.Join(dir3, "subdir", "testfile"), []byte("test"), os.ModePerm)
 	assert.NoError(t, err)
 	err = conn.checkRecursiveRenameDirPermissions(dir3, dir6)
 	assert.NoError(t, err)
@@ -859,7 +858,7 @@ func TestRenamePermission(t *testing.T) {
 	dir8 := filepath.Join(conn.User.HomeDir, "dir8")
 	err = os.MkdirAll(filepath.Join(dir8, "subdir"), os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(filepath.Join(dir8, "subdir", "testfile"), []byte("test"), os.ModePerm)
+	err = os.WriteFile(filepath.Join(dir8, "subdir", "testfile"), []byte("test"), os.ModePerm)
 	assert.NoError(t, err)
 	err = conn.checkRecursiveRenameDirPermissions(dir8, dir7)
 	assert.NoError(t, err)
@@ -876,7 +875,7 @@ func TestRenamePermission(t *testing.T) {
 		},
 	}
 	testFile := filepath.Join(user.HomeDir, "testfile")
-	err = ioutil.WriteFile(testFile, []byte("data"), os.ModePerm)
+	err = os.WriteFile(testFile, []byte("data"), os.ModePerm)
 	assert.NoError(t, err)
 	info, err = os.Stat(testFile)
 	assert.NoError(t, err)
@@ -983,13 +982,13 @@ func TestUpdateQuotaAfterRename(t *testing.T) {
 	request.Filepath = path.Join("/vdir", "file")
 	err = c.updateQuotaAfterRename(request.Filepath, request.Target, filepath.Join(mappedPath, "file"), 0)
 	assert.Error(t, err)
-	err = ioutil.WriteFile(filepath.Join(mappedPath, "file"), []byte("test content"), os.ModePerm)
+	err = os.WriteFile(filepath.Join(mappedPath, "file"), []byte("test content"), os.ModePerm)
 	assert.NoError(t, err)
 	request.Filepath = testFile1
 	request.Target = path.Join("/vdir", "file")
 	err = c.updateQuotaAfterRename(request.Filepath, request.Target, filepath.Join(mappedPath, "file"), 12)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(filepath.Join(user.GetHomeDir(), "testfile1"), []byte("test content"), os.ModePerm)
+	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "testfile1"), []byte("test content"), os.ModePerm)
 	assert.NoError(t, err)
 	request.Target = testFile1
 	request.Filepath = path.Join("/vdir", "file")

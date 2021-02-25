@@ -2,7 +2,6 @@ package common
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -187,7 +186,7 @@ func TestTransferErrors(t *testing.T) {
 		Username: "test",
 		HomeDir:  os.TempDir(),
 	}
-	err := ioutil.WriteFile(testFile, []byte("test data"), os.ModePerm)
+	err := os.WriteFile(testFile, []byte("test data"), os.ModePerm)
 	assert.NoError(t, err)
 	file, err := os.Open(testFile)
 	if !assert.NoError(t, err) {
@@ -213,7 +212,7 @@ func TestTransferErrors(t *testing.T) {
 	}
 	assert.NoFileExists(t, testFile)
 
-	err = ioutil.WriteFile(testFile, []byte("test data"), os.ModePerm)
+	err = os.WriteFile(testFile, []byte("test data"), os.ModePerm)
 	assert.NoError(t, err)
 	file, err = os.Open(testFile)
 	if !assert.NoError(t, err) {
@@ -233,7 +232,7 @@ func TestTransferErrors(t *testing.T) {
 	}
 	assert.NoFileExists(t, testFile)
 
-	err = ioutil.WriteFile(testFile, []byte("test data"), os.ModePerm)
+	err = os.WriteFile(testFile, []byte("test data"), os.ModePerm)
 	assert.NoError(t, err)
 	file, err = os.Open(testFile)
 	if !assert.NoError(t, err) {
@@ -267,7 +266,7 @@ func TestRemovePartialCryptoFile(t *testing.T) {
 	transfer.ErrTransfer = errors.New("test error")
 	_, err = transfer.getUploadFileSize()
 	assert.Error(t, err)
-	err = ioutil.WriteFile(testFile, []byte("test data"), os.ModePerm)
+	err = os.WriteFile(testFile, []byte("test data"), os.ModePerm)
 	assert.NoError(t, err)
 	size, err := transfer.getUploadFileSize()
 	assert.NoError(t, err)

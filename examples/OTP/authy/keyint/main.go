@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -122,7 +122,7 @@ func main() {
 		printAuthResponse(-1)
 	}
 	var authyResponse map[string]interface{}
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		printAuthResponse(-1)
 	}

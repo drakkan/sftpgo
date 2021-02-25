@@ -3,7 +3,6 @@ package common
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -184,7 +183,7 @@ func TestPreDeleteAction(t *testing.T) {
 	c := NewBaseConnection("id", ProtocolSFTP, user, fs)
 
 	testfile := filepath.Join(user.HomeDir, "testfile")
-	err = ioutil.WriteFile(testfile, []byte("test"), os.ModePerm)
+	err = os.WriteFile(testfile, []byte("test"), os.ModePerm)
 	assert.NoError(t, err)
 	info, err := os.Stat(testfile)
 	assert.NoError(t, err)

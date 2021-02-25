@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -32,13 +31,13 @@ func TestBasicDefender(t *testing.T) {
 	data, err := json.Marshal(bl)
 	assert.NoError(t, err)
 
-	err = ioutil.WriteFile(blFile, data, os.ModePerm)
+	err = os.WriteFile(blFile, data, os.ModePerm)
 	assert.NoError(t, err)
 
 	data, err = json.Marshal(sl)
 	assert.NoError(t, err)
 
-	err = ioutil.WriteFile(slFile, data, os.ModePerm)
+	err = os.WriteFile(slFile, data, os.ModePerm)
 	assert.NoError(t, err)
 
 	config := &DefenderConfig{
@@ -160,7 +159,7 @@ func TestLoadHostListFromFile(t *testing.T) {
 	_, err = rand.Read(content)
 	assert.NoError(t, err)
 
-	err = ioutil.WriteFile(hostsFilePath, content, os.ModePerm)
+	err = os.WriteFile(hostsFilePath, content, os.ModePerm)
 	assert.NoError(t, err)
 
 	_, err = loadHostListFromFile(hostsFilePath)
@@ -173,7 +172,7 @@ func TestLoadHostListFromFile(t *testing.T) {
 
 	asJSON, err := json.Marshal(hl)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(hostsFilePath, asJSON, os.ModePerm)
+	err = os.WriteFile(hostsFilePath, asJSON, os.ModePerm)
 	assert.NoError(t, err)
 
 	hostList, err := loadHostListFromFile(hostsFilePath)
@@ -183,7 +182,7 @@ func TestLoadHostListFromFile(t *testing.T) {
 	hl.IPAddresses = append(hl.IPAddresses, "invalidip")
 	asJSON, err = json.Marshal(hl)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(hostsFilePath, asJSON, os.ModePerm)
+	err = os.WriteFile(hostsFilePath, asJSON, os.ModePerm)
 	assert.NoError(t, err)
 
 	hostList, err = loadHostListFromFile(hostsFilePath)
@@ -195,7 +194,7 @@ func TestLoadHostListFromFile(t *testing.T) {
 
 	asJSON, err = json.Marshal(hl)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(hostsFilePath, asJSON, os.ModePerm)
+	err = os.WriteFile(hostsFilePath, asJSON, os.ModePerm)
 	assert.NoError(t, err)
 
 	hostList, err = loadHostListFromFile(hostsFilePath)
@@ -215,7 +214,7 @@ func TestLoadHostListFromFile(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	err = ioutil.WriteFile(hostsFilePath, []byte("non json content"), os.ModePerm)
+	err = os.WriteFile(hostsFilePath, []byte("non json content"), os.ModePerm)
 	assert.NoError(t, err)
 	_, err = loadHostListFromFile(hostsFilePath)
 	assert.Error(t, err)

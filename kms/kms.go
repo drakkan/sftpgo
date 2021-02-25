@@ -4,7 +4,7 @@ package kms
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -107,7 +107,7 @@ func GetSecretFromCompatString(secret string) (*Secret, error) {
 // Initialize configures the KMS support
 func (c *Configuration) Initialize() error {
 	if c.Secrets.MasterKeyPath != "" {
-		mKey, err := ioutil.ReadFile(c.Secrets.MasterKeyPath)
+		mKey, err := os.ReadFile(c.Secrets.MasterKeyPath)
 		if err != nil {
 			return err
 		}

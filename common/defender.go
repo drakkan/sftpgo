@@ -3,7 +3,6 @@ package common
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"sort"
@@ -413,7 +412,7 @@ func loadHostListFromFile(name string) (*HostList, error) {
 		return nil, fmt.Errorf("host list file %#v is too big: %v bytes", name, info.Size())
 	}
 
-	content, err := ioutil.ReadFile(name)
+	content, err := os.ReadFile(name)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read input file %#v: %v", name, err)
 	}

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -516,7 +515,7 @@ func TestResolvePathErrors(t *testing.T) {
 		testTxtFile := "file.txt"
 		err = os.MkdirAll(filepath.Join(os.TempDir(), subDir, subDir), os.ModePerm)
 		assert.NoError(t, err)
-		err = ioutil.WriteFile(filepath.Join(os.TempDir(), subDir, subDir, testTxtFile), []byte("content"), os.ModePerm)
+		err = os.WriteFile(filepath.Join(os.TempDir(), subDir, subDir, testTxtFile), []byte("content"), os.ModePerm)
 		assert.NoError(t, err)
 		err = os.Chmod(filepath.Join(os.TempDir(), subDir, subDir), 0001)
 		assert.NoError(t, err)
@@ -577,7 +576,7 @@ func TestFileAccessErrors(t *testing.T) {
 		assert.EqualError(t, err, os.ErrNotExist.Error())
 	}
 
-	f, err := ioutil.TempFile("", "temp")
+	f, err := os.CreateTemp("", "temp")
 	assert.NoError(t, err)
 	err = f.Close()
 	assert.NoError(t, err)
@@ -664,7 +663,7 @@ func TestContentType(t *testing.T) {
 	baseTransfer := common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFile,
 		common.TransferDownload, 0, 0, 0, false, fs)
 	fs = newMockOsFs(nil, false, fs.ConnectionID(), user.GetHomeDir(), nil)
-	err := ioutil.WriteFile(testFilePath, []byte(""), os.ModePerm)
+	err := os.WriteFile(testFilePath, []byte(""), os.ModePerm)
 	assert.NoError(t, err)
 	davFile := newWebDavFile(baseTransfer, nil, nil)
 	davFile.Fs = fs
@@ -737,7 +736,7 @@ func TestTransferReadWriteErrors(t *testing.T) {
 
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFile,
 		common.TransferDownload, 0, 0, 0, false, fs)
-	err = ioutil.WriteFile(testFilePath, []byte(""), os.ModePerm)
+	err = os.WriteFile(testFilePath, []byte(""), os.ModePerm)
 	assert.NoError(t, err)
 	f, err := os.Open(testFilePath)
 	if assert.NoError(t, err) {
@@ -818,7 +817,7 @@ func TestTransferSeek(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 	davFile.Connection.RemoveTransfer(davFile.BaseTransfer)
 
-	err = ioutil.WriteFile(testFilePath, testFileContents, os.ModePerm)
+	err = os.WriteFile(testFilePath, testFileContents, os.ModePerm)
 	assert.NoError(t, err)
 	f, err := os.Open(testFilePath)
 	if assert.NoError(t, err) {
@@ -1217,11 +1216,11 @@ func TestVerifyTLSConnection(t *testing.T) {
 	caCrlPath := filepath.Join(os.TempDir(), "testcrl.crt")
 	certPath := filepath.Join(os.TempDir(), "test.crt")
 	keyPath := filepath.Join(os.TempDir(), "test.key")
-	err := ioutil.WriteFile(caCrlPath, []byte(caCRL), os.ModePerm)
+	err := os.WriteFile(caCrlPath, []byte(caCRL), os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(certPath, []byte(webDavCert), os.ModePerm)
+	err = os.WriteFile(certPath, []byte(webDavCert), os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(keyPath, []byte(webDavKey), os.ModePerm)
+	err = os.WriteFile(keyPath, []byte(webDavKey), os.ModePerm)
 	assert.NoError(t, err)
 
 	certMgr, err = common.NewCertManager(certPath, keyPath, "", "webdav_test")

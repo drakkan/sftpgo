@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -708,7 +708,7 @@ func getGCSConfig(r *http.Request) (vfs.GCSFsConfig, error) {
 		return config, err
 	}
 	defer credentials.Close()
-	fileBytes, err := ioutil.ReadAll(credentials)
+	fileBytes, err := io.ReadAll(credentials)
 	if err != nil || len(fileBytes) == 0 {
 		if len(fileBytes) == 0 {
 			err = errors.New("credentials file size must be greater than 0")
@@ -1063,7 +1063,7 @@ func handleWebRestore(w http.ResponseWriter, r *http.Request) {
 	}
 	defer backupFile.Close()
 
-	backupContent, err := ioutil.ReadAll(backupFile)
+	backupContent, err := io.ReadAll(backupFile)
 	if err != nil || len(backupContent) == 0 {
 		if len(backupContent) == 0 {
 			err = errors.New("backup file size must be greater than 0")

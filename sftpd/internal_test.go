@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -288,7 +287,7 @@ func TestMockFsErrors(t *testing.T) {
 	}
 	testfile := filepath.Join(u.HomeDir, "testfile")
 	request := sftp.NewRequest("Remove", testfile)
-	err := ioutil.WriteFile(testfile, []byte("test"), os.ModePerm)
+	err := os.WriteFile(testfile, []byte("test"), os.ModePerm)
 	assert.NoError(t, err)
 	_, err = c.Filewrite(request)
 	assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
@@ -340,7 +339,7 @@ func TestUploadFiles(t *testing.T) {
 	assert.Error(t, err, "upload new file in missing path must fail")
 
 	c.BaseConnection.Fs = newMockOsFs(nil, nil, false, "123", os.TempDir())
-	f, err := ioutil.TempFile("", "temp")
+	f, err := os.CreateTemp("", "temp")
 	assert.NoError(t, err)
 	err = f.Close()
 	assert.NoError(t, err)
@@ -626,7 +625,7 @@ func TestSSHCommandErrors(t *testing.T) {
 		err = os.MkdirAll(aDir, os.ModePerm)
 		assert.NoError(t, err)
 		tmpFile := filepath.Join(aDir, "testcopy")
-		err = ioutil.WriteFile(tmpFile, []byte("aaa"), os.ModePerm)
+		err = os.WriteFile(tmpFile, []byte("aaa"), os.ModePerm)
 		assert.NoError(t, err)
 		err = os.Chmod(aDir, 0001)
 		assert.NoError(t, err)
@@ -889,7 +888,7 @@ func TestSystemCommandSizeForPath(t *testing.T) {
 	err = os.MkdirAll(testDir, os.ModePerm)
 	assert.NoError(t, err)
 	testFile := filepath.Join(testDir, "testfile")
-	err = ioutil.WriteFile(testFile, []byte("test content"), os.ModePerm)
+	err = os.WriteFile(testFile, []byte("test content"), os.ModePerm)
 	assert.NoError(t, err)
 	err = os.Symlink(testFile, testFile+".link")
 	assert.NoError(t, err)
@@ -938,7 +937,7 @@ func TestSystemCommandErrors(t *testing.T) {
 	homeDir := filepath.Join(os.TempDir(), "adir")
 	err := os.MkdirAll(homeDir, os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(filepath.Join(homeDir, "afile"), []byte("content"), os.ModePerm)
+	err = os.WriteFile(filepath.Join(homeDir, "afile"), []byte("content"), os.ModePerm)
 	assert.NoError(t, err)
 	user := dataprovider.User{
 		Permissions: permissions,
@@ -1381,7 +1380,7 @@ func TestSCPErrorsMockFs(t *testing.T) {
 	assert.EqualError(t, err, errFake.Error())
 
 	testfile := filepath.Join(u.HomeDir, "testfile")
-	err = ioutil.WriteFile(testfile, []byte("test"), os.ModePerm)
+	err = os.WriteFile(testfile, []byte("test"), os.ModePerm)
 	assert.NoError(t, err)
 	stat, err := os.Stat(u.HomeDir)
 	assert.NoError(t, err)
@@ -1549,7 +1548,7 @@ func TestSCPDownloadFileData(t *testing.T) {
 			args:       []string{"-r", "-f", "/tmp"},
 		},
 	}
-	err := ioutil.WriteFile(testfile, []byte("test"), os.ModePerm)
+	err := os.WriteFile(testfile, []byte("test"), os.ModePerm)
 	assert.NoError(t, err)
 	stat, err := os.Stat(testfile)
 	assert.NoError(t, err)
@@ -1801,7 +1800,7 @@ func TestLoadHostKeys(t *testing.T) {
 	err := c.checkAndLoadHostKeys(configDir, serverConfig)
 	assert.Error(t, err)
 	testfile := filepath.Join(os.TempDir(), "invalidkey")
-	err = ioutil.WriteFile(testfile, []byte("some bytes"), os.ModePerm)
+	err = os.WriteFile(testfile, []byte("some bytes"), os.ModePerm)
 	assert.NoError(t, err)
 	c.HostKeys = []string{testfile}
 	err = c.checkAndLoadHostKeys(configDir, serverConfig)
@@ -1856,7 +1855,7 @@ func TestCertCheckerInitErrors(t *testing.T) {
 	err := c.initializeCertChecker("")
 	assert.Error(t, err)
 	testfile := filepath.Join(os.TempDir(), "invalidkey")
-	err = ioutil.WriteFile(testfile, []byte("some bytes"), os.ModePerm)
+	err = os.WriteFile(testfile, []byte("some bytes"), os.ModePerm)
 	assert.NoError(t, err)
 	c.TrustedUserCAKeys = []string{testfile}
 	err = c.initializeCertChecker("")

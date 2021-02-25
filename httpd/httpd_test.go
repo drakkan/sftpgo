@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net"
 	"net/http"
@@ -210,12 +209,12 @@ func TestMain(m *testing.M) {
 	// now start an https server
 	certPath := filepath.Join(os.TempDir(), "test.crt")
 	keyPath := filepath.Join(os.TempDir(), "test.key")
-	err = ioutil.WriteFile(certPath, []byte(httpsCert), os.ModePerm)
+	err = os.WriteFile(certPath, []byte(httpsCert), os.ModePerm)
 	if err != nil {
 		logger.ErrorToConsole("error writing HTTPS certificate: %v", err)
 		os.Exit(1)
 	}
-	err = ioutil.WriteFile(keyPath, []byte(httpsKey), os.ModePerm)
+	err = os.WriteFile(keyPath, []byte(httpsKey), os.ModePerm)
 	if err != nil {
 		logger.ErrorToConsole("error writing HTTPS private key: %v", err)
 		os.Exit(1)
@@ -1314,7 +1313,7 @@ func TestUserGCSConfig(t *testing.T) {
 	assert.NoError(t, err, string(bb))
 	credentialFile := filepath.Join(credentialsPath, fmt.Sprintf("%v_gcs_credentials.json", user.Username))
 	assert.FileExists(t, credentialFile)
-	creds, err := ioutil.ReadFile(credentialFile)
+	creds, err := os.ReadFile(credentialFile)
 	assert.NoError(t, err)
 	secret := kms.NewEmptySecret()
 	err = json.Unmarshal(creds, secret)
@@ -1326,7 +1325,7 @@ func TestUserGCSConfig(t *testing.T) {
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	assert.FileExists(t, credentialFile)
-	creds, err = ioutil.ReadFile(credentialFile)
+	creds, err = os.ReadFile(credentialFile)
 	assert.NoError(t, err)
 	secret = kms.NewEmptySecret()
 	err = json.Unmarshal(creds, secret)
@@ -1874,7 +1873,7 @@ func TestSecretObjectCompatibility(t *testing.T) {
 		assert.NoError(t, err)
 
 		masterKeyPath := filepath.Join(os.TempDir(), "mkey")
-		err = ioutil.WriteFile(masterKeyPath, []byte("test key"), os.ModePerm)
+		err = os.WriteFile(masterKeyPath, []byte("test key"), os.ModePerm)
 		assert.NoError(t, err)
 		config := kms.Configuration{
 			Secrets: kms.Secrets{
@@ -2338,14 +2337,14 @@ func TestProviderErrors(t *testing.T) {
 	backupContent, err := json.Marshal(backupData)
 	assert.NoError(t, err)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
-	err = ioutil.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
 	assert.NoError(t, err)
 	_, _, err = httpdtest.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
 	assert.NoError(t, err)
 	backupData.Folders = append(backupData.Folders, vfs.BaseVirtualFolder{Name: "testFolder", MappedPath: filepath.Clean(os.TempDir())})
 	backupContent, err = json.Marshal(backupData)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
 	assert.NoError(t, err)
 	_, _, err = httpdtest.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
 	assert.NoError(t, err)
@@ -2354,7 +2353,7 @@ func TestProviderErrors(t *testing.T) {
 	backupData.Admins = append(backupData.Admins, getTestAdmin())
 	backupContent, err = json.Marshal(backupData)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
 	assert.NoError(t, err)
 	_, _, err = httpdtest.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
 	assert.NoError(t, err)
@@ -2663,7 +2662,7 @@ func TestLoaddata(t *testing.T) {
 	backupContent, err := json.Marshal(backupData)
 	assert.NoError(t, err)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
-	err = ioutil.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
 	assert.NoError(t, err)
 	_, _, err = httpdtest.Loaddata(backupFilePath, "a", "", http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -2751,7 +2750,7 @@ func TestLoaddataMode(t *testing.T) {
 	}
 	backupContent, _ := json.Marshal(backupData)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
-	err := ioutil.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	err := os.WriteFile(backupFilePath, backupContent, os.ModePerm)
 	assert.NoError(t, err)
 	_, _, err = httpdtest.Loaddata(backupFilePath, "0", "0", http.StatusOK)
 	assert.NoError(t, err)
@@ -4501,7 +4500,7 @@ func TestWebMaintenanceMock(t *testing.T) {
 	backupData.Admins = append(backupData.Admins, admin)
 	backupContent, err := json.Marshal(backupData)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
 	assert.NoError(t, err)
 
 	b, contentType, _ = getMultipartFormData(form, "backup_file", backupFilePath)
@@ -6397,7 +6396,7 @@ func createTestFile(path string, size int64) error {
 			return err
 		}
 	}
-	return ioutil.WriteFile(path, content, os.ModePerm)
+	return os.WriteFile(path, content, os.ModePerm)
 }
 
 func getMultipartFormData(values url.Values, fileFieldName, filePath string) (bytes.Buffer, string, error) {

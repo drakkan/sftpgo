@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"io/ioutil"
 	"math"
 	"net"
 	"net/http"
@@ -143,7 +142,7 @@ func TestMain(m *testing.M) {
 	loginBannerFileName := "login_banner"
 	loginBannerFile := filepath.Join(configDir, loginBannerFileName)
 	logger.InitLogger(logFilePath, 5, 1, 28, false, zerolog.DebugLevel)
-	err := ioutil.WriteFile(loginBannerFile, []byte("simple login banner\n"), os.ModePerm)
+	err := os.WriteFile(loginBannerFile, []byte("simple login banner\n"), os.ModePerm)
 	if err != nil {
 		logger.ErrorToConsole("error creating login banner: %v", err)
 	}
@@ -210,7 +209,7 @@ func TestMain(m *testing.M) {
 	sftpdConf.EnabledSSHCommands = []string{"*"}
 
 	keyIntAuthPath = filepath.Join(homeBasePath, "keyintauth.sh")
-	err = ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), os.ModePerm)
+	err = os.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), os.ModePerm)
 	if err != nil {
 		logger.ErrorToConsole("error writing keyboard interactive script: %v", err)
 		os.Exit(1)
@@ -1500,7 +1499,7 @@ func TestMultiStepLoginKeyAndKeyInt(t *testing.T) {
 	}...)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), os.ModePerm)
+	err = os.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), os.ModePerm)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, true)
 	if !assert.Error(t, err, "login with public key is disallowed and must fail") {
@@ -1887,7 +1886,7 @@ func TestLoginKeyboardInteractiveAuth(t *testing.T) {
 	}
 	user, _, err := httpdtest.AddUser(getTestUser(false), http.StatusCreated)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), os.ModePerm)
+	err = os.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), os.ModePerm)
 	assert.NoError(t, err)
 	client, err := getKeyboardInteractiveSftpClient(user, []string{"1", "2"})
 	if assert.NoError(t, err) {
@@ -1904,19 +1903,19 @@ func TestLoginKeyboardInteractiveAuth(t *testing.T) {
 	user.Status = 1
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, -1), os.ModePerm)
+	err = os.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, -1), os.ModePerm)
 	assert.NoError(t, err)
 	client, err = getKeyboardInteractiveSftpClient(user, []string{"1", "2"})
 	if !assert.Error(t, err, "keyboard interactive auth must fail the script returned -1") {
 		client.Close()
 	}
-	err = ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, true, 1), os.ModePerm)
+	err = os.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, true, 1), os.ModePerm)
 	assert.NoError(t, err)
 	client, err = getKeyboardInteractiveSftpClient(user, []string{"1", "2"})
 	if !assert.Error(t, err, "keyboard interactive auth must fail the script returned bad json") {
 		client.Close()
 	}
-	err = ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 5, true, 1), os.ModePerm)
+	err = os.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 5, true, 1), os.ModePerm)
 	assert.NoError(t, err)
 	client, err = getKeyboardInteractiveSftpClient(user, []string{"1", "2"})
 	if !assert.Error(t, err, "keyboard interactive auth must fail the script returned bad json") {
@@ -1939,7 +1938,7 @@ func TestPreLoginScript(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), os.ModePerm)
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.PreLoginHook = preLoginPath
 	err = dataprovider.Initialize(providerConf, configDir, true)
@@ -1952,14 +1951,14 @@ func TestPreLoginScript(t *testing.T) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
 	}
-	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(user, true), os.ModePerm)
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(user, true), os.ModePerm)
 	assert.NoError(t, err)
 	client, err = getSftpClient(u, usePubKey)
 	if !assert.Error(t, err, "pre-login script returned a non json response, login must fail") {
 		client.Close()
 	}
 	user.Status = 0
-	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(user, false), os.ModePerm)
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(user, false), os.ModePerm)
 	assert.NoError(t, err)
 	client, err = getSftpClient(u, usePubKey)
 	if !assert.Error(t, err, "pre-login script returned a disabled user, login must fail") {
@@ -1991,7 +1990,7 @@ func TestPreLoginUserCreation(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = ioutil.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), os.ModePerm)
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.PreLoginHook = preLoginPath
 	err = dataprovider.Initialize(providerConf, configDir, true)
@@ -2031,7 +2030,7 @@ func TestPostConnectHook(t *testing.T) {
 	u := getTestUser(usePubKey)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(postConnectPath, getPostConnectScriptContent(0), os.ModePerm)
+	err = os.WriteFile(postConnectPath, getPostConnectScriptContent(0), os.ModePerm)
 	assert.NoError(t, err)
 	client, err := getSftpClient(u, usePubKey)
 	if assert.NoError(t, err) {
@@ -2039,7 +2038,7 @@ func TestPostConnectHook(t *testing.T) {
 		err = checkBasicSFTP(client)
 		assert.NoError(t, err)
 	}
-	err = ioutil.WriteFile(postConnectPath, getPostConnectScriptContent(1), os.ModePerm)
+	err = os.WriteFile(postConnectPath, getPostConnectScriptContent(1), os.ModePerm)
 	assert.NoError(t, err)
 	client, err = getSftpClient(u, usePubKey)
 	if !assert.Error(t, err) {
@@ -2081,7 +2080,7 @@ func TestCheckPwdHook(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = ioutil.WriteFile(checkPwdPath, getCheckPwdScriptsContents(2, defaultPassword), os.ModePerm)
+	err = os.WriteFile(checkPwdPath, getCheckPwdScriptsContents(2, defaultPassword), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.CheckPasswordHook = checkPwdPath
 	providerConf.CheckPasswordScope = 1
@@ -2097,14 +2096,14 @@ func TestCheckPwdHook(t *testing.T) {
 		client.Close()
 	}
 
-	err = ioutil.WriteFile(checkPwdPath, getCheckPwdScriptsContents(0, defaultPassword), os.ModePerm)
+	err = os.WriteFile(checkPwdPath, getCheckPwdScriptsContents(0, defaultPassword), os.ModePerm)
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
 	if !assert.Error(t, err) {
 		client.Close()
 	}
 
-	err = ioutil.WriteFile(checkPwdPath, getCheckPwdScriptsContents(1, ""), os.ModePerm)
+	err = os.WriteFile(checkPwdPath, getCheckPwdScriptsContents(1, ""), os.ModePerm)
 	assert.NoError(t, err)
 	user.Password = defaultPassword + "1"
 	client, err = getSftpClient(user, usePubKey)
@@ -2157,7 +2156,7 @@ func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
@@ -2184,7 +2183,7 @@ func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
 	usePubKey = false
 	u = getTestUser(usePubKey)
 	u.PublicKeys = []string{}
-	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
 	assert.NoError(t, err)
 	client, err = getSftpClient(u, usePubKey)
 	if assert.NoError(t, err) {
@@ -2226,7 +2225,7 @@ func TestExternalAuthDifferentUsername(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, extAuthUsername), os.ModePerm)
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, extAuthUsername), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
@@ -2309,7 +2308,7 @@ func TestLoginExternalAuth(t *testing.T) {
 		err = config.LoadConfig(configDir, "")
 		assert.NoError(t, err)
 		providerConf := config.GetProviderConf()
-		err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
+		err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
 		assert.NoError(t, err)
 		providerConf.ExternalAuthHook = extAuthPath
 		providerConf.ExternalAuthScope = authScope
@@ -2371,14 +2370,14 @@ func TestLoginExternalAuthInteractive(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 4
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
-	err = ioutil.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), os.ModePerm)
+	err = os.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptContent([]string{"1", "2"}, 0, false, 1), os.ModePerm)
 	assert.NoError(t, err)
 	client, err := getKeyboardInteractiveSftpClient(u, []string{"1", "2"})
 	if assert.NoError(t, err) {
@@ -2425,7 +2424,7 @@ func TestLoginExternalAuthErrors(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = ioutil.WriteFile(extAuthPath, getExtAuthScriptContent(u, true, ""), os.ModePerm)
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, true, ""), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
@@ -8322,7 +8321,7 @@ func createTestFile(path string, size int64) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, content, os.ModePerm)
+	return os.WriteFile(path, content, os.ModePerm)
 }
 
 func appendToTestFile(path string, size int64) error {
@@ -8743,7 +8742,7 @@ func printLatestLogs(maxNumberOfLines int) {
 }
 
 func getHostKeyFingerprint(name string) (string, error) {
-	privateBytes, err := ioutil.ReadFile(name)
+	privateBytes, err := os.ReadFile(name)
 	if err != nil {
 		return "", err
 	}
@@ -8775,20 +8774,20 @@ func createInitialFiles(scriptArgs string) {
 	preLoginPath = filepath.Join(homeBasePath, "prelogin.sh")
 	postConnectPath = filepath.Join(homeBasePath, "postconnect.sh")
 	checkPwdPath = filepath.Join(homeBasePath, "checkpwd.sh")
-	err := ioutil.WriteFile(pubKeyPath, []byte(testPubKey+"\n"), 0600)
+	err := os.WriteFile(pubKeyPath, []byte(testPubKey+"\n"), 0600)
 	if err != nil {
 		logger.WarnToConsole("unable to save public key to file: %v", err)
 	}
-	err = ioutil.WriteFile(privateKeyPath, []byte(testPrivateKey+"\n"), 0600)
+	err = os.WriteFile(privateKeyPath, []byte(testPrivateKey+"\n"), 0600)
 	if err != nil {
 		logger.WarnToConsole("unable to save private key to file: %v", err)
 	}
-	err = ioutil.WriteFile(gitWrapPath, []byte(fmt.Sprintf("%v -i %v -oStrictHostKeyChecking=no %v\n",
+	err = os.WriteFile(gitWrapPath, []byte(fmt.Sprintf("%v -i %v -oStrictHostKeyChecking=no %v\n",
 		sshPath, privateKeyPath, scriptArgs)), os.ModePerm)
 	if err != nil {
 		logger.WarnToConsole("unable to save gitwrap shell script: %v", err)
 	}
-	err = ioutil.WriteFile(trustedCAUserKey, []byte(testCAUserKey), 0600)
+	err = os.WriteFile(trustedCAUserKey, []byte(testCAUserKey), 0600)
 	if err != nil {
 		logger.WarnToConsole("unable to save trusted CA user key: %v", err)
 	}

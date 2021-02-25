@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -82,7 +82,7 @@ func dumpData(w http.ResponseWriter, r *http.Request) {
 		dump, err = json.Marshal(backup)
 	}
 	if err == nil {
-		err = ioutil.WriteFile(outputFile, dump, 0600)
+		err = os.WriteFile(outputFile, dump, 0600)
 	}
 	if err != nil {
 		logger.Warn(logSender, "", "dumping data error: %v, output file: %#v", err, outputFile)
@@ -101,7 +101,7 @@ func loadDataFromRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	content, err := ioutil.ReadAll(r.Body)
+	content, err := io.ReadAll(r.Body)
 	if err != nil || len(content) == 0 {
 		if len(content) == 0 {
 			err = dataprovider.NewValidationError("request body is required")
@@ -136,7 +136,7 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	content, err := ioutil.ReadFile(inputFile)
+	content, err := os.ReadFile(inputFile)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

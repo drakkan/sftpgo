@@ -5,8 +5,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -116,7 +116,7 @@ func loadCACerts(configDir string) error {
 	}
 	for _, ca := range ldapConfig.CACertificates {
 		caPath := getConfigPath(ca, configDir)
-		certs, err := ioutil.ReadFile(caPath)
+		certs, err := os.ReadFile(caPath)
 		if err != nil {
 			logger.Warn(logSender, "", "error loading ca cert %#v: %v", caPath, err)
 			return err

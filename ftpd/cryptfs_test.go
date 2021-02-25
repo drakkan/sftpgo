@@ -1,7 +1,6 @@
 package ftpd_test
 
 import (
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -125,7 +124,7 @@ func TestZeroBytesTransfersCryptFs(t *testing.T) {
 		err = checkBasicFTP(client)
 		assert.NoError(t, err)
 		localDownloadPath := filepath.Join(homeBasePath, "emptydownload")
-		err = ioutil.WriteFile(localDownloadPath, []byte(""), os.ModePerm)
+		err = os.WriteFile(localDownloadPath, []byte(""), os.ModePerm)
 		assert.NoError(t, err)
 		err = ftpUploadFile(localDownloadPath, testFileName, 0, client, 0)
 		assert.NoError(t, err)
@@ -160,7 +159,7 @@ func TestResumeCryptFs(t *testing.T) {
 	if assert.NoError(t, err) {
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		data := []byte("test data")
-		err = ioutil.WriteFile(testFilePath, data, os.ModePerm)
+		err = os.WriteFile(testFilePath, data, os.ModePerm)
 		assert.NoError(t, err)
 		err = ftpUploadFile(testFilePath, testFileName, int64(len(data)), client, 0)
 		assert.NoError(t, err)
@@ -170,12 +169,12 @@ func TestResumeCryptFs(t *testing.T) {
 		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 		err = ftpDownloadFile(testFileName, localDownloadPath, int64(4), client, 5)
 		assert.NoError(t, err)
-		readed, err := ioutil.ReadFile(localDownloadPath)
+		readed, err := os.ReadFile(localDownloadPath)
 		assert.NoError(t, err)
 		assert.Equal(t, data[5:], readed)
 		err = ftpDownloadFile(testFileName, localDownloadPath, int64(8), client, 1)
 		assert.NoError(t, err)
-		readed, err = ioutil.ReadFile(localDownloadPath)
+		readed, err = os.ReadFile(localDownloadPath)
 		assert.NoError(t, err)
 		assert.Equal(t, data[1:], readed)
 		err = ftpDownloadFile(testFileName, localDownloadPath, int64(0), client, 9)
@@ -196,7 +195,7 @@ func TestResumeCryptFs(t *testing.T) {
 			assert.Equal(t, int64(len(data)), size)
 			err = ftpDownloadFile(testFileName, localDownloadPath, int64(len(data)), client, 0)
 			assert.NoError(t, err)
-			readed, err = ioutil.ReadFile(localDownloadPath)
+			readed, err = os.ReadFile(localDownloadPath)
 			assert.NoError(t, err)
 			assert.Equal(t, data, readed)
 		}

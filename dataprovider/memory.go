@@ -3,7 +3,6 @@ package dataprovider
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -793,7 +792,7 @@ func (p *MemoryProvider) reloadConfig() error {
 		providerLog(logger.LevelWarn, "error loading dump: %v", err)
 		return err
 	}
-	content, err := ioutil.ReadFile(p.dbHandle.configFile)
+	content, err := os.ReadFile(p.dbHandle.configFile)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error loading dump: %v", err)
 		return err

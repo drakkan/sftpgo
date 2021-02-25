@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -1208,7 +1207,7 @@ func saveGCSCredentials(user *User) error {
 	if err != nil {
 		return &ValidationError{err: fmt.Sprintf("could not create GCS credentials dir: %v", err)}
 	}
-	err = ioutil.WriteFile(credentialsFilePath, creds, 0600)
+	err = os.WriteFile(credentialsFilePath, creds, 0600)
 	if err != nil {
 		return &ValidationError{err: fmt.Sprintf("could not save GCS credentials: %v", err)}
 	}
@@ -1535,7 +1534,7 @@ func addCredentialsToUser(user *User) error {
 		return nil
 	}
 
-	cred, err := ioutil.ReadFile(user.getGCSCredentialsFilePath())
+	cred, err := os.ReadFile(user.getGCSCredentialsFilePath())
 	if err != nil {
 		return err
 	}
@@ -1851,7 +1850,7 @@ func getPasswordHookResponse(username, password, ip, protocol string) ([]byte, e
 		if resp.StatusCode != http.StatusOK {
 			return result, fmt.Errorf("wrong http status code from chek password hook: %v, expected 200", resp.StatusCode)
 		}
-		return ioutil.ReadAll(resp.Body)
+		return io.ReadAll(resp.Body)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -1908,7 +1907,7 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 		if resp.StatusCode != http.StatusOK {
 			return result, fmt.Errorf("wrong pre-login hook http status code: %v, expected 200", resp.StatusCode)
 		}
-		return ioutil.ReadAll(resp.Body)
+		return io.ReadAll(resp.Body)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -2075,7 +2074,7 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 		if resp.StatusCode != http.StatusOK {
 			return result, fmt.Errorf("wrong external auth http status code: %v, expected 200", resp.StatusCode)
 		}
-		return ioutil.ReadAll(resp.Body)
+		return io.ReadAll(resp.Body)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

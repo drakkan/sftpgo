@@ -17,7 +17,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -240,7 +239,7 @@ func GenerateRSAKeys(file string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(file+".pub", ssh.MarshalAuthorizedKey(pub), 0600)
+	return os.WriteFile(file+".pub", ssh.MarshalAuthorizedKey(pub), 0600)
 }
 
 // GenerateECDSAKeys generate ecdsa private and public keys and write the
@@ -278,7 +277,7 @@ func GenerateECDSAKeys(file string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(file+".pub", ssh.MarshalAuthorizedKey(pub), 0600)
+	return os.WriteFile(file+".pub", ssh.MarshalAuthorizedKey(pub), 0600)
 }
 
 // GenerateEd25519Keys generate ed25519 private and public keys and write the
@@ -310,7 +309,7 @@ func GenerateEd25519Keys(file string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(file+".pub", ssh.MarshalAuthorizedKey(pub), 0600)
+	return os.WriteFile(file+".pub", ssh.MarshalAuthorizedKey(pub), 0600)
 }
 
 // GetDirsForSFTPPath returns all the directory for the given path in reverse order

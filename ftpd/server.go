@@ -5,8 +5,8 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
@@ -42,7 +42,7 @@ func NewServer(config *Configuration, configDir string, binding Binding, id int)
 		if !filepath.IsAbs(bannerFilePath) {
 			bannerFilePath = filepath.Join(configDir, bannerFilePath)
 		}
-		bannerContent, err := ioutil.ReadFile(bannerFilePath)
+		bannerContent, err := os.ReadFile(bannerFilePath)
 		if err == nil {
 			server.initialMsg = string(bannerContent)
 		} else {

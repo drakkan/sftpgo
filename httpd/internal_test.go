@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -698,11 +697,11 @@ func TestVerifyTLSConnection(t *testing.T) {
 	caCrlPath := filepath.Join(os.TempDir(), "testcrl.crt")
 	certPath := filepath.Join(os.TempDir(), "testh.crt")
 	keyPath := filepath.Join(os.TempDir(), "testh.key")
-	err := ioutil.WriteFile(caCrlPath, []byte(caCRL), os.ModePerm)
+	err := os.WriteFile(caCrlPath, []byte(caCRL), os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(certPath, []byte(httpdCert), os.ModePerm)
+	err = os.WriteFile(certPath, []byte(httpdCert), os.ModePerm)
 	assert.NoError(t, err)
-	err = ioutil.WriteFile(keyPath, []byte(httpdKey), os.ModePerm)
+	err = os.WriteFile(keyPath, []byte(httpdKey), os.ModePerm)
 	assert.NoError(t, err)
 
 	certMgr, err = common.NewCertManager(certPath, keyPath, "", "webdav_test")
