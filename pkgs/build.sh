@@ -44,7 +44,7 @@ description: |
   Google Cloud Storage, Azure Blob Storage, SFTP.
 vendor: "SFTPGo"
 homepage: "https://github.com/drakkan/sftpgo"
-license: "GPL-3.0"
+license: "AGPL-3.0"
 provides:
   - sftpgo
 contents:
