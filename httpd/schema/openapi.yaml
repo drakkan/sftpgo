@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: SFTPGo
   description: SFTPGo REST API
-  version: 2.4.5
+  version: 2.0.3
 
 servers:
   - url: /api/v2
@@ -1288,8 +1288,10 @@ components:
         - 'keyboard-interactive'
         - 'publickey+password'
         - 'publickey+keyboard-interactive'
+        - 'TLSCertificate'
+        - 'TLSCertificate+password'
       description: >
-        To enable multi-step authentication you have to allow only multi-step login methods. If password login method is denied or no password is set then FTP and WebDAV users cannot login
+        To enable multi-step authentication you have to allow only multi-step login methods
     SupportedProtocols:
       type: string
       enum:
@@ -1371,7 +1373,13 @@ components:
           type: integer
           format: int64
           description: maximum allowed size, as bytes, for a single file upload. The upload will be aborted if/when the size of the file being sent exceeds this limit. 0 means unlimited. This restriction does not apply for SSH system commands such as `git` and `rsync`
-      description: Additional restrictions
+        tls_username:
+          type: string
+          enum:
+            - None
+            - CommonName
+          description: defines the TLS certificate field to use as username. For FTP clients it must match the name provided using the "USER" command. Ignored if mutual TLS is disabled
+      description: Additional user restrictions
     Secret:
       type: object
       properties:

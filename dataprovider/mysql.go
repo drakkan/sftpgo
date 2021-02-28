@@ -4,6 +4,7 @@ package dataprovider
 
 import (
 	"context"
+	"crypto/x509"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -100,6 +101,10 @@ func (p *MySQLProvider) checkAvailability() error {
 
 func (p *MySQLProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
 	return sqlCommonValidateUserAndPass(username, password, ip, protocol, p.dbHandle)
+}
+
+func (p *MySQLProvider) validateUserAndTLSCert(username, protocol string, tlsCert *x509.Certificate) (User, error) {
+	return sqlCommonValidateUserAndTLSCertificate(username, protocol, tlsCert, p.dbHandle)
 }
 
 func (p *MySQLProvider) validateUserAndPubKey(username string, publicKey []byte) (User, string, error) {

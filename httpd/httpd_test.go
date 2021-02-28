@@ -299,6 +299,7 @@ func TestBasicUserHandling(t *testing.T) {
 	user.DownloadBandwidth = 64
 	user.ExpirationDate = utils.GetTimeAsMsSinceEpoch(time.Now())
 	user.AdditionalInfo = "some free text"
+	user.Filters.TLSUsername = dataprovider.TLSUsernameCN
 	originalUser := user
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
@@ -486,7 +487,7 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	u.Filters.DeniedLoginMethods = []string{"invalid"}
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.Filters.DeniedLoginMethods = dataprovider.ValidSSHLoginMethods
+	u.Filters.DeniedLoginMethods = dataprovider.ValidLoginMethods
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.Filters.DeniedLoginMethods = []string{}
@@ -566,6 +567,10 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.Filters.DeniedProtocols = dataprovider.ValidProtocols
+	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.Filters.DeniedProtocols = nil
+	u.Filters.TLSUsername = "not a supported attribute"
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 }
@@ -963,6 +968,7 @@ func TestUpdateUser(t *testing.T) {
 	u := getTestUser()
 	u.UsedQuotaFiles = 1
 	u.UsedQuotaSize = 2
+	u.Filters.TLSUsername = dataprovider.TLSUsernameCN
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, user.UsedQuotaFiles)
@@ -979,6 +985,7 @@ func TestUpdateUser(t *testing.T) {
 	user.Filters.DeniedIP = []string{"192.168.3.0/24", "192.168.4.0/24"}
 	user.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodPassword}
 	user.Filters.DeniedProtocols = []string{common.ProtocolWebDAV}
+	user.Filters.TLSUsername = dataprovider.TLSUsernameNone
 	user.Filters.FileExtensions = append(user.Filters.FileExtensions, dataprovider.ExtensionsFilter{
 		Path:              "/subdir",
 		AllowedExtensions: []string{".zip", ".rar"},
@@ -4672,6 +4679,16 @@ func TestWebUserAddMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	form.Set("max_upload_file_size", "1000")
+	// test invalid tls username
+	form.Set("tls_username", "username")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Validation error: invalid TLS username")
+	form.Set("tls_username", string(dataprovider.TLSUsernameNone))
 	form.Set(csrfFormToken, "invalid form token")
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
@@ -4767,6 +4784,7 @@ func TestWebUserAddMock(t *testing.T) {
 			assert.True(t, utils.IsStringInSlice("*.rar", filter.DeniedPatterns))
 		}
 	}
+	assert.Equal(t, dataprovider.TLSUsernameNone, newUser.Filters.TLSUsername)
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, newUser.Username), nil)
 	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
@@ -4826,6 +4844,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("disconnect", "1")
 	form.Set("additional_info", user.AdditionalInfo)
 	form.Set("description", user.Description)
+	form.Set("tls_username", string(dataprovider.TLSUsernameCN))
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
 	setJWTCookieForReq(req, webToken)
@@ -4888,6 +4907,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.Equal(t, user.AdditionalInfo, updateUser.AdditionalInfo)
 	assert.Equal(t, user.Description, updateUser.Description)
 	assert.Equal(t, int64(100), updateUser.Filters.MaxUploadFileSize)
+	assert.Equal(t, dataprovider.TLSUsernameCN, updateUser.Filters.TLSUsername)
 
 	if val, ok := updateUser.Permissions["/otherdir"]; ok {
 		assert.True(t, utils.IsStringInSlice(dataprovider.PermListItems, val))

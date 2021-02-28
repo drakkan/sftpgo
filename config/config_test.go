@@ -133,7 +133,7 @@ func TestInvalidExternalAuthScope(t *testing.T) {
 	err := config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	providerConf.ExternalAuthScope = 10
+	providerConf.ExternalAuthScope = 100
 	c := make(map[string]dataprovider.Config)
 	c["data_provider"] = providerConf
 	jsonConf, err := json.Marshal(c)
@@ -472,7 +472,7 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__APPLY_PROXY_CONFIG", "t")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__TLS_MODE", "1")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__FORCE_PASSIVE_IP", "127.0.1.1")
-	os.Setenv("SFTPGO_FTPD__BINDINGS__9__CLIENT_AUTH_TYPE", "1")
+	os.Setenv("SFTPGO_FTPD__BINDINGS__9__CLIENT_AUTH_TYPE", "2")
 
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__0__ADDRESS")
@@ -508,7 +508,7 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 	require.True(t, bindings[1].ApplyProxyConfig)
 	require.Equal(t, 1, bindings[1].TLSMode)
 	require.Equal(t, "127.0.1.1", bindings[1].ForcePassiveIP)
-	require.Equal(t, 1, bindings[1].ClientAuthType)
+	require.Equal(t, 2, bindings[1].ClientAuthType)
 	require.Nil(t, bindings[1].TLSCipherSuites)
 }
 

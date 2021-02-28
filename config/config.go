@@ -427,7 +427,7 @@ func LoadConfig(configDir, configFile string) error {
 		logger.Warn(logSender, "", "Configuration error: %v", warn)
 		logger.WarnToConsole("Configuration error: %v", warn)
 	}
-	if globalConf.ProviderConf.ExternalAuthScope < 0 || globalConf.ProviderConf.ExternalAuthScope > 7 {
+	if globalConf.ProviderConf.ExternalAuthScope < 0 || globalConf.ProviderConf.ExternalAuthScope > 15 {
 		warn := fmt.Sprintf("invalid external_auth_scope: %v reset to 0", globalConf.ProviderConf.ExternalAuthScope)
 		globalConf.ProviderConf.ExternalAuthScope = 0
 		logger.Warn(logSender, "", "Configuration error: %v", warn)

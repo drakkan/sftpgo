@@ -22,7 +22,7 @@ func TestBasicFTPHandlingCryptFs(t *testing.T) {
 	u.QuotaSize = 6553600
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	client, err := getFTPClient(user, true)
+	client, err := getFTPClient(user, true, nil)
 	if assert.NoError(t, err) {
 		assert.Len(t, common.Connections.GetStats(), 1)
 		testFilePath := filepath.Join(homeBasePath, testFileName)
@@ -118,7 +118,7 @@ func TestZeroBytesTransfersCryptFs(t *testing.T) {
 	u := getTestUserWithCryptFs()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	client, err := getFTPClient(user, true)
+	client, err := getFTPClient(user, true, nil)
 	if assert.NoError(t, err) {
 		testFileName := "testfilename"
 		err = checkBasicFTP(client)
@@ -155,7 +155,7 @@ func TestResumeCryptFs(t *testing.T) {
 	u := getTestUserWithCryptFs()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	client, err := getFTPClient(user, true)
+	client, err := getFTPClient(user, true, nil)
 	if assert.NoError(t, err) {
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		data := []byte("test data")

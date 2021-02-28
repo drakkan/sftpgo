@@ -6181,7 +6181,7 @@ func TestFilterFileExtensions(t *testing.T) {
 
 func TestUserAllowedLoginMethods(t *testing.T) {
 	user := getTestUser(true)
-	user.Filters.DeniedLoginMethods = dataprovider.ValidSSHLoginMethods
+	user.Filters.DeniedLoginMethods = dataprovider.ValidLoginMethods
 	allowedMethods := user.GetAllowedLoginMethods()
 	assert.Equal(t, 0, len(allowedMethods))
 
@@ -6191,7 +6191,7 @@ func TestUserAllowedLoginMethods(t *testing.T) {
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}
 	allowedMethods = user.GetAllowedLoginMethods()
-	assert.Equal(t, 2, len(allowedMethods))
+	assert.Equal(t, 4, len(allowedMethods))
 
 	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyAndKeyboardInt, allowedMethods))
 	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyAndPassword, allowedMethods))

@@ -1148,22 +1148,7 @@ func checkEncryptedSecret(expected, actual *kms.Secret) error {
 	return nil
 }
 
-func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) error {
-	if len(expected.Filters.AllowedIP) != len(actual.Filters.AllowedIP) {
-		return errors.New("AllowedIP mismatch")
-	}
-	if len(expected.Filters.DeniedIP) != len(actual.Filters.DeniedIP) {
-		return errors.New("DeniedIP mismatch")
-	}
-	if len(expected.Filters.DeniedLoginMethods) != len(actual.Filters.DeniedLoginMethods) {
-		return errors.New("Denied login methods mismatch")
-	}
-	if len(expected.Filters.DeniedProtocols) != len(actual.Filters.DeniedProtocols) {
-		return errors.New("Denied protocols mismatch")
-	}
-	if expected.Filters.MaxUploadFileSize != actual.Filters.MaxUploadFileSize {
-		return errors.New("Max upload file size mismatch")
-	}
+func compareUserFilterSubStructs(expected *dataprovider.User, actual *dataprovider.User) error {
 	for _, IPMask := range expected.Filters.AllowedIP {
 		if !utils.IsStringInSlice(IPMask, actual.Filters.AllowedIP) {
 			return errors.New("AllowedIP contents mismatch")
@@ -1183,6 +1168,31 @@ func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) 
 		if !utils.IsStringInSlice(protocol, actual.Filters.DeniedProtocols) {
 			return errors.New("Denied protocols contents mismatch")
 		}
+	}
+	return nil
+}
+
+func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) error {
+	if len(expected.Filters.AllowedIP) != len(actual.Filters.AllowedIP) {
+		return errors.New("AllowedIP mismatch")
+	}
+	if len(expected.Filters.DeniedIP) != len(actual.Filters.DeniedIP) {
+		return errors.New("DeniedIP mismatch")
+	}
+	if len(expected.Filters.DeniedLoginMethods) != len(actual.Filters.DeniedLoginMethods) {
+		return errors.New("Denied login methods mismatch")
+	}
+	if len(expected.Filters.DeniedProtocols) != len(actual.Filters.DeniedProtocols) {
+		return errors.New("Denied protocols mismatch")
+	}
+	if expected.Filters.MaxUploadFileSize != actual.Filters.MaxUploadFileSize {
+		return errors.New("Max upload file size mismatch")
+	}
+	if expected.Filters.TLSUsername != actual.Filters.TLSUsername {
+		return errors.New("TLSUsername mismatch")
+	}
+	if err := compareUserFilterSubStructs(expected, actual); err != nil {
+		return err
 	}
 	if err := compareUserFileExtensionsFilters(expected, actual); err != nil {
 		return err

@@ -2,6 +2,7 @@ package dataprovider
 
 import (
 	"context"
+	"crypto/x509"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -224,6 +225,19 @@ func sqlCommonValidateUserAndPass(username, password, ip, protocol string, dbHan
 		return user, err
 	}
 	return checkUserAndPass(&user, password, ip, protocol)
+}
+
+func sqlCommonValidateUserAndTLSCertificate(username, protocol string, tlsCert *x509.Certificate, dbHandle *sql.DB) (User, error) {
+	var user User
+	if tlsCert == nil {
+		return user, errors.New("TLS certificate cannot be null or empty")
+	}
+	user, err := sqlCommonGetUserByUsername(username, dbHandle)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
+		return user, err
+	}
+	return checkUserAndTLSCertificate(&user, protocol, tlsCert)
 }
 
 func sqlCommonValidateUserAndPubKey(username string, pubKey []byte, dbHandle *sql.DB) (User, string, error) {

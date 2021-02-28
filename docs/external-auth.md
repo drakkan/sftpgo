@@ -10,6 +10,7 @@ The external program can read the following environment variables to get info ab
 - `SFTPGO_AUTHD_PASSWORD`, not empty for password authentication
 - `SFTPGO_AUTHD_PUBLIC_KEY`, not empty for public key authentication
 - `SFTPGO_AUTHD_KEYBOARD_INTERACTIVE`, not empty for keyboard interactive authentication
+- `SFTPGO_AUTHD_TLS_CERT`, TLS client certificate PEM encoded. Not empty for TLS certificate authentication
 
 Previous global environment variables aren't cleared when the script is called. The content of these variables is _not_ quoted. They may contain special characters. They are under the control of a possibly malicious remote user.
 The program must write, on its standard output, a valid SFTPGo user serialized as JSON if the authentication succeeds or a user with an empty username if the authentication fails.
@@ -22,6 +23,7 @@ If the hook is an HTTP URL then it will be invoked as HTTP POST. The request bod
 - `password`, not empty for password authentication
 - `public_key`, not empty for public key authentication
 - `keyboard_interactive`, not empty for keyboard interactive authentication
+- `tls_cert`, TLS client certificate PEM encoded. Not empty for TLS certificate authentication
 
 If authentication succeeds the HTTP response code must be 200 and the response body a valid SFTPGo user serialized as JSON. If the authentication fails the HTTP response code must be != 200 or the response body must be empty.
 
@@ -32,10 +34,11 @@ The program hook must finish within 30 seconds, the HTTP hook timeout will use t
 This method is slower than built-in authentication, but it's very flexible as anyone can easily write his own authentication hooks.
 You can also restrict the authentication scope for the hook using the `external_auth_scope` configuration key:
 
-- `0` means all supported authentication scopes. The external hook will be used for password, public key and keyboard interactive authentication
+- `0` means all supported authentication scopes. The external hook will be used for password, public key, keyboard interactive and TLS certificate authentication
 - `1` means passwords only
 - `2` means public keys only
 - `4` means keyboard interactive only
+- `8` means TLS certificate only
 
 You can combine the scopes. For example, 3 means password and public key, 5 means password and keyboard interactive, and so on.
 

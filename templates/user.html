@@ -111,6 +111,20 @@
                 </div>
             </div>
             {{end}}
+
+            <div class="form-group row">
+                <label for="idTLSUsername" class="col-sm-2 col-form-label">TLS username</label>
+                <div class="col-sm-10">
+                    <select class="form-control" id="idTLSUsername" name="tls_username" aria-describedby="tlsUsernameHelpBlock">
+                        <option value="None" {{if eq .User.Filters.TLSUsername "None" }}selected{{end}}>None</option>
+                        <option value="CommonName" {{if eq .User.Filters.TLSUsername "CommonName" }}selected{{end}}>Common Name</option>
+                    </select>
+                    <small id="tlsUsernameHelpBlock" class="form-text text-muted">
+                        Defines the TLS certificate field to use as username. Ignored if mutual TLS is disabled
+                    </small>
+                </div>
+            </div>
+
             <div class="form-group row">
                 <label for="idProtocols" class="col-sm-2 col-form-label">Denied protocols</label>
                 <div class="col-sm-10">
@@ -127,7 +141,7 @@
                 <label for="idLoginMethods" class="col-sm-2 col-form-label">Denied login methods</label>
                 <div class="col-sm-10">
                     <select class="form-control" id="idLoginMethods" name="ssh_login_methods" multiple>
-                        {{range $method := .ValidSSHLoginMethods}}
+                        {{range $method := .ValidLoginMethods}}
                         <option value="{{$method}}" {{range $m :=$.User.Filters.DeniedLoginMethods }}{{if eq $m $method}}selected{{end}}{{end}}>{{$method}}
                         </option>
                         {{end}}

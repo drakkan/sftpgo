@@ -34,7 +34,9 @@ type Binding struct {
 	TLSMode int `json:"tls_mode" mapstructure:"tls_mode"`
 	// External IP address to expose for passive connections.
 	ForcePassiveIP string `json:"force_passive_ip" mapstructure:"force_passive_ip"`
-	// set to 1 to require client certificate authentication in addition to FTP auth.
+	// Set to 1 to require client certificate authentication.
+	// Set to 2 to require a client certificate and verfify it if given. In this mode
+	// the client is allowed not to send a certificate.
 	// You need to define at least a certificate authority for this to work
 	ClientAuthType int `json:"client_auth_type" mapstructure:"client_auth_type"`
 	// TLSCipherSuites is a list of supported cipher suites for TLS version 1.2.
@@ -48,6 +50,18 @@ type Binding struct {
 	// any invalid name will be silently ignored.
 	// The order matters, the ciphers listed first will be the preferred ones.
 	TLSCipherSuites []string `json:"tls_cipher_suites" mapstructure:"tls_cipher_suites"`
+	ciphers         []uint16
+}
+
+func (b *Binding) setCiphers() {
+	b.ciphers = utils.GetTLSCiphersFromNames(b.TLSCipherSuites)
+	if len(b.ciphers) == 0 {
+		b.ciphers = nil
+	}
+}
+
+func (b *Binding) isMutualTLSEnabled() bool {
+	return b.ClientAuthType == 1 || b.ClientAuthType == 2
 }
 
 // GetAddress returns the binding address

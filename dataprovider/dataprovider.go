@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/subtle"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -93,9 +94,10 @@ var (
 	// ValidPerms defines all the valid permissions for a user
 	ValidPerms = []string{PermAny, PermListItems, PermDownload, PermUpload, PermOverwrite, PermRename, PermDelete,
 		PermCreateDirs, PermCreateSymlinks, PermChmod, PermChown, PermChtimes}
-	// ValidSSHLoginMethods defines all the valid SSH login methods
-	ValidSSHLoginMethods = []string{SSHLoginMethodPublicKey, LoginMethodPassword, SSHLoginMethodKeyboardInteractive,
-		SSHLoginMethodKeyAndPassword, SSHLoginMethodKeyAndKeyboardInt}
+	// ValidLoginMethods defines all the valid login methods
+	ValidLoginMethods = []string{SSHLoginMethodPublicKey, LoginMethodPassword, SSHLoginMethodKeyboardInteractive,
+		SSHLoginMethodKeyAndPassword, SSHLoginMethodKeyAndKeyboardInt, LoginMethodTLSCertificate,
+		LoginMethodTLSCertificateAndPwd}
 	// SSHMultiStepsLoginMethods defines the supported Multi-Step Authentications
 	SSHMultiStepsLoginMethods = []string{SSHLoginMethodKeyAndPassword, SSHLoginMethodKeyAndKeyboardInt}
 	// ErrNoAuthTryed defines the error for connection closed before authentication
@@ -106,6 +108,7 @@ var (
 	ErrNoInitRequired = errors.New("The data provider is up to date")
 	// ErrInvalidCredentials defines the error to return if the supplied credentials are invalid
 	ErrInvalidCredentials = errors.New("invalid credentials")
+	validTLSUsernames     = []string{string(TLSUsernameNone), string(TLSUsernameCN)}
 	webDAVUsersCache      sync.Map
 	config                Config
 	provider              Provider
@@ -214,10 +217,11 @@ type Config struct {
 	ExternalAuthHook string `json:"external_auth_hook" mapstructure:"external_auth_hook"`
 	// ExternalAuthScope defines the scope for the external authentication hook.
 	// - 0 means all supported authentication scopes, the external hook will be executed for password,
-	//     public key and keyboard interactive authentication
+	//     public key, keyboard interactive authentication and TLS certificates
 	// - 1 means passwords only
 	// - 2 means public keys only
 	// - 4 means keyboard interactive only
+	// - 8 means TLS certificates only
 	// you can combine the scopes, for example 3 means password and public key, 5 password and keyboard
 	// interactive and so on
 	ExternalAuthScope int `json:"external_auth_scope" mapstructure:"external_auth_scope"`
@@ -369,6 +373,7 @@ func GetQuotaTracking() int {
 type Provider interface {
 	validateUserAndPass(username, password, ip, protocol string) (User, error)
 	validateUserAndPubKey(username string, pubKey []byte) (User, string, error)
+	validateUserAndTLSCert(username, protocol string, tlsCert *x509.Certificate) (User, error)
 	updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error
 	getUsedQuota(username string) (int, int64, error)
 	userExists(username string) (User, error)
@@ -565,10 +570,41 @@ func CheckAdminAndPass(username, password, ip string) (Admin, error) {
 	return provider.validateAdminAndPass(username, password, ip)
 }
 
-// CheckUserAndPass retrieves the SFTP user with the given username and password if a match is found or an error
+// CheckUserBeforeTLSAuth checks if a user exits before trying mutual TLS
+func CheckUserBeforeTLSAuth(username, ip, protocol string, tlsCert *x509.Certificate) (User, error) {
+	if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&8 != 0) {
+		return doExternalAuth(username, "", nil, "", ip, protocol, tlsCert)
+	}
+	if config.PreLoginHook != "" {
+		return executePreLoginHook(username, LoginMethodTLSCertificate, ip, protocol)
+	}
+	return UserExists(username)
+}
+
+// CheckUserAndTLSCert returns the SFTPGo user with the given username and check if the
+// given TLS certificate allow authentication without password
+func CheckUserAndTLSCert(username, ip, protocol string, tlsCert *x509.Certificate) (User, error) {
+	if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&8 != 0) {
+		user, err := doExternalAuth(username, "", nil, "", ip, protocol, tlsCert)
+		if err != nil {
+			return user, err
+		}
+		return checkUserAndTLSCertificate(&user, protocol, tlsCert)
+	}
+	if config.PreLoginHook != "" {
+		user, err := executePreLoginHook(username, LoginMethodTLSCertificate, ip, protocol)
+		if err != nil {
+			return user, err
+		}
+		return checkUserAndTLSCertificate(&user, protocol, tlsCert)
+	}
+	return provider.validateUserAndTLSCert(username, protocol, tlsCert)
+}
+
+// CheckUserAndPass retrieves the SFTPGo user with the given username and password if a match is found or an error
 func CheckUserAndPass(username, password, ip, protocol string) (User, error) {
 	if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&1 != 0) {
-		user, err := doExternalAuth(username, password, nil, "", ip, protocol)
+		user, err := doExternalAuth(username, password, nil, "", ip, protocol, nil)
 		if err != nil {
 			return user, err
 		}
@@ -587,7 +623,7 @@ func CheckUserAndPass(username, password, ip, protocol string) (User, error) {
 // CheckUserAndPubKey retrieves the SFTP user with the given username and public key if a match is found or an error
 func CheckUserAndPubKey(username string, pubKey []byte, ip, protocol string) (User, string, error) {
 	if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&2 != 0) {
-		user, err := doExternalAuth(username, "", pubKey, "", ip, protocol)
+		user, err := doExternalAuth(username, "", pubKey, "", ip, protocol, nil)
 		if err != nil {
 			return user, "", err
 		}
@@ -609,7 +645,7 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 	var user User
 	var err error
 	if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&4 != 0) {
-		user, err = doExternalAuth(username, "", nil, "1", ip, protocol)
+		user, err = doExternalAuth(username, "", nil, "1", ip, protocol, nil)
 	} else if config.PreLoginHook != "" {
 		user, err = executePreLoginHook(username, SSHLoginMethodKeyboardInteractive, ip, protocol)
 	} else {
@@ -1130,7 +1166,7 @@ func validateFileFilters(user *User) error {
 	return validateFiltersPatternExtensions(user)
 }
 
-func validateFilters(user *User) error {
+func checkEmptyFiltersStruct(user *User) {
 	if len(user.Filters.AllowedIP) == 0 {
 		user.Filters.AllowedIP = []string{}
 	}
@@ -1143,6 +1179,10 @@ func validateFilters(user *User) error {
 	if len(user.Filters.DeniedProtocols) == 0 {
 		user.Filters.DeniedProtocols = []string{}
 	}
+}
+
+func validateFilters(user *User) error {
+	checkEmptyFiltersStruct(user)
 	for _, IPMask := range user.Filters.DeniedIP {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
@@ -1155,11 +1195,11 @@ func validateFilters(user *User) error {
 			return &ValidationError{err: fmt.Sprintf("could not parse allowed IP/Mask %#v : %v", IPMask, err)}
 		}
 	}
-	if len(user.Filters.DeniedLoginMethods) >= len(ValidSSHLoginMethods) {
+	if len(user.Filters.DeniedLoginMethods) >= len(ValidLoginMethods) {
 		return &ValidationError{err: "invalid denied_login_methods"}
 	}
 	for _, loginMethod := range user.Filters.DeniedLoginMethods {
-		if !utils.IsStringInSlice(loginMethod, ValidSSHLoginMethods) {
+		if !utils.IsStringInSlice(loginMethod, ValidLoginMethods) {
 			return &ValidationError{err: fmt.Sprintf("invalid login method: %#v", loginMethod)}
 		}
 	}
@@ -1169,6 +1209,11 @@ func validateFilters(user *User) error {
 	for _, p := range user.Filters.DeniedProtocols {
 		if !utils.IsStringInSlice(p, ValidProtocols) {
 			return &ValidationError{err: fmt.Sprintf("invalid protocol: %#v", p)}
+		}
+	}
+	if user.Filters.TLSUsername != "" {
+		if !utils.IsStringInSlice(string(user.Filters.TLSUsername), validTLSUsernames) {
+			return &ValidationError{err: fmt.Sprintf("invalid TLS username: %#v", user.Filters.TLSUsername)}
 		}
 	}
 	return validateFileFilters(user)
@@ -1405,6 +1450,25 @@ func isPasswordOK(user *User, password string) (bool, error) {
 		}
 	}
 	return match, err
+}
+
+func checkUserAndTLSCertificate(user *User, protocol string, tlsCert *x509.Certificate) (User, error) {
+	err := checkLoginConditions(user)
+	if err != nil {
+		return *user, err
+	}
+	switch protocol {
+	case "FTP":
+		if user.Filters.TLSUsername == TLSUsernameCN {
+			if user.Username == tlsCert.Subject.CommonName {
+				return *user, nil
+			}
+			return *user, fmt.Errorf("CN %#v does not match username %#v", tlsCert.Subject.CommonName, user.Username)
+		}
+		return *user, errors.New("TLS certificate is not valid")
+	default:
+		return *user, fmt.Errorf("certificate authentication is not supported for protocol %v", protocol)
+	}
 }
 
 func checkUserAndPass(user *User, password, ip, protocol string) (User, error) {
@@ -2043,7 +2107,7 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 	}()
 }
 
-func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, protocol string) ([]byte, error) {
+func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, protocol, tlsCert string) ([]byte, error) {
 	if strings.HasPrefix(config.ExternalAuthHook, "http") {
 		var url *url.URL
 		var result []byte
@@ -2060,6 +2124,7 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 		authRequest["public_key"] = pkey
 		authRequest["protocol"] = protocol
 		authRequest["keyboard_interactive"] = keyboardInteractive
+		authRequest["tls_cert"] = tlsCert
 		authRequestAsJSON, err := json.Marshal(authRequest)
 		if err != nil {
 			providerLog(logger.LevelWarn, "error serializing external auth request: %v", err)
@@ -2085,13 +2150,14 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%v", password),
 		fmt.Sprintf("SFTPGO_AUTHD_PUBLIC_KEY=%v", pkey),
 		fmt.Sprintf("SFTPGO_AUTHD_PROTOCOL=%v", protocol),
+		fmt.Sprintf("SFTPGO_AUTHD_TLS_CERT=%v", strings.ReplaceAll(tlsCert, "\n", "\\n")),
 		fmt.Sprintf("SFTPGO_AUTHD_KEYBOARD_INTERACTIVE=%v", keyboardInteractive))
 	return cmd.Output()
 }
 
-func doExternalAuth(username, password string, pubKey []byte, keyboardInteractive, ip, protocol string) (User, error) {
+func doExternalAuth(username, password string, pubKey []byte, keyboardInteractive, ip, protocol string, tlsCert *x509.Certificate) (User, error) {
 	var user User
-	pkey := ""
+	var pkey, cert string
 	if len(pubKey) > 0 {
 		k, err := ssh.ParsePublicKey(pubKey)
 		if err != nil {
@@ -2099,7 +2165,14 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		}
 		pkey = string(ssh.MarshalAuthorizedKey(k))
 	}
-	out, err := getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, protocol)
+	if tlsCert != nil {
+		var err error
+		cert, err = utils.EncodeTLSCertToPem(tlsCert)
+		if err != nil {
+			return user, err
+		}
+	}
+	out, err := getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, protocol, cert)
 	if err != nil {
 		return user, fmt.Errorf("External auth error: %v", err)
 	}

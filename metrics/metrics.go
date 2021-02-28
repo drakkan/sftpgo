@@ -13,10 +13,12 @@ import (
 )
 
 const (
-	loginMethodPublicKey           = "publickey"
-	loginMethodKeyboardInteractive = "keyboard-interactive"
-	loginMethodKeyAndPassword      = "publickey+password"
-	loginMethodKeyAndKeyboardInt   = "publickey+keyboard-interactive"
+	loginMethodPublicKey            = "publickey"
+	loginMethodKeyboardInteractive  = "keyboard-interactive"
+	loginMethodKeyAndPassword       = "publickey+password"
+	loginMethodKeyAndKeyboardInt    = "publickey+keyboard-interactive"
+	loginMethodTLSCertificate       = "TLSCertificate"
+	loginMethodTLSCertificateAndPwd = "TLSCertificate+password"
 )
 
 func init() {
@@ -149,6 +151,48 @@ var (
 	totalKeyLoginFailed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_public_key_login_ko_total",
 		Help: "The total number of failed logins using a public key",
+	})
+
+	// totalTLSCertLoginAttempts is the metric that reports the total number of login attempts
+	// using a TLS certificate
+	totalTLSCertLoginAttempts = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_tls_cert_login_attempts_total",
+		Help: "The total number of login attempts using a TLS certificate",
+	})
+
+	// totalTLSCertLoginOK is the metric that reports the total number of successful logins
+	// using a TLS certificate
+	totalTLSCertLoginOK = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_tls_cert_login_ok_total",
+		Help: "The total number of successful logins using a TLS certificate",
+	})
+
+	// totalTLSCertLoginFailed is the metric that reports the total number of failed logins
+	// using a TLS certificate
+	totalTLSCertLoginFailed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_tls_cert_login_ko_total",
+		Help: "The total number of failed logins using a TLS certificate",
+	})
+
+	// totalTLSCertAndPwdLoginAttempts is the metric that reports the total number of login attempts
+	// using a TLS certificate+password
+	totalTLSCertAndPwdLoginAttempts = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_tls_cert_and_pwd_login_attempts_total",
+		Help: "The total number of login attempts using a TLS certificate+password",
+	})
+
+	// totalTLSCertLoginOK is the metric that reports the total number of successful logins
+	// using a TLS certificate+password
+	totalTLSCertAndPwdLoginOK = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_tls_cert_and_pwd_login_ok_total",
+		Help: "The total number of successful logins using a TLS certificate+password",
+	})
+
+	// totalTLSCertAndPwdLoginFailed is the metric that reports the total number of failed logins
+	// using a TLS certificate+password
+	totalTLSCertAndPwdLoginFailed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_tls_cert_and_pwd_login_ko_total",
+		Help: "The total number of failed logins using a TLS certificate+password",
 	})
 
 	// totalInteractiveLoginAttempts is the metric that reports the total number of login attempts
@@ -777,6 +821,10 @@ func AddLoginAttempt(authMethod string) {
 		totalKeyAndPasswordLoginAttempts.Inc()
 	case loginMethodKeyAndKeyboardInt:
 		totalKeyAndKeyIntLoginAttempts.Inc()
+	case loginMethodTLSCertificate:
+		totalTLSCertLoginAttempts.Inc()
+	case loginMethodTLSCertificateAndPwd:
+		totalTLSCertAndPwdLoginAttempts.Inc()
 	default:
 		totalPasswordLoginAttempts.Inc()
 	}
@@ -795,6 +843,10 @@ func AddLoginResult(authMethod string, err error) {
 			totalKeyAndPasswordLoginOK.Inc()
 		case loginMethodKeyAndKeyboardInt:
 			totalKeyAndKeyIntLoginOK.Inc()
+		case loginMethodTLSCertificate:
+			totalTLSCertLoginOK.Inc()
+		case loginMethodTLSCertificateAndPwd:
+			totalTLSCertAndPwdLoginOK.Inc()
 		default:
 			totalPasswordLoginOK.Inc()
 		}
@@ -809,6 +861,10 @@ func AddLoginResult(authMethod string, err error) {
 			totalKeyAndPasswordLoginFailed.Inc()
 		case loginMethodKeyAndKeyboardInt:
 			totalKeyAndKeyIntLoginFailed.Inc()
+		case loginMethodTLSCertificate:
+			totalTLSCertLoginFailed.Inc()
+		case loginMethodTLSCertificateAndPwd:
+			totalTLSCertAndPwdLoginFailed.Inc()
 		default:
 			totalPasswordLoginFailed.Inc()
 		}

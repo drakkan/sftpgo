@@ -133,15 +133,15 @@ type statusPage struct {
 
 type userPage struct {
 	basePage
-	User                 *dataprovider.User
-	RootPerms            []string
-	Error                string
-	ValidPerms           []string
-	ValidSSHLoginMethods []string
-	ValidProtocols       []string
-	RootDirPerms         []string
-	RedactedSecret       string
-	Mode                 userPageMode
+	User              *dataprovider.User
+	RootPerms         []string
+	Error             string
+	ValidPerms        []string
+	ValidLoginMethods []string
+	ValidProtocols    []string
+	RootDirPerms      []string
+	RedactedSecret    string
+	Mode              userPageMode
 }
 
 type adminPage struct {
@@ -393,15 +393,15 @@ func renderUserPage(w http.ResponseWriter, r *http.Request, user *dataprovider.U
 		user.Password = redactedSecret
 	}
 	data := userPage{
-		basePage:             getBasePageData(title, currentURL, r),
-		Mode:                 mode,
-		Error:                error,
-		User:                 user,
-		ValidPerms:           dataprovider.ValidPerms,
-		ValidSSHLoginMethods: dataprovider.ValidSSHLoginMethods,
-		ValidProtocols:       dataprovider.ValidProtocols,
-		RootDirPerms:         user.GetPermissionsForPath("/"),
-		RedactedSecret:       redactedSecret,
+		basePage:          getBasePageData(title, currentURL, r),
+		Mode:              mode,
+		Error:             error,
+		User:              user,
+		ValidPerms:        dataprovider.ValidPerms,
+		ValidLoginMethods: dataprovider.ValidLoginMethods,
+		ValidProtocols:    dataprovider.ValidProtocols,
+		RootDirPerms:      user.GetPermissionsForPath("/"),
+		RedactedSecret:    redactedSecret,
 	}
 	renderTemplate(w, templateUser, data)
 }
@@ -655,6 +655,7 @@ func getFiltersFromUserPostFields(r *http.Request) dataprovider.UserFilters {
 	filters.DeniedProtocols = r.Form["denied_protocols"]
 	filters.FileExtensions = getFileExtensionsFromPostField(r.Form.Get("allowed_extensions"), r.Form.Get("denied_extensions"))
 	filters.FilePatterns = getFilePatternsFromPostField(r.Form.Get("allowed_patterns"), r.Form.Get("denied_patterns"))
+	filters.TLSUsername = dataprovider.TLSUsername(r.Form.Get("tls_username"))
 	return filters
 }
 

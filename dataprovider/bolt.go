@@ -3,6 +3,7 @@
 package dataprovider
 
 import (
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -100,6 +101,19 @@ func initializeBoltProvider(basePath string) error {
 func (p *BoltProvider) checkAvailability() error {
 	_, err := getBoltDatabaseVersion(p.dbHandle)
 	return err
+}
+
+func (p *BoltProvider) validateUserAndTLSCert(username, protocol string, tlsCert *x509.Certificate) (User, error) {
+	var user User
+	if tlsCert == nil {
+		return user, errors.New("TLS certificate cannot be null or empty")
+	}
+	user, err := p.userExists(username)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
+		return user, err
+	}
+	return checkUserAndTLSCertificate(&user, protocol, tlsCert)
 }
 
 func (p *BoltProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {

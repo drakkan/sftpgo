@@ -57,6 +57,17 @@ const (
 	SSHLoginMethodKeyboardInteractive = "keyboard-interactive"
 	SSHLoginMethodKeyAndPassword      = "publickey+password"
 	SSHLoginMethodKeyAndKeyboardInt   = "publickey+keyboard-interactive"
+	LoginMethodTLSCertificate         = "TLSCertificate"
+	LoginMethodTLSCertificateAndPwd   = "TLSCertificate+password"
+)
+
+// TLSUsername defines the TLS certificate attribute to use as username
+type TLSUsername string
+
+// Supported certificate attributes to use as username
+const (
+	TLSUsernameNone TLSUsername = "None"
+	TLSUsernameCN   TLSUsername = "CommonName"
 )
 
 var (
@@ -144,6 +155,10 @@ type UserFilters struct {
 	FilePatterns []PatternsFilter `json:"file_patterns,omitempty"`
 	// max size allowed for a single upload, 0 means unlimited
 	MaxUploadFileSize int64 `json:"max_upload_file_size,omitempty"`
+	// TLS certificate attribute to use as username.
+	// For FTP clients it must match the name provided using the
+	// "USER" command
+	TLSUsername TLSUsername `json:"tls_username,omitempty"`
 }
 
 // FilesystemProvider defines the supported storages
@@ -266,6 +281,15 @@ func (u *User) HideConfidentialData() {
 // IsPasswordHashed returns true if the password is hashed
 func (u *User) IsPasswordHashed() bool {
 	return utils.IsStringPrefixInSlice(u.Password, hashPwdPrefixes)
+}
+
+// IsTLSUsernameVerificationEnabled returns true if we need to extract the username
+// from the client TLS certificate
+func (u *User) IsTLSUsernameVerificationEnabled() bool {
+	if u.Filters.TLSUsername != "" {
+		return u.Filters.TLSUsername != TLSUsernameNone
+	}
+	return false
 }
 
 // SetEmptySecrets sets to empty any user secret
@@ -531,6 +555,9 @@ func (u *User) IsPartialAuth(loginMethod string) bool {
 		return false
 	}
 	for _, method := range u.GetAllowedLoginMethods() {
+		if method == LoginMethodTLSCertificate || method == LoginMethodTLSCertificateAndPwd {
+			continue
+		}
 		if !utils.IsStringInSlice(method, SSHMultiStepsLoginMethods) {
 			return false
 		}
@@ -541,7 +568,7 @@ func (u *User) IsPartialAuth(loginMethod string) bool {
 // GetAllowedLoginMethods returns the allowed login methods
 func (u *User) GetAllowedLoginMethods() []string {
 	var allowedMethods []string
-	for _, method := range ValidSSHLoginMethods {
+	for _, method := range ValidLoginMethods {
 		if !utils.IsStringInSlice(method, u.Filters.DeniedLoginMethods) {
 			allowedMethods = append(allowedMethods, method)
 		}
@@ -857,6 +884,7 @@ func (u *User) getACopy() User {
 	}
 	filters := UserFilters{}
 	filters.MaxUploadFileSize = u.Filters.MaxUploadFileSize
+	filters.TLSUsername = u.Filters.TLSUsername
 	filters.AllowedIP = make([]string, len(u.Filters.AllowedIP))
 	copy(filters.AllowedIP, u.Filters.AllowedIP)
 	filters.DeniedIP = make([]string, len(u.Filters.DeniedIP))

@@ -13,6 +13,7 @@ import (
 
 	"github.com/eikenb/pipeat"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
@@ -457,7 +458,7 @@ func TestUserInvalidParams(t *testing.T) {
 		},
 	}
 	server := NewServer(c, configDir, binding, 3)
-	_, err := server.validateUser(u, mockFTPClientContext{})
+	_, err := server.validateUser(u, mockFTPClientContext{}, dataprovider.LoginMethodPassword)
 	assert.Error(t, err)
 
 	u.Username = "a"
@@ -479,10 +480,10 @@ func TestUserInvalidParams(t *testing.T) {
 		},
 		VirtualPath: vdirPath2,
 	})
-	_, err = server.validateUser(u, mockFTPClientContext{})
+	_, err = server.validateUser(u, mockFTPClientContext{}, dataprovider.LoginMethodPassword)
 	assert.Error(t, err)
 	u.VirtualFolders = nil
-	_, err = server.validateUser(u, mockFTPClientContext{})
+	_, err = server.validateUser(u, mockFTPClientContext{}, dataprovider.LoginMethodPassword)
 	assert.Error(t, err)
 }
 
@@ -816,4 +817,16 @@ func TestVerifyTLSConnection(t *testing.T) {
 	assert.NoError(t, err)
 
 	certMgr = oldCertMgr
+}
+
+func TestCiphers(t *testing.T) {
+	b := Binding{
+		TLSCipherSuites: []string{},
+	}
+	b.setCiphers()
+	require.Nil(t, b.ciphers)
+	b.TLSCipherSuites = []string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"}
+	b.setCiphers()
+	require.Len(t, b.ciphers, 2)
+	require.Equal(t, []uint16{tls.TLS_AES_128_GCM_SHA256, tls.TLS_AES_256_GCM_SHA384}, b.ciphers)
 }

@@ -109,7 +109,7 @@ The configuration file contains the following sections:
     - `apply_proxy_config`, boolean. If enabled the common proxy configuration, if any, will be applied. Default `true`.
     - `tls_mode`, integer. 0 means accept both cleartext and encrypted sessions. 1 means TLS is required for both control and data connection. 2 means implicit TLS. Do not enable this blindly, please check that a proper TLS config is in place if you set `tls_mode` is different from 0.
     - `force_passive_ip`, ip address. External IP address to expose for passive connections. Leavy empty to autodetect. Defaut: "".
-    - `client_auth_type`, integer. Set to `1` to require client certificate authentication in addition to FTP authentication. You need to define at least a certificate authority for this to work. Default: 0.
+    - `client_auth_type`, integer. Set to `1` to require a client certificate and verify it. Set to `2` to request a client certificate during the TLS handshake and verify it if given, in this mode the client is allowed not to send a certificate. At least one certification authority must be defined in order to verify client certificates. If no certification authority is defined, this setting is ignored. Default: 0.
     - `tls_cipher_suites`, list of strings. List of supported cipher suites for TLS version 1.2. If empty, a default list of secure cipher suites is used, with a preference order based on hardware performance. Note that TLS 1.3 ciphersuites are not configurable. The supported ciphersuites names are defined [here](https://github.com/golang/go/blob/master/src/crypto/tls/cipher_suites.go#L52). Any invalid name will be silently ignored. The order matters, the ciphers listed first will be the preferred ones. Default: empty.
   - `bind_port`, integer. Deprecated, please use `bindings`
   - `bind_address`, string. Deprecated, please use `bindings`
@@ -173,7 +173,7 @@ The configuration file contains the following sections:
     - `hook`, string. Absolute path to the command to execute or HTTP URL to notify.
   - `external_auth_program`, string. Deprecated, please use `external_auth_hook`.
   - `external_auth_hook`, string. Absolute path to an external program or an HTTP URL to invoke for users authentication. See [External Authentication](./external-auth.md) for more details. Leave empty to disable.
-  - `external_auth_scope`, integer. 0 means all supported authentication scopes (passwords, public keys and keyboard interactive). 1 means passwords only. 2 means public keys only. 4 means key keyboard interactive only. The flags can be combined, for example 6 means public keys and keyboard interactive
+  - `external_auth_scope`, integer. 0 means all supported authentication scopes (passwords, public keys and keyboard interactive). 1 means passwords only. 2 means public keys only. 4 means key keyboard interactive only. 8 means TLS certificate. The flags can be combined, for example 6 means public keys and keyboard interactive
   - `credentials_path`, string. It defines the directory for storing user provided credential files such as Google Cloud Storage credentials. This can be an absolute path or a path relative to the config dir
   - `prefer_database_credentials`, boolean. When true, users' Google Cloud Storage credentials will be written to the data provider instead of disk, though pre-existing credentials on disk will be used as a fallback. When false, they will be written to the directory specified by `credentials_path`.
   - `pre_login_program`, string. Deprecated, please use `pre_login_hook`.
