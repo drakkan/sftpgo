@@ -830,44 +830,52 @@ func AddLoginAttempt(authMethod string) {
 	}
 }
 
+func incLoginOK(authMethod string) {
+	totalLoginOK.Inc()
+	switch authMethod {
+	case loginMethodPublicKey:
+		totalKeyLoginOK.Inc()
+	case loginMethodKeyboardInteractive:
+		totalInteractiveLoginOK.Inc()
+	case loginMethodKeyAndPassword:
+		totalKeyAndPasswordLoginOK.Inc()
+	case loginMethodKeyAndKeyboardInt:
+		totalKeyAndKeyIntLoginOK.Inc()
+	case loginMethodTLSCertificate:
+		totalTLSCertLoginOK.Inc()
+	case loginMethodTLSCertificateAndPwd:
+		totalTLSCertAndPwdLoginOK.Inc()
+	default:
+		totalPasswordLoginOK.Inc()
+	}
+}
+
+func incLoginFailed(authMethod string) {
+	totalLoginFailed.Inc()
+	switch authMethod {
+	case loginMethodPublicKey:
+		totalKeyLoginFailed.Inc()
+	case loginMethodKeyboardInteractive:
+		totalInteractiveLoginFailed.Inc()
+	case loginMethodKeyAndPassword:
+		totalKeyAndPasswordLoginFailed.Inc()
+	case loginMethodKeyAndKeyboardInt:
+		totalKeyAndKeyIntLoginFailed.Inc()
+	case loginMethodTLSCertificate:
+		totalTLSCertLoginFailed.Inc()
+	case loginMethodTLSCertificateAndPwd:
+		totalTLSCertAndPwdLoginFailed.Inc()
+	default:
+		totalPasswordLoginFailed.Inc()
+	}
+}
+
 // AddLoginResult increments the metrics for login results
 func AddLoginResult(authMethod string, err error) {
 	if err == nil {
-		totalLoginOK.Inc()
-		switch authMethod {
-		case loginMethodPublicKey:
-			totalKeyLoginOK.Inc()
-		case loginMethodKeyboardInteractive:
-			totalInteractiveLoginOK.Inc()
-		case loginMethodKeyAndPassword:
-			totalKeyAndPasswordLoginOK.Inc()
-		case loginMethodKeyAndKeyboardInt:
-			totalKeyAndKeyIntLoginOK.Inc()
-		case loginMethodTLSCertificate:
-			totalTLSCertLoginOK.Inc()
-		case loginMethodTLSCertificateAndPwd:
-			totalTLSCertAndPwdLoginOK.Inc()
-		default:
-			totalPasswordLoginOK.Inc()
-		}
+		incLoginOK(authMethod)
 	} else {
-		totalLoginFailed.Inc()
-		switch authMethod {
-		case loginMethodPublicKey:
-			totalKeyLoginFailed.Inc()
-		case loginMethodKeyboardInteractive:
-			totalInteractiveLoginFailed.Inc()
-		case loginMethodKeyAndPassword:
-			totalKeyAndPasswordLoginFailed.Inc()
-		case loginMethodKeyAndKeyboardInt:
-			totalKeyAndKeyIntLoginFailed.Inc()
-		case loginMethodTLSCertificate:
-			totalTLSCertLoginFailed.Inc()
-		case loginMethodTLSCertificateAndPwd:
-			totalTLSCertAndPwdLoginFailed.Inc()
-		default:
-			totalPasswordLoginFailed.Inc()
-		}
+		incLoginFailed(authMethod)
 	}
 }
 
