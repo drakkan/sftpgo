@@ -570,6 +570,80 @@ func CheckAdminAndPass(username, password, ip string) (Admin, error) {
 	return provider.validateAdminAndPass(username, password, ip)
 }
 
+// CheckCachedUserCredentials checks the credentials for a cached user
+func CheckCachedUserCredentials(user *CachedUser, password, loginMethod, protocol string, tlsCert *x509.Certificate) error {
+	if loginMethod != LoginMethodPassword {
+		_, err := checkUserAndTLSCertificate(&user.User, protocol, tlsCert)
+		if err != nil {
+			return err
+		}
+		if loginMethod == LoginMethodTLSCertificate {
+			if !user.User.IsLoginMethodAllowed(LoginMethodTLSCertificate, nil) {
+				return fmt.Errorf("Certificate login method is not allowed for user %#v", user.User.Username)
+			}
+			return nil
+		}
+	}
+	if err := checkLoginConditions(&user.User); err != nil {
+		return err
+	}
+	if password == "" {
+		return ErrInvalidCredentials
+	}
+	if user.Password != "" {
+		if password == user.Password {
+			return nil
+		}
+	} else {
+		if ok, _ := isPasswordOK(&user.User, password); ok {
+			return nil
+		}
+	}
+	return ErrInvalidCredentials
+}
+
+// CheckCompositeCredentials checks multiple credentials.
+// WebDAV users can send both a password and a TLS certificate within the same request
+func CheckCompositeCredentials(username, password, ip, loginMethod, protocol string, tlsCert *x509.Certificate) (User, string, error) {
+	if loginMethod == LoginMethodPassword {
+		user, err := CheckUserAndPass(username, password, ip, protocol)
+		return user, loginMethod, err
+	}
+	user, err := CheckUserBeforeTLSAuth(username, ip, protocol, tlsCert)
+	if err != nil {
+		return user, loginMethod, err
+	}
+	if !user.IsTLSUsernameVerificationEnabled() {
+		// for backward compatibility with 2.0.x we only check the password and change the login method here
+		// in future updates we have to return an error
+		user, err := CheckUserAndPass(username, password, ip, protocol)
+		return user, LoginMethodPassword, err
+	}
+	user, err = checkUserAndTLSCertificate(&user, protocol, tlsCert)
+	if err != nil {
+		return user, loginMethod, err
+	}
+	if loginMethod == LoginMethodTLSCertificate && !user.IsLoginMethodAllowed(LoginMethodTLSCertificate, nil) {
+		return user, loginMethod, fmt.Errorf("Certificate login method is not allowed for user %#v", user.Username)
+	}
+	if loginMethod == LoginMethodTLSCertificateAndPwd {
+		if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&1 != 0) {
+			user, err = doExternalAuth(username, password, nil, "", ip, protocol, nil)
+			if err != nil {
+				return user, loginMethod, err
+			}
+		}
+		if config.PreLoginHook != "" {
+			user, err = executePreLoginHook(username, LoginMethodPassword, ip, protocol)
+			if err != nil {
+				return user, loginMethod, err
+			}
+		}
+		user, err = checkUserAndPass(&user, password, ip, protocol)
+	}
+	return user, loginMethod, err
+}
+
 // CheckUserBeforeTLSAuth checks if a user exits before trying mutual TLS
 func CheckUserBeforeTLSAuth(username, ip, protocol string, tlsCert *x509.Certificate) (User, error) {
 	if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&8 != 0) {
@@ -1458,7 +1532,7 @@ func checkUserAndTLSCertificate(user *User, protocol string, tlsCert *x509.Certi
 		return *user, err
 	}
 	switch protocol {
-	case "FTP":
+	case "FTP", "DAV":
 		if user.Filters.TLSUsername == TLSUsernameCN {
 			if user.Username == tlsCert.Subject.CommonName {
 				return *user, nil

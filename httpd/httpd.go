@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth"
 
 	"github.com/drakkan/sftpgo/common"

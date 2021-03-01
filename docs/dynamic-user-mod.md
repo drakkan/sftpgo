@@ -6,7 +6,7 @@ To enable dynamic user modification, you must set the absolute path of your prog
 The external program can read the following environment variables to get info about the user trying to login:
 
 - `SFTPGO_LOGIND_USER`, it contains the user trying to login serialized as JSON. A JSON serialized user id equal to zero means the user does not exist inside SFTPGo
-- `SFTPGO_LOGIND_METHOD`, possible values are: `password`, `publickey` and `keyboard-interactive`
+- `SFTPGO_LOGIND_METHOD`, possible values are: `password`, `publickey`, `keyboard-interactive`, `TLSCertificate`
 - `SFTPGO_LOGIND_IP`, ip address of the user trying to login
 - `SFTPGO_LOGIND_PROTOCOL`, possible values are `SSH`, `FTP`, `DAV`
 
