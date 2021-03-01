@@ -54,6 +54,8 @@ else
 fi
 ```
 
+The structure for SFTPGo users can be found within the [OpenAPI schema](../httpd/schema/openapi.yaml).
+
 An example authentication program allowing to authenticate against an LDAP server can be found inside the source tree [ldapauth](../examples/ldapauth) directory.
 
 An example server, to use as HTTP authentication hook, allowing to authenticate against an LDAP server can be found inside the source tree [ldapauthserver](../examples/ldapauthserver) directory.

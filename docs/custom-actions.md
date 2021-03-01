@@ -74,3 +74,5 @@ The program must finish within 15 seconds.
 If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. The action is added to the query string, for example `<hook>?action=update`, and the user is sent serialized as JSON inside the POST body with sensitive fields removed.
 
 The HTTP hook will use the global configuration for HTTP clients and will respect the retry configurations.
+
+The structure for SFTPGo users can be found within the [OpenAPI schema](../httpd/schema/openapi.yaml).
