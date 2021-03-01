@@ -470,6 +470,10 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 			// so we need to check the quota for this directory and not its parent dir
 			quotaPath = path.Join(sshPath, "fakecontent")
 		}
+		if strings.HasSuffix(sshPath, "/") && !strings.HasSuffix(fsPath, string(os.PathSeparator)) {
+			fsPath += string(os.PathSeparator)
+			c.connection.Log(logger.LevelDebug, "path separator added to fsPath %#v", fsPath)
+		}
 		args = args[:len(args)-1]
 		args = append(args, fsPath)
 	}
