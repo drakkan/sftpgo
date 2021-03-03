@@ -4,12 +4,12 @@ go 1.16
 
 require (
 	cloud.google.com/go v0.78.0 // indirect
-	cloud.google.com/go/storage v1.13.0
+	cloud.google.com/go/storage v1.14.0
 	github.com/Azure/azure-storage-blob-go v0.13.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
 	github.com/alexedwards/argon2id v0.0.0-20201228115903-cf543ebc1f7b
-	github.com/aws/aws-sdk-go v1.37.20
+	github.com/aws/aws-sdk-go v1.37.22
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
 	github.com/fclairamb/ftpserverlib v0.13.0
@@ -28,7 +28,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.6.8
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
-	github.com/lestrrat-go/jwx v1.1.4-0.20210228091017-d69abec6f5b4
+	github.com/lestrrat-go/jwx v1.1.4
 	github.com/lib/pq v1.9.0
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mattn/go-sqlite3 v1.14.6
@@ -47,7 +47,7 @@ require (
 	github.com/rs/xid v1.2.1
 	github.com/rs/zerolog v1.20.0
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/shirou/gopsutil/v3 v3.21.1
+	github.com/shirou/gopsutil/v3 v3.21.2
 	github.com/spf13/afero v1.5.1
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v1.1.3
@@ -64,10 +64,10 @@ require (
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
 	golang.org/x/net v0.0.0-20210224082022-3d97a244fca7
 	golang.org/x/oauth2 v0.0.0-20210220000619-9bb904979d93 // indirect
-	golang.org/x/sys v0.0.0-20210228012217-479acdf4ea46
+	golang.org/x/sys v0.0.0-20210303074136-134d130e1a04
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	google.golang.org/api v0.40.0
-	google.golang.org/genproto v0.0.0-20210226172003-ab064af71705 // indirect
+	google.golang.org/genproto v0.0.0-20210303154014-9728d6b83eeb // indirect
 	google.golang.org/grpc v1.36.0 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
