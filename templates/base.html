@@ -221,6 +221,14 @@
     <!-- Custom scripts for all pages-->
     <script src="/static/js/sb-admin-2.min.js"></script>
 
+    <script type="text/javascript">
+        function fixedEncodeURIComponent(str) {
+            return encodeURIComponent(str).replace(/[!'()*]/g, function (c) {
+                return '%' + c.charCodeAt(0).toString(16);
+            });
+        }
+    </script>
+
     <!-- Page level plugins -->
     {{block "extra_js" .}}{{end}}
 

@@ -91,10 +91,10 @@ function deleteAction() {
         var table = $('#dataTable').DataTable();
         table.button('delete:name').enable(false);
         var folderName = table.row({ selected: true }).data()[0];
-        var path = '{{.FolderURL}}' + "/" + folderName;
+        var path = '{{.FolderURL}}' + "/" + fixedEncodeURIComponent(folderName);
         $('#deleteModal').modal('hide');
         $.ajax({
-            url: encodeURI(path),
+            url: path,
             type: 'DELETE',
             dataType: 'json',
             headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
@@ -135,8 +135,8 @@ function deleteAction() {
             name: 'edit',
             action: function (e, dt, node, config) {
                 var folderName = table.row({ selected: true }).data()[0];
-                var path = '{{.FolderURL}}' + "/" + folderName;
-                window.location.href = encodeURI(path);
+                var path = '{{.FolderURL}}' + "/" + fixedEncodeURIComponent(folderName);
+                window.location.href = path;
             },
             enabled: false
         };
@@ -148,7 +148,7 @@ function deleteAction() {
                 var selectedRows = table.rows({ selected: true }).count();
                 if (selectedRows == 1){
                     var folderName = table.row({ selected: true }).data()[0];
-                    var path = '{{.FolderTemplateURL}}' + "?from=" + encodeURIComponent(folderName);
+                    var path = '{{.FolderTemplateURL}}' + "?from=" + fixedEncodeURIComponent(folderName);
                     window.location.href = path;
                 } else {
                     window.location.href = '{{.FolderTemplateURL}}';

@@ -99,10 +99,10 @@
         var table = $('#dataTable').DataTable();
         table.button('delete:name').enable(false);
         var username = table.row({ selected: true }).data()[1];
-        var path = '{{.UserURL}}' + "/" + username;
+        var path = '{{.UserURL}}' + "/" + fixedEncodeURIComponent(username);
         $('#deleteModal').modal('hide');
         $.ajax({
-            url: encodeURI(path),
+            url: path,
             type: 'DELETE',
             dataType: 'json',
             headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
@@ -143,8 +143,8 @@
             name: 'edit',
             action: function (e, dt, node, config) {
                 var username = dt.row({ selected: true }).data()[1];
-                var path = '{{.UserURL}}' + "/" + username;
-                window.location.href = encodeURI(path);
+                var path = '{{.UserURL}}' + "/" + fixedEncodeURIComponent(username);
+                window.location.href = path;
             },
             enabled: false
         };
@@ -154,7 +154,7 @@
             name: 'clone',
             action: function (e, dt, node, config) {
                 var username = dt.row({ selected: true }).data()[1];
-                var path = '{{.UserURL}}' + "?clone-from=" + encodeURIComponent(username);
+                var path = '{{.UserURL}}' + "?clone-from=" + fixedEncodeURIComponent(username);
                 window.location.href = path;
             },
             enabled: false
@@ -167,7 +167,7 @@
                 var selectedRows = table.rows({ selected: true }).count();
                 if (selectedRows == 1){
                     var username = dt.row({ selected: true }).data()[1];
-                    var path = '{{.UserTemplateURL}}' + "?from=" + encodeURIComponent(username);
+                    var path = '{{.UserTemplateURL}}' + "?from=" + fixedEncodeURIComponent(username);
                     window.location.href = path;
                 } else {
                     window.location.href = '{{.UserTemplateURL}}';

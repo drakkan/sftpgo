@@ -93,7 +93,7 @@
         var table = $('#dataTable').DataTable();
         table.button('delete:name').enable(false);
         var username = table.row({ selected: true }).data()[1];
-        var path = '{{.AdminURL}}' + "/" + username;
+        var path = '{{.AdminURL}}' + "/" + fixedEncodeURIComponent(username);
         $('#deleteModal').modal('hide');
         $.ajax({
             url: path,
@@ -137,8 +137,8 @@
             name: 'edit',
             action: function (e, dt, node, config) {
                 var username = dt.row({ selected: true }).data()[1];
-                var path = '{{.AdminURL}}' + "/" + username;
-                window.location.href = encodeURI(path);
+                var path = '{{.AdminURL}}' + "/" + fixedEncodeURIComponent(username);
+                window.location.href = path;
             },
             enabled: false
         };

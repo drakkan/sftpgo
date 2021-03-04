@@ -274,6 +274,10 @@ type Config struct {
 	// Cloud Storage) should be stored in the database instead of in the directory specified by
 	// CredentialsPath.
 	PreferDatabaseCredentials bool `json:"prefer_database_credentials" mapstructure:"prefer_database_credentials"`
+	// SkipNaturalKeysValidation allows to use any UTF-8 character for natural keys as username, admin name,
+	// folder name. These keys are used in URIs for REST API and Web admin. By default only unreserved URI
+	// characters are allowed: ALPHA / DIGIT / "-" / "." / "_" / "~".
+	SkipNaturalKeysValidation bool `json:"skip_natural_keys_validation" mapstructure:"skip_natural_keys_validation"`
 }
 
 // BackupData defines the structure for the backup/restore files
@@ -1406,7 +1410,7 @@ func validateBaseParams(user *User) error {
 	if user.Username == "" {
 		return &ValidationError{err: "username is mandatory"}
 	}
-	if !usernameRegex.MatchString(user.Username) {
+	if !config.SkipNaturalKeysValidation && !usernameRegex.MatchString(user.Username) {
 		return &ValidationError{err: fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
 			user.Username)}
 	}
@@ -1439,7 +1443,7 @@ func ValidateFolder(folder *vfs.BaseVirtualFolder) error {
 	if folder.Name == "" {
 		return &ValidationError{err: "folder name is mandatory"}
 	}
-	if !usernameRegex.MatchString(folder.Name) {
+	if !config.SkipNaturalKeysValidation && !usernameRegex.MatchString(folder.Name) {
 		return &ValidationError{err: fmt.Sprintf("folder name %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
 			folder.Name)}
 	}
