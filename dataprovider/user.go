@@ -172,6 +172,7 @@ const (
 	AzureBlobFilesystemProvider                           // Azure Blob Storage
 	CryptedFilesystemProvider                             // Local encrypted
 	SFTPFilesystemProvider                                // SFTP
+	MemoryFilesystemProvider                              // Memory
 )
 
 // Filesystem defines cloud storage filesystem details
@@ -255,6 +256,8 @@ func (u *User) GetFilesystem(connectionID string) (vfs.Fs, error) {
 		return vfs.NewCryptFs(connectionID, u.GetHomeDir(), u.FsConfig.CryptConfig)
 	case SFTPFilesystemProvider:
 		return vfs.NewSFTPFs(connectionID, u.FsConfig.SFTPConfig)
+	case MemoryFilesystemProvider:
+		return vfs.NewMemFs(connectionID, u.GetHomeDir(), u.VirtualFolders)
 	default:
 		return vfs.NewOsFs(connectionID, u.GetHomeDir(), u.VirtualFolders), nil
 	}

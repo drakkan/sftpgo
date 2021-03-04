@@ -1396,6 +1396,13 @@ func validateFilesystemConfig(user *User) error {
 		user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
 		user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
 		return nil
+	} else if user.FsConfig.Provider == MemoryFilesystemProvider {
+		// TODO: validation
+		user.FsConfig.S3Config = vfs.S3FsConfig{}
+		user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
+		user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
+		user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
+		return nil
 	}
 	user.FsConfig.Provider = LocalFilesystemProvider
 	user.FsConfig.S3Config = vfs.S3FsConfig{}
