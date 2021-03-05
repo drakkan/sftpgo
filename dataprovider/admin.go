@@ -62,6 +62,17 @@ type Admin struct {
 	AdditionalInfo string       `json:"additional_info,omitempty"`
 }
 
+func (a *Admin) checkPassword() error {
+	if a.Password != "" && !strings.HasPrefix(a.Password, argonPwdPrefix) {
+		pwd, err := argon2id.CreateHash(a.Password, argon2Params)
+		if err != nil {
+			return err
+		}
+		a.Password = pwd
+	}
+	return nil
+}
+
 func (a *Admin) validate() error {
 	if a.Username == "" {
 		return &ValidationError{err: "username is mandatory"}
@@ -69,15 +80,11 @@ func (a *Admin) validate() error {
 	if a.Password == "" {
 		return &ValidationError{err: "please set a password"}
 	}
-	if !usernameRegex.MatchString(a.Username) {
+	if !config.SkipNaturalKeysValidation && !usernameRegex.MatchString(a.Username) {
 		return &ValidationError{err: fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~", a.Username)}
 	}
-	if a.Password != "" && !strings.HasPrefix(a.Password, argonPwdPrefix) {
-		pwd, err := argon2id.CreateHash(a.Password, argon2Params)
-		if err != nil {
-			return err
-		}
-		a.Password = pwd
+	if err := a.checkPassword(); err != nil {
+		return err
 	}
 	a.Permissions = utils.RemoveDuplicates(a.Permissions)
 	if len(a.Permissions) == 0 {

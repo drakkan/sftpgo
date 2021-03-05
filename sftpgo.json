@@ -146,7 +146,8 @@
         "parallelism": 2
       }
     },
-    "update_mode": 0
+    "update_mode": 0,
+    "skip_natural_keys_validation": false
   },
   "httpd": {
     "bindings": [

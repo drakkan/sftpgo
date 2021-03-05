@@ -2228,6 +2228,65 @@ func TestCloseConnectionAfterUserUpdateDelete(t *testing.T) {
 	assert.Len(t, common.Connections.GetStats(), 0)
 }
 
+func TestSkipNaturalKeysValidation(t *testing.T) {
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	providerConf.SkipNaturalKeysValidation = true
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	u := getTestUser()
+	u.Username = "user@example.com"
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	user.AdditionalInfo = "info"
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+
+	a := getTestAdmin()
+	a.Username = "admin@example.com"
+	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
+	assert.NoError(t, err)
+	admin.Email = admin.Username
+	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+
+	f := vfs.BaseVirtualFolder{
+		Name:       "文件夹",
+		MappedPath: filepath.Clean(os.TempDir()),
+	}
+	folder, resp, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	folder, resp, err = httpdtest.UpdateFolder(folder, http.StatusOK)
+	assert.NoError(t, err, string(resp))
+	folder, resp, err = httpdtest.GetFolderByName(folder.Name, http.StatusOK)
+	assert.NoError(t, err, string(resp))
+	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	providerConf.CredentialsPath = credentialsPath
+	err = os.RemoveAll(credentialsPath)
+	assert.NoError(t, err)
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+}
+
 func TestUserBaseDir(t *testing.T) {
 	err := dataprovider.Close()
 	assert.NoError(t, err)
