@@ -337,7 +337,7 @@ func (*OsFs) HasVirtualFolders() bool {
 func (fs *OsFs) GetFsPaths(sftpPath string) (string, string) {
 	basePath := fs.rootDir
 	virtualPath, mappedPath := fs.getMappedFolderForPath(sftpPath)
-	if len(mappedPath) > 0 {
+	if mappedPath != "" {
 		basePath = mappedPath
 		sftpPath = strings.TrimPrefix(utils.CleanPath(sftpPath), virtualPath)
 	}

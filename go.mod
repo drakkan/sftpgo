@@ -9,17 +9,18 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
 	github.com/alexedwards/argon2id v0.0.0-20201228115903-cf543ebc1f7b
-	github.com/aws/aws-sdk-go v1.37.22
+	github.com/aws/aws-sdk-go v1.37.24
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
 	github.com/fclairamb/ftpserverlib v0.13.0
 	github.com/frankban/quicktest v1.11.3 // indirect
 	github.com/go-chi/chi/v5 v5.0.0
-	github.com/go-chi/jwtauth v1.2.0
+	github.com/go-chi/jwtauth/v5 v5.0.0
 	github.com/go-chi/render v1.0.1
 	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/golang/snappy v0.0.3 // indirect
+	github.com/google/go-cmp v0.5.5 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/google/wire v0.5.0 // indirect
@@ -38,7 +39,7 @@ require (
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/otiai10/copy v1.5.0
 	github.com/pelletier/go-toml v1.8.1 // indirect
-	github.com/pires/go-proxyproto v0.4.2
+	github.com/pires/go-proxyproto v0.5.0
 	github.com/pkg/sftp v1.12.1-0.20210222152308-b8102da57e75
 	github.com/prometheus/client_golang v1.9.0
 	github.com/prometheus/common v0.18.0 // indirect
@@ -62,9 +63,9 @@ require (
 	gocloud.dev v0.22.0
 	gocloud.dev/secrets/hashivault v0.22.0
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
-	golang.org/x/net v0.0.0-20210224082022-3d97a244fca7
+	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/oauth2 v0.0.0-20210220000619-9bb904979d93 // indirect
-	golang.org/x/sys v0.0.0-20210303074136-134d130e1a04
+	golang.org/x/sys v0.0.0-20210305034016-7844c3c200c3
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	google.golang.org/api v0.40.0
 	google.golang.org/genproto v0.0.0-20210303154014-9728d6b83eeb // indirect
@@ -77,5 +78,5 @@ require (
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20210224210502-6cb69ad5dd3c
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20210224210113-f377ea59e9aa
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20210305154355-3793bc96d0e5
 )
