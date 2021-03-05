@@ -94,6 +94,7 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 		} else {
 			binding.Port = 49152 + rand.Intn(15000)
 		}
+		webDavConf.Bindings = []webdavd.Binding{binding}
 		webDavConf.CertificateFile = webDavCert
 		webDavConf.CertificateKeyFile = webDavKey
 		config.SetWebDAVDConfig(webDavConf)
@@ -126,8 +127,7 @@ func (s *Service) getServiceOptionalInfoString() string {
 		if config.GetWebDAVDConfig().CertificateFile != "" && config.GetWebDAVDConfig().CertificateKeyFile != "" {
 			scheme = "https"
 		}
-		info.WriteString(fmt.Sprintf("WebDAV URL: %v://<your IP>:%v/%v",
-			scheme, config.GetWebDAVDConfig().Bindings[0].Port, s.PortableUser.Username))
+		info.WriteString(fmt.Sprintf("WebDAV URL: %v://<your IP>:%v/", scheme, config.GetWebDAVDConfig().Bindings[0].Port))
 	}
 	return info.String()
 }
