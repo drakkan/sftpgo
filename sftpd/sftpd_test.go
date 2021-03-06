@@ -394,6 +394,7 @@ func TestBasicSFTPFsHandling(t *testing.T) {
 	assert.NoError(t, err)
 	u := getTestSFTPUser(usePubKey)
 	u.QuotaSize = 6553600
+	u.FsConfig.SFTPConfig.DisableCouncurrentReads = true
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
@@ -719,6 +720,27 @@ func TestProxyProtocol(t *testing.T) {
 	client, err = getSftpClientWithAddr(user, usePubKey, "127.0.0.1:2224")
 	if !assert.Error(t, err) {
 		client.Close()
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestRealPath(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		p, err := client.RealPath("../..")
+		assert.NoError(t, err)
+		assert.Equal(t, "/", p)
+		p, err = client.RealPath("../test")
+		assert.NoError(t, err)
+		assert.Equal(t, "/test", p)
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)

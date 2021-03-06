@@ -25,8 +25,8 @@ import (
 )
 
 // StartPortableMode starts the service in portable mode
-func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledSSHCommands []string, advertiseService, advertiseCredentials bool,
-	ftpsCert, ftpsKey, webDavCert, webDavKey string) error {
+func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledSSHCommands []string, advertiseService,
+	advertiseCredentials bool, ftpsCert, ftpsKey, webDavCert, webDavKey string) error {
 	if s.PortableMode != 1 {
 		return fmt.Errorf("service is not configured for portable mode")
 	}
@@ -49,6 +49,9 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 	httpdConf := config.GetHTTPDConfig()
 	httpdConf.Bindings = nil
 	config.SetHTTPDConfig(httpdConf)
+	telemetryConf := config.GetTelemetryConfig()
+	telemetryConf.BindPort = 0
+	config.SetTelemetryConfig(telemetryConf)
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.MaxAuthTries = 12
 	sftpdConf.Bindings = []sftpd.Binding{

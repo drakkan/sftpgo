@@ -1524,6 +1524,9 @@ components:
         prefix:
           type: string
           description: Specifying a prefix you can restrict all operations to a given path within the remote SFTP server.
+        disable_concurrent_reads:
+          type: boolean
+          description: Concurrent reads are safe to use and disabling them will degrade performance. Some servers automatically delete files once they are downloaded. Using concurrent reads is problematic with such servers.
     FilesystemConfig:
       type: object
       properties:

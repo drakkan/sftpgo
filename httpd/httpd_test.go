@@ -1523,9 +1523,11 @@ func TestUserSFTPFs(t *testing.T) {
 	assert.Contains(t, string(resp), "invalid endpoint")
 
 	user.FsConfig.SFTPConfig.Endpoint = "127.0.0.1:2022"
+	user.FsConfig.SFTPConfig.DisableCouncurrentReads = true
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	assert.Equal(t, "/", user.FsConfig.SFTPConfig.Prefix)
+	assert.True(t, user.FsConfig.SFTPConfig.DisableCouncurrentReads)
 	initialPwdPayload := user.FsConfig.SFTPConfig.Password.GetPayload()
 	initialPkeyPayload := user.FsConfig.SFTPConfig.PrivateKey.GetPayload()
 	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.Password.GetStatus())
@@ -1542,6 +1544,7 @@ func TestUserSFTPFs(t *testing.T) {
 	user.FsConfig.SFTPConfig.PrivateKey.SetStatus(kms.SecretStatusSecretBox)
 	user.FsConfig.SFTPConfig.PrivateKey.SetAdditionalData("adata")
 	user.FsConfig.SFTPConfig.PrivateKey.SetKey("fake key")
+	user.FsConfig.SFTPConfig.DisableCouncurrentReads = false
 	user, bb, err := httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err, string(bb))
 	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.Password.GetStatus())
@@ -1552,6 +1555,7 @@ func TestUserSFTPFs(t *testing.T) {
 	assert.Equal(t, initialPkeyPayload, user.FsConfig.SFTPConfig.PrivateKey.GetPayload())
 	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetKey())
+	assert.False(t, user.FsConfig.SFTPConfig.DisableCouncurrentReads)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -5823,6 +5827,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	user.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret(sftpPrivateKey)
 	user.FsConfig.SFTPConfig.Fingerprints = []string{sftpPkeyFingerprint}
 	user.FsConfig.SFTPConfig.Prefix = "/home/sftpuser"
+	user.FsConfig.SFTPConfig.DisableCouncurrentReads = true
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
@@ -5859,6 +5864,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	form.Set("sftp_private_key", user.FsConfig.SFTPConfig.PrivateKey.GetPayload())
 	form.Set("sftp_fingerprints", user.FsConfig.SFTPConfig.Fingerprints[0])
 	form.Set("sftp_prefix", user.FsConfig.SFTPConfig.Prefix)
+	form.Set("sftp_disable_concurrent_reads", "true")
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
 	setJWTCookieForReq(req, webToken)
@@ -5885,6 +5891,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.SFTPConfig.Prefix, user.FsConfig.SFTPConfig.Prefix)
 	assert.Equal(t, updateUser.FsConfig.SFTPConfig.Username, user.FsConfig.SFTPConfig.Username)
 	assert.Equal(t, updateUser.FsConfig.SFTPConfig.Endpoint, user.FsConfig.SFTPConfig.Endpoint)
+	assert.True(t, updateUser.FsConfig.SFTPConfig.DisableCouncurrentReads)
 	assert.Len(t, updateUser.FsConfig.SFTPConfig.Fingerprints, 1)
 	assert.Contains(t, updateUser.FsConfig.SFTPConfig.Fingerprints, sftpPkeyFingerprint)
 	// now check that a redacted credentials are not saved

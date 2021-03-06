@@ -730,6 +730,7 @@ func getSFTPConfig(r *http.Request) vfs.SFTPFsConfig {
 	fingerprintsFormValue := r.Form.Get("sftp_fingerprints")
 	config.Fingerprints = getSliceFromDelimitedValues(fingerprintsFormValue, "\n")
 	config.Prefix = r.Form.Get("sftp_prefix")
+	config.DisableCouncurrentReads = len(r.Form.Get("sftp_disable_concurrent_reads")) > 0
 	return config
 }
 

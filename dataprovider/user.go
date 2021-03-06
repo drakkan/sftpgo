@@ -934,11 +934,12 @@ func (u *User) getACopy() User {
 			Passphrase: u.FsConfig.CryptConfig.Passphrase.Clone(),
 		},
 		SFTPConfig: vfs.SFTPFsConfig{
-			Endpoint:   u.FsConfig.SFTPConfig.Endpoint,
-			Username:   u.FsConfig.SFTPConfig.Username,
-			Password:   u.FsConfig.SFTPConfig.Password.Clone(),
-			PrivateKey: u.FsConfig.SFTPConfig.PrivateKey.Clone(),
-			Prefix:     u.FsConfig.SFTPConfig.Prefix,
+			Endpoint:                u.FsConfig.SFTPConfig.Endpoint,
+			Username:                u.FsConfig.SFTPConfig.Username,
+			Password:                u.FsConfig.SFTPConfig.Password.Clone(),
+			PrivateKey:              u.FsConfig.SFTPConfig.PrivateKey.Clone(),
+			Prefix:                  u.FsConfig.SFTPConfig.Prefix,
+			DisableCouncurrentReads: u.FsConfig.SFTPConfig.DisableCouncurrentReads,
 		},
 	}
 	if len(u.FsConfig.SFTPConfig.Fingerprints) > 0 {

@@ -40,7 +40,7 @@ require (
 	github.com/otiai10/copy v1.5.0
 	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/pires/go-proxyproto v0.5.0
-	github.com/pkg/sftp v1.12.1-0.20210222152308-b8102da57e75
+	github.com/pkg/sftp v1.12.1-0.20210306114423-5b7da38a9cdb
 	github.com/prometheus/client_golang v1.9.0
 	github.com/prometheus/common v0.18.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect

@@ -21,58 +21,59 @@ import (
 )
 
 var (
-	directoryToServe             string
-	portableSFTPDPort            int
-	portableAdvertiseService     bool
-	portableAdvertiseCredentials bool
-	portableUsername             string
-	portablePassword             string
-	portableLogFile              string
-	portableLogVerbose           bool
-	portablePublicKeys           []string
-	portablePermissions          []string
-	portableSSHCommands          []string
-	portableAllowedPatterns      []string
-	portableDeniedPatterns       []string
-	portableFsProvider           int
-	portableS3Bucket             string
-	portableS3Region             string
-	portableS3AccessKey          string
-	portableS3AccessSecret       string
-	portableS3Endpoint           string
-	portableS3StorageClass       string
-	portableS3KeyPrefix          string
-	portableS3ULPartSize         int
-	portableS3ULConcurrency      int
-	portableGCSBucket            string
-	portableGCSCredentialsFile   string
-	portableGCSAutoCredentials   int
-	portableGCSStorageClass      string
-	portableGCSKeyPrefix         string
-	portableFTPDPort             int
-	portableFTPSCert             string
-	portableFTPSKey              string
-	portableWebDAVPort           int
-	portableWebDAVCert           string
-	portableWebDAVKey            string
-	portableAzContainer          string
-	portableAzAccountName        string
-	portableAzAccountKey         string
-	portableAzEndpoint           string
-	portableAzAccessTier         string
-	portableAzSASURL             string
-	portableAzKeyPrefix          string
-	portableAzULPartSize         int
-	portableAzULConcurrency      int
-	portableAzUseEmulator        bool
-	portableCryptPassphrase      string
-	portableSFTPEndpoint         string
-	portableSFTPUsername         string
-	portableSFTPPassword         string
-	portableSFTPPrivateKeyPath   string
-	portableSFTPFingerprints     []string
-	portableSFTPPrefix           string
-	portableCmd                  = &cobra.Command{
+	directoryToServe                   string
+	portableSFTPDPort                  int
+	portableAdvertiseService           bool
+	portableAdvertiseCredentials       bool
+	portableUsername                   string
+	portablePassword                   string
+	portableLogFile                    string
+	portableLogVerbose                 bool
+	portablePublicKeys                 []string
+	portablePermissions                []string
+	portableSSHCommands                []string
+	portableAllowedPatterns            []string
+	portableDeniedPatterns             []string
+	portableFsProvider                 int
+	portableS3Bucket                   string
+	portableS3Region                   string
+	portableS3AccessKey                string
+	portableS3AccessSecret             string
+	portableS3Endpoint                 string
+	portableS3StorageClass             string
+	portableS3KeyPrefix                string
+	portableS3ULPartSize               int
+	portableS3ULConcurrency            int
+	portableGCSBucket                  string
+	portableGCSCredentialsFile         string
+	portableGCSAutoCredentials         int
+	portableGCSStorageClass            string
+	portableGCSKeyPrefix               string
+	portableFTPDPort                   int
+	portableFTPSCert                   string
+	portableFTPSKey                    string
+	portableWebDAVPort                 int
+	portableWebDAVCert                 string
+	portableWebDAVKey                  string
+	portableAzContainer                string
+	portableAzAccountName              string
+	portableAzAccountKey               string
+	portableAzEndpoint                 string
+	portableAzAccessTier               string
+	portableAzSASURL                   string
+	portableAzKeyPrefix                string
+	portableAzULPartSize               int
+	portableAzULConcurrency            int
+	portableAzUseEmulator              bool
+	portableCryptPassphrase            string
+	portableSFTPEndpoint               string
+	portableSFTPUsername               string
+	portableSFTPPassword               string
+	portableSFTPPrivateKeyPath         string
+	portableSFTPFingerprints           []string
+	portableSFTPPrefix                 string
+	portableSFTPDisableConcurrentReads bool
+	portableCmd                        = &cobra.Command{
 		Use:   "portable",
 		Short: "Serve a single directory",
 		Long: `To serve the current working directory with auto generated credentials simply
@@ -184,12 +185,13 @@ Please take a look at the usage below to customize the serving parameters`,
 							Passphrase: kms.NewPlainSecret(portableCryptPassphrase),
 						},
 						SFTPConfig: vfs.SFTPFsConfig{
-							Endpoint:     portableSFTPEndpoint,
-							Username:     portableSFTPUsername,
-							Password:     kms.NewPlainSecret(portableSFTPPassword),
-							PrivateKey:   kms.NewPlainSecret(portableSFTPPrivateKey),
-							Fingerprints: portableSFTPFingerprints,
-							Prefix:       portableSFTPPrefix,
+							Endpoint:                portableSFTPEndpoint,
+							Username:                portableSFTPUsername,
+							Password:                kms.NewPlainSecret(portableSFTPPassword),
+							PrivateKey:              kms.NewPlainSecret(portableSFTPPrivateKey),
+							Fingerprints:            portableSFTPFingerprints,
+							Prefix:                  portableSFTPPrefix,
+							DisableCouncurrentReads: portableSFTPDisableConcurrentReads,
 						},
 					},
 					Filters: dataprovider.UserFilters{
@@ -317,6 +319,9 @@ key for SFTP provider`)
 	portableCmd.Flags().StringVar(&portableSFTPPrefix, "sftp-prefix", "", `SFTP prefix allows restrict all
 operations to a given path within the
 remote SFTP server`)
+	portableCmd.Flags().BoolVar(&portableSFTPDisableConcurrentReads, "sftp-disable-concurrent-reads", false, `Concurrent reads are safe to use and
+disabling them will degrade performance.
+Disable for read once servers`)
 	rootCmd.AddCommand(portableCmd)
 }
 

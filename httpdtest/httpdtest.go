@@ -1050,6 +1050,9 @@ func compareSFTPFsConfig(expected *dataprovider.User, actual *dataprovider.User)
 	if expected.FsConfig.SFTPConfig.Username != actual.FsConfig.SFTPConfig.Username {
 		return errors.New("SFTPFs username mismatch")
 	}
+	if expected.FsConfig.SFTPConfig.DisableCouncurrentReads != actual.FsConfig.SFTPConfig.DisableCouncurrentReads {
+		return errors.New("SFTPFs disable_concurrent_reads mismatch")
+	}
 	if err := checkEncryptedSecret(expected.FsConfig.SFTPConfig.Password, actual.FsConfig.SFTPConfig.Password); err != nil {
 		return fmt.Errorf("SFTPFs password mismatch: %v", err)
 	}

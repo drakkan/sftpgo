@@ -91,6 +91,9 @@ Flags:
                                         parallel (default 2)
       --s3-upload-part-size int         The buffer size for multipart uploads
                                         (MB) (default 5)
+      --sftp-disable-concurrent-reads   Concurrent reads are safe to use and
+                                        disabling them will degrade performance.
+                                        Disable for read once servers
       --sftp-endpoint string            SFTP endpoint as host:port for SFTP
                                         provider
       --sftp-fingerprints strings       SFTP fingerprints to verify remote host

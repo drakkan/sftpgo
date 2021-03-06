@@ -38,6 +38,10 @@ type SFTPFsConfig struct {
 	Fingerprints []string    `json:"fingerprints,omitempty"`
 	// Prefix is the path prefix to strip from SFTP resource paths.
 	Prefix string `json:"prefix,omitempty"`
+	// Concurrent reads are safe to use and disabling them will degrade performance.
+	// Some servers automatically delete files once they are downloaded.
+	// Using concurrent reads is problematic with such servers.
+	DisableCouncurrentReads bool `json:"disable_concurrent_reads,omitempty"`
 }
 
 func (c *SFTPFsConfig) setEmptyCredentialsIfNil() {
@@ -583,6 +587,11 @@ func (fs *SFTPFs) createConnection() error {
 		fs.sshClient.Close()
 		fs.err <- err
 		return err
+	}
+	if fs.config.DisableCouncurrentReads {
+		fsLog(fs, logger.LevelDebug, "disabling concurrent reads")
+		opt := sftp.UseConcurrentReads(false)
+		opt(fs.sftpClient) //nolint:errcheck
 	}
 	go fs.wait()
 	return nil
