@@ -31,7 +31,7 @@ paths:
       tags:
         - healthcheck
       summary: health check
-      description: Health endpoint to check if the application is running and responding to requests
+      description: This endpoint can be used to check if the application is running and responding to requests
       operationId: healthz
       responses:
         '200':
@@ -47,7 +47,7 @@ paths:
         - BasicAuth: []
       tags:
         - token
-      summary: Get an access token
+      summary: Get a new access token
       description: Returns an access token and its expiration
       operationId: get_token
       responses:
@@ -69,7 +69,7 @@ paths:
     get:
       tags:
         - token
-      summary: Logout
+      summary: Invalidate
       description: Allows to invalidate a token before its expiration
       operationId: logout
       responses:
@@ -92,7 +92,7 @@ paths:
       tags:
         - maintenance
       summary: Get version details
-      description: 'Returns version details such as the version number, build date commit hash and enabled features'
+      description: 'Returns version details such as the version number, build date, commit hash and enabled features'
       operationId: get_version
       responses:
         '200':
@@ -114,7 +114,7 @@ paths:
       tags:
         - admins
       summary: Change admin password
-      description: Change the password for the logged in admin
+      description: Changes the password for the logged in admin
       operationId: change_admin_password
       requestBody:
         required: true
@@ -142,7 +142,7 @@ paths:
       tags:
         - connections
       summary: Get connections details
-      description: Get the active users and info about their uploads/downloads
+      description: Returns the active users and info about their current uploads/downloads
       operationId: get_connections
       responses:
         '200':
@@ -166,7 +166,7 @@ paths:
       tags:
         - connections
       summary: Close connection
-      description: Terminate an active connection
+      description: Terminates an active connection
       operationId: close_connection
       parameters:
         - name: connectionID
@@ -229,8 +229,8 @@ paths:
     post:
       tags:
         - defender
-      description: Unban
-      summary: Removes the specified IPv4/IPv6 from the banned ones
+      summary: Unban
+      description: Removes the specified IPv4/IPv6 from the banned ones
       operationId: unban_host
       requestBody:
         required: true
@@ -297,7 +297,7 @@ paths:
       tags:
         - quota
       summary: Get quota scans
-      description: Get the active quota scans for users home directories
+      description: Returns active user quota scans
       operationId: get_quota_scans
       responses:
         '200':
@@ -319,8 +319,8 @@ paths:
     post:
       tags:
         - quota
-      summary: start a new user quota scan
-      description: A quota scan update the number of files and their total size for the specified user
+      summary: Start user quota scan
+      description: Starts a new quota scan for the given user. A quota scan update the number of files and their total size for the specified user
       operationId: start_quota_scan
       requestBody:
         required: true
@@ -356,7 +356,7 @@ paths:
       tags:
         - quota
       summary: Update user quota limits
-      description: Set the current used quota limits for the given user
+      description: Sets the current used quota limits for the given user
       operationId: quota_update
       parameters:
         - in: query
@@ -407,8 +407,8 @@ paths:
     put:
       tags:
         - quota
-      summary: update the folder used quota limits
-      description: Set the current used quota limits for the given folder
+      summary: Update folder quota limits
+      description: Sets the current used quota limits for the given folder
       operationId: folder_quota_update
       parameters:
         - in: query
@@ -460,7 +460,7 @@ paths:
       tags:
         - quota
       summary: Get folders quota scans
-      description: Get active quota scans for folders
+      description: Returns the active quota scans for folders
       operationId: get_folders_quota_scans
       responses:
         '200':
@@ -482,8 +482,8 @@ paths:
     post:
       tags:
         - quota
-      summary: start a new folder quota scan
-      description: A quota scan update the number of files and their total size for the specified folder
+      summary: Start folder quota scan
+      description: Starts a new quota scan for the given user. A quota scan update the number of files and their total size for the specified folder
       operationId: start_folder_quota_scan
       requestBody:
         required: true
@@ -570,9 +570,9 @@ paths:
     post:
       tags:
         - folders
-      summary: Adds a new folder
+      summary: Add folder
       operationId: add_folder
-      description: a new folder with the specified mapped_path will be added. To update the used quota parameters a quota scan is needed
+      description: Adds a new folder. A quota scan is required to update the used files/size
       requestBody:
         required: true
         content:
@@ -607,8 +607,8 @@ paths:
     get:
       tags:
         - folders
-      summary: Find user by name
-      description: For security reasons the hashed password is omitted in the response
+      summary: Find folders by name
+      description: Returns the folder with the given name if it exists.
       operationId: get_folder_by_name
       responses:
         '200':
@@ -633,7 +633,7 @@ paths:
       tags:
         - folders
       summary: Update folder
-      description: Update an existing user
+      description: Updates an existing folder
       operationId: update_folder
       requestBody:
         required: true
@@ -666,7 +666,7 @@ paths:
       tags:
         - folders
       summary: Delete folder
-      description: Delete an existing folder
+      description: Deletes an existing folder
       operationId: delete_folder
       responses:
         '200':
@@ -693,8 +693,8 @@ paths:
     get:
       tags:
         - admins
-      summary: Returns an array with one or more admins
-      description: For security reasons hashed passwords are omitted in the response
+      summary: Get admins
+      description: Returns an array with one or more admins. For security reasons hashed passwords are omitted in the response
       operationId: get_admins
       parameters:
         - in: query
@@ -746,7 +746,7 @@ paths:
       tags:
         - admins
       summary: Add admin
-      description: Add a new admin
+      description: Adds a new admin
       operationId: add_admin
       requestBody:
         required: true
@@ -798,8 +798,8 @@ paths:
     get:
       tags:
         - admins
-      summary: Find admin by username
-      description: For security reasons the hashed password is omitted in the response
+      summary: Find admins by username
+      description: Returns the admin with the given username, if it exists. For security reasons the hashed password is omitted in the response
       operationId: get_admin_by_username
       responses:
         '200':
@@ -824,7 +824,7 @@ paths:
       tags:
         - admins
       summary: Update admin
-      description: Update an existing admin
+      description: Updates an existing admin
       operationId: update_admin
       requestBody:
         required: true
@@ -857,7 +857,7 @@ paths:
       tags:
         - admins
       summary: Delete admin
-      description: Delete an existing admin
+      description: Deletes an existing admin
       operationId: delete_admin
       responses:
         '200':
@@ -884,8 +884,8 @@ paths:
     get:
       tags:
         - users
-      summary: Returns an array with one or more users
-      description: For security reasons hashed passwords are omitted in the response
+      summary: Get users
+      description: Returns an array with one or more users. For security reasons hashed passwords are omitted in the response
       operationId: get_users
       parameters:
         - in: query
@@ -937,7 +937,7 @@ paths:
       tags:
         - users
       summary: Add user
-      description: Add a new user
+      description: Adds a new user
       operationId: add_user
       requestBody:
         required: true
@@ -973,8 +973,8 @@ paths:
     get:
       tags:
         - users
-      summary: Find user by username
-      description: For security reasons the hashed password is omitted in the response
+      summary: Find users by username
+      description: Returns the user with the given username if it exists. For security reasons the hashed password is omitted in the response
       operationId: get_user_by_username
       responses:
         '200':
@@ -999,7 +999,7 @@ paths:
       tags:
         - users
       summary: Update user
-      description: 'Update an existing user and optionally disconnect, if connected, to apply the new settings'
+      description: 'Updates an existing user and optionally disconnects it, if connected, to apply the new settings'
       operationId: update_user
       parameters:
         - in: query
@@ -1044,7 +1044,7 @@ paths:
       tags:
         - users
       summary: Delete user
-      description: Delete an existing user
+      description: Deletes an existing user
       operationId: delete_user
       responses:
         '200':
@@ -1072,7 +1072,7 @@ paths:
       tags:
         - maintenance
       summary: Get status
-      description: Retrieve the status of the active services
+      description: Retrieves the status of the active services
       operationId: get_status
       responses:
         '200':
@@ -1095,8 +1095,8 @@ paths:
     get:
       tags:
         - maintenance
-      summary: Backup SFTPGo data as data provider independent JSON
-      description: 'The backup can be saved in a local file on the server, to avoid exposing sensitive data over the network, or returned as response body. The output of dumpdata can be used as input for loaddata'
+      summary: Dump data
+      description: 'Backups data as data provider independent JSON. The backup can be saved in a local file on the server, to avoid exposing sensitive data over the network, or returned as response body. The output of dumpdata can be used as input for loaddata'
       operationId: dumpdata
       parameters:
         - in: query
@@ -1177,8 +1177,8 @@ paths:
     get:
       tags:
         - maintenance
-      summary: Restore SFTPGo data from a JSON backup file on the server
-      description: 'Users, folders and admins will be restored one by one and the restore is stopped if a user/folder/admin cannot be added or updated, so it could happen a partial restore'
+      summary: Load data from path
+      description: 'Restores SFTPGo data from a JSON backup file on the server. Users, folders and admins will be restored one by one and the restore is stopped if a user/folder/admin cannot be added or updated, so it could happen a partial restore'
       operationId: loaddata_from_file
       parameters:
         - in: query
@@ -1209,8 +1209,8 @@ paths:
     post:
       tags:
         - maintenance
-      summary: Restore SFTPGo data from a JSON backup
-      description: 'Users, folders and admins will be restored one by one and the restore is stopped if a user/folder/admin cannot be added or updated, so it could happen a partial restore'
+      summary: Load data
+      description: 'Restores SFTPGo data from a JSON backup. Users, folders and admins will be restored one by one and the restore is stopped if a user/folder/admin cannot be added or updated, so it could happen a partial restore'
       operationId: loaddata_from_request_body
       requestBody:
         required: true

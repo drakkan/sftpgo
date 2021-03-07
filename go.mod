@@ -9,7 +9,7 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
 	github.com/alexedwards/argon2id v0.0.0-20201228115903-cf543ebc1f7b
-	github.com/aws/aws-sdk-go v1.37.24
+	github.com/aws/aws-sdk-go v1.37.25
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
 	github.com/fclairamb/ftpserverlib v0.13.0
@@ -40,7 +40,7 @@ require (
 	github.com/otiai10/copy v1.5.0
 	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/pires/go-proxyproto v0.5.0
-	github.com/pkg/sftp v1.12.1-0.20210306114423-5b7da38a9cdb
+	github.com/pkg/sftp v1.13.0
 	github.com/prometheus/client_golang v1.9.0
 	github.com/prometheus/common v0.18.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
@@ -65,7 +65,7 @@ require (
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/oauth2 v0.0.0-20210220000619-9bb904979d93 // indirect
-	golang.org/x/sys v0.0.0-20210305034016-7844c3c200c3
+	golang.org/x/sys v0.0.0-20210305230114-8fe3ee5dd75b
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	google.golang.org/api v0.40.0
 	google.golang.org/genproto v0.0.0-20210303154014-9728d6b83eeb // indirect
