@@ -2,7 +2,7 @@
 
 The `WebDAV` support can be enabled by configuring one or more `bindings` inside the `webdavd` configuration section.
 
-Each user can access their home directory using the path `http/s://<SFTPGo ip>:<WevDAVPORT>/`.
+Each user can access their home directory using the path `http/s://<SFTPGo ip>:<WevDAVPORT>/<prefix>`. By default `prefix` is empty. If you define a prefix it must be an abosulte URI, for example `/dav`.
 
 WebDAV is quite a different protocol than SCP/FTP, there is no session concept, each command is a separate HTTP request and must be authenticated, to improve performance SFTPGo caches authenticated users. This way SFTPGo don't need to do a dataprovider query and a password check for each request.
 
@@ -18,6 +18,8 @@ WebDAV protocol requires the MIME type for each file. SFTPGo will first try to g
 The MIME types caching configurations allows to set the maximum number of MIME types to cache. Once the cache reaches the configured maximum size no new MIME types will be added. The MIME types cache  is a non-persistent in-memory cache. If you need a persistent cache add your MIME types to `/etc/mime.types` on Linux or inside the registry on Windows.
 
 WebDAV should work as expected for most use cases but there are some minor issues and some missing features.
+
+If you use WebDAV behind a reverse proxy ensure to preserve the `Host` header or `COPY`/`MOVE` operations will fail. For example for apache you have to set `ProxyPreserveHost On`.
 
 Know issues:
 

@@ -59,6 +59,7 @@ var (
 		EnableHTTPS:     false,
 		ClientAuthType:  0,
 		TLSCipherSuites: nil,
+		Prefix:          "",
 	}
 	defaultHTTPDBinding = httpd.Binding{
 		Address:         "127.0.0.1",
@@ -672,6 +673,12 @@ func getWebDAVDBindingFromEnv(idx int) {
 	tlsCiphers, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__TLS_CIPHER_SUITES", idx))
 	if ok {
 		binding.TLSCipherSuites = tlsCiphers
+		isSet = true
+	}
+
+	prefix, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__PREFIX", idx))
+	if ok {
+		binding.Prefix = prefix
 		isSet = true
 	}
 

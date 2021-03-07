@@ -203,6 +203,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	handler := webdav.Handler{
+		Prefix:     s.binding.Prefix,
 		FileSystem: connection,
 		LockSystem: lockSystem,
 		Logger:     writeLog,

@@ -86,7 +86,8 @@
         "address": "",
         "enable_https": false,
         "client_auth_type": 0,
-        "tls_cipher_suites": []
+        "tls_cipher_suites": [],
+        "prefix": ""
       }
     ],
     "certificate_file": "",
