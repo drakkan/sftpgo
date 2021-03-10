@@ -16,8 +16,6 @@ For example if the configure folder has configured `/tmp/mapped` or `C:\mapped` 
 The same virtual folder can be shared among users, different folder quota limits for each user are supported.
 Folder quota limits can also be included inside the user quota but in this case the folder is considered "private" and sharing it with other users will break user quota calculation.
 
-The filesystem paths that you want to expose as virtual folders must exist.
-
 Using the REST API you can:
 
 - monitor folders quota usage

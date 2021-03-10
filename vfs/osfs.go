@@ -212,6 +212,14 @@ func (fs *OsFs) CheckRootPath(username string, uid int, gid int) bool {
 		if err != nil {
 			return false
 		}
+		if _, err = fs.Stat(v.MappedPath); fs.IsNotExist(err) {
+			err = os.MkdirAll(v.MappedPath, os.ModePerm)
+			fsLog(fs, logger.LevelDebug, "virtual directory %#v for user %#v does not exist, try to create, mkdir error: %v",
+				v.MappedPath, username, err)
+			if err == nil {
+				SetPathPermissions(fs, fs.rootDir, uid, gid)
+			}
+		}
 	}
 	return (err == nil)
 }
