@@ -3117,13 +3117,14 @@ func TestVirtualFolders(t *testing.T) {
 	u.Permissions[path.Join(testDir1, "subdir")] = []string{dataprovider.PermCreateSymlinks, dataprovider.PermUpload,
 		dataprovider.PermDelete}
 
-	err := os.MkdirAll(mappedPath, os.ModePerm)
-	assert.NoError(t, err)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
 		defer client.Close()
+		// check virtual folder auto creation
+		_, err = os.Stat(mappedPath)
+		assert.NoError(t, err)
 		testFileSize := int64(131072)
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		err = createTestFile(testFilePath, testFileSize)
