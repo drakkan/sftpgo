@@ -80,11 +80,13 @@ func (s *webDavServer) listenAndServe(compressor *middleware.Compressor) error {
 			}
 		}
 		logger.Info(logSender, "", "starting HTTPS serving, binding: %v", s.binding.GetAddress())
+		utils.CheckTCP4Port(s.binding.Port)
 		return httpServer.ListenAndServeTLS("", "")
 	}
 	s.binding.EnableHTTPS = false
 	serviceStatus.Bindings = append(serviceStatus.Bindings, s.binding)
 	logger.Info(logSender, "", "starting HTTP serving, binding: %v", s.binding.GetAddress())
+	utils.CheckTCP4Port(s.binding.Port)
 	return httpServer.ListenAndServe()
 }
 

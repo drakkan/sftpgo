@@ -211,6 +211,7 @@ func (c *Configuration) Initialize(configDir string) error {
 		go func(s *Server) {
 			ftpServer := ftpserver.NewFtpServer(s)
 			logger.Info(logSender, "", "starting FTP serving, binding: %v", s.binding.GetAddress())
+			utils.CheckTCP4Port(s.binding.Port)
 			exitChannel <- ftpServer.ListenAndServe()
 		}(server)
 

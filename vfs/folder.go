@@ -141,6 +141,7 @@ type VirtualFolder struct {
 	QuotaFiles int `json:"quota_files"`
 }
 
+// GetFilesystem returns the filesystem for this folder
 func (v *VirtualFolder) GetFilesystem(connectionID string) (Fs, error) {
 	switch v.FsConfig.Provider {
 	case S3FilesystemProvider:

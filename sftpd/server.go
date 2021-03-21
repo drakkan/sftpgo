@@ -232,6 +232,7 @@ func (c *Configuration) Initialize(configDir string) error {
 
 		go func(binding Binding) {
 			addr := binding.GetAddress()
+			utils.CheckTCP4Port(binding.Port)
 			listener, err := net.Listen("tcp", addr)
 			if err != nil {
 				logger.Warn(logSender, "", "error starting listener on address %v: %v", addr, err)
