@@ -16,4 +16,3 @@ The encrypted filesystem has some limitations compared to the local, unencrypted
 - Opening a file for both reading and writing at the same time is not supported and so clients that require advanced filesystem-like features such as `sshfs` are not supported too.
 - Truncate is not supported.
 - System commands such as `git` or `rsync` are not supported: they will store data unencrypted.
-- Virtual folders are not implemented for now, if you are interested in this feature, please consider submitting a well written pull request (fully covered by test cases) or sponsoring this development. We could add a filesystem configuration to each virtual folder so we can mount encrypted or cloud backends as subfolders for local filesystems and vice versa.

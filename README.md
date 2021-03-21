@@ -196,7 +196,7 @@ More information about custom actions can be found [here](./docs/custom-actions.
 
 ## Virtual folders
 
-Directories outside the user home directory can be exposed as virtual folders, more information [here](./docs/virtual-folders.md).
+Directories outside the user home directory or based on a different storage provider can be exposed as virtual folders, more information [here](./docs/virtual-folders.md).
 
 ## Other hooks
 

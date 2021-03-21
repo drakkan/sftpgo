@@ -1991,6 +1991,9 @@ func TestQuotaTrackDisabled(t *testing.T) {
 }
 
 func TestGetQuotaError(t *testing.T) {
+	if dataprovider.GetProviderStatus().Driver == "memory" {
+		t.Skip("this test is not available with the memory provider")
+	}
 	u := getTestUser()
 	mappedPath := filepath.Join(os.TempDir(), "vdir")
 	folderName := filepath.Base(mappedPath)

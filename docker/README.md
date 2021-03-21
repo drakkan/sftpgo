@@ -27,6 +27,12 @@ docker run --name some-sftpgo -p 127.0.0.1:8080:8080 -p 2022:2022 -d "drakkan/sf
 
 Now visit [http://localhost:8080/](http://localhost:8080/), the default credentials are `admin/password`, and create a new SFTPGo user. The SFTP service is available on port 2022.
 
+If you don't want to persist any files, for example for testing purposes, you can run an SFTPGo instance like this:
+
+```shell
+docker run --rm --name some-sftpgo -p 8080:8080 -p 2022:2022 -d "drakkan/sftpgo:tag"
+```
+
 If you prefer GitHub Container Registry to Docker Hub replace `drakkan/sftpgo:tag` with `ghcr.io/drakkan/sftpgo:tag`.
 
 ### Container shell access and viewing SFTPGo logs
