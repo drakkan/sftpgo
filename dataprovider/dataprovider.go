@@ -469,6 +469,13 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 	} else {
 		credentialsDirPath = filepath.Join(basePath, config.CredentialsPath)
 	}
+	argon2Params = &argon2id.Params{
+		Memory:      cnf.PasswordHashing.Argon2Options.Memory,
+		Iterations:  cnf.PasswordHashing.Argon2Options.Iterations,
+		Parallelism: cnf.PasswordHashing.Argon2Options.Parallelism,
+		SaltLength:  16,
+		KeyLength:   32,
+	}
 
 	if err = validateHooks(); err != nil {
 		return err
@@ -476,13 +483,6 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 	err = createProvider(basePath)
 	if err != nil {
 		return err
-	}
-	argon2Params = &argon2id.Params{
-		Memory:      cnf.PasswordHashing.Argon2Options.Memory,
-		Iterations:  cnf.PasswordHashing.Argon2Options.Iterations,
-		Parallelism: cnf.PasswordHashing.Argon2Options.Parallelism,
-		SaltLength:  16,
-		KeyLength:   32,
 	}
 	if cnf.UpdateMode == 0 {
 		err = provider.initializeDatabase()
