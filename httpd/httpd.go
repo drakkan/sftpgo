@@ -190,10 +190,10 @@ func (c *Conf) Initialize(configDir string) error {
 	templatesPath := getConfigPath(c.TemplatesPath, configDir)
 	enableWebAdmin := staticFilesPath != "" || templatesPath != ""
 	if backupsPath == "" {
-		return fmt.Errorf("Required directory is invalid, backup path %#v", backupsPath)
+		return fmt.Errorf("required directory is invalid, backup path %#v", backupsPath)
 	}
 	if enableWebAdmin && (staticFilesPath == "" || templatesPath == "") {
-		return fmt.Errorf("Required directory is invalid, static file path: %#v template path: %#v",
+		return fmt.Errorf("required directory is invalid, static file path: %#v template path: %#v",
 			staticFilesPath, templatesPath)
 	}
 	certificateFile := getConfigPath(c.CertificateFile, configDir)

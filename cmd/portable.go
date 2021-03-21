@@ -84,9 +84,9 @@ $ sftpgo portable
 Please take a look at the usage below to customize the serving parameters`,
 		Run: func(cmd *cobra.Command, args []string) {
 			portableDir := directoryToServe
-			fsProvider := dataprovider.FilesystemProvider(portableFsProvider)
+			fsProvider := vfs.FilesystemProvider(portableFsProvider)
 			if !filepath.IsAbs(portableDir) {
-				if fsProvider == dataprovider.LocalFilesystemProvider {
+				if fsProvider == vfs.LocalFilesystemProvider {
 					portableDir, _ = filepath.Abs(portableDir)
 				} else {
 					portableDir = os.TempDir()
@@ -95,7 +95,7 @@ Please take a look at the usage below to customize the serving parameters`,
 			permissions := make(map[string][]string)
 			permissions["/"] = portablePermissions
 			portableGCSCredentials := ""
-			if fsProvider == dataprovider.GCSFilesystemProvider && portableGCSCredentialsFile != "" {
+			if fsProvider == vfs.GCSFilesystemProvider && portableGCSCredentialsFile != "" {
 				contents, err := getFileContents(portableGCSCredentialsFile)
 				if err != nil {
 					fmt.Printf("Unable to get GCS credentials: %v\n", err)
@@ -105,7 +105,7 @@ Please take a look at the usage below to customize the serving parameters`,
 				portableGCSAutoCredentials = 0
 			}
 			portableSFTPPrivateKey := ""
-			if fsProvider == dataprovider.SFTPFilesystemProvider && portableSFTPPrivateKeyPath != "" {
+			if fsProvider == vfs.SFTPFilesystemProvider && portableSFTPPrivateKeyPath != "" {
 				contents, err := getFileContents(portableSFTPPrivateKeyPath)
 				if err != nil {
 					fmt.Printf("Unable to get SFTP private key: %v\n", err)
@@ -149,8 +149,8 @@ Please take a look at the usage below to customize the serving parameters`,
 					Permissions: permissions,
 					HomeDir:     portableDir,
 					Status:      1,
-					FsConfig: dataprovider.Filesystem{
-						Provider: dataprovider.FilesystemProvider(portableFsProvider),
+					FsConfig: vfs.Filesystem{
+						Provider: vfs.FilesystemProvider(portableFsProvider),
 						S3Config: vfs.S3FsConfig{
 							Bucket:            portableS3Bucket,
 							Region:            portableS3Region,
@@ -257,7 +257,7 @@ multicast DNS`)
 advertised via multicast DNS, this
 flag allows to put username/password
 inside the advertised TXT record`)
-	portableCmd.Flags().IntVarP(&portableFsProvider, "fs-provider", "f", int(dataprovider.LocalFilesystemProvider), `0 => local filesystem
+	portableCmd.Flags().IntVarP(&portableFsProvider, "fs-provider", "f", int(vfs.LocalFilesystemProvider), `0 => local filesystem
 1 => AWS S3 compatible
 2 => Google Cloud Storage
 3 => Azure Blob Storage

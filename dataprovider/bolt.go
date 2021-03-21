@@ -44,7 +44,7 @@ func initializeBoltProvider(basePath string) error {
 	logSender = fmt.Sprintf("dataprovider_%v", BoltDataProviderName)
 	dbPath := config.Name
 	if !utils.IsFileInputValid(dbPath) {
-		return fmt.Errorf("Invalid database path: %#v", dbPath)
+		return fmt.Errorf("invalid database path: %#v", dbPath)
 	}
 	if !filepath.IsAbs(dbPath) {
 		dbPath = filepath.Join(basePath, dbPath)
@@ -119,7 +119,7 @@ func (p *BoltProvider) validateUserAndTLSCert(username, protocol string, tlsCert
 func (p *BoltProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
 	var user User
 	if password == "" {
-		return user, errors.New("Credentials cannot be null or empty")
+		return user, errors.New("credentials cannot be null or empty")
 	}
 	user, err := p.userExists(username)
 	if err != nil {
@@ -142,7 +142,7 @@ func (p *BoltProvider) validateAdminAndPass(username, password, ip string) (Admi
 func (p *BoltProvider) validateUserAndPubKey(username string, pubKey []byte) (User, string, error) {
 	var user User
 	if len(pubKey) == 0 {
-		return user, "", errors.New("Credentials cannot be null or empty")
+		return user, "", errors.New("credentials cannot be null or empty")
 	}
 	user, err := p.userExists(username)
 	if err != nil {
@@ -435,8 +435,8 @@ func (p *BoltProvider) addUser(user *User) error {
 		user.UsedQuotaSize = 0
 		user.UsedQuotaFiles = 0
 		user.LastLogin = 0
-		for _, folder := range user.VirtualFolders {
-			err = addUserToFolderMapping(folder, user, folderBucket)
+		for idx := range user.VirtualFolders {
+			err = addUserToFolderMapping(&user.VirtualFolders[idx].BaseVirtualFolder, user, folderBucket)
 			if err != nil {
 				return err
 			}
@@ -472,14 +472,14 @@ func (p *BoltProvider) updateUser(user *User) error {
 		if err != nil {
 			return err
 		}
-		for _, folder := range oldUser.VirtualFolders {
-			err = removeUserFromFolderMapping(folder, &oldUser, folderBucket)
+		for idx := range oldUser.VirtualFolders {
+			err = removeUserFromFolderMapping(&oldUser.VirtualFolders[idx], &oldUser, folderBucket)
 			if err != nil {
 				return err
 			}
 		}
-		for _, folder := range user.VirtualFolders {
-			err = addUserToFolderMapping(folder, user, folderBucket)
+		for idx := range user.VirtualFolders {
+			err = addUserToFolderMapping(&user.VirtualFolders[idx].BaseVirtualFolder, user, folderBucket)
 			if err != nil {
 				return err
 			}
@@ -508,8 +508,8 @@ func (p *BoltProvider) deleteUser(user *User) error {
 			if err != nil {
 				return err
 			}
-			for _, folder := range user.VirtualFolders {
-				err = removeUserFromFolderMapping(folder, user, folderBucket)
+			for idx := range user.VirtualFolders {
+				err = removeUserFromFolderMapping(&user.VirtualFolders[idx], user, folderBucket)
 				if err != nil {
 					return err
 				}
@@ -649,6 +649,7 @@ func (p *BoltProvider) getFolders(limit, offset int, order string) ([]vfs.BaseVi
 				if err != nil {
 					return err
 				}
+				folder.HideConfidentialData()
 				folders = append(folders, folder)
 				if len(folders) >= limit {
 					break
@@ -665,6 +666,7 @@ func (p *BoltProvider) getFolders(limit, offset int, order string) ([]vfs.BaseVi
 				if err != nil {
 					return err
 				}
+				folder.HideConfidentialData()
 				folders = append(folders, folder)
 				if len(folders) >= limit {
 					break
@@ -703,8 +705,7 @@ func (p *BoltProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 			return fmt.Errorf("folder %v already exists", folder.Name)
 		}
 		folder.Users = nil
-		_, err = addFolderInternal(*folder, bucket)
-		return err
+		return addFolderInternal(*folder, bucket)
 	})
 }
 
@@ -867,7 +868,7 @@ func (p *BoltProvider) migrateDatabase() error {
 				boltDatabaseVersion)
 			return nil
 		}
-		return fmt.Errorf("Database version not handled: %v", version)
+		return fmt.Errorf("database version not handled: %v", version)
 	}
 }
 
@@ -893,17 +894,14 @@ func joinUserAndFolders(u []byte, foldersBucket *bolt.Bucket) (User, error) {
 	}
 	if len(user.VirtualFolders) > 0 {
 		var folders []vfs.VirtualFolder
-		for _, folder := range user.VirtualFolders {
+		for idx := range user.VirtualFolders {
+			folder := &user.VirtualFolders[idx]
 			baseFolder, err := folderExistsInternal(folder.Name, foldersBucket)
 			if err != nil {
 				continue
 			}
-			folder.MappedPath = baseFolder.MappedPath
-			folder.UsedQuotaFiles = baseFolder.UsedQuotaFiles
-			folder.UsedQuotaSize = baseFolder.UsedQuotaSize
-			folder.LastQuotaUpdate = baseFolder.LastQuotaUpdate
-			folder.ID = baseFolder.ID
-			folders = append(folders, folder)
+			folder.BaseVirtualFolder = baseFolder
+			folders = append(folders, *folder)
 		}
 		user.VirtualFolders = folders
 	}
@@ -922,50 +920,50 @@ func folderExistsInternal(name string, bucket *bolt.Bucket) (vfs.BaseVirtualFold
 	return folder, err
 }
 
-func addFolderInternal(folder vfs.BaseVirtualFolder, bucket *bolt.Bucket) (vfs.BaseVirtualFolder, error) {
+func addFolderInternal(folder vfs.BaseVirtualFolder, bucket *bolt.Bucket) error {
 	id, err := bucket.NextSequence()
 	if err != nil {
-		return folder, err
+		return err
 	}
 	folder.ID = int64(id)
 	buf, err := json.Marshal(folder)
 	if err != nil {
-		return folder, err
+		return err
 	}
-	err = bucket.Put([]byte(folder.Name), buf)
-	return folder, err
+	return bucket.Put([]byte(folder.Name), buf)
 }
 
-func addUserToFolderMapping(folder vfs.VirtualFolder, user *User, bucket *bolt.Bucket) error {
-	var baseFolder vfs.BaseVirtualFolder
-	var err error
-	if f := bucket.Get([]byte(folder.Name)); f == nil {
+func addUserToFolderMapping(baseFolder *vfs.BaseVirtualFolder, user *User, bucket *bolt.Bucket) error {
+	f := bucket.Get([]byte(baseFolder.Name))
+	if f == nil {
 		// folder does not exists, try to create
-		folder.LastQuotaUpdate = 0
-		folder.UsedQuotaFiles = 0
-		folder.UsedQuotaSize = 0
-		baseFolder, err = addFolderInternal(folder.BaseVirtualFolder, bucket)
-	} else {
-		err = json.Unmarshal(f, &baseFolder)
+		baseFolder.LastQuotaUpdate = 0
+		baseFolder.UsedQuotaFiles = 0
+		baseFolder.UsedQuotaSize = 0
+		baseFolder.Users = []string{user.Username}
+		return addFolderInternal(*baseFolder, bucket)
 	}
+	var oldFolder vfs.BaseVirtualFolder
+	err := json.Unmarshal(f, &oldFolder)
 	if err != nil {
 		return err
 	}
+	baseFolder.ID = oldFolder.ID
+	baseFolder.LastQuotaUpdate = oldFolder.LastQuotaUpdate
+	baseFolder.UsedQuotaFiles = oldFolder.UsedQuotaFiles
+	baseFolder.UsedQuotaSize = oldFolder.UsedQuotaSize
+	baseFolder.Users = oldFolder.Users
 	if !utils.IsStringInSlice(user.Username, baseFolder.Users) {
 		baseFolder.Users = append(baseFolder.Users, user.Username)
-		buf, err := json.Marshal(baseFolder)
-		if err != nil {
-			return err
-		}
-		err = bucket.Put([]byte(folder.Name), buf)
-		if err != nil {
-			return err
-		}
 	}
-	return err
+	buf, err := json.Marshal(baseFolder)
+	if err != nil {
+		return err
+	}
+	return bucket.Put([]byte(baseFolder.Name), buf)
 }
 
-func removeUserFromFolderMapping(folder vfs.VirtualFolder, user *User, bucket *bolt.Bucket) error {
+func removeUserFromFolderMapping(folder *vfs.VirtualFolder, user *User, bucket *bolt.Bucket) error {
 	var f []byte
 	if f = bucket.Get([]byte(folder.Name)); f == nil {
 		// the folder does not exists so there is no associated user

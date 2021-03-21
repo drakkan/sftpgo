@@ -89,11 +89,11 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	if username == claims.Username {
 		if claims.isCriticalPermRemoved(admin.Permissions) {
-			sendAPIResponse(w, r, errors.New("You cannot remove these permissions to yourself"), "", http.StatusBadRequest)
+			sendAPIResponse(w, r, errors.New("you cannot remove these permissions to yourself"), "", http.StatusBadRequest)
 			return
 		}
 		if admin.Status == 0 {
-			sendAPIResponse(w, r, errors.New("You cannot disable yourself"), "", http.StatusBadRequest)
+			sendAPIResponse(w, r, errors.New("you cannot disable yourself"), "", http.StatusBadRequest)
 			return
 		}
 	}
@@ -114,7 +114,7 @@ func deleteAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if username == claims.Username {
-		sendAPIResponse(w, r, errors.New("You cannot delete yourself"), "", http.StatusBadRequest)
+		sendAPIResponse(w, r, errors.New("you cannot delete yourself"), "", http.StatusBadRequest)
 		return
 	}
 

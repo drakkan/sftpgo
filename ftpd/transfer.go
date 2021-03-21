@@ -102,7 +102,7 @@ func (t *transfer) Close() error {
 	if errBaseClose != nil {
 		err = errBaseClose
 	}
-	return t.Connection.GetFsError(err)
+	return t.Connection.GetFsError(t.Fs, err)
 }
 
 func (t *transfer) closeIO() error {

@@ -110,14 +110,16 @@ func (c *SFTPFsConfig) EncryptCredentials(additionalData string) error {
 type SFTPFs struct {
 	sync.Mutex
 	connectionID string
-	config       *SFTPFsConfig
-	sshClient    *ssh.Client
-	sftpClient   *sftp.Client
-	err          chan error
+	// if not empty this fs is mouted as virtual folder in the specified path
+	mountPath  string
+	config     *SFTPFsConfig
+	sshClient  *ssh.Client
+	sftpClient *sftp.Client
+	err        chan error
 }
 
 // NewSFTPFs returns an SFTPFa object that allows to interact with an SFTP server
-func NewSFTPFs(connectionID string, config SFTPFsConfig) (Fs, error) {
+func NewSFTPFs(connectionID, mountPath string, config SFTPFsConfig) (Fs, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
@@ -133,6 +135,7 @@ func NewSFTPFs(connectionID string, config SFTPFsConfig) (Fs, error) {
 	}
 	sftpFs := &SFTPFs{
 		connectionID: connectionID,
+		mountPath:    mountPath,
 		config:       &config,
 		err:          make(chan error, 1),
 	}
@@ -224,6 +227,16 @@ func (fs *SFTPFs) Mkdir(name string) error {
 		return err
 	}
 	return fs.sftpClient.Mkdir(name)
+}
+
+// MkdirAll creates a directory named path, along with any necessary parents,
+// and returns nil, or else returns an error.
+// If path is already a directory, MkdirAll does nothing and returns nil.
+func (fs *SFTPFs) MkdirAll(name string, uid int, gid int) error {
+	if err := fs.checkConnection(); err != nil {
+		return err
+	}
+	return fs.sftpClient.MkdirAll(name)
 }
 
 // Symlink creates source as a symbolic link to target.
@@ -358,6 +371,9 @@ func (fs *SFTPFs) GetRelativePath(name string) string {
 		}
 		rel = path.Clean("/" + strings.TrimPrefix(rel, fs.config.Prefix))
 	}
+	if fs.mountPath != "" {
+		rel = path.Join(fs.mountPath, rel)
+	}
 	return rel
 }
 
@@ -393,6 +409,9 @@ func (*SFTPFs) HasVirtualFolders() bool {
 
 // ResolvePath returns the matching filesystem path for the specified virtual path
 func (fs *SFTPFs) ResolvePath(virtualPath string) (string, error) {
+	if fs.mountPath != "" {
+		virtualPath = strings.TrimPrefix(virtualPath, fs.mountPath)
+	}
 	if !path.IsAbs(virtualPath) {
 		virtualPath = path.Clean("/" + virtualPath)
 	}
@@ -559,7 +578,7 @@ func (fs *SFTPFs) createConnection() error {
 						return nil
 					}
 				}
-				return fmt.Errorf("Invalid fingerprint %#v", fp)
+				return fmt.Errorf("invalid fingerprint %#v", fp)
 			}
 			fsLog(fs, logger.LevelWarn, "login without host key validation, please provide at least a fingerprint!")
 			return nil

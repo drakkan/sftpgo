@@ -160,7 +160,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, common.ErrConnectionDenied.Error(), http.StatusForbidden)
 		return
 	}
-	user, _, lockSystem, loginMethod, err := s.authenticate(r, ipAddr)
+	user, isCached, lockSystem, loginMethod, err := s.authenticate(r, ipAddr)
 	if err != nil {
 		w.Header().Set("WWW-Authenticate", "Basic realm=\"SFTPGo WebDAV\"")
 		http.Error(w, fmt.Sprintf("Authentication error: %v", err), http.StatusUnauthorized)
@@ -174,8 +174,14 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fs, err := user.GetFilesystem(connectionID)
+	if !isCached {
+		err = user.CheckFsRoot(connectionID)
+	} else {
+		_, err = user.GetFilesystem(connectionID)
+	}
 	if err != nil {
+		errClose := user.CloseFs()
+		logger.Warn(logSender, connectionID, "unable to check fs root: %v close fs error: %v", err, errClose)
 		updateLoginMetrics(&user, ipAddr, loginMethod, err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -187,7 +193,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx = context.WithValue(ctx, requestStartKey, time.Now())
 
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connectionID, common.ProtocolWebDAV, user, fs),
+		BaseConnection: common.NewBaseConnection(connectionID, common.ProtocolWebDAV, user),
 		request:        r,
 	}
 	common.Connections.Add(connection)
@@ -273,14 +279,6 @@ func (s *webDavServer) authenticate(r *http.Request, ip string) (dataprovider.Us
 		cachedUser.Expiration = time.Now().Add(time.Duration(s.config.Cache.Users.ExpirationTime) * time.Minute)
 	}
 	dataprovider.CacheWebDAVUser(cachedUser, s.config.Cache.Users.MaxSize)
-	if user.FsConfig.Provider != dataprovider.SFTPFilesystemProvider {
-		// for sftp fs check root path does nothing so don't open a useless SFTP connection
-		tempFs, err := user.GetFilesystem("temp")
-		if err == nil {
-			tempFs.CheckRootPath(user.Username, user.UID, user.GID)
-			tempFs.Close()
-		}
-	}
 	return user, false, lockSystem, loginMethod, nil
 }
 
@@ -295,11 +293,11 @@ func (s *webDavServer) validateUser(user *dataprovider.User, r *http.Request, lo
 	}
 	if utils.IsStringInSlice(common.ProtocolWebDAV, user.Filters.DeniedProtocols) {
 		logger.Debug(logSender, connectionID, "cannot login user %#v, protocol DAV is not allowed", user.Username)
-		return connID, fmt.Errorf("Protocol DAV is not allowed for user %#v", user.Username)
+		return connID, fmt.Errorf("protocol DAV is not allowed for user %#v", user.Username)
 	}
 	if !user.IsLoginMethodAllowed(loginMethod, nil) {
 		logger.Debug(logSender, connectionID, "cannot login user %#v, %v login method is not allowed", user.Username, loginMethod)
-		return connID, fmt.Errorf("Login method %v is not allowed for user %#v", loginMethod, user.Username)
+		return connID, fmt.Errorf("login method %v is not allowed for user %#v", loginMethod, user.Username)
 	}
 	if user.MaxSessions > 0 {
 		activeSessions := common.Connections.GetActiveSessions(user.Username)
@@ -309,14 +307,9 @@ func (s *webDavServer) validateUser(user *dataprovider.User, r *http.Request, lo
 			return connID, fmt.Errorf("too many open sessions: %v", activeSessions)
 		}
 	}
-	if dataprovider.GetQuotaTracking() > 0 && user.HasOverlappedMappedPaths() {
-		logger.Debug(logSender, connectionID, "cannot login user %#v, overlapping mapped folders are allowed only with quota tracking disabled",
-			user.Username)
-		return connID, errors.New("overlapping mapped folders are allowed only with quota tracking disabled")
-	}
 	if !user.IsLoginFromAddrAllowed(r.RemoteAddr) {
 		logger.Debug(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v", user.Username, r.RemoteAddr)
-		return connID, fmt.Errorf("Login for user %#v is not allowed from this address: %v", user.Username, r.RemoteAddr)
+		return connID, fmt.Errorf("login for user %#v is not allowed from this address: %v", user.Username, r.RemoteAddr)
 	}
 	return connID, nil
 }

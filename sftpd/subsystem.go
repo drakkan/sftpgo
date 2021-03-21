@@ -8,6 +8,7 @@ import (
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
+	"github.com/drakkan/sftpgo/logger"
 )
 
 type subsystemChannel struct {
@@ -36,15 +37,16 @@ func newSubsystemChannel(reader io.Reader, writer io.Writer) *subsystemChannel {
 
 // ServeSubSystemConnection handles a connection as SSH subsystem
 func ServeSubSystemConnection(user *dataprovider.User, connectionID string, reader io.Reader, writer io.Writer) error {
-	fs, err := user.GetFilesystem(connectionID)
+	err := user.CheckFsRoot(connectionID)
 	if err != nil {
+		errClose := user.CloseFs()
+		logger.Warn(logSender, connectionID, "unable to check fs root: %v close fs error: %v", err, errClose)
 		return err
 	}
-	fs.CheckRootPath(user.Username, user.GetUID(), user.GetGID())
 	dataprovider.UpdateLastLogin(user) //nolint:errcheck
 
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolSFTP, *user, fs),
+		BaseConnection: common.NewBaseConnection(connectionID, common.ProtocolSFTP, *user),
 		ClientVersion:  "",
 		RemoteAddr:     &net.IPAddr{},
 		channel:        newSubsystemChannel(reader, writer),

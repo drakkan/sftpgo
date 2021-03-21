@@ -161,29 +161,6 @@ type UserFilters struct {
 	TLSUsername TLSUsername `json:"tls_username,omitempty"`
 }
 
-// FilesystemProvider defines the supported storages
-type FilesystemProvider int
-
-// supported values for FilesystemProvider
-const (
-	LocalFilesystemProvider     FilesystemProvider = iota // Local
-	S3FilesystemProvider                                  // AWS S3 compatible
-	GCSFilesystemProvider                                 // Google Cloud Storage
-	AzureBlobFilesystemProvider                           // Azure Blob Storage
-	CryptedFilesystemProvider                             // Local encrypted
-	SFTPFilesystemProvider                                // SFTP
-)
-
-// Filesystem defines cloud storage filesystem details
-type Filesystem struct {
-	Provider     FilesystemProvider `json:"provider"`
-	S3Config     vfs.S3FsConfig     `json:"s3config,omitempty"`
-	GCSConfig    vfs.GCSFsConfig    `json:"gcsconfig,omitempty"`
-	AzBlobConfig vfs.AzBlobFsConfig `json:"azblobconfig,omitempty"`
-	CryptConfig  vfs.CryptFsConfig  `json:"cryptconfig,omitempty"`
-	SFTPConfig   vfs.SFTPFsConfig   `json:"sftpconfig,omitempty"`
-}
-
 // User defines a SFTPGo user
 type User struct {
 	// Database unique identifier
@@ -203,8 +180,7 @@ type User struct {
 	PublicKeys []string `json:"public_keys,omitempty"`
 	// The user cannot upload or download files outside this directory. Must be an absolute path
 	HomeDir string `json:"home_dir"`
-	// Mapping between virtual paths and filesystem paths outside the home directory.
-	// Supported for local filesystem only
+	// Mapping between virtual paths and virtual folders
 	VirtualFolders []vfs.VirtualFolder `json:"virtual_folders,omitempty"`
 	// If sftpgo runs as root system user then the created files and directories will be assigned to this system UID
 	UID int `json:"uid"`
@@ -233,49 +209,148 @@ type User struct {
 	// Additional restrictions
 	Filters UserFilters `json:"filters"`
 	// Filesystem configuration details
-	FsConfig Filesystem `json:"filesystem"`
+	FsConfig vfs.Filesystem `json:"filesystem"`
 	// optional description, for example full name
 	Description string `json:"description,omitempty"`
 	// free form text field for external systems
 	AdditionalInfo string `json:"additional_info,omitempty"`
+	// we store the filesystem here using the base path as key.
+	fsCache map[string]vfs.Fs `json:"-"`
 }
 
-// GetFilesystem returns the filesystem for this user
-func (u *User) GetFilesystem(connectionID string) (vfs.Fs, error) {
-	switch u.FsConfig.Provider {
-	case S3FilesystemProvider:
-		return vfs.NewS3Fs(connectionID, u.GetHomeDir(), u.FsConfig.S3Config)
-	case GCSFilesystemProvider:
-		config := u.FsConfig.GCSConfig
-		config.CredentialFile = u.getGCSCredentialsFilePath()
-		return vfs.NewGCSFs(connectionID, u.GetHomeDir(), config)
-	case AzureBlobFilesystemProvider:
-		return vfs.NewAzBlobFs(connectionID, u.GetHomeDir(), u.FsConfig.AzBlobConfig)
-	case CryptedFilesystemProvider:
-		return vfs.NewCryptFs(connectionID, u.GetHomeDir(), u.FsConfig.CryptConfig)
-	case SFTPFilesystemProvider:
-		return vfs.NewSFTPFs(connectionID, u.FsConfig.SFTPConfig)
-	default:
-		return vfs.NewOsFs(connectionID, u.GetHomeDir(), u.VirtualFolders), nil
+// GetFilesystem returns the base filesystem for this user
+func (u *User) GetFilesystem(connectionID string) (fs vfs.Fs, err error) {
+	fs, err = u.getRootFs(connectionID)
+	if err != nil {
+		return fs, err
 	}
+	u.fsCache = make(map[string]vfs.Fs)
+	u.fsCache["/"] = fs
+	return fs, err
+}
+
+func (u *User) getRootFs(connectionID string) (fs vfs.Fs, err error) {
+	switch u.FsConfig.Provider {
+	case vfs.S3FilesystemProvider:
+		return vfs.NewS3Fs(connectionID, u.GetHomeDir(), "", u.FsConfig.S3Config)
+	case vfs.GCSFilesystemProvider:
+		config := u.FsConfig.GCSConfig
+		config.CredentialFile = u.GetGCSCredentialsFilePath()
+		return vfs.NewGCSFs(connectionID, u.GetHomeDir(), "", config)
+	case vfs.AzureBlobFilesystemProvider:
+		return vfs.NewAzBlobFs(connectionID, u.GetHomeDir(), "", u.FsConfig.AzBlobConfig)
+	case vfs.CryptedFilesystemProvider:
+		return vfs.NewCryptFs(connectionID, u.GetHomeDir(), "", u.FsConfig.CryptConfig)
+	case vfs.SFTPFilesystemProvider:
+		return vfs.NewSFTPFs(connectionID, "", u.FsConfig.SFTPConfig)
+	default:
+		return vfs.NewOsFs(connectionID, u.GetHomeDir(), ""), nil
+	}
+}
+
+// CheckFsRoot check the root directory for the main fs and the virtual folders.
+// It returns an error if the main filesystem cannot be created
+func (u *User) CheckFsRoot(connectionID string) error {
+	fs, err := u.GetFilesystemForPath("/", connectionID)
+	if err != nil {
+		logger.Warn(logSender, connectionID, "could not create main filesystem for user %#v err: %v", u.Username, err)
+		return err
+	}
+	fs.CheckRootPath(u.Username, u.GetUID(), u.GetGID())
+	for idx := range u.VirtualFolders {
+		v := &u.VirtualFolders[idx]
+		fs, err = u.GetFilesystemForPath(v.VirtualPath, connectionID)
+		if err == nil {
+			fs.CheckRootPath(u.Username, u.GetUID(), u.GetGID())
+		}
+		// now check intermediary folders
+		fs, err = u.GetFilesystemForPath(path.Dir(v.VirtualPath), connectionID)
+		if err == nil && !fs.HasVirtualFolders() {
+			fsPath, err := fs.ResolvePath(v.VirtualPath)
+			if err != nil {
+				continue
+			}
+			err = fs.MkdirAll(fsPath, u.GetUID(), u.GetGID())
+			logger.Debug(logSender, connectionID, "create intermediary dir to %#v, path %#v, err: %v",
+				v.VirtualPath, fsPath, err)
+		}
+	}
+	return nil
 }
 
 // HideConfidentialData hides user confidential data
 func (u *User) HideConfidentialData() {
 	u.Password = ""
 	switch u.FsConfig.Provider {
-	case S3FilesystemProvider:
+	case vfs.S3FilesystemProvider:
 		u.FsConfig.S3Config.AccessSecret.Hide()
-	case GCSFilesystemProvider:
+	case vfs.GCSFilesystemProvider:
 		u.FsConfig.GCSConfig.Credentials.Hide()
-	case AzureBlobFilesystemProvider:
+	case vfs.AzureBlobFilesystemProvider:
 		u.FsConfig.AzBlobConfig.AccountKey.Hide()
-	case CryptedFilesystemProvider:
+	case vfs.CryptedFilesystemProvider:
 		u.FsConfig.CryptConfig.Passphrase.Hide()
-	case SFTPFilesystemProvider:
+	case vfs.SFTPFilesystemProvider:
 		u.FsConfig.SFTPConfig.Password.Hide()
 		u.FsConfig.SFTPConfig.PrivateKey.Hide()
 	}
+	for idx := range u.VirtualFolders {
+		folder := &u.VirtualFolders[idx]
+		folder.HideConfidentialData()
+	}
+}
+
+func (u *User) hasRedactedSecret() bool {
+	switch u.FsConfig.Provider {
+	case vfs.S3FilesystemProvider:
+		if u.FsConfig.S3Config.AccessSecret.IsRedacted() {
+			return true
+		}
+	case vfs.GCSFilesystemProvider:
+		if u.FsConfig.GCSConfig.Credentials.IsRedacted() {
+			return true
+		}
+	case vfs.AzureBlobFilesystemProvider:
+		if u.FsConfig.AzBlobConfig.AccountKey.IsRedacted() {
+			return true
+		}
+	case vfs.CryptedFilesystemProvider:
+		if u.FsConfig.CryptConfig.Passphrase.IsRedacted() {
+			return true
+		}
+	case vfs.SFTPFilesystemProvider:
+		if u.FsConfig.SFTPConfig.Password.IsRedacted() {
+			return true
+		}
+		if u.FsConfig.SFTPConfig.PrivateKey.IsRedacted() {
+			return true
+		}
+	}
+
+	for idx := range u.VirtualFolders {
+		folder := &u.VirtualFolders[idx]
+		if folder.HasRedactedSecret() {
+			return true
+		}
+	}
+
+	return false
+}
+
+// CloseFs closes the underlying filesystems
+func (u *User) CloseFs() error {
+	if u.fsCache == nil {
+		return nil
+	}
+
+	var err error
+	for _, fs := range u.fsCache {
+		errClose := fs.Close()
+		if err == nil {
+			err = errClose
+		}
+	}
+	return err
 }
 
 // IsPasswordHashed returns true if the password is hashed
@@ -300,41 +375,10 @@ func (u *User) SetEmptySecrets() {
 	u.FsConfig.CryptConfig.Passphrase = kms.NewEmptySecret()
 	u.FsConfig.SFTPConfig.Password = kms.NewEmptySecret()
 	u.FsConfig.SFTPConfig.PrivateKey = kms.NewEmptySecret()
-}
-
-// DecryptSecrets tries to decrypts kms secrets
-func (u *User) DecryptSecrets() error {
-	switch u.FsConfig.Provider {
-	case S3FilesystemProvider:
-		if u.FsConfig.S3Config.AccessSecret.IsEncrypted() {
-			return u.FsConfig.S3Config.AccessSecret.Decrypt()
-		}
-	case GCSFilesystemProvider:
-		if u.FsConfig.GCSConfig.Credentials.IsEncrypted() {
-			return u.FsConfig.GCSConfig.Credentials.Decrypt()
-		}
-	case AzureBlobFilesystemProvider:
-		if u.FsConfig.AzBlobConfig.AccountKey.IsEncrypted() {
-			return u.FsConfig.AzBlobConfig.AccountKey.Decrypt()
-		}
-	case CryptedFilesystemProvider:
-		if u.FsConfig.CryptConfig.Passphrase.IsEncrypted() {
-			return u.FsConfig.CryptConfig.Passphrase.Decrypt()
-		}
-	case SFTPFilesystemProvider:
-		if u.FsConfig.SFTPConfig.Password.IsEncrypted() {
-			if err := u.FsConfig.SFTPConfig.Password.Decrypt(); err != nil {
-				return err
-			}
-		}
-		if u.FsConfig.SFTPConfig.PrivateKey.IsEncrypted() {
-			if err := u.FsConfig.SFTPConfig.PrivateKey.Decrypt(); err != nil {
-				return err
-			}
-		}
+	for idx := range u.VirtualFolders {
+		folder := &u.VirtualFolders[idx]
+		folder.FsConfig.SetEmptySecretsIfNil()
 	}
-
-	return nil
 }
 
 // GetPermissionsForPath returns the permissions for the given path.
@@ -349,13 +393,13 @@ func (u *User) GetPermissionsForPath(p string) []string {
 		// fallback permissions
 		permissions = perms
 	}
-	dirsForPath := utils.GetDirsForSFTPPath(p)
+	dirsForPath := utils.GetDirsForVirtualPath(p)
 	// dirsForPath contains all the dirs for a given path in reverse order
 	// for example if the path is: /1/2/3/4 it contains:
 	// [ "/1/2/3/4", "/1/2/3", "/1/2", "/1", "/" ]
 	// so the first match is the one we are interested to
-	for _, val := range dirsForPath {
-		if perms, ok := u.Permissions[val]; ok {
+	for idx := range dirsForPath {
+		if perms, ok := u.Permissions[dirsForPath[idx]]; ok {
 			permissions = perms
 			break
 		}
@@ -363,43 +407,119 @@ func (u *User) GetPermissionsForPath(p string) []string {
 	return permissions
 }
 
-// GetVirtualFolderForPath returns the virtual folder containing the specified sftp path.
+// GetFilesystemForPath returns the filesystem for the given path
+func (u *User) GetFilesystemForPath(virtualPath, connectionID string) (vfs.Fs, error) {
+	if u.fsCache == nil {
+		u.fsCache = make(map[string]vfs.Fs)
+	}
+	if virtualPath != "" && virtualPath != "/" && len(u.VirtualFolders) > 0 {
+		folder, err := u.GetVirtualFolderForPath(virtualPath)
+		if err == nil {
+			if fs, ok := u.fsCache[folder.VirtualPath]; ok {
+				return fs, nil
+			}
+			fs, err := folder.GetFilesystem(connectionID)
+			if err == nil {
+				u.fsCache[folder.VirtualPath] = fs
+			}
+			return fs, err
+		}
+	}
+
+	if val, ok := u.fsCache["/"]; ok {
+		return val, nil
+	}
+
+	return u.GetFilesystem(connectionID)
+}
+
+// GetVirtualFolderForPath returns the virtual folder containing the specified virtual path.
 // If the path is not inside a virtual folder an error is returned
-func (u *User) GetVirtualFolderForPath(sftpPath string) (vfs.VirtualFolder, error) {
+func (u *User) GetVirtualFolderForPath(virtualPath string) (vfs.VirtualFolder, error) {
 	var folder vfs.VirtualFolder
-	if len(u.VirtualFolders) == 0 || u.FsConfig.Provider != LocalFilesystemProvider {
+	if len(u.VirtualFolders) == 0 {
 		return folder, errNoMatchingVirtualFolder
 	}
-	dirsForPath := utils.GetDirsForSFTPPath(sftpPath)
-	for _, val := range dirsForPath {
-		for _, v := range u.VirtualFolders {
-			if v.VirtualPath == val {
-				return v, nil
+	dirsForPath := utils.GetDirsForVirtualPath(virtualPath)
+	for index := range dirsForPath {
+		for idx := range u.VirtualFolders {
+			v := &u.VirtualFolders[idx]
+			if v.VirtualPath == dirsForPath[index] {
+				return *v, nil
 			}
 		}
 	}
 	return folder, errNoMatchingVirtualFolder
 }
 
+// ScanQuota scans the user home dir and virtual folders, included in its quota,
+// and returns the number of files and their size
+func (u *User) ScanQuota() (int, int64, error) {
+	fs, err := u.getRootFs("")
+	if err != nil {
+		return 0, 0, err
+	}
+	defer fs.Close()
+	numFiles, size, err := fs.ScanRootDirContents()
+	if err != nil {
+		return numFiles, size, err
+	}
+	for idx := range u.VirtualFolders {
+		v := &u.VirtualFolders[idx]
+		if !v.IsIncludedInUserQuota() {
+			continue
+		}
+		num, s, err := v.ScanQuota()
+		if err != nil {
+			return numFiles, size, err
+		}
+		numFiles += num
+		size += s
+	}
+
+	return numFiles, size, nil
+}
+
+// GetVirtualFoldersInPath returns the virtual folders inside virtualPath including
+// any parents
+func (u *User) GetVirtualFoldersInPath(virtualPath string) map[string]bool {
+	result := make(map[string]bool)
+
+	for idx := range u.VirtualFolders {
+		v := &u.VirtualFolders[idx]
+		dirsForPath := utils.GetDirsForVirtualPath(v.VirtualPath)
+		for index := range dirsForPath {
+			d := dirsForPath[index]
+			if d == "/" {
+				continue
+			}
+			if path.Dir(d) == virtualPath {
+				result[d] = true
+			}
+		}
+	}
+
+	return result
+}
+
 // AddVirtualDirs adds virtual folders, if defined, to the given files list
-func (u *User) AddVirtualDirs(list []os.FileInfo, sftpPath string) []os.FileInfo {
+func (u *User) AddVirtualDirs(list []os.FileInfo, virtualPath string) []os.FileInfo {
 	if len(u.VirtualFolders) == 0 {
 		return list
 	}
-	for _, v := range u.VirtualFolders {
-		if path.Dir(v.VirtualPath) == sftpPath {
-			fi := vfs.NewFileInfo(v.VirtualPath, true, 0, time.Now(), false)
-			found := false
-			for index, f := range list {
-				if f.Name() == fi.Name() {
-					list[index] = fi
-					found = true
-					break
-				}
+
+	for dir := range u.GetVirtualFoldersInPath(virtualPath) {
+		fi := vfs.NewFileInfo(dir, true, 0, time.Now(), false)
+		found := false
+		for index := range list {
+			if list[index].Name() == fi.Name() {
+				list[index] = fi
+				found = true
+				break
 			}
-			if !found {
-				list = append(list, fi)
-			}
+		}
+		if !found {
+			list = append(list, fi)
 		}
 	}
 	return list
@@ -408,7 +528,8 @@ func (u *User) AddVirtualDirs(list []os.FileInfo, sftpPath string) []os.FileInfo
 // IsMappedPath returns true if the specified filesystem path has a virtual folder mapping.
 // The filesystem path must be cleaned before calling this method
 func (u *User) IsMappedPath(fsPath string) bool {
-	for _, v := range u.VirtualFolders {
+	for idx := range u.VirtualFolders {
+		v := &u.VirtualFolders[idx]
 		if fsPath == v.MappedPath {
 			return true
 		}
@@ -416,10 +537,11 @@ func (u *User) IsMappedPath(fsPath string) bool {
 	return false
 }
 
-// IsVirtualFolder returns true if the specified sftp path is a virtual folder
-func (u *User) IsVirtualFolder(sftpPath string) bool {
-	for _, v := range u.VirtualFolders {
-		if sftpPath == v.VirtualPath {
+// IsVirtualFolder returns true if the specified virtual path is a virtual folder
+func (u *User) IsVirtualFolder(virtualPath string) bool {
+	for idx := range u.VirtualFolders {
+		v := &u.VirtualFolders[idx]
+		if virtualPath == v.VirtualPath {
 			return true
 		}
 	}
@@ -427,14 +549,15 @@ func (u *User) IsVirtualFolder(sftpPath string) bool {
 }
 
 // HasVirtualFoldersInside returns true if there are virtual folders inside the
-// specified SFTP path. We assume that path are cleaned
-func (u *User) HasVirtualFoldersInside(sftpPath string) bool {
-	if sftpPath == "/" && len(u.VirtualFolders) > 0 {
+// specified virtual path. We assume that path are cleaned
+func (u *User) HasVirtualFoldersInside(virtualPath string) bool {
+	if virtualPath == "/" && len(u.VirtualFolders) > 0 {
 		return true
 	}
-	for _, v := range u.VirtualFolders {
-		if len(v.VirtualPath) > len(sftpPath) {
-			if strings.HasPrefix(v.VirtualPath, sftpPath+"/") {
+	for idx := range u.VirtualFolders {
+		v := &u.VirtualFolders[idx]
+		if len(v.VirtualPath) > len(virtualPath) {
+			if strings.HasPrefix(v.VirtualPath, virtualPath+"/") {
 				return true
 			}
 		}
@@ -442,32 +565,14 @@ func (u *User) HasVirtualFoldersInside(sftpPath string) bool {
 	return false
 }
 
-// HasPermissionsInside returns true if the specified sftpPath has no permissions itself and
+// HasPermissionsInside returns true if the specified virtualPath has no permissions itself and
 // no subdirs with defined permissions
-func (u *User) HasPermissionsInside(sftpPath string) bool {
+func (u *User) HasPermissionsInside(virtualPath string) bool {
 	for dir := range u.Permissions {
-		if dir == sftpPath {
+		if dir == virtualPath {
 			return true
-		} else if len(dir) > len(sftpPath) {
-			if strings.HasPrefix(dir, sftpPath+"/") {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// HasOverlappedMappedPaths returns true if this user has virtual folders with overlapped mapped paths
-func (u *User) HasOverlappedMappedPaths() bool {
-	if len(u.VirtualFolders) <= 1 {
-		return false
-	}
-	for _, v1 := range u.VirtualFolders {
-		for _, v2 := range u.VirtualFolders {
-			if v1.VirtualPath == v2.VirtualPath {
-				continue
-			}
-			if isMappedDirOverlapped(v1.MappedPath, v2.MappedPath) {
+		} else if len(dir) > len(virtualPath) {
+			if strings.HasPrefix(dir, virtualPath+"/") {
 				return true
 			}
 		}
@@ -585,7 +690,7 @@ func (u *User) isFileExtensionAllowed(virtualPath string) bool {
 	if len(u.Filters.FileExtensions) == 0 {
 		return true
 	}
-	dirsForPath := utils.GetDirsForSFTPPath(path.Dir(virtualPath))
+	dirsForPath := utils.GetDirsForVirtualPath(path.Dir(virtualPath))
 	var filter ExtensionsFilter
 	for _, dir := range dirsForPath {
 		for _, f := range u.Filters.FileExtensions {
@@ -619,7 +724,7 @@ func (u *User) isFilePatternAllowed(virtualPath string) bool {
 	if len(u.Filters.FilePatterns) == 0 {
 		return true
 	}
-	dirsForPath := utils.GetDirsForSFTPPath(path.Dir(virtualPath))
+	dirsForPath := utils.GetDirsForVirtualPath(path.Dir(virtualPath))
 	var filter PatternsFilter
 	for _, dir := range dirsForPath {
 		for _, f := range u.Filters.FilePatterns {
@@ -797,15 +902,15 @@ func (u *User) GetInfoString() string {
 		result += fmt.Sprintf("Last login: %v ", t.Format("2006-01-02 15:04:05")) // YYYY-MM-DD HH:MM:SS
 	}
 	switch u.FsConfig.Provider {
-	case S3FilesystemProvider:
+	case vfs.S3FilesystemProvider:
 		result += "Storage: S3 "
-	case GCSFilesystemProvider:
+	case vfs.GCSFilesystemProvider:
 		result += "Storage: GCS "
-	case AzureBlobFilesystemProvider:
+	case vfs.AzureBlobFilesystemProvider:
 		result += "Storage: Azure "
-	case CryptedFilesystemProvider:
+	case vfs.CryptedFilesystemProvider:
 		result += "Storage: Encrypted "
-	case SFTPFilesystemProvider:
+	case vfs.SFTPFilesystemProvider:
 		result += "Storage: SFTP "
 	}
 	if len(u.PublicKeys) > 0 {
@@ -850,23 +955,10 @@ func (u *User) GetDeniedIPAsString() string {
 
 // SetEmptySecretsIfNil sets the secrets to empty if nil
 func (u *User) SetEmptySecretsIfNil() {
-	if u.FsConfig.S3Config.AccessSecret == nil {
-		u.FsConfig.S3Config.AccessSecret = kms.NewEmptySecret()
-	}
-	if u.FsConfig.GCSConfig.Credentials == nil {
-		u.FsConfig.GCSConfig.Credentials = kms.NewEmptySecret()
-	}
-	if u.FsConfig.AzBlobConfig.AccountKey == nil {
-		u.FsConfig.AzBlobConfig.AccountKey = kms.NewEmptySecret()
-	}
-	if u.FsConfig.CryptConfig.Passphrase == nil {
-		u.FsConfig.CryptConfig.Passphrase = kms.NewEmptySecret()
-	}
-	if u.FsConfig.SFTPConfig.Password == nil {
-		u.FsConfig.SFTPConfig.Password = kms.NewEmptySecret()
-	}
-	if u.FsConfig.SFTPConfig.PrivateKey == nil {
-		u.FsConfig.SFTPConfig.PrivateKey = kms.NewEmptySecret()
+	u.FsConfig.SetEmptySecretsIfNil()
+	for idx := range u.VirtualFolders {
+		vfolder := &u.VirtualFolders[idx]
+		vfolder.FsConfig.SetEmptySecretsIfNil()
 	}
 }
 
@@ -874,8 +966,11 @@ func (u *User) getACopy() User {
 	u.SetEmptySecretsIfNil()
 	pubKeys := make([]string, len(u.PublicKeys))
 	copy(pubKeys, u.PublicKeys)
-	virtualFolders := make([]vfs.VirtualFolder, len(u.VirtualFolders))
-	copy(virtualFolders, u.VirtualFolders)
+	virtualFolders := make([]vfs.VirtualFolder, 0, len(u.VirtualFolders))
+	for idx := range u.VirtualFolders {
+		vfolder := u.VirtualFolders[idx].GetACopy()
+		virtualFolders = append(virtualFolders, vfolder)
+	}
 	permissions := make(map[string][]string)
 	for k, v := range u.Permissions {
 		perms := make([]string, len(v))
@@ -897,55 +992,6 @@ func (u *User) getACopy() User {
 	copy(filters.FilePatterns, u.Filters.FilePatterns)
 	filters.DeniedProtocols = make([]string, len(u.Filters.DeniedProtocols))
 	copy(filters.DeniedProtocols, u.Filters.DeniedProtocols)
-	fsConfig := Filesystem{
-		Provider: u.FsConfig.Provider,
-		S3Config: vfs.S3FsConfig{
-			Bucket:            u.FsConfig.S3Config.Bucket,
-			Region:            u.FsConfig.S3Config.Region,
-			AccessKey:         u.FsConfig.S3Config.AccessKey,
-			AccessSecret:      u.FsConfig.S3Config.AccessSecret.Clone(),
-			Endpoint:          u.FsConfig.S3Config.Endpoint,
-			StorageClass:      u.FsConfig.S3Config.StorageClass,
-			KeyPrefix:         u.FsConfig.S3Config.KeyPrefix,
-			UploadPartSize:    u.FsConfig.S3Config.UploadPartSize,
-			UploadConcurrency: u.FsConfig.S3Config.UploadConcurrency,
-		},
-		GCSConfig: vfs.GCSFsConfig{
-			Bucket:               u.FsConfig.GCSConfig.Bucket,
-			CredentialFile:       u.FsConfig.GCSConfig.CredentialFile,
-			Credentials:          u.FsConfig.GCSConfig.Credentials.Clone(),
-			AutomaticCredentials: u.FsConfig.GCSConfig.AutomaticCredentials,
-			StorageClass:         u.FsConfig.GCSConfig.StorageClass,
-			KeyPrefix:            u.FsConfig.GCSConfig.KeyPrefix,
-		},
-		AzBlobConfig: vfs.AzBlobFsConfig{
-			Container:         u.FsConfig.AzBlobConfig.Container,
-			AccountName:       u.FsConfig.AzBlobConfig.AccountName,
-			AccountKey:        u.FsConfig.AzBlobConfig.AccountKey.Clone(),
-			Endpoint:          u.FsConfig.AzBlobConfig.Endpoint,
-			SASURL:            u.FsConfig.AzBlobConfig.SASURL,
-			KeyPrefix:         u.FsConfig.AzBlobConfig.KeyPrefix,
-			UploadPartSize:    u.FsConfig.AzBlobConfig.UploadPartSize,
-			UploadConcurrency: u.FsConfig.AzBlobConfig.UploadConcurrency,
-			UseEmulator:       u.FsConfig.AzBlobConfig.UseEmulator,
-			AccessTier:        u.FsConfig.AzBlobConfig.AccessTier,
-		},
-		CryptConfig: vfs.CryptFsConfig{
-			Passphrase: u.FsConfig.CryptConfig.Passphrase.Clone(),
-		},
-		SFTPConfig: vfs.SFTPFsConfig{
-			Endpoint:                u.FsConfig.SFTPConfig.Endpoint,
-			Username:                u.FsConfig.SFTPConfig.Username,
-			Password:                u.FsConfig.SFTPConfig.Password.Clone(),
-			PrivateKey:              u.FsConfig.SFTPConfig.PrivateKey.Clone(),
-			Prefix:                  u.FsConfig.SFTPConfig.Prefix,
-			DisableCouncurrentReads: u.FsConfig.SFTPConfig.DisableCouncurrentReads,
-		},
-	}
-	if len(u.FsConfig.SFTPConfig.Fingerprints) > 0 {
-		fsConfig.SFTPConfig.Fingerprints = make([]string, len(u.FsConfig.SFTPConfig.Fingerprints))
-		copy(fsConfig.SFTPConfig.Fingerprints, u.FsConfig.SFTPConfig.Fingerprints)
-	}
 
 	return User{
 		ID:                u.ID,
@@ -969,7 +1015,7 @@ func (u *User) getACopy() User {
 		ExpirationDate:    u.ExpirationDate,
 		LastLogin:         u.LastLogin,
 		Filters:           filters,
-		FsConfig:          fsConfig,
+		FsConfig:          u.FsConfig.GetACopy(),
 		AdditionalInfo:    u.AdditionalInfo,
 		Description:       u.Description,
 	}
@@ -986,6 +1032,12 @@ func (u *User) getNotificationFieldsAsSlice(action string) []string {
 	}
 }
 
-func (u *User) getGCSCredentialsFilePath() string {
+// GetEncrytionAdditionalData returns the additional data to use for AEAD
+func (u *User) GetEncrytionAdditionalData() string {
+	return u.Username
+}
+
+// GetGCSCredentialsFilePath returns the path for GCS credentials
+func (u *User) GetGCSCredentialsFilePath() string {
 	return filepath.Join(credentialsDirPath, fmt.Sprintf("%v_gcs_credentials.json", u.Username))
 }

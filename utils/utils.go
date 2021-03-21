@@ -312,18 +312,24 @@ func GenerateEd25519Keys(file string) error {
 	return os.WriteFile(file+".pub", ssh.MarshalAuthorizedKey(pub), 0600)
 }
 
-// GetDirsForSFTPPath returns all the directory for the given path in reverse order
+// GetDirsForVirtualPath returns all the directory for the given path in reverse order
 // for example if the path is: /1/2/3/4 it returns:
 // [ "/1/2/3/4", "/1/2/3", "/1/2", "/1", "/" ]
-func GetDirsForSFTPPath(p string) []string {
-	sftpPath := CleanPath(p)
-	dirsForPath := []string{sftpPath}
+func GetDirsForVirtualPath(virtualPath string) []string {
+	if virtualPath == "." {
+		virtualPath = "/"
+	} else {
+		if !path.IsAbs(virtualPath) {
+			virtualPath = CleanPath(virtualPath)
+		}
+	}
+	dirsForPath := []string{virtualPath}
 	for {
-		if sftpPath == "/" {
+		if virtualPath == "/" {
 			break
 		}
-		sftpPath = path.Dir(sftpPath)
-		dirsForPath = append(dirsForPath, sftpPath)
+		virtualPath = path.Dir(virtualPath)
+		dirsForPath = append(dirsForPath, virtualPath)
 	}
 	return dirsForPath
 }

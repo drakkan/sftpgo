@@ -110,7 +110,7 @@ func (t *transfer) ReadAt(p []byte, off int64) (n int, err error) {
 func (t *transfer) WriteAt(p []byte, off int64) (n int, err error) {
 	t.Connection.UpdateLastActivity()
 	if off < t.MinWriteOffset {
-		err := fmt.Errorf("Invalid write offset: %v minimum valid value: %v", off, t.MinWriteOffset)
+		err := fmt.Errorf("invalid write offset: %v minimum valid value: %v", off, t.MinWriteOffset)
 		t.TransferError(err)
 		return 0, err
 	}
@@ -143,7 +143,7 @@ func (t *transfer) Close() error {
 	if errBaseClose != nil {
 		err = errBaseClose
 	}
-	return t.Connection.GetFsError(err)
+	return t.Connection.GetFsError(t.Fs, err)
 }
 
 func (t *transfer) closeIO() error {

@@ -12,7 +12,7 @@ tags:
 info:
   title: SFTPGo
   description: SFTPGo REST API
-  version: 2.0.3
+  version: 2.0.4
   contact:
     url: 'https://github.com/drakkan/sftpgo'
   license:
@@ -483,7 +483,7 @@ paths:
       tags:
         - quota
       summary: Start folder quota scan
-      description: Starts a new quota scan for the given user. A quota scan update the number of files and their total size for the specified folder
+      description: Starts a new quota scan for the given folder. A quota scan update the number of files and their total size for the specified folder
       operationId: start_folder_quota_scan
       requestBody:
         required: true
@@ -1112,7 +1112,7 @@ paths:
               - 0
               - 1
           description: |
-            output_data:
+            output data:
               * `0` or any other value != 1, the backup will be saved to a file on the server, `output_file` is required
               * `1` the backup will be returned as response body
         - in: query
@@ -1336,6 +1336,19 @@ components:
         - manage_system
         - manage_defender
         - view_defender
+      description: |
+        Admin permissions:
+          * `*` - all permissions are granted
+          * `add_users` - add new users is allowed
+          * `edit_users` - change existing users is allowed
+          * `del_users` - remove users is allowed
+          * `view_users` - list users is allowed
+          * `view_conns` - list active connections is allowed
+          * `close_conns` - close active connections is allowed
+          * `view_status` - view the server status is allowed
+          * `manage_admins` - manage other admins is allowed
+          * `manage_defender` - remove ip from the dynamic blocklist is allowed
+          * `view_defender` - list the dynamic blocklist is allowed
     LoginMethods:
       type: string
       enum:
@@ -1347,13 +1360,25 @@ components:
         - TLSCertificate
         - TLSCertificate+password
       description: |
-        To enable multi-step authentication you have to allow only multi-step login methods
+        Available login methods. To enable multi-step authentication you have to allow only multi-step login methods
+          * `publickey`
+          * `password`
+          * `keyboard-interactive`
+          * `publickey+password` - multi-step auth: public key and password
+          * `publickey+keyboard-interactive` - multi-step auth: public key and keyboard interactive
+          * `TLSCertificate`
+          * `TLSCertificate+password` - multi-step auth: TLS client certificate and password
     SupportedProtocols:
       type: string
       enum:
         - SSH
         - FTP
         - DAV
+      description: |
+        Protocols:
+          * `SSH` - includes both SFTP and SSH commands
+          * `FTP` - plain FTP and FTPES/FTPS
+          * `DAV` - WebDAV over HTTP/HTTPS
     PatternsFilter:
       type: object
       properties:
@@ -1654,7 +1679,9 @@ components:
           items:
             type: string
           description: list of usernames associated with this virtual folder
-      description: defines the path for the virtual folder and the used quota limits. The same folder can be shared among multiple users and each user can have different quota limits or a different virtual path.
+        filesystem:
+          $ref: '#/components/schemas/FilesystemConfig'
+      description: Defines the filesystem for the virtual folder and the used quota limits. The same folder can be shared among multiple users and each user can have different quota limits or a different virtual path.
     VirtualFolder:
       allOf:
         - $ref: '#/components/schemas/BaseVirtualFolder'
@@ -1837,6 +1864,10 @@ components:
           enum:
             - upload
             - download
+          description: |
+            Operations:
+              * `upload`
+              * `download`
         path:
           type: string
           description: file path for the upload/download
@@ -1899,9 +1930,9 @@ components:
     FolderQuotaScan:
       type: object
       properties:
-        mapped_path:
+        name:
           type: string
-          description: path with an active scan
+          description: folder name with an active scan
         start_time:
           type: integer
           format: int64

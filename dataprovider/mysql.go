@@ -257,7 +257,7 @@ func (p *MySQLProvider) migrateDatabase() error {
 				sqlDatabaseVersion)
 			return nil
 		}
-		return fmt.Errorf("Database version not handled: %v", version)
+		return fmt.Errorf("database version not handled: %v", version)
 	}
 }
 
@@ -274,7 +274,7 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	case 9:
 		return downgradeMySQLDatabaseFromV9(p.dbHandle)
 	default:
-		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
+		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
 }
 

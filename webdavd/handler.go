@@ -57,11 +57,7 @@ func (c *Connection) Mkdir(ctx context.Context, name string, perm os.FileMode) e
 	c.UpdateLastActivity()
 
 	name = utils.CleanPath(name)
-	p, err := c.Fs.ResolvePath(name)
-	if err != nil {
-		return c.GetFsError(err)
-	}
-	return c.CreateDir(p, name)
+	return c.CreateDir(name)
 }
 
 // Rename renames a file or a directory
@@ -71,20 +67,10 @@ func (c *Connection) Rename(ctx context.Context, oldName, newName string) error 
 	oldName = utils.CleanPath(oldName)
 	newName = utils.CleanPath(newName)
 
-	p, err := c.Fs.ResolvePath(oldName)
-	if err != nil {
-		return c.GetFsError(err)
-	}
-	t, err := c.Fs.ResolvePath(newName)
-	if err != nil {
-		return c.GetFsError(err)
-	}
-
-	if err = c.BaseConnection.Rename(p, t, oldName, newName); err != nil {
+	if err := c.BaseConnection.Rename(oldName, newName); err != nil {
 		return err
 	}
 
-	vfs.SetPathPermissions(c.Fs, t, c.User.GetUID(), c.User.GetGID())
 	return nil
 }
 
@@ -98,14 +84,10 @@ func (c *Connection) Stat(ctx context.Context, name string) (os.FileInfo, error)
 		return nil, c.GetPermissionDeniedError()
 	}
 
-	p, err := c.Fs.ResolvePath(name)
+	fi, err := c.DoStat(name, 0)
 	if err != nil {
-		return nil, c.GetFsError(err)
-	}
-	fi, err := c.DoStat(p, 0)
-	if err != nil {
-		c.Log(logger.LevelDebug, "error running stat on path %#v: %+v", p, err)
-		return nil, c.GetFsError(err)
+		c.Log(logger.LevelDebug, "error running stat on path %#v: %+v", name, err)
+		return nil, err
 	}
 	return fi, err
 }
@@ -116,21 +98,21 @@ func (c *Connection) RemoveAll(ctx context.Context, name string) error {
 	c.UpdateLastActivity()
 
 	name = utils.CleanPath(name)
-	p, err := c.Fs.ResolvePath(name)
+	fs, p, err := c.GetFsAndResolvedPath(name)
 	if err != nil {
-		return c.GetFsError(err)
+		return err
 	}
 
 	var fi os.FileInfo
-	if fi, err = c.Fs.Lstat(p); err != nil {
-		c.Log(logger.LevelWarn, "failed to remove a file %#v: stat error: %+v", p, err)
-		return c.GetFsError(err)
+	if fi, err = fs.Lstat(p); err != nil {
+		c.Log(logger.LevelDebug, "failed to remove a file %#v: stat error: %+v", p, err)
+		return c.GetFsError(fs, err)
 	}
 
 	if fi.IsDir() && fi.Mode()&os.ModeSymlink == 0 {
-		return c.removeDirTree(p, name)
+		return c.removeDirTree(fs, p, name)
 	}
-	return c.RemoveFile(p, name, fi)
+	return c.RemoveFile(fs, p, name, fi)
 }
 
 // OpenFile opens the named file with specified flag.
@@ -139,19 +121,19 @@ func (c *Connection) OpenFile(ctx context.Context, name string, flag int, perm o
 	c.UpdateLastActivity()
 
 	name = utils.CleanPath(name)
-	p, err := c.Fs.ResolvePath(name)
+	fs, p, err := c.GetFsAndResolvedPath(name)
 	if err != nil {
-		return nil, c.GetFsError(err)
+		return nil, err
 	}
 
 	if flag == os.O_RDONLY || c.request.Method == "PROPPATCH" {
 		// Download, Stat, Readdir or simply open/close
-		return c.getFile(p, name)
+		return c.getFile(fs, p, name)
 	}
-	return c.putFile(p, name)
+	return c.putFile(fs, p, name)
 }
 
-func (c *Connection) getFile(fsPath, virtualPath string) (webdav.File, error) {
+func (c *Connection) getFile(fs vfs.Fs, fsPath, virtualPath string) (webdav.File, error) {
 	var err error
 	var file vfs.File
 	var r *pipeat.PipeReaderAt
@@ -159,42 +141,42 @@ func (c *Connection) getFile(fsPath, virtualPath string) (webdav.File, error) {
 
 	// for cloud fs we open the file when we receive the first read to avoid to download the first part of
 	// the file if it was opened only to do a stat or a readdir and so it is not a real download
-	if vfs.IsLocalOrSFTPFs(c.Fs) {
-		file, r, cancelFn, err = c.Fs.Open(fsPath, 0)
+	if vfs.IsLocalOrSFTPFs(fs) {
+		file, r, cancelFn, err = fs.Open(fsPath, 0)
 		if err != nil {
 			c.Log(logger.LevelWarn, "could not open file %#v for reading: %+v", fsPath, err)
-			return nil, c.GetFsError(err)
+			return nil, c.GetFsError(fs, err)
 		}
 	}
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, fsPath, virtualPath, common.TransferDownload,
-		0, 0, 0, false, c.Fs)
+		0, 0, 0, false, fs)
 
 	return newWebDavFile(baseTransfer, nil, r), nil
 }
 
-func (c *Connection) putFile(fsPath, virtualPath string) (webdav.File, error) {
+func (c *Connection) putFile(fs vfs.Fs, fsPath, virtualPath string) (webdav.File, error) {
 	if !c.User.IsFileAllowed(virtualPath) {
 		c.Log(logger.LevelWarn, "writing file %#v is not allowed", virtualPath)
 		return nil, c.GetPermissionDeniedError()
 	}
 
 	filePath := fsPath
-	if common.Config.IsAtomicUploadEnabled() && c.Fs.IsAtomicUploadSupported() {
-		filePath = c.Fs.GetAtomicUploadPath(fsPath)
+	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
+		filePath = fs.GetAtomicUploadPath(fsPath)
 	}
 
-	stat, statErr := c.Fs.Lstat(fsPath)
-	if (statErr == nil && stat.Mode()&os.ModeSymlink != 0) || c.Fs.IsNotExist(statErr) {
+	stat, statErr := fs.Lstat(fsPath)
+	if (statErr == nil && stat.Mode()&os.ModeSymlink != 0) || fs.IsNotExist(statErr) {
 		if !c.User.HasPerm(dataprovider.PermUpload, path.Dir(virtualPath)) {
 			return nil, c.GetPermissionDeniedError()
 		}
-		return c.handleUploadToNewFile(fsPath, filePath, virtualPath)
+		return c.handleUploadToNewFile(fs, fsPath, filePath, virtualPath)
 	}
 
 	if statErr != nil {
 		c.Log(logger.LevelError, "error performing file stat %#v: %+v", fsPath, statErr)
-		return nil, c.GetFsError(statErr)
+		return nil, c.GetFsError(fs, statErr)
 	}
 
 	// This happen if we upload a file that has the same name of an existing directory
@@ -207,33 +189,33 @@ func (c *Connection) putFile(fsPath, virtualPath string) (webdav.File, error) {
 		return nil, c.GetPermissionDeniedError()
 	}
 
-	return c.handleUploadToExistingFile(fsPath, filePath, stat.Size(), virtualPath)
+	return c.handleUploadToExistingFile(fs, fsPath, filePath, stat.Size(), virtualPath)
 }
 
-func (c *Connection) handleUploadToNewFile(resolvedPath, filePath, requestPath string) (webdav.File, error) {
+func (c *Connection) handleUploadToNewFile(fs vfs.Fs, resolvedPath, filePath, requestPath string) (webdav.File, error) {
 	quotaResult := c.HasSpace(true, false, requestPath)
 	if !quotaResult.HasSpace {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, common.ErrQuotaExceeded
 	}
-	file, w, cancelFn, err := c.Fs.Create(filePath, 0)
+	file, w, cancelFn, err := fs.Create(filePath, 0)
 	if err != nil {
 		c.Log(logger.LevelWarn, "error creating file %#v: %+v", resolvedPath, err)
-		return nil, c.GetFsError(err)
+		return nil, c.GetFsError(fs, err)
 	}
 
-	vfs.SetPathPermissions(c.Fs, filePath, c.User.GetUID(), c.User.GetGID())
+	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	// we can get an error only for resume
-	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, 0)
+	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, 0, fs.IsUploadResumeSupported())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
-		common.TransferUpload, 0, 0, maxWriteSize, true, c.Fs)
+		common.TransferUpload, 0, 0, maxWriteSize, true, fs)
 
 	return newWebDavFile(baseTransfer, w, nil), nil
 }
 
-func (c *Connection) handleUploadToExistingFile(resolvedPath, filePath string, fileSize int64,
+func (c *Connection) handleUploadToExistingFile(fs vfs.Fs, resolvedPath, filePath string, fileSize int64,
 	requestPath string) (webdav.File, error) {
 	var err error
 	quotaResult := c.HasSpace(false, false, requestPath)
@@ -244,24 +226,24 @@ func (c *Connection) handleUploadToExistingFile(resolvedPath, filePath string, f
 
 	// if there is a size limit remaining size cannot be 0 here, since quotaResult.HasSpace
 	// will return false in this case and we deny the upload before
-	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, fileSize)
+	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, fileSize, fs.IsUploadResumeSupported())
 
-	if common.Config.IsAtomicUploadEnabled() && c.Fs.IsAtomicUploadSupported() {
-		err = c.Fs.Rename(resolvedPath, filePath)
+	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
+		err = fs.Rename(resolvedPath, filePath)
 		if err != nil {
 			c.Log(logger.LevelWarn, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %+v",
 				resolvedPath, filePath, err)
-			return nil, c.GetFsError(err)
+			return nil, c.GetFsError(fs, err)
 		}
 	}
 
-	file, w, cancelFn, err := c.Fs.Create(filePath, 0)
+	file, w, cancelFn, err := fs.Create(filePath, 0)
 	if err != nil {
 		c.Log(logger.LevelWarn, "error creating file %#v: %+v", resolvedPath, err)
-		return nil, c.GetFsError(err)
+		return nil, c.GetFsError(fs, err)
 	}
 	initialSize := int64(0)
-	if vfs.IsLocalOrSFTPFs(c.Fs) {
+	if vfs.IsLocalOrSFTPFs(fs) {
 		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 		if err == nil {
 			dataprovider.UpdateVirtualFolderQuota(&vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck
@@ -275,10 +257,10 @@ func (c *Connection) handleUploadToExistingFile(resolvedPath, filePath string, f
 		initialSize = fileSize
 	}
 
-	vfs.SetPathPermissions(c.Fs, filePath, c.User.GetUID(), c.User.GetGID())
+	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
-		common.TransferUpload, 0, initialSize, maxWriteSize, false, c.Fs)
+		common.TransferUpload, 0, initialSize, maxWriteSize, false, fs)
 
 	return newWebDavFile(baseTransfer, w, nil), nil
 }
@@ -289,22 +271,22 @@ type objectMapping struct {
 	info        os.FileInfo
 }
 
-func (c *Connection) removeDirTree(fsPath, virtualPath string) error {
+func (c *Connection) removeDirTree(fs vfs.Fs, fsPath, virtualPath string) error {
 	var dirsToRemove []objectMapping
 	var filesToRemove []objectMapping
 
-	err := c.Fs.Walk(fsPath, func(walkedPath string, info os.FileInfo, err error) error {
+	err := fs.Walk(fsPath, func(walkedPath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
 		obj := objectMapping{
 			fsPath:      walkedPath,
-			virtualPath: c.Fs.GetRelativePath(walkedPath),
+			virtualPath: fs.GetRelativePath(walkedPath),
 			info:        info,
 		}
 		if info.IsDir() {
-			err = c.IsRemoveDirAllowed(obj.fsPath, obj.virtualPath)
+			err = c.IsRemoveDirAllowed(fs, obj.fsPath, obj.virtualPath)
 			isDuplicated := false
 			for _, d := range dirsToRemove {
 				if d.fsPath == obj.fsPath {
@@ -316,7 +298,7 @@ func (c *Connection) removeDirTree(fsPath, virtualPath string) error {
 				dirsToRemove = append(dirsToRemove, obj)
 			}
 		} else {
-			err = c.IsRemoveFileAllowed(obj.fsPath, obj.virtualPath)
+			err = c.IsRemoveFileAllowed(obj.virtualPath)
 			filesToRemove = append(filesToRemove, obj)
 		}
 		if err != nil {
@@ -333,7 +315,7 @@ func (c *Connection) removeDirTree(fsPath, virtualPath string) error {
 	}
 
 	for _, fileObj := range filesToRemove {
-		err = c.RemoveFile(fileObj.fsPath, fileObj.virtualPath, fileObj.info)
+		err = c.RemoveFile(fs, fileObj.fsPath, fileObj.virtualPath, fileObj.info)
 		if err != nil {
 			c.Log(logger.LevelDebug, "unable to remove dir tree, error removing file %#v->%#v: %v",
 				fileObj.virtualPath, fileObj.fsPath, err)
@@ -341,8 +323,8 @@ func (c *Connection) removeDirTree(fsPath, virtualPath string) error {
 		}
 	}
 
-	for _, dirObj := range c.orderDirsToRemove(dirsToRemove) {
-		err = c.RemoveDir(dirObj.fsPath, dirObj.virtualPath)
+	for _, dirObj := range c.orderDirsToRemove(fs, dirsToRemove) {
+		err = c.RemoveDir(dirObj.virtualPath)
 		if err != nil {
 			c.Log(logger.LevelDebug, "unable to remove dir tree, error removing directory %#v->%#v: %v",
 				dirObj.virtualPath, dirObj.fsPath, err)
@@ -354,12 +336,12 @@ func (c *Connection) removeDirTree(fsPath, virtualPath string) error {
 }
 
 // order directories so that the empty ones will be at slice start
-func (c *Connection) orderDirsToRemove(dirsToRemove []objectMapping) []objectMapping {
+func (c *Connection) orderDirsToRemove(fs vfs.Fs, dirsToRemove []objectMapping) []objectMapping {
 	orderedDirs := make([]objectMapping, 0, len(dirsToRemove))
 	removedDirs := make([]string, 0, len(dirsToRemove))
 
 	pathSeparator := "/"
-	if vfs.IsLocalOsFs(c.Fs) {
+	if vfs.IsLocalOsFs(fs) {
 		pathSeparator = string(os.PathSeparator)
 	}
 

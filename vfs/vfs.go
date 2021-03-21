@@ -27,7 +27,20 @@ var (
 	validAzAccessTier = []string{"", "Archive", "Hot", "Cool"}
 	// ErrStorageSizeUnavailable is returned if the storage backend does not support getting the size
 	ErrStorageSizeUnavailable = errors.New("unable to get available size for this storage backend")
+	// ErrVfsUnsupported defines the error for an unsupported VFS operation
+	ErrVfsUnsupported  = errors.New("not supported")
+	credentialsDirPath string
 )
+
+// SetCredentialsDirPath sets the credentials dir path
+func SetCredentialsDirPath(credentialsPath string) {
+	credentialsDirPath = credentialsPath
+}
+
+// GetCredentialsDirPath returns the credentials dir path
+func GetCredentialsDirPath() string {
+	return credentialsDirPath
+}
 
 // Fs defines the interface for filesystem backends
 type Fs interface {
@@ -40,6 +53,7 @@ type Fs interface {
 	Rename(source, target string) error
 	Remove(name string, isDir bool) error
 	Mkdir(name string) error
+	MkdirAll(name string, uid int, gid int) error
 	Symlink(source, target string) error
 	Chown(name string, uid int, gid int) error
 	Chmod(name string, mode os.FileMode) error
@@ -78,9 +92,6 @@ type File interface {
 	Name() string
 	Truncate(size int64) error
 }
-
-// ErrVfsUnsupported defines the error for an unsupported VFS operation
-var ErrVfsUnsupported = errors.New("Not supported")
 
 // QuotaCheckResult defines the result for a quota check
 type QuotaCheckResult struct {
@@ -436,6 +447,11 @@ func IsSFTPFs(fs Fs) bool {
 // IsLocalOrSFTPFs returns true if fs is local or SFTP
 func IsLocalOrSFTPFs(fs Fs) bool {
 	return IsLocalOsFs(fs) || IsSFTPFs(fs)
+}
+
+// IsLocalOrCryptoFs returns true if fs is local or local encrypted
+func IsLocalOrCryptoFs(fs Fs) bool {
+	return IsLocalOsFs(fs) || IsCryptOsFs(fs)
 }
 
 // SetPathPermissions calls fs.Chown.

@@ -299,7 +299,7 @@ func TestGCSWebInvalidFormFile(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	err := req.ParseForm()
 	assert.NoError(t, err)
-	_, err = getFsConfigFromUserPostFields(req)
+	_, err = getFsConfigFromPostFields(req)
 	assert.EqualError(t, err, http.ErrNotMultipart.Error())
 }
 
@@ -373,7 +373,7 @@ func TestCSRFToken(t *testing.T) {
 	// invalid token
 	err := verifyCSRFToken("token")
 	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "Unable to verify form token")
+		assert.Contains(t, err.Error(), "unable to verify form token")
 	}
 	// bad audience
 	claims := make(map[string]interface{})
@@ -403,7 +403,7 @@ func TestCSRFToken(t *testing.T) {
 	rr = httptest.NewRecorder()
 	fn.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
-	assert.Contains(t, rr.Body.String(), "The token is not valid")
+	assert.Contains(t, rr.Body.String(), "the token is not valid")
 
 	csrfTokenAuth = jwtauth.New("PS256", utils.GenerateRandomBytes(32), nil)
 	tokenString = createCSRFToken()
@@ -682,8 +682,8 @@ func TestQuotaScanInvalidFs(t *testing.T) {
 	user := dataprovider.User{
 		Username: "test",
 		HomeDir:  os.TempDir(),
-		FsConfig: dataprovider.Filesystem{
-			Provider: dataprovider.S3FilesystemProvider,
+		FsConfig: vfs.Filesystem{
+			Provider: vfs.S3FilesystemProvider,
 		},
 	}
 	common.QuotaScans.AddUserQuotaScan(user.Username)
@@ -754,6 +754,44 @@ func TestVerifyTLSConnection(t *testing.T) {
 	certMgr = oldCertMgr
 }
 
+func TestGetFolderFromTemplate(t *testing.T) {
+	folder := vfs.BaseVirtualFolder{
+		MappedPath:  "Folder%name%",
+		Description: "Folder %name% desc",
+	}
+	folderName := "folderTemplate"
+	folderTemplate := getFolderFromTemplate(folder, folderName)
+	require.Equal(t, folderName, folderTemplate.Name)
+	require.Equal(t, fmt.Sprintf("Folder%v", folderName), folderTemplate.MappedPath)
+	require.Equal(t, fmt.Sprintf("Folder %v desc", folderName), folderTemplate.Description)
+
+	folder.FsConfig.Provider = vfs.CryptedFilesystemProvider
+	folder.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("%name%")
+	folderTemplate = getFolderFromTemplate(folder, folderName)
+	require.Equal(t, folderName, folderTemplate.FsConfig.CryptConfig.Passphrase.GetPayload())
+
+	folder.FsConfig.Provider = vfs.GCSFilesystemProvider
+	folder.FsConfig.GCSConfig.KeyPrefix = "prefix%name%/"
+	folderTemplate = getFolderFromTemplate(folder, folderName)
+	require.Equal(t, fmt.Sprintf("prefix%v/", folderName), folderTemplate.FsConfig.GCSConfig.KeyPrefix)
+
+	folder.FsConfig.Provider = vfs.AzureBlobFilesystemProvider
+	folder.FsConfig.AzBlobConfig.KeyPrefix = "a%name%"
+	folder.FsConfig.AzBlobConfig.AccountKey = kms.NewPlainSecret("pwd%name%")
+	folderTemplate = getFolderFromTemplate(folder, folderName)
+	require.Equal(t, "a"+folderName, folderTemplate.FsConfig.AzBlobConfig.KeyPrefix)
+	require.Equal(t, "pwd"+folderName, folderTemplate.FsConfig.AzBlobConfig.AccountKey.GetPayload())
+
+	folder.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	folder.FsConfig.SFTPConfig.Prefix = "%name%"
+	folder.FsConfig.SFTPConfig.Username = "sftp_%name%"
+	folder.FsConfig.SFTPConfig.Password = kms.NewPlainSecret("sftp%name%")
+	folderTemplate = getFolderFromTemplate(folder, folderName)
+	require.Equal(t, folderName, folderTemplate.FsConfig.SFTPConfig.Prefix)
+	require.Equal(t, "sftp_"+folderName, folderTemplate.FsConfig.SFTPConfig.Username)
+	require.Equal(t, "sftp"+folderName, folderTemplate.FsConfig.SFTPConfig.Password.GetPayload())
+}
+
 func TestGetUserFromTemplate(t *testing.T) {
 	user := dataprovider.User{
 		Status: 1,
@@ -775,24 +813,24 @@ func TestGetUserFromTemplate(t *testing.T) {
 	require.Len(t, userTemplate.VirtualFolders, 1)
 	require.Equal(t, "Folder"+username, userTemplate.VirtualFolders[0].Name)
 
-	user.FsConfig.Provider = dataprovider.CryptedFilesystemProvider
+	user.FsConfig.Provider = vfs.CryptedFilesystemProvider
 	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("%password%")
 	userTemplate = getUserFromTemplate(user, templateFields)
 	require.Equal(t, password, userTemplate.FsConfig.CryptConfig.Passphrase.GetPayload())
 
-	user.FsConfig.Provider = dataprovider.GCSFilesystemProvider
+	user.FsConfig.Provider = vfs.GCSFilesystemProvider
 	user.FsConfig.GCSConfig.KeyPrefix = "%username%%password%"
 	userTemplate = getUserFromTemplate(user, templateFields)
 	require.Equal(t, username+password, userTemplate.FsConfig.GCSConfig.KeyPrefix)
 
-	user.FsConfig.Provider = dataprovider.AzureBlobFilesystemProvider
+	user.FsConfig.Provider = vfs.AzureBlobFilesystemProvider
 	user.FsConfig.AzBlobConfig.KeyPrefix = "a%username%"
 	user.FsConfig.AzBlobConfig.AccountKey = kms.NewPlainSecret("pwd%password%%username%")
 	userTemplate = getUserFromTemplate(user, templateFields)
 	require.Equal(t, "a"+username, userTemplate.FsConfig.AzBlobConfig.KeyPrefix)
 	require.Equal(t, "pwd"+password+username, userTemplate.FsConfig.AzBlobConfig.AccountKey.GetPayload())
 
-	user.FsConfig.Provider = dataprovider.SFTPFilesystemProvider
+	user.FsConfig.Provider = vfs.SFTPFilesystemProvider
 	user.FsConfig.SFTPConfig.Prefix = "%username%"
 	user.FsConfig.SFTPConfig.Username = "sftp_%username%"
 	user.FsConfig.SFTPConfig.Password = kms.NewPlainSecret("sftp%password%")

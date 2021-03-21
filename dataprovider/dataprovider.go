@@ -105,7 +105,7 @@ var (
 	// ValidProtocols defines all the valid protcols
 	ValidProtocols = []string{"SSH", "FTP", "DAV"}
 	// ErrNoInitRequired defines the error returned by InitProvider if no inizialization/update is required
-	ErrNoInitRequired = errors.New("The data provider is up to date")
+	ErrNoInitRequired = errors.New("the data provider is up to date")
 	// ErrInvalidCredentials defines the error to return if the supplied credentials are invalid
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	validTLSUsernames     = []string{string(TLSUsernameNone), string(TLSUsernameCN)}
@@ -410,6 +410,11 @@ type Provider interface {
 	revertDatabase(targetVersion int) error
 }
 
+type fsValidatorHelper interface {
+	GetGCSCredentialsFilePath() string
+	GetEncrytionAdditionalData() string
+}
+
 // Initialize the data provider.
 // An error is returned if the configured driver is invalid or if the data provider cannot be initialized
 func Initialize(cnf Config, basePath string, checkAdmins bool) error {
@@ -421,6 +426,7 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 	} else {
 		credentialsDirPath = filepath.Join(basePath, config.CredentialsPath)
 	}
+	vfs.SetCredentialsDirPath(credentialsDirPath)
 
 	if err = validateHooks(); err != nil {
 		return err
@@ -498,7 +504,7 @@ func validateSQLTablesPrefix() error {
 	if len(config.SQLTablesPrefix) > 0 {
 		for _, char := range config.SQLTablesPrefix {
 			if !strings.Contains(sqlPrefixValidChars, strings.ToLower(string(char))) {
-				return errors.New("Invalid sql_tables_prefix only chars in range 'a..z', 'A..Z' and '_' are allowed")
+				return errors.New("invalid sql_tables_prefix only chars in range 'a..z', 'A..Z' and '_' are allowed")
 			}
 		}
 		sqlTableUsers = config.SQLTablesPrefix + sqlTableUsers
@@ -583,7 +589,7 @@ func CheckCachedUserCredentials(user *CachedUser, password, loginMethod, protoco
 		}
 		if loginMethod == LoginMethodTLSCertificate {
 			if !user.User.IsLoginMethodAllowed(LoginMethodTLSCertificate, nil) {
-				return fmt.Errorf("Certificate login method is not allowed for user %#v", user.User.Username)
+				return fmt.Errorf("certificate login method is not allowed for user %#v", user.User.Username)
 			}
 			return nil
 		}
@@ -628,7 +634,7 @@ func CheckCompositeCredentials(username, password, ip, loginMethod, protocol str
 		return user, loginMethod, err
 	}
 	if loginMethod == LoginMethodTLSCertificate && !user.IsLoginMethodAllowed(LoginMethodTLSCertificate, nil) {
-		return user, loginMethod, fmt.Errorf("Certificate login method is not allowed for user %#v", user.Username)
+		return user, loginMethod, fmt.Errorf("certificate login method is not allowed for user %#v", user.Username)
 	}
 	if loginMethod == LoginMethodTLSCertificateAndPwd {
 		if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&1 != 0) {
@@ -876,8 +882,14 @@ func AddFolder(folder *vfs.BaseVirtualFolder) error {
 }
 
 // UpdateFolder updates the specified virtual folder
-func UpdateFolder(folder *vfs.BaseVirtualFolder) error {
-	return provider.updateFolder(folder)
+func UpdateFolder(folder *vfs.BaseVirtualFolder, users []string) error {
+	err := provider.updateFolder(folder)
+	if err == nil {
+		for _, user := range users {
+			RemoveCachedWebDAVUser(user)
+		}
+	}
+	return err
 }
 
 // DeleteFolder deletes an existing folder.
@@ -886,7 +898,13 @@ func DeleteFolder(folderName string) error {
 	if err != nil {
 		return err
 	}
-	return provider.deleteFolder(&folder)
+	err = provider.deleteFolder(&folder)
+	if err == nil {
+		for _, user := range folder.Users {
+			RemoveCachedWebDAVUser(user)
+		}
+	}
+	return err
 }
 
 // GetFolderByName returns the folder with the specified name if any
@@ -981,41 +999,45 @@ func buildUserHomeDir(user *User) {
 	if user.HomeDir == "" {
 		if config.UsersBaseDir != "" {
 			user.HomeDir = filepath.Join(config.UsersBaseDir, user.Username)
-		} else if user.FsConfig.Provider == SFTPFilesystemProvider {
+		} else if user.FsConfig.Provider == vfs.SFTPFilesystemProvider {
 			user.HomeDir = filepath.Join(os.TempDir(), user.Username)
 		}
 	}
 }
 
-func isVirtualDirOverlapped(dir1, dir2 string) bool {
+func isVirtualDirOverlapped(dir1, dir2 string, fullCheck bool) bool {
 	if dir1 == dir2 {
 		return true
 	}
-	if len(dir1) > len(dir2) {
-		if strings.HasPrefix(dir1, dir2+"/") {
-			return true
+	if fullCheck {
+		if len(dir1) > len(dir2) {
+			if strings.HasPrefix(dir1, dir2+"/") {
+				return true
+			}
 		}
-	}
-	if len(dir2) > len(dir1) {
-		if strings.HasPrefix(dir2, dir1+"/") {
-			return true
+		if len(dir2) > len(dir1) {
+			if strings.HasPrefix(dir2, dir1+"/") {
+				return true
+			}
 		}
 	}
 	return false
 }
 
-func isMappedDirOverlapped(dir1, dir2 string) bool {
+func isMappedDirOverlapped(dir1, dir2 string, fullCheck bool) bool {
 	if dir1 == dir2 {
 		return true
 	}
-	if len(dir1) > len(dir2) {
-		if strings.HasPrefix(dir1, dir2+string(os.PathSeparator)) {
-			return true
+	if fullCheck {
+		if len(dir1) > len(dir2) {
+			if strings.HasPrefix(dir1, dir2+string(os.PathSeparator)) {
+				return true
+			}
 		}
-	}
-	if len(dir2) > len(dir1) {
-		if strings.HasPrefix(dir2, dir1+string(os.PathSeparator)) {
-			return true
+		if len(dir2) > len(dir1) {
+			if strings.HasPrefix(dir2, dir1+string(os.PathSeparator)) {
+				return true
+			}
 		}
 	}
 	return false
@@ -1046,19 +1068,33 @@ func getVirtualFolderIfInvalid(folder *vfs.BaseVirtualFolder) *vfs.BaseVirtualFo
 	if folder.Name == "" {
 		return folder
 	}
+	if folder.FsConfig.Provider != vfs.LocalFilesystemProvider {
+		return folder
+	}
 	if f, err := GetFolderByName(folder.Name); err == nil {
 		return &f
 	}
 	return folder
 }
 
+func hasSFTPLoopForFolder(user *User, folder *vfs.BaseVirtualFolder) bool {
+	if folder.FsConfig.Provider == vfs.SFTPFilesystemProvider {
+		// FIXME: this could be inaccurate, it is not easy to check the endpoint too
+		if folder.FsConfig.SFTPConfig.Username == user.Username {
+			return true
+		}
+	}
+	return false
+}
+
 func validateUserVirtualFolders(user *User) error {
-	if len(user.VirtualFolders) == 0 || user.FsConfig.Provider != LocalFilesystemProvider {
+	if len(user.VirtualFolders) == 0 {
 		user.VirtualFolders = []vfs.VirtualFolder{}
 		return nil
 	}
 	var virtualFolders []vfs.VirtualFolder
-	mappedPaths := make(map[string]string)
+	mappedPaths := make(map[string]bool)
+	virtualPaths := make(map[string]bool)
 	for _, v := range user.VirtualFolders {
 		cleanedVPath := filepath.ToSlash(path.Clean(v.VirtualPath))
 		if !path.IsAbs(cleanedVPath) || cleanedVPath == "/" {
@@ -1071,34 +1107,37 @@ func validateUserVirtualFolders(user *User) error {
 		if err := ValidateFolder(folder); err != nil {
 			return err
 		}
-		cleanedMPath := folder.MappedPath
-		if isMappedDirOverlapped(cleanedMPath, user.GetHomeDir()) {
-			return &ValidationError{err: fmt.Sprintf("invalid mapped folder %#v cannot be inside or contain the user home dir %#v",
-				folder.MappedPath, user.GetHomeDir())}
+		if hasSFTPLoopForFolder(user, folder) {
+			return &ValidationError{err: fmt.Sprintf("SFTP folder %#v could point to the same SFTPGo account, this is not allowed",
+				folder.Name)}
 		}
+		cleanedMPath := folder.MappedPath
+		if folder.IsLocalOrLocalCrypted() {
+			if isMappedDirOverlapped(cleanedMPath, user.GetHomeDir(), true) {
+				return &ValidationError{err: fmt.Sprintf("invalid mapped folder %#v cannot be inside or contain the user home dir %#v",
+					folder.MappedPath, user.GetHomeDir())}
+			}
+			for mPath := range mappedPaths {
+				if folder.IsLocalOrLocalCrypted() && isMappedDirOverlapped(mPath, cleanedMPath, false) {
+					return &ValidationError{err: fmt.Sprintf("invalid mapped folder %#v overlaps with mapped folder %#v",
+						v.MappedPath, mPath)}
+				}
+			}
+			mappedPaths[cleanedMPath] = true
+		}
+		for vPath := range virtualPaths {
+			if isVirtualDirOverlapped(vPath, cleanedVPath, false) {
+				return &ValidationError{err: fmt.Sprintf("invalid virtual folder %#v overlaps with virtual folder %#v",
+					v.VirtualPath, vPath)}
+			}
+		}
+		virtualPaths[cleanedVPath] = true
 		virtualFolders = append(virtualFolders, vfs.VirtualFolder{
 			BaseVirtualFolder: *folder,
 			VirtualPath:       cleanedVPath,
 			QuotaSize:         v.QuotaSize,
 			QuotaFiles:        v.QuotaFiles,
 		})
-		for k, virtual := range mappedPaths {
-			if GetQuotaTracking() > 0 {
-				if isMappedDirOverlapped(k, cleanedMPath) {
-					return &ValidationError{err: fmt.Sprintf("invalid mapped folder %#v overlaps with mapped folder %#v",
-						v.MappedPath, k)}
-				}
-			} else {
-				if k == cleanedMPath {
-					return &ValidationError{err: fmt.Sprintf("duplicated mapped folder %#v", v.MappedPath)}
-				}
-			}
-			if isVirtualDirOverlapped(virtual, cleanedVPath) {
-				return &ValidationError{err: fmt.Sprintf("invalid virtual folder %#v overlaps with virtual folder %#v",
-					v.VirtualPath, virtual)}
-			}
-		}
-		mappedPaths[cleanedMPath] = cleanedVPath
 	}
 	user.VirtualFolders = virtualFolders
 	return nil
@@ -1297,35 +1336,35 @@ func validateFilters(user *User) error {
 	return validateFileFilters(user)
 }
 
-func saveGCSCredentials(user *User) error {
-	if user.FsConfig.Provider != GCSFilesystemProvider {
+func saveGCSCredentials(fsConfig *vfs.Filesystem, helper fsValidatorHelper) error {
+	if fsConfig.Provider != vfs.GCSFilesystemProvider {
 		return nil
 	}
-	if user.FsConfig.GCSConfig.Credentials.GetPayload() == "" {
+	if fsConfig.GCSConfig.Credentials.GetPayload() == "" {
 		return nil
 	}
 	if config.PreferDatabaseCredentials {
-		if user.FsConfig.GCSConfig.Credentials.IsPlain() {
-			user.FsConfig.GCSConfig.Credentials.SetAdditionalData(user.Username)
-			err := user.FsConfig.GCSConfig.Credentials.Encrypt()
+		if fsConfig.GCSConfig.Credentials.IsPlain() {
+			fsConfig.GCSConfig.Credentials.SetAdditionalData(helper.GetEncrytionAdditionalData())
+			err := fsConfig.GCSConfig.Credentials.Encrypt()
 			if err != nil {
 				return err
 			}
 		}
 		return nil
 	}
-	if user.FsConfig.GCSConfig.Credentials.IsPlain() {
-		user.FsConfig.GCSConfig.Credentials.SetAdditionalData(user.Username)
-		err := user.FsConfig.GCSConfig.Credentials.Encrypt()
+	if fsConfig.GCSConfig.Credentials.IsPlain() {
+		fsConfig.GCSConfig.Credentials.SetAdditionalData(helper.GetEncrytionAdditionalData())
+		err := fsConfig.GCSConfig.Credentials.Encrypt()
 		if err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not encrypt GCS credentials: %v", err)}
 		}
 	}
-	creds, err := json.Marshal(user.FsConfig.GCSConfig.Credentials)
+	creds, err := json.Marshal(fsConfig.GCSConfig.Credentials)
 	if err != nil {
 		return &ValidationError{err: fmt.Sprintf("could not marshal GCS credentials: %v", err)}
 	}
-	credentialsFilePath := user.getGCSCredentialsFilePath()
+	credentialsFilePath := helper.GetGCSCredentialsFilePath()
 	err = os.MkdirAll(filepath.Dir(credentialsFilePath), 0700)
 	if err != nil {
 		return &ValidationError{err: fmt.Sprintf("could not create GCS credentials dir: %v", err)}
@@ -1334,75 +1373,75 @@ func saveGCSCredentials(user *User) error {
 	if err != nil {
 		return &ValidationError{err: fmt.Sprintf("could not save GCS credentials: %v", err)}
 	}
-	user.FsConfig.GCSConfig.Credentials = kms.NewEmptySecret()
+	fsConfig.GCSConfig.Credentials = kms.NewEmptySecret()
 	return nil
 }
 
-func validateFilesystemConfig(user *User) error {
-	if user.FsConfig.Provider == S3FilesystemProvider {
-		if err := user.FsConfig.S3Config.Validate(); err != nil {
+func validateFilesystemConfig(fsConfig *vfs.Filesystem, helper fsValidatorHelper) error {
+	if fsConfig.Provider == vfs.S3FilesystemProvider {
+		if err := fsConfig.S3Config.Validate(); err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not validate s3config: %v", err)}
 		}
-		if err := user.FsConfig.S3Config.EncryptCredentials(user.Username); err != nil {
+		if err := fsConfig.S3Config.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not encrypt s3 access secret: %v", err)}
 		}
-		user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
-		user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
-		user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
-		user.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
+		fsConfig.GCSConfig = vfs.GCSFsConfig{}
+		fsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
+		fsConfig.CryptConfig = vfs.CryptFsConfig{}
+		fsConfig.SFTPConfig = vfs.SFTPFsConfig{}
 		return nil
-	} else if user.FsConfig.Provider == GCSFilesystemProvider {
-		if err := user.FsConfig.GCSConfig.Validate(user.getGCSCredentialsFilePath()); err != nil {
+	} else if fsConfig.Provider == vfs.GCSFilesystemProvider {
+		if err := fsConfig.GCSConfig.Validate(helper.GetGCSCredentialsFilePath()); err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not validate GCS config: %v", err)}
 		}
-		user.FsConfig.S3Config = vfs.S3FsConfig{}
-		user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
-		user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
-		user.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
+		fsConfig.S3Config = vfs.S3FsConfig{}
+		fsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
+		fsConfig.CryptConfig = vfs.CryptFsConfig{}
+		fsConfig.SFTPConfig = vfs.SFTPFsConfig{}
 		return nil
-	} else if user.FsConfig.Provider == AzureBlobFilesystemProvider {
-		if err := user.FsConfig.AzBlobConfig.Validate(); err != nil {
+	} else if fsConfig.Provider == vfs.AzureBlobFilesystemProvider {
+		if err := fsConfig.AzBlobConfig.Validate(); err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not validate Azure Blob config: %v", err)}
 		}
-		if err := user.FsConfig.AzBlobConfig.EncryptCredentials(user.Username); err != nil {
+		if err := fsConfig.AzBlobConfig.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not encrypt Azure blob account key: %v", err)}
 		}
-		user.FsConfig.S3Config = vfs.S3FsConfig{}
-		user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
-		user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
-		user.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
+		fsConfig.S3Config = vfs.S3FsConfig{}
+		fsConfig.GCSConfig = vfs.GCSFsConfig{}
+		fsConfig.CryptConfig = vfs.CryptFsConfig{}
+		fsConfig.SFTPConfig = vfs.SFTPFsConfig{}
 		return nil
-	} else if user.FsConfig.Provider == CryptedFilesystemProvider {
-		if err := user.FsConfig.CryptConfig.Validate(); err != nil {
+	} else if fsConfig.Provider == vfs.CryptedFilesystemProvider {
+		if err := fsConfig.CryptConfig.Validate(); err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not validate Crypt fs config: %v", err)}
 		}
-		if err := user.FsConfig.CryptConfig.EncryptCredentials(user.Username); err != nil {
+		if err := fsConfig.CryptConfig.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not encrypt Crypt fs passphrase: %v", err)}
 		}
-		user.FsConfig.S3Config = vfs.S3FsConfig{}
-		user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
-		user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
-		user.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
+		fsConfig.S3Config = vfs.S3FsConfig{}
+		fsConfig.GCSConfig = vfs.GCSFsConfig{}
+		fsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
+		fsConfig.SFTPConfig = vfs.SFTPFsConfig{}
 		return nil
-	} else if user.FsConfig.Provider == SFTPFilesystemProvider {
-		if err := user.FsConfig.SFTPConfig.Validate(); err != nil {
+	} else if fsConfig.Provider == vfs.SFTPFilesystemProvider {
+		if err := fsConfig.SFTPConfig.Validate(); err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not validate SFTP fs config: %v", err)}
 		}
-		if err := user.FsConfig.SFTPConfig.EncryptCredentials(user.Username); err != nil {
+		if err := fsConfig.SFTPConfig.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not encrypt SFTP fs credentials: %v", err)}
 		}
-		user.FsConfig.S3Config = vfs.S3FsConfig{}
-		user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
-		user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
-		user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
+		fsConfig.S3Config = vfs.S3FsConfig{}
+		fsConfig.GCSConfig = vfs.GCSFsConfig{}
+		fsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
+		fsConfig.CryptConfig = vfs.CryptFsConfig{}
 		return nil
 	}
-	user.FsConfig.Provider = LocalFilesystemProvider
-	user.FsConfig.S3Config = vfs.S3FsConfig{}
-	user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
-	user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
-	user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
-	user.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
+	fsConfig.Provider = vfs.LocalFilesystemProvider
+	fsConfig.S3Config = vfs.S3FsConfig{}
+	fsConfig.GCSConfig = vfs.GCSFsConfig{}
+	fsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
+	fsConfig.CryptConfig = vfs.CryptFsConfig{}
+	fsConfig.SFTPConfig = vfs.SFTPFsConfig{}
 	return nil
 }
 
@@ -1447,11 +1486,23 @@ func ValidateFolder(folder *vfs.BaseVirtualFolder) error {
 		return &ValidationError{err: fmt.Sprintf("folder name %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
 			folder.Name)}
 	}
-	cleanedMPath := filepath.Clean(folder.MappedPath)
-	if !filepath.IsAbs(cleanedMPath) {
-		return &ValidationError{err: fmt.Sprintf("invalid folder mapped path %#v", folder.MappedPath)}
+	if folder.FsConfig.Provider == vfs.LocalFilesystemProvider || folder.FsConfig.Provider == vfs.CryptedFilesystemProvider ||
+		folder.MappedPath != "" {
+		cleanedMPath := filepath.Clean(folder.MappedPath)
+		if !filepath.IsAbs(cleanedMPath) {
+			return &ValidationError{err: fmt.Sprintf("invalid folder mapped path %#v", folder.MappedPath)}
+		}
+		folder.MappedPath = cleanedMPath
 	}
-	folder.MappedPath = cleanedMPath
+	if folder.HasRedactedSecret() {
+		return errors.New("cannot save a folder with a redacted secret")
+	}
+	if err := validateFilesystemConfig(&folder.FsConfig, folder); err != nil {
+		return err
+	}
+	if err := saveGCSCredentials(&folder.FsConfig, folder); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1466,7 +1517,10 @@ func ValidateUser(user *User) error {
 	if err := validatePermissions(user); err != nil {
 		return err
 	}
-	if err := validateFilesystemConfig(user); err != nil {
+	if user.hasRedactedSecret() {
+		return errors.New("cannot save a user with a redacted secret")
+	}
+	if err := validateFilesystemConfig(&user.FsConfig, user); err != nil {
 		return err
 	}
 	if err := validateUserVirtualFolders(user); err != nil {
@@ -1484,7 +1538,7 @@ func ValidateUser(user *User) error {
 	if err := validateFilters(user); err != nil {
 		return err
 	}
-	if err := saveGCSCredentials(user); err != nil {
+	if err := saveGCSCredentials(&user.FsConfig, user); err != nil {
 		return err
 	}
 	return nil
@@ -1555,12 +1609,12 @@ func checkUserAndPass(user *User, password, ip, protocol string) (User, error) {
 		return *user, err
 	}
 	if user.Password == "" {
-		return *user, errors.New("Credentials cannot be null or empty")
+		return *user, errors.New("credentials cannot be null or empty")
 	}
 	hookResponse, err := executeCheckPasswordHook(user.Username, password, ip, protocol)
 	if err != nil {
 		providerLog(logger.LevelDebug, "error executing check password hook: %v", err)
-		return *user, errors.New("Unable to check credentials")
+		return *user, errors.New("unable to check credentials")
 	}
 	switch hookResponse.Status {
 	case -1:
@@ -1664,7 +1718,10 @@ func comparePbkdf2PasswordAndHash(password, hashedPassword string) (bool, error)
 }
 
 func addCredentialsToUser(user *User) error {
-	if user.FsConfig.Provider != GCSFilesystemProvider {
+	if err := addFolderCredentialsToUser(user); err != nil {
+		return err
+	}
+	if user.FsConfig.Provider != vfs.GCSFilesystemProvider {
 		return nil
 	}
 	if user.FsConfig.GCSConfig.AutomaticCredentials > 0 {
@@ -1676,11 +1733,36 @@ func addCredentialsToUser(user *User) error {
 		return nil
 	}
 
-	cred, err := os.ReadFile(user.getGCSCredentialsFilePath())
+	cred, err := os.ReadFile(user.GetGCSCredentialsFilePath())
 	if err != nil {
 		return err
 	}
 	return json.Unmarshal(cred, &user.FsConfig.GCSConfig.Credentials)
+}
+
+func addFolderCredentialsToUser(user *User) error {
+	for idx := range user.VirtualFolders {
+		f := &user.VirtualFolders[idx]
+		if f.FsConfig.Provider != vfs.GCSFilesystemProvider {
+			continue
+		}
+		if f.FsConfig.GCSConfig.AutomaticCredentials > 0 {
+			continue
+		}
+		// Don't read from file if credentials have already been set
+		if f.FsConfig.GCSConfig.Credentials.IsValid() {
+			continue
+		}
+		cred, err := os.ReadFile(f.GetGCSCredentialsFilePath())
+		if err != nil {
+			return err
+		}
+		err = json.Unmarshal(cred, f.FsConfig.GCSConfig.Credentials)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func getSSLMode() string {
@@ -2014,7 +2096,9 @@ func executeCheckPasswordHook(username, password, ip, protocol string) (checkPas
 		return response, nil
 	}
 
+	startTime := time.Now()
 	out, err := getPasswordHookResponse(username, password, ip, protocol)
+	providerLog(logger.LevelDebug, "check password hook executed, error: %v, elapsed: %v", err, time.Since(startTime))
 	if err != nil {
 		return response, err
 	}
@@ -2078,10 +2162,12 @@ func executePreLoginHook(username, loginMethod, ip, protocol string) (User, erro
 	if err != nil {
 		return u, err
 	}
+	startTime := time.Now()
 	out, err := getPreLoginHookResponse(loginMethod, ip, protocol, userAsJSON)
 	if err != nil {
-		return u, fmt.Errorf("Pre-login hook error: %v", err)
+		return u, fmt.Errorf("pre-login hook error: %v, elapsed %v", err, time.Since(startTime))
 	}
+	providerLog(logger.LevelDebug, "pre-login hook completed, elapsed: %v", time.Since(startTime))
 	if strings.TrimSpace(string(out)) == "" {
 		providerLog(logger.LevelDebug, "empty response from pre-login hook, no modification requested for user %#v id: %v",
 			username, u.ID)
@@ -2098,7 +2184,7 @@ func executePreLoginHook(username, loginMethod, ip, protocol string) (User, erro
 	userLastLogin := u.LastLogin
 	err = json.Unmarshal(out, &u)
 	if err != nil {
-		return u, fmt.Errorf("Invalid pre-login hook response %#v, error: %v", string(out), err)
+		return u, fmt.Errorf("invalid pre-login hook response %#v, error: %v", string(out), err)
 	}
 	u.ID = userID
 	u.UsedQuotaSize = userUsedQuotaSize
@@ -2214,9 +2300,11 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 			return result, err
 		}
 		defer resp.Body.Close()
+		providerLog(logger.LevelDebug, "external auth hook executed, response code: %v", resp.StatusCode)
 		if resp.StatusCode != http.StatusOK {
 			return result, fmt.Errorf("wrong external auth http status code: %v, expected 200", resp.StatusCode)
 		}
+
 		return io.ReadAll(resp.Body)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -2250,13 +2338,15 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 			return user, err
 		}
 	}
+	startTime := time.Now()
 	out, err := getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, protocol, cert)
 	if err != nil {
-		return user, fmt.Errorf("External auth error: %v", err)
+		return user, fmt.Errorf("external auth error: %v, elapsed: %v", err, time.Since(startTime))
 	}
+	providerLog(logger.LevelDebug, "external auth completed, elapsed: %v", time.Since(startTime))
 	err = json.Unmarshal(out, &user)
 	if err != nil {
-		return user, fmt.Errorf("Invalid external auth response: %v", err)
+		return user, fmt.Errorf("invalid external auth response: %v", err)
 	}
 	if user.Username == "" {
 		return user, ErrInvalidCredentials

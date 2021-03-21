@@ -59,27 +59,27 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 	}
 	user.SetEmptySecretsIfNil()
 	switch user.FsConfig.Provider {
-	case dataprovider.S3FilesystemProvider:
+	case vfs.S3FilesystemProvider:
 		if user.FsConfig.S3Config.AccessSecret.IsRedacted() {
 			sendAPIResponse(w, r, errors.New("invalid access_secret"), "", http.StatusBadRequest)
 			return
 		}
-	case dataprovider.GCSFilesystemProvider:
+	case vfs.GCSFilesystemProvider:
 		if user.FsConfig.GCSConfig.Credentials.IsRedacted() {
 			sendAPIResponse(w, r, errors.New("invalid credentials"), "", http.StatusBadRequest)
 			return
 		}
-	case dataprovider.AzureBlobFilesystemProvider:
+	case vfs.AzureBlobFilesystemProvider:
 		if user.FsConfig.AzBlobConfig.AccountKey.IsRedacted() {
 			sendAPIResponse(w, r, errors.New("invalid account_key"), "", http.StatusBadRequest)
 			return
 		}
-	case dataprovider.CryptedFilesystemProvider:
+	case vfs.CryptedFilesystemProvider:
 		if user.FsConfig.CryptConfig.Passphrase.IsRedacted() {
 			sendAPIResponse(w, r, errors.New("invalid passphrase"), "", http.StatusBadRequest)
 			return
 		}
-	case dataprovider.SFTPFilesystemProvider:
+	case vfs.SFTPFilesystemProvider:
 		if user.FsConfig.SFTPConfig.Password.IsRedacted() {
 			sendAPIResponse(w, r, errors.New("invalid SFTP password"), "", http.StatusBadRequest)
 			return
@@ -131,6 +131,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
 	user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
 	user.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
+	user.VirtualFolders = nil
 	err = render.DecodeJSON(r.Body, &user)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
@@ -143,7 +144,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if len(user.Permissions) == 0 {
 		user.Permissions = currentPermissions
 	}
-	updateEncryptedSecrets(&user, currentS3AccessSecret, currentAzAccountKey, currentGCSCredentials, currentCryptoPassphrase,
+	updateEncryptedSecrets(&user.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentGCSCredentials, currentCryptoPassphrase,
 		currentSFTPPassword, currentSFTPKey)
 	err = dataprovider.UpdateUser(&user)
 	if err != nil {
@@ -175,32 +176,32 @@ func disconnectUser(username string) {
 	}
 }
 
-func updateEncryptedSecrets(user *dataprovider.User, currentS3AccessSecret, currentAzAccountKey,
+func updateEncryptedSecrets(fsConfig *vfs.Filesystem, currentS3AccessSecret, currentAzAccountKey,
 	currentGCSCredentials, currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey *kms.Secret) {
 	// we use the new access secret if plain or empty, otherwise the old value
-	switch user.FsConfig.Provider {
-	case dataprovider.S3FilesystemProvider:
-		if user.FsConfig.S3Config.AccessSecret.IsNotPlainAndNotEmpty() {
-			user.FsConfig.S3Config.AccessSecret = currentS3AccessSecret
+	switch fsConfig.Provider {
+	case vfs.S3FilesystemProvider:
+		if fsConfig.S3Config.AccessSecret.IsNotPlainAndNotEmpty() {
+			fsConfig.S3Config.AccessSecret = currentS3AccessSecret
 		}
-	case dataprovider.AzureBlobFilesystemProvider:
-		if user.FsConfig.AzBlobConfig.AccountKey.IsNotPlainAndNotEmpty() {
-			user.FsConfig.AzBlobConfig.AccountKey = currentAzAccountKey
+	case vfs.AzureBlobFilesystemProvider:
+		if fsConfig.AzBlobConfig.AccountKey.IsNotPlainAndNotEmpty() {
+			fsConfig.AzBlobConfig.AccountKey = currentAzAccountKey
 		}
-	case dataprovider.GCSFilesystemProvider:
-		if user.FsConfig.GCSConfig.Credentials.IsNotPlainAndNotEmpty() {
-			user.FsConfig.GCSConfig.Credentials = currentGCSCredentials
+	case vfs.GCSFilesystemProvider:
+		if fsConfig.GCSConfig.Credentials.IsNotPlainAndNotEmpty() {
+			fsConfig.GCSConfig.Credentials = currentGCSCredentials
 		}
-	case dataprovider.CryptedFilesystemProvider:
-		if user.FsConfig.CryptConfig.Passphrase.IsNotPlainAndNotEmpty() {
-			user.FsConfig.CryptConfig.Passphrase = currentCryptoPassphrase
+	case vfs.CryptedFilesystemProvider:
+		if fsConfig.CryptConfig.Passphrase.IsNotPlainAndNotEmpty() {
+			fsConfig.CryptConfig.Passphrase = currentCryptoPassphrase
 		}
-	case dataprovider.SFTPFilesystemProvider:
-		if user.FsConfig.SFTPConfig.Password.IsNotPlainAndNotEmpty() {
-			user.FsConfig.SFTPConfig.Password = currentSFTPPassword
+	case vfs.SFTPFilesystemProvider:
+		if fsConfig.SFTPConfig.Password.IsNotPlainAndNotEmpty() {
+			fsConfig.SFTPConfig.Password = currentSFTPPassword
 		}
-		if user.FsConfig.SFTPConfig.PrivateKey.IsNotPlainAndNotEmpty() {
-			user.FsConfig.SFTPConfig.PrivateKey = currentSFTPKey
+		if fsConfig.SFTPConfig.PrivateKey.IsNotPlainAndNotEmpty() {
+			fsConfig.SFTPConfig.PrivateKey = currentSFTPKey
 		}
 	}
 }

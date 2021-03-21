@@ -145,7 +145,7 @@ func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
 	connID := fmt.Sprintf("%v_%v", s.ID, cc.ID())
 	user := dataprovider.User{}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, user, nil),
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, user),
 		clientContext:  cc,
 	}
 	common.Connections.Add(connection)
@@ -180,7 +180,6 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 	if err != nil {
 		return nil, err
 	}
-	connection.Fs.CheckRootPath(connection.GetUsername(), user.GetUID(), user.GetGID())
 	connection.Log(logger.LevelInfo, "User id: %d, logged in with FTP, username: %#v, home_dir: %#v remote addr: %#v",
 		user.ID, user.Username, user.HomeDir, ipAddr)
 	dataprovider.UpdateLastLogin(&user) //nolint:errcheck
@@ -219,7 +218,6 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 					if err != nil {
 						return nil, err
 					}
-					connection.Fs.CheckRootPath(connection.GetUsername(), dbUser.GetUID(), dbUser.GetGID())
 					connection.Log(logger.LevelInfo, "User id: %d, logged in with FTP using a TLS certificate, username: %#v, home_dir: %#v remote addr: %#v",
 						dbUser.ID, dbUser.Username, dbUser.HomeDir, ipAddr)
 					dataprovider.UpdateLastLogin(&dbUser) //nolint:errcheck
@@ -295,11 +293,11 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 	}
 	if utils.IsStringInSlice(common.ProtocolFTP, user.Filters.DeniedProtocols) {
 		logger.Debug(logSender, connectionID, "cannot login user %#v, protocol FTP is not allowed", user.Username)
-		return nil, fmt.Errorf("Protocol FTP is not allowed for user %#v", user.Username)
+		return nil, fmt.Errorf("protocol FTP is not allowed for user %#v", user.Username)
 	}
 	if !user.IsLoginMethodAllowed(loginMethod, nil) {
 		logger.Debug(logSender, connectionID, "cannot login user %#v, %v login method is not allowed", user.Username, loginMethod)
-		return nil, fmt.Errorf("Login method %v is not allowed for user %#v", loginMethod, user.Username)
+		return nil, fmt.Errorf("login method %v is not allowed for user %#v", loginMethod, user.Username)
 	}
 	if user.MaxSessions > 0 {
 		activeSessions := common.Connections.GetActiveSessions(user.Username)
@@ -309,27 +307,26 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 			return nil, fmt.Errorf("too many open sessions: %v", activeSessions)
 		}
 	}
-	if dataprovider.GetQuotaTracking() > 0 && user.HasOverlappedMappedPaths() {
-		logger.Debug(logSender, connectionID, "cannot login user %#v, overlapping mapped folders are allowed only with quota tracking disabled",
-			user.Username)
-		return nil, errors.New("overlapping mapped folders are allowed only with quota tracking disabled")
-	}
 	remoteAddr := cc.RemoteAddr().String()
 	if !user.IsLoginFromAddrAllowed(remoteAddr) {
 		logger.Debug(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v", user.Username, remoteAddr)
-		return nil, fmt.Errorf("Login for user %#v is not allowed from this address: %v", user.Username, remoteAddr)
+		return nil, fmt.Errorf("login for user %#v is not allowed from this address: %v", user.Username, remoteAddr)
 	}
-	fs, err := user.GetFilesystem(connectionID)
+	err := user.CheckFsRoot(connectionID)
 	if err != nil {
+		errClose := user.CloseFs()
+		logger.Warn(logSender, connectionID, "unable to check fs root: %v close fs error: %v", err, errClose)
 		return nil, err
 	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(fmt.Sprintf("%v_%v", s.ID, cc.ID()), common.ProtocolFTP, user, fs),
+		BaseConnection: common.NewBaseConnection(fmt.Sprintf("%v_%v", s.ID, cc.ID()), common.ProtocolFTP, user),
 		clientContext:  cc,
 	}
 	err = common.Connections.Swap(connection)
 	if err != nil {
-		return nil, errors.New("Internal authentication error")
+		err = user.CloseFs()
+		logger.Warn(logSender, connectionID, "unable to swap connection, close fs error: %v", err)
+		return nil, errors.New("internal authentication error")
 	}
 	return connection, nil
 }

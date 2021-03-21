@@ -146,6 +146,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		logger.ErrorToConsole("error creating login banner: %v", err)
 	}
+	os.Setenv("SFTPGO_COMMON__UPLOAD_MODE", "2")
 	err = config.LoadConfig(configDir, "")
 	if err != nil {
 		logger.ErrorToConsole("error loading configuration: %v", err)
@@ -155,10 +156,6 @@ func TestMain(m *testing.M) {
 	logger.InfoToConsole("Starting SFTPD tests, provider: %v", providerConf.Driver)
 
 	commonConf := config.GetCommonConfig()
-	// we run the test cases with UploadMode atomic and resume support. The non atomic code path
-	// simply does not execute some code so if it works in atomic mode will
-	// work in non atomic mode too
-	commonConf.UploadMode = 2
 	homeBasePath = os.TempDir()
 	checkSystemCommands()
 	var scriptArgs string
@@ -1130,7 +1127,7 @@ func TestChtimes(t *testing.T) {
 			defer client.Close()
 			testFilePath := filepath.Join(homeBasePath, testFileName)
 			testFileSize := int64(65535)
-			testDir := "test"
+			testDir := "test" //nolint:goconst
 			err = createTestFile(testFilePath, testFileSize)
 			assert.NoError(t, err)
 			err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
@@ -1687,7 +1684,7 @@ func TestLoginUserExpiration(t *testing.T) {
 func TestLoginWithDatabaseCredentials(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
-	u.FsConfig.Provider = dataprovider.GCSFilesystemProvider
+	u.FsConfig.Provider = vfs.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "testbucket"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret(`{ "type": "service_account" }`)
 
@@ -1736,7 +1733,7 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 func TestLoginInvalidFs(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
-	u.FsConfig.Provider = dataprovider.GCSFilesystemProvider
+	u.FsConfig.Provider = vfs.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("invalid JSON for credentials")
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -2569,6 +2566,29 @@ func TestMaxSessions(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSupportedExtensions(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+		v, ok := client.HasExtension("statvfs@openssh.com")
+		assert.Equal(t, "2", v)
+		assert.True(t, ok)
+		_, ok = client.HasExtension("hardlink@openssh.com")
+		assert.False(t, ok)
+		_, ok = client.HasExtension("posix-rename@openssh.com")
+		assert.False(t, ok)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestQuotaFileReplace(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
@@ -3341,6 +3361,196 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+}
+
+func TestNestedVirtualFolders(t *testing.T) {
+	usePubKey := false
+	baseUser, resp, err := httpdtest.AddUser(getTestUser(false), http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	u := getTestSFTPUser(usePubKey)
+	u.QuotaFiles = 1000
+	mappedPathCrypt := filepath.Join(os.TempDir(), "crypt")
+	folderNameCrypt := filepath.Base(mappedPathCrypt)
+	vdirCryptPath := "/vdir/crypt"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: folderNameCrypt,
+			FsConfig: vfs.Filesystem{
+				Provider: vfs.CryptedFilesystemProvider,
+				CryptConfig: vfs.CryptFsConfig{
+					Passphrase: kms.NewPlainSecret(defaultPassword),
+				},
+			},
+			MappedPath: mappedPathCrypt,
+		},
+		VirtualPath: vdirCryptPath,
+		QuotaFiles:  100,
+	})
+	mappedPath := filepath.Join(os.TempDir(), "local")
+	folderName := filepath.Base(mappedPath)
+	vdirPath := "/vdir/local"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName,
+			MappedPath: mappedPath,
+		},
+		VirtualPath: vdirPath,
+		QuotaFiles:  -1,
+		QuotaSize:   -1,
+	})
+	mappedPathNested := filepath.Join(os.TempDir(), "nested")
+	folderNameNested := filepath.Base(mappedPathNested)
+	vdirNestedPath := "/vdir/crypt/nested"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderNameNested,
+			MappedPath: mappedPathNested,
+		},
+		VirtualPath: vdirNestedPath,
+		QuotaFiles:  -1,
+		QuotaSize:   -1,
+	})
+	user, resp, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		expectedQuotaSize := int64(0)
+		expectedQuotaFiles := 0
+		fileSize := int64(32765)
+		err = writeSFTPFile(testFileName, fileSize, client)
+		assert.NoError(t, err)
+		expectedQuotaSize += fileSize
+		expectedQuotaFiles++
+		fileSize = 38764
+		err = writeSFTPFile(path.Join("/vdir", testFileName), fileSize, client)
+		assert.NoError(t, err)
+		expectedQuotaSize += fileSize
+		expectedQuotaFiles++
+		fileSize = 18769
+		err = writeSFTPFile(path.Join(vdirPath, testFileName), fileSize, client)
+		assert.NoError(t, err)
+		expectedQuotaSize += fileSize
+		expectedQuotaFiles++
+		fileSize = 27658
+		err = writeSFTPFile(path.Join(vdirNestedPath, testFileName), fileSize, client)
+		assert.NoError(t, err)
+		expectedQuotaSize += fileSize
+		expectedQuotaFiles++
+		fileSize = 39765
+		err = writeSFTPFile(path.Join(vdirCryptPath, testFileName), fileSize, client)
+		assert.NoError(t, err)
+
+		userGet, _, err := httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedQuotaFiles, userGet.UsedQuotaFiles)
+		assert.Equal(t, expectedQuotaSize, userGet.UsedQuotaSize)
+
+		folderGet, _, err := httpdtest.GetFolderByName(folderNameCrypt, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Greater(t, folderGet.UsedQuotaSize, fileSize)
+		assert.Equal(t, 1, folderGet.UsedQuotaFiles)
+
+		folderGet, _, err = httpdtest.GetFolderByName(folderName, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, int64(18769), folderGet.UsedQuotaSize)
+		assert.Equal(t, 1, folderGet.UsedQuotaFiles)
+
+		folderGet, _, err = httpdtest.GetFolderByName(folderNameNested, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, int64(27658), folderGet.UsedQuotaSize)
+		assert.Equal(t, 1, folderGet.UsedQuotaFiles)
+
+		files, err := client.ReadDir("/")
+		if assert.NoError(t, err) {
+			assert.Len(t, files, 2)
+		}
+		info, err := client.Stat("vdir")
+		if assert.NoError(t, err) {
+			assert.True(t, info.IsDir())
+		}
+		files, err = client.ReadDir("/vdir")
+		if assert.NoError(t, err) {
+			assert.Len(t, files, 3)
+		}
+		files, err = client.ReadDir(vdirCryptPath)
+		if assert.NoError(t, err) {
+			assert.Len(t, files, 2)
+		}
+		info, err = client.Stat(vdirNestedPath)
+		if assert.NoError(t, err) {
+			assert.True(t, info.IsDir())
+		}
+		// finally add some files directly using os method and then check quota
+		fName := "testfile"
+		fileSize = 123456
+		err = createTestFile(filepath.Join(baseUser.HomeDir, fName), fileSize)
+		assert.NoError(t, err)
+		expectedQuotaSize += fileSize
+		expectedQuotaFiles++
+		fileSize = 8765
+		err = createTestFile(filepath.Join(mappedPath, fName), fileSize)
+		assert.NoError(t, err)
+		expectedQuotaSize += fileSize
+		expectedQuotaFiles++
+		fileSize = 98751
+		err = createTestFile(filepath.Join(mappedPathNested, fName), fileSize)
+		assert.NoError(t, err)
+		expectedQuotaSize += fileSize
+		expectedQuotaFiles++
+		err = createTestFile(filepath.Join(mappedPathCrypt, fName), fileSize)
+		assert.NoError(t, err)
+		_, err = httpdtest.StartQuotaScan(user, http.StatusAccepted)
+		assert.NoError(t, err)
+		assert.Eventually(t, func() bool {
+			scans, _, err := httpdtest.GetQuotaScans(http.StatusOK)
+			if err == nil {
+				return len(scans) == 0
+			}
+			return false
+		}, 1*time.Second, 50*time.Millisecond)
+
+		userGet, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedQuotaFiles, userGet.UsedQuotaFiles)
+		assert.Equal(t, expectedQuotaSize, userGet.UsedQuotaSize)
+
+		// the crypt folder is not included within user quota so we need to do a separate scan
+		_, err = httpdtest.StartFolderQuotaScan(vfs.BaseVirtualFolder{Name: folderNameCrypt}, http.StatusAccepted)
+		assert.NoError(t, err)
+		assert.Eventually(t, func() bool {
+			scans, _, err := httpdtest.GetFoldersQuotaScans(http.StatusOK)
+			if err == nil {
+				return len(scans) == 0
+			}
+			return false
+		}, 1*time.Second, 50*time.Millisecond)
+		folderGet, _, err = httpdtest.GetFolderByName(folderNameCrypt, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Greater(t, folderGet.UsedQuotaSize, int64(39765+98751))
+		assert.Equal(t, 2, folderGet.UsedQuotaFiles)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderNameCrypt}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderNameNested}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(baseUser.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPathCrypt)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPathNested)
 	assert.NoError(t, err)
 }
 
@@ -4733,208 +4943,6 @@ func TestVirtualFoldersLink(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestOverlappedMappedFolders(t *testing.T) {
-	err := dataprovider.Close()
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	providerConf := config.GetProviderConf()
-	providerConf.TrackQuota = 0
-	err = dataprovider.Initialize(providerConf, configDir, true)
-	assert.NoError(t, err)
-
-	usePubKey := false
-	u := getTestUser(usePubKey)
-	subDir := "subdir"
-	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
-	folderName1 := filepath.Base(mappedPath1)
-	vdirPath1 := "/vdir1"
-	mappedPath2 := filepath.Join(os.TempDir(), "vdir1", subDir)
-	folderName2 := filepath.Base(mappedPath2)
-	vdirPath2 := "/vdir2"
-	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
-		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName1,
-			MappedPath: mappedPath1,
-		},
-		VirtualPath: vdirPath1,
-	})
-	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
-		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName2,
-			MappedPath: mappedPath2,
-		},
-		VirtualPath: vdirPath2,
-	})
-	err = os.MkdirAll(mappedPath1, os.ModePerm)
-	assert.NoError(t, err)
-	err = os.MkdirAll(mappedPath2, os.ModePerm)
-	assert.NoError(t, err)
-	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.NoError(t, err)
-	client, err := getSftpClient(user, usePubKey)
-	if assert.NoError(t, err) {
-		defer client.Close()
-		err = checkBasicSFTP(client)
-		assert.NoError(t, err)
-		testFileSize := int64(131072)
-		testFilePath := filepath.Join(homeBasePath, testFileName)
-		err = createTestFile(testFilePath, testFileSize)
-		assert.NoError(t, err)
-		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
-		assert.NoError(t, err)
-		err = sftpUploadFile(testFilePath, path.Join(vdirPath1, testFileName), testFileSize, client)
-		assert.NoError(t, err)
-		err = sftpUploadFile(testFilePath, path.Join(vdirPath2, testFileName), testFileSize, client)
-		assert.NoError(t, err)
-		fi, err := client.Stat(path.Join(vdirPath1, subDir, testFileName))
-		if assert.NoError(t, err) {
-			assert.Equal(t, testFileSize, fi.Size())
-		}
-		err = client.Rename(path.Join(vdirPath1, subDir, testFileName), path.Join(vdirPath2, testFileName+"1"))
-		assert.NoError(t, err)
-		err = client.Rename(path.Join(vdirPath2, testFileName+"1"), path.Join(vdirPath1, subDir, testFileName))
-		assert.NoError(t, err)
-		err = client.Rename(path.Join(vdirPath1, subDir), path.Join(vdirPath2, subDir))
-		assert.Error(t, err)
-		err = client.Mkdir(subDir)
-		assert.NoError(t, err)
-		err = client.Rename(subDir, path.Join(vdirPath1, subDir))
-		assert.Error(t, err)
-		err = client.RemoveDirectory(path.Join(vdirPath1, subDir))
-		assert.Error(t, err)
-		err = client.Symlink(path.Join(vdirPath1, subDir), path.Join(vdirPath1, "adir"))
-		assert.Error(t, err)
-		err = client.Mkdir(path.Join(vdirPath1, subDir+"1"))
-		assert.NoError(t, err)
-		err = client.Symlink(path.Join(vdirPath1, subDir+"1"), path.Join(vdirPath1, subDir))
-		assert.Error(t, err)
-		err = os.Remove(testFilePath)
-		assert.NoError(t, err)
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath1, subDir)), user, usePubKey)
-		assert.Error(t, err)
-	}
-
-	err = dataprovider.Close()
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	providerConf = config.GetProviderConf()
-	err = dataprovider.Initialize(providerConf, configDir, true)
-	assert.NoError(t, err)
-
-	if providerConf.Driver != dataprovider.MemoryDataProviderName {
-		client, err = getSftpClient(user, usePubKey)
-		if !assert.Error(t, err) {
-			client.Close()
-		}
-
-		_, err = httpdtest.RemoveUser(user, http.StatusOK)
-		assert.NoError(t, err)
-		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
-		assert.NoError(t, err)
-		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
-		assert.NoError(t, err)
-	}
-
-	_, _, err = httpdtest.AddUser(u, http.StatusCreated)
-	assert.Error(t, err)
-
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-	err = os.RemoveAll(mappedPath1)
-	assert.NoError(t, err)
-	err = os.RemoveAll(mappedPath2)
-	assert.NoError(t, err)
-}
-
-func TestResolveOverlappedMappedPaths(t *testing.T) {
-	u := getTestUser(false)
-	mappedPath1 := filepath.Join(os.TempDir(), "mapped1", "subdir")
-	folderName1 := filepath.Base(mappedPath1)
-	vdirPath1 := "/vdir1/subdir"
-	mappedPath2 := filepath.Join(os.TempDir(), "mapped2")
-	folderName2 := filepath.Base(mappedPath2)
-	vdirPath2 := "/vdir2/subdir"
-	mappedPath3 := filepath.Join(os.TempDir(), "mapped1")
-	folderName3 := filepath.Base(mappedPath3)
-	vdirPath3 := "/vdir3"
-	mappedPath4 := filepath.Join(os.TempDir(), "mapped1", "subdir", "vdir4")
-	folderName4 := filepath.Base(mappedPath4)
-	vdirPath4 := "/vdir4"
-	u.VirtualFolders = []vfs.VirtualFolder{
-		{
-			BaseVirtualFolder: vfs.BaseVirtualFolder{
-				Name:       folderName1,
-				MappedPath: mappedPath1,
-			},
-			VirtualPath: vdirPath1,
-		},
-		{
-			BaseVirtualFolder: vfs.BaseVirtualFolder{
-				Name:       folderName2,
-				MappedPath: mappedPath2,
-			},
-			VirtualPath: vdirPath2,
-		},
-		{
-			BaseVirtualFolder: vfs.BaseVirtualFolder{
-				Name:       folderName3,
-				MappedPath: mappedPath3,
-			},
-			VirtualPath: vdirPath3,
-		},
-		{
-			BaseVirtualFolder: vfs.BaseVirtualFolder{
-				Name:       folderName4,
-				MappedPath: mappedPath4,
-			},
-			VirtualPath: vdirPath4,
-		},
-	}
-	err := os.MkdirAll(u.GetHomeDir(), os.ModePerm)
-	assert.NoError(t, err)
-	err = os.MkdirAll(mappedPath1, os.ModePerm)
-	assert.NoError(t, err)
-	err = os.MkdirAll(mappedPath2, os.ModePerm)
-	assert.NoError(t, err)
-	err = os.MkdirAll(mappedPath3, os.ModePerm)
-	assert.NoError(t, err)
-	err = os.MkdirAll(mappedPath4, os.ModePerm)
-	assert.NoError(t, err)
-
-	fs := vfs.NewOsFs("", u.GetHomeDir(), u.VirtualFolders)
-	p, err := fs.ResolvePath("/vdir1")
-	assert.NoError(t, err)
-	assert.Equal(t, filepath.Join(u.GetHomeDir(), "vdir1"), p)
-	p, err = fs.ResolvePath("/vdir1/subdir")
-	assert.NoError(t, err)
-	assert.Equal(t, mappedPath1, p)
-	p, err = fs.ResolvePath("/vdir3/subdir/vdir4/file.txt")
-	assert.NoError(t, err)
-	assert.Equal(t, filepath.Join(mappedPath4, "file.txt"), p)
-	p, err = fs.ResolvePath("/vdir4/file.txt")
-	assert.NoError(t, err)
-	assert.Equal(t, filepath.Join(mappedPath4, "file.txt"), p)
-	assert.Equal(t, filepath.Join(mappedPath3, "subdir", "vdir4", "file.txt"), p)
-	assert.Equal(t, filepath.Join(mappedPath1, "vdir4", "file.txt"), p)
-	p, err = fs.ResolvePath("/vdir3/subdir/vdir4/../file.txt")
-	assert.NoError(t, err)
-	assert.Equal(t, filepath.Join(mappedPath3, "subdir", "file.txt"), p)
-	assert.Equal(t, filepath.Join(mappedPath1, "file.txt"), p)
-
-	err = os.RemoveAll(u.GetHomeDir())
-	assert.NoError(t, err)
-	err = os.RemoveAll(mappedPath4)
-	assert.NoError(t, err)
-	err = os.RemoveAll(mappedPath1)
-	assert.NoError(t, err)
-	err = os.RemoveAll(mappedPath3)
-	assert.NoError(t, err)
-	err = os.RemoveAll(mappedPath2)
-	assert.NoError(t, err)
-}
-
 func TestVirtualFolderQuotaScan(t *testing.T) {
 	mappedPath := filepath.Join(os.TempDir(), "mapped_dir")
 	folderName := filepath.Base(mappedPath)
@@ -5161,19 +5169,28 @@ func TestOpenError(t *testing.T) {
 		assert.Error(t, err, "file download must fail if we have no filesystem read permissions")
 		err = sftpUploadFile(localDownloadPath, testFileName, testFileSize, client)
 		assert.Error(t, err, "upload must fail if we have no filesystem write permissions")
-		err = client.Mkdir("test")
+		testDir := "test"
+		err = client.Mkdir(testDir)
+		assert.NoError(t, err)
+		err = createTestFile(filepath.Join(user.GetHomeDir(), testDir, testFileName), testFileSize)
 		assert.NoError(t, err)
 		err = os.Chmod(user.GetHomeDir(), 0000)
 		assert.NoError(t, err)
 		_, err = client.Lstat(testFileName)
 		assert.Error(t, err, "file stat must fail if we have no filesystem read permissions")
+		err = sftpUploadFile(localDownloadPath, path.Join(testDir, testFileName), testFileSize, client)
+		assert.ErrorIs(t, err, os.ErrPermission)
+		_, err = client.ReadLink(testFileName)
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = client.Remove(testFileName)
+		assert.ErrorIs(t, err, os.ErrPermission)
 		err = os.Chmod(user.GetHomeDir(), os.ModePerm)
 		assert.NoError(t, err)
-		err = os.Chmod(filepath.Join(user.GetHomeDir(), "test"), 0000)
+		err = os.Chmod(filepath.Join(user.GetHomeDir(), testDir), 0000)
 		assert.NoError(t, err)
-		err = client.Rename(testFileName, path.Join("test", testFileName))
+		err = client.Rename(testFileName, path.Join(testDir, testFileName))
 		assert.True(t, os.IsPermission(err))
-		err = os.Chmod(filepath.Join(user.GetHomeDir(), "test"), os.ModePerm)
+		err = os.Chmod(filepath.Join(user.GetHomeDir(), testDir), os.ModePerm)
 		assert.NoError(t, err)
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
@@ -5941,23 +5958,23 @@ func TestRootDirCommands(t *testing.T) {
 func TestRelativePaths(t *testing.T) {
 	user := getTestUser(true)
 	var path, rel string
-	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), user.VirtualFolders)}
+	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), "")}
 	keyPrefix := strings.TrimPrefix(user.GetHomeDir(), "/") + "/"
 	s3config := vfs.S3FsConfig{
 		KeyPrefix: keyPrefix,
 	}
-	s3fs, _ := vfs.NewS3Fs("", user.GetHomeDir(), s3config)
+	s3fs, _ := vfs.NewS3Fs("", user.GetHomeDir(), "", s3config)
 	gcsConfig := vfs.GCSFsConfig{
 		KeyPrefix: keyPrefix,
 	}
-	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), gcsConfig)
+	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), "", gcsConfig)
 	sftpconfig := vfs.SFTPFsConfig{
 		Endpoint: sftpServerAddr,
 		Username: defaultUsername,
 		Password: kms.NewPlainSecret(defaultPassword),
 		Prefix:   keyPrefix,
 	}
-	sftpfs, _ := vfs.NewSFTPFs("", sftpconfig)
+	sftpfs, _ := vfs.NewSFTPFs("", "", sftpconfig)
 	if runtime.GOOS != osWindows {
 		filesystems = append(filesystems, s3fs, gcsfs, sftpfs)
 	}
@@ -6000,7 +6017,7 @@ func TestResolvePaths(t *testing.T) {
 	user := getTestUser(true)
 	var path, resolved string
 	var err error
-	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), user.VirtualFolders)}
+	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), "")}
 	keyPrefix := strings.TrimPrefix(user.GetHomeDir(), "/") + "/"
 	s3config := vfs.S3FsConfig{
 		KeyPrefix: keyPrefix,
@@ -6009,12 +6026,12 @@ func TestResolvePaths(t *testing.T) {
 	}
 	err = os.MkdirAll(user.GetHomeDir(), os.ModePerm)
 	assert.NoError(t, err)
-	s3fs, err := vfs.NewS3Fs("", user.GetHomeDir(), s3config)
+	s3fs, err := vfs.NewS3Fs("", user.GetHomeDir(), "", s3config)
 	assert.NoError(t, err)
 	gcsConfig := vfs.GCSFsConfig{
 		KeyPrefix: keyPrefix,
 	}
-	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), gcsConfig)
+	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), "", gcsConfig)
 	if runtime.GOOS != osWindows {
 		filesystems = append(filesystems, s3fs, gcsfs)
 	}
@@ -6049,7 +6066,7 @@ func TestResolvePaths(t *testing.T) {
 
 func TestVirtualRelativePaths(t *testing.T) {
 	user := getTestUser(true)
-	mappedPath := filepath.Join(os.TempDir(), "vdir")
+	mappedPath := filepath.Join(os.TempDir(), "mdir")
 	vdirPath := "/vdir" //nolint:goconst
 	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
@@ -6059,45 +6076,21 @@ func TestVirtualRelativePaths(t *testing.T) {
 	})
 	err := os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
-	fs := vfs.NewOsFs("", user.GetHomeDir(), user.VirtualFolders)
-	rel := fs.GetRelativePath(mappedPath)
+	fsRoot := vfs.NewOsFs("", user.GetHomeDir(), "")
+	fsVdir := vfs.NewOsFs("", mappedPath, vdirPath)
+	rel := fsVdir.GetRelativePath(mappedPath)
 	assert.Equal(t, vdirPath, rel)
-	rel = fs.GetRelativePath(filepath.Join(mappedPath, ".."))
+	rel = fsRoot.GetRelativePath(filepath.Join(mappedPath, ".."))
 	assert.Equal(t, "/", rel)
 	// path outside home and virtual dir
-	rel = fs.GetRelativePath(filepath.Join(mappedPath, "../vdir1"))
+	rel = fsRoot.GetRelativePath(filepath.Join(mappedPath, "../vdir1"))
 	assert.Equal(t, "/", rel)
-	rel = fs.GetRelativePath(filepath.Join(mappedPath, "../vdir/file.txt"))
+	rel = fsVdir.GetRelativePath(filepath.Join(mappedPath, "../vdir1"))
+	assert.Equal(t, "/vdir", rel)
+	rel = fsVdir.GetRelativePath(filepath.Join(mappedPath, "file.txt"))
 	assert.Equal(t, "/vdir/file.txt", rel)
-	rel = fs.GetRelativePath(filepath.Join(user.HomeDir, "vdir1/file.txt"))
+	rel = fsRoot.GetRelativePath(filepath.Join(user.HomeDir, "vdir1/file.txt"))
 	assert.Equal(t, "/vdir1/file.txt", rel)
-}
-
-func TestResolveVirtualPaths(t *testing.T) {
-	user := getTestUser(true)
-	mappedPath := filepath.Join(os.TempDir(), "vdir")
-	vdirPath := "/vdir"
-	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
-		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			MappedPath: mappedPath,
-		},
-		VirtualPath: vdirPath,
-	})
-	err := os.MkdirAll(mappedPath, os.ModePerm)
-	assert.NoError(t, err)
-	osFs := vfs.NewOsFs("", user.GetHomeDir(), user.VirtualFolders).(*vfs.OsFs)
-	b, f := osFs.GetFsPaths("/vdir/a.txt")
-	assert.Equal(t, mappedPath, b)
-	assert.Equal(t, filepath.Join(mappedPath, "a.txt"), f)
-	b, f = osFs.GetFsPaths("/vdir/sub with space & spécial chars/a.txt")
-	assert.Equal(t, mappedPath, b)
-	assert.Equal(t, filepath.Join(mappedPath, "sub with space & spécial chars/a.txt"), f)
-	b, f = osFs.GetFsPaths("/vdir/../a.txt")
-	assert.Equal(t, user.GetHomeDir(), b)
-	assert.Equal(t, filepath.Join(user.GetHomeDir(), "a.txt"), f)
-	b, f = osFs.GetFsPaths("/vdir1/a.txt")
-	assert.Equal(t, user.GetHomeDir(), b)
-	assert.Equal(t, filepath.Join(user.GetHomeDir(), "/vdir1/a.txt"), f)
 }
 
 func TestUserPerms(t *testing.T) {
@@ -6504,7 +6497,7 @@ func TestStatVFS(t *testing.T) {
 func TestStatVFSCloudBackend(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
-	u.FsConfig.Provider = dataprovider.AzureBlobFilesystemProvider
+	u.FsConfig.Provider = vfs.AzureBlobFilesystemProvider
 	u.FsConfig.AzBlobConfig.SASURL = "https://myaccount.blob.core.windows.net/sasurl"
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -7050,6 +7043,32 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSSHCopyRemoveNonLocalFs(t *testing.T) {
+	usePubKey := true
+	localUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	assert.NoError(t, err)
+	sftpUser, _, err := httpdtest.AddUser(getTestSFTPUser(usePubKey), http.StatusCreated)
+	assert.NoError(t, err)
+	client, err := getSftpClient(sftpUser, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		testDir := "test"
+		err = client.Mkdir(testDir)
+		assert.NoError(t, err)
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", testDir, testDir+"_copy"), sftpUser, usePubKey)
+		assert.Error(t, err)
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", testDir), sftpUser, usePubKey)
+		assert.Error(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestSSHRemove(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
@@ -7172,6 +7191,117 @@ func TestSSHRemove(t *testing.T) {
 		defer client.Close()
 		_, err = runSSHCommand("sftpgo-remove adir", user, usePubKey)
 		assert.Error(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath1)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath2)
+	assert.NoError(t, err)
+}
+
+func TestSSHRemoveCryptFs(t *testing.T) {
+	usePubKey := false
+	u := getTestUserWithCryptFs(usePubKey)
+	u.QuotaFiles = 100
+	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
+	folderName1 := filepath.Base(mappedPath1)
+	vdirPath1 := "/vdir1/sub"
+	mappedPath2 := filepath.Join(os.TempDir(), "vdir2")
+	folderName2 := filepath.Base(mappedPath2)
+	vdirPath2 := "/vdir2/sub"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: vdirPath1,
+		QuotaFiles:  -1,
+		QuotaSize:   -1,
+	})
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName2,
+			MappedPath: mappedPath2,
+			FsConfig: vfs.Filesystem{
+				Provider: vfs.CryptedFilesystemProvider,
+				CryptConfig: vfs.CryptFsConfig{
+					Passphrase: kms.NewPlainSecret(defaultPassword),
+				},
+			},
+		},
+		VirtualPath: vdirPath2,
+		QuotaFiles:  100,
+		QuotaSize:   0,
+	})
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		testDir := "tdir"
+		err = client.Mkdir(testDir)
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath1, testDir))
+		assert.NoError(t, err)
+		err = client.Mkdir(path.Join(vdirPath2, testDir))
+		assert.NoError(t, err)
+		testFileSize := int64(32768)
+		testFileSize1 := int64(65536)
+		testFileName1 := "test_file1.dat"
+		err = writeSFTPFile(testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = writeSFTPFile(testFileName1, testFileSize1, client)
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join(testDir, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join(testDir, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join(vdirPath1, testDir, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join(vdirPath1, testDir, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join(vdirPath2, testDir, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join(vdirPath2, testDir, testFileName1), testFileSize1, client)
+		assert.NoError(t, err)
+		_, err = runSSHCommand("sftpgo-remove /vdir2", user, usePubKey)
+		assert.Error(t, err)
+		out, err := runSSHCommand(fmt.Sprintf("sftpgo-remove %v", testFileName), user, usePubKey)
+		if assert.NoError(t, err) {
+			assert.Equal(t, "OK\n", string(out))
+			_, err := client.Stat(testFileName)
+			assert.Error(t, err)
+		}
+		out, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", testDir), user, usePubKey)
+		if assert.NoError(t, err) {
+			assert.Equal(t, "OK\n", string(out))
+		}
+		out, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath1, testDir)), user, usePubKey)
+		if assert.NoError(t, err) {
+			assert.Equal(t, "OK\n", string(out))
+		}
+		out, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath2, testDir, testFileName)), user, usePubKey)
+		if assert.NoError(t, err) {
+			assert.Equal(t, "OK\n", string(out))
+		}
+		err = writeSFTPFile(path.Join(vdirPath2, testDir, testFileName), testFileSize, client)
+		assert.NoError(t, err)
+		out, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath2, testDir)), user, usePubKey)
+		if assert.NoError(t, err) {
+			assert.Equal(t, "OK\n", string(out))
+		}
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Greater(t, user.UsedQuotaSize, testFileSize1)
 	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
@@ -7664,6 +7794,136 @@ func TestSCPVirtualFolders(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+}
+
+func TestSCPNestedFolders(t *testing.T) {
+	if len(scpPath) == 0 {
+		t.Skip("scp command not found, unable to execute this test")
+	}
+	baseUser, resp, err := httpdtest.AddUser(getTestUser(false), http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.HomeDir += "_folders"
+	u.Username += "_folders"
+	mappedPathSFTP := filepath.Join(os.TempDir(), "sftp")
+	folderNameSFTP := filepath.Base(mappedPathSFTP)
+	vdirSFTPPath := "/vdir/sftp"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: folderNameSFTP,
+			FsConfig: vfs.Filesystem{
+				Provider: vfs.SFTPFilesystemProvider,
+				SFTPConfig: vfs.SFTPFsConfig{
+					Endpoint: sftpServerAddr,
+					Username: baseUser.Username,
+					Password: kms.NewPlainSecret(defaultPassword),
+				},
+			},
+		},
+		VirtualPath: vdirSFTPPath,
+	})
+	mappedPathCrypt := filepath.Join(os.TempDir(), "crypt")
+	folderNameCrypt := filepath.Base(mappedPathCrypt)
+	vdirCryptPath := "/vdir/crypt"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: folderNameCrypt,
+			FsConfig: vfs.Filesystem{
+				Provider: vfs.CryptedFilesystemProvider,
+				CryptConfig: vfs.CryptFsConfig{
+					Passphrase: kms.NewPlainSecret(defaultPassword),
+				},
+			},
+			MappedPath: mappedPathCrypt,
+		},
+		VirtualPath: vdirCryptPath,
+	})
+
+	user, resp, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	baseDirDownPath := filepath.Join(os.TempDir(), "basedir-down")
+	err = os.Mkdir(baseDirDownPath, os.ModePerm)
+	assert.NoError(t, err)
+	baseDir := filepath.Join(os.TempDir(), "basedir")
+	err = os.Mkdir(baseDir, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.MkdirAll(filepath.Join(baseDir, vdirSFTPPath), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.MkdirAll(filepath.Join(baseDir, vdirCryptPath), os.ModePerm)
+	assert.NoError(t, err)
+	err = createTestFile(filepath.Join(baseDir, vdirSFTPPath, testFileName), 32768)
+	assert.NoError(t, err)
+	err = createTestFile(filepath.Join(baseDir, vdirCryptPath, testFileName), 65535)
+	assert.NoError(t, err)
+	err = createTestFile(filepath.Join(baseDir, "vdir", testFileName), 65536)
+	assert.NoError(t, err)
+
+	remoteRootPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/")
+	err = scpUpload(filepath.Join(baseDir, "vdir"), remoteRootPath, true, false)
+	assert.NoError(t, err)
+
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		info, err := client.Stat(path.Join(vdirCryptPath, testFileName))
+		assert.NoError(t, err)
+		assert.Equal(t, int64(65535), info.Size())
+		info, err = client.Stat(path.Join(vdirSFTPPath, testFileName))
+		assert.NoError(t, err)
+		assert.Equal(t, int64(32768), info.Size())
+		info, err = client.Stat(path.Join("/vdir", testFileName))
+		assert.NoError(t, err)
+		assert.Equal(t, int64(65536), info.Size())
+	}
+
+	err = scpDownload(baseDirDownPath, remoteRootPath, true, true)
+	assert.NoError(t, err)
+
+	assert.FileExists(t, filepath.Join(baseDirDownPath, user.Username, "vdir", testFileName))
+	assert.FileExists(t, filepath.Join(baseDirDownPath, user.Username, vdirCryptPath, testFileName))
+	assert.FileExists(t, filepath.Join(baseDirDownPath, user.Username, vdirSFTPPath, testFileName))
+
+	if runtime.GOOS != osWindows {
+		err = os.Chmod(filepath.Join(baseUser.GetHomeDir(), testFileName), 0001)
+		assert.NoError(t, err)
+		err = scpDownload(baseDirDownPath, remoteRootPath, true, true)
+		assert.Error(t, err)
+		err = os.Chmod(filepath.Join(baseUser.GetHomeDir(), testFileName), os.ModePerm)
+		assert.NoError(t, err)
+	}
+
+	// now change the password for the base user, so SFTP folder will not work
+	baseUser.Password = defaultPassword + "_mod"
+	_, _, err = httpdtest.UpdateUser(baseUser, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	err = scpUpload(filepath.Join(baseDir, "vdir"), remoteRootPath, true, false)
+	assert.Error(t, err)
+
+	err = scpDownload(baseDirDownPath, remoteRootPath, true, true)
+	assert.Error(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderNameCrypt}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderNameSFTP}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(baseUser.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPathCrypt)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPathSFTP)
+	assert.NoError(t, err)
+	err = os.RemoveAll(baseDir)
+	assert.NoError(t, err)
+	err = os.RemoveAll(baseDirDownPath)
 	assert.NoError(t, err)
 }
 
@@ -8194,7 +8454,7 @@ func getTestUser(usePubKey bool) dataprovider.User {
 func getTestSFTPUser(usePubKey bool) dataprovider.User {
 	u := getTestUser(usePubKey)
 	u.Username = defaultSFTPUsername
-	u.FsConfig.Provider = dataprovider.SFTPFilesystemProvider
+	u.FsConfig.Provider = vfs.SFTPFilesystemProvider
 	u.FsConfig.SFTPConfig.Endpoint = sftpServerAddr
 	u.FsConfig.SFTPConfig.Username = defaultUsername
 	u.FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)
@@ -8375,6 +8635,35 @@ func checkBasicSFTP(client *sftp.Client) error {
 	}
 	_, err = client.ReadDir(".")
 	return err
+}
+
+func writeSFTPFile(name string, size int64, client *sftp.Client) error {
+	content := make([]byte, size)
+	_, err := rand.Read(content)
+	if err != nil {
+		return err
+	}
+	f, err := client.Create(name)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(f, bytes.NewBuffer(content))
+	if err != nil {
+		f.Close()
+		return err
+	}
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+	info, err := client.Stat(name)
+	if err != nil {
+		return err
+	}
+	if info.Size() != size {
+		return fmt.Errorf("file size mismatch, wanted %v, actual %v", size, info.Size())
+	}
+	return nil
 }
 
 func sftpUploadFile(localSourcePath string, remoteDestPath string, expectedSize int64, client *sftp.Client) error {

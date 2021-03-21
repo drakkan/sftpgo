@@ -15,6 +15,7 @@ import (
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/httpdtest"
 	"github.com/drakkan/sftpgo/kms"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 func TestBasicFTPHandlingCryptFs(t *testing.T) {
@@ -214,7 +215,7 @@ func TestResumeCryptFs(t *testing.T) {
 
 func getTestUserWithCryptFs() dataprovider.User {
 	user := getTestUser()
-	user.FsConfig.Provider = dataprovider.CryptedFilesystemProvider
+	user.FsConfig.Provider = vfs.CryptedFilesystemProvider
 	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("testPassphrase")
 	return user
 }

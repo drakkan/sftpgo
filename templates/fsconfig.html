@@ -1,0 +1,359 @@
+{{define "fshtml"}}
+<div class="form-group row">
+    <label for="idFilesystem" class="col-sm-2 col-form-label">Storage</label>
+    <div class="col-sm-10">
+        <select class="form-control" id="idFilesystem" name="fs_provider"
+            onchange="onFilesystemChanged(this.value)">
+            <option value="0" {{if eq .Provider 0 }}selected{{end}}>Local</option>
+            <option value="4" {{if eq .Provider 4 }}selected{{end}}>Local encrypted</option>
+            <option value="1" {{if eq .Provider 1 }}selected{{end}}>AWS S3 (Compatible)</option>
+            <option value="2" {{if eq .Provider 2 }}selected{{end}}>Google Cloud Storage</option>
+            <option value="3" {{if eq .Provider 3 }}selected{{end}}>Azure Blob Storage</option>
+            <option value="5" {{if eq .Provider 5 }}selected{{end}}>SFTP</option>
+        </select>
+    </div>
+</div>
+
+<div class="form-group row s3">
+    <label for="idS3Bucket" class="col-sm-2 col-form-label">Bucket</label>
+    <div class="col-sm-3">
+        <input type="text" class="form-control" id="idS3Bucket" name="s3_bucket" placeholder=""
+            value="{{.S3Config.Bucket}}" maxlength="255">
+    </div>
+    <div class="col-sm-2"></div>
+    <label for="idS3Region" class="col-sm-2 col-form-label">Region</label>
+    <div class="col-sm-3">
+        <input type="text" class="form-control" id="idS3Region" name="s3_region" placeholder=""
+            value="{{.S3Config.Region}}" maxlength="255">
+    </div>
+</div>
+
+<div class="form-group row s3">
+    <label for="idS3AccessKey" class="col-sm-2 col-form-label">Access Key</label>
+    <div class="col-sm-3">
+        <input type="text" class="form-control" id="idS3AccessKey" name="s3_access_key" placeholder=""
+            value="{{.S3Config.AccessKey}}" maxlength="255">
+    </div>
+    <div class="col-sm-2"></div>
+    <label for="idS3AccessSecret" class="col-sm-2 col-form-label">Access Secret</label>
+    <div class="col-sm-3">
+        <input type="password" class="form-control" id="idS3AccessSecret" name="s3_access_secret"
+            placeholder=""
+            value="{{if .S3Config.AccessSecret.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.S3Config.AccessSecret.GetPayload}}{{end}}"
+            maxlength="1000">
+    </div>
+</div>
+
+<div class="form-group row s3">
+    <label for="idS3StorageClass" class="col-sm-2 col-form-label">Storage Class</label>
+    <div class="col-sm-3">
+        <input type="text" class="form-control" id="idS3StorageClass" name="s3_storage_class" placeholder=""
+            value="{{.S3Config.StorageClass}}" maxlength="255">
+    </div>
+    <div class="col-sm-2"></div>
+    <label for="idS3Endpoint" class="col-sm-2 col-form-label">Endpoint</label>
+    <div class="col-sm-3">
+        <input type="text" class="form-control" id="idS3Endpoint" name="s3_endpoint" placeholder=""
+            value="{{.S3Config.Endpoint}}" maxlength="255">
+    </div>
+</div>
+
+<div class="form-group row s3">
+    <label for="idS3PartSize" class="col-sm-2 col-form-label">UL Part Size (MB)</label>
+    <div class="col-sm-3">
+        <input type="number" class="form-control" id="idS3PartSize" name="s3_upload_part_size"
+            placeholder="" value="{{.S3Config.UploadPartSize}}"
+            aria-describedby="S3PartSizeHelpBlock">
+        <small id="S3PartSizeHelpBlock" class="form-text text-muted">
+            The buffer size for multipart uploads. Zero means the default (5 MB). Minimum is 5
+        </small>
+    </div>
+    <div class="col-sm-2"></div>
+    <label for="idS3UploadConcurrency" class="col-sm-2 col-form-label">UL Concurrency</label>
+    <div class="col-sm-3">
+        <input type="number" class="form-control" id="idS3UploadConcurrency" name="s3_upload_concurrency"
+            placeholder="" value="{{.S3Config.UploadConcurrency}}" min="0"
+            aria-describedby="S3ConcurrencyHelpBlock">
+        <small id="S3ConcurrencyHelpBlock" class="form-text text-muted">
+            How many parts are uploaded in parallel. Zero means the default (2)
+        </small>
+    </div>
+</div>
+
+<div class="form-group row s3">
+    <label for="idS3KeyPrefix" class="col-sm-2 col-form-label">Key Prefix</label>
+    <div class="col-sm-10">
+        <input type="text" class="form-control" id="idS3KeyPrefix" name="s3_key_prefix" placeholder=""
+            value="{{.S3Config.KeyPrefix}}" maxlength="255"
+            aria-describedby="S3KeyPrefixHelpBlock">
+        <small id="S3KeyPrefixHelpBlock" class="form-text text-muted">
+            Similar to a chroot for local filesystem. Cannot start with "/". Example: "somedir/subdir/".
+        </small>
+    </div>
+</div>
+
+<div class="form-group row gcs">
+    <label for="idGCSBucket" class="col-sm-2 col-form-label">Bucket</label>
+    <div class="col-sm-10">
+        <input type="text" class="form-control" id="idGCSBucket" name="gcs_bucket" placeholder=""
+            value="{{.GCSConfig.Bucket}}" maxlength="255">
+    </div>
+</div>
+
+<div class="form-group row gcs">
+    <label for="idGCSCredentialFile" class="col-sm-2 col-form-label">Credentials file</label>
+    <div class="col-sm-4">
+        <input type="file" class="form-control-file" id="idGCSCredentialFile" name="gcs_credential_file"
+            aria-describedby="GCSCredentialsHelpBlock">
+        <small id="GCSCredentialsHelpBlock" class="form-text text-muted">
+            Add or update credentials from a JSON file
+        </small>
+    </div>
+    <div class="col-sm-1"></div>
+    <label for="idGCSStorageClass" class="col-sm-2 col-form-label">Storage Class</label>
+    <div class="col-sm-3">
+        <input type="text" class="form-control" id="idGCSStorageClass" name="gcs_storage_class"
+            placeholder="" value="{{.GCSConfig.StorageClass}}" maxlength="255">
+    </div>
+</div>
+
+<div class="form-group gcs">
+    <div class="form-check">
+        <input type="checkbox" class="form-check-input" id="idGCSAutoCredentials"
+            name="gcs_auto_credentials" {{if gt .GCSConfig.AutomaticCredentials 0}}checked{{end}}>
+        <label for="idGCSAutoCredentials" class="form-check-label">Automatic credentials</label>
+    </div>
+</div>
+
+<div class="form-group row gcs">
+    <label for="idGCSKeyPrefix" class="col-sm-2 col-form-label">Key Prefix</label>
+    <div class="col-sm-10">
+        <input type="text" class="form-control" id="idGCSKeyPrefix" name="gcs_key_prefix" placeholder=""
+            value="{{.GCSConfig.KeyPrefix}}" maxlength="255"
+            aria-describedby="GCSKeyPrefixHelpBlock">
+        <small id="GCSKeyPrefixHelpBlock" class="form-text text-muted">
+            Similar to a chroot for local filesystem. Cannot start with "/". Example: "somedir/subdir/".
+        </small>
+    </div>
+</div>
+
+<div class="form-group row azblob">
+    <label for="idAzContainer" class="col-sm-2 col-form-label">Container</label>
+    <div class="col-sm-3">
+        <input type="text" class="form-control" id="idAzContainer" name="az_container" placeholder=""
+            value="{{.AzBlobConfig.Container}}" maxlength="255">
+    </div>
+    <div class="col-sm-2"></div>
+    <label for="idAzAccountName" class="col-sm-2 col-form-label">Account Name</label>
+    <div class="col-sm-3">
+        <input type="text" class="form-control" id="idAzAccountName" name="az_account_name" placeholder=""
+            value="{{.AzBlobConfig.AccountName}}" maxlength="255">
+    </div>
+</div>
+
+<div class="form-group row azblob">
+    <label for="idAzAccountKey" class="col-sm-2 col-form-label">Account Key</label>
+    <div class="col-sm-10">
+        <input type="password" class="form-control" id="idAzAccountKey" name="az_account_key" placeholder=""
+            value="{{if .AzBlobConfig.AccountKey.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.AzBlobConfig.AccountKey.GetPayload}}{{end}}"
+            maxlength="1000">
+    </div>
+</div>
+
+<div class="form-group row azblob">
+    <label for="idAzSASURL" class="col-sm-2 col-form-label">SAS URL</label>
+    <div class="col-sm-10">
+        <input type="text" class="form-control" id="idAzSASURL" name="az_sas_url" placeholder=""
+            value="{{.AzBlobConfig.SASURL}}" maxlength="255">
+    </div>
+</div>
+<div class="form-group row azblob">
+    <label for="idAzEndpoint" class="col-sm-2 col-form-label">Endpoint</label>
+    <div class="col-sm-10">
+        <input type="text" class="form-control" id="idAzEndpoint" name="az_endpoint" placeholder=""
+            value="{{.AzBlobConfig.Endpoint}}" maxlength="255">
+    </div>
+</div>
+
+<div class="form-group row azblob">
+    <label for="idAzAccessTier" class="col-sm-2 col-form-label">Access Tier</label>
+    <div class="col-sm-10">
+        <select class="form-control" id="idAzAccessTier" name="az_access_tier">
+            <option value="" {{if eq .AzBlobConfig.AccessTier "" }}selected{{end}}>Default</option>
+            <option value="Hot" {{if eq .AzBlobConfig.AccessTier "Hot" }}selected{{end}}>Hot</option>
+            <option value="Cool" {{if eq .AzBlobConfig.AccessTier "Cool" }}selected{{end}}>Cool</option>
+            <option value="Archive" {{if eq .AzBlobConfig.AccessTier "Archive"}}selected{{end}}>Archive</option>
+        </select>
+    </div>
+</div>
+
+<div class="form-group row azblob">
+    <label for="idAzPartSize" class="col-sm-2 col-form-label">UL Part Size (MB)</label>
+    <div class="col-sm-3">
+        <input type="number" class="form-control" id="idAzPartSize" name="az_upload_part_size"
+            placeholder="" value="{{.AzBlobConfig.UploadPartSize}}"
+            aria-describedby="AzPartSizeHelpBlock">
+        <small id="AzPartSizeHelpBlock" class="form-text text-muted">
+            The buffer size for multipart uploads. Zero means the default (4 MB)
+        </small>
+    </div>
+    <div class="col-sm-2"></div>
+    <label for="idAzUploadConcurrency" class="col-sm-2 col-form-label">UL Concurrency</label>
+    <div class="col-sm-3">
+        <input type="number" class="form-control" id="idAzUploadConcurrency" name="az_upload_concurrency"
+            placeholder="" value="{{.AzBlobConfig.UploadConcurrency}}" min="0"
+            aria-describedby="AzConcurrencyHelpBlock">
+        <small id="AzConcurrencyHelpBlock" class="form-text text-muted">
+            How many parts are uploaded in parallel. Zero means the default (2)
+        </small>
+    </div>
+</div>
+
+<div class="form-group row azblob">
+    <label for="idAzKeyPrefix" class="col-sm-2 col-form-label">Key Prefix</label>
+    <div class="col-sm-10">
+        <input type="text" class="form-control" id="idAzKeyPrefix" name="az_key_prefix" placeholder=""
+            value="{{.AzBlobConfig.KeyPrefix}}" maxlength="255"
+            aria-describedby="AzKeyPrefixHelpBlock">
+        <small id="AzKeyPrefixHelpBlock" class="form-text text-muted">
+            Similar to a chroot for local filesystem. Cannot start with "/". Example: "somedir/subdir/".
+        </small>
+    </div>
+</div>
+
+<div class="form-group azblob">
+    <div class="form-check">
+        <input type="checkbox" class="form-check-input" id="idUseEmulator" name="az_use_emulator" {{if .AzBlobConfig.UseEmulator}}checked{{end}}>
+        <label for="idUseEmulator" class="form-check-label">Use Azure Blob emulator</label>
+    </div>
+</div>
+
+<div class="form-group row crypt">
+    <label for="idCryptPassphrase" class="col-sm-2 col-form-label">Passphrase</label>
+    <div class="col-sm-10">
+        <input type="password" class="form-control" id="idCryptPassphrase" name="crypt_passphrase"
+            placeholder=""
+            value="{{if .CryptConfig.Passphrase.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.CryptConfig.Passphrase.GetPayload}}{{end}}"
+            maxlength="1000">
+    </div>
+</div>
+
+<div class="form-group row sftp">
+    <label for="idSFTPEndpoint" class="col-sm-2 col-form-label">Endpoint</label>
+    <div class="col-sm-3">
+        <input type="text" class="form-control" id="idSFTPEndpoint" name="sftp_endpoint" placeholder=""
+            value="{{.SFTPConfig.Endpoint}}" maxlength="255" aria-describedby="SFTPEndpointHelpBlock">
+        <small id="SFTPEndpointHelpBlock" class="form-text text-muted">
+                Endpoint as host:port, port is always required
+        </small>
+    </div>
+    <div class="col-sm-2"></div>
+    <label for="idSFTPUsername" class="col-sm-2 col-form-label">Username</label>
+    <div class="col-sm-3">
+        <input type="text" class="form-control" id="idSFTPUsername" name="sftp_username" placeholder=""
+            value="{{.SFTPConfig.Username}}" maxlength="255">
+    </div>
+</div>
+
+<div class="form-group row sftp">
+    <label for="idSFTPPassword" class="col-sm-2 col-form-label">Password</label>
+    <div class="col-sm-10">
+        <input type="password" class="form-control" id="idSFTPPassword" name="sftp_password" placeholder=""
+            value="{{if .SFTPConfig.Password.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.SFTPConfig.Password.GetPayload}}{{end}}"
+            maxlength="1000">
+    </div>
+</div>
+
+<div class="form-group row sftp">
+    <label for="idSFTPPrivateKey" class="col-sm-2 col-form-label">Private key</label>
+    <div class="col-sm-10">
+        <textarea type="password" class="form-control" id="idSFTPPrivateKey" name="sftp_private_key"
+            rows="3">{{if .SFTPConfig.PrivateKey.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.SFTPConfig.PrivateKey.GetPayload}}{{end}}</textarea>
+    </div>
+</div>
+
+<div class="form-group row sftp">
+    <label for="idSFTPFingerprints" class="col-sm-2 col-form-label">Fingerprints</label>
+    <div class="col-sm-10">
+        <textarea class="form-control" id="idSFTPFingerprints" name="sftp_fingerprints" rows="3"
+        aria-describedby="SFTPFingerprintsHelpBlock">{{range .SFTPConfig.Fingerprints}}{{.}}&#10;{{end}}</textarea>
+        <small id="SFTPFingerprintsHelpBlock" class="form-text text-muted">
+            SHA256 fingerprints to validate when connecting to the external SFTP server, one per line. If
+            empty any host key will be accepted: this is a security risk!
+        </small>
+    </div>
+</div>
+
+<div class="form-group row sftp">
+    <label for="idSFTPPrefix" class="col-sm-2 col-form-label">Prefix</label>
+    <div class="col-sm-10">
+        <input type="text" class="form-control" id="idSFTPPrefix" name="sftp_prefix" placeholder=""
+            value="{{.SFTPConfig.Prefix}}" maxlength="255"
+            aria-describedby="SFTPPrefixHelpBlock">
+        <small id="SFTPPrefixHelpBlock" class="form-text text-muted">
+            Similar to a chroot for local filesystem. Example: "/somedir/subdir".
+        </small>
+    </div>
+</div>
+
+<div class="form-group sftp">
+    <div class="form-check">
+        <input type="checkbox" class="form-check-input" id="idDisableConcurrentReads" name="sftp_disable_concurrent_reads" {{if .SFTPConfig.DisableCouncurrentReads}}checked{{end}}>
+        <label for="idDisableConcurrentReads" class="form-check-label">Disable concurrent reads</label>
+    </div>
+</div>
+{{end}}
+
+{{define "fsjs"}}
+    function onFilesystemChanged(val){
+        if (val == '1'){
+            $('.form-group.row.gcs').hide();
+            $('.form-group.gcs').hide();
+            $('.form-group.row.azblob').hide();
+            $('.form-group.azblob').hide();
+            $('.form-group.crypt').hide();
+            $('.form-group.sftp').hide();
+            $('.form-group.row.s3').show();
+        } else if (val == '2'){
+            $('.form-group.row.gcs').show();
+            $('.form-group.gcs').show();
+            $('.form-group.row.azblob').hide();
+            $('.form-group.azblob').hide();
+            $('.form-group.crypt').hide();
+            $('.form-group.row.s3').hide();
+            $('.form-group.sftp').hide();
+        } else if (val == '3'){
+            $('.form-group.row.azblob').show();
+            $('.form-group.azblob').show();
+            $('.form-group.row.gcs').hide();
+            $('.form-group.gcs').hide();
+            $('.form-group.crypt').hide();
+            $('.form-group.row.s3').hide();
+            $('.form-group.sftp').hide();
+        } else if (val == '4'){
+            $('.form-group.row.gcs').hide();
+            $('.form-group.gcs').hide();
+            $('.form-group.row.s3').hide();
+            $('.form-group.row.azblob').hide();
+            $('.form-group.azblob').hide();
+            $('.form-group.crypt').show();
+            $('.form-group.sftp').hide();
+        } else if (val == '5'){
+            $('.form-group.row.gcs').hide();
+            $('.form-group.gcs').hide();
+            $('.form-group.row.s3').hide();
+            $('.form-group.row.azblob').hide();
+            $('.form-group.azblob').hide();
+            $('.form-group.crypt').hide();
+            $('.form-group.sftp').show();
+        } else {
+            $('.form-group.row.gcs').hide();
+            $('.form-group.gcs').hide();
+            $('.form-group.row.s3').hide();
+            $('.form-group.row.azblob').hide();
+            $('.form-group.azblob').hide();
+            $('.form-group.crypt').hide();
+            $('.form-group.sftp').hide();
+        }
+    }
+{{end}}

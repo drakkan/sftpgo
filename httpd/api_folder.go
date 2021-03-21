@@ -50,7 +50,20 @@ func updateFolder(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
+	users := folder.Users
 	folderID := folder.ID
+	currentS3AccessSecret := folder.FsConfig.S3Config.AccessSecret
+	currentAzAccountKey := folder.FsConfig.AzBlobConfig.AccountKey
+	currentGCSCredentials := folder.FsConfig.GCSConfig.Credentials
+	currentCryptoPassphrase := folder.FsConfig.CryptConfig.Passphrase
+	currentSFTPPassword := folder.FsConfig.SFTPConfig.Password
+	currentSFTPKey := folder.FsConfig.SFTPConfig.PrivateKey
+
+	folder.FsConfig.S3Config = vfs.S3FsConfig{}
+	folder.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
+	folder.FsConfig.GCSConfig = vfs.GCSFsConfig{}
+	folder.FsConfig.CryptConfig = vfs.CryptFsConfig{}
+	folder.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
 	err = render.DecodeJSON(r.Body, &folder)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
@@ -58,7 +71,10 @@ func updateFolder(w http.ResponseWriter, r *http.Request) {
 	}
 	folder.ID = folderID
 	folder.Name = name
-	err = dataprovider.UpdateFolder(&folder)
+	folder.FsConfig.SetEmptySecretsIfNil()
+	updateEncryptedSecrets(&folder.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentGCSCredentials,
+		currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey)
+	err = dataprovider.UpdateFolder(&folder, users)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -72,6 +88,7 @@ func renderFolder(w http.ResponseWriter, r *http.Request, name string, status in
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
+	folder.HideConfidentialData()
 	if status != http.StatusOK {
 		ctx := context.WithValue(r.Context(), render.StatusCtxKey, status)
 		render.JSON(w, r.WithContext(ctx), folder)

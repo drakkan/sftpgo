@@ -84,7 +84,7 @@ func (f *webDavFile) Readdir(count int) ([]os.FileInfo, error) {
 	if !f.Connection.User.HasPerm(dataprovider.PermListItems, f.GetVirtualPath()) {
 		return nil, f.Connection.GetPermissionDeniedError()
 	}
-	fileInfos, err := f.Connection.ListDir(f.GetFsPath(), f.GetVirtualPath())
+	fileInfos, err := f.Connection.ListDir(f.GetVirtualPath())
 	if err != nil {
 		return nil, err
 	}
@@ -299,7 +299,7 @@ func (f *webDavFile) Close() error {
 	} else {
 		f.Connection.RemoveTransfer(f.BaseTransfer)
 	}
-	return f.Connection.GetFsError(err)
+	return f.Connection.GetFsError(f.Fs, err)
 }
 
 func (f *webDavFile) closeIO() error {

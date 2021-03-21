@@ -63,7 +63,7 @@ func getSearchFilters(w http.ResponseWriter, r *http.Request) (int, int, string,
 	if _, ok := r.URL.Query()["limit"]; ok {
 		limit, err = strconv.Atoi(r.URL.Query().Get("limit"))
 		if err != nil {
-			err = errors.New("Invalid limit")
+			err = errors.New("invalid limit")
 			sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 			return limit, offset, order, err
 		}
@@ -74,7 +74,7 @@ func getSearchFilters(w http.ResponseWriter, r *http.Request) (int, int, string,
 	if _, ok := r.URL.Query()["offset"]; ok {
 		offset, err = strconv.Atoi(r.URL.Query().Get("offset"))
 		if err != nil {
-			err = errors.New("Invalid offset")
+			err = errors.New("invalid offset")
 			sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 			return limit, offset, order, err
 		}
@@ -82,7 +82,7 @@ func getSearchFilters(w http.ResponseWriter, r *http.Request) (int, int, string,
 	if _, ok := r.URL.Query()["order"]; ok {
 		order = r.URL.Query().Get("order")
 		if order != dataprovider.OrderASC && order != dataprovider.OrderDESC {
-			err = errors.New("Invalid order")
+			err = errors.New("invalid order")
 			sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 			return limit, offset, order, err
 		}

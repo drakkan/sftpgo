@@ -95,7 +95,7 @@ func initializeSQLiteProvider(basePath string) error {
 	if config.ConnectionString == "" {
 		dbPath := config.Name
 		if !utils.IsFileInputValid(dbPath) {
-			return fmt.Errorf("Invalid database path: %#v", dbPath)
+			return fmt.Errorf("invalid database path: %#v", dbPath)
 		}
 		if !filepath.IsAbs(dbPath) {
 			dbPath = filepath.Join(basePath, dbPath)
@@ -278,7 +278,7 @@ func (p *SQLiteProvider) migrateDatabase() error {
 				sqlDatabaseVersion)
 			return nil
 		}
-		return fmt.Errorf("Database version not handled: %v", version)
+		return fmt.Errorf("database version not handled: %v", version)
 	}
 }
 
@@ -295,7 +295,7 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	case 9:
 		return downgradeSQLiteDatabaseFromV9(p.dbHandle)
 	default:
-		return fmt.Errorf("Database version not handled: %v", dbVersion.Version)
+		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
 }
 

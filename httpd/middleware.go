@@ -134,7 +134,7 @@ func verifyCSRFHeader(next http.Handler) http.Handler {
 
 		if !utils.IsStringInSlice(tokenAudienceCSRF, token.Audience()) {
 			logger.Debug(logSender, "", "error validating CSRF header audience")
-			sendAPIResponse(w, r, errors.New("The token is not valid"), "", http.StatusForbidden)
+			sendAPIResponse(w, r, errors.New("the token is not valid"), "", http.StatusForbidden)
 			return
 		}
 

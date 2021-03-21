@@ -245,6 +245,10 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		logger.ErrorToConsole("error creating banner file: %v", err)
 	}
+	// we run the test cases with UploadMode atomic and resume support. The non atomic code path
+	// simply does not execute some code so if it works in atomic mode will
+	// work in non atomic mode too
+	os.Setenv("SFTPGO_COMMON__UPLOAD_MODE", "2")
 	err = config.LoadConfig(configDir, "")
 	if err != nil {
 		logger.ErrorToConsole("error loading configuration: %v", err)
@@ -254,10 +258,6 @@ func TestMain(m *testing.M) {
 	logger.InfoToConsole("Starting FTPD tests, provider: %v", providerConf.Driver)
 
 	commonConf := config.GetCommonConfig()
-	// we run the test cases with UploadMode atomic and resume support. The non atomic code path
-	// simply does not execute some code so if it works in atomic mode will
-	// work in non atomic mode too
-	commonConf.UploadMode = 2
 	homeBasePath = os.TempDir()
 	if runtime.GOOS != osWindows {
 		commonConf.Actions.ExecuteOn = []string{"download", "upload", "rename", "delete"}
@@ -1274,7 +1274,7 @@ func TestLoginWithIPilters(t *testing.T) {
 
 func TestLoginWithDatabaseCredentials(t *testing.T) {
 	u := getTestUser()
-	u.FsConfig.Provider = dataprovider.GCSFilesystemProvider
+	u.FsConfig.Provider = vfs.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret(`{ "type": "service_account" }`)
 
@@ -1323,7 +1323,7 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 
 func TestLoginInvalidFs(t *testing.T) {
 	u := getTestUser()
-	u.FsConfig.Provider = dataprovider.GCSFilesystemProvider
+	u.FsConfig.Provider = vfs.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("invalid JSON for credentials")
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -2153,7 +2153,7 @@ func TestClientCertificateAuth(t *testing.T) {
 	// TLS username is not enabled, mutual TLS should fail
 	_, err = getFTPClient(user, true, tlsConfig)
 	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "Login method password is not allowed")
+		assert.Contains(t, err.Error(), "login method password is not allowed")
 	}
 
 	user.Filters.TLSUsername = dataprovider.TLSUsernameCN
@@ -2186,7 +2186,7 @@ func TestClientCertificateAuth(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = getFTPClient(user, true, tlsConfig)
 	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "Login method TLSCertificate+password is not allowed")
+		assert.Contains(t, err.Error(), "login method TLSCertificate+password is not allowed")
 	}
 
 	// disable FTP protocol
@@ -2196,7 +2196,7 @@ func TestClientCertificateAuth(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = getFTPClient(user, true, tlsConfig)
 	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "Protocol FTP is not allowed")
+		assert.Contains(t, err.Error(), "protocol FTP is not allowed")
 	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
@@ -2238,7 +2238,7 @@ func TestClientCertificateAndPwdAuth(t *testing.T) {
 
 	_, err = getFTPClient(user, true, nil)
 	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "Login method password is not allowed")
+		assert.Contains(t, err.Error(), "login method password is not allowed")
 	}
 	user.Password = defaultPassword + "1"
 	_, err = getFTPClient(user, true, tlsConfig)
@@ -2405,6 +2405,111 @@ func TestPreLoginHookWithClientCert(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestNestedVirtualFolders(t *testing.T) {
+	u := getTestUser()
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	u = getTestSFTPUser()
+	mappedPathCrypt := filepath.Join(os.TempDir(), "crypt")
+	folderNameCrypt := filepath.Base(mappedPathCrypt)
+	vdirCryptPath := "/vdir/crypt"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: folderNameCrypt,
+			FsConfig: vfs.Filesystem{
+				Provider: vfs.CryptedFilesystemProvider,
+				CryptConfig: vfs.CryptFsConfig{
+					Passphrase: kms.NewPlainSecret(defaultPassword),
+				},
+			},
+			MappedPath: mappedPathCrypt,
+		},
+		VirtualPath: vdirCryptPath,
+	})
+	mappedPath := filepath.Join(os.TempDir(), "local")
+	folderName := filepath.Base(mappedPath)
+	vdirPath := "/vdir/local"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName,
+			MappedPath: mappedPath,
+		},
+		VirtualPath: vdirPath,
+	})
+	mappedPathNested := filepath.Join(os.TempDir(), "nested")
+	folderNameNested := filepath.Base(mappedPathNested)
+	vdirNestedPath := "/vdir/crypt/nested"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderNameNested,
+			MappedPath: mappedPathNested,
+		},
+		VirtualPath: vdirNestedPath,
+		QuotaFiles:  -1,
+		QuotaSize:   -1,
+	})
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	client, err := getFTPClient(sftpUser, false, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, path.Join("/vdir", testFileName), testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = ftpDownloadFile(path.Join("/vdir", testFileName), localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, path.Join(vdirPath, testFileName), testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = ftpDownloadFile(path.Join(vdirPath, testFileName), localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, path.Join(vdirCryptPath, testFileName), testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = ftpDownloadFile(path.Join(vdirCryptPath, testFileName), localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, path.Join(vdirNestedPath, testFileName), testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = ftpDownloadFile(path.Join(vdirNestedPath, testFileName), localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+
+		err = client.Quit()
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderNameCrypt}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderNameNested}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPathCrypt)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPathNested)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 1*time.Second, 50*time.Millisecond)
+}
+
 func checkBasicFTP(client *ftp.ServerConn) error {
 	_, err := client.CurrentDir()
 	if err != nil {
@@ -2562,7 +2667,7 @@ func getTestUser() dataprovider.User {
 func getTestSFTPUser() dataprovider.User {
 	u := getTestUser()
 	u.Username = u.Username + "_sftp"
-	u.FsConfig.Provider = dataprovider.SFTPFilesystemProvider
+	u.FsConfig.Provider = vfs.SFTPFilesystemProvider
 	u.FsConfig.SFTPConfig.Endpoint = sftpServerAddr
 	u.FsConfig.SFTPConfig.Username = defaultUsername
 	u.FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)

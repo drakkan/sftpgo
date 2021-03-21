@@ -876,9 +876,9 @@ func TestMaxConnections(t *testing.T) {
 	client := getWebDavClient(user, true, nil)
 	assert.NoError(t, checkBasicFunc(client))
 	// now add a fake connection
-	fs := vfs.NewOsFs("id", os.TempDir(), nil)
+	fs := vfs.NewOsFs("id", os.TempDir(), "")
 	connection := &webdavd.Connection{
-		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, user, fs),
+		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, user),
 	}
 	common.Connections.Add(connection)
 	assert.Error(t, checkBasicFunc(client))
@@ -900,9 +900,9 @@ func TestMaxSessions(t *testing.T) {
 	client := getWebDavClient(user, false, nil)
 	assert.NoError(t, checkBasicFunc(client))
 	// now add a fake connection
-	fs := vfs.NewOsFs("id", os.TempDir(), nil)
+	fs := vfs.NewOsFs("id", os.TempDir(), "")
 	connection := &webdavd.Connection{
-		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, user, fs),
+		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, user),
 	}
 	common.Connections.Add(connection)
 	assert.Error(t, checkBasicFunc(client))
@@ -1308,7 +1308,7 @@ func TestClientClose(t *testing.T) {
 
 func TestLoginWithDatabaseCredentials(t *testing.T) {
 	u := getTestUser()
-	u.FsConfig.Provider = dataprovider.GCSFilesystemProvider
+	u.FsConfig.Provider = vfs.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret(`{ "type": "service_account" }`)
 
@@ -1356,7 +1356,7 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 
 func TestLoginInvalidFs(t *testing.T) {
 	u := getTestUser()
-	u.FsConfig.Provider = dataprovider.GCSFilesystemProvider
+	u.FsConfig.Provider = vfs.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("invalid JSON for credentials")
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -2006,6 +2006,106 @@ func TestPreLoginHookWithClientCert(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestNestedVirtualFolders(t *testing.T) {
+	u := getTestUser()
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	u = getTestSFTPUser()
+	mappedPathCrypt := filepath.Join(os.TempDir(), "crypt")
+	folderNameCrypt := filepath.Base(mappedPathCrypt)
+	vdirCryptPath := "/vdir/crypt"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: folderNameCrypt,
+			FsConfig: vfs.Filesystem{
+				Provider: vfs.CryptedFilesystemProvider,
+				CryptConfig: vfs.CryptFsConfig{
+					Passphrase: kms.NewPlainSecret(defaultPassword),
+				},
+			},
+			MappedPath: mappedPathCrypt,
+		},
+		VirtualPath: vdirCryptPath,
+	})
+	mappedPath := filepath.Join(os.TempDir(), "local")
+	folderName := filepath.Base(mappedPath)
+	vdirPath := "/vdir/local"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName,
+			MappedPath: mappedPath,
+		},
+		VirtualPath: vdirPath,
+	})
+	mappedPathNested := filepath.Join(os.TempDir(), "nested")
+	folderNameNested := filepath.Base(mappedPathNested)
+	vdirNestedPath := "/vdir/crypt/nested"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderNameNested,
+			MappedPath: mappedPathNested,
+		},
+		VirtualPath: vdirNestedPath,
+		QuotaFiles:  -1,
+		QuotaSize:   -1,
+	})
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	client := getWebDavClient(sftpUser, true, nil)
+	assert.NoError(t, checkBasicFunc(client))
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+
+	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	assert.NoError(t, err)
+	err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
+	assert.NoError(t, err)
+	err = uploadFile(testFilePath, path.Join("/vdir", testFileName), testFileSize, client)
+	assert.NoError(t, err)
+	err = downloadFile(path.Join("/vdir", testFileName), localDownloadPath, testFileSize, client)
+	assert.NoError(t, err)
+	err = uploadFile(testFilePath, path.Join(vdirPath, testFileName), testFileSize, client)
+	assert.NoError(t, err)
+	err = downloadFile(path.Join(vdirPath, testFileName), localDownloadPath, testFileSize, client)
+	assert.NoError(t, err)
+	err = uploadFile(testFilePath, path.Join(vdirCryptPath, testFileName), testFileSize, client)
+	assert.NoError(t, err)
+	err = downloadFile(path.Join(vdirCryptPath, testFileName), localDownloadPath, testFileSize, client)
+	assert.NoError(t, err)
+	err = uploadFile(testFilePath, path.Join(vdirNestedPath, testFileName), testFileSize, client)
+	assert.NoError(t, err)
+	err = downloadFile(path.Join(vdirNestedPath, testFileName), localDownloadPath, testFileSize, client)
+	assert.NoError(t, err)
+
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.Remove(localDownloadPath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderNameCrypt}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderNameNested}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPathCrypt)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPathNested)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+	assert.Len(t, common.Connections.GetStats(), 0)
+}
+
 func checkBasicFunc(client *gowebdav.Client) error {
 	err := client.Connect()
 	if err != nil {
@@ -2125,7 +2225,7 @@ func getTestUser() dataprovider.User {
 func getTestSFTPUser() dataprovider.User {
 	u := getTestUser()
 	u.Username = u.Username + "_sftp"
-	u.FsConfig.Provider = dataprovider.SFTPFilesystemProvider
+	u.FsConfig.Provider = vfs.SFTPFilesystemProvider
 	u.FsConfig.SFTPConfig.Endpoint = sftpServerAddr
 	u.FsConfig.SFTPConfig.Username = defaultUsername
 	u.FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)
@@ -2134,7 +2234,7 @@ func getTestSFTPUser() dataprovider.User {
 
 func getTestUserWithCryptFs() dataprovider.User {
 	user := getTestUser()
-	user.FsConfig.Provider = dataprovider.CryptedFilesystemProvider
+	user.FsConfig.Provider = vfs.CryptedFilesystemProvider
 	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("testPassphrase")
 	return user
 }

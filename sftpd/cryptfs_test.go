@@ -478,7 +478,7 @@ func getEncryptedFileSize(size int64) (int64, error) {
 
 func getTestUserWithCryptFs(usePubKey bool) dataprovider.User {
 	u := getTestUser(usePubKey)
-	u.FsConfig.Provider = dataprovider.CryptedFilesystemProvider
+	u.FsConfig.Provider = vfs.CryptedFilesystemProvider
 	u.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret(testPassphrase)
 	return u
 }

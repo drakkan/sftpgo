@@ -54,19 +54,19 @@ func (c *Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 		return nil, sftp.ErrSSHFxPermissionDenied
 	}
 
-	p, err := c.Fs.ResolvePath(request.Filepath)
+	fs, p, err := c.GetFsAndResolvedPath(request.Filepath)
 	if err != nil {
-		return nil, c.GetFsError(err)
+		return nil, err
 	}
 
-	file, r, cancelFn, err := c.Fs.Open(p, 0)
+	file, r, cancelFn, err := fs.Open(p, 0)
 	if err != nil {
 		c.Log(logger.LevelWarn, "could not open file %#v for reading: %+v", p, err)
-		return nil, c.GetFsError(err)
+		return nil, c.GetFsError(fs, err)
 	}
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, p, request.Filepath, common.TransferDownload,
-		0, 0, 0, false, c.Fs)
+		0, 0, 0, false, fs)
 	t := newTransfer(baseTransfer, nil, r, nil)
 
 	return t, nil
@@ -90,18 +90,18 @@ func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReader
 		return nil, sftp.ErrSSHFxPermissionDenied
 	}
 
-	p, err := c.Fs.ResolvePath(request.Filepath)
+	fs, p, err := c.GetFsAndResolvedPath(request.Filepath)
 	if err != nil {
-		return nil, c.GetFsError(err)
+		return nil, err
 	}
 
 	filePath := p
-	if common.Config.IsAtomicUploadEnabled() && c.Fs.IsAtomicUploadSupported() {
-		filePath = c.Fs.GetAtomicUploadPath(p)
+	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
+		filePath = fs.GetAtomicUploadPath(p)
 	}
 
 	var errForRead error
-	if !vfs.IsLocalOrSFTPFs(c.Fs) && request.Pflags().Read {
+	if !vfs.IsLocalOrSFTPFs(fs) && request.Pflags().Read {
 		// read and write mode is only supported for local filesystem
 		errForRead = sftp.ErrSSHFxOpUnsupported
 	}
@@ -112,17 +112,17 @@ func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReader
 		errForRead = os.ErrPermission
 	}
 
-	stat, statErr := c.Fs.Lstat(p)
-	if (statErr == nil && stat.Mode()&os.ModeSymlink != 0) || c.Fs.IsNotExist(statErr) {
+	stat, statErr := fs.Lstat(p)
+	if (statErr == nil && stat.Mode()&os.ModeSymlink != 0) || fs.IsNotExist(statErr) {
 		if !c.User.HasPerm(dataprovider.PermUpload, path.Dir(request.Filepath)) {
 			return nil, sftp.ErrSSHFxPermissionDenied
 		}
-		return c.handleSFTPUploadToNewFile(p, filePath, request.Filepath, errForRead)
+		return c.handleSFTPUploadToNewFile(fs, p, filePath, request.Filepath, errForRead)
 	}
 
 	if statErr != nil {
 		c.Log(logger.LevelError, "error performing file stat %#v: %+v", p, statErr)
-		return nil, c.GetFsError(statErr)
+		return nil, c.GetFsError(fs, statErr)
 	}
 
 	// This happen if we upload a file that has the same name of an existing directory
@@ -135,7 +135,7 @@ func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReader
 		return nil, sftp.ErrSSHFxPermissionDenied
 	}
 
-	return c.handleSFTPUploadToExistingFile(request.Pflags(), p, filePath, stat.Size(), request.Filepath, errForRead)
+	return c.handleSFTPUploadToExistingFile(fs, request.Pflags(), p, filePath, stat.Size(), request.Filepath, errForRead)
 }
 
 // Filecmd hander for basic SFTP system calls related to files, but not anything to do with reading
@@ -143,37 +143,29 @@ func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReader
 func (c *Connection) Filecmd(request *sftp.Request) error {
 	c.UpdateLastActivity()
 
-	p, err := c.Fs.ResolvePath(request.Filepath)
-	if err != nil {
-		return c.GetFsError(err)
-	}
-	target, err := c.getSFTPCmdTargetPath(request.Target)
-	if err != nil {
-		return c.GetFsError(err)
-	}
-
-	c.Log(logger.LevelDebug, "new cmd, method: %v, sourcePath: %#v, targetPath: %#v", request.Method, p, target)
+	c.Log(logger.LevelDebug, "new cmd, method: %v, sourcePath: %#v, targetPath: %#v", request.Method,
+		request.Filepath, request.Target)
 
 	switch request.Method {
 	case "Setstat":
-		return c.handleSFTPSetstat(p, request)
+		return c.handleSFTPSetstat(request)
 	case "Rename":
-		if err = c.Rename(p, target, request.Filepath, request.Target); err != nil {
+		if err := c.Rename(request.Filepath, request.Target); err != nil {
 			return err
 		}
 	case "Rmdir":
-		return c.RemoveDir(p, request.Filepath)
+		return c.RemoveDir(request.Filepath)
 	case "Mkdir":
-		err = c.CreateDir(p, request.Filepath)
+		err := c.CreateDir(request.Filepath)
 		if err != nil {
 			return err
 		}
 	case "Symlink":
-		if err = c.CreateSymlink(p, target, request.Filepath, request.Target); err != nil {
+		if err := c.CreateSymlink(request.Filepath, request.Target); err != nil {
 			return err
 		}
 	case "Remove":
-		return c.handleSFTPRemove(p, request)
+		return c.handleSFTPRemove(request)
 	default:
 		return sftp.ErrSSHFxOpUnsupported
 	}
@@ -185,14 +177,10 @@ func (c *Connection) Filecmd(request *sftp.Request) error {
 // a directory as well as perform file/folder stat calls.
 func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 	c.UpdateLastActivity()
-	p, err := c.Fs.ResolvePath(request.Filepath)
-	if err != nil {
-		return nil, c.GetFsError(err)
-	}
 
 	switch request.Method {
 	case "List":
-		files, err := c.ListDir(p, request.Filepath)
+		files, err := c.ListDir(request.Filepath)
 		if err != nil {
 			return nil, err
 		}
@@ -202,10 +190,10 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 			return nil, sftp.ErrSSHFxPermissionDenied
 		}
 
-		s, err := c.DoStat(p, 0)
+		s, err := c.DoStat(request.Filepath, 0)
 		if err != nil {
-			c.Log(logger.LevelDebug, "error running stat on path %#v: %+v", p, err)
-			return nil, c.GetFsError(err)
+			c.Log(logger.LevelDebug, "error running stat on path %#v: %+v", request.Filepath, err)
+			return nil, err
 		}
 
 		return listerAt([]os.FileInfo{s}), nil
@@ -214,10 +202,15 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 			return nil, sftp.ErrSSHFxPermissionDenied
 		}
 
-		s, err := c.Fs.Readlink(p)
+		fs, p, err := c.GetFsAndResolvedPath(request.Filepath)
+		if err != nil {
+			return nil, err
+		}
+
+		s, err := fs.Readlink(p)
 		if err != nil {
 			c.Log(logger.LevelDebug, "error running readlink on path %#v: %+v", p, err)
-			return nil, c.GetFsError(err)
+			return nil, c.GetFsError(fs, err)
 		}
 
 		if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(s)) {
@@ -235,19 +228,14 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 func (c *Connection) Lstat(request *sftp.Request) (sftp.ListerAt, error) {
 	c.UpdateLastActivity()
 
-	p, err := c.Fs.ResolvePath(request.Filepath)
-	if err != nil {
-		return nil, c.GetFsError(err)
-	}
-
 	if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(request.Filepath)) {
 		return nil, sftp.ErrSSHFxPermissionDenied
 	}
 
-	s, err := c.DoStat(p, 1)
+	s, err := c.DoStat(request.Filepath, 1)
 	if err != nil {
-		c.Log(logger.LevelDebug, "error running lstat on path %#v: %+v", p, err)
-		return nil, c.GetFsError(err)
+		c.Log(logger.LevelDebug, "error running lstat on path %#v: %+v", request.Filepath, err)
+		return nil, err
 	}
 
 	return listerAt([]os.FileInfo{s}), nil
@@ -263,43 +251,29 @@ func (c *Connection) StatVFS(r *sftp.Request) (*sftp.StatVFS, error) {
 	// not the limit for a single file upload
 	quotaResult := c.HasSpace(true, true, path.Join(r.Filepath, "fakefile.txt"))
 
-	p, err := c.Fs.ResolvePath(r.Filepath)
+	fs, p, err := c.GetFsAndResolvedPath(r.Filepath)
 	if err != nil {
-		return nil, c.GetFsError(err)
+		return nil, err
 	}
 
 	if !quotaResult.HasSpace {
-		return c.getStatVFSFromQuotaResult(p, quotaResult), nil
+		return c.getStatVFSFromQuotaResult(fs, p, quotaResult), nil
 	}
 
 	if quotaResult.QuotaSize == 0 && quotaResult.QuotaFiles == 0 {
 		// no quota restrictions
-		statvfs, err := c.Fs.GetAvailableDiskSize(p)
+		statvfs, err := fs.GetAvailableDiskSize(p)
 		if err == vfs.ErrStorageSizeUnavailable {
-			return c.getStatVFSFromQuotaResult(p, quotaResult), nil
+			return c.getStatVFSFromQuotaResult(fs, p, quotaResult), nil
 		}
 		return statvfs, err
 	}
 
 	// there is free space but some limits are configured
-	return c.getStatVFSFromQuotaResult(p, quotaResult), nil
+	return c.getStatVFSFromQuotaResult(fs, p, quotaResult), nil
 }
 
-func (c *Connection) getSFTPCmdTargetPath(requestTarget string) (string, error) {
-	var target string
-	// If a target is provided in this request validate that it is going to the correct
-	// location for the server. If it is not, return an error
-	if requestTarget != "" {
-		var err error
-		target, err = c.Fs.ResolvePath(requestTarget)
-		if err != nil {
-			return target, err
-		}
-	}
-	return target, nil
-}
-
-func (c *Connection) handleSFTPSetstat(filePath string, request *sftp.Request) error {
+func (c *Connection) handleSFTPSetstat(request *sftp.Request) error {
 	attrs := common.StatAttributes{
 		Flags: 0,
 	}
@@ -322,50 +296,54 @@ func (c *Connection) handleSFTPSetstat(filePath string, request *sftp.Request) e
 		attrs.Size = int64(request.Attributes().Size)
 	}
 
-	return c.SetStat(filePath, request.Filepath, &attrs)
+	return c.SetStat(request.Filepath, &attrs)
 }
 
-func (c *Connection) handleSFTPRemove(filePath string, request *sftp.Request) error {
+func (c *Connection) handleSFTPRemove(request *sftp.Request) error {
+	fs, fsPath, err := c.GetFsAndResolvedPath(request.Filepath)
+	if err != nil {
+		return err
+	}
+
 	var fi os.FileInfo
-	var err error
-	if fi, err = c.Fs.Lstat(filePath); err != nil {
-		c.Log(logger.LevelWarn, "failed to remove a file %#v: stat error: %+v", filePath, err)
-		return c.GetFsError(err)
+	if fi, err = fs.Lstat(fsPath); err != nil {
+		c.Log(logger.LevelDebug, "failed to remove a file %#v: stat error: %+v", fsPath, err)
+		return c.GetFsError(fs, err)
 	}
 	if fi.IsDir() && fi.Mode()&os.ModeSymlink == 0 {
-		c.Log(logger.LevelDebug, "cannot remove %#v is not a file/symlink", filePath)
+		c.Log(logger.LevelDebug, "cannot remove %#v is not a file/symlink", fsPath)
 		return sftp.ErrSSHFxFailure
 	}
 
-	return c.RemoveFile(filePath, request.Filepath, fi)
+	return c.RemoveFile(fs, fsPath, request.Filepath, fi)
 }
 
-func (c *Connection) handleSFTPUploadToNewFile(resolvedPath, filePath, requestPath string, errForRead error) (sftp.WriterAtReaderAt, error) {
+func (c *Connection) handleSFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath, requestPath string, errForRead error) (sftp.WriterAtReaderAt, error) {
 	quotaResult := c.HasSpace(true, false, requestPath)
 	if !quotaResult.HasSpace {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, sftp.ErrSSHFxFailure
 	}
 
-	file, w, cancelFn, err := c.Fs.Create(filePath, 0)
+	file, w, cancelFn, err := fs.Create(filePath, 0)
 	if err != nil {
 		c.Log(logger.LevelWarn, "error creating file %#v: %+v", resolvedPath, err)
-		return nil, c.GetFsError(err)
+		return nil, c.GetFsError(fs, err)
 	}
 
-	vfs.SetPathPermissions(c.Fs, filePath, c.User.GetUID(), c.User.GetGID())
+	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	// we can get an error only for resume
-	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, 0)
+	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, 0, fs.IsUploadResumeSupported())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
-		common.TransferUpload, 0, 0, maxWriteSize, true, c.Fs)
+		common.TransferUpload, 0, 0, maxWriteSize, true, fs)
 	t := newTransfer(baseTransfer, w, nil, errForRead)
 
 	return t, nil
 }
 
-func (c *Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, resolvedPath, filePath string,
+func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileOpenFlags, resolvedPath, filePath string,
 	fileSize int64, requestPath string, errForRead error) (sftp.WriterAtReaderAt, error) {
 	var err error
 	quotaResult := c.HasSpace(false, false, requestPath)
@@ -382,25 +360,25 @@ func (c *Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, r
 	// if there is a size limit the remaining size cannot be 0 here, since quotaResult.HasSpace
 	// will return false in this case and we deny the upload before.
 	// For Cloud FS GetMaxWriteSize will return unsupported operation
-	maxWriteSize, err := c.GetMaxWriteSize(quotaResult, isResume, fileSize)
+	maxWriteSize, err := c.GetMaxWriteSize(quotaResult, isResume, fileSize, fs.IsUploadResumeSupported())
 	if err != nil {
 		c.Log(logger.LevelDebug, "unable to get max write size: %v", err)
 		return nil, err
 	}
 
-	if common.Config.IsAtomicUploadEnabled() && c.Fs.IsAtomicUploadSupported() {
-		err = c.Fs.Rename(resolvedPath, filePath)
+	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
+		err = fs.Rename(resolvedPath, filePath)
 		if err != nil {
 			c.Log(logger.LevelWarn, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %+v",
 				resolvedPath, filePath, err)
-			return nil, c.GetFsError(err)
+			return nil, c.GetFsError(fs, err)
 		}
 	}
 
-	file, w, cancelFn, err := c.Fs.Create(filePath, osFlags)
+	file, w, cancelFn, err := fs.Create(filePath, osFlags)
 	if err != nil {
 		c.Log(logger.LevelWarn, "error opening existing file, flags: %v, source: %#v, err: %+v", pflags, filePath, err)
-		return nil, c.GetFsError(err)
+		return nil, c.GetFsError(fs, err)
 	}
 
 	initialSize := int64(0)
@@ -409,7 +387,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, r
 		minWriteOffset = fileSize
 		initialSize = fileSize
 	} else {
-		if vfs.IsLocalOrSFTPFs(c.Fs) && isTruncate {
+		if vfs.IsLocalOrSFTPFs(fs) && isTruncate {
 			vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 			if err == nil {
 				dataprovider.UpdateVirtualFolderQuota(&vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck
@@ -424,10 +402,10 @@ func (c *Connection) handleSFTPUploadToExistingFile(pflags sftp.FileOpenFlags, r
 		}
 	}
 
-	vfs.SetPathPermissions(c.Fs, filePath, c.User.GetUID(), c.User.GetGID())
+	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
-		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, false, c.Fs)
+		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, false, fs)
 	t := newTransfer(baseTransfer, w, nil, errForRead)
 
 	return t, nil
@@ -438,9 +416,9 @@ func (c *Connection) Disconnect() error {
 	return c.channel.Close()
 }
 
-func (c *Connection) getStatVFSFromQuotaResult(name string, quotaResult vfs.QuotaCheckResult) *sftp.StatVFS {
+func (c *Connection) getStatVFSFromQuotaResult(fs vfs.Fs, name string, quotaResult vfs.QuotaCheckResult) *sftp.StatVFS {
 	if quotaResult.QuotaSize == 0 || quotaResult.QuotaFiles == 0 {
-		s, err := c.Fs.GetAvailableDiskSize(name)
+		s, err := fs.GetAvailableDiskSize(name)
 		if err == nil {
 			if quotaResult.QuotaSize == 0 {
 				quotaResult.QuotaSize = int64(s.TotalSpace())
