@@ -1093,7 +1093,7 @@ func TestQuotaLimits(t *testing.T) {
 	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	for _, user := range []dataprovider.User{localUser, sftpUser} {
-		testFileSize := int64(65535)
+		testFileSize := int64(65536)
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		err = createTestFile(testFilePath, testFileSize)
 		assert.NoError(t, err)
