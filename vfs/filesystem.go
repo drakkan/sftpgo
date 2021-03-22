@@ -48,6 +48,30 @@ func (f *Filesystem) SetEmptySecretsIfNil() {
 	}
 }
 
+// SetNilSecretsIfEmpty set the secrets to nil if empty.
+// This is useful before rendering as JSON so the empty fields
+// will not be serialized.
+func (f *Filesystem) SetNilSecretsIfEmpty() {
+	if f.S3Config.AccessSecret != nil && f.S3Config.AccessSecret.IsEmpty() {
+		f.S3Config.AccessSecret = nil
+	}
+	if f.GCSConfig.Credentials != nil && f.GCSConfig.Credentials.IsEmpty() {
+		f.GCSConfig.Credentials = nil
+	}
+	if f.AzBlobConfig.AccountKey != nil && f.AzBlobConfig.AccountKey.IsEmpty() {
+		f.AzBlobConfig.AccountKey = nil
+	}
+	if f.CryptConfig.Passphrase != nil && f.CryptConfig.Passphrase.IsEmpty() {
+		f.CryptConfig.Passphrase = nil
+	}
+	if f.SFTPConfig.Password != nil && f.SFTPConfig.Password.IsEmpty() {
+		f.SFTPConfig.Password = nil
+	}
+	if f.SFTPConfig.PrivateKey != nil && f.SFTPConfig.PrivateKey.IsEmpty() {
+		f.SFTPConfig.PrivateKey = nil
+	}
+}
+
 // GetACopy returns a copy
 func (f *Filesystem) GetACopy() Filesystem {
 	f.SetEmptySecretsIfNil()

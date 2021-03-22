@@ -88,7 +88,7 @@ func renderFolder(w http.ResponseWriter, r *http.Request, name string, status in
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	folder.HideConfidentialData()
+	folder.PrepareForRendering()
 	if status != http.StatusOK {
 		ctx := context.WithValue(r.Context(), render.StatusCtxKey, status)
 		render.JSON(w, r.WithContext(ctx), folder)

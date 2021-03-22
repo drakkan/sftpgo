@@ -2224,7 +2224,7 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 			status = "1"
 		}
 
-		user.HideConfidentialData()
+		user.PrepareForRendering()
 		userAsJSON, err := json.Marshal(user)
 		if err != nil {
 			providerLog(logger.LevelWarn, "error serializing user in post login hook: %v", err)
@@ -2422,7 +2422,7 @@ func executeAction(operation string, user *User) {
 			}
 			user = &u
 		}
-		user.HideConfidentialData()
+		user.PrepareForRendering()
 		userAsJSON, err := json.Marshal(user)
 		if err != nil {
 			providerLog(logger.LevelWarn, "unable to serialize user as JSON for operation %#v: %v", operation, err)

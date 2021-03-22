@@ -576,7 +576,7 @@ func (p *BoltProvider) getUsers(limit int, offset int, order string) ([]User, er
 				}
 				user, err := joinUserAndFolders(v, folderBucket)
 				if err == nil {
-					user.HideConfidentialData()
+					user.PrepareForRendering()
 					users = append(users, user)
 				}
 				if len(users) >= limit {
@@ -591,7 +591,7 @@ func (p *BoltProvider) getUsers(limit int, offset int, order string) ([]User, er
 				}
 				user, err := joinUserAndFolders(v, folderBucket)
 				if err == nil {
-					user.HideConfidentialData()
+					user.PrepareForRendering()
 					users = append(users, user)
 				}
 				if len(users) >= limit {
@@ -649,7 +649,7 @@ func (p *BoltProvider) getFolders(limit, offset int, order string) ([]vfs.BaseVi
 				if err != nil {
 					return err
 				}
-				folder.HideConfidentialData()
+				folder.PrepareForRendering()
 				folders = append(folders, folder)
 				if len(folders) >= limit {
 					break
@@ -666,7 +666,7 @@ func (p *BoltProvider) getFolders(limit, offset int, order string) ([]vfs.BaseVi
 				if err != nil {
 					return err
 				}
-				folder.HideConfidentialData()
+				folder.PrepareForRendering()
 				folders = append(folders, folder)
 				if len(folders) >= limit {
 					break

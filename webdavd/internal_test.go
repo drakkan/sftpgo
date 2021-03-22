@@ -1331,7 +1331,6 @@ func TestUserCacheIsolation(t *testing.T) {
 	if assert.True(t, ok) {
 		cachedUser := result.(*dataprovider.CachedUser).User
 		assert.Equal(t, vfs.LocalFilesystemProvider, cachedUser.FsConfig.Provider)
-		// FIXME: should we really allow to modify the cached users concurrently?????
 		assert.False(t, cachedUser.FsConfig.S3Config.AccessSecret.IsEncrypted())
 	}
 

@@ -278,8 +278,8 @@ func (u *User) CheckFsRoot(connectionID string) error {
 	return nil
 }
 
-// HideConfidentialData hides user confidential data
-func (u *User) HideConfidentialData() {
+// hideConfidentialData hides user confidential data
+func (u *User) hideConfidentialData() {
 	u.Password = ""
 	switch u.FsConfig.Provider {
 	case vfs.S3FilesystemProvider:
@@ -294,9 +294,17 @@ func (u *User) HideConfidentialData() {
 		u.FsConfig.SFTPConfig.Password.Hide()
 		u.FsConfig.SFTPConfig.PrivateKey.Hide()
 	}
+}
+
+// PrepareForRendering prepares a user for rendering.
+// It hides confidential data and set to nil the empty secrets
+// so they are not serialized
+func (u *User) PrepareForRendering() {
+	u.hideConfidentialData()
+	u.FsConfig.SetNilSecretsIfEmpty()
 	for idx := range u.VirtualFolders {
 		folder := &u.VirtualFolders[idx]
-		folder.HideConfidentialData()
+		folder.PrepareForRendering()
 	}
 }
 

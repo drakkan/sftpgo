@@ -1400,7 +1400,7 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.UploadConcurrency = 4
 	user, body, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err, string(body))
-	assert.True(t, user.FsConfig.S3Config.AccessSecret.IsEmpty())
+	assert.Nil(t, user.FsConfig.S3Config.AccessSecret)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	user.Password = defaultPassword
@@ -1408,7 +1408,7 @@ func TestUserS3Config(t *testing.T) {
 	// shared credential test for add instead of update
 	user, _, err = httpdtest.AddUser(user, http.StatusCreated)
 	assert.NoError(t, err)
-	assert.True(t, user.FsConfig.S3Config.AccessSecret.IsEmpty())
+	assert.Nil(t, user.FsConfig.S3Config.AccessSecret)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
@@ -1551,7 +1551,7 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	user.FsConfig.AzBlobConfig.UploadConcurrency = 4
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
-	assert.True(t, user.FsConfig.AzBlobConfig.AccountKey.IsEmpty())
+	assert.Nil(t, user.FsConfig.AzBlobConfig.AccountKey)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	user.Password = defaultPassword
@@ -1559,7 +1559,7 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	// sas test for add instead of update
 	user, _, err = httpdtest.AddUser(user, http.StatusCreated)
 	assert.NoError(t, err)
-	assert.True(t, user.FsConfig.AzBlobConfig.AccountKey.IsEmpty())
+	assert.Nil(t, user.FsConfig.AzBlobConfig.AccountKey)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
@@ -1681,7 +1681,7 @@ func TestUserSFTPFs(t *testing.T) {
 	user, _, err = httpdtest.AddUser(user, http.StatusCreated)
 	assert.NoError(t, err)
 	initialPkeyPayload = user.FsConfig.SFTPConfig.PrivateKey.GetPayload()
-	assert.Empty(t, user.FsConfig.SFTPConfig.Password.GetStatus())
+	assert.Nil(t, user.FsConfig.SFTPConfig.Password)
 	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.PrivateKey.GetStatus())
 	assert.NotEmpty(t, initialPkeyPayload)
 	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
@@ -5811,7 +5811,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	var userGet dataprovider.User
 	err = render.DecodeJSON(rr.Body, &userGet)
 	assert.NoError(t, err)
-	assert.True(t, userGet.FsConfig.S3Config.AccessSecret.IsEmpty())
+	assert.Nil(t, userGet.FsConfig.S3Config.AccessSecret)
 
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
 	setBearerForReq(req, apiToken)

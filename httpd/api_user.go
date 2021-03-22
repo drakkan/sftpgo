@@ -40,7 +40,7 @@ func renderUser(w http.ResponseWriter, r *http.Request, username string, status 
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	user.HideConfidentialData()
+	user.PrepareForRendering()
 	if status != http.StatusOK {
 		ctx := context.WithValue(r.Context(), render.StatusCtxKey, status)
 		render.JSON(w, r.WithContext(ctx), user)

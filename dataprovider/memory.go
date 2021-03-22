@@ -330,7 +330,7 @@ func (p *MemoryProvider) getUsers(limit int, offset int, order string) ([]User, 
 			}
 			u := p.dbHandle.users[username]
 			user := u.getACopy()
-			user.HideConfidentialData()
+			user.PrepareForRendering()
 			users = append(users, user)
 			if len(users) >= limit {
 				break
@@ -345,7 +345,7 @@ func (p *MemoryProvider) getUsers(limit int, offset int, order string) ([]User, 
 			username := p.dbHandle.usernames[i]
 			u := p.dbHandle.users[username]
 			user := u.getACopy()
-			user.HideConfidentialData()
+			user.PrepareForRendering()
 			users = append(users, user)
 			if len(users) >= limit {
 				break
@@ -635,7 +635,7 @@ func (p *MemoryProvider) getFolders(limit, offset int, order string) ([]vfs.Base
 			}
 			f := p.dbHandle.vfolders[name]
 			folder := f.GetACopy()
-			folder.HideConfidentialData()
+			folder.PrepareForRendering()
 			folders = append(folders, folder)
 			if len(folders) >= limit {
 				break
@@ -650,7 +650,7 @@ func (p *MemoryProvider) getFolders(limit, offset int, order string) ([]vfs.Base
 			name := p.dbHandle.vfoldersNames[i]
 			f := p.dbHandle.vfolders[name]
 			folder := f.GetACopy()
-			folder.HideConfidentialData()
+			folder.PrepareForRendering()
 			folders = append(folders, folder)
 			if len(folders) >= limit {
 				break

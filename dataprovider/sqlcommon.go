@@ -484,7 +484,7 @@ func sqlCommonGetUsers(limit int, offset int, order string, dbHandle sqlQuerier)
 			if err != nil {
 				return users, err
 			}
-			u.HideConfidentialData()
+			u.PrepareForRendering()
 			users = append(users, u)
 		}
 	}
@@ -832,7 +832,7 @@ func sqlCommonGetFolders(limit, offset int, order string, dbHandle sqlQuerier) (
 				folder.FsConfig = fs
 			}
 		}
-		folder.HideConfidentialData()
+		folder.PrepareForRendering()
 		folders = append(folders, folder)
 	}
 

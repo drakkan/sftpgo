@@ -79,8 +79,8 @@ func (v *BaseVirtualFolder) IsLocalOrLocalCrypted() bool {
 	return v.FsConfig.Provider == LocalFilesystemProvider || v.FsConfig.Provider == CryptedFilesystemProvider
 }
 
-// HideConfidentialData hides folder confidential data
-func (v *BaseVirtualFolder) HideConfidentialData() {
+// hideConfidentialData hides folder confidential data
+func (v *BaseVirtualFolder) hideConfidentialData() {
 	switch v.FsConfig.Provider {
 	case S3FilesystemProvider:
 		v.FsConfig.S3Config.AccessSecret.Hide()
@@ -94,6 +94,14 @@ func (v *BaseVirtualFolder) HideConfidentialData() {
 		v.FsConfig.SFTPConfig.Password.Hide()
 		v.FsConfig.SFTPConfig.PrivateKey.Hide()
 	}
+}
+
+// PrepareForRendering prepares a folder for rendering.
+// It hides confidential data and set to nil the empty secrets
+// so they are not serialized
+func (v *BaseVirtualFolder) PrepareForRendering() {
+	v.hideConfidentialData()
+	v.FsConfig.SetEmptySecretsIfNil()
 }
 
 // HasRedactedSecret returns true if the folder has a redacted secret
