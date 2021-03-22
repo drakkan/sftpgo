@@ -1423,9 +1423,6 @@ components:
           type: string
           description: key_prefix is similar to a chroot directory for a local filesystem. If specified the user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix, if not empty, must not start with "/" and must end with "/". If empty the whole bucket contents will be available
           example: folder/subfolder/
-      required:
-        - bucket
-        - region
       description: S3 Compatible Object Storage configuration details
     GCSConfig:
       type: object
@@ -1450,8 +1447,6 @@ components:
           type: string
           description: key_prefix is similar to a chroot directory for a local filesystem. If specified the user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix, if not empty, must not start with "/" and must end with "/". If empty the whole bucket contents will be available
           example: folder/subfolder/
-      required:
-        - bucket
       description: Google Cloud Storage configuration details. The "credentials" field must be populated only when adding/updating a user. It will be always omitted, since there are sensitive data, when you search/get users
     AzureBlobFsConfig:
       type: object
