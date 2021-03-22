@@ -1,4 +1,4 @@
-# php-activedirectory-http-server
+# SFTPGo on Windows with Active Directory Integration + Caddy Static File Server Example
 
 [![SFTPGo on Windows with Active Directory Integration + Caddy Static File Server Example](https://img.youtube.com/vi/M5UcJI8t4AI/0.jpg)](https://www.youtube.com/watch?v=M5UcJI8t4AI)
 
@@ -8,18 +8,17 @@ The Youtube Walkthrough/Tutorial video above goes into considerable more detail,
 
 Additionally, I go through using the Caddy web server, to help enable serving of static files, if this is something that would be of interest for you.
 
-To get started, you'll want to download the latest release ZIP package from the `sftpgo-ldap-http-server` repository:
-* https://github.com/orware/sftpgo-ldap-http-server
+To get started, you'll want to download the latest release ZIP package from the [sftpgo-ldap-http-server repository](https://github.com/orware/sftpgo-ldap-http-server).
 
 The ZIP itself contains the `sftpgo-ldap-http-server.exe` file, along with an `OpenLDAP` folder (mainly to help if you want to use TLS for your LDAP connections), and a `Data` which contains a logs folder, a configuration.example.php file, a functions.php file, and the LICENSE and README files.
 
 The video above goes through the whole process, but to get started you'll want to install SFTPGo on your server, and then extract the `sftpgo-ldap-http-server` ZIP file on the server as well into a separate folder. Then you'll want to copy the configuration.example.php file and name it `configuration.php` and begin customizing the settings (e.g. add in your own LDAP settings, along with how you may want to have your folders be created). At the very minimum you'll want to make sure that the home directories are set correctly to how you want the folders to be created for your environment (you don't have to use the virtual folders or really any of the other functionality if you don't need it).
 
-Once configured, from a command prompt window, if you are already in the same folder as where you extracted the `sftpgo-ldap-http-server` ZIP, you may simply call the `sftpgo-ldap-http-server.exe` and it should start up a simple HTTP server on Port 9001 running on localhost (the port can be adjusted via the `configuration.php` file as well). Now all you have to do is point SFTPGo's `external_auth_hook` option to point to `http://localhost:9001/` and you should be able to run some authentication tests (assuming you have all of your settings correct and there are no intermediate issues). 
+Once configured, from a command prompt window, if you are already in the same folder as where you extracted the `sftpgo-ldap-http-server` ZIP, you may simply call the `sftpgo-ldap-http-server.exe` and it should start up a simple HTTP server on Port 9001 running on localhost (the port can be adjusted via the `configuration.php` file as well). Now all you have to do is point SFTPGo's `external_auth_hook` option to point to `http://localhost:9001/` and you should be able to run some authentication tests (assuming you have all of your settings correct and there are no intermediate issues).
 
 The video above definitely goes through some troubleshooting situations you might find yourself coming across, so while it is long (at about 1 hour, 42 minutes), it may be helpful to review and avoid some issues and just to learn a bit more about SFTPGo and the integration above.
 
-## Example Virtual Folders Configuration (Allowing for Both a Public and Private Folder):
+## Example Virtual Folders Configuration (Allowing for Both a Public and Private Folder)
 
 The following can be utilized if you'd like to assign your users both a Private Virtual Folder and Public Virtual Folder.
 
@@ -52,7 +51,7 @@ $virtual_folders['example'] = [
 ];
 ```
 
-## Example Connection "Output Object" Allowing For No Files in the User's Home Directory ("Root Directory") but Allowing for Files in the Public/Private Virtual Folders:
+## Example Connection "Output Object" Allowing For No Files in the User's Home Directory ("Root Directory") but Allowing for Files in the Public/Private Virtual Folders
 
 The magic here happens in the "permissions" value, by limiting the root/home directory to just the list/download permissions, and then allowing all permissions on the Public/Private virtual folders.
 
@@ -82,7 +81,7 @@ $connection_output_objects['example'] = [
 ];
 ```
 
-## Recommended Usage of Automatic Groups Mode (Limiting by Group Prefix):
+## Recommended Usage of Automatic Groups Mode (Limiting by Group Prefix)
 
 The `sftpgo-ldap-http-server` project is able to automatically create virtual folders for any groups your user is a memberof if the automatic mode is turned on. However, by having a specific set of allowed prefixes defined, you can limit things to just those groups that begin with the prefixes you've listed, which can be helpful. The prefix itself will be removed from the group name when added as a virtual folder for the user.
 
@@ -114,25 +113,25 @@ $allowed_group_prefixes = [
 ];
 ```
 
-## Example Caddyfile Configuration You Can Adapt for Your Needs:
+## Example Caddyfile Configuration You Can Adapt for Your Needs
 
-```
+```shell
 ### Re-usable snippets:
 
 (add_static_file_serving_features) {
 
 	# Allow accessing files without requiring .html:
 	try_files {path} {path}.html
-	
+
 	# Enable Static File Server and Directory Browsing:
 	file_server browse
-	
+
 	# Enable templating functionality:
 	templates
-	
+
 	# Enable Compression for Output:
 	encode zstd gzip
-	
+
 	handle_errors {
 		respond "<pre>{http.error.status_code} {http.error.status_text}</pre>"
 	}
@@ -141,16 +140,16 @@ $allowed_group_prefixes = [
 (add_hsts_headers) {
 	header {
 		# Enable HTTP Strict Transport Security (HSTS) to force clients to always
-		
+
 		# connect via HTTPS (do not use if only testing)
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
-		
+
 		# Enable cross-site filter (XSS) and tell browser to block detected attacks
 		X-XSS-Protection "1; mode=block"
-		
+
 		# Prevent some browsers from MIME-sniffing a response away from the declared Content-Type
 		X-Content-Type-Options "nosniff"
-		
+
 		# Disallow the site to be rendered within a frame (clickjacking protection)
 		X-Frame-Options "DENY"
 
@@ -166,7 +165,7 @@ $allowed_group_prefixes = [
 			roll_keep 5
 			roll_keep_for 720h
 		}
-		
+
 		format json
 		#format console
 		#format single_field common_log
@@ -176,10 +175,10 @@ $allowed_group_prefixes = [
 ### Site Definitions:
 
 public.example.com {
-	
+
 	# Site Root:
 	root * F:\files\public
-	
+
 	import add_logging_with_path "F:\caddy\logs\public_example_com_access.log"
 	import add_static_file_serving_features
 	import add_hsts_headers
@@ -190,7 +189,7 @@ public.example.com {
 
 webdav.example.com {
 	reverse_proxy localhost:9000
-	
+
 	import add_logging_with_path "F:\caddy\logs\webdav_example_com_access.log"
 }
 ```

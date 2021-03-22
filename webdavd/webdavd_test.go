@@ -1710,7 +1710,9 @@ func TestClientCertificateAuthRevokedCert(t *testing.T) {
 	client := getWebDavClient(user, true, tlsConfig)
 	err = checkBasicFunc(client)
 	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "bad certificate")
+		if !strings.Contains(err.Error(), "bad certificate") && !strings.Contains(err.Error(), "broken pipe") {
+			t.Errorf("unexpected error: %v", err)
+		}
 	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
