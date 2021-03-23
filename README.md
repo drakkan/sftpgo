@@ -13,7 +13,7 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 ## Features
 
 - SFTPGo uses virtual accounts stored inside a "data provider".
-- SQLite, MySQL, PostgreSQL, bbolt (key/value store in pure Go) and in-memory data providers are supported.
+- SQLite, MySQL, PostgreSQL, Bolt (key/value store in pure Go), CockroachDB and in-memory data providers are supported.
 - Each local account is chrooted in its home directory, for cloud-based accounts you can restrict access to a certain base path.
 - Public key and password authentication. Multiple public keys per user are supported.
 - SSH user [certificate authentication](https://cvsweb.openbsd.org/src/usr.bin/ssh/PROTOCOL.certkeys?rev=1.8).
@@ -60,7 +60,7 @@ SFTPGo is developed and tested on Linux. After each commit, the code is automati
 ## Requirements
 
 - Go as build only dependency. We support the Go version(s) used in [continuous integration workflows](./tree/main/.github/workflows).
-- A suitable SQL server to use as data provider: PostgreSQL 9.4+ or MySQL 5.6+ or SQLite 3.x.
+- A suitable SQL server to use as data provider: PostgreSQL 9.4+ or MySQL 5.6+ or SQLite 3.x or CockroachDB stable.
 - The SQL server is optional: you can choose to use an embedded bolt database as key/value store or an in memory data provider.
 
 ## Installation
@@ -100,7 +100,7 @@ Check out [this documentation](./docs/service.md) if you want to run SFTPGo as a
 
 Before starting the SFTPGo server please ensure that the configured data provider is properly initialized/updated.
 
-For PostgreSQL and MySQL providers, you need to create the configured database. For SQLite, the configured database will be automatically created at startup. Memory and bolt data providers do not require an initialization but they could require an update to the existing data after upgrading SFTPGo.
+For PostgreSQL, MySQL and CockroachDB providers, you need to create the configured database. For SQLite, the configured database will be automatically created at startup. Memory and bolt data providers do not require an initialization but they could require an update to the existing data after upgrading SFTPGo.
 
 SFTPGo will attempt to automatically detect if the data provider is initialized/updated and if not, will attempt to initialize/ update it on startup as needed.
 

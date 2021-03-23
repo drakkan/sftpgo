@@ -9,6 +9,7 @@ require (
 	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
 	github.com/alexedwards/argon2id v0.0.0-20201228115903-cf543ebc1f7b
 	github.com/aws/aws-sdk-go v1.38.1
+	github.com/cockroachdb/cockroach-go/v2 v2.1.0
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
 	github.com/fclairamb/ftpserverlib v0.13.0
@@ -58,7 +59,7 @@ require (
 	go.uber.org/automaxprocs v1.4.0
 	gocloud.dev v0.22.0
 	gocloud.dev/secrets/hashivault v0.22.0
-	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
+	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/sys v0.0.0-20210320140829-1e4c9ba3b0c4
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
@@ -70,6 +71,7 @@ require (
 )
 
 replace (
+	github.com/cockroachdb/cockroach-go/v2 => github.com/drakkan/cockroach-go/v2 v2.0.0-20210323085558-34fd3dc05ad2
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20210224210502-6cb69ad5dd3c
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20210305154355-3793bc96d0e5

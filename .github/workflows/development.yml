@@ -197,8 +197,8 @@ jobs:
           name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-ppc64le-rpm
           path: pkgs_ppc64le/dist/rpm/*
 
-  test-postgresql-mysql:
-    name: Test with PostgreSQL/MySQL
+  test-postgresql-mysql-crdb:
+    name: Test with PgSQL/MySQL/Cockroach
     runs-on: ubuntu-latest
 
     services:
@@ -262,6 +262,20 @@ jobs:
           SFTPGO_DATA_PROVIDER__PORT: 3307
           SFTPGO_DATA_PROVIDER__USERNAME: sftpgo
           SFTPGO_DATA_PROVIDER__PASSWORD: sftpgo
+
+      - name: Run tests using CockroachDB provider
+        run: |
+          docker run --name crdb --health-cmd "curl -I http://127.0.0.1:8080" --health-interval 10s --health-timeout 5s --health-retries 6 -p 26257:26257 -d cockroachdb/cockroach:latest start-single-node --insecure --listen-addr 0.0.0.0:26257
+          docker exec crdb cockroach sql --insecure -e 'create database "sftpgo"'
+          go test -v -p 1 -timeout 10m ./... -covermode=atomic
+          docker stop crdb
+        env:
+          SFTPGO_DATA_PROVIDER__DRIVER: cockroach
+          SFTPGO_DATA_PROVIDER__NAME: sftpgo
+          SFTPGO_DATA_PROVIDER__HOST: localhost
+          SFTPGO_DATA_PROVIDER__PORT: 26257
+          SFTPGO_DATA_PROVIDER__USERNAME: root
+          SFTPGO_DATA_PROVIDER__PASSWORD:
 
   golangci-lint:
     name: golangci-lint

@@ -19,7 +19,7 @@ const (
 func getSQLPlaceholders() []string {
 	var placeholders []string
 	for i := 1; i <= 20; i++ {
-		if config.Driver == PGSQLDataProviderName {
+		if config.Driver == PGSQLDataProviderName || config.Driver == CockroachDataProviderName {
 			placeholders = append(placeholders, fmt.Sprintf("$%v", i))
 		} else {
 			placeholders = append(placeholders, "?")

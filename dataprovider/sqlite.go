@@ -91,7 +91,7 @@ func init() {
 func initializeSQLiteProvider(basePath string) error {
 	var err error
 	var connectionString string
-	logSender = fmt.Sprintf("dataprovider_%v", SQLiteDataProviderName)
+
 	if config.ConnectionString == "" {
 		dbPath := config.Name
 		if !utils.IsFileInputValid(dbPath) {

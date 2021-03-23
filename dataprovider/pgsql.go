@@ -68,7 +68,6 @@ func init() {
 
 func initializePGSQLProvider() error {
 	var err error
-	logSender = fmt.Sprintf("dataprovider_%v", PGSQLDataProviderName)
 	dbHandle, err := sql.Open("postgres", getPGSQLConnectionString(false))
 	if err == nil {
 		providerLog(logger.LevelDebug, "postgres database handle created, connection string: %#v, pool size: %v",
@@ -236,6 +235,12 @@ func (p *PGSQLProvider) initializeDatabase() error {
 	initialSQL = strings.ReplaceAll(initialSQL, "{{folders}}", sqlTableFolders)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{users}}", sqlTableUsers)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{folders_mapping}}", sqlTableFoldersMapping)
+	if config.Driver == CockroachDataProviderName {
+		// Cockroach does not support deferrable constraint validation, we don't need it,
+		// we keep these definitions for the PostgreSQL driver to avoid changes for users
+		// upgrading from old SFTPGo versions
+		initialSQL = strings.ReplaceAll(initialSQL, "DEFERRABLE INITIALLY DEFERRED", "")
+	}
 
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 8)
 }

@@ -51,16 +51,18 @@ import (
 )
 
 const (
-	// SQLiteDataProviderName name for SQLite database provider
+	// SQLiteDataProviderName defines the name for SQLite database provider
 	SQLiteDataProviderName = "sqlite"
-	// PGSQLDataProviderName name for PostgreSQL database provider
+	// PGSQLDataProviderName defines the name for PostgreSQL database provider
 	PGSQLDataProviderName = "postgresql"
-	// MySQLDataProviderName name for MySQL database provider
+	// MySQLDataProviderName defines the name for MySQL database provider
 	MySQLDataProviderName = "mysql"
-	// BoltDataProviderName name for bbolt key/value store provider
+	// BoltDataProviderName defines the name for bbolt key/value store provider
 	BoltDataProviderName = "bolt"
-	// MemoryDataProviderName name for memory provider
+	// MemoryDataProviderName defines the name for memory provider
 	MemoryDataProviderName = "memory"
+	// CockroachDataProviderName defines the for CockroachDB provider
+	CockroachDataProviderName = "cockroach"
 	// DumpVersion defines the version for the dump.
 	// For restore/load we support the current version and the previous one
 	DumpVersion = 7
@@ -90,7 +92,7 @@ const (
 var (
 	// SupportedProviders defines the supported data providers
 	SupportedProviders = []string{SQLiteDataProviderName, PGSQLDataProviderName, MySQLDataProviderName,
-		BoltDataProviderName, MemoryDataProviderName}
+		BoltDataProviderName, MemoryDataProviderName, CockroachDataProviderName}
 	// ValidPerms defines all the valid permissions for a user
 	ValidPerms = []string{PermAny, PermListItems, PermDownload, PermUpload, PermOverwrite, PermRename, PermDelete,
 		PermCreateDirs, PermCreateSymlinks, PermChmod, PermChown, PermChtimes}
@@ -979,20 +981,23 @@ func createProvider(basePath string) error {
 	if err = validateSQLTablesPrefix(); err != nil {
 		return err
 	}
-	if config.Driver == SQLiteDataProviderName {
-		err = initializeSQLiteProvider(basePath)
-	} else if config.Driver == PGSQLDataProviderName {
-		err = initializePGSQLProvider()
-	} else if config.Driver == MySQLDataProviderName {
-		err = initializeMySQLProvider()
-	} else if config.Driver == BoltDataProviderName {
-		err = initializeBoltProvider(basePath)
-	} else if config.Driver == MemoryDataProviderName {
+	logSender = fmt.Sprintf("dataprovider_%v", config.Driver)
+
+	switch config.Driver {
+	case SQLiteDataProviderName:
+		return initializeSQLiteProvider(basePath)
+	case PGSQLDataProviderName, CockroachDataProviderName:
+		return initializePGSQLProvider()
+	case MySQLDataProviderName:
+		return initializeMySQLProvider()
+	case BoltDataProviderName:
+		return initializeBoltProvider(basePath)
+	case MemoryDataProviderName:
 		initializeMemoryProvider(basePath)
-	} else {
-		err = fmt.Errorf("unsupported data provider: %v", config.Driver)
+		return nil
+	default:
+		return fmt.Errorf("unsupported data provider: %v", config.Driver)
 	}
-	return err
 }
 
 func buildUserHomeDir(user *User) {
@@ -1766,7 +1771,7 @@ func addFolderCredentialsToUser(user *User) error {
 }
 
 func getSSLMode() string {
-	if config.Driver == PGSQLDataProviderName {
+	if config.Driver == PGSQLDataProviderName || config.Driver == CockroachDataProviderName {
 		if config.SSLMode == 0 {
 			return "disable"
 		} else if config.SSLMode == 1 {
