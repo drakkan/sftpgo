@@ -1620,6 +1620,63 @@ func TestUploadOverwriteVfolder(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestOsErrors(t *testing.T) {
+	u := getTestUser()
+	vdir := "/vdir"
+	mappedPath := filepath.Join(os.TempDir(), "mappedDir")
+	folderName := filepath.Base(mappedPath)
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName,
+			MappedPath: mappedPath,
+		},
+		VirtualPath: vdir,
+		QuotaSize:   -1,
+		QuotaFiles:  -1,
+	})
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	client := getWebDavClient(user, false, nil)
+	files, err := client.ReadDir(".")
+	assert.NoError(t, err)
+	assert.Len(t, files, 1)
+	info, err := client.Stat(vdir)
+	assert.NoError(t, err)
+	assert.True(t, info.IsDir())
+	// now remove the folder mapped to vdir. It should not appear in directory listing
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+	files, err = client.ReadDir(".")
+	assert.NoError(t, err)
+	assert.Len(t, files, 0)
+	err = createTestFile(filepath.Join(user.GetHomeDir(), testFileName), 32768)
+	assert.NoError(t, err)
+	files, err = client.ReadDir(".")
+	assert.NoError(t, err)
+	if assert.Len(t, files, 1) {
+		assert.Equal(t, testFileName, files[0].Name())
+	}
+	if runtime.GOOS != osWindows {
+		// if the file cannot be accessed it should not appear in directory listing
+		err = os.Chmod(filepath.Join(user.GetHomeDir(), testFileName), 0001)
+		assert.NoError(t, err)
+		files, err = client.ReadDir(".")
+		assert.NoError(t, err)
+		assert.Len(t, files, 0)
+		err = os.Chmod(filepath.Join(user.GetHomeDir(), testFileName), os.ModePerm)
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+}
+
 func TestMiscCommands(t *testing.T) {
 	u := getTestUser()
 	u.QuotaFiles = 100
