@@ -709,7 +709,7 @@ func (u *User) GetFsConfigAsJSON() ([]byte, error) {
 
 // GetUID returns a validate uid, suitable for use with os.Chown
 func (u *User) GetUID() int {
-	if u.UID <= 0 || u.UID > int(math.Pow(2, 31)) - 1 {
+	if u.UID <= 0 || u.UID > int(math.Pow(2, 31))-1 {
 		return -1
 	}
 	return u.UID
@@ -717,7 +717,7 @@ func (u *User) GetUID() int {
 
 // GetGID returns a validate gid, suitable for use with os.Chown
 func (u *User) GetGID() int {
-	if u.GID <= 0 || u.GID > int(math.Pow(2, 31)) - 1 {
+	if u.GID <= 0 || u.GID > int(math.Pow(2, 31))-1 {
 		return -1
 	}
 	return u.GID
