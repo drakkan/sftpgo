@@ -1,3 +1,0 @@
-package service
-
-func registerSigHup() {}
