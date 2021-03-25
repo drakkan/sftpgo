@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"path"
@@ -679,7 +680,7 @@ func (u *User) GetFsConfigAsJSON() ([]byte, error) {
 
 // GetUID returns a validate uid, suitable for use with os.Chown
 func (u *User) GetUID() int {
-	if u.UID <= 0 || u.UID > 65535 {
+	if u.UID <= 0 || u.UID > math.MaxInt32 {
 		return -1
 	}
 	return u.UID
@@ -687,7 +688,7 @@ func (u *User) GetUID() int {
 
 // GetGID returns a validate gid, suitable for use with os.Chown
 func (u *User) GetGID() int {
-	if u.GID <= 0 || u.GID > 65535 {
+	if u.GID <= 0 || u.GID > math.MaxInt32 {
 		return -1
 	}
 	return u.GID
