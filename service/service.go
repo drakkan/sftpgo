@@ -78,7 +78,7 @@ func (s *Service) Start() error {
 		}
 	}
 	if !config.HasServicesToStart() {
-		infoString := "No service configured, nothing to do"
+		infoString := "no service configured, nothing to do"
 		logger.Info(logSender, "", infoString)
 		logger.InfoToConsole(infoString)
 		return errors.New(infoString)
@@ -215,8 +215,7 @@ func (s *Service) startServices() {
 // Wait blocks until the service exits
 func (s *Service) Wait() {
 	if s.PortableMode != 1 {
-		registerSigHup()
-		registerSigUSR1()
+		registerSignals()
 	}
 	<-s.Shutdown
 }
@@ -235,10 +234,10 @@ func (s *Service) loadInitialData() error {
 		return fmt.Errorf("invalid input_file %#v, it must be an absolute path", s.LoadDataFrom)
 	}
 	if s.LoadDataMode < 0 || s.LoadDataMode > 1 {
-		return fmt.Errorf("Invalid loaddata-mode %v", s.LoadDataMode)
+		return fmt.Errorf("invalid loaddata-mode %v", s.LoadDataMode)
 	}
 	if s.LoadDataQuotaScan < 0 || s.LoadDataQuotaScan > 2 {
-		return fmt.Errorf("Invalid loaddata-scan %v", s.LoadDataQuotaScan)
+		return fmt.Errorf("invalid loaddata-scan %v", s.LoadDataQuotaScan)
 	}
 	info, err := os.Stat(s.LoadDataFrom)
 	if err != nil {
