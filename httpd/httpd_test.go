@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"mime/multipart"
 	"net"
 	"net/http"
@@ -415,6 +416,19 @@ func TestUserStatus(t *testing.T) {
 	user.Status = 1
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestUidGidLimits(t *testing.T) {
+	u := getTestUser()
+	u.UID = math.MaxInt32
+	u.GID = math.MaxInt32
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	assert.Equal(t, math.MaxInt32, user.GetUID())
+	assert.Equal(t, math.MaxInt32, user.GetGID())
+
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
