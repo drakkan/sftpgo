@@ -1720,13 +1720,13 @@ components:
           type: integer
           format: int32
           minimum: 0
-          maximum: 65535
+          maximum: 4294967294
           description: 'if you run SFTPGo as root user, the created files and directories will be assigned to this uid. 0 means no change, the owner will be the user that runs SFTPGo. Ignored on windows'
         gid:
           type: integer
           format: int32
           minimum: 0
-          maximum: 65535
+          maximum: 4294967294
           description: 'if you run SFTPGo as root user, the created files and directories will be assigned to this gid. 0 means no change, the group will be the one of the user that runs SFTPGo. Ignored on windows'
         max_sessions:
           type: integer
