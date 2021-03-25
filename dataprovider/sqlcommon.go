@@ -1081,13 +1081,13 @@ func sqlCommonExecSQLAndUpdateDBVersion(dbHandle *sql.DB, sqlQueries []string, n
 }
 
 func sqlCommonExecuteTx(ctx context.Context, dbHandle *sql.DB, txFn func(*sql.Tx) error) error {
+	if config.Driver == CockroachDataProviderName {
+		return crdb.ExecuteTx(ctx, dbHandle, nil, txFn)
+	}
+
 	tx, err := dbHandle.BeginTx(ctx, nil)
 	if err != nil {
 		return err
-	}
-
-	if config.Driver == CockroachDataProviderName {
-		return crdb.ExecuteTx(ctx, dbHandle, nil, txFn)
 	}
 
 	err = txFn(tx)
