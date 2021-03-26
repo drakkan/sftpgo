@@ -2,6 +2,7 @@
 package utils
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdsa"
@@ -488,4 +489,30 @@ func CheckTCP4Port(port int) {
 		os.Exit(1)
 	}
 	listener.Close()
+}
+
+// IsByteArrayEmpty return true if the byte array is empty or a new line
+func IsByteArrayEmpty(b []byte) bool {
+	if len(b) == 0 {
+		return true
+	}
+	if bytes.Equal(b, []byte("\n")) {
+		return true
+	}
+	if bytes.Equal(b, []byte("\r\n")) {
+		return true
+	}
+	return false
+}
+
+// GetSSHPublicKeyAsString returns an SSH public key serialized as string
+func GetSSHPublicKeyAsString(pubKey []byte) (string, error) {
+	if len(pubKey) == 0 {
+		return "", nil
+	}
+	k, err := ssh.ParsePublicKey(pubKey)
+	if err != nil {
+		return "", err
+	}
+	return string(ssh.MarshalAuthorizedKey(k)), nil
 }

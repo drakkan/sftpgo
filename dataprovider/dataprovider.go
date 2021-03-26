@@ -2153,17 +2153,7 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 }
 
 func executePreLoginHook(username, loginMethod, ip, protocol string) (User, error) {
-	u, err := provider.userExists(username)
-	if err != nil {
-		if _, ok := err.(*RecordNotFoundError); !ok {
-			return u, err
-		}
-		u = User{
-			ID:       0,
-			Username: username,
-		}
-	}
-	userAsJSON, err := json.Marshal(u)
+	u, userAsJSON, err := getUserAndJSONForHook(username)
 	if err != nil {
 		return u, err
 	}
@@ -2173,11 +2163,11 @@ func executePreLoginHook(username, loginMethod, ip, protocol string) (User, erro
 		return u, fmt.Errorf("pre-login hook error: %v, elapsed %v", err, time.Since(startTime))
 	}
 	providerLog(logger.LevelDebug, "pre-login hook completed, elapsed: %v", time.Since(startTime))
-	if strings.TrimSpace(string(out)) == "" {
+	if utils.IsByteArrayEmpty(out) {
 		providerLog(logger.LevelDebug, "empty response from pre-login hook, no modification requested for user %#v id: %v",
 			username, u.ID)
 		if u.ID == 0 {
-			return u, &RecordNotFoundError{err: fmt.Sprintf("username %v does not exist", username)}
+			return u, &RecordNotFoundError{err: fmt.Sprintf("username %#v does not exist", username)}
 		}
 		return u, nil
 	}
@@ -2276,7 +2266,15 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 	}()
 }
 
-func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, protocol, tlsCert string) ([]byte, error) {
+func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, protocol string, cert *x509.Certificate, userAsJSON []byte) ([]byte, error) {
+	var tlsCert string
+	if cert != nil {
+		var err error
+		tlsCert, err = utils.EncodeTLSCertToPem(cert)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if strings.HasPrefix(config.ExternalAuthHook, "http") {
 		var url *url.URL
 		var result []byte
@@ -2294,6 +2292,9 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 		authRequest["protocol"] = protocol
 		authRequest["keyboard_interactive"] = keyboardInteractive
 		authRequest["tls_cert"] = tlsCert
+		if len(userAsJSON) > 0 {
+			authRequest["user"] = string(userAsJSON)
+		}
 		authRequestAsJSON, err := json.Marshal(authRequest)
 		if err != nil {
 			providerLog(logger.LevelWarn, "error serializing external auth request: %v", err)
@@ -2317,6 +2318,7 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 	cmd := exec.CommandContext(ctx, config.ExternalAuthHook)
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", username),
+		fmt.Sprintf("SFTPGO_AUTHD_USER=%v", string(userAsJSON)),
 		fmt.Sprintf("SFTPGO_AUTHD_IP=%v", ip),
 		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%v", password),
 		fmt.Sprintf("SFTPGO_AUTHD_PUBLIC_KEY=%v", pkey),
@@ -2328,27 +2330,30 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 
 func doExternalAuth(username, password string, pubKey []byte, keyboardInteractive, ip, protocol string, tlsCert *x509.Certificate) (User, error) {
 	var user User
-	var pkey, cert string
-	if len(pubKey) > 0 {
-		k, err := ssh.ParsePublicKey(pubKey)
-		if err != nil {
-			return user, err
-		}
-		pkey = string(ssh.MarshalAuthorizedKey(k))
+
+	pkey, err := utils.GetSSHPublicKeyAsString(pubKey)
+	if err != nil {
+		return user, err
 	}
-	if tlsCert != nil {
-		var err error
-		cert, err = utils.EncodeTLSCertToPem(tlsCert)
-		if err != nil {
-			return user, err
-		}
+	u, userAsJSON, err := getUserAndJSONForHook(username)
+	if err != nil {
+		return user, err
 	}
+
 	startTime := time.Now()
-	out, err := getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, protocol, cert)
+	out, err := getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, protocol, tlsCert, userAsJSON)
 	if err != nil {
 		return user, fmt.Errorf("external auth error: %v, elapsed: %v", err, time.Since(startTime))
 	}
 	providerLog(logger.LevelDebug, "external auth completed, elapsed: %v", time.Since(startTime))
+	if utils.IsByteArrayEmpty(out) {
+		providerLog(logger.LevelDebug, "empty response from external hook, no modification requested for user %#v id: %v",
+			username, u.ID)
+		if u.ID == 0 {
+			return u, &RecordNotFoundError{err: fmt.Sprintf("username %#v does not exist", username)}
+		}
+		return u, nil
+	}
 	err = json.Unmarshal(out, &user)
 	if err != nil {
 		return user, fmt.Errorf("invalid external auth response: %v", err)
@@ -2366,8 +2371,10 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 	// for example an SFTP user logins using "user1" or "user2" and the external auth
 	// returns "user" in both cases, so we use the username returned from
 	// external auth and not the one used to login
-	u, err := provider.userExists(user.Username)
-	if err == nil {
+	if user.Username != username {
+		u, err = provider.userExists(user.Username)
+	}
+	if u.ID > 0 && err == nil {
 		user.ID = u.ID
 		user.UsedQuotaSize = u.UsedQuotaSize
 		user.UsedQuotaFiles = u.UsedQuotaFiles
@@ -2381,6 +2388,26 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		return user, err
 	}
 	return provider.userExists(user.Username)
+}
+
+func getUserAndJSONForHook(username string) (User, []byte, error) {
+	var userAsJSON []byte
+	u, err := provider.userExists(username)
+	if err != nil {
+		if _, ok := err.(*RecordNotFoundError); !ok {
+			return u, userAsJSON, err
+		}
+		u = User{
+			ID:       0,
+			Username: username,
+		}
+		return u, userAsJSON, nil
+	}
+	userAsJSON, err = json.Marshal(u)
+	if err != nil {
+		return u, userAsJSON, err
+	}
+	return u, userAsJSON, err
 }
 
 func providerLog(level logger.LogLevel, format string, v ...interface{}) {

@@ -265,7 +265,7 @@ jobs:
 
       - name: Run tests using CockroachDB provider
         run: |
-          docker run --name crdb --health-cmd "curl -I http://127.0.0.1:8080" --health-interval 10s --health-timeout 5s --health-retries 6 -p 26257:26257 -d cockroachdb/cockroach:latest start-single-node --insecure --listen-addr 0.0.0.0:26257
+          docker run --rm --name crdb --health-cmd "curl -I http://127.0.0.1:8080" --health-interval 10s --health-timeout 5s --health-retries 6 -p 26257:26257 -d cockroachdb/cockroach:latest start-single-node --insecure --listen-addr 0.0.0.0:26257
           docker exec crdb cockroach sql --insecure -e 'create database "sftpgo"'
           go test -v -p 1 -timeout 10m ./... -covermode=atomic
           docker stop crdb

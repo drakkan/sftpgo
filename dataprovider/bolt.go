@@ -397,7 +397,7 @@ func (p *BoltProvider) userExists(username string) (User, error) {
 		}
 		u := bucket.Get([]byte(username))
 		if u == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("username %v does not exist", username)}
+			return &RecordNotFoundError{err: fmt.Sprintf("username %#v does not exist", username)}
 		}
 		folderBucket, err := getFolderBucket(tx)
 		if err != nil {
@@ -465,7 +465,7 @@ func (p *BoltProvider) updateUser(user *User) error {
 		}
 		var u []byte
 		if u = bucket.Get([]byte(user.Username)); u == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("username %v does not exist", user.Username)}
+			return &RecordNotFoundError{err: fmt.Sprintf("username %#v does not exist", user.Username)}
 		}
 		var oldUser User
 		err = json.Unmarshal(u, &oldUser)
