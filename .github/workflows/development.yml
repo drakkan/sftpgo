@@ -270,7 +270,7 @@ jobs:
           go test -v -p 1 -timeout 10m ./... -covermode=atomic
           docker stop crdb
         env:
-          SFTPGO_DATA_PROVIDER__DRIVER: cockroach
+          SFTPGO_DATA_PROVIDER__DRIVER: cockroachdb
           SFTPGO_DATA_PROVIDER__NAME: sftpgo
           SFTPGO_DATA_PROVIDER__HOST: localhost
           SFTPGO_DATA_PROVIDER__PORT: 26257

@@ -62,7 +62,7 @@ const (
 	// MemoryDataProviderName defines the name for memory provider
 	MemoryDataProviderName = "memory"
 	// CockroachDataProviderName defines the for CockroachDB provider
-	CockroachDataProviderName = "cockroach"
+	CockroachDataProviderName = "cockroachdb"
 	// DumpVersion defines the version for the dump.
 	// For restore/load we support the current version and the previous one
 	DumpVersion = 7
