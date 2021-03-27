@@ -28,7 +28,7 @@ class ConvertUsers:
 	def buildUserObject(self, username, password, home_dir, uid, gid, max_sessions, quota_size, quota_files, upload_bandwidth,
 					download_bandwidth, status, expiration_date, allowed_ip=[], denied_ip=[]):
 		return {'id':0, 'username':username, 'password':password, 'home_dir':home_dir, 'uid':uid, 'gid':gid,
-			'max_sessions':max_sessions, 'quota_size':quota_size, 'quota_files':quota_files, 'permissions':{'/':"*"},
+			'max_sessions':max_sessions, 'quota_size':quota_size, 'quota_files':quota_files, 'permissions':{'/':["*"]},
 			'upload_bandwidth':upload_bandwidth, 'download_bandwidth':download_bandwidth,
 			'status':status, 'expiration_date':expiration_date,
 			'filters':{'allowed_ip':allowed_ip, 'denied_ip':denied_ip}}
