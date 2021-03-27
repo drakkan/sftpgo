@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/drakkan/sftpgo/common"
+	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 )
@@ -178,6 +179,7 @@ func (c *Configuration) Initialize(configDir string) error {
 		certMgr = mgr
 	}
 	compressor := middleware.NewCompressor(5, "text/*")
+	dataprovider.InitializeWebDAVUserCache(c.Cache.Users.MaxSize)
 
 	serviceStatus = ServiceStatus{
 		Bindings: nil,

@@ -67,11 +67,9 @@ func NewAzBlobFs(connectionID, localTempDir, mountPath string, config AzBlobFsCo
 	if err := fs.config.Validate(); err != nil {
 		return fs, err
 	}
-	if fs.config.AccountKey.IsEncrypted() {
-		err := fs.config.AccountKey.Decrypt()
-		if err != nil {
-			return fs, err
-		}
+
+	if err := fs.config.AccountKey.TryDecrypt(); err != nil {
+		return fs, err
 	}
 	fs.setConfigDefaults()
 

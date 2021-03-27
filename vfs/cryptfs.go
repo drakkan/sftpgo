@@ -35,10 +35,8 @@ func NewCryptFs(connectionID, rootDir, mountPath string, config CryptFsConfig) (
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
-	if config.Passphrase.IsEncrypted() {
-		if err := config.Passphrase.Decrypt(); err != nil {
-			return nil, err
-		}
+	if err := config.Passphrase.TryDecrypt(); err != nil {
+		return nil, err
 	}
 	fs := &CryptFs{
 		OsFs: &OsFs{

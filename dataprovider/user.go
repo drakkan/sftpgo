@@ -13,8 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/net/webdav"
-
 	"github.com/drakkan/sftpgo/kms"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
@@ -74,22 +72,6 @@ const (
 var (
 	errNoMatchingVirtualFolder = errors.New("no matching virtual folder found")
 )
-
-// CachedUser adds fields useful for caching to a SFTPGo user
-type CachedUser struct {
-	User       User
-	Expiration time.Time
-	Password   string
-	LockSystem webdav.LockSystem
-}
-
-// IsExpired returns true if the cached user is expired
-func (c *CachedUser) IsExpired() bool {
-	if c.Expiration.IsZero() {
-		return false
-	}
-	return c.Expiration.Before(time.Now())
-}
 
 // ExtensionsFilter defines filters based on file extensions.
 // These restrictions do not apply to files listing for performance reasons, so
@@ -277,6 +259,39 @@ func (u *User) CheckFsRoot(connectionID string) error {
 		}
 	}
 	return nil
+}
+
+// isFsEqual returns true if the fs has the same configuration
+func (u *User) isFsEqual(other *User) bool {
+	if u.FsConfig.Provider == vfs.LocalFilesystemProvider && u.GetHomeDir() != other.GetHomeDir() {
+		return false
+	}
+	if !u.FsConfig.IsEqual(&other.FsConfig) {
+		return false
+	}
+	if len(u.VirtualFolders) != len(other.VirtualFolders) {
+		return false
+	}
+	for idx := range u.VirtualFolders {
+		f := &u.VirtualFolders[idx]
+		found := false
+		for idx1 := range other.VirtualFolders {
+			f1 := &other.VirtualFolders[idx1]
+			if f.VirtualPath == f1.VirtualPath {
+				found = true
+				if f.FsConfig.Provider == vfs.LocalFilesystemProvider && f.MappedPath != f1.MappedPath {
+					return false
+				}
+				if !f.FsConfig.IsEqual(&f1.FsConfig) {
+					return false
+				}
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }
 
 // hideConfidentialData hides user confidential data

@@ -171,6 +171,8 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	connectionID, err := s.validateUser(&user, r, loginMethod)
 	if err != nil {
+		// remove the cached user, we have not yet validated its filesystem
+		dataprovider.RemoveCachedWebDAVUser(user.Username)
 		updateLoginMetrics(&user, ipAddr, loginMethod, err)
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
@@ -246,9 +248,8 @@ func (s *webDavServer) authenticate(r *http.Request, ip string) (dataprovider.Us
 	if !ok {
 		return user, false, nil, loginMethod, err401
 	}
-	result, ok := dataprovider.GetCachedWebDAVUser(username)
+	cachedUser, ok := dataprovider.GetCachedWebDAVUser(username)
 	if ok {
-		cachedUser := result.(*dataprovider.CachedUser)
 		if cachedUser.IsExpired() {
 			dataprovider.RemoveCachedWebDAVUser(username)
 		} else {
@@ -272,7 +273,7 @@ func (s *webDavServer) authenticate(r *http.Request, ip string) (dataprovider.Us
 		return user, false, nil, loginMethod, err
 	}
 	lockSystem := webdav.NewMemLS()
-	cachedUser := &dataprovider.CachedUser{
+	cachedUser = &dataprovider.CachedUser{
 		User:       user,
 		Password:   password,
 		LockSystem: lockSystem,
@@ -280,7 +281,7 @@ func (s *webDavServer) authenticate(r *http.Request, ip string) (dataprovider.Us
 	if s.config.Cache.Users.ExpirationTime > 0 {
 		cachedUser.Expiration = time.Now().Add(time.Duration(s.config.Cache.Users.ExpirationTime) * time.Minute)
 	}
-	dataprovider.CacheWebDAVUser(cachedUser, s.config.Cache.Users.MaxSize)
+	dataprovider.CacheWebDAVUser(cachedUser)
 	return user, false, lockSystem, loginMethod, nil
 }
 

@@ -71,11 +71,9 @@ func NewGCSFs(connectionID, localTempDir, mountPath string, config GCSFsConfig) 
 	if fs.config.AutomaticCredentials > 0 {
 		fs.svc, err = storage.NewClient(ctx)
 	} else if !fs.config.Credentials.IsEmpty() {
-		if fs.config.Credentials.IsEncrypted() {
-			err = fs.config.Credentials.Decrypt()
-			if err != nil {
-				return fs, err
-			}
+		err = fs.config.Credentials.TryDecrypt()
+		if err != nil {
+			return fs, err
 		}
 		fs.svc, err = storage.NewClient(ctx, option.WithCredentialsJSON([]byte(fs.config.Credentials.GetPayload())))
 	} else {

@@ -147,6 +147,40 @@ type S3FsConfig struct {
 	UploadConcurrency int `json:"upload_concurrency,omitempty"`
 }
 
+func (c *S3FsConfig) isEqual(other *S3FsConfig) bool {
+	if c.Bucket != other.Bucket {
+		return false
+	}
+	if c.KeyPrefix != other.KeyPrefix {
+		return false
+	}
+	if c.Region != other.Region {
+		return false
+	}
+	if c.AccessKey != other.AccessKey {
+		return false
+	}
+	if c.Endpoint != other.Endpoint {
+		return false
+	}
+	if c.StorageClass != other.StorageClass {
+		return false
+	}
+	if c.UploadPartSize != other.UploadPartSize {
+		return false
+	}
+	if c.UploadConcurrency != other.UploadConcurrency {
+		return false
+	}
+	if c.AccessSecret == nil {
+		c.AccessSecret = kms.NewEmptySecret()
+	}
+	if other.AccessSecret == nil {
+		other.AccessSecret = kms.NewEmptySecret()
+	}
+	return c.AccessSecret.IsEqual(other.AccessSecret)
+}
+
 func (c *S3FsConfig) checkCredentials() error {
 	if c.AccessKey == "" && !c.AccessSecret.IsEmpty() {
 		return errors.New("access_key cannot be empty with access_secret not empty")
@@ -224,6 +258,28 @@ type GCSFsConfig struct {
 	StorageClass         string `json:"storage_class,omitempty"`
 }
 
+func (c *GCSFsConfig) isEqual(other *GCSFsConfig) bool {
+	if c.Bucket != other.Bucket {
+		return false
+	}
+	if c.KeyPrefix != other.KeyPrefix {
+		return false
+	}
+	if c.AutomaticCredentials != other.AutomaticCredentials {
+		return false
+	}
+	if c.StorageClass != other.StorageClass {
+		return false
+	}
+	if c.Credentials == nil {
+		c.Credentials = kms.NewEmptySecret()
+	}
+	if other.Credentials == nil {
+		other.Credentials = kms.NewEmptySecret()
+	}
+	return c.Credentials.IsEqual(other.Credentials)
+}
+
 // Validate returns an error if the configuration is not valid
 func (c *GCSFsConfig) Validate(credentialsFilePath string) error {
 	if c.Credentials == nil {
@@ -293,6 +349,43 @@ type AzBlobFsConfig struct {
 	AccessTier string `json:"access_tier,omitempty"`
 }
 
+func (c *AzBlobFsConfig) isEqual(other *AzBlobFsConfig) bool {
+	if c.Container != other.Container {
+		return false
+	}
+	if c.AccountName != other.AccountName {
+		return false
+	}
+	if c.Endpoint != other.Endpoint {
+		return false
+	}
+	if c.SASURL != other.SASURL {
+		return false
+	}
+	if c.KeyPrefix != other.KeyPrefix {
+		return false
+	}
+	if c.UploadPartSize != other.UploadPartSize {
+		return false
+	}
+	if c.UploadConcurrency != other.UploadConcurrency {
+		return false
+	}
+	if c.UseEmulator != other.UseEmulator {
+		return false
+	}
+	if c.AccessTier != other.AccessTier {
+		return false
+	}
+	if c.AccountKey == nil {
+		c.AccountKey = kms.NewEmptySecret()
+	}
+	if other.AccountKey == nil {
+		other.AccountKey = kms.NewEmptySecret()
+	}
+	return c.AccountKey.IsEqual(other.AccountKey)
+}
+
 // EncryptCredentials encrypts access secret if it is in plain text
 func (c *AzBlobFsConfig) EncryptCredentials(additionalData string) error {
 	if c.AccountKey.IsPlain() {
@@ -353,6 +446,16 @@ func (c *AzBlobFsConfig) Validate() error {
 // CryptFsConfig defines the configuration to store local files as encrypted
 type CryptFsConfig struct {
 	Passphrase *kms.Secret `json:"passphrase,omitempty"`
+}
+
+func (c *CryptFsConfig) isEqual(other *CryptFsConfig) bool {
+	if c.Passphrase == nil {
+		c.Passphrase = kms.NewEmptySecret()
+	}
+	if other.Passphrase == nil {
+		other.Passphrase = kms.NewEmptySecret()
+	}
+	return c.Passphrase.IsEqual(other.Passphrase)
 }
 
 // EncryptCredentials encrypts access secret if it is in plain text

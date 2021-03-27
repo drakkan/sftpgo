@@ -44,6 +44,35 @@ type SFTPFsConfig struct {
 	DisableCouncurrentReads bool `json:"disable_concurrent_reads,omitempty"`
 }
 
+func (c *SFTPFsConfig) isEqual(other *SFTPFsConfig) bool {
+	if c.Endpoint != other.Endpoint {
+		return false
+	}
+	if c.Username != other.Username {
+		return false
+	}
+	if c.Prefix != other.Prefix {
+		return false
+	}
+	if c.DisableCouncurrentReads != other.DisableCouncurrentReads {
+		return false
+	}
+	if len(c.Fingerprints) != len(other.Fingerprints) {
+		return false
+	}
+	for _, fp := range c.Fingerprints {
+		if !utils.IsStringInSlice(fp, other.Fingerprints) {
+			return false
+		}
+	}
+	c.setEmptyCredentialsIfNil()
+	other.setEmptyCredentialsIfNil()
+	if !c.Password.IsEqual(other.Password) {
+		return false
+	}
+	return c.PrivateKey.IsEqual(other.PrivateKey)
+}
+
 func (c *SFTPFsConfig) setEmptyCredentialsIfNil() {
 	if c.Password == nil {
 		c.Password = kms.NewEmptySecret()
@@ -123,13 +152,13 @@ func NewSFTPFs(connectionID, mountPath string, config SFTPFsConfig) (Fs, error) 
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
-	if !config.Password.IsEmpty() && config.Password.IsEncrypted() {
-		if err := config.Password.Decrypt(); err != nil {
+	if !config.Password.IsEmpty() {
+		if err := config.Password.TryDecrypt(); err != nil {
 			return nil, err
 		}
 	}
-	if !config.PrivateKey.IsEmpty() && config.PrivateKey.IsEncrypted() {
-		if err := config.PrivateKey.Decrypt(); err != nil {
+	if !config.PrivateKey.IsEmpty() {
+		if err := config.PrivateKey.TryDecrypt(); err != nil {
 			return nil, err
 		}
 	}
@@ -339,6 +368,13 @@ func (*SFTPFs) IsNotSupported(err error) bool {
 
 // CheckRootPath creates the specified local root directory if it does not exists
 func (fs *SFTPFs) CheckRootPath(username string, uid int, gid int) bool {
+	if fs.config.Prefix == "/" {
+		return true
+	}
+	if err := fs.MkdirAll(fs.config.Prefix, uid, gid); err != nil {
+		fsLog(fs, logger.LevelDebug, "error creating root directory %#v for user %#v: %v", fs.config.Prefix, username, err)
+		return false
+	}
 	return true
 }
 

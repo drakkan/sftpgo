@@ -111,7 +111,6 @@ var (
 	// ErrInvalidCredentials defines the error to return if the supplied credentials are invalid
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	validTLSUsernames     = []string{string(TLSUsernameNone), string(TLSUsernameCN)}
-	webDAVUsersCache      sync.Map
 	config                Config
 	provider              Provider
 	sqlPlaceholders       []string
@@ -750,7 +749,7 @@ func UpdateLastLogin(user *User) error {
 	if diff < 0 || diff > lastLoginMinDelay {
 		err := provider.updateLastLogin(user.Username)
 		if err == nil {
-			updateWebDavCachedUserLastLogin(user.Username)
+			webDAVUsersCache.updateLastLogin(user.Username)
 		}
 		return err
 	}
@@ -841,7 +840,7 @@ func AddUser(user *User) error {
 func UpdateUser(user *User) error {
 	err := provider.updateUser(user)
 	if err == nil {
-		RemoveCachedWebDAVUser(user.Username)
+		webDAVUsersCache.swap(user)
 		executeAction(operationUpdate, user)
 	}
 	return err
@@ -2190,6 +2189,9 @@ func executePreLoginHook(username, loginMethod, ip, protocol string) (User, erro
 		err = provider.addUser(&u)
 	} else {
 		err = provider.updateUser(&u)
+		if err == nil {
+			webDAVUsersCache.swap(&u)
+		}
 	}
 	if err != nil {
 		return u, err
@@ -2328,6 +2330,15 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 	return cmd.Output()
 }
 
+func updateUserFromExtAuthResponse(user *User, password, pkey string) {
+	if password != "" {
+		user.Password = password
+	}
+	if pkey != "" && !utils.IsStringPrefixInSlice(pkey, user.PublicKeys) {
+		user.PublicKeys = append(user.PublicKeys, pkey)
+	}
+}
+
 func doExternalAuth(username, password string, pubKey []byte, keyboardInteractive, ip, protocol string, tlsCert *x509.Certificate) (User, error) {
 	var user User
 
@@ -2358,15 +2369,11 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 	if err != nil {
 		return user, fmt.Errorf("invalid external auth response: %v", err)
 	}
+	// an empty username means authentication failure
 	if user.Username == "" {
 		return user, ErrInvalidCredentials
 	}
-	if password != "" {
-		user.Password = password
-	}
-	if pkey != "" && !utils.IsStringPrefixInSlice(pkey, user.PublicKeys) {
-		user.PublicKeys = append(user.PublicKeys, pkey)
-	}
+	updateUserFromExtAuthResponse(&user, password, pkey)
 	// some users want to map multiple login usernames with a single SFTPGo account
 	// for example an SFTP user logins using "user1" or "user2" and the external auth
 	// returns "user" in both cases, so we use the username returned from
@@ -2381,6 +2388,9 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		user.LastQuotaUpdate = u.LastQuotaUpdate
 		user.LastLogin = u.LastLogin
 		err = provider.updateUser(&user)
+		if err == nil {
+			webDAVUsersCache.swap(&user)
+		}
 		return user, err
 	}
 	err = provider.addUser(&user)
@@ -2484,57 +2494,4 @@ func executeAction(operation string, user *User) {
 			executeNotificationCommand(operation, user.getNotificationFieldsAsSlice(operation), userAsJSON) //nolint:errcheck // the error is used in test cases only
 		}
 	}()
-}
-
-func updateWebDavCachedUserLastLogin(username string) {
-	result, ok := webDAVUsersCache.Load(username)
-	if ok {
-		cachedUser := result.(*CachedUser)
-		cachedUser.User.LastLogin = utils.GetTimeAsMsSinceEpoch(time.Now())
-		webDAVUsersCache.Store(cachedUser.User.Username, cachedUser)
-	}
-}
-
-// CacheWebDAVUser add a user to the WebDAV cache
-func CacheWebDAVUser(cachedUser *CachedUser, maxSize int) {
-	if maxSize > 0 {
-		var cacheSize int
-		var userToRemove string
-		var expirationTime time.Time
-
-		webDAVUsersCache.Range(func(k, v interface{}) bool {
-			cacheSize++
-			if userToRemove == "" {
-				userToRemove = k.(string)
-				expirationTime = v.(*CachedUser).Expiration
-				return true
-			}
-			expireTime := v.(*CachedUser).Expiration
-			if !expireTime.IsZero() && expireTime.Before(expirationTime) {
-				userToRemove = k.(string)
-				expirationTime = expireTime
-			}
-			return true
-		})
-
-		if cacheSize >= maxSize {
-			RemoveCachedWebDAVUser(userToRemove)
-		}
-	}
-
-	if cachedUser.User.Username != "" {
-		webDAVUsersCache.Store(cachedUser.User.Username, cachedUser)
-	}
-}
-
-// GetCachedWebDAVUser returns a previously cached WebDAV user
-func GetCachedWebDAVUser(username string) (interface{}, bool) {
-	return webDAVUsersCache.Load(username)
-}
-
-// RemoveCachedWebDAVUser removes a cached WebDAV user
-func RemoveCachedWebDAVUser(username string) {
-	if username != "" {
-		webDAVUsersCache.Delete(username)
-	}
 }

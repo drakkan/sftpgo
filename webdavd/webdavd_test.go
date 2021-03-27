@@ -808,11 +808,15 @@ func TestPreLoginHook(t *testing.T) {
 	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(user, true), os.ModePerm)
 	assert.NoError(t, err)
 	// update the user to remove it from the cache
+	user.FsConfig.Provider = vfs.CryptedFilesystemProvider
+	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret(defaultPassword)
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client = getWebDavClient(user, true, nil)
 	assert.Error(t, checkBasicFunc(client))
 	// update the user to remove it from the cache
+	user.FsConfig.Provider = vfs.LocalFilesystemProvider
+	user.FsConfig.CryptConfig.Passphrase = nil
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	user.Status = 0
@@ -2037,11 +2041,13 @@ func TestPreLoginHookWithClientCert(t *testing.T) {
 	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(user, true), os.ModePerm)
 	assert.NoError(t, err)
 	// update the user to remove it from the cache
+	user.Password = defaultPassword
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client = getWebDavClient(user, true, tlsConfig)
 	assert.Error(t, checkBasicFunc(client))
 	// update the user to remove it from the cache
+	user.Password = defaultPassword
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	user.Status = 0

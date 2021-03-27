@@ -197,6 +197,26 @@ func (s *Secret) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// IsEqual returns true if all the secrets fields are equal
+func (s *Secret) IsEqual(other *Secret) bool {
+	if s.GetStatus() != other.GetStatus() {
+		return false
+	}
+	if s.GetPayload() != other.GetPayload() {
+		return false
+	}
+	if s.GetKey() != other.GetKey() {
+		return false
+	}
+	if s.GetAdditionalData() != other.GetAdditionalData() {
+		return false
+	}
+	if s.GetMode() != other.GetMode() {
+		return false
+	}
+	return true
+}
+
 // Clone returns a copy of the secret object
 func (s *Secret) Clone() *Secret {
 	s.RLock()
@@ -413,4 +433,16 @@ func (s *Secret) Decrypt() error {
 	defer s.Unlock()
 
 	return s.provider.Decrypt()
+}
+
+// TryDecrypt decrypts a Secret object if encrypted.
+// It returns a nil error if the object is not encrypted
+func (s *Secret) TryDecrypt() error {
+	s.Lock()
+	defer s.Unlock()
+
+	if s.provider.IsEncrypted() {
+		return s.provider.Decrypt()
+	}
+	return nil
 }

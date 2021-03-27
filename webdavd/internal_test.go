@@ -895,6 +895,7 @@ func TestBasicUsersCache(t *testing.T) {
 			},
 		},
 	}
+	dataprovider.InitializeWebDAVUserCache(c.Cache.Users.MaxSize)
 	server := webDavServer{
 		config:  c,
 		binding: c.Bindings[0],
@@ -915,10 +916,8 @@ func TestBasicUsersCache(t *testing.T) {
 	assert.False(t, isCached)
 	assert.Equal(t, dataprovider.LoginMethodPassword, loginMethod)
 	// now the user should be cached
-	var cachedUser *dataprovider.CachedUser
-	result, ok := dataprovider.GetCachedWebDAVUser(username)
+	cachedUser, ok := dataprovider.GetCachedWebDAVUser(username)
 	if assert.True(t, ok) {
-		cachedUser = result.(*dataprovider.CachedUser)
 		assert.False(t, cachedUser.IsExpired())
 		assert.True(t, cachedUser.Expiration.After(now.Add(time.Duration(c.Cache.Users.ExpirationTime)*time.Minute)))
 		// authenticate must return the cached user now
@@ -935,10 +934,9 @@ func TestBasicUsersCache(t *testing.T) {
 
 	// force cached user expiration
 	cachedUser.Expiration = now
-	dataprovider.CacheWebDAVUser(cachedUser, c.Cache.Users.MaxSize)
-	result, ok = dataprovider.GetCachedWebDAVUser(username)
+	dataprovider.CacheWebDAVUser(cachedUser)
+	cachedUser, ok = dataprovider.GetCachedWebDAVUser(username)
 	if assert.True(t, ok) {
-		cachedUser = result.(*dataprovider.CachedUser)
 		assert.True(t, cachedUser.IsExpired())
 	}
 	// now authenticate should get the user from the data provider and update the cache
@@ -946,12 +944,24 @@ func TestBasicUsersCache(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, isCached)
 	assert.Equal(t, dataprovider.LoginMethodPassword, loginMethod)
-	result, ok = dataprovider.GetCachedWebDAVUser(username)
+	cachedUser, ok = dataprovider.GetCachedWebDAVUser(username)
 	if assert.True(t, ok) {
-		cachedUser = result.(*dataprovider.CachedUser)
 		assert.False(t, cachedUser.IsExpired())
 	}
-	// cache is invalidated after a user modification
+	// cache is not invalidated after a user modification if the fs does not change
+	err = dataprovider.UpdateUser(&user)
+	assert.NoError(t, err)
+	_, ok = dataprovider.GetCachedWebDAVUser(username)
+	assert.True(t, ok)
+	folderName := "testFolder"
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName,
+			MappedPath: filepath.Join(os.TempDir(), "mapped"),
+		},
+		VirtualPath: "/vdir",
+	})
+
 	err = dataprovider.UpdateUser(&user)
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
@@ -968,6 +978,9 @@ func TestBasicUsersCache(t *testing.T) {
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.False(t, ok)
+
+	err = dataprovider.DeleteFolder(folderName)
+	assert.NoError(t, err)
 
 	err = os.RemoveAll(u.GetHomeDir())
 	assert.NoError(t, err)
@@ -1011,6 +1024,7 @@ func TestCachedUserWithFolders(t *testing.T) {
 			},
 		},
 	}
+	dataprovider.InitializeWebDAVUserCache(c.Cache.Users.MaxSize)
 	server := webDavServer{
 		config:  c,
 		binding: c.Bindings[0],
@@ -1031,10 +1045,8 @@ func TestCachedUserWithFolders(t *testing.T) {
 	assert.False(t, isCached)
 	assert.Equal(t, dataprovider.LoginMethodPassword, loginMethod)
 	// now the user should be cached
-	var cachedUser *dataprovider.CachedUser
-	result, ok := dataprovider.GetCachedWebDAVUser(username)
+	cachedUser, ok := dataprovider.GetCachedWebDAVUser(username)
 	if assert.True(t, ok) {
-		cachedUser = result.(*dataprovider.CachedUser)
 		assert.False(t, cachedUser.IsExpired())
 		assert.True(t, cachedUser.Expiration.After(now.Add(time.Duration(c.Cache.Users.ExpirationTime)*time.Minute)))
 		// authenticate must return the cached user now
@@ -1054,9 +1066,8 @@ func TestCachedUserWithFolders(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, isCached)
 	assert.Equal(t, dataprovider.LoginMethodPassword, loginMethod)
-	result, ok = dataprovider.GetCachedWebDAVUser(username)
+	cachedUser, ok = dataprovider.GetCachedWebDAVUser(username)
 	if assert.True(t, ok) {
-		cachedUser = result.(*dataprovider.CachedUser)
 		assert.False(t, cachedUser.IsExpired())
 	}
 
@@ -1067,9 +1078,8 @@ func TestCachedUserWithFolders(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, isCached)
 	assert.Equal(t, dataprovider.LoginMethodPassword, loginMethod)
-	result, ok = dataprovider.GetCachedWebDAVUser(username)
+	cachedUser, ok = dataprovider.GetCachedWebDAVUser(username)
 	if assert.True(t, ok) {
-		cachedUser = result.(*dataprovider.CachedUser)
 		assert.False(t, cachedUser.IsExpired())
 	}
 
@@ -1133,6 +1143,7 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 			},
 		},
 	}
+	dataprovider.InitializeWebDAVUserCache(c.Cache.Users.MaxSize)
 	server := webDavServer{
 		config:  c,
 		binding: c.Bindings[0],
@@ -1240,6 +1251,7 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	assert.True(t, ok)
 
 	// now remove user1 after an update
+	user1.HomeDir += "_mod"
 	err = dataprovider.UpdateUser(&user1)
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(user1.Username)
@@ -1283,6 +1295,7 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 }
 
 func TestUserCacheIsolation(t *testing.T) {
+	dataprovider.InitializeWebDAVUserCache(10)
 	username := "webdav_internal_cache_test"
 	password := "dav_pwd"
 	u := dataprovider.User{
@@ -1307,31 +1320,27 @@ func TestUserCacheIsolation(t *testing.T) {
 	cachedUser.User.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret("test secret")
 	err = cachedUser.User.FsConfig.S3Config.AccessSecret.Encrypt()
 	assert.NoError(t, err)
-
-	dataprovider.CacheWebDAVUser(cachedUser, 10)
-	result, ok := dataprovider.GetCachedWebDAVUser(username)
+	dataprovider.CacheWebDAVUser(cachedUser)
+	cachedUser, ok := dataprovider.GetCachedWebDAVUser(username)
 
 	if assert.True(t, ok) {
-		cachedUser := result.(*dataprovider.CachedUser).User
-		_, err = cachedUser.GetFilesystem("")
+		_, err = cachedUser.User.GetFilesystem("")
 		assert.NoError(t, err)
 		// the filesystem is now cached
 	}
-	result, ok = dataprovider.GetCachedWebDAVUser(username)
+	cachedUser, ok = dataprovider.GetCachedWebDAVUser(username)
 	if assert.True(t, ok) {
-		cachedUser := result.(*dataprovider.CachedUser).User
-		assert.True(t, cachedUser.FsConfig.S3Config.AccessSecret.IsEncrypted())
-		err = cachedUser.FsConfig.S3Config.AccessSecret.Decrypt()
+		assert.True(t, cachedUser.User.FsConfig.S3Config.AccessSecret.IsEncrypted())
+		err = cachedUser.User.FsConfig.S3Config.AccessSecret.Decrypt()
 		assert.NoError(t, err)
-		cachedUser.FsConfig.Provider = vfs.S3FilesystemProvider
-		_, err = cachedUser.GetFilesystem("")
+		cachedUser.User.FsConfig.Provider = vfs.S3FilesystemProvider
+		_, err = cachedUser.User.GetFilesystem("")
 		assert.Error(t, err, "we don't have to get the previously cached filesystem!")
 	}
-	result, ok = dataprovider.GetCachedWebDAVUser(username)
+	cachedUser, ok = dataprovider.GetCachedWebDAVUser(username)
 	if assert.True(t, ok) {
-		cachedUser := result.(*dataprovider.CachedUser).User
-		assert.Equal(t, vfs.LocalFilesystemProvider, cachedUser.FsConfig.Provider)
-		assert.False(t, cachedUser.FsConfig.S3Config.AccessSecret.IsEncrypted())
+		assert.Equal(t, vfs.LocalFilesystemProvider, cachedUser.User.FsConfig.Provider)
+		assert.False(t, cachedUser.User.FsConfig.S3Config.AccessSecret.IsEncrypted())
 	}
 
 	err = dataprovider.DeleteUser(username)

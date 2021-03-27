@@ -72,6 +72,27 @@ func (f *Filesystem) SetNilSecretsIfEmpty() {
 	}
 }
 
+// IsEqual returns true if the fs is equal to other
+func (f *Filesystem) IsEqual(other *Filesystem) bool {
+	if f.Provider != other.Provider {
+		return false
+	}
+	switch f.Provider {
+	case S3FilesystemProvider:
+		return f.S3Config.isEqual(&other.S3Config)
+	case GCSFilesystemProvider:
+		return f.GCSConfig.isEqual(&other.GCSConfig)
+	case AzureBlobFilesystemProvider:
+		return f.AzBlobConfig.isEqual(&other.AzBlobConfig)
+	case CryptedFilesystemProvider:
+		return f.CryptConfig.isEqual(&other.CryptConfig)
+	case SFTPFilesystemProvider:
+		return f.SFTPConfig.isEqual(&other.SFTPConfig)
+	default:
+		return true
+	}
+}
+
 // GetACopy returns a copy
 func (f *Filesystem) GetACopy() Filesystem {
 	f.SetEmptySecretsIfNil()
