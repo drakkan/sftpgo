@@ -931,7 +931,7 @@ func (u *User) GetInfoString() string {
 	case vfs.GCSFilesystemProvider:
 		result += "Storage: GCS "
 	case vfs.AzureBlobFilesystemProvider:
-		result += "Storage: Azure "
+		result += "Storage: AzBlob "
 	case vfs.CryptedFilesystemProvider:
 		result += "Storage: Encrypted "
 	case vfs.SFTPFilesystemProvider:

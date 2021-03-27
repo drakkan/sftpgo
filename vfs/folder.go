@@ -74,6 +74,26 @@ func (v *BaseVirtualFolder) GetQuotaSummary() string {
 	return result
 }
 
+// GetStorageDescrition returns the storage description
+func (v *BaseVirtualFolder) GetStorageDescrition() string {
+	switch v.FsConfig.Provider {
+	case LocalFilesystemProvider:
+		return fmt.Sprintf("Local: %v", v.MappedPath)
+	case S3FilesystemProvider:
+		return fmt.Sprintf("S3: %v", v.FsConfig.S3Config.Bucket)
+	case GCSFilesystemProvider:
+		return fmt.Sprintf("GCS: %v", v.FsConfig.GCSConfig.Bucket)
+	case AzureBlobFilesystemProvider:
+		return fmt.Sprintf("AzBlob: %v", v.FsConfig.AzBlobConfig.Container)
+	case CryptedFilesystemProvider:
+		return fmt.Sprintf("Encrypted: %v", v.MappedPath)
+	case SFTPFilesystemProvider:
+		return fmt.Sprintf("SFTP: %v", v.FsConfig.SFTPConfig.Endpoint)
+	default:
+		return ""
+	}
+}
+
 // IsLocalOrLocalCrypted returns true if the folder provider is local or local encrypted
 func (v *BaseVirtualFolder) IsLocalOrLocalCrypted() bool {
 	return v.FsConfig.Provider == LocalFilesystemProvider || v.FsConfig.Provider == CryptedFilesystemProvider

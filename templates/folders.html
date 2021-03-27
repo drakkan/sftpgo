@@ -28,7 +28,7 @@
                 <thead>
                     <tr>
                         <th>Name</th>
-                        <th>Path</th>
+                        <th>Storage</th>
                         <th>Quota</th>
                         <th>Used by</th>
                     </tr>
@@ -37,7 +37,7 @@
                     {{range .Folders}}
                     <tr>
                         <td>{{.Name}}</td>
-                        <td>{{.MappedPath}}</td>
+                        <td>{{.GetStorageDescrition}}</td>
                         <td>{{.GetQuotaSummary}}</td>
                         <td>{{.GetUsersAsString}}</td>
                     </tr>
@@ -123,16 +123,18 @@ function deleteAction() {
 
     $(document).ready(function () {
         $.fn.dataTable.ext.buttons.add = {
-            text: 'Add',
+            text: '<i class="fas fa-plus"></i>',
             name: 'add',
+            titleAttr: "Add",
             action: function (e, dt, node, config) {
                 window.location.href = '{{.FolderURL}}';
             }
         };
 
         $.fn.dataTable.ext.buttons.edit = {
-            text: 'Edit',
+            text: '<i class="fas fa-pen"></i>',
             name: 'edit',
+            titleAttr: "Edit",
             action: function (e, dt, node, config) {
                 var folderName = table.row({ selected: true }).data()[0];
                 var path = '{{.FolderURL}}' + "/" + fixedEncodeURIComponent(folderName);
@@ -157,8 +159,9 @@ function deleteAction() {
         };
 
         $.fn.dataTable.ext.buttons.delete = {
-            text: 'Delete',
+            text: '<i class="fas fa-trash"></i>',
             name: 'delete',
+            titleAttr: "Delete",
             action: function (e, dt, node, config) {
                 $('#deleteModal').modal('show');
             },
@@ -212,15 +215,12 @@ function deleteAction() {
         };
 
         var table = $('#dataTable').DataTable({
-            dom: "<'row'<'col-sm-12'B>>" +
-                "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
-                "<'row'<'col-sm-12'tr>>" +
-                "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
             select: true,
             stateSave: true,
             stateDuration: 3600,
             buttons: [],
             "scrollX": false,
+            "scrollY": "50vh",
             "order": [[0, 'asc']]
         });
 
@@ -243,6 +243,8 @@ function deleteAction() {
         {{if .LoggedAdmin.HasPermission "add_users"}}
         table.button().add(0,'add');
         {{end}}
+
+        table.buttons().container().appendTo('#dataTable_wrapper .col-md-6:eq(0)');
 
         table.on('select deselect', function () {
             var selectedRows = table.rows({ selected: true }).count();

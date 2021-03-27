@@ -31,7 +31,6 @@
                         <th>Username</th>
                         <th>Status</th>
                         <th>Expiration</th>
-                        <th>Permissions</th>
                         <th>Bandwidth</th>
                         <th>Quota</th>
                         <th>Other</th>
@@ -44,7 +43,6 @@
                         <td>{{.Username}}</td>
                         <td>{{if eq .Status 1 }}Active{{else}}Inactive{{end}}</td>
                         <td>{{.GetExpirationDateAsString}}</td>
-                        <td>{{.GetPermissionsAsString}}</td>
                         <td>{{.GetBandwidthAsString}}</td>
                         <td>{{.GetQuotaSummary}}</td>
                         <td>{{.GetInfoString}}</td>
@@ -131,16 +129,18 @@
 
     $(document).ready(function () {
         $.fn.dataTable.ext.buttons.add = {
-            text: 'Add',
+            text: '<i class="fas fa-plus"></i>',
             name: 'add',
+            titleAttr: "Add",
             action: function (e, dt, node, config) {
                 window.location.href = '{{.UserURL}}';
             }
         };
 
         $.fn.dataTable.ext.buttons.edit = {
-            text: 'Edit',
+            text: '<i class="fas fa-pen"></i>',
             name: 'edit',
+            titleAttr: "Edit",
             action: function (e, dt, node, config) {
                 var username = dt.row({ selected: true }).data()[1];
                 var path = '{{.UserURL}}' + "/" + fixedEncodeURIComponent(username);
@@ -150,7 +150,7 @@
         };
 
         $.fn.dataTable.ext.buttons.clone = {
-            text: 'Clone',
+            text: '<i class="fas fa-clone"></i>',
             name: 'clone',
             action: function (e, dt, node, config) {
                 var username = dt.row({ selected: true }).data()[1];
@@ -176,8 +176,9 @@
         };
 
         $.fn.dataTable.ext.buttons.delete = {
-            text: 'Delete',
+            text: '<i class="fas fa-trash"></i>',
             name: 'delete',
+            titleAttr: "Delete",
             action: function (e, dt, node, config) {
                 /*console.log("delete clicked, num row selected: " + dt.rows({ selected: true }).count());
                 var data = dt.rows({ selected: true }).data();
@@ -236,10 +237,6 @@
         };
 
         var table = $('#dataTable').DataTable({
-            dom: "<'row'<'col-sm-12'B>>" +
-                "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
-                "<'row'<'col-sm-12'tr>>" +
-                "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
             select: true,
             stateSave: true,
             stateDuration: 3600,
@@ -252,6 +249,7 @@
                 },
             ],
             "scrollX": false,
+            "scrollY": "50vh",
             "order": [[1, 'asc']]
         });
 
@@ -279,6 +277,7 @@
         table.button().add(0,'add');
         {{end}}
 
+        table.buttons().container().appendTo('#dataTable_wrapper .col-md-6:eq(0)');
 
         table.on('select deselect', function () {
             var selectedRows = table.rows({ selected: true }).count();
