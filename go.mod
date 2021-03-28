@@ -9,7 +9,7 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
 	github.com/alexedwards/argon2id v0.0.0-20210326052512-e2135f7c9c77
-	github.com/aws/aws-sdk-go v1.38.6
+	github.com/aws/aws-sdk-go v1.38.7
 	github.com/cockroachdb/cockroach-go/v2 v2.1.0
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
@@ -20,7 +20,6 @@ require (
 	github.com/go-chi/render v1.0.1
 	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/go-sql-driver/mysql v1.5.0
-	github.com/goccy/go-json v0.4.8 // indirect
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.2.0 // indirect
@@ -32,7 +31,7 @@ require (
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/klauspost/cpuid/v2 v2.0.6 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
-	github.com/lestrrat-go/jwx v1.1.5
+	github.com/lestrrat-go/jwx v1.1.6
 	github.com/lib/pq v1.10.0
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.6
@@ -67,7 +66,7 @@ require (
 	golang.org/x/mod v0.4.2 // indirect
 	golang.org/x/net v0.0.0-20210316092652-d523dce5a7f4
 	golang.org/x/oauth2 v0.0.0-20210323180902-22b0adad7558 // indirect
-	golang.org/x/sys v0.0.0-20210324051608-47abb6519492
+	golang.org/x/sys v0.0.0-20210326220804-49726bf1d181
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	google.golang.org/api v0.43.0
 	gopkg.in/ini.v1 v1.62.0 // indirect
