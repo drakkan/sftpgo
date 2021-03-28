@@ -4,8 +4,10 @@
 
 {{define "extra_css"}}
 <link href="/static/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
-<link href="/static/vendor/datatables/select.bootstrap4.min.css" rel="stylesheet">
 <link href="/static/vendor/datatables/buttons.bootstrap4.min.css" rel="stylesheet">
+<link href="/static/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
+<link href="/static/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
+<link href="/static/vendor/datatables/select.bootstrap4.min.css" rel="stylesheet">
 {{end}}
 
 {{define "page_body"}}
@@ -24,7 +26,7 @@
     </div>
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-striped table-bordered" id="dataTable" width="100%" cellspacing="0">
+            <table class="table table-striped table-bordered nowrap" id="dataTable" width="100%" cellspacing="0">
                 <thead>
                     <tr>
                         <th>Name</th>
@@ -81,10 +83,13 @@
 {{define "extra_js"}}
 <script src="/static/vendor/datatables/jquery.dataTables.min.js"></script>
 <script src="/static/vendor/datatables/dataTables.bootstrap4.min.js"></script>
-<script src="/static/vendor/datatables/dataTables.select.min.js"></script>
-<script src="/static/vendor/datatables/select.bootstrap4.min.js"></script>
 <script src="/static/vendor/datatables/dataTables.buttons.min.js"></script>
 <script src="/static/vendor/datatables/buttons.bootstrap4.min.js"></script>
+<script src="/static/vendor/datatables/dataTables.fixedHeader.min.js"></script>
+<script src="/static/vendor/datatables/dataTables.responsive.min.js"></script>
+<script src="/static/vendor/datatables/responsive.bootstrap4.min.js"></script>
+<script src="/static/vendor/datatables/dataTables.select.min.js"></script>
+<script src="/static/vendor/datatables/ellipsis.js"></script>
 <script type="text/javascript">
 
 function deleteAction() {
@@ -215,14 +220,31 @@ function deleteAction() {
         };
 
         var table = $('#dataTable').DataTable({
-            select: true,
-            stateSave: true,
-            stateDuration: 3600,
-            buttons: [],
+            "select": true,
+            "stateSave": true,
+            "stateDuration": 3600,
+            "buttons": [],
+            "columnDefs": [
+                {
+                    "targets": [1],
+                    "render": $.fn.dataTable.render.ellipsis(50, true),
+                },
+                {
+                    "targets": [2],
+                    "render": $.fn.dataTable.render.ellipsis(50, true),
+                },
+                {
+                    "targets": [3],
+                    "render": $.fn.dataTable.render.ellipsis(40, true),
+                }
+            ],
             "scrollX": false,
             "scrollY": "50vh",
+            "responsive": true,
             "order": [[0, 'asc']]
         });
+
+        new $.fn.dataTable.FixedHeader( table );
 
         {{if .LoggedAdmin.HasPermission "quota_scans"}}
         table.button().add(0,'quota_scan');

@@ -874,6 +874,10 @@ func (u *User) GetQuotaSummary() string {
 			result += "/" + utils.ByteCountIEC(u.QuotaSize)
 		}
 	}
+	if u.LastQuotaUpdate > 0 {
+		t := utils.GetTimeFromMsecSinceEpoch(u.LastQuotaUpdate)
+		result += fmt.Sprintf(". Last update: %v ", t.Format("2006-01-02 15:04")) // YYYY-MM-DD HH:MM
+	}
 	return result
 }
 
@@ -901,13 +905,13 @@ func (u *User) GetPermissionsAsString() string {
 
 // GetBandwidthAsString returns bandwidth limits if defines
 func (u *User) GetBandwidthAsString() string {
-	result := "Download: "
+	result := "DL: "
 	if u.DownloadBandwidth > 0 {
 		result += utils.ByteCountIEC(u.DownloadBandwidth*1000) + "/s."
 	} else {
 		result += "unlimited."
 	}
-	result += " Upload: "
+	result += " UL: "
 	if u.UploadBandwidth > 0 {
 		result += utils.ByteCountIEC(u.UploadBandwidth*1000) + "/s."
 	} else {
@@ -923,7 +927,7 @@ func (u *User) GetInfoString() string {
 	var result string
 	if u.LastLogin > 0 {
 		t := utils.GetTimeFromMsecSinceEpoch(u.LastLogin)
-		result += fmt.Sprintf("Last login: %v ", t.Format("2006-01-02 15:04:05")) // YYYY-MM-DD HH:MM:SS
+		result += fmt.Sprintf("Last login: %v ", t.Format("2006-01-02 15:04")) // YYYY-MM-DD HH:MM
 	}
 	switch u.FsConfig.Provider {
 	case vfs.S3FilesystemProvider:
@@ -956,6 +960,17 @@ func (u *User) GetInfoString() string {
 		result += fmt.Sprintf("Allowed IP/Mask: %v ", len(u.Filters.AllowedIP))
 	}
 	return result
+}
+
+// GetStatusAsString returns the user status as a string
+func (u *User) GetStatusAsString() string {
+	if u.ExpirationDate > 0 && u.ExpirationDate < utils.GetTimeAsMsSinceEpoch(time.Now()) {
+		return "Expired"
+	}
+	if u.Status == 1 {
+		return "Active"
+	}
+	return "Inactive"
 }
 
 // GetExpirationDateAsString returns expiration date formatted as YYYY-MM-DD

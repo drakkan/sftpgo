@@ -69,7 +69,7 @@ func (v *BaseVirtualFolder) GetQuotaSummary() string {
 	}
 	if v.LastQuotaUpdate > 0 {
 		t := utils.GetTimeFromMsecSinceEpoch(v.LastQuotaUpdate)
-		result += fmt.Sprintf(". Last update: %v ", t.Format("2006-01-02 15:04:05")) // YYYY-MM-DD HH:MM:SS
+		result += fmt.Sprintf(". Last update: %v ", t.Format("2006-01-02 15:04")) // YYYY-MM-DD HH:MM
 	}
 	return result
 }
