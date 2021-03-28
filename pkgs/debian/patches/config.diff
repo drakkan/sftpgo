@@ -2,7 +2,7 @@ Index: sftpgo/sftpgo.json
 ===================================================================
 --- sftpgo.orig/sftpgo.json
 +++ sftpgo/sftpgo.json
-@@ -113,7 +113,7 @@
+@@ -115,7 +115,7 @@
    },
    "data_provider": {
      "driver": "sqlite",
@@ -11,7 +11,7 @@ Index: sftpgo/sftpgo.json
      "host": "",
      "port": 0,
      "username": "",
-@@ -123,14 +123,14 @@
+@@ -125,14 +125,14 @@
      "sql_tables_prefix": "",
      "track_quota": 2,
      "pool_size": 0,
@@ -28,8 +28,8 @@ Index: sftpgo/sftpgo.json
      "prefer_database_credentials": false,
      "pre_login_hook": "",
      "post_login_hook": "",
-@@ -156,9 +156,9 @@
-         "client_auth_type": 0
+@@ -160,9 +160,9 @@
+         "tls_cipher_suites": []
        }
      ],
 -    "templates_path": "templates",
