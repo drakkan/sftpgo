@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi"
-	"github.com/go-chi/jwtauth"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/jwtauth/v5"
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/rs/xid"
 	"github.com/stretchr/testify/assert"

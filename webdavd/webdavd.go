@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/logger"

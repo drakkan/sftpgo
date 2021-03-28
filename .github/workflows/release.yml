@@ -5,7 +5,7 @@ on:
     tags: 'v*'
 
 env:
-  GO_VERSION: 1.16.1
+  GO_VERSION: 1.16.2
 
 jobs:
   create-release:

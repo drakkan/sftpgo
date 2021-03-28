@@ -12,7 +12,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/logger"
