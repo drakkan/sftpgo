@@ -1081,10 +1081,10 @@ func getVirtualFolderIfInvalid(folder *vfs.BaseVirtualFolder) *vfs.BaseVirtualFo
 	return folder
 }
 
-func hasSFTPLoopForFolder(user *User, folder *vfs.BaseVirtualFolder) bool {
-	if folder.FsConfig.Provider == vfs.SFTPFilesystemProvider {
+func hasSFTPLoop(user *User, fs *vfs.Filesystem) bool {
+	if fs.Provider == vfs.SFTPFilesystemProvider {
 		// FIXME: this could be inaccurate, it is not easy to check the endpoint too
-		if folder.FsConfig.SFTPConfig.Username == user.Username {
+		if fs.SFTPConfig.Username == user.Username {
 			return true
 		}
 	}
@@ -1111,7 +1111,7 @@ func validateUserVirtualFolders(user *User) error {
 		if err := ValidateFolder(folder); err != nil {
 			return err
 		}
-		if hasSFTPLoopForFolder(user, folder) {
+		if hasSFTPLoop(user, &folder.FsConfig) {
 			return &ValidationError{err: fmt.Sprintf("SFTP folder %#v could point to the same SFTPGo account, this is not allowed",
 				folder.Name)}
 		}
@@ -1526,6 +1526,10 @@ func ValidateUser(user *User) error {
 	}
 	if err := validateFilesystemConfig(&user.FsConfig, user); err != nil {
 		return err
+	}
+	if hasSFTPLoop(user, &user.FsConfig) {
+		return &ValidationError{err: fmt.Sprintf("SFTP fs for user %#v could point to the same SFTPGo account, this is not allowed",
+			user.Username)}
 	}
 	if err := validateUserVirtualFolders(user); err != nil {
 		return err

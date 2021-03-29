@@ -738,6 +738,21 @@ func TestUserRedactedPassword(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSFTPSelf(t *testing.T) {
+	u := getTestUser()
+	u.FsConfig = vfs.Filesystem{
+		Provider: vfs.SFTPFilesystemProvider,
+		SFTPConfig: vfs.SFTPFsConfig{
+			Endpoint: "localhost:2022",
+			Username: defaultUsername,
+			Password: kms.NewPlainSecret(defaultPassword),
+		},
+	}
+	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err, string(resp))
+	assert.Contains(t, string(resp), "could point to the same SFTPGo account")
+}
+
 func TestAddUserInvalidVirtualFolders(t *testing.T) {
 	u := getTestUser()
 	folderName := "fname"
