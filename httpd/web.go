@@ -1478,7 +1478,7 @@ func handleWebAddFolderGet(w http.ResponseWriter, r *http.Request) {
 func handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	folder := vfs.BaseVirtualFolder{}
-	err := r.ParseForm()
+	err := r.ParseMultipartForm(maxRequestSize)
 	if err != nil {
 		renderFolderPage(w, r, folder, folderPageModeAdd, err.Error())
 		return
@@ -1529,7 +1529,7 @@ func handleWebUpdateFolderPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = r.ParseForm()
+	err = r.ParseMultipartForm(maxRequestSize)
 	if err != nil {
 		renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())
 		return

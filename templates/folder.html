@@ -27,7 +27,7 @@
             </div>
         </div>
         {{end}}
-        <form id="folder_form" action="{{.CurrentURL}}" method="POST" autocomplete="off" {{if eq .Mode 3}}target="_blank"{{end}}>
+        <form id="folder_form" enctype="multipart/form-data" action="{{.CurrentURL}}" method="POST" autocomplete="off" {{if eq .Mode 3}}target="_blank"{{end}}>
             {{if eq .Mode 3}}
             <div class="form-group row">
                 <label for="idFolders" class="col-sm-2 col-form-label">Folders</label>
