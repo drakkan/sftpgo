@@ -37,6 +37,5 @@ linters:
     - maligned
     - whitespace
     - dupl
-    - scopelint
     - rowserrcheck
     - dogsled

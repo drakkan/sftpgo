@@ -225,7 +225,12 @@ func (u *User) getRootFs(connectionID string) (fs vfs.Fs, err error) {
 	case vfs.CryptedFilesystemProvider:
 		return vfs.NewCryptFs(connectionID, u.GetHomeDir(), "", u.FsConfig.CryptConfig)
 	case vfs.SFTPFilesystemProvider:
-		return vfs.NewSFTPFs(connectionID, "", u.FsConfig.SFTPConfig)
+		forbiddenSelfUsers, err := u.getForbiddenSFTPSelfUsers(u.FsConfig.SFTPConfig.Username)
+		if err != nil {
+			return nil, err
+		}
+		forbiddenSelfUsers = append(forbiddenSelfUsers, u.Username)
+		return vfs.NewSFTPFs(connectionID, "", forbiddenSelfUsers, u.FsConfig.SFTPConfig)
 	default:
 		return vfs.NewOsFs(connectionID, u.GetHomeDir(), ""), nil
 	}
@@ -431,6 +436,31 @@ func (u *User) GetPermissionsForPath(p string) []string {
 	return permissions
 }
 
+func (u *User) getForbiddenSFTPSelfUsers(username string) ([]string, error) {
+	sftpUser, err := UserExists(username)
+	if err == nil {
+		// we don't allow local nested SFTP folders
+		var forbiddens []string
+		if sftpUser.FsConfig.Provider == vfs.SFTPFilesystemProvider {
+			forbiddens = append(forbiddens, sftpUser.Username)
+			return forbiddens, nil
+		}
+		for idx := range sftpUser.VirtualFolders {
+			v := &sftpUser.VirtualFolders[idx]
+			if v.FsConfig.Provider == vfs.SFTPFilesystemProvider {
+				forbiddens = append(forbiddens, sftpUser.Username)
+				return forbiddens, nil
+			}
+		}
+		return forbiddens, nil
+	}
+	if _, ok := err.(*RecordNotFoundError); !ok {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
 // GetFilesystemForPath returns the filesystem for the given path
 func (u *User) GetFilesystemForPath(virtualPath, connectionID string) (vfs.Fs, error) {
 	if u.fsCache == nil {
@@ -442,7 +472,15 @@ func (u *User) GetFilesystemForPath(virtualPath, connectionID string) (vfs.Fs, e
 			if fs, ok := u.fsCache[folder.VirtualPath]; ok {
 				return fs, nil
 			}
-			fs, err := folder.GetFilesystem(connectionID)
+			forbiddenSelfUsers := []string{u.Username}
+			if folder.FsConfig.Provider == vfs.SFTPFilesystemProvider {
+				forbiddens, err := u.getForbiddenSFTPSelfUsers(folder.FsConfig.SFTPConfig.Username)
+				if err != nil {
+					return nil, err
+				}
+				forbiddenSelfUsers = append(forbiddenSelfUsers, forbiddens...)
+			}
+			fs, err := folder.GetFilesystem(connectionID, forbiddenSelfUsers)
 			if err == nil {
 				u.fsCache[folder.VirtualPath] = fs
 			}

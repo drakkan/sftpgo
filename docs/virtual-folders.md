@@ -18,6 +18,8 @@ For each virtual folder, the following properties can be configured:
 
 For example if the configure folder has configured `/tmp/mapped` or `C:\mapped` as filesystem path and you set `/vfolder` as virtual path then SFTPGo users can access `/tmp/mapped` or `C:\mapped` via the `/vfolder` virtual path.
 
+Nested SFTP folders using the same SFTPGo instance (identified using the host keys) are not allowed as they could cause infinite SFTP loops.
+
 The same virtual folder can be shared among users, different folder quota limits for each user are supported.
 Folder quota limits can also be included inside the user quota but in this case the folder is considered "private" and sharing it with other users will break user quota calculation.
 The calculation of the quota for a given user is obtained as the sum of the files contained in his home directory and those within each defined virtual folder.

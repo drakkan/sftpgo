@@ -3439,9 +3439,160 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestNestedVirtualFolders(t *testing.T) {
+func TestSFTPLoopSimple(t *testing.T) {
 	usePubKey := false
-	baseUser, resp, err := httpdtest.AddUser(getTestUser(false), http.StatusCreated)
+	user1 := getTestSFTPUser(usePubKey)
+	user2 := getTestSFTPUser(usePubKey)
+	user1.Username += "1"
+	user2.Username += "2"
+	user1.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	user2.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	user1.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
+		Endpoint: sftpServerAddr,
+		Username: user2.Username,
+		Password: kms.NewPlainSecret(defaultPassword),
+	}
+	user2.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
+		Endpoint: sftpServerAddr,
+		Username: user1.Username,
+		Password: kms.NewPlainSecret(defaultPassword),
+	}
+	user1, resp, err := httpdtest.AddUser(user1, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	user2, resp, err = httpdtest.AddUser(user2, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+
+	_, err = getSftpClient(user1, usePubKey)
+	assert.Error(t, err)
+	_, err = getSftpClient(user2, usePubKey)
+	assert.Error(t, err)
+
+	user1.FsConfig.SFTPConfig.Username = user1.Username
+	user1.FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)
+
+	_, _, err = httpdtest.UpdateUser(user1, http.StatusOK, "")
+	assert.NoError(t, err)
+	_, err = getSftpClient(user1, usePubKey)
+	assert.Error(t, err)
+
+	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user1.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user2, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user2.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestSFTPLoopVirtualFolders(t *testing.T) {
+	usePubKey := false
+	user1 := getTestUser(usePubKey)
+	user2 := getTestSFTPUser(usePubKey)
+	user3 := getTestSFTPUser(usePubKey)
+	user1.Username += "1"
+	user2.Username += "2"
+	user3.Username += "3"
+
+	// user1 is a local account with a virtual SFTP folder to user2
+	// user2 has user1 as SFTP fs
+	user1.VirtualFolders = append(user1.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: "sftp",
+			FsConfig: vfs.Filesystem{
+				Provider: vfs.SFTPFilesystemProvider,
+				SFTPConfig: vfs.SFTPFsConfig{
+					Endpoint: sftpServerAddr,
+					Username: user2.Username,
+					Password: kms.NewPlainSecret(defaultPassword),
+				},
+			},
+		},
+		VirtualPath: "/vdir",
+	})
+
+	user2.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	user2.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
+		Endpoint: sftpServerAddr,
+		Username: user1.Username,
+		Password: kms.NewPlainSecret(defaultPassword),
+	}
+	user3.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	user3.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
+		Endpoint: sftpServerAddr,
+		Username: user1.Username,
+		Password: kms.NewPlainSecret(defaultPassword),
+	}
+
+	user1, resp, err := httpdtest.AddUser(user1, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	user2, resp, err = httpdtest.AddUser(user2, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	user3, resp, err = httpdtest.AddUser(user3, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+
+	// login will work but /vdir will not be accessible
+	client, err := getSftpClient(user1, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+		_, err = client.ReadDir("/vdir")
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "SFTP loop")
+		}
+	}
+	// now make user2 a local account with an SFTP virtual folder to user1.
+	// So we have:
+	// user1 -> local account with the SFTP virtual folder /vdir to user2
+	// user2 -> local account with the SFTP virtual folder /vdir2 to user3
+	// user3 -> sftp user with user1 as fs
+	user2.FsConfig.Provider = vfs.LocalFilesystemProvider
+	user2.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
+	user2.VirtualFolders = append(user2.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: "sftp",
+			FsConfig: vfs.Filesystem{
+				Provider: vfs.SFTPFilesystemProvider,
+				SFTPConfig: vfs.SFTPFsConfig{
+					Endpoint: sftpServerAddr,
+					Username: user3.Username,
+					Password: kms.NewPlainSecret(defaultPassword),
+				},
+			},
+		},
+		VirtualPath: "/vdir2",
+	})
+	user2, _, err = httpdtest.UpdateUser(user2, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	// login will work but /vdir will not be accessible
+	client, err = getSftpClient(user1, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+		_, err = client.ReadDir("/vdir")
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "SFTP loop")
+		}
+	}
+
+	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user1.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user2, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user2.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user3, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user3.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestNestedVirtualFolders(t *testing.T) {
+	usePubKey := true
+	baseUser, resp, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err, string(resp))
 	u := getTestSFTPUser(usePubKey)
 	u.QuotaFiles = 1000
@@ -6049,7 +6200,7 @@ func TestRelativePaths(t *testing.T) {
 		Password: kms.NewPlainSecret(defaultPassword),
 		Prefix:   keyPrefix,
 	}
-	sftpfs, _ := vfs.NewSFTPFs("", "", sftpconfig)
+	sftpfs, _ := vfs.NewSFTPFs("", "", []string{user.Username}, sftpconfig)
 	if runtime.GOOS != osWindows {
 		filesystems = append(filesystems, s3fs, gcsfs, sftpfs)
 	}

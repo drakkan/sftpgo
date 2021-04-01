@@ -738,21 +738,6 @@ func TestUserRedactedPassword(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSFTPSelf(t *testing.T) {
-	u := getTestUser()
-	u.FsConfig = vfs.Filesystem{
-		Provider: vfs.SFTPFilesystemProvider,
-		SFTPConfig: vfs.SFTPFsConfig{
-			Endpoint: "localhost:2022",
-			Username: defaultUsername,
-			Password: kms.NewPlainSecret(defaultPassword),
-		},
-	}
-	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
-	assert.NoError(t, err, string(resp))
-	assert.Contains(t, string(resp), "could point to the same SFTPGo account")
-}
-
 func TestAddUserInvalidVirtualFolders(t *testing.T) {
 	u := getTestUser()
 	folderName := "fname"
@@ -907,32 +892,6 @@ func TestAddUserInvalidVirtualFolders(t *testing.T) {
 	})
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-}
-
-func TestSFTPVirtualFolderSelf(t *testing.T) {
-	// an sftp virtual folder cannot use the same sftp account, it will generate an infinite loop
-	// at login
-	u := getTestUser()
-	mappedPathSFTP := filepath.Join(os.TempDir(), "sftp")
-	folderNameSFTP := filepath.Base(mappedPathSFTP)
-	vdirSFTPPath := "/vdir/sftp"
-	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
-		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name: folderNameSFTP,
-			FsConfig: vfs.Filesystem{
-				Provider: vfs.SFTPFilesystemProvider,
-				SFTPConfig: vfs.SFTPFsConfig{
-					Endpoint: "127.0.0.1:2022",
-					Username: defaultUsername,
-					Password: kms.NewPlainSecret(defaultPassword),
-				},
-			},
-		},
-		VirtualPath: vdirSFTPPath,
-	})
-	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
-	assert.NoError(t, err, string(resp))
-	assert.Contains(t, string(resp), "could point to the same SFTPGo account")
 }
 
 func TestUserPublicKey(t *testing.T) {

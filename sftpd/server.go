@@ -21,6 +21,7 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 const (
@@ -711,6 +712,12 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 		// Add private key to the server configuration.
 		serverConfig.AddHostKey(private)
 	}
+	var fp []string
+	for idx := range serviceStatus.HostKeys {
+		h := &serviceStatus.HostKeys[idx]
+		fp = append(fp, h.Fingerprint)
+	}
+	vfs.SetSFTPFingerprints(fp)
 	return nil
 }
 

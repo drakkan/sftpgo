@@ -170,7 +170,7 @@ type VirtualFolder struct {
 }
 
 // GetFilesystem returns the filesystem for this folder
-func (v *VirtualFolder) GetFilesystem(connectionID string) (Fs, error) {
+func (v *VirtualFolder) GetFilesystem(connectionID string, forbiddenSelfUsers []string) (Fs, error) {
 	switch v.FsConfig.Provider {
 	case S3FilesystemProvider:
 		return NewS3Fs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.S3Config)
@@ -183,7 +183,7 @@ func (v *VirtualFolder) GetFilesystem(connectionID string) (Fs, error) {
 	case CryptedFilesystemProvider:
 		return NewCryptFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.CryptConfig)
 	case SFTPFilesystemProvider:
-		return NewSFTPFs(connectionID, v.VirtualPath, v.FsConfig.SFTPConfig)
+		return NewSFTPFs(connectionID, v.VirtualPath, forbiddenSelfUsers, v.FsConfig.SFTPConfig)
 	default:
 		return NewOsFs(connectionID, v.MappedPath, v.VirtualPath), nil
 	}
@@ -191,7 +191,7 @@ func (v *VirtualFolder) GetFilesystem(connectionID string) (Fs, error) {
 
 // ScanQuota scans the folder and returns the number of files and their size
 func (v *VirtualFolder) ScanQuota() (int, int64, error) {
-	fs, err := v.GetFilesystem("")
+	fs, err := v.GetFilesystem("", nil)
 	if err != nil {
 		return 0, 0, err
 	}

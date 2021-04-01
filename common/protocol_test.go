@@ -2085,6 +2085,67 @@ func TestRenameSymlink(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSFTPLoopError(t *testing.T) {
+	user1 := getTestUser()
+	user2 := getTestUser()
+	user1.Username += "1"
+	user2.Username += "2"
+	// user1 is a local account with a virtual SFTP folder to user2
+	// user2 has user1 as SFTP fs
+	user1.VirtualFolders = append(user1.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: "sftp",
+			FsConfig: vfs.Filesystem{
+				Provider: vfs.SFTPFilesystemProvider,
+				SFTPConfig: vfs.SFTPFsConfig{
+					Endpoint: sftpServerAddr,
+					Username: user2.Username,
+					Password: kms.NewPlainSecret(defaultPassword),
+				},
+			},
+		},
+		VirtualPath: "/vdir",
+	})
+
+	user2.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	user2.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
+		Endpoint: sftpServerAddr,
+		Username: user1.Username,
+		Password: kms.NewPlainSecret(defaultPassword),
+	}
+
+	user1, resp, err := httpdtest.AddUser(user1, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	user2, resp, err = httpdtest.AddUser(user2, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+
+	user1.VirtualFolders[0].FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)
+	user2.FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)
+
+	conn := common.NewBaseConnection("", common.ProtocolWebDAV, user1)
+	_, _, err = conn.GetFsAndResolvedPath(user1.VirtualFolders[0].VirtualPath)
+	assert.ErrorIs(t, err, os.ErrPermission)
+
+	conn = common.NewBaseConnection("", common.ProtocolSFTP, user1)
+	_, _, err = conn.GetFsAndResolvedPath(user1.VirtualFolders[0].VirtualPath)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "SFTP loop")
+	}
+	conn = common.NewBaseConnection("", common.ProtocolFTP, user1)
+	_, _, err = conn.GetFsAndResolvedPath(user1.VirtualFolders[0].VirtualPath)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "SFTP loop")
+	}
+	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user1.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user2, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user2.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestNonLocalCrossRename(t *testing.T) {
 	baseUser, resp, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err, string(resp))

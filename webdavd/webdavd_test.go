@@ -2071,6 +2071,62 @@ func TestPreLoginHookWithClientCert(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSFTPLoopVirtualFolders(t *testing.T) {
+	user1 := getTestUser()
+	user2 := getTestUser()
+	user1.Username += "1"
+	user2.Username += "2"
+	// user1 is a local account with a virtual SFTP folder to user2
+	// user2 has user1 as SFTP fs
+	user1.VirtualFolders = append(user1.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: "sftp",
+			FsConfig: vfs.Filesystem{
+				Provider: vfs.SFTPFilesystemProvider,
+				SFTPConfig: vfs.SFTPFsConfig{
+					Endpoint: sftpServerAddr,
+					Username: user2.Username,
+					Password: kms.NewPlainSecret(defaultPassword),
+				},
+			},
+		},
+		VirtualPath: "/vdir",
+	})
+	user2.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	user2.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
+		Endpoint: sftpServerAddr,
+		Username: user1.Username,
+		Password: kms.NewPlainSecret(defaultPassword),
+	}
+
+	user1, resp, err := httpdtest.AddUser(user1, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	user2, resp, err = httpdtest.AddUser(user2, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+
+	client := getWebDavClient(user1, true, nil)
+
+	testDir := "tdir"
+	err = client.Mkdir(testDir, os.ModePerm)
+	assert.NoError(t, err)
+
+	contents, err := client.ReadDir("/")
+	assert.NoError(t, err)
+	if assert.Len(t, contents, 1) {
+		assert.Equal(t, testDir, contents[0].Name())
+		assert.True(t, contents[0].IsDir())
+	}
+
+	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user1.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user2, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user2.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestNestedVirtualFolders(t *testing.T) {
 	u := getTestUser()
 	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)

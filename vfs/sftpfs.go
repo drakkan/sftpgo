@@ -29,6 +29,8 @@ const (
 	sftpFsName = "sftpfs"
 )
 
+var ErrSFTPLoop = errors.New("SFTP loop or nested local SFTP folders detected")
+
 // SFTPFsConfig defines the configuration for SFTP based filesystem
 type SFTPFsConfig struct {
 	Endpoint     string      `json:"endpoint,omitempty"`
@@ -41,7 +43,8 @@ type SFTPFsConfig struct {
 	// Concurrent reads are safe to use and disabling them will degrade performance.
 	// Some servers automatically delete files once they are downloaded.
 	// Using concurrent reads is problematic with such servers.
-	DisableCouncurrentReads bool `json:"disable_concurrent_reads,omitempty"`
+	DisableCouncurrentReads bool     `json:"disable_concurrent_reads,omitempty"`
+	forbiddenSelfUsernames  []string `json:"-"`
 }
 
 func (c *SFTPFsConfig) isEqual(other *SFTPFsConfig) bool {
@@ -148,7 +151,7 @@ type SFTPFs struct {
 }
 
 // NewSFTPFs returns an SFTPFa object that allows to interact with an SFTP server
-func NewSFTPFs(connectionID, mountPath string, config SFTPFsConfig) (Fs, error) {
+func NewSFTPFs(connectionID, mountPath string, forbiddenSelfUsernames []string, config SFTPFsConfig) (Fs, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
@@ -162,6 +165,7 @@ func NewSFTPFs(connectionID, mountPath string, config SFTPFsConfig) (Fs, error) 
 			return nil, err
 		}
 	}
+	config.forbiddenSelfUsernames = forbiddenSelfUsernames
 	sftpFs := &SFTPFs{
 		connectionID: connectionID,
 		mountPath:    mountPath,
@@ -607,8 +611,15 @@ func (fs *SFTPFs) createConnection() error {
 	clientConfig := &ssh.ClientConfig{
 		User: fs.config.Username,
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+			fp := ssh.FingerprintSHA256(key)
+			if utils.IsStringInSlice(fp, sftpFingerprints) {
+				if utils.IsStringInSlice(fs.config.Username, fs.config.forbiddenSelfUsernames) {
+					fsLog(fs, logger.LevelWarn, "SFTP loop or nested local SFTP folders detected, mount path %#v, username %#v, forbidden usernames: %+v",
+						fs.mountPath, fs.config.Username, fs.config.forbiddenSelfUsernames)
+					return ErrSFTPLoop
+				}
+			}
 			if len(fs.config.Fingerprints) > 0 {
-				fp := ssh.FingerprintSHA256(key)
 				for _, provided := range fs.config.Fingerprints {
 					if provided == fp {
 						return nil
