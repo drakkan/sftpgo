@@ -30,6 +30,7 @@ const (
 	sftpFsName = "sftpfs"
 )
 
+// ErrSFTPLoop defines the error to return if an SFTP loop is detected
 var ErrSFTPLoop = errors.New("SFTP loop or nested local SFTP folders detected")
 
 // SFTPFsConfig defines the configuration for SFTP based filesystem
