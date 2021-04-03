@@ -987,6 +987,88 @@ func TestUploadErrors(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSFTPBuffered(t *testing.T) {
+	u := getTestUser()
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	u = getTestSFTPUser()
+	u.QuotaFiles = 100
+	u.FsConfig.SFTPConfig.BufferSize = 2
+	u.HomeDir = filepath.Join(os.TempDir(), u.Username)
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	client, err := getFTPClient(sftpUser, true, nil)
+	if assert.NoError(t, err) {
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		expectedQuotaSize := testFileSize
+		expectedQuotaFiles := 1
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.NoError(t, err)
+		// overwrite an existing file
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.NoError(t, err)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+		user, _, err := httpdtest.GetUserByUsername(sftpUser.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
+		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
+
+		data := []byte("test data")
+		err = os.WriteFile(testFilePath, data, os.ModePerm)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, testFileName, int64(len(data)), client, 0)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, testFileName, int64(len(data)+5), client, 5)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "operation unsupported")
+		}
+		err = ftpDownloadFile(testFileName, localDownloadPath, int64(4), client, 5)
+		assert.NoError(t, err)
+		readed, err := os.ReadFile(localDownloadPath)
+		assert.NoError(t, err)
+		assert.Equal(t, []byte("data"), readed)
+		// try to append to a file, it should fail
+		// now append to a file
+		srcFile, err := os.Open(testFilePath)
+		if assert.NoError(t, err) {
+			err = client.Append(testFileName, srcFile)
+			if assert.Error(t, err) {
+				assert.Contains(t, err.Error(), "operation unsupported")
+			}
+			err = srcFile.Close()
+			assert.NoError(t, err)
+			size, err := client.FileSize(testFileName)
+			assert.NoError(t, err)
+			assert.Equal(t, int64(len(data)), size)
+			err = ftpDownloadFile(testFileName, localDownloadPath, int64(len(data)), client, 0)
+			assert.NoError(t, err)
+		}
+
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(sftpUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestResume(t *testing.T) {
 	u := getTestUser()
 	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)

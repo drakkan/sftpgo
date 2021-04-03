@@ -230,7 +230,7 @@ func (u *User) getRootFs(connectionID string) (fs vfs.Fs, err error) {
 			return nil, err
 		}
 		forbiddenSelfUsers = append(forbiddenSelfUsers, u.Username)
-		return vfs.NewSFTPFs(connectionID, "", forbiddenSelfUsers, u.FsConfig.SFTPConfig)
+		return vfs.NewSFTPFs(connectionID, "", u.GetHomeDir(), forbiddenSelfUsers, u.FsConfig.SFTPConfig)
 	default:
 		return vfs.NewOsFs(connectionID, u.GetHomeDir(), ""), nil
 	}

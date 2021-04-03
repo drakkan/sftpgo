@@ -159,7 +159,7 @@ func TestEmptyFile(t *testing.T) {
 }
 
 func TestUploadResumeCryptFs(t *testing.T) {
-	// upload resume is not supported
+	// resuming uploads is not supported
 	usePubKey := true
 	u := getTestUserWithCryptFs(usePubKey)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)

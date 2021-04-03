@@ -553,9 +553,40 @@ func IsSFTPFs(fs Fs) bool {
 	return strings.HasPrefix(fs.Name(), sftpFsName)
 }
 
+// IsBufferedSFTPFs returns true if this is a buffered SFTP filesystem
+func IsBufferedSFTPFs(fs Fs) bool {
+	if !IsSFTPFs(fs) {
+		return false
+	}
+	return !fs.IsUploadResumeSupported()
+}
+
+// IsLocalOrUnbufferedSFTPFs returns true if fs is local or SFTP with no buffer
+func IsLocalOrUnbufferedSFTPFs(fs Fs) bool {
+	if IsLocalOsFs(fs) {
+		return true
+	}
+	if IsSFTPFs(fs) {
+		return fs.IsUploadResumeSupported()
+	}
+	return false
+}
+
 // IsLocalOrSFTPFs returns true if fs is local or SFTP
 func IsLocalOrSFTPFs(fs Fs) bool {
 	return IsLocalOsFs(fs) || IsSFTPFs(fs)
+}
+
+// HasOpenRWSupport returns true if the fs can open a file
+// for reading and writing at the same time
+func HasOpenRWSupport(fs Fs) bool {
+	if IsLocalOsFs(fs) {
+		return true
+	}
+	if IsSFTPFs(fs) && fs.IsUploadResumeSupported() {
+		return true
+	}
+	return false
 }
 
 // IsLocalOrCryptoFs returns true if fs is local or local encrypted

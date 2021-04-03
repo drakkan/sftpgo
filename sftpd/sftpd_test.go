@@ -745,6 +745,114 @@ func TestRealPath(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestBufferedSFTP(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+	u = getTestSFTPUser(usePubKey)
+	u.FsConfig.SFTPConfig.BufferSize = 2
+	u.HomeDir = filepath.Join(os.TempDir(), u.Username)
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	client, err := getSftpClient(sftpUser, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		appendDataSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		initialHash, err := computeHashForFile(sha256.New(), testFilePath)
+		assert.NoError(t, err)
+
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = appendToTestFile(testFilePath, appendDataSize)
+		assert.NoError(t, err)
+		err = sftpUploadResumeFile(testFilePath, testFileName, testFileSize+appendDataSize, false, client)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
+		}
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
+		assert.NoError(t, err)
+		downloadedFileHash, err := computeHashForFile(sha256.New(), localDownloadPath)
+		assert.NoError(t, err)
+		assert.Equal(t, initialHash, downloadedFileHash)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+
+		sftpFile, err := client.OpenFile(testFileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
+		if assert.NoError(t, err) {
+			testData := []byte("sample test sftp data")
+			n, err := sftpFile.Write(testData)
+			assert.NoError(t, err)
+			assert.Equal(t, len(testData), n)
+			err = sftpFile.Truncate(0)
+			if assert.Error(t, err) {
+				assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
+			}
+			err = sftpFile.Truncate(4)
+			if assert.Error(t, err) {
+				assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
+			}
+			buffer := make([]byte, 128)
+			_, err = sftpFile.Read(buffer)
+			if assert.Error(t, err) {
+				assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
+			}
+			err = sftpFile.Close()
+			assert.NoError(t, err)
+			info, err := client.Stat(testFileName)
+			if assert.NoError(t, err) {
+				assert.Equal(t, int64(len(testData)), info.Size())
+			}
+		}
+		// test WriteAt
+		sftpFile, err = client.OpenFile(testFileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
+		if assert.NoError(t, err) {
+			testData := []byte("hello world")
+			n, err := sftpFile.WriteAt(testData[:6], 0)
+			assert.NoError(t, err)
+			assert.Equal(t, 6, n)
+			n, err = sftpFile.WriteAt(testData[6:], 6)
+			assert.NoError(t, err)
+			assert.Equal(t, 5, n)
+			err = sftpFile.Close()
+			assert.NoError(t, err)
+			info, err := client.Stat(testFileName)
+			if assert.NoError(t, err) {
+				assert.Equal(t, int64(len(testData)), info.Size())
+			}
+		}
+		// test ReadAt
+		sftpFile, err = client.OpenFile(testFileName, os.O_RDONLY)
+		if assert.NoError(t, err) {
+			buffer := make([]byte, 128)
+			n, err := sftpFile.ReadAt(buffer, 6)
+			assert.ErrorIs(t, err, io.EOF)
+			assert.Equal(t, 5, n)
+			assert.Equal(t, []byte("world"), buffer[:n])
+			err = sftpFile.Close()
+			assert.NoError(t, err)
+		}
+	}
+
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(sftpUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestUploadResume(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
@@ -779,7 +887,7 @@ func TestUploadResume(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, initialHash, downloadedFileHash)
 			err = sftpUploadResumeFile(testFilePath, testFileName, testFileSize+appendDataSize, true, client)
-			assert.Error(t, err, "file upload resume with invalid offset must fail")
+			assert.Error(t, err, "resume uploading file with invalid offset must fail")
 			err = os.Remove(testFilePath)
 			assert.NoError(t, err)
 			err = os.Remove(localDownloadPath)
@@ -3487,6 +3595,7 @@ func TestSFTPLoopSimple(t *testing.T) {
 
 func TestSFTPLoopVirtualFolders(t *testing.T) {
 	usePubKey := false
+	sftpFloderName := "sftp"
 	user1 := getTestUser(usePubKey)
 	user2 := getTestSFTPUser(usePubKey)
 	user3 := getTestSFTPUser(usePubKey)
@@ -3498,7 +3607,7 @@ func TestSFTPLoopVirtualFolders(t *testing.T) {
 	// user2 has user1 as SFTP fs
 	user1.VirtualFolders = append(user1.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name: "sftp",
+			Name: sftpFloderName,
 			FsConfig: vfs.Filesystem{
 				Provider: vfs.SFTPFilesystemProvider,
 				SFTPConfig: vfs.SFTPFsConfig{
@@ -3550,7 +3659,7 @@ func TestSFTPLoopVirtualFolders(t *testing.T) {
 	user2.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
 	user2.VirtualFolders = append(user2.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name: "sftp",
+			Name: sftpFloderName,
 			FsConfig: vfs.Filesystem{
 				Provider: vfs.SFTPFilesystemProvider,
 				SFTPConfig: vfs.SFTPFsConfig{
@@ -3587,6 +3696,8 @@ func TestSFTPLoopVirtualFolders(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user3, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user3.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: sftpFloderName}, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -6200,7 +6311,7 @@ func TestRelativePaths(t *testing.T) {
 		Password: kms.NewPlainSecret(defaultPassword),
 		Prefix:   keyPrefix,
 	}
-	sftpfs, _ := vfs.NewSFTPFs("", "", []string{user.Username}, sftpconfig)
+	sftpfs, _ := vfs.NewSFTPFs("", "", os.TempDir(), []string{user.Username}, sftpconfig)
 	if runtime.GOOS != osWindows {
 		filesystems = append(filesystems, s3fs, gcsfs, sftpfs)
 	}
@@ -6317,6 +6428,8 @@ func TestVirtualRelativePaths(t *testing.T) {
 	assert.Equal(t, "/vdir/file.txt", rel)
 	rel = fsRoot.GetRelativePath(filepath.Join(user.HomeDir, "vdir1/file.txt"))
 	assert.Equal(t, "/vdir1/file.txt", rel)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
 }
 
 func TestUserPerms(t *testing.T) {
@@ -8922,7 +9035,7 @@ func sftpUploadFile(localSourcePath string, remoteDestPath string, expectedSize 
 	return err
 }
 
-func sftpUploadResumeFile(localSourcePath string, remoteDestPath string, expectedSize int64, invalidOffset bool,
+func sftpUploadResumeFile(localSourcePath string, remoteDestPath string, expectedSize int64, invalidOffset bool, //nolint:unparam
 	client *sftp.Client) error {
 	srcFile, err := os.Open(localSourcePath)
 	if err != nil {

@@ -278,7 +278,7 @@ func (fs *MockOsFs) Open(name string, offset int64) (vfs.File, *pipeat.PipeReade
 	return nil, fs.reader, nil, nil
 }
 
-// IsUploadResumeSupported returns true if upload resume is supported
+// IsUploadResumeSupported returns true if resuming uploads is supported
 func (*MockOsFs) IsUploadResumeSupported() bool {
 	return false
 }

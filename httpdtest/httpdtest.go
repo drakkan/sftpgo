@@ -1046,6 +1046,9 @@ func compareSFTPFsConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error
 	if expected.SFTPConfig.DisableCouncurrentReads != actual.SFTPConfig.DisableCouncurrentReads {
 		return errors.New("SFTPFs disable_concurrent_reads mismatch")
 	}
+	if expected.SFTPConfig.BufferSize != actual.SFTPConfig.BufferSize {
+		return errors.New("SFTPFs buffer_size mismatch")
+	}
 	if err := checkEncryptedSecret(expected.SFTPConfig.Password, actual.SFTPConfig.Password); err != nil {
 		return fmt.Errorf("SFTPFs password mismatch: %v", err)
 	}

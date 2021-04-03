@@ -164,7 +164,7 @@ func TestTruncate(t *testing.T) {
 	_, err = transfer.Truncate(testFile, 0)
 	assert.NoError(t, err)
 	_, err = transfer.Truncate(testFile, 1)
-	assert.EqualError(t, err, ErrOpUnsupported.Error())
+	assert.EqualError(t, err, vfs.ErrVfsUnsupported.Error())
 
 	err = transfer.Close()
 	assert.NoError(t, err)

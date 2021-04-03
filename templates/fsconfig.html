@@ -248,16 +248,25 @@
         </small>
     </div>
     <div class="col-sm-2"></div>
+    <label for="idSFTPUploadBufferSize" class="col-sm-2 col-form-label">Buffer size (MB)</label>
+    <div class="col-sm-3">
+        <input type="number" class="form-control" id="idSFTPBufferSize" name="sftp_buffer_size" placeholder=""
+            value="{{.SFTPConfig.BufferSize}}" min="0" max="64" aria-describedby="SFTPBufferHelpBlock">
+        <small id="SFTPBufferHelpBlock" class="form-text text-muted">
+            A buffer size > 0 enables concurrent transfers
+        </small>
+    </div>
+</div>
+
+<div class="form-group row sftp">
     <label for="idSFTPUsername" class="col-sm-2 col-form-label">Username</label>
     <div class="col-sm-3">
         <input type="text" class="form-control" id="idSFTPUsername" name="sftp_username" placeholder=""
             value="{{.SFTPConfig.Username}}" maxlength="255">
     </div>
-</div>
-
-<div class="form-group row sftp">
+    <div class="col-sm-2"></div>
     <label for="idSFTPPassword" class="col-sm-2 col-form-label">Password</label>
-    <div class="col-sm-10">
+    <div class="col-sm-3">
         <input type="password" class="form-control" id="idSFTPPassword" name="sftp_password" placeholder=""
             value="{{if .SFTPConfig.Password.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.SFTPConfig.Password.GetPayload}}{{end}}"
             maxlength="1000">

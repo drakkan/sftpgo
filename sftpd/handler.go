@@ -101,7 +101,7 @@ func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReader
 	}
 
 	var errForRead error
-	if !vfs.IsLocalOrSFTPFs(fs) && request.Pflags().Read {
+	if !vfs.HasOpenRWSupport(fs) && request.Pflags().Read {
 		// read and write mode is only supported for local filesystem
 		errForRead = sftp.ErrSSHFxOpUnsupported
 	}
@@ -383,7 +383,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 
 	initialSize := int64(0)
 	if isResume {
-		c.Log(logger.LevelDebug, "upload resume requested, file path %#v initial size: %v", filePath, fileSize)
+		c.Log(logger.LevelDebug, "resuming upload requested, file path %#v initial size: %v", filePath, fileSize)
 		minWriteOffset = fileSize
 		initialSize = fileSize
 	} else {

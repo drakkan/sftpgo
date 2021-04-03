@@ -2144,6 +2144,8 @@ func TestSFTPLoopError(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user2.GetHomeDir())
 	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: "sftp"}, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestNonLocalCrossRename(t *testing.T) {

@@ -727,7 +727,8 @@ func getGCSConfig(r *http.Request) (vfs.GCSFsConfig, error) {
 	return config, err
 }
 
-func getSFTPConfig(r *http.Request) vfs.SFTPFsConfig {
+func getSFTPConfig(r *http.Request) (vfs.SFTPFsConfig, error) {
+	var err error
 	config := vfs.SFTPFsConfig{}
 	config.Endpoint = r.Form.Get("sftp_endpoint")
 	config.Username = r.Form.Get("sftp_username")
@@ -737,7 +738,8 @@ func getSFTPConfig(r *http.Request) vfs.SFTPFsConfig {
 	config.Fingerprints = getSliceFromDelimitedValues(fingerprintsFormValue, "\n")
 	config.Prefix = r.Form.Get("sftp_prefix")
 	config.DisableCouncurrentReads = len(r.Form.Get("sftp_disable_concurrent_reads")) > 0
-	return config
+	config.BufferSize, err = strconv.ParseInt(r.Form.Get("sftp_buffer_size"), 10, 64)
+	return config, err
 }
 
 func getAzureConfig(r *http.Request) (vfs.AzBlobFsConfig, error) {
@@ -788,7 +790,11 @@ func getFsConfigFromPostFields(r *http.Request) (vfs.Filesystem, error) {
 	case vfs.CryptedFilesystemProvider:
 		fs.CryptConfig.Passphrase = getSecretFromFormField(r, "crypt_passphrase")
 	case vfs.SFTPFilesystemProvider:
-		fs.SFTPConfig = getSFTPConfig(r)
+		config, err := getSFTPConfig(r)
+		if err != nil {
+			return fs, err
+		}
+		fs.SFTPConfig = config
 	}
 	return fs, nil
 }

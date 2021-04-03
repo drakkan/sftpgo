@@ -183,7 +183,7 @@ func (v *VirtualFolder) GetFilesystem(connectionID string, forbiddenSelfUsers []
 	case CryptedFilesystemProvider:
 		return NewCryptFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.CryptConfig)
 	case SFTPFilesystemProvider:
-		return NewSFTPFs(connectionID, v.VirtualPath, forbiddenSelfUsers, v.FsConfig.SFTPConfig)
+		return NewSFTPFs(connectionID, v.VirtualPath, v.MappedPath, forbiddenSelfUsers, v.FsConfig.SFTPConfig)
 	default:
 		return NewOsFs(connectionID, v.MappedPath, v.VirtualPath), nil
 	}

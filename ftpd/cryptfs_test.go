@@ -164,7 +164,7 @@ func TestResumeCryptFs(t *testing.T) {
 		assert.NoError(t, err)
 		err = ftpUploadFile(testFilePath, testFileName, int64(len(data)), client, 0)
 		assert.NoError(t, err)
-		// upload resume is not supported
+		// resuming uploads is not supported
 		err = ftpUploadFile(testFilePath, testFileName, int64(len(data)+5), client, 5)
 		assert.Error(t, err)
 		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)

@@ -396,8 +396,8 @@ func (fs *GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	return result, nil
 }
 
-// IsUploadResumeSupported returns true if upload resume is supported.
-// SFTP Resume is not supported on S3
+// IsUploadResumeSupported returns true if resuming uploads is supported.
+// Resuming uploads is not supported on GCS
 func (*GCSFs) IsUploadResumeSupported() bool {
 	return false
 }

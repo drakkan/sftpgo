@@ -307,7 +307,7 @@ func (fs MockOsFs) Name() string {
 	return "mockOsFs"
 }
 
-// IsUploadResumeSupported returns true if upload resume is supported
+// IsUploadResumeSupported returns true if resuming uploads is supported
 func (MockOsFs) IsUploadResumeSupported() bool {
 	return false
 }

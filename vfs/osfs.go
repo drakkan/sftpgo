@@ -151,7 +151,7 @@ func (*OsFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	return list, nil
 }
 
-// IsUploadResumeSupported returns true if upload resume is supported
+// IsUploadResumeSupported returns true if resuming uploads is supported
 func (*OsFs) IsUploadResumeSupported() bool {
 	return true
 }

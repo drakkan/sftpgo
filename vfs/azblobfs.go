@@ -473,8 +473,8 @@ func (fs *AzureBlobFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	return result, nil
 }
 
-// IsUploadResumeSupported returns true if upload resume is supported.
-// Upload Resume is not supported on Azure Blob
+// IsUploadResumeSupported returns true if resuming uploads is supported.
+// Resuming uploads is not supported on Azure Blob
 func (*AzureBlobFs) IsUploadResumeSupported() bool {
 	return false
 }

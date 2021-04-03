@@ -415,12 +415,12 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 
 	initialSize := int64(0)
 	if isResume {
-		c.Log(logger.LevelDebug, "upload resume requested, file path: %#v initial size: %v", filePath, fileSize)
+		c.Log(logger.LevelDebug, "resuming upload requested, file path: %#v initial size: %v", filePath, fileSize)
 		minWriteOffset = fileSize
 		initialSize = fileSize
-		if vfs.IsSFTPFs(fs) {
+		if vfs.IsSFTPFs(fs) && fs.IsUploadResumeSupported() {
 			// we need this since we don't allow resume with wrong offset, we should fix this in pkg/sftp
-			file.Seek(initialSize, io.SeekStart) //nolint:errcheck // for sftp seek cannot file, it simply set the offset
+			file.Seek(initialSize, io.SeekStart) //nolint:errcheck // for sftp seek simply set the offset
 		}
 	} else {
 		if vfs.IsLocalOrSFTPFs(fs) {

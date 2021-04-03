@@ -148,9 +148,12 @@ func (t *BaseTransfer) Truncate(fsPath string, size int64) (int64, error) {
 		}
 		if size == 0 && atomic.LoadInt64(&t.BytesSent) == 0 {
 			// for cloud providers the file is always truncated to zero, we don't support append/resume for uploads
-			return 0, nil
+			// for buffered SFTP we can have buffered bytes so we returns an error
+			if !vfs.IsBufferedSFTPFs(t.Fs) {
+				return 0, nil
+			}
 		}
-		return 0, ErrOpUnsupported
+		return 0, vfs.ErrVfsUnsupported
 	}
 	return 0, errTransferMismatch
 }

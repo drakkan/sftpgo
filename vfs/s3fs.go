@@ -415,8 +415,8 @@ func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	return result, err
 }
 
-// IsUploadResumeSupported returns true if upload resume is supported.
-// SFTP Resume is not supported on S3
+// IsUploadResumeSupported returns true if resuming uploads is supported.
+// Resuming uploads is not supported on S3
 func (*S3Fs) IsUploadResumeSupported() bool {
 	return false
 }

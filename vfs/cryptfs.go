@@ -172,7 +172,10 @@ func (fs *CryptFs) Create(name string, flag int) (File, *PipeWriter, func(), err
 
 	go func() {
 		n, err := sio.Encrypt(f, r, fs.getSIOConfig(key))
-		f.Close()
+		errClose := f.Close()
+		if err == nil && errClose != nil {
+			err = errClose
+		}
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, readed bytes: %v, err: %v", name, n, err)

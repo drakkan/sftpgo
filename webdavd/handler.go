@@ -141,7 +141,7 @@ func (c *Connection) getFile(fs vfs.Fs, fsPath, virtualPath string) (webdav.File
 
 	// for cloud fs we open the file when we receive the first read to avoid to download the first part of
 	// the file if it was opened only to do a stat or a readdir and so it is not a real download
-	if vfs.IsLocalOrSFTPFs(fs) {
+	if vfs.IsLocalOrUnbufferedSFTPFs(fs) {
 		file, r, cancelFn, err = fs.Open(fsPath, 0)
 		if err != nil {
 			c.Log(logger.LevelWarn, "could not open file %#v for reading: %+v", fsPath, err)

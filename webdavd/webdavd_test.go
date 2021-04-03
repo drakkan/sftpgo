@@ -1114,9 +1114,9 @@ func TestQuotaLimits(t *testing.T) {
 		client := getWebDavClient(user, true, nil)
 		// test quota files
 		err = uploadFile(testFilePath, testFileName+".quota", testFileSize, client)
-		assert.NoError(t, err)
+		assert.NoError(t, err, "username: %v", user.Username)
 		err = uploadFile(testFilePath, testFileName+".quota1", testFileSize, client)
-		assert.Error(t, err)
+		assert.Error(t, err, "username: %v", user.Username)
 		err = client.Rename(testFileName+".quota", testFileName, false)
 		assert.NoError(t, err)
 		files, err := client.ReadDir("/")
@@ -1385,6 +1385,80 @@ func TestLoginInvalidFs(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSFTPBuffered(t *testing.T) {
+	u := getTestUser()
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	u = getTestSFTPUser()
+	u.QuotaFiles = 1000
+	u.HomeDir = filepath.Join(os.TempDir(), u.Username)
+	u.FsConfig.SFTPConfig.BufferSize = 2
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	client := getWebDavClient(sftpUser, true, nil)
+	assert.NoError(t, checkBasicFunc(client))
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	expectedQuotaSize := testFileSize
+	expectedQuotaFiles := 1
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	assert.NoError(t, err)
+	// overwrite an existing file
+	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	assert.NoError(t, err)
+	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+	err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
+	assert.NoError(t, err)
+
+	user, _, err := httpdtest.GetUserByUsername(sftpUser.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
+	assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
+
+	fileContent := []byte("test file contents")
+	err = os.WriteFile(testFilePath, fileContent, os.ModePerm)
+	assert.NoError(t, err)
+	err = uploadFile(testFilePath, testFileName, int64(len(fileContent)), client)
+	assert.NoError(t, err)
+	remotePath := fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName)
+	req, err := http.NewRequest(http.MethodGet, remotePath, nil)
+	assert.NoError(t, err)
+	httpClient := httpclient.GetHTTPClient()
+	req.SetBasicAuth(user.Username, defaultPassword)
+	req.Header.Set("Range", "bytes=5-")
+	resp, err := httpClient.Do(req)
+	if assert.NoError(t, err) {
+		defer resp.Body.Close()
+		assert.Equal(t, http.StatusPartialContent, resp.StatusCode)
+		bodyBytes, err := io.ReadAll(resp.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, "file contents", string(bodyBytes))
+	}
+	req.Header.Set("Range", "bytes=5-8")
+	resp, err = httpClient.Do(req)
+	if assert.NoError(t, err) {
+		defer resp.Body.Close()
+		assert.Equal(t, http.StatusPartialContent, resp.StatusCode)
+		bodyBytes, err := io.ReadAll(resp.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, "file", string(bodyBytes))
+	}
+
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(sftpUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestBytesRangeRequests(t *testing.T) {
 	u := getTestUser()
 	u.Username = u.Username + "1"
@@ -1429,7 +1503,6 @@ func TestBytesRangeRequests(t *testing.T) {
 			}
 		}
 
-		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 		_, err = httpdtest.RemoveUser(user, http.StatusOK)
@@ -2124,6 +2197,8 @@ func TestSFTPLoopVirtualFolders(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user2, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user2.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: "sftp"}, http.StatusOK)
 	assert.NoError(t, err)
 }
 

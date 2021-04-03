@@ -139,6 +139,7 @@ func (f *Filesystem) GetACopy() Filesystem {
 			PrivateKey:              f.SFTPConfig.PrivateKey.Clone(),
 			Prefix:                  f.SFTPConfig.Prefix,
 			DisableCouncurrentReads: f.SFTPConfig.DisableCouncurrentReads,
+			BufferSize:              f.SFTPConfig.BufferSize,
 		},
 	}
 	if len(f.SFTPConfig.Fingerprints) > 0 {
