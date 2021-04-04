@@ -262,10 +262,16 @@ func (fs *SFTPFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, f
 		return nil, nil, nil, err
 	}
 	go func() {
-		br := bufio.NewReaderSize(f, int(fs.config.BufferSize)*1024*1024)
-		// we don't use io.Copy since bufio.Reader implements io.ReadFrom and
-		// so it calls the sftp.File ReadFrom method without buffering
-		n, err := fs.copy(w, br)
+		var n int64
+		var err error
+		if fs.config.DisableCouncurrentReads {
+			n, err = fs.copy(w, f)
+		} else {
+			br := bufio.NewReaderSize(f, int(fs.config.BufferSize)*1024*1024)
+			// we don't use io.Copy since bufio.Reader implements io.ReadFrom and
+			// so it calls the sftp.File ReadFrom method without buffering
+			n, err = fs.copy(w, br)
+		}
 		w.CloseWithError(err) //nolint:errcheck
 		f.Close()
 		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)
