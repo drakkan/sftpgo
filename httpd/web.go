@@ -662,6 +662,16 @@ func getFiltersFromUserPostFields(r *http.Request) dataprovider.UserFilters {
 	filters.FileExtensions = getFileExtensionsFromPostField(r.Form.Get("allowed_extensions"), r.Form.Get("denied_extensions"))
 	filters.FilePatterns = getFilePatternsFromPostField(r.Form.Get("allowed_patterns"), r.Form.Get("denied_patterns"))
 	filters.TLSUsername = dataprovider.TLSUsername(r.Form.Get("tls_username"))
+	hooks := r.Form["hooks"]
+	if utils.IsStringInSlice("external_auth_disabled", hooks) {
+		filters.Hooks.ExternalAuthDisabled = true
+	}
+	if utils.IsStringInSlice("pre_login_disabled", hooks) {
+		filters.Hooks.PreLoginDisabled = true
+	}
+	if utils.IsStringInSlice("check_password_disabled", hooks) {
+		filters.Hooks.CheckPasswordDisabled = true
+	}
 	return filters
 }
 

@@ -42,4 +42,6 @@ You can also restrict the hook scope using the `check_password_scope` configurat
 
 You can combine the scopes. For example, 6 means FTP and WebDAV.
 
+You can disable the hook on a per-user basis.
+
 An example check password program allowing 2FA using password + one time token can be found inside the source tree [checkpwd](../examples/OTP/authy/checkpwd) directory.

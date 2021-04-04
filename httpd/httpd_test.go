@@ -974,6 +974,7 @@ func TestUpdateUser(t *testing.T) {
 	u.UsedQuotaFiles = 1
 	u.UsedQuotaSize = 2
 	u.Filters.TLSUsername = dataprovider.TLSUsernameCN
+	u.Filters.Hooks.CheckPasswordDisabled = true
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, user.UsedQuotaFiles)
@@ -991,6 +992,9 @@ func TestUpdateUser(t *testing.T) {
 	user.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodPassword}
 	user.Filters.DeniedProtocols = []string{common.ProtocolWebDAV}
 	user.Filters.TLSUsername = dataprovider.TLSUsernameNone
+	user.Filters.Hooks.ExternalAuthDisabled = true
+	user.Filters.Hooks.PreLoginDisabled = true
+	user.Filters.Hooks.CheckPasswordDisabled = false
 	user.Filters.FileExtensions = append(user.Filters.FileExtensions, dataprovider.ExtensionsFilter{
 		Path:              "/subdir",
 		AllowedExtensions: []string{".zip", ".rar"},
@@ -1027,6 +1031,7 @@ func TestUpdateUser(t *testing.T) {
 	})
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
+
 	_, _, err = httpdtest.UpdateUser(user, http.StatusBadRequest, "invalid")
 	assert.NoError(t, err)
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "0")
@@ -4852,6 +4857,7 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("denied_patterns", "/dir1::*.zip\n/dir3::*.rar\n/dir2::*.mkv")
 	form.Set("additional_info", user.AdditionalInfo)
 	form.Set("description", user.Description)
+	form.Add("hooks", "external_auth_disabled")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	// test invalid url escape
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"?a=%2", &b)
@@ -5011,6 +5017,9 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.Equal(t, int64(1000), newUser.Filters.MaxUploadFileSize)
 	assert.Equal(t, user.AdditionalInfo, newUser.AdditionalInfo)
 	assert.Equal(t, user.Description, newUser.Description)
+	assert.True(t, newUser.Filters.Hooks.ExternalAuthDisabled)
+	assert.False(t, newUser.Filters.Hooks.PreLoginDisabled)
+	assert.False(t, newUser.Filters.Hooks.CheckPasswordDisabled)
 	assert.True(t, utils.IsStringInSlice(testPubKey, newUser.PublicKeys))
 	if val, ok := newUser.Permissions["/subdir"]; ok {
 		assert.True(t, utils.IsStringInSlice(dataprovider.PermListItems, val))
@@ -5416,6 +5425,8 @@ func TestUserTemplateMock(t *testing.T) {
 	form.Set("allowed_extensions", "/dir1::.jpg,.png")
 	form.Set("denied_extensions", "/dir2::.zip")
 	form.Set("max_upload_file_size", "0")
+	form.Add("hooks", "external_auth_disabled")
+	form.Add("hooks", "check_password_disabled")
 	// test invalid s3_upload_part_size
 	form.Set("s3_upload_part_size", "a")
 	b, contentType, _ := getMultipartFormData(form, "", "")
@@ -5487,6 +5498,12 @@ func TestUserTemplateMock(t *testing.T) {
 	err = user2.FsConfig.S3Config.AccessSecret.Decrypt()
 	require.NoError(t, err)
 	require.Equal(t, "password2", user2.FsConfig.S3Config.AccessSecret.GetPayload())
+	require.True(t, user1.Filters.Hooks.ExternalAuthDisabled)
+	require.True(t, user1.Filters.Hooks.CheckPasswordDisabled)
+	require.False(t, user1.Filters.Hooks.PreLoginDisabled)
+	require.True(t, user2.Filters.Hooks.ExternalAuthDisabled)
+	require.True(t, user2.Filters.Hooks.CheckPasswordDisabled)
+	require.False(t, user2.Filters.Hooks.PreLoginDisabled)
 }
 
 func TestFolderTemplateMock(t *testing.T) {
@@ -5663,6 +5680,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("denied_extensions", "/dir2::.zip")
 	form.Set("max_upload_file_size", "0")
 	form.Set("description", user.Description)
+	form.Add("hooks", "pre_login_disabled")
 	// test invalid s3_upload_part_size
 	form.Set("s3_upload_part_size", "a")
 	b, contentType, _ := getMultipartFormData(form, "", "")
@@ -5710,6 +5728,9 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.Empty(t, updateUser.FsConfig.S3Config.AccessSecret.GetKey())
 	assert.Empty(t, updateUser.FsConfig.S3Config.AccessSecret.GetAdditionalData())
 	assert.Equal(t, user.Description, updateUser.Description)
+	assert.True(t, updateUser.Filters.Hooks.PreLoginDisabled)
+	assert.False(t, updateUser.Filters.Hooks.ExternalAuthDisabled)
+	assert.False(t, updateUser.Filters.Hooks.CheckPasswordDisabled)
 	// now check that a redacted password is not saved
 	form.Set("s3_access_secret", redactedSecret)
 	b, contentType, _ = getMultipartFormData(form, "", "")

@@ -360,6 +360,23 @@
                 </div>
             </div>
 
+            <div class="form-group row">
+                <label for="idHooks" class="col-sm-2 col-form-label">Hooks</label>
+                <div class="col-sm-10">
+                    <select class="form-control" id="idHooks" name="hooks" multiple>
+                        <option value="external_auth_disabled" {{if .User.Filters.Hooks.ExternalAuthDisabled}}selected{{end}}>
+                            External auth disabled
+                        </option>
+                        <option value="pre_login_disabled" {{if .User.Filters.Hooks.PreLoginDisabled}}selected{{end}}>
+                            Pre-login disabled
+                        </option>
+                        <option value="check_password_disabled" {{if .User.Filters.Hooks.CheckPasswordDisabled}}selected{{end}}>
+                            Check password disabled
+                        </option>
+                    </select>
+                </div>
+            </div>
+
             {{template "fshtml" .User.FsConfig}}
 
             <div class="form-group row">

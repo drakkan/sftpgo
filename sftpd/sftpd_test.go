@@ -2084,6 +2084,20 @@ func TestPreLoginScript(t *testing.T) {
 	if !assert.Error(t, err, "pre-login script returned a non json response, login must fail") {
 		client.Close()
 	}
+	// now disable the the hook
+	user.Filters.Hooks.PreLoginDisabled = true
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	client, err = getSftpClient(u, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+
+	user.Filters.Hooks.PreLoginDisabled = false
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
 	user.Status = 0
 	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(user, false), os.ModePerm)
 	assert.NoError(t, err)
@@ -2091,6 +2105,7 @@ func TestPreLoginScript(t *testing.T) {
 	if !assert.Error(t, err, "pre-login script returned a disabled user, login must fail") {
 		client.Close()
 	}
+
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
@@ -2230,6 +2245,22 @@ func TestCheckPwdHook(t *testing.T) {
 		client.Close()
 	}
 
+	// now disable the the hook
+	user.Filters.Hooks.CheckPasswordDisabled = true
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	client, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+		client.Close()
+	}
+
+	// enable the hook again
+	user.Filters.Hooks.CheckPasswordDisabled = false
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
 	err = os.WriteFile(checkPwdPath, getCheckPwdScriptsContents(1, ""), os.ModePerm)
 	assert.NoError(t, err)
 	user.Password = defaultPassword + "1"
@@ -2322,6 +2353,23 @@ func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
 	assert.Equal(t, 0, len(user.PublicKeys))
 	assert.Equal(t, testFileSize, user.UsedQuotaSize)
 	assert.Equal(t, 1, user.UsedQuotaFiles)
+
+	u.Status = 0
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, false, ""), os.ModePerm)
+	assert.NoError(t, err)
+	client, err = getSftpClient(u, usePubKey)
+	if !assert.Error(t, err) {
+		client.Close()
+	}
+	// now disable the the hook
+	user.Filters.Hooks.ExternalAuthDisabled = true
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	client, err = getSftpClient(u, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)

@@ -109,8 +109,8 @@ func (c *SFTPFsConfig) Validate() error {
 	if c.Username == "" {
 		return errors.New("username cannot be empty")
 	}
-	if c.BufferSize < 0 || c.BufferSize > 64 {
-		return errors.New("invalid buffer_size, valid range is 0-64")
+	if c.BufferSize < 0 || c.BufferSize > 16 {
+		return errors.New("invalid buffer_size, valid range is 0-16")
 	}
 	if err := c.validateCredentials(); err != nil {
 		return err
@@ -262,16 +262,7 @@ func (fs *SFTPFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, f
 		return nil, nil, nil, err
 	}
 	go func() {
-		var n int64
-		var err error
-		if fs.config.DisableCouncurrentReads {
-			n, err = fs.copy(w, f)
-		} else {
-			br := bufio.NewReaderSize(f, int(fs.config.BufferSize)*1024*1024)
-			// we don't use io.Copy since bufio.Reader implements io.ReadFrom and
-			// so it calls the sftp.File ReadFrom method without buffering
-			n, err = fs.copy(w, br)
-		}
+		n, err := io.Copy(w, f)
 		w.CloseWithError(err) //nolint:errcheck
 		f.Close()
 		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)

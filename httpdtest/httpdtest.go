@@ -1168,6 +1168,15 @@ func compareUserFilterSubStructs(expected *dataprovider.User, actual *dataprovid
 			return errors.New("denied protocols contents mismatch")
 		}
 	}
+	if expected.Filters.Hooks.ExternalAuthDisabled != actual.Filters.Hooks.ExternalAuthDisabled {
+		return errors.New("external_auth_disabled hook mismatch")
+	}
+	if expected.Filters.Hooks.PreLoginDisabled != actual.Filters.Hooks.PreLoginDisabled {
+		return errors.New("pre_login_disabled hook mismatch")
+	}
+	if expected.Filters.Hooks.CheckPasswordDisabled != actual.Filters.Hooks.CheckPasswordDisabled {
+		return errors.New("check_password_disabled hook mismatch")
+	}
 	return nil
 }
 

@@ -116,7 +116,15 @@ type PatternsFilter struct {
 	DeniedPatterns []string `json:"denied_patterns,omitempty"`
 }
 
+// HooksFilter defines user specific overrides for global hooks
+type HooksFilter struct {
+	ExternalAuthDisabled  bool `json:"external_auth_disabled"`
+	PreLoginDisabled      bool `json:"pre_login_disabled"`
+	CheckPasswordDisabled bool `json:"check_password_disabled"`
+}
+
 // UserFilters defines additional restrictions for a user
+// TODO: rename to UserOptions in v3
 type UserFilters struct {
 	// only clients connecting from these IP/Mask are allowed.
 	// IP/Mask must be in CIDR notation as defined in RFC 4632 and RFC 4291
@@ -142,6 +150,8 @@ type UserFilters struct {
 	// For FTP clients it must match the name provided using the
 	// "USER" command
 	TLSUsername TLSUsername `json:"tls_username,omitempty"`
+	// user specific hook overrides
+	Hooks HooksFilter `json:"hooks,omitempty"`
 }
 
 // User defines a SFTPGo user
@@ -1069,6 +1079,9 @@ func (u *User) getACopy() User {
 	copy(filters.FilePatterns, u.Filters.FilePatterns)
 	filters.DeniedProtocols = make([]string, len(u.Filters.DeniedProtocols))
 	copy(filters.DeniedProtocols, u.Filters.DeniedProtocols)
+	filters.Hooks.ExternalAuthDisabled = u.Filters.Hooks.ExternalAuthDisabled
+	filters.Hooks.PreLoginDisabled = u.Filters.Hooks.PreLoginDisabled
+	filters.Hooks.CheckPasswordDisabled = u.Filters.Hooks.CheckPasswordDisabled
 
 	return User{
 		ID:                u.ID,

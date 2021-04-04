@@ -1601,23 +1601,25 @@ func checkUserAndPass(user *User, password, ip, protocol string) (User, error) {
 	if user.Password == "" {
 		return *user, errors.New("credentials cannot be null or empty")
 	}
-	hookResponse, err := executeCheckPasswordHook(user.Username, password, ip, protocol)
-	if err != nil {
-		providerLog(logger.LevelDebug, "error executing check password hook: %v", err)
-		return *user, errors.New("unable to check credentials")
-	}
-	switch hookResponse.Status {
-	case -1:
-		// no hook configured
-	case 1:
-		providerLog(logger.LevelDebug, "password accepted by check password hook")
-		return *user, nil
-	case 2:
-		providerLog(logger.LevelDebug, "partial success from check password hook")
-		password = hookResponse.ToVerify
-	default:
-		providerLog(logger.LevelDebug, "password rejected by check password hook, status: %v", hookResponse.Status)
-		return *user, ErrInvalidCredentials
+	if !user.Filters.Hooks.CheckPasswordDisabled {
+		hookResponse, err := executeCheckPasswordHook(user.Username, password, ip, protocol)
+		if err != nil {
+			providerLog(logger.LevelDebug, "error executing check password hook: %v", err)
+			return *user, errors.New("unable to check credentials")
+		}
+		switch hookResponse.Status {
+		case -1:
+			// no hook configured
+		case 1:
+			providerLog(logger.LevelDebug, "password accepted by check password hook")
+			return *user, nil
+		case 2:
+			providerLog(logger.LevelDebug, "partial success from check password hook")
+			password = hookResponse.ToVerify
+		default:
+			providerLog(logger.LevelDebug, "password rejected by check password hook, status: %v", hookResponse.Status)
+			return *user, ErrInvalidCredentials
+		}
 	}
 
 	match, err := isPasswordOK(user, password)
@@ -2142,6 +2144,9 @@ func executePreLoginHook(username, loginMethod, ip, protocol string) (User, erro
 	if err != nil {
 		return u, err
 	}
+	if u.Filters.Hooks.PreLoginDisabled {
+		return u, nil
+	}
 	startTime := time.Now()
 	out, err := getPreLoginHookResponse(loginMethod, ip, protocol, userAsJSON)
 	if err != nil {
@@ -2328,11 +2333,16 @@ func updateUserFromExtAuthResponse(user *User, password, pkey string) {
 func doExternalAuth(username, password string, pubKey []byte, keyboardInteractive, ip, protocol string, tlsCert *x509.Certificate) (User, error) {
 	var user User
 
-	pkey, err := utils.GetSSHPublicKeyAsString(pubKey)
+	u, userAsJSON, err := getUserAndJSONForHook(username)
 	if err != nil {
 		return user, err
 	}
-	u, userAsJSON, err := getUserAndJSONForHook(username)
+
+	if u.Filters.Hooks.ExternalAuthDisabled {
+		return u, nil
+	}
+
+	pkey, err := utils.GetSSHPublicKeyAsString(pubKey)
 	if err != nil {
 		return user, err
 	}
@@ -2397,7 +2407,6 @@ func getUserAndJSONForHook(username string) (User, []byte, error) {
 			ID:       0,
 			Username: username,
 		}
-		return u, userAsJSON, nil
 	}
 	userAsJSON, err = json.Marshal(u)
 	if err != nil {

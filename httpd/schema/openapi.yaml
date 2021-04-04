@@ -1421,6 +1421,22 @@ components:
           description: 'list of, case insensitive, denied files extension. Denied file extensions are evaluated before the allowed ones'
           example:
             - .zip
+    HooksFilter:
+      type: object
+      properties:
+        external_auth_disabled:
+          type: boolean
+          example: false
+          description: If true, the external auth hook, if defined, will not be executed
+        pre_login_disabled:
+          type: boolean
+          example: false
+          description: If true, the pre-login hook, if defined, will not be executed
+        check_password_disabled:
+          type: boolean
+          example: false
+          description: If true, the check password hook, if defined, will not be executed
+      description: User specific hook overrides
     UserFilters:
       type: object
       properties:
@@ -1469,6 +1485,8 @@ components:
             - None
             - CommonName
           description: 'defines the TLS certificate field to use as username. For FTP clients it must match the name provided using the "USER" command. For WebDAV, if no username is provided, the CN will be used as username. For WebDAV clients it must match the implicit or provided username. Ignored if mutual TLS is disabled'
+        hooks:
+          $ref: '#/components/schemas/HooksFilter'
       description: Additional user restrictions
     Secret:
       type: object
@@ -1615,6 +1633,9 @@ components:
           description: Concurrent reads are safe to use and disabling them will degrade performance. Some servers automatically delete files once they are downloaded. Using concurrent reads is problematic with such servers.
         buffer_size:
           type: integer
+          minimum: 0
+          maximum: 16
+          example: 2
           description: The size of the buffer (in MB) to use for transfers. By enabling buffering, the reads and writes, from/to the remote SFTP server, are split in multiple concurrent requests and this allows data to be transferred at a faster rate, over high latency networks, by overlapping round-trip times. With buffering enabled, resuming uploads is not supported and a file cannot be opened for both reading and writing at the same time. 0 means disabled.
     FilesystemConfig:
       type: object

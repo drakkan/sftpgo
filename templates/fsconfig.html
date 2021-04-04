@@ -251,7 +251,7 @@
     <label for="idSFTPUploadBufferSize" class="col-sm-2 col-form-label">Buffer size (MB)</label>
     <div class="col-sm-3">
         <input type="number" class="form-control" id="idSFTPBufferSize" name="sftp_buffer_size" placeholder=""
-            value="{{.SFTPConfig.BufferSize}}" min="0" max="64" aria-describedby="SFTPBufferHelpBlock">
+            value="{{.SFTPConfig.BufferSize}}" min="0" max="16" aria-describedby="SFTPBufferHelpBlock">
         <small id="SFTPBufferHelpBlock" class="form-text text-muted">
             A buffer size > 0 enables concurrent transfers
         </small>

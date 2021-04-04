@@ -35,6 +35,8 @@ If an error happens while executing the hook then login will be denied.
 "Dynamic user creation or modification" and "External Authentication" are mutually exclusive, they are quite similar, the difference is that "External Authentication" returns an already authenticated user while using "Dynamic users modification" you simply create or update a user. The authentication will be checked inside SFTPGo.
 In other words while using "External Authentication" the external program receives the credentials of the user trying to login (for example the cleartext password) and it needs to validate them. While using "Dynamic users modification" the pre-login program receives the user stored inside the dataprovider (it includes the hashed password if any) and it can modify it, after the modification SFTPGo will check the credentials of the user trying to login.
 
+You can disable the hook on a per-user basis.
+
 Let's see a very basic example. Our sample program will grant access to the existing user `test_user` only in the time range 10:00-18:00. Other users will not be modified since the program will terminate with no output.
 
 ```shell
