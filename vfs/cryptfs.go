@@ -3,13 +3,13 @@ package vfs
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 
 	"github.com/eikenb/pipeat"
-	"github.com/minio/sha256-simd"
 	"github.com/minio/sio"
 	"golang.org/x/crypto/hkdf"
 

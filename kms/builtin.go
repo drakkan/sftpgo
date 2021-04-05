@@ -4,10 +4,9 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"io"
-
-	"github.com/minio/sha256-simd"
 )
 
 type builtinSecret struct {

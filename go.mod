@@ -33,14 +33,12 @@ require (
 	github.com/hashicorp/vault/api v1.1.0 // indirect
 	github.com/hashicorp/vault/sdk v0.2.0 // indirect
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
-	github.com/klauspost/cpuid/v2 v2.0.6 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/jwx v1.1.7
 	github.com/lib/pq v1.10.0
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.6
 	github.com/miekg/dns v1.1.41 // indirect
-	github.com/minio/sha256-simd v1.0.0
 	github.com/minio/sio v0.2.1
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/otiai10/copy v1.5.0
@@ -68,7 +66,7 @@ require (
 	gocloud.dev/secrets/hashivault v0.22.0
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
 	golang.org/x/mod v0.4.2 // indirect
-	golang.org/x/net v0.0.0-20210316092652-d523dce5a7f4
+	golang.org/x/net v0.0.0-20210331212208-0fccb6fa2b5c
 	golang.org/x/oauth2 v0.0.0-20210402161424-2e8d93401602 // indirect
 	golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57
 	golang.org/x/text v0.3.6 // indirect
@@ -83,6 +81,6 @@ require (
 replace (
 	github.com/cockroachdb/cockroach-go/v2 => github.com/drakkan/cockroach-go/v2 v2.0.0-20210323085558-34fd3dc05ad2
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20210324082356-50c206558887
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20210324113647-4e2c39621093
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20210405160203-85f20b04d0e7
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20210405160859-a11a18e6ce6e
 )

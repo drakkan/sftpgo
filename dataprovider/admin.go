@@ -1,6 +1,7 @@
 package dataprovider
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -9,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/alexedwards/argon2id"
-	"github.com/minio/sha256-simd"
 
 	"github.com/drakkan/sftpgo/utils"
 )

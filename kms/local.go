@@ -2,11 +2,11 @@ package kms
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"io"
 
-	"github.com/minio/sha256-simd"
 	"gocloud.dev/secrets/localsecrets"
 	"golang.org/x/crypto/hkdf"
 )

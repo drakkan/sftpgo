@@ -3,6 +3,7 @@ package sftpd
 import (
 	"crypto/md5"
 	"crypto/sha1"
+	"crypto/sha256"
 	"crypto/sha512"
 	"errors"
 	"fmt"
@@ -16,7 +17,6 @@ import (
 	"sync"
 
 	"github.com/google/shlex"
-	"github.com/minio/sha256-simd"
 	fscopy "github.com/otiai10/copy"
 	"golang.org/x/crypto/ssh"
 
