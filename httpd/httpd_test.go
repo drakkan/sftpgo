@@ -995,6 +995,7 @@ func TestUpdateUser(t *testing.T) {
 	user.Filters.Hooks.ExternalAuthDisabled = true
 	user.Filters.Hooks.PreLoginDisabled = true
 	user.Filters.Hooks.CheckPasswordDisabled = false
+	user.Filters.DisableFsChecks = true
 	user.Filters.FileExtensions = append(user.Filters.FileExtensions, dataprovider.ExtensionsFilter{
 		Path:              "/subdir",
 		AllowedExtensions: []string{".zip", ".rar"},
@@ -4858,6 +4859,7 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("additional_info", user.AdditionalInfo)
 	form.Set("description", user.Description)
 	form.Add("hooks", "external_auth_disabled")
+	form.Set("disable_fs_checks", "checked")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	// test invalid url escape
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"?a=%2", &b)
@@ -5020,6 +5022,7 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.True(t, newUser.Filters.Hooks.ExternalAuthDisabled)
 	assert.False(t, newUser.Filters.Hooks.PreLoginDisabled)
 	assert.False(t, newUser.Filters.Hooks.CheckPasswordDisabled)
+	assert.True(t, newUser.Filters.DisableFsChecks)
 	assert.True(t, utils.IsStringInSlice(testPubKey, newUser.PublicKeys))
 	if val, ok := newUser.Permissions["/subdir"]; ok {
 		assert.True(t, utils.IsStringInSlice(dataprovider.PermListItems, val))
@@ -5427,6 +5430,7 @@ func TestUserTemplateMock(t *testing.T) {
 	form.Set("max_upload_file_size", "0")
 	form.Add("hooks", "external_auth_disabled")
 	form.Add("hooks", "check_password_disabled")
+	form.Set("disable_fs_checks", "checked")
 	// test invalid s3_upload_part_size
 	form.Set("s3_upload_part_size", "a")
 	b, contentType, _ := getMultipartFormData(form, "", "")
@@ -5504,6 +5508,8 @@ func TestUserTemplateMock(t *testing.T) {
 	require.True(t, user2.Filters.Hooks.ExternalAuthDisabled)
 	require.True(t, user2.Filters.Hooks.CheckPasswordDisabled)
 	require.False(t, user2.Filters.Hooks.PreLoginDisabled)
+	require.True(t, user1.Filters.DisableFsChecks)
+	require.True(t, user2.Filters.DisableFsChecks)
 }
 
 func TestFolderTemplateMock(t *testing.T) {
@@ -5731,6 +5737,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.True(t, updateUser.Filters.Hooks.PreLoginDisabled)
 	assert.False(t, updateUser.Filters.Hooks.ExternalAuthDisabled)
 	assert.False(t, updateUser.Filters.Hooks.CheckPasswordDisabled)
+	assert.False(t, updateUser.Filters.DisableFsChecks)
 	// now check that a redacted password is not saved
 	form.Set("s3_access_secret", redactedSecret)
 	b, contentType, _ = getMultipartFormData(form, "", "")

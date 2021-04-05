@@ -672,6 +672,7 @@ func getFiltersFromUserPostFields(r *http.Request) dataprovider.UserFilters {
 	if utils.IsStringInSlice("check_password_disabled", hooks) {
 		filters.Hooks.CheckPasswordDisabled = true
 	}
+	filters.DisableFsChecks = len(r.Form.Get("disable_fs_checks")) > 0
 	return filters
 }
 

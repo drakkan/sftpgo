@@ -3272,6 +3272,7 @@ func TestPatternsFilters(t *testing.T) {
 			DeniedPatterns:  []string{},
 		},
 	}
+	user.Filters.DisableFsChecks = true
 	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)
@@ -6799,6 +6800,7 @@ func TestStatVFS(t *testing.T) {
 		assert.True(t, os.IsNotExist(err))
 	}
 	user.QuotaFiles = 100
+	user.Filters.DisableFsChecks = true
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getSftpClient(user, usePubKey)

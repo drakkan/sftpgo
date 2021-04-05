@@ -377,6 +377,17 @@
                 </div>
             </div>
 
+            <div class="form-group">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="idDisableFsChecks" name="disable_fs_checks"
+                    {{if .User.Filters.DisableFsChecks}}checked{{end}} aria-describedby="disableFsChecksHelpBlock">
+                    <label for="idDisableFsChecks" class="form-check-label">Disable filesystem checks</label>
+                    <small id="disableFsChecksHelpBlock" class="form-text text-muted">
+                        Disable checks for existence and automatic creation of home directory and virtual folders
+                    </small>
+                </div>
+            </div>
+
             {{template "fshtml" .User.FsConfig}}
 
             <div class="form-group row">

@@ -20,6 +20,8 @@ require (
 	github.com/go-chi/render v1.0.1
 	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/go-sql-driver/mysql v1.6.0
+	github.com/goccy/go-json v0.4.11 // indirect
+	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.2.0 // indirect
@@ -28,6 +30,8 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-retryablehttp v0.6.8
+	github.com/hashicorp/vault/api v1.1.0 // indirect
+	github.com/hashicorp/vault/sdk v0.2.0 // indirect
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/klauspost/cpuid/v2 v2.0.6 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
@@ -40,7 +44,7 @@ require (
 	github.com/minio/sio v0.2.1
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/otiai10/copy v1.5.0
-	github.com/pelletier/go-toml v1.8.1 // indirect
+	github.com/pelletier/go-toml v1.9.0 // indirect
 	github.com/pires/go-proxyproto v0.5.0
 	github.com/pkg/sftp v1.13.0
 	github.com/prometheus/client_golang v1.10.0
@@ -67,8 +71,10 @@ require (
 	golang.org/x/net v0.0.0-20210316092652-d523dce5a7f4
 	golang.org/x/oauth2 v0.0.0-20210402161424-2e8d93401602 // indirect
 	golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57
+	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	google.golang.org/api v0.43.0
+	google.golang.org/genproto v0.0.0-20210405150802-d70529258950 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect

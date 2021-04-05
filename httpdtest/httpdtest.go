@@ -1177,6 +1177,9 @@ func compareUserFilterSubStructs(expected *dataprovider.User, actual *dataprovid
 	if expected.Filters.Hooks.CheckPasswordDisabled != actual.Filters.Hooks.CheckPasswordDisabled {
 		return errors.New("check_password_disabled hook mismatch")
 	}
+	if expected.Filters.DisableFsChecks != actual.Filters.DisableFsChecks {
+		return errors.New("disable_fs_checks mismatch")
+	}
 	return nil
 }
 

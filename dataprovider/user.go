@@ -152,6 +152,14 @@ type UserFilters struct {
 	TLSUsername TLSUsername `json:"tls_username,omitempty"`
 	// user specific hook overrides
 	Hooks HooksFilter `json:"hooks,omitempty"`
+	// Disable checks for existence and automatic creation of home directory
+	// and virtual folders.
+	// SFTPGo requires that the user's home directory, virtual folder root,
+	// and intermediate paths to virtual folders exist to work properly.
+	// If you already know that the required directories exist, disabling
+	// these checks will speed up login.
+	// You could, for example, disable these checks after the first login
+	DisableFsChecks bool `json:"disable_fs_checks,omitempty"`
 }
 
 // User defines a SFTPGo user
@@ -249,6 +257,9 @@ func (u *User) getRootFs(connectionID string) (fs vfs.Fs, err error) {
 // CheckFsRoot check the root directory for the main fs and the virtual folders.
 // It returns an error if the main filesystem cannot be created
 func (u *User) CheckFsRoot(connectionID string) error {
+	if u.Filters.DisableFsChecks {
+		return nil
+	}
 	fs, err := u.GetFilesystemForPath("/", connectionID)
 	if err != nil {
 		logger.Warn(logSender, connectionID, "could not create main filesystem for user %#v err: %v", u.Username, err)
@@ -1082,6 +1093,7 @@ func (u *User) getACopy() User {
 	filters.Hooks.ExternalAuthDisabled = u.Filters.Hooks.ExternalAuthDisabled
 	filters.Hooks.PreLoginDisabled = u.Filters.Hooks.PreLoginDisabled
 	filters.Hooks.CheckPasswordDisabled = u.Filters.Hooks.CheckPasswordDisabled
+	filters.DisableFsChecks = u.Filters.DisableFsChecks
 
 	return User{
 		ID:                u.ID,
