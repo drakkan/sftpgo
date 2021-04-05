@@ -307,15 +307,15 @@ func (fs *SFTPFs) Create(name string, flag int) (File, *PipeWriter, func(), erro
 		if err == nil && errFlush != nil {
 			err = errFlush
 		}
+		var errTruncate error
+		if err != nil {
+			errTruncate = f.Truncate(n)
+		}
 		errClose := f.Close()
 		if err == nil && errClose != nil {
 			err = errClose
 		}
 		r.CloseWithError(err) //nolint:errcheck
-		var errTruncate error
-		if err != nil {
-			errTruncate = f.Truncate(n)
-		}
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, readed bytes: %v, err: %v err truncate: %v",
 			name, n, err, errTruncate)
