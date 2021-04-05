@@ -449,6 +449,33 @@ func TestProxyProtocolVersion(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestStartupHook(t *testing.T) {
+	Config.StartupHook = ""
+
+	assert.NoError(t, Config.ExecuteStartupHook())
+
+	Config.StartupHook = "http://foo\x7f.com/startup"
+	assert.Error(t, Config.ExecuteStartupHook())
+
+	Config.StartupHook = "http://invalid:5678/"
+	assert.Error(t, Config.ExecuteStartupHook())
+
+	Config.StartupHook = fmt.Sprintf("http://%v", httpAddr)
+	assert.NoError(t, Config.ExecuteStartupHook())
+
+	Config.StartupHook = "invalidhook"
+	assert.Error(t, Config.ExecuteStartupHook())
+
+	if runtime.GOOS != osWindows {
+		hookCmd, err := exec.LookPath("true")
+		assert.NoError(t, err)
+		Config.StartupHook = hookCmd
+		assert.NoError(t, Config.ExecuteStartupHook())
+	}
+
+	Config.StartupHook = ""
+}
+
 func TestPostConnectHook(t *testing.T) {
 	Config.PostConnectHook = ""
 

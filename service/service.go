@@ -131,6 +131,7 @@ func (s *Service) Start() error {
 	}
 
 	s.startServices()
+	go common.Config.ExecuteStartupHook() //nolint:errcheck
 
 	return nil
 }

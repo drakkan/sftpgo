@@ -9,6 +9,7 @@
     "setstat_mode": 0,
     "proxy_protocol": 0,
     "proxy_allowed": [],
+    "startup_hook": "",
     "post_connect_hook": "",
     "max_total_connections": 0,
     "defender": {

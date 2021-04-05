@@ -312,6 +312,11 @@ type Configuration struct {
 	// If proxy protocol is set to 2 and we receive a proxy header from an IP that is not in the list then the
 	// connection will be rejected.
 	ProxyAllowed []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
+	// Absolute path to an external program or an HTTP URL to invoke as soon as SFTPGo starts.
+	// If you define an HTTP URL it will be invoked using a `GET` request.
+	// Please note that SFTPGo services may not yet be available when this hook is run.
+	// Leave empty do disable.
+	StartupHook string `json:"startup_hook" mapstructure:"startup_hook"`
 	// Absolute path to an external program or an HTTP URL to invoke after a user connects
 	// and before he tries to login. It allows you to reject the connection based on the source
 	// ip address. Leave empty do disable.
@@ -361,6 +366,43 @@ func (c *Configuration) GetProxyListener(listener net.Listener) (*proxyproto.Lis
 		}
 	}
 	return proxyListener, nil
+}
+
+// ExecuteStartupHook runs the startup hook if defined
+func (c *Configuration) ExecuteStartupHook() error {
+	if c.StartupHook == "" {
+		return nil
+	}
+	if strings.HasPrefix(c.StartupHook, "http") {
+		var url *url.URL
+		url, err := url.Parse(c.StartupHook)
+		if err != nil {
+			logger.Warn(logSender, "", "Invalid startup hook %#v: %v", c.StartupHook, err)
+			return err
+		}
+		startTime := time.Now()
+		httpClient := httpclient.GetRetraybleHTTPClient()
+		resp, err := httpClient.Get(url.String())
+		if err != nil {
+			logger.Warn(logSender, "", "Error executing startup hook: %v", err)
+			return err
+		}
+		defer resp.Body.Close()
+		logger.Debug(logSender, "", "Startup hook executed, elapsed: %v, response code: %v", time.Since(startTime), resp.StatusCode)
+		return nil
+	}
+	if !filepath.IsAbs(c.StartupHook) {
+		err := fmt.Errorf("invalid startup hook %#v", c.StartupHook)
+		logger.Warn(logSender, "", "Invalid startup hook %#v", c.StartupHook)
+		return err
+	}
+	startTime := time.Now()
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, c.StartupHook)
+	err := cmd.Run()
+	logger.Debug(logSender, "", "Startup hook executed, elapsed: %v, error: %v", time.Since(startTime), err)
+	return nil
 }
 
 // ExecutePostConnectHook executes the post connect hook if defined
