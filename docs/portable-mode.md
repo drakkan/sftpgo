@@ -91,6 +91,14 @@ Flags:
                                         parallel (default 2)
       --s3-upload-part-size int         The buffer size for multipart uploads
                                         (MB) (default 5)
+      --sftp-buffer-size int            The size of the buffer (in MB) to use
+                                        for transfers. By enabling buffering,
+                                        the reads and writes, from/to the
+                                        remote SFTP server, are split in
+                                        multiple concurrent requests and this
+                                        allows data to be transferred at a
+                                        faster rate, over high latency networks,
+                                        by overlapping round-trip times
       --sftp-disable-concurrent-reads   Concurrent reads are safe to use and
                                         disabling them will degrade performance.
                                         Disable for read once servers

@@ -73,6 +73,7 @@ var (
 	portableSFTPFingerprints           []string
 	portableSFTPPrefix                 string
 	portableSFTPDisableConcurrentReads bool
+	portableSFTPDBufferSize            int64
 	portableCmd                        = &cobra.Command{
 		Use:   "portable",
 		Short: "Serve a single directory",
@@ -192,6 +193,7 @@ Please take a look at the usage below to customize the serving parameters`,
 							Fingerprints:            portableSFTPFingerprints,
 							Prefix:                  portableSFTPPrefix,
 							DisableCouncurrentReads: portableSFTPDisableConcurrentReads,
+							BufferSize:              portableSFTPDBufferSize,
 						},
 					},
 					Filters: dataprovider.UserFilters{
@@ -322,6 +324,14 @@ remote SFTP server`)
 	portableCmd.Flags().BoolVar(&portableSFTPDisableConcurrentReads, "sftp-disable-concurrent-reads", false, `Concurrent reads are safe to use and
 disabling them will degrade performance.
 Disable for read once servers`)
+	portableCmd.Flags().Int64Var(&portableSFTPDBufferSize, "sftp-buffer-size", 0, `The size of the buffer (in MB) to use
+for transfers. By enabling buffering,
+the reads and writes, from/to the
+remote SFTP server, are split in
+multiple concurrent requests and this
+allows data to be transferred at a
+faster rate, over high latency networks,
+by overlapping round-trip times`)
 	rootCmd.AddCommand(portableCmd)
 }
 
