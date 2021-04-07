@@ -5,12 +5,12 @@ on:
     tags: 'v*'
 
 env:
-  GO_VERSION: 1.15.8
+  GO_VERSION: 1.16.3
 
 jobs:
   create-release:
     name: Create
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     steps:
       - name: Create Release
         id: create_release
@@ -36,7 +36,7 @@ jobs:
   release-sources-with-deps:
     name: Publish sources
     needs: create-release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
       - name: Set up Go
@@ -79,13 +79,13 @@ jobs:
           asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_src_with_deps.tar.xz
           asset_content_type: application/x-xz
 
-  publish:
-    name: Publish binary
+  publish-window-mac:
+    name: Publish binaries
     needs: create-release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [macos-10.15, windows-2019]
 
     steps:
       - uses: actions/checkout@v2
@@ -94,7 +94,7 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Build for Linux/macOS
+      - name: Build for macOS
         if: startsWith(matrix.os, 'windows-') != true
         run: go build -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
 
@@ -117,10 +117,7 @@ jobs:
       - name: Get OS name
         id: get_os_name
         run: |
-          if [ $MATRIX_OS == 'ubuntu-latest' ]
-          then
-            echo ::set-output name=OS::linux
-          elif [ $MATRIX_OS == 'macos-latest' ]
+          if [[ $MATRIX_OS =~ ^macos.* ]]
           then
             echo ::set-output name=OS::macOS
           else
@@ -130,31 +127,8 @@ jobs:
         env:
           MATRIX_OS: ${{ matrix.os }}
 
-      - name: Gather cross build info
-        id: cross_info
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        run: |
-          GIT_COMMIT=$(git describe --always)
-          BUILD_DATE=$(date -u +%FT%TZ)
-          echo ::set-output name=sha::${GIT_COMMIT}
-          echo ::set-output name=created::${BUILD_DATE}
-
-      - name: Cross build with xgo
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        uses: crazy-max/ghaction-xgo@v1
-        with:
-          go_version: ${{ env.GO_VERSION }}
-          dest: cross
-          prefix: sftpgo
-          targets: linux/arm64,linux/ppc64le
-          v: true
-          x: false
-          race: false
-          ldflags: -s -w -X github.com/drakkan/sftpgo/version.commit=${{ steps.cross_info.outputs.sha }} -X github.com/drakkan/sftpgo/version.date=${{ steps.cross_info.outputs.created }}
-          buildmode: default
-
-      - name: Prepare Release for Linux/macOS
-        if: startsWith(matrix.os, 'windows-') != true
+      - name: Prepare Release for macOS
+        if: startsWith(matrix.os, 'macos-')
         run: |
           mkdir -p output/{init,sqlite,bash_completion,zsh_completion}
           echo "For documentation please take a look here:" > output/README.txt
@@ -166,71 +140,17 @@ jobs:
           cp sftpgo.db output/sqlite/
           cp -r static output/
           cp -r templates output/
-          if [ $OS == 'linux' ]
-          then
-            cp init/sftpgo.service output/init/
-          else
-            cp init/com.github.drakkan.sftpgo.plist output/init/
-          fi
+          cp init/com.github.drakkan.sftpgo.plist output/init/
           ./sftpgo gen completion bash > output/bash_completion/sftpgo
           ./sftpgo gen completion zsh > output/zsh_completion/_sftpgo
           ./sftpgo gen man -d output/man/man1
           gzip output/man/man1/*
-          if [ $OS == 'linux' ]
-          then
-            cp -r output output_arm64
-            cp -r output output_ppc64le
-            cp -r output output_all
-          fi
           cd output
           tar cJvf sftpgo_${SFTPGO_VERSION}_${OS}_x86_64.tar.xz *
           cd ..
-          if [ $OS == 'linux' ]
-          then
-            cp cross/sftpgo-linux-arm64 output_arm64/sftpgo
-            cd output_arm64
-            tar cJvf sftpgo_${SFTPGO_VERSION}_${OS}_arm64.tar.xz *
-            cd ..
-            cp cross/sftpgo-linux-ppc64le output_ppc64le/sftpgo
-            cd output_ppc64le
-            tar cJvf sftpgo_${SFTPGO_VERSION}_${OS}_ppc64le.tar.xz *
-            cd ..
-            mkdir output_all/{arm64,ppc64le}
-            cp cross/sftpgo-linux-arm64 output_all/arm64/sftpgo
-            cp cross/sftpgo-linux-ppc64le output_all/ppc64le/sftpgo
-            cd output_all
-            tar cJvf sftpgo_${SFTPGO_VERSION}_${OS}_bundle.tar.xz *
-            cd ..
-          fi
         env:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
           OS: ${{ steps.get_os_name.outputs.OS }}
-
-      - name: Prepare Linux Packages
-        id: build_linux_pkgs
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        run: |
-          cp -r pkgs pkgs_arm64
-          cp -r pkgs pkgs_ppc64le
-          cd pkgs
-          ./build.sh
-          cd ..
-          export NFPM_ARCH=arm64
-          export BIN_SUFFIX=-linux-arm64
-          cp cross/sftpgo${BIN_SUFFIX} .
-          cd pkgs_arm64
-          ./build.sh
-          cd ..
-          export NFPM_ARCH=ppc64le
-          export BIN_SUFFIX=-linux-ppc64le
-          cp cross/sftpgo${BIN_SUFFIX} .
-          cd pkgs_ppc64le
-          ./build.sh
-          cd ..
-          PKG_VERSION=${SFTPGO_VERSION:1}
-          echo "::set-output name=pkg-version::${PKG_VERSION}"
-        env:
-          SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
 
       - name: Prepare Release for Windows
         if: startsWith(matrix.os, 'windows-')
@@ -278,8 +198,8 @@ jobs:
           echo "::set-output name=url::${URL}"
         shell: bash
 
-      - name: Upload Linux/macOS Release
-        if: startsWith(matrix.os, 'windows-') != true
+      - name: Upload macOS Release
+        if: startsWith(matrix.os, 'macos-')
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -287,39 +207,6 @@ jobs:
           upload_url: ${{ steps.upload_url.outputs.url }}
           asset_path: ./output/sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.tar.xz
           asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.tar.xz
-          asset_content_type: application/x-xz
-
-      - name: Upload Linux/arm64 Release
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.upload_url.outputs.url }}
-          asset_path: ./output_arm64/sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_arm64.tar.xz
-          asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_arm64.tar.xz
-          asset_content_type: application/x-xz
-
-      - name: Upload Linux/ppc64le Release
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.upload_url.outputs.url }}
-          asset_path: ./output_ppc64le/sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_ppc64le.tar.xz
-          asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_ppc64le.tar.xz
-          asset_content_type: application/x-xz
-
-      - name: Upload Linux Bundle Release
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.upload_url.outputs.url }}
-          asset_path: ./output_all/sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_bundle.tar.xz
-          asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_bundle.tar.xz
           asset_content_type: application/x-xz
 
       - name: Upload Windows Release
@@ -344,68 +231,163 @@ jobs:
           asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_portable_x86_64.zip
           asset_content_type: application/zip
 
-      - name: Upload Debian Package
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+  publish-linux:
+    name: Publish Linux binaries
+    needs: create-release
+    runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            go-arch: amd64
+            deb-arch: amd64
+            rpm-arch: x86_64
+            tar-arch: x86_64
+          - arch: aarch64
+            distro: ubuntu18.04
+            go-arch: arm64
+            deb-arch: arm64
+            rpm-arch: aarch64
+            tar-arch: arm64
+          - arch: ppc64le
+            distro: ubuntu18.04
+            go-arch: ppc64le
+            deb-arch: ppc64el
+            rpm-arch: ppc64le
+            tar-arch: ppc64le
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go
+        if: ${{ matrix.arch == 'amd64' }}
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Get versions
+        id: get_version
+        run: |
+          echo ::set-output name=SFTPGO_VERSION::${GITHUB_REF/refs\/tags\//}
+          echo ::set-output name=GO_VERSION::${GO_VERSION}
+        shell: bash
+        env:
+          GO_VERSION: ${{ env.GO_VERSION }}
+
+      - name: Build on amd64
+        if: ${{ matrix.arch == 'amd64' }}
+        run: |
+          go build -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
+          mkdir -p output/{init,sqlite,bash_completion,zsh_completion}
+          echo "For documentation please take a look here:" > output/README.txt
+          echo "" >> output/README.txt
+          echo "https://github.com/drakkan/sftpgo/blob/${SFTPGO_VERSION}/README.md" >> output/README.txt
+          cp LICENSE output/
+          cp sftpgo.json output/
+          cp -r templates output/
+          cp -r static output/
+          cp init/sftpgo.service output/init/
+          ./sftpgo initprovider
+          ./sftpgo gen completion bash > output/bash_completion/sftpgo
+          ./sftpgo gen completion zsh > output/zsh_completion/_sftpgo
+          ./sftpgo gen man -d output/man/man1
+          gzip output/man/man1/*
+          cp sftpgo output/
+          cp sftpgo.db output/sqlite/
+          cd output
+          tar cJvf sftpgo_${SFTPGO_VERSION}_linux_${{ matrix.tar-arch }}.tar.xz *
+          cd ..
+        env:
+          SFTPGO_VERSION: ${{ steps.get_version.outputs.SFTPGO_VERSION }}
+
+      - uses: uraimo/run-on-arch-action@v2.0.9
+        if: ${{ matrix.arch != 'amd64' }}
+        name: Build for ${{ matrix.arch }}
+        id: build
+        with:
+          arch: ${{ matrix.arch }}
+          distro: ${{ matrix.distro }}
+          setup: |
+            mkdir -p "${PWD}/output"
+          dockerRunArgs: |
+            --volume "${PWD}/output:/output"
+          shell: /bin/bash
+          install: |
+            apt-get update -q -y
+            apt-get install -q -y curl gcc git xz-utils
+            curl --retry 5 --retry-delay 2 --connect-timeout 10 -o go.tar.gz -L https://golang.org/dl/go${{ steps.get_version.outputs.GO_VERSION }}.linux-${{ matrix.go-arch }}.tar.gz
+            tar -C /usr/local -xzf go.tar.gz
+          run: |
+            export PATH=$PATH:/usr/local/go/bin
+            go build -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
+            mkdir -p output/{init,sqlite,bash_completion,zsh_completion}
+            echo "For documentation please take a look here:" > output/README.txt
+            echo "" >> output/README.txt
+            echo "https://github.com/drakkan/sftpgo/blob/${{ steps.get_version.outputs.SFTPGO_VERSION }}/README.md" >> output/README.txt
+            cp LICENSE output/
+            cp sftpgo.json output/
+            cp -r templates output/
+            cp -r static output/
+            cp init/sftpgo.service output/init/
+            ./sftpgo initprovider
+            ./sftpgo gen completion bash > output/bash_completion/sftpgo
+            ./sftpgo gen completion zsh > output/zsh_completion/_sftpgo
+            ./sftpgo gen man -d output/man/man1
+            gzip output/man/man1/*
+            cp sftpgo output/
+            cp sftpgo.db output/sqlite/
+            cd output
+            tar cJvf sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_${{ matrix.tar-arch }}.tar.xz *
+            cd ..
+
+      - name: Build Packages
+        id: build_linux_pkgs
+        run: |
+          export NFPM_ARCH=${{ matrix.go-arch }}
+          cd pkgs
+          ./build.sh
+          PKG_VERSION=${SFTPGO_VERSION:1}
+          echo "::set-output name=pkg-version::${PKG_VERSION}"
+        env:
+          SFTPGO_VERSION: ${{ steps.get_version.outputs.SFTPGO_VERSION }}
+
+      - name: Download release upload URL
+        uses: actions/download-artifact@v2
+        with:
+          name: upload_url
+
+      - name: Get release upload URL
+        id: upload_url
+        run: |
+          URL=$(cat upload_url.txt)
+          echo "::set-output name=url::${URL}"
+        shell: bash
+
+      - name: Upload Linux Release
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.upload_url.outputs.url }}
-          asset_path: ./pkgs/dist/deb/sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_amd64.deb
-          asset_name: sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_amd64.deb
+          asset_path: ./output/sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_${{ matrix.tar-arch }}.tar.xz
+          asset_name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_${{ matrix.tar-arch }}.tar.xz
+          asset_content_type: application/x-xz
+
+      - name: Upload Deb Package
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.upload_url.outputs.url }}
+          asset_path: ./pkgs/dist/deb/sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_${{ matrix.deb-arch}}.deb
+          asset_name: sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_${{ matrix.deb-arch}}.deb
           asset_content_type: application/vnd.debian.binary-package
 
       - name: Upload RPM Package
-        if: ${{ matrix.os == 'ubuntu-latest' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.upload_url.outputs.url }}
-          asset_path: ./pkgs/dist/rpm/sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.x86_64.rpm
-          asset_name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.x86_64.rpm
-          asset_content_type: application/x-rpm
-
-      - name: Upload Debian Package arm64
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.upload_url.outputs.url }}
-          asset_path: ./pkgs_arm64/dist/deb/sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_arm64.deb
-          asset_name: sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_arm64.deb
-          asset_content_type: application/vnd.debian.binary-package
-
-      - name: Upload RPM Package arm64
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.upload_url.outputs.url }}
-          asset_path: ./pkgs_arm64/dist/rpm/sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.aarch64.rpm
-          asset_name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.aarch64.rpm
-          asset_content_type: application/x-rpm
-
-      - name: Upload Debian Package ppc64le
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.upload_url.outputs.url }}
-          asset_path: ./pkgs_ppc64le/dist/deb/sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_ppc64el.deb
-          asset_name: sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_ppc64el.deb
-          asset_content_type: application/vnd.debian.binary-package
-
-      - name: Upload RPM Package ppc64le
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.upload_url.outputs.url }}
-          asset_path: ./pkgs_ppc64le/dist/rpm/sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.ppc64le.rpm
-          asset_name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.ppc64le.rpm
+          asset_path: ./pkgs/dist/rpm/sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.${{ matrix.rpm-arch}}.rpm
+          asset_name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.${{ matrix.rpm-arch}}.rpm
           asset_content_type: application/x-rpm
