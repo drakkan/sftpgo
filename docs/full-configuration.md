@@ -268,6 +268,15 @@ Let's see some examples:
 - To set the `port` for the first sftpd binding, you need to define the env var `SFTPGO_SFTPD__BINDINGS__0__PORT`
 - To set the `execute_on` actions, you need to define the env var `SFTPGO_COMMON__ACTIONS__EXECUTE_ON`. For example `SFTPGO_COMMON__ACTIONS__EXECUTE_ON=upload,download`
 
+On some hardware you can get faster SFTP performance by replacing the Go `crypto/sha256` implementation with [sha256-simd](https://github.com/minio/sha256-simd).
+
+The performances of SHA256 is relevant for clients using AES CTR ciphers and `hmac-sha2-256` as Message Authentication Code (MAC).
+
+Up to 2.0.x versions SFTPGo automatically used `sha256-simd` but over the time the standard Go implementation improved a lot and now is faster than `sha256-simd` on some CPUs.
+You can select `sha256-simd` setting the environment variable `SFTPGO_MINIO_SHA256_SIMD` to `1`.
+
+ `sha256-simd` is particularly useful if you have an Intel CPU with SHA extensions or an ARM CPU with Cryptography Extensions.
+
 ## Telemetry Server
 
 The telemetry server exposes the following endpoints:
