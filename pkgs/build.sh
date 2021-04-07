@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NFPM_VERSION=2.2.4
+NFPM_VERSION=2.3.1
 NFPM_ARCH=${NFPM_ARCH:-amd64}
 if [ -z ${SFTPGO_VERSION} ]
 then
@@ -17,6 +17,26 @@ echo -n ${VERSION} > dist/version
 cd dist
 BASE_DIR="../.."
 
+if [ -f "${BASE_DIR}/output/bash_completion/sftpgo" ]
+then
+  cp ${BASE_DIR}/output/bash_completion/sftpgo sftpgo-completion.bash
+else
+  $BASE_DIR/sftpgo gen completion bash > sftpgo-completion.bash
+fi
+
+if [ -d "${BASE_DIR}/output/man/man1" ]
+then
+  cp -r ${BASE_DIR}/output/man/man1 .
+else
+  $BASE_DIR/sftpgo gen man -d man1
+fi
+
+if [ ! -f ${BASE_DIR}/sftpgo ]
+then
+  cp ${BASE_DIR}/output/sftpgo ${BASE_DIR}/sftpgo
+  chmod 755 ${BASE_DIR}/sftpgo
+fi
+
 cp ${BASE_DIR}/sftpgo.json .
 sed -i "s|sftpgo.db|/var/lib/sftpgo/sftpgo.db|" sftpgo.json
 sed -i "s|\"users_base_dir\": \"\",|\"users_base_dir\": \"/srv/sftpgo/data\",|" sftpgo.json
@@ -24,9 +44,6 @@ sed -i "s|\"templates\"|\"/usr/share/sftpgo/templates\"|" sftpgo.json
 sed -i "s|\"static\"|\"/usr/share/sftpgo/static\"|" sftpgo.json
 sed -i "s|\"backups\"|\"/srv/sftpgo/backups\"|" sftpgo.json
 sed -i "s|\"credentials\"|\"/var/lib/sftpgo/credentials\"|" sftpgo.json
-
-$BASE_DIR/sftpgo gen completion bash > sftpgo-completion.bash
-$BASE_DIR/sftpgo gen man -d man1
 
 cat >nfpm.yaml <<EOF
 name: "sftpgo"

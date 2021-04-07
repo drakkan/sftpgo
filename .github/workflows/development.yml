@@ -75,7 +75,7 @@ jobs:
           echo ::set-output name=created::${BUILD_DATE}
 
       - name: Cross build with xgo
-        if: ${{ startsWith(matrix.os, 'ubuntu-') }}
+        if: ${{ matrix.upload-coverage && startsWith(matrix.os, 'ubuntu-') }}
         uses: crazy-max/ghaction-xgo@v1
         with:
           go_version: 1.16.x
