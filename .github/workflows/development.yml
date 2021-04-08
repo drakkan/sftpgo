@@ -98,7 +98,7 @@ jobs:
         if: startsWith(matrix.os, 'ubuntu-') != true
         uses: actions/upload-artifact@v2
         with:
-          name: sftpgo-${{ matrix.os }}-go${{ matrix.go }}
+          name: sftpgo-${{ matrix.os }}-go-${{ matrix.go }}
           path: output
 
   test-postgresql-mysql-crdb:
@@ -263,7 +263,7 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v2
         with:
-          name: sftpgo-linux-go-${{ matrix.go }}-${{ matrix.arch }}
+          name: sftpgo-linux-${{ matrix.arch }}-go-${{ matrix.go }}
           path: output
 
       - name: Build Packages
