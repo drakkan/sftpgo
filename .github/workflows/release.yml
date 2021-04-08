@@ -8,36 +8,9 @@ env:
   GO_VERSION: 1.16.3
 
 jobs:
-  create-release:
-    name: Create
-    runs-on: ubuntu-18.04
-    steps:
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
-          draft: false
-          prerelease: false
-
-      - name: Save release upload URL
-        run: echo "${{ steps.create_release.outputs.upload_url }}" > ./upload_url.txt
-        shell: bash
-
-      - name: Store release upload URL
-        uses: actions/upload-artifact@v2
-        with:
-          name: upload_url
-          path: ./upload_url.txt
-          retention-days: 1
-
-  release-sources-with-deps:
-    name: Publish sources
-    needs: create-release
-    runs-on: ubuntu-18.04
+  prepare-sources-with-deps:
+    name: Prepare sources with deps
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: Set up Go
@@ -57,32 +30,15 @@ jobs:
         env:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
 
-      - name: Download release upload URL
-        uses: actions/download-artifact@v2
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v2
         with:
-          name: upload_url
+          name: sftpgo_${{ steps.get_version.outputs.VERSION }}_src_with_deps.tar.xz
+          path: ./sftpgo_${{ steps.get_version.outputs.VERSION }}_src_with_deps.tar.xz
+          retention-days: 1
 
-      - name: Get release upload URL
-        id: upload_url
-        run: |
-          URL=$(cat upload_url.txt)
-          echo "::set-output name=url::${URL}"
-        shell: bash
-
-      - name: Upload Release
-        id: upload-release-asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.upload_url.outputs.url }}
-          asset_path: ./sftpgo_${{ steps.get_version.outputs.VERSION }}_src_with_deps.tar.xz
-          asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_src_with_deps.tar.xz
-          asset_content_type: application/x-xz
-
-  publish-window-mac:
-    name: Publish binaries
-    needs: create-release
+  prepare-window-mac:
+    name: Prepare binaries
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -187,54 +143,32 @@ jobs:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
           OS: ${{ steps.get_os_name.outputs.OS }}
 
-      - name: Download release upload URL
-        uses: actions/download-artifact@v2
-        with:
-          name: upload_url
-
-      - name: Get release upload URL
-        id: upload_url
-        run: |
-          URL=$(cat upload_url.txt)
-          echo "::set-output name=url::${URL}"
-        shell: bash
-
-      - name: Upload macOS Release
+      - name: Upload macOS artifact
         if: startsWith(matrix.os, 'macos-')
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/upload-artifact@v2
         with:
-          upload_url: ${{ steps.upload_url.outputs.url }}
-          asset_path: ./output/sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.tar.xz
-          asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.tar.xz
-          asset_content_type: application/x-xz
+          name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.tar.xz
+          path: ./output/sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.tar.xz
+          retention-days: 1
 
-      - name: Upload Windows Release
+      - name: Upload Windows installer artifact
         if: startsWith(matrix.os, 'windows-')
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/upload-artifact@v2
         with:
-          upload_url: ${{ steps.upload_url.outputs.url }}
-          asset_path: ./sftpgo_windows_x86_64.exe
-          asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.exe
-          asset_content_type: application/x-dosexec
+          name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.exe
+          path: ./sftpgo_windows_x86_64.exe
+          retention-days: 1
 
-      - name: Upload Portable Windows Release
+      - name: Upload Windows portable artifact
         if: startsWith(matrix.os, 'windows-')
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/upload-artifact@v2
         with:
-          upload_url: ${{ steps.upload_url.outputs.url }}
-          asset_path: ./sftpgo_portable_x86_64.zip
-          asset_name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_portable_x86_64.zip
-          asset_content_type: application/zip
+          name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_portable_x86_64.zip
+          path: ./sftpgo_portable_x86_64.zip
+          retention-days: 1
 
-  publish-linux:
-    name: Publish Linux binaries
-    needs: create-release
+  prepare-linux:
+    name: Prepare Linux binaries
     runs-on: ubuntu-18.04
     strategy:
       matrix:
@@ -340,7 +274,7 @@ jobs:
             tar cJvf sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_${{ matrix.tar-arch }}.tar.xz *
             cd ..
 
-      - name: Upload build artifact
+      - name: Upload build artifact for ${{ matrix.arch }}
         uses: actions/upload-artifact@v2
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_${{ matrix.tar-arch }}.tar.xz
@@ -358,51 +292,23 @@ jobs:
         env:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.SFTPGO_VERSION }}
 
-      - name: Download release upload URL
-        uses: actions/download-artifact@v2
-        with:
-          name: upload_url
-
-      - name: Get release upload URL
-        id: upload_url
-        run: |
-          URL=$(cat upload_url.txt)
-          echo "::set-output name=url::${URL}"
-        shell: bash
-
-      - name: Upload Linux Release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.upload_url.outputs.url }}
-          asset_path: ./output/sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_${{ matrix.tar-arch }}.tar.xz
-          asset_name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_${{ matrix.tar-arch }}.tar.xz
-          asset_content_type: application/x-xz
-
       - name: Upload Deb Package
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/upload-artifact@v2
         with:
-          upload_url: ${{ steps.upload_url.outputs.url }}
-          asset_path: ./pkgs/dist/deb/sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_${{ matrix.deb-arch}}.deb
-          asset_name: sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_${{ matrix.deb-arch}}.deb
-          asset_content_type: application/vnd.debian.binary-package
+          name: sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_${{ matrix.deb-arch}}.deb
+          path: ./pkgs/dist/deb/sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_${{ matrix.deb-arch}}.deb
+          retention-days: 1
 
       - name: Upload RPM Package
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/upload-artifact@v2
         with:
-          upload_url: ${{ steps.upload_url.outputs.url }}
-          asset_path: ./pkgs/dist/rpm/sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.${{ matrix.rpm-arch}}.rpm
-          asset_name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.${{ matrix.rpm-arch}}.rpm
-          asset_content_type: application/x-rpm
+          name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.${{ matrix.rpm-arch}}.rpm
+          path: ./pkgs/dist/rpm/sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.${{ matrix.rpm-arch}}.rpm
+          retention-days: 1
 
-  publish-linux-bundle:
-    name: Publish Linux bundle
-    needs: publish-linux
+  prepare-linux-bundle:
+    name: Prepare Linux bundle
+    needs: prepare-linux
     runs-on: ubuntu-latest
 
     steps:
@@ -443,24 +349,110 @@ jobs:
         env:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.SFTPGO_VERSION }}
 
-      - name: Download release upload URL
-        uses: actions/download-artifact@v2
+      - name: Upload Linux bundle
+        uses: actions/upload-artifact@v2
         with:
-          name: upload_url
+          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_bundle.tar.xz
+          path: ./bundle/sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_bundle.tar.xz
+          retention-days: 1
 
-      - name: Get release upload URL
-        id: upload_url
+  create-release:
+    name: Release
+    needs: [prepare-linux-bundle, prepare-sources-with-deps, prepare-window-mac]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Get versions
+        id: get_version
         run: |
-          URL=$(cat upload_url.txt)
-          echo "::set-output name=url::${URL}"
+          SFTPGO_VERSION=${GITHUB_REF/refs\/tags\//}
+          PKG_VERSION=${SFTPGO_VERSION:1}
+          echo ::set-output name=SFTPGO_VERSION::${SFTPGO_VERSION}
+          echo "::set-output name=PKG_VERSION::${PKG_VERSION}"
         shell: bash
 
-      - name: Upload Linux bundle
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download amd64 artifact
+        uses: actions/download-artifact@v2
         with:
-          upload_url: ${{ steps.upload_url.outputs.url }}
-          asset_path: ./bundle/sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_bundle.tar.xz
-          asset_name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_bundle.tar.xz
-          asset_content_type: application/x-xz
+          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_x86_64.tar.xz
+
+      - name: Download arm64 artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_arm64.tar.xz
+
+      - name: Download ppc64le artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_ppc64le.tar.xz
+
+      - name: Download Linux bundle artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_bundle.tar.xz
+
+      - name: Download Deb amd64 artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.PKG_VERSION }}-1_amd64.deb
+
+      - name: Download Deb arm64 artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.PKG_VERSION }}-1_arm64.deb
+
+      - name: Download Deb ppc64le artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.PKG_VERSION }}-1_ppc64el.deb
+
+      - name: Download RPM x86_64 artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo-${{ steps.get_version.outputs.PKG_VERSION }}-1.x86_64.rpm
+
+      - name: Download RPM aarch64 artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo-${{ steps.get_version.outputs.PKG_VERSION }}-1.aarch64.rpm
+
+      - name: Download RPM ppc64le artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo-${{ steps.get_version.outputs.PKG_VERSION }}-1.ppc64le.rpm
+
+      - name: Download macOS x86_64 artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_macOS_x86_64.tar.xz
+
+      - name: Download Windows installer x86_64 artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_windows_x86_64.exe
+
+      - name: Download Windows portable x86_64 artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_windows_portable_x86_64.zip
+
+      - name: Download source with deps artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_src_with_deps.tar.xz
+
+      - name: Create release
+        run: |
+          mv sftpgo_windows_x86_64.exe sftpgo_${SFTPGO_VERSION}_windows_x86_64.exe
+          mv sftpgo_portable_x86_64.zip sftpgo_${SFTPGO_VERSION}_windows_portable_x86_64.zip
+          gh release create "${SFTPGO_VERSION}"
+          gh release upload "${SFTPGO_VERSION}" sftpgo_*.xz --clobber
+          gh release upload "${SFTPGO_VERSION}" sftpgo-*.rpm --clobber
+          gh release upload "${SFTPGO_VERSION}" sftpgo_*.deb --clobber
+          gh release upload "${SFTPGO_VERSION}" sftpgo_*.exe --clobber
+          gh release upload "${SFTPGO_VERSION}" sftpgo_*.zip --clobber
+          gh release view "${SFTPGO_VERSION}"
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          SFTPGO_VERSION: ${{ steps.get_version.outputs.SFTPGO_VERSION }}
