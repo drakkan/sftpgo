@@ -32,6 +32,7 @@ jobs:
         with:
           name: upload_url
           path: ./upload_url.txt
+          retention-days: 1
 
   release-sources-with-deps:
     name: Publish sources
@@ -339,6 +340,13 @@ jobs:
             tar cJvf sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_${{ matrix.tar-arch }}.tar.xz *
             cd ..
 
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_${{ matrix.tar-arch }}.tar.xz
+          path: ./output/sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_${{ matrix.tar-arch }}.tar.xz
+          retention-days: 1
+
       - name: Build Packages
         id: build_linux_pkgs
         run: |
@@ -391,3 +399,68 @@ jobs:
           asset_path: ./pkgs/dist/rpm/sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.${{ matrix.rpm-arch}}.rpm
           asset_name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.${{ matrix.rpm-arch}}.rpm
           asset_content_type: application/x-rpm
+
+  publish-linux-bundle:
+    name: Publish Linux bundle
+    needs: publish-linux
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get versions
+        id: get_version
+        run: |
+          echo ::set-output name=SFTPGO_VERSION::${GITHUB_REF/refs\/tags\//}
+        shell: bash
+
+      - name: Download amd64 artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_x86_64.tar.xz
+
+      - name: Download arm64 artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_arm64.tar.xz
+
+      - name: Download ppc64le artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_ppc64le.tar.xz
+
+      - name: Build bundle
+        shell: bash
+        run: |
+          mkdir -p bundle/{arm64,ppc64le}
+          cd bundle
+          tar xvf ../sftpgo_${SFTPGO_VERSION}_linux_x86_64.tar.xz
+          cd arm64
+          tar xvf ../../sftpgo_${SFTPGO_VERSION}_linux_arm64.tar.xz sftpgo
+          cd ../ppc64le
+          tar xvf ../../sftpgo_${SFTPGO_VERSION}_linux_ppc64le.tar.xz sftpgo
+          cd ..
+          tar cJvf sftpgo_${SFTPGO_VERSION}_linux_bundle.tar.xz *
+          cd ..
+        env:
+          SFTPGO_VERSION: ${{ steps.get_version.outputs.SFTPGO_VERSION }}
+
+      - name: Download release upload URL
+        uses: actions/download-artifact@v2
+        with:
+          name: upload_url
+
+      - name: Get release upload URL
+        id: upload_url
+        run: |
+          URL=$(cat upload_url.txt)
+          echo "::set-output name=url::${URL}"
+        shell: bash
+
+      - name: Upload Linux bundle
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.upload_url.outputs.url }}
+          asset_path: ./bundle/sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_bundle.tar.xz
+          asset_name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_bundle.tar.xz
+          asset_content_type: application/x-xz

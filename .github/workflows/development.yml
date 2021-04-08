@@ -74,7 +74,6 @@ jobs:
         run: |
           mkdir -p output/{init,bash_completion,zsh_completion}
           cp sftpgo output/
-          chmod 755 output/sftpgo
           cp sftpgo.json output/
           cp -r templates output/
           cp -r static output/
@@ -223,7 +222,6 @@ jobs:
           ./sftpgo gen man -d output/man/man1
           gzip output/man/man1/*
           cp sftpgo output/
-          chmod 755 output/sftpgo
 
       - uses: uraimo/run-on-arch-action@v2.0.9
         if: ${{ matrix.arch != 'amd64' }}
@@ -261,7 +259,6 @@ jobs:
             ./sftpgo gen man -d output/man/man1
             gzip output/man/man1/*
             cp sftpgo output/
-            chmod 755 output/sftpgo
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v2
