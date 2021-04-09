@@ -3,11 +3,11 @@
 {{define "title"}}{{.Title}}{{end}}
 
 {{define "extra_css"}}
-<link href="/static/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
-<link href="/static/vendor/datatables/buttons.bootstrap4.min.css" rel="stylesheet">
-<link href="/static/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
-<link href="/static/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
-<link href="/static/vendor/datatables/select.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/select.bootstrap4.min.css" rel="stylesheet">
 {{end}}
 
 {{define "page_body"}}
@@ -20,7 +20,6 @@
         <h6 class="m-0 font-weight-bold text-primary">View and manage connections</h6>
     </div>
     <div class="card-body">
-        {{if .Connections}}
         <div class="table-responsive">
             <table class="table table-striped table-bordered nowrap" id="dataTable" width="100%" cellspacing="0">
                 <thead>
@@ -45,11 +44,6 @@
                 </tbody>
             </table>
         </div>
-        {{else}}
-        <div class="card mb-2 border-left-info">
-            <div class="card-body">No user connected</div>
-        </div>
-        {{end}}
     </div>
 </div>
 {{end}}
@@ -82,14 +76,14 @@
 {{end}}
 
 {{define "extra_js"}}
-<script src="/static/vendor/datatables/jquery.dataTables.min.js"></script>
-<script src="/static/vendor/datatables/dataTables.bootstrap4.min.js"></script>
-<script src="/static/vendor/datatables/dataTables.buttons.min.js"></script>
-<script src="/static/vendor/datatables/buttons.bootstrap4.min.js"></script>
-<script src="/static/vendor/datatables/dataTables.fixedHeader.min.js"></script>
-<script src="/static/vendor/datatables/dataTables.responsive.min.js"></script>
-<script src="/static/vendor/datatables/responsive.bootstrap4.min.js"></script>
-<script src="/static/vendor/datatables/dataTables.select.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.buttons.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.fixedHeader.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.select.min.js"></script>
 <script type="text/javascript">
 
     function disconnectAction() {
@@ -151,6 +145,9 @@
             "scrollX": false,
             "scrollY": false,
             "responsive": true,
+            "language": {
+                "emptyTable": "No user connected"
+            },
             "order": [[1, 'asc']]
         });
 

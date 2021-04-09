@@ -96,6 +96,7 @@ type basePage struct {
 	FolderQuotaScanURL string
 	StatusURL          string
 	MaintenanceURL     string
+	StaticURL          string
 	UsersTitle         string
 	AdminsTitle        string
 	ConnectionsTitle   string
@@ -182,6 +183,7 @@ type loginPage struct {
 	Version    string
 	Error      string
 	CSRFToken  string
+	StaticURL  string
 }
 
 type userTemplateFields struct {
@@ -290,6 +292,7 @@ func getBasePageData(title, currentURL string, r *http.Request) basePage {
 		StatusURL:          webStatusPath,
 		FolderQuotaScanURL: webScanVFolderPath,
 		MaintenanceURL:     webMaintenancePath,
+		StaticURL:          webStaticFilesPath,
 		UsersTitle:         pageUsersTitle,
 		AdminsTitle:        pageAdminsTitle,
 		ConnectionsTitle:   pageConnectionsTitle,
@@ -1030,6 +1033,7 @@ func renderLoginPage(w http.ResponseWriter, error string) {
 		Version:    version.Get().Version,
 		Error:      error,
 		CSRFToken:  createCSRFToken(),
+		StaticURL:  webStaticFilesPath,
 	}
 	renderTemplate(w, templateLogin, data)
 }

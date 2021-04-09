@@ -165,6 +165,7 @@
     "templates_path": "templates",
     "static_files_path": "static",
     "backups_path": "backups",
+    "web_admin_root": "",
     "certificate_file": "",
     "certificate_key_file": "",
     "ca_certificates": [],

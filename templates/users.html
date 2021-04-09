@@ -3,11 +3,11 @@
 {{define "title"}}{{.Title}}{{end}}
 
 {{define "extra_css"}}
-<link href="/static/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
-<link href="/static/vendor/datatables/buttons.bootstrap4.min.css" rel="stylesheet">
-<link href="/static/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
-<link href="/static/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
-<link href="/static/vendor/datatables/select.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/select.bootstrap4.min.css" rel="stylesheet">
 {{end}}
 
 {{define "page_body"}}
@@ -84,15 +84,15 @@
 {{end}}
 
 {{define "extra_js"}}
-<script src="/static/vendor/datatables/jquery.dataTables.min.js"></script>
-<script src="/static/vendor/datatables/dataTables.bootstrap4.min.js"></script>
-<script src="/static/vendor/datatables/dataTables.buttons.min.js"></script>
-<script src="/static/vendor/datatables/buttons.bootstrap4.min.js"></script>
-<script src="/static/vendor/datatables/dataTables.fixedHeader.min.js"></script>
-<script src="/static/vendor/datatables/dataTables.responsive.min.js"></script>
-<script src="/static/vendor/datatables/responsive.bootstrap4.min.js"></script>
-<script src="/static/vendor/datatables/dataTables.select.min.js"></script>
-<script src="/static/vendor/datatables/ellipsis.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.buttons.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.fixedHeader.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.select.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/ellipsis.js"></script>
 <script type="text/javascript">
 
     function deleteAction() {
@@ -262,6 +262,9 @@
             "scrollX": false,
             "scrollY": false,
             "responsive": true,
+            "language": {
+                "emptyTable": "No user defined"
+            },
             "order": [[1, 'asc']]
         });
 

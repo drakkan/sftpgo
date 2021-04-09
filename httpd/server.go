@@ -257,6 +257,7 @@ func (s *httpdServer) initializeRouter() {
 
 	s.router.Use(saveConnectionAddress)
 	s.router.Use(middleware.GetHead)
+	s.router.Use(middleware.StripSlashes)
 
 	s.router.Group(func(r chi.Router) {
 		r.Get(healthzPath, func(w http.ResponseWriter, r *http.Request) {
@@ -334,7 +335,7 @@ func (s *httpdServer) initializeRouter() {
 		})
 
 		if s.enableWebAdmin {
-			router.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, webLoginPath, http.StatusMovedPermanently)
 			})
 

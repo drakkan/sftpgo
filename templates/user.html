@@ -3,7 +3,7 @@
 {{define "title"}}{{.Title}}{{end}}
 
 {{define "extra_css"}}
-<link href="/static/vendor/tempusdominus/css/tempusdominus-bootstrap-4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/tempusdominus/css/tempusdominus-bootstrap-4.min.css" rel="stylesheet">
 {{end}}
 
 {{define "page_body"}}
@@ -423,8 +423,8 @@
 {{end}}
 
 {{define "extra_js"}}
-<script src="/static/vendor/moment/js/moment.min.js"></script>
-<script src="/static/vendor/tempusdominus/js/tempusdominus-bootstrap-4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/moment/js/moment.min.js"></script>
+<script src="{{.StaticURL}}/vendor/tempusdominus/js/tempusdominus-bootstrap-4.min.js"></script>
 <script type="text/javascript">
     $(document).ready(function () {
 

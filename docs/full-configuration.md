@@ -204,6 +204,7 @@ The configuration file contains the following sections:
   - `templates_path`, string. Path to the HTML web templates. This can be an absolute path or a path relative to the config dir
   - `static_files_path`, string. Path to the static files for the web interface. This can be an absolute path or a path relative to the config dir. If both `templates_path` and `static_files_path` are empty the built-in web interface will be disabled
   - `backups_path`, string. Path to the backup directory. This can be an absolute path or a path relative to the config dir. We don't allow backups in arbitrary paths for security reasons
+  - `web_admin_root`, string.  Defines a base URL for the web admin. If empty web admin resources will be available at the root ("/") URI. If defined it must be an absolute URI or it will be ignored
   - `certificate_file`, string. Certificate for HTTPS. This can be an absolute path or a path relative to the config dir.
   - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If both the certificate and the private key are provided, the server will expect HTTPS connections. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
   - `ca_certificates`, list of strings. Set of root certificate authorities to be used to verify client certificates.

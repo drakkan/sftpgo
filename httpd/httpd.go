@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -27,46 +28,47 @@ import (
 )
 
 const (
-	logSender                 = "httpd"
-	tokenPath                 = "/api/v2/token"
-	logoutPath                = "/api/v2/logout"
-	activeConnectionsPath     = "/api/v2/connections"
-	quotaScanPath             = "/api/v2/quota-scans"
-	quotaScanVFolderPath      = "/api/v2/folder-quota-scans"
-	userPath                  = "/api/v2/users"
-	versionPath               = "/api/v2/version"
-	folderPath                = "/api/v2/folders"
-	serverStatusPath          = "/api/v2/status"
-	dumpDataPath              = "/api/v2/dumpdata"
-	loadDataPath              = "/api/v2/loaddata"
-	updateUsedQuotaPath       = "/api/v2/quota-update"
-	updateFolderUsedQuotaPath = "/api/v2/folder-quota-update"
-	defenderBanTime           = "/api/v2/defender/bantime"
-	defenderUnban             = "/api/v2/defender/unban"
-	defenderScore             = "/api/v2/defender/score"
-	adminPath                 = "/api/v2/admins"
-	adminPwdPath              = "/api/v2/changepwd/admin"
-	healthzPath               = "/healthz"
-	webBasePath               = "/web"
-	webLoginPath              = "/web/login"
-	webLogoutPath             = "/web/logout"
-	webUsersPath              = "/web/users"
-	webUserPath               = "/web/user"
-	webConnectionsPath        = "/web/connections"
-	webFoldersPath            = "/web/folders"
-	webFolderPath             = "/web/folder"
-	webStatusPath             = "/web/status"
-	webAdminsPath             = "/web/admins"
-	webAdminPath              = "/web/admin"
-	webMaintenancePath        = "/web/maintenance"
-	webBackupPath             = "/web/backup"
-	webRestorePath            = "/web/restore"
-	webScanVFolderPath        = "/web/folder-quota-scans"
-	webQuotaScanPath          = "/web/quota-scans"
-	webChangeAdminPwdPath     = "/web/changepwd/admin"
-	webTemplateUser           = "/web/template/user"
-	webTemplateFolder         = "/web/template/folder"
-	webStaticFilesPath        = "/static"
+	logSender                    = "httpd"
+	tokenPath                    = "/api/v2/token"
+	logoutPath                   = "/api/v2/logout"
+	activeConnectionsPath        = "/api/v2/connections"
+	quotaScanPath                = "/api/v2/quota-scans"
+	quotaScanVFolderPath         = "/api/v2/folder-quota-scans"
+	userPath                     = "/api/v2/users"
+	versionPath                  = "/api/v2/version"
+	folderPath                   = "/api/v2/folders"
+	serverStatusPath             = "/api/v2/status"
+	dumpDataPath                 = "/api/v2/dumpdata"
+	loadDataPath                 = "/api/v2/loaddata"
+	updateUsedQuotaPath          = "/api/v2/quota-update"
+	updateFolderUsedQuotaPath    = "/api/v2/folder-quota-update"
+	defenderBanTime              = "/api/v2/defender/bantime"
+	defenderUnban                = "/api/v2/defender/unban"
+	defenderScore                = "/api/v2/defender/score"
+	adminPath                    = "/api/v2/admins"
+	adminPwdPath                 = "/api/v2/changepwd/admin"
+	healthzPath                  = "/healthz"
+	webRootPathDefault           = "/"
+	webBasePathDefault           = "/web"
+	webLoginPathDefault          = "/web/login"
+	webLogoutPathDefault         = "/web/logout"
+	webUsersPathDefault          = "/web/users"
+	webUserPathDefault           = "/web/user"
+	webConnectionsPathDefault    = "/web/connections"
+	webFoldersPathDefault        = "/web/folders"
+	webFolderPathDefault         = "/web/folder"
+	webStatusPathDefault         = "/web/status"
+	webAdminsPathDefault         = "/web/admins"
+	webAdminPathDefault          = "/web/admin"
+	webMaintenancePathDefault    = "/web/maintenance"
+	webBackupPathDefault         = "/web/backup"
+	webRestorePathDefault        = "/web/restore"
+	webScanVFolderPathDefault    = "/web/folder-quota-scans"
+	webQuotaScanPathDefault      = "/web/quota-scans"
+	webChangeAdminPwdPathDefault = "/web/changepwd/admin"
+	webTemplateUserDefault       = "/web/template/user"
+	webTemplateFolderDefault     = "/web/template/folder"
+	webStaticFilesPathDefault    = "/static"
 	// MaxRestoreSize defines the max size for the loaddata input file
 	MaxRestoreSize = 10485760 // 10 MB
 	maxRequestSize = 1048576  // 1MB
@@ -80,7 +82,32 @@ var (
 	jwtTokensCleanupDone   chan bool
 	invalidatedJWTTokens   sync.Map
 	csrfTokenAuth          *jwtauth.JWTAuth
+	webRootPath            string
+	webBasePath            string
+	webLoginPath           string
+	webLogoutPath          string
+	webUsersPath           string
+	webUserPath            string
+	webConnectionsPath     string
+	webFoldersPath         string
+	webFolderPath          string
+	webStatusPath          string
+	webAdminsPath          string
+	webAdminPath           string
+	webMaintenancePath     string
+	webBackupPath          string
+	webRestorePath         string
+	webScanVFolderPath     string
+	webQuotaScanPath       string
+	webChangeAdminPwdPath  string
+	webTemplateUser        string
+	webTemplateFolder      string
+	webStaticFilesPath     string
 )
+
+func init() {
+	updateWebAdminURLs("")
+}
 
 // Binding defines the configuration for a network listener
 type Binding struct {
@@ -153,6 +180,9 @@ type Conf struct {
 	StaticFilesPath string `json:"static_files_path" mapstructure:"static_files_path"`
 	// Path to the backup directory. This can be an absolute path or a path relative to the config dir
 	BackupsPath string `json:"backups_path" mapstructure:"backups_path"`
+	// Defines a base URL for the web admin. If empty web admin resources will be available at the
+	// root ("/") URI. If defined it must be an absolute URI or it will be ignored.
+	WebAdminRoot string `json:"web_admin_root" mapstructure:"web_admin_root"`
 	// If files containing a certificate and matching private key for the server are provided the server will expect
 	// HTTPS connections.
 	// Certificate and key files can be reloaded on demand sending a "SIGHUP" signal on Unix based systems and a
@@ -199,6 +229,7 @@ func (c *Conf) Initialize(configDir string) error {
 	certificateFile := getConfigPath(c.CertificateFile, configDir)
 	certificateKeyFile := getConfigPath(c.CertificateKeyFile, configDir)
 	if enableWebAdmin {
+		updateWebAdminURLs(c.WebAdminRoot)
 		loadTemplates(templatesPath)
 	} else {
 		logger.Info(logSender, "", "built-in web interface disabled, please set templates_path and static_files_path to enable it")
@@ -296,6 +327,33 @@ func fileServer(r chi.Router, path string, root http.FileSystem) {
 		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
 		fs.ServeHTTP(w, r)
 	})
+}
+
+func updateWebAdminURLs(baseURL string) {
+	if !path.IsAbs(baseURL) {
+		baseURL = "/"
+	}
+	webRootPath = path.Join(baseURL, webRootPathDefault)
+	webBasePath = path.Join(baseURL, webBasePathDefault)
+	webLoginPath = path.Join(baseURL, webLoginPathDefault)
+	webLogoutPath = path.Join(baseURL, webLogoutPathDefault)
+	webUsersPath = path.Join(baseURL, webUsersPathDefault)
+	webUserPath = path.Join(baseURL, webUserPathDefault)
+	webConnectionsPath = path.Join(baseURL, webConnectionsPathDefault)
+	webFoldersPath = path.Join(baseURL, webFoldersPathDefault)
+	webFolderPath = path.Join(baseURL, webFolderPathDefault)
+	webStatusPath = path.Join(baseURL, webStatusPathDefault)
+	webAdminsPath = path.Join(baseURL, webAdminsPathDefault)
+	webAdminPath = path.Join(baseURL, webAdminPathDefault)
+	webMaintenancePath = path.Join(baseURL, webMaintenancePathDefault)
+	webBackupPath = path.Join(baseURL, webBackupPathDefault)
+	webRestorePath = path.Join(baseURL, webRestorePathDefault)
+	webScanVFolderPath = path.Join(baseURL, webScanVFolderPathDefault)
+	webQuotaScanPath = path.Join(baseURL, webQuotaScanPathDefault)
+	webChangeAdminPwdPath = path.Join(baseURL, webChangeAdminPwdPathDefault)
+	webTemplateUser = path.Join(baseURL, webTemplateUserDefault)
+	webTemplateFolder = path.Join(baseURL, webTemplateFolderDefault)
+	webStaticFilesPath = path.Join(baseURL, webStaticFilesPathDefault)
 }
 
 // GetHTTPRouter returns an HTTP handler suitable to use for test cases
