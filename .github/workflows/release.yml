@@ -446,7 +446,7 @@ jobs:
         run: |
           mv sftpgo_windows_x86_64.exe sftpgo_${SFTPGO_VERSION}_windows_x86_64.exe
           mv sftpgo_portable_x86_64.zip sftpgo_${SFTPGO_VERSION}_windows_portable_x86_64.zip
-          gh release create "${SFTPGO_VERSION}"
+          gh release create "${SFTPGO_VERSION}" -t "${SFTPGO_VERSION}"
           gh release upload "${SFTPGO_VERSION}" sftpgo_*.xz --clobber
           gh release upload "${SFTPGO_VERSION}" sftpgo-*.rpm --clobber
           gh release upload "${SFTPGO_VERSION}" sftpgo_*.deb --clobber
