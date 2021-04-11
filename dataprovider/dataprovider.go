@@ -279,6 +279,14 @@ type Config struct {
 	// folder name. These keys are used in URIs for REST API and Web admin. By default only unreserved URI
 	// characters are allowed: ALPHA / DIGIT / "-" / "." / "_" / "~".
 	SkipNaturalKeysValidation bool `json:"skip_natural_keys_validation" mapstructure:"skip_natural_keys_validation"`
+	// DelayedQuotaUpdate defines the number of seconds to accumulate quota updates.
+	// If there are a lot of close uploads, accumulating quota updates can save you many
+	// queries to the data provider.
+	// If you want to track quotas, a scheduled quota update is recommended in any case, the stored
+	// quota size may be incorrect for several reasons, such as an unexpected shutdown, temporary provider
+	// failures, file copied outside of SFTPGo, and so on.
+	// 0 means immediate quota update.
+	DelayedQuotaUpdate int `json:"delayed_quota_update" mapstructure:"delayed_quota_update"`
 }
 
 // BackupData defines the structure for the backup/restore files
@@ -469,6 +477,7 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 		providerLog(logger.LevelInfo, "database initialization/migration skipped, manual mode is configured")
 	}
 	startAvailabilityTimer()
+	delayedQuotaUpdater.start()
 	return nil
 }
 
@@ -767,7 +776,14 @@ func UpdateUserQuota(user *User, filesAdd int, sizeAdd int64, reset bool) error 
 	if filesAdd == 0 && sizeAdd == 0 && !reset {
 		return nil
 	}
-	return provider.updateQuota(user.Username, filesAdd, sizeAdd, reset)
+	if config.DelayedQuotaUpdate == 0 || reset {
+		if reset {
+			delayedQuotaUpdater.resetUserQuota(user.Username)
+		}
+		return provider.updateQuota(user.Username, filesAdd, sizeAdd, reset)
+	}
+	delayedQuotaUpdater.updateUserQuota(user.Username, filesAdd, sizeAdd)
+	return nil
 }
 
 // UpdateVirtualFolderQuota updates the quota for the given virtual folder adding filesAdd and sizeAdd.
@@ -779,7 +795,14 @@ func UpdateVirtualFolderQuota(vfolder *vfs.BaseVirtualFolder, filesAdd int, size
 	if filesAdd == 0 && sizeAdd == 0 && !reset {
 		return nil
 	}
-	return provider.updateFolderQuota(vfolder.Name, filesAdd, sizeAdd, reset)
+	if config.DelayedQuotaUpdate == 0 || reset {
+		if reset {
+			delayedQuotaUpdater.resetFolderQuota(vfolder.Name)
+		}
+		return provider.updateFolderQuota(vfolder.Name, filesAdd, sizeAdd, reset)
+	}
+	delayedQuotaUpdater.updateFolderQuota(vfolder.Name, filesAdd, sizeAdd)
+	return nil
 }
 
 // GetUsedQuota returns the used quota for the given SFTP user.
@@ -787,7 +810,12 @@ func GetUsedQuota(username string) (int, int64, error) {
 	if config.TrackQuota == 0 {
 		return 0, 0, &MethodDisabledError{err: trackQuotaDisabledError}
 	}
-	return provider.getUsedQuota(username)
+	files, size, err := provider.getUsedQuota(username)
+	if err != nil {
+		return files, size, err
+	}
+	delayedFiles, delayedSize := delayedQuotaUpdater.getUserPendingQuota(username)
+	return files + delayedFiles, size + delayedSize, err
 }
 
 // GetUsedVirtualFolderQuota returns the used quota for the given virtual folder.
@@ -795,7 +823,12 @@ func GetUsedVirtualFolderQuota(name string) (int, int64, error) {
 	if config.TrackQuota == 0 {
 		return 0, 0, &MethodDisabledError{err: trackQuotaDisabledError}
 	}
-	return provider.getUsedFolderQuota(name)
+	files, size, err := provider.getUsedFolderQuota(name)
+	if err != nil {
+		return files, size, err
+	}
+	delayedFiles, delayedSize := delayedQuotaUpdater.getFolderPendingQuota(name)
+	return files + delayedFiles, size + delayedSize, err
 }
 
 // AddAdmin adds a new SFTPGo admin
@@ -855,6 +888,7 @@ func DeleteUser(username string) error {
 	err = provider.deleteUser(&user)
 	if err == nil {
 		RemoveCachedWebDAVUser(user.Username)
+		delayedQuotaUpdater.resetUserQuota(username)
 		executeAction(operationDelete, &user)
 	}
 	return err
@@ -904,6 +938,7 @@ func DeleteFolder(folderName string) error {
 		for _, user := range folder.Users {
 			RemoveCachedWebDAVUser(user)
 		}
+		delayedQuotaUpdater.resetFolderQuota(folderName)
 	}
 	return err
 }

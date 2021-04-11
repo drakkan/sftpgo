@@ -1956,6 +1956,93 @@ func TestResolvePathError(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestDelayedQuotaUpdater(t *testing.T) {
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	providerConf.DelayedQuotaUpdate = 120
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	u := getTestUser()
+	u.QuotaFiles = 100
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	err = dataprovider.UpdateUserQuota(&user, 10, 6000, false)
+	assert.NoError(t, err)
+	files, size, err := dataprovider.GetUsedQuota(user.Username)
+	assert.NoError(t, err)
+	assert.Equal(t, 10, files)
+	assert.Equal(t, int64(6000), size)
+
+	userGet, err := dataprovider.UserExists(user.Username)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, userGet.UsedQuotaFiles)
+	assert.Equal(t, int64(0), userGet.UsedQuotaSize)
+
+	err = dataprovider.UpdateUserQuota(&user, 10, 6000, true)
+	assert.NoError(t, err)
+	files, size, err = dataprovider.GetUsedQuota(user.Username)
+	assert.NoError(t, err)
+	assert.Equal(t, 10, files)
+	assert.Equal(t, int64(6000), size)
+
+	userGet, err = dataprovider.UserExists(user.Username)
+	assert.NoError(t, err)
+	assert.Equal(t, 10, userGet.UsedQuotaFiles)
+	assert.Equal(t, int64(6000), userGet.UsedQuotaSize)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	folder := vfs.BaseVirtualFolder{
+		Name:       "folder",
+		MappedPath: filepath.Join(os.TempDir(), "p"),
+	}
+	err = dataprovider.AddFolder(&folder)
+	assert.NoError(t, err)
+
+	err = dataprovider.UpdateVirtualFolderQuota(&folder, 10, 6000, false)
+	assert.NoError(t, err)
+	files, size, err = dataprovider.GetUsedVirtualFolderQuota(folder.Name)
+	assert.NoError(t, err)
+	assert.Equal(t, 10, files)
+	assert.Equal(t, int64(6000), size)
+
+	folderGet, err := dataprovider.GetFolderByName(folder.Name)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, folderGet.UsedQuotaFiles)
+	assert.Equal(t, int64(0), folderGet.UsedQuotaSize)
+
+	err = dataprovider.UpdateVirtualFolderQuota(&folder, 10, 6000, true)
+	assert.NoError(t, err)
+	files, size, err = dataprovider.GetUsedVirtualFolderQuota(folder.Name)
+	assert.NoError(t, err)
+	assert.Equal(t, 10, files)
+	assert.Equal(t, int64(6000), size)
+
+	folderGet, err = dataprovider.GetFolderByName(folder.Name)
+	assert.NoError(t, err)
+	assert.Equal(t, 10, folderGet.UsedQuotaFiles)
+	assert.Equal(t, int64(6000), folderGet.UsedQuotaSize)
+
+	err = dataprovider.DeleteFolder(folder.Name)
+	assert.NoError(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+}
+
 func TestQuotaTrackDisabled(t *testing.T) {
 	err := dataprovider.Close()
 	assert.NoError(t, err)

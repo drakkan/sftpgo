@@ -181,7 +181,7 @@ func Init() {
 			Driver:           "sqlite",
 			Name:             "sftpgo.db",
 			Host:             "",
-			Port:             5432,
+			Port:             0,
 			Username:         "",
 			Password:         "",
 			ConnectionString: "",
@@ -212,6 +212,7 @@ func Init() {
 			UpdateMode:                0,
 			PreferDatabaseCredentials: false,
 			SkipNaturalKeysValidation: false,
+			DelayedQuotaUpdate:        0,
 		},
 		HTTPDConfig: httpd.Conf{
 			Bindings:           []httpd.Binding{defaultHTTPDBinding},
@@ -857,6 +858,7 @@ func setViperDefaults() {
 	viper.SetDefault("data_provider.password_hashing.argon2_options.parallelism", globalConf.ProviderConf.PasswordHashing.Argon2Options.Parallelism)
 	viper.SetDefault("data_provider.update_mode", globalConf.ProviderConf.UpdateMode)
 	viper.SetDefault("data_provider.skip_natural_keys_validation", globalConf.ProviderConf.SkipNaturalKeysValidation)
+	viper.SetDefault("data_provider.delayed_quota_update", globalConf.ProviderConf.DelayedQuotaUpdate)
 	viper.SetDefault("httpd.templates_path", globalConf.HTTPDConfig.TemplatesPath)
 	viper.SetDefault("httpd.static_files_path", globalConf.HTTPDConfig.StaticFilesPath)
 	viper.SetDefault("httpd.backups_path", globalConf.HTTPDConfig.BackupsPath)

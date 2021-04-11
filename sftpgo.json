@@ -126,6 +126,7 @@
     "connection_string": "",
     "sql_tables_prefix": "",
     "track_quota": 2,
+    "delayed_quota_update": 0,
     "pool_size": 0,
     "users_base_dir": "",
     "actions": {

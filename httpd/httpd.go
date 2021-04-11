@@ -17,6 +17,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/lestrrat-go/jwx/jwa"
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
@@ -250,7 +251,7 @@ func (c *Conf) Initialize(configDir string) error {
 		certMgr = mgr
 	}
 
-	csrfTokenAuth = jwtauth.New("HS256", utils.GenerateRandomBytes(32), nil)
+	csrfTokenAuth = jwtauth.New(jwa.HS256.String(), utils.GenerateRandomBytes(32), nil)
 
 	exitChannel := make(chan error, 1)
 

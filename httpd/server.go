@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-chi/render"
+	"github.com/lestrrat-go/jwx/jwa"
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
@@ -252,7 +253,7 @@ func (s *httpdServer) updateContextFromCookie(r *http.Request) *http.Request {
 }
 
 func (s *httpdServer) initializeRouter() {
-	s.tokenAuth = jwtauth.New("HS256", utils.GenerateRandomBytes(32), nil)
+	s.tokenAuth = jwtauth.New(jwa.HS256.String(), utils.GenerateRandomBytes(32), nil)
 	s.router = chi.NewRouter()
 
 	s.router.Use(saveConnectionAddress)

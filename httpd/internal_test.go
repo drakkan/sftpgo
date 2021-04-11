@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/rs/xid"
 	"github.com/stretchr/testify/assert"
@@ -409,7 +410,7 @@ func TestCSRFToken(t *testing.T) {
 	tokenString = createCSRFToken()
 	assert.Empty(t, tokenString)
 
-	csrfTokenAuth = jwtauth.New("HS256", utils.GenerateRandomBytes(32), nil)
+	csrfTokenAuth = jwtauth.New(jwa.HS256.String(), utils.GenerateRandomBytes(32), nil)
 }
 
 func TestCreateTokenError(t *testing.T) {
@@ -460,7 +461,7 @@ func TestCreateTokenError(t *testing.T) {
 }
 
 func TestJWTTokenValidation(t *testing.T) {
-	tokenAuth := jwtauth.New("HS256", utils.GenerateRandomBytes(32), nil)
+	tokenAuth := jwtauth.New(jwa.HS256.String(), utils.GenerateRandomBytes(32), nil)
 	claims := make(map[string]interface{})
 	claims["username"] = "admin"
 	claims[jwt.ExpirationKey] = time.Now().UTC().Add(-1 * time.Hour)
@@ -520,7 +521,7 @@ func TestAdminAllowListConnAddr(t *testing.T) {
 
 func TestUpdateContextFromCookie(t *testing.T) {
 	server := httpdServer{
-		tokenAuth: jwtauth.New("HS256", utils.GenerateRandomBytes(32), nil),
+		tokenAuth: jwtauth.New(jwa.HS256.String(), utils.GenerateRandomBytes(32), nil),
 	}
 	req, _ := http.NewRequest(http.MethodGet, tokenPath, nil)
 	claims := make(map[string]interface{})
@@ -534,7 +535,7 @@ func TestUpdateContextFromCookie(t *testing.T) {
 
 func TestCookieExpiration(t *testing.T) {
 	server := httpdServer{
-		tokenAuth: jwtauth.New("HS256", utils.GenerateRandomBytes(32), nil),
+		tokenAuth: jwtauth.New(jwa.HS256.String(), utils.GenerateRandomBytes(32), nil),
 	}
 	err := errors.New("test error")
 	rr := httptest.NewRecorder()
@@ -842,7 +843,7 @@ func TestGetUserFromTemplate(t *testing.T) {
 
 func TestJWTTokenCleanup(t *testing.T) {
 	server := httpdServer{
-		tokenAuth: jwtauth.New("HS256", utils.GenerateRandomBytes(32), nil),
+		tokenAuth: jwtauth.New(jwa.HS256.String(), utils.GenerateRandomBytes(32), nil),
 	}
 	admin := dataprovider.Admin{
 		Username:    "newtestadmin",
