@@ -38,9 +38,9 @@ CREATE TABLE "{{users}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "user
 CREATE TABLE "{{folders_mapping}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "virtual_path" varchar(512) NOT NULL,
 "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "folder_id" integer NOT NULL REFERENCES "{{folders}}" ("id")
 ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, "user_id" integer NOT NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
-CONSTRAINT "unique_mapping" UNIQUE ("user_id", "folder_id"));
-CREATE INDEX "folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_id");
-CREATE INDEX "folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
+CONSTRAINT "{{prefix}}unique_mapping" UNIQUE ("user_id", "folder_id"));
+CREATE INDEX "{{prefix}}folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_id");
+CREATE INDEX "{{prefix}}folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
 INSERT INTO {{schema_version}} (version) VALUES (8);
 `
 	sqliteV9SQL = `ALTER TABLE "{{admins}}" ADD COLUMN "description" varchar(512) NULL;
@@ -249,6 +249,7 @@ func (p *SQLiteProvider) initializeDatabase() error {
 	initialSQL = strings.ReplaceAll(initialSQL, "{{folders}}", sqlTableFolders)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{users}}", sqlTableUsers)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{folders_mapping}}", sqlTableFoldersMapping)
+	initialSQL = strings.ReplaceAll(initialSQL, "{{prefix}}", config.SQLTablesPrefix)
 
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 8)
 }

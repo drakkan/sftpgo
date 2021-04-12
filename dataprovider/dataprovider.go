@@ -80,7 +80,7 @@ const (
 	operationAdd              = "add"
 	operationUpdate           = "update"
 	operationDelete           = "delete"
-	sqlPrefixValidChars       = "abcdefghijklmnopqrstuvwxyz_"
+	sqlPrefixValidChars       = "abcdefghijklmnopqrstuvwxyz_0123456789"
 )
 
 // ordering constants
@@ -511,10 +511,10 @@ func validateHooks() error {
 }
 
 func validateSQLTablesPrefix() error {
-	if len(config.SQLTablesPrefix) > 0 {
+	if config.SQLTablesPrefix != "" {
 		for _, char := range config.SQLTablesPrefix {
 			if !strings.Contains(sqlPrefixValidChars, strings.ToLower(string(char))) {
-				return errors.New("invalid sql_tables_prefix only chars in range 'a..z', 'A..Z' and '_' are allowed")
+				return errors.New("invalid sql_tables_prefix only chars in range 'a..z', 'A..Z', '0-9' and '_' are allowed")
 			}
 		}
 		sqlTableUsers = config.SQLTablesPrefix + sqlTableUsers
