@@ -549,7 +549,9 @@ func loadBindingsFromEnv() {
 }
 
 func getSFTPDBindindFromEnv(idx int) {
-	binding := sftpd.Binding{}
+	binding := sftpd.Binding{
+		ApplyProxyConfig: true,
+	}
 	if len(globalConf.SFTPD.Bindings) > idx {
 		binding = globalConf.SFTPD.Bindings[idx]
 	}
@@ -584,7 +586,9 @@ func getSFTPDBindindFromEnv(idx int) {
 }
 
 func getFTPDBindingFromEnv(idx int) {
-	binding := ftpd.Binding{}
+	binding := ftpd.Binding{
+		ApplyProxyConfig: true,
+	}
 	if len(globalConf.FTPD.Bindings) > idx {
 		binding = globalConf.FTPD.Bindings[idx]
 	}
