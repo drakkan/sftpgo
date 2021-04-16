@@ -387,6 +387,27 @@ func TestInitialization(t *testing.T) {
 	_, err = server.GetSettings()
 	assert.Error(t, err)
 
+	binding = Binding{
+		Port:           2121,
+		ForcePassiveIP: "192.168.1",
+	}
+	server = NewServer(c, configDir, binding, 0)
+	_, err = server.GetSettings()
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "is not valid")
+	}
+
+	binding.ForcePassiveIP = "::ffff:192.168.89.9"
+	err = binding.checkPassiveIP()
+	assert.NoError(t, err)
+	assert.Equal(t, "192.168.89.9", binding.ForcePassiveIP)
+
+	binding.ForcePassiveIP = "::1"
+	err = binding.checkPassiveIP()
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "is not a valid IPv4 address")
+	}
+
 	err = ReloadCertificateMgr()
 	assert.NoError(t, err)
 

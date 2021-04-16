@@ -83,6 +83,9 @@ func (s *Server) cleanTLSConnVerification(id uint32) {
 
 // GetSettings returns FTP server settings
 func (s *Server) GetSettings() (*ftpserver.Settings, error) {
+	if err := s.binding.checkPassiveIP(); err != nil {
+		return nil, err
+	}
 	var portRange *ftpserver.PortRange
 	if s.config.PassivePortRange.Start > 0 && s.config.PassivePortRange.End > s.config.PassivePortRange.Start {
 		portRange = &ftpserver.PortRange{

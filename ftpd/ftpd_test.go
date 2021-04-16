@@ -454,6 +454,11 @@ func TestInitializationFailure(t *testing.T) {
 
 	ftpdConf.CACertificates = []string{caCrtPath}
 	ftpdConf.CARevocationLists = []string{caCRLPath}
+	ftpdConf.Bindings[1].ForcePassiveIP = "127001"
+	err = ftpdConf.Initialize(configDir)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "the provided passive IP \"127001\" is not valid")
+	ftpdConf.Bindings[1].ForcePassiveIP = ""
 	err = ftpdConf.Initialize(configDir)
 	require.Error(t, err)
 }

@@ -3,6 +3,7 @@ package ftpd
 
 import (
 	"fmt"
+	"net"
 	"path/filepath"
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
@@ -72,6 +73,21 @@ func (b *Binding) GetAddress() string {
 // IsValid returns true if the binding port is > 0
 func (b *Binding) IsValid() bool {
 	return b.Port > 0
+}
+
+func (b *Binding) checkPassiveIP() error {
+	if b.ForcePassiveIP != "" {
+		ip := net.ParseIP(b.ForcePassiveIP)
+		if ip == nil {
+			return fmt.Errorf("the provided passive IP %#v is not valid", b.ForcePassiveIP)
+		}
+		ip = ip.To4()
+		if ip == nil {
+			return fmt.Errorf("the provided passive IP %#v is not a valid IPv4 address", b.ForcePassiveIP)
+		}
+		b.ForcePassiveIP = ip.String()
+	}
+	return nil
 }
 
 // HasProxy returns true if the proxy protocol is active for this binding
