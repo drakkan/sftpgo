@@ -27,6 +27,7 @@ type Server struct {
 	initialMsg       string
 	statusBanner     string
 	binding          Binding
+	tlsConfig        *tls.Config
 	mu               sync.RWMutex
 	verifiedTLSConns map[uint32]bool
 }
@@ -55,6 +56,7 @@ func NewServer(config *Configuration, configDir string, binding Binding, id int)
 			logger.Warn(logSender, "", "unable to read banner file: %v", err)
 		}
 	}
+	server.buildTLSConfig()
 	return server
 }
 
@@ -230,26 +232,31 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 	return nil, nil
 }
 
-// GetTLSConfig returns a TLS Certificate to use
-func (s *Server) GetTLSConfig() (*tls.Config, error) {
+func (s *Server) buildTLSConfig() {
 	if certMgr != nil {
-		tlsConfig := &tls.Config{
+		s.tlsConfig = &tls.Config{
 			GetCertificate:           certMgr.GetCertificateFunc(),
 			MinVersion:               tls.VersionTLS12,
 			CipherSuites:             s.binding.ciphers,
 			PreferServerCipherSuites: true,
 		}
 		if s.binding.isMutualTLSEnabled() {
-			tlsConfig.ClientCAs = certMgr.GetRootCAs()
-			tlsConfig.VerifyConnection = s.verifyTLSConnection
+			s.tlsConfig.ClientCAs = certMgr.GetRootCAs()
+			s.tlsConfig.VerifyConnection = s.verifyTLSConnection
 			switch s.binding.ClientAuthType {
 			case 1:
-				tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+				s.tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
 			case 2:
-				tlsConfig.ClientAuth = tls.VerifyClientCertIfGiven
+				s.tlsConfig.ClientAuth = tls.VerifyClientCertIfGiven
 			}
 		}
-		return tlsConfig, nil
+	}
+}
+
+// GetTLSConfig returns the TLS configuration for this server
+func (s *Server) GetTLSConfig() (*tls.Config, error) {
+	if s.tlsConfig != nil {
+		return s.tlsConfig, nil
 	}
 	return nil, errors.New("no TLS certificate configured")
 }
