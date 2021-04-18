@@ -18,6 +18,7 @@ import (
 	"github.com/drakkan/sftpgo/httpclient"
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/sftpd"
+	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/webdavd"
 )
 
@@ -427,6 +428,61 @@ func TestHTTPDBindingsCompatibility(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRateLimitersFromEnv(t *testing.T) {
+	reset()
+
+	os.Setenv("SFTPGO_COMMON__RATE_LIMITERS__0__AVERAGE", "100")
+	os.Setenv("SFTPGO_COMMON__RATE_LIMITERS__0__PERIOD", "2000")
+	os.Setenv("SFTPGO_COMMON__RATE_LIMITERS__0__BURST", "10")
+	os.Setenv("SFTPGO_COMMON__RATE_LIMITERS__0__TYPE", "2")
+	os.Setenv("SFTPGO_COMMON__RATE_LIMITERS__0__PROTOCOLS", "SSH, FTP")
+	os.Setenv("SFTPGO_COMMON__RATE_LIMITERS__0__GENERATE_DEFENDER_EVENTS", "1")
+	os.Setenv("SFTPGO_COMMON__RATE_LIMITERS__0__ENTRIES_SOFT_LIMIT", "50")
+	os.Setenv("SFTPGO_COMMON__RATE_LIMITERS__0__ENTRIES_HARD_LIMIT", "100")
+	os.Setenv("SFTPGO_COMMON__RATE_LIMITERS__8__AVERAGE", "50")
+	t.Cleanup(func() {
+		os.Unsetenv("SFTPGO_COMMON__RATE_LIMITERS__0__AVERAGE")
+		os.Unsetenv("SFTPGO_COMMON__RATE_LIMITERS__0__PERIOD")
+		os.Unsetenv("SFTPGO_COMMON__RATE_LIMITERS__0__BURST")
+		os.Unsetenv("SFTPGO_COMMON__RATE_LIMITERS__0__TYPE")
+		os.Unsetenv("SFTPGO_COMMON__RATE_LIMITERS__0__PROTOCOLS")
+		os.Unsetenv("SFTPGO_COMMON__RATE_LIMITERS__0__GENERATE_DEFENDER_EVENTS")
+		os.Unsetenv("SFTPGO_COMMON__RATE_LIMITERS__0__ENTRIES_SOFT_LIMIT")
+		os.Unsetenv("SFTPGO_COMMON__RATE_LIMITERS__0__ENTRIES_HARD_LIMIT")
+		os.Unsetenv("SFTPGO_COMMON__RATE_LIMITERS__8__AVERAGE")
+	})
+
+	configDir := ".."
+	err := config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	limiters := config.GetCommonConfig().RateLimitersConfig
+	require.Len(t, limiters, 2)
+	require.Equal(t, int64(100), limiters[0].Average)
+	require.Equal(t, int64(2000), limiters[0].Period)
+	require.Equal(t, 10, limiters[0].Burst)
+	require.Equal(t, 2, limiters[0].Type)
+	protocols := limiters[0].Protocols
+	require.Len(t, protocols, 2)
+	require.True(t, utils.IsStringInSlice(common.ProtocolFTP, protocols))
+	require.True(t, utils.IsStringInSlice(common.ProtocolSSH, protocols))
+	require.True(t, limiters[0].GenerateDefenderEvents)
+	require.Equal(t, 50, limiters[0].EntriesSoftLimit)
+	require.Equal(t, 100, limiters[0].EntriesHardLimit)
+	require.Equal(t, int64(50), limiters[1].Average)
+	// we check the default values here
+	require.Equal(t, int64(1000), limiters[1].Period)
+	require.Equal(t, 1, limiters[1].Burst)
+	require.Equal(t, 2, limiters[1].Type)
+	protocols = limiters[1].Protocols
+	require.Len(t, protocols, 3)
+	require.True(t, utils.IsStringInSlice(common.ProtocolFTP, protocols))
+	require.True(t, utils.IsStringInSlice(common.ProtocolSSH, protocols))
+	require.True(t, utils.IsStringInSlice(common.ProtocolWebDAV, protocols))
+	require.False(t, limiters[1].GenerateDefenderEvents)
+	require.Equal(t, 100, limiters[1].EntriesSoftLimit)
+	require.Equal(t, 150, limiters[1].EntriesHardLimit)
+}
+
 func TestSFTPDBindingsFromEnv(t *testing.T) {
 	reset()
 
@@ -435,14 +491,12 @@ func TestSFTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_SFTPD__BINDINGS__0__APPLY_PROXY_CONFIG", "false")
 	os.Setenv("SFTPGO_SFTPD__BINDINGS__3__ADDRESS", "127.0.1.1")
 	os.Setenv("SFTPGO_SFTPD__BINDINGS__3__PORT", "2203")
-	os.Setenv("SFTPGO_SFTPD__BINDINGS__3__APPLY_PROXY_CONFIG", "1")
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_SFTPD__BINDINGS__0__ADDRESS")
 		os.Unsetenv("SFTPGO_SFTPD__BINDINGS__0__PORT")
 		os.Unsetenv("SFTPGO_SFTPD__BINDINGS__0__APPLY_PROXY_CONFIG")
 		os.Unsetenv("SFTPGO_SFTPD__BINDINGS__3__ADDRESS")
 		os.Unsetenv("SFTPGO_SFTPD__BINDINGS__3__PORT")
-		os.Unsetenv("SFTPGO_SFTPD__BINDINGS__3__APPLY_PROXY_CONFIG")
 	})
 
 	configDir := ".."
@@ -455,7 +509,7 @@ func TestSFTPDBindingsFromEnv(t *testing.T) {
 	require.False(t, bindings[0].ApplyProxyConfig)
 	require.Equal(t, 2203, bindings[1].Port)
 	require.Equal(t, "127.0.1.1", bindings[1].Address)
-	require.True(t, bindings[1].ApplyProxyConfig)
+	require.True(t, bindings[1].ApplyProxyConfig) // default value
 }
 
 func TestFTPDBindingsFromEnv(t *testing.T) {
@@ -469,7 +523,6 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_FTPD__BINDINGS__0__TLS_CIPHER_SUITES", "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__ADDRESS", "127.0.1.1")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__PORT", "2203")
-	os.Setenv("SFTPGO_FTPD__BINDINGS__9__APPLY_PROXY_CONFIG", "t")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__TLS_MODE", "1")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__FORCE_PASSIVE_IP", "127.0.1.1")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__CLIENT_AUTH_TYPE", "2")
@@ -483,7 +536,6 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__0__TLS_CIPHER_SUITES")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__ADDRESS")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__PORT")
-		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__APPLY_PROXY_CONFIG")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__TLS_MODE")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__FORCE_PASSIVE_IP")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__CLIENT_AUTH_TYPE")
@@ -505,7 +557,7 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", bindings[0].TLSCipherSuites[1])
 	require.Equal(t, 2203, bindings[1].Port)
 	require.Equal(t, "127.0.1.1", bindings[1].Address)
-	require.True(t, bindings[1].ApplyProxyConfig)
+	require.True(t, bindings[1].ApplyProxyConfig) // default value
 	require.Equal(t, 1, bindings[1].TLSMode)
 	require.Equal(t, "127.0.1.1", bindings[1].ForcePassiveIP)
 	require.Equal(t, 2, bindings[1].ClientAuthType)

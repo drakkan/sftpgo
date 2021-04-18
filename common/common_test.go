@@ -165,6 +165,64 @@ func TestDefenderIntegration(t *testing.T) {
 	Config = configCopy
 }
 
+func TestRateLimitersIntegration(t *testing.T) {
+	// by default defender is nil
+	configCopy := Config
+
+	Config.RateLimitersConfig = []RateLimiterConfig{
+		{
+			Average:   100,
+			Period:    10,
+			Burst:     5,
+			Type:      int(rateLimiterTypeGlobal),
+			Protocols: rateLimiterProtocolValues,
+		},
+		{
+			Average:                1,
+			Period:                 1000,
+			Burst:                  1,
+			Type:                   int(rateLimiterTypeSource),
+			Protocols:              []string{ProtocolWebDAV, ProtocolWebDAV, ProtocolFTP},
+			GenerateDefenderEvents: true,
+			EntriesSoftLimit:       100,
+			EntriesHardLimit:       150,
+		},
+	}
+	err := Initialize(Config)
+	assert.Error(t, err)
+	Config.RateLimitersConfig[0].Period = 1000
+	err = Initialize(Config)
+	assert.NoError(t, err)
+
+	assert.Len(t, rateLimiters, 3)
+	assert.Len(t, rateLimiters[ProtocolSSH], 1)
+	assert.Len(t, rateLimiters[ProtocolFTP], 2)
+	assert.Len(t, rateLimiters[ProtocolWebDAV], 2)
+
+	source1 := "127.1.1.1"
+	source2 := "127.1.1.2"
+
+	err = LimitRate(ProtocolSSH, source1)
+	assert.NoError(t, err)
+	err = LimitRate(ProtocolFTP, source1)
+	assert.NoError(t, err)
+	// sleep to allow the add configured burst to the token.
+	// This sleep is not enough to add the per-source burst
+	time.Sleep(20 * time.Millisecond)
+	err = LimitRate(ProtocolWebDAV, source2)
+	assert.NoError(t, err)
+	err = LimitRate(ProtocolFTP, source1)
+	assert.Error(t, err)
+	err = LimitRate(ProtocolWebDAV, source2)
+	assert.Error(t, err)
+	err = LimitRate(ProtocolSSH, source1)
+	assert.NoError(t, err)
+	err = LimitRate(ProtocolSSH, source2)
+	assert.NoError(t, err)
+
+	Config = configCopy
+}
+
 func TestMaxConnections(t *testing.T) {
 	oldValue := Config.MaxTotalConnections
 	Config.MaxTotalConnections = 1

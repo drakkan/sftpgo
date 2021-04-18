@@ -104,6 +104,8 @@ var (
 	idleTimeoutTicker     *time.Ticker
 	idleTimeoutTickerDone chan bool
 	supportedProtocols    = []string{ProtocolSFTP, ProtocolSCP, ProtocolSSH, ProtocolFTP, ProtocolWebDAV}
+	// the map key is the protocol, for each protocol we can have multiple rate limiters
+	rateLimiters map[string][]*rateLimiter
 )
 
 // Initialize sets the common configuration
@@ -122,6 +124,32 @@ func Initialize(c Configuration) error {
 		}
 		logger.Info(logSender, "", "defender initialized with config %+v", c.DefenderConfig)
 		Config.defender = defender
+	}
+	rateLimiters = make(map[string][]*rateLimiter)
+	for _, rlCfg := range c.RateLimitersConfig {
+		if rlCfg.isEnabled() {
+			if err := rlCfg.validate(); err != nil {
+				return fmt.Errorf("rate limiters initialization error: %v", err)
+			}
+			rateLimiter := rlCfg.getLimiter()
+			for _, protocol := range rlCfg.Protocols {
+				rateLimiters[protocol] = append(rateLimiters[protocol], rateLimiter)
+			}
+		}
+	}
+	return nil
+}
+
+// LimitRate blocks until all the configured rate limiters
+// allow one event to happen.
+// It returns an error if the time to wait exceeds the max
+// allowed delay
+func LimitRate(protocol, ip string) error {
+	for _, limiter := range rateLimiters[protocol] {
+		if err := limiter.Wait(ip); err != nil {
+			logger.Debug(logSender, "", "protocol %v ip %v: %v", protocol, ip, err)
+			return err
+		}
 	}
 	return nil
 }
@@ -324,7 +352,9 @@ type Configuration struct {
 	// Maximum number of concurrent client connections. 0 means unlimited
 	MaxTotalConnections int `json:"max_total_connections" mapstructure:"max_total_connections"`
 	// Defender configuration
-	DefenderConfig        DefenderConfig `json:"defender" mapstructure:"defender"`
+	DefenderConfig DefenderConfig `json:"defender" mapstructure:"defender"`
+	// Rate limiter configurations
+	RateLimitersConfig    []RateLimiterConfig `json:"rate_limiters" mapstructure:"rate_limiters"`
 	idleTimeoutAsDuration time.Duration
 	idleLoginTimeout      time.Duration
 	defender              Defender

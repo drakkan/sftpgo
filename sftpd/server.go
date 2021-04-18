@@ -360,6 +360,9 @@ func canAcceptConnection(ip string) bool {
 		logger.Log(logger.LevelDebug, common.ProtocolSSH, "", "connection refused, configured limit reached")
 		return false
 	}
+	if err := common.LimitRate(common.ProtocolSSH, ip); err != nil {
+		return false
+	}
 	if err := common.Config.ExecutePostConnectHook(ip, common.ProtocolSSH); err != nil {
 		return false
 	}

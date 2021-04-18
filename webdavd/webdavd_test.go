@@ -704,12 +704,49 @@ func TestLoginNonExistentUser(t *testing.T) {
 	assert.Error(t, checkBasicFunc(client))
 }
 
+func TestRateLimiter(t *testing.T) {
+	oldConfig := config.GetCommonConfig()
+
+	cfg := config.GetCommonConfig()
+	cfg.RateLimitersConfig = []common.RateLimiterConfig{
+		{
+			Average:   1,
+			Period:    1000,
+			Burst:     3,
+			Type:      1,
+			Protocols: []string{common.ProtocolWebDAV},
+		},
+	}
+
+	err := common.Initialize(cfg)
+	assert.NoError(t, err)
+
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	client := getWebDavClient(user, false, nil)
+	assert.NoError(t, checkBasicFunc(client))
+
+	_, err = client.ReadDir(".")
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "429")
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	err = common.Initialize(oldConfig)
+	assert.NoError(t, err)
+}
+
 func TestDefender(t *testing.T) {
 	oldConfig := config.GetCommonConfig()
 
 	cfg := config.GetCommonConfig()
 	cfg.DefenderConfig.Enabled = true
 	cfg.DefenderConfig.Threshold = 3
+	cfg.DefenderConfig.ScoreRateExceeded = 2
 
 	err := common.Initialize(cfg)
 	assert.NoError(t, err)

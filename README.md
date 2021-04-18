@@ -34,6 +34,7 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - Configurable custom commands and/or HTTP notifications on file upload, download, pre-delete, delete, rename, on SSH commands and on user add, update and delete.
 - Automatically terminating idle connections.
 - Automatic blocklist management is supported using the built-in [defender](./docs/defender.md).
+- Per-protocol [rate limiting](./docs/rate-limiting.md) is supported and can optionally be connected to the built-in defender to automatically block hosts that repeatedly exceed the configured limit.
 - Atomic uploads are configurable.
 - Support for Git repositories over SSH.
 - SCP and rsync are supported.

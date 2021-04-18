@@ -72,11 +72,21 @@ The configuration file contains the following sections:
     - `threshold`, integer. Threshold value for banning a client.
     - `score_invalid`, integer. Score for invalid login attempts, eg. non-existent user accounts or client disconnected for inactivity without authentication attempts.
     - `score_valid`, integer. Score for valid login attempts, eg. user accounts that exist.
+    - `score_rate_exceeded`, integer. Score for hosts that exceeded the configured rate limits.
     - `observation_time`, integer. Defines the time window, in minutes, for tracking client errors. A host is banned if it has exceeded the defined threshold during the last observation time minutes.
     - `entries_soft_limit`, integer.
     - `entries_hard_limit`, integer. The number of banned IPs and host scores kept in memory will vary between the soft and hard limit.
     - `safelist_file`, string. Path to a file containing a list of ip addresses and/or networks to never ban.
     - `blocklist_file`, string. Path to a file containing a list of ip addresses and/or networks to always ban. The lists can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows. An host that is already banned will not be automatically unbanned if you put it inside the safe list, you have to unban it using the REST API.
+  - `rate_limiters`, list of structs containing the rate limiters configuration. Take a look [here](./rate-limiting.md) for more details. Each struct has the following fields:
+    - `average`, integer. Average defines the maximum rate allowed. 0 means disabled. Default: 0
+    - `period`, integer. Period defines the period as milliseconds. The rate is actually defined by dividing average by period Default: 1000 (1 second).
+    - `burst`, integer. Burst defines the maximum number of requests allowed to go through in the same arbitrarily small period of time. Default: 1
+    - `type`, integer. 1 means a global rate limiter, independent from the source host. 2 means a per-ip rate limiter. Default: 2
+    - `protocols`, list of strings. Available protocols are `SSH`, `FTP`, `DAV`. By default all supported protocols are enabled
+    - `generate_defender_events`, boolean. If `true`, the defender is enabled, and this is not a global rate limiter, a new defender event will be generated each time the configured limit is exceeded. Default `false`
+    - `entries_soft_limit`, integer.
+    - `entries_hard_limit`, integer. The number of per-ip rate limiters kept in memory will vary between the soft and hard limit
 - **"sftpd"**, the configuration for the SFTP server
   - `bindings`, list of structs. Each struct has the following fields:
     - `port`, integer. The port used for serving SFTP requests. 0 means disabled. Default: 2022

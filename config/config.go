@@ -69,6 +69,16 @@ var (
 		ClientAuthType:  0,
 		TLSCipherSuites: nil,
 	}
+	defaultRateLimiter = common.RateLimiterConfig{
+		Average:                0,
+		Period:                 1000,
+		Burst:                  1,
+		Type:                   2,
+		Protocols:              []string{common.ProtocolSSH, common.ProtocolFTP, common.ProtocolWebDAV},
+		GenerateDefenderEvents: false,
+		EntriesSoftLimit:       100,
+		EntriesHardLimit:       150,
+	}
 )
 
 type globalConfig struct {
@@ -106,18 +116,20 @@ func Init() {
 			PostConnectHook:     "",
 			MaxTotalConnections: 0,
 			DefenderConfig: common.DefenderConfig{
-				Enabled:          false,
-				BanTime:          30,
-				BanTimeIncrement: 50,
-				Threshold:        15,
-				ScoreInvalid:     2,
-				ScoreValid:       1,
-				ObservationTime:  30,
-				EntriesSoftLimit: 100,
-				EntriesHardLimit: 150,
-				SafeListFile:     "",
-				BlockListFile:    "",
+				Enabled:           false,
+				BanTime:           30,
+				BanTimeIncrement:  50,
+				Threshold:         15,
+				ScoreInvalid:      2,
+				ScoreValid:        1,
+				ScoreRateExceeded: 3,
+				ObservationTime:   30,
+				EntriesSoftLimit:  100,
+				EntriesHardLimit:  150,
+				SafeListFile:      "",
+				BlockListFile:     "",
 			},
+			RateLimitersConfig: []common.RateLimiterConfig{defaultRateLimiter},
 		},
 		SFTPD: sftpd.Configuration{
 			Banner:                  defaultSFTPDBanner,
@@ -538,13 +550,78 @@ func loadBindingsFromEnv() {
 	checkWebDAVDBindingCompatibility()
 	checkHTTPDBindingCompatibility()
 
-	maxBindings := make([]int, 10)
-	for idx := range maxBindings {
+	for idx := 0; idx < 10; idx++ {
+		getRateLimitersFromEnv(idx)
 		getSFTPDBindindFromEnv(idx)
 		getFTPDBindingFromEnv(idx)
 		getWebDAVDBindingFromEnv(idx)
 		getHTTPDBindingFromEnv(idx)
 		getHTTPClientCertificatesFromEnv(idx)
+	}
+}
+
+func getRateLimitersFromEnv(idx int) {
+	rtlConfig := defaultRateLimiter
+	if len(globalConf.Common.RateLimitersConfig) > idx {
+		rtlConfig = globalConf.Common.RateLimitersConfig[idx]
+	}
+
+	isSet := false
+
+	average, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__AVERAGE", idx))
+	if ok {
+		rtlConfig.Average = average
+		isSet = true
+	}
+
+	period, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__PERIOD", idx))
+	if ok {
+		rtlConfig.Period = period
+		isSet = true
+	}
+
+	burst, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__BURST", idx))
+	if ok {
+		rtlConfig.Burst = int(burst)
+		isSet = true
+	}
+
+	rtlType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__TYPE", idx))
+	if ok {
+		rtlConfig.Type = int(rtlType)
+		isSet = true
+	}
+
+	protocols, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__PROTOCOLS", idx))
+	if ok {
+		rtlConfig.Protocols = protocols
+		isSet = true
+	}
+
+	generateEvents, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__GENERATE_DEFENDER_EVENTS", idx))
+	if ok {
+		rtlConfig.GenerateDefenderEvents = generateEvents
+		isSet = true
+	}
+
+	softLimit, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__ENTRIES_SOFT_LIMIT", idx))
+	if ok {
+		rtlConfig.EntriesSoftLimit = int(softLimit)
+		isSet = true
+	}
+
+	hardLimit, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__ENTRIES_HARD_LIMIT", idx))
+	if ok {
+		rtlConfig.EntriesHardLimit = int(hardLimit)
+		isSet = true
+	}
+
+	if isSet {
+		if len(globalConf.Common.RateLimitersConfig) > idx {
+			globalConf.Common.RateLimitersConfig[idx] = rtlConfig
+		} else {
+			globalConf.Common.RateLimitersConfig = append(globalConf.Common.RateLimitersConfig, rtlConfig)
+		}
 	}
 }
 
@@ -560,7 +637,7 @@ func getSFTPDBindindFromEnv(idx int) {
 
 	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_SFTPD__BINDINGS__%v__PORT", idx))
 	if ok {
-		binding.Port = port
+		binding.Port = int(port)
 		isSet = true
 	}
 
@@ -597,7 +674,7 @@ func getFTPDBindingFromEnv(idx int) {
 
 	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__PORT", idx))
 	if ok {
-		binding.Port = port
+		binding.Port = int(port)
 		isSet = true
 	}
 
@@ -615,7 +692,7 @@ func getFTPDBindingFromEnv(idx int) {
 
 	tlsMode, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__TLS_MODE", idx))
 	if ok {
-		binding.TLSMode = tlsMode
+		binding.TLSMode = int(tlsMode)
 		isSet = true
 	}
 
@@ -627,7 +704,7 @@ func getFTPDBindingFromEnv(idx int) {
 
 	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx))
 	if ok {
-		binding.ClientAuthType = clientAuthType
+		binding.ClientAuthType = int(clientAuthType)
 		isSet = true
 	}
 
@@ -656,7 +733,7 @@ func getWebDAVDBindingFromEnv(idx int) {
 
 	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__PORT", idx))
 	if ok {
-		binding.Port = port
+		binding.Port = int(port)
 		isSet = true
 	}
 
@@ -674,7 +751,7 @@ func getWebDAVDBindingFromEnv(idx int) {
 
 	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx))
 	if ok {
-		binding.ClientAuthType = clientAuthType
+		binding.ClientAuthType = int(clientAuthType)
 		isSet = true
 	}
 
@@ -709,7 +786,7 @@ func getHTTPDBindingFromEnv(idx int) {
 
 	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__PORT", idx))
 	if ok {
-		binding.Port = port
+		binding.Port = int(port)
 		isSet = true
 	}
 
@@ -733,7 +810,7 @@ func getHTTPDBindingFromEnv(idx int) {
 
 	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx))
 	if ok {
-		binding.ClientAuthType = clientAuthType
+		binding.ClientAuthType = int(clientAuthType)
 		isSet = true
 	}
 
@@ -790,6 +867,7 @@ func setViperDefaults() {
 	viper.SetDefault("common.defender.threshold", globalConf.Common.DefenderConfig.Threshold)
 	viper.SetDefault("common.defender.score_invalid", globalConf.Common.DefenderConfig.ScoreInvalid)
 	viper.SetDefault("common.defender.score_valid", globalConf.Common.DefenderConfig.ScoreValid)
+	viper.SetDefault("common.defender.score_rate_exceeded", globalConf.Common.DefenderConfig.ScoreRateExceeded)
 	viper.SetDefault("common.defender.observation_time", globalConf.Common.DefenderConfig.ObservationTime)
 	viper.SetDefault("common.defender.entries_soft_limit", globalConf.Common.DefenderConfig.EntriesSoftLimit)
 	viper.SetDefault("common.defender.entries_hard_limit", globalConf.Common.DefenderConfig.EntriesHardLimit)
@@ -900,12 +978,12 @@ func lookupBoolFromEnv(envName string) (bool, bool) {
 	return false, false
 }
 
-func lookupIntFromEnv(envName string) (int, bool) {
+func lookupIntFromEnv(envName string) (int64, bool) {
 	value, ok := os.LookupEnv(envName)
 	if ok {
-		converted, err := strconv.ParseInt(value, 10, 16)
+		converted, err := strconv.ParseInt(value, 10, 64)
 		if err == nil {
-			return int(converted), ok
+			return converted, ok
 		}
 	}
 

@@ -2809,6 +2809,7 @@ func TestDefenderAPI(t *testing.T) {
 	cfg := config.GetCommonConfig()
 	cfg.DefenderConfig.Enabled = true
 	cfg.DefenderConfig.Threshold = 3
+	cfg.DefenderConfig.ScoreRateExceeded = 2
 
 	err := common.Initialize(cfg)
 	require.NoError(t, err)

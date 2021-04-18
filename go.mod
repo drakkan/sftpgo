@@ -68,7 +68,7 @@ require (
 	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
 	golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57
 	golang.org/x/text v0.3.6 // indirect
-	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
+	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	google.golang.org/api v0.44.0
 	google.golang.org/genproto v0.0.0-20210406143921-e86de6bf7a46 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect

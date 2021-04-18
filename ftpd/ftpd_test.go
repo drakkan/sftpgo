@@ -771,12 +771,71 @@ func TestMaxConnections(t *testing.T) {
 	common.Config.MaxTotalConnections = oldValue
 }
 
+func TestRateLimiter(t *testing.T) {
+	oldConfig := config.GetCommonConfig()
+
+	cfg := config.GetCommonConfig()
+	cfg.DefenderConfig.Enabled = true
+	cfg.DefenderConfig.Threshold = 5
+	cfg.DefenderConfig.ScoreRateExceeded = 3
+	cfg.RateLimitersConfig = []common.RateLimiterConfig{
+		{
+			Average:                1,
+			Period:                 1000,
+			Burst:                  1,
+			Type:                   2,
+			Protocols:              []string{common.ProtocolFTP},
+			GenerateDefenderEvents: true,
+			EntriesSoftLimit:       100,
+			EntriesHardLimit:       150,
+		},
+	}
+
+	err := common.Initialize(cfg)
+	assert.NoError(t, err)
+
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	client, err := getFTPClient(user, false, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+
+	_, err = getFTPClient(user, true, nil)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "rate limit exceed")
+	}
+
+	_, err = getFTPClient(user, false, nil)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "rate limit exceed")
+	}
+
+	_, err = getFTPClient(user, true, nil)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "banned client IP")
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	err = common.Initialize(oldConfig)
+	assert.NoError(t, err)
+}
+
 func TestDefender(t *testing.T) {
 	oldConfig := config.GetCommonConfig()
 
 	cfg := config.GetCommonConfig()
 	cfg.DefenderConfig.Enabled = true
 	cfg.DefenderConfig.Threshold = 3
+	cfg.DefenderConfig.ScoreRateExceeded = 2
 
 	err := common.Initialize(cfg)
 	assert.NoError(t, err)
@@ -800,7 +859,7 @@ func TestDefender(t *testing.T) {
 	user.Password = defaultPassword
 	_, err = getFTPClient(user, false, nil)
 	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "Access denied, banned client IP")
+		assert.Contains(t, err.Error(), "banned client IP")
 	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)

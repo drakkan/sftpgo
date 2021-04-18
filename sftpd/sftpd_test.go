@@ -480,12 +480,51 @@ func TestLoginNonExistentUser(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestRateLimiter(t *testing.T) {
+	oldConfig := config.GetCommonConfig()
+
+	cfg := config.GetCommonConfig()
+	cfg.RateLimitersConfig = []common.RateLimiterConfig{
+		{
+			Average:   1,
+			Period:    1000,
+			Burst:     1,
+			Type:      1,
+			Protocols: []string{common.ProtocolSSH},
+		},
+	}
+
+	err := common.Initialize(cfg)
+	assert.NoError(t, err)
+
+	usePubKey := false
+	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	assert.NoError(t, err)
+	client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+	}
+	_, err = getSftpClient(user, usePubKey)
+	assert.Error(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	err = common.Initialize(oldConfig)
+	assert.NoError(t, err)
+}
+
 func TestDefender(t *testing.T) {
 	oldConfig := config.GetCommonConfig()
 
 	cfg := config.GetCommonConfig()
 	cfg.DefenderConfig.Enabled = true
 	cfg.DefenderConfig.Threshold = 3
+	cfg.DefenderConfig.ScoreRateExceeded = 2
 
 	err := common.Initialize(cfg)
 	assert.NoError(t, err)

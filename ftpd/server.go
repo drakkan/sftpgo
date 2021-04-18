@@ -138,14 +138,17 @@ func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
 	ipAddr := utils.GetIPFromRemoteAddress(cc.RemoteAddr().String())
 	if common.IsBanned(ipAddr) {
 		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection refused, ip %#v is banned", ipAddr)
-		return "Access denied, banned client IP", common.ErrConnectionDenied
+		return "Access denied: banned client IP", common.ErrConnectionDenied
 	}
 	if !common.Connections.IsNewConnectionAllowed() {
 		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection refused, configured limit reached")
-		return "", common.ErrConnectionDenied
+		return "Access denied: max allowed connection exceeded", common.ErrConnectionDenied
+	}
+	if err := common.LimitRate(common.ProtocolFTP, ipAddr); err != nil {
+		return fmt.Sprintf("Access denied: %v", err.Error()), err
 	}
 	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolFTP); err != nil {
-		return "", err
+		return "Access denied by post connect hook", err
 	}
 	connID := fmt.Sprintf("%v_%v", s.ID, cc.ID())
 	user := dataprovider.User{}

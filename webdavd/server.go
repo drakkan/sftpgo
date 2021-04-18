@@ -158,6 +158,10 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, common.ErrConnectionDenied.Error(), http.StatusForbidden)
 		return
 	}
+	if err := common.LimitRate(common.ProtocolWebDAV, ipAddr); err != nil {
+		http.Error(w, err.Error(), http.StatusTooManyRequests)
+		return
+	}
 	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolWebDAV); err != nil {
 		http.Error(w, common.ErrConnectionDenied.Error(), http.StatusForbidden)
 		return
