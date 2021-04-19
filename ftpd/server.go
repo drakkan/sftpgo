@@ -144,7 +144,8 @@ func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
 		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection refused, configured limit reached")
 		return "Access denied: max allowed connection exceeded", common.ErrConnectionDenied
 	}
-	if err := common.LimitRate(common.ProtocolFTP, ipAddr); err != nil {
+	_, err := common.LimitRate(common.ProtocolFTP, ipAddr)
+	if err != nil {
 		return fmt.Sprintf("Access denied: %v", err.Error()), err
 	}
 	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolFTP); err != nil {

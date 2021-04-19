@@ -35,7 +35,8 @@
         "protocols": [
           "SSH",
           "FTP",
-          "DAV"
+          "DAV",
+          "HTTP"
         ],
         "generate_defender_events": false,
         "entries_soft_limit": 100,

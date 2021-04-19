@@ -3118,6 +3118,44 @@ func TestLoaddataMode(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRateLimiter(t *testing.T) {
+	oldConfig := config.GetCommonConfig()
+
+	cfg := config.GetCommonConfig()
+	cfg.RateLimitersConfig = []common.RateLimiterConfig{
+		{
+			Average:   1,
+			Period:    1000,
+			Burst:     1,
+			Type:      1,
+			Protocols: []string{common.ProtocolHTTP},
+		},
+	}
+
+	err := common.Initialize(cfg)
+	assert.NoError(t, err)
+
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+	resp, err := client.Get(httpBaseURL + healthzPath)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	resp, err = client.Get(httpBaseURL + healthzPath)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
+	assert.NotEmpty(t, resp.Header.Get("Retry-After"))
+	assert.NotEmpty(t, resp.Header.Get("X-Retry-In"))
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	err = common.Initialize(oldConfig)
+	assert.NoError(t, err)
+}
+
 func TestHTTPSConnection(t *testing.T) {
 	client := &http.Client{
 		Timeout: 5 * time.Second,

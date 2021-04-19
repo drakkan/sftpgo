@@ -74,7 +74,7 @@ var (
 		Period:                 1000,
 		Burst:                  1,
 		Type:                   2,
-		Protocols:              []string{common.ProtocolSSH, common.ProtocolFTP, common.ProtocolWebDAV},
+		Protocols:              []string{common.ProtocolSSH, common.ProtocolFTP, common.ProtocolWebDAV, common.ProtocolHTTP},
 		GenerateDefenderEvents: false,
 		EntriesSoftLimit:       100,
 		EntriesHardLimit:       150,

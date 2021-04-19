@@ -1,6 +1,6 @@
 # Rate limiting
 
-Rate limiting allows to control the number of requests going to the configured services.
+Rate limiting allows to control the number of requests going to the SFTPGo services.
 
 SFTPGo implements a [token bucket](https://en.wikipedia.org/wiki/Token_bucket) initially full and refilled at the configured rate. The `burst` configuration parameter defines the size of the bucket. The rate is defined by dividing `average` by `period`, so for a rate below 1 req/s, one needs to define a period larger than a second.
 
@@ -8,9 +8,16 @@ Requests that exceed the configured limit will be delayed or denied if they exce
 
 SFTPGo allows to define per-protocol rate limiters so you can have different configurations for different protocols.
 
+The supported protocols are:
+
+- `SSH`, includes SFTP and SSH commands
+- `FTP`, includes FTP, FTPES, FTPS
+- `DAV`, WebDAV
+- `HTTP`, REST API and web admin
+
 You can also define two types of rate limiters:
 
-- global, it is independent from the source host and therefore define a limit for the configured protocol/s
+- global, it is independent from the source host and therefore define an aggregate limit for the configured protocol/s
 - per-host, this type of rate limiter can be connected to the built-in [defender](./defender.md) and generate `score_rate_exceeded` events and thus hosts that repeatedly exceed the configured limit can be automatically blocked
 
 If you configure a per-host rate limiter, SFTPGo will keep a rate limiter in memory for each host that connects to the service, you can limit the memory usage using the `entries_soft_limit` and `entries_hard_limit` configuration keys.
@@ -27,7 +34,8 @@ You can defines how many rate limiters as you want, but keep in mind that if you
       "protocols": [
         "SSH",
         "FTP",
-        "DAV"
+        "DAV",
+        "HTTP"
       ],
       "generate_defender_events": false,
       "entries_soft_limit": 100,
@@ -48,6 +56,6 @@ You can defines how many rate limiters as you want, but keep in mind that if you
 ]
 ```
 
-we have a global rate limiter that limit the rate for the whole service to 100 req/s and an additional rate limiter that limits the `FTP` protocol to 10 req/s per host.
+we have a global rate limiter that limit the aggregate rate for the all the services to 100 req/s and an additional rate limiter that limits the `FTP` protocol to 10 req/s per host.
 With this configuration, when a client connects via FTP it will be limited first by the global rate limiter and then by the per host rate limiter.
 Clients connecting via SFTP/WebDAV will be checked only against the global rate limiter.

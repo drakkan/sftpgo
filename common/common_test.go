@@ -194,30 +194,31 @@ func TestRateLimitersIntegration(t *testing.T) {
 	err = Initialize(Config)
 	assert.NoError(t, err)
 
-	assert.Len(t, rateLimiters, 3)
+	assert.Len(t, rateLimiters, 4)
 	assert.Len(t, rateLimiters[ProtocolSSH], 1)
 	assert.Len(t, rateLimiters[ProtocolFTP], 2)
 	assert.Len(t, rateLimiters[ProtocolWebDAV], 2)
+	assert.Len(t, rateLimiters[ProtocolHTTP], 1)
 
 	source1 := "127.1.1.1"
 	source2 := "127.1.1.2"
 
-	err = LimitRate(ProtocolSSH, source1)
+	_, err = LimitRate(ProtocolSSH, source1)
 	assert.NoError(t, err)
-	err = LimitRate(ProtocolFTP, source1)
+	_, err = LimitRate(ProtocolFTP, source1)
 	assert.NoError(t, err)
 	// sleep to allow the add configured burst to the token.
 	// This sleep is not enough to add the per-source burst
 	time.Sleep(20 * time.Millisecond)
-	err = LimitRate(ProtocolWebDAV, source2)
+	_, err = LimitRate(ProtocolWebDAV, source2)
 	assert.NoError(t, err)
-	err = LimitRate(ProtocolFTP, source1)
+	_, err = LimitRate(ProtocolFTP, source1)
 	assert.Error(t, err)
-	err = LimitRate(ProtocolWebDAV, source2)
+	_, err = LimitRate(ProtocolWebDAV, source2)
 	assert.Error(t, err)
-	err = LimitRate(ProtocolSSH, source1)
+	_, err = LimitRate(ProtocolSSH, source1)
 	assert.NoError(t, err)
-	err = LimitRate(ProtocolSSH, source2)
+	_, err = LimitRate(ProtocolSSH, source2)
 	assert.NoError(t, err)
 
 	Config = configCopy

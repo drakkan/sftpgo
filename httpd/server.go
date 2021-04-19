@@ -259,6 +259,8 @@ func (s *httpdServer) initializeRouter() {
 	s.router.Use(saveConnectionAddress)
 	s.router.Use(middleware.GetHead)
 	s.router.Use(middleware.StripSlashes)
+	s.router.Use(middleware.RealIP)
+	s.router.Use(rateLimiter)
 
 	s.router.Group(func(r chi.Router) {
 		r.Get(healthzPath, func(w http.ResponseWriter, r *http.Request) {
@@ -268,7 +270,6 @@ func (s *httpdServer) initializeRouter() {
 
 	s.router.Group(func(router chi.Router) {
 		router.Use(middleware.RequestID)
-		router.Use(middleware.RealIP)
 		router.Use(logger.NewStructuredLogger(logger.GetLogger()))
 		router.Use(middleware.Recoverer)
 

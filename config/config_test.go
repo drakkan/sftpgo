@@ -474,10 +474,11 @@ func TestRateLimitersFromEnv(t *testing.T) {
 	require.Equal(t, 1, limiters[1].Burst)
 	require.Equal(t, 2, limiters[1].Type)
 	protocols = limiters[1].Protocols
-	require.Len(t, protocols, 3)
+	require.Len(t, protocols, 4)
 	require.True(t, utils.IsStringInSlice(common.ProtocolFTP, protocols))
 	require.True(t, utils.IsStringInSlice(common.ProtocolSSH, protocols))
 	require.True(t, utils.IsStringInSlice(common.ProtocolWebDAV, protocols))
+	require.True(t, utils.IsStringInSlice(common.ProtocolHTTP, protocols))
 	require.False(t, limiters[1].GenerateDefenderEvents)
 	require.Equal(t, 100, limiters[1].EntriesSoftLimit)
 	require.Equal(t, 150, limiters[1].EntriesHardLimit)

@@ -70,6 +70,7 @@ const (
 	ProtocolSSH    = "SSH"
 	ProtocolFTP    = "FTP"
 	ProtocolWebDAV = "DAV"
+	ProtocolHTTP   = "HTTP"
 )
 
 // Upload modes
@@ -144,14 +145,14 @@ func Initialize(c Configuration) error {
 // allow one event to happen.
 // It returns an error if the time to wait exceeds the max
 // allowed delay
-func LimitRate(protocol, ip string) error {
+func LimitRate(protocol, ip string) (time.Duration, error) {
 	for _, limiter := range rateLimiters[protocol] {
-		if err := limiter.Wait(ip); err != nil {
+		if delay, err := limiter.Wait(ip); err != nil {
 			logger.Debug(logSender, "", "protocol %v ip %v: %v", protocol, ip, err)
-			return err
+			return delay, err
 		}
 	}
-	return nil
+	return 0, nil
 }
 
 // ReloadDefender reloads the defender's block and safe lists

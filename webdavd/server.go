@@ -158,7 +158,10 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, common.ErrConnectionDenied.Error(), http.StatusForbidden)
 		return
 	}
-	if err := common.LimitRate(common.ProtocolWebDAV, ipAddr); err != nil {
+	delay, err := common.LimitRate(common.ProtocolWebDAV, ipAddr)
+	if err != nil {
+		w.Header().Set("Retry-After", fmt.Sprintf("%.0f", delay.Seconds()))
+		w.Header().Set("X-Retry-In", delay.String())
 		http.Error(w, err.Error(), http.StatusTooManyRequests)
 		return
 	}

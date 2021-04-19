@@ -16,7 +16,7 @@ import (
 var (
 	errNoBucket               = errors.New("no bucket found")
 	errReserve                = errors.New("unable to reserve token")
-	rateLimiterProtocolValues = []string{ProtocolSSH, ProtocolFTP, ProtocolWebDAV}
+	rateLimiterProtocolValues = []string{ProtocolSSH, ProtocolFTP, ProtocolWebDAV, ProtocolHTTP}
 )
 
 // RateLimiterType defines the supported rate limiters types
@@ -130,7 +130,7 @@ type rateLimiter struct {
 // Wait blocks until the limit allows one event to happen
 // or returns an error if the time to wait exceeds the max
 // allowed delay
-func (rl *rateLimiter) Wait(source string) error {
+func (rl *rateLimiter) Wait(source string) (time.Duration, error) {
 	var res *rate.Reservation
 	if rl.globalBucket != nil {
 		res = rl.globalBucket.Reserve()
@@ -143,7 +143,7 @@ func (rl *rateLimiter) Wait(source string) error {
 		}
 	}
 	if !res.OK() {
-		return errReserve
+		return 0, errReserve
 	}
 	delay := res.Delay()
 	if delay > rl.maxDelay {
@@ -151,10 +151,10 @@ func (rl *rateLimiter) Wait(source string) error {
 		if rl.generateDefenderEvents && rl.globalBucket == nil {
 			AddDefenderEvent(source, HostEventRateExceeded)
 		}
-		return fmt.Errorf("rate limit exceed, wait time to respect rate %v, max wait time allowed %v", delay, rl.maxDelay)
+		return delay, fmt.Errorf("rate limit exceed, wait time to respect rate %v, max wait time allowed %v", delay, rl.maxDelay)
 	}
 	time.Sleep(delay)
-	return nil
+	return 0, nil
 }
 
 type sourceRateLimiter struct {

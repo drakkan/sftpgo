@@ -63,9 +63,9 @@ func TestRateLimiter(t *testing.T) {
 		Protocols: rateLimiterProtocolValues,
 	}
 	limiter := config.getLimiter()
-	err := limiter.Wait("")
+	_, err := limiter.Wait("")
 	require.NoError(t, err)
-	err = limiter.Wait("")
+	_, err = limiter.Wait("")
 	require.Error(t, err)
 
 	config.Type = int(rateLimiterTypeSource)
@@ -75,17 +75,17 @@ func TestRateLimiter(t *testing.T) {
 	limiter = config.getLimiter()
 
 	source := "192.168.1.2"
-	err = limiter.Wait(source)
+	_, err = limiter.Wait(source)
 	require.NoError(t, err)
-	err = limiter.Wait(source)
+	_, err = limiter.Wait(source)
 	require.Error(t, err)
 	// a different source should work
-	err = limiter.Wait(source + "1")
+	_, err = limiter.Wait(source + "1")
 	require.NoError(t, err)
 
 	config.Burst = 0
 	limiter = config.getLimiter()
-	err = limiter.Wait(source)
+	_, err = limiter.Wait(source)
 	require.ErrorIs(t, err, errReserve)
 }
 
@@ -104,10 +104,10 @@ func TestLimiterCleanup(t *testing.T) {
 	source2 := "10.8.0.2"
 	source3 := "10.8.0.3"
 	source4 := "10.8.0.4"
-	err := limiter.Wait(source1)
+	_, err := limiter.Wait(source1)
 	assert.NoError(t, err)
 	time.Sleep(20 * time.Millisecond)
-	err = limiter.Wait(source2)
+	_, err = limiter.Wait(source2)
 	assert.NoError(t, err)
 	time.Sleep(20 * time.Millisecond)
 	assert.Len(t, limiter.buckets.buckets, 2)
@@ -115,7 +115,7 @@ func TestLimiterCleanup(t *testing.T) {
 	assert.True(t, ok)
 	_, ok = limiter.buckets.buckets[source2]
 	assert.True(t, ok)
-	err = limiter.Wait(source3)
+	_, err = limiter.Wait(source3)
 	assert.NoError(t, err)
 	assert.Len(t, limiter.buckets.buckets, 3)
 	_, ok = limiter.buckets.buckets[source1]
@@ -125,7 +125,7 @@ func TestLimiterCleanup(t *testing.T) {
 	_, ok = limiter.buckets.buckets[source3]
 	assert.True(t, ok)
 	time.Sleep(20 * time.Millisecond)
-	err = limiter.Wait(source4)
+	_, err = limiter.Wait(source4)
 	assert.NoError(t, err)
 	assert.Len(t, limiter.buckets.buckets, 2)
 	_, ok = limiter.buckets.buckets[source3]
