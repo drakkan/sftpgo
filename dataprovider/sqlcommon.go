@@ -213,7 +213,7 @@ func sqlCommonGetUserByUsername(username string, dbHandle sqlQuerier) (User, err
 	if err != nil {
 		return user, err
 	}
-	return getUserWithVirtualFolders(user, dbHandle)
+	return getUserWithVirtualFolders(ctx, user, dbHandle)
 }
 
 func sqlCommonValidateUserAndPass(username, password, ip, protocol string, dbHandle *sql.DB) (User, error) {
@@ -451,7 +451,7 @@ func sqlCommonDumpUsers(dbHandle sqlQuerier) ([]User, error) {
 	if err != nil {
 		return users, err
 	}
-	return getUsersWithVirtualFolders(users, dbHandle)
+	return getUsersWithVirtualFolders(ctx, users, dbHandle)
 }
 
 func sqlCommonGetUsers(limit int, offset int, order string, dbHandle sqlQuerier) ([]User, error) {
@@ -482,7 +482,7 @@ func sqlCommonGetUsers(limit int, offset int, order string, dbHandle sqlQuerier)
 	if err != nil {
 		return users, err
 	}
-	return getUsersWithVirtualFolders(users, dbHandle)
+	return getUsersWithVirtualFolders(ctx, users, dbHandle)
 }
 
 func getAdminFromDbRow(row sqlScanner) (Admin, error) {
@@ -877,8 +877,8 @@ func generateVirtualFoldersMapping(ctx context.Context, user *User, dbHandle sql
 	return err
 }
 
-func getUserWithVirtualFolders(user User, dbHandle sqlQuerier) (User, error) {
-	users, err := getUsersWithVirtualFolders([]User{user}, dbHandle)
+func getUserWithVirtualFolders(ctx context.Context, user User, dbHandle sqlQuerier) (User, error) {
+	users, err := getUsersWithVirtualFolders(ctx, []User{user}, dbHandle)
 	if err != nil {
 		return user, err
 	}
@@ -888,14 +888,12 @@ func getUserWithVirtualFolders(user User, dbHandle sqlQuerier) (User, error) {
 	return users[0], err
 }
 
-func getUsersWithVirtualFolders(users []User, dbHandle sqlQuerier) ([]User, error) {
+func getUsersWithVirtualFolders(ctx context.Context, users []User, dbHandle sqlQuerier) ([]User, error) {
 	var err error
 	usersVirtualFolders := make(map[int64][]vfs.VirtualFolder)
 	if len(users) == 0 {
 		return users, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
-	defer cancel()
 	q := getRelatedFoldersForUsersQuery(users)
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
