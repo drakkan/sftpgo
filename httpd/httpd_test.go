@@ -3147,7 +3147,7 @@ func TestRateLimiter(t *testing.T) {
 	resp, err = client.Get(httpBaseURL + healthzPath)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
-	assert.NotEmpty(t, resp.Header.Get("Retry-After"))
+	assert.Equal(t, "1", resp.Header.Get("Retry-After"))
 	assert.NotEmpty(t, resp.Header.Get("X-Retry-In"))
 	err = resp.Body.Close()
 	assert.NoError(t, err)

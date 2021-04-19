@@ -160,6 +160,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	delay, err := common.LimitRate(common.ProtocolWebDAV, ipAddr)
 	if err != nil {
+		delay += 499999999 * time.Nanosecond
 		w.Header().Set("Retry-After", fmt.Sprintf("%.0f", delay.Seconds()))
 		w.Header().Set("X-Retry-In", delay.String())
 		http.Error(w, err.Error(), http.StatusTooManyRequests)
