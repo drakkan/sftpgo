@@ -524,6 +524,9 @@ func (c *SSHConnection) Close() error {
 
 // ActiveConnections holds the currect active connections with the associated transfers
 type ActiveConnections struct {
+	// networkConnections is the counter for the network connections, it contains
+	// both authenticated and estabilished connections and the ones waiting for authentication
+	networkConnections int32
 	sync.RWMutex
 	connections    []ActiveConnection
 	sshConnections []*SSHConnection
@@ -690,11 +693,29 @@ func (conns *ActiveConnections) checkIdles() {
 	conns.RUnlock()
 }
 
+// AddNetworkConnection increments the network connections counter
+func (conns *ActiveConnections) AddNetworkConnection() {
+	atomic.AddInt32(&conns.networkConnections, 1)
+}
+
+// RemoveNetworkConnection decrements the network connections counter
+func (conns *ActiveConnections) RemoveNetworkConnection() {
+	atomic.AddInt32(&conns.networkConnections, -1)
+}
+
 // IsNewConnectionAllowed returns false if the maximum number of concurrent allowed connections is exceeded
 func (conns *ActiveConnections) IsNewConnectionAllowed() bool {
 	if Config.MaxTotalConnections == 0 {
 		return true
 	}
+
+	num := atomic.LoadInt32(&conns.networkConnections)
+	if num > int32(Config.MaxTotalConnections) {
+		logger.Debug(logSender, "", "active network connections %v/%v", num, Config.MaxTotalConnections)
+		return false
+	}
+	// on a single SFTP connection we could have multiple SFTP channels or commands
+	// so we check the estabilished connections too
 
 	conns.RLock()
 	defer conns.RUnlock()

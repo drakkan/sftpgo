@@ -241,6 +241,14 @@ func TestMaxConnections(t *testing.T) {
 	assert.True(t, res)
 	assert.Eventually(t, func() bool { return len(Connections.GetStats()) == 0 }, 300*time.Millisecond, 50*time.Millisecond)
 
+	assert.True(t, Connections.IsNewConnectionAllowed())
+	Connections.AddNetworkConnection()
+	Connections.AddNetworkConnection()
+	assert.False(t, Connections.IsNewConnectionAllowed())
+	Connections.RemoveNetworkConnection()
+	assert.True(t, Connections.IsNewConnectionAllowed())
+	Connections.RemoveNetworkConnection()
+
 	Config.MaxTotalConnections = oldValue
 }
 

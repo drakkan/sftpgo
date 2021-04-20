@@ -147,6 +147,9 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, common.ErrGenericFailure.Error(), http.StatusInternalServerError)
 		}
 	}()
+	common.Connections.AddNetworkConnection()
+	defer common.Connections.RemoveNetworkConnection()
+
 	if !common.Connections.IsNewConnectionAllowed() {
 		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection refused, configured limit reached")
 		http.Error(w, common.ErrConnectionDenied.Error(), http.StatusServiceUnavailable)

@@ -135,6 +135,7 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 
 // ClientConnected is called to send the very first welcome message
 func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
+	common.Connections.AddNetworkConnection()
 	ipAddr := utils.GetIPFromRemoteAddress(cc.RemoteAddr().String())
 	if common.IsBanned(ipAddr) {
 		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection refused, ip %#v is banned", ipAddr)
@@ -166,6 +167,7 @@ func (s *Server) ClientDisconnected(cc ftpserver.ClientContext) {
 	s.cleanTLSConnVerification(cc.ID())
 	connID := fmt.Sprintf("%v_%v_%v", common.ProtocolFTP, s.ID, cc.ID())
 	common.Connections.Remove(connID)
+	common.Connections.RemoveNetworkConnection()
 }
 
 // AuthUser authenticates the user and selects an handling driver

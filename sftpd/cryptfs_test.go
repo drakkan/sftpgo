@@ -29,8 +29,9 @@ func TestBasicSFTPCryptoHandling(t *testing.T) {
 	u.QuotaSize = 6553600
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	client, err := getSftpClient(user, usePubKey)
+	conn, client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
+		defer conn.Close()
 		defer client.Close()
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(65535)
@@ -95,8 +96,9 @@ func TestOpenReadWriteCryptoFs(t *testing.T) {
 	u.QuotaSize = 6553600
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	client, err := getSftpClient(user, usePubKey)
+	conn, client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
+		defer conn.Close()
 		defer client.Close()
 		sftpFile, err := client.OpenFile(testFileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
 		if assert.NoError(t, err) {
@@ -124,8 +126,9 @@ func TestEmptyFile(t *testing.T) {
 	u := getTestUserWithCryptFs(usePubKey)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	client, err := getSftpClient(user, usePubKey)
+	conn, client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
+		defer conn.Close()
 		defer client.Close()
 		sftpFile, err := client.OpenFile(testFileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
 		if assert.NoError(t, err) {
@@ -166,8 +169,9 @@ func TestUploadResumeCryptFs(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	client, err := getSftpClient(user, usePubKey)
+	conn, client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
+		defer conn.Close()
 		defer client.Close()
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(65535)
@@ -201,8 +205,9 @@ func TestQuotaFileReplaceCryptFs(t *testing.T) {
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	encryptedFileSize, err := getEncryptedFileSize(testFileSize)
 	assert.NoError(t, err)
-	client, err := getSftpClient(user, usePubKey)
+	conn, client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) { //nolint:dupl
+		defer conn.Close()
 		defer client.Close()
 		expectedQuotaSize := user.UsedQuotaSize + encryptedFileSize
 		expectedQuotaFiles := user.UsedQuotaFiles + 1
@@ -238,8 +243,9 @@ func TestQuotaFileReplaceCryptFs(t *testing.T) {
 	user.QuotaSize = encryptedFileSize*2 - 1
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
-	client, err = getSftpClient(user, usePubKey)
+	conn, client, err = getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
+		defer conn.Close()
 		defer client.Close()
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		assert.Error(t, err, "quota size exceeded, file upload must fail")
@@ -263,8 +269,9 @@ func TestQuotaScanCryptFs(t *testing.T) {
 	assert.NoError(t, err)
 	expectedQuotaSize := user.UsedQuotaSize + encryptedFileSize
 	expectedQuotaFiles := user.UsedQuotaFiles + 1
-	client, err := getSftpClient(user, usePubKey)
+	conn, client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
+		defer conn.Close()
 		defer client.Close()
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		err = createTestFile(testFilePath, testFileSize)
@@ -302,8 +309,9 @@ func TestGetMimeTypeCryptFs(t *testing.T) {
 	usePubKey := true
 	user, _, err := httpdtest.AddUser(getTestUserWithCryptFs(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
-	client, err := getSftpClient(user, usePubKey)
+	conn, client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
+		defer conn.Close()
 		defer client.Close()
 		sftpFile, err := client.OpenFile(testFileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
 		if assert.NoError(t, err) {
@@ -336,8 +344,9 @@ func TestTruncate(t *testing.T) {
 	usePubKey := true
 	user, _, err := httpdtest.AddUser(getTestUserWithCryptFs(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
-	client, err := getSftpClient(user, usePubKey)
+	conn, client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
+		defer conn.Close()
 		defer client.Close()
 		f, err := client.OpenFile(testFileName, os.O_WRONLY)
 		if assert.NoError(t, err) {

@@ -377,6 +377,10 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 			logger.Error(logSender, "", "panic in AcceptInboundConnection: %#v stack strace: %v", r, string(debug.Stack()))
 		}
 	}()
+
+	common.Connections.AddNetworkConnection()
+	defer common.Connections.RemoveNetworkConnection()
+
 	ipAddr := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
 	if !canAcceptConnection(ipAddr) {
 		conn.Close()
