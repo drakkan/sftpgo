@@ -271,8 +271,6 @@ I'd like to make SFTPGo into a sustainable long term project and your [sponsorsh
 
 Thank you to our sponsors!
 
-[<img src="https://images.squarespace-cdn.com/content/5e5db7f1ded5fc06a4e9628b/1583608099266-T5NW2WNQL7PC15LPRB16/logo+black.png?format=1500w&content-type=image%2Fpng" width="33%" alt="segmed logo">](https://www.segmed.ai/)
-
 ## License
 
 GNU AGPLv3

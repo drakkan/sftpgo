@@ -83,6 +83,13 @@ const (
 	sqlPrefixValidChars       = "abcdefghijklmnopqrstuvwxyz_0123456789"
 )
 
+// Supported algorithms for hashing passwords.
+// These algorithms can be used when SFTPGo hashes a plain text password
+const (
+	HashingAlgoBcrypt   = "bcrypt"
+	HashingAlgoArgon2ID = "argon2id"
+)
+
 // ordering constants
 const (
 	OrderASC  = "ASC"
@@ -137,6 +144,11 @@ type schemaVersion struct {
 	Version int
 }
 
+// BcryptOptions defines the options for bcrypt password hashing
+type BcryptOptions struct {
+	Cost int `json:"cost" mapstructure:"cost"`
+}
+
 // Argon2Options defines the options for argon2 password hashing
 type Argon2Options struct {
 	Memory      uint32 `json:"memory" mapstructure:"memory"`
@@ -147,6 +159,7 @@ type Argon2Options struct {
 // PasswordHashing defines the configuration for password hashing
 type PasswordHashing struct {
 	Argon2Options Argon2Options `json:"argon2_options" mapstructure:"argon2_options"`
+	BcryptOptions BcryptOptions `json:"bcrypt_options" mapstructure:"bcrypt_options"`
 }
 
 // UserActions defines the action to execute on user create, update, delete.
@@ -274,7 +287,8 @@ type Config struct {
 	// PreferDatabaseCredentials indicates whether credential files (currently used for Google
 	// Cloud Storage) should be stored in the database instead of in the directory specified by
 	// CredentialsPath.
-	PreferDatabaseCredentials bool `json:"prefer_database_credentials" mapstructure:"prefer_database_credentials"`
+	PasswordHashingAlgo       string `json:"password_hashing_algo" mapstructure:"password_hashing_algo"`
+	PreferDatabaseCredentials bool   `json:"prefer_database_credentials" mapstructure:"prefer_database_credentials"`
 	// SkipNaturalKeysValidation allows to use any UTF-8 character for natural keys as username, admin name,
 	// folder name. These keys are used in URIs for REST API and Web admin. By default only unreserved URI
 	// characters are allowed: ALPHA / DIGIT / "-" / "." / "_" / "~".
@@ -445,6 +459,15 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 		Parallelism: cnf.PasswordHashing.Argon2Options.Parallelism,
 		SaltLength:  16,
 		KeyLength:   32,
+	}
+
+	if config.PasswordHashingAlgo == HashingAlgoBcrypt {
+		if config.PasswordHashing.BcryptOptions.Cost > bcrypt.MaxCost {
+			err = fmt.Errorf("invalid bcrypt cost %v, max allowed %v", config.PasswordHashing.BcryptOptions.Cost, bcrypt.MaxCost)
+			logger.WarnToConsole("Unable to initialize data provider: %v", err)
+			providerLog(logger.LevelWarn, "Unable to initialize data provider: %v", err)
+			return err
+		}
 	}
 
 	if err = validateHooks(); err != nil {
@@ -1497,11 +1520,19 @@ func validateBaseParams(user *User) error {
 
 func createUserPasswordHash(user *User) error {
 	if user.Password != "" && !user.IsPasswordHashed() {
-		pwd, err := argon2id.CreateHash(user.Password, argon2Params)
-		if err != nil {
-			return err
+		if config.PasswordHashingAlgo == HashingAlgoBcrypt {
+			pwd, err := bcrypt.GenerateFromPassword([]byte(user.Password), config.PasswordHashing.BcryptOptions.Cost)
+			if err != nil {
+				return err
+			}
+			user.Password = string(pwd)
+		} else {
+			pwd, err := argon2id.CreateHash(user.Password, argon2Params)
+			if err != nil {
+				return err
+			}
+			user.Password = pwd
 		}
-		user.Password = pwd
 	}
 	return nil
 }

@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -1953,6 +1954,68 @@ func TestResolvePathError(t *testing.T) {
 	err = os.RemoveAll(u.GetHomeDir())
 	assert.NoError(t, err)
 	err = os.Remove(outHomePath)
+	assert.NoError(t, err)
+}
+
+func TestUserPasswordHashing(t *testing.T) {
+	if config.GetProviderConf().Driver == dataprovider.MemoryDataProviderName {
+		t.Skip("this test is not supported with the memory provider")
+	}
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	providerConf.PasswordHashingAlgo = dataprovider.HashingAlgoBcrypt
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	currentUser, err := dataprovider.UserExists(user.Username)
+	assert.NoError(t, err)
+	assert.True(t, strings.HasPrefix(currentUser.Password, "$argon2id$"))
+
+	client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	u = getTestUser()
+	user, _, err = httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	currentUser, err = dataprovider.UserExists(user.Username)
+	assert.NoError(t, err)
+	assert.True(t, strings.HasPrefix(currentUser.Password, "$2a$"))
+
+	client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 }
 

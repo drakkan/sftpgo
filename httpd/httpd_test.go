@@ -374,6 +374,59 @@ func TestChangeAdminPassword(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestAdminPasswordHashing(t *testing.T) {
+	if config.GetProviderConf().Driver == dataprovider.MemoryDataProviderName {
+		t.Skip("this test is not supported with the memory provider")
+	}
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	providerConf := config.GetProviderConf()
+	assert.NoError(t, err)
+	providerConf.PasswordHashingAlgo = dataprovider.HashingAlgoBcrypt
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	currentAdmin, err := dataprovider.AdminExists(defaultTokenAuthUser)
+	assert.NoError(t, err)
+	assert.True(t, strings.HasPrefix(currentAdmin.Password, "$argon2id$"))
+
+	a := getTestAdmin()
+	a.Username = altAdminUsername
+	a.Password = altAdminPassword
+
+	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
+	assert.NoError(t, err)
+
+	newAdmin, err := dataprovider.AdminExists(altAdminUsername)
+	assert.NoError(t, err)
+	assert.True(t, strings.HasPrefix(newAdmin.Password, "$2a$"))
+
+	token, _, err := httpdtest.GetToken(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+	httpdtest.SetJWTToken(token)
+	_, _, err = httpdtest.GetStatus(http.StatusOK)
+	assert.NoError(t, err)
+
+	httpdtest.SetJWTToken("")
+	_, _, err = httpdtest.GetStatus(http.StatusOK)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	providerConf.CredentialsPath = credentialsPath
+	err = os.RemoveAll(credentialsPath)
+	assert.NoError(t, err)
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+}
+
 func TestAdminAllowList(t *testing.T) {
 	a := getTestAdmin()
 	a.Username = altAdminUsername

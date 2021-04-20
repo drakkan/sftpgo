@@ -220,7 +220,11 @@ func Init() {
 					Iterations:  1,
 					Parallelism: 2,
 				},
+				BcryptOptions: dataprovider.BcryptOptions{
+					Cost: 10,
+				},
 			},
+			PasswordHashingAlgo:       dataprovider.HashingAlgoArgon2ID,
 			PasswordCaching:           true,
 			UpdateMode:                0,
 			PreferDatabaseCredentials: false,
@@ -939,6 +943,8 @@ func setViperDefaults() {
 	viper.SetDefault("data_provider.password_hashing.argon2_options.memory", globalConf.ProviderConf.PasswordHashing.Argon2Options.Memory)
 	viper.SetDefault("data_provider.password_hashing.argon2_options.iterations", globalConf.ProviderConf.PasswordHashing.Argon2Options.Iterations)
 	viper.SetDefault("data_provider.password_hashing.argon2_options.parallelism", globalConf.ProviderConf.PasswordHashing.Argon2Options.Parallelism)
+	viper.SetDefault("data_provider.password_hashing.bcrypt_options.cost", globalConf.ProviderConf.PasswordHashing.BcryptOptions.Cost)
+	viper.SetDefault("data_provider.password_hashing_algo", globalConf.ProviderConf.PasswordHashingAlgo)
 	viper.SetDefault("data_provider.update_mode", globalConf.ProviderConf.UpdateMode)
 	viper.SetDefault("data_provider.skip_natural_keys_validation", globalConf.ProviderConf.SkipNaturalKeysValidation)
 	viper.SetDefault("data_provider.delayed_quota_update", globalConf.ProviderConf.DelayedQuotaUpdate)

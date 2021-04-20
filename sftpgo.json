@@ -165,8 +165,12 @@
         "memory": 65536,
         "iterations": 1,
         "parallelism": 2
+      },
+      "bcrypt_options": {
+        "cost": 10
       }
     },
+    "password_hashing_algo": "argon2id",
     "password_caching": true,
     "update_mode": 0,
     "skip_natural_keys_validation": false
