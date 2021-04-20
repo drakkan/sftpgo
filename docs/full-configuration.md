@@ -199,6 +199,7 @@ The configuration file contains the following sections:
       - `memory`, unsigned integer. The amount of memory used by the algorithm (in kibibytes). Default: 65536.
       - `iterations`, unsigned integer. The number of iterations over the memory. Default: 1.
       - `parallelism`. unsigned 8 bit integer. The number of threads (or lanes) used by the algorithm. Default: 2.
+  - `password_caching`, boolean. Verifying argon2 passwords has a high memory and computational cost, by enabling, in memory, password caching you reduce this cost. Default: `true`
   - `update_mode`, integer. Defines how the database will be initialized/updated. 0 means automatically. 1 means manually using the initprovider sub-command.
   - `skip_natural_keys_validation`, boolean. If `true` you can use any UTF-8 character for natural keys as username, admin name, folder name. These keys are used in URIs for REST API and Web admin. If `false` only unreserved URI characters are allowed: ALPHA / DIGIT / "-" / "." / "_" / "~". Default: `false`.
   - `delayed_quota_update`, integer. This configuration parameter defines the number of seconds to accumulate quota updates. If there are a lot of close uploads, accumulating quota updates can save you many queries to the data provider. If you want to track quotas, a scheduled quota update is recommended in any case, the stored quota size may be incorrect for several reasons, such as an unexpected shutdown, temporary provider failures, file copied outside of SFTPGo, and so on. 0 means immediate quota update.

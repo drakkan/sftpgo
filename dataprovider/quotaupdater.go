@@ -7,7 +7,7 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 )
 
-var delayedQuotaUpdater *quotaUpdater
+var delayedQuotaUpdater quotaUpdater
 
 func init() {
 	delayedQuotaUpdater = newQuotaUpdater()
@@ -26,8 +26,8 @@ type quotaUpdater struct {
 	pendingFolderQuotaUpdates map[string]quotaObject
 }
 
-func newQuotaUpdater() *quotaUpdater {
-	return &quotaUpdater{
+func newQuotaUpdater() quotaUpdater {
+	return quotaUpdater{
 		pendingUserQuotaUpdates:   make(map[string]quotaObject),
 		pendingFolderQuotaUpdates: make(map[string]quotaObject),
 	}

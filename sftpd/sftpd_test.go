@@ -2609,6 +2609,11 @@ func TestLoginExternalAuth(t *testing.T) {
 			defer client.Close()
 			assert.NoError(t, checkBasicSFTP(client))
 		}
+		if !usePubKey {
+			found, match := dataprovider.CheckCachedPassword(defaultUsername, defaultPassword)
+			assert.True(t, found)
+			assert.True(t, match)
+		}
 		u.Username = defaultUsername + "1"
 		client, err = getSftpClient(u, usePubKey)
 		if !assert.Error(t, err, "external auth login with invalid user must fail") {

@@ -279,6 +279,9 @@ type Config struct {
 	// folder name. These keys are used in URIs for REST API and Web admin. By default only unreserved URI
 	// characters are allowed: ALPHA / DIGIT / "-" / "." / "_" / "~".
 	SkipNaturalKeysValidation bool `json:"skip_natural_keys_validation" mapstructure:"skip_natural_keys_validation"`
+	// Verifying argon2 passwords has a high memory and computational cost,
+	// by enabling, in memory, password caching you reduce this cost.
+	PasswordCaching bool `json:"password_caching" mapstructure:"password_caching"`
 	// DelayedQuotaUpdate defines the number of seconds to accumulate quota updates.
 	// If there are a lot of close uploads, accumulating quota updates can save you many
 	// queries to the data provider.
@@ -874,6 +877,7 @@ func UpdateUser(user *User) error {
 	err := provider.updateUser(user)
 	if err == nil {
 		webDAVUsersCache.swap(user)
+		cachedPasswords.Remove(user.Username)
 		executeAction(operationUpdate, user)
 	}
 	return err
@@ -889,6 +893,7 @@ func DeleteUser(username string) error {
 	if err == nil {
 		RemoveCachedWebDAVUser(user.Username)
 		delayedQuotaUpdater.resetUserQuota(username)
+		cachedPasswords.Remove(username)
 		executeAction(operationDelete, &user)
 	}
 	return err
@@ -1581,6 +1586,13 @@ func checkLoginConditions(user *User) error {
 }
 
 func isPasswordOK(user *User, password string) (bool, error) {
+	if config.PasswordCaching {
+		found, match := cachedPasswords.Check(user.Username, password)
+		if found {
+			return match, nil
+		}
+	}
+
 	match := false
 	var err error
 	if strings.HasPrefix(user.Password, argonPwdPrefix) {
@@ -1605,6 +1617,9 @@ func isPasswordOK(user *User, password string) (bool, error) {
 		if err != nil {
 			return match, err
 		}
+	}
+	if err == nil && match {
+		cachedPasswords.Add(user.Username, password)
 	}
 	return match, err
 }
@@ -2198,6 +2213,7 @@ func executePreLoginHook(username, loginMethod, ip, protocol string) (User, erro
 	}
 
 	userID := u.ID
+	userPwd := u.Password
 	userUsedQuotaSize := u.UsedQuotaSize
 	userUsedQuotaFiles := u.UsedQuotaFiles
 	userLastQuotaUpdate := u.LastQuotaUpdate
@@ -2217,6 +2233,9 @@ func executePreLoginHook(username, loginMethod, ip, protocol string) (User, erro
 		err = provider.updateUser(&u)
 		if err == nil {
 			webDAVUsersCache.swap(&u)
+			if u.Password != userPwd {
+				cachedPasswords.Remove(username)
+			}
 		}
 	}
 	if err != nil {
@@ -2421,6 +2440,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		err = provider.updateUser(&user)
 		if err == nil {
 			webDAVUsersCache.swap(&user)
+			cachedPasswords.Add(user.Username, password)
 		}
 		return user, err
 	}

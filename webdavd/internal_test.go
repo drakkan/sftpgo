@@ -1199,6 +1199,8 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	_, ok = dataprovider.GetCachedWebDAVUser(user4.Username)
 	assert.True(t, ok)
 
+	// a sleep ensures that expiration times are different
+	time.Sleep(20 * time.Millisecond)
 	// user1 logins, user2 should be removed
 	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user1.Username), nil)
 	assert.NoError(t, err)
@@ -1216,6 +1218,8 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	_, ok = dataprovider.GetCachedWebDAVUser(user4.Username)
 	assert.True(t, ok)
 
+	// a sleep ensures that expiration times are different
+	time.Sleep(20 * time.Millisecond)
 	// user2 logins, user3 should be removed
 	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user2.Username), nil)
 	assert.NoError(t, err)
@@ -1233,6 +1237,8 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	_, ok = dataprovider.GetCachedWebDAVUser(user4.Username)
 	assert.True(t, ok)
 
+	// a sleep ensures that expiration times are different
+	time.Sleep(20 * time.Millisecond)
 	// user3 logins, user4 should be removed
 	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user3.Username), nil)
 	assert.NoError(t, err)
@@ -1265,6 +1271,8 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	assert.False(t, isCached)
 	assert.Equal(t, dataprovider.LoginMethodPassword, loginMehod)
 
+	// a sleep ensures that expiration times are different
+	time.Sleep(20 * time.Millisecond)
 	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("/%v", user1.Username), nil)
 	assert.NoError(t, err)
 	req.SetBasicAuth(user1.Username, password+"1")

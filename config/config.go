@@ -221,6 +221,7 @@ func Init() {
 					Parallelism: 2,
 				},
 			},
+			PasswordCaching:           true,
 			UpdateMode:                0,
 			PreferDatabaseCredentials: false,
 			SkipNaturalKeysValidation: false,
@@ -941,6 +942,7 @@ func setViperDefaults() {
 	viper.SetDefault("data_provider.update_mode", globalConf.ProviderConf.UpdateMode)
 	viper.SetDefault("data_provider.skip_natural_keys_validation", globalConf.ProviderConf.SkipNaturalKeysValidation)
 	viper.SetDefault("data_provider.delayed_quota_update", globalConf.ProviderConf.DelayedQuotaUpdate)
+	viper.SetDefault("data_provider.password_caching", globalConf.ProviderConf.PasswordCaching)
 	viper.SetDefault("httpd.templates_path", globalConf.HTTPDConfig.TemplatesPath)
 	viper.SetDefault("httpd.static_files_path", globalConf.HTTPDConfig.StaticFilesPath)
 	viper.SetDefault("httpd.backups_path", globalConf.HTTPDConfig.BackupsPath)

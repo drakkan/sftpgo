@@ -167,6 +167,7 @@
         "parallelism": 2
       }
     },
+    "password_caching": true,
     "update_mode": 0,
     "skip_natural_keys_validation": false
   },

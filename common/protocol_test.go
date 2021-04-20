@@ -2043,6 +2043,65 @@ func TestDelayedQuotaUpdater(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestPasswordCaching(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	found, match := dataprovider.CheckCachedPassword(user.Username, defaultPassword)
+	assert.False(t, found)
+	assert.False(t, match)
+
+	user.Password = "wrong"
+	_, err = getSftpClient(user)
+	assert.Error(t, err)
+	found, match = dataprovider.CheckCachedPassword(user.Username, defaultPassword)
+	assert.False(t, found)
+	assert.False(t, match)
+	user.Password = ""
+
+	client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+	}
+	found, match = dataprovider.CheckCachedPassword(user.Username, defaultPassword)
+	assert.True(t, found)
+	assert.True(t, match)
+
+	found, match = dataprovider.CheckCachedPassword(user.Username, defaultPassword+"_")
+	assert.True(t, found)
+	assert.False(t, match)
+
+	found, match = dataprovider.CheckCachedPassword(user.Username+"_", defaultPassword)
+	assert.False(t, found)
+	assert.False(t, match)
+
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	found, match = dataprovider.CheckCachedPassword(user.Username, defaultPassword)
+	assert.False(t, found)
+	assert.False(t, match)
+
+	client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer client.Close()
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+	}
+
+	found, match = dataprovider.CheckCachedPassword(user.Username, defaultPassword)
+	assert.True(t, found)
+	assert.True(t, match)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	found, match = dataprovider.CheckCachedPassword(user.Username, defaultPassword)
+	assert.False(t, found)
+	assert.False(t, match)
+}
+
 func TestQuotaTrackDisabled(t *testing.T) {
 	err := dataprovider.Close()
 	assert.NoError(t, err)
