@@ -29,9 +29,13 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
-      - name: Build for Linux/macOS
+      - name: Build for Linux/macOS x86_64
         if: startsWith(matrix.os, 'windows-') != true
         run: go build -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
+
+      - name: Build for macOS arm64
+        if: startsWith(matrix.os, 'macos-') == true
+        run: CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 SDKROOT=$(xcrun --sdk macosx --show-sdk-path) go build -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo_arm64
 
       - name: Build for Windows
         if: startsWith(matrix.os, 'windows-')
@@ -73,7 +77,8 @@ jobs:
         if: startsWith(matrix.os, 'macos-') == true
         run: |
           mkdir -p output/{init,bash_completion,zsh_completion}
-          cp sftpgo output/
+          cp sftpgo output/sftpgo_x86_64
+          cp sftpgo_arm64 output/
           cp sftpgo.json output/
           cp -r templates output/
           cp -r static output/

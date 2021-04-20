@@ -51,9 +51,13 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Build for macOS
+      - name: Build for macOS x86_64
         if: startsWith(matrix.os, 'windows-') != true
         run: go build -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
+
+      - name: Build for macOS arm64
+        if: startsWith(matrix.os, 'macos-') == true
+        run: CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 SDKROOT=$(xcrun --sdk macosx --show-sdk-path) go build -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo_arm64
 
       - name: Build for Windows
         if: startsWith(matrix.os, 'windows-')
@@ -103,7 +107,11 @@ jobs:
           ./sftpgo gen man -d output/man/man1
           gzip output/man/man1/*
           cd output
-          tar cJvf sftpgo_${SFTPGO_VERSION}_${OS}_x86_64.tar.xz *
+          tar cJvf ../sftpgo_${SFTPGO_VERSION}_${OS}_x86_64.tar.xz *
+          cd ..
+          cp sftpgo_arm64 output/sftpgo
+          cd output
+          tar cJvf ../sftpgo_${SFTPGO_VERSION}_${OS}_arm64.tar.xz *
           cd ..
         env:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
@@ -143,12 +151,20 @@ jobs:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
           OS: ${{ steps.get_os_name.outputs.OS }}
 
-      - name: Upload macOS artifact
+      - name: Upload macOS x86_64 artifact
         if: startsWith(matrix.os, 'macos-')
         uses: actions/upload-artifact@v2
         with:
           name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.tar.xz
-          path: ./output/sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.tar.xz
+          path: ./sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.tar.xz
+          retention-days: 1
+
+      - name: Upload macOS arm64 artifact
+        if: startsWith(matrix.os, 'macos-')
+        uses: actions/upload-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_arm64.tar.xz
+          path: ./sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_arm64.tar.xz
           retention-days: 1
 
       - name: Upload Windows installer artifact
@@ -426,6 +442,11 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_macOS_x86_64.tar.xz
+
+      - name: Download macOS arm64 artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_macOS_arm64.tar.xz
 
       - name: Download Windows installer x86_64 artifact
         uses: actions/download-artifact@v2
