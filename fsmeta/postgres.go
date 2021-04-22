@@ -51,7 +51,9 @@ func (Provider *fsMetaPostgres) Preload(ctx context.Context, Folder, From, To st
 	To = filepath.Base(To)
 
 	Rows, err := Provider.DB.QueryContext(ctx, `SELECT filename, filesize, uploaded, etag, last_modified `+
-		`FROM fsmeta_files WHERE folder_id = $1 AND filename >= $2 AND filename <= $3`, FolderID, From, To)
+		`FROM fsmeta_files WHERE folder_id = $1`, FolderID)
+	//Rows, err := Provider.DB.QueryContext(ctx, `SELECT filename, filesize, uploaded, etag, last_modified `+
+	//	`FROM fsmeta_files WHERE folder_id = $1 AND filename >= $2 AND filename <= $3`, FolderID, From, To)
 	if err != nil {
 		return err
 	}
