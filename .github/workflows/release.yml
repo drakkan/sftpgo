@@ -53,7 +53,7 @@ jobs:
 
       - name: Build for macOS
         if: startsWith(matrix.os, 'windows-') != true
-        run: go build -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
+        run: CGO_ENABLED=0 go build -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
 
       - name: Build for Windows
         if: startsWith(matrix.os, 'windows-')
