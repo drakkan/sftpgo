@@ -366,6 +366,23 @@ func (*S3Fs) Truncate(name string, size int64) error {
 // a list of directory entries.
 func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	var result []os.FileInfo
+
+	if !strings.HasSuffix(dirname, `/`) {
+		// a "dir" has a trailing "/" so we cannot have a directory here
+		if obj, err := fs.headObject(dirname); err == nil {
+			objSize := *obj.ContentLength
+			objectModTime := *obj.LastModified
+			if fsmeta.Enabled {
+				if MetaLastModified, metaErr := fsmeta.MetaHelper(obj.Metadata).GetTime(fsmeta.S3MetaKey); metaErr == nil {
+					if !MetaLastModified.IsZero() {
+						objectModTime = MetaLastModified
+					}
+				}
+			}
+			return []os.FileInfo{NewFileInfo(dirname, false, objSize, objectModTime, false)}, nil
+		}
+	}
+
 	// dirname must be already cleaned
 	prefix := ""
 	if dirname != "/" && dirname != "." {
