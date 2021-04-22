@@ -120,9 +120,12 @@ func (Suite *PostgresSuite) TestPreload() {
 		AddRow(`test1.csv`, 12345, UploadTime1, `etag1`, LastModified1).
 		AddRow(`test2.csv`, 12345, UploadTime2, `not_etag2`, LastModified2)
 	Suite.mockFolderIDQuery(`s3://sftpgo/users/test2/`, 15)
-	Suite.SQLMock.ExpectQuery(regexp.QuoteMeta(`SELECT filename, filesize, uploaded, etag, last_modified `+
-		`FROM fsmeta_files WHERE folder_id = $1 AND filename >= $2 AND filename <= $3`)).
-		WithArgs(15, `test1.csv`, `test3.csv`).
+	Suite.SQLMock.ExpectQuery(regexp.QuoteMeta(`SELECT filename, filesize, uploaded, etag, last_modified ` +
+		`FROM fsmeta_files WHERE folder_id = $1`)).
+		WithArgs(15).
+		//Suite.SQLMock.ExpectQuery(regexp.QuoteMeta(`SELECT filename, filesize, uploaded, etag, last_modified `+
+		//	`FROM fsmeta_files WHERE folder_id = $1 AND filename >= $2 AND filename <= $3`)).
+		//	WithArgs(15, `test1.csv`, `test3.csv`).
 		WillReturnRows(Rows)
 
 	// Database Mocks for test2.csv
