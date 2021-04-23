@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	// osFsName is the name for the local Fs implementation
+	// sftpFsName is the name for the SFTP Fs implementation
 	sftpFsName = "sftpfs"
 )
 
@@ -172,7 +172,7 @@ type SFTPFs struct {
 	err          chan error
 }
 
-// NewSFTPFs returns an SFTPFa object that allows to interact with an SFTP server
+// NewSFTPFs returns an SFTPFs object that allows to interact with an SFTP server
 func NewSFTPFs(connectionID, mountPath, localTempDir string, forbiddenSelfUsernames []string, config SFTPFsConfig) (Fs, error) {
 	if localTempDir == "" {
 		localTempDir = filepath.Clean(os.TempDir())
