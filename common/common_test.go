@@ -12,8 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alexedwards/argon2id"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/kms"
@@ -664,4 +666,44 @@ func TestCachedFs(t *testing.T) {
 	assert.Equal(t, filepath.Clean(os.TempDir()), p)
 	err = os.Remove(user.HomeDir)
 	assert.NoError(t, err)
+}
+
+func BenchmarkBcryptHashing(b *testing.B) {
+	bcryptPassword := "bcryptpassword"
+	for i := 0; i < b.N; i++ {
+		_, err := bcrypt.GenerateFromPassword([]byte(bcryptPassword), 10)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkCompareBcryptPassword(b *testing.B) {
+	bcryptPassword := "$2a$10$lPDdnDimJZ7d5/GwL6xDuOqoZVRXok6OHHhivCnanWUtcgN0Zafki"
+	for i := 0; i < b.N; i++ {
+		err := bcrypt.CompareHashAndPassword([]byte(bcryptPassword), []byte("password"))
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkArgon2Hashing(b *testing.B) {
+	argonPassword := "argon2password"
+	for i := 0; i < b.N; i++ {
+		_, err := argon2id.CreateHash(argonPassword, argon2id.DefaultParams)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkCompareArgon2Password(b *testing.B) {
+	argon2Password := "$argon2id$v=19$m=65536,t=1,p=2$aOoAOdAwvzhOgi7wUFjXlw$wn/y37dBWdKHtPXHR03nNaKHWKPXyNuVXOknaU+YZ+s"
+	for i := 0; i < b.N; i++ {
+		_, err := argon2id.ComparePasswordAndHash("password", argon2Password)
+		if err != nil {
+			panic(err)
+		}
+	}
 }

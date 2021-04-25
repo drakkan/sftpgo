@@ -1753,7 +1753,7 @@ components:
         password:
           type: string
           format: password
-          description: password or public key/SSH user certificate are mandatory. If the password has no known hashing algo prefix it will be stored, by default, using argon2id. You can send a password hashed as bcrypt or pbkdf2 and it will be stored as is. For security reasons this field is omitted when you search/get users
+          description: password or public key/SSH user certificate are mandatory. If the password has no known hashing algo prefix it will be stored, by default, using bcrypt, argon2id is supported too. You can send a password hashed as bcrypt ($s2a$ prefix), argon2id, pbkdf2 or unix crypt and it will be stored as is. For security reasons this field is omitted when you search/get users
         public_keys:
           type: array
           items:

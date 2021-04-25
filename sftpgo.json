@@ -161,16 +161,16 @@
     "check_password_hook": "",
     "check_password_scope": 0,
     "password_hashing": {
+      "bcrypt_options": {
+        "cost": 10
+      },
       "argon2_options": {
         "memory": 65536,
         "iterations": 1,
         "parallelism": 2
       },
-      "bcrypt_options": {
-        "cost": 10
-      }
+      "algo": "bcrypt"
     },
-    "password_hashing_algo": "argon2id",
     "password_caching": true,
     "update_mode": 0,
     "skip_natural_keys_validation": false

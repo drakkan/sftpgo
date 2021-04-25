@@ -291,8 +291,8 @@ func TestInitialization(t *testing.T) {
 }
 
 func TestBasicUserHandling(t *testing.T) {
-	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
-	assert.NoError(t, err)
+	user, resp, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err, string(resp))
 	user.MaxSessions = 10
 	user.QuotaSize = 4096
 	user.QuotaFiles = 2
@@ -383,13 +383,13 @@ func TestAdminPasswordHashing(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	providerConf := config.GetProviderConf()
 	assert.NoError(t, err)
-	providerConf.PasswordHashingAlgo = dataprovider.HashingAlgoBcrypt
+	providerConf.PasswordHashing.Algo = dataprovider.HashingAlgoArgon2ID
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
 	currentAdmin, err := dataprovider.AdminExists(defaultTokenAuthUser)
 	assert.NoError(t, err)
-	assert.True(t, strings.HasPrefix(currentAdmin.Password, "$argon2id$"))
+	assert.True(t, strings.HasPrefix(currentAdmin.Password, "$2a$"))
 
 	a := getTestAdmin()
 	a.Username = altAdminUsername
@@ -400,7 +400,7 @@ func TestAdminPasswordHashing(t *testing.T) {
 
 	newAdmin, err := dataprovider.AdminExists(altAdminUsername)
 	assert.NoError(t, err)
-	assert.True(t, strings.HasPrefix(newAdmin.Password, "$2a$"))
+	assert.True(t, strings.HasPrefix(newAdmin.Password, "$argon2id$"))
 
 	token, _, err := httpdtest.GetToken(altAdminUsername, altAdminPassword)
 	assert.NoError(t, err)

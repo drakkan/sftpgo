@@ -1987,13 +1987,13 @@ func TestUserPasswordHashing(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	providerConf.PasswordHashingAlgo = dataprovider.HashingAlgoBcrypt
+	providerConf.PasswordHashing.Algo = dataprovider.HashingAlgoArgon2ID
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
 	currentUser, err := dataprovider.UserExists(user.Username)
 	assert.NoError(t, err)
-	assert.True(t, strings.HasPrefix(currentUser.Password, "$argon2id$"))
+	assert.True(t, strings.HasPrefix(currentUser.Password, "$2a$"))
 
 	conn, client, err := getSftpClient(user)
 	if assert.NoError(t, err) {
@@ -2014,7 +2014,7 @@ func TestUserPasswordHashing(t *testing.T) {
 
 	currentUser, err = dataprovider.UserExists(user.Username)
 	assert.NoError(t, err)
-	assert.True(t, strings.HasPrefix(currentUser.Password, "$2a$"))
+	assert.True(t, strings.HasPrefix(currentUser.Password, "$argon2id$"))
 
 	conn, client, err = getSftpClient(user)
 	if assert.NoError(t, err) {

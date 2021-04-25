@@ -174,8 +174,8 @@ type User struct {
 	// 0 means no expiration
 	ExpirationDate int64 `json:"expiration_date"`
 	// Password used for password authentication.
-	// For users created using SFTPGo REST API the password is be stored using argon2id hashing algo.
-	// Checking passwords stored with bcrypt, pbkdf2, md5crypt and sha512crypt is supported too.
+	// For users created using SFTPGo REST API the password is be stored using bcrypt or argon2id hashing algo.
+	// Checking passwords stored with pbkdf2, md5crypt and sha512crypt is supported too.
 	Password string `json:"password,omitempty"`
 	// PublicKeys used for public key authentication. At least one between password and a public key is mandatory
 	PublicKeys []string `json:"public_keys,omitempty"`

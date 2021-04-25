@@ -158,8 +158,10 @@ type Argon2Options struct {
 
 // PasswordHashing defines the configuration for password hashing
 type PasswordHashing struct {
-	Argon2Options Argon2Options `json:"argon2_options" mapstructure:"argon2_options"`
 	BcryptOptions BcryptOptions `json:"bcrypt_options" mapstructure:"bcrypt_options"`
+	Argon2Options Argon2Options `json:"argon2_options" mapstructure:"argon2_options"`
+	// Algorithm to use for hashing passwords. Available algorithms: argon2id, bcrypt. Default: bcrypt
+	Algo string `json:"algo" mapstructure:"algo"`
 }
 
 // UserActions defines the action to execute on user create, update, delete.
@@ -287,8 +289,7 @@ type Config struct {
 	// PreferDatabaseCredentials indicates whether credential files (currently used for Google
 	// Cloud Storage) should be stored in the database instead of in the directory specified by
 	// CredentialsPath.
-	PasswordHashingAlgo       string `json:"password_hashing_algo" mapstructure:"password_hashing_algo"`
-	PreferDatabaseCredentials bool   `json:"prefer_database_credentials" mapstructure:"prefer_database_credentials"`
+	PreferDatabaseCredentials bool `json:"prefer_database_credentials" mapstructure:"prefer_database_credentials"`
 	// SkipNaturalKeysValidation allows to use any UTF-8 character for natural keys as username, admin name,
 	// folder name. These keys are used in URIs for REST API and Web admin. By default only unreserved URI
 	// characters are allowed: ALPHA / DIGIT / "-" / "." / "_" / "~".
@@ -461,7 +462,7 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 		KeyLength:   32,
 	}
 
-	if config.PasswordHashingAlgo == HashingAlgoBcrypt {
+	if config.PasswordHashing.Algo == HashingAlgoBcrypt {
 		if config.PasswordHashing.BcryptOptions.Cost > bcrypt.MaxCost {
 			err = fmt.Errorf("invalid bcrypt cost %v, max allowed %v", config.PasswordHashing.BcryptOptions.Cost, bcrypt.MaxCost)
 			logger.WarnToConsole("Unable to initialize data provider: %v", err)
@@ -1520,7 +1521,7 @@ func validateBaseParams(user *User) error {
 
 func createUserPasswordHash(user *User) error {
 	if user.Password != "" && !user.IsPasswordHashed() {
-		if config.PasswordHashingAlgo == HashingAlgoBcrypt {
+		if config.PasswordHashing.Algo == HashingAlgoBcrypt {
 			pwd, err := bcrypt.GenerateFromPassword([]byte(user.Password), config.PasswordHashing.BcryptOptions.Cost)
 			if err != nil {
 				return err
