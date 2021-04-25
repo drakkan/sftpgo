@@ -69,7 +69,7 @@ require (
 	golang.org/x/sys v0.0.0-20210415045647-66c3f260301c
 	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
-	google.golang.org/api v0.44.0
+	google.golang.org/api v0.45.0
 	google.golang.org/genproto v0.0.0-20210416161957-9910b6c460de // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
