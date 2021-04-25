@@ -342,6 +342,21 @@ func TestWithInvalidHome(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestResolveWithRootDir(t *testing.T) {
+	u := dataprovider.User{}
+	if runtime.GOOS == osWindows {
+		u.HomeDir = "C:\\"
+	} else {
+		u.HomeDir = "/"
+	}
+	fs, err := u.GetFilesystem("")
+	assert.NoError(t, err)
+	rel, err := filepath.Rel(u.HomeDir, os.TempDir())
+	assert.NoError(t, err)
+	p, err := fs.ResolvePath(rel)
+	assert.NoError(t, err, "path %v", p)
+}
+
 func TestSFTPGetUsedQuota(t *testing.T) {
 	u := dataprovider.User{}
 	u.HomeDir = "home_rel_path"
