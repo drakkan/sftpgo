@@ -3,7 +3,7 @@ module github.com/drakkan/sftpgo
 go 1.16
 
 require (
-	cloud.google.com/go/storage v1.14.0
+	cloud.google.com/go/storage v1.15.0
 	github.com/Azure/azure-storage-blob-go v0.13.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
@@ -69,8 +69,7 @@ require (
 	golang.org/x/sys v0.0.0-20210415045647-66c3f260301c
 	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
-	google.golang.org/api v0.44.0
-	google.golang.org/genproto v0.0.0-20210416161957-9910b6c460de // indirect
+	google.golang.org/api v0.45.0
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
