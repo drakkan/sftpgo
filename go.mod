@@ -13,13 +13,13 @@ require (
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
 	github.com/fclairamb/ftpserverlib v0.13.0
-	github.com/frankban/quicktest v1.11.3 // indirect
+	github.com/frankban/quicktest v1.12.0 // indirect
 	github.com/go-chi/chi/v5 v5.0.2
 	github.com/go-chi/jwtauth/v5 v5.0.1
 	github.com/go-chi/render v1.0.1
 	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/go-sql-driver/mysql v1.6.0
-	github.com/goccy/go-json v0.4.12 // indirect
+	github.com/goccy/go-json v0.4.13 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
@@ -45,7 +45,7 @@ require (
 	github.com/pires/go-proxyproto v0.5.0
 	github.com/pkg/sftp v1.13.0
 	github.com/prometheus/client_golang v1.10.0
-	github.com/prometheus/common v0.20.0 // indirect
+	github.com/prometheus/common v0.21.0 // indirect
 	github.com/rs/cors v1.7.1-0.20200626170627-8b4a00bd362b
 	github.com/rs/xid v1.3.0
 	github.com/rs/zerolog v1.21.0
@@ -63,11 +63,10 @@ require (
 	go.uber.org/automaxprocs v1.4.0
 	gocloud.dev v0.22.0
 	gocloud.dev/secrets/hashivault v0.22.0
-	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
+	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b
 	golang.org/x/mod v0.4.2 // indirect
-	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
-	golang.org/x/sys v0.0.0-20210415045647-66c3f260301c
-	golang.org/x/text v0.3.6 // indirect
+	golang.org/x/net v0.0.0-20210423184538-5f58ad60dda6
+	golang.org/x/sys v0.0.0-20210423185535-09eb48e85fd7
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	google.golang.org/api v0.45.0
 	gopkg.in/ini.v1 v1.62.0 // indirect
@@ -77,6 +76,6 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20210407140403-893a53edb79c
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20210407135242-3bf0a4d6e30c
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20210425150317-089e67b931c9
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20210425150243-76901d0d25a8
 )
