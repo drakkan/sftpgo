@@ -53,7 +53,7 @@ func sqlCommonValidateAdminAndPass(username, password, ip string, dbHandle *sql.
 	admin, err := sqlCommonGetAdminByUsername(username, dbHandle)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating admin %#v: %v", username, err)
-		return admin, err
+		return admin, ErrInvalidCredentials
 	}
 	err = admin.checkUserAndPass(password, ip)
 	return admin, err
@@ -224,7 +224,7 @@ func sqlCommonValidateUserAndPass(username, password, ip, protocol string, dbHan
 	user, err := sqlCommonGetUserByUsername(username, dbHandle)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
-		return user, err
+		return user, ErrInvalidCredentials
 	}
 	return checkUserAndPass(&user, password, ip, protocol)
 }
@@ -237,7 +237,7 @@ func sqlCommonValidateUserAndTLSCertificate(username, protocol string, tlsCert *
 	user, err := sqlCommonGetUserByUsername(username, dbHandle)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
-		return user, err
+		return user, ErrInvalidCredentials
 	}
 	return checkUserAndTLSCertificate(&user, protocol, tlsCert)
 }
@@ -250,7 +250,7 @@ func sqlCommonValidateUserAndPubKey(username string, pubKey []byte, dbHandle *sq
 	user, err := sqlCommonGetUserByUsername(username, dbHandle)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
-		return user, "", err
+		return user, "", ErrInvalidCredentials
 	}
 	return checkUserAndPubKey(&user, pubKey)
 }

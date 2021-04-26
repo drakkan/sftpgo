@@ -1636,7 +1636,7 @@ func isPasswordOK(user *User, password string) (bool, error) {
 	} else if strings.HasPrefix(user.Password, bcryptPwdPrefix) {
 		if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
 			providerLog(logger.LevelWarn, "error comparing password with bcrypt hash: %v", err)
-			return match, err
+			return match, ErrInvalidCredentials
 		}
 		match = true
 	} else if utils.IsStringPrefixInSlice(user.Password, pbkdfPwdPrefixes) {

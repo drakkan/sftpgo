@@ -125,7 +125,7 @@ func (a *Admin) validate() error {
 func (a *Admin) CheckPassword(password string) (bool, error) {
 	if strings.HasPrefix(a.Password, bcryptPwdPrefix) {
 		if err := bcrypt.CompareHashAndPassword([]byte(a.Password), []byte(password)); err != nil {
-			return false, err
+			return false, ErrInvalidCredentials
 		}
 		return true, nil
 	}

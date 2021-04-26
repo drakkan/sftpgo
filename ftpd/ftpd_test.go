@@ -562,13 +562,21 @@ func TestBasicFTPHandling(t *testing.T) {
 	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 1*time.Second, 50*time.Millisecond)
 }
 
-func TestLoginInvalidPwd(t *testing.T) {
+func TestLoginInvalidCredetials(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	user.Password = "wrong"
+	user.Username = "wrong username"
 	_, err = getFTPClient(user, false, nil)
-	assert.Error(t, err)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), dataprovider.ErrInvalidCredentials.Error())
+	}
+	user.Username = u.Username
+	user.Password = "wrong pwd"
+	_, err = getFTPClient(user, false, nil)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), dataprovider.ErrInvalidCredentials.Error())
+	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }

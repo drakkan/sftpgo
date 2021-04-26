@@ -96,7 +96,7 @@ func (p *MemoryProvider) validateUserAndTLSCert(username, protocol string, tlsCe
 	user, err := p.userExists(username)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
-		return user, err
+		return user, ErrInvalidCredentials
 	}
 	return checkUserAndTLSCertificate(&user, protocol, tlsCert)
 }
@@ -109,7 +109,7 @@ func (p *MemoryProvider) validateUserAndPass(username, password, ip, protocol st
 	user, err := p.userExists(username)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
-		return user, err
+		return user, ErrInvalidCredentials
 	}
 	return checkUserAndPass(&user, password, ip, protocol)
 }
@@ -122,7 +122,7 @@ func (p *MemoryProvider) validateUserAndPubKey(username string, pubKey []byte) (
 	user, err := p.userExists(username)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
-		return user, "", err
+		return user, "", ErrInvalidCredentials
 	}
 	return checkUserAndPubKey(&user, pubKey)
 }
@@ -131,7 +131,7 @@ func (p *MemoryProvider) validateAdminAndPass(username, password, ip string) (Ad
 	admin, err := p.adminExists(username)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating admin %#v: %v", username, err)
-		return admin, err
+		return admin, ErrInvalidCredentials
 	}
 	err = admin.checkUserAndPass(password, ip)
 	return admin, err

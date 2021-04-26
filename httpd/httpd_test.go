@@ -52,6 +52,7 @@ const (
 	altAdminUsername          = "newTestAdmin"
 	altAdminPassword          = "password1"
 	csrfFormToken             = "_form_token"
+	tokenPath                 = "/api/v2/token"
 	userPath                  = "/api/v2/users"
 	adminPath                 = "/api/v2/admins"
 	adminPwdPath              = "/api/v2/changepwd/admin"
@@ -425,6 +426,39 @@ func TestAdminPasswordHashing(t *testing.T) {
 	assert.NoError(t, err)
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
+}
+
+func TestAdminInvalidCredentials(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, tokenPath), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultTokenAuthUser, defaultTokenAuthPass)
+	resp, err := httpclient.GetHTTPClient().Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+	// wrong password
+	req.SetBasicAuth(defaultTokenAuthUser, "wrong pwd")
+	resp, err = httpclient.GetHTTPClient().Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	responseHolder := make(map[string]interface{})
+	err = render.DecodeJSON(resp.Body, &responseHolder)
+	assert.NoError(t, err)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+	assert.Equal(t, dataprovider.ErrInvalidCredentials.Error(), responseHolder["error"].(string))
+	// wrong username
+	req.SetBasicAuth("wrong username", defaultTokenAuthPass)
+	resp, err = httpclient.GetHTTPClient().Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	responseHolder = make(map[string]interface{})
+	err = render.DecodeJSON(resp.Body, &responseHolder)
+	assert.NoError(t, err)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+	assert.Equal(t, dataprovider.ErrInvalidCredentials.Error(), responseHolder["error"].(string))
 }
 
 func TestAdminAllowList(t *testing.T) {
