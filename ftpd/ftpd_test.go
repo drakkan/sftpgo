@@ -562,7 +562,7 @@ func TestBasicFTPHandling(t *testing.T) {
 	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 1*time.Second, 50*time.Millisecond)
 }
 
-func TestLoginInvalidCredetials(t *testing.T) {
+func TestLoginInvalidCredentials(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)

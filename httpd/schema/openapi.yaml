@@ -12,7 +12,7 @@ tags:
 info:
   title: SFTPGo
   description: SFTPGo REST API
-  version: 2.0.4
+  version: 2.0.5
   contact:
     url: 'https://github.com/drakkan/sftpgo'
   license:
@@ -320,7 +320,7 @@ paths:
       tags:
         - quota
       summary: Start user quota scan
-      description: Starts a new quota scan for the given user. A quota scan update the number of files and their total size for the specified user
+      description: Starts a new quota scan for the given user. A quota scan updates the number of files and their total size for the specified user and the virtual folders, if any, included in his quota
       operationId: start_quota_scan
       requestBody:
         required: true
