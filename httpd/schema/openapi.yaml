@@ -428,7 +428,7 @@ paths:
             example: reset
       requestBody:
         required: true
-        description: 'The only folder mandatory fields are mapped_path,used_quota_size and used_quota_files. Please note that if the used quota fields are missing they will default to 0'
+        description: 'The only folder mandatory fields are mapped_path,used_quota_size and used_quota_files. Please note that if the used quota fields are missing they will default to 0, this means that if mode is "add" the current value will remain unchanged, if mode is "reset" the missing field is set to 0'
         content:
           application/json:
             schema:

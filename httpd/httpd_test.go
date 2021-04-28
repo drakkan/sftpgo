@@ -4017,7 +4017,6 @@ func TestUpdateFolderQuotaUsageMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-
 	var folderGet vfs.BaseVirtualFolder
 	req, _ = http.NewRequest(http.MethodGet, path.Join(folderPath, folderName), nil)
 	setBearerForReq(req, token)
@@ -4027,6 +4026,41 @@ func TestUpdateFolderQuotaUsageMock(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, usedQuotaFiles, folderGet.UsedQuotaFiles)
 	assert.Equal(t, usedQuotaSize, folderGet.UsedQuotaSize)
+	// now update only quota size
+	f.UsedQuotaFiles = 0
+	folderAsJSON, err = json.Marshal(f)
+	assert.NoError(t, err)
+	req, _ = http.NewRequest(http.MethodPut, updateFolderUsedQuotaPath+"?mode=add", bytes.NewBuffer(folderAsJSON))
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	folderGet = vfs.BaseVirtualFolder{}
+	req, _ = http.NewRequest(http.MethodGet, path.Join(folderPath, folderName), nil)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	err = render.DecodeJSON(rr.Body, &folderGet)
+	assert.NoError(t, err)
+	assert.Equal(t, usedQuotaFiles, folderGet.UsedQuotaFiles)
+	assert.Equal(t, usedQuotaSize*2, folderGet.UsedQuotaSize)
+	// now update only quota files
+	f.UsedQuotaSize = 0
+	f.UsedQuotaFiles = 1
+	folderAsJSON, err = json.Marshal(f)
+	assert.NoError(t, err)
+	req, _ = http.NewRequest(http.MethodPut, updateFolderUsedQuotaPath+"?mode=add", bytes.NewBuffer(folderAsJSON))
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	folderGet = vfs.BaseVirtualFolder{}
+	req, _ = http.NewRequest(http.MethodGet, path.Join(folderPath, folderName), nil)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	err = render.DecodeJSON(rr.Body, &folderGet)
+	assert.NoError(t, err)
+	assert.Equal(t, usedQuotaFiles*2, folderGet.UsedQuotaFiles)
+	assert.Equal(t, usedQuotaSize*2, folderGet.UsedQuotaSize)
 	req, _ = http.NewRequest(http.MethodPut, updateFolderUsedQuotaPath, bytes.NewBuffer([]byte("string")))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
