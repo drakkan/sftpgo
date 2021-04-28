@@ -50,7 +50,7 @@ class UpdateQuota:
 				return
 
 		auth = requests.auth.HTTPBasicAuth(admin_user, admin_password)
-		r = requests.get(urlparse.urljoin(base_url, "api/v2/token"), auth=auth, verify=verify_tls_cert)
+		r = requests.get(urlparse.urljoin(base_url, "api/v2/token"), auth=auth, verify=verify_tls_cert, timeout=10)
 		if r.status_code != 200:
 			self.printLog("error getting access token: {}".format(r.text))
 			sys.exit(1)
@@ -65,7 +65,8 @@ class UpdateQuota:
 	def waitForQuotaUpdate(self, username):
 		while True:
 			auth_header = self.getAuthHeader()
-			r = requests.get(urlparse.urljoin(base_url, "api/v2/quota-scans"), headers=auth_header, verify=verify_tls_cert)
+			r = requests.get(urlparse.urljoin(base_url, "api/v2/quota-scans"), headers=auth_header, verify=verify_tls_cert,
+							timeout=10)
 			if r.status_code != 200:
 				self.printLog("error getting quota scans while waiting for {}: {}".format(username, r.text))
 				sys.exit(1)
@@ -85,7 +86,7 @@ class UpdateQuota:
 		self.printLog("starting quota update for user {}".format(username))
 		auth_header = self.getAuthHeader()
 		r = requests.post(urlparse.urljoin(base_url, "api/v2/quota-scans"), headers=auth_header,
-						json={"username":username}, verify=verify_tls_cert)
+						json={"username":username}, verify=verify_tls_cert, timeout=10)
 		if r.status_code != 202:
 			self.printLog("error starting quota scan for user {}: {}".format(username, r.text))
 			sys.exit(1)
@@ -97,7 +98,7 @@ class UpdateQuota:
 			auth_header = self.getAuthHeader()
 			payload = {"limit":self.limit, "offset":self.offset}
 			r = requests.get(urlparse.urljoin(base_url, "api/v2/users"), headers=auth_header, params=payload,
-						verify=verify_tls_cert)
+						verify=verify_tls_cert, timeout=10)
 			if r.status_code != 200:
 				self.printLog("error getting users: {}".format(r.text))
 				sys.exit(1)

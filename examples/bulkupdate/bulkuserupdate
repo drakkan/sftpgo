@@ -24,7 +24,7 @@ fields_to_update = {"status":0, "quota_files": 1000, "additional_info":"updated 
 
 # get a JWT token
 auth = requests.auth.HTTPBasicAuth(admin_user, admin_password)
-r = requests.get(urlparse.urljoin(base_url, "api/v2/token"), auth=auth, verify=verify_tls_cert)
+r = requests.get(urlparse.urljoin(base_url, "api/v2/token"), auth=auth, verify=verify_tls_cert, timeout=10)
 if r.status_code != 200:
 	print("error getting access token: {}".format(r.text))
 	sys.exit(1)
@@ -33,14 +33,14 @@ auth_header = {"Authorization": "Bearer " + access_token}
 
 for username in users_to_update:
 	r = requests.get(urlparse.urljoin(base_url, posixpath.join("api/v2/users", username)),
-					headers=auth_header, verify=verify_tls_cert)
+					headers=auth_header, verify=verify_tls_cert, timeout=10)
 	if r.status_code != 200:
 		print("error getting user {}: {}".format(username, r.text))
 		continue
 	user = r.json()
 	user.update(fields_to_update)
 	r = requests.put(urlparse.urljoin(base_url, posixpath.join("api/v2/users", username)),
-					headers=auth_header, verify=verify_tls_cert, json=user)
+					headers=auth_header, verify=verify_tls_cert, json=user, timeout=10)
 	if r.status_code == 200:
 		print("user {} updated".format(username))
 	else:

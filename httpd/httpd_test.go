@@ -3596,6 +3596,7 @@ func TestUpdateUserQuotaUsageMock(t *testing.T) {
 	usedQuotaSize := int64(65535)
 	u.UsedQuotaFiles = usedQuotaFiles
 	u.UsedQuotaSize = usedQuotaSize
+	u.QuotaFiles = 100
 	userAsJSON := getUserAsJSON(t, u)
 	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
 	setBearerForReq(req, token)
@@ -3615,6 +3616,37 @@ func TestUpdateUserQuotaUsageMock(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, usedQuotaFiles, user.UsedQuotaFiles)
 	assert.Equal(t, usedQuotaSize, user.UsedQuotaSize)
+	// now update only quota size
+	u.UsedQuotaFiles = 0
+	userAsJSON = getUserAsJSON(t, u)
+	req, _ = http.NewRequest(http.MethodPut, updateUsedQuotaPath+"?mode=add", bytes.NewBuffer(userAsJSON))
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	err = render.DecodeJSON(rr.Body, &user)
+	assert.NoError(t, err)
+	assert.Equal(t, usedQuotaFiles, user.UsedQuotaFiles)
+	assert.Equal(t, usedQuotaSize*2, user.UsedQuotaSize)
+	// only quota files
+	u.UsedQuotaFiles = usedQuotaFiles
+	u.UsedQuotaSize = 0
+	userAsJSON = getUserAsJSON(t, u)
+	req, _ = http.NewRequest(http.MethodPut, updateUsedQuotaPath+"?mode=add", bytes.NewBuffer(userAsJSON))
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	err = render.DecodeJSON(rr.Body, &user)
+	assert.NoError(t, err)
+	assert.Equal(t, usedQuotaFiles*2, user.UsedQuotaFiles)
+	assert.Equal(t, usedQuotaSize*2, user.UsedQuotaSize)
 	req, _ = http.NewRequest(http.MethodPut, updateUsedQuotaPath, bytes.NewBuffer([]byte("string")))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
