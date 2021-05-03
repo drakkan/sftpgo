@@ -14,7 +14,7 @@ require (
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
 	github.com/fclairamb/ftpserverlib v0.13.0
 	github.com/frankban/quicktest v1.12.0 // indirect
-	github.com/go-chi/chi/v5 v5.0.2
+	github.com/go-chi/chi/v5 v5.0.3
 	github.com/go-chi/jwtauth/v5 v5.0.1
 	github.com/go-chi/render v1.0.1
 	github.com/go-ole/go-ole v1.2.5 // indirect
