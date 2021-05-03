@@ -8,13 +8,13 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
 	github.com/alexedwards/argon2id v0.0.0-20210326052512-e2135f7c9c77
-	github.com/aws/aws-sdk-go v1.38.25
+	github.com/aws/aws-sdk-go v1.38.30
 	github.com/cockroachdb/cockroach-go/v2 v2.1.1
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
-	github.com/fclairamb/ftpserverlib v0.13.0
+	github.com/fclairamb/ftpserverlib v0.13.1
 	github.com/frankban/quicktest v1.12.0 // indirect
-	github.com/go-chi/chi/v5 v5.0.2
+	github.com/go-chi/chi/v5 v5.0.3
 	github.com/go-chi/jwtauth/v5 v5.0.1
 	github.com/go-chi/render v1.0.1
 	github.com/go-ole/go-ole v1.2.5 // indirect
