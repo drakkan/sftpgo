@@ -50,7 +50,7 @@ require (
 	github.com/rs/xid v1.3.0
 	github.com/rs/zerolog v1.21.0
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/shirou/gopsutil/v3 v3.21.3
+	github.com/shirou/gopsutil/v3 v3.21.4
 	github.com/spf13/afero v1.6.0
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v1.1.3
