@@ -12,7 +12,7 @@ require (
 	github.com/cockroachdb/cockroach-go/v2 v2.1.1
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
-	github.com/fclairamb/ftpserverlib v0.13.0
+	github.com/fclairamb/ftpserverlib v0.13.1
 	github.com/frankban/quicktest v1.12.0 // indirect
 	github.com/go-chi/chi/v5 v5.0.3
 	github.com/go-chi/jwtauth/v5 v5.0.1
