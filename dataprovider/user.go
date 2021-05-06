@@ -1,6 +1,8 @@
 package dataprovider
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -46,6 +48,16 @@ const (
 	PermChown = "chown"
 	// changing file or directory access and modification time is allowed
 	PermChtimes = "chtimes"
+)
+
+// Web Client restrictions
+const (
+	WebClientPubKeyChangeDisabled = "publickey-change-disabled"
+)
+
+var (
+	// WebClientOptions defines the available options for the web client interface
+	WebClientOptions = []string{WebClientPubKeyChangeDisabled}
 )
 
 // Available login methods
@@ -160,6 +172,8 @@ type UserFilters struct {
 	// these checks will speed up login.
 	// You could, for example, disable these checks after the first login
 	DisableFsChecks bool `json:"disable_fs_checks,omitempty"`
+	// WebClient related configuration options
+	WebClient []string `json:"web_client,omitempty"`
 }
 
 // User defines a SFTPGo user
@@ -839,6 +853,21 @@ func (u *User) isFilePatternAllowed(virtualPath string) bool {
 	return true
 }
 
+// CanManahePublicKeys return true if this user is allowed to manage public keys
+// from the web client
+func (u *User) CanManahePublicKeys() bool {
+	return !utils.IsStringInSlice(WebClientPubKeyChangeDisabled, u.Filters.WebClient)
+}
+
+// GetSignature returns a signature for this admin.
+// It could change after an update
+func (u *User) GetSignature() string {
+	data := []byte(fmt.Sprintf("%v_%v_%v", u.Username, u.Status, u.ExpirationDate))
+	data = append(data, []byte(u.Password)...)
+	signature := sha256.Sum256(data)
+	return base64.StdEncoding.EncodeToString(signature[:])
+}
+
 // IsLoginFromAddrAllowed returns true if the login is allowed from the specified remoteAddr.
 // If AllowedIP is defined only the specified IP/Mask can login.
 // If DeniedIP is defined the specified IP/Mask cannot login.
@@ -1094,6 +1123,8 @@ func (u *User) getACopy() User {
 	filters.Hooks.PreLoginDisabled = u.Filters.Hooks.PreLoginDisabled
 	filters.Hooks.CheckPasswordDisabled = u.Filters.Hooks.CheckPasswordDisabled
 	filters.DisableFsChecks = u.Filters.DisableFsChecks
+	filters.WebClient = make([]string, len(u.Filters.WebClient))
+	copy(filters.WebClient, u.Filters.WebClient)
 
 	return User{
 		ID:                u.ID,

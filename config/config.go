@@ -65,6 +65,7 @@ var (
 		Address:         "127.0.0.1",
 		Port:            8080,
 		EnableWebAdmin:  true,
+		EnableWebClient: true,
 		EnableHTTPS:     false,
 		ClientAuthType:  0,
 		TLSCipherSuites: nil,
@@ -236,7 +237,7 @@ func Init() {
 			TemplatesPath:      "templates",
 			StaticFilesPath:    "static",
 			BackupsPath:        "backups",
-			WebAdminRoot:       "",
+			WebRoot:            "",
 			CertificateFile:    "",
 			CertificateKeyFile: "",
 			CACertificates:     nil,
@@ -807,6 +808,12 @@ func getHTTPDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
+	enableWebClient, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ENABLE_WEB_CLIENT", idx))
+	if ok {
+		binding.EnableWebClient = enableWebClient
+		isSet = true
+	}
+
 	enableHTTPS, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ENABLE_HTTPS", idx))
 	if ok {
 		binding.EnableHTTPS = enableHTTPS
@@ -952,7 +959,7 @@ func setViperDefaults() {
 	viper.SetDefault("httpd.templates_path", globalConf.HTTPDConfig.TemplatesPath)
 	viper.SetDefault("httpd.static_files_path", globalConf.HTTPDConfig.StaticFilesPath)
 	viper.SetDefault("httpd.backups_path", globalConf.HTTPDConfig.BackupsPath)
-	viper.SetDefault("httpd.web_admin_root", globalConf.HTTPDConfig.WebAdminRoot)
+	viper.SetDefault("httpd.web_root", globalConf.HTTPDConfig.WebRoot)
 	viper.SetDefault("httpd.certificate_file", globalConf.HTTPDConfig.CertificateFile)
 	viper.SetDefault("httpd.certificate_key_file", globalConf.HTTPDConfig.CertificateKeyFile)
 	viper.SetDefault("httpd.ca_certificates", globalConf.HTTPDConfig.CACertificates)

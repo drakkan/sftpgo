@@ -181,7 +181,7 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 	if err != nil {
 		user.Username = username
 		updateLoginMetrics(&user, ipAddr, loginMethod, err)
-		return nil, err
+		return nil, dataprovider.ErrInvalidCredentials
 	}
 
 	connection, err := s.validateUser(user, cc, loginMethod)
@@ -211,7 +211,7 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 			if err != nil {
 				dbUser.Username = user
 				updateLoginMetrics(&dbUser, ipAddr, dataprovider.LoginMethodTLSCertificate, err)
-				return nil, err
+				return nil, dataprovider.ErrInvalidCredentials
 			}
 			if dbUser.IsTLSUsernameVerificationEnabled() {
 				dbUser, err = dataprovider.CheckUserAndTLSCert(user, ipAddr, common.ProtocolFTP, state.PeerCertificates[0])

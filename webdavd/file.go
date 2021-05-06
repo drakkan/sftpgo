@@ -323,6 +323,7 @@ func (f *webDavFile) closeIO() error {
 func (f *webDavFile) setFinished() error {
 	f.Lock()
 	defer f.Unlock()
+
 	if f.isFinished {
 		return common.ErrTransferClosed
 	}

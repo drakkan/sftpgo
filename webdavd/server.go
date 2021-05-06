@@ -151,7 +151,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer common.Connections.RemoveNetworkConnection()
 
 	if !common.Connections.IsNewConnectionAllowed() {
-		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection refused, configured limit reached")
+		logger.Log(logger.LevelDebug, common.ProtocolWebDAV, "", "connection refused, configured limit reached")
 		http.Error(w, common.ErrConnectionDenied.Error(), http.StatusServiceUnavailable)
 		return
 	}
@@ -281,7 +281,7 @@ func (s *webDavServer) authenticate(r *http.Request, ip string) (dataprovider.Us
 	if err != nil {
 		user.Username = username
 		updateLoginMetrics(&user, ip, loginMethod, err)
-		return user, false, nil, loginMethod, err
+		return user, false, nil, loginMethod, dataprovider.ErrInvalidCredentials
 	}
 	lockSystem := webdav.NewMemLS()
 	cachedUser = &dataprovider.CachedUser{

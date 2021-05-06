@@ -224,7 +224,7 @@ func TestErrorsMapping(t *testing.T) {
 		err := conn.GetFsError(fs, os.ErrNotExist)
 		if protocol == ProtocolSFTP {
 			assert.EqualError(t, err, sftp.ErrSSHFxNoSuchFile.Error())
-		} else if protocol == ProtocolWebDAV || protocol == ProtocolFTP {
+		} else if protocol == ProtocolWebDAV || protocol == ProtocolFTP || protocol == ProtocolHTTP {
 			assert.EqualError(t, err, os.ErrNotExist.Error())
 		} else {
 			assert.EqualError(t, err, ErrNotExist.Error())

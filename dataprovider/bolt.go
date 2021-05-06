@@ -111,7 +111,7 @@ func (p *BoltProvider) validateUserAndTLSCert(username, protocol string, tlsCert
 	user, err := p.userExists(username)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
-		return user, ErrInvalidCredentials
+		return user, err
 	}
 	return checkUserAndTLSCertificate(&user, protocol, tlsCert)
 }
@@ -124,7 +124,7 @@ func (p *BoltProvider) validateUserAndPass(username, password, ip, protocol stri
 	user, err := p.userExists(username)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
-		return user, ErrInvalidCredentials
+		return user, err
 	}
 	return checkUserAndPass(&user, password, ip, protocol)
 }
@@ -147,7 +147,7 @@ func (p *BoltProvider) validateUserAndPubKey(username string, pubKey []byte) (Us
 	user, err := p.userExists(username)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
-		return user, "", ErrInvalidCredentials
+		return user, "", err
 	}
 	return checkUserAndPubKey(&user, pubKey)
 }

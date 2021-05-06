@@ -1375,11 +1375,20 @@ components:
         - SSH
         - FTP
         - DAV
+        - HTTP
       description: |
         Protocols:
           * `SSH` - includes both SFTP and SSH commands
           * `FTP` - plain FTP and FTPES/FTPS
           * `DAV` - WebDAV over HTTP/HTTPS
+          * `HTTP` - WebClient
+    WebClientOptions:
+      type: string
+      enum:
+        - publickey-change-disabled
+      description: |
+        Options:
+          * `publickey-change-disabled` - changing SSH public keys is not allowed
     PatternsFilter:
       type: object
       properties:
@@ -1492,7 +1501,12 @@ components:
           type: boolean
           example: false
           description: Disable checks for existence and automatic creation of home directory and virtual folders. SFTPGo requires that the user's home directory, virtual folder root, and intermediate paths to virtual folders exist to work properly. If you already know that the required directories exist, disabling these checks will speed up login. You could, for example, disable these checks after the first login
-      description: Additional user restrictions
+        web_client:
+          type: array
+          items:
+            $ref: '#/components/schemas/WebClientOptions'
+          description: WebClient related configuration options
+      description: Additional user options
     Secret:
       type: object
       properties:

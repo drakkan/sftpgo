@@ -53,7 +53,8 @@ Name: "{commonappdata}\{#MyAppName}\backups"; Permissions: everyone-full
 Name: "{commonappdata}\{#MyAppName}\credentials"; Permissions: everyone-full
 
 [Icons]
-Name: "{group}\Web Admin"; Filename: "http://127.0.0.1:8080/web";
+Name: "{group}\Web Admin"; Filename: "http://127.0.0.1:8080/web/admin";
+Name: "{group}\Web Client"; Filename: "http://127.0.0.1:8080/web/client";
 Name: "{group}\Service Control";  WorkingDir: "{app}"; Filename: "powershell.exe"; Parameters: "-Command ""Start-Process cmd \""/k cd {app} & {#MyAppExeName} service --help\"" -Verb RunAs"; Comment: "Manage SFTPGo Service"
 Name: "{group}\Documentation"; Filename: "{#DocURL}";
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"

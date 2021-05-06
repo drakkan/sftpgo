@@ -353,7 +353,7 @@ func TestUpdateWebAdminInvalidClaims(t *testing.T) {
 		Permissions: admin.Permissions,
 		Signature:   admin.GetSignature(),
 	}
-	token, err := c.createTokenResponse(server.tokenAuth, tokenAudienceWeb)
+	token, err := c.createTokenResponse(server.tokenAuth, tokenAudienceWebAdmin)
 	assert.NoError(t, err)
 
 	form := make(url.Values)
@@ -435,18 +435,18 @@ func TestCreateTokenError(t *testing.T) {
 	req, _ = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = "127.0.0.1:1234"
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	server.handleWebLoginPost(rr, req)
+	server.handleWebAdminLoginPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
 	// req with no content type
 	req, _ = http.NewRequest(http.MethodPost, webLoginPath, nil)
 	rr = httptest.NewRecorder()
-	server.handleWebLoginPost(rr, req)
+	server.handleWebAdminLoginPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
 	// req with no POST body
 	req, _ = http.NewRequest(http.MethodGet, webLoginPath+"?a=a%C3%AO%GG", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = httptest.NewRecorder()
-	server.handleWebLoginPost(rr, req)
+	server.handleWebAdminLoginPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
 	req, _ = http.NewRequest(http.MethodGet, webLoginPath+"?a=a%C3%A1%G2", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -458,6 +458,51 @@ func TestCreateTokenError(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	_, err := getAdminFromPostFields(req)
 	assert.Error(t, err)
+
+	req, _ = http.NewRequest(http.MethodPost, webClientLoginPath+"?a=a%C3%AO%GG", bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	server.handleWebClientLoginPost(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+
+	req, _ = http.NewRequest(http.MethodPost, webChangeClientPwdPath+"?a=a%C3%AO%GA", bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	handleWebClientChangePwdPost(rr, req)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code, rr.Body.String())
+
+	req, _ = http.NewRequest(http.MethodPost, webChangeClientKeysPath+"?a=a%C3%AO%GB", bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	handleWebClientManageKeysPost(rr, req)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code, rr.Body.String())
+
+	username := "webclientuser"
+	user := dataprovider.User{
+		Username:    username,
+		Password:    "clientpwd",
+		HomeDir:     filepath.Join(os.TempDir(), username),
+		Status:      1,
+		Description: "test user",
+	}
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{"*"}
+	err = dataprovider.AddUser(&user)
+	assert.NoError(t, err)
+
+	rr = httptest.NewRecorder()
+	form = make(url.Values)
+	form.Set("username", user.Username)
+	form.Set("password", "clientpwd")
+	form.Set(csrfFormToken, createCSRFToken())
+	req, _ = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = "127.0.0.1:4567"
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	server.handleWebClientLoginPost(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+
+	err = dataprovider.DeleteUser(username)
+	assert.NoError(t, err)
 }
 
 func TestJWTTokenValidation(t *testing.T) {
@@ -469,20 +514,28 @@ func TestJWTTokenValidation(t *testing.T) {
 	assert.NoError(t, err)
 
 	r := GetHTTPRouter()
-	fn := jwtAuthenticator(r)
+	fn := jwtAuthenticatorAPI(r)
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodGet, userPath, nil)
 	ctx := jwtauth.NewContext(req.Context(), token, nil)
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 
-	fn = jwtAuthenticatorWeb(r)
+	fn = jwtAuthenticatorWebAdmin(r)
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodGet, webUserPath, nil)
 	ctx = jwtauth.NewContext(req.Context(), token, nil)
-
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
+
+	fn = jwtAuthenticatorWebClient(r)
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	ctx = jwtauth.NewContext(req.Context(), token, nil)
+	fn.ServeHTTP(rr, req.WithContext(ctx))
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
 
 	errTest := errors.New("test error")
 	permFn := checkPerm(dataprovider.PermAdminAny)
@@ -498,6 +551,15 @@ func TestJWTTokenValidation(t *testing.T) {
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodGet, webUserPath, nil)
 	req.RequestURI = webUserPath
+	ctx = jwtauth.NewContext(req.Context(), token, errTest)
+	fn.ServeHTTP(rr, req.WithContext(ctx))
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+
+	permClientFn := checkClientPerm(dataprovider.WebClientPubKeyChangeDisabled)
+	fn = permClientFn(r)
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodPost, webChangeClientKeysPath, nil)
+	req.RequestURI = webChangeClientKeysPath
 	ctx = jwtauth.NewContext(req.Context(), token, errTest)
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
@@ -565,6 +627,7 @@ func TestCookieExpiration(t *testing.T) {
 	claims[claimPermissionsKey] = admin.Permissions
 	claims[jwt.SubjectKey] = admin.GetSignature()
 	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
+	claims[jwt.AudienceKey] = tokenAudienceAPI
 	token, _, err = server.tokenAuth.Encode(claims)
 	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodGet, tokenPath, nil)
@@ -599,6 +662,7 @@ func TestCookieExpiration(t *testing.T) {
 	claims[claimPermissionsKey] = admin.Permissions
 	claims[jwt.SubjectKey] = admin.GetSignature()
 	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
+	claims[jwt.AudienceKey] = tokenAudienceAPI
 	token, _, err = server.tokenAuth.Encode(claims)
 	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodGet, tokenPath, nil)
@@ -624,6 +688,82 @@ func TestCookieExpiration(t *testing.T) {
 	assert.True(t, strings.HasPrefix(cookie, "jwt="))
 
 	err = dataprovider.DeleteAdmin(admin.Username)
+	assert.NoError(t, err)
+	// now check client cookie expiration
+	username := "client"
+	user := dataprovider.User{
+		Username:    username,
+		Password:    "clientpwd",
+		HomeDir:     filepath.Join(os.TempDir(), username),
+		Status:      1,
+		Description: "test user",
+	}
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{"*"}
+
+	claims = make(map[string]interface{})
+	claims[claimUsernameKey] = user.Username
+	claims[claimPermissionsKey] = user.Filters.WebClient
+	claims[jwt.SubjectKey] = user.GetSignature()
+	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
+	claims[jwt.AudienceKey] = tokenAudienceWebClient
+	token, _, err = server.tokenAuth.Encode(claims)
+	assert.NoError(t, err)
+
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	ctx = jwtauth.NewContext(req.Context(), token, nil)
+	server.checkCookieExpiration(rr, req.WithContext(ctx))
+	cookie = rr.Header().Get("Set-Cookie")
+	assert.Empty(t, cookie)
+	// the password will be hashed and so the signature will change
+	err = dataprovider.AddUser(&user)
+	assert.NoError(t, err)
+	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	ctx = jwtauth.NewContext(req.Context(), token, nil)
+	server.checkCookieExpiration(rr, req.WithContext(ctx))
+	cookie = rr.Header().Get("Set-Cookie")
+	assert.Empty(t, cookie)
+
+	user, err = dataprovider.UserExists(user.Username)
+	assert.NoError(t, err)
+	user.Filters.AllowedIP = []string{"172.16.4.0/24"}
+	err = dataprovider.UpdateUser(&user)
+	assert.NoError(t, err)
+
+	user, err = dataprovider.UserExists(user.Username)
+	assert.NoError(t, err)
+	claims = make(map[string]interface{})
+	claims[claimUsernameKey] = user.Username
+	claims[claimPermissionsKey] = user.Filters.WebClient
+	claims[jwt.SubjectKey] = user.GetSignature()
+	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
+	claims[jwt.AudienceKey] = tokenAudienceWebClient
+	token, _, err = server.tokenAuth.Encode(claims)
+	assert.NoError(t, err)
+
+	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	req.RemoteAddr = "172.16.3.12:4567"
+	ctx = jwtauth.NewContext(req.Context(), token, nil)
+	server.checkCookieExpiration(rr, req.WithContext(ctx))
+	cookie = rr.Header().Get("Set-Cookie")
+	assert.Empty(t, cookie)
+
+	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	req.RemoteAddr = "172.16.4.12:4567"
+	ctx = jwtauth.NewContext(req.Context(), token, nil)
+	server.checkCookieExpiration(rr, req.WithContext(context.WithValue(ctx, connAddrKey, "172.16.0.1:4567")))
+	cookie = rr.Header().Get("Set-Cookie")
+	assert.Empty(t, cookie)
+
+	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	req.RemoteAddr = "172.16.4.16:4567"
+	ctx = jwtauth.NewContext(req.Context(), token, nil)
+	server.checkCookieExpiration(rr, req.WithContext(context.WithValue(ctx, connAddrKey, "172.16.4.18:4567")))
+	cookie = rr.Header().Get("Set-Cookie")
+	assert.NotEmpty(t, cookie)
+
+	err = dataprovider.DeleteUser(user.Username)
 	assert.NoError(t, err)
 }
 
@@ -672,9 +812,13 @@ func TestCloseConnectionHandler(t *testing.T) {
 func TestRenderInvalidTemplate(t *testing.T) {
 	tmpl, err := template.New("test").Parse("{{.Count}}")
 	if assert.NoError(t, err) {
-		templates["no_match"] = tmpl
+		noMatchTmpl := "no_match"
+		adminTemplates[noMatchTmpl] = tmpl
 		rw := httptest.NewRecorder()
-		renderTemplate(rw, "no_match", map[string]string{})
+		renderAdminTemplate(rw, noMatchTmpl, map[string]string{})
+		assert.Equal(t, http.StatusInternalServerError, rw.Code)
+		clientTemplates[noMatchTmpl] = tmpl
+		renderClientTemplate(rw, noMatchTmpl, map[string]string{})
 		assert.Equal(t, http.StatusInternalServerError, rw.Code)
 	}
 }
@@ -868,4 +1012,297 @@ func TestJWTTokenCleanup(t *testing.T) {
 	startJWTTokensCleanupTicker(100 * time.Millisecond)
 	assert.Eventually(t, func() bool { return !isTokenInvalidated(req) }, 1*time.Second, 200*time.Millisecond)
 	stopJWTTokensCleanupTicker()
+}
+
+func TestWebAdminRedirect(t *testing.T) {
+	b := Binding{
+		Address:         "",
+		Port:            8080,
+		EnableWebAdmin:  true,
+		EnableWebClient: false,
+	}
+	server := newHttpdServer(b, "../static")
+	server.initializeRouter()
+	testServer := httptest.NewServer(server.router)
+	defer testServer.Close()
+
+	req, err := http.NewRequest(http.MethodGet, webRootPath, nil)
+	assert.NoError(t, err)
+	rr := httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusMovedPermanently, rr.Code, rr.Body.String())
+	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
+
+	req, err = http.NewRequest(http.MethodGet, webBasePath, nil)
+	assert.NoError(t, err)
+	rr = httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusMovedPermanently, rr.Code, rr.Body.String())
+	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
+}
+
+func TestParseRangeRequests(t *testing.T) {
+	// curl --verbose  "http://127.0.0.1:8080/static/css/sb-admin-2.min.css" -H "Range: bytes=24-24"
+	fileSize := int64(169740)
+	rangeHeader := "bytes=24-24"
+	offset, size, err := parseRangeRequest(rangeHeader[6:], fileSize)
+	require.NoError(t, err)
+	resp := fmt.Sprintf("bytes %d-%d/%d", offset, offset+size-1, fileSize)
+	assert.Equal(t, "bytes 24-24/169740", resp)
+	require.Equal(t, int64(1), size)
+	// curl --verbose  "http://127.0.0.1:8080/static/css/sb-admin-2.min.css" -H "Range: bytes=24-"
+	rangeHeader = "bytes=24-"
+	offset, size, err = parseRangeRequest(rangeHeader[6:], fileSize)
+	require.NoError(t, err)
+	resp = fmt.Sprintf("bytes %d-%d/%d", offset, offset+size-1, fileSize)
+	assert.Equal(t, "bytes 24-169739/169740", resp)
+	require.Equal(t, int64(169716), size)
+	// curl --verbose  "http://127.0.0.1:8080/static/css/sb-admin-2.min.css" -H "Range: bytes=-1"
+	rangeHeader = "bytes=-1"
+	offset, size, err = parseRangeRequest(rangeHeader[6:], fileSize)
+	require.NoError(t, err)
+	resp = fmt.Sprintf("bytes %d-%d/%d", offset, offset+size-1, fileSize)
+	assert.Equal(t, "bytes 169739-169739/169740", resp)
+	require.Equal(t, int64(1), size)
+	// curl --verbose  "http://127.0.0.1:8080/static/css/sb-admin-2.min.css" -H "Range: bytes=-100"
+	rangeHeader = "bytes=-100"
+	offset, size, err = parseRangeRequest(rangeHeader[6:], fileSize)
+	require.NoError(t, err)
+	resp = fmt.Sprintf("bytes %d-%d/%d", offset, offset+size-1, fileSize)
+	assert.Equal(t, "bytes 169640-169739/169740", resp)
+	require.Equal(t, int64(100), size)
+	// curl --verbose  "http://127.0.0.1:8080/static/css/sb-admin-2.min.css" -H "Range: bytes=20-30"
+	rangeHeader = "bytes=20-30"
+	offset, size, err = parseRangeRequest(rangeHeader[6:], fileSize)
+	require.NoError(t, err)
+	resp = fmt.Sprintf("bytes %d-%d/%d", offset, offset+size-1, fileSize)
+	assert.Equal(t, "bytes 20-30/169740", resp)
+	require.Equal(t, int64(11), size)
+	// curl --verbose  "http://127.0.0.1:8080/static/css/sb-admin-2.min.css" -H "Range: bytes=20-169739"
+	rangeHeader = "bytes=20-169739"
+	offset, size, err = parseRangeRequest(rangeHeader[6:], fileSize)
+	require.NoError(t, err)
+	resp = fmt.Sprintf("bytes %d-%d/%d", offset, offset+size-1, fileSize)
+	assert.Equal(t, "bytes 20-169739/169740", resp)
+	require.Equal(t, int64(169720), size)
+	// curl --verbose  "http://127.0.0.1:8080/static/css/sb-admin-2.min.css" -H "Range: bytes=20-169740"
+	rangeHeader = "bytes=20-169740"
+	offset, size, err = parseRangeRequest(rangeHeader[6:], fileSize)
+	require.NoError(t, err)
+	resp = fmt.Sprintf("bytes %d-%d/%d", offset, offset+size-1, fileSize)
+	assert.Equal(t, "bytes 20-169739/169740", resp)
+	require.Equal(t, int64(169720), size)
+	// curl --verbose  "http://127.0.0.1:8080/static/css/sb-admin-2.min.css" -H "Range: bytes=20-169741"
+	rangeHeader = "bytes=20-169741"
+	offset, size, err = parseRangeRequest(rangeHeader[6:], fileSize)
+	require.NoError(t, err)
+	resp = fmt.Sprintf("bytes %d-%d/%d", offset, offset+size-1, fileSize)
+	assert.Equal(t, "bytes 20-169739/169740", resp)
+	require.Equal(t, int64(169720), size)
+	//curl --verbose  "http://127.0.0.1:8080/static/css/sb-admin-2.min.css" -H "Range: bytes=0-" > /dev/null
+	rangeHeader = "bytes=0-"
+	offset, size, err = parseRangeRequest(rangeHeader[6:], fileSize)
+	require.NoError(t, err)
+	resp = fmt.Sprintf("bytes %d-%d/%d", offset, offset+size-1, fileSize)
+	assert.Equal(t, "bytes 0-169739/169740", resp)
+	require.Equal(t, int64(169740), size)
+	// now test errors
+	rangeHeader = "bytes=0-a"
+	_, _, err = parseRangeRequest(rangeHeader[6:], fileSize)
+	require.Error(t, err)
+	rangeHeader = "bytes="
+	_, _, err = parseRangeRequest(rangeHeader[6:], fileSize)
+	require.Error(t, err)
+	rangeHeader = "bytes=-"
+	_, _, err = parseRangeRequest(rangeHeader[6:], fileSize)
+	require.Error(t, err)
+	rangeHeader = "bytes=500-300"
+	_, _, err = parseRangeRequest(rangeHeader[6:], fileSize)
+	require.Error(t, err)
+	rangeHeader = "bytes=5000000"
+	_, _, err = parseRangeRequest(rangeHeader[6:], fileSize)
+	require.Error(t, err)
+}
+
+func TestRequestHeaderErrors(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	req.Header.Set("If-Unmodified-Since", "not a date")
+	res := checkIfUnmodifiedSince(req, time.Now())
+	assert.Equal(t, condNone, res)
+
+	req, _ = http.NewRequest(http.MethodPost, webClientFilesPath, nil)
+	res = checkIfModifiedSince(req, time.Now())
+	assert.Equal(t, condNone, res)
+
+	req, _ = http.NewRequest(http.MethodPost, webClientFilesPath, nil)
+	res = checkIfRange(req, time.Now())
+	assert.Equal(t, condNone, res)
+
+	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	req.Header.Set("If-Modified-Since", "not a date")
+	res = checkIfModifiedSince(req, time.Now())
+	assert.Equal(t, condNone, res)
+
+	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	req.Header.Set("If-Range", time.Now().Format(http.TimeFormat))
+	res = checkIfRange(req, time.Time{})
+	assert.Equal(t, condFalse, res)
+
+	req.Header.Set("If-Range", "invalid if range date")
+	res = checkIfRange(req, time.Now())
+	assert.Equal(t, condFalse, res)
+	modTime := getFileObjectModTime(time.Time{})
+	assert.Empty(t, modTime)
+}
+
+func TestConnection(t *testing.T) {
+	user := dataprovider.User{
+		Username: "test_httpd_user",
+		HomeDir:  filepath.Clean(os.TempDir()),
+		FsConfig: vfs.Filesystem{
+			Provider: vfs.GCSFilesystemProvider,
+			GCSConfig: vfs.GCSFsConfig{
+				Bucket:      "test_bucket_name",
+				Credentials: kms.NewPlainSecret("invalid JSON payload"),
+			},
+		},
+	}
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{dataprovider.PermAny}
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, user),
+		request:        nil,
+	}
+	assert.Empty(t, connection.GetClientVersion())
+	assert.Empty(t, connection.GetRemoteAddress())
+	assert.Empty(t, connection.GetCommand())
+	name := "missing file name"
+	_, err := connection.getFileReader(name, 0)
+	assert.Error(t, err)
+	connection.User.FsConfig.Provider = vfs.LocalFilesystemProvider
+	_, err = connection.getFileReader(name, 0)
+	assert.ErrorIs(t, err, os.ErrNotExist)
+}
+
+func TestRenderDirError(t *testing.T) {
+	user := dataprovider.User{
+		Username: "test_httpd_user",
+		HomeDir:  filepath.Clean(os.TempDir()),
+	}
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{dataprovider.PermAny}
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, user),
+		request:        nil,
+	}
+
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	renderDirContents(rr, req, connection, "missing dir")
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "text-form-error")
+}
+
+func TestHTTPDFile(t *testing.T) {
+	user := dataprovider.User{
+		Username: "test_httpd_user",
+		HomeDir:  filepath.Clean(os.TempDir()),
+	}
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{dataprovider.PermAny}
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, user),
+		request:        nil,
+	}
+
+	fs, err := user.GetFilesystem("")
+	assert.NoError(t, err)
+
+	name := "fileName"
+	p := filepath.Join(os.TempDir(), name)
+	err = os.WriteFile(p, []byte("contents"), os.ModePerm)
+	assert.NoError(t, err)
+	file, err := os.Open(p)
+	assert.NoError(t, err)
+	err = file.Close()
+	assert.NoError(t, err)
+
+	baseTransfer := common.NewBaseTransfer(file, connection.BaseConnection, nil, p, name, common.TransferDownload,
+		0, 0, 0, false, fs)
+	httpdFile := newHTTPDFile(baseTransfer, nil)
+	// the file is closed, read should fail
+	buf := make([]byte, 100)
+	_, err = httpdFile.Read(buf)
+	assert.Error(t, err)
+	err = httpdFile.Close()
+	assert.Error(t, err)
+	err = httpdFile.Close()
+	assert.ErrorIs(t, err, common.ErrTransferClosed)
+}
+
+func TestChangeUserPwd(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodPost, webChangeClientPwdPath, nil)
+	err := doChangeUserPassword(req, "", "", "")
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "please provide the current password and the new one two times")
+	}
+	err = doChangeUserPassword(req, "a", "b", "c")
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "the two password fields do not match")
+	}
+	err = doChangeUserPassword(req, "a", "b", "b")
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "invalid token claims")
+	}
+}
+
+func TestGetFilesInvalidClaims(t *testing.T) {
+	server := httpdServer{}
+	server.initializeRouter()
+
+	rr := httptest.NewRecorder()
+	user := dataprovider.User{
+		Username: "",
+		Password: "pwd",
+	}
+	c := jwtTokenClaims{
+		Username:    user.Username,
+		Permissions: nil,
+		Signature:   user.GetSignature(),
+	}
+	token, err := c.createTokenResponse(server.tokenAuth, tokenAudienceWebClient)
+	assert.NoError(t, err)
+
+	req, _ := http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
+	handleClientGetFiles(rr, req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+}
+
+func TestManageKeysInvalidClaims(t *testing.T) {
+	server := httpdServer{}
+	server.initializeRouter()
+
+	rr := httptest.NewRecorder()
+	user := dataprovider.User{
+		Username: "",
+		Password: "pwd",
+	}
+	c := jwtTokenClaims{
+		Username:    user.Username,
+		Permissions: nil,
+		Signature:   user.GetSignature(),
+	}
+	token, err := c.createTokenResponse(server.tokenAuth, tokenAudienceWebClient)
+	assert.NoError(t, err)
+	form := make(url.Values)
+	form.Set(csrfFormToken, createCSRFToken())
+	form.Set("public_keys", "")
+	req, _ := http.NewRequest(http.MethodPost, webChangeClientKeysPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
+	handleWebClientManageKeysPost(rr, req)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 }

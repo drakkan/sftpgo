@@ -1,0 +1,59 @@
+{{template "base" .}}
+
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "page_body"}}
+
+{{if .LoggedUser.Username}}
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">{{.Title}}</h6>
+    </div>
+    <div class="card-body">
+        {{if .Error}}
+        <div class="card mb-2 border-left-warning">
+            <div class="card-body text-form-error">{{.Error}}</div>
+        </div>
+        {{end}}
+
+        {{if .Success}}
+        <div class="card mb-2 border-left-success">
+            <div class="card-body">{{.Success}}</div>
+        </div>
+        {{end}}
+    </div>
+</div>
+{{else}}
+<div class="row justify-content-center">
+
+    <div class="col-xl-8 col-lg-9 col-md-9">
+
+        <div class="card o-hidden border-0 shadow-lg my-5">
+            <div class="card-body p-0">
+                <div class="row justify-content-center">
+                    <div class="col-lg-9">
+                        <div class="p-5">
+                            <div class="text-center">
+                                <h1 class="h4 text-gray-900 mb-4">{{.Title}}</h1>
+                            </div>
+                            {{if .Error}}
+                            <div class="card mb-4 border-left-warning">
+                                <div class="card-body text-form-error">{{.Error}}</div>
+                            </div>
+                            {{end}}
+
+                            {{if .Success}}
+                            <div class="card mb-4 border-left-success">
+                                <div class="card-body">{{.Success}}</div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{end}}

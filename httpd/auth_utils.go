@@ -18,9 +18,10 @@ import (
 type tokenAudience = string
 
 const (
-	tokenAudienceWeb  tokenAudience = "Web"
-	tokenAudienceAPI  tokenAudience = "API"
-	tokenAudienceCSRF tokenAudience = "CSRF"
+	tokenAudienceWebAdmin  tokenAudience = "WebAdmin"
+	tokenAudienceWebClient tokenAudience = "WebClient"
+	tokenAudienceAPI       tokenAudience = "API"
+	tokenAudienceCSRF      tokenAudience = "CSRF"
 )
 
 const (
@@ -119,15 +120,21 @@ func (c *jwtTokenClaims) createTokenResponse(tokenAuth *jwtauth.JWTAuth, audienc
 	return response, nil
 }
 
-func (c *jwtTokenClaims) createAndSetCookie(w http.ResponseWriter, r *http.Request, tokenAuth *jwtauth.JWTAuth) error {
-	resp, err := c.createTokenResponse(tokenAuth, tokenAudienceWeb)
+func (c *jwtTokenClaims) createAndSetCookie(w http.ResponseWriter, r *http.Request, tokenAuth *jwtauth.JWTAuth, audience tokenAudience) error {
+	resp, err := c.createTokenResponse(tokenAuth, audience)
 	if err != nil {
 		return err
+	}
+	var basePath string
+	if audience == tokenAudienceWebAdmin {
+		basePath = webBaseAdminPath
+	} else {
+		basePath = webBaseClientPath
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     "jwt",
 		Value:    resp["access_token"].(string),
-		Path:     webBasePath,
+		Path:     basePath,
 		Expires:  time.Now().Add(tokenDuration),
 		HttpOnly: true,
 		Secure:   r.TLS != nil,
@@ -176,6 +183,19 @@ func invalidateToken(r *http.Request) {
 	if tokenString != "" {
 		invalidatedJWTTokens.Store(tokenString, time.Now().UTC().Add(tokenDuration))
 	}
+}
+
+func getUserFromToken(r *http.Request) *dataprovider.User {
+	user := &dataprovider.User{}
+	_, claims, err := jwtauth.FromContext(r.Context())
+	if err != nil {
+		return user
+	}
+	tokenClaims := jwtTokenClaims{}
+	tokenClaims.Decode(claims)
+	user.Username = tokenClaims.Username
+	user.Filters.WebClient = tokenClaims.Permissions
+	return user
 }
 
 func getAdminFromToken(r *http.Request) *dataprovider.Admin {

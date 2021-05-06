@@ -1029,7 +1029,7 @@ func (c *BaseConnection) GetPermissionDeniedError() error {
 	switch c.protocol {
 	case ProtocolSFTP:
 		return sftp.ErrSSHFxPermissionDenied
-	case ProtocolWebDAV, ProtocolFTP:
+	case ProtocolWebDAV, ProtocolFTP, ProtocolHTTP:
 		return os.ErrPermission
 	default:
 		return ErrPermissionDenied
@@ -1041,7 +1041,7 @@ func (c *BaseConnection) GetNotExistError() error {
 	switch c.protocol {
 	case ProtocolSFTP:
 		return sftp.ErrSSHFxNoSuchFile
-	case ProtocolWebDAV, ProtocolFTP:
+	case ProtocolWebDAV, ProtocolFTP, ProtocolHTTP:
 		return os.ErrNotExist
 	default:
 		return ErrNotExist

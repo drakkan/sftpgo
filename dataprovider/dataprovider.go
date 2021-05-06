@@ -112,7 +112,7 @@ var (
 	// ErrNoAuthTryed defines the error for connection closed before authentication
 	ErrNoAuthTryed = errors.New("no auth tryed")
 	// ValidProtocols defines all the valid protcols
-	ValidProtocols = []string{"SSH", "FTP", "DAV"}
+	ValidProtocols = []string{"SSH", "FTP", "DAV", "HTTP"}
 	// ErrNoInitRequired defines the error returned by InitProvider if no inizialization/update is required
 	ErrNoInitRequired = errors.New("the data provider is up to date")
 	// ErrInvalidCredentials defines the error to return if the supplied credentials are invalid
@@ -1385,6 +1385,11 @@ func validateFilters(user *User) error {
 	if user.Filters.TLSUsername != "" {
 		if !utils.IsStringInSlice(string(user.Filters.TLSUsername), validTLSUsernames) {
 			return &ValidationError{err: fmt.Sprintf("invalid TLS username: %#v", user.Filters.TLSUsername)}
+		}
+	}
+	for _, opts := range user.Filters.WebClient {
+		if !utils.IsStringInSlice(opts, WebClientOptions) {
+			return &ValidationError{err: fmt.Sprintf("invalid web client options %#v", opts)}
 		}
 	}
 	return validateFileFilters(user)

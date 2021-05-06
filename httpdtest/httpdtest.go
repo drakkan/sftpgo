@@ -1168,6 +1168,11 @@ func compareUserFilterSubStructs(expected *dataprovider.User, actual *dataprovid
 			return errors.New("denied protocols contents mismatch")
 		}
 	}
+	for _, options := range expected.Filters.WebClient {
+		if !utils.IsStringInSlice(options, actual.Filters.WebClient) {
+			return errors.New("web client options contents mismatch")
+		}
+	}
 	if expected.Filters.Hooks.ExternalAuthDisabled != actual.Filters.Hooks.ExternalAuthDisabled {
 		return errors.New("external_auth_disabled hook mismatch")
 	}
@@ -1201,6 +1206,9 @@ func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) 
 	}
 	if expected.Filters.TLSUsername != actual.Filters.TLSUsername {
 		return errors.New("TLSUsername mismatch")
+	}
+	if len(expected.Filters.WebClient) != len(actual.Filters.WebClient) {
+		return errors.New("WebClient filter mismatch")
 	}
 	if err := compareUserFilterSubStructs(expected, actual); err != nil {
 		return err

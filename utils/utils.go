@@ -40,8 +40,8 @@ const (
 
 // IsStringInSlice searches a string in a slice and returns true if the string is found
 func IsStringInSlice(obj string, list []string) bool {
-	for _, v := range list {
-		if v == obj {
+	for i := 0; i < len(list); i++ {
+		if list[i] == obj {
 			return true
 		}
 	}
@@ -51,8 +51,8 @@ func IsStringInSlice(obj string, list []string) bool {
 // IsStringPrefixInSlice searches a string prefix in a slice and returns true
 // if a matching prefix is found
 func IsStringPrefixInSlice(obj string, list []string) bool {
-	for _, v := range list {
-		if strings.HasPrefix(obj, v) {
+	for i := 0; i < len(list); i++ {
+		if strings.HasPrefix(obj, list[i]) {
 			return true
 		}
 	}

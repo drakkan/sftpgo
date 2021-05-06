@@ -64,6 +64,16 @@ func (fs *OsFs) Lstat(name string) (os.FileInfo, error) {
 // Open opens the named file for reading
 func (*OsFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func(), error) {
 	f, err := os.Open(name)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if offset > 0 {
+		_, err = f.Seek(offset, io.SeekStart)
+		if err != nil {
+			f.Close()
+			return nil, nil, nil, err
+		}
+	}
 	return f, nil, nil, err
 }
 

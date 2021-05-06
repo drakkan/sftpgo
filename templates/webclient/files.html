@@ -1,0 +1,125 @@
+{{template "base" .}}
+
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "extra_css"}}
+<link href="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/select.bootstrap4.min.css" rel="stylesheet">
+{{end}}
+
+{{define "page_body"}}
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold"><a href="{{.FilesURL}}?path=%2F"><i class="fas fa-home"></i>&nbsp;Home</a>&nbsp;{{range .Paths}}{{if eq .Href ""}}/{{.DirName}}{{else}}<a href="{{.Href}}">/{{.DirName}}</a>{{end}}{{end}}</h6>
+    </div>
+    <div class="card-body">
+        {{if .Error}}
+        <div class="card mb-4 border-left-warning">
+            <div class="card-body text-form-error">{{.Error}}</div>
+        </div>
+        {{end}}
+        <div class="table-responsive">
+            <table class="table table-hover nowrap" id="dataTable" width="100%" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Name</th>
+                        <th>Size</th>
+                        <th>Last modified</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Files}}
+                    {{if .IsDir}}
+                    <tr>
+                        <td>1</td>
+                        <td><i class="fas fa-folder"></i>&nbsp;<a href="{{call $.GetObjectURL $.CurrentDir .Name}}">{{.Name}}</a></td>
+                        <td></td>
+                        <td>{{call $.FormatTime .ModTime}}</td>
+                    {{else}}
+                    <tr>
+                        <td>2</td>
+                        <td><i class="{{if call $.IsLink .}}fas fa-external-link-alt{{else}}fas fa-file{{end}}"></i>&nbsp;<a href="{{call $.GetObjectURL $.CurrentDir .Name}}">{{.Name}}</a></td>
+                        <td>{{if not (call $.IsLink .)}}{{call $.GetSize .Size}}{{end}}</td>
+                        <td>{{call $.FormatTime .ModTime}}</td>
+                    </tr>
+                    {{end}}
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "extra_js"}}
+<script src="{{.StaticURL}}/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.buttons.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.fixedHeader.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.select.min.js"></script>
+<script type="text/javascript">
+    $(document).ready(function () {
+        $.fn.dataTable.ext.buttons.refresh = {
+            text: '<i class="fas fa-sync-alt"></i>',
+            name: 'refresh',
+            titleAttr: "Refresh",
+            action: function (e, dt, node, config) {
+                location.reload();
+            }
+        };
+
+        var table = $('#dataTable').DataTable({
+            "buttons": [],
+            "lengthChange": false,
+            "columnDefs": [
+                {
+                    "targets": [0],
+                    "visible": false,
+                    "searchable": false
+                },
+                {
+                    "targets": [2,3],
+                    "searchable": false
+                }
+            ],
+            "scrollX": false,
+            "scrollY": false,
+            "responsive": true,
+            "language": {
+                "emptyTable": "You have no files or folders"
+            },
+            /*"select": {
+                "style":    'single',
+                "blurable": true
+            },*/
+            "orderFixed": [ 0, 'asc' ],
+            "order": [[1, 'asc']]
+        });
+
+        new $.fn.dataTable.FixedHeader( table );
+
+        table.button().add(0,'refresh');
+        table.button().add(0,'pageLength');
+        table.buttons().container().appendTo('#dataTable_wrapper .col-md-6:eq(0)');
+
+        /*table.on('select', function (e, dt, type, indexes) {
+            if (type === 'row') {
+                var rows = table.rows(indexes).nodes().to$();
+                $.each(rows, function() {
+                    if ($(this).hasClass('ignoreselection')) table.row($(this)).deselect();
+                })
+            }
+        });*/
+
+    });
+</script>
+
+{{end}}

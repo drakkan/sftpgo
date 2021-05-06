@@ -16,7 +16,7 @@ If the hook defines an external program it can read the following environment va
 - `SFTPGO_AUTHD_USERNAME`
 - `SFTPGO_AUTHD_PASSWORD`
 - `SFTPGO_AUTHD_IP`
-- `SFTPGO_AUTHD_PROTOCOL`, possible values are `SSH`, `FTP`, `DAV`
+- `SFTPGO_AUTHD_PROTOCOL`, possible values are `SSH`, `FTP`, `DAV`, `HTTP`
 
 Previous global environment variables aren't cleared when the script is called. The content of these variables is _not_ quoted. They may contain special characters. They are under the control of a possibly malicious remote user.
 

@@ -181,6 +181,7 @@
         "port": 8080,
         "address": "127.0.0.1",
         "enable_web_admin": true,
+        "enable_web_client": true,
         "enable_https": false,
         "client_auth_type": 0,
         "tls_cipher_suites": []
@@ -189,7 +190,7 @@
     "templates_path": "templates",
     "static_files_path": "static",
     "backups_path": "backups",
-    "web_admin_root": "",
+    "web_root": "",
     "certificate_file": "",
     "certificate_key_file": "",
     "ca_certificates": [],

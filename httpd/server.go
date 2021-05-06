@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-chi/render"
 	"github.com/lestrrat-go/jwx/jwa"
+	"github.com/rs/xid"
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
@@ -28,27 +29,32 @@ type httpdServer struct {
 	binding         Binding
 	staticFilesPath string
 	enableWebAdmin  bool
+	enableWebClient bool
 	router          *chi.Mux
 	tokenAuth       *jwtauth.JWTAuth
 }
 
-func newHttpdServer(b Binding, staticFilesPath string, enableWebAdmin bool) *httpdServer {
+func newHttpdServer(b Binding, staticFilesPath string) *httpdServer {
 	return &httpdServer{
 		binding:         b,
 		staticFilesPath: staticFilesPath,
-		enableWebAdmin:  enableWebAdmin && b.EnableWebAdmin,
+		enableWebAdmin:  b.EnableWebAdmin,
+		enableWebClient: b.EnableWebClient,
 	}
 }
 
 func (s *httpdServer) listenAndServe() error {
 	s.initializeRouter()
 	httpServer := &http.Server{
-		Handler:        s.router,
-		ReadTimeout:    60 * time.Second,
-		WriteTimeout:   60 * time.Second,
-		IdleTimeout:    120 * time.Second,
-		MaxHeaderBytes: 1 << 16, // 64KB
-		ErrorLog:       log.New(&logger.StdLoggerWrapper{Sender: logSender}, "", 0),
+		Handler:           s.router,
+		ReadHeaderTimeout: 30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 16, // 64KB
+		ErrorLog:          log.New(&logger.StdLoggerWrapper{Sender: logSender}, "", 0),
+	}
+	if !s.binding.EnableWebClient {
+		httpServer.ReadTimeout = 60 * time.Second
+		httpServer.WriteTimeout = 90 * time.Second
 	}
 	if certMgr != nil && s.binding.EnableHTTPS {
 		config := &tls.Config{
@@ -104,7 +110,81 @@ func (s *httpdServer) refreshCookie(next http.Handler) http.Handler {
 	})
 }
 
-func (s *httpdServer) handleWebLoginPost(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	common.Connections.AddNetworkConnection()
+	defer common.Connections.RemoveNetworkConnection()
+
+	if err := r.ParseForm(); err != nil {
+		renderClientLoginPage(w, err.Error())
+		return
+	}
+	username := r.Form.Get("username")
+	password := r.Form.Get("password")
+	if username == "" || password == "" {
+		renderClientLoginPage(w, "Invalid credentials")
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderClientLoginPage(w, err.Error())
+		return
+	}
+
+	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
+	if !common.Connections.IsNewConnectionAllowed() {
+		logger.Log(logger.LevelDebug, common.ProtocolHTTP, "", "connection refused, configured limit reached")
+		renderClientLoginPage(w, "configured connections limit reached")
+		return
+	}
+	if common.IsBanned(ipAddr) {
+		renderClientLoginPage(w, "your IP address is banned")
+		return
+	}
+
+	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolHTTP); err != nil {
+		renderClientLoginPage(w, fmt.Sprintf("access denied by post connect hook: %v", err))
+		return
+	}
+
+	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, common.ProtocolHTTP)
+	if err != nil {
+		updateLoginMetrics(&user, ipAddr, err)
+		renderClientLoginPage(w, dataprovider.ErrInvalidCredentials.Error())
+		return
+	}
+	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, xid.New().String())
+	if err := checkWebClientUser(&user, r, connectionID); err != nil {
+		updateLoginMetrics(&user, ipAddr, err)
+		renderClientLoginPage(w, err.Error())
+		return
+	}
+
+	defer user.CloseFs() //nolint:errcheck
+	err = user.CheckFsRoot(connectionID)
+	if err != nil {
+		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
+		updateLoginMetrics(&user, ipAddr, err)
+		renderClientLoginPage(w, err.Error())
+		return
+	}
+
+	c := jwtTokenClaims{
+		Username:    user.Username,
+		Permissions: user.Filters.WebClient,
+		Signature:   user.GetSignature(),
+	}
+
+	err = c.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebClient)
+	if err != nil {
+		updateLoginMetrics(&user, ipAddr, err)
+		renderLoginPage(w, err.Error())
+		return
+	}
+	updateLoginMetrics(&user, ipAddr, err)
+	http.Redirect(w, r, webClientFilesPath, http.StatusFound)
+}
+
+func (s *httpdServer) handleWebAdminLoginPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	if err := r.ParseForm(); err != nil {
 		renderLoginPage(w, err.Error())
@@ -139,7 +219,7 @@ func (s *httpdServer) handleWebLoginPost(w http.ResponseWriter, r *http.Request)
 		Signature:   admin.GetSignature(),
 	}
 
-	err = c.createAndSetCookie(w, r, s.tokenAuth)
+	err = c.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebAdmin)
 	if err != nil {
 		renderLoginPage(w, err.Error())
 		return
@@ -209,6 +289,32 @@ func (s *httpdServer) checkCookieExpiration(w http.ResponseWriter, r *http.Reque
 	if time.Until(token.Expiration()) > tokenRefreshMin {
 		return
 	}
+	if utils.IsStringInSlice(tokenAudienceWebClient, token.Audience()) {
+		s.refreshClientToken(w, r, tokenClaims)
+	} else {
+		s.refreshAdminToken(w, r, tokenClaims)
+	}
+}
+
+func (s *httpdServer) refreshClientToken(w http.ResponseWriter, r *http.Request, tokenClaims jwtTokenClaims) {
+	user, err := dataprovider.UserExists(tokenClaims.Username)
+	if err != nil {
+		return
+	}
+	if user.GetSignature() != tokenClaims.Signature {
+		logger.Debug(logSender, "", "signature mismatch for user %#v, unable to refresh cookie", user.Username)
+		return
+	}
+	if err := checkWebClientUser(&user, r, xid.New().String()); err != nil {
+		logger.Debug(logSender, "", "unable to refresh cookie for user %#v: %v", user.Username, err)
+		return
+	}
+
+	logger.Debug(logSender, "", "cookie refreshed for user %#v", user.Username)
+	tokenClaims.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebClient) //nolint:errcheck
+}
+
+func (s *httpdServer) refreshAdminToken(w http.ResponseWriter, r *http.Request, tokenClaims jwtTokenClaims) {
 	admin, err := dataprovider.AdminExists(tokenClaims.Username)
 	if err != nil {
 		return
@@ -235,7 +341,7 @@ func (s *httpdServer) checkCookieExpiration(w http.ResponseWriter, r *http.Reque
 		}
 	}
 	logger.Debug(logSender, "", "cookie refreshed for admin %#v", admin.Username)
-	tokenClaims.createAndSetCookie(w, r, s.tokenAuth) //nolint:errcheck
+	tokenClaims.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebAdmin) //nolint:errcheck
 }
 
 func (s *httpdServer) updateContextFromCookie(r *http.Request) *http.Request {
@@ -274,8 +380,12 @@ func (s *httpdServer) initializeRouter() {
 		router.Use(middleware.Recoverer)
 
 		router.NotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if s.enableWebAdmin && isWebAdminRequest(r) {
+			if (s.enableWebAdmin || s.enableWebClient) && isWebRequest(r) {
 				r = s.updateContextFromCookie(r)
+				if s.enableWebClient && (isWebClientRequest(r) || !s.enableWebAdmin) {
+					renderClientNotFoundPage(w, r, nil)
+					return
+				}
 				renderNotFoundPage(w, r, nil)
 				return
 			}
@@ -286,7 +396,7 @@ func (s *httpdServer) initializeRouter() {
 
 		router.Group(func(router chi.Router) {
 			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromHeader))
-			router.Use(jwtAuthenticator)
+			router.Use(jwtAuthenticatorAPI)
 
 			router.Get(versionPath, func(w http.ResponseWriter, r *http.Request) {
 				render.JSON(w, r, version.Get())
@@ -336,21 +446,58 @@ func (s *httpdServer) initializeRouter() {
 			router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Delete(adminPath+"/{username}", deleteAdmin)
 		})
 
-		if s.enableWebAdmin {
-			router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
-				http.Redirect(w, r, webLoginPath, http.StatusMovedPermanently)
+		if s.enableWebAdmin || s.enableWebClient {
+			router.Group(func(router chi.Router) {
+				router.Use(compressor.Handler)
+				fileServer(router, webStaticFilesPath, http.Dir(s.staticFilesPath))
 			})
+			if s.enableWebClient {
+				router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
+					http.Redirect(w, r, webClientLoginPath, http.StatusMovedPermanently)
+				})
+				router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
+					http.Redirect(w, r, webClientLoginPath, http.StatusMovedPermanently)
+				})
+			} else {
+				router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
+					http.Redirect(w, r, webLoginPath, http.StatusMovedPermanently)
+				})
+				router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
+					http.Redirect(w, r, webLoginPath, http.StatusMovedPermanently)
+				})
+			}
+		}
 
-			router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
-				http.Redirect(w, r, webLoginPath, http.StatusMovedPermanently)
+		if s.enableWebClient {
+			router.Get(webBaseClientPath, func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, webClientLoginPath, http.StatusMovedPermanently)
 			})
-
-			router.Get(webLoginPath, handleWebLogin)
-			router.Post(webLoginPath, s.handleWebLoginPost)
+			router.Get(webClientLoginPath, handleClientWebLogin)
+			router.Post(webClientLoginPath, s.handleWebClientLoginPost)
 
 			router.Group(func(router chi.Router) {
 				router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie))
-				router.Use(jwtAuthenticatorWeb)
+				router.Use(jwtAuthenticatorWebClient)
+
+				router.Get(webClientLogoutPath, handleWebClientLogout)
+				router.With(s.refreshCookie).Get(webClientFilesPath, handleClientGetFiles)
+				router.With(s.refreshCookie).Get(webClientCredentialsPath, handleClientGetCredentials)
+				router.Post(webChangeClientPwdPath, handleWebClientChangePwdPost)
+				router.With(checkClientPerm(dataprovider.WebClientPubKeyChangeDisabled)).
+					Post(webChangeClientKeysPath, handleWebClientManageKeysPost)
+			})
+		}
+
+		if s.enableWebAdmin {
+			router.Get(webBaseAdminPath, func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, webLoginPath, http.StatusMovedPermanently)
+			})
+			router.Get(webLoginPath, handleWebLogin)
+			router.Post(webLoginPath, s.handleWebAdminLoginPost)
+
+			router.Group(func(router chi.Router) {
+				router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie))
+				router.Use(jwtAuthenticatorWebAdmin)
 
 				router.Get(webLogoutPath, handleWebLogout)
 				router.With(s.refreshCookie).Get(webChangeAdminPwdPath, handleWebAdminChangePwd)
@@ -404,11 +551,6 @@ func (s *httpdServer) initializeRouter() {
 				router.With(checkPerm(dataprovider.PermAdminManageSystem), s.refreshCookie).
 					Get(webTemplateFolder, handleWebTemplateFolderGet)
 				router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(webTemplateFolder, handleWebTemplateFolderPost)
-			})
-
-			router.Group(func(router chi.Router) {
-				router.Use(compressor.Handler)
-				fileServer(router, webStaticFilesPath, http.Dir(s.staticFilesPath))
 			})
 		}
 	})

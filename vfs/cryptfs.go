@@ -96,6 +96,7 @@ func (fs *CryptFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, 
 				finished := false
 				for !finished {
 					readed, err = readerAt.ReadAt(buf, offset)
+					offset += int64(readed)
 					if err != nil && err != io.EOF {
 						break
 					}

@@ -104,7 +104,7 @@ var (
 	QuotaScans            ActiveScans
 	idleTimeoutTicker     *time.Ticker
 	idleTimeoutTickerDone chan bool
-	supportedProtocols    = []string{ProtocolSFTP, ProtocolSCP, ProtocolSSH, ProtocolFTP, ProtocolWebDAV}
+	supportedProtocols    = []string{ProtocolSFTP, ProtocolSCP, ProtocolSSH, ProtocolFTP, ProtocolWebDAV, ProtocolHTTP}
 	// the map key is the protocol, for each protocol we can have multiple rate limiters
 	rateLimiters map[string][]*rateLimiter
 )

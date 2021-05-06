@@ -200,7 +200,7 @@ sudo systemctl restart sftpgo
 
 So now open the Web Admin URL.
 
-[http://127.0.0.1:8080/web](http://127.0.0.1:8080/web)
+[http://127.0.0.1:8080/web/admin](http://127.0.0.1:8080/web/admin)
 
 Click `Add` and fill the user details, the minimum required parameters are:
 

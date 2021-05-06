@@ -1979,7 +1979,7 @@ func TestWrongClientCertificate(t *testing.T) {
 		body, err := io.ReadAll(resp.Body)
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, string(body))
-		assert.Contains(t, string(body), "CN \"client1\" does not match username \"client2\"")
+		assert.Contains(t, string(body), "invalid credentials")
 	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)

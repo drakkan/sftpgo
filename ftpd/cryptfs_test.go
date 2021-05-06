@@ -1,6 +1,10 @@
 package ftpd_test
 
 import (
+	"crypto/sha256"
+	"fmt"
+	"hash"
+	"io"
 	"net/http"
 	"os"
 	"path"
@@ -200,11 +204,44 @@ func TestResumeCryptFs(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, data, readed)
 		}
+		// now test a download resume using a bigger file
+		testFileSize := int64(655352)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		initialHash, err := computeHashForFile(sha256.New(), testFilePath)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+		downloadHash, err := computeHashForFile(sha256.New(), localDownloadPath)
+		assert.NoError(t, err)
+		assert.Equal(t, initialHash, downloadHash)
+		err = os.Truncate(localDownloadPath, 32767)
+		assert.NoError(t, err)
+		err = ftpDownloadFile(testFileName, localDownloadPath+"_partial", testFileSize-32767, client, 32767)
+		assert.NoError(t, err)
+		file, err := os.OpenFile(localDownloadPath, os.O_APPEND|os.O_WRONLY, os.ModePerm)
+		assert.NoError(t, err)
+		file1, err := os.Open(localDownloadPath + "_partial")
+		assert.NoError(t, err)
+		_, err = io.Copy(file, file1)
+		assert.NoError(t, err)
+		err = file.Close()
+		assert.NoError(t, err)
+		err = file1.Close()
+		assert.NoError(t, err)
+		downloadHash, err = computeHashForFile(sha256.New(), localDownloadPath)
+		assert.NoError(t, err)
+		assert.Equal(t, initialHash, downloadHash)
+
 		err = client.Quit()
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath + "_partial")
 		assert.NoError(t, err)
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
@@ -223,4 +260,18 @@ func getTestUserWithCryptFs() dataprovider.User {
 func getEncryptedFileSize(size int64) (int64, error) {
 	encSize, err := sio.EncryptedSize(uint64(size))
 	return int64(encSize) + 33, err
+}
+
+func computeHashForFile(hasher hash.Hash, path string) (string, error) {
+	hash := ""
+	f, err := os.Open(path)
+	if err != nil {
+		return hash, err
+	}
+	defer f.Close()
+	_, err = io.Copy(hasher, f)
+	if err == nil {
+		hash = fmt.Sprintf("%x", hasher.Sum(nil))
+	}
+	return hash, err
 }
