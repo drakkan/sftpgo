@@ -4828,7 +4828,7 @@ func TestWebClientChangePubKeys(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "Your public keys has been successfully updated")
 
-	user, _, err = httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Len(t, user.PublicKeys, 1)
 
