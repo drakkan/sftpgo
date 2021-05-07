@@ -1,6 +1,7 @@
 package webdavd_test
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/rand"
 	"crypto/tls"
@@ -1151,7 +1152,9 @@ func TestQuotaLimits(t *testing.T) {
 		client := getWebDavClient(user, true, nil)
 		// test quota files
 		err = uploadFile(testFilePath, testFileName+".quota", testFileSize, client)
-		assert.NoError(t, err, "username: %v", user.Username)
+		if !assert.NoError(t, err, "username: %v", user.Username) {
+			printLatestLogs(10)
+		}
 		err = uploadFile(testFilePath, testFileName+".quota1", testFileSize, client)
 		assert.Error(t, err, "username: %v", user.Username)
 		err = client.Rename(testFileName+".quota", testFileName, false)
@@ -2370,11 +2373,11 @@ func uploadFile(localSourcePath string, remoteDestPath string, expectedSize int6
 		return err
 	}
 	if expectedSize > 0 {
-		err = checkFileSize(remoteDestPath, expectedSize, client)
-		if err != nil {
+		return checkFileSize(remoteDestPath, expectedSize, client)
+		/*if err != nil {
 			time.Sleep(1 * time.Second)
 			return checkFileSize(remoteDestPath, expectedSize, client)
-		}
+		}*/
 	}
 	return nil
 }
@@ -2541,4 +2544,27 @@ func createTestFile(path string, size int64) error {
 		return err
 	}
 	return os.WriteFile(path, content, os.ModePerm)
+}
+
+func printLatestLogs(maxNumberOfLines int) {
+	var lines []string
+	f, err := os.Open(logFilePath)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text()+"\r\n")
+		for len(lines) > maxNumberOfLines {
+			lines = lines[1:]
+		}
+	}
+	if scanner.Err() != nil {
+		logger.WarnToConsole("Unable to print latest logs: %v", scanner.Err())
+		return
+	}
+	for _, line := range lines {
+		logger.DebugToConsole(line)
+	}
 }
