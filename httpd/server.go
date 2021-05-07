@@ -48,13 +48,11 @@ func (s *httpdServer) listenAndServe() error {
 	httpServer := &http.Server{
 		Handler:           s.router,
 		ReadHeaderTimeout: 30 * time.Second,
-		IdleTimeout:       120 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    1 << 16, // 64KB
 		ErrorLog:          log.New(&logger.StdLoggerWrapper{Sender: logSender}, "", 0),
-	}
-	if !s.binding.EnableWebClient {
-		httpServer.ReadTimeout = 60 * time.Second
-		httpServer.WriteTimeout = 90 * time.Second
 	}
 	if certMgr != nil && s.binding.EnableHTTPS {
 		config := &tls.Config{
@@ -111,7 +109,7 @@ func (s *httpdServer) refreshCookie(next http.Handler) http.Handler {
 }
 
 func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginPostSize)
 	common.Connections.AddNetworkConnection()
 	defer common.Connections.RemoveNetworkConnection()
 
@@ -185,7 +183,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 }
 
 func (s *httpdServer) handleWebAdminLoginPost(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginPostSize)
 	if err := r.ParseForm(); err != nil {
 		renderLoginPage(w, err.Error())
 		return

@@ -79,9 +79,10 @@ const (
 	webClientLogoutPathDefault      = "/web/client/logout"
 	webStaticFilesPathDefault       = "/static"
 	// MaxRestoreSize defines the max size for the loaddata input file
-	MaxRestoreSize = 10485760 // 10 MB
-	maxRequestSize = 1048576  // 1MB
-	osWindows      = "windows"
+	MaxRestoreSize   = 10485760 // 10 MB
+	maxRequestSize   = 1048576  // 1MB
+	maxLoginPostSize = 262144   // 256 KB
+	osWindows        = "windows"
 )
 
 var (

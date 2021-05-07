@@ -582,10 +582,7 @@ func parseRangeRequest(bytesRange string, size int64) (int64, int64, error) {
 			// we have something like -500
 			start = size - end
 			size = end
-			// this can't happen, we did end = size -1 above
-			/*if start < 0 {
-				return 0, 0, fmt.Errorf("unacceptable range %#v", bytesRange)
-			}*/
+			// start cannit be < 0 here, we did end = size -1 above
 		} else {
 			// we have something like 500-600
 			size = end - start + 1
@@ -595,9 +592,6 @@ func parseRangeRequest(bytesRange string, size int64) (int64, int64, error) {
 		}
 		return start, size, nil
 	}
-	/*if start == -1 {
-		return 0, 0, fmt.Errorf("unacceptable range %#v", bytesRange)
-	}*/
 	// we have something like 500-
 	size -= start
 	if size < 0 {

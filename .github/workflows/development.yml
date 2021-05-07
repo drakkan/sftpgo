@@ -57,11 +57,11 @@ jobs:
       - name: Run test cases using bolt provider
         run: |
           go test -v -p 1 -timeout 2m ./config -covermode=atomic
-          go test -v -p 1 -timeout 2m ./common -covermode=atomic
-          go test -v -p 1 -timeout 3m ./httpd -covermode=atomic
+          go test -v -p 1 -timeout 5m ./common -covermode=atomic
+          go test -v -p 1 -timeout 5m ./httpd -covermode=atomic
           go test -v -p 1 -timeout 8m ./sftpd -covermode=atomic
-          go test -v -p 1 -timeout 2m ./ftpd -covermode=atomic
-          go test -v -p 1 -timeout 2m ./webdavd -covermode=atomic
+          go test -v -p 1 -timeout 5m ./ftpd -covermode=atomic
+          go test -v -p 1 -timeout 5m ./webdavd -covermode=atomic
           go test -v -p 1 -timeout 2m ./telemetry -covermode=atomic
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: bolt
@@ -302,7 +302,7 @@ jobs:
         with:
           go-version: 1.16
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v2.5.2
+        uses: golangci/golangci-lint-action@v2
         with:
           version: latest
           skip-go-installation: true

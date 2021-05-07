@@ -89,12 +89,13 @@ func (c Conf) Initialize(configDir string) error {
 	certificateKeyFile := getConfigPath(c.CertificateKeyFile, configDir)
 	initializeRouter(c.EnableProfiler)
 	httpServer := &http.Server{
-		Handler:        router,
-		ReadTimeout:    60 * time.Second,
-		WriteTimeout:   60 * time.Second,
-		IdleTimeout:    120 * time.Second,
-		MaxHeaderBytes: 1 << 14, // 16KB
-		ErrorLog:       log.New(&logger.StdLoggerWrapper{Sender: logSender}, "", 0),
+		Handler:           router,
+		ReadHeaderTimeout: 30 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 14, // 16KB
+		ErrorLog:          log.New(&logger.StdLoggerWrapper{Sender: logSender}, "", 0),
 	}
 	if certificateFile != "" && certificateKeyFile != "" {
 		certMgr, err = common.NewCertManager(certificateFile, certificateKeyFile, configDir, logSender)

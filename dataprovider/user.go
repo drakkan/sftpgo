@@ -853,9 +853,9 @@ func (u *User) isFilePatternAllowed(virtualPath string) bool {
 	return true
 }
 
-// CanManahePublicKeys return true if this user is allowed to manage public keys
+// CanManagePublicKeys return true if this user is allowed to manage public keys
 // from the web client
-func (u *User) CanManahePublicKeys() bool {
+func (u *User) CanManagePublicKeys() bool {
 	return !utils.IsStringInSlice(WebClientPubKeyChangeDisabled, u.Filters.WebClient)
 }
 

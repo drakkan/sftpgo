@@ -426,11 +426,10 @@ func HTTPListenAndServe(srv *http.Server, address string, port int, isTLS bool, 
 			logger.Error(logSender, "", "error creating Unix-domain socket parent dir: %v", err)
 		}
 		os.Remove(address)
-
-		listener, err = net.Listen("unix", address)
+		listener, err = newListener("unix", address, srv.ReadTimeout, srv.WriteTimeout)
 	} else {
 		CheckTCP4Port(port)
-		listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", address, port))
+		listener, err = newListener("tcp", fmt.Sprintf("%s:%d", address, port), srv.ReadTimeout, srv.WriteTimeout)
 	}
 	if err != nil {
 		return err
