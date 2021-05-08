@@ -110,8 +110,10 @@ func (s *httpdServer) refreshCookie(next http.Handler) http.Handler {
 
 func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginPostSize)
-	common.Connections.AddNetworkConnection()
-	defer common.Connections.RemoveNetworkConnection()
+
+	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
+	common.Connections.AddClientConnection(ipAddr)
+	defer common.Connections.RemoveClientConnection(ipAddr)
 
 	if err := r.ParseForm(); err != nil {
 		renderClientLoginPage(w, err.Error())
@@ -128,8 +130,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
-	if !common.Connections.IsNewConnectionAllowed() {
+	if !common.Connections.IsNewConnectionAllowed(ipAddr) {
 		logger.Log(logger.LevelDebug, common.ProtocolHTTP, "", "connection refused, configured limit reached")
 		renderClientLoginPage(w, "configured connections limit reached")
 		return

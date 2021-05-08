@@ -747,7 +747,7 @@ func TestDefender(t *testing.T) {
 	cfg := config.GetCommonConfig()
 	cfg.DefenderConfig.Enabled = true
 	cfg.DefenderConfig.Threshold = 3
-	cfg.DefenderConfig.ScoreRateExceeded = 2
+	cfg.DefenderConfig.ScoreLimitExceeded = 2
 
 	err := common.Initialize(cfg)
 	assert.NoError(t, err)
@@ -932,6 +932,33 @@ func TestMaxConnections(t *testing.T) {
 	assert.Len(t, common.Connections.GetStats(), 0)
 
 	common.Config.MaxTotalConnections = oldValue
+}
+
+func TestMaxPerHostConnections(t *testing.T) {
+	oldValue := common.Config.MaxPerHostConnections
+	common.Config.MaxPerHostConnections = 1
+
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	client := getWebDavClient(user, true, nil)
+	assert.NoError(t, checkBasicFunc(client))
+	// now add a fake connection
+	addrs, err := net.LookupHost("localhost")
+	assert.NoError(t, err)
+	for _, addr := range addrs {
+		common.Connections.AddClientConnection(addr)
+	}
+	assert.Error(t, checkBasicFunc(client))
+	for _, addr := range addrs {
+		common.Connections.RemoveClientConnection(addr)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	assert.Len(t, common.Connections.GetStats(), 0)
+
+	common.Config.MaxPerHostConnections = oldValue
 }
 
 func TestMaxSessions(t *testing.T) {

@@ -228,30 +228,59 @@ func TestRateLimitersIntegration(t *testing.T) {
 
 func TestMaxConnections(t *testing.T) {
 	oldValue := Config.MaxTotalConnections
-	Config.MaxTotalConnections = 1
+	perHost := Config.MaxPerHostConnections
 
-	assert.True(t, Connections.IsNewConnectionAllowed())
+	Config.MaxPerHostConnections = 0
+
+	ipAddr := "192.168.7.8"
+	assert.True(t, Connections.IsNewConnectionAllowed(ipAddr))
+
+	Config.MaxTotalConnections = 1
+	Config.MaxPerHostConnections = perHost
+
+	assert.True(t, Connections.IsNewConnectionAllowed(ipAddr))
 	c := NewBaseConnection("id", ProtocolSFTP, dataprovider.User{})
 	fakeConn := &fakeConnection{
 		BaseConnection: c,
 	}
 	Connections.Add(fakeConn)
 	assert.Len(t, Connections.GetStats(), 1)
-	assert.False(t, Connections.IsNewConnectionAllowed())
+	assert.False(t, Connections.IsNewConnectionAllowed(ipAddr))
 
 	res := Connections.Close(fakeConn.GetID())
 	assert.True(t, res)
 	assert.Eventually(t, func() bool { return len(Connections.GetStats()) == 0 }, 300*time.Millisecond, 50*time.Millisecond)
 
-	assert.True(t, Connections.IsNewConnectionAllowed())
-	Connections.AddNetworkConnection()
-	Connections.AddNetworkConnection()
-	assert.False(t, Connections.IsNewConnectionAllowed())
-	Connections.RemoveNetworkConnection()
-	assert.True(t, Connections.IsNewConnectionAllowed())
-	Connections.RemoveNetworkConnection()
+	assert.True(t, Connections.IsNewConnectionAllowed(ipAddr))
+	Connections.AddClientConnection(ipAddr)
+	Connections.AddClientConnection(ipAddr)
+	assert.False(t, Connections.IsNewConnectionAllowed(ipAddr))
+	Connections.RemoveClientConnection(ipAddr)
+	assert.True(t, Connections.IsNewConnectionAllowed(ipAddr))
+	Connections.RemoveClientConnection(ipAddr)
 
 	Config.MaxTotalConnections = oldValue
+}
+
+func TestMaxConnectionPerHost(t *testing.T) {
+	oldValue := Config.MaxPerHostConnections
+
+	Config.MaxPerHostConnections = 2
+
+	ipAddr := "192.168.9.9"
+	Connections.AddClientConnection(ipAddr)
+	assert.True(t, Connections.IsNewConnectionAllowed(ipAddr))
+
+	Connections.AddClientConnection(ipAddr)
+	assert.True(t, Connections.IsNewConnectionAllowed(ipAddr))
+
+	Connections.AddClientConnection(ipAddr)
+	assert.False(t, Connections.IsNewConnectionAllowed(ipAddr))
+
+	Connections.RemoveClientConnection(ipAddr)
+	Connections.RemoveClientConnection(ipAddr)
+
+	Config.MaxPerHostConnections = oldValue
 }
 
 func TestIdleConnections(t *testing.T) {
@@ -340,7 +369,7 @@ func TestCloseConnection(t *testing.T) {
 	fakeConn := &fakeConnection{
 		BaseConnection: c,
 	}
-	assert.True(t, Connections.IsNewConnectionAllowed())
+	assert.True(t, Connections.IsNewConnectionAllowed("127.0.0.1"))
 	Connections.Add(fakeConn)
 	assert.Len(t, Connections.GetStats(), 1)
 	res := Connections.Close(fakeConn.GetID())

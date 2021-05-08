@@ -279,20 +279,20 @@ func handleWebClientLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
-	common.Connections.AddNetworkConnection()
-	defer common.Connections.RemoveNetworkConnection()
+	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
+	common.Connections.AddClientConnection(ipAddr)
+	defer common.Connections.RemoveClientConnection(ipAddr)
 
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
 		renderClientForbiddenPage(w, r, "Invalid token claims")
 		return
 	}
-	if !common.Connections.IsNewConnectionAllowed() {
+	if !common.Connections.IsNewConnectionAllowed(ipAddr) {
 		logger.Log(logger.LevelDebug, common.ProtocolHTTP, "", "connection refused, configured limit reached")
 		renderClientForbiddenPage(w, r, "configured connections limit reached")
 		return
 	}
-	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
 	if common.IsBanned(ipAddr) {
 		renderClientForbiddenPage(w, r, "your IP address is banned")
 		return

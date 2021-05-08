@@ -12,6 +12,7 @@
     "startup_hook": "",
     "post_connect_hook": "",
     "max_total_connections": 0,
+    "max_per_host_connections": 20,
     "defender": {
       "enabled": false,
       "ban_time": 30,
@@ -19,7 +20,7 @@
       "threshold": 15,
       "score_invalid": 2,
       "score_valid": 1,
-      "score_rate_exceeded": 3,
+      "score_limit_exceeded": 3,
       "observation_time": 30,
       "entries_soft_limit": 100,
       "entries_hard_limit": 150,

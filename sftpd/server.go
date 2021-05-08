@@ -356,7 +356,7 @@ func canAcceptConnection(ip string) bool {
 		logger.Log(logger.LevelDebug, common.ProtocolSSH, "", "connection refused, ip %#v is banned", ip)
 		return false
 	}
-	if !common.Connections.IsNewConnectionAllowed() {
+	if !common.Connections.IsNewConnectionAllowed(ip) {
 		logger.Log(logger.LevelDebug, common.ProtocolSSH, "", "connection refused, configured limit reached")
 		return false
 	}
@@ -378,10 +378,10 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 		}
 	}()
 
-	common.Connections.AddNetworkConnection()
-	defer common.Connections.RemoveNetworkConnection()
-
 	ipAddr := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
+	common.Connections.AddClientConnection(ipAddr)
+	defer common.Connections.RemoveClientConnection(ipAddr)
+
 	if !canAcceptConnection(ipAddr) {
 		conn.Close()
 		return

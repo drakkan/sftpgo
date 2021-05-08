@@ -527,7 +527,7 @@ func TestDefender(t *testing.T) {
 	cfg := config.GetCommonConfig()
 	cfg.DefenderConfig.Enabled = true
 	cfg.DefenderConfig.Threshold = 3
-	cfg.DefenderConfig.ScoreRateExceeded = 2
+	cfg.DefenderConfig.ScoreLimitExceeded = 2
 
 	err := common.Initialize(cfg)
 	assert.NoError(t, err)
@@ -663,6 +663,9 @@ func TestOpenReadWritePerm(t *testing.T) {
 }
 
 func TestConcurrency(t *testing.T) {
+	oldValue := common.Config.MaxPerHostConnections
+	common.Config.MaxPerHostConnections = 0
+
 	usePubKey := true
 	numLogins := 50
 	u := getTestUser(usePubKey)
@@ -747,6 +750,8 @@ func TestConcurrency(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
+
+	common.Config.MaxPerHostConnections = oldValue
 }
 
 func TestProxyProtocol(t *testing.T) {
@@ -2896,6 +2901,7 @@ func TestQuotaDisabledError(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+//nolint:dupl
 func TestMaxConnections(t *testing.T) {
 	oldValue := common.Config.MaxTotalConnections
 	common.Config.MaxTotalConnections = 1
@@ -2910,7 +2916,7 @@ func TestMaxConnections(t *testing.T) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
 		s, c, err := getSftpClient(user, usePubKey)
-		if !assert.Error(t, err, "max sessions exceeded, new login should not succeed") {
+		if !assert.Error(t, err, "max total connections exceeded, new login should not succeed") {
 			c.Close()
 			s.Close()
 		}
@@ -2921,6 +2927,34 @@ func TestMaxConnections(t *testing.T) {
 	assert.NoError(t, err)
 
 	common.Config.MaxTotalConnections = oldValue
+}
+
+//nolint:dupl
+func TestMaxPerHostConnections(t *testing.T) {
+	oldValue := common.Config.MaxPerHostConnections
+	common.Config.MaxPerHostConnections = 1
+
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+		s, c, err := getSftpClient(user, usePubKey)
+		if !assert.Error(t, err, "max per host connections exceeded, new login should not succeed") {
+			c.Close()
+			s.Close()
+		}
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	common.Config.MaxPerHostConnections = oldValue
 }
 
 func TestMaxSessions(t *testing.T) {

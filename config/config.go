@@ -111,24 +111,25 @@ func Init() {
 				ExecuteOn: []string{},
 				Hook:      "",
 			},
-			SetstatMode:         0,
-			ProxyProtocol:       0,
-			ProxyAllowed:        []string{},
-			PostConnectHook:     "",
-			MaxTotalConnections: 0,
+			SetstatMode:           0,
+			ProxyProtocol:         0,
+			ProxyAllowed:          []string{},
+			PostConnectHook:       "",
+			MaxTotalConnections:   0,
+			MaxPerHostConnections: 20,
 			DefenderConfig: common.DefenderConfig{
-				Enabled:           false,
-				BanTime:           30,
-				BanTimeIncrement:  50,
-				Threshold:         15,
-				ScoreInvalid:      2,
-				ScoreValid:        1,
-				ScoreRateExceeded: 3,
-				ObservationTime:   30,
-				EntriesSoftLimit:  100,
-				EntriesHardLimit:  150,
-				SafeListFile:      "",
-				BlockListFile:     "",
+				Enabled:            false,
+				BanTime:            30,
+				BanTimeIncrement:   50,
+				Threshold:          15,
+				ScoreInvalid:       2,
+				ScoreValid:         1,
+				ScoreLimitExceeded: 3,
+				ObservationTime:    30,
+				EntriesSoftLimit:   100,
+				EntriesHardLimit:   150,
+				SafeListFile:       "",
+				BlockListFile:      "",
 			},
 			RateLimitersConfig: []common.RateLimiterConfig{defaultRateLimiter},
 		},
@@ -873,13 +874,14 @@ func setViperDefaults() {
 	viper.SetDefault("common.proxy_allowed", globalConf.Common.ProxyAllowed)
 	viper.SetDefault("common.post_connect_hook", globalConf.Common.PostConnectHook)
 	viper.SetDefault("common.max_total_connections", globalConf.Common.MaxTotalConnections)
+	viper.SetDefault("common.max_per_host_connections", globalConf.Common.MaxPerHostConnections)
 	viper.SetDefault("common.defender.enabled", globalConf.Common.DefenderConfig.Enabled)
 	viper.SetDefault("common.defender.ban_time", globalConf.Common.DefenderConfig.BanTime)
 	viper.SetDefault("common.defender.ban_time_increment", globalConf.Common.DefenderConfig.BanTimeIncrement)
 	viper.SetDefault("common.defender.threshold", globalConf.Common.DefenderConfig.Threshold)
 	viper.SetDefault("common.defender.score_invalid", globalConf.Common.DefenderConfig.ScoreInvalid)
 	viper.SetDefault("common.defender.score_valid", globalConf.Common.DefenderConfig.ScoreValid)
-	viper.SetDefault("common.defender.score_rate_exceeded", globalConf.Common.DefenderConfig.ScoreRateExceeded)
+	viper.SetDefault("common.defender.score_limit_exceeded", globalConf.Common.DefenderConfig.ScoreLimitExceeded)
 	viper.SetDefault("common.defender.observation_time", globalConf.Common.DefenderConfig.ObservationTime)
 	viper.SetDefault("common.defender.entries_soft_limit", globalConf.Common.DefenderConfig.EntriesSoftLimit)
 	viper.SetDefault("common.defender.entries_hard_limit", globalConf.Common.DefenderConfig.EntriesHardLimit)

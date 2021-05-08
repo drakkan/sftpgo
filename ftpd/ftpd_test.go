@@ -779,13 +779,36 @@ func TestMaxConnections(t *testing.T) {
 	common.Config.MaxTotalConnections = oldValue
 }
 
+func TestMaxPerHostConnections(t *testing.T) {
+	oldValue := common.Config.MaxPerHostConnections
+	common.Config.MaxPerHostConnections = 1
+
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	client, err := getFTPClient(user, true, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		_, err = getFTPClient(user, false, nil)
+		assert.Error(t, err)
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	common.Config.MaxPerHostConnections = oldValue
+}
+
 func TestRateLimiter(t *testing.T) {
 	oldConfig := config.GetCommonConfig()
 
 	cfg := config.GetCommonConfig()
 	cfg.DefenderConfig.Enabled = true
 	cfg.DefenderConfig.Threshold = 5
-	cfg.DefenderConfig.ScoreRateExceeded = 3
+	cfg.DefenderConfig.ScoreLimitExceeded = 3
 	cfg.RateLimitersConfig = []common.RateLimiterConfig{
 		{
 			Average:                1,
@@ -843,7 +866,7 @@ func TestDefender(t *testing.T) {
 	cfg := config.GetCommonConfig()
 	cfg.DefenderConfig.Enabled = true
 	cfg.DefenderConfig.Threshold = 3
-	cfg.DefenderConfig.ScoreRateExceeded = 2
+	cfg.DefenderConfig.ScoreLimitExceeded = 2
 
 	err := common.Initialize(cfg)
 	assert.NoError(t, err)

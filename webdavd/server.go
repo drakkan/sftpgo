@@ -144,16 +144,18 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, common.ErrGenericFailure.Error(), http.StatusInternalServerError)
 		}
 	}()
-	common.Connections.AddNetworkConnection()
-	defer common.Connections.RemoveNetworkConnection()
 
-	if !common.Connections.IsNewConnectionAllowed() {
+	checkRemoteAddress(r)
+	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
+
+	common.Connections.AddClientConnection(ipAddr)
+	defer common.Connections.RemoveClientConnection(ipAddr)
+
+	if !common.Connections.IsNewConnectionAllowed(ipAddr) {
 		logger.Log(logger.LevelDebug, common.ProtocolWebDAV, "", "connection refused, configured limit reached")
 		http.Error(w, common.ErrConnectionDenied.Error(), http.StatusServiceUnavailable)
 		return
 	}
-	checkRemoteAddress(r)
-	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
 	if common.IsBanned(ipAddr) {
 		http.Error(w, common.ErrConnectionDenied.Error(), http.StatusForbidden)
 		return

@@ -149,7 +149,7 @@ func (rl *rateLimiter) Wait(source string) (time.Duration, error) {
 	if delay > rl.maxDelay {
 		res.Cancel()
 		if rl.generateDefenderEvents && rl.globalBucket == nil {
-			AddDefenderEvent(source, HostEventRateExceeded)
+			AddDefenderEvent(source, HostEventLimitExceeded)
 		}
 		return delay, fmt.Errorf("rate limit exceed, wait time to respect rate %v, max wait time allowed %v", delay, rl.maxDelay)
 	}

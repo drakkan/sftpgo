@@ -80,6 +80,12 @@ const (
 	UploadModeAtomicWithResume
 )
 
+func init() {
+	Connections.clients = clientsMap{
+		clients: make(map[string]int),
+	}
+}
+
 // errors definitions
 var (
 	ErrPermissionDenied     = errors.New("permission denied")
@@ -352,6 +358,8 @@ type Configuration struct {
 	PostConnectHook string `json:"post_connect_hook" mapstructure:"post_connect_hook"`
 	// Maximum number of concurrent client connections. 0 means unlimited
 	MaxTotalConnections int `json:"max_total_connections" mapstructure:"max_total_connections"`
+	// Maximum number of concurrent client connections from the same host (IP). 0 means unlimited
+	MaxPerHostConnections int `json:"max_per_host_connections" mapstructure:"max_per_host_connections"`
 	// Defender configuration
 	DefenderConfig DefenderConfig `json:"defender" mapstructure:"defender"`
 	// Rate limiter configurations
@@ -524,9 +532,9 @@ func (c *SSHConnection) Close() error {
 
 // ActiveConnections holds the currect active connections with the associated transfers
 type ActiveConnections struct {
-	// networkConnections is the counter for the network connections, it contains
-	// both authenticated and estabilished connections and the ones waiting for authentication
-	networkConnections int32
+	// clients contains both authenticated and estabilished connections and the ones waiting
+	// for authentication
+	clients clientsMap
 	sync.RWMutex
 	connections    []ActiveConnection
 	sshConnections []*SSHConnection
@@ -693,34 +701,46 @@ func (conns *ActiveConnections) checkIdles() {
 	conns.RUnlock()
 }
 
-// AddNetworkConnection increments the network connections counter
-func (conns *ActiveConnections) AddNetworkConnection() {
-	atomic.AddInt32(&conns.networkConnections, 1)
+// AddClientConnection stores a new client connection
+func (conns *ActiveConnections) AddClientConnection(ipAddr string) {
+	conns.clients.add(ipAddr)
 }
 
-// RemoveNetworkConnection decrements the network connections counter
-func (conns *ActiveConnections) RemoveNetworkConnection() {
-	atomic.AddInt32(&conns.networkConnections, -1)
+// RemoveClientConnection removes a disconnected client from the tracked ones
+func (conns *ActiveConnections) RemoveClientConnection(ipAddr string) {
+	conns.clients.remove(ipAddr)
 }
 
 // IsNewConnectionAllowed returns false if the maximum number of concurrent allowed connections is exceeded
-func (conns *ActiveConnections) IsNewConnectionAllowed() bool {
-	if Config.MaxTotalConnections == 0 {
+func (conns *ActiveConnections) IsNewConnectionAllowed(ipAddr string) bool {
+	if Config.MaxTotalConnections == 0 && Config.MaxPerHostConnections == 0 {
 		return true
 	}
 
-	num := atomic.LoadInt32(&conns.networkConnections)
-	if num > int32(Config.MaxTotalConnections) {
-		logger.Debug(logSender, "", "active network connections %v/%v", num, Config.MaxTotalConnections)
-		return false
+	if Config.MaxPerHostConnections > 0 {
+		if total := conns.clients.getTotalFrom(ipAddr); total > Config.MaxPerHostConnections {
+			logger.Debug(logSender, "", "active connections from %v %v/%v", ipAddr, total, Config.MaxPerHostConnections)
+			AddDefenderEvent(ipAddr, HostEventLimitExceeded)
+			return false
+		}
 	}
-	// on a single SFTP connection we could have multiple SFTP channels or commands
-	// so we check the estabilished connections too
 
-	conns.RLock()
-	defer conns.RUnlock()
+	if Config.MaxTotalConnections > 0 {
+		if total := conns.clients.getTotal(); total > int32(Config.MaxTotalConnections) {
+			logger.Debug(logSender, "", "active client connections %v/%v", total, Config.MaxTotalConnections)
+			return false
+		}
 
-	return len(conns.connections) < Config.MaxTotalConnections
+		// on a single SFTP connection we could have multiple SFTP channels or commands
+		// so we check the estabilished connections too
+
+		conns.RLock()
+		defer conns.RUnlock()
+
+		return len(conns.connections) < Config.MaxTotalConnections
+	}
+
+	return true
 }
 
 // GetStats returns stats for active connections

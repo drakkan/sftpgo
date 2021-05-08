@@ -135,13 +135,13 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 
 // ClientConnected is called to send the very first welcome message
 func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
-	common.Connections.AddNetworkConnection()
 	ipAddr := utils.GetIPFromRemoteAddress(cc.RemoteAddr().String())
+	common.Connections.AddClientConnection(ipAddr)
 	if common.IsBanned(ipAddr) {
 		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection refused, ip %#v is banned", ipAddr)
 		return "Access denied: banned client IP", common.ErrConnectionDenied
 	}
-	if !common.Connections.IsNewConnectionAllowed() {
+	if !common.Connections.IsNewConnectionAllowed(ipAddr) {
 		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection refused, configured limit reached")
 		return "Access denied: max allowed connection exceeded", common.ErrConnectionDenied
 	}
@@ -167,7 +167,7 @@ func (s *Server) ClientDisconnected(cc ftpserver.ClientContext) {
 	s.cleanTLSConnVerification(cc.ID())
 	connID := fmt.Sprintf("%v_%v_%v", common.ProtocolFTP, s.ID, cc.ID())
 	common.Connections.Remove(connID)
-	common.Connections.RemoveNetworkConnection()
+	common.Connections.RemoveClientConnection(utils.GetIPFromRemoteAddress(cc.RemoteAddr().String()))
 }
 
 // AuthUser authenticates the user and selects an handling driver
