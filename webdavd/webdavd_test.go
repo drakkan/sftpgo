@@ -1180,7 +1180,7 @@ func TestQuotaLimits(t *testing.T) {
 		// test quota files
 		err = uploadFile(testFilePath, testFileName+".quota", testFileSize, client)
 		if !assert.NoError(t, err, "username: %v", user.Username) {
-			printLatestLogs(10)
+			printLatestLogs(20)
 		}
 		err = uploadFile(testFilePath, testFileName+".quota1", testFileSize, client)
 		assert.Error(t, err, "username: %v", user.Username)
