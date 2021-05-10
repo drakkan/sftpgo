@@ -40,7 +40,7 @@ require (
 	github.com/miekg/dns v1.1.41 // indirect
 	github.com/minio/sio v0.3.0
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
-	github.com/otiai10/copy v1.5.1
+	github.com/otiai10/copy v1.6.0
 	github.com/pelletier/go-toml v1.9.0 // indirect
 	github.com/pires/go-proxyproto v0.5.0
 	github.com/pkg/sftp v1.13.0
