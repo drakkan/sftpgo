@@ -1,23 +1,19 @@
 package httpd
 
 import (
-	"context"
 	"errors"
-	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/lestrrat-go/jwx/jwt"
 
-	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 )
 
 var (
-	connAddrKey     = &contextKey{"connection address"}
-	errInvalidToken = errors.New("invalid JWT token")
+	forwardedProtoKey = &contextKey{"forwarded proto"}
+	errInvalidToken   = errors.New("invalid JWT token")
 )
 
 type contextKey struct {
@@ -26,13 +22,6 @@ type contextKey struct {
 
 func (k *contextKey) String() string {
 	return "context value " + k.name
-}
-
-func saveConnectionAddress(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := context.WithValue(r.Context(), connAddrKey, r.RemoteAddr)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
 }
 
 func validateJWTToken(w http.ResponseWriter, r *http.Request, audience tokenAudience) error {
@@ -185,19 +174,6 @@ func verifyCSRFHeader(next http.Handler) http.Handler {
 			return
 		}
 
-		next.ServeHTTP(w, r)
-	})
-}
-
-func rateLimiter(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if delay, err := common.LimitRate(common.ProtocolHTTP, utils.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
-			delay += 499999999 * time.Nanosecond
-			w.Header().Set("Retry-After", fmt.Sprintf("%.0f", delay.Seconds()))
-			w.Header().Set("X-Retry-In", delay.String())
-			sendAPIResponse(w, r, err, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
-			return
-		}
 		next.ServeHTTP(w, r)
 	})
 }

@@ -60,6 +60,7 @@ var (
 		ClientAuthType:  0,
 		TLSCipherSuites: nil,
 		Prefix:          "",
+		ProxyAllowed:    nil,
 	}
 	defaultHTTPDBinding = httpd.Binding{
 		Address:         "127.0.0.1",
@@ -69,6 +70,7 @@ var (
 		EnableHTTPS:     false,
 		ClientAuthType:  0,
 		TLSCipherSuites: nil,
+		ProxyAllowed:    nil,
 	}
 	defaultRateLimiter = common.RateLimiterConfig{
 		Average:                0,
@@ -768,6 +770,12 @@ func getWebDAVDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
+	proxyAllowed, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__PROXY_ALLOWED", idx))
+	if ok {
+		binding.ProxyAllowed = proxyAllowed
+		isSet = true
+	}
+
 	prefix, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__PREFIX", idx))
 	if ok {
 		binding.Prefix = prefix
@@ -830,6 +838,12 @@ func getHTTPDBindingFromEnv(idx int) {
 	tlsCiphers, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__TLS_CIPHER_SUITES", idx))
 	if ok {
 		binding.TLSCipherSuites = tlsCiphers
+		isSet = true
+	}
+
+	proxyAllowed, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__PROXY_ALLOWED", idx))
+	if ok {
+		binding.ProxyAllowed = proxyAllowed
 		isSet = true
 	}
 

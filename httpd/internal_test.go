@@ -424,7 +424,7 @@ func TestCreateTokenError(t *testing.T) {
 	}
 	req, _ := http.NewRequest(http.MethodGet, tokenPath, nil)
 
-	server.checkAddrAndSendToken(rr, req, admin)
+	server.generateAndSendToken(rr, req, admin)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 
 	rr = httptest.NewRecorder()
@@ -565,22 +565,6 @@ func TestJWTTokenValidation(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
 
-func TestAdminAllowListConnAddr(t *testing.T) {
-	server := httpdServer{}
-	admin := dataprovider.Admin{
-		Filters: dataprovider.AdminFilters{
-			AllowList: []string{"192.168.1.0/24"},
-		},
-	}
-	rr := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, tokenPath, nil)
-	ctx := context.WithValue(req.Context(), connAddrKey, "127.0.0.1:4567")
-	req.RemoteAddr = "192.168.1.16:1234"
-	server.checkAddrAndSendToken(rr, req.WithContext(ctx), admin)
-	assert.Equal(t, http.StatusForbidden, rr.Code, rr.Body.String())
-	assert.Equal(t, "context value connection address", connAddrKey.String())
-}
-
 func TestUpdateContextFromCookie(t *testing.T) {
 	server := httpdServer{
 		tokenAuth: jwtauth.New(jwa.HS256.String(), utils.GenerateRandomBytes(32), nil),
@@ -673,14 +657,6 @@ func TestCookieExpiration(t *testing.T) {
 	assert.Empty(t, cookie)
 
 	req, _ = http.NewRequest(http.MethodGet, tokenPath, nil)
-	req.RemoteAddr = "172.16.1.2:1234"
-	ctx = jwtauth.NewContext(req.Context(), token, nil)
-	ctx = context.WithValue(ctx, connAddrKey, "10.9.9.9")
-	server.checkCookieExpiration(rr, req.WithContext(ctx))
-	cookie = rr.Header().Get("Set-Cookie")
-	assert.Empty(t, cookie)
-
-	req, _ = http.NewRequest(http.MethodGet, tokenPath, nil)
 	req.RemoteAddr = "172.16.1.12:4567"
 	ctx = jwtauth.NewContext(req.Context(), token, nil)
 	server.checkCookieExpiration(rr, req.WithContext(ctx))
@@ -750,16 +726,9 @@ func TestCookieExpiration(t *testing.T) {
 	assert.Empty(t, cookie)
 
 	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
-	req.RemoteAddr = "172.16.4.12:4567"
-	ctx = jwtauth.NewContext(req.Context(), token, nil)
-	server.checkCookieExpiration(rr, req.WithContext(context.WithValue(ctx, connAddrKey, "172.16.0.1:4567")))
-	cookie = rr.Header().Get("Set-Cookie")
-	assert.Empty(t, cookie)
-
-	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
 	req.RemoteAddr = "172.16.4.16:4567"
 	ctx = jwtauth.NewContext(req.Context(), token, nil)
-	server.checkCookieExpiration(rr, req.WithContext(context.WithValue(ctx, connAddrKey, "172.16.4.18:4567")))
+	server.checkCookieExpiration(rr, req.WithContext(ctx))
 	cookie = rr.Header().Get("Set-Cookie")
 	assert.NotEmpty(t, cookie)
 
@@ -1012,6 +981,111 @@ func TestJWTTokenCleanup(t *testing.T) {
 	startJWTTokensCleanupTicker(100 * time.Millisecond)
 	assert.Eventually(t, func() bool { return !isTokenInvalidated(req) }, 1*time.Second, 200*time.Millisecond)
 	stopJWTTokensCleanupTicker()
+}
+
+func TestProxyHeaders(t *testing.T) {
+	username := "adminTest"
+	password := "testPwd"
+	admin := dataprovider.Admin{
+		Username:    username,
+		Password:    password,
+		Permissions: []string{dataprovider.PermAdminAny},
+		Status:      1,
+		Filters: dataprovider.AdminFilters{
+			AllowList: []string{"172.19.2.0/24"},
+		},
+	}
+
+	err := dataprovider.AddAdmin(&admin)
+	assert.NoError(t, err)
+
+	testIP := "10.29.1.9"
+	validForwardedFor := "172.19.2.6"
+	b := Binding{
+		Address:         "",
+		Port:            8080,
+		EnableWebAdmin:  true,
+		EnableWebClient: false,
+		ProxyAllowed:    []string{testIP, "10.8.0.0/30"},
+	}
+	err = b.parseAllowedProxy()
+	assert.NoError(t, err)
+	server := newHttpdServer(b, "")
+	server.initializeRouter()
+	testServer := httptest.NewServer(server.router)
+	defer testServer.Close()
+
+	req, err := http.NewRequest(http.MethodGet, tokenPath, nil)
+	assert.NoError(t, err)
+	req.Header.Set("X-Forwarded-For", validForwardedFor)
+	req.Header.Set(xForwardedProto, "https")
+	req.RemoteAddr = "127.0.0.1:123"
+	req.SetBasicAuth(username, password)
+	rr := httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	assert.Contains(t, rr.Body.String(), "login from IP 127.0.0.1 not allowed")
+
+	req.RemoteAddr = testIP
+	rr = httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	req.RemoteAddr = "10.8.0.2"
+	rr = httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	form := make(url.Values)
+	form.Set("username", username)
+	form.Set("password", password)
+	form.Set(csrfFormToken, createCSRFToken())
+	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = testIP
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	assert.Contains(t, rr.Body.String(), "login from IP 10.29.1.9 not allowed")
+
+	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = testIP
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("X-Forwarded-For", validForwardedFor)
+	rr = httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
+	cookie := rr.Header().Get("Set-Cookie")
+	assert.NotContains(t, cookie, "Secure")
+
+	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = testIP
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("X-Forwarded-For", validForwardedFor)
+	req.Header.Set(xForwardedProto, "https")
+	rr = httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
+	cookie = rr.Header().Get("Set-Cookie")
+	assert.Contains(t, cookie, "Secure")
+
+	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = testIP
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("X-Forwarded-For", validForwardedFor)
+	req.Header.Set(xForwardedProto, "http")
+	rr = httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
+	cookie = rr.Header().Get("Set-Cookie")
+	assert.NotContains(t, cookie, "Secure")
+
+	err = dataprovider.DeleteAdmin(username)
+	assert.NoError(t, err)
 }
 
 func TestWebAdminRedirect(t *testing.T) {
@@ -1305,4 +1379,17 @@ func TestManageKeysInvalidClaims(t *testing.T) {
 	handleWebClientManageKeysPost(rr, req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+}
+
+func TestTLSReq(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, webClientLoginPath, nil)
+	assert.NoError(t, err)
+	req.TLS = &tls.ConnectionState{}
+	assert.True(t, isTLS(req))
+	req.TLS = nil
+	ctx := context.WithValue(req.Context(), forwardedProtoKey, "https")
+	assert.True(t, isTLS(req.WithContext(ctx)))
+	ctx = context.WithValue(req.Context(), forwardedProtoKey, "http")
+	assert.False(t, isTLS(req.WithContext(ctx)))
+	assert.Equal(t, "context value forwarded proto", forwardedProtoKey.String())
 }

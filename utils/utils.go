@@ -38,6 +38,11 @@ const (
 	osWindows = "windows"
 )
 
+var (
+	xForwardedFor = http.CanonicalHeaderKey("X-Forwarded-For")
+	xRealIP       = http.CanonicalHeaderKey("X-Real-IP")
+)
+
 // IsStringInSlice searches a string in a slice and returns true if the string is found
 func IsStringInSlice(obj string, list []string) bool {
 	for i := 0; i < len(list); i++ {
@@ -515,4 +520,49 @@ func GetSSHPublicKeyAsString(pubKey []byte) (string, error) {
 		return "", err
 	}
 	return string(ssh.MarshalAuthorizedKey(k)), nil
+}
+
+// GetRealIP returns the ip address as result of parsing either the
+// X-Real-IP header or the X-Forwarded-For header
+func GetRealIP(r *http.Request) string {
+	var ip string
+
+	if xrip := r.Header.Get(xRealIP); xrip != "" {
+		ip = xrip
+	} else if xff := r.Header.Get(xForwardedFor); xff != "" {
+		i := strings.Index(xff, ", ")
+		if i == -1 {
+			i = len(xff)
+		}
+		ip = strings.TrimSpace(xff[:i])
+	}
+	if net.ParseIP(ip) == nil {
+		return ""
+	}
+
+	return ip
+}
+
+// ParseAllowedIPAndRanges returns a list of functions that allow to find if a
+func ParseAllowedIPAndRanges(allowed []string) ([]func(net.IP) bool, error) {
+	res := make([]func(net.IP) bool, len(allowed))
+	for i, allowFrom := range allowed {
+		if strings.LastIndex(allowFrom, "/") > 0 {
+			_, ipRange, err := net.ParseCIDR(allowFrom)
+			if err != nil {
+				return nil, fmt.Errorf("given string %q is not a valid IP range: %v", allowFrom, err)
+			}
+
+			res[i] = ipRange.Contains
+		} else {
+			allowed := net.ParseIP(allowFrom)
+			if allowed == nil {
+				return nil, fmt.Errorf("given string %q is not a valid IP address", allowFrom)
+			}
+
+			res[i] = allowed.Equal
+		}
+	}
+
+	return res, nil
 }

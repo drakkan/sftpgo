@@ -6,6 +6,7 @@ package httpd
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -156,6 +157,19 @@ type Binding struct {
 	// any invalid name will be silently ignored.
 	// The order matters, the ciphers listed first will be the preferred ones.
 	TLSCipherSuites []string `json:"tls_cipher_suites" mapstructure:"tls_cipher_suites"`
+	// List of IP addresses and IP ranges allowed to set X-Forwarded-For, X-Real-IP,
+	// X-Forwarded-Proto headers.
+	ProxyAllowed     []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
+	allowHeadersFrom []func(net.IP) bool
+}
+
+func (b *Binding) parseAllowedProxy() error {
+	allowedFuncs, err := utils.ParseAllowedIPAndRanges(b.ProxyAllowed)
+	if err != nil {
+		return err
+	}
+	b.allowHeadersFrom = allowedFuncs
+	return nil
 }
 
 // GetAddress returns the binding address
@@ -252,6 +266,14 @@ func (c *Conf) isWebClientEnabled() bool {
 	return false
 }
 
+func (c *Conf) checkRequiredDirs(staticFilesPath, templatesPath string) error {
+	if (c.isWebAdminEnabled() || c.isWebClientEnabled()) && (staticFilesPath == "" || templatesPath == "") {
+		return fmt.Errorf("required directory is invalid, static file path: %#v template path: %#v",
+			staticFilesPath, templatesPath)
+	}
+	return nil
+}
+
 // Initialize configures and starts the HTTP server
 func (c *Conf) Initialize(configDir string) error {
 	logger.Debug(logSender, "", "initializing HTTP server with config %+v", c)
@@ -261,9 +283,8 @@ func (c *Conf) Initialize(configDir string) error {
 	if backupsPath == "" {
 		return fmt.Errorf("required directory is invalid, backup path %#v", backupsPath)
 	}
-	if (c.isWebAdminEnabled() || c.isWebClientEnabled()) && (staticFilesPath == "" || templatesPath == "") {
-		return fmt.Errorf("required directory is invalid, static file path: %#v template path: %#v",
-			staticFilesPath, templatesPath)
+	if err := c.checkRequiredDirs(staticFilesPath, templatesPath); err != nil {
+		return err
 	}
 	certificateFile := getConfigPath(c.CertificateFile, configDir)
 	certificateKeyFile := getConfigPath(c.CertificateKeyFile, configDir)
@@ -302,6 +323,9 @@ func (c *Conf) Initialize(configDir string) error {
 	for _, binding := range c.Bindings {
 		if !binding.IsValid() {
 			continue
+		}
+		if err := binding.parseAllowedProxy(); err != nil {
+			return err
 		}
 
 		go func(b Binding) {

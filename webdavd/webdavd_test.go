@@ -469,6 +469,12 @@ func TestInitialization(t *testing.T) {
 	cfg.CertificateKeyFile = keyPath
 	cfg.CACertificates = []string{caCrtPath}
 	cfg.CARevocationLists = []string{caCRLPath}
+	cfg.Bindings[0].ProxyAllowed = []string{"not valid"}
+	err = cfg.Initialize(configDir)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "is not a valid IP address")
+	}
+	cfg.Bindings[0].ProxyAllowed = nil
 	err = cfg.Initialize(configDir)
 	assert.Error(t, err)
 }
@@ -1180,6 +1186,10 @@ func TestQuotaLimits(t *testing.T) {
 		// test quota files
 		err = uploadFile(testFilePath, testFileName+".quota", testFileSize, client)
 		if !assert.NoError(t, err, "username: %v", user.Username) {
+			info, err := os.Stat(testFilePath)
+			if assert.NoError(t, err) {
+				fmt.Printf("local file size %v", info.Size())
+			}
 			printLatestLogs(20)
 		}
 		err = uploadFile(testFilePath, testFileName+".quota1", testFileSize, client)

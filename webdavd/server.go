@@ -7,11 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"path"
 	"path/filepath"
 	"runtime/debug"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
@@ -27,9 +27,7 @@ import (
 )
 
 var (
-	err401        = errors.New("Unauthorized")
-	xForwardedFor = http.CanonicalHeaderKey("X-Forwarded-For")
-	xRealIP       = http.CanonicalHeaderKey("X-Real-IP")
+	err401 = errors.New("Unauthorized")
 )
 
 type webDavServer struct {
@@ -145,8 +143,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	checkRemoteAddress(r)
-	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
+	ipAddr := s.checkRemoteAddress(r)
 
 	common.Connections.AddClientConnection(ipAddr)
 	defer common.Connections.RemoveClientConnection(ipAddr)
@@ -327,6 +324,24 @@ func (s *webDavServer) validateUser(user *dataprovider.User, r *http.Request, lo
 	return connID, nil
 }
 
+func (s *webDavServer) checkRemoteAddress(r *http.Request) string {
+	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
+	ip := net.ParseIP(ipAddr)
+	if ip != nil {
+		for _, allow := range s.binding.allowHeadersFrom {
+			if allow(ip) {
+				parsedIP := utils.GetRealIP(r)
+				if parsedIP != "" {
+					ipAddr = parsedIP
+					r.RemoteAddr = ipAddr
+				}
+				break
+			}
+		}
+	}
+	return ipAddr
+}
+
 func writeLog(r *http.Request, err error) {
 	scheme := "http"
 	if r.TLS != nil {
@@ -350,28 +365,6 @@ func writeLog(r *http.Request, err error) {
 		Fields(fields).
 		Err(err).
 		Send()
-}
-
-func checkRemoteAddress(r *http.Request) {
-	if common.Config.ProxyProtocol != 0 {
-		return
-	}
-
-	var ip string
-
-	if xrip := r.Header.Get(xRealIP); xrip != "" {
-		ip = xrip
-	} else if xff := r.Header.Get(xForwardedFor); xff != "" {
-		i := strings.Index(xff, ", ")
-		if i == -1 {
-			i = len(xff)
-		}
-		ip = strings.TrimSpace(xff[:i])
-	}
-
-	if len(ip) > 0 {
-		r.RemoteAddr = ip
-	}
 }
 
 func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err error) {

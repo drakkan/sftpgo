@@ -137,7 +137,7 @@ func (c *jwtTokenClaims) createAndSetCookie(w http.ResponseWriter, r *http.Reque
 		Path:     basePath,
 		Expires:  time.Now().Add(tokenDuration),
 		HttpOnly: true,
-		Secure:   r.TLS != nil,
+		Secure:   isTLS(r),
 	})
 
 	return nil
@@ -150,9 +150,19 @@ func (c *jwtTokenClaims) removeCookie(w http.ResponseWriter, r *http.Request) {
 		Path:     webBasePath,
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   r.TLS != nil,
+		Secure:   isTLS(r),
 	})
 	invalidateToken(r)
+}
+
+func isTLS(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	if proto, ok := r.Context().Value(forwardedProtoKey).(string); ok {
+		return proto == "https"
+	}
+	return false
 }
 
 func isTokenInvalidated(r *http.Request) bool {

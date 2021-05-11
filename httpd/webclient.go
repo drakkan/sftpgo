@@ -279,22 +279,9 @@ func handleWebClientLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
-	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
-	common.Connections.AddClientConnection(ipAddr)
-	defer common.Connections.RemoveClientConnection(ipAddr)
-
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
 		renderClientForbiddenPage(w, r, "Invalid token claims")
-		return
-	}
-	if !common.Connections.IsNewConnectionAllowed(ipAddr) {
-		logger.Log(logger.LevelDebug, common.ProtocolHTTP, "", "connection refused, configured limit reached")
-		renderClientForbiddenPage(w, r, "configured connections limit reached")
-		return
-	}
-	if common.IsBanned(ipAddr) {
-		renderClientForbiddenPage(w, r, "your IP address is banned")
 		return
 	}
 
@@ -634,17 +621,6 @@ func checkWebClientUser(user *dataprovider.User, r *http.Request, connectionID s
 	if !user.IsLoginFromAddrAllowed(r.RemoteAddr) {
 		logger.Debug(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v", user.Username, r.RemoteAddr)
 		return fmt.Errorf("login for user %#v is not allowed from this address: %v", user.Username, r.RemoteAddr)
-	}
-	if connAddr, ok := r.Context().Value(connAddrKey).(string); ok {
-		if connAddr != r.RemoteAddr {
-			connIPAddr := utils.GetIPFromRemoteAddress(connAddr)
-			if common.IsBanned(connIPAddr) {
-				return errors.New("your IP address is banned")
-			}
-			if !user.IsLoginFromAddrAllowed(connIPAddr) {
-				return fmt.Errorf("login from IP %v is not allowed", connIPAddr)
-			}
-		}
 	}
 	return nil
 }

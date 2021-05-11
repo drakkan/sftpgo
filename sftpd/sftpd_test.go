@@ -553,7 +553,7 @@ func TestDefender(t *testing.T) {
 	_, _, err = getSftpClient(user, usePubKey)
 	assert.Error(t, err)
 
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	err = dataprovider.DeleteUser(user.Username)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -2907,21 +2907,24 @@ func TestMaxConnections(t *testing.T) {
 	common.Config.MaxTotalConnections = 1
 
 	usePubKey := true
-	u := getTestUser(usePubKey)
-	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	user := getTestUser(usePubKey)
+	err := dataprovider.AddUser(&user)
 	assert.NoError(t, err)
+	user.Password = ""
 	conn, client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
-		defer conn.Close()
-		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
 		s, c, err := getSftpClient(user, usePubKey)
 		if !assert.Error(t, err, "max total connections exceeded, new login should not succeed") {
 			c.Close()
 			s.Close()
 		}
+		err = client.Close()
+		assert.NoError(t, err)
+		err = conn.Close()
+		assert.NoError(t, err)
 	}
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	err = dataprovider.DeleteUser(user.Username)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -2935,21 +2938,24 @@ func TestMaxPerHostConnections(t *testing.T) {
 	common.Config.MaxPerHostConnections = 1
 
 	usePubKey := true
-	u := getTestUser(usePubKey)
-	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	user := getTestUser(usePubKey)
+	err := dataprovider.AddUser(&user)
 	assert.NoError(t, err)
+	user.Password = ""
 	conn, client, err := getSftpClient(user, usePubKey)
 	if assert.NoError(t, err) {
-		defer conn.Close()
-		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
 		s, c, err := getSftpClient(user, usePubKey)
 		if !assert.Error(t, err, "max per host connections exceeded, new login should not succeed") {
 			c.Close()
 			s.Close()
 		}
+		err = client.Close()
+		assert.NoError(t, err)
+		err = conn.Close()
+		assert.NoError(t, err)
 	}
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	err = dataprovider.DeleteUser(user.Username)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)

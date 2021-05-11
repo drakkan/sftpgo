@@ -697,6 +697,19 @@ func TestCachedFs(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestParseAllowedIPAndRanges(t *testing.T) {
+	_, err := utils.ParseAllowedIPAndRanges([]string{"1.1.1.1", "not an ip"})
+	assert.Error(t, err)
+	_, err = utils.ParseAllowedIPAndRanges([]string{"1.1.1.5", "192.168.1.0/240"})
+	assert.Error(t, err)
+	allow, err := utils.ParseAllowedIPAndRanges([]string{"192.168.1.2", "172.16.0.0/24"})
+	assert.NoError(t, err)
+	assert.True(t, allow[0](net.ParseIP("192.168.1.2")))
+	assert.False(t, allow[0](net.ParseIP("192.168.2.2")))
+	assert.True(t, allow[1](net.ParseIP("172.16.0.1")))
+	assert.False(t, allow[1](net.ParseIP("172.16.1.1")))
+}
+
 func BenchmarkBcryptHashing(b *testing.B) {
 	bcryptPassword := "bcryptpassword"
 	for i := 0; i < b.N; i++ {

@@ -192,13 +192,7 @@ systemctl status sftpgo
 
 The easiest way to add virtual users is to use the built-in Web interface.
 
-You can expose the Web Admin interface over the network replacing `"bind_address": "127.0.0.1"` in the `httpd` configuration section with `"bind_address": ""` and apply the change restarting the SFTPGo service with the following command.
-
-```shell
-sudo systemctl restart sftpgo
-```
-
-So now open the Web Admin URL.
+So navigate to the Web Admin URL.
 
 [http://127.0.0.1:8080/web/admin](http://127.0.0.1:8080/web/admin)
 

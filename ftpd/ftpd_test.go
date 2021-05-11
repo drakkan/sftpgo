@@ -760,8 +760,10 @@ func TestMaxConnections(t *testing.T) {
 	oldValue := common.Config.MaxTotalConnections
 	common.Config.MaxTotalConnections = 1
 
-	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	user := getTestUser()
+	err := dataprovider.AddUser(&user)
 	assert.NoError(t, err)
+	user.Password = ""
 	client, err := getFTPClient(user, true, nil)
 	if assert.NoError(t, err) {
 		err = checkBasicFTP(client)
@@ -771,7 +773,7 @@ func TestMaxConnections(t *testing.T) {
 		err = client.Quit()
 		assert.NoError(t, err)
 	}
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	err = dataprovider.DeleteUser(user.Username)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -783,8 +785,10 @@ func TestMaxPerHostConnections(t *testing.T) {
 	oldValue := common.Config.MaxPerHostConnections
 	common.Config.MaxPerHostConnections = 1
 
-	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	user := getTestUser()
+	err := dataprovider.AddUser(&user)
 	assert.NoError(t, err)
+	user.Password = ""
 	client, err := getFTPClient(user, true, nil)
 	if assert.NoError(t, err) {
 		err = checkBasicFTP(client)
@@ -794,7 +798,7 @@ func TestMaxPerHostConnections(t *testing.T) {
 		err = client.Quit()
 		assert.NoError(t, err)
 	}
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	err = dataprovider.DeleteUser(user.Username)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -851,7 +855,7 @@ func TestRateLimiter(t *testing.T) {
 		assert.Contains(t, err.Error(), "banned client IP")
 	}
 
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	err = dataprovider.DeleteUser(user.Username)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -893,7 +897,7 @@ func TestDefender(t *testing.T) {
 		assert.Contains(t, err.Error(), "banned client IP")
 	}
 
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	err = dataprovider.DeleteUser(user.Username)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)

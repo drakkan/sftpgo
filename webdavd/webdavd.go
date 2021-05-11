@@ -3,6 +3,7 @@ package webdavd
 
 import (
 	"fmt"
+	"net"
 	"path/filepath"
 
 	"github.com/go-chi/chi/v5/middleware"
@@ -90,6 +91,18 @@ type Binding struct {
 	// Prefix for WebDAV resources, if empty WebDAV resources will be available at the
 	// root ("/") URI. If defined it must be an absolute URI.
 	Prefix string `json:"prefix" mapstructure:"prefix"`
+	// List of IP addresses and IP ranges allowed to set X-Forwarded-For/X-Real-IP headers.
+	ProxyAllowed     []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
+	allowHeadersFrom []func(net.IP) bool
+}
+
+func (b *Binding) parseAllowedProxy() error {
+	allowedFuncs, err := utils.ParseAllowedIPAndRanges(b.ProxyAllowed)
+	if err != nil {
+		return err
+	}
+	b.allowHeadersFrom = allowedFuncs
+	return nil
 }
 
 func (b *Binding) isMutualTLSEnabled() bool {
@@ -190,6 +203,9 @@ func (c *Configuration) Initialize(configDir string) error {
 	for _, binding := range c.Bindings {
 		if !binding.IsValid() {
 			continue
+		}
+		if err := binding.parseAllowedProxy(); err != nil {
+			return err
 		}
 
 		go func(binding Binding) {

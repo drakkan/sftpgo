@@ -107,7 +107,8 @@
         "enable_https": false,
         "client_auth_type": 0,
         "tls_cipher_suites": [],
-        "prefix": ""
+        "prefix": "",
+        "proxy_allowed": []
       }
     ],
     "certificate_file": "",
@@ -180,12 +181,13 @@
     "bindings": [
       {
         "port": 8080,
-        "address": "127.0.0.1",
+        "address": "",
         "enable_web_admin": true,
         "enable_web_client": true,
         "enable_https": false,
         "client_auth_type": 0,
-        "tls_cipher_suites": []
+        "tls_cipher_suites": [],
+        "proxy_allowed": []
       }
     ],
     "templates_path": "templates",

@@ -168,6 +168,7 @@
         <i class="fas fa-angle-up"></i>
     </a>
 
+    {{if .LoggedUser.Username}}
     <!-- Logout Modal-->
     <div class="modal fade" id="logoutModal" tabindex="-1" role="dialog" aria-labelledby="modalLabel"
         aria-hidden="true">
@@ -187,6 +188,7 @@
             </div>
         </div>
     </div>
+    {{end}}
 
     {{block "dialog" .}}{{end}}
 

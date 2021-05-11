@@ -23,6 +23,7 @@ import (
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/kms"
+	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/vfs"
 )
 
@@ -409,36 +410,68 @@ func TestUserInvalidParams(t *testing.T) {
 }
 
 func TestRemoteAddress(t *testing.T) {
-	req, err := http.NewRequest(http.MethodGet, "/username", nil)
-	assert.NoError(t, err)
-	assert.Empty(t, req.RemoteAddr)
-
 	remoteAddr1 := "100.100.100.100"
 	remoteAddr2 := "172.172.172.172"
 
+	c := &Configuration{
+		Bindings: []Binding{
+			{
+				Port:         9000,
+				ProxyAllowed: []string{remoteAddr2, "10.8.0.0/30"},
+			},
+		},
+	}
+
+	server := webDavServer{
+		config:  c,
+		binding: c.Bindings[0],
+	}
+	err := server.binding.parseAllowedProxy()
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodGet, "/", nil)
+	assert.NoError(t, err)
+	assert.Empty(t, req.RemoteAddr)
+
 	req.Header.Set("X-Forwarded-For", remoteAddr1)
-	checkRemoteAddress(req)
-	assert.Equal(t, remoteAddr1, req.RemoteAddr)
+	ip := utils.GetRealIP(req)
+	assert.Equal(t, remoteAddr1, ip)
+	// this will be ignore, remoteAddr1 is not allowed to se this header
+	req.Header.Set("X-Forwarded-For", remoteAddr2)
+	req.RemoteAddr = remoteAddr1
+	ip = server.checkRemoteAddress(req)
+	assert.Equal(t, remoteAddr1, ip)
 	req.RemoteAddr = ""
+	ip = server.checkRemoteAddress(req)
+	assert.Empty(t, ip)
 
 	req.Header.Set("X-Forwarded-For", fmt.Sprintf("%v, %v", remoteAddr2, remoteAddr1))
-	checkRemoteAddress(req)
-	assert.Equal(t, remoteAddr2, req.RemoteAddr)
+	ip = utils.GetRealIP(req)
+	assert.Equal(t, remoteAddr2, ip)
+
+	req.RemoteAddr = remoteAddr2
+	req.Header.Set("X-Forwarded-For", fmt.Sprintf("%v, %v", "12.34.56.78", "172.16.2.4"))
+	ip = server.checkRemoteAddress(req)
+	assert.Equal(t, "12.34.56.78", ip)
+	assert.Equal(t, ip, req.RemoteAddr)
+
+	req.RemoteAddr = "10.8.0.2"
+	req.Header.Set("X-Forwarded-For", remoteAddr1)
+	ip = server.checkRemoteAddress(req)
+	assert.Equal(t, remoteAddr1, ip)
+	assert.Equal(t, ip, req.RemoteAddr)
+
+	req.RemoteAddr = "10.8.0.3"
+	req.Header.Set("X-Forwarded-For", "not an ip")
+	ip = server.checkRemoteAddress(req)
+	assert.Equal(t, "10.8.0.3", ip)
+	assert.Equal(t, ip, req.RemoteAddr)
 
 	req.Header.Del("X-Forwarded-For")
 	req.RemoteAddr = ""
 	req.Header.Set("X-Real-IP", remoteAddr1)
-	checkRemoteAddress(req)
-	assert.Equal(t, remoteAddr1, req.RemoteAddr)
+	ip = utils.GetRealIP(req)
+	assert.Equal(t, remoteAddr1, ip)
 	req.RemoteAddr = ""
-
-	oldValue := common.Config.ProxyProtocol
-	common.Config.ProxyProtocol = 1
-
-	checkRemoteAddress(req)
-	assert.Empty(t, req.RemoteAddr)
-
-	common.Config.ProxyProtocol = oldValue
 }
 
 func TestConnWithNilRequest(t *testing.T) {

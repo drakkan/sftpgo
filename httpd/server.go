@@ -1,11 +1,13 @@
 package httpd
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"time"
 
@@ -23,7 +25,10 @@ import (
 	"github.com/drakkan/sftpgo/version"
 )
 
-var compressor = middleware.NewCompressor(5)
+var (
+	compressor      = middleware.NewCompressor(5)
+	xForwardedProto = http.CanonicalHeaderKey("X-Forwarded-Proto")
+)
 
 type httpdServer struct {
 	binding         Binding
@@ -111,10 +116,6 @@ func (s *httpdServer) refreshCookie(next http.Handler) http.Handler {
 func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginPostSize)
 
-	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
-	common.Connections.AddClientConnection(ipAddr)
-	defer common.Connections.RemoveClientConnection(ipAddr)
-
 	if err := r.ParseForm(); err != nil {
 		renderClientLoginPage(w, err.Error())
 		return
@@ -130,16 +131,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if !common.Connections.IsNewConnectionAllowed(ipAddr) {
-		logger.Log(logger.LevelDebug, common.ProtocolHTTP, "", "connection refused, configured limit reached")
-		renderClientLoginPage(w, "configured connections limit reached")
-		return
-	}
-	if common.IsBanned(ipAddr) {
-		renderClientLoginPage(w, "your IP address is banned")
-		return
-	}
-
+	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolHTTP); err != nil {
 		renderClientLoginPage(w, fmt.Sprintf("access denied by post connect hook: %v", err))
 		return
@@ -204,14 +196,6 @@ func (s *httpdServer) handleWebAdminLoginPost(w http.ResponseWriter, r *http.Req
 		renderLoginPage(w, err.Error())
 		return
 	}
-	if connAddr, ok := r.Context().Value(connAddrKey).(string); ok {
-		if connAddr != r.RemoteAddr {
-			if !admin.CanLoginFromIP(utils.GetIPFromRemoteAddress(connAddr)) {
-				renderLoginPage(w, fmt.Sprintf("Login from IP %v is not allowed", connAddr))
-				return
-			}
-		}
-	}
 	c := jwtTokenClaims{
 		Username:    admin.Username,
 		Permissions: admin.Permissions,
@@ -246,19 +230,10 @@ func (s *httpdServer) getToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.checkAddrAndSendToken(w, r, admin)
+	s.generateAndSendToken(w, r, admin)
 }
 
-func (s *httpdServer) checkAddrAndSendToken(w http.ResponseWriter, r *http.Request, admin dataprovider.Admin) {
-	if connAddr, ok := r.Context().Value(connAddrKey).(string); ok {
-		if connAddr != r.RemoteAddr {
-			if !admin.CanLoginFromIP(utils.GetIPFromRemoteAddress(connAddr)) {
-				sendAPIResponse(w, r, nil, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-				return
-			}
-		}
-	}
-
+func (s *httpdServer) generateAndSendToken(w http.ResponseWriter, r *http.Request, admin dataprovider.Admin) {
 	c := jwtTokenClaims{
 		Username:    admin.Username,
 		Permissions: admin.Permissions,
@@ -330,15 +305,6 @@ func (s *httpdServer) refreshAdminToken(w http.ResponseWriter, r *http.Request, 
 		logger.Debug(logSender, "", "admin %#v cannot login from %v, unable to refresh cookie", admin.Username, r.RemoteAddr)
 		return
 	}
-	if connAddr, ok := r.Context().Value(connAddrKey).(string); ok {
-		if connAddr != r.RemoteAddr {
-			if !admin.CanLoginFromIP(utils.GetIPFromRemoteAddress(connAddr)) {
-				logger.Debug(logSender, "", "admin %#v cannot login from %v, unable to refresh cookie",
-					admin.Username, connAddr)
-				return
-			}
-		}
-	}
 	logger.Debug(logSender, "", "cookie refreshed for admin %#v", admin.Username)
 	tokenClaims.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebAdmin) //nolint:errcheck
 }
@@ -357,200 +323,266 @@ func (s *httpdServer) updateContextFromCookie(r *http.Request) *http.Request {
 	return r
 }
 
+func (s *httpdServer) checkConnection(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
+		ip := net.ParseIP(ipAddr)
+		if ip != nil {
+			for _, allow := range s.binding.allowHeadersFrom {
+				if allow(ip) {
+					parsedIP := utils.GetRealIP(r)
+					if parsedIP != "" {
+						ipAddr = parsedIP
+						r.RemoteAddr = ipAddr
+					}
+					if forwardedProto := r.Header.Get(xForwardedProto); forwardedProto != "" {
+						ctx := context.WithValue(r.Context(), forwardedProtoKey, forwardedProto)
+						r = r.WithContext(ctx)
+					}
+					break
+				}
+			}
+		}
+
+		common.Connections.AddClientConnection(ipAddr)
+		defer common.Connections.RemoveClientConnection(ipAddr)
+
+		if !common.Connections.IsNewConnectionAllowed(ipAddr) {
+			logger.Log(logger.LevelDebug, common.ProtocolHTTP, "", "connection refused, configured limit reached")
+			s.sendForbiddenResponse(w, r, "configured connections limit reached")
+			return
+		}
+		if common.IsBanned(ipAddr) {
+			s.sendForbiddenResponse(w, r, "your IP address is banned")
+			return
+		}
+		if delay, err := common.LimitRate(common.ProtocolHTTP, ipAddr); err != nil {
+			delay += 499999999 * time.Nanosecond
+			w.Header().Set("Retry-After", fmt.Sprintf("%.0f", delay.Seconds()))
+			w.Header().Set("X-Retry-In", delay.String())
+			s.sendTooManyRequestResponse(w, r, err)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *httpdServer) sendTooManyRequestResponse(w http.ResponseWriter, r *http.Request, err error) {
+	if (s.enableWebAdmin || s.enableWebClient) && isWebRequest(r) {
+		r = s.updateContextFromCookie(r)
+		if s.enableWebClient && (isWebClientRequest(r) || !s.enableWebAdmin) {
+			renderClientMessagePage(w, r, http.StatusText(http.StatusTooManyRequests), "Rate limit exceeded",
+				http.StatusTooManyRequests, err, "")
+			return
+		}
+		renderMessagePage(w, r, http.StatusText(http.StatusTooManyRequests), "Rate limit exceeded", http.StatusTooManyRequests,
+			err, "")
+		return
+	}
+	sendAPIResponse(w, r, err, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
+}
+
+func (s *httpdServer) sendForbiddenResponse(w http.ResponseWriter, r *http.Request, message string) {
+	if (s.enableWebAdmin || s.enableWebClient) && isWebRequest(r) {
+		r = s.updateContextFromCookie(r)
+		if s.enableWebClient && (isWebClientRequest(r) || !s.enableWebAdmin) {
+			renderClientForbiddenPage(w, r, message)
+			return
+		}
+		renderForbiddenPage(w, r, message)
+		return
+	}
+	sendAPIResponse(w, r, errors.New(message), message, http.StatusForbidden)
+}
+
 func (s *httpdServer) initializeRouter() {
 	s.tokenAuth = jwtauth.New(jwa.HS256.String(), utils.GenerateRandomBytes(32), nil)
 	s.router = chi.NewRouter()
 
-	s.router.Use(saveConnectionAddress)
+	s.router.Use(middleware.RequestID)
+	s.router.Use(logger.NewStructuredLogger(logger.GetLogger()))
+	s.router.Use(middleware.Recoverer)
+	s.router.Use(s.checkConnection)
 	s.router.Use(middleware.GetHead)
 	s.router.Use(middleware.StripSlashes)
-	s.router.Use(middleware.RealIP)
-	s.router.Use(rateLimiter)
 
-	s.router.Group(func(r chi.Router) {
-		r.Get(healthzPath, func(w http.ResponseWriter, r *http.Request) {
-			render.PlainText(w, r, "ok")
-		})
-	})
-
-	s.router.Group(func(router chi.Router) {
-		router.Use(middleware.RequestID)
-		router.Use(logger.NewStructuredLogger(logger.GetLogger()))
-		router.Use(middleware.Recoverer)
-
-		router.NotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if (s.enableWebAdmin || s.enableWebClient) && isWebRequest(r) {
-				r = s.updateContextFromCookie(r)
-				if s.enableWebClient && (isWebClientRequest(r) || !s.enableWebAdmin) {
-					renderClientNotFoundPage(w, r, nil)
-					return
-				}
-				renderNotFoundPage(w, r, nil)
+	s.router.NotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if (s.enableWebAdmin || s.enableWebClient) && isWebRequest(r) {
+			r = s.updateContextFromCookie(r)
+			if s.enableWebClient && (isWebClientRequest(r) || !s.enableWebAdmin) {
+				renderClientNotFoundPage(w, r, nil)
 				return
 			}
-			sendAPIResponse(w, r, nil, "Not Found", http.StatusNotFound)
-		}))
+			renderNotFoundPage(w, r, nil)
+			return
+		}
+		sendAPIResponse(w, r, nil, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+	}))
 
-		router.Get(tokenPath, s.getToken)
+	s.router.Get(healthzPath, func(w http.ResponseWriter, r *http.Request) {
+		render.PlainText(w, r, "ok")
+	})
 
-		router.Group(func(router chi.Router) {
-			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromHeader))
-			router.Use(jwtAuthenticatorAPI)
+	s.router.Get(tokenPath, s.getToken)
 
-			router.Get(versionPath, func(w http.ResponseWriter, r *http.Request) {
-				render.JSON(w, r, version.Get())
-			})
+	s.router.Group(func(router chi.Router) {
+		router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromHeader))
+		router.Use(jwtAuthenticatorAPI)
 
-			router.Get(logoutPath, s.logout)
-			router.Put(adminPwdPath, changeAdminPassword)
-
-			router.With(checkPerm(dataprovider.PermAdminViewServerStatus)).
-				Get(serverStatusPath, func(w http.ResponseWriter, r *http.Request) {
-					render.JSON(w, r, getServicesStatus())
-				})
-
-			router.With(checkPerm(dataprovider.PermAdminViewConnections)).
-				Get(activeConnectionsPath, func(w http.ResponseWriter, r *http.Request) {
-					render.JSON(w, r, common.Connections.GetStats())
-				})
-
-			router.With(checkPerm(dataprovider.PermAdminCloseConnections)).
-				Delete(activeConnectionsPath+"/{connectionID}", handleCloseConnection)
-			router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotaScanPath, getQuotaScans)
-			router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotaScanPath, startQuotaScan)
-			router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotaScanVFolderPath, getVFolderQuotaScans)
-			router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotaScanVFolderPath, startVFolderQuotaScan)
-			router.With(checkPerm(dataprovider.PermAdminViewUsers)).Get(userPath, getUsers)
-			router.With(checkPerm(dataprovider.PermAdminAddUsers)).Post(userPath, addUser)
-			router.With(checkPerm(dataprovider.PermAdminViewUsers)).Get(userPath+"/{username}", getUserByUsername)
-			router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Put(userPath+"/{username}", updateUser)
-			router.With(checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(userPath+"/{username}", deleteUser)
-			router.With(checkPerm(dataprovider.PermAdminViewUsers)).Get(folderPath, getFolders)
-			router.With(checkPerm(dataprovider.PermAdminViewUsers)).Get(folderPath+"/{name}", getFolderByName)
-			router.With(checkPerm(dataprovider.PermAdminAddUsers)).Post(folderPath, addFolder)
-			router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Put(folderPath+"/{name}", updateFolder)
-			router.With(checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(folderPath+"/{name}", deleteFolder)
-			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(dumpDataPath, dumpData)
-			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(loadDataPath, loadData)
-			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(loadDataPath, loadDataFromRequest)
-			router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Put(updateUsedQuotaPath, updateUserQuotaUsage)
-			router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Put(updateFolderUsedQuotaPath, updateVFolderQuotaUsage)
-			router.With(checkPerm(dataprovider.PermAdminViewDefender)).Get(defenderBanTime, getBanTime)
-			router.With(checkPerm(dataprovider.PermAdminViewDefender)).Get(defenderScore, getScore)
-			router.With(checkPerm(dataprovider.PermAdminManageDefender)).Post(defenderUnban, unban)
-			router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Get(adminPath, getAdmins)
-			router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Post(adminPath, addAdmin)
-			router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Get(adminPath+"/{username}", getAdminByUsername)
-			router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Put(adminPath+"/{username}", updateAdmin)
-			router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Delete(adminPath+"/{username}", deleteAdmin)
+		router.Get(versionPath, func(w http.ResponseWriter, r *http.Request) {
+			render.JSON(w, r, version.Get())
 		})
 
-		if s.enableWebAdmin || s.enableWebClient {
-			router.Group(func(router chi.Router) {
-				router.Use(compressor.Handler)
-				fileServer(router, webStaticFilesPath, http.Dir(s.staticFilesPath))
-			})
-			if s.enableWebClient {
-				router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
-					http.Redirect(w, r, webClientLoginPath, http.StatusMovedPermanently)
-				})
-				router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
-					http.Redirect(w, r, webClientLoginPath, http.StatusMovedPermanently)
-				})
-			} else {
-				router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
-					http.Redirect(w, r, webLoginPath, http.StatusMovedPermanently)
-				})
-				router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
-					http.Redirect(w, r, webLoginPath, http.StatusMovedPermanently)
-				})
-			}
-		}
+		router.Get(logoutPath, s.logout)
+		router.Put(adminPwdPath, changeAdminPassword)
 
+		router.With(checkPerm(dataprovider.PermAdminViewServerStatus)).
+			Get(serverStatusPath, func(w http.ResponseWriter, r *http.Request) {
+				render.JSON(w, r, getServicesStatus())
+			})
+
+		router.With(checkPerm(dataprovider.PermAdminViewConnections)).
+			Get(activeConnectionsPath, func(w http.ResponseWriter, r *http.Request) {
+				render.JSON(w, r, common.Connections.GetStats())
+			})
+
+		router.With(checkPerm(dataprovider.PermAdminCloseConnections)).
+			Delete(activeConnectionsPath+"/{connectionID}", handleCloseConnection)
+		router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotaScanPath, getQuotaScans)
+		router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotaScanPath, startQuotaScan)
+		router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotaScanVFolderPath, getVFolderQuotaScans)
+		router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotaScanVFolderPath, startVFolderQuotaScan)
+		router.With(checkPerm(dataprovider.PermAdminViewUsers)).Get(userPath, getUsers)
+		router.With(checkPerm(dataprovider.PermAdminAddUsers)).Post(userPath, addUser)
+		router.With(checkPerm(dataprovider.PermAdminViewUsers)).Get(userPath+"/{username}", getUserByUsername)
+		router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Put(userPath+"/{username}", updateUser)
+		router.With(checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(userPath+"/{username}", deleteUser)
+		router.With(checkPerm(dataprovider.PermAdminViewUsers)).Get(folderPath, getFolders)
+		router.With(checkPerm(dataprovider.PermAdminViewUsers)).Get(folderPath+"/{name}", getFolderByName)
+		router.With(checkPerm(dataprovider.PermAdminAddUsers)).Post(folderPath, addFolder)
+		router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Put(folderPath+"/{name}", updateFolder)
+		router.With(checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(folderPath+"/{name}", deleteFolder)
+		router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(dumpDataPath, dumpData)
+		router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(loadDataPath, loadData)
+		router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(loadDataPath, loadDataFromRequest)
+		router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Put(updateUsedQuotaPath, updateUserQuotaUsage)
+		router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Put(updateFolderUsedQuotaPath, updateVFolderQuotaUsage)
+		router.With(checkPerm(dataprovider.PermAdminViewDefender)).Get(defenderBanTime, getBanTime)
+		router.With(checkPerm(dataprovider.PermAdminViewDefender)).Get(defenderScore, getScore)
+		router.With(checkPerm(dataprovider.PermAdminManageDefender)).Post(defenderUnban, unban)
+		router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Get(adminPath, getAdmins)
+		router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Post(adminPath, addAdmin)
+		router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Get(adminPath+"/{username}", getAdminByUsername)
+		router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Put(adminPath+"/{username}", updateAdmin)
+		router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Delete(adminPath+"/{username}", deleteAdmin)
+	})
+
+	if s.enableWebAdmin || s.enableWebClient {
+		s.router.Group(func(router chi.Router) {
+			router.Use(compressor.Handler)
+			fileServer(router, webStaticFilesPath, http.Dir(s.staticFilesPath))
+		})
 		if s.enableWebClient {
-			router.Get(webBaseClientPath, func(w http.ResponseWriter, r *http.Request) {
+			s.router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, webClientLoginPath, http.StatusMovedPermanently)
 			})
-			router.Get(webClientLoginPath, handleClientWebLogin)
-			router.Post(webClientLoginPath, s.handleWebClientLoginPost)
-
-			router.Group(func(router chi.Router) {
-				router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie))
-				router.Use(jwtAuthenticatorWebClient)
-
-				router.Get(webClientLogoutPath, handleWebClientLogout)
-				router.With(s.refreshCookie).Get(webClientFilesPath, handleClientGetFiles)
-				router.With(s.refreshCookie).Get(webClientCredentialsPath, handleClientGetCredentials)
-				router.Post(webChangeClientPwdPath, handleWebClientChangePwdPost)
-				router.With(checkClientPerm(dataprovider.WebClientPubKeyChangeDisabled)).
-					Post(webChangeClientKeysPath, handleWebClientManageKeysPost)
+			s.router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, webClientLoginPath, http.StatusMovedPermanently)
 			})
-		}
-
-		if s.enableWebAdmin {
-			router.Get(webBaseAdminPath, func(w http.ResponseWriter, r *http.Request) {
+		} else {
+			s.router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, webLoginPath, http.StatusMovedPermanently)
 			})
-			router.Get(webLoginPath, handleWebLogin)
-			router.Post(webLoginPath, s.handleWebAdminLoginPost)
-
-			router.Group(func(router chi.Router) {
-				router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie))
-				router.Use(jwtAuthenticatorWebAdmin)
-
-				router.Get(webLogoutPath, handleWebLogout)
-				router.With(s.refreshCookie).Get(webChangeAdminPwdPath, handleWebAdminChangePwd)
-				router.Post(webChangeAdminPwdPath, handleWebAdminChangePwdPost)
-				router.With(checkPerm(dataprovider.PermAdminViewUsers), s.refreshCookie).
-					Get(webUsersPath, handleGetWebUsers)
-				router.With(checkPerm(dataprovider.PermAdminAddUsers), s.refreshCookie).
-					Get(webUserPath, handleWebAddUserGet)
-				router.With(checkPerm(dataprovider.PermAdminChangeUsers), s.refreshCookie).
-					Get(webUserPath+"/{username}", handleWebUpdateUserGet)
-				router.With(checkPerm(dataprovider.PermAdminAddUsers)).Post(webUserPath, handleWebAddUserPost)
-				router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Post(webUserPath+"/{username}", handleWebUpdateUserPost)
-				router.With(checkPerm(dataprovider.PermAdminViewConnections), s.refreshCookie).
-					Get(webConnectionsPath, handleWebGetConnections)
-				router.With(checkPerm(dataprovider.PermAdminViewUsers), s.refreshCookie).
-					Get(webFoldersPath, handleWebGetFolders)
-				router.With(checkPerm(dataprovider.PermAdminAddUsers), s.refreshCookie).
-					Get(webFolderPath, handleWebAddFolderGet)
-				router.With(checkPerm(dataprovider.PermAdminAddUsers)).Post(webFolderPath, handleWebAddFolderPost)
-				router.With(checkPerm(dataprovider.PermAdminViewServerStatus), s.refreshCookie).
-					Get(webStatusPath, handleWebGetStatus)
-				router.With(checkPerm(dataprovider.PermAdminManageAdmins), s.refreshCookie).
-					Get(webAdminsPath, handleGetWebAdmins)
-				router.With(checkPerm(dataprovider.PermAdminManageAdmins), s.refreshCookie).
-					Get(webAdminPath, handleWebAddAdminGet)
-				router.With(checkPerm(dataprovider.PermAdminManageAdmins), s.refreshCookie).
-					Get(webAdminPath+"/{username}", handleWebUpdateAdminGet)
-				router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Post(webAdminPath, handleWebAddAdminPost)
-				router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Post(webAdminPath+"/{username}", handleWebUpdateAdminPost)
-				router.With(checkPerm(dataprovider.PermAdminManageAdmins), verifyCSRFHeader).
-					Delete(webAdminPath+"/{username}", deleteAdmin)
-				router.With(checkPerm(dataprovider.PermAdminCloseConnections), verifyCSRFHeader).
-					Delete(webConnectionsPath+"/{connectionID}", handleCloseConnection)
-				router.With(checkPerm(dataprovider.PermAdminChangeUsers), s.refreshCookie).
-					Get(webFolderPath+"/{name}", handleWebUpdateFolderGet)
-				router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Post(webFolderPath+"/{name}", handleWebUpdateFolderPost)
-				router.With(checkPerm(dataprovider.PermAdminDeleteUsers), verifyCSRFHeader).
-					Delete(webFolderPath+"/{name}", deleteFolder)
-				router.With(checkPerm(dataprovider.PermAdminQuotaScans), verifyCSRFHeader).
-					Post(webScanVFolderPath, startVFolderQuotaScan)
-				router.With(checkPerm(dataprovider.PermAdminDeleteUsers), verifyCSRFHeader).
-					Delete(webUserPath+"/{username}", deleteUser)
-				router.With(checkPerm(dataprovider.PermAdminQuotaScans), verifyCSRFHeader).
-					Post(webQuotaScanPath, startQuotaScan)
-				router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(webMaintenancePath, handleWebMaintenance)
-				router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(webBackupPath, dumpData)
-				router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(webRestorePath, handleWebRestore)
-				router.With(checkPerm(dataprovider.PermAdminManageSystem), s.refreshCookie).
-					Get(webTemplateUser, handleWebTemplateUserGet)
-				router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(webTemplateUser, handleWebTemplateUserPost)
-				router.With(checkPerm(dataprovider.PermAdminManageSystem), s.refreshCookie).
-					Get(webTemplateFolder, handleWebTemplateFolderGet)
-				router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(webTemplateFolder, handleWebTemplateFolderPost)
+			s.router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, webLoginPath, http.StatusMovedPermanently)
 			})
 		}
-	})
+	}
+
+	if s.enableWebClient {
+		s.router.Get(webBaseClientPath, func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, webClientLoginPath, http.StatusMovedPermanently)
+		})
+		s.router.Get(webClientLoginPath, handleClientWebLogin)
+		s.router.Post(webClientLoginPath, s.handleWebClientLoginPost)
+
+		s.router.Group(func(router chi.Router) {
+			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie))
+			router.Use(jwtAuthenticatorWebClient)
+
+			router.Get(webClientLogoutPath, handleWebClientLogout)
+			router.With(s.refreshCookie).Get(webClientFilesPath, handleClientGetFiles)
+			router.With(s.refreshCookie).Get(webClientCredentialsPath, handleClientGetCredentials)
+			router.Post(webChangeClientPwdPath, handleWebClientChangePwdPost)
+			router.With(checkClientPerm(dataprovider.WebClientPubKeyChangeDisabled)).
+				Post(webChangeClientKeysPath, handleWebClientManageKeysPost)
+		})
+	}
+
+	if s.enableWebAdmin {
+		s.router.Get(webBaseAdminPath, func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, webLoginPath, http.StatusMovedPermanently)
+		})
+		s.router.Get(webLoginPath, handleWebLogin)
+		s.router.Post(webLoginPath, s.handleWebAdminLoginPost)
+
+		s.router.Group(func(router chi.Router) {
+			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie))
+			router.Use(jwtAuthenticatorWebAdmin)
+
+			router.Get(webLogoutPath, handleWebLogout)
+			router.With(s.refreshCookie).Get(webChangeAdminPwdPath, handleWebAdminChangePwd)
+			router.Post(webChangeAdminPwdPath, handleWebAdminChangePwdPost)
+			router.With(checkPerm(dataprovider.PermAdminViewUsers), s.refreshCookie).
+				Get(webUsersPath, handleGetWebUsers)
+			router.With(checkPerm(dataprovider.PermAdminAddUsers), s.refreshCookie).
+				Get(webUserPath, handleWebAddUserGet)
+			router.With(checkPerm(dataprovider.PermAdminChangeUsers), s.refreshCookie).
+				Get(webUserPath+"/{username}", handleWebUpdateUserGet)
+			router.With(checkPerm(dataprovider.PermAdminAddUsers)).Post(webUserPath, handleWebAddUserPost)
+			router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Post(webUserPath+"/{username}", handleWebUpdateUserPost)
+			router.With(checkPerm(dataprovider.PermAdminViewConnections), s.refreshCookie).
+				Get(webConnectionsPath, handleWebGetConnections)
+			router.With(checkPerm(dataprovider.PermAdminViewUsers), s.refreshCookie).
+				Get(webFoldersPath, handleWebGetFolders)
+			router.With(checkPerm(dataprovider.PermAdminAddUsers), s.refreshCookie).
+				Get(webFolderPath, handleWebAddFolderGet)
+			router.With(checkPerm(dataprovider.PermAdminAddUsers)).Post(webFolderPath, handleWebAddFolderPost)
+			router.With(checkPerm(dataprovider.PermAdminViewServerStatus), s.refreshCookie).
+				Get(webStatusPath, handleWebGetStatus)
+			router.With(checkPerm(dataprovider.PermAdminManageAdmins), s.refreshCookie).
+				Get(webAdminsPath, handleGetWebAdmins)
+			router.With(checkPerm(dataprovider.PermAdminManageAdmins), s.refreshCookie).
+				Get(webAdminPath, handleWebAddAdminGet)
+			router.With(checkPerm(dataprovider.PermAdminManageAdmins), s.refreshCookie).
+				Get(webAdminPath+"/{username}", handleWebUpdateAdminGet)
+			router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Post(webAdminPath, handleWebAddAdminPost)
+			router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Post(webAdminPath+"/{username}", handleWebUpdateAdminPost)
+			router.With(checkPerm(dataprovider.PermAdminManageAdmins), verifyCSRFHeader).
+				Delete(webAdminPath+"/{username}", deleteAdmin)
+			router.With(checkPerm(dataprovider.PermAdminCloseConnections), verifyCSRFHeader).
+				Delete(webConnectionsPath+"/{connectionID}", handleCloseConnection)
+			router.With(checkPerm(dataprovider.PermAdminChangeUsers), s.refreshCookie).
+				Get(webFolderPath+"/{name}", handleWebUpdateFolderGet)
+			router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Post(webFolderPath+"/{name}", handleWebUpdateFolderPost)
+			router.With(checkPerm(dataprovider.PermAdminDeleteUsers), verifyCSRFHeader).
+				Delete(webFolderPath+"/{name}", deleteFolder)
+			router.With(checkPerm(dataprovider.PermAdminQuotaScans), verifyCSRFHeader).
+				Post(webScanVFolderPath, startVFolderQuotaScan)
+			router.With(checkPerm(dataprovider.PermAdminDeleteUsers), verifyCSRFHeader).
+				Delete(webUserPath+"/{username}", deleteUser)
+			router.With(checkPerm(dataprovider.PermAdminQuotaScans), verifyCSRFHeader).
+				Post(webQuotaScanPath, startQuotaScan)
+			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(webMaintenancePath, handleWebMaintenance)
+			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(webBackupPath, dumpData)
+			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(webRestorePath, handleWebRestore)
+			router.With(checkPerm(dataprovider.PermAdminManageSystem), s.refreshCookie).
+				Get(webTemplateUser, handleWebTemplateUserGet)
+			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(webTemplateUser, handleWebTemplateUserPost)
+			router.With(checkPerm(dataprovider.PermAdminManageSystem), s.refreshCookie).
+				Get(webTemplateFolder, handleWebTemplateFolderGet)
+			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(webTemplateFolder, handleWebTemplateFolderPost)
+		})
+	}
 }

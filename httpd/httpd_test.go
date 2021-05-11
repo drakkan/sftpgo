@@ -326,6 +326,12 @@ func TestInitialization(t *testing.T) {
 	err = httpdConf.Initialize(configDir)
 	assert.Error(t, err)
 	httpdConf.CARevocationLists = nil
+	httpdConf.Bindings[0].ProxyAllowed = []string{"invalid ip/network"}
+	err = httpdConf.Initialize(configDir)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "is not a valid IP range")
+	}
+	httpdConf.Bindings[0].ProxyAllowed = nil
 	httpdConf.Bindings[0].EnableWebAdmin = false
 	httpdConf.Bindings[0].EnableWebClient = false
 	httpdConf.Bindings[0].Port = 8081
@@ -3288,6 +3294,22 @@ func TestRateLimiter(t *testing.T) {
 	err = resp.Body.Close()
 	assert.NoError(t, err)
 
+	resp, err = client.Get(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
+	assert.Equal(t, "1", resp.Header.Get("Retry-After"))
+	assert.NotEmpty(t, resp.Header.Get("X-Retry-In"))
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	resp, err = client.Get(httpBaseURL + webClientLoginPath)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
+	assert.Equal(t, "1", resp.Header.Get("Retry-After"))
+	assert.NotEmpty(t, resp.Header.Get("X-Retry-In"))
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
 	err = common.Initialize(oldConfig)
 	assert.NoError(t, err)
 }
@@ -4625,10 +4647,13 @@ func TestDefender(t *testing.T) {
 
 	remoteAddr := "172.16.5.6:9876"
 
+	webAdminToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
 	webToken, err := getJWTWebClientTokenFromTestServerWithAddr(defaultUsername, defaultPassword, remoteAddr)
 	assert.NoError(t, err)
 	req, _ := http.NewRequest(http.MethodGet, webClientFilesPath, nil)
 	req.RemoteAddr = remoteAddr
+	req.RequestURI = webClientFilesPath
 	setJWTCookieForReq(req, webToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -4642,7 +4667,16 @@ func TestDefender(t *testing.T) {
 	assert.Error(t, err)
 	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
 	req.RemoteAddr = remoteAddr
+	req.RequestURI = webClientFilesPath
 	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "your IP address is banned")
+
+	req, _ = http.NewRequest(http.MethodGet, webUsersPath, nil)
+	req.RemoteAddr = remoteAddr
+	req.RequestURI = webUsersPath
+	setJWTCookieForReq(req, webAdminToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "your IP address is banned")
@@ -5192,7 +5226,7 @@ func TestWebAdminLoginMock(t *testing.T) {
 	req.Header.Set("X-Forwarded-For", "10.9.9.9")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "Login from IP 127.0.1.1:4567 is not allowed")
+	assert.Contains(t, rr.Body.String(), "login from IP 127.0.1.1 not allowed")
 
 	// invalid csrf token
 	form = getLoginForm(altAdminUsername, altAdminPassword, "invalid csrf")
