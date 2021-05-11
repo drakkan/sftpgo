@@ -117,6 +117,8 @@ func TestBasicFTPHandlingCryptFs(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 1*time.Second, 50*time.Millisecond)
+	assert.Eventually(t, func() bool { return common.Connections.GetClientConnections() == 0 }, 1000*time.Millisecond,
+		50*time.Millisecond)
 }
 
 func TestZeroBytesTransfersCryptFs(t *testing.T) {

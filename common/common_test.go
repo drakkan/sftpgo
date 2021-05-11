@@ -276,9 +276,13 @@ func TestMaxConnectionPerHost(t *testing.T) {
 
 	Connections.AddClientConnection(ipAddr)
 	assert.False(t, Connections.IsNewConnectionAllowed(ipAddr))
+	assert.Equal(t, int32(3), Connections.GetClientConnections())
 
 	Connections.RemoveClientConnection(ipAddr)
 	Connections.RemoveClientConnection(ipAddr)
+	Connections.RemoveClientConnection(ipAddr)
+
+	assert.Equal(t, int32(0), Connections.GetClientConnections())
 
 	Config.MaxPerHostConnections = oldValue
 }
@@ -357,6 +361,7 @@ func TestIdleConnections(t *testing.T) {
 		defer Connections.RUnlock()
 		return len(Connections.sshConnections) == 0
 	}, 1*time.Second, 200*time.Millisecond)
+	assert.Equal(t, int32(0), Connections.GetClientConnections())
 	stopIdleTimeoutTicker()
 	assert.True(t, customConn1.isClosed)
 	assert.True(t, customConn2.isClosed)

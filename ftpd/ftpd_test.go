@@ -560,6 +560,8 @@ func TestBasicFTPHandling(t *testing.T) {
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 1*time.Second, 50*time.Millisecond)
+	assert.Eventually(t, func() bool { return common.Connections.GetClientConnections() == 0 }, 1000*time.Millisecond,
+		50*time.Millisecond)
 }
 
 func TestLoginInvalidCredentials(t *testing.T) {
@@ -756,9 +758,14 @@ func TestPostConnectHook(t *testing.T) {
 	common.Config.PostConnectHook = ""
 }
 
+//nolint:dupl
 func TestMaxConnections(t *testing.T) {
 	oldValue := common.Config.MaxTotalConnections
 	common.Config.MaxTotalConnections = 1
+
+	assert.Eventually(t, func() bool {
+		return common.Connections.GetClientConnections() == 0
+	}, 1000*time.Millisecond, 50*time.Millisecond)
 
 	user := getTestUser()
 	err := dataprovider.AddUser(&user)
@@ -781,9 +788,14 @@ func TestMaxConnections(t *testing.T) {
 	common.Config.MaxTotalConnections = oldValue
 }
 
+//nolint:dupl
 func TestMaxPerHostConnections(t *testing.T) {
 	oldValue := common.Config.MaxPerHostConnections
 	common.Config.MaxPerHostConnections = 1
+
+	assert.Eventually(t, func() bool {
+		return common.Connections.GetClientConnections() == 0
+	}, 1000*time.Millisecond, 50*time.Millisecond)
 
 	user := getTestUser()
 	err := dataprovider.AddUser(&user)
@@ -2689,6 +2701,8 @@ func TestNestedVirtualFolders(t *testing.T) {
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 1*time.Second, 50*time.Millisecond)
+	assert.Eventually(t, func() bool { return common.Connections.GetClientConnections() == 0 }, 1000*time.Millisecond,
+		50*time.Millisecond)
 }
 
 func checkBasicFTP(client *ftp.ServerConn) error {

@@ -2906,6 +2906,10 @@ func TestMaxConnections(t *testing.T) {
 	oldValue := common.Config.MaxTotalConnections
 	common.Config.MaxTotalConnections = 1
 
+	assert.Eventually(t, func() bool {
+		return common.Connections.GetClientConnections() == 0
+	}, 1000*time.Millisecond, 50*time.Millisecond)
+
 	usePubKey := true
 	user := getTestUser(usePubKey)
 	err := dataprovider.AddUser(&user)
@@ -2936,6 +2940,10 @@ func TestMaxConnections(t *testing.T) {
 func TestMaxPerHostConnections(t *testing.T) {
 	oldValue := common.Config.MaxPerHostConnections
 	common.Config.MaxPerHostConnections = 1
+
+	assert.Eventually(t, func() bool {
+		return common.Connections.GetClientConnections() == 0
+	}, 1000*time.Millisecond, 50*time.Millisecond)
 
 	usePubKey := true
 	user := getTestUser(usePubKey)

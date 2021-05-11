@@ -711,6 +711,11 @@ func (conns *ActiveConnections) RemoveClientConnection(ipAddr string) {
 	conns.clients.remove(ipAddr)
 }
 
+// GetClientConnections returns the total number of client connections
+func (conns *ActiveConnections) GetClientConnections() int32 {
+	return conns.clients.getTotal()
+}
+
 // IsNewConnectionAllowed returns false if the maximum number of concurrent allowed connections is exceeded
 func (conns *ActiveConnections) IsNewConnectionAllowed(ipAddr string) bool {
 	if Config.MaxTotalConnections == 0 && Config.MaxPerHostConnections == 0 {

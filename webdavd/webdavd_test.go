@@ -919,6 +919,10 @@ func TestMaxConnections(t *testing.T) {
 	oldValue := common.Config.MaxTotalConnections
 	common.Config.MaxTotalConnections = 1
 
+	assert.Eventually(t, func() bool {
+		return common.Connections.GetClientConnections() == 0
+	}, 1000*time.Millisecond, 50*time.Millisecond)
+
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
 	client := getWebDavClient(user, true, nil)
@@ -943,6 +947,10 @@ func TestMaxConnections(t *testing.T) {
 func TestMaxPerHostConnections(t *testing.T) {
 	oldValue := common.Config.MaxPerHostConnections
 	common.Config.MaxPerHostConnections = 1
+
+	assert.Eventually(t, func() bool {
+		return common.Connections.GetClientConnections() == 0
+	}, 1000*time.Millisecond, 50*time.Millisecond)
 
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
@@ -1188,7 +1196,7 @@ func TestQuotaLimits(t *testing.T) {
 		if !assert.NoError(t, err, "username: %v", user.Username) {
 			info, err := os.Stat(testFilePath)
 			if assert.NoError(t, err) {
-				fmt.Printf("local file size %v", info.Size())
+				fmt.Printf("local file size: %v\n", info.Size())
 			}
 			printLatestLogs(20)
 		}
@@ -2580,7 +2588,19 @@ func createTestFile(path string, size int64) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, content, os.ModePerm)
+
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(content)
+	if err == nil {
+		err = f.Sync()
+	}
+	if err1 := f.Close(); err1 != nil && err == nil {
+		err = err1
+	}
+	return err
 }
 
 func printLatestLogs(maxNumberOfLines int) {
