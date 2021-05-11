@@ -110,8 +110,9 @@ func Init() {
 			IdleTimeout: 15,
 			UploadMode:  0,
 			Actions: common.ProtocolActions{
-				ExecuteOn: []string{},
-				Hook:      "",
+				ExecuteOn:   []string{},
+				ExecuteSync: []string{},
+				Hook:        "",
 			},
 			SetstatMode:           0,
 			ProxyProtocol:         0,
@@ -882,6 +883,7 @@ func setViperDefaults() {
 	viper.SetDefault("common.idle_timeout", globalConf.Common.IdleTimeout)
 	viper.SetDefault("common.upload_mode", globalConf.Common.UploadMode)
 	viper.SetDefault("common.actions.execute_on", globalConf.Common.Actions.ExecuteOn)
+	viper.SetDefault("common.actions.execute_sync", globalConf.Common.Actions.ExecuteSync)
 	viper.SetDefault("common.actions.hook", globalConf.Common.Actions.Hook)
 	viper.SetDefault("common.setstat_mode", globalConf.Common.SetstatMode)
 	viper.SetDefault("common.proxy_protocol", globalConf.Common.ProxyProtocol)

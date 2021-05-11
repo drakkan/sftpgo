@@ -2186,6 +2186,48 @@ func TestPasswordCaching(t *testing.T) {
 	assert.False(t, match)
 }
 
+func TestSyncUploadAction(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	uploadScriptPath := filepath.Join(os.TempDir(), "upload.sh")
+	common.Config.Actions.ExecuteOn = []string{"upload"}
+	common.Config.Actions.ExecuteSync = []string{"upload"}
+	common.Config.Actions.Hook = uploadScriptPath
+
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	movedPath := filepath.Join(user.HomeDir, "moved.dat")
+	err = os.WriteFile(uploadScriptPath, getUploadScriptContent(movedPath), 0755)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		size := int64(32768)
+		err = writeSFTPFileNoCheck(testFileName, size, client)
+		assert.NoError(t, err)
+		_, err = client.Stat(testFileName)
+		assert.Error(t, err)
+		info, err := client.Stat(filepath.Base(movedPath))
+		if assert.NoError(t, err) {
+			assert.Equal(t, size, info.Size())
+		}
+	}
+
+	err = os.Remove(uploadScriptPath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	common.Config.Actions.ExecuteOn = nil
+	common.Config.Actions.ExecuteSync = nil
+	common.Config.Actions.Hook = uploadScriptPath
+}
+
 func TestQuotaTrackDisabled(t *testing.T) {
 	err := dataprovider.Close()
 	assert.NoError(t, err)
@@ -2691,6 +2733,21 @@ func getCryptFsUser() dataprovider.User {
 }
 
 func writeSFTPFile(name string, size int64, client *sftp.Client) error {
+	err := writeSFTPFileNoCheck(name, size, client)
+	if err != nil {
+		return err
+	}
+	info, err := client.Stat(name)
+	if err != nil {
+		return err
+	}
+	if info.Size() != size {
+		return fmt.Errorf("file size mismatch, wanted %v, actual %v", size, info.Size())
+	}
+	return nil
+}
+
+func writeSFTPFileNoCheck(name string, size int64, client *sftp.Client) error {
 	content := make([]byte, size)
 	_, err := rand.Read(content)
 	if err != nil {
@@ -2705,16 +2762,12 @@ func writeSFTPFile(name string, size int64, client *sftp.Client) error {
 		f.Close()
 		return err
 	}
-	err = f.Close()
-	if err != nil {
-		return err
-	}
-	info, err := client.Stat(name)
-	if err != nil {
-		return err
-	}
-	if info.Size() != size {
-		return fmt.Errorf("file size mismatch, wanted %v, actual %v", size, info.Size())
-	}
-	return nil
+	return f.Close()
+}
+
+func getUploadScriptContent(movedPath string) []byte {
+	content := []byte("#!/bin/sh\n\n")
+	content = append(content, []byte("sleep 1\n")...)
+	content = append(content, []byte(fmt.Sprintf("mv ${SFTPGO_ACTION_PATH} %v\n", movedPath))...)
+	return content
 }

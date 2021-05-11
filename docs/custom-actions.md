@@ -48,7 +48,9 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 
 The HTTP hook will use the global configuration for HTTP clients and will respect the retry configurations.
 
-The `actions` struct inside the "data_provider" configuration section allows you to configure actions on user add, update, delete.
+The `pre-delete` action is always executed synchronously while the other ones are asynchronous. You can specify the actions to run synchronously via the `execute_sync` configuration key. Executing an action synchronously means that SFTPGo will not return a result code to the client (which is waiting for it) until your hook have completed its execution. If your hook takes a long time to complete this could cause a timeout on the client side, which wouldn't receive the server response in a timely manner and eventually drop the connection.
+
+The `actions` struct inside the `data_provider` configuration section allows you to configure actions on user add, update, delete.
 
 Actions will not be fired for internal updates, such as the last login or the user quota fields, or after external authentication.
 

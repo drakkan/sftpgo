@@ -4,6 +4,7 @@
     "upload_mode": 0,
     "actions": {
       "execute_on": [],
+      "execute_sync": [],
       "hook": ""
     },
     "setstat_mode": 0,

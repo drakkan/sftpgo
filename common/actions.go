@@ -31,6 +31,11 @@ var (
 type ProtocolActions struct {
 	// Valid values are download, upload, pre-delete, delete, rename, ssh_cmd. Empty slice to disable
 	ExecuteOn []string `json:"execute_on" mapstructure:"execute_on"`
+	// Actions to be performed synchronously.
+	// The pre-delete action is always executed synchronously while the other ones are asynchronous.
+	// Executing an action synchronously means that SFTPGo will not return a result code to the client
+	// (which is waiting for it) until your hook have completed its execution.
+	ExecuteSync []string `json:"execute_sync" mapstructure:"execute_sync"`
 	// Absolute path to an external program or an HTTP URL
 	Hook string `json:"hook" mapstructure:"hook"`
 }
@@ -44,11 +49,16 @@ func InitializeActionHandler(handler ActionHandler) {
 	actionHandler = handler
 }
 
-// SSHCommandActionNotification executes the defined action for the specified SSH command.
-func SSHCommandActionNotification(user *dataprovider.User, filePath, target, sshCmd string, err error) {
-	notification := newActionNotification(user, operationSSHCmd, filePath, target, sshCmd, ProtocolSSH, 0, err)
+// ExecuteActionNotification executes the defined hook, if any, for the specified action
+func ExecuteActionNotification(user *dataprovider.User, operation, filePath, target, sshCmd, protocol string, fileSize int64, err error) {
+	notification := newActionNotification(user, operation, filePath, target, sshCmd, protocol, fileSize, err)
 
-	go actionHandler.Handle(notification) // nolint:errcheck
+	if utils.IsStringInSlice(operation, Config.Actions.ExecuteSync) {
+		actionHandler.Handle(notification) //nolint:errcheck
+		return
+	}
+
+	go actionHandler.Handle(notification) //nolint:errcheck
 }
 
 // ActionHandler handles a notification for a Protocol Action.

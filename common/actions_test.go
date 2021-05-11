@@ -110,7 +110,7 @@ func TestActionCMD(t *testing.T) {
 	err = actionHandler.Handle(a)
 	assert.NoError(t, err)
 
-	SSHCommandActionNotification(user, "path", "target", "sha1sum", nil)
+	ExecuteActionNotification(user, operationSSHCmd, "path", "target", "sha1sum", ProtocolSSH, 0, nil)
 
 	Config.Actions = actionsCopy
 }

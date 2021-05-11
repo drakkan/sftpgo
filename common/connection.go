@@ -285,8 +285,7 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 		}
 	}
 	if actionErr != nil {
-		action := newActionNotification(&c.User, operationDelete, fsPath, "", "", c.protocol, size, nil)
-		go actionHandler.Handle(action) // nolint:errcheck
+		ExecuteActionNotification(&c.User, operationDelete, fsPath, "", "", c.protocol, size, nil)
 	}
 	return nil
 }
@@ -405,9 +404,7 @@ func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) err
 	c.updateQuotaAfterRename(fsDst, virtualSourcePath, virtualTargetPath, fsTargetPath, initialSize) //nolint:errcheck
 	logger.CommandLog(renameLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1,
 		"", "", "", -1)
-	action := newActionNotification(&c.User, operationRename, fsSourcePath, fsTargetPath, "", c.protocol, 0, nil)
-	// the returned error is used in test cases only, we already log the error inside action.execute
-	go actionHandler.Handle(action) // nolint:errcheck
+	ExecuteActionNotification(&c.User, operationRename, fsSourcePath, fsTargetPath, "", c.protocol, 0, nil)
 
 	return nil
 }

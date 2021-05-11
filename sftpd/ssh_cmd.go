@@ -747,7 +747,7 @@ func (c *sshCommand) sendExitStatus(err error) {
 				targetPath = p
 			}
 		}
-		common.SSHCommandActionNotification(&c.connection.User, cmdPath, targetPath, c.command, err)
+		common.ExecuteActionNotification(&c.connection.User, "ssh_cmd", cmdPath, targetPath, c.command, common.ProtocolSSH, 0, err)
 	}
 }
 

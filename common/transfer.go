@@ -235,9 +235,8 @@ func (t *BaseTransfer) Close() error {
 	if t.transferType == TransferDownload {
 		logger.TransferLog(downloadLogSender, t.fsPath, elapsed, atomic.LoadInt64(&t.BytesSent), t.Connection.User.Username,
 			t.Connection.ID, t.Connection.protocol)
-		action := newActionNotification(&t.Connection.User, operationDownload, t.fsPath, "", "", t.Connection.protocol,
+		ExecuteActionNotification(&t.Connection.User, operationDownload, t.fsPath, "", "", t.Connection.protocol,
 			atomic.LoadInt64(&t.BytesSent), t.ErrTransfer)
-		go actionHandler.Handle(action) //nolint:errcheck
 	} else {
 		fileSize := atomic.LoadInt64(&t.BytesReceived) + t.MinWriteOffset
 		if statSize, err := t.getUploadFileSize(); err == nil {
@@ -247,9 +246,8 @@ func (t *BaseTransfer) Close() error {
 		t.updateQuota(numFiles, fileSize)
 		logger.TransferLog(uploadLogSender, t.fsPath, elapsed, atomic.LoadInt64(&t.BytesReceived), t.Connection.User.Username,
 			t.Connection.ID, t.Connection.protocol)
-		action := newActionNotification(&t.Connection.User, operationUpload, t.fsPath, "", "", t.Connection.protocol,
-			fileSize, t.ErrTransfer)
-		go actionHandler.Handle(action) //nolint:errcheck
+		ExecuteActionNotification(&t.Connection.User, operationUpload, t.fsPath, "", "", t.Connection.protocol, fileSize,
+			t.ErrTransfer)
 	}
 	if t.ErrTransfer != nil {
 		t.Connection.Log(logger.LevelWarn, "transfer error: %v, path: %#v", t.ErrTransfer, t.fsPath)

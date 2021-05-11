@@ -1168,11 +1168,11 @@ func TestDeniedProtocols(t *testing.T) {
 
 func TestQuotaLimits(t *testing.T) {
 	u := getTestUser()
-	u.QuotaFiles = 1
+	u.QuotaFiles = 100
 	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	u = getTestSFTPUser()
-	u.QuotaFiles = 1
+	u.QuotaFiles = 100
 	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	for _, user := range []dataprovider.User{localUser, sftpUser} {
@@ -1190,7 +1190,7 @@ func TestQuotaLimits(t *testing.T) {
 		testFilePath2 := filepath.Join(homeBasePath, testFileName2)
 		err = createTestFile(testFilePath2, testFileSize2)
 		assert.NoError(t, err)
-		client := getWebDavClient(user, true, nil)
+		client := getWebDavClient(user, false, nil)
 		// test quota files
 		err = uploadFile(testFilePath, testFileName+".quota", testFileSize, client)
 		if !assert.NoError(t, err, "username: %v", user.Username) {
@@ -1200,6 +1200,9 @@ func TestQuotaLimits(t *testing.T) {
 			}
 			printLatestLogs(20)
 		}
+		user.QuotaFiles = 1
+		user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+		assert.NoError(t, err)
 		err = uploadFile(testFilePath, testFileName+".quota1", testFileSize, client)
 		assert.Error(t, err, "username: %v", user.Username)
 		err = client.Rename(testFileName+".quota", testFileName, false)
@@ -2476,7 +2479,7 @@ func getWebDavClient(user dataprovider.User, useTLS bool, tlsConfig *tls.Config)
 		pwd = user.Password
 	}
 	client := gowebdav.NewClient(rootPath, user.Username, pwd)
-	client.SetTimeout(5 * time.Second)
+	client.SetTimeout(10 * time.Second)
 	if tlsConfig != nil {
 		customTransport := http.DefaultTransport.(*http.Transport).Clone()
 		customTransport.TLSClientConfig = tlsConfig
@@ -2589,18 +2592,7 @@ func createTestFile(path string, size int64) error {
 		return err
 	}
 
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	_, err = f.Write(content)
-	if err == nil {
-		err = f.Sync()
-	}
-	if err1 := f.Close(); err1 != nil && err == nil {
-		err = err1
-	}
-	return err
+	return os.WriteFile(path, content, os.ModePerm)
 }
 
 func printLatestLogs(maxNumberOfLines int) {
