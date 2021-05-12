@@ -81,6 +81,7 @@ const (
 	operationUpdate           = "update"
 	operationDelete           = "delete"
 	sqlPrefixValidChars       = "abcdefghijklmnopqrstuvwxyz_0123456789"
+	maxHookResponseSize       = 1048576 // 1MB
 )
 
 // Supported algorithms for hashing passwords.
@@ -2153,7 +2154,7 @@ func getPasswordHookResponse(username, password, ip, protocol string) ([]byte, e
 		if resp.StatusCode != http.StatusOK {
 			return result, fmt.Errorf("wrong http status code from chek password hook: %v, expected 200", resp.StatusCode)
 		}
-		return io.ReadAll(resp.Body)
+		return io.ReadAll(io.LimitReader(resp.Body, maxHookResponseSize))
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -2212,7 +2213,7 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 		if resp.StatusCode != http.StatusOK {
 			return result, fmt.Errorf("wrong pre-login hook http status code: %v, expected 200", resp.StatusCode)
 		}
-		return io.ReadAll(resp.Body)
+		return io.ReadAll(io.LimitReader(resp.Body, maxHookResponseSize))
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -2395,7 +2396,7 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 			return result, fmt.Errorf("wrong external auth http status code: %v, expected 200", resp.StatusCode)
 		}
 
-		return io.ReadAll(resp.Body)
+		return io.ReadAll(io.LimitReader(resp.Body, maxHookResponseSize))
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -2576,7 +2577,7 @@ func executeAction(operation string, user *User) {
 				resp.Body.Close()
 			}
 			providerLog(logger.LevelDebug, "notified operation %#v to URL: %v status code: %v, elapsed: %v err: %v",
-				operation, url.String(), respCode, time.Since(startTime), err)
+				operation, url.Redacted(), respCode, time.Since(startTime), err)
 		} else {
 			executeNotificationCommand(operation, user.getNotificationFieldsAsSlice(operation), userAsJSON) //nolint:errcheck // the error is used in test cases only
 		}

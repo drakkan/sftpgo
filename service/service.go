@@ -145,7 +145,9 @@ func (s *Service) startServices() {
 
 	if sftpdConf.ShouldBind() {
 		go func() {
-			logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
+			redactedConf := sftpdConf
+			redactedConf.KeyboardInteractiveHook = utils.GetRedactedURL(sftpdConf.KeyboardInteractiveHook)
+			logger.Debug(logSender, "", "initializing SFTP server with config %+v", redactedConf)
 			if err := sftpdConf.Initialize(s.ConfigDir); err != nil {
 				logger.Error(logSender, "", "could not start SFTP server: %v", err)
 				logger.ErrorToConsole("could not start SFTP server: %v", err)

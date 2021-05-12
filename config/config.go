@@ -384,7 +384,16 @@ func HasServicesToStart() bool {
 
 func getRedactedGlobalConf() globalConfig {
 	conf := globalConf
+	conf.Common.Actions.Hook = utils.GetRedactedURL(conf.Common.Actions.Hook)
+	conf.Common.StartupHook = utils.GetRedactedURL(conf.Common.StartupHook)
+	conf.Common.PostConnectHook = utils.GetRedactedURL(conf.Common.PostConnectHook)
+	conf.SFTPD.KeyboardInteractiveHook = utils.GetRedactedURL(conf.SFTPD.KeyboardInteractiveHook)
 	conf.ProviderConf.Password = "[redacted]"
+	conf.ProviderConf.Actions.Hook = utils.GetRedactedURL(conf.ProviderConf.Actions.Hook)
+	conf.ProviderConf.ExternalAuthHook = utils.GetRedactedURL(conf.ProviderConf.ExternalAuthHook)
+	conf.ProviderConf.PreLoginHook = utils.GetRedactedURL(conf.ProviderConf.PreLoginHook)
+	conf.ProviderConf.PostLoginHook = utils.GetRedactedURL(conf.ProviderConf.PostLoginHook)
+	conf.ProviderConf.CheckPasswordHook = utils.GetRedactedURL(conf.ProviderConf.CheckPasswordHook)
 	return conf
 }
 

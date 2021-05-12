@@ -149,7 +149,6 @@ func (h *defaultActionHandler) handleHTTP(notification *ActionNotification) erro
 	u, err := url.Parse(Config.Actions.Hook)
 	if err != nil {
 		logger.Warn(notification.Protocol, "", "Invalid hook %#v for operation %#v: %v", Config.Actions.Hook, notification.Action, err)
-
 		return err
 	}
 
@@ -171,7 +170,8 @@ func (h *defaultActionHandler) handleHTTP(notification *ActionNotification) erro
 		}
 	}
 
-	logger.Debug(notification.Protocol, "", "notified operation %#v to URL: %v status code: %v, elapsed: %v err: %v", notification.Action, u.String(), respCode, time.Since(startTime), err)
+	logger.Debug(notification.Protocol, "", "notified operation %#v to URL: %v status code: %v, elapsed: %v err: %v", notification.Action,
+		u.Redacted(), respCode, time.Since(startTime), err)
 
 	return err
 }

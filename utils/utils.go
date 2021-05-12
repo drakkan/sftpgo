@@ -20,6 +20,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -565,4 +566,13 @@ func ParseAllowedIPAndRanges(allowed []string) ([]func(net.IP) bool, error) {
 	}
 
 	return res, nil
+}
+
+// GetRedactedURL returns the url redacting the password if any
+func GetRedactedURL(rawurl string) string {
+	u, err := url.Parse(rawurl)
+	if err != nil {
+		return rawurl
+	}
+	return u.Redacted()
 }
