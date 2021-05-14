@@ -71,6 +71,7 @@ const (
 	healthzPath               = "/healthz"
 	webBasePath               = "/web"
 	webBasePathAdmin          = "/web/admin"
+	webAdminSetupPath         = "/web/admin/setup"
 	webLoginPath              = "/web/admin/login"
 	webLogoutPath             = "/web/admin/logout"
 	webUsersPath              = "/web/admin/users"
@@ -168,6 +169,7 @@ func TestMain(m *testing.M) {
 	logfilePath := filepath.Join(configDir, "sftpgo_api_test.log")
 	logger.InitLogger(logfilePath, 5, 1, 28, false, zerolog.DebugLevel)
 	os.Setenv("SFTPGO_COMMON__UPLOAD_MODE", "2")
+	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
 	err := config.LoadConfig(configDir, "")
 	if err != nil {
 		logger.WarnToConsole("error loading configuration: %v", err)
@@ -5142,6 +5144,122 @@ func TestClientUserClose(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
+}
+
+func TestWebAdminSetupMock(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, webAdminSetupPath, nil)
+	assert.NoError(t, err)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
+	// now delete all the admins
+	admins, err := dataprovider.GetAdmins(100, 0, dataprovider.OrderASC)
+	assert.NoError(t, err)
+	for _, admin := range admins {
+		err = dataprovider.DeleteAdmin(admin.Username)
+		assert.NoError(t, err)
+	}
+	// close the provider and initializes it without creating the default admin
+	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "0")
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	providerConf.CredentialsPath = credentialsPath
+	err = os.RemoveAll(credentialsPath)
+	assert.NoError(t, err)
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	// now the setup page must be rendered
+	req, err = http.NewRequest(http.MethodGet, webAdminSetupPath, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// check redirects to the setup page
+	req, err = http.NewRequest(http.MethodGet, "/", nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webAdminSetupPath, rr.Header().Get("Location"))
+	req, err = http.NewRequest(http.MethodGet, webBasePath, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webAdminSetupPath, rr.Header().Get("Location"))
+	req, err = http.NewRequest(http.MethodGet, webBasePathAdmin, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webAdminSetupPath, rr.Header().Get("Location"))
+
+	csrfToken, err := getCSRFToken(httpBaseURL + webAdminSetupPath)
+	assert.NoError(t, err)
+	form := make(url.Values)
+	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Please set a username")
+	form.Set("username", defaultTokenAuthUser)
+	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Please set a password")
+	form.Set("password", defaultTokenAuthPass)
+	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Passwords mismatch")
+	form.Set("confirm_password", defaultTokenAuthPass)
+	// test a parse form error
+	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath+"?param=p%C3%AO%GH", bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// test a dataprovider error
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// finally initialize the provider and create the default admin
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	providerConf.CredentialsPath = credentialsPath
+	err = os.RemoveAll(credentialsPath)
+	assert.NoError(t, err)
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
+	// if we resubmit the form we get a bad request, an admin already exists
+	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "an admin user already exists")
+	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
 }
 
 func TestWebAdminLoginMock(t *testing.T) {

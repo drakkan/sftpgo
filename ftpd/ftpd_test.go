@@ -249,6 +249,7 @@ func TestMain(m *testing.M) {
 	// simply does not execute some code so if it works in atomic mode will
 	// work in non atomic mode too
 	os.Setenv("SFTPGO_COMMON__UPLOAD_MODE", "2")
+	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
 	err = config.LoadConfig(configDir, "")
 	if err != nil {
 		logger.ErrorToConsole("error loading configuration: %v", err)

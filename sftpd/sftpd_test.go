@@ -147,6 +147,7 @@ func TestMain(m *testing.M) {
 		logger.ErrorToConsole("error creating login banner: %v", err)
 	}
 	os.Setenv("SFTPGO_COMMON__UPLOAD_MODE", "2")
+	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
 	err = config.LoadConfig(configDir, "")
 	if err != nil {
 		logger.ErrorToConsole("error loading configuration: %v", err)

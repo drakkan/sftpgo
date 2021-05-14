@@ -176,7 +176,8 @@
     },
     "password_caching": true,
     "update_mode": 0,
-    "skip_natural_keys_validation": false
+    "skip_natural_keys_validation": false,
+    "create_default_admin": false
   },
   "httpd": {
     "bindings": [

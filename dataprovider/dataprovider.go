@@ -29,6 +29,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/GehirnInc/crypt"
@@ -118,6 +119,7 @@ var (
 	ErrNoInitRequired = errors.New("the data provider is up to date")
 	// ErrInvalidCredentials defines the error to return if the supplied credentials are invalid
 	ErrInvalidCredentials = errors.New("invalid credentials")
+	isAdminCreated        = int32(0)
 	validTLSUsernames     = []string{string(TLSUsernameNone), string(TLSUsernameCN)}
 	config                Config
 	provider              Provider
@@ -306,6 +308,10 @@ type Config struct {
 	// failures, file copied outside of SFTPGo, and so on.
 	// 0 means immediate quota update.
 	DelayedQuotaUpdate int `json:"delayed_quota_update" mapstructure:"delayed_quota_update"`
+	// If enabled, a default admin user with username "admin" and password "password" will be created
+	// on first start.
+	// You can also create the first admin user by using the web interface or by loading initial data.
+	CreateDefaultAdmin bool `json:"create_default_admin" mapstructure:"create_default_admin"`
 }
 
 // BackupData defines the structure for the backup/restore files
@@ -455,21 +461,9 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 		credentialsDirPath = filepath.Join(basePath, config.CredentialsPath)
 	}
 	vfs.SetCredentialsDirPath(credentialsDirPath)
-	argon2Params = &argon2id.Params{
-		Memory:      cnf.PasswordHashing.Argon2Options.Memory,
-		Iterations:  cnf.PasswordHashing.Argon2Options.Iterations,
-		Parallelism: cnf.PasswordHashing.Argon2Options.Parallelism,
-		SaltLength:  16,
-		KeyLength:   32,
-	}
 
-	if config.PasswordHashing.Algo == HashingAlgoBcrypt {
-		if config.PasswordHashing.BcryptOptions.Cost > bcrypt.MaxCost {
-			err = fmt.Errorf("invalid bcrypt cost %v, max allowed %v", config.PasswordHashing.BcryptOptions.Cost, bcrypt.MaxCost)
-			logger.WarnToConsole("Unable to initialize data provider: %v", err)
-			providerLog(logger.LevelWarn, "Unable to initialize data provider: %v", err)
-			return err
-		}
+	if err = initializeHashingAlgo(&cnf); err != nil {
+		return err
 	}
 
 	if err = validateHooks(); err != nil {
@@ -494,7 +488,7 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 			providerLog(logger.LevelWarn, "database migration error: %v", err)
 			return err
 		}
-		if checkAdmins {
+		if checkAdmins && cnf.CreateDefaultAdmin {
 			err = checkDefaultAdmin()
 			if err != nil {
 				providerLog(logger.LevelWarn, "check default admin error: %v", err)
@@ -504,6 +498,11 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 	} else {
 		providerLog(logger.LevelInfo, "database initialization/migration skipped, manual mode is configured")
 	}
+	admins, err := provider.getAdmins(1, 0, OrderASC)
+	if err != nil {
+		return err
+	}
+	atomic.StoreInt32(&isAdminCreated, int32(len(admins)))
 	startAvailabilityTimer()
 	delayedQuotaUpdater.start()
 	return nil
@@ -535,6 +534,26 @@ func validateHooks() error {
 		}
 	}
 
+	return nil
+}
+
+func initializeHashingAlgo(cnf *Config) error {
+	argon2Params = &argon2id.Params{
+		Memory:      cnf.PasswordHashing.Argon2Options.Memory,
+		Iterations:  cnf.PasswordHashing.Argon2Options.Iterations,
+		Parallelism: cnf.PasswordHashing.Argon2Options.Parallelism,
+		SaltLength:  16,
+		KeyLength:   32,
+	}
+
+	if config.PasswordHashing.Algo == HashingAlgoBcrypt {
+		if config.PasswordHashing.BcryptOptions.Cost > bcrypt.MaxCost {
+			err := fmt.Errorf("invalid bcrypt cost %v, max allowed %v", config.PasswordHashing.BcryptOptions.Cost, bcrypt.MaxCost)
+			logger.WarnToConsole("Unable to initialize data provider: %v", err)
+			providerLog(logger.LevelWarn, "Unable to initialize data provider: %v", err)
+			return err
+		}
+	}
 	return nil
 }
 
@@ -859,9 +878,19 @@ func GetUsedVirtualFolderQuota(name string) (int, int64, error) {
 	return files + delayedFiles, size + delayedSize, err
 }
 
+// HasAdmin returns true if the first admin has been created
+// and so SFTPGo is ready to be used
+func HasAdmin() bool {
+	return atomic.LoadInt32(&isAdminCreated) > 0
+}
+
 // AddAdmin adds a new SFTPGo admin
 func AddAdmin(admin *Admin) error {
-	return provider.addAdmin(admin)
+	err := provider.addAdmin(admin)
+	if err == nil {
+		atomic.StoreInt32(&isAdminCreated, 1)
+	}
+	return err
 }
 
 // UpdateAdmin updates an existing SFTPGo admin

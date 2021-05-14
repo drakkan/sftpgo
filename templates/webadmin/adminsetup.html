@@ -9,7 +9,7 @@
     <meta name="description" content="">
     <meta name="author" content="">
 
-    <title>SFTPGo - Login</title>
+    <title>SFTPGo - Setup</title>
 
     <link rel="shortcut icon" href="{{.StaticURL}}/favicon.ico" />
 
@@ -79,7 +79,7 @@
         <!-- Outer Row -->
         <div class="row justify-content-center">
 
-            <div class="col-xl-6 col-lg-7 col-md-9">
+            <div class="col-xl-7 col-lg-8 col-md-10">
 
                 <div class="card o-hidden border-0 shadow-lg my-5">
                     <div class="card-body p-0">
@@ -88,7 +88,7 @@
                             <div class="col-lg-12">
                                 <div class="p-5">
                                     <div class="text-center">
-                                        <h1 class="h4 text-gray-900 mb-4">SFTPGo WebClient - {{.Version}}</h1>
+                                        <h1 class="h5 text-gray-900 mb-4">To start using SFTPGo you need to create an admin user</h1>
                                     </div>
                                     {{if .Error}}
                                     <div class="card mb-4 border-left-warning">
@@ -98,16 +98,20 @@
                                     <form id="login_form" action="{{.CurrentURL}}" method="POST" autocomplete="off"
                                         class="user-custom">
                                         <div class="form-group">
-                                            <input type="text" class="form-control form-control-user-custom"
-                                                id="inputUsername" name="username" placeholder="Username" required>
+                                            <input type="text" class="form-control form-control-user-custom" id="inputUsername"
+                                                name="username" placeholder="Username" value="{{.Username}}" maxlength="60" required>
                                         </div>
                                         <div class="form-group">
-                                            <input type="password" class="form-control form-control-user-custom"
-                                                id="inputPassword" name="password" placeholder="Password" required>
+                                            <input type="password" class="form-control form-control-user-custom" id="inputPassword"
+                                                name="password" placeholder="Password" maxlength="60" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <input type="password" class="form-control form-control-user-custom" id="inputConfirmPassword"
+                                                name="confirm_password" placeholder="Repeat password" maxlength="60" required>
                                         </div>
                                         <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
                                         <button type="submit" class="btn btn-primary btn-user-custom btn-block">
-                                            Login
+                                            Create admin
                                         </button>
                                     </form>
                                 </div>

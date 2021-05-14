@@ -122,6 +122,14 @@ sftpgo initprovider --help
 
 You can disable automatic data provider checks/updates at startup by setting the `update_mode` configuration key to `1`.
 
+## Create the first admin
+
+To start using SFTPGo you need to create an admin user, you can do it in several ways:
+
+- by using the web admin interface. The default URL is [http://127.0.0.1:8080/web/admin](http://127.0.0.1:8080/web/admin)
+- by loading initial data
+- by enabling `create_default_admin` in your configuration file. In this case the credentials are `admin`/`password`
+
 ## Upgrading
 
 SFTPGo supports upgrading from the previous release branch to the current one.
@@ -134,7 +142,7 @@ For supported upgrade paths, the data and schema are migrated automatically, alt
 
 So if, for example, you want to upgrade from a version before 1.2.x to 2.0.x, you must first install version 1.2.x, update the data provider and finally install the version 2.0.x. It is recommended to always install the latest available minor version, ie do not install 1.2.0 if 1.2.2 is available.
 
-Loading data from a provider independent JSON dump is supported from the previous release branch to the current one too. After updating SFTPGo it is advisable to load the old dump and regenerate it from the new version.
+Loading data from a provider independent JSON dump is supported from the previous release branch to the current one too. After upgrading SFTPGo it is advisable to regenerate the JSON dump from the new version.
 
 ## Downgrading
 

@@ -54,6 +54,7 @@ const (
 	webBasePathDefault              = "/web"
 	webBasePathAdminDefault         = "/web/admin"
 	webBasePathClientDefault        = "/web/client"
+	webAdminSetupPathDefault        = "/web/admin/setup"
 	webLoginPathDefault             = "/web/admin/login"
 	webLogoutPathDefault            = "/web/admin/logout"
 	webUsersPathDefault             = "/web/admin/users"
@@ -97,6 +98,7 @@ var (
 	webBasePath              string
 	webBaseAdminPath         string
 	webBaseClientPath        string
+	webAdminSetupPath        string
 	webLoginPath             string
 	webLogoutPath            string
 	webUsersPath             string
@@ -424,6 +426,7 @@ func updateWebAdminURLs(baseURL string) {
 	webRootPath = path.Join(baseURL, webRootPathDefault)
 	webBasePath = path.Join(baseURL, webBasePathDefault)
 	webBaseAdminPath = path.Join(baseURL, webBasePathAdminDefault)
+	webAdminSetupPath = path.Join(baseURL, webAdminSetupPathDefault)
 	webLoginPath = path.Join(baseURL, webLoginPathDefault)
 	webLogoutPath = path.Join(baseURL, webLogoutPathDefault)
 	webUsersPath = path.Join(baseURL, webUsersPathDefault)

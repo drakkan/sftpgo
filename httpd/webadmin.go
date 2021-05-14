@@ -54,6 +54,7 @@ const (
 	templateLogin        = "login.html"
 	templateChangePwd    = "changepwd.html"
 	templateMaintenance  = "maintenance.html"
+	templateSetup        = "adminsetup.html"
 	pageUsersTitle       = "Users"
 	pageAdminsTitle      = "Admins"
 	pageConnectionsTitle = "Connections"
@@ -61,6 +62,7 @@ const (
 	pageFoldersTitle     = "Folders"
 	pageChangePwdTitle   = "Change password"
 	pageMaintenanceTitle = "Maintenance"
+	pageSetupTitle       = "Create first admin user"
 	defaultQueryLimit    = 500
 )
 
@@ -156,6 +158,12 @@ type maintenancePage struct {
 	Error       string
 }
 
+type setupPage struct {
+	basePage
+	Username string
+	Error    string
+}
+
 type folderPage struct {
 	basePage
 	Folder vfs.BaseVirtualFolder
@@ -225,6 +233,9 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateMaintenance),
 	}
+	setupPath := []string{
+		filepath.Join(templatesPath, templateAdminDir, templateSetup),
+	}
 	usersTmpl := utils.LoadTemplate(template.ParseFiles(usersPaths...))
 	userTmpl := utils.LoadTemplate(template.ParseFiles(userPaths...))
 	adminsTmpl := utils.LoadTemplate(template.ParseFiles(adminsPaths...))
@@ -237,6 +248,7 @@ func loadAdminTemplates(templatesPath string) {
 	loginTmpl := utils.LoadTemplate(template.ParseFiles(loginPath...))
 	changePwdTmpl := utils.LoadTemplate(template.ParseFiles(changePwdPaths...))
 	maintenanceTmpl := utils.LoadTemplate(template.ParseFiles(maintenancePath...))
+	setupTmpl := utils.LoadTemplate(template.ParseFiles(setupPath...))
 
 	adminTemplates[templateUsers] = usersTmpl
 	adminTemplates[templateUser] = userTmpl
@@ -250,6 +262,7 @@ func loadAdminTemplates(templatesPath string) {
 	adminTemplates[templateLogin] = loginTmpl
 	adminTemplates[templateChangePwd] = changePwdTmpl
 	adminTemplates[templateMaintenance] = maintenanceTmpl
+	adminTemplates[templateSetup] = setupTmpl
 }
 
 func getBasePageData(title, currentURL string, r *http.Request) basePage {
@@ -346,6 +359,16 @@ func renderMaintenancePage(w http.ResponseWriter, r *http.Request, error string)
 	}
 
 	renderAdminTemplate(w, templateMaintenance, data)
+}
+
+func renderAdminSetupPage(w http.ResponseWriter, r *http.Request, username, error string) {
+	data := setupPage{
+		basePage: getBasePageData(pageSetupTitle, webAdminSetupPath, r),
+		Username: username,
+		Error:    error,
+	}
+
+	renderAdminTemplate(w, templateSetup, data)
 }
 
 func renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Request, admin *dataprovider.Admin,
@@ -1092,6 +1115,58 @@ func handleGetWebAdmins(w http.ResponseWriter, r *http.Request) {
 		Admins:   admins,
 	}
 	renderAdminTemplate(w, templateAdmins, data)
+}
+
+func handleWebAdminSetupGet(w http.ResponseWriter, r *http.Request) {
+	if dataprovider.HasAdmin() {
+		http.Redirect(w, r, webLoginPath, http.StatusFound)
+		return
+	}
+	renderAdminSetupPage(w, r, "", "")
+}
+
+func handleWebAdminSetupPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginPostSize)
+	if dataprovider.HasAdmin() {
+		renderBadRequestPage(w, r, errors.New("an admin user already exists"))
+		return
+	}
+	err := r.ParseForm()
+	if err != nil {
+		renderAdminSetupPage(w, r, "", err.Error())
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderForbiddenPage(w, r, err.Error())
+		return
+	}
+	username := r.Form.Get("username")
+	password := r.Form.Get("password")
+	confirmPassword := r.Form.Get("confirm_password")
+	if username == "" {
+		renderAdminSetupPage(w, r, username, "Please set a username")
+		return
+	}
+	if password == "" {
+		renderAdminSetupPage(w, r, username, "Please set a password")
+		return
+	}
+	if password != confirmPassword {
+		renderAdminSetupPage(w, r, username, "Passwords mismatch")
+		return
+	}
+	admin := dataprovider.Admin{
+		Username:    username,
+		Password:    password,
+		Status:      1,
+		Permissions: []string{dataprovider.PermAdminAny},
+	}
+	err = dataprovider.AddAdmin(&admin)
+	if err != nil {
+		renderAdminSetupPage(w, r, username, err.Error())
+		return
+	}
+	http.Redirect(w, r, webLoginPath, http.StatusSeeOther)
 }
 
 func handleWebAddAdminGet(w http.ResponseWriter, r *http.Request) {

@@ -396,6 +396,16 @@ func (s *httpdServer) sendForbiddenResponse(w http.ResponseWriter, r *http.Reque
 	sendAPIResponse(w, r, errors.New(message), message, http.StatusForbidden)
 }
 
+func (s *httpdServer) redirectToWebPath(w http.ResponseWriter, r *http.Request, webPath string) {
+	if dataprovider.HasAdmin() {
+		http.Redirect(w, r, webPath, http.StatusMovedPermanently)
+		return
+	}
+	if s.enableWebAdmin {
+		http.Redirect(w, r, webAdminSetupPath, http.StatusFound)
+	}
+}
+
 func (s *httpdServer) initializeRouter() {
 	s.tokenAuth = jwtauth.New(jwa.HS256.String(), utils.GenerateRandomBytes(32), nil)
 	s.router = chi.NewRouter()
@@ -485,17 +495,17 @@ func (s *httpdServer) initializeRouter() {
 		})
 		if s.enableWebClient {
 			s.router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
-				http.Redirect(w, r, webClientLoginPath, http.StatusMovedPermanently)
+				s.redirectToWebPath(w, r, webClientLoginPath)
 			})
 			s.router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
-				http.Redirect(w, r, webClientLoginPath, http.StatusMovedPermanently)
+				s.redirectToWebPath(w, r, webClientLoginPath)
 			})
 		} else {
 			s.router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
-				http.Redirect(w, r, webLoginPath, http.StatusMovedPermanently)
+				s.redirectToWebPath(w, r, webLoginPath)
 			})
 			s.router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
-				http.Redirect(w, r, webLoginPath, http.StatusMovedPermanently)
+				s.redirectToWebPath(w, r, webLoginPath)
 			})
 		}
 	}
@@ -522,10 +532,12 @@ func (s *httpdServer) initializeRouter() {
 
 	if s.enableWebAdmin {
 		s.router.Get(webBaseAdminPath, func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, webLoginPath, http.StatusMovedPermanently)
+			s.redirectToWebPath(w, r, webLoginPath)
 		})
 		s.router.Get(webLoginPath, handleWebLogin)
 		s.router.Post(webLoginPath, s.handleWebAdminLoginPost)
+		s.router.Get(webAdminSetupPath, handleWebAdminSetupGet)
+		s.router.Post(webAdminSetupPath, handleWebAdminSetupPost)
 
 		s.router.Group(func(router chi.Router) {
 			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie))

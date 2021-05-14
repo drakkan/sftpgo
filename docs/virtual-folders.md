@@ -16,7 +16,7 @@ For each virtual folder, the following properties can be configured:
 - `quota_size`, maximum size allowed as bytes. 0 means unlimited, -1 included in user quota
 - `quota_files`, maximum number of files allowed. 0 means unlimited, -1 included in user quota
 
-For example if the configure folder has configured `/tmp/mapped` or `C:\mapped` as filesystem path and you set `/vfolder` as virtual path then SFTPGo users can access `/tmp/mapped` or `C:\mapped` via the `/vfolder` virtual path.
+For example if a folder is configured to use `/tmp/mapped` or `C:\mapped` as filesystem path and `/vfolder` as virtual path then SFTPGo users can access `/tmp/mapped` or `C:\mapped` via the `/vfolder` virtual path.
 
 Nested SFTP folders using the same SFTPGo instance (identified using the host keys) are not allowed as they could cause infinite SFTP loops.
 
