@@ -1191,7 +1191,7 @@ func TestQuotaLimits(t *testing.T) {
 		testFilePath2 := filepath.Join(homeBasePath, testFileName2)
 		err = createTestFile(testFilePath2, testFileSize2)
 		assert.NoError(t, err)
-		client := getWebDavClient(user, false, nil)
+		client := getWebDavClient(user, true, nil)
 		// test quota files
 		err = uploadFile(testFilePath, testFileName+".quota", testFileSize, client)
 		if !assert.NoError(t, err, "username: %v", user.Username) {

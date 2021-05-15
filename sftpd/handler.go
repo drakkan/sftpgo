@@ -355,8 +355,9 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 	minWriteOffset := int64(0)
 	osFlags := getOSOpenFlags(pflags)
 	isTruncate := osFlags&os.O_TRUNC != 0
-	isResume := pflags.Append && !isTruncate
-
+	// for upload resumes OpenSSH sets the APPEND flag while WinSCP does not set it,
+	// so we suppose this is an upload resume if the TRUNCATE flag is not set
+	isResume := !isTruncate
 	// if there is a size limit the remaining size cannot be 0 here, since quotaResult.HasSpace
 	// will return false in this case and we deny the upload before.
 	// For Cloud FS GetMaxWriteSize will return unsupported operation
@@ -383,8 +384,12 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 
 	initialSize := int64(0)
 	if isResume {
-		c.Log(logger.LevelDebug, "resuming upload requested, file path %#v initial size: %v", filePath, fileSize)
-		minWriteOffset = fileSize
+		c.Log(logger.LevelDebug, "resuming upload requested, file path %#v initial size: %v has append flag %v",
+			filePath, fileSize, pflags.Append)
+		// enforce min write offset only if the client passed the APPEND flag
+		if pflags.Append {
+			minWriteOffset = fileSize
+		}
 		initialSize = fileSize
 	} else {
 		if vfs.IsLocalOrSFTPFs(fs) && isTruncate {
