@@ -26,7 +26,7 @@ type TLSKeyPair struct {
 // custom actions, external authentication and pre-login user modifications
 type Config struct {
 	// Timeout specifies a time limit, in seconds, for a request
-	Timeout int64 `json:"timeout" mapstructure:"timeout"`
+	Timeout float64 `json:"timeout" mapstructure:"timeout"`
 	// RetryWaitMin defines the minimum waiting time between attempts in seconds
 	RetryWaitMin int `json:"retry_wait_min" mapstructure:"retry_wait_min"`
 	// RetryWaitMax defines the minimum waiting time between attempts in seconds
@@ -144,7 +144,7 @@ func (c *Config) loadCertificates(configDir string) error {
 // GetHTTPClient returns an HTTP client with the configured parameters
 func GetHTTPClient() *http.Client {
 	return &http.Client{
-		Timeout:   time.Duration(httpConfig.Timeout) * time.Second,
+		Timeout:   time.Duration(httpConfig.Timeout * float64(time.Second)),
 		Transport: httpConfig.customTransport,
 	}
 }
@@ -153,7 +153,7 @@ func GetHTTPClient() *http.Client {
 // It uses the configured retry parameters
 func GetRetraybleHTTPClient() *retryablehttp.Client {
 	client := retryablehttp.NewClient()
-	client.HTTPClient.Timeout = time.Duration(httpConfig.Timeout) * time.Second
+	client.HTTPClient.Timeout = time.Duration(httpConfig.Timeout * float64(time.Second))
 	client.HTTPClient.Transport.(*http.Transport).TLSClientConfig = httpConfig.tlsConfig
 	client.Logger = &logger.LeveledLogger{Sender: "RetryableHTTPClient"}
 	client.RetryWaitMin = time.Duration(httpConfig.RetryWaitMin) * time.Second
