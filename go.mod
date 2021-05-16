@@ -20,18 +20,11 @@ require (
 	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/goccy/go-json v0.5.0 // indirect
-	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
-	github.com/google/uuid v1.2.0 // indirect
-	github.com/google/wire v0.5.0 // indirect
 	github.com/grandcat/zeroconf v1.0.0
-	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
-	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.0
-	github.com/hashicorp/vault/api v1.1.0 // indirect
-	github.com/hashicorp/vault/sdk v0.2.0 // indirect
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
+	github.com/klauspost/cpuid/v2 v2.0.6 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/jwx v1.2.0
 	github.com/lib/pq v1.10.1
@@ -39,7 +32,6 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.7
 	github.com/miekg/dns v1.1.42 // indirect
 	github.com/minio/sio v0.3.0
-	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/otiai10/copy v1.6.0
 	github.com/pelletier/go-toml v1.9.1 // indirect
 	github.com/pires/go-proxyproto v0.5.0
@@ -61,8 +53,8 @@ require (
 	github.com/yl2chen/cidranger v1.0.2
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/automaxprocs v1.4.0
-	gocloud.dev v0.22.0
-	gocloud.dev/secrets/hashivault v0.22.0
+	gocloud.dev v0.23.0
+	gocloud.dev/secrets/hashivault v0.23.0
 	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/net v0.0.0-20210510120150-4163338589ed

@@ -136,21 +136,25 @@ func (c *jwtTokenClaims) createAndSetCookie(w http.ResponseWriter, r *http.Reque
 		Value:    resp["access_token"].(string),
 		Path:     basePath,
 		Expires:  time.Now().Add(tokenDuration),
+		MaxAge:   int(tokenDuration / time.Second),
 		HttpOnly: true,
 		Secure:   isTLS(r),
+		SameSite: http.SameSiteStrictMode,
 	})
 
 	return nil
 }
 
-func (c *jwtTokenClaims) removeCookie(w http.ResponseWriter, r *http.Request) {
+func (c *jwtTokenClaims) removeCookie(w http.ResponseWriter, r *http.Request, cookiePath string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "jwt",
 		Value:    "",
-		Path:     webBasePath,
+		Path:     cookiePath,
+		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   isTLS(r),
+		SameSite: http.SameSiteStrictMode,
 	})
 	invalidateToken(r)
 }

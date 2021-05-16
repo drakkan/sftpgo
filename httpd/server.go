@@ -167,8 +167,9 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 
 	err = c.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebClient)
 	if err != nil {
+		logger.Warn(logSender, connectionID, "unable to set client login cookie %v", err)
 		updateLoginMetrics(&user, ipAddr, err)
-		renderLoginPage(w, err.Error())
+		renderClientLoginPage(w, err.Error())
 		return
 	}
 	updateLoginMetrics(&user, ipAddr, err)
@@ -204,6 +205,7 @@ func (s *httpdServer) handleWebAdminLoginPost(w http.ResponseWriter, r *http.Req
 
 	err = c.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebAdmin)
 	if err != nil {
+		logger.Warn(logSender, "", "unable to set admin login cookie %v", err)
 		renderLoginPage(w, err.Error())
 		return
 	}

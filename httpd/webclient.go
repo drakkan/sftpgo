@@ -273,7 +273,7 @@ func handleClientWebLogin(w http.ResponseWriter, r *http.Request) {
 
 func handleWebClientLogout(w http.ResponseWriter, r *http.Request) {
 	c := jwtTokenClaims{}
-	c.removeCookie(w, r)
+	c.removeCookie(w, r, webBaseClientPath)
 
 	http.Redirect(w, r, webClientLoginPath, http.StatusFound)
 }
