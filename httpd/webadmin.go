@@ -1038,6 +1038,10 @@ func handleWebLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebLogin(w http.ResponseWriter, r *http.Request) {
+	if !dataprovider.HasAdmin() {
+		http.Redirect(w, r, webAdminSetupPath, http.StatusFound)
+		return
+	}
 	renderLoginPage(w, "")
 }
 
@@ -1123,50 +1127,6 @@ func handleWebAdminSetupGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	renderAdminSetupPage(w, r, "", "")
-}
-
-func handleWebAdminSetupPost(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxLoginPostSize)
-	if dataprovider.HasAdmin() {
-		renderBadRequestPage(w, r, errors.New("an admin user already exists"))
-		return
-	}
-	err := r.ParseForm()
-	if err != nil {
-		renderAdminSetupPage(w, r, "", err.Error())
-		return
-	}
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderForbiddenPage(w, r, err.Error())
-		return
-	}
-	username := r.Form.Get("username")
-	password := r.Form.Get("password")
-	confirmPassword := r.Form.Get("confirm_password")
-	if username == "" {
-		renderAdminSetupPage(w, r, username, "Please set a username")
-		return
-	}
-	if password == "" {
-		renderAdminSetupPage(w, r, username, "Please set a password")
-		return
-	}
-	if password != confirmPassword {
-		renderAdminSetupPage(w, r, username, "Passwords mismatch")
-		return
-	}
-	admin := dataprovider.Admin{
-		Username:    username,
-		Password:    password,
-		Status:      1,
-		Permissions: []string{dataprovider.PermAdminAny},
-	}
-	err = dataprovider.AddAdmin(&admin)
-	if err != nil {
-		renderAdminSetupPage(w, r, username, err.Error())
-		return
-	}
-	http.Redirect(w, r, webLoginPath, http.StatusSeeOther)
 }
 
 func handleWebAddAdminGet(w http.ResponseWriter, r *http.Request) {

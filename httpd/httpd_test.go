@@ -5192,6 +5192,11 @@ func TestWebAdminSetupMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webAdminSetupPath, rr.Header().Get("Location"))
+	req, err = http.NewRequest(http.MethodGet, webLoginPath, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webAdminSetupPath, rr.Header().Get("Location"))
 
 	csrfToken, err := getCSRFToken(httpBaseURL + webAdminSetupPath)
 	assert.NoError(t, err)
@@ -5250,8 +5255,8 @@ func TestWebAdminSetupMock(t *testing.T) {
 	assert.NoError(t, err)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusSeeOther, rr)
-	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webUsersPath, rr.Header().Get("Location"))
 	// if we resubmit the form we get a bad request, an admin already exists
 	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)

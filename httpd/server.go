@@ -197,13 +197,61 @@ func (s *httpdServer) handleWebAdminLoginPost(w http.ResponseWriter, r *http.Req
 		renderLoginPage(w, err.Error())
 		return
 	}
+	s.loginAdmin(w, r, &admin)
+}
+
+func (s *httpdServer) handleWebAdminSetupPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginPostSize)
+	if dataprovider.HasAdmin() {
+		renderBadRequestPage(w, r, errors.New("an admin user already exists"))
+		return
+	}
+	err := r.ParseForm()
+	if err != nil {
+		renderAdminSetupPage(w, r, "", err.Error())
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderForbiddenPage(w, r, err.Error())
+		return
+	}
+	username := r.Form.Get("username")
+	password := r.Form.Get("password")
+	confirmPassword := r.Form.Get("confirm_password")
+	if username == "" {
+		renderAdminSetupPage(w, r, username, "Please set a username")
+		return
+	}
+	if password == "" {
+		renderAdminSetupPage(w, r, username, "Please set a password")
+		return
+	}
+	if password != confirmPassword {
+		renderAdminSetupPage(w, r, username, "Passwords mismatch")
+		return
+	}
+	admin := dataprovider.Admin{
+		Username:    username,
+		Password:    password,
+		Status:      1,
+		Permissions: []string{dataprovider.PermAdminAny},
+	}
+	err = dataprovider.AddAdmin(&admin)
+	if err != nil {
+		renderAdminSetupPage(w, r, username, err.Error())
+		return
+	}
+	s.loginAdmin(w, r, &admin)
+}
+
+func (s *httpdServer) loginAdmin(w http.ResponseWriter, r *http.Request, admin *dataprovider.Admin) {
 	c := jwtTokenClaims{
 		Username:    admin.Username,
 		Permissions: admin.Permissions,
 		Signature:   admin.GetSignature(),
 	}
 
-	err = c.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebAdmin)
+	err := c.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebAdmin)
 	if err != nil {
 		logger.Warn(logSender, "", "unable to set admin login cookie %v", err)
 		renderLoginPage(w, err.Error())
@@ -539,7 +587,7 @@ func (s *httpdServer) initializeRouter() {
 		s.router.Get(webLoginPath, handleWebLogin)
 		s.router.Post(webLoginPath, s.handleWebAdminLoginPost)
 		s.router.Get(webAdminSetupPath, handleWebAdminSetupGet)
-		s.router.Post(webAdminSetupPath, handleWebAdminSetupPost)
+		s.router.Post(webAdminSetupPath, s.handleWebAdminSetupPost)
 
 		s.router.Group(func(router chi.Router) {
 			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie))
