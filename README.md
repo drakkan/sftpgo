@@ -82,8 +82,8 @@ Some Linux distro packages are available:
 
 On Windows you can use:
 
-- the Windows installer to install and run SFTPGo as a Windows service
-- the portable package to start SFTPGo on demand
+- The Windows installer to install and run SFTPGo as a Windows service.
+- The portable package to start SFTPGo on demand.
 
 You can easily test new features selecting a commit from the [Actions](https://github.com/drakkan/sftpgo/actions) page and downloading the matching build artifacts for Linux, macOS or Windows. GitHub stores artifacts for 90 days.
 

@@ -98,19 +98,28 @@ Each user can browse and download their files and change their credentials using
 
 The procedure is similar to the one described for local users, you have only specify the Cloud Storage backend and its credentials.
 
+The screenshot below shows an example configuration for an S3 backend.
+
 ![S3 user](./img/s3-user.png)
+
+The screenshot below shows an example configuration for an Azure Blob Storage backend.
 
 ![Azure Blob user](./img/az-user.png)
 
+The screenshot below shows an example configuration for a Google Cloud Storage backend.
+
 ![Google Cloud user](./img/gcs-user.png)
+
+The screenshot below shows an example configuration for an SFTP server as storage backend.
 
 ![User using another SFTP server as storage backend](./img/sftp-user.png)
 
-Setting a `Key Prefix` restricts the user to a specific "folder" in the bucket, so that the same bucket can be shared among different users by assigning to each user a specific portion of the bucket.
+Setting a `Key Prefix` you restrict the user to a specific "folder" in the bucket, so that the same bucket can be shared among different users by assigning to each user a specific portion of the bucket.
 
 ### Creating users with a local encrypted backend (Data At Rest Encryption)
 
 The procedure is similar to the one described for local users, you have only specify the encryption passphrase.
+The screenshot below shows an example configuration.
 
 ![User with cryptfs backend](./img/local-encrypted.png)
 
@@ -171,12 +180,12 @@ Suppose we created two folders name `localfolder` and `minio` as you can see in 
 
 ![Folders](./img/folders.png)
 
-- `localfolder` use the local filesystem as storage backend
-- `minio` use MinIO (S3 compatible) as storage backend
+- `localfolder` uses the local filesystem as storage backend
+- `minio` uses MinIO (S3 compatible) as storage backend
 
 Now, click `Users`, on the left menu, select a user and click the `Edit` icon, to update the user and associate the virtual folders.
 
-Virtual folders must be referenced using their unique name and we expose them on a configurable virtual path. Take a look at the following screenshot.
+Virtual folders must be referenced using their unique name and you can expose them on a configurable virtual path. Take a look at the following screenshot.
 
 ![Virtual Folders](./img/virtual-folders.png)
 
