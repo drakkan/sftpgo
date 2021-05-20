@@ -12,42 +12,42 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 
 ## Features
 
-- SFTPGo uses virtual accounts stored inside a "data provider".
-- SQLite, MySQL, PostgreSQL, Bolt (key/value store in pure Go), CockroachDB and in-memory data providers are supported.
-- Each local account is chrooted in its home directory, for cloud-based accounts you can restrict access to a certain base path.
+- Support for serving local filesystem, encrypted local filesystem, S3 Compatible Object Storage, Google Cloud Storage, Azure Blob Storage or other SFTP accounts over SFTP/SCP/FTP/WebDAV.
+- Virtual folders are supported: a virtual folder can use any of the supported storage backends. So you can have, for example, an S3 user that exposes a GCS bucket (or part of it) on a specified path and an encrypted local filesystem on another one. Virtual folders can be private or shared among multiple users, for shared virtual folders you can define different quota limits for each user.
+- Configurable custom commands and/or HTTP notifications on file upload, download, pre-delete, delete, rename, on SSH commands and on user add, update and delete.
+- Virtual accounts stored within a "data provider".
+- SQLite, MySQL, PostgreSQL, CockroachDB, Bolt (key/value store in pure Go) and in-memory data providers are supported.
+- Chroot isolation for local accounts. Cloud-based accounts can be restricted to a certain base path.
+- Per user and per directory virtual permissions, for each exposed path you can allow or deny: directory listing, upload, overwrite, download, delete, rename, create directories, create symlinks, change owner/group/file mode.
+- [REST API](./docs/rest-api.md) for users and folders management, backup, restore and real time reports of the active connections with possibility of forcibly closing a connection.
+- [Web based administration interface](./docs/web-admin.md) to easily manage users, folders and connections.
+- [Web client interface](./docs/web-client.md) so that end users can change their credentials and browse their files.
 - Public key and password authentication. Multiple public keys per user are supported.
 - SSH user [certificate authentication](https://cvsweb.openbsd.org/src/usr.bin/ssh/PROTOCOL.certkeys?rev=1.8).
 - Keyboard interactive authentication. You can easily setup a customizable multi-factor authentication.
 - Partial authentication. You can configure multi-step authentication requiring, for example, the user password after successful public key authentication.
-- Per user authentication methods. You can configure the allowed authentication methods for each user.
-- Custom authentication via external programs/HTTP API is supported.
-- [Data At Rest Encryption](./docs/dare.md) is supported.
-- Dynamic user modification before login via external programs/HTTP API is supported.
+- Per user authentication methods.
+- Custom authentication via external programs/HTTP API.
+- [Data At Rest Encryption](./docs/dare.md).
+- Dynamic user modification before login via external programs/HTTP API.
 - Quota support: accounts can have individual quota expressed as max total size and/or max number of files.
-- Bandwidth throttling is supported, with distinct settings for upload and download.
+- Bandwidth throttling, with distinct settings for upload and download.
+- Per-protocol [rate limiting](./docs/rate-limiting.md) is supported and can be optionally connected to the built-in defender to automatically block hosts that repeatedly exceed the configured limit.
 - Per user maximum concurrent sessions.
-- Per user and per directory permission management: list directory contents, upload, overwrite, download, delete, rename, create directories, create symlinks, change owner/group and mode, change access and modification times.
-- Per user files/folders ownership mapping: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (\*NIX only).
-- Per user IP filters are supported: login can be restricted to specific ranges of IP addresses or to a specific IP address.
-- Per user and per directory shell like patterns filters are supported: files can be allowed or denied based on shell like patterns.
-- Virtual folders are supported: directories outside the user home directory or based on a different storage provider can be exposed as virtual folders.
-- Configurable custom commands and/or HTTP notifications on file upload, download, pre-delete, delete, rename, on SSH commands and on user add, update and delete.
+- Per user and global IP filters: login can be restricted to specific ranges of IP addresses or to a specific IP address.
+- Per user and per directory shell like patterns filters: files can be allowed or denied based on shell like patterns.
 - Automatically terminating idle connections.
-- Automatic blocklist management is supported using the built-in [defender](./docs/defender.md).
-- Per-protocol [rate limiting](./docs/rate-limiting.md) is supported and can optionally be connected to the built-in defender to automatically block hosts that repeatedly exceed the configured limit.
+- Automatic blocklist management using the built-in [defender](./docs/defender.md).
 - Atomic uploads are configurable.
+- Per user files/folders ownership mapping: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (\*NIX only).
 - Support for Git repositories over SSH.
 - SCP and rsync are supported.
 - FTP/S is supported. You can configure the FTP service to require TLS for both control and data connections.
 - [WebDAV](./docs/webdav.md) is supported.
 - Two-Way TLS authentication, aka TLS with client certificate authentication, is supported for REST API/Web Admin, FTPS and WebDAV over HTTPS.
-- Support for serving local filesystem, encrypted local filesystem, S3 Compatible Object Storage, Google Cloud Storage, Azure Blob Storage or other SFTP accounts over SFTP/SCP/FTP/WebDAV.
 - Per user protocols restrictions. You can configure the allowed protocols (SSH/FTP/WebDAV) for each user.
 - [Prometheus metrics](./docs/metrics.md) are exposed.
 - Support for HAProxy PROXY protocol: you can proxy and/or load balance the SFTP/SCP/FTP/WebDAV service without losing the information about the client's address.
-- [REST API](./docs/rest-api.md) for users and folders management, backup, restore and real time reports of the active connections with possibility of forcibly closing a connection.
-- [Web based administration interface](./docs/web-admin.md) to easily manage users, folders and connections.
-- [Web client interface](./docs/web-client.md) so that end users can change their credentials and browse their files.
 - Easy [migration](./examples/convertusers) from Linux system user accounts.
 - [Portable mode](./docs/portable-mode.md): a convenient way to share a single directory on demand.
 - [SFTP subsystem mode](./docs/sftp-subsystem.md): you can use SFTPGo as OpenSSH's SFTP subsystem.
@@ -80,9 +80,16 @@ Some Linux distro packages are available:
 - Deb and RPM packages are built after each commit and for each release.
 - For Ubuntu a PPA is available [here](https://launchpad.net/~sftpgo/+archive/ubuntu/sftpgo).
 
+On Windows you can use:
+
+- the Windows installer to install and run SFTPGo as a Windows service
+- the portable package to start SFTPGo on demand
+
 You can easily test new features selecting a commit from the [Actions](https://github.com/drakkan/sftpgo/actions) page and downloading the matching build artifacts for Linux, macOS or Windows. GitHub stores artifacts for 90 days.
 
 Alternately, you can [build from source](./docs/build-from-source.md).
+
+[Getting Started Guide for the Impatient](./docs/howto/getting-started.md).
 
 ## Configuration
 

@@ -118,6 +118,13 @@ func GetLogger() *zerolog.Logger {
 func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge int, logCompress bool, level zerolog.Level) {
 	zerolog.TimeFieldFormat = dateFormat
 	if isLogFilePathValid(logFilePath) {
+		logDir := filepath.Dir(logFilePath)
+		if _, err := os.Stat(logDir); os.IsNotExist(err) {
+			err = os.MkdirAll(logDir, os.ModePerm)
+			if err != nil {
+				fmt.Printf("unable to create log dir %#v: %v", logDir, err)
+			}
+		}
 		rollingLogger = &lumberjack.Logger{
 			Filename:   logFilePath,
 			MaxSize:    logMaxSize,
