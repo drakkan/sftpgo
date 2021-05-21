@@ -1365,9 +1365,7 @@ func TestEscapeHomeDir(t *testing.T) {
 		_, err := client.ReadDir(testDir)
 		assert.Error(t, err, "reading a symbolic link outside home dir should not succeeded")
 		err = client.Chmod(path.Join(testDir, "sub", "dir"), os.ModePerm)
-		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "SSH_FX_FAILURE")
-		}
+		assert.ErrorIs(t, err, os.ErrPermission)
 		assert.Error(t, err, "setstat on a file outside home dir must fail")
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(65535)

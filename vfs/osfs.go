@@ -22,6 +22,14 @@ const (
 	osFsName = "osfs"
 )
 
+type pathResolutionError struct {
+	err string
+}
+
+func (e *pathResolutionError) Error() string {
+	return fmt.Sprintf("Path resolution error: %s", e.err)
+}
+
 // OsFs is a Fs implementation that uses functions provided by the os package.
 type OsFs struct {
 	name         string
@@ -180,6 +188,10 @@ func (*OsFs) IsNotExist(err error) bool {
 // IsPermission returns a boolean indicating whether the error is known to
 // report that permission is denied.
 func (*OsFs) IsPermission(err error) bool {
+	if _, ok := err.(*pathResolutionError); ok {
+		return true
+	}
+
 	return os.IsPermission(err)
 }
 
@@ -367,7 +379,7 @@ func (fs *OsFs) isSubDir(sub string) error {
 	}
 	if len(sub) < len(parent) {
 		err = fmt.Errorf("path %#v is not inside %#v", sub, parent)
-		return err
+		return &pathResolutionError{err: err.Error()}
 	}
 	separator := string(os.PathSeparator)
 	if parent == filepath.Dir(parent) {
@@ -377,7 +389,7 @@ func (fs *OsFs) isSubDir(sub string) error {
 	}
 	if !strings.HasPrefix(sub, parent+separator) {
 		err = fmt.Errorf("path %#v is not inside %#v", sub, parent)
-		return err
+		return &pathResolutionError{err: err.Error()}
 	}
 	return nil
 }
