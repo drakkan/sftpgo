@@ -415,17 +415,17 @@ func (c *sshCommand) isSystemCommandAllowed() error {
 			c.command, sshDestPath, c.connection.User.Username)
 		return errUnsupportedConfig
 	}
-	for _, f := range c.connection.User.Filters.FileExtensions {
+	for _, f := range c.connection.User.Filters.FilePatterns {
 		if f.Path == sshDestPath {
 			c.connection.Log(logger.LevelDebug,
-				"command %#v is not allowed inside folders with files extensions filters %#v user %#v",
+				"command %#v is not allowed inside folders with files patterns filters %#v user %#v",
 				c.command, sshDestPath, c.connection.User.Username)
 			return errUnsupportedConfig
 		}
 		if len(sshDestPath) > len(f.Path) {
 			if strings.HasPrefix(sshDestPath, f.Path+"/") || f.Path == "/" {
 				c.connection.Log(logger.LevelDebug,
-					"command %#v is not allowed it includes folders with files extensions filters %#v user %#v",
+					"command %#v is not allowed it includes folders with files patterns filters %#v user %#v",
 					c.command, sshDestPath, c.connection.User.Username)
 				return errUnsupportedConfig
 			}

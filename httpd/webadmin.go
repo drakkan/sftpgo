@@ -587,49 +587,12 @@ func getFilePatternsFromPostField(valueAllowed, valuesDenied string) []dataprovi
 	return result
 }
 
-func getFileExtensionsFromPostField(valueAllowed, valuesDenied string) []dataprovider.ExtensionsFilter {
-	var result []dataprovider.ExtensionsFilter
-	allowedExtensions := getListFromPostFields(valueAllowed)
-	deniedExtensions := getListFromPostFields(valuesDenied)
-
-	for dirAllowed, allowedExts := range allowedExtensions {
-		filter := dataprovider.ExtensionsFilter{
-			Path:              dirAllowed,
-			AllowedExtensions: allowedExts,
-		}
-		for dirDenied, deniedExts := range deniedExtensions {
-			if dirAllowed == dirDenied {
-				filter.DeniedExtensions = deniedExts
-				break
-			}
-		}
-		result = append(result, filter)
-	}
-	for dirDenied, deniedExts := range deniedExtensions {
-		found := false
-		for _, res := range result {
-			if res.Path == dirDenied {
-				found = true
-				break
-			}
-		}
-		if !found {
-			result = append(result, dataprovider.ExtensionsFilter{
-				Path:             dirDenied,
-				DeniedExtensions: deniedExts,
-			})
-		}
-	}
-	return result
-}
-
 func getFiltersFromUserPostFields(r *http.Request) dataprovider.UserFilters {
 	var filters dataprovider.UserFilters
 	filters.AllowedIP = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")
 	filters.DeniedIP = getSliceFromDelimitedValues(r.Form.Get("denied_ip"), ",")
 	filters.DeniedLoginMethods = r.Form["ssh_login_methods"]
 	filters.DeniedProtocols = r.Form["denied_protocols"]
-	filters.FileExtensions = getFileExtensionsFromPostField(r.Form.Get("allowed_extensions"), r.Form.Get("denied_extensions"))
 	filters.FilePatterns = getFilePatternsFromPostField(r.Form.Get("allowed_patterns"), r.Form.Get("denied_patterns"))
 	filters.TLSUsername = dataprovider.TLSUsername(r.Form.Get("tls_username"))
 	filters.WebClient = r.Form["web_client_options"]

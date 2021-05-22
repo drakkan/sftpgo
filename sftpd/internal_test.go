@@ -592,11 +592,11 @@ func TestCommandsWithExtensionsFilter(t *testing.T) {
 		HomeDir:  os.TempDir(),
 		Status:   1,
 	}
-	user.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
+	user.Filters.FilePatterns = []dataprovider.PatternsFilter{
 		{
-			Path:              "/subdir",
-			AllowedExtensions: []string{".jpg"},
-			DeniedExtensions:  []string{},
+			Path:            "/subdir",
+			AllowedPatterns: []string{".jpg"},
+			DeniedPatterns:  []string{},
 		},
 	}
 

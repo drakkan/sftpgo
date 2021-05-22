@@ -1213,9 +1213,6 @@ func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) 
 	if err := compareUserFilterSubStructs(expected, actual); err != nil {
 		return err
 	}
-	if err := compareUserFileExtensionsFilters(expected, actual); err != nil {
-		return err
-	}
 	return compareUserFilePatternsFilters(expected, actual)
 }
 
@@ -1248,28 +1245,6 @@ func compareUserFilePatternsFilters(expected *dataprovider.User, actual *datapro
 		}
 		if !found {
 			return errors.New("file patterns contents mismatch")
-		}
-	}
-	return nil
-}
-
-func compareUserFileExtensionsFilters(expected *dataprovider.User, actual *dataprovider.User) error {
-	if len(expected.Filters.FileExtensions) != len(actual.Filters.FileExtensions) {
-		return errors.New("file extensions mismatch")
-	}
-	for _, f := range expected.Filters.FileExtensions {
-		found := false
-		for _, f1 := range actual.Filters.FileExtensions {
-			if path.Clean(f.Path) == path.Clean(f1.Path) {
-				if !checkFilterMatch(f.AllowedExtensions, f1.AllowedExtensions) ||
-					!checkFilterMatch(f.DeniedExtensions, f1.DeniedExtensions) {
-					return errors.New("file extensions contents mismatch")
-				}
-				found = true
-			}
-		}
-		if !found {
-			return errors.New("file extensions contents mismatch")
 		}
 	}
 	return nil

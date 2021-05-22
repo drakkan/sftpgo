@@ -983,18 +983,11 @@ func TestDownloadErrors(t *testing.T) {
 	u.Permissions[path.Join("/", subDir1)] = []string{dataprovider.PermListItems}
 	u.Permissions[path.Join("/", subDir2)] = []string{dataprovider.PermListItems, dataprovider.PermUpload,
 		dataprovider.PermDelete, dataprovider.PermDownload}
-	u.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
-		{
-			Path:              "/sub2",
-			AllowedExtensions: []string{},
-			DeniedExtensions:  []string{".zip"},
-		},
-	}
 	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
 		{
 			Path:            "/sub2",
 			AllowedPatterns: []string{},
-			DeniedPatterns:  []string{"*.jpg"},
+			DeniedPatterns:  []string{"*.jpg", "*.zip"},
 		},
 	}
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -1042,11 +1035,11 @@ func TestUploadErrors(t *testing.T) {
 	u.Permissions[path.Join("/", subDir1)] = []string{dataprovider.PermListItems}
 	u.Permissions[path.Join("/", subDir2)] = []string{dataprovider.PermListItems, dataprovider.PermUpload,
 		dataprovider.PermDelete}
-	u.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
+	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
 		{
-			Path:              "/sub2",
-			AllowedExtensions: []string{},
-			DeniedExtensions:  []string{".zip"},
+			Path:            "/sub2",
+			AllowedPatterns: []string{},
+			DeniedPatterns:  []string{"*.zip"},
 		},
 	}
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)

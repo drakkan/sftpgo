@@ -645,39 +645,38 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.Filters.DeniedLoginMethods = []string{}
-	u.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
+	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
 		{
-			Path:              "relative",
-			AllowedExtensions: []string{},
-			DeniedExtensions:  []string{},
+			Path:            "relative",
+			AllowedPatterns: []string{},
+			DeniedPatterns:  []string{},
 		},
 	}
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
+	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
 		{
-			Path:              "/",
-			AllowedExtensions: []string{},
-			DeniedExtensions:  []string{},
+			Path:            "/",
+			AllowedPatterns: []string{},
+			DeniedPatterns:  []string{},
 		},
 	}
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
+	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
 		{
-			Path:              "/subdir",
-			AllowedExtensions: []string{".zip"},
-			DeniedExtensions:  []string{},
+			Path:            "/subdir",
+			AllowedPatterns: []string{"*.zip"},
+			DeniedPatterns:  []string{},
 		},
 		{
-			Path:              "/subdir",
-			AllowedExtensions: []string{".rar"},
-			DeniedExtensions:  []string{".jpg"},
+			Path:            "/subdir",
+			AllowedPatterns: []string{"*.rar"},
+			DeniedPatterns:  []string{"*.jpg"},
 		},
 	}
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.Filters.FileExtensions = nil
 	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
 		{
 			Path:            "relative",
@@ -1140,11 +1139,6 @@ func TestUpdateUser(t *testing.T) {
 	user.Filters.Hooks.PreLoginDisabled = true
 	user.Filters.Hooks.CheckPasswordDisabled = false
 	user.Filters.DisableFsChecks = true
-	user.Filters.FileExtensions = append(user.Filters.FileExtensions, dataprovider.ExtensionsFilter{
-		Path:              "/subdir",
-		AllowedExtensions: []string{".zip", ".rar"},
-		DeniedExtensions:  []string{".jpg", ".png"},
-	})
 	user.Filters.FilePatterns = append(user.Filters.FilePatterns, dataprovider.PatternsFilter{
 		Path:            "/subdir",
 		AllowedPatterns: []string{"*.zip", "*.rar"},
@@ -5907,8 +5901,6 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("permissions", "*")
 	form.Set("sub_dirs_permissions", " /subdir::list ,download ")
 	form.Set("virtual_folders", fmt.Sprintf(" /vdir:: %v :: 2 :: 1024", folderName))
-	form.Set("allowed_extensions", "/dir2::.jpg,.png\n/dir2::.ico\n/dir1::.rar")
-	form.Set("denied_extensions", "/dir2::.webp,.webp\n/dir2::.tiff\n/dir1::.zip")
 	form.Set("allowed_patterns", "/dir2::*.jpg,*.png\n/dir1::*.png")
 	form.Set("denied_patterns", "/dir1::*.zip\n/dir3::*.rar\n/dir2::*.mkv")
 	form.Set("additional_info", user.AdditionalInfo)
@@ -6093,24 +6085,6 @@ func TestWebUserAddMock(t *testing.T) {
 		assert.Equal(t, v.QuotaFiles, 2)
 		assert.Equal(t, v.QuotaSize, int64(1024))
 	}
-	assert.Len(t, newUser.Filters.FileExtensions, 2)
-	for _, filter := range newUser.Filters.FileExtensions {
-		if filter.Path == "/dir1" {
-			assert.Len(t, filter.DeniedExtensions, 1)
-			assert.Len(t, filter.AllowedExtensions, 1)
-			assert.True(t, utils.IsStringInSlice(".zip", filter.DeniedExtensions))
-			assert.True(t, utils.IsStringInSlice(".rar", filter.AllowedExtensions))
-		}
-		if filter.Path == "/dir2" {
-			assert.Len(t, filter.DeniedExtensions, 2)
-			assert.Len(t, filter.AllowedExtensions, 3)
-			assert.True(t, utils.IsStringInSlice(".jpg", filter.AllowedExtensions))
-			assert.True(t, utils.IsStringInSlice(".png", filter.AllowedExtensions))
-			assert.True(t, utils.IsStringInSlice(".ico", filter.AllowedExtensions))
-			assert.True(t, utils.IsStringInSlice(".webp", filter.DeniedExtensions))
-			assert.True(t, utils.IsStringInSlice(".tiff", filter.DeniedExtensions))
-		}
-	}
 	assert.Len(t, newUser.Filters.FilePatterns, 3)
 	for _, filter := range newUser.Filters.FilePatterns {
 		if filter.Path == "/dir1" {
@@ -6185,7 +6159,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("expiration_date", "2020-01-01 00:00:00")
 	form.Set("allowed_ip", " 192.168.1.3/32, 192.168.2.0/24 ")
 	form.Set("denied_ip", " 10.0.0.2/32 ")
-	form.Set("denied_extensions", "/dir1::.zip")
+	form.Set("denied_patterns", "/dir1::*.zip")
 	form.Set("ssh_login_methods", dataprovider.SSHLoginMethodKeyboardInteractive)
 	form.Set("denied_protocols", common.ProtocolFTP)
 	form.Set("max_upload_file_size", "100")
@@ -6267,7 +6241,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.True(t, utils.IsStringInSlice("10.0.0.2/32", updateUser.Filters.DeniedIP))
 	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, updateUser.Filters.DeniedLoginMethods))
 	assert.True(t, utils.IsStringInSlice(common.ProtocolFTP, updateUser.Filters.DeniedProtocols))
-	assert.True(t, utils.IsStringInSlice(".zip", updateUser.Filters.FileExtensions[0].DeniedExtensions))
+	assert.True(t, utils.IsStringInSlice("*.zip", updateUser.Filters.FilePatterns[0].DeniedPatterns))
 	req, err = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, apiToken)
@@ -6737,8 +6711,8 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("s3_storage_class", user.FsConfig.S3Config.StorageClass)
 	form.Set("s3_endpoint", user.FsConfig.S3Config.Endpoint)
 	form.Set("s3_key_prefix", user.FsConfig.S3Config.KeyPrefix)
-	form.Set("allowed_extensions", "/dir1::.jpg,.png")
-	form.Set("denied_extensions", "/dir2::.zip")
+	form.Set("allowed_patterns", "/dir1::*.jpg,*.png")
+	form.Set("denied_patterns", "/dir2::*.zip")
 	form.Set("max_upload_file_size", "0")
 	form.Set("description", user.Description)
 	form.Add("hooks", "pre_login_disabled")
@@ -6783,7 +6757,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.S3Config.KeyPrefix, user.FsConfig.S3Config.KeyPrefix)
 	assert.Equal(t, updateUser.FsConfig.S3Config.UploadPartSize, user.FsConfig.S3Config.UploadPartSize)
 	assert.Equal(t, updateUser.FsConfig.S3Config.UploadConcurrency, user.FsConfig.S3Config.UploadConcurrency)
-	assert.Equal(t, 2, len(updateUser.Filters.FileExtensions))
+	assert.Equal(t, 2, len(updateUser.Filters.FilePatterns))
 	assert.Equal(t, kms.SecretStatusSecretBox, updateUser.FsConfig.S3Config.AccessSecret.GetStatus())
 	assert.NotEmpty(t, updateUser.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Empty(t, updateUser.FsConfig.S3Config.AccessSecret.GetKey())
@@ -6882,7 +6856,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	form.Set("gcs_bucket", user.FsConfig.GCSConfig.Bucket)
 	form.Set("gcs_storage_class", user.FsConfig.GCSConfig.StorageClass)
 	form.Set("gcs_key_prefix", user.FsConfig.GCSConfig.KeyPrefix)
-	form.Set("allowed_extensions", "/dir1::.jpg,.png")
+	form.Set("allowed_patterns", "/dir1::*.jpg,*.png")
 	form.Set("max_upload_file_size", "0")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
@@ -6916,7 +6890,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	assert.Equal(t, user.FsConfig.GCSConfig.Bucket, updateUser.FsConfig.GCSConfig.Bucket)
 	assert.Equal(t, user.FsConfig.GCSConfig.StorageClass, updateUser.FsConfig.GCSConfig.StorageClass)
 	assert.Equal(t, user.FsConfig.GCSConfig.KeyPrefix, updateUser.FsConfig.GCSConfig.KeyPrefix)
-	assert.Equal(t, "/dir1", updateUser.Filters.FileExtensions[0].Path)
+	assert.Equal(t, "/dir1", updateUser.Filters.FilePatterns[0].Path)
 	form.Set("gcs_auto_credentials", "on")
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
@@ -6989,8 +6963,8 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	form.Set("az_endpoint", user.FsConfig.AzBlobConfig.Endpoint)
 	form.Set("az_key_prefix", user.FsConfig.AzBlobConfig.KeyPrefix)
 	form.Set("az_use_emulator", "checked")
-	form.Set("allowed_extensions", "/dir1::.jpg,.png")
-	form.Set("denied_extensions", "/dir2::.zip")
+	form.Set("allowed_patterns", "/dir1::*.jpg,*.png")
+	form.Set("denied_patterns", "/dir2::*.zip")
 	form.Set("max_upload_file_size", "0")
 	// test invalid az_upload_part_size
 	form.Set("az_upload_part_size", "a")
@@ -7032,7 +7006,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.KeyPrefix, user.FsConfig.AzBlobConfig.KeyPrefix)
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.UploadPartSize, user.FsConfig.AzBlobConfig.UploadPartSize)
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.UploadConcurrency, user.FsConfig.AzBlobConfig.UploadConcurrency)
-	assert.Equal(t, 2, len(updateUser.Filters.FileExtensions))
+	assert.Equal(t, 2, len(updateUser.Filters.FilePatterns))
 	assert.Equal(t, kms.SecretStatusSecretBox, updateUser.FsConfig.AzBlobConfig.AccountKey.GetStatus())
 	assert.NotEmpty(t, updateUser.FsConfig.AzBlobConfig.AccountKey.GetPayload())
 	assert.Empty(t, updateUser.FsConfig.AzBlobConfig.AccountKey.GetKey())
@@ -7099,8 +7073,8 @@ func TestWebUserCryptMock(t *testing.T) {
 	form.Set("denied_ip", "")
 	form.Set("fs_provider", "4")
 	form.Set("crypt_passphrase", "")
-	form.Set("allowed_extensions", "/dir1::.jpg,.png")
-	form.Set("denied_extensions", "/dir2::.zip")
+	form.Set("allowed_patterns", "/dir1::*.jpg,*.png")
+	form.Set("denied_patterns", "/dir2::*.zip")
 	form.Set("max_upload_file_size", "0")
 	// passphrase cannot be empty
 	b, contentType, _ := getMultipartFormData(form, "", "")
@@ -7124,7 +7098,7 @@ func TestWebUserCryptMock(t *testing.T) {
 	err = render.DecodeJSON(rr.Body, &updateUser)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1577836800000), updateUser.ExpirationDate)
-	assert.Equal(t, 2, len(updateUser.Filters.FileExtensions))
+	assert.Equal(t, 2, len(updateUser.Filters.FilePatterns))
 	assert.Equal(t, kms.SecretStatusSecretBox, updateUser.FsConfig.CryptConfig.Passphrase.GetStatus())
 	assert.NotEmpty(t, updateUser.FsConfig.CryptConfig.Passphrase.GetPayload())
 	assert.Empty(t, updateUser.FsConfig.CryptConfig.Passphrase.GetKey())
@@ -7198,8 +7172,8 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	form.Set("denied_ip", "")
 	form.Set("fs_provider", "5")
 	form.Set("crypt_passphrase", "")
-	form.Set("allowed_extensions", "/dir1::.jpg,.png")
-	form.Set("denied_extensions", "/dir2::.zip")
+	form.Set("allowed_patterns", "/dir1::*.jpg,*.png")
+	form.Set("denied_patterns", "/dir2::*.zip")
 	form.Set("max_upload_file_size", "0")
 	// empty sftpconfig
 	b, contentType, _ := getMultipartFormData(form, "", "")
@@ -7230,7 +7204,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	err = render.DecodeJSON(rr.Body, &updateUser)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1577836800000), updateUser.ExpirationDate)
-	assert.Equal(t, 2, len(updateUser.Filters.FileExtensions))
+	assert.Equal(t, 2, len(updateUser.Filters.FilePatterns))
 	assert.Equal(t, kms.SecretStatusSecretBox, updateUser.FsConfig.SFTPConfig.Password.GetStatus())
 	assert.NotEmpty(t, updateUser.FsConfig.SFTPConfig.Password.GetPayload())
 	assert.Empty(t, updateUser.FsConfig.SFTPConfig.Password.GetKey())

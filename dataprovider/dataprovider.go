@@ -1278,11 +1278,11 @@ func validatePublicKeys(user *User) error {
 		}
 		_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
 		if err != nil {
-			return &ValidationError{err: fmt.Sprintf("could not parse key nr. %d: %s", i, err)}
+			return &ValidationError{err: fmt.Sprintf("could not parse key nr. %d: %s", i+1, err)}
 		}
 		validatedKeys = append(validatedKeys, k)
 	}
-	user.PublicKeys = validatedKeys
+	user.PublicKeys = utils.RemoveDuplicates(validatedKeys)
 	return nil
 }
 
@@ -1328,49 +1328,6 @@ func validateFiltersPatternExtensions(user *User) error {
 	}
 	user.Filters.FilePatterns = filters
 	return nil
-}
-
-func validateFiltersFileExtensions(user *User) error {
-	if len(user.Filters.FileExtensions) == 0 {
-		user.Filters.FileExtensions = []ExtensionsFilter{}
-		return nil
-	}
-	filteredPaths := []string{}
-	var filters []ExtensionsFilter
-	for _, f := range user.Filters.FileExtensions {
-		cleanedPath := filepath.ToSlash(path.Clean(f.Path))
-		if !path.IsAbs(cleanedPath) {
-			return &ValidationError{err: fmt.Sprintf("invalid path %#v for file extensions filter", f.Path)}
-		}
-		if utils.IsStringInSlice(cleanedPath, filteredPaths) {
-			return &ValidationError{err: fmt.Sprintf("duplicate file extensions filter for path %#v", f.Path)}
-		}
-		if len(f.AllowedExtensions) == 0 && len(f.DeniedExtensions) == 0 {
-			return &ValidationError{err: fmt.Sprintf("empty file extensions filter for path %#v", f.Path)}
-		}
-		f.Path = cleanedPath
-		allowed := make([]string, 0, len(f.AllowedExtensions))
-		denied := make([]string, 0, len(f.DeniedExtensions))
-		for _, ext := range f.AllowedExtensions {
-			allowed = append(allowed, strings.ToLower(ext))
-		}
-		for _, ext := range f.DeniedExtensions {
-			denied = append(denied, strings.ToLower(ext))
-		}
-		f.AllowedExtensions = allowed
-		f.DeniedExtensions = denied
-		filters = append(filters, f)
-		filteredPaths = append(filteredPaths, cleanedPath)
-	}
-	user.Filters.FileExtensions = filters
-	return nil
-}
-
-func validateFileFilters(user *User) error {
-	if err := validateFiltersFileExtensions(user); err != nil {
-		return err
-	}
-	return validateFiltersPatternExtensions(user)
 }
 
 func checkEmptyFiltersStruct(user *User) {
@@ -1428,7 +1385,7 @@ func validateFilters(user *User) error {
 			return &ValidationError{err: fmt.Sprintf("invalid web client options %#v", opts)}
 		}
 	}
-	return validateFileFilters(user)
+	return validateFiltersPatternExtensions(user)
 }
 
 func saveGCSCredentials(fsConfig *vfs.Filesystem, helper fsValidatorHelper) error {

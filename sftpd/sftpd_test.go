@@ -3534,13 +3534,6 @@ func TestExtensionsFilters(t *testing.T) {
 		err = sftpUploadFile(testFilePath, testFileName+".jpg", testFileSize, client)
 		assert.NoError(t, err)
 	}
-	user.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
-		{
-			Path:              "/",
-			AllowedExtensions: []string{".zIp", ".jPg"},
-			DeniedExtensions:  []string{},
-		},
-	}
 	user.Filters.FilePatterns = []dataprovider.PatternsFilter{
 		{
 			Path:            "/",
@@ -6760,7 +6753,6 @@ func TestUserPerms(t *testing.T) {
 	assert.True(t, user.HasPerm(dataprovider.PermDownload, "/p/1/test/file.dat"))
 }
 
-//nolint:dupl
 func TestFilterFilePatterns(t *testing.T) {
 	user := getTestUser(true)
 	pattern := dataprovider.PatternsFilter{
@@ -6790,43 +6782,6 @@ func TestFilterFilePatterns(t *testing.T) {
 	filters.FilePatterns = append(filters.FilePatterns, dataprovider.PatternsFilter{
 		Path:           "/test/sub",
 		DeniedPatterns: []string{"*.tar"},
-	})
-	user.Filters = filters
-	assert.False(t, user.IsFileAllowed("/test/sub/sub/test.tar"))
-	assert.True(t, user.IsFileAllowed("/test/sub/test.gz"))
-	assert.False(t, user.IsFileAllowed("/test/test.zip"))
-}
-
-//nolint:dupl
-func TestFilterFileExtensions(t *testing.T) {
-	user := getTestUser(true)
-	extension := dataprovider.ExtensionsFilter{
-		Path:              "/test",
-		AllowedExtensions: []string{".jpg", ".png"},
-		DeniedExtensions:  []string{".pdf"},
-	}
-	filters := dataprovider.UserFilters{
-		FileExtensions: []dataprovider.ExtensionsFilter{extension},
-	}
-	user.Filters = filters
-	assert.True(t, user.IsFileAllowed("/test/test.jPg"))
-	assert.False(t, user.IsFileAllowed("/test/test.pdf"))
-	assert.True(t, user.IsFileAllowed("/test.pDf"))
-
-	filters.FileExtensions = append(filters.FileExtensions, dataprovider.ExtensionsFilter{
-		Path:              "/",
-		AllowedExtensions: []string{".zip", ".rar", ".pdf"},
-		DeniedExtensions:  []string{".gz"},
-	})
-	user.Filters = filters
-	assert.False(t, user.IsFileAllowed("/test1/test.gz"))
-	assert.True(t, user.IsFileAllowed("/test1/test.zip"))
-	assert.False(t, user.IsFileAllowed("/test/sub/test.pdf"))
-	assert.False(t, user.IsFileAllowed("/test1/test.png"))
-
-	filters.FileExtensions = append(filters.FileExtensions, dataprovider.ExtensionsFilter{
-		Path:             "/test/sub",
-		DeniedExtensions: []string{".tar"},
 	})
 	user.Filters = filters
 	assert.False(t, user.IsFileAllowed("/test/sub/sub/test.tar"))
@@ -7286,10 +7241,10 @@ func TestSSHCopy(t *testing.T) {
 		QuotaFiles:  100,
 		QuotaSize:   0,
 	})
-	u.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
+	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
 		{
-			Path:             "/",
-			DeniedExtensions: []string{".denied"},
+			Path:           "/",
+			DeniedPatterns: []string{"*.denied"},
 		},
 	}
 	err := os.MkdirAll(mappedPath1, os.ModePerm)
@@ -7564,10 +7519,10 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 		QuotaFiles:  3,
 		QuotaSize:   testFileSize + testFileSize1 + 1,
 	})
-	u.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
+	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
 		{
-			Path:             "/",
-			DeniedExtensions: []string{".denied"},
+			Path:           "/",
+			DeniedPatterns: []string{"*.denied"},
 		},
 	}
 	err := os.MkdirAll(mappedPath1, os.ModePerm)
@@ -8327,7 +8282,7 @@ func TestSCPRecursive(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSCPExtensionsFilter(t *testing.T) {
+func TestSCPPatternsFilter(t *testing.T) {
 	if len(scpPath) == 0 {
 		t.Skip("scp command not found, unable to execute this test")
 	}
@@ -8344,11 +8299,11 @@ func TestSCPExtensionsFilter(t *testing.T) {
 	assert.NoError(t, err)
 	err = scpUpload(testFilePath, remoteUpPath, false, false)
 	assert.NoError(t, err)
-	user.Filters.FileExtensions = []dataprovider.ExtensionsFilter{
+	user.Filters.FilePatterns = []dataprovider.PatternsFilter{
 		{
-			Path:              "/",
-			AllowedExtensions: []string{".zip"},
-			DeniedExtensions:  []string{},
+			Path:            "/",
+			AllowedPatterns: []string{"*.zip"},
+			DeniedPatterns:  []string{},
 		},
 	}
 	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")

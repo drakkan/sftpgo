@@ -85,28 +85,6 @@ var (
 	errNoMatchingVirtualFolder = errors.New("no matching virtual folder found")
 )
 
-// ExtensionsFilter defines filters based on file extensions.
-// These restrictions do not apply to files listing for performance reasons, so
-// a denied file cannot be downloaded/overwritten/renamed but will still be
-// in the list of files.
-// System commands such as Git and rsync interacts with the filesystem directly
-// and they are not aware about these restrictions so they are not allowed
-// inside paths with extensions filters
-type ExtensionsFilter struct {
-	// Virtual path, if no other specific filter is defined, the filter apply for
-	// sub directories too.
-	// For example if filters are defined for the paths "/" and "/sub" then the
-	// filters for "/" are applied for any file outside the "/sub" directory
-	Path string `json:"path"`
-	// only files with these, case insensitive, extensions are allowed.
-	// Shell like expansion is not supported so you have to specify ".jpg" and
-	// not "*.jpg". If you want shell like patterns use pattern filters
-	AllowedExtensions []string `json:"allowed_extensions,omitempty"`
-	// files with these, case insensitive, extensions are not allowed.
-	// Denied file extensions are evaluated before the allowed ones
-	DeniedExtensions []string `json:"denied_extensions,omitempty"`
-}
-
 // PatternsFilter defines filters based on shell like patterns.
 // These restrictions do not apply to files listing for performance reasons, so
 // a denied file cannot be downloaded/overwritten/renamed but will still be
@@ -151,10 +129,8 @@ type UserFilters struct {
 	// these protocols are not allowed.
 	// If null or empty any available protocol is allowed
 	DeniedProtocols []string `json:"denied_protocols,omitempty"`
-	// filters based on file extensions.
+	// filter based on shell patterns.
 	// Please note that these restrictions can be easily bypassed.
-	FileExtensions []ExtensionsFilter `json:"file_extensions,omitempty"`
-	// filter based on shell patterns
 	FilePatterns []PatternsFilter `json:"file_patterns,omitempty"`
 	// max size allowed for a single upload, 0 means unlimited
 	MaxUploadFileSize int64 `json:"max_upload_file_size,omitempty"`
@@ -780,41 +756,7 @@ func (u *User) GetAllowedLoginMethods() []string {
 
 // IsFileAllowed returns true if the specified file is allowed by the file restrictions filters
 func (u *User) IsFileAllowed(virtualPath string) bool {
-	return u.isFilePatternAllowed(virtualPath) && u.isFileExtensionAllowed(virtualPath)
-}
-
-func (u *User) isFileExtensionAllowed(virtualPath string) bool {
-	if len(u.Filters.FileExtensions) == 0 {
-		return true
-	}
-	dirsForPath := utils.GetDirsForVirtualPath(path.Dir(virtualPath))
-	var filter ExtensionsFilter
-	for _, dir := range dirsForPath {
-		for _, f := range u.Filters.FileExtensions {
-			if f.Path == dir {
-				filter = f
-				break
-			}
-		}
-		if filter.Path != "" {
-			break
-		}
-	}
-	if filter.Path != "" {
-		toMatch := strings.ToLower(virtualPath)
-		for _, denied := range filter.DeniedExtensions {
-			if strings.HasSuffix(toMatch, denied) {
-				return false
-			}
-		}
-		for _, allowed := range filter.AllowedExtensions {
-			if strings.HasSuffix(toMatch, allowed) {
-				return true
-			}
-		}
-		return len(filter.AllowedExtensions) == 0
-	}
-	return true
+	return u.isFilePatternAllowed(virtualPath)
 }
 
 func (u *User) isFilePatternAllowed(virtualPath string) bool {
@@ -1113,8 +1055,6 @@ func (u *User) getACopy() User {
 	copy(filters.DeniedIP, u.Filters.DeniedIP)
 	filters.DeniedLoginMethods = make([]string, len(u.Filters.DeniedLoginMethods))
 	copy(filters.DeniedLoginMethods, u.Filters.DeniedLoginMethods)
-	filters.FileExtensions = make([]ExtensionsFilter, len(u.Filters.FileExtensions))
-	copy(filters.FileExtensions, u.Filters.FileExtensions)
 	filters.FilePatterns = make([]PatternsFilter, len(u.Filters.FilePatterns))
 	copy(filters.FilePatterns, u.Filters.FilePatterns)
 	filters.DeniedProtocols = make([]string, len(u.Filters.DeniedProtocols))
