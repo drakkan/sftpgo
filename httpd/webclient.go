@@ -370,9 +370,7 @@ func handleWebClientManageKeysPost(w http.ResponseWriter, r *http.Request) {
 		renderCredentialsPage(w, r, "", err.Error())
 		return
 	}
-	publicKeysFormValue := r.Form.Get("public_keys")
-	publicKeys := getSliceFromDelimitedValues(publicKeysFormValue, "\n")
-	user.PublicKeys = publicKeys
+	user.PublicKeys = r.Form["public_keys"]
 	err = dataprovider.UpdateUser(&user)
 	if err != nil {
 		renderCredentialsPage(w, r, "", err.Error())

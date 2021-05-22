@@ -1271,12 +1271,18 @@ func validatePublicKeys(user *User) error {
 	if len(user.PublicKeys) == 0 {
 		user.PublicKeys = []string{}
 	}
+	var validatedKeys []string
 	for i, k := range user.PublicKeys {
+		if k == "" {
+			continue
+		}
 		_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
 		if err != nil {
 			return &ValidationError{err: fmt.Sprintf("could not parse key nr. %d: %s", i, err)}
 		}
+		validatedKeys = append(validatedKeys, k)
 	}
+	user.PublicKeys = validatedKeys
 	return nil
 }
 
