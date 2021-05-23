@@ -129,9 +129,10 @@ You can find more details about Data At Rest Encryption [here](../dare.md).
 
 SFTPGo supports per directory virtual permissions. For each user you have to specify global permissions and then override them on a per-directory basis.
 
-Take a look at the following screen.
+Take a look at the following screens.
 
 ![Virtual permissions](./img/virtual-permissions.png)
+![Per-directory permissions](./img/dir-permissions.png)
 
 This user has full access as default (`*`), can only list and download from `/read-only` path and has no permissions at all for the `/subdir` path.
 
@@ -176,7 +177,7 @@ From the web admin interface click `Folders` and then the `+` icon.
 
 To create a local folder you need to specify a `Name` and an `Absolute path`. For other backends you have to specify the backend type and its credentials, this is the same procedure already detailed for creating users with cloud backends.
 
-Suppose we created two folders name `localfolder` and `minio` as you can see in the following screen.
+Suppose we created two virtual folders name `localfolder` and `minio` as you can see in the following screen.
 
 ![Folders](./img/folders.png)
 

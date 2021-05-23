@@ -85,6 +85,17 @@ var (
 	errNoMatchingVirtualFolder = errors.New("no matching virtual folder found")
 )
 
+// DirectoryPermissions defines permissions for a directory path
+type DirectoryPermissions struct {
+	Path        string
+	Permissions []string
+}
+
+// HasPerm returns true if the directory has the specified permissions
+func (d *DirectoryPermissions) HasPerm(perm string) bool {
+	return utils.IsStringInSlice(perm, d.Permissions)
+}
+
 // PatternsFilter defines filters based on shell like patterns.
 // These restrictions do not apply to files listing for performance reasons, so
 // a denied file cannot be downloaded/overwritten/renamed but will still be
@@ -104,6 +115,24 @@ type PatternsFilter struct {
 	// files with these, case insensitive, patterns are not allowed.
 	// Denied file patterns are evaluated before the allowed ones
 	DeniedPatterns []string `json:"denied_patterns,omitempty"`
+}
+
+// GetCommaSeparatedPatterns returns the first non empty patterns list comma separated
+func (p *PatternsFilter) GetCommaSeparatedPatterns() string {
+	if len(p.DeniedPatterns) > 0 {
+		return strings.Join(p.DeniedPatterns, ",")
+	}
+	return strings.Join(p.AllowedPatterns, ",")
+}
+
+// IsDenied returns true if the patterns has one or more denied patterns
+func (p *PatternsFilter) IsDenied() bool {
+	return len(p.DeniedPatterns) > 0
+}
+
+// IsAllowed returns true if the patterns has one or more allowed patterns
+func (p *PatternsFilter) IsAllowed() bool {
+	return len(p.AllowedPatterns) > 0
 }
 
 // HooksFilter defines user specific overrides for global hooks
@@ -326,6 +355,22 @@ func (u *User) hideConfidentialData() {
 		u.FsConfig.SFTPConfig.Password.Hide()
 		u.FsConfig.SFTPConfig.PrivateKey.Hide()
 	}
+}
+
+// GetSubDirPermissions returns permissions for sub directories
+func (u *User) GetSubDirPermissions() []DirectoryPermissions {
+	var result []DirectoryPermissions
+	for k, v := range u.Permissions {
+		if k == "/" {
+			continue
+		}
+		dirPerms := DirectoryPermissions{
+			Path:        k,
+			Permissions: v,
+		}
+		result = append(result, dirPerms)
+	}
+	return result
 }
 
 // PrepareForRendering prepares a user for rendering.
@@ -752,6 +797,28 @@ func (u *User) GetAllowedLoginMethods() []string {
 		}
 	}
 	return allowedMethods
+}
+
+// GetFlatFilePatterns returns file patterns as flat list
+// duplicating a path if it has both allowed and denied patterns
+func (u *User) GetFlatFilePatterns() []PatternsFilter {
+	var result []PatternsFilter
+
+	for _, pattern := range u.Filters.FilePatterns {
+		if len(pattern.AllowedPatterns) > 0 {
+			result = append(result, PatternsFilter{
+				Path:            pattern.Path,
+				AllowedPatterns: pattern.AllowedPatterns,
+			})
+		}
+		if len(pattern.DeniedPatterns) > 0 {
+			result = append(result, PatternsFilter{
+				Path:           pattern.Path,
+				DeniedPatterns: pattern.DeniedPatterns,
+			})
+		}
+	}
+	return result
 }
 
 // IsFileAllowed returns true if the specified file is allowed by the file restrictions filters

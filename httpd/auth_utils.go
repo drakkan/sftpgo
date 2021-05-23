@@ -245,7 +245,7 @@ func createCSRFToken() string {
 func verifyCSRFToken(tokenString string) error {
 	token, err := jwtauth.VerifyToken(csrfTokenAuth, tokenString)
 	if err != nil || token == nil {
-		logger.Debug(logSender, "", "error validating CSRF: %v", err)
+		logger.Debug(logSender, "", "error validating CSRF token %#v: %v", tokenString, err)
 		return fmt.Errorf("unable to verify form token: %v", err)
 	}
 

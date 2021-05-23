@@ -29,14 +29,31 @@
         {{end}}
         <form id="folder_form" enctype="multipart/form-data" action="{{.CurrentURL}}" method="POST" autocomplete="off" {{if eq .Mode 3}}target="_blank"{{end}}>
             {{if eq .Mode 3}}
-            <div class="form-group row">
-                <label for="idFolders" class="col-sm-2 col-form-label">Folders</label>
-                <div class="col-sm-10">
-                    <textarea class="form-control" id="idFolders" name="folders" rows="5" required
-                        aria-describedby="foldersHelpBlock"></textarea>
-                    <small id="foldersHelpBlock" class="form-text text-muted">
-                        Specify the folder names, one for line.
-                    </small>
+            <div class="card bg-light mb-3">
+                <div class="card-header">
+                   Folders
+                </div>
+                <div class="card-body">
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_tpl_folders_outer">
+                            <div class="row form_field_tpl_folder_outer_row">
+                                <div class="form-group col-md-10">
+                                    <input type="text" class="form-control" id="idTplFolder0" name="tpl_foldername" placeholder="Folder name" maxlength="255">
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <button class="btn btn-circle btn-danger remove_tpl_folder_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_tpl_folder_field_btn">
+                            <i class="fas fa-plus"></i> Add new folder name
+                        </button>
+                    </div>
                 </div>
             </div>
             <input type="hidden" name="name" id="idFolderName" value="{{.Folder.Name}}">
@@ -83,6 +100,30 @@
 <script type="text/javascript">
     $(document).ready(function () {
         onFilesystemChanged('{{.Folder.FsConfig.Provider}}');
+
+        $("body").on("click", ".add_new_tpl_folder_field_btn", function () {
+            var index = $(".form_field_tpl_folders_outer").find(".form_field_tpl_folder_outer_row").length;
+            while (document.getElementById("idTplFolder"+index) != null){
+                index++;
+            }
+            $(".form_field_tpl_folders_outer").append(`
+                    <div class="row form_field_tpl_folder_outer_row">
+                        <div class="form-group col-md-10">
+                            <input type="text" class="form-control" id="idTplFolder${index}" name="tpl_foldername" placeholder="Folder name" maxlength="255">
+                        </div>
+                        <div class="form-group col-md-2">
+                            <button class="btn btn-circle btn-danger remove_tpl_folder_btn_frm_field">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `);
+        });
+
+        $("body").on("click", ".remove_tpl_folder_btn_frm_field", function () {
+            $(this).closest(".form_field_tpl_folder_outer_row").remove();
+        });
+
     });
 
     {{template "fsjs"}}

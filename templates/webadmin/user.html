@@ -40,14 +40,39 @@
         {{end}}
         <form id="user_form" enctype="multipart/form-data" action="{{.CurrentURL}}" method="POST" autocomplete="off" {{if eq .Mode 3}}target="_blank"{{end}}>
             {{if eq .Mode 3}}
-            <div class="form-group row">
-                <label for="idUsers" class="col-sm-2 col-form-label">Users</label>
-                <div class="col-sm-10">
-                    <textarea class="form-control" id="idUsers" name="users" rows="5" required
-                        aria-describedby="usersHelpBlock"></textarea>
-                    <small id="usersHelpBlock" class="form-text text-muted">
-                        Specify the username and at least one of the password and public key. Each line must be username::password::public-key
-                    </small>
+            <div class="card bg-light mb-3">
+                <div class="card-header">
+                   Users
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title mb-4">For each user set the username and at least one of the password and public key</h6>
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_tpl_users_outer">
+                            <div class="row form_field_tpl_user_outer_row">
+                                <div class="form-group col-md-3">
+                                    <input type="text" class="form-control" id="idTplUsername0" name="tpl_username" placeholder="Username" maxlength="255">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <input type="password" class="form-control" id="idTplPassword0" name="tpl_password" placeholder="Password" maxlength="255">
+                                </div>
+                                <div class="form-group col-md-5">
+                                    <textarea class="form-control" id="idTplPublicKey0" name="tpl_public_keys" rows="5"
+                                        placeholder="Paste your public key here"></textarea>
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_tpl_user_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_tpl_user_field_btn">
+                            <i class="fas fa-plus"></i> Add new user
+                        </button>
+                    </div>
                 </div>
             </div>
             <input type="hidden" name="username" id="idUsername" value="{{.User.Username}}">
@@ -100,14 +125,46 @@
                 </div>
             </div>
 
-            <div class="form-group row">
-                <label for="idPublicKeys" class="col-sm-2 col-form-label">Public keys</label>
-                <div class="col-sm-10">
-                    <textarea class="form-control" id="idPublicKeys" name="public_keys" rows="3"
-                        aria-describedby="pkHelpBlock">{{range .User.PublicKeys}}{{.}}&#10;{{end}}</textarea>
-                    <small id="pkHelpBlock" class="form-text text-muted">
-                        One public key or SSH user certificate per line
-                    </small>
+            <div class="card bg-light mb-3">
+                <div class="card-header">
+                    Public keys
+                </div>
+                <div class="card-body">
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_pk_outer">
+                            {{range $idx, $val := .User.PublicKeys}}
+                            <div class="row form_field_pk_outer_row">
+                                <div class="form-group col-md-11">
+                                    <textarea class="form-control" id="idPublicKey{{$idx}}" name="public_keys" rows="3"
+                                        placeholder="Paste your public key here">{{$val}}</textarea>
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_pk_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{else}}
+                            <div class="row form_field_pk_outer_row">
+                                <div class="form-group col-md-11">
+                                    <textarea class="form-control" id="idPublicKey0" name="public_keys" rows="3"
+                                        placeholder="Paste your public key here"></textarea>
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_pk_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_pk_field_btn">
+                            <i class="fas fa-plus"></i> Add new public key
+                        </button>
+                    </div>
                 </div>
             </div>
             {{end}}
@@ -126,69 +183,6 @@
             </div>
 
             <div class="form-group row">
-                <label for="idProtocols" class="col-sm-2 col-form-label">Denied protocols</label>
-                <div class="col-sm-10">
-                    <select class="form-control" id="idProtocols" name="denied_protocols" multiple>
-                        {{range $protocol := .ValidProtocols}}
-                        <option value="{{$protocol}}" {{range $p :=$.User.Filters.DeniedProtocols }}{{if eq $p $protocol}}selected{{end}}{{end}}>{{$protocol}}
-                        </option>
-                        {{end}}
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-group row">
-                <label for="idLoginMethods" class="col-sm-2 col-form-label">Denied login methods</label>
-                <div class="col-sm-10">
-                    <select class="form-control" id="idLoginMethods" name="ssh_login_methods" multiple>
-                        {{range $method := .ValidLoginMethods}}
-                        <option value="{{$method}}" {{range $m :=$.User.Filters.DeniedLoginMethods }}{{if eq $m $method}}selected{{end}}{{end}}>{{$method}}
-                        </option>
-                        {{end}}
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-group row">
-                <label for="idPermissions" class="col-sm-2 col-form-label">Permissions</label>
-                <div class="col-sm-10">
-                    <select class="form-control" id="idPermissions" name="permissions" required multiple>
-                        {{range $validPerm := .ValidPerms}}
-                        <option value="{{$validPerm}}" {{range $perm :=$.RootDirPerms }}{{if eq $perm $validPerm}}selected{{end}}{{end}}>{{$validPerm}}
-                        </option>
-                        {{end}}
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-group row">
-                <label for="idSubDirsPermissions" class="col-sm-2 col-form-label">Sub dirs permissions</label>
-                <div class="col-sm-10">
-                    <textarea class="form-control" id="idSubDirsPermissions" name="sub_dirs_permissions" rows="3"
-                        aria-describedby="subDirsHelpBlock">{{range $dir, $perms := .User.Permissions -}}
-                        {{if ne $dir "/" -}}
-                        {{$dir}}::{{range $index, $p := $perms}}{{if $index}},{{end}}{{$p}}{{end}}&#10;
-                        {{- end}}
-                        {{- end}}</textarea>
-                    <small id="subDirsHelpBlock" class="form-text text-muted">
-                        One exposed virtual directory path per line as /dir::perms, for example /somedir::list,download
-                    </small>
-                </div>
-            </div>
-
-            <div class="form-group row">
-                <label for="idWebClient" class="col-sm-2 col-form-label">Web client</label>
-                <div class="col-sm-10">
-                    <select class="form-control" id="idWebClient" name="web_client_options" multiple>
-                        {{range $option := .WebClientOptions}}
-                        <option value="{{$option}}" {{range $p :=$.User.Filters.WebClient }}{{if eq $p $option}}selected{{end}}{{end}}>{{$option}}
-                        </option>
-                        {{end}}
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-group row">
                 <label for="idHomeDir" class="col-sm-2 col-form-label">Home Dir</label>
                 <div class="col-sm-10">
                     <input type="text" class="form-control" id="idHomeDir" name="home_dir" placeholder=""
@@ -197,34 +191,186 @@
             </div>
 
             <div class="form-group row">
-                <label for="idVirtualFolders" class="col-sm-2 col-form-label">Virtual folders</label>
+                <label for="idPermissions" class="col-sm-2 col-form-label">Permissions</label>
                 <div class="col-sm-10">
-                    <textarea class="form-control" id="idVirtualFolders" name="virtual_folders" rows="3"
-                        aria-describedby="vfHelpBlock">{{range $index, $mapping := .User.VirtualFolders -}}
-                        {{$mapping.VirtualPath}}::{{$mapping.Name}}::{{$mapping.QuotaFiles}}::{{$mapping.QuotaSize}}&#10;
-                        {{- end}}</textarea>
-                    <small id="vfHelpBlock" class="form-text text-muted">
-                        One mapping per line as vpath::folder-name::[quota_files]::[quota_size(bytes)], for example
-                        /vdir::afolder or /vdir::afolder::10::104857600. Quota -1 means included inside user quota.
+                    <select class="form-control" id="idPermissions" name="permissions" required multiple>
+                        {{range $validPerm := .ValidPerms}}
+                        <option value="{{$validPerm}}" {{range $perm :=$.RootDirPerms }}{{if eq $perm $validPerm}}selected{{end}}{{end}}>{{$validPerm}}</option>
+                        {{end}}
+                    </select>
+                </div>
+            </div>
+
+            {{template "fshtml" .User.FsConfig}}
+            {{if .VirtualFolders}}
+            <div class="card bg-light mb-3">
+                <div class="card-header">
+                    Virtual folders
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title mb-4">Quota -1 means included within user quota, 0 unlimited. Don't set -1 for shared folders</h6>
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_vfolders_outer">
+                            {{range $idx, $val := .User.VirtualFolders}}
+                            <div class="row form_field_vfolder_outer_row">
+                                <div class="form-group col-md-3">
+                                    <input type="text" class="form-control" id="idVolderPath{{$idx}}" name="vfolder_path" placeholder="mount path, i.e. /vfolder" value="{{$val.VirtualPath}}" maxlength="255">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <select class="form-control" id="idVfolderName{{$idx}}" name="vfolder_name">
+                                        <option value=""></option>
+                                        {{range $.VirtualFolders}}
+                                        <option value="{{.Name}}" {{if eq $val.Name .Name}}selected{{end}}>{{.Name}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <input type="number" class="form-control" id="idVfolderQuotaSize{{$idx}}" name="vfolder_quota_size"
+                                        value="{{$val.QuotaSize}}" min="-1" aria-describedby="vqsHelpBlock{{$idx}}">
+                                    <small id="vqsHelpBlock{{$idx}}" class="form-text text-muted">
+                                        Quota size (bytes)
+                                    </small>
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <input type="number" class="form-control" id="idVfolderQuotaFiles{{$idx}}" name="vfolder_quota_files"
+                                        value="{{$val.QuotaFiles}}" min="-1" aria-describedby="vqfHelpBlock{{$idx}}">
+                                        <small id="vqfHelpBlock{{$idx}}" class="form-text text-muted">
+                                            Quota files
+                                        </small>
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_vfolder_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{else}}
+                            <div class="row form_field_vfolder_outer_row">
+                                <div class="form-group col-md-3">
+                                    <input type="text" class="form-control" id="idVolderPath0" name="vfolder_path" placeholder="mount path, i.e. /vfolder" value="" maxlength="255">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <select class="form-control" id="idVfolderName0" name="vfolder_name">
+                                        <option value=""></option>
+                                        {{range .VirtualFolders}}
+                                        <option value="{{.Name}}">{{.Name}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <input type="number" class="form-control" id="idVfolderQuotaSize0" name="vfolder_quota_size"
+                                        value="" min="-1" aria-describedby="vqsHelpBlock0">
+                                    <small id="vqsHelpBlock0" class="form-text text-muted">
+                                        Quota size (bytes)
+                                    </small>
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <input type="number" class="form-control" id="idVfolderQuotaFiles0" name="vfolder_quota_files"
+                                        value="" min="-1" aria-describedby="vqfHelpBlock0">
+                                        <small id="vqfHelpBlock0" class="form-text text-muted">
+                                            Quota files
+                                        </small>
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_vfolder_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_vfolder_field_btn">
+                            <i class="fas fa-plus"></i> Add new virtual folder
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {{end}}
+
+            <div class="card bg-light mb-3">
+                <div class="card-header">
+                    Per-directory permissions
+                </div>
+                <div class="card-body">
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_dirperms_outer">
+                            {{range $idx, $dirPerms := .User.GetSubDirPermissions -}}
+                            <div class="row form_field_dirperms_outer_row">
+                                <div class="form-group col-md-8">
+                                    <input type="text" class="form-control" id="idSubDirPermsPath{{$idx}}" name="sub_perm_path{{$idx}}" placeholder="directory path, i.e. /dir" value="{{$dirPerms.Path}}" maxlength="255">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <select class="form-control" id="idSubDirPermissions{{$idx}}" name="sub_perm_permissions{{$idx}}" multiple>
+                                        {{range $validPerm := $.ValidPerms}}
+                                        <option value="{{$validPerm}}" {{range $perm := $dirPerms.Permissions }}{{if eq $perm $validPerm}}selected{{end}}{{end}}>{{$validPerm}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_dirperms_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{else}}
+                            <div class="row form_field_dirperms_outer_row">
+                                <div class="form-group col-md-8">
+                                    <input type="text" class="form-control" id="idSubDirPermsPath0" name="sub_perm_path0" placeholder="directory path, i.e. /dir" value="" maxlength="255">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <select class="form-control" id="idSubDirPermissions0" name="sub_perm_permissions0" multiple>
+                                        {{range $validPerm := .ValidPerms}}
+                                        <option value="{{$validPerm}}">{{$validPerm}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_dirperms_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_dirperms_field_btn">
+                            <i class="fas fa-plus"></i> Add new directory permissions
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="idDisableFsChecks" name="disable_fs_checks"
+                    {{if .User.Filters.DisableFsChecks}}checked{{end}} aria-describedby="disableFsChecksHelpBlock">
+                    <label for="idDisableFsChecks" class="form-check-label">Disable filesystem checks</label>
+                    <small id="disableFsChecksHelpBlock" class="form-text text-muted">
+                        Disable checks for existence and automatic creation of home directory and virtual folders
                     </small>
                 </div>
             </div>
 
             <div class="form-group row">
-                <label for="idQuotaFiles" class="col-sm-2 col-form-label">Quota files</label>
-                <div class="col-sm-3">
-                    <input type="number" class="form-control" id="idQuotaFiles" name="quota_files" placeholder=""
-                        value="{{.User.QuotaFiles}}" min="0" aria-describedby="qfHelpBlock">
-                    <small id="qfHelpBlock" class="form-text text-muted">
-                        0 means no limit
-                    </small>
-                </div>
-                <div class="col-sm-2"></div>
                 <label for="idQuotaSize" class="col-sm-2 col-form-label">Quota size (bytes)</label>
                 <div class="col-sm-3">
                     <input type="number" class="form-control" id="idQuotaSize" name="quota_size" placeholder=""
                         value="{{.User.QuotaSize}}" min="0" aria-describedby="qsHelpBlock">
                     <small id="qsHelpBlock" class="form-text text-muted">
+                        0 means no limit
+                    </small>
+                </div>
+                <div class="col-sm-2"></div>
+                <label for="idQuotaFiles" class="col-sm-2 col-form-label">Quota files</label>
+                <div class="col-sm-3">
+                    <input type="number" class="form-control" id="idQuotaFiles" name="quota_files" placeholder=""
+                        value="{{.User.QuotaFiles}}" min="0" aria-describedby="qfHelpBlock">
+                    <small id="qfHelpBlock" class="form-text text-muted">
                         0 means no limit
                     </small>
                 </div>
@@ -286,6 +432,30 @@
             </div>
 
             <div class="form-group row">
+                <label for="idProtocols" class="col-sm-2 col-form-label">Denied protocols</label>
+                <div class="col-sm-10">
+                    <select class="form-control" id="idProtocols" name="denied_protocols" multiple>
+                        {{range $protocol := .ValidProtocols}}
+                        <option value="{{$protocol}}" {{range $p :=$.User.Filters.DeniedProtocols }}{{if eq $p $protocol}}selected{{end}}{{end}}>{{$protocol}}
+                        </option>
+                        {{end}}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group row">
+                <label for="idLoginMethods" class="col-sm-2 col-form-label">Denied login methods</label>
+                <div class="col-sm-10">
+                    <select class="form-control" id="idLoginMethods" name="ssh_login_methods" multiple>
+                        {{range $method := .ValidLoginMethods}}
+                        <option value="{{$method}}" {{range $m :=$.User.Filters.DeniedLoginMethods }}{{if eq $m $method}}selected{{end}}{{end}}>{{$method}}
+                        </option>
+                        {{end}}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group row">
                 <label for="idDeniedIP" class="col-sm-2 col-form-label">Denied IP/Mask</label>
                 <div class="col-sm-10">
                     <input type="text" class="form-control" id="idDeniedIP" name="denied_ip" placeholder=""
@@ -307,35 +477,75 @@
                 </div>
             </div>
 
-            <div class="form-group row">
-                <label for="idFilePatternsDenied" class="col-sm-2 col-form-label">Denied file patterns</label>
-                <div class="col-sm-10">
-                    <textarea class="form-control" id="idFilePatternsDenied" name="denied_patterns" rows="3"
-                        aria-describedby="deniedPatternsHelpBlock">{{range $index, $filter := .User.Filters.FilePatterns -}}
-                        {{if $filter.DeniedPatterns -}}
-                        {{$filter.Path}}::{{range $idx, $p := $filter.DeniedPatterns}}{{if $idx}},{{end}}{{$p}}{{end}}&#10;
-                        {{- end}}
-                        {{- end}}</textarea>
-                    <small id="deniedPatternsHelpBlock" class="form-text text-muted">
-                        One exposed virtual directory per line as /dir::pattern1,pattern2, for example
-                        /subdir::*.zip,*.rar
-                    </small>
+            <div class="card bg-light mb-3">
+                <div class="card-header">
+                    Per-directory file patterns
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title mb-4">Comma separated denied or allowed files, based on shell patterns</h6>
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_patterns_outer">
+                            {{range $idx, $pattern := .User.GetFlatFilePatterns -}}
+                            <div class="row form_field_patterns_outer_row">
+                                <div class="form-group col-md-4">
+                                    <input type="text" class="form-control" id="idPatternPath{{$idx}}" name="pattern_path{{$idx}}" placeholder="directory path, i.e. /dir" value="{{$pattern.Path}}" maxlength="255">
+                                </div>
+                                <div class="form-group col-md-5">
+                                    <input type="text" class="form-control" id="idPatterns{{$idx}}" name="patterns{{$idx}}" placeholder="*.zip,?.txt" value="{{$pattern.GetCommaSeparatedPatterns}}" maxlength="255">
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <select class="form-control" id="idPatternType{{$idx}}" name="pattern_type{{$idx}}">
+                                        <option value="denied" {{if $pattern.IsDenied}}selected{{end}}>Denied</option>
+                                        <option value="allowed" {{if $pattern.IsAllowed}}selected{{end}}>Allowed</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_pattern_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{else}}
+                            <div class="row form_field_patterns_outer_row">
+                                <div class="form-group col-md-4">
+                                    <input type="text" class="form-control" id="idPatternPath0" name="pattern_path0" placeholder="directory path, i.e. /dir" value="" maxlength="255">
+                                </div>
+                                <div class="form-group col-md-5">
+                                    <input type="text" class="form-control" id="idPatterns0" name="patterns0" placeholder="*.zip,?.txt" value="" maxlength="255">
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <select class="form-control" id="idPatternType0" name="pattern_type0">
+                                        <option value="denied">Denied</option>
+                                        <option value="allowed">Allowed</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_pattern_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_pattern_field_btn">
+                            <i class="fas fa-plus"></i> Add new file pattern
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <div class="form-group row">
-                <label for="idFilePatternsAllowed" class="col-sm-2 col-form-label">Allowed file patterns</label>
+                <label for="idWebClient" class="col-sm-2 col-form-label">Web client</label>
                 <div class="col-sm-10">
-                    <textarea class="form-control" id="idFilePatternsAllowed" name="allowed_patterns" rows="3"
-                        aria-describedby="allowedPatternsHelpBlock">{{range $index, $filter := .User.Filters.FilePatterns -}}
-                        {{if $filter.AllowedPatterns -}}
-                        {{$filter.Path}}::{{range $idx, $p := $filter.AllowedPatterns}}{{if $idx}},{{end}}{{$p}}{{end}}&#10;
-                        {{- end}}
-                        {{- end}}</textarea>
-                    <small id="allowedPatternsHelpBlock" class="form-text text-muted">
-                        One exposed virtual directory per line as /dir::pattern1,pattern2, for example
-                        /somedir::*.jpg,*.png
-                    </small>
+                    <select class="form-control" id="idWebClient" name="web_client_options" multiple>
+                        {{range $option := .WebClientOptions}}
+                        <option value="{{$option}}" {{range $p :=$.User.Filters.WebClient }}{{if eq $p $option}}selected{{end}}{{end}}>{{$option}}
+                        </option>
+                        {{end}}
+                    </select>
                 </div>
             </div>
 
@@ -355,19 +565,6 @@
                     </select>
                 </div>
             </div>
-
-            <div class="form-group">
-                <div class="form-check">
-                    <input type="checkbox" class="form-check-input" id="idDisableFsChecks" name="disable_fs_checks"
-                    {{if .User.Filters.DisableFsChecks}}checked{{end}} aria-describedby="disableFsChecksHelpBlock">
-                    <label for="idDisableFsChecks" class="form-check-label">Disable filesystem checks</label>
-                    <small id="disableFsChecksHelpBlock" class="form-text text-muted">
-                        Disable checks for existence and automatic creation of home directory and virtual folders
-                    </small>
-                </div>
-            </div>
-
-            {{template "fshtml" .User.FsConfig}}
 
             <div class="form-group row">
                 <label for="idAdditionalInfo" class="col-sm-2 col-form-label">Additional info</label>
@@ -439,6 +636,169 @@
         });
 
         onFilesystemChanged('{{.User.FsConfig.Provider}}');
+
+        $("body").on("click", ".add_new_pk_field_btn", function () {
+            var index = $(".form_field_pk_outer").find(".form_field_pk_outer_row").length;
+            while (document.getElementById("idPublicKey"+index) != null){
+                index++;
+            }
+            $(".form_field_pk_outer").append(`
+                    <div class="row form_field_pk_outer_row">
+                        <div class="form-group col-md-11">
+                            <textarea class="form-control" id="idPublicKey${index}" name="public_keys" rows="3"
+                                placeholder="Paste your public key here"></textarea>
+                        </div>
+                        <div class="form-group col-md-1">
+                            <button class="btn btn-circle btn-danger remove_pk_btn_frm_field">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `);
+        });
+
+        $("body").on("click", ".remove_pk_btn_frm_field", function () {
+            $(this).closest(".form_field_pk_outer_row").remove();
+        });
+
+        $("body").on("click", ".add_new_dirperms_field_btn", function () {
+            var index = $(".form_field_dirperms_outer").find(".form_field_dirperms_outer_row").length;
+            while (document.getElementById("idSubDirPermsPath"+index) != null){
+                index++;
+            }
+            $(".form_field_dirperms_outer").append(`
+                    <div class="row form_field_dirperms_outer_row">
+                        <div class="form-group col-md-8">
+                            <input type="text" class="form-control" id="idSubDirPermsPath${index}" name="sub_perm_path${index}" placeholder="directory path, i.e. /dir" value="" maxlength="255">
+                        </div>
+                        <div class="form-group col-md-3">
+                            <select class="form-control" id="idSubDirPermissions${index}" name="sub_perm_permissions${index}" multiple>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-1">
+                            <button class="btn btn-circle btn-danger remove_dirperms_btn_frm_field">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `);
+
+            {{range .ValidPerms}}
+            $("#idSubDirPermissions"+index).append($('<option>').val('{{.}}').text('{{.}}'));
+            {{end}}
+        });
+
+        $("body").on("click", ".remove_dirperms_btn_frm_field", function () {
+            $(this).closest(".form_field_dirperms_outer_row").remove();
+        });
+
+        $("body").on("click", ".add_new_vfolder_field_btn", function () {
+            var index = $(".form_field_vfolders_outer").find(".form_field_vfolder_outer_row").length;
+            while (document.getElementById("idVolderPath"+index) != null){
+                index++;
+            }
+            $(".form_field_vfolders_outer").append(`
+                    <div class="row form_field_vfolder_outer_row">
+                        <div class="form-group col-md-3">
+                            <input type="text" class="form-control" id="idVolderPath${index}" name="vfolder_path" placeholder="mount path, i.e. /vfolder" value="" maxlength="255">
+                        </div>
+                        <div class="form-group col-md-3">
+                            <select class="form-control" id="idVfolderName${index}" name="vfolder_name">
+                                <option value=""></option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-3">
+                            <input type="number" class="form-control" id="idVfolderQuotaSize${index}" name="vfolder_quota_size"
+                                value="" min="-1" aria-describedby="vqsHelpBlock${index}">
+                            <small id="vqsHelpBlock${index}" class="form-text text-muted">
+                                Quota size (bytes)
+                            </small>
+                        </div>
+                        <div class="form-group col-md-2">
+                            <input type="number" class="form-control" id="idVfolderQuotaFiles${index}" name="vfolder_quota_files"
+                                value="" min="-1" aria-describedby="vqfHelpBlock${index}">
+                            <small id="vqfHelpBlock${index}" class="form-text text-muted">
+                                Quota files
+                            </small>
+                        </div>
+                        <div class="form-group col-md-1">
+                            <button class="btn btn-circle btn-danger remove_vfolder_btn_frm_field">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `);
+
+            {{range .VirtualFolders}}
+            $("#idVfolderName"+index).append($('<option>').val('{{.Name}}').text('{{.Name}}'));
+            {{end}}
+        });
+
+        $("body").on("click", ".remove_vfolder_btn_frm_field", function () {
+            $(this).closest(".form_field_vfolder_outer_row").remove();
+        });
+
+        $("body").on("click", ".add_new_pattern_field_btn", function () {
+            var index = $(".form_field_patterns_outer").find(".form_field_patterns_outer_row").length;
+            while (document.getElementById("idPatternPath"+index) != null){
+                index++;
+            }
+            $(".form_field_patterns_outer").append(`
+                    <div class="row form_field_patterns_outer_row">
+                        <div class="form-group col-md-4">
+                            <input type="text" class="form-control" id="idPatternPath${index}" name="pattern_path${index}" placeholder="directory path, i.e. /dir" value="" maxlength="255">
+                        </div>
+                        <div class="form-group col-md-5">
+                            <input type="text" class="form-control" id="idPatterns${index}" name="patterns${index}" placeholder="*.zip,?.txt" value="" maxlength="255">
+                        </div>
+                        <div class="form-group col-md-2">
+                            <select class="form-control" id="idPatternType${index}" name="pattern_type${index}">
+                                <option value="denied">Denied</option>
+                                <option value="allowed">Allowed</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-1">
+                            <button class="btn btn-circle btn-danger remove_pattern_btn_frm_field">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `);
+        });
+
+        $("body").on("click", ".remove_pattern_btn_frm_field", function () {
+            $(this).closest(".form_field_patterns_outer_row").remove();
+        });
+
+        $("body").on("click", ".add_new_tpl_user_field_btn", function () {
+            var index = $(".form_field_tpl_users_outer").find(".form_field_tpl_user_outer_row").length;
+            while (document.getElementById("idTplUsername"+index) != null){
+                index++;
+            }
+            $(".form_field_tpl_users_outer").append(`
+                    <div class="row form_field_tpl_user_outer_row">
+                        <div class="form-group col-md-3">
+                            <input type="text" class="form-control" id="idTplUsername${index}" name="tpl_username" placeholder="Username" maxlength="255">
+                        </div>
+                        <div class="form-group col-md-3">
+                            <input type="password" class="form-control" id="idTplPassword${index}" name="tpl_password" placeholder="Password" maxlength="255">
+                        </div>
+                        <div class="form-group col-md-5">
+                            <textarea class="form-control" id="idTplPublicKey${index}" name="tpl_public_keys" rows="5"
+                                placeholder="Paste your public key here"></textarea>
+                        </div>
+                        <div class="form-group col-md-1">
+                            <button class="btn btn-circle btn-danger remove_tpl_user_btn_frm_field">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `);
+        });
+
+        $("body").on("click", ".remove_tpl_user_btn_frm_field", function () {
+            $(this).closest(".form_field_tpl_user_outer_row").remove();
+        });
 
     });
 
