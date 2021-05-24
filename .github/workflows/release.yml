@@ -204,7 +204,7 @@ jobs:
       - name: Build on amd64
         if: ${{ matrix.arch == 'amd64' }}
         run: |
-          go build -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
+          CGO_ENABLED=0 go build -ldflags "-s -w -X github.com/drakkan/sftpgo/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/version.date=`date -u +%FT%TZ`" -o sftpgo
           mkdir -p output/{init,sqlite,bash_completion,zsh_completion}
           echo "For documentation please take a look here:" > output/README.txt
           echo "" >> output/README.txt
@@ -214,13 +214,11 @@ jobs:
           cp -r templates output/
           cp -r static output/
           cp init/sftpgo.service output/init/
-          ./sftpgo initprovider
           ./sftpgo gen completion bash > output/bash_completion/sftpgo
           ./sftpgo gen completion zsh > output/zsh_completion/_sftpgo
           ./sftpgo gen man -d output/man/man1
           gzip output/man/man1/*
           cp sftpgo output/
-          cp sftpgo.db output/sqlite/
           cd output
           tar cJvf sftpgo_${SFTPGO_VERSION}_linux_${{ matrix.tar-arch }}.tar.xz *
           cd ..
