@@ -396,9 +396,14 @@ func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
-	var provider fsmeta.Provider
-	var fsMetaErr error
-	err := fs.svc.ListObjectsV2PagesWithContext(ctx, &s3.ListObjectsV2Input{
+
+	provider, err := fs.preloadFSMetaData(ctx, prefix)
+	if err != nil {
+		metrics.S3ListObjectsCompleted(err)
+		return result, err
+	}
+
+	err = fs.svc.ListObjectsV2PagesWithContext(ctx, &s3.ListObjectsV2Input{
 		Bucket:    aws.String(fs.config.Bucket),
 		Prefix:    aws.String(prefix),
 		Delimiter: aws.String("/"),
@@ -414,11 +419,6 @@ func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 			}
 			result = append(result, NewFileInfo(name, true, 0, time.Now(), false))
 			prefixes[name] = true
-		}
-
-		provider, fsMetaErr = fs.preloadFSMetaData(ctx, prefix, page.Contents)
-		if fsMetaErr != nil {
-			return false
 		}
 
 		for _, fileObject := range page.Contents {
@@ -449,21 +449,14 @@ func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 		return true
 	})
 
-	if fsMetaErr != nil {
-		return result, fsMetaErr
-	}
-
 	metrics.S3ListObjectsCompleted(err)
 	return result, err
 }
 
-func (fs *S3Fs) preloadFSMetaData(ctx context.Context, Prefix string, Objects []*s3.Object) (fsmeta.Provider, error) {
-	if fsmeta.Enabled && len(Objects) > 0 {
-		From := *Objects[0].Key
-		To := *Objects[len(Objects)-1].Key
-
+func (fs *S3Fs) preloadFSMetaData(ctx context.Context, Prefix string) (fsmeta.Provider, error) {
+	if fsmeta.Enabled {
 		Provider := fsmeta.DefaultFactory.New(fs.svc, fs.config.Bucket)
-		err := Provider.Preload(ctx, Prefix, From, To)
+		err := Provider.Preload(ctx, Prefix)
 		return Provider, err
 	}
 	return fsmeta.EmptyProvider, nil

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"path"
-	"path/filepath"
 	"strings"
 )
 
@@ -37,7 +36,7 @@ func NewPostgresS3Factory(DB *sql.DB) S3Factory {
 	}
 }
 
-func (Provider *fsMetaPostgres) Preload(ctx context.Context, Folder, From, To string) error {
+func (Provider *fsMetaPostgres) Preload(ctx context.Context, Folder string) error {
 	FolderID, err := Provider.getFolderID(ctx, Folder)
 	if err != nil && err == sql.ErrNoRows {
 		Provider.loaded = emptyCache
@@ -47,13 +46,8 @@ func (Provider *fsMetaPostgres) Preload(ctx context.Context, Folder, From, To st
 		return err
 	}
 
-	From = filepath.Base(From)
-	To = filepath.Base(To)
-
 	Rows, err := Provider.DB.QueryContext(ctx, `SELECT filename, filesize, uploaded, etag, last_modified `+
 		`FROM fsmeta_files WHERE folder_id = $1`, FolderID)
-	//Rows, err := Provider.DB.QueryContext(ctx, `SELECT filename, filesize, uploaded, etag, last_modified `+
-	//	`FROM fsmeta_files WHERE folder_id = $1 AND filename >= $2 AND filename <= $3`, FolderID, From, To)
 	if err != nil {
 		return err
 	}

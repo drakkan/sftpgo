@@ -158,7 +158,7 @@ func (Suite *PostgresSuite) TestPreload() {
 		Metadata: S3Meta3,
 	}, nil)
 
-	Suite.Nil(Provider.Preload(Ctx, `users/test2/`, `test1.csv`, `test3.csv`))
+	Suite.Nil(Provider.Preload(Ctx, `users/test2/`))
 
 	// assertions
 	Actual1, err1 := Provider.Get(Ctx, Key1)

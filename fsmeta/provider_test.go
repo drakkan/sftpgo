@@ -21,7 +21,7 @@ func TestEmptyProvider(t *testing.T) {
 		Key:          Key,
 		LastModified: time.Now(),
 	}))
-	assert.Nil(t, EmptyProvider.Preload(Ctx, ``, ``, ``))
+	assert.Nil(t, EmptyProvider.Preload(Ctx, ``))
 
 	Actual, err := EmptyProvider.Get(Ctx, Key)
 
