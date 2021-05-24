@@ -122,3 +122,18 @@ func (mr *MockMiddlewareMockRecorder) OpenFile(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenFile", reflect.TypeOf((*MockMiddleware)(nil).OpenFile), arg0)
 }
+
+// StatVFS mocks base method
+func (m *MockMiddleware) StatVFS(arg0 *sftp.Request) (*sftp.StatVFS, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StatVFS", arg0)
+	ret0, _ := ret[0].(*sftp.StatVFS)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StatVFS indicates an expected call of StatVFS
+func (mr *MockMiddlewareMockRecorder) StatVFS(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatVFS", reflect.TypeOf((*MockMiddleware)(nil).StatVFS), arg0)
+}

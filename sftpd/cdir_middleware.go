@@ -71,3 +71,7 @@ func (c *cdirMiddleware) Filecmd(request *sftp.Request) error {
 func (c *cdirMiddleware) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 	return c.next.Fileread(request)
 }
+
+func (c *cdirMiddleware) StatVFS(request *sftp.Request) (*sftp.StatVFS, error) {
+	return c.next.StatVFS(request)
+}

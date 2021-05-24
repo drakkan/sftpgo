@@ -31,6 +31,7 @@ type Middleware interface {
 	sftp.FileCmder
 	sftp.FileReader
 	sftp.FileLister
+	sftp.StatVFSFileCmder
 }
 
 var _ Middleware = &prefixMiddleware{}
@@ -132,6 +133,17 @@ func (p *prefixMiddleware) Filecmd(request *sftp.Request) error {
 		return sftp.ErrSSHFxPermissionDenied
 	default:
 		return sftp.ErrSSHFxOpUnsupported
+	}
+}
+
+func (p *prefixMiddleware) StatVFS(request *sftp.Request) (*sftp.StatVFS, error) {
+	switch GetPrefixHierarchy(p.prefix, request.Filepath) {
+	case PathContainsPrefix:
+		// forward to next handler
+		request.Filepath, _ = p.removeFolderPrefix(request.Filepath)
+		return p.next.StatVFS(request)
+	default:
+		return nil, sftp.ErrSSHFxPermissionDenied
 	}
 }
 
