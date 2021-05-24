@@ -21,7 +21,7 @@ require (
 	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/golang-migrate/migrate/v4 v4.14.1
-	github.com/golang/mock v1.4.4
+	github.com/golang/mock v1.5.0
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.2.0 // indirect
