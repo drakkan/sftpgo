@@ -4904,8 +4904,11 @@ func TestWebGetFiles(t *testing.T) {
 	testFileContents := []byte("file contents")
 	err = os.MkdirAll(filepath.Join(user.GetHomeDir(), testDir), os.ModePerm)
 	assert.NoError(t, err)
-	err = os.WriteFile(filepath.Join(user.GetHomeDir(), testFileName), testFileContents, os.ModePerm)
-	assert.NoError(t, err)
+	extensions := []string{"", ".doc", ".ppt", ".xls", ".pdf", ".mkv", ".png", ".go", ".zip", ".txt"}
+	for _, ext := range extensions {
+		err = os.WriteFile(filepath.Join(user.GetHomeDir(), testFileName+ext), testFileContents, os.ModePerm)
+		assert.NoError(t, err)
+	}
 	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 	req, _ := http.NewRequest(http.MethodGet, webClientFilesPath, nil)

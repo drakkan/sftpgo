@@ -78,14 +78,15 @@ type dirMapping struct {
 
 type filesPage struct {
 	baseClientPage
-	CurrentDir   string
-	Files        []os.FileInfo
-	Error        string
-	Paths        []dirMapping
-	FormatTime   func(time.Time) string
-	GetObjectURL func(string, string) string
-	GetSize      func(int64) string
-	IsLink       func(os.FileInfo) bool
+	CurrentDir          string
+	Files               []os.FileInfo
+	Error               string
+	Paths               []dirMapping
+	FormatTime          func(time.Time) string
+	GetObjectURL        func(string, string) string
+	GetSize             func(int64) string
+	IsLink              func(os.FileInfo) bool
+	GetIconForExtension func(string) string
 }
 
 type clientMessagePage struct {
@@ -116,6 +117,32 @@ func getFileObjectModTime(t time.Time) string {
 
 func isFileObjectLink(info os.FileInfo) bool {
 	return info.Mode()&os.ModeSymlink != 0
+}
+
+func getFileIconForExtension(name string) string {
+	switch path.Ext(name) {
+	case ".doc", ".docx", ".odt":
+		return "far fa-file-word"
+	case ".ppt", ".pptx":
+		return "far fa-file-powerpoint"
+	case ".xls", ".xlsx":
+		return "far fa-file-excel"
+	case ".pdf":
+		return "far fa-file-pdf"
+	case ".webm", ".mkv", ".flv", ".vob", ".ogv", ".ogg", ".avi", ".ts", ".mov", ".wmv", ".asf", ".mpeg", ".mpv", ".3gp":
+		return "far fa-file-video"
+	case ".jpeg", ".jpg", ".png", ".gif", ".webp", ".tiff", ".psd", ".bmp", ".svg", ".jp2":
+		return "far fa-file-image"
+	case ".go", ".java", ".php", ".cs", ".asp", ".aspx", ".css", ".html", ".js", ".py", ".rb", ".cgi", ".c", ".cpp", ".h",
+		".hpp", ".kt", ".ktm", ".kts", ".swift", ".r":
+		return "far fa-file-code"
+	case ".zip", ".rar", ".tar", ".gz", ".bz2", ".zstd", ".zst", ".sz", ".lz", ".lz4", ".xz":
+		return "far fa-file-archive"
+	case ".txt", ".sh", ".json", ".yaml", ".toml":
+		return "far fa-file-alt"
+	default:
+		return "far fa-file"
+	}
 }
 
 func loadClientTemplates(templatesPath string) {
@@ -221,14 +248,15 @@ func renderClientNotFoundPage(w http.ResponseWriter, r *http.Request, err error)
 
 func renderFilesPage(w http.ResponseWriter, r *http.Request, files []os.FileInfo, dirName, error string) {
 	data := filesPage{
-		baseClientPage: getBaseClientPageData(pageClientFilesTitle, webClientFilesPath, r),
-		Files:          files,
-		Error:          error,
-		CurrentDir:     dirName,
-		FormatTime:     getFileObjectModTime,
-		GetObjectURL:   getFileObjectURL,
-		GetSize:        utils.ByteCountIEC,
-		IsLink:         isFileObjectLink,
+		baseClientPage:      getBaseClientPageData(pageClientFilesTitle, webClientFilesPath, r),
+		Files:               files,
+		Error:               error,
+		CurrentDir:          dirName,
+		FormatTime:          getFileObjectModTime,
+		GetObjectURL:        getFileObjectURL,
+		GetSize:             utils.ByteCountIEC,
+		IsLink:              isFileObjectLink,
+		GetIconForExtension: getFileIconForExtension,
 	}
 	paths := []dirMapping{}
 	if dirName != "/" {

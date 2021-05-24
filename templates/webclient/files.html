@@ -43,7 +43,7 @@
                     {{else}}
                     <tr>
                         <td>2</td>
-                        <td><i class="{{if call $.IsLink .}}fas fa-external-link-alt{{else}}fas fa-file{{end}}"></i>&nbsp;<a href="{{call $.GetObjectURL $.CurrentDir .Name}}">{{.Name}}</a></td>
+                        <td><i class="{{if call $.IsLink .}}fas fa-external-link-alt{{else}}{{call $.GetIconForExtension .Name}}{{end}}"></i>&nbsp;<a href="{{call $.GetObjectURL $.CurrentDir .Name}}">{{.Name}}</a></td>
                         <td>{{if not (call $.IsLink .)}}{{call $.GetSize .Size}}{{end}}</td>
                         <td>{{call $.FormatTime .ModTime}}</td>
                     </tr>
