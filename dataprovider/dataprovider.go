@@ -1912,15 +1912,14 @@ func validateKeyboardAuthResponse(response keyboardAuthHookResponse) error {
 	return nil
 }
 
-func sendKeyboardAuthHTTPReq(url *url.URL, request keyboardAuthHookRequest) (keyboardAuthHookResponse, error) {
+func sendKeyboardAuthHTTPReq(url string, request keyboardAuthHookRequest) (keyboardAuthHookResponse, error) {
 	var response keyboardAuthHookResponse
-	httpClient := httpclient.GetHTTPClient()
 	reqAsJSON, err := json.Marshal(request)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error serializing keyboard interactive auth request: %v", err)
 		return response, err
 	}
-	resp, err := httpClient.Post(url.String(), "application/json", bytes.NewBuffer(reqAsJSON))
+	resp, err := httpclient.Post(url, "application/json", bytes.NewBuffer(reqAsJSON))
 	if err != nil {
 		providerLog(logger.LevelWarn, "error getting keyboard interactive auth hook HTTP response: %v", err)
 		return response, err
@@ -1935,12 +1934,6 @@ func sendKeyboardAuthHTTPReq(url *url.URL, request keyboardAuthHookRequest) (key
 
 func executeKeyboardInteractiveHTTPHook(user *User, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (int, error) {
 	authResult := 0
-	var url *url.URL
-	url, err := url.Parse(authHook)
-	if err != nil {
-		providerLog(logger.LevelWarn, "invalid url for keyboard interactive hook %#v, error: %v", authHook, err)
-		return authResult, err
-	}
 	requestID := xid.New().String()
 	req := keyboardAuthHookRequest{
 		Username:  user.Username,
@@ -1949,8 +1942,9 @@ func executeKeyboardInteractiveHTTPHook(user *User, authHook string, client ssh.
 		RequestID: requestID,
 	}
 	var response keyboardAuthHookResponse
+	var err error
 	for {
-		response, err = sendKeyboardAuthHTTPReq(url, req)
+		response, err = sendKeyboardAuthHTTPReq(authHook, req)
 		if err != nil {
 			return authResult, err
 		}
@@ -2120,12 +2114,6 @@ func isCheckPasswordHookDefined(protocol string) bool {
 func getPasswordHookResponse(username, password, ip, protocol string) ([]byte, error) {
 	if strings.HasPrefix(config.CheckPasswordHook, "http") {
 		var result []byte
-		var url *url.URL
-		url, err := url.Parse(config.CheckPasswordHook)
-		if err != nil {
-			providerLog(logger.LevelWarn, "invalid url for check password hook %#v, error: %v", config.CheckPasswordHook, err)
-			return result, err
-		}
 		req := checkPasswordRequest{
 			Username: username,
 			Password: password,
@@ -2136,8 +2124,7 @@ func getPasswordHookResponse(username, password, ip, protocol string) ([]byte, e
 		if err != nil {
 			return result, err
 		}
-		httpClient := httpclient.GetHTTPClient()
-		resp, err := httpClient.Post(url.String(), "application/json", bytes.NewBuffer(reqAsJSON))
+		resp, err := httpclient.Post(config.CheckPasswordHook, "application/json", bytes.NewBuffer(reqAsJSON))
 		if err != nil {
 			providerLog(logger.LevelWarn, "error getting check password hook response: %v", err)
 			return result, err
@@ -2192,8 +2179,8 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 		q.Add("ip", ip)
 		q.Add("protocol", protocol)
 		url.RawQuery = q.Encode()
-		httpClient := httpclient.GetHTTPClient()
-		resp, err := httpClient.Post(url.String(), "application/json", bytes.NewBuffer(userAsJSON))
+
+		resp, err := httpclient.Post(url.String(), "application/json", bytes.NewBuffer(userAsJSON))
 		if err != nil {
 			providerLog(logger.LevelWarn, "error getting pre-login hook response: %v", err)
 			return result, err
@@ -2318,8 +2305,7 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 
 			startTime := time.Now()
 			respCode := 0
-			httpClient := httpclient.GetRetraybleHTTPClient()
-			resp, err := httpClient.Post(url.String(), "application/json", bytes.NewBuffer(userAsJSON))
+			resp, err := httpclient.RetryablePost(url.String(), "application/json", bytes.NewBuffer(userAsJSON))
 			if err == nil {
 				respCode = resp.StatusCode
 				resp.Body.Close()
@@ -2353,14 +2339,7 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 		}
 	}
 	if strings.HasPrefix(config.ExternalAuthHook, "http") {
-		var url *url.URL
 		var result []byte
-		url, err := url.Parse(config.ExternalAuthHook)
-		if err != nil {
-			providerLog(logger.LevelWarn, "invalid url for external auth hook %#v, error: %v", config.ExternalAuthHook, err)
-			return result, err
-		}
-		httpClient := httpclient.GetHTTPClient()
 		authRequest := make(map[string]string)
 		authRequest["username"] = username
 		authRequest["ip"] = ip
@@ -2377,7 +2356,7 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 			providerLog(logger.LevelWarn, "error serializing external auth request: %v", err)
 			return result, err
 		}
-		resp, err := httpClient.Post(url.String(), "application/json", bytes.NewBuffer(authRequestAsJSON))
+		resp, err := httpclient.Post(config.ExternalAuthHook, "application/json", bytes.NewBuffer(authRequestAsJSON))
 		if err != nil {
 			providerLog(logger.LevelWarn, "error getting external auth hook HTTP response: %v", err)
 			return result, err
@@ -2561,8 +2540,7 @@ func executeAction(operation string, user *User) {
 			q.Add("action", operation)
 			url.RawQuery = q.Encode()
 			startTime := time.Now()
-			httpClient := httpclient.GetRetraybleHTTPClient()
-			resp, err := httpClient.Post(url.String(), "application/json", bytes.NewBuffer(userAsJSON))
+			resp, err := httpclient.RetryablePost(url.String(), "application/json", bytes.NewBuffer(userAsJSON))
 			respCode := 0
 			if err == nil {
 				respCode = resp.StatusCode

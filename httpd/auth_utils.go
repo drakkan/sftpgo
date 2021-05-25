@@ -31,8 +31,8 @@ const (
 )
 
 var (
-	tokenDuration   = 10 * time.Minute
-	tokenRefreshMin = 5 * time.Minute
+	tokenDuration   = 15 * time.Minute
+	tokenRefreshMin = 10 * time.Minute
 )
 
 type jwtTokenClaims struct {

@@ -2631,8 +2631,7 @@ func TestNonLocalCrossRenameNonLocalBaseUser(t *testing.T) {
 }
 
 func TestProxyProtocol(t *testing.T) {
-	httpClient := httpclient.GetHTTPClient()
-	resp, err := httpClient.Get(fmt.Sprintf("http://%v", httpProxyAddr))
+	resp, err := httpclient.Get(fmt.Sprintf("http://%v", httpProxyAddr))
 	if assert.NoError(t, err) {
 		defer resp.Body.Close()
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)

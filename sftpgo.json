@@ -217,7 +217,8 @@
     "retry_max": 3,
     "ca_certificates": [],
     "certificates": [],
-    "skip_tls_verify": false
+    "skip_tls_verify": false,
+    "headers": []
   },
   "kms": {
     "secrets": {

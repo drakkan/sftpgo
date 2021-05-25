@@ -248,6 +248,10 @@ The configuration file contains the following sections:
     - `cert`, string. Path to the certificate file. The path can be absolute or relative to the config dir.
     - `key`, string. Path to the key file. The path can be absolute or relative to the config dir.
   - `skip_tls_verify`, boolean. if enabled the HTTP client accepts any TLS certificate presented by the server and any host name in that certificate. In this mode, TLS is susceptible to man-in-the-middle attacks. This should be used only for testing.
+  - `headers`, list of structs. You can define a list of http headers to add to each hook. Each struct has the following fields:
+    - `key`, string
+    - `value`, string. The header is silently ignored if `key` or `value` are empty
+    - `url`, string, optional. If not empty, the header will be added only if the request URL starts with the one specified here
 - **kms**, configuration for the Key Management Service, more details can be found [here](./kms.md)
   - `secrets`
     - `url`

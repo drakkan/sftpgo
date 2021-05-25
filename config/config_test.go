@@ -751,6 +751,77 @@ func TestHTTPClientCertificatesFromEnv(t *testing.T) {
 	require.Equal(t, "key9", config.GetHTTPConfig().Certificates[1].Key)
 }
 
+func TestHTTPClientHeadersFromEnv(t *testing.T) {
+	reset()
+
+	configDir := ".."
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+	err := config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	httpConf := config.GetHTTPConfig()
+	httpConf.Headers = append(httpConf.Headers, httpclient.Header{
+		Key:   "key",
+		Value: "value",
+		URL:   "url",
+	})
+	c := make(map[string]httpclient.Config)
+	c["http"] = httpConf
+	jsonConf, err := json.Marshal(c)
+	require.NoError(t, err)
+	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
+	require.NoError(t, err)
+	err = config.LoadConfig(configDir, confName)
+	require.NoError(t, err)
+	require.Len(t, config.GetHTTPConfig().Headers, 1)
+	require.Equal(t, "key", config.GetHTTPConfig().Headers[0].Key)
+	require.Equal(t, "value", config.GetHTTPConfig().Headers[0].Value)
+	require.Equal(t, "url", config.GetHTTPConfig().Headers[0].URL)
+
+	os.Setenv("SFTPGO_HTTP__HEADERS__0__KEY", "key0")
+	os.Setenv("SFTPGO_HTTP__HEADERS__0__VALUE", "value0")
+	os.Setenv("SFTPGO_HTTP__HEADERS__0__URL", "url0")
+	os.Setenv("SFTPGO_HTTP__HEADERS__8__KEY", "key8")
+	os.Setenv("SFTPGO_HTTP__HEADERS__9__KEY", "key9")
+	os.Setenv("SFTPGO_HTTP__HEADERS__9__VALUE", "value9")
+	os.Setenv("SFTPGO_HTTP__HEADERS__9__URL", "url9")
+
+	t.Cleanup(func() {
+		os.Unsetenv("SFTPGO_HTTP__HEADERS__0__KEY")
+		os.Unsetenv("SFTPGO_HTTP__HEADERS__0__VALUE")
+		os.Unsetenv("SFTPGO_HTTP__HEADERS__0__URL")
+		os.Unsetenv("SFTPGO_HTTP__HEADERS__8__KEY")
+		os.Unsetenv("SFTPGO_HTTP__HEADERS__9__KEY")
+		os.Unsetenv("SFTPGO_HTTP__HEADERS__9__VALUE")
+		os.Unsetenv("SFTPGO_HTTP__HEADERS__9__URL")
+	})
+
+	err = config.LoadConfig(configDir, confName)
+	require.NoError(t, err)
+	require.Len(t, config.GetHTTPConfig().Headers, 2)
+	require.Equal(t, "key0", config.GetHTTPConfig().Headers[0].Key)
+	require.Equal(t, "value0", config.GetHTTPConfig().Headers[0].Value)
+	require.Equal(t, "url0", config.GetHTTPConfig().Headers[0].URL)
+	require.Equal(t, "key9", config.GetHTTPConfig().Headers[1].Key)
+	require.Equal(t, "value9", config.GetHTTPConfig().Headers[1].Value)
+	require.Equal(t, "url9", config.GetHTTPConfig().Headers[1].URL)
+
+	err = os.Remove(configFilePath)
+	assert.NoError(t, err)
+
+	config.Init()
+
+	err = config.LoadConfig(configDir, "")
+	require.NoError(t, err)
+	require.Len(t, config.GetHTTPConfig().Headers, 2)
+	require.Equal(t, "key0", config.GetHTTPConfig().Headers[0].Key)
+	require.Equal(t, "value0", config.GetHTTPConfig().Headers[0].Value)
+	require.Equal(t, "url0", config.GetHTTPConfig().Headers[0].URL)
+	require.Equal(t, "key9", config.GetHTTPConfig().Headers[1].Key)
+	require.Equal(t, "value9", config.GetHTTPConfig().Headers[1].Value)
+	require.Equal(t, "url9", config.GetHTTPConfig().Headers[1].URL)
+}
+
 func TestConfigFromEnv(t *testing.T) {
 	reset()
 

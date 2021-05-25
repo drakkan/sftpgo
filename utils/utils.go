@@ -404,7 +404,7 @@ func createDirPathIfMissing(file string, perm os.FileMode) error {
 func GenerateRandomBytes(length int) []byte {
 	b := make([]byte, length)
 	_, err := io.ReadFull(rand.Reader, b)
-	if err != nil {
+	if err == nil {
 		return b
 	}
 

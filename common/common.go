@@ -420,8 +420,7 @@ func (c *Configuration) ExecuteStartupHook() error {
 			return err
 		}
 		startTime := time.Now()
-		httpClient := httpclient.GetRetraybleHTTPClient()
-		resp, err := httpClient.Get(url.String())
+		resp, err := httpclient.RetryableGet(url.String())
 		if err != nil {
 			logger.Warn(logSender, "", "Error executing startup hook: %v", err)
 			return err
@@ -457,13 +456,12 @@ func (c *Configuration) ExecutePostConnectHook(ipAddr, protocol string) error {
 				ipAddr, c.PostConnectHook, err)
 			return err
 		}
-		httpClient := httpclient.GetRetraybleHTTPClient()
 		q := url.Query()
 		q.Add("ip", ipAddr)
 		q.Add("protocol", protocol)
 		url.RawQuery = q.Encode()
 
-		resp, err := httpClient.Get(url.String())
+		resp, err := httpclient.RetryableGet(url.String())
 		if err != nil {
 			logger.Warn(protocol, "", "Login from ip %#v denied, error executing post connect hook: %v", ipAddr, err)
 			return err

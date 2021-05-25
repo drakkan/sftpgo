@@ -155,12 +155,10 @@ func (h *defaultActionHandler) handleHTTP(notification *ActionNotification) erro
 	startTime := time.Now()
 	respCode := 0
 
-	httpClient := httpclient.GetRetraybleHTTPClient()
-
 	var b bytes.Buffer
 	_ = json.NewEncoder(&b).Encode(notification)
 
-	resp, err := httpClient.Post(u.String(), "application/json", &b)
+	resp, err := httpclient.RetryablePost(Config.Actions.Hook, "application/json", &b)
 	if err == nil {
 		respCode = resp.StatusCode
 		resp.Body.Close()

@@ -256,6 +256,7 @@ func Init() {
 			CACertificates: nil,
 			Certificates:   nil,
 			SkipTLSVerify:  false,
+			Headers:        nil,
 		},
 		KMSConfig: kms.Configuration{
 			Secrets: kms.Secrets{
@@ -577,6 +578,7 @@ func loadBindingsFromEnv() {
 		getWebDAVDBindingFromEnv(idx)
 		getHTTPDBindingFromEnv(idx)
 		getHTTPClientCertificatesFromEnv(idx)
+		getHTTPClientHeadersFromEnv(idx)
 	}
 }
 
@@ -885,6 +887,33 @@ func getHTTPClientCertificatesFromEnv(idx int) {
 			globalConf.HTTPConfig.Certificates[idx] = tlsCert
 		} else {
 			globalConf.HTTPConfig.Certificates = append(globalConf.HTTPConfig.Certificates, tlsCert)
+		}
+	}
+}
+
+func getHTTPClientHeadersFromEnv(idx int) {
+	header := httpclient.Header{}
+
+	key, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTP__HEADERS__%v__KEY", idx))
+	if ok {
+		header.Key = key
+	}
+
+	value, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTP__HEADERS__%v__VALUE", idx))
+	if ok {
+		header.Value = value
+	}
+
+	url, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTP__HEADERS__%v__URL", idx))
+	if ok {
+		header.URL = url
+	}
+
+	if header.Key != "" && header.Value != "" {
+		if len(globalConf.HTTPConfig.Headers) > idx {
+			globalConf.HTTPConfig.Headers[idx] = header
+		} else {
+			globalConf.HTTPConfig.Headers = append(globalConf.HTTPConfig.Headers, header)
 		}
 	}
 }
