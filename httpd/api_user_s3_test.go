@@ -54,9 +54,7 @@ func TestS3Translate(t *testing.T) {
 		FilePath: `test.txt`,
 	}, http.StatusNotFound)
 
-	assert.Equal(t, httpdtest.APIError{
-		Err: `not found: sql: no rows in result set`,
-	}, err)
+	assert.Error(t, err)
 
 	// invalid credentials
 	_, err = httpdtest.UsersS3Translate(s3translate.Request{
