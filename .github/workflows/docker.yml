@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - stage
+      - dev
     tags:
       - v*
   pull_request:

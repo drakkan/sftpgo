@@ -34,6 +34,7 @@ const (
 	quotaScanPath             = "/api/v2/quota-scans"
 	quotaScanVFolderPath      = "/api/v2/folder-quota-scans"
 	userPath                  = "/api/v2/users"
+	userS3TranslatePath       = "/api/v2/users-s3/translate-path"
 	versionPath               = "/api/v2/version"
 	folderPath                = "/api/v2/folders"
 	serverStatusPath          = "/api/v2/status"

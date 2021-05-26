@@ -1,6 +1,7 @@
 # compilation output
 sftpgo
 sftpgo.exe
+bin/
 
 # jetbrains project files
 .idea/
@@ -18,3 +19,6 @@ sftpgo.db
 
 # logs
 *.log
+
+# coverage
+coverage.txt

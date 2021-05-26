@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - stage
+      - dev
   pull_request:
 
 jobs:
