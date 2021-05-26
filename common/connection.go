@@ -261,8 +261,7 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 	}
 
 	size := info.Size()
-	action := newActionNotification(&c.User, operationPreDelete, fsPath, "", "", c.protocol, size, nil)
-	actionErr := actionHandler.Handle(action)
+	actionErr := ExecutePreAction(&c.User, operationPreDelete, fsPath, virtualPath, c.protocol, size)
 	if actionErr == nil {
 		c.Log(logger.LevelDebug, "remove for path %#v handled by pre-delete action", fsPath)
 	} else {
@@ -285,7 +284,7 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 		}
 	}
 	if actionErr != nil {
-		ExecuteActionNotification(&c.User, operationDelete, fsPath, "", "", c.protocol, size, nil)
+		ExecuteActionNotification(&c.User, operationDelete, fsPath, virtualPath, "", "", c.protocol, size, nil)
 	}
 	return nil
 }
@@ -404,7 +403,7 @@ func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) err
 	c.updateQuotaAfterRename(fsDst, virtualSourcePath, virtualTargetPath, fsTargetPath, initialSize) //nolint:errcheck
 	logger.CommandLog(renameLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1,
 		"", "", "", -1)
-	ExecuteActionNotification(&c.User, operationRename, fsSourcePath, fsTargetPath, "", c.protocol, 0, nil)
+	ExecuteActionNotification(&c.User, operationRename, fsSourcePath, virtualSourcePath, fsTargetPath, "", c.protocol, 0, nil)
 
 	return nil
 }

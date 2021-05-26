@@ -74,22 +74,29 @@ func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 	return c.ListDir(name)
 }
 
-func (c *Connection) getFileReader(name string, offset int64) (io.ReadCloser, error) {
+func (c *Connection) getFileReader(name string, offset int64, method string) (io.ReadCloser, error) {
 	c.UpdateLastActivity()
 
 	name = utils.CleanPath(name)
 	if !c.User.HasPerm(dataprovider.PermDownload, path.Dir(name)) {
-		return nil, os.ErrPermission
+		return nil, c.GetPermissionDeniedError()
 	}
 
 	if !c.User.IsFileAllowed(name) {
 		c.Log(logger.LevelWarn, "reading file %#v is not allowed", name)
-		return nil, os.ErrPermission
+		return nil, c.GetPermissionDeniedError()
 	}
 
 	fs, p, err := c.GetFsAndResolvedPath(name)
 	if err != nil {
 		return nil, err
+	}
+
+	if method != http.MethodHead {
+		if err := common.ExecutePreAction(&c.User, common.OperationPreDownload, p, name, c.GetProtocol(), 0); err != nil {
+			c.Log(logger.LevelDebug, "download for file %#v denied by pre action: %v", name, err)
+			return nil, c.GetPermissionDeniedError()
+		}
 	}
 
 	file, r, cancelFn, err := fs.Open(p, offset)

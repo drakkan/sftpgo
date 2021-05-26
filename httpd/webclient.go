@@ -461,7 +461,7 @@ func downloadFile(w http.ResponseWriter, r *http.Request, connection *Connection
 		}
 		responseStatus = http.StatusPartialContent
 	}
-	reader, err := connection.getFileReader(name, offset)
+	reader, err := connection.getFileReader(name, offset, r.Method)
 	if err != nil {
 		renderFilesPage(w, r, nil, name, fmt.Sprintf("unable to read file %#v: %v", name, err))
 		return

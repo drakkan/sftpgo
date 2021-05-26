@@ -132,6 +132,8 @@ var (
 	keyIntAuthPath   string
 	preLoginPath     string
 	postConnectPath  string
+	preDownloadPath  string
+	preUploadPath    string
 	checkPwdPath     string
 	logFilePath      string
 	hostKeyFPs       []string
@@ -284,6 +286,8 @@ func TestMain(m *testing.M) {
 	os.Remove(extAuthPath)
 	os.Remove(preLoginPath)
 	os.Remove(postConnectPath)
+	os.Remove(preDownloadPath)
+	os.Remove(preUploadPath)
 	os.Remove(keyIntAuthPath)
 	os.Remove(checkPwdPath)
 	os.Exit(exitCode)
@@ -2280,6 +2284,210 @@ func TestPreLoginUserCreation(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestPreDownloadHook(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	oldExecuteOn := common.Config.Actions.ExecuteOn
+	oldHook := common.Config.Actions.Hook
+
+	common.Config.Actions.ExecuteOn = []string{common.OperationPreDownload}
+	common.Config.Actions.Hook = preDownloadPath
+
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	err = os.WriteFile(preDownloadPath, getExitCodeScriptContent(0), os.ModePerm)
+	assert.NoError(t, err)
+	testFileSize := int64(131072)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
+		assert.NoError(t, err)
+	}
+
+	remoteSCPDownPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join("/", testFileName))
+	err = scpDownload(localDownloadPath, remoteSCPDownPath, false, false)
+	assert.NoError(t, err)
+
+	err = os.WriteFile(preDownloadPath, getExitCodeScriptContent(1), os.ModePerm)
+	assert.NoError(t, err)
+
+	conn, client, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = client.Remove(testFileName)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
+		assert.ErrorIs(t, err, os.ErrPermission)
+	}
+
+	err = scpDownload(localDownloadPath, remoteSCPDownPath, false, false)
+	assert.Error(t, err)
+
+	common.Config.Actions.Hook = "http://127.0.0.1:8080/web/admin/login"
+
+	conn, client, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = client.Remove(testFileName)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
+		assert.NoError(t, err)
+	}
+	err = scpDownload(localDownloadPath, remoteSCPDownPath, false, false)
+	assert.NoError(t, err)
+
+	common.Config.Actions.Hook = "http://127.0.0.1:8080/"
+
+	conn, client, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = client.Remove(testFileName)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
+		assert.ErrorIs(t, err, os.ErrPermission)
+	}
+	err = scpDownload(localDownloadPath, remoteSCPDownPath, false, false)
+	assert.Error(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.Remove(localDownloadPath)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	common.Config.Actions.ExecuteOn = oldExecuteOn
+	common.Config.Actions.Hook = oldHook
+}
+
+func TestPreUploadHook(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	oldExecuteOn := common.Config.Actions.ExecuteOn
+	oldHook := common.Config.Actions.Hook
+
+	common.Config.Actions.ExecuteOn = []string{common.OperationPreUpload}
+	common.Config.Actions.Hook = preUploadPath
+
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	err = os.WriteFile(preUploadPath, getExitCodeScriptContent(0), os.ModePerm)
+	assert.NoError(t, err)
+	testFileSize := int64(131072)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+	}
+
+	remoteSCPUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join("/", testFileName))
+	err = scpUpload(testFilePath, remoteSCPUpPath, true, false)
+	assert.NoError(t, err)
+
+	err = os.WriteFile(preUploadPath, getExitCodeScriptContent(1), os.ModePerm)
+	assert.NoError(t, err)
+
+	conn, client, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = sftpUploadFile(testFilePath, testFileName+"1", testFileSize, client)
+		assert.ErrorIs(t, err, os.ErrPermission)
+	}
+	err = scpUpload(testFilePath, remoteSCPUpPath, true, false)
+	assert.Error(t, err)
+
+	common.Config.Actions.Hook = "http://127.0.0.1:8080/web/client/login"
+
+	conn, client, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+	}
+	err = scpUpload(testFilePath, remoteSCPUpPath, true, false)
+	assert.NoError(t, err)
+
+	common.Config.Actions.Hook = "http://127.0.0.1:8080/web"
+
+	conn, client, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = sftpUploadFile(testFilePath, testFileName+"1", testFileSize, client)
+		assert.ErrorIs(t, err, os.ErrPermission)
+	}
+
+	err = scpUpload(testFilePath, remoteSCPUpPath, true, false)
+	assert.Error(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.Remove(localDownloadPath)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	common.Config.Actions.ExecuteOn = oldExecuteOn
+	common.Config.Actions.Hook = oldHook
+}
+
 func TestPostConnectHook(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")
@@ -2290,7 +2498,7 @@ func TestPostConnectHook(t *testing.T) {
 	u := getTestUser(usePubKey)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	err = os.WriteFile(postConnectPath, getPostConnectScriptContent(0), os.ModePerm)
+	err = os.WriteFile(postConnectPath, getExitCodeScriptContent(0), os.ModePerm)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(u, usePubKey)
 	if assert.NoError(t, err) {
@@ -2299,7 +2507,7 @@ func TestPostConnectHook(t *testing.T) {
 		err = checkBasicSFTP(client)
 		assert.NoError(t, err)
 	}
-	err = os.WriteFile(postConnectPath, getPostConnectScriptContent(1), os.ModePerm)
+	err = os.WriteFile(postConnectPath, getExitCodeScriptContent(1), os.ModePerm)
 	assert.NoError(t, err)
 	conn, client, err = getSftpClient(u, usePubKey)
 	if !assert.Error(t, err) {
@@ -3453,7 +3661,6 @@ func TestBandwidthAndConnections(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-//nolint:dupl
 func TestPatternsFilters(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
@@ -3496,68 +3703,6 @@ func TestPatternsFilters(t *testing.T) {
 		err = client.Remove(testFileName)
 		assert.Error(t, err)
 		err = sftpDownloadFile(testFileName+".zip", localDownloadPath, testFileSize, client)
-		assert.NoError(t, err)
-		err = client.Mkdir("dir.zip")
-		assert.NoError(t, err)
-		err = client.Rename("dir.zip", "dir1.zip")
-		assert.NoError(t, err)
-	}
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.Remove(testFilePath)
-	assert.NoError(t, err)
-	err = os.Remove(localDownloadPath)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-}
-
-//nolint:dupl
-func TestExtensionsFilters(t *testing.T) {
-	usePubKey := true
-	u := getTestUser(usePubKey)
-	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.NoError(t, err)
-	testFileSize := int64(131072)
-	testFilePath := filepath.Join(homeBasePath, testFileName)
-	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
-	conn, client, err := getSftpClient(user, usePubKey)
-	if assert.NoError(t, err) {
-		defer conn.Close()
-		defer client.Close()
-		err = createTestFile(testFilePath, testFileSize)
-		assert.NoError(t, err)
-		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
-		assert.NoError(t, err)
-		err = sftpUploadFile(testFilePath, testFileName+".zip", testFileSize, client)
-		assert.NoError(t, err)
-		err = sftpUploadFile(testFilePath, testFileName+".jpg", testFileSize, client)
-		assert.NoError(t, err)
-	}
-	user.Filters.FilePatterns = []dataprovider.PatternsFilter{
-		{
-			Path:            "/",
-			AllowedPatterns: []string{"*.jPg", "*.zIp"},
-			DeniedPatterns:  []string{},
-		},
-	}
-	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err)
-	conn, client, err = getSftpClient(user, usePubKey)
-	if assert.NoError(t, err) {
-		defer conn.Close()
-		defer client.Close()
-		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
-		assert.Error(t, err)
-		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
-		assert.Error(t, err)
-		err = client.Rename(testFileName, testFileName+"1")
-		assert.Error(t, err)
-		err = client.Remove(testFileName)
-		assert.Error(t, err)
-		err = sftpDownloadFile(testFileName+".zip", localDownloadPath, testFileSize, client)
-		assert.NoError(t, err)
-		err = sftpDownloadFile(testFileName+".jpg", localDownloadPath, testFileSize, client)
 		assert.NoError(t, err)
 		err = client.Mkdir("dir.zip")
 		assert.NoError(t, err)
@@ -9637,7 +9782,7 @@ func getPreLoginScriptContent(user dataprovider.User, nonJSONResponse bool) []by
 	return content
 }
 
-func getPostConnectScriptContent(exitCode int) []byte {
+func getExitCodeScriptContent(exitCode int) []byte {
 	content := []byte("#!/bin/sh\n\n")
 	content = append(content, []byte(fmt.Sprintf("exit %v", exitCode))...)
 	return content
@@ -9710,6 +9855,8 @@ func createInitialFiles(scriptArgs string) {
 	preLoginPath = filepath.Join(homeBasePath, "prelogin.sh")
 	postConnectPath = filepath.Join(homeBasePath, "postconnect.sh")
 	checkPwdPath = filepath.Join(homeBasePath, "checkpwd.sh")
+	preDownloadPath = filepath.Join(homeBasePath, "predownload.sh")
+	preUploadPath = filepath.Join(homeBasePath, "preupload.sh")
 	err := os.WriteFile(pubKeyPath, []byte(testPubKey+"\n"), 0600)
 	if err != nil {
 		logger.WarnToConsole("unable to save public key to file: %v", err)

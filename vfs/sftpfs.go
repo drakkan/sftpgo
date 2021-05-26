@@ -246,6 +246,9 @@ func (fs *SFTPFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, f
 		return nil, nil, nil, err
 	}
 	f, err := fs.sftpClient.Open(name)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	if fs.config.BufferSize == 0 {
 		return f, nil, nil, err
 	}

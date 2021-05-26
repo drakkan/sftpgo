@@ -235,6 +235,8 @@ var (
 	extAuthPath     string
 	preLoginPath    string
 	postConnectPath string
+	preDownloadPath string
+	preUploadPath   string
 	logFilePath     string
 	certPath        string
 	keyPath         string
@@ -365,6 +367,8 @@ func TestMain(m *testing.M) {
 	extAuthPath = filepath.Join(homeBasePath, "extauth.sh")
 	preLoginPath = filepath.Join(homeBasePath, "prelogin.sh")
 	postConnectPath = filepath.Join(homeBasePath, "postconnect.sh")
+	preDownloadPath = filepath.Join(homeBasePath, "predownload.sh")
+	preUploadPath = filepath.Join(homeBasePath, "preupload.sh")
 
 	go func() {
 		logger.Debug(logSender, "", "initializing WebDAV server with config %+v", webDavConf)
@@ -400,6 +404,8 @@ func TestMain(m *testing.M) {
 	os.Remove(extAuthPath)
 	os.Remove(preLoginPath)
 	os.Remove(postConnectPath)
+	os.Remove(preDownloadPath)
+	os.Remove(preUploadPath)
 	os.Remove(certPath)
 	os.Remove(keyPath)
 	os.Remove(caCrtPath)
@@ -885,6 +891,98 @@ func TestPreLoginHook(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestPreDownloadHook(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	oldExecuteOn := common.Config.Actions.ExecuteOn
+	oldHook := common.Config.Actions.Hook
+
+	common.Config.Actions.ExecuteOn = []string{common.OperationPreDownload}
+	common.Config.Actions.Hook = preDownloadPath
+
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	err = os.WriteFile(preDownloadPath, getExitCodeScriptContent(0), os.ModePerm)
+	assert.NoError(t, err)
+
+	client := getWebDavClient(user, true, nil)
+	assert.NoError(t, checkBasicFunc(client))
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	assert.NoError(t, err)
+	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+	err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
+	assert.NoError(t, err)
+	err = os.Remove(localDownloadPath)
+	assert.NoError(t, err)
+
+	err = os.WriteFile(preDownloadPath, getExitCodeScriptContent(1), os.ModePerm)
+	assert.NoError(t, err)
+	err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
+	assert.Error(t, err)
+	err = os.Remove(localDownloadPath)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	assert.Len(t, common.Connections.GetStats(), 0)
+
+	common.Config.Actions.ExecuteOn = []string{common.OperationPreDownload}
+	common.Config.Actions.Hook = preDownloadPath
+
+	common.Config.Actions.ExecuteOn = oldExecuteOn
+	common.Config.Actions.Hook = oldHook
+}
+
+func TestPreUploadHook(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	oldExecuteOn := common.Config.Actions.ExecuteOn
+	oldHook := common.Config.Actions.Hook
+
+	common.Config.Actions.ExecuteOn = []string{common.OperationPreUpload}
+	common.Config.Actions.Hook = preUploadPath
+
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	err = os.WriteFile(preUploadPath, getExitCodeScriptContent(0), os.ModePerm)
+	assert.NoError(t, err)
+
+	client := getWebDavClient(user, true, nil)
+	assert.NoError(t, checkBasicFunc(client))
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	assert.NoError(t, err)
+
+	err = os.WriteFile(preUploadPath, getExitCodeScriptContent(1), os.ModePerm)
+	assert.NoError(t, err)
+
+	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	assert.Error(t, err)
+
+	err = uploadFile(testFilePath, testFileName+"1", testFileSize, client)
+	assert.Error(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	assert.Len(t, common.Connections.GetStats(), 0)
+
+	common.Config.Actions.ExecuteOn = oldExecuteOn
+	common.Config.Actions.Hook = oldHook
+}
+
 func TestPostConnectHook(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")
@@ -894,11 +992,11 @@ func TestPostConnectHook(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	err = os.WriteFile(postConnectPath, getPostConnectScriptContent(0), os.ModePerm)
+	err = os.WriteFile(postConnectPath, getExitCodeScriptContent(0), os.ModePerm)
 	assert.NoError(t, err)
 	client := getWebDavClient(user, false, nil)
 	assert.NoError(t, checkBasicFunc(client))
-	err = os.WriteFile(postConnectPath, getPostConnectScriptContent(1), os.ModePerm)
+	err = os.WriteFile(postConnectPath, getExitCodeScriptContent(1), os.ModePerm)
 	assert.NoError(t, err)
 	assert.Error(t, checkBasicFunc(client))
 
@@ -2563,7 +2661,7 @@ func getPreLoginScriptContent(user dataprovider.User, nonJSONResponse bool) []by
 	return content
 }
 
-func getPostConnectScriptContent(exitCode int) []byte {
+func getExitCodeScriptContent(exitCode int) []byte {
 	content := []byte("#!/bin/sh\n\n")
 	content = append(content, []byte(fmt.Sprintf("exit %v", exitCode))...)
 	return content

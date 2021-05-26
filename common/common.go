@@ -27,24 +27,29 @@ import (
 
 // constants
 const (
-	logSender                = "common"
-	uploadLogSender          = "Upload"
-	downloadLogSender        = "Download"
-	renameLogSender          = "Rename"
-	rmdirLogSender           = "Rmdir"
-	mkdirLogSender           = "Mkdir"
-	symlinkLogSender         = "Symlink"
-	removeLogSender          = "Remove"
-	chownLogSender           = "Chown"
-	chmodLogSender           = "Chmod"
-	chtimesLogSender         = "Chtimes"
-	truncateLogSender        = "Truncate"
-	operationDownload        = "download"
-	operationUpload          = "upload"
-	operationDelete          = "delete"
-	operationPreDelete       = "pre-delete"
-	operationRename          = "rename"
-	operationSSHCmd          = "ssh_cmd"
+	logSender         = "common"
+	uploadLogSender   = "Upload"
+	downloadLogSender = "Download"
+	renameLogSender   = "Rename"
+	rmdirLogSender    = "Rmdir"
+	mkdirLogSender    = "Mkdir"
+	symlinkLogSender  = "Symlink"
+	removeLogSender   = "Remove"
+	chownLogSender    = "Chown"
+	chmodLogSender    = "Chmod"
+	chtimesLogSender  = "Chtimes"
+	truncateLogSender = "Truncate"
+	operationDownload = "download"
+	operationUpload   = "upload"
+	operationDelete   = "delete"
+	// Pre-download action name
+	OperationPreDownload = "pre-download"
+	// Pre-upload action name
+	OperationPreUpload = "pre-upload"
+	operationPreDelete = "pre-delete"
+	operationRename    = "rename"
+	// SSH command action name
+	OperationSSHCmd          = "ssh_cmd"
 	chtimesFormat            = "2006-01-02T15:04:05" // YYYY-MM-DDTHH:MM:SS
 	idleTimeoutCheckInterval = 3 * time.Minute
 )

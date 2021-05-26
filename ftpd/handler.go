@@ -113,11 +113,7 @@ func (c *Connection) RemoveAll(path string) error {
 func (c *Connection) Rename(oldname, newname string) error {
 	c.UpdateLastActivity()
 
-	if err := c.BaseConnection.Rename(oldname, newname); err != nil {
-		return err
-	}
-
-	return nil
+	return c.BaseConnection.Rename(oldname, newname)
 }
 
 // Stat returns a FileInfo describing the named file/directory, or an error,
@@ -301,6 +297,11 @@ func (c *Connection) downloadFile(fs vfs.Fs, fsPath, ftpPath string, offset int6
 		return nil, c.GetPermissionDeniedError()
 	}
 
+	if err := common.ExecutePreAction(&c.User, common.OperationPreDownload, fsPath, ftpPath, c.GetProtocol(), 0); err != nil {
+		c.Log(logger.LevelDebug, "download for file %#v denied by pre action: %v", ftpPath, err)
+		return nil, c.GetPermissionDeniedError()
+	}
+
 	file, r, cancelFn, err := fs.Open(fsPath, offset)
 	if err != nil {
 		c.Log(logger.LevelWarn, "could not open file %#v for reading: %+v", fsPath, err)
@@ -357,6 +358,10 @@ func (c *Connection) handleFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath,
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, common.ErrQuotaExceeded
 	}
+	if err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(), 0); err != nil {
+		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
+		return nil, c.GetPermissionDeniedError()
+	}
 	file, w, cancelFn, err := fs.Create(filePath, 0)
 	if err != nil {
 		c.Log(logger.LevelWarn, "error creating file %#v: %+v", resolvedPath, err)
@@ -382,6 +387,10 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 	if !quotaResult.HasSpace {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, common.ErrQuotaExceeded
+	}
+	if err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(), fileSize); err != nil {
+		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
+		return nil, c.GetPermissionDeniedError()
 	}
 	minWriteOffset := int64(0)
 	// ftpserverlib sets:

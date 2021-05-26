@@ -517,6 +517,18 @@ func (u *User) getForbiddenSFTPSelfUsers(username string) ([]string, error) {
 	return nil, nil
 }
 
+// GetFsConfigForPath returns the file system configuration for the specified virtual path
+func (u *User) GetFsConfigForPath(virtualPath string) vfs.Filesystem {
+	if virtualPath != "" && virtualPath != "/" && len(u.VirtualFolders) > 0 {
+		folder, err := u.GetVirtualFolderForPath(virtualPath)
+		if err == nil {
+			return folder.FsConfig
+		}
+	}
+
+	return u.FsConfig
+}
+
 // GetFilesystemForPath returns the filesystem for the given path
 func (u *User) GetFilesystemForPath(virtualPath, connectionID string) (vfs.Fs, error) {
 	if u.fsCache == nil {

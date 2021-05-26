@@ -231,6 +231,8 @@ var (
 	extAuthPath     string
 	preLoginPath    string
 	postConnectPath string
+	preDownloadPath string
+	preUploadPath   string
 	logFilePath     string
 	caCrtPath       string
 	caCRLPath       string
@@ -333,6 +335,8 @@ func TestMain(m *testing.M) {
 	extAuthPath = filepath.Join(homeBasePath, "extauth.sh")
 	preLoginPath = filepath.Join(homeBasePath, "prelogin.sh")
 	postConnectPath = filepath.Join(homeBasePath, "postconnect.sh")
+	preDownloadPath = filepath.Join(homeBasePath, "predownload.sh")
+	preUploadPath = filepath.Join(homeBasePath, "preupload.sh")
 
 	status := ftpd.GetStatus()
 	if status.IsActive {
@@ -401,6 +405,8 @@ func TestMain(m *testing.M) {
 	os.Remove(extAuthPath)
 	os.Remove(preLoginPath)
 	os.Remove(postConnectPath)
+	os.Remove(preDownloadPath)
+	os.Remove(preUploadPath)
 	os.Remove(certPath)
 	os.Remove(keyPath)
 	os.Remove(caCrtPath)
@@ -707,6 +713,133 @@ func TestPreLoginHook(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestPreDownloadHook(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	oldExecuteOn := common.Config.Actions.ExecuteOn
+	oldHook := common.Config.Actions.Hook
+
+	common.Config.Actions.ExecuteOn = []string{common.OperationPreDownload}
+	common.Config.Actions.Hook = preDownloadPath
+
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	err = os.WriteFile(preDownloadPath, getExitCodeScriptContent(0), os.ModePerm)
+	assert.NoError(t, err)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+
+	client, err := getFTPClient(user, true, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.NoError(t, err)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+		err := client.Quit()
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+	}
+	// now return an error from the pre-download hook
+	err = os.WriteFile(preDownloadPath, getExitCodeScriptContent(1), os.ModePerm)
+	assert.NoError(t, err)
+	client, err = getFTPClient(user, true, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.NoError(t, err)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "permission denied")
+		}
+		err := client.Quit()
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+
+	common.Config.Actions.ExecuteOn = oldExecuteOn
+	common.Config.Actions.Hook = oldHook
+}
+
+func TestPreUploadHook(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	oldExecuteOn := common.Config.Actions.ExecuteOn
+	oldHook := common.Config.Actions.Hook
+
+	common.Config.Actions.ExecuteOn = []string{common.OperationPreUpload}
+	common.Config.Actions.Hook = preUploadPath
+
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	err = os.WriteFile(preUploadPath, getExitCodeScriptContent(0), os.ModePerm)
+	assert.NoError(t, err)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+
+	client, err := getFTPClient(user, true, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.NoError(t, err)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+		err := client.Quit()
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+	}
+	// now return an error from the pre-upload hook
+	err = os.WriteFile(preUploadPath, getExitCodeScriptContent(1), os.ModePerm)
+	assert.NoError(t, err)
+	client, err = getFTPClient(user, true, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "permission denied")
+		}
+		err = ftpUploadFile(testFilePath, testFileName+"1", testFileSize, client, 0)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "permission denied")
+		}
+		err := client.Quit()
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+
+	common.Config.Actions.ExecuteOn = oldExecuteOn
+	common.Config.Actions.Hook = oldHook
+}
+
 func TestPostConnectHook(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")
@@ -716,7 +849,7 @@ func TestPostConnectHook(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	err = os.WriteFile(postConnectPath, getPostConnectScriptContent(0), os.ModePerm)
+	err = os.WriteFile(postConnectPath, getExitCodeScriptContent(0), os.ModePerm)
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, true, nil)
 	if assert.NoError(t, err) {
@@ -725,7 +858,7 @@ func TestPostConnectHook(t *testing.T) {
 		err := client.Quit()
 		assert.NoError(t, err)
 	}
-	err = os.WriteFile(postConnectPath, getPostConnectScriptContent(1), os.ModePerm)
+	err = os.WriteFile(postConnectPath, getExitCodeScriptContent(1), os.ModePerm)
 	assert.NoError(t, err)
 	client, err = getFTPClient(user, true, nil)
 	if !assert.Error(t, err) {
@@ -2898,7 +3031,7 @@ func getPreLoginScriptContent(user dataprovider.User, nonJSONResponse bool) []by
 	return content
 }
 
-func getPostConnectScriptContent(exitCode int) []byte {
+func getExitCodeScriptContent(exitCode int) []byte {
 	content := []byte("#!/bin/sh\n\n")
 	content = append(content, []byte(fmt.Sprintf("exit %v", exitCode))...)
 	return content

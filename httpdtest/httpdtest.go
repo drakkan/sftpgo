@@ -837,10 +837,7 @@ func checkFolder(expected *vfs.BaseVirtualFolder, actual *vfs.BaseVirtualFolder)
 	if expected.Description != actual.Description {
 		return errors.New("description mismatch")
 	}
-	if err := compareFsConfig(&expected.FsConfig, &actual.FsConfig); err != nil {
-		return err
-	}
-	return nil
+	return compareFsConfig(&expected.FsConfig, &actual.FsConfig)
 }
 
 func checkAdmin(expected *dataprovider.Admin, actual *dataprovider.Admin) error {
@@ -981,10 +978,7 @@ func compareFsConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
 	if err := checkEncryptedSecret(expected.CryptConfig.Passphrase, actual.CryptConfig.Passphrase); err != nil {
 		return err
 	}
-	if err := compareSFTPFsConfig(expected, actual); err != nil {
-		return err
-	}
-	return nil
+	return compareSFTPFsConfig(expected, actual)
 }
 
 func compareS3Config(expected *vfs.Filesystem, actual *vfs.Filesystem) error {

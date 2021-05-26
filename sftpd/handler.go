@@ -59,6 +59,11 @@ func (c *Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 		return nil, err
 	}
 
+	if err := common.ExecutePreAction(&c.User, common.OperationPreDownload, p, request.Filepath, c.GetProtocol(), 0); err != nil {
+		c.Log(logger.LevelDebug, "download for file %#v denied by pre action: %v", request.Filepath, err)
+		return nil, c.GetPermissionDeniedError()
+	}
+
 	file, r, cancelFn, err := fs.Open(p, 0)
 	if err != nil {
 		c.Log(logger.LevelWarn, "could not open file %#v for reading: %+v", p, err)
@@ -325,6 +330,11 @@ func (c *Connection) handleSFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath
 		return nil, sftp.ErrSSHFxFailure
 	}
 
+	if err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(), 0); err != nil {
+		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
+		return nil, c.GetPermissionDeniedError()
+	}
+
 	file, w, cancelFn, err := fs.Create(filePath, 0)
 	if err != nil {
 		c.Log(logger.LevelWarn, "error creating file %#v: %+v", resolvedPath, err)
@@ -350,6 +360,10 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 	if !quotaResult.HasSpace {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, sftp.ErrSSHFxFailure
+	}
+	if err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(), fileSize); err != nil {
+		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
+		return nil, c.GetPermissionDeniedError()
 	}
 
 	minWriteOffset := int64(0)

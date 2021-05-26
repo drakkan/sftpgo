@@ -1560,10 +1560,7 @@ func ValidateFolder(folder *vfs.BaseVirtualFolder) error {
 	if err := validateFilesystemConfig(&folder.FsConfig, folder); err != nil {
 		return err
 	}
-	if err := saveGCSCredentials(&folder.FsConfig, folder); err != nil {
-		return err
-	}
-	return nil
+	return saveGCSCredentials(&folder.FsConfig, folder)
 }
 
 // ValidateUser returns an error if the user is not valid
@@ -1598,10 +1595,7 @@ func ValidateUser(user *User) error {
 	if err := validateFilters(user); err != nil {
 		return err
 	}
-	if err := saveGCSCredentials(&user.FsConfig, user); err != nil {
-		return err
-	}
-	return nil
+	return saveGCSCredentials(&user.FsConfig, user)
 }
 
 func checkLoginConditions(user *User) error {

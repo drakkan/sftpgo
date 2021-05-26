@@ -141,6 +141,7 @@ var (
 	testServer         *httptest.Server
 	providerDriverName string
 	postConnectPath    string
+	preDownloadPath    string
 )
 
 type fakeConnection struct {
@@ -196,6 +197,7 @@ func TestMain(m *testing.M) {
 	}
 
 	postConnectPath = filepath.Join(homeBasePath, "postconnect.sh")
+	preDownloadPath = filepath.Join(homeBasePath, "predownload.sh")
 
 	httpConfig := config.GetHTTPConfig()
 	httpConfig.Initialize(configDir) //nolint:errcheck
@@ -285,6 +287,7 @@ func TestMain(m *testing.M) {
 	os.Remove(hostKeyPath)
 	os.Remove(hostKeyPath + ".pub")
 	os.Remove(postConnectPath)
+	os.Remove(preDownloadPath)
 	os.Exit(exitCode)
 }
 
@@ -4709,13 +4712,13 @@ func TestPostConnectHook(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	err = os.WriteFile(postConnectPath, getPostConnectScriptContent(0), os.ModePerm)
+	err = os.WriteFile(postConnectPath, getExitCodeScriptContent(0), os.ModePerm)
 	assert.NoError(t, err)
 
 	_, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 
-	err = os.WriteFile(postConnectPath, getPostConnectScriptContent(1), os.ModePerm)
+	err = os.WriteFile(postConnectPath, getExitCodeScriptContent(1), os.ModePerm)
 	assert.NoError(t, err)
 
 	_, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
@@ -4894,6 +4897,56 @@ func TestWebClientChangePubKeys(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
+}
+
+func TestPreDownloadHook(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	oldExecuteOn := common.Config.Actions.ExecuteOn
+	oldHook := common.Config.Actions.Hook
+
+	common.Config.Actions.ExecuteOn = []string{common.OperationPreDownload}
+	common.Config.Actions.Hook = preDownloadPath
+
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	err = os.WriteFile(preDownloadPath, getExitCodeScriptContent(0), os.ModePerm)
+	assert.NoError(t, err)
+
+	testFileName := "testfile"
+	testFileContents := []byte("file contents")
+	err = os.MkdirAll(filepath.Join(user.GetHomeDir()), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(user.GetHomeDir(), testFileName), testFileContents, os.ModePerm)
+	assert.NoError(t, err)
+
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodGet, webClientFilesPath+"?path="+testFileName, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, testFileContents, rr.Body.Bytes())
+
+	err = os.WriteFile(preDownloadPath, getExitCodeScriptContent(1), os.ModePerm)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, webClientFilesPath+"?path="+testFileName, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "permission denied")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	common.Config.Actions.ExecuteOn = oldExecuteOn
+	common.Config.Actions.Hook = oldHook
 }
 
 func TestWebGetFiles(t *testing.T) {
@@ -8068,7 +8121,7 @@ func createTestFile(path string, size int64) error {
 	return os.WriteFile(path, content, os.ModePerm)
 }
 
-func getPostConnectScriptContent(exitCode int) []byte {
+func getExitCodeScriptContent(exitCode int) []byte {
 	content := []byte("#!/bin/sh\n\n")
 	content = append(content, []byte(fmt.Sprintf("exit %v", exitCode))...)
 	return content

@@ -1251,10 +1251,10 @@ func TestConnection(t *testing.T) {
 	assert.Empty(t, connection.GetRemoteAddress())
 	assert.Empty(t, connection.GetCommand())
 	name := "missing file name"
-	_, err := connection.getFileReader(name, 0)
+	_, err := connection.getFileReader(name, 0, http.MethodGet)
 	assert.Error(t, err)
 	connection.User.FsConfig.Provider = vfs.LocalFilesystemProvider
-	_, err = connection.getFileReader(name, 0)
+	_, err = connection.getFileReader(name, 0, http.MethodGet)
 	assert.ErrorIs(t, err, os.ErrNotExist)
 }
 
