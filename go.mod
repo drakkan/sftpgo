@@ -82,4 +82,5 @@ replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20210328115714-16565bf4b31d
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20210328115440-0aedf3ac0c83
+	github.com/fclairamb/ftpserverlib => github.com/ottodashadow/ftpserverlib v0.13.2-0.20210525170109-ff27538f19db
 )
