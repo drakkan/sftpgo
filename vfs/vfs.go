@@ -30,6 +30,7 @@ var (
 	// ErrVfsUnsupported defines the error for an unsupported VFS operation
 	ErrVfsUnsupported  = errors.New("not supported")
 	credentialsDirPath string
+	tempPath           string
 	sftpFingerprints   []string
 )
 
@@ -41,6 +42,16 @@ func SetCredentialsDirPath(credentialsPath string) {
 // GetCredentialsDirPath returns the credentials dir path
 func GetCredentialsDirPath() string {
 	return credentialsDirPath
+}
+
+// SetTempPath sets the path for temporary files
+func SetTempPath(fsPath string) {
+	tempPath = fsPath
+}
+
+// GetTempPath returns the path for temporary files
+func GetTempPath() string {
+	return tempPath
 }
 
 // SetSFTPFingerprints sets the SFTP host key fingerprints

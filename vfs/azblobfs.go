@@ -54,7 +54,11 @@ func init() {
 // NewAzBlobFs returns an AzBlobFs object that allows to interact with Azure Blob storage
 func NewAzBlobFs(connectionID, localTempDir, mountPath string, config AzBlobFsConfig) (Fs, error) {
 	if localTempDir == "" {
-		localTempDir = filepath.Clean(os.TempDir())
+		if tempPath != "" {
+			localTempDir = tempPath
+		} else {
+			localTempDir = filepath.Clean(os.TempDir())
+		}
 	}
 	fs := &AzureBlobFs{
 		connectionID:   connectionID,

@@ -27,7 +27,8 @@ const (
 // CryptFs is a Fs implementation that allows to encrypts/decrypts local files
 type CryptFs struct {
 	*OsFs
-	masterKey []byte
+	localTempDir string
+	masterKey    []byte
 }
 
 // NewCryptFs returns a CryptFs object
@@ -46,6 +47,11 @@ func NewCryptFs(connectionID, rootDir, mountPath string, config CryptFsConfig) (
 			mountPath:    mountPath,
 		},
 		masterKey: []byte(config.Passphrase.GetPayload()),
+	}
+	if tempPath == "" {
+		fs.localTempDir = rootDir
+	} else {
+		fs.localTempDir = tempPath
 	}
 	return fs, nil
 }
@@ -66,7 +72,7 @@ func (fs *CryptFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, 
 		f.Close()
 		return nil, nil, nil, err
 	}
-	r, w, err := pipeat.PipeInDir(fs.rootDir)
+	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		f.Close()
 		return nil, nil, nil, err
@@ -157,7 +163,7 @@ func (fs *CryptFs) Create(name string, flag int) (File, *PipeWriter, func(), err
 		f.Close()
 		return nil, nil, nil, err
 	}
-	r, w, err := pipeat.PipeInDir(fs.rootDir)
+	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		f.Close()
 		return nil, nil, nil, err

@@ -52,7 +52,11 @@ func init() {
 // NewGCSFs returns an GCSFs object that allows to interact with Google Cloud Storage
 func NewGCSFs(connectionID, localTempDir, mountPath string, config GCSFsConfig) (Fs, error) {
 	if localTempDir == "" {
-		localTempDir = filepath.Clean(os.TempDir())
+		if tempPath != "" {
+			localTempDir = tempPath
+		} else {
+			localTempDir = filepath.Clean(os.TempDir())
+		}
 	}
 
 	var err error

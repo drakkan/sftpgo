@@ -115,6 +115,7 @@ func Init() {
 				Hook:        "",
 			},
 			SetstatMode:           0,
+			TempPath:              "",
 			ProxyProtocol:         0,
 			ProxyAllowed:          []string{},
 			PostConnectHook:       "",
@@ -925,6 +926,7 @@ func setViperDefaults() {
 	viper.SetDefault("common.actions.execute_sync", globalConf.Common.Actions.ExecuteSync)
 	viper.SetDefault("common.actions.hook", globalConf.Common.Actions.Hook)
 	viper.SetDefault("common.setstat_mode", globalConf.Common.SetstatMode)
+	viper.SetDefault("common.temp_path", globalConf.Common.TempPath)
 	viper.SetDefault("common.proxy_protocol", globalConf.Common.ProxyProtocol)
 	viper.SetDefault("common.proxy_allowed", globalConf.Common.ProxyAllowed)
 	viper.SetDefault("common.post_connect_hook", globalConf.Common.PostConnectHook)

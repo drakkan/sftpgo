@@ -226,6 +226,9 @@ func (fs *OsFs) ScanRootDirContents() (int, int64, error) {
 // GetAtomicUploadPath returns the path to use for an atomic upload
 func (*OsFs) GetAtomicUploadPath(name string) string {
 	dir := filepath.Dir(name)
+	if tempPath != "" {
+		dir = tempPath
+	}
 	guid := xid.New().String()
 	return filepath.Join(dir, ".sftpgo-upload."+guid+"."+filepath.Base(name))
 }

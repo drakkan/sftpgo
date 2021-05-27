@@ -48,7 +48,11 @@ func init() {
 // object storage
 func NewS3Fs(connectionID, localTempDir, mountPath string, config S3FsConfig) (Fs, error) {
 	if localTempDir == "" {
-		localTempDir = filepath.Clean(os.TempDir())
+		if tempPath != "" {
+			localTempDir = tempPath
+		} else {
+			localTempDir = filepath.Clean(os.TempDir())
+		}
 	}
 	fs := &S3Fs{
 		connectionID:   connectionID,

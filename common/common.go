@@ -23,6 +23,7 @@ import (
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 // constants
@@ -149,6 +150,7 @@ func Initialize(c Configuration) error {
 			}
 		}
 	}
+	vfs.SetTempPath(c.TempPath)
 	return nil
 }
 
@@ -335,6 +337,12 @@ type Configuration struct {
 	// 2 means "ignore mode for cloud fs": requests for changing permissions and owner/group/time are
 	// silently ignored for cloud based filesystem such as S3, GCS, Azure Blob
 	SetstatMode int `json:"setstat_mode" mapstructure:"setstat_mode"`
+	// TempPath defines the path for temporary files such as those used for atomic uploads or file pipes.
+	// If you set this option you must make sure that the defined path exists, is accessible for writing
+	// by the user running SFTPGo, and is on the same filesystem as the users home directories otherwise
+	// the renaming for atomic uploads will become a copy and therefore may take a long time.
+	// The temporary files are not namespaced. The default is generally fine. Leave empty for the default.
+	TempPath string `json:"temp_path" mapstructure:"temp_path"`
 	// Support for HAProxy PROXY protocol.
 	// If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable
 	// the proxy protocol. It provides a convenient way to safely transport connection information

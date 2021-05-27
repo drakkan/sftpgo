@@ -15,4 +15,5 @@ The encrypted filesystem has some limitations compared to the local, unencrypted
 - Resuming uploads is not supported.
 - Opening a file for both reading and writing at the same time is not supported and so clients that require advanced filesystem-like features such as `sshfs` are not supported too.
 - Truncate is not supported.
+- Atomic uploads are not supported.
 - System commands such as `git` or `rsync` are not supported: they will store data unencrypted.
