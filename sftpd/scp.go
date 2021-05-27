@@ -42,7 +42,7 @@ func (c *scpCommand) handle() (err error) {
 
 	if c.connection.SFTPOnly {
 		_, _ = c.connection.channel.Write([]byte("This service allows sftp connections only.\n"))
-		_ = c.connection.channel.Close()
+		c.sendExitStatus(errSFTPOnlyMode)
 		return nil
 	}
 

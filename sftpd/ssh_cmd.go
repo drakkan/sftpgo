@@ -35,6 +35,7 @@ const (
 
 var (
 	errUnsupportedConfig = errors.New("command unsupported for this configuration")
+	errSFTPOnlyMode      = errors.New(`SFTP Only Mode`)
 )
 
 type sshCommand struct {
@@ -99,7 +100,7 @@ func (c *sshCommand) handle() (err error) {
 	c.connection.UpdateLastActivity()
 	if c.connection.SFTPOnly {
 		_, _ = c.connection.channel.Write([]byte("This service allows sftp connections only.\n"))
-		c.sendExitStatus(errors.New(`only allows sftp connections`))
+		c.sendExitStatus(errSFTPOnlyMode)
 	} else if utils.IsStringInSlice(c.command, sshHashCommands) {
 		return c.handleHashCommands()
 	} else if utils.IsStringInSlice(c.command, systemCommands) {

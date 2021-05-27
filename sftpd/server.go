@@ -478,16 +478,11 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 							ClientVersion:  string(sconn.ClientVersion()),
 							RemoteAddr:     conn.RemoteAddr(),
 							channel:        channel,
+							SFTPOnly:       c.SFTPOnly,
 						}
 						ok = processSSHCommand(req.Payload, &connection, c.EnabledSSHCommands)
 					} else {
 						logger.Debug(sshCommandLogSender, connID, "unable to create filesystem: %v", err)
-					}
-				case "pty-req":
-					if c.SFTPOnly {
-						_, _ = channel.Write(errMsg)
-						_, _ = channel.Write([]byte("This service allows sftp connections only.\r\n"))
-						_ = channel.Close()
 					}
 				}
 				if req.WantReply {

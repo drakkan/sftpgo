@@ -35,6 +35,7 @@ import (
 	"github.com/pkg/sftp"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/drakkan/sftpgo/common"
@@ -237,6 +238,25 @@ func TestMain(m *testing.M) {
 
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 	waitTCPListening(httpdConf.Bindings[0].GetAddress())
+
+	sftpdOnlyConf := sftpdConf
+	sftpdOnlyConf.Bindings = []sftpd.Binding{
+		{
+			Address: `127.0.0.1`,
+			Port:    2223,
+		},
+	}
+	sftpdOnlyConf.SFTPOnly = true
+
+	go func() {
+		logger.Debug(logSender, "", "initializing SFTP server with config %+v and SFTP Only = true", sftpdConf)
+		if err := sftpdOnlyConf.Initialize(configDir); err != nil {
+			logger.ErrorToConsole("could not start SFTP server with SFTP Only = true: %v", err)
+			os.Exit(1)
+		}
+	}()
+
+	waitTCPListening(sftpdOnlyConf.Bindings[0].GetAddress())
 
 	sftpdConf.Bindings = []sftpd.Binding{
 		{
@@ -721,6 +741,39 @@ func TestProxyProtocol(t *testing.T) {
 	if !assert.Error(t, err) {
 		client.Close()
 	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestSFTPOnly(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(false), http.StatusCreated)
+	assert.NoError(t, err)
+
+	for _, cmd := range []string{`pwd`, `scp -t test.txt`} {
+		conn, err := ssh.Dial("tcp", `127.0.0.1:2223`, &ssh.ClientConfig{
+			User:            user.Username,
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			Auth:            []ssh.AuthMethod{ssh.Password(defaultPassword)},
+		})
+		require.NoError(t, err)
+
+		sshSession, err := conn.NewSession()
+		require.NoError(t, err)
+
+		var stdout, stderr bytes.Buffer
+		sshSession.Stdout = &stdout
+		sshSession.Stderr = &stderr
+		err = sshSession.Run(cmd)
+
+		assert.Error(t, err)
+		assert.Equal(t, "This service allows sftp connections only.\n", stdout.String())
+		assert.Equal(t, "", stderr.String())
+
+		assert.NoError(t, conn.Close())
+	}
+
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
