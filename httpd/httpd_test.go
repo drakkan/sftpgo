@@ -91,6 +91,7 @@ const (
 	webBasePathClient         = "/web/client"
 	webClientLoginPath        = "/web/client/login"
 	webClientFilesPath        = "/web/client/files"
+	webClientDirContentsPath  = "/web/client/listdir"
 	webClientCredentialsPath  = "/web/client/credentials"
 	webChangeClientPwdPath    = "/web/client/changepwd"
 	webChangeClientKeysPath   = "/web/client/managekeys"
@@ -4567,6 +4568,13 @@ func TestWebClientLoginMock(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
+	assert.Contains(t, rr.Body.String(), "unable to retrieve your user")
+
+	req, _ = http.NewRequest(http.MethodGet, webClientDirContentsPath, nil)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	assert.Contains(t, rr.Body.String(), "unable to retrieve your user")
 
 	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
 	assert.NoError(t, err)
@@ -4962,6 +4970,8 @@ func TestWebGetFiles(t *testing.T) {
 		err = os.WriteFile(filepath.Join(user.GetHomeDir(), testFileName+ext), testFileContents, os.ModePerm)
 		assert.NoError(t, err)
 	}
+	err = os.Symlink(filepath.Join(user.GetHomeDir(), testFileName+".doc"), filepath.Join(user.GetHomeDir(), testDir, testFileName+".link"))
+	assert.NoError(t, err)
 	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 	req, _ := http.NewRequest(http.MethodGet, webClientFilesPath, nil)
@@ -4973,6 +4983,29 @@ func TestWebGetFiles(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+
+	req, _ = http.NewRequest(http.MethodGet, webClientDirContentsPath+"?path="+testDir, nil)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var dirContents []map[string]string
+	err = json.Unmarshal(rr.Body.Bytes(), &dirContents)
+	assert.NoError(t, err)
+	assert.Len(t, dirContents, 1)
+
+	req, _ = http.NewRequest(http.MethodGet, webClientDirContentsPath+"?path=/", nil)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	dirContents = nil
+	err = json.Unmarshal(rr.Body.Bytes(), &dirContents)
+	assert.NoError(t, err)
+	assert.Len(t, dirContents, len(extensions)+1)
+
+	req, _ = http.NewRequest(http.MethodGet, webClientDirContentsPath+"?path=/missing", nil)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
 
 	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath+"?path="+testFileName, nil)
 	setJWTCookieForReq(req, webToken)

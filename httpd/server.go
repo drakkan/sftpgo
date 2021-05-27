@@ -573,6 +573,7 @@ func (s *httpdServer) initializeRouter() {
 
 			router.Get(webClientLogoutPath, handleWebClientLogout)
 			router.With(s.refreshCookie).Get(webClientFilesPath, handleClientGetFiles)
+			router.With(compressor.Handler, s.refreshCookie).Get(webClientDirContentsPath, handleClientGetDirContents)
 			router.With(s.refreshCookie).Get(webClientCredentialsPath, handleClientGetCredentials)
 			router.Post(webChangeClientPwdPath, handleWebClientChangePwdPost)
 			router.With(checkClientPerm(dataprovider.WebClientPubKeyChangeDisabled)).

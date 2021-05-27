@@ -41,6 +41,7 @@ var (
 )
 
 // AdminFilters defines additional restrictions for SFTPGo admins
+// TODO: rename to AdminOptions in v3
 type AdminFilters struct {
 	// only clients connecting from these IP/Mask are allowed.
 	// IP/Mask must be in CIDR notation as defined in RFC 4632 and RFC 4291

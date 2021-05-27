@@ -1352,6 +1352,13 @@ func TestGetFilesInvalidClaims(t *testing.T) {
 	handleClientGetFiles(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodGet, webClientDirContentsPath, nil)
+	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
+	handleClientGetDirContents(rr, req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
 }
 
 func TestManageKeysInvalidClaims(t *testing.T) {

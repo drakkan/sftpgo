@@ -106,7 +106,7 @@
             },
             error: function ($xhr, textStatus, errorThrown) {
                 table.button('disconnect:name').enable(true);
-                var txt = "Unable to close the selected connection";
+                var txt = "Failed to close the selected connection";
                 if ($xhr) {
                     var json = $xhr.responseJSON;
                     if (json) {

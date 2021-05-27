@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/render"
 	"github.com/rs/xid"
 
 	"github.com/drakkan/sftpgo/common"
@@ -78,15 +79,11 @@ type dirMapping struct {
 
 type filesPage struct {
 	baseClientPage
-	CurrentDir          string
-	Files               []os.FileInfo
-	Error               string
-	Paths               []dirMapping
-	FormatTime          func(time.Time) string
-	GetObjectURL        func(string, string) string
-	GetSize             func(int64) string
-	IsLink              func(os.FileInfo) bool
-	GetIconForExtension func(string) string
+	CurrentDir string
+	ReadDirURL string
+	Files      []os.FileInfo
+	Error      string
+	Paths      []dirMapping
 }
 
 type clientMessagePage struct {
@@ -113,36 +110,6 @@ func getFileObjectModTime(t time.Time) string {
 		return ""
 	}
 	return t.Format("2006-01-02 15:04")
-}
-
-func isFileObjectLink(info os.FileInfo) bool {
-	return info.Mode()&os.ModeSymlink != 0
-}
-
-func getFileIconForExtension(name string) string {
-	switch path.Ext(name) {
-	case ".doc", ".docx", ".odt":
-		return "far fa-file-word"
-	case ".ppt", ".pptx":
-		return "far fa-file-powerpoint"
-	case ".xls", ".xlsx":
-		return "far fa-file-excel"
-	case ".pdf":
-		return "far fa-file-pdf"
-	case ".webm", ".mkv", ".flv", ".vob", ".ogv", ".ogg", ".avi", ".ts", ".mov", ".wmv", ".asf", ".mpeg", ".mpv", ".3gp":
-		return "far fa-file-video"
-	case ".jpeg", ".jpg", ".png", ".gif", ".webp", ".tiff", ".psd", ".bmp", ".svg", ".jp2":
-		return "far fa-file-image"
-	case ".go", ".java", ".php", ".cs", ".asp", ".aspx", ".css", ".html", ".js", ".py", ".rb", ".cgi", ".c", ".cpp", ".h",
-		".hpp", ".kt", ".ktm", ".kts", ".swift", ".r":
-		return "far fa-file-code"
-	case ".zip", ".rar", ".tar", ".gz", ".bz2", ".zstd", ".zst", ".sz", ".lz", ".lz4", ".xz":
-		return "far fa-file-archive"
-	case ".txt", ".sh", ".json", ".yaml", ".toml":
-		return "far fa-file-alt"
-	default:
-		return "far fa-file"
-	}
 }
 
 func loadClientTemplates(templatesPath string) {
@@ -248,15 +215,11 @@ func renderClientNotFoundPage(w http.ResponseWriter, r *http.Request, err error)
 
 func renderFilesPage(w http.ResponseWriter, r *http.Request, files []os.FileInfo, dirName, error string) {
 	data := filesPage{
-		baseClientPage:      getBaseClientPageData(pageClientFilesTitle, webClientFilesPath, r),
-		Files:               files,
-		Error:               error,
-		CurrentDir:          dirName,
-		FormatTime:          getFileObjectModTime,
-		GetObjectURL:        getFileObjectURL,
-		GetSize:             utils.ByteCountIEC,
-		IsLink:              isFileObjectLink,
-		GetIconForExtension: getFileIconForExtension,
+		baseClientPage: getBaseClientPageData(pageClientFilesTitle, webClientFilesPath, r),
+		Files:          files,
+		Error:          error,
+		CurrentDir:     url.QueryEscape(dirName),
+		ReadDirURL:     webClientDirContentsPath,
 	}
 	paths := []dirMapping{}
 	if dirName != "/" {
@@ -306,6 +269,60 @@ func handleWebClientLogout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, webClientLoginPath, http.StatusFound)
 }
 
+func handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, nil, "invalid token claims", http.StatusForbidden)
+		return
+	}
+
+	user, err := dataprovider.UserExists(claims.Username)
+	if err != nil {
+		sendAPIResponse(w, r, nil, "unable to retrieve your user", http.StatusInternalServerError)
+		return
+	}
+
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, user),
+		request:        r,
+	}
+	common.Connections.Add(connection)
+	defer common.Connections.Remove(connection.GetID())
+
+	name := "/"
+	if _, ok := r.URL.Query()["path"]; ok {
+		name = utils.CleanPath(r.URL.Query().Get("path"))
+	}
+
+	contents, err := connection.ReadDir(name)
+	if err != nil {
+		sendAPIResponse(w, r, nil, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	results := make([]map[string]string, 0, len(contents))
+	for _, info := range contents {
+		res := make(map[string]string)
+		if info.IsDir() {
+			res["type"] = "1"
+			res["size"] = ""
+		} else {
+			res["type"] = "2"
+			if info.Mode()&os.ModeSymlink != 0 {
+				res["size"] = ""
+			} else {
+				res["size"] = utils.ByteCountIEC(info.Size())
+			}
+		}
+		res["name"] = info.Name()
+		res["last_modified"] = getFileObjectModTime(info.ModTime())
+		res["url"] = getFileObjectURL(name, info.Name())
+		results = append(results, res)
+	}
+
+	render.JSON(w, r, results)
+}
+
 func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
@@ -315,7 +332,7 @@ func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
 
 	user, err := dataprovider.UserExists(claims.Username)
 	if err != nil {
-		renderClientInternalServerErrorPage(w, r, err)
+		renderClientInternalServerErrorPage(w, r, errors.New("unable to retrieve your user"))
 		return
 	}
 

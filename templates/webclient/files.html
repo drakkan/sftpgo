@@ -11,6 +11,9 @@
 {{end}}
 
 {{define "page_body"}}
+<div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
+    <div id="errorTxt" class="card-body text-form-error"></div>
+</div>
 
 <div class="card shadow mb-4">
     <div class="card-header py-3">
@@ -32,24 +35,6 @@
                         <th>Last modified</th>
                     </tr>
                 </thead>
-                <tbody>
-                    {{range .Files}}
-                    {{if .IsDir}}
-                    <tr>
-                        <td>1</td>
-                        <td><i class="fas fa-folder"></i>&nbsp;<a href="{{call $.GetObjectURL $.CurrentDir .Name}}">{{.Name}}</a></td>
-                        <td></td>
-                        <td>{{call $.FormatTime .ModTime}}</td>
-                    {{else}}
-                    <tr>
-                        <td>2</td>
-                        <td><i class="{{if call $.IsLink .}}fas fa-external-link-alt{{else}}{{call $.GetIconForExtension .Name}}{{end}}"></i>&nbsp;<a href="{{call $.GetObjectURL $.CurrentDir .Name}}">{{.Name}}</a></td>
-                        <td>{{if not (call $.IsLink .)}}{{call $.GetSize .Size}}{{end}}</td>
-                        <td>{{call $.FormatTime .ModTime}}</td>
-                    </tr>
-                    {{end}}
-                    {{end}}
-                </tbody>
             </table>
         </div>
     </div>
@@ -66,6 +51,96 @@
 <script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.select.min.js"></script>
 <script type="text/javascript">
+
+    function getIconForFile(filename) {
+            var extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
+
+            switch (extension) {
+                case "doc":
+                case "docx":
+                case "odt":
+                    return "far fa-file-word";
+                case "ppt":
+                case "pptx":
+                    return "far fa-file-powerpoint";
+                case "xls":
+                case "xlsx":
+                case "ods":
+                    return "far fa-file-excel";
+                case "pdf":
+                    return "far fa-file-pdf";
+                case "webm":
+                case "mkv":
+                case "flv":
+                case "vob":
+                case "ogv":
+                case "ogg":
+                case "avi":
+                case "ts":
+                case "mov":
+                case "wmv":
+                case "asf":
+                case "mpeg":
+                case "mpv":
+                case "3gp":
+                    return "far fa-file-video";
+                case "jpeg":
+                case "jpg":
+                case "png":
+                case "gif":
+                case "webp":
+                case "tiff":
+                case "psd":
+                case "bmp":
+                case "svg":
+                case "jp2":
+                    return "far fa-file-image";
+                case "go":
+                case "sh":
+                case "java":
+                case "php":
+                case "cs":
+                case "asp":
+                case "aspx":
+                case "css":
+                case "html":
+                case "js":
+                case "py":
+                case "rb":
+                case "cgi":
+                case "c":
+                case "cpp":
+                case "h":
+                case "hpp":
+                case "kt":
+                case "ktm":
+                case "kts":
+                case "swift":
+                case "r":
+                    return "far fa-file-code";
+                case "zip":
+                case "rar":
+                case "tar":
+                case "gz":
+                case "bz2":
+                case "zstd":
+                case "zst":
+                case "sz":
+                case "lz":
+                case "lz4":
+                case "xz":
+                    return "far fa-file-archive";
+                case "txt":
+                case "json":
+                case "yaml":
+                case "toml":
+                    return "far fa-file-alt";
+                default:
+                    return "far fa-file";
+            }
+        }
+
+
     $(document).ready(function () {
         $.fn.dataTable.ext.buttons.refresh = {
             text: '<i class="fas fa-sync-alt"></i>',
@@ -77,6 +152,50 @@
         };
 
         var table = $('#dataTable').DataTable({
+            "ajax": {
+                "url": "{{.ReadDirURL}}?path={{.CurrentDir}}",
+                "dataSrc": "",
+                "error": function ($xhr, textStatus, errorThrown) {
+                    $(".dataTables_processing").hide();
+                    var txt = "Failed to get directory listing";
+                    if ($xhr) {
+                        var json = $xhr.responseJSON;
+                        if (json) {
+                            txt += ": " + json.message;
+                        }
+                    }
+                    $('#errorTxt').text(txt);
+                    $('#errorMsg').show();
+                    setTimeout(function () {
+                        $('#errorMsg').hide();
+                    }, 10000);
+                }
+            },
+            "deferRender": true,
+            "processing": true,
+            "columns": [
+                { "data": "type" },
+                {
+                    "data": "name",
+                    "render": function(data, type, row){
+                        if (type === 'display') {
+                            if (row["type"] == "1"){
+                                return `<i class="fas fa-folder"></i>&nbsp;<a href="${row['url']}">${data}</a>`;
+                            } else {
+                                if (row["size"] == ""){
+                                    return `<i class="fas fa-external-link-alt"></i>&nbsp;<a href="${row['url']}">${data}</a>`;
+                                } else {
+                                    var icon = getIconForFile(data);
+                                    return `<i class="${icon}"></i>&nbsp;<a href="${row['url']}">${data}</a>`;
+                                }
+                            }
+                        }
+                        return data;
+                    }
+                },
+                { "data": "size" },
+                { "data": "last_modified" }
+            ],
             "buttons": [],
             "lengthChange": false,
             "columnDefs": [
@@ -94,21 +213,26 @@
             "scrollY": false,
             "responsive": true,
             "language": {
+                "processing": '<i class="fas fa-spinner fa-spin fa-3x fa-fw"></i><span class="sr-only">Loading...</span>',
+                "loadingRecords": "",
                 "emptyTable": "No files or folders"
             },
             /*"select": {
                 "style":    'single',
                 "blurable": true
             },*/
+            "initComplete": function(settings, json) {
+                table.button().add(0,'refresh');
+                table.button().add(0,'pageLength');
+                table.buttons().container().appendTo('#dataTable_wrapper .col-md-6:eq(0)');
+            },
             "orderFixed": [ 0, 'asc' ],
             "order": [[1, 'asc']]
         });
 
         new $.fn.dataTable.FixedHeader( table );
 
-        table.button().add(0,'refresh');
-        table.button().add(0,'pageLength');
-        table.buttons().container().appendTo('#dataTable_wrapper .col-md-6:eq(0)');
+        $.fn.dataTable.ext.errMode = 'none';
 
         /*table.on('select', function (e, dt, type, indexes) {
             if (type === 'row') {
