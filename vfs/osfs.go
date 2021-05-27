@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/eikenb/pipeat"
+	fscopy "github.com/otiai10/copy"
 	"github.com/pkg/sftp"
 	"github.com/rs/xid"
 
@@ -98,8 +99,14 @@ func (*OsFs) Create(name string, flag int) (File, *PipeWriter, func(), error) {
 }
 
 // Rename renames (moves) source to target
-func (*OsFs) Rename(source, target string) error {
-	return os.Rename(source, target)
+func (fs *OsFs) Rename(source, target string) error {
+	err := os.Rename(source, target)
+	if err != nil && isCrossDeviceError(err) {
+		fsLog(fs, logger.LevelWarn, "cross device error detected while renaming %#v -> %#v. Trying a copy, this could take a long time",
+			source, target)
+		return fscopy.Copy(source, target)
+	}
+	return err
 }
 
 // Remove removes the named file or (empty) directory.

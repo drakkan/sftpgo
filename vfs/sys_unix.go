@@ -3,8 +3,11 @@
 package vfs
 
 import (
+	"errors"
 	"os"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -26,4 +29,8 @@ func (fi FileInfo) getFileInfoSys() interface{} {
 	return &syscall.Stat_t{
 		Uid: uint32(defaultUID),
 		Gid: uint32(defaultGID)}
+}
+
+func isCrossDeviceError(err error) bool {
+	return errors.Is(err, unix.EXDEV)
 }
