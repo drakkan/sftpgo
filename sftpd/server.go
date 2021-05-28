@@ -415,8 +415,8 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 	}
 
 	logger.Log(logger.LevelInfo, common.ProtocolSSH, connectionID,
-		"User id: %d, logged in with: %#v, username: %#v, home_dir: %#v remote addr: %#v",
-		user.ID, loginType, user.Username, user.HomeDir, ipAddr)
+		"User id: %d, logged in with: %#v, username: %#v, home_dir: %#v, remote addr: %#v, client version: %#v",
+		user.ID, loginType, user.Username, user.HomeDir, ipAddr, string(sconn.ClientVersion()))
 	dataprovider.UpdateLastLogin(&user) //nolint:errcheck
 
 	sshConnection := common.NewSSHConnection(connectionID, conn)
