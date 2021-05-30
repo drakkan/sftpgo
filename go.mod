@@ -8,10 +8,10 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
 	github.com/alexedwards/argon2id v0.0.0-20210511081203-7d35d68092b8
-	github.com/aws/aws-sdk-go v1.38.49
+	github.com/aws/aws-sdk-go v1.38.51
 	github.com/cockroachdb/cockroach-go/v2 v2.1.1
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
-	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
+	github.com/eikenb/pipeat v0.0.0-20210528001815-f1fcb2512a3a
 	github.com/fclairamb/ftpserverlib v0.13.1
 	github.com/frankban/quicktest v1.13.0 // indirect
 	github.com/go-chi/chi/v5 v5.0.3
@@ -25,6 +25,7 @@ require (
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
+	github.com/klauspost/compress v1.12.3
 	github.com/klauspost/cpuid/v2 v2.0.6 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/jwx v1.2.0

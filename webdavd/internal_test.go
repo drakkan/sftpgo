@@ -432,10 +432,18 @@ func TestRemoteAddress(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, req.RemoteAddr)
 
-	req.Header.Set("X-Forwarded-For", remoteAddr1)
+	req.Header.Set("True-Client-IP", remoteAddr1)
 	ip := utils.GetRealIP(req)
 	assert.Equal(t, remoteAddr1, ip)
-	// this will be ignore, remoteAddr1 is not allowed to se this header
+	req.Header.Del("True-Client-IP")
+	req.Header.Set("CF-Connecting-IP", remoteAddr1)
+	ip = utils.GetRealIP(req)
+	assert.Equal(t, remoteAddr1, ip)
+	req.Header.Del("CF-Connecting-IP")
+	req.Header.Set("X-Forwarded-For", remoteAddr1)
+	ip = utils.GetRealIP(req)
+	assert.Equal(t, remoteAddr1, ip)
+	// this will be ignored, remoteAddr1 is not allowed to se this header
 	req.Header.Set("X-Forwarded-For", remoteAddr2)
 	req.RemoteAddr = remoteAddr1
 	ip = server.checkRemoteAddress(req)

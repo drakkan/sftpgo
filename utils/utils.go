@@ -40,8 +40,10 @@ const (
 )
 
 var (
-	xForwardedFor = http.CanonicalHeaderKey("X-Forwarded-For")
-	xRealIP       = http.CanonicalHeaderKey("X-Real-IP")
+	xForwardedFor  = http.CanonicalHeaderKey("X-Forwarded-For")
+	xRealIP        = http.CanonicalHeaderKey("X-Real-IP")
+	cfConnectingIP = http.CanonicalHeaderKey("CF-Connecting-IP")
+	trueClientIP   = http.CanonicalHeaderKey("True-Client-IP")
 )
 
 // IsStringInSlice searches a string in a slice and returns true if the string is found
@@ -530,6 +532,10 @@ func GetRealIP(r *http.Request) string {
 
 	if xrip := r.Header.Get(xRealIP); xrip != "" {
 		ip = xrip
+	} else if clientIP := r.Header.Get(trueClientIP); clientIP != "" {
+		ip = clientIP
+	} else if clientIP := r.Header.Get(cfConnectingIP); clientIP != "" {
+		ip = clientIP
 	} else if xff := r.Header.Get(xForwardedFor); xff != "" {
 		i := strings.Index(xff, ", ")
 		if i == -1 {

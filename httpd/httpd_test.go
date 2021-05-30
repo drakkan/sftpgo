@@ -92,6 +92,7 @@ const (
 	webClientLoginPath        = "/web/client/login"
 	webClientFilesPath        = "/web/client/files"
 	webClientDirContentsPath  = "/web/client/listdir"
+	webClientDownloadPath     = "/web/client/download"
 	webClientCredentialsPath  = "/web/client/credentials"
 	webChangeClientPwdPath    = "/web/client/changepwd"
 	webChangeClientKeysPath   = "/web/client/managekeys"
@@ -4576,6 +4577,12 @@ func TestWebClientLoginMock(t *testing.T) {
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 	assert.Contains(t, rr.Body.String(), "unable to retrieve your user")
 
+	req, _ = http.NewRequest(http.MethodGet, webClientDownloadPath, nil)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
+
 	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
 	assert.NoError(t, err)
 	form := make(url.Values)
@@ -4993,6 +5000,24 @@ func TestWebGetFiles(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, dirContents, 1)
 
+	req, _ = http.NewRequest(http.MethodGet, webClientDownloadPath+"?path="+url.QueryEscape("/")+"&files="+
+		url.QueryEscape(fmt.Sprintf(`["%v","%v","%v"]`, testFileName, testDir, testFileName+extensions[2])), nil)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, _ = http.NewRequest(http.MethodGet, webClientDownloadPath+"?path="+url.QueryEscape("/")+"&files="+
+		url.QueryEscape(fmt.Sprintf(`["%v"]`, testDir)), nil)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, _ = http.NewRequest(http.MethodGet, webClientDownloadPath+"?path="+url.QueryEscape("/")+"&files=notalist", nil)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to get files list")
+
 	req, _ = http.NewRequest(http.MethodGet, webClientDirContentsPath+"?path=/", nil)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
@@ -5100,6 +5125,28 @@ func TestWebGetFiles(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
+}
+
+func TestCompressionErrorMock(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	defer func() {
+		rcv := recover()
+		assert.Equal(t, http.ErrAbortHandler, rcv)
+		_, err := httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		err = os.RemoveAll(user.GetHomeDir())
+		assert.NoError(t, err)
+	}()
+
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	req, _ := http.NewRequest(http.MethodGet, webClientDownloadPath+"?path="+url.QueryEscape("/")+"&files="+
+		url.QueryEscape(`["missing"]`), nil)
+	setJWTCookieForReq(req, webToken)
+	executeRequest(req)
 }
 
 func TestGetFilesSFTPBackend(t *testing.T) {

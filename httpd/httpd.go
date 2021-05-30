@@ -75,6 +75,7 @@ const (
 	webClientLoginPathDefault       = "/web/client/login"
 	webClientFilesPathDefault       = "/web/client/files"
 	webClientDirContentsPathDefault = "/web/client/listdir"
+	webClientDownloadPathDefault    = "/web/client/download"
 	webClientCredentialsPathDefault = "/web/client/credentials"
 	webChangeClientPwdPathDefault   = "/web/client/changepwd"
 	webChangeClientKeysPathDefault  = "/web/client/managekeys"
@@ -120,6 +121,7 @@ var (
 	webClientLoginPath       string
 	webClientFilesPath       string
 	webClientDirContentsPath string
+	webClientDownloadPath    string
 	webClientCredentialsPath string
 	webChangeClientPwdPath   string
 	webChangeClientKeysPath  string
@@ -415,6 +417,7 @@ func updateWebClientURLs(baseURL string) {
 	webClientLoginPath = path.Join(baseURL, webClientLoginPathDefault)
 	webClientFilesPath = path.Join(baseURL, webClientFilesPathDefault)
 	webClientDirContentsPath = path.Join(baseURL, webClientDirContentsPathDefault)
+	webClientDownloadPath = path.Join(baseURL, webClientDownloadPathDefault)
 	webClientCredentialsPath = path.Join(baseURL, webClientCredentialsPathDefault)
 	webChangeClientPwdPath = path.Join(baseURL, webChangeClientPwdPathDefault)
 	webChangeClientKeysPath = path.Join(baseURL, webChangeClientKeysPathDefault)

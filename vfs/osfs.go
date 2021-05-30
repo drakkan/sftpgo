@@ -104,7 +104,11 @@ func (fs *OsFs) Rename(source, target string) error {
 	if err != nil && isCrossDeviceError(err) {
 		fsLog(fs, logger.LevelWarn, "cross device error detected while renaming %#v -> %#v. Trying a copy and remove, this could take a long time",
 			source, target)
-		err = fscopy.Copy(source, target)
+		err = fscopy.Copy(source, target, fscopy.Options{
+			OnSymlink: func(src string) fscopy.SymlinkAction {
+				return fscopy.Skip
+			},
+		})
 		if err != nil {
 			fsLog(fs, logger.LevelDebug, "cross device copy error: %v", err)
 			return err

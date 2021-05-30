@@ -462,7 +462,7 @@ func (s *httpdServer) initializeRouter() {
 
 	s.router.Use(middleware.RequestID)
 	s.router.Use(logger.NewStructuredLogger(logger.GetLogger()))
-	s.router.Use(middleware.Recoverer)
+	s.router.Use(recoverer)
 	s.router.Use(s.checkConnection)
 	s.router.Use(middleware.GetHead)
 	s.router.Use(middleware.StripSlashes)
@@ -574,6 +574,7 @@ func (s *httpdServer) initializeRouter() {
 			router.Get(webClientLogoutPath, handleWebClientLogout)
 			router.With(s.refreshCookie).Get(webClientFilesPath, handleClientGetFiles)
 			router.With(compressor.Handler, s.refreshCookie).Get(webClientDirContentsPath, handleClientGetDirContents)
+			router.With(s.refreshCookie).Get(webClientDownloadPath, handleWebClientDownload)
 			router.With(s.refreshCookie).Get(webClientCredentialsPath, handleClientGetCredentials)
 			router.Post(webChangeClientPwdPath, handleWebClientChangePwdPost)
 			router.With(checkClientPerm(dataprovider.WebClientPubKeyChangeDisabled)).

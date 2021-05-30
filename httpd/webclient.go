@@ -1,6 +1,7 @@
 package httpd
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -79,11 +80,12 @@ type dirMapping struct {
 
 type filesPage struct {
 	baseClientPage
-	CurrentDir string
-	ReadDirURL string
-	Files      []os.FileInfo
-	Error      string
-	Paths      []dirMapping
+	CurrentDir  string
+	ReadDirURL  string
+	DownloadURL string
+	Files       []os.FileInfo
+	Error       string
+	Paths       []dirMapping
 }
 
 type clientMessagePage struct {
@@ -219,6 +221,7 @@ func renderFilesPage(w http.ResponseWriter, r *http.Request, files []os.FileInfo
 		Files:          files,
 		Error:          error,
 		CurrentDir:     url.QueryEscape(dirName),
+		DownloadURL:    webClientDownloadPath,
 		ReadDirURL:     webClientDirContentsPath,
 	}
 	paths := []dirMapping{}
@@ -267,6 +270,43 @@ func handleWebClientLogout(w http.ResponseWriter, r *http.Request) {
 	c.removeCookie(w, r, webBaseClientPath)
 
 	http.Redirect(w, r, webClientLoginPath, http.StatusFound)
+}
+
+func handleWebClientDownload(w http.ResponseWriter, r *http.Request) {
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		renderClientMessagePage(w, r, "Invalid token claims", "", http.StatusForbidden, nil, "")
+		return
+	}
+
+	user, err := dataprovider.UserExists(claims.Username)
+	if err != nil {
+		renderClientMessagePage(w, r, "Unable to retrieve your user", "", http.StatusInternalServerError, nil, "")
+		return
+	}
+
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, user),
+		request:        r,
+	}
+	common.Connections.Add(connection)
+	defer common.Connections.Remove(connection.GetID())
+
+	name := "/"
+	if _, ok := r.URL.Query()["path"]; ok {
+		name = utils.CleanPath(r.URL.Query().Get("path"))
+	}
+
+	files := r.URL.Query().Get("files")
+	var filesList []string
+	err = json.Unmarshal([]byte(files), &filesList)
+	if err != nil {
+		renderClientMessagePage(w, r, "Unable to get files list", "", http.StatusInternalServerError, err, "")
+		return
+	}
+
+	w.Header().Set("Content-Disposition", "attachment; filename=\"sftpgo-download.zip\"")
+	renderCompressedFiles(w, connection, name, filesList)
 }
 
 func handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {

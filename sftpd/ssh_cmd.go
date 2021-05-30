@@ -174,7 +174,11 @@ func (c *sshCommand) handleSFTPGoCopy() error {
 		return c.sendErrorResponse(err)
 	}
 	c.connection.Log(logger.LevelDebug, "start copy %#v -> %#v", fsSourcePath, fsDestPath)
-	err = fscopy.Copy(fsSourcePath, fsDestPath)
+	err = fscopy.Copy(fsSourcePath, fsDestPath, fscopy.Options{
+		OnSymlink: func(src string) fscopy.SymlinkAction {
+			return fscopy.Skip
+		},
+	})
 	if err != nil {
 		return c.sendErrorResponse(c.connection.GetFsError(fsSrc, err))
 	}

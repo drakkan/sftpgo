@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/klauspost/compress/zip"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/rs/xid"
@@ -262,6 +263,19 @@ w0kqpr7MgJ94qhXCBcVcfPuFN9fBOadM3UBj1B45Cz3pptoK+ScI8XKno6jvVK/p
 xr5cb9VBRBtB9aOKVfuRhpatAfS2Pzm2Htae9lFn7slGPUmu2hkjDw==
 -----END RSA PRIVATE KEY-----`
 )
+
+type failingWriter struct {
+}
+
+func (r *failingWriter) Write(p []byte) (n int, err error) {
+	return 0, errors.New("write error")
+}
+
+func (r *failingWriter) WriteHeader(statusCode int) {}
+
+func (r *failingWriter) Header() http.Header {
+	return make(http.Header)
+}
 
 func TestShouldBind(t *testing.T) {
 	c := Conf{
@@ -1088,6 +1102,119 @@ func TestProxyHeaders(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRecoverer(t *testing.T) {
+	recoveryPath := "/recovery"
+	b := Binding{
+		Address:         "",
+		Port:            8080,
+		EnableWebAdmin:  true,
+		EnableWebClient: false,
+	}
+	server := newHttpdServer(b, "../static")
+	server.initializeRouter()
+	server.router.Get(recoveryPath, func(w http.ResponseWriter, r *http.Request) {
+		panic("panic")
+	})
+	testServer := httptest.NewServer(server.router)
+	defer testServer.Close()
+
+	req, err := http.NewRequest(http.MethodGet, recoveryPath, nil)
+	assert.NoError(t, err)
+	rr := httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code, rr.Body.String())
+
+	server.router = chi.NewRouter()
+	server.router.Use(recoverer)
+	server.router.Get(recoveryPath, func(w http.ResponseWriter, r *http.Request) {
+		panic("panic")
+	})
+	testServer = httptest.NewServer(server.router)
+	defer testServer.Close()
+
+	req, err = http.NewRequest(http.MethodGet, recoveryPath, nil)
+	assert.NoError(t, err)
+	rr = httptest.NewRecorder()
+	testServer.Config.Handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code, rr.Body.String())
+}
+
+func TestCompressorAbortHandler(t *testing.T) {
+	defer func() {
+		rcv := recover()
+		assert.Equal(t, http.ErrAbortHandler, rcv)
+	}()
+
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, dataprovider.User{}),
+		request:        nil,
+	}
+	renderCompressedFiles(&failingWriter{}, connection, "", nil)
+}
+
+func TestZipErrors(t *testing.T) {
+	user := dataprovider.User{
+		HomeDir: filepath.Clean(os.TempDir()),
+	}
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{dataprovider.PermAny}
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, user),
+		request:        nil,
+	}
+
+	testDir := filepath.Join(os.TempDir(), "testDir")
+	err := os.MkdirAll(testDir, os.ModePerm)
+	assert.NoError(t, err)
+
+	wr := zip.NewWriter(&failingWriter{})
+	err = wr.Close()
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "write error")
+	}
+
+	err = addZipEntry(wr, connection, "/"+filepath.Base(testDir), "/")
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "write error")
+	}
+
+	testFilePath := filepath.Join(testDir, "ziptest.zip")
+	err = os.WriteFile(testFilePath, utils.GenerateRandomBytes(65535), os.ModePerm)
+	assert.NoError(t, err)
+	err = addZipEntry(wr, connection, path.Join("/", filepath.Base(testDir), filepath.Base(testFilePath)),
+		"/"+filepath.Base(testDir))
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "write error")
+	}
+
+	connection.User.Permissions["/"] = []string{dataprovider.PermListItems}
+	err = addZipEntry(wr, connection, path.Join("/", filepath.Base(testDir), filepath.Base(testFilePath)),
+		"/"+filepath.Base(testDir))
+	assert.ErrorIs(t, err, os.ErrPermission)
+
+	// creating a virtual folder to a missing path stat is ok but readdir fails
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Join(os.TempDir(), "mapped"),
+		},
+		VirtualPath: "/vpath",
+	})
+	connection.User = user
+	wr = zip.NewWriter(bytes.NewBuffer(make([]byte, 0)))
+	err = addZipEntry(wr, connection, user.VirtualFolders[0].VirtualPath, "/")
+	assert.Error(t, err)
+
+	user.Filters.FilePatterns = append(user.Filters.FilePatterns, dataprovider.PatternsFilter{
+		Path:           "/",
+		DeniedPatterns: []string{"*.zip"},
+	})
+	err = addZipEntry(wr, connection, "/"+filepath.Base(testDir), "/")
+	assert.ErrorIs(t, err, os.ErrPermission)
+
+	err = os.RemoveAll(testDir)
+	assert.NoError(t, err)
+}
+
 func TestWebAdminRedirect(t *testing.T) {
 	b := Binding{
 		Address:         "",
@@ -1312,6 +1439,8 @@ func TestHTTPDFile(t *testing.T) {
 	assert.Error(t, err)
 	err = httpdFile.Close()
 	assert.ErrorIs(t, err, common.ErrTransferClosed)
+	err = os.Remove(p)
+	assert.NoError(t, err)
 }
 
 func TestChangeUserPwd(t *testing.T) {
@@ -1359,6 +1488,13 @@ func TestGetFilesInvalidClaims(t *testing.T) {
 	handleClientGetDirContents(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 	assert.Contains(t, rr.Body.String(), "invalid token claims")
+
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodGet, webClientDownloadPath, nil)
+	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
+	handleWebClientDownload(rr, req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 }
 
 func TestManageKeysInvalidClaims(t *testing.T) {
