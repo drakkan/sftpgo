@@ -308,7 +308,7 @@ func (c *Connection) downloadFile(fs vfs.Fs, fsPath, ftpPath string, offset int6
 		return nil, c.GetFsError(fs, err)
 	}
 
-	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, fsPath, ftpPath, common.TransferDownload,
+	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, fsPath, fsPath, ftpPath, common.TransferDownload,
 		0, 0, 0, false, fs)
 	t := newTransfer(baseTransfer, nil, r, offset)
 
@@ -373,7 +373,7 @@ func (c *Connection) handleFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath,
 	// we can get an error only for resume
 	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, 0, fs.IsUploadResumeSupported())
 
-	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
+	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, 0, 0, maxWriteSize, true, fs)
 	t := newTransfer(baseTransfer, w, nil, 0)
 
@@ -449,7 +449,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 
 	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
-	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
+	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, false, fs)
 	t := newTransfer(baseTransfer, w, nil, 0)
 

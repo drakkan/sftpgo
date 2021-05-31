@@ -220,11 +220,6 @@ func (*CryptFs) IsUploadResumeSupported() bool {
 	return false
 }
 
-// IsAtomicUploadSupported returns true if atomic upload is supported
-func (*CryptFs) IsAtomicUploadSupported() bool {
-	return false
-}
-
 // GetMimeType returns the content type
 func (fs *CryptFs) GetMimeType(name string) (string, error) {
 	f, key, err := fs.getFileAndEncryptionKey(name)

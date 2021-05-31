@@ -435,9 +435,9 @@ func TestConnectionStatus(t *testing.T) {
 	fakeConn1 := &fakeConnection{
 		BaseConnection: c1,
 	}
-	t1 := NewBaseTransfer(nil, c1, nil, "/p1", "/r1", TransferUpload, 0, 0, 0, true, fs)
+	t1 := NewBaseTransfer(nil, c1, nil, "/p1", "/p1", "/r1", TransferUpload, 0, 0, 0, true, fs)
 	t1.BytesReceived = 123
-	t2 := NewBaseTransfer(nil, c1, nil, "/p2", "/r2", TransferDownload, 0, 0, 0, true, fs)
+	t2 := NewBaseTransfer(nil, c1, nil, "/p2", "/p2", "/r2", TransferDownload, 0, 0, 0, true, fs)
 	t2.BytesSent = 456
 	c2 := NewBaseConnection("id2", ProtocolSSH, user)
 	fakeConn2 := &fakeConnection{
@@ -449,7 +449,7 @@ func TestConnectionStatus(t *testing.T) {
 		BaseConnection: c3,
 		command:        "PROPFIND",
 	}
-	t3 := NewBaseTransfer(nil, c3, nil, "/p2", "/r2", TransferDownload, 0, 0, 0, true, fs)
+	t3 := NewBaseTransfer(nil, c3, nil, "/p2", "/p2", "/r2", TransferDownload, 0, 0, 0, true, fs)
 	Connections.Add(fakeConn1)
 	Connections.Add(fakeConn2)
 	Connections.Add(fakeConn3)

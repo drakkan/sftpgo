@@ -159,7 +159,7 @@ func TestUploadResumeInvalidOffset(t *testing.T) {
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
 	conn := common.NewBaseConnection("", common.ProtocolSFTP, user)
-	baseTransfer := common.NewBaseTransfer(file, conn, nil, file.Name(), testfile, common.TransferUpload, 10, 0, 0, false, fs)
+	baseTransfer := common.NewBaseTransfer(file, conn, nil, file.Name(), file.Name(), testfile, common.TransferUpload, 10, 0, 0, false, fs)
 	transfer := newTransfer(baseTransfer, nil, nil, nil)
 	_, err = transfer.WriteAt([]byte("test"), 0)
 	assert.Error(t, err, "upload with invalid offset must fail")
@@ -187,7 +187,7 @@ func TestReadWriteErrors(t *testing.T) {
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
 	conn := common.NewBaseConnection("", common.ProtocolSFTP, user)
-	baseTransfer := common.NewBaseTransfer(file, conn, nil, file.Name(), testfile, common.TransferDownload, 0, 0, 0, false, fs)
+	baseTransfer := common.NewBaseTransfer(file, conn, nil, file.Name(), file.Name(), testfile, common.TransferDownload, 0, 0, 0, false, fs)
 	transfer := newTransfer(baseTransfer, nil, nil, nil)
 	err = file.Close()
 	assert.NoError(t, err)
@@ -201,7 +201,7 @@ func TestReadWriteErrors(t *testing.T) {
 
 	r, _, err := pipeat.Pipe()
 	assert.NoError(t, err)
-	baseTransfer = common.NewBaseTransfer(nil, conn, nil, file.Name(), testfile, common.TransferDownload, 0, 0, 0, false, fs)
+	baseTransfer = common.NewBaseTransfer(nil, conn, nil, file.Name(), file.Name(), testfile, common.TransferDownload, 0, 0, 0, false, fs)
 	transfer = newTransfer(baseTransfer, nil, r, nil)
 	err = transfer.Close()
 	assert.NoError(t, err)
@@ -211,7 +211,7 @@ func TestReadWriteErrors(t *testing.T) {
 	r, w, err := pipeat.Pipe()
 	assert.NoError(t, err)
 	pipeWriter := vfs.NewPipeWriter(w)
-	baseTransfer = common.NewBaseTransfer(nil, conn, nil, file.Name(), testfile, common.TransferDownload, 0, 0, 0, false, fs)
+	baseTransfer = common.NewBaseTransfer(nil, conn, nil, file.Name(), file.Name(), testfile, common.TransferDownload, 0, 0, 0, false, fs)
 	transfer = newTransfer(baseTransfer, pipeWriter, nil, nil)
 
 	err = r.Close()
@@ -256,7 +256,7 @@ func TestTransferCancelFn(t *testing.T) {
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
 	conn := common.NewBaseConnection("", common.ProtocolSFTP, user)
-	baseTransfer := common.NewBaseTransfer(file, conn, cancelFn, file.Name(), testfile, common.TransferDownload, 0, 0, 0, false, fs)
+	baseTransfer := common.NewBaseTransfer(file, conn, cancelFn, file.Name(), file.Name(), testfile, common.TransferDownload, 0, 0, 0, false, fs)
 	transfer := newTransfer(baseTransfer, nil, nil, nil)
 
 	errFake := errors.New("fake error, this will trigger cancelFn")
@@ -948,7 +948,7 @@ func TestSystemCommandErrors(t *testing.T) {
 		WriteError:   nil,
 	}
 	sshCmd.connection.channel = &mockSSHChannel
-	baseTransfer := common.NewBaseTransfer(nil, sshCmd.connection.BaseConnection, nil, "", "", common.TransferDownload,
+	baseTransfer := common.NewBaseTransfer(nil, sshCmd.connection.BaseConnection, nil, "", "", "", common.TransferDownload,
 		0, 0, 0, false, fs)
 	transfer := newTransfer(baseTransfer, nil, nil, nil)
 	destBuff := make([]byte, 65535)
@@ -1605,7 +1605,7 @@ func TestSCPUploadFiledata(t *testing.T) {
 	file, err := os.Create(testfile)
 	assert.NoError(t, err)
 
-	baseTransfer := common.NewBaseTransfer(file, scpCommand.connection.BaseConnection, nil, file.Name(),
+	baseTransfer := common.NewBaseTransfer(file, scpCommand.connection.BaseConnection, nil, file.Name(), file.Name(),
 		"/"+testfile, common.TransferDownload, 0, 0, 0, true, fs)
 	transfer := newTransfer(baseTransfer, nil, nil, nil)
 
@@ -1688,7 +1688,7 @@ func TestUploadError(t *testing.T) {
 	fileTempName := "temptestfile"
 	file, err := os.Create(fileTempName)
 	assert.NoError(t, err)
-	baseTransfer := common.NewBaseTransfer(file, connection.BaseConnection, nil, testfile,
+	baseTransfer := common.NewBaseTransfer(file, connection.BaseConnection, nil, testfile, file.Name(),
 		testfile, common.TransferUpload, 0, 0, 0, true, fs)
 	transfer := newTransfer(baseTransfer, nil, nil, nil)
 
@@ -1745,7 +1745,7 @@ func TestTransferFailingReader(t *testing.T) {
 
 	r, _, err := pipeat.Pipe()
 	assert.NoError(t, err)
-	baseTransfer := common.NewBaseTransfer(nil, connection.BaseConnection, nil, fsPath, filepath.Base(fsPath), common.TransferUpload, 0, 0, 0, false, fs)
+	baseTransfer := common.NewBaseTransfer(nil, connection.BaseConnection, nil, fsPath, fsPath, filepath.Base(fsPath), common.TransferUpload, 0, 0, 0, false, fs)
 	errRead := errors.New("read is not allowed")
 	tr := newTransfer(baseTransfer, nil, r, errRead)
 	_, err = tr.ReadAt(buf, 0)

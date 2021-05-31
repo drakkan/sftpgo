@@ -141,6 +141,7 @@ var (
 	argon2Params            *argon2id.Params
 	lastLoginMinDelay       = 10 * time.Minute
 	usernameRegex           = regexp.MustCompile("^[a-zA-Z0-9-_.~]+$")
+	tempPath                string
 )
 
 type schemaVersion struct {
@@ -447,6 +448,11 @@ type Provider interface {
 type fsValidatorHelper interface {
 	GetGCSCredentialsFilePath() string
 	GetEncrytionAdditionalData() string
+}
+
+// SetTempPath sets the path for temporary files
+func SetTempPath(fsPath string) {
+	tempPath = fsPath
 }
 
 // Initialize the data provider.
@@ -1097,8 +1103,15 @@ func buildUserHomeDir(user *User) {
 	if user.HomeDir == "" {
 		if config.UsersBaseDir != "" {
 			user.HomeDir = filepath.Join(config.UsersBaseDir, user.Username)
-		} else if user.FsConfig.Provider == vfs.SFTPFilesystemProvider {
-			user.HomeDir = filepath.Join(os.TempDir(), user.Username)
+			return
+		}
+		switch user.FsConfig.Provider {
+		case vfs.SFTPFilesystemProvider, vfs.S3FilesystemProvider, vfs.AzureBlobFilesystemProvider, vfs.GCSFilesystemProvider:
+			if tempPath != "" {
+				user.HomeDir = filepath.Join(tempPath, user.Username)
+			} else {
+				user.HomeDir = filepath.Join(os.TempDir(), user.Username)
+			}
 		}
 	}
 }

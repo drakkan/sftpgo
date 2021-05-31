@@ -151,6 +151,7 @@ func Initialize(c Configuration) error {
 		}
 	}
 	vfs.SetTempPath(c.TempPath)
+	dataprovider.SetTempPath(c.TempPath)
 	return nil
 }
 

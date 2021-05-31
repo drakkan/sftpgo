@@ -20,46 +20,48 @@ var (
 
 // BaseTransfer contains protocols common transfer details for an upload or a download.
 type BaseTransfer struct { //nolint:maligned
-	ID             uint64
-	BytesSent      int64
-	BytesReceived  int64
-	Fs             vfs.Fs
-	File           vfs.File
-	Connection     *BaseConnection
-	cancelFn       func()
-	fsPath         string
-	requestPath    string
-	start          time.Time
-	MaxWriteSize   int64
-	MinWriteOffset int64
-	InitialSize    int64
-	isNewFile      bool
-	transferType   int
-	AbortTransfer  int32
+	ID              uint64
+	BytesSent       int64
+	BytesReceived   int64
+	Fs              vfs.Fs
+	File            vfs.File
+	Connection      *BaseConnection
+	cancelFn        func()
+	fsPath          string
+	effectiveFsPath string
+	requestPath     string
+	start           time.Time
+	MaxWriteSize    int64
+	MinWriteOffset  int64
+	InitialSize     int64
+	isNewFile       bool
+	transferType    int
+	AbortTransfer   int32
 	sync.Mutex
 	ErrTransfer error
 }
 
 // NewBaseTransfer returns a new BaseTransfer and adds it to the given connection
-func NewBaseTransfer(file vfs.File, conn *BaseConnection, cancelFn func(), fsPath, requestPath string, transferType int,
-	minWriteOffset, initialSize, maxWriteSize int64, isNewFile bool, fs vfs.Fs) *BaseTransfer {
+func NewBaseTransfer(file vfs.File, conn *BaseConnection, cancelFn func(), fsPath, effectiveFsPath, requestPath string,
+	transferType int, minWriteOffset, initialSize, maxWriteSize int64, isNewFile bool, fs vfs.Fs) *BaseTransfer {
 	t := &BaseTransfer{
-		ID:             conn.GetTransferID(),
-		File:           file,
-		Connection:     conn,
-		cancelFn:       cancelFn,
-		fsPath:         fsPath,
-		start:          time.Now(),
-		transferType:   transferType,
-		MinWriteOffset: minWriteOffset,
-		InitialSize:    initialSize,
-		isNewFile:      isNewFile,
-		requestPath:    requestPath,
-		BytesSent:      0,
-		BytesReceived:  0,
-		MaxWriteSize:   maxWriteSize,
-		AbortTransfer:  0,
-		Fs:             fs,
+		ID:              conn.GetTransferID(),
+		File:            file,
+		Connection:      conn,
+		cancelFn:        cancelFn,
+		fsPath:          fsPath,
+		effectiveFsPath: effectiveFsPath,
+		start:           time.Now(),
+		transferType:    transferType,
+		MinWriteOffset:  minWriteOffset,
+		InitialSize:     initialSize,
+		isNewFile:       isNewFile,
+		requestPath:     requestPath,
+		BytesSent:       0,
+		BytesReceived:   0,
+		MaxWriteSize:    maxWriteSize,
+		AbortTransfer:   0,
+		Fs:              fs,
 	}
 
 	conn.AddTransfer(t)
@@ -215,15 +217,15 @@ func (t *BaseTransfer) Close() error {
 		}
 		t.Connection.Log(logger.LevelWarn, "upload denied due to space limit, delete temporary file: %#v, deletion error: %v",
 			t.File.Name(), err)
-	} else if t.transferType == TransferUpload && t.File != nil && t.File.Name() != t.fsPath {
+	} else if t.transferType == TransferUpload && t.effectiveFsPath != t.fsPath {
 		if t.ErrTransfer == nil || Config.UploadMode == UploadModeAtomicWithResume {
-			err = t.Fs.Rename(t.File.Name(), t.fsPath)
+			err = t.Fs.Rename(t.effectiveFsPath, t.fsPath)
 			t.Connection.Log(logger.LevelDebug, "atomic upload completed, rename: %#v -> %#v, error: %v",
-				t.File.Name(), t.fsPath, err)
+				t.effectiveFsPath, t.fsPath, err)
 		} else {
-			err = t.Fs.Remove(t.File.Name(), false)
+			err = t.Fs.Remove(t.effectiveFsPath, false)
 			t.Connection.Log(logger.LevelWarn, "atomic upload completed with error: \"%v\", delete temporary file: %#v, "+
-				"deletion error: %v", t.ErrTransfer, t.File.Name(), err)
+				"deletion error: %v", t.ErrTransfer, t.effectiveFsPath, err)
 			if err == nil {
 				numFiles--
 				atomic.StoreInt64(&t.BytesReceived, 0)

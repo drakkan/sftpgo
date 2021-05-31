@@ -105,7 +105,7 @@ func (c *Connection) getFileReader(name string, offset int64, method string) (io
 		return nil, c.GetFsError(fs, err)
 	}
 
-	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, p, name, common.TransferDownload,
+	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, p, p, name, common.TransferDownload,
 		0, 0, 0, false, fs)
 	return newHTTPDFile(baseTransfer, r), nil
 }

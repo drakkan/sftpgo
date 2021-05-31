@@ -1428,7 +1428,7 @@ func TestHTTPDFile(t *testing.T) {
 	err = file.Close()
 	assert.NoError(t, err)
 
-	baseTransfer := common.NewBaseTransfer(file, connection.BaseConnection, nil, p, name, common.TransferDownload,
+	baseTransfer := common.NewBaseTransfer(file, connection.BaseConnection, nil, p, p, name, common.TransferDownload,
 		0, 0, 0, false, fs)
 	httpdFile := newHTTPDFile(baseTransfer, nil)
 	// the file is closed, read should fail

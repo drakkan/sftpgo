@@ -145,7 +145,7 @@ func (c *Connection) getFile(fs vfs.Fs, fsPath, virtualPath string) (webdav.File
 		}
 	}
 
-	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, fsPath, virtualPath, common.TransferDownload,
+	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, fsPath, fsPath, virtualPath, common.TransferDownload,
 		0, 0, 0, false, fs)
 
 	return newWebDavFile(baseTransfer, nil, r), nil
@@ -209,7 +209,7 @@ func (c *Connection) handleUploadToNewFile(fs vfs.Fs, resolvedPath, filePath, re
 	// we can get an error only for resume
 	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, 0, fs.IsUploadResumeSupported())
 
-	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
+	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, 0, 0, maxWriteSize, true, fs)
 
 	return newWebDavFile(baseTransfer, w, nil), nil
@@ -263,7 +263,7 @@ func (c *Connection) handleUploadToExistingFile(fs vfs.Fs, resolvedPath, filePat
 
 	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
-	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
+	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, 0, initialSize, maxWriteSize, false, fs)
 
 	return newWebDavFile(baseTransfer, w, nil), nil

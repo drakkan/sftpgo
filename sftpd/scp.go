@@ -258,7 +258,7 @@ func (c *scpCommand) handleUploadFile(fs vfs.Fs, resolvedPath, filePath string, 
 
 	vfs.SetPathPermissions(fs, filePath, c.connection.User.GetUID(), c.connection.User.GetGID())
 
-	baseTransfer := common.NewBaseTransfer(file, c.connection.BaseConnection, cancelFn, resolvedPath, requestPath,
+	baseTransfer := common.NewBaseTransfer(file, c.connection.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, 0, initialSize, maxWriteSize, isNewFile, fs)
 	t := newTransfer(baseTransfer, w, nil, nil)
 
@@ -527,7 +527,7 @@ func (c *scpCommand) handleDownload(filePath string) error {
 		return err
 	}
 
-	baseTransfer := common.NewBaseTransfer(file, c.connection.BaseConnection, cancelFn, p, filePath,
+	baseTransfer := common.NewBaseTransfer(file, c.connection.BaseConnection, cancelFn, p, p, filePath,
 		common.TransferDownload, 0, 0, 0, false, fs)
 	t := newTransfer(baseTransfer, nil, r, nil)
 

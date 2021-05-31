@@ -70,7 +70,7 @@ func (c *Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 		return nil, c.GetFsError(fs, err)
 	}
 
-	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, p, request.Filepath, common.TransferDownload,
+	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, p, p, request.Filepath, common.TransferDownload,
 		0, 0, 0, false, fs)
 	t := newTransfer(baseTransfer, nil, r, nil)
 
@@ -346,7 +346,7 @@ func (c *Connection) handleSFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath
 	// we can get an error only for resume
 	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, 0, fs.IsUploadResumeSupported())
 
-	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
+	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, 0, 0, maxWriteSize, true, fs)
 	t := newTransfer(baseTransfer, w, nil, errForRead)
 
@@ -423,7 +423,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 
 	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
-	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
+	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, false, fs)
 	t := newTransfer(baseTransfer, w, nil, errForRead)
 
