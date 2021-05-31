@@ -61,7 +61,7 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 - `endpoint`, included for S3, SFTP and Azure backend if configured. For Azure this is the SAS URL, if configured, otherwise the endpoint
 - `status`, integer. Status for `upload`, `download` and `ssh_cmd` actions. 0 means a generic error occurred. 1 means no error, 2 means quota exceeded error
 - `protocol`, string. Possible values are `SSH`, `SFTP`, `SCP`, `FTP`, `DAV`, `HTTP`
-- `open_flags`, integer, File open flags, can be non-zero for `pre-upload` action. If `file_size` is greater than zero and `file_size&512 == 0` the target file will not be truncated
+- `open_flags`, integer. File open flags, can be non-zero for `pre-upload` action. If `file_size` is greater than zero and `file_size&512 == 0` the target file will not be truncated
 
 The HTTP hook will use the global configuration for HTTP clients and will respect the retry configurations.
 

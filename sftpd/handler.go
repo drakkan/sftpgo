@@ -361,12 +361,8 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, sftp.ErrSSHFxFailure
 	}
-	osFlags := getOSOpenFlags(pflags)
-	if err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(), fileSize, osFlags); err != nil {
-		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
-		return nil, c.GetPermissionDeniedError()
-	}
 
+	osFlags := getOSOpenFlags(pflags)
 	minWriteOffset := int64(0)
 	isTruncate := osFlags&os.O_TRUNC != 0
 	// for upload resumes OpenSSH sets the APPEND flag while WinSCP does not set it,
@@ -379,6 +375,11 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 	if err != nil {
 		c.Log(logger.LevelDebug, "unable to get max write size: %v", err)
 		return nil, err
+	}
+
+	if err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(), fileSize, osFlags); err != nil {
+		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
+		return nil, c.GetPermissionDeniedError()
 	}
 
 	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
