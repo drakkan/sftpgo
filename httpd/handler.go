@@ -93,7 +93,7 @@ func (c *Connection) getFileReader(name string, offset int64, method string) (io
 	}
 
 	if method != http.MethodHead {
-		if err := common.ExecutePreAction(&c.User, common.OperationPreDownload, p, name, c.GetProtocol(), 0); err != nil {
+		if err := common.ExecutePreAction(&c.User, common.OperationPreDownload, p, name, c.GetProtocol(), 0, 0); err != nil {
 			c.Log(logger.LevelDebug, "download for file %#v denied by pre action: %v", name, err)
 			return nil, c.GetPermissionDeniedError()
 		}

@@ -50,7 +50,7 @@ func InitializeActionHandler(handler ActionHandler) {
 }
 
 // ExecutePreAction executes a pre-* action and returns the result
-func ExecutePreAction(user *dataprovider.User, operation, filePath, virtualPath, protocol string, fileSize int64) error {
+func ExecutePreAction(user *dataprovider.User, operation, filePath, virtualPath, protocol string, fileSize int64, openFlags int) error {
 	if !utils.IsStringInSlice(operation, Config.Actions.ExecuteOn) {
 		// for pre-delete we execute the internal handling on error, so we must return errUnconfiguredAction.
 		// Other pre action will deny the operation on error so if we have no configuration we must return
@@ -60,13 +60,13 @@ func ExecutePreAction(user *dataprovider.User, operation, filePath, virtualPath,
 		}
 		return nil
 	}
-	notification := newActionNotification(user, operation, filePath, virtualPath, "", "", protocol, fileSize, nil)
+	notification := newActionNotification(user, operation, filePath, virtualPath, "", "", protocol, fileSize, openFlags, nil)
 	return actionHandler.Handle(notification)
 }
 
 // ExecuteActionNotification executes the defined hook, if any, for the specified action
 func ExecuteActionNotification(user *dataprovider.User, operation, filePath, virtualPath, target, sshCmd, protocol string, fileSize int64, err error) {
-	notification := newActionNotification(user, operation, filePath, virtualPath, target, sshCmd, protocol, fileSize, err)
+	notification := newActionNotification(user, operation, filePath, virtualPath, target, sshCmd, protocol, fileSize, 0, err)
 
 	if utils.IsStringInSlice(operation, Config.Actions.ExecuteSync) {
 		actionHandler.Handle(notification) //nolint:errcheck
@@ -94,12 +94,14 @@ type ActionNotification struct {
 	Endpoint   string `json:"endpoint,omitempty"`
 	Status     int    `json:"status"`
 	Protocol   string `json:"protocol"`
+	OpenFlags  int    `json:"open_flags,omitempty"`
 }
 
 func newActionNotification(
 	user *dataprovider.User,
 	operation, filePath, virtualPath, target, sshCmd, protocol string,
 	fileSize int64,
+	openFlags int,
 	err error,
 ) *ActionNotification {
 	var bucket, endpoint string
@@ -142,6 +144,7 @@ func newActionNotification(
 		Endpoint:   endpoint,
 		Status:     status,
 		Protocol:   protocol,
+		OpenFlags:  openFlags,
 	}
 }
 
@@ -230,5 +233,6 @@ func notificationAsEnvVars(notification *ActionNotification) []string {
 		fmt.Sprintf("SFTPGO_ACTION_ENDPOINT=%v", notification.Endpoint),
 		fmt.Sprintf("SFTPGO_ACTION_STATUS=%v", notification.Status),
 		fmt.Sprintf("SFTPGO_ACTION_PROTOCOL=%v", notification.Protocol),
+		fmt.Sprintf("SFTPGO_ACTION_OPEN_FLAGS=%v", notification.OpenFlags),
 	}
 }

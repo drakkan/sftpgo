@@ -59,7 +59,7 @@ func (c *Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 		return nil, err
 	}
 
-	if err := common.ExecutePreAction(&c.User, common.OperationPreDownload, p, request.Filepath, c.GetProtocol(), 0); err != nil {
+	if err := common.ExecutePreAction(&c.User, common.OperationPreDownload, p, request.Filepath, c.GetProtocol(), 0, 0); err != nil {
 		c.Log(logger.LevelDebug, "download for file %#v denied by pre action: %v", request.Filepath, err)
 		return nil, c.GetPermissionDeniedError()
 	}
@@ -330,7 +330,7 @@ func (c *Connection) handleSFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath
 		return nil, sftp.ErrSSHFxFailure
 	}
 
-	if err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(), 0); err != nil {
+	if err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(), 0, 0); err != nil {
 		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
 		return nil, c.GetPermissionDeniedError()
 	}
@@ -361,13 +361,13 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, sftp.ErrSSHFxFailure
 	}
-	if err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(), fileSize); err != nil {
+	osFlags := getOSOpenFlags(pflags)
+	if err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(), fileSize, osFlags); err != nil {
 		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
 		return nil, c.GetPermissionDeniedError()
 	}
 
 	minWriteOffset := int64(0)
-	osFlags := getOSOpenFlags(pflags)
 	isTruncate := osFlags&os.O_TRUNC != 0
 	// for upload resumes OpenSSH sets the APPEND flag while WinSCP does not set it,
 	// so we suppose this is an upload resume if the TRUNCATE flag is not set

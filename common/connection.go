@@ -261,7 +261,7 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 	}
 
 	size := info.Size()
-	actionErr := ExecutePreAction(&c.User, operationPreDelete, fsPath, virtualPath, c.protocol, size)
+	actionErr := ExecutePreAction(&c.User, operationPreDelete, fsPath, virtualPath, c.protocol, size, 0)
 	if actionErr == nil {
 		c.Log(logger.LevelDebug, "remove for path %#v handled by pre-delete action", fsPath)
 	} else {
