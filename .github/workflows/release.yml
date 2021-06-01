@@ -383,36 +383,6 @@ jobs:
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_bundle.tar.xz
 
-      - name: Download Deb amd64 artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: sftpgo_${{ steps.get_version.outputs.PKG_VERSION }}-1_amd64.deb
-
-      - name: Download Deb arm64 artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: sftpgo_${{ steps.get_version.outputs.PKG_VERSION }}-1_arm64.deb
-
-      - name: Download Deb ppc64le artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: sftpgo_${{ steps.get_version.outputs.PKG_VERSION }}-1_ppc64el.deb
-
-      - name: Download RPM x86_64 artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: sftpgo-${{ steps.get_version.outputs.PKG_VERSION }}-1.x86_64.rpm
-
-      - name: Download RPM aarch64 artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: sftpgo-${{ steps.get_version.outputs.PKG_VERSION }}-1.aarch64.rpm
-
-      - name: Download RPM ppc64le artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: sftpgo-${{ steps.get_version.outputs.PKG_VERSION }}-1.ppc64le.rpm
-
       - name: Download macOS x86_64 artifact
         uses: actions/download-artifact@v2
         with:
@@ -425,13 +395,9 @@ jobs:
 
       - name: Create release
         run: |
-          mv sftpgo_windows_x86_64.exe sftpgo_${SFTPGO_VERSION}_windows_x86_64.exe
           mv sftpgo_portable_x86_64.zip sftpgo_${SFTPGO_VERSION}_windows_portable_x86_64.zip
           gh release create "${SFTPGO_VERSION}"
           gh release upload "${SFTPGO_VERSION}" sftpgo_*.xz --clobber
-          gh release upload "${SFTPGO_VERSION}" sftpgo-*.rpm --clobber
-          gh release upload "${SFTPGO_VERSION}" sftpgo_*.deb --clobber
-          gh release upload "${SFTPGO_VERSION}" sftpgo_*.exe --clobber
           gh release upload "${SFTPGO_VERSION}" sftpgo_*.zip --clobber
           gh release view "${SFTPGO_VERSION}"
         env:
