@@ -726,9 +726,6 @@ func (c *sshCommand) sendExitStatus(err error) {
 		status = uint32(1)
 		c.connection.Log(logger.LevelWarn, "command failed: %#v args: %v user: %v err: %v",
 			c.command, c.args, c.connection.User.Username, err)
-	} else {
-		logger.CommandLog(sshCommandLogSender, cmdPath, targetPath, c.connection.User.Username, "", c.connection.ID,
-			common.ProtocolSSH, -1, -1, "", "", c.connection.command, -1)
 	}
 	exitStatus := sshSubsystemExitStatus{
 		Status: status,
@@ -753,6 +750,10 @@ func (c *sshCommand) sendExitStatus(err error) {
 		}
 		common.ExecuteActionNotification(&c.connection.User, common.OperationSSHCmd, cmdPath, c.getDestPath(), targetPath, c.command,
 			common.ProtocolSSH, 0, err)
+		if err == nil {
+			logger.CommandLog(sshCommandLogSender, cmdPath, targetPath, c.connection.User.Username, "", c.connection.ID,
+				common.ProtocolSSH, -1, -1, "", "", c.connection.command, -1, c.connection.GetRemoteAddress())
+		}
 	}
 }
 

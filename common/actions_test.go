@@ -188,7 +188,7 @@ func TestPreDeleteAction(t *testing.T) {
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	fs := vfs.NewOsFs("id", homeDir, "")
-	c := NewBaseConnection("id", ProtocolSFTP, user)
+	c := NewBaseConnection("id", ProtocolSFTP, "", user)
 
 	testfile := filepath.Join(user.HomeDir, "testfile")
 	err = os.WriteFile(testfile, []byte("test"), os.ModePerm)

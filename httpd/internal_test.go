@@ -1146,7 +1146,7 @@ func TestCompressorAbortHandler(t *testing.T) {
 	}()
 
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, dataprovider.User{}),
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", dataprovider.User{}),
 		request:        nil,
 	}
 	renderCompressedFiles(&failingWriter{}, connection, "", nil)
@@ -1159,7 +1159,7 @@ func TestZipErrors(t *testing.T) {
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, user),
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", user),
 		request:        nil,
 	}
 
@@ -1371,7 +1371,7 @@ func TestConnection(t *testing.T) {
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, user),
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", user),
 		request:        nil,
 	}
 	assert.Empty(t, connection.GetClientVersion())
@@ -1393,7 +1393,7 @@ func TestRenderDirError(t *testing.T) {
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, user),
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", user),
 		request:        nil,
 	}
 
@@ -1412,7 +1412,7 @@ func TestHTTPDFile(t *testing.T) {
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, user),
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", user),
 		request:        nil,
 	}
 

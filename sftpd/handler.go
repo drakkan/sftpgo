@@ -33,6 +33,9 @@ func (c *Connection) GetClientVersion() string {
 
 // GetRemoteAddress return the connected client's address
 func (c *Connection) GetRemoteAddress() string {
+	if c.RemoteAddr == nil {
+		return ""
+	}
 	return c.RemoteAddr.String()
 }
 

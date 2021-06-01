@@ -46,7 +46,7 @@ func ServeSubSystemConnection(user *dataprovider.User, connectionID string, read
 	dataprovider.UpdateLastLogin(user) //nolint:errcheck
 
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connectionID, common.ProtocolSFTP, *user),
+		BaseConnection: common.NewBaseConnection(connectionID, common.ProtocolSFTP, "", *user),
 		ClientVersion:  "",
 		RemoteAddr:     &net.IPAddr{},
 		channel:        newSubsystemChannel(reader, writer),

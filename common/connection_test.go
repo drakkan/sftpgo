@@ -62,7 +62,7 @@ func TestRemoveErrors(t *testing.T) {
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
-	conn := NewBaseConnection("", ProtocolFTP, user)
+	conn := NewBaseConnection("", ProtocolFTP, "", user)
 	err := conn.IsRemoveDirAllowed(fs, mappedPath, "/virtualpath1")
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "permission denied")
@@ -83,7 +83,7 @@ func TestSetStatMode(t *testing.T) {
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	fs := newMockOsFs(true, "", user.GetHomeDir())
-	conn := NewBaseConnection("", ProtocolWebDAV, user)
+	conn := NewBaseConnection("", ProtocolWebDAV, "", user)
 	err := conn.handleChmod(fs, fakePath, fakePath, nil)
 	assert.NoError(t, err)
 	err = conn.handleChown(fs, fakePath, fakePath, nil)
@@ -100,14 +100,14 @@ func TestSetStatMode(t *testing.T) {
 
 func TestRecursiveRenameWalkError(t *testing.T) {
 	fs := vfs.NewOsFs("", os.TempDir(), "")
-	conn := NewBaseConnection("", ProtocolWebDAV, dataprovider.User{})
+	conn := NewBaseConnection("", ProtocolWebDAV, "", dataprovider.User{})
 	err := conn.checkRecursiveRenameDirPermissions(fs, fs, "/source", "/target")
 	assert.ErrorIs(t, err, os.ErrNotExist)
 }
 
 func TestCrossRenameFsErrors(t *testing.T) {
 	fs := vfs.NewOsFs("", os.TempDir(), "")
-	conn := NewBaseConnection("", ProtocolWebDAV, dataprovider.User{})
+	conn := NewBaseConnection("", ProtocolWebDAV, "", dataprovider.User{})
 	res := conn.hasSpaceForCrossRename(fs, vfs.QuotaCheckResult{}, 1, "missingsource")
 	assert.False(t, res)
 	if runtime.GOOS != osWindows {
@@ -138,7 +138,7 @@ func TestRenameVirtualFolders(t *testing.T) {
 		VirtualPath: vdir,
 	})
 	fs := vfs.NewOsFs("", os.TempDir(), "")
-	conn := NewBaseConnection("", ProtocolFTP, u)
+	conn := NewBaseConnection("", ProtocolFTP, "", u)
 	res := conn.isRenamePermitted(fs, fs, "source", "target", vdir, "vdirtarget", nil)
 	assert.False(t, res)
 }
@@ -173,7 +173,7 @@ func TestUpdateQuotaAfterRename(t *testing.T) {
 	assert.NoError(t, err)
 	fs, err := user.GetFilesystem("id")
 	assert.NoError(t, err)
-	c := NewBaseConnection("", ProtocolSFTP, user)
+	c := NewBaseConnection("", ProtocolSFTP, "", user)
 	request := sftp.NewRequest("Rename", "/testfile")
 	if runtime.GOOS != osWindows {
 		request.Filepath = "/dir"
@@ -218,7 +218,7 @@ func TestUpdateQuotaAfterRename(t *testing.T) {
 
 func TestErrorsMapping(t *testing.T) {
 	fs := vfs.NewOsFs("", os.TempDir(), "")
-	conn := NewBaseConnection("", ProtocolSFTP, dataprovider.User{HomeDir: os.TempDir()})
+	conn := NewBaseConnection("", ProtocolSFTP, "", dataprovider.User{HomeDir: os.TempDir()})
 	for _, protocol := range supportedProtocols {
 		conn.SetProtocol(protocol)
 		err := conn.GetFsError(fs, os.ErrNotExist)
@@ -280,7 +280,7 @@ func TestMaxWriteSize(t *testing.T) {
 	}
 	fs, err := user.GetFilesystem("123")
 	assert.NoError(t, err)
-	conn := NewBaseConnection("", ProtocolFTP, user)
+	conn := NewBaseConnection("", ProtocolFTP, "", user)
 	quotaResult := vfs.QuotaCheckResult{
 		HasSpace: true,
 	}

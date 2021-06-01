@@ -286,7 +286,7 @@ func handleWebClientDownload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, user),
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, r.RemoteAddr, user),
 		request:        r,
 	}
 	common.Connections.Add(connection)
@@ -323,7 +323,7 @@ func handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, user),
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, r.RemoteAddr, user),
 		request:        r,
 	}
 	common.Connections.Add(connection)
@@ -383,7 +383,7 @@ func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, user),
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, r.RemoteAddr, user),
 		request:        r,
 	}
 	common.Connections.Add(connection)

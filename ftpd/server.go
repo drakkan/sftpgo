@@ -155,7 +155,7 @@ func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
 	connID := fmt.Sprintf("%v_%v", s.ID, cc.ID())
 	user := dataprovider.User{}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, user),
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, cc.RemoteAddr().String(), user),
 		clientContext:  cc,
 	}
 	common.Connections.Add(connection)
@@ -335,7 +335,7 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 		return nil, err
 	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(fmt.Sprintf("%v_%v", s.ID, cc.ID()), common.ProtocolFTP, user),
+		BaseConnection: common.NewBaseConnection(fmt.Sprintf("%v_%v", s.ID, cc.ID()), common.ProtocolFTP, remoteAddr, user),
 		clientContext:  cc,
 	}
 	err = common.Connections.Swap(connection)

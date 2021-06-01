@@ -334,7 +334,7 @@ func TestOrderDirsToRemove(t *testing.T) {
 	user := dataprovider.User{}
 	fs := vfs.NewOsFs("id", os.TempDir(), "")
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, user),
+		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", user),
 		request:        nil,
 	}
 	dirsToRemove := []objectMapping{}
@@ -498,7 +498,7 @@ func TestResolvePathErrors(t *testing.T) {
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	fs := vfs.NewOsFs("connID", user.HomeDir, "")
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, user),
+		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", user),
 	}
 
 	err := connection.Mkdir(ctx, "", os.ModePerm)
@@ -567,7 +567,7 @@ func TestFileAccessErrors(t *testing.T) {
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	fs := vfs.NewOsFs("connID", user.HomeDir, "")
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, user),
+		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", user),
 	}
 	missingPath := "missing path"
 	fsMissingPath := filepath.Join(user.HomeDir, missingPath)
@@ -628,7 +628,7 @@ func TestRemoveDirTree(t *testing.T) {
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	fs := vfs.NewOsFs("connID", user.HomeDir, "")
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, user),
+		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", user),
 	}
 
 	vpath := path.Join("adir", "missing")
@@ -679,7 +679,7 @@ func TestContentType(t *testing.T) {
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	fs := vfs.NewOsFs("connID", user.HomeDir, "")
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, user),
+		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", user),
 	}
 	testFilePath := filepath.Join(user.HomeDir, testFile)
 	ctx := context.Background()
@@ -728,7 +728,7 @@ func TestTransferReadWriteErrors(t *testing.T) {
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	fs := vfs.NewOsFs("connID", user.HomeDir, "")
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, user),
+		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", user),
 	}
 	testFilePath := filepath.Join(user.HomeDir, testFile)
 	baseTransfer := common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile,
@@ -821,7 +821,7 @@ func TestTransferSeek(t *testing.T) {
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	fs := vfs.NewOsFs("connID", user.HomeDir, "")
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, user),
+		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", user),
 	}
 	testFilePath := filepath.Join(user.HomeDir, testFile)
 	testFileContents := []byte("content")

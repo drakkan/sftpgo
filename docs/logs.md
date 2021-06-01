@@ -13,6 +13,7 @@ The logs can be divided into the following categories:
   - `sender` string. `Upload` or `Download`
   - `time` string. Date/time with millisecond precision
   - `level` string
+  - `remote_addr` string. IP and, optionally, port of the remote client. For example `127.0.0.1:1234` or `127.0.0.1`
   - `elapsed_ms`, int64. Elapsed time, as milliseconds, for the upload/download
   - `size_bytes`, int64. Size, as bytes, of the download/upload
   - `username`, string
@@ -22,6 +23,7 @@ The logs can be divided into the following categories:
 - **"command logs"**, SFTP/SCP command logs:
   - `sender` string. `Rename`, `Rmdir`, `Mkdir`, `Symlink`, `Remove`, `Chmod`, `Chown`, `Chtimes`, `Truncate`, `SSHCommand`
   - `level` string
+  - `remote_addr` string. IP and, optionally, port of the remote client. For example `127.0.0.1:1234` or `127.0.0.1`
   - `username`, string
   - `file_path` string
   - `target_path` string
@@ -37,7 +39,7 @@ The logs can be divided into the following categories:
 - **"http logs"**, REST API logs:
   - `sender` string. `httpd`
   - `level` string
-  - `remote_addr` string. IP and port of the remote client
+  - `remote_addr` string. IP and, optionally, port of the remote client. For example `127.0.0.1:1234` or `127.0.0.1`
   - `proto` string, for example `HTTP/1.1`
   - `method` string. HTTP method (`GET`, `POST`, `PUT`, `DELETE` etc.)
   - `user_agent` string
