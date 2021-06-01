@@ -397,7 +397,6 @@ jobs:
         run: |
           gh release create "${SFTPGO_VERSION}"
           gh release upload "${SFTPGO_VERSION}" sftpgo_*.xz --clobber
-          gh release upload "${SFTPGO_VERSION}" sftpgo_*.zip --clobber
           gh release view "${SFTPGO_VERSION}"
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
