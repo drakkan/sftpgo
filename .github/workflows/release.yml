@@ -42,7 +42,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-10.15, windows-2019]
+        os: [macos-10.15]
 
     steps:
       - uses: actions/checkout@v2
@@ -417,16 +417,6 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_macOS_x86_64.tar.xz
-
-      - name: Download Windows installer x86_64 artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_windows_x86_64.exe
-
-      - name: Download Windows portable x86_64 artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_windows_portable_x86_64.zip
 
       - name: Download source with deps artifact
         uses: actions/download-artifact@v2
