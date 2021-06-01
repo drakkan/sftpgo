@@ -395,7 +395,6 @@ jobs:
 
       - name: Create release
         run: |
-          mv sftpgo_portable_x86_64.zip sftpgo_${SFTPGO_VERSION}_windows_portable_x86_64.zip
           gh release create "${SFTPGO_VERSION}"
           gh release upload "${SFTPGO_VERSION}" sftpgo_*.xz --clobber
           gh release upload "${SFTPGO_VERSION}" sftpgo_*.zip --clobber
