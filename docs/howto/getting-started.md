@@ -449,11 +449,22 @@ Open the SFTPGo configuration file, search for the `ftpd` section and change it 
         "tls_cipher_suites": []
       }
     ],
+    "banner": "",
+    "banner_file": "",
+    "active_transfers_port_non_20": true,
+    "passive_port_range": {
+      "start": 50000,
+      "end": 50100
+    },
     ...
   }
 ```
 
-Restart SFTPGo to apply the changes. The FTP service is now available on port `2121`. It is recommended that you provide a certificate and key file to expose FTP over TLS. You should prefer SFTP to FTP even if you configure TLS, please don't blindly enable the old FTP protocol.
+Restart SFTPGo to apply the changes. The FTP service is now available on port `2121`.
+
+You can also configure the passive ports range (`50000-50100` by default), these ports must be reachable for passive FTP to work. If your FTP server is on the private network side of a NAT configuration you have to set `force_passive_ip` to your external IP address. You may also need to open the passive port range on your firewall.
+
+It is recommended that you provide a certificate and key file to expose FTP over TLS. You should prefer SFTP to FTP even if you configure TLS, please don't blindly enable the old FTP protocol.
 
 ### Enable WebDAV service
 

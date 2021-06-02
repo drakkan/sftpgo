@@ -35,6 +35,44 @@ docker run --rm --name some-sftpgo -p 8080:8080 -p 2022:2022 -d "drakkan/sftpgo:
 
 If you prefer GitHub Container Registry to Docker Hub replace `drakkan/sftpgo:tag` with `ghcr.io/drakkan/sftpgo:tag`.
 
+### Enable FTP service
+
+FTP is disabled by default, you can enable the FTP service by starting the SFTPGo instance in this way:
+
+```shell
+docker run --name some-sftpgo \
+    -p 8080:8080 \
+    -p 2022:2022 \
+    -p 2121:2121 \
+    -p 50000-50100:50000-50100 \
+    -e SFTPGO_FTPD__BINDINGS__0__PORT=2121 \
+    -e SFTPGO_FTPD__BINDINGS__0__FORCE_PASSIVE_IP=<your external ip here> \
+    -d "drakkan/sftpgo:tag"
+```
+
+The FTP service is now available on port 2121 and SFTP on port 2022.
+
+You can change the passive ports range (`50000-50100` by default) by setting the environment variables `SFTPGO_FTPD__PASSIVE_PORT_RANGE__START` and `SFTPGO_FTPD__PASSIVE_PORT_RANGE__END`.
+
+It is recommended that you provide a certificate and key file to expose FTP over TLS. You should prefer SFTP to FTP even if you configure TLS, please don't blindly enable the old FTP protocol.
+
+### Enable WebDAV service
+
+WebDAV is disabled by default, you can enable the WebDAV service by starting the SFTPGo instance in this way:
+
+```shell
+docker run --name some-sftpgo \
+    -p 8080:8080 \
+    -p 2022:2022 \
+    -p 10080:10080 \
+    -e SFTPGO_WEBDAVD__BINDINGS__0__PORT=10080 \
+    -d "drakkan/sftpgo:tag"
+```
+
+The WebDAV service is now available on port 10080 and SFTP on port 2022.
+
+It is recommended that you provide a certificate and key file to expose WebDAV over https.
+
 ### Container shell access and viewing SFTPGo logs
 
 The docker exec command allows you to run commands inside a Docker container. The following command line will give you a shell inside your `sftpgo` container:
