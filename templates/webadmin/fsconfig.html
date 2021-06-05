@@ -315,54 +315,28 @@
 
 {{define "fsjs"}}
     function onFilesystemChanged(val){
+        // first hide all fsconfig sections
+        $('.form-group.row.gcs').hide();
+        $('.form-group.gcs').hide();
+        $('.form-group.row.s3').hide();
+        $('.form-group.row.azblob').hide();
+        $('.form-group.azblob').hide();
+        $('.form-group.crypt').hide();
+        $('.form-group.sftp').hide();
+
+        // enable the ones matching the selected vfs provider
         if (val == '1'){
-            $('.form-group.row.gcs').hide();
-            $('.form-group.gcs').hide();
-            $('.form-group.row.azblob').hide();
-            $('.form-group.azblob').hide();
-            $('.form-group.crypt').hide();
-            $('.form-group.sftp').hide();
             $('.form-group.row.s3').show();
         } else if (val == '2'){
             $('.form-group.row.gcs').show();
             $('.form-group.gcs').show();
-            $('.form-group.row.azblob').hide();
-            $('.form-group.azblob').hide();
-            $('.form-group.crypt').hide();
-            $('.form-group.row.s3').hide();
-            $('.form-group.sftp').hide();
         } else if (val == '3'){
             $('.form-group.row.azblob').show();
             $('.form-group.azblob').show();
-            $('.form-group.row.gcs').hide();
-            $('.form-group.gcs').hide();
-            $('.form-group.crypt').hide();
-            $('.form-group.row.s3').hide();
-            $('.form-group.sftp').hide();
         } else if (val == '4'){
-            $('.form-group.row.gcs').hide();
-            $('.form-group.gcs').hide();
-            $('.form-group.row.s3').hide();
-            $('.form-group.row.azblob').hide();
-            $('.form-group.azblob').hide();
             $('.form-group.crypt').show();
-            $('.form-group.sftp').hide();
         } else if (val == '5'){
-            $('.form-group.row.gcs').hide();
-            $('.form-group.gcs').hide();
-            $('.form-group.row.s3').hide();
-            $('.form-group.row.azblob').hide();
-            $('.form-group.azblob').hide();
-            $('.form-group.crypt').hide();
             $('.form-group.sftp').show();
-        } else {
-            $('.form-group.row.gcs').hide();
-            $('.form-group.gcs').hide();
-            $('.form-group.row.s3').hide();
-            $('.form-group.row.azblob').hide();
-            $('.form-group.azblob').hide();
-            $('.form-group.crypt').hide();
-            $('.form-group.sftp').hide();
         }
     }
 {{end}}
