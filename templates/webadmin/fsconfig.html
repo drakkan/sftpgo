@@ -13,7 +13,7 @@
             </div>
         </div>
 
-        <div class="form-group row s3">
+        <div class="form-group row fsconfig fsconfig-s3fs">
             <label for="idS3Bucket" class="col-sm-2 col-form-label">Bucket</label>
             <div class="col-sm-3">
                 <input type="text" class="form-control" id="idS3Bucket" name="s3_bucket" placeholder=""
@@ -27,7 +27,7 @@
             </div>
         </div>
 
-        <div class="form-group row s3">
+        <div class="form-group row fsconfig fsconfig-s3fs">
             <label for="idS3AccessKey" class="col-sm-2 col-form-label">Access Key</label>
             <div class="col-sm-3">
                 <input type="text" class="form-control" id="idS3AccessKey" name="s3_access_key" placeholder=""
@@ -42,7 +42,7 @@
             </div>
         </div>
 
-        <div class="form-group row s3">
+        <div class="form-group row fsconfig fsconfig-s3fs">
             <label for="idS3StorageClass" class="col-sm-2 col-form-label">Storage Class</label>
             <div class="col-sm-3">
                 <input type="text" class="form-control" id="idS3StorageClass" name="s3_storage_class" placeholder=""
@@ -56,7 +56,7 @@
             </div>
         </div>
 
-        <div class="form-group row s3">
+        <div class="form-group row fsconfig fsconfig-s3fs">
             <label for="idS3PartSize" class="col-sm-2 col-form-label">UL Part Size (MB)</label>
             <div class="col-sm-3">
                 <input type="number" class="form-control" id="idS3PartSize" name="s3_upload_part_size" placeholder=""
@@ -77,7 +77,7 @@
             </div>
         </div>
 
-        <div class="form-group row s3">
+        <div class="form-group row fsconfig fsconfig-s3fs">
             <label for="idS3KeyPrefix" class="col-sm-2 col-form-label">Key Prefix</label>
             <div class="col-sm-10">
                 <input type="text" class="form-control" id="idS3KeyPrefix" name="s3_key_prefix" placeholder=""
@@ -88,7 +88,7 @@
             </div>
         </div>
 
-        <div class="form-group row gcs">
+        <div class="form-group row fsconfig fsconfig-gcsfs">
             <label for="idGCSBucket" class="col-sm-2 col-form-label">Bucket</label>
             <div class="col-sm-10">
                 <input type="text" class="form-control" id="idGCSBucket" name="gcs_bucket" placeholder=""
@@ -96,7 +96,7 @@
             </div>
         </div>
 
-        <div class="form-group row gcs">
+        <div class="form-group row fsconfig fsconfig-gcsfs">
             <label for="idGCSCredentialFile" class="col-sm-2 col-form-label">Credentials file</label>
             <div class="col-sm-4">
                 <input type="file" class="form-control-file" id="idGCSCredentialFile" name="gcs_credential_file"
@@ -113,7 +113,7 @@
             </div>
         </div>
 
-        <div class="form-group gcs">
+        <div class="form-group fsconfig fsconfig-gcsfs">
             <div class="form-check">
                 <input type="checkbox" class="form-check-input" id="idGCSAutoCredentials" name="gcs_auto_credentials"
                     {{if gt .GCSConfig.AutomaticCredentials 0}}checked{{end}}>
@@ -121,7 +121,7 @@
             </div>
         </div>
 
-        <div class="form-group row gcs">
+        <div class="form-group row fsconfig fsconfig-gcsfs">
             <label for="idGCSKeyPrefix" class="col-sm-2 col-form-label">Key Prefix</label>
             <div class="col-sm-10">
                 <input type="text" class="form-control" id="idGCSKeyPrefix" name="gcs_key_prefix" placeholder=""
@@ -132,7 +132,7 @@
             </div>
         </div>
 
-        <div class="form-group row azblob">
+        <div class="form-group row fsconfig fsconfig-azblobfs">
             <label for="idAzContainer" class="col-sm-2 col-form-label">Container</label>
             <div class="col-sm-3">
                 <input type="text" class="form-control" id="idAzContainer" name="az_container" placeholder=""
@@ -146,7 +146,7 @@
             </div>
         </div>
 
-        <div class="form-group row azblob">
+        <div class="form-group row fsconfig fsconfig-azblobfs">
             <label for="idAzAccountKey" class="col-sm-2 col-form-label">Account Key</label>
             <div class="col-sm-10">
                 <input type="password" class="form-control" id="idAzAccountKey" name="az_account_key" placeholder=""
@@ -155,14 +155,14 @@
             </div>
         </div>
 
-        <div class="form-group row azblob">
+        <div class="form-group row fsconfig fsconfig-azblobfs">
             <label for="idAzSASURL" class="col-sm-2 col-form-label">SAS URL</label>
             <div class="col-sm-10">
                 <input type="password" class="form-control" id="idAzSASURL" name="az_sas_url" placeholder=""
                     value="{{if .AzBlobConfig.SASURL.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.AzBlobConfig.SASURL.GetPayload}}{{end}}" maxlength="1000">
             </div>
         </div>
-        <div class="form-group row azblob">
+        <div class="form-group row fsconfig fsconfig-azblobfs">
             <label for="idAzEndpoint" class="col-sm-2 col-form-label">Endpoint</label>
             <div class="col-sm-10">
                 <input type="text" class="form-control" id="idAzEndpoint" name="az_endpoint" placeholder=""
@@ -170,7 +170,7 @@
             </div>
         </div>
 
-        <div class="form-group row azblob">
+        <div class="form-group row fsconfig fsconfig-azblobfs">
             <label for="idAzAccessTier" class="col-sm-2 col-form-label">Access Tier</label>
             <div class="col-sm-10">
                 <select class="form-control" id="idAzAccessTier" name="az_access_tier">
@@ -183,7 +183,7 @@
             </div>
         </div>
 
-        <div class="form-group row azblob">
+        <div class="form-group row fsconfig fsconfig-azblobfs">
             <label for="idAzPartSize" class="col-sm-2 col-form-label">UL Part Size (MB)</label>
             <div class="col-sm-3">
                 <input type="number" class="form-control" id="idAzPartSize" name="az_upload_part_size" placeholder=""
@@ -204,7 +204,7 @@
             </div>
         </div>
 
-        <div class="form-group row azblob">
+        <div class="form-group row fsconfig fsconfig-azblobfs">
             <label for="idAzKeyPrefix" class="col-sm-2 col-form-label">Key Prefix</label>
             <div class="col-sm-10">
                 <input type="text" class="form-control" id="idAzKeyPrefix" name="az_key_prefix" placeholder=""
@@ -215,7 +215,7 @@
             </div>
         </div>
 
-        <div class="form-group azblob">
+        <div class="form-group fsconfig fsconfig-azblobfs">
             <div class="form-check">
                 <input type="checkbox" class="form-check-input" id="idUseEmulator" name="az_use_emulator" {{if
                     .AzBlobConfig.UseEmulator}}checked{{end}}>
@@ -223,7 +223,7 @@
             </div>
         </div>
 
-        <div class="form-group row crypt">
+        <div class="form-group row fsconfig fsconfig-cryptfs">
             <label for="idCryptPassphrase" class="col-sm-2 col-form-label">Passphrase</label>
             <div class="col-sm-10">
                 <input type="password" class="form-control" id="idCryptPassphrase" name="crypt_passphrase"
@@ -233,7 +233,7 @@
             </div>
         </div>
 
-        <div class="form-group row sftp">
+        <div class="form-group row fsconfig fsconfig-sftpfs">
             <label for="idSFTPEndpoint" class="col-sm-2 col-form-label">Endpoint</label>
             <div class="col-sm-3">
                 <input type="text" class="form-control" id="idSFTPEndpoint" name="sftp_endpoint" placeholder=""
@@ -253,7 +253,7 @@
             </div>
         </div>
 
-        <div class="form-group row sftp">
+        <div class="form-group row fsconfig fsconfig-sftpfs">
             <label for="idSFTPUsername" class="col-sm-2 col-form-label">Username</label>
             <div class="col-sm-3">
                 <input type="text" class="form-control" id="idSFTPUsername" name="sftp_username" placeholder=""
@@ -268,7 +268,7 @@
             </div>
         </div>
 
-        <div class="form-group row sftp">
+        <div class="form-group row fsconfig fsconfig-sftpfs">
             <label for="idSFTPPrivateKey" class="col-sm-2 col-form-label">Private key</label>
             <div class="col-sm-10">
                 <textarea type="password" class="form-control" id="idSFTPPrivateKey" name="sftp_private_key"
@@ -276,7 +276,7 @@
             </div>
         </div>
 
-        <div class="form-group row sftp">
+        <div class="form-group row fsconfig fsconfig-sftpfs">
             <label for="idSFTPFingerprints" class="col-sm-2 col-form-label">Fingerprints</label>
             <div class="col-sm-10">
                 <textarea class="form-control" id="idSFTPFingerprints" name="sftp_fingerprints" rows="3"
@@ -288,7 +288,7 @@
             </div>
         </div>
 
-        <div class="form-group row sftp">
+        <div class="form-group row fsconfig fsconfig-sftpfs">
             <label for="idSFTPPrefix" class="col-sm-2 col-form-label">Prefix</label>
             <div class="col-sm-10">
                 <input type="text" class="form-control" id="idSFTPPrefix" name="sftp_prefix" placeholder=""
@@ -299,7 +299,7 @@
             </div>
         </div>
 
-        <div class="form-group sftp">
+        <div class="form-group fsconfig fsconfig-sftpfs">
             <div class="form-check">
                 <input type="checkbox" class="form-check-input" id="idDisableConcurrentReads"
                     name="sftp_disable_concurrent_reads" {{if .SFTPConfig.DisableCouncurrentReads}}checked{{end}}>
@@ -312,28 +312,10 @@
 
 {{define "fsjs"}}
     function onFilesystemChanged(val){
-        // first hide all fsconfig sections
-        $('.form-group.row.gcs').hide();
-        $('.form-group.gcs').hide();
-        $('.form-group.row.s3').hide();
-        $('.form-group.row.azblob').hide();
-        $('.form-group.azblob').hide();
-        $('.form-group.crypt').hide();
-        $('.form-group.sftp').hide();
-
-        // enable the ones matching the selected vfs provider
-        if (val == 's3fs'){
-            $('.form-group.row.s3').show();
-        } else if (val == 'gcsfs'){
-            $('.form-group.row.gcs').show();
-            $('.form-group.gcs').show();
-        } else if (val == 'azblobfs'){
-            $('.form-group.row.azblob').show();
-            $('.form-group.azblob').show();
-        } else if (val == 'cryptfs'){
-            $('.form-group.crypt').show();
-        } else if (val == 'sftpfs'){
-            $('.form-group.sftp').show();
-        }
+        // each fsconfig form-group has the 'fsconfig' css class
+        // as well as a 'fsconfig-{name}' class where name is the FilesystemProvider.Name
+        // we're simply hiding all of them and then showing the ones that match the selected vfs provider
+        $('.form-group.fsconfig').hide();
+        $('.form-group.fsconfig-'+val).show();
     }
 {{end}}
