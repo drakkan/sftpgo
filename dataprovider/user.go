@@ -1005,17 +1005,8 @@ func (u *User) GetInfoString() string {
 		t := utils.GetTimeFromMsecSinceEpoch(u.LastLogin)
 		result += fmt.Sprintf("Last login: %v ", t.Format("2006-01-02 15:04")) // YYYY-MM-DD HH:MM
 	}
-	switch u.FsConfig.Provider {
-	case vfs.S3FilesystemProvider:
-		result += "Storage: S3 "
-	case vfs.GCSFilesystemProvider:
-		result += "Storage: GCS "
-	case vfs.AzureBlobFilesystemProvider:
-		result += "Storage: AzBlob "
-	case vfs.CryptedFilesystemProvider:
-		result += "Storage: Encrypted "
-	case vfs.SFTPFilesystemProvider:
-		result += "Storage: SFTP "
+	if u.FsConfig.Provider != vfs.LocalFilesystemProvider {
+		result += fmt.Sprintf("Storage: %s ", u.FsConfig.Provider.ShortInfo())
 	}
 	if len(u.PublicKeys) > 0 {
 		result += fmt.Sprintf("Public keys: %v ", len(u.PublicKeys))

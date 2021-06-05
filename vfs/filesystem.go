@@ -43,6 +43,44 @@ func GetProviderByName(name string) FilesystemProvider {
 	return LocalFilesystemProvider
 }
 
+// Name returns the Provider's unique name
+func (p FilesystemProvider) Name() string {
+	switch p {
+	case LocalFilesystemProvider:
+		return "osfs"
+	case S3FilesystemProvider:
+		return "s3fs"
+	case GCSFilesystemProvider:
+		return "gcsfs"
+	case AzureBlobFilesystemProvider:
+		return "azblobfs"
+	case CryptedFilesystemProvider:
+		return "cryptfs"
+	case SFTPFilesystemProvider:
+		return "sftpfs"
+	}
+	return "" // let's not claim to be
+}
+
+// ShortInfo returns a human readable, short description for the given FilesystemProvider
+func (p FilesystemProvider) ShortInfo() string {
+	switch p {
+	case LocalFilesystemProvider:
+		return "Local"
+	case S3FilesystemProvider:
+		return "S3"
+	case GCSFilesystemProvider:
+		return "GCS"
+	case AzureBlobFilesystemProvider:
+		return "AzBlob"
+	case CryptedFilesystemProvider:
+		return "Encrypted"
+	case SFTPFilesystemProvider:
+		return "SFTP"
+	}
+	return ""
+}
+
 // ValidatorHelper implements methods we need for Filesystem.ValidateConfig.
 // It is implemented by vfs.Folder and dataprovider.User
 type ValidatorHelper interface {
