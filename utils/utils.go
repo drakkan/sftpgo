@@ -353,9 +353,22 @@ func CleanPath(p string) string {
 	return path.Clean(p)
 }
 
-// LoadTemplate wraps a call to a function returning (*Template, error)
-// it is just like template.Must but it writes a log before exiting
-func LoadTemplate(t *template.Template, err error) *template.Template {
+// LoadTemplate parses the given template paths.
+// it behaves like template.Must but it writes a log before exiting
+// you can optionally provide a base template (e.g. to define some custom functions)
+func LoadTemplate(base *template.Template, paths ...string) *template.Template {
+	var t *template.Template
+	var err error
+
+	if base != nil {
+		t, err = base.ParseFiles(paths...)
+		if err == nil {
+			t, err = t.Clone()
+		}
+	} else {
+		t, err = template.ParseFiles(paths...)
+	}
+
 	if err != nil {
 		logger.ErrorToConsole("error loading required template: %v", err)
 		logger.Error(logSender, "", "error loading required template: %v", err)

@@ -251,20 +251,21 @@ func loadAdminTemplates(templatesPath string) {
 	setupPath := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateSetup),
 	}
-	usersTmpl := utils.LoadTemplate(template.ParseFiles(usersPaths...))
-	userTmpl := utils.LoadTemplate(template.ParseFiles(userPaths...))
-	adminsTmpl := utils.LoadTemplate(template.ParseFiles(adminsPaths...))
-	adminTmpl := utils.LoadTemplate(template.ParseFiles(adminPaths...))
-	connectionsTmpl := utils.LoadTemplate(template.ParseFiles(connectionsPaths...))
-	messageTmpl := utils.LoadTemplate(template.ParseFiles(messagePath...))
-	foldersTmpl := utils.LoadTemplate(template.ParseFiles(foldersPath...))
-	folderTmpl := utils.LoadTemplate(template.ParseFiles(folderPath...))
-	statusTmpl := utils.LoadTemplate(template.ParseFiles(statusPath...))
-	loginTmpl := utils.LoadTemplate(template.ParseFiles(loginPath...))
-	changePwdTmpl := utils.LoadTemplate(template.ParseFiles(changePwdPaths...))
-	maintenanceTmpl := utils.LoadTemplate(template.ParseFiles(maintenancePath...))
-	defenderTmpl := utils.LoadTemplate(template.ParseFiles(defenderPath...))
-	setupTmpl := utils.LoadTemplate(template.ParseFiles(setupPath...))
+
+	usersTmpl := utils.LoadTemplate(nil, usersPaths...)
+	userTmpl := utils.LoadTemplate(nil, userPaths...)
+	adminsTmpl := utils.LoadTemplate(nil, adminsPaths...)
+	adminTmpl := utils.LoadTemplate(nil, adminPaths...)
+	connectionsTmpl := utils.LoadTemplate(nil, connectionsPaths...)
+	messageTmpl := utils.LoadTemplate(nil, messagePath...)
+	foldersTmpl := utils.LoadTemplate(nil, foldersPath...)
+	folderTmpl := utils.LoadTemplate(nil, folderPath...)
+	statusTmpl := utils.LoadTemplate(nil, statusPath...)
+	loginTmpl := utils.LoadTemplate(nil, loginPath...)
+	changePwdTmpl := utils.LoadTemplate(nil, changePwdPaths...)
+	maintenanceTmpl := utils.LoadTemplate(nil, maintenancePath...)
+	defenderTmpl := utils.LoadTemplate(nil, defenderPath...)
+	setupTmpl := utils.LoadTemplate(nil, setupPath...)
 
 	adminTemplates[templateUsers] = usersTmpl
 	adminTemplates[templateUser] = userTmpl
