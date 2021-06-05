@@ -99,7 +99,7 @@
 {{define "extra_js"}}
 <script type="text/javascript">
     $(document).ready(function () {
-        onFilesystemChanged('{{.Folder.FsConfig.Provider}}');
+        onFilesystemChanged('{{.Folder.FsConfig.Provider.Name}}');
 
         $("body").on("click", ".add_new_tpl_folder_field_btn", function () {
             var index = $(".form_field_tpl_folders_outer").find(".form_field_tpl_folder_outer_row").length;

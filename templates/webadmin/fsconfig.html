@@ -7,7 +7,7 @@
                 <select class="form-control" id="idFilesystem" name="fs_provider"
                     onchange="onFilesystemChanged(this.value)">
                     {{ range ListFSProviders }}
-                    <option value="{{.}}" {{if eq . $.Provider }}selected{{end}}>{{.ShortInfo}}</option>
+                    <option value="{{.Name}}" {{if eq . $.Provider }}selected{{end}}>{{.ShortInfo}}</option>
                     {{end}}
                 </select>
             </div>
@@ -322,17 +322,17 @@
         $('.form-group.sftp').hide();
 
         // enable the ones matching the selected vfs provider
-        if (val == '1'){
+        if (val == 's3fs'){
             $('.form-group.row.s3').show();
-        } else if (val == '2'){
+        } else if (val == 'gcsfs'){
             $('.form-group.row.gcs').show();
             $('.form-group.gcs').show();
-        } else if (val == '3'){
+        } else if (val == 'azblobfs'){
             $('.form-group.row.azblob').show();
             $('.form-group.azblob').show();
-        } else if (val == '4'){
+        } else if (val == 'cryptfs'){
             $('.form-group.crypt').show();
-        } else if (val == '5'){
+        } else if (val == 'sftpfs'){
             $('.form-group.sftp').show();
         }
     }

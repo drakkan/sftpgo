@@ -635,7 +635,7 @@
             return true;
         });
 
-        onFilesystemChanged('{{.User.FsConfig.Provider}}');
+        onFilesystemChanged('{{.User.FsConfig.Provider.Name}}');
 
         $("body").on("click", ".add_new_pk_field_btn", function () {
             var index = $(".form_field_pk_outer").find(".form_field_pk_outer_row").length;
