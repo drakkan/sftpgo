@@ -1156,14 +1156,14 @@ func isMappedDirOverlapped(dir1, dir2 string, fullCheck bool) bool {
 
 func validateFolderQuotaLimits(folder vfs.VirtualFolder) error {
 	if folder.QuotaSize < -1 {
-		return &ValidationError{err: fmt.Sprintf("invalid quota_size: %v folder path %#v", folder.QuotaSize, folder.MappedPath)}
+		return NewValidationError(fmt.Sprintf("invalid quota_size: %v folder path %#v", folder.QuotaSize, folder.MappedPath))
 	}
 	if folder.QuotaFiles < -1 {
-		return &ValidationError{err: fmt.Sprintf("invalid quota_file: %v folder path %#v", folder.QuotaFiles, folder.MappedPath)}
+		return NewValidationError(fmt.Sprintf("invalid quota_file: %v folder path %#v", folder.QuotaFiles, folder.MappedPath))
 	}
 	if (folder.QuotaSize == -1 && folder.QuotaFiles != -1) || (folder.QuotaFiles == -1 && folder.QuotaSize != -1) {
-		return &ValidationError{err: fmt.Sprintf("virtual folder quota_size and quota_files must be both -1 or >= 0, quota_size: %v quota_files: %v",
-			folder.QuotaFiles, folder.QuotaSize)}
+		return NewValidationError(fmt.Sprintf("virtual folder quota_size and quota_files must be both -1 or >= 0, quota_size: %v quota_files: %v",
+			folder.QuotaFiles, folder.QuotaSize))
 	}
 	return nil
 }
@@ -1199,7 +1199,7 @@ func validateUserVirtualFolders(user *User) error {
 	for _, v := range user.VirtualFolders {
 		cleanedVPath := filepath.ToSlash(path.Clean(v.VirtualPath))
 		if !path.IsAbs(cleanedVPath) || cleanedVPath == "/" {
-			return &ValidationError{err: fmt.Sprintf("invalid virtual folder %#v", v.VirtualPath)}
+			return NewValidationError(fmt.Sprintf("invalid virtual folder %#v", v.VirtualPath))
 		}
 		if err := validateFolderQuotaLimits(v); err != nil {
 			return err
@@ -1211,21 +1211,21 @@ func validateUserVirtualFolders(user *User) error {
 		cleanedMPath := folder.MappedPath
 		if folder.IsLocalOrLocalCrypted() {
 			if isMappedDirOverlapped(cleanedMPath, user.GetHomeDir(), true) {
-				return &ValidationError{err: fmt.Sprintf("invalid mapped folder %#v cannot be inside or contain the user home dir %#v",
-					folder.MappedPath, user.GetHomeDir())}
+				return NewValidationError(fmt.Sprintf("invalid mapped folder %#v cannot be inside or contain the user home dir %#v",
+					folder.MappedPath, user.GetHomeDir()))
 			}
 			for mPath := range mappedPaths {
 				if folder.IsLocalOrLocalCrypted() && isMappedDirOverlapped(mPath, cleanedMPath, false) {
-					return &ValidationError{err: fmt.Sprintf("invalid mapped folder %#v overlaps with mapped folder %#v",
-						v.MappedPath, mPath)}
+					return NewValidationError(fmt.Sprintf("invalid mapped folder %#v overlaps with mapped folder %#v",
+						v.MappedPath, mPath))
 				}
 			}
 			mappedPaths[cleanedMPath] = true
 		}
 		for vPath := range virtualPaths {
 			if isVirtualDirOverlapped(vPath, cleanedVPath, false) {
-				return &ValidationError{err: fmt.Sprintf("invalid virtual folder %#v overlaps with virtual folder %#v",
-					v.VirtualPath, vPath)}
+				return NewValidationError(fmt.Sprintf("invalid virtual folder %#v overlaps with virtual folder %#v",
+					v.VirtualPath, vPath))
 			}
 		}
 		virtualPaths[cleanedVPath] = true
@@ -1242,22 +1242,22 @@ func validateUserVirtualFolders(user *User) error {
 
 func validatePermissions(user *User) error {
 	if len(user.Permissions) == 0 {
-		return &ValidationError{err: "please grant some permissions to this user"}
+		return NewValidationError("please grant some permissions to this user")
 	}
 	permissions := make(map[string][]string)
 	if _, ok := user.Permissions["/"]; !ok {
-		return &ValidationError{err: "permissions for the root dir \"/\" must be set"}
+		return NewValidationError("permissions for the root dir \"/\" must be set")
 	}
 	for dir, perms := range user.Permissions {
 		if len(perms) == 0 && dir == "/" {
-			return &ValidationError{err: fmt.Sprintf("no permissions granted for the directory: %#v", dir)}
+			return NewValidationError(fmt.Sprintf("no permissions granted for the directory: %#v", dir))
 		}
 		if len(perms) > len(ValidPerms) {
-			return &ValidationError{err: "invalid permissions"}
+			return NewValidationError("invalid permissions")
 		}
 		for _, p := range perms {
 			if !utils.IsStringInSlice(p, ValidPerms) {
-				return &ValidationError{err: fmt.Sprintf("invalid permission: %#v", p)}
+				return NewValidationError(fmt.Sprintf("invalid permission: %#v", p))
 			}
 		}
 		cleanedDir := filepath.ToSlash(path.Clean(dir))
@@ -1265,10 +1265,10 @@ func validatePermissions(user *User) error {
 			cleanedDir = strings.TrimSuffix(cleanedDir, "/")
 		}
 		if !path.IsAbs(cleanedDir) {
-			return &ValidationError{err: fmt.Sprintf("cannot set permissions for non absolute path: %#v", dir)}
+			return NewValidationError(fmt.Sprintf("cannot set permissions for non absolute path: %#v", dir))
 		}
 		if dir != cleanedDir && cleanedDir == "/" {
-			return &ValidationError{err: fmt.Sprintf("cannot set permissions for invalid subdirectory: %#v is an alias for \"/\"", dir)}
+			return NewValidationError(fmt.Sprintf("cannot set permissions for invalid subdirectory: %#v is an alias for \"/\"", dir))
 		}
 		if utils.IsStringInSlice(PermAny, perms) {
 			permissions[cleanedDir] = []string{PermAny}
@@ -1291,7 +1291,7 @@ func validatePublicKeys(user *User) error {
 		}
 		_, _, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
 		if err != nil {
-			return &ValidationError{err: fmt.Sprintf("could not parse key nr. %d: %s", i+1, err)}
+			return NewValidationError(fmt.Sprintf("could not parse key nr. %d: %s", i+1, err))
 		}
 		validatedKeys = append(validatedKeys, k)
 	}
@@ -1309,13 +1309,13 @@ func validateFiltersPatternExtensions(user *User) error {
 	for _, f := range user.Filters.FilePatterns {
 		cleanedPath := filepath.ToSlash(path.Clean(f.Path))
 		if !path.IsAbs(cleanedPath) {
-			return &ValidationError{err: fmt.Sprintf("invalid path %#v for file patterns filter", f.Path)}
+			return NewValidationError(fmt.Sprintf("invalid path %#v for file patterns filter", f.Path))
 		}
 		if utils.IsStringInSlice(cleanedPath, filteredPaths) {
-			return &ValidationError{err: fmt.Sprintf("duplicate file patterns filter for path %#v", f.Path)}
+			return NewValidationError(fmt.Sprintf("duplicate file patterns filter for path %#v", f.Path))
 		}
 		if len(f.AllowedPatterns) == 0 && len(f.DeniedPatterns) == 0 {
-			return &ValidationError{err: fmt.Sprintf("empty file patterns filter for path %#v", f.Path)}
+			return NewValidationError(fmt.Sprintf("empty file patterns filter for path %#v", f.Path))
 		}
 		f.Path = cleanedPath
 		allowed := make([]string, 0, len(f.AllowedPatterns))
@@ -1323,14 +1323,14 @@ func validateFiltersPatternExtensions(user *User) error {
 		for _, pattern := range f.AllowedPatterns {
 			_, err := path.Match(pattern, "abc")
 			if err != nil {
-				return &ValidationError{err: fmt.Sprintf("invalid file pattern filter %#v", pattern)}
+				return NewValidationError(fmt.Sprintf("invalid file pattern filter %#v", pattern))
 			}
 			allowed = append(allowed, strings.ToLower(pattern))
 		}
 		for _, pattern := range f.DeniedPatterns {
 			_, err := path.Match(pattern, "abc")
 			if err != nil {
-				return &ValidationError{err: fmt.Sprintf("invalid file pattern filter %#v", pattern)}
+				return NewValidationError(fmt.Sprintf("invalid file pattern filter %#v", pattern))
 			}
 			denied = append(denied, strings.ToLower(pattern))
 		}
@@ -1363,39 +1363,39 @@ func validateFilters(user *User) error {
 	for _, IPMask := range user.Filters.DeniedIP {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
-			return &ValidationError{err: fmt.Sprintf("could not parse denied IP/Mask %#v : %v", IPMask, err)}
+			return NewValidationError(fmt.Sprintf("could not parse denied IP/Mask %#v : %v", IPMask, err))
 		}
 	}
 	for _, IPMask := range user.Filters.AllowedIP {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
-			return &ValidationError{err: fmt.Sprintf("could not parse allowed IP/Mask %#v : %v", IPMask, err)}
+			return NewValidationError(fmt.Sprintf("could not parse allowed IP/Mask %#v : %v", IPMask, err))
 		}
 	}
 	if len(user.Filters.DeniedLoginMethods) >= len(ValidLoginMethods) {
-		return &ValidationError{err: "invalid denied_login_methods"}
+		return NewValidationError("invalid denied_login_methods")
 	}
 	for _, loginMethod := range user.Filters.DeniedLoginMethods {
 		if !utils.IsStringInSlice(loginMethod, ValidLoginMethods) {
-			return &ValidationError{err: fmt.Sprintf("invalid login method: %#v", loginMethod)}
+			return NewValidationError(fmt.Sprintf("invalid login method: %#v", loginMethod))
 		}
 	}
 	if len(user.Filters.DeniedProtocols) >= len(ValidProtocols) {
-		return &ValidationError{err: "invalid denied_protocols"}
+		return NewValidationError("invalid denied_protocols")
 	}
 	for _, p := range user.Filters.DeniedProtocols {
 		if !utils.IsStringInSlice(p, ValidProtocols) {
-			return &ValidationError{err: fmt.Sprintf("invalid protocol: %#v", p)}
+			return NewValidationError(fmt.Sprintf("invalid protocol: %#v", p))
 		}
 	}
 	if user.Filters.TLSUsername != "" {
 		if !utils.IsStringInSlice(string(user.Filters.TLSUsername), validTLSUsernames) {
-			return &ValidationError{err: fmt.Sprintf("invalid TLS username: %#v", user.Filters.TLSUsername)}
+			return NewValidationError(fmt.Sprintf("invalid TLS username: %#v", user.Filters.TLSUsername))
 		}
 	}
 	for _, opts := range user.Filters.WebClient {
 		if !utils.IsStringInSlice(opts, WebClientOptions) {
-			return &ValidationError{err: fmt.Sprintf("invalid web client options %#v", opts)}
+			return NewValidationError(fmt.Sprintf("invalid web client options %#v", opts))
 		}
 	}
 	return validateFiltersPatternExtensions(user)
@@ -1422,21 +1422,21 @@ func saveGCSCredentials(fsConfig *vfs.Filesystem, helper fsValidatorHelper) erro
 		fsConfig.GCSConfig.Credentials.SetAdditionalData(helper.GetEncrytionAdditionalData())
 		err := fsConfig.GCSConfig.Credentials.Encrypt()
 		if err != nil {
-			return &ValidationError{err: fmt.Sprintf("could not encrypt GCS credentials: %v", err)}
+			return NewValidationError(fmt.Sprintf("could not encrypt GCS credentials: %v", err))
 		}
 	}
 	creds, err := json.Marshal(fsConfig.GCSConfig.Credentials)
 	if err != nil {
-		return &ValidationError{err: fmt.Sprintf("could not marshal GCS credentials: %v", err)}
+		return NewValidationError(fmt.Sprintf("could not marshal GCS credentials: %v", err))
 	}
 	credentialsFilePath := helper.GetGCSCredentialsFilePath()
 	err = os.MkdirAll(filepath.Dir(credentialsFilePath), 0700)
 	if err != nil {
-		return &ValidationError{err: fmt.Sprintf("could not create GCS credentials dir: %v", err)}
+		return NewValidationError(fmt.Sprintf("could not create GCS credentials dir: %v", err))
 	}
 	err = os.WriteFile(credentialsFilePath, creds, 0600)
 	if err != nil {
-		return &ValidationError{err: fmt.Sprintf("could not save GCS credentials: %v", err)}
+		return NewValidationError(fmt.Sprintf("could not save GCS credentials: %v", err))
 	}
 	fsConfig.GCSConfig.Credentials = kms.NewEmptySecret()
 	return nil
@@ -1445,10 +1445,10 @@ func saveGCSCredentials(fsConfig *vfs.Filesystem, helper fsValidatorHelper) erro
 func validateFilesystemConfig(fsConfig *vfs.Filesystem, helper fsValidatorHelper) error {
 	if fsConfig.Provider == vfs.S3FilesystemProvider {
 		if err := fsConfig.S3Config.Validate(); err != nil {
-			return &ValidationError{err: fmt.Sprintf("could not validate s3config: %v", err)}
+			return NewValidationError(fmt.Sprintf("could not validate s3config: %v", err))
 		}
 		if err := fsConfig.S3Config.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
-			return &ValidationError{err: fmt.Sprintf("could not encrypt s3 access secret: %v", err)}
+			return NewValidationError(fmt.Sprintf("could not encrypt s3 access secret: %v", err))
 		}
 		fsConfig.GCSConfig = vfs.GCSFsConfig{}
 		fsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
@@ -1457,7 +1457,7 @@ func validateFilesystemConfig(fsConfig *vfs.Filesystem, helper fsValidatorHelper
 		return nil
 	} else if fsConfig.Provider == vfs.GCSFilesystemProvider {
 		if err := fsConfig.GCSConfig.Validate(helper.GetGCSCredentialsFilePath()); err != nil {
-			return &ValidationError{err: fmt.Sprintf("could not validate GCS config: %v", err)}
+			return NewValidationError(fmt.Sprintf("could not validate GCS config: %v", err))
 		}
 		fsConfig.S3Config = vfs.S3FsConfig{}
 		fsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
@@ -1466,10 +1466,10 @@ func validateFilesystemConfig(fsConfig *vfs.Filesystem, helper fsValidatorHelper
 		return nil
 	} else if fsConfig.Provider == vfs.AzureBlobFilesystemProvider {
 		if err := fsConfig.AzBlobConfig.Validate(); err != nil {
-			return &ValidationError{err: fmt.Sprintf("could not validate Azure Blob config: %v", err)}
+			return NewValidationError(fmt.Sprintf("could not validate Azure Blob config: %v", err))
 		}
 		if err := fsConfig.AzBlobConfig.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
-			return &ValidationError{err: fmt.Sprintf("could not encrypt Azure blob account key: %v", err)}
+			return NewValidationError(fmt.Sprintf("could not encrypt Azure blob account key: %v", err))
 		}
 		fsConfig.S3Config = vfs.S3FsConfig{}
 		fsConfig.GCSConfig = vfs.GCSFsConfig{}
@@ -1478,10 +1478,10 @@ func validateFilesystemConfig(fsConfig *vfs.Filesystem, helper fsValidatorHelper
 		return nil
 	} else if fsConfig.Provider == vfs.CryptedFilesystemProvider {
 		if err := fsConfig.CryptConfig.Validate(); err != nil {
-			return &ValidationError{err: fmt.Sprintf("could not validate Crypt fs config: %v", err)}
+			return NewValidationError(fmt.Sprintf("could not validate Crypt fs config: %v", err))
 		}
 		if err := fsConfig.CryptConfig.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
-			return &ValidationError{err: fmt.Sprintf("could not encrypt Crypt fs passphrase: %v", err)}
+			return NewValidationError(fmt.Sprintf("could not encrypt Crypt fs passphrase: %v", err))
 		}
 		fsConfig.S3Config = vfs.S3FsConfig{}
 		fsConfig.GCSConfig = vfs.GCSFsConfig{}
@@ -1490,10 +1490,10 @@ func validateFilesystemConfig(fsConfig *vfs.Filesystem, helper fsValidatorHelper
 		return nil
 	} else if fsConfig.Provider == vfs.SFTPFilesystemProvider {
 		if err := fsConfig.SFTPConfig.Validate(); err != nil {
-			return &ValidationError{err: fmt.Sprintf("could not validate SFTP fs config: %v", err)}
+			return NewValidationError(fmt.Sprintf("could not validate SFTP fs config: %v", err))
 		}
 		if err := fsConfig.SFTPConfig.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
-			return &ValidationError{err: fmt.Sprintf("could not encrypt SFTP fs credentials: %v", err)}
+			return NewValidationError(fmt.Sprintf("could not encrypt SFTP fs credentials: %v", err))
 		}
 		fsConfig.S3Config = vfs.S3FsConfig{}
 		fsConfig.GCSConfig = vfs.GCSFsConfig{}
@@ -1512,20 +1512,20 @@ func validateFilesystemConfig(fsConfig *vfs.Filesystem, helper fsValidatorHelper
 
 func validateBaseParams(user *User) error {
 	if user.Username == "" {
-		return &ValidationError{err: "username is mandatory"}
+		return NewValidationError("username is mandatory")
 	}
 	if !config.SkipNaturalKeysValidation && !usernameRegex.MatchString(user.Username) {
-		return &ValidationError{err: fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
-			user.Username)}
+		return NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
+			user.Username))
 	}
 	if user.HomeDir == "" {
-		return &ValidationError{err: "home_dir is mandatory"}
+		return NewValidationError("home_dir is mandatory")
 	}
 	if user.Password == "" && len(user.PublicKeys) == 0 {
-		return &ValidationError{err: "please set a password or at least a public_key"}
+		return NewValidationError("please set a password or at least a public_key")
 	}
 	if !filepath.IsAbs(user.HomeDir) {
-		return &ValidationError{err: fmt.Sprintf("home_dir must be an absolute path, actual value: %v", user.HomeDir)}
+		return NewValidationError(fmt.Sprintf("home_dir must be an absolute path, actual value: %v", user.HomeDir))
 	}
 	return nil
 }
@@ -1553,17 +1553,17 @@ func createUserPasswordHash(user *User) error {
 // FIXME: this should be defined as Folder struct method
 func ValidateFolder(folder *vfs.BaseVirtualFolder) error {
 	if folder.Name == "" {
-		return &ValidationError{err: "folder name is mandatory"}
+		return NewValidationError("folder name is mandatory")
 	}
 	if !config.SkipNaturalKeysValidation && !usernameRegex.MatchString(folder.Name) {
-		return &ValidationError{err: fmt.Sprintf("folder name %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
-			folder.Name)}
+		return NewValidationError(fmt.Sprintf("folder name %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
+			folder.Name))
 	}
 	if folder.FsConfig.Provider == vfs.LocalFilesystemProvider || folder.FsConfig.Provider == vfs.CryptedFilesystemProvider ||
 		folder.MappedPath != "" {
 		cleanedMPath := filepath.Clean(folder.MappedPath)
 		if !filepath.IsAbs(cleanedMPath) {
-			return &ValidationError{err: fmt.Sprintf("invalid folder mapped path %#v", folder.MappedPath)}
+			return NewValidationError(fmt.Sprintf("invalid folder mapped path %#v", folder.MappedPath))
 		}
 		folder.MappedPath = cleanedMPath
 	}
@@ -1597,7 +1597,7 @@ func ValidateUser(user *User) error {
 		return err
 	}
 	if user.Status < 0 || user.Status > 1 {
-		return &ValidationError{err: fmt.Sprintf("invalid user status: %v", user.Status)}
+		return NewValidationError(fmt.Sprintf("invalid user status: %v", user.Status))
 	}
 	if err := createUserPasswordHash(user); err != nil {
 		return err
