@@ -16,6 +16,7 @@ import (
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 func sendAPIResponse(w http.ResponseWriter, r *http.Request, err error, message string, code int) {
@@ -32,7 +33,7 @@ func sendAPIResponse(w http.ResponseWriter, r *http.Request, err error, message 
 }
 
 func getRespStatus(err error) int {
-	if _, ok := err.(*dataprovider.ValidationError); ok {
+	if _, ok := err.(*vfs.ValidationError); ok {
 		return http.StatusBadRequest
 	}
 	if _, ok := err.(*dataprovider.MethodDisabledError); ok {

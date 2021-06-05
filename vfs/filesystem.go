@@ -1,6 +1,10 @@
 package vfs
 
-import "github.com/drakkan/sftpgo/kms"
+import (
+	"fmt"
+
+	"github.com/drakkan/sftpgo/kms"
+)
 
 // FilesystemProvider defines the supported storage filesystems
 type FilesystemProvider int
@@ -147,4 +151,21 @@ func (f *Filesystem) GetACopy() Filesystem {
 		copy(fs.SFTPConfig.Fingerprints, f.SFTPConfig.Fingerprints)
 	}
 	return fs
+}
+
+// ValidationError raised if input data is not valid
+type ValidationError struct {
+	err string
+}
+
+// Validation error details
+func (e *ValidationError) Error() string {
+	return fmt.Sprintf("Validation error: %s", e.err)
+}
+
+// NewValidationError returns a validation errors
+func NewValidationError(error string) *ValidationError {
+	return &ValidationError{
+		err: error,
+	}
 }

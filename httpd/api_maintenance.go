@@ -104,7 +104,7 @@ func loadDataFromRequest(w http.ResponseWriter, r *http.Request) {
 	content, err := io.ReadAll(r.Body)
 	if err != nil || len(content) == 0 {
 		if len(content) == 0 {
-			err = dataprovider.NewValidationError("request body is required")
+			err = vfs.NewValidationError("request body is required")
 		}
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -150,7 +150,7 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 func restoreBackup(content []byte, inputFile string, scanQuota, mode int) error {
 	dump, err := dataprovider.ParseDumpData(content)
 	if err != nil {
-		return dataprovider.NewValidationError(fmt.Sprintf("Unable to parse backup content: %v", err))
+		return vfs.NewValidationError(fmt.Sprintf("Unable to parse backup content: %v", err))
 	}
 
 	if err = RestoreFolders(dump.Folders, inputFile, mode, scanQuota); err != nil {

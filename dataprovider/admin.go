@@ -13,6 +13,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/vfs"
 )
 
 // Available permissions for SFTPGo admins
@@ -86,36 +87,36 @@ func (a *Admin) checkPassword() error {
 
 func (a *Admin) validate() error {
 	if a.Username == "" {
-		return NewValidationError("username is mandatory")
+		return vfs.NewValidationError("username is mandatory")
 	}
 	if a.Password == "" {
-		return NewValidationError("please set a password")
+		return vfs.NewValidationError("please set a password")
 	}
 	if !config.SkipNaturalKeysValidation && !usernameRegex.MatchString(a.Username) {
-		return NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~", a.Username))
+		return vfs.NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~", a.Username))
 	}
 	if err := a.checkPassword(); err != nil {
 		return err
 	}
 	a.Permissions = utils.RemoveDuplicates(a.Permissions)
 	if len(a.Permissions) == 0 {
-		return NewValidationError("please grant some permissions to this admin")
+		return vfs.NewValidationError("please grant some permissions to this admin")
 	}
 	if utils.IsStringInSlice(PermAdminAny, a.Permissions) {
 		a.Permissions = []string{PermAdminAny}
 	}
 	for _, perm := range a.Permissions {
 		if !utils.IsStringInSlice(perm, validAdminPerms) {
-			return NewValidationError(fmt.Sprintf("invalid permission: %#v", perm))
+			return vfs.NewValidationError(fmt.Sprintf("invalid permission: %#v", perm))
 		}
 	}
 	if a.Email != "" && !emailRegex.MatchString(a.Email) {
-		return NewValidationError(fmt.Sprintf("email %#v is not valid", a.Email))
+		return vfs.NewValidationError(fmt.Sprintf("email %#v is not valid", a.Email))
 	}
 	for _, IPMask := range a.Filters.AllowList {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
-			return NewValidationError(fmt.Sprintf("could not parse allow list entry %#v : %v", IPMask, err))
+			return vfs.NewValidationError(fmt.Sprintf("could not parse allow list entry %#v : %v", IPMask, err))
 		}
 	}
 
