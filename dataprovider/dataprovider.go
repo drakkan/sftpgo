@@ -428,11 +428,6 @@ type Provider interface {
 	revertDatabase(targetVersion int) error
 }
 
-type fsValidatorHelper interface {
-	GetGCSCredentialsFilePath() string
-	GetEncrytionAdditionalData() string
-}
-
 // SetTempPath sets the path for temporary files
 func SetTempPath(fsPath string) {
 	tempPath = fsPath
@@ -1384,7 +1379,7 @@ func validateFilters(user *User) error {
 	return validateFiltersPatternExtensions(user)
 }
 
-func saveGCSCredentials(fsConfig *vfs.Filesystem, helper fsValidatorHelper) error {
+func saveGCSCredentials(fsConfig *vfs.Filesystem, helper vfs.ValidatorHelper) error {
 	if fsConfig.Provider != vfs.GCSFilesystemProvider {
 		return nil
 	}
@@ -1422,74 +1417,6 @@ func saveGCSCredentials(fsConfig *vfs.Filesystem, helper fsValidatorHelper) erro
 		return vfs.NewValidationError(fmt.Sprintf("could not save GCS credentials: %v", err))
 	}
 	fsConfig.GCSConfig.Credentials = kms.NewEmptySecret()
-	return nil
-}
-
-func validateFilesystemConfig(fsConfig *vfs.Filesystem, helper fsValidatorHelper) error {
-	if fsConfig.Provider == vfs.S3FilesystemProvider {
-		if err := fsConfig.S3Config.Validate(); err != nil {
-			return vfs.NewValidationError(fmt.Sprintf("could not validate s3config: %v", err))
-		}
-		if err := fsConfig.S3Config.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
-			return vfs.NewValidationError(fmt.Sprintf("could not encrypt s3 access secret: %v", err))
-		}
-		fsConfig.GCSConfig = vfs.GCSFsConfig{}
-		fsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
-		fsConfig.CryptConfig = vfs.CryptFsConfig{}
-		fsConfig.SFTPConfig = vfs.SFTPFsConfig{}
-		return nil
-	} else if fsConfig.Provider == vfs.GCSFilesystemProvider {
-		if err := fsConfig.GCSConfig.Validate(helper.GetGCSCredentialsFilePath()); err != nil {
-			return vfs.NewValidationError(fmt.Sprintf("could not validate GCS config: %v", err))
-		}
-		fsConfig.S3Config = vfs.S3FsConfig{}
-		fsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
-		fsConfig.CryptConfig = vfs.CryptFsConfig{}
-		fsConfig.SFTPConfig = vfs.SFTPFsConfig{}
-		return nil
-	} else if fsConfig.Provider == vfs.AzureBlobFilesystemProvider {
-		if err := fsConfig.AzBlobConfig.Validate(); err != nil {
-			return vfs.NewValidationError(fmt.Sprintf("could not validate Azure Blob config: %v", err))
-		}
-		if err := fsConfig.AzBlobConfig.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
-			return vfs.NewValidationError(fmt.Sprintf("could not encrypt Azure blob account key: %v", err))
-		}
-		fsConfig.S3Config = vfs.S3FsConfig{}
-		fsConfig.GCSConfig = vfs.GCSFsConfig{}
-		fsConfig.CryptConfig = vfs.CryptFsConfig{}
-		fsConfig.SFTPConfig = vfs.SFTPFsConfig{}
-		return nil
-	} else if fsConfig.Provider == vfs.CryptedFilesystemProvider {
-		if err := fsConfig.CryptConfig.Validate(); err != nil {
-			return vfs.NewValidationError(fmt.Sprintf("could not validate Crypt fs config: %v", err))
-		}
-		if err := fsConfig.CryptConfig.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
-			return vfs.NewValidationError(fmt.Sprintf("could not encrypt Crypt fs passphrase: %v", err))
-		}
-		fsConfig.S3Config = vfs.S3FsConfig{}
-		fsConfig.GCSConfig = vfs.GCSFsConfig{}
-		fsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
-		fsConfig.SFTPConfig = vfs.SFTPFsConfig{}
-		return nil
-	} else if fsConfig.Provider == vfs.SFTPFilesystemProvider {
-		if err := fsConfig.SFTPConfig.Validate(); err != nil {
-			return vfs.NewValidationError(fmt.Sprintf("could not validate SFTP fs config: %v", err))
-		}
-		if err := fsConfig.SFTPConfig.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
-			return vfs.NewValidationError(fmt.Sprintf("could not encrypt SFTP fs credentials: %v", err))
-		}
-		fsConfig.S3Config = vfs.S3FsConfig{}
-		fsConfig.GCSConfig = vfs.GCSFsConfig{}
-		fsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
-		fsConfig.CryptConfig = vfs.CryptFsConfig{}
-		return nil
-	}
-	fsConfig.Provider = vfs.LocalFilesystemProvider
-	fsConfig.S3Config = vfs.S3FsConfig{}
-	fsConfig.GCSConfig = vfs.GCSFsConfig{}
-	fsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
-	fsConfig.CryptConfig = vfs.CryptFsConfig{}
-	fsConfig.SFTPConfig = vfs.SFTPFsConfig{}
 	return nil
 }
 
@@ -1553,7 +1480,7 @@ func ValidateFolder(folder *vfs.BaseVirtualFolder) error {
 	if folder.HasRedactedSecret() {
 		return errors.New("cannot save a folder with a redacted secret")
 	}
-	if err := validateFilesystemConfig(&folder.FsConfig, folder); err != nil {
+	if err := folder.FsConfig.ValidateConfig(folder); err != nil {
 		return err
 	}
 	return saveGCSCredentials(&folder.FsConfig, folder)
@@ -1573,7 +1500,7 @@ func ValidateUser(user *User) error {
 	if user.hasRedactedSecret() {
 		return errors.New("cannot save a user with a redacted secret")
 	}
-	if err := validateFilesystemConfig(&user.FsConfig, user); err != nil {
+	if err := user.FsConfig.ValidateConfig(user); err != nil {
 		return err
 	}
 	if err := validateUserVirtualFolders(user); err != nil {

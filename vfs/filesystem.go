@@ -19,6 +19,12 @@ const (
 	SFTPFilesystemProvider                                // SFTP
 )
 
+// ValidatorHelper implements methods we need for Filesystem.ValidateConfig (it is implemented by vfs.Folder and dataprovider.User)
+type ValidatorHelper interface {
+	GetGCSCredentialsFilePath() string
+	GetEncrytionAdditionalData() string
+}
+
 // Filesystem defines cloud storage filesystem details
 type Filesystem struct {
 	RedactedSecret string             `json:"-"`
@@ -151,6 +157,75 @@ func (f *Filesystem) GetACopy() Filesystem {
 		copy(fs.SFTPConfig.Fingerprints, f.SFTPConfig.Fingerprints)
 	}
 	return fs
+}
+
+// ValidateConfig verifies the FsConfig matching the configured .Provider and sets all other Filesystem.*Config to their zero value if successful
+func (f *Filesystem) ValidateConfig(helper ValidatorHelper) error {
+	if f.Provider == S3FilesystemProvider {
+		if err := f.S3Config.Validate(); err != nil {
+			return NewValidationError(fmt.Sprintf("could not validate s3config: %v", err))
+		}
+		if err := f.S3Config.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
+			return NewValidationError(fmt.Sprintf("could not encrypt s3 access secret: %v", err))
+		}
+		f.GCSConfig = GCSFsConfig{}
+		f.AzBlobConfig = AzBlobFsConfig{}
+		f.CryptConfig = CryptFsConfig{}
+		f.SFTPConfig = SFTPFsConfig{}
+		return nil
+	} else if f.Provider == GCSFilesystemProvider {
+		if err := f.GCSConfig.Validate(helper.GetGCSCredentialsFilePath()); err != nil {
+			return NewValidationError(fmt.Sprintf("could not validate GCS config: %v", err))
+		}
+		f.S3Config = S3FsConfig{}
+		f.AzBlobConfig = AzBlobFsConfig{}
+		f.CryptConfig = CryptFsConfig{}
+		f.SFTPConfig = SFTPFsConfig{}
+		return nil
+	} else if f.Provider == AzureBlobFilesystemProvider {
+		if err := f.AzBlobConfig.Validate(); err != nil {
+			return NewValidationError(fmt.Sprintf("could not validate Azure Blob config: %v", err))
+		}
+		if err := f.AzBlobConfig.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
+			return NewValidationError(fmt.Sprintf("could not encrypt Azure blob account key: %v", err))
+		}
+		f.S3Config = S3FsConfig{}
+		f.GCSConfig = GCSFsConfig{}
+		f.CryptConfig = CryptFsConfig{}
+		f.SFTPConfig = SFTPFsConfig{}
+		return nil
+	} else if f.Provider == CryptedFilesystemProvider {
+		if err := f.CryptConfig.Validate(); err != nil {
+			return NewValidationError(fmt.Sprintf("could not validate Crypt fs config: %v", err))
+		}
+		if err := f.CryptConfig.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
+			return NewValidationError(fmt.Sprintf("could not encrypt Crypt fs passphrase: %v", err))
+		}
+		f.S3Config = S3FsConfig{}
+		f.GCSConfig = GCSFsConfig{}
+		f.AzBlobConfig = AzBlobFsConfig{}
+		f.SFTPConfig = SFTPFsConfig{}
+		return nil
+	} else if f.Provider == SFTPFilesystemProvider {
+		if err := f.SFTPConfig.Validate(); err != nil {
+			return NewValidationError(fmt.Sprintf("could not validate SFTP fs config: %v", err))
+		}
+		if err := f.SFTPConfig.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
+			return NewValidationError(fmt.Sprintf("could not encrypt SFTP fs credentials: %v", err))
+		}
+		f.S3Config = S3FsConfig{}
+		f.GCSConfig = GCSFsConfig{}
+		f.AzBlobConfig = AzBlobFsConfig{}
+		f.CryptConfig = CryptFsConfig{}
+		return nil
+	}
+	f.Provider = LocalFilesystemProvider
+	f.S3Config = S3FsConfig{}
+	f.GCSConfig = GCSFsConfig{}
+	f.AzBlobConfig = AzBlobFsConfig{}
+	f.CryptConfig = CryptFsConfig{}
+	f.SFTPConfig = SFTPFsConfig{}
+	return nil
 }
 
 // ValidationError raised if input data is not valid
