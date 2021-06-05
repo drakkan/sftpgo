@@ -211,7 +211,7 @@ func TestBaseConnection(t *testing.T) {
 		}
 		err = client.RemoveDirectory(linkName)
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Failure")
+			assert.Contains(t, err.Error(), "SSH_FX_FAILURE")
 		}
 		err = client.Remove(testFileName)
 		assert.NoError(t, err)
@@ -1735,35 +1735,35 @@ func TestVirtualFoldersLink(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Symlink(testFileName, path.Join(vdirPath1, testFileName+".link1"))
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Operation Unsupported")
+			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
 		err = client.Symlink(testFileName, path.Join(vdirPath1, testDir, testFileName+".link1"))
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Operation Unsupported")
+			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
 		err = client.Symlink(testFileName, path.Join(vdirPath2, testFileName+".link1"))
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Operation Unsupported")
+			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
 		err = client.Symlink(testFileName, path.Join(vdirPath2, testDir, testFileName+".link1"))
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Operation Unsupported")
+			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
 		err = client.Symlink(path.Join(vdirPath1, testFileName), testFileName+".link1")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Operation Unsupported")
+			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
 		err = client.Symlink(path.Join(vdirPath2, testFileName), testFileName+".link1")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Operation Unsupported")
+			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
 		err = client.Symlink(path.Join(vdirPath1, testFileName), path.Join(vdirPath2, testDir, testFileName+".link1"))
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Operation Unsupported")
+			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
 		err = client.Symlink(path.Join(vdirPath2, testFileName), path.Join(vdirPath1, testFileName+".link1"))
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Operation Unsupported")
+			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
 		err = client.Symlink("/", "/roolink")
 		assert.ErrorIs(t, err, os.ErrPermission)
@@ -1771,11 +1771,11 @@ func TestVirtualFoldersLink(t *testing.T) {
 		assert.ErrorIs(t, err, os.ErrPermission)
 		err = client.Symlink(testFileName, vdirPath1)
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Operation Unsupported")
+			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
 		err = client.Symlink(vdirPath1, testFileName+".link2")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Operation Unsupported")
+			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
 	}
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
@@ -1828,7 +1828,7 @@ func TestDirs(t *testing.T) {
 		assert.ErrorIs(t, err, os.ErrPermission)
 		err = client.RemoveDirectory(path.Dir(vdirPath))
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Operation Unsupported")
+			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
 		err = client.Mkdir(vdirPath)
 		assert.ErrorIs(t, err, os.ErrPermission)
@@ -1836,13 +1836,13 @@ func TestDirs(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Rename("/adir", path.Dir(vdirPath))
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Operation Unsupported")
+			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
 		err = client.MkdirAll("/subdir/adir")
 		assert.NoError(t, err)
 		err = client.Rename("adir", "subdir/adir")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Operation Unsupported")
+			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
 		err = writeSFTPFile("/subdir/afile.bin", 64, client)
 		assert.NoError(t, err)
@@ -1854,7 +1854,7 @@ func TestDirs(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Rename(path.Dir(vdirPath), "renamed_vdir")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Operation Unsupported")
+			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
 	}
 
@@ -2513,7 +2513,7 @@ func TestNonLocalCrossRename(t *testing.T) {
 		// renaming a path to a virtual folder is not allowed
 		err = client.Rename("/vdir", "new_vdir")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Operation Unsupported")
+			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
 	}
 
@@ -2608,7 +2608,7 @@ func TestNonLocalCrossRenameNonLocalBaseUser(t *testing.T) {
 		// renaming a path to a virtual folder is not allowed
 		err = client.Rename("/vdir", "new_vdir")
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "Operation Unsupported")
+			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
 	}
 

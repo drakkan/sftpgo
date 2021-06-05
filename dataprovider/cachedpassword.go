@@ -1,6 +1,8 @@
 package dataprovider
 
-import "sync"
+import (
+	"sync"
+)
 
 var cachedPasswords passwordsCache
 
@@ -37,7 +39,7 @@ func (c *passwordsCache) Remove(username string) {
 	delete(c.cache, username)
 }
 
-// returns if the user is found and if the password match
+// Check returns if the user is found and if the password match
 func (c *passwordsCache) Check(username, password string) (bool, bool) {
 	if username == "" || password == "" {
 		return false, false

@@ -2,18 +2,13 @@ package httpd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"html/template"
-	"io"
-	"mime"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-chi/render"
@@ -21,8 +16,6 @@ import (
 
 	"github.com/drakkan/sftpgo/common"
 	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/metrics"
 	"github.com/drakkan/sftpgo/utils"
 	"github.com/drakkan/sftpgo/version"
 	"github.com/drakkan/sftpgo/vfs"
@@ -83,7 +76,6 @@ type filesPage struct {
 	CurrentDir  string
 	ReadDirURL  string
 	DownloadURL string
-	Files       []os.FileInfo
 	Error       string
 	Paths       []dirMapping
 }
@@ -215,13 +207,12 @@ func renderClientNotFoundPage(w http.ResponseWriter, r *http.Request, err error)
 	renderClientMessagePage(w, r, page404Title, page404Body, http.StatusNotFound, err, "")
 }
 
-func renderFilesPage(w http.ResponseWriter, r *http.Request, files []os.FileInfo, dirName, error string) {
+func renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string) {
 	data := filesPage{
 		baseClientPage: getBaseClientPageData(pageClientFilesTitle, webClientFilesPath, r),
-		Files:          files,
 		Error:          error,
 		CurrentDir:     url.QueryEscape(dirName),
-		DownloadURL:    webClientDownloadPath,
+		DownloadURL:    webClientDownloadZipPath,
 		ReadDirURL:     webClientDirContentsPath,
 	}
 	paths := []dirMapping{}
@@ -272,7 +263,7 @@ func handleWebClientLogout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, webClientLoginPath, http.StatusFound)
 }
 
-func handleWebClientDownload(w http.ResponseWriter, r *http.Request) {
+func handleWebClientDownloadZip(w http.ResponseWriter, r *http.Request) {
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
 		renderClientMessagePage(w, r, "Invalid token claims", "", http.StatusForbidden, nil, "")
@@ -281,12 +272,18 @@ func handleWebClientDownload(w http.ResponseWriter, r *http.Request) {
 
 	user, err := dataprovider.UserExists(claims.Username)
 	if err != nil {
-		renderClientMessagePage(w, r, "Unable to retrieve your user", "", http.StatusInternalServerError, nil, "")
+		renderClientMessagePage(w, r, "Unable to retrieve your user", "", getRespStatus(err), nil, "")
 		return
 	}
 
+	connID := xid.New().String()
+	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, connID)
+	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
+		renderClientForbiddenPage(w, r, err.Error())
+		return
+	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, r.RemoteAddr, user),
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, r.RemoteAddr, user),
 		request:        r,
 	}
 	common.Connections.Add(connection)
@@ -318,12 +315,18 @@ func handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {
 
 	user, err := dataprovider.UserExists(claims.Username)
 	if err != nil {
-		sendAPIResponse(w, r, nil, "unable to retrieve your user", http.StatusInternalServerError)
+		sendAPIResponse(w, r, nil, "Unable to retrieve your user", getRespStatus(err))
 		return
 	}
 
+	connID := xid.New().String()
+	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, connID)
+	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
+		sendAPIResponse(w, r, err, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, r.RemoteAddr, user),
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, r.RemoteAddr, user),
 		request:        r,
 	}
 	common.Connections.Add(connection)
@@ -336,7 +339,7 @@ func handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {
 
 	contents, err := connection.ReadDir(name)
 	if err != nil {
-		sendAPIResponse(w, r, nil, err.Error(), http.StatusInternalServerError)
+		sendAPIResponse(w, r, err, "Unable to get directory contents", getMappedStatusCode(err))
 		return
 	}
 
@@ -372,13 +375,13 @@ func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
 
 	user, err := dataprovider.UserExists(claims.Username)
 	if err != nil {
-		renderClientInternalServerErrorPage(w, r, errors.New("unable to retrieve your user"))
+		renderClientMessagePage(w, r, "Unable to retrieve your user", "", getRespStatus(err), nil, "")
 		return
 	}
 
 	connID := xid.New().String()
 	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, connID)
-	if err := checkWebClientUser(&user, r, connectionID); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
 		renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
@@ -400,14 +403,22 @@ func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
 		info, err = connection.Stat(name, 0)
 	}
 	if err != nil {
-		renderFilesPage(w, r, nil, name, fmt.Sprintf("unable to stat file %#v: %v", name, err))
+		renderFilesPage(w, r, path.Dir(name), fmt.Sprintf("unable to stat file %#v: %v", name, err))
 		return
 	}
 	if info.IsDir() {
-		renderDirContents(w, r, connection, name)
+		renderFilesPage(w, r, name, "")
 		return
 	}
-	downloadFile(w, r, connection, name, info)
+	if status, err := downloadFile(w, r, connection, name, info); err != nil && status != 0 {
+		if status > 0 {
+			if status == http.StatusRequestedRangeNotSatisfiable {
+				renderClientMessagePage(w, r, http.StatusText(status), "", status, err, "")
+				return
+			}
+			renderFilesPage(w, r, path.Dir(name), err.Error())
+		}
+	}
 }
 
 func handleClientGetCredentials(w http.ResponseWriter, r *http.Request) {
@@ -462,248 +473,4 @@ func handleWebClientManageKeysPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	renderClientMessagePage(w, r, "Public keys updated", "", http.StatusOK, nil, "Your public keys has been successfully updated")
-}
-
-func doChangeUserPassword(r *http.Request, currentPassword, newPassword, confirmNewPassword string) error {
-	if currentPassword == "" || newPassword == "" || confirmNewPassword == "" {
-		return dataprovider.NewValidationError("please provide the current password and the new one two times")
-	}
-	if newPassword != confirmNewPassword {
-		return dataprovider.NewValidationError("the two password fields do not match")
-	}
-	if currentPassword == newPassword {
-		return dataprovider.NewValidationError("the new password must be different from the current one")
-	}
-	claims, err := getTokenClaims(r)
-	if err != nil || claims.Username == "" {
-		return errors.New("invalid token claims")
-	}
-	user, err := dataprovider.CheckUserAndPass(claims.Username, currentPassword, utils.GetIPFromRemoteAddress(r.RemoteAddr),
-		common.ProtocolHTTP)
-	if err != nil {
-		return dataprovider.NewValidationError("current password does not match")
-	}
-	user.Password = newPassword
-
-	return dataprovider.UpdateUser(&user)
-}
-
-func renderDirContents(w http.ResponseWriter, r *http.Request, connection *Connection, name string) {
-	contents, err := connection.ReadDir(name)
-	if err != nil {
-		renderFilesPage(w, r, nil, name, fmt.Sprintf("unable to get contents for directory %#v: %v", name, err))
-		return
-	}
-	renderFilesPage(w, r, contents, name, "")
-}
-
-func downloadFile(w http.ResponseWriter, r *http.Request, connection *Connection, name string, info os.FileInfo) {
-	var err error
-	rangeHeader := r.Header.Get("Range")
-	if rangeHeader != "" && checkIfRange(r, info.ModTime()) == condFalse {
-		rangeHeader = ""
-	}
-	offset := int64(0)
-	size := info.Size()
-	responseStatus := http.StatusOK
-	if strings.HasPrefix(rangeHeader, "bytes=") {
-		if strings.Contains(rangeHeader, ",") {
-			http.Error(w, fmt.Sprintf("unsupported range %#v", rangeHeader), http.StatusRequestedRangeNotSatisfiable)
-			return
-		}
-		offset, size, err = parseRangeRequest(rangeHeader[6:], size)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusRequestedRangeNotSatisfiable)
-			return
-		}
-		responseStatus = http.StatusPartialContent
-	}
-	reader, err := connection.getFileReader(name, offset, r.Method)
-	if err != nil {
-		renderFilesPage(w, r, nil, name, fmt.Sprintf("unable to read file %#v: %v", name, err))
-		return
-	}
-	defer reader.Close()
-
-	w.Header().Set("Last-Modified", info.ModTime().UTC().Format(http.TimeFormat))
-	if checkPreconditions(w, r, info.ModTime()) {
-		return
-	}
-	ctype := mime.TypeByExtension(path.Ext(name))
-	if ctype == "" {
-		ctype = "application/octet-stream"
-	}
-	if responseStatus == http.StatusPartialContent {
-		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", offset, offset+size-1, info.Size()))
-	}
-	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
-	w.Header().Set("Content-Type", ctype)
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%#v", path.Base(name)))
-	w.Header().Set("Accept-Ranges", "bytes")
-	w.WriteHeader(responseStatus)
-	if r.Method != http.MethodHead {
-		io.CopyN(w, reader, size) //nolint:errcheck
-	}
-}
-
-func checkPreconditions(w http.ResponseWriter, r *http.Request, modtime time.Time) bool {
-	if checkIfUnmodifiedSince(r, modtime) == condFalse {
-		w.WriteHeader(http.StatusPreconditionFailed)
-		return true
-	}
-	if checkIfModifiedSince(r, modtime) == condFalse {
-		w.WriteHeader(http.StatusNotModified)
-		return true
-	}
-	return false
-}
-
-func checkIfUnmodifiedSince(r *http.Request, modtime time.Time) condResult {
-	ius := r.Header.Get("If-Unmodified-Since")
-	if ius == "" || isZeroTime(modtime) {
-		return condNone
-	}
-	t, err := http.ParseTime(ius)
-	if err != nil {
-		return condNone
-	}
-
-	// The Last-Modified header truncates sub-second precision so
-	// the modtime needs to be truncated too.
-	modtime = modtime.Truncate(time.Second)
-	if modtime.Before(t) || modtime.Equal(t) {
-		return condTrue
-	}
-	return condFalse
-}
-
-func checkIfModifiedSince(r *http.Request, modtime time.Time) condResult {
-	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		return condNone
-	}
-	ims := r.Header.Get("If-Modified-Since")
-	if ims == "" || isZeroTime(modtime) {
-		return condNone
-	}
-	t, err := http.ParseTime(ims)
-	if err != nil {
-		return condNone
-	}
-	// The Last-Modified header truncates sub-second precision so
-	// the modtime needs to be truncated too.
-	modtime = modtime.Truncate(time.Second)
-	if modtime.Before(t) || modtime.Equal(t) {
-		return condFalse
-	}
-	return condTrue
-}
-
-func checkIfRange(r *http.Request, modtime time.Time) condResult {
-	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		return condNone
-	}
-	ir := r.Header.Get("If-Range")
-	if ir == "" {
-		return condNone
-	}
-	if modtime.IsZero() {
-		return condFalse
-	}
-	t, err := http.ParseTime(ir)
-	if err != nil {
-		return condFalse
-	}
-	if modtime.Add(60 * time.Second).Before(t) {
-		return condTrue
-	}
-	return condFalse
-}
-
-func parseRangeRequest(bytesRange string, size int64) (int64, int64, error) {
-	var start, end int64
-	var err error
-
-	values := strings.Split(bytesRange, "-")
-	if values[0] == "" {
-		start = -1
-	} else {
-		start, err = strconv.ParseInt(values[0], 10, 64)
-		if err != nil {
-			return start, size, err
-		}
-	}
-	if len(values) >= 2 {
-		if values[1] != "" {
-			end, err = strconv.ParseInt(values[1], 10, 64)
-			if err != nil {
-				return start, size, err
-			}
-			if end >= size {
-				end = size - 1
-			}
-		}
-	}
-	if start == -1 && end == 0 {
-		return 0, 0, fmt.Errorf("unsupported range %#v", bytesRange)
-	}
-
-	if end > 0 {
-		if start == -1 {
-			// we have something like -500
-			start = size - end
-			size = end
-			// start cannit be < 0 here, we did end = size -1 above
-		} else {
-			// we have something like 500-600
-			size = end - start + 1
-			if size < 0 {
-				return 0, 0, fmt.Errorf("unacceptable range %#v", bytesRange)
-			}
-		}
-		return start, size, nil
-	}
-	// we have something like 500-
-	size -= start
-	if size < 0 {
-		return 0, 0, fmt.Errorf("unacceptable range %#v", bytesRange)
-	}
-	return start, size, err
-}
-
-func updateLoginMetrics(user *dataprovider.User, ip string, err error) {
-	metrics.AddLoginAttempt(dataprovider.LoginMethodPassword)
-	if err != nil {
-		logger.ConnectionFailedLog(user.Username, ip, dataprovider.LoginMethodPassword, common.ProtocolHTTP, err.Error())
-		event := common.HostEventLoginFailed
-		if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
-			event = common.HostEventUserNotFound
-		}
-		common.AddDefenderEvent(ip, event)
-	}
-	metrics.AddLoginResult(dataprovider.LoginMethodPassword, err)
-	dataprovider.ExecutePostLoginHook(user, dataprovider.LoginMethodPassword, ip, common.ProtocolHTTP, err)
-}
-
-func checkWebClientUser(user *dataprovider.User, r *http.Request, connectionID string) error {
-	if utils.IsStringInSlice(common.ProtocolHTTP, user.Filters.DeniedProtocols) {
-		logger.Debug(logSender, connectionID, "cannot login user %#v, protocol HTTP is not allowed", user.Username)
-		return fmt.Errorf("protocol HTTP is not allowed for user %#v", user.Username)
-	}
-	if !user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, nil) {
-		logger.Debug(logSender, connectionID, "cannot login user %#v, password login method is not allowed", user.Username)
-		return fmt.Errorf("login method password is not allowed for user %#v", user.Username)
-	}
-	if user.MaxSessions > 0 {
-		activeSessions := common.Connections.GetActiveSessions(user.Username)
-		if activeSessions >= user.MaxSessions {
-			logger.Debug(logSender, connectionID, "authentication refused for user: %#v, too many open sessions: %v/%v", user.Username,
-				activeSessions, user.MaxSessions)
-			return fmt.Errorf("too many open sessions: %v", activeSessions)
-		}
-	}
-	if !user.IsLoginFromAddrAllowed(r.RemoteAddr) {
-		logger.Debug(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v", user.Username, r.RemoteAddr)
-		return fmt.Errorf("login for user %#v is not allowed from this address: %v", user.Username, r.RemoteAddr)
-	}
-	return nil
 }
