@@ -386,30 +386,8 @@ func (u *User) PrepareForRendering() {
 }
 
 func (u *User) hasRedactedSecret() bool {
-	switch u.FsConfig.Provider {
-	case vfs.S3FilesystemProvider:
-		if u.FsConfig.S3Config.AccessSecret.IsRedacted() {
-			return true
-		}
-	case vfs.GCSFilesystemProvider:
-		if u.FsConfig.GCSConfig.Credentials.IsRedacted() {
-			return true
-		}
-	case vfs.AzureBlobFilesystemProvider:
-		if u.FsConfig.AzBlobConfig.AccountKey.IsRedacted() {
-			return true
-		}
-	case vfs.CryptedFilesystemProvider:
-		if u.FsConfig.CryptConfig.Passphrase.IsRedacted() {
-			return true
-		}
-	case vfs.SFTPFilesystemProvider:
-		if u.FsConfig.SFTPConfig.Password.IsRedacted() {
-			return true
-		}
-		if u.FsConfig.SFTPConfig.PrivateKey.IsRedacted() {
-			return true
-		}
+	if u.FsConfig.HasRedactedSecret() {
+		return true
 	}
 
 	for idx := range u.VirtualFolders {

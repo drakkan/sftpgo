@@ -159,6 +159,37 @@ func (f *Filesystem) GetACopy() Filesystem {
 	return fs
 }
 
+func (f *Filesystem) HasRedactedSecret() bool {
+	// TODO move vfs specific code into each *FsConfig struct
+	switch f.Provider {
+	case S3FilesystemProvider:
+		if f.S3Config.AccessSecret.IsRedacted() {
+			return true
+		}
+	case GCSFilesystemProvider:
+		if f.GCSConfig.Credentials.IsRedacted() {
+			return true
+		}
+	case AzureBlobFilesystemProvider:
+		if f.AzBlobConfig.AccountKey.IsRedacted() {
+			return true
+		}
+	case CryptedFilesystemProvider:
+		if f.CryptConfig.Passphrase.IsRedacted() {
+			return true
+		}
+	case SFTPFilesystemProvider:
+		if f.SFTPConfig.Password.IsRedacted() {
+			return true
+		}
+		if f.SFTPConfig.PrivateKey.IsRedacted() {
+			return true
+		}
+	}
+
+	return false
+}
+
 // ValidateConfig verifies the FsConfig matching the configured .Provider and sets all other Filesystem.*Config to their zero value if successful
 func (f *Filesystem) ValidateConfig(helper ValidatorHelper) error {
 	if f.Provider == S3FilesystemProvider {
