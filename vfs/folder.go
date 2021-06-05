@@ -28,8 +28,8 @@ type BaseVirtualFolder struct {
 	FsConfig Filesystem `json:"filesystem"`
 }
 
-// GetEncrytionAdditionalData returns the additional data to use for AEAD
-func (v *BaseVirtualFolder) GetEncrytionAdditionalData() string {
+// GetEncryptionAdditionalData returns the additional data to use for AEAD
+func (v *BaseVirtualFolder) GetEncryptionAdditionalData() string {
 	return fmt.Sprintf("folder_%v", v.Name)
 }
 

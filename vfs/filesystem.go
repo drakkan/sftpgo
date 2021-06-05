@@ -22,7 +22,7 @@ const (
 // ValidatorHelper implements methods we need for Filesystem.ValidateConfig (it is implemented by vfs.Folder and dataprovider.User)
 type ValidatorHelper interface {
 	GetGCSCredentialsFilePath() string
-	GetEncrytionAdditionalData() string
+	GetEncryptionAdditionalData() string
 }
 
 // Filesystem defines cloud storage filesystem details
@@ -213,7 +213,7 @@ func (f *Filesystem) ValidateConfig(helper ValidatorHelper) error {
 		if err := f.S3Config.Validate(); err != nil {
 			return NewValidationError(fmt.Sprintf("could not validate s3config: %v", err))
 		}
-		if err := f.S3Config.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
+		if err := f.S3Config.EncryptCredentials(helper.GetEncryptionAdditionalData()); err != nil {
 			return NewValidationError(fmt.Sprintf("could not encrypt s3 access secret: %v", err))
 		}
 		f.GCSConfig = GCSFsConfig{}
@@ -234,7 +234,7 @@ func (f *Filesystem) ValidateConfig(helper ValidatorHelper) error {
 		if err := f.AzBlobConfig.Validate(); err != nil {
 			return NewValidationError(fmt.Sprintf("could not validate Azure Blob config: %v", err))
 		}
-		if err := f.AzBlobConfig.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
+		if err := f.AzBlobConfig.EncryptCredentials(helper.GetEncryptionAdditionalData()); err != nil {
 			return NewValidationError(fmt.Sprintf("could not encrypt Azure blob account key: %v", err))
 		}
 		f.S3Config = S3FsConfig{}
@@ -246,7 +246,7 @@ func (f *Filesystem) ValidateConfig(helper ValidatorHelper) error {
 		if err := f.CryptConfig.Validate(); err != nil {
 			return NewValidationError(fmt.Sprintf("could not validate Crypt fs config: %v", err))
 		}
-		if err := f.CryptConfig.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
+		if err := f.CryptConfig.EncryptCredentials(helper.GetEncryptionAdditionalData()); err != nil {
 			return NewValidationError(fmt.Sprintf("could not encrypt Crypt fs passphrase: %v", err))
 		}
 		f.S3Config = S3FsConfig{}
@@ -258,7 +258,7 @@ func (f *Filesystem) ValidateConfig(helper ValidatorHelper) error {
 		if err := f.SFTPConfig.Validate(); err != nil {
 			return NewValidationError(fmt.Sprintf("could not validate SFTP fs config: %v", err))
 		}
-		if err := f.SFTPConfig.EncryptCredentials(helper.GetEncrytionAdditionalData()); err != nil {
+		if err := f.SFTPConfig.EncryptCredentials(helper.GetEncryptionAdditionalData()); err != nil {
 			return NewValidationError(fmt.Sprintf("could not encrypt SFTP fs credentials: %v", err))
 		}
 		f.S3Config = S3FsConfig{}

@@ -1150,8 +1150,8 @@ func (u *User) getNotificationFieldsAsSlice(action string) []string {
 	}
 }
 
-// GetEncrytionAdditionalData returns the additional data to use for AEAD
-func (u *User) GetEncrytionAdditionalData() string {
+// GetEncryptionAdditionalData returns the additional data to use for AEAD
+func (u *User) GetEncryptionAdditionalData() string {
 	return u.Username
 }
 

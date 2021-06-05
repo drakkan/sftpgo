@@ -1388,7 +1388,7 @@ func saveGCSCredentials(fsConfig *vfs.Filesystem, helper vfs.ValidatorHelper) er
 	}
 	if config.PreferDatabaseCredentials {
 		if fsConfig.GCSConfig.Credentials.IsPlain() {
-			fsConfig.GCSConfig.Credentials.SetAdditionalData(helper.GetEncrytionAdditionalData())
+			fsConfig.GCSConfig.Credentials.SetAdditionalData(helper.GetEncryptionAdditionalData())
 			err := fsConfig.GCSConfig.Credentials.Encrypt()
 			if err != nil {
 				return err
@@ -1397,7 +1397,7 @@ func saveGCSCredentials(fsConfig *vfs.Filesystem, helper vfs.ValidatorHelper) er
 		return nil
 	}
 	if fsConfig.GCSConfig.Credentials.IsPlain() {
-		fsConfig.GCSConfig.Credentials.SetAdditionalData(helper.GetEncrytionAdditionalData())
+		fsConfig.GCSConfig.Credentials.SetAdditionalData(helper.GetEncryptionAdditionalData())
 		err := fsConfig.GCSConfig.Credentials.Encrypt()
 		if err != nil {
 			return vfs.NewValidationError(fmt.Sprintf("could not encrypt GCS credentials: %v", err))
