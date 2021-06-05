@@ -123,10 +123,10 @@ func loadClientTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateClientDir, templateClientMessage),
 	}
 
-	filesTmpl := utils.LoadTemplate(template.ParseFiles(filesPaths...))
-	credentialsTmpl := utils.LoadTemplate(template.ParseFiles(credentialsPaths...))
-	loginTmpl := utils.LoadTemplate(template.ParseFiles(loginPath...))
-	messageTmpl := utils.LoadTemplate(template.ParseFiles(messagePath...))
+	filesTmpl := utils.LoadTemplate(nil, filesPaths...)
+	credentialsTmpl := utils.LoadTemplate(nil, credentialsPaths...)
+	loginTmpl := utils.LoadTemplate(nil, loginPath...)
+	messageTmpl := utils.LoadTemplate(nil, messagePath...)
 
 	clientTemplates[templateClientFiles] = filesTmpl
 	clientTemplates[templateClientCredentials] = credentialsTmpl
