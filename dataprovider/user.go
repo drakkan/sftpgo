@@ -342,19 +342,7 @@ func (u *User) isFsEqual(other *User) bool {
 // hideConfidentialData hides user confidential data
 func (u *User) hideConfidentialData() {
 	u.Password = ""
-	switch u.FsConfig.Provider {
-	case vfs.S3FilesystemProvider:
-		u.FsConfig.S3Config.AccessSecret.Hide()
-	case vfs.GCSFilesystemProvider:
-		u.FsConfig.GCSConfig.Credentials.Hide()
-	case vfs.AzureBlobFilesystemProvider:
-		u.FsConfig.AzBlobConfig.AccountKey.Hide()
-	case vfs.CryptedFilesystemProvider:
-		u.FsConfig.CryptConfig.Passphrase.Hide()
-	case vfs.SFTPFilesystemProvider:
-		u.FsConfig.SFTPConfig.Password.Hide()
-		u.FsConfig.SFTPConfig.PrivateKey.Hide()
-	}
+	u.FsConfig.HideConfidentialData()
 }
 
 // GetSubDirPermissions returns permissions for sub directories

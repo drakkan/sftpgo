@@ -190,6 +190,23 @@ func (f *Filesystem) HasRedactedSecret() bool {
 	return false
 }
 
+// HideConfidentialData hides user confidential data
+func (f *Filesystem) HideConfidentialData() {
+	switch f.Provider {
+	case S3FilesystemProvider:
+		f.S3Config.AccessSecret.Hide()
+	case GCSFilesystemProvider:
+		f.GCSConfig.Credentials.Hide()
+	case AzureBlobFilesystemProvider:
+		f.AzBlobConfig.AccountKey.Hide()
+	case CryptedFilesystemProvider:
+		f.CryptConfig.Passphrase.Hide()
+	case SFTPFilesystemProvider:
+		f.SFTPConfig.Password.Hide()
+		f.SFTPConfig.PrivateKey.Hide()
+	}
+}
+
 // ValidateConfig verifies the FsConfig matching the configured .Provider and sets all other Filesystem.*Config to their zero value if successful
 func (f *Filesystem) ValidateConfig(helper ValidatorHelper) error {
 	if f.Provider == S3FilesystemProvider {
