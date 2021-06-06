@@ -20,6 +20,29 @@ const (
 	SFTPFilesystemProvider                                // SFTP
 )
 
+// GetProviderByName returns the FilesystemProvider matching a given name
+//
+// to provide backwards compatibility, numeric strings are accepted as well
+func GetProviderByName(name string) FilesystemProvider {
+	switch name {
+	case "0", "osfs":
+		return LocalFilesystemProvider
+	case "1", "s3fs":
+		return S3FilesystemProvider
+	case "2", "gcsfs":
+		return GCSFilesystemProvider
+	case "3", "azblobfs":
+		return AzureBlobFilesystemProvider
+	case "4", "cryptfs":
+		return CryptedFilesystemProvider
+	case "5", "sftpfs":
+		return SFTPFilesystemProvider
+	}
+
+	// TODO think about returning an error value instead of silently defaulting to LocalFilesystemProvider
+	return LocalFilesystemProvider
+}
+
 // ValidatorHelper implements methods we need for Filesystem.ValidateConfig.
 // It is implemented by vfs.Folder and dataprovider.User
 type ValidatorHelper interface {

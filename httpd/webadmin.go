@@ -754,11 +754,7 @@ func getAzureConfig(r *http.Request) (vfs.AzBlobFsConfig, error) {
 
 func getFsConfigFromPostFields(r *http.Request) (vfs.Filesystem, error) {
 	var fs vfs.Filesystem
-	provider, err := strconv.Atoi(r.Form.Get("fs_provider"))
-	if err != nil {
-		provider = int(vfs.LocalFilesystemProvider)
-	}
-	fs.Provider = vfs.FilesystemProvider(provider)
+	fs.Provider = vfs.GetProviderByName(r.Form.Get("fs_provider"))
 	switch fs.Provider {
 	case vfs.S3FilesystemProvider:
 		config, err := getS3Config(r)
