@@ -34,7 +34,7 @@ var (
 	portableSSHCommands                []string
 	portableAllowedPatterns            []string
 	portableDeniedPatterns             []string
-	portableFsProvider                 int
+	portableFsProvider                 string
 	portableS3Bucket                   string
 	portableS3Region                   string
 	portableS3AccessKey                string
@@ -85,7 +85,7 @@ $ sftpgo portable
 Please take a look at the usage below to customize the serving parameters`,
 		Run: func(cmd *cobra.Command, args []string) {
 			portableDir := directoryToServe
-			fsProvider := vfs.FilesystemProvider(portableFsProvider)
+			fsProvider := vfs.GetProviderByName(portableFsProvider)
 			if !filepath.IsAbs(portableDir) {
 				if fsProvider == vfs.LocalFilesystemProvider {
 					portableDir, _ = filepath.Abs(portableDir)
@@ -151,7 +151,7 @@ Please take a look at the usage below to customize the serving parameters`,
 					HomeDir:     portableDir,
 					Status:      1,
 					FsConfig: vfs.Filesystem{
-						Provider: vfs.FilesystemProvider(portableFsProvider),
+						Provider: vfs.GetProviderByName(portableFsProvider),
 						S3Config: vfs.S3FsConfig{
 							Bucket:            portableS3Bucket,
 							Region:            portableS3Region,
@@ -259,12 +259,12 @@ multicast DNS`)
 advertised via multicast DNS, this
 flag allows to put username/password
 inside the advertised TXT record`)
-	portableCmd.Flags().IntVarP(&portableFsProvider, "fs-provider", "f", int(vfs.LocalFilesystemProvider), `0 => local filesystem
-1 => AWS S3 compatible
-2 => Google Cloud Storage
-3 => Azure Blob Storage
-4 => Encrypted local filesystem
-5 => SFTP`)
+	portableCmd.Flags().StringVarP(&portableFsProvider, "fs-provider", "f", "osfs", `osfs => local filesystem (legacy value: 0)
+s3fs => AWS S3 compatible (legacy: 1)
+gcsfs => Google Cloud Storage (legacy: 2)
+azblobfs => Azure Blob Storage (legacy: 3)
+cryptfs => Encrypted local filesystem (legacy: 4)
+sftpfs => SFTP (legacy: 5)`)
 	portableCmd.Flags().StringVar(&portableS3Bucket, "s3-bucket", "", "")
 	portableCmd.Flags().StringVar(&portableS3Region, "s3-region", "", "")
 	portableCmd.Flags().StringVar(&portableS3AccessKey, "s3-access-key", "", "")
