@@ -332,7 +332,7 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 	if err != nil {
 		errClose := user.CloseFs()
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v close fs error: %v", err, errClose)
-		return nil, err
+		return nil, common.ErrInternalFailure
 	}
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(fmt.Sprintf("%v_%v", s.ID, cc.ID()), common.ProtocolFTP, remoteAddr, user),
@@ -342,14 +342,14 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 	if err != nil {
 		err = user.CloseFs()
 		logger.Warn(logSender, connectionID, "unable to swap connection, close fs error: %v", err)
-		return nil, errors.New("internal authentication error")
+		return nil, common.ErrInternalFailure
 	}
 	return connection, nil
 }
 
 func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err error) {
 	metrics.AddLoginAttempt(loginMethod)
-	if err != nil {
+	if err != nil && err != common.ErrInternalFailure {
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod,
 			common.ProtocolFTP, err.Error())
 		event := common.HostEventLoginFailed

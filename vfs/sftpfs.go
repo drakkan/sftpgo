@@ -269,6 +269,9 @@ func (fs *SFTPFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, f
 		return nil, nil, nil, err
 	}
 	go func() {
+		// if we enable buffering the client stalls
+		//br := bufio.NewReaderSize(f, int(fs.config.BufferSize)*1024*1024)
+		//n, err := fs.copy(w, br)
 		n, err := io.Copy(w, f)
 		w.CloseWithError(err) //nolint:errcheck
 		f.Close()

@@ -32,6 +32,8 @@ const (
 	logSender                       = "httpd"
 	tokenPath                       = "/api/v2/token"
 	logoutPath                      = "/api/v2/logout"
+	userTokenPath                   = "/api/v2/user/token"
+	userLogoutPath                  = "/api/v2/user/logout"
 	activeConnectionsPath           = "/api/v2/connections"
 	quotaScanPath                   = "/api/v2/quota-scans"
 	quotaScanVFolderPath            = "/api/v2/folder-quota-scans"
@@ -47,7 +49,13 @@ const (
 	defenderUnban                   = "/api/v2/defender/unban"
 	defenderScore                   = "/api/v2/defender/score"
 	adminPath                       = "/api/v2/admins"
-	adminPwdPath                    = "/api/v2/changepwd/admin"
+	adminPwdPath                    = "/api/v2/admin/changepwd"
+	adminPwdCompatPath              = "/api/v2/changepwd/admin"
+	userPwdPath                     = "/api/v2/user/changepwd"
+	userPublicKeysPath              = "/api/v2/user/publickeys"
+	userReadFolderPath              = "/api/v2/user/folder"
+	userGetFilePath                 = "/api/v2/user/file"
+	userStreamZipPath               = "/api/v2/user/streamzip"
 	healthzPath                     = "/healthz"
 	webRootPathDefault              = "/"
 	webBasePathDefault              = "/web"
@@ -75,7 +83,7 @@ const (
 	webClientLoginPathDefault       = "/web/client/login"
 	webClientFilesPathDefault       = "/web/client/files"
 	webClientDirContentsPathDefault = "/web/client/listdir"
-	webClientDownloadPathDefault    = "/web/client/download"
+	webClientDownloadZipPathDefault = "/web/client/downloadzip"
 	webClientCredentialsPathDefault = "/web/client/credentials"
 	webChangeClientPwdPathDefault   = "/web/client/changepwd"
 	webChangeClientKeysPathDefault  = "/web/client/managekeys"
@@ -121,7 +129,7 @@ var (
 	webClientLoginPath       string
 	webClientFilesPath       string
 	webClientDirContentsPath string
-	webClientDownloadPath    string
+	webClientDownloadZipPath string
 	webClientCredentialsPath string
 	webChangeClientPwdPath   string
 	webChangeClientKeysPath  string
@@ -417,7 +425,7 @@ func updateWebClientURLs(baseURL string) {
 	webClientLoginPath = path.Join(baseURL, webClientLoginPathDefault)
 	webClientFilesPath = path.Join(baseURL, webClientFilesPathDefault)
 	webClientDirContentsPath = path.Join(baseURL, webClientDirContentsPathDefault)
-	webClientDownloadPath = path.Join(baseURL, webClientDownloadPathDefault)
+	webClientDownloadZipPath = path.Join(baseURL, webClientDownloadZipPathDefault)
 	webClientCredentialsPath = path.Join(baseURL, webClientCredentialsPathDefault)
 	webChangeClientPwdPath = path.Join(baseURL, webChangeClientPwdPathDefault)
 	webChangeClientKeysPath = path.Join(baseURL, webChangeClientKeysPathDefault)

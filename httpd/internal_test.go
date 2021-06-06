@@ -306,6 +306,18 @@ func TestGetRespStatus(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, respStatus)
 }
 
+func TestMappedStatusCode(t *testing.T) {
+	err := os.ErrPermission
+	code := getMappedStatusCode(err)
+	assert.Equal(t, http.StatusForbidden, code)
+	err = os.ErrNotExist
+	code = getMappedStatusCode(err)
+	assert.Equal(t, http.StatusNotFound, code)
+	err = os.ErrClosed
+	code = getMappedStatusCode(err)
+	assert.Equal(t, http.StatusInternalServerError, code)
+}
+
 func TestGCSWebInvalidFormFile(t *testing.T) {
 	form := make(url.Values)
 	form.Set("username", "test_username")
@@ -337,7 +349,7 @@ func TestInvalidToken(t *testing.T) {
 	deleteAdmin(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 
-	adminPwd := adminPwd{
+	adminPwd := pwdChange{
 		CurrentPassword: "old",
 		NewPassword:     "new",
 	}
@@ -351,6 +363,31 @@ func TestInvalidToken(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 	adm := getAdminFromToken(req)
 	assert.Empty(t, adm.Username)
+
+	rr = httptest.NewRecorder()
+	readUserFolder(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	getUserFile(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	getUserFilesAsZipStream(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	getUserPublicKeys(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	setUserPublicKeys(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 }
 
 func TestUpdateWebAdminInvalidClaims(t *testing.T) {
@@ -442,6 +479,16 @@ func TestCreateTokenError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 
 	rr = httptest.NewRecorder()
+	user := dataprovider.User{
+		Username: "u",
+		Password: "pwd",
+	}
+	req, _ = http.NewRequest(http.MethodGet, userTokenPath, nil)
+
+	server.generateAndSendUserToken(rr, req, "", user)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+
+	rr = httptest.NewRecorder()
 	form := make(url.Values)
 	form.Set("username", admin.Username)
 	form.Set("password", admin.Password)
@@ -492,7 +539,7 @@ func TestCreateTokenError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, rr.Code, rr.Body.String())
 
 	username := "webclientuser"
-	user := dataprovider.User{
+	user = dataprovider.User{
 		Username:    username,
 		Password:    "clientpwd",
 		HomeDir:     filepath.Join(os.TempDir(), username),
@@ -569,11 +616,18 @@ func TestJWTTokenValidation(t *testing.T) {
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 
-	permClientFn := checkClientPerm(dataprovider.WebClientPubKeyChangeDisabled)
+	permClientFn := checkHTTPUserPerm(dataprovider.WebClientPubKeyChangeDisabled)
 	fn = permClientFn(r)
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodPost, webChangeClientKeysPath, nil)
 	req.RequestURI = webChangeClientKeysPath
+	ctx = jwtauth.NewContext(req.Context(), token, errTest)
+	fn.ServeHTTP(rr, req.WithContext(ctx))
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodPost, userPublicKeysPath, nil)
+	req.RequestURI = userPublicKeysPath
 	ctx = jwtauth.NewContext(req.Context(), token, errTest)
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
@@ -1385,25 +1439,6 @@ func TestConnection(t *testing.T) {
 	assert.ErrorIs(t, err, os.ErrNotExist)
 }
 
-func TestRenderDirError(t *testing.T) {
-	user := dataprovider.User{
-		Username: "test_httpd_user",
-		HomeDir:  filepath.Clean(os.TempDir()),
-	}
-	user.Permissions = make(map[string][]string)
-	user.Permissions["/"] = []string{dataprovider.PermAny}
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", user),
-		request:        nil,
-	}
-
-	rr := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, webClientFilesPath, nil)
-	renderDirContents(rr, req, connection, "missing dir")
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "text-form-error")
-}
-
 func TestHTTPDFile(t *testing.T) {
 	user := dataprovider.User{
 		Username: "test_httpd_user",
@@ -1490,9 +1525,9 @@ func TestGetFilesInvalidClaims(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "invalid token claims")
 
 	rr = httptest.NewRecorder()
-	req, _ = http.NewRequest(http.MethodGet, webClientDownloadPath, nil)
+	req, _ = http.NewRequest(http.MethodGet, webClientDownloadZipPath, nil)
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
-	handleWebClientDownload(rr, req)
+	handleWebClientDownloadZip(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 }

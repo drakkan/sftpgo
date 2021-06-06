@@ -26,10 +26,6 @@ import (
 	"github.com/drakkan/sftpgo/utils"
 )
 
-var (
-	err401 = errors.New("Unauthorized")
-)
-
 type webDavServer struct {
 	config  *Configuration
 	binding Binding
@@ -171,6 +167,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	user, isCached, lockSystem, loginMethod, err := s.authenticate(r, ipAddr)
 	if err != nil {
+		updateLoginMetrics(&user, ipAddr, loginMethod, err)
 		w.Header().Set("WWW-Authenticate", "Basic realm=\"SFTPGo WebDAV\"")
 		http.Error(w, fmt.Sprintf("Authentication error: %v", err), http.StatusUnauthorized)
 		return
@@ -193,7 +190,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errClose := user.CloseFs()
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v close fs error: %v", err, errClose)
-		updateLoginMetrics(&user, ipAddr, loginMethod, err)
+		updateLoginMetrics(&user, ipAddr, loginMethod, common.ErrInternalFailure)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -253,7 +250,8 @@ func (s *webDavServer) authenticate(r *http.Request, ip string) (dataprovider.Us
 	var err error
 	username, password, loginMethod, tlsCert, ok := s.getCredentialsAndLoginMethod(r)
 	if !ok {
-		return user, false, nil, loginMethod, err401
+		user.Username = username
+		return user, false, nil, loginMethod, common.ErrNoCredentials
 	}
 	cachedUser, ok := dataprovider.GetCachedWebDAVUser(username)
 	if ok {
@@ -369,7 +367,7 @@ func writeLog(r *http.Request, err error) {
 
 func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err error) {
 	metrics.AddLoginAttempt(loginMethod)
-	if err != nil {
+	if err != nil && err != common.ErrInternalFailure {
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod, common.ProtocolWebDAV, err.Error())
 		event := common.HostEventLoginFailed
 		if _, ok := err.(*dataprovider.RecordNotFoundError); ok {

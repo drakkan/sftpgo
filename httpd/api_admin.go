@@ -12,11 +12,6 @@ import (
 	"github.com/drakkan/sftpgo/vfs"
 )
 
-type adminPwd struct {
-	CurrentPassword string `json:"current_password"`
-	NewPassword     string `json:"new_password"`
-}
-
 func getAdmins(w http.ResponseWriter, r *http.Request) {
 	limit, offset, order, err := getSearchFilters(w, r)
 	if err != nil {
@@ -130,7 +125,7 @@ func deleteAdmin(w http.ResponseWriter, r *http.Request) {
 func changeAdminPassword(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
-	var pwd adminPwd
+	var pwd pwdChange
 	err := render.DecodeJSON(r.Body, &pwd)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)

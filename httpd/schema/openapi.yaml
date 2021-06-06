@@ -9,6 +9,7 @@ tags:
   - name: quota
   - name: folders
   - name: users
+  - name: users API
 info:
   title: SFTPGo
   description: |
@@ -16,7 +17,7 @@ info:
     Several storage backends are supported and they are configurable per user, so you can serve a local directory for a user and an S3 bucket (or part of it) for another one.
     SFTPGo also supports virtual folders, a virtual folder can use any of the supported storage backends. So you can have, for example, an S3 user that exposes a GCS bucket (or part of it) on a specified path and an encrypted local filesystem on another one.
     Virtual folders can be private or shared among multiple users, for shared virtual folders you can define different quota limits for each user.
-  version: 2.0.5
+  version: 2.0.9
   contact:
     name: API support
     url: 'https://github.com/drakkan/sftpgo'
@@ -52,7 +53,7 @@ paths:
         - BasicAuth: []
       tags:
         - token
-      summary: Get a new access token
+      summary: Get a new admin access token
       description: Returns an access token and its expiration
       operationId: get_token
       responses:
@@ -74,9 +75,55 @@ paths:
     get:
       tags:
         - token
-      summary: Invalidate
-      description: Allows to invalidate a token before its expiration
+      summary: Invalidate an admin access token
+      description: Allows to invalidate an admin token before its expiration
       operationId: logout
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/token:
+    get:
+      security:
+        - BasicAuth: []
+      tags:
+        - token
+      summary: Get a new user access token
+      description: Returns an access token and its expiration
+      operationId: get_user_token
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/logout:
+    get:
+      tags:
+        - token
+      summary: Invalidate a user access token
+      description: Allows to invalidate a client token before its expiration
+      operationId: client_logout
       responses:
         '200':
           description: successful operation
@@ -115,6 +162,35 @@ paths:
         default:
           $ref: '#/components/responses/DefaultResponse'
   /changepwd/admin:
+    put:
+      tags:
+        - admins
+      summary: Change admin password
+      description: Changes the password for the logged in admin. Please use /admin/changepwd instead
+      operationId: change_admin_pwd
+      deprecated: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PwdChange'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /admin/changepwd:
     put:
       tags:
         - admins
@@ -1242,6 +1318,198 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
+  /user/changepwd:
+    put:
+      tags:
+        - users API
+      summary: Change user password
+      description: Changes the password for the logged in user
+      operationId: change_user_password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PwdChange'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/publickeys:
+    get:
+      tags:
+        - users API
+      summary: Get the user's public keys
+      description: Returns the public keys for the logged in user
+      operationId: get_user_public_keys
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    put:
+      tags:
+        - users API
+      summary: Set the user's public keys
+      description: Sets the public keys for the logged in user. Public keys must be in OpenSSH format
+      operationId: set_user_public_keys
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+                description: Public key in OpenSSH format
+                example: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPVILdH2u3yV5SAeE6XksD1z1vXRg0E4hJUov8ITDAZ2 user@host
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/folder:
+    get:
+      tags:
+        - users API
+      summary: Read folders contents
+      description: Returns the contents of the specified folder for the logged in user
+      operationId: get_user_folder_contents
+      parameters:
+        - in: query
+          name: path
+          description: Path to the folder to read. It must be URL encoded, for example the path "my dir/àdir" must be sent as "my%20dir%2F%C3%A0dir". If empty or missing the root folder is assumed
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DirEntry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/file:
+    get:
+      tags:
+        - users API
+      summary: Download a single file
+      description: Returns the file contents as response body
+      operationId: get_user_file
+      parameters:
+        - in: query
+          name: path
+          required: true
+          description: Path to the file to download. It must be URL encoded, for example the path "my dir/àdir/file.txt" must be sent as "my%20dir%2F%C3%A0dir%2Ffile.txt"
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '206':
+          description: successful operation
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/streamzip:
+    post:
+      tags:
+        - users API
+      summary: Download multiple files and folders as a single zip file
+      description: A zip file, containing the specified files and folders, will be generated on the fly and returned as response body. Only folders and regular files will be included in the zip
+      operationId: streamzip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+                description: Absolute file or folder path
+      responses:
+        '200':
+          description: successful operation
+          content:
+            'application/zip':
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
 components:
   responses:
     BadRequest:
@@ -1751,7 +2019,8 @@ components:
           type: array
           items:
             type: string
-          description: a password or at least one public key/SSH user certificate are mandatory.
+            example: ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEUWwDwEWhTbF0MqAsp/oXK1HR2cElhM8oo1uVmL3ZeDKDiTm4ljMr92wfTgIGDqIoxmVqgYIkAOAhuykAVWBzc= user@host
+          description: Public keys in OpenSSH format. A password or at least one public key/SSH user certificate are mandatory.
         home_dir:
           type: string
           description: path to the user home directory. The user cannot upload or download files outside this directory. SFTPGo tries to automatically create this folder if missing. Must be an absolute path
@@ -2124,6 +2393,27 @@ components:
           type: string
         new_password:
           type: string
+    DirEntry:
+      type: object
+      properties:
+        name:
+          type: string
+          description: name of the file (or subdirectory) described by the entry. This name is the final element of the path (the base name), not the entire path
+        size:
+          type: integer
+          format: int64
+          description: file size, omitted for folders and non regular files
+        mode:
+          type: integer
+          description: |
+            File mode and permission bits. More details here: https://golang.org/pkg/io/fs/#FileMode.
+            Let's see some examples:
+            - for a directory mode&2147483648 != 0
+            - for a symlink mode&134217728 != 0
+            - for a regular file mode&2401763328 == 0
+        last_modified:
+          type: string
+          format: date-time
     ApiResponse:
       type: object
       properties:

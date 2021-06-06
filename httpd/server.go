@@ -120,18 +120,20 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		renderClientLoginPage(w, err.Error())
 		return
 	}
+	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
 	username := r.Form.Get("username")
 	password := r.Form.Get("password")
 	if username == "" || password == "" {
+		updateLoginMetrics(&dataprovider.User{Username: username}, ipAddr, common.ErrNoCredentials)
 		renderClientLoginPage(w, "Invalid credentials")
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		updateLoginMetrics(&dataprovider.User{Username: username}, ipAddr, err)
 		renderClientLoginPage(w, err.Error())
 		return
 	}
 
-	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolHTTP); err != nil {
 		renderClientLoginPage(w, fmt.Sprintf("access denied by post connect hook: %v", err))
 		return
@@ -144,7 +146,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		return
 	}
 	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, xid.New().String())
-	if err := checkWebClientUser(&user, r, connectionID); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
 		updateLoginMetrics(&user, ipAddr, err)
 		renderClientLoginPage(w, err.Error())
 		return
@@ -154,7 +156,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 	err = user.CheckFsRoot(connectionID)
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
-		updateLoginMetrics(&user, ipAddr, err)
+		updateLoginMetrics(&user, ipAddr, common.ErrInternalFailure)
 		renderClientLoginPage(w, err.Error())
 		return
 	}
@@ -168,11 +170,12 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 	err = c.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebClient)
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to set client login cookie %v", err)
-		updateLoginMetrics(&user, ipAddr, err)
+		updateLoginMetrics(&user, ipAddr, common.ErrInternalFailure)
 		renderClientLoginPage(w, err.Error())
 		return
 	}
 	updateLoginMetrics(&user, ipAddr, err)
+	dataprovider.UpdateLastLogin(&user) //nolint:errcheck
 	http.Redirect(w, r, webClientFilesPath, http.StatusFound)
 }
 
@@ -266,6 +269,72 @@ func (s *httpdServer) logout(w http.ResponseWriter, r *http.Request) {
 	sendAPIResponse(w, r, nil, "Your token has been invalidated", http.StatusOK)
 }
 
+func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
+	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
+	username, password, ok := r.BasicAuth()
+	if !ok {
+		updateLoginMetrics(&dataprovider.User{Username: username}, ipAddr, common.ErrNoCredentials)
+		w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
+		sendAPIResponse(w, r, nil, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		return
+	}
+	if username == "" || password == "" {
+		updateLoginMetrics(&dataprovider.User{Username: username}, ipAddr, common.ErrNoCredentials)
+		w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
+		sendAPIResponse(w, r, nil, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		return
+	}
+	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolHTTP); err != nil {
+		sendAPIResponse(w, r, err, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, common.ProtocolHTTP)
+	if err != nil {
+		w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
+		updateLoginMetrics(&user, ipAddr, err)
+		sendAPIResponse(w, r, dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized),
+			http.StatusUnauthorized)
+		return
+	}
+	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, xid.New().String())
+	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
+		updateLoginMetrics(&user, ipAddr, err)
+		sendAPIResponse(w, r, err, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+
+	defer user.CloseFs() //nolint:errcheck
+	err = user.CheckFsRoot(connectionID)
+	if err != nil {
+		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
+		updateLoginMetrics(&user, ipAddr, common.ErrInternalFailure)
+		sendAPIResponse(w, r, err, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	s.generateAndSendUserToken(w, r, ipAddr, user)
+}
+
+func (s *httpdServer) generateAndSendUserToken(w http.ResponseWriter, r *http.Request, ipAddr string, user dataprovider.User) {
+	c := jwtTokenClaims{
+		Username:    user.Username,
+		Permissions: user.Filters.WebClient,
+		Signature:   user.GetSignature(),
+	}
+
+	resp, err := c.createTokenResponse(s.tokenAuth, tokenAudienceAPIUser)
+
+	if err != nil {
+		updateLoginMetrics(&user, ipAddr, common.ErrInternalFailure)
+		sendAPIResponse(w, r, err, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	updateLoginMetrics(&user, ipAddr, err)
+	dataprovider.UpdateLastLogin(&user) //nolint:errcheck
+
+	render.JSON(w, r, resp)
+}
+
 func (s *httpdServer) getToken(w http.ResponseWriter, r *http.Request) {
 	username, password, ok := r.BasicAuth()
 	if !ok {
@@ -329,7 +398,7 @@ func (s *httpdServer) refreshClientToken(w http.ResponseWriter, r *http.Request,
 		logger.Debug(logSender, "", "signature mismatch for user %#v, unable to refresh cookie", user.Username)
 		return
 	}
-	if err := checkWebClientUser(&user, r, xid.New().String()); err != nil {
+	if err := checkHTTPClientUser(&user, r, xid.New().String()); err != nil {
 		logger.Debug(logSender, "", "unable to refresh cookie for user %#v: %v", user.Username, err)
 		return
 	}
@@ -496,6 +565,8 @@ func (s *httpdServer) initializeRouter() {
 
 		router.Get(logoutPath, s.logout)
 		router.Put(adminPwdPath, changeAdminPassword)
+		// compatibility layer to remove in v2.2
+		router.Put(adminPwdCompatPath, changeAdminPassword)
 
 		router.With(checkPerm(dataprovider.PermAdminViewServerStatus)).
 			Get(serverStatusPath, func(w http.ResponseWriter, r *http.Request) {
@@ -538,6 +609,21 @@ func (s *httpdServer) initializeRouter() {
 		router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Delete(adminPath+"/{username}", deleteAdmin)
 	})
 
+	s.router.Get(userTokenPath, s.getUserToken)
+
+	s.router.Group(func(router chi.Router) {
+		router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromHeader))
+		router.Use(jwtAuthenticatorAPIUser)
+
+		router.Get(userLogoutPath, s.logout)
+		router.Put(userPwdPath, changeUserPassword)
+		router.With(checkHTTPUserPerm(dataprovider.WebClientPubKeyChangeDisabled)).Get(userPublicKeysPath, getUserPublicKeys)
+		router.With(checkHTTPUserPerm(dataprovider.WebClientPubKeyChangeDisabled)).Put(userPublicKeysPath, setUserPublicKeys)
+		router.Get(userReadFolderPath, readUserFolder)
+		router.Get(userGetFilePath, getUserFile)
+		router.Post(userStreamZipPath, getUserFilesAsZipStream)
+	})
+
 	if s.enableWebAdmin || s.enableWebClient {
 		s.router.Group(func(router chi.Router) {
 			router.Use(compressor.Handler)
@@ -574,10 +660,10 @@ func (s *httpdServer) initializeRouter() {
 			router.Get(webClientLogoutPath, handleWebClientLogout)
 			router.With(s.refreshCookie).Get(webClientFilesPath, handleClientGetFiles)
 			router.With(compressor.Handler, s.refreshCookie).Get(webClientDirContentsPath, handleClientGetDirContents)
-			router.With(s.refreshCookie).Get(webClientDownloadPath, handleWebClientDownload)
+			router.With(s.refreshCookie).Get(webClientDownloadZipPath, handleWebClientDownloadZip)
 			router.With(s.refreshCookie).Get(webClientCredentialsPath, handleClientGetCredentials)
 			router.Post(webChangeClientPwdPath, handleWebClientChangePwdPost)
-			router.With(checkClientPerm(dataprovider.WebClientPubKeyChangeDisabled)).
+			router.With(checkHTTPUserPerm(dataprovider.WebClientPubKeyChangeDisabled)).
 				Post(webChangeClientKeysPath, handleWebClientManageKeysPost)
 		})
 	}

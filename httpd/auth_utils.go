@@ -21,6 +21,7 @@ const (
 	tokenAudienceWebAdmin  tokenAudience = "WebAdmin"
 	tokenAudienceWebClient tokenAudience = "WebClient"
 	tokenAudienceAPI       tokenAudience = "API"
+	tokenAudienceAPIUser   tokenAudience = "APIUser"
 	tokenAudienceCSRF      tokenAudience = "CSRF"
 )
 

@@ -42,7 +42,7 @@ const (
 	defenderUnban             = "/api/v2/defender/unban"
 	defenderScore             = "/api/v2/defender/score"
 	adminPath                 = "/api/v2/admins"
-	adminPwdPath              = "/api/v2/changepwd/admin"
+	adminPwdPath              = "/api/v2/admin/changepwd"
 )
 
 const (
