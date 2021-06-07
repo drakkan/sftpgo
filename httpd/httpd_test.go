@@ -46,68 +46,72 @@ import (
 )
 
 const (
-	defaultUsername           = "test_user"
-	defaultPassword           = "test_password"
-	testPubKey                = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"
-	testPubKey1               = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCd60+/j+y8f0tLftihWV1YN9RSahMI9btQMDIMqts/jeNbD8jgoogM3nhF7KxfcaMKURuD47KC4Ey6iAJUJ0sWkSNNxOcIYuvA+5MlspfZDsa8Ag76Fe1vyz72WeHMHMeh/hwFo2TeIeIXg480T1VI6mzfDrVp2GzUx0SS0dMsQBjftXkuVR8YOiOwMCAH2a//M1OrvV7d/NBk6kBN0WnuIBb2jKm15PAA7+jQQG7tzwk2HedNH3jeL5GH31xkSRwlBczRK0xsCQXehAlx6cT/e/s44iJcJTHfpPKoSk6UAhPJYe7Z1QnuoawY9P9jQaxpyeImBZxxUEowhjpj2avBxKdRGBVK8R7EL8tSOeLbhdyWe5Mwc1+foEbq9Zz5j5Kd+hn3Wm1UnsGCrXUUUoZp1jnlNl0NakCto+5KmqnT9cHxaY+ix2RLUWAZyVFlRq71OYux1UHJnEJPiEI1/tr4jFBSL46qhQZv/TfpkfVW8FLz0lErfqu0gQEZnNHr3Fc= nicola@p1"
-	defaultTokenAuthUser      = "admin"
-	defaultTokenAuthPass      = "password"
-	altAdminUsername          = "newTestAdmin"
-	altAdminPassword          = "password1"
-	csrfFormToken             = "_form_token"
-	tokenPath                 = "/api/v2/token"
-	userTokenPath             = "/api/v2/user/token"
-	userLogoutPath            = "/api/v2/user/logout"
-	userPath                  = "/api/v2/users"
-	adminPath                 = "/api/v2/admins"
-	adminPwdPath              = "/api/v2/admin/changepwd"
-	folderPath                = "/api/v2/folders"
-	activeConnectionsPath     = "/api/v2/connections"
-	serverStatusPath          = "/api/v2/status"
-	quotaScanPath             = "/api/v2/quota-scans"
-	quotaScanVFolderPath      = "/api/v2/folder-quota-scans"
-	updateUsedQuotaPath       = "/api/v2/quota-update"
-	updateFolderUsedQuotaPath = "/api/v2/folder-quota-update"
-	defenderUnban             = "/api/v2/defender/unban"
-	versionPath               = "/api/v2/version"
-	logoutPath                = "/api/v2/logout"
-	userPwdPath               = "/api/v2/user/changepwd"
-	userPublicKeysPath        = "/api/v2/user/publickeys"
-	userReadFolderPath        = "/api/v2/user/folder"
-	userGetFilePath           = "/api/v2/user/file"
-	userStreamZipPath         = "/api/v2/user/streamzip"
-	healthzPath               = "/healthz"
-	webBasePath               = "/web"
-	webBasePathAdmin          = "/web/admin"
-	webAdminSetupPath         = "/web/admin/setup"
-	webLoginPath              = "/web/admin/login"
-	webLogoutPath             = "/web/admin/logout"
-	webUsersPath              = "/web/admin/users"
-	webUserPath               = "/web/admin/user"
-	webFoldersPath            = "/web/admin/folders"
-	webFolderPath             = "/web/admin/folder"
-	webConnectionsPath        = "/web/admin/connections"
-	webStatusPath             = "/web/admin/status"
-	webAdminsPath             = "/web/admin/managers"
-	webAdminPath              = "/web/admin/manager"
-	webMaintenancePath        = "/web/admin/maintenance"
-	webRestorePath            = "/web/admin/restore"
-	webChangeAdminPwdPath     = "/web/admin/changepwd"
-	webTemplateUser           = "/web/admin/template/user"
-	webTemplateFolder         = "/web/admin/template/folder"
-	webBasePathClient         = "/web/client"
-	webClientLoginPath        = "/web/client/login"
-	webClientFilesPath        = "/web/client/files"
-	webClientDirContentsPath  = "/web/client/listdir"
-	webClientDownloadZipPath  = "/web/client/downloadzip"
-	webClientCredentialsPath  = "/web/client/credentials"
-	webChangeClientPwdPath    = "/web/client/changepwd"
-	webChangeClientKeysPath   = "/web/client/managekeys"
-	webClientLogoutPath       = "/web/client/logout"
-	httpBaseURL               = "http://127.0.0.1:8081"
-	sftpServerAddr            = "127.0.0.1:8022"
-	configDir                 = ".."
-	httpsCert                 = `-----BEGIN CERTIFICATE-----
+	defaultUsername                 = "test_user"
+	defaultPassword                 = "test_password"
+	testPubKey                      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"
+	testPubKey1                     = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCd60+/j+y8f0tLftihWV1YN9RSahMI9btQMDIMqts/jeNbD8jgoogM3nhF7KxfcaMKURuD47KC4Ey6iAJUJ0sWkSNNxOcIYuvA+5MlspfZDsa8Ag76Fe1vyz72WeHMHMeh/hwFo2TeIeIXg480T1VI6mzfDrVp2GzUx0SS0dMsQBjftXkuVR8YOiOwMCAH2a//M1OrvV7d/NBk6kBN0WnuIBb2jKm15PAA7+jQQG7tzwk2HedNH3jeL5GH31xkSRwlBczRK0xsCQXehAlx6cT/e/s44iJcJTHfpPKoSk6UAhPJYe7Z1QnuoawY9P9jQaxpyeImBZxxUEowhjpj2avBxKdRGBVK8R7EL8tSOeLbhdyWe5Mwc1+foEbq9Zz5j5Kd+hn3Wm1UnsGCrXUUUoZp1jnlNl0NakCto+5KmqnT9cHxaY+ix2RLUWAZyVFlRq71OYux1UHJnEJPiEI1/tr4jFBSL46qhQZv/TfpkfVW8FLz0lErfqu0gQEZnNHr3Fc= nicola@p1"
+	defaultTokenAuthUser            = "admin"
+	defaultTokenAuthPass            = "password"
+	altAdminUsername                = "newTestAdmin"
+	altAdminPassword                = "password1"
+	csrfFormToken                   = "_form_token"
+	tokenPath                       = "/api/v2/token"
+	userTokenPath                   = "/api/v2/user/token"
+	userLogoutPath                  = "/api/v2/user/logout"
+	userPath                        = "/api/v2/users"
+	adminPath                       = "/api/v2/admins"
+	adminPwdPath                    = "/api/v2/admin/changepwd"
+	folderPath                      = "/api/v2/folders"
+	activeConnectionsPath           = "/api/v2/connections"
+	serverStatusPath                = "/api/v2/status"
+	quotasBasePath                  = "/api/v2/quotas"
+	quotaScanPath                   = "/api/v2/quotas/users/scans"
+	quotaScanVFolderPath            = "/api/v2/quotas/folders/scans"
+	quotaScanCompatPath             = "/api/v2/quota-scans"
+	quotaScanVFolderCompatPath      = "/api/v2/folder-quota-scans"
+	updateUsedQuotaCompatPath       = "/api/v2/quota-update"
+	updateFolderUsedQuotaCompatPath = "/api/v2/folder-quota-update"
+	defenderHosts                   = "/api/v2/defender/hosts"
+	defenderUnban                   = "/api/v2/defender/unban"
+	versionPath                     = "/api/v2/version"
+	logoutPath                      = "/api/v2/logout"
+	userPwdPath                     = "/api/v2/user/changepwd"
+	userPublicKeysPath              = "/api/v2/user/publickeys"
+	userReadFolderPath              = "/api/v2/user/folder"
+	userGetFilePath                 = "/api/v2/user/file"
+	userStreamZipPath               = "/api/v2/user/streamzip"
+	healthzPath                     = "/healthz"
+	webBasePath                     = "/web"
+	webBasePathAdmin                = "/web/admin"
+	webAdminSetupPath               = "/web/admin/setup"
+	webLoginPath                    = "/web/admin/login"
+	webLogoutPath                   = "/web/admin/logout"
+	webUsersPath                    = "/web/admin/users"
+	webUserPath                     = "/web/admin/user"
+	webFoldersPath                  = "/web/admin/folders"
+	webFolderPath                   = "/web/admin/folder"
+	webConnectionsPath              = "/web/admin/connections"
+	webStatusPath                   = "/web/admin/status"
+	webAdminsPath                   = "/web/admin/managers"
+	webAdminPath                    = "/web/admin/manager"
+	webMaintenancePath              = "/web/admin/maintenance"
+	webRestorePath                  = "/web/admin/restore"
+	webChangeAdminPwdPath           = "/web/admin/changepwd"
+	webTemplateUser                 = "/web/admin/template/user"
+	webTemplateFolder               = "/web/admin/template/folder"
+	webBasePathClient               = "/web/client"
+	webClientLoginPath              = "/web/client/login"
+	webClientFilesPath              = "/web/client/files"
+	webClientDirContentsPath        = "/web/client/listdir"
+	webClientDownloadZipPath        = "/web/client/downloadzip"
+	webClientCredentialsPath        = "/web/client/credentials"
+	webChangeClientPwdPath          = "/web/client/changepwd"
+	webChangeClientKeysPath         = "/web/client/managekeys"
+	webClientLogoutPath             = "/web/client/logout"
+	httpBaseURL                     = "http://127.0.0.1:8081"
+	sftpServerAddr                  = "127.0.0.1:8022"
+	configDir                       = ".."
+	httpsCert                       = `-----BEGIN CERTIFICATE-----
 MIICHTCCAaKgAwIBAgIUHnqw7QnB1Bj9oUsNpdb+ZkFPOxMwCgYIKoZIzj0EAwIw
 RTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoMGElu
 dGVybmV0IFdpZGdpdHMgUHR5IEx0ZDAeFw0yMDAyMDQwOTUzMDRaFw0zMDAyMDEw
@@ -3144,6 +3148,10 @@ func TestDefenderAPI(t *testing.T) {
 	require.True(t, ok)
 	assert.Nil(t, banTime)
 
+	hosts, _, err := httpdtest.GetDefenderHosts(http.StatusOK)
+	require.NoError(t, err)
+	assert.Len(t, hosts, 0)
+
 	response, _, err = httpdtest.GetScore(ip, http.StatusOK)
 	require.NoError(t, err)
 	score, ok := response["score"]
@@ -3153,6 +3161,9 @@ func TestDefenderAPI(t *testing.T) {
 	err = httpdtest.UnbanIP(ip, http.StatusNotFound)
 	require.NoError(t, err)
 
+	_, err = httpdtest.RemoveDefenderHostByIP(ip, http.StatusNotFound)
+	require.NoError(t, err)
+
 	common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
 	response, _, err = httpdtest.GetScore(ip, http.StatusOK)
 	require.NoError(t, err)
@@ -3160,18 +3171,65 @@ func TestDefenderAPI(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, float64(2), score)
 
+	hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
+	require.NoError(t, err)
+	if assert.Len(t, hosts, 1) {
+		host := hosts[0]
+		assert.Empty(t, host.GetBanTime())
+		assert.Equal(t, 2, host.Score)
+		assert.Equal(t, ip, host.IP)
+	}
+	host, _, err := httpdtest.GetDefenderHostByIP(ip, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Empty(t, host.GetBanTime())
+	assert.Equal(t, 2, host.Score)
+
 	common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
 	response, _, err = httpdtest.GetBanTime(ip, http.StatusOK)
 	require.NoError(t, err)
 	banTime, ok = response["date_time"]
 	require.True(t, ok)
 	assert.NotNil(t, banTime)
+	hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
+	require.NoError(t, err)
+	if assert.Len(t, hosts, 1) {
+		host := hosts[0]
+		assert.NotEmpty(t, host.GetBanTime())
+		assert.Equal(t, 0, host.Score)
+		assert.Equal(t, ip, host.IP)
+	}
+	host, _, err = httpdtest.GetDefenderHostByIP(ip, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, host.GetBanTime())
+	assert.Equal(t, 0, host.Score)
 
 	err = httpdtest.UnbanIP(ip, http.StatusOK)
 	require.NoError(t, err)
 
 	err = httpdtest.UnbanIP(ip, http.StatusNotFound)
 	require.NoError(t, err)
+
+	host, _, err = httpdtest.GetDefenderHostByIP(ip, http.StatusNotFound)
+	assert.NoError(t, err)
+
+	common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
+	common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
+	hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
+	require.NoError(t, err)
+	assert.Len(t, hosts, 1)
+
+	_, err = httpdtest.RemoveDefenderHostByIP(ip, http.StatusOK)
+	assert.NoError(t, err)
+
+	host, _, err = httpdtest.GetDefenderHostByIP(ip, http.StatusNotFound)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveDefenderHostByIP(ip, http.StatusNotFound)
+	assert.NoError(t, err)
+
+	host, _, err = httpdtest.GetDefenderHostByIP("invalid_ip", http.StatusBadRequest)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveDefenderHostByIP("invalid_ip", http.StatusBadRequest)
+	assert.NoError(t, err)
 
 	err = common.Initialize(oldConfig)
 	require.NoError(t, err)
@@ -3899,7 +3957,11 @@ func TestUpdateUserQuotaUsageMock(t *testing.T) {
 	checkResponseCode(t, http.StatusCreated, rr)
 	err = render.DecodeJSON(rr.Body, &user)
 	assert.NoError(t, err)
-	req, _ = http.NewRequest(http.MethodPut, updateUsedQuotaPath, bytes.NewBuffer(userAsJSON))
+	req, _ = http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "users", u.Username, "usage"), bytes.NewBuffer(userAsJSON))
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	req, _ = http.NewRequest(http.MethodPut, updateUsedQuotaCompatPath, bytes.NewBuffer(userAsJSON))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -3914,7 +3976,7 @@ func TestUpdateUserQuotaUsageMock(t *testing.T) {
 	// now update only quota size
 	u.UsedQuotaFiles = 0
 	userAsJSON = getUserAsJSON(t, u)
-	req, _ = http.NewRequest(http.MethodPut, updateUsedQuotaPath+"?mode=add", bytes.NewBuffer(userAsJSON))
+	req, _ = http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "users", u.Username, "usage")+"?mode=add", bytes.NewBuffer(userAsJSON))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -3930,7 +3992,7 @@ func TestUpdateUserQuotaUsageMock(t *testing.T) {
 	u.UsedQuotaFiles = usedQuotaFiles
 	u.UsedQuotaSize = 0
 	userAsJSON = getUserAsJSON(t, u)
-	req, _ = http.NewRequest(http.MethodPut, updateUsedQuotaPath+"?mode=add", bytes.NewBuffer(userAsJSON))
+	req, _ = http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "users", u.Username, "usage")+"?mode=add", bytes.NewBuffer(userAsJSON))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -3942,12 +4004,16 @@ func TestUpdateUserQuotaUsageMock(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, usedQuotaFiles*2, user.UsedQuotaFiles)
 	assert.Equal(t, usedQuotaSize*2, user.UsedQuotaSize)
-	req, _ = http.NewRequest(http.MethodPut, updateUsedQuotaPath, bytes.NewBuffer([]byte("string")))
+	req, _ = http.NewRequest(http.MethodPut, updateUsedQuotaCompatPath, bytes.NewBuffer([]byte("string")))
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	req, _ = http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "users", u.Username, "usage"), bytes.NewBuffer([]byte("string")))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.True(t, common.QuotaScans.AddUserQuotaScan(user.Username))
-	req, _ = http.NewRequest(http.MethodPut, updateUsedQuotaPath, bytes.NewBuffer(userAsJSON))
+	req, _ = http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "users", u.Username, "usage"), bytes.NewBuffer(userAsJSON))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusConflict, rr)
@@ -4198,7 +4264,7 @@ func TestDeleteUserInvalidParamsMock(t *testing.T) {
 func TestGetQuotaScansMock(t *testing.T) {
 	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	req, err := http.NewRequest("GET", quotaScanPath, nil)
+	req, err := http.NewRequest(http.MethodGet, quotaScanPath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
@@ -4222,61 +4288,47 @@ func TestStartQuotaScanMock(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	// simulate a duplicate quota scan
-	userAsJSON = getUserAsJSON(t, user)
 	common.QuotaScans.AddUserQuotaScan(user.Username)
-	req, _ = http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer(userAsJSON))
+	req, _ = http.NewRequest(http.MethodPost, path.Join(quotasBasePath, "users", user.Username, "scan"), nil)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusConflict, rr)
 	assert.True(t, common.QuotaScans.RemoveUserQuotaScan(user.Username))
 
-	userAsJSON = getUserAsJSON(t, user)
-	req, _ = http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer(userAsJSON))
+	req, _ = http.NewRequest(http.MethodPost, path.Join(quotasBasePath, "users", user.Username, "scan"), nil)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusAccepted, rr)
 
-	for {
-		var scans []common.ActiveQuotaScan
-		req, _ = http.NewRequest(http.MethodGet, quotaScanPath, nil)
-		setBearerForReq(req, token)
-		rr = executeRequest(req)
-		checkResponseCode(t, http.StatusOK, rr)
-		err = render.DecodeJSON(rr.Body, &scans)
-		if !assert.NoError(t, err, "Error getting active scans") {
-			break
-		}
-		if len(scans) == 0 {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
+	waitForUsersQuotaScan(t, token)
+
 	_, err = os.Stat(user.HomeDir)
 	if err != nil && os.IsNotExist(err) {
 		err = os.MkdirAll(user.HomeDir, os.ModePerm)
 		assert.NoError(t, err)
 	}
-	req, _ = http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer(userAsJSON))
+	req, _ = http.NewRequest(http.MethodPost, path.Join(quotasBasePath, "users", user.Username, "scan"), nil)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusAccepted, rr)
 
-	for {
-		var scans []common.ActiveQuotaScan
-		req, _ = http.NewRequest(http.MethodGet, quotaScanPath, nil)
-		setBearerForReq(req, token)
-		rr = executeRequest(req)
-		checkResponseCode(t, http.StatusOK, rr)
-		err = render.DecodeJSON(rr.Body, &scans)
-		if !assert.NoError(t, err) {
-			assert.Fail(t, err.Error(), "Error getting active scans")
-			break
-		}
-		if len(scans) == 0 {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
+	waitForUsersQuotaScan(t, token)
+
+	req, _ = http.NewRequest(http.MethodPost, path.Join(quotasBasePath, "users", user.Username, "scan"), nil)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusAccepted, rr)
+
+	waitForUsersQuotaScan(t, token)
+
+	asJSON, err := json.Marshal(user)
+	assert.NoError(t, err)
+	req, _ = http.NewRequest(http.MethodPost, quotaScanCompatPath, bytes.NewBuffer(asJSON))
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusAccepted, rr)
+
+	waitForUsersQuotaScan(t, token)
 
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
 	setBearerForReq(req, token)
@@ -4308,7 +4360,11 @@ func TestUpdateFolderQuotaUsageMock(t *testing.T) {
 	checkResponseCode(t, http.StatusCreated, rr)
 	err = render.DecodeJSON(rr.Body, &folder)
 	assert.NoError(t, err)
-	req, _ = http.NewRequest(http.MethodPut, updateFolderUsedQuotaPath, bytes.NewBuffer(folderAsJSON))
+	req, _ = http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "folders", folder.Name, "usage"), bytes.NewBuffer(folderAsJSON))
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	req, _ = http.NewRequest(http.MethodPut, updateFolderUsedQuotaCompatPath, bytes.NewBuffer(folderAsJSON))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -4325,7 +4381,8 @@ func TestUpdateFolderQuotaUsageMock(t *testing.T) {
 	f.UsedQuotaFiles = 0
 	folderAsJSON, err = json.Marshal(f)
 	assert.NoError(t, err)
-	req, _ = http.NewRequest(http.MethodPut, updateFolderUsedQuotaPath+"?mode=add", bytes.NewBuffer(folderAsJSON))
+	req, _ = http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "folders", folder.Name, "usage")+"?mode=add",
+		bytes.NewBuffer(folderAsJSON))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -4343,7 +4400,8 @@ func TestUpdateFolderQuotaUsageMock(t *testing.T) {
 	f.UsedQuotaFiles = 1
 	folderAsJSON, err = json.Marshal(f)
 	assert.NoError(t, err)
-	req, _ = http.NewRequest(http.MethodPut, updateFolderUsedQuotaPath+"?mode=add", bytes.NewBuffer(folderAsJSON))
+	req, _ = http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "folders", folder.Name, "usage")+"?mode=add",
+		bytes.NewBuffer(folderAsJSON))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -4356,13 +4414,19 @@ func TestUpdateFolderQuotaUsageMock(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, usedQuotaFiles*2, folderGet.UsedQuotaFiles)
 	assert.Equal(t, usedQuotaSize*2, folderGet.UsedQuotaSize)
-	req, _ = http.NewRequest(http.MethodPut, updateFolderUsedQuotaPath, bytes.NewBuffer([]byte("string")))
+	req, _ = http.NewRequest(http.MethodPut, updateFolderUsedQuotaCompatPath, bytes.NewBuffer([]byte("string")))
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	req, _ = http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "folders", folder.Name, "usage"),
+		bytes.NewBuffer([]byte("not a json")))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 
 	assert.True(t, common.QuotaScans.AddVFolderQuotaScan(folderName))
-	req, _ = http.NewRequest(http.MethodPut, updateFolderUsedQuotaPath, bytes.NewBuffer(folderAsJSON))
+	req, _ = http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "folders", folder.Name, "usage"),
+		bytes.NewBuffer(folderAsJSON))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusConflict, rr)
@@ -4396,7 +4460,7 @@ func TestStartFolderQuotaScanMock(t *testing.T) {
 	}
 	// simulate a duplicate quota scan
 	common.QuotaScans.AddVFolderQuotaScan(folderName)
-	req, _ = http.NewRequest(http.MethodPost, quotaScanVFolderPath, bytes.NewBuffer(folderAsJSON))
+	req, _ = http.NewRequest(http.MethodPost, path.Join(quotasBasePath, "folders", folder.Name, "scan"), nil)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusConflict, rr)
@@ -4407,25 +4471,20 @@ func TestStartFolderQuotaScanMock(t *testing.T) {
 		err = os.MkdirAll(mappedPath, os.ModePerm)
 		assert.NoError(t, err)
 	}
-	req, _ = http.NewRequest(http.MethodPost, quotaScanVFolderPath, bytes.NewBuffer(folderAsJSON))
+	req, _ = http.NewRequest(http.MethodPost, path.Join(quotasBasePath, "folders", folder.Name, "scan"), nil)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusAccepted, rr)
-	var scans []common.ActiveVirtualFolderQuotaScan
-	for {
-		req, _ = http.NewRequest(http.MethodGet, quotaScanVFolderPath, nil)
-		setBearerForReq(req, token)
-		rr = executeRequest(req)
-		checkResponseCode(t, http.StatusOK, rr)
-		err = render.DecodeJSON(rr.Body, &scans)
-		if !assert.NoError(t, err, "Error getting active folders scans") {
-			break
-		}
-		if len(scans) == 0 {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
+	waitForFoldersQuotaScanPath(t, token)
+
+	asJSON, err := json.Marshal(folder)
+	assert.NoError(t, err)
+	req, _ = http.NewRequest(http.MethodPost, quotaScanVFolderCompatPath, bytes.NewBuffer(asJSON))
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusAccepted, rr)
+	waitForFoldersQuotaScanPath(t, token)
+
 	// cleanup
 
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(folderPath, folderName), nil)
@@ -4442,8 +4501,8 @@ func TestStartQuotaScanNonExistentUserMock(t *testing.T) {
 	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
 	user := getTestUser()
-	userAsJSON := getUserAsJSON(t, user)
-	req, _ := http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer(userAsJSON))
+
+	req, _ := http.NewRequest(http.MethodPost, path.Join(quotasBasePath, "users", user.Username, "scan"), nil)
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
@@ -4452,7 +4511,7 @@ func TestStartQuotaScanNonExistentUserMock(t *testing.T) {
 func TestStartQuotaScanBadUserMock(t *testing.T) {
 	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	req, _ := http.NewRequest(http.MethodPost, quotaScanPath, bytes.NewBuffer([]byte("invalid json")))
+	req, _ := http.NewRequest(http.MethodPost, quotaScanCompatPath, bytes.NewBuffer([]byte("invalid json")))
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
@@ -4461,7 +4520,7 @@ func TestStartQuotaScanBadUserMock(t *testing.T) {
 func TestStartQuotaScanBadFolderMock(t *testing.T) {
 	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	req, _ := http.NewRequest(http.MethodPost, quotaScanVFolderPath, bytes.NewBuffer([]byte("invalid json")))
+	req, _ := http.NewRequest(http.MethodPost, quotaScanVFolderCompatPath, bytes.NewBuffer([]byte("invalid json")))
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
@@ -4474,9 +4533,7 @@ func TestStartQuotaScanNonExistentFolderMock(t *testing.T) {
 		MappedPath: os.TempDir(),
 		Name:       "afolder",
 	}
-	folderAsJSON, err := json.Marshal(folder)
-	assert.NoError(t, err)
-	req, _ := http.NewRequest(http.MethodPost, quotaScanVFolderPath, bytes.NewBuffer(folderAsJSON))
+	req, _ := http.NewRequest(http.MethodPost, path.Join(quotasBasePath, "folders", folder.Name, "scan"), nil)
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
@@ -4665,6 +4722,16 @@ func TestLogout(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusUnauthorized, rr)
 	assert.Contains(t, rr.Body.String(), "Your token is no longer valid")
+}
+
+func TestDefenderAPIInvalidIDMock(t *testing.T) {
+	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	req, _ := http.NewRequest(http.MethodGet, path.Join(defenderHosts, "abc"), nil) // not hex id
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "invalid host id")
 }
 
 func TestTokenHeaderCookie(t *testing.T) {
@@ -8471,6 +8538,43 @@ func TestStaticFilesMock(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, "/static/favicon.ico", nil)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+}
+
+func waitForUsersQuotaScan(t *testing.T, token string) {
+	for {
+		var scans []common.ActiveQuotaScan
+		req, _ := http.NewRequest(http.MethodGet, quotaScanPath, nil)
+		setBearerForReq(req, token)
+		rr := executeRequest(req)
+		checkResponseCode(t, http.StatusOK, rr)
+		err := render.DecodeJSON(rr.Body, &scans)
+
+		if !assert.NoError(t, err, "Error getting active scans") {
+			break
+		}
+		if len(scans) == 0 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func waitForFoldersQuotaScanPath(t *testing.T, token string) {
+	var scans []common.ActiveVirtualFolderQuotaScan
+	for {
+		req, _ := http.NewRequest(http.MethodGet, quotaScanVFolderPath, nil)
+		setBearerForReq(req, token)
+		rr := executeRequest(req)
+		checkResponseCode(t, http.StatusOK, rr)
+		err := render.DecodeJSON(rr.Body, &scans)
+		if !assert.NoError(t, err, "Error getting active folders scans") {
+			break
+		}
+		if len(scans) == 0 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 func waitTCPListening(address string) {

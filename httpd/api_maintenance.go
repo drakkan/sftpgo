@@ -282,7 +282,7 @@ func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota i
 		if scanQuota == 1 || (scanQuota == 2 && user.HasQuotaRestrictions()) {
 			if common.QuotaScans.AddUserQuotaScan(user.Username) {
 				logger.Debug(logSender, "", "starting quota scan for restored user: %#v", user.Username)
-				go doQuotaScan(user) //nolint:errcheck
+				go doUserQuotaScan(user) //nolint:errcheck
 			}
 		}
 	}

@@ -179,13 +179,11 @@ function deleteAction() {
             action: function (e, dt, node, config) {
                 dt.button('quota_scan:name').enable(false);
                 var folderName = dt.row({ selected: true }).data()[0];
-                var path = '{{.FolderQuotaScanURL}}'
+                var path = '{{.FolderQuotaScanURL}}'+ "/" + fixedEncodeURIComponent(folderName);
                 $.ajax({
                     url: path,
                     type: 'POST',
-                    dataType: 'json',
                     headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
-                    data: JSON.stringify({ "name": folderName }),
                     timeout: 15000,
                     success: function (result) {
                         dt.button('quota_scan:name').enable(true);

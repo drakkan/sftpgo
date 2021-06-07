@@ -869,7 +869,7 @@ func TestQuotaScanInvalidFs(t *testing.T) {
 		},
 	}
 	common.QuotaScans.AddUserQuotaScan(user.Username)
-	err := doQuotaScan(user)
+	err := doUserQuotaScan(user)
 	assert.Error(t, err)
 }
 

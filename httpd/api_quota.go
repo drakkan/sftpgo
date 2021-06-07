@@ -17,15 +17,31 @@ const (
 	quotaUpdateModeReset = "reset"
 )
 
-func getQuotaScans(w http.ResponseWriter, r *http.Request) {
+type quotaUsage struct {
+	UsedQuotaSize  int64 `json:"used_quota_size"`
+	UsedQuotaFiles int   `json:"used_quota_files"`
+}
+
+func getUsersQuotaScans(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, common.QuotaScans.GetUsersQuotaScans())
 }
 
-func getVFolderQuotaScans(w http.ResponseWriter, r *http.Request) {
+func getFoldersQuotaScans(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, common.QuotaScans.GetVFoldersQuotaScans())
 }
 
 func updateUserQuotaUsage(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	var usage quotaUsage
+	err := render.DecodeJSON(r.Body, &usage)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+	doUpdateUserQuotaUsage(w, r, getURLParam(r, "username"), usage)
+}
+
+func updateUserQuotaUsageCompat(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	var u dataprovider.User
 	err := render.DecodeJSON(r.Body, &u)
@@ -33,7 +49,74 @@ func updateUserQuotaUsage(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	if u.UsedQuotaFiles < 0 || u.UsedQuotaSize < 0 {
+	usage := quotaUsage{
+		UsedQuotaSize:  u.UsedQuotaSize,
+		UsedQuotaFiles: u.UsedQuotaFiles,
+	}
+
+	doUpdateUserQuotaUsage(w, r, u.Username, usage)
+}
+
+func updateFolderQuotaUsage(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	var usage quotaUsage
+	err := render.DecodeJSON(r.Body, &usage)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+	doUpdateFolderQuotaUsage(w, r, getURLParam(r, "name"), usage)
+}
+
+func updateFolderQuotaUsageCompat(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	var f vfs.BaseVirtualFolder
+	err := render.DecodeJSON(r.Body, &f)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+	usage := quotaUsage{
+		UsedQuotaSize:  f.UsedQuotaSize,
+		UsedQuotaFiles: f.UsedQuotaFiles,
+	}
+	doUpdateFolderQuotaUsage(w, r, f.Name, usage)
+}
+
+func startUserQuotaScan(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	doStartUserQuotaScan(w, r, getURLParam(r, "username"))
+}
+
+func startUserQuotaScanCompat(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	var u dataprovider.User
+	err := render.DecodeJSON(r.Body, &u)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+	doStartUserQuotaScan(w, r, u.Username)
+}
+
+func startFolderQuotaScan(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	doStartFolderQuotaScan(w, r, getURLParam(r, "name"))
+}
+
+func startFolderQuotaScanCompat(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	var f vfs.BaseVirtualFolder
+	err := render.DecodeJSON(r.Body, &f)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+	doStartFolderQuotaScan(w, r, f.Name)
+}
+
+func doUpdateUserQuotaUsage(w http.ResponseWriter, r *http.Request, username string, usage quotaUsage) {
+	if usage.UsedQuotaFiles < 0 || usage.UsedQuotaSize < 0 {
 		sendAPIResponse(w, r, errors.New("invalid used quota parameters, negative values are not allowed"),
 			"", http.StatusBadRequest)
 		return
@@ -43,7 +126,7 @@ func updateUserQuotaUsage(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	user, err := dataprovider.UserExists(u.Username)
+	user, err := dataprovider.UserExists(username)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -58,7 +141,7 @@ func updateUserQuotaUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer common.QuotaScans.RemoveUserQuotaScan(user.Username)
-	err = dataprovider.UpdateUserQuota(&user, u.UsedQuotaFiles, u.UsedQuotaSize, mode == quotaUpdateModeReset)
+	err = dataprovider.UpdateUserQuota(&user, usage.UsedQuotaFiles, usage.UsedQuotaSize, mode == quotaUpdateModeReset)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 	} else {
@@ -66,15 +149,8 @@ func updateUserQuotaUsage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func updateVFolderQuotaUsage(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	var f vfs.BaseVirtualFolder
-	err := render.DecodeJSON(r.Body, &f)
-	if err != nil {
-		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
-		return
-	}
-	if f.UsedQuotaFiles < 0 || f.UsedQuotaSize < 0 {
+func doUpdateFolderQuotaUsage(w http.ResponseWriter, r *http.Request, name string, usage quotaUsage) {
+	if usage.UsedQuotaFiles < 0 || usage.UsedQuotaSize < 0 {
 		sendAPIResponse(w, r, errors.New("invalid used quota parameters, negative values are not allowed"),
 			"", http.StatusBadRequest)
 		return
@@ -84,7 +160,7 @@ func updateVFolderQuotaUsage(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	folder, err := dataprovider.GetFolderByName(f.Name)
+	folder, err := dataprovider.GetFolderByName(name)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -94,7 +170,7 @@ func updateVFolderQuotaUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer common.QuotaScans.RemoveVFolderQuotaScan(folder.Name)
-	err = dataprovider.UpdateVirtualFolderQuota(&folder, f.UsedQuotaFiles, f.UsedQuotaSize, mode == quotaUpdateModeReset)
+	err = dataprovider.UpdateVirtualFolderQuota(&folder, usage.UsedQuotaFiles, usage.UsedQuotaSize, mode == quotaUpdateModeReset)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 	} else {
@@ -102,57 +178,43 @@ func updateVFolderQuotaUsage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func startQuotaScan(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+func doStartUserQuotaScan(w http.ResponseWriter, r *http.Request, username string) {
 	if dataprovider.GetQuotaTracking() == 0 {
 		sendAPIResponse(w, r, nil, "Quota tracking is disabled!", http.StatusForbidden)
 		return
 	}
-	var u dataprovider.User
-	err := render.DecodeJSON(r.Body, &u)
-	if err != nil {
-		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
-		return
-	}
-	user, err := dataprovider.UserExists(u.Username)
+	user, err := dataprovider.UserExists(username)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if common.QuotaScans.AddUserQuotaScan(user.Username) {
-		go doQuotaScan(user) //nolint:errcheck
-		sendAPIResponse(w, r, err, "Scan started", http.StatusAccepted)
-	} else {
+	if !common.QuotaScans.AddUserQuotaScan(user.Username) {
 		sendAPIResponse(w, r, err, "Another scan is already in progress", http.StatusConflict)
+		return
 	}
+	go doUserQuotaScan(user) //nolint:errcheck
+	sendAPIResponse(w, r, err, "Scan started", http.StatusAccepted)
 }
 
-func startVFolderQuotaScan(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+func doStartFolderQuotaScan(w http.ResponseWriter, r *http.Request, name string) {
 	if dataprovider.GetQuotaTracking() == 0 {
 		sendAPIResponse(w, r, nil, "Quota tracking is disabled!", http.StatusForbidden)
 		return
 	}
-	var f vfs.BaseVirtualFolder
-	err := render.DecodeJSON(r.Body, &f)
-	if err != nil {
-		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
-		return
-	}
-	folder, err := dataprovider.GetFolderByName(f.Name)
+	folder, err := dataprovider.GetFolderByName(name)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if common.QuotaScans.AddVFolderQuotaScan(folder.Name) {
-		go doFolderQuotaScan(folder) //nolint:errcheck
-		sendAPIResponse(w, r, err, "Scan started", http.StatusAccepted)
-	} else {
+	if !common.QuotaScans.AddVFolderQuotaScan(folder.Name) {
 		sendAPIResponse(w, r, err, "Another scan is already in progress", http.StatusConflict)
+		return
 	}
+	go doFolderQuotaScan(folder) //nolint:errcheck
+	sendAPIResponse(w, r, err, "Scan started", http.StatusAccepted)
 }
 
-func doQuotaScan(user dataprovider.User) error {
+func doUserQuotaScan(user dataprovider.User) error {
 	defer common.QuotaScans.RemoveUserQuotaScan(user.Username)
 	numFiles, size, err := user.ScanQuota()
 	if err != nil {

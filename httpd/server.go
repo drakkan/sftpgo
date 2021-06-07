@@ -580,10 +580,14 @@ func (s *httpdServer) initializeRouter() {
 
 		router.With(checkPerm(dataprovider.PermAdminCloseConnections)).
 			Delete(activeConnectionsPath+"/{connectionID}", handleCloseConnection)
-		router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotaScanPath, getQuotaScans)
-		router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotaScanPath, startQuotaScan)
-		router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotaScanVFolderPath, getVFolderQuotaScans)
-		router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotaScanVFolderPath, startVFolderQuotaScan)
+		router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotaScanPath, getUsersQuotaScans)
+		router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotasBasePath+"/users/scans", getUsersQuotaScans)
+		router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotaScanPath, startUserQuotaScanCompat)
+		router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotasBasePath+"/users/{username}/scan", startUserQuotaScan)
+		router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotaScanVFolderPath, getFoldersQuotaScans)
+		router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotasBasePath+"/folders/scans", getFoldersQuotaScans)
+		router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotaScanVFolderPath, startFolderQuotaScanCompat)
+		router.With(checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotasBasePath+"/folders/{name}/scan", startFolderQuotaScan)
 		router.With(checkPerm(dataprovider.PermAdminViewUsers)).Get(userPath, getUsers)
 		router.With(checkPerm(dataprovider.PermAdminAddUsers)).Post(userPath, addUser)
 		router.With(checkPerm(dataprovider.PermAdminViewUsers)).Get(userPath+"/{username}", getUserByUsername)
@@ -597,8 +601,13 @@ func (s *httpdServer) initializeRouter() {
 		router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(dumpDataPath, dumpData)
 		router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(loadDataPath, loadData)
 		router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(loadDataPath, loadDataFromRequest)
-		router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Put(updateUsedQuotaPath, updateUserQuotaUsage)
-		router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Put(updateFolderUsedQuotaPath, updateVFolderQuotaUsage)
+		router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Put(updateUsedQuotaPath, updateUserQuotaUsageCompat)
+		router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Put(quotasBasePath+"/users/{username}/usage", updateUserQuotaUsage)
+		router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Put(updateFolderUsedQuotaPath, updateFolderQuotaUsageCompat)
+		router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Put(quotasBasePath+"/folders/{name}/usage", updateFolderQuotaUsage)
+		router.With(checkPerm(dataprovider.PermAdminViewDefender)).Get(defenderHosts, getDefenderHosts)
+		router.With(checkPerm(dataprovider.PermAdminViewDefender)).Get(defenderHosts+"/{id}", getDefenderHostByID)
+		router.With(checkPerm(dataprovider.PermAdminManageDefender)).Delete(defenderHosts+"/{id}", deleteDefenderHostByID)
 		router.With(checkPerm(dataprovider.PermAdminViewDefender)).Get(defenderBanTime, getBanTime)
 		router.With(checkPerm(dataprovider.PermAdminViewDefender)).Get(defenderScore, getScore)
 		router.With(checkPerm(dataprovider.PermAdminManageDefender)).Post(defenderUnban, unban)
@@ -719,11 +728,11 @@ func (s *httpdServer) initializeRouter() {
 			router.With(checkPerm(dataprovider.PermAdminDeleteUsers), verifyCSRFHeader).
 				Delete(webFolderPath+"/{name}", deleteFolder)
 			router.With(checkPerm(dataprovider.PermAdminQuotaScans), verifyCSRFHeader).
-				Post(webScanVFolderPath, startVFolderQuotaScan)
+				Post(webScanVFolderPath+"/{name}", startFolderQuotaScan)
 			router.With(checkPerm(dataprovider.PermAdminDeleteUsers), verifyCSRFHeader).
 				Delete(webUserPath+"/{username}", deleteUser)
 			router.With(checkPerm(dataprovider.PermAdminQuotaScans), verifyCSRFHeader).
-				Post(webQuotaScanPath, startQuotaScan)
+				Post(webQuotaScanPath+"/{username}", startUserQuotaScan)
 			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(webMaintenancePath, handleWebMaintenance)
 			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Get(webBackupPath, dumpData)
 			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(webRestorePath, handleWebRestore)

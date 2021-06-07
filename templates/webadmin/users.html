@@ -199,13 +199,11 @@
             action: function (e, dt, node, config) {
                 dt.button('quota_scan:name').enable(false);
                 var username = dt.row({ selected: true }).data()[1];
-                var path = '{{.QuotaScanURL}}'
+                var path = '{{.QuotaScanURL}}'+ "/" + fixedEncodeURIComponent(username);
                 $.ajax({
                     url: path,
                     type: 'POST',
-                    dataType: 'json',
                     headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
-                    data: JSON.stringify({ "username": username }),
                     timeout: 15000,
                     success: function (result) {
                         dt.button('quota_scan:name').enable(true);

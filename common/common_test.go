@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -129,8 +130,11 @@ func TestDefenderIntegration(t *testing.T) {
 	assert.False(t, IsBanned(ip))
 
 	assert.Nil(t, GetDefenderBanTime(ip))
-	assert.False(t, Unban(ip))
+	assert.False(t, DeleteDefenderHost(ip))
 	assert.Equal(t, 0, GetDefenderScore(ip))
+	_, err := GetDefenderHost(ip)
+	assert.Error(t, err)
+	assert.Nil(t, GetDefenderHosts())
 
 	Config.DefenderConfig = DefenderConfig{
 		Enabled:          true,
@@ -143,7 +147,7 @@ func TestDefenderIntegration(t *testing.T) {
 		EntriesSoftLimit: 100,
 		EntriesHardLimit: 150,
 	}
-	err := Initialize(Config)
+	err = Initialize(Config)
 	assert.Error(t, err)
 	Config.DefenderConfig.Threshold = 3
 	err = Initialize(Config)
@@ -153,16 +157,27 @@ func TestDefenderIntegration(t *testing.T) {
 	AddDefenderEvent(ip, HostEventNoLoginTried)
 	assert.False(t, IsBanned(ip))
 	assert.Equal(t, 2, GetDefenderScore(ip))
-	assert.False(t, Unban(ip))
+	entry, err := GetDefenderHost(ip)
+	assert.NoError(t, err)
+	asJSON, err := json.Marshal(&entry)
+	assert.NoError(t, err)
+	assert.Equal(t, `{"id":"3132372e312e312e31","ip":"127.1.1.1","score":2}`, string(asJSON), "entry %v", entry)
+	assert.True(t, DeleteDefenderHost(ip))
 	assert.Nil(t, GetDefenderBanTime(ip))
 
 	AddDefenderEvent(ip, HostEventLoginFailed)
+	AddDefenderEvent(ip, HostEventNoLoginTried)
 	assert.True(t, IsBanned(ip))
 	assert.Equal(t, 0, GetDefenderScore(ip))
 	assert.NotNil(t, GetDefenderBanTime(ip))
-	assert.True(t, Unban(ip))
+	assert.Len(t, GetDefenderHosts(), 1)
+	entry, err = GetDefenderHost(ip)
+	assert.NoError(t, err)
+	assert.False(t, entry.BanTime.IsZero())
+	assert.True(t, DeleteDefenderHost(ip))
+	assert.Len(t, GetDefenderHosts(), 0)
 	assert.Nil(t, GetDefenderBanTime(ip))
-	assert.False(t, Unban(ip))
+	assert.False(t, DeleteDefenderHost(ip))
 
 	Config = configCopy
 }

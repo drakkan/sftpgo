@@ -403,6 +403,13 @@ func (e *RecordNotFoundError) Error() string {
 	return fmt.Sprintf("not found: %s", e.err)
 }
 
+// NewRecordNotFoundError returns a not found error
+func NewRecordNotFoundError(error string) *RecordNotFoundError {
+	return &RecordNotFoundError{
+		err: error,
+	}
+}
+
 // GetQuotaTracking returns the configured mode for user's quota tracking
 func GetQuotaTracking() int {
 	return config.TrackQuota

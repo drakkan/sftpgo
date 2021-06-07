@@ -1,6 +1,7 @@
 package httpd
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -11,6 +12,38 @@ import (
 
 	"github.com/drakkan/sftpgo/common"
 )
+
+func getDefenderHosts(w http.ResponseWriter, r *http.Request) {
+	render.JSON(w, r, common.GetDefenderHosts())
+}
+
+func getDefenderHostByID(w http.ResponseWriter, r *http.Request) {
+	ip, err := getIPFromID(r)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+	host, err := common.GetDefenderHost(ip)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	render.JSON(w, r, host)
+}
+
+func deleteDefenderHostByID(w http.ResponseWriter, r *http.Request) {
+	ip, err := getIPFromID(r)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+	if !common.DeleteDefenderHost(ip) {
+		sendAPIResponse(w, r, nil, "Not found", http.StatusNotFound)
+		return
+	}
+
+	sendAPIResponse(w, r, nil, "OK", http.StatusOK)
+}
 
 func getBanTime(w http.ResponseWriter, r *http.Request) {
 	ip := r.URL.Query().Get("ip")
@@ -64,11 +97,24 @@ func unban(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if common.Unban(ip) {
+	if common.DeleteDefenderHost(ip) {
 		sendAPIResponse(w, r, nil, "OK", http.StatusOK)
 	} else {
 		sendAPIResponse(w, r, nil, "Not found", http.StatusNotFound)
 	}
+}
+
+func getIPFromID(r *http.Request) (string, error) {
+	decoded, err := hex.DecodeString(getURLParam(r, "id"))
+	if err != nil {
+		return "", errors.New("invalid host id")
+	}
+	ip := string(decoded)
+	err = validateIPAddress(ip)
+	if err != nil {
+		return "", err
+	}
+	return ip, nil
 }
 
 func validateIPAddress(ip string) error {

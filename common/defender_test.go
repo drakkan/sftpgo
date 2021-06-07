@@ -2,6 +2,7 @@ package common
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -72,6 +73,9 @@ func TestBasicDefender(t *testing.T) {
 	assert.False(t, defender.IsBanned("invalid ip"))
 	assert.Equal(t, 0, defender.countBanned())
 	assert.Equal(t, 0, defender.countHosts())
+	assert.Len(t, defender.GetHosts(), 0)
+	_, err = defender.GetHost("10.8.0.4")
+	assert.Error(t, err)
 
 	defender.AddEvent("172.16.1.4", HostEventLoginFailed)
 	defender.AddEvent("192.168.8.4", HostEventUserNotFound)
@@ -83,16 +87,39 @@ func TestBasicDefender(t *testing.T) {
 	assert.Equal(t, 1, defender.countHosts())
 	assert.Equal(t, 0, defender.countBanned())
 	assert.Equal(t, 1, defender.GetScore(testIP))
+	if assert.Len(t, defender.GetHosts(), 1) {
+		assert.Equal(t, 1, defender.GetHosts()[0].Score)
+		assert.True(t, defender.GetHosts()[0].BanTime.IsZero())
+		assert.Empty(t, defender.GetHosts()[0].GetBanTime())
+	}
+	host, err := defender.GetHost(testIP)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, host.Score)
+	assert.Empty(t, host.GetBanTime())
 	assert.Nil(t, defender.GetBanTime(testIP))
 	defender.AddEvent(testIP, HostEventLimitExceeded)
 	assert.Equal(t, 1, defender.countHosts())
 	assert.Equal(t, 0, defender.countBanned())
 	assert.Equal(t, 4, defender.GetScore(testIP))
+	if assert.Len(t, defender.GetHosts(), 1) {
+		assert.Equal(t, 4, defender.GetHosts()[0].Score)
+	}
+	defender.AddEvent(testIP, HostEventNoLoginTried)
 	defender.AddEvent(testIP, HostEventNoLoginTried)
 	assert.Equal(t, 0, defender.countHosts())
 	assert.Equal(t, 1, defender.countBanned())
 	assert.Equal(t, 0, defender.GetScore(testIP))
 	assert.NotNil(t, defender.GetBanTime(testIP))
+	if assert.Len(t, defender.GetHosts(), 1) {
+		assert.Equal(t, 0, defender.GetHosts()[0].Score)
+		assert.False(t, defender.GetHosts()[0].BanTime.IsZero())
+		assert.NotEmpty(t, defender.GetHosts()[0].GetBanTime())
+		assert.Equal(t, hex.EncodeToString([]byte(testIP)), defender.GetHosts()[0].GetID())
+	}
+	host, err = defender.GetHost(testIP)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, host.Score)
+	assert.NotEmpty(t, host.GetBanTime())
 
 	// now test cleanup, testIP is already banned
 	testIP1 := "12.34.56.79"
@@ -143,8 +170,8 @@ func TestBasicDefender(t *testing.T) {
 		assert.True(t, newBanTime.After(*banTime))
 	}
 
-	assert.True(t, defender.Unban(testIP3))
-	assert.False(t, defender.Unban(testIP3))
+	assert.True(t, defender.DeleteHost(testIP3))
+	assert.False(t, defender.DeleteHost(testIP3))
 
 	err = os.Remove(slFile)
 	assert.NoError(t, err)

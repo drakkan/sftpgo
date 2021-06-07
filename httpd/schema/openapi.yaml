@@ -17,7 +17,7 @@ info:
     Several storage backends are supported and they are configurable per user, so you can serve a local directory for a user and an S3 bucket (or part of it) for another one.
     SFTPGo also supports virtual folders, a virtual folder can use any of the supported storage backends. So you can have, for example, an S3 user that exposes a GCS bucket (or part of it) on a specified path and an encrypted local filesystem on another one.
     Virtual folders can be private or shared among multiple users, for shared virtual folders you can define different quota limits for each user.
-  version: 2.0.9
+  version: 2.1.0
   contact:
     name: API support
     url: 'https://github.com/drakkan/sftpgo'
@@ -166,8 +166,8 @@ paths:
       tags:
         - admins
       summary: Change admin password
-      description: Changes the password for the logged in admin. Please use /admin/changepwd instead
-      operationId: change_admin_pwd
+      description: Changes the password for the logged in admin. Please use '/admin/changepwd' instead
+      operationId: change_admin_password_deprecated
       deprecated: true
       requestBody:
         required: true
@@ -275,12 +275,93 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
-  /defender/bantime:
+  /defender/hosts:
     get:
       tags:
         - defender
+      summary: Get hosts
+      description: Returns hosts that are banned or for which some violations have been detected
+      operationId: get_defender_hosts
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DefenderEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /defender/hosts/{id}:
+    parameters:
+      - name: id
+        in: path
+        description: host id
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - defender
+      summary: Get host by id
+      description: Returns the host with the given id, if it exists
+      operationId: get_defender_host_by_id
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefenderEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    delete:
+      tags:
+        - defender
+      summary: Removes a host from the defender lists
+      description: Unbans the specified host or clears its violations
+      operationId: delete_defender_host_by_id
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /defender/bantime:
+    get:
+      deprecated: true
+      tags:
+        - defender
       summary: Get ban time
-      description: Returns the ban time for the specified IPv4/IPv6 address
+      description: Deprecated, please use '/defender/hosts', '/defender/hosts/{id}' instead
       operationId: get_ban_time
       parameters:
         - in: query
@@ -308,10 +389,11 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
   /defender/unban:
     post:
+      deprecated: true
       tags:
         - defender
       summary: Unban
-      description: Removes the specified IPv4/IPv6 from the banned ones
+      description: Deprecated, please use '/defender/hosts/{id}' instead
       operationId: unban_host
       requestBody:
         required: true
@@ -344,10 +426,11 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
   /defender/score:
     get:
+      deprecated: true
       tags:
         - defender
       summary: Get score
-      description: Returns the score for the specified IPv4/IPv6 address
+      description: Deprecated, please use '/defender/hosts', '/defender/hosts/{id}' instead
       operationId: get_score
       parameters:
         - in: query
@@ -373,13 +456,282 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
-  /quota-scans:
+  /quotas/users/scans:
     get:
       tags:
         - quota
+      summary: Get active user quota scans
+      description: Returns the active user quota scans
+      operationId: get_users_quota_scans
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QuotaScan'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /quotas/users/{username}/scan:
+    parameters:
+      - name: username
+        in: path
+        description: the username
+        required: true
+        schema:
+          type: string
+    post:
+      tags:
+        - quota
+      summary: Start a user quota scan
+      description: Starts a new quota scan for the given user. A quota scan updates the number of files and their total size for the specified user and the virtual folders, if any, included in his quota
+      operationId: start_user_quota_scan
+      responses:
+        '202':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: Scan started
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /quotas/users/{username}/usage:
+    parameters:
+      - name: username
+        in: path
+        description: the username
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: mode
+        required: false
+        description: the update mode specifies if the given quota usage values should be added or replace the current ones
+        schema:
+          type: string
+          enum:
+            - add
+            - reset
+          description: |
+            Update type:
+                * `add` - add the specified quota limits to the current used ones
+                * `reset` - reset the values to the specified ones. This is the default
+          example: reset
+    put:
+      tags:
+        - quota
+      summary: Update quota usage limits
+      description: Sets the current used quota limits for the given user
+      operationId: user_quota_update_usage
+      parameters:
+        - in: query
+          name: mode
+          required: false
+          description: the update mode specifies if the given quota usage values should be added or replace the current ones
+          schema:
+            type: string
+            enum:
+              - add
+              - reset
+            description: |
+              Update type:
+                * `add` - add the specified quota limits to the current used ones
+                * `reset` - reset the values to the specified ones. This is the default
+            example: reset
+      requestBody:
+        required: true
+        description: 'If used_quota_size and used_quota_files are missing they will default to 0, this means that if mode is "add" the current value, for the missing field, will remain unchanged, if mode is "reset" the missing field is set to 0'
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuotaUsage'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: Quota updated
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /quotas/folders/scans:
+    get:
+      tags:
+        - quota
+      summary: Get active folder quota scans
+      description: Returns the active folder quota scans
+      operationId: get_folders_quota_scans
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FolderQuotaScan'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /quotas/folders/{name}/scan:
+    parameters:
+      - name: name
+        in: path
+        description: folder name
+        required: true
+        schema:
+          type: string
+    post:
+      tags:
+        - quota
+      summary: Start a folder quota scan
+      description: Starts a new quota scan for the given folder. A quota scan update the number of files and their total size for the specified folder
+      operationId: start_folder_quota_scan
+      responses:
+        '202':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: Scan started
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /quotas/folders/{name}/usage:
+    parameters:
+      - name: name
+        in: path
+        description: folder name
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: mode
+        required: false
+        description: the update mode specifies if the given quota usage values should be added or replace the current ones
+        schema:
+          type: string
+          enum:
+            - add
+            - reset
+          description: |
+            Update type:
+                * `add` - add the specified quota limits to the current used ones
+                * `reset` - reset the values to the specified ones. This is the default
+          example: reset
+    put:
+      tags:
+        - quota
+      summary: Update folder quota usage limits
+      description: Sets the current used quota limits for the given folder
+      operationId: folder_quota_update_usage
+      parameters:
+        - in: query
+          name: mode
+          required: false
+          description: the update mode specifies if the given quota usage values should be added or replace the current ones
+          schema:
+            type: string
+            enum:
+              - add
+              - reset
+            description: |
+              Update type:
+                * `add` - add the specified quota limits to the current used ones
+                * `reset` - reset the values to the specified ones. This is the default
+            example: reset
+      requestBody:
+        required: true
+        description: 'If used_quota_size and used_quota_files are missing they will default to 0, this means that if mode is "add" the current value, for the missing field, will remain unchanged, if mode is "reset" the missing field is set to 0'
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuotaUsage'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: Quota updated
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /quota-scans:
+    get:
+      deprecated: true
+      tags:
+        - quota
       summary: Get quota scans
-      description: Returns active user quota scans
-      operationId: get_quota_scans
+      description: Deprecated, please use '/quotas/users/scans' instead
+      operationId: get_users_quota_scans_deprecated
       responses:
         '200':
           description: successful operation
@@ -398,11 +750,12 @@ paths:
         default:
           $ref: '#/components/responses/DefaultResponse'
     post:
+      deprecated: true
       tags:
         - quota
       summary: Start user quota scan
-      description: Starts a new quota scan for the given user. A quota scan updates the number of files and their total size for the specified user and the virtual folders, if any, included in his quota
-      operationId: start_quota_scan
+      description: Deprecated, please use '/quotas/users/{username}/scan' instead
+      operationId: start_user_quota_scan_deprecated
       requestBody:
         required: true
         content:
@@ -434,11 +787,12 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
   /quota-update:
     put:
+      deprecated: true
       tags:
         - quota
-      summary: Update user quota limits
-      description: Sets the current used quota limits for the given user
-      operationId: quota_update
+      summary: Update quota usage limits
+      description: Deprecated, please use '/quotas/users/{username}/usage' instead
+      operationId: user_quota_update_usage_deprecated
       parameters:
         - in: query
           name: mode
@@ -478,19 +832,18 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
   /folder-quota-update:
     put:
+      deprecated: true
       tags:
         - quota
       summary: Update folder quota limits
-      description: Sets the current used quota limits for the given folder
-      operationId: folder_quota_update
+      description: Deprecated, please use '/quotas/folders/{name}/usage' instead
+      operationId: folder_quota_update_usage_deprecated
       parameters:
         - in: query
           name: mode
@@ -530,19 +883,18 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
   /folder-quota-scans:
     get:
+      deprecated: true
       tags:
         - quota
       summary: Get folders quota scans
-      description: Returns the active quota scans for folders
-      operationId: get_folders_quota_scans
+      description: Deprecated, please use '/quotas/folders/scans' instead
+      operationId: get_folders_quota_scans_deprecated
       responses:
         '200':
           description: successful operation
@@ -561,11 +913,12 @@ paths:
         default:
           $ref: '#/components/responses/DefaultResponse'
     post:
+      deprecated: true
       tags:
         - quota
-      summary: Start folder quota scan
-      description: Starts a new quota scan for the given folder. A quota scan update the number of files and their total size for the specified folder
-      operationId: start_folder_quota_scan
+      summary: Start a folder quota scan
+      description: Deprecated, please use '/quotas/folders/{name}/scan' instead
+      operationId: start_folder_quota_scan_deprecated
       requestBody:
         required: true
         content:
@@ -2142,6 +2495,15 @@ components:
         additional_info:
           type: string
           description: Free form text field
+    QuotaUsage:
+      type: object
+      properties:
+        used_quota_size:
+          type: integer
+          format: int64
+        used_quota_files:
+          type: integer
+          format: int32
     Transfer:
       type: object
       properties:
@@ -2223,6 +2585,20 @@ components:
           type: integer
           format: int64
           description: scan start time as unix timestamp in milliseconds
+    DefenderEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        ip:
+          type: string
+        score:
+          type: integer
+          description: the score increases whenever a violation is detected, such as an attempt to log in using an incorrect password or invalid username. If the score exceeds the configured threshold, the IP is banned. Omitted for banned IPs
+        ban_time:
+          type: string
+          format: date-time
+          description: date time until the IP is banned. For already banned hosts, the ban time is increased each time a new violation is detected. Omitted if the IP is not banned
     SSHHostKey:
       type: object
       properties:

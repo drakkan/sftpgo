@@ -199,13 +199,31 @@ func GetDefenderBanTime(ip string) *time.Time {
 	return Config.defender.GetBanTime(ip)
 }
 
-// Unban removes the specified IP address from the banned ones
-func Unban(ip string) bool {
+// GetDefenderHosts returns hosts that are banned or for which some violations have been detected
+func GetDefenderHosts() []*DefenderEntry {
+	if Config.defender == nil {
+		return nil
+	}
+
+	return Config.defender.GetHosts()
+}
+
+// GetDefenderHost returns a defender host by ip, if any
+func GetDefenderHost(ip string) (*DefenderEntry, error) {
+	if Config.defender == nil {
+		return nil, errors.New("defender is disabled")
+	}
+
+	return Config.defender.GetHost(ip)
+}
+
+// DeleteDefenderHost removes the specified IP address from the defender lists
+func DeleteDefenderHost(ip string) bool {
 	if Config.defender == nil {
 		return false
 	}
 
-	return Config.defender.Unban(ip)
+	return Config.defender.DeleteHost(ip)
 }
 
 // GetDefenderScore returns the score for the given IP

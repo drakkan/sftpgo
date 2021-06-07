@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/yl2chen/cidranger"
 
+	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 )
@@ -26,13 +28,50 @@ const (
 	HostEventLimitExceeded
 )
 
+// DefenderEntry defines a defender entry
+type DefenderEntry struct {
+	IP      string    `json:"ip"`
+	Score   int       `json:"score,omitempty"`
+	BanTime time.Time `json:"ban_time,omitempty"`
+}
+
+// GetID returns an unique ID for a defender entry
+func (d *DefenderEntry) GetID() string {
+	return hex.EncodeToString([]byte(d.IP))
+}
+
+// GetBanTime returns the ban time for a defender entry as string
+func (d *DefenderEntry) GetBanTime() string {
+	if d.BanTime.IsZero() {
+		return ""
+	}
+	return d.BanTime.UTC().Format(time.RFC3339)
+}
+
+// MarshalJSON returns the JSON encoding of a DefenderEntry.
+func (d *DefenderEntry) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		ID      string `json:"id"`
+		IP      string `json:"ip"`
+		Score   int    `json:"score,omitempty"`
+		BanTime string `json:"ban_time,omitempty"`
+	}{
+		ID:      d.GetID(),
+		IP:      d.IP,
+		Score:   d.Score,
+		BanTime: d.GetBanTime(),
+	})
+}
+
 // Defender defines the interface that a defender must implements
 type Defender interface {
+	GetHosts() []*DefenderEntry
+	GetHost(ip string) (*DefenderEntry, error)
 	AddEvent(ip string, event HostEvent)
 	IsBanned(ip string) bool
 	GetBanTime(ip string) *time.Time
 	GetScore(ip string) int
-	Unban(ip string) bool
+	DeleteHost(ip string) bool
 	Reload() error
 }
 
@@ -190,6 +229,50 @@ func (d *memoryDefender) Reload() error {
 	return nil
 }
 
+// GetHosts returns hosts that are banned or for which some violations have been detected
+func (d *memoryDefender) GetHosts() []*DefenderEntry {
+	d.RLock()
+	defer d.RUnlock()
+
+	var result []*DefenderEntry
+	for k, v := range d.banned {
+		result = append(result, &DefenderEntry{
+			IP:      k,
+			BanTime: v,
+		})
+	}
+	for k, v := range d.hosts {
+		result = append(result, &DefenderEntry{
+			IP:    k,
+			Score: v.TotalScore,
+		})
+	}
+
+	return result
+}
+
+// GetHost returns a defender host by ip, if any
+func (d *memoryDefender) GetHost(ip string) (*DefenderEntry, error) {
+	d.RLock()
+	defer d.RUnlock()
+
+	if banTime, ok := d.banned[ip]; ok {
+		return &DefenderEntry{
+			IP:      ip,
+			BanTime: banTime,
+		}, nil
+	}
+
+	if ev, ok := d.hosts[ip]; ok {
+		return &DefenderEntry{
+			IP:    ip,
+			Score: ev.TotalScore,
+		}, nil
+	}
+
+	return nil, dataprovider.NewRecordNotFoundError("host not found")
+}
+
 // IsBanned returns true if the specified IP is banned
 // and increase ban time if the IP is found.
 // This method must be called as soon as the client connects
@@ -227,13 +310,18 @@ func (d *memoryDefender) IsBanned(ip string) bool {
 	return false
 }
 
-// Unban removes the specified IP address from the banned ones
-func (d *memoryDefender) Unban(ip string) bool {
+// DeleteHost removes the specified IP from the defender lists
+func (d *memoryDefender) DeleteHost(ip string) bool {
 	d.Lock()
 	defer d.Unlock()
 
 	if _, ok := d.banned[ip]; ok {
 		delete(d.banned, ip)
+		return true
+	}
+
+	if _, ok := d.hosts[ip]; ok {
+		delete(d.hosts, ip)
 		return true
 	}
 
@@ -247,6 +335,11 @@ func (d *memoryDefender) AddEvent(ip string, event HostEvent) {
 	defer d.Unlock()
 
 	if d.safeList != nil && d.safeList.isListed(ip) {
+		return
+	}
+
+	// ignore events for already banned hosts
+	if _, ok := d.banned[ip]; ok {
 		return
 	}
 
