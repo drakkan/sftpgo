@@ -14,7 +14,12 @@ import (
 )
 
 func getDefenderHosts(w http.ResponseWriter, r *http.Request) {
-	render.JSON(w, r, common.GetDefenderHosts())
+	hosts := common.GetDefenderHosts()
+	if hosts == nil {
+		render.JSON(w, r, make([]common.DefenderEntry, 0))
+		return
+	}
+	render.JSON(w, r, hosts)
 }
 
 func getDefenderHostByID(w http.ResponseWriter, r *http.Request) {

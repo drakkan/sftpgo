@@ -82,6 +82,8 @@ const (
 	webChangeAdminPwdPathDefault    = "/web/admin/changepwd"
 	webTemplateUserDefault          = "/web/admin/template/user"
 	webTemplateFolderDefault        = "/web/admin/template/folder"
+	webDefenderPathDefault          = "/web/admin/defender"
+	webDefenderHostsPathDefault     = "/web/admin/defender/hosts"
 	webClientLoginPathDefault       = "/web/client/login"
 	webClientFilesPathDefault       = "/web/client/files"
 	webClientDirContentsPathDefault = "/web/client/listdir"
@@ -128,6 +130,8 @@ var (
 	webChangeAdminPwdPath    string
 	webTemplateUser          string
 	webTemplateFolder        string
+	webDefenderPath          string
+	webDefenderHostsPath     string
 	webClientLoginPath       string
 	webClientFilesPath       string
 	webClientDirContentsPath string
@@ -460,6 +464,8 @@ func updateWebAdminURLs(baseURL string) {
 	webChangeAdminPwdPath = path.Join(baseURL, webChangeAdminPwdPathDefault)
 	webTemplateUser = path.Join(baseURL, webTemplateUserDefault)
 	webTemplateFolder = path.Join(baseURL, webTemplateFolderDefault)
+	webDefenderHostsPath = path.Join(baseURL, webDefenderHostsPathDefault)
+	webDefenderPath = path.Join(baseURL, webDefenderPathDefault)
 	webStaticFilesPath = path.Join(baseURL, webStaticFilesPathDefault)
 }
 

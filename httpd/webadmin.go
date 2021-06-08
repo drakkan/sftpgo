@@ -52,6 +52,7 @@ const (
 	templateMessage      = "message.html"
 	templateStatus       = "status.html"
 	templateLogin        = "login.html"
+	templateDefender     = "defender.html"
 	templateChangePwd    = "changepwd.html"
 	templateMaintenance  = "maintenance.html"
 	templateSetup        = "adminsetup.html"
@@ -62,6 +63,7 @@ const (
 	pageFoldersTitle     = "Folders"
 	pageChangePwdTitle   = "Change password"
 	pageMaintenanceTitle = "Maintenance"
+	pageDefenderTitle    = "Defender"
 	pageSetupTitle       = "Create first admin user"
 	defaultQueryLimit    = 500
 )
@@ -83,6 +85,7 @@ type basePage struct {
 	FoldersURL         string
 	FolderURL          string
 	FolderTemplateURL  string
+	DefenderURL        string
 	LogoutURL          string
 	ChangeAdminPwdURL  string
 	FolderQuotaScanURL string
@@ -95,8 +98,10 @@ type basePage struct {
 	FoldersTitle       string
 	StatusTitle        string
 	MaintenanceTitle   string
+	DefenderTitle      string
 	Version            string
 	CSRFToken          string
+	HasDefender        bool
 	LoggedAdmin        *dataprovider.Admin
 }
 
@@ -157,6 +162,11 @@ type maintenancePage struct {
 	BackupPath  string
 	RestorePath string
 	Error       string
+}
+
+type defenderHostsPage struct {
+	basePage
+	DefenderHostsURL string
 }
 
 type setupPage struct {
@@ -234,6 +244,10 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateMaintenance),
 	}
+	defenderPath := []string{
+		filepath.Join(templatesPath, templateAdminDir, templateBase),
+		filepath.Join(templatesPath, templateAdminDir, templateDefender),
+	}
 	setupPath := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateSetup),
 	}
@@ -249,6 +263,7 @@ func loadAdminTemplates(templatesPath string) {
 	loginTmpl := utils.LoadTemplate(template.ParseFiles(loginPath...))
 	changePwdTmpl := utils.LoadTemplate(template.ParseFiles(changePwdPaths...))
 	maintenanceTmpl := utils.LoadTemplate(template.ParseFiles(maintenancePath...))
+	defenderTmpl := utils.LoadTemplate(template.ParseFiles(defenderPath...))
 	setupTmpl := utils.LoadTemplate(template.ParseFiles(setupPath...))
 
 	adminTemplates[templateUsers] = usersTmpl
@@ -263,6 +278,7 @@ func loadAdminTemplates(templatesPath string) {
 	adminTemplates[templateLogin] = loginTmpl
 	adminTemplates[templateChangePwd] = changePwdTmpl
 	adminTemplates[templateMaintenance] = maintenanceTmpl
+	adminTemplates[templateDefender] = defenderTmpl
 	adminTemplates[templateSetup] = setupTmpl
 }
 
@@ -282,6 +298,7 @@ func getBasePageData(title, currentURL string, r *http.Request) basePage {
 		FoldersURL:         webFoldersPath,
 		FolderURL:          webFolderPath,
 		FolderTemplateURL:  webTemplateFolder,
+		DefenderURL:        webDefenderPath,
 		LogoutURL:          webLogoutPath,
 		ChangeAdminPwdURL:  webChangeAdminPwdPath,
 		QuotaScanURL:       webQuotaScanPath,
@@ -296,8 +313,10 @@ func getBasePageData(title, currentURL string, r *http.Request) basePage {
 		FoldersTitle:       pageFoldersTitle,
 		StatusTitle:        pageStatusTitle,
 		MaintenanceTitle:   pageMaintenanceTitle,
+		DefenderTitle:      pageDefenderTitle,
 		Version:            version.GetAsString(),
 		LoggedAdmin:        getAdminFromToken(r),
+		HasDefender:        common.Config.DefenderConfig.Enabled,
 		CSRFToken:          csrfToken,
 	}
 }
@@ -540,35 +559,6 @@ func getVirtualFoldersFromPostFields(r *http.Request) []vfs.VirtualFolder {
 		}
 	}
 
-	/*formValue := r.Form.Get("virtual_folders")
-	for _, cleaned := range getSliceFromDelimitedValues(formValue, "\n") {
-		if strings.Contains(cleaned, "::") {
-			mapping := strings.Split(cleaned, "::")
-			if len(mapping) > 1 {
-				vfolder := vfs.VirtualFolder{
-					BaseVirtualFolder: vfs.BaseVirtualFolder{
-						Name: strings.TrimSpace(mapping[1]),
-					},
-					VirtualPath: strings.TrimSpace(mapping[0]),
-					QuotaFiles:  -1,
-					QuotaSize:   -1,
-				}
-				if len(mapping) > 2 {
-					quotaFiles, err := strconv.Atoi(strings.TrimSpace(mapping[2]))
-					if err == nil {
-						vfolder.QuotaFiles = quotaFiles
-					}
-				}
-				if len(mapping) > 3 {
-					quotaSize, err := strconv.ParseInt(strings.TrimSpace(mapping[3]), 10, 64)
-					if err == nil {
-						vfolder.QuotaSize = quotaSize
-					}
-				}
-				virtualFolders = append(virtualFolders, vfolder)
-			}
-		}
-	}*/
 	return virtualFolders
 }
 
@@ -1230,6 +1220,15 @@ func handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, webAdminsPath, http.StatusSeeOther)
+}
+
+func handleWebDefenderPage(w http.ResponseWriter, r *http.Request) {
+	data := defenderHostsPage{
+		basePage:         getBasePageData(pageDefenderTitle, webDefenderPath, r),
+		DefenderHostsURL: webDefenderHostsPath,
+	}
+
+	renderAdminTemplate(w, templateDefender, data)
 }
 
 func handleGetWebUsers(w http.ResponseWriter, r *http.Request) {

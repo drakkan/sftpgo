@@ -11,18 +11,12 @@
 {{end}}
 
 {{define "page_body"}}
-
 <div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
     <div id="errorTxt" class="card-body text-form-error"></div>
 </div>
-
-<div id="successMsg" class="card mb-4 border-left-success" style="display: none;">
-    <div id="successTxt" class="card-body"></div>
-</div>
-
 <div class="card shadow mb-4">
     <div class="card-header py-3">
-        <h6 class="m-0 font-weight-bold text-primary">View and manage admins</h6>
+        <h6 class="m-0 font-weight-bold text-primary">View and manage blocklist</h6>
     </div>
     <div class="card-body">
         <div class="table-responsive">
@@ -30,29 +24,15 @@
                 <thead>
                     <tr>
                         <th>ID</th>
-                        <th>Username</th>
-                        <th>Status</th>
-                        <th>Permissions</th>
-                        <th>Other</th>
+                        <th>IP</th>
+                        <th>Ban time</th>
+                        <th>Score</th>
                     </tr>
                 </thead>
-                <tbody>
-                    {{range .Admins}}
-                    <tr>
-                        <td>{{.ID}}</td>
-                        <td>{{.Username}}</td>
-                        <td>{{if eq .Status 1 }}Active{{else}}Inactive{{end}}</td>
-                        <td>{{.GetPermissionsAsString}}</td>
-                        <td>{{.GetInfoString}}</td>
-                    </tr>
-                    {{end}}
-
-                </tbody>
             </table>
         </div>
     </div>
 </div>
-
 {{end}}
 
 {{define "dialog"}}
@@ -68,7 +48,7 @@
                     <span aria-hidden="true">×</span>
                 </button>
             </div>
-            <div class="modal-body">Do you want to delete the selected admin?</div>
+            <div class="modal-body">Do you want to remoce the selected blocklist entry?</div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" type="button" data-dismiss="modal">
                     Cancel
@@ -91,14 +71,13 @@
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.select.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/ellipsis.js"></script>
 <script type="text/javascript">
 
-    function deleteAction() {
+function deleteAction() {
         var table = $('#dataTable').DataTable();
         table.button('delete:name').enable(false);
-        var username = table.row({ selected: true }).data()[1];
-        var path = '{{.AdminURL}}' + "/" + fixedEncodeURIComponent(username);
+        var id = table.row({ selected: true }).data()["id"];
+        var path = '{{.DefenderHostsURL}}' + "/" + fixedEncodeURIComponent(id);
         $('#deleteModal').modal('hide');
         $.ajax({
             url: path,
@@ -107,10 +86,10 @@
             headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
             timeout: 15000,
             success: function (result) {
-                window.location.href = '{{.AdminsURL}}';
+                window.location.href = '{{.DefenderURL}}';
             },
             error: function ($xhr, textStatus, errorThrown) {
-                var txt = "Unable to delete the selected admin";
+                var txt = "Unable to delete the selected entry";
                 if ($xhr) {
                     var json = $xhr.responseJSON;
                     if (json) {
@@ -131,25 +110,13 @@
     }
 
     $(document).ready(function () {
-        $.fn.dataTable.ext.buttons.add = {
-            text: '<i class="fas fa-plus"></i>',
-            name: 'add',
-            titleAttr: "Add",
+        $.fn.dataTable.ext.buttons.refresh = {
+            text: '<i class="fas fa-sync-alt"></i>',
+            name: 'refresh',
+            titleAttr: "Refresh",
             action: function (e, dt, node, config) {
-                window.location.href = '{{.AdminURL}}';
+                location.reload();
             }
-        };
-
-        $.fn.dataTable.ext.buttons.edit = {
-            text: '<i class="fas fa-pen"></i>',
-            name: 'edit',
-            titleAttr: "Edit",
-            action: function (e, dt, node, config) {
-                var username = dt.row({ selected: true }).data()[1];
-                var path = '{{.AdminURL}}' + "/" + fixedEncodeURIComponent(username);
-                window.location.href = path;
-            },
-            enabled: false
         };
 
         $.fn.dataTable.ext.buttons.delete = {
@@ -163,42 +130,81 @@
         };
 
         var table = $('#dataTable').DataTable({
+            "ajax": {
+                "url": "{{.DefenderHostsURL}}",
+                "dataSrc": "",
+                "error": function ($xhr, textStatus, errorThrown) {
+                    $(".dataTables_processing").hide();
+                    var txt = "Failed to get defender's list";
+                    if ($xhr) {
+                        var json = $xhr.responseJSON;
+                        if (json) {
+                            if (json.message){
+                                txt += ": " + json.message;
+                            } else {
+                                txt += ": " + json.error;
+                            }
+                        }
+                    }
+                    $('#errorTxt').text(txt);
+                    $('#errorMsg').show();
+                    setTimeout(function () {
+                        $('#errorMsg').hide();
+                    }, 10000);
+                }
+            },
+            "deferRender": true,
+            "processing": true,
+            "columns": [
+                { "data": "id" },
+                { "data": "ip" },
+                {
+                    "data": "ban_time",
+                    "defaultContent": ""
+                },
+                {
+                    "data": "score",
+                    "defaultContent": ""
+                }
+            ],
             "select": {
                 "style": "single",
                 "blurable": true
             },
-            "stateSave": true,
-            "stateDuration": 3600,
             "buttons": [],
+            "lengthChange": false,
             "columnDefs": [
                 {
                     "targets": [0],
                     "visible": false,
                     "searchable": false
                 },
-                {
-                    "targets": [3],
-                    "render": $.fn.dataTable.render.ellipsis(40, true),
-                }
             ],
             "scrollX": false,
             "scrollY": false,
             "responsive": true,
-            "order": [[1, 'asc']]
+            "language": {
+                "processing": '<i class="fas fa-spinner fa-spin fa-3x fa-fw"></i><span class="sr-only">Loading...</span>',
+                "loadingRecords": "",
+                "emptyTable": "No records found"
+            },
+            "initComplete": function (settings, json) {
+                {{if .LoggedAdmin.HasPermission "manage_defender"}}
+                table.button().add(0, 'delete');
+                {{end}}
+                table.button().add(0, 'pageLength');
+                table.button().add(0, 'refresh');
+                table.buttons().container().appendTo('#dataTable_wrapper .col-md-6:eq(0)');
+            },
+            "order": [[2, 'desc'],[3,'desc']]
         });
 
-        new $.fn.dataTable.FixedHeader( table );
+        new $.fn.dataTable.FixedHeader(table);
+        $.fn.dataTable.ext.errMode = 'none';
 
-        {{if .LoggedAdmin.HasPermission "manage_admins"}}
-        table.button().add(0,'delete');
-        table.button().add(0,'edit');
-        table.button().add(0,'add');
-
-        table.buttons().container().appendTo('#dataTable_wrapper .col-md-6:eq(0)');
-
+        {{if .LoggedAdmin.HasPermission "manage_defender"}}
         table.on('select deselect', function () {
             var selectedRows = table.rows({ selected: true }).count();
-            table.button('edit:name').enable(selectedRows == 1);
             table.button('delete:name').enable(selectedRows == 1);
         });
         {{end}}

@@ -118,13 +118,14 @@ var (
 	// ErrNoInitRequired defines the error returned by InitProvider if no inizialization/update is required
 	ErrNoInitRequired = errors.New("the data provider is up to date")
 	// ErrInvalidCredentials defines the error to return if the supplied credentials are invalid
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	isAdminCreated        = int32(0)
-	validTLSUsernames     = []string{string(TLSUsernameNone), string(TLSUsernameCN)}
-	config                Config
-	provider              Provider
-	sqlPlaceholders       []string
-	hashPwdPrefixes       = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
+	ErrInvalidCredentials   = errors.New("invalid credentials")
+	isAdminCreated          = int32(0)
+	validTLSUsernames       = []string{string(TLSUsernameNone), string(TLSUsernameCN)}
+	config                  Config
+	provider                Provider
+	sqlPlaceholders         []string
+	internalHashPwdPrefixes = []string{argonPwdPrefix, bcryptPwdPrefix}
+	hashPwdPrefixes         = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
 		pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix, md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
 	pbkdfPwdPrefixes        = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix}
 	pbkdfPwdB64SaltPrefixes = []string{pbkdf2SHA256B64SaltPrefix}

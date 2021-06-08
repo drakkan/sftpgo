@@ -105,16 +105,18 @@ function deleteAction() {
             headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
             timeout: 15000,
             success: function (result) {
-                table.button('delete:name').enable(true);
                 window.location.href = '{{.FoldersURL}}';
             },
             error: function ($xhr, textStatus, errorThrown) {
-                table.button('delete:name').enable(true);
                 var txt = "Unable to delete the selected folder";
                 if ($xhr) {
                     var json = $xhr.responseJSON;
                     if (json) {
-                        txt += ": " + json.error;
+                        if (json.message){
+                            txt += ": " + json.message;
+                        } else {
+                            txt += ": " + json.error;
+                        }
                     }
                 }
                 $('#errorTxt').text(txt);

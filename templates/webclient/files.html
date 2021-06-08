@@ -197,7 +197,11 @@
                     if ($xhr) {
                         var json = $xhr.responseJSON;
                         if (json) {
-                            txt += ": " + json.message;
+                            if (json.message){
+                                txt += ": " + json.message;
+                            } else {
+                                txt += ": " + json.error;
+                            }
                         }
                     }
                     $('#errorTxt').text(txt);

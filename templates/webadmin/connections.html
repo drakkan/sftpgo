@@ -100,17 +100,19 @@
             timeout: 15000,
             success: function (result) {
                 setTimeout(function () {
-                    table.button('disconnect:name').enable(true);
                     window.location.href = '{{.ConnectionsURL}}';
                 }, 1000);
             },
             error: function ($xhr, textStatus, errorThrown) {
-                table.button('disconnect:name').enable(true);
                 var txt = "Failed to close the selected connection";
                 if ($xhr) {
                     var json = $xhr.responseJSON;
                     if (json) {
-                        txt += ": " + json.message;
+                        if (json.message){
+                            txt += ": " + json.message;
+                        } else {
+                            txt += ": " + json.error;
+                        }
                     }
                 }
                 $('#errorTxt').text(txt);

@@ -97,6 +97,14 @@
             </li>
             {{end}}
 
+            {{ if and .HasDefender (.LoggedAdmin.HasPermission "view_defender")}}
+            <li class="nav-item {{if eq .CurrentURL .DefenderURL}}active{{end}}">
+                <a class="nav-link" href="{{.DefenderURL}}">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>{{.DefenderTitle}}</span></a>
+            </li>
+            {{end}}
+
             {{ if .LoggedAdmin.HasPermission "manage_admins"}}
             <li class="nav-item {{if eq .CurrentURL .AdminsURL}}active{{end}}">
                 <a class="nav-link" href="{{.AdminsURL}}">

@@ -99,6 +99,7 @@ const (
 	webChangeAdminPwdPath           = "/web/admin/changepwd"
 	webTemplateUser                 = "/web/admin/template/user"
 	webTemplateFolder               = "/web/admin/template/folder"
+	webDefenderPath                 = "/web/admin/defender"
 	webBasePathClient               = "/web/client"
 	webClientLoginPath              = "/web/client/login"
 	webClientFilesPath              = "/web/client/files"
@@ -3842,6 +3843,8 @@ func TestChangeAdminPwdMock(t *testing.T) {
 func TestUpdateAdminMock(t *testing.T) {
 	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
+	_, err = getJWTAPITokenFromTestServer(altAdminUsername, defaultTokenAuthPass)
+	assert.Error(t, err)
 	admin := getTestAdmin()
 	admin.Username = altAdminUsername
 	admin.Permissions = []string{dataprovider.PermAdminManageAdmins}
@@ -3851,6 +3854,9 @@ func TestUpdateAdminMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
+	_, err = getJWTAPITokenFromTestServer(altAdminUsername, defaultTokenAuthPass)
+	assert.NoError(t, err)
+
 	req, _ = http.NewRequest(http.MethodPut, path.Join(adminPath, "abc"), bytes.NewBuffer(asJSON))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
@@ -3885,6 +3891,7 @@ func TestUpdateAdminMock(t *testing.T) {
 
 	altToken, err := getJWTAPITokenFromTestServer(altAdminUsername, defaultTokenAuthPass)
 	assert.NoError(t, err)
+	admin.Password = "" // it must remain unchanged
 	admin.Permissions = []string{dataprovider.PermAdminManageAdmins, dataprovider.PermAdminCloseConnections}
 	asJSON, err = json.Marshal(admin)
 	assert.NoError(t, err)
@@ -3892,6 +3899,9 @@ func TestUpdateAdminMock(t *testing.T) {
 	setBearerForReq(req, altToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+
+	_, err = getJWTAPITokenFromTestServer(altAdminUsername, defaultTokenAuthPass)
+	assert.NoError(t, err)
 
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(adminPath, altAdminUsername), nil)
 	setBearerForReq(req, token)
@@ -6239,6 +6249,17 @@ func TestBasicWebUsersMock(t *testing.T) {
 	setCSRFHeaderForReq(req, csrfToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+}
+
+func TestRenderDefenderPageMock(t *testing.T) {
+	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodGet, webDefenderPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "View and manage blocklist")
 }
 
 func TestWebAdminBasicMock(t *testing.T) {

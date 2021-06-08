@@ -742,6 +742,9 @@ func (s *httpdServer) initializeRouter() {
 			router.With(checkPerm(dataprovider.PermAdminManageSystem), s.refreshCookie).
 				Get(webTemplateFolder, handleWebTemplateFolderGet)
 			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(webTemplateFolder, handleWebTemplateFolderPost)
+			router.With(checkPerm(dataprovider.PermAdminViewDefender)).Get(webDefenderPath, handleWebDefenderPage)
+			router.With(checkPerm(dataprovider.PermAdminViewDefender)).Get(webDefenderHostsPath, getDefenderHosts)
+			router.With(checkPerm(dataprovider.PermAdminManageDefender)).Delete(webDefenderHostsPath+"/{id}", deleteDefenderHostByID)
 		})
 	}
 }

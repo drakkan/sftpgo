@@ -26,13 +26,10 @@ The `ban_time_increment` is calculated as percentage of `ban_time`, so if `ban_t
 
 The `defender` will keep in memory both the host scores and the banned hosts, you can limit the memory usage using the `entries_soft_limit` and `entries_hard_limit` configuration keys.
 
-The REST API allows:
+Using the REST API you can:
 
-- to retrieve the score for an IP address
-- to retrieve the ban time for an IP address
-- to unban an IP address
-
-We don't return the whole list of the banned IP addresses or all stored scores because we store them as a hash map and iterating over all the keys of a hash map is not a fast operation and will slow down the recordings of new events.
+- list hosts within the defender's lists
+- remove hosts from the defender's lists
 
 The `defender` can also load a permanent block list and/or a safe list of ip addresses/networks from a file:
 
