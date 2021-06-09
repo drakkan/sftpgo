@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go v1.38.7
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/eikenb/pipeat v0.0.0-20200430215831-470df5986b6d
-	github.com/fclairamb/ftpserverlib v0.13.0
+	github.com/fclairamb/ftpserverlib v0.13.2
 	github.com/frankban/quicktest v1.11.3 // indirect
 	github.com/go-chi/chi/v5 v5.0.2
 	github.com/go-chi/jwtauth/v5 v5.0.0
@@ -82,5 +82,4 @@ replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20210328115714-16565bf4b31d
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20210328115440-0aedf3ac0c83
-	github.com/fclairamb/ftpserverlib => github.com/ottodashadow/ftpserverlib v0.13.2-0.20210525170109-ff27538f19db
 )
