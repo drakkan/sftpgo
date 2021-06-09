@@ -66,7 +66,7 @@ jobs:
             DOCKERFILE=Dockerfile.alpine
           fi
 
-          DOCKER_IMAGES=("ghcr.io/ottodashadow/sftpgo")
+          DOCKER_IMAGES=("ghcr.io/feedonomics/sftpgo")
           TAGS="${DOCKER_IMAGES[0]}:${VERSION}"
           TAGS_SLIM="${DOCKER_IMAGES[0]}:${VERSION_SLIM}"
 
