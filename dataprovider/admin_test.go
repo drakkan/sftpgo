@@ -22,8 +22,8 @@ func TestAdminSetDefaults(t *testing.T) {
 	a2 := &Admin{}
 	a2.setDefaults()
 
-	assert.Equal(t, `admin`, a.Username)
-	assert.Equal(t, `password`, a.Password)
+	assert.Equal(t, `user1`, a2.Username)
+	assert.Equal(t, `pass1`, a2.Password)
 
 	// clear environment variables
 	require.Nil(t, os.Unsetenv(`SFTPGO_DEFAULT_ADMIN_USERNAME`))
