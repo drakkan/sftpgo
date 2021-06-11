@@ -2194,8 +2194,7 @@ components:
         account_key:
           $ref: '#/components/schemas/Secret'
         sas_url:
-          type: string
-          description: 'Shared access signature URL, leave blank if using account/key'
+          $ref: '#/components/schemas/Secret'
         endpoint:
           type: string
           description: 'optional endpoint. Default is "blob.core.windows.net". If you use the emulator the endpoint must include the protocol, for example "http://127.0.0.1:10000"'

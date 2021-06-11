@@ -75,13 +75,16 @@ func NewAzBlobFs(connectionID, localTempDir, mountPath string, config AzBlobFsCo
 	if err := fs.config.AccountKey.TryDecrypt(); err != nil {
 		return fs, err
 	}
+	if err := fs.config.SASURL.TryDecrypt(); err != nil {
+		return fs, err
+	}
 	fs.setConfigDefaults()
 
 	version := version.Get()
 	telemetryValue := fmt.Sprintf("SFTPGo-%v_%v", version.Version, version.CommitHash)
 
-	if fs.config.SASURL != "" {
-		u, err := url.Parse(fs.config.SASURL)
+	if fs.config.SASURL.GetPayload() != "" {
+		u, err := url.Parse(fs.config.SASURL.GetPayload())
 		if err != nil {
 			return fs, fmt.Errorf("invalid credentials: %v", err)
 		}
@@ -144,8 +147,8 @@ func NewAzBlobFs(connectionID, localTempDir, mountPath string, config AzBlobFsCo
 
 // Name returns the name for the Fs implementation
 func (fs *AzureBlobFs) Name() string {
-	if fs.config.SASURL != "" {
-		return fmt.Sprintf("Azure Blob SAS URL %#v", fs.config.Container)
+	if !fs.config.SASURL.IsEmpty() {
+		return fmt.Sprintf("Azure Blob with SAS URL, container %#v", fs.config.Container)
 	}
 	return fmt.Sprintf("Azure Blob container %#v", fs.config.Container)
 }

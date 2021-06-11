@@ -54,6 +54,7 @@ func updateFolder(w http.ResponseWriter, r *http.Request) {
 	folderID := folder.ID
 	currentS3AccessSecret := folder.FsConfig.S3Config.AccessSecret
 	currentAzAccountKey := folder.FsConfig.AzBlobConfig.AccountKey
+	currentAzSASUrl := folder.FsConfig.AzBlobConfig.SASURL
 	currentGCSCredentials := folder.FsConfig.GCSConfig.Credentials
 	currentCryptoPassphrase := folder.FsConfig.CryptConfig.Passphrase
 	currentSFTPPassword := folder.FsConfig.SFTPConfig.Password
@@ -72,7 +73,7 @@ func updateFolder(w http.ResponseWriter, r *http.Request) {
 	folder.ID = folderID
 	folder.Name = name
 	folder.FsConfig.SetEmptySecretsIfNil()
-	updateEncryptedSecrets(&folder.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentGCSCredentials,
+	updateEncryptedSecrets(&folder.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl, currentGCSCredentials,
 		currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey)
 	err = dataprovider.UpdateFolder(&folder, users)
 	if err != nil {

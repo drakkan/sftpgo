@@ -349,6 +349,7 @@ func (u *User) hideConfidentialData() {
 		u.FsConfig.GCSConfig.Credentials.Hide()
 	case vfs.AzureBlobFilesystemProvider:
 		u.FsConfig.AzBlobConfig.AccountKey.Hide()
+		u.FsConfig.AzBlobConfig.SASURL.Hide()
 	case vfs.CryptedFilesystemProvider:
 		u.FsConfig.CryptConfig.Passphrase.Hide()
 	case vfs.SFTPFilesystemProvider:
@@ -397,6 +398,9 @@ func (u *User) hasRedactedSecret() bool {
 		}
 	case vfs.AzureBlobFilesystemProvider:
 		if u.FsConfig.AzBlobConfig.AccountKey.IsRedacted() {
+			return true
+		}
+		if u.FsConfig.AzBlobConfig.SASURL.IsRedacted() {
 			return true
 		}
 	case vfs.CryptedFilesystemProvider:
@@ -457,6 +461,7 @@ func (u *User) SetEmptySecrets() {
 	u.FsConfig.S3Config.AccessSecret = kms.NewEmptySecret()
 	u.FsConfig.GCSConfig.Credentials = kms.NewEmptySecret()
 	u.FsConfig.AzBlobConfig.AccountKey = kms.NewEmptySecret()
+	u.FsConfig.AzBlobConfig.SASURL = kms.NewEmptySecret()
 	u.FsConfig.CryptConfig.Passphrase = kms.NewEmptySecret()
 	u.FsConfig.SFTPConfig.Password = kms.NewEmptySecret()
 	u.FsConfig.SFTPConfig.PrivateKey = kms.NewEmptySecret()

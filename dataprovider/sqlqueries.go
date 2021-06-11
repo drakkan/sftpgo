@@ -210,3 +210,19 @@ func getDatabaseVersionQuery() string {
 func getUpdateDBVersionQuery() string {
 	return fmt.Sprintf(`UPDATE %v SET version=%v`, sqlTableSchemaVersion, sqlPlaceholders[0])
 }
+
+func getCompatUserV10FsConfigQuery() string {
+	return fmt.Sprintf(`SELECT id,username,filesystem FROM %v`, sqlTableUsers)
+}
+
+func updateCompatUserV10FsConfigQuery() string {
+	return fmt.Sprintf(`UPDATE %v SET filesystem=%v WHERE id=%v`, sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getCompatFolderV10FsConfigQuery() string {
+	return fmt.Sprintf(`SELECT id,name,filesystem FROM %v`, sqlTableFolders)
+}
+
+func updateCompatFolderV10FsConfigQuery() string {
+	return fmt.Sprintf(`UPDATE %v SET filesystem=%v WHERE id=%v`, sqlTableFolders, sqlPlaceholders[0], sqlPlaceholders[1])
+}

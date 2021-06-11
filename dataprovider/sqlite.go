@@ -271,6 +271,8 @@ func (p *SQLiteProvider) migrateDatabase() error {
 		return err
 	case version == 8:
 		return updateSQLiteDatabaseFromV8(p.dbHandle)
+	case version == 9:
+		return updateSQLiteDatabaseFromV9(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -295,17 +297,33 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	switch dbVersion.Version {
 	case 9:
 		return downgradeSQLiteDatabaseFromV9(p.dbHandle)
+	case 10:
+		return downgradeSQLiteDatabaseFromV10(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
 }
 
 func updateSQLiteDatabaseFromV8(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom8To9(dbHandle)
+	if err := updateSQLiteDatabaseFrom8To9(dbHandle); err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV9(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV9(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom9To10(dbHandle)
 }
 
 func downgradeSQLiteDatabaseFromV9(dbHandle *sql.DB) error {
 	return downgradeSQLiteDatabaseFrom9To8(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV10(dbHandle *sql.DB) error {
+	if err := downgradeSQLiteDatabaseFrom10To9(dbHandle); err != nil {
+		return err
+	}
+	return downgradeSQLiteDatabaseFromV9(dbHandle)
 }
 
 func updateSQLiteDatabaseFrom8To9(dbHandle *sql.DB) error {
@@ -330,6 +348,14 @@ func downgradeSQLiteDatabaseFrom9To8(dbHandle *sql.DB) error {
 		return err
 	}
 	return setPragmaFK(dbHandle, "ON")
+}
+
+func updateSQLiteDatabaseFrom9To10(dbHandle *sql.DB) error {
+	return sqlCommonUpdateDatabaseFrom9To10(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFrom10To9(dbHandle *sql.DB) error {
+	return sqlCommonDowngradeDatabaseFrom10To9(dbHandle)
 }
 
 func setPragmaFK(dbHandle *sql.DB, value string) error {

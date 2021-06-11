@@ -282,6 +282,11 @@ func (s *Service) configurePortableSecrets() {
 		if payload != "" {
 			s.PortableUser.FsConfig.AzBlobConfig.AccountKey = kms.NewPlainSecret(payload)
 		}
+		payload = s.PortableUser.FsConfig.AzBlobConfig.SASURL.GetPayload()
+		s.PortableUser.FsConfig.AzBlobConfig.SASURL = kms.NewEmptySecret()
+		if payload != "" {
+			s.PortableUser.FsConfig.AzBlobConfig.SASURL = kms.NewPlainSecret(payload)
+		}
 	case vfs.CryptedFilesystemProvider:
 		payload := s.PortableUser.FsConfig.CryptConfig.Passphrase.GetPayload()
 		s.PortableUser.FsConfig.CryptConfig.Passphrase = kms.NewEmptySecret()

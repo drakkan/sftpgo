@@ -74,6 +74,10 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 			sendAPIResponse(w, r, errors.New("invalid account_key"), "", http.StatusBadRequest)
 			return
 		}
+		if user.FsConfig.AzBlobConfig.SASURL.IsRedacted() {
+			sendAPIResponse(w, r, errors.New("invalid sas_url"), "", http.StatusBadRequest)
+			return
+		}
 	case vfs.CryptedFilesystemProvider:
 		if user.FsConfig.CryptConfig.Passphrase.IsRedacted() {
 			sendAPIResponse(w, r, errors.New("invalid passphrase"), "", http.StatusBadRequest)
@@ -120,6 +124,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	currentPermissions := user.Permissions
 	currentS3AccessSecret := user.FsConfig.S3Config.AccessSecret
 	currentAzAccountKey := user.FsConfig.AzBlobConfig.AccountKey
+	currentAzSASUrl := user.FsConfig.AzBlobConfig.SASURL
 	currentGCSCredentials := user.FsConfig.GCSConfig.Credentials
 	currentCryptoPassphrase := user.FsConfig.CryptConfig.Passphrase
 	currentSFTPPassword := user.FsConfig.SFTPConfig.Password
@@ -144,8 +149,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if len(user.Permissions) == 0 {
 		user.Permissions = currentPermissions
 	}
-	updateEncryptedSecrets(&user.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentGCSCredentials, currentCryptoPassphrase,
-		currentSFTPPassword, currentSFTPKey)
+	updateEncryptedSecrets(&user.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl,
+		currentGCSCredentials, currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey)
 	err = dataprovider.UpdateUser(&user)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -176,7 +181,7 @@ func disconnectUser(username string) {
 	}
 }
 
-func updateEncryptedSecrets(fsConfig *vfs.Filesystem, currentS3AccessSecret, currentAzAccountKey,
+func updateEncryptedSecrets(fsConfig *vfs.Filesystem, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl,
 	currentGCSCredentials, currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey *kms.Secret) {
 	// we use the new access secret if plain or empty, otherwise the old value
 	switch fsConfig.Provider {
@@ -187,6 +192,9 @@ func updateEncryptedSecrets(fsConfig *vfs.Filesystem, currentS3AccessSecret, cur
 	case vfs.AzureBlobFilesystemProvider:
 		if fsConfig.AzBlobConfig.AccountKey.IsNotPlainAndNotEmpty() {
 			fsConfig.AzBlobConfig.AccountKey = currentAzAccountKey
+		}
+		if fsConfig.AzBlobConfig.SASURL.IsNotPlainAndNotEmpty() {
+			fsConfig.AzBlobConfig.SASURL = currentAzSASUrl
 		}
 	case vfs.GCSFilesystemProvider:
 		if fsConfig.GCSConfig.Credentials.IsNotPlainAndNotEmpty() {

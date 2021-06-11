@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 6
+	boltDatabaseVersion = 10
 )
 
 var (
@@ -229,7 +229,7 @@ func (p *BoltProvider) adminExists(username string) (Admin, error) {
 	var admin Admin
 
 	err := p.dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, err := getAdminBucket(tx)
+		bucket, err := getAdminsBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -249,7 +249,7 @@ func (p *BoltProvider) addAdmin(admin *Admin) error {
 		return err
 	}
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
-		bucket, err := getAdminBucket(tx)
+		bucket, err := getAdminsBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -275,7 +275,7 @@ func (p *BoltProvider) updateAdmin(admin *Admin) error {
 		return err
 	}
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
-		bucket, err := getAdminBucket(tx)
+		bucket, err := getAdminsBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -301,7 +301,7 @@ func (p *BoltProvider) updateAdmin(admin *Admin) error {
 
 func (p *BoltProvider) deleteAdmin(admin *Admin) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
-		bucket, err := getAdminBucket(tx)
+		bucket, err := getAdminsBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -318,7 +318,7 @@ func (p *BoltProvider) getAdmins(limit int, offset int, order string) ([]Admin, 
 	admins := make([]Admin, 0, limit)
 
 	err := p.dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, err := getAdminBucket(tx)
+		bucket, err := getAdminsBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -368,7 +368,7 @@ func (p *BoltProvider) getAdmins(limit int, offset int, order string) ([]Admin, 
 func (p *BoltProvider) dumpAdmins() ([]Admin, error) {
 	admins := make([]Admin, 0, 30)
 	err := p.dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, err := getAdminBucket(tx)
+		bucket, err := getAdminsBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -399,7 +399,7 @@ func (p *BoltProvider) userExists(username string) (User, error) {
 		if u == nil {
 			return &RecordNotFoundError{err: fmt.Sprintf("username %#v does not exist", username)}
 		}
-		folderBucket, err := getFolderBucket(tx)
+		folderBucket, err := getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -419,7 +419,7 @@ func (p *BoltProvider) addUser(user *User) error {
 		if err != nil {
 			return err
 		}
-		folderBucket, err := getFolderBucket(tx)
+		folderBucket, err := getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -459,7 +459,7 @@ func (p *BoltProvider) updateUser(user *User) error {
 		if err != nil {
 			return err
 		}
-		folderBucket, err := getFolderBucket(tx)
+		folderBucket, err := getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -504,7 +504,7 @@ func (p *BoltProvider) deleteUser(user *User) error {
 			return err
 		}
 		if len(user.VirtualFolders) > 0 {
-			folderBucket, err := getFolderBucket(tx)
+			folderBucket, err := getFoldersBucket(tx)
 			if err != nil {
 				return err
 			}
@@ -530,7 +530,7 @@ func (p *BoltProvider) dumpUsers() ([]User, error) {
 		if err != nil {
 			return err
 		}
-		folderBucket, err := getFolderBucket(tx)
+		folderBucket, err := getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -562,7 +562,7 @@ func (p *BoltProvider) getUsers(limit int, offset int, order string) ([]User, er
 		if err != nil {
 			return err
 		}
-		folderBucket, err := getFolderBucket(tx)
+		folderBucket, err := getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -607,7 +607,7 @@ func (p *BoltProvider) getUsers(limit int, offset int, order string) ([]User, er
 func (p *BoltProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	folders := make([]vfs.BaseVirtualFolder, 0, 50)
 	err := p.dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, err := getFolderBucket(tx)
+		bucket, err := getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -632,7 +632,7 @@ func (p *BoltProvider) getFolders(limit, offset int, order string) ([]vfs.BaseVi
 		return folders, err
 	}
 	err = p.dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, err := getFolderBucket(tx)
+		bucket, err := getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -681,7 +681,7 @@ func (p *BoltProvider) getFolders(limit, offset int, order string) ([]vfs.BaseVi
 func (p *BoltProvider) getFolderByName(name string) (vfs.BaseVirtualFolder, error) {
 	var folder vfs.BaseVirtualFolder
 	err := p.dbHandle.View(func(tx *bolt.Tx) error {
-		bucket, err := getFolderBucket(tx)
+		bucket, err := getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -697,7 +697,7 @@ func (p *BoltProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 		return err
 	}
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
-		bucket, err := getFolderBucket(tx)
+		bucket, err := getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -715,7 +715,7 @@ func (p *BoltProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
 		return err
 	}
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
-		bucket, err := getFolderBucket(tx)
+		bucket, err := getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -745,7 +745,7 @@ func (p *BoltProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
 
 func (p *BoltProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
-		bucket, err := getFolderBucket(tx)
+		bucket, err := getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -795,7 +795,7 @@ func (p *BoltProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 
 func (p *BoltProvider) updateFolderQuota(name string, filesAdd int, sizeAdd int64, reset bool) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
-		bucket, err := getFolderBucket(tx)
+		bucket, err := getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -860,6 +860,8 @@ func (p *BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 6:
+		return updateBoltDatabaseFrom6To10(p.dbHandle)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -882,6 +884,9 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 	}
 	if dbVersion.Version == targetVersion {
 		return errors.New("current version match target version, nothing to do")
+	}
+	if dbVersion.Version == 10 {
+		return downgradeBoltDatabaseFrom10To6(p.dbHandle)
 	}
 	return errors.New("the current version cannot be reverted")
 }
@@ -991,7 +996,7 @@ func removeUserFromFolderMapping(folder *vfs.VirtualFolder, user *User, bucket *
 	return err
 }
 
-func getAdminBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
+func getAdminsBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
 	var err error
 
 	bucket := tx.Bucket(adminsBucket)
@@ -1010,7 +1015,7 @@ func getUsersBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
 	return bucket, err
 }
 
-func getFolderBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
+func getFoldersBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
 	var err error
 	bucket := tx.Bucket(foldersBucket)
 	if bucket == nil {
@@ -1038,7 +1043,7 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 	return dbVersion, err
 }
 
-/*func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
+func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
 	err := dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(dbVersionBucket)
 		if bucket == nil {
@@ -1054,4 +1059,317 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 		return bucket.Put(dbVersionKey, buf)
 	})
 	return err
-}*/
+}
+
+func updateBoltDatabaseFrom6To10(dbHandle *bolt.DB) error {
+	logger.InfoToConsole("updating database version: 6 -> 10")
+	providerLog(logger.LevelInfo, "updating database version: 6 -> 10")
+
+	if err := boltUpdateV7Folders(dbHandle); err != nil {
+		return err
+	}
+	if err := boltUpdateV7Users(dbHandle); err != nil {
+		return err
+	}
+	return updateBoltDatabaseVersion(dbHandle, 10)
+}
+
+func downgradeBoltDatabaseFrom10To6(dbHandle *bolt.DB) error {
+	logger.InfoToConsole("downgrading database version: 10 -> 6")
+	providerLog(logger.LevelInfo, "downgrading database version: 10 -> 6")
+
+	if err := boltDowngradeV7Folders(dbHandle); err != nil {
+		return err
+	}
+	if err := boltDowngradeV7Users(dbHandle); err != nil {
+		return err
+	}
+	return updateBoltDatabaseVersion(dbHandle, 6)
+}
+
+func boltUpdateV7Folders(dbHandle *bolt.DB) error {
+	var folders []map[string]interface{}
+	err := dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := getFoldersBucket(tx)
+		if err != nil {
+			return err
+		}
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var folderMap map[string]interface{}
+			err = json.Unmarshal(v, &folderMap)
+			if err != nil {
+				return err
+			}
+			fsBytes, err := json.Marshal(folderMap["filesystem"])
+			if err != nil {
+				continue
+			}
+			var compatFsConfig compatFilesystemV9
+			err = json.Unmarshal(fsBytes, &compatFsConfig)
+			if err != nil {
+				logger.WarnToConsole("failed to unmarshal v9 fsconfig for folder %#v, is it already migrated?", folderMap["name"])
+				continue
+			}
+			if compatFsConfig.AzBlobConfig.SASURL != "" {
+				folder := vfs.BaseVirtualFolder{
+					Name: folderMap["name"].(string),
+				}
+				fsConfig, err := convertFsConfigFromV9(compatFsConfig, folder.GetEncrytionAdditionalData())
+				if err != nil {
+					return err
+				}
+				folderMap["filesystem"] = fsConfig
+				folders = append(folders, folderMap)
+			}
+		}
+		return err
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getFoldersBucket(tx)
+		if err != nil {
+			return err
+		}
+		for _, folder := range folders {
+			buf, err := json.Marshal(folder)
+			if err != nil {
+				return err
+			}
+			err = bucket.Put([]byte(folder["name"].(string)), buf)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+//nolint:gocyclo
+func boltUpdateV7Users(dbHandle *bolt.DB) error {
+	var users []map[string]interface{}
+	err := dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := getUsersBucket(tx)
+		if err != nil {
+			return err
+		}
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var userMap map[string]interface{}
+			err = json.Unmarshal(v, &userMap)
+			if err != nil {
+				return err
+			}
+			fsBytes, err := json.Marshal(userMap["filesystem"])
+			if err != nil {
+				continue
+			}
+			foldersBytes, err := json.Marshal(userMap["virtual_folders"])
+			if err != nil {
+				continue
+			}
+			var compatFsConfig compatFilesystemV9
+			err = json.Unmarshal(fsBytes, &compatFsConfig)
+			if err != nil {
+				logger.WarnToConsole("failed to unmarshal v9 fsconfig for user %#v, is it already migrated?", userMap["name"])
+				continue
+			}
+			var compatFolders []compatFolderV9
+			err = json.Unmarshal(foldersBytes, &compatFolders)
+			if err != nil {
+				logger.WarnToConsole("failed to unmarshal v9 folders for user %#v, is it already migrated?", userMap["name"])
+				continue
+			}
+			toConvert := false
+			for idx := range compatFolders {
+				f := &compatFolders[idx]
+				if f.FsConfig.AzBlobConfig.SASURL != "" {
+					f.FsConfig.AzBlobConfig = compatAzBlobFsConfigV9{}
+					toConvert = true
+				}
+			}
+			if compatFsConfig.AzBlobConfig.SASURL != "" {
+				user := User{
+					Username: userMap["username"].(string),
+				}
+				fsConfig, err := convertFsConfigFromV9(compatFsConfig, user.GetEncrytionAdditionalData())
+				if err != nil {
+					return err
+				}
+				userMap["filesystem"] = fsConfig
+				toConvert = true
+			}
+			if toConvert {
+				userMap["virtual_folders"] = compatFolders
+				users = append(users, userMap)
+			}
+		}
+		return err
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getUsersBucket(tx)
+		if err != nil {
+			return err
+		}
+		for _, user := range users {
+			buf, err := json.Marshal(user)
+			if err != nil {
+				return err
+			}
+			err = bucket.Put([]byte(user["username"].(string)), buf)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+//nolint:dupl
+func boltDowngradeV7Folders(dbHandle *bolt.DB) error {
+	var folders []map[string]interface{}
+	err := dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := getFoldersBucket(tx)
+		if err != nil {
+			return err
+		}
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var folderMap map[string]interface{}
+			err = json.Unmarshal(v, &folderMap)
+			if err != nil {
+				return err
+			}
+			fsBytes, err := json.Marshal(folderMap["filesystem"])
+			if err != nil {
+				continue
+			}
+			var fsConfig vfs.Filesystem
+			err = json.Unmarshal(fsBytes, &fsConfig)
+			if err != nil {
+				logger.WarnToConsole("failed to unmarshal v10 fsconfig for folder %#v, is it already migrated?", folderMap["name"])
+				continue
+			}
+			if fsConfig.AzBlobConfig.SASURL != nil && !fsConfig.AzBlobConfig.SASURL.IsEmpty() {
+				fsV9, err := convertFsConfigToV9(fsConfig)
+				if err != nil {
+					return err
+				}
+				folderMap["filesystem"] = fsV9
+				folders = append(folders, folderMap)
+			}
+		}
+		return err
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getFoldersBucket(tx)
+		if err != nil {
+			return err
+		}
+		for _, folder := range folders {
+			buf, err := json.Marshal(folder)
+			if err != nil {
+				return err
+			}
+			err = bucket.Put([]byte(folder["name"].(string)), buf)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+//nolint:dupl,gocyclo
+func boltDowngradeV7Users(dbHandle *bolt.DB) error {
+	var users []map[string]interface{}
+	err := dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := getUsersBucket(tx)
+		if err != nil {
+			return err
+		}
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var userMap map[string]interface{}
+			err = json.Unmarshal(v, &userMap)
+			if err != nil {
+				return err
+			}
+			fsBytes, err := json.Marshal(userMap["filesystem"])
+			if err != nil {
+				continue
+			}
+			foldersBytes, err := json.Marshal(userMap["virtual_folders"])
+			if err != nil {
+				continue
+			}
+			var fsConfig vfs.Filesystem
+			err = json.Unmarshal(fsBytes, &fsConfig)
+			if err != nil {
+				logger.WarnToConsole("failed to unmarshal v10 fsconfig for user %#v, is it already migrated?", userMap["username"])
+				continue
+			}
+			var folders []vfs.VirtualFolder
+			err = json.Unmarshal(foldersBytes, &folders)
+			if err != nil {
+				logger.WarnToConsole("failed to unmarshal v9 folders for user %#v, is it already migrated?", userMap["name"])
+				continue
+			}
+			toConvert := false
+			for idx := range folders {
+				f := &folders[idx]
+				f.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
+				toConvert = true
+			}
+			if fsConfig.AzBlobConfig.SASURL != nil && !fsConfig.AzBlobConfig.SASURL.IsEmpty() {
+				fsV9, err := convertFsConfigToV9(fsConfig)
+				if err != nil {
+					return err
+				}
+				userMap["filesystem"] = fsV9
+				toConvert = true
+			}
+			if toConvert {
+				userMap["virtual_folders"] = folders
+				users = append(users, userMap)
+			}
+		}
+		return err
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getUsersBucket(tx)
+		if err != nil {
+			return err
+		}
+		for _, user := range users {
+			buf, err := json.Marshal(user)
+			if err != nil {
+				return err
+			}
+			err = bucket.Put([]byte(user["username"].(string)), buf)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}

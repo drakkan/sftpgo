@@ -40,7 +40,7 @@ The external program can also read the following environment variables:
 - `SFTPGO_ACTION_FILE_SIZE`, non-zero for `pre-upload`,`upload`, `download` and `delete` actions if the file size is greater than `0`
 - `SFTPGO_ACTION_FS_PROVIDER`, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend, `3` for Azure Blob Storage backend, `4` for local encrypted backend, `5` for SFTP backend
 - `SFTPGO_ACTION_BUCKET`, non-empty for S3, GCS and Azure backends
-- `SFTPGO_ACTION_ENDPOINT`, non-empty for S3, SFTP and Azure backend if configured. For Azure this is the SAS URL, if configured otherwise the endpoint
+- `SFTPGO_ACTION_ENDPOINT`, non-empty for S3, SFTP and Azure backend if configured. For Azure this is the endpoint, if configured
 - `SFTPGO_ACTION_STATUS`, integer. Status for `upload`, `download` and `ssh_cmd` actions. 0 means a generic error occurred. 1 means no error, 2 means quota exceeded error
 - `SFTPGO_ACTION_PROTOCOL`, string. Possible values are `SSH`, `SFTP`, `SCP`, `FTP`, `DAV`, `HTTP`
 - `SFTPGO_ACTION_OPEN_FLAGS`, integer. File open flags, can be non-zero for `pre-upload` action. If `SFTPGO_ACTION_FILE_SIZE` is greater than zero and `SFTPGO_ACTION_OPEN_FLAGS&512 == 0` the target file will not be truncated
@@ -58,7 +58,7 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 - `file_size`, included for `pre-upload`, `upload`, `download`, `delete` actions if the file size is greater than `0`
 - `fs_provider`, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend, `3` for Azure Blob Storage backend, `4` for local encrypted backend, `5` for SFTP backend
 - `bucket`, inlcuded for S3, GCS and Azure backends
-- `endpoint`, included for S3, SFTP and Azure backend if configured. For Azure this is the SAS URL, if configured, otherwise the endpoint
+- `endpoint`, included for S3, SFTP and Azure backend if configured. For Azure this is the endpoint, if configured
 - `status`, integer. Status for `upload`, `download` and `ssh_cmd` actions. 0 means a generic error occurred. 1 means no error, 2 means quota exceeded error
 - `protocol`, string. Possible values are `SSH`, `SFTP`, `SCP`, `FTP`, `DAV`, `HTTP`
 - `open_flags`, integer. File open flags, can be non-zero for `pre-upload` action. If `file_size` is greater than zero and `file_size&512 == 0` the target file will not be truncated

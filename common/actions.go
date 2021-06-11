@@ -117,9 +117,7 @@ func newActionNotification(
 		bucket = fsConfig.GCSConfig.Bucket
 	case vfs.AzureBlobFilesystemProvider:
 		bucket = fsConfig.AzBlobConfig.Container
-		if fsConfig.AzBlobConfig.SASURL != "" {
-			endpoint = fsConfig.AzBlobConfig.SASURL
-		} else {
+		if fsConfig.AzBlobConfig.Endpoint != "" {
 			endpoint = fsConfig.AzBlobConfig.Endpoint
 		}
 	case vfs.SFTPFilesystemProvider:

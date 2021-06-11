@@ -342,9 +342,9 @@ type AzBlobFsConfig struct {
 	// for example "http://127.0.0.1:10000"
 	Endpoint string `json:"endpoint,omitempty"`
 	// Shared access signature URL, leave blank if using account/key
-	SASURL string `json:"sas_url,omitempty"`
+	SASURL *kms.Secret `json:"sas_url,omitempty"`
 	// KeyPrefix is similar to a chroot directory for local filesystem.
-	// If specified then the SFTPGo userd will only see objects that starts
+	// If specified then the SFTPGo user will only see objects that starts
 	// with this prefix and so you can restrict access to a specific
 	// folder. The prefix, if not empty, must not start with "/" and must
 	// end with "/".
@@ -376,7 +376,13 @@ func (c *AzBlobFsConfig) isEqual(other *AzBlobFsConfig) bool {
 	if c.Endpoint != other.Endpoint {
 		return false
 	}
-	if c.SASURL != other.SASURL {
+	if c.SASURL.IsEmpty() {
+		c.SASURL = kms.NewEmptySecret()
+	}
+	if other.SASURL.IsEmpty() {
+		other.SASURL = kms.NewEmptySecret()
+	}
+	if !c.SASURL.IsEqual(other.SASURL) {
 		return false
 	}
 	if c.KeyPrefix != other.KeyPrefix {
@@ -411,10 +417,26 @@ func (c *AzBlobFsConfig) EncryptCredentials(additionalData string) error {
 			return err
 		}
 	}
+	if c.SASURL.IsPlain() {
+		c.SASURL.SetAdditionalData(additionalData)
+		if err := c.SASURL.Encrypt(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (c *AzBlobFsConfig) checkCredentials() error {
+	if c.SASURL.IsPlain() {
+		_, err := url.Parse(c.SASURL.GetPayload())
+		return err
+	}
+	if c.SASURL.IsEncrypted() && !c.SASURL.IsValid() {
+		return errors.New("invalid encrypted sas_url")
+	}
+	if !c.SASURL.IsEmpty() {
+		return nil
+	}
 	if c.AccountName == "" || !c.AccountKey.IsValidInput() {
 		return errors.New("credentials cannot be empty or invalid")
 	}
@@ -429,11 +451,11 @@ func (c *AzBlobFsConfig) Validate() error {
 	if c.AccountKey == nil {
 		c.AccountKey = kms.NewEmptySecret()
 	}
-	if c.SASURL != "" {
-		_, err := url.Parse(c.SASURL)
-		return err
+	if c.SASURL == nil {
+		c.SASURL = kms.NewEmptySecret()
 	}
-	if c.Container == "" {
+	// container could be embedded within SAS URL we check this at runtime
+	if c.SASURL.IsEmpty() && c.Container == "" {
 		return errors.New("container cannot be empty")
 	}
 	if err := c.checkCredentials(); err != nil {

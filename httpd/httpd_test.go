@@ -984,10 +984,13 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 
 	u = getTestUser()
 	u.FsConfig.Provider = vfs.AzureBlobFilesystemProvider
-	u.FsConfig.AzBlobConfig.SASURL = "http://foo\x7f.com/"
+	u.FsConfig.AzBlobConfig.SASURL = kms.NewPlainSecret("http://foo\x7f.com/")
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.FsConfig.AzBlobConfig.SASURL = ""
+	u.FsConfig.AzBlobConfig.SASURL = kms.NewSecret(kms.SecretStatusRedacted, "key", "", "")
+	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.FsConfig.AzBlobConfig.SASURL = kms.NewEmptySecret()
 	u.FsConfig.AzBlobConfig.AccountName = "name"
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -1802,9 +1805,9 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	assert.Equal(t, initialPayload, user.FsConfig.AzBlobConfig.AccountKey.GetPayload())
 	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.GetKey())
-	// test user without access key and access secret (sas)
+	// test user without access key and access secret (SAS)
 	user.FsConfig.Provider = vfs.AzureBlobFilesystemProvider
-	user.FsConfig.AzBlobConfig.SASURL = "https://myaccount.blob.core.windows.net/pictures/profile.jpg?sv=2012-02-12&st=2009-02-09&se=2009-02-10&sr=c&sp=r&si=YWJjZGVmZw%3d%3d&sig=dD80ihBh5jfNpymO5Hg1IdiJIEvHcJpCMiCMnN%2fRnbI%3d"
+	user.FsConfig.AzBlobConfig.SASURL = kms.NewPlainSecret("https://myaccount.blob.core.windows.net/pictures/profile.jpg?sv=2012-02-12&st=2009-02-09&se=2009-02-10&sr=c&sp=r&si=YWJjZGVmZw%3d%3d&sig=dD80ihBh5jfNpymO5Hg1IdiJIEvHcJpCMiCMnN%2fRnbI%3d")
 	user.FsConfig.AzBlobConfig.KeyPrefix = "somedir/subdir"
 	user.FsConfig.AzBlobConfig.AccountName = ""
 	user.FsConfig.AzBlobConfig.AccountKey = kms.NewEmptySecret()
@@ -1813,14 +1816,34 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	assert.Nil(t, user.FsConfig.AzBlobConfig.AccountKey)
+	assert.NotNil(t, user.FsConfig.AzBlobConfig.SASURL)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	user.Password = defaultPassword
 	user.ID = 0
 	// sas test for add instead of update
+	user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{
+		Container: user.FsConfig.AzBlobConfig.Container,
+		SASURL:    kms.NewPlainSecret("http://127.0.0.1/fake/sass/url"),
+	}
 	user, _, err = httpdtest.AddUser(user, http.StatusCreated)
 	assert.NoError(t, err)
 	assert.Nil(t, user.FsConfig.AzBlobConfig.AccountKey)
+	initialPayload = user.FsConfig.AzBlobConfig.SASURL.GetPayload()
+	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.AzBlobConfig.SASURL.GetStatus())
+	assert.NotEmpty(t, initialPayload)
+	assert.Empty(t, user.FsConfig.AzBlobConfig.SASURL.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.AzBlobConfig.SASURL.GetKey())
+	user.FsConfig.AzBlobConfig.SASURL.SetStatus(kms.SecretStatusSecretBox)
+	user.FsConfig.AzBlobConfig.SASURL.SetAdditionalData("data")
+	user.FsConfig.AzBlobConfig.SASURL.SetKey("fake key")
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.AzBlobConfig.SASURL.GetStatus())
+	assert.Equal(t, initialPayload, user.FsConfig.AzBlobConfig.SASURL.GetPayload())
+	assert.Empty(t, user.FsConfig.AzBlobConfig.SASURL.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.AzBlobConfig.SASURL.GetKey())
+
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
@@ -7718,6 +7741,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	err = os.Remove(credentialsFilePath)
 	assert.NoError(t, err)
 }
+
 func TestWebUserAzureBlobMock(t *testing.T) {
 	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -7763,7 +7787,6 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	form.Set("az_container", user.FsConfig.AzBlobConfig.Container)
 	form.Set("az_account_name", user.FsConfig.AzBlobConfig.AccountName)
 	form.Set("az_account_key", user.FsConfig.AzBlobConfig.AccountKey.GetPayload())
-	form.Set("az_sas_url", user.FsConfig.AzBlobConfig.SASURL)
 	form.Set("az_endpoint", user.FsConfig.AzBlobConfig.Endpoint)
 	form.Set("az_key_prefix", user.FsConfig.AzBlobConfig.KeyPrefix)
 	form.Set("az_use_emulator", "checked")
@@ -7810,7 +7833,6 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.Container, user.FsConfig.AzBlobConfig.Container)
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.AccountName, user.FsConfig.AzBlobConfig.AccountName)
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.Endpoint, user.FsConfig.AzBlobConfig.Endpoint)
-	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.SASURL, user.FsConfig.AzBlobConfig.SASURL)
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.KeyPrefix, user.FsConfig.AzBlobConfig.KeyPrefix)
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.UploadPartSize, user.FsConfig.AzBlobConfig.UploadPartSize)
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.UploadConcurrency, user.FsConfig.AzBlobConfig.UploadConcurrency)
@@ -7838,6 +7860,49 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.AccountKey.GetPayload(), lastUpdatedUser.FsConfig.AzBlobConfig.AccountKey.GetPayload())
 	assert.Empty(t, lastUpdatedUser.FsConfig.AzBlobConfig.AccountKey.GetKey())
 	assert.Empty(t, lastUpdatedUser.FsConfig.AzBlobConfig.AccountKey.GetAdditionalData())
+	// test SAS url
+	user.FsConfig.AzBlobConfig.SASURL = kms.NewPlainSecret("sasurl")
+	form.Set("az_account_name", "")
+	form.Set("az_account_key", "")
+	form.Set("az_container", "")
+	form.Set("az_sas_url", user.FsConfig.AzBlobConfig.SASURL.GetPayload())
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
+	setBearerForReq(req, apiToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	updateUser = dataprovider.User{}
+	err = render.DecodeJSON(rr.Body, &updateUser)
+	assert.NoError(t, err)
+	assert.Equal(t, kms.SecretStatusSecretBox, updateUser.FsConfig.AzBlobConfig.SASURL.GetStatus())
+	assert.NotEmpty(t, updateUser.FsConfig.AzBlobConfig.SASURL.GetPayload())
+	assert.Empty(t, updateUser.FsConfig.AzBlobConfig.SASURL.GetKey())
+	assert.Empty(t, updateUser.FsConfig.AzBlobConfig.SASURL.GetAdditionalData())
+	// now check that a redacted sas url is not saved
+	form.Set("az_sas_url", redactedSecret)
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
+	setBearerForReq(req, apiToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	lastUpdatedUser = dataprovider.User{}
+	err = render.DecodeJSON(rr.Body, &lastUpdatedUser)
+	assert.NoError(t, err)
+	assert.Equal(t, kms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.AzBlobConfig.SASURL.GetStatus())
+	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.SASURL.GetPayload(), lastUpdatedUser.FsConfig.AzBlobConfig.SASURL.GetPayload())
+	assert.Empty(t, lastUpdatedUser.FsConfig.AzBlobConfig.SASURL.GetKey())
+	assert.Empty(t, lastUpdatedUser.FsConfig.AzBlobConfig.SASURL.GetAdditionalData())
+
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
 	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)

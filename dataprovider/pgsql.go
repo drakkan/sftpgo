@@ -263,6 +263,8 @@ func (p *PGSQLProvider) migrateDatabase() error {
 		return err
 	case version == 8:
 		return updatePGSQLDatabaseFromV8(p.dbHandle)
+	case version == 9:
+		return updatePGSQLDatabaseFromV9(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -287,17 +289,33 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	switch dbVersion.Version {
 	case 9:
 		return downgradePGSQLDatabaseFromV9(p.dbHandle)
+	case 10:
+		return downgradePGSQLDatabaseFromV10(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
 }
 
 func updatePGSQLDatabaseFromV8(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom8To9(dbHandle)
+	if err := updatePGSQLDatabaseFrom8To9(dbHandle); err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV9(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV9(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom9To10(dbHandle)
 }
 
 func downgradePGSQLDatabaseFromV9(dbHandle *sql.DB) error {
 	return downgradePGSQLDatabaseFrom9To8(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV10(dbHandle *sql.DB) error {
+	if err := downgradePGSQLDatabaseFrom10To9(dbHandle); err != nil {
+		return err
+	}
+	return downgradePGSQLDatabaseFromV9(dbHandle)
 }
 
 func updatePGSQLDatabaseFrom8To9(dbHandle *sql.DB) error {
@@ -316,4 +334,12 @@ func downgradePGSQLDatabaseFrom9To8(dbHandle *sql.DB) error {
 	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
 	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 8)
+}
+
+func updatePGSQLDatabaseFrom9To10(dbHandle *sql.DB) error {
+	return sqlCommonUpdateDatabaseFrom9To10(dbHandle)
+}
+
+func downgradePGSQLDatabaseFrom10To9(dbHandle *sql.DB) error {
+	return sqlCommonDowngradeDatabaseFrom10To9(dbHandle)
 }

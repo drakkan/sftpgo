@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 9
+	sqlDatabaseVersion     = 10
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -1095,4 +1095,314 @@ func sqlCommonExecuteTx(ctx context.Context, dbHandle *sql.DB, txFn func(*sql.Tx
 		return err
 	}
 	return tx.Commit()
+}
+
+func sqlCommonUpdateDatabaseFrom9To10(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 9 -> 10")
+	providerLog(logger.LevelInfo, "updating database version: 9 -> 10")
+
+	if err := sqlCommonUpdateV10Folders(dbHandle); err != nil {
+		return err
+	}
+
+	if err := sqlCommonUpdateV10Users(dbHandle); err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	return sqlCommonUpdateDatabaseVersion(ctx, dbHandle, 10)
+}
+
+func sqlCommonDowngradeDatabaseFrom10To9(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 10 -> 9")
+	providerLog(logger.LevelInfo, "downgrading database version: 10 -> 9")
+
+	if err := sqlCommonDowngradeV10Folders(dbHandle); err != nil {
+		return err
+	}
+
+	if err := sqlCommonDowngradeV10Users(dbHandle); err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	return sqlCommonUpdateDatabaseVersion(ctx, dbHandle, 9)
+}
+
+//nolint:dupl
+func sqlCommonDowngradeV10Folders(dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+	defer cancel()
+
+	q := getCompatFolderV10FsConfigQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+	rows, err := stmt.QueryContext(ctx)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var folders []compatBaseFolderV9
+	for rows.Next() {
+		var folder compatBaseFolderV9
+		var fsConfigString sql.NullString
+		err = rows.Scan(&folder.ID, &folder.Name, &fsConfigString)
+		if err != nil {
+			return err
+		}
+		if fsConfigString.Valid {
+			var fsConfig vfs.Filesystem
+			err = json.Unmarshal([]byte(fsConfigString.String), &fsConfig)
+			if err != nil {
+				logger.WarnToConsole("failed to unmarshal v10 fsconfig for folder %#v, is it already migrated?", folder.Name)
+				continue
+			}
+			if fsConfig.AzBlobConfig.SASURL != nil && !fsConfig.AzBlobConfig.SASURL.IsEmpty() {
+				fsV9, err := convertFsConfigToV9(fsConfig)
+				if err != nil {
+					return err
+				}
+				folder.FsConfig = fsV9
+				folders = append(folders, folder)
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	// update fsconfig for affected folders
+	for _, folder := range folders {
+		q := updateCompatFolderV10FsConfigQuery()
+		stmt, err := dbHandle.PrepareContext(ctx, q)
+		if err != nil {
+			providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+			return err
+		}
+		defer stmt.Close()
+		cfg, err := json.Marshal(folder.FsConfig)
+		if err != nil {
+			return err
+		}
+
+		_, err = stmt.ExecContext(ctx, string(cfg), folder.ID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+//nolint:dupl
+func sqlCommonDowngradeV10Users(dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+	defer cancel()
+
+	q := getCompatUserV10FsConfigQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+	rows, err := stmt.QueryContext(ctx)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var users []compatUserV9
+	for rows.Next() {
+		var user compatUserV9
+		var fsConfigString sql.NullString
+		err = rows.Scan(&user.ID, &user.Username, &fsConfigString)
+		if err != nil {
+			return err
+		}
+		if fsConfigString.Valid {
+			var fsConfig vfs.Filesystem
+			err = json.Unmarshal([]byte(fsConfigString.String), &fsConfig)
+			if err != nil {
+				logger.WarnToConsole("failed to unmarshal v10 fsconfig for user %#v, is it already migrated?", user.Username)
+				continue
+			}
+			if fsConfig.AzBlobConfig.SASURL != nil && !fsConfig.AzBlobConfig.SASURL.IsEmpty() {
+				fsV9, err := convertFsConfigToV9(fsConfig)
+				if err != nil {
+					return err
+				}
+				user.FsConfig = fsV9
+				users = append(users, user)
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	// update fsconfig for affected users
+	for _, user := range users {
+		q := updateCompatUserV10FsConfigQuery()
+		stmt, err := dbHandle.PrepareContext(ctx, q)
+		if err != nil {
+			providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+			return err
+		}
+		defer stmt.Close()
+		cfg, err := json.Marshal(user.FsConfig)
+		if err != nil {
+			return err
+		}
+
+		_, err = stmt.ExecContext(ctx, string(cfg), user.ID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func sqlCommonUpdateV10Folders(dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+	defer cancel()
+
+	q := getCompatFolderV10FsConfigQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+	rows, err := stmt.QueryContext(ctx)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var folders []vfs.BaseVirtualFolder
+	for rows.Next() {
+		var folder vfs.BaseVirtualFolder
+		var fsConfigString sql.NullString
+		err = rows.Scan(&folder.ID, &folder.Name, &fsConfigString)
+		if err != nil {
+			return err
+		}
+		if fsConfigString.Valid {
+			var compatFsConfig compatFilesystemV9
+			err = json.Unmarshal([]byte(fsConfigString.String), &compatFsConfig)
+			if err != nil {
+				logger.WarnToConsole("failed to unmarshal v9 fsconfig for folder %#v, is it already migrated?", folder.Name)
+				continue
+			}
+			if compatFsConfig.AzBlobConfig.SASURL != "" {
+				fsConfig, err := convertFsConfigFromV9(compatFsConfig, folder.GetEncrytionAdditionalData())
+				if err != nil {
+					return err
+				}
+				folder.FsConfig = fsConfig
+				folders = append(folders, folder)
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	// update fsconfig for affected folders
+	for _, folder := range folders {
+		q := updateCompatFolderV10FsConfigQuery()
+		stmt, err := dbHandle.PrepareContext(ctx, q)
+		if err != nil {
+			providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+			return err
+		}
+		defer stmt.Close()
+		cfg, err := json.Marshal(folder.FsConfig)
+		if err != nil {
+			return err
+		}
+
+		_, err = stmt.ExecContext(ctx, string(cfg), folder.ID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func sqlCommonUpdateV10Users(dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+	defer cancel()
+
+	q := getCompatUserV10FsConfigQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+	rows, err := stmt.QueryContext(ctx)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var user User
+		var fsConfigString sql.NullString
+		err = rows.Scan(&user.ID, &user.Username, &fsConfigString)
+		if err != nil {
+			return err
+		}
+		if fsConfigString.Valid {
+			var compatFsConfig compatFilesystemV9
+			err = json.Unmarshal([]byte(fsConfigString.String), &compatFsConfig)
+			if err != nil {
+				logger.WarnToConsole("failed to unmarshal v9 fsconfig for user %#v, is it already migrated?", user.Username)
+				continue
+			}
+			if compatFsConfig.AzBlobConfig.SASURL != "" {
+				fsConfig, err := convertFsConfigFromV9(compatFsConfig, user.GetEncrytionAdditionalData())
+				if err != nil {
+					return err
+				}
+				user.FsConfig = fsConfig
+				users = append(users, user)
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	// update fsconfig for affected users
+	for _, user := range users {
+		q := updateCompatUserV10FsConfigQuery()
+		stmt, err := dbHandle.PrepareContext(ctx, q)
+		if err != nil {
+			providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+			return err
+		}
+		defer stmt.Close()
+		cfg, err := json.Marshal(user.FsConfig)
+		if err != nil {
+			return err
+		}
+
+		_, err = stmt.ExecContext(ctx, string(cfg), user.ID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

@@ -739,7 +739,7 @@ func getAzureConfig(r *http.Request) (vfs.AzBlobFsConfig, error) {
 	config.Container = r.Form.Get("az_container")
 	config.AccountName = r.Form.Get("az_account_name")
 	config.AccountKey = getSecretFromFormField(r, "az_account_key")
-	config.SASURL = r.Form.Get("az_sas_url")
+	config.SASURL = getSecretFromFormField(r, "az_sas_url")
 	config.Endpoint = r.Form.Get("az_endpoint")
 	config.KeyPrefix = r.Form.Get("az_key_prefix")
 	config.AccessTier = r.Form.Get("az_access_tier")
@@ -1457,8 +1457,8 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 		updatedUser.Password = user.Password
 	}
 	updateEncryptedSecrets(&updatedUser.FsConfig, user.FsConfig.S3Config.AccessSecret, user.FsConfig.AzBlobConfig.AccountKey,
-		user.FsConfig.GCSConfig.Credentials, user.FsConfig.CryptConfig.Passphrase, user.FsConfig.SFTPConfig.Password,
-		user.FsConfig.SFTPConfig.PrivateKey)
+		user.FsConfig.AzBlobConfig.SASURL, user.FsConfig.GCSConfig.Credentials, user.FsConfig.CryptConfig.Passphrase,
+		user.FsConfig.SFTPConfig.Password, user.FsConfig.SFTPConfig.PrivateKey)
 
 	err = dataprovider.UpdateUser(&updatedUser)
 	if err == nil {
@@ -1569,8 +1569,8 @@ func handleWebUpdateFolderPost(w http.ResponseWriter, r *http.Request) {
 	updatedFolder.FsConfig = fsConfig
 	updatedFolder.FsConfig.SetEmptySecretsIfNil()
 	updateEncryptedSecrets(&updatedFolder.FsConfig, folder.FsConfig.S3Config.AccessSecret, folder.FsConfig.AzBlobConfig.AccountKey,
-		folder.FsConfig.GCSConfig.Credentials, folder.FsConfig.CryptConfig.Passphrase, folder.FsConfig.SFTPConfig.Password,
-		folder.FsConfig.SFTPConfig.PrivateKey)
+		folder.FsConfig.AzBlobConfig.SASURL, folder.FsConfig.GCSConfig.Credentials, folder.FsConfig.CryptConfig.Passphrase,
+		folder.FsConfig.SFTPConfig.Password, folder.FsConfig.SFTPConfig.PrivateKey)
 
 	err = dataprovider.UpdateFolder(updatedFolder, folder.Users)
 	if err != nil {

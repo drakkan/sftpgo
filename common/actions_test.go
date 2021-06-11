@@ -29,7 +29,6 @@ func TestNewActionNotification(t *testing.T) {
 	}
 	user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{
 		Container: "azcontainer",
-		SASURL:    "azsasurl",
 		Endpoint:  "azendpoint",
 	}
 	user.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
@@ -56,10 +55,9 @@ func TestNewActionNotification(t *testing.T) {
 	user.FsConfig.Provider = vfs.AzureBlobFilesystemProvider
 	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", ProtocolSCP, 123, 0, nil)
 	assert.Equal(t, "azcontainer", a.Bucket)
-	assert.Equal(t, "azsasurl", a.Endpoint)
+	assert.Equal(t, "azendpoint", a.Endpoint)
 	assert.Equal(t, 1, a.Status)
 
-	user.FsConfig.AzBlobConfig.SASURL = ""
 	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", ProtocolSCP, 123, os.O_APPEND, nil)
 	assert.Equal(t, "azcontainer", a.Bucket)
 	assert.Equal(t, "azendpoint", a.Endpoint)

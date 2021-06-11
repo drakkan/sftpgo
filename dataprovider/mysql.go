@@ -250,6 +250,8 @@ func (p *MySQLProvider) migrateDatabase() error {
 		return err
 	case version == 8:
 		return updateMySQLDatabaseFromV8(p.dbHandle)
+	case version == 9:
+		return updateMySQLDatabaseFromV9(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -274,17 +276,33 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	switch dbVersion.Version {
 	case 9:
 		return downgradeMySQLDatabaseFromV9(p.dbHandle)
+	case 10:
+		return downgradeMySQLDatabaseFromV10(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
 }
 
 func updateMySQLDatabaseFromV8(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom8To9(dbHandle)
+	if err := updateMySQLDatabaseFrom8To9(dbHandle); err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV9(dbHandle)
+}
+
+func updateMySQLDatabaseFromV9(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom9To10(dbHandle)
 }
 
 func downgradeMySQLDatabaseFromV9(dbHandle *sql.DB) error {
 	return downgradeMySQLDatabaseFrom9To8(dbHandle)
+}
+
+func downgradeMySQLDatabaseFromV10(dbHandle *sql.DB) error {
+	if err := downgradeMySQLDatabaseFrom10To9(dbHandle); err != nil {
+		return err
+	}
+	return downgradeMySQLDatabaseFromV9(dbHandle)
 }
 
 func updateMySQLDatabaseFrom8To9(dbHandle *sql.DB) error {
@@ -303,4 +321,12 @@ func downgradeMySQLDatabaseFrom9To8(dbHandle *sql.DB) error {
 	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
 	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 8)
+}
+
+func updateMySQLDatabaseFrom9To10(dbHandle *sql.DB) error {
+	return sqlCommonUpdateDatabaseFrom9To10(dbHandle)
+}
+
+func downgradeMySQLDatabaseFrom10To9(dbHandle *sql.DB) error {
+	return sqlCommonDowngradeDatabaseFrom10To9(dbHandle)
 }

@@ -1132,8 +1132,8 @@ func compareAzBlobConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error
 	if expected.AzBlobConfig.Endpoint != actual.AzBlobConfig.Endpoint {
 		return errors.New("azure Blob endpoint mismatch")
 	}
-	if expected.AzBlobConfig.SASURL != actual.AzBlobConfig.SASURL {
-		return errors.New("azure Blob SASL URL mismatch")
+	if err := checkEncryptedSecret(expected.AzBlobConfig.SASURL, actual.AzBlobConfig.SASURL); err != nil {
+		return fmt.Errorf("azure Blob SAS URL mismatch: %v", err)
 	}
 	if expected.AzBlobConfig.UploadPartSize != actual.AzBlobConfig.UploadPartSize {
 		return errors.New("azure Blob upload part size mismatch")

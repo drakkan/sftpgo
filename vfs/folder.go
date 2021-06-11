@@ -108,6 +108,7 @@ func (v *BaseVirtualFolder) hideConfidentialData() {
 		v.FsConfig.GCSConfig.Credentials.Hide()
 	case AzureBlobFilesystemProvider:
 		v.FsConfig.AzBlobConfig.AccountKey.Hide()
+		v.FsConfig.AzBlobConfig.SASURL.Hide()
 	case CryptedFilesystemProvider:
 		v.FsConfig.CryptConfig.Passphrase.Hide()
 	case SFTPFilesystemProvider:
@@ -137,6 +138,9 @@ func (v *BaseVirtualFolder) HasRedactedSecret() bool {
 		}
 	case AzureBlobFilesystemProvider:
 		if v.FsConfig.AzBlobConfig.AccountKey.IsRedacted() {
+			return true
+		}
+		if v.FsConfig.AzBlobConfig.SASURL.IsRedacted() {
 			return true
 		}
 	case CryptedFilesystemProvider:

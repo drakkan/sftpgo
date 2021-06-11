@@ -37,6 +37,9 @@ func (f *Filesystem) SetEmptySecretsIfNil() {
 	if f.AzBlobConfig.AccountKey == nil {
 		f.AzBlobConfig.AccountKey = kms.NewEmptySecret()
 	}
+	if f.AzBlobConfig.SASURL == nil {
+		f.AzBlobConfig.SASURL = kms.NewEmptySecret()
+	}
 	if f.CryptConfig.Passphrase == nil {
 		f.CryptConfig.Passphrase = kms.NewEmptySecret()
 	}
@@ -60,6 +63,9 @@ func (f *Filesystem) SetNilSecretsIfEmpty() {
 	}
 	if f.AzBlobConfig.AccountKey != nil && f.AzBlobConfig.AccountKey.IsEmpty() {
 		f.AzBlobConfig.AccountKey = nil
+	}
+	if f.AzBlobConfig.SASURL != nil && f.AzBlobConfig.SASURL.IsEmpty() {
+		f.AzBlobConfig.SASURL = nil
 	}
 	if f.CryptConfig.Passphrase != nil && f.CryptConfig.Passphrase.IsEmpty() {
 		f.CryptConfig.Passphrase = nil
@@ -122,7 +128,7 @@ func (f *Filesystem) GetACopy() Filesystem {
 			AccountName:       f.AzBlobConfig.AccountName,
 			AccountKey:        f.AzBlobConfig.AccountKey.Clone(),
 			Endpoint:          f.AzBlobConfig.Endpoint,
-			SASURL:            f.AzBlobConfig.SASURL,
+			SASURL:            f.AzBlobConfig.SASURL.Clone(),
 			KeyPrefix:         f.AzBlobConfig.KeyPrefix,
 			UploadPartSize:    f.AzBlobConfig.UploadPartSize,
 			UploadConcurrency: f.AzBlobConfig.UploadConcurrency,
