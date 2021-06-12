@@ -80,6 +80,10 @@ Some Linux distro packages are available:
 - Deb and RPM packages are built after each commit and for each release.
 - For Ubuntu a PPA is available [here](https://launchpad.net/~sftpgo/+archive/ubuntu/sftpgo).
 
+SFTPGo is also available on [AWS Marketplace](https://aws.amazon.com/marketplace/seller-profile?id=6e849ab8-70a6-47de-9a43-13c3fa849335), purchasing from there will help keep SFTPGo a long-term sustainable project.
+
+On FreeBSD you can install from the [SFTPGo port](https://www.freshports.org/ftp/sftpgo).
+
 On Windows you can use:
 
 - The Windows installer to install and run SFTPGo as a Windows service.
