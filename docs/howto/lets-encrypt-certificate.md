@@ -32,13 +32,13 @@ sudo mkdir -p /var/lib/lego
 Now get a certificate. The HTTP based challenge will be created in a file in `/var/www/sftpgo.com/.well-known/acme-challenge`. This directory must be publicly served by your web server.
 
 ```shell
-lego --accept-tos --path="/var/lib/lego" --email="<you email address here>" --domains="sftpgo.com" --http.webroot="/var/www/sftpgo.com" --http run
+sudo lego --accept-tos --path="/var/lib/lego" --email="<you email address here>" --domains="sftpgo.com" --http.webroot="/var/www/sftpgo.com" --http run
 ```
 
 You should be now able to list your certificate.
 
 ```shell
-lego --path="/var/lib/lego" list
+sudo lego --path="/var/lib/lego" list
 Found the following certs:
   Certificate Name: sftpgo.com
     Domains: sftpgo.com
@@ -49,9 +49,9 @@ Found the following certs:
 Now copy the certificate inside a private path to the SFTPGo service.
 
 ```shell
-mkdir -p /etc/sftpgo/certs
-cp /var/lib/lego/certificates/sftpgo.com.{crt,key} /etc/sftpgo/certs
-chown -R sftpgo:sftpgo /etc/sftpgo/certs
+sudo mkdir -p /etc/sftpgo/certs
+sudo cp /var/lib/lego/certificates/sftpgo.com.{crt,key} /etc/sftpgo/certs
+sudo chown -R sftpgo:sftpgo /etc/sftpgo/certs
 ```
 
 ## Enable HTTPS for SFTPGo Web UI and REST API
