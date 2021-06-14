@@ -80,7 +80,7 @@ contents:
   - src: "${BASE_DIR}/templates/*"
     dst: "/usr/share/sftpgo/templates/"
 
-  - src: "${BASE_DIR}/static/**/*"
+  - src: "${BASE_DIR}/static/*"
     dst: "/usr/share/sftpgo/static/"
 
   - src: "./sftpgo.json"
