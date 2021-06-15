@@ -8,10 +8,10 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
 	github.com/alexedwards/argon2id v0.0.0-20210511081203-7d35d68092b8
-	github.com/aws/aws-sdk-go v1.38.60
+	github.com/aws/aws-sdk-go v1.38.61
 	github.com/cockroachdb/cockroach-go/v2 v2.1.1
 	github.com/eikenb/pipeat v0.0.0-20210603033007-44fc3ffce52b
-	github.com/fclairamb/ftpserverlib v0.13.2
+	github.com/fclairamb/ftpserverlib v0.13.3-0.20210614220040-27dccea41813
 	github.com/frankban/quicktest v1.13.0 // indirect
 	github.com/go-chi/chi/v5 v5.0.3
 	github.com/go-chi/jwtauth/v5 v5.0.1
@@ -23,7 +23,7 @@ require (
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
-	github.com/klauspost/compress v1.13.0
+	github.com/klauspost/compress v1.13.1
 	github.com/klauspost/cpuid/v2 v2.0.6 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/jwx v1.2.1
@@ -33,7 +33,7 @@ require (
 	github.com/miekg/dns v1.1.42 // indirect
 	github.com/minio/sio v0.3.0
 	github.com/otiai10/copy v1.6.0
-	github.com/pelletier/go-toml v1.9.2 // indirect
+	github.com/pelletier/go-toml v1.9.3 // indirect
 	github.com/pires/go-proxyproto v0.5.0
 	github.com/pkg/sftp v1.13.1
 	github.com/prometheus/client_golang v1.11.0
@@ -56,11 +56,11 @@ require (
 	gocloud.dev v0.23.0
 	gocloud.dev/secrets/hashivault v0.23.0
 	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
-	golang.org/x/net v0.0.0-20210610132358-84b48f89b13b
-	golang.org/x/sys v0.0.0-20210611083646-a4fc73990273
+	golang.org/x/net v0.0.0-20210614182718-04defd469f4e
+	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1
 	golang.org/x/time v0.0.0-20210611083556-38a9dc6acbc6
 	google.golang.org/api v0.48.0
-	google.golang.org/genproto v0.0.0-20210611144927-798beca9d670 // indirect
+	google.golang.org/genproto v0.0.0-20210614182748-5b3b54cad159 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
@@ -69,5 +69,5 @@ require (
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20210515063737-edf1d3b63536
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20210613064002-8ce794ea7193
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20210615043241-a7f9e02422df
 )
