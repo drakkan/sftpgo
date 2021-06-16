@@ -2,7 +2,7 @@ Index: sftpgo/sftpgo.json
 ===================================================================
 --- sftpgo.orig/sftpgo.json
 +++ sftpgo/sftpgo.json
-@@ -115,7 +115,7 @@
+@@ -139,7 +139,7 @@
    },
    "data_provider": {
      "driver": "sqlite",
@@ -11,9 +11,9 @@ Index: sftpgo/sftpgo.json
      "host": "",
      "port": 0,
      "username": "",
-@@ -125,14 +125,14 @@
-     "sql_tables_prefix": "",
+@@ -150,14 +150,14 @@
      "track_quota": 2,
+     "delayed_quota_update": 0,
      "pool_size": 0,
 -    "users_base_dir": "",
 +    "users_base_dir": "/srv/sftpgo/data",
@@ -28,8 +28,8 @@ Index: sftpgo/sftpgo.json
      "prefer_database_credentials": false,
      "pre_login_hook": "",
      "post_login_hook": "",
-@@ -160,9 +160,9 @@
-         "tls_cipher_suites": []
+@@ -193,9 +193,9 @@
+         "proxy_allowed": []
        }
      ],
 -    "templates_path": "templates",
@@ -38,6 +38,6 @@ Index: sftpgo/sftpgo.json
 +    "templates_path": "/usr/share/sftpgo/templates",
 +    "static_files_path": "/usr/share/sftpgo/static",
 +    "backups_path": "/srv/sftpgo/backups",
+     "web_root": "",
      "certificate_file": "",
      "certificate_key_file": "",
-     "ca_certificates": [],
