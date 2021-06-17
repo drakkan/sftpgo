@@ -806,7 +806,10 @@ func getWebDAVDBindingFromEnv(idx int) {
 }
 
 func getHTTPDBindingFromEnv(idx int) {
-	binding := httpd.Binding{}
+	binding := httpd.Binding{
+		EnableWebAdmin:  true,
+		EnableWebClient: true,
+	}
 	if len(globalConf.HTTPDConfig.Bindings) > idx {
 		binding = globalConf.HTTPDConfig.Bindings[idx]
 	}

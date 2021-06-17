@@ -346,13 +346,14 @@ We suppose you have installed CocroackDB this way:
 
 ```shell
 sudo su
-export CRDB_VERSION=20.2.10 # set the latest available version here
+export CRDB_VERSION=21.1.2 # set the latest available version here
 wget -qO- https://binaries.cockroachdb.com/cockroach-v${CRDB_VERSION}.linux-amd64.tgz | tar xvz
 cp -i cockroach-v${CRDB_VERSION}.linux-amd64/cockroach /usr/local/bin/
 mkdir -p /usr/local/lib/cockroach
 cp -i cockroach-v${CRDB_VERSION}.linux-amd64/lib/libgeos.so /usr/local/lib/cockroach/
 cp -i cockroach-v${CRDB_VERSION}.linux-amd64/lib/libgeos_c.so /usr/local/lib/cockroach/
 mkdir /var/lib/cockroach
+chown sftpgo:sftpgo /var/lib/cockroach
 mkdir -p /etc/cockroach/{certs,ca}
 chmod 700 /etc/cockroach/ca
 /usr/local/bin/cockroach cert create-ca --certs-dir=/etc/cockroach/certs --ca-key=/etc/cockroach/ca/ca.key
