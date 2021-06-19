@@ -179,6 +179,81 @@ func TestBasicDefender(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestExpiredHostBans(t *testing.T) {
+	config := &DefenderConfig{
+		Enabled:            true,
+		BanTime:            10,
+		BanTimeIncrement:   2,
+		Threshold:          5,
+		ScoreInvalid:       2,
+		ScoreValid:         1,
+		ScoreLimitExceeded: 3,
+		ObservationTime:    15,
+		EntriesSoftLimit:   1,
+		EntriesHardLimit:   2,
+	}
+
+	d, err := newInMemoryDefender(config)
+	assert.NoError(t, err)
+
+	defender := d.(*memoryDefender)
+
+	testIP := "1.2.3.4"
+	defender.banned[testIP] = time.Now().Add(-24 * time.Hour)
+
+	// the ban is expired testIP should not be listed
+	res := defender.GetHosts()
+	assert.Len(t, res, 0)
+
+	assert.False(t, defender.IsBanned(testIP))
+	entry, err := defender.GetHost(testIP)
+	assert.NoError(t, err)
+	assert.Equal(t, testIP, entry.IP)
+	assert.NotEmpty(t, entry.GetBanTime())
+	// now add an event for an expired banned ip, it should be removed
+	defender.AddEvent(testIP, HostEventLoginFailed)
+	assert.False(t, defender.IsBanned(testIP))
+	entry, err = defender.GetHost(testIP)
+	assert.NoError(t, err)
+	assert.Equal(t, testIP, entry.IP)
+	assert.Empty(t, entry.GetBanTime())
+	assert.Equal(t, 1, entry.Score)
+
+	res = defender.GetHosts()
+	if assert.Len(t, res, 1) {
+		assert.Equal(t, testIP, res[0].IP)
+		assert.Empty(t, res[0].GetBanTime())
+		assert.Equal(t, 1, res[0].Score)
+	}
+
+	events := []hostEvent{
+		{
+			dateTime: time.Now().Add(-24 * time.Hour),
+			score:    2,
+		},
+		{
+			dateTime: time.Now().Add(-24 * time.Hour),
+			score:    3,
+		},
+	}
+
+	hs := hostScore{
+		Events:     events,
+		TotalScore: 5,
+	}
+
+	defender.hosts[testIP] = hs
+	// the recorded scored are too old
+	res = defender.GetHosts()
+	assert.Len(t, res, 0)
+	// the old API still returns the host
+	entry, err = defender.GetHost(testIP)
+	assert.NoError(t, err)
+	assert.Equal(t, testIP, entry.IP)
+	assert.Empty(t, entry.GetBanTime())
+	assert.Equal(t, 5, entry.Score)
+}
+
 func TestLoadHostListFromFile(t *testing.T) {
 	_, err := loadHostListFromFile(".")
 	assert.Error(t, err)

@@ -236,16 +236,26 @@ func (d *memoryDefender) GetHosts() []*DefenderEntry {
 
 	var result []*DefenderEntry
 	for k, v := range d.banned {
-		result = append(result, &DefenderEntry{
-			IP:      k,
-			BanTime: v,
-		})
+		if v.After(time.Now()) {
+			result = append(result, &DefenderEntry{
+				IP:      k,
+				BanTime: v,
+			})
+		}
 	}
 	for k, v := range d.hosts {
-		result = append(result, &DefenderEntry{
-			IP:    k,
-			Score: v.TotalScore,
-		})
+		score := 0
+		for _, event := range v.Events {
+			if event.dateTime.Add(time.Duration(d.config.ObservationTime) * time.Minute).After(time.Now()) {
+				score += event.score
+			}
+		}
+		if score > 0 {
+			result = append(result, &DefenderEntry{
+				IP:    k,
+				Score: score,
+			})
+		}
 	}
 
 	return result
@@ -339,8 +349,11 @@ func (d *memoryDefender) AddEvent(ip string, event HostEvent) {
 	}
 
 	// ignore events for already banned hosts
-	if _, ok := d.banned[ip]; ok {
-		return
+	if v, ok := d.banned[ip]; ok {
+		if v.After(time.Now()) {
+			return
+		}
+		delete(d.banned, ip)
 	}
 
 	var score int
