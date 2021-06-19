@@ -50,12 +50,12 @@ Flags:
                                         This can be an absolute path or a path
                                         relative to the current directory
                                          (default ".")
-  -f, --fs-provider int                 0 => local filesystem
-                                        1 => AWS S3 compatible
-                                        2 => Google Cloud Storage
-                                        3 => Azure Blob Storage
-                                        4 => Encrypted local filesystem
-                                        5 => SFTP
+  -f, --fs-provider string              osfs => local filesystem (legacy value: 0)
+                                        s3fs => AWS S3 compatible (legacy: 1)
+                                        gcsfs => Google Cloud Storage (legacy: 2)
+                                        azblobfs => Azure Blob Storage (legacy: 3)
+                                        cryptfs => Encrypted local filesystem (legacy: 4)
+                                        sftpfs => SFTP (legacy: 5) (default "osfs")
       --ftpd-cert string                Path to the certificate file for FTPS
       --ftpd-key string                 Path to the key file for FTPS
       --ftpd-port int                   0 means a random unprivileged port,
