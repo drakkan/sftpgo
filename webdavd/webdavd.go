@@ -123,10 +123,6 @@ func (b *Binding) IsValid() bool {
 type Configuration struct {
 	// Addresses and ports to bind to
 	Bindings []Binding `json:"bindings" mapstructure:"bindings"`
-	// Deprecated: please use Bindings
-	BindPort int `json:"bind_port" mapstructure:"bind_port"`
-	// Deprecated: please use Bindings
-	BindAddress string `json:"bind_address" mapstructure:"bind_address"`
 	// If files containing a certificate and matching private key for the server are provided the server will expect
 	// HTTPS connections.
 	// Certificate and key files can be reloaded on demand sending a "SIGHUP" signal on Unix based systems and a

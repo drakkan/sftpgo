@@ -19,7 +19,6 @@ import (
 	"github.com/drakkan/sftpgo/httpd"
 	"github.com/drakkan/sftpgo/sftpd"
 	"github.com/drakkan/sftpgo/utils"
-	"github.com/drakkan/sftpgo/webdavd"
 )
 
 const (
@@ -49,7 +48,7 @@ func TestLoadConfigTest(t *testing.T) {
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, confName)
 	assert.NoError(t, err)
-	err = os.WriteFile(configFilePath, []byte("{\"sftpd\": {\"bind_port\": \"a\"}}"), os.ModePerm)
+	err = os.WriteFile(configFilePath, []byte(`{"sftpd": {"max_auth_tries": "a"}}`), os.ModePerm)
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, confName)
 	assert.Error(t, err)
@@ -289,143 +288,6 @@ func TestServiceToStart(t *testing.T) {
 	sftpdConf.Bindings[0].Port = 2022
 	config.SetSFTPDConfig(sftpdConf)
 	assert.True(t, config.HasServicesToStart())
-}
-
-func TestSFTPDBindingsCompatibility(t *testing.T) {
-	reset()
-
-	configDir := ".."
-	confName := tempConfigName + ".json"
-	configFilePath := filepath.Join(configDir, confName)
-	err := config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	sftpdConf := config.GetSFTPDConfig()
-	require.Len(t, sftpdConf.Bindings, 1)
-	sftpdConf.Bindings = nil
-	sftpdConf.BindPort = 9022           //nolint:staticcheck
-	sftpdConf.BindAddress = "127.0.0.1" //nolint:staticcheck
-	c := make(map[string]sftpd.Configuration)
-	c["sftpd"] = sftpdConf
-	jsonConf, err := json.Marshal(c)
-	assert.NoError(t, err)
-	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
-	assert.NoError(t, err)
-	sftpdConf = config.GetSFTPDConfig()
-	// the default binding should be replaced with the deprecated configuration
-	require.Len(t, sftpdConf.Bindings, 1)
-	require.Equal(t, 9022, sftpdConf.Bindings[0].Port)
-	require.Equal(t, "127.0.0.1", sftpdConf.Bindings[0].Address)
-	require.True(t, sftpdConf.Bindings[0].ApplyProxyConfig)
-
-	err = config.LoadConfig(configDir, confName)
-	assert.NoError(t, err)
-	sftpdConf = config.GetSFTPDConfig()
-	require.Len(t, sftpdConf.Bindings, 1)
-	require.Equal(t, 9022, sftpdConf.Bindings[0].Port)
-	require.Equal(t, "127.0.0.1", sftpdConf.Bindings[0].Address)
-	require.True(t, sftpdConf.Bindings[0].ApplyProxyConfig)
-	err = os.Remove(configFilePath)
-	assert.NoError(t, err)
-}
-
-func TestFTPDBindingsCompatibility(t *testing.T) {
-	reset()
-
-	configDir := ".."
-	confName := tempConfigName + ".json"
-	configFilePath := filepath.Join(configDir, confName)
-	err := config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	ftpdConf := config.GetFTPDConfig()
-	require.Len(t, ftpdConf.Bindings, 1)
-	ftpdConf.Bindings = nil
-	ftpdConf.BindPort = 9022              //nolint:staticcheck
-	ftpdConf.BindAddress = "127.1.0.1"    //nolint:staticcheck
-	ftpdConf.ForcePassiveIP = "127.1.1.1" //nolint:staticcheck
-	ftpdConf.TLSMode = 2                  //nolint:staticcheck
-	c := make(map[string]ftpd.Configuration)
-	c["ftpd"] = ftpdConf
-	jsonConf, err := json.Marshal(c)
-	assert.NoError(t, err)
-	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
-	assert.NoError(t, err)
-	ftpdConf = config.GetFTPDConfig()
-	// the default binding should be replaced with the deprecated configuration
-	require.Len(t, ftpdConf.Bindings, 1)
-	require.Equal(t, 9022, ftpdConf.Bindings[0].Port)
-	require.Equal(t, "127.1.0.1", ftpdConf.Bindings[0].Address)
-	require.True(t, ftpdConf.Bindings[0].ApplyProxyConfig)
-	require.Equal(t, 2, ftpdConf.Bindings[0].TLSMode)
-	require.Equal(t, "127.1.1.1", ftpdConf.Bindings[0].ForcePassiveIP)
-	err = os.Remove(configFilePath)
-	assert.NoError(t, err)
-}
-
-func TestWebDAVDBindingsCompatibility(t *testing.T) {
-	reset()
-
-	configDir := ".."
-	confName := tempConfigName + ".json"
-	configFilePath := filepath.Join(configDir, confName)
-	err := config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	webdavConf := config.GetWebDAVDConfig()
-	require.Len(t, webdavConf.Bindings, 1)
-	webdavConf.Bindings = nil
-	webdavConf.BindPort = 9080           //nolint:staticcheck
-	webdavConf.BindAddress = "127.0.0.1" //nolint:staticcheck
-	c := make(map[string]webdavd.Configuration)
-	c["webdavd"] = webdavConf
-	jsonConf, err := json.Marshal(c)
-	assert.NoError(t, err)
-	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
-	assert.NoError(t, err)
-	webdavConf = config.GetWebDAVDConfig()
-	// the default binding should be replaced with the deprecated configuration
-	require.Len(t, webdavConf.Bindings, 1)
-	require.Equal(t, 9080, webdavConf.Bindings[0].Port)
-	require.Equal(t, "127.0.0.1", webdavConf.Bindings[0].Address)
-	require.False(t, webdavConf.Bindings[0].EnableHTTPS)
-	err = os.Remove(configFilePath)
-	assert.NoError(t, err)
-}
-
-func TestHTTPDBindingsCompatibility(t *testing.T) {
-	reset()
-
-	configDir := ".."
-	confName := tempConfigName + ".json"
-	configFilePath := filepath.Join(configDir, confName)
-	err := config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	httpdConf := config.GetHTTPDConfig()
-	require.Len(t, httpdConf.Bindings, 1)
-	httpdConf.Bindings = nil
-	httpdConf.BindPort = 9080           //nolint:staticcheck
-	httpdConf.BindAddress = "127.1.1.1" //nolint:staticcheck
-	c := make(map[string]httpd.Conf)
-	c["httpd"] = httpdConf
-	jsonConf, err := json.Marshal(c)
-	assert.NoError(t, err)
-	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
-	assert.NoError(t, err)
-	httpdConf = config.GetHTTPDConfig()
-	// the default binding should be replaced with the deprecated configuration
-	require.Len(t, httpdConf.Bindings, 1)
-	require.Equal(t, 9080, httpdConf.Bindings[0].Port)
-	require.Equal(t, "127.1.1.1", httpdConf.Bindings[0].Address)
-	require.False(t, httpdConf.Bindings[0].EnableHTTPS)
-	require.True(t, httpdConf.Bindings[0].EnableWebAdmin)
-	err = os.Remove(configFilePath)
-	assert.NoError(t, err)
 }
 
 func TestRateLimitersFromEnv(t *testing.T) {

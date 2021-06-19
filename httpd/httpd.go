@@ -224,10 +224,6 @@ type ServicesStatus struct {
 type Conf struct {
 	// Addresses and ports to bind to
 	Bindings []Binding `json:"bindings" mapstructure:"bindings"`
-	// Deprecated: please use Bindings
-	BindPort int `json:"bind_port" mapstructure:"bind_port"`
-	// Deprecated: please use Bindings
-	BindAddress string `json:"bind_address" mapstructure:"bind_address"`
 	// Path to the HTML web templates. This can be an absolute path or a path relative to the config dir
 	TemplatesPath string `json:"templates_path" mapstructure:"templates_path"`
 	// Path to the static files for the web interface. This can be an absolute path or a path relative to the config dir.

@@ -66,22 +66,12 @@ type Configuration struct {
 	Banner string `json:"banner" mapstructure:"banner"`
 	// Addresses and ports to bind to
 	Bindings []Binding `json:"bindings" mapstructure:"bindings"`
-	// Deprecated: please use Bindings
-	BindPort int `json:"bind_port" mapstructure:"bind_port"`
-	// Deprecated: please use Bindings
-	BindAddress string `json:"bind_address" mapstructure:"bind_address"`
-	// Deprecated: please use the same key in common configuration
-	IdleTimeout int `json:"idle_timeout" mapstructure:"idle_timeout"`
 	// Maximum number of authentication attempts permitted per connection.
 	// If set to a negative number, the number of attempts is unlimited.
 	// If set to zero, the number of attempts are limited to 6.
 	MaxAuthTries int `json:"max_auth_tries" mapstructure:"max_auth_tries"`
-	// Deprecated: please use the same key in common configuration
-	UploadMode int `json:"upload_mode" mapstructure:"upload_mode"`
 	// Actions to execute on file operations and SSH commands
 	Actions common.ProtocolActions `json:"actions" mapstructure:"actions"`
-	// Deprecated: please use HostKeys
-	Keys []Key `json:"keys" mapstructure:"keys"`
 	// HostKeys define the daemon's private host keys.
 	// Each host key can be defined as a path relative to the configuration directory or an absolute one.
 	// If empty or missing, the daemon will search or try to generate "id_rsa" and "id_ecdsa" host keys
@@ -102,8 +92,6 @@ type Configuration struct {
 	// LoginBannerFile the contents of the specified file, if any, are sent to
 	// the remote user before authentication is allowed.
 	LoginBannerFile string `json:"login_banner_file" mapstructure:"login_banner_file"`
-	// Deprecated: please use the same key in common configuration
-	SetstatMode int `json:"setstat_mode" mapstructure:"setstat_mode"`
 	// List of enabled SSH commands.
 	// We support the following SSH commands:
 	// - "scp". SCP is an experimental feature, we have our own SCP implementation since
@@ -130,19 +118,8 @@ type Configuration struct {
 	KeyboardInteractiveHook string `json:"keyboard_interactive_auth_hook" mapstructure:"keyboard_interactive_auth_hook"`
 	// PasswordAuthentication specifies whether password authentication is allowed.
 	PasswordAuthentication bool `json:"password_authentication" mapstructure:"password_authentication"`
-	// Deprecated: please use the same key in common configuration
-	ProxyProtocol int `json:"proxy_protocol" mapstructure:"proxy_protocol"`
-	// Deprecated: please use the same key in common configuration
-	ProxyAllowed     []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
-	certChecker      *ssh.CertChecker
-	parsedUserCAKeys []ssh.PublicKey
-}
-
-// Key contains information about host keys
-// Deprecated: please use HostKeys
-type Key struct {
-	// The private key path as absolute path or relative to the configuration directory
-	PrivateKey string `json:"private_key" mapstructure:"private_key"`
+	certChecker            *ssh.CertChecker
+	parsedUserCAKeys       []ssh.PublicKey
 }
 
 type authenticationError struct {

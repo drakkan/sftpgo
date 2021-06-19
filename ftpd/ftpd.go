@@ -129,12 +129,6 @@ type ServiceStatus struct {
 type Configuration struct {
 	// Addresses and ports to bind to
 	Bindings []Binding `json:"bindings" mapstructure:"bindings"`
-	// Deprecated: please use Bindings
-	BindPort int `json:"bind_port" mapstructure:"bind_port"`
-	// Deprecated: please use Bindings
-	BindAddress string `json:"bind_address" mapstructure:"bind_address"`
-	// Deprecated: please use Bindings
-	ForcePassiveIP string `json:"force_passive_ip" mapstructure:"force_passive_ip"`
 	// Greeting banner displayed when a connection first comes in
 	Banner string `json:"banner" mapstructure:"banner"`
 	// the contents of the specified file, if any, are diplayed when someone connects to the server.
@@ -169,8 +163,6 @@ type Configuration struct {
 	// no advantage as it will download the partial files and will upload the
 	// combined one. Cloud backends natively support multipart uploads.
 	CombineSupport int `json:"combine_support" mapstructure:"combine_support"`
-	// Deprecated: please use Bindings
-	TLSMode int `json:"tls_mode" mapstructure:"tls_mode"`
 	// Port Range for data connections. Random if not specified
 	PassivePortRange PortRange `json:"passive_port_range" mapstructure:"passive_port_range"`
 }
