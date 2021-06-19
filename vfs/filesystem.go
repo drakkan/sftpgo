@@ -68,17 +68,27 @@ func (p FilesystemProvider) ShortInfo() string {
 	case LocalFilesystemProvider:
 		return "Local"
 	case S3FilesystemProvider:
-		return "S3"
+		return "AWS S3 (Compatible)"
 	case GCSFilesystemProvider:
-		return "GCS"
+		return "Google Cloud Storage"
 	case AzureBlobFilesystemProvider:
-		return "AzBlob"
+		return "Azure Blob Storage"
 	case CryptedFilesystemProvider:
-		return "Encrypted"
+		return "Local encrypted"
 	case SFTPFilesystemProvider:
 		return "SFTP"
 	}
 	return ""
+}
+
+// ListProviders returns a list of available FilesystemProviders
+func ListProviders() []FilesystemProvider {
+	// TODO this should ultimately be dynamic (i.e. each provider registers itself)
+	return []FilesystemProvider{
+		LocalFilesystemProvider, S3FilesystemProvider,
+		GCSFilesystemProvider, AzureBlobFilesystemProvider,
+		CryptedFilesystemProvider, SFTPFilesystemProvider,
+	}
 }
 
 // ValidatorHelper implements methods we need for Filesystem.ValidateConfig.
