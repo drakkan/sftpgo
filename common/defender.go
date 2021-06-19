@@ -272,11 +272,19 @@ func (d *memoryDefender) GetHost(ip string) (*DefenderEntry, error) {
 		}, nil
 	}
 
-	if ev, ok := d.hosts[ip]; ok {
-		return &DefenderEntry{
-			IP:    ip,
-			Score: ev.TotalScore,
-		}, nil
+	if hs, ok := d.hosts[ip]; ok {
+		score := 0
+		for _, event := range hs.Events {
+			if event.dateTime.Add(time.Duration(d.config.ObservationTime) * time.Minute).After(time.Now()) {
+				score += event.score
+			}
+		}
+		if score > 0 {
+			return &DefenderEntry{
+				IP:    ip,
+				Score: score,
+			}, nil
+		}
 	}
 
 	return nil, utils.NewRecordNotFoundError("host not found")

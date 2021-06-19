@@ -246,12 +246,10 @@ func TestExpiredHostBans(t *testing.T) {
 	// the recorded scored are too old
 	res = defender.GetHosts()
 	assert.Len(t, res, 0)
-	// the old API still returns the host
-	entry, err = defender.GetHost(testIP)
-	assert.NoError(t, err)
-	assert.Equal(t, testIP, entry.IP)
-	assert.Empty(t, entry.GetBanTime())
-	assert.Equal(t, 5, entry.Score)
+	_, err = defender.GetHost(testIP)
+	assert.Error(t, err)
+	_, ok := defender.hosts[testIP]
+	assert.True(t, ok)
 }
 
 func TestLoadHostListFromFile(t *testing.T) {
