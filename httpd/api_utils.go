@@ -42,7 +42,7 @@ func sendAPIResponse(w http.ResponseWriter, r *http.Request, err error, message 
 }
 
 func getRespStatus(err error) int {
-	if _, ok := err.(*dataprovider.ValidationError); ok {
+	if _, ok := err.(*utils.ValidationError); ok {
 		return http.StatusBadRequest
 	}
 	if _, ok := err.(*dataprovider.MethodDisabledError); ok {

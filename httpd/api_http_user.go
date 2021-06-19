@@ -215,13 +215,13 @@ func changeUserPassword(w http.ResponseWriter, r *http.Request) {
 
 func doChangeUserPassword(r *http.Request, currentPassword, newPassword, confirmNewPassword string) error {
 	if currentPassword == "" || newPassword == "" || confirmNewPassword == "" {
-		return dataprovider.NewValidationError("please provide the current password and the new one two times")
+		return utils.NewValidationError("please provide the current password and the new one two times")
 	}
 	if newPassword != confirmNewPassword {
-		return dataprovider.NewValidationError("the two password fields do not match")
+		return utils.NewValidationError("the two password fields do not match")
 	}
 	if currentPassword == newPassword {
-		return dataprovider.NewValidationError("the new password must be different from the current one")
+		return utils.NewValidationError("the new password must be different from the current one")
 	}
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
@@ -230,7 +230,7 @@ func doChangeUserPassword(r *http.Request, currentPassword, newPassword, confirm
 	user, err := dataprovider.CheckUserAndPass(claims.Username, currentPassword, utils.GetIPFromRemoteAddress(r.RemoteAddr),
 		common.ProtocolHTTP)
 	if err != nil {
-		return dataprovider.NewValidationError("current password does not match")
+		return utils.NewValidationError("current password does not match")
 	}
 	user.Password = newPassword
 

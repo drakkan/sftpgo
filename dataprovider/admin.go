@@ -86,36 +86,36 @@ func (a *Admin) checkPassword() error {
 
 func (a *Admin) validate() error {
 	if a.Username == "" {
-		return &ValidationError{err: "username is mandatory"}
+		return utils.NewValidationError("username is mandatory")
 	}
 	if a.Password == "" {
-		return &ValidationError{err: "please set a password"}
+		return utils.NewValidationError("please set a password")
 	}
 	if !config.SkipNaturalKeysValidation && !usernameRegex.MatchString(a.Username) {
-		return &ValidationError{err: fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~", a.Username)}
+		return utils.NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~", a.Username))
 	}
 	if err := a.checkPassword(); err != nil {
 		return err
 	}
 	a.Permissions = utils.RemoveDuplicates(a.Permissions)
 	if len(a.Permissions) == 0 {
-		return &ValidationError{err: "please grant some permissions to this admin"}
+		return utils.NewValidationError("please grant some permissions to this admin")
 	}
 	if utils.IsStringInSlice(PermAdminAny, a.Permissions) {
 		a.Permissions = []string{PermAdminAny}
 	}
 	for _, perm := range a.Permissions {
 		if !utils.IsStringInSlice(perm, validAdminPerms) {
-			return &ValidationError{err: fmt.Sprintf("invalid permission: %#v", perm)}
+			return utils.NewValidationError(fmt.Sprintf("invalid permission: %#v", perm))
 		}
 	}
 	if a.Email != "" && !emailRegex.MatchString(a.Email) {
-		return &ValidationError{err: fmt.Sprintf("email %#v is not valid", a.Email)}
+		return utils.NewValidationError(fmt.Sprintf("email %#v is not valid", a.Email))
 	}
 	for _, IPMask := range a.Filters.AllowList {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
-			return &ValidationError{err: fmt.Sprintf("could not parse allow list entry %#v : %v", IPMask, err)}
+			return utils.NewValidationError(fmt.Sprintf("could not parse allow list entry %#v : %v", IPMask, err))
 		}
 	}
 

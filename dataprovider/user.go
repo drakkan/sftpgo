@@ -342,20 +342,7 @@ func (u *User) isFsEqual(other *User) bool {
 // hideConfidentialData hides user confidential data
 func (u *User) hideConfidentialData() {
 	u.Password = ""
-	switch u.FsConfig.Provider {
-	case vfs.S3FilesystemProvider:
-		u.FsConfig.S3Config.AccessSecret.Hide()
-	case vfs.GCSFilesystemProvider:
-		u.FsConfig.GCSConfig.Credentials.Hide()
-	case vfs.AzureBlobFilesystemProvider:
-		u.FsConfig.AzBlobConfig.AccountKey.Hide()
-		u.FsConfig.AzBlobConfig.SASURL.Hide()
-	case vfs.CryptedFilesystemProvider:
-		u.FsConfig.CryptConfig.Passphrase.Hide()
-	case vfs.SFTPFilesystemProvider:
-		u.FsConfig.SFTPConfig.Password.Hide()
-		u.FsConfig.SFTPConfig.PrivateKey.Hide()
-	}
+	u.FsConfig.HideConfidentialData()
 }
 
 // GetSubDirPermissions returns permissions for sub directories
@@ -387,33 +374,8 @@ func (u *User) PrepareForRendering() {
 }
 
 func (u *User) hasRedactedSecret() bool {
-	switch u.FsConfig.Provider {
-	case vfs.S3FilesystemProvider:
-		if u.FsConfig.S3Config.AccessSecret.IsRedacted() {
-			return true
-		}
-	case vfs.GCSFilesystemProvider:
-		if u.FsConfig.GCSConfig.Credentials.IsRedacted() {
-			return true
-		}
-	case vfs.AzureBlobFilesystemProvider:
-		if u.FsConfig.AzBlobConfig.AccountKey.IsRedacted() {
-			return true
-		}
-		if u.FsConfig.AzBlobConfig.SASURL.IsRedacted() {
-			return true
-		}
-	case vfs.CryptedFilesystemProvider:
-		if u.FsConfig.CryptConfig.Passphrase.IsRedacted() {
-			return true
-		}
-	case vfs.SFTPFilesystemProvider:
-		if u.FsConfig.SFTPConfig.Password.IsRedacted() {
-			return true
-		}
-		if u.FsConfig.SFTPConfig.PrivateKey.IsRedacted() {
-			return true
-		}
+	if u.FsConfig.HasRedactedSecret() {
+		return true
 	}
 
 	for idx := range u.VirtualFolders {
@@ -1189,8 +1151,8 @@ func (u *User) getNotificationFieldsAsSlice(action string) []string {
 	}
 }
 
-// GetEncrytionAdditionalData returns the additional data to use for AEAD
-func (u *User) GetEncrytionAdditionalData() string {
+// GetEncryptionAdditionalData returns the additional data to use for AEAD
+func (u *User) GetEncryptionAdditionalData() string {
 	return u.Username
 }
 
