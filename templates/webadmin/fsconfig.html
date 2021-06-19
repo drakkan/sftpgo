@@ -6,12 +6,9 @@
             <div class="col-sm-10">
                 <select class="form-control" id="idFilesystem" name="fs_provider"
                     onchange="onFilesystemChanged(this.value)">
-                    <option value="0" {{if eq .Provider 0 }}selected{{end}}>Local</option>
-                    <option value="4" {{if eq .Provider 4 }}selected{{end}}>Local encrypted</option>
-                    <option value="1" {{if eq .Provider 1 }}selected{{end}}>AWS S3 (Compatible)</option>
-                    <option value="2" {{if eq .Provider 2 }}selected{{end}}>Google Cloud Storage</option>
-                    <option value="3" {{if eq .Provider 3 }}selected{{end}}>Azure Blob Storage</option>
-                    <option value="5" {{if eq .Provider 5 }}selected{{end}}>SFTP</option>
+                    {{ range ListFSProviders }}
+                    <option value="{{.}}" {{if eq . $.Provider }}selected{{end}}>{{.ShortInfo}}</option>
+                    {{end}}
                 </select>
             </div>
         </div>

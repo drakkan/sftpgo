@@ -252,20 +252,23 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateSetup),
 	}
 
-	usersTmpl := utils.LoadTemplate(nil, usersPaths...)
-	userTmpl := utils.LoadTemplate(nil, userPaths...)
-	adminsTmpl := utils.LoadTemplate(nil, adminsPaths...)
-	adminTmpl := utils.LoadTemplate(nil, adminPaths...)
-	connectionsTmpl := utils.LoadTemplate(nil, connectionsPaths...)
-	messageTmpl := utils.LoadTemplate(nil, messagePath...)
-	foldersTmpl := utils.LoadTemplate(nil, foldersPath...)
-	folderTmpl := utils.LoadTemplate(nil, folderPath...)
-	statusTmpl := utils.LoadTemplate(nil, statusPath...)
-	loginTmpl := utils.LoadTemplate(nil, loginPath...)
-	changePwdTmpl := utils.LoadTemplate(nil, changePwdPaths...)
-	maintenanceTmpl := utils.LoadTemplate(nil, maintenancePath...)
-	defenderTmpl := utils.LoadTemplate(nil, defenderPath...)
-	setupTmpl := utils.LoadTemplate(nil, setupPath...)
+	rootTpl := template.New("").Funcs(template.FuncMap{
+		"ListFSProviders": vfs.ListProviders,
+	})
+	usersTmpl := utils.LoadTemplate(rootTpl, usersPaths...)
+	userTmpl := utils.LoadTemplate(rootTpl, userPaths...)
+	adminsTmpl := utils.LoadTemplate(rootTpl, adminsPaths...)
+	adminTmpl := utils.LoadTemplate(rootTpl, adminPaths...)
+	connectionsTmpl := utils.LoadTemplate(rootTpl, connectionsPaths...)
+	messageTmpl := utils.LoadTemplate(rootTpl, messagePath...)
+	foldersTmpl := utils.LoadTemplate(rootTpl, foldersPath...)
+	folderTmpl := utils.LoadTemplate(rootTpl, folderPath...)
+	statusTmpl := utils.LoadTemplate(rootTpl, statusPath...)
+	loginTmpl := utils.LoadTemplate(rootTpl, loginPath...)
+	changePwdTmpl := utils.LoadTemplate(rootTpl, changePwdPaths...)
+	maintenanceTmpl := utils.LoadTemplate(rootTpl, maintenancePath...)
+	defenderTmpl := utils.LoadTemplate(rootTpl, defenderPath...)
+	setupTmpl := utils.LoadTemplate(rootTpl, setupPath...)
 
 	adminTemplates[templateUsers] = usersTmpl
 	adminTemplates[templateUser] = userTmpl
