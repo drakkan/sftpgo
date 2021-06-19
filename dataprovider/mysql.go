@@ -22,13 +22,13 @@ import (
 const (
 	mysqlInitialSQL = "CREATE TABLE `{{schema_version}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `version` integer NOT NULL);" +
 		"CREATE TABLE `{{admins}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `username` varchar(255) NOT NULL UNIQUE, " +
-		"`password` varchar(255) NOT NULL, `email` varchar(255) NULL, `status` integer NOT NULL, `permissions` longtext NOT NULL, " +
-		"`filters` longtext NULL, `additional_info` longtext NULL);" +
+		"`description` varchar(512) NULL, `password` varchar(255) NOT NULL, `email` varchar(255) NULL, `status` integer NOT NULL, " +
+		"`permissions` longtext NOT NULL, `filters` longtext NULL, `additional_info` longtext NULL);" +
 		"CREATE TABLE `{{folders}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `name` varchar(255) NOT NULL UNIQUE, " +
-		"`path` varchar(512) NULL, `used_quota_size` bigint NOT NULL, `used_quota_files` integer NOT NULL, " +
-		"`last_quota_update` bigint NOT NULL);" +
-		"CREATE TABLE `{{users}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `status` integer NOT NULL, " +
-		"`expiration_date` bigint NOT NULL, `username` varchar(255) NOT NULL UNIQUE, `password` longtext NULL, " +
+		"`description` varchar(512) NULL, `path` varchar(512) NULL, `used_quota_size` bigint NOT NULL, " +
+		"`used_quota_files` integer NOT NULL, `last_quota_update` bigint NOT NULL, `filesystem` longtext NULL);" +
+		"CREATE TABLE `{{users}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `username` varchar(255) NOT NULL UNIQUE, " +
+		"`status` integer NOT NULL, `expiration_date` bigint NOT NULL, `description` varchar(512) NULL, `password` longtext NULL, " +
 		"`public_keys` longtext NULL, `home_dir` varchar(512) NOT NULL, `uid` integer NOT NULL, `gid` integer NOT NULL, " +
 		"`max_sessions` integer NOT NULL, `quota_size` bigint NOT NULL, `quota_files` integer NOT NULL, " +
 		"`permissions` longtext NOT NULL, `used_quota_size` bigint NOT NULL, `used_quota_files` integer NOT NULL, " +
@@ -39,15 +39,7 @@ const (
 		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `{{prefix}}unique_mapping` UNIQUE (`user_id`, `folder_id`);" +
 		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `{{prefix}}folders_mapping_folder_id_fk_folders_id` FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE CASCADE;" +
 		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `{{prefix}}folders_mapping_user_id_fk_users_id` FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;" +
-		"INSERT INTO {{schema_version}} (version) VALUES (8);"
-	mysqlV9SQL = "ALTER TABLE `{{admins}}` ADD COLUMN `description` varchar(512) NULL;" +
-		"ALTER TABLE `{{folders}}` ADD COLUMN `description` varchar(512) NULL;" +
-		"ALTER TABLE `{{folders}}` ADD COLUMN `filesystem` longtext NULL;" +
-		"ALTER TABLE `{{users}}` ADD COLUMN `description` varchar(512) NULL;"
-	mysqlV9DownSQL = "ALTER TABLE `{{users}}` DROP COLUMN `description`;" +
-		"ALTER TABLE `{{folders}}` DROP COLUMN `filesystem`;" +
-		"ALTER TABLE `{{folders}}` DROP COLUMN `description`;" +
-		"ALTER TABLE `{{admins}}` DROP COLUMN `description`;"
+		"INSERT INTO {{schema_version}} (version) VALUES (10);"
 )
 
 // MySQLProvider auth provider for MySQL/MariaDB database
@@ -230,7 +222,7 @@ func (p *MySQLProvider) initializeDatabase() error {
 	initialSQL = strings.ReplaceAll(initialSQL, "{{folders_mapping}}", sqlTableFoldersMapping)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{prefix}}", config.SQLTablesPrefix)
 
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(initialSQL, ";"), 8)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(initialSQL, ";"), 10)
 }
 
 func (p *MySQLProvider) migrateDatabase() error {
@@ -243,15 +235,11 @@ func (p *MySQLProvider) migrateDatabase() error {
 	case version == sqlDatabaseVersion:
 		providerLog(logger.LevelDebug, "sql database is up to date, current version: %v", version)
 		return ErrNoInitRequired
-	case version < 8:
+	case version < 10:
 		err = fmt.Errorf("database version %v is too old, please see the upgrading docs", version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 8:
-		return updateMySQLDatabaseFromV8(p.dbHandle)
-	case version == 9:
-		return updateMySQLDatabaseFromV9(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -273,60 +261,5 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 
-	switch dbVersion.Version {
-	case 9:
-		return downgradeMySQLDatabaseFromV9(p.dbHandle)
-	case 10:
-		return downgradeMySQLDatabaseFromV10(p.dbHandle)
-	default:
-		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
-	}
-}
-
-func updateMySQLDatabaseFromV8(dbHandle *sql.DB) error {
-	if err := updateMySQLDatabaseFrom8To9(dbHandle); err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV9(dbHandle)
-}
-
-func updateMySQLDatabaseFromV9(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom9To10(dbHandle)
-}
-
-func downgradeMySQLDatabaseFromV9(dbHandle *sql.DB) error {
-	return downgradeMySQLDatabaseFrom9To8(dbHandle)
-}
-
-func downgradeMySQLDatabaseFromV10(dbHandle *sql.DB) error {
-	if err := downgradeMySQLDatabaseFrom10To9(dbHandle); err != nil {
-		return err
-	}
-	return downgradeMySQLDatabaseFromV9(dbHandle)
-}
-
-func updateMySQLDatabaseFrom8To9(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 8 -> 9")
-	providerLog(logger.LevelInfo, "updating database version: 8 -> 9")
-	sql := strings.ReplaceAll(mysqlV9SQL, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
-	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 9)
-}
-
-func downgradeMySQLDatabaseFrom9To8(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 9 -> 8")
-	providerLog(logger.LevelInfo, "downgrading database version: 9 -> 8")
-	sql := strings.ReplaceAll(mysqlV9DownSQL, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
-	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 8)
-}
-
-func updateMySQLDatabaseFrom9To10(dbHandle *sql.DB) error {
-	return sqlCommonUpdateDatabaseFrom9To10(dbHandle)
-}
-
-func downgradeMySQLDatabaseFrom10To9(dbHandle *sql.DB) error {
-	return sqlCommonDowngradeDatabaseFrom10To9(dbHandle)
+	return errors.New("the current version cannot be reverted")
 }

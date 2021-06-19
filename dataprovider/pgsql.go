@@ -21,16 +21,16 @@ import (
 
 const (
 	pgsqlInitial = `CREATE TABLE "{{schema_version}}" ("id" serial NOT NULL PRIMARY KEY, "version" integer NOT NULL);
-CREATE TABLE "{{admins}}" ("id" serial NOT NULL PRIMARY KEY, "username" varchar(255) NOT NULL UNIQUE,
-"password" varchar(255) NOT NULL, "email" varchar(255) NULL, "status" integer NOT NULL, "permissions" text NOT NULL,
-"filters" text NULL, "additional_info" text NULL);
-CREATE TABLE "{{folders}}" ("id" serial NOT NULL PRIMARY KEY, "name" varchar(255) NOT NULL UNIQUE,
-"path" varchar(512) NULL, "used_quota_size" bigint NOT NULL, "used_quota_files" integer NOT NULL,
-"last_quota_update" bigint NOT NULL);
-CREATE TABLE "{{users}}" ("id" serial NOT NULL PRIMARY KEY, "status" integer NOT NULL, "expiration_date" bigint NOT NULL,
-"username" varchar(255) NOT NULL UNIQUE, "password" text NULL, "public_keys" text NULL, "home_dir" varchar(512) NOT NULL,
-"uid" integer NOT NULL, "gid" integer NOT NULL, "max_sessions" integer NOT NULL, "quota_size" bigint NOT NULL,
-"quota_files" integer NOT NULL, "permissions" text NOT NULL, "used_quota_size" bigint NOT NULL,
+	CREATE TABLE "{{admins}}" ("id" serial NOT NULL PRIMARY KEY, "username" varchar(255) NOT NULL UNIQUE,
+"description" varchar(512) NULL, "password" varchar(255) NOT NULL, "email" varchar(255) NULL, "status" integer NOT NULL,
+"permissions" text NOT NULL, "filters" text NULL, "additional_info" text NULL);
+CREATE TABLE "{{folders}}" ("id" serial NOT NULL PRIMARY KEY, "name" varchar(255) NOT NULL UNIQUE, "description" varchar(512) NULL,
+"path" varchar(512) NULL, "used_quota_size" bigint NOT NULL, "used_quota_files" integer NOT NULL, "last_quota_update" bigint NOT NULL,
+"filesystem" text NULL);
+CREATE TABLE "{{users}}" ("id" serial NOT NULL PRIMARY KEY, "username" varchar(255) NOT NULL UNIQUE, "status" integer NOT NULL,
+"expiration_date" bigint NOT NULL, "description" varchar(512) NULL, "password" text NULL, "public_keys" text NULL,
+"home_dir" varchar(512) NOT NULL, "uid" integer NOT NULL, "gid" integer NOT NULL, "max_sessions" integer NOT NULL,
+"quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "permissions" text NOT NULL, "used_quota_size" bigint NOT NULL,
 "used_quota_files" integer NOT NULL, "last_quota_update" bigint NOT NULL, "upload_bandwidth" integer NOT NULL,
 "download_bandwidth" integer NOT NULL, "last_login" bigint NOT NULL, "filters" text NULL, "filesystem" text NULL,
 "additional_info" text NULL);
@@ -43,17 +43,7 @@ ALTER TABLE "{{folders_mapping}}" ADD CONSTRAINT "{{prefix}}folders_mapping_user
 FOREIGN KEY ("user_id") REFERENCES "{{users}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
 CREATE INDEX "{{prefix}}folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_id");
 CREATE INDEX "{{prefix}}folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
-INSERT INTO {{schema_version}} (version) VALUES (8);
-`
-	pgsqlV9SQL = `ALTER TABLE "{{admins}}" ADD COLUMN "description" varchar(512) NULL;
-ALTER TABLE "{{folders}}" ADD COLUMN "description" varchar(512) NULL;
-ALTER TABLE "{{folders}}" ADD COLUMN "filesystem" text NULL;
-ALTER TABLE "{{users}}" ADD COLUMN "description" varchar(512) NULL;
-`
-	pgsqlV9DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "description" CASCADE;
-ALTER TABLE "{{folders}}" DROP COLUMN "filesystem" CASCADE;
-ALTER TABLE "{{folders}}" DROP COLUMN "description" CASCADE;
-ALTER TABLE "{{admins}}" DROP COLUMN "description" CASCADE;
+INSERT INTO {{schema_version}} (version) VALUES (10);
 `
 )
 
@@ -237,13 +227,13 @@ func (p *PGSQLProvider) initializeDatabase() error {
 	initialSQL = strings.ReplaceAll(initialSQL, "{{folders_mapping}}", sqlTableFoldersMapping)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{prefix}}", config.SQLTablesPrefix)
 	if config.Driver == CockroachDataProviderName {
-		// Cockroach does not support deferrable constraint validation, we don't need it,
+		// Cockroach does not support deferrable constraint validation, we don't need them,
 		// we keep these definitions for the PostgreSQL driver to avoid changes for users
 		// upgrading from old SFTPGo versions
 		initialSQL = strings.ReplaceAll(initialSQL, "DEFERRABLE INITIALLY DEFERRED", "")
 	}
 
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 8)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 10)
 }
 
 func (p *PGSQLProvider) migrateDatabase() error {
@@ -256,15 +246,11 @@ func (p *PGSQLProvider) migrateDatabase() error {
 	case version == sqlDatabaseVersion:
 		providerLog(logger.LevelDebug, "sql database is up to date, current version: %v", version)
 		return ErrNoInitRequired
-	case version < 8:
+	case version < 10:
 		err = fmt.Errorf("database version %v is too old, please see the upgrading docs", version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 8:
-		return updatePGSQLDatabaseFromV8(p.dbHandle)
-	case version == 9:
-		return updatePGSQLDatabaseFromV9(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -286,60 +272,5 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 
-	switch dbVersion.Version {
-	case 9:
-		return downgradePGSQLDatabaseFromV9(p.dbHandle)
-	case 10:
-		return downgradePGSQLDatabaseFromV10(p.dbHandle)
-	default:
-		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
-	}
-}
-
-func updatePGSQLDatabaseFromV8(dbHandle *sql.DB) error {
-	if err := updatePGSQLDatabaseFrom8To9(dbHandle); err != nil {
-		return err
-	}
-	return updatePGSQLDatabaseFromV9(dbHandle)
-}
-
-func updatePGSQLDatabaseFromV9(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom9To10(dbHandle)
-}
-
-func downgradePGSQLDatabaseFromV9(dbHandle *sql.DB) error {
-	return downgradePGSQLDatabaseFrom9To8(dbHandle)
-}
-
-func downgradePGSQLDatabaseFromV10(dbHandle *sql.DB) error {
-	if err := downgradePGSQLDatabaseFrom10To9(dbHandle); err != nil {
-		return err
-	}
-	return downgradePGSQLDatabaseFromV9(dbHandle)
-}
-
-func updatePGSQLDatabaseFrom8To9(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 8 -> 9")
-	providerLog(logger.LevelInfo, "updating database version: 8 -> 9")
-	sql := strings.ReplaceAll(pgsqlV9SQL, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
-	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 9)
-}
-
-func downgradePGSQLDatabaseFrom9To8(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 9 -> 8")
-	providerLog(logger.LevelInfo, "downgrading database version: 9 -> 8")
-	sql := strings.ReplaceAll(pgsqlV9DownSQL, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
-	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 8)
-}
-
-func updatePGSQLDatabaseFrom9To10(dbHandle *sql.DB) error {
-	return sqlCommonUpdateDatabaseFrom9To10(dbHandle)
-}
-
-func downgradePGSQLDatabaseFrom10To9(dbHandle *sql.DB) error {
-	return sqlCommonDowngradeDatabaseFrom10To9(dbHandle)
+	return errors.New("the current version cannot be reverted")
 }
