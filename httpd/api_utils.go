@@ -45,10 +45,10 @@ func getRespStatus(err error) int {
 	if _, ok := err.(*utils.ValidationError); ok {
 		return http.StatusBadRequest
 	}
-	if _, ok := err.(*dataprovider.MethodDisabledError); ok {
+	if _, ok := err.(*utils.MethodDisabledError); ok {
 		return http.StatusForbidden
 	}
-	if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+	if _, ok := err.(*utils.RecordNotFoundError); ok {
 		return http.StatusNotFound
 	}
 	if os.IsNotExist(err) {
@@ -366,7 +366,7 @@ func updateLoginMetrics(user *dataprovider.User, ip string, err error) {
 	if err != nil && err != common.ErrInternalFailure {
 		logger.ConnectionFailedLog(user.Username, ip, dataprovider.LoginMethodPassword, common.ProtocolHTTP, err.Error())
 		event := common.HostEventLoginFailed
-		if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+		if _, ok := err.(*utils.RecordNotFoundError); ok {
 			event = common.HostEventUserNotFound
 		}
 		common.AddDefenderEvent(ip, event)

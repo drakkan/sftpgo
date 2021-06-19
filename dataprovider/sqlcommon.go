@@ -494,7 +494,7 @@ func getAdminFromDbRow(row sqlScanner) (Admin, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return admin, &RecordNotFoundError{err: err.Error()}
+			return admin, utils.NewRecordNotFoundError(err.Error())
 		}
 		return admin, err
 	}
@@ -543,7 +543,7 @@ func getUserFromDbRow(row sqlScanner) (User, error) {
 		&additionalInfo, &description)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return user, &RecordNotFoundError{err: err.Error()}
+			return user, utils.NewRecordNotFoundError(err.Error())
 		}
 		return user, err
 	}
@@ -620,7 +620,7 @@ func sqlCommonGetFolder(ctx context.Context, name string, dbHandle sqlQuerier) (
 	err = row.Scan(&folder.ID, &mappedPath, &folder.UsedQuotaSize, &folder.UsedQuotaFiles, &folder.LastQuotaUpdate,
 		&folder.Name, &description, &fsConfig)
 	if err == sql.ErrNoRows {
-		return folder, &RecordNotFoundError{err: err.Error()}
+		return folder, utils.NewRecordNotFoundError(err.Error())
 	}
 	if mappedPath.Valid {
 		folder.MappedPath = mappedPath.String

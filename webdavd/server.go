@@ -370,7 +370,7 @@ func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err err
 	if err != nil && err != common.ErrInternalFailure {
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod, common.ProtocolWebDAV, err.Error())
 		event := common.HostEventLoginFailed
-		if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+		if _, ok := err.(*utils.RecordNotFoundError); ok {
 			event = common.HostEventUserNotFound
 		}
 		common.AddDefenderEvent(ip, event)

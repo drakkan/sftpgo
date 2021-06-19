@@ -298,7 +298,7 @@ func TestShouldBind(t *testing.T) {
 
 func TestGetRespStatus(t *testing.T) {
 	var err error
-	err = &dataprovider.MethodDisabledError{}
+	err = utils.NewMethodDisabledError("")
 	respStatus := getRespStatus(err)
 	assert.Equal(t, http.StatusForbidden, respStatus)
 	err = fmt.Errorf("generic error")

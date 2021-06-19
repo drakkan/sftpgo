@@ -12,7 +12,6 @@ import (
 
 	"github.com/yl2chen/cidranger"
 
-	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/utils"
 )
@@ -280,7 +279,7 @@ func (d *memoryDefender) GetHost(ip string) (*DefenderEntry, error) {
 		}, nil
 	}
 
-	return nil, dataprovider.NewRecordNotFoundError("host not found")
+	return nil, utils.NewRecordNotFoundError("host not found")
 }
 
 // IsBanned returns true if the specified IP is banned

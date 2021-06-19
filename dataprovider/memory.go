@@ -367,7 +367,7 @@ func (p *MemoryProvider) userExistsInternal(username string) (User, error) {
 	if val, ok := p.dbHandle.users[username]; ok {
 		return val.getACopy(), nil
 	}
-	return User{}, &RecordNotFoundError{err: fmt.Sprintf("username %#v does not exist", username)}
+	return User{}, utils.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", username))
 }
 
 func (p *MemoryProvider) addAdmin(admin *Admin) error {
@@ -444,7 +444,7 @@ func (p *MemoryProvider) adminExistsInternal(username string) (Admin, error) {
 	if val, ok := p.dbHandle.admins[username]; ok {
 		return val.getACopy(), nil
 	}
-	return Admin{}, &RecordNotFoundError{err: fmt.Sprintf("admin %#v does not exist", username)}
+	return Admin{}, utils.NewRecordNotFoundError(fmt.Sprintf("admin %#v does not exist", username))
 }
 
 func (p *MemoryProvider) dumpAdmins() ([]Admin, error) {
@@ -594,7 +594,7 @@ func (p *MemoryProvider) addOrUpdateFolderInternal(baseFolder *vfs.BaseVirtualFo
 		p.updateFoldersMappingInternal(folder)
 		return folder, nil
 	}
-	if _, ok := err.(*RecordNotFoundError); ok {
+	if _, ok := err.(*utils.RecordNotFoundError); ok {
 		folder = baseFolder.GetACopy()
 		folder.ID = p.getNextFolderID()
 		folder.UsedQuotaSize = usedQuotaSize
@@ -611,7 +611,7 @@ func (p *MemoryProvider) folderExistsInternal(name string) (vfs.BaseVirtualFolde
 	if val, ok := p.dbHandle.vfolders[name]; ok {
 		return val, nil
 	}
-	return vfs.BaseVirtualFolder{}, &RecordNotFoundError{err: fmt.Sprintf("folder %#v does not exist", name)}
+	return vfs.BaseVirtualFolder{}, utils.NewRecordNotFoundError(fmt.Sprintf("folder %#v does not exist", name))
 }
 
 func (p *MemoryProvider) getFolders(limit, offset int, order string) ([]vfs.BaseVirtualFolder, error) {

@@ -366,34 +366,6 @@ type checkPasswordResponse struct {
 	ToVerify string `json:"to_verify"`
 }
 
-// MethodDisabledError raised if a method is disabled in config file.
-// For example, if user management is disabled, this error is raised
-// every time a user operation is done using the REST API
-type MethodDisabledError struct {
-	err string
-}
-
-// Method disabled error details
-func (e *MethodDisabledError) Error() string {
-	return fmt.Sprintf("Method disabled error: %s", e.err)
-}
-
-// RecordNotFoundError raised if a requested user is not found
-type RecordNotFoundError struct {
-	err string
-}
-
-func (e *RecordNotFoundError) Error() string {
-	return fmt.Sprintf("not found: %s", e.err)
-}
-
-// NewRecordNotFoundError returns a not found error
-func NewRecordNotFoundError(error string) *RecordNotFoundError {
-	return &RecordNotFoundError{
-		err: error,
-	}
-}
-
 // GetQuotaTracking returns the configured mode for user's quota tracking
 func GetQuotaTracking() int {
 	return config.TrackQuota
@@ -808,7 +780,7 @@ func UpdateLastLogin(user *User) error {
 // If reset is true filesAdd and sizeAdd indicates the total files and the total size instead of the difference.
 func UpdateUserQuota(user *User, filesAdd int, sizeAdd int64, reset bool) error {
 	if config.TrackQuota == 0 {
-		return &MethodDisabledError{err: trackQuotaDisabledError}
+		return utils.NewMethodDisabledError(trackQuotaDisabledError)
 	} else if config.TrackQuota == 2 && !reset && !user.HasQuotaRestrictions() {
 		return nil
 	}
@@ -829,7 +801,7 @@ func UpdateUserQuota(user *User, filesAdd int, sizeAdd int64, reset bool) error 
 // If reset is true filesAdd and sizeAdd indicates the total files and the total size instead of the difference.
 func UpdateVirtualFolderQuota(vfolder *vfs.BaseVirtualFolder, filesAdd int, sizeAdd int64, reset bool) error {
 	if config.TrackQuota == 0 {
-		return &MethodDisabledError{err: trackQuotaDisabledError}
+		return utils.NewMethodDisabledError(trackQuotaDisabledError)
 	}
 	if filesAdd == 0 && sizeAdd == 0 && !reset {
 		return nil
@@ -847,7 +819,7 @@ func UpdateVirtualFolderQuota(vfolder *vfs.BaseVirtualFolder, filesAdd int, size
 // GetUsedQuota returns the used quota for the given SFTP user.
 func GetUsedQuota(username string) (int, int64, error) {
 	if config.TrackQuota == 0 {
-		return 0, 0, &MethodDisabledError{err: trackQuotaDisabledError}
+		return 0, 0, utils.NewMethodDisabledError(trackQuotaDisabledError)
 	}
 	files, size, err := provider.getUsedQuota(username)
 	if err != nil {
@@ -860,7 +832,7 @@ func GetUsedQuota(username string) (int, int64, error) {
 // GetUsedVirtualFolderQuota returns the used quota for the given virtual folder.
 func GetUsedVirtualFolderQuota(name string) (int, int64, error) {
 	if config.TrackQuota == 0 {
-		return 0, 0, &MethodDisabledError{err: trackQuotaDisabledError}
+		return 0, 0, utils.NewMethodDisabledError(trackQuotaDisabledError)
 	}
 	files, size, err := provider.getUsedFolderQuota(name)
 	if err != nil {
@@ -2149,7 +2121,7 @@ func executePreLoginHook(username, loginMethod, ip, protocol string) (User, erro
 		providerLog(logger.LevelDebug, "empty response from pre-login hook, no modification requested for user %#v id: %v",
 			username, u.ID)
 		if u.ID == 0 {
-			return u, &RecordNotFoundError{err: fmt.Sprintf("username %#v does not exist", username)}
+			return u, utils.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", username))
 		}
 		return u, nil
 	}
@@ -2345,7 +2317,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		providerLog(logger.LevelDebug, "empty response from external hook, no modification requested for user %#v id: %v",
 			username, u.ID)
 		if u.ID == 0 {
-			return u, &RecordNotFoundError{err: fmt.Sprintf("username %#v does not exist", username)}
+			return u, utils.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", username))
 		}
 		return u, nil
 	}
@@ -2389,7 +2361,7 @@ func getUserAndJSONForHook(username string) (User, []byte, error) {
 	var userAsJSON []byte
 	u, err := provider.userExists(username)
 	if err != nil {
-		if _, ok := err.(*RecordNotFoundError); !ok {
+		if _, ok := err.(*utils.RecordNotFoundError); !ok {
 			return u, userAsJSON, err
 		}
 		u = User{

@@ -160,7 +160,7 @@ func (p *BoltProvider) updateLastLogin(username string) error {
 		}
 		var u []byte
 		if u = bucket.Get([]byte(username)); u == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("username %#v does not exist, unable to update last login", username)}
+			return utils.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist, unable to update last login", username))
 		}
 		var user User
 		err = json.Unmarshal(u, &user)
@@ -190,7 +190,7 @@ func (p *BoltProvider) updateQuota(username string, filesAdd int, sizeAdd int64,
 		}
 		var u []byte
 		if u = bucket.Get([]byte(username)); u == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("username %#v does not exist, unable to update quota", username)}
+			return utils.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist, unable to update quota", username))
 		}
 		var user User
 		err = json.Unmarshal(u, &user)
@@ -235,7 +235,7 @@ func (p *BoltProvider) adminExists(username string) (Admin, error) {
 		}
 		a := bucket.Get([]byte(username))
 		if a == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("admin %v does not exist", username)}
+			return utils.NewRecordNotFoundError(fmt.Sprintf("admin %v does not exist", username))
 		}
 		return json.Unmarshal(a, &admin)
 	})
@@ -282,7 +282,7 @@ func (p *BoltProvider) updateAdmin(admin *Admin) error {
 		var a []byte
 
 		if a = bucket.Get([]byte(admin.Username)); a == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("admin %v does not exist", admin.Username)}
+			return utils.NewRecordNotFoundError(fmt.Sprintf("admin %v does not exist", admin.Username))
 		}
 		var oldAdmin Admin
 		err = json.Unmarshal(a, &oldAdmin)
@@ -307,7 +307,7 @@ func (p *BoltProvider) deleteAdmin(admin *Admin) error {
 		}
 
 		if bucket.Get([]byte(admin.Username)) == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("admin %v does not exist", admin.Username)}
+			return utils.NewRecordNotFoundError(fmt.Sprintf("admin %v does not exist", admin.Username))
 		}
 
 		return bucket.Delete([]byte(admin.Username))
@@ -397,7 +397,7 @@ func (p *BoltProvider) userExists(username string) (User, error) {
 		}
 		u := bucket.Get([]byte(username))
 		if u == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("username %#v does not exist", username)}
+			return utils.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", username))
 		}
 		folderBucket, err := getFoldersBucket(tx)
 		if err != nil {
@@ -465,7 +465,7 @@ func (p *BoltProvider) updateUser(user *User) error {
 		}
 		var u []byte
 		if u = bucket.Get([]byte(user.Username)); u == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("username %#v does not exist", user.Username)}
+			return utils.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", user.Username))
 		}
 		var oldUser User
 		err = json.Unmarshal(u, &oldUser)
@@ -517,7 +517,7 @@ func (p *BoltProvider) deleteUser(user *User) error {
 		}
 		exists := bucket.Get([]byte(user.Username))
 		if exists == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("user %#v does not exist", user.Username)}
+			return utils.NewRecordNotFoundError(fmt.Sprintf("user %#v does not exist", user.Username))
 		}
 		return bucket.Delete([]byte(user.Username))
 	})
@@ -722,7 +722,7 @@ func (p *BoltProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
 		var f []byte
 
 		if f = bucket.Get([]byte(folder.Name)); f == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("folder %v does not exist", folder.Name)}
+			return utils.NewRecordNotFoundError(fmt.Sprintf("folder %v does not exist", folder.Name))
 		}
 		var oldFolder vfs.BaseVirtualFolder
 		err = json.Unmarshal(f, &oldFolder)
@@ -755,7 +755,7 @@ func (p *BoltProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 		}
 		var f []byte
 		if f = bucket.Get([]byte(folder.Name)); f == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("folder %v does not exist", folder.Name)}
+			return utils.NewRecordNotFoundError(fmt.Sprintf("folder %v does not exist", folder.Name))
 		}
 		var folder vfs.BaseVirtualFolder
 		err = json.Unmarshal(f, &folder)
@@ -801,7 +801,7 @@ func (p *BoltProvider) updateFolderQuota(name string, filesAdd int, sizeAdd int6
 		}
 		var f []byte
 		if f = bucket.Get([]byte(name)); f == nil {
-			return &RecordNotFoundError{err: fmt.Sprintf("folder %#v does not exist, unable to update quota", name)}
+			return utils.NewRecordNotFoundError(fmt.Sprintf("folder %#v does not exist, unable to update quota", name))
 		}
 		var folder vfs.BaseVirtualFolder
 		err = json.Unmarshal(f, &folder)
@@ -910,7 +910,7 @@ func folderExistsInternal(name string, bucket *bolt.Bucket) (vfs.BaseVirtualFold
 	var folder vfs.BaseVirtualFolder
 	f := bucket.Get([]byte(name))
 	if f == nil {
-		err := &RecordNotFoundError{err: fmt.Sprintf("folder %v does not exist", name)}
+		err := utils.NewRecordNotFoundError(fmt.Sprintf("folder %v does not exist", name))
 		return folder, err
 	}
 	err := json.Unmarshal(f, &folder)

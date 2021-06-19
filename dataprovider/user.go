@@ -477,7 +477,7 @@ func (u *User) getForbiddenSFTPSelfUsers(username string) ([]string, error) {
 		}
 		return forbiddens, nil
 	}
-	if _, ok := err.(*RecordNotFoundError); !ok {
+	if _, ok := err.(*utils.RecordNotFoundError); !ok {
 		return nil, err
 	}
 

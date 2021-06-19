@@ -845,7 +845,7 @@ func updateLoginMetrics(user *dataprovider.User, ip, method string, err error) {
 			// record failed login key auth only once for session if the
 			// authentication fails in checkAuthError
 			event := common.HostEventLoginFailed
-			if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+			if _, ok := err.(*utils.RecordNotFoundError); ok {
 				event = common.HostEventUserNotFound
 			}
 			common.AddDefenderEvent(ip, event)

@@ -18,3 +18,38 @@ func NewValidationError(error string) *ValidationError {
 		err: error,
 	}
 }
+
+// RecordNotFoundError raised if a requested user is not found
+type RecordNotFoundError struct {
+	err string
+}
+
+func (e *RecordNotFoundError) Error() string {
+	return fmt.Sprintf("not found: %s", e.err)
+}
+
+// NewRecordNotFoundError returns a not found error
+func NewRecordNotFoundError(error string) *RecordNotFoundError {
+	return &RecordNotFoundError{
+		err: error,
+	}
+}
+
+// MethodDisabledError raised if a method is disabled in config file.
+// For example, if user management is disabled, this error is raised
+// every time a user operation is done using the REST API
+type MethodDisabledError struct {
+	err string
+}
+
+// Method disabled error details
+func (e *MethodDisabledError) Error() string {
+	return fmt.Sprintf("Method disabled error: %s", e.err)
+}
+
+// NewMethodDisabledError returns a method disabled error
+func NewMethodDisabledError(error string) *MethodDisabledError {
+	return &MethodDisabledError{
+		err: error,
+	}
+}

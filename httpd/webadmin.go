@@ -1146,7 +1146,7 @@ func handleWebUpdateAdminGet(w http.ResponseWriter, r *http.Request) {
 	admin, err := dataprovider.AdminExists(username)
 	if err == nil {
 		renderAddUpdateAdminPage(w, r, &admin, "", false)
-	} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+	} else if _, ok := err.(*utils.RecordNotFoundError); ok {
 		renderNotFoundPage(w, r, err)
 	} else {
 		renderInternalServerErrorPage(w, r, err)
@@ -1177,7 +1177,7 @@ func handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Request) {
 
 	username := getURLParam(r, "username")
 	admin, err := dataprovider.AdminExists(username)
-	if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+	if _, ok := err.(*utils.RecordNotFoundError); ok {
 		renderNotFoundPage(w, r, err)
 		return
 	} else if err != nil {
@@ -1265,7 +1265,7 @@ func handleWebTemplateFolderGet(w http.ResponseWriter, r *http.Request) {
 		folder, err := dataprovider.GetFolderByName(name)
 		if err == nil {
 			renderFolderPage(w, r, folder, folderPageModeTemplate, "")
-		} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+		} else if _, ok := err.(*utils.RecordNotFoundError); ok {
 			renderNotFoundPage(w, r, err)
 		} else {
 			renderInternalServerErrorPage(w, r, err)
@@ -1328,7 +1328,7 @@ func handleWebTemplateUserGet(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			user.SetEmptySecrets()
 			renderUserPage(w, r, &user, userPageModeTemplate, "")
-		} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+		} else if _, ok := err.(*utils.RecordNotFoundError); ok {
 			renderNotFoundPage(w, r, err)
 		} else {
 			renderInternalServerErrorPage(w, r, err)
@@ -1388,7 +1388,7 @@ func handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
 			user.Password = ""
 			user.SetEmptySecrets()
 			renderUserPage(w, r, &user, userPageModeAdd, "")
-		} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+		} else if _, ok := err.(*utils.RecordNotFoundError); ok {
 			renderNotFoundPage(w, r, err)
 		} else {
 			renderInternalServerErrorPage(w, r, err)
@@ -1404,7 +1404,7 @@ func handleWebUpdateUserGet(w http.ResponseWriter, r *http.Request) {
 	user, err := dataprovider.UserExists(username)
 	if err == nil {
 		renderUserPage(w, r, &user, userPageModeUpdate, "")
-	} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+	} else if _, ok := err.(*utils.RecordNotFoundError); ok {
 		renderNotFoundPage(w, r, err)
 	} else {
 		renderInternalServerErrorPage(w, r, err)
@@ -1434,7 +1434,7 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	username := getURLParam(r, "username")
 	user, err := dataprovider.UserExists(username)
-	if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+	if _, ok := err.(*utils.RecordNotFoundError); ok {
 		renderNotFoundPage(w, r, err)
 		return
 	} else if err != nil {
@@ -1527,7 +1527,7 @@ func handleWebUpdateFolderGet(w http.ResponseWriter, r *http.Request) {
 	folder, err := dataprovider.GetFolderByName(name)
 	if err == nil {
 		renderFolderPage(w, r, folder, folderPageModeUpdate, "")
-	} else if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+	} else if _, ok := err.(*utils.RecordNotFoundError); ok {
 		renderNotFoundPage(w, r, err)
 	} else {
 		renderInternalServerErrorPage(w, r, err)
@@ -1538,7 +1538,7 @@ func handleWebUpdateFolderPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	name := getURLParam(r, "name")
 	folder, err := dataprovider.GetFolderByName(name)
-	if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
+	if _, ok := err.(*utils.RecordNotFoundError); ok {
 		renderNotFoundPage(w, r, err)
 		return
 	} else if err != nil {
