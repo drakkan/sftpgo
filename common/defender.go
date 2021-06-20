@@ -266,10 +266,12 @@ func (d *memoryDefender) GetHost(ip string) (*DefenderEntry, error) {
 	defer d.RUnlock()
 
 	if banTime, ok := d.banned[ip]; ok {
-		return &DefenderEntry{
-			IP:      ip,
-			BanTime: banTime,
-		}, nil
+		if banTime.After(time.Now()) {
+			return &DefenderEntry{
+				IP:      ip,
+				BanTime: banTime,
+			}, nil
+		}
 	}
 
 	if hs, ok := d.hosts[ip]; ok {
