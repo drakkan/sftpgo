@@ -22,10 +22,10 @@ import (
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 
-	"github.com/drakkan/sftpgo/kms"
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/metrics"
-	"github.com/drakkan/sftpgo/version"
+	"github.com/drakkan/sftpgo/v2/kms"
+	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/metrics"
+	"github.com/drakkan/sftpgo/v2/version"
 )
 
 var (

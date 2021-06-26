@@ -19,10 +19,10 @@ import (
 	"github.com/rs/xid"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/drakkan/sftpgo/kms"
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/utils"
-	"github.com/drakkan/sftpgo/version"
+	"github.com/drakkan/sftpgo/v2/kms"
+	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/version"
 )
 
 const (

@@ -13,7 +13,7 @@ import (
 	"github.com/minio/sio"
 	"golang.org/x/crypto/hkdf"
 
-	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/v2/logger"
 )
 
 const (

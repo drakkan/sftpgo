@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-chi/render"
 
-	"github.com/drakkan/sftpgo/common"
+	"github.com/drakkan/sftpgo/v2/common"
 )
 
 func getDefenderHosts(w http.ResponseWriter, r *http.Request) {

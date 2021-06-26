@@ -31,7 +31,7 @@ import (
 	"github.com/rs/xid"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/v2/logger"
 )
 
 const (

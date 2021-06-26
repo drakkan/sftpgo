@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/utils"
 )
 
 // CertManager defines a TLS certificate manager

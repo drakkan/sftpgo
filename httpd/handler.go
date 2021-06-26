@@ -7,10 +7,10 @@ import (
 	"path"
 	"strings"
 
-	"github.com/drakkan/sftpgo/common"
-	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/v2/common"
+	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/utils"
 )
 
 // Connection details for a HTTP connection used to inteact with an SFTPGo filesystem

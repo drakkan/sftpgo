@@ -6,7 +6,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 
-	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/v2/logger"
 )
 
 var genCompletionCmd = &cobra.Command{

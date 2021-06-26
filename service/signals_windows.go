@@ -4,7 +4,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/drakkan/sftpgo/logger"
+	"github.com/drakkan/sftpgo/v2/logger"
 )
 
 func registerSignals() {

@@ -7,9 +7,9 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 
-	"github.com/drakkan/sftpgo/common"
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/metrics"
+	"github.com/drakkan/sftpgo/v2/common"
+	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/metrics"
 )
 
 func initializeRouter(enableProfiler bool) {

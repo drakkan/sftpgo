@@ -11,8 +11,8 @@ import (
 	"github.com/pkg/sftp"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/vfs"
+	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
 // MockOsFs mockable OsFs

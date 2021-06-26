@@ -14,9 +14,9 @@ import (
 	// we import go-sql-driver/mysql here to be able to disable MySQL support using a build tag
 	_ "github.com/go-sql-driver/mysql"
 
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/version"
-	"github.com/drakkan/sftpgo/vfs"
+	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/version"
+	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
 const (

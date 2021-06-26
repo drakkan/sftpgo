@@ -8,8 +8,8 @@ import (
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-chi/render"
 
-	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/utils"
 )
 
 func getAdmins(w http.ResponseWriter, r *http.Request) {

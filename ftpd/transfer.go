@@ -7,8 +7,8 @@ import (
 
 	"github.com/eikenb/pipeat"
 
-	"github.com/drakkan/sftpgo/common"
-	"github.com/drakkan/sftpgo/vfs"
+	"github.com/drakkan/sftpgo/v2/common"
+	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
 // transfer contains the transfer details for an upload or a download.

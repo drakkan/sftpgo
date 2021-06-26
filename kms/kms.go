@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/v2/utils"
 )
 
 // SecretProvider defines the interface for a KMS secrets provider

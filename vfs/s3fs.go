@@ -22,10 +22,10 @@ import (
 	"github.com/eikenb/pipeat"
 	"github.com/pkg/sftp"
 
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/metrics"
-	"github.com/drakkan/sftpgo/utils"
-	"github.com/drakkan/sftpgo/version"
+	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/metrics"
+	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/version"
 )
 
 // using this mime type for directories improves compatibility with s3fs-fuse

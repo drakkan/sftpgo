@@ -10,11 +10,11 @@ import (
 	"github.com/eikenb/pipeat"
 	"golang.org/x/net/webdav"
 
-	"github.com/drakkan/sftpgo/common"
-	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/utils"
-	"github.com/drakkan/sftpgo/vfs"
+	"github.com/drakkan/sftpgo/v2/common"
+	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
 // Connection details for a WebDav connection.

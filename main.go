@@ -10,7 +10,7 @@ import (
 
 	"go.uber.org/automaxprocs/maxprocs"
 
-	"github.com/drakkan/sftpgo/cmd"
+	"github.com/drakkan/sftpgo/v2/cmd"
 )
 
 func main() {

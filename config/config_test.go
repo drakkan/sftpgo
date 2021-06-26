@@ -11,14 +11,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/drakkan/sftpgo/common"
-	"github.com/drakkan/sftpgo/config"
-	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/ftpd"
-	"github.com/drakkan/sftpgo/httpclient"
-	"github.com/drakkan/sftpgo/httpd"
-	"github.com/drakkan/sftpgo/sftpd"
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/v2/common"
+	"github.com/drakkan/sftpgo/v2/config"
+	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/ftpd"
+	"github.com/drakkan/sftpgo/v2/httpclient"
+	"github.com/drakkan/sftpgo/v2/httpd"
+	"github.com/drakkan/sftpgo/v2/sftpd"
+	"github.com/drakkan/sftpgo/v2/utils"
 )
 
 const (

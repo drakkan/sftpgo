@@ -3,8 +3,8 @@ package vfs
 import (
 	"fmt"
 
-	"github.com/drakkan/sftpgo/kms"
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/v2/kms"
+	"github.com/drakkan/sftpgo/v2/utils"
 )
 
 // FilesystemProvider defines the supported storage filesystems

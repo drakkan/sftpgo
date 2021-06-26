@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/drakkan/sftpgo/vfs"
+	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
 const (

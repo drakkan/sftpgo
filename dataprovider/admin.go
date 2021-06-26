@@ -12,7 +12,7 @@ import (
 	"github.com/alexedwards/argon2id"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/v2/utils"
 )
 
 // Available permissions for SFTPGo admins

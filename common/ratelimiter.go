@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/v2/utils"
 )
 
 var (

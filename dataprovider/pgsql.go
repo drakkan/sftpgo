@@ -14,9 +14,9 @@ import (
 	// we import lib/pq here to be able to disable PostgreSQL support using a build tag
 	_ "github.com/lib/pq"
 
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/version"
-	"github.com/drakkan/sftpgo/vfs"
+	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/version"
+	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
 const (

@@ -13,8 +13,8 @@ import (
 
 	"github.com/hashicorp/go-retryablehttp"
 
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/utils"
 )
 
 // TLSKeyPair defines the paths for a TLS key pair

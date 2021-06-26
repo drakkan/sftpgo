@@ -16,9 +16,9 @@ import (
 	"github.com/eikenb/pipeat"
 	"github.com/pkg/sftp"
 
-	"github.com/drakkan/sftpgo/kms"
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/v2/kms"
+	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/utils"
 )
 
 const dirMimeType = "inode/directory"

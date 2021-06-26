@@ -7,13 +7,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/drakkan/sftpgo/common"
-	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/ftpd"
-	"github.com/drakkan/sftpgo/httpd"
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/telemetry"
-	"github.com/drakkan/sftpgo/webdavd"
+	"github.com/drakkan/sftpgo/v2/common"
+	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/ftpd"
+	"github.com/drakkan/sftpgo/v2/httpd"
+	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/telemetry"
+	"github.com/drakkan/sftpgo/v2/webdavd"
 )
 
 func registerSignals() {

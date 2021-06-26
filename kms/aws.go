@@ -6,7 +6,7 @@ import (
 	// we import awskms here to be able to disable AWS KMS support using a build tag
 	_ "gocloud.dev/secrets/awskms"
 
-	"github.com/drakkan/sftpgo/version"
+	"github.com/drakkan/sftpgo/v2/version"
 )
 
 type awsSecret struct {

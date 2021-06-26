@@ -9,13 +9,13 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/drakkan/sftpgo/common"
-	"github.com/drakkan/sftpgo/config"
-	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/httpd"
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/utils"
-	"github.com/drakkan/sftpgo/version"
+	"github.com/drakkan/sftpgo/v2/common"
+	"github.com/drakkan/sftpgo/v2/config"
+	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/httpd"
+	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/version"
 )
 
 const (

@@ -5,7 +5,7 @@ package dataprovider
 import (
 	"errors"
 
-	"github.com/drakkan/sftpgo/version"
+	"github.com/drakkan/sftpgo/v2/version"
 )
 
 func init() {

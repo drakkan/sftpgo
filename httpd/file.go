@@ -7,7 +7,7 @@ import (
 
 	"github.com/eikenb/pipeat"
 
-	"github.com/drakkan/sftpgo/common"
+	"github.com/drakkan/sftpgo/v2/common"
 )
 
 var errTransferAborted = errors.New("transfer aborted")

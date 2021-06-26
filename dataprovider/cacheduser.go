@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/net/webdav"
 
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/v2/utils"
 )
 
 var (

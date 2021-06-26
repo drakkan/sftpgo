@@ -11,18 +11,18 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/drakkan/sftpgo/common"
-	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/ftpd"
-	"github.com/drakkan/sftpgo/httpclient"
-	"github.com/drakkan/sftpgo/httpd"
-	"github.com/drakkan/sftpgo/kms"
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/sftpd"
-	"github.com/drakkan/sftpgo/telemetry"
-	"github.com/drakkan/sftpgo/utils"
-	"github.com/drakkan/sftpgo/version"
-	"github.com/drakkan/sftpgo/webdavd"
+	"github.com/drakkan/sftpgo/v2/common"
+	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/ftpd"
+	"github.com/drakkan/sftpgo/v2/httpclient"
+	"github.com/drakkan/sftpgo/v2/httpd"
+	"github.com/drakkan/sftpgo/v2/kms"
+	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/sftpd"
+	"github.com/drakkan/sftpgo/v2/telemetry"
+	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/version"
+	"github.com/drakkan/sftpgo/v2/webdavd"
 )
 
 const (

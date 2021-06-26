@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/v2/utils"
 )
 
 // BaseVirtualFolder defines the path for the virtual folder and the used quota limits.

@@ -10,9 +10,9 @@ import (
 	"github.com/go-chi/render"
 	"github.com/rs/xid"
 
-	"github.com/drakkan/sftpgo/common"
-	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/v2/common"
+	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/utils"
 )
 
 func readUserFolder(w http.ResponseWriter, r *http.Request) {

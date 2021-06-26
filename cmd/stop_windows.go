@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/drakkan/sftpgo/service"
+	"github.com/drakkan/sftpgo/v2/service"
 )
 
 var (

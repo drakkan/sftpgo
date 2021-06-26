@@ -15,11 +15,11 @@ import (
 	"github.com/minio/sio"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/drakkan/sftpgo/common"
-	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/httpdtest"
-	"github.com/drakkan/sftpgo/kms"
-	"github.com/drakkan/sftpgo/vfs"
+	"github.com/drakkan/sftpgo/v2/common"
+	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/httpdtest"
+	"github.com/drakkan/sftpgo/v2/kms"
+	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
 func TestBasicFTPHandlingCryptFs(t *testing.T) {

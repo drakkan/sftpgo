@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/drakkan/sftpgo/common"
+	"github.com/drakkan/sftpgo/v2/common"
 )
 
 const (

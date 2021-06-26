@@ -6,7 +6,7 @@ import (
 	// we import hashivault here to be able to disable Vault support using a build tag
 	_ "gocloud.dev/secrets/hashivault"
 
-	"github.com/drakkan/sftpgo/version"
+	"github.com/drakkan/sftpgo/v2/version"
 )
 
 type vaultSecret struct {

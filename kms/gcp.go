@@ -6,7 +6,7 @@ import (
 	// we import gcpkms here to be able to disable GCP KMS support using a build tag
 	_ "gocloud.dev/secrets/gcpkms"
 
-	"github.com/drakkan/sftpgo/version"
+	"github.com/drakkan/sftpgo/v2/version"
 )
 
 type gcpSecret struct {

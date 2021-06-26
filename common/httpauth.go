@@ -10,8 +10,8 @@ import (
 	"github.com/GehirnInc/crypt/md5_crypt"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/utils"
 )
 
 const (

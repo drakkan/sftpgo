@@ -11,13 +11,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/drakkan/sftpgo/common"
-	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/kms"
-	"github.com/drakkan/sftpgo/service"
-	"github.com/drakkan/sftpgo/sftpd"
-	"github.com/drakkan/sftpgo/version"
-	"github.com/drakkan/sftpgo/vfs"
+	"github.com/drakkan/sftpgo/v2/common"
+	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/kms"
+	"github.com/drakkan/sftpgo/v2/service"
+	"github.com/drakkan/sftpgo/v2/sftpd"
+	"github.com/drakkan/sftpgo/v2/version"
+	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
 var (

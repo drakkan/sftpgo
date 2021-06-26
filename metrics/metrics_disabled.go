@@ -5,7 +5,7 @@ package metrics
 import (
 	"github.com/go-chi/chi/v5"
 
-	"github.com/drakkan/sftpgo/version"
+	"github.com/drakkan/sftpgo/v2/version"
 )
 
 func init() {

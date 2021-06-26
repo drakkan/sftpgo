@@ -12,8 +12,8 @@ import (
 
 	"github.com/yl2chen/cidranger"
 
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/utils"
+	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/utils"
 )
 
 // HostEvent is the enumerable for the support host event

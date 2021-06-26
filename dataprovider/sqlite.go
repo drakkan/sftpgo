@@ -14,10 +14,10 @@ import (
 	// we import go-sqlite3 here to be able to disable SQLite support using a build tag
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/drakkan/sftpgo/logger"
-	"github.com/drakkan/sftpgo/utils"
-	"github.com/drakkan/sftpgo/version"
-	"github.com/drakkan/sftpgo/vfs"
+	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/version"
+	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
 const (

@@ -6,8 +6,8 @@ import (
 
 	"github.com/go-chi/render"
 
-	"github.com/drakkan/sftpgo/dataprovider"
-	"github.com/drakkan/sftpgo/vfs"
+	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
 func getFolders(w http.ResponseWriter, r *http.Request) {

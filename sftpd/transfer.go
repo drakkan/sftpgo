@@ -7,9 +7,9 @@ import (
 
 	"github.com/eikenb/pipeat"
 
-	"github.com/drakkan/sftpgo/common"
-	"github.com/drakkan/sftpgo/metrics"
-	"github.com/drakkan/sftpgo/vfs"
+	"github.com/drakkan/sftpgo/v2/common"
+	"github.com/drakkan/sftpgo/v2/metrics"
+	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
 type writerAtCloser interface {

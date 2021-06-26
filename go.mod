@@ -1,4 +1,4 @@
-module github.com/drakkan/sftpgo
+module github.com/drakkan/sftpgo/v2
 
 go 1.16
 
@@ -8,7 +8,7 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
 	github.com/alexedwards/argon2id v0.0.0-20210511081203-7d35d68092b8
-	github.com/aws/aws-sdk-go v1.38.64
+	github.com/aws/aws-sdk-go v1.38.68
 	github.com/cockroachdb/cockroach-go/v2 v2.1.1
 	github.com/eikenb/pipeat v0.0.0-20210603033007-44fc3ffce52b
 	github.com/fclairamb/ftpserverlib v0.13.3-0.20210614220040-27dccea41813
@@ -18,7 +18,7 @@ require (
 	github.com/go-chi/render v1.0.1
 	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/go-sql-driver/mysql v1.6.0
-	github.com/goccy/go-json v0.7.1 // indirect
+	github.com/goccy/go-json v0.7.2 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/hashicorp/go-retryablehttp v0.7.0
@@ -29,7 +29,7 @@ require (
 	github.com/lestrrat-go/jwx v1.2.1
 	github.com/lib/pq v1.10.2
 	github.com/mattn/go-sqlite3 v1.14.7
-	github.com/miekg/dns v1.1.42 // indirect
+	github.com/miekg/dns v1.1.43 // indirect
 	github.com/minio/sio v0.3.0
 	github.com/otiai10/copy v1.6.0
 	github.com/pires/go-proxyproto v0.5.0
@@ -43,7 +43,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.21.5
 	github.com/spf13/afero v1.6.0
 	github.com/spf13/cobra v1.1.3
-	github.com/spf13/viper v1.8.0
+	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/studio-b12/gowebdav v0.0.0-20210427212133-86f8378cf140
 	github.com/yl2chen/cidranger v1.0.2
@@ -55,8 +55,8 @@ require (
 	golang.org/x/net v0.0.0-20210614182718-04defd469f4e
 	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
 	golang.org/x/time v0.0.0-20210611083556-38a9dc6acbc6
-	google.golang.org/api v0.48.0
-	google.golang.org/genproto v0.0.0-20210617175327-b9e0b3197ced // indirect
+	google.golang.org/api v0.49.0
+	google.golang.org/genproto v0.0.0-20210624195500-8bfb893ecb84 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
