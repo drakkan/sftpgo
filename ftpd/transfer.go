@@ -65,7 +65,7 @@ func (t *transfer) Write(p []byte) (n int, err error) {
 	atomic.AddInt64(&t.BytesReceived, int64(n))
 
 	if t.MaxWriteSize > 0 && err == nil && atomic.LoadInt64(&t.BytesReceived) > t.MaxWriteSize {
-		err = common.ErrQuotaExceeded
+		err = t.Connection.GetQuotaExceededError()
 	}
 	if err != nil {
 		t.TransferError(err)

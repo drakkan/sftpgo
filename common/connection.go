@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	ftpserver "github.com/fclairamb/ftpserverlib"
 	"github.com/pkg/sftp"
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
@@ -796,7 +797,7 @@ func (c *BaseConnection) GetMaxWriteSize(quotaResult vfs.QuotaCheckResult, isRes
 			return 0, c.GetOpUnsupportedError()
 		}
 		if c.User.Filters.MaxUploadFileSize > 0 && c.User.Filters.MaxUploadFileSize <= fileSize {
-			return 0, ErrQuotaExceeded
+			return 0, c.GetQuotaExceededError()
 		}
 		if c.User.Filters.MaxUploadFileSize > 0 {
 			maxUploadSize := c.User.Filters.MaxUploadFileSize - fileSize
@@ -1055,6 +1056,26 @@ func (c *BaseConnection) GetOpUnsupportedError() error {
 		return sftp.ErrSSHFxOpUnsupported
 	default:
 		return ErrOpUnsupported
+	}
+}
+
+// GetQuotaExceededError returns an appropriate storage limit exceeded error for the connection protocol
+func (c *BaseConnection) GetQuotaExceededError() error {
+	switch c.protocol {
+	case ProtocolFTP:
+		return ftpserver.ErrStorageExceeded
+	default:
+		return ErrQuotaExceeded
+	}
+}
+
+// IsQuotaExceededError returns true if the given error is a quota exceeded error
+func (c *BaseConnection) IsQuotaExceededError(err error) bool {
+	switch c.protocol {
+	case ProtocolFTP:
+		return errors.Is(err, ftpserver.ErrStorageExceeded)
+	default:
+		return errors.Is(err, ErrQuotaExceeded)
 	}
 }
 

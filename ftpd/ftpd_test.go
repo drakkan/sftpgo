@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	ftpserver "github.com/fclairamb/ftpserverlib"
 	"github.com/jlaffaye/ftp"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -819,11 +820,11 @@ func TestPreUploadHook(t *testing.T) {
 		assert.NoError(t, err)
 		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "permission denied")
+			assert.Contains(t, err.Error(), ftpserver.ErrFileNameNotAllowed.Error())
 		}
 		err = ftpUploadFile(testFilePath, testFileName+"1", testFileSize, client, 0)
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "permission denied")
+			assert.Contains(t, err.Error(), ftpserver.ErrFileNameNotAllowed.Error())
 		}
 		err := client.Quit()
 		assert.NoError(t, err)

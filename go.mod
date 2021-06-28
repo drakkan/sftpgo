@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go v1.38.68
 	github.com/cockroachdb/cockroach-go/v2 v2.1.1
 	github.com/eikenb/pipeat v0.0.0-20210603033007-44fc3ffce52b
-	github.com/fclairamb/ftpserverlib v0.13.3-0.20210614220040-27dccea41813
+	github.com/fclairamb/ftpserverlib v0.13.3-0.20210627202858-3bf551007432
 	github.com/frankban/quicktest v1.13.0 // indirect
 	github.com/go-chi/chi/v5 v5.0.3
 	github.com/go-chi/jwtauth/v5 v5.0.1

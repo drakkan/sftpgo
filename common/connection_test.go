@@ -259,6 +259,8 @@ func TestErrorsMapping(t *testing.T) {
 		} else {
 			assert.EqualError(t, err, vfs.ErrStorageSizeUnavailable.Error())
 		}
+		err = conn.GetQuotaExceededError()
+		assert.True(t, conn.IsQuotaExceededError(err))
 		err = conn.GetFsError(fs, nil)
 		assert.NoError(t, err)
 		err = conn.GetOpUnsupportedError()
@@ -307,7 +309,7 @@ func TestMaxWriteSize(t *testing.T) {
 	quotaResult.QuotaSize = 0
 	quotaResult.UsedSize = 0
 	size, err = conn.GetMaxWriteSize(quotaResult, true, 100, fs.IsUploadResumeSupported())
-	assert.EqualError(t, err, ErrQuotaExceeded.Error())
+	assert.True(t, conn.IsQuotaExceededError(err))
 	assert.Equal(t, int64(0), size)
 
 	size, err = conn.GetMaxWriteSize(quotaResult, true, 10, fs.IsUploadResumeSupported())

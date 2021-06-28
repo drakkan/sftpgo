@@ -207,7 +207,7 @@ func (t *BaseTransfer) Close() error {
 		numFiles = 1
 	}
 	metrics.TransferCompleted(atomic.LoadInt64(&t.BytesSent), atomic.LoadInt64(&t.BytesReceived), t.transferType, t.ErrTransfer)
-	if t.ErrTransfer == ErrQuotaExceeded && t.File != nil {
+	if t.File != nil && t.Connection.IsQuotaExceededError(t.ErrTransfer) {
 		// if quota is exceeded we try to remove the partial file for uploads to local filesystem
 		err = t.Fs.Remove(t.File.Name(), false)
 		if err == nil {

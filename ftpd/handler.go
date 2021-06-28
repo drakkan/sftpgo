@@ -2,6 +2,7 @@ package ftpd
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -318,7 +319,7 @@ func (c *Connection) downloadFile(fs vfs.Fs, fsPath, ftpPath string, offset int6
 func (c *Connection) uploadFile(fs vfs.Fs, fsPath, ftpPath string, flags int) (ftpserver.FileTransfer, error) {
 	if !c.User.IsFileAllowed(ftpPath) {
 		c.Log(logger.LevelWarn, "writing file %#v is not allowed", ftpPath)
-		return nil, c.GetPermissionDeniedError()
+		return nil, ftpserver.ErrFileNameNotAllowed
 	}
 
 	filePath := fsPath
@@ -329,7 +330,7 @@ func (c *Connection) uploadFile(fs vfs.Fs, fsPath, ftpPath string, flags int) (f
 	stat, statErr := fs.Lstat(fsPath)
 	if (statErr == nil && stat.Mode()&os.ModeSymlink != 0) || fs.IsNotExist(statErr) {
 		if !c.User.HasPerm(dataprovider.PermUpload, path.Dir(ftpPath)) {
-			return nil, c.GetPermissionDeniedError()
+			return nil, fmt.Errorf("%w, no upload permission", ftpserver.ErrFileNameNotAllowed)
 		}
 		return c.handleFTPUploadToNewFile(fs, fsPath, filePath, ftpPath)
 	}
@@ -346,7 +347,7 @@ func (c *Connection) uploadFile(fs vfs.Fs, fsPath, ftpPath string, flags int) (f
 	}
 
 	if !c.User.HasPerm(dataprovider.PermOverwrite, path.Dir(ftpPath)) {
-		return nil, c.GetPermissionDeniedError()
+		return nil, fmt.Errorf("%w, no overwrite permission", ftpserver.ErrFileNameNotAllowed)
 	}
 
 	return c.handleFTPUploadToExistingFile(fs, flags, fsPath, filePath, stat.Size(), ftpPath)
@@ -356,11 +357,11 @@ func (c *Connection) handleFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath,
 	quotaResult := c.HasSpace(true, false, requestPath)
 	if !quotaResult.HasSpace {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
-		return nil, common.ErrQuotaExceeded
+		return nil, ftpserver.ErrStorageExceeded
 	}
 	if err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(), 0, 0); err != nil {
 		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
-		return nil, c.GetPermissionDeniedError()
+		return nil, fmt.Errorf("%w, denied by pre-upload action", ftpserver.ErrFileNameNotAllowed)
 	}
 	file, w, cancelFn, err := fs.Create(filePath, 0)
 	if err != nil {
@@ -386,7 +387,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 	quotaResult := c.HasSpace(false, false, requestPath)
 	if !quotaResult.HasSpace {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
-		return nil, common.ErrQuotaExceeded
+		return nil, ftpserver.ErrStorageExceeded
 	}
 	minWriteOffset := int64(0)
 	// ftpserverlib sets:
@@ -404,7 +405,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 	}
 	if err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(), fileSize, flags); err != nil {
 		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
-		return nil, c.GetPermissionDeniedError()
+		return nil, fmt.Errorf("%w, denied by pre-upload action", ftpserver.ErrFileNameNotAllowed)
 	}
 
 	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
