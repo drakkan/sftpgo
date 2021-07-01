@@ -19,9 +19,11 @@ You can get a JWT token using the `/api/v2/token` endpoint, you need to authenti
 
 once the access token has expired, you need to get a new one.
 
-JWT tokens are not stored and we use a randomly generated secret to sign them so if you restart SFTPGo all the previous tokens will be invalidated and you will get a 401 HTTP response code.
+By default, JWT tokens are not stored and we use a randomly generated secret to sign them so if you restart SFTPGo all the previous tokens will be invalidated and you will get a 401 HTTP response code.
 
 If you define multiple bindings, each binding will sign JWT tokens with a different secret so the token generated for a binding is not valid for the other ones.
+
+If, instead, you want to use a persistent signing key for JWT tokens, you can define a signing passphrase via configuration file or environment variable.
 
 You can create other administrator and assign them the following permissions:
 

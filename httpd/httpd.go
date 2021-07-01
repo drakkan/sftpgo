@@ -4,6 +4,7 @@
 package httpd
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"net"
 	"net/http"
@@ -245,6 +246,10 @@ type Conf struct {
 	// CARevocationLists defines a set a revocation lists, one for each root CA, to be used to check
 	// if a client certificate has been revoked
 	CARevocationLists []string `json:"ca_revocation_lists" mapstructure:"ca_revocation_lists"`
+	// SigningPassphrase defines the passphrase to use to derive the signing key for JWT and CSRF tokens.
+	// If empty a random signing key will be generated each time SFTPGo starts. If you set a
+	// signing passphrase you should consider rotating it periodically for added security
+	SigningPassphrase string `json:"signing_passphrase" mapstructure:"signing_passphrase"`
 }
 
 type apiResponse struct {
@@ -289,9 +294,15 @@ func (c *Conf) checkRequiredDirs(staticFilesPath, templatesPath string) error {
 	return nil
 }
 
+func (c *Conf) getRedacted() Conf {
+	conf := *c
+	conf.SigningPassphrase = "[redacted]"
+	return conf
+}
+
 // Initialize configures and starts the HTTP server
 func (c *Conf) Initialize(configDir string) error {
-	logger.Debug(logSender, "", "initializing HTTP server with config %+v", c)
+	logger.Debug(logSender, "", "initializing HTTP server with config %v", c.getRedacted())
 	backupsPath = getConfigPath(c.BackupsPath, configDir)
 	staticFilesPath := getConfigPath(c.StaticFilesPath, configDir)
 	templatesPath := getConfigPath(c.TemplatesPath, configDir)
@@ -331,7 +342,7 @@ func (c *Conf) Initialize(configDir string) error {
 		certMgr = mgr
 	}
 
-	csrfTokenAuth = jwtauth.New(jwa.HS256.String(), utils.GenerateRandomBytes(32), nil)
+	csrfTokenAuth = jwtauth.New(jwa.HS256.String(), getSigningKey(c.SigningPassphrase), nil)
 
 	exitChannel := make(chan error, 1)
 
@@ -344,7 +355,7 @@ func (c *Conf) Initialize(configDir string) error {
 		}
 
 		go func(b Binding) {
-			server := newHttpdServer(b, staticFilesPath)
+			server := newHttpdServer(b, staticFilesPath, c.SigningPassphrase)
 
 			exitChannel <- server.listenAndServe()
 		}(binding)
@@ -473,7 +484,7 @@ func GetHTTPRouter() http.Handler {
 		EnableWebAdmin:  true,
 		EnableWebClient: true,
 	}
-	server := newHttpdServer(b, "../static")
+	server := newHttpdServer(b, "../static", "")
 	server.initializeRouter()
 	return server.router
 }
@@ -512,4 +523,12 @@ func cleanupExpiredJWTTokens() {
 		}
 		return true
 	})
+}
+
+func getSigningKey(signingPassphrase string) []byte {
+	if signingPassphrase != "" {
+		sk := sha256.Sum256([]byte(signingPassphrase))
+		return sk[:]
+	}
+	return utils.GenerateRandomBytes(32)
 }

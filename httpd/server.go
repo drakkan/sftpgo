@@ -31,20 +31,22 @@ var (
 )
 
 type httpdServer struct {
-	binding         Binding
-	staticFilesPath string
-	enableWebAdmin  bool
-	enableWebClient bool
-	router          *chi.Mux
-	tokenAuth       *jwtauth.JWTAuth
+	binding           Binding
+	staticFilesPath   string
+	enableWebAdmin    bool
+	enableWebClient   bool
+	router            *chi.Mux
+	tokenAuth         *jwtauth.JWTAuth
+	signingPassphrase string
 }
 
-func newHttpdServer(b Binding, staticFilesPath string) *httpdServer {
+func newHttpdServer(b Binding, staticFilesPath, signingPassphrase string) *httpdServer {
 	return &httpdServer{
-		binding:         b,
-		staticFilesPath: staticFilesPath,
-		enableWebAdmin:  b.EnableWebAdmin,
-		enableWebClient: b.EnableWebClient,
+		binding:           b,
+		staticFilesPath:   staticFilesPath,
+		enableWebAdmin:    b.EnableWebAdmin,
+		enableWebClient:   b.EnableWebClient,
+		signingPassphrase: signingPassphrase,
 	}
 }
 
@@ -526,7 +528,7 @@ func (s *httpdServer) redirectToWebPath(w http.ResponseWriter, r *http.Request, 
 }
 
 func (s *httpdServer) initializeRouter() {
-	s.tokenAuth = jwtauth.New(jwa.HS256.String(), utils.GenerateRandomBytes(32), nil)
+	s.tokenAuth = jwtauth.New(jwa.HS256.String(), getSigningKey(s.signingPassphrase), nil)
 	s.router = chi.NewRouter()
 
 	s.router.Use(middleware.RequestID)

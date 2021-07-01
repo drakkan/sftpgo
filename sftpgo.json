@@ -200,7 +200,8 @@
     "certificate_file": "",
     "certificate_key_file": "",
     "ca_certificates": [],
-    "ca_revocation_lists": []
+    "ca_revocation_lists": [],
+    "signing_passphrase": ""
   },
   "telemetry": {
     "bind_port": 10000,

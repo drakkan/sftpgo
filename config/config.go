@@ -248,6 +248,7 @@ func Init() {
 			CertificateKeyFile: "",
 			CACertificates:     nil,
 			CARevocationLists:  nil,
+			SigningPassphrase:  "",
 		},
 		HTTPConfig: httpclient.Config{
 			Timeout:        20,
@@ -391,6 +392,7 @@ func getRedactedGlobalConf() globalConfig {
 	conf.Common.StartupHook = utils.GetRedactedURL(conf.Common.StartupHook)
 	conf.Common.PostConnectHook = utils.GetRedactedURL(conf.Common.PostConnectHook)
 	conf.SFTPD.KeyboardInteractiveHook = utils.GetRedactedURL(conf.SFTPD.KeyboardInteractiveHook)
+	conf.HTTPDConfig.SigningPassphrase = "[redacted]"
 	conf.ProviderConf.Password = "[redacted]"
 	conf.ProviderConf.Actions.Hook = utils.GetRedactedURL(conf.ProviderConf.Actions.Hook)
 	conf.ProviderConf.ExternalAuthHook = utils.GetRedactedURL(conf.ProviderConf.ExternalAuthHook)
@@ -939,6 +941,7 @@ func setViperDefaults() {
 	viper.SetDefault("httpd.certificate_key_file", globalConf.HTTPDConfig.CertificateKeyFile)
 	viper.SetDefault("httpd.ca_certificates", globalConf.HTTPDConfig.CACertificates)
 	viper.SetDefault("httpd.ca_revocation_lists", globalConf.HTTPDConfig.CARevocationLists)
+	viper.SetDefault("httpd.signing_passphrase", globalConf.HTTPDConfig.SigningPassphrase)
 	viper.SetDefault("http.timeout", globalConf.HTTPConfig.Timeout)
 	viper.SetDefault("http.retry_wait_min", globalConf.HTTPConfig.RetryWaitMin)
 	viper.SetDefault("http.retry_wait_max", globalConf.HTTPConfig.RetryWaitMax)

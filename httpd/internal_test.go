@@ -1078,7 +1078,7 @@ func TestProxyHeaders(t *testing.T) {
 	}
 	err = b.parseAllowedProxy()
 	assert.NoError(t, err)
-	server := newHttpdServer(b, "")
+	server := newHttpdServer(b, "", "")
 	server.initializeRouter()
 	testServer := httptest.NewServer(server.router)
 	defer testServer.Close()
@@ -1164,7 +1164,7 @@ func TestRecoverer(t *testing.T) {
 		EnableWebAdmin:  true,
 		EnableWebClient: false,
 	}
-	server := newHttpdServer(b, "../static")
+	server := newHttpdServer(b, "../static", "")
 	server.initializeRouter()
 	server.router.Get(recoveryPath, func(w http.ResponseWriter, r *http.Request) {
 		panic("panic")
@@ -1276,7 +1276,7 @@ func TestWebAdminRedirect(t *testing.T) {
 		EnableWebAdmin:  true,
 		EnableWebClient: false,
 	}
-	server := newHttpdServer(b, "../static")
+	server := newHttpdServer(b, "../static", "")
 	server.initializeRouter()
 	testServer := httptest.NewServer(server.router)
 	defer testServer.Close()
@@ -1570,4 +1570,35 @@ func TestTLSReq(t *testing.T) {
 	ctx = context.WithValue(req.Context(), forwardedProtoKey, "http")
 	assert.False(t, isTLS(req.WithContext(ctx)))
 	assert.Equal(t, "context value forwarded proto", forwardedProtoKey.String())
+}
+
+func TestSigningKey(t *testing.T) {
+	signingPassphrase := "test"
+	server1 := httpdServer{
+		signingPassphrase: signingPassphrase,
+	}
+	server1.initializeRouter()
+
+	server2 := httpdServer{
+		signingPassphrase: signingPassphrase,
+	}
+	server2.initializeRouter()
+
+	user := dataprovider.User{
+		Username: "",
+		Password: "pwd",
+	}
+	c := jwtTokenClaims{
+		Username:    user.Username,
+		Permissions: nil,
+		Signature:   user.GetSignature(),
+	}
+	token, err := c.createTokenResponse(server1.tokenAuth, tokenAudienceWebClient)
+	assert.NoError(t, err)
+	accessToken := token["access_token"].(string)
+	assert.NotEmpty(t, accessToken)
+	_, err = server1.tokenAuth.Decode(accessToken)
+	assert.NoError(t, err)
+	_, err = server2.tokenAuth.Decode(accessToken)
+	assert.NoError(t, err)
 }

@@ -32,8 +32,11 @@ const (
 )
 
 var (
-	tokenDuration   = 15 * time.Minute
-	tokenRefreshMin = 10 * time.Minute
+	tokenDuration = 20 * time.Minute
+	// csrf token duration is greater than normal token duration to reduce issues
+	// with the login form
+	csrfTokenDuration = 6 * time.Hour
+	tokenRefreshMin   = 10 * time.Minute
 )
 
 type jwtTokenClaims struct {
@@ -232,7 +235,7 @@ func createCSRFToken() string {
 
 	claims[jwt.JwtIDKey] = xid.New().String()
 	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
-	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
+	claims[jwt.ExpirationKey] = now.Add(csrfTokenDuration)
 	claims[jwt.AudienceKey] = tokenAudienceCSRF
 
 	_, tokenString, err := csrfTokenAuth.Encode(claims)
