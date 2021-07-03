@@ -12,9 +12,12 @@ The following `actions` are supported:
 - `delete`
 - `pre-delete`
 - `rename`
+- `mkdir`
+- `rmdir`
 - `ssh_cmd`
 
 The `upload` condition includes both uploads to new files and overwrite of existing files. If an upload is aborted for quota limits SFTPGo tries to remove the partial file, so if the notification reports a zero size file and a quota exceeded error the file has been deleted. The `ssh_cmd` condition will be triggered after a command is successfully executed via SSH. `scp` will trigger the `download` and `upload` conditions and not `ssh_cmd`.
+For cloud backends directories are virtual, they are created implicitly when you upload a file and are implicitly removed when the last file within a directory is removed. The `mkdir` and `rmdir` notifications are sent only when a directory is explicitly created or removed.
 
 The notification will indicate if an error is detected and so, for example, a partial file is uploaded.
 

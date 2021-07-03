@@ -49,6 +49,8 @@ const (
 	OperationPreUpload = "pre-upload"
 	operationPreDelete = "pre-delete"
 	operationRename    = "rename"
+	operationMkdir     = "mkdir"
+	operationRmdir     = "rmdir"
 	// SSH command action name
 	OperationSSHCmd          = "ssh_cmd"
 	chtimesFormat            = "2006-01-02T15:04:05" // YYYY-MM-DDTHH:MM:SS

@@ -242,6 +242,7 @@ func (c *BaseConnection) CreateDir(virtualPath string) error {
 	vfs.SetPathPermissions(fs, fsPath, c.User.GetUID(), c.User.GetGID())
 
 	logger.CommandLog(mkdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1, c.remoteAddr)
+	ExecuteActionNotification(&c.User, operationMkdir, fsPath, virtualPath, "", "", c.protocol, 0, nil)
 	return nil
 }
 
@@ -346,6 +347,7 @@ func (c *BaseConnection) RemoveDir(virtualPath string) error {
 	}
 
 	logger.CommandLog(rmdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1, c.remoteAddr)
+	ExecuteActionNotification(&c.User, operationRmdir, fsPath, virtualPath, "", "", c.protocol, 0, nil)
 	return nil
 }
 
