@@ -177,6 +177,7 @@ func (fs *S3Fs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, fun
 	}
 	ctx, cancelFn := context.WithCancel(context.Background())
 	downloader := s3manager.NewDownloaderWithClient(fs.svc)
+	downloader.PerChunkTimeout = time.Second * 60
 	var streamRange *string
 	if offset > 0 {
 		streamRange = aws.String(fmt.Sprintf("bytes=%v-", offset))

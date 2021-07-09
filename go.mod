@@ -66,7 +66,7 @@ require (
 	gocloud.dev/secrets/hashivault v0.22.0
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
 	golang.org/x/mod v0.4.2 // indirect
-	golang.org/x/net v0.0.0-20210326220855-61e056675ecf
+	golang.org/x/net v0.0.0-20210614182718-04defd469f4e
 	golang.org/x/oauth2 v0.0.0-20210323180902-22b0adad7558 // indirect
 	golang.org/x/sys v0.0.0-20210326220804-49726bf1d181
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
@@ -79,6 +79,7 @@ require (
 )
 
 replace (
+	github.com/aws/aws-sdk-go => github.com/feedonomics/aws-sdk-go v1.39.5-0.20210709193730-2a9fd66ae53c
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20210328115714-16565bf4b31d
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20210328115440-0aedf3ac0c83

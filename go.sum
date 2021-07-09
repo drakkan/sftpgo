@@ -319,6 +319,8 @@ github.com/fclairamb/ftpserverlib v0.13.0 h1:KzVyAN6lpD+CGzdWJa3o5TQkQw3mF5t3qzG
 github.com/fclairamb/ftpserverlib v0.13.0/go.mod h1:aFncM1UW30Ys2eQ4MWbDQ9ZU8gy25eq0kGC5RH3JQn8=
 github.com/fclairamb/ftpserverlib v0.13.2 h1:kh1n2NzdIJALzF1+X83MuNFPEU5Qx/q+Az5tv98th1M=
 github.com/fclairamb/ftpserverlib v0.13.2/go.mod h1:T7GFWYWSREftxINf3ielPlaQ+aiE04/elEH0zLwkxBA=
+github.com/feedonomics/aws-sdk-go v1.39.5-0.20210709193730-2a9fd66ae53c h1:FgFwpYUopOQDJIMtDG772b90HVq9pvCg0iG4FtQX8qg=
+github.com/feedonomics/aws-sdk-go v1.39.5-0.20210709193730-2a9fd66ae53c/go.mod h1:585smgzpB/KqRA+K3y/NL/oYRqQvpNJYvLm+LY1U59Q=
 github.com/form3tech-oss/jwt-go v3.2.2+incompatible h1:TcekIExNqud5crz4xD2pavyTgWiPvpYe4Xau31I0PRk=
 github.com/form3tech-oss/jwt-go v3.2.2+incompatible/go.mod h1:pbq4aXjuKjdthFRnoDwaVPLA+WlJuPGy+QneDUgJi2k=
 github.com/fortytw2/leaktest v1.3.0 h1:u8491cBMTQ8ft8aeV+adlcytMZylmA5nnwwkRZjI8vw=
@@ -814,6 +816,8 @@ github.com/mitchellh/mapstructure v1.4.1 h1:CpVNEelQCZBooIPDn+AR3NpivK/TIKU8bDxd
 github.com/mitchellh/mapstructure v1.4.1/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/mitchellh/reflectwalk v1.0.0 h1:9D+8oIskB4VJBN5SFlmc27fSlIBZaov1Wpk/IfikLNY=
 github.com/mitchellh/reflectwalk v1.0.0/go.mod h1:mSTlrgnPZtwu0c4WaC2kGObEpuNDbx0jmZXqmk4esnw=
+github.com/mmcgeefeedo/aws-sdk-go v1.39.5-0.20210709193730-2a9fd66ae53c h1:oWoGYeIqv2q2vofF74frzq0dewJ5BVRgdVYl9UpHn/o=
+github.com/mmcgeefeedo/aws-sdk-go v1.39.5-0.20210709193730-2a9fd66ae53c/go.mod h1:585smgzpB/KqRA+K3y/NL/oYRqQvpNJYvLm+LY1U59Q=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w8PVh93nsPXa1VrQ6jlwL5oN8l14QlcNfg=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
