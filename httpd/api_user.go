@@ -12,6 +12,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/kms"
+	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -59,17 +60,17 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 	}
 	user.SetEmptySecretsIfNil()
 	switch user.FsConfig.Provider {
-	case vfs.S3FilesystemProvider:
+	case sdk.S3FilesystemProvider:
 		if user.FsConfig.S3Config.AccessSecret.IsRedacted() {
 			sendAPIResponse(w, r, errors.New("invalid access_secret"), "", http.StatusBadRequest)
 			return
 		}
-	case vfs.GCSFilesystemProvider:
+	case sdk.GCSFilesystemProvider:
 		if user.FsConfig.GCSConfig.Credentials.IsRedacted() {
 			sendAPIResponse(w, r, errors.New("invalid credentials"), "", http.StatusBadRequest)
 			return
 		}
-	case vfs.AzureBlobFilesystemProvider:
+	case sdk.AzureBlobFilesystemProvider:
 		if user.FsConfig.AzBlobConfig.AccountKey.IsRedacted() {
 			sendAPIResponse(w, r, errors.New("invalid account_key"), "", http.StatusBadRequest)
 			return
@@ -78,12 +79,12 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 			sendAPIResponse(w, r, errors.New("invalid sas_url"), "", http.StatusBadRequest)
 			return
 		}
-	case vfs.CryptedFilesystemProvider:
+	case sdk.CryptedFilesystemProvider:
 		if user.FsConfig.CryptConfig.Passphrase.IsRedacted() {
 			sendAPIResponse(w, r, errors.New("invalid passphrase"), "", http.StatusBadRequest)
 			return
 		}
-	case vfs.SFTPFilesystemProvider:
+	case sdk.SFTPFilesystemProvider:
 		if user.FsConfig.SFTPConfig.Password.IsRedacted() {
 			sendAPIResponse(w, r, errors.New("invalid SFTP password"), "", http.StatusBadRequest)
 			return
@@ -185,26 +186,26 @@ func updateEncryptedSecrets(fsConfig *vfs.Filesystem, currentS3AccessSecret, cur
 	currentGCSCredentials, currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey *kms.Secret) {
 	// we use the new access secret if plain or empty, otherwise the old value
 	switch fsConfig.Provider {
-	case vfs.S3FilesystemProvider:
+	case sdk.S3FilesystemProvider:
 		if fsConfig.S3Config.AccessSecret.IsNotPlainAndNotEmpty() {
 			fsConfig.S3Config.AccessSecret = currentS3AccessSecret
 		}
-	case vfs.AzureBlobFilesystemProvider:
+	case sdk.AzureBlobFilesystemProvider:
 		if fsConfig.AzBlobConfig.AccountKey.IsNotPlainAndNotEmpty() {
 			fsConfig.AzBlobConfig.AccountKey = currentAzAccountKey
 		}
 		if fsConfig.AzBlobConfig.SASURL.IsNotPlainAndNotEmpty() {
 			fsConfig.AzBlobConfig.SASURL = currentAzSASUrl
 		}
-	case vfs.GCSFilesystemProvider:
+	case sdk.GCSFilesystemProvider:
 		if fsConfig.GCSConfig.Credentials.IsNotPlainAndNotEmpty() {
 			fsConfig.GCSConfig.Credentials = currentGCSCredentials
 		}
-	case vfs.CryptedFilesystemProvider:
+	case sdk.CryptedFilesystemProvider:
 		if fsConfig.CryptConfig.Passphrase.IsNotPlainAndNotEmpty() {
 			fsConfig.CryptConfig.Passphrase = currentCryptoPassphrase
 		}
-	case vfs.SFTPFilesystemProvider:
+	case sdk.SFTPFilesystemProvider:
 		if fsConfig.SFTPConfig.Password.IsNotPlainAndNotEmpty() {
 			fsConfig.SFTPConfig.Password = currentSFTPPassword
 		}

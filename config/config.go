@@ -18,9 +18,10 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpd"
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/telemetry"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 	"github.com/drakkan/sftpgo/v2/webdavd"
 )
@@ -94,6 +95,7 @@ type globalConfig struct {
 	HTTPConfig      httpclient.Config     `json:"http" mapstructure:"http"`
 	KMSConfig       kms.Configuration     `json:"kms" mapstructure:"kms"`
 	TelemetryConfig telemetry.Conf        `json:"telemetry" mapstructure:"telemetry"`
+	PluginsConfig   []plugin.Config       `json:"plugins" mapstructure:"plugins"`
 }
 
 func init() {
@@ -275,6 +277,7 @@ func Init() {
 			CertificateKeyFile: "",
 			TLSCipherSuites:    nil,
 		},
+		PluginsConfig: nil,
 	}
 
 	viper.SetEnvPrefix(configEnvPrefix)
@@ -371,6 +374,11 @@ func SetTelemetryConfig(config telemetry.Conf) {
 	globalConf.TelemetryConfig = config
 }
 
+// GetPluginsConfig returns the plugins configuration
+func GetPluginsConfig() []plugin.Config {
+	return globalConf.PluginsConfig
+}
+
 // HasServicesToStart returns true if the config defines at least a service to start.
 // Supported services are SFTP, FTP and WebDAV
 func HasServicesToStart() bool {
@@ -388,17 +396,17 @@ func HasServicesToStart() bool {
 
 func getRedactedGlobalConf() globalConfig {
 	conf := globalConf
-	conf.Common.Actions.Hook = utils.GetRedactedURL(conf.Common.Actions.Hook)
-	conf.Common.StartupHook = utils.GetRedactedURL(conf.Common.StartupHook)
-	conf.Common.PostConnectHook = utils.GetRedactedURL(conf.Common.PostConnectHook)
-	conf.SFTPD.KeyboardInteractiveHook = utils.GetRedactedURL(conf.SFTPD.KeyboardInteractiveHook)
+	conf.Common.Actions.Hook = util.GetRedactedURL(conf.Common.Actions.Hook)
+	conf.Common.StartupHook = util.GetRedactedURL(conf.Common.StartupHook)
+	conf.Common.PostConnectHook = util.GetRedactedURL(conf.Common.PostConnectHook)
+	conf.SFTPD.KeyboardInteractiveHook = util.GetRedactedURL(conf.SFTPD.KeyboardInteractiveHook)
 	conf.HTTPDConfig.SigningPassphrase = "[redacted]"
 	conf.ProviderConf.Password = "[redacted]"
-	conf.ProviderConf.Actions.Hook = utils.GetRedactedURL(conf.ProviderConf.Actions.Hook)
-	conf.ProviderConf.ExternalAuthHook = utils.GetRedactedURL(conf.ProviderConf.ExternalAuthHook)
-	conf.ProviderConf.PreLoginHook = utils.GetRedactedURL(conf.ProviderConf.PreLoginHook)
-	conf.ProviderConf.PostLoginHook = utils.GetRedactedURL(conf.ProviderConf.PostLoginHook)
-	conf.ProviderConf.CheckPasswordHook = utils.GetRedactedURL(conf.ProviderConf.CheckPasswordHook)
+	conf.ProviderConf.Actions.Hook = util.GetRedactedURL(conf.ProviderConf.Actions.Hook)
+	conf.ProviderConf.ExternalAuthHook = util.GetRedactedURL(conf.ProviderConf.ExternalAuthHook)
+	conf.ProviderConf.PreLoginHook = util.GetRedactedURL(conf.ProviderConf.PreLoginHook)
+	conf.ProviderConf.PostLoginHook = util.GetRedactedURL(conf.ProviderConf.PostLoginHook)
+	conf.ProviderConf.CheckPasswordHook = util.GetRedactedURL(conf.ProviderConf.CheckPasswordHook)
 	return conf
 }
 
@@ -406,7 +414,7 @@ func setConfigFile(configDir, configFile string) {
 	if configFile == "" {
 		return
 	}
-	if !filepath.IsAbs(configFile) && utils.IsFileInputValid(configFile) {
+	if !filepath.IsAbs(configFile) && util.IsFileInputValid(configFile) {
 		configFile = filepath.Join(configDir, configFile)
 	}
 	viper.SetConfigFile(configFile)
@@ -449,7 +457,7 @@ func LoadConfig(configDir, configFile string) error {
 	if strings.TrimSpace(globalConf.FTPD.Banner) == "" {
 		globalConf.FTPD.Banner = defaultFTPDBanner
 	}
-	if globalConf.ProviderConf.UsersBaseDir != "" && !utils.IsFileInputValid(globalConf.ProviderConf.UsersBaseDir) {
+	if globalConf.ProviderConf.UsersBaseDir != "" && !util.IsFileInputValid(globalConf.ProviderConf.UsersBaseDir) {
 		err = fmt.Errorf("invalid users base dir %#v will be ignored", globalConf.ProviderConf.UsersBaseDir)
 		globalConf.ProviderConf.UsersBaseDir = ""
 		logger.Warn(logSender, "", "Configuration error: %v", err)
@@ -488,6 +496,7 @@ func LoadConfig(configDir, configFile string) error {
 func loadBindingsFromEnv() {
 	for idx := 0; idx < 10; idx++ {
 		getRateLimitersFromEnv(idx)
+		getPluginsFromEnv(idx)
 		getSFTPDBindindFromEnv(idx)
 		getFTPDBindingFromEnv(idx)
 		getWebDAVDBindingFromEnv(idx)
@@ -558,6 +567,65 @@ func getRateLimitersFromEnv(idx int) {
 			globalConf.Common.RateLimitersConfig[idx] = rtlConfig
 		} else {
 			globalConf.Common.RateLimitersConfig = append(globalConf.Common.RateLimitersConfig, rtlConfig)
+		}
+	}
+}
+
+func getPluginsFromEnv(idx int) {
+	pluginConfig := plugin.Config{}
+	if len(globalConf.PluginsConfig) > idx {
+		pluginConfig = globalConf.PluginsConfig[idx]
+	}
+
+	isSet := false
+
+	pluginType, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__TYPE", idx))
+	if ok {
+		pluginConfig.Type = pluginType
+		isSet = true
+	}
+
+	notifierFsEvents, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__FS_EVENTS", idx))
+	if ok {
+		pluginConfig.NotifierOptions.FsEvents = notifierFsEvents
+		isSet = true
+	}
+
+	notifierUserEvents, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__USER_EVENTS", idx))
+	if ok {
+		pluginConfig.NotifierOptions.UserEvents = notifierUserEvents
+		isSet = true
+	}
+
+	cmd, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__CMD", idx))
+	if ok {
+		pluginConfig.Cmd = cmd
+		isSet = true
+	}
+
+	cmdArgs, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__ARGS", idx))
+	if ok {
+		pluginConfig.Args = cmdArgs
+		isSet = true
+	}
+
+	pluginHash, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__SHA256SUM", idx))
+	if ok {
+		pluginConfig.SHA256Sum = pluginHash
+		isSet = true
+	}
+
+	autoMTLS, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__AUTO_MTLS", idx))
+	if ok {
+		pluginConfig.AutoMTLS = autoMTLS
+		isSet = true
+	}
+
+	if isSet {
+		if len(globalConf.PluginsConfig) > idx {
+			globalConf.PluginsConfig[idx] = pluginConfig
+		} else {
+			globalConf.PluginsConfig = append(globalConf.PluginsConfig, pluginConfig)
 		}
 	}
 }
@@ -988,7 +1056,10 @@ func lookupStringListFromEnv(envName string) ([]string, bool) {
 	if ok {
 		var result []string
 		for _, v := range strings.Split(value, ",") {
-			result = append(result, strings.TrimSpace(v))
+			val := strings.TrimSpace(v)
+			if val != "" {
+				result = append(result, val)
+			}
 		}
 		return result, true
 	}

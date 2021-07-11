@@ -16,6 +16,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/ftpd"
 	"github.com/drakkan/sftpgo/v2/httpd"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin"
 	"github.com/drakkan/sftpgo/v2/telemetry"
 	"github.com/drakkan/sftpgo/v2/webdavd"
 )
@@ -330,6 +331,7 @@ func (s *WindowsService) Stop() error {
 			return fmt.Errorf("could not retrieve service status: %v", err)
 		}
 	}
+	plugin.Handler.Cleanup()
 	return nil
 }
 

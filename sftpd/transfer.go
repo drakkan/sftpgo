@@ -8,7 +8,7 @@ import (
 	"github.com/eikenb/pipeat"
 
 	"github.com/drakkan/sftpgo/v2/common"
-	"github.com/drakkan/sftpgo/v2/metrics"
+	"github.com/drakkan/sftpgo/v2/metric"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -224,7 +224,7 @@ func (t *transfer) copyFromReaderToWriter(dst io.Writer, src io.Reader) (int64, 
 	}
 	t.ErrTransfer = err
 	if written > 0 || err != nil {
-		metrics.TransferCompleted(atomic.LoadInt64(&t.BytesSent), atomic.LoadInt64(&t.BytesReceived), t.GetType(), t.ErrTransfer)
+		metric.TransferCompleted(atomic.LoadInt64(&t.BytesSent), atomic.LoadInt64(&t.BytesReceived), t.GetType(), t.ErrTransfer)
 	}
 	return written, err
 }

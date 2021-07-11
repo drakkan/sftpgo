@@ -32,6 +32,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpdtest"
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/vfs"
 	"github.com/drakkan/sftpgo/v2/webdavd"
@@ -859,14 +860,14 @@ func TestPreLoginHook(t *testing.T) {
 	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(user, true), os.ModePerm)
 	assert.NoError(t, err)
 	// update the user to remove it from the cache
-	user.FsConfig.Provider = vfs.CryptedFilesystemProvider
+	user.FsConfig.Provider = sdk.CryptedFilesystemProvider
 	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret(defaultPassword)
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client = getWebDavClient(user, true, nil)
 	assert.Error(t, checkBasicFunc(client))
 	// update the user to remove it from the cache
-	user.FsConfig.Provider = vfs.LocalFilesystemProvider
+	user.FsConfig.Provider = sdk.LocalFilesystemProvider
 	user.FsConfig.CryptConfig.Passphrase = nil
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
@@ -1120,7 +1121,7 @@ func TestDownloadErrors(t *testing.T) {
 	u.Permissions[path.Join("/", subDir2)] = []string{dataprovider.PermListItems, dataprovider.PermUpload,
 		dataprovider.PermDelete, dataprovider.PermDownload}
 	// use an unknown mime to trigger content type detection
-	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:            "/sub2",
 			AllowedPatterns: []string{},
@@ -1170,7 +1171,7 @@ func TestUploadErrors(t *testing.T) {
 	u.Permissions[path.Join("/", subDir1)] = []string{dataprovider.PermListItems, dataprovider.PermDownload}
 	u.Permissions[path.Join("/", subDir2)] = []string{dataprovider.PermListItems, dataprovider.PermUpload,
 		dataprovider.PermDelete, dataprovider.PermDownload}
-	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:            "/sub2",
 			AllowedPatterns: []string{},
@@ -1489,7 +1490,7 @@ func TestClientClose(t *testing.T) {
 
 func TestLoginWithDatabaseCredentials(t *testing.T) {
 	u := getTestUser()
-	u.FsConfig.Provider = vfs.GCSFilesystemProvider
+	u.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret(`{ "type": "service_account" }`)
 
@@ -1537,7 +1538,7 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 
 func TestLoginInvalidFs(t *testing.T) {
 	u := getTestUser()
-	u.FsConfig.Provider = vfs.GCSFilesystemProvider
+	u.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("invalid JSON for credentials")
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -2007,7 +2008,7 @@ func TestMiscCommands(t *testing.T) {
 func TestClientCertificateAuthRevokedCert(t *testing.T) {
 	u := getTestUser()
 	u.Username = tlsClient2Username
-	u.Filters.TLSUsername = dataprovider.TLSUsernameCN
+	u.Filters.TLSUsername = sdk.TLSUsernameCN
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	tlsConfig := &tls.Config{
@@ -2055,7 +2056,7 @@ func TestClientCertificateAuth(t *testing.T) {
 		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, string(body))
 	}
 
-	user.Filters.TLSUsername = dataprovider.TLSUsernameCN
+	user.Filters.TLSUsername = sdk.TLSUsernameCN
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client := getWebDavClient(user, true, tlsConfig)
@@ -2079,7 +2080,7 @@ func TestWrongClientCertificate(t *testing.T) {
 	u := getTestUser()
 	u.Username = tlsClient2Username
 	u.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodTLSCertificateAndPwd}
-	u.Filters.TLSUsername = dataprovider.TLSUsernameCN
+	u.Filters.TLSUsername = sdk.TLSUsernameCN
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	tlsConfig := &tls.Config{
@@ -2108,7 +2109,7 @@ func TestWrongClientCertificate(t *testing.T) {
 	u = getTestUser()
 	u.Username = tlsClient1Username
 	u.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodPassword, dataprovider.LoginMethodTLSCertificate}
-	u.Filters.TLSUsername = dataprovider.TLSUsernameCN
+	u.Filters.TLSUsername = sdk.TLSUsernameCN
 	user1, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
@@ -2135,7 +2136,7 @@ func TestWrongClientCertificate(t *testing.T) {
 func TestClientCertificateAuthCachedUser(t *testing.T) {
 	u := getTestUser()
 	u.Username = tlsClient1Username
-	u.Filters.TLSUsername = dataprovider.TLSUsernameCN
+	u.Filters.TLSUsername = sdk.TLSUsernameCN
 	u.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodTLSCertificateAndPwd}
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -2199,7 +2200,7 @@ func TestExternatAuthWithClientCert(t *testing.T) {
 	}
 	u := getTestUser()
 	u.Username = tlsClient1Username
-	u.Filters.TLSUsername = dataprovider.TLSUsernameCN
+	u.Filters.TLSUsername = sdk.TLSUsernameCN
 	u.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodTLSCertificate, dataprovider.LoginMethodPassword}
 	err := dataprovider.Close()
 	assert.NoError(t, err)
@@ -2258,7 +2259,7 @@ func TestPreLoginHookWithClientCert(t *testing.T) {
 	}
 	u := getTestUser()
 	u.Username = tlsClient1Username
-	u.Filters.TLSUsername = dataprovider.TLSUsernameCN
+	u.Filters.TLSUsername = sdk.TLSUsernameCN
 	u.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodTLSCertificate, dataprovider.LoginMethodPassword}
 	err := dataprovider.Close()
 	assert.NoError(t, err)
@@ -2332,21 +2333,25 @@ func TestSFTPLoopVirtualFolders(t *testing.T) {
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: "sftp",
 			FsConfig: vfs.Filesystem{
-				Provider: vfs.SFTPFilesystemProvider,
+				Provider: sdk.SFTPFilesystemProvider,
 				SFTPConfig: vfs.SFTPFsConfig{
-					Endpoint: sftpServerAddr,
-					Username: user2.Username,
-					Password: kms.NewPlainSecret(defaultPassword),
+					SFTPFsConfig: sdk.SFTPFsConfig{
+						Endpoint: sftpServerAddr,
+						Username: user2.Username,
+						Password: kms.NewPlainSecret(defaultPassword),
+					},
 				},
 			},
 		},
 		VirtualPath: "/vdir",
 	})
-	user2.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	user2.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	user2.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
-		Endpoint: sftpServerAddr,
-		Username: user1.Username,
-		Password: kms.NewPlainSecret(defaultPassword),
+		SFTPFsConfig: sdk.SFTPFsConfig{
+			Endpoint: sftpServerAddr,
+			Username: user1.Username,
+			Password: kms.NewPlainSecret(defaultPassword),
+		},
 	}
 
 	user1, resp, err := httpdtest.AddUser(user1, http.StatusCreated)
@@ -2391,9 +2396,11 @@ func TestNestedVirtualFolders(t *testing.T) {
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: folderNameCrypt,
 			FsConfig: vfs.Filesystem{
-				Provider: vfs.CryptedFilesystemProvider,
+				Provider: sdk.CryptedFilesystemProvider,
 				CryptConfig: vfs.CryptFsConfig{
-					Passphrase: kms.NewPlainSecret(defaultPassword),
+					CryptFsConfig: sdk.CryptFsConfig{
+						Passphrase: kms.NewPlainSecret(defaultPassword),
+					},
 				},
 			},
 			MappedPath: mappedPathCrypt,
@@ -2593,11 +2600,13 @@ func waitTCPListening(address string) {
 
 func getTestUser() dataprovider.User {
 	user := dataprovider.User{
-		Username:       defaultUsername,
-		Password:       defaultPassword,
-		HomeDir:        filepath.Join(homeBasePath, defaultUsername),
-		Status:         1,
-		ExpirationDate: 0,
+		BaseUser: sdk.BaseUser{
+			Username:       defaultUsername,
+			Password:       defaultPassword,
+			HomeDir:        filepath.Join(homeBasePath, defaultUsername),
+			Status:         1,
+			ExpirationDate: 0,
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = allPerms
@@ -2607,7 +2616,7 @@ func getTestUser() dataprovider.User {
 func getTestSFTPUser() dataprovider.User {
 	u := getTestUser()
 	u.Username = u.Username + "_sftp"
-	u.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	u.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	u.FsConfig.SFTPConfig.Endpoint = sftpServerAddr
 	u.FsConfig.SFTPConfig.Username = defaultUsername
 	u.FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)
@@ -2616,7 +2625,7 @@ func getTestSFTPUser() dataprovider.User {
 
 func getTestUserWithCryptFs() dataprovider.User {
 	user := getTestUser()
-	user.FsConfig.Provider = vfs.CryptedFilesystemProvider
+	user.FsConfig.Provider = sdk.CryptedFilesystemProvider
 	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("testPassphrase")
 	return user
 }

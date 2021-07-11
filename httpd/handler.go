@@ -10,7 +10,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 // Connection details for a HTTP connection used to inteact with an SFTPGo filesystem
@@ -53,7 +53,7 @@ func (c *Connection) GetCommand() string {
 func (c *Connection) Stat(name string, mode int) (os.FileInfo, error) {
 	c.UpdateLastActivity()
 
-	name = utils.CleanPath(name)
+	name = util.CleanPath(name)
 	if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(name)) {
 		return nil, c.GetPermissionDeniedError()
 	}
@@ -70,14 +70,14 @@ func (c *Connection) Stat(name string, mode int) (os.FileInfo, error) {
 func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 	c.UpdateLastActivity()
 
-	name = utils.CleanPath(name)
+	name = util.CleanPath(name)
 	return c.ListDir(name)
 }
 
 func (c *Connection) getFileReader(name string, offset int64, method string) (io.ReadCloser, error) {
 	c.UpdateLastActivity()
 
-	name = utils.CleanPath(name)
+	name = util.CleanPath(name)
 	if !c.User.HasPerm(dataprovider.PermDownload, path.Dir(name)) {
 		return nil, c.GetPermissionDeniedError()
 	}

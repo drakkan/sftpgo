@@ -23,7 +23,8 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/kms"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -381,8 +382,10 @@ func TestOrderDirsToRemove(t *testing.T) {
 
 func TestUserInvalidParams(t *testing.T) {
 	u := &dataprovider.User{
-		Username: "username",
-		HomeDir:  "invalid",
+		BaseUser: sdk.BaseUser{
+			Username: "username",
+			HomeDir:  "invalid",
+		},
 	}
 	c := &Configuration{
 		Bindings: []Binding{
@@ -433,15 +436,15 @@ func TestRemoteAddress(t *testing.T) {
 	assert.Empty(t, req.RemoteAddr)
 
 	req.Header.Set("True-Client-IP", remoteAddr1)
-	ip := utils.GetRealIP(req)
+	ip := util.GetRealIP(req)
 	assert.Equal(t, remoteAddr1, ip)
 	req.Header.Del("True-Client-IP")
 	req.Header.Set("CF-Connecting-IP", remoteAddr1)
-	ip = utils.GetRealIP(req)
+	ip = util.GetRealIP(req)
 	assert.Equal(t, remoteAddr1, ip)
 	req.Header.Del("CF-Connecting-IP")
 	req.Header.Set("X-Forwarded-For", remoteAddr1)
-	ip = utils.GetRealIP(req)
+	ip = util.GetRealIP(req)
 	assert.Equal(t, remoteAddr1, ip)
 	// this will be ignored, remoteAddr1 is not allowed to se this header
 	req.Header.Set("X-Forwarded-For", remoteAddr2)
@@ -453,7 +456,7 @@ func TestRemoteAddress(t *testing.T) {
 	assert.Empty(t, ip)
 
 	req.Header.Set("X-Forwarded-For", fmt.Sprintf("%v, %v", remoteAddr2, remoteAddr1))
-	ip = utils.GetRealIP(req)
+	ip = util.GetRealIP(req)
 	assert.Equal(t, remoteAddr2, ip)
 
 	req.RemoteAddr = remoteAddr2
@@ -477,7 +480,7 @@ func TestRemoteAddress(t *testing.T) {
 	req.Header.Del("X-Forwarded-For")
 	req.RemoteAddr = ""
 	req.Header.Set("X-Real-IP", remoteAddr1)
-	ip = utils.GetRealIP(req)
+	ip = util.GetRealIP(req)
 	assert.Equal(t, remoteAddr1, ip)
 	req.RemoteAddr = ""
 }
@@ -492,7 +495,9 @@ func TestConnWithNilRequest(t *testing.T) {
 func TestResolvePathErrors(t *testing.T) {
 	ctx := context.Background()
 	user := dataprovider.User{
-		HomeDir: "invalid",
+		BaseUser: sdk.BaseUser{
+			HomeDir: "invalid",
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
@@ -561,7 +566,9 @@ func TestResolvePathErrors(t *testing.T) {
 func TestFileAccessErrors(t *testing.T) {
 	ctx := context.Background()
 	user := dataprovider.User{
-		HomeDir: filepath.Clean(os.TempDir()),
+		BaseUser: sdk.BaseUser{
+			HomeDir: filepath.Clean(os.TempDir()),
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
@@ -622,7 +629,9 @@ func TestFileAccessErrors(t *testing.T) {
 
 func TestRemoveDirTree(t *testing.T) {
 	user := dataprovider.User{
-		HomeDir: filepath.Clean(os.TempDir()),
+		BaseUser: sdk.BaseUser{
+			HomeDir: filepath.Clean(os.TempDir()),
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
@@ -673,7 +682,9 @@ func TestRemoveDirTree(t *testing.T) {
 
 func TestContentType(t *testing.T) {
 	user := dataprovider.User{
-		HomeDir: filepath.Clean(os.TempDir()),
+		BaseUser: sdk.BaseUser{
+			HomeDir: filepath.Clean(os.TempDir()),
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
@@ -722,7 +733,9 @@ func TestContentType(t *testing.T) {
 
 func TestTransferReadWriteErrors(t *testing.T) {
 	user := dataprovider.User{
-		HomeDir: filepath.Clean(os.TempDir()),
+		BaseUser: sdk.BaseUser{
+			HomeDir: filepath.Clean(os.TempDir()),
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
@@ -815,7 +828,9 @@ func TestTransferReadWriteErrors(t *testing.T) {
 
 func TestTransferSeek(t *testing.T) {
 	user := dataprovider.User{
-		HomeDir: filepath.Clean(os.TempDir()),
+		BaseUser: sdk.BaseUser{
+			HomeDir: filepath.Clean(os.TempDir()),
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
@@ -910,11 +925,13 @@ func TestBasicUsersCache(t *testing.T) {
 	username := "webdav_internal_test"
 	password := "pwd"
 	u := dataprovider.User{
-		Username:       username,
-		Password:       password,
-		HomeDir:        filepath.Join(os.TempDir(), username),
-		Status:         1,
-		ExpirationDate: 0,
+		BaseUser: sdk.BaseUser{
+			Username:       username,
+			Password:       password,
+			HomeDir:        filepath.Join(os.TempDir(), username),
+			Status:         1,
+			ExpirationDate: 0,
+		},
 	}
 	u.Permissions = make(map[string][]string)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
@@ -1032,11 +1049,13 @@ func TestCachedUserWithFolders(t *testing.T) {
 	password := "dav_pwd"
 	folderName := "test_folder"
 	u := dataprovider.User{
-		Username:       username,
-		Password:       password,
-		HomeDir:        filepath.Join(os.TempDir(), username),
-		Status:         1,
-		ExpirationDate: 0,
+		BaseUser: sdk.BaseUser{
+			Username:       username,
+			Password:       password,
+			HomeDir:        filepath.Join(os.TempDir(), username),
+			Status:         1,
+			ExpirationDate: 0,
+		},
 	}
 	u.Permissions = make(map[string][]string)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
@@ -1140,9 +1159,11 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	username := "webdav_internal_test"
 	password := "pwd"
 	u := dataprovider.User{
-		HomeDir:        filepath.Join(os.TempDir(), username),
-		Status:         1,
-		ExpirationDate: 0,
+		BaseUser: sdk.BaseUser{
+			HomeDir:        filepath.Join(os.TempDir(), username),
+			Status:         1,
+			ExpirationDate: 0,
+		},
 	}
 	u.Username = username + "1"
 	u.Password = password + "1"
@@ -1348,11 +1369,13 @@ func TestUserCacheIsolation(t *testing.T) {
 	username := "webdav_internal_cache_test"
 	password := "dav_pwd"
 	u := dataprovider.User{
-		Username:       username,
-		Password:       password,
-		HomeDir:        filepath.Join(os.TempDir(), username),
-		Status:         1,
-		ExpirationDate: 0,
+		BaseUser: sdk.BaseUser{
+			Username:       username,
+			Password:       password,
+			HomeDir:        filepath.Join(os.TempDir(), username),
+			Status:         1,
+			ExpirationDate: 0,
+		},
 	}
 	u.Permissions = make(map[string][]string)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
@@ -1382,13 +1405,13 @@ func TestUserCacheIsolation(t *testing.T) {
 		assert.True(t, cachedUser.User.FsConfig.S3Config.AccessSecret.IsEncrypted())
 		err = cachedUser.User.FsConfig.S3Config.AccessSecret.Decrypt()
 		assert.NoError(t, err)
-		cachedUser.User.FsConfig.Provider = vfs.S3FilesystemProvider
+		cachedUser.User.FsConfig.Provider = sdk.S3FilesystemProvider
 		_, err = cachedUser.User.GetFilesystem("")
 		assert.Error(t, err, "we don't have to get the previously cached filesystem!")
 	}
 	cachedUser, ok = dataprovider.GetCachedWebDAVUser(username)
 	if assert.True(t, ok) {
-		assert.Equal(t, vfs.LocalFilesystemProvider, cachedUser.User.FsConfig.Provider)
+		assert.Equal(t, sdk.LocalFilesystemProvider, cachedUser.User.FsConfig.Provider)
 		assert.False(t, cachedUser.User.FsConfig.S3Config.AccessSecret.IsEncrypted())
 	}
 

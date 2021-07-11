@@ -18,7 +18,8 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 const dirMimeType = "inode/directory"
@@ -139,29 +140,7 @@ func (q *QuotaCheckResult) GetRemainingFiles() int {
 
 // S3FsConfig defines the configuration for S3 based filesystem
 type S3FsConfig struct {
-	Bucket string `json:"bucket,omitempty"`
-	// KeyPrefix is similar to a chroot directory for local filesystem.
-	// If specified then the SFTP user will only see objects that starts
-	// with this prefix and so you can restrict access to a specific
-	// folder. The prefix, if not empty, must not start with "/" and must
-	// end with "/".
-	// If empty the whole bucket contents will be available
-	KeyPrefix    string      `json:"key_prefix,omitempty"`
-	Region       string      `json:"region,omitempty"`
-	AccessKey    string      `json:"access_key,omitempty"`
-	AccessSecret *kms.Secret `json:"access_secret,omitempty"`
-	Endpoint     string      `json:"endpoint,omitempty"`
-	StorageClass string      `json:"storage_class,omitempty"`
-	// The buffer size (in MB) to use for multipart uploads. The minimum allowed part size is 5MB,
-	// and if this value is set to zero, the default value (5MB) for the AWS SDK will be used.
-	// The minimum allowed value is 5.
-	// Please note that if the upload bandwidth between the SFTP client and SFTPGo is greater than
-	// the upload bandwidth between SFTPGo and S3 then the SFTP client have to wait for the upload
-	// of the last parts to S3 after it ends the file upload to SFTPGo, and it may time out.
-	// Keep this in mind if you customize these parameters.
-	UploadPartSize int64 `json:"upload_part_size,omitempty"`
-	// How many parts are uploaded in parallel
-	UploadConcurrency int `json:"upload_concurrency,omitempty"`
+	sdk.S3FsConfig
 }
 
 func (c *S3FsConfig) isEqual(other *S3FsConfig) bool {
@@ -260,19 +239,7 @@ func (c *S3FsConfig) Validate() error {
 
 // GCSFsConfig defines the configuration for Google Cloud Storage based filesystem
 type GCSFsConfig struct {
-	Bucket string `json:"bucket,omitempty"`
-	// KeyPrefix is similar to a chroot directory for local filesystem.
-	// If specified then the SFTP user will only see objects that starts
-	// with this prefix and so you can restrict access to a specific
-	// folder. The prefix, if not empty, must not start with "/" and must
-	// end with "/".
-	// If empty the whole bucket contents will be available
-	KeyPrefix      string      `json:"key_prefix,omitempty"`
-	CredentialFile string      `json:"-"`
-	Credentials    *kms.Secret `json:"credentials,omitempty"`
-	// 0 explicit, 1 automatic
-	AutomaticCredentials int    `json:"automatic_credentials,omitempty"`
-	StorageClass         string `json:"storage_class,omitempty"`
+	sdk.GCSFsConfig
 }
 
 func (c *GCSFsConfig) isEqual(other *GCSFsConfig) bool {
@@ -331,39 +298,7 @@ func (c *GCSFsConfig) Validate(credentialsFilePath string) error {
 
 // AzBlobFsConfig defines the configuration for Azure Blob Storage based filesystem
 type AzBlobFsConfig struct {
-	Container string `json:"container,omitempty"`
-	// Storage Account Name, leave blank to use SAS URL
-	AccountName string `json:"account_name,omitempty"`
-	// Storage Account Key leave blank to use SAS URL.
-	// The access key is stored encrypted based on the kms configuration
-	AccountKey *kms.Secret `json:"account_key,omitempty"`
-	// Optional endpoint. Default is "blob.core.windows.net".
-	// If you use the emulator the endpoint must include the protocol,
-	// for example "http://127.0.0.1:10000"
-	Endpoint string `json:"endpoint,omitempty"`
-	// Shared access signature URL, leave blank if using account/key
-	SASURL *kms.Secret `json:"sas_url,omitempty"`
-	// KeyPrefix is similar to a chroot directory for local filesystem.
-	// If specified then the SFTPGo user will only see objects that starts
-	// with this prefix and so you can restrict access to a specific
-	// folder. The prefix, if not empty, must not start with "/" and must
-	// end with "/".
-	// If empty the whole bucket contents will be available
-	KeyPrefix string `json:"key_prefix,omitempty"`
-	// The buffer size (in MB) to use for multipart uploads.
-	// If this value is set to zero, the default value (1MB) for the Azure SDK will be used.
-	// Please note that if the upload bandwidth between the SFTPGo client and SFTPGo server is
-	// greater than the upload bandwidth between SFTPGo and Azure then the SFTP client have
-	// to wait for the upload of the last parts to Azure after it ends the file upload to SFTPGo,
-	// and it may time out.
-	// Keep this in mind if you customize these parameters.
-	UploadPartSize int64 `json:"upload_part_size,omitempty"`
-	// How many parts are uploaded in parallel
-	UploadConcurrency int `json:"upload_concurrency,omitempty"`
-	// Set to true if you use an Azure emulator such as Azurite
-	UseEmulator bool `json:"use_emulator,omitempty"`
-	// Blob Access Tier
-	AccessTier string `json:"access_tier,omitempty"`
+	sdk.AzBlobFsConfig
 }
 
 func (c *AzBlobFsConfig) isEqual(other *AzBlobFsConfig) bool {
@@ -476,7 +411,7 @@ func (c *AzBlobFsConfig) Validate() error {
 	if c.UploadConcurrency < 0 || c.UploadConcurrency > 64 {
 		return fmt.Errorf("invalid upload concurrency: %v", c.UploadConcurrency)
 	}
-	if !utils.IsStringInSlice(c.AccessTier, validAzAccessTier) {
+	if !util.IsStringInSlice(c.AccessTier, validAzAccessTier) {
 		return fmt.Errorf("invalid access tier %#v, valid values: \"''%v\"", c.AccessTier, strings.Join(validAzAccessTier, ", "))
 	}
 	return nil
@@ -484,7 +419,7 @@ func (c *AzBlobFsConfig) Validate() error {
 
 // CryptFsConfig defines the configuration to store local files as encrypted
 type CryptFsConfig struct {
-	Passphrase *kms.Secret `json:"passphrase,omitempty"`
+	sdk.CryptFsConfig
 }
 
 func (c *CryptFsConfig) isEqual(other *CryptFsConfig) bool {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/kms"
+	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -50,9 +51,11 @@ func TestTransferUpdateQuota(t *testing.T) {
 
 func TestTransferThrottling(t *testing.T) {
 	u := dataprovider.User{
-		Username:          "test",
-		UploadBandwidth:   50,
-		DownloadBandwidth: 40,
+		BaseUser: sdk.BaseUser{
+			Username:          "test",
+			UploadBandwidth:   50,
+			DownloadBandwidth: 40,
+		},
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
 	testFileSize := int64(131072)
@@ -88,8 +91,10 @@ func TestRealPath(t *testing.T) {
 	testFile := filepath.Join(os.TempDir(), "afile.txt")
 	fs := vfs.NewOsFs("123", os.TempDir(), "")
 	u := dataprovider.User{
-		Username: "user",
-		HomeDir:  os.TempDir(),
+		BaseUser: sdk.BaseUser{
+			Username: "user",
+			HomeDir:  os.TempDir(),
+		},
 	}
 	u.Permissions = make(map[string][]string)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
@@ -119,8 +124,10 @@ func TestTruncate(t *testing.T) {
 	testFile := filepath.Join(os.TempDir(), "transfer_test_file")
 	fs := vfs.NewOsFs("123", os.TempDir(), "")
 	u := dataprovider.User{
-		Username: "user",
-		HomeDir:  os.TempDir(),
+		BaseUser: sdk.BaseUser{
+			Username: "user",
+			HomeDir:  os.TempDir(),
+		},
 	}
 	u.Permissions = make(map[string][]string)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
@@ -183,8 +190,10 @@ func TestTransferErrors(t *testing.T) {
 	testFile := filepath.Join(os.TempDir(), "transfer_test_file")
 	fs := vfs.NewOsFs("id", os.TempDir(), "")
 	u := dataprovider.User{
-		Username: "test",
-		HomeDir:  os.TempDir(),
+		BaseUser: sdk.BaseUser{
+			Username: "test",
+			HomeDir:  os.TempDir(),
+		},
 	}
 	err := os.WriteFile(testFile, []byte("test data"), os.ModePerm)
 	assert.NoError(t, err)
@@ -255,11 +264,13 @@ func TestTransferErrors(t *testing.T) {
 
 func TestRemovePartialCryptoFile(t *testing.T) {
 	testFile := filepath.Join(os.TempDir(), "transfer_test_file")
-	fs, err := vfs.NewCryptFs("id", os.TempDir(), "", vfs.CryptFsConfig{Passphrase: kms.NewPlainSecret("secret")})
+	fs, err := vfs.NewCryptFs("id", os.TempDir(), "", vfs.CryptFsConfig{CryptFsConfig: sdk.CryptFsConfig{Passphrase: kms.NewPlainSecret("secret")}})
 	require.NoError(t, err)
 	u := dataprovider.User{
-		Username: "test",
-		HomeDir:  os.TempDir(),
+		BaseUser: sdk.BaseUser{
+			Username: "test",
+			HomeDir:  os.TempDir(),
+		},
 	}
 	conn := NewBaseConnection(fs.ConnectionID(), ProtocolSFTP, "", u)
 	transfer := NewBaseTransfer(nil, conn, nil, testFile, testFile, "/transfer_test_file", TransferUpload, 0, 0, 0, true, fs)

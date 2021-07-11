@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -45,7 +45,7 @@ type MemoryProvider struct {
 
 func initializeMemoryProvider(basePath string) {
 	configFile := ""
-	if utils.IsFileInputValid(config.Name) {
+	if util.IsFileInputValid(config.Name) {
 		configFile = config.Name
 		if !filepath.IsAbs(configFile) {
 			configFile = filepath.Join(basePath, configFile)
@@ -147,7 +147,7 @@ func (p *MemoryProvider) updateLastLogin(username string) error {
 	if err != nil {
 		return err
 	}
-	user.LastLogin = utils.GetTimeAsMsSinceEpoch(time.Now())
+	user.LastLogin = util.GetTimeAsMsSinceEpoch(time.Now())
 	p.dbHandle.users[user.Username] = user
 	return nil
 }
@@ -170,7 +170,7 @@ func (p *MemoryProvider) updateQuota(username string, filesAdd int, sizeAdd int6
 		user.UsedQuotaSize += sizeAdd
 		user.UsedQuotaFiles += filesAdd
 	}
-	user.LastQuotaUpdate = utils.GetTimeAsMsSinceEpoch(time.Now())
+	user.LastQuotaUpdate = util.GetTimeAsMsSinceEpoch(time.Now())
 	providerLog(logger.LevelDebug, "quota updated for user %#v, files increment: %v size increment: %v is reset? %v",
 		username, filesAdd, sizeAdd, reset)
 	p.dbHandle.users[user.Username] = user
@@ -367,7 +367,7 @@ func (p *MemoryProvider) userExistsInternal(username string) (User, error) {
 	if val, ok := p.dbHandle.users[username]; ok {
 		return val.getACopy(), nil
 	}
-	return User{}, utils.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", username))
+	return User{}, util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", username))
 }
 
 func (p *MemoryProvider) addAdmin(admin *Admin) error {
@@ -444,7 +444,7 @@ func (p *MemoryProvider) adminExistsInternal(username string) (Admin, error) {
 	if val, ok := p.dbHandle.admins[username]; ok {
 		return val.getACopy(), nil
 	}
-	return Admin{}, utils.NewRecordNotFoundError(fmt.Sprintf("admin %#v does not exist", username))
+	return Admin{}, util.NewRecordNotFoundError(fmt.Sprintf("admin %#v does not exist", username))
 }
 
 func (p *MemoryProvider) dumpAdmins() ([]Admin, error) {
@@ -526,7 +526,7 @@ func (p *MemoryProvider) updateFolderQuota(name string, filesAdd int, sizeAdd in
 		folder.UsedQuotaSize += sizeAdd
 		folder.UsedQuotaFiles += filesAdd
 	}
-	folder.LastQuotaUpdate = utils.GetTimeAsMsSinceEpoch(time.Now())
+	folder.LastQuotaUpdate = util.GetTimeAsMsSinceEpoch(time.Now())
 	p.dbHandle.vfolders[name] = folder
 	return nil
 }
@@ -574,7 +574,7 @@ func (p *MemoryProvider) removeUserFromFolderMapping(folderName, username string
 
 func (p *MemoryProvider) updateFoldersMappingInternal(folder vfs.BaseVirtualFolder) {
 	p.dbHandle.vfolders[folder.Name] = folder
-	if !utils.IsStringInSlice(folder.Name, p.dbHandle.vfoldersNames) {
+	if !util.IsStringInSlice(folder.Name, p.dbHandle.vfoldersNames) {
 		p.dbHandle.vfoldersNames = append(p.dbHandle.vfoldersNames, folder.Name)
 		sort.Strings(p.dbHandle.vfoldersNames)
 	}
@@ -588,13 +588,13 @@ func (p *MemoryProvider) addOrUpdateFolderInternal(baseFolder *vfs.BaseVirtualFo
 		folder.MappedPath = baseFolder.MappedPath
 		folder.Description = baseFolder.Description
 		folder.FsConfig = baseFolder.FsConfig.GetACopy()
-		if !utils.IsStringInSlice(username, folder.Users) {
+		if !util.IsStringInSlice(username, folder.Users) {
 			folder.Users = append(folder.Users, username)
 		}
 		p.updateFoldersMappingInternal(folder)
 		return folder, nil
 	}
-	if _, ok := err.(*utils.RecordNotFoundError); ok {
+	if _, ok := err.(*util.RecordNotFoundError); ok {
 		folder = baseFolder.GetACopy()
 		folder.ID = p.getNextFolderID()
 		folder.UsedQuotaSize = usedQuotaSize
@@ -611,7 +611,7 @@ func (p *MemoryProvider) folderExistsInternal(name string) (vfs.BaseVirtualFolde
 	if val, ok := p.dbHandle.vfolders[name]; ok {
 		return val, nil
 	}
-	return vfs.BaseVirtualFolder{}, utils.NewRecordNotFoundError(fmt.Sprintf("folder %#v does not exist", name))
+	return vfs.BaseVirtualFolder{}, util.NewRecordNotFoundError(fmt.Sprintf("folder %#v does not exist", name))
 }
 
 func (p *MemoryProvider) getFolders(limit, offset int, order string) ([]vfs.BaseVirtualFolder, error) {

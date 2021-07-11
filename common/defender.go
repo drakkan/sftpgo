@@ -13,7 +13,7 @@ import (
 	"github.com/yl2chen/cidranger"
 
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 // HostEvent is the enumerable for the support host event
@@ -289,7 +289,7 @@ func (d *memoryDefender) GetHost(ip string) (*DefenderEntry, error) {
 		}
 	}
 
-	return nil, utils.NewRecordNotFoundError("host not found")
+	return nil, util.NewRecordNotFoundError("host not found")
 }
 
 // IsBanned returns true if the specified IP is banned
@@ -522,7 +522,7 @@ func loadHostListFromFile(name string) (*HostList, error) {
 	if name == "" {
 		return nil, nil
 	}
-	if !utils.IsFileInputValid(name) {
+	if !util.IsFileInputValid(name) {
 		return nil, fmt.Errorf("invalid host list file name %#v", name)
 	}
 

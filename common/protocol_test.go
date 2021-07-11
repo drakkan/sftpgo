@@ -33,6 +33,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpdtest"
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -354,7 +355,7 @@ func TestPermissionErrors(t *testing.T) {
 func TestFileNotAllowedErrors(t *testing.T) {
 	deniedDir := "/denied"
 	u := getTestUser()
-	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:           deniedDir,
 			DeniedPatterns: []string{"*.txt"},
@@ -2373,22 +2374,26 @@ func TestSFTPLoopError(t *testing.T) {
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: "sftp",
 			FsConfig: vfs.Filesystem{
-				Provider: vfs.SFTPFilesystemProvider,
+				Provider: sdk.SFTPFilesystemProvider,
 				SFTPConfig: vfs.SFTPFsConfig{
-					Endpoint: sftpServerAddr,
-					Username: user2.Username,
-					Password: kms.NewPlainSecret(defaultPassword),
+					SFTPFsConfig: sdk.SFTPFsConfig{
+						Endpoint: sftpServerAddr,
+						Username: user2.Username,
+						Password: kms.NewPlainSecret(defaultPassword),
+					},
 				},
 			},
 		},
 		VirtualPath: "/vdir",
 	})
 
-	user2.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	user2.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	user2.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
-		Endpoint: sftpServerAddr,
-		Username: user1.Username,
-		Password: kms.NewPlainSecret(defaultPassword),
+		SFTPFsConfig: sdk.SFTPFsConfig{
+			Endpoint: sftpServerAddr,
+			Username: user1.Username,
+			Password: kms.NewPlainSecret(defaultPassword),
+		},
 	}
 
 	user1, resp, err := httpdtest.AddUser(user1, http.StatusCreated)
@@ -2438,11 +2443,13 @@ func TestNonLocalCrossRename(t *testing.T) {
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: folderNameSFTP,
 			FsConfig: vfs.Filesystem{
-				Provider: vfs.SFTPFilesystemProvider,
+				Provider: sdk.SFTPFilesystemProvider,
 				SFTPConfig: vfs.SFTPFsConfig{
-					Endpoint: sftpServerAddr,
-					Username: baseUser.Username,
-					Password: kms.NewPlainSecret(defaultPassword),
+					SFTPFsConfig: sdk.SFTPFsConfig{
+						Endpoint: sftpServerAddr,
+						Username: baseUser.Username,
+						Password: kms.NewPlainSecret(defaultPassword),
+					},
 				},
 			},
 		},
@@ -2455,9 +2462,11 @@ func TestNonLocalCrossRename(t *testing.T) {
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: folderNameCrypt,
 			FsConfig: vfs.Filesystem{
-				Provider: vfs.CryptedFilesystemProvider,
+				Provider: sdk.CryptedFilesystemProvider,
 				CryptConfig: vfs.CryptFsConfig{
-					Passphrase: kms.NewPlainSecret(defaultPassword),
+					CryptFsConfig: sdk.CryptFsConfig{
+						Passphrase: kms.NewPlainSecret(defaultPassword),
+					},
 				},
 			},
 			MappedPath: mappedPathCrypt,
@@ -2556,9 +2565,11 @@ func TestNonLocalCrossRenameNonLocalBaseUser(t *testing.T) {
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: folderNameCrypt,
 			FsConfig: vfs.Filesystem{
-				Provider: vfs.CryptedFilesystemProvider,
+				Provider: sdk.CryptedFilesystemProvider,
 				CryptConfig: vfs.CryptFsConfig{
-					Passphrase: kms.NewPlainSecret(defaultPassword),
+					CryptFsConfig: sdk.CryptFsConfig{
+						Passphrase: kms.NewPlainSecret(defaultPassword),
+					},
 				},
 			},
 			MappedPath: mappedPathCrypt,
@@ -2639,14 +2650,14 @@ func TestProxyProtocol(t *testing.T) {
 }
 
 func TestSetProtocol(t *testing.T) {
-	conn := common.NewBaseConnection("id", "sshd_exec", "", dataprovider.User{HomeDir: os.TempDir()})
+	conn := common.NewBaseConnection("id", "sshd_exec", "", dataprovider.User{BaseUser: sdk.BaseUser{HomeDir: os.TempDir()}})
 	conn.SetProtocol(common.ProtocolSCP)
 	require.Equal(t, "SCP_id", conn.GetID())
 }
 
 func TestGetFsError(t *testing.T) {
 	u := getTestUser()
-	u.FsConfig.Provider = vfs.GCSFilesystemProvider
+	u.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("invalid JSON for credentials")
 	conn := common.NewBaseConnection("", common.ProtocolFTP, "", u)
@@ -2704,11 +2715,13 @@ func getSftpClient(user dataprovider.User) (*ssh.Client, *sftp.Client, error) {
 
 func getTestUser() dataprovider.User {
 	user := dataprovider.User{
-		Username:       defaultUsername,
-		Password:       defaultPassword,
-		HomeDir:        filepath.Join(homeBasePath, defaultUsername),
-		Status:         1,
-		ExpirationDate: 0,
+		BaseUser: sdk.BaseUser{
+			Username:       defaultUsername,
+			Password:       defaultPassword,
+			HomeDir:        filepath.Join(homeBasePath, defaultUsername),
+			Status:         1,
+			ExpirationDate: 0,
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = allPerms
@@ -2718,7 +2731,7 @@ func getTestUser() dataprovider.User {
 func getTestSFTPUser() dataprovider.User {
 	u := getTestUser()
 	u.Username = defaultSFTPUsername
-	u.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	u.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	u.FsConfig.SFTPConfig.Endpoint = sftpServerAddr
 	u.FsConfig.SFTPConfig.Username = defaultUsername
 	u.FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)
@@ -2727,7 +2740,7 @@ func getTestSFTPUser() dataprovider.User {
 
 func getCryptFsUser() dataprovider.User {
 	u := getTestUser()
-	u.FsConfig.Provider = vfs.CryptedFilesystemProvider
+	u.FsConfig.Provider = sdk.CryptedFilesystemProvider
 	u.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret(defaultPassword)
 	return u
 }

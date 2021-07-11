@@ -42,8 +42,9 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpdtest"
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/sftpd"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -1865,7 +1866,7 @@ func TestLoginUserExpiration(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Greater(t, user.LastLogin, int64(0), "last login must be updated after a successful login: %v", user.LastLogin)
 	}
-	user.ExpirationDate = utils.GetTimeAsMsSinceEpoch(time.Now()) - 120000
+	user.ExpirationDate = util.GetTimeAsMsSinceEpoch(time.Now()) - 120000
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	conn, client, err = getSftpClient(user, usePubKey)
@@ -1873,7 +1874,7 @@ func TestLoginUserExpiration(t *testing.T) {
 		client.Close()
 		conn.Close()
 	}
-	user.ExpirationDate = utils.GetTimeAsMsSinceEpoch(time.Now()) + 120000
+	user.ExpirationDate = util.GetTimeAsMsSinceEpoch(time.Now()) + 120000
 	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	conn, client, err = getSftpClient(user, usePubKey)
@@ -1891,7 +1892,7 @@ func TestLoginUserExpiration(t *testing.T) {
 func TestLoginWithDatabaseCredentials(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
-	u.FsConfig.Provider = vfs.GCSFilesystemProvider
+	u.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "testbucket"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret(`{ "type": "service_account" }`)
 
@@ -1941,7 +1942,7 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 func TestLoginInvalidFs(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
-	u.FsConfig.Provider = vfs.GCSFilesystemProvider
+	u.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("invalid JSON for credentials")
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -3680,7 +3681,7 @@ func TestPatternsFilters(t *testing.T) {
 		err = sftpUploadFile(testFilePath, testFileName+".zip", testFileSize, client)
 		assert.NoError(t, err)
 	}
-	user.Filters.FilePatterns = []dataprovider.PatternsFilter{
+	user.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:            "/",
 			AllowedPatterns: []string{"*.zIp"},
@@ -3953,17 +3954,21 @@ func TestSFTPLoopSimple(t *testing.T) {
 	user2 := getTestSFTPUser(usePubKey)
 	user1.Username += "1"
 	user2.Username += "2"
-	user1.FsConfig.Provider = vfs.SFTPFilesystemProvider
-	user2.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	user1.FsConfig.Provider = sdk.SFTPFilesystemProvider
+	user2.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	user1.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
-		Endpoint: sftpServerAddr,
-		Username: user2.Username,
-		Password: kms.NewPlainSecret(defaultPassword),
+		SFTPFsConfig: sdk.SFTPFsConfig{
+			Endpoint: sftpServerAddr,
+			Username: user2.Username,
+			Password: kms.NewPlainSecret(defaultPassword),
+		},
 	}
 	user2.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
-		Endpoint: sftpServerAddr,
-		Username: user1.Username,
-		Password: kms.NewPlainSecret(defaultPassword),
+		SFTPFsConfig: sdk.SFTPFsConfig{
+			Endpoint: sftpServerAddr,
+			Username: user1.Username,
+			Password: kms.NewPlainSecret(defaultPassword),
+		},
 	}
 	user1, resp, err := httpdtest.AddUser(user1, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
@@ -4009,28 +4014,34 @@ func TestSFTPLoopVirtualFolders(t *testing.T) {
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: sftpFloderName,
 			FsConfig: vfs.Filesystem{
-				Provider: vfs.SFTPFilesystemProvider,
+				Provider: sdk.SFTPFilesystemProvider,
 				SFTPConfig: vfs.SFTPFsConfig{
-					Endpoint: sftpServerAddr,
-					Username: user2.Username,
-					Password: kms.NewPlainSecret(defaultPassword),
+					SFTPFsConfig: sdk.SFTPFsConfig{
+						Endpoint: sftpServerAddr,
+						Username: user2.Username,
+						Password: kms.NewPlainSecret(defaultPassword),
+					},
 				},
 			},
 		},
 		VirtualPath: "/vdir",
 	})
 
-	user2.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	user2.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	user2.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
-		Endpoint: sftpServerAddr,
-		Username: user1.Username,
-		Password: kms.NewPlainSecret(defaultPassword),
+		SFTPFsConfig: sdk.SFTPFsConfig{
+			Endpoint: sftpServerAddr,
+			Username: user1.Username,
+			Password: kms.NewPlainSecret(defaultPassword),
+		},
 	}
-	user3.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	user3.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	user3.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
-		Endpoint: sftpServerAddr,
-		Username: user1.Username,
-		Password: kms.NewPlainSecret(defaultPassword),
+		SFTPFsConfig: sdk.SFTPFsConfig{
+			Endpoint: sftpServerAddr,
+			Username: user1.Username,
+			Password: kms.NewPlainSecret(defaultPassword),
+		},
 	}
 
 	user1, resp, err := httpdtest.AddUser(user1, http.StatusCreated)
@@ -4056,17 +4067,19 @@ func TestSFTPLoopVirtualFolders(t *testing.T) {
 	// user1 -> local account with the SFTP virtual folder /vdir to user2
 	// user2 -> local account with the SFTP virtual folder /vdir2 to user3
 	// user3 -> sftp user with user1 as fs
-	user2.FsConfig.Provider = vfs.LocalFilesystemProvider
+	user2.FsConfig.Provider = sdk.LocalFilesystemProvider
 	user2.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
 	user2.VirtualFolders = append(user2.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: sftpFloderName,
 			FsConfig: vfs.Filesystem{
-				Provider: vfs.SFTPFilesystemProvider,
+				Provider: sdk.SFTPFilesystemProvider,
 				SFTPConfig: vfs.SFTPFsConfig{
-					Endpoint: sftpServerAddr,
-					Username: user3.Username,
-					Password: kms.NewPlainSecret(defaultPassword),
+					SFTPFsConfig: sdk.SFTPFsConfig{
+						Endpoint: sftpServerAddr,
+						Username: user3.Username,
+						Password: kms.NewPlainSecret(defaultPassword),
+					},
 				},
 			},
 		},
@@ -4116,9 +4129,11 @@ func TestNestedVirtualFolders(t *testing.T) {
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: folderNameCrypt,
 			FsConfig: vfs.Filesystem{
-				Provider: vfs.CryptedFilesystemProvider,
+				Provider: sdk.CryptedFilesystemProvider,
 				CryptConfig: vfs.CryptFsConfig{
-					Passphrase: kms.NewPlainSecret(defaultPassword),
+					CryptFsConfig: sdk.CryptFsConfig{
+						Passphrase: kms.NewPlainSecret(defaultPassword),
+					},
 				},
 			},
 			MappedPath: mappedPathCrypt,
@@ -6736,18 +6751,24 @@ func TestRelativePaths(t *testing.T) {
 	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), "")}
 	keyPrefix := strings.TrimPrefix(user.GetHomeDir(), "/") + "/"
 	s3config := vfs.S3FsConfig{
-		KeyPrefix: keyPrefix,
+		S3FsConfig: sdk.S3FsConfig{
+			KeyPrefix: keyPrefix,
+		},
 	}
 	s3fs, _ := vfs.NewS3Fs("", user.GetHomeDir(), "", s3config)
 	gcsConfig := vfs.GCSFsConfig{
-		KeyPrefix: keyPrefix,
+		GCSFsConfig: sdk.GCSFsConfig{
+			KeyPrefix: keyPrefix,
+		},
 	}
 	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), "", gcsConfig)
 	sftpconfig := vfs.SFTPFsConfig{
-		Endpoint: sftpServerAddr,
-		Username: defaultUsername,
-		Password: kms.NewPlainSecret(defaultPassword),
-		Prefix:   keyPrefix,
+		SFTPFsConfig: sdk.SFTPFsConfig{
+			Endpoint: sftpServerAddr,
+			Username: defaultUsername,
+			Password: kms.NewPlainSecret(defaultPassword),
+			Prefix:   keyPrefix,
+		},
 	}
 	sftpfs, _ := vfs.NewSFTPFs("", "", os.TempDir(), []string{user.Username}, sftpconfig)
 	if runtime.GOOS != osWindows {
@@ -6795,16 +6816,20 @@ func TestResolvePaths(t *testing.T) {
 	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), "")}
 	keyPrefix := strings.TrimPrefix(user.GetHomeDir(), "/") + "/"
 	s3config := vfs.S3FsConfig{
-		KeyPrefix: keyPrefix,
-		Bucket:    "bucket",
-		Region:    "us-east-1",
+		S3FsConfig: sdk.S3FsConfig{
+			KeyPrefix: keyPrefix,
+			Bucket:    "bucket",
+			Region:    "us-east-1",
+		},
 	}
 	err = os.MkdirAll(user.GetHomeDir(), os.ModePerm)
 	assert.NoError(t, err)
 	s3fs, err := vfs.NewS3Fs("", user.GetHomeDir(), "", s3config)
 	assert.NoError(t, err)
 	gcsConfig := vfs.GCSFsConfig{
-		KeyPrefix: keyPrefix,
+		GCSFsConfig: sdk.GCSFsConfig{
+			KeyPrefix: keyPrefix,
+		},
 	}
 	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), "", gcsConfig)
 	if runtime.GOOS != osWindows {
@@ -6900,20 +6925,20 @@ func TestUserPerms(t *testing.T) {
 
 func TestFilterFilePatterns(t *testing.T) {
 	user := getTestUser(true)
-	pattern := dataprovider.PatternsFilter{
+	pattern := sdk.PatternsFilter{
 		Path:            "/test",
 		AllowedPatterns: []string{"*.jpg", "*.png"},
 		DeniedPatterns:  []string{"*.pdf"},
 	}
-	filters := dataprovider.UserFilters{
-		FilePatterns: []dataprovider.PatternsFilter{pattern},
+	filters := sdk.UserFilters{
+		FilePatterns: []sdk.PatternsFilter{pattern},
 	}
 	user.Filters = filters
 	assert.True(t, user.IsFileAllowed("/test/test.jPg"))
 	assert.False(t, user.IsFileAllowed("/test/test.pdf"))
 	assert.True(t, user.IsFileAllowed("/test.pDf"))
 
-	filters.FilePatterns = append(filters.FilePatterns, dataprovider.PatternsFilter{
+	filters.FilePatterns = append(filters.FilePatterns, sdk.PatternsFilter{
 		Path:            "/",
 		AllowedPatterns: []string{"*.zip", "*.rar", "*.pdf"},
 		DeniedPatterns:  []string{"*.gz"},
@@ -6924,7 +6949,7 @@ func TestFilterFilePatterns(t *testing.T) {
 	assert.False(t, user.IsFileAllowed("/test/sub/test.pdf"))
 	assert.False(t, user.IsFileAllowed("/test1/test.png"))
 
-	filters.FilePatterns = append(filters.FilePatterns, dataprovider.PatternsFilter{
+	filters.FilePatterns = append(filters.FilePatterns, sdk.PatternsFilter{
 		Path:           "/test/sub",
 		DeniedPatterns: []string{"*.tar"},
 	})
@@ -6948,8 +6973,8 @@ func TestUserAllowedLoginMethods(t *testing.T) {
 	allowedMethods = user.GetAllowedLoginMethods()
 	assert.Equal(t, 4, len(allowedMethods))
 
-	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyAndKeyboardInt, allowedMethods))
-	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyAndPassword, allowedMethods))
+	assert.True(t, util.IsStringInSlice(dataprovider.SSHLoginMethodKeyAndKeyboardInt, allowedMethods))
+	assert.True(t, util.IsStringInSlice(dataprovider.SSHLoginMethodKeyAndPassword, allowedMethods))
 }
 
 func TestUserPartialAuth(t *testing.T) {
@@ -7000,11 +7025,11 @@ func TestUserGetNextAuthMethods(t *testing.T) {
 
 	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey}, true)
 	assert.Equal(t, 2, len(methods))
-	assert.True(t, utils.IsStringInSlice(dataprovider.LoginMethodPassword, methods))
-	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, methods))
+	assert.True(t, util.IsStringInSlice(dataprovider.LoginMethodPassword, methods))
+	assert.True(t, util.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, methods))
 	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey}, false)
 	assert.Equal(t, 1, len(methods))
-	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, methods))
+	assert.True(t, util.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, methods))
 
 	user.Filters.DeniedLoginMethods = []string{
 		dataprovider.LoginMethodPassword,
@@ -7014,7 +7039,7 @@ func TestUserGetNextAuthMethods(t *testing.T) {
 	}
 	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey}, true)
 	assert.Equal(t, 1, len(methods))
-	assert.True(t, utils.IsStringInSlice(dataprovider.LoginMethodPassword, methods))
+	assert.True(t, util.IsStringInSlice(dataprovider.LoginMethodPassword, methods))
 
 	user.Filters.DeniedLoginMethods = []string{
 		dataprovider.LoginMethodPassword,
@@ -7024,7 +7049,7 @@ func TestUserGetNextAuthMethods(t *testing.T) {
 	}
 	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey}, true)
 	assert.Equal(t, 1, len(methods))
-	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, methods))
+	assert.True(t, util.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, methods))
 }
 
 func TestUserIsLoginMethodAllowed(t *testing.T) {
@@ -7242,7 +7267,7 @@ func TestStatVFS(t *testing.T) {
 func TestStatVFSCloudBackend(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
-	u.FsConfig.Provider = vfs.AzureBlobFilesystemProvider
+	u.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
 	u.FsConfig.AzBlobConfig.SASURL = kms.NewPlainSecret("https://myaccount.blob.core.windows.net/sasurl")
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -7386,7 +7411,7 @@ func TestSSHCopy(t *testing.T) {
 		QuotaFiles:  100,
 		QuotaSize:   0,
 	})
-	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:           "/",
 			DeniedPatterns: []string{"*.denied"},
@@ -7664,7 +7689,7 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 		QuotaFiles:  3,
 		QuotaSize:   testFileSize + testFileSize1 + 1,
 	})
-	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:           "/",
 			DeniedPatterns: []string{"*.denied"},
@@ -7984,9 +8009,11 @@ func TestSSHRemoveCryptFs(t *testing.T) {
 			Name:       folderName2,
 			MappedPath: mappedPath2,
 			FsConfig: vfs.Filesystem{
-				Provider: vfs.CryptedFilesystemProvider,
+				Provider: sdk.CryptedFilesystemProvider,
 				CryptConfig: vfs.CryptFsConfig{
-					Passphrase: kms.NewPlainSecret(defaultPassword),
+					CryptFsConfig: sdk.CryptFsConfig{
+						Passphrase: kms.NewPlainSecret(defaultPassword),
+					},
 				},
 			},
 		},
@@ -8444,7 +8471,7 @@ func TestSCPPatternsFilter(t *testing.T) {
 	assert.NoError(t, err)
 	err = scpUpload(testFilePath, remoteUpPath, false, false)
 	assert.NoError(t, err)
-	user.Filters.FilePatterns = []dataprovider.PatternsFilter{
+	user.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:            "/",
 			AllowedPatterns: []string{"*.zip"},
@@ -8570,11 +8597,13 @@ func TestSCPNestedFolders(t *testing.T) {
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: folderNameSFTP,
 			FsConfig: vfs.Filesystem{
-				Provider: vfs.SFTPFilesystemProvider,
+				Provider: sdk.SFTPFilesystemProvider,
 				SFTPConfig: vfs.SFTPFsConfig{
-					Endpoint: sftpServerAddr,
-					Username: baseUser.Username,
-					Password: kms.NewPlainSecret(defaultPassword),
+					SFTPFsConfig: sdk.SFTPFsConfig{
+						Endpoint: sftpServerAddr,
+						Username: baseUser.Username,
+						Password: kms.NewPlainSecret(defaultPassword),
+					},
 				},
 			},
 		},
@@ -8587,9 +8616,11 @@ func TestSCPNestedFolders(t *testing.T) {
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: folderNameCrypt,
 			FsConfig: vfs.Filesystem{
-				Provider: vfs.CryptedFilesystemProvider,
+				Provider: sdk.CryptedFilesystemProvider,
 				CryptConfig: vfs.CryptFsConfig{
-					Passphrase: kms.NewPlainSecret(defaultPassword),
+					CryptFsConfig: sdk.CryptFsConfig{
+						Passphrase: kms.NewPlainSecret(defaultPassword),
+					},
 				},
 			},
 			MappedPath: mappedPathCrypt,
@@ -9193,11 +9224,13 @@ func waitTCPListening(address string) {
 
 func getTestUser(usePubKey bool) dataprovider.User {
 	user := dataprovider.User{
-		Username:       defaultUsername,
-		Password:       defaultPassword,
-		HomeDir:        filepath.Join(homeBasePath, defaultUsername),
-		Status:         1,
-		ExpirationDate: 0,
+		BaseUser: sdk.BaseUser{
+			Username:       defaultUsername,
+			Password:       defaultPassword,
+			HomeDir:        filepath.Join(homeBasePath, defaultUsername),
+			Status:         1,
+			ExpirationDate: 0,
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = allPerms
@@ -9211,7 +9244,7 @@ func getTestUser(usePubKey bool) dataprovider.User {
 func getTestSFTPUser(usePubKey bool) dataprovider.User {
 	u := getTestUser(usePubKey)
 	u.Username = defaultSFTPUsername
-	u.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	u.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	u.FsConfig.SFTPConfig.Endpoint = sftpServerAddr
 	u.FsConfig.SFTPConfig.Username = defaultUsername
 	u.FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)

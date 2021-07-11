@@ -6,11 +6,12 @@ require (
 	cloud.google.com/go/storage v1.16.0
 	github.com/Azure/azure-storage-blob-go v0.14.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
-	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
+	github.com/StackExchange/wmi v1.2.0 // indirect
 	github.com/alexedwards/argon2id v0.0.0-20210511081203-7d35d68092b8
-	github.com/aws/aws-sdk-go v1.39.0
+	github.com/aws/aws-sdk-go v1.39.4
 	github.com/cockroachdb/cockroach-go/v2 v2.1.1
 	github.com/eikenb/pipeat v0.0.0-20210603033007-44fc3ffce52b
+	github.com/fatih/color v1.12.0 // indirect
 	github.com/fclairamb/ftpserverlib v0.14.0
 	github.com/frankban/quicktest v1.13.0 // indirect
 	github.com/go-chi/chi/v5 v5.0.3
@@ -18,22 +19,28 @@ require (
 	github.com/go-chi/render v1.0.1
 	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/go-sql-driver/mysql v1.6.0
-	github.com/goccy/go-json v0.7.3 // indirect
+	github.com/goccy/go-json v0.7.4 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/grandcat/zeroconf v1.0.0
+	github.com/hashicorp/go-hclog v0.16.2
+	github.com/hashicorp/go-plugin v1.4.2
 	github.com/hashicorp/go-retryablehttp v0.7.0
+	github.com/hashicorp/yamux v0.0.0-20210707203944-259a57b3608c // indirect
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/klauspost/compress v1.13.1
-	github.com/klauspost/cpuid/v2 v2.0.7 // indirect
+	github.com/klauspost/cpuid/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/jwx v1.2.1
 	github.com/lib/pq v1.10.2
+	github.com/mattn/go-isatty v0.0.13 // indirect
 	github.com/mattn/go-sqlite3 v1.14.7
 	github.com/miekg/dns v1.1.43 // indirect
 	github.com/minio/sio v0.3.0
+	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
+	github.com/oklog/run v1.1.0 // indirect
 	github.com/otiai10/copy v1.6.0
-	github.com/pires/go-proxyproto v0.5.0
-	github.com/pkg/sftp v1.13.1
+	github.com/pires/go-proxyproto v0.6.0
+	github.com/pkg/sftp v1.13.2
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.29.0 // indirect
 	github.com/rs/cors v1.8.0
@@ -56,7 +63,9 @@ require (
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c
 	golang.org/x/time v0.0.0-20210611083556-38a9dc6acbc6
 	google.golang.org/api v0.50.0
-	google.golang.org/genproto v0.0.0-20210701191553-46259e63a0a9 // indirect
+	google.golang.org/genproto v0.0.0-20210708141623-e76da96a951f // indirect
+	google.golang.org/grpc v1.39.0
+	google.golang.org/protobuf v1.27.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 

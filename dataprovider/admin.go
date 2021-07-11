@@ -12,7 +12,7 @@ import (
 	"github.com/alexedwards/argon2id"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 // Available permissions for SFTPGo admins
@@ -66,7 +66,7 @@ type Admin struct {
 }
 
 func (a *Admin) checkPassword() error {
-	if a.Password != "" && !utils.IsStringPrefixInSlice(a.Password, internalHashPwdPrefixes) {
+	if a.Password != "" && !util.IsStringPrefixInSlice(a.Password, internalHashPwdPrefixes) {
 		if config.PasswordHashing.Algo == HashingAlgoBcrypt {
 			pwd, err := bcrypt.GenerateFromPassword([]byte(a.Password), config.PasswordHashing.BcryptOptions.Cost)
 			if err != nil {
@@ -86,36 +86,36 @@ func (a *Admin) checkPassword() error {
 
 func (a *Admin) validate() error {
 	if a.Username == "" {
-		return utils.NewValidationError("username is mandatory")
+		return util.NewValidationError("username is mandatory")
 	}
 	if a.Password == "" {
-		return utils.NewValidationError("please set a password")
+		return util.NewValidationError("please set a password")
 	}
 	if !config.SkipNaturalKeysValidation && !usernameRegex.MatchString(a.Username) {
-		return utils.NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~", a.Username))
+		return util.NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~", a.Username))
 	}
 	if err := a.checkPassword(); err != nil {
 		return err
 	}
-	a.Permissions = utils.RemoveDuplicates(a.Permissions)
+	a.Permissions = util.RemoveDuplicates(a.Permissions)
 	if len(a.Permissions) == 0 {
-		return utils.NewValidationError("please grant some permissions to this admin")
+		return util.NewValidationError("please grant some permissions to this admin")
 	}
-	if utils.IsStringInSlice(PermAdminAny, a.Permissions) {
+	if util.IsStringInSlice(PermAdminAny, a.Permissions) {
 		a.Permissions = []string{PermAdminAny}
 	}
 	for _, perm := range a.Permissions {
-		if !utils.IsStringInSlice(perm, validAdminPerms) {
-			return utils.NewValidationError(fmt.Sprintf("invalid permission: %#v", perm))
+		if !util.IsStringInSlice(perm, validAdminPerms) {
+			return util.NewValidationError(fmt.Sprintf("invalid permission: %#v", perm))
 		}
 	}
 	if a.Email != "" && !emailRegex.MatchString(a.Email) {
-		return utils.NewValidationError(fmt.Sprintf("email %#v is not valid", a.Email))
+		return util.NewValidationError(fmt.Sprintf("email %#v is not valid", a.Email))
 	}
 	for _, IPMask := range a.Filters.AllowList {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
-			return utils.NewValidationError(fmt.Sprintf("could not parse allow list entry %#v : %v", IPMask, err))
+			return util.NewValidationError(fmt.Sprintf("could not parse allow list entry %#v : %v", IPMask, err))
 		}
 	}
 
@@ -182,10 +182,10 @@ func (a *Admin) HideConfidentialData() {
 
 // HasPermission returns true if the admin has the specified permission
 func (a *Admin) HasPermission(perm string) bool {
-	if utils.IsStringInSlice(PermAdminAny, a.Permissions) {
+	if util.IsStringInSlice(PermAdminAny, a.Permissions) {
 		return true
 	}
-	return utils.IsStringInSlice(perm, a.Permissions)
+	return util.IsStringInSlice(perm, a.Permissions)
 }
 
 // GetPermissionsAsString returns permission as string

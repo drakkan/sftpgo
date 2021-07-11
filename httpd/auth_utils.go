@@ -12,7 +12,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 type tokenAudience = string
@@ -83,24 +83,24 @@ func (c *jwtTokenClaims) Decode(token map[string]interface{}) {
 }
 
 func (c *jwtTokenClaims) isCriticalPermRemoved(permissions []string) bool {
-	if utils.IsStringInSlice(dataprovider.PermAdminAny, permissions) {
+	if util.IsStringInSlice(dataprovider.PermAdminAny, permissions) {
 		return false
 	}
-	if (utils.IsStringInSlice(dataprovider.PermAdminManageAdmins, c.Permissions) ||
-		utils.IsStringInSlice(dataprovider.PermAdminAny, c.Permissions)) &&
-		!utils.IsStringInSlice(dataprovider.PermAdminManageAdmins, permissions) &&
-		!utils.IsStringInSlice(dataprovider.PermAdminAny, permissions) {
+	if (util.IsStringInSlice(dataprovider.PermAdminManageAdmins, c.Permissions) ||
+		util.IsStringInSlice(dataprovider.PermAdminAny, c.Permissions)) &&
+		!util.IsStringInSlice(dataprovider.PermAdminManageAdmins, permissions) &&
+		!util.IsStringInSlice(dataprovider.PermAdminAny, permissions) {
 		return true
 	}
 	return false
 }
 
 func (c *jwtTokenClaims) hasPerm(perm string) bool {
-	if utils.IsStringInSlice(dataprovider.PermAdminAny, c.Permissions) {
+	if util.IsStringInSlice(dataprovider.PermAdminAny, c.Permissions) {
 		return true
 	}
 
-	return utils.IsStringInSlice(perm, c.Permissions)
+	return util.IsStringInSlice(perm, c.Permissions)
 }
 
 func (c *jwtTokenClaims) createTokenResponse(tokenAuth *jwtauth.JWTAuth, audience tokenAudience) (map[string]interface{}, error) {
@@ -253,7 +253,7 @@ func verifyCSRFToken(tokenString string) error {
 		return fmt.Errorf("unable to verify form token: %v", err)
 	}
 
-	if !utils.IsStringInSlice(tokenAudienceCSRF, token.Audience()) {
+	if !util.IsStringInSlice(tokenAudienceCSRF, token.Audience()) {
 		logger.Debug(logSender, "", "error validating CSRF token audience")
 		return errors.New("the form token is not valid")
 	}

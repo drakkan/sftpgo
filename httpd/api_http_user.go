@@ -12,7 +12,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 func readUserFolder(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +39,7 @@ func readUserFolder(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	name := utils.CleanPath(r.URL.Query().Get("path"))
+	name := util.CleanPath(r.URL.Query().Get("path"))
 	contents, err := connection.ReadDir(name)
 	if err != nil {
 		sendAPIResponse(w, r, err, "Unable to get directory contents", getMappedStatusCode(err))
@@ -84,7 +84,7 @@ func getUserFile(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	name := utils.CleanPath(r.URL.Query().Get("path"))
+	name := util.CleanPath(r.URL.Query().Get("path"))
 	if name == "/" {
 		sendAPIResponse(w, r, nil, "Please set the path to a valid file", http.StatusBadRequest)
 		return
@@ -145,7 +145,7 @@ func getUserFilesAsZipStream(w http.ResponseWriter, r *http.Request) {
 
 	baseDir := "/"
 	for idx := range filesList {
-		filesList[idx] = utils.CleanPath(filesList[idx])
+		filesList[idx] = util.CleanPath(filesList[idx])
 	}
 
 	w.Header().Set("Content-Disposition", "attachment; filename=\"sftpgo-download.zip\"")
@@ -215,22 +215,22 @@ func changeUserPassword(w http.ResponseWriter, r *http.Request) {
 
 func doChangeUserPassword(r *http.Request, currentPassword, newPassword, confirmNewPassword string) error {
 	if currentPassword == "" || newPassword == "" || confirmNewPassword == "" {
-		return utils.NewValidationError("please provide the current password and the new one two times")
+		return util.NewValidationError("please provide the current password and the new one two times")
 	}
 	if newPassword != confirmNewPassword {
-		return utils.NewValidationError("the two password fields do not match")
+		return util.NewValidationError("the two password fields do not match")
 	}
 	if currentPassword == newPassword {
-		return utils.NewValidationError("the new password must be different from the current one")
+		return util.NewValidationError("the new password must be different from the current one")
 	}
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
 		return errors.New("invalid token claims")
 	}
-	user, err := dataprovider.CheckUserAndPass(claims.Username, currentPassword, utils.GetIPFromRemoteAddress(r.RemoteAddr),
+	user, err := dataprovider.CheckUserAndPass(claims.Username, currentPassword, util.GetIPFromRemoteAddress(r.RemoteAddr),
 		common.ProtocolHTTP)
 	if err != nil {
-		return utils.NewValidationError("current password does not match")
+		return util.NewValidationError("current password does not match")
 	}
 	user.Password = newPassword
 

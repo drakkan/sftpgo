@@ -19,8 +19,8 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/metrics"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/metric"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -210,7 +210,7 @@ func (c *Configuration) Initialize(configDir string) error {
 
 		go func(binding Binding) {
 			addr := binding.GetAddress()
-			utils.CheckTCP4Port(binding.Port)
+			util.CheckTCP4Port(binding.Port)
 			listener, err := net.Listen("tcp", addr)
 			if err != nil {
 				logger.Warn(logSender, "", "error starting listener on address %v: %v", addr, err)
@@ -355,7 +355,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 		}
 	}()
 
-	ipAddr := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
+	ipAddr := util.GetIPFromRemoteAddress(conn.RemoteAddr().String())
 	common.Connections.AddClientConnection(ipAddr)
 	defer common.Connections.RemoveClientConnection(ipAddr)
 
@@ -515,7 +515,7 @@ func checkAuthError(ip string, err error) {
 		}
 	} else {
 		logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, common.ProtocolSSH, err.Error())
-		metrics.AddNoAuthTryed()
+		metric.AddNoAuthTryed()
 		common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
 		dataprovider.ExecutePostLoginHook(&dataprovider.User{}, dataprovider.LoginMethodNoAuthTryed, ip, common.ProtocolSSH, err)
 	}
@@ -531,7 +531,7 @@ func loginUser(user *dataprovider.User, loginMethod, publicKey string, conn ssh.
 			user.Username, user.HomeDir)
 		return nil, fmt.Errorf("cannot login user with invalid home dir: %#v", user.HomeDir)
 	}
-	if utils.IsStringInSlice(common.ProtocolSSH, user.Filters.DeniedProtocols) {
+	if util.IsStringInSlice(common.ProtocolSSH, user.Filters.DeniedProtocols) {
 		logger.Debug(logSender, connectionID, "cannot login user %#v, protocol SSH is not allowed", user.Username)
 		return nil, fmt.Errorf("protocol SSH is not allowed for user %#v", user.Username)
 	}
@@ -569,13 +569,13 @@ func loginUser(user *dataprovider.User, loginMethod, publicKey string, conn ssh.
 }
 
 func (c *Configuration) checkSSHCommands() {
-	if utils.IsStringInSlice("*", c.EnabledSSHCommands) {
+	if util.IsStringInSlice("*", c.EnabledSSHCommands) {
 		c.EnabledSSHCommands = GetSupportedSSHCommands()
 		return
 	}
 	sshCommands := []string{}
 	for _, command := range c.EnabledSSHCommands {
-		if utils.IsStringInSlice(command, supportedSSHCommands) {
+		if util.IsStringInSlice(command, supportedSSHCommands) {
 			sshCommands = append(sshCommands, command)
 		} else {
 			logger.Warn(logSender, "", "unsupported ssh command: %#v ignored", command)
@@ -594,11 +594,11 @@ func (c *Configuration) generateDefaultHostKeys(configDir string) error {
 			logger.Info(logSender, "", "No host keys configured and %#v does not exist; try to create a new host key", autoFile)
 			logger.InfoToConsole("No host keys configured and %#v does not exist; try to create a new host key", autoFile)
 			if k == defaultPrivateRSAKeyName {
-				err = utils.GenerateRSAKeys(autoFile)
+				err = util.GenerateRSAKeys(autoFile)
 			} else if k == defaultPrivateECDSAKeyName {
-				err = utils.GenerateECDSAKeys(autoFile)
+				err = util.GenerateECDSAKeys(autoFile)
 			} else {
-				err = utils.GenerateEd25519Keys(autoFile)
+				err = util.GenerateEd25519Keys(autoFile)
 			}
 			if err != nil {
 				logger.Warn(logSender, "", "error creating host key %#v: %v", autoFile, err)
@@ -621,7 +621,7 @@ func (c *Configuration) checkHostKeyAutoGeneration(configDir string) error {
 				case defaultPrivateRSAKeyName:
 					logger.Info(logSender, "", "try to create non-existent host key %#v", k)
 					logger.InfoToConsole("try to create non-existent host key %#v", k)
-					err = utils.GenerateRSAKeys(k)
+					err = util.GenerateRSAKeys(k)
 					if err != nil {
 						logger.Warn(logSender, "", "error creating host key %#v: %v", k, err)
 						logger.WarnToConsole("error creating host key %#v: %v", k, err)
@@ -630,7 +630,7 @@ func (c *Configuration) checkHostKeyAutoGeneration(configDir string) error {
 				case defaultPrivateECDSAKeyName:
 					logger.Info(logSender, "", "try to create non-existent host key %#v", k)
 					logger.InfoToConsole("try to create non-existent host key %#v", k)
-					err = utils.GenerateECDSAKeys(k)
+					err = util.GenerateECDSAKeys(k)
 					if err != nil {
 						logger.Warn(logSender, "", "error creating host key %#v: %v", k, err)
 						logger.WarnToConsole("error creating host key %#v: %v", k, err)
@@ -639,7 +639,7 @@ func (c *Configuration) checkHostKeyAutoGeneration(configDir string) error {
 				case defaultPrivateEd25519KeyName:
 					logger.Info(logSender, "", "try to create non-existent host key %#v", k)
 					logger.InfoToConsole("try to create non-existent host key %#v", k)
-					err = utils.GenerateEd25519Keys(k)
+					err = util.GenerateEd25519Keys(k)
 					if err != nil {
 						logger.Warn(logSender, "", "error creating host key %#v: %v", k, err)
 						logger.WarnToConsole("error creating host key %#v: %v", k, err)
@@ -667,7 +667,7 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 	}
 	serviceStatus.HostKeys = nil
 	for _, hostKey := range c.HostKeys {
-		if !utils.IsFileInputValid(hostKey) {
+		if !util.IsFileInputValid(hostKey) {
 			logger.Warn(logSender, "", "unable to load invalid host key %#v", hostKey)
 			logger.WarnToConsole("unable to load invalid host key %#v", hostKey)
 			continue
@@ -708,7 +708,7 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 
 func (c *Configuration) initializeCertChecker(configDir string) error {
 	for _, keyPath := range c.TrustedUserCAKeys {
-		if !utils.IsFileInputValid(keyPath) {
+		if !util.IsFileInputValid(keyPath) {
 			logger.Warn(logSender, "", "unable to load invalid trusted user CA key: %#v", keyPath)
 			logger.WarnToConsole("unable to load invalid trusted user CA key: %#v", keyPath)
 			continue
@@ -755,7 +755,7 @@ func (c *Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubK
 
 	connectionID := hex.EncodeToString(conn.SessionID())
 	method := dataprovider.SSHLoginMethodPublicKey
-	ipAddr := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
+	ipAddr := util.GetIPFromRemoteAddress(conn.RemoteAddr().String())
 	cert, ok := pubKey.(*ssh.Certificate)
 	if ok {
 		if cert.CertType != ssh.UserCert {
@@ -808,7 +808,7 @@ func (c *Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass 
 	if len(conn.PartialSuccessMethods()) == 1 {
 		method = dataprovider.SSHLoginMethodKeyAndPassword
 	}
-	ipAddr := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
+	ipAddr := util.GetIPFromRemoteAddress(conn.RemoteAddr().String())
 	if user, err = dataprovider.CheckUserAndPass(conn.User(), string(pass), ipAddr, common.ProtocolSSH); err == nil {
 		sshPerm, err = loginUser(&user, method, "", conn)
 	}
@@ -826,7 +826,7 @@ func (c *Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMeta
 	if len(conn.PartialSuccessMethods()) == 1 {
 		method = dataprovider.SSHLoginMethodKeyAndKeyboardInt
 	}
-	ipAddr := utils.GetIPFromRemoteAddress(conn.RemoteAddr().String())
+	ipAddr := util.GetIPFromRemoteAddress(conn.RemoteAddr().String())
 	if user, err = dataprovider.CheckKeyboardInteractiveAuth(conn.User(), c.KeyboardInteractiveHook, client,
 		ipAddr, common.ProtocolSSH); err == nil {
 		sshPerm, err = loginUser(&user, method, "", conn)
@@ -837,7 +837,7 @@ func (c *Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMeta
 }
 
 func updateLoginMetrics(user *dataprovider.User, ip, method string, err error) {
-	metrics.AddLoginAttempt(method)
+	metric.AddLoginAttempt(method)
 	if err != nil {
 		logger.ConnectionFailedLog(user.Username, ip, method, common.ProtocolSSH, err.Error())
 		if method != dataprovider.SSHLoginMethodPublicKey {
@@ -845,12 +845,12 @@ func updateLoginMetrics(user *dataprovider.User, ip, method string, err error) {
 			// record failed login key auth only once for session if the
 			// authentication fails in checkAuthError
 			event := common.HostEventLoginFailed
-			if _, ok := err.(*utils.RecordNotFoundError); ok {
+			if _, ok := err.(*util.RecordNotFoundError); ok {
 				event = common.HostEventUserNotFound
 			}
 			common.AddDefenderEvent(ip, event)
 		}
 	}
-	metrics.AddLoginResult(method, err)
+	metric.AddLoginResult(method, err)
 	dataprovider.ExecutePostLoginHook(user, method, ip, common.ProtocolSSH, err)
 }

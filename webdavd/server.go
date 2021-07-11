@@ -22,8 +22,8 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/metrics"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/metric"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 type webDavServer struct {
@@ -59,7 +59,7 @@ func (s *webDavServer) listenAndServe(compressor *middleware.Compressor) error {
 		httpServer.TLSConfig = &tls.Config{
 			GetCertificate:           certMgr.GetCertificateFunc(),
 			MinVersion:               tls.VersionTLS12,
-			CipherSuites:             utils.GetTLSCiphersFromNames(s.binding.TLSCipherSuites),
+			CipherSuites:             util.GetTLSCiphersFromNames(s.binding.TLSCipherSuites),
 			PreferServerCipherSuites: true,
 		}
 		logger.Debug(logSender, "", "configured TLS cipher suites for binding %#v: %v", s.binding.GetAddress(),
@@ -74,11 +74,11 @@ func (s *webDavServer) listenAndServe(compressor *middleware.Compressor) error {
 				httpServer.TLSConfig.ClientAuth = tls.VerifyClientCertIfGiven
 			}
 		}
-		return utils.HTTPListenAndServe(httpServer, s.binding.Address, s.binding.Port, true, logSender)
+		return util.HTTPListenAndServe(httpServer, s.binding.Address, s.binding.Port, true, logSender)
 	}
 	s.binding.EnableHTTPS = false
 	serviceStatus.Bindings = append(serviceStatus.Bindings, s.binding)
-	return utils.HTTPListenAndServe(httpServer, s.binding.Address, s.binding.Port, false, logSender)
+	return util.HTTPListenAndServe(httpServer, s.binding.Address, s.binding.Port, false, logSender)
 }
 
 func (s *webDavServer) verifyTLSConnection(state tls.ConnectionState) error {
@@ -299,7 +299,7 @@ func (s *webDavServer) validateUser(user *dataprovider.User, r *http.Request, lo
 			user.Username, user.HomeDir)
 		return connID, fmt.Errorf("cannot login user with invalid home dir: %#v", user.HomeDir)
 	}
-	if utils.IsStringInSlice(common.ProtocolWebDAV, user.Filters.DeniedProtocols) {
+	if util.IsStringInSlice(common.ProtocolWebDAV, user.Filters.DeniedProtocols) {
 		logger.Debug(logSender, connectionID, "cannot login user %#v, protocol DAV is not allowed", user.Username)
 		return connID, fmt.Errorf("protocol DAV is not allowed for user %#v", user.Username)
 	}
@@ -323,12 +323,12 @@ func (s *webDavServer) validateUser(user *dataprovider.User, r *http.Request, lo
 }
 
 func (s *webDavServer) checkRemoteAddress(r *http.Request) string {
-	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	ip := net.ParseIP(ipAddr)
 	if ip != nil {
 		for _, allow := range s.binding.allowHeadersFrom {
 			if allow(ip) {
-				parsedIP := utils.GetRealIP(r)
+				parsedIP := util.GetRealIP(r)
 				if parsedIP != "" {
 					ipAddr = parsedIP
 					r.RemoteAddr = ipAddr
@@ -366,15 +366,15 @@ func writeLog(r *http.Request, err error) {
 }
 
 func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err error) {
-	metrics.AddLoginAttempt(loginMethod)
+	metric.AddLoginAttempt(loginMethod)
 	if err != nil && err != common.ErrInternalFailure {
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod, common.ProtocolWebDAV, err.Error())
 		event := common.HostEventLoginFailed
-		if _, ok := err.(*utils.RecordNotFoundError); ok {
+		if _, ok := err.(*util.RecordNotFoundError); ok {
 			event = common.HostEventUserNotFound
 		}
 		common.AddDefenderEvent(ip, event)
 	}
-	metrics.AddLoginResult(loginMethod, err)
+	metric.AddLoginResult(loginMethod, err)
 	dataprovider.ExecutePostLoginHook(user, loginMethod, ip, common.ProtocolWebDAV, err)
 }

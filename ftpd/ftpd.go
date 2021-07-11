@@ -10,7 +10,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 const (
@@ -55,7 +55,7 @@ type Binding struct {
 }
 
 func (b *Binding) setCiphers() {
-	b.ciphers = utils.GetTLSCiphersFromNames(b.TLSCipherSuites)
+	b.ciphers = util.GetTLSCiphersFromNames(b.TLSCipherSuites)
 	if len(b.ciphers) == 0 {
 		b.ciphers = nil
 	}
@@ -219,7 +219,7 @@ func (c *Configuration) Initialize(configDir string) error {
 		go func(s *Server) {
 			ftpServer := ftpserver.NewFtpServer(s)
 			logger.Info(logSender, "", "starting FTP serving, binding: %v", s.binding.GetAddress())
-			utils.CheckTCP4Port(s.binding.Port)
+			util.CheckTCP4Port(s.binding.Port)
 			exitChannel <- ftpServer.ListenAndServe()
 		}(server)
 
@@ -245,7 +245,7 @@ func GetStatus() ServiceStatus {
 }
 
 func getConfigPath(name, configDir string) string {
-	if !utils.IsFileInputValid(name) {
+	if !util.IsFileInputValid(name) {
 		return ""
 	}
 	if name != "" && !filepath.IsAbs(name) {

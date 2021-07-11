@@ -17,7 +17,8 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/kms"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -253,22 +254,22 @@ func loadAdminTemplates(templatesPath string) {
 	}
 
 	rootTpl := template.New("").Funcs(template.FuncMap{
-		"ListFSProviders": vfs.ListProviders,
+		"ListFSProviders": sdk.ListProviders,
 	})
-	usersTmpl := utils.LoadTemplate(rootTpl, usersPaths...)
-	userTmpl := utils.LoadTemplate(rootTpl, userPaths...)
-	adminsTmpl := utils.LoadTemplate(rootTpl, adminsPaths...)
-	adminTmpl := utils.LoadTemplate(rootTpl, adminPaths...)
-	connectionsTmpl := utils.LoadTemplate(rootTpl, connectionsPaths...)
-	messageTmpl := utils.LoadTemplate(rootTpl, messagePath...)
-	foldersTmpl := utils.LoadTemplate(rootTpl, foldersPath...)
-	folderTmpl := utils.LoadTemplate(rootTpl, folderPath...)
-	statusTmpl := utils.LoadTemplate(rootTpl, statusPath...)
-	loginTmpl := utils.LoadTemplate(rootTpl, loginPath...)
-	changePwdTmpl := utils.LoadTemplate(rootTpl, changePwdPaths...)
-	maintenanceTmpl := utils.LoadTemplate(rootTpl, maintenancePath...)
-	defenderTmpl := utils.LoadTemplate(rootTpl, defenderPath...)
-	setupTmpl := utils.LoadTemplate(rootTpl, setupPath...)
+	usersTmpl := util.LoadTemplate(rootTpl, usersPaths...)
+	userTmpl := util.LoadTemplate(rootTpl, userPaths...)
+	adminsTmpl := util.LoadTemplate(rootTpl, adminsPaths...)
+	adminTmpl := util.LoadTemplate(rootTpl, adminPaths...)
+	connectionsTmpl := util.LoadTemplate(rootTpl, connectionsPaths...)
+	messageTmpl := util.LoadTemplate(rootTpl, messagePath...)
+	foldersTmpl := util.LoadTemplate(rootTpl, foldersPath...)
+	folderTmpl := util.LoadTemplate(rootTpl, folderPath...)
+	statusTmpl := util.LoadTemplate(rootTpl, statusPath...)
+	loginTmpl := util.LoadTemplate(rootTpl, loginPath...)
+	changePwdTmpl := util.LoadTemplate(rootTpl, changePwdPaths...)
+	maintenanceTmpl := util.LoadTemplate(rootTpl, maintenancePath...)
+	defenderTmpl := util.LoadTemplate(rootTpl, defenderPath...)
+	setupTmpl := util.LoadTemplate(rootTpl, setupPath...)
 
 	adminTemplates[templateUsers] = usersTmpl
 	adminTemplates[templateUser] = userTmpl
@@ -441,7 +442,7 @@ func renderUserPage(w http.ResponseWriter, r *http.Request, user *dataprovider.U
 		ValidPerms:        dataprovider.ValidPerms,
 		ValidLoginMethods: dataprovider.ValidLoginMethods,
 		ValidProtocols:    dataprovider.ValidProtocols,
-		WebClientOptions:  dataprovider.WebClientOptions,
+		WebClientOptions:  sdk.WebClientOptions,
 		RootDirPerms:      user.GetPermissionsForPath("/"),
 		VirtualFolders:    folders,
 	}
@@ -583,8 +584,8 @@ func getUserPermissionsFromPostFields(r *http.Request) map[string][]string {
 	return permissions
 }
 
-func getFilePatternsFromPostField(r *http.Request) []dataprovider.PatternsFilter {
-	var result []dataprovider.PatternsFilter
+func getFilePatternsFromPostField(r *http.Request) []sdk.PatternsFilter {
+	var result []sdk.PatternsFilter
 
 	allowedPatterns := make(map[string][]string)
 	deniedPatterns := make(map[string][]string)
@@ -607,13 +608,13 @@ func getFilePatternsFromPostField(r *http.Request) []dataprovider.PatternsFilter
 	}
 
 	for dirAllowed, allowPatterns := range allowedPatterns {
-		filter := dataprovider.PatternsFilter{
+		filter := sdk.PatternsFilter{
 			Path:            dirAllowed,
-			AllowedPatterns: utils.RemoveDuplicates(allowPatterns),
+			AllowedPatterns: util.RemoveDuplicates(allowPatterns),
 		}
 		for dirDenied, denPatterns := range deniedPatterns {
 			if dirAllowed == dirDenied {
-				filter.DeniedPatterns = utils.RemoveDuplicates(denPatterns)
+				filter.DeniedPatterns = util.RemoveDuplicates(denPatterns)
 				break
 			}
 		}
@@ -628,7 +629,7 @@ func getFilePatternsFromPostField(r *http.Request) []dataprovider.PatternsFilter
 			}
 		}
 		if !found {
-			result = append(result, dataprovider.PatternsFilter{
+			result = append(result, sdk.PatternsFilter{
 				Path:           dirDenied,
 				DeniedPatterns: denPatterns,
 			})
@@ -637,23 +638,23 @@ func getFilePatternsFromPostField(r *http.Request) []dataprovider.PatternsFilter
 	return result
 }
 
-func getFiltersFromUserPostFields(r *http.Request) dataprovider.UserFilters {
-	var filters dataprovider.UserFilters
+func getFiltersFromUserPostFields(r *http.Request) sdk.UserFilters {
+	var filters sdk.UserFilters
 	filters.AllowedIP = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")
 	filters.DeniedIP = getSliceFromDelimitedValues(r.Form.Get("denied_ip"), ",")
 	filters.DeniedLoginMethods = r.Form["ssh_login_methods"]
 	filters.DeniedProtocols = r.Form["denied_protocols"]
 	filters.FilePatterns = getFilePatternsFromPostField(r)
-	filters.TLSUsername = dataprovider.TLSUsername(r.Form.Get("tls_username"))
+	filters.TLSUsername = sdk.TLSUsername(r.Form.Get("tls_username"))
 	filters.WebClient = r.Form["web_client_options"]
 	hooks := r.Form["hooks"]
-	if utils.IsStringInSlice("external_auth_disabled", hooks) {
+	if util.IsStringInSlice("external_auth_disabled", hooks) {
 		filters.Hooks.ExternalAuthDisabled = true
 	}
-	if utils.IsStringInSlice("pre_login_disabled", hooks) {
+	if util.IsStringInSlice("pre_login_disabled", hooks) {
 		filters.Hooks.PreLoginDisabled = true
 	}
-	if utils.IsStringInSlice("check_password_disabled", hooks) {
+	if util.IsStringInSlice("check_password_disabled", hooks) {
 		filters.Hooks.CheckPasswordDisabled = true
 	}
 	filters.DisableFsChecks = len(r.Form.Get("disable_fs_checks")) > 0
@@ -758,29 +759,29 @@ func getAzureConfig(r *http.Request) (vfs.AzBlobFsConfig, error) {
 
 func getFsConfigFromPostFields(r *http.Request) (vfs.Filesystem, error) {
 	var fs vfs.Filesystem
-	fs.Provider = vfs.GetProviderByName(r.Form.Get("fs_provider"))
+	fs.Provider = sdk.GetProviderByName(r.Form.Get("fs_provider"))
 	switch fs.Provider {
-	case vfs.S3FilesystemProvider:
+	case sdk.S3FilesystemProvider:
 		config, err := getS3Config(r)
 		if err != nil {
 			return fs, err
 		}
 		fs.S3Config = config
-	case vfs.AzureBlobFilesystemProvider:
+	case sdk.AzureBlobFilesystemProvider:
 		config, err := getAzureConfig(r)
 		if err != nil {
 			return fs, err
 		}
 		fs.AzBlobConfig = config
-	case vfs.GCSFilesystemProvider:
+	case sdk.GCSFilesystemProvider:
 		config, err := getGCSConfig(r)
 		if err != nil {
 			return fs, err
 		}
 		fs.GCSConfig = config
-	case vfs.CryptedFilesystemProvider:
+	case sdk.CryptedFilesystemProvider:
 		fs.CryptConfig.Passphrase = getSecretFromFormField(r, "crypt_passphrase")
-	case vfs.SFTPFilesystemProvider:
+	case sdk.SFTPFilesystemProvider:
 		config, err := getSFTPConfig(r)
 		if err != nil {
 			return fs, err
@@ -826,15 +827,15 @@ func getFolderFromTemplate(folder vfs.BaseVirtualFolder, name string) vfs.BaseVi
 	folder.MappedPath = replacePlaceholders(folder.MappedPath, replacements)
 	folder.Description = replacePlaceholders(folder.Description, replacements)
 	switch folder.FsConfig.Provider {
-	case vfs.CryptedFilesystemProvider:
+	case sdk.CryptedFilesystemProvider:
 		folder.FsConfig.CryptConfig = getCryptFsFromTemplate(folder.FsConfig.CryptConfig, replacements)
-	case vfs.S3FilesystemProvider:
+	case sdk.S3FilesystemProvider:
 		folder.FsConfig.S3Config = getS3FsFromTemplate(folder.FsConfig.S3Config, replacements)
-	case vfs.GCSFilesystemProvider:
+	case sdk.GCSFilesystemProvider:
 		folder.FsConfig.GCSConfig = getGCSFsFromTemplate(folder.FsConfig.GCSConfig, replacements)
-	case vfs.AzureBlobFilesystemProvider:
+	case sdk.AzureBlobFilesystemProvider:
 		folder.FsConfig.AzBlobConfig = getAzBlobFsFromTemplate(folder.FsConfig.AzBlobConfig, replacements)
-	case vfs.SFTPFilesystemProvider:
+	case sdk.SFTPFilesystemProvider:
 		folder.FsConfig.SFTPConfig = getSFTPFsFromTemplate(folder.FsConfig.SFTPConfig, replacements)
 	}
 
@@ -910,15 +911,15 @@ func getUserFromTemplate(user dataprovider.User, template userTemplateFields) da
 	user.AdditionalInfo = replacePlaceholders(user.AdditionalInfo, replacements)
 
 	switch user.FsConfig.Provider {
-	case vfs.CryptedFilesystemProvider:
+	case sdk.CryptedFilesystemProvider:
 		user.FsConfig.CryptConfig = getCryptFsFromTemplate(user.FsConfig.CryptConfig, replacements)
-	case vfs.S3FilesystemProvider:
+	case sdk.S3FilesystemProvider:
 		user.FsConfig.S3Config = getS3FsFromTemplate(user.FsConfig.S3Config, replacements)
-	case vfs.GCSFilesystemProvider:
+	case sdk.GCSFilesystemProvider:
 		user.FsConfig.GCSConfig = getGCSFsFromTemplate(user.FsConfig.GCSConfig, replacements)
-	case vfs.AzureBlobFilesystemProvider:
+	case sdk.AzureBlobFilesystemProvider:
 		user.FsConfig.AzBlobConfig = getAzBlobFsFromTemplate(user.FsConfig.AzBlobConfig, replacements)
-	case vfs.SFTPFilesystemProvider:
+	case sdk.SFTPFilesystemProvider:
 		user.FsConfig.SFTPConfig = getSFTPFsFromTemplate(user.FsConfig.SFTPConfig, replacements)
 	}
 
@@ -970,32 +971,34 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 		if err != nil {
 			return user, err
 		}
-		expirationDateMillis = utils.GetTimeAsMsSinceEpoch(expirationDate)
+		expirationDateMillis = util.GetTimeAsMsSinceEpoch(expirationDate)
 	}
 	fsConfig, err := getFsConfigFromPostFields(r)
 	if err != nil {
 		return user, err
 	}
 	user = dataprovider.User{
-		Username:          r.Form.Get("username"),
-		Password:          r.Form.Get("password"),
-		PublicKeys:        r.Form["public_keys"],
-		HomeDir:           r.Form.Get("home_dir"),
-		VirtualFolders:    getVirtualFoldersFromPostFields(r),
-		UID:               uid,
-		GID:               gid,
-		Permissions:       getUserPermissionsFromPostFields(r),
-		MaxSessions:       maxSessions,
-		QuotaSize:         quotaSize,
-		QuotaFiles:        quotaFiles,
-		UploadBandwidth:   bandwidthUL,
-		DownloadBandwidth: bandwidthDL,
-		Status:            status,
-		ExpirationDate:    expirationDateMillis,
-		Filters:           getFiltersFromUserPostFields(r),
-		FsConfig:          fsConfig,
-		AdditionalInfo:    r.Form.Get("additional_info"),
-		Description:       r.Form.Get("description"),
+		BaseUser: sdk.BaseUser{
+			Username:          r.Form.Get("username"),
+			Password:          r.Form.Get("password"),
+			PublicKeys:        r.Form["public_keys"],
+			HomeDir:           r.Form.Get("home_dir"),
+			UID:               uid,
+			GID:               gid,
+			Permissions:       getUserPermissionsFromPostFields(r),
+			MaxSessions:       maxSessions,
+			QuotaSize:         quotaSize,
+			QuotaFiles:        quotaFiles,
+			UploadBandwidth:   bandwidthUL,
+			DownloadBandwidth: bandwidthDL,
+			Status:            status,
+			ExpirationDate:    expirationDateMillis,
+			Filters:           getFiltersFromUserPostFields(r),
+			AdditionalInfo:    r.Form.Get("additional_info"),
+			Description:       r.Form.Get("description"),
+		},
+		VirtualFolders: getVirtualFoldersFromPostFields(r),
+		FsConfig:       fsConfig,
 	}
 	maxFileSize, err := strconv.ParseInt(r.Form.Get("max_upload_file_size"), 10, 64)
 	user.Filters.MaxUploadFileSize = maxFileSize
@@ -1146,7 +1149,7 @@ func handleWebUpdateAdminGet(w http.ResponseWriter, r *http.Request) {
 	admin, err := dataprovider.AdminExists(username)
 	if err == nil {
 		renderAddUpdateAdminPage(w, r, &admin, "", false)
-	} else if _, ok := err.(*utils.RecordNotFoundError); ok {
+	} else if _, ok := err.(*util.RecordNotFoundError); ok {
 		renderNotFoundPage(w, r, err)
 	} else {
 		renderInternalServerErrorPage(w, r, err)
@@ -1177,7 +1180,7 @@ func handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Request) {
 
 	username := getURLParam(r, "username")
 	admin, err := dataprovider.AdminExists(username)
-	if _, ok := err.(*utils.RecordNotFoundError); ok {
+	if _, ok := err.(*util.RecordNotFoundError); ok {
 		renderNotFoundPage(w, r, err)
 		return
 	} else if err != nil {
@@ -1265,7 +1268,7 @@ func handleWebTemplateFolderGet(w http.ResponseWriter, r *http.Request) {
 		folder, err := dataprovider.GetFolderByName(name)
 		if err == nil {
 			renderFolderPage(w, r, folder, folderPageModeTemplate, "")
-		} else if _, ok := err.(*utils.RecordNotFoundError); ok {
+		} else if _, ok := err.(*util.RecordNotFoundError); ok {
 			renderNotFoundPage(w, r, err)
 		} else {
 			renderInternalServerErrorPage(w, r, err)
@@ -1328,13 +1331,13 @@ func handleWebTemplateUserGet(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			user.SetEmptySecrets()
 			renderUserPage(w, r, &user, userPageModeTemplate, "")
-		} else if _, ok := err.(*utils.RecordNotFoundError); ok {
+		} else if _, ok := err.(*util.RecordNotFoundError); ok {
 			renderNotFoundPage(w, r, err)
 		} else {
 			renderInternalServerErrorPage(w, r, err)
 		}
 	} else {
-		user := dataprovider.User{Status: 1}
+		user := dataprovider.User{BaseUser: sdk.BaseUser{Status: 1}}
 		renderUserPage(w, r, &user, userPageModeTemplate, "")
 	}
 }
@@ -1388,13 +1391,13 @@ func handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
 			user.Password = ""
 			user.SetEmptySecrets()
 			renderUserPage(w, r, &user, userPageModeAdd, "")
-		} else if _, ok := err.(*utils.RecordNotFoundError); ok {
+		} else if _, ok := err.(*util.RecordNotFoundError); ok {
 			renderNotFoundPage(w, r, err)
 		} else {
 			renderInternalServerErrorPage(w, r, err)
 		}
 	} else {
-		user := dataprovider.User{Status: 1}
+		user := dataprovider.User{BaseUser: sdk.BaseUser{Status: 1}}
 		renderUserPage(w, r, &user, userPageModeAdd, "")
 	}
 }
@@ -1404,7 +1407,7 @@ func handleWebUpdateUserGet(w http.ResponseWriter, r *http.Request) {
 	user, err := dataprovider.UserExists(username)
 	if err == nil {
 		renderUserPage(w, r, &user, userPageModeUpdate, "")
-	} else if _, ok := err.(*utils.RecordNotFoundError); ok {
+	} else if _, ok := err.(*util.RecordNotFoundError); ok {
 		renderNotFoundPage(w, r, err)
 	} else {
 		renderInternalServerErrorPage(w, r, err)
@@ -1434,7 +1437,7 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	username := getURLParam(r, "username")
 	user, err := dataprovider.UserExists(username)
-	if _, ok := err.(*utils.RecordNotFoundError); ok {
+	if _, ok := err.(*util.RecordNotFoundError); ok {
 		renderNotFoundPage(w, r, err)
 		return
 	} else if err != nil {
@@ -1527,7 +1530,7 @@ func handleWebUpdateFolderGet(w http.ResponseWriter, r *http.Request) {
 	folder, err := dataprovider.GetFolderByName(name)
 	if err == nil {
 		renderFolderPage(w, r, folder, folderPageModeUpdate, "")
-	} else if _, ok := err.(*utils.RecordNotFoundError); ok {
+	} else if _, ok := err.(*util.RecordNotFoundError); ok {
 		renderNotFoundPage(w, r, err)
 	} else {
 		renderInternalServerErrorPage(w, r, err)
@@ -1538,7 +1541,7 @@ func handleWebUpdateFolderPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	name := getURLParam(r, "name")
 	folder, err := dataprovider.GetFolderByName(name)
-	if _, ok := err.(*utils.RecordNotFoundError); ok {
+	if _, ok := err.(*util.RecordNotFoundError); ok {
 		renderNotFoundPage(w, r, err)
 		return
 	} else if err != nil {

@@ -10,7 +10,7 @@ import (
 	"github.com/lestrrat-go/jwx/jwt"
 
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 var (
@@ -58,7 +58,7 @@ func validateJWTToken(w http.ResponseWriter, r *http.Request, audience tokenAudi
 		}
 		return errInvalidToken
 	}
-	if !utils.IsStringInSlice(audience, token.Audience()) {
+	if !util.IsStringInSlice(audience, token.Audience()) {
 		logger.Debug(logSender, "", "the token is not valid for audience %#v", audience)
 		if isAPIToken {
 			sendAPIResponse(w, r, nil, "Your token audience is not valid", http.StatusUnauthorized)
@@ -192,7 +192,7 @@ func verifyCSRFHeader(next http.Handler) http.Handler {
 			return
 		}
 
-		if !utils.IsStringInSlice(tokenAudienceCSRF, token.Audience()) {
+		if !util.IsStringInSlice(tokenAudienceCSRF, token.Audience()) {
 			logger.Debug(logSender, "", "error validating CSRF header audience")
 			sendAPIResponse(w, r, errors.New("the token is not valid"), "", http.StatusForbidden)
 			return

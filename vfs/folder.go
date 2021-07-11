@@ -6,7 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 // BaseVirtualFolder defines the path for the virtual folder and the used quota limits.
@@ -65,10 +66,10 @@ func (v *BaseVirtualFolder) GetQuotaSummary() string {
 	var result string
 	result = "Files: " + strconv.Itoa(v.UsedQuotaFiles)
 	if v.UsedQuotaSize > 0 {
-		result += ". Size: " + utils.ByteCountIEC(v.UsedQuotaSize)
+		result += ". Size: " + util.ByteCountIEC(v.UsedQuotaSize)
 	}
 	if v.LastQuotaUpdate > 0 {
-		t := utils.GetTimeFromMsecSinceEpoch(v.LastQuotaUpdate)
+		t := util.GetTimeFromMsecSinceEpoch(v.LastQuotaUpdate)
 		result += fmt.Sprintf(". Last update: %v ", t.Format("2006-01-02 15:04")) // YYYY-MM-DD HH:MM
 	}
 	return result
@@ -77,17 +78,17 @@ func (v *BaseVirtualFolder) GetQuotaSummary() string {
 // GetStorageDescrition returns the storage description
 func (v *BaseVirtualFolder) GetStorageDescrition() string {
 	switch v.FsConfig.Provider {
-	case LocalFilesystemProvider:
+	case sdk.LocalFilesystemProvider:
 		return fmt.Sprintf("Local: %v", v.MappedPath)
-	case S3FilesystemProvider:
+	case sdk.S3FilesystemProvider:
 		return fmt.Sprintf("S3: %v", v.FsConfig.S3Config.Bucket)
-	case GCSFilesystemProvider:
+	case sdk.GCSFilesystemProvider:
 		return fmt.Sprintf("GCS: %v", v.FsConfig.GCSConfig.Bucket)
-	case AzureBlobFilesystemProvider:
+	case sdk.AzureBlobFilesystemProvider:
 		return fmt.Sprintf("AzBlob: %v", v.FsConfig.AzBlobConfig.Container)
-	case CryptedFilesystemProvider:
+	case sdk.CryptedFilesystemProvider:
 		return fmt.Sprintf("Encrypted: %v", v.MappedPath)
-	case SFTPFilesystemProvider:
+	case sdk.SFTPFilesystemProvider:
 		return fmt.Sprintf("SFTP: %v", v.FsConfig.SFTPConfig.Endpoint)
 	default:
 		return ""
@@ -96,22 +97,22 @@ func (v *BaseVirtualFolder) GetStorageDescrition() string {
 
 // IsLocalOrLocalCrypted returns true if the folder provider is local or local encrypted
 func (v *BaseVirtualFolder) IsLocalOrLocalCrypted() bool {
-	return v.FsConfig.Provider == LocalFilesystemProvider || v.FsConfig.Provider == CryptedFilesystemProvider
+	return v.FsConfig.Provider == sdk.LocalFilesystemProvider || v.FsConfig.Provider == sdk.CryptedFilesystemProvider
 }
 
 // hideConfidentialData hides folder confidential data
 func (v *BaseVirtualFolder) hideConfidentialData() {
 	switch v.FsConfig.Provider {
-	case S3FilesystemProvider:
+	case sdk.S3FilesystemProvider:
 		v.FsConfig.S3Config.AccessSecret.Hide()
-	case GCSFilesystemProvider:
+	case sdk.GCSFilesystemProvider:
 		v.FsConfig.GCSConfig.Credentials.Hide()
-	case AzureBlobFilesystemProvider:
+	case sdk.AzureBlobFilesystemProvider:
 		v.FsConfig.AzBlobConfig.AccountKey.Hide()
 		v.FsConfig.AzBlobConfig.SASURL.Hide()
-	case CryptedFilesystemProvider:
+	case sdk.CryptedFilesystemProvider:
 		v.FsConfig.CryptConfig.Passphrase.Hide()
-	case SFTPFilesystemProvider:
+	case sdk.SFTPFilesystemProvider:
 		v.FsConfig.SFTPConfig.Password.Hide()
 		v.FsConfig.SFTPConfig.PrivateKey.Hide()
 	}
@@ -128,26 +129,26 @@ func (v *BaseVirtualFolder) PrepareForRendering() {
 // HasRedactedSecret returns true if the folder has a redacted secret
 func (v *BaseVirtualFolder) HasRedactedSecret() bool {
 	switch v.FsConfig.Provider {
-	case S3FilesystemProvider:
+	case sdk.S3FilesystemProvider:
 		if v.FsConfig.S3Config.AccessSecret.IsRedacted() {
 			return true
 		}
-	case GCSFilesystemProvider:
+	case sdk.GCSFilesystemProvider:
 		if v.FsConfig.GCSConfig.Credentials.IsRedacted() {
 			return true
 		}
-	case AzureBlobFilesystemProvider:
+	case sdk.AzureBlobFilesystemProvider:
 		if v.FsConfig.AzBlobConfig.AccountKey.IsRedacted() {
 			return true
 		}
 		if v.FsConfig.AzBlobConfig.SASURL.IsRedacted() {
 			return true
 		}
-	case CryptedFilesystemProvider:
+	case sdk.CryptedFilesystemProvider:
 		if v.FsConfig.CryptConfig.Passphrase.IsRedacted() {
 			return true
 		}
-	case SFTPFilesystemProvider:
+	case sdk.SFTPFilesystemProvider:
 		if v.FsConfig.SFTPConfig.Password.IsRedacted() {
 			return true
 		}
@@ -176,17 +177,17 @@ type VirtualFolder struct {
 // GetFilesystem returns the filesystem for this folder
 func (v *VirtualFolder) GetFilesystem(connectionID string, forbiddenSelfUsers []string) (Fs, error) {
 	switch v.FsConfig.Provider {
-	case S3FilesystemProvider:
+	case sdk.S3FilesystemProvider:
 		return NewS3Fs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.S3Config)
-	case GCSFilesystemProvider:
+	case sdk.GCSFilesystemProvider:
 		config := v.FsConfig.GCSConfig
 		config.CredentialFile = v.GetGCSCredentialsFilePath()
 		return NewGCSFs(connectionID, v.MappedPath, v.VirtualPath, config)
-	case AzureBlobFilesystemProvider:
+	case sdk.AzureBlobFilesystemProvider:
 		return NewAzBlobFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.AzBlobConfig)
-	case CryptedFilesystemProvider:
+	case sdk.CryptedFilesystemProvider:
 		return NewCryptFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.CryptConfig)
-	case SFTPFilesystemProvider:
+	case sdk.SFTPFilesystemProvider:
 		return NewSFTPFs(connectionID, v.VirtualPath, v.MappedPath, forbiddenSelfUsers, v.FsConfig.SFTPConfig)
 	default:
 		return NewOsFs(connectionID, v.MappedPath, v.VirtualPath), nil

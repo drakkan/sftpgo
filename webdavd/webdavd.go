@@ -11,7 +11,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 type ctxReqParams int
@@ -97,7 +97,7 @@ type Binding struct {
 }
 
 func (b *Binding) parseAllowedProxy() error {
-	allowedFuncs, err := utils.ParseAllowedIPAndRanges(b.ProxyAllowed)
+	allowedFuncs, err := util.ParseAllowedIPAndRanges(b.ProxyAllowed)
 	if err != nil {
 		return err
 	}
@@ -227,7 +227,7 @@ func ReloadCertificateMgr() error {
 }
 
 func getConfigPath(name, configDir string) string {
-	if !utils.IsFileInputValid(name) {
+	if !util.IsFileInputValid(name) {
 		return ""
 	}
 	if name != "" && !filepath.IsAbs(name) {

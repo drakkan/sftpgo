@@ -8,7 +8,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
 
-	"github.com/drakkan/sftpgo/v2/metrics"
+	"github.com/drakkan/sftpgo/v2/metric"
 )
 
 // StructuredLogger defines a simple wrapper around zerolog logger.
@@ -56,7 +56,7 @@ func (l *StructuredLogger) NewLogEntry(r *http.Request) middleware.LogEntry {
 
 // Write logs a new entry at the end of the HTTP request
 func (l *StructuredLoggerEntry) Write(status, bytes int, header http.Header, elapsed time.Duration, extra interface{}) {
-	metrics.HTTPRequestServed(status)
+	metric.HTTPRequestServed(status)
 	l.Logger.Info().
 		Timestamp().
 		Str("sender", "httpd").

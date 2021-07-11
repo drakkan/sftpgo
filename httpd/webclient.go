@@ -16,7 +16,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -123,10 +123,10 @@ func loadClientTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateClientDir, templateClientMessage),
 	}
 
-	filesTmpl := utils.LoadTemplate(nil, filesPaths...)
-	credentialsTmpl := utils.LoadTemplate(nil, credentialsPaths...)
-	loginTmpl := utils.LoadTemplate(nil, loginPath...)
-	messageTmpl := utils.LoadTemplate(nil, messagePath...)
+	filesTmpl := util.LoadTemplate(nil, filesPaths...)
+	credentialsTmpl := util.LoadTemplate(nil, credentialsPaths...)
+	loginTmpl := util.LoadTemplate(nil, loginPath...)
+	messageTmpl := util.LoadTemplate(nil, messagePath...)
 
 	clientTemplates[templateClientFiles] = filesTmpl
 	clientTemplates[templateClientCredentials] = credentialsTmpl
@@ -291,7 +291,7 @@ func handleWebClientDownloadZip(w http.ResponseWriter, r *http.Request) {
 
 	name := "/"
 	if _, ok := r.URL.Query()["path"]; ok {
-		name = utils.CleanPath(r.URL.Query().Get("path"))
+		name = util.CleanPath(r.URL.Query().Get("path"))
 	}
 
 	files := r.URL.Query().Get("files")
@@ -334,7 +334,7 @@ func handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {
 
 	name := "/"
 	if _, ok := r.URL.Query()["path"]; ok {
-		name = utils.CleanPath(r.URL.Query().Get("path"))
+		name = util.CleanPath(r.URL.Query().Get("path"))
 	}
 
 	contents, err := connection.ReadDir(name)
@@ -354,7 +354,7 @@ func handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {
 			if info.Mode()&os.ModeSymlink != 0 {
 				res["size"] = ""
 			} else {
-				res["size"] = utils.ByteCountIEC(info.Size())
+				res["size"] = util.ByteCountIEC(info.Size())
 			}
 		}
 		res["name"] = info.Name()
@@ -394,7 +394,7 @@ func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
 
 	name := "/"
 	if _, ok := r.URL.Query()["path"]; ok {
-		name = utils.CleanPath(r.URL.Query().Get("path"))
+		name = util.CleanPath(r.URL.Query().Get("path"))
 	}
 	var info os.FileInfo
 	if name == "/" {

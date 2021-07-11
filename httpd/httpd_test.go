@@ -40,8 +40,9 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpdtest"
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/sftpd"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -369,10 +370,10 @@ func TestBasicUserHandling(t *testing.T) {
 	user.QuotaFiles = 2
 	user.UploadBandwidth = 128
 	user.DownloadBandwidth = 64
-	user.ExpirationDate = utils.GetTimeAsMsSinceEpoch(time.Now())
+	user.ExpirationDate = util.GetTimeAsMsSinceEpoch(time.Now())
 	user.AdditionalInfo = "some free text"
-	user.Filters.TLSUsername = dataprovider.TLSUsernameCN
-	user.Filters.WebClient = append(user.Filters.WebClient, dataprovider.WebClientPubKeyChangeDisabled)
+	user.Filters.TLSUsername = sdk.TLSUsernameCN
+	user.Filters.WebClient = append(user.Filters.WebClient, sdk.WebClientPubKeyChangeDisabled)
 	originalUser := user
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
@@ -839,7 +840,7 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.Filters.DeniedLoginMethods = []string{}
-	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:            "relative",
 			AllowedPatterns: []string{},
@@ -848,7 +849,7 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	}
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:            "/",
 			AllowedPatterns: []string{},
@@ -857,7 +858,7 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	}
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:            "/subdir",
 			AllowedPatterns: []string{"*.zip"},
@@ -871,7 +872,7 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	}
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:            "relative",
 			AllowedPatterns: []string{},
@@ -880,7 +881,7 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	}
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:            "/",
 			AllowedPatterns: []string{},
@@ -889,7 +890,7 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	}
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:            "/subdir",
 			AllowedPatterns: []string{"*.zip"},
@@ -902,7 +903,7 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	}
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:            "/subdir",
 			AllowedPatterns: []string{"a\\"},
@@ -928,7 +929,7 @@ func TestAddUserInvalidFilters(t *testing.T) {
 
 func TestAddUserInvalidFsConfig(t *testing.T) {
 	u := getTestUser()
-	u.FsConfig.Provider = vfs.S3FilesystemProvider
+	u.FsConfig.Provider = sdk.S3FilesystemProvider
 	u.FsConfig.S3Config.Bucket = ""
 	_, _, err := httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -960,7 +961,7 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u = getTestUser()
-	u.FsConfig.Provider = vfs.GCSFilesystemProvider
+	u.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = ""
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -983,7 +984,7 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	assert.NoError(t, err)
 
 	u = getTestUser()
-	u.FsConfig.Provider = vfs.AzureBlobFilesystemProvider
+	u.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
 	u.FsConfig.AzBlobConfig.SASURL = kms.NewPlainSecret("http://foo\x7f.com/")
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -1013,14 +1014,14 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	assert.NoError(t, err)
 
 	u = getTestUser()
-	u.FsConfig.Provider = vfs.CryptedFilesystemProvider
+	u.FsConfig.Provider = sdk.CryptedFilesystemProvider
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.FsConfig.CryptConfig.Passphrase = kms.NewSecret(kms.SecretStatusRedacted, "akey", "", "")
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u = getTestUser()
-	u.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	u.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.FsConfig.SFTPConfig.Password = kms.NewSecret(kms.SecretStatusRedacted, "randompkey", "", "")
@@ -1047,7 +1048,7 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 
 func TestUserRedactedPassword(t *testing.T) {
 	u := getTestUser()
-	u.FsConfig.Provider = vfs.S3FilesystemProvider
+	u.FsConfig.Provider = sdk.S3FilesystemProvider
 	u.FsConfig.S3Config.Bucket = "b"
 	u.FsConfig.S3Config.Region = "eu-west-1"
 	u.FsConfig.S3Config.AccessKey = "access-key"
@@ -1071,9 +1072,11 @@ func TestUserRedactedPassword(t *testing.T) {
 			Name:       folderName,
 			MappedPath: filepath.Join(os.TempDir(), "crypted"),
 			FsConfig: vfs.Filesystem{
-				Provider: vfs.CryptedFilesystemProvider,
+				Provider: sdk.CryptedFilesystemProvider,
 				CryptConfig: vfs.CryptFsConfig{
-					Passphrase: kms.NewSecret(kms.SecretStatusRedacted, "crypted-secret", "", ""),
+					CryptFsConfig: sdk.CryptFsConfig{
+						Passphrase: kms.NewSecret(kms.SecretStatusRedacted, "crypted-secret", "", ""),
+					},
 				},
 			},
 		},
@@ -1303,7 +1306,7 @@ func TestUpdateUser(t *testing.T) {
 	u := getTestUser()
 	u.UsedQuotaFiles = 1
 	u.UsedQuotaSize = 2
-	u.Filters.TLSUsername = dataprovider.TLSUsernameCN
+	u.Filters.TLSUsername = sdk.TLSUsernameCN
 	u.Filters.Hooks.CheckPasswordDisabled = true
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -1321,12 +1324,12 @@ func TestUpdateUser(t *testing.T) {
 	user.Filters.DeniedIP = []string{"192.168.3.0/24", "192.168.4.0/24"}
 	user.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodPassword}
 	user.Filters.DeniedProtocols = []string{common.ProtocolWebDAV}
-	user.Filters.TLSUsername = dataprovider.TLSUsernameNone
+	user.Filters.TLSUsername = sdk.TLSUsernameNone
 	user.Filters.Hooks.ExternalAuthDisabled = true
 	user.Filters.Hooks.PreLoginDisabled = true
 	user.Filters.Hooks.CheckPasswordDisabled = false
 	user.Filters.DisableFsChecks = true
-	user.Filters.FilePatterns = append(user.Filters.FilePatterns, dataprovider.PatternsFilter{
+	user.Filters.FilePatterns = append(user.Filters.FilePatterns, sdk.PatternsFilter{
 		Path:            "/subdir",
 		AllowedPatterns: []string{"*.zip", "*.rar"},
 		DeniedPatterns:  []string{"*.jpg", "*.png"},
@@ -1580,7 +1583,7 @@ func TestUserFolderMapping(t *testing.T) {
 func TestUserS3Config(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
-	user.FsConfig.Provider = vfs.S3FilesystemProvider
+	user.FsConfig.Provider = sdk.S3FilesystemProvider
 	user.FsConfig.S3Config.Bucket = "test"      //nolint:goconst
 	user.FsConfig.S3Config.Region = "us-east-1" //nolint:goconst
 	user.FsConfig.S3Config.AccessKey = "Server-Access-Key"
@@ -1593,9 +1596,11 @@ func TestUserS3Config(t *testing.T) {
 			Name:       folderName,
 			MappedPath: filepath.Join(os.TempDir(), "folderName"),
 			FsConfig: vfs.Filesystem{
-				Provider: vfs.CryptedFilesystemProvider,
+				Provider: sdk.CryptedFilesystemProvider,
 				CryptConfig: vfs.CryptFsConfig{
-					Passphrase: kms.NewPlainSecret("Crypted-Secret"),
+					CryptFsConfig: sdk.CryptFsConfig{
+						Passphrase: kms.NewPlainSecret("Crypted-Secret"),
+					},
 				},
 			},
 		},
@@ -1639,7 +1644,7 @@ func TestUserS3Config(t *testing.T) {
 	assert.NotEmpty(t, initialSecretPayload)
 	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.GetKey())
-	user.FsConfig.Provider = vfs.S3FilesystemProvider
+	user.FsConfig.Provider = sdk.S3FilesystemProvider
 	user.FsConfig.S3Config.Bucket = "test-bucket"
 	user.FsConfig.S3Config.Region = "us-east-1" //nolint:goconst
 	user.FsConfig.S3Config.AccessKey = "Server-Access-Key1"
@@ -1653,7 +1658,7 @@ func TestUserS3Config(t *testing.T) {
 	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.GetKey())
 	// test user without access key and access secret (shared config state)
-	user.FsConfig.Provider = vfs.S3FilesystemProvider
+	user.FsConfig.Provider = sdk.S3FilesystemProvider
 	user.FsConfig.S3Config.Bucket = "testbucket"
 	user.FsConfig.S3Config.Region = "us-east-1"
 	user.FsConfig.S3Config.AccessKey = ""
@@ -1684,7 +1689,7 @@ func TestUserGCSConfig(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(credentialsPath, 0700)
 	assert.NoError(t, err)
-	user.FsConfig.Provider = vfs.GCSFilesystemProvider
+	user.FsConfig.Provider = sdk.GCSFilesystemProvider
 	user.FsConfig.GCSConfig.Bucket = "test"
 	user.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("fake credentials") //nolint:goconst
 	user, bb, err := httpdtest.UpdateUser(user, http.StatusOK, "")
@@ -1731,7 +1736,7 @@ func TestUserGCSConfig(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoFileExists(t, credentialFile)
 	user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
-	user.FsConfig.Provider = vfs.S3FilesystemProvider
+	user.FsConfig.Provider = sdk.S3FilesystemProvider
 	user.FsConfig.S3Config.Bucket = "test1"
 	user.FsConfig.S3Config.Region = "us-east-1"
 	user.FsConfig.S3Config.AccessKey = "Server-Access-Key1"
@@ -1741,7 +1746,7 @@ func TestUserGCSConfig(t *testing.T) {
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	user.FsConfig.S3Config = vfs.S3FsConfig{}
-	user.FsConfig.Provider = vfs.GCSFilesystemProvider
+	user.FsConfig.Provider = sdk.GCSFilesystemProvider
 	user.FsConfig.GCSConfig.Bucket = "test1"
 	user.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("fake credentials")
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
@@ -1754,7 +1759,7 @@ func TestUserGCSConfig(t *testing.T) {
 func TestUserAzureBlobConfig(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
-	user.FsConfig.Provider = vfs.AzureBlobFilesystemProvider
+	user.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
 	user.FsConfig.AzBlobConfig.Container = "test"
 	user.FsConfig.AzBlobConfig.AccountName = "Server-Account-Name"
 	user.FsConfig.AzBlobConfig.AccountKey = kms.NewPlainSecret("Server-Account-Key")
@@ -1793,7 +1798,7 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	assert.NotEmpty(t, initialPayload)
 	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.GetKey())
-	user.FsConfig.Provider = vfs.AzureBlobFilesystemProvider
+	user.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
 	user.FsConfig.AzBlobConfig.Container = "test-container"
 	user.FsConfig.AzBlobConfig.Endpoint = "http://localhost:9001"
 	user.FsConfig.AzBlobConfig.KeyPrefix = "somedir/subdir"
@@ -1806,7 +1811,7 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.GetKey())
 	// test user without access key and access secret (SAS)
-	user.FsConfig.Provider = vfs.AzureBlobFilesystemProvider
+	user.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
 	user.FsConfig.AzBlobConfig.SASURL = kms.NewPlainSecret("https://myaccount.blob.core.windows.net/pictures/profile.jpg?sv=2012-02-12&st=2009-02-09&se=2009-02-10&sr=c&sp=r&si=YWJjZGVmZw%3d%3d&sig=dD80ihBh5jfNpymO5Hg1IdiJIEvHcJpCMiCMnN%2fRnbI%3d")
 	user.FsConfig.AzBlobConfig.KeyPrefix = "somedir/subdir"
 	user.FsConfig.AzBlobConfig.AccountName = ""
@@ -1823,8 +1828,10 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	user.ID = 0
 	// sas test for add instead of update
 	user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{
-		Container: user.FsConfig.AzBlobConfig.Container,
-		SASURL:    kms.NewPlainSecret("http://127.0.0.1/fake/sass/url"),
+		AzBlobFsConfig: sdk.AzBlobFsConfig{
+			Container: user.FsConfig.AzBlobConfig.Container,
+			SASURL:    kms.NewPlainSecret("http://127.0.0.1/fake/sass/url"),
+		},
 	}
 	user, _, err = httpdtest.AddUser(user, http.StatusCreated)
 	assert.NoError(t, err)
@@ -1851,7 +1858,7 @@ func TestUserAzureBlobConfig(t *testing.T) {
 func TestUserCryptFs(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
-	user.FsConfig.Provider = vfs.CryptedFilesystemProvider
+	user.FsConfig.Provider = sdk.CryptedFilesystemProvider
 	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("crypt passphrase")
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
@@ -1886,7 +1893,7 @@ func TestUserCryptFs(t *testing.T) {
 	assert.NotEmpty(t, initialPayload)
 	assert.Empty(t, user.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.CryptConfig.Passphrase.GetKey())
-	user.FsConfig.Provider = vfs.CryptedFilesystemProvider
+	user.FsConfig.Provider = sdk.CryptedFilesystemProvider
 	user.FsConfig.CryptConfig.Passphrase.SetKey("pass")
 	user, bb, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err, string(bb))
@@ -1903,7 +1910,7 @@ func TestUserCryptFs(t *testing.T) {
 func TestUserSFTPFs(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
-	user.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	user.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	user.FsConfig.SFTPConfig.Endpoint = "127.0.0.1" // missing port
 	user.FsConfig.SFTPConfig.Username = "sftp_user"
 	user.FsConfig.SFTPConfig.Password = kms.NewPlainSecret("sftp_pwd")
@@ -1972,7 +1979,7 @@ func TestUserSFTPFs(t *testing.T) {
 	assert.NotEmpty(t, initialPkeyPayload)
 	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetKey())
-	user.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	user.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	user.FsConfig.SFTPConfig.PrivateKey.SetKey("k")
 	user, bb, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err, string(bb))
@@ -2000,7 +2007,7 @@ func TestUserHiddenFields(t *testing.T) {
 	usernames := []string{"user1", "user2", "user3", "user4", "user5"}
 	u1 := getTestUser()
 	u1.Username = usernames[0]
-	u1.FsConfig.Provider = vfs.S3FilesystemProvider
+	u1.FsConfig.Provider = sdk.S3FilesystemProvider
 	u1.FsConfig.S3Config.Bucket = "test"
 	u1.FsConfig.S3Config.Region = "us-east-1"
 	u1.FsConfig.S3Config.AccessKey = "S3-Access-Key"
@@ -2010,7 +2017,7 @@ func TestUserHiddenFields(t *testing.T) {
 
 	u2 := getTestUser()
 	u2.Username = usernames[1]
-	u2.FsConfig.Provider = vfs.GCSFilesystemProvider
+	u2.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u2.FsConfig.GCSConfig.Bucket = "test"
 	u2.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("fake credentials")
 	user2, _, err := httpdtest.AddUser(u2, http.StatusCreated)
@@ -2018,7 +2025,7 @@ func TestUserHiddenFields(t *testing.T) {
 
 	u3 := getTestUser()
 	u3.Username = usernames[2]
-	u3.FsConfig.Provider = vfs.AzureBlobFilesystemProvider
+	u3.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
 	u3.FsConfig.AzBlobConfig.Container = "test"
 	u3.FsConfig.AzBlobConfig.AccountName = "Server-Account-Name"
 	u3.FsConfig.AzBlobConfig.AccountKey = kms.NewPlainSecret("Server-Account-Key")
@@ -2027,14 +2034,14 @@ func TestUserHiddenFields(t *testing.T) {
 
 	u4 := getTestUser()
 	u4.Username = usernames[3]
-	u4.FsConfig.Provider = vfs.CryptedFilesystemProvider
+	u4.FsConfig.Provider = sdk.CryptedFilesystemProvider
 	u4.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("test passphrase")
 	user4, _, err := httpdtest.AddUser(u4, http.StatusCreated)
 	assert.NoError(t, err)
 
 	u5 := getTestUser()
 	u5.Username = usernames[4]
-	u5.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	u5.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	u5.FsConfig.SFTPConfig.Endpoint = "127.0.0.1:2022"
 	u5.FsConfig.SFTPConfig.Username = "sftp_user"
 	u5.FsConfig.SFTPConfig.Password = kms.NewPlainSecret("apassword")
@@ -2555,7 +2562,7 @@ func TestEmbeddedFoldersUpdate(t *testing.T) {
 	assert.Equal(t, int64(0), folder.UsedQuotaSize)
 	assert.Equal(t, int64(0), folder.LastQuotaUpdate)
 	assert.Empty(t, folder.Description)
-	assert.Equal(t, vfs.LocalFilesystemProvider, folder.FsConfig.Provider)
+	assert.Equal(t, sdk.LocalFilesystemProvider, folder.FsConfig.Provider)
 	assert.Len(t, folder.Users, 1)
 	assert.Contains(t, folder.Users, user.Username)
 	// update a field on the folder
@@ -2569,7 +2576,7 @@ func TestEmbeddedFoldersUpdate(t *testing.T) {
 	assert.Equal(t, int64(0), folder.UsedQuotaSize)
 	assert.Equal(t, int64(0), folder.LastQuotaUpdate)
 	assert.Equal(t, description, folder.Description)
-	assert.Equal(t, vfs.LocalFilesystemProvider, folder.FsConfig.Provider)
+	assert.Equal(t, sdk.LocalFilesystemProvider, folder.FsConfig.Provider)
 	// check that the user gets the changes
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
@@ -2579,7 +2586,7 @@ func TestEmbeddedFoldersUpdate(t *testing.T) {
 	assert.Equal(t, int64(0), userFolder.UsedQuotaSize)
 	assert.Equal(t, int64(0), userFolder.LastQuotaUpdate)
 	assert.Equal(t, description, userFolder.Description)
-	assert.Equal(t, vfs.LocalFilesystemProvider, userFolder.FsConfig.Provider)
+	assert.Equal(t, sdk.LocalFilesystemProvider, userFolder.FsConfig.Provider)
 	// now update the folder embedding it inside the user
 	user.VirtualFolders = []vfs.VirtualFolder{
 		{
@@ -2590,13 +2597,15 @@ func TestEmbeddedFoldersUpdate(t *testing.T) {
 				UsedQuotaSize:   8192,
 				LastQuotaUpdate: 123,
 				FsConfig: vfs.Filesystem{
-					Provider: vfs.S3FilesystemProvider,
+					Provider: sdk.S3FilesystemProvider,
 					S3Config: vfs.S3FsConfig{
-						Bucket:       "test",
-						Region:       "us-east-1",
-						AccessKey:    "akey",
-						AccessSecret: kms.NewPlainSecret("asecret"),
-						Endpoint:     "http://127.0.1.1:9090",
+						S3FsConfig: sdk.S3FsConfig{
+							Bucket:       "test",
+							Region:       "us-east-1",
+							AccessKey:    "akey",
+							AccessSecret: kms.NewPlainSecret("asecret"),
+							Endpoint:     "http://127.0.1.1:9090",
+						},
 					},
 				},
 			},
@@ -2612,7 +2621,7 @@ func TestEmbeddedFoldersUpdate(t *testing.T) {
 	assert.Equal(t, int64(0), userFolder.UsedQuotaSize)
 	assert.Equal(t, int64(0), userFolder.LastQuotaUpdate)
 	assert.Empty(t, userFolder.Description)
-	assert.Equal(t, vfs.S3FilesystemProvider, userFolder.FsConfig.Provider)
+	assert.Equal(t, sdk.S3FilesystemProvider, userFolder.FsConfig.Provider)
 	assert.Equal(t, "test", userFolder.FsConfig.S3Config.Bucket)
 	assert.Equal(t, "us-east-1", userFolder.FsConfig.S3Config.Region)
 	assert.Equal(t, "http://127.0.1.1:9090", userFolder.FsConfig.S3Config.Endpoint)
@@ -2627,7 +2636,7 @@ func TestEmbeddedFoldersUpdate(t *testing.T) {
 	assert.Equal(t, int64(0), folder.UsedQuotaSize)
 	assert.Equal(t, int64(0), folder.LastQuotaUpdate)
 	assert.Empty(t, folder.Description)
-	assert.Equal(t, vfs.S3FilesystemProvider, folder.FsConfig.Provider)
+	assert.Equal(t, sdk.S3FilesystemProvider, folder.FsConfig.Provider)
 	assert.Equal(t, "test", folder.FsConfig.S3Config.Bucket)
 	assert.Equal(t, "us-east-1", folder.FsConfig.S3Config.Region)
 	assert.Equal(t, "http://127.0.1.1:9090", folder.FsConfig.S3Config.Endpoint)
@@ -2645,7 +2654,7 @@ func TestEmbeddedFoldersUpdate(t *testing.T) {
 	assert.Equal(t, 100, folder.UsedQuotaFiles)
 	assert.Equal(t, int64(32768), folder.UsedQuotaSize)
 	assert.Greater(t, folder.LastQuotaUpdate, int64(0))
-	assert.Equal(t, vfs.S3FilesystemProvider, folder.FsConfig.Provider)
+	assert.Equal(t, sdk.S3FilesystemProvider, folder.FsConfig.Provider)
 	assert.Equal(t, "test", folder.FsConfig.S3Config.Bucket)
 	assert.Equal(t, "us-east-1", folder.FsConfig.S3Config.Region)
 	assert.Equal(t, "http://127.0.1.1:9090", folder.FsConfig.S3Config.Endpoint)
@@ -2662,7 +2671,7 @@ func TestEmbeddedFoldersUpdate(t *testing.T) {
 	assert.Equal(t, int64(32768), userFolder.UsedQuotaSize)
 	assert.Greater(t, userFolder.LastQuotaUpdate, int64(0))
 	assert.Empty(t, userFolder.Description)
-	assert.Equal(t, vfs.S3FilesystemProvider, userFolder.FsConfig.Provider)
+	assert.Equal(t, sdk.S3FilesystemProvider, userFolder.FsConfig.Provider)
 	assert.Equal(t, "test", userFolder.FsConfig.S3Config.Bucket)
 	assert.Equal(t, "us-east-1", userFolder.FsConfig.S3Config.Region)
 	assert.Equal(t, "http://127.0.1.1:9090", userFolder.FsConfig.S3Config.Endpoint)
@@ -2927,9 +2936,9 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	_, _, err = httpdtest.GetAdmins(1, 0, http.StatusInternalServerError)
 	assert.NoError(t, err)
-	_, _, err = httpdtest.UpdateUser(dataprovider.User{Username: "auser"}, http.StatusInternalServerError, "")
+	_, _, err = httpdtest.UpdateUser(dataprovider.User{BaseUser: sdk.BaseUser{Username: "auser"}}, http.StatusInternalServerError, "")
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveUser(dataprovider.User{Username: "auser"}, http.StatusInternalServerError)
+	_, err = httpdtest.RemoveUser(dataprovider.User{BaseUser: sdk.BaseUser{Username: "auser"}}, http.StatusInternalServerError)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: "aname"}, http.StatusInternalServerError)
 	assert.NoError(t, err)
@@ -3007,9 +3016,11 @@ func TestFolders(t *testing.T) {
 		MappedPath: "relative path",
 		Users:      []string{"1", "2", "3"},
 		FsConfig: vfs.Filesystem{
-			Provider: vfs.CryptedFilesystemProvider,
+			Provider: sdk.CryptedFilesystemProvider,
 			CryptConfig: vfs.CryptFsConfig{
-				Passphrase: kms.NewPlainSecret("asecret"),
+				CryptFsConfig: sdk.CryptFsConfig{
+					Passphrase: kms.NewPlainSecret("asecret"),
+				},
 			},
 		},
 	}
@@ -3630,7 +3641,7 @@ func TestBasicUserHandlingMock(t *testing.T) {
 	assert.Equal(t, user.MaxSessions, updatedUser.MaxSessions)
 	assert.Equal(t, user.UploadBandwidth, updatedUser.UploadBandwidth)
 	assert.Equal(t, 1, len(updatedUser.Permissions["/"]))
-	assert.True(t, utils.IsStringInSlice(dataprovider.PermAny, updatedUser.Permissions["/"]))
+	assert.True(t, util.IsStringInSlice(dataprovider.PermAny, updatedUser.Permissions["/"]))
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+user.Username, nil)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
@@ -3961,7 +3972,7 @@ func TestUpdateUserMock(t *testing.T) {
 	for dir, perms := range permissions {
 		if actualPerms, ok := updatedUser.Permissions[dir]; ok {
 			for _, v := range actualPerms {
-				assert.True(t, utils.IsStringInSlice(v, perms))
+				assert.True(t, util.IsStringInSlice(v, perms))
 			}
 		} else {
 			assert.Fail(t, "Permissions directories mismatch")
@@ -4120,7 +4131,7 @@ func TestUserPermissionsMock(t *testing.T) {
 	err = render.DecodeJSON(rr.Body, &updatedUser)
 	assert.NoError(t, err)
 	if val, ok := updatedUser.Permissions["/otherdir"]; ok {
-		assert.True(t, utils.IsStringInSlice(dataprovider.PermListItems, val))
+		assert.True(t, util.IsStringInSlice(dataprovider.PermListItems, val))
 		assert.Equal(t, 1, len(val))
 	} else {
 		assert.Fail(t, "expected dir not found in permissions")
@@ -5176,7 +5187,7 @@ func TestMaxSessions(t *testing.T) {
 
 func TestLoginInvalidFs(t *testing.T) {
 	u := getTestUser()
-	u.FsConfig.Provider = vfs.GCSFilesystemProvider
+	u.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("invalid JSON for credentials")
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -5315,7 +5326,7 @@ func TestWebAPIPublicKeys(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "could not parse key")
 
-	user.Filters.WebClient = append(user.Filters.WebClient, dataprovider.WebClientPubKeyChangeDisabled)
+	user.Filters.WebClient = append(user.Filters.WebClient, sdk.WebClientPubKeyChangeDisabled)
 	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 
@@ -5371,7 +5382,7 @@ func TestWebClientChangePubKeys(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "Validation error: could not parse key")
 
-	user.Filters.WebClient = append(user.Filters.WebClient, dataprovider.WebClientPubKeyChangeDisabled)
+	user.Filters.WebClient = append(user.Filters.WebClient, sdk.WebClientPubKeyChangeDisabled)
 	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	webToken, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
@@ -5766,7 +5777,7 @@ func TestGetFilesSFTPBackend(t *testing.T) {
 	u.FsConfig.SFTPConfig.BufferSize = 2
 	u.Permissions["/adir"] = nil
 	u.Permissions["/adir1"] = []string{dataprovider.PermListItems}
-	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:           "/adir2",
 			DeniedPatterns: []string{"*.txt"},
@@ -6807,7 +6818,7 @@ func TestWebUserAddMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "Validation error: invalid TLS username")
-	form.Set("tls_username", string(dataprovider.TLSUsernameNone))
+	form.Set("tls_username", string(sdk.TLSUsernameNone))
 	form.Set(csrfFormToken, "invalid form token")
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
@@ -6853,10 +6864,10 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.False(t, newUser.Filters.Hooks.PreLoginDisabled)
 	assert.False(t, newUser.Filters.Hooks.CheckPasswordDisabled)
 	assert.True(t, newUser.Filters.DisableFsChecks)
-	assert.True(t, utils.IsStringInSlice(testPubKey, newUser.PublicKeys))
+	assert.True(t, util.IsStringInSlice(testPubKey, newUser.PublicKeys))
 	if val, ok := newUser.Permissions["/subdir"]; ok {
-		assert.True(t, utils.IsStringInSlice(dataprovider.PermListItems, val))
-		assert.True(t, utils.IsStringInSlice(dataprovider.PermDownload, val))
+		assert.True(t, util.IsStringInSlice(dataprovider.PermListItems, val))
+		assert.True(t, util.IsStringInSlice(dataprovider.PermDownload, val))
 	} else {
 		assert.Fail(t, "user permissions must contain /somedir", "actual: %v", newUser.Permissions)
 	}
@@ -6874,23 +6885,23 @@ func TestWebUserAddMock(t *testing.T) {
 		if filter.Path == "/dir1" {
 			assert.Len(t, filter.DeniedPatterns, 1)
 			assert.Len(t, filter.AllowedPatterns, 1)
-			assert.True(t, utils.IsStringInSlice("*.png", filter.AllowedPatterns))
-			assert.True(t, utils.IsStringInSlice("*.zip", filter.DeniedPatterns))
+			assert.True(t, util.IsStringInSlice("*.png", filter.AllowedPatterns))
+			assert.True(t, util.IsStringInSlice("*.zip", filter.DeniedPatterns))
 		}
 		if filter.Path == "/dir2" {
 			assert.Len(t, filter.DeniedPatterns, 1)
 			assert.Len(t, filter.AllowedPatterns, 2)
-			assert.True(t, utils.IsStringInSlice("*.jpg", filter.AllowedPatterns))
-			assert.True(t, utils.IsStringInSlice("*.png", filter.AllowedPatterns))
-			assert.True(t, utils.IsStringInSlice("*.mkv", filter.DeniedPatterns))
+			assert.True(t, util.IsStringInSlice("*.jpg", filter.AllowedPatterns))
+			assert.True(t, util.IsStringInSlice("*.png", filter.AllowedPatterns))
+			assert.True(t, util.IsStringInSlice("*.mkv", filter.DeniedPatterns))
 		}
 		if filter.Path == "/dir3" {
 			assert.Len(t, filter.DeniedPatterns, 1)
 			assert.Len(t, filter.AllowedPatterns, 0)
-			assert.True(t, utils.IsStringInSlice("*.rar", filter.DeniedPatterns))
+			assert.True(t, util.IsStringInSlice("*.rar", filter.DeniedPatterns))
 		}
 	}
-	assert.Equal(t, dataprovider.TLSUsernameNone, newUser.Filters.TLSUsername)
+	assert.Equal(t, sdk.TLSUsernameNone, newUser.Filters.TLSUsername)
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, newUser.Username), nil)
 	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
@@ -6954,7 +6965,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("disconnect", "1")
 	form.Set("additional_info", user.AdditionalInfo)
 	form.Set("description", user.Description)
-	form.Set("tls_username", string(dataprovider.TLSUsernameCN))
+	form.Set("tls_username", string(sdk.TLSUsernameCN))
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
 	setJWTCookieForReq(req, webToken)
@@ -7017,19 +7028,19 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.Equal(t, user.AdditionalInfo, updateUser.AdditionalInfo)
 	assert.Equal(t, user.Description, updateUser.Description)
 	assert.Equal(t, int64(100), updateUser.Filters.MaxUploadFileSize)
-	assert.Equal(t, dataprovider.TLSUsernameCN, updateUser.Filters.TLSUsername)
+	assert.Equal(t, sdk.TLSUsernameCN, updateUser.Filters.TLSUsername)
 
 	if val, ok := updateUser.Permissions["/otherdir"]; ok {
-		assert.True(t, utils.IsStringInSlice(dataprovider.PermListItems, val))
-		assert.True(t, utils.IsStringInSlice(dataprovider.PermUpload, val))
+		assert.True(t, util.IsStringInSlice(dataprovider.PermListItems, val))
+		assert.True(t, util.IsStringInSlice(dataprovider.PermUpload, val))
 	} else {
 		assert.Fail(t, "user permissions must contains /otherdir", "actual: %v", updateUser.Permissions)
 	}
-	assert.True(t, utils.IsStringInSlice("192.168.1.3/32", updateUser.Filters.AllowedIP))
-	assert.True(t, utils.IsStringInSlice("10.0.0.2/32", updateUser.Filters.DeniedIP))
-	assert.True(t, utils.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, updateUser.Filters.DeniedLoginMethods))
-	assert.True(t, utils.IsStringInSlice(common.ProtocolFTP, updateUser.Filters.DeniedProtocols))
-	assert.True(t, utils.IsStringInSlice("*.zip", updateUser.Filters.FilePatterns[0].DeniedPatterns))
+	assert.True(t, util.IsStringInSlice("192.168.1.3/32", updateUser.Filters.AllowedIP))
+	assert.True(t, util.IsStringInSlice("10.0.0.2/32", updateUser.Filters.DeniedIP))
+	assert.True(t, util.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, updateUser.Filters.DeniedLoginMethods))
+	assert.True(t, util.IsStringInSlice(common.ProtocolFTP, updateUser.Filters.DeniedProtocols))
+	assert.True(t, util.IsStringInSlice("*.zip", updateUser.Filters.FilePatterns[0].DeniedPatterns))
 	req, err = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, apiToken)
@@ -7220,7 +7231,7 @@ func TestUserTemplateMock(t *testing.T) {
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
 	user := getTestUser()
-	user.FsConfig.Provider = vfs.S3FilesystemProvider
+	user.FsConfig.Provider = sdk.S3FilesystemProvider
 	user.FsConfig.S3Config.Bucket = "test"
 	user.FsConfig.S3Config.Region = "eu-central-1"
 	user.FsConfig.S3Config.AccessKey = "%username%"
@@ -7322,9 +7333,9 @@ func TestUserTemplateMock(t *testing.T) {
 	user1 := dump.Users[0]
 	user2 := dump.Users[1]
 	require.Equal(t, "user1", user1.Username)
-	require.Equal(t, vfs.S3FilesystemProvider, user1.FsConfig.Provider)
+	require.Equal(t, sdk.S3FilesystemProvider, user1.FsConfig.Provider)
 	require.Equal(t, "user2", user2.Username)
-	require.Equal(t, vfs.S3FilesystemProvider, user2.FsConfig.Provider)
+	require.Equal(t, sdk.S3FilesystemProvider, user2.FsConfig.Provider)
 	require.Len(t, user2.PublicKeys, 1)
 	require.Equal(t, filepath.Join(os.TempDir(), user1.Username), user1.HomeDir)
 	require.Equal(t, filepath.Join(os.TempDir(), user2.Username), user2.HomeDir)
@@ -7493,7 +7504,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	checkResponseCode(t, http.StatusCreated, rr)
 	err = render.DecodeJSON(rr.Body, &user)
 	assert.NoError(t, err)
-	user.FsConfig.Provider = vfs.S3FilesystemProvider
+	user.FsConfig.Provider = sdk.S3FilesystemProvider
 	user.FsConfig.S3Config.Bucket = "test"
 	user.FsConfig.S3Config.Region = "eu-west-1"
 	user.FsConfig.S3Config.AccessKey = "access-key"
@@ -7652,7 +7663,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	credentialsFilePath := filepath.Join(os.TempDir(), "gcs.json")
 	err = createTestFile(credentialsFilePath, 0)
 	assert.NoError(t, err)
-	user.FsConfig.Provider = vfs.GCSFilesystemProvider
+	user.FsConfig.Provider = sdk.GCSFilesystemProvider
 	user.FsConfig.GCSConfig.Bucket = "test"
 	user.FsConfig.GCSConfig.KeyPrefix = "somedir/subdir/"
 	user.FsConfig.GCSConfig.StorageClass = "standard"
@@ -7757,7 +7768,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	checkResponseCode(t, http.StatusCreated, rr)
 	err = render.DecodeJSON(rr.Body, &user)
 	assert.NoError(t, err)
-	user.FsConfig.Provider = vfs.AzureBlobFilesystemProvider
+	user.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
 	user.FsConfig.AzBlobConfig.Container = "container"
 	user.FsConfig.AzBlobConfig.AccountName = "aname"
 	user.FsConfig.AzBlobConfig.AccountKey = kms.NewPlainSecret("access-skey")
@@ -7924,7 +7935,7 @@ func TestWebUserCryptMock(t *testing.T) {
 	checkResponseCode(t, http.StatusCreated, rr)
 	err = render.DecodeJSON(rr.Body, &user)
 	assert.NoError(t, err)
-	user.FsConfig.Provider = vfs.CryptedFilesystemProvider
+	user.FsConfig.Provider = sdk.CryptedFilesystemProvider
 	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("crypted passphrase")
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
@@ -8019,7 +8030,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	checkResponseCode(t, http.StatusCreated, rr)
 	err = render.DecodeJSON(rr.Body, &user)
 	assert.NoError(t, err)
-	user.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	user.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	user.FsConfig.SFTPConfig.Endpoint = "127.0.0.1:22"
 	user.FsConfig.SFTPConfig.Username = "sftpuser"
 	user.FsConfig.SFTPConfig.Password = kms.NewPlainSecret("pwd")
@@ -8266,7 +8277,7 @@ func TestS3WebFolderMock(t *testing.T) {
 	assert.Equal(t, mappedPath, folder.MappedPath)
 	assert.Equal(t, folderName, folder.Name)
 	assert.Equal(t, folderDesc, folder.Description)
-	assert.Equal(t, vfs.S3FilesystemProvider, folder.FsConfig.Provider)
+	assert.Equal(t, sdk.S3FilesystemProvider, folder.FsConfig.Provider)
 	assert.Equal(t, S3Bucket, folder.FsConfig.S3Config.Bucket)
 	assert.Equal(t, S3Region, folder.FsConfig.S3Config.Region)
 	assert.Equal(t, S3AccessKey, folder.FsConfig.S3Config.AccessKey)
@@ -8308,7 +8319,7 @@ func TestS3WebFolderMock(t *testing.T) {
 	assert.Equal(t, mappedPath, folder.MappedPath)
 	assert.Equal(t, folderName, folder.Name)
 	assert.Equal(t, folderDesc, folder.Description)
-	assert.Equal(t, vfs.S3FilesystemProvider, folder.FsConfig.Provider)
+	assert.Equal(t, sdk.S3FilesystemProvider, folder.FsConfig.Provider)
 	assert.Equal(t, S3Bucket, folder.FsConfig.S3Config.Bucket)
 	assert.Equal(t, S3Region, folder.FsConfig.S3Config.Region)
 	assert.Equal(t, S3AccessKey, folder.FsConfig.S3Config.AccessKey)
@@ -8690,11 +8701,13 @@ func getTestAdmin() dataprovider.Admin {
 
 func getTestUser() dataprovider.User {
 	user := dataprovider.User{
-		Username:    defaultUsername,
-		Password:    defaultPassword,
-		HomeDir:     filepath.Join(homeBasePath, defaultUsername),
-		Status:      1,
-		Description: "test user",
+		BaseUser: sdk.BaseUser{
+			Username:    defaultUsername,
+			Password:    defaultPassword,
+			HomeDir:     filepath.Join(homeBasePath, defaultUsername),
+			Status:      1,
+			Description: "test user",
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = defaultPerms
@@ -8704,7 +8717,7 @@ func getTestUser() dataprovider.User {
 func getTestSFTPUser() dataprovider.User {
 	u := getTestUser()
 	u.Username = u.Username + "_sftp"
-	u.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	u.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	u.FsConfig.SFTPConfig.Endpoint = sftpServerAddr
 	u.FsConfig.SFTPConfig.Username = defaultUsername
 	u.FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)

@@ -24,7 +24,7 @@ import (
 	"github.com/pkg/sftp"
 
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/metrics"
+	"github.com/drakkan/sftpgo/v2/metric"
 	"github.com/drakkan/sftpgo/v2/version"
 )
 
@@ -176,7 +176,7 @@ func (fs *AzureBlobFs) Stat(name string) (os.FileInfo, error) {
 	attrs, err := fs.headObject(name)
 	if err == nil {
 		isDir := (attrs.ContentType() == dirMimeType)
-		metrics.AZListObjectsCompleted(nil)
+		metric.AZListObjectsCompleted(nil)
 		return NewFileInfo(name, isDir, attrs.ContentLength(), attrs.LastModified(), false), nil
 	}
 	if !fs.IsNotExist(err) {
@@ -225,7 +225,7 @@ func (fs *AzureBlobFs) Open(name string, offset int64) (File, *pipeat.PipeReader
 		n, err := io.Copy(w, body)
 		w.CloseWithError(err) //nolint:errcheck
 		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)
-		metrics.AZTransferCompleted(n, 1, err)
+		metric.AZTransferCompleted(n, 1, err)
 	}()
 
 	return nil, r, cancelFn, nil
@@ -268,7 +268,7 @@ func (fs *AzureBlobFs) Create(name string, flag int) (File, *PipeWriter, func(),
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, readed bytes: %v, err: %v", name, r.GetReadedBytes(), err)
-		metrics.AZTransferCompleted(r.GetReadedBytes(), 0, err)
+		metric.AZTransferCompleted(r.GetReadedBytes(), 0, err)
 	}()
 
 	return nil, p, cancelFn, nil
@@ -307,7 +307,7 @@ func (fs *AzureBlobFs) Rename(source, target string) error {
 
 	resp, err := dstBlobURL.StartCopyFromURL(ctx, srcURL, md, mac, bac, azblob.AccessTierType(fs.config.AccessTier), nil)
 	if err != nil {
-		metrics.AZCopyObjectCompleted(err)
+		metric.AZCopyObjectCompleted(err)
 		return err
 	}
 	copyStatus := resp.CopyStatus()
@@ -321,7 +321,7 @@ func (fs *AzureBlobFs) Rename(source, target string) error {
 			// of them before giving up.
 			nErrors++
 			if ctx.Err() != nil || nErrors == 3 {
-				metrics.AZCopyObjectCompleted(err)
+				metric.AZCopyObjectCompleted(err)
 				return err
 			}
 		} else {
@@ -330,10 +330,10 @@ func (fs *AzureBlobFs) Rename(source, target string) error {
 	}
 	if copyStatus != azblob.CopyStatusSuccess {
 		err := fmt.Errorf("copy failed with status: %s", copyStatus)
-		metrics.AZCopyObjectCompleted(err)
+		metric.AZCopyObjectCompleted(err)
 		return err
 	}
-	metrics.AZCopyObjectCompleted(nil)
+	metric.AZCopyObjectCompleted(nil)
 	return fs.Remove(source, fi.IsDir())
 }
 
@@ -353,7 +353,7 @@ func (fs *AzureBlobFs) Remove(name string, isDir bool) error {
 	defer cancelFn()
 
 	_, err := blobBlockURL.Delete(ctx, azblob.DeleteSnapshotsOptionNone, azblob.BlobAccessConditions{})
-	metrics.AZDeleteObjectCompleted(err)
+	metric.AZDeleteObjectCompleted(err)
 	return err
 }
 
@@ -437,7 +437,7 @@ func (fs *AzureBlobFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 			Prefix: prefix,
 		})
 		if err != nil {
-			metrics.AZListObjectsCompleted(err)
+			metric.AZListObjectsCompleted(err)
 			return nil, err
 		}
 		marker = listBlob.NextMarker
@@ -476,7 +476,7 @@ func (fs *AzureBlobFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 		}
 	}
 
-	metrics.AZListObjectsCompleted(nil)
+	metric.AZListObjectsCompleted(nil)
 	return result, nil
 }
 
@@ -569,7 +569,7 @@ func (fs *AzureBlobFs) ScanRootDirContents() (int, int64, error) {
 			Prefix: fs.config.KeyPrefix,
 		})
 		if err != nil {
-			metrics.AZListObjectsCompleted(err)
+			metric.AZListObjectsCompleted(err)
 			return numFiles, size, err
 		}
 		marker = listBlob.NextMarker
@@ -591,7 +591,7 @@ func (fs *AzureBlobFs) ScanRootDirContents() (int, int64, error) {
 		}
 	}
 
-	metrics.AZListObjectsCompleted(nil)
+	metric.AZListObjectsCompleted(nil)
 	return numFiles, size, nil
 }
 
@@ -654,7 +654,7 @@ func (fs *AzureBlobFs) Walk(root string, walkFn filepath.WalkFunc) error {
 			Prefix: prefix,
 		})
 		if err != nil {
-			metrics.AZListObjectsCompleted(err)
+			metric.AZListObjectsCompleted(err)
 			return err
 		}
 		marker = listBlob.NextMarker
@@ -678,7 +678,7 @@ func (fs *AzureBlobFs) Walk(root string, walkFn filepath.WalkFunc) error {
 		}
 	}
 
-	metrics.AZListObjectsCompleted(nil)
+	metric.AZListObjectsCompleted(nil)
 	return walkFn(root, NewFileInfo(root, true, 0, time.Now(), false), nil)
 }
 
@@ -709,7 +709,7 @@ func (fs *AzureBlobFs) headObject(name string) (*azblob.BlobGetPropertiesRespons
 
 	blobBlockURL := fs.containerURL.NewBlockBlobURL(name)
 	response, err := blobBlockURL.GetProperties(ctx, azblob.BlobAccessConditions{}, azblob.ClientProvidedKeyOptions{})
-	metrics.AZHeadObjectCompleted(err)
+	metric.AZHeadObjectCompleted(err)
 	return response, err
 }
 
@@ -766,7 +766,7 @@ func (fs *AzureBlobFs) checkIfBucketExists() error {
 	defer cancelFn()
 
 	_, err := fs.containerURL.GetProperties(ctx, azblob.LeaseAccessConditions{})
-	metrics.AZHeadContainerCompleted(err)
+	metric.AZHeadContainerCompleted(err)
 	return err
 }
 
@@ -793,7 +793,7 @@ func (fs *AzureBlobFs) hasContents(name string) (bool, error) {
 		Prefix:     prefix,
 		MaxResults: 1,
 	})
-	metrics.AZListObjectsCompleted(err)
+	metric.AZListObjectsCompleted(err)
 	if err != nil {
 		return result, err
 	}

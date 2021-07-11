@@ -1,6 +1,6 @@
 // +build nometrics
 
-package metrics
+package metric
 
 import (
 	"github.com/go-chi/chi/v5"

@@ -1,0 +1,30 @@
+syntax = "proto3";
+package proto;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "sdk/plugin/notifier/proto";
+
+message FsEvent {
+    google.protobuf.Timestamp timestamp = 1;
+    string action = 2;
+    string username = 3;
+    string fs_path = 4;
+    string fs_target_path = 5;
+    string ssh_cmd = 6;
+    int64 file_size =  7;
+    string protocol = 8;
+    int32 status = 9;
+}
+
+message UserEvent {
+    google.protobuf.Timestamp timestamp = 1;
+    string action = 2;
+    bytes user = 3; // SFTPGo user json serialized
+}
+
+service Notifier {
+    rpc SendFsEvent(FsEvent) returns (google.protobuf.Empty);
+    rpc SendUserEvent(UserEvent) returns (google.protobuf.Empty);
+}

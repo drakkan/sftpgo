@@ -21,7 +21,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpclient"
 	"github.com/drakkan/sftpgo/v2/httpd"
 	"github.com/drakkan/sftpgo/v2/kms"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -914,7 +914,7 @@ func checkAdmin(expected *dataprovider.Admin, actual *dataprovider.Admin) error 
 		return errors.New("permissions mismatch")
 	}
 	for _, p := range expected.Permissions {
-		if !utils.IsStringInSlice(p, actual.Permissions) {
+		if !util.IsStringInSlice(p, actual.Permissions) {
 			return errors.New("permissions content mismatch")
 		}
 	}
@@ -922,7 +922,7 @@ func checkAdmin(expected *dataprovider.Admin, actual *dataprovider.Admin) error 
 		return errors.New("allow list mismatch")
 	}
 	for _, v := range expected.Filters.AllowList {
-		if !utils.IsStringInSlice(v, actual.Filters.AllowList) {
+		if !util.IsStringInSlice(v, actual.Filters.AllowList) {
 			return errors.New("allow list content mismatch")
 		}
 	}
@@ -968,7 +968,7 @@ func checkUser(expected *dataprovider.User, actual *dataprovider.User) error {
 	for dir, perms := range expected.Permissions {
 		if actualPerms, ok := actual.Permissions[dir]; ok {
 			for _, v := range actualPerms {
-				if !utils.IsStringInSlice(v, perms) {
+				if !util.IsStringInSlice(v, perms) {
 					return errors.New("permissions contents mismatch")
 				}
 			}
@@ -1112,7 +1112,7 @@ func compareSFTPFsConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error
 		return errors.New("SFTPFs fingerprints mismatch")
 	}
 	for _, value := range actual.SFTPConfig.Fingerprints {
-		if !utils.IsStringInSlice(value, expected.SFTPConfig.Fingerprints) {
+		if !util.IsStringInSlice(value, expected.SFTPConfig.Fingerprints) {
 			return errors.New("SFTPFs fingerprints mismatch")
 		}
 	}
@@ -1197,27 +1197,27 @@ func checkEncryptedSecret(expected, actual *kms.Secret) error {
 
 func compareUserFilterSubStructs(expected *dataprovider.User, actual *dataprovider.User) error {
 	for _, IPMask := range expected.Filters.AllowedIP {
-		if !utils.IsStringInSlice(IPMask, actual.Filters.AllowedIP) {
+		if !util.IsStringInSlice(IPMask, actual.Filters.AllowedIP) {
 			return errors.New("allowed IP contents mismatch")
 		}
 	}
 	for _, IPMask := range expected.Filters.DeniedIP {
-		if !utils.IsStringInSlice(IPMask, actual.Filters.DeniedIP) {
+		if !util.IsStringInSlice(IPMask, actual.Filters.DeniedIP) {
 			return errors.New("denied IP contents mismatch")
 		}
 	}
 	for _, method := range expected.Filters.DeniedLoginMethods {
-		if !utils.IsStringInSlice(method, actual.Filters.DeniedLoginMethods) {
+		if !util.IsStringInSlice(method, actual.Filters.DeniedLoginMethods) {
 			return errors.New("denied login methods contents mismatch")
 		}
 	}
 	for _, protocol := range expected.Filters.DeniedProtocols {
-		if !utils.IsStringInSlice(protocol, actual.Filters.DeniedProtocols) {
+		if !util.IsStringInSlice(protocol, actual.Filters.DeniedProtocols) {
 			return errors.New("denied protocols contents mismatch")
 		}
 	}
 	for _, options := range expected.Filters.WebClient {
-		if !utils.IsStringInSlice(options, actual.Filters.WebClient) {
+		if !util.IsStringInSlice(options, actual.Filters.WebClient) {
 			return errors.New("web client options contents mismatch")
 		}
 	}
@@ -1269,7 +1269,7 @@ func checkFilterMatch(expected []string, actual []string) bool {
 		return false
 	}
 	for _, e := range expected {
-		if !utils.IsStringInSlice(strings.ToLower(e), actual) {
+		if !util.IsStringInSlice(strings.ToLower(e), actual) {
 			return false
 		}
 	}

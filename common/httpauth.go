@@ -11,7 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 const (
@@ -114,7 +114,7 @@ func (p *basicAuthProvider) getHashedPassword(username string) (string, bool) {
 // ValidateCredentials returns true if the credentials are valid
 func (p *basicAuthProvider) ValidateCredentials(username, password string) bool {
 	if hashedPwd, ok := p.getHashedPassword(username); ok {
-		if utils.IsStringPrefixInSlice(hashedPwd, bcryptPwdPrefixes) {
+		if util.IsStringPrefixInSlice(hashedPwd, bcryptPwdPrefixes) {
 			err := bcrypt.CompareHashAndPassword([]byte(hashedPwd), []byte(password))
 			return err == nil
 		}

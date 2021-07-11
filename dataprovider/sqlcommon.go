@@ -13,7 +13,8 @@ import (
 	"github.com/cockroachdb/cockroach-go/v2/crdb"
 
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -271,7 +272,7 @@ func sqlCommonUpdateQuota(username string, filesAdd int, sizeAdd int64, reset bo
 		return err
 	}
 	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, sizeAdd, filesAdd, utils.GetTimeAsMsSinceEpoch(time.Now()), username)
+	_, err = stmt.ExecContext(ctx, sizeAdd, filesAdd, util.GetTimeAsMsSinceEpoch(time.Now()), username)
 	if err == nil {
 		providerLog(logger.LevelDebug, "quota updated for user %#v, files increment: %v size increment: %v is reset? %v",
 			username, filesAdd, sizeAdd, reset)
@@ -312,7 +313,7 @@ func sqlCommonUpdateLastLogin(username string, dbHandle *sql.DB) error {
 		return err
 	}
 	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, utils.GetTimeAsMsSinceEpoch(time.Now()), username)
+	_, err = stmt.ExecContext(ctx, util.GetTimeAsMsSinceEpoch(time.Now()), username)
 	if err == nil {
 		providerLog(logger.LevelDebug, "last login updated for user %#v", username)
 	} else {
@@ -494,7 +495,7 @@ func getAdminFromDbRow(row sqlScanner) (Admin, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return admin, utils.NewRecordNotFoundError(err.Error())
+			return admin, util.NewRecordNotFoundError(err.Error())
 		}
 		return admin, err
 	}
@@ -543,7 +544,7 @@ func getUserFromDbRow(row sqlScanner) (User, error) {
 		&additionalInfo, &description)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return user, utils.NewRecordNotFoundError(err.Error())
+			return user, util.NewRecordNotFoundError(err.Error())
 		}
 		return user, err
 	}
@@ -570,7 +571,7 @@ func getUserFromDbRow(row sqlScanner) (User, error) {
 		user.Permissions = perms
 	}
 	if filters.Valid {
-		var userFilters UserFilters
+		var userFilters sdk.UserFilters
 		err = json.Unmarshal([]byte(filters.String), &userFilters)
 		if err == nil {
 			user.Filters = userFilters
@@ -620,7 +621,7 @@ func sqlCommonGetFolder(ctx context.Context, name string, dbHandle sqlQuerier) (
 	err = row.Scan(&folder.ID, &mappedPath, &folder.UsedQuotaSize, &folder.UsedQuotaFiles, &folder.LastQuotaUpdate,
 		&folder.Name, &description, &fsConfig)
 	if err == sql.ErrNoRows {
-		return folder, utils.NewRecordNotFoundError(err.Error())
+		return folder, util.NewRecordNotFoundError(err.Error())
 	}
 	if mappedPath.Valid {
 		folder.MappedPath = mappedPath.String
@@ -998,7 +999,7 @@ func sqlCommonUpdateFolderQuota(name string, filesAdd int, sizeAdd int64, reset 
 		return err
 	}
 	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, sizeAdd, filesAdd, utils.GetTimeAsMsSinceEpoch(time.Now()), name)
+	_, err = stmt.ExecContext(ctx, sizeAdd, filesAdd, util.GetTimeAsMsSinceEpoch(time.Now()), name)
 	if err == nil {
 		providerLog(logger.LevelDebug, "quota updated for folder %#v, files increment: %v size increment: %v is reset? %v",
 			name, filesAdd, sizeAdd, reset)

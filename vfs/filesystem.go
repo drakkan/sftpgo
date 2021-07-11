@@ -4,92 +4,9 @@ import (
 	"fmt"
 
 	"github.com/drakkan/sftpgo/v2/kms"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/util"
 )
-
-// FilesystemProvider defines the supported storage filesystems
-type FilesystemProvider int
-
-// supported values for FilesystemProvider
-const (
-	LocalFilesystemProvider     FilesystemProvider = iota // Local
-	S3FilesystemProvider                                  // AWS S3 compatible
-	GCSFilesystemProvider                                 // Google Cloud Storage
-	AzureBlobFilesystemProvider                           // Azure Blob Storage
-	CryptedFilesystemProvider                             // Local encrypted
-	SFTPFilesystemProvider                                // SFTP
-)
-
-// GetProviderByName returns the FilesystemProvider matching a given name
-//
-// to provide backwards compatibility, numeric strings are accepted as well
-func GetProviderByName(name string) FilesystemProvider {
-	switch name {
-	case "0", "osfs":
-		return LocalFilesystemProvider
-	case "1", "s3fs":
-		return S3FilesystemProvider
-	case "2", "gcsfs":
-		return GCSFilesystemProvider
-	case "3", "azblobfs":
-		return AzureBlobFilesystemProvider
-	case "4", "cryptfs":
-		return CryptedFilesystemProvider
-	case "5", "sftpfs":
-		return SFTPFilesystemProvider
-	}
-
-	// TODO think about returning an error value instead of silently defaulting to LocalFilesystemProvider
-	return LocalFilesystemProvider
-}
-
-// Name returns the Provider's unique name
-func (p FilesystemProvider) Name() string {
-	switch p {
-	case LocalFilesystemProvider:
-		return "osfs"
-	case S3FilesystemProvider:
-		return "s3fs"
-	case GCSFilesystemProvider:
-		return "gcsfs"
-	case AzureBlobFilesystemProvider:
-		return "azblobfs"
-	case CryptedFilesystemProvider:
-		return "cryptfs"
-	case SFTPFilesystemProvider:
-		return "sftpfs"
-	}
-	return "" // let's not claim to be
-}
-
-// ShortInfo returns a human readable, short description for the given FilesystemProvider
-func (p FilesystemProvider) ShortInfo() string {
-	switch p {
-	case LocalFilesystemProvider:
-		return "Local"
-	case S3FilesystemProvider:
-		return "AWS S3 (Compatible)"
-	case GCSFilesystemProvider:
-		return "Google Cloud Storage"
-	case AzureBlobFilesystemProvider:
-		return "Azure Blob Storage"
-	case CryptedFilesystemProvider:
-		return "Local encrypted"
-	case SFTPFilesystemProvider:
-		return "SFTP"
-	}
-	return ""
-}
-
-// ListProviders returns a list of available FilesystemProviders
-func ListProviders() []FilesystemProvider {
-	// TODO this should ultimately be dynamic (i.e. each provider registers itself)
-	return []FilesystemProvider{
-		LocalFilesystemProvider, S3FilesystemProvider,
-		GCSFilesystemProvider, AzureBlobFilesystemProvider,
-		CryptedFilesystemProvider, SFTPFilesystemProvider,
-	}
-}
 
 // ValidatorHelper implements methods we need for Filesystem.ValidateConfig.
 // It is implemented by vfs.Folder and dataprovider.User
@@ -98,15 +15,15 @@ type ValidatorHelper interface {
 	GetEncryptionAdditionalData() string
 }
 
-// Filesystem defines cloud storage filesystem details
+// Filesystem defines filesystem details
 type Filesystem struct {
-	RedactedSecret string             `json:"-"`
-	Provider       FilesystemProvider `json:"provider"`
-	S3Config       S3FsConfig         `json:"s3config,omitempty"`
-	GCSConfig      GCSFsConfig        `json:"gcsconfig,omitempty"`
-	AzBlobConfig   AzBlobFsConfig     `json:"azblobconfig,omitempty"`
-	CryptConfig    CryptFsConfig      `json:"cryptconfig,omitempty"`
-	SFTPConfig     SFTPFsConfig       `json:"sftpconfig,omitempty"`
+	RedactedSecret string                 `json:"-"`
+	Provider       sdk.FilesystemProvider `json:"provider"`
+	S3Config       S3FsConfig             `json:"s3config,omitempty"`
+	GCSConfig      GCSFsConfig            `json:"gcsconfig,omitempty"`
+	AzBlobConfig   AzBlobFsConfig         `json:"azblobconfig,omitempty"`
+	CryptConfig    CryptFsConfig          `json:"cryptconfig,omitempty"`
+	SFTPConfig     SFTPFsConfig           `json:"sftpconfig,omitempty"`
 }
 
 // SetEmptySecretsIfNil sets the secrets to empty if nil
@@ -167,15 +84,15 @@ func (f *Filesystem) IsEqual(other *Filesystem) bool {
 		return false
 	}
 	switch f.Provider {
-	case S3FilesystemProvider:
+	case sdk.S3FilesystemProvider:
 		return f.S3Config.isEqual(&other.S3Config)
-	case GCSFilesystemProvider:
+	case sdk.GCSFilesystemProvider:
 		return f.GCSConfig.isEqual(&other.GCSConfig)
-	case AzureBlobFilesystemProvider:
+	case sdk.AzureBlobFilesystemProvider:
 		return f.AzBlobConfig.isEqual(&other.AzBlobConfig)
-	case CryptedFilesystemProvider:
+	case sdk.CryptedFilesystemProvider:
 		return f.CryptConfig.isEqual(&other.CryptConfig)
-	case SFTPFilesystemProvider:
+	case sdk.SFTPFilesystemProvider:
 		return f.SFTPConfig.isEqual(&other.SFTPConfig)
 	default:
 		return true
@@ -186,57 +103,57 @@ func (f *Filesystem) IsEqual(other *Filesystem) bool {
 // Filesystem.*Config to their zero value if successful
 func (f *Filesystem) Validate(helper ValidatorHelper) error {
 	switch f.Provider {
-	case S3FilesystemProvider:
+	case sdk.S3FilesystemProvider:
 		if err := f.S3Config.Validate(); err != nil {
-			return utils.NewValidationError(fmt.Sprintf("could not validate s3config: %v", err))
+			return util.NewValidationError(fmt.Sprintf("could not validate s3config: %v", err))
 		}
 		if err := f.S3Config.EncryptCredentials(helper.GetEncryptionAdditionalData()); err != nil {
-			return utils.NewValidationError(fmt.Sprintf("could not encrypt s3 access secret: %v", err))
+			return util.NewValidationError(fmt.Sprintf("could not encrypt s3 access secret: %v", err))
 		}
 		f.GCSConfig = GCSFsConfig{}
 		f.AzBlobConfig = AzBlobFsConfig{}
 		f.CryptConfig = CryptFsConfig{}
 		f.SFTPConfig = SFTPFsConfig{}
 		return nil
-	case GCSFilesystemProvider:
+	case sdk.GCSFilesystemProvider:
 		if err := f.GCSConfig.Validate(helper.GetGCSCredentialsFilePath()); err != nil {
-			return utils.NewValidationError(fmt.Sprintf("could not validate GCS config: %v", err))
+			return util.NewValidationError(fmt.Sprintf("could not validate GCS config: %v", err))
 		}
 		f.S3Config = S3FsConfig{}
 		f.AzBlobConfig = AzBlobFsConfig{}
 		f.CryptConfig = CryptFsConfig{}
 		f.SFTPConfig = SFTPFsConfig{}
 		return nil
-	case AzureBlobFilesystemProvider:
+	case sdk.AzureBlobFilesystemProvider:
 		if err := f.AzBlobConfig.Validate(); err != nil {
-			return utils.NewValidationError(fmt.Sprintf("could not validate Azure Blob config: %v", err))
+			return util.NewValidationError(fmt.Sprintf("could not validate Azure Blob config: %v", err))
 		}
 		if err := f.AzBlobConfig.EncryptCredentials(helper.GetEncryptionAdditionalData()); err != nil {
-			return utils.NewValidationError(fmt.Sprintf("could not encrypt Azure blob account key: %v", err))
+			return util.NewValidationError(fmt.Sprintf("could not encrypt Azure blob account key: %v", err))
 		}
 		f.S3Config = S3FsConfig{}
 		f.GCSConfig = GCSFsConfig{}
 		f.CryptConfig = CryptFsConfig{}
 		f.SFTPConfig = SFTPFsConfig{}
 		return nil
-	case CryptedFilesystemProvider:
+	case sdk.CryptedFilesystemProvider:
 		if err := f.CryptConfig.Validate(); err != nil {
-			return utils.NewValidationError(fmt.Sprintf("could not validate Crypt fs config: %v", err))
+			return util.NewValidationError(fmt.Sprintf("could not validate Crypt fs config: %v", err))
 		}
 		if err := f.CryptConfig.EncryptCredentials(helper.GetEncryptionAdditionalData()); err != nil {
-			return utils.NewValidationError(fmt.Sprintf("could not encrypt Crypt fs passphrase: %v", err))
+			return util.NewValidationError(fmt.Sprintf("could not encrypt Crypt fs passphrase: %v", err))
 		}
 		f.S3Config = S3FsConfig{}
 		f.GCSConfig = GCSFsConfig{}
 		f.AzBlobConfig = AzBlobFsConfig{}
 		f.SFTPConfig = SFTPFsConfig{}
 		return nil
-	case SFTPFilesystemProvider:
+	case sdk.SFTPFilesystemProvider:
 		if err := f.SFTPConfig.Validate(); err != nil {
-			return utils.NewValidationError(fmt.Sprintf("could not validate SFTP fs config: %v", err))
+			return util.NewValidationError(fmt.Sprintf("could not validate SFTP fs config: %v", err))
 		}
 		if err := f.SFTPConfig.EncryptCredentials(helper.GetEncryptionAdditionalData()); err != nil {
-			return utils.NewValidationError(fmt.Sprintf("could not encrypt SFTP fs credentials: %v", err))
+			return util.NewValidationError(fmt.Sprintf("could not encrypt SFTP fs credentials: %v", err))
 		}
 		f.S3Config = S3FsConfig{}
 		f.GCSConfig = GCSFsConfig{}
@@ -244,7 +161,7 @@ func (f *Filesystem) Validate(helper ValidatorHelper) error {
 		f.CryptConfig = CryptFsConfig{}
 		return nil
 	default:
-		f.Provider = LocalFilesystemProvider
+		f.Provider = sdk.LocalFilesystemProvider
 		f.S3Config = S3FsConfig{}
 		f.GCSConfig = GCSFsConfig{}
 		f.AzBlobConfig = AzBlobFsConfig{}
@@ -258,23 +175,23 @@ func (f *Filesystem) Validate(helper ValidatorHelper) error {
 func (f *Filesystem) HasRedactedSecret() bool {
 	// TODO move vfs specific code into each *FsConfig struct
 	switch f.Provider {
-	case S3FilesystemProvider:
+	case sdk.S3FilesystemProvider:
 		if f.S3Config.AccessSecret.IsRedacted() {
 			return true
 		}
-	case GCSFilesystemProvider:
+	case sdk.GCSFilesystemProvider:
 		if f.GCSConfig.Credentials.IsRedacted() {
 			return true
 		}
-	case AzureBlobFilesystemProvider:
+	case sdk.AzureBlobFilesystemProvider:
 		if f.AzBlobConfig.AccountKey.IsRedacted() {
 			return true
 		}
-	case CryptedFilesystemProvider:
+	case sdk.CryptedFilesystemProvider:
 		if f.CryptConfig.Passphrase.IsRedacted() {
 			return true
 		}
-	case SFTPFilesystemProvider:
+	case sdk.SFTPFilesystemProvider:
 		if f.SFTPConfig.Password.IsRedacted() {
 			return true
 		}
@@ -289,16 +206,16 @@ func (f *Filesystem) HasRedactedSecret() bool {
 // HideConfidentialData hides filesystem confidential data
 func (f *Filesystem) HideConfidentialData() {
 	switch f.Provider {
-	case S3FilesystemProvider:
+	case sdk.S3FilesystemProvider:
 		f.S3Config.AccessSecret.Hide()
-	case GCSFilesystemProvider:
+	case sdk.GCSFilesystemProvider:
 		f.GCSConfig.Credentials.Hide()
-	case AzureBlobFilesystemProvider:
+	case sdk.AzureBlobFilesystemProvider:
 		f.AzBlobConfig.AccountKey.Hide()
 		f.AzBlobConfig.SASURL.Hide()
-	case CryptedFilesystemProvider:
+	case sdk.CryptedFilesystemProvider:
 		f.CryptConfig.Passphrase.Hide()
-	case SFTPFilesystemProvider:
+	case sdk.SFTPFilesystemProvider:
 		f.SFTPConfig.Password.Hide()
 		f.SFTPConfig.PrivateKey.Hide()
 	}
@@ -310,47 +227,57 @@ func (f *Filesystem) GetACopy() Filesystem {
 	fs := Filesystem{
 		Provider: f.Provider,
 		S3Config: S3FsConfig{
-			Bucket:            f.S3Config.Bucket,
-			Region:            f.S3Config.Region,
-			AccessKey:         f.S3Config.AccessKey,
-			AccessSecret:      f.S3Config.AccessSecret.Clone(),
-			Endpoint:          f.S3Config.Endpoint,
-			StorageClass:      f.S3Config.StorageClass,
-			KeyPrefix:         f.S3Config.KeyPrefix,
-			UploadPartSize:    f.S3Config.UploadPartSize,
-			UploadConcurrency: f.S3Config.UploadConcurrency,
+			S3FsConfig: sdk.S3FsConfig{
+				Bucket:            f.S3Config.Bucket,
+				Region:            f.S3Config.Region,
+				AccessKey:         f.S3Config.AccessKey,
+				AccessSecret:      f.S3Config.AccessSecret.Clone(),
+				Endpoint:          f.S3Config.Endpoint,
+				StorageClass:      f.S3Config.StorageClass,
+				KeyPrefix:         f.S3Config.KeyPrefix,
+				UploadPartSize:    f.S3Config.UploadPartSize,
+				UploadConcurrency: f.S3Config.UploadConcurrency,
+			},
 		},
 		GCSConfig: GCSFsConfig{
-			Bucket:               f.GCSConfig.Bucket,
-			CredentialFile:       f.GCSConfig.CredentialFile,
-			Credentials:          f.GCSConfig.Credentials.Clone(),
-			AutomaticCredentials: f.GCSConfig.AutomaticCredentials,
-			StorageClass:         f.GCSConfig.StorageClass,
-			KeyPrefix:            f.GCSConfig.KeyPrefix,
+			GCSFsConfig: sdk.GCSFsConfig{
+				Bucket:               f.GCSConfig.Bucket,
+				CredentialFile:       f.GCSConfig.CredentialFile,
+				Credentials:          f.GCSConfig.Credentials.Clone(),
+				AutomaticCredentials: f.GCSConfig.AutomaticCredentials,
+				StorageClass:         f.GCSConfig.StorageClass,
+				KeyPrefix:            f.GCSConfig.KeyPrefix,
+			},
 		},
 		AzBlobConfig: AzBlobFsConfig{
-			Container:         f.AzBlobConfig.Container,
-			AccountName:       f.AzBlobConfig.AccountName,
-			AccountKey:        f.AzBlobConfig.AccountKey.Clone(),
-			Endpoint:          f.AzBlobConfig.Endpoint,
-			SASURL:            f.AzBlobConfig.SASURL.Clone(),
-			KeyPrefix:         f.AzBlobConfig.KeyPrefix,
-			UploadPartSize:    f.AzBlobConfig.UploadPartSize,
-			UploadConcurrency: f.AzBlobConfig.UploadConcurrency,
-			UseEmulator:       f.AzBlobConfig.UseEmulator,
-			AccessTier:        f.AzBlobConfig.AccessTier,
+			AzBlobFsConfig: sdk.AzBlobFsConfig{
+				Container:         f.AzBlobConfig.Container,
+				AccountName:       f.AzBlobConfig.AccountName,
+				AccountKey:        f.AzBlobConfig.AccountKey.Clone(),
+				Endpoint:          f.AzBlobConfig.Endpoint,
+				SASURL:            f.AzBlobConfig.SASURL.Clone(),
+				KeyPrefix:         f.AzBlobConfig.KeyPrefix,
+				UploadPartSize:    f.AzBlobConfig.UploadPartSize,
+				UploadConcurrency: f.AzBlobConfig.UploadConcurrency,
+				UseEmulator:       f.AzBlobConfig.UseEmulator,
+				AccessTier:        f.AzBlobConfig.AccessTier,
+			},
 		},
 		CryptConfig: CryptFsConfig{
-			Passphrase: f.CryptConfig.Passphrase.Clone(),
+			CryptFsConfig: sdk.CryptFsConfig{
+				Passphrase: f.CryptConfig.Passphrase.Clone(),
+			},
 		},
 		SFTPConfig: SFTPFsConfig{
-			Endpoint:                f.SFTPConfig.Endpoint,
-			Username:                f.SFTPConfig.Username,
-			Password:                f.SFTPConfig.Password.Clone(),
-			PrivateKey:              f.SFTPConfig.PrivateKey.Clone(),
-			Prefix:                  f.SFTPConfig.Prefix,
-			DisableCouncurrentReads: f.SFTPConfig.DisableCouncurrentReads,
-			BufferSize:              f.SFTPConfig.BufferSize,
+			SFTPFsConfig: sdk.SFTPFsConfig{
+				Endpoint:                f.SFTPConfig.Endpoint,
+				Username:                f.SFTPConfig.Username,
+				Password:                f.SFTPConfig.Password.Clone(),
+				PrivateKey:              f.SFTPConfig.PrivateKey.Clone(),
+				Prefix:                  f.SFTPConfig.Prefix,
+				DisableCouncurrentReads: f.SFTPConfig.DisableCouncurrentReads,
+				BufferSize:              f.SFTPConfig.BufferSize,
+			},
 		},
 	}
 	if len(f.SFTPConfig.Fingerprints) > 0 {

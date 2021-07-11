@@ -24,7 +24,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/metrics"
+	"github.com/drakkan/sftpgo/v2/metric"
 	"github.com/drakkan/sftpgo/v2/version"
 )
 
@@ -156,7 +156,7 @@ func (fs *GCSFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, fu
 		n, err := io.Copy(w, objectReader)
 		w.CloseWithError(err) //nolint:errcheck
 		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)
-		metrics.GCSTransferCompleted(n, 1, err)
+		metric.GCSTransferCompleted(n, 1, err)
 	}()
 	return nil, r, cancelFn, nil
 }
@@ -195,7 +195,7 @@ func (fs *GCSFs) Create(name string, flag int) (File, *PipeWriter, func(), error
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, readed bytes: %v, err: %v", name, n, err)
-		metrics.GCSTransferCompleted(n, 0, err)
+		metric.GCSTransferCompleted(n, 0, err)
 	}()
 	return nil, p, cancelFn, nil
 }
@@ -243,7 +243,7 @@ func (fs *GCSFs) Rename(source, target string) error {
 		copier.ContentType = contentType
 	}
 	_, err = copier.Run(ctx)
-	metrics.GCSCopyObjectCompleted(err)
+	metric.GCSCopyObjectCompleted(err)
 	if err != nil {
 		return err
 	}
@@ -272,7 +272,7 @@ func (fs *GCSFs) Remove(name string, isDir bool) error {
 		// we can have directories without a trailing "/" (created using v2.1.0 and before)
 		err = fs.svc.Bucket(fs.config.Bucket).Object(strings.TrimSuffix(name, "/")).Delete(ctx)
 	}
-	metrics.GCSDeleteObjectCompleted(err)
+	metric.GCSDeleteObjectCompleted(err)
 	return err
 }
 
@@ -354,7 +354,7 @@ func (fs *GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 			break
 		}
 		if err != nil {
-			metrics.GCSListObjectsCompleted(err)
+			metric.GCSListObjectsCompleted(err)
 			return result, err
 		}
 		if attrs.Prefix != "" {
@@ -389,7 +389,7 @@ func (fs *GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 			result = append(result, fi)
 		}
 	}
-	metrics.GCSListObjectsCompleted(nil)
+	metric.GCSListObjectsCompleted(nil)
 	return result, nil
 }
 
@@ -472,7 +472,7 @@ func (fs *GCSFs) ScanRootDirContents() (int, int64, error) {
 			break
 		}
 		if err != nil {
-			metrics.GCSListObjectsCompleted(err)
+			metric.GCSListObjectsCompleted(err)
 			return numFiles, size, err
 		}
 		if !attrs.Deleted.IsZero() {
@@ -485,7 +485,7 @@ func (fs *GCSFs) ScanRootDirContents() (int, int64, error) {
 		numFiles++
 		size += attrs.Size
 	}
-	metrics.GCSListObjectsCompleted(nil)
+	metric.GCSListObjectsCompleted(nil)
 	return numFiles, size, err
 }
 
@@ -552,7 +552,7 @@ func (fs *GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
 		}
 		if err != nil {
 			walkFn(root, nil, err) //nolint:errcheck
-			metrics.GCSListObjectsCompleted(err)
+			metric.GCSListObjectsCompleted(err)
 			return err
 		}
 		if !attrs.Deleted.IsZero() {
@@ -572,7 +572,7 @@ func (fs *GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
 	}
 
 	walkFn(root, NewFileInfo(root, true, 0, time.Now(), false), err) //nolint:errcheck
-	metrics.GCSListObjectsCompleted(err)
+	metric.GCSListObjectsCompleted(err)
 	return err
 }
 
@@ -641,7 +641,7 @@ func (fs *GCSFs) checkIfBucketExists() error {
 	defer cancelFn()
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	_, err := bkt.Attrs(ctx)
-	metrics.GCSHeadBucketCompleted(err)
+	metric.GCSHeadBucketCompleted(err)
 	return err
 }
 
@@ -671,7 +671,7 @@ func (fs *GCSFs) hasContents(name string) (bool, error) {
 			break
 		}
 		if err != nil {
-			metrics.GCSListObjectsCompleted(err)
+			metric.GCSListObjectsCompleted(err)
 			return result, err
 		}
 		name, _ := fs.resolve(attrs.Name, prefix)
@@ -683,7 +683,7 @@ func (fs *GCSFs) hasContents(name string) (bool, error) {
 		break
 	}
 
-	metrics.GCSListObjectsCompleted(err)
+	metric.GCSListObjectsCompleted(err)
 	return result, nil
 }
 
@@ -705,7 +705,7 @@ func (fs *GCSFs) headObject(name string) (*storage.ObjectAttrs, error) {
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	obj := bkt.Object(name)
 	attrs, err := obj.Attrs(ctx)
-	metrics.GCSHeadObjectCompleted(err)
+	metric.GCSHeadObjectCompleted(err)
 	return attrs, err
 }
 

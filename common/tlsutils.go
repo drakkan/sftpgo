@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 // CertManager defines a TLS certificate manager
@@ -98,7 +98,7 @@ func (m *CertManager) LoadCRLs() error {
 	var crls []*pkix.CertificateList
 
 	for _, revocationList := range m.caRevocationLists {
-		if !utils.IsFileInputValid(revocationList) {
+		if !util.IsFileInputValid(revocationList) {
 			return fmt.Errorf("invalid root CA revocation list %#v", revocationList)
 		}
 		if revocationList != "" && !filepath.IsAbs(revocationList) {
@@ -145,7 +145,7 @@ func (m *CertManager) LoadRootCAs() error {
 	rootCAs := x509.NewCertPool()
 
 	for _, rootCA := range m.caCertificates {
-		if !utils.IsFileInputValid(rootCA) {
+		if !util.IsFileInputValid(rootCA) {
 			return fmt.Errorf("invalid root CA certificate %#v", rootCA)
 		}
 		if rootCA != "" && !filepath.IsAbs(rootCA) {

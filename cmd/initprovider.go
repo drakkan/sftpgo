@@ -10,7 +10,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/config"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 var (
@@ -37,7 +37,7 @@ Please take a look at the usage below to customize the options.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			logger.DisableLogger()
 			logger.EnableConsoleLogger(zerolog.DebugLevel)
-			configDir = utils.CleanDirInput(configDir)
+			configDir = util.CleanDirInput(configDir)
 			err := config.LoadConfig(configDir, configFile)
 			if err != nil {
 				logger.WarnToConsole("Unable to initialize data provider, config load error: %v", err)

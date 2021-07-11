@@ -12,6 +12,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/ftpd"
 	"github.com/drakkan/sftpgo/v2/httpd"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin"
 	"github.com/drakkan/sftpgo/v2/telemetry"
 	"github.com/drakkan/sftpgo/v2/webdavd"
 )
@@ -71,5 +72,6 @@ func handleSIGUSR1() {
 
 func handleInterrupt() {
 	logger.Debug(logSender, "", "Received interrupt request")
+	plugin.Handler.Cleanup()
 	os.Exit(0)
 }

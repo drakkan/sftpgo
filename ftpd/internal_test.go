@@ -17,6 +17,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -466,7 +467,9 @@ func TestServerGetSettings(t *testing.T) {
 
 func TestUserInvalidParams(t *testing.T) {
 	u := dataprovider.User{
-		HomeDir: "invalid",
+		BaseUser: sdk.BaseUser{
+			HomeDir: "invalid",
+		},
 	}
 	binding := Binding{
 		Port: 2121,
@@ -548,7 +551,9 @@ func TestDriverMethodsNotImplemented(t *testing.T) {
 
 func TestResolvePathErrors(t *testing.T) {
 	user := dataprovider.User{
-		HomeDir: "invalid",
+		BaseUser: sdk.BaseUser{
+			HomeDir: "invalid",
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
@@ -609,8 +614,10 @@ func TestUploadFileStatError(t *testing.T) {
 		t.Skip("this test is not available on Windows")
 	}
 	user := dataprovider.User{
-		Username: "user",
-		HomeDir:  filepath.Clean(os.TempDir()),
+		BaseUser: sdk.BaseUser{
+			Username: "user",
+			HomeDir:  filepath.Clean(os.TempDir()),
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
@@ -638,8 +645,10 @@ func TestUploadFileStatError(t *testing.T) {
 
 func TestAVBLErrors(t *testing.T) {
 	user := dataprovider.User{
-		Username: "user",
-		HomeDir:  filepath.Clean(os.TempDir()),
+		BaseUser: sdk.BaseUser{
+			Username: "user",
+			HomeDir:  filepath.Clean(os.TempDir()),
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
@@ -658,8 +667,10 @@ func TestAVBLErrors(t *testing.T) {
 
 func TestUploadOverwriteErrors(t *testing.T) {
 	user := dataprovider.User{
-		Username: "user",
-		HomeDir:  filepath.Clean(os.TempDir()),
+		BaseUser: sdk.BaseUser{
+			Username: "user",
+			HomeDir:  filepath.Clean(os.TempDir()),
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
@@ -712,8 +723,10 @@ func TestTransferErrors(t *testing.T) {
 	file, err := os.Create(testfile)
 	assert.NoError(t, err)
 	user := dataprovider.User{
-		Username: "user",
-		HomeDir:  filepath.Clean(os.TempDir()),
+		BaseUser: sdk.BaseUser{
+			Username: "user",
+			HomeDir:  filepath.Clean(os.TempDir()),
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}

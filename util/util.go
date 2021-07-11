@@ -1,5 +1,5 @@
-// Package utils provides some common utility methods
-package utils
+// Package util provides some common utility methods
+package util
 
 import (
 	"bytes"

@@ -21,7 +21,8 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 )
 
@@ -35,23 +36,7 @@ var ErrSFTPLoop = errors.New("SFTP loop or nested local SFTP folders detected")
 
 // SFTPFsConfig defines the configuration for SFTP based filesystem
 type SFTPFsConfig struct {
-	Endpoint     string      `json:"endpoint,omitempty"`
-	Username     string      `json:"username,omitempty"`
-	Password     *kms.Secret `json:"password,omitempty"`
-	PrivateKey   *kms.Secret `json:"private_key,omitempty"`
-	Fingerprints []string    `json:"fingerprints,omitempty"`
-	// Prefix is the path prefix to strip from SFTP resource paths.
-	Prefix string `json:"prefix,omitempty"`
-	// Concurrent reads are safe to use and disabling them will degrade performance.
-	// Some servers automatically delete files once they are downloaded.
-	// Using concurrent reads is problematic with such servers.
-	DisableCouncurrentReads bool `json:"disable_concurrent_reads,omitempty"`
-	// The buffer size (in MB) to use for transfers.
-	// Buffering could improve performance for high latency networks.
-	// With buffering enabled upload resume is not supported and a file
-	// cannot be opened for both reading and writing at the same time
-	// 0 means disabled.
-	BufferSize             int64    `json:"buffer_size,omitempty"`
+	sdk.SFTPFsConfig
 	forbiddenSelfUsernames []string `json:"-"`
 }
 
@@ -75,7 +60,7 @@ func (c *SFTPFsConfig) isEqual(other *SFTPFsConfig) bool {
 		return false
 	}
 	for _, fp := range c.Fingerprints {
-		if !utils.IsStringInSlice(fp, other.Fingerprints) {
+		if !util.IsStringInSlice(fp, other.Fingerprints) {
 			return false
 		}
 	}
@@ -116,7 +101,7 @@ func (c *SFTPFsConfig) Validate() error {
 		return err
 	}
 	if c.Prefix != "" {
-		c.Prefix = utils.CleanPath(c.Prefix)
+		c.Prefix = util.CleanPath(c.Prefix)
 	} else {
 		c.Prefix = "/"
 	}
@@ -745,8 +730,8 @@ func (fs *SFTPFs) createConnection() error {
 		User: fs.config.Username,
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			fp := ssh.FingerprintSHA256(key)
-			if utils.IsStringInSlice(fp, sftpFingerprints) {
-				if utils.IsStringInSlice(fs.config.Username, fs.config.forbiddenSelfUsernames) {
+			if util.IsStringInSlice(fp, sftpFingerprints) {
+				if util.IsStringInSlice(fs.config.Username, fs.config.forbiddenSelfUsernames) {
 					fsLog(fs, logger.LevelWarn, "SFTP loop or nested local SFTP folders detected, mount path %#v, username %#v, forbidden usernames: %+v",
 						fs.mountPath, fs.config.Username, fs.config.forbiddenSelfUsernames)
 					return ErrSFTPLoop

@@ -15,8 +15,8 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/metrics"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/metric"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 )
 
@@ -135,7 +135,7 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 
 // ClientConnected is called to send the very first welcome message
 func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
-	ipAddr := utils.GetIPFromRemoteAddress(cc.RemoteAddr().String())
+	ipAddr := util.GetIPFromRemoteAddress(cc.RemoteAddr().String())
 	common.Connections.AddClientConnection(ipAddr)
 	if common.IsBanned(ipAddr) {
 		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection refused, ip %#v is banned", ipAddr)
@@ -167,7 +167,7 @@ func (s *Server) ClientDisconnected(cc ftpserver.ClientContext) {
 	s.cleanTLSConnVerification(cc.ID())
 	connID := fmt.Sprintf("%v_%v_%v", common.ProtocolFTP, s.ID, cc.ID())
 	common.Connections.Remove(connID)
-	common.Connections.RemoveClientConnection(utils.GetIPFromRemoteAddress(cc.RemoteAddr().String()))
+	common.Connections.RemoveClientConnection(util.GetIPFromRemoteAddress(cc.RemoteAddr().String()))
 }
 
 // AuthUser authenticates the user and selects an handling driver
@@ -176,7 +176,7 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 	if s.isTLSConnVerified(cc.ID()) {
 		loginMethod = dataprovider.LoginMethodTLSCertificateAndPwd
 	}
-	ipAddr := utils.GetIPFromRemoteAddress(cc.RemoteAddr().String())
+	ipAddr := util.GetIPFromRemoteAddress(cc.RemoteAddr().String())
 	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, common.ProtocolFTP)
 	if err != nil {
 		user.Username = username
@@ -206,7 +206,7 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 	if tlsConn != nil {
 		state := tlsConn.ConnectionState()
 		if len(state.PeerCertificates) > 0 {
-			ipAddr := utils.GetIPFromRemoteAddress(cc.RemoteAddr().String())
+			ipAddr := util.GetIPFromRemoteAddress(cc.RemoteAddr().String())
 			dbUser, err := dataprovider.CheckUserBeforeTLSAuth(user, ipAddr, common.ProtocolFTP, state.PeerCertificates[0])
 			if err != nil {
 				dbUser.Username = user
@@ -307,7 +307,7 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 			user.Username, user.HomeDir)
 		return nil, fmt.Errorf("cannot login user with invalid home dir: %#v", user.HomeDir)
 	}
-	if utils.IsStringInSlice(common.ProtocolFTP, user.Filters.DeniedProtocols) {
+	if util.IsStringInSlice(common.ProtocolFTP, user.Filters.DeniedProtocols) {
 		logger.Debug(logSender, connectionID, "cannot login user %#v, protocol FTP is not allowed", user.Username)
 		return nil, fmt.Errorf("protocol FTP is not allowed for user %#v", user.Username)
 	}
@@ -348,16 +348,16 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 }
 
 func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err error) {
-	metrics.AddLoginAttempt(loginMethod)
+	metric.AddLoginAttempt(loginMethod)
 	if err != nil && err != common.ErrInternalFailure {
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod,
 			common.ProtocolFTP, err.Error())
 		event := common.HostEventLoginFailed
-		if _, ok := err.(*utils.RecordNotFoundError); ok {
+		if _, ok := err.(*util.RecordNotFoundError); ok {
 			event = common.HostEventUserNotFound
 		}
 		common.AddDefenderEvent(ip, event)
 	}
-	metrics.AddLoginResult(loginMethod, err)
+	metric.AddLoginResult(loginMethod, err)
 	dataprovider.ExecutePostLoginHook(user, loginMethod, ip, common.ProtocolFTP, err)
 }

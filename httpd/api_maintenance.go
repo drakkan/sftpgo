@@ -16,7 +16,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -105,7 +105,7 @@ func loadDataFromRequest(w http.ResponseWriter, r *http.Request) {
 	content, err := io.ReadAll(r.Body)
 	if err != nil || len(content) == 0 {
 		if len(content) == 0 {
-			err = utils.NewValidationError("request body is required")
+			err = util.NewValidationError("request body is required")
 		}
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -151,7 +151,7 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 func restoreBackup(content []byte, inputFile string, scanQuota, mode int) error {
 	dump, err := dataprovider.ParseDumpData(content)
 	if err != nil {
-		return utils.NewValidationError(fmt.Sprintf("Unable to parse backup content: %v", err))
+		return util.NewValidationError(fmt.Sprintf("Unable to parse backup content: %v", err))
 	}
 
 	if err = RestoreFolders(dump.Folders, inputFile, mode, scanQuota); err != nil {

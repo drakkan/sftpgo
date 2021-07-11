@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 var (
@@ -78,9 +78,9 @@ func (r *RateLimiterConfig) validate() error {
 			return fmt.Errorf("invalid entries_hard_limit %v must be > %v", r.EntriesHardLimit, r.EntriesSoftLimit)
 		}
 	}
-	r.Protocols = utils.RemoveDuplicates(r.Protocols)
+	r.Protocols = util.RemoveDuplicates(r.Protocols)
 	for _, protocol := range r.Protocols {
-		if !utils.IsStringInSlice(protocol, rateLimiterProtocolValues) {
+		if !util.IsStringInSlice(protocol, rateLimiterProtocolValues) {
 			return fmt.Errorf("invalid protocol %#v", protocol)
 		}
 	}

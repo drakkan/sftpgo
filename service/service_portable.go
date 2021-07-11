@@ -18,10 +18,10 @@ import (
 	"github.com/drakkan/sftpgo/v2/ftpd"
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/sftpd"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
-	"github.com/drakkan/sftpgo/v2/vfs"
 	"github.com/drakkan/sftpgo/v2/webdavd"
 )
 
@@ -67,7 +67,7 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 			// dynamic ports starts from 49152
 			sftpdConf.Bindings[0].Port = 49152 + rand.Intn(15000)
 		}
-		if utils.IsStringInSlice("*", enabledSSHCommands) {
+		if util.IsStringInSlice("*", enabledSSHCommands) {
 			sftpdConf.EnabledSSHCommands = sftpd.GetSupportedSSHCommands()
 		} else {
 			sftpdConf.EnabledSSHCommands = enabledSSHCommands
@@ -230,9 +230,9 @@ func (s *Service) advertiseServices(advertiseService, advertiseCredentials bool)
 
 func (s *Service) getPortableDirToServe() string {
 	var dirToServe string
-	if s.PortableUser.FsConfig.Provider == vfs.S3FilesystemProvider {
+	if s.PortableUser.FsConfig.Provider == sdk.S3FilesystemProvider {
 		dirToServe = s.PortableUser.FsConfig.S3Config.KeyPrefix
-	} else if s.PortableUser.FsConfig.Provider == vfs.GCSFilesystemProvider {
+	} else if s.PortableUser.FsConfig.Provider == sdk.GCSFilesystemProvider {
 		dirToServe = s.PortableUser.FsConfig.GCSConfig.KeyPrefix
 	} else {
 		dirToServe = s.PortableUser.HomeDir
@@ -264,19 +264,19 @@ func (s *Service) configurePortableUser() string {
 func (s *Service) configurePortableSecrets() {
 	// we created the user before to initialize the KMS so we need to create the secret here
 	switch s.PortableUser.FsConfig.Provider {
-	case vfs.S3FilesystemProvider:
+	case sdk.S3FilesystemProvider:
 		payload := s.PortableUser.FsConfig.S3Config.AccessSecret.GetPayload()
 		s.PortableUser.FsConfig.S3Config.AccessSecret = kms.NewEmptySecret()
 		if payload != "" {
 			s.PortableUser.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret(payload)
 		}
-	case vfs.GCSFilesystemProvider:
+	case sdk.GCSFilesystemProvider:
 		payload := s.PortableUser.FsConfig.GCSConfig.Credentials.GetPayload()
 		s.PortableUser.FsConfig.GCSConfig.Credentials = kms.NewEmptySecret()
 		if payload != "" {
 			s.PortableUser.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret(payload)
 		}
-	case vfs.AzureBlobFilesystemProvider:
+	case sdk.AzureBlobFilesystemProvider:
 		payload := s.PortableUser.FsConfig.AzBlobConfig.AccountKey.GetPayload()
 		s.PortableUser.FsConfig.AzBlobConfig.AccountKey = kms.NewEmptySecret()
 		if payload != "" {
@@ -287,13 +287,13 @@ func (s *Service) configurePortableSecrets() {
 		if payload != "" {
 			s.PortableUser.FsConfig.AzBlobConfig.SASURL = kms.NewPlainSecret(payload)
 		}
-	case vfs.CryptedFilesystemProvider:
+	case sdk.CryptedFilesystemProvider:
 		payload := s.PortableUser.FsConfig.CryptConfig.Passphrase.GetPayload()
 		s.PortableUser.FsConfig.CryptConfig.Passphrase = kms.NewEmptySecret()
 		if payload != "" {
 			s.PortableUser.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret(payload)
 		}
-	case vfs.SFTPFilesystemProvider:
+	case sdk.SFTPFilesystemProvider:
 		payload := s.PortableUser.FsConfig.SFTPConfig.Password.GetPayload()
 		s.PortableUser.FsConfig.SFTPConfig.Password = kms.NewEmptySecret()
 		if payload != "" {

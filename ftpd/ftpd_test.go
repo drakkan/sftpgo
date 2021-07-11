@@ -32,6 +32,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpdtest"
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -1117,7 +1118,7 @@ func TestDownloadErrors(t *testing.T) {
 	u.Permissions[path.Join("/", subDir1)] = []string{dataprovider.PermListItems}
 	u.Permissions[path.Join("/", subDir2)] = []string{dataprovider.PermListItems, dataprovider.PermUpload,
 		dataprovider.PermDelete, dataprovider.PermDownload}
-	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:            "/sub2",
 			AllowedPatterns: []string{},
@@ -1169,7 +1170,7 @@ func TestUploadErrors(t *testing.T) {
 	u.Permissions[path.Join("/", subDir1)] = []string{dataprovider.PermListItems}
 	u.Permissions[path.Join("/", subDir2)] = []string{dataprovider.PermListItems, dataprovider.PermUpload,
 		dataprovider.PermDelete}
-	u.Filters.FilePatterns = []dataprovider.PatternsFilter{
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:            "/sub2",
 			AllowedPatterns: []string{},
@@ -1595,7 +1596,7 @@ func TestLoginWithIPilters(t *testing.T) {
 
 func TestLoginWithDatabaseCredentials(t *testing.T) {
 	u := getTestUser()
-	u.FsConfig.Provider = vfs.GCSFilesystemProvider
+	u.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret(`{ "type": "service_account" }`)
 
@@ -1644,7 +1645,7 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 
 func TestLoginInvalidFs(t *testing.T) {
 	u := getTestUser()
-	u.FsConfig.Provider = vfs.GCSFilesystemProvider
+	u.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("invalid JSON for credentials")
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -2435,7 +2436,7 @@ func TestCombine(t *testing.T) {
 func TestClientCertificateAuthRevokedCert(t *testing.T) {
 	u := getTestUser()
 	u.Username = tlsClient2Username
-	u.Filters.TLSUsername = dataprovider.TLSUsernameCN
+	u.Filters.TLSUsername = sdk.TLSUsernameCN
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	tlsConfig := &tls.Config{
@@ -2477,7 +2478,7 @@ func TestClientCertificateAuth(t *testing.T) {
 		assert.Contains(t, err.Error(), "login method password is not allowed")
 	}
 
-	user.Filters.TLSUsername = dataprovider.TLSUsernameCN
+	user.Filters.TLSUsername = sdk.TLSUsernameCN
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, true, tlsConfig)
@@ -2491,7 +2492,7 @@ func TestClientCertificateAuth(t *testing.T) {
 	// now use a valid certificate with a CN different from username
 	u = getTestUser()
 	u.Username = tlsClient2Username
-	u.Filters.TLSUsername = dataprovider.TLSUsernameCN
+	u.Filters.TLSUsername = sdk.TLSUsernameCN
 	u.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodPassword}
 	user2, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -2537,7 +2538,7 @@ func TestClientCertificateAuth(t *testing.T) {
 func TestClientCertificateAndPwdAuth(t *testing.T) {
 	u := getTestUser()
 	u.Username = tlsClient1Username
-	u.Filters.TLSUsername = dataprovider.TLSUsernameCN
+	u.Filters.TLSUsername = sdk.TLSUsernameCN
 	u.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodPassword, dataprovider.LoginMethodTLSCertificate}
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -2588,7 +2589,7 @@ func TestExternatAuthWithClientCert(t *testing.T) {
 	u := getTestUser()
 	u.Username = tlsClient1Username
 	u.Filters.DeniedLoginMethods = append(u.Filters.DeniedLoginMethods, dataprovider.LoginMethodPassword)
-	u.Filters.TLSUsername = dataprovider.TLSUsernameCN
+	u.Filters.TLSUsername = sdk.TLSUsernameCN
 	err := dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
@@ -2655,7 +2656,7 @@ func TestPreLoginHookWithClientCert(t *testing.T) {
 	u := getTestUser()
 	u.Username = tlsClient1Username
 	u.Filters.DeniedLoginMethods = append(u.Filters.DeniedLoginMethods, dataprovider.LoginMethodPassword)
-	u.Filters.TLSUsername = dataprovider.TLSUsernameCN
+	u.Filters.TLSUsername = sdk.TLSUsernameCN
 	err := dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
@@ -2738,9 +2739,11 @@ func TestNestedVirtualFolders(t *testing.T) {
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: folderNameCrypt,
 			FsConfig: vfs.Filesystem{
-				Provider: vfs.CryptedFilesystemProvider,
+				Provider: sdk.CryptedFilesystemProvider,
 				CryptConfig: vfs.CryptFsConfig{
-					Passphrase: kms.NewPlainSecret(defaultPassword),
+					CryptFsConfig: sdk.CryptFsConfig{
+						Passphrase: kms.NewPlainSecret(defaultPassword),
+					},
 				},
 			},
 			MappedPath: mappedPathCrypt,
@@ -2976,11 +2979,13 @@ func waitNoConnections() {
 
 func getTestUser() dataprovider.User {
 	user := dataprovider.User{
-		Username:       defaultUsername,
-		Password:       defaultPassword,
-		HomeDir:        filepath.Join(homeBasePath, defaultUsername),
-		Status:         1,
-		ExpirationDate: 0,
+		BaseUser: sdk.BaseUser{
+			Username:       defaultUsername,
+			Password:       defaultPassword,
+			HomeDir:        filepath.Join(homeBasePath, defaultUsername),
+			Status:         1,
+			ExpirationDate: 0,
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = allPerms
@@ -2990,7 +2995,7 @@ func getTestUser() dataprovider.User {
 func getTestSFTPUser() dataprovider.User {
 	u := getTestUser()
 	u.Username = u.Username + "_sftp"
-	u.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	u.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	u.FsConfig.SFTPConfig.Endpoint = sftpServerAddr
 	u.FsConfig.SFTPConfig.Username = defaultUsername
 	u.FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)

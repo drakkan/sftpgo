@@ -12,27 +12,38 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
 func TestNewActionNotification(t *testing.T) {
 	user := &dataprovider.User{
-		Username: "username",
+		BaseUser: sdk.BaseUser{
+			Username: "username",
+		},
 	}
-	user.FsConfig.Provider = vfs.LocalFilesystemProvider
+	user.FsConfig.Provider = sdk.LocalFilesystemProvider
 	user.FsConfig.S3Config = vfs.S3FsConfig{
-		Bucket:   "s3bucket",
-		Endpoint: "endpoint",
+		S3FsConfig: sdk.S3FsConfig{
+			Bucket:   "s3bucket",
+			Endpoint: "endpoint",
+		},
 	}
 	user.FsConfig.GCSConfig = vfs.GCSFsConfig{
-		Bucket: "gcsbucket",
+		GCSFsConfig: sdk.GCSFsConfig{
+			Bucket: "gcsbucket",
+		},
 	}
 	user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{
-		Container: "azcontainer",
-		Endpoint:  "azendpoint",
+		AzBlobFsConfig: sdk.AzBlobFsConfig{
+			Container: "azcontainer",
+			Endpoint:  "azendpoint",
+		},
 	}
 	user.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
-		Endpoint: "sftpendpoint",
+		SFTPFsConfig: sdk.SFTPFsConfig{
+			Endpoint: "sftpendpoint",
+		},
 	}
 	a := newActionNotification(user, operationDownload, "path", "vpath", "target", "", ProtocolSFTP, 123, 0, errors.New("fake error"))
 	assert.Equal(t, user.Username, a.Username)
@@ -40,19 +51,19 @@ func TestNewActionNotification(t *testing.T) {
 	assert.Equal(t, 0, len(a.Endpoint))
 	assert.Equal(t, 0, a.Status)
 
-	user.FsConfig.Provider = vfs.S3FilesystemProvider
+	user.FsConfig.Provider = sdk.S3FilesystemProvider
 	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", ProtocolSSH, 123, 0, nil)
 	assert.Equal(t, "s3bucket", a.Bucket)
 	assert.Equal(t, "endpoint", a.Endpoint)
 	assert.Equal(t, 1, a.Status)
 
-	user.FsConfig.Provider = vfs.GCSFilesystemProvider
+	user.FsConfig.Provider = sdk.GCSFilesystemProvider
 	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", ProtocolSCP, 123, 0, ErrQuotaExceeded)
 	assert.Equal(t, "gcsbucket", a.Bucket)
 	assert.Equal(t, 0, len(a.Endpoint))
 	assert.Equal(t, 2, a.Status)
 
-	user.FsConfig.Provider = vfs.AzureBlobFilesystemProvider
+	user.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
 	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", ProtocolSCP, 123, 0, nil)
 	assert.Equal(t, "azcontainer", a.Bucket)
 	assert.Equal(t, "azendpoint", a.Endpoint)
@@ -64,7 +75,7 @@ func TestNewActionNotification(t *testing.T) {
 	assert.Equal(t, 1, a.Status)
 	assert.Equal(t, os.O_APPEND, a.OpenFlags)
 
-	user.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	user.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", ProtocolSFTP, 123, 0, nil)
 	assert.Equal(t, "sftpendpoint", a.Endpoint)
 }
@@ -77,7 +88,9 @@ func TestActionHTTP(t *testing.T) {
 		Hook:      fmt.Sprintf("http://%v", httpAddr),
 	}
 	user := &dataprovider.User{
-		Username: "username",
+		BaseUser: sdk.BaseUser{
+			Username: "username",
+		},
 	}
 	a := newActionNotification(user, operationDownload, "path", "vpath", "target", "", ProtocolSFTP, 123, 0, nil)
 	err := actionHandler.Handle(a)
@@ -110,7 +123,9 @@ func TestActionCMD(t *testing.T) {
 		Hook:      hookCmd,
 	}
 	user := &dataprovider.User{
-		Username: "username",
+		BaseUser: sdk.BaseUser{
+			Username: "username",
+		},
 	}
 	a := newActionNotification(user, operationDownload, "path", "vpath", "target", "", ProtocolSFTP, 123, 0, nil)
 	err = actionHandler.Handle(a)
@@ -133,7 +148,9 @@ func TestWrongActions(t *testing.T) {
 		Hook:      badCommand,
 	}
 	user := &dataprovider.User{
-		Username: "username",
+		BaseUser: sdk.BaseUser{
+			Username: "username",
+		},
 	}
 
 	a := newActionNotification(user, operationUpload, "", "", "", "", ProtocolSFTP, 123, 0, nil)
@@ -180,8 +197,10 @@ func TestPreDeleteAction(t *testing.T) {
 	err = os.MkdirAll(homeDir, os.ModePerm)
 	assert.NoError(t, err)
 	user := dataprovider.User{
-		Username: "username",
-		HomeDir:  homeDir,
+		BaseUser: sdk.BaseUser{
+			Username: "username",
+			HomeDir:  homeDir,
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}

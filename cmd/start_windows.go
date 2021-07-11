@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/drakkan/sftpgo/v2/service"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 var (
@@ -16,8 +16,8 @@ var (
 		Use:   "start",
 		Short: "Start SFTPGo Windows Service",
 		Run: func(cmd *cobra.Command, args []string) {
-			configDir = utils.CleanDirInput(configDir)
-			if !filepath.IsAbs(logFilePath) && utils.IsFileInputValid(logFilePath) {
+			configDir = util.CleanDirInput(configDir)
+			if !filepath.IsAbs(logFilePath) && util.IsFileInputValid(logFilePath) {
 				logFilePath = filepath.Join(configDir, logFilePath)
 			}
 			s := service.Service{

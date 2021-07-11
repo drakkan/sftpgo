@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 // SecretProvider defines the interface for a KMS secrets provider
@@ -98,7 +98,7 @@ func NewPlainSecret(payload string) *Secret {
 
 // GetSecretFromCompatString returns a secret from the previous format
 func GetSecretFromCompatString(secret string) (*Secret, error) {
-	plain, err := utils.DecryptData(secret)
+	plain, err := util.DecryptData(secret)
 	if err != nil {
 		return &Secret{}, errMalformedCiphertext
 	}
@@ -401,7 +401,7 @@ func (s *Secret) IsValidInput() bool {
 	s.RLock()
 	defer s.RUnlock()
 
-	if !utils.IsStringInSlice(s.provider.GetStatus(), validSecretStatuses) {
+	if !util.IsStringInSlice(s.provider.GetStatus(), validSecretStatuses) {
 		return false
 	}
 	if s.provider.GetPayload() == "" {

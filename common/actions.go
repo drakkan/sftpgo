@@ -17,8 +17,9 @@ import (
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/httpclient"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
-	"github.com/drakkan/sftpgo/v2/vfs"
+	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 var (
@@ -51,7 +52,8 @@ func InitializeActionHandler(handler ActionHandler) {
 
 // ExecutePreAction executes a pre-* action and returns the result
 func ExecutePreAction(user *dataprovider.User, operation, filePath, virtualPath, protocol string, fileSize int64, openFlags int) error {
-	if !utils.IsStringInSlice(operation, Config.Actions.ExecuteOn) {
+	plugin.Handler.NotifyFsEvent(operation, user.Username, filePath, "", "", protocol, fileSize, nil)
+	if !util.IsStringInSlice(operation, Config.Actions.ExecuteOn) {
 		// for pre-delete we execute the internal handling on error, so we must return errUnconfiguredAction.
 		// Other pre action will deny the operation on error so if we have no configuration we must return
 		// a nil error
@@ -66,9 +68,10 @@ func ExecutePreAction(user *dataprovider.User, operation, filePath, virtualPath,
 
 // ExecuteActionNotification executes the defined hook, if any, for the specified action
 func ExecuteActionNotification(user *dataprovider.User, operation, filePath, virtualPath, target, sshCmd, protocol string, fileSize int64, err error) {
+	plugin.Handler.NotifyFsEvent(operation, user.Username, filePath, target, sshCmd, protocol, fileSize, err)
 	notification := newActionNotification(user, operation, filePath, virtualPath, target, sshCmd, protocol, fileSize, 0, err)
 
-	if utils.IsStringInSlice(operation, Config.Actions.ExecuteSync) {
+	if util.IsStringInSlice(operation, Config.Actions.ExecuteSync) {
 		actionHandler.Handle(notification) //nolint:errcheck
 		return
 	}
@@ -110,17 +113,17 @@ func newActionNotification(
 	fsConfig := user.GetFsConfigForPath(virtualPath)
 
 	switch fsConfig.Provider {
-	case vfs.S3FilesystemProvider:
+	case sdk.S3FilesystemProvider:
 		bucket = fsConfig.S3Config.Bucket
 		endpoint = fsConfig.S3Config.Endpoint
-	case vfs.GCSFilesystemProvider:
+	case sdk.GCSFilesystemProvider:
 		bucket = fsConfig.GCSConfig.Bucket
-	case vfs.AzureBlobFilesystemProvider:
+	case sdk.AzureBlobFilesystemProvider:
 		bucket = fsConfig.AzBlobConfig.Container
 		if fsConfig.AzBlobConfig.Endpoint != "" {
 			endpoint = fsConfig.AzBlobConfig.Endpoint
 		}
-	case vfs.SFTPFilesystemProvider:
+	case sdk.SFTPFilesystemProvider:
 		endpoint = fsConfig.SFTPConfig.Endpoint
 	}
 
@@ -149,7 +152,7 @@ func newActionNotification(
 type defaultActionHandler struct{}
 
 func (h *defaultActionHandler) Handle(notification *ActionNotification) error {
-	if !utils.IsStringInSlice(notification.Action, Config.Actions.ExecuteOn) {
+	if !util.IsStringInSlice(notification.Action, Config.Actions.ExecuteOn) {
 		return errUnconfiguredAction
 	}
 

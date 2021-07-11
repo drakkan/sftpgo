@@ -21,7 +21,8 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/kms"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -155,7 +156,9 @@ func TestUploadResumeInvalidOffset(t *testing.T) {
 	file, err := os.Create(testfile)
 	assert.NoError(t, err)
 	user := dataprovider.User{
-		Username: "testuser",
+		BaseUser: sdk.BaseUser{
+			Username: "testuser",
+		},
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
 	conn := common.NewBaseConnection("", common.ProtocolSFTP, "", user)
@@ -183,7 +186,9 @@ func TestReadWriteErrors(t *testing.T) {
 	assert.NoError(t, err)
 
 	user := dataprovider.User{
-		Username: "testuser",
+		BaseUser: sdk.BaseUser{
+			Username: "testuser",
+		},
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
 	conn := common.NewBaseConnection("", common.ProtocolSFTP, "", user)
@@ -252,7 +257,9 @@ func TestTransferCancelFn(t *testing.T) {
 		isCancelled = true
 	}
 	user := dataprovider.User{
-		Username: "testuser",
+		BaseUser: sdk.BaseUser{
+			Username: "testuser",
+		},
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
 	conn := common.NewBaseConnection("", common.ProtocolSFTP, "", user)
@@ -377,7 +384,7 @@ func TestSupportedSSHCommands(t *testing.T) {
 	assert.Equal(t, len(supportedSSHCommands), len(cmds))
 
 	for _, c := range cmds {
-		assert.True(t, utils.IsStringInSlice(c, supportedSSHCommands))
+		assert.True(t, util.IsStringInSlice(c, supportedSSHCommands))
 	}
 }
 
@@ -588,11 +595,13 @@ func TestCommandsWithExtensionsFilter(t *testing.T) {
 	defer server.Close()
 	defer client.Close()
 	user := dataprovider.User{
-		Username: "test",
-		HomeDir:  os.TempDir(),
-		Status:   1,
+		BaseUser: sdk.BaseUser{
+			Username: "test",
+			HomeDir:  os.TempDir(),
+			Status:   1,
+		},
 	}
-	user.Filters.FilePatterns = []dataprovider.PatternsFilter{
+	user.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:            "/subdir",
 			AllowedPatterns: []string{".jpg"},
@@ -654,11 +663,13 @@ func TestSSHCommandsRemoteFs(t *testing.T) {
 	}
 	user := dataprovider.User{}
 	user.FsConfig = vfs.Filesystem{
-		Provider: vfs.S3FilesystemProvider,
+		Provider: sdk.S3FilesystemProvider,
 		S3Config: vfs.S3FsConfig{
-			Bucket:   "s3bucket",
-			Endpoint: "endpoint",
-			Region:   "eu-west-1",
+			S3FsConfig: sdk.S3FsConfig{
+				Bucket:   "s3bucket",
+				Endpoint: "endpoint",
+				Region:   "eu-west-1",
+			},
 		},
 	}
 	connection := &Connection{
@@ -702,7 +713,9 @@ func TestSSHCmdGetFsErrors(t *testing.T) {
 		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
 	}
 	user := dataprovider.User{
-		HomeDir: "relative path",
+		BaseUser: sdk.BaseUser{
+			HomeDir: "relative path",
+		},
 	}
 	user.Permissions = map[string][]string{}
 	user.Permissions["/"] = []string{dataprovider.PermAny}
@@ -754,8 +767,10 @@ func TestGitVirtualFolders(t *testing.T) {
 	permissions := make(map[string][]string)
 	permissions["/"] = []string{dataprovider.PermAny}
 	user := dataprovider.User{
-		Permissions: permissions,
-		HomeDir:     os.TempDir(),
+		BaseUser: sdk.BaseUser{
+			Permissions: permissions,
+			HomeDir:     os.TempDir(),
+		},
 	}
 	conn := &Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", user),
@@ -800,8 +815,10 @@ func TestRsyncOptions(t *testing.T) {
 	permissions := make(map[string][]string)
 	permissions["/"] = []string{dataprovider.PermAny}
 	user := dataprovider.User{
-		Permissions: permissions,
-		HomeDir:     os.TempDir(),
+		BaseUser: sdk.BaseUser{
+			Permissions: permissions,
+			HomeDir:     os.TempDir(),
+		},
 	}
 	conn := &Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", user),
@@ -813,7 +830,7 @@ func TestRsyncOptions(t *testing.T) {
 	}
 	cmd, err := sshCmd.getSystemCommand()
 	assert.NoError(t, err)
-	assert.True(t, utils.IsStringInSlice("--safe-links", cmd.cmd.Args),
+	assert.True(t, util.IsStringInSlice("--safe-links", cmd.cmd.Args),
 		"--safe-links must be added if the user has the create symlinks permission")
 
 	permissions["/"] = []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermCreateDirs,
@@ -830,7 +847,7 @@ func TestRsyncOptions(t *testing.T) {
 	}
 	cmd, err = sshCmd.getSystemCommand()
 	assert.NoError(t, err)
-	assert.True(t, utils.IsStringInSlice("--munge-links", cmd.cmd.Args),
+	assert.True(t, util.IsStringInSlice("--munge-links", cmd.cmd.Args),
 		"--munge-links must be added if the user has the create symlinks permission")
 
 	sshCmd.connection.User.VirtualFolders = append(sshCmd.connection.User.VirtualFolders, vfs.VirtualFolder{
@@ -847,8 +864,10 @@ func TestSystemCommandSizeForPath(t *testing.T) {
 	permissions := make(map[string][]string)
 	permissions["/"] = []string{dataprovider.PermAny}
 	user := dataprovider.User{
-		Permissions: permissions,
-		HomeDir:     os.TempDir(),
+		BaseUser: sdk.BaseUser{
+			Permissions: permissions,
+			HomeDir:     os.TempDir(),
+		},
 	}
 	fs, err := user.GetFilesystem("123")
 	assert.NoError(t, err)
@@ -909,8 +928,10 @@ func TestSystemCommandErrors(t *testing.T) {
 	err = os.WriteFile(filepath.Join(homeDir, "afile"), []byte("content"), os.ModePerm)
 	assert.NoError(t, err)
 	user := dataprovider.User{
-		Permissions: permissions,
-		HomeDir:     homeDir,
+		BaseUser: sdk.BaseUser{
+			Permissions: permissions,
+			HomeDir:     homeDir,
+		},
 	}
 	fs, err := user.GetFilesystem("123")
 	assert.NoError(t, err)
@@ -987,7 +1008,7 @@ func TestSystemCommandErrors(t *testing.T) {
 func TestCommandGetFsError(t *testing.T) {
 	user := dataprovider.User{
 		FsConfig: vfs.Filesystem{
-			Provider: vfs.CryptedFilesystemProvider,
+			Provider: sdk.CryptedFilesystemProvider,
 		},
 	}
 	conn := &Connection{
@@ -1095,8 +1116,10 @@ func TestSCPUploadError(t *testing.T) {
 		WriteError:   writeErr,
 	}
 	user := dataprovider.User{
-		HomeDir:     filepath.Join(os.TempDir()),
-		Permissions: make(map[string][]string),
+		BaseUser: sdk.BaseUser{
+			HomeDir:     filepath.Join(os.TempDir()),
+			Permissions: make(map[string][]string),
+		},
 	}
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 
@@ -1141,7 +1164,9 @@ func TestSCPInvalidEndDir(t *testing.T) {
 	}
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", dataprovider.User{
-			HomeDir: os.TempDir(),
+			BaseUser: sdk.BaseUser{
+				HomeDir: os.TempDir(),
+			},
 		}),
 		channel: &mockSSHChannel,
 	}
@@ -1167,7 +1192,9 @@ func TestSCPParseUploadMessage(t *testing.T) {
 	fs := vfs.NewOsFs("", os.TempDir(), "")
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", dataprovider.User{
-			HomeDir: os.TempDir(),
+			BaseUser: sdk.BaseUser{
+				HomeDir: os.TempDir(),
+			},
 		}),
 		channel: &mockSSHChannel,
 	}
@@ -1422,7 +1449,9 @@ func TestSCPRecursiveDownloadErrors(t *testing.T) {
 	fs := vfs.NewOsFs("123", os.TempDir(), "")
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", dataprovider.User{
-			HomeDir: os.TempDir(),
+			BaseUser: sdk.BaseUser{
+				HomeDir: os.TempDir(),
+			},
 		}),
 		channel: &mockSSHChannel,
 	}
@@ -1542,7 +1571,7 @@ func TestSCPDownloadFileData(t *testing.T) {
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", dataprovider.User{HomeDir: os.TempDir()}),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", dataprovider.User{BaseUser: sdk.BaseUser{HomeDir: os.TempDir()}}),
 		channel:        &mockSSHChannelReadErr,
 	}
 	scpCommand := scpCommand{
@@ -1588,7 +1617,9 @@ func TestSCPUploadFiledata(t *testing.T) {
 		WriteError:   writeErr,
 	}
 	user := dataprovider.User{
-		Username: "testuser",
+		BaseUser: sdk.BaseUser{
+			Username: "testuser",
+		},
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
 	connection := &Connection{
@@ -1677,7 +1708,9 @@ func TestUploadError(t *testing.T) {
 	common.Config.UploadMode = common.UploadModeAtomic
 
 	user := dataprovider.User{
-		Username: "testuser",
+		BaseUser: sdk.BaseUser{
+			Username: "testuser",
+		},
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
 	connection := &Connection{
@@ -1711,12 +1744,16 @@ func TestUploadError(t *testing.T) {
 
 func TestTransferFailingReader(t *testing.T) {
 	user := dataprovider.User{
-		Username: "testuser",
-		HomeDir:  os.TempDir(),
+		BaseUser: sdk.BaseUser{
+			Username: "testuser",
+			HomeDir:  os.TempDir(),
+		},
 		FsConfig: vfs.Filesystem{
-			Provider: vfs.CryptedFilesystemProvider,
+			Provider: sdk.CryptedFilesystemProvider,
 			CryptConfig: vfs.CryptFsConfig{
-				Passphrase: kms.NewPlainSecret("crypt secret"),
+				CryptFsConfig: sdk.CryptFsConfig{
+					Passphrase: kms.NewPlainSecret("crypt secret"),
+				},
 			},
 		},
 	}
@@ -1770,13 +1807,13 @@ func TestConnectionStatusStruct(t *testing.T) {
 	var transfers []common.ConnectionTransfer
 	transferUL := common.ConnectionTransfer{
 		OperationType: "upload",
-		StartTime:     utils.GetTimeAsMsSinceEpoch(time.Now()),
+		StartTime:     util.GetTimeAsMsSinceEpoch(time.Now()),
 		Size:          123,
 		VirtualPath:   "/test.upload",
 	}
 	transferDL := common.ConnectionTransfer{
 		OperationType: "download",
-		StartTime:     utils.GetTimeAsMsSinceEpoch(time.Now()),
+		StartTime:     util.GetTimeAsMsSinceEpoch(time.Now()),
 		Size:          123,
 		VirtualPath:   "/test.download",
 	}
@@ -1787,8 +1824,8 @@ func TestConnectionStatusStruct(t *testing.T) {
 		ConnectionID:   "123",
 		ClientVersion:  "fakeClient-1.0.0",
 		RemoteAddress:  "127.0.0.1:1234",
-		ConnectionTime: utils.GetTimeAsMsSinceEpoch(time.Now()),
-		LastActivity:   utils.GetTimeAsMsSinceEpoch(time.Now()),
+		ConnectionTime: util.GetTimeAsMsSinceEpoch(time.Now()),
+		LastActivity:   util.GetTimeAsMsSinceEpoch(time.Now()),
 		Protocol:       "SFTP",
 		Transfers:      transfers,
 	}
@@ -1878,8 +1915,10 @@ func TestRecursiveCopyErrors(t *testing.T) {
 	permissions := make(map[string][]string)
 	permissions["/"] = []string{dataprovider.PermAny}
 	user := dataprovider.User{
-		Permissions: permissions,
-		HomeDir:     os.TempDir(),
+		BaseUser: sdk.BaseUser{
+			Permissions: permissions,
+			HomeDir:     os.TempDir(),
+		},
 	}
 	fs, err := user.GetFilesystem("123")
 	assert.NoError(t, err)
@@ -1900,13 +1939,15 @@ func TestSFTPSubSystem(t *testing.T) {
 	permissions := make(map[string][]string)
 	permissions["/"] = []string{dataprovider.PermAny}
 	user := &dataprovider.User{
-		Permissions: permissions,
-		HomeDir:     os.TempDir(),
+		BaseUser: sdk.BaseUser{
+			Permissions: permissions,
+			HomeDir:     os.TempDir(),
+		},
 	}
-	user.FsConfig.Provider = vfs.AzureBlobFilesystemProvider
+	user.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
 	err := ServeSubSystemConnection(user, "connID", nil, nil)
 	assert.Error(t, err)
-	user.FsConfig.Provider = vfs.LocalFilesystemProvider
+	user.FsConfig.Provider = sdk.LocalFilesystemProvider
 
 	buf := make([]byte, 0, 4096)
 	stdErrBuf := make([]byte, 0, 4096)

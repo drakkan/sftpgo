@@ -16,7 +16,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 const (
@@ -105,14 +105,14 @@ func (c Conf) Initialize(configDir string) error {
 		config := &tls.Config{
 			GetCertificate:           certMgr.GetCertificateFunc(),
 			MinVersion:               tls.VersionTLS12,
-			CipherSuites:             utils.GetTLSCiphersFromNames(c.TLSCipherSuites),
+			CipherSuites:             util.GetTLSCiphersFromNames(c.TLSCipherSuites),
 			PreferServerCipherSuites: true,
 		}
 		logger.Debug(logSender, "", "configured TLS cipher suites: %v", config.CipherSuites)
 		httpServer.TLSConfig = config
-		return utils.HTTPListenAndServe(httpServer, c.BindAddress, c.BindPort, true, logSender)
+		return util.HTTPListenAndServe(httpServer, c.BindAddress, c.BindPort, true, logSender)
 	}
-	return utils.HTTPListenAndServe(httpServer, c.BindAddress, c.BindPort, false, logSender)
+	return util.HTTPListenAndServe(httpServer, c.BindAddress, c.BindPort, false, logSender)
 }
 
 // ReloadCertificateMgr reloads the certificate manager
@@ -124,7 +124,7 @@ func ReloadCertificateMgr() error {
 }
 
 func getConfigPath(name, configDir string) string {
-	if !utils.IsFileInputValid(name) {
+	if !util.IsFileInputValid(name) {
 		return ""
 	}
 	if name != "" && !filepath.IsAbs(name) {

@@ -13,7 +13,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -43,7 +43,7 @@ func initializeBoltProvider(basePath string) error {
 	var err error
 
 	dbPath := config.Name
-	if !utils.IsFileInputValid(dbPath) {
+	if !util.IsFileInputValid(dbPath) {
 		return fmt.Errorf("invalid database path: %#v", dbPath)
 	}
 	if !filepath.IsAbs(dbPath) {
@@ -160,14 +160,14 @@ func (p *BoltProvider) updateLastLogin(username string) error {
 		}
 		var u []byte
 		if u = bucket.Get([]byte(username)); u == nil {
-			return utils.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist, unable to update last login", username))
+			return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist, unable to update last login", username))
 		}
 		var user User
 		err = json.Unmarshal(u, &user)
 		if err != nil {
 			return err
 		}
-		user.LastLogin = utils.GetTimeAsMsSinceEpoch(time.Now())
+		user.LastLogin = util.GetTimeAsMsSinceEpoch(time.Now())
 		buf, err := json.Marshal(user)
 		if err != nil {
 			return err
@@ -190,7 +190,7 @@ func (p *BoltProvider) updateQuota(username string, filesAdd int, sizeAdd int64,
 		}
 		var u []byte
 		if u = bucket.Get([]byte(username)); u == nil {
-			return utils.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist, unable to update quota", username))
+			return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist, unable to update quota", username))
 		}
 		var user User
 		err = json.Unmarshal(u, &user)
@@ -204,7 +204,7 @@ func (p *BoltProvider) updateQuota(username string, filesAdd int, sizeAdd int64,
 			user.UsedQuotaSize += sizeAdd
 			user.UsedQuotaFiles += filesAdd
 		}
-		user.LastQuotaUpdate = utils.GetTimeAsMsSinceEpoch(time.Now())
+		user.LastQuotaUpdate = util.GetTimeAsMsSinceEpoch(time.Now())
 		buf, err := json.Marshal(user)
 		if err != nil {
 			return err
@@ -235,7 +235,7 @@ func (p *BoltProvider) adminExists(username string) (Admin, error) {
 		}
 		a := bucket.Get([]byte(username))
 		if a == nil {
-			return utils.NewRecordNotFoundError(fmt.Sprintf("admin %v does not exist", username))
+			return util.NewRecordNotFoundError(fmt.Sprintf("admin %v does not exist", username))
 		}
 		return json.Unmarshal(a, &admin)
 	})
@@ -282,7 +282,7 @@ func (p *BoltProvider) updateAdmin(admin *Admin) error {
 		var a []byte
 
 		if a = bucket.Get([]byte(admin.Username)); a == nil {
-			return utils.NewRecordNotFoundError(fmt.Sprintf("admin %v does not exist", admin.Username))
+			return util.NewRecordNotFoundError(fmt.Sprintf("admin %v does not exist", admin.Username))
 		}
 		var oldAdmin Admin
 		err = json.Unmarshal(a, &oldAdmin)
@@ -307,7 +307,7 @@ func (p *BoltProvider) deleteAdmin(admin *Admin) error {
 		}
 
 		if bucket.Get([]byte(admin.Username)) == nil {
-			return utils.NewRecordNotFoundError(fmt.Sprintf("admin %v does not exist", admin.Username))
+			return util.NewRecordNotFoundError(fmt.Sprintf("admin %v does not exist", admin.Username))
 		}
 
 		return bucket.Delete([]byte(admin.Username))
@@ -397,7 +397,7 @@ func (p *BoltProvider) userExists(username string) (User, error) {
 		}
 		u := bucket.Get([]byte(username))
 		if u == nil {
-			return utils.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", username))
+			return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", username))
 		}
 		folderBucket, err := getFoldersBucket(tx)
 		if err != nil {
@@ -465,7 +465,7 @@ func (p *BoltProvider) updateUser(user *User) error {
 		}
 		var u []byte
 		if u = bucket.Get([]byte(user.Username)); u == nil {
-			return utils.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", user.Username))
+			return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", user.Username))
 		}
 		var oldUser User
 		err = json.Unmarshal(u, &oldUser)
@@ -517,7 +517,7 @@ func (p *BoltProvider) deleteUser(user *User) error {
 		}
 		exists := bucket.Get([]byte(user.Username))
 		if exists == nil {
-			return utils.NewRecordNotFoundError(fmt.Sprintf("user %#v does not exist", user.Username))
+			return util.NewRecordNotFoundError(fmt.Sprintf("user %#v does not exist", user.Username))
 		}
 		return bucket.Delete([]byte(user.Username))
 	})
@@ -722,7 +722,7 @@ func (p *BoltProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
 		var f []byte
 
 		if f = bucket.Get([]byte(folder.Name)); f == nil {
-			return utils.NewRecordNotFoundError(fmt.Sprintf("folder %v does not exist", folder.Name))
+			return util.NewRecordNotFoundError(fmt.Sprintf("folder %v does not exist", folder.Name))
 		}
 		var oldFolder vfs.BaseVirtualFolder
 		err = json.Unmarshal(f, &oldFolder)
@@ -755,7 +755,7 @@ func (p *BoltProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 		}
 		var f []byte
 		if f = bucket.Get([]byte(folder.Name)); f == nil {
-			return utils.NewRecordNotFoundError(fmt.Sprintf("folder %v does not exist", folder.Name))
+			return util.NewRecordNotFoundError(fmt.Sprintf("folder %v does not exist", folder.Name))
 		}
 		var folder vfs.BaseVirtualFolder
 		err = json.Unmarshal(f, &folder)
@@ -801,7 +801,7 @@ func (p *BoltProvider) updateFolderQuota(name string, filesAdd int, sizeAdd int6
 		}
 		var f []byte
 		if f = bucket.Get([]byte(name)); f == nil {
-			return utils.NewRecordNotFoundError(fmt.Sprintf("folder %#v does not exist, unable to update quota", name))
+			return util.NewRecordNotFoundError(fmt.Sprintf("folder %#v does not exist, unable to update quota", name))
 		}
 		var folder vfs.BaseVirtualFolder
 		err = json.Unmarshal(f, &folder)
@@ -815,7 +815,7 @@ func (p *BoltProvider) updateFolderQuota(name string, filesAdd int, sizeAdd int6
 			folder.UsedQuotaSize += sizeAdd
 			folder.UsedQuotaFiles += filesAdd
 		}
-		folder.LastQuotaUpdate = utils.GetTimeAsMsSinceEpoch(time.Now())
+		folder.LastQuotaUpdate = util.GetTimeAsMsSinceEpoch(time.Now())
 		buf, err := json.Marshal(folder)
 		if err != nil {
 			return err
@@ -910,7 +910,7 @@ func folderExistsInternal(name string, bucket *bolt.Bucket) (vfs.BaseVirtualFold
 	var folder vfs.BaseVirtualFolder
 	f := bucket.Get([]byte(name))
 	if f == nil {
-		err := utils.NewRecordNotFoundError(fmt.Sprintf("folder %v does not exist", name))
+		err := util.NewRecordNotFoundError(fmt.Sprintf("folder %v does not exist", name))
 		return folder, err
 	}
 	err := json.Unmarshal(f, &folder)
@@ -950,7 +950,7 @@ func addUserToFolderMapping(baseFolder *vfs.BaseVirtualFolder, user *User, bucke
 	baseFolder.UsedQuotaFiles = oldFolder.UsedQuotaFiles
 	baseFolder.UsedQuotaSize = oldFolder.UsedQuotaSize
 	baseFolder.Users = oldFolder.Users
-	if !utils.IsStringInSlice(user.Username, baseFolder.Users) {
+	if !util.IsStringInSlice(user.Username, baseFolder.Users) {
 		baseFolder.Users = append(baseFolder.Users, user.Username)
 	}
 	buf, err := json.Marshal(baseFolder)
@@ -971,7 +971,7 @@ func removeUserFromFolderMapping(folder *vfs.VirtualFolder, user *User, bucket *
 	if err != nil {
 		return err
 	}
-	if utils.IsStringInSlice(user.Username, baseFolder.Users) {
+	if util.IsStringInSlice(user.Username, baseFolder.Users) {
 		var newUserMapping []string
 		for _, u := range baseFolder.Users {
 			if u != user.Username {

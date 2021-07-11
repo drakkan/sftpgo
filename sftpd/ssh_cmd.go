@@ -23,8 +23,9 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/metrics"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/metric"
+	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -56,7 +57,7 @@ func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommand
 		name, args, err := parseCommandPayload(msg.Command)
 		connection.Log(logger.LevelDebug, "new ssh command: %#v args: %v num args: %v user: %v, error: %v",
 			name, args, len(args), connection.User.Username, err)
-		if err == nil && utils.IsStringInSlice(name, enabledSSHCommands) {
+		if err == nil && util.IsStringInSlice(name, enabledSSHCommands) {
 			connection.command = msg.Command
 			if name == scpCmdName && len(args) >= 2 {
 				connection.SetProtocol(common.ProtocolSCP)
@@ -99,9 +100,9 @@ func (c *sshCommand) handle() (err error) {
 	defer common.Connections.Remove(c.connection.GetID())
 
 	c.connection.UpdateLastActivity()
-	if utils.IsStringInSlice(c.command, sshHashCommands) {
+	if util.IsStringInSlice(c.command, sshHashCommands) {
 		return c.handleHashCommands()
-	} else if utils.IsStringInSlice(c.command, systemCommands) {
+	} else if util.IsStringInSlice(c.command, systemCommands) {
 		command, err := c.getSystemCommand()
 		if err != nil {
 			return c.sendErrorResponse(err)
@@ -492,11 +493,11 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 		// If the user cannot create symlinks we add the option --munge-links, if it is not
 		// already set. This should make symlinks unusable (but manually recoverable)
 		if c.connection.User.HasPerm(dataprovider.PermCreateSymlinks, c.getDestPath()) {
-			if !utils.IsStringInSlice("--safe-links", args) {
+			if !util.IsStringInSlice("--safe-links", args) {
 				args = append([]string{"--safe-links"}, args...)
 			}
 		} else {
-			if !utils.IsStringInSlice("--munge-links", args) {
+			if !util.IsStringInSlice("--munge-links", args) {
 				args = append([]string{"--munge-links"}, args...)
 			}
 		}
@@ -533,7 +534,7 @@ func (c *sshCommand) getSourcePath() string {
 func cleanCommandPath(name string) string {
 	name = strings.Trim(name, "'")
 	name = strings.Trim(name, "\"")
-	result := utils.CleanPath(name)
+	result := util.CleanPath(name)
 	if strings.HasSuffix(name, "/") && !strings.HasSuffix(result, "/") {
 		result += "/"
 	}
@@ -636,9 +637,9 @@ func (c *sshCommand) getRemovePath() (string, error) {
 func (c *sshCommand) isLocalPath(virtualPath string) bool {
 	folder, err := c.connection.User.GetVirtualFolderForPath(virtualPath)
 	if err != nil {
-		return c.connection.User.FsConfig.Provider == vfs.LocalFilesystemProvider
+		return c.connection.User.FsConfig.Provider == sdk.LocalFilesystemProvider
 	}
-	return folder.FsConfig.Provider == vfs.LocalFilesystemProvider
+	return folder.FsConfig.Provider == sdk.LocalFilesystemProvider
 }
 
 func (c *sshCommand) isLocalCopy(virtualSourcePath, virtualTargetPath string) bool {
@@ -735,7 +736,7 @@ func (c *sshCommand) sendExitStatus(err error) {
 	c.connection.channel.Close()
 	// for scp we notify single uploads/downloads
 	if c.command != scpCmdName {
-		metrics.SSHCommandCompleted(err)
+		metric.SSHCommandCompleted(err)
 		if cmdPath != "" {
 			_, p, errFs := c.connection.GetFsAndResolvedPath(cmdPath)
 			if errFs == nil {

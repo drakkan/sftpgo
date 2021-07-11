@@ -18,7 +18,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpclient"
 	"github.com/drakkan/sftpgo/v2/httpd"
 	"github.com/drakkan/sftpgo/v2/sftpd"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 const (
@@ -290,6 +290,77 @@ func TestServiceToStart(t *testing.T) {
 	assert.True(t, config.HasServicesToStart())
 }
 
+func TestPluginsFromEnv(t *testing.T) {
+	reset()
+
+	os.Setenv("SFTPGO_PLUGINS__0__TYPE", "notifier")
+	os.Setenv("SFTPGO_PLUGINS__0__NOTIFIER_OPTIONS__FS_EVENTS", "upload,download")
+	os.Setenv("SFTPGO_PLUGINS__0__NOTIFIER_OPTIONS__USER_EVENTS", "add,update")
+	os.Setenv("SFTPGO_PLUGINS__0__CMD", "plugin_start_cmd")
+	os.Setenv("SFTPGO_PLUGINS__0__ARGS", "arg1,arg2")
+	os.Setenv("SFTPGO_PLUGINS__0__SHA256SUM", "0a71ded61fccd59c4f3695b51c1b3d180da8d2d77ea09ccee20dac242675c193")
+	os.Setenv("SFTPGO_PLUGINS__0__AUTO_MTLS", "1")
+	t.Cleanup(func() {
+		os.Unsetenv("SFTPGO_PLUGINS__0__TYPE")
+		os.Unsetenv("SFTPGO_PLUGINS__0__NOTIFIER_OPTIONS__FS_EVENTS")
+		os.Unsetenv("SFTPGO_PLUGINS__0__NOTIFIER_OPTIONS__USER_EVENTS")
+		os.Unsetenv("SFTPGO_PLUGINS__0__CMD")
+		os.Unsetenv("SFTPGO_PLUGINS__0__ARGS")
+		os.Unsetenv("SFTPGO_PLUGINS__0__SHA256SUM")
+		os.Unsetenv("SFTPGO_PLUGINS__0__AUTO_MTLS")
+	})
+
+	configDir := ".."
+	err := config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	pluginsConf := config.GetPluginsConfig()
+	require.Len(t, pluginsConf, 1)
+	pluginConf := pluginsConf[0]
+	require.Equal(t, "notifier", pluginConf.Type)
+	require.Len(t, pluginConf.NotifierOptions.FsEvents, 2)
+	require.True(t, util.IsStringInSlice("upload", pluginConf.NotifierOptions.FsEvents))
+	require.True(t, util.IsStringInSlice("download", pluginConf.NotifierOptions.FsEvents))
+	require.Len(t, pluginConf.NotifierOptions.UserEvents, 2)
+	require.Equal(t, "add", pluginConf.NotifierOptions.UserEvents[0])
+	require.Equal(t, "update", pluginConf.NotifierOptions.UserEvents[1])
+	require.Equal(t, "plugin_start_cmd", pluginConf.Cmd)
+	require.Len(t, pluginConf.Args, 2)
+	require.Equal(t, "arg1", pluginConf.Args[0])
+	require.Equal(t, "arg2", pluginConf.Args[1])
+	require.Equal(t, "0a71ded61fccd59c4f3695b51c1b3d180da8d2d77ea09ccee20dac242675c193", pluginConf.SHA256Sum)
+	require.True(t, pluginConf.AutoMTLS)
+
+	configAsJSON, err := json.Marshal(pluginsConf)
+	require.NoError(t, err)
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+	err = os.WriteFile(configFilePath, configAsJSON, os.ModePerm)
+	assert.NoError(t, err)
+
+	os.Setenv("SFTPGO_PLUGINS__0__CMD", "plugin_start_cmd1")
+	os.Setenv("SFTPGO_PLUGINS__0__ARGS", "")
+	os.Setenv("SFTPGO_PLUGINS__0__AUTO_MTLS", "0")
+	err = config.LoadConfig(configDir, confName)
+	assert.NoError(t, err)
+	pluginsConf = config.GetPluginsConfig()
+	require.Len(t, pluginsConf, 1)
+	pluginConf = pluginsConf[0]
+	require.Equal(t, "notifier", pluginConf.Type)
+	require.Len(t, pluginConf.NotifierOptions.FsEvents, 2)
+	require.True(t, util.IsStringInSlice("upload", pluginConf.NotifierOptions.FsEvents))
+	require.True(t, util.IsStringInSlice("download", pluginConf.NotifierOptions.FsEvents))
+	require.Len(t, pluginConf.NotifierOptions.UserEvents, 2)
+	require.Equal(t, "add", pluginConf.NotifierOptions.UserEvents[0])
+	require.Equal(t, "update", pluginConf.NotifierOptions.UserEvents[1])
+	require.Equal(t, "plugin_start_cmd1", pluginConf.Cmd)
+	require.Len(t, pluginConf.Args, 0)
+	require.Equal(t, "0a71ded61fccd59c4f3695b51c1b3d180da8d2d77ea09ccee20dac242675c193", pluginConf.SHA256Sum)
+	require.False(t, pluginConf.AutoMTLS)
+
+	err = os.Remove(configFilePath)
+	assert.NoError(t, err)
+}
+
 func TestRateLimitersFromEnv(t *testing.T) {
 	reset()
 
@@ -325,8 +396,8 @@ func TestRateLimitersFromEnv(t *testing.T) {
 	require.Equal(t, 2, limiters[0].Type)
 	protocols := limiters[0].Protocols
 	require.Len(t, protocols, 2)
-	require.True(t, utils.IsStringInSlice(common.ProtocolFTP, protocols))
-	require.True(t, utils.IsStringInSlice(common.ProtocolSSH, protocols))
+	require.True(t, util.IsStringInSlice(common.ProtocolFTP, protocols))
+	require.True(t, util.IsStringInSlice(common.ProtocolSSH, protocols))
 	require.True(t, limiters[0].GenerateDefenderEvents)
 	require.Equal(t, 50, limiters[0].EntriesSoftLimit)
 	require.Equal(t, 100, limiters[0].EntriesHardLimit)
@@ -337,10 +408,10 @@ func TestRateLimitersFromEnv(t *testing.T) {
 	require.Equal(t, 2, limiters[1].Type)
 	protocols = limiters[1].Protocols
 	require.Len(t, protocols, 4)
-	require.True(t, utils.IsStringInSlice(common.ProtocolFTP, protocols))
-	require.True(t, utils.IsStringInSlice(common.ProtocolSSH, protocols))
-	require.True(t, utils.IsStringInSlice(common.ProtocolWebDAV, protocols))
-	require.True(t, utils.IsStringInSlice(common.ProtocolHTTP, protocols))
+	require.True(t, util.IsStringInSlice(common.ProtocolFTP, protocols))
+	require.True(t, util.IsStringInSlice(common.ProtocolSSH, protocols))
+	require.True(t, util.IsStringInSlice(common.ProtocolWebDAV, protocols))
+	require.True(t, util.IsStringInSlice(common.ProtocolHTTP, protocols))
 	require.False(t, limiters[1].GenerateDefenderEvents)
 	require.Equal(t, 100, limiters[1].EntriesSoftLimit)
 	require.Equal(t, 150, limiters[1].EntriesHardLimit)

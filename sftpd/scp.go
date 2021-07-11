@@ -15,7 +15,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -548,11 +548,11 @@ func (c *scpCommand) getCommandType() string {
 }
 
 func (c *scpCommand) sendFileTime() bool {
-	return utils.IsStringInSlice("-p", c.args)
+	return util.IsStringInSlice("-p", c.args)
 }
 
 func (c *scpCommand) isRecursive() bool {
-	return utils.IsStringInSlice("-r", c.args)
+	return util.IsStringInSlice("-r", c.args)
 }
 
 // read the SCP confirmation message and the optional text message

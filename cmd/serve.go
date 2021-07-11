@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/drakkan/sftpgo/v2/service"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 var (
@@ -21,7 +21,7 @@ $ sftpgo serve
 Please take a look at the usage below to customize the startup options`,
 		Run: func(cmd *cobra.Command, args []string) {
 			service := service.Service{
-				ConfigDir:         utils.CleanDirInput(configDir),
+				ConfigDir:         util.CleanDirInput(configDir),
 				ConfigFile:        configFile,
 				LogFilePath:       logFilePath,
 				LogMaxSize:        logMaxSize,

@@ -21,7 +21,8 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 )
 
@@ -65,7 +66,7 @@ func (s *httpdServer) listenAndServe() error {
 		config := &tls.Config{
 			GetCertificate:           certMgr.GetCertificateFunc(),
 			MinVersion:               tls.VersionTLS12,
-			CipherSuites:             utils.GetTLSCiphersFromNames(s.binding.TLSCipherSuites),
+			CipherSuites:             util.GetTLSCiphersFromNames(s.binding.TLSCipherSuites),
 			PreferServerCipherSuites: true,
 		}
 		logger.Debug(logSender, "", "configured TLS cipher suites for binding %#v: %v", s.binding.GetAddress(),
@@ -76,9 +77,9 @@ func (s *httpdServer) listenAndServe() error {
 			httpServer.TLSConfig.ClientAuth = tls.RequireAndVerifyClientCert
 			httpServer.TLSConfig.VerifyConnection = s.verifyTLSConnection
 		}
-		return utils.HTTPListenAndServe(httpServer, s.binding.Address, s.binding.Port, true, logSender)
+		return util.HTTPListenAndServe(httpServer, s.binding.Address, s.binding.Port, true, logSender)
 	}
-	return utils.HTTPListenAndServe(httpServer, s.binding.Address, s.binding.Port, false, logSender)
+	return util.HTTPListenAndServe(httpServer, s.binding.Address, s.binding.Port, false, logSender)
 }
 
 func (s *httpdServer) verifyTLSConnection(state tls.ConnectionState) error {
@@ -122,16 +123,16 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		renderClientLoginPage(w, err.Error())
 		return
 	}
-	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	username := r.Form.Get("username")
 	password := r.Form.Get("password")
 	if username == "" || password == "" {
-		updateLoginMetrics(&dataprovider.User{Username: username}, ipAddr, common.ErrNoCredentials)
+		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}}, ipAddr, common.ErrNoCredentials)
 		renderClientLoginPage(w, "Invalid credentials")
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		updateLoginMetrics(&dataprovider.User{Username: username}, ipAddr, err)
+		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}}, ipAddr, err)
 		renderClientLoginPage(w, err.Error())
 		return
 	}
@@ -197,7 +198,7 @@ func (s *httpdServer) handleWebAdminLoginPost(w http.ResponseWriter, r *http.Req
 		renderLoginPage(w, err.Error())
 		return
 	}
-	admin, err := dataprovider.CheckAdminAndPass(username, password, utils.GetIPFromRemoteAddress(r.RemoteAddr))
+	admin, err := dataprovider.CheckAdminAndPass(username, password, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		renderLoginPage(w, err.Error())
 		return
@@ -272,16 +273,16 @@ func (s *httpdServer) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
-	ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	username, password, ok := r.BasicAuth()
 	if !ok {
-		updateLoginMetrics(&dataprovider.User{Username: username}, ipAddr, common.ErrNoCredentials)
+		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}}, ipAddr, common.ErrNoCredentials)
 		w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
 		sendAPIResponse(w, r, nil, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
 	}
 	if username == "" || password == "" {
-		updateLoginMetrics(&dataprovider.User{Username: username}, ipAddr, common.ErrNoCredentials)
+		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}}, ipAddr, common.ErrNoCredentials)
 		w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
 		sendAPIResponse(w, r, nil, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
@@ -344,7 +345,7 @@ func (s *httpdServer) getToken(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
 	}
-	admin, err := dataprovider.CheckAdminAndPass(username, password, utils.GetIPFromRemoteAddress(r.RemoteAddr))
+	admin, err := dataprovider.CheckAdminAndPass(username, password, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
@@ -384,7 +385,7 @@ func (s *httpdServer) checkCookieExpiration(w http.ResponseWriter, r *http.Reque
 	if time.Until(token.Expiration()) > tokenRefreshMin {
 		return
 	}
-	if utils.IsStringInSlice(tokenAudienceWebClient, token.Audience()) {
+	if util.IsStringInSlice(tokenAudienceWebClient, token.Audience()) {
 		s.refreshClientToken(w, r, tokenClaims)
 	} else {
 		s.refreshAdminToken(w, r, tokenClaims)
@@ -422,7 +423,7 @@ func (s *httpdServer) refreshAdminToken(w http.ResponseWriter, r *http.Request, 
 		logger.Debug(logSender, "", "signature mismatch for admin %#v, unable to refresh cookie", admin.Username)
 		return
 	}
-	if !admin.CanLoginFromIP(utils.GetIPFromRemoteAddress(r.RemoteAddr)) {
+	if !admin.CanLoginFromIP(util.GetIPFromRemoteAddress(r.RemoteAddr)) {
 		logger.Debug(logSender, "", "admin %#v cannot login from %v, unable to refresh cookie", admin.Username, r.RemoteAddr)
 		return
 	}
@@ -446,12 +447,12 @@ func (s *httpdServer) updateContextFromCookie(r *http.Request) *http.Request {
 
 func (s *httpdServer) checkConnection(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ipAddr := utils.GetIPFromRemoteAddress(r.RemoteAddr)
+		ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 		ip := net.ParseIP(ipAddr)
 		if ip != nil {
 			for _, allow := range s.binding.allowHeadersFrom {
 				if allow(ip) {
-					parsedIP := utils.GetRealIP(r)
+					parsedIP := util.GetRealIP(r)
 					if parsedIP != "" {
 						ipAddr = parsedIP
 						r.RemoteAddr = ipAddr
@@ -628,8 +629,8 @@ func (s *httpdServer) initializeRouter() {
 
 		router.Get(userLogoutPath, s.logout)
 		router.Put(userPwdPath, changeUserPassword)
-		router.With(checkHTTPUserPerm(dataprovider.WebClientPubKeyChangeDisabled)).Get(userPublicKeysPath, getUserPublicKeys)
-		router.With(checkHTTPUserPerm(dataprovider.WebClientPubKeyChangeDisabled)).Put(userPublicKeysPath, setUserPublicKeys)
+		router.With(checkHTTPUserPerm(sdk.WebClientPubKeyChangeDisabled)).Get(userPublicKeysPath, getUserPublicKeys)
+		router.With(checkHTTPUserPerm(sdk.WebClientPubKeyChangeDisabled)).Put(userPublicKeysPath, setUserPublicKeys)
 		router.Get(userReadFolderPath, readUserFolder)
 		router.Get(userGetFilePath, getUserFile)
 		router.Post(userStreamZipPath, getUserFilesAsZipStream)
@@ -674,7 +675,7 @@ func (s *httpdServer) initializeRouter() {
 			router.With(s.refreshCookie).Get(webClientDownloadZipPath, handleWebClientDownloadZip)
 			router.With(s.refreshCookie).Get(webClientCredentialsPath, handleClientGetCredentials)
 			router.Post(webChangeClientPwdPath, handleWebClientChangePwdPost)
-			router.With(checkHTTPUserPerm(dataprovider.WebClientPubKeyChangeDisabled)).
+			router.With(checkHTTPUserPerm(sdk.WebClientPubKeyChangeDisabled)).
 				Post(webChangeClientKeysPath, handleWebClientManageKeysPost)
 		})
 	}

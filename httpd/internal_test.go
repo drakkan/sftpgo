@@ -32,7 +32,8 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/kms"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -298,7 +299,7 @@ func TestShouldBind(t *testing.T) {
 
 func TestGetRespStatus(t *testing.T) {
 	var err error
-	err = utils.NewMethodDisabledError("")
+	err = util.NewMethodDisabledError("")
 	respStatus := getRespStatus(err)
 	assert.Equal(t, http.StatusForbidden, respStatus)
 	err = fmt.Errorf("generic error")
@@ -457,16 +458,16 @@ func TestCSRFToken(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 	assert.Contains(t, rr.Body.String(), "the token is not valid")
 
-	csrfTokenAuth = jwtauth.New("PS256", utils.GenerateRandomBytes(32), nil)
+	csrfTokenAuth = jwtauth.New("PS256", util.GenerateRandomBytes(32), nil)
 	tokenString = createCSRFToken()
 	assert.Empty(t, tokenString)
 
-	csrfTokenAuth = jwtauth.New(jwa.HS256.String(), utils.GenerateRandomBytes(32), nil)
+	csrfTokenAuth = jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil)
 }
 
 func TestCreateTokenError(t *testing.T) {
 	server := httpdServer{
-		tokenAuth: jwtauth.New("PS256", utils.GenerateRandomBytes(32), nil),
+		tokenAuth: jwtauth.New("PS256", util.GenerateRandomBytes(32), nil),
 	}
 	rr := httptest.NewRecorder()
 	admin := dataprovider.Admin{
@@ -480,8 +481,10 @@ func TestCreateTokenError(t *testing.T) {
 
 	rr = httptest.NewRecorder()
 	user := dataprovider.User{
-		Username: "u",
-		Password: "pwd",
+		BaseUser: sdk.BaseUser{
+			Username: "u",
+			Password: "pwd",
+		},
 	}
 	req, _ = http.NewRequest(http.MethodGet, userTokenPath, nil)
 
@@ -540,11 +543,13 @@ func TestCreateTokenError(t *testing.T) {
 
 	username := "webclientuser"
 	user = dataprovider.User{
-		Username:    username,
-		Password:    "clientpwd",
-		HomeDir:     filepath.Join(os.TempDir(), username),
-		Status:      1,
-		Description: "test user",
+		BaseUser: sdk.BaseUser{
+			Username:    username,
+			Password:    "clientpwd",
+			HomeDir:     filepath.Join(os.TempDir(), username),
+			Status:      1,
+			Description: "test user",
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{"*"}
@@ -567,7 +572,7 @@ func TestCreateTokenError(t *testing.T) {
 }
 
 func TestJWTTokenValidation(t *testing.T) {
-	tokenAuth := jwtauth.New(jwa.HS256.String(), utils.GenerateRandomBytes(32), nil)
+	tokenAuth := jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil)
 	claims := make(map[string]interface{})
 	claims["username"] = "admin"
 	claims[jwt.ExpirationKey] = time.Now().UTC().Add(-1 * time.Hour)
@@ -616,7 +621,7 @@ func TestJWTTokenValidation(t *testing.T) {
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 
-	permClientFn := checkHTTPUserPerm(dataprovider.WebClientPubKeyChangeDisabled)
+	permClientFn := checkHTTPUserPerm(sdk.WebClientPubKeyChangeDisabled)
 	fn = permClientFn(r)
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodPost, webChangeClientKeysPath, nil)
@@ -635,7 +640,7 @@ func TestJWTTokenValidation(t *testing.T) {
 
 func TestUpdateContextFromCookie(t *testing.T) {
 	server := httpdServer{
-		tokenAuth: jwtauth.New(jwa.HS256.String(), utils.GenerateRandomBytes(32), nil),
+		tokenAuth: jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil),
 	}
 	req, _ := http.NewRequest(http.MethodGet, tokenPath, nil)
 	claims := make(map[string]interface{})
@@ -649,7 +654,7 @@ func TestUpdateContextFromCookie(t *testing.T) {
 
 func TestCookieExpiration(t *testing.T) {
 	server := httpdServer{
-		tokenAuth: jwtauth.New(jwa.HS256.String(), utils.GenerateRandomBytes(32), nil),
+		tokenAuth: jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil),
 	}
 	err := errors.New("test error")
 	rr := httptest.NewRecorder()
@@ -736,11 +741,13 @@ func TestCookieExpiration(t *testing.T) {
 	// now check client cookie expiration
 	username := "client"
 	user := dataprovider.User{
-		Username:    username,
-		Password:    "clientpwd",
-		HomeDir:     filepath.Join(os.TempDir(), username),
-		Status:      1,
-		Description: "test user",
+		BaseUser: sdk.BaseUser{
+			Username:    username,
+			Password:    "clientpwd",
+			HomeDir:     filepath.Join(os.TempDir(), username),
+			Status:      1,
+			Description: "test user",
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{"*"}
@@ -862,10 +869,12 @@ func TestRenderInvalidTemplate(t *testing.T) {
 
 func TestQuotaScanInvalidFs(t *testing.T) {
 	user := dataprovider.User{
-		Username: "test",
-		HomeDir:  os.TempDir(),
+		BaseUser: sdk.BaseUser{
+			Username: "test",
+			HomeDir:  os.TempDir(),
+		},
 		FsConfig: vfs.Filesystem{
-			Provider: vfs.S3FilesystemProvider,
+			Provider: sdk.S3FilesystemProvider,
 		},
 	}
 	common.QuotaScans.AddUserQuotaScan(user.Username)
@@ -947,24 +956,24 @@ func TestGetFolderFromTemplate(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("Folder%v", folderName), folderTemplate.MappedPath)
 	require.Equal(t, fmt.Sprintf("Folder %v desc", folderName), folderTemplate.Description)
 
-	folder.FsConfig.Provider = vfs.CryptedFilesystemProvider
+	folder.FsConfig.Provider = sdk.CryptedFilesystemProvider
 	folder.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("%name%")
 	folderTemplate = getFolderFromTemplate(folder, folderName)
 	require.Equal(t, folderName, folderTemplate.FsConfig.CryptConfig.Passphrase.GetPayload())
 
-	folder.FsConfig.Provider = vfs.GCSFilesystemProvider
+	folder.FsConfig.Provider = sdk.GCSFilesystemProvider
 	folder.FsConfig.GCSConfig.KeyPrefix = "prefix%name%/"
 	folderTemplate = getFolderFromTemplate(folder, folderName)
 	require.Equal(t, fmt.Sprintf("prefix%v/", folderName), folderTemplate.FsConfig.GCSConfig.KeyPrefix)
 
-	folder.FsConfig.Provider = vfs.AzureBlobFilesystemProvider
+	folder.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
 	folder.FsConfig.AzBlobConfig.KeyPrefix = "a%name%"
 	folder.FsConfig.AzBlobConfig.AccountKey = kms.NewPlainSecret("pwd%name%")
 	folderTemplate = getFolderFromTemplate(folder, folderName)
 	require.Equal(t, "a"+folderName, folderTemplate.FsConfig.AzBlobConfig.KeyPrefix)
 	require.Equal(t, "pwd"+folderName, folderTemplate.FsConfig.AzBlobConfig.AccountKey.GetPayload())
 
-	folder.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	folder.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	folder.FsConfig.SFTPConfig.Prefix = "%name%"
 	folder.FsConfig.SFTPConfig.Username = "sftp_%name%"
 	folder.FsConfig.SFTPConfig.Password = kms.NewPlainSecret("sftp%name%")
@@ -976,7 +985,9 @@ func TestGetFolderFromTemplate(t *testing.T) {
 
 func TestGetUserFromTemplate(t *testing.T) {
 	user := dataprovider.User{
-		Status: 1,
+		BaseUser: sdk.BaseUser{
+			Status: 1,
+		},
 	}
 	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
@@ -995,24 +1006,24 @@ func TestGetUserFromTemplate(t *testing.T) {
 	require.Len(t, userTemplate.VirtualFolders, 1)
 	require.Equal(t, "Folder"+username, userTemplate.VirtualFolders[0].Name)
 
-	user.FsConfig.Provider = vfs.CryptedFilesystemProvider
+	user.FsConfig.Provider = sdk.CryptedFilesystemProvider
 	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("%password%")
 	userTemplate = getUserFromTemplate(user, templateFields)
 	require.Equal(t, password, userTemplate.FsConfig.CryptConfig.Passphrase.GetPayload())
 
-	user.FsConfig.Provider = vfs.GCSFilesystemProvider
+	user.FsConfig.Provider = sdk.GCSFilesystemProvider
 	user.FsConfig.GCSConfig.KeyPrefix = "%username%%password%"
 	userTemplate = getUserFromTemplate(user, templateFields)
 	require.Equal(t, username+password, userTemplate.FsConfig.GCSConfig.KeyPrefix)
 
-	user.FsConfig.Provider = vfs.AzureBlobFilesystemProvider
+	user.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
 	user.FsConfig.AzBlobConfig.KeyPrefix = "a%username%"
 	user.FsConfig.AzBlobConfig.AccountKey = kms.NewPlainSecret("pwd%password%%username%")
 	userTemplate = getUserFromTemplate(user, templateFields)
 	require.Equal(t, "a"+username, userTemplate.FsConfig.AzBlobConfig.KeyPrefix)
 	require.Equal(t, "pwd"+password+username, userTemplate.FsConfig.AzBlobConfig.AccountKey.GetPayload())
 
-	user.FsConfig.Provider = vfs.SFTPFilesystemProvider
+	user.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	user.FsConfig.SFTPConfig.Prefix = "%username%"
 	user.FsConfig.SFTPConfig.Username = "sftp_%username%"
 	user.FsConfig.SFTPConfig.Password = kms.NewPlainSecret("sftp%password%")
@@ -1024,7 +1035,7 @@ func TestGetUserFromTemplate(t *testing.T) {
 
 func TestJWTTokenCleanup(t *testing.T) {
 	server := httpdServer{
-		tokenAuth: jwtauth.New(jwa.HS256.String(), utils.GenerateRandomBytes(32), nil),
+		tokenAuth: jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil),
 	}
 	admin := dataprovider.Admin{
 		Username:    "newtestadmin",
@@ -1208,7 +1219,9 @@ func TestCompressorAbortHandler(t *testing.T) {
 
 func TestZipErrors(t *testing.T) {
 	user := dataprovider.User{
-		HomeDir: filepath.Clean(os.TempDir()),
+		BaseUser: sdk.BaseUser{
+			HomeDir: filepath.Clean(os.TempDir()),
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
@@ -1233,7 +1246,7 @@ func TestZipErrors(t *testing.T) {
 	}
 
 	testFilePath := filepath.Join(testDir, "ziptest.zip")
-	err = os.WriteFile(testFilePath, utils.GenerateRandomBytes(65535), os.ModePerm)
+	err = os.WriteFile(testFilePath, util.GenerateRandomBytes(65535), os.ModePerm)
 	assert.NoError(t, err)
 	err = addZipEntry(wr, connection, path.Join("/", filepath.Base(testDir), filepath.Base(testFilePath)),
 		"/"+filepath.Base(testDir))
@@ -1258,7 +1271,7 @@ func TestZipErrors(t *testing.T) {
 	err = addZipEntry(wr, connection, user.VirtualFolders[0].VirtualPath, "/")
 	assert.Error(t, err)
 
-	user.Filters.FilePatterns = append(user.Filters.FilePatterns, dataprovider.PatternsFilter{
+	user.Filters.FilePatterns = append(user.Filters.FilePatterns, sdk.PatternsFilter{
 		Path:           "/",
 		DeniedPatterns: []string{"*.zip"},
 	})
@@ -1412,13 +1425,17 @@ func TestRequestHeaderErrors(t *testing.T) {
 
 func TestConnection(t *testing.T) {
 	user := dataprovider.User{
-		Username: "test_httpd_user",
-		HomeDir:  filepath.Clean(os.TempDir()),
+		BaseUser: sdk.BaseUser{
+			Username: "test_httpd_user",
+			HomeDir:  filepath.Clean(os.TempDir()),
+		},
 		FsConfig: vfs.Filesystem{
-			Provider: vfs.GCSFilesystemProvider,
+			Provider: sdk.GCSFilesystemProvider,
 			GCSConfig: vfs.GCSFsConfig{
-				Bucket:      "test_bucket_name",
-				Credentials: kms.NewPlainSecret("invalid JSON payload"),
+				GCSFsConfig: sdk.GCSFsConfig{
+					Bucket:      "test_bucket_name",
+					Credentials: kms.NewPlainSecret("invalid JSON payload"),
+				},
 			},
 		},
 	}
@@ -1434,15 +1451,17 @@ func TestConnection(t *testing.T) {
 	name := "missing file name"
 	_, err := connection.getFileReader(name, 0, http.MethodGet)
 	assert.Error(t, err)
-	connection.User.FsConfig.Provider = vfs.LocalFilesystemProvider
+	connection.User.FsConfig.Provider = sdk.LocalFilesystemProvider
 	_, err = connection.getFileReader(name, 0, http.MethodGet)
 	assert.ErrorIs(t, err, os.ErrNotExist)
 }
 
 func TestHTTPDFile(t *testing.T) {
 	user := dataprovider.User{
-		Username: "test_httpd_user",
-		HomeDir:  filepath.Clean(os.TempDir()),
+		BaseUser: sdk.BaseUser{
+			Username: "test_httpd_user",
+			HomeDir:  filepath.Clean(os.TempDir()),
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
@@ -1500,8 +1519,10 @@ func TestGetFilesInvalidClaims(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	user := dataprovider.User{
-		Username: "",
-		Password: "pwd",
+		BaseUser: sdk.BaseUser{
+			Username: "",
+			Password: "pwd",
+		},
 	}
 	c := jwtTokenClaims{
 		Username:    user.Username,
@@ -1538,8 +1559,10 @@ func TestManageKeysInvalidClaims(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	user := dataprovider.User{
-		Username: "",
-		Password: "pwd",
+		BaseUser: sdk.BaseUser{
+			Username: "",
+			Password: "pwd",
+		},
 	}
 	c := jwtTokenClaims{
 		Username:    user.Username,
@@ -1585,8 +1608,10 @@ func TestSigningKey(t *testing.T) {
 	server2.initializeRouter()
 
 	user := dataprovider.User{
-		Username: "",
-		Password: "pwd",
+		BaseUser: sdk.BaseUser{
+			Username: "",
+			Password: "pwd",
+		},
 	}
 	c := jwtTokenClaims{
 		Username:    user.Username,

@@ -9,7 +9,7 @@ import (
 	"github.com/go-chi/render"
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 func getAdmins(w http.ResponseWriter, r *http.Request) {
@@ -141,13 +141,13 @@ func changeAdminPassword(w http.ResponseWriter, r *http.Request) {
 
 func doChangeAdminPassword(r *http.Request, currentPassword, newPassword, confirmNewPassword string) error {
 	if currentPassword == "" || newPassword == "" || confirmNewPassword == "" {
-		return utils.NewValidationError("please provide the current password and the new one two times")
+		return util.NewValidationError("please provide the current password and the new one two times")
 	}
 	if newPassword != confirmNewPassword {
-		return utils.NewValidationError("the two password fields do not match")
+		return util.NewValidationError("the two password fields do not match")
 	}
 	if currentPassword == newPassword {
-		return utils.NewValidationError("the new password must be different from the current one")
+		return util.NewValidationError("the new password must be different from the current one")
 	}
 	claims, err := getTokenClaims(r)
 	if err != nil {
@@ -159,7 +159,7 @@ func doChangeAdminPassword(r *http.Request, currentPassword, newPassword, confir
 	}
 	match, err := admin.CheckPassword(currentPassword)
 	if !match || err != nil {
-		return utils.NewValidationError("current password does not match")
+		return util.NewValidationError("current password does not match")
 	}
 
 	admin.Password = newPassword

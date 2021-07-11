@@ -227,5 +227,6 @@
       "url": "",
       "master_key_path": ""
     }
-  }
+  },
+  "plugins": []
 }

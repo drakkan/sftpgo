@@ -9,7 +9,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/metrics"
+	"github.com/drakkan/sftpgo/v2/metric"
 )
 
 func initializeRouter(enableProfiler bool) {
@@ -26,7 +26,7 @@ func initializeRouter(enableProfiler bool) {
 
 	router.Group(func(router chi.Router) {
 		router.Use(checkAuth)
-		metrics.AddMetricsEndpoint(metricsPath, router)
+		metric.AddMetricsEndpoint(metricsPath, router)
 
 		if enableProfiler {
 			logger.InfoToConsole("enabling the built-in profiler")

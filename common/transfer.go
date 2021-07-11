@@ -9,7 +9,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/metrics"
+	"github.com/drakkan/sftpgo/v2/metric"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -139,7 +139,7 @@ func (t *BaseTransfer) Truncate(fsPath string, size int64) (int64, error) {
 				if t.MaxWriteSize > 0 {
 					sizeDiff := initialSize - size
 					t.MaxWriteSize += sizeDiff
-					metrics.TransferCompleted(atomic.LoadInt64(&t.BytesSent), atomic.LoadInt64(&t.BytesReceived), t.transferType, t.ErrTransfer)
+					metric.TransferCompleted(atomic.LoadInt64(&t.BytesSent), atomic.LoadInt64(&t.BytesReceived), t.transferType, t.ErrTransfer)
 					atomic.StoreInt64(&t.BytesReceived, 0)
 				}
 				t.Unlock()
@@ -206,7 +206,7 @@ func (t *BaseTransfer) Close() error {
 	if t.isNewFile {
 		numFiles = 1
 	}
-	metrics.TransferCompleted(atomic.LoadInt64(&t.BytesSent), atomic.LoadInt64(&t.BytesReceived), t.transferType, t.ErrTransfer)
+	metric.TransferCompleted(atomic.LoadInt64(&t.BytesSent), atomic.LoadInt64(&t.BytesReceived), t.transferType, t.ErrTransfer)
 	if t.File != nil && t.Connection.IsQuotaExceededError(t.ErrTransfer) {
 		// if quota is exceeded we try to remove the partial file for uploads to local filesystem
 		err = t.Fs.Remove(t.File.Name(), false)

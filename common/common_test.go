@@ -20,7 +20,8 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/kms"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -323,7 +324,9 @@ func TestIdleConnections(t *testing.T) {
 
 	username := "test_user"
 	user := dataprovider.User{
-		Username: username,
+		BaseUser: sdk.BaseUser{
+			Username: username,
+		},
 	}
 	c := NewBaseConnection(sshConn1.id+"_1", ProtocolSFTP, "", user)
 	c.lastActivity = time.Now().Add(-24 * time.Hour).UnixNano()
@@ -410,7 +413,9 @@ func TestSwapConnection(t *testing.T) {
 		assert.Equal(t, "", Connections.GetStats()[0].Username)
 	}
 	c = NewBaseConnection("id", ProtocolFTP, "", dataprovider.User{
-		Username: userTestUsername,
+		BaseUser: sdk.BaseUser{
+			Username: userTestUsername,
+		},
 	})
 	fakeConn = &fakeConnection{
 		BaseConnection: c,
@@ -443,7 +448,9 @@ func TestAtomicUpload(t *testing.T) {
 func TestConnectionStatus(t *testing.T) {
 	username := "test_user"
 	user := dataprovider.User{
-		Username: username,
+		BaseUser: sdk.BaseUser{
+			Username: username,
+		},
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
 	c1 := NewBaseConnection("id1", ProtocolSFTP, "", user)
@@ -634,7 +641,11 @@ func TestPostConnectHook(t *testing.T) {
 
 func TestCryptoConvertFileInfo(t *testing.T) {
 	name := "name"
-	fs, err := vfs.NewCryptFs("connID1", os.TempDir(), "", vfs.CryptFsConfig{Passphrase: kms.NewPlainSecret("secret")})
+	fs, err := vfs.NewCryptFs("connID1", os.TempDir(), "", vfs.CryptFsConfig{
+		CryptFsConfig: sdk.CryptFsConfig{
+			Passphrase: kms.NewPlainSecret("secret"),
+		},
+	})
 	require.NoError(t, err)
 	cryptFs := fs.(*vfs.CryptFs)
 	info := vfs.NewFileInfo(name, true, 48, time.Now(), false)
@@ -654,15 +665,15 @@ func TestFolderCopy(t *testing.T) {
 		MappedPath:      filepath.Clean(os.TempDir()),
 		UsedQuotaSize:   4096,
 		UsedQuotaFiles:  2,
-		LastQuotaUpdate: utils.GetTimeAsMsSinceEpoch(time.Now()),
+		LastQuotaUpdate: util.GetTimeAsMsSinceEpoch(time.Now()),
 		Users:           []string{"user1", "user2"},
 	}
 	folderCopy := folder.GetACopy()
 	folder.ID = 2
 	folder.Users = []string{"user3"}
 	require.Len(t, folderCopy.Users, 2)
-	require.True(t, utils.IsStringInSlice("user1", folderCopy.Users))
-	require.True(t, utils.IsStringInSlice("user2", folderCopy.Users))
+	require.True(t, util.IsStringInSlice("user1", folderCopy.Users))
+	require.True(t, util.IsStringInSlice("user2", folderCopy.Users))
 	require.Equal(t, int64(1), folderCopy.ID)
 	require.Equal(t, folder.Name, folderCopy.Name)
 	require.Equal(t, folder.MappedPath, folderCopy.MappedPath)
@@ -672,13 +683,15 @@ func TestFolderCopy(t *testing.T) {
 
 	folder.FsConfig = vfs.Filesystem{
 		CryptConfig: vfs.CryptFsConfig{
-			Passphrase: kms.NewPlainSecret("crypto secret"),
+			CryptFsConfig: sdk.CryptFsConfig{
+				Passphrase: kms.NewPlainSecret("crypto secret"),
+			},
 		},
 	}
 	folderCopy = folder.GetACopy()
 	folder.FsConfig.CryptConfig.Passphrase = kms.NewEmptySecret()
 	require.Len(t, folderCopy.Users, 1)
-	require.True(t, utils.IsStringInSlice("user3", folderCopy.Users))
+	require.True(t, util.IsStringInSlice("user3", folderCopy.Users))
 	require.Equal(t, int64(2), folderCopy.ID)
 	require.Equal(t, folder.Name, folderCopy.Name)
 	require.Equal(t, folder.MappedPath, folderCopy.MappedPath)
@@ -690,7 +703,9 @@ func TestFolderCopy(t *testing.T) {
 
 func TestCachedFs(t *testing.T) {
 	user := dataprovider.User{
-		HomeDir: filepath.Clean(os.TempDir()),
+		BaseUser: sdk.BaseUser{
+			HomeDir: filepath.Clean(os.TempDir()),
+		},
 	}
 	conn := NewBaseConnection("id", ProtocolSFTP, "", user)
 	// changing the user should not affect the connection
@@ -706,10 +721,10 @@ func TestCachedFs(t *testing.T) {
 	_, p, err = conn.GetFsAndResolvedPath("/")
 	assert.NoError(t, err)
 	assert.Equal(t, filepath.Clean(os.TempDir()), p)
-	user.FsConfig.Provider = vfs.S3FilesystemProvider
+	user.FsConfig.Provider = sdk.S3FilesystemProvider
 	_, err = user.GetFilesystem("")
 	assert.Error(t, err)
-	conn.User.FsConfig.Provider = vfs.S3FilesystemProvider
+	conn.User.FsConfig.Provider = sdk.S3FilesystemProvider
 	_, p, err = conn.GetFsAndResolvedPath("/")
 	assert.NoError(t, err)
 	assert.Equal(t, filepath.Clean(os.TempDir()), p)
@@ -718,11 +733,11 @@ func TestCachedFs(t *testing.T) {
 }
 
 func TestParseAllowedIPAndRanges(t *testing.T) {
-	_, err := utils.ParseAllowedIPAndRanges([]string{"1.1.1.1", "not an ip"})
+	_, err := util.ParseAllowedIPAndRanges([]string{"1.1.1.1", "not an ip"})
 	assert.Error(t, err)
-	_, err = utils.ParseAllowedIPAndRanges([]string{"1.1.1.5", "192.168.1.0/240"})
+	_, err = util.ParseAllowedIPAndRanges([]string{"1.1.1.5", "192.168.1.0/240"})
 	assert.Error(t, err)
-	allow, err := utils.ParseAllowedIPAndRanges([]string{"192.168.1.2", "172.16.0.0/24"})
+	allow, err := util.ParseAllowedIPAndRanges([]string{"192.168.1.2", "172.16.0.0/24"})
 	assert.NoError(t, err)
 	assert.True(t, allow[0](net.ParseIP("192.168.1.2")))
 	assert.False(t, allow[0](net.ParseIP("192.168.2.2")))

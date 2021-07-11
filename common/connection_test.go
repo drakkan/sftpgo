@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -47,8 +48,10 @@ func TestRemoveErrors(t *testing.T) {
 	homePath := filepath.Join(os.TempDir(), "home")
 
 	user := dataprovider.User{
-		Username: "remove_errors_user",
-		HomeDir:  homePath,
+		BaseUser: sdk.BaseUser{
+			Username: "remove_errors_user",
+			HomeDir:  homePath,
+		},
 		VirtualFolders: []vfs.VirtualFolder{
 			{
 				BaseVirtualFolder: vfs.BaseVirtualFolder{
@@ -78,7 +81,9 @@ func TestSetStatMode(t *testing.T) {
 
 	fakePath := "fake path"
 	user := dataprovider.User{
-		HomeDir: os.TempDir(),
+		BaseUser: sdk.BaseUser{
+			HomeDir: os.TempDir(),
+		},
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
@@ -145,8 +150,10 @@ func TestRenameVirtualFolders(t *testing.T) {
 
 func TestUpdateQuotaAfterRename(t *testing.T) {
 	user := dataprovider.User{
-		Username: userTestUsername,
-		HomeDir:  filepath.Join(os.TempDir(), "home"),
+		BaseUser: sdk.BaseUser{
+			Username: userTestUsername,
+			HomeDir:  filepath.Join(os.TempDir(), "home"),
+		},
 	}
 	mappedPath := filepath.Join(os.TempDir(), "vdir")
 	user.Permissions = make(map[string][]string)
@@ -218,7 +225,7 @@ func TestUpdateQuotaAfterRename(t *testing.T) {
 
 func TestErrorsMapping(t *testing.T) {
 	fs := vfs.NewOsFs("", os.TempDir(), "")
-	conn := NewBaseConnection("", ProtocolSFTP, "", dataprovider.User{HomeDir: os.TempDir()})
+	conn := NewBaseConnection("", ProtocolSFTP, "", dataprovider.User{BaseUser: sdk.BaseUser{HomeDir: os.TempDir()}})
 	for _, protocol := range supportedProtocols {
 		conn.SetProtocol(protocol)
 		err := conn.GetFsError(fs, os.ErrNotExist)
@@ -276,9 +283,11 @@ func TestMaxWriteSize(t *testing.T) {
 	permissions := make(map[string][]string)
 	permissions["/"] = []string{dataprovider.PermAny}
 	user := dataprovider.User{
-		Username:    userTestUsername,
-		Permissions: permissions,
-		HomeDir:     filepath.Clean(os.TempDir()),
+		BaseUser: sdk.BaseUser{
+			Username:    userTestUsername,
+			Permissions: permissions,
+			HomeDir:     filepath.Clean(os.TempDir()),
+		},
 	}
 	fs, err := user.GetFilesystem("123")
 	assert.NoError(t, err)

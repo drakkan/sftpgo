@@ -25,7 +25,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/ftpd"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/sftpd"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/webdavd"
 )
 
@@ -184,7 +184,7 @@ type Binding struct {
 }
 
 func (b *Binding) parseAllowedProxy() error {
-	allowedFuncs, err := utils.ParseAllowedIPAndRanges(b.ProxyAllowed)
+	allowedFuncs, err := util.ParseAllowedIPAndRanges(b.ProxyAllowed)
 	if err != nil {
 		return err
 	}
@@ -382,7 +382,7 @@ func ReloadCertificateMgr() error {
 }
 
 func getConfigPath(name, configDir string) string {
-	if !utils.IsFileInputValid(name) {
+	if !util.IsFileInputValid(name) {
 		return ""
 	}
 	if name != "" && !filepath.IsAbs(name) {
@@ -530,5 +530,5 @@ func getSigningKey(signingPassphrase string) []byte {
 		sk := sha256.Sum256([]byte(signingPassphrase))
 		return sk[:]
 	}
-	return utils.GenerateRandomBytes(32)
+	return util.GenerateRandomBytes(32)
 }

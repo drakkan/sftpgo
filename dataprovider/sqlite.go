@@ -15,7 +15,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -60,7 +60,7 @@ func initializeSQLiteProvider(basePath string) error {
 
 	if config.ConnectionString == "" {
 		dbPath := config.Name
-		if !utils.IsFileInputValid(dbPath) {
+		if !util.IsFileInputValid(dbPath) {
 			return fmt.Errorf("invalid database path: %#v", dbPath)
 		}
 		if !filepath.IsAbs(dbPath) {

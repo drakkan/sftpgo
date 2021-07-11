@@ -19,8 +19,8 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/metrics"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/metric"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 type pwdChange struct {
@@ -42,13 +42,13 @@ func sendAPIResponse(w http.ResponseWriter, r *http.Request, err error, message 
 }
 
 func getRespStatus(err error) int {
-	if _, ok := err.(*utils.ValidationError); ok {
+	if _, ok := err.(*util.ValidationError); ok {
 		return http.StatusBadRequest
 	}
-	if _, ok := err.(*utils.MethodDisabledError); ok {
+	if _, ok := err.(*util.MethodDisabledError); ok {
 		return http.StatusForbidden
 	}
-	if _, ok := err.(*utils.RecordNotFoundError); ok {
+	if _, ok := err.(*util.RecordNotFoundError); ok {
 		return http.StatusNotFound
 	}
 	if os.IsNotExist(err) {
@@ -362,21 +362,21 @@ func parseRangeRequest(bytesRange string, size int64) (int64, int64, error) {
 }
 
 func updateLoginMetrics(user *dataprovider.User, ip string, err error) {
-	metrics.AddLoginAttempt(dataprovider.LoginMethodPassword)
+	metric.AddLoginAttempt(dataprovider.LoginMethodPassword)
 	if err != nil && err != common.ErrInternalFailure {
 		logger.ConnectionFailedLog(user.Username, ip, dataprovider.LoginMethodPassword, common.ProtocolHTTP, err.Error())
 		event := common.HostEventLoginFailed
-		if _, ok := err.(*utils.RecordNotFoundError); ok {
+		if _, ok := err.(*util.RecordNotFoundError); ok {
 			event = common.HostEventUserNotFound
 		}
 		common.AddDefenderEvent(ip, event)
 	}
-	metrics.AddLoginResult(dataprovider.LoginMethodPassword, err)
+	metric.AddLoginResult(dataprovider.LoginMethodPassword, err)
 	dataprovider.ExecutePostLoginHook(user, dataprovider.LoginMethodPassword, ip, common.ProtocolHTTP, err)
 }
 
 func checkHTTPClientUser(user *dataprovider.User, r *http.Request, connectionID string) error {
-	if utils.IsStringInSlice(common.ProtocolHTTP, user.Filters.DeniedProtocols) {
+	if util.IsStringInSlice(common.ProtocolHTTP, user.Filters.DeniedProtocols) {
 		logger.Debug(logSender, connectionID, "cannot login user %#v, protocol HTTP is not allowed", user.Username)
 		return fmt.Errorf("protocol HTTP is not allowed for user %#v", user.Username)
 	}

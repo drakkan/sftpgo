@@ -14,6 +14,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/kms"
+	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/service"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/version"
@@ -85,9 +86,9 @@ $ sftpgo portable
 Please take a look at the usage below to customize the serving parameters`,
 		Run: func(cmd *cobra.Command, args []string) {
 			portableDir := directoryToServe
-			fsProvider := vfs.GetProviderByName(portableFsProvider)
+			fsProvider := sdk.GetProviderByName(portableFsProvider)
 			if !filepath.IsAbs(portableDir) {
-				if fsProvider == vfs.LocalFilesystemProvider {
+				if fsProvider == sdk.LocalFilesystemProvider {
 					portableDir, _ = filepath.Abs(portableDir)
 				} else {
 					portableDir = os.TempDir()
@@ -96,7 +97,7 @@ Please take a look at the usage below to customize the serving parameters`,
 			permissions := make(map[string][]string)
 			permissions["/"] = portablePermissions
 			portableGCSCredentials := ""
-			if fsProvider == vfs.GCSFilesystemProvider && portableGCSCredentialsFile != "" {
+			if fsProvider == sdk.GCSFilesystemProvider && portableGCSCredentialsFile != "" {
 				contents, err := getFileContents(portableGCSCredentialsFile)
 				if err != nil {
 					fmt.Printf("Unable to get GCS credentials: %v\n", err)
@@ -106,7 +107,7 @@ Please take a look at the usage below to customize the serving parameters`,
 				portableGCSAutoCredentials = 0
 			}
 			portableSFTPPrivateKey := ""
-			if fsProvider == vfs.SFTPFilesystemProvider && portableSFTPPrivateKeyPath != "" {
+			if fsProvider == sdk.SFTPFilesystemProvider && portableSFTPPrivateKeyPath != "" {
 				contents, err := getFileContents(portableSFTPPrivateKeyPath)
 				if err != nil {
 					fmt.Printf("Unable to get SFTP private key: %v\n", err)
@@ -144,60 +145,72 @@ Please take a look at the usage below to customize the serving parameters`,
 				Shutdown:      make(chan bool),
 				PortableMode:  1,
 				PortableUser: dataprovider.User{
-					Username:    portableUsername,
-					Password:    portablePassword,
-					PublicKeys:  portablePublicKeys,
-					Permissions: permissions,
-					HomeDir:     portableDir,
-					Status:      1,
-					FsConfig: vfs.Filesystem{
-						Provider: vfs.GetProviderByName(portableFsProvider),
-						S3Config: vfs.S3FsConfig{
-							Bucket:            portableS3Bucket,
-							Region:            portableS3Region,
-							AccessKey:         portableS3AccessKey,
-							AccessSecret:      kms.NewPlainSecret(portableS3AccessSecret),
-							Endpoint:          portableS3Endpoint,
-							StorageClass:      portableS3StorageClass,
-							KeyPrefix:         portableS3KeyPrefix,
-							UploadPartSize:    int64(portableS3ULPartSize),
-							UploadConcurrency: portableS3ULConcurrency,
-						},
-						GCSConfig: vfs.GCSFsConfig{
-							Bucket:               portableGCSBucket,
-							Credentials:          kms.NewPlainSecret(portableGCSCredentials),
-							AutomaticCredentials: portableGCSAutoCredentials,
-							StorageClass:         portableGCSStorageClass,
-							KeyPrefix:            portableGCSKeyPrefix,
-						},
-						AzBlobConfig: vfs.AzBlobFsConfig{
-							Container:         portableAzContainer,
-							AccountName:       portableAzAccountName,
-							AccountKey:        kms.NewPlainSecret(portableAzAccountKey),
-							Endpoint:          portableAzEndpoint,
-							AccessTier:        portableAzAccessTier,
-							SASURL:            kms.NewPlainSecret(portableAzSASURL),
-							KeyPrefix:         portableAzKeyPrefix,
-							UseEmulator:       portableAzUseEmulator,
-							UploadPartSize:    int64(portableAzULPartSize),
-							UploadConcurrency: portableAzULConcurrency,
-						},
-						CryptConfig: vfs.CryptFsConfig{
-							Passphrase: kms.NewPlainSecret(portableCryptPassphrase),
-						},
-						SFTPConfig: vfs.SFTPFsConfig{
-							Endpoint:                portableSFTPEndpoint,
-							Username:                portableSFTPUsername,
-							Password:                kms.NewPlainSecret(portableSFTPPassword),
-							PrivateKey:              kms.NewPlainSecret(portableSFTPPrivateKey),
-							Fingerprints:            portableSFTPFingerprints,
-							Prefix:                  portableSFTPPrefix,
-							DisableCouncurrentReads: portableSFTPDisableConcurrentReads,
-							BufferSize:              portableSFTPDBufferSize,
+					BaseUser: sdk.BaseUser{
+						Username:    portableUsername,
+						Password:    portablePassword,
+						PublicKeys:  portablePublicKeys,
+						Permissions: permissions,
+						HomeDir:     portableDir,
+						Status:      1,
+						Filters: sdk.UserFilters{
+							FilePatterns: parsePatternsFilesFilters(),
 						},
 					},
-					Filters: dataprovider.UserFilters{
-						FilePatterns: parsePatternsFilesFilters(),
+					FsConfig: vfs.Filesystem{
+						Provider: sdk.GetProviderByName(portableFsProvider),
+						S3Config: vfs.S3FsConfig{
+							S3FsConfig: sdk.S3FsConfig{
+								Bucket:            portableS3Bucket,
+								Region:            portableS3Region,
+								AccessKey:         portableS3AccessKey,
+								AccessSecret:      kms.NewPlainSecret(portableS3AccessSecret),
+								Endpoint:          portableS3Endpoint,
+								StorageClass:      portableS3StorageClass,
+								KeyPrefix:         portableS3KeyPrefix,
+								UploadPartSize:    int64(portableS3ULPartSize),
+								UploadConcurrency: portableS3ULConcurrency,
+							},
+						},
+						GCSConfig: vfs.GCSFsConfig{
+							GCSFsConfig: sdk.GCSFsConfig{
+								Bucket:               portableGCSBucket,
+								Credentials:          kms.NewPlainSecret(portableGCSCredentials),
+								AutomaticCredentials: portableGCSAutoCredentials,
+								StorageClass:         portableGCSStorageClass,
+								KeyPrefix:            portableGCSKeyPrefix,
+							},
+						},
+						AzBlobConfig: vfs.AzBlobFsConfig{
+							AzBlobFsConfig: sdk.AzBlobFsConfig{
+								Container:         portableAzContainer,
+								AccountName:       portableAzAccountName,
+								AccountKey:        kms.NewPlainSecret(portableAzAccountKey),
+								Endpoint:          portableAzEndpoint,
+								AccessTier:        portableAzAccessTier,
+								SASURL:            kms.NewPlainSecret(portableAzSASURL),
+								KeyPrefix:         portableAzKeyPrefix,
+								UseEmulator:       portableAzUseEmulator,
+								UploadPartSize:    int64(portableAzULPartSize),
+								UploadConcurrency: portableAzULConcurrency,
+							},
+						},
+						CryptConfig: vfs.CryptFsConfig{
+							CryptFsConfig: sdk.CryptFsConfig{
+								Passphrase: kms.NewPlainSecret(portableCryptPassphrase),
+							},
+						},
+						SFTPConfig: vfs.SFTPFsConfig{
+							SFTPFsConfig: sdk.SFTPFsConfig{
+								Endpoint:                portableSFTPEndpoint,
+								Username:                portableSFTPUsername,
+								Password:                kms.NewPlainSecret(portableSFTPPassword),
+								PrivateKey:              kms.NewPlainSecret(portableSFTPPrivateKey),
+								Fingerprints:            portableSFTPFingerprints,
+								Prefix:                  portableSFTPPrefix,
+								DisableCouncurrentReads: portableSFTPDisableConcurrentReads,
+								BufferSize:              portableSFTPDBufferSize,
+							},
+						},
 					},
 				},
 			}
@@ -335,12 +348,12 @@ by overlapping round-trip times`)
 	rootCmd.AddCommand(portableCmd)
 }
 
-func parsePatternsFilesFilters() []dataprovider.PatternsFilter {
-	var patterns []dataprovider.PatternsFilter
+func parsePatternsFilesFilters() []sdk.PatternsFilter {
+	var patterns []sdk.PatternsFilter
 	for _, val := range portableAllowedPatterns {
 		p, exts := getPatternsFilterValues(strings.TrimSpace(val))
 		if p != "" {
-			patterns = append(patterns, dataprovider.PatternsFilter{
+			patterns = append(patterns, sdk.PatternsFilter{
 				Path:            path.Clean(p),
 				AllowedPatterns: exts,
 				DeniedPatterns:  []string{},
@@ -359,7 +372,7 @@ func parsePatternsFilesFilters() []dataprovider.PatternsFilter {
 				}
 			}
 			if !found {
-				patterns = append(patterns, dataprovider.PatternsFilter{
+				patterns = append(patterns, sdk.PatternsFilter{
 					Path:            path.Clean(p),
 					AllowedPatterns: []string{},
 					DeniedPatterns:  exts,

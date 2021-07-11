@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/net/webdav"
 
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 var (
@@ -54,7 +54,7 @@ func (cache *usersCache) updateLastLogin(username string) {
 	defer cache.Unlock()
 
 	if cachedUser, ok := cache.users[username]; ok {
-		cachedUser.User.LastLogin = utils.GetTimeAsMsSinceEpoch(time.Now())
+		cachedUser.User.LastLogin = util.GetTimeAsMsSinceEpoch(time.Now())
 		cache.users[username] = cachedUser
 	}
 }

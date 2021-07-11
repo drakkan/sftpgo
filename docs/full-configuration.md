@@ -50,7 +50,7 @@ The configuration file contains the following sections:
 
 - **"common"**, configuration parameters shared among all the supported protocols
   - `idle_timeout`, integer. Time in minutes after which an idle client will be disconnected. 0 means disabled. Default: 15
-  - `upload_mode` integer. 0 means standard: the files are uploaded directly to the requested path. 1 means atomic: files are uploaded to a temporary path and renamed to the requested path when the client ends the upload. Atomic mode avoids problems such as a web server that serves partial files when the files are being uploaded. In atomic mode, if there is an upload error, the temporary file is deleted and so the requested upload path will not contain a partial file. 2 means atomic with resume support: same as atomic but if there is an upload error, the temporary file is renamed to the requested path and not deleted. This way, a client can reconnect and resume the upload.
+  - `upload_mode` integer. 0 means standard: the files are uploaded directly to the requested path. 1 means atomic: files are uploaded to a temporary path and renamed to the requested path when the client ends the upload. Atomic mode avoids problems such as a web server that serves partial files when the files are being uploaded. In atomic mode, if there is an upload error, the temporary file is deleted and so the requested upload path will not contain a partial file. 2 means atomic with resume support: same as atomic but if there is an upload error, the temporary file is renamed to the requested path and not deleted. This way, a client can reconnect and resume the upload. Default: 0
   - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions. See [Custom Actions](./custom-actions.md) for more details
     - `execute_on`, list of strings. Valid values are `pre-download`, `download`, `pre-upload`, `upload`, `pre-delete`, `delete`, `rename`, `ssh_cmd`. Leave empty to disable actions.
     - `execute_sync`, list of strings. Actions to be performed synchronously. The `pre-delete` action is always executed synchronously while the other ones are asynchronous. Executing an action synchronously means that SFTPGo will not return a result code to the client (which is waiting for it) until your hook have completed its execution. Leave empty to execute only the `pre-delete` hook synchronously
@@ -238,6 +238,17 @@ The configuration file contains the following sections:
   - `secrets`
     - `url`
     - `master_key_path`
+- **plugins**, list of external plugins. Each plugin is configured using a struct with the following fields:
+  - `type`, string. Defines the plugin type. Supported types: `notifier`.
+  - `notifier_options`, struct. Defines the options for notifier plugins.
+    - `fs_events`, list of strings. Defines the filesystem events that will be notified to this plugin.
+    - `user_events`, list of strings. Defines the user events that will be notified to this plugin.
+  - `cmd`, string. Path to the plugin executable.
+  - `args`, list of strings. Optional arguments to pass to the plugin executable.
+  - `sha256sum`, string. SHA256 checksum for the plugin executable. If not empty it will be used to verify the integrity of the executable.
+  - `auto_mtls`, boolean. If enabled the client and the server automatically negotiate mTLS for transport authentication. This ensures that only the original client will be allowed to connect to the server, and all other connections will be rejected. The client will also refuse to connect to any server that isn't the original instance started by the client.
+
+Please note that the plugin system is experimental, the exposed configuration parameters and interfaces may change in a backward incompatible way in future.
 
 A full example showing the default config (in JSON format) can be found [here](../sftpgo.json).
 

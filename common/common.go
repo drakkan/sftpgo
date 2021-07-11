@@ -21,8 +21,8 @@ import (
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/httpclient"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/metrics"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/metric"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -330,10 +330,10 @@ func (t *ConnectionTransfer) getConnectionTransferAsString() string {
 	}
 	result += fmt.Sprintf("%#v ", t.VirtualPath)
 	if t.Size > 0 {
-		elapsed := time.Since(utils.GetTimeFromMsecSinceEpoch(t.StartTime))
-		speed := float64(t.Size) / float64(utils.GetTimeAsMsSinceEpoch(time.Now())-t.StartTime)
-		result += fmt.Sprintf("Size: %#v Elapsed: %#v Speed: \"%.1f KB/s\"", utils.ByteCountIEC(t.Size),
-			utils.GetDurationAsString(elapsed), speed)
+		elapsed := time.Since(util.GetTimeFromMsecSinceEpoch(t.StartTime))
+		speed := float64(t.Size) / float64(util.GetTimeAsMsSinceEpoch(time.Now())-t.StartTime)
+		result += fmt.Sprintf("Size: %#v Elapsed: %#v Speed: \"%.1f KB/s\"", util.ByteCountIEC(t.Size),
+			util.GetDurationAsString(elapsed), speed)
 	}
 	return result
 }
@@ -595,7 +595,7 @@ func (conns *ActiveConnections) Add(c ActiveConnection) {
 	defer conns.Unlock()
 
 	conns.connections = append(conns.connections, c)
-	metrics.UpdateActiveConnectionsSize(len(conns.connections))
+	metric.UpdateActiveConnectionsSize(len(conns.connections))
 	logger.Debug(c.GetProtocol(), c.GetID(), "connection added, num open connections: %v", len(conns.connections))
 }
 
@@ -629,7 +629,7 @@ func (conns *ActiveConnections) Remove(connectionID string) {
 			conns.connections[idx] = conns.connections[lastIdx]
 			conns.connections[lastIdx] = nil
 			conns.connections = conns.connections[:lastIdx]
-			metrics.UpdateActiveConnectionsSize(lastIdx)
+			metric.UpdateActiveConnectionsSize(lastIdx)
 			logger.Debug(conn.GetProtocol(), conn.GetID(), "connection removed, close fs error: %v, num open connections: %v",
 				err, lastIdx)
 			return
@@ -721,9 +721,9 @@ func (conns *ActiveConnections) checkIdles() {
 				logger.Debug(conn.GetProtocol(), conn.GetID(), "close idle connection, idle time: %v, username: %#v close err: %v",
 					time.Since(conn.GetLastActivity()), conn.GetUsername(), err)
 				if isFTPNoAuth {
-					ip := utils.GetIPFromRemoteAddress(c.GetRemoteAddress())
+					ip := util.GetIPFromRemoteAddress(c.GetRemoteAddress())
 					logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, c.GetProtocol(), "client idle")
-					metrics.AddNoAuthTryed()
+					metric.AddNoAuthTryed()
 					AddDefenderEvent(ip, HostEventNoLoginTried)
 					dataprovider.ExecutePostLoginHook(&dataprovider.User{}, dataprovider.LoginMethodNoAuthTryed, ip, c.GetProtocol(),
 						dataprovider.ErrNoAuthTryed)
@@ -794,8 +794,8 @@ func (conns *ActiveConnections) GetStats() []*ConnectionStatus {
 			ConnectionID:   c.GetID(),
 			ClientVersion:  c.GetClientVersion(),
 			RemoteAddress:  c.GetRemoteAddress(),
-			ConnectionTime: utils.GetTimeAsMsSinceEpoch(c.GetConnectionTime()),
-			LastActivity:   utils.GetTimeAsMsSinceEpoch(c.GetLastActivity()),
+			ConnectionTime: util.GetTimeAsMsSinceEpoch(c.GetConnectionTime()),
+			LastActivity:   util.GetTimeAsMsSinceEpoch(c.GetLastActivity()),
 			Protocol:       c.GetProtocol(),
 			Command:        c.GetCommand(),
 			Transfers:      c.GetTransfers(),
@@ -829,8 +829,8 @@ type ConnectionStatus struct {
 
 // GetConnectionDuration returns the connection duration as string
 func (c *ConnectionStatus) GetConnectionDuration() string {
-	elapsed := time.Since(utils.GetTimeFromMsecSinceEpoch(c.ConnectionTime))
-	return utils.GetDurationAsString(elapsed)
+	elapsed := time.Since(util.GetTimeFromMsecSinceEpoch(c.ConnectionTime))
+	return util.GetDurationAsString(elapsed)
 }
 
 // GetConnectionInfo returns connection info.
@@ -912,7 +912,7 @@ func (s *ActiveScans) AddUserQuotaScan(username string) bool {
 	}
 	s.UserHomeScans = append(s.UserHomeScans, ActiveQuotaScan{
 		Username:  username,
-		StartTime: utils.GetTimeAsMsSinceEpoch(time.Now()),
+		StartTime: util.GetTimeAsMsSinceEpoch(time.Now()),
 	})
 	return true
 }
@@ -960,7 +960,7 @@ func (s *ActiveScans) AddVFolderQuotaScan(folderName string) bool {
 	}
 	s.FolderScans = append(s.FolderScans, ActiveVirtualFolderQuotaScan{
 		Name:      folderName,
-		StartTime: utils.GetTimeAsMsSinceEpoch(time.Now()),
+		StartTime: util.GetTimeAsMsSinceEpoch(time.Now()),
 	})
 	return true
 }

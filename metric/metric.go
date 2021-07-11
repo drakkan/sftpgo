@@ -1,7 +1,7 @@
 // +build !nometrics
 
 // Package metrics provides Prometheus metrics support
-package metrics
+package metric
 
 import (
 	"github.com/go-chi/chi/v5"

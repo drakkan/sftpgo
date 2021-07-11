@@ -14,7 +14,8 @@ import (
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/httpd"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 )
 
@@ -51,7 +52,7 @@ func (s *Service) initLogger() {
 	if !s.LogVerbose {
 		logLevel = zerolog.InfoLevel
 	}
-	if !filepath.IsAbs(s.LogFilePath) && utils.IsFileInputValid(s.LogFilePath) {
+	if !filepath.IsAbs(s.LogFilePath) && util.IsFileInputValid(s.LogFilePath) {
 		s.LogFilePath = filepath.Join(s.ConfigDir, s.LogFilePath)
 	}
 	logger.InitLogger(s.LogFilePath, s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogCompress, logLevel)
@@ -95,6 +96,11 @@ func (s *Service) Start() error {
 	if err != nil {
 		logger.Error(logSender, "", "unable to initialize KMS: %v", err)
 		logger.ErrorToConsole("unable to initialize KMS: %v", err)
+		os.Exit(1)
+	}
+	if err := plugin.Initialize(config.GetPluginsConfig(), s.LogVerbose); err != nil {
+		logger.Error(logSender, "", "unable to initialize plugin: %v", err)
+		logger.ErrorToConsole("unable to initialize plugin: %v", err)
 		os.Exit(1)
 	}
 
@@ -146,7 +152,7 @@ func (s *Service) startServices() {
 	if sftpdConf.ShouldBind() {
 		go func() {
 			redactedConf := sftpdConf
-			redactedConf.KeyboardInteractiveHook = utils.GetRedactedURL(sftpdConf.KeyboardInteractiveHook)
+			redactedConf.KeyboardInteractiveHook = util.GetRedactedURL(sftpdConf.KeyboardInteractiveHook)
 			logger.Debug(logSender, "", "initializing SFTP server with config %+v", redactedConf)
 			if err := sftpdConf.Initialize(s.ConfigDir); err != nil {
 				logger.Error(logSender, "", "could not start SFTP server: %v", err)

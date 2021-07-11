@@ -14,7 +14,7 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 // TLSKeyPair defines the paths for a TLS key pair
@@ -112,7 +112,7 @@ func (c *Config) loadCACerts(configDir string) (*x509.CertPool, error) {
 	}
 
 	for _, ca := range c.CACertificates {
-		if !utils.IsFileInputValid(ca) {
+		if !util.IsFileInputValid(ca) {
 			return nil, fmt.Errorf("unable to load invalid CA certificate: %#v", ca)
 		}
 		if !filepath.IsAbs(ca) {
@@ -139,10 +139,10 @@ func (c *Config) loadCertificates(configDir string) error {
 	for _, keyPair := range c.Certificates {
 		cert := keyPair.Cert
 		key := keyPair.Key
-		if !utils.IsFileInputValid(cert) {
+		if !util.IsFileInputValid(cert) {
 			return fmt.Errorf("unable to load invalid certificate: %#v", cert)
 		}
-		if !utils.IsFileInputValid(key) {
+		if !util.IsFileInputValid(key) {
 			return fmt.Errorf("unable to load invalid key: %#v", key)
 		}
 		if !filepath.IsAbs(cert) {

@@ -16,6 +16,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/httpdtest"
 	"github.com/drakkan/sftpgo/v2/kms"
+	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -487,7 +488,7 @@ func getEncryptedFileSize(size int64) (int64, error) {
 
 func getTestUserWithCryptFs(usePubKey bool) dataprovider.User {
 	u := getTestUser(usePubKey)
-	u.FsConfig.Provider = vfs.CryptedFilesystemProvider
+	u.FsConfig.Provider = sdk.CryptedFilesystemProvider
 	u.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret(testPassphrase)
 	return u
 }

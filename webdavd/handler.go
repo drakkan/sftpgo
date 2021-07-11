@@ -13,7 +13,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -56,7 +56,7 @@ func (c *Connection) GetCommand() string {
 func (c *Connection) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
 	c.UpdateLastActivity()
 
-	name = utils.CleanPath(name)
+	name = util.CleanPath(name)
 	return c.CreateDir(name)
 }
 
@@ -64,8 +64,8 @@ func (c *Connection) Mkdir(ctx context.Context, name string, perm os.FileMode) e
 func (c *Connection) Rename(ctx context.Context, oldName, newName string) error {
 	c.UpdateLastActivity()
 
-	oldName = utils.CleanPath(oldName)
-	newName = utils.CleanPath(newName)
+	oldName = util.CleanPath(oldName)
+	newName = util.CleanPath(newName)
 
 	return c.BaseConnection.Rename(oldName, newName)
 }
@@ -75,7 +75,7 @@ func (c *Connection) Rename(ctx context.Context, oldName, newName string) error 
 func (c *Connection) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 	c.UpdateLastActivity()
 
-	name = utils.CleanPath(name)
+	name = util.CleanPath(name)
 	if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(name)) {
 		return nil, c.GetPermissionDeniedError()
 	}
@@ -93,7 +93,7 @@ func (c *Connection) Stat(ctx context.Context, name string) (os.FileInfo, error)
 func (c *Connection) RemoveAll(ctx context.Context, name string) error {
 	c.UpdateLastActivity()
 
-	name = utils.CleanPath(name)
+	name = util.CleanPath(name)
 	fs, p, err := c.GetFsAndResolvedPath(name)
 	if err != nil {
 		return err
@@ -116,7 +116,7 @@ func (c *Connection) RemoveAll(ctx context.Context, name string) error {
 func (c *Connection) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
 	c.UpdateLastActivity()
 
-	name = utils.CleanPath(name)
+	name = util.CleanPath(name)
 	fs, p, err := c.GetFsAndResolvedPath(name)
 	if err != nil {
 		return nil, err
@@ -351,7 +351,7 @@ func (c *Connection) orderDirsToRemove(fs vfs.Fs, dirsToRemove []objectMapping) 
 
 	for len(orderedDirs) < len(dirsToRemove) {
 		for idx, d := range dirsToRemove {
-			if utils.IsStringInSlice(d.fsPath, removedDirs) {
+			if util.IsStringInSlice(d.fsPath, removedDirs) {
 				continue
 			}
 			isEmpty := true
@@ -359,7 +359,7 @@ func (c *Connection) orderDirsToRemove(fs vfs.Fs, dirsToRemove []objectMapping) 
 				if idx == idx1 {
 					continue
 				}
-				if utils.IsStringInSlice(d1.fsPath, removedDirs) {
+				if util.IsStringInSlice(d1.fsPath, removedDirs) {
 					continue
 				}
 				if strings.HasPrefix(d1.fsPath, d.fsPath+pathSeparator) {

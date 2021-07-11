@@ -15,7 +15,8 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/utils"
+	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -40,7 +41,7 @@ type BaseConnection struct {
 // NewBaseConnection returns a new BaseConnection
 func NewBaseConnection(id, protocol, remoteAddr string, user dataprovider.User) *BaseConnection {
 	connID := id
-	if utils.IsStringInSlice(protocol, supportedProtocols) {
+	if util.IsStringInSlice(protocol, supportedProtocols) {
 		connID = fmt.Sprintf("%v_%v", protocol, id)
 	}
 	return &BaseConnection{
@@ -82,7 +83,7 @@ func (c *BaseConnection) GetProtocol() string {
 // SetProtocol sets the protocol for this connection
 func (c *BaseConnection) SetProtocol(protocol string) {
 	c.protocol = protocol
-	if utils.IsStringInSlice(c.protocol, supportedProtocols) {
+	if util.IsStringInSlice(c.protocol, supportedProtocols) {
 		c.ID = fmt.Sprintf("%v_%v", c.protocol, c.ID)
 	}
 }
@@ -155,7 +156,7 @@ func (c *BaseConnection) GetTransfers() []ConnectionTransfer {
 		transfers = append(transfers, ConnectionTransfer{
 			ID:            t.GetID(),
 			OperationType: operationType,
-			StartTime:     utils.GetTimeAsMsSinceEpoch(t.GetStartTime()),
+			StartTime:     util.GetTimeAsMsSinceEpoch(t.GetStartTime()),
 			Size:          t.GetSize(),
 			VirtualPath:   t.GetVirtualPath(),
 		})
@@ -881,22 +882,22 @@ func (c *BaseConnection) isLocalOrSameFolderRename(virtualSourcePath, virtualTar
 			return true
 		}
 		// we have different folders, only local fs is supported
-		if sourceFolder.FsConfig.Provider == vfs.LocalFilesystemProvider &&
-			dstFolder.FsConfig.Provider == vfs.LocalFilesystemProvider {
+		if sourceFolder.FsConfig.Provider == sdk.LocalFilesystemProvider &&
+			dstFolder.FsConfig.Provider == sdk.LocalFilesystemProvider {
 			return true
 		}
 		return false
 	}
-	if c.User.FsConfig.Provider != vfs.LocalFilesystemProvider {
+	if c.User.FsConfig.Provider != sdk.LocalFilesystemProvider {
 		return false
 	}
 	if errSrc == nil {
-		if sourceFolder.FsConfig.Provider == vfs.LocalFilesystemProvider {
+		if sourceFolder.FsConfig.Provider == sdk.LocalFilesystemProvider {
 			return true
 		}
 	}
 	if errDst == nil {
-		if dstFolder.FsConfig.Provider == vfs.LocalFilesystemProvider {
+		if dstFolder.FsConfig.Provider == sdk.LocalFilesystemProvider {
 			return true
 		}
 	}
