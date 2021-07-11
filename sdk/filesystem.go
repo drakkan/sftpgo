@@ -109,6 +109,9 @@ type S3FsConfig struct {
 	UploadPartSize int64 `json:"upload_part_size,omitempty"`
 	// How many parts are uploaded in parallel
 	UploadConcurrency int `json:"upload_concurrency,omitempty"`
+	// DownloadPartMaxTime defines the maximum time allowed, in seconds, to download a single chunk (5MB).
+	// 0 means no timeout. Ignored for non-multipart downloads.
+	DownloadPartMaxTime int `json:"download_part_max_time,omitempty"`
 }
 
 // GCSFsConfig defines the configuration for Google Cloud Storage based filesystem

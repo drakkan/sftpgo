@@ -78,8 +78,18 @@
         </div>
 
         <div class="form-group row fsconfig fsconfig-s3fs">
+            <label for="idS3DownloadTimeout" class="col-sm-2 col-form-label">DL Part Timeout (secs)</label>
+            <div class="col-sm-3">
+                <input type="number" class="form-control" id="idS3DownloadTimeout" name="s3_download_part_max_time"
+                    placeholder="" value="{{.S3Config.DownloadPartMaxTime}}" min="0"
+                    aria-describedby="S3DownloadTimeoutHelpBlock">
+                <small id="S3DownloadTimeoutHelpBlock" class="form-text text-muted">
+                    Max time limit, in seconds, to download a single part (5MB). 0 means no limit
+                </small>
+            </div>
+            <div class="col-sm-2"></div>
             <label for="idS3KeyPrefix" class="col-sm-2 col-form-label">Key Prefix</label>
-            <div class="col-sm-10">
+            <div class="col-sm-3">
                 <input type="text" class="form-control" id="idS3KeyPrefix" name="s3_key_prefix" placeholder=""
                     value="{{.S3Config.KeyPrefix}}" maxlength="255" aria-describedby="S3KeyPrefixHelpBlock">
                 <small id="S3KeyPrefixHelpBlock" class="form-text text-muted">

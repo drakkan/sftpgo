@@ -221,22 +221,23 @@ func (f *Filesystem) HideConfidentialData() {
 	}
 }
 
-// GetACopy returns a copy
+// GetACopy returns a filesystem copy
 func (f *Filesystem) GetACopy() Filesystem {
 	f.SetEmptySecretsIfNil()
 	fs := Filesystem{
 		Provider: f.Provider,
 		S3Config: S3FsConfig{
 			S3FsConfig: sdk.S3FsConfig{
-				Bucket:            f.S3Config.Bucket,
-				Region:            f.S3Config.Region,
-				AccessKey:         f.S3Config.AccessKey,
-				AccessSecret:      f.S3Config.AccessSecret.Clone(),
-				Endpoint:          f.S3Config.Endpoint,
-				StorageClass:      f.S3Config.StorageClass,
-				KeyPrefix:         f.S3Config.KeyPrefix,
-				UploadPartSize:    f.S3Config.UploadPartSize,
-				UploadConcurrency: f.S3Config.UploadConcurrency,
+				Bucket:              f.S3Config.Bucket,
+				Region:              f.S3Config.Region,
+				AccessKey:           f.S3Config.AccessKey,
+				AccessSecret:        f.S3Config.AccessSecret.Clone(),
+				Endpoint:            f.S3Config.Endpoint,
+				StorageClass:        f.S3Config.StorageClass,
+				KeyPrefix:           f.S3Config.KeyPrefix,
+				UploadPartSize:      f.S3Config.UploadPartSize,
+				UploadConcurrency:   f.S3Config.UploadConcurrency,
+				DownloadPartMaxTime: f.S3Config.DownloadPartMaxTime,
 			},
 		},
 		GCSConfig: GCSFsConfig{

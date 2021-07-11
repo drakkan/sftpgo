@@ -2154,6 +2154,9 @@ components:
         upload_concurrency:
           type: integer
           description: 'the number of parts to upload in parallel. If this value is set to zero, the default value (2) will be used'
+        download_part_max_time:
+          type: integer
+          description: 'the maximum time allowed, in seconds, to download a single chunk (5MB). 0 means no timeout. Ignored for non-multipart downloads.'
         key_prefix:
           type: string
           description: 'key_prefix is similar to a chroot directory for a local filesystem. If specified the user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix, if not empty, must not start with "/" and must end with "/". If empty the whole bucket contents will be available'

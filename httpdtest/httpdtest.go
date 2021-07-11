@@ -1057,6 +1057,9 @@ func compareS3Config(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
 	if expected.S3Config.UploadPartSize != actual.S3Config.UploadPartSize {
 		return errors.New("fs S3 upload part size mismatch")
 	}
+	if expected.S3Config.DownloadPartMaxTime != actual.S3Config.DownloadPartMaxTime {
+		return errors.New("fs S3 download part max time mismatch")
+	}
 	if expected.S3Config.UploadConcurrency != actual.S3Config.UploadConcurrency {
 		return errors.New("fs S3 upload concurrency mismatch")
 	}
