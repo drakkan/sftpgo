@@ -302,7 +302,7 @@ func (c *Conf) getRedacted() Conf {
 
 // Initialize configures and starts the HTTP server
 func (c *Conf) Initialize(configDir string) error {
-	logger.Debug(logSender, "", "initializing HTTP server with config %v", c.getRedacted())
+	logger.Debug(logSender, "", "initializing HTTP server with config %+v", c.getRedacted())
 	backupsPath = getConfigPath(c.BackupsPath, configDir)
 	staticFilesPath := getConfigPath(c.StaticFilesPath, configDir)
 	templatesPath := getConfigPath(c.TemplatesPath, configDir)

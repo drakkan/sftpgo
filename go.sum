@@ -131,8 +131,8 @@ github.com/aws/aws-sdk-go v1.25.37/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpi
 github.com/aws/aws-sdk-go v1.27.0/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
 github.com/aws/aws-sdk-go v1.30.27/go.mod h1:5zCpMtNQVjRREroY7sYe8lOMRSxkhG6MZveU8YkpAk0=
 github.com/aws/aws-sdk-go v1.38.35/go.mod h1:hcU610XS61/+aQV88ixoOzUoG7v3b31pl2zKMmprdro=
-github.com/aws/aws-sdk-go v1.39.4 h1:nXBChUaG5cinrl3yg4/rUyssOOLH/ohk4S9K03kJirE=
-github.com/aws/aws-sdk-go v1.39.4/go.mod h1:585smgzpB/KqRA+K3y/NL/oYRqQvpNJYvLm+LY1U59Q=
+github.com/aws/aws-sdk-go v1.39.5 h1:yoJEE1NJxbpZ3CtPxvOSFJ9ByxiXmBTKk8J+XU5ldtg=
+github.com/aws/aws-sdk-go v1.39.5/go.mod h1:585smgzpB/KqRA+K3y/NL/oYRqQvpNJYvLm+LY1U59Q=
 github.com/aws/aws-sdk-go-v2 v0.18.0/go.mod h1:JWVYvqSMppoMJC0x5wdwiImzgXTI9FuZwxzkQq9wy+g=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
@@ -589,8 +589,8 @@ github.com/lestrrat-go/httpcc v1.0.0/go.mod h1:tGS/u00Vh5N6FHNkExqGGNId8e0Big+++
 github.com/lestrrat-go/iter v1.0.1 h1:q8faalr2dY6o8bV45uwrxq12bRa1ezKrB6oM9FUgN4A=
 github.com/lestrrat-go/iter v1.0.1/go.mod h1:zIdgO1mRKhn8l9vrZJZz9TUMMFbQbLeTsbqPDrJ/OJc=
 github.com/lestrrat-go/jwx v1.1.6/go.mod h1:c+R8G7qsaFNmTzYjU98A+sMh8Bo/MJqO9GnpqR+X024=
-github.com/lestrrat-go/jwx v1.2.1 h1:WJ/3tiPUz1wV24KiwMEanbENwHnYub9UqzCbQ82mv9c=
-github.com/lestrrat-go/jwx v1.2.1/go.mod h1:Tg2uP7bpxEHUDtuWjap/PxroJ4okxGzkQznXiG+a5Dc=
+github.com/lestrrat-go/jwx v1.2.2 h1:sH9GeolQn9s3JyNbeEOXXPTko2fD4BwAMWXLYvcEl2k=
+github.com/lestrrat-go/jwx v1.2.2/go.mod h1:Tg2uP7bpxEHUDtuWjap/PxroJ4okxGzkQznXiG+a5Dc=
 github.com/lestrrat-go/option v0.0.0-20210103042652-6f1ecfceda35/go.mod h1:5ZHFbivi4xwXxhxY9XHDe2FHo6/Z7WWmtT7T5nBBp3I=
 github.com/lestrrat-go/option v1.0.0 h1:WqAWL8kh8VcSoD6xjSH34/1m8yxluXQbDeKNfvFeEO4=
 github.com/lestrrat-go/option v1.0.0/go.mod h1:5ZHFbivi4xwXxhxY9XHDe2FHo6/Z7WWmtT7T5nBBp3I=
@@ -1244,8 +1244,8 @@ google.golang.org/genproto v0.0.0-20210608205507-b6d2f5bf0d7d/go.mod h1:UODoCrxH
 google.golang.org/genproto v0.0.0-20210617175327-b9e0b3197ced/go.mod h1:SzzZ/N+nwJDaO1kznhnlzqS8ocJICar6hYhVyhi++24=
 google.golang.org/genproto v0.0.0-20210624174822-c5cf32407d0a/go.mod h1:SzzZ/N+nwJDaO1kznhnlzqS8ocJICar6hYhVyhi++24=
 google.golang.org/genproto v0.0.0-20210624195500-8bfb893ecb84/go.mod h1:SzzZ/N+nwJDaO1kznhnlzqS8ocJICar6hYhVyhi++24=
-google.golang.org/genproto v0.0.0-20210708141623-e76da96a951f h1:khwpF3oSk7GIab/7DDMDyE8cPQEO6FAfOcWHIRAhO20=
-google.golang.org/genproto v0.0.0-20210708141623-e76da96a951f/go.mod h1:AxrInvYm1dci+enl5hChSFPOmmUF1+uAa/UsgNRWd7k=
+google.golang.org/genproto v0.0.0-20210713002101-d411969a0d9a h1:89EorDSnBRFywcvGsJvpxw2IsiDMI+DeM7iZOaunfHs=
+google.golang.org/genproto v0.0.0-20210713002101-d411969a0d9a/go.mod h1:AxrInvYm1dci+enl5hChSFPOmmUF1+uAa/UsgNRWd7k=
 google.golang.org/grpc v1.8.0/go.mod h1:yo6s7OP7yaDglbqo1J04qKzAhqBH6lvTonzMVmEdcZw=
 google.golang.org/grpc v1.14.0/go.mod h1:yo6s7OP7yaDglbqo1J04qKzAhqBH6lvTonzMVmEdcZw=
 google.golang.org/grpc v1.17.0/go.mod h1:6QZJwpn2B+Zp71q/5VxRsJ6NXXVCE5NRUHRo+f3cWCs=

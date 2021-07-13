@@ -1,4 +1,4 @@
-package kms
+package gocloud
 
 import (
 	"context"
@@ -6,27 +6,34 @@ import (
 	"time"
 
 	"gocloud.dev/secrets"
+
+	"github.com/drakkan/sftpgo/v2/kms"
 )
 
-type baseGCloudSecret struct {
-	baseSecret
-	masterKey string
-	url       string
+const (
+	defaultTimeout = 10 * time.Second
+)
+
+// Secret defines common methods for go-cloud based kms
+type Secret struct {
+	kms.BaseSecret
+	MasterKey string
+	URL       string
 }
 
-func (s *baseGCloudSecret) Encrypt() error {
-	if s.Status != SecretStatusPlain {
-		return errWrongSecretStatus
+func (s *Secret) Encrypt() error {
+	if s.Status != kms.SecretStatusPlain {
+		return kms.ErrWrongSecretStatus
 	}
 	if s.Payload == "" {
-		return errInvalidSecret
+		return kms.ErrInvalidSecret
 	}
 
 	payload := s.Payload
 	key := ""
 	mode := 0
-	if s.masterKey != "" {
-		localSecret := newLocalSecret(s.baseSecret, s.masterKey)
+	if s.MasterKey != "" {
+		localSecret := kms.NewLocalSecret(s.BaseSecret, "", s.MasterKey)
 		err := localSecret.Encrypt()
 		if err != nil {
 			return err
@@ -39,7 +46,7 @@ func (s *baseGCloudSecret) Encrypt() error {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(defaultTimeout))
 	defer cancelFn()
 
-	keeper, err := secrets.OpenKeeper(ctx, s.url)
+	keeper, err := secrets.OpenKeeper(ctx, s.URL)
 	if err != nil {
 		return err
 	}
@@ -55,7 +62,7 @@ func (s *baseGCloudSecret) Encrypt() error {
 	return nil
 }
 
-func (s *baseGCloudSecret) Decrypt() error {
+func (s *Secret) Decrypt() error {
 	encrypted, err := base64.StdEncoding.DecodeString(s.Payload)
 	if err != nil {
 		return err
@@ -63,7 +70,7 @@ func (s *baseGCloudSecret) Decrypt() error {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(defaultTimeout))
 	defer cancelFn()
 
-	keeper, err := secrets.OpenKeeper(ctx, s.url)
+	keeper, err := secrets.OpenKeeper(ctx, s.URL)
 	if err != nil {
 		return err
 	}
@@ -75,21 +82,21 @@ func (s *baseGCloudSecret) Decrypt() error {
 	}
 	payload := string(plaintext)
 	if s.Key != "" {
-		baseSecret := baseSecret{
-			Status:         SecretStatusSecretBox,
+		baseSecret := kms.BaseSecret{
+			Status:         kms.SecretStatusSecretBox,
 			Payload:        string(plaintext),
 			Key:            s.Key,
 			AdditionalData: s.AdditionalData,
 			Mode:           s.Mode,
 		}
-		localSecret := newLocalSecret(baseSecret, s.masterKey)
+		localSecret := kms.NewLocalSecret(baseSecret, "", s.MasterKey)
 		err = localSecret.Decrypt()
 		if err != nil {
 			return err
 		}
 		payload = localSecret.GetPayload()
 	}
-	s.Status = SecretStatusPlain
+	s.Status = kms.SecretStatusPlain
 	s.Payload = payload
 	s.Key = ""
 	s.AdditionalData = ""

@@ -10,17 +10,21 @@ import (
 )
 
 type builtinSecret struct {
-	baseSecret
+	BaseSecret
 }
 
-func newBuiltinSecret(base baseSecret) SecretProvider {
+func init() {
+	RegisterSecretProvider(SchemeBuiltin, SecretStatusAES256GCM, newBuiltinSecret)
+}
+
+func newBuiltinSecret(base BaseSecret, url, masterKey string) SecretProvider {
 	return &builtinSecret{
-		baseSecret: base,
+		BaseSecret: base,
 	}
 }
 
 func (s *builtinSecret) Name() string {
-	return builtinProviderName
+	return "Builtin"
 }
 
 func (s *builtinSecret) IsEncrypted() bool {
@@ -40,7 +44,7 @@ func (s *builtinSecret) deriveKey(key []byte) []byte {
 
 func (s *builtinSecret) Encrypt() error {
 	if s.Payload == "" {
-		return errInvalidSecret
+		return ErrInvalidSecret
 	}
 	switch s.Status {
 	case SecretStatusPlain:
@@ -70,7 +74,7 @@ func (s *builtinSecret) Encrypt() error {
 		s.Status = SecretStatusAES256GCM
 		return nil
 	default:
-		return errWrongSecretStatus
+		return ErrWrongSecretStatus
 	}
 }
 
@@ -112,6 +116,17 @@ func (s *builtinSecret) Decrypt() error {
 		s.AdditionalData = ""
 		return nil
 	default:
-		return errWrongSecretStatus
+		return ErrWrongSecretStatus
 	}
+}
+
+func (s *builtinSecret) Clone() SecretProvider {
+	baseSecret := BaseSecret{
+		Status:         s.Status,
+		Payload:        s.Payload,
+		Key:            s.Key,
+		AdditionalData: s.AdditionalData,
+		Mode:           s.Mode,
+	}
+	return newBuiltinSecret(baseSecret, "", "")
 }

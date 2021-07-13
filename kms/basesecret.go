@@ -1,7 +1,7 @@
 package kms
 
-// baseSecret defines the base struct shared among all the secret providers
-type baseSecret struct {
+// BaseSecret defines the base struct shared among all the secret providers
+type BaseSecret struct {
 	Status         SecretStatus `json:"status,omitempty"`
 	Payload        string       `json:"payload,omitempty"`
 	Key            string       `json:"key,omitempty"`
@@ -10,39 +10,39 @@ type baseSecret struct {
 	Mode int `json:"mode,omitempty"`
 }
 
-func (s *baseSecret) GetStatus() SecretStatus {
+func (s *BaseSecret) GetStatus() SecretStatus {
 	return s.Status
 }
 
-func (s *baseSecret) GetPayload() string {
+func (s *BaseSecret) GetPayload() string {
 	return s.Payload
 }
 
-func (s *baseSecret) GetKey() string {
+func (s *BaseSecret) GetKey() string {
 	return s.Key
 }
 
-func (s *baseSecret) GetMode() int {
+func (s *BaseSecret) GetMode() int {
 	return s.Mode
 }
 
-func (s *baseSecret) GetAdditionalData() string {
+func (s *BaseSecret) GetAdditionalData() string {
 	return s.AdditionalData
 }
 
-func (s *baseSecret) SetKey(value string) {
+func (s *BaseSecret) SetKey(value string) {
 	s.Key = value
 }
 
-func (s *baseSecret) SetAdditionalData(value string) {
+func (s *BaseSecret) SetAdditionalData(value string) {
 	s.AdditionalData = value
 }
 
-func (s *baseSecret) SetStatus(value SecretStatus) {
+func (s *BaseSecret) SetStatus(value SecretStatus) {
 	s.Status = value
 }
 
-func (s *baseSecret) isEmpty() bool {
+func (s *BaseSecret) isEmpty() bool {
 	if s.Status != "" {
 		return false
 	}

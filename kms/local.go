@@ -11,20 +11,25 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
+func init() {
+	RegisterSecretProvider(SchemeLocal, SecretStatusSecretBox, NewLocalSecret)
+}
+
 type localSecret struct {
-	baseSecret
+	BaseSecret
 	masterKey string
 }
 
-func newLocalSecret(base baseSecret, masterKey string) SecretProvider {
+// NewLocalSecret returns a SecretProvider that use a locally provided symmetric key
+func NewLocalSecret(base BaseSecret, url, masterKey string) SecretProvider {
 	return &localSecret{
-		baseSecret: base,
+		BaseSecret: base,
 		masterKey:  masterKey,
 	}
 }
 
 func (s *localSecret) Name() string {
-	return localProviderName
+	return "Local"
 }
 
 func (s *localSecret) IsEncrypted() bool {
@@ -33,10 +38,10 @@ func (s *localSecret) IsEncrypted() bool {
 
 func (s *localSecret) Encrypt() error {
 	if s.Status != SecretStatusPlain {
-		return errWrongSecretStatus
+		return ErrWrongSecretStatus
 	}
 	if s.Payload == "" {
-		return errInvalidSecret
+		return ErrInvalidSecret
 	}
 	secretKey, err := localsecrets.NewRandomKey()
 	if err != nil {
@@ -62,7 +67,7 @@ func (s *localSecret) Encrypt() error {
 
 func (s *localSecret) Decrypt() error {
 	if !s.IsEncrypted() {
-		return errWrongSecretStatus
+		return ErrWrongSecretStatus
 	}
 	encrypted, err := base64.StdEncoding.DecodeString(s.Payload)
 	if err != nil {
@@ -122,4 +127,15 @@ func (s *localSecret) getEncryptionMode() int {
 		return 0
 	}
 	return 1
+}
+
+func (s *localSecret) Clone() SecretProvider {
+	baseSecret := BaseSecret{
+		Status:         s.Status,
+		Payload:        s.Payload,
+		Key:            s.Key,
+		AdditionalData: s.AdditionalData,
+		Mode:           s.Mode,
+	}
+	return NewLocalSecret(baseSecret, "", s.masterKey)
 }
