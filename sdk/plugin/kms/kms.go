@@ -1,7 +1,6 @@
-// Package notifier defines the implementation for event notifier plugins.
-// Notifier plugins allow to receive filesystem events such as file uploads,
-// downloads etc. and user events such as add, update, delete.
-package notifier
+// Package kms defines the implementation for kms plugins.
+// KMS plugins allow to encrypt/decrypt sensitive data.
+package kms
 
 import (
 	"context"
@@ -9,19 +8,19 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 
-	"github.com/drakkan/sftpgo/v2/sdk/plugin/notifier/proto"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin/kms/proto"
 )
 
 const (
-	// PluginName defines the name for a notifier plugin
-	PluginName = "notifier"
+	// PluginName defines the name for a kms plugin
+	PluginName = "kms"
 )
 
 // Handshake is a common handshake that is shared by plugin and host.
 var Handshake = plugin.HandshakeConfig{
 	ProtocolVersion:  1,
-	MagicCookieKey:   "SFTPGO_NOTIFIER_PLUGIN",
-	MagicCookieValue: "c499b98b-cd59-4df2-92b3-6268817f4d80",
+	MagicCookieKey:   "SFTPGO_KMS_PLUGIN",
+	MagicCookieValue: "223e3571-7ed2-4b96-b4b3-c7eb87d7ca1d",
 }
 
 // PluginMap is the map of plugins we can dispense.
@@ -29,21 +28,21 @@ var PluginMap = map[string]plugin.Plugin{
 	PluginName: &Plugin{},
 }
 
-// Notifier defines the interface for notifiers plugins
-type Notifier interface {
-	NotifyFsEvent(action, username, fsPath, fsTargetPath, sshCmd, protocol string, fileSize int64, status int) error
-	NotifyUserEvent(action string, user []byte) error
+// Service defines the interface for kms plugins
+type Service interface {
+	Encrypt(payload, additionalData, URL, masterKey string) (string, string, int32, error)
+	Decrypt(payload, key, additionalData string, mode int, URL, masterKey string) (string, error)
 }
 
 // Plugin defines the implementation to serve/connect to a notifier plugin
 type Plugin struct {
 	plugin.Plugin
-	Impl Notifier
+	Impl Service
 }
 
 // GRPCServer defines the GRPC server implementation for this plugin
 func (p *Plugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
-	proto.RegisterNotifierServer(s, &GRPCServer{
+	proto.RegisterKMSServer(s, &GRPCServer{
 		Impl: p.Impl,
 	})
 	return nil
@@ -52,6 +51,6 @@ func (p *Plugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
 // GRPCClient defines the GRPC client implementation for this plugin
 func (p *Plugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
 	return &GRPCClient{
-		client: proto.NewNotifierClient(c),
+		client: proto.NewKMSClient(c),
 	}, nil
 }

@@ -52,6 +52,8 @@ const (
 	// SecretStatusVaultTransit means we use the transit secrets engine in Vault
 	// to keep information secret
 	SecretStatusVaultTransit SecretStatus = "VaultTransit"
+	// SecretStatusAzureKeyVault means we use Azure KeyVault to keep information secret
+	SecretStatusAzureKeyVault SecretStatus = "AzureKeyVault"
 	// SecretStatusRedacted means the secret is redacted
 	SecretStatusRedacted SecretStatus = "Redacted"
 )
@@ -61,11 +63,12 @@ type Scheme = string
 
 // supported URL schemes
 const (
-	SchemeLocal        Scheme = "local://"
-	SchemeBuiltin      Scheme = "builtin://"
-	SchemeAWS          Scheme = "awskms://"
-	SchemeGCP          Scheme = "gcpkms://"
-	SchemeVaultTransit Scheme = "hashivault://"
+	SchemeLocal         Scheme = "local"
+	SchemeBuiltin       Scheme = "builtin"
+	SchemeAWS           Scheme = "awskms"
+	SchemeGCP           Scheme = "gcpkms"
+	SchemeVaultTransit  Scheme = "hashivault"
+	SchemeAzureKeyVault Scheme = "azurekeyvault"
 )
 
 // Configuration defines the KMS configuration
@@ -141,7 +144,7 @@ func (c *Configuration) Initialize() error {
 	}
 	config = *c
 	if config.Secrets.URL == "" {
-		config.Secrets.URL = "local://"
+		config.Secrets.URL = SchemeLocal + "://"
 	}
 	for k, v := range secretProviders {
 		logger.Debug(logSender, "", "secret provider registered for scheme: %#v, encrypted status: %#v",

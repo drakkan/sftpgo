@@ -597,6 +597,16 @@ func getPluginsFromEnv(idx int) {
 		isSet = true
 	}
 
+	kmsScheme, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__KMS_OPTIONS__SCHEME", idx))
+	if ok {
+		pluginConfig.KMSOptions.Scheme = kmsScheme
+	}
+
+	kmsEncStatus, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__KMS_OPTIONS__ENCRYPTED_STATUS", idx))
+	if ok {
+		pluginConfig.KMSOptions.EncryptedStatus = kmsEncStatus
+	}
+
 	cmd, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__CMD", idx))
 	if ok {
 		pluginConfig.Cmd = cmd

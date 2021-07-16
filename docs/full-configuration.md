@@ -243,6 +243,9 @@ The configuration file contains the following sections:
   - `notifier_options`, struct. Defines the options for notifier plugins.
     - `fs_events`, list of strings. Defines the filesystem events that will be notified to this plugin.
     - `user_events`, list of strings. Defines the user events that will be notified to this plugin.
+  - `kms_options`, struct. Defines the options for kms plugins.
+    - `scheme`, string. KMS scheme. Supported schemes are: `awskms`, `gcpkms`, `hashivault`, `azurekeyvault`.
+    - `encrypted_status`, string. Encrypted status for a KMS secret. Supported statuses are: `AWS`, `GCP`, `VaultTransit`, `AzureKeyVault`.
   - `cmd`, string. Path to the plugin executable.
   - `args`, list of strings. Optional arguments to pass to the plugin executable.
   - `sha256sum`, string. SHA256 checksum for the plugin executable. If not empty it will be used to verify the integrity of the executable.

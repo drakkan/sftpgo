@@ -40,7 +40,7 @@ func newNotifierPlugin(config Config) (*notifierPlugin, error) {
 		config: config,
 	}
 	if err := p.initialize(); err != nil {
-		logger.Warn(logSender, "", "unable to create notifier plugin: %v, config %v", err, config)
+		logger.Warn(logSender, "", "unable to create notifier plugin: %v, config %+v", err, config)
 		return nil, err
 	}
 	return p, nil
@@ -56,9 +56,9 @@ func (p *notifierPlugin) cleanup() {
 
 func (p *notifierPlugin) initialize() error {
 	killProcess(p.config.Cmd)
-	logger.Debug(logSender, "", "create new plugin %v", p.config.Cmd)
+	logger.Debug(logSender, "", "create new notifier plugin %#v", p.config.Cmd)
 	if !p.config.NotifierOptions.hasActions() {
-		return fmt.Errorf("no actions defined for the notifier plugin %v", p.config.Cmd)
+		return fmt.Errorf("no actions defined for the notifier plugin %#v", p.config.Cmd)
 	}
 	var secureConfig *plugin.SecureConfig
 	if p.config.SHA256Sum != "" {
@@ -85,12 +85,12 @@ func (p *notifierPlugin) initialize() error {
 	})
 	rpcClient, err := client.Client()
 	if err != nil {
-		logger.Debug(logSender, "", "unable to get rpc client for plugin %v: %v", p.config.Cmd, err)
+		logger.Debug(logSender, "", "unable to get rpc client for plugin %#v: %v", p.config.Cmd, err)
 		return err
 	}
 	raw, err := rpcClient.Dispense(notifier.PluginName)
 	if err != nil {
-		logger.Debug(logSender, "", "unable to get plugin %v from rpc client for plugin %v: %v",
+		logger.Debug(logSender, "", "unable to get plugin %v from rpc client for command %#v: %v",
 			notifier.PluginName, p.config.Cmd, err)
 		return err
 	}

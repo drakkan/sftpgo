@@ -84,7 +84,7 @@ func (s *Secret) Decrypt() error {
 	if s.Key != "" {
 		baseSecret := kms.BaseSecret{
 			Status:         kms.SecretStatusSecretBox,
-			Payload:        string(plaintext),
+			Payload:        payload,
 			Key:            s.Key,
 			AdditionalData: s.AdditionalData,
 			Mode:           s.Mode,

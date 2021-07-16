@@ -8,7 +8,7 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/StackExchange/wmi v1.2.0 // indirect
 	github.com/alexedwards/argon2id v0.0.0-20210511081203-7d35d68092b8
-	github.com/aws/aws-sdk-go v1.39.5
+	github.com/aws/aws-sdk-go v1.40.1
 	github.com/cockroachdb/cockroach-go/v2 v2.1.1
 	github.com/eikenb/pipeat v0.0.0-20210603033007-44fc3ffce52b
 	github.com/fatih/color v1.12.0 // indirect
@@ -19,7 +19,6 @@ require (
 	github.com/go-chi/render v1.0.1
 	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/go-sql-driver/mysql v1.6.0
-	github.com/goccy/go-json v0.7.4 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/hashicorp/go-hclog v0.16.2
@@ -30,10 +29,10 @@ require (
 	github.com/klauspost/compress v1.13.1
 	github.com/klauspost/cpuid/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
-	github.com/lestrrat-go/jwx v1.2.2
+	github.com/lestrrat-go/jwx v1.2.4
 	github.com/lib/pq v1.10.2
 	github.com/mattn/go-isatty v0.0.13 // indirect
-	github.com/mattn/go-sqlite3 v1.14.7
+	github.com/mattn/go-sqlite3 v1.14.8
 	github.com/miekg/dns v1.1.43 // indirect
 	github.com/minio/sio v0.3.0
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
@@ -63,7 +62,7 @@ require (
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c
 	golang.org/x/time v0.0.0-20210611083556-38a9dc6acbc6
 	google.golang.org/api v0.50.0
-	google.golang.org/genproto v0.0.0-20210713002101-d411969a0d9a // indirect
+	google.golang.org/genproto v0.0.0-20210716133855-ce7ef5c701ea // indirect
 	google.golang.org/grpc v1.39.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0

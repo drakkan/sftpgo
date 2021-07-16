@@ -1,0 +1,35 @@
+syntax = "proto3";
+package proto;
+
+option go_package = "sdk/plugin/kms/proto";
+
+message EncryptRequest {
+    string payload = 1;
+    string additional_data = 2;
+    string url = 3;
+    string master_key = 4;
+}
+
+message EncryptResponse {
+    string payload = 1;
+    string key = 2;
+    int32 mode = 3;
+}
+
+message DecryptRequest {
+    string payload = 1;
+    string key = 2;
+    string additional_data = 3;
+    int32 mode = 4;
+    string url = 5;
+    string master_key = 6;
+}
+
+message DecryptResponse {
+    string payload = 1;
+}
+
+service KMS {
+    rpc Encrypt(EncryptRequest) returns (EncryptResponse);
+    rpc Decrypt(DecryptRequest) returns (DecryptResponse);
+}
