@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -178,6 +179,17 @@ func (fs *S3Fs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, fun
 	}
 	ctx, cancelFn := context.WithCancel(context.Background())
 	downloader := s3manager.NewDownloaderWithClient(fs.svc)
+	if offset == 0 {
+		downloader.RequestOptions = append(downloader.RequestOptions, func(r *request.Request) {
+			chunkCtx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
+			r.SetContext(chunkCtx)
+
+			go func() {
+				<-ctx.Done()
+				cancel()
+			}()
+		})
+	}
 	var streamRange *string
 	if offset > 0 {
 		streamRange = aws.String(fmt.Sprintf("bytes=%v-", offset))
