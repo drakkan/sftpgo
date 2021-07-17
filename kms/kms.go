@@ -78,9 +78,10 @@ type Configuration struct {
 
 // Secrets define the KMS configuration for encryption/decryption
 type Secrets struct {
-	URL           string `json:"url" mapstructure:"url"`
-	MasterKeyPath string `json:"master_key_path" mapstructure:"master_key_path"`
-	masterKey     string
+	URL             string `json:"url" mapstructure:"url"`
+	MasterKeyPath   string `json:"master_key_path" mapstructure:"master_key_path"`
+	MasterKeyString string `json:"master_key" mapstructure:"master_key"`
+	masterKey       string
 }
 
 type registeredSecretProvider struct {
@@ -135,7 +136,10 @@ func GetSecretFromCompatString(secret string) (*Secret, error) {
 
 // Initialize configures the KMS support
 func (c *Configuration) Initialize() error {
-	if c.Secrets.MasterKeyPath != "" {
+	if c.Secrets.MasterKeyString != "" {
+		c.Secrets.masterKey = c.Secrets.MasterKeyString
+	}
+	if c.Secrets.masterKey == "" && c.Secrets.MasterKeyPath != "" {
 		mKey, err := os.ReadFile(c.Secrets.MasterKeyPath)
 		if err != nil {
 			return err

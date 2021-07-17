@@ -236,8 +236,9 @@ The configuration file contains the following sections:
     - `url`, string, optional. If not empty, the header will be added only if the request URL starts with the one specified here
 - **kms**, configuration for the Key Management Service, more details can be found [here](./kms.md)
   - `secrets`
-    - `url`
-    - `master_key_path`
+    - `url`, string. Defines the URI to the KMS service. Default empty.
+    - `master_key`, string. Defines the master encryption key as string. If not empty, it takes precedence over `master_key_path`. Default empty.
+    - `master_key_path, string. Defines the absolute path to a file containing the master encryption key. Default empty.
 - **plugins**, list of external plugins. Each plugin is configured using a struct with the following fields:
   - `type`, string. Defines the plugin type. Supported types: `notifier`, `kms`.
   - `notifier_options`, struct. Defines the options for notifier plugins.

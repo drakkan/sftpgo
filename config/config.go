@@ -264,8 +264,9 @@ func Init() {
 		},
 		KMSConfig: kms.Configuration{
 			Secrets: kms.Secrets{
-				URL:           "",
-				MasterKeyPath: "",
+				URL:             "",
+				MasterKeyString: "",
+				MasterKeyPath:   "",
 			},
 		},
 		TelemetryConfig: telemetry.Conf{
@@ -1027,6 +1028,7 @@ func setViperDefaults() {
 	viper.SetDefault("http.ca_certificates", globalConf.HTTPConfig.CACertificates)
 	viper.SetDefault("http.skip_tls_verify", globalConf.HTTPConfig.SkipTLSVerify)
 	viper.SetDefault("kms.secrets.url", globalConf.KMSConfig.Secrets.URL)
+	viper.SetDefault("kms.secrets.master_key", globalConf.KMSConfig.Secrets.MasterKeyString)
 	viper.SetDefault("kms.secrets.master_key_path", globalConf.KMSConfig.Secrets.MasterKeyPath)
 	viper.SetDefault("telemetry.bind_port", globalConf.TelemetryConfig.BindPort)
 	viper.SetDefault("telemetry.bind_address", globalConf.TelemetryConfig.BindAddress)

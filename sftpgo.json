@@ -225,6 +225,7 @@
   "kms": {
     "secrets": {
       "url": "",
+      "master_key": "",
       "master_key_path": ""
     }
   },

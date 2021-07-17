@@ -7,6 +7,7 @@ SFTPGo stores sensitive data such as Cloud account credentials or passphrases to
 The `secrets` section of the `kms` configuration allows to configure how to encrypt and decrypt sensitive data. The following configuration parameters are available:
 
 - `url` defines the URI to the KMS service
+- `master_key`, defines the master encryption key as string. If not empty, it takes precedence over `master_key_path`.
 - `master_key_path` defines the absolute path to a file containing the master encryption key. This could be, for example, a docker secrets or a file protected with filesystem level permissions.
 
 ### Local provider
