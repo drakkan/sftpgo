@@ -22,11 +22,11 @@ type Info struct {
 func GetAsString() string {
 	var sb strings.Builder
 	sb.WriteString(info.Version)
-	if len(info.CommitHash) > 0 {
+	if info.CommitHash != "" {
 		sb.WriteString("-")
 		sb.WriteString(info.CommitHash)
 	}
-	if len(info.BuildDate) > 0 {
+	if info.BuildDate != "" {
 		sb.WriteString("-")
 		sb.WriteString(info.BuildDate)
 	}

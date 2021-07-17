@@ -171,6 +171,7 @@ func (c *Configuration) getSecretProvider(base BaseSecret) SecretProvider {
 			return v.newFn(base, c.Secrets.URL, c.Secrets.masterKey)
 		}
 	}
+	logger.Warn(logSender, "", "no secret provider registered for URL %v, fallback to local provider", c.Secrets.URL)
 	return NewLocalSecret(base, c.Secrets.URL, c.Secrets.masterKey)
 }
 
