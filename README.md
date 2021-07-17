@@ -54,6 +54,7 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - Performance analysis using built-in [profiler](./docs/profiling.md).
 - Configuration format is at your choice: JSON, TOML, YAML, HCL, envfile are supported.
 - Log files are accurate and they are saved in the easily parsable JSON format ([more information](./docs/logs.md)).
+- SFTPGo supports a [plugin system](./docs/plugins.md) and therefore can be extended using external plugins.
 
 ## Platforms
 

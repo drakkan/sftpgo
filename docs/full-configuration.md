@@ -239,7 +239,7 @@ The configuration file contains the following sections:
     - `url`
     - `master_key_path`
 - **plugins**, list of external plugins. Each plugin is configured using a struct with the following fields:
-  - `type`, string. Defines the plugin type. Supported types: `notifier`.
+  - `type`, string. Defines the plugin type. Supported types: `notifier`, `kms`.
   - `notifier_options`, struct. Defines the options for notifier plugins.
     - `fs_events`, list of strings. Defines the filesystem events that will be notified to this plugin.
     - `user_events`, list of strings. Defines the user events that will be notified to this plugin.
