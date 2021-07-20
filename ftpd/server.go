@@ -135,6 +135,7 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 
 // ClientConnected is called to send the very first welcome message
 func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
+	cc.SetDebug(s.binding.Debug)
 	ipAddr := util.GetIPFromRemoteAddress(cc.RemoteAddr().String())
 	common.Connections.AddClientConnection(ipAddr)
 	if common.IsBanned(ipAddr) {

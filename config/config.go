@@ -742,6 +742,12 @@ func getFTPDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
+	debug, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__DEBUG", idx))
+	if ok {
+		binding.Debug = debug
+		isSet = true
+	}
+
 	if isSet {
 		if len(globalConf.FTPD.Bindings) > idx {
 			globalConf.FTPD.Bindings[idx] = binding

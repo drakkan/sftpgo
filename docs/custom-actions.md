@@ -56,7 +56,7 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 - `action`
 - `username`
 - `path`
-- `target_path`, included for `rename` action
+- `target_path`, included for `rename` action and `sftpgo-copy` SSH command
 - `ssh_cmd`, included for `ssh_cmd` action
 - `file_size`, included for `pre-upload`, `upload`, `download`, `delete` actions if the file size is greater than `0`
 - `fs_provider`, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend, `3` for Azure Blob Storage backend, `4` for local encrypted backend, `5` for SFTP backend

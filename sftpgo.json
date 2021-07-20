@@ -82,7 +82,8 @@
         "tls_mode": 0,
         "force_passive_ip": "",
         "client_auth_type": 0,
-        "tls_cipher_suites": []
+        "tls_cipher_suites": [],
+        "debug": false
       }
     ],
     "banner": "",

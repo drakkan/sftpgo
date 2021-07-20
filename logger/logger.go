@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	ftpserverlog "github.com/fclairamb/ftpserverlib/log"
 	"github.com/rs/zerolog"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
@@ -60,7 +61,8 @@ func (l *StdLoggerWrapper) Write(p []byte) (n int, err error) {
 
 // LeveledLogger is a logger that accepts a message string and a variadic number of key-value pairs
 type LeveledLogger struct {
-	Sender string
+	Sender            string
+	additionalKeyVals []interface{}
 }
 
 func addKeysAndValues(ev *zerolog.Event, keysAndValues ...interface{}) {
@@ -81,6 +83,9 @@ func addKeysAndValues(ev *zerolog.Event, keysAndValues ...interface{}) {
 func (l *LeveledLogger) Error(msg string, keysAndValues ...interface{}) {
 	ev := logger.Error()
 	ev.Timestamp().Str("sender", l.Sender)
+	if len(l.additionalKeyVals) > 0 {
+		addKeysAndValues(ev, l.additionalKeyVals...)
+	}
 	addKeysAndValues(ev, keysAndValues...)
 	ev.Msg(msg)
 }
@@ -89,6 +94,9 @@ func (l *LeveledLogger) Error(msg string, keysAndValues ...interface{}) {
 func (l *LeveledLogger) Info(msg string, keysAndValues ...interface{}) {
 	ev := logger.Info()
 	ev.Timestamp().Str("sender", l.Sender)
+	if len(l.additionalKeyVals) > 0 {
+		addKeysAndValues(ev, l.additionalKeyVals...)
+	}
 	addKeysAndValues(ev, keysAndValues...)
 	ev.Msg(msg)
 }
@@ -97,6 +105,9 @@ func (l *LeveledLogger) Info(msg string, keysAndValues ...interface{}) {
 func (l *LeveledLogger) Debug(msg string, keysAndValues ...interface{}) {
 	ev := logger.Debug()
 	ev.Timestamp().Str("sender", l.Sender)
+	if len(l.additionalKeyVals) > 0 {
+		addKeysAndValues(ev, l.additionalKeyVals...)
+	}
 	addKeysAndValues(ev, keysAndValues...)
 	ev.Msg(msg)
 }
@@ -105,8 +116,19 @@ func (l *LeveledLogger) Debug(msg string, keysAndValues ...interface{}) {
 func (l *LeveledLogger) Warn(msg string, keysAndValues ...interface{}) {
 	ev := logger.Warn()
 	ev.Timestamp().Str("sender", l.Sender)
+	if len(l.additionalKeyVals) > 0 {
+		addKeysAndValues(ev, l.additionalKeyVals...)
+	}
 	addKeysAndValues(ev, keysAndValues...)
 	ev.Msg(msg)
+}
+
+// With returns a LeveledLogger with additional context specific keyvals
+func (l *LeveledLogger) With(keysAndValues ...interface{}) ftpserverlog.Logger {
+	return &LeveledLogger{
+		Sender:            l.Sender,
+		additionalKeyVals: append(l.additionalKeyVals, keysAndValues...),
+	}
 }
 
 // GetLogger get the configured logger instance

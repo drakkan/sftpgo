@@ -51,7 +51,9 @@ type Binding struct {
 	// any invalid name will be silently ignored.
 	// The order matters, the ciphers listed first will be the preferred ones.
 	TLSCipherSuites []string `json:"tls_cipher_suites" mapstructure:"tls_cipher_suites"`
-	ciphers         []uint16
+	// Debug enables the FTP debug mode. In debug mode, every FTP command will be logged
+	Debug   bool `json:"debug" mapstructure:"debug"`
+	ciphers []uint16
 }
 
 func (b *Binding) setCiphers() {
@@ -217,7 +219,9 @@ func (c *Configuration) Initialize(configDir string) error {
 		server := NewServer(c, configDir, binding, idx)
 
 		go func(s *Server) {
+			ftpLogger := logger.LeveledLogger{Sender: "ftpserverlib"}
 			ftpServer := ftpserver.NewFtpServer(s)
+			ftpServer.Logger = ftpLogger.With("server_id", fmt.Sprintf("FTP_%v", s.ID))
 			logger.Info(logSender, "", "starting FTP serving, binding: %v", s.binding.GetAddress())
 			util.CheckTCP4Port(s.binding.Port)
 			exitChannel <- ftpServer.ListenAndServe()
