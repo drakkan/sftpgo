@@ -598,6 +598,18 @@ func getPluginsFromEnv(idx int) {
 		isSet = true
 	}
 
+	notifierRetryMaxTime, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__RETRY_MAX_TIME", idx))
+	if ok {
+		pluginConfig.NotifierOptions.RetryMaxTime = int(notifierRetryMaxTime)
+		isSet = true
+	}
+
+	notifierRetryQueueMaxSize, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__RETRY_QUEUE_MAX_SIZE", idx))
+	if ok {
+		pluginConfig.NotifierOptions.RetryQueueMaxSize = int(notifierRetryQueueMaxSize)
+		isSet = true
+	}
+
 	kmsScheme, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__KMS_OPTIONS__SCHEME", idx))
 	if ok {
 		pluginConfig.KMSOptions.Scheme = kmsScheme

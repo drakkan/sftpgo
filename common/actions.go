@@ -52,7 +52,7 @@ func InitializeActionHandler(handler ActionHandler) {
 
 // ExecutePreAction executes a pre-* action and returns the result
 func ExecutePreAction(user *dataprovider.User, operation, filePath, virtualPath, protocol string, fileSize int64, openFlags int) error {
-	plugin.Handler.NotifyFsEvent(operation, user.Username, filePath, "", "", protocol, fileSize, nil)
+	plugin.Handler.NotifyFsEvent(time.Now(), operation, user.Username, filePath, "", "", protocol, fileSize, nil)
 	if !util.IsStringInSlice(operation, Config.Actions.ExecuteOn) {
 		// for pre-delete we execute the internal handling on error, so we must return errUnconfiguredAction.
 		// Other pre action will deny the operation on error so if we have no configuration we must return
@@ -68,7 +68,7 @@ func ExecutePreAction(user *dataprovider.User, operation, filePath, virtualPath,
 
 // ExecuteActionNotification executes the defined hook, if any, for the specified action
 func ExecuteActionNotification(user *dataprovider.User, operation, filePath, virtualPath, target, sshCmd, protocol string, fileSize int64, err error) {
-	plugin.Handler.NotifyFsEvent(operation, user.Username, filePath, target, sshCmd, protocol, fileSize, err)
+	plugin.Handler.NotifyFsEvent(time.Now(), operation, user.Username, filePath, target, sshCmd, protocol, fileSize, err)
 	notification := newActionNotification(user, operation, filePath, virtualPath, target, sshCmd, protocol, fileSize, 0, err)
 
 	if util.IsStringInSlice(operation, Config.Actions.ExecuteSync) {

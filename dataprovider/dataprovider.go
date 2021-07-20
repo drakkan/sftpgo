@@ -2407,7 +2407,7 @@ func executeNotificationCommand(operation string, commandArgs []string, userAsJS
 }
 
 func executeAction(operation string, user *User) {
-	plugin.Handler.NotifyUserEvent(operation, user)
+	plugin.Handler.NotifyUserEvent(time.Now(), operation, user)
 	if !util.IsStringInSlice(operation, config.Actions.ExecuteOn) {
 		return
 	}

@@ -20,12 +20,12 @@ type GRPCClient struct {
 }
 
 // NotifyFsEvent implements the Notifier interface
-func (c *GRPCClient) NotifyFsEvent(action, username, fsPath, fsTargetPath, sshCmd, protocol string, fileSize int64, status int) error {
+func (c *GRPCClient) NotifyFsEvent(timestamp time.Time, action, username, fsPath, fsTargetPath, sshCmd, protocol string, fileSize int64, status int) error {
 	ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
 	defer cancel()
 
 	_, err := c.client.SendFsEvent(ctx, &proto.FsEvent{
-		Timestamp:    timestamppb.New(time.Now()),
+		Timestamp:    timestamppb.New(timestamp),
 		Action:       action,
 		Username:     username,
 		FsPath:       fsPath,
@@ -40,12 +40,12 @@ func (c *GRPCClient) NotifyFsEvent(action, username, fsPath, fsTargetPath, sshCm
 }
 
 // NotifyUserEvent implements the Notifier interface
-func (c *GRPCClient) NotifyUserEvent(action string, user []byte) error {
+func (c *GRPCClient) NotifyUserEvent(timestamp time.Time, action string, user []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
 	defer cancel()
 
 	_, err := c.client.SendUserEvent(ctx, &proto.UserEvent{
-		Timestamp: timestamppb.New(time.Now()),
+		Timestamp: timestamppb.New(timestamp),
 		Action:    action,
 		User:      user,
 	})
@@ -60,13 +60,13 @@ type GRPCServer struct {
 
 // SendFsEvent implements the serve side fs notify method
 func (s *GRPCServer) SendFsEvent(ctx context.Context, req *proto.FsEvent) (*emptypb.Empty, error) {
-	err := s.Impl.NotifyFsEvent(req.Action, req.Username, req.FsPath, req.FsTargetPath, req.SshCmd,
+	err := s.Impl.NotifyFsEvent(req.Timestamp.AsTime(), req.Action, req.Username, req.FsPath, req.FsTargetPath, req.SshCmd,
 		req.Protocol, req.FileSize, int(req.Status))
 	return &emptypb.Empty{}, err
 }
 
 // SendUserEvent implements the serve side user notify method
 func (s *GRPCServer) SendUserEvent(ctx context.Context, req *proto.UserEvent) (*emptypb.Empty, error) {
-	err := s.Impl.NotifyUserEvent(req.Action, req.User)
+	err := s.Impl.NotifyUserEvent(req.Timestamp.AsTime(), req.Action, req.User)
 	return &emptypb.Empty{}, err
 }

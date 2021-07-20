@@ -145,30 +145,23 @@ func (m *Manager) validateConfigs() error {
 }
 
 // NotifyFsEvent sends the fs event notifications using any defined notifier plugins
-func (m *Manager) NotifyFsEvent(action, username, fsPath, fsTargetPath, sshCmd, protocol string, fileSize int64, err error) {
+func (m *Manager) NotifyFsEvent(timestamp time.Time, action, username, fsPath, fsTargetPath, sshCmd, protocol string,
+	fileSize int64, err error) {
 	m.notifLock.RLock()
 	defer m.notifLock.RUnlock()
 
 	for _, n := range m.notifiers {
-		if n.exited() {
-			logger.Warn(logSender, "", "notifer plugin %v is not active, unable to send fs event", n.config.Cmd)
-			continue
-		}
-		n.notifyFsAction(action, username, fsPath, fsTargetPath, sshCmd, protocol, fileSize, err)
+		n.notifyFsAction(timestamp, action, username, fsPath, fsTargetPath, sshCmd, protocol, fileSize, err)
 	}
 }
 
 // NotifyUserEvent sends the user event notifications using any defined notifier plugins
-func (m *Manager) NotifyUserEvent(action string, user Renderer) {
+func (m *Manager) NotifyUserEvent(timestamp time.Time, action string, user Renderer) {
 	m.notifLock.RLock()
 	defer m.notifLock.RUnlock()
 
 	for _, n := range m.notifiers {
-		if n.exited() {
-			logger.Warn(logSender, "", "notifer plugin %v is not active, unable to send user event", n.config.Cmd)
-			continue
-		}
-		n.notifyUserAction(action, user)
+		n.notifyUserAction(timestamp, action, user)
 	}
 }
 
@@ -192,7 +185,11 @@ func (m *Manager) checkCrashedPlugins() {
 	m.notifLock.RLock()
 	for idx, n := range m.notifiers {
 		if n.exited() {
-			defer Handler.restartNotifierPlugin(n.config, idx)
+			defer func(cfg Config, index int) {
+				Handler.restartNotifierPlugin(cfg, index)
+			}(n.config, idx)
+		} else {
+			n.sendQueuedEvents()
 		}
 	}
 	m.notifLock.RUnlock()
@@ -200,7 +197,9 @@ func (m *Manager) checkCrashedPlugins() {
 	m.kmsLock.RLock()
 	for idx, k := range m.kms {
 		if k.exited() {
-			defer Handler.restartKMSPlugin(k.config, idx)
+			defer func(cfg Config, index int) {
+				Handler.restartKMSPlugin(cfg, index)
+			}(k.config, idx)
 		}
 	}
 	m.kmsLock.RUnlock()
@@ -210,7 +209,7 @@ func (m *Manager) restartNotifierPlugin(config Config, idx int) {
 	if atomic.LoadInt32(&m.closed) == 1 {
 		return
 	}
-	logger.Info(logSender, "", "try to restart notifier crashed plugin %#v, idx: %v", config.Cmd, idx)
+	logger.Info(logSender, "", "try to restart crashed notifier plugin %#v, idx: %v", config.Cmd, idx)
 	plugin, err := newNotifierPlugin(config)
 	if err != nil {
 		logger.Warn(logSender, "", "unable to restart notifier plugin %#v, err: %v", config.Cmd, err)
@@ -218,8 +217,10 @@ func (m *Manager) restartNotifierPlugin(config Config, idx int) {
 	}
 
 	m.notifLock.Lock()
+	plugin.queue = m.notifiers[idx].queue
 	m.notifiers[idx] = plugin
 	m.notifLock.Unlock()
+	plugin.sendQueuedEvents()
 }
 
 func (m *Manager) restartKMSPlugin(config Config, idx int) {

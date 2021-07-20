@@ -98,3 +98,7 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 The HTTP hook will use the global configuration for HTTP clients and will respect the retry configurations.
 
 The structure for SFTPGo users can be found within the [OpenAPI schema](../httpd/schema/openapi.yaml).
+
+## Pub/Sub services
+
+You can forward SFTPGo events to serveral publish/subscribe systems using the [sftpgo-plugin-pubsub](https://github.com/sftpgo/sftpgo-plugin-pubsub). The notifiers SFTPGo plugins are not suitable for interactive actions such as `pre-*` events. Their scope is to simply forward events to external services. A custom hook is a better choice if you need to react to `pre-*` events.
