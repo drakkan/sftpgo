@@ -87,6 +87,15 @@ func NewS3Fs(connectionID, localTempDir string, config S3FsConfig) (Fs, error) {
 		fs.config.UploadConcurrency = 2
 	}
 
+	if fs.config.DownloadPartSize < 5 {
+		fs.config.DownloadPartSize = s3manager.DefaultDownloadPartSize
+	} else {
+		fs.config.DownloadPartSize *= 1024 * 1024
+	}
+	if fs.config.DownloadConcurrency <= 0 {
+		fs.config.DownloadConcurrency = s3manager.DefaultDownloadConcurrency
+	}
+
 	sessOpts := session.Options{
 		Config:            *awsConfig,
 		SharedConfigState: session.SharedConfigEnable,
@@ -178,6 +187,8 @@ func (fs *S3Fs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, fun
 	ctx, cancelFn := context.WithCancel(context.Background())
 	downloader := s3manager.NewDownloaderWithClient(fs.svc)
 	downloader.PerChunkTimeout = time.Second * 60
+	downloader.PartSize = fs.config.DownloadPartSize
+	downloader.Concurrency = fs.config.DownloadConcurrency
 	var streamRange *string
 	if offset > 0 {
 		streamRange = aws.String(fmt.Sprintf("bytes=%v-", offset))

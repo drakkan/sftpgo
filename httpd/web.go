@@ -684,6 +684,14 @@ func getS3Config(r *http.Request) (vfs.S3FsConfig, error) {
 		return config, err
 	}
 	config.UploadConcurrency, err = strconv.Atoi(r.Form.Get("s3_upload_concurrency"))
+	if err != nil {
+		return config, err
+	}
+	config.DownloadPartSize, err = strconv.ParseInt(r.Form.Get("s3_download_part_size"), 10, 64)
+	if err != nil {
+		return config, err
+	}
+	config.DownloadConcurrency, err = strconv.Atoi(r.Form.Get("s3_download_concurrency"))
 	return config, err
 }
 

@@ -1007,6 +1007,12 @@ func compareS3Config(expected *dataprovider.User, actual *dataprovider.User) err
 	if expected.FsConfig.S3Config.UploadConcurrency != actual.FsConfig.S3Config.UploadConcurrency {
 		return errors.New("S3 upload concurrency mismatch")
 	}
+	if expected.FsConfig.S3Config.DownloadPartSize != actual.FsConfig.S3Config.DownloadPartSize {
+		return errors.New("S3 download part size mismatch")
+	}
+	if expected.FsConfig.S3Config.DownloadConcurrency != actual.FsConfig.S3Config.DownloadConcurrency {
+		return errors.New("S3 download concurrency mismatch")
+	}
 	if expected.FsConfig.S3Config.KeyPrefix != actual.FsConfig.S3Config.KeyPrefix &&
 		expected.FsConfig.S3Config.KeyPrefix+"/" != actual.FsConfig.S3Config.KeyPrefix {
 		return errors.New("S3 key prefix mismatch")

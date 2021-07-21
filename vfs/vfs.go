@@ -134,6 +134,12 @@ type S3FsConfig struct {
 	UploadPartSize int64 `json:"upload_part_size,omitempty"`
 	// How many parts are uploaded in parallel
 	UploadConcurrency int `json:"upload_concurrency,omitempty"`
+	// The buffer size (in MB) to use for chunked downloads. The minimum allowed part size is 5MB,
+	// and if this value is set to zero, the default value (5MB) for the AWS SDK will be used.
+	// The minimum allowed value is 5.
+	DownloadPartSize int64 `json:"download_part_size,omitempty"`
+	// How many parts are downloaded in parallel
+	DownloadConcurrency int `json:"download_concurrency,omitempty"`
 }
 
 func (c *S3FsConfig) checkCredentials() error {

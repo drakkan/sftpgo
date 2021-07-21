@@ -417,6 +417,28 @@
             </div>
 
             <div class="form-group row s3">
+                <label for="idS3PartSizeDL" class="col-sm-2 col-form-label">DL Part Size (MB)</label>
+                <div class="col-sm-3">
+                    <input type="number" class="form-control" id="idS3PartSizeDL" name="s3_download_part_size"
+                           placeholder="" value="{{.User.FsConfig.S3Config.DownloadPartSize}}"
+                           aria-describedby="S3PartSizeHelpBlockDL">
+                    <small id="S3PartSizeHelpBlockDL" class="form-text text-muted">
+                        The range size for downloads. Zero means the default (5 MB). Minimum is 5
+                    </small>
+                </div>
+                <div class="col-sm-2"></div>
+                <label for="idS3DownloadConcurrency" class="col-sm-2 col-form-label">DL Concurrency</label>
+                <div class="col-sm-3">
+                    <input type="number" class="form-control" id="idS3DownloadConcurrency" name="s3_download_concurrency"
+                           placeholder="" value="{{.User.FsConfig.S3Config.DownloadConcurrency}}" min="0"
+                           aria-describedby="S3ConcurrencyHelpBlockDL">
+                    <small id="S3ConcurrencyHelpBlockDL" class="form-text text-muted">
+                        How many parts are downloaded in parallel. Zero means the default (5)
+                    </small>
+                </div>
+            </div>
+
+            <div class="form-group row s3">
                 <label for="idS3KeyPrefix" class="col-sm-2 col-form-label">Key Prefix</label>
                 <div class="col-sm-10">
                     <input type="text" class="form-control" id="idS3KeyPrefix" name="s3_key_prefix" placeholder=""
