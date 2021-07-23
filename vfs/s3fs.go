@@ -290,10 +290,18 @@ func (fs *S3Fs) Rename(source, target string) error {
 	defer cancelFn()
 	_, err = fs.svc.CopyObjectWithContext(ctx, &s3.CopyObjectInput{
 		Bucket:       aws.String(fs.config.Bucket),
-		CopySource:   aws.String(url.PathEscape(copySource)),
+		CopySource:   aws.String(pathEscape(copySource)),
 		Key:          aws.String(target),
 		StorageClass: util.NilIfEmpty(fs.config.StorageClass),
 		ContentType:  util.NilIfEmpty(contentType),
+	})
+	if err != nil {
+		metric.S3CopyObjectCompleted(err)
+		return err
+	}
+	err = fs.svc.WaitUntilObjectExistsWithContext(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(fs.config.Bucket),
+		Key:    aws.String(target),
 	})
 	metric.S3CopyObjectCompleted(err)
 	if err != nil {
@@ -697,4 +705,15 @@ func (*S3Fs) Close() error {
 // GetAvailableDiskSize return the available size for the specified path
 func (*S3Fs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
 	return nil, ErrStorageSizeUnavailable
+}
+
+// ideally we should simply use url.PathEscape:
+//
+// https://github.com/awsdocs/aws-doc-sdk-examples/blob/master/go/example_code/s3/s3_copy_object.go#L65
+//
+// but this cause issue with some vendors, see #483, the code below is copied from rclone
+func pathEscape(in string) string {
+	var u url.URL
+	u.Path = in
+	return strings.ReplaceAll(u.String(), "+", "%2B")
 }
