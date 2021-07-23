@@ -11,6 +11,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/util"
+	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
 // Connection details for a HTTP connection used to inteact with an SFTPGo filesystem
@@ -107,5 +108,104 @@ func (c *Connection) getFileReader(name string, offset int64, method string) (io
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, p, p, name, common.TransferDownload,
 		0, 0, 0, false, fs)
-	return newHTTPDFile(baseTransfer, r), nil
+	return newHTTPDFile(baseTransfer, nil, r), nil
+}
+
+func (c *Connection) getFileWriter(name string) (io.WriteCloser, error) {
+	c.UpdateLastActivity()
+
+	if !c.User.IsFileAllowed(name) {
+		c.Log(logger.LevelWarn, "writing file %#v is not allowed", name)
+		return nil, c.GetPermissionDeniedError()
+	}
+
+	fs, p, err := c.GetFsAndResolvedPath(name)
+	if err != nil {
+		return nil, err
+	}
+	filePath := p
+	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
+		filePath = fs.GetAtomicUploadPath(p)
+	}
+
+	stat, statErr := fs.Lstat(p)
+	if (statErr == nil && stat.Mode()&os.ModeSymlink != 0) || fs.IsNotExist(statErr) {
+		if !c.User.HasPerm(dataprovider.PermUpload, path.Dir(name)) {
+			return nil, c.GetPermissionDeniedError()
+		}
+		return c.handleUploadFile(fs, p, filePath, name, true, 0)
+	}
+
+	if statErr != nil {
+		c.Log(logger.LevelError, "error performing file stat %#v: %+v", p, statErr)
+		return nil, c.GetFsError(fs, statErr)
+	}
+
+	// This happen if we upload a file that has the same name of an existing directory
+	if stat.IsDir() {
+		c.Log(logger.LevelWarn, "attempted to open a directory for writing to: %#v", p)
+		return nil, c.GetOpUnsupportedError()
+	}
+
+	if !c.User.HasPerm(dataprovider.PermOverwrite, path.Dir(name)) {
+		return nil, c.GetPermissionDeniedError()
+	}
+
+	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
+		err = fs.Rename(p, filePath)
+		if err != nil {
+			c.Log(logger.LevelWarn, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %+v",
+				p, filePath, err)
+			return nil, c.GetFsError(fs, err)
+		}
+	}
+
+	return c.handleUploadFile(fs, p, filePath, name, false, stat.Size())
+}
+
+func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, requestPath string, isNewFile bool, fileSize int64) (io.WriteCloser, error) {
+	quotaResult := c.HasSpace(isNewFile, false, requestPath)
+	if !quotaResult.HasSpace {
+		c.Log(logger.LevelInfo, "denying file write due to quota limits")
+		return nil, common.ErrQuotaExceeded
+	}
+	err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(), fileSize, os.O_TRUNC)
+	if err != nil {
+		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
+		return nil, c.GetPermissionDeniedError()
+	}
+
+	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, fileSize, fs.IsUploadResumeSupported())
+
+	file, w, cancelFn, err := fs.Create(filePath, 0)
+	if err != nil {
+		c.Log(logger.LevelWarn, "error opening existing file, source: %#v, err: %+v", filePath, err)
+		return nil, c.GetFsError(fs, err)
+	}
+
+	initialSize := int64(0)
+	if !isNewFile {
+		if vfs.IsLocalOrSFTPFs(fs) {
+			vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
+			if err == nil {
+				dataprovider.UpdateVirtualFolderQuota(&vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck
+				if vfolder.IsIncludedInUserQuota() {
+					dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false) //nolint:errcheck
+				}
+			} else {
+				dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false) //nolint:errcheck
+			}
+		} else {
+			initialSize = fileSize
+		}
+		if maxWriteSize > 0 {
+			maxWriteSize += fileSize
+		}
+	}
+
+	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
+
+	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
+		common.TransferUpload, 0, initialSize, maxWriteSize, isNewFile, fs)
+	return newHTTPDFile(baseTransfer, w, nil), nil
 }

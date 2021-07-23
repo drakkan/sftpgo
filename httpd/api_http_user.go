@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path"
 	"time"
 
 	"github.com/go-chi/render"
@@ -12,29 +15,38 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
-func readUserFolder(w http.ResponseWriter, r *http.Request) {
+func getUserConnection(w http.ResponseWriter, r *http.Request) (*Connection, error) {
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
-		return
+		return nil, fmt.Errorf("invalid token claims %w", err)
 	}
 	user, err := dataprovider.UserExists(claims.Username)
 	if err != nil {
 		sendAPIResponse(w, r, nil, "Unable to retrieve your user", getRespStatus(err))
-		return
+		return nil, err
 	}
 	connID := xid.New().String()
 	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, connID)
 	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-		return
+		return nil, err
 	}
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, r.RemoteAddr, user),
 		request:        r,
+	}
+	return connection, nil
+}
+
+func readUserFolder(w http.ResponseWriter, r *http.Request) {
+	connection, err := getUserConnection(w, r)
+	if err != nil {
+		return
 	}
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
@@ -60,26 +72,66 @@ func readUserFolder(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, results)
 }
 
-func getUserFile(w http.ResponseWriter, r *http.Request) {
-	claims, err := getTokenClaims(r)
-	if err != nil || claims.Username == "" {
-		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
-		return
-	}
-	user, err := dataprovider.UserExists(claims.Username)
+func createUserDir(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	connection, err := getUserConnection(w, r)
 	if err != nil {
-		sendAPIResponse(w, r, nil, "Unable to retrieve your user", getRespStatus(err))
 		return
 	}
-	connID := xid.New().String()
-	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, connID)
-	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
-		sendAPIResponse(w, r, err, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+	common.Connections.Add(connection)
+	defer common.Connections.Remove(connection.GetID())
+
+	name := util.CleanPath(r.URL.Query().Get("path"))
+	err = connection.CreateDir(name)
+	if err != nil {
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to create directory %#v", name), getMappedStatusCode(err))
 		return
 	}
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, r.RemoteAddr, user),
-		request:        r,
+	sendAPIResponse(w, r, nil, fmt.Sprintf("Directory %#v created", name), http.StatusCreated)
+}
+
+func renameUserDir(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	connection, err := getUserConnection(w, r)
+	if err != nil {
+		return
+	}
+	common.Connections.Add(connection)
+	defer common.Connections.Remove(connection.GetID())
+
+	oldName := util.CleanPath(r.URL.Query().Get("path"))
+	newName := util.CleanPath(r.URL.Query().Get("target"))
+	err = connection.Rename(oldName, newName)
+	if err != nil {
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to rename directory %#v to %#v", oldName, newName),
+			getMappedStatusCode(err))
+		return
+	}
+	sendAPIResponse(w, r, nil, fmt.Sprintf("Directory %#v renamed to %#v", oldName, newName), http.StatusOK)
+}
+
+func deleteUserDir(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	connection, err := getUserConnection(w, r)
+	if err != nil {
+		return
+	}
+	common.Connections.Add(connection)
+	defer common.Connections.Remove(connection.GetID())
+
+	name := util.CleanPath(r.URL.Query().Get("path"))
+	err = connection.RemoveDir(name)
+	if err != nil {
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to delete directory %#v", name), getMappedStatusCode(err))
+		return
+	}
+	sendAPIResponse(w, r, nil, fmt.Sprintf("Directory %#v deleted", name), http.StatusOK)
+}
+
+func getUserFile(w http.ResponseWriter, r *http.Request) {
+	connection, err := getUserConnection(w, r)
+	if err != nil {
+		return
 	}
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
@@ -112,26 +164,121 @@ func getUserFile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getUserFilesAsZipStream(w http.ResponseWriter, r *http.Request) {
-	claims, err := getTokenClaims(r)
-	if err != nil || claims.Username == "" {
-		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
-		return
+func uploadUserFiles(w http.ResponseWriter, r *http.Request) {
+	if maxUploadFileSize > 0 {
+		r.Body = http.MaxBytesReader(w, r.Body, maxUploadFileSize)
 	}
-	user, err := dataprovider.UserExists(claims.Username)
+
+	connection, err := getUserConnection(w, r)
 	if err != nil {
-		sendAPIResponse(w, r, nil, "Unable to retrieve your user", getRespStatus(err))
 		return
 	}
-	connID := xid.New().String()
-	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, connID)
-	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
-		sendAPIResponse(w, r, err, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+	common.Connections.Add(connection)
+	defer common.Connections.Remove(connection.GetID())
+
+	err = r.ParseMultipartForm(maxMultipartMem)
+	if err != nil {
+		sendAPIResponse(w, r, err, "Unable to parse multipart form", http.StatusBadRequest)
 		return
 	}
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, r.RemoteAddr, user),
-		request:        r,
+
+	parentDir := util.CleanPath(r.URL.Query().Get("path"))
+	files := r.MultipartForm.File["filename"]
+	if len(files) == 0 {
+		sendAPIResponse(w, r, err, "No files uploaded!", http.StatusBadRequest)
+		return
+	}
+
+	for _, f := range files {
+		file, err := f.Open()
+		if err != nil {
+			sendAPIResponse(w, r, err, fmt.Sprintf("Unable to read uploaded file %#v", f.Filename), getMappedStatusCode(err))
+			return
+		}
+		defer file.Close()
+
+		filePath := path.Join(parentDir, f.Filename)
+		writer, err := connection.getFileWriter(filePath)
+		if err != nil {
+			sendAPIResponse(w, r, err, fmt.Sprintf("Unable to write file %#v", f.Filename), getMappedStatusCode(err))
+			return
+		}
+		_, err = io.Copy(writer, file)
+		if err != nil {
+			writer.Close() //nolint:errcheck
+			sendAPIResponse(w, r, err, fmt.Sprintf("Error saving file %#v", f.Filename), getMappedStatusCode(err))
+			return
+		}
+		err = writer.Close()
+		if err != nil {
+			sendAPIResponse(w, r, err, fmt.Sprintf("Error closing file %#v", f.Filename), getMappedStatusCode(err))
+			return
+		}
+	}
+	sendAPIResponse(w, r, nil, "Upload completed", http.StatusCreated)
+}
+
+func renameUserFile(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	connection, err := getUserConnection(w, r)
+	if err != nil {
+		return
+	}
+	common.Connections.Add(connection)
+	defer common.Connections.Remove(connection.GetID())
+
+	oldName := util.CleanPath(r.URL.Query().Get("path"))
+	newName := util.CleanPath(r.URL.Query().Get("target"))
+	err = connection.Rename(oldName, newName)
+	if err != nil {
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to rename file %#v to %#v", oldName, newName),
+			getMappedStatusCode(err))
+		return
+	}
+	sendAPIResponse(w, r, nil, fmt.Sprintf("File %#v renamed to %#v", oldName, newName), http.StatusOK)
+}
+
+func deleteUserFile(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	connection, err := getUserConnection(w, r)
+	if err != nil {
+		return
+	}
+	common.Connections.Add(connection)
+	defer common.Connections.Remove(connection.GetID())
+
+	name := util.CleanPath(r.URL.Query().Get("path"))
+	fs, p, err := connection.GetFsAndResolvedPath(name)
+	if err != nil {
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to delete file %#v", name), getMappedStatusCode(err))
+		return
+	}
+
+	var fi os.FileInfo
+	if fi, err = fs.Lstat(p); err != nil {
+		connection.Log(logger.LevelWarn, "failed to remove a file %#v: stat error: %+v", p, err)
+		err = connection.GetFsError(fs, err)
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to delete file %#v", name), getMappedStatusCode(err))
+		return
+	}
+
+	if fi.IsDir() && fi.Mode()&os.ModeSymlink == 0 {
+		connection.Log(logger.LevelDebug, "cannot remove %#v is not a file/symlink", p)
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable delete %#v, it is not a file/symlink", name), http.StatusBadRequest)
+		return
+	}
+	err = connection.RemoveFile(fs, p, name, fi)
+	if err != nil {
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to delete file %#v", name), getMappedStatusCode(err))
+		return
+	}
+	sendAPIResponse(w, r, nil, fmt.Sprintf("File %#v deleted", name), http.StatusOK)
+}
+
+func getUserFilesAsZipStream(w http.ResponseWriter, r *http.Request) {
+	connection, err := getUserConnection(w, r)
+	if err != nil {
+		return
 	}
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())

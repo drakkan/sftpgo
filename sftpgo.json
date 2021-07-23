@@ -202,7 +202,8 @@
     "certificate_key_file": "",
     "ca_certificates": [],
     "ca_revocation_lists": [],
-    "signing_passphrase": ""
+    "signing_passphrase": "",
+    "max_upload_file_size": 1048576000
   },
   "telemetry": {
     "bind_port": 10000,

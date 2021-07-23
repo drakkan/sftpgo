@@ -17,7 +17,7 @@ info:
     Several storage backends are supported and they are configurable per user, so you can serve a local directory for a user and an S3 bucket (or part of it) for another one.
     SFTPGo also supports virtual folders, a virtual folder can use any of the supported storage backends. So you can have, for example, an S3 user that exposes a GCS bucket (or part of it) on a specified path and an encrypted local filesystem on another one.
     Virtual folders can be private or shared among multiple users, for shared virtual folders you can define different quota limits for each user.
-  version: 2.1.0
+  version: 2.1.0-dev
   contact:
     name: API support
     url: 'https://github.com/drakkan/sftpgo'
@@ -1790,6 +1790,108 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
+    post:
+      tags:
+        - users API
+      summary: Create a directory
+      description: Create a directory for the logged in user
+      operationId: create_user_folder
+      parameters:
+        - in: query
+          name: path
+          description: Path to the folder to create. It must be URL encoded, for example the path "my dir/àdir" must be sent as "my%20dir%2F%C3%A0dir"
+          schema:
+            type: string
+          required: true
+      responses:
+        '201':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    patch:
+      tags:
+        - users API
+      summary: Rename a directory
+      description: Rename a directory for the logged in user. The rename is allowed for empty directory or for non empty, local directories, with no virtual folders inside
+      operationId: rename_user_folder
+      parameters:
+        - in: query
+          name: path
+          description: Path to the folder to rename. It must be URL encoded, for example the path "my dir/àdir" must be sent as "my%20dir%2F%C3%A0dir"
+          schema:
+            type: string
+          required: true
+        - in: query
+          name: target
+          description: New name. It must be URL encoded, for example the path "my dir/àdir" must be sent as "my%20dir%2F%C3%A0dir"
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    delete:
+      tags:
+        - users API
+      summary: Delete a directory
+      description: Delete a directory for the logged in user. Only empty directories can be deleted
+      operationId: delete_user_folder
+      parameters:
+        - in: query
+          name: path
+          description: Path to the folder to delete. It must be URL encoded, for example the path "my dir/àdir" must be sent as "my%20dir%2F%C3%A0dir"
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
   /user/file:
     get:
       tags:
@@ -1819,6 +1921,121 @@ paths:
               schema:
                 type: string
                 format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    post:
+      tags:
+        - users API
+      summary: Upload files
+      description: Upload one or more files for the logged in user
+      operationId: create_user_files
+      parameters:
+        - in: query
+          name: path
+          description: Parent directory for the uploaded files. It must be URL encoded, for example the path "my dir/àdir" must be sent as "my%20dir%2F%C3%A0dir". If empty or missing the root path is assumed. If a file with the same name already exists, it will be overwritten
+          schema:
+            type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                filename:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  minItems: 1
+                  uniqueItems: true
+        required: true
+      responses:
+        '201':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    patch:
+      tags:
+        - users API
+      summary: Rename afile
+      description: Rename a file for the logged in user
+      operationId: rename_user_file
+      parameters:
+        - in: query
+          name: path
+          description: Path to the file to rename. It must be URL encoded
+          schema:
+            type: string
+          required: true
+        - in: query
+          name: target
+          description: New name. It must be URL encoded
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    delete:
+      tags:
+        - users API
+      summary: Delete a file
+      description: Delete a file for the logged in user.
+      operationId: delete_user_file
+      parameters:
+        - in: query
+          name: path
+          description: Path to the file to delete. It must be URL encoded
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':

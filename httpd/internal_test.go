@@ -1456,6 +1456,39 @@ func TestConnection(t *testing.T) {
 	assert.ErrorIs(t, err, os.ErrNotExist)
 }
 
+func TestGetFileWriterErrors(t *testing.T) {
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: "test_httpd_user",
+			HomeDir:  "invalid",
+		},
+	}
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{dataprovider.PermAny}
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", user),
+		request:        nil,
+	}
+	_, err := connection.getFileWriter("name")
+	assert.Error(t, err)
+
+	user.FsConfig.Provider = sdk.S3FilesystemProvider
+	user.FsConfig.S3Config = vfs.S3FsConfig{
+		S3FsConfig: sdk.S3FsConfig{
+			Bucket:       "b",
+			Region:       "us-west-1",
+			AccessKey:    "key",
+			AccessSecret: kms.NewPlainSecret("secret"),
+		},
+	}
+	connection = &Connection{
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", user),
+		request:        nil,
+	}
+	_, err = connection.getFileWriter("/path")
+	assert.Error(t, err)
+}
+
 func TestHTTPDFile(t *testing.T) {
 	user := dataprovider.User{
 		BaseUser: sdk.BaseUser{
@@ -1484,7 +1517,7 @@ func TestHTTPDFile(t *testing.T) {
 
 	baseTransfer := common.NewBaseTransfer(file, connection.BaseConnection, nil, p, p, name, common.TransferDownload,
 		0, 0, 0, false, fs)
-	httpdFile := newHTTPDFile(baseTransfer, nil)
+	httpdFile := newHTTPDFile(baseTransfer, nil, nil)
 	// the file is closed, read should fail
 	buf := make([]byte, 100)
 	_, err = httpdFile.Read(buf)
@@ -1495,6 +1528,14 @@ func TestHTTPDFile(t *testing.T) {
 	assert.ErrorIs(t, err, common.ErrTransferClosed)
 	err = os.Remove(p)
 	assert.NoError(t, err)
+
+	httpdFile.writer = file
+	httpdFile.File = nil
+	httpdFile.ErrTransfer = nil
+	err = httpdFile.closeIO()
+	assert.Error(t, err)
+	assert.Error(t, httpdFile.ErrTransfer)
+	assert.Equal(t, err, httpdFile.ErrTransfer)
 }
 
 func TestChangeUserPwd(t *testing.T) {

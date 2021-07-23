@@ -8,25 +8,32 @@ import (
 	"github.com/eikenb/pipeat"
 
 	"github.com/drakkan/sftpgo/v2/common"
+	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
 var errTransferAborted = errors.New("transfer aborted")
 
 type httpdFile struct {
 	*common.BaseTransfer
+	writer     io.WriteCloser
 	reader     io.ReadCloser
 	isFinished bool
 }
 
-func newHTTPDFile(baseTransfer *common.BaseTransfer, pipeReader *pipeat.PipeReaderAt) *httpdFile {
+func newHTTPDFile(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *pipeat.PipeReaderAt) *httpdFile {
+	var writer io.WriteCloser
 	var reader io.ReadCloser
 	if baseTransfer.File != nil {
+		writer = baseTransfer.File
 		reader = baseTransfer.File
+	} else if pipeWriter != nil {
+		writer = pipeWriter
 	} else if pipeReader != nil {
 		reader = pipeReader
 	}
 	return &httpdFile{
 		BaseTransfer: baseTransfer,
+		writer:       writer,
 		reader:       reader,
 		isFinished:   false,
 	}
@@ -44,6 +51,28 @@ func (f *httpdFile) Read(p []byte) (n int, err error) {
 	atomic.AddInt64(&f.BytesSent, int64(n))
 
 	if err != nil && err != io.EOF {
+		f.TransferError(err)
+		return
+	}
+	f.HandleThrottle()
+	return
+}
+
+// Write writes the contents to upload
+func (f *httpdFile) Write(p []byte) (n int, err error) {
+	if atomic.LoadInt32(&f.AbortTransfer) == 1 {
+		return 0, errTransferAborted
+	}
+
+	f.Connection.UpdateLastActivity()
+
+	n, err = f.writer.Write(p)
+	atomic.AddInt64(&f.BytesReceived, int64(n))
+
+	if f.MaxWriteSize > 0 && err == nil && atomic.LoadInt64(&f.BytesReceived) > f.MaxWriteSize {
+		err = common.ErrQuotaExceeded
+	}
+	if err != nil {
 		f.TransferError(err)
 		return
 	}
@@ -69,6 +98,14 @@ func (f *httpdFile) closeIO() error {
 	var err error
 	if f.File != nil {
 		err = f.File.Close()
+	} else if f.writer != nil {
+		err = f.writer.Close()
+		f.Lock()
+		// we set ErrTransfer here so quota is not updated, in this case the uploads are atomic
+		if err != nil && f.ErrTransfer == nil {
+			f.ErrTransfer = err
+		}
+		f.Unlock()
 	} else if f.reader != nil {
 		err = f.reader.Close()
 	}

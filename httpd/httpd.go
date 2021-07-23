@@ -56,8 +56,8 @@ const (
 	adminPwdCompatPath              = "/api/v2/changepwd/admin"
 	userPwdPath                     = "/api/v2/user/changepwd"
 	userPublicKeysPath              = "/api/v2/user/publickeys"
-	userReadFolderPath              = "/api/v2/user/folder"
-	userGetFilePath                 = "/api/v2/user/file"
+	userFolderPath                  = "/api/v2/user/folder"
+	userFilePath                    = "/api/v2/user/file"
 	userStreamZipPath               = "/api/v2/user/streamzip"
 	healthzPath                     = "/healthz"
 	webRootPathDefault              = "/"
@@ -98,6 +98,7 @@ const (
 	MaxRestoreSize   = 10485760 // 10 MB
 	maxRequestSize   = 1048576  // 1MB
 	maxLoginPostSize = 262144   // 256 KB
+	maxMultipartMem  = 8388608  // 8MB
 	osWindows        = "windows"
 )
 
@@ -142,6 +143,8 @@ var (
 	webChangeClientKeysPath  string
 	webClientLogoutPath      string
 	webStaticFilesPath       string
+	// max upload size for http clients, 1GB by default
+	maxUploadFileSize = int64(1048576000)
 )
 
 func init() {
@@ -250,6 +253,9 @@ type Conf struct {
 	// If empty a random signing key will be generated each time SFTPGo starts. If you set a
 	// signing passphrase you should consider rotating it periodically for added security
 	SigningPassphrase string `json:"signing_passphrase" mapstructure:"signing_passphrase"`
+	// MaxUploadFileSize Defines the maximum request body size, in bytes, for Web Client/API HTTP upload requests.
+	// 0 means no limit
+	MaxUploadFileSize int64 `json:"max_upload_file_size" mapstructure:"max_upload_file_size"`
 }
 
 type apiResponse struct {
@@ -361,6 +367,7 @@ func (c *Conf) Initialize(configDir string) error {
 		}(binding)
 	}
 
+	maxUploadFileSize = c.MaxUploadFileSize
 	startJWTTokensCleanupTicker(tokenDuration)
 	return <-exitChannel
 }

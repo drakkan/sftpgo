@@ -251,6 +251,7 @@ func Init() {
 			CACertificates:     nil,
 			CARevocationLists:  nil,
 			SigningPassphrase:  "",
+			MaxUploadFileSize:  1048576000,
 		},
 		HTTPConfig: httpclient.Config{
 			Timeout:        20,
@@ -1039,6 +1040,7 @@ func setViperDefaults() {
 	viper.SetDefault("httpd.ca_certificates", globalConf.HTTPDConfig.CACertificates)
 	viper.SetDefault("httpd.ca_revocation_lists", globalConf.HTTPDConfig.CARevocationLists)
 	viper.SetDefault("httpd.signing_passphrase", globalConf.HTTPDConfig.SigningPassphrase)
+	viper.SetDefault("httpd.max_upload_file_size", globalConf.HTTPDConfig.MaxUploadFileSize)
 	viper.SetDefault("http.timeout", globalConf.HTTPConfig.Timeout)
 	viper.SetDefault("http.retry_wait_min", globalConf.HTTPConfig.RetryWaitMin)
 	viper.SetDefault("http.retry_wait_max", globalConf.HTTPConfig.RetryWaitMax)

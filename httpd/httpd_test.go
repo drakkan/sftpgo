@@ -78,8 +78,8 @@ const (
 	logoutPath                      = "/api/v2/logout"
 	userPwdPath                     = "/api/v2/user/changepwd"
 	userPublicKeysPath              = "/api/v2/user/publickeys"
-	userReadFolderPath              = "/api/v2/user/folder"
-	userGetFilePath                 = "/api/v2/user/file"
+	userFolderPath                  = "/api/v2/user/folder"
+	userFilePath                    = "/api/v2/user/file"
 	userStreamZipPath               = "/api/v2/user/streamzip"
 	healthzPath                     = "/healthz"
 	webBasePath                     = "/web"
@@ -156,7 +156,7 @@ var (
 	testServer         *httptest.Server
 	providerDriverName string
 	postConnectPath    string
-	preDownloadPath    string
+	preActionPath      string
 )
 
 type fakeConnection struct {
@@ -212,7 +212,7 @@ func TestMain(m *testing.M) {
 	}
 
 	postConnectPath = filepath.Join(homeBasePath, "postconnect.sh")
-	preDownloadPath = filepath.Join(homeBasePath, "predownload.sh")
+	preActionPath = filepath.Join(homeBasePath, "preaction.sh")
 
 	httpConfig := config.GetHTTPConfig()
 	httpConfig.Initialize(configDir) //nolint:errcheck
@@ -302,7 +302,7 @@ func TestMain(m *testing.M) {
 	os.Remove(hostKeyPath)
 	os.Remove(hostKeyPath + ".pub")
 	os.Remove(postConnectPath)
-	os.Remove(preDownloadPath)
+	os.Remove(preActionPath)
 	os.Exit(exitCode)
 }
 
@@ -4852,14 +4852,14 @@ func TestWebAPILoginMock(t *testing.T) {
 	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 	// a web token is not valid for API usage
-	req, err := http.NewRequest(http.MethodGet, userReadFolderPath, nil)
+	req, err := http.NewRequest(http.MethodGet, userFolderPath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusUnauthorized, rr)
 	assert.Contains(t, rr.Body.String(), "Your token audience is not valid")
 
-	req, err = http.NewRequest(http.MethodGet, userReadFolderPath+"/?path=%2F", nil)
+	req, err = http.NewRequest(http.MethodGet, userFolderPath+"/?path=%2F", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
@@ -4959,13 +4959,13 @@ func TestWebClientLoginMock(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, rr)
 	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
 
-	req, _ = http.NewRequest(http.MethodGet, userReadFolderPath, nil)
+	req, _ = http.NewRequest(http.MethodGet, userFolderPath, nil)
 	setBearerForReq(req, apiUserToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
 
-	req, _ = http.NewRequest(http.MethodGet, userGetFilePath, nil)
+	req, _ = http.NewRequest(http.MethodGet, userFilePath, nil)
 	setBearerForReq(req, apiUserToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
@@ -5412,12 +5412,12 @@ func TestPreDownloadHook(t *testing.T) {
 	oldHook := common.Config.Actions.Hook
 
 	common.Config.Actions.ExecuteOn = []string{common.OperationPreDownload}
-	common.Config.Actions.Hook = preDownloadPath
+	common.Config.Actions.Hook = preActionPath
 
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	err = os.WriteFile(preDownloadPath, getExitCodeScriptContent(0), os.ModePerm)
+	err = os.WriteFile(preActionPath, getExitCodeScriptContent(0), os.ModePerm)
 	assert.NoError(t, err)
 
 	testFileName := "testfile"
@@ -5438,14 +5438,14 @@ func TestPreDownloadHook(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Equal(t, testFileContents, rr.Body.Bytes())
 
-	req, err = http.NewRequest(http.MethodGet, userGetFilePath+"?path="+testFileName, nil)
+	req, err = http.NewRequest(http.MethodGet, userFilePath+"?path="+testFileName, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Equal(t, testFileContents, rr.Body.Bytes())
 
-	err = os.WriteFile(preDownloadPath, getExitCodeScriptContent(1), os.ModePerm)
+	err = os.WriteFile(preActionPath, getExitCodeScriptContent(1), os.ModePerm)
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodGet, webClientFilesPath+"?path="+testFileName, nil)
 	assert.NoError(t, err)
@@ -5454,12 +5454,69 @@ func TestPreDownloadHook(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "permission denied")
 
-	req, err = http.NewRequest(http.MethodGet, userGetFilePath+"?path="+testFileName, nil)
+	req, err = http.NewRequest(http.MethodGet, userFilePath+"?path="+testFileName, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "permission denied")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	common.Config.Actions.ExecuteOn = oldExecuteOn
+	common.Config.Actions.Hook = oldHook
+}
+
+func TestPreUploadHook(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	oldExecuteOn := common.Config.Actions.ExecuteOn
+	oldHook := common.Config.Actions.Hook
+
+	common.Config.Actions.ExecuteOn = []string{common.OperationPreUpload}
+	common.Config.Actions.Hook = preActionPath
+
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	err = os.WriteFile(preActionPath, getExitCodeScriptContent(0), os.ModePerm)
+	assert.NoError(t, err)
+
+	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("filename", "filepre")
+	assert.NoError(t, err)
+	_, err = part.Write([]byte("file content"))
+	assert.NoError(t, err)
+	err = writer.Close()
+	assert.NoError(t, err)
+	reader := bytes.NewReader(body.Bytes())
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userFilePath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	err = os.WriteFile(preActionPath, getExitCodeScriptContent(1), os.ModePerm)
+	assert.NoError(t, err)
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -5508,7 +5565,7 @@ func TestWebGetFiles(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, dirContents, 1)
 
-	req, _ = http.NewRequest(http.MethodGet, userReadFolderPath+"?path="+testDir, nil)
+	req, _ = http.NewRequest(http.MethodGet, userFolderPath+"?path="+testDir, nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -5558,7 +5615,7 @@ func TestWebGetFiles(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, dirContents, len(extensions)+1)
 
-	req, _ = http.NewRequest(http.MethodGet, userReadFolderPath+"?path=/", nil)
+	req, _ = http.NewRequest(http.MethodGet, userFolderPath+"?path=/", nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -5573,7 +5630,7 @@ func TestWebGetFiles(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, rr)
 	assert.Contains(t, rr.Body.String(), "Unable to get directory contents")
 
-	req, _ = http.NewRequest(http.MethodGet, userReadFolderPath+"?path=missing", nil)
+	req, _ = http.NewRequest(http.MethodGet, userFolderPath+"?path=missing", nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
@@ -5585,25 +5642,25 @@ func TestWebGetFiles(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Equal(t, testFileContents, rr.Body.Bytes())
 
-	req, _ = http.NewRequest(http.MethodGet, userGetFilePath+"?path="+testFileName, nil)
+	req, _ = http.NewRequest(http.MethodGet, userFilePath+"?path="+testFileName, nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Equal(t, testFileContents, rr.Body.Bytes())
 
-	req, _ = http.NewRequest(http.MethodGet, userGetFilePath+"?path=", nil)
+	req, _ = http.NewRequest(http.MethodGet, userFilePath+"?path=", nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "Please set the path to a valid file")
 
-	req, _ = http.NewRequest(http.MethodGet, userGetFilePath+"?path="+testDir, nil)
+	req, _ = http.NewRequest(http.MethodGet, userFilePath+"?path="+testDir, nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "is a directory")
 
-	req, _ = http.NewRequest(http.MethodGet, userGetFilePath+"?path=notafile", nil)
+	req, _ = http.NewRequest(http.MethodGet, userFilePath+"?path=notafile", nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
@@ -5616,7 +5673,7 @@ func TestWebGetFiles(t *testing.T) {
 	checkResponseCode(t, http.StatusPartialContent, rr)
 	assert.Equal(t, testFileContents[2:], rr.Body.Bytes())
 
-	req, _ = http.NewRequest(http.MethodGet, userGetFilePath+"?path="+testFileName, nil)
+	req, _ = http.NewRequest(http.MethodGet, userFilePath+"?path="+testFileName, nil)
 	req.Header.Set("Range", "bytes=2-")
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -5642,7 +5699,7 @@ func TestWebGetFiles(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusRequestedRangeNotSatisfiable, rr)
 
-	req, _ = http.NewRequest(http.MethodGet, userGetFilePath+"?path="+testFileName, nil)
+	req, _ = http.NewRequest(http.MethodGet, userFilePath+"?path="+testFileName, nil)
 	req.Header.Set("Range", "bytes=2b-")
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -5680,7 +5737,7 @@ func TestWebGetFiles(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusPreconditionFailed, rr)
 
-	req, _ = http.NewRequest(http.MethodHead, userGetFilePath+"?path="+testFileName, nil)
+	req, _ = http.NewRequest(http.MethodHead, userFilePath+"?path="+testFileName, nil)
 	req.Header.Set("If-Unmodified-Since", time.Now().UTC().Add(-120*time.Second).Format(http.TimeFormat))
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -5706,12 +5763,12 @@ func TestWebGetFiles(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 
-	req, _ = http.NewRequest(http.MethodGet, userGetFilePath+"?path="+testFileName, nil)
+	req, _ = http.NewRequest(http.MethodGet, userFilePath+"?path="+testFileName, nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 
-	req, _ = http.NewRequest(http.MethodGet, userReadFolderPath+"?path="+testDir, nil)
+	req, _ = http.NewRequest(http.MethodGet, userFolderPath+"?path="+testDir, nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
@@ -5739,10 +5796,676 @@ func TestWebGetFiles(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 
-	req, _ = http.NewRequest(http.MethodGet, userReadFolderPath+"?path="+testDir, nil)
+	req, _ = http.NewRequest(http.MethodGet, userFolderPath+"?path="+testDir, nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestWebDirsAPI(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	testDir := "testdir"
+
+	req, err := http.NewRequest(http.MethodGet, userFolderPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var contents []map[string]interface{}
+	err = json.NewDecoder(rr.Body).Decode(&contents)
+	assert.NoError(t, err)
+	assert.Len(t, contents, 0)
+
+	// rename a missing folder
+	req, err = http.NewRequest(http.MethodPatch, userFolderPath+"?path="+testDir+"&target="+testDir+"new", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	// delete a missing folder
+	req, err = http.NewRequest(http.MethodDelete, userFolderPath+"?path="+testDir, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	// create a dir
+	req, err = http.NewRequest(http.MethodPost, userFolderPath+"?path="+testDir, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	// check the dir was created
+	req, err = http.NewRequest(http.MethodGet, userFolderPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	contents = nil
+	err = json.NewDecoder(rr.Body).Decode(&contents)
+	assert.NoError(t, err)
+	if assert.Len(t, contents, 1) {
+		assert.Equal(t, testDir, contents[0]["name"])
+	}
+	// rename the dir
+	req, err = http.NewRequest(http.MethodPatch, userFolderPath+"?path="+testDir+"&target="+testDir+"new", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// delete the dir
+	req, err = http.NewRequest(http.MethodDelete, userFolderPath+"?path="+testDir+"new", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// the root dir cannot be created
+	req, err = http.NewRequest(http.MethodPost, userFolderPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	user.Permissions["/"] = []string{dataprovider.PermListItems}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	// the user has no more the permission to create the directory
+	req, err = http.NewRequest(http.MethodPost, userFolderPath+"?path="+testDir, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	// the user is deleted, any API call should fail
+	req, err = http.NewRequest(http.MethodPost, userFolderPath+"?path="+testDir, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPatch, userFolderPath+"?path="+testDir+"&target="+testDir+"new", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodDelete, userFolderPath+"?path="+testDir+"new", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+}
+
+func TestWebFilesAPI(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part1, err := writer.CreateFormFile("filename", "file1.txt")
+	assert.NoError(t, err)
+	_, err = part1.Write([]byte("file1 content"))
+	assert.NoError(t, err)
+	part2, err := writer.CreateFormFile("filename", "file2.txt")
+	assert.NoError(t, err)
+	_, err = part2.Write([]byte("file2 content"))
+	assert.NoError(t, err)
+	err = writer.Close()
+	assert.NoError(t, err)
+	reader := bytes.NewReader(body.Bytes())
+
+	req, err := http.NewRequest(http.MethodPost, userFilePath, reader)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to parse multipart form")
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	// set the proper content type
+	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	// check we have 2 files
+	req, err = http.NewRequest(http.MethodGet, userFolderPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var contents []map[string]interface{}
+	err = json.NewDecoder(rr.Body).Decode(&contents)
+	assert.NoError(t, err)
+	assert.Len(t, contents, 2)
+	// overwrite the existing files
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	req, err = http.NewRequest(http.MethodGet, userFolderPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	contents = nil
+	err = json.NewDecoder(rr.Body).Decode(&contents)
+	assert.NoError(t, err)
+	assert.Len(t, contents, 2)
+	// now create a dir and upload to that dir
+	testDir := "tdir"
+	req, err = http.NewRequest(http.MethodPost, userFolderPath+"?path="+testDir, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilePath+"?path="+testDir, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	req, err = http.NewRequest(http.MethodGet, userFolderPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	contents = nil
+	err = json.NewDecoder(rr.Body).Decode(&contents)
+	assert.NoError(t, err)
+	assert.Len(t, contents, 3)
+	req, err = http.NewRequest(http.MethodGet, userFolderPath+"?path="+testDir, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	contents = nil
+	err = json.NewDecoder(rr.Body).Decode(&contents)
+	assert.NoError(t, err)
+	assert.Len(t, contents, 2)
+	// rename a file
+	req, err = http.NewRequest(http.MethodPatch, userFilePath+"?path=file1.txt&target=%2Ftdir%2Ffile3.txt", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// rename a missing file
+	req, err = http.NewRequest(http.MethodPatch, userFilePath+"?path=file1.txt&target=%2Ftdir%2Ffile3.txt", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	// delete a file
+	req, err = http.NewRequest(http.MethodDelete, userFilePath+"?path=file2.txt", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// delete a missing file
+	req, err = http.NewRequest(http.MethodDelete, userFilePath+"?path=file2.txt", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	// delete a directory
+	req, err = http.NewRequest(http.MethodDelete, userFilePath+"?path=tdir", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	// make a symlink outside the home dir and then try to delete it
+	extPath := filepath.Join(os.TempDir(), "file")
+	err = os.WriteFile(extPath, []byte("contents"), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.Symlink(extPath, filepath.Join(user.GetHomeDir(), "file"))
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodDelete, userFilePath+"?path=file", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	err = os.Remove(extPath)
+	assert.NoError(t, err)
+	// remove delete and overwrite permissions
+	user.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload, dataprovider.PermUpload}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilePath+"?path=tdir", reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	req, err = http.NewRequest(http.MethodDelete, userFilePath+"?path=%2Ftdir%2Ffile1.txt", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	// the user is deleted, any API call should fail
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPatch, userFilePath+"?path=file1.txt&target=%2Ftdir%2Ffile3.txt", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodDelete, userFilePath+"?path=file2.txt", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+}
+
+func TestWebUploadErrors(t *testing.T) {
+	u := getTestUser()
+	u.QuotaSize = 65535
+	subDir1 := "sub1"
+	subDir2 := "sub2"
+	u.Permissions[path.Join("/", subDir1)] = []string{dataprovider.PermListItems}
+	u.Permissions[path.Join("/", subDir2)] = []string{dataprovider.PermListItems, dataprovider.PermUpload,
+		dataprovider.PermDelete}
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
+		{
+			Path:            "/sub2",
+			AllowedPatterns: []string{},
+			DeniedPatterns:  []string{"*.zip"},
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("filename", "file.zip")
+	assert.NoError(t, err)
+	_, err = part.Write([]byte("file content"))
+	assert.NoError(t, err)
+	err = writer.Close()
+	assert.NoError(t, err)
+	reader := bytes.NewReader(body.Bytes())
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	// zip file are not allowed within sub2
+	req, err := http.NewRequest(http.MethodPost, userFilePath+"?path=sub2", reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	// we have no upload permissions within sub1
+	req, err = http.NewRequest(http.MethodPost, userFilePath+"?path=sub1", reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	// create a dir and try to overwrite it with a file
+	req, err = http.NewRequest(http.MethodPost, userFolderPath+"?path=file.zip", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	assert.Contains(t, rr.Body.String(), "operation unsupported")
+	// try to upload to a missing parent directory
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilePath+"?path=missingdir", reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodDelete, userFolderPath+"?path=file.zip", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// upload will work now
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	// overwrite the file
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	vfs.SetTempPath(filepath.Join(os.TempDir(), "missingpath"))
+
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	if runtime.GOOS != osWindows {
+		req, err = http.NewRequest(http.MethodDelete, userFilePath+"?path=file.zip", reader)
+		assert.NoError(t, err)
+		setBearerForReq(req, webAPIToken)
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusOK, rr)
+
+		vfs.SetTempPath(filepath.Clean(os.TempDir()))
+		err = os.Chmod(user.GetHomeDir(), 0555)
+		assert.NoError(t, err)
+
+		_, err = reader.Seek(0, io.SeekStart)
+		assert.NoError(t, err)
+		req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+		assert.NoError(t, err)
+		req.Header.Add("Content-Type", writer.FormDataContentType())
+		setBearerForReq(req, webAPIToken)
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusForbidden, rr)
+		assert.Contains(t, rr.Body.String(), "Error closing file")
+
+		err = os.Chmod(user.GetHomeDir(), os.ModePerm)
+		assert.NoError(t, err)
+	}
+
+	vfs.SetTempPath("")
+
+	// upload a multipart form with no files
+	body = new(bytes.Buffer)
+	writer = multipart.NewWriter(body)
+	err = writer.Close()
+	assert.NoError(t, err)
+	reader = bytes.NewReader(body.Bytes())
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilePath+"?path=sub2", reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "No files uploaded!")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestWebAPIVFolder(t *testing.T) {
+	u := getTestUser()
+	u.QuotaSize = 65535
+	vdir := "/vdir"
+	mappedPath := filepath.Join(os.TempDir(), "vdir")
+	folderName := filepath.Base(mappedPath)
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName,
+			MappedPath: mappedPath,
+		},
+		VirtualPath: vdir,
+		QuotaSize:   -1,
+		QuotaFiles:  -1,
+	})
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	webAPIToken, err := getJWTAPIUserTokenFromTestServer(user.Username, defaultPassword)
+	assert.NoError(t, err)
+
+	fileContents := []byte("test contents")
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("filename", "file.txt")
+	assert.NoError(t, err)
+	_, err = part.Write(fileContents)
+	assert.NoError(t, err)
+	err = writer.Close()
+	assert.NoError(t, err)
+	reader := bytes.NewReader(body.Bytes())
+
+	req, err := http.NewRequest(http.MethodPost, userFilePath+"?path=vdir", reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(len(fileContents)), user.UsedQuotaSize)
+
+	folder, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(len(fileContents)), folder.UsedQuotaSize)
+
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilePath+"?path=vdir", reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(len(fileContents)), user.UsedQuotaSize)
+
+	folder, _, err = httpdtest.GetFolderByName(folderName, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(len(fileContents)), folder.UsedQuotaSize)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+}
+
+func TestWebAPICryptFs(t *testing.T) {
+	u := getTestUser()
+	u.QuotaSize = 65535
+	u.FsConfig.Provider = sdk.CryptedFilesystemProvider
+	u.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret(defaultPassword)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("filename", "file.txt")
+	assert.NoError(t, err)
+	_, err = part.Write([]byte("content"))
+	assert.NoError(t, err)
+	err = writer.Close()
+	assert.NoError(t, err)
+	reader := bytes.NewReader(body.Bytes())
+
+	req, err := http.NewRequest(http.MethodPost, userFilePath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestWebUploadSFTP(t *testing.T) {
+	u := getTestUser()
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	u = getTestSFTPUser()
+	u.QuotaFiles = 100
+	u.FsConfig.SFTPConfig.BufferSize = 2
+	u.HomeDir = filepath.Join(os.TempDir(), u.Username)
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	webAPIToken, err := getJWTAPIUserTokenFromTestServer(sftpUser.Username, defaultPassword)
+	assert.NoError(t, err)
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("filename", "file.txt")
+	assert.NoError(t, err)
+	_, err = part.Write([]byte("test file content"))
+	assert.NoError(t, err)
+	err = writer.Close()
+	assert.NoError(t, err)
+	reader := bytes.NewReader(body.Bytes())
+
+	req, err := http.NewRequest(http.MethodPost, userFilePath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	expectedQuotaSize := int64(17)
+	expectedQuotaFiles := 1
+	user, _, err := httpdtest.GetUserByUsername(sftpUser.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
+	assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
+
+	user.QuotaSize = 10
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	// we are now overquota on overwrite
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	assert.Contains(t, rr.Body.String(), "denying write due to space limit")
+	// delete the file
+	req, err = http.NewRequest(http.MethodDelete, userFilePath+"?path=file.txt", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	assert.Contains(t, rr.Body.String(), "denying write due to space limit")
+
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(sftpUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestWebUploadMultipartFormReadError(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPost, userFilePath, nil)
+	assert.NoError(t, err)
+
+	mpartForm := &multipart.Form{
+		File: make(map[string][]*multipart.FileHeader),
+	}
+	mpartForm.File["filename"] = append(mpartForm.File["filename"], &multipart.FileHeader{Filename: "missing"})
+	req.MultipartForm = mpartForm
+	req.Header.Add("Content-Type", "multipart/form-data")
+	setBearerForReq(req, webAPIToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to read uploaded file")
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -5872,21 +6595,49 @@ func TestClientUserClose(t *testing.T) {
 	testFilePath := filepath.Join(user.GetHomeDir(), testFileName)
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
+	uploadContent := make([]byte, testFileSize)
+	_, err = rand.Read(uploadContent)
+	assert.NoError(t, err)
 	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
+	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		req, _ := http.NewRequest(http.MethodGet, webClientFilesPath+"?path="+testFileName, nil)
 		setJWTCookieForReq(req, webToken)
 		rr := executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr)
-		wg.Done()
 	}()
-
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		body := new(bytes.Buffer)
+		writer := multipart.NewWriter(body)
+		part, err := writer.CreateFormFile("filename", "upload.dat")
+		assert.NoError(t, err)
+		n, err := part.Write(uploadContent)
+		assert.NoError(t, err)
+		assert.Equal(t, testFileSize, int64(n))
+		err = writer.Close()
+		assert.NoError(t, err)
+		reader := bytes.NewReader(body.Bytes())
+		req, err := http.NewRequest(http.MethodPost, userFilePath, reader)
+		assert.NoError(t, err)
+		req.Header.Add("Content-Type", writer.FormDataContentType())
+		setBearerForReq(req, webAPIToken)
+		rr := executeRequest(req)
+		checkResponseCode(t, http.StatusInternalServerError, rr)
+		assert.Contains(t, rr.Body.String(), "transfer aborted")
+	}()
+	// wait for the transfers
 	assert.Eventually(t, func() bool {
-		for _, stat := range common.Connections.GetStats() {
-			if len(stat.Transfers) > 0 {
+		stats := common.Connections.GetStats()
+		if len(stats) == 2 {
+			if len(stats[0].Transfers) > 0 && len(stats[1].Transfers) > 0 {
 				return true
 			}
 		}
@@ -5894,6 +6645,7 @@ func TestClientUserClose(t *testing.T) {
 	}, 1*time.Second, 50*time.Millisecond)
 
 	for _, stat := range common.Connections.GetStats() {
+		// close all the active transfers
 		common.Connections.Close(stat.ConnectionID)
 	}
 	wg.Wait()
