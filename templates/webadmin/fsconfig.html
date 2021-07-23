@@ -72,7 +72,28 @@
                     placeholder="" value="{{.S3Config.UploadConcurrency}}" min="0"
                     aria-describedby="S3ConcurrencyHelpBlock">
                 <small id="S3ConcurrencyHelpBlock" class="form-text text-muted">
-                    How many parts are uploaded in parallel. Zero means the default (2)
+                    How many parts are uploaded in parallel. Zero means the default (5)
+                </small>
+            </div>
+        </div>
+
+        <div class="form-group row fsconfig fsconfig-s3fs">
+            <label for="idS3DLPartSize" class="col-sm-2 col-form-label">DL Part Size (MB)</label>
+            <div class="col-sm-3">
+                <input type="number" class="form-control" id="idS3DLPartSize" name="s3_download_part_size" placeholder=""
+                    value="{{.S3Config.DownloadPartSize}}" aria-describedby="S3DLPartSizeHelpBlock">
+                <small id="S3DLPartSizeHelpBlock" class="form-text text-muted">
+                    The buffer size for multipart downloads. Zero means the default (5 MB). Minimum is 5
+                </small>
+            </div>
+            <div class="col-sm-2"></div>
+            <label for="idS3DownloadConcurrency" class="col-sm-2 col-form-label">DL Concurrency</label>
+            <div class="col-sm-3">
+                <input type="number" class="form-control" id="idS3DownloadConcurrency" name="s3_download_concurrency"
+                    placeholder="" value="{{.S3Config.DownloadConcurrency}}" min="0"
+                    aria-describedby="S3DLConcurrencyHelpBlock">
+                <small id="S3DLConcurrencyHelpBlock" class="form-text text-muted">
+                    How many parts are downloaded in parallel. Zero means the default (5)
                 </small>
             </div>
         </div>
@@ -95,6 +116,14 @@
                 <small id="S3KeyPrefixHelpBlock" class="form-text text-muted">
                     Similar to a chroot for local filesystem. Cannot start with "/". Example: "somedir/subdir/".
                 </small>
+            </div>
+        </div>
+
+        <div class="form-group fsconfig fsconfig-s3fs">
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="idS3ForcePathStyle" name="s3_force_path_style"
+                    {{if .S3Config.ForcePathStyle}}checked{{end}}>
+                <label for="idS3ForcePathStyle" class="form-check-label">Use path-style addressing, i.e., "`endpoint`/BUCKET/KEY"</label>
             </div>
         </div>
 

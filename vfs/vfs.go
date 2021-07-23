@@ -168,6 +168,18 @@ func (c *S3FsConfig) isEqual(other *S3FsConfig) bool {
 	if c.UploadConcurrency != other.UploadConcurrency {
 		return false
 	}
+	if c.DownloadConcurrency != other.DownloadConcurrency {
+		return false
+	}
+	if c.DownloadPartSize != other.DownloadPartSize {
+		return false
+	}
+	if c.DownloadPartMaxTime != other.DownloadPartMaxTime {
+		return false
+	}
+	if c.ForcePathStyle != other.ForcePathStyle {
+		return false
+	}
 	if c.AccessSecret == nil {
 		c.AccessSecret = kms.NewEmptySecret()
 	}
@@ -205,6 +217,22 @@ func (c *S3FsConfig) EncryptCredentials(additionalData string) error {
 	return nil
 }
 
+func (c *S3FsConfig) checkPartSizeAndConcurrency() error {
+	if c.UploadPartSize != 0 && (c.UploadPartSize < 5 || c.UploadPartSize > 5000) {
+		return errors.New("upload_part_size cannot be != 0, lower than 5 (MB) or greater than 5000 (MB)")
+	}
+	if c.UploadConcurrency < 0 || c.UploadConcurrency > 64 {
+		return fmt.Errorf("invalid upload concurrency: %v", c.UploadConcurrency)
+	}
+	if c.DownloadPartSize != 0 && (c.DownloadPartSize < 5 || c.DownloadPartSize > 5000) {
+		return errors.New("download_part_size cannot be != 0, lower than 5 (MB) or greater than 5000 (MB)")
+	}
+	if c.DownloadConcurrency < 0 || c.DownloadConcurrency > 64 {
+		return fmt.Errorf("invalid download concurrency: %v", c.DownloadConcurrency)
+	}
+	return nil
+}
+
 // Validate returns an error if the configuration is not valid
 func (c *S3FsConfig) Validate() error {
 	if c.AccessSecret == nil {
@@ -228,13 +256,7 @@ func (c *S3FsConfig) Validate() error {
 			c.KeyPrefix += "/"
 		}
 	}
-	if c.UploadPartSize != 0 && (c.UploadPartSize < 5 || c.UploadPartSize > 5000) {
-		return errors.New("upload_part_size cannot be != 0, lower than 5 (MB) or greater than 5000 (MB)")
-	}
-	if c.UploadConcurrency < 0 || c.UploadConcurrency > 64 {
-		return fmt.Errorf("invalid upload concurrency: %v", c.UploadConcurrency)
-	}
-	return nil
+	return c.checkPartSizeAndConcurrency()
 }
 
 // GCSFsConfig defines the configuration for Google Cloud Storage based filesystem

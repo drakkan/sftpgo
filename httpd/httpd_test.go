@@ -960,6 +960,28 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.S3Config.UploadConcurrency = -1
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
+	u.FsConfig.S3Config.UploadConcurrency = 0
+	u.FsConfig.S3Config.DownloadPartSize = -1
+	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
+	if assert.NoError(t, err) {
+		assert.Contains(t, string(resp), "download_part_size cannot be")
+	}
+	u.FsConfig.S3Config.DownloadPartSize = 5001
+	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	if assert.NoError(t, err) {
+		assert.Contains(t, string(resp), "download_part_size cannot be")
+	}
+	u.FsConfig.S3Config.DownloadPartSize = 0
+	u.FsConfig.S3Config.DownloadConcurrency = 100
+	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	if assert.NoError(t, err) {
+		assert.Contains(t, string(resp), "invalid download concurrency")
+	}
+	u.FsConfig.S3Config.DownloadConcurrency = -1
+	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	if assert.NoError(t, err) {
+		assert.Contains(t, string(resp), "invalid download concurrency")
+	}
 	u = getTestUser()
 	u.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = ""
@@ -1035,7 +1057,7 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.SFTPConfig.Endpoint = "127.1.1.1:22"
 	u.FsConfig.SFTPConfig.Username = defaultUsername
 	u.FsConfig.SFTPConfig.BufferSize = -1
-	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
+	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	if assert.NoError(t, err) {
 		assert.Contains(t, string(resp), "invalid buffer_size")
 	}
@@ -1591,6 +1613,8 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000"
 	user.FsConfig.S3Config.UploadPartSize = 8
 	user.FsConfig.S3Config.DownloadPartMaxTime = 60
+	user.FsConfig.S3Config.ForcePathStyle = true
+	user.FsConfig.S3Config.DownloadPartSize = 6
 	folderName := "vfolderName"
 	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
@@ -1653,6 +1677,7 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.Endpoint = "http://localhost:9000"
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir" //nolint:goconst
 	user.FsConfig.S3Config.UploadConcurrency = 5
+	user.FsConfig.S3Config.DownloadConcurrency = 4
 	user, bb, err := httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err, string(bb))
 	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.S3Config.AccessSecret.GetStatus())
@@ -7992,6 +8017,8 @@ func TestUserTemplateMock(t *testing.T) {
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir/"
 	user.FsConfig.S3Config.UploadPartSize = 5
 	user.FsConfig.S3Config.UploadConcurrency = 4
+	user.FsConfig.S3Config.DownloadPartSize = 6
+	user.FsConfig.S3Config.DownloadConcurrency = 3
 	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
 	assert.NoError(t, err)
 	form := make(url.Values)
@@ -8033,6 +8060,8 @@ func TestUserTemplateMock(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	form.Set("s3_upload_part_size", strconv.FormatInt(user.FsConfig.S3Config.UploadPartSize, 10))
 	form.Set("s3_upload_concurrency", strconv.Itoa(user.FsConfig.S3Config.UploadConcurrency))
+	form.Set("s3_download_part_size", strconv.FormatInt(user.FsConfig.S3Config.DownloadPartSize, 10))
+	form.Set("s3_download_concurrency", strconv.Itoa(user.FsConfig.S3Config.DownloadConcurrency))
 
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webTemplateUser, &b)
@@ -8193,6 +8222,8 @@ func TestFolderTemplateMock(t *testing.T) {
 	form.Set("s3_upload_part_size", "5")
 	form.Set("s3_upload_concurrency", "4")
 	form.Set("s3_download_part_max_time", "0")
+	form.Set("s3_download_part_size", "6")
+	form.Set("s3_download_concurrency", "2")
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webTemplateFolder, &b)
 	setJWTCookieForReq(req, token)
@@ -8271,6 +8302,9 @@ func TestWebUserS3Mock(t *testing.T) {
 	user.FsConfig.S3Config.UploadPartSize = 5
 	user.FsConfig.S3Config.UploadConcurrency = 4
 	user.FsConfig.S3Config.DownloadPartMaxTime = 60
+	user.FsConfig.S3Config.DownloadPartSize = 6
+	user.FsConfig.S3Config.DownloadConcurrency = 3
+	user.FsConfig.S3Config.ForcePathStyle = true
 	user.Description = "s3 tèst user"
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
@@ -8304,6 +8338,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("patterns1", "*.zip")
 	form.Set("pattern_type1", "denied")
 	form.Set("max_upload_file_size", "0")
+	form.Set("s3_force_path_style", "checked")
 	form.Set("description", user.Description)
 	form.Add("hooks", "pre_login_disabled")
 	// test invalid s3_upload_part_size
@@ -8314,17 +8349,8 @@ func TestWebUserS3Mock(t *testing.T) {
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	// test invalid download max part time
+	// test invalid s3_upload_concurrency
 	form.Set("s3_upload_part_size", strconv.FormatInt(user.FsConfig.S3Config.UploadPartSize, 10))
-	form.Set("s3_download_part_max_time", "a")
-	b, contentType, _ = getMultipartFormData(form, "", "")
-	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
-	setJWTCookieForReq(req, webToken)
-	req.Header.Set("Content-Type", contentType)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	// test invalid s3_concurrency
-	form.Set("s3_download_part_max_time", strconv.Itoa(user.FsConfig.S3Config.DownloadPartMaxTime))
 	form.Set("s3_upload_concurrency", "a")
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
@@ -8332,8 +8358,35 @@ func TestWebUserS3Mock(t *testing.T) {
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	// now add the user
+	// test invalid s3_download_part_size
 	form.Set("s3_upload_concurrency", strconv.Itoa(user.FsConfig.S3Config.UploadConcurrency))
+	form.Set("s3_download_part_size", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// test invalid s3_download_concurrency
+	form.Set("s3_download_part_size", strconv.FormatInt(user.FsConfig.S3Config.DownloadPartSize, 10))
+	form.Set("s3_download_concurrency", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// test invalid s3_download_part_max_time
+	form.Set("s3_download_concurrency", strconv.Itoa(user.FsConfig.S3Config.DownloadConcurrency))
+	form.Set("s3_download_part_max_time", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// now add the user
+	form.Set("s3_download_part_max_time", strconv.Itoa(user.FsConfig.S3Config.DownloadPartMaxTime))
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
 	setJWTCookieForReq(req, webToken)
@@ -8357,6 +8410,9 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.S3Config.UploadPartSize, user.FsConfig.S3Config.UploadPartSize)
 	assert.Equal(t, updateUser.FsConfig.S3Config.UploadConcurrency, user.FsConfig.S3Config.UploadConcurrency)
 	assert.Equal(t, updateUser.FsConfig.S3Config.DownloadPartMaxTime, user.FsConfig.S3Config.DownloadPartMaxTime)
+	assert.Equal(t, updateUser.FsConfig.S3Config.DownloadPartSize, user.FsConfig.S3Config.DownloadPartSize)
+	assert.Equal(t, updateUser.FsConfig.S3Config.DownloadConcurrency, user.FsConfig.S3Config.DownloadConcurrency)
+	assert.True(t, updateUser.FsConfig.S3Config.ForcePathStyle)
 	assert.Equal(t, 2, len(updateUser.Filters.FilePatterns))
 	assert.Equal(t, kms.SecretStatusSecretBox, updateUser.FsConfig.S3Config.AccessSecret.GetStatus())
 	assert.NotEmpty(t, updateUser.FsConfig.S3Config.AccessSecret.GetPayload())
@@ -9001,6 +9057,8 @@ func TestS3WebFolderMock(t *testing.T) {
 	S3UploadPartSize := 5
 	S3UploadConcurrency := 4
 	S3MaxPartDownloadTime := 120
+	S3DownloadPartSize := 6
+	S3DownloadConcurrency := 3
 	form := make(url.Values)
 	form.Set("mapped_path", mappedPath)
 	form.Set("name", folderName)
@@ -9015,6 +9073,8 @@ func TestS3WebFolderMock(t *testing.T) {
 	form.Set("s3_key_prefix", S3KeyPrefix)
 	form.Set("s3_upload_part_size", strconv.Itoa(S3UploadPartSize))
 	form.Set("s3_download_part_max_time", strconv.Itoa(S3MaxPartDownloadTime))
+	form.Set("s3_download_part_size", strconv.Itoa(S3DownloadPartSize))
+	form.Set("s3_download_concurrency", strconv.Itoa(S3DownloadConcurrency))
 	form.Set("s3_upload_concurrency", "a")
 	form.Set(csrfFormToken, csrfToken)
 	b, contentType, err := getMultipartFormData(form, "", "")
@@ -9057,6 +9117,9 @@ func TestS3WebFolderMock(t *testing.T) {
 	assert.Equal(t, S3UploadConcurrency, folder.FsConfig.S3Config.UploadConcurrency)
 	assert.Equal(t, int64(S3UploadPartSize), folder.FsConfig.S3Config.UploadPartSize)
 	assert.Equal(t, S3MaxPartDownloadTime, folder.FsConfig.S3Config.DownloadPartMaxTime)
+	assert.Equal(t, S3DownloadConcurrency, folder.FsConfig.S3Config.DownloadConcurrency)
+	assert.Equal(t, int64(S3DownloadPartSize), folder.FsConfig.S3Config.DownloadPartSize)
+	assert.False(t, folder.FsConfig.S3Config.ForcePathStyle)
 	// update
 	S3UploadConcurrency = 10
 	form.Set("s3_upload_concurrency", "b")

@@ -84,16 +84,25 @@ func NewS3Fs(connectionID, localTempDir, mountPath string, config S3FsConfig) (F
 
 	if fs.config.Endpoint != "" {
 		awsConfig.Endpoint = aws.String(fs.config.Endpoint)
+	}
+	if fs.config.ForcePathStyle {
 		awsConfig.S3ForcePathStyle = aws.Bool(true)
 	}
-
 	if fs.config.UploadPartSize == 0 {
 		fs.config.UploadPartSize = s3manager.DefaultUploadPartSize
 	} else {
 		fs.config.UploadPartSize *= 1024 * 1024
 	}
 	if fs.config.UploadConcurrency == 0 {
-		fs.config.UploadConcurrency = 2
+		fs.config.UploadConcurrency = s3manager.DefaultUploadConcurrency
+	}
+	if fs.config.DownloadPartSize == 0 {
+		fs.config.DownloadPartSize = s3manager.DefaultDownloadPartSize
+	} else {
+		fs.config.DownloadPartSize *= 1024 * 1024
+	}
+	if fs.config.DownloadConcurrency == 0 {
+		fs.config.DownloadConcurrency = s3manager.DefaultDownloadConcurrency
 	}
 
 	sessOpts := session.Options{
@@ -201,6 +210,9 @@ func (fs *S3Fs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, fun
 			Bucket: aws.String(fs.config.Bucket),
 			Key:    aws.String(name),
 			Range:  streamRange,
+		}, func(d *s3manager.Downloader) {
+			d.Concurrency = fs.config.DownloadConcurrency
+			d.PartSize = fs.config.DownloadPartSize
 		})
 		w.CloseWithError(err) //nolint:errcheck
 		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)

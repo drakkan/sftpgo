@@ -686,11 +686,20 @@ func getS3Config(r *http.Request) (vfs.S3FsConfig, error) {
 	if err != nil {
 		return config, err
 	}
-	config.DownloadPartMaxTime, err = strconv.Atoi(r.Form.Get("s3_download_part_max_time"))
+	config.UploadConcurrency, err = strconv.Atoi(r.Form.Get("s3_upload_concurrency"))
 	if err != nil {
 		return config, err
 	}
-	config.UploadConcurrency, err = strconv.Atoi(r.Form.Get("s3_upload_concurrency"))
+	config.DownloadPartSize, err = strconv.ParseInt(r.Form.Get("s3_download_part_size"), 10, 64)
+	if err != nil {
+		return config, err
+	}
+	config.DownloadConcurrency, err = strconv.Atoi(r.Form.Get("s3_download_concurrency"))
+	if err != nil {
+		return config, err
+	}
+	config.ForcePathStyle = r.Form.Get("s3_force_path_style") != ""
+	config.DownloadPartMaxTime, err = strconv.Atoi(r.Form.Get("s3_download_part_max_time"))
 	return config, err
 }
 

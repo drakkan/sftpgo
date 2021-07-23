@@ -237,7 +237,10 @@ func (f *Filesystem) GetACopy() Filesystem {
 				KeyPrefix:           f.S3Config.KeyPrefix,
 				UploadPartSize:      f.S3Config.UploadPartSize,
 				UploadConcurrency:   f.S3Config.UploadConcurrency,
+				DownloadPartSize:    f.S3Config.DownloadPartSize,
+				DownloadConcurrency: f.S3Config.DownloadConcurrency,
 				DownloadPartMaxTime: f.S3Config.DownloadPartMaxTime,
+				ForcePathStyle:      f.S3Config.ForcePathStyle,
 			},
 		},
 		GCSConfig: GCSFsConfig{

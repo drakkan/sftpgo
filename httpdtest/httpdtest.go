@@ -1057,11 +1057,20 @@ func compareS3Config(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
 	if expected.S3Config.UploadPartSize != actual.S3Config.UploadPartSize {
 		return errors.New("fs S3 upload part size mismatch")
 	}
-	if expected.S3Config.DownloadPartMaxTime != actual.S3Config.DownloadPartMaxTime {
-		return errors.New("fs S3 download part max time mismatch")
-	}
 	if expected.S3Config.UploadConcurrency != actual.S3Config.UploadConcurrency {
 		return errors.New("fs S3 upload concurrency mismatch")
+	}
+	if expected.S3Config.DownloadPartSize != actual.S3Config.DownloadPartSize {
+		return errors.New("fs S3 download part size mismatch")
+	}
+	if expected.S3Config.DownloadConcurrency != actual.S3Config.DownloadConcurrency {
+		return errors.New("fs S3 download concurrency mismatch")
+	}
+	if expected.S3Config.ForcePathStyle != actual.S3Config.ForcePathStyle {
+		return errors.New("fs S3 force path style mismatch")
+	}
+	if expected.S3Config.DownloadPartMaxTime != actual.S3Config.DownloadPartMaxTime {
+		return errors.New("fs S3 download part max time mismatch")
 	}
 	if expected.S3Config.KeyPrefix != actual.S3Config.KeyPrefix &&
 		expected.S3Config.KeyPrefix+"/" != actual.S3Config.KeyPrefix {
