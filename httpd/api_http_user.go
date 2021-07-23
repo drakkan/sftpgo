@@ -181,6 +181,7 @@ func uploadUserFiles(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "Unable to parse multipart form", http.StatusBadRequest)
 		return
 	}
+	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
 	parentDir := util.CleanPath(r.URL.Query().Get("path"))
 	files := r.MultipartForm.File["filename"]

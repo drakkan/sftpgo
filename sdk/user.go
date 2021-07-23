@@ -6,14 +6,15 @@ import (
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
-// Web Client restrictions
+// Web Client/user REST API restrictions
 const (
 	WebClientPubKeyChangeDisabled = "publickey-change-disabled"
+	WebClientWriteDisabled        = "write-disabled"
 )
 
 var (
-	// WebClientOptions defines the available options for the web client interface
-	WebClientOptions = []string{WebClientPubKeyChangeDisabled}
+	// WebClientOptions defines the available options for the web client interface/user REST API
+	WebClientOptions = []string{WebClientPubKeyChangeDisabled, WebClientWriteDisabled}
 )
 
 // TLSUsername defines the TLS certificate attribute to use as username

@@ -2228,9 +2228,11 @@ components:
       type: string
       enum:
         - publickey-change-disabled
+        - write-disabled
       description: |
         Options:
           * `publickey-change-disabled` - changing SSH public keys is not allowed
+          * `write-disabled` - upload, rename, delete are not allowed even if the user has permissions for these actions
     PatternsFilter:
       type: object
       properties:
@@ -2321,7 +2323,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/WebClientOptions'
-          description: WebClient related configuration options
+          description: WebClient/user REST API related configuration options
       description: Additional user options
     Secret:
       type: object
