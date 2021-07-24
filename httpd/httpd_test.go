@@ -177,6 +177,10 @@ func (c *fakeConnection) GetCommand() string {
 	return c.command
 }
 
+func (c *fakeConnection) GetLocalAddress() string {
+	return ""
+}
+
 func (c *fakeConnection) GetRemoteAddress() string {
 	return ""
 }
@@ -2778,7 +2782,7 @@ func TestCloseActiveConnection(t *testing.T) {
 	_, err := httpdtest.CloseConnection("non_existent_id", http.StatusNotFound)
 	assert.NoError(t, err)
 	user := getTestUser()
-	c := common.NewBaseConnection("connID", common.ProtocolSFTP, "", user)
+	c := common.NewBaseConnection("connID", common.ProtocolSFTP, "", "", user)
 	fakeConn := &fakeConnection{
 		BaseConnection: c,
 	}
@@ -2791,12 +2795,12 @@ func TestCloseActiveConnection(t *testing.T) {
 func TestCloseConnectionAfterUserUpdateDelete(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
-	c := common.NewBaseConnection("connID", common.ProtocolFTP, "", user)
+	c := common.NewBaseConnection("connID", common.ProtocolFTP, "", "", user)
 	fakeConn := &fakeConnection{
 		BaseConnection: c,
 	}
 	common.Connections.Add(fakeConn)
-	c1 := common.NewBaseConnection("connID1", common.ProtocolSFTP, "", user)
+	c1 := common.NewBaseConnection("connID1", common.ProtocolSFTP, "", "", user)
 	fakeConn1 := &fakeConnection{
 		BaseConnection: c1,
 	}
@@ -3530,7 +3534,7 @@ func TestLoaddataMode(t *testing.T) {
 	assert.Equal(t, int64(789), folder.LastQuotaUpdate)
 	assert.Len(t, folder.Users, 0)
 
-	c := common.NewBaseConnection("connID", common.ProtocolFTP, "", user)
+	c := common.NewBaseConnection("connID", common.ProtocolFTP, "", "", user)
 	fakeConn := &fakeConnection{
 		BaseConnection: c,
 	}
@@ -5060,7 +5064,7 @@ func TestWebClientMaxConnections(t *testing.T) {
 	// now add a fake connection
 	fs := vfs.NewOsFs("id", os.TempDir(), "")
 	connection := &httpd.Connection{
-		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolHTTP, "", user),
+		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolHTTP, "", "", user),
 	}
 	common.Connections.Add(connection)
 
@@ -5198,7 +5202,7 @@ func TestMaxSessions(t *testing.T) {
 	// now add a fake connection
 	fs := vfs.NewOsFs("id", os.TempDir(), "")
 	connection := &httpd.Connection{
-		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolHTTP, "", user),
+		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolHTTP, "", "", user),
 	}
 	common.Connections.Add(connection)
 	_, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)

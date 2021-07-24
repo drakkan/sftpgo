@@ -1030,7 +1030,7 @@ func TestMaxConnections(t *testing.T) {
 	// now add a fake connection
 	fs := vfs.NewOsFs("id", os.TempDir(), "")
 	connection := &webdavd.Connection{
-		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", user),
+		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", "", user),
 	}
 	common.Connections.Add(connection)
 	assert.Error(t, checkBasicFunc(client))
@@ -1085,7 +1085,7 @@ func TestMaxSessions(t *testing.T) {
 	// now add a fake connection
 	fs := vfs.NewOsFs("id", os.TempDir(), "")
 	connection := &webdavd.Connection{
-		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", user),
+		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", "", user),
 	}
 	common.Connections.Add(connection)
 	assert.Error(t, checkBasicFunc(client))

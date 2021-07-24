@@ -22,6 +22,7 @@ type Connection struct {
 	ClientVersion string
 	// Remote address for this connection
 	RemoteAddr net.Addr
+	LocalAddr  net.Addr
 	channel    io.ReadWriteCloser
 	command    string
 }
@@ -31,7 +32,15 @@ func (c *Connection) GetClientVersion() string {
 	return c.ClientVersion
 }
 
-// GetRemoteAddress return the connected client's address
+// GetLocalAddress returns local connection address
+func (c *Connection) GetLocalAddress() string {
+	if c.LocalAddr == nil {
+		return ""
+	}
+	return c.LocalAddr.String()
+}
+
+// GetRemoteAddress returns the connected client's address
 func (c *Connection) GetRemoteAddress() string {
 	if c.RemoteAddr == nil {
 		return ""

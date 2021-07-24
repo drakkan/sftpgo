@@ -516,7 +516,7 @@ func TestClientVersion(t *testing.T) {
 	connID := fmt.Sprintf("2_%v", mockCC.ID())
 	user := dataprovider.User{}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", user),
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", "", user),
 		clientContext:  mockCC,
 	}
 	common.Connections.Add(connection)
@@ -533,7 +533,7 @@ func TestDriverMethodsNotImplemented(t *testing.T) {
 	connID := fmt.Sprintf("2_%v", mockCC.ID())
 	user := dataprovider.User{}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", user),
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", "", user),
 		clientContext:  mockCC,
 	}
 	_, err := connection.Create("")
@@ -560,7 +560,7 @@ func TestResolvePathErrors(t *testing.T) {
 	mockCC := mockFTPClientContext{}
 	connID := fmt.Sprintf("%v", mockCC.ID())
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", user),
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", "", user),
 		clientContext:  mockCC,
 	}
 	err := connection.Mkdir("", os.ModePerm)
@@ -625,7 +625,7 @@ func TestUploadFileStatError(t *testing.T) {
 	connID := fmt.Sprintf("%v", mockCC.ID())
 	fs := vfs.NewOsFs(connID, user.HomeDir, "")
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", user),
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", "", user),
 		clientContext:  mockCC,
 	}
 	testFile := filepath.Join(user.HomeDir, "test", "testfile")
@@ -655,7 +655,7 @@ func TestAVBLErrors(t *testing.T) {
 	mockCC := mockFTPClientContext{}
 	connID := fmt.Sprintf("%v", mockCC.ID())
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", user),
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", "", user),
 		clientContext:  mockCC,
 	}
 	_, err := connection.GetAvailableSpace("/")
@@ -678,7 +678,7 @@ func TestUploadOverwriteErrors(t *testing.T) {
 	connID := fmt.Sprintf("%v", mockCC.ID())
 	fs := newMockOsFs(nil, nil, false, connID, user.GetHomeDir())
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", user),
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", "", user),
 		clientContext:  mockCC,
 	}
 	flags := 0
@@ -734,7 +734,7 @@ func TestTransferErrors(t *testing.T) {
 	connID := fmt.Sprintf("%v", mockCC.ID())
 	fs := newMockOsFs(nil, nil, false, connID, user.GetHomeDir())
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", user),
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", "", user),
 		clientContext:  mockCC,
 	}
 	baseTransfer := common.NewBaseTransfer(file, connection.BaseConnection, nil, file.Name(), file.Name(), testfile,

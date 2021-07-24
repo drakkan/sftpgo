@@ -259,10 +259,11 @@ func ErrorToConsole(format string, v ...interface{}) {
 }
 
 // TransferLog logs uploads or downloads
-func TransferLog(operation, path string, elapsed int64, size int64, user, connectionID, protocol, remoteAddr string) {
+func TransferLog(operation, path string, elapsed int64, size int64, user, connectionID, protocol, localAddr, remoteAddr string) {
 	logger.Info().
 		Timestamp().
 		Str("sender", operation).
+		Str("local_addr", localAddr).
 		Str("remote_addr", remoteAddr).
 		Int64("elapsed_ms", elapsed).
 		Int64("size_bytes", size).
@@ -275,7 +276,7 @@ func TransferLog(operation, path string, elapsed int64, size int64, user, connec
 
 // CommandLog logs an SFTP/SCP/SSH command
 func CommandLog(command, path, target, user, fileMode, connectionID, protocol string, uid, gid int, atime, mtime,
-	sshCommand string, size int64, remoteAddr string) {
+	sshCommand string, size int64, localAddr, remoteAddr string) {
 	logger.Info().
 		Timestamp().
 		Str("sender", command).

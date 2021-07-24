@@ -2,6 +2,7 @@ package logger
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -40,6 +41,7 @@ func (l *StructuredLogger) NewLogEntry(r *http.Request) middleware.LogEntry {
 	}
 
 	fields := map[string]interface{}{
+		"local_addr":  getLocalAddress(r),
 		"remote_addr": r.RemoteAddr,
 		"proto":       r.Proto,
 		"method":      r.Method,
@@ -76,4 +78,15 @@ func (l *StructuredLoggerEntry) Panic(v interface{}, stack []byte) {
 		Str("stack", string(stack)).
 		Str("panic", fmt.Sprintf("%+v", v)).
 		Send()
+}
+
+func getLocalAddress(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	localAddr, ok := r.Context().Value(http.LocalAddrContextKey).(net.Addr)
+	if ok {
+		return localAddr.String()
+	}
+	return ""
 }

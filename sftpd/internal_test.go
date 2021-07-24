@@ -161,7 +161,7 @@ func TestUploadResumeInvalidOffset(t *testing.T) {
 		},
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
-	conn := common.NewBaseConnection("", common.ProtocolSFTP, "", user)
+	conn := common.NewBaseConnection("", common.ProtocolSFTP, "", "", user)
 	baseTransfer := common.NewBaseTransfer(file, conn, nil, file.Name(), file.Name(), testfile, common.TransferUpload, 10, 0, 0, false, fs)
 	transfer := newTransfer(baseTransfer, nil, nil, nil)
 	_, err = transfer.WriteAt([]byte("test"), 0)
@@ -191,7 +191,7 @@ func TestReadWriteErrors(t *testing.T) {
 		},
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
-	conn := common.NewBaseConnection("", common.ProtocolSFTP, "", user)
+	conn := common.NewBaseConnection("", common.ProtocolSFTP, "", "", user)
 	baseTransfer := common.NewBaseTransfer(file, conn, nil, file.Name(), file.Name(), testfile, common.TransferDownload, 0, 0, 0, false, fs)
 	transfer := newTransfer(baseTransfer, nil, nil, nil)
 	err = file.Close()
@@ -239,7 +239,7 @@ func TestReadWriteErrors(t *testing.T) {
 }
 
 func TestUnsupportedListOP(t *testing.T) {
-	conn := common.NewBaseConnection("", common.ProtocolSFTP, "", dataprovider.User{})
+	conn := common.NewBaseConnection("", common.ProtocolSFTP, "", "", dataprovider.User{})
 	sftpConn := Connection{
 		BaseConnection: conn,
 	}
@@ -262,7 +262,7 @@ func TestTransferCancelFn(t *testing.T) {
 		},
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
-	conn := common.NewBaseConnection("", common.ProtocolSFTP, "", user)
+	conn := common.NewBaseConnection("", common.ProtocolSFTP, "", "", user)
 	baseTransfer := common.NewBaseTransfer(file, conn, cancelFn, file.Name(), file.Name(), testfile, common.TransferDownload, 0, 0, 0, false, fs)
 	transfer := newTransfer(baseTransfer, nil, nil, nil)
 
@@ -286,7 +286,7 @@ func TestUploadFiles(t *testing.T) {
 	fs := vfs.NewOsFs("123", os.TempDir(), "")
 	u := dataprovider.User{}
 	c := Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", u),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", u),
 	}
 	var flags sftp.FileOpenFlags
 	flags.Write = true
@@ -338,7 +338,7 @@ func TestWithInvalidHome(t *testing.T) {
 	fs, err := u.GetFilesystem("123")
 	assert.NoError(t, err)
 	c := Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", u),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", u),
 	}
 	_, err = fs.ResolvePath("../upper_path")
 	assert.Error(t, err, "tested path is not a home subdir")
@@ -373,7 +373,7 @@ func TestSFTPGetUsedQuota(t *testing.T) {
 	u.Permissions = make(map[string][]string)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
 	connection := Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", u),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", u),
 	}
 	quotaResult := connection.HasSpace(false, false, "/")
 	assert.False(t, quotaResult.HasSpace)
@@ -470,7 +470,7 @@ func TestSSHCommandErrors(t *testing.T) {
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	connection := Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSSH, "", user),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSSH, "", "", user),
 		channel:        &mockSSHChannel,
 	}
 	cmd := sshCommand{
@@ -610,7 +610,7 @@ func TestCommandsWithExtensionsFilter(t *testing.T) {
 	}
 
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSSH, "", user),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSSH, "", "", user),
 		channel:        &mockSSHChannel,
 	}
 	cmd := sshCommand{
@@ -673,7 +673,7 @@ func TestSSHCommandsRemoteFs(t *testing.T) {
 		},
 	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", user),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", user),
 		channel:        &mockSSHChannel,
 	}
 	cmd := sshCommand{
@@ -720,7 +720,7 @@ func TestSSHCmdGetFsErrors(t *testing.T) {
 	user.Permissions = map[string][]string{}
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", user),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", user),
 		channel:        &mockSSHChannel,
 	}
 	cmd := sshCommand{
@@ -773,7 +773,7 @@ func TestGitVirtualFolders(t *testing.T) {
 		},
 	}
 	conn := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", user),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", user),
 	}
 	cmd := sshCommand{
 		command:    "git-receive-pack",
@@ -821,7 +821,7 @@ func TestRsyncOptions(t *testing.T) {
 		},
 	}
 	conn := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", user),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", user),
 	}
 	sshCmd := sshCommand{
 		command:    "rsync",
@@ -838,7 +838,7 @@ func TestRsyncOptions(t *testing.T) {
 	user.Permissions = permissions
 
 	conn = &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", user),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", user),
 	}
 	sshCmd = sshCommand{
 		command:    "rsync",
@@ -872,7 +872,7 @@ func TestSystemCommandSizeForPath(t *testing.T) {
 	fs, err := user.GetFilesystem("123")
 	assert.NoError(t, err)
 	conn := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", user),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", user),
 	}
 	sshCmd := sshCommand{
 		command:    "rsync",
@@ -936,7 +936,7 @@ func TestSystemCommandErrors(t *testing.T) {
 	fs, err := user.GetFilesystem("123")
 	assert.NoError(t, err)
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", user),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", user),
 		channel:        &mockSSHChannel,
 	}
 	var sshCmd sshCommand
@@ -1012,7 +1012,7 @@ func TestCommandGetFsError(t *testing.T) {
 		},
 	}
 	conn := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", user),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", user),
 	}
 	sshCmd := sshCommand{
 		command:    "rsync",
@@ -1030,7 +1030,7 @@ func TestCommandGetFsError(t *testing.T) {
 		ReadError:    nil,
 	}
 	conn = &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", user),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", user),
 		channel:        &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
@@ -1124,7 +1124,7 @@ func TestSCPUploadError(t *testing.T) {
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", user),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", user),
 		channel:        &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
@@ -1163,7 +1163,7 @@ func TestSCPInvalidEndDir(t *testing.T) {
 		StdErrBuffer: bytes.NewBuffer(stdErrBuf),
 	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", dataprovider.User{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", dataprovider.User{
 			BaseUser: sdk.BaseUser{
 				HomeDir: os.TempDir(),
 			},
@@ -1191,7 +1191,7 @@ func TestSCPParseUploadMessage(t *testing.T) {
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", dataprovider.User{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", dataprovider.User{
 			BaseUser: sdk.BaseUser{
 				HomeDir: os.TempDir(),
 			},
@@ -1230,7 +1230,7 @@ func TestSCPProtocolMessages(t *testing.T) {
 		WriteError:   writeErr,
 	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", dataprovider.User{}),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", dataprovider.User{}),
 		channel:        &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
@@ -1291,7 +1291,7 @@ func TestSCPTestDownloadProtocolMessages(t *testing.T) {
 		WriteError:   writeErr,
 	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", dataprovider.User{}),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", dataprovider.User{}),
 		channel:        &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
@@ -1365,7 +1365,7 @@ func TestSCPCommandHandleErrors(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", dataprovider.User{}),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", dataprovider.User{}),
 		channel:        &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
@@ -1406,7 +1406,7 @@ func TestSCPErrorsMockFs(t *testing.T) {
 	}()
 	connection := &Connection{
 		channel:        &mockSSHChannel,
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", u),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", u),
 	}
 	scpCommand := scpCommand{
 		sshCommand: sshCommand{
@@ -1448,7 +1448,7 @@ func TestSCPRecursiveDownloadErrors(t *testing.T) {
 	}()
 	fs := vfs.NewOsFs("123", os.TempDir(), "")
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", dataprovider.User{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", dataprovider.User{
 			BaseUser: sdk.BaseUser{
 				HomeDir: os.TempDir(),
 			},
@@ -1496,7 +1496,7 @@ func TestSCPRecursiveUploadErrors(t *testing.T) {
 		WriteError:   writeErr,
 	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", dataprovider.User{}),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", dataprovider.User{}),
 		channel:        &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
@@ -1537,7 +1537,7 @@ func TestSCPCreateDirs(t *testing.T) {
 	fs, err := u.GetFilesystem("123")
 	assert.NoError(t, err)
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", u),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", u),
 		channel:        &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
@@ -1571,7 +1571,7 @@ func TestSCPDownloadFileData(t *testing.T) {
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", dataprovider.User{BaseUser: sdk.BaseUser{HomeDir: os.TempDir()}}),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", dataprovider.User{BaseUser: sdk.BaseUser{HomeDir: os.TempDir()}}),
 		channel:        &mockSSHChannelReadErr,
 	}
 	scpCommand := scpCommand{
@@ -1623,7 +1623,7 @@ func TestSCPUploadFiledata(t *testing.T) {
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", user),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", user),
 		channel:        &mockSSHChannel,
 	}
 	scpCommand := scpCommand{
@@ -1714,7 +1714,7 @@ func TestUploadError(t *testing.T) {
 	}
 	fs := vfs.NewOsFs("", os.TempDir(), "")
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", user),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSCP, "", "", user),
 	}
 
 	testfile := "testfile"
@@ -1762,7 +1762,7 @@ func TestTransferFailingReader(t *testing.T) {
 
 	fs := newMockOsFs(nil, nil, true, "", os.TempDir())
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", user),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", user),
 	}
 
 	request := sftp.NewRequest("Open", "afile.txt")
@@ -1923,7 +1923,7 @@ func TestRecursiveCopyErrors(t *testing.T) {
 	fs, err := user.GetFilesystem("123")
 	assert.NoError(t, err)
 	conn := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", user),
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", user),
 	}
 	sshCmd := sshCommand{
 		command:    "sftpgo-copy",
@@ -1974,7 +1974,7 @@ func TestRecoverer(t *testing.T) {
 	c.AcceptInboundConnection(nil, nil)
 	connID := "connectionID"
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolSFTP, "", dataprovider.User{}),
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolSFTP, "", "", dataprovider.User{}),
 	}
 	c.handleSftpConnection(nil, connection)
 	sshCmd := sshCommand{

@@ -201,8 +201,9 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx = context.WithValue(ctx, requestStartKey, time.Now())
 
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connectionID, common.ProtocolWebDAV, r.RemoteAddr, user),
-		request:        r,
+		BaseConnection: common.NewBaseConnection(connectionID, common.ProtocolWebDAV, util.GetHTTPLocalAddress(r),
+			r.RemoteAddr, user),
+		request: r,
 	}
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())

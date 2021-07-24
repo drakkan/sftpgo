@@ -287,6 +287,7 @@ type ActiveTransfer interface {
 type ActiveConnection interface {
 	GetID() string
 	GetUsername() string
+	GetLocalAddress() string
 	GetRemoteAddress() string
 	GetClientVersion() string
 	GetProtocol() string
@@ -596,7 +597,8 @@ func (conns *ActiveConnections) Add(c ActiveConnection) {
 
 	conns.connections = append(conns.connections, c)
 	metric.UpdateActiveConnectionsSize(len(conns.connections))
-	logger.Debug(c.GetProtocol(), c.GetID(), "connection added, num open connections: %v", len(conns.connections))
+	logger.Debug(c.GetProtocol(), c.GetID(), "connection added, local address %#v, remote address %#v, num open connections: %v",
+		c.GetLocalAddress(), c.GetRemoteAddress(), len(conns.connections))
 }
 
 // Swap replaces an existing connection with the given one.
@@ -630,8 +632,8 @@ func (conns *ActiveConnections) Remove(connectionID string) {
 			conns.connections[lastIdx] = nil
 			conns.connections = conns.connections[:lastIdx]
 			metric.UpdateActiveConnectionsSize(lastIdx)
-			logger.Debug(conn.GetProtocol(), conn.GetID(), "connection removed, close fs error: %v, num open connections: %v",
-				err, lastIdx)
+			logger.Debug(conn.GetProtocol(), conn.GetID(), "connection removed, local address %#v, remote address %#v close fs error: %v, num open connections: %v",
+				conn.GetLocalAddress(), conn.GetRemoteAddress(), err, lastIdx)
 			return
 		}
 	}

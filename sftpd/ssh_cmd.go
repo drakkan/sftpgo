@@ -753,7 +753,8 @@ func (c *sshCommand) sendExitStatus(err error) {
 			common.ProtocolSSH, 0, err)
 		if err == nil {
 			logger.CommandLog(sshCommandLogSender, cmdPath, targetPath, c.connection.User.Username, "", c.connection.ID,
-				common.ProtocolSSH, -1, -1, "", "", c.connection.command, -1, c.connection.GetRemoteAddress())
+				common.ProtocolSSH, -1, -1, "", "", c.connection.command, -1, c.connection.GetLocalAddress(),
+				c.connection.GetRemoteAddress())
 		}
 	}
 }

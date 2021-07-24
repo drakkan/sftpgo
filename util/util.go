@@ -563,6 +563,19 @@ func GetRealIP(r *http.Request) string {
 	return ip
 }
 
+// GetHTTPLocalAddress returns the local address for an http.Request
+// or empty if it cannot be determined
+func GetHTTPLocalAddress(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	localAddr, ok := r.Context().Value(http.LocalAddrContextKey).(net.Addr)
+	if ok {
+		return localAddr.String()
+	}
+	return ""
+}
+
 // ParseAllowedIPAndRanges returns a list of functions that allow to find if a
 func ParseAllowedIPAndRanges(allowed []string) ([]func(net.IP) bool, error) {
 	res := make([]func(net.IP) bool, len(allowed))

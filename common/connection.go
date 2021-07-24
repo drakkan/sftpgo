@@ -33,13 +33,14 @@ type BaseConnection struct {
 	startTime  time.Time
 	protocol   string
 	remoteAddr string
+	localAddr  string
 	sync.RWMutex
 	transferID      uint64
 	activeTransfers []ActiveTransfer
 }
 
 // NewBaseConnection returns a new BaseConnection
-func NewBaseConnection(id, protocol, remoteAddr string, user dataprovider.User) *BaseConnection {
+func NewBaseConnection(id, protocol, localAddr, remoteAddr string, user dataprovider.User) *BaseConnection {
 	connID := id
 	if util.IsStringInSlice(protocol, supportedProtocols) {
 		connID = fmt.Sprintf("%v_%v", protocol, id)
@@ -49,6 +50,7 @@ func NewBaseConnection(id, protocol, remoteAddr string, user dataprovider.User) 
 		User:         user,
 		startTime:    time.Now(),
 		protocol:     protocol,
+		localAddr:    localAddr,
 		remoteAddr:   remoteAddr,
 		lastActivity: time.Now().UnixNano(),
 		transferID:   0,
@@ -242,7 +244,8 @@ func (c *BaseConnection) CreateDir(virtualPath string) error {
 	}
 	vfs.SetPathPermissions(fs, fsPath, c.User.GetUID(), c.User.GetGID())
 
-	logger.CommandLog(mkdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1, c.remoteAddr)
+	logger.CommandLog(mkdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
+		c.localAddr, c.remoteAddr)
 	ExecuteActionNotification(&c.User, operationMkdir, fsPath, virtualPath, "", "", c.protocol, 0, nil)
 	return nil
 }
@@ -276,7 +279,8 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 		}
 	}
 
-	logger.CommandLog(removeLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1, c.remoteAddr)
+	logger.CommandLog(removeLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
+		c.localAddr, c.remoteAddr)
 	if info.Mode()&os.ModeSymlink == 0 {
 		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(virtualPath))
 		if err == nil {
@@ -347,7 +351,8 @@ func (c *BaseConnection) RemoveDir(virtualPath string) error {
 		return c.GetFsError(fs, err)
 	}
 
-	logger.CommandLog(rmdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1, c.remoteAddr)
+	logger.CommandLog(rmdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
+		c.localAddr, c.remoteAddr)
 	ExecuteActionNotification(&c.User, operationRmdir, fsPath, virtualPath, "", "", c.protocol, 0, nil)
 	return nil
 }
@@ -408,7 +413,7 @@ func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) err
 	vfs.SetPathPermissions(fsDst, fsTargetPath, c.User.GetUID(), c.User.GetGID())
 	c.updateQuotaAfterRename(fsDst, virtualSourcePath, virtualTargetPath, fsTargetPath, initialSize) //nolint:errcheck
 	logger.CommandLog(renameLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1,
-		"", "", "", -1, c.remoteAddr)
+		"", "", "", -1, c.localAddr, c.remoteAddr)
 	ExecuteActionNotification(&c.User, operationRename, fsSourcePath, virtualSourcePath, fsTargetPath, "", c.protocol, 0, nil)
 
 	return nil
@@ -445,7 +450,7 @@ func (c *BaseConnection) CreateSymlink(virtualSourcePath, virtualTargetPath stri
 		return c.GetFsError(fs, err)
 	}
 	logger.CommandLog(symlinkLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1, "",
-		"", "", -1, c.remoteAddr)
+		"", "", -1, c.localAddr, c.remoteAddr)
 	return nil
 }
 
@@ -511,7 +516,7 @@ func (c *BaseConnection) handleChmod(fs vfs.Fs, fsPath, pathForPerms string, att
 		return c.GetFsError(fs, err)
 	}
 	logger.CommandLog(chmodLogSender, fsPath, "", c.User.Username, attributes.Mode.String(), c.ID, c.protocol,
-		-1, -1, "", "", "", -1, c.remoteAddr)
+		-1, -1, "", "", "", -1, c.localAddr, c.remoteAddr)
 	return nil
 }
 
@@ -528,7 +533,7 @@ func (c *BaseConnection) handleChown(fs vfs.Fs, fsPath, pathForPerms string, att
 		return c.GetFsError(fs, err)
 	}
 	logger.CommandLog(chownLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, attributes.UID, attributes.GID,
-		"", "", "", -1, c.remoteAddr)
+		"", "", "", -1, c.localAddr, c.remoteAddr)
 	return nil
 }
 
@@ -547,7 +552,7 @@ func (c *BaseConnection) handleChtimes(fs vfs.Fs, fsPath, pathForPerms string, a
 	accessTimeString := attributes.Atime.Format(chtimesFormat)
 	modificationTimeString := attributes.Mtime.Format(chtimesFormat)
 	logger.CommandLog(chtimesLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1,
-		accessTimeString, modificationTimeString, "", -1, c.remoteAddr)
+		accessTimeString, modificationTimeString, "", -1, c.localAddr, c.remoteAddr)
 	return nil
 }
 
@@ -581,7 +586,7 @@ func (c *BaseConnection) SetStat(virtualPath string, attributes *StatAttributes)
 			return c.GetFsError(fs, err)
 		}
 		logger.CommandLog(truncateLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "",
-			"", attributes.Size, c.remoteAddr)
+			"", attributes.Size, c.localAddr, c.remoteAddr)
 	}
 
 	return nil

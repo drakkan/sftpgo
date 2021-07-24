@@ -437,20 +437,24 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 					if string(req.Payload[4:]) == "sftp" {
 						ok = true
 						connection := Connection{
-							BaseConnection: common.NewBaseConnection(connID, common.ProtocolSFTP, conn.RemoteAddr().String(), user),
-							ClientVersion:  string(sconn.ClientVersion()),
-							RemoteAddr:     conn.RemoteAddr(),
-							channel:        channel,
+							BaseConnection: common.NewBaseConnection(connID, common.ProtocolSFTP, conn.LocalAddr().String(),
+								conn.RemoteAddr().String(), user),
+							ClientVersion: string(sconn.ClientVersion()),
+							RemoteAddr:    conn.RemoteAddr(),
+							LocalAddr:     conn.LocalAddr(),
+							channel:       channel,
 						}
 						go c.handleSftpConnection(channel, &connection)
 					}
 				case "exec":
 					// protocol will be set later inside processSSHCommand it could be SSH or SCP
 					connection := Connection{
-						BaseConnection: common.NewBaseConnection(connID, "sshd_exec", conn.RemoteAddr().String(), user),
-						ClientVersion:  string(sconn.ClientVersion()),
-						RemoteAddr:     conn.RemoteAddr(),
-						channel:        channel,
+						BaseConnection: common.NewBaseConnection(connID, "sshd_exec", conn.LocalAddr().String(),
+							conn.RemoteAddr().String(), user),
+						ClientVersion: string(sconn.ClientVersion()),
+						RemoteAddr:    conn.RemoteAddr(),
+						LocalAddr:     conn.LocalAddr(),
+						channel:       channel,
 					}
 					ok = processSSHCommand(req.Payload, &connection, c.EnabledSSHCommands)
 				}

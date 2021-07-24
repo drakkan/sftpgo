@@ -17,7 +17,7 @@ import (
 )
 
 func TestTransferUpdateQuota(t *testing.T) {
-	conn := NewBaseConnection("", ProtocolSFTP, "", dataprovider.User{})
+	conn := NewBaseConnection("", ProtocolSFTP, "", "", dataprovider.User{})
 	transfer := BaseTransfer{
 		Connection:    conn,
 		transferType:  TransferUpload,
@@ -64,7 +64,7 @@ func TestTransferThrottling(t *testing.T) {
 	// some tolerance
 	wantedUploadElapsed -= wantedDownloadElapsed / 10
 	wantedDownloadElapsed -= wantedDownloadElapsed / 10
-	conn := NewBaseConnection("id", ProtocolSCP, "", u)
+	conn := NewBaseConnection("id", ProtocolSCP, "", "", u)
 	transfer := NewBaseTransfer(nil, conn, nil, "", "", "", TransferUpload, 0, 0, 0, true, fs)
 	transfer.BytesReceived = testFileSize
 	transfer.Connection.UpdateLastActivity()
@@ -100,7 +100,7 @@ func TestRealPath(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermAny}
 	file, err := os.Create(testFile)
 	require.NoError(t, err)
-	conn := NewBaseConnection(fs.ConnectionID(), ProtocolSFTP, "", u)
+	conn := NewBaseConnection(fs.ConnectionID(), ProtocolSFTP, "", "", u)
 	transfer := NewBaseTransfer(file, conn, nil, testFile, testFile, "/transfer_test_file", TransferUpload, 0, 0, 0, true, fs)
 	rPath := transfer.GetRealFsPath(testFile)
 	assert.Equal(t, testFile, rPath)
@@ -137,7 +137,7 @@ func TestTruncate(t *testing.T) {
 	}
 	_, err = file.Write([]byte("hello"))
 	assert.NoError(t, err)
-	conn := NewBaseConnection(fs.ConnectionID(), ProtocolSFTP, "", u)
+	conn := NewBaseConnection(fs.ConnectionID(), ProtocolSFTP, "", "", u)
 	transfer := NewBaseTransfer(file, conn, nil, testFile, testFile, "/transfer_test_file", TransferUpload, 0, 5, 100, false, fs)
 
 	err = conn.SetStat("/transfer_test_file", &StatAttributes{
@@ -201,7 +201,7 @@ func TestTransferErrors(t *testing.T) {
 	if !assert.NoError(t, err) {
 		assert.FailNow(t, "unable to open test file")
 	}
-	conn := NewBaseConnection("id", ProtocolSFTP, "", u)
+	conn := NewBaseConnection("id", ProtocolSFTP, "", "", u)
 	transfer := NewBaseTransfer(file, conn, nil, testFile, testFile, "/transfer_test_file", TransferUpload, 0, 0, 0, true, fs)
 	assert.Nil(t, transfer.cancelFn)
 	assert.Equal(t, testFile, transfer.GetFsPath())
@@ -272,7 +272,7 @@ func TestRemovePartialCryptoFile(t *testing.T) {
 			HomeDir:  os.TempDir(),
 		},
 	}
-	conn := NewBaseConnection(fs.ConnectionID(), ProtocolSFTP, "", u)
+	conn := NewBaseConnection(fs.ConnectionID(), ProtocolSFTP, "", "", u)
 	transfer := NewBaseTransfer(nil, conn, nil, testFile, testFile, "/transfer_test_file", TransferUpload, 0, 0, 0, true, fs)
 	transfer.ErrTransfer = errors.New("test error")
 	_, err = transfer.getUploadFileSize()

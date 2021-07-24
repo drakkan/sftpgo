@@ -31,7 +31,12 @@ func (c *Connection) GetClientVersion() string {
 	return ""
 }
 
-// GetRemoteAddress return the connected client's address
+// GetLocalAddress returns local connection address
+func (c *Connection) GetLocalAddress() string {
+	return util.GetHTTPLocalAddress(c.request)
+}
+
+// GetRemoteAddress returns the connected client's address
 func (c *Connection) GetRemoteAddress() string {
 	if c.request != nil {
 		return c.request.RemoteAddr

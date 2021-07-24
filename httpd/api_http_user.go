@@ -37,8 +37,9 @@ func getUserConnection(w http.ResponseWriter, r *http.Request) (*Connection, err
 		return nil, err
 	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, r.RemoteAddr, user),
-		request:        r,
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, util.GetHTTPLocalAddress(r),
+			r.RemoteAddr, user),
+		request: r,
 	}
 	return connection, nil
 }

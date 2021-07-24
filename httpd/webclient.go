@@ -283,8 +283,9 @@ func handleWebClientDownloadZip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, r.RemoteAddr, user),
-		request:        r,
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, util.GetHTTPLocalAddress(r),
+			r.RemoteAddr, user),
+		request: r,
 	}
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
@@ -326,8 +327,9 @@ func handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, r.RemoteAddr, user),
-		request:        r,
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, util.GetHTTPLocalAddress(r),
+			r.RemoteAddr, user),
+		request: r,
 	}
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
@@ -386,8 +388,9 @@ func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, r.RemoteAddr, user),
-		request:        r,
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, util.GetHTTPLocalAddress(r),
+			r.RemoteAddr, user),
+		request: r,
 	}
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())

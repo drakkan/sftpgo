@@ -1532,7 +1532,6 @@ func isPasswordOK(user *User, password string) (bool, error) {
 		}
 	} else if strings.HasPrefix(user.Password, bcryptPwdPrefix) {
 		if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
-			providerLog(logger.LevelWarn, "error comparing password with bcrypt hash: %v", err)
 			return match, ErrInvalidCredentials
 		}
 		match = true
@@ -1583,20 +1582,24 @@ func checkUserAndPass(user *User, password, ip, protocol string) (User, error) {
 	if !user.Filters.Hooks.CheckPasswordDisabled {
 		hookResponse, err := executeCheckPasswordHook(user.Username, password, ip, protocol)
 		if err != nil {
-			providerLog(logger.LevelDebug, "error executing check password hook: %v", err)
+			providerLog(logger.LevelDebug, "error executing check password hook for user %#v, ip %v, protocol %v: %v",
+				user.Username, ip, protocol, err)
 			return *user, errors.New("unable to check credentials")
 		}
 		switch hookResponse.Status {
 		case -1:
 			// no hook configured
 		case 1:
-			providerLog(logger.LevelDebug, "password accepted by check password hook")
+			providerLog(logger.LevelDebug, "password accepted by check password hook for user %#v, ip %v, protocol %v",
+				user.Username, ip, protocol)
 			return *user, nil
 		case 2:
-			providerLog(logger.LevelDebug, "partial success from check password hook")
+			providerLog(logger.LevelDebug, "partial success from check password hook for user %#v, ip %v, protocol %v",
+				user.Username, ip, protocol)
 			password = hookResponse.ToVerify
 		default:
-			providerLog(logger.LevelDebug, "password rejected by check password hook, status: %v", hookResponse.Status)
+			providerLog(logger.LevelDebug, "password rejected by check password hook for user %#v, ip %v, protocol %v, status: %v",
+				user.Username, ip, protocol, hookResponse.Status)
 			return *user, ErrInvalidCredentials
 		}
 	}
@@ -2116,7 +2119,8 @@ func executePreLoginHook(username, loginMethod, ip, protocol string) (User, erro
 	startTime := time.Now()
 	out, err := getPreLoginHookResponse(loginMethod, ip, protocol, userAsJSON)
 	if err != nil {
-		return u, fmt.Errorf("pre-login hook error: %v, elapsed %v", err, time.Since(startTime))
+		return u, fmt.Errorf("pre-login hook error: %v, username %#v, ip %v, protocol %v elapsed %v",
+			err, username, ip, protocol, time.Since(startTime))
 	}
 	providerLog(logger.LevelDebug, "pre-login hook completed, elapsed: %v", time.Since(startTime))
 	if util.IsByteArrayEmpty(out) {
@@ -2209,8 +2213,8 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 				respCode = resp.StatusCode
 				resp.Body.Close()
 			}
-			providerLog(logger.LevelDebug, "post login hook executed, response code: %v, elapsed: %v err: %v",
-				respCode, time.Since(startTime), err)
+			providerLog(logger.LevelDebug, "post login hook executed for user %#v, ip %v, protocol %v, response code: %v, elapsed: %v err: %v",
+				user.Username, ip, protocol, respCode, time.Since(startTime), err)
 			return
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -2224,7 +2228,8 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 			fmt.Sprintf("SFTPGO_LOGIND_PROTOCOL=%v", protocol))
 		startTime := time.Now()
 		err = cmd.Run()
-		providerLog(logger.LevelDebug, "post login hook executed, elapsed %v err: %v", time.Since(startTime), err)
+		providerLog(logger.LevelDebug, "post login hook executed for user %#v, ip %v, protocol %v, elapsed %v err: %v",
+			user.Username, ip, protocol, time.Since(startTime), err)
 	}()
 }
 
@@ -2312,9 +2317,9 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 	startTime := time.Now()
 	out, err := getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, protocol, tlsCert, userAsJSON)
 	if err != nil {
-		return user, fmt.Errorf("external auth error: %v, elapsed: %v", err, time.Since(startTime))
+		return user, fmt.Errorf("external auth error for user %#v: %v, elapsed: %v", username, err, time.Since(startTime))
 	}
-	providerLog(logger.LevelDebug, "external auth completed, elapsed: %v", time.Since(startTime))
+	providerLog(logger.LevelDebug, "external auth completed for user %#v, elapsed: %v", username, time.Since(startTime))
 	if util.IsByteArrayEmpty(out) {
 		providerLog(logger.LevelDebug, "empty response from external hook, no modification requested for user %#v id: %v",
 			username, u.ID)

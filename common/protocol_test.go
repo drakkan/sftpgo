@@ -1927,7 +1927,7 @@ func TestFsPermissionErrors(t *testing.T) {
 func TestResolvePathError(t *testing.T) {
 	u := getTestUser()
 	u.HomeDir = "relative_path"
-	conn := common.NewBaseConnection("", common.ProtocolFTP, "", u)
+	conn := common.NewBaseConnection("", common.ProtocolFTP, "", "", u)
 	testPath := "apath"
 	_, err := conn.ListDir(testPath)
 	assert.Error(t, err)
@@ -2404,16 +2404,16 @@ func TestSFTPLoopError(t *testing.T) {
 	user1.VirtualFolders[0].FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)
 	user2.FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)
 
-	conn := common.NewBaseConnection("", common.ProtocolWebDAV, "", user1)
+	conn := common.NewBaseConnection("", common.ProtocolWebDAV, "", "", user1)
 	_, _, err = conn.GetFsAndResolvedPath(user1.VirtualFolders[0].VirtualPath)
 	assert.ErrorIs(t, err, os.ErrPermission)
 
-	conn = common.NewBaseConnection("", common.ProtocolSFTP, "", user1)
+	conn = common.NewBaseConnection("", common.ProtocolSFTP, "", "", user1)
 	_, _, err = conn.GetFsAndResolvedPath(user1.VirtualFolders[0].VirtualPath)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "SFTP loop")
 	}
-	conn = common.NewBaseConnection("", common.ProtocolFTP, "", user1)
+	conn = common.NewBaseConnection("", common.ProtocolFTP, "", "", user1)
 	_, _, err = conn.GetFsAndResolvedPath(user1.VirtualFolders[0].VirtualPath)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "SFTP loop")
@@ -2650,7 +2650,7 @@ func TestProxyProtocol(t *testing.T) {
 }
 
 func TestSetProtocol(t *testing.T) {
-	conn := common.NewBaseConnection("id", "sshd_exec", "", dataprovider.User{BaseUser: sdk.BaseUser{HomeDir: os.TempDir()}})
+	conn := common.NewBaseConnection("id", "sshd_exec", "", "", dataprovider.User{BaseUser: sdk.BaseUser{HomeDir: os.TempDir()}})
 	conn.SetProtocol(common.ProtocolSCP)
 	require.Equal(t, "SCP_id", conn.GetID())
 }
@@ -2660,7 +2660,7 @@ func TestGetFsError(t *testing.T) {
 	u.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("invalid JSON for credentials")
-	conn := common.NewBaseConnection("", common.ProtocolFTP, "", u)
+	conn := common.NewBaseConnection("", common.ProtocolFTP, "", "", u)
 	_, _, err := conn.GetFsAndResolvedPath("/vpath")
 	assert.Error(t, err)
 }

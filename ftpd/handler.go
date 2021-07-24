@@ -40,7 +40,12 @@ func (c *Connection) GetClientVersion() string {
 	return "Unknown"
 }
 
-// GetRemoteAddress return the connected client's address
+// GetLocalAddress returns local connection address
+func (c *Connection) GetLocalAddress() string {
+	return c.clientContext.LocalAddr().String()
+}
+
+// GetRemoteAddress returns the connected client's address
 func (c *Connection) GetRemoteAddress() string {
 	return c.clientContext.RemoteAddr().String()
 }
