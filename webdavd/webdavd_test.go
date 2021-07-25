@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -650,6 +651,110 @@ func TestBasicHandlingCryptFs(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	assert.Len(t, common.Connections.GetStats(), 0)
+}
+
+func TestLockAfterDelete(t *testing.T) {
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	client := getWebDavClient(user, false, nil)
+	assert.NoError(t, checkBasicFunc(client))
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	assert.NoError(t, err)
+	lockBody := `<?xml version="1.0" encoding="utf-8" ?><d:lockinfo xmlns:d="DAV:"><d:lockscope><d:exclusive/></d:lockscope><d:locktype><d:write/></d:locktype></d:lockinfo>`
+	req, err := http.NewRequest("LOCK", fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName), bytes.NewReader([]byte(lockBody)))
+	assert.NoError(t, err)
+	req.SetBasicAuth(u.Username, u.Password)
+	httpClient := httpclient.GetHTTPClient()
+	resp, err := httpClient.Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	response, err := io.ReadAll(resp.Body)
+	assert.NoError(t, err)
+	re := regexp.MustCompile(`\<D:locktoken><D:href>.*</D:href>`)
+	lockToken := string(re.Find(response))
+	lockToken = strings.Replace(lockToken, "<D:locktoken><D:href>", "", 1)
+	lockToken = strings.Replace(lockToken, "</D:href>", "", 1)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodDelete, fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName), nil)
+	assert.NoError(t, err)
+	req.Header.Set("If", fmt.Sprintf("(%v)", lockToken))
+	req.SetBasicAuth(u.Username, u.Password)
+	resp, err = httpClient.Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+	// if we try to lock again it must succeed, the lock must be deleted with the object
+	req, err = http.NewRequest("LOCK", fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName), bytes.NewReader([]byte(lockBody)))
+	assert.NoError(t, err)
+	req.SetBasicAuth(u.Username, u.Password)
+	resp, err = httpClient.Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestRenameWithLock(t *testing.T) {
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	client := getWebDavClient(user, false, nil)
+	assert.NoError(t, checkBasicFunc(client))
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	assert.NoError(t, err)
+
+	lockBody := `<?xml version="1.0" encoding="utf-8" ?><d:lockinfo xmlns:d="DAV:"><d:lockscope><d:exclusive/></d:lockscope><d:locktype><d:write/></d:locktype></d:lockinfo>`
+	req, err := http.NewRequest("LOCK", fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName), bytes.NewReader([]byte(lockBody)))
+	assert.NoError(t, err)
+	req.SetBasicAuth(u.Username, u.Password)
+	httpClient := httpclient.GetHTTPClient()
+	resp, err := httpClient.Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	response, err := io.ReadAll(resp.Body)
+	assert.NoError(t, err)
+	re := regexp.MustCompile(`\<D:locktoken><D:href>.*</D:href>`)
+	lockToken := string(re.Find(response))
+	lockToken = strings.Replace(lockToken, "<D:locktoken><D:href>", "", 1)
+	lockToken = strings.Replace(lockToken, "</D:href>", "", 1)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+	// MOVE with a lock should succeeded
+	req, err = http.NewRequest("MOVE", fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName), nil)
+	assert.NoError(t, err)
+	req.Header.Set("If", fmt.Sprintf("(%v)", lockToken))
+	req.Header.Set("Overwrite", "T")
+	req.Header.Set("Destination", path.Join("/", testFileName+"1"))
+	req.SetBasicAuth(u.Username, u.Password)
+	resp, err = httpClient.Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
 }
 
 func TestPropPatch(t *testing.T) {
