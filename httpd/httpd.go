@@ -57,7 +57,9 @@ const (
 	userPwdPath                     = "/api/v2/user/changepwd"
 	userPublicKeysPath              = "/api/v2/user/publickeys"
 	userFolderPath                  = "/api/v2/user/folder"
+	userDirsPath                    = "/api/v2/user/dirs"
 	userFilePath                    = "/api/v2/user/file"
+	userFilesPath                   = "/api/v2/user/files"
 	userStreamZipPath               = "/api/v2/user/streamzip"
 	healthzPath                     = "/healthz"
 	webRootPathDefault              = "/"
@@ -87,7 +89,7 @@ const (
 	webDefenderHostsPathDefault     = "/web/admin/defender/hosts"
 	webClientLoginPathDefault       = "/web/client/login"
 	webClientFilesPathDefault       = "/web/client/files"
-	webClientDirContentsPathDefault = "/web/client/listdir"
+	webClientDirsPathDefault        = "/web/client/dirs"
 	webClientDownloadZipPathDefault = "/web/client/downloadzip"
 	webClientCredentialsPathDefault = "/web/client/credentials"
 	webChangeClientPwdPathDefault   = "/web/client/changepwd"
@@ -136,7 +138,7 @@ var (
 	webDefenderHostsPath     string
 	webClientLoginPath       string
 	webClientFilesPath       string
-	webClientDirContentsPath string
+	webClientDirsPath        string
 	webClientDownloadZipPath string
 	webClientCredentialsPath string
 	webChangeClientPwdPath   string
@@ -444,7 +446,7 @@ func updateWebClientURLs(baseURL string) {
 	webBaseClientPath = path.Join(baseURL, webBasePathClientDefault)
 	webClientLoginPath = path.Join(baseURL, webClientLoginPathDefault)
 	webClientFilesPath = path.Join(baseURL, webClientFilesPathDefault)
-	webClientDirContentsPath = path.Join(baseURL, webClientDirContentsPathDefault)
+	webClientDirsPath = path.Join(baseURL, webClientDirsPathDefault)
 	webClientDownloadZipPath = path.Join(baseURL, webClientDownloadZipPathDefault)
 	webClientCredentialsPath = path.Join(baseURL, webClientCredentialsPathDefault)
 	webChangeClientPwdPath = path.Join(baseURL, webChangeClientPwdPathDefault)

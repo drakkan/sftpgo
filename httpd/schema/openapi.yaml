@@ -1763,8 +1763,41 @@ paths:
       tags:
         - users API
       summary: Read folders contents
-      description: Returns the contents of the specified folder for the logged in user
+      description: Returns the contents of the specified folder for the logged in user. Please use '/user/dirs' instead
       operationId: get_user_folder_contents
+      deprecated: true
+      parameters:
+        - in: query
+          name: path
+          description: Path to the folder to read. It must be URL encoded, for example the path "my dir/àdir" must be sent as "my%20dir%2F%C3%A0dir". If empty or missing the root folder is assumed
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DirEntry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/dirs:
+    get:
+      tags:
+        - users API
+      summary: Read directory contents
+      description: Returns the contents of the specified directory for the logged in user
+      operationId: get_user_dir_contents
       parameters:
         - in: query
           name: path
@@ -1795,7 +1828,7 @@ paths:
         - users API
       summary: Create a directory
       description: Create a directory for the logged in user
-      operationId: create_user_folder
+      operationId: create_user_dir
       parameters:
         - in: query
           name: path
@@ -1827,7 +1860,7 @@ paths:
         - users API
       summary: Rename a directory
       description: Rename a directory for the logged in user. The rename is allowed for empty directory or for non empty, local directories, with no virtual folders inside
-      operationId: rename_user_folder
+      operationId: rename_user_dir
       parameters:
         - in: query
           name: path
@@ -1865,7 +1898,7 @@ paths:
         - users API
       summary: Delete a directory
       description: Delete a directory for the logged in user. Only empty directories can be deleted
-      operationId: delete_user_folder
+      operationId: delete_user_dir
       parameters:
         - in: query
           name: path
@@ -1897,8 +1930,48 @@ paths:
       tags:
         - users API
       summary: Download a single file
-      description: Returns the file contents as response body
+      description: Returns the file contents as response body. Please use '/user/files' instead
       operationId: get_user_file
+      deprecated: true
+      parameters:
+        - in: query
+          name: path
+          required: true
+          description: Path to the file to download. It must be URL encoded, for example the path "my dir/àdir/file.txt" must be sent as "my%20dir%2F%C3%A0dir%2Ffile.txt"
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '206':
+          description: successful operation
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/files:
+    get:
+      tags:
+        - users API
+      summary: Download a single file
+      description: Returns the file contents as response body
+      operationId: download_user_file
       parameters:
         - in: query
           name: path

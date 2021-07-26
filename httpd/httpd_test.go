@@ -78,8 +78,8 @@ const (
 	logoutPath                      = "/api/v2/logout"
 	userPwdPath                     = "/api/v2/user/changepwd"
 	userPublicKeysPath              = "/api/v2/user/publickeys"
-	userFolderPath                  = "/api/v2/user/folder"
-	userFilePath                    = "/api/v2/user/file"
+	userDirsPath                    = "/api/v2/user/dirs"
+	userFilesPath                   = "/api/v2/user/files"
 	userStreamZipPath               = "/api/v2/user/streamzip"
 	healthzPath                     = "/healthz"
 	webBasePath                     = "/web"
@@ -104,7 +104,7 @@ const (
 	webBasePathClient               = "/web/client"
 	webClientLoginPath              = "/web/client/login"
 	webClientFilesPath              = "/web/client/files"
-	webClientDirContentsPath        = "/web/client/listdir"
+	webClientDirsPath               = "/web/client/dirs"
 	webClientDownloadZipPath        = "/web/client/downloadzip"
 	webClientCredentialsPath        = "/web/client/credentials"
 	webChangeClientPwdPath          = "/web/client/changepwd"
@@ -4882,14 +4882,14 @@ func TestWebAPILoginMock(t *testing.T) {
 	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 	// a web token is not valid for API usage
-	req, err := http.NewRequest(http.MethodGet, userFolderPath, nil)
+	req, err := http.NewRequest(http.MethodGet, userDirsPath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusUnauthorized, rr)
 	assert.Contains(t, rr.Body.String(), "Your token audience is not valid")
 
-	req, err = http.NewRequest(http.MethodGet, userFolderPath+"/?path=%2F", nil)
+	req, err = http.NewRequest(http.MethodGet, userDirsPath+"/?path=%2F", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
@@ -4977,7 +4977,7 @@ func TestWebClientLoginMock(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, rr)
 	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
 
-	req, _ = http.NewRequest(http.MethodGet, webClientDirContentsPath, nil)
+	req, _ = http.NewRequest(http.MethodGet, webClientDirsPath, nil)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
@@ -4989,13 +4989,13 @@ func TestWebClientLoginMock(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, rr)
 	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
 
-	req, _ = http.NewRequest(http.MethodGet, userFolderPath, nil)
+	req, _ = http.NewRequest(http.MethodGet, userDirsPath, nil)
 	setBearerForReq(req, apiUserToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
 
-	req, _ = http.NewRequest(http.MethodGet, userFilePath, nil)
+	req, _ = http.NewRequest(http.MethodGet, userFilesPath, nil)
 	setBearerForReq(req, apiUserToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
@@ -5468,7 +5468,7 @@ func TestPreDownloadHook(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Equal(t, testFileContents, rr.Body.Bytes())
 
-	req, err = http.NewRequest(http.MethodGet, userFilePath+"?path="+testFileName, nil)
+	req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path="+testFileName, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -5484,7 +5484,7 @@ func TestPreDownloadHook(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "permission denied")
 
-	req, err = http.NewRequest(http.MethodGet, userFilePath+"?path="+testFileName, nil)
+	req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path="+testFileName, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -5530,7 +5530,7 @@ func TestPreUploadHook(t *testing.T) {
 	reader := bytes.NewReader(body.Bytes())
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
-	req, err := http.NewRequest(http.MethodPost, userFilePath, reader)
+	req, err := http.NewRequest(http.MethodPost, userFilesPath, reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -5541,7 +5541,7 @@ func TestPreUploadHook(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -5586,7 +5586,7 @@ func TestWebGetFiles(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
-	req, _ = http.NewRequest(http.MethodGet, webClientDirContentsPath+"?path="+testDir, nil)
+	req, _ = http.NewRequest(http.MethodGet, webClientDirsPath+"?path="+testDir, nil)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -5595,7 +5595,7 @@ func TestWebGetFiles(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, dirContents, 1)
 
-	req, _ = http.NewRequest(http.MethodGet, userFolderPath+"?path="+testDir, nil)
+	req, _ = http.NewRequest(http.MethodGet, userDirsPath+"?path="+testDir, nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -5636,7 +5636,7 @@ func TestWebGetFiles(t *testing.T) {
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 	assert.Contains(t, rr.Body.String(), "Unable to get files list")
 
-	req, _ = http.NewRequest(http.MethodGet, webClientDirContentsPath+"?path=/", nil)
+	req, _ = http.NewRequest(http.MethodGet, webClientDirsPath+"?path=/", nil)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -5645,7 +5645,7 @@ func TestWebGetFiles(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, dirContents, len(extensions)+1)
 
-	req, _ = http.NewRequest(http.MethodGet, userFolderPath+"?path=/", nil)
+	req, _ = http.NewRequest(http.MethodGet, userDirsPath+"?path=/", nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -5654,13 +5654,13 @@ func TestWebGetFiles(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, dirEntries, len(extensions)+1)
 
-	req, _ = http.NewRequest(http.MethodGet, webClientDirContentsPath+"?path=/missing", nil)
+	req, _ = http.NewRequest(http.MethodGet, webClientDirsPath+"?path=/missing", nil)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 	assert.Contains(t, rr.Body.String(), "Unable to get directory contents")
 
-	req, _ = http.NewRequest(http.MethodGet, userFolderPath+"?path=missing", nil)
+	req, _ = http.NewRequest(http.MethodGet, userDirsPath+"?path=missing", nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
@@ -5672,25 +5672,25 @@ func TestWebGetFiles(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Equal(t, testFileContents, rr.Body.Bytes())
 
-	req, _ = http.NewRequest(http.MethodGet, userFilePath+"?path="+testFileName, nil)
+	req, _ = http.NewRequest(http.MethodGet, userFilesPath+"?path="+testFileName, nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Equal(t, testFileContents, rr.Body.Bytes())
 
-	req, _ = http.NewRequest(http.MethodGet, userFilePath+"?path=", nil)
+	req, _ = http.NewRequest(http.MethodGet, userFilesPath+"?path=", nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "Please set the path to a valid file")
 
-	req, _ = http.NewRequest(http.MethodGet, userFilePath+"?path="+testDir, nil)
+	req, _ = http.NewRequest(http.MethodGet, userFilesPath+"?path="+testDir, nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "is a directory")
 
-	req, _ = http.NewRequest(http.MethodGet, userFilePath+"?path=notafile", nil)
+	req, _ = http.NewRequest(http.MethodGet, userFilesPath+"?path=notafile", nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
@@ -5703,7 +5703,7 @@ func TestWebGetFiles(t *testing.T) {
 	checkResponseCode(t, http.StatusPartialContent, rr)
 	assert.Equal(t, testFileContents[2:], rr.Body.Bytes())
 
-	req, _ = http.NewRequest(http.MethodGet, userFilePath+"?path="+testFileName, nil)
+	req, _ = http.NewRequest(http.MethodGet, userFilesPath+"?path="+testFileName, nil)
 	req.Header.Set("Range", "bytes=2-")
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -5729,7 +5729,7 @@ func TestWebGetFiles(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusRequestedRangeNotSatisfiable, rr)
 
-	req, _ = http.NewRequest(http.MethodGet, userFilePath+"?path="+testFileName, nil)
+	req, _ = http.NewRequest(http.MethodGet, userFilesPath+"?path="+testFileName, nil)
 	req.Header.Set("Range", "bytes=2b-")
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -5767,7 +5767,7 @@ func TestWebGetFiles(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusPreconditionFailed, rr)
 
-	req, _ = http.NewRequest(http.MethodHead, userFilePath+"?path="+testFileName, nil)
+	req, _ = http.NewRequest(http.MethodHead, userFilesPath+"?path="+testFileName, nil)
 	req.Header.Set("If-Unmodified-Since", time.Now().UTC().Add(-120*time.Second).Format(http.TimeFormat))
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -5788,17 +5788,17 @@ func TestWebGetFiles(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 
-	req, _ = http.NewRequest(http.MethodGet, webClientDirContentsPath+"?path=/", nil)
+	req, _ = http.NewRequest(http.MethodGet, webClientDirsPath+"?path=/", nil)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 
-	req, _ = http.NewRequest(http.MethodGet, userFilePath+"?path="+testFileName, nil)
+	req, _ = http.NewRequest(http.MethodGet, userFilesPath+"?path="+testFileName, nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 
-	req, _ = http.NewRequest(http.MethodGet, userFolderPath+"?path="+testDir, nil)
+	req, _ = http.NewRequest(http.MethodGet, userDirsPath+"?path="+testDir, nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
@@ -5826,7 +5826,7 @@ func TestWebGetFiles(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 
-	req, _ = http.NewRequest(http.MethodGet, userFolderPath+"?path="+testDir, nil)
+	req, _ = http.NewRequest(http.MethodGet, userDirsPath+"?path="+testDir, nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
@@ -5844,7 +5844,7 @@ func TestWebDirsAPI(t *testing.T) {
 	assert.NoError(t, err)
 	testDir := "testdir"
 
-	req, err := http.NewRequest(http.MethodGet, userFolderPath, nil)
+	req, err := http.NewRequest(http.MethodGet, userDirsPath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr := executeRequest(req)
@@ -5855,25 +5855,25 @@ func TestWebDirsAPI(t *testing.T) {
 	assert.Len(t, contents, 0)
 
 	// rename a missing folder
-	req, err = http.NewRequest(http.MethodPatch, userFolderPath+"?path="+testDir+"&target="+testDir+"new", nil)
+	req, err = http.NewRequest(http.MethodPatch, userDirsPath+"?path="+testDir+"&target="+testDir+"new", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 	// delete a missing folder
-	req, err = http.NewRequest(http.MethodDelete, userFolderPath+"?path="+testDir, nil)
+	req, err = http.NewRequest(http.MethodDelete, userDirsPath+"?path="+testDir, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 	// create a dir
-	req, err = http.NewRequest(http.MethodPost, userFolderPath+"?path="+testDir, nil)
+	req, err = http.NewRequest(http.MethodPost, userDirsPath+"?path="+testDir, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
 	// check the dir was created
-	req, err = http.NewRequest(http.MethodGet, userFolderPath, nil)
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -5885,19 +5885,19 @@ func TestWebDirsAPI(t *testing.T) {
 		assert.Equal(t, testDir, contents[0]["name"])
 	}
 	// rename the dir
-	req, err = http.NewRequest(http.MethodPatch, userFolderPath+"?path="+testDir+"&target="+testDir+"new", nil)
+	req, err = http.NewRequest(http.MethodPatch, userDirsPath+"?path="+testDir+"&target="+testDir+"new", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	// delete the dir
-	req, err = http.NewRequest(http.MethodDelete, userFolderPath+"?path="+testDir+"new", nil)
+	req, err = http.NewRequest(http.MethodDelete, userDirsPath+"?path="+testDir+"new", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	// the root dir cannot be created
-	req, err = http.NewRequest(http.MethodPost, userFolderPath, nil)
+	req, err = http.NewRequest(http.MethodPost, userDirsPath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -5907,7 +5907,7 @@ func TestWebDirsAPI(t *testing.T) {
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	// the user has no more the permission to create the directory
-	req, err = http.NewRequest(http.MethodPost, userFolderPath+"?path="+testDir, nil)
+	req, err = http.NewRequest(http.MethodPost, userDirsPath+"?path="+testDir, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -5919,19 +5919,19 @@ func TestWebDirsAPI(t *testing.T) {
 	assert.NoError(t, err)
 
 	// the user is deleted, any API call should fail
-	req, err = http.NewRequest(http.MethodPost, userFolderPath+"?path="+testDir, nil)
+	req, err = http.NewRequest(http.MethodPost, userDirsPath+"?path="+testDir, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
-	req, err = http.NewRequest(http.MethodPatch, userFolderPath+"?path="+testDir+"&target="+testDir+"new", nil)
+	req, err = http.NewRequest(http.MethodPatch, userDirsPath+"?path="+testDir+"&target="+testDir+"new", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
-	req, err = http.NewRequest(http.MethodDelete, userFolderPath+"?path="+testDir+"new", nil)
+	req, err = http.NewRequest(http.MethodDelete, userDirsPath+"?path="+testDir+"new", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -5958,7 +5958,7 @@ func TestWebFilesAPI(t *testing.T) {
 	assert.NoError(t, err)
 	reader := bytes.NewReader(body.Bytes())
 
-	req, err := http.NewRequest(http.MethodPost, userFilePath, reader)
+	req, err := http.NewRequest(http.MethodPost, userFilesPath, reader)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr := executeRequest(req)
@@ -5967,14 +5967,14 @@ func TestWebFilesAPI(t *testing.T) {
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
 	// set the proper content type
-	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
 	// check we have 2 files
-	req, err = http.NewRequest(http.MethodGet, userFolderPath, nil)
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -5986,13 +5986,13 @@ func TestWebFilesAPI(t *testing.T) {
 	// overwrite the existing files
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
-	req, err = http.NewRequest(http.MethodGet, userFolderPath, nil)
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -6003,20 +6003,20 @@ func TestWebFilesAPI(t *testing.T) {
 	assert.Len(t, contents, 2)
 	// now create a dir and upload to that dir
 	testDir := "tdir"
-	req, err = http.NewRequest(http.MethodPost, userFolderPath+"?path="+testDir, nil)
+	req, err = http.NewRequest(http.MethodPost, userDirsPath+"?path="+testDir, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPost, userFilePath+"?path="+testDir, reader)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath+"?path="+testDir, reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
-	req, err = http.NewRequest(http.MethodGet, userFolderPath, nil)
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -6025,7 +6025,7 @@ func TestWebFilesAPI(t *testing.T) {
 	err = json.NewDecoder(rr.Body).Decode(&contents)
 	assert.NoError(t, err)
 	assert.Len(t, contents, 3)
-	req, err = http.NewRequest(http.MethodGet, userFolderPath+"?path="+testDir, nil)
+	req, err = http.NewRequest(http.MethodGet, userDirsPath+"?path="+testDir, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -6035,31 +6035,31 @@ func TestWebFilesAPI(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, contents, 2)
 	// rename a file
-	req, err = http.NewRequest(http.MethodPatch, userFilePath+"?path=file1.txt&target=%2Ftdir%2Ffile3.txt", nil)
+	req, err = http.NewRequest(http.MethodPatch, userFilesPath+"?path=file1.txt&target=%2Ftdir%2Ffile3.txt", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	// rename a missing file
-	req, err = http.NewRequest(http.MethodPatch, userFilePath+"?path=file1.txt&target=%2Ftdir%2Ffile3.txt", nil)
+	req, err = http.NewRequest(http.MethodPatch, userFilesPath+"?path=file1.txt&target=%2Ftdir%2Ffile3.txt", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 	// delete a file
-	req, err = http.NewRequest(http.MethodDelete, userFilePath+"?path=file2.txt", nil)
+	req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=file2.txt", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	// delete a missing file
-	req, err = http.NewRequest(http.MethodDelete, userFilePath+"?path=file2.txt", nil)
+	req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=file2.txt", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 	// delete a directory
-	req, err = http.NewRequest(http.MethodDelete, userFilePath+"?path=tdir", nil)
+	req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=tdir", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -6070,7 +6070,7 @@ func TestWebFilesAPI(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.Symlink(extPath, filepath.Join(user.GetHomeDir(), "file"))
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodDelete, userFilePath+"?path=file", nil)
+	req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=file", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -6083,14 +6083,14 @@ func TestWebFilesAPI(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPost, userFilePath+"?path=tdir", reader)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath+"?path=tdir", reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 
-	req, err = http.NewRequest(http.MethodDelete, userFilePath+"?path=%2Ftdir%2Ffile1.txt", nil)
+	req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=%2Ftdir%2Ffile1.txt", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -6103,20 +6103,20 @@ func TestWebFilesAPI(t *testing.T) {
 	// the user is deleted, any API call should fail
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
-	req, err = http.NewRequest(http.MethodPatch, userFilePath+"?path=file1.txt&target=%2Ftdir%2Ffile3.txt", nil)
+	req, err = http.NewRequest(http.MethodPatch, userFilesPath+"?path=file1.txt&target=%2Ftdir%2Ffile3.txt", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
-	req, err = http.NewRequest(http.MethodDelete, userFilePath+"?path=file2.txt", nil)
+	req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=file2.txt", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -6155,7 +6155,7 @@ func TestWebUploadErrors(t *testing.T) {
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
 	// zip file are not allowed within sub2
-	req, err := http.NewRequest(http.MethodPost, userFilePath+"?path=sub2", reader)
+	req, err := http.NewRequest(http.MethodPost, userFilesPath+"?path=sub2", reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -6165,7 +6165,7 @@ func TestWebUploadErrors(t *testing.T) {
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
 	// we have no upload permissions within sub1
-	req, err = http.NewRequest(http.MethodPost, userFilePath+"?path=sub1", reader)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath+"?path=sub1", reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -6173,7 +6173,7 @@ func TestWebUploadErrors(t *testing.T) {
 	checkResponseCode(t, http.StatusForbidden, rr)
 
 	// create a dir and try to overwrite it with a file
-	req, err = http.NewRequest(http.MethodPost, userFolderPath+"?path=file.zip", nil)
+	req, err = http.NewRequest(http.MethodPost, userDirsPath+"?path=file.zip", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -6181,7 +6181,7 @@ func TestWebUploadErrors(t *testing.T) {
 
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -6191,14 +6191,14 @@ func TestWebUploadErrors(t *testing.T) {
 	// try to upload to a missing parent directory
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPost, userFilePath+"?path=missingdir", reader)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath+"?path=missingdir", reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
-	req, err = http.NewRequest(http.MethodDelete, userFolderPath+"?path=file.zip", nil)
+	req, err = http.NewRequest(http.MethodDelete, userDirsPath+"?path=file.zip", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -6206,7 +6206,7 @@ func TestWebUploadErrors(t *testing.T) {
 	// upload will work now
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -6215,7 +6215,7 @@ func TestWebUploadErrors(t *testing.T) {
 	// overwrite the file
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -6226,7 +6226,7 @@ func TestWebUploadErrors(t *testing.T) {
 
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -6234,7 +6234,7 @@ func TestWebUploadErrors(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, rr)
 
 	if runtime.GOOS != osWindows {
-		req, err = http.NewRequest(http.MethodDelete, userFilePath+"?path=file.zip", reader)
+		req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=file.zip", reader)
 		assert.NoError(t, err)
 		setBearerForReq(req, webAPIToken)
 		rr = executeRequest(req)
@@ -6246,7 +6246,7 @@ func TestWebUploadErrors(t *testing.T) {
 
 		_, err = reader.Seek(0, io.SeekStart)
 		assert.NoError(t, err)
-		req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+		req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
 		assert.NoError(t, err)
 		req.Header.Add("Content-Type", writer.FormDataContentType())
 		setBearerForReq(req, webAPIToken)
@@ -6268,7 +6268,7 @@ func TestWebUploadErrors(t *testing.T) {
 	reader = bytes.NewReader(body.Bytes())
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPost, userFilePath+"?path=sub2", reader)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath+"?path=sub2", reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -6315,7 +6315,7 @@ func TestWebAPIVFolder(t *testing.T) {
 	assert.NoError(t, err)
 	reader := bytes.NewReader(body.Bytes())
 
-	req, err := http.NewRequest(http.MethodPost, userFilePath+"?path=vdir", reader)
+	req, err := http.NewRequest(http.MethodPost, userFilesPath+"?path=vdir", reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -6332,7 +6332,7 @@ func TestWebAPIVFolder(t *testing.T) {
 
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPost, userFilePath+"?path=vdir", reader)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath+"?path=vdir", reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -6375,56 +6375,56 @@ func TestWebAPIWritePermission(t *testing.T) {
 	assert.NoError(t, err)
 	reader := bytes.NewReader(body.Bytes())
 
-	req, err := http.NewRequest(http.MethodPost, userFilePath, reader)
+	req, err := http.NewRequest(http.MethodPost, userFilesPath, reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 
-	req, err = http.NewRequest(http.MethodPatch, userFilePath+"?path=a&target=b", nil)
+	req, err = http.NewRequest(http.MethodPatch, userFilesPath+"?path=a&target=b", nil)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 
-	req, err = http.NewRequest(http.MethodDelete, userFilePath+"?path=a", nil)
+	req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=a", nil)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 
-	req, err = http.NewRequest(http.MethodGet, userFilePath+"?path=a.txt", nil)
+	req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path=a.txt", nil)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
-	req, err = http.NewRequest(http.MethodGet, userFolderPath, nil)
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
-	req, err = http.NewRequest(http.MethodPost, userFolderPath+"?path=dir", nil)
+	req, err = http.NewRequest(http.MethodPost, userDirsPath+"?path=dir", nil)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 
-	req, err = http.NewRequest(http.MethodPatch, userFolderPath+"?path=dir&target=dir1", nil)
+	req, err = http.NewRequest(http.MethodPatch, userDirsPath+"?path=dir&target=dir1", nil)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 
-	req, err = http.NewRequest(http.MethodDelete, userFolderPath+"?path=dir", nil)
+	req, err = http.NewRequest(http.MethodDelete, userDirsPath+"?path=dir", nil)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -6457,7 +6457,7 @@ func TestWebAPICryptFs(t *testing.T) {
 	assert.NoError(t, err)
 	reader := bytes.NewReader(body.Bytes())
 
-	req, err := http.NewRequest(http.MethodPost, userFilePath, reader)
+	req, err := http.NewRequest(http.MethodPost, userFilesPath, reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -6466,7 +6466,7 @@ func TestWebAPICryptFs(t *testing.T) {
 
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -6503,7 +6503,7 @@ func TestWebUploadSFTP(t *testing.T) {
 	assert.NoError(t, err)
 	reader := bytes.NewReader(body.Bytes())
 
-	req, err := http.NewRequest(http.MethodPost, userFilePath, reader)
+	req, err := http.NewRequest(http.MethodPost, userFilesPath, reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -6523,7 +6523,7 @@ func TestWebUploadSFTP(t *testing.T) {
 	// we are now overquota on overwrite
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -6531,7 +6531,7 @@ func TestWebUploadSFTP(t *testing.T) {
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 	assert.Contains(t, rr.Body.String(), "denying write due to space limit")
 	// delete the file
-	req, err = http.NewRequest(http.MethodDelete, userFilePath+"?path=file.txt", nil)
+	req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=file.txt", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -6539,7 +6539,7 @@ func TestWebUploadSFTP(t *testing.T) {
 
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPost, userFilePath, reader)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -6563,7 +6563,7 @@ func TestWebUploadMultipartFormReadError(t *testing.T) {
 	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 
-	req, err := http.NewRequest(http.MethodPost, userFilePath, nil)
+	req, err := http.NewRequest(http.MethodPost, userFilesPath, nil)
 	assert.NoError(t, err)
 
 	mpartForm := &multipart.Form{
@@ -6735,7 +6735,7 @@ func TestClientUserClose(t *testing.T) {
 		err = writer.Close()
 		assert.NoError(t, err)
 		reader := bytes.NewReader(body.Bytes())
-		req, err := http.NewRequest(http.MethodPost, userFilePath, reader)
+		req, err := http.NewRequest(http.MethodPost, userFilesPath, reader)
 		assert.NoError(t, err)
 		req.Header.Add("Content-Type", writer.FormDataContentType())
 		setBearerForReq(req, webAPIToken)

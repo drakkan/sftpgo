@@ -697,9 +697,51 @@ func (u *User) isFilePatternAllowed(virtualPath string) bool {
 }
 
 // CanManagePublicKeys return true if this user is allowed to manage public keys
-// from the web client
+// from the web client. Used in web client UI
 func (u *User) CanManagePublicKeys() bool {
 	return !util.IsStringInSlice(sdk.WebClientPubKeyChangeDisabled, u.Filters.WebClient)
+}
+
+// CanAddFilesFromWeb returns true if the client can add files from the web UI.
+// The specified target is the directory where the files must be uploaded
+func (u *User) CanAddFilesFromWeb(target string) bool {
+	if util.IsStringInSlice(sdk.WebClientWriteDisabled, u.Filters.WebClient) {
+		return false
+	}
+	return u.HasPerm(PermUpload, target) || u.HasPerm(PermOverwrite, target)
+}
+
+// CanAddDirsFromWeb returns true if the client can add directories from the web UI.
+// The specified target is the directory where the new directory must be created
+func (u *User) CanAddDirsFromWeb(target string) bool {
+	if util.IsStringInSlice(sdk.WebClientWriteDisabled, u.Filters.WebClient) {
+		return false
+	}
+	return u.HasPerm(PermCreateDirs, target)
+}
+
+// CanRenameFromWeb returns true if the client can rename objects from the web UI.
+// The specified src and dest are the source and target directories for the rename.
+func (u *User) CanRenameFromWeb(src, dest string) bool {
+	if util.IsStringInSlice(sdk.WebClientWriteDisabled, u.Filters.WebClient) {
+		return false
+	}
+	if u.HasPerm(PermRename, src) && u.HasPerm(PermRename, dest) {
+		return true
+	}
+	if !u.HasPerm(PermDelete, src) {
+		return false
+	}
+	return u.HasPerm(PermUpload, dest) || u.HasPerm(PermCreateDirs, dest)
+}
+
+// CanDeleteFromWeb returns true if the client can delete objects from the web UI.
+// The specified target is the parent directory for the object to delete
+func (u *User) CanDeleteFromWeb(target string) bool {
+	if util.IsStringInSlice(sdk.WebClientWriteDisabled, u.Filters.WebClient) {
+		return false
+	}
+	return u.HasPerm(PermDelete, target)
 }
 
 // GetSignature returns a signature for this admin.

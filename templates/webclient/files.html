@@ -48,6 +48,118 @@
 </div>
 {{end}}
 
+{{define "dialog"}}
+<div class="modal fade" id="createDirModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    Create a new directory
+                </h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="create_dir_form" action="" method="POST">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="directory_name" class="col-form-label">Name</label>
+                        <input type="text" class="form-control" id="directory_name" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="uploadFilesModal" tabindex="-1" role="dialog" aria-labelledby="uploadFilesModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadFilesModalLabel">
+                    Upload one or more files
+                </h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="upload_files_form" action="" method="POST" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <input type="file" class="form-control-file" id="files_name" name="filename" required multiple>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="renameModal" tabindex="-1" role="dialog" aria-labelledby="renameModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="renameModalLabel">
+                    Rename the selected item
+                </h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="rename_form" action="" method="POST">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="rename_old_name" class="col-form-label">Old name</label>
+                        <input type="text" class="form-control" id="rename_old_name" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="rename_new_name" class="col-form-label">New name</label>
+                        <input type="text" class="form-control" id="rename_new_name" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    Confirmation required
+                </h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">Do you want to delete the selected item?</div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" data-dismiss="modal">
+                    Cancel
+                </button>
+                <a class="btn btn-warning" href="#" onclick="deleteAction()">
+                    Delete
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
 {{define "extra_js"}}
 <script src="{{.StaticURL}}/vendor/datatables/jquery.dataTables.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.js"></script>
@@ -159,7 +271,180 @@
         }
     }
 
+    function getNameFromTypeName(typeName) {
+        return typeName.split('_').slice(1).join('_');
+    }
+
+    function getTypeFromTypeName(typeName) {
+        return typeName.split('_')[0];
+    }
+
+    function deleteAction() {
+        var table = $('#dataTable').DataTable();
+        table.button('delete:name').enable(false);
+        var selected = table.column(0).checkboxes.selected()[0];
+        var itemType = getTypeFromTypeName(selected);
+        var itemName = getNameFromTypeName(selected);
+        var path;
+        if (itemType == "1"){
+            path = '{{.DirsURL}}';
+        } else {
+            path = '{{.FilesURL}}';
+        }
+        path+='?path={{.CurrentDir}}'+fixedEncodeURIComponent("/"+itemName);
+        $('#deleteModal').modal('hide');
+        $.ajax({
+            url: path,
+            type: 'DELETE',
+            dataType: 'json',
+            headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
+            timeout: 15000,
+            success: function (result) {
+                location.reload();
+            },
+            error: function ($xhr, textStatus, errorThrown) {
+                var txt = "Unable to delete the selected item";
+                if ($xhr) {
+                    var json = $xhr.responseJSON;
+                    if (json) {
+                        if (json.message) {
+                            txt = json.message;
+                        }
+                        if (json.error) {
+                            txt += ": " + json.error;
+                        }
+                    }
+                }
+                $('#errorTxt').text(txt);
+                $('#errorMsg').show();
+                setTimeout(function () {
+                    $('#errorMsg').hide();
+                }, 5000);
+            }
+        });
+    }
+
     $(document).ready(function () {
+        $("#create_dir_form").submit(function (event) {
+            event.preventDefault();
+            $('#createDirModal').modal('hide');
+            var dirName = replaceSlash($("#directory_name").val());
+            var path = '{{.DirsURL}}?path={{.CurrentDir}}' + fixedEncodeURIComponent("/"+dirName);
+            $.ajax({
+                url: path,
+                type: 'POST',
+                dataType: 'json',
+                headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
+                timeout: 15000,
+                success: function (result) {
+                    location.reload();
+                },
+                error: function ($xhr, textStatus, errorThrown) {
+                    var txt = "Unable to create the requested directory";
+                    if ($xhr) {
+                        var json = $xhr.responseJSON;
+                        if (json) {
+                            if (json.message) {
+                                txt = json.message;
+                            }
+                            if (json.error) {
+                                txt += ": " + json.error;
+                            }
+                        }
+                    }
+                    $('#errorTxt').text(txt);
+                    $('#errorMsg').show();
+                    setTimeout(function () {
+                        $('#errorMsg').hide();
+                    }, 5000);
+                }
+            });
+        });
+
+        $("#upload_files_form").submit(function (event){
+            event.preventDefault();
+            $('uploadFilesModal').modal('hide');
+            var path = '{{.FilesURL}}?path={{.CurrentDir}}';
+            $.ajax({
+                url: path,
+                type: 'POST',
+                data: new FormData(this),
+                processData: false,
+                contentType: false,
+                headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
+                timeout: 15000,
+                success: function (result) {
+                    location.reload();
+                },
+                error: function ($xhr, textStatus, errorThrown) {
+                    var txt = "Error uploading files";
+                    if ($xhr) {
+                        var json = $xhr.responseJSON;
+                        if (json) {
+                            if (json.message) {
+                                txt = json.message;
+                            }
+                            if (json.error) {
+                                txt += ": " + json.error;
+                            }
+                        }
+                    }
+                    $('#errorTxt').text(txt);
+                    $('#errorMsg').show();
+                    setTimeout(function () {
+                        $('#errorMsg').hide();
+                    }, 5000);
+                }
+            });
+        });
+
+        $("#rename_form").submit(function (event){
+            event.preventDefault();
+            var table = $('#dataTable').DataTable();
+            table.button('rename:name').enable(false);
+            var selected = table.column(0).checkboxes.selected()[0];
+            var itemType = getTypeFromTypeName(selected);
+            var itemName = getNameFromTypeName(selected);
+            var targetName = replaceSlash($("#rename_new_name").val());
+            var path;
+            if (itemType == "1"){
+                path = '{{.DirsURL}}';
+            } else {
+                path = '{{.FilesURL}}';
+            }
+            path+='?path={{.CurrentDir}}'+fixedEncodeURIComponent("/"+itemName)+'&target={{.CurrentDir}}'+fixedEncodeURIComponent("/"+targetName);
+            $('renameModal').modal('hide');
+            $.ajax({
+                url: path,
+                type: 'PATCH',
+                dataType: 'json',
+                headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
+                timeout: 15000,
+                success: function (result) {
+                    location.reload();
+                },
+                error: function ($xhr, textStatus, errorThrown) {
+                    var txt = "Error renaming item";
+                    if ($xhr) {
+                        var json = $xhr.responseJSON;
+                        if (json) {
+                            if (json.message) {
+                                txt = json.message;
+                            }
+                            if (json.error) {
+                                txt += ": " + json.error;
+                            }
+                        }
+                    }
+                    $('#errorTxt').text(txt);
+                    $('#errorMsg').show();
+                    setTimeout(function () {
+                        $('#errorMsg').hide();
+                    }, 5000);
+                }
+            });
+        });
+
         $.fn.dataTable.ext.buttons.refresh = {
             text: '<i class="fas fa-sync-alt"></i>',
             name: 'refresh',
@@ -177,7 +462,7 @@
                 var filesArray = [];
                 var selected = dt.column(0).checkboxes.selected();
                 for (i = 0; i < selected.length; i++) {
-                    filesArray.push(selected[i]);
+                    filesArray.push(getNameFromTypeName(selected[i]));
                 }
                 var files = fixedEncodeURIComponent(JSON.stringify(filesArray));
                 var downloadURL = '{{.DownloadURL}}';
@@ -187,9 +472,54 @@
             enabled: false
         };
 
+        $.fn.dataTable.ext.buttons.addFiles = {
+            text: '<i class="fas fa-file-upload"></i>',
+            name: 'addFiles',
+            titleAttr: "Upload files",
+            action: function (e, dt, node, config) {
+                $('#uploadFilesModal').modal('show');
+            },
+            enabled: true
+        };
+
+        $.fn.dataTable.ext.buttons.addDirectory = {
+            text: '<i class="fas fa-folder-plus"></i>',
+            name: 'addDirectory',
+            titleAttr: "Add directory",
+            action: function (e, dt, node, config) {
+                $("#directory_name").val("");
+                $('#createDirModal').modal('show');
+            },
+            enabled: true
+        };
+
+        $.fn.dataTable.ext.buttons.rename = {
+            text: '<i class="fas fa-edit"></i>',
+            name: 'rename',
+            titleAttr: "Rename",
+            action: function (e, dt, node, config) {
+                var selected = table.column(0).checkboxes.selected()[0];
+                var itemName = getNameFromTypeName(selected);
+                $("#rename_old_name").val(itemName);
+                $("#rename_new_name").val("");
+                $('#renameModal').modal('show');
+            },
+            enabled: false
+        };
+
+        $.fn.dataTable.ext.buttons.delete = {
+            text: '<i class="fas fa-trash"></i>',
+            name: 'delete',
+            titleAttr: "Delete",
+            action: function (e, dt, node, config) {
+                $('#deleteModal').modal('show');
+            },
+            enabled: false
+        };
+
         var table = $('#dataTable').DataTable({
             "ajax": {
-                "url": "{{.ReadDirURL}}?path={{.CurrentDir}}",
+                "url": "{{.DirsURL}}?path={{.CurrentDir}}",
                 "dataSrc": "",
                 "error": function ($xhr, textStatus, errorThrown) {
                     $(".dataTables_processing").hide();
@@ -214,7 +544,7 @@
             "deferRender": true,
             "processing": true,
             "columns": [
-                { "data": "name" },
+                { "data": "type_name" },
                 { "data": "type" },
                 {
                     "data": "name",
@@ -250,6 +580,12 @@
                                 selectedText = `${selectedItems} items selected`;
                             }
                             table.button('download:name').enable(selectedItems > 0);
+                            {{if .CanRename}}
+                            table.button('rename:name').enable(selectedItems == 1);
+                            {{end}}
+                            {{if .CanDelete}}
+                            table.button('delete:name').enable(selectedItems == 1);
+                            {{end}}
                             $('#dataTable_info').find('span').remove();
                             $("#dataTable_info").append('<span class="selected-info"><span class="selected-item">' + selectedText + '</span></span>');
                         }
@@ -279,6 +615,18 @@
                 table.button().add(0, 'refresh');
                 table.button().add(0, 'pageLength');
                 table.button().add(0, 'download');
+                {{if .CanDelete}}
+                table.button().add(0, 'delete');
+                {{end}}
+                {{if .CanRename}}
+                table.button().add(0, 'rename');
+                {{end}}
+                {{if .CanCreateDirs}}
+                table.button().add(0, 'addDirectory');
+                {{end}}
+                {{if .CanAddFiles}}
+                table.button().add(0, 'addFiles');
+                {{end}}
                 table.buttons().container().appendTo('#dataTable_wrapper .col-md-6:eq(0)');
             },
             "orderFixed": [1, 'asc'],

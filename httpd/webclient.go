@@ -73,11 +73,15 @@ type dirMapping struct {
 
 type filesPage struct {
 	baseClientPage
-	CurrentDir  string
-	ReadDirURL  string
-	DownloadURL string
-	Error       string
-	Paths       []dirMapping
+	CurrentDir    string
+	DirsURL       string
+	DownloadURL   string
+	CanAddFiles   bool
+	CanCreateDirs bool
+	CanRename     bool
+	CanDelete     bool
+	Error         string
+	Paths         []dirMapping
 }
 
 type clientMessagePage struct {
@@ -207,13 +211,17 @@ func renderClientNotFoundPage(w http.ResponseWriter, r *http.Request, err error)
 	renderClientMessagePage(w, r, page404Title, page404Body, http.StatusNotFound, err, "")
 }
 
-func renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string) {
+func renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string, user dataprovider.User) {
 	data := filesPage{
 		baseClientPage: getBaseClientPageData(pageClientFilesTitle, webClientFilesPath, r),
 		Error:          error,
 		CurrentDir:     url.QueryEscape(dirName),
 		DownloadURL:    webClientDownloadZipPath,
-		ReadDirURL:     webClientDirContentsPath,
+		DirsURL:        webClientDirsPath,
+		CanAddFiles:    user.CanAddFilesFromWeb(dirName),
+		CanCreateDirs:  user.CanAddDirsFromWeb(dirName),
+		CanRename:      user.CanRenameFromWeb(dirName, dirName),
+		CanDelete:      user.CanDeleteFromWeb(dirName),
 	}
 	paths := []dirMapping{}
 	if dirName != "/" {
@@ -359,6 +367,7 @@ func handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {
 				res["size"] = util.ByteCountIEC(info.Size())
 			}
 		}
+		res["type_name"] = fmt.Sprintf("%v_%v", res["type"], info.Name())
 		res["name"] = info.Name()
 		res["last_modified"] = getFileObjectModTime(info.ModTime())
 		res["url"] = getFileObjectURL(name, info.Name())
@@ -406,11 +415,11 @@ func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
 		info, err = connection.Stat(name, 0)
 	}
 	if err != nil {
-		renderFilesPage(w, r, path.Dir(name), fmt.Sprintf("unable to stat file %#v: %v", name, err))
+		renderFilesPage(w, r, path.Dir(name), fmt.Sprintf("unable to stat file %#v: %v", name, err), user)
 		return
 	}
 	if info.IsDir() {
-		renderFilesPage(w, r, name, "")
+		renderFilesPage(w, r, name, "", user)
 		return
 	}
 	if status, err := downloadFile(w, r, connection, name, info); err != nil && status != 0 {
@@ -419,7 +428,7 @@ func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
 				renderClientMessagePage(w, r, http.StatusText(status), "", status, err, "")
 				return
 			}
-			renderFilesPage(w, r, path.Dir(name), err.Error())
+			renderFilesPage(w, r, path.Dir(name), err.Error(), user)
 		}
 	}
 }
