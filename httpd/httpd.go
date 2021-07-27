@@ -184,7 +184,14 @@ type Binding struct {
 	TLSCipherSuites []string `json:"tls_cipher_suites" mapstructure:"tls_cipher_suites"`
 	// List of IP addresses and IP ranges allowed to set X-Forwarded-For, X-Real-IP,
 	// X-Forwarded-Proto headers.
-	ProxyAllowed     []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
+	ProxyAllowed []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
+	// If both web admin and web client are enabled each login page will show a link
+	// to the other one. This setting allows to hide this link:
+	// - 0 login links are displayed on both admin and client login page. This is the default
+	// - 1 the login link to the web client login page is hidden on admin login page
+	// - 2 the login link to the web admin login page is hidden on client login page
+	// The flags can be combined, for example 3 will disable both login links.
+	HideLoginURL     int `json:"hide_login_url" mapstructure:"hide_login_url"`
 	allowHeadersFrom []func(net.IP) bool
 }
 
@@ -211,6 +218,26 @@ func (b *Binding) IsValid() bool {
 		return true
 	}
 	return false
+}
+
+func (b *Binding) showAdminLoginURL() bool {
+	if !b.EnableWebAdmin {
+		return false
+	}
+	if b.HideLoginURL&2 != 0 {
+		return false
+	}
+	return true
+}
+
+func (b *Binding) showClientLoginURL() bool {
+	if !b.EnableWebClient {
+		return false
+	}
+	if b.HideLoginURL&1 != 0 {
+		return false
+	}
+	return true
 }
 
 type defenderStatus struct {

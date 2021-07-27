@@ -116,11 +116,29 @@ func (s *httpdServer) refreshCookie(next http.Handler) http.Handler {
 	})
 }
 
+func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, error string) {
+	data := loginPage{
+		CurrentURL: webClientLoginPath,
+		Version:    version.Get().Version,
+		Error:      error,
+		CSRFToken:  createCSRFToken(),
+		StaticURL:  webStaticFilesPath,
+	}
+	if s.binding.showAdminLoginURL() {
+		data.AltLoginURL = webLoginPath
+	}
+	renderClientTemplate(w, templateClientLogin, data)
+}
+
+func (s *httpdServer) handleClientWebLogin(w http.ResponseWriter, r *http.Request) {
+	s.renderClientLoginPage(w, "")
+}
+
 func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginPostSize)
 
 	if err := r.ParseForm(); err != nil {
-		renderClientLoginPage(w, err.Error())
+		s.renderClientLoginPage(w, err.Error())
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
@@ -128,30 +146,30 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 	password := r.Form.Get("password")
 	if username == "" || password == "" {
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}}, ipAddr, common.ErrNoCredentials)
-		renderClientLoginPage(w, "Invalid credentials")
+		s.renderClientLoginPage(w, "Invalid credentials")
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}}, ipAddr, err)
-		renderClientLoginPage(w, err.Error())
+		s.renderClientLoginPage(w, err.Error())
 		return
 	}
 
 	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolHTTP); err != nil {
-		renderClientLoginPage(w, fmt.Sprintf("access denied by post connect hook: %v", err))
+		s.renderClientLoginPage(w, fmt.Sprintf("access denied by post connect hook: %v", err))
 		return
 	}
 
 	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, common.ProtocolHTTP)
 	if err != nil {
 		updateLoginMetrics(&user, ipAddr, err)
-		renderClientLoginPage(w, dataprovider.ErrInvalidCredentials.Error())
+		s.renderClientLoginPage(w, dataprovider.ErrInvalidCredentials.Error())
 		return
 	}
 	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, xid.New().String())
 	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
 		updateLoginMetrics(&user, ipAddr, err)
-		renderClientLoginPage(w, err.Error())
+		s.renderClientLoginPage(w, err.Error())
 		return
 	}
 
@@ -160,7 +178,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
 		updateLoginMetrics(&user, ipAddr, common.ErrInternalFailure)
-		renderClientLoginPage(w, err.Error())
+		s.renderClientLoginPage(w, err.Error())
 		return
 	}
 
@@ -174,7 +192,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to set client login cookie %v", err)
 		updateLoginMetrics(&user, ipAddr, common.ErrInternalFailure)
-		renderClientLoginPage(w, err.Error())
+		s.renderClientLoginPage(w, err.Error())
 		return
 	}
 	updateLoginMetrics(&user, ipAddr, err)
@@ -185,25 +203,47 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 func (s *httpdServer) handleWebAdminLoginPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginPostSize)
 	if err := r.ParseForm(); err != nil {
-		renderLoginPage(w, err.Error())
+		s.renderAdminLoginPage(w, err.Error())
 		return
 	}
 	username := r.Form.Get("username")
 	password := r.Form.Get("password")
 	if username == "" || password == "" {
-		renderLoginPage(w, "Invalid credentials")
+		s.renderAdminLoginPage(w, "Invalid credentials")
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderLoginPage(w, err.Error())
+		s.renderAdminLoginPage(w, err.Error())
 		return
 	}
 	admin, err := dataprovider.CheckAdminAndPass(username, password, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
-		renderLoginPage(w, err.Error())
+		s.renderAdminLoginPage(w, err.Error())
 		return
 	}
 	s.loginAdmin(w, r, &admin)
+}
+
+func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, error string) {
+	data := loginPage{
+		CurrentURL: webLoginPath,
+		Version:    version.Get().Version,
+		Error:      error,
+		CSRFToken:  createCSRFToken(),
+		StaticURL:  webStaticFilesPath,
+	}
+	if s.binding.showClientLoginURL() {
+		data.AltLoginURL = webClientLoginPath
+	}
+	renderAdminTemplate(w, templateLogin, data)
+}
+
+func (s *httpdServer) handleWebAdminLogin(w http.ResponseWriter, r *http.Request) {
+	if !dataprovider.HasAdmin() {
+		http.Redirect(w, r, webAdminSetupPath, http.StatusFound)
+		return
+	}
+	s.renderAdminLoginPage(w, "")
 }
 
 func (s *httpdServer) handleWebAdminSetupPost(w http.ResponseWriter, r *http.Request) {
@@ -260,7 +300,7 @@ func (s *httpdServer) loginAdmin(w http.ResponseWriter, r *http.Request, admin *
 	err := c.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebAdmin)
 	if err != nil {
 		logger.Warn(logSender, "", "unable to set admin login cookie %v", err)
-		renderLoginPage(w, err.Error())
+		s.renderAdminLoginPage(w, err.Error())
 		return
 	}
 
@@ -672,7 +712,7 @@ func (s *httpdServer) initializeRouter() {
 		s.router.Get(webBaseClientPath, func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, webClientLoginPath, http.StatusMovedPermanently)
 		})
-		s.router.Get(webClientLoginPath, handleClientWebLogin)
+		s.router.Get(webClientLoginPath, s.handleClientWebLogin)
 		s.router.Post(webClientLoginPath, s.handleWebClientLoginPost)
 
 		s.router.Group(func(router chi.Router) {
@@ -706,7 +746,7 @@ func (s *httpdServer) initializeRouter() {
 		s.router.Get(webBaseAdminPath, func(w http.ResponseWriter, r *http.Request) {
 			s.redirectToWebPath(w, r, webLoginPath)
 		})
-		s.router.Get(webLoginPath, handleWebLogin)
+		s.router.Get(webLoginPath, s.handleWebAdminLogin)
 		s.router.Post(webLoginPath, s.handleWebAdminLoginPost)
 		s.router.Get(webAdminSetupPath, handleWebAdminSetupGet)
 		s.router.Post(webAdminSetupPath, s.handleWebAdminSetupPost)

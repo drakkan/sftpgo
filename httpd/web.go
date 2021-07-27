@@ -18,11 +18,12 @@ const (
 )
 
 type loginPage struct {
-	CurrentURL string
-	Version    string
-	Error      string
-	CSRFToken  string
-	StaticURL  string
+	CurrentURL  string
+	Version     string
+	Error       string
+	CSRFToken   string
+	StaticURL   string
+	AltLoginURL string
 }
 
 func getSliceFromDelimitedValues(values, delimiter string) []string {

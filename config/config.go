@@ -72,6 +72,7 @@ var (
 		ClientAuthType:  0,
 		TLSCipherSuites: nil,
 		ProxyAllowed:    nil,
+		HideLoginURL:    0,
 	}
 	defaultRateLimiter = common.RateLimiterConfig{
 		Average:                0,
@@ -876,6 +877,12 @@ func getHTTPDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
+	hideLoginURL, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__HIDE_LOGIN_URL", idx))
+	if ok {
+		binding.HideLoginURL = int(hideLoginURL)
+		isSet = true
+	}
+
 	if isSet {
 		if len(globalConf.HTTPDConfig.Bindings) > idx {
 			globalConf.HTTPDConfig.Bindings[idx] = binding
@@ -1062,7 +1069,7 @@ func setViperDefaults() {
 func lookupBoolFromEnv(envName string) (bool, bool) {
 	value, ok := os.LookupEnv(envName)
 	if ok {
-		converted, err := strconv.ParseBool(value)
+		converted, err := strconv.ParseBool(strings.TrimSpace(value))
 		if err == nil {
 			return converted, ok
 		}
@@ -1074,7 +1081,7 @@ func lookupBoolFromEnv(envName string) (bool, bool) {
 func lookupIntFromEnv(envName string) (int64, bool) {
 	value, ok := os.LookupEnv(envName)
 	if ok {
-		converted, err := strconv.ParseInt(value, 10, 64)
+		converted, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
 		if err == nil {
 			return converted, ok
 		}

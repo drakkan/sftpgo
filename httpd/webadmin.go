@@ -1018,17 +1018,6 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	return user, err
 }
 
-func renderLoginPage(w http.ResponseWriter, error string) {
-	data := loginPage{
-		CurrentURL: webLoginPath,
-		Version:    version.Get().Version,
-		Error:      error,
-		CSRFToken:  createCSRFToken(),
-		StaticURL:  webStaticFilesPath,
-	}
-	renderAdminTemplate(w, templateLogin, data)
-}
-
 func handleWebAdminChangePwd(w http.ResponseWriter, r *http.Request) {
 	renderChangePwdPage(w, r, "")
 }
@@ -1058,14 +1047,6 @@ func handleWebLogout(w http.ResponseWriter, r *http.Request) {
 	c.removeCookie(w, r, webBaseAdminPath)
 
 	http.Redirect(w, r, webLoginPath, http.StatusFound)
-}
-
-func handleWebLogin(w http.ResponseWriter, r *http.Request) {
-	if !dataprovider.HasAdmin() {
-		http.Redirect(w, r, webAdminSetupPath, http.StatusFound)
-		return
-	}
-	renderLoginPage(w, "")
 }
 
 func handleWebMaintenance(w http.ResponseWriter, r *http.Request) {

@@ -1668,3 +1668,31 @@ func TestSigningKey(t *testing.T) {
 	_, err = server2.tokenAuth.Decode(accessToken)
 	assert.NoError(t, err)
 }
+
+func TestLoginLinks(t *testing.T) {
+	b := Binding{
+		EnableWebAdmin:  true,
+		EnableWebClient: false,
+	}
+	assert.False(t, b.showClientLoginURL())
+	b = Binding{
+		EnableWebAdmin:  false,
+		EnableWebClient: true,
+	}
+	assert.False(t, b.showAdminLoginURL())
+	b = Binding{
+		EnableWebAdmin:  true,
+		EnableWebClient: true,
+	}
+	assert.True(t, b.showAdminLoginURL())
+	assert.True(t, b.showClientLoginURL())
+	b.HideLoginURL = 3
+	assert.False(t, b.showAdminLoginURL())
+	assert.False(t, b.showClientLoginURL())
+	b.HideLoginURL = 1
+	assert.True(t, b.showAdminLoginURL())
+	assert.False(t, b.showClientLoginURL())
+	b.HideLoginURL = 2
+	assert.False(t, b.showAdminLoginURL())
+	assert.True(t, b.showClientLoginURL())
+}

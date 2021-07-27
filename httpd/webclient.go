@@ -167,17 +167,6 @@ func renderClientTemplate(w http.ResponseWriter, tmplName string, data interface
 	}
 }
 
-func renderClientLoginPage(w http.ResponseWriter, error string) {
-	data := loginPage{
-		CurrentURL: webClientLoginPath,
-		Version:    version.Get().Version,
-		Error:      error,
-		CSRFToken:  createCSRFToken(),
-		StaticURL:  webStaticFilesPath,
-	}
-	renderClientTemplate(w, templateClientLogin, data)
-}
-
 func renderClientMessagePage(w http.ResponseWriter, r *http.Request, title, body string, statusCode int, err error, message string) {
 	var errorString string
 	if body != "" {
@@ -258,10 +247,6 @@ func renderCredentialsPage(w http.ResponseWriter, r *http.Request, pwdError stri
 	}
 	data.PublicKeys = user.PublicKeys
 	renderClientTemplate(w, templateClientCredentials, data)
-}
-
-func handleClientWebLogin(w http.ResponseWriter, r *http.Request) {
-	renderClientLoginPage(w, "")
 }
 
 func handleWebClientLogout(w http.ResponseWriter, r *http.Request) {

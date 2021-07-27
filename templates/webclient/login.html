@@ -9,7 +9,7 @@
     <meta name="description" content="">
     <meta name="author" content="">
 
-    <title>SFTPGo - Login</title>
+    <title>SFTPGo WebClient - Login</title>
 
     <link rel="shortcut icon" href="{{.StaticURL}}/favicon.ico" />
 
@@ -110,6 +110,12 @@
                                             Login
                                         </button>
                                     </form>
+                                    {{if .AltLoginURL}}
+                                    <hr>
+                                    <div class="text-center">
+                                        <a class="small" href="{{.AltLoginURL}}">Web Admin</a>
+                                    </div>
+                                    {{end}}
                                 </div>
                             </div>
                         </div>

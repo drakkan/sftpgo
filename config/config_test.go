@@ -584,14 +584,16 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__1__ADDRESS", "127.0.0.1")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__1__PORT", "8000")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__1__ENABLE_HTTPS", "0")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__1__HIDE_LOGIN_URL", " 1")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__ADDRESS", "127.0.1.1")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__PORT", "9000")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_WEB_ADMIN", "0")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_WEB_CLIENT", "0")
-	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_HTTPS", "1")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_HTTPS", "1 ")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__CLIENT_AUTH_TYPE", "1")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__TLS_CIPHER_SUITES", " TLS_AES_256_GCM_SHA384 , TLS_CHACHA20_POLY1305_SHA256")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__PROXY_ALLOWED", " 192.168.9.1 , 172.16.25.0/24")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__HIDE_LOGIN_URL", "3")
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__ADDRESS")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__PORT")
@@ -599,6 +601,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__1__ADDRESS")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__1__PORT")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__1__ENABLE_HTTPS")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__1__HIDE_LOGIN_URL")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__ADDRESS")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__PORT")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_HTTPS")
@@ -607,6 +610,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__CLIENT_AUTH_TYPE")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__TLS_CIPHER_SUITES")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__PROXY_ALLOWED")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__HIDE_LOGIN_URL")
 	})
 
 	configDir := ".."
@@ -621,12 +625,14 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.True(t, bindings[0].EnableWebClient)
 	require.Len(t, bindings[0].TLSCipherSuites, 1)
 	require.Equal(t, "TLS_AES_128_GCM_SHA256", bindings[0].TLSCipherSuites[0])
+	require.Equal(t, 0, bindings[0].HideLoginURL)
 	require.Equal(t, 8000, bindings[1].Port)
 	require.Equal(t, "127.0.0.1", bindings[1].Address)
 	require.False(t, bindings[1].EnableHTTPS)
 	require.True(t, bindings[1].EnableWebAdmin)
 	require.True(t, bindings[1].EnableWebClient)
 	require.Nil(t, bindings[1].TLSCipherSuites)
+	require.Equal(t, 1, bindings[1].HideLoginURL)
 
 	require.Equal(t, 9000, bindings[2].Port)
 	require.Equal(t, "127.0.1.1", bindings[2].Address)
@@ -640,6 +646,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.Len(t, bindings[2].ProxyAllowed, 2)
 	require.Equal(t, "192.168.9.1", bindings[2].ProxyAllowed[0])
 	require.Equal(t, "172.16.25.0/24", bindings[2].ProxyAllowed[1])
+	require.Equal(t, 3, bindings[2].HideLoginURL)
 }
 
 func TestHTTPClientCertificatesFromEnv(t *testing.T) {

@@ -2052,7 +2052,7 @@ paths:
     patch:
       tags:
         - users API
-      summary: Rename afile
+      summary: Rename a file
       description: Rename a file for the logged in user
       operationId: rename_user_file
       parameters:
