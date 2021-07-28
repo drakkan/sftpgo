@@ -150,7 +150,7 @@ func Init() {
 			MACs:                    []string{},
 			TrustedUserCAKeys:       []string{},
 			LoginBannerFile:         "",
-			EnabledSSHCommands:      sftpd.GetDefaultSSHCommands(),
+			EnabledSSHCommands:      []string{},
 			KeyboardInteractiveHook: "",
 			PasswordAuthentication:  true,
 			FolderPrefix:            "",
@@ -975,7 +975,7 @@ func setViperDefaults() {
 	viper.SetDefault("sftpd.macs", globalConf.SFTPD.MACs)
 	viper.SetDefault("sftpd.trusted_user_ca_keys", globalConf.SFTPD.TrustedUserCAKeys)
 	viper.SetDefault("sftpd.login_banner_file", globalConf.SFTPD.LoginBannerFile)
-	viper.SetDefault("sftpd.enabled_ssh_commands", globalConf.SFTPD.EnabledSSHCommands)
+	viper.SetDefault("sftpd.enabled_ssh_commands", sftpd.GetDefaultSSHCommands())
 	viper.SetDefault("sftpd.keyboard_interactive_auth_hook", globalConf.SFTPD.KeyboardInteractiveHook)
 	viper.SetDefault("sftpd.password_authentication", globalConf.SFTPD.PasswordAuthentication)
 	viper.SetDefault("sftpd.folder_prefix", globalConf.SFTPD.FolderPrefix)
