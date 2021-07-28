@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime/debug"
 	"strings"
@@ -118,8 +119,10 @@ type Configuration struct {
 	KeyboardInteractiveHook string `json:"keyboard_interactive_auth_hook" mapstructure:"keyboard_interactive_auth_hook"`
 	// PasswordAuthentication specifies whether password authentication is allowed.
 	PasswordAuthentication bool `json:"password_authentication" mapstructure:"password_authentication"`
-	certChecker            *ssh.CertChecker
-	parsedUserCAKeys       []ssh.PublicKey
+	// Virtual root folder prefix to include in all file operations (ex: /files)
+	FolderPrefix     string `json:"folder_prefix" mapstructure:"folder_prefix"`
+	certChecker      *ssh.CertChecker
+	parsedUserCAKeys []ssh.PublicKey
 }
 
 type authenticationError struct {
@@ -198,6 +201,7 @@ func (c *Configuration) Initialize(configDir string) error {
 	c.configureKeyboardInteractiveAuth(serverConfig)
 	c.configureLoginBanner(serverConfig, configDir)
 	c.checkSSHCommands()
+	c.checkFolderPrefix()
 
 	exitChannel := make(chan error, 1)
 	serviceStatus.Bindings = nil
@@ -394,9 +398,9 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 
 	defer user.CloseFs() //nolint:errcheck
 
-	logger.Log(logger.LevelInfo, common.ProtocolSSH, connectionID,
-		"User id: %d, logged in with: %#v, username: %#v, home_dir: %#v remote addr: %#v",
-		user.ID, loginType, user.Username, user.HomeDir, ipAddr)
+	logger.Log(logger.LevelDebug, common.ProtocolSSH, connectionID,
+		"User %#v, logged in with: %#v, from ip: %#v, client version %#v",
+		user.Username, loginType, ipAddr, string(sconn.ClientVersion()))
 	dataprovider.UpdateLastLogin(&user) //nolint:errcheck
 
 	sshConnection := common.NewSSHConnection(connectionID, conn)
@@ -475,11 +479,27 @@ func (c *Configuration) handleSftpConnection(channel ssh.Channel, connection *Co
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	// Create a new handler for the currently logged in user's server.
-	handler := c.createHandler(connection)
+	var handlers sftp.Handlers
+
+	if c.FolderPrefix != "" {
+		prefixMiddleware := newPrefixMiddleware(c.FolderPrefix, connection)
+		handlers = sftp.Handlers{
+			FileGet:  prefixMiddleware,
+			FilePut:  prefixMiddleware,
+			FileCmd:  prefixMiddleware,
+			FileList: prefixMiddleware,
+		}
+	} else {
+		handlers = sftp.Handlers{
+			FileGet:  connection,
+			FilePut:  connection,
+			FileCmd:  connection,
+			FileList: connection,
+		}
+	}
 
 	// Create the server instance for the channel using the handler we created above.
-	server := sftp.NewRequestServer(channel, handler, sftp.WithRSAllocator())
+	server := sftp.NewRequestServer(channel, handlers, sftp.WithRSAllocator())
 
 	defer server.Close()
 	if err := server.Serve(); err == io.EOF {
@@ -489,15 +509,6 @@ func (c *Configuration) handleSftpConnection(channel ssh.Channel, connection *Co
 		connection.Log(logger.LevelDebug, "sent exit status %+v error: %v", exitStatus, err)
 	} else if err != nil {
 		connection.Log(logger.LevelWarn, "connection closed with error: %v", err)
-	}
-}
-
-func (c *Configuration) createHandler(connection *Connection) sftp.Handlers {
-	return sftp.Handlers{
-		FileGet:  connection,
-		FilePut:  connection,
-		FileCmd:  connection,
-		FileList: connection,
 	}
 }
 
@@ -587,6 +598,14 @@ func (c *Configuration) checkSSHCommands() {
 		}
 	}
 	c.EnabledSSHCommands = sshCommands
+	logger.Debug(logSender, "", "enabled SSH commands %v", c.EnabledSSHCommands)
+}
+
+func (c *Configuration) checkFolderPrefix() {
+	if c.FolderPrefix != "" {
+		c.FolderPrefix = path.Join("/", c.FolderPrefix)
+		logger.Debug(logSender, "", "folder prefix %#v configured", c.FolderPrefix)
+	}
 }
 
 func (c *Configuration) generateDefaultHostKeys(configDir string) error {

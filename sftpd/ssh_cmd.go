@@ -85,7 +85,7 @@ func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommand
 		}
 	}
 	err := connection.CloseFS()
-	connection.Log(logger.LevelDebug, "unable to unmarsh ssh command, close fs, err: %v", err)
+	connection.Log(logger.LevelDebug, "unable to unmarshal ssh command, close fs, err: %v", err)
 	return false
 }
 
