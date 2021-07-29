@@ -119,7 +119,11 @@ type Configuration struct {
 	KeyboardInteractiveHook string `json:"keyboard_interactive_auth_hook" mapstructure:"keyboard_interactive_auth_hook"`
 	// PasswordAuthentication specifies whether password authentication is allowed.
 	PasswordAuthentication bool `json:"password_authentication" mapstructure:"password_authentication"`
-	// Virtual root folder prefix to include in all file operations (ex: /files)
+	// Virtual root folder prefix to include in all file operations (ex: /files).
+	// The virtual paths used for per-directory permissions, file patterns etc. must not include the folder prefix.
+	// The prefix is only applied to SFTP requests, SCP and other SSH commands will be automatically disabled if
+	// you configure a prefix.
+	// This setting can help some migrations from OpenSSH. It is not recommended for general usage.
 	FolderPrefix     string `json:"folder_prefix" mapstructure:"folder_prefix"`
 	certChecker      *ssh.CertChecker
 	parsedUserCAKeys []ssh.PublicKey
@@ -479,27 +483,8 @@ func (c *Configuration) handleSftpConnection(channel ssh.Channel, connection *Co
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	var handlers sftp.Handlers
-
-	if c.FolderPrefix != "" {
-		prefixMiddleware := newPrefixMiddleware(c.FolderPrefix, connection)
-		handlers = sftp.Handlers{
-			FileGet:  prefixMiddleware,
-			FilePut:  prefixMiddleware,
-			FileCmd:  prefixMiddleware,
-			FileList: prefixMiddleware,
-		}
-	} else {
-		handlers = sftp.Handlers{
-			FileGet:  connection,
-			FilePut:  connection,
-			FileCmd:  connection,
-			FileList: connection,
-		}
-	}
-
 	// Create the server instance for the channel using the handler we created above.
-	server := sftp.NewRequestServer(channel, handlers, sftp.WithRSAllocator())
+	server := sftp.NewRequestServer(channel, c.createHandlers(connection), sftp.WithRSAllocator())
 
 	defer server.Close()
 	if err := server.Serve(); err == io.EOF {
@@ -509,6 +494,26 @@ func (c *Configuration) handleSftpConnection(channel ssh.Channel, connection *Co
 		connection.Log(logger.LevelDebug, "sent exit status %+v error: %v", exitStatus, err)
 	} else if err != nil {
 		connection.Log(logger.LevelWarn, "connection closed with error: %v", err)
+	}
+}
+
+func (c *Configuration) createHandlers(connection *Connection) sftp.Handlers {
+	if c.FolderPrefix != "" {
+		prefixMiddleware := newPrefixMiddleware(c.FolderPrefix, connection)
+
+		return sftp.Handlers{
+			FileGet:  prefixMiddleware,
+			FilePut:  prefixMiddleware,
+			FileCmd:  prefixMiddleware,
+			FileList: prefixMiddleware,
+		}
+	}
+
+	return sftp.Handlers{
+		FileGet:  connection,
+		FilePut:  connection,
+		FileCmd:  connection,
+		FileList: connection,
 	}
 }
 
@@ -604,7 +609,13 @@ func (c *Configuration) checkSSHCommands() {
 func (c *Configuration) checkFolderPrefix() {
 	if c.FolderPrefix != "" {
 		c.FolderPrefix = path.Join("/", c.FolderPrefix)
-		logger.Debug(logSender, "", "folder prefix %#v configured", c.FolderPrefix)
+		if c.FolderPrefix == "/" {
+			c.FolderPrefix = ""
+		}
+	}
+	if c.FolderPrefix != "" {
+		c.EnabledSSHCommands = nil
+		logger.Debug(logSender, "", "folder prefix %#v configured, SSH commands are disabled", c.FolderPrefix)
 	}
 }
 

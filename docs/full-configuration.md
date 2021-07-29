@@ -106,6 +106,7 @@ The configuration file contains the following sections:
   - `enabled_ssh_commands`, list of enabled SSH commands. `*` enables all supported commands. More information can be found [here](./ssh-commands.md).
   - `keyboard_interactive_auth_hook`, string. Absolute path to an external program or an HTTP URL to invoke for keyboard interactive authentication. See [Keyboard Interactive Authentication](./keyboard-interactive.md) for more details.
   - `password_authentication`, boolean. Set to false to disable password authentication. This setting will disable multi-step authentication method using public key + password too. It is useful for public key only configurations if you need to manage old clients that will not attempt to authenticate with public keys if the password login method is advertised. Default: true.
+  - `folder_prefix`, string. Virtual root folder prefix to include in all file operations (ex: `/files`). The virtual paths used for per-directory permissions, file patterns etc. must not include the folder prefix. The prefix is only applied to SFTP requests, SCP and other SSH commands will be automatically disabled if you configure a prefix. This setting can help some specific migrations from SFTP servers based on OpenSSH and it is not recommended for general usage. Default: empty.
 - **"ftpd"**, the configuration for the FTP server
   - `bindings`, list of structs. Each struct has the following fields:
     - `port`, integer. The port used for serving FTP requests. 0 means disabled. Default: 0.

@@ -4,7 +4,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -13,7 +12,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
-// Middleware defines the interface for sftp middlewares
+// Middleware defines the interface for SFTP middlewares
 type Middleware interface {
 	sftp.FileReader
 	sftp.FileWriter
@@ -77,17 +76,15 @@ func (p *prefixMiddleware) Filelist(request *sftp.Request) (sftp.ListerAt, error
 		request.Filepath, _ = p.removeFolderPrefix(request.Filepath)
 		return p.next.Filelist(request)
 	case pathIsPrefixParent:
-		Now := time.Now()
 		switch request.Method {
 		case methodList:
-			FileName := p.nextListFolder(request.Filepath)
+			fileName := p.nextListFolder(request.Filepath)
 			return listerAt([]os.FileInfo{
-				// vfs.NewFileInfo(`.`, true, 0, Now, false),
-				vfs.NewFileInfo(FileName, true, 0, Now, false),
+				vfs.NewFileInfo(fileName, true, 0, time.Now(), false),
 			}), nil
 		case methodStat:
 			return listerAt([]os.FileInfo{
-				vfs.NewFileInfo(request.Filepath, true, 0, Now, false),
+				vfs.NewFileInfo(request.Filepath, true, 0, time.Now(), false),
 			}), nil
 		default:
 			return nil, sftp.ErrSSHFxOpUnsupported
@@ -153,16 +150,16 @@ func (p *prefixMiddleware) StatVFS(request *sftp.Request) (*sftp.StatVFS, error)
 }
 
 func (p *prefixMiddleware) nextListFolder(requestPath string) string {
-	cleanPath := filepath.Clean(`/` + requestPath)
-	cleanPrefix := filepath.Clean(`/` + p.prefix)
+	cleanPath := path.Clean(`/` + requestPath)
+	cleanPrefix := path.Clean(`/` + p.prefix)
 
-	FileName := cleanPrefix[len(cleanPath):]
-	FileName = strings.TrimLeft(FileName, `/`)
-	SlashIndex := strings.Index(FileName, `/`)
-	if SlashIndex > 0 {
-		return FileName[0:SlashIndex]
+	fileName := cleanPrefix[len(cleanPath):]
+	fileName = strings.TrimLeft(fileName, `/`)
+	slashIndex := strings.Index(fileName, `/`)
+	if slashIndex > 0 {
+		return fileName[0:slashIndex]
 	}
-	return FileName
+	return fileName
 }
 
 func (p *prefixMiddleware) containsPrefix(virtualPath string) bool {
@@ -184,7 +181,7 @@ func (p *prefixMiddleware) removeFolderPrefix(virtualPath string) (string, bool)
 		return virtualPath, true
 	}
 
-	virtualPath = filepath.Clean(`/` + virtualPath)
+	virtualPath = path.Clean(`/` + virtualPath)
 	if p.containsPrefix(virtualPath) {
 		effectivePath := virtualPath[len(p.prefix):]
 		if effectivePath == `` {
@@ -195,9 +192,9 @@ func (p *prefixMiddleware) removeFolderPrefix(virtualPath string) (string, bool)
 	return virtualPath, false
 }
 
-func getPrefixHierarchy(prefix, path string) prefixMatch {
-	prefixSplit := strings.Split(filepath.Clean(`/`+prefix), `/`)
-	pathSplit := strings.Split(filepath.Clean(`/`+path), `/`)
+func getPrefixHierarchy(prefix, virtualPath string) prefixMatch {
+	prefixSplit := strings.Split(path.Clean(`/`+prefix), `/`)
+	pathSplit := strings.Split(path.Clean(`/`+virtualPath), `/`)
 
 	for {
 		// stop if either slice is empty of the current head elements do not match

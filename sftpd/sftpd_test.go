@@ -277,6 +277,26 @@ func TestMain(m *testing.M) {
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 	getHostKeysFingerprints(sftpdConf.HostKeys)
 
+	prefixedConf := sftpdConf
+	prefixedConf.Bindings = []sftpd.Binding{
+		{
+			Port:             2226,
+			ApplyProxyConfig: false,
+		},
+	}
+	prefixedConf.PasswordAuthentication = true
+	prefixedConf.FolderPrefix = "/prefix/files"
+	go func() {
+		logger.Debug(logSender, "", "initializing SFTP server with config %+v and proxy protocol %v",
+			prefixedConf, common.Config.ProxyProtocol)
+		if err := prefixedConf.Initialize(configDir); err != nil {
+			logger.ErrorToConsole("could not start SFTP server with proxy protocol 2: %v", err)
+			os.Exit(1)
+		}
+	}()
+
+	waitTCPListening(prefixedConf.Bindings[0].GetAddress())
+
 	exitCode := m.Run()
 	os.Remove(logFilePath)
 	os.Remove(loginBannerFile)
@@ -478,6 +498,56 @@ func TestBasicSFTPFsHandling(t *testing.T) {
 	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(baseUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestFolderPrefix(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.QuotaFiles = 1000
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	conn, client, err := getSftpClientWithAddr(user, usePubKey, "127.0.0.1:2226")
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+		_, err = client.Stat("path")
+		assert.ErrorIs(t, err, os.ErrPermission)
+		_, err = client.Stat("/prefix/path")
+		assert.ErrorIs(t, err, os.ErrPermission)
+		_, err = client.Stat("/prefix/files1")
+		assert.ErrorIs(t, err, os.ErrPermission)
+		contents, err := client.ReadDir("/")
+		if assert.NoError(t, err) {
+			if assert.Len(t, contents, 1) {
+				assert.Equal(t, "prefix", contents[0].Name())
+			}
+		}
+		contents, err = client.ReadDir("/prefix")
+		if assert.NoError(t, err) {
+			if assert.Len(t, contents, 1) {
+				assert.Equal(t, "files", contents[0].Name())
+			}
+		}
+		_, err = client.OpenFile(testFileName, os.O_WRONLY)
+		assert.ErrorIs(t, err, os.ErrPermission)
+		_, err = client.OpenFile(testFileName, os.O_RDONLY)
+		assert.ErrorIs(t, err, os.ErrPermission)
+
+		f, err := client.OpenFile(path.Join("prefix", "files", testFileName), os.O_WRONLY)
+		assert.NoError(t, err)
+		_, err = f.Write([]byte("test"))
+		assert.NoError(t, err)
+		err = f.Close()
+		assert.NoError(t, err)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 

@@ -109,6 +109,31 @@ func (Suite *PrefixMiddlewareSuite) TestOpenFile() {
 	}
 }
 
+func (Suite *PrefixMiddlewareSuite) TestStatVFS() {
+	prefix := prefixMiddleware{prefix: `/files`}
+
+	// parent of prefix
+	res, err := prefix.StatVFS(&sftp.Request{Filepath: `/`})
+	Suite.Nil(res)
+	Suite.Equal(sftp.ErrSSHFxPermissionDenied, err)
+
+	// file path and prefix are unrelated
+	res, err = prefix.StatVFS(&sftp.Request{Filepath: `/random`})
+	Suite.Nil(res)
+	Suite.Equal(sftp.ErrSSHFxPermissionDenied, err)
+
+	// file path is sub path of configured prefix
+	// mocked returns are not import, just the call to the next file writer
+	statVFSMock := mocks.NewMockMiddleware(Suite.MockCtl)
+	statVFSMock.EXPECT().
+		StatVFS(&sftp.Request{Filepath: `/data`}).
+		Return(nil, nil)
+	prefix.next = statVFSMock
+	res, err = prefix.StatVFS(&sftp.Request{Filepath: `/files/data`})
+	Suite.Nil(err)
+	Suite.Nil(res)
+}
+
 func (Suite *PrefixMiddlewareSuite) TestFileListForwarding() {
 	var tests = []struct {
 		Method   string
