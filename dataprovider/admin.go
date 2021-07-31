@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"regexp"
 	"strings"
 
@@ -246,8 +247,17 @@ func (a *Admin) getACopy() Admin {
 
 // setDefaults sets the appropriate value for the default admin
 func (a *Admin) setDefaults() {
+	envUsername := strings.TrimSpace(os.Getenv(`SFTPGO_DEFAULT_ADMIN_USERNAME`))
+	envPassword := strings.TrimSpace(os.Getenv(`SFTPGO_DEFAULT_ADMIN_PASSWORD`))
+
 	a.Username = "admin"
+	if envUsername != "" {
+		a.Username = envUsername
+	}
 	a.Password = "password"
+	if envPassword != "" {
+		a.Password = envPassword
+	}
 	a.Status = 1
 	a.Permissions = []string{PermAdminAny}
 }

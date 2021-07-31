@@ -194,7 +194,7 @@ The configuration file contains the following sections:
   - `password_caching`, boolean. Verifying argon2id passwords has a high memory and computational cost, verifying bcrypt passwords has a high computational cost, by enabling, in memory, password caching you reduce these costs. Default: `true`
   - `update_mode`, integer. Defines how the database will be initialized/updated. 0 means automatically. 1 means manually using the initprovider sub-command.
   - `skip_natural_keys_validation`, boolean. If `true` you can use any UTF-8 character for natural keys as username, admin name, folder name. These keys are used in URIs for REST API and Web admin. If `false` only unreserved URI characters are allowed: ALPHA / DIGIT / "-" / "." / "_" / "~". Default: `false`.
-  - `create_default_admin`, boolean. If enabled, a default admin user with username `admin` and password `password` will be created on first start. You can also create the first admin user by using the web interface or by loading initial data. Default `false`.
+  - `create_default_admin`, boolean. If enabled, a default admin user with username `admin` and password `password` will be created on first start. The default values can be overridden using the environment variables `SFTPGO_DEFAULT_ADMIN_USERNAME` and `SFTPGO_DEFAULT_ADMIN_PASSWORD`. You can also create the first admin user by using the web interface or by loading initial data. Default `false`.
 - **"httpd"**, the configuration for the HTTP server used to serve REST API and to expose the built-in web interface
   - `bindings`, list of structs. Each struct has the following fields:
     - `port`, integer. The port used for serving HTTP requests. Default: 8080.
