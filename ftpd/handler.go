@@ -14,6 +14,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -271,7 +272,15 @@ func (c *Connection) Symlink(oldname, newname string) error {
 func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 	c.UpdateLastActivity()
 
-	return c.ListDir(name)
+	files, err := c.ListDir(name)
+	if err != nil {
+		return files, err
+	}
+	if name != "/" {
+		files = util.PrependFileInfo(files, vfs.NewFileInfo("..", true, 0, time.Now(), false))
+	}
+	files = util.PrependFileInfo(files, vfs.NewFileInfo(".", true, 0, time.Now(), false))
+	return files, nil
 }
 
 // GetHandle implements ClientDriverExtentionFileTransfer

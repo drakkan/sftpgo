@@ -165,14 +165,15 @@ func (Suite *PrefixMiddlewareSuite) TestFileListForwarding() {
 
 func (Suite *PrefixMiddlewareSuite) TestFileList() {
 	var tests = []struct {
-		Method       string
-		FilePath     string
-		ExpectedErr  error
-		ExpectedPath string
+		Method        string
+		FilePath      string
+		ExpectedErr   error
+		ExpectedPath  string
+		ExpectedItems int
 	}{
-		{Method: `List`, FilePath: `/random`, ExpectedErr: sftp.ErrSSHFxPermissionDenied},
-		{Method: `List`, FilePath: `/`, ExpectedPath: `files`},
-		{Method: `Stat`, FilePath: `/`, ExpectedPath: `/`},
+		{Method: `List`, FilePath: `/random`, ExpectedErr: sftp.ErrSSHFxPermissionDenied, ExpectedItems: 0},
+		{Method: `List`, FilePath: `/`, ExpectedPath: `files`, ExpectedItems: 2},
+		{Method: `Stat`, FilePath: `/`, ExpectedPath: `/`, ExpectedItems: 1},
 		{Method: `NotAnOp`, ExpectedErr: sftp.ErrSSHFxOpUnsupported},
 	}
 
@@ -189,10 +190,13 @@ func (Suite *PrefixMiddlewareSuite) TestFileList() {
 			Suite.Nil(err)
 			Suite.IsType(listerAt{}, ListerAt)
 			if directList, ok := ListerAt.(listerAt); ok {
-				Suite.Len(directList, 1)
-				Suite.Equal(test.ExpectedPath, directList[0].Name())
-				Suite.InDelta(time.Now().Unix(), directList[0].ModTime().Unix(), 1)
-				Suite.True(directList[0].IsDir())
+				Suite.Len(directList, test.ExpectedItems)
+				if test.ExpectedItems > 1 {
+					Suite.Equal(".", directList[0].Name())
+				}
+				Suite.Equal(test.ExpectedPath, directList[test.ExpectedItems-1].Name())
+				Suite.InDelta(time.Now().Unix(), directList[test.ExpectedItems-1].ModTime().Unix(), 1)
+				Suite.True(directList[test.ExpectedItems-1].IsDir())
 			}
 		}
 	}

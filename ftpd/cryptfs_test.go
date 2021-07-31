@@ -57,8 +57,9 @@ func TestBasicFTPHandlingCryptFs(t *testing.T) {
 		}
 		list, err := client.List(".")
 		if assert.NoError(t, err) {
-			assert.Len(t, list, 1)
-			assert.Equal(t, testFileSize, int64(list[0].Size))
+			assert.Len(t, list, 2)
+			assert.Equal(t, ".", list[0].Name)
+			assert.Equal(t, testFileSize, int64(list[1].Size))
 		}
 		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)

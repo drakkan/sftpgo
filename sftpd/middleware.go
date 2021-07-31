@@ -78,10 +78,15 @@ func (p *prefixMiddleware) Filelist(request *sftp.Request) (sftp.ListerAt, error
 	case pathIsPrefixParent:
 		switch request.Method {
 		case methodList:
+			now := time.Now()
 			fileName := p.nextListFolder(request.Filepath)
-			return listerAt([]os.FileInfo{
-				vfs.NewFileInfo(fileName, true, 0, time.Now(), false),
-			}), nil
+			files := make([]os.FileInfo, 0, 3)
+			files = append(files, vfs.NewFileInfo(".", true, 0, now, false))
+			if request.Filepath != "/" {
+				files = append(files, vfs.NewFileInfo("..", true, 0, now, false))
+			}
+			files = append(files, vfs.NewFileInfo(fileName, true, 0, now, false))
+			return listerAt(files), nil
 		case methodStat:
 			return listerAt([]os.FileInfo{
 				vfs.NewFileInfo(request.Filepath, true, 0, time.Now(), false),

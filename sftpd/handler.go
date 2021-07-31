@@ -12,6 +12,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -21,10 +22,11 @@ type Connection struct {
 	// client's version string
 	ClientVersion string
 	// Remote address for this connection
-	RemoteAddr net.Addr
-	LocalAddr  net.Addr
-	channel    io.ReadWriteCloser
-	command    string
+	RemoteAddr   net.Addr
+	LocalAddr    net.Addr
+	channel      io.ReadWriteCloser
+	command      string
+	folderPrefix string
 }
 
 // GetClientVersion returns the connected client's version
@@ -201,6 +203,11 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 		if err != nil {
 			return nil, err
 		}
+		now := time.Now()
+		if request.Filepath != "/" || c.folderPrefix != "" {
+			files = util.PrependFileInfo(files, vfs.NewFileInfo("..", true, 0, now, false))
+		}
+		files = util.PrependFileInfo(files, vfs.NewFileInfo(".", true, 0, now, false))
 		return listerAt(files), nil
 	case "Stat":
 		if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(request.Filepath)) {

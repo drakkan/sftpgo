@@ -451,6 +451,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 							RemoteAddr:    conn.RemoteAddr(),
 							LocalAddr:     conn.LocalAddr(),
 							channel:       channel,
+							folderPrefix:  c.FolderPrefix,
 						}
 						go c.handleSftpConnection(channel, &connection)
 					}
@@ -463,6 +464,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 						RemoteAddr:    conn.RemoteAddr(),
 						LocalAddr:     conn.LocalAddr(),
 						channel:       channel,
+						folderPrefix:  c.FolderPrefix,
 					}
 					ok = processSSHCommand(req.Payload, &connection, c.EnabledSSHCommands)
 				}

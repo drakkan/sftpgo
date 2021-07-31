@@ -536,6 +536,18 @@ func TestBasicFTPHandling(t *testing.T) {
 			if assert.NoError(t, err) {
 				assert.Equal(t, path.Join("/", testDir), curDir)
 			}
+			res, err := client.List(path.Join("/", testDir))
+			assert.NoError(t, err)
+			if assert.Len(t, res, 2) {
+				assert.Equal(t, ".", res[0].Name)
+				assert.Equal(t, "..", res[1].Name)
+			}
+			res, err = client.List(path.Join("/"))
+			assert.NoError(t, err)
+			if assert.Len(t, res, 2) {
+				assert.Equal(t, ".", res[0].Name)
+				assert.Equal(t, testDir, res[1].Name)
+			}
 			err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
 			assert.NoError(t, err)
 			size, err := client.FileSize(path.Join("/", testDir, testFileName))
