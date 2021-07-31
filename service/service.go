@@ -99,8 +99,8 @@ func (s *Service) Start() error {
 		os.Exit(1)
 	}
 	if err := plugin.Initialize(config.GetPluginsConfig(), s.LogVerbose); err != nil {
-		logger.Error(logSender, "", "unable to initialize plugin: %v", err)
-		logger.ErrorToConsole("unable to initialize plugin: %v", err)
+		logger.Error(logSender, "", "unable to initialize plugin system: %v", err)
+		logger.ErrorToConsole("unable to initialize plugin system: %v", err)
 		os.Exit(1)
 	}
 

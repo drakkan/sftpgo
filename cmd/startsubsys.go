@@ -15,6 +15,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/config"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/version"
 )
@@ -75,6 +76,10 @@ Command-line flags should be specified in the Subsystem declaration.
 				logger.Error(logSender, connectionID, "unable to initialize KMS: %v", err)
 				os.Exit(1)
 			}
+			if err := plugin.Initialize(config.GetPluginsConfig(), logVerbose); err != nil {
+				logger.Error(logSender, connectionID, "unable to initialize plugin system: %v", err)
+				os.Exit(1)
+			}
 			dataProviderConf := config.GetProviderConf()
 			if dataProviderConf.Driver == dataprovider.SQLiteDataProviderName || dataProviderConf.Driver == dataprovider.BoltDataProviderName {
 				logger.Debug(logSender, connectionID, "data provider %#v not supported in subsystem mode, using %#v provider",
@@ -128,6 +133,7 @@ Command-line flags should be specified in the Subsystem declaration.
 				os.Exit(1)
 			}
 			logger.Info(logSender, connectionID, "serving subsystem finished")
+			plugin.Handler.Cleanup()
 			os.Exit(0)
 		},
 	}
