@@ -102,6 +102,35 @@ func TestEmptyBanner(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestEnabledSSHCommands(t *testing.T) {
+	reset()
+
+	configDir := ".."
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+	err := config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+
+	reset()
+
+	sftpdConf := config.GetSFTPDConfig()
+	sftpdConf.EnabledSSHCommands = []string{"scp"}
+	c := make(map[string]sftpd.Configuration)
+	c["sftpd"] = sftpdConf
+	jsonConf, err := json.Marshal(c)
+	assert.NoError(t, err)
+	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, confName)
+	assert.NoError(t, err)
+	sftpdConf = config.GetSFTPDConfig()
+	if assert.Len(t, sftpdConf.EnabledSSHCommands, 1) {
+		assert.Equal(t, "scp", sftpdConf.EnabledSSHCommands[0])
+	}
+	err = os.Remove(configFilePath)
+	assert.NoError(t, err)
+}
+
 func TestInvalidUploadMode(t *testing.T) {
 	reset()
 
