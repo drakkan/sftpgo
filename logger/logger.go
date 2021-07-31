@@ -15,7 +15,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	ftpserverlog "github.com/fclairamb/ftpserverlib/log"
+	ftpserverlog "github.com/fclairamb/go-log"
 	"github.com/rs/zerolog"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )

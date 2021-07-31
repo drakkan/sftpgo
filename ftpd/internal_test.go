@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/eikenb/pipeat"
+	ftpserver "github.com/fclairamb/ftpserverlib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -293,6 +294,10 @@ func (cc mockFTPClientContext) HasTLSForTransfers() bool {
 
 func (cc mockFTPClientContext) GetLastCommand() string {
 	return ""
+}
+
+func (cc mockFTPClientContext) GetLastDataChannel() ftpserver.DataChannel {
+	return ftpserver.DataChannelPassive
 }
 
 // MockOsFs mockable OsFs
