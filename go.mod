@@ -6,7 +6,6 @@ require (
 	cloud.google.com/go/storage v1.16.0
 	github.com/Azure/azure-storage-blob-go v0.14.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
-	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/alexedwards/argon2id v0.0.0-20210511081203-7d35d68092b8
 	github.com/aws/aws-sdk-go v1.40.12
 	github.com/cockroachdb/cockroach-go/v2 v2.1.1
@@ -48,7 +47,7 @@ require (
 	github.com/rs/xid v1.3.0
 	github.com/rs/zerolog v1.23.0
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/shirou/gopsutil/v3 v3.21.6
+	github.com/shirou/gopsutil/v3 v3.21.7
 	github.com/spf13/afero v1.6.0
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/viper v1.8.1
