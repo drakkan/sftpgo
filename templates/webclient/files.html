@@ -467,7 +467,8 @@
                 var files = fixedEncodeURIComponent(JSON.stringify(filesArray));
                 var downloadURL = '{{.DownloadURL}}';
                 var currentDir = '{{.CurrentDir}}';
-                window.location = `${downloadURL}?path=${currentDir}&files=${files}`;
+                var ts = new Date().getTime().toString();
+                window.location = `${downloadURL}?path=${currentDir}&files=${files}&_=${ts}`;
             },
             enabled: false
         };
@@ -614,7 +615,9 @@
             "initComplete": function (settings, json) {
                 table.button().add(0, 'refresh');
                 table.button().add(0, 'pageLength');
+                {{if .CanDownload}}
                 table.button().add(0, 'download');
+                {{end}}
                 {{if .CanDelete}}
                 table.button().add(0, 'delete');
                 {{end}}

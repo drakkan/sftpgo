@@ -80,6 +80,7 @@ type filesPage struct {
 	CanCreateDirs bool
 	CanRename     bool
 	CanDelete     bool
+	CanDownload   bool
 	Error         string
 	Paths         []dirMapping
 }
@@ -100,7 +101,7 @@ type credentialsPage struct {
 }
 
 func getFileObjectURL(baseDir, name string) string {
-	return fmt.Sprintf("%v?path=%v", webClientFilesPath, url.QueryEscape(path.Join(baseDir, name)))
+	return fmt.Sprintf("%v?path=%v&_=%v", webClientFilesPath, url.QueryEscape(path.Join(baseDir, name)), time.Now().UTC().Unix())
 }
 
 func getFileObjectModTime(t time.Time) string {
@@ -211,6 +212,7 @@ func renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error stri
 		CanCreateDirs:  user.CanAddDirsFromWeb(dirName),
 		CanRename:      user.CanRenameFromWeb(dirName, dirName),
 		CanDelete:      user.CanDeleteFromWeb(dirName),
+		CanDownload:    user.HasPerm(dataprovider.PermDownload, dirName),
 	}
 	paths := []dirMapping{}
 	if dirName != "/" {
