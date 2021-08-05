@@ -13,6 +13,7 @@ import (
 
 	"github.com/eikenb/pipeat"
 	ftpserver "github.com/fclairamb/ftpserverlib"
+	"github.com/pires/go-proxyproto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -393,6 +394,19 @@ func TestInitialization(t *testing.T) {
 	_, err = server.GetSettings()
 	assert.Error(t, err)
 
+	binding.PassiveConnectionsSecurity = 100
+	binding.ActiveConnectionsSecurity = 100
+	server = NewServer(c, configDir, binding, 0)
+	_, err = server.GetSettings()
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "invalid passive_connections_security")
+	}
+	binding.PassiveConnectionsSecurity = 1
+	server = NewServer(c, configDir, binding, 0)
+	_, err = server.GetSettings()
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "invalid active_connections_security")
+	}
 	binding = Binding{
 		Port:           2121,
 		ForcePassiveIP: "192.168.1",
@@ -466,6 +480,35 @@ func TestServerGetSettings(t *testing.T) {
 
 	binding.TLSMode = 2
 	assert.Equal(t, "Implicit", binding.GetTLSDescription())
+
+	certPath := filepath.Join(os.TempDir(), "test.crt")
+	keyPath := filepath.Join(os.TempDir(), "test.key")
+	err = os.WriteFile(certPath, []byte(ftpsCert), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(keyPath, []byte(ftpsKey), os.ModePerm)
+	assert.NoError(t, err)
+
+	common.Config.ProxyAllowed = nil
+	c.CertificateFile = certPath
+	c.CertificateKeyFile = keyPath
+	server = NewServer(c, configDir, binding, 0)
+	server.binding.Port = 9021
+	settings, err = server.GetSettings()
+	assert.NoError(t, err)
+	assert.NotNil(t, settings.Listener)
+
+	listener, err := net.Listen("tcp", ":0")
+	assert.NoError(t, err)
+	listener, err = server.WrapPassiveListener(listener)
+	assert.NoError(t, err)
+
+	_, ok := listener.(*proxyproto.Listener)
+	assert.True(t, ok)
+
+	err = os.Remove(certPath)
+	assert.NoError(t, err)
+	err = os.Remove(keyPath)
+	assert.NoError(t, err)
 
 	common.Config = oldConfig
 }

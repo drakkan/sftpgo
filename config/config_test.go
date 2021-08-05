@@ -522,12 +522,14 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_FTPD__BINDINGS__0__TLS_MODE", "2")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__0__FORCE_PASSIVE_IP", "127.0.1.2")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__0__TLS_CIPHER_SUITES", "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256")
+	os.Setenv("SFTPGO_FTPD__BINDINGS__0__PASSIVE_CONNECTIONS_SECURITY", "1")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__ADDRESS", "127.0.1.1")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__PORT", "2203")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__TLS_MODE", "1")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__FORCE_PASSIVE_IP", "127.0.1.1")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__CLIENT_AUTH_TYPE", "2")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__DEBUG", "1")
+	os.Setenv("SFTPGO_FTPD__BINDINGS__9__ACTIVE_CONNECTIONS_SECURITY", "1")
 
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__0__ADDRESS")
@@ -536,12 +538,14 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__0__TLS_MODE")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__0__FORCE_PASSIVE_IP")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__0__TLS_CIPHER_SUITES")
+		os.Unsetenv("SFTPGO_FTPD__BINDINGS__0__ACTIVE_CONNECTIONS_SECURITY")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__ADDRESS")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__PORT")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__TLS_MODE")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__FORCE_PASSIVE_IP")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__CLIENT_AUTH_TYPE")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__DEBUG")
+		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__ACTIVE_CONNECTIONS_SECURITY")
 	})
 
 	configDir := ".."
@@ -559,6 +563,8 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256", bindings[0].TLSCipherSuites[0])
 	require.Equal(t, "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", bindings[0].TLSCipherSuites[1])
 	require.False(t, bindings[0].Debug)
+	require.Equal(t, 1, bindings[0].PassiveConnectionsSecurity)
+	require.Equal(t, 0, bindings[0].ActiveConnectionsSecurity)
 	require.Equal(t, 2203, bindings[1].Port)
 	require.Equal(t, "127.0.1.1", bindings[1].Address)
 	require.True(t, bindings[1].ApplyProxyConfig) // default value
@@ -566,6 +572,8 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, "127.0.1.1", bindings[1].ForcePassiveIP)
 	require.Equal(t, 2, bindings[1].ClientAuthType)
 	require.Nil(t, bindings[1].TLSCipherSuites)
+	require.Equal(t, 0, bindings[1].PassiveConnectionsSecurity)
+	require.Equal(t, 1, bindings[1].ActiveConnectionsSecurity)
 	require.True(t, bindings[1].Debug)
 }
 

@@ -51,6 +51,16 @@ type Binding struct {
 	// any invalid name will be silently ignored.
 	// The order matters, the ciphers listed first will be the preferred ones.
 	TLSCipherSuites []string `json:"tls_cipher_suites" mapstructure:"tls_cipher_suites"`
+	// PassiveConnectionsSecurity defines the security checks for passive data connections.
+	// Supported values:
+	// - 0 require matching peer IP addresses of control and data connection. This is the default
+	// - 1 disable any checks
+	PassiveConnectionsSecurity int `json:"passive_connections_security" mapstructure:"passive_connections_security"`
+	// ActiveConnectionsSecurity defines the security checks for active data connections.
+	// The supported values are the same as described for PassiveConnectionsSecurity.
+	// Please note that disabling the security checks you will make the FTP service vulnerable to bounce attacks
+	// on active data connections, so change the default value only if you are on a trusted/internal network
+	ActiveConnectionsSecurity int `json:"active_connections_security" mapstructure:"active_connections_security"`
 	// Debug enables the FTP debug mode. In debug mode, every FTP command will be logged
 	Debug   bool `json:"debug" mapstructure:"debug"`
 	ciphers []uint16
@@ -75,6 +85,16 @@ func (b *Binding) GetAddress() string {
 // IsValid returns true if the binding port is > 0
 func (b *Binding) IsValid() bool {
 	return b.Port > 0
+}
+
+func (b *Binding) checkSecuritySettings() error {
+	if b.PassiveConnectionsSecurity < 0 || b.PassiveConnectionsSecurity > 1 {
+		return fmt.Errorf("invalid passive_connections_security: %v", b.PassiveConnectionsSecurity)
+	}
+	if b.ActiveConnectionsSecurity < 0 || b.ActiveConnectionsSecurity > 1 {
+		return fmt.Errorf("invalid active_connections_security: %v", b.ActiveConnectionsSecurity)
+	}
+	return nil
 }
 
 func (b *Binding) checkPassiveIP() error {

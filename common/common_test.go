@@ -557,8 +557,13 @@ func TestQuotaScans(t *testing.T) {
 
 func TestProxyProtocolVersion(t *testing.T) {
 	c := Configuration{
-		ProxyProtocol: 1,
+		ProxyProtocol: 0,
 	}
+	_, err := c.GetProxyListener(nil)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "proxy protocol not configured")
+	}
+	c.ProxyProtocol = 1
 	proxyListener, err := c.GetProxyListener(nil)
 	assert.NoError(t, err)
 	assert.Nil(t, proxyListener.Policy)

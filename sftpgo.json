@@ -84,6 +84,8 @@
         "force_passive_ip": "",
         "client_auth_type": 0,
         "tls_cipher_suites": [],
+        "passive_connections_security": 0,
+        "active_connections_security": 0,
         "debug": false
       }
     ],

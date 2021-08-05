@@ -86,6 +86,9 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 	if err := s.binding.checkPassiveIP(); err != nil {
 		return nil, err
 	}
+	if err := s.binding.checkSecuritySettings(); err != nil {
+		return nil, err
+	}
 	var portRange *ftpserver.PortRange
 	if s.config.PassivePortRange.Start > 0 && s.config.PassivePortRange.End > s.config.PassivePortRange.Start {
 		portRange = &ftpserver.PortRange{
@@ -94,7 +97,7 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 		}
 	}
 	var ftpListener net.Listener
-	if common.Config.ProxyProtocol > 0 && s.binding.ApplyProxyConfig {
+	if s.binding.HasProxy() {
 		listener, err := net.Listen("tcp", s.binding.GetAddress())
 		if err != nil {
 			logger.Warn(logSender, "", "error starting listener on address %v: %v", s.binding.GetAddress(), err)
@@ -104,6 +107,9 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 		if err != nil {
 			logger.Warn(logSender, "", "error enabling proxy listener: %v", err)
 			return nil, err
+		}
+		if s.binding.TLSMode == 2 && s.tlsConfig != nil {
+			ftpListener = tls.NewListener(ftpListener, s.tlsConfig)
 		}
 	}
 
@@ -130,6 +136,8 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 		EnableHASH:               s.config.HASHSupport > 0,
 		EnableCOMB:               s.config.CombineSupport > 0,
 		DefaultTransferType:      ftpserver.TransferTypeBinary,
+		ActiveConnectionsCheck:   ftpserver.DataConnectionRequirement(s.binding.ActiveConnectionsSecurity),
+		PasvConnectionsCheck:     ftpserver.DataConnectionRequirement(s.binding.PassiveConnectionsSecurity),
 	}, nil
 }
 
@@ -197,6 +205,14 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 		user.ID, user.Username, user.HomeDir, ipAddr)
 	dataprovider.UpdateLastLogin(&user) //nolint:errcheck
 	return connection, nil
+}
+
+// WrapPassiveListener implements the MainDriverExtensionPassiveWrapper interface
+func (s *Server) WrapPassiveListener(listener net.Listener) (net.Listener, error) {
+	if s.binding.HasProxy() {
+		return common.Config.GetProxyListener(listener)
+	}
+	return listener, nil
 }
 
 // VerifyConnection checks whether a user should be authenticated using a client certificate without prompting for a password

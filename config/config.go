@@ -46,13 +46,16 @@ var (
 		ApplyProxyConfig: true,
 	}
 	defaultFTPDBinding = ftpd.Binding{
-		Address:          "",
-		Port:             0,
-		ApplyProxyConfig: true,
-		TLSMode:          0,
-		ForcePassiveIP:   "",
-		ClientAuthType:   0,
-		TLSCipherSuites:  nil,
+		Address:                    "",
+		Port:                       0,
+		ApplyProxyConfig:           true,
+		TLSMode:                    0,
+		ForcePassiveIP:             "",
+		ClientAuthType:             0,
+		TLSCipherSuites:            nil,
+		PassiveConnectionsSecurity: 0,
+		ActiveConnectionsSecurity:  0,
+		Debug:                      false,
 	}
 	defaultWebDAVDBinding = webdavd.Binding{
 		Address:         "",
@@ -742,6 +745,18 @@ func getFTPDBindingFromEnv(idx int) {
 	tlsCiphers, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__TLS_CIPHER_SUITES", idx))
 	if ok {
 		binding.TLSCipherSuites = tlsCiphers
+		isSet = true
+	}
+
+	pasvSecurity, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__PASSIVE_CONNECTIONS_SECURITY", idx))
+	if ok {
+		binding.PassiveConnectionsSecurity = int(pasvSecurity)
+		isSet = true
+	}
+
+	activeSecurity, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__ACTIVE_CONNECTIONS_SECURITY", idx))
+	if ok {
+		binding.ActiveConnectionsSecurity = int(activeSecurity)
 		isSet = true
 	}
 
