@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/alexedwards/argon2id"
+	passwordvalidator "github.com/wagslane/go-password-validator"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/drakkan/sftpgo/v2/util"
@@ -68,6 +69,11 @@ type Admin struct {
 
 func (a *Admin) checkPassword() error {
 	if a.Password != "" && !util.IsStringPrefixInSlice(a.Password, internalHashPwdPrefixes) {
+		if config.PasswordValidation.Admins.MinEntropy > 0 {
+			if err := passwordvalidator.Validate(a.Password, config.PasswordValidation.Admins.MinEntropy); err != nil {
+				return util.NewValidationError(err.Error())
+			}
+		}
 		if config.PasswordHashing.Algo == HashingAlgoBcrypt {
 			pwd, err := bcrypt.GenerateFromPassword([]byte(a.Password), config.PasswordHashing.BcryptOptions.Cost)
 			if err != nil {

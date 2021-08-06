@@ -39,6 +39,7 @@ import (
 	"github.com/alexedwards/argon2id"
 	"github.com/go-chi/render"
 	"github.com/rs/xid"
+	passwordvalidator "github.com/wagslane/go-password-validator"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/ssh"
@@ -171,6 +172,23 @@ type PasswordHashing struct {
 	Algo string `json:"algo" mapstructure:"algo"`
 }
 
+// PasswordValidationRules defines the password validation rules
+type PasswordValidationRules struct {
+	// MinEntropy defines the minimum password entropy.
+	// 0 means disabled, any password will be accepted.
+	// Take a look at the following link for more details
+	// https://github.com/wagslane/go-password-validator#what-entropy-value-should-i-use
+	MinEntropy float64 `json:"min_entropy" mapstructure:"min_entropy"`
+}
+
+// PasswordValidation defines the password validation rules for admins and protocol users
+type PasswordValidation struct {
+	// Password validation rules for SFTPGo admin users
+	Admins PasswordValidationRules `json:"admins" mapstructure:"admins"`
+	// Password validation rules for SFTPGo protocol users
+	Users PasswordValidationRules `json:"users" mapstructure:"users"`
+}
+
 // UserActions defines the action to execute on user create, update, delete.
 type UserActions struct {
 	// Valid values are add, update, delete. Empty slice to disable
@@ -301,6 +319,8 @@ type Config struct {
 	// folder name. These keys are used in URIs for REST API and Web admin. By default only unreserved URI
 	// characters are allowed: ALPHA / DIGIT / "-" / "." / "_" / "~".
 	SkipNaturalKeysValidation bool `json:"skip_natural_keys_validation" mapstructure:"skip_natural_keys_validation"`
+	// PasswordValidation defines the password validation rules
+	PasswordValidation PasswordValidation `json:"password_validation" mapstructure:"password_validation"`
 	// Verifying argon2 passwords has a high memory and computational cost,
 	// by enabling, in memory, password caching you reduce this cost.
 	PasswordCaching bool `json:"password_caching" mapstructure:"password_caching"`
@@ -1424,6 +1444,11 @@ func validateBaseParams(user *User) error {
 
 func createUserPasswordHash(user *User) error {
 	if user.Password != "" && !user.IsPasswordHashed() {
+		if config.PasswordValidation.Users.MinEntropy > 0 {
+			if err := passwordvalidator.Validate(user.Password, config.PasswordValidation.Users.MinEntropy); err != nil {
+				return util.NewValidationError(err.Error())
+			}
+		}
 		if config.PasswordHashing.Algo == HashingAlgoBcrypt {
 			pwd, err := bcrypt.GenerateFromPassword([]byte(user.Password), config.PasswordHashing.BcryptOptions.Cost)
 			if err != nil {

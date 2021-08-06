@@ -179,6 +179,14 @@
       },
       "algo": "bcrypt"
     },
+    "password_validation": {
+      "admins": {
+        "min_entropy": 0
+      },
+      "users": {
+        "min_entropy": 0
+      }
+    },
     "password_caching": true,
     "update_mode": 0,
     "skip_natural_keys_validation": false,

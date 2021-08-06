@@ -628,6 +628,44 @@ func TestChangeAdminPassword(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestPasswordValidations(t *testing.T) {
+	if config.GetProviderConf().Driver == dataprovider.MemoryDataProviderName {
+		t.Skip("this test is not supported with the memory provider")
+	}
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	providerConf := config.GetProviderConf()
+	assert.NoError(t, err)
+	providerConf.PasswordValidation.Admins.MinEntropy = 50
+	providerConf.PasswordValidation.Users.MinEntropy = 70
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	a := getTestAdmin()
+	a.Username = altAdminUsername
+	a.Password = altAdminPassword
+
+	_, resp, err := httpdtest.AddAdmin(a, http.StatusBadRequest)
+	assert.NoError(t, err, string(resp))
+	assert.Contains(t, string(resp), "insecure password")
+
+	_, resp, err = httpdtest.AddUser(getTestUser(), http.StatusBadRequest)
+	assert.NoError(t, err, string(resp))
+	assert.Contains(t, string(resp), "insecure password")
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	providerConf.CredentialsPath = credentialsPath
+	err = os.RemoveAll(credentialsPath)
+	assert.NoError(t, err)
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+}
+
 func TestAdminPasswordHashing(t *testing.T) {
 	if config.GetProviderConf().Driver == dataprovider.MemoryDataProviderName {
 		t.Skip("this test is not supported with the memory provider")
