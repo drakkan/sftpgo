@@ -173,7 +173,8 @@ func TestUploadResumeInvalidOffset(t *testing.T) {
 
 	err = transfer.Close()
 	if assert.Error(t, err) {
-		assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
+		assert.ErrorIs(t, err, sftp.ErrSSHFxFailure)
+		assert.Contains(t, err.Error(), "invalid write offset")
 	}
 
 	err = os.Remove(testfile)
@@ -270,7 +271,8 @@ func TestTransferCancelFn(t *testing.T) {
 	transfer.TransferError(errFake)
 	err = transfer.Close()
 	if assert.Error(t, err) {
-		assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
+		assert.ErrorIs(t, err, sftp.ErrSSHFxFailure)
+		assert.Contains(t, err.Error(), errFake.Error())
 	}
 	if assert.Error(t, transfer.ErrTransfer) {
 		assert.EqualError(t, transfer.ErrTransfer, errFake.Error())

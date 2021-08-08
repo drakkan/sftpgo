@@ -1070,6 +1070,8 @@ func (c *BaseConnection) GetOpUnsupportedError() error {
 // GetQuotaExceededError returns an appropriate storage limit exceeded error for the connection protocol
 func (c *BaseConnection) GetQuotaExceededError() error {
 	switch c.protocol {
+	case ProtocolSFTP:
+		return fmt.Errorf("%w: %v", sftp.ErrSSHFxFailure, ErrQuotaExceeded.Error())
 	case ProtocolFTP:
 		return ftpserver.ErrStorageExceeded
 	default:
@@ -1080,8 +1082,16 @@ func (c *BaseConnection) GetQuotaExceededError() error {
 // IsQuotaExceededError returns true if the given error is a quota exceeded error
 func (c *BaseConnection) IsQuotaExceededError(err error) bool {
 	switch c.protocol {
+	case ProtocolSFTP:
+		if err == nil {
+			return false
+		}
+		if errors.Is(err, ErrQuotaExceeded) {
+			return true
+		}
+		return errors.Is(err, sftp.ErrSSHFxFailure) && strings.Contains(err.Error(), ErrQuotaExceeded.Error())
 	case ProtocolFTP:
-		return errors.Is(err, ftpserver.ErrStorageExceeded)
+		return errors.Is(err, ftpserver.ErrStorageExceeded) || errors.Is(err, ErrQuotaExceeded)
 	default:
 		return errors.Is(err, ErrQuotaExceeded)
 	}
@@ -1092,7 +1102,13 @@ func (c *BaseConnection) GetGenericError(err error) error {
 	switch c.protocol {
 	case ProtocolSFTP:
 		if err == vfs.ErrStorageSizeUnavailable {
-			return sftp.ErrSSHFxOpUnsupported
+			return fmt.Errorf("%w: %v", sftp.ErrSSHFxOpUnsupported, err.Error())
+		}
+		if err != nil {
+			if e, ok := err.(*os.PathError); ok {
+				return fmt.Errorf("%w: %v %v", sftp.ErrSSHFxFailure, e.Op, e.Err.Error())
+			}
+			return fmt.Errorf("%w: %v", sftp.ErrSSHFxFailure, err.Error())
 		}
 		return sftp.ErrSSHFxFailure
 	default:

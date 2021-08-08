@@ -346,7 +346,7 @@ func (c *Connection) handleSFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath
 	quotaResult := c.HasSpace(true, false, requestPath)
 	if !quotaResult.HasSpace {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
-		return nil, sftp.ErrSSHFxFailure
+		return nil, c.GetQuotaExceededError()
 	}
 
 	if err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(), 0, 0); err != nil {
@@ -378,7 +378,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 	quotaResult := c.HasSpace(false, false, requestPath)
 	if !quotaResult.HasSpace {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
-		return nil, sftp.ErrSSHFxFailure
+		return nil, c.GetQuotaExceededError()
 	}
 
 	osFlags := getOSOpenFlags(pflags)

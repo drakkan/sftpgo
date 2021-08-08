@@ -1997,7 +1997,7 @@ func TestAllocateAvailable(t *testing.T) {
 		code, response, err = client.SendCustomCommand("allo 150")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusFileUnavailable, code)
-		assert.Contains(t, response, common.ErrQuotaExceeded.Error())
+		assert.Contains(t, response, ftpserver.ErrStorageExceeded.Error())
 
 		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
 		assert.NoError(t, err)
@@ -2017,7 +2017,7 @@ func TestAllocateAvailable(t *testing.T) {
 		code, response, err = client.SendCustomCommand("allo 50")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusFileUnavailable, code)
-		assert.Contains(t, response, common.ErrQuotaExceeded.Error())
+		assert.Contains(t, response, ftpserver.ErrStorageExceeded.Error())
 
 		err = client.Quit()
 		assert.NoError(t, err)
@@ -2038,7 +2038,7 @@ func TestAllocateAvailable(t *testing.T) {
 		code, response, err = client.SendCustomCommand("allo 150")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusFileUnavailable, code)
-		assert.Contains(t, response, common.ErrQuotaExceeded.Error())
+		assert.Contains(t, response, ftpserver.ErrStorageExceeded.Error())
 
 		code, response, err = client.SendCustomCommand("AVBL")
 		assert.NoError(t, err)

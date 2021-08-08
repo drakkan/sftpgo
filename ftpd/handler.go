@@ -229,7 +229,7 @@ func (c *Connection) AllocateSpace(size int) error {
 	c.UpdateLastActivity()
 	// check the max allowed file size first
 	if c.User.Filters.MaxUploadFileSize > 0 && int64(size) > c.User.Filters.MaxUploadFileSize {
-		return common.ErrQuotaExceeded
+		return c.GetQuotaExceededError()
 	}
 
 	// we don't have a path here so we check home dir and any virtual folders
@@ -251,7 +251,7 @@ func (c *Connection) AllocateSpace(size int) error {
 			}
 		}
 	}
-	return common.ErrQuotaExceeded
+	return c.GetQuotaExceededError()
 }
 
 // RemoveDir implements ClientDriverExtensionRemoveDir

@@ -3564,7 +3564,10 @@ func TestQuotaLimits(t *testing.T) {
 			err = sftpUploadFile(testFilePath, testFileName+".quota", testFileSize, client)
 			assert.NoError(t, err)
 			err = sftpUploadFile(testFilePath, testFileName+".quota.1", testFileSize, client)
-			assert.Error(t, err, "user is over quota files, upload must fail")
+			if assert.Error(t, err, "user is over quota files, upload must fail") {
+				assert.Contains(t, err.Error(), "SSH_FX_FAILURE")
+				assert.Contains(t, err.Error(), common.ErrQuotaExceeded.Error())
+			}
 			// rename should work
 			err = client.Rename(testFileName+".quota", testFileName)
 			assert.NoError(t, err)
@@ -3579,7 +3582,10 @@ func TestQuotaLimits(t *testing.T) {
 			defer conn.Close()
 			defer client.Close()
 			err = sftpUploadFile(testFilePath, testFileName+".quota.1", testFileSize, client)
-			assert.Error(t, err, "user is over quota size, upload must fail")
+			if assert.Error(t, err, "user is over quota size, upload must fail") {
+				assert.Contains(t, err.Error(), "SSH_FX_FAILURE")
+				assert.Contains(t, err.Error(), common.ErrQuotaExceeded.Error())
+			}
 			err = client.Rename(testFileName, testFileName+".quota")
 			assert.NoError(t, err)
 			err = client.Rename(testFileName+".quota", testFileName)
@@ -3595,7 +3601,10 @@ func TestQuotaLimits(t *testing.T) {
 			defer conn.Close()
 			defer client.Close()
 			err = sftpUploadFile(testFilePath1, testFileName1, testFileSize1, client)
-			assert.Error(t, err)
+			if assert.Error(t, err) {
+				assert.Contains(t, err.Error(), "SSH_FX_FAILURE")
+				assert.Contains(t, err.Error(), common.ErrQuotaExceeded.Error())
+			}
 			_, err = client.Stat(testFileName1)
 			assert.Error(t, err)
 			_, err = client.Lstat(testFileName1)

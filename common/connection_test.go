@@ -230,7 +230,7 @@ func TestErrorsMapping(t *testing.T) {
 		conn.SetProtocol(protocol)
 		err := conn.GetFsError(fs, os.ErrNotExist)
 		if protocol == ProtocolSFTP {
-			assert.EqualError(t, err, sftp.ErrSSHFxNoSuchFile.Error())
+			assert.ErrorIs(t, err, sftp.ErrSSHFxNoSuchFile)
 		} else if protocol == ProtocolWebDAV || protocol == ProtocolFTP || protocol == ProtocolHTTP {
 			assert.EqualError(t, err, os.ErrNotExist.Error())
 		} else {
@@ -244,13 +244,15 @@ func TestErrorsMapping(t *testing.T) {
 		}
 		err = conn.GetFsError(fs, os.ErrClosed)
 		if protocol == ProtocolSFTP {
-			assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
+			assert.ErrorIs(t, err, sftp.ErrSSHFxFailure)
+			assert.Contains(t, err.Error(), os.ErrClosed.Error())
 		} else {
 			assert.EqualError(t, err, ErrGenericFailure.Error())
 		}
 		err = conn.GetFsError(fs, ErrPermissionDenied)
 		if protocol == ProtocolSFTP {
-			assert.EqualError(t, err, sftp.ErrSSHFxFailure.Error())
+			assert.ErrorIs(t, err, sftp.ErrSSHFxFailure)
+			assert.Contains(t, err.Error(), ErrPermissionDenied.Error())
 		} else {
 			assert.EqualError(t, err, ErrPermissionDenied.Error())
 		}
@@ -262,7 +264,8 @@ func TestErrorsMapping(t *testing.T) {
 		}
 		err = conn.GetFsError(fs, vfs.ErrStorageSizeUnavailable)
 		if protocol == ProtocolSFTP {
-			assert.EqualError(t, err, sftp.ErrSSHFxOpUnsupported.Error())
+			assert.ErrorIs(t, err, sftp.ErrSSHFxOpUnsupported)
+			assert.Contains(t, err.Error(), vfs.ErrStorageSizeUnavailable.Error())
 		} else {
 			assert.EqualError(t, err, vfs.ErrStorageSizeUnavailable.Error())
 		}
