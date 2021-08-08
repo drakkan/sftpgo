@@ -251,7 +251,7 @@ The configuration file contains the following sections:
     - `master_key`, string. Defines the master encryption key as string. If not empty, it takes precedence over `master_key_path`. Default empty.
     - `master_key_path, string. Defines the absolute path to a file containing the master encryption key. Default empty.
 - **plugins**, list of external plugins. Each plugin is configured using a struct with the following fields:
-  - `type`, string. Defines the plugin type. Supported types: `notifier`, `kms`.
+  - `type`, string. Defines the plugin type. Supported types: `notifier`, `kms`, `auth`.
   - `notifier_options`, struct. Defines the options for notifier plugins.
     - `fs_events`, list of strings. Defines the filesystem events that will be notified to this plugin.
     - `user_events`, list of strings. Defines the user events that will be notified to this plugin.
@@ -260,6 +260,8 @@ The configuration file contains the following sections:
   - `kms_options`, struct. Defines the options for kms plugins.
     - `scheme`, string. KMS scheme. Supported schemes are: `awskms`, `gcpkms`, `hashivault`, `azurekeyvault`.
     - `encrypted_status`, string. Encrypted status for a KMS secret. Supported statuses are: `AWS`, `GCP`, `VaultTransit`, `AzureKeyVault`.
+  - `auth_options`, struct. Defines the options for auth plugins.
+    - `scope`, integer. 1 means passwords only. 2 means public keys only. 4 means key keyboard interactive only. 8 means TLS certificate. The flags can be combined, for example 6 means public keys and keyboard interactive. The scope must be explicit, `0` is not a valid option.
   - `cmd`, string. Path to the plugin executable.
   - `args`, list of strings. Optional arguments to pass to the plugin executable.
   - `sha256sum`, string. SHA256 checksum for the plugin executable. If not empty it will be used to verify the integrity of the executable.

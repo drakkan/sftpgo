@@ -77,6 +77,7 @@ If the hook is an HTTP URL then it will be invoked as HTTP POST multiple times f
 The request body will contain a JSON struct with the following fields:
 
 - `request_id`, string. Unique request identifier
+- `step`, integer. Counter starting from 1
 - `username`, string
 - `ip`, string
 - `password`, string. This is the hashed password as stored inside the data provider
@@ -95,7 +96,7 @@ Content-Length: 189
 Content-Type: application/json
 Accept-Encoding: gzip
 
-{"request_id":"bq1r5r7cdrpd2qtn25ng","username":"a","ip":"127.0.0.1","password":"$pbkdf2-sha512$150000$ClOPkLNujMTL$XktKy0xuJsOfMYBz+f2bIyPTdbvDTSnJ1q+7+zp/HPq5Qojwp6kcpSIiVHiwvbi8P6HFXI/D3UJv9BLcnQFqPA=="}
+{"request_id":"bq1r5r7cdrpd2qtn25ng","username":"a","ip":"127.0.0.1","step":1,"password":"$pbkdf2-sha512$150000$ClOPkLNujMTL$XktKy0xuJsOfMYBz+f2bIyPTdbvDTSnJ1q+7+zp/HPq5Qojwp6kcpSIiVHiwvbi8P6HFXI/D3UJv9BLcnQFqPA=="}
 ```
 
 as you can see in this first requests `answers` and `questions` are null.
@@ -123,7 +124,7 @@ Content-Length: 233
 Content-Type: application/json
 Accept-Encoding: gzip
 
-{"request_id":"bq1r5r7cdrpd2qtn25ng","username":"a","ip":"127.0.0.1","password":"$pbkdf2-sha512$150000$ClOPkLNujMTL$XktKy0xuJsOfMYBz+f2bIyPTdbvDTSnJ1q+7+zp/HPq5Qojwp6kcpSIiVHiwvbi8P6HFXI/D3UJv9BLcnQFqPA==","answers":["OK"],"questions":["Password: "]}
+{"request_id":"bq1r5r7cdrpd2qtn25ng","step":2,"username":"a","ip":"127.0.0.1","password":"$pbkdf2-sha512$150000$ClOPkLNujMTL$XktKy0xuJsOfMYBz+f2bIyPTdbvDTSnJ1q+7+zp/HPq5Qojwp6kcpSIiVHiwvbi8P6HFXI/D3UJv9BLcnQFqPA==","answers":["OK"],"questions":["Password: "]}
 ```
 
 Here is the HTTP response that instructs SFTPGo to ask for a new question:
@@ -149,7 +150,7 @@ Content-Length: 239
 Content-Type: application/json
 Accept-Encoding: gzip
 
-{"request_id":"bq1r5r7cdrpd2qtn25ng","username":"a","ip":"127.0.0.1","password":"$pbkdf2-sha512$150000$ClOPkLNujMTL$XktKy0xuJsOfMYBz+f2bIyPTdbvDTSnJ1q+7+zp/HPq5Qojwp6kcpSIiVHiwvbi8P6HFXI/D3UJv9BLcnQFqPA==","answers":["answer2"],"questions":["Question2: "]}
+{"request_id":"bq1r5r7cdrpd2qtn25ng","step":3,"username":"a","ip":"127.0.0.1","password":"$pbkdf2-sha512$150000$ClOPkLNujMTL$XktKy0xuJsOfMYBz+f2bIyPTdbvDTSnJ1q+7+zp/HPq5Qojwp6kcpSIiVHiwvbi8P6HFXI/D3UJv9BLcnQFqPA==","answers":["answer2"],"questions":["Question2: "]}
 ```
 
 Here is the final HTTP response that allows the user login:

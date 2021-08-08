@@ -2,6 +2,8 @@
 package plugin
 
 import (
+	"crypto/x509"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -11,8 +13,10 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin/auth"
 	kmsplugin "github.com/drakkan/sftpgo/v2/sdk/plugin/kms"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin/notifier"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 const (
@@ -38,6 +42,8 @@ type Config struct {
 	NotifierOptions NotifierConfig `json:"notifier_options" mapstructure:"notifier_options"`
 	// KMSOptions defines options for a KMS plugin
 	KMSOptions KMSConfig `json:"kms_options" mapstructure:"kms_options"`
+	// AuthOptions defines options for authentication plugins
+	AuthOptions AuthConfig `json:"auth_options" mapstructure:"auth_options"`
 	// Path to the plugin executable
 	Cmd string `json:"cmd" mapstructure:"cmd"`
 	// Args to pass to the plugin executable
@@ -69,19 +75,23 @@ type Manager struct {
 	closed int32
 	done   chan bool
 	// List of configured plugins
-	Configs   []Config `json:"plugins" mapstructure:"plugins"`
-	notifLock sync.RWMutex
-	notifiers []*notifierPlugin
-	kmsLock   sync.RWMutex
-	kms       []*kmsPlugin
+	Configs    []Config `json:"plugins" mapstructure:"plugins"`
+	notifLock  sync.RWMutex
+	notifiers  []*notifierPlugin
+	kmsLock    sync.RWMutex
+	kms        []*kmsPlugin
+	authLock   sync.RWMutex
+	auths      []*authPlugin
+	authScopes int
 }
 
 // Initialize initializes the configured plugins
 func Initialize(configs []Config, logVerbose bool) error {
 	Handler = Manager{
-		Configs: configs,
-		done:    make(chan bool),
-		closed:  0,
+		Configs:    configs,
+		done:       make(chan bool),
+		closed:     0,
+		authScopes: -1,
 	}
 	if len(configs) == 0 {
 		return nil
@@ -117,6 +127,17 @@ func Initialize(configs []Config, logVerbose bool) error {
 				Handler.Configs[idx].newKMSPluginSecretProvider)
 			logger.Debug(logSender, "", "registered secret provider for scheme: %v, encrypted status: %v",
 				config.KMSOptions.Scheme, config.KMSOptions.EncryptedStatus)
+		case auth.PluginName:
+			plugin, err := newAuthPlugin(config)
+			if err != nil {
+				return err
+			}
+			Handler.auths = append(Handler.auths, plugin)
+			if Handler.authScopes == -1 {
+				Handler.authScopes = config.AuthOptions.Scope
+			} else {
+				Handler.authScopes |= config.AuthOptions.Scope
+			}
 		default:
 			return fmt.Errorf("unsupported plugin type: %v", config.Type)
 		}
@@ -181,6 +202,133 @@ func (m *Manager) kmsDecrypt(secret kms.BaseSecret, url string, masterKey string
 	return plugin.Decrypt(secret, url, masterKey)
 }
 
+// HasAuthScope returns true if there is an auth plugin that support the specified scope
+func (m *Manager) HasAuthScope(scope int) bool {
+	if m.authScopes == -1 {
+		return false
+	}
+	return m.authScopes&scope != 0
+}
+
+// Authenticate tries to authenticate the specified user using an external plugin
+func (m *Manager) Authenticate(username, password, ip, protocol string, pkey string,
+	tlsCert *x509.Certificate, authScope int, userAsJSON []byte,
+) ([]byte, error) {
+	switch authScope {
+	case AuthScopePassword:
+		return m.checkUserAndPass(username, password, ip, protocol, userAsJSON)
+	case AuthScopePublicKey:
+		return m.checkUserAndPublicKey(username, pkey, ip, protocol, userAsJSON)
+	case AuthScopeKeyboardInteractive:
+		return m.checkUserAndKeyboardInteractive(username, ip, protocol, userAsJSON)
+	case AuthScopeTLSCertificate:
+		cert, err := util.EncodeTLSCertToPem(tlsCert)
+		if err != nil {
+			logger.Warn(logSender, "", "unable to encode tls certificate to pem: %v", err)
+			return nil, fmt.Errorf("unable to encode tls cert to pem: %w", err)
+		}
+		return m.checkUserAndTLSCert(username, cert, ip, protocol, userAsJSON)
+	default:
+		return nil, fmt.Errorf("unsupported auth scope: %v", authScope)
+	}
+}
+
+// ExecuteKeyboardInteractiveStep executes a keyboard interactive step
+func (m *Manager) ExecuteKeyboardInteractiveStep(req *KeyboardAuthRequest) (*KeyboardAuthResponse, error) {
+	var plugin *authPlugin
+
+	m.authLock.Lock()
+	for _, p := range m.auths {
+		if p.config.AuthOptions.Scope&AuthScopePassword != 0 {
+			plugin = p
+			break
+		}
+	}
+	m.authLock.Unlock()
+
+	if plugin == nil {
+		return nil, errors.New("no auth plugin configured for keyaboard interactive authentication step")
+	}
+
+	return plugin.sendKeyboardIteractiveRequest(req)
+}
+
+func (m *Manager) checkUserAndPass(username, password, ip, protocol string, userAsJSON []byte) ([]byte, error) {
+	var plugin *authPlugin
+
+	m.authLock.Lock()
+	for _, p := range m.auths {
+		if p.config.AuthOptions.Scope&AuthScopePassword != 0 {
+			plugin = p
+			break
+		}
+	}
+	m.authLock.Unlock()
+
+	if plugin == nil {
+		return nil, errors.New("no auth plugin configured for password checking")
+	}
+
+	return plugin.checkUserAndPass(username, password, ip, protocol, userAsJSON)
+}
+
+func (m *Manager) checkUserAndPublicKey(username, pubKey, ip, protocol string, userAsJSON []byte) ([]byte, error) {
+	var plugin *authPlugin
+
+	m.authLock.Lock()
+	for _, p := range m.auths {
+		if p.config.AuthOptions.Scope&AuthScopePublicKey != 0 {
+			plugin = p
+			break
+		}
+	}
+	m.authLock.Unlock()
+
+	if plugin == nil {
+		return nil, errors.New("no auth plugin configured for public key checking")
+	}
+
+	return plugin.checkUserAndPublicKey(username, pubKey, ip, protocol, userAsJSON)
+}
+
+func (m *Manager) checkUserAndTLSCert(username, tlsCert, ip, protocol string, userAsJSON []byte) ([]byte, error) {
+	var plugin *authPlugin
+
+	m.authLock.Lock()
+	for _, p := range m.auths {
+		if p.config.AuthOptions.Scope&AuthScopeTLSCertificate != 0 {
+			plugin = p
+			break
+		}
+	}
+	m.authLock.Unlock()
+
+	if plugin == nil {
+		return nil, errors.New("no auth plugin configured for TLS certificate checking")
+	}
+
+	return plugin.checkUserAndTLSCertificate(username, tlsCert, ip, protocol, userAsJSON)
+}
+
+func (m *Manager) checkUserAndKeyboardInteractive(username, ip, protocol string, userAsJSON []byte) ([]byte, error) {
+	var plugin *authPlugin
+
+	m.authLock.Lock()
+	for _, p := range m.auths {
+		if p.config.AuthOptions.Scope&AuthScopeKeyboardInteractive != 0 {
+			plugin = p
+			break
+		}
+	}
+	m.authLock.Unlock()
+
+	if plugin == nil {
+		return nil, errors.New("no auth plugin configured for keyboard interactive checking")
+	}
+
+	return plugin.checkUserAndKeyboardInteractive(username, ip, protocol, userAsJSON)
+}
+
 func (m *Manager) checkCrashedPlugins() {
 	m.notifLock.RLock()
 	for idx, n := range m.notifiers {
@@ -203,6 +351,16 @@ func (m *Manager) checkCrashedPlugins() {
 		}
 	}
 	m.kmsLock.RUnlock()
+
+	m.authLock.RLock()
+	for idx, a := range m.auths {
+		if a.exited() {
+			defer func(cfg Config, index int) {
+				Handler.restartAuthPlugin(cfg, index)
+			}(a.config, idx)
+		}
+	}
+	m.authLock.RUnlock()
 }
 
 func (m *Manager) restartNotifierPlugin(config Config, idx int) {
@@ -239,6 +397,22 @@ func (m *Manager) restartKMSPlugin(config Config, idx int) {
 	m.kmsLock.Unlock()
 }
 
+func (m *Manager) restartAuthPlugin(config Config, idx int) {
+	if atomic.LoadInt32(&m.closed) == 1 {
+		return
+	}
+	logger.Info(logSender, "", "try to restart crashed auth plugin %#v, idx: %v", config.Cmd, idx)
+	plugin, err := newAuthPlugin(config)
+	if err != nil {
+		logger.Warn(logSender, "", "unable to restart auth plugin %#v, err: %v", config.Cmd, err)
+		return
+	}
+
+	m.authLock.Lock()
+	m.auths[idx] = plugin
+	m.authLock.Unlock()
+}
+
 // Cleanup releases all the active plugins
 func (m *Manager) Cleanup() {
 	atomic.StoreInt32(&m.closed, 1)
@@ -256,6 +430,13 @@ func (m *Manager) Cleanup() {
 		k.cleanup()
 	}
 	m.kmsLock.Unlock()
+
+	m.authLock.Lock()
+	for _, a := range m.auths {
+		logger.Debug(logSender, "", "cleanup auth plugin %v", a.config.Cmd)
+		a.cleanup()
+	}
+	m.authLock.Unlock()
 }
 
 func startCheckTicker() {

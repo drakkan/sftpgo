@@ -1,6 +1,7 @@
 // Package notifier defines the implementation for event notifier plugins.
-// Notifier plugins allow to receive filesystem events such as file uploads,
-// downloads etc. and user events such as add, update, delete.
+// Notifier plugins allow to receive notifications for supported filesystem
+// events such as file uploads, downloads etc. and user events such as add,
+// update, delete.
 package notifier
 
 import (

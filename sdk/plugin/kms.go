@@ -27,7 +27,7 @@ type KMSConfig struct {
 	EncryptedStatus string `json:"encrypted_status" mapstructure:"encrypted_status"`
 }
 
-func (c *KMSConfig) isValid() error {
+func (c *KMSConfig) validate() error {
 	if !util.IsStringInSlice(c.Scheme, validKMSSchemes) {
 		return fmt.Errorf("invalid kms scheme: %v", c.Scheme)
 	}
@@ -57,7 +57,7 @@ func newKMSPlugin(config Config) (*kmsPlugin, error) {
 func (p *kmsPlugin) initialize() error {
 	killProcess(p.config.Cmd)
 	logger.Debug(logSender, "", "create new kms plugin %#v", p.config.Cmd)
-	if err := p.config.KMSOptions.isValid(); err != nil {
+	if err := p.config.KMSOptions.validate(); err != nil {
 		return fmt.Errorf("invalid options for kms plugin %#v: %v", p.config.Cmd, err)
 	}
 	var secureConfig *plugin.SecureConfig

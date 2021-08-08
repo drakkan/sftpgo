@@ -8,6 +8,12 @@ The plugins are configured via the `plugins` section in the main SFTPGo configur
 
 For added security you can enable the automatic TLS. In this way, the client and the server automatically negotiate mutual TLS for transport authentication. This ensures that only the original client will be allowed to connect to the server, and all other connections will be rejected. The client will also refuse to connect to any server that isn't the original instance started by the client.
 
+The following plugin types are supported:
+
+- `auth`, allows to authenticate users
+- `notifier`, allows to receive notifications for supported filesystem events such as file uploads, downloads etc. and user events such as add, update, delete.
+- `kms`, allows to support additional KMS providers.
+
 Full configuration details can be found [here](./full-configuration.md)
 
 ## Available plugins

@@ -356,23 +356,6 @@ func (d *BackupData) HasFolder(name string) bool {
 	return false
 }
 
-type keyboardAuthHookRequest struct {
-	RequestID string   `json:"request_id"`
-	Username  string   `json:"username,omitempty"`
-	IP        string   `json:"ip,omitempty"`
-	Password  string   `json:"password,omitempty"`
-	Answers   []string `json:"answers,omitempty"`
-	Questions []string `json:"questions,omitempty"`
-}
-
-type keyboardAuthHookResponse struct {
-	Instruction string   `json:"instruction"`
-	Questions   []string `json:"questions"`
-	Echos       []bool   `json:"echos"`
-	AuthResult  int      `json:"auth_result"`
-	CheckPwd    int      `json:"check_password"`
-}
-
 type checkPasswordRequest struct {
 	Username string `json:"username"`
 	IP       string `json:"ip"`
@@ -680,17 +663,15 @@ func CheckCompositeCredentials(username, password, ip, loginMethod, protocol str
 		return user, loginMethod, fmt.Errorf("certificate login method is not allowed for user %#v", user.Username)
 	}
 	if loginMethod == LoginMethodTLSCertificateAndPwd {
-		if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&1 != 0) {
+		if plugin.Handler.HasAuthScope(plugin.AuthScopePassword) {
+			user, err = doPluginAuth(username, password, nil, ip, protocol, nil, plugin.AuthScopePassword)
+		} else if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&1 != 0) {
 			user, err = doExternalAuth(username, password, nil, "", ip, protocol, nil)
-			if err != nil {
-				return user, loginMethod, err
-			}
-		}
-		if config.PreLoginHook != "" {
+		} else if config.PreLoginHook != "" {
 			user, err = executePreLoginHook(username, LoginMethodPassword, ip, protocol)
-			if err != nil {
-				return user, loginMethod, err
-			}
+		}
+		if err != nil {
+			return user, loginMethod, err
 		}
 		user, err = checkUserAndPass(&user, password, ip, protocol)
 	}
@@ -699,6 +680,9 @@ func CheckCompositeCredentials(username, password, ip, loginMethod, protocol str
 
 // CheckUserBeforeTLSAuth checks if a user exits before trying mutual TLS
 func CheckUserBeforeTLSAuth(username, ip, protocol string, tlsCert *x509.Certificate) (User, error) {
+	if plugin.Handler.HasAuthScope(plugin.AuthScopeTLSCertificate) {
+		return doPluginAuth(username, "", nil, ip, protocol, tlsCert, plugin.AuthScopeTLSCertificate)
+	}
 	if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&8 != 0) {
 		return doExternalAuth(username, "", nil, "", ip, protocol, tlsCert)
 	}
@@ -711,6 +695,13 @@ func CheckUserBeforeTLSAuth(username, ip, protocol string, tlsCert *x509.Certifi
 // CheckUserAndTLSCert returns the SFTPGo user with the given username and check if the
 // given TLS certificate allow authentication without password
 func CheckUserAndTLSCert(username, ip, protocol string, tlsCert *x509.Certificate) (User, error) {
+	if plugin.Handler.HasAuthScope(plugin.AuthScopeTLSCertificate) {
+		user, err := doPluginAuth(username, "", nil, ip, protocol, tlsCert, plugin.AuthScopeTLSCertificate)
+		if err != nil {
+			return user, err
+		}
+		return checkUserAndTLSCertificate(&user, protocol, tlsCert)
+	}
 	if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&8 != 0) {
 		user, err := doExternalAuth(username, "", nil, "", ip, protocol, tlsCert)
 		if err != nil {
@@ -730,6 +721,13 @@ func CheckUserAndTLSCert(username, ip, protocol string, tlsCert *x509.Certificat
 
 // CheckUserAndPass retrieves the SFTPGo user with the given username and password if a match is found or an error
 func CheckUserAndPass(username, password, ip, protocol string) (User, error) {
+	if plugin.Handler.HasAuthScope(plugin.AuthScopePassword) {
+		user, err := doPluginAuth(username, password, nil, ip, protocol, nil, plugin.AuthScopePassword)
+		if err != nil {
+			return user, err
+		}
+		return checkUserAndPass(&user, password, ip, protocol)
+	}
 	if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&1 != 0) {
 		user, err := doExternalAuth(username, password, nil, "", ip, protocol, nil)
 		if err != nil {
@@ -749,6 +747,13 @@ func CheckUserAndPass(username, password, ip, protocol string) (User, error) {
 
 // CheckUserAndPubKey retrieves the SFTP user with the given username and public key if a match is found or an error
 func CheckUserAndPubKey(username string, pubKey []byte, ip, protocol string) (User, string, error) {
+	if plugin.Handler.HasAuthScope(plugin.AuthScopePublicKey) {
+		user, err := doPluginAuth(username, "", pubKey, ip, protocol, nil, plugin.AuthScopePublicKey)
+		if err != nil {
+			return user, "", err
+		}
+		return checkUserAndPubKey(&user, pubKey)
+	}
 	if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&2 != 0) {
 		user, err := doExternalAuth(username, "", pubKey, "", ip, protocol, nil)
 		if err != nil {
@@ -771,7 +776,9 @@ func CheckUserAndPubKey(username string, pubKey []byte, ip, protocol string) (Us
 func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (User, error) {
 	var user User
 	var err error
-	if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&4 != 0) {
+	if plugin.Handler.HasAuthScope(plugin.AuthScopeKeyboardInteractive) {
+		user, err = doPluginAuth(username, "", nil, ip, protocol, nil, plugin.AuthScopeKeyboardInteractive)
+	} else if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&4 != 0) {
 		user, err = doExternalAuth(username, "", nil, "1", ip, protocol, nil)
 	} else if config.PreLoginHook != "" {
 		user, err = executePreLoginHook(username, SSHLoginMethodKeyboardInteractive, ip, protocol)
@@ -1824,51 +1831,79 @@ func terminateInteractiveAuthProgram(cmd *exec.Cmd, isFinished bool) {
 	}
 }
 
-func validateKeyboardAuthResponse(response keyboardAuthHookResponse) error {
-	if len(response.Questions) == 0 {
-		err := errors.New("interactive auth error: hook response does not contain questions")
-		providerLog(logger.LevelInfo, "%v", err)
-		return err
-	}
-	if len(response.Questions) != len(response.Echos) {
-		err := fmt.Errorf("interactive auth error, http hook response questions don't match echos: %v %v",
-			len(response.Questions), len(response.Echos))
-		providerLog(logger.LevelInfo, "%v", err)
-		return err
-	}
-	return nil
-}
-
-func sendKeyboardAuthHTTPReq(url string, request keyboardAuthHookRequest) (keyboardAuthHookResponse, error) {
-	var response keyboardAuthHookResponse
+func sendKeyboardAuthHTTPReq(url string, request *plugin.KeyboardAuthRequest) (*plugin.KeyboardAuthResponse, error) {
 	reqAsJSON, err := json.Marshal(request)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error serializing keyboard interactive auth request: %v", err)
-		return response, err
+		return nil, err
 	}
 	resp, err := httpclient.Post(url, "application/json", bytes.NewBuffer(reqAsJSON))
 	if err != nil {
 		providerLog(logger.LevelWarn, "error getting keyboard interactive auth hook HTTP response: %v", err)
-		return response, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return response, fmt.Errorf("wrong keyboard interactive auth http status code: %v, expected 200", resp.StatusCode)
+		return nil, fmt.Errorf("wrong keyboard interactive auth http status code: %v, expected 200", resp.StatusCode)
 	}
+	var response plugin.KeyboardAuthResponse
 	err = render.DecodeJSON(resp.Body, &response)
-	return response, err
+	return &response, err
+}
+
+func executeKeyboardInteractivePlugin(user *User, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (int, error) {
+	authResult := 0
+	requestID := xid.New().String()
+	authStep := 1
+	req := &plugin.KeyboardAuthRequest{
+		Username:  user.Username,
+		IP:        ip,
+		Password:  user.Password,
+		RequestID: requestID,
+		Step:      authStep,
+	}
+	var response *plugin.KeyboardAuthResponse
+	var err error
+	for {
+		response, err = plugin.Handler.ExecuteKeyboardInteractiveStep(req)
+		if err != nil {
+			return authResult, err
+		}
+		if response.AuthResult != 0 {
+			return response.AuthResult, err
+		}
+		if err = response.Validate(); err != nil {
+			providerLog(logger.LevelInfo, "invalid response from keyboard interactive plugin: %v", err)
+			return authResult, err
+		}
+		answers, err := getKeyboardInteractiveAnswers(client, response, user, ip, protocol)
+		if err != nil {
+			return authResult, err
+		}
+		authStep++
+		req = &plugin.KeyboardAuthRequest{
+			RequestID: requestID,
+			Step:      authStep,
+			Username:  user.Username,
+			Password:  user.Password,
+			Answers:   answers,
+			Questions: response.Questions,
+		}
+	}
 }
 
 func executeKeyboardInteractiveHTTPHook(user *User, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (int, error) {
 	authResult := 0
 	requestID := xid.New().String()
-	req := keyboardAuthHookRequest{
+	authStep := 1
+	req := &plugin.KeyboardAuthRequest{
 		Username:  user.Username,
 		IP:        ip,
 		Password:  user.Password,
 		RequestID: requestID,
+		Step:      authStep,
 	}
-	var response keyboardAuthHookResponse
+	var response *plugin.KeyboardAuthResponse
 	var err error
 	for {
 		response, err = sendKeyboardAuthHTTPReq(authHook, req)
@@ -1878,15 +1913,18 @@ func executeKeyboardInteractiveHTTPHook(user *User, authHook string, client ssh.
 		if response.AuthResult != 0 {
 			return response.AuthResult, err
 		}
-		if err = validateKeyboardAuthResponse(response); err != nil {
+		if err = response.Validate(); err != nil {
+			providerLog(logger.LevelInfo, "invalid response from keyboard interactive http hook: %v", err)
 			return authResult, err
 		}
 		answers, err := getKeyboardInteractiveAnswers(client, response, user, ip, protocol)
 		if err != nil {
 			return authResult, err
 		}
-		req = keyboardAuthHookRequest{
+		authStep++
+		req = &plugin.KeyboardAuthRequest{
 			RequestID: requestID,
+			Step:      authStep,
 			Username:  user.Username,
 			Password:  user.Password,
 			Answers:   answers,
@@ -1895,7 +1933,7 @@ func executeKeyboardInteractiveHTTPHook(user *User, authHook string, client ssh.
 	}
 }
 
-func getKeyboardInteractiveAnswers(client ssh.KeyboardInteractiveChallenge, response keyboardAuthHookResponse,
+func getKeyboardInteractiveAnswers(client ssh.KeyboardInteractiveChallenge, response *plugin.KeyboardAuthResponse,
 	user *User, ip, protocol string) ([]string, error) {
 	questions := response.Questions
 	answers, err := client(user.Username, response.Instruction, questions, response.Echos)
@@ -1920,7 +1958,7 @@ func getKeyboardInteractiveAnswers(client ssh.KeyboardInteractiveChallenge, resp
 	return answers, err
 }
 
-func handleProgramInteractiveQuestions(client ssh.KeyboardInteractiveChallenge, response keyboardAuthHookResponse,
+func handleProgramInteractiveQuestions(client ssh.KeyboardInteractiveChallenge, response *plugin.KeyboardAuthResponse,
 	user *User, stdin io.WriteCloser, ip, protocol string) error {
 	answers, err := getKeyboardInteractiveAnswers(client, response, user, ip, protocol)
 	if err != nil {
@@ -1964,7 +2002,7 @@ func executeKeyboardInteractiveProgram(user *User, authHook string, client ssh.K
 	var once sync.Once
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
-		var response keyboardAuthHookResponse
+		var response plugin.KeyboardAuthResponse
 		err = json.Unmarshal(scanner.Bytes(), &response)
 		if err != nil {
 			providerLog(logger.LevelInfo, "interactive auth error parsing response: %v", err)
@@ -1975,12 +2013,13 @@ func executeKeyboardInteractiveProgram(user *User, authHook string, client ssh.K
 			authResult = response.AuthResult
 			break
 		}
-		if err = validateKeyboardAuthResponse(response); err != nil {
+		if err = response.Validate(); err != nil {
+			providerLog(logger.LevelInfo, "invalid response from keyboard interactive program: %v", err)
 			once.Do(func() { terminateInteractiveAuthProgram(cmd, false) })
 			break
 		}
 		go func() {
-			err := handleProgramInteractiveQuestions(client, response, user, stdin, ip, protocol)
+			err := handleProgramInteractiveQuestions(client, &response, user, stdin, ip, protocol)
 			if err != nil {
 				once.Do(func() { terminateInteractiveAuthProgram(cmd, false) })
 			}
@@ -2001,7 +2040,9 @@ func executeKeyboardInteractiveProgram(user *User, authHook string, client ssh.K
 func doKeyboardInteractiveAuth(user *User, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (User, error) {
 	var authResult int
 	var err error
-	if strings.HasPrefix(authHook, "http") {
+	if plugin.Handler.HasAuthScope(plugin.AuthScopeKeyboardInteractive) {
+		authResult, err = executeKeyboardInteractivePlugin(user, client, ip, protocol)
+	} else if strings.HasPrefix(authHook, "http") {
 		authResult, err = executeKeyboardInteractiveHTTPHook(user, authHook, client, ip, protocol)
 	} else {
 		authResult, err = executeKeyboardInteractiveProgram(user, authHook, client, ip, protocol)
@@ -2370,6 +2411,67 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		u, err = provider.userExists(user.Username)
 	}
 	if u.ID > 0 && err == nil {
+		user.ID = u.ID
+		user.UsedQuotaSize = u.UsedQuotaSize
+		user.UsedQuotaFiles = u.UsedQuotaFiles
+		user.LastQuotaUpdate = u.LastQuotaUpdate
+		user.LastLogin = u.LastLogin
+		err = provider.updateUser(&user)
+		if err == nil {
+			webDAVUsersCache.swap(&user)
+			cachedPasswords.Add(user.Username, password)
+		}
+		return user, err
+	}
+	err = provider.addUser(&user)
+	if err != nil {
+		return user, err
+	}
+	return provider.userExists(user.Username)
+}
+
+func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
+	tlsCert *x509.Certificate, authScope int,
+) (User, error) {
+	var user User
+
+	u, userAsJSON, err := getUserAndJSONForHook(username)
+	if err != nil {
+		return user, err
+	}
+
+	if u.Filters.Hooks.ExternalAuthDisabled {
+		return u, nil
+	}
+
+	pkey, err := util.GetSSHPublicKeyAsString(pubKey)
+	if err != nil {
+		return user, err
+	}
+
+	startTime := time.Now()
+
+	out, err := plugin.Handler.Authenticate(username, password, ip, protocol, pkey, tlsCert, authScope, userAsJSON)
+	if err != nil {
+		return user, fmt.Errorf("plugin auth error for user %#v: %v, elapsed: %v, auth scope: %v",
+			username, err, time.Since(startTime), authScope)
+	}
+	providerLog(logger.LevelDebug, "plugin auth completed for user %#v, elapsed: %v,auth scope: %v",
+		username, time.Since(startTime), authScope)
+	if util.IsByteArrayEmpty(out) {
+		providerLog(logger.LevelDebug, "empty response from plugin auth, no modification requested for user %#v id: %v",
+			username, u.ID)
+		if u.ID == 0 {
+			return u, util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", username))
+		}
+		return u, nil
+	}
+	err = json.Unmarshal(out, &user)
+	if err != nil {
+		return user, fmt.Errorf("invalid plugin auth response: %v", err)
+	}
+	updateUserFromExtAuthResponse(&user, password, pkey)
+	if u.ID > 0 {
 		user.ID = u.ID
 		user.UsedQuotaSize = u.UsedQuotaSize
 		user.UsedQuotaFiles = u.UsedQuotaFiles

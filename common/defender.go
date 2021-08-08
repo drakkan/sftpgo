@@ -16,7 +16,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
-// HostEvent is the enumerable for the support host event
+// HostEvent is the enumerable for the support host events
 type HostEvent int
 
 // Supported host events

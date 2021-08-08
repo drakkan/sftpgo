@@ -144,7 +144,7 @@ type UserEvent struct {
 
 	Timestamp *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	Action    string                 `protobuf:"bytes,2,opt,name=action,proto3" json:"action,omitempty"`
-	User      []byte                 `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"` // SFTPGo user json serialized
+	User      []byte                 `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"` // SFTPGo user JSON serialized
 }
 
 func (x *UserEvent) Reset() {

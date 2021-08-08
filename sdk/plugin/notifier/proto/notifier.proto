@@ -21,7 +21,7 @@ message FsEvent {
 message UserEvent {
     google.protobuf.Timestamp timestamp = 1;
     string action = 2;
-    bytes user = 3; // SFTPGo user json serialized
+    bytes user = 3; // SFTPGo user JSON serialized
 }
 
 service Notifier {

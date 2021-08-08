@@ -21,6 +21,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/metric"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -306,22 +307,24 @@ func (c *Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, con
 }
 
 func (c *Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.ServerConfig) {
-	if c.KeyboardInteractiveHook == "" {
+	if c.KeyboardInteractiveHook == "" && !plugin.Handler.HasAuthScope(plugin.AuthScopeKeyboardInteractive) {
 		return
 	}
-	if !strings.HasPrefix(c.KeyboardInteractiveHook, "http") {
-		if !filepath.IsAbs(c.KeyboardInteractiveHook) {
-			logger.WarnToConsole("invalid keyboard interactive authentication program: %#v must be an absolute path",
-				c.KeyboardInteractiveHook)
-			logger.Warn(logSender, "", "invalid keyboard interactive authentication program: %#v must be an absolute path",
-				c.KeyboardInteractiveHook)
-			return
-		}
-		_, err := os.Stat(c.KeyboardInteractiveHook)
-		if err != nil {
-			logger.WarnToConsole("invalid keyboard interactive authentication program:: %v", err)
-			logger.Warn(logSender, "", "invalid keyboard interactive authentication program:: %v", err)
-			return
+	if c.KeyboardInteractiveHook != "" {
+		if !strings.HasPrefix(c.KeyboardInteractiveHook, "http") {
+			if !filepath.IsAbs(c.KeyboardInteractiveHook) {
+				logger.WarnToConsole("invalid keyboard interactive authentication program: %#v must be an absolute path",
+					c.KeyboardInteractiveHook)
+				logger.Warn(logSender, "", "invalid keyboard interactive authentication program: %#v must be an absolute path",
+					c.KeyboardInteractiveHook)
+				return
+			}
+			_, err := os.Stat(c.KeyboardInteractiveHook)
+			if err != nil {
+				logger.WarnToConsole("invalid keyboard interactive authentication program:: %v", err)
+				logger.Warn(logSender, "", "invalid keyboard interactive authentication program:: %v", err)
+				return
+			}
 		}
 	}
 	serverConfig.KeyboardInteractiveCallback = func(conn ssh.ConnMetadata, client ssh.KeyboardInteractiveChallenge) (*ssh.Permissions, error) {

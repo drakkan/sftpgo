@@ -1,0 +1,65 @@
+syntax = "proto3";
+package proto;
+
+option go_package = "sdk/plugin/auth/proto";
+
+message CheckUserAndPassRequest {
+    string username = 1;
+    string password = 2;
+    string ip = 3;
+    string protocol = 4;
+    bytes user = 5; // SFTPGo user JSON serialized
+}
+
+message CheckUserAndTLSCertRequest {
+    string username = 1;
+    string tlsCert = 2; // tls certificate pem encoded
+    string ip = 3;
+    string protocol = 4;
+    bytes user = 5; // SFTPGo user JSON serialized
+}
+
+message CheckUserAndPublicKeyRequest {
+    string username = 1;
+    string pubKey = 2;
+    string ip = 3;
+    string protocol = 4;
+    bytes user = 5; // SFTPGo user JSON serialized
+}
+
+message CheckUserAndKeyboardInteractiveRequest {
+    string username = 1;
+    string ip = 2;
+    string protocol = 3;
+    bytes user = 4; // SFTPGo user JSON serialized
+}
+
+message KeyboardAuthRequest {
+    string requestID = 1;
+    string username = 2;
+    string password = 3;
+    string ip = 4;
+    repeated string answers = 5;
+    repeated string questions = 6;
+    int32 step = 7;
+}
+
+message KeyboardAuthResponse {
+    string instructions = 1;
+    repeated string questions = 2;
+    repeated bool echos = 3;
+    int32 auth_result = 4;
+    int32 check_password = 5;
+}
+
+message AuthResponse {
+    bytes user = 1; // SFTPGo user JSON serialized
+}
+
+service Auth {
+    rpc CheckUserAndPass(CheckUserAndPassRequest) returns (AuthResponse);
+    rpc CheckUserAndTLSCert(CheckUserAndTLSCertRequest) returns (AuthResponse);
+    rpc CheckUserAndPublicKey(CheckUserAndPublicKeyRequest) returns (AuthResponse);
+    rpc CheckUserAndKeyboardInteractive(CheckUserAndKeyboardInteractiveRequest) returns (AuthResponse);
+    rpc SendKeyboardAuthRequest(KeyboardAuthRequest) returns (KeyboardAuthResponse);
+}
