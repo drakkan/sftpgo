@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	ftpserver "github.com/fclairamb/ftpserverlib"
+
 	"github.com/drakkan/sftpgo/dataprovider"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
@@ -37,7 +39,8 @@ type BaseTransfer struct { //nolint:maligned
 	transferType   int
 	AbortTransfer  int32
 	sync.Mutex
-	ErrTransfer error
+	ErrTransfer      error
+	ftpClientContext ftpserver.ClientContext
 }
 
 // NewBaseTransfer returns a new BaseTransfer and adds it to the given connection
@@ -119,9 +122,21 @@ func (t *BaseTransfer) GetRealFsPath(fsPath string) string {
 	return ""
 }
 
+func (t *BaseTransfer) GetLastDataChannel() ftpserver.DataChannel {
+	if t.Connection.protocol == ProtocolFTP &&
+		t.ftpClientContext != nil {
+		return t.ftpClientContext.GetLastDataChannel()
+	}
+	return ftpserver.DataChannel(0)
+}
+
 // SetCancelFn sets the cancel function for the transfer
 func (t *BaseTransfer) SetCancelFn(cancelFn func()) {
 	t.cancelFn = cancelFn
+}
+
+func (t *BaseTransfer) SetFTPClientContext(ctx ftpserver.ClientContext) {
+	t.ftpClientContext = ctx
 }
 
 // Truncate changes the size of the opened file.
@@ -231,7 +246,7 @@ func (t *BaseTransfer) Close() error {
 	elapsed := time.Since(t.start).Nanoseconds() / 1000000
 	if t.transferType == TransferDownload {
 		logger.TransferLog(downloadLogSender, t.fsPath, elapsed, atomic.LoadInt64(&t.BytesSent), t.Connection.User.Username,
-			t.Connection.ID, t.Connection.protocol)
+			t.Connection.ID, t.Connection.protocol, t.GetLastDataChannel())
 		action := newActionNotification(&t.Connection.User, operationDownload, t.fsPath, "", "", t.Connection.protocol,
 			atomic.LoadInt64(&t.BytesSent), t.ErrTransfer)
 		go actionHandler.Handle(action) //nolint:errcheck
@@ -243,7 +258,7 @@ func (t *BaseTransfer) Close() error {
 		t.Connection.Log(logger.LevelDebug, "uploaded file size %v", fileSize)
 		t.updateQuota(numFiles, fileSize)
 		logger.TransferLog(uploadLogSender, t.fsPath, elapsed, atomic.LoadInt64(&t.BytesReceived), t.Connection.User.Username,
-			t.Connection.ID, t.Connection.protocol)
+			t.Connection.ID, t.Connection.protocol, t.GetLastDataChannel())
 		action := newActionNotification(&t.Connection.User, operationUpload, t.fsPath, "", "", t.Connection.protocol,
 			fileSize, t.ErrTransfer)
 		go actionHandler.Handle(action) //nolint:errcheck

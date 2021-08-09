@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	ftpserver "github.com/fclairamb/ftpserverlib"
 	"github.com/rs/zerolog"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
@@ -230,8 +231,8 @@ func ErrorToConsole(format string, v ...interface{}) {
 }
 
 // TransferLog logs uploads or downloads
-func TransferLog(operation string, path string, elapsed int64, size int64, user string, connectionID string, protocol string) {
-	logger.Info().
+func TransferLog(operation string, path string, elapsed int64, size int64, user string, connectionID string, protocol string, dataChannel ftpserver.DataChannel) {
+	Event := logger.Info().
 		Timestamp().
 		Str("sender", operation).
 		Int64("elapsed_ms", elapsed).
@@ -239,8 +240,14 @@ func TransferLog(operation string, path string, elapsed int64, size int64, user 
 		Str("username", user).
 		Str("file_path", path).
 		Str("connection_id", connectionID).
-		Str("protocol", protocol).
-		Send()
+		Str("protocol", protocol)
+	switch dataChannel {
+	case ftpserver.DataChannelActive:
+		Event.Str(`data_channel`, `active`)
+	case ftpserver.DataChannelPassive:
+		Event.Str(`data_channel`, `passive`)
+	}
+	Event.Send()
 }
 
 // CommandLog logs an SFTP/SCP/SSH command

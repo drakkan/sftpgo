@@ -353,6 +353,7 @@ func (c *Connection) downloadFile(fsPath, ftpPath string, offset int64) (ftpserv
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, fsPath, ftpPath, common.TransferDownload,
 		0, 0, 0, false, c.Fs)
+	baseTransfer.SetFTPClientContext(c.clientContext)
 	t := newTransfer(baseTransfer, nil, r, offset)
 
 	return t, nil
@@ -414,6 +415,7 @@ func (c *Connection) handleFTPUploadToNewFile(resolvedPath, filePath, requestPat
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
 		common.TransferUpload, 0, 0, maxWriteSize, true, c.Fs)
+	baseTransfer.SetFTPClientContext(c.clientContext)
 	t := newTransfer(baseTransfer, w, nil, 0)
 
 	return t, nil
@@ -486,6 +488,7 @@ func (c *Connection) handleFTPUploadToExistingFile(flags int, resolvedPath, file
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, requestPath,
 		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, false, c.Fs)
+	baseTransfer.SetFTPClientContext(c.clientContext)
 	t := newTransfer(baseTransfer, w, nil, 0)
 
 	return t, nil
