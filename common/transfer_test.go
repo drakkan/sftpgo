@@ -284,3 +284,16 @@ func TestRemovePartialCryptoFile(t *testing.T) {
 	assert.Equal(t, int64(9), size)
 	assert.NoFileExists(t, testFile)
 }
+
+func TestFTPMode(t *testing.T) {
+	conn := NewBaseConnection("", ProtocolFTP, "", "", dataprovider.User{})
+	transfer := BaseTransfer{
+		Connection:    conn,
+		transferType:  TransferUpload,
+		BytesReceived: 123,
+		Fs:            vfs.NewOsFs("", os.TempDir(), ""),
+	}
+	assert.Empty(t, transfer.ftpMode)
+	transfer.SetFtpMode("active")
+	assert.Equal(t, "active", transfer.ftpMode)
+}

@@ -30,6 +30,19 @@ type Connection struct {
 	clientContext ftpserver.ClientContext
 }
 
+func (c *Connection) getFTPMode() string {
+	if c.clientContext == nil {
+		return ""
+	}
+	switch c.clientContext.GetLastDataChannel() {
+	case ftpserver.DataChannelActive:
+		return "active"
+	case ftpserver.DataChannelPassive:
+		return "passive"
+	}
+	return ""
+}
+
 // GetClientVersion returns the connected client's version.
 // It returns "Unknown" if the client does not advertise its
 // version
@@ -325,6 +338,7 @@ func (c *Connection) downloadFile(fs vfs.Fs, fsPath, ftpPath string, offset int6
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, fsPath, fsPath, ftpPath, common.TransferDownload,
 		0, 0, 0, false, fs)
+	baseTransfer.SetFtpMode(c.getFTPMode())
 	t := newTransfer(baseTransfer, nil, r, offset)
 
 	return t, nil
@@ -390,6 +404,7 @@ func (c *Connection) handleFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath,
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, 0, 0, maxWriteSize, true, fs)
+	baseTransfer.SetFtpMode(c.getFTPMode())
 	t := newTransfer(baseTransfer, w, nil, 0)
 
 	return t, nil
@@ -466,6 +481,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, false, fs)
+	baseTransfer.SetFtpMode(c.getFTPMode())
 	t := newTransfer(baseTransfer, w, nil, 0)
 
 	return t, nil

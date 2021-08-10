@@ -253,6 +253,7 @@ xr5cb9VBRBtB9aOKVfuRhpatAfS2Pzm2Htae9lFn7slGPUmu2hkjDw==
 )
 
 type mockFTPClientContext struct {
+	lastDataChannel ftpserver.DataChannel
 }
 
 func (cc mockFTPClientContext) Path() string {
@@ -298,7 +299,7 @@ func (cc mockFTPClientContext) GetLastCommand() string {
 }
 
 func (cc mockFTPClientContext) GetLastDataChannel() ftpserver.DataChannel {
-	return ftpserver.DataChannelPassive
+	return cc.lastDataChannel
 }
 
 // MockOsFs mockable OsFs
@@ -557,6 +558,19 @@ func TestUserInvalidParams(t *testing.T) {
 	u.VirtualFolders = nil
 	_, err = server.validateUser(u, mockFTPClientContext{}, dataprovider.LoginMethodPassword)
 	assert.Error(t, err)
+}
+
+func TestFTPMode(t *testing.T) {
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection("", common.ProtocolFTP, "", "", dataprovider.User{}),
+	}
+	assert.Empty(t, connection.getFTPMode())
+	connection.clientContext = mockFTPClientContext{lastDataChannel: ftpserver.DataChannelActive}
+	assert.Equal(t, "active", connection.getFTPMode())
+	connection.clientContext = mockFTPClientContext{lastDataChannel: ftpserver.DataChannelPassive}
+	assert.Equal(t, "passive", connection.getFTPMode())
+	connection.clientContext = mockFTPClientContext{lastDataChannel: 0}
+	assert.Empty(t, connection.getFTPMode())
 }
 
 func TestClientVersion(t *testing.T) {

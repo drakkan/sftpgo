@@ -30,6 +30,7 @@ type BaseTransfer struct { //nolint:maligned
 	fsPath          string
 	effectiveFsPath string
 	requestPath     string
+	ftpMode         string
 	start           time.Time
 	MaxWriteSize    int64
 	MinWriteOffset  int64
@@ -66,6 +67,11 @@ func NewBaseTransfer(file vfs.File, conn *BaseConnection, cancelFn func(), fsPat
 
 	conn.AddTransfer(t)
 	return t
+}
+
+// SetFtpMode sets the FTP mode for the current transfer
+func (t *BaseTransfer) SetFtpMode(mode string) {
+	t.ftpMode = mode
 }
 
 // GetID returns the transfer ID
@@ -236,7 +242,7 @@ func (t *BaseTransfer) Close() error {
 	elapsed := time.Since(t.start).Nanoseconds() / 1000000
 	if t.transferType == TransferDownload {
 		logger.TransferLog(downloadLogSender, t.fsPath, elapsed, atomic.LoadInt64(&t.BytesSent), t.Connection.User.Username,
-			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr)
+			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode)
 		ExecuteActionNotification(&t.Connection.User, operationDownload, t.fsPath, t.requestPath, "", "", t.Connection.protocol,
 			atomic.LoadInt64(&t.BytesSent), t.ErrTransfer)
 	} else {
@@ -247,7 +253,7 @@ func (t *BaseTransfer) Close() error {
 		t.Connection.Log(logger.LevelDebug, "uploaded file size %v", fileSize)
 		t.updateQuota(numFiles, fileSize)
 		logger.TransferLog(uploadLogSender, t.fsPath, elapsed, atomic.LoadInt64(&t.BytesReceived), t.Connection.User.Username,
-			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr)
+			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode)
 		ExecuteActionNotification(&t.Connection.User, operationUpload, t.fsPath, t.requestPath, "", "", t.Connection.protocol, fileSize,
 			t.ErrTransfer)
 	}
