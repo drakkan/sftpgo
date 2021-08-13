@@ -4,7 +4,7 @@ The built-in `defender` allows you to configure an auto-blocking policy for SFTP
 
 If enabled it will protect SFTP, FTP and WebDAV services and it will automatically block hosts (IP addresses) that continually fail to log in or attempt to connect.
 
-You can configure a score for each event type:
+You can configure a score for the following events:
 
 - `score_valid`, defines the score for valid login attempts, eg. user accounts that exist. Default `1`.
 - `score_invalid`, defines the score for invalid login attempts, eg. non-existent user accounts or client disconnected for inactivity without authentication attempts. Default `2`.
@@ -16,7 +16,9 @@ And then you can configure:
 - `threshold`, defines the threshold value before banning a host.
 - `ban_time`, defines the time to ban a client, as minutes
 
-So a host is banned, for `ban_time` minutes, if it has exceeded the defined threshold during the last observation time minutes.
+So a host is banned, for `ban_time` minutes, if the sum of the scores has exceeded the defined threshold during the last observation time minutes.
+
+Each event type can be weighted by an integer. If `score_invalid` is 3 and `threshold` is 8, it will be banned after 3 login attempts with an invalid user within the configured `observation_time`.
 
 A banned IP has no score, it makes no sense to accumulate host events in memory for an already banned IP address.
 
