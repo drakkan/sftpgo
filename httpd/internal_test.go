@@ -516,7 +516,9 @@ func TestCreateTokenError(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = httptest.NewRecorder()
 	handleWebAdminChangePwdPost(rr, req)
-	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	// the claim is invalid so we fail to render the client page since
+	// we have to load the logged admin
+	assert.Equal(t, http.StatusInternalServerError, rr.Code, rr.Body.String())
 
 	req, _ = http.NewRequest(http.MethodGet, webLoginPath+"?a=a%C3%A2%G3", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -541,6 +543,18 @@ func TestCreateTokenError(t *testing.T) {
 	handleWebClientManageKeysPost(rr, req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code, rr.Body.String())
 
+	req, _ = http.NewRequest(http.MethodPost, webChangeClientAPIKeyAccessPath+"?a=a%C3%AO%GA", bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	handleWebClientManageAPIKeyPost(rr, req)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code, rr.Body.String())
+
+	req, _ = http.NewRequest(http.MethodPost, webChangeAdminAPIKeyAccessPath+"?a=a%C3%AO%GB", bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	handleWebAdminManageAPIKeyPost(rr, req)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code, rr.Body.String())
+
 	username := "webclientuser"
 	user = dataprovider.User{
 		BaseUser: sdk.BaseUser{
@@ -552,7 +566,8 @@ func TestCreateTokenError(t *testing.T) {
 		},
 	}
 	user.Permissions = make(map[string][]string)
-	user.Permissions["/"] = []string{"*"}
+	user.Permissions["/"] = []string{dataprovider.PermAny}
+	user.Filters.AllowAPIKeyAuth = true
 	err = dataprovider.AddUser(&user)
 	assert.NoError(t, err)
 
@@ -567,8 +582,34 @@ func TestCreateTokenError(t *testing.T) {
 	server.handleWebClientLoginPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
 
+	err = authenticateUserWithAPIKey(username, "", server.tokenAuth, req)
+	assert.Error(t, err)
+
 	err = dataprovider.DeleteUser(username)
 	assert.NoError(t, err)
+
+	admin.Username += "1"
+	admin.Status = 1
+	admin.Filters.AllowAPIKeyAuth = true
+	admin.Permissions = []string{dataprovider.PermAdminAny}
+	err = dataprovider.AddAdmin(&admin)
+	assert.NoError(t, err)
+
+	err = authenticateAdminWithAPIKey(admin.Username, "", server.tokenAuth, req)
+	assert.Error(t, err)
+
+	err = dataprovider.DeleteAdmin(admin.Username)
+	assert.NoError(t, err)
+}
+
+func TestAPIKeyAuthForbidden(t *testing.T) {
+	r := GetHTTPRouter()
+	fn := forbidAPIKeyAuthentication(r)
+	rr := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, versionPath, nil)
+	fn.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 }
 
 func TestJWTTokenValidation(t *testing.T) {
@@ -1594,7 +1635,7 @@ func TestGetFilesInvalidClaims(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 }
 
-func TestManageKeysInvalidClaims(t *testing.T) {
+func TestInvalidClaims(t *testing.T) {
 	server := httpdServer{}
 	server.initializeRouter()
 
@@ -1620,7 +1661,35 @@ func TestManageKeysInvalidClaims(t *testing.T) {
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
 	handleWebClientManageKeysPost(rr, req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	form = make(url.Values)
+	form.Set(csrfFormToken, createCSRFToken())
+	form.Set("allow_api_key_auth", "")
+	req, _ = http.NewRequest(http.MethodPost, webChangeClientKeysPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
+	handleWebClientManageAPIKeyPost(rr, req)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+
+	admin := dataprovider.Admin{
+		Username: "",
+		Password: user.Password,
+	}
+	c = jwtTokenClaims{
+		Username:    admin.Username,
+		Permissions: nil,
+		Signature:   admin.GetSignature(),
+	}
+	token, err = c.createTokenResponse(server.tokenAuth, tokenAudienceWebAdmin)
+	assert.NoError(t, err)
+	form = make(url.Values)
+	form.Set(csrfFormToken, createCSRFToken())
+	form.Set("allow_api_key_auth", "")
+	req, _ = http.NewRequest(http.MethodPost, webChangeClientKeysPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
+	handleWebAdminManageAPIKeyPost(rr, req)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 }
 
 func TestTLSReq(t *testing.T) {

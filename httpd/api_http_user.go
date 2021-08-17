@@ -45,6 +45,7 @@ func getUserConnection(w http.ResponseWriter, r *http.Request) (*Connection, err
 }
 
 func readUserFolder(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	connection, err := getUserConnection(w, r)
 	if err != nil {
 		return
@@ -130,6 +131,7 @@ func deleteUserDir(w http.ResponseWriter, r *http.Request) {
 }
 
 func getUserFile(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	connection, err := getUserConnection(w, r)
 	if err != nil {
 		return
@@ -278,6 +280,7 @@ func deleteUserFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func getUserFilesAsZipStream(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	connection, err := getUserConnection(w, r)
 	if err != nil {
 		return
@@ -302,6 +305,7 @@ func getUserFilesAsZipStream(w http.ResponseWriter, r *http.Request) {
 }
 
 func getUserPublicKeys(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)

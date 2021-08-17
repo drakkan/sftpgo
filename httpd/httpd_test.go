@@ -26,6 +26,7 @@ import (
 	"github.com/go-chi/render"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
+	"github.com/lithammer/shortuuid/v3"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -81,6 +82,7 @@ const (
 	userDirsPath                    = "/api/v2/user/dirs"
 	userFilesPath                   = "/api/v2/user/files"
 	userStreamZipPath               = "/api/v2/user/streamzip"
+	apiKeysPath                     = "/api/v2/apikeys"
 	healthzPath                     = "/healthz"
 	webBasePath                     = "/web"
 	webBasePathAdmin                = "/web/admin"
@@ -98,9 +100,11 @@ const (
 	webMaintenancePath              = "/web/admin/maintenance"
 	webRestorePath                  = "/web/admin/restore"
 	webChangeAdminPwdPath           = "/web/admin/changepwd"
+	webAdminCredentialsPath         = "/web/admin/credentials"
 	webTemplateUser                 = "/web/admin/template/user"
 	webTemplateFolder               = "/web/admin/template/folder"
 	webDefenderPath                 = "/web/admin/defender"
+	webChangeAdminAPIKeyAccessPath  = "/web/admin/apikeyaccess"
 	webBasePathClient               = "/web/client"
 	webClientLoginPath              = "/web/client/login"
 	webClientFilesPath              = "/web/client/files"
@@ -109,6 +113,7 @@ const (
 	webClientCredentialsPath        = "/web/client/credentials"
 	webChangeClientPwdPath          = "/web/client/changepwd"
 	webChangeClientKeysPath         = "/web/client/managekeys"
+	webChangeClientAPIKeyAccessPath = "/web/client/apikeyaccess"
 	webClientLogoutPath             = "/web/client/logout"
 	httpBaseURL                     = "http://127.0.0.1:8081"
 	sftpServerAddr                  = "127.0.0.1:8022"
@@ -2877,8 +2882,6 @@ func TestSkipNaturalKeysValidation(t *testing.T) {
 	assert.NoError(t, err)
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
 
 	a := getTestAdmin()
 	a.Username = "admin@example.com"
@@ -2888,8 +2891,6 @@ func TestSkipNaturalKeysValidation(t *testing.T) {
 	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
 
 	f := vfs.BaseVirtualFolder{
@@ -2915,6 +2916,44 @@ func TestSkipNaturalKeysValidation(t *testing.T) {
 	err = os.RemoveAll(credentialsPath)
 	assert.NoError(t, err)
 	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	if config.GetProviderConf().Driver == dataprovider.MemoryDataProviderName {
+		return
+	}
+
+	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	assert.NoError(t, err)
+	token, err := getJWTWebClientTokenFromTestServer(user.Username, defaultPassword)
+	assert.NoError(t, err)
+	form := make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	req, err := http.NewRequest(http.MethodPost, webChangeClientAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	token, err = getJWTWebTokenFromTestServer(admin.Username, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err = getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	form = make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	req, _ = http.NewRequest(http.MethodPost, webChangeAdminAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -3006,6 +3045,8 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	_, _, err = httpdtest.GetAdmins(1, 0, http.StatusInternalServerError)
 	assert.NoError(t, err)
+	_, _, err = httpdtest.GetAPIKeys(1, 0, http.StatusInternalServerError)
+	assert.NoError(t, err)
 	_, _, err = httpdtest.UpdateUser(dataprovider.User{BaseUser: sdk.BaseUser{Username: "auser"}}, http.StatusInternalServerError, "")
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(dataprovider.User{BaseUser: sdk.BaseUser{Username: "auser"}}, http.StatusInternalServerError)
@@ -3041,6 +3082,21 @@ func TestProviderErrors(t *testing.T) {
 	backupData.Users = nil
 	backupData.Folders = nil
 	backupData.Admins = append(backupData.Admins, getTestAdmin())
+	backupContent, err = json.Marshal(backupData)
+	assert.NoError(t, err)
+	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
+	assert.NoError(t, err)
+	backupData.Users = nil
+	backupData.Folders = nil
+	backupData.Admins = nil
+	backupData.APIKeys = append(backupData.APIKeys, dataprovider.APIKey{
+		Name:  "name",
+		KeyID: shortuuid.New(),
+		Key:   fmt.Sprintf("%v.%v", shortuuid.New(), shortuuid.New()),
+		Scope: dataprovider.APIKeyScopeUser,
+	})
 	backupContent, err = json.Marshal(backupData)
 	assert.NoError(t, err)
 	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
@@ -3380,6 +3436,7 @@ func TestLoaddataFromPostBody(t *testing.T) {
 			MappedPath: mappedPath + "1",
 		},
 	}
+	backupData.APIKeys = append(backupData.APIKeys, dataprovider.APIKey{})
 	backupContent, err := json.Marshal(backupData)
 	assert.NoError(t, err)
 	_, _, err = httpdtest.LoaddataFromPostBody(nil, "0", "0", http.StatusBadRequest)
@@ -3387,6 +3444,20 @@ func TestLoaddataFromPostBody(t *testing.T) {
 	_, _, err = httpdtest.LoaddataFromPostBody(backupContent, "a", "0", http.StatusBadRequest)
 	assert.NoError(t, err)
 	_, _, err = httpdtest.LoaddataFromPostBody([]byte("invalid content"), "0", "0", http.StatusBadRequest)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.LoaddataFromPostBody(backupContent, "0", "0", http.StatusInternalServerError)
+	assert.NoError(t, err)
+
+	keyID := shortuuid.New()
+	backupData.APIKeys = []dataprovider.APIKey{
+		{
+			Name:  "test key",
+			Scope: dataprovider.APIKeyScopeAdmin,
+			KeyID: keyID,
+			Key:   fmt.Sprintf("%v.%v", shortuuid.New(), shortuuid.New()),
+		},
+	}
+	backupContent, err = json.Marshal(backupData)
 	assert.NoError(t, err)
 	_, _, err = httpdtest.LoaddataFromPostBody(backupContent, "0", "0", http.StatusOK)
 	assert.NoError(t, err)
@@ -3398,6 +3469,10 @@ func TestLoaddataFromPostBody(t *testing.T) {
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	apiKey, _, err := httpdtest.GetAPIKeyByID(keyID, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAPIKey(apiKey, http.StatusOK)
 	assert.NoError(t, err)
 
 	folder, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
@@ -3421,6 +3496,12 @@ func TestLoaddata(t *testing.T) {
 	admin := getTestAdmin()
 	admin.ID = 1
 	admin.Username = "test_admin_restore"
+	apiKey := dataprovider.APIKey{
+		Name:  shortuuid.New(),
+		Scope: dataprovider.APIKeyScopeAdmin,
+		KeyID: shortuuid.New(),
+		Key:   fmt.Sprintf("%v.%v", shortuuid.New(), shortuuid.New()),
+	}
 	backupData := dataprovider.BackupData{}
 	backupData.Users = append(backupData.Users, user)
 	backupData.Admins = append(backupData.Admins, admin)
@@ -3439,6 +3520,7 @@ func TestLoaddata(t *testing.T) {
 			Description: foldeDesc,
 		},
 	}
+	backupData.APIKeys = append(backupData.APIKeys, apiKey)
 	backupContent, err := json.Marshal(backupData)
 	assert.NoError(t, err)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
@@ -3460,7 +3542,7 @@ func TestLoaddata(t *testing.T) {
 		err = os.Chmod(backupFilePath, 0644)
 		assert.NoError(t, err)
 	}
-	// add user, folder, admin from backup
+	// add user, folder, admin, API key from backup
 	_, _, err = httpdtest.Loaddata(backupFilePath, "1", "", http.StatusOK)
 	assert.NoError(t, err)
 	// update from backup
@@ -3474,6 +3556,11 @@ func TestLoaddata(t *testing.T) {
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+
+	apiKey, _, err = httpdtest.GetAPIKeyByID(apiKey.KeyID, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAPIKey(apiKey, http.StatusOK)
 	assert.NoError(t, err)
 
 	folder, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
@@ -3511,6 +3598,13 @@ func TestLoaddataMode(t *testing.T) {
 	admin := getTestAdmin()
 	admin.ID = 1
 	admin.Username = "test_admin_restore"
+	apiKey := dataprovider.APIKey{
+		Name:        shortuuid.New(),
+		Scope:       dataprovider.APIKeyScopeAdmin,
+		KeyID:       shortuuid.New(),
+		Key:         fmt.Sprintf("%v.%v", shortuuid.New(), shortuuid.New()),
+		Description: "desc",
+	}
 	backupData := dataprovider.BackupData{}
 	backupData.Users = append(backupData.Users, user)
 	backupData.Admins = append(backupData.Admins, admin)
@@ -3528,6 +3622,7 @@ func TestLoaddataMode(t *testing.T) {
 			Name:       folderName,
 		},
 	}
+	backupData.APIKeys = append(backupData.APIKeys, apiKey)
 	backupContent, _ := json.Marshal(backupData)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
 	err := os.WriteFile(backupFilePath, backupContent, os.ModePerm)
@@ -3554,6 +3649,13 @@ func TestLoaddataMode(t *testing.T) {
 	admin.AdditionalInfo = "newInfo"
 	admin.Description = "newDesc"
 	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	apiKey, _, err = httpdtest.GetAPIKeyByID(apiKey.KeyID, http.StatusOK)
+	assert.NoError(t, err)
+	oldAPIKeyDesc := apiKey.Description
+	apiKey.ExpiresAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	apiKey.Description = "new desc"
+	apiKey, _, err = httpdtest.UpdateAPIKey(apiKey, http.StatusOK)
 	assert.NoError(t, err)
 
 	backupData.Folders = []vfs.BaseVirtualFolder{
@@ -3585,6 +3687,11 @@ func TestLoaddataMode(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEqual(t, oldInfo, admin.AdditionalInfo)
 	assert.NotEqual(t, oldDesc, admin.Description)
+
+	apiKey, _, err = httpdtest.GetAPIKeyByID(apiKey.KeyID, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NotEqual(t, int64(0), apiKey.ExpiresAt)
+	assert.NotEqual(t, oldAPIKeyDesc, apiKey.Description)
 
 	_, _, err = httpdtest.Loaddata(backupFilePath, "0", "2", http.StatusOK)
 	assert.NoError(t, err)
@@ -4011,6 +4118,153 @@ func TestUpdateAdminMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+}
+
+func TestAdminHandlingWithAPIKeys(t *testing.T) {
+	sysAdmin, _, err := httpdtest.GetAdminByUsername(defaultTokenAuthUser, http.StatusOK)
+	assert.NoError(t, err)
+	sysAdmin.Filters.AllowAPIKeyAuth = true
+	sysAdmin, _, err = httpdtest.UpdateAdmin(sysAdmin, http.StatusOK)
+	assert.NoError(t, err)
+
+	apiKey := dataprovider.APIKey{
+		Name:  "test admin API key",
+		Scope: dataprovider.APIKeyScopeAdmin,
+		Admin: defaultTokenAuthUser,
+	}
+
+	apiKey, resp, err := httpdtest.AddAPIKey(apiKey, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+
+	admin := getTestAdmin()
+	admin.Username = altAdminUsername
+	asJSON, err := json.Marshal(admin)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, adminPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	_, err = getJWTAPITokenFromTestServer(altAdminUsername, defaultTokenAuthPass)
+	assert.NoError(t, err)
+
+	admin.Filters.AllowAPIKeyAuth = true
+	asJSON, err = json.Marshal(admin)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, path.Join(adminPath, altAdminUsername), bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(adminPath, altAdminUsername), nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var adminGet dataprovider.Admin
+	err = json.Unmarshal(rr.Body.Bytes(), &adminGet)
+	assert.NoError(t, err)
+	assert.True(t, adminGet.Filters.AllowAPIKeyAuth)
+
+	req, err = http.NewRequest(http.MethodPut, path.Join(adminPath, defaultTokenAuthUser), bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "updating the admin impersonated with an API key is not allowed")
+	// changing the password for the impersonated admin is not allowed
+	pwd := make(map[string]string)
+	pwd["current_password"] = defaultTokenAuthPass
+	pwd["new_password"] = altAdminPassword
+	asJSON, err = json.Marshal(pwd)
+	assert.NoError(t, err)
+	req, _ = http.NewRequest(http.MethodPut, adminPwdPath, bytes.NewBuffer(asJSON))
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "API key authentication is not allowed")
+
+	req, err = http.NewRequest(http.MethodDelete, path.Join(adminPath, defaultTokenAuthUser), nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "you cannot delete yourself")
+
+	req, err = http.NewRequest(http.MethodDelete, path.Join(adminPath, altAdminUsername), nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	_, err = httpdtest.RemoveAPIKey(apiKey, http.StatusOK)
+	assert.NoError(t, err)
+
+	dbAdmin, err := dataprovider.AdminExists(defaultTokenAuthUser)
+	assert.NoError(t, err)
+	dbAdmin.Filters.AllowAPIKeyAuth = false
+	err = dataprovider.UpdateAdmin(&dbAdmin)
+	assert.NoError(t, err)
+	sysAdmin, _, err = httpdtest.GetAdminByUsername(defaultTokenAuthUser, http.StatusOK)
+	assert.NoError(t, err)
+	assert.False(t, sysAdmin.Filters.AllowAPIKeyAuth)
+}
+
+func TestUserHandlingWithAPIKey(t *testing.T) {
+	admin := getTestAdmin()
+	admin.Username = altAdminUsername
+	admin.Filters.AllowAPIKeyAuth = true
+	admin, _, err := httpdtest.AddAdmin(admin, http.StatusCreated)
+	assert.NoError(t, err)
+
+	apiKey := dataprovider.APIKey{
+		Name:  "test admin API key",
+		Scope: dataprovider.APIKeyScopeAdmin,
+		Admin: admin.Username,
+	}
+
+	apiKey, _, err = httpdtest.AddAPIKey(apiKey, http.StatusCreated)
+	assert.NoError(t, err)
+
+	user := getTestUser()
+	userAsJSON := getUserAsJSON(t, user)
+	req, err := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	user.Filters.DisableFsChecks = true
+	user.Description = "desc"
+	userAsJSON = getUserAsJSON(t, user)
+	req, err = http.NewRequest(http.MethodPut, path.Join(userPath, user.Username), bytes.NewBuffer(userAsJSON))
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var updatedUser dataprovider.User
+	err = json.Unmarshal(rr.Body.Bytes(), &updatedUser)
+	assert.NoError(t, err)
+	assert.True(t, updatedUser.Filters.DisableFsChecks)
+	assert.Equal(t, user.Description, updatedUser.Description)
+
+	req, err = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.GetAPIKeyByID(apiKey.KeyID, http.StatusNotFound)
+	assert.NoError(t, err)
 }
 
 func TestUpdateUserMock(t *testing.T) {
@@ -5200,7 +5454,14 @@ func TestPostConnectHook(t *testing.T) {
 	common.Config.PostConnectHook = postConnectPath
 
 	u := getTestUser()
+	u.Filters.AllowAPIKeyAuth = true
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	apiKey, _, err := httpdtest.AddAPIKey(dataprovider.APIKey{
+		Name:  "name",
+		Scope: dataprovider.APIKeyScopeUser,
+		User:  user.Username,
+	}, http.StatusCreated)
 	assert.NoError(t, err)
 	err = os.WriteFile(postConnectPath, getExitCodeScriptContent(0), os.ModePerm)
 	assert.NoError(t, err)
@@ -5211,6 +5472,12 @@ func TestPostConnectHook(t *testing.T) {
 	_, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 
+	req, err := http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
 	err = os.WriteFile(postConnectPath, getExitCodeScriptContent(1), os.ModePerm)
 	assert.NoError(t, err)
 
@@ -5219,6 +5486,12 @@ func TestPostConnectHook(t *testing.T) {
 
 	_, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.Error(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -5257,10 +5530,17 @@ func TestMaxSessions(t *testing.T) {
 
 func TestLoginInvalidFs(t *testing.T) {
 	u := getTestUser()
+	u.Filters.AllowAPIKeyAuth = true
 	u.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("invalid JSON for credentials")
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	apiKey, _, err := httpdtest.AddAPIKey(dataprovider.APIKey{
+		Name:  "testk",
+		Scope: dataprovider.APIKeyScopeUser,
+		User:  u.Username,
+	}, http.StatusCreated)
 	assert.NoError(t, err)
 
 	credentialsFile := filepath.Join(credentialsPath, fmt.Sprintf("%v_gcs_credentials.json", u.Username))
@@ -5277,6 +5557,12 @@ func TestLoginInvalidFs(t *testing.T) {
 
 	_, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.Error(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -5593,6 +5879,125 @@ func TestPreUploadHook(t *testing.T) {
 
 	common.Config.Actions.ExecuteOn = oldExecuteOn
 	common.Config.Actions.Hook = oldHook
+}
+
+func TestUserAPIKey(t *testing.T) {
+	u := getTestUser()
+	u.Filters.AllowAPIKeyAuth = true
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	apiKey := dataprovider.APIKey{
+		Name:  "testkey",
+		User:  user.Username,
+		Scope: dataprovider.APIKeyScopeUser,
+	}
+	apiKey, _, err = httpdtest.AddAPIKey(apiKey, http.StatusCreated)
+	assert.NoError(t, err)
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("filename", "filenametest")
+	assert.NoError(t, err)
+	_, err = part.Write([]byte("test file content"))
+	assert.NoError(t, err)
+	err = writer.Close()
+	assert.NoError(t, err)
+	reader := bytes.NewReader(body.Bytes())
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userFilesPath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var dirEntries []map[string]interface{}
+	err = json.Unmarshal(rr.Body.Bytes(), &dirEntries)
+	assert.NoError(t, err)
+	assert.Len(t, dirEntries, 1)
+
+	user.Status = 0
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+
+	user.Status = 1
+	user.Filters.DeniedProtocols = []string{common.ProtocolHTTP}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+
+	user.Filters.DeniedProtocols = []string{common.ProtocolFTP}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	apiKeyNew := dataprovider.APIKey{
+		Name:  apiKey.Name,
+		Scope: dataprovider.APIKeyScopeUser,
+	}
+
+	apiKeyNew, _, err = httpdtest.AddAPIKey(apiKeyNew, http.StatusCreated)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKeyNew.Key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+	// now associate a user
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKeyNew.Key, user.Username)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// now with a missing user
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKeyNew.Key, user.Username+"1")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+	// empty user and key not associated to any user
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKeyNew.Key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+	apiKeyNew.ExpiresAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(-24 * time.Hour))
+	_, _, err = httpdtest.UpdateAPIKey(apiKeyNew, http.StatusOK)
+	assert.NoError(t, err)
+	// expired API key
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKeyNew.Key, user.Username)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveAPIKey(apiKeyNew, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestWebGetFiles(t *testing.T) {
@@ -7029,7 +7434,7 @@ func TestWebAdminLoginMock(t *testing.T) {
 }
 
 func TestAdminNoToken(t *testing.T) {
-	req, _ := http.NewRequest(http.MethodGet, webChangeAdminPwdPath, nil)
+	req, _ := http.NewRequest(http.MethodGet, webAdminCredentialsPath, nil)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
@@ -7048,6 +7453,125 @@ func TestAdminNoToken(t *testing.T) {
 	checkResponseCode(t, http.StatusUnauthorized, rr)
 }
 
+func TestWebUserAllowAPIKeyAuth(t *testing.T) {
+	u := getTestUser()
+	u.Filters.AllowAPIKeyAuth = true
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	assert.NoError(t, err)
+	token, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	form := make(url.Values)
+	form.Set("allow_api_key_auth", "1")
+	// no csrf token
+	req, err := http.NewRequest(http.MethodPost, webChangeClientAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+	req, _ = http.NewRequest(http.MethodPost, webChangeClientAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "API key authentication updated")
+
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, user.Filters.AllowAPIKeyAuth)
+
+	form = make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	req, _ = http.NewRequest(http.MethodPost, webChangeClientAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "API key authentication updated")
+
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.False(t, user.Filters.AllowAPIKeyAuth)
+
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+
+	form = make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	req, _ = http.NewRequest(http.MethodPost, webChangeClientAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+}
+
+func TestWebAdminAllowAPIKeyAuth(t *testing.T) {
+	admin := getTestAdmin()
+	admin.Username = altAdminUsername
+	admin.Password = altAdminPassword
+	admin, _, err := httpdtest.AddAdmin(admin, http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTWebTokenFromTestServer(admin.Username, altAdminPassword)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	form := make(url.Values)
+	form.Set("allow_api_key_auth", "1")
+	// no csrf token
+	req, err := http.NewRequest(http.MethodPost, webChangeAdminAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+	req, _ = http.NewRequest(http.MethodPost, webChangeAdminAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "API key authentication updated")
+
+	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, admin.Filters.AllowAPIKeyAuth)
+
+	form = make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	req, _ = http.NewRequest(http.MethodPost, webChangeAdminAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "API key authentication updated")
+
+	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.False(t, admin.Filters.AllowAPIKeyAuth)
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+
+	form = make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	req, _ = http.NewRequest(http.MethodPost, webChangeAdminAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+}
+
 func TestWebAdminPwdChange(t *testing.T) {
 	admin := getTestAdmin()
 	admin.Username = altAdminUsername
@@ -7059,7 +7583,8 @@ func TestWebAdminPwdChange(t *testing.T) {
 	assert.NoError(t, err)
 	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
 	assert.NoError(t, err)
-	req, _ := http.NewRequest(http.MethodGet, webChangeAdminPwdPath, nil)
+	req, err := http.NewRequest(http.MethodGet, webAdminCredentialsPath, nil)
+	assert.NoError(t, err)
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -7093,6 +7618,389 @@ func TestWebAdminPwdChange(t *testing.T) {
 	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
 
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestAPIKeysManagement(t *testing.T) {
+	admin := getTestAdmin()
+	admin.Username = altAdminUsername
+	admin.Password = altAdminPassword
+	admin, _, err := httpdtest.AddAdmin(admin, http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	apiKey := dataprovider.APIKey{
+		Name:  "test key",
+		Scope: dataprovider.APIKeyScopeAdmin,
+	}
+	asJSON, err := json.Marshal(apiKey)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, apiKeysPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	location := rr.Header().Get("Location")
+	assert.NotEmpty(t, location)
+	objectID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+	assert.Equal(t, fmt.Sprintf("%v/%v", apiKeysPath, objectID), location)
+	apiKey.KeyID = objectID
+	response := make(map[string]string)
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	key := response["key"]
+	assert.NotEmpty(t, key)
+	assert.True(t, strings.HasPrefix(key, apiKey.KeyID+"."))
+
+	req, err = http.NewRequest(http.MethodGet, location, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var keyGet dataprovider.APIKey
+	err = json.Unmarshal(rr.Body.Bytes(), &keyGet)
+	assert.NoError(t, err)
+	assert.Empty(t, keyGet.Key)
+	assert.Equal(t, apiKey.KeyID, keyGet.KeyID)
+	assert.Equal(t, apiKey.Scope, keyGet.Scope)
+	assert.Equal(t, apiKey.Name, keyGet.Name)
+	assert.Equal(t, int64(0), keyGet.ExpiresAt)
+	assert.Equal(t, int64(0), keyGet.LastUseAt)
+	assert.Greater(t, keyGet.CreatedAt, int64(0))
+	assert.Greater(t, keyGet.UpdatedAt, int64(0))
+	assert.Empty(t, keyGet.Description)
+	assert.Empty(t, keyGet.User)
+	assert.Empty(t, keyGet.Admin)
+
+	// API key is not enabled for the admin user so this request should fail
+	req, err = http.NewRequest(http.MethodGet, versionPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, key, admin.Username)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+	assert.Contains(t, rr.Body.String(), "the admin associated with the provided api key cannot be authenticated")
+
+	admin.Filters.AllowAPIKeyAuth = true
+	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, versionPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, key, admin.Username)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, versionPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, key, admin.Username+"1")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+
+	req, err = http.NewRequest(http.MethodGet, versionPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+
+	// now associate the key directly to the admin
+	apiKey.Admin = admin.Username
+	apiKey.Description = "test description"
+	asJSON, err = json.Marshal(apiKey)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, location, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, apiKeysPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var keys []dataprovider.APIKey
+	err = json.Unmarshal(rr.Body.Bytes(), &keys)
+	assert.NoError(t, err)
+	if assert.GreaterOrEqual(t, len(keys), 1) {
+		found := false
+		for _, k := range keys {
+			if k.KeyID == apiKey.KeyID {
+				found = true
+				assert.Empty(t, k.Key)
+				assert.Equal(t, apiKey.Scope, k.Scope)
+				assert.Equal(t, apiKey.Name, k.Name)
+				assert.Equal(t, int64(0), k.ExpiresAt)
+				assert.Greater(t, k.LastUseAt, int64(0))
+				assert.Equal(t, k.CreatedAt, keyGet.CreatedAt)
+				assert.Greater(t, k.UpdatedAt, keyGet.UpdatedAt)
+				assert.Equal(t, apiKey.Description, k.Description)
+				assert.Empty(t, k.User)
+				assert.Equal(t, admin.Username, k.Admin)
+			}
+		}
+		assert.True(t, found)
+	}
+	req, err = http.NewRequest(http.MethodGet, versionPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// invalid API keys
+	req, err = http.NewRequest(http.MethodGet, versionPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, key+"invalid", "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+	assert.Contains(t, rr.Body.String(), "the provided api key cannot be authenticated")
+	req, err = http.NewRequest(http.MethodGet, versionPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, "invalid", "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	// using an API key we cannot modify/get API keys
+	req, err = http.NewRequest(http.MethodPut, location, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	req, err = http.NewRequest(http.MethodGet, location, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	admin.Filters.AllowList = []string{"172.16.18.0/24"}
+	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, versionPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+
+	req, err = http.NewRequest(http.MethodDelete, location, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, versionPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "the provided api key is not valid")
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestAPIKeySearch(t *testing.T) {
+	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	apiKey := dataprovider.APIKey{
+		Scope: dataprovider.APIKeyScopeAdmin,
+	}
+	for i := 1; i < 5; i++ {
+		apiKey.Name = fmt.Sprintf("testapikey%v", i)
+		asJSON, err := json.Marshal(apiKey)
+		assert.NoError(t, err)
+		req, err := http.NewRequest(http.MethodPost, apiKeysPath, bytes.NewBuffer(asJSON))
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr := executeRequest(req)
+		checkResponseCode(t, http.StatusCreated, rr)
+	}
+
+	req, err := http.NewRequest(http.MethodGet, apiKeysPath+"?limit=1&order=ASC", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var keys []dataprovider.APIKey
+	err = json.Unmarshal(rr.Body.Bytes(), &keys)
+	assert.NoError(t, err)
+	assert.Len(t, keys, 1)
+	firstKey := keys[0]
+
+	req, err = http.NewRequest(http.MethodGet, apiKeysPath+"?limit=1&order=DESC", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	keys = nil
+	err = json.Unmarshal(rr.Body.Bytes(), &keys)
+	assert.NoError(t, err)
+	if assert.Len(t, keys, 1) {
+		assert.NotEqual(t, firstKey.KeyID, keys[0].KeyID)
+	}
+
+	req, err = http.NewRequest(http.MethodGet, apiKeysPath+"?limit=1&offset=100", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	keys = nil
+	err = json.Unmarshal(rr.Body.Bytes(), &keys)
+	assert.NoError(t, err)
+	assert.Len(t, keys, 0)
+
+	req, err = http.NewRequest(http.MethodGet, apiKeysPath+"?limit=a", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v/%v", apiKeysPath, "missingid"), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodGet, apiKeysPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	keys = nil
+	err = json.Unmarshal(rr.Body.Bytes(), &keys)
+	assert.NoError(t, err)
+	counter := 0
+	for _, k := range keys {
+		if strings.HasPrefix(k.Name, "testapikey") {
+			req, err = http.NewRequest(http.MethodDelete, fmt.Sprintf("%v/%v", apiKeysPath, k.KeyID), nil)
+			assert.NoError(t, err)
+			setBearerForReq(req, token)
+			rr = executeRequest(req)
+			checkResponseCode(t, http.StatusOK, rr)
+			counter++
+		}
+	}
+	assert.Equal(t, 4, counter)
+}
+
+func TestAPIKeyErrors(t *testing.T) {
+	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	apiKey := dataprovider.APIKey{
+		Name:  "testkey",
+		Scope: dataprovider.APIKeyScopeUser,
+	}
+	asJSON, err := json.Marshal(apiKey)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, apiKeysPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	location := rr.Header().Get("Location")
+	assert.NotEmpty(t, location)
+
+	// invalid API scope
+	apiKey.Scope = 1000
+	asJSON, err = json.Marshal(apiKey)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, apiKeysPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodPut, location, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	// invalid JSON
+	req, err = http.NewRequest(http.MethodPost, apiKeysPath, bytes.NewBuffer([]byte(`invalid JSON`)))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodPut, location, bytes.NewBuffer([]byte(`invalid JSON`)))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodDelete, location, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodDelete, location, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPut, location, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+}
+
+func TestAPIKeyOnDeleteCascade(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	admin := getTestAdmin()
+	admin.Username = altAdminUsername
+	admin.Password = altAdminPassword
+	admin, _, err = httpdtest.AddAdmin(admin, http.StatusCreated)
+	assert.NoError(t, err)
+
+	apiKey := dataprovider.APIKey{
+		Name:  "user api key",
+		Scope: dataprovider.APIKeyScopeUser,
+		User:  user.Username,
+	}
+
+	apiKey, _, err = httpdtest.AddAPIKey(apiKey, http.StatusCreated)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+
+	user.Filters.AllowAPIKeyAuth = true
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var contents []map[string]interface{}
+	err = json.NewDecoder(rr.Body).Decode(&contents)
+	assert.NoError(t, err)
+	assert.Len(t, contents, 0)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	_, _, err = httpdtest.GetAPIKeyByID(apiKey.KeyID, http.StatusNotFound)
+	assert.NoError(t, err)
+
+	apiKey.User = ""
+	apiKey.Admin = admin.Username
+	apiKey.Scope = dataprovider.APIKeyScopeAdmin
+
+	apiKey, _, err = httpdtest.AddAPIKey(apiKey, http.StatusCreated)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+
+	_, _, err = httpdtest.GetAPIKeyByID(apiKey.KeyID, http.StatusNotFound)
 	assert.NoError(t, err)
 }
 
@@ -7515,9 +8423,17 @@ func TestWebMaintenanceMock(t *testing.T) {
 	admin := getTestAdmin()
 	admin.ID = 1
 	admin.Username = "test_admin_web_restore"
+
+	apiKey := dataprovider.APIKey{
+		Name:  "key name",
+		KeyID: shortuuid.New(),
+		Key:   fmt.Sprintf("%v.%v", shortuuid.New(), shortuuid.New()),
+		Scope: dataprovider.APIKeyScopeAdmin,
+	}
 	backupData := dataprovider.BackupData{}
 	backupData.Users = append(backupData.Users, user)
 	backupData.Admins = append(backupData.Admins, admin)
+	backupData.APIKeys = append(backupData.APIKeys, apiKey)
 	backupContent, err := json.Marshal(backupData)
 	assert.NoError(t, err)
 	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
@@ -7539,6 +8455,14 @@ func TestWebMaintenanceMock(t *testing.T) {
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+
+	_, _, err = httpdtest.GetAPIKeyByID(apiKey.KeyID, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAPIKey(apiKey, http.StatusOK)
+	assert.NoError(t, err)
+
+	err = os.Remove(backupFilePath)
 	assert.NoError(t, err)
 }
 
@@ -7766,6 +8690,7 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.False(t, newUser.Filters.Hooks.PreLoginDisabled)
 	assert.False(t, newUser.Filters.Hooks.CheckPasswordDisabled)
 	assert.True(t, newUser.Filters.DisableFsChecks)
+	assert.False(t, newUser.Filters.AllowAPIKeyAuth)
 	assert.True(t, util.IsStringInSlice(testPubKey, newUser.PublicKeys))
 	if val, ok := newUser.Permissions["/subdir"]; ok {
 		assert.True(t, util.IsStringInSlice(dataprovider.PermListItems, val))
@@ -7837,6 +8762,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	user.QuotaFiles = 2
 	user.QuotaSize = 3
 	user.GID = 1000
+	user.Filters.AllowAPIKeyAuth = true
 	user.AdditionalInfo = "new additional info"
 	form := make(url.Values)
 	form.Set("username", user.Username)
@@ -7868,6 +8794,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("additional_info", user.AdditionalInfo)
 	form.Set("description", user.Description)
 	form.Set("tls_username", string(sdk.TLSUsernameCN))
+	form.Set("allow_api_key_auth", "1")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
 	setJWTCookieForReq(req, webToken)
@@ -7931,6 +8858,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.Equal(t, user.Description, updateUser.Description)
 	assert.Equal(t, int64(100), updateUser.Filters.MaxUploadFileSize)
 	assert.Equal(t, sdk.TLSUsernameCN, updateUser.Filters.TLSUsername)
+	assert.True(t, updateUser.Filters.AllowAPIKeyAuth)
 
 	if val, ok := updateUser.Permissions["/otherdir"]; ok {
 		assert.True(t, util.IsStringInSlice(dataprovider.PermListItems, val))
@@ -8464,6 +9392,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("s3_force_path_style", "checked")
 	form.Set("description", user.Description)
 	form.Add("hooks", "pre_login_disabled")
+	form.Add("allow_api_key_auth", "1")
 	// test invalid s3_upload_part_size
 	form.Set("s3_upload_part_size", "a")
 	b, contentType, _ := getMultipartFormData(form, "", "")
@@ -8546,6 +9475,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.False(t, updateUser.Filters.Hooks.ExternalAuthDisabled)
 	assert.False(t, updateUser.Filters.Hooks.CheckPasswordDisabled)
 	assert.False(t, updateUser.Filters.DisableFsChecks)
+	assert.True(t, updateUser.Filters.AllowAPIKeyAuth)
 	// now check that a redacted password is not saved
 	form.Set("s3_access_secret", redactedSecret)
 	b, contentType, _ = getMultipartFormData(form, "", "")
@@ -9747,6 +10677,13 @@ func setCSRFHeaderForReq(req *http.Request, csrfToken string) {
 
 func setBearerForReq(req *http.Request, jwtToken string) {
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %v", jwtToken))
+}
+
+func setAPIKeyForReq(req *http.Request, apiKey, username string) {
+	if username != "" {
+		apiKey += "." + username
+	}
+	req.Header.Set("X-SFTPGO-API-KEY", apiKey)
 }
 
 func setJWTCookieForReq(req *http.Request, jwtToken string) {

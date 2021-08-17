@@ -23,10 +23,12 @@ type quotaUsage struct {
 }
 
 func getUsersQuotaScans(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	render.JSON(w, r, common.QuotaScans.GetUsersQuotaScans())
 }
 
 func getFoldersQuotaScans(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	render.JSON(w, r, common.QuotaScans.GetVFoldersQuotaScans())
 }
 

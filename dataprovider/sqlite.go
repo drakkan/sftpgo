@@ -43,6 +43,15 @@ CREATE INDEX "{{prefix}}folders_mapping_folder_id_idx" ON "{{folders_mapping}}" 
 CREATE INDEX "{{prefix}}folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
 INSERT INTO {{schema_version}} (version) VALUES (10);
 `
+	sqliteV11SQL = `CREATE TABLE "{{api_keys}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "name" varchar(255) NOT NULL,
+"key_id" varchar(50) NOT NULL UNIQUE, "api_key" varchar(255) NOT NULL UNIQUE, "scope" integer NOT NULL, "created_at" bigint NOT NULL,
+"updated_at" bigint NOT NULL, "last_use_at" bigint NOT NULL, "expires_at" bigint NOT NULL, "description" text NULL,
+"admin_id" integer NULL REFERENCES "{{admins}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+"user_id" integer NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED);
+CREATE INDEX "{{prefix}}api_keys_admin_id_idx" ON "api_keys" ("admin_id");
+CREATE INDEX "{{prefix}}api_keys_user_id_idx" ON "api_keys" ("user_id");
+`
+	sqliteV11DownSQL = `DROP TABLE "{{api_keys}}";`
 )
 
 // SQLiteProvider auth provider for SQLite database
@@ -196,6 +205,34 @@ func (p *SQLiteProvider) validateAdminAndPass(username, password, ip string) (Ad
 	return sqlCommonValidateAdminAndPass(username, password, ip, p.dbHandle)
 }
 
+func (p *SQLiteProvider) apiKeyExists(keyID string) (APIKey, error) {
+	return sqlCommonGetAPIKeyByID(keyID, p.dbHandle)
+}
+
+func (p *SQLiteProvider) addAPIKey(apiKey *APIKey) error {
+	return sqlCommonAddAPIKey(apiKey, p.dbHandle)
+}
+
+func (p *SQLiteProvider) updateAPIKey(apiKey *APIKey) error {
+	return sqlCommonUpdateAPIKey(apiKey, p.dbHandle)
+}
+
+func (p *SQLiteProvider) deleteAPIKeys(apiKey *APIKey) error {
+	return sqlCommonDeleteAPIKey(apiKey, p.dbHandle)
+}
+
+func (p *SQLiteProvider) getAPIKeys(limit int, offset int, order string) ([]APIKey, error) {
+	return sqlCommonGetAPIKeys(limit, offset, order, p.dbHandle)
+}
+
+func (p *SQLiteProvider) dumpAPIKeys() ([]APIKey, error) {
+	return sqlCommonDumpAPIKeys(p.dbHandle)
+}
+
+func (p *SQLiteProvider) updateAPIKeyLastUse(keyID string) error {
+	return sqlCommonUpdateAPIKeyLastUse(keyID, p.dbHandle)
+}
+
 func (p *SQLiteProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -235,6 +272,8 @@ func (p *SQLiteProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 10:
+		return updateSQLiteDatabaseFromV10(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -256,7 +295,37 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 
-	return errors.New("the current version cannot be reverted")
+	switch dbVersion.Version {
+	case 11:
+		return downgradeSQLiteDatabaseFromV11(p.dbHandle)
+	default:
+		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
+	}
+}
+
+func updateSQLiteDatabaseFromV10(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom10To11(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV11(dbHandle *sql.DB) error {
+	return downgradeSQLiteDatabaseFrom11To10(dbHandle)
+}
+
+func updateSQLiteDatabaseFrom10To11(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 10 -> 11")
+	providerLog(logger.LevelInfo, "updating database version: 10 -> 11")
+	sql := strings.ReplaceAll(sqliteV11SQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{api_keys}}", sqlTableAPIKeys)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 11)
+}
+
+func downgradeSQLiteDatabaseFrom11To10(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 11 -> 10")
+	providerLog(logger.LevelInfo, "downgrading database version: 11 -> 10")
+	sql := strings.ReplaceAll(sqliteV11DownSQL, "{{api_keys}}", sqlTableAPIKeys)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 10)
 }
 
 /*func setPragmaFK(dbHandle *sql.DB, value string) error {

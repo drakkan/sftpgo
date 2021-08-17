@@ -13,6 +13,7 @@ import (
 )
 
 func getAdmins(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	limit, offset, order, err := getSearchFilters(w, r)
 	if err != nil {
 		return
@@ -27,6 +28,7 @@ func getAdmins(w http.ResponseWriter, r *http.Request) {
 }
 
 func getAdminByUsername(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	username := getURLParam(r, "username")
 	renderAdmin(w, r, username, http.StatusOK)
 }
@@ -84,6 +86,11 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if username == claims.Username {
+		if claims.APIKeyID != "" {
+			sendAPIResponse(w, r, errors.New("updating the admin impersonated with an API key is not allowed"), "",
+				http.StatusBadRequest)
+			return
+		}
 		if claims.isCriticalPermRemoved(admin.Permissions) {
 			sendAPIResponse(w, r, errors.New("you cannot remove these permissions to yourself"), "", http.StatusBadRequest)
 			return
@@ -103,6 +110,7 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteAdmin(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	username := getURLParam(r, "username")
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {

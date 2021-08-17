@@ -91,13 +91,16 @@ type clientMessagePage struct {
 	Success string
 }
 
-type credentialsPage struct {
+type clientCredentialsPage struct {
 	baseClientPage
-	PublicKeys    []string
-	ChangePwdURL  string
-	ManageKeysURL string
-	PwdError      string
-	KeyError      string
+	PublicKeys      []string
+	AllowAPIKeyAuth bool
+	ChangePwdURL    string
+	ManageKeysURL   string
+	ManageAPIKeyURL string
+	PwdError        string
+	KeyError        string
+	APIKeyError     string
 }
 
 func getFileObjectURL(baseDir, name string) string {
@@ -235,23 +238,28 @@ func renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error stri
 	renderClientTemplate(w, templateClientFiles, data)
 }
 
-func renderCredentialsPage(w http.ResponseWriter, r *http.Request, pwdError string, keyError string) {
-	data := credentialsPage{
-		baseClientPage: getBaseClientPageData(pageClientCredentialsTitle, webClientCredentialsPath, r),
-		ChangePwdURL:   webChangeClientPwdPath,
-		ManageKeysURL:  webChangeClientKeysPath,
-		PwdError:       pwdError,
-		KeyError:       keyError,
+func renderClientCredentialsPage(w http.ResponseWriter, r *http.Request, pwdError, keyError, apiKeyError string) {
+	data := clientCredentialsPage{
+		baseClientPage:  getBaseClientPageData(pageClientCredentialsTitle, webClientCredentialsPath, r),
+		ChangePwdURL:    webChangeClientPwdPath,
+		ManageKeysURL:   webChangeClientKeysPath,
+		ManageAPIKeyURL: webChangeClientAPIKeyAccessPath,
+		PwdError:        pwdError,
+		KeyError:        keyError,
+		APIKeyError:     apiKeyError,
 	}
 	user, err := dataprovider.UserExists(data.LoggedUser.Username)
 	if err != nil {
 		renderClientInternalServerErrorPage(w, r, err)
+		return
 	}
 	data.PublicKeys = user.PublicKeys
+	data.AllowAPIKeyAuth = user.Filters.AllowAPIKeyAuth
 	renderClientTemplate(w, templateClientCredentials, data)
 }
 
 func handleWebClientLogout(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	c := jwtTokenClaims{}
 	c.removeCookie(w, r, webBaseClientPath)
 
@@ -259,6 +267,7 @@ func handleWebClientLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebClientDownloadZip(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
 		renderClientMessagePage(w, r, "Invalid token claims", "", http.StatusForbidden, nil, "")
@@ -303,6 +312,7 @@ func handleWebClientDownloadZip(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, nil, "invalid token claims", http.StatusForbidden)
@@ -365,6 +375,7 @@ func handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
 		renderClientForbiddenPage(w, r, "Invalid token claims")
@@ -421,14 +432,15 @@ func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleClientGetCredentials(w http.ResponseWriter, r *http.Request) {
-	renderCredentialsPage(w, r, "", "")
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	renderClientCredentialsPage(w, r, "", "", "")
 }
 
 func handleWebClientChangePwdPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	err := r.ParseForm()
 	if err != nil {
-		renderCredentialsPage(w, r, err.Error(), "")
+		renderClientCredentialsPage(w, r, err.Error(), "", "")
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
@@ -438,7 +450,7 @@ func handleWebClientChangePwdPost(w http.ResponseWriter, r *http.Request) {
 	err = doChangeUserPassword(r, r.Form.Get("current_password"), r.Form.Get("new_password1"),
 		r.Form.Get("new_password2"))
 	if err != nil {
-		renderCredentialsPage(w, r, err.Error(), "")
+		renderClientCredentialsPage(w, r, err.Error(), "", "")
 		return
 	}
 	handleWebClientLogout(w, r)
@@ -448,7 +460,7 @@ func handleWebClientManageKeysPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	err := r.ParseForm()
 	if err != nil {
-		renderCredentialsPage(w, r, "", err.Error())
+		renderClientCredentialsPage(w, r, "", err.Error(), "")
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
@@ -457,19 +469,51 @@ func handleWebClientManageKeysPost(w http.ResponseWriter, r *http.Request) {
 	}
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderCredentialsPage(w, r, "", "Invalid token claims")
+		renderClientCredentialsPage(w, r, "", "Invalid token claims", "")
 		return
 	}
 	user, err := dataprovider.UserExists(claims.Username)
 	if err != nil {
-		renderCredentialsPage(w, r, "", err.Error())
+		renderClientCredentialsPage(w, r, "", err.Error(), "")
 		return
 	}
 	user.PublicKeys = r.Form["public_keys"]
 	err = dataprovider.UpdateUser(&user)
 	if err != nil {
-		renderCredentialsPage(w, r, "", err.Error())
+		renderClientCredentialsPage(w, r, "", err.Error(), "")
 		return
 	}
-	renderClientMessagePage(w, r, "Public keys updated", "", http.StatusOK, nil, "Your public keys has been successfully updated")
+	renderClientMessagePage(w, r, "Public keys updated", "", http.StatusOK, nil,
+		"Your public keys has been successfully updated")
+}
+
+func handleWebClientManageAPIKeyPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	err := r.ParseForm()
+	if err != nil {
+		renderClientCredentialsPage(w, r, "", "", err.Error())
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderClientForbiddenPage(w, r, err.Error())
+		return
+	}
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		renderClientCredentialsPage(w, r, "", "", "Invalid token claims")
+		return
+	}
+	user, err := dataprovider.UserExists(claims.Username)
+	if err != nil {
+		renderClientCredentialsPage(w, r, "", "", err.Error())
+		return
+	}
+	user.Filters.AllowAPIKeyAuth = len(r.Form.Get("allow_api_key_auth")) > 0
+	err = dataprovider.UpdateUser(&user)
+	if err != nil {
+		renderClientCredentialsPage(w, r, "", "", err.Error())
+		return
+	}
+	renderClientMessagePage(w, r, "API key authentication updated", "", http.StatusOK, nil,
+		"Your API key access permission has been successfully updated")
 }

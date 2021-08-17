@@ -14,6 +14,7 @@ const (
 		"additional_info,description"
 	selectFolderFields = "id,path,used_quota_size,used_quota_files,last_quota_update,name,description,filesystem"
 	selectAdminFields  = "id,username,password,status,email,permissions,filters,additional_info,description"
+	selectAPIKeyFields = "key_id,name,api_key,scope,created_at,updated_at,last_use_at,expires_at,description,user_id,admin_id"
 )
 
 func getSQLPlaceholders() []string {
@@ -57,6 +58,78 @@ func getDeleteAdminQuery() string {
 	return fmt.Sprintf(`DELETE FROM %v WHERE username = %v`, sqlTableAdmins, sqlPlaceholders[0])
 }
 
+func getAPIKeyByIDQuery() string {
+	return fmt.Sprintf(`SELECT %v FROM %v WHERE key_id = %v`, selectAPIKeyFields, sqlTableAPIKeys, sqlPlaceholders[0])
+}
+
+func getAPIKeysQuery(order string) string {
+	return fmt.Sprintf(`SELECT %v FROM %v ORDER BY key_id %v LIMIT %v OFFSET %v`, selectAPIKeyFields, sqlTableAPIKeys,
+		order, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getDumpAPIKeysQuery() string {
+	return fmt.Sprintf(`SELECT %v FROM %v`, selectAPIKeyFields, sqlTableAPIKeys)
+}
+
+func getAddAPIKeyQuery() string {
+	return fmt.Sprintf(`INSERT INTO %v (key_id,name,api_key,scope,created_at,updated_at,last_use_at,expires_at,description,user_id,admin_id)
+		VALUES (%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v)`, sqlTableAPIKeys, sqlPlaceholders[0], sqlPlaceholders[1],
+		sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6],
+		sqlPlaceholders[7], sqlPlaceholders[8], sqlPlaceholders[9], sqlPlaceholders[10])
+}
+
+func getUpdateAPIKeyQuery() string {
+	return fmt.Sprintf(`UPDATE %v SET name=%v,scope=%v,expires_at=%v,user_id=%v,admin_id=%v,description=%v,updated_at=%v
+		WHERE key_id = %v`, sqlTableAPIKeys, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2],
+		sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7])
+}
+
+func getDeleteAPIKeyQuery() string {
+	return fmt.Sprintf(`DELETE FROM %v WHERE key_id = %v`, sqlTableAPIKeys, sqlPlaceholders[0])
+}
+
+func getRelatedUsersForAPIKeysQuery(apiKeys []APIKey) string {
+	var sb strings.Builder
+	for _, k := range apiKeys {
+		if k.userID == 0 {
+			continue
+		}
+		if sb.Len() == 0 {
+			sb.WriteString("(")
+		} else {
+			sb.WriteString(",")
+		}
+		sb.WriteString(strconv.FormatInt(k.userID, 10))
+	}
+	if sb.Len() > 0 {
+		sb.WriteString(")")
+	} else {
+		sb.WriteString("(0)")
+	}
+	return fmt.Sprintf(`SELECT id,username FROM %v WHERE id IN %v`, sqlTableUsers, sb.String())
+}
+
+func getRelatedAdminsForAPIKeysQuery(apiKeys []APIKey) string {
+	var sb strings.Builder
+	for _, k := range apiKeys {
+		if k.adminID == 0 {
+			continue
+		}
+		if sb.Len() == 0 {
+			sb.WriteString("(")
+		} else {
+			sb.WriteString(",")
+		}
+		sb.WriteString(strconv.FormatInt(k.adminID, 10))
+	}
+	if sb.Len() > 0 {
+		sb.WriteString(")")
+	} else {
+		sb.WriteString("(0)")
+	}
+	return fmt.Sprintf(`SELECT id,username FROM %v WHERE id IN %v`, sqlTableAdmins, sb.String())
+}
+
 func getUserByUsernameQuery() string {
 	return fmt.Sprintf(`SELECT %v FROM %v WHERE username = %v`, selectUserFields, sqlTableUsers, sqlPlaceholders[0])
 }
@@ -85,6 +158,10 @@ func getUpdateQuotaQuery(reset bool) string {
 
 func getUpdateLastLoginQuery() string {
 	return fmt.Sprintf(`UPDATE %v SET last_login = %v WHERE username = %v`, sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getUpdateAPIKeyLastUseQuery() string {
+	return fmt.Sprintf(`UPDATE %v SET last_use_at = %v WHERE key_id = %v`, sqlTableAPIKeys, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
 func getQuotaQuery() string {

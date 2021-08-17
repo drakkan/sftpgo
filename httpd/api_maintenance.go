@@ -35,6 +35,7 @@ func validateBackupFile(outputFile string) (string, error) {
 }
 
 func dumpData(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	var outputFile, outputData, indent string
 	if _, ok := r.URL.Query()["output-file"]; ok {
 		outputFile = strings.TrimSpace(r.URL.Query().Get("output-file"))
@@ -117,6 +118,7 @@ func loadDataFromRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func loadData(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	inputFile, scanQuota, mode, err := getLoaddataOptions(r)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
@@ -163,6 +165,10 @@ func restoreBackup(content []byte, inputFile string, scanQuota, mode int) error 
 	}
 
 	if err = RestoreAdmins(dump.Admins, inputFile, mode); err != nil {
+		return err
+	}
+
+	if err = RestoreAPIKeys(dump.APIKeys, inputFile, mode); err != nil {
 		return err
 	}
 
@@ -216,13 +222,43 @@ func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, mode, sca
 			logger.Debug(logSender, "", "adding new folder: %+v, dump file: %#v, error: %v", folder, inputFile, err)
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to restore folder %#v: %w", folder.Name, err)
 		}
 		if scanQuota >= 1 {
 			if common.QuotaScans.AddVFolderQuotaScan(folder.Name) {
 				logger.Debug(logSender, "", "starting quota scan for restored folder: %#v", folder.Name)
 				go doFolderQuotaScan(folder) //nolint:errcheck
 			}
+		}
+	}
+	return nil
+}
+
+// RestoreAPIKeys restores the specified API keys
+func RestoreAPIKeys(apiKeys []dataprovider.APIKey, inputFile string, mode int) error {
+	for _, apiKey := range apiKeys {
+		apiKey := apiKey // pin
+		if apiKey.Key == "" {
+			logger.Warn(logSender, "", "cannot restore empty API key")
+			return fmt.Errorf("cannot restore an empty API key: %+v", apiKey)
+		}
+		k, err := dataprovider.APIKeyExists(apiKey.KeyID)
+		if err == nil {
+			if mode == 1 {
+				logger.Debug(logSender, "", "loaddata mode 1, existing API key %#v not updated", apiKey.KeyID)
+				continue
+			}
+			apiKey.ID = k.ID
+			err = dataprovider.UpdateAPIKey(&apiKey)
+			apiKey.Key = redactedSecret
+			logger.Debug(logSender, "", "restoring existing API key: %+v, dump file: %#v, error: %v", apiKey, inputFile, err)
+		} else {
+			err = dataprovider.AddAPIKey(&apiKey)
+			apiKey.Key = redactedSecret
+			logger.Debug(logSender, "", "adding new API key: %+v, dump file: %#v, error: %v", apiKey, inputFile, err)
+		}
+		if err != nil {
+			return fmt.Errorf("unable to restore API key %#v: %w", apiKey.KeyID, err)
 		}
 	}
 	return nil
@@ -248,7 +284,7 @@ func RestoreAdmins(admins []dataprovider.Admin, inputFile string, mode int) erro
 			logger.Debug(logSender, "", "adding new admin: %+v, dump file: %#v, error: %v", admin, inputFile, err)
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to restore admin %#v: %w", admin.Username, err)
 		}
 	}
 
@@ -278,7 +314,7 @@ func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota i
 			logger.Debug(logSender, "", "adding new user: %+v, dump file: %#v, error: %v", user, inputFile, err)
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to restoreuser %#v: %w", user.Username, err)
 		}
 		if scanQuota == 1 || (scanQuota == 2 && user.HasQuotaRestrictions()) {
 			if common.QuotaScans.AddUserQuotaScan(user.Username) {

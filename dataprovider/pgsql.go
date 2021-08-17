@@ -45,6 +45,18 @@ CREATE INDEX "{{prefix}}folders_mapping_folder_id_idx" ON "{{folders_mapping}}" 
 CREATE INDEX "{{prefix}}folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
 INSERT INTO {{schema_version}} (version) VALUES (10);
 `
+	pgsqlV11SQL = `CREATE TABLE "{{api_keys}}" ("id" serial NOT NULL PRIMARY KEY, "name" varchar(255) NOT NULL,
+"key_id" varchar(50) NOT NULL UNIQUE, "api_key" varchar(255) NOT NULL UNIQUE, "scope" integer NOT NULL,
+"created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "last_use_at" bigint NOT NULL,"expires_at" bigint NOT NULL,
+"description" text NULL, "admin_id" integer NULL, "user_id" integer NULL);
+ALTER TABLE "{{api_keys}}" ADD CONSTRAINT "{{prefix}}api_keys_admin_id_fk_admins_id" FOREIGN KEY ("admin_id")
+REFERENCES "{{admins}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
+ALTER TABLE "{{api_keys}}" ADD CONSTRAINT "{{prefix}}api_keys_user_id_fk_users_id" FOREIGN KEY ("user_id")
+REFERENCES "{{users}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
+CREATE INDEX "{{prefix}}api_keys_admin_id_idx" ON "{{api_keys}}" ("admin_id");
+CREATE INDEX "{{prefix}}api_keys_user_id_idx" ON "{{api_keys}}" ("user_id");
+`
+	pgsqlV11DownSQL = `DROP TABLE "{{api_keys}}" CASCADE;`
 )
 
 // PGSQLProvider auth provider for PostgreSQL database
@@ -206,6 +218,34 @@ func (p *PGSQLProvider) validateAdminAndPass(username, password, ip string) (Adm
 	return sqlCommonValidateAdminAndPass(username, password, ip, p.dbHandle)
 }
 
+func (p *PGSQLProvider) apiKeyExists(keyID string) (APIKey, error) {
+	return sqlCommonGetAPIKeyByID(keyID, p.dbHandle)
+}
+
+func (p *PGSQLProvider) addAPIKey(apiKey *APIKey) error {
+	return sqlCommonAddAPIKey(apiKey, p.dbHandle)
+}
+
+func (p *PGSQLProvider) updateAPIKey(apiKey *APIKey) error {
+	return sqlCommonUpdateAPIKey(apiKey, p.dbHandle)
+}
+
+func (p *PGSQLProvider) deleteAPIKeys(apiKey *APIKey) error {
+	return sqlCommonDeleteAPIKey(apiKey, p.dbHandle)
+}
+
+func (p *PGSQLProvider) getAPIKeys(limit int, offset int, order string) ([]APIKey, error) {
+	return sqlCommonGetAPIKeys(limit, offset, order, p.dbHandle)
+}
+
+func (p *PGSQLProvider) dumpAPIKeys() ([]APIKey, error) {
+	return sqlCommonDumpAPIKeys(p.dbHandle)
+}
+
+func (p *PGSQLProvider) updateAPIKeyLastUse(keyID string) error {
+	return sqlCommonUpdateAPIKeyLastUse(keyID, p.dbHandle)
+}
+
 func (p *PGSQLProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -251,6 +291,8 @@ func (p *PGSQLProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 10:
+		return updatePGSQLDatabaseFromV10(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -272,5 +314,35 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 
-	return errors.New("the current version cannot be reverted")
+	switch dbVersion.Version {
+	case 11:
+		return downgradePGSQLDatabaseFromV11(p.dbHandle)
+	default:
+		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
+	}
+}
+
+func updatePGSQLDatabaseFromV10(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom10To11(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV11(dbHandle *sql.DB) error {
+	return downgradePGSQLDatabaseFrom11To10(dbHandle)
+}
+
+func updatePGSQLDatabaseFrom10To11(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 10 -> 11")
+	providerLog(logger.LevelInfo, "updating database version: 10 -> 11")
+	sql := strings.ReplaceAll(pgsqlV11SQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{api_keys}}", sqlTableAPIKeys)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 11)
+}
+
+func downgradePGSQLDatabaseFrom11To10(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 11 -> 10")
+	providerLog(logger.LevelInfo, "downgrading database version: 11 -> 10")
+	sql := strings.ReplaceAll(pgsqlV11DownSQL, "{{api_keys}}", sqlTableAPIKeys)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 10)
 }

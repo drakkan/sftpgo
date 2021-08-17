@@ -455,6 +455,17 @@
                 </div>
             </div>
 
+            <div class="form-group">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="idAllowAPIKeyAuth" name="allow_api_key_auth"
+                    {{if .User.Filters.AllowAPIKeyAuth}}checked{{end}} aria-describedby="allowAPIKeyAuthHelpBlock">
+                    <label for="idAllowAPIKeyAuth" class="form-check-label">Allow API key authentication</label>
+                    <small id="allowAPIKeyAuthHelpBlock" class="form-text text-muted">
+                        Allow to impersonate this user, in REST API, with an API key
+                    </small>
+                </div>
+            </div>
+
             <div class="form-group row">
                 <label for="idDeniedIP" class="col-sm-2 col-form-label">Denied IP/Mask</label>
                 <div class="col-sm-10">

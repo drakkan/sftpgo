@@ -17,6 +17,7 @@ import (
 )
 
 func getUsers(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	limit, offset, order, err := getSearchFilters(w, r)
 	if err != nil {
 		return
@@ -31,6 +32,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func getUserByUsername(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	username := getURLParam(r, "username")
 	renderUser(w, r, username, http.StatusOK)
 }
@@ -164,6 +166,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteUser(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	username := getURLParam(r, "username")
 	err := dataprovider.DeleteUser(username)
 	if err != nil {

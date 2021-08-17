@@ -54,7 +54,7 @@ const (
 	templateStatus       = "status.html"
 	templateLogin        = "login.html"
 	templateDefender     = "defender.html"
-	templateChangePwd    = "changepwd.html"
+	templateCredentials  = "credentials.html"
 	templateMaintenance  = "maintenance.html"
 	templateSetup        = "adminsetup.html"
 	pageUsersTitle       = "Users"
@@ -62,7 +62,7 @@ const (
 	pageConnectionsTitle = "Connections"
 	pageStatusTitle      = "Status"
 	pageFoldersTitle     = "Folders"
-	pageChangePwdTitle   = "Change password"
+	pageCredentialsTitle = "Manage credentials"
 	pageMaintenanceTitle = "Maintenance"
 	pageDefenderTitle    = "Defender"
 	pageSetupTitle       = "Create first admin user"
@@ -88,7 +88,7 @@ type basePage struct {
 	FolderTemplateURL  string
 	DefenderURL        string
 	LogoutURL          string
-	ChangeAdminPwdURL  string
+	CredentialsURL     string
 	FolderQuotaScanURL string
 	StatusURL          string
 	MaintenanceURL     string
@@ -153,9 +153,13 @@ type adminPage struct {
 	IsAdd bool
 }
 
-type changePwdPage struct {
+type credentialsPage struct {
 	basePage
-	Error string
+	Error           string
+	AllowAPIKeyAuth bool
+	ChangePwdURL    string
+	ManageAPIKeyURL string
+	APIKeyError     string
 }
 
 type maintenancePage struct {
@@ -213,9 +217,9 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateAdmin),
 	}
-	changePwdPaths := []string{
+	credentialsPaths := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateChangePwd),
+		filepath.Join(templatesPath, templateAdminDir, templateCredentials),
 	}
 	connectionsPaths := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
@@ -266,7 +270,7 @@ func loadAdminTemplates(templatesPath string) {
 	folderTmpl := util.LoadTemplate(rootTpl, folderPath...)
 	statusTmpl := util.LoadTemplate(rootTpl, statusPath...)
 	loginTmpl := util.LoadTemplate(rootTpl, loginPath...)
-	changePwdTmpl := util.LoadTemplate(rootTpl, changePwdPaths...)
+	credentialsTmpl := util.LoadTemplate(rootTpl, credentialsPaths...)
 	maintenanceTmpl := util.LoadTemplate(rootTpl, maintenancePath...)
 	defenderTmpl := util.LoadTemplate(rootTpl, defenderPath...)
 	setupTmpl := util.LoadTemplate(rootTpl, setupPath...)
@@ -281,7 +285,7 @@ func loadAdminTemplates(templatesPath string) {
 	adminTemplates[templateFolder] = folderTmpl
 	adminTemplates[templateStatus] = statusTmpl
 	adminTemplates[templateLogin] = loginTmpl
-	adminTemplates[templateChangePwd] = changePwdTmpl
+	adminTemplates[templateCredentials] = credentialsTmpl
 	adminTemplates[templateMaintenance] = maintenanceTmpl
 	adminTemplates[templateDefender] = defenderTmpl
 	adminTemplates[templateSetup] = setupTmpl
@@ -305,7 +309,7 @@ func getBasePageData(title, currentURL string, r *http.Request) basePage {
 		FolderTemplateURL:  webTemplateFolder,
 		DefenderURL:        webDefenderPath,
 		LogoutURL:          webLogoutPath,
-		ChangeAdminPwdURL:  webChangeAdminPwdPath,
+		CredentialsURL:     webAdminCredentialsPath,
 		QuotaScanURL:       webQuotaScanPath,
 		ConnectionsURL:     webConnectionsPath,
 		StatusURL:          webStatusPath,
@@ -366,13 +370,22 @@ func renderNotFoundPage(w http.ResponseWriter, r *http.Request, err error) {
 	renderMessagePage(w, r, page404Title, page404Body, http.StatusNotFound, err, "")
 }
 
-func renderChangePwdPage(w http.ResponseWriter, r *http.Request, error string) {
-	data := changePwdPage{
-		basePage: getBasePageData(pageChangePwdTitle, webChangeAdminPwdPath, r),
-		Error:    error,
+func renderCredentialsPage(w http.ResponseWriter, r *http.Request, pwdError, apiKeyError string) {
+	data := credentialsPage{
+		basePage:        getBasePageData(pageCredentialsTitle, webAdminCredentialsPath, r),
+		ChangePwdURL:    webChangeAdminPwdPath,
+		ManageAPIKeyURL: webChangeAdminAPIKeyAccessPath,
+		Error:           pwdError,
+		APIKeyError:     apiKeyError,
 	}
+	admin, err := dataprovider.AdminExists(data.LoggedAdmin.Username)
+	if err != nil {
+		renderInternalServerErrorPage(w, r, err)
+		return
+	}
+	data.AllowAPIKeyAuth = admin.Filters.AllowAPIKeyAuth
 
-	renderAdminTemplate(w, templateChangePwd, data)
+	renderAdminTemplate(w, templateCredentials, data)
 }
 
 func renderMaintenancePage(w http.ResponseWriter, r *http.Request, error string) {
@@ -658,6 +671,7 @@ func getFiltersFromUserPostFields(r *http.Request) sdk.UserFilters {
 		filters.Hooks.CheckPasswordDisabled = true
 	}
 	filters.DisableFsChecks = len(r.Form.Get("disable_fs_checks")) > 0
+	filters.AllowAPIKeyAuth = len(r.Form.Get("allow_api_key_auth")) > 0
 	return filters
 }
 
@@ -820,6 +834,7 @@ func getAdminFromPostFields(r *http.Request) (dataprovider.Admin, error) {
 	admin.Email = r.Form.Get("email")
 	admin.Status = status
 	admin.Filters.AllowList = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")
+	admin.Filters.AllowAPIKeyAuth = len(r.Form.Get("allow_api_key_auth")) > 0
 	admin.AdditionalInfo = r.Form.Get("additional_info")
 	admin.Description = r.Form.Get("description")
 	return admin, nil
@@ -1018,15 +1033,16 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	return user, err
 }
 
-func handleWebAdminChangePwd(w http.ResponseWriter, r *http.Request) {
-	renderChangePwdPage(w, r, "")
+func handleWebAdminCredentials(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	renderCredentialsPage(w, r, "", "")
 }
 
 func handleWebAdminChangePwdPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	err := r.ParseForm()
 	if err != nil {
-		renderChangePwdPage(w, r, err.Error())
+		renderCredentialsPage(w, r, err.Error(), "")
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
@@ -1036,13 +1052,45 @@ func handleWebAdminChangePwdPost(w http.ResponseWriter, r *http.Request) {
 	err = doChangeAdminPassword(r, r.Form.Get("current_password"), r.Form.Get("new_password1"),
 		r.Form.Get("new_password2"))
 	if err != nil {
-		renderChangePwdPage(w, r, err.Error())
+		renderCredentialsPage(w, r, err.Error(), "")
 		return
 	}
 	handleWebLogout(w, r)
 }
 
+func handleWebAdminManageAPIKeyPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	err := r.ParseForm()
+	if err != nil {
+		renderCredentialsPage(w, r, err.Error(), "")
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderForbiddenPage(w, r, err.Error())
+		return
+	}
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		renderCredentialsPage(w, r, "", "Invalid token claims")
+		return
+	}
+	admin, err := dataprovider.AdminExists(claims.Username)
+	if err != nil {
+		renderCredentialsPage(w, r, "", err.Error())
+		return
+	}
+	admin.Filters.AllowAPIKeyAuth = len(r.Form.Get("allow_api_key_auth")) > 0
+	err = dataprovider.UpdateAdmin(&admin)
+	if err != nil {
+		renderCredentialsPage(w, r, "", err.Error())
+		return
+	}
+	renderMessagePage(w, r, "API key authentication updated", "", http.StatusOK, nil,
+		"Your API key access permission has been successfully updated")
+}
+
 func handleWebLogout(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	c := jwtTokenClaims{}
 	c.removeCookie(w, r, webBaseAdminPath)
 
@@ -1050,10 +1098,12 @@ func handleWebLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebMaintenance(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	renderMaintenancePage(w, r, "")
 }
 
 func handleWebRestore(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxRestoreSize)
 	err := r.ParseMultipartForm(MaxRestoreSize)
 	if err != nil {
 		renderMaintenancePage(w, r, err.Error())
@@ -1098,6 +1148,7 @@ func handleWebRestore(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleGetWebAdmins(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	limit := defaultQueryLimit
 	if _, ok := r.URL.Query()["qlimit"]; ok {
 		var err error
@@ -1126,6 +1177,7 @@ func handleGetWebAdmins(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebAdminSetupGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	if dataprovider.HasAdmin() {
 		http.Redirect(w, r, webLoginPath, http.StatusFound)
 		return
@@ -1134,11 +1186,13 @@ func handleWebAdminSetupGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebAddAdminGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	admin := &dataprovider.Admin{Status: 1}
 	renderAddUpdateAdminPage(w, r, admin, "", true)
 }
 
 func handleWebUpdateAdminGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	username := getURLParam(r, "username")
 	admin, err := dataprovider.AdminExists(username)
 	if err == nil {
@@ -1220,6 +1274,7 @@ func handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebDefenderPage(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	data := defenderHostsPage{
 		basePage:         getBasePageData(pageDefenderTitle, webDefenderPath, r),
 		DefenderHostsURL: webDefenderHostsPath,
@@ -1229,6 +1284,7 @@ func handleWebDefenderPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleGetWebUsers(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	limit := defaultQueryLimit
 	if _, ok := r.URL.Query()["qlimit"]; ok {
 		var err error
@@ -1257,6 +1313,7 @@ func handleGetWebUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebTemplateFolderGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	if r.URL.Query().Get("from") != "" {
 		name := r.URL.Query().Get("from")
 		folder, err := dataprovider.GetFolderByName(name)
@@ -1319,6 +1376,7 @@ func handleWebTemplateFolderPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebTemplateUserGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	if r.URL.Query().Get("from") != "" {
 		username := r.URL.Query().Get("from")
 		user, err := dataprovider.UserExists(username)
@@ -1376,6 +1434,7 @@ func handleWebTemplateUserPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	if r.URL.Query().Get("clone-from") != "" {
 		username := r.URL.Query().Get("clone-from")
 		user, err := dataprovider.UserExists(username)
@@ -1397,6 +1456,7 @@ func handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebUpdateUserGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	username := getURLParam(r, "username")
 	user, err := dataprovider.UserExists(username)
 	if err == nil {
@@ -1469,6 +1529,7 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebGetStatus(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	data := statusPage{
 		basePage: getBasePageData(pageStatusTitle, webStatusPath, r),
 		Status:   getServicesStatus(),
@@ -1477,6 +1538,7 @@ func handleWebGetStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebGetConnections(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	connectionStats := common.Connections.GetStats()
 	data := connectionsPage{
 		basePage:    getBasePageData(pageConnectionsTitle, webConnectionsPath, r),
@@ -1486,6 +1548,7 @@ func handleWebGetConnections(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebAddFolderGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	renderFolderPage(w, r, vfs.BaseVirtualFolder{}, folderPageModeAdd, "")
 }
 
@@ -1520,6 +1583,7 @@ func handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWebUpdateFolderGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	name := getURLParam(r, "name")
 	folder, err := dataprovider.GetFolderByName(name)
 	if err == nil {
@@ -1594,6 +1658,7 @@ func getWebVirtualFolders(w http.ResponseWriter, r *http.Request, limit int) ([]
 }
 
 func handleWebGetFolders(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	limit := defaultQueryLimit
 	if _, ok := r.URL.Query()["qlimit"]; ok {
 		var err error

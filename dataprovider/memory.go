@@ -36,6 +36,10 @@ type memoryProviderHandle struct {
 	admins map[string]Admin
 	// slice with ordered admins
 	adminsUsernames []string
+	// map for API keys, keyID is the key
+	apiKeys map[string]APIKey
+	// slice with ordered API keys KeyID
+	apiKeysIDs []string
 }
 
 // MemoryProvider auth provider for a memory store
@@ -60,6 +64,8 @@ func initializeMemoryProvider(basePath string) {
 			vfoldersNames:   []string{},
 			admins:          make(map[string]Admin),
 			adminsUsernames: []string{},
+			apiKeys:         make(map[string]APIKey),
+			apiKeysIDs:      []string{},
 			configFile:      configFile,
 		},
 	}
@@ -135,6 +141,21 @@ func (p *MemoryProvider) validateAdminAndPass(username, password, ip string) (Ad
 	}
 	err = admin.checkUserAndPass(password, ip)
 	return admin, err
+}
+
+func (p *MemoryProvider) updateAPIKeyLastUse(keyID string) error {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	apiKey, err := p.apiKeyExistsInternal(keyID)
+	if err != nil {
+		return err
+	}
+	apiKey.LastUseAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	p.dbHandle.apiKeys[apiKey.KeyID] = apiKey
+	return nil
 }
 
 func (p *MemoryProvider) updateLastLogin(username string) error {
@@ -273,6 +294,7 @@ func (p *MemoryProvider) deleteUser(user *User) error {
 		p.dbHandle.usernames = append(p.dbHandle.usernames, username)
 	}
 	sort.Strings(p.dbHandle.usernames)
+	p.deleteAPIKeysWithUser(user.Username)
 	return nil
 }
 
@@ -428,6 +450,7 @@ func (p *MemoryProvider) deleteAdmin(admin *Admin) error {
 		p.dbHandle.adminsUsernames = append(p.dbHandle.adminsUsernames, username)
 	}
 	sort.Strings(p.dbHandle.adminsUsernames)
+	p.deleteAPIKeysWithAdmin(admin.Username)
 	return nil
 }
 
@@ -768,6 +791,168 @@ func (p *MemoryProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
 	}
 	sort.Strings(p.dbHandle.vfoldersNames)
 	return nil
+}
+
+func (p *MemoryProvider) apiKeyExistsInternal(keyID string) (APIKey, error) {
+	if val, ok := p.dbHandle.apiKeys[keyID]; ok {
+		return val.getACopy(), nil
+	}
+	return APIKey{}, util.NewRecordNotFoundError(fmt.Sprintf("API key %#v does not exist", keyID))
+}
+
+func (p *MemoryProvider) apiKeyExists(keyID string) (APIKey, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return APIKey{}, errMemoryProviderClosed
+	}
+	return p.apiKeyExistsInternal(keyID)
+}
+
+func (p *MemoryProvider) addAPIKey(apiKey *APIKey) error {
+	err := apiKey.validate()
+	if err != nil {
+		return err
+	}
+
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+
+	_, err = p.apiKeyExistsInternal(apiKey.KeyID)
+	if err == nil {
+		return fmt.Errorf("API key %#v already exists", apiKey.KeyID)
+	}
+	apiKey.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	p.dbHandle.apiKeys[apiKey.KeyID] = apiKey.getACopy()
+	p.dbHandle.apiKeysIDs = append(p.dbHandle.apiKeysIDs, apiKey.KeyID)
+	sort.Strings(p.dbHandle.apiKeysIDs)
+	return nil
+}
+
+func (p *MemoryProvider) updateAPIKey(apiKey *APIKey) error {
+	err := apiKey.validate()
+	if err != nil {
+		return err
+	}
+
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	k, err := p.apiKeyExistsInternal(apiKey.KeyID)
+	if err != nil {
+		return err
+	}
+	apiKey.ID = k.ID
+	apiKey.KeyID = k.KeyID
+	apiKey.Key = k.Key
+	apiKey.CreatedAt = k.CreatedAt
+	apiKey.LastUseAt = k.LastUseAt
+	apiKey.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	p.dbHandle.apiKeys[apiKey.KeyID] = apiKey.getACopy()
+	return nil
+}
+
+func (p *MemoryProvider) deleteAPIKeys(apiKey *APIKey) error {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	_, err := p.apiKeyExistsInternal(apiKey.KeyID)
+	if err != nil {
+		return err
+	}
+
+	delete(p.dbHandle.apiKeys, apiKey.KeyID)
+	// this could be more efficient
+	p.dbHandle.apiKeysIDs = make([]string, 0, len(p.dbHandle.apiKeys))
+	for keyID := range p.dbHandle.apiKeys {
+		p.dbHandle.apiKeysIDs = append(p.dbHandle.apiKeysIDs, keyID)
+	}
+	sort.Strings(p.dbHandle.apiKeysIDs)
+	return nil
+}
+
+func (p *MemoryProvider) getAPIKeys(limit int, offset int, order string) ([]APIKey, error) {
+	apiKeys := make([]APIKey, 0, limit)
+
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+
+	if p.dbHandle.isClosed {
+		return apiKeys, errMemoryProviderClosed
+	}
+	if limit <= 0 {
+		return apiKeys, nil
+	}
+	itNum := 0
+	if order == OrderDESC {
+		for i := len(p.dbHandle.apiKeysIDs) - 1; i >= 0; i-- {
+			itNum++
+			if itNum <= offset {
+				continue
+			}
+			keyID := p.dbHandle.apiKeysIDs[i]
+			k := p.dbHandle.apiKeys[keyID]
+			apiKey := k.getACopy()
+			apiKey.HideConfidentialData()
+			apiKeys = append(apiKeys, apiKey)
+			if len(apiKeys) >= limit {
+				break
+			}
+		}
+	} else {
+		for _, keyID := range p.dbHandle.apiKeysIDs {
+			itNum++
+			if itNum <= offset {
+				continue
+			}
+			k := p.dbHandle.apiKeys[keyID]
+			apiKey := k.getACopy()
+			apiKey.HideConfidentialData()
+			apiKeys = append(apiKeys, apiKey)
+			if len(apiKeys) >= limit {
+				break
+			}
+		}
+	}
+
+	return apiKeys, nil
+}
+
+func (p *MemoryProvider) dumpAPIKeys() ([]APIKey, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+
+	apiKeys := make([]APIKey, 0, len(p.dbHandle.apiKeys))
+	if p.dbHandle.isClosed {
+		return apiKeys, errMemoryProviderClosed
+	}
+	for _, k := range p.dbHandle.apiKeys {
+		apiKeys = append(apiKeys, k)
+	}
+	return apiKeys, nil
+}
+
+func (p *MemoryProvider) deleteAPIKeysWithUser(username string) {
+	for k, v := range p.dbHandle.apiKeys {
+		if v.User == username {
+			delete(p.dbHandle.apiKeys, k)
+		}
+	}
+}
+
+func (p *MemoryProvider) deleteAPIKeysWithAdmin(username string) {
+	for k, v := range p.dbHandle.apiKeys {
+		if v.Admin == username {
+			delete(p.dbHandle.apiKeys, k)
+		}
+	}
 }
 
 func (p *MemoryProvider) getNextID() int64 {

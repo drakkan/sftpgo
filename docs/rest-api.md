@@ -6,11 +6,6 @@ If quota tracking is enabled in the configuration file, then the used size and n
 
 REST API are protected using JSON Web Tokens (JWT) authentication and can be exposed over HTTPS. You can also configure client certificate authentication in addition to JWT.
 
-The default credentials are:
-
-- username: `admin`
-- password: `password`
-
 You can get a JWT token using the `/api/v2/token` endpoint, you need to authenticate using HTTP Basic authentication and the credentials of an active administrator. Here is a sample response:
 
 ```json
@@ -37,10 +32,34 @@ You can create other administrator and assign them the following permissions:
 - view and start quota scans
 - view defender
 - manage defender
+- manage API keys
 - manage system
 - manage admins
 
 You can also restrict administrator access based on the source IP address. If you are running SFTPGo behind a reverse proxy you need to allow both the proxy IP address and the real client IP.
+
+As alternative authentication method you can use API keys. API keys are mainly designed for machine-to-machine communications and a static API key is intrinsically less secure than a short lived JWT token.
+To generate API keys you first need to get a JWT token and then you can use the `/api/v2/apikeys` endpoint to manage your API keys.
+
+The API keys allow the impersonation of users and administrators, using the API keys you inherit the permissions of the associated user/admin.
+
+The user/admin association can be:
+
+- static, a user/admin is explictly associated to the API key
+- dynamic, the API key has no user/admin associated, you need to add ".username" at the end of the key to specificy the user/admin to impersonate. For example if your API key is `6ajKLwswLccVBGpZGv596G.ySAXc8vtp9hMiwAuaLtzof` and you want to impersonate the admin with username `myadmin` you have to use `6ajKLwswLccVBGpZGv596G.ySAXc8vtp9hMiwAuaLtzof.myadmin` as API key.
+
+The API key scope defines if the API key can impersonate users or admins.
+Before you can impersonate a user/admin you have to set `allow_api_key_auth` at user/admin level. Each user/admin can always revoke this permission.
+
+The generated API key is returned in the response body when you create a new API key object. It is not stored as plain text, you need to save it after the initial creation, there is no way to display the API key as plain text after the initial creation.
+
+API keys are not allowed for the following REST APIs:
+
+- manage API keys itself. You cannot create, update, delete, enumerate API keys if you are logged in with an API key
+- change password or public keys for the associated user
+- update the impersonated admin
+
+Please keep in mind that using an API key not associated with any administrator it is still possible to create a new administrator, with full permissions, and then impersonate it: be careful if you share unassociated API keys with third parties and with the `manage adminis` permission granted, they will basically allow full access, the only restriction is that the impersonated admin cannot be modified.
 
 The OpenAPI 3 schema for the exposed API can be found inside the source tree: [openapi.yaml](../httpd/schema/openapi.yaml "OpenAPI 3 specs"). If you want to render the schema without importing it manually, you can explore it on [Stoplight](https://sftpgo.stoplight.io/docs/sftpgo/openapi.yaml).
 

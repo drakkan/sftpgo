@@ -2,14 +2,21 @@ package httpd
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"runtime/debug"
+	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/rs/xid"
 
+	"github.com/drakkan/sftpgo/v2/common"
+	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -201,6 +208,88 @@ func verifyCSRFHeader(next http.Handler) http.Handler {
 	})
 }
 
+func checkAPIKeyAuth(tokenAuth *jwtauth.JWTAuth, scope dataprovider.APIKeyScope) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			apiKey := r.Header.Get("X-SFTPGO-API-KEY")
+			if apiKey == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			keyParams := strings.SplitN(apiKey, ".", 3)
+			if len(keyParams) < 2 {
+				logger.Debug(logSender, "", "invalid api key %#v", apiKey)
+				sendAPIResponse(w, r, errors.New("the provided api key is not valid"), "", http.StatusBadRequest)
+				return
+			}
+			keyID := keyParams[0]
+			key := keyParams[1]
+			apiUser := ""
+			if len(keyParams) > 2 {
+				apiUser = keyParams[2]
+			}
+
+			k, err := dataprovider.APIKeyExists(keyID)
+			if err != nil {
+				logger.Debug(logSender, "invalid api key %#v: %v", apiKey, err)
+				sendAPIResponse(w, r, errors.New("the provided api key is not valid"), "", http.StatusBadRequest)
+				return
+			}
+			if err := k.Authenticate(key); err != nil {
+				logger.Debug(logSender, "unable to authenticate api key %#v: %v", apiKey, err)
+				sendAPIResponse(w, r, fmt.Errorf("the provided api key cannot be authenticated"), "", http.StatusUnauthorized)
+				return
+			}
+			if scope == dataprovider.APIKeyScopeAdmin {
+				if k.Admin != "" {
+					apiUser = k.Admin
+				}
+				if err := authenticateAdminWithAPIKey(apiUser, keyID, tokenAuth, r); err != nil {
+					logger.Debug(logSender, "", "unable to authenticate admin %#v associated with api key %#v: %v",
+						apiUser, apiKey, err)
+					sendAPIResponse(w, r, fmt.Errorf("the admin associated with the provided api key cannot be authenticated"),
+						"", http.StatusUnauthorized)
+					return
+				}
+			} else {
+				if k.User != "" {
+					apiUser = k.User
+				}
+				if err := authenticateUserWithAPIKey(apiUser, keyID, tokenAuth, r); err != nil {
+					logger.Debug(logSender, "", "unable to authenticate user %#v associated with api key %#v: %v",
+						apiUser, apiKey, err)
+					code := http.StatusUnauthorized
+					if errors.Is(err, common.ErrInternalFailure) {
+						code = http.StatusInternalServerError
+					}
+					sendAPIResponse(w, r, errors.New("the user associated with the provided api key cannot be authenticated"),
+						"", code)
+					return
+				}
+			}
+			dataprovider.UpdateAPIKeyLastUse(&k) //nolint:errcheck
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func forbidAPIKeyAuthentication(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		claims, err := getTokenClaims(r)
+		if err != nil || claims.Username == "" {
+			sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+			return
+		}
+		if claims.APIKeyID != "" {
+			sendAPIResponse(w, r, nil, "API key authentication is not allowed", http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func recoverer(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
@@ -224,4 +313,92 @@ func recoverer(next http.Handler) http.Handler {
 	}
 
 	return http.HandlerFunc(fn)
+}
+
+func authenticateAdminWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTAuth, r *http.Request) error {
+	if username == "" {
+		return errors.New("the provided key is not associated with any admin and no username was provided")
+	}
+	admin, err := dataprovider.AdminExists(username)
+	if err != nil {
+		return err
+	}
+	if !admin.Filters.AllowAPIKeyAuth {
+		return fmt.Errorf("API key authentication disabled for admin %#v", admin.Username)
+	}
+	if err := admin.CanLogin(util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+		return err
+	}
+	c := jwtTokenClaims{
+		Username:    admin.Username,
+		Permissions: admin.Permissions,
+		Signature:   admin.GetSignature(),
+		APIKeyID:    keyID,
+	}
+
+	resp, err := c.createTokenResponse(tokenAuth, tokenAudienceAPI)
+	if err != nil {
+		return err
+	}
+	r.Header.Set("Authorization", fmt.Sprintf("Bearer %v", resp["access_token"]))
+
+	return nil
+}
+
+func authenticateUserWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTAuth, r *http.Request) error {
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if username == "" {
+		err := errors.New("the provided key is not associated with any user and no username was provided")
+		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}}, ipAddr, err)
+		return err
+	}
+	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolHTTP); err != nil {
+		return err
+	}
+	user, err := dataprovider.UserExists(username)
+	if err != nil {
+		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}}, ipAddr, err)
+		return err
+	}
+	if !user.Filters.AllowAPIKeyAuth {
+		err := fmt.Errorf("API key authentication disabled for user %#v", user.Username)
+		updateLoginMetrics(&user, ipAddr, err)
+		return err
+	}
+	if err := user.CheckLoginConditions(); err != nil {
+		updateLoginMetrics(&user, ipAddr, err)
+		return err
+	}
+	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, xid.New().String())
+	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
+		updateLoginMetrics(&user, ipAddr, err)
+		return err
+	}
+	lastLogin := util.GetTimeFromMsecSinceEpoch(user.LastLogin)
+	diff := -time.Until(lastLogin)
+	if diff < 0 || diff > 10*time.Minute {
+		defer user.CloseFs() //nolint:errcheck
+		err = user.CheckFsRoot(connectionID)
+		if err != nil {
+			updateLoginMetrics(&user, ipAddr, common.ErrInternalFailure)
+			return common.ErrInternalFailure
+		}
+	}
+	c := jwtTokenClaims{
+		Username:    user.Username,
+		Permissions: user.Filters.WebClient,
+		Signature:   user.GetSignature(),
+		APIKeyID:    keyID,
+	}
+
+	resp, err := c.createTokenResponse(tokenAuth, tokenAudienceAPIUser)
+	if err != nil {
+		updateLoginMetrics(&user, ipAddr, common.ErrInternalFailure)
+		return err
+	}
+	r.Header.Set("Authorization", fmt.Sprintf("Bearer %v", resp["access_token"]))
+	dataprovider.UpdateLastLogin(&user) //nolint:errcheck
+	updateLoginMetrics(&user, ipAddr, nil)
+
+	return nil
 }

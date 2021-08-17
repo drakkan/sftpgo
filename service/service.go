@@ -286,7 +286,11 @@ func (s *Service) loadInitialData() error {
 }
 
 func (s *Service) restoreDump(dump *dataprovider.BackupData) error {
-	err := httpd.RestoreAdmins(dump.Admins, s.LoadDataFrom, s.LoadDataMode)
+	err := httpd.RestoreAPIKeys(dump.APIKeys, s.LoadDataFrom, s.LoadDataMode)
+	if err != nil {
+		return fmt.Errorf("unable to restore API keys from file %#v: %v", s.LoadDataFrom, err)
+	}
+	err = httpd.RestoreAdmins(dump.Admins, s.LoadDataFrom, s.LoadDataMode)
 	if err != nil {
 		return fmt.Errorf("unable to restore admins from file %#v: %v", s.LoadDataFrom, err)
 	}

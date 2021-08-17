@@ -28,6 +28,7 @@ const (
 	PermAdminCloseConnections = "close_conns"
 	PermAdminViewServerStatus = "view_status"
 	PermAdminManageAdmins     = "manage_admins"
+	PermAdminManageAPIKeys    = "manage_apikeys"
 	PermAdminQuotaScans       = "quota_scans"
 	PermAdminManageSystem     = "manage_system"
 	PermAdminManageDefender   = "manage_defender"
@@ -38,8 +39,8 @@ var (
 	emailRegex      = regexp.MustCompile("^(?:(?:(?:(?:[a-zA-Z]|\\d|[!#\\$%&'\\*\\+\\-\\/=\\?\\^_`{\\|}~]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])+(?:\\.([a-zA-Z]|\\d|[!#\\$%&'\\*\\+\\-\\/=\\?\\^_`{\\|}~]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])+)*)|(?:(?:\\x22)(?:(?:(?:(?:\\x20|\\x09)*(?:\\x0d\\x0a))?(?:\\x20|\\x09)+)?(?:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f]|\\x21|[\\x23-\\x5b]|[\\x5d-\\x7e]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])|(?:(?:[\\x01-\\x09\\x0b\\x0c\\x0d-\\x7f]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}]))))*(?:(?:(?:\\x20|\\x09)*(?:\\x0d\\x0a))?(\\x20|\\x09)+)?(?:\\x22))))@(?:(?:(?:[a-zA-Z]|\\d|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])|(?:(?:[a-zA-Z]|\\d|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])(?:[a-zA-Z]|\\d|-|\\.|~|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])*(?:[a-zA-Z]|\\d|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])))\\.)+(?:(?:[a-zA-Z]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])|(?:(?:[a-zA-Z]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])(?:[a-zA-Z]|\\d|-|\\.|~|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])*(?:[a-zA-Z]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])))\\.?$")
 	validAdminPerms = []string{PermAdminAny, PermAdminAddUsers, PermAdminChangeUsers, PermAdminDeleteUsers,
 		PermAdminViewUsers, PermAdminViewConnections, PermAdminCloseConnections, PermAdminViewServerStatus,
-		PermAdminManageAdmins, PermAdminQuotaScans, PermAdminManageSystem, PermAdminManageDefender,
-		PermAdminViewDefender}
+		PermAdminManageAdmins, PermAdminManageAPIKeys, PermAdminQuotaScans, PermAdminManageSystem,
+		PermAdminManageDefender, PermAdminViewDefender}
 )
 
 // AdminFilters defines additional restrictions for SFTPGo admins
@@ -49,6 +50,8 @@ type AdminFilters struct {
 	// IP/Mask must be in CIDR notation as defined in RFC 4632 and RFC 4291
 	// for example "192.0.2.0/24" or "2001:db8::/32"
 	AllowList []string `json:"allow_list,omitempty"`
+	// API key auth allows to impersonate this administrator with an API key
+	AllowAPIKeyAuth bool `json:"allow_api_key_auth,omitempty"`
 }
 
 // Admin defines a SFTPGo admin
@@ -162,9 +165,20 @@ func (a *Admin) CanLoginFromIP(ip string) bool {
 	return false
 }
 
-func (a *Admin) checkUserAndPass(password, ip string) error {
+// CanLogin returns an error if the login is not allowed
+func (a *Admin) CanLogin(ip string) error {
 	if a.Status != 1 {
 		return fmt.Errorf("admin %#v is disabled", a.Username)
+	}
+	if !a.CanLoginFromIP(ip) {
+		return fmt.Errorf("login from IP %v not allowed", ip)
+	}
+	return nil
+}
+
+func (a *Admin) checkUserAndPass(password, ip string) error {
+	if err := a.CanLogin(ip); err != nil {
+		return err
 	}
 	if a.Password == "" || password == "" {
 		return errors.New("credentials cannot be null or empty")
@@ -175,9 +189,6 @@ func (a *Admin) checkUserAndPass(password, ip string) error {
 	}
 	if !match {
 		return ErrInvalidCredentials
-	}
-	if !a.CanLoginFromIP(ip) {
-		return fmt.Errorf("login from IP %v not allowed", ip)
 	}
 	return nil
 }
@@ -236,6 +247,7 @@ func (a *Admin) getACopy() Admin {
 	copy(permissions, a.Permissions)
 	filters := AdminFilters{}
 	filters.AllowList = make([]string, len(a.Filters.AllowList))
+	filters.AllowAPIKeyAuth = a.Filters.AllowAPIKeyAuth
 	copy(filters.AllowList, a.Filters.AllowList)
 
 	return Admin{

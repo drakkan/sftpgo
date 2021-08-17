@@ -120,6 +120,8 @@ type UserFilters struct {
 	DisableFsChecks bool `json:"disable_fs_checks,omitempty"`
 	// WebClient related configuration options
 	WebClient []string `json:"web_client,omitempty"`
+	// API key auth allows to impersonate this user with an API key
+	AllowAPIKeyAuth bool `json:"allow_api_key_auth,omitempty"`
 }
 
 type BaseUser struct {

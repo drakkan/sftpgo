@@ -179,6 +179,18 @@ func (u *User) isFsEqual(other *User) bool {
 	return true
 }
 
+// CheckLoginConditions checks if the user is active and not expired
+func (u *User) CheckLoginConditions() error {
+	if u.Status < 1 {
+		return fmt.Errorf("user %#v is disabled", u.Username)
+	}
+	if u.ExpirationDate > 0 && u.ExpirationDate < util.GetTimeAsMsSinceEpoch(time.Now()) {
+		return fmt.Errorf("user %#v is expired, expiration timestamp: %v current timestamp: %v", u.Username,
+			u.ExpirationDate, util.GetTimeAsMsSinceEpoch(time.Now()))
+	}
+	return nil
+}
+
 // hideConfidentialData hides user confidential data
 func (u *User) hideConfidentialData() {
 	u.Password = ""
@@ -997,6 +1009,7 @@ func (u *User) getACopy() User {
 	filters.Hooks.PreLoginDisabled = u.Filters.Hooks.PreLoginDisabled
 	filters.Hooks.CheckPasswordDisabled = u.Filters.Hooks.CheckPasswordDisabled
 	filters.DisableFsChecks = u.Filters.DisableFsChecks
+	filters.AllowAPIKeyAuth = u.Filters.AllowAPIKeyAuth
 	filters.WebClient = make([]string, len(u.Filters.WebClient))
 	copy(filters.WebClient, u.Filters.WebClient)
 

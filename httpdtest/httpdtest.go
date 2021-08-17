@@ -44,6 +44,7 @@ const (
 	defenderScore         = "/api/v2/defender/score"
 	adminPath             = "/api/v2/admins"
 	adminPwdPath          = "/api/v2/admin/changepwd"
+	apiKeysPath           = "/api/v2/apikeys"
 )
 
 const (
@@ -241,7 +242,7 @@ func GetUsers(limit, offset int64, expectedStatusCode int) ([]dataprovider.User,
 	return users, body, err
 }
 
-// AddAdmin adds a new user and checks the received HTTP Status code against expectedStatusCode.
+// AddAdmin adds a new admin and checks the received HTTP Status code against expectedStatusCode.
 func AddAdmin(admin dataprovider.Admin, expectedStatusCode int) (dataprovider.Admin, []byte, error) {
 	var newAdmin dataprovider.Admin
 	var body []byte
@@ -370,6 +371,121 @@ func ChangeAdminPassword(currentPassword, newPassword string, expectedStatusCode
 	body, _ = getResponseBody(resp)
 
 	return body, err
+}
+
+// GetAPIKeys returns a list of API keys and checks the received HTTP Status code against expectedStatusCode.
+// The number of results can be limited specifying a limit.
+// Some results can be skipped specifying an offset.
+func GetAPIKeys(limit, offset int64, expectedStatusCode int) ([]dataprovider.APIKey, []byte, error) {
+	var apiKeys []dataprovider.APIKey
+	var body []byte
+	url, err := addLimitAndOffsetQueryParams(buildURLRelativeToBase(apiKeysPath), limit, offset)
+	if err != nil {
+		return apiKeys, body, err
+	}
+	resp, err := sendHTTPRequest(http.MethodGet, url.String(), nil, "", getDefaultToken())
+	if err != nil {
+		return apiKeys, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &apiKeys)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return apiKeys, body, err
+}
+
+// AddAPIKey adds a new API key and checks the received HTTP Status code against expectedStatusCode.
+func AddAPIKey(apiKey dataprovider.APIKey, expectedStatusCode int) (dataprovider.APIKey, []byte, error) {
+	var newAPIKey dataprovider.APIKey
+	var body []byte
+	asJSON, _ := json.Marshal(apiKey)
+	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(apiKeysPath), bytes.NewBuffer(asJSON),
+		"application/json", getDefaultToken())
+	if err != nil {
+		return newAPIKey, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if expectedStatusCode != http.StatusCreated {
+		body, _ = getResponseBody(resp)
+		return newAPIKey, body, err
+	}
+	if err != nil {
+		body, _ = getResponseBody(resp)
+		return newAPIKey, body, err
+	}
+	response := make(map[string]string)
+	err = render.DecodeJSON(resp.Body, &response)
+	if err == nil {
+		newAPIKey, body, err = GetAPIKeyByID(resp.Header.Get("X-Object-ID"), http.StatusOK)
+	}
+	if err == nil {
+		err = checkAPIKey(&apiKey, &newAPIKey)
+	}
+	newAPIKey.Key = response["key"]
+
+	return newAPIKey, body, err
+}
+
+// UpdateAPIKey updates an existing API key and checks the received HTTP Status code against expectedStatusCode
+func UpdateAPIKey(apiKey dataprovider.APIKey, expectedStatusCode int) (dataprovider.APIKey, []byte, error) {
+	var newAPIKey dataprovider.APIKey
+	var body []byte
+
+	asJSON, _ := json.Marshal(apiKey)
+	resp, err := sendHTTPRequest(http.MethodPut, buildURLRelativeToBase(apiKeysPath, url.PathEscape(apiKey.KeyID)),
+		bytes.NewBuffer(asJSON), "application/json", getDefaultToken())
+	if err != nil {
+		return newAPIKey, body, err
+	}
+	defer resp.Body.Close()
+	body, _ = getResponseBody(resp)
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if expectedStatusCode != http.StatusOK {
+		return newAPIKey, body, err
+	}
+	if err == nil {
+		newAPIKey, body, err = GetAPIKeyByID(apiKey.KeyID, expectedStatusCode)
+	}
+	if err == nil {
+		err = checkAPIKey(&apiKey, &newAPIKey)
+	}
+	return newAPIKey, body, err
+}
+
+// RemoveAPIKey removes an existing API key and checks the received HTTP Status code against expectedStatusCode.
+func RemoveAPIKey(apiKey dataprovider.APIKey, expectedStatusCode int) ([]byte, error) {
+	var body []byte
+	resp, err := sendHTTPRequest(http.MethodDelete, buildURLRelativeToBase(apiKeysPath, url.PathEscape(apiKey.KeyID)),
+		nil, "", getDefaultToken())
+	if err != nil {
+		return body, err
+	}
+	defer resp.Body.Close()
+	body, _ = getResponseBody(resp)
+	return body, checkResponse(resp.StatusCode, expectedStatusCode)
+}
+
+// GetAPIKeyByID gets a API key by ID and checks the received HTTP Status code against expectedStatusCode.
+func GetAPIKeyByID(keyID string, expectedStatusCode int) (dataprovider.APIKey, []byte, error) {
+	var apiKey dataprovider.APIKey
+	var body []byte
+	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(apiKeysPath, url.PathEscape(keyID)),
+		nil, "", getDefaultToken())
+	if err != nil {
+		return apiKey, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &apiKey)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return apiKey, body, err
 }
 
 // GetQuotaScans gets active quota scans for users and checks the received HTTP Status code against expectedStatusCode.
@@ -894,7 +1010,42 @@ func checkFolder(expected *vfs.BaseVirtualFolder, actual *vfs.BaseVirtualFolder)
 	return compareFsConfig(&expected.FsConfig, &actual.FsConfig)
 }
 
-func checkAdmin(expected *dataprovider.Admin, actual *dataprovider.Admin) error {
+func checkAPIKey(expected, actual *dataprovider.APIKey) error {
+	if actual.Key != "" {
+		return errors.New("key must not be visible")
+	}
+	if actual.KeyID == "" {
+		return errors.New("actual key_id cannot be empty")
+	}
+	if expected.Name != actual.Name {
+		return errors.New("name mismatch")
+	}
+	if expected.Scope != actual.Scope {
+		return errors.New("scope mismatch")
+	}
+	if actual.CreatedAt == 0 {
+		return errors.New("created_at cannot be 0")
+	}
+	if actual.UpdatedAt == 0 {
+		return errors.New("updated_at cannot be 0")
+	}
+	if expected.ExpiresAt != actual.ExpiresAt {
+		return errors.New("expires_at mismatch")
+	}
+	if expected.Description != actual.Description {
+		return errors.New("description mismatch")
+	}
+	if expected.User != actual.User {
+		return errors.New("user mismatch")
+	}
+	if expected.Admin != actual.Admin {
+		return errors.New("admin mismatch")
+	}
+
+	return nil
+}
+
+func checkAdmin(expected, actual *dataprovider.Admin) error {
 	if actual.Password != "" {
 		return errors.New("admin password must not be visible")
 	}
@@ -920,6 +1071,9 @@ func checkAdmin(expected *dataprovider.Admin, actual *dataprovider.Admin) error 
 	}
 	if len(expected.Filters.AllowList) != len(actual.Filters.AllowList) {
 		return errors.New("allow list mismatch")
+	}
+	if expected.Filters.AllowAPIKeyAuth != actual.Filters.AllowAPIKeyAuth {
+		return errors.New("allow_api_key_auth mismatch")
 	}
 	for _, v := range expected.Filters.AllowList {
 		if !util.IsStringInSlice(v, actual.Filters.AllowList) {
@@ -1269,6 +1423,9 @@ func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) 
 	}
 	if len(expected.Filters.WebClient) != len(actual.Filters.WebClient) {
 		return errors.New("WebClient filter mismatch")
+	}
+	if expected.Filters.AllowAPIKeyAuth != actual.Filters.AllowAPIKeyAuth {
+		return errors.New("allow_api_key_auth mismatch")
 	}
 	if err := compareUserFilterSubStructs(expected, actual); err != nil {
 		return err

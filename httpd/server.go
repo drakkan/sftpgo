@@ -131,11 +131,12 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, error string)
 }
 
 func (s *httpdServer) handleClientWebLogin(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	s.renderClientLoginPage(w, "")
 }
 
 func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxLoginPostSize)
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 
 	if err := r.ParseForm(); err != nil {
 		s.renderClientLoginPage(w, err.Error())
@@ -201,7 +202,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 }
 
 func (s *httpdServer) handleWebAdminLoginPost(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxLoginPostSize)
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	if err := r.ParseForm(); err != nil {
 		s.renderAdminLoginPage(w, err.Error())
 		return
@@ -239,6 +240,7 @@ func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, error string) 
 }
 
 func (s *httpdServer) handleWebAdminLogin(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	if !dataprovider.HasAdmin() {
 		http.Redirect(w, r, webAdminSetupPath, http.StatusFound)
 		return
@@ -247,7 +249,7 @@ func (s *httpdServer) handleWebAdminLogin(w http.ResponseWriter, r *http.Request
 }
 
 func (s *httpdServer) handleWebAdminSetupPost(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxLoginPostSize)
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	if dataprovider.HasAdmin() {
 		renderBadRequestPage(w, r, errors.New("an admin user already exists"))
 		return
@@ -308,11 +310,13 @@ func (s *httpdServer) loginAdmin(w http.ResponseWriter, r *http.Request, admin *
 }
 
 func (s *httpdServer) logout(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	invalidateToken(r)
 	sendAPIResponse(w, r, nil, "Your token has been invalidated", http.StatusOK)
 }
 
 func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	username, password, ok := r.BasicAuth()
 	if !ok {
@@ -580,6 +584,7 @@ func (s *httpdServer) initializeRouter() {
 	s.router.Use(middleware.StripSlashes)
 
 	s.router.NotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 		if (s.enableWebAdmin || s.enableWebClient) && isWebRequest(r) {
 			r = s.updateContextFromCookie(r)
 			if s.enableWebClient && (isWebClientRequest(r) || !s.enableWebAdmin) {
@@ -599,25 +604,29 @@ func (s *httpdServer) initializeRouter() {
 	s.router.Get(tokenPath, s.getToken)
 
 	s.router.Group(func(router chi.Router) {
+		router.Use(checkAPIKeyAuth(s.tokenAuth, dataprovider.APIKeyScopeAdmin))
 		router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromHeader))
 		router.Use(jwtAuthenticatorAPI)
 
 		router.Get(versionPath, func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 			render.JSON(w, r, version.Get())
 		})
 
-		router.Get(logoutPath, s.logout)
-		router.Put(adminPwdPath, changeAdminPassword)
+		router.With(forbidAPIKeyAuthentication).Get(logoutPath, s.logout)
+		router.With(forbidAPIKeyAuthentication).Put(adminPwdPath, changeAdminPassword)
 		// compatibility layer to remove in v2.2
-		router.Put(adminPwdCompatPath, changeAdminPassword)
+		router.With(forbidAPIKeyAuthentication).Put(adminPwdCompatPath, changeAdminPassword)
 
 		router.With(checkPerm(dataprovider.PermAdminViewServerStatus)).
 			Get(serverStatusPath, func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 				render.JSON(w, r, getServicesStatus())
 			})
 
 		router.With(checkPerm(dataprovider.PermAdminViewConnections)).
 			Get(activeConnectionsPath, func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 				render.JSON(w, r, common.Connections.GetStats())
 			})
 
@@ -659,18 +668,31 @@ func (s *httpdServer) initializeRouter() {
 		router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Get(adminPath+"/{username}", getAdminByUsername)
 		router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Put(adminPath+"/{username}", updateAdmin)
 		router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Delete(adminPath+"/{username}", deleteAdmin)
+		router.With(forbidAPIKeyAuthentication, checkPerm(dataprovider.PermAdminManageAPIKeys)).
+			Get(apiKeysPath, getAPIKeys)
+		router.With(forbidAPIKeyAuthentication, checkPerm(dataprovider.PermAdminManageAPIKeys)).
+			Post(apiKeysPath, addAPIKey)
+		router.With(forbidAPIKeyAuthentication, checkPerm(dataprovider.PermAdminManageAPIKeys)).
+			Get(apiKeysPath+"/{id}", getAPIKeyByID)
+		router.With(forbidAPIKeyAuthentication, checkPerm(dataprovider.PermAdminManageAPIKeys)).
+			Put(apiKeysPath+"/{id}", updateAPIKey)
+		router.With(forbidAPIKeyAuthentication, checkPerm(dataprovider.PermAdminManageAPIKeys)).
+			Delete(apiKeysPath+"/{id}", deleteAPIKey)
 	})
 
 	s.router.Get(userTokenPath, s.getUserToken)
 
 	s.router.Group(func(router chi.Router) {
+		router.Use(checkAPIKeyAuth(s.tokenAuth, dataprovider.APIKeyScopeUser))
 		router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromHeader))
 		router.Use(jwtAuthenticatorAPIUser)
 
-		router.Get(userLogoutPath, s.logout)
-		router.Put(userPwdPath, changeUserPassword)
-		router.With(checkHTTPUserPerm(sdk.WebClientPubKeyChangeDisabled)).Get(userPublicKeysPath, getUserPublicKeys)
-		router.With(checkHTTPUserPerm(sdk.WebClientPubKeyChangeDisabled)).Put(userPublicKeysPath, setUserPublicKeys)
+		router.With(forbidAPIKeyAuthentication).Get(userLogoutPath, s.logout)
+		router.With(forbidAPIKeyAuthentication).Put(userPwdPath, changeUserPassword)
+		router.With(forbidAPIKeyAuthentication, checkHTTPUserPerm(sdk.WebClientPubKeyChangeDisabled)).
+			Get(userPublicKeysPath, getUserPublicKeys)
+		router.With(forbidAPIKeyAuthentication, checkHTTPUserPerm(sdk.WebClientPubKeyChangeDisabled)).
+			Put(userPublicKeysPath, setUserPublicKeys)
 		// compatibility layer to remove in v2.3
 		router.With(compressor.Handler).Get(userFolderPath, readUserFolder)
 		router.Get(userFilePath, getUserFile)
@@ -693,16 +715,20 @@ func (s *httpdServer) initializeRouter() {
 		})
 		if s.enableWebClient {
 			s.router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 				s.redirectToWebPath(w, r, webClientLoginPath)
 			})
 			s.router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 				s.redirectToWebPath(w, r, webClientLoginPath)
 			})
 		} else {
 			s.router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 				s.redirectToWebPath(w, r, webLoginPath)
 			})
 			s.router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 				s.redirectToWebPath(w, r, webLoginPath)
 			})
 		}
@@ -710,6 +736,7 @@ func (s *httpdServer) initializeRouter() {
 
 	if s.enableWebClient {
 		s.router.Get(webBaseClientPath, func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 			http.Redirect(w, r, webClientLoginPath, http.StatusMovedPermanently)
 		})
 		s.router.Get(webClientLoginPath, s.handleClientWebLogin)
@@ -737,6 +764,7 @@ func (s *httpdServer) initializeRouter() {
 			router.With(s.refreshCookie).Get(webClientDownloadZipPath, handleWebClientDownloadZip)
 			router.With(s.refreshCookie).Get(webClientCredentialsPath, handleClientGetCredentials)
 			router.Post(webChangeClientPwdPath, handleWebClientChangePwdPost)
+			router.Post(webChangeClientAPIKeyAccessPath, handleWebClientManageAPIKeyPost)
 			router.With(checkHTTPUserPerm(sdk.WebClientPubKeyChangeDisabled)).
 				Post(webChangeClientKeysPath, handleWebClientManageKeysPost)
 		})
@@ -744,6 +772,7 @@ func (s *httpdServer) initializeRouter() {
 
 	if s.enableWebAdmin {
 		s.router.Get(webBaseAdminPath, func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 			s.redirectToWebPath(w, r, webLoginPath)
 		})
 		s.router.Get(webLoginPath, s.handleWebAdminLogin)
@@ -756,8 +785,9 @@ func (s *httpdServer) initializeRouter() {
 			router.Use(jwtAuthenticatorWebAdmin)
 
 			router.Get(webLogoutPath, handleWebLogout)
-			router.With(s.refreshCookie).Get(webChangeAdminPwdPath, handleWebAdminChangePwd)
+			router.With(s.refreshCookie).Get(webAdminCredentialsPath, handleWebAdminCredentials)
 			router.Post(webChangeAdminPwdPath, handleWebAdminChangePwdPost)
+			router.Post(webChangeAdminAPIKeyAccessPath, handleWebAdminManageAPIKeyPost)
 			router.With(checkPerm(dataprovider.PermAdminViewUsers), s.refreshCookie).
 				Get(webUsersPath, handleGetWebUsers)
 			router.With(checkPerm(dataprovider.PermAdminAddUsers), s.refreshCookie).
@@ -782,14 +812,16 @@ func (s *httpdServer) initializeRouter() {
 			router.With(checkPerm(dataprovider.PermAdminManageAdmins), s.refreshCookie).
 				Get(webAdminPath+"/{username}", handleWebUpdateAdminGet)
 			router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Post(webAdminPath, handleWebAddAdminPost)
-			router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Post(webAdminPath+"/{username}", handleWebUpdateAdminPost)
+			router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Post(webAdminPath+"/{username}",
+				handleWebUpdateAdminPost)
 			router.With(checkPerm(dataprovider.PermAdminManageAdmins), verifyCSRFHeader).
 				Delete(webAdminPath+"/{username}", deleteAdmin)
 			router.With(checkPerm(dataprovider.PermAdminCloseConnections), verifyCSRFHeader).
 				Delete(webConnectionsPath+"/{connectionID}", handleCloseConnection)
 			router.With(checkPerm(dataprovider.PermAdminChangeUsers), s.refreshCookie).
 				Get(webFolderPath+"/{name}", handleWebUpdateFolderGet)
-			router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Post(webFolderPath+"/{name}", handleWebUpdateFolderPost)
+			router.With(checkPerm(dataprovider.PermAdminChangeUsers)).Post(webFolderPath+"/{name}",
+				handleWebUpdateFolderPost)
 			router.With(checkPerm(dataprovider.PermAdminDeleteUsers), verifyCSRFHeader).
 				Delete(webFolderPath+"/{name}", deleteFolder)
 			router.With(checkPerm(dataprovider.PermAdminQuotaScans), verifyCSRFHeader).
@@ -809,7 +841,8 @@ func (s *httpdServer) initializeRouter() {
 			router.With(checkPerm(dataprovider.PermAdminManageSystem)).Post(webTemplateFolder, handleWebTemplateFolderPost)
 			router.With(checkPerm(dataprovider.PermAdminViewDefender)).Get(webDefenderPath, handleWebDefenderPage)
 			router.With(checkPerm(dataprovider.PermAdminViewDefender)).Get(webDefenderHostsPath, getDefenderHosts)
-			router.With(checkPerm(dataprovider.PermAdminManageDefender)).Delete(webDefenderHostsPath+"/{id}", deleteDefenderHostByID)
+			router.With(checkPerm(dataprovider.PermAdminManageDefender)).Delete(webDefenderHostsPath+"/{id}",
+				deleteDefenderHostByID)
 		})
 	}
 }

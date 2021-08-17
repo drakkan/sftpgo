@@ -4,6 +4,7 @@ tags:
   - name: token
   - name: maintenance
   - name: admins
+  - name: API keys
   - name: connections
   - name: defender
   - name: quota
@@ -28,6 +29,7 @@ servers:
   - url: /api/v2
 security:
   - BearerAuth: []
+  - APIKeyAuth: []
 paths:
   /healthz:
     get:
@@ -73,6 +75,8 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
   /logout:
     get:
+      security:
+        - BearerAuth: []
       tags:
         - token
       summary: Invalidate an admin access token
@@ -119,6 +123,8 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
   /user/logout:
     get:
+      security:
+        - BearerAuth: []
       tags:
         - token
       summary: Invalidate a user access token
@@ -163,6 +169,8 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
   /changepwd/admin:
     put:
+      security:
+        - BearerAuth: []
       tags:
         - admins
       summary: Change admin password
@@ -192,6 +200,8 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
   /admin/changepwd:
     put:
+      security:
+        - BearerAuth: []
       tags:
         - admins
       summary: Change admin password
@@ -1123,6 +1133,207 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
+  /apikeys:
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - API keys
+      summary: Get API keys
+      description: Returns an array with one or more API keys. For security reasons hashed keys are omitted in the response
+      operationId: get_api_keys
+      parameters:
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          required: false
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+          required: false
+          description: 'The maximum number of items to return. Max value is 500, default is 100'
+        - in: query
+          name: order
+          required: false
+          description: Ordering API keys by id. Default ASC
+          schema:
+            type: string
+            enum:
+              - ASC
+              - DESC
+            example: ASC
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/APIKey'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    post:
+      security:
+        - BearerAuth: []
+      tags:
+        - API keys
+      summary: Add API key
+      description: Adds a new API key
+      operationId: add_api_key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/APIKey'
+      responses:
+        '201':
+          description: successful operation
+          headers:
+            X-Object-ID:
+              schema:
+                type: string
+              description: ID for the new created API key
+            Location:
+              schema:
+                type: string
+              description: URL to retrieve the details for the new created API key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mesage:
+                    type: string
+                    example: 'API key created. This is the only time the API key is visible, please save it.'
+                  key:
+                    type: string
+                    description: 'generated API key'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  '/apikeys/{id}':
+    parameters:
+      - name: id
+        in: path
+        description: the key id
+        required: true
+        schema:
+          type: string
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - API keys
+      summary: Find API key by id
+      description: Returns the API key with the given id, if it exists. For security reasons the hashed key is omitted in the response
+      operationId: get_api_key_by_id
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKey'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    put:
+      security:
+        - BearerAuth: []
+      tags:
+        - API keys
+      summary: Update API key
+      description: Updates an existing API key. You cannot update the key itself, the creation date and the last use
+      operationId: update_api_key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/APIKey'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: API key updated
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    delete:
+      security:
+        - BearerAuth: []
+      tags:
+        - API keys
+      summary: Delete API key
+      description: Deletes an existing API key
+      operationId: delete_api_key
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: Admin deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
   /admins:
     get:
       tags:
@@ -1258,7 +1469,7 @@ paths:
       tags:
         - admins
       summary: Update admin
-      description: Updates an existing admin
+      description: Updates an existing admin. You are not allowed to update the admin impersonated using an API key
       operationId: update_admin
       requestBody:
         required: true
@@ -1605,9 +1816,9 @@ paths:
             - 2
         description: |
           Mode:
-            * `0` New users/admins are added, existing users/admins are updated. This is the default
-            * `1` New users/admins are added, existing users/admins are not modified
-            * `2` New users are added, existing users are updated and, if connected, they are disconnected and so forced to use the new configuration
+            * `0` New users/admins/API keys are added, existing ones are updated. This is the default
+            * `1` New users/admins/API keys are added, existing ones are not modified
+            * `2` New users/admins/API keys are added, existing ones are updated and connected users are disconnected and so forced to use the new configuration
     get:
       tags:
         - maintenance
@@ -1673,6 +1884,8 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
   /user/changepwd:
     put:
+      security:
+        - BearerAuth: []
       tags:
         - users API
       summary: Change user password
@@ -1701,6 +1914,8 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
   /user/publickeys:
     get:
+      security:
+        - BearerAuth: []
       tags:
         - users API
       summary: Get the user's public keys
@@ -1726,6 +1941,8 @@ paths:
         default:
           $ref: '#/components/responses/DefaultResponse'
     put:
+      security:
+        - BearerAuth: []
       tags:
         - users API
       summary: Set the user's public keys
@@ -2248,6 +2465,7 @@ components:
         - close_conns
         - view_status
         - manage_admins
+        - manage_apikeys
         - quota_scans
         - manage_system
         - manage_defender
@@ -2263,6 +2481,7 @@ components:
           * `close_conns` - close active connections is allowed
           * `view_status` - view the server status is allowed
           * `manage_admins` - manage other admins is allowed
+          * `manage_apikeys` - manage API keys is allowed
           * `manage_defender` - remove ip from the dynamic blocklist is allowed
           * `view_defender` - list the dynamic blocklist is allowed
     LoginMethods:
@@ -2306,6 +2525,15 @@ components:
         Options:
           * `publickey-change-disabled` - changing SSH public keys is not allowed
           * `write-disabled` - upload, rename, delete are not allowed even if the user has permissions for these actions
+    APIKeyScope:
+      type: integer
+      enum:
+        - 1
+        - 2
+      description: |
+        Options:
+          * `1` - admin scope. The API key will be used to impersonate an SFTPGo admin
+          * `2` - user scope. The API key will be used to impersonate an SFTPGo user
     PatternsFilter:
       type: object
       properties:
@@ -2397,6 +2625,9 @@ components:
           items:
             $ref: '#/components/schemas/WebClientOptions'
           description: WebClient/user REST API related configuration options
+        allow_api_key_auth:
+          type: boolean
+          description: 'API key authentication allows to impersonate this user with an API key'
       description: Additional user options
     Secret:
       type: object
@@ -2760,6 +2991,9 @@ components:
           example:
             - 192.0.2.0/24
             - '2001:db8::/32'
+        allow_api_key_auth:
+          type: boolean
+          description: 'API key auth allows to impersonate this administrator with an API key'
     Admin:
       type: object
       properties:
@@ -2798,6 +3032,46 @@ components:
         additional_info:
           type: string
           description: Free form text field
+    APIKey:
+      type: object
+      properties:
+        id:
+          type: string
+          description: unique key identifier
+        name:
+          type: string
+          description: User friendly key name
+        key:
+          type: string
+          format: password
+          description: We store the hash of the key. This is just like a password. For security reasons this field is omitted when you search/get API keys
+        scope:
+          $ref: '#/components/schemas/APIKeyScope'
+        created_at:
+          type: integer
+          format: int64
+          description: creation time as unix timestamp in milliseconds
+        updated_at:
+          type: integer
+          format: int64
+          description: last update time as unix timestamp in milliseconds
+        last_use_at:
+          type: integer
+          format: int64
+          description: last use time as unix timestamp in milliseconds. It is saved at most once every 10 minutes
+        expires_at:
+          type: integer
+          format: int64
+          description: expiration time as unix timestamp in milliseconds
+        description:
+          type: string
+          description: optional description
+        user:
+          type: string
+          description: username associated with this API key. If empty and the scope is "user scope" the key can impersonate any user
+        admin:
+          type: string
+          description: admin associated with this API key. If empty and the scope is "admin scope" the key can impersonate any admin
     QuotaUsage:
       type: object
       properties:
@@ -3063,6 +3337,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Admin'
+        api_keys:
+          $ref: '#/components/schemas/APIKey'
         version:
           type: integer
     PwdChange:
@@ -3132,3 +3408,8 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    APIKeyAuth:
+      type: apiKey
+      in: header
+      name: X-SFTPGO-API-KEY
+      description: 'API key to use for authentication. API key authentication is intrinsically less secure than using a short lived JWT token. You should prefer API key authentication only for machine-to-machine communications in trusted environments. If no admin/user is associated to the provided key you need to add ".username" at the end of the key. For example if your API key is "6ajKLwswLccVBGpZGv596G.ySAXc8vtp9hMiwAuaLtzof" and you want to impersonate the admin with username "myadmin" you have to use "6ajKLwswLccVBGpZGv596G.ySAXc8vtp9hMiwAuaLtzof.myadmin" as API key. When using API key authentication you cannot manage API keys, update the impersonated admin, change password or public keys for the impersonated user.'

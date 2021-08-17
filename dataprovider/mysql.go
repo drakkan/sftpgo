@@ -40,6 +40,12 @@ const (
 		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `{{prefix}}folders_mapping_folder_id_fk_folders_id` FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE CASCADE;" +
 		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `{{prefix}}folders_mapping_user_id_fk_users_id` FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;" +
 		"INSERT INTO {{schema_version}} (version) VALUES (10);"
+	mysqlV11SQL = "CREATE TABLE `{{api_keys}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `name` varchar(255) NOT NULL, `key_id` varchar(50) NOT NULL UNIQUE," +
+		"`api_key` varchar(255) NOT NULL UNIQUE, `scope` integer NOT NULL, `created_at` bigint NOT NULL, `updated_at` bigint NOT NULL, `last_use_at` bigint NOT NULL, " +
+		"`expires_at` bigint NOT NULL, `description` longtext NULL, `admin_id` integer NULL, `user_id` integer NULL);" +
+		"ALTER TABLE `{{api_keys}}` ADD CONSTRAINT `{{prefix}}api_keys_admin_id_fk_admins_id` FOREIGN KEY (`admin_id`) REFERENCES `{{admins}}` (`id`) ON DELETE CASCADE;" +
+		"ALTER TABLE `{{api_keys}}` ADD CONSTRAINT `{{prefix}}api_keys_user_id_fk_users_id` FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;"
+	mysqlV11DownSQL = "DROP TABLE `{{api_keys}}` CASCADE;"
 )
 
 // MySQLProvider auth provider for MySQL/MariaDB database
@@ -201,6 +207,34 @@ func (p *MySQLProvider) validateAdminAndPass(username, password, ip string) (Adm
 	return sqlCommonValidateAdminAndPass(username, password, ip, p.dbHandle)
 }
 
+func (p *MySQLProvider) apiKeyExists(keyID string) (APIKey, error) {
+	return sqlCommonGetAPIKeyByID(keyID, p.dbHandle)
+}
+
+func (p *MySQLProvider) addAPIKey(apiKey *APIKey) error {
+	return sqlCommonAddAPIKey(apiKey, p.dbHandle)
+}
+
+func (p *MySQLProvider) updateAPIKey(apiKey *APIKey) error {
+	return sqlCommonUpdateAPIKey(apiKey, p.dbHandle)
+}
+
+func (p *MySQLProvider) deleteAPIKeys(apiKey *APIKey) error {
+	return sqlCommonDeleteAPIKey(apiKey, p.dbHandle)
+}
+
+func (p *MySQLProvider) getAPIKeys(limit int, offset int, order string) ([]APIKey, error) {
+	return sqlCommonGetAPIKeys(limit, offset, order, p.dbHandle)
+}
+
+func (p *MySQLProvider) dumpAPIKeys() ([]APIKey, error) {
+	return sqlCommonDumpAPIKeys(p.dbHandle)
+}
+
+func (p *MySQLProvider) updateAPIKeyLastUse(keyID string) error {
+	return sqlCommonUpdateAPIKeyLastUse(keyID, p.dbHandle)
+}
+
 func (p *MySQLProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -240,6 +274,8 @@ func (p *MySQLProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 10:
+		return updateMySQLDatabaseFromV10(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -261,5 +297,35 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 
-	return errors.New("the current version cannot be reverted")
+	switch dbVersion.Version {
+	case 11:
+		return downgradeMySQLDatabaseFromV11(p.dbHandle)
+	default:
+		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
+	}
+}
+
+func updateMySQLDatabaseFromV10(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom10To11(dbHandle)
+}
+
+func downgradeMySQLDatabaseFromV11(dbHandle *sql.DB) error {
+	return downgradeMySQLDatabaseFrom11To10(dbHandle)
+}
+
+func updateMySQLDatabaseFrom10To11(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 10 -> 11")
+	providerLog(logger.LevelInfo, "updating database version: 10 -> 11")
+	sql := strings.ReplaceAll(mysqlV11SQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{api_keys}}", sqlTableAPIKeys)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 11)
+}
+
+func downgradeMySQLDatabaseFrom11To10(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 11 -> 10")
+	providerLog(logger.LevelInfo, "downgrading database version: 11 -> 10")
+	sql := strings.ReplaceAll(mysqlV11DownSQL, "{{api_keys}}", sqlTableAPIKeys)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 10)
 }

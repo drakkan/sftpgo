@@ -11,6 +11,7 @@ import (
 )
 
 func getFolders(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	limit, offset, order, err := getSearchFilters(w, r)
 	if err != nil {
 		return
@@ -99,11 +100,13 @@ func renderFolder(w http.ResponseWriter, r *http.Request, name string, status in
 }
 
 func getFolderByName(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	name := getURLParam(r, "name")
 	renderFolder(w, r, name, http.StatusOK)
 }
 
 func deleteFolder(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	name := getURLParam(r, "name")
 	err := dataprovider.DeleteFolder(name)
 	if err != nil {

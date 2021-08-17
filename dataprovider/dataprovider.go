@@ -69,7 +69,7 @@ const (
 	CockroachDataProviderName = "cockroachdb"
 	// DumpVersion defines the version for the dump.
 	// For restore/load we support the current version and the previous one
-	DumpVersion = 8
+	DumpVersion = 9
 
 	argonPwdPrefix            = "$argon2id$"
 	bcryptPwdPrefix           = "$2a$"
@@ -141,6 +141,7 @@ var (
 	sqlTableFolders         = "folders"
 	sqlTableFoldersMapping  = "folders_mapping"
 	sqlTableAdmins          = "admins"
+	sqlTableAPIKeys         = "api_keys"
 	sqlTableSchemaVersion   = "schema_version"
 	argon2Params            *argon2id.Params
 	lastLoginMinDelay       = 10 * time.Minute
@@ -343,6 +344,7 @@ type BackupData struct {
 	Users   []User                  `json:"users"`
 	Folders []vfs.BaseVirtualFolder `json:"folders"`
 	Admins  []Admin                 `json:"admins"`
+	APIKeys []APIKey                `json:"api_keys"`
 	Version int                     `json:"version"`
 }
 
@@ -405,6 +407,13 @@ type Provider interface {
 	getAdmins(limit int, offset int, order string) ([]Admin, error)
 	dumpAdmins() ([]Admin, error)
 	validateAdminAndPass(username, password, ip string) (Admin, error)
+	apiKeyExists(keyID string) (APIKey, error)
+	addAPIKey(apiKey *APIKey) error
+	updateAPIKey(apiKey *APIKey) error
+	deleteAPIKeys(apiKey *APIKey) error
+	getAPIKeys(limit int, offset int, order string) ([]APIKey, error)
+	dumpAPIKeys() ([]APIKey, error)
+	updateAPIKeyLastUse(keyID string) error
 	checkAvailability() error
 	close() error
 	reloadConfig() error
@@ -537,9 +546,11 @@ func validateSQLTablesPrefix() error {
 		sqlTableFolders = config.SQLTablesPrefix + sqlTableFolders
 		sqlTableFoldersMapping = config.SQLTablesPrefix + sqlTableFoldersMapping
 		sqlTableAdmins = config.SQLTablesPrefix + sqlTableAdmins
+		sqlTableAPIKeys = config.SQLTablesPrefix + sqlTableAPIKeys
 		sqlTableSchemaVersion = config.SQLTablesPrefix + sqlTableSchemaVersion
-		providerLog(logger.LevelDebug, "sql table for users %#v, folders %#v folders mapping %#v admins %#v schema version %#v",
-			sqlTableUsers, sqlTableFolders, sqlTableFoldersMapping, sqlTableAdmins, sqlTableSchemaVersion)
+		providerLog(logger.LevelDebug, "sql table for users %#v, folders %#v folders mapping %#v admins %#v "+
+			"api keys %#v schema version %#v", sqlTableUsers, sqlTableFolders, sqlTableFoldersMapping, sqlTableAdmins,
+			sqlTableAPIKeys, sqlTableSchemaVersion)
 	}
 	return nil
 }
@@ -620,7 +631,7 @@ func CheckCachedUserCredentials(user *CachedUser, password, loginMethod, protoco
 			return nil
 		}
 	}
-	if err := checkLoginConditions(&user.User); err != nil {
+	if err := user.User.CheckLoginConditions(); err != nil {
 		return err
 	}
 	if password == "" {
@@ -791,7 +802,17 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 	return doKeyboardInteractiveAuth(&user, authHook, client, ip, protocol)
 }
 
-// UpdateLastLogin updates the last login fields for the given SFTP user
+// UpdateAPIKeyLastUse updates the LastUseAt field for the given API key
+func UpdateAPIKeyLastUse(apiKey *APIKey) error {
+	lastUse := util.GetTimeFromMsecSinceEpoch(apiKey.LastUseAt)
+	diff := -time.Until(lastUse)
+	if diff < 0 || diff > lastLoginMinDelay {
+		return provider.updateAPIKeyLastUse(apiKey.KeyID)
+	}
+	return nil
+}
+
+// UpdateLastLogin updates the last login field for the given SFTPGo user
 func UpdateLastLogin(user *User) error {
 	lastLogin := util.GetTimeFromMsecSinceEpoch(user.LastLogin)
 	diff := -time.Until(lastLogin)
@@ -871,6 +892,33 @@ func GetUsedVirtualFolderQuota(name string) (int, int64, error) {
 	return files + delayedFiles, size + delayedSize, err
 }
 
+// AddAPIKey adds a new API key
+func AddAPIKey(apiKey *APIKey) error {
+	return provider.addAPIKey(apiKey)
+}
+
+// UpdateAPIKey updates an existing API key
+func UpdateAPIKey(apiKey *APIKey) error {
+	return provider.updateAPIKey(apiKey)
+}
+
+// DeleteAPIKey deletes an existing API key
+func DeleteAPIKey(keyID string) error {
+	apiKey, err := provider.apiKeyExists(keyID)
+	if err != nil {
+		return err
+	}
+	return provider.deleteAPIKeys(&apiKey)
+}
+
+// APIKeyExists returns the API key with the given ID if it exists
+func APIKeyExists(keyID string) (APIKey, error) {
+	if keyID == "" {
+		return APIKey{}, util.NewRecordNotFoundError(fmt.Sprintf("API key %#v does not exist", keyID))
+	}
+	return provider.apiKeyExists(keyID)
+}
+
 // HasAdmin returns true if the first admin has been created
 // and so SFTPGo is ready to be used
 func HasAdmin() bool {
@@ -900,7 +948,7 @@ func DeleteAdmin(username string) error {
 	return provider.deleteAdmin(&admin)
 }
 
-// AdminExists returns the given admins if it exists
+// AdminExists returns the admin with the given username if it exists
 func AdminExists(username string) (Admin, error) {
 	return provider.adminExists(username)
 }
@@ -951,6 +999,11 @@ func DeleteUser(username string) error {
 // from the configured file, if defined
 func ReloadConfig() error {
 	return provider.reloadConfig()
+}
+
+// GetAPIKeys returns an array of API keys respecting limit and offset
+func GetAPIKeys(limit, offset int, order string) ([]APIKey, error) {
+	return provider.getAPIKeys(limit, offset, order)
 }
 
 // GetAdmins returns an array of admins respecting limit and offset
@@ -1020,9 +1073,14 @@ func DumpData() (BackupData, error) {
 	if err != nil {
 		return data, err
 	}
+	apiKeys, err := provider.dumpAPIKeys()
+	if err != nil {
+		return data, err
+	}
 	data.Users = users
 	data.Folders = folders
 	data.Admins = admins
+	data.APIKeys = apiKeys
 	data.Version = DumpVersion
 	return data, err
 }
@@ -1535,17 +1593,6 @@ func ValidateUser(user *User) error {
 	return saveGCSCredentials(&user.FsConfig, user)
 }
 
-func checkLoginConditions(user *User) error {
-	if user.Status < 1 {
-		return fmt.Errorf("user %#v is disabled", user.Username)
-	}
-	if user.ExpirationDate > 0 && user.ExpirationDate < util.GetTimeAsMsSinceEpoch(time.Now()) {
-		return fmt.Errorf("user %#v is expired, expiration timestamp: %v current timestamp: %v", user.Username,
-			user.ExpirationDate, util.GetTimeAsMsSinceEpoch(time.Now()))
-	}
-	return nil
-}
-
 func isPasswordOK(user *User, password string) (bool, error) {
 	if config.PasswordCaching {
 		found, match := cachedPasswords.Check(user.Username, password)
@@ -1556,17 +1603,17 @@ func isPasswordOK(user *User, password string) (bool, error) {
 
 	match := false
 	var err error
-	if strings.HasPrefix(user.Password, argonPwdPrefix) {
+	if strings.HasPrefix(user.Password, bcryptPwdPrefix) {
+		if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
+			return match, ErrInvalidCredentials
+		}
+		match = true
+	} else if strings.HasPrefix(user.Password, argonPwdPrefix) {
 		match, err = argon2id.ComparePasswordAndHash(password, user.Password)
 		if err != nil {
 			providerLog(logger.LevelWarn, "error comparing password with argon hash: %v", err)
 			return match, err
 		}
-	} else if strings.HasPrefix(user.Password, bcryptPwdPrefix) {
-		if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
-			return match, ErrInvalidCredentials
-		}
-		match = true
 	} else if util.IsStringPrefixInSlice(user.Password, pbkdfPwdPrefixes) {
 		match, err = comparePbkdf2PasswordAndHash(password, user.Password)
 		if err != nil {
@@ -1585,7 +1632,7 @@ func isPasswordOK(user *User, password string) (bool, error) {
 }
 
 func checkUserAndTLSCertificate(user *User, protocol string, tlsCert *x509.Certificate) (User, error) {
-	err := checkLoginConditions(user)
+	err := user.CheckLoginConditions()
 	if err != nil {
 		return *user, err
 	}
@@ -1604,7 +1651,7 @@ func checkUserAndTLSCertificate(user *User, protocol string, tlsCert *x509.Certi
 }
 
 func checkUserAndPass(user *User, password, ip, protocol string) (User, error) {
-	err := checkLoginConditions(user)
+	err := user.CheckLoginConditions()
 	if err != nil {
 		return *user, err
 	}
@@ -1644,7 +1691,7 @@ func checkUserAndPass(user *User, password, ip, protocol string) (User, error) {
 }
 
 func checkUserAndPubKey(user *User, pubKey []byte) (User, string, error) {
-	err := checkLoginConditions(user)
+	err := user.CheckLoginConditions()
 	if err != nil {
 		return *user, "", err
 	}
@@ -2053,7 +2100,7 @@ func doKeyboardInteractiveAuth(user *User, authHook string, client ssh.KeyboardI
 	if authResult != 1 {
 		return *user, fmt.Errorf("keyboard interactive auth failed, result: %v", authResult)
 	}
-	err = checkLoginConditions(user)
+	err = user.CheckLoginConditions()
 	if err != nil {
 		return *user, err
 	}

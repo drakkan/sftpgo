@@ -30,7 +30,9 @@ type pwdChange struct {
 
 func sendAPIResponse(w http.ResponseWriter, r *http.Request, err error, message string, code int) {
 	var errorString string
-	if err != nil {
+	if _, ok := err.(*util.RecordNotFoundError); ok {
+		errorString = http.StatusText(http.StatusNotFound)
+	} else if err != nil {
 		errorString = err.Error()
 	}
 	resp := apiResponse{
@@ -71,6 +73,7 @@ func getMappedStatusCode(err error) int {
 }
 
 func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	connectionID := getURLParam(r, "connectionID")
 	if connectionID == "" {
 		sendAPIResponse(w, r, nil, "connectionID is mandatory", http.StatusBadRequest)

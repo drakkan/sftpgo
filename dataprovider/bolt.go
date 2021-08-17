@@ -19,13 +19,14 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 10
+	boltDatabaseVersion = 11
 )
 
 var (
 	usersBucket     = []byte("users")
 	foldersBucket   = []byte("folders")
 	adminsBucket    = []byte("admins")
+	apiKeysBucket   = []byte("api_keys")
 	dbVersionBucket = []byte("db_version")
 	dbVersionKey    = []byte("version")
 )
@@ -81,6 +82,14 @@ func initializeBoltProvider(basePath string) error {
 		})
 		if err != nil {
 			providerLog(logger.LevelWarn, "error creating admins bucket: %v", err)
+			return err
+		}
+		err = dbHandle.Update(func(tx *bolt.Tx) error {
+			_, e := tx.CreateBucketIfNotExists(apiKeysBucket)
+			return e
+		})
+		if err != nil {
+			providerLog(logger.LevelWarn, "error creating api keys bucket: %v", err)
 			return err
 		}
 		err = dbHandle.Update(func(tx *bolt.Tx) error {
@@ -150,6 +159,36 @@ func (p *BoltProvider) validateUserAndPubKey(username string, pubKey []byte) (Us
 		return user, "", err
 	}
 	return checkUserAndPubKey(&user, pubKey)
+}
+
+func (p *BoltProvider) updateAPIKeyLastUse(keyID string) error {
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getAPIKeysBucket(tx)
+		if err != nil {
+			return err
+		}
+		var u []byte
+		if u = bucket.Get([]byte(keyID)); u == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("key %#v does not exist, unable to update last use", keyID))
+		}
+		var apiKey APIKey
+		err = json.Unmarshal(u, &apiKey)
+		if err != nil {
+			return err
+		}
+		apiKey.LastUseAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		buf, err := json.Marshal(apiKey)
+		if err != nil {
+			return err
+		}
+		err = bucket.Put([]byte(keyID), buf)
+		if err != nil {
+			providerLog(logger.LevelWarn, "error updating last use for key %#v: %v", keyID, err)
+			return err
+		}
+		providerLog(logger.LevelDebug, "last use updated for key %#v", keyID)
+		return nil
+	})
 }
 
 func (p *BoltProvider) updateLastLogin(username string) error {
@@ -308,6 +347,10 @@ func (p *BoltProvider) deleteAdmin(admin *Admin) error {
 
 		if bucket.Get([]byte(admin.Username)) == nil {
 			return util.NewRecordNotFoundError(fmt.Sprintf("admin %v does not exist", admin.Username))
+		}
+
+		if err := deleteRelatedAPIKey(tx, admin.Username, APIKeyScopeAdmin); err != nil {
+			return err
 		}
 
 		return bucket.Delete([]byte(admin.Username))
@@ -503,6 +546,11 @@ func (p *BoltProvider) deleteUser(user *User) error {
 		if err != nil {
 			return err
 		}
+		exists := bucket.Get([]byte(user.Username))
+		if exists == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("user %#v does not exist", user.Username))
+		}
+
 		if len(user.VirtualFolders) > 0 {
 			folderBucket, err := getFoldersBucket(tx)
 			if err != nil {
@@ -515,9 +563,9 @@ func (p *BoltProvider) deleteUser(user *User) error {
 				}
 			}
 		}
-		exists := bucket.Get([]byte(user.Username))
-		if exists == nil {
-			return util.NewRecordNotFoundError(fmt.Sprintf("user %#v does not exist", user.Username))
+
+		if err := deleteRelatedAPIKey(tx, user.Username, APIKeyScopeUser); err != nil {
+			return err
 		}
 		return bucket.Delete([]byte(user.Username))
 	})
@@ -833,6 +881,174 @@ func (p *BoltProvider) getUsedFolderQuota(name string) (int, int64, error) {
 	return folder.UsedQuotaFiles, folder.UsedQuotaSize, err
 }
 
+func (p *BoltProvider) apiKeyExists(keyID string) (APIKey, error) {
+	var apiKey APIKey
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := getAPIKeysBucket(tx)
+		if err != nil {
+			return err
+		}
+
+		k := bucket.Get([]byte(keyID))
+		if k == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("API key %v does not exist", keyID))
+		}
+		return json.Unmarshal(k, &apiKey)
+	})
+	return apiKey, err
+}
+
+func (p *BoltProvider) addAPIKey(apiKey *APIKey) error {
+	err := apiKey.validate()
+	if err != nil {
+		return err
+	}
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getAPIKeysBucket(tx)
+		if err != nil {
+			return err
+		}
+		if a := bucket.Get([]byte(apiKey.KeyID)); a != nil {
+			return fmt.Errorf("API key %v already exists", apiKey.KeyID)
+		}
+		id, err := bucket.NextSequence()
+		if err != nil {
+			return err
+		}
+		apiKey.ID = int64(id)
+		apiKey.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		buf, err := json.Marshal(apiKey)
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(apiKey.KeyID), buf)
+	})
+}
+
+func (p *BoltProvider) updateAPIKey(apiKey *APIKey) error {
+	err := apiKey.validate()
+	if err != nil {
+		return err
+	}
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getAPIKeysBucket(tx)
+		if err != nil {
+			return err
+		}
+		var a []byte
+
+		if a = bucket.Get([]byte(apiKey.KeyID)); a == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("API key %v does not exist", apiKey.KeyID))
+		}
+		var oldAPIKey APIKey
+		err = json.Unmarshal(a, &oldAPIKey)
+		if err != nil {
+			return err
+		}
+
+		apiKey.ID = oldAPIKey.ID
+		apiKey.KeyID = oldAPIKey.KeyID
+		apiKey.Key = oldAPIKey.Key
+		apiKey.CreatedAt = oldAPIKey.CreatedAt
+		apiKey.LastUseAt = oldAPIKey.LastUseAt
+		apiKey.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		buf, err := json.Marshal(apiKey)
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(apiKey.KeyID), buf)
+	})
+}
+
+func (p *BoltProvider) deleteAPIKeys(apiKey *APIKey) error {
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getAPIKeysBucket(tx)
+		if err != nil {
+			return err
+		}
+
+		if bucket.Get([]byte(apiKey.KeyID)) == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("API key %v does not exist", apiKey.KeyID))
+		}
+
+		return bucket.Delete([]byte(apiKey.KeyID))
+	})
+}
+
+func (p *BoltProvider) getAPIKeys(limit int, offset int, order string) ([]APIKey, error) {
+	apiKeys := make([]APIKey, 0, limit)
+
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := getAPIKeysBucket(tx)
+		if err != nil {
+			return err
+		}
+		cursor := bucket.Cursor()
+		itNum := 0
+		if order == OrderASC {
+			for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+				itNum++
+				if itNum <= offset {
+					continue
+				}
+				var apiKey APIKey
+				err = json.Unmarshal(v, &apiKey)
+				if err != nil {
+					return err
+				}
+				apiKey.HideConfidentialData()
+				apiKeys = append(apiKeys, apiKey)
+				if len(apiKeys) >= limit {
+					break
+				}
+			}
+			return nil
+		}
+		for k, v := cursor.Last(); k != nil; k, v = cursor.Prev() {
+			itNum++
+			if itNum <= offset {
+				continue
+			}
+			var apiKey APIKey
+			err = json.Unmarshal(v, &apiKey)
+			if err != nil {
+				return err
+			}
+			apiKey.HideConfidentialData()
+			apiKeys = append(apiKeys, apiKey)
+			if len(apiKeys) >= limit {
+				break
+			}
+		}
+		return nil
+	})
+
+	return apiKeys, err
+}
+
+func (p *BoltProvider) dumpAPIKeys() ([]APIKey, error) {
+	apiKeys := make([]APIKey, 0, 30)
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := getAPIKeysBucket(tx)
+		if err != nil {
+			return err
+		}
+
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var apiKey APIKey
+			err = json.Unmarshal(v, &apiKey)
+			if err != nil {
+				return err
+			}
+			apiKeys = append(apiKeys, apiKey)
+		}
+		return err
+	})
+
+	return apiKeys, err
+}
+
 func (p *BoltProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -860,6 +1076,8 @@ func (p *BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 10:
+		return updateBoltDatabaseVersion(p.dbHandle, 11)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -880,7 +1098,12 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 	if dbVersion.Version == targetVersion {
 		return errors.New("current version match target version, nothing to do")
 	}
-	return errors.New("the current version cannot be reverted")
+	switch dbVersion.Version {
+	case 11:
+		return updateBoltDatabaseVersion(p.dbHandle, 10)
+	default:
+		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
+	}
 }
 
 func joinUserAndFolders(u []byte, foldersBucket *bolt.Bucket) (User, error) {
@@ -988,12 +1211,55 @@ func removeUserFromFolderMapping(folder *vfs.VirtualFolder, user *User, bucket *
 	return err
 }
 
+func deleteRelatedAPIKey(tx *bolt.Tx, username string, scope APIKeyScope) error {
+	bucket, err := getAPIKeysBucket(tx)
+	if err != nil {
+		return err
+	}
+	var toRemove []string
+	cursor := bucket.Cursor()
+	for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+		var apiKey APIKey
+		err = json.Unmarshal(v, &apiKey)
+		if err != nil {
+			return err
+		}
+		if scope == APIKeyScopeUser {
+			if apiKey.User == username {
+				toRemove = append(toRemove, apiKey.KeyID)
+			}
+		} else {
+			if apiKey.Admin == username {
+				toRemove = append(toRemove, apiKey.KeyID)
+			}
+		}
+	}
+
+	for _, k := range toRemove {
+		if err := bucket.Delete([]byte(k)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func getAPIKeysBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
+	var err error
+
+	bucket := tx.Bucket(apiKeysBucket)
+	if bucket == nil {
+		err = errors.New("unable to find api keys bucket, bolt database structure not correcly defined")
+	}
+	return bucket, err
+}
+
 func getAdminsBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
 	var err error
 
 	bucket := tx.Bucket(adminsBucket)
 	if bucket == nil {
-		err = errors.New("unable to find admin bucket, bolt database structure not correcly defined")
+		err = errors.New("unable to find admins bucket, bolt database structure not correcly defined")
 	}
 	return bucket, err
 }
@@ -1002,7 +1268,7 @@ func getUsersBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
 	var err error
 	bucket := tx.Bucket(usersBucket)
 	if bucket == nil {
-		err = errors.New("unable to find required buckets, bolt database structure not correcly defined")
+		err = errors.New("unable to find users bucket, bolt database structure not correcly defined")
 	}
 	return bucket, err
 }
@@ -1011,7 +1277,7 @@ func getFoldersBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
 	var err error
 	bucket := tx.Bucket(foldersBucket)
 	if bucket == nil {
-		err = fmt.Errorf("unable to find required buckets, bolt database structure not correcly defined")
+		err = fmt.Errorf("unable to find folders buckets, bolt database structure not correcly defined")
 	}
 	return bucket, err
 }
@@ -1035,7 +1301,7 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 	return dbVersion, err
 }
 
-/*func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
+func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
 	err := dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(dbVersionBucket)
 		if bucket == nil {
@@ -1051,4 +1317,4 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 		return bucket.Put(dbVersionKey, buf)
 	})
 	return err
-}*/
+}

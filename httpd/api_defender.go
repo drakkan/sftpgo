@@ -14,6 +14,7 @@ import (
 )
 
 func getDefenderHosts(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	hosts := common.GetDefenderHosts()
 	if hosts == nil {
 		render.JSON(w, r, make([]common.DefenderEntry, 0))
@@ -23,6 +24,7 @@ func getDefenderHosts(w http.ResponseWriter, r *http.Request) {
 }
 
 func getDefenderHostByID(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	ip, err := getIPFromID(r)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
@@ -37,6 +39,7 @@ func getDefenderHostByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteDefenderHostByID(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	ip, err := getIPFromID(r)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
@@ -51,6 +54,7 @@ func deleteDefenderHostByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func getBanTime(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	ip := r.URL.Query().Get("ip")
 	err := validateIPAddress(ip)
 	if err != nil {
@@ -72,6 +76,7 @@ func getBanTime(w http.ResponseWriter, r *http.Request) {
 }
 
 func getScore(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	ip := r.URL.Query().Get("ip")
 	err := validateIPAddress(ip)
 	if err != nil {

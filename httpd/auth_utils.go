@@ -28,6 +28,7 @@ const (
 const (
 	claimUsernameKey    = "username"
 	claimPermissionsKey = "permissions"
+	claimAPIKey         = "api_key"
 	basicRealm          = "Basic realm=\"SFTPGo\""
 )
 
@@ -43,6 +44,7 @@ type jwtTokenClaims struct {
 	Username    string
 	Permissions []string
 	Signature   string
+	APIKeyID    string
 }
 
 func (c *jwtTokenClaims) asMap() map[string]interface{} {
@@ -50,6 +52,9 @@ func (c *jwtTokenClaims) asMap() map[string]interface{} {
 
 	claims[claimUsernameKey] = c.Username
 	claims[claimPermissionsKey] = c.Permissions
+	if c.APIKeyID != "" {
+		claims[claimAPIKey] = c.APIKeyID
+	}
 	claims[jwt.SubjectKey] = c.Signature
 
 	return claims
@@ -68,6 +73,13 @@ func (c *jwtTokenClaims) Decode(token map[string]interface{}) {
 	switch v := signature.(type) {
 	case string:
 		c.Signature = v
+	}
+
+	if val, ok := token[claimAPIKey]; ok {
+		switch v := val.(type) {
+		case string:
+			c.APIKeyID = v
+		}
 	}
 
 	permissions := token[claimPermissionsKey]
