@@ -38,7 +38,8 @@ You can create other administrator and assign them the following permissions:
 
 You can also restrict administrator access based on the source IP address. If you are running SFTPGo behind a reverse proxy you need to allow both the proxy IP address and the real client IP.
 
-As alternative authentication method you can use API keys. API keys are mainly designed for machine-to-machine communications and a static API key is intrinsically less secure than a short lived JWT token.
+As alternative authentication method you can use API keys. API keys are mainly designed for machine-to-machine communications and a static API key is intrinsically less secure than a short lived JWT token. Although you can create permanent API keys it is recommended to set an expiration date. Additionally, a JWT token can be verified without further data provider queries while an API key requires one or more data provider queries to authenticate each request.
+
 To generate API keys you first need to get a JWT token and then you can use the `/api/v2/apikeys` endpoint to manage your API keys.
 
 The API keys allow the impersonation of users and administrators, using the API keys you inherit the permissions of the associated user/admin.

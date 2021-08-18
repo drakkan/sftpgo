@@ -129,12 +129,13 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
-          password: ${{ secrets.CR_PAT }}
+          password: ${{ secrets.GITHUB_TOKEN }}
         if: ${{ github.event_name != 'pull_request' }}
 
       - name: Build and push
         uses: docker/build-push-action@v2
         with:
+          context: .
           builder: ${{ steps.builder.outputs.name }}
           file: ./${{ steps.info.outputs.dockerfile }}
           platforms: linux/amd64,linux/arm64,linux/ppc64le

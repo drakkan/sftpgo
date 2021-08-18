@@ -1,6 +1,8 @@
 # Data At Rest Encryption (DARE)
 
-SFTPGo supports data at-rest encryption via its `cryptfs` virtual file system, in this mode SFTPGo transparently encrypts and decrypts data (to/from the disk) on-the-fly during uploads and/or downloads, making sure that the files at-rest on the server-side are always encrypted.
+SFTPGo supports data at-rest encryption via its `cryptfs` virtual file system, in this mode SFTPGo transparently encrypts and decrypts data (to/from the local disk) on-the-fly during uploads and/or downloads, making sure that the files at-rest on the server-side are always encrypted.
+
+Data At Rest Encryption is supported for local filesystem, for cloud storage backends you can use their server side encryption feature.
 
 So, because of the way it works, as described here above, when you set up an encrypted filesystem for a user you need to make sure it points to an empty path/directory (that has no files in it). Otherwise, it would try to decrypt existing files that are not encrypted in the first place and fail.
 

@@ -11,11 +11,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        go: [1.16]
+        go: [1.17]
         os: [ubuntu-latest, macos-latest]
         upload-coverage: [true]
         include:
-          - go: 1.16
+          - go: 1.17
             os: windows-latest
             upload-coverage: false
 
@@ -145,7 +145,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.16
+          go-version: 1.17
 
       - name: Build
         run: go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo
@@ -193,7 +193,7 @@ jobs:
       matrix:
         include:
           - arch: amd64
-            go: 1.16
+            go: 1.17
             go-arch: amd64
           - arch: aarch64
             distro: ubuntu18.04
@@ -297,12 +297,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.16
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v2
         with:
           version: latest
-          skip-go-installation: true
