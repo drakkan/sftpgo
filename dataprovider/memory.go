@@ -158,6 +158,20 @@ func (p *MemoryProvider) updateAPIKeyLastUse(keyID string) error {
 	return nil
 }
 
+func (p *MemoryProvider) setUpdatedAt(username string) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return
+	}
+	user, err := p.userExistsInternal(username)
+	if err != nil {
+		return
+	}
+	user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	p.dbHandle.users[user.Username] = user
+}
+
 func (p *MemoryProvider) updateLastLogin(username string) error {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
@@ -170,6 +184,21 @@ func (p *MemoryProvider) updateLastLogin(username string) error {
 	}
 	user.LastLogin = util.GetTimeAsMsSinceEpoch(time.Now())
 	p.dbHandle.users[user.Username] = user
+	return nil
+}
+
+func (p *MemoryProvider) updateAdminLastLogin(username string) error {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	admin, err := p.adminExistsInternal(username)
+	if err != nil {
+		return err
+	}
+	admin.LastLogin = util.GetTimeAsMsSinceEpoch(time.Now())
+	p.dbHandle.admins[admin.Username] = admin
 	return nil
 }
 
@@ -235,6 +264,8 @@ func (p *MemoryProvider) addUser(user *User) error {
 	user.UsedQuotaSize = 0
 	user.UsedQuotaFiles = 0
 	user.LastLogin = 0
+	user.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	user.VirtualFolders = p.joinVirtualFoldersFields(user)
 	p.dbHandle.users[user.Username] = user.getACopy()
 	p.dbHandle.usernames = append(p.dbHandle.usernames, user.Username)
@@ -268,6 +299,8 @@ func (p *MemoryProvider) updateUser(user *User) error {
 	user.UsedQuotaSize = u.UsedQuotaSize
 	user.UsedQuotaFiles = u.UsedQuotaFiles
 	user.LastLogin = u.LastLogin
+	user.CreatedAt = u.CreatedAt
+	user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	user.ID = u.ID
 	// pre-login and external auth hook will use the passed *user so save a copy
 	p.dbHandle.users[user.Username] = user.getACopy()
@@ -407,6 +440,9 @@ func (p *MemoryProvider) addAdmin(admin *Admin) error {
 		return fmt.Errorf("admin %#v already exists", admin.Username)
 	}
 	admin.ID = p.getNextAdminID()
+	admin.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	admin.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	admin.LastLogin = 0
 	p.dbHandle.admins[admin.Username] = admin.getACopy()
 	p.dbHandle.adminsUsernames = append(p.dbHandle.adminsUsernames, admin.Username)
 	sort.Strings(p.dbHandle.adminsUsernames)
@@ -428,6 +464,9 @@ func (p *MemoryProvider) updateAdmin(admin *Admin) error {
 		return err
 	}
 	admin.ID = a.ID
+	admin.CreatedAt = a.CreatedAt
+	admin.LastLogin = a.LastLogin
+	admin.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	p.dbHandle.admins[admin.Username] = admin.getACopy()
 	return nil
 }
@@ -825,7 +864,9 @@ func (p *MemoryProvider) addAPIKey(apiKey *APIKey) error {
 	if err == nil {
 		return fmt.Errorf("API key %#v already exists", apiKey.KeyID)
 	}
+	apiKey.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	apiKey.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	apiKey.LastUseAt = 0
 	p.dbHandle.apiKeys[apiKey.KeyID] = apiKey.getACopy()
 	p.dbHandle.apiKeysIDs = append(p.dbHandle.apiKeysIDs, apiKey.KeyID)
 	sort.Strings(p.dbHandle.apiKeysIDs)
@@ -1041,7 +1082,36 @@ func (p *MemoryProvider) reloadConfig() error {
 		return err
 	}
 
+	if err := p.restoreAPIKeys(&dump); err != nil {
+		return err
+	}
+
 	providerLog(logger.LevelDebug, "config loaded from file: %#v", p.dbHandle.configFile)
+	return nil
+}
+
+func (p *MemoryProvider) restoreAPIKeys(dump *BackupData) error {
+	for _, apiKey := range dump.APIKeys {
+		if apiKey.KeyID == "" {
+			return fmt.Errorf("cannot restore an empty API key: %+v", apiKey)
+		}
+		k, err := p.apiKeyExists(apiKey.KeyID)
+		apiKey := apiKey // pin
+		if err == nil {
+			apiKey.ID = k.ID
+			err = UpdateAPIKey(&apiKey)
+			if err != nil {
+				providerLog(logger.LevelWarn, "error updating API key %#v: %v", apiKey.KeyID, err)
+				return err
+			}
+		} else {
+			err = AddAPIKey(&apiKey)
+			if err != nil {
+				providerLog(logger.LevelWarn, "error adding API key %#v: %v", apiKey.KeyID, err)
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -1051,13 +1121,13 @@ func (p *MemoryProvider) restoreAdmins(dump *BackupData) error {
 		admin := admin // pin
 		if err == nil {
 			admin.ID = a.ID
-			err = p.updateAdmin(&admin)
+			err = UpdateAdmin(&admin)
 			if err != nil {
 				providerLog(logger.LevelWarn, "error updating admin %#v: %v", admin.Username, err)
 				return err
 			}
 		} else {
-			err = p.addAdmin(&admin)
+			err = AddAdmin(&admin)
 			if err != nil {
 				providerLog(logger.LevelWarn, "error adding admin %#v: %v", admin.Username, err)
 				return err
@@ -1073,14 +1143,14 @@ func (p *MemoryProvider) restoreFolders(dump *BackupData) error {
 		f, err := p.getFolderByName(folder.Name)
 		if err == nil {
 			folder.ID = f.ID
-			err = p.updateFolder(&folder)
+			err = UpdateFolder(&folder, f.Users)
 			if err != nil {
 				providerLog(logger.LevelWarn, "error updating folder %#v: %v", folder.Name, err)
 				return err
 			}
 		} else {
 			folder.Users = nil
-			err = p.addFolder(&folder)
+			err = AddFolder(&folder)
 			if err != nil {
 				providerLog(logger.LevelWarn, "error adding folder %#v: %v", folder.Name, err)
 				return err
@@ -1096,13 +1166,13 @@ func (p *MemoryProvider) restoreUsers(dump *BackupData) error {
 		u, err := p.userExists(user.Username)
 		if err == nil {
 			user.ID = u.ID
-			err = p.updateUser(&user)
+			err = UpdateUser(&user)
 			if err != nil {
 				providerLog(logger.LevelWarn, "error updating user %#v: %v", user.Username, err)
 				return err
 			}
 		} else {
-			err = p.addUser(&user)
+			err = AddUser(&user)
 			if err != nil {
 				providerLog(logger.LevelWarn, "error adding user %#v: %v", user.Username, err)
 				return err

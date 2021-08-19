@@ -392,6 +392,8 @@ type Provider interface {
 	getUsers(limit int, offset int, order string) ([]User, error)
 	dumpUsers() ([]User, error)
 	updateLastLogin(username string) error
+	updateAdminLastLogin(username string) error
+	setUpdatedAt(username string)
 	getFolders(limit, offset int, order string) ([]vfs.BaseVirtualFolder, error)
 	getFolderByName(name string) (vfs.BaseVirtualFolder, error)
 	addFolder(folder *vfs.BaseVirtualFolder) error
@@ -813,7 +815,7 @@ func UpdateAPIKeyLastUse(apiKey *APIKey) error {
 }
 
 // UpdateLastLogin updates the last login field for the given SFTPGo user
-func UpdateLastLogin(user *User) error {
+func UpdateLastLogin(user *User) {
 	lastLogin := util.GetTimeFromMsecSinceEpoch(user.LastLogin)
 	diff := -time.Until(lastLogin)
 	if diff < 0 || diff > lastLoginMinDelay {
@@ -821,9 +823,16 @@ func UpdateLastLogin(user *User) error {
 		if err == nil {
 			webDAVUsersCache.updateLastLogin(user.Username)
 		}
-		return err
 	}
-	return nil
+}
+
+// UpdateAdminLastLogin updates the last login field for the given SFTPGo admin
+func UpdateAdminLastLogin(admin *Admin) {
+	lastLogin := util.GetTimeFromMsecSinceEpoch(admin.LastLogin)
+	diff := -time.Until(lastLogin)
+	if diff < 0 || diff > lastLoginMinDelay {
+		provider.updateAdminLastLogin(admin.Username) //nolint:errcheck
+	}
 }
 
 // UpdateUserQuota updates the quota for the given SFTP user adding filesAdd and sizeAdd.
@@ -1026,7 +1035,14 @@ func UpdateFolder(folder *vfs.BaseVirtualFolder, users []string) error {
 	err := provider.updateFolder(folder)
 	if err == nil {
 		for _, user := range users {
-			RemoveCachedWebDAVUser(user)
+			provider.setUpdatedAt(user)
+			u, err := provider.userExists(user)
+			if err == nil {
+				webDAVUsersCache.swap(&u)
+				executeAction(operationUpdate, &u)
+			} else {
+				RemoveCachedWebDAVUser(user)
+			}
 		}
 	}
 	return err
@@ -1041,6 +1057,7 @@ func DeleteFolder(folderName string) error {
 	err = provider.deleteFolder(&folder)
 	if err == nil {
 		for _, user := range folder.Users {
+			provider.setUpdatedAt(user)
 			RemoveCachedWebDAVUser(user)
 		}
 		delayedQuotaUpdater.resetFolderQuota(folderName)
@@ -2252,6 +2269,7 @@ func executePreLoginHook(username, loginMethod, ip, protocol string) (User, erro
 	userUsedQuotaFiles := u.UsedQuotaFiles
 	userLastQuotaUpdate := u.LastQuotaUpdate
 	userLastLogin := u.LastLogin
+	userCreatedAt := u.CreatedAt
 	err = json.Unmarshal(out, &u)
 	if err != nil {
 		return u, fmt.Errorf("invalid pre-login hook response %#v, error: %v", string(out), err)
@@ -2261,9 +2279,11 @@ func executePreLoginHook(username, loginMethod, ip, protocol string) (User, erro
 	u.UsedQuotaFiles = userUsedQuotaFiles
 	u.LastQuotaUpdate = userLastQuotaUpdate
 	u.LastLogin = userLastLogin
+	u.CreatedAt = userCreatedAt
 	if userID == 0 {
 		err = provider.addUser(&u)
 	} else {
+		u.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		err = provider.updateUser(&u)
 		if err == nil {
 			webDAVUsersCache.swap(&u)
@@ -2464,6 +2484,8 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		user.UsedQuotaFiles = u.UsedQuotaFiles
 		user.LastQuotaUpdate = u.LastQuotaUpdate
 		user.LastLogin = u.LastLogin
+		user.CreatedAt = u.CreatedAt
+		user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		err = provider.updateUser(&user)
 		if err == nil {
 			webDAVUsersCache.swap(&user)

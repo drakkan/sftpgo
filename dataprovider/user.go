@@ -1037,6 +1037,8 @@ func (u *User) getACopy() User {
 			Filters:           filters,
 			AdditionalInfo:    u.AdditionalInfo,
 			Description:       u.Description,
+			CreatedAt:         u.CreatedAt,
+			UpdatedAt:         u.UpdatedAt,
 		},
 		VirtualFolders: virtualFolders,
 		FsConfig:       u.FsConfig.GetACopy(),

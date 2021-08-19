@@ -341,7 +341,7 @@ func authenticateAdminWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTA
 		return err
 	}
 	r.Header.Set("Authorization", fmt.Sprintf("Bearer %v", resp["access_token"]))
-
+	dataprovider.UpdateAdminLastLogin(&admin)
 	return nil
 }
 
@@ -397,7 +397,7 @@ func authenticateUserWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTAu
 		return err
 	}
 	r.Header.Set("Authorization", fmt.Sprintf("Bearer %v", resp["access_token"]))
-	dataprovider.UpdateLastLogin(&user) //nolint:errcheck
+	dataprovider.UpdateLastLogin(&user)
 	updateLoginMetrics(&user, ipAddr, nil)
 
 	return nil

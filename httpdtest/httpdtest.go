@@ -1058,6 +1058,11 @@ func checkAdmin(expected, actual *dataprovider.Admin) error {
 			return errors.New("admin ID mismatch")
 		}
 	}
+	if expected.CreatedAt > 0 {
+		if expected.CreatedAt != actual.CreatedAt {
+			return fmt.Errorf("created_at mismatch %v != %v", expected.CreatedAt, actual.CreatedAt)
+		}
+	}
 	if err := compareAdminEqualFields(expected, actual); err != nil {
 		return err
 	}
@@ -1114,6 +1119,11 @@ func checkUser(expected *dataprovider.User, actual *dataprovider.User) error {
 	} else {
 		if actual.ID != expected.ID {
 			return errors.New("user ID mismatch")
+		}
+	}
+	if expected.CreatedAt > 0 {
+		if expected.CreatedAt != actual.CreatedAt {
+			return fmt.Errorf("created_at mismatch %v != %v", expected.CreatedAt, actual.CreatedAt)
 		}
 	}
 	if len(expected.Permissions) != len(actual.Permissions) {

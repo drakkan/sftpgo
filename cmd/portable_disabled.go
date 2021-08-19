@@ -1,3 +1,4 @@
+//go:build noportable
 // +build noportable
 
 package cmd

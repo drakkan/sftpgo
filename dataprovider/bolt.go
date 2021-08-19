@@ -1,3 +1,4 @@
+//go:build !nobolt
 // +build !nobolt
 
 package dataprovider
@@ -19,7 +20,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 11
+	boltDatabaseVersion = 12
 )
 
 var (
@@ -191,6 +192,36 @@ func (p *BoltProvider) updateAPIKeyLastUse(keyID string) error {
 	})
 }
 
+func (p *BoltProvider) setUpdatedAt(username string) {
+	p.dbHandle.Update(func(tx *bolt.Tx) error { //nolint:errcheck
+		bucket, err := getUsersBucket(tx)
+		if err != nil {
+			return err
+		}
+		var u []byte
+		if u = bucket.Get([]byte(username)); u == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist, unable to update updated at", username))
+		}
+		var user User
+		err = json.Unmarshal(u, &user)
+		if err != nil {
+			return err
+		}
+		user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		buf, err := json.Marshal(user)
+		if err != nil {
+			return err
+		}
+		err = bucket.Put([]byte(username), buf)
+		if err == nil {
+			providerLog(logger.LevelDebug, "updated at set for user %#v", username)
+		} else {
+			providerLog(logger.LevelWarn, "error setting updated_at for user %#v: %v", username, err)
+		}
+		return err
+	})
+}
+
 func (p *BoltProvider) updateLastLogin(username string) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket, err := getUsersBucket(tx)
@@ -217,6 +248,36 @@ func (p *BoltProvider) updateLastLogin(username string) error {
 		} else {
 			providerLog(logger.LevelWarn, "error updating last login for user %#v: %v", username, err)
 		}
+		return err
+	})
+}
+
+func (p *BoltProvider) updateAdminLastLogin(username string) error {
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getAdminsBucket(tx)
+		if err != nil {
+			return err
+		}
+		var a []byte
+		if a = bucket.Get([]byte(username)); a == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("admin %#v does not exist, unable to update last login", username))
+		}
+		var admin Admin
+		err = json.Unmarshal(a, &admin)
+		if err != nil {
+			return err
+		}
+		admin.LastLogin = util.GetTimeAsMsSinceEpoch(time.Now())
+		buf, err := json.Marshal(admin)
+		if err != nil {
+			return err
+		}
+		err = bucket.Put([]byte(username), buf)
+		if err == nil {
+			providerLog(logger.LevelDebug, "last login updated for admin %#v", username)
+			return err
+		}
+		providerLog(logger.LevelWarn, "error updating last login for admin %#v: %v", username, err)
 		return err
 	})
 }
@@ -300,6 +361,9 @@ func (p *BoltProvider) addAdmin(admin *Admin) error {
 			return err
 		}
 		admin.ID = int64(id)
+		admin.LastLogin = 0
+		admin.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		admin.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		buf, err := json.Marshal(admin)
 		if err != nil {
 			return err
@@ -330,6 +394,9 @@ func (p *BoltProvider) updateAdmin(admin *Admin) error {
 		}
 
 		admin.ID = oldAdmin.ID
+		admin.CreatedAt = oldAdmin.CreatedAt
+		admin.LastLogin = oldAdmin.LastLogin
+		admin.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		buf, err := json.Marshal(admin)
 		if err != nil {
 			return err
@@ -478,6 +545,8 @@ func (p *BoltProvider) addUser(user *User) error {
 		user.UsedQuotaSize = 0
 		user.UsedQuotaFiles = 0
 		user.LastLogin = 0
+		user.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		for idx := range user.VirtualFolders {
 			err = addUserToFolderMapping(&user.VirtualFolders[idx].BaseVirtualFolder, user, folderBucket)
 			if err != nil {
@@ -532,6 +601,8 @@ func (p *BoltProvider) updateUser(user *User) error {
 		user.UsedQuotaSize = oldUser.UsedQuotaSize
 		user.UsedQuotaFiles = oldUser.UsedQuotaFiles
 		user.LastLogin = oldUser.LastLogin
+		user.CreatedAt = oldUser.CreatedAt
+		user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		buf, err := json.Marshal(user)
 		if err != nil {
 			return err
@@ -916,7 +987,9 @@ func (p *BoltProvider) addAPIKey(apiKey *APIKey) error {
 			return err
 		}
 		apiKey.ID = int64(id)
+		apiKey.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		apiKey.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		apiKey.LastUseAt = 0
 		buf, err := json.Marshal(apiKey)
 		if err != nil {
 			return err
@@ -1077,7 +1150,9 @@ func (p *BoltProvider) migrateDatabase() error {
 		logger.ErrorToConsole("%v", err)
 		return err
 	case version == 10:
-		return updateBoltDatabaseVersion(p.dbHandle, 11)
+		return updateBoltDatabaseVersion(p.dbHandle, 12)
+	case version == 11:
+		return updateBoltDatabaseVersion(p.dbHandle, 12)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -1099,6 +1174,8 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
+	case 12:
+		return updateBoltDatabaseVersion(p.dbHandle, 10)
 	case 11:
 		return updateBoltDatabaseVersion(p.dbHandle, 10)
 	default:

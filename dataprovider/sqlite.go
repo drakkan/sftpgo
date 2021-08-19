@@ -1,3 +1,4 @@
+//go:build !nosqlite
 // +build !nosqlite
 
 package dataprovider
@@ -52,6 +53,20 @@ CREATE INDEX "{{prefix}}api_keys_admin_id_idx" ON "api_keys" ("admin_id");
 CREATE INDEX "{{prefix}}api_keys_user_id_idx" ON "api_keys" ("user_id");
 `
 	sqliteV11DownSQL = `DROP TABLE "{{api_keys}}";`
+	sqliteV12SQL     = `ALTER TABLE "{{admins}}" ADD COLUMN "created_at" bigint DEFAULT 0 NOT NULL;
+ALTER TABLE "{{admins}}" ADD COLUMN "updated_at" bigint DEFAULT 0 NOT NULL;
+ALTER TABLE "{{admins}}" ADD COLUMN "last_login" bigint DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users}}" ADD COLUMN "created_at" bigint DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users}}" ADD COLUMN "updated_at" bigint DEFAULT 0 NOT NULL;
+CREATE INDEX "{{prefix}}users_updated_at_idx" ON "{{users}}" ("updated_at");
+`
+	sqliteV12DownSQL = `DROP INDEX "{{prefix}}users_updated_at_idx";
+ALTER TABLE "{{users}}" DROP COLUMN "updated_at";
+ALTER TABLE "{{users}}" DROP COLUMN "created_at";
+ALTER TABLE "{{admins}}" DROP COLUMN "created_at";
+ALTER TABLE "{{admins}}" DROP COLUMN "updated_at";
+ALTER TABLE "{{admins}}" DROP COLUMN "last_login";
+`
 )
 
 // SQLiteProvider auth provider for SQLite database
@@ -115,8 +130,16 @@ func (p *SQLiteProvider) getUsedQuota(username string) (int, int64, error) {
 	return sqlCommonGetUsedQuota(username, p.dbHandle)
 }
 
+func (p *SQLiteProvider) setUpdatedAt(username string) {
+	sqlCommonSetUpdatedAt(username, p.dbHandle)
+}
+
 func (p *SQLiteProvider) updateLastLogin(username string) error {
 	return sqlCommonUpdateLastLogin(username, p.dbHandle)
+}
+
+func (p *SQLiteProvider) updateAdminLastLogin(username string) error {
+	return sqlCommonUpdateAdminLastLogin(username, p.dbHandle)
 }
 
 func (p *SQLiteProvider) userExists(username string) (User, error) {
@@ -274,6 +297,8 @@ func (p *SQLiteProvider) migrateDatabase() error {
 		return err
 	case version == 10:
 		return updateSQLiteDatabaseFromV10(p.dbHandle)
+	case version == 11:
+		return updateSQLiteDatabaseFromV11(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -296,6 +321,8 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 12:
+		return downgradeSQLiteDatabaseFromV12(p.dbHandle)
 	case 11:
 		return downgradeSQLiteDatabaseFromV11(p.dbHandle)
 	default:
@@ -304,11 +331,43 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 }
 
 func updateSQLiteDatabaseFromV10(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom10To11(dbHandle)
+	if err := updateSQLiteDatabaseFrom10To11(dbHandle); err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV11(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV11(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom11To12(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV12(dbHandle *sql.DB) error {
+	if err := downgradeSQLiteDatabaseFrom12To11(dbHandle); err != nil {
+		return err
+	}
+	return downgradeSQLiteDatabaseFromV11(dbHandle)
 }
 
 func downgradeSQLiteDatabaseFromV11(dbHandle *sql.DB) error {
 	return downgradeSQLiteDatabaseFrom11To10(dbHandle)
+}
+
+func updateSQLiteDatabaseFrom11To12(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 11 -> 12")
+	providerLog(logger.LevelInfo, "updating database version: 11 -> 12")
+	sql := strings.ReplaceAll(sqliteV12SQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 12)
+}
+
+func downgradeSQLiteDatabaseFrom12To11(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 12 -> 11")
+	providerLog(logger.LevelInfo, "downgrading database version: 12 -> 11")
+	sql := strings.ReplaceAll(sqliteV12DownSQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 11)
 }
 
 func updateSQLiteDatabaseFrom10To11(dbHandle *sql.DB) error {

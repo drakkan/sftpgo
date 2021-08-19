@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 11
+	sqlDatabaseVersion     = 12
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -75,7 +75,7 @@ func sqlCommonAddAPIKey(apiKey *APIKey, dbHandle *sql.DB) error {
 	}
 	defer stmt.Close()
 
-	_, err = stmt.ExecContext(ctx, apiKey.KeyID, apiKey.Name, apiKey.Key, apiKey.Scope, apiKey.CreatedAt,
+	_, err = stmt.ExecContext(ctx, apiKey.KeyID, apiKey.Name, apiKey.Key, apiKey.Scope, util.GetTimeAsMsSinceEpoch(time.Now()),
 		util.GetTimeAsMsSinceEpoch(time.Now()), apiKey.LastUseAt, apiKey.ExpiresAt, apiKey.Description,
 		userID, adminID)
 	return err
@@ -251,7 +251,8 @@ func sqlCommonAddAdmin(admin *Admin, dbHandle *sql.DB) error {
 	}
 
 	_, err = stmt.ExecContext(ctx, admin.Username, admin.Password, admin.Status, admin.Email, string(perms),
-		string(filters), admin.AdditionalInfo, admin.Description)
+		string(filters), admin.AdditionalInfo, admin.Description, util.GetTimeAsMsSinceEpoch(time.Now()),
+		util.GetTimeAsMsSinceEpoch(time.Now()))
 	return err
 }
 
@@ -282,7 +283,7 @@ func sqlCommonUpdateAdmin(admin *Admin, dbHandle *sql.DB) error {
 	}
 
 	_, err = stmt.ExecContext(ctx, admin.Password, admin.Status, admin.Email, string(perms), string(filters),
-		admin.AdditionalInfo, admin.Description, admin.Username)
+		admin.AdditionalInfo, admin.Description, util.GetTimeAsMsSinceEpoch(time.Now()), admin.Username)
 	return err
 }
 
@@ -486,6 +487,43 @@ func sqlCommonUpdateAPIKeyLastUse(keyID string, dbHandle *sql.DB) error {
 	return err
 }
 
+func sqlCommonUpdateAdminLastLogin(username string, dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	q := getUpdateAdminLastLoginQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.ExecContext(ctx, util.GetTimeAsMsSinceEpoch(time.Now()), username)
+	if err == nil {
+		providerLog(logger.LevelDebug, "last login updated for admin %#v", username)
+	} else {
+		providerLog(logger.LevelWarn, "error updating last login for admin %#v: %v", username, err)
+	}
+	return err
+}
+
+func sqlCommonSetUpdatedAt(username string, dbHandle *sql.DB) {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	q := getSetUpdateAtQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return
+	}
+	defer stmt.Close()
+	_, err = stmt.ExecContext(ctx, util.GetTimeAsMsSinceEpoch(time.Now()), username)
+	if err == nil {
+		providerLog(logger.LevelDebug, "updated_at set for user %#v", username)
+	} else {
+		providerLog(logger.LevelWarn, "error setting updated_at for user %#v: %v", username, err)
+	}
+}
+
 func sqlCommonUpdateLastLogin(username string, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
@@ -539,7 +577,8 @@ func sqlCommonAddUser(user *User, dbHandle *sql.DB) error {
 		}
 		_, err = stmt.ExecContext(ctx, user.Username, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
 			user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate, string(filters),
-			string(fsConfig), user.AdditionalInfo, user.Description)
+			string(fsConfig), user.AdditionalInfo, user.Description, util.GetTimeAsMsSinceEpoch(time.Now()),
+			util.GetTimeAsMsSinceEpoch(time.Now()))
 		if err != nil {
 			return err
 		}
@@ -581,7 +620,7 @@ func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
 		}
 		_, err = stmt.ExecContext(ctx, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
 			user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate,
-			string(filters), string(fsConfig), user.AdditionalInfo, user.Description, user.ID)
+			string(filters), string(fsConfig), user.AdditionalInfo, user.Description, util.GetTimeAsMsSinceEpoch(time.Now()), user.ID)
 		if err != nil {
 			return err
 		}
@@ -702,7 +741,7 @@ func getAdminFromDbRow(row sqlScanner) (Admin, error) {
 	var email, filters, additionalInfo, permissions, description sql.NullString
 
 	err := row.Scan(&admin.ID, &admin.Username, &admin.Password, &admin.Status, &email, &permissions,
-		&filters, &additionalInfo, &description)
+		&filters, &additionalInfo, &description, &admin.CreatedAt, &admin.UpdatedAt, &admin.LastLogin)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -752,7 +791,7 @@ func getUserFromDbRow(row sqlScanner) (User, error) {
 	err := row.Scan(&user.ID, &user.Username, &password, &publicKey, &user.HomeDir, &user.UID, &user.GID, &user.MaxSessions,
 		&user.QuotaSize, &user.QuotaFiles, &permissions, &user.UsedQuotaSize, &user.UsedQuotaFiles, &user.LastQuotaUpdate,
 		&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig,
-		&additionalInfo, &description)
+		&additionalInfo, &description, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return user, util.NewRecordNotFoundError(err.Error())

@@ -197,7 +197,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		return
 	}
 	updateLoginMetrics(&user, ipAddr, err)
-	dataprovider.UpdateLastLogin(&user) //nolint:errcheck
+	dataprovider.UpdateLastLogin(&user)
 	http.Redirect(w, r, webClientFilesPath, http.StatusFound)
 }
 
@@ -307,6 +307,7 @@ func (s *httpdServer) loginAdmin(w http.ResponseWriter, r *http.Request, admin *
 	}
 
 	http.Redirect(w, r, webUsersPath, http.StatusFound)
+	dataprovider.UpdateAdminLastLogin(admin)
 }
 
 func (s *httpdServer) logout(w http.ResponseWriter, r *http.Request) {
@@ -377,7 +378,7 @@ func (s *httpdServer) generateAndSendUserToken(w http.ResponseWriter, r *http.Re
 		return
 	}
 	updateLoginMetrics(&user, ipAddr, err)
-	dataprovider.UpdateLastLogin(&user) //nolint:errcheck
+	dataprovider.UpdateLastLogin(&user)
 
 	render.JSON(w, r, resp)
 }
@@ -413,6 +414,7 @@ func (s *httpdServer) generateAndSendToken(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	dataprovider.UpdateAdminLastLogin(&admin)
 	render.JSON(w, r, resp)
 }
 

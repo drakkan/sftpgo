@@ -1,3 +1,4 @@
+//go:build !nogcs
 // +build !nogcs
 
 package vfs

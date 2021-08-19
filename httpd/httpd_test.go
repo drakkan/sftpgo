@@ -395,6 +395,79 @@ func TestBasicUserHandling(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUserTimestamps(t *testing.T) {
+	user, resp, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	createdAt := user.CreatedAt
+	updatedAt := user.UpdatedAt
+	assert.Equal(t, int64(0), user.LastLogin)
+	assert.Greater(t, createdAt, int64(0))
+	assert.Greater(t, updatedAt, int64(0))
+	mappedPath := filepath.Join(os.TempDir(), "mapped_dir")
+	folderName := filepath.Base(mappedPath)
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName,
+			MappedPath: mappedPath,
+		},
+		VirtualPath: "/vdir",
+	})
+	time.Sleep(10 * time.Millisecond)
+	user, resp, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err, string(resp))
+	assert.Equal(t, int64(0), user.LastLogin)
+	assert.Equal(t, createdAt, user.CreatedAt)
+	assert.Greater(t, user.UpdatedAt, updatedAt)
+	updatedAt = user.UpdatedAt
+	// after a folder update or delete the user updated_at field should change
+	folder, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, folder.Users, 1)
+	time.Sleep(10 * time.Millisecond)
+	_, _, err = httpdtest.UpdateFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), user.LastLogin)
+	assert.Equal(t, createdAt, user.CreatedAt)
+	assert.Greater(t, user.UpdatedAt, updatedAt)
+	updatedAt = user.UpdatedAt
+	time.Sleep(10 * time.Millisecond)
+	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), user.LastLogin)
+	assert.Equal(t, createdAt, user.CreatedAt)
+	assert.Greater(t, user.UpdatedAt, updatedAt)
+
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestAdminTimestamps(t *testing.T) {
+	admin := getTestAdmin()
+	admin.Username = altAdminUsername
+	admin, _, err := httpdtest.AddAdmin(admin, http.StatusCreated)
+	assert.NoError(t, err)
+	createdAt := admin.CreatedAt
+	updatedAt := admin.UpdatedAt
+	assert.Equal(t, int64(0), admin.LastLogin)
+	assert.Greater(t, createdAt, int64(0))
+	assert.Greater(t, updatedAt, int64(0))
+	time.Sleep(10 * time.Millisecond)
+	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), admin.LastLogin)
+	assert.Equal(t, createdAt, admin.CreatedAt)
+	assert.Greater(t, admin.UpdatedAt, updatedAt)
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestHTTPUserAuthentication(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
@@ -755,6 +828,26 @@ func TestAdminInvalidCredentials(t *testing.T) {
 	err = resp.Body.Close()
 	assert.NoError(t, err)
 	assert.Equal(t, dataprovider.ErrInvalidCredentials.Error(), responseHolder["error"].(string))
+}
+
+func TestAdminLastLogin(t *testing.T) {
+	a := getTestAdmin()
+	a.Username = altAdminUsername
+	a.Password = altAdminPassword
+
+	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), admin.LastLogin)
+
+	_, _, err = httpdtest.GetToken(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+
+	admin, _, err = httpdtest.GetAdminByUsername(altAdminUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Greater(t, admin.LastLogin, int64(0))
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestAdminAllowList(t *testing.T) {
@@ -1361,7 +1454,7 @@ func TestUpdateUserEmptyPassword(t *testing.T) {
 	assert.NoError(t, err)
 	userNoPwd, _, err := httpdtest.UpdateUserWithJSON(user, http.StatusOK, "", asJSON)
 	assert.NoError(t, err)
-	assert.Equal(t, user, userNoPwd) // the password is hidden so the user must be equal
+	assert.Equal(t, user.Password, userNoPwd.Password) // the password is hidden
 	// check the password within the data provider
 	dbUser, err = dataprovider.UserExists(u.Username)
 	assert.NoError(t, err)
@@ -1705,6 +1798,7 @@ func TestUserS3Config(t *testing.T) {
 	assert.NoError(t, err)
 	user.Password = defaultPassword
 	user.ID = 0
+	user.CreatedAt = 0
 	user.VirtualFolders = nil
 	secret := kms.NewSecret(kms.SecretStatusSecretBox, "Server-Access-Secret", "", "")
 	user.FsConfig.S3Config.AccessSecret = secret
@@ -1749,6 +1843,7 @@ func TestUserS3Config(t *testing.T) {
 	assert.NoError(t, err)
 	user.Password = defaultPassword
 	user.ID = 0
+	user.CreatedAt = 0
 	// shared credential test for add instead of update
 	user, _, err = httpdtest.AddUser(user, http.StatusCreated)
 	assert.NoError(t, err)
@@ -1795,6 +1890,7 @@ func TestUserGCSConfig(t *testing.T) {
 	assert.NoError(t, err)
 	user.Password = defaultPassword
 	user.ID = 0
+	user.CreatedAt = 0
 	user.FsConfig.GCSConfig.Credentials = kms.NewSecret(kms.SecretStatusSecretBox, "fake credentials", "", "")
 	_, _, err = httpdtest.AddUser(user, http.StatusCreated)
 	assert.Error(t, err)
@@ -1861,6 +1957,7 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	assert.NoError(t, err)
 	user.Password = defaultPassword
 	user.ID = 0
+	user.CreatedAt = 0
 	secret := kms.NewSecret(kms.SecretStatusSecretBox, "Server-Account-Key", "", "")
 	user.FsConfig.AzBlobConfig.AccountKey = secret
 	_, _, err = httpdtest.AddUser(user, http.StatusCreated)
@@ -1901,6 +1998,7 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	assert.NoError(t, err)
 	user.Password = defaultPassword
 	user.ID = 0
+	user.CreatedAt = 0
 	// sas test for add instead of update
 	user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{
 		AzBlobFsConfig: sdk.AzBlobFsConfig{
@@ -1956,6 +2054,7 @@ func TestUserCryptFs(t *testing.T) {
 	assert.NoError(t, err)
 	user.Password = defaultPassword
 	user.ID = 0
+	user.CreatedAt = 0
 	secret := kms.NewSecret(kms.SecretStatusSecretBox, "invalid encrypted payload", "", "")
 	user.FsConfig.CryptConfig.Passphrase = secret
 	_, _, err = httpdtest.AddUser(user, http.StatusCreated)
@@ -2036,6 +2135,7 @@ func TestUserSFTPFs(t *testing.T) {
 	assert.NoError(t, err)
 	user.Password = defaultPassword
 	user.ID = 0
+	user.CreatedAt = 0
 	secret := kms.NewSecret(kms.SecretStatusSecretBox, "invalid encrypted payload", "", "")
 	user.FsConfig.SFTPConfig.Password = secret
 	_, _, err = httpdtest.AddUser(user, http.StatusCreated)
@@ -4120,6 +4220,69 @@ func TestUpdateAdminMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 }
 
+func TestAdminLastLoginWithAPIKey(t *testing.T) {
+	admin := getTestAdmin()
+	admin.Username = altAdminUsername
+	admin.Filters.AllowAPIKeyAuth = true
+	admin, resp, err := httpdtest.AddAdmin(admin, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	assert.Equal(t, int64(0), admin.LastLogin)
+
+	apiKey := dataprovider.APIKey{
+		Name:  "admin API key",
+		Scope: dataprovider.APIKeyScopeAdmin,
+		Admin: altAdminUsername,
+	}
+
+	apiKey, resp, err = httpdtest.AddAPIKey(apiKey, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+
+	req, err := http.NewRequest(http.MethodGet, versionPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, admin.Username)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	admin, _, err = httpdtest.GetAdminByUsername(altAdminUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Greater(t, admin.LastLogin, int64(0))
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestUserLastLoginWithAPIKey(t *testing.T) {
+	user := getTestUser()
+	user.Filters.AllowAPIKeyAuth = true
+	user, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	assert.Equal(t, int64(0), user.LastLogin)
+
+	apiKey := dataprovider.APIKey{
+		Name:  "user API key",
+		Scope: dataprovider.APIKeyScopeUser,
+		User:  user.Username,
+	}
+
+	apiKey, resp, err = httpdtest.AddAPIKey(apiKey, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+
+	req, err := http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, apiKey.Key, "")
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Greater(t, user.LastLogin, int64(0))
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestAdminHandlingWithAPIKeys(t *testing.T) {
 	sysAdmin, _, err := httpdtest.GetAdminByUsername(defaultTokenAuthUser, http.StatusOK)
 	assert.NoError(t, err)
@@ -4260,6 +4423,8 @@ func TestUserHandlingWithAPIKey(t *testing.T) {
 	setAPIKeyForReq(req, apiKey.Key, "")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
 
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
@@ -4506,6 +4671,7 @@ func TestUpdateUserInvalidParamsMock(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	userID := user.ID
 	user.ID = 0
+	user.CreatedAt = 0
 	userAsJSON = getUserAsJSON(t, user)
 	req, _ = http.NewRequest(http.MethodPut, path.Join(userPath, user.Username), bytes.NewBuffer(userAsJSON))
 	setBearerForReq(req, token)

@@ -203,7 +203,7 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 	}
 	connection.Log(logger.LevelInfo, "User id: %d, logged in with FTP, username: %#v, home_dir: %#v remote addr: %#v",
 		user.ID, user.Username, user.HomeDir, ipAddr)
-	dataprovider.UpdateLastLogin(&user) //nolint:errcheck
+	dataprovider.UpdateLastLogin(&user)
 	return connection, nil
 }
 
@@ -249,7 +249,7 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 					}
 					connection.Log(logger.LevelInfo, "User id: %d, logged in with FTP using a TLS certificate, username: %#v, home_dir: %#v remote addr: %#v",
 						dbUser.ID, dbUser.Username, dbUser.HomeDir, ipAddr)
-					dataprovider.UpdateLastLogin(&dbUser) //nolint:errcheck
+					dataprovider.UpdateLastLogin(&dbUser)
 					return connection, nil
 				}
 			}

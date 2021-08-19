@@ -1,3 +1,4 @@
+//go:build !nopgsql
 // +build !nopgsql
 
 package dataprovider
@@ -57,6 +58,24 @@ CREATE INDEX "{{prefix}}api_keys_admin_id_idx" ON "{{api_keys}}" ("admin_id");
 CREATE INDEX "{{prefix}}api_keys_user_id_idx" ON "{{api_keys}}" ("user_id");
 `
 	pgsqlV11DownSQL = `DROP TABLE "{{api_keys}}" CASCADE;`
+	pgsqlV12SQL     = `ALTER TABLE "{{admins}}" ADD COLUMN "created_at" bigint DEFAULT 0 NOT NULL;
+ALTER TABLE "{{admins}}" ALTER COLUMN "created_at" DROP DEFAULT;
+ALTER TABLE "{{admins}}" ADD COLUMN "updated_at" bigint DEFAULT 0 NOT NULL;
+ALTER TABLE "{{admins}}" ALTER COLUMN "updated_at" DROP DEFAULT;
+ALTER TABLE "{{admins}}" ADD COLUMN "last_login" bigint DEFAULT 0 NOT NULL;
+ALTER TABLE "{{admins}}" ALTER COLUMN "last_login" DROP DEFAULT;
+ALTER TABLE "{{users}}" ADD COLUMN "created_at" bigint DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users}}" ALTER COLUMN "created_at" DROP DEFAULT;
+ALTER TABLE "{{users}}" ADD COLUMN "updated_at" bigint DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users}}" ALTER COLUMN "updated_at" DROP DEFAULT;
+CREATE INDEX "{{prefix}}users_updated_at_idx" ON "{{users}}" ("updated_at");
+`
+	pgsqlV12DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "updated_at" CASCADE;
+ALTER TABLE "{{users}}" DROP COLUMN "created_at" CASCADE;
+ALTER TABLE "{{admins}}" DROP COLUMN "created_at" CASCADE;
+ALTER TABLE "{{admins}}" DROP COLUMN "updated_at" CASCADE;
+ALTER TABLE "{{admins}}" DROP COLUMN "last_login" CASCADE;
+`
 )
 
 // PGSQLProvider auth provider for PostgreSQL database
@@ -128,8 +147,16 @@ func (p *PGSQLProvider) getUsedQuota(username string) (int, int64, error) {
 	return sqlCommonGetUsedQuota(username, p.dbHandle)
 }
 
+func (p *PGSQLProvider) setUpdatedAt(username string) {
+	sqlCommonSetUpdatedAt(username, p.dbHandle)
+}
+
 func (p *PGSQLProvider) updateLastLogin(username string) error {
 	return sqlCommonUpdateLastLogin(username, p.dbHandle)
+}
+
+func (p *PGSQLProvider) updateAdminLastLogin(username string) error {
+	return sqlCommonUpdateAdminLastLogin(username, p.dbHandle)
 }
 
 func (p *PGSQLProvider) userExists(username string) (User, error) {
@@ -293,6 +320,8 @@ func (p *PGSQLProvider) migrateDatabase() error {
 		return err
 	case version == 10:
 		return updatePGSQLDatabaseFromV10(p.dbHandle)
+	case version == 11:
+		return updatePGSQLDatabaseFromV11(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -315,6 +344,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 12:
+		return downgradePGSQLDatabaseFromV12(p.dbHandle)
 	case 11:
 		return downgradePGSQLDatabaseFromV11(p.dbHandle)
 	default:
@@ -323,11 +354,43 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 }
 
 func updatePGSQLDatabaseFromV10(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom10To11(dbHandle)
+	if err := updatePGSQLDatabaseFrom10To11(dbHandle); err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV11(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV11(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom11To12(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV12(dbHandle *sql.DB) error {
+	if err := downgradePGSQLDatabaseFrom12To11(dbHandle); err != nil {
+		return err
+	}
+	return downgradePGSQLDatabaseFromV11(dbHandle)
 }
 
 func downgradePGSQLDatabaseFromV11(dbHandle *sql.DB) error {
 	return downgradePGSQLDatabaseFrom11To10(dbHandle)
+}
+
+func updatePGSQLDatabaseFrom11To12(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 11 -> 12")
+	providerLog(logger.LevelInfo, "updating database version: 11 -> 12")
+	sql := strings.ReplaceAll(pgsqlV12SQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 12)
+}
+
+func downgradePGSQLDatabaseFrom12To11(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 12 -> 11")
+	providerLog(logger.LevelInfo, "downgrading database version: 12 -> 11")
+	sql := strings.ReplaceAll(pgsqlV12DownSQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 11)
 }
 
 func updatePGSQLDatabaseFrom10To11(dbHandle *sql.DB) error {

@@ -1,3 +1,4 @@
+//go:build nopgsql
 // +build nopgsql
 
 package dataprovider

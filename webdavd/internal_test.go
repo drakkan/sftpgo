@@ -1118,10 +1118,22 @@ func TestCachedUserWithFolders(t *testing.T) {
 
 	folder, err := dataprovider.GetFolderByName(folderName)
 	assert.NoError(t, err)
-	// updating a used folder should invalidate the cache
+	// updating a used folder should invalidate the cache only if the fs changed
 	err = dataprovider.UpdateFolder(&folder, folder.Users)
 	assert.NoError(t, err)
 
+	_, isCached, _, loginMethod, err = server.authenticate(req, ipAddr)
+	assert.NoError(t, err)
+	assert.True(t, isCached)
+	assert.Equal(t, dataprovider.LoginMethodPassword, loginMethod)
+	cachedUser, ok = dataprovider.GetCachedWebDAVUser(username)
+	if assert.True(t, ok) {
+		assert.False(t, cachedUser.IsExpired())
+	}
+	// changing the folder path should invalidate the cache
+	folder.MappedPath = filepath.Join(os.TempDir(), "anotherpath")
+	err = dataprovider.UpdateFolder(&folder, folder.Users)
+	assert.NoError(t, err)
 	_, isCached, _, loginMethod, err = server.authenticate(req, ipAddr)
 	assert.NoError(t, err)
 	assert.False(t, isCached)

@@ -1,3 +1,4 @@
+//go:build nometrics
 // +build nometrics
 
 package metric

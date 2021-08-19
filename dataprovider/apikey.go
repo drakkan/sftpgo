@@ -125,9 +125,6 @@ func (k *APIKey) validate() error {
 	if err := k.checkKey(); err != nil {
 		return err
 	}
-	if k.CreatedAt == 0 {
-		k.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
-	}
 	if k.User != "" && k.Admin != "" {
 		return util.NewValidationError("an API key can be related to a user or an admin, not both")
 	}

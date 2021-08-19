@@ -166,6 +166,10 @@ type BaseUser struct {
 	DownloadBandwidth int64 `json:"download_bandwidth"`
 	// Last login as unix timestamp in milliseconds
 	LastLogin int64 `json:"last_login"`
+	// Creation time as unix timestamp in milliseconds. It will be 0 for admins created before v2.2.0
+	CreatedAt int64 `json:"created_at"`
+	// last update time as unix timestamp in milliseconds
+	UpdatedAt int64 `json:"updated_at"`
 	// Additional restrictions
 	Filters UserFilters `json:"filters"`
 	// optional description, for example full name

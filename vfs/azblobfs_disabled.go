@@ -1,3 +1,4 @@
+//go:build noazblob
 // +build noazblob
 
 package vfs

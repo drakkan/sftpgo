@@ -2969,6 +2969,14 @@ components:
           type: integer
           format: int32
           description: 'Maximum download bandwidth as KB/s, 0 means unlimited'
+        created_at:
+          type: integer
+          format: int64
+          description: 'creation time as unix timestamp in milliseconds. It will be 0 for users created before v2.2.0'
+        updated_at:
+          type: integer
+          format: int64
+          description: last update time as unix timestamp in milliseconds
         last_login:
           type: integer
           format: int64
@@ -3032,6 +3040,18 @@ components:
         additional_info:
           type: string
           description: Free form text field
+        created_at:
+          type: integer
+          format: int64
+          description: 'creation time as unix timestamp in milliseconds. It will be 0 for admins created before v2.2.0'
+        updated_at:
+          type: integer
+          format: int64
+          description: last update time as unix timestamp in milliseconds
+        last_login:
+          type: integer
+          format: int64
+          description: Last user login as unix timestamp in milliseconds. It is saved at most once every 10 minutes
     APIKey:
       type: object
       properties:

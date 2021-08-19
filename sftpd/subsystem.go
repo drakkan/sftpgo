@@ -43,7 +43,7 @@ func ServeSubSystemConnection(user *dataprovider.User, connectionID string, read
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v close fs error: %v", err, errClose)
 		return err
 	}
-	dataprovider.UpdateLastLogin(user) //nolint:errcheck
+	dataprovider.UpdateLastLogin(user)
 
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(connectionID, common.ProtocolSFTP, "", "", *user),

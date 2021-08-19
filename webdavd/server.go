@@ -208,7 +208,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	dataprovider.UpdateLastLogin(&user) //nolint:errcheck
+	dataprovider.UpdateLastLogin(&user)
 
 	if s.checkRequestMethod(ctx, r, connection) {
 		w.Header().Set("Content-Type", "text/xml; charset=utf-8")

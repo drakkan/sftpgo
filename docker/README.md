@@ -20,12 +20,12 @@ SFTPGo provides an official Docker image, it is available on both [Docker Hub](h
 Starting a SFTPGo instance is simple:
 
 ```shell
-docker run --name some-sftpgo -p 127.0.0.1:8080:8080 -p 2022:2022 -d "drakkan/sftpgo:tag"
+docker run --name some-sftpgo -p 8080:8080 -p 2022:2022 -d "drakkan/sftpgo:tag"
 ```
 
 ... where `some-sftpgo` is the name you want to assign to your container, and `tag` is the tag specifying the SFTPGo version you want. See the list above for relevant tags.
 
-Now visit [http://localhost:8080/web/admin](http://localhost:8080/web/admin), create the first admin and then log in and create a new SFTPGo user. The SFTP service is available on port 2022.
+Now visit [http://localhost:8080/web/admin](http://localhost:8080/web/admin), replacing `localhost` with the appropriate IP address if SFTPGo is not reachable on localhost, create the first admin and a new SFTPGo user. The SFTP service is available on port 2022.
 
 If you don't want to persist any files, for example for testing purposes, you can run an SFTPGo instance like this:
 
@@ -102,7 +102,7 @@ The Docker documentation is a good starting point for understanding the differen
 
 ```shell
 docker run --name some-sftpgo \
-    -p 127.0.0.1:8080:8090 \
+    -p 8080:8090 \
     -p 2022:2022 \
     --mount type=bind,source=/my/own/sftpgodata,target=/srv/sftpgo \
     --mount type=bind,source=/my/own/sftpgohome,target=/var/lib/sftpgo \
@@ -150,7 +150,7 @@ With the above directory permissions, you can start a SFTPGo instance like this:
 ```shell
 docker run --name some-sftpgo \
     --user 1100:1100 \
-    -p 127.0.0.1:8080:8080 \
+    -p 8080:8080 \
     -p 2022:2022 \
     --mount type=bind,source="${PWD}/data",target=/srv/sftpgo \
     --mount type=bind,source="${PWD}/config",target=/var/lib/sftpgo \
