@@ -1560,6 +1560,7 @@ func createUserPasswordHash(user *User) error {
 // ValidateFolder returns an error if the folder is not valid
 // FIXME: this should be defined as Folder struct method
 func ValidateFolder(folder *vfs.BaseVirtualFolder) error {
+	folder.FsConfig.SetEmptySecretsIfNil()
 	if folder.Name == "" {
 		return &ValidationError{err: "folder name is mandatory"}
 	}
