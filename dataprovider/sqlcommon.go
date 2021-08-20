@@ -677,6 +677,36 @@ func sqlCommonDumpUsers(dbHandle sqlQuerier) ([]User, error) {
 	return getUsersWithVirtualFolders(ctx, users, dbHandle)
 }
 
+func sqlCommonGetRecentlyUpdatedUsers(after int64, dbHandle sqlQuerier) ([]User, error) {
+	users := make([]User, 0, 10)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	q := getRecentlyUpdatedUsersQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.QueryContext(ctx, after)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			u, err := getUserFromDbRow(rows)
+			if err != nil {
+				return users, err
+			}
+			users = append(users, u)
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		return users, err
+	}
+	return getUsersWithVirtualFolders(ctx, users, dbHandle)
+}
+
 func sqlCommonGetUsers(limit int, offset int, order string, dbHandle sqlQuerier) ([]User, error) {
 	users := make([]User, 0, limit)
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)

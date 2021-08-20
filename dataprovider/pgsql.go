@@ -179,6 +179,10 @@ func (p *PGSQLProvider) dumpUsers() ([]User, error) {
 	return sqlCommonDumpUsers(p.dbHandle)
 }
 
+func (p *PGSQLProvider) getRecentlyUpdatedUsers(after int64) ([]User, error) {
+	return sqlCommonGetRecentlyUpdatedUsers(after, p.dbHandle)
+}
+
 func (p *PGSQLProvider) getUsers(limit int, offset int, order string) ([]User, error) {
 	return sqlCommonGetUsers(limit, offset, order, p.dbHandle)
 }

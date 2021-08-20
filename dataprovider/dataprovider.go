@@ -133,9 +133,13 @@ var (
 	pbkdfPwdPrefixes        = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix}
 	pbkdfPwdB64SaltPrefixes = []string{pbkdf2SHA256B64SaltPrefix}
 	unixPwdPrefixes         = []string{md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
+	sharedProviders         = []string{PGSQLDataProviderName, MySQLDataProviderName, CockroachDataProviderName}
 	logSender               = "dataProvider"
 	availabilityTicker      *time.Ticker
 	availabilityTickerDone  chan bool
+	updateCachesTicker      *time.Ticker
+	updateCachesTickerDone  chan bool
+	lastCachesUpdate        int64
 	credentialsDirPath      string
 	sqlTableUsers           = "users"
 	sqlTableFolders         = "folders"
@@ -337,6 +341,12 @@ type Config struct {
 	// on first start.
 	// You can also create the first admin user by using the web interface or by loading initial data.
 	CreateDefaultAdmin bool `json:"create_default_admin" mapstructure:"create_default_admin"`
+	// If the data provider is shared across multiple SFTPGo instances, set this parameter to 1.
+	// MySQL, PostgreSQL and CockroachDB can be shared, this setting is ignored for other data
+	// providers. For shared data providers, SFTPGo periodically reloads the latest updated users,
+	// based on the "updated_at" field, and updates its internal caches if users are updated from
+	// a different instance. This check, if enabled, is executed every 10 minutes
+	IsShared int `json:"is_shared" mapstructure:"is_shared"`
 }
 
 // BackupData defines the structure for the backup/restore files
@@ -391,6 +401,7 @@ type Provider interface {
 	deleteUser(user *User) error
 	getUsers(limit int, offset int, order string) ([]User, error)
 	dumpUsers() ([]User, error)
+	getRecentlyUpdatedUsers(after int64) ([]User, error)
 	updateLastLogin(username string) error
 	updateAdminLastLogin(username string) error
 	setUpdatedAt(username string)
@@ -484,6 +495,7 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 	}
 	atomic.StoreInt32(&isAdminCreated, int32(len(admins)))
 	startAvailabilityTimer()
+	startUpdateCachesTimer()
 	delayedQuotaUpdater.start()
 	return nil
 }
@@ -1132,6 +1144,11 @@ func Close() error {
 		availabilityTicker.Stop()
 		availabilityTickerDone <- true
 		availabilityTicker = nil
+	}
+	if updateCachesTicker != nil {
+		updateCachesTicker.Stop()
+		updateCachesTickerDone <- true
+		updateCachesTicker = nil
 	}
 	return provider.close()
 }
@@ -1859,6 +1876,49 @@ func getSSLMode() string {
 		}
 	}
 	return ""
+}
+
+func checkCacheUpdates() {
+	providerLog(logger.LevelDebug, "start caches check, update time %v", util.GetTimeFromMsecSinceEpoch(lastCachesUpdate))
+	checkTime := util.GetTimeAsMsSinceEpoch(time.Now())
+	users, err := provider.getRecentlyUpdatedUsers(lastCachesUpdate)
+	if err != nil {
+		providerLog(logger.LevelWarn, "unable to get recently updated users: %v", err)
+		return
+	}
+	for _, user := range users {
+		providerLog(logger.LevelDebug, "invalidate caches for user %#v", user.Username)
+		webDAVUsersCache.swap(&user)
+		cachedPasswords.Remove(user.Username)
+	}
+
+	lastCachesUpdate = checkTime
+	providerLog(logger.LevelDebug, "end caches check, new update time %v", util.GetTimeFromMsecSinceEpoch(lastCachesUpdate))
+}
+
+func startUpdateCachesTimer() {
+	if config.IsShared == 0 {
+		return
+	}
+	if !util.IsStringInSlice(config.Driver, sharedProviders) {
+		providerLog(logger.LevelWarn, "update caches not supported for provider %v", config.Driver)
+		return
+	}
+	lastCachesUpdate = util.GetTimeAsMsSinceEpoch(time.Now())
+	providerLog(logger.LevelDebug, "update caches check started for provider %v", config.Driver)
+	updateCachesTicker = time.NewTicker(1 * time.Minute)
+	updateCachesTickerDone = make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-updateCachesTickerDone:
+				return
+			case <-updateCachesTicker.C:
+				checkCacheUpdates()
+			}
+		}
+	}()
 }
 
 func startAvailabilityTimer() {

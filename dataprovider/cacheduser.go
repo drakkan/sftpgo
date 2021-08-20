@@ -6,6 +6,7 @@ import (
 
 	"golang.org/x/net/webdav"
 
+	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -67,16 +68,22 @@ func (cache *usersCache) swap(user *User) {
 
 	if cachedUser, ok := cache.users[user.Username]; ok {
 		if cachedUser.User.Password != user.Password {
+			providerLog(logger.LevelDebug, "current password different from the cached one for user %#v, removing from cache",
+				user.Username)
 			// the password changed, the cached user is no longer valid
 			delete(cache.users, user.Username)
 			return
 		}
 		if cachedUser.User.isFsEqual(user) {
 			// the updated user has the same fs as the cached one, we can preserve the lock filesystem
+			providerLog(logger.LevelDebug, "current password and fs unchanged for for user %#v, swap cached one",
+				user.Username)
 			cachedUser.User = *user
 			cache.users[user.Username] = cachedUser
 		} else {
 			// filesystem changed, the cached user is no longer valid
+			providerLog(logger.LevelDebug, "current fs different from the cached one for user %#v, removing from cache",
+				user.Username)
 			delete(cache.users, user.Username)
 		}
 	}

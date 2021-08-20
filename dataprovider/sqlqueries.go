@@ -140,6 +140,10 @@ func getUsersQuery(order string) string {
 		order, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
+func getRecentlyUpdatedUsersQuery() string {
+	return fmt.Sprintf(`SELECT %v FROM %v WHERE updated_at >= %v`, selectUserFields, sqlTableUsers, sqlPlaceholders[0])
+}
+
 func getDumpUsersQuery() string {
 	return fmt.Sprintf(`SELECT %v FROM %v`, selectUserFields, sqlTableUsers)
 }

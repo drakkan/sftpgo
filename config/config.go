@@ -252,6 +252,7 @@ func Init() {
 			SkipNaturalKeysValidation: false,
 			DelayedQuotaUpdate:        0,
 			CreateDefaultAdmin:        false,
+			IsShared:                  0,
 		},
 		HTTPDConfig: httpd.Conf{
 			Bindings:           []httpd.Binding{defaultHTTPDBinding},
@@ -1065,6 +1066,7 @@ func setViperDefaults() {
 	viper.SetDefault("data_provider.skip_natural_keys_validation", globalConf.ProviderConf.SkipNaturalKeysValidation)
 	viper.SetDefault("data_provider.delayed_quota_update", globalConf.ProviderConf.DelayedQuotaUpdate)
 	viper.SetDefault("data_provider.create_default_admin", globalConf.ProviderConf.CreateDefaultAdmin)
+	viper.SetDefault("data_provider.is_shared", globalConf.ProviderConf.IsShared)
 	viper.SetDefault("httpd.templates_path", globalConf.HTTPDConfig.TemplatesPath)
 	viper.SetDefault("httpd.static_files_path", globalConf.HTTPDConfig.StaticFilesPath)
 	viper.SetDefault("httpd.backups_path", globalConf.HTTPDConfig.BackupsPath)

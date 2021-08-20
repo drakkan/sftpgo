@@ -364,6 +364,11 @@ func (p *MemoryProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	return folders, nil
 }
 
+// memory provider cannot be shared, so we always return no recently updated users
+func (p *MemoryProvider) getRecentlyUpdatedUsers(after int64) ([]User, error) {
+	return nil, nil
+}
+
 func (p *MemoryProvider) getUsers(limit int, offset int, order string) ([]User, error) {
 	users := make([]User, 0, limit)
 	var err error
