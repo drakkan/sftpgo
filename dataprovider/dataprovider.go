@@ -580,7 +580,9 @@ func checkDefaultAdmin() error {
 	logger.Debug(logSender, "", "no admins found, try to create the default one")
 	// we need to create the default admin
 	admin := &Admin{}
-	admin.setDefaults()
+	if err := admin.setFromEnv(); err != nil {
+		return err
+	}
 	return provider.addAdmin(admin)
 }
 

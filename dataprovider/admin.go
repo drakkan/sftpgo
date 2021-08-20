@@ -272,19 +272,15 @@ func (a *Admin) getACopy() Admin {
 	}
 }
 
-// setDefaults sets the appropriate value for the default admin
-func (a *Admin) setDefaults() {
-	envUsername := strings.TrimSpace(os.Getenv(`SFTPGO_DEFAULT_ADMIN_USERNAME`))
-	envPassword := strings.TrimSpace(os.Getenv(`SFTPGO_DEFAULT_ADMIN_PASSWORD`))
-
-	a.Username = "admin"
-	if envUsername != "" {
-		a.Username = envUsername
+func (a *Admin) setFromEnv() error {
+	envUsername := strings.TrimSpace(os.Getenv("SFTPGO_DEFAULT_ADMIN_USERNAME"))
+	envPassword := strings.TrimSpace(os.Getenv("SFTPGO_DEFAULT_ADMIN_PASSWORD"))
+	if envUsername == "" || envPassword == "" {
+		return errors.New(`to create the default admin you need to set the env vars "SFTPGO_DEFAULT_ADMIN_USERNAME" and "SFTPGO_DEFAULT_ADMIN_PASSWORD"`)
 	}
-	a.Password = "password"
-	if envPassword != "" {
-		a.Password = envPassword
-	}
+	a.Username = envUsername
+	a.Password = envPassword
 	a.Status = 1
 	a.Permissions = []string{PermAdminAny}
+	return nil
 }
