@@ -25,6 +25,8 @@ type BaseConnection struct {
 	// last activity for this connection.
 	// Since this is accessed atomically we put as first element of the struct achieve 64 bit alignment
 	lastActivity int64
+	// transferID is accessed atomically so we put it at the beginning of the struct to achieve 64 bit alignment
+	transferID uint64
 	// Unique identifier for the connection
 	ID string
 	// user associated with this connection if any
@@ -35,7 +37,6 @@ type BaseConnection struct {
 	remoteAddr string
 	localAddr  string
 	sync.RWMutex
-	transferID      uint64
 	activeTransfers []ActiveTransfer
 }
 
