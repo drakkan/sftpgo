@@ -106,6 +106,30 @@ jobs:
           name: sftpgo-${{ matrix.os }}-go-${{ matrix.go }}
           path: output
 
+  test-goarch-386:
+    name: Run test cases with GOARCH=386
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.17
+
+      - name: Build
+        run: go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo
+        env:
+          GOARCH: 386
+
+      - name: Run test cases using memory provider with GOARCH=386
+        run: go test -v -p 1 -timeout 10m ./... -covermode=atomic
+        env:
+          SFTPGO_DATA_PROVIDER__DRIVER: memory
+          SFTPGO_DATA_PROVIDER__NAME: ''
+          GOARCH: 386
+
   test-postgresql-mysql-crdb:
     name: Test with PgSQL/MySQL/Cockroach
     runs-on: ubuntu-latest
