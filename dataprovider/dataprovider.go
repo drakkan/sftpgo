@@ -149,7 +149,7 @@ var (
 	sqlTableSchemaVersion   = "schema_version"
 	argon2Params            *argon2id.Params
 	lastLoginMinDelay       = 10 * time.Minute
-	usernameRegex           = regexp.MustCompile("^[a-zA-Z0-9-_.~]+$")
+	usernameRegex           = regexp.MustCompile("^[a-zA-Z0-9-_.~\\\\]+$")
 	tempPath                string
 )
 
@@ -1528,7 +1528,7 @@ func validateBaseParams(user *User) error {
 		return util.NewValidationError("username is mandatory")
 	}
 	if !config.SkipNaturalKeysValidation && !usernameRegex.MatchString(user.Username) {
-		return util.NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
+		return util.NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~\\",
 			user.Username))
 	}
 	if user.HomeDir == "" {
@@ -1575,7 +1575,7 @@ func ValidateFolder(folder *vfs.BaseVirtualFolder) error {
 		return util.NewValidationError("folder name is mandatory")
 	}
 	if !config.SkipNaturalKeysValidation && !usernameRegex.MatchString(folder.Name) {
-		return util.NewValidationError(fmt.Sprintf("folder name %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
+		return util.NewValidationError(fmt.Sprintf("folder name %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~\\",
 			folder.Name))
 	}
 	if folder.FsConfig.Provider == sdk.LocalFilesystemProvider || folder.FsConfig.Provider == sdk.CryptedFilesystemProvider ||

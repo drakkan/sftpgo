@@ -108,7 +108,7 @@ func (a *Admin) validate() error {
 		return util.NewValidationError("please set a password")
 	}
 	if !config.SkipNaturalKeysValidation && !usernameRegex.MatchString(a.Username) {
-		return util.NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~", a.Username))
+		return util.NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~\\", a.Username))
 	}
 	if err := a.checkPassword(); err != nil {
 		return err
