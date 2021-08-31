@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y git gcc g++ ca-
   && git clone https://github.com/drakkan/sftpgo.git
 ARG TAG
 ARG FEATURES
-ENV GOOS=linux GOARCH=amd64 GO111MODULE=on GOPROXY="https://proxy.golang.org,direct" CGOENABLED=0 GOFLAGS="-mod=readonly"
+ENV GOOS=linux GO111MODULE=on GOPROXY="https://proxy.golang.org,direct" CGOENABLED=0 GOFLAGS="-mod=readonly"
 
 WORKDIR /workspace/sftpgo
 
