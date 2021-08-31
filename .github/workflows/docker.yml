@@ -71,7 +71,6 @@ jobs:
             VERSION_SLIM="${VERSION}-slim"
             DOCKERFILE=Dockerfile.distroless
           fi
-
           DOCKER_IMAGES=("drakkan/sftpgo" "ghcr.io/drakkan/sftpgo")
           TAGS="${DOCKER_IMAGES[0]}:${VERSION}"
           TAGS_SLIM="${DOCKER_IMAGES[0]}:${VERSION_SLIM}"
@@ -91,7 +90,7 @@ jobs:
                 TAGS_SLIM="${TAGS_SLIM},${DOCKER_IMAGE}:slim"
               elif [[ $DOCKER_PKG == distroless ]]; then
                 if [[ -n $MAJOR && -n $MINOR ]]; then
-                  TAGS="${TAGS},${DOCKER_IMAGE}:${MINOR}-distroless",${DOCKER_IMAGE}:${MAJOR}-distroless"
+                  TAGS="${TAGS},${DOCKER_IMAGE}:${MINOR}-distroless,${DOCKER_IMAGE}:${MAJOR}-distroless"
                   TAGS_SLIM="${TAGS_SLIM},${DOCKER_IMAGE}:${MINOR}-distroless-slim,${DOCKER_IMAGE}:${MAJOR}-distroless-slim"
                 fi
                 TAGS="${TAGS},${DOCKER_IMAGE}:latest"
