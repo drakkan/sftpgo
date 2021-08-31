@@ -1,4 +1,4 @@
-FROM golang:1.16-buster as builder
+FROM golang:1.17-buster as builder
 
 WORKDIR /workspace
 RUN apt-get update && apt-get install --no-install-recommends -y git gcc g++ ca-certificates \
@@ -24,8 +24,8 @@ RUN sed -i "s|\"users_base_dir\": \"\",|\"users_base_dir\": \"/srv/sftpgo/data\"
     sed -i "s|\"backups\"|\"/srv/sftpgo/backups\"|" /workspace/sftpgo/sftpgo.json && \
     sed -i "s|\"address\": \"127.0.0.1\",|\"address\": \"\",|" /workspace/sftpgo/sftpgo.json
 
-# use distroless/base-debian10:latest image https://console.cloud.google.com/gcr/images/distroless/GLOBAL/base-debian10@sha256:6ec6da1888b18dd971802c2a58a76a7702902b4c9c1be28f38e75e871cedc2df/details?tab=info
-FROM gcr.io/distroless/static-debian10@sha256:60a7d0c45932b6152b2f7ba561db2f91f58ab14aa90b895c58f72062c768fd77
+# use distroless/static-debian11 https://console.cloud.google.com/gcr/images/distroless/global/static-debian11@sha256:157bbd69d9af19adf370b0e05af074170a6788e218e8e3bc7c2763897a98890d/details
+FROM gcr.io/distroless/static-debian11@sha256:157bbd69d9af19adf370b0e05af074170a6788e218e8e3bc7c2763897a98890d
 
 # --chown=65532:65532 allow nonroot user create files in /usr/local/bin/ /usr/share/sftpgo/static /usr/share/sftpgo/templatess
 COPY --from=builder --chown=65532:65532 /workspace/sftpgo/sftpgo.json /etc/sftpgo/sftpgo.json

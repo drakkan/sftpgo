@@ -25,7 +25,7 @@ sudo chown -R <UID>:<GID> /srv/sftpgo/data /srv/sftpgo/config /srv/sftpgo/backup
 ```bash
 git clone https://github.com/drakkan/sftpgo.git && \
   cd sftpgo && \
-  sudo docker build -t sftpgo docker/sftpgo/distroless/
+  sudo docker build -t sftpgo  - < Dockerfile.distroless
 ```
 
 **Run image as root**
