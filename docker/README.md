@@ -12,6 +12,7 @@ SFTPGo provides an official Docker image, it is available on both [Docker Hub](h
 - [edge-alpine](../Dockerfile.alpine)
 - [edge-slim](../Dockerfile)
 - [edge-alpine-slim](../Dockerfile.alpine)
+- [edge-distroless-slim](../Dockerfile.distroless)
 
 ## How to use the SFTPGo image
 
@@ -48,6 +49,7 @@ The logs are available through Docker's container log:
 ```shell
 docker logs some-sftpgo
 ```
+**Note:** [distroless](../Dockerfile.distroless) image contains only application and its runtime dependencies. Shell access is not available on this image. You can find more about distroless images [here](https://github.com/GoogleContainerTools/distroless)
 
 ### Where to Store Data
 
@@ -128,6 +130,17 @@ RUN chown -R 1100:1100 /etc/sftpgo && chown 1100:1100 /var/lib/sftpgo /srv/sftpg
 USER 1100:1100
 ```
 
+In a case of using [distroless](../Dockerfile.distroless) image there are two options are available for setting UID/GID:
+
+1. Runing as root user(default)
+```bash
+docker run --rm --name sftpgo -p 8080:8080 -p 2022:2022 -d "drakkan/sftpgo:tag"
+```
+2. Runing as nonroot user with uid 65532
+```bash
+docker run --rm --name sftpgo -p 8080:8080 -p 2022:2022 --user 65532 -d "drakkan/sftpgo:tag"
+```
+You can also build your own image like in example above.
 ## Image Variants
 
 The `sftpgo` images comes in many flavors, each designed for a specific use case. The `edge` and `edge-alpine`tags are updated after each new commit.
@@ -142,6 +155,9 @@ This image is based on the popular [Alpine Linux project](https://alpinelinux.or
 
 This variant is highly recommended when final image size being as small as possible is desired. The main caveat to note is that it does use [musl libc](https://musl.libc.org/) instead of [glibc and friends](https://www.etalabs.net/compare_libcs.html), so certain software might run into issues depending on the depth of their libc requirements. However, most software doesn't have an issue with this, so this variant is usually a very safe choice. See [this Hacker News comment thread](https://news.ycombinator.com/item?id=10782897) for more discussion of the issues that might arise and some pro/con comparisons of using Alpine-based images.
 
+### `sftpgo:<version>-distroless`
+
+This image is based on the popular [Distroless project](https://github.com/GoogleContainerTools/distroless). For a base image is used [the `distroless/static-debian11` official image](https://console.cloud.google.com/gcr/images/distroless/global/static-debian11@sha256:157bbd69d9af19adf370b0e05af074170a6788e218e8e3bc7c2763897a98890d/details). Distroless based image contains only application and its runtime dependencies.
 ### `sftpgo:<suite>-slim`
 
 These tags provide a slimmer image that does not include the optional `git` and `rsync` dependencies.
