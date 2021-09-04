@@ -16,20 +16,26 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/mfa"
+	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
 const (
-	templateClientDir          = "webclient"
-	templateClientBase         = "base.html"
-	templateClientLogin        = "login.html"
-	templateClientFiles        = "files.html"
-	templateClientMessage      = "message.html"
-	templateClientCredentials  = "credentials.html"
-	pageClientFilesTitle       = "My Files"
-	pageClientCredentialsTitle = "Credentials"
+	templateClientDir               = "webclient"
+	templateClientBase              = "base.html"
+	templateClientBaseLogin         = "baselogin.html"
+	templateClientLogin             = "login.html"
+	templateClientFiles             = "files.html"
+	templateClientMessage           = "message.html"
+	templateClientCredentials       = "credentials.html"
+	templateClientTwoFactor         = "twofactor.html"
+	templateClientTwoFactorRecovery = "twofactor-recovery.html"
+	templateClientMFA               = "mfa.html"
+	pageClientFilesTitle            = "My Files"
+	pageClientCredentialsTitle      = "Credentials"
 )
 
 // condResult is the result of an HTTP request precondition check.
@@ -59,6 +65,8 @@ type baseClientPage struct {
 	CredentialsURL   string
 	StaticURL        string
 	LogoutURL        string
+	MFAURL           string
+	MFATitle         string
 	FilesTitle       string
 	CredentialsTitle string
 	Version          string
@@ -103,6 +111,17 @@ type clientCredentialsPage struct {
 	APIKeyError     string
 }
 
+type clientMFAPage struct {
+	baseClientPage
+	TOTPConfigs     []string
+	TOTPConfig      sdk.TOTPConfig
+	GenerateTOTPURL string
+	ValidateTOTPURL string
+	SaveTOTPURL     string
+	RecCodesURL     string
+	Protocols       []string
+}
+
 func getFileObjectURL(baseDir, name string) string {
 	return fmt.Sprintf("%v?path=%v&_=%v", webClientFilesPath, url.QueryEscape(path.Join(baseDir, name)), time.Now().UTC().Unix())
 }
@@ -124,22 +143,41 @@ func loadClientTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateClientDir, templateClientCredentials),
 	}
 	loginPath := []string{
+		filepath.Join(templatesPath, templateClientDir, templateClientBaseLogin),
 		filepath.Join(templatesPath, templateClientDir, templateClientLogin),
 	}
 	messagePath := []string{
 		filepath.Join(templatesPath, templateClientDir, templateClientBase),
 		filepath.Join(templatesPath, templateClientDir, templateClientMessage),
 	}
+	mfaPath := []string{
+		filepath.Join(templatesPath, templateClientDir, templateClientBase),
+		filepath.Join(templatesPath, templateClientDir, templateClientMFA),
+	}
+	twoFactorPath := []string{
+		filepath.Join(templatesPath, templateClientDir, templateClientBaseLogin),
+		filepath.Join(templatesPath, templateClientDir, templateClientTwoFactor),
+	}
+	twoFactorRecoveryPath := []string{
+		filepath.Join(templatesPath, templateClientDir, templateClientBaseLogin),
+		filepath.Join(templatesPath, templateClientDir, templateClientTwoFactorRecovery),
+	}
 
 	filesTmpl := util.LoadTemplate(nil, filesPaths...)
 	credentialsTmpl := util.LoadTemplate(nil, credentialsPaths...)
 	loginTmpl := util.LoadTemplate(nil, loginPath...)
 	messageTmpl := util.LoadTemplate(nil, messagePath...)
+	mfaTmpl := util.LoadTemplate(nil, mfaPath...)
+	twoFactorTmpl := util.LoadTemplate(nil, twoFactorPath...)
+	twoFactorRecoveryTmpl := util.LoadTemplate(nil, twoFactorRecoveryPath...)
 
 	clientTemplates[templateClientFiles] = filesTmpl
 	clientTemplates[templateClientCredentials] = credentialsTmpl
 	clientTemplates[templateClientLogin] = loginTmpl
 	clientTemplates[templateClientMessage] = messageTmpl
+	clientTemplates[templateClientMFA] = mfaTmpl
+	clientTemplates[templateClientTwoFactor] = twoFactorTmpl
+	clientTemplates[templateClientTwoFactorRecovery] = twoFactorRecoveryTmpl
 }
 
 func getBaseClientPageData(title, currentURL string, r *http.Request) baseClientPage {
@@ -156,6 +194,8 @@ func getBaseClientPageData(title, currentURL string, r *http.Request) baseClient
 		CredentialsURL:   webClientCredentialsPath,
 		StaticURL:        webStaticFilesPath,
 		LogoutURL:        webClientLogoutPath,
+		MFAURL:           webClientMFAPath,
+		MFATitle:         "Two-factor auth",
 		FilesTitle:       pageClientFilesTitle,
 		CredentialsTitle: pageClientCredentialsTitle,
 		Version:          fmt.Sprintf("%v-%v", v.Version, v.CommitHash),
@@ -202,6 +242,48 @@ func renderClientForbiddenPage(w http.ResponseWriter, r *http.Request, body stri
 
 func renderClientNotFoundPage(w http.ResponseWriter, r *http.Request, err error) {
 	renderClientMessagePage(w, r, page404Title, page404Body, http.StatusNotFound, err, "")
+}
+
+func renderClientTwoFactorPage(w http.ResponseWriter, error string) {
+	data := twoFactorPage{
+		CurrentURL:  webClientTwoFactorPath,
+		Version:     version.Get().Version,
+		Error:       error,
+		CSRFToken:   createCSRFToken(),
+		StaticURL:   webStaticFilesPath,
+		RecoveryURL: webClientTwoFactorRecoveryPath,
+	}
+	renderClientTemplate(w, templateTwoFactor, data)
+}
+
+func renderClientTwoFactorRecoveryPage(w http.ResponseWriter, error string) {
+	data := twoFactorPage{
+		CurrentURL: webClientTwoFactorRecoveryPath,
+		Version:    version.Get().Version,
+		Error:      error,
+		CSRFToken:  createCSRFToken(),
+		StaticURL:  webStaticFilesPath,
+	}
+	renderClientTemplate(w, templateTwoFactorRecovery, data)
+}
+
+func renderClientMFAPage(w http.ResponseWriter, r *http.Request) {
+	data := clientMFAPage{
+		baseClientPage:  getBaseClientPageData(pageMFATitle, webClientMFAPath, r),
+		TOTPConfigs:     mfa.GetAvailableTOTPConfigNames(),
+		GenerateTOTPURL: webClientTOTPGeneratePath,
+		ValidateTOTPURL: webClientTOTPValidatePath,
+		SaveTOTPURL:     webClientTOTPSavePath,
+		RecCodesURL:     webClientRecoveryCodesPath,
+		Protocols:       dataprovider.MFAProtocols,
+	}
+	user, err := dataprovider.UserExists(data.LoggedUser.Username)
+	if err != nil {
+		renderInternalServerErrorPage(w, r, err)
+		return
+	}
+	data.TOTPConfig = user.Filters.TOTPConfig
+	renderClientTemplate(w, templateClientMFA, data)
 }
 
 func renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string, user dataprovider.User) {
@@ -516,4 +598,19 @@ func handleWebClientManageAPIKeyPost(w http.ResponseWriter, r *http.Request) {
 	}
 	renderClientMessagePage(w, r, "API key authentication updated", "", http.StatusOK, nil,
 		"Your API key access permission has been successfully updated")
+}
+
+func handleWebClientMFA(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	renderClientMFAPage(w, r)
+}
+
+func handleWebClientTwoFactor(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	renderClientTwoFactorPage(w, "")
+}
+
+func handleWebClientTwoFactorRecovery(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	renderClientTwoFactorRecoveryPage(w, "")
 }

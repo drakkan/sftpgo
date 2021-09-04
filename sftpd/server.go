@@ -21,7 +21,6 @@ import (
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/metric"
-	"github.com/drakkan/sftpgo/v2/sdk/plugin"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -115,6 +114,10 @@ type Configuration struct {
 	// The following SSH commands are enabled by default: "md5sum", "sha1sum", "cd", "pwd".
 	// "*" enables all supported SSH commands.
 	EnabledSSHCommands []string `json:"enabled_ssh_commands" mapstructure:"enabled_ssh_commands"`
+	// KeyboardInteractiveAuthentication specifies whether keyboard interactive authentication is allowed.
+	// If no keyboard interactive hook or auth plugin is defined the default is to prompt for the user password and then the
+	// one time authentication code, if defined.
+	KeyboardInteractiveAuthentication bool `json:"keyboard_interactive_authentication" mapstructure:"keyboard_interactive_authentication"`
 	// Absolute path to an external program or an HTTP URL to invoke for keyboard interactive authentication.
 	// Leave empty to disable this authentication mode.
 	KeyboardInteractiveHook string `json:"keyboard_interactive_auth_hook" mapstructure:"keyboard_interactive_auth_hook"`
@@ -307,7 +310,7 @@ func (c *Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, con
 }
 
 func (c *Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.ServerConfig) {
-	if c.KeyboardInteractiveHook == "" && !plugin.Handler.HasAuthScope(plugin.AuthScopeKeyboardInteractive) {
+	if !c.KeyboardInteractiveAuthentication {
 		return
 	}
 	if c.KeyboardInteractiveHook != "" {

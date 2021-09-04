@@ -98,6 +98,13 @@ func (s *Service) Start() error {
 		logger.ErrorToConsole("unable to initialize KMS: %v", err)
 		os.Exit(1)
 	}
+	mfaConfig := config.GetMFAConfig()
+	err = mfaConfig.Initialize()
+	if err != nil {
+		logger.Error(logSender, "", "unable to initialize MFA: %v", err)
+		logger.ErrorToConsole("unable to initialize MFA: %v", err)
+		os.Exit(1)
+	}
 	if err := plugin.Initialize(config.GetPluginsConfig(), s.LogVerbose); err != nil {
 		logger.Error(logSender, "", "unable to initialize plugin system: %v", err)
 		logger.ErrorToConsole("unable to initialize plugin system: %v", err)

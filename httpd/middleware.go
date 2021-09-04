@@ -65,15 +65,6 @@ func validateJWTToken(w http.ResponseWriter, r *http.Request, audience tokenAudi
 		}
 		return errInvalidToken
 	}
-	if !util.IsStringInSlice(audience, token.Audience()) {
-		logger.Debug(logSender, "", "the token is not valid for audience %#v", audience)
-		if isAPIToken {
-			sendAPIResponse(w, r, nil, "Your token audience is not valid", http.StatusUnauthorized)
-		} else {
-			http.Redirect(w, r, redirectPath, http.StatusFound)
-		}
-		return errInvalidToken
-	}
 	if isTokenInvalidated(r) {
 		logger.Debug(logSender, "", "the token has been invalidated")
 		if isAPIToken {
@@ -83,7 +74,58 @@ func validateJWTToken(w http.ResponseWriter, r *http.Request, audience tokenAudi
 		}
 		return errInvalidToken
 	}
+	// a user with a partial token will be always redirected to the appropriate two factor auth page
+	if err := checkPartialAuth(w, r, audience, token.Audience()); err != nil {
+		return err
+	}
+	if !util.IsStringInSlice(audience, token.Audience()) {
+		logger.Debug(logSender, "", "the token is not valid for audience %#v", audience)
+		if isAPIToken {
+			sendAPIResponse(w, r, nil, "Your token audience is not valid", http.StatusUnauthorized)
+		} else {
+			http.Redirect(w, r, redirectPath, http.StatusFound)
+		}
+		return errInvalidToken
+	}
 	return nil
+}
+
+func validateJWTPartialToken(w http.ResponseWriter, r *http.Request, audience tokenAudience) error {
+	token, _, err := jwtauth.FromContext(r.Context())
+	var notFoundFunc func(w http.ResponseWriter, r *http.Request, err error)
+	if audience == tokenAudienceWebAdminPartial {
+		notFoundFunc = renderNotFoundPage
+	} else {
+		notFoundFunc = renderClientNotFoundPage
+	}
+	if err != nil || token == nil || jwt.Validate(token) != nil {
+		notFoundFunc(w, r, nil)
+		return errInvalidToken
+	}
+	if isTokenInvalidated(r) {
+		notFoundFunc(w, r, nil)
+		return errInvalidToken
+	}
+	if !util.IsStringInSlice(audience, token.Audience()) {
+		logger.Debug(logSender, "", "the token is not valid for audience %#v", audience)
+		notFoundFunc(w, r, nil)
+		return errInvalidToken
+	}
+
+	return nil
+}
+
+func jwtAuthenticatorPartial(audience tokenAudience) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if err := validateJWTPartialToken(w, r, audience); err != nil {
+				return
+			}
+
+			// Token is authenticated, pass it through
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func jwtAuthenticatorAPI(next http.Handler) http.Handler {
@@ -400,5 +442,17 @@ func authenticateUserWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTAu
 	dataprovider.UpdateLastLogin(&user)
 	updateLoginMetrics(&user, ipAddr, nil)
 
+	return nil
+}
+
+func checkPartialAuth(w http.ResponseWriter, r *http.Request, audience string, tokenAudience []string) error {
+	if audience == tokenAudienceWebAdmin && util.IsStringInSlice(tokenAudienceWebAdminPartial, tokenAudience) {
+		http.Redirect(w, r, webAdminTwoFactorPath, http.StatusFound)
+		return errInvalidToken
+	}
+	if audience == tokenAudienceWebClient && util.IsStringInSlice(tokenAudienceWebClientPartial, tokenAudience) {
+		http.Redirect(w, r, webClientTwoFactorPath, http.StatusFound)
+		return errInvalidToken
+	}
 	return nil
 }

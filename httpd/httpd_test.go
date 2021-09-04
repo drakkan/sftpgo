@@ -28,6 +28,9 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/lithammer/shortuuid/v3"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/pquerna/otp"
+	"github.com/pquerna/otp/totp"
+	"github.com/rs/xid"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -41,6 +44,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpdtest"
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/util"
@@ -83,6 +87,16 @@ const (
 	userFilesPath                   = "/api/v2/user/files"
 	userStreamZipPath               = "/api/v2/user/streamzip"
 	apiKeysPath                     = "/api/v2/apikeys"
+	adminTOTPConfigsPath            = "/api/v2/admin/totp/configs"
+	adminTOTPGeneratePath           = "/api/v2/admin/totp/generate"
+	adminTOTPValidatePath           = "/api/v2/admin/totp/validate"
+	adminTOTPSavePath               = "/api/v2/admin/totp/save"
+	admin2FARecoveryCodesPath       = "/api/v2/admin/2fa/recoverycodes"
+	userTOTPConfigsPath             = "/api/v2/user/totp/configs"
+	userTOTPGeneratePath            = "/api/v2/user/totp/generate"
+	userTOTPValidatePath            = "/api/v2/user/totp/validate"
+	userTOTPSavePath                = "/api/v2/user/totp/save"
+	user2FARecoveryCodesPath        = "/api/v2/user/2fa/recoverycodes"
 	healthzPath                     = "/healthz"
 	webBasePath                     = "/web"
 	webBasePathAdmin                = "/web/admin"
@@ -105,6 +119,10 @@ const (
 	webTemplateFolder               = "/web/admin/template/folder"
 	webDefenderPath                 = "/web/admin/defender"
 	webChangeAdminAPIKeyAccessPath  = "/web/admin/apikeyaccess"
+	webAdminTwoFactorPath           = "/web/admin/twofactor"
+	webAdminTwoFactorRecoveryPath   = "/web/admin/twofactor-recovery"
+	webAdminMFAPath                 = "/web/admin/mfa"
+	webAdminTOTPSavePath            = "/web/admin/totp/save"
 	webBasePathClient               = "/web/client"
 	webClientLoginPath              = "/web/client/login"
 	webClientFilesPath              = "/web/client/files"
@@ -114,7 +132,11 @@ const (
 	webChangeClientPwdPath          = "/web/client/changepwd"
 	webChangeClientKeysPath         = "/web/client/managekeys"
 	webChangeClientAPIKeyAccessPath = "/web/client/apikeyaccess"
+	webClientTwoFactorPath          = "/web/client/twofactor"
+	webClientTwoFactorRecoveryPath  = "/web/client/twofactor-recovery"
 	webClientLogoutPath             = "/web/client/logout"
+	webClientMFAPath                = "/web/client/mfa"
+	webClientTOTPSavePath           = "/web/client/totp/save"
 	httpBaseURL                     = "http://127.0.0.1:8081"
 	sftpServerAddr                  = "127.0.0.1:8022"
 	configDir                       = ".."
@@ -190,6 +212,28 @@ func (c *fakeConnection) GetRemoteAddress() string {
 	return ""
 }
 
+type generateTOTPRequest struct {
+	ConfigName string `json:"config_name"`
+}
+
+type generateTOTPResponse struct {
+	ConfigName string `json:"config_name"`
+	Issuer     string `json:"issuer"`
+	Secret     string `json:"secret"`
+	QRCode     []byte `json:"qr_code"`
+}
+
+type validateTOTPRequest struct {
+	ConfigName string `json:"config_name"`
+	Passcode   string `json:"passcode"`
+	Secret     string `json:"secret"`
+}
+
+type recoveryCode struct {
+	Code string `json:"code"`
+	Used bool   `json:"used"`
+}
+
 func TestMain(m *testing.M) {
 	homeBasePath = os.TempDir()
 	logfilePath := filepath.Join(configDir, "sftpgo_api_test.log")
@@ -231,6 +275,12 @@ func TestMain(m *testing.M) {
 	err = kmsConfig.Initialize()
 	if err != nil {
 		logger.ErrorToConsole("error initializing kms: %v", err)
+		os.Exit(1)
+	}
+	mfaConfig := config.GetMFAConfig()
+	err = mfaConfig.Initialize()
+	if err != nil {
+		logger.ErrorToConsole("error initializing MFA: %v", err)
 		os.Exit(1)
 	}
 
@@ -608,6 +658,143 @@ func TestHTTPUserAuthentication(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestLoginUserAPITOTP(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	userTOTPConfig := sdk.TOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+		Protocols:  []string{common.ProtocolHTTP},
+	}
+	asJSON, err := json.Marshal(userTOTPConfig)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, userTokenPath), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	resp, err := httpclient.GetHTTPClient().Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	passcode, err := generateTOTPPasscode(secret)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, userTokenPath), nil)
+	assert.NoError(t, err)
+	req.Header.Set("X-SFTPGO-OTP", passcode)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	resp, err = httpclient.GetHTTPClient().Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	responseHolder := make(map[string]interface{})
+	err = render.DecodeJSON(resp.Body, &responseHolder)
+	assert.NoError(t, err)
+	adminToken := responseHolder["access_token"].(string)
+	assert.NotEmpty(t, adminToken)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, userTokenPath), nil)
+	assert.NoError(t, err)
+	req.Header.Set("X-SFTPGO-OTP", passcode)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	resp, err = httpclient.GetHTTPClient().Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestLoginAdminAPITOTP(t *testing.T) {
+	admin := getTestAdmin()
+	admin.Username = altAdminUsername
+	admin.Password = altAdminPassword
+	admin, _, err := httpdtest.AddAdmin(admin, http.StatusCreated)
+	assert.NoError(t, err)
+
+	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], admin.Username)
+	assert.NoError(t, err)
+	altToken, err := getJWTAPITokenFromTestServer(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+	adminTOTPConfig := dataprovider.TOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+	}
+	asJSON, err := json.Marshal(adminTOTPConfig)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, adminTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, tokenPath), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(altAdminUsername, altAdminPassword)
+	resp, err := httpclient.GetHTTPClient().Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, tokenPath), nil)
+	assert.NoError(t, err)
+	req.Header.Set("X-SFTPGO-OTP", "passcode")
+	req.SetBasicAuth(altAdminUsername, altAdminPassword)
+	resp, err = httpclient.GetHTTPClient().Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	passcode, err := generateTOTPPasscode(secret)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, tokenPath), nil)
+	assert.NoError(t, err)
+	req.Header.Set("X-SFTPGO-OTP", passcode)
+	req.SetBasicAuth(altAdminUsername, altAdminPassword)
+	resp, err = httpclient.GetHTTPClient().Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	responseHolder := make(map[string]interface{})
+	err = render.DecodeJSON(resp.Body, &responseHolder)
+	assert.NoError(t, err)
+	adminToken := responseHolder["access_token"].(string)
+	assert.NotEmpty(t, adminToken)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, versionPath), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, adminToken)
+	resp, err = httpclient.GetHTTPClient().Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -1254,6 +1441,21 @@ func TestUserRedactedPassword(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "cannot save a user with a redacted secret")
 	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestUserType(t *testing.T) {
+	u := getTestUser()
+	u.Filters.UserType = string(sdk.UserTypeLDAP)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	assert.Equal(t, string(sdk.UserTypeLDAP), user.Filters.UserType)
+	user.Filters.UserType = string(sdk.UserTypeOS)
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	assert.Equal(t, string(sdk.UserTypeOS), user.Filters.UserType)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -3037,6 +3239,24 @@ func TestSkipNaturalKeysValidation(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
 
+	adminAPIToken, err := getJWTAPITokenFromTestServer(admin.Username, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	userAPIToken, err := getJWTAPIUserTokenFromTestServer(user.Username, defaultPassword)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, userPath+"/"+user.Username+"/2fa/disable", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, adminAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
+
+	req, err = http.NewRequest(http.MethodPost, user2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, userAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
+
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
@@ -3054,6 +3274,151 @@ func TestSkipNaturalKeysValidation(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
+
+	req, err = http.NewRequest(http.MethodPut, adminPath+"/"+admin.Username+"/2fa/disable", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, adminAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
+
+	req, err = http.NewRequest(http.MethodPost, admin2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, adminAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestSaveErrors(t *testing.T) {
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	providerConf.SkipNaturalKeysValidation = true
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	recCode := "recovery code"
+	recoveryCodes := []sdk.RecoveryCode{
+		{
+			Secret: kms.NewPlainSecret(recCode),
+			Used:   false,
+		},
+	}
+
+	u := getTestUser()
+	u.Username = "user@example.com"
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	assert.NoError(t, err)
+	user.Password = u.Password
+	user.Filters.TOTPConfig = sdk.TOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+		Protocols:  []string{common.ProtocolSSH, common.ProtocolHTTP},
+	}
+	user.Filters.RecoveryCodes = recoveryCodes
+	err = dataprovider.UpdateUser(&user)
+	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, user.Filters.TOTPConfig.Enabled)
+	assert.Len(t, user.Filters.RecoveryCodes, 1)
+
+	a := getTestAdmin()
+	a.Username = "admin@example.com"
+	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
+	assert.NoError(t, err)
+	admin.Email = admin.Username
+	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	admin.Password = a.Password
+	admin.Filters.TOTPConfig = dataprovider.TOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+	}
+	admin.Filters.RecoveryCodes = recoveryCodes
+	err = dataprovider.UpdateAdmin(&admin)
+	assert.NoError(t, err)
+	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, admin.Filters.TOTPConfig.Enabled)
+	assert.Len(t, admin.Filters.RecoveryCodes, 1)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	providerConf.CredentialsPath = credentialsPath
+	err = os.RemoveAll(credentialsPath)
+	assert.NoError(t, err)
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	if config.GetProviderConf().Driver == dataprovider.MemoryDataProviderName {
+		return
+	}
+
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	form := getLoginForm(a.Username, a.Password, csrfToken)
+	req, err := http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webAdminTwoFactorPath, rr.Header().Get("Location"))
+	cookie, err := getCookieFromResponse(rr)
+	assert.NoError(t, err)
+
+	form = make(url.Values)
+	form.Set("recovery_code", recCode)
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Contains(t, rr.Body.String(), "unable to set the recovery code as used")
+
+	csrfToken, err = getCSRFToken(httpBaseURL + webClientLoginPath)
+	assert.NoError(t, err)
+	form = getLoginForm(u.Username, u.Password, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientTwoFactorPath, rr.Header().Get("Location"))
+	cookie, err = getCookieFromResponse(rr)
+	assert.NoError(t, err)
+
+	form = make(url.Values)
+	form.Set("recovery_code", recCode)
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Contains(t, rr.Body.String(), "unable to set the recovery code as used")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
 
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
@@ -4032,6 +4397,511 @@ func TestAddAdminNoPasswordMock(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "please set a password")
 }
 
+func TestAdminTwoFactorLogin(t *testing.T) {
+	admin := getTestAdmin()
+	admin.Username = altAdminUsername
+	admin.Password = altAdminPassword
+	admin, _, err := httpdtest.AddAdmin(admin, http.StatusCreated)
+	assert.NoError(t, err)
+	// enable two factor authentication
+	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], admin.Username)
+	assert.NoError(t, err)
+	altToken, err := getJWTAPITokenFromTestServer(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+	adminTOTPConfig := dataprovider.TOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+	}
+	asJSON, err := json.Marshal(adminTOTPConfig)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, adminTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, admin.Filters.TOTPConfig.Enabled)
+
+	req, err = http.NewRequest(http.MethodGet, admin2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var recCodes []recoveryCode
+	err = json.Unmarshal(rr.Body.Bytes(), &recCodes)
+	assert.NoError(t, err)
+	assert.Len(t, recCodes, 12)
+
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, webAdminTwoFactorPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webAdminTwoFactorRecoveryPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	form := getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webAdminTwoFactorPath, rr.Header().Get("Location"))
+	cookie, err := getCookieFromResponse(rr)
+	assert.NoError(t, err)
+
+	// without a cookie
+	req, err = http.NewRequest(http.MethodGet, webAdminTwoFactorRecoveryPath, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webAdminTwoFactorPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webAdminTwoFactorRecoveryPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	// any other page will be redirected to the two factor auth page
+	req, err = http.NewRequest(http.MethodGet, webUsersPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webAdminTwoFactorPath, rr.Header().Get("Location"))
+	// a partial token cannot be used for user pages
+	req, err = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
+
+	passcode, err := generateTOTPPasscode(secret)
+	assert.NoError(t, err)
+	form = make(url.Values)
+	form.Set("passcode", passcode)
+	// no csrf
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("passcode", "invalid_passcode")
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid authentication code")
+
+	form.Set("passcode", "")
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid credentials")
+
+	form.Set("passcode", passcode)
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webUsersPath, rr.Header().Get("Location"))
+	// the same cookie cannot be reused
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	// get a new cookie and login using a recovery code
+	form = getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webAdminTwoFactorPath, rr.Header().Get("Location"))
+	cookie, err = getCookieFromResponse(rr)
+	assert.NoError(t, err)
+
+	form = make(url.Values)
+	recoveryCode := recCodes[0].Code
+	form.Set("recovery_code", recoveryCode)
+	// no csrf
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("recovery_code", "")
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid credentials")
+
+	form.Set("recovery_code", recoveryCode)
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webUsersPath, rr.Header().Get("Location"))
+	authenticatedCookie, err := getCookieFromResponse(rr)
+	assert.NoError(t, err)
+	//render MFA page
+	req, err = http.NewRequest(http.MethodGet, webAdminMFAPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, authenticatedCookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// check that the recovery code was marked as used
+	req, err = http.NewRequest(http.MethodGet, admin2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	recCodes = nil
+	err = json.Unmarshal(rr.Body.Bytes(), &recCodes)
+	assert.NoError(t, err)
+	assert.Len(t, recCodes, 12)
+	found := false
+	for _, rc := range recCodes {
+		if rc.Code == recoveryCode {
+			found = true
+			assert.True(t, rc.Used)
+		} else {
+			assert.False(t, rc.Used)
+		}
+	}
+	assert.True(t, found)
+	// the same recovery code cannot be reused
+	form = getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webAdminTwoFactorPath, rr.Header().Get("Location"))
+	cookie, err = getCookieFromResponse(rr)
+	assert.NoError(t, err)
+	form = make(url.Values)
+	form.Set("recovery_code", recoveryCode)
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "This recovery code was already used")
+
+	form.Set("recovery_code", "invalid_recovery_code")
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid recovery code")
+
+	form = getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webAdminTwoFactorPath, rr.Header().Get("Location"))
+	cookie, err = getCookieFromResponse(rr)
+	assert.NoError(t, err)
+
+	// disable TOTP
+	req, err = http.NewRequest(http.MethodPut, adminPath+"/"+altAdminUsername+"/2fa/disable", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	form = make(url.Values)
+	form.Set("recovery_code", recoveryCode)
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Two factory authentication is not enabled")
+
+	form.Set("passcode", passcode)
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Two factory authentication is not enabled")
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid credentials")
+
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid credentials")
+
+	req, err = http.NewRequest(http.MethodGet, webAdminMFAPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, authenticatedCookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+}
+
+func TestAdminTOTP(t *testing.T) {
+	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	admin := getTestAdmin()
+	admin.Username = altAdminUsername
+	admin.Password = altAdminPassword
+	// TOTPConfig will be ignored on add
+	admin.Filters.TOTPConfig = dataprovider.TOTPConfig{
+		Enabled:    true,
+		ConfigName: "config",
+		Secret:     kms.NewEmptySecret(),
+	}
+	asJSON, err := json.Marshal(admin)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, adminPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	admin, _, err = httpdtest.GetAdminByUsername(altAdminUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.False(t, admin.Filters.TOTPConfig.Enabled)
+	assert.Len(t, admin.Filters.RecoveryCodes, 0)
+
+	altToken, err := getJWTAPITokenFromTestServer(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, adminTOTPConfigsPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var configs []mfa.TOTPConfig
+	err = json.Unmarshal(rr.Body.Bytes(), &configs)
+	assert.NoError(t, err, rr.Body.String())
+	assert.Len(t, configs, len(mfa.GetAvailableTOTPConfigs()))
+	totpConfig := configs[0]
+	totpReq := generateTOTPRequest{
+		ConfigName: totpConfig.Name,
+	}
+	asJSON, err = json.Marshal(totpReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, adminTOTPGeneratePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var totpGenResp generateTOTPResponse
+	err = json.Unmarshal(rr.Body.Bytes(), &totpGenResp)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, totpGenResp.Secret)
+	assert.NotEmpty(t, totpGenResp.QRCode)
+
+	passcode, err := generateTOTPPasscode(totpGenResp.Secret)
+	assert.NoError(t, err)
+	validateReq := validateTOTPRequest{
+		ConfigName: totpGenResp.ConfigName,
+		Passcode:   passcode,
+		Secret:     totpGenResp.Secret,
+	}
+	asJSON, err = json.Marshal(validateReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, adminTOTPValidatePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// the same passcode cannot be reused
+	req, err = http.NewRequest(http.MethodPost, adminTOTPValidatePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "this passcode was already used")
+
+	adminTOTPConfig := dataprovider.TOTPConfig{
+		Enabled:    true,
+		ConfigName: totpGenResp.ConfigName,
+		Secret:     kms.NewPlainSecret(totpGenResp.Secret),
+	}
+	asJSON, err = json.Marshal(adminTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, adminTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	admin, _, err = httpdtest.GetAdminByUsername(altAdminUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, admin.Filters.TOTPConfig.Enabled)
+	assert.Equal(t, totpGenResp.ConfigName, admin.Filters.TOTPConfig.ConfigName)
+	assert.Empty(t, admin.Filters.TOTPConfig.Secret.GetKey())
+	assert.Empty(t, admin.Filters.TOTPConfig.Secret.GetAdditionalData())
+	assert.NotEmpty(t, admin.Filters.TOTPConfig.Secret.GetPayload())
+	assert.Equal(t, kms.SecretStatusSecretBox, admin.Filters.TOTPConfig.Secret.GetStatus())
+	admin.Filters.TOTPConfig = dataprovider.TOTPConfig{
+		Enabled: false,
+	}
+	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, admin.Filters.TOTPConfig.Enabled)
+	// if we use token we should get no recovery codes
+	req, err = http.NewRequest(http.MethodGet, admin2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var recCodes []recoveryCode
+	err = json.Unmarshal(rr.Body.Bytes(), &recCodes)
+	assert.NoError(t, err)
+	assert.Len(t, recCodes, 0)
+	// now the same but with altToken
+	req, err = http.NewRequest(http.MethodGet, admin2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	recCodes = nil
+	err = json.Unmarshal(rr.Body.Bytes(), &recCodes)
+	assert.NoError(t, err)
+	assert.Len(t, recCodes, 12)
+	// regenerate recovery codes
+	req, err = http.NewRequest(http.MethodPost, admin2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// check that recovery codes are different
+	req, err = http.NewRequest(http.MethodGet, admin2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var newRecCodes []recoveryCode
+	err = json.Unmarshal(rr.Body.Bytes(), &newRecCodes)
+	assert.NoError(t, err)
+	assert.Len(t, newRecCodes, 12)
+	assert.NotEqual(t, recCodes, newRecCodes)
+	// disable 2FA, the update admin API should not work
+	admin.Filters.TOTPConfig.Enabled = false
+	admin.Filters.RecoveryCodes = nil
+	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, altAdminUsername, admin.Username)
+	assert.True(t, admin.Filters.TOTPConfig.Enabled)
+	assert.Len(t, admin.Filters.RecoveryCodes, 12)
+	// use the dedicated API
+	req, err = http.NewRequest(http.MethodPut, adminPath+"/"+altAdminUsername+"/2fa/disable", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	admin, _, err = httpdtest.GetAdminByUsername(altAdminUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.False(t, admin.Filters.TOTPConfig.Enabled)
+	assert.Len(t, admin.Filters.RecoveryCodes, 0)
+
+	req, _ = http.NewRequest(http.MethodDelete, path.Join(adminPath, altAdminUsername), nil)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodPut, adminPath+"/"+altAdminUsername+"/2fa/disable", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodGet, admin2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPost, admin2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPost, adminTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+}
+
 func TestChangeAdminPwdInvalidJsonMock(t *testing.T) {
 	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -4039,6 +4909,822 @@ func TestChangeAdminPwdInvalidJsonMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
+}
+
+func TestWebUserTwoFactorLogin(t *testing.T) {
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	// enable two factor authentication
+	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	adminToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	userTOTPConfig := sdk.TOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+		Protocols:  []string{common.ProtocolHTTP},
+	}
+	asJSON, err := json.Marshal(userTOTPConfig)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, user2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var recCodes []recoveryCode
+	err = json.Unmarshal(rr.Body.Bytes(), &recCodes)
+	assert.NoError(t, err)
+	assert.Len(t, recCodes, 12)
+
+	req, err = http.NewRequest(http.MethodGet, webClientTwoFactorPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webClientTwoFactorRecoveryPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	assert.NoError(t, err)
+	form := getLoginForm(defaultUsername, defaultPassword, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientTwoFactorPath, rr.Header().Get("Location"))
+	cookie, err := getCookieFromResponse(rr)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, webClientTwoFactorPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	// without a cookie
+	req, err = http.NewRequest(http.MethodGet, webClientTwoFactorPath, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webClientTwoFactorRecoveryPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// any other page will be redirected to the two factor auth page
+	req, err = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webClientTwoFactorPath, rr.Header().Get("Location"))
+	// a partial token cannot be used for admin pages
+	req, err = http.NewRequest(http.MethodGet, webUsersPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
+
+	passcode, err := generateTOTPPasscode(secret)
+	assert.NoError(t, err)
+	form = make(url.Values)
+	form.Set("passcode", passcode)
+
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("passcode", "invalid_user_passcode")
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid authentication code")
+
+	form.Set("passcode", "")
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid credentials")
+
+	form.Set("passcode", passcode)
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientFilesPath, rr.Header().Get("Location"))
+	// the same cookie cannot be reused
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	// get a new cookie and login using a recovery code
+	form = getLoginForm(defaultUsername, defaultPassword, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientTwoFactorPath, rr.Header().Get("Location"))
+	cookie, err = getCookieFromResponse(rr)
+	assert.NoError(t, err)
+
+	form = make(url.Values)
+	recoveryCode := recCodes[0].Code
+	form.Set("recovery_code", recoveryCode)
+	// no csrf
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("recovery_code", "")
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid credentials")
+
+	form.Set("recovery_code", recoveryCode)
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientFilesPath, rr.Header().Get("Location"))
+	authenticatedCookie, err := getCookieFromResponse(rr)
+	assert.NoError(t, err)
+	//render MFA page
+	req, err = http.NewRequest(http.MethodGet, webClientMFAPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, authenticatedCookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	// check that the recovery code was marked as used
+	req, err = http.NewRequest(http.MethodGet, user2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	recCodes = nil
+	err = json.Unmarshal(rr.Body.Bytes(), &recCodes)
+	assert.NoError(t, err)
+	assert.Len(t, recCodes, 12)
+	found := false
+	for _, rc := range recCodes {
+		if rc.Code == recoveryCode {
+			found = true
+			assert.True(t, rc.Used)
+		} else {
+			assert.False(t, rc.Used)
+		}
+	}
+	assert.True(t, found)
+	// the same recovery code cannot be reused
+	form = getLoginForm(defaultUsername, defaultPassword, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientTwoFactorPath, rr.Header().Get("Location"))
+	cookie, err = getCookieFromResponse(rr)
+	assert.NoError(t, err)
+	form = make(url.Values)
+	form.Set("recovery_code", recoveryCode)
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "This recovery code was already used")
+
+	form.Set("recovery_code", "invalid_user_recovery_code")
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid recovery code")
+
+	form = getLoginForm(defaultUsername, defaultPassword, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientTwoFactorPath, rr.Header().Get("Location"))
+	cookie, err = getCookieFromResponse(rr)
+	assert.NoError(t, err)
+
+	// disable TOTP
+	req, err = http.NewRequest(http.MethodPut, userPath+"/"+user.Username+"/2fa/disable", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, adminToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	form = make(url.Values)
+	form.Set("recovery_code", recoveryCode)
+	form.Set("passcode", passcode)
+	form.Set(csrfFormToken, csrfToken)
+
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Two factory authentication is not enabled")
+
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Two factory authentication is not enabled")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid credentials")
+
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid credentials")
+
+	req, err = http.NewRequest(http.MethodGet, webClientMFAPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, authenticatedCookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+}
+
+func TestMFAErrors(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	assert.False(t, user.Filters.TOTPConfig.Enabled)
+	userToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	adminToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+
+	// invalid config name
+	totpReq := generateTOTPRequest{
+		ConfigName: "invalid config name",
+	}
+	asJSON, err := json.Marshal(totpReq)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userTOTPGeneratePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, userToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	// invalid JSON
+	invalidJSON := []byte("not a JSON")
+	req, err = http.NewRequest(http.MethodPost, userTOTPGeneratePath, bytes.NewBuffer(invalidJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, userToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(invalidJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, userToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodPost, adminTOTPSavePath, bytes.NewBuffer(invalidJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, adminToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodPost, adminTOTPValidatePath, bytes.NewBuffer(invalidJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, adminToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	// invalid TOTP config name
+	userTOTPConfig := sdk.TOTPConfig{
+		Enabled:    true,
+		ConfigName: "missing name",
+		Secret:     kms.NewPlainSecret(xid.New().String()),
+		Protocols:  []string{common.ProtocolSSH},
+	}
+	asJSON, err = json.Marshal(userTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, userToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "totp: config name")
+	// invalid TOTP secret
+	userTOTPConfig = sdk.TOTPConfig{
+		Enabled:    true,
+		ConfigName: mfa.GetAvailableTOTPConfigNames()[0],
+		Secret:     nil,
+		Protocols:  []string{common.ProtocolSSH},
+	}
+	asJSON, err = json.Marshal(userTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, userToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "totp: secret is mandatory")
+	// no protocol
+	userTOTPConfig = sdk.TOTPConfig{
+		Enabled:    true,
+		ConfigName: mfa.GetAvailableTOTPConfigNames()[0],
+		Secret:     kms.NewPlainSecret(xid.New().String()),
+		Protocols:  nil,
+	}
+	asJSON, err = json.Marshal(userTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, userToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "totp: specify at least one protocol")
+	// invalid protocol
+	userTOTPConfig = sdk.TOTPConfig{
+		Enabled:    true,
+		ConfigName: mfa.GetAvailableTOTPConfigNames()[0],
+		Secret:     kms.NewPlainSecret(xid.New().String()),
+		Protocols:  []string{common.ProtocolWebDAV},
+	}
+	asJSON, err = json.Marshal(userTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, userToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "totp: invalid protocol")
+
+	adminTOTPConfig := dataprovider.TOTPConfig{
+		Enabled:    true,
+		ConfigName: "",
+		Secret:     kms.NewPlainSecret("secret"),
+	}
+	asJSON, err = json.Marshal(adminTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, adminTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, adminToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "totp: config name is mandatory")
+
+	adminTOTPConfig = dataprovider.TOTPConfig{
+		Enabled:    true,
+		ConfigName: mfa.GetAvailableTOTPConfigNames()[0],
+		Secret:     nil,
+	}
+	asJSON, err = json.Marshal(adminTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, adminTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, adminToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "totp: secret is mandatory")
+
+	// invalid TOTP secret status
+	userTOTPConfig = sdk.TOTPConfig{
+		Enabled:    true,
+		ConfigName: mfa.GetAvailableTOTPConfigNames()[0],
+		Secret:     kms.NewSecret(kms.SecretStatusRedacted, "", "", ""),
+		Protocols:  []string{common.ProtocolSSH},
+	}
+	asJSON, err = json.Marshal(userTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, userToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "cannot save a user with a redacted secret")
+
+	req, err = http.NewRequest(http.MethodPost, adminTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, adminToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "cannot save an admin with a redacted secret")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestMFAInvalidSecret(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	userToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	user.Password = defaultPassword
+	user.Filters.TOTPConfig = sdk.TOTPConfig{
+		Enabled:    true,
+		ConfigName: mfa.GetAvailableTOTPConfigNames()[0],
+		Secret:     kms.NewSecret(kms.SecretStatusSecretBox, "payload", "key", user.Username),
+		Protocols:  []string{common.ProtocolSSH, common.ProtocolHTTP},
+	}
+	user.Filters.RecoveryCodes = append(user.Filters.RecoveryCodes, sdk.RecoveryCode{
+		Used:   false,
+		Secret: kms.NewSecret(kms.SecretStatusSecretBox, "payload", "key", user.Username),
+	})
+	err = dataprovider.UpdateUser(&user)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, user2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, userToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to decrypt recovery codes")
+
+	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	assert.NoError(t, err)
+	form := getLoginForm(defaultUsername, defaultPassword, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientTwoFactorPath, rr.Header().Get("Location"))
+	cookie, err := getCookieFromResponse(rr)
+	assert.NoError(t, err)
+	form = make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("passcode", "123456")
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+
+	form = make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("recovery_code", "RC-123456")
+	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, userTokenPath), nil)
+	assert.NoError(t, err)
+	req.Header.Set("X-SFTPGO-OTP", "authcode")
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	resp, err := httpclient.GetHTTPClient().Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	admin := getTestAdmin()
+	admin.Username = altAdminUsername
+	admin.Password = altAdminPassword
+	admin, _, err = httpdtest.AddAdmin(admin, http.StatusCreated)
+	assert.NoError(t, err)
+
+	admin.Password = altAdminPassword
+	admin.Filters.TOTPConfig = dataprovider.TOTPConfig{
+		Enabled:    true,
+		ConfigName: mfa.GetAvailableTOTPConfigNames()[0],
+		Secret:     kms.NewSecret(kms.SecretStatusSecretBox, "payload", "key", user.Username),
+	}
+	admin.Filters.RecoveryCodes = append(user.Filters.RecoveryCodes, sdk.RecoveryCode{
+		Used:   false,
+		Secret: kms.NewSecret(kms.SecretStatusSecretBox, "payload", "key", user.Username),
+	})
+	err = dataprovider.UpdateAdmin(&admin)
+	assert.NoError(t, err)
+
+	csrfToken, err = getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	form = getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webAdminTwoFactorPath, rr.Header().Get("Location"))
+	cookie, err = getCookieFromResponse(rr)
+	assert.NoError(t, err)
+	form = make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("passcode", "123456")
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+
+	form = make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("recovery_code", "RC-123456")
+	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, tokenPath), nil)
+	assert.NoError(t, err)
+	req.Header.Set("X-SFTPGO-OTP", "auth-code")
+	req.SetBasicAuth(altAdminUsername, altAdminPassword)
+	resp, err = httpclient.GetHTTPClient().Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestWebUserTOTP(t *testing.T) {
+	u := getTestUser()
+	// TOTPConfig will be ignored on add
+	u.Filters.TOTPConfig = sdk.TOTPConfig{
+		Enabled:    true,
+		ConfigName: "",
+		Secret:     kms.NewEmptySecret(),
+		Protocols:  []string{common.ProtocolSSH},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	assert.False(t, user.Filters.TOTPConfig.Enabled)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, userTOTPConfigsPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var configs []mfa.TOTPConfig
+	err = json.Unmarshal(rr.Body.Bytes(), &configs)
+	assert.NoError(t, err, rr.Body.String())
+	assert.Len(t, configs, len(mfa.GetAvailableTOTPConfigs()))
+	totpConfig := configs[0]
+	totpReq := generateTOTPRequest{
+		ConfigName: totpConfig.Name,
+	}
+	asJSON, err := json.Marshal(totpReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userTOTPGeneratePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var totpGenResp generateTOTPResponse
+	err = json.Unmarshal(rr.Body.Bytes(), &totpGenResp)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, totpGenResp.Secret)
+	assert.NotEmpty(t, totpGenResp.QRCode)
+
+	passcode, err := generateTOTPPasscode(totpGenResp.Secret)
+	assert.NoError(t, err)
+	validateReq := validateTOTPRequest{
+		ConfigName: totpGenResp.ConfigName,
+		Passcode:   passcode,
+		Secret:     totpGenResp.Secret,
+	}
+	asJSON, err = json.Marshal(validateReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userTOTPValidatePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// the same passcode cannot be reused
+	req, err = http.NewRequest(http.MethodPost, userTOTPValidatePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "this passcode was already used")
+
+	userTOTPConfig := sdk.TOTPConfig{
+		Enabled:    true,
+		ConfigName: totpGenResp.ConfigName,
+		Secret:     kms.NewPlainSecret(totpGenResp.Secret),
+		Protocols:  []string{common.ProtocolSSH},
+	}
+	asJSON, err = json.Marshal(userTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	totpCfg := user.Filters.TOTPConfig
+	assert.True(t, totpCfg.Enabled)
+	assert.Equal(t, totpGenResp.ConfigName, totpCfg.ConfigName)
+	assert.Empty(t, totpCfg.Secret.GetKey())
+	assert.Empty(t, totpCfg.Secret.GetAdditionalData())
+	assert.NotEmpty(t, totpCfg.Secret.GetPayload())
+	assert.Equal(t, kms.SecretStatusSecretBox, totpCfg.Secret.GetStatus())
+	assert.Len(t, totpCfg.Protocols, 1)
+	assert.Contains(t, totpCfg.Protocols, common.ProtocolSSH)
+	// update protocols only
+	userTOTPConfig = sdk.TOTPConfig{
+		Protocols: []string{common.ProtocolSSH, common.ProtocolFTP},
+	}
+	asJSON, err = json.Marshal(userTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	// update the user, TOTP should not be affected
+	user.Filters.TOTPConfig = sdk.TOTPConfig{
+		Enabled: false,
+	}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, user.Filters.TOTPConfig.Enabled)
+	assert.Equal(t, totpCfg.ConfigName, user.Filters.TOTPConfig.ConfigName)
+	assert.Empty(t, user.Filters.TOTPConfig.Secret.GetKey())
+	assert.Empty(t, user.Filters.TOTPConfig.Secret.GetAdditionalData())
+	assert.Equal(t, totpCfg.Secret.GetPayload(), user.Filters.TOTPConfig.Secret.GetPayload())
+	assert.Equal(t, kms.SecretStatusSecretBox, user.Filters.TOTPConfig.Secret.GetStatus())
+	assert.Len(t, user.Filters.TOTPConfig.Protocols, 2)
+	assert.Contains(t, user.Filters.TOTPConfig.Protocols, common.ProtocolSSH)
+	assert.Contains(t, user.Filters.TOTPConfig.Protocols, common.ProtocolFTP)
+
+	req, err = http.NewRequest(http.MethodGet, user2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var recCodes []recoveryCode
+	err = json.Unmarshal(rr.Body.Bytes(), &recCodes)
+	assert.NoError(t, err)
+	assert.Len(t, recCodes, 12)
+	// regenerate recovery codes
+	req, err = http.NewRequest(http.MethodPost, user2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// check that recovery codes are different
+	req, err = http.NewRequest(http.MethodGet, user2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var newRecCodes []recoveryCode
+	err = json.Unmarshal(rr.Body.Bytes(), &newRecCodes)
+	assert.NoError(t, err)
+	assert.Len(t, newRecCodes, 12)
+	assert.NotEqual(t, recCodes, newRecCodes)
+	// disable 2FA, the update user API should not work
+	adminToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	user.Filters.TOTPConfig.Enabled = false
+	user.Filters.RecoveryCodes = nil
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	assert.Equal(t, defaultUsername, user.Username)
+	assert.True(t, user.Filters.TOTPConfig.Enabled)
+	assert.Len(t, user.Filters.RecoveryCodes, 12)
+	// use the dedicated API
+	req, err = http.NewRequest(http.MethodPut, userPath+"/"+defaultUsername+"/2fa/disable", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, adminToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	user, _, err = httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.False(t, user.Filters.TOTPConfig.Enabled)
+	assert.Len(t, user.Filters.RecoveryCodes, 0)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPut, userPath+"/"+defaultUsername+"/2fa/disable", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, adminToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodGet, user2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPost, user2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
 }
 
 func TestWebAPIChangeUserPwdMock(t *testing.T) {
@@ -8317,8 +10003,36 @@ func TestWebAdminBasicMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 
-	_, _, err = httpdtest.GetAdminByUsername(altAdminUsername, http.StatusOK)
+	// add TOTP config
+	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], altAdminUsername)
 	assert.NoError(t, err)
+	altToken, err := getJWTWebTokenFromTestServer(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+	adminTOTPConfig := dataprovider.TOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+	}
+	asJSON, err := json.Marshal(adminTOTPConfig)
+	assert.NoError(t, err)
+	// no CSRF token
+	req, err = http.NewRequest(http.MethodPost, webAdminTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Invalid token")
+
+	req, err = http.NewRequest(http.MethodPost, webAdminTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, altToken)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	admin, _, err = httpdtest.GetAdminByUsername(altAdminUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, admin.Filters.TOTPConfig.Enabled)
 
 	req, _ = http.NewRequest(http.MethodGet, webAdminsPath+"?qlimit=a", nil)
 	setJWTCookieForReq(req, token)
@@ -8372,6 +10086,12 @@ func TestWebAdminBasicMock(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	admin, _, err = httpdtest.GetAdminByUsername(altAdminUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, admin.Filters.TOTPConfig.Enabled)
+	assert.Equal(t, "admin@example.com", admin.Email)
+	assert.Equal(t, 0, admin.Status)
 
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webAdminPath, altAdminUsername+"1"), bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -8920,6 +10640,37 @@ func TestWebUserUpdateMock(t *testing.T) {
 	setBearerForReq(req, apiToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
+	// add TOTP config
+	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	assert.NoError(t, err)
+	userToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	userTOTPConfig := sdk.TOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+		Protocols:  []string{common.ProtocolSSH, common.ProtocolFTP},
+	}
+	asJSON, err := json.Marshal(userTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webClientTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, userToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Invalid token")
+
+	req, err = http.NewRequest(http.MethodPost, webClientTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, userToken)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, user.Filters.TOTPConfig.Enabled)
+
 	dbUser, err := dataprovider.UserExists(user.Username)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, dbUser.Password)
@@ -9008,6 +10759,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.NotEmpty(t, dbUser.Password)
 	assert.True(t, dbUser.IsPasswordHashed())
 	assert.Equal(t, prevPwd, dbUser.Password)
+	assert.True(t, dbUser.Filters.TOTPConfig.Enabled)
 
 	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
 	setBearerForReq(req, apiToken)
@@ -9027,6 +10779,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.Equal(t, int64(100), updateUser.Filters.MaxUploadFileSize)
 	assert.Equal(t, sdk.TLSUsernameCN, updateUser.Filters.TLSUsername)
 	assert.True(t, updateUser.Filters.AllowAPIKeyAuth)
+	assert.True(t, updateUser.Filters.TOTPConfig.Enabled)
 
 	if val, ok := updateUser.Permissions["/otherdir"]; ok {
 		assert.True(t, util.IsStringInSlice(dataprovider.PermListItems, val))
@@ -10932,6 +12685,10 @@ func getJWTWebClientTokenFromTestServerWithAddr(username, password, remoteAddr s
 	if rr.Code != http.StatusFound {
 		return "", fmt.Errorf("unexpected  status code %v", rr)
 	}
+	return getCookieFromResponse(rr)
+}
+
+func getCookieFromResponse(rr *httptest.ResponseRecorder) (string, error) {
 	cookie := strings.Split(rr.Header().Get("Set-Cookie"), ";")
 	if strings.HasPrefix(cookie[0], "jwt=") {
 		return cookie[0][4:], nil
@@ -10955,11 +12712,7 @@ func getJWTWebTokenFromTestServer(username, password string) (string, error) {
 	if rr.Code != http.StatusFound {
 		return "", fmt.Errorf("unexpected  status code %v", rr)
 	}
-	cookie := strings.Split(rr.Header().Get("Set-Cookie"), ";")
-	if strings.HasPrefix(cookie[0], "jwt=") {
-		return cookie[0][4:], nil
-	}
-	return "", errors.New("no cookie found")
+	return getCookieFromResponse(rr)
 }
 
 func executeRequest(req *http.Request) *httptest.ResponseRecorder {
@@ -11022,6 +12775,15 @@ func getMultipartFormData(values url.Values, fileFieldName, filePath string) (by
 	}
 	err := w.Close()
 	return b, w.FormDataContentType(), err
+}
+
+func generateTOTPPasscode(secret string) (string, error) {
+	return totp.GenerateCodeCustom(secret, time.Now(), totp.ValidateOpts{
+		Period:    30,
+		Skew:      1,
+		Digits:    otp.DigitsSix,
+		Algorithm: otp.AlgorithmSHA1,
+	})
 }
 
 func BenchmarkSecretDecryption(b *testing.B) {

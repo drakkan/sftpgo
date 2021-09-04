@@ -63,6 +63,7 @@ jobs:
           go test -v -p 1 -timeout 5m ./ftpd -covermode=atomic
           go test -v -p 1 -timeout 5m ./webdavd -covermode=atomic
           go test -v -p 1 -timeout 2m ./telemetry -covermode=atomic
+          go test -v -p 1 -timeout 2m ./mfa -covermode=atomic
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: bolt
           SFTPGO_DATA_PROVIDER__NAME: 'sftpgo_bolt.db'
@@ -107,7 +108,7 @@ jobs:
           path: output
 
   test-goarch-386:
-    name: Run test cases with GOARCH=386
+    name: Run test cases on 32 bit arch
     runs-on: ubuntu-latest
 
     steps:
@@ -123,7 +124,7 @@ jobs:
         env:
           GOARCH: 386
 
-      - name: Run test cases using memory provider with GOARCH=386
+      - name: Run test cases
         run: go test -v -p 1 -timeout 10m ./... -covermode=atomic
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: memory

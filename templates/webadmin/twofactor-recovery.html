@@ -1,6 +1,6 @@
 {{template "baselogin" .}}
 
-{{define "title"}}Login{{end}}
+{{define "title"}}Two-Factor recovery{{end}}
 
 {{define "content"}}
                                     <div class="text-center">
@@ -15,21 +15,15 @@
                                         class="user-custom">
                                         <div class="form-group">
                                             <input type="text" class="form-control form-control-user-custom"
-                                                id="inputUsername" name="username" placeholder="Username" required>
-                                        </div>
-                                        <div class="form-group">
-                                            <input type="password" class="form-control form-control-user-custom"
-                                                id="inputPassword" name="password" placeholder="Password" required>
+                                                id="inputRecoveryCode" name="recovery_code" placeholder="Recovery code" required>
                                         </div>
                                         <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
                                         <button type="submit" class="btn btn-primary btn-user-custom btn-block">
-                                            Login
+                                            Verify
                                         </button>
                                     </form>
-                                    {{if .AltLoginURL}}
                                     <hr>
-                                    <div class="text-center">
-                                        <a class="small" href="{{.AltLoginURL}}">Web Client</a>
+                                    <div>
+                                        <p>You can enter one of your recovery codes in case you lost access to your mobile device.</p>
                                     </div>
-                                    {{end}}
 {{end}}

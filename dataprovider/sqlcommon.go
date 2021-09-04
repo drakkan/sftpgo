@@ -806,6 +806,7 @@ func getAdminFromDbRow(row sqlScanner) (Admin, error) {
 		admin.Description = description.String
 	}
 
+	admin.SetEmptySecretsIfNil()
 	return admin, nil
 }
 

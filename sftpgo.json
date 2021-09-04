@@ -70,6 +70,7 @@
       "pwd",
       "scp"
     ],
+    "keyboard_interactive_authentication": false,
     "keyboard_interactive_auth_hook": "",
     "password_authentication": true,
     "folder_prefix": ""
@@ -243,6 +244,15 @@
       "master_key": "",
       "master_key_path": ""
     }
+  },
+  "mfa": {
+    "totp": [
+      {
+        "name": "Default",
+        "issuer": "SFTPGo",
+        "algo": "sha1"
+      }
+    ]
   },
   "plugins": []
 }

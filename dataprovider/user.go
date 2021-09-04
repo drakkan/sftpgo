@@ -17,6 +17,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
@@ -195,6 +196,7 @@ func (u *User) CheckLoginConditions() error {
 func (u *User) hideConfidentialData() {
 	u.Password = ""
 	u.FsConfig.HideConfidentialData()
+	u.Filters.TOTPConfig.Secret.Hide()
 }
 
 // GetSubDirPermissions returns permissions for sub directories
@@ -252,7 +254,7 @@ func (u *User) hasRedactedSecret() bool {
 		}
 	}
 
-	return false
+	return u.Filters.TOTPConfig.Secret.IsRedacted()
 }
 
 // CloseFs closes the underlying filesystems
@@ -298,6 +300,7 @@ func (u *User) SetEmptySecrets() {
 		folder := &u.VirtualFolders[idx]
 		folder.FsConfig.SetEmptySecretsIfNil()
 	}
+	u.Filters.TOTPConfig.Secret = kms.NewEmptySecret()
 }
 
 // GetPermissionsForPath returns the permissions for the given path.
@@ -708,7 +711,15 @@ func (u *User) isFilePatternAllowed(virtualPath string) bool {
 	return true
 }
 
-// CanManagePublicKeys return true if this user is allowed to manage public keys
+// CanManageMFA returns true if the user can add a multi-factor authentication configuration
+func (u *User) CanManageMFA() bool {
+	if util.IsStringInSlice(sdk.WebClientMFADisabled, u.Filters.WebClient) {
+		return false
+	}
+	return len(mfa.GetAvailableTOTPConfigs()) > 0
+}
+
+// CanManagePublicKeys returns true if this user is allowed to manage public keys
 // from the web client. Used in web client UI
 func (u *User) CanManagePublicKeys() bool {
 	return !util.IsStringInSlice(sdk.WebClientPubKeyChangeDisabled, u.Filters.WebClient)
@@ -968,12 +979,26 @@ func (u *User) GetDeniedIPAsString() string {
 	return strings.Join(u.Filters.DeniedIP, ",")
 }
 
+// CountUnusedRecoveryCodes returns the number of unused recovery codes
+func (u *User) CountUnusedRecoveryCodes() int {
+	unused := 0
+	for _, code := range u.Filters.RecoveryCodes {
+		if !code.Used {
+			unused++
+		}
+	}
+	return unused
+}
+
 // SetEmptySecretsIfNil sets the secrets to empty if nil
 func (u *User) SetEmptySecretsIfNil() {
 	u.FsConfig.SetEmptySecretsIfNil()
 	for idx := range u.VirtualFolders {
 		vfolder := &u.VirtualFolders[idx]
 		vfolder.FsConfig.SetEmptySecretsIfNil()
+	}
+	if u.Filters.TOTPConfig.Secret == nil {
+		u.Filters.TOTPConfig.Secret = kms.NewEmptySecret()
 	}
 }
 
@@ -995,6 +1020,12 @@ func (u *User) getACopy() User {
 	filters := sdk.UserFilters{}
 	filters.MaxUploadFileSize = u.Filters.MaxUploadFileSize
 	filters.TLSUsername = u.Filters.TLSUsername
+	filters.UserType = u.Filters.UserType
+	filters.TOTPConfig.Enabled = u.Filters.TOTPConfig.Enabled
+	filters.TOTPConfig.ConfigName = u.Filters.TOTPConfig.ConfigName
+	filters.TOTPConfig.Secret = u.Filters.TOTPConfig.Secret.Clone()
+	filters.TOTPConfig.Protocols = make([]string, len(u.Filters.TOTPConfig.Protocols))
+	copy(filters.TOTPConfig.Protocols, u.Filters.TOTPConfig.Protocols)
 	filters.AllowedIP = make([]string, len(u.Filters.AllowedIP))
 	copy(filters.AllowedIP, u.Filters.AllowedIP)
 	filters.DeniedIP = make([]string, len(u.Filters.DeniedIP))
@@ -1012,6 +1043,16 @@ func (u *User) getACopy() User {
 	filters.AllowAPIKeyAuth = u.Filters.AllowAPIKeyAuth
 	filters.WebClient = make([]string, len(u.Filters.WebClient))
 	copy(filters.WebClient, u.Filters.WebClient)
+	filters.RecoveryCodes = make([]sdk.RecoveryCode, 0)
+	for _, code := range u.Filters.RecoveryCodes {
+		if code.Secret == nil {
+			code.Secret = kms.NewEmptySecret()
+		}
+		filters.RecoveryCodes = append(filters.RecoveryCodes, sdk.RecoveryCode{
+			Secret: code.Secret.Clone(),
+			Used:   code.Used,
+		})
+	}
 
 	return User{
 		BaseUser: sdk.BaseUser{

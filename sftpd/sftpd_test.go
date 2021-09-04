@@ -217,6 +217,7 @@ func TestMain(m *testing.M) {
 		logger.ErrorToConsole("error writing keyboard interactive script: %v", err)
 		os.Exit(1)
 	}
+	sftpdConf.KeyboardInteractiveAuthentication = true
 	sftpdConf.KeyboardInteractiveHook = keyIntAuthPath
 
 	createInitialFiles(scriptArgs)
@@ -333,6 +334,7 @@ func TestInitialization(t *testing.T) {
 	sftpdConf.EnabledSSHCommands = append(sftpdConf.EnabledSSHCommands, "ls")
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
+	sftpdConf.KeyboardInteractiveAuthentication = true
 	sftpdConf.KeyboardInteractiveHook = "invalid_file"
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)

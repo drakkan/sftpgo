@@ -17,6 +17,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/kms"
+	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
@@ -42,6 +43,7 @@ const (
 const (
 	templateAdminDir     = "webadmin"
 	templateBase         = "base.html"
+	templateBaseLogin    = "baselogin.html"
 	templateFsConfig     = "fsconfig.html"
 	templateUsers        = "users.html"
 	templateUser         = "user.html"
@@ -56,6 +58,7 @@ const (
 	templateDefender     = "defender.html"
 	templateCredentials  = "credentials.html"
 	templateMaintenance  = "maintenance.html"
+	templateMFA          = "mfa.html"
 	templateSetup        = "adminsetup.html"
 	pageUsersTitle       = "Users"
 	pageAdminsTitle      = "Admins"
@@ -89,6 +92,7 @@ type basePage struct {
 	DefenderURL        string
 	LogoutURL          string
 	CredentialsURL     string
+	MFAURL             string
 	FolderQuotaScanURL string
 	StatusURL          string
 	MaintenanceURL     string
@@ -160,6 +164,16 @@ type credentialsPage struct {
 	ChangePwdURL    string
 	ManageAPIKeyURL string
 	APIKeyError     string
+}
+
+type mfaPage struct {
+	basePage
+	TOTPConfigs     []string
+	TOTPConfig      dataprovider.TOTPConfig
+	GenerateTOTPURL string
+	ValidateTOTPURL string
+	SaveTOTPURL     string
+	RecCodesURL     string
 }
 
 type maintenancePage struct {
@@ -243,6 +257,7 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateStatus),
 	}
 	loginPath := []string{
+		filepath.Join(templatesPath, templateAdminDir, templateBaseLogin),
 		filepath.Join(templatesPath, templateAdminDir, templateLogin),
 	}
 	maintenancePath := []string{
@@ -253,7 +268,20 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateDefender),
 	}
+	mfaPath := []string{
+		filepath.Join(templatesPath, templateAdminDir, templateBase),
+		filepath.Join(templatesPath, templateAdminDir, templateMFA),
+	}
+	twoFactorPath := []string{
+		filepath.Join(templatesPath, templateAdminDir, templateBaseLogin),
+		filepath.Join(templatesPath, templateAdminDir, templateTwoFactor),
+	}
+	twoFactorRecoveryPath := []string{
+		filepath.Join(templatesPath, templateAdminDir, templateBaseLogin),
+		filepath.Join(templatesPath, templateAdminDir, templateTwoFactorRecovery),
+	}
 	setupPath := []string{
+		filepath.Join(templatesPath, templateAdminDir, templateBaseLogin),
 		filepath.Join(templatesPath, templateAdminDir, templateSetup),
 	}
 
@@ -273,6 +301,9 @@ func loadAdminTemplates(templatesPath string) {
 	credentialsTmpl := util.LoadTemplate(rootTpl, credentialsPaths...)
 	maintenanceTmpl := util.LoadTemplate(rootTpl, maintenancePath...)
 	defenderTmpl := util.LoadTemplate(rootTpl, defenderPath...)
+	mfaTmpl := util.LoadTemplate(nil, mfaPath...)
+	twoFactorTmpl := util.LoadTemplate(nil, twoFactorPath...)
+	twoFactorRecoveryTmpl := util.LoadTemplate(nil, twoFactorRecoveryPath...)
 	setupTmpl := util.LoadTemplate(rootTpl, setupPath...)
 
 	adminTemplates[templateUsers] = usersTmpl
@@ -288,6 +319,9 @@ func loadAdminTemplates(templatesPath string) {
 	adminTemplates[templateCredentials] = credentialsTmpl
 	adminTemplates[templateMaintenance] = maintenanceTmpl
 	adminTemplates[templateDefender] = defenderTmpl
+	adminTemplates[templateMFA] = mfaTmpl
+	adminTemplates[templateTwoFactor] = twoFactorTmpl
+	adminTemplates[templateTwoFactorRecovery] = twoFactorRecoveryTmpl
 	adminTemplates[templateSetup] = setupTmpl
 }
 
@@ -310,6 +344,7 @@ func getBasePageData(title, currentURL string, r *http.Request) basePage {
 		DefenderURL:        webDefenderPath,
 		LogoutURL:          webLogoutPath,
 		CredentialsURL:     webAdminCredentialsPath,
+		MFAURL:             webAdminMFAPath,
 		QuotaScanURL:       webQuotaScanPath,
 		ConnectionsURL:     webConnectionsPath,
 		StatusURL:          webStatusPath,
@@ -368,6 +403,47 @@ func renderForbiddenPage(w http.ResponseWriter, r *http.Request, body string) {
 
 func renderNotFoundPage(w http.ResponseWriter, r *http.Request, err error) {
 	renderMessagePage(w, r, page404Title, page404Body, http.StatusNotFound, err, "")
+}
+
+func renderTwoFactorPage(w http.ResponseWriter, error string) {
+	data := twoFactorPage{
+		CurrentURL:  webAdminTwoFactorPath,
+		Version:     version.Get().Version,
+		Error:       error,
+		CSRFToken:   createCSRFToken(),
+		StaticURL:   webStaticFilesPath,
+		RecoveryURL: webAdminTwoFactorRecoveryPath,
+	}
+	renderAdminTemplate(w, templateTwoFactor, data)
+}
+
+func renderTwoFactorRecoveryPage(w http.ResponseWriter, error string) {
+	data := twoFactorPage{
+		CurrentURL: webAdminTwoFactorRecoveryPath,
+		Version:    version.Get().Version,
+		Error:      error,
+		CSRFToken:  createCSRFToken(),
+		StaticURL:  webStaticFilesPath,
+	}
+	renderAdminTemplate(w, templateTwoFactorRecovery, data)
+}
+
+func renderMFAPage(w http.ResponseWriter, r *http.Request) {
+	data := mfaPage{
+		basePage:        getBasePageData(pageMFATitle, webAdminMFAPath, r),
+		TOTPConfigs:     mfa.GetAvailableTOTPConfigNames(),
+		GenerateTOTPURL: webAdminTOTPGeneratePath,
+		ValidateTOTPURL: webAdminTOTPValidatePath,
+		SaveTOTPURL:     webAdminTOTPSavePath,
+		RecCodesURL:     webAdminRecoveryCodesPath,
+	}
+	admin, err := dataprovider.AdminExists(data.LoggedAdmin.Username)
+	if err != nil {
+		renderInternalServerErrorPage(w, r, err)
+		return
+	}
+	data.TOTPConfig = admin.Filters.TOTPConfig
+	renderAdminTemplate(w, templateMFA, data)
 }
 
 func renderCredentialsPage(w http.ResponseWriter, r *http.Request, pwdError, apiKeyError string) {
@@ -1033,6 +1109,21 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	return user, err
 }
 
+func handleWebAdminTwoFactor(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	renderTwoFactorPage(w, "")
+}
+
+func handleWebAdminTwoFactorRecovery(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	renderTwoFactorRecoveryPage(w, "")
+}
+
+func handleWebAdminMFA(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	renderMFAPage(w, r)
+}
+
 func handleWebAdminCredentials(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	renderCredentialsPage(w, r, "", "")
@@ -1250,6 +1341,8 @@ func handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Request) {
 	if updatedAdmin.Password == "" {
 		updatedAdmin.Password = admin.Password
 	}
+	updatedAdmin.Filters.TOTPConfig = admin.Filters.TOTPConfig
+	updatedAdmin.Filters.RecoveryCodes = admin.Filters.RecoveryCodes
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
 		renderAddUpdateAdminPage(w, r, &updatedAdmin, fmt.Sprintf("Invalid token claims: %v", err), false)
@@ -1509,6 +1602,8 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 	}
 	updatedUser.ID = user.ID
 	updatedUser.Username = user.Username
+	updatedUser.Filters.RecoveryCodes = user.Filters.RecoveryCodes
+	updatedUser.Filters.TOTPConfig = user.Filters.TOTPConfig
 	updatedUser.SetEmptySecretsIfNil()
 	if updatedUser.Password == redactedSecret {
 		updatedUser.Password = user.Password

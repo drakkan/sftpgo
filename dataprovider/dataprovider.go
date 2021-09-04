@@ -48,6 +48,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/metric"
+	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin"
 	"github.com/drakkan/sftpgo/v2/util"
@@ -101,6 +102,13 @@ const (
 	OrderDESC = "DESC"
 )
 
+const (
+	protocolSSH    = "SSH"
+	protocolFTP    = "FTP"
+	protocolWebDAV = "DAV"
+	protocolHTTP   = "HTTP"
+)
+
 var (
 	// SupportedProviders defines the supported data providers
 	SupportedProviders = []string{SQLiteDataProviderName, PGSQLDataProviderName, MySQLDataProviderName,
@@ -117,7 +125,9 @@ var (
 	// ErrNoAuthTryed defines the error for connection closed before authentication
 	ErrNoAuthTryed = errors.New("no auth tryed")
 	// ValidProtocols defines all the valid protcols
-	ValidProtocols = []string{"SSH", "FTP", "DAV", "HTTP"}
+	ValidProtocols = []string{protocolSSH, protocolFTP, protocolWebDAV, protocolHTTP}
+	// MFAProtocols defines the supported protocols for multi-factor authentication
+	MFAProtocols = []string{protocolHTTP, protocolSSH, protocolFTP}
 	// ErrNoInitRequired defines the error returned by InitProvider if no inizialization/update is required
 	ErrNoInitRequired = errors.New("the data provider is up to date")
 	// ErrInvalidCredentials defines the error to return if the supplied credentials are invalid
@@ -950,6 +960,10 @@ func HasAdmin() bool {
 
 // AddAdmin adds a new SFTPGo admin
 func AddAdmin(admin *Admin) error {
+	admin.Filters.RecoveryCodes = nil
+	admin.Filters.TOTPConfig = TOTPConfig{
+		Enabled: false,
+	}
 	err := provider.addAdmin(admin)
 	if err == nil {
 		atomic.StoreInt32(&isAdminCreated, 1)
@@ -983,6 +997,10 @@ func UserExists(username string) (User, error) {
 
 // AddUser adds a new SFTPGo user.
 func AddUser(user *User) error {
+	user.Filters.RecoveryCodes = nil
+	user.Filters.TOTPConfig = sdk.TOTPConfig{
+		Enabled: false,
+	}
 	err := provider.addUser(user)
 	if err == nil {
 		executeAction(operationAdd, user)
@@ -1321,6 +1339,54 @@ func validateUserVirtualFolders(user *User) error {
 	return nil
 }
 
+func validateUserTOTPConfig(c *sdk.TOTPConfig) error {
+	if !c.Enabled {
+		c.ConfigName = ""
+		c.Secret = kms.NewEmptySecret()
+		c.Protocols = nil
+		return nil
+	}
+	if c.ConfigName == "" {
+		return util.NewValidationError("totp: config name is mandatory")
+	}
+	if !util.IsStringInSlice(c.ConfigName, mfa.GetAvailableTOTPConfigNames()) {
+		return util.NewValidationError(fmt.Sprintf("totp: config name %#v not found", c.ConfigName))
+	}
+	if c.Secret.IsEmpty() {
+		return util.NewValidationError("totp: secret is mandatory")
+	}
+	if c.Secret.IsPlain() {
+		if err := c.Secret.Encrypt(); err != nil {
+			return util.NewValidationError(fmt.Sprintf("totp: unable to encrypt secret: %v", err))
+		}
+	}
+	c.Protocols = util.RemoveDuplicates(c.Protocols)
+	if len(c.Protocols) == 0 {
+		return util.NewValidationError("totp: specify at least one protocol")
+	}
+	for _, protocol := range c.Protocols {
+		if !util.IsStringInSlice(protocol, MFAProtocols) {
+			return util.NewValidationError(fmt.Sprintf("totp: invalid protocol %#v", protocol))
+		}
+	}
+	return nil
+}
+
+func validateUserRecoveryCodes(user *User) error {
+	for i := 0; i < len(user.Filters.RecoveryCodes); i++ {
+		code := &user.Filters.RecoveryCodes[i]
+		if code.Secret.IsEmpty() {
+			return util.NewValidationError("mfa: recovery code cannot be empty")
+		}
+		if code.Secret.IsPlain() {
+			if err := code.Secret.Encrypt(); err != nil {
+				return util.NewValidationError(fmt.Sprintf("mfa: unable to encrypt recovery code: %v", err))
+			}
+		}
+	}
+	return nil
+}
+
 func validatePermissions(user *User) error {
 	if len(user.Permissions) == 0 {
 		return util.NewValidationError("please grant some permissions to this user")
@@ -1607,7 +1673,13 @@ func ValidateUser(user *User) error {
 		return err
 	}
 	if user.hasRedactedSecret() {
-		return errors.New("cannot save a user with a redacted secret")
+		return util.NewValidationError("cannot save a user with a redacted secret")
+	}
+	if err := validateUserTOTPConfig(&user.Filters.TOTPConfig); err != nil {
+		return err
+	}
+	if err := validateUserRecoveryCodes(user); err != nil {
+		return err
 	}
 	if err := user.FsConfig.Validate(user); err != nil {
 		return err
@@ -1626,6 +1698,9 @@ func ValidateUser(user *User) error {
 	}
 	if err := validateFilters(user); err != nil {
 		return err
+	}
+	if user.Filters.TOTPConfig.Enabled && util.IsStringInSlice(sdk.WebClientMFADisabled, user.Filters.WebClient) {
+		return util.NewValidationError("multi-factor authentication cannot be disabled for a user with an active configuration")
 	}
 	return saveGCSCredentials(&user.FsConfig, user)
 }
@@ -1674,7 +1749,7 @@ func checkUserAndTLSCertificate(user *User, protocol string, tlsCert *x509.Certi
 		return *user, err
 	}
 	switch protocol {
-	case "FTP", "DAV":
+	case protocolFTP, protocolWebDAV:
 		if user.Filters.TLSUsername == sdk.TLSUsernameCN {
 			if user.Username == tlsCert.Subject.CommonName {
 				return *user, nil
@@ -1691,6 +1766,10 @@ func checkUserAndPass(user *User, password, ip, protocol string) (User, error) {
 	err := user.CheckLoginConditions()
 	if err != nil {
 		return *user, err
+	}
+	password, err = checkUserPasscode(user, password, protocol)
+	if err != nil {
+		return *user, ErrInvalidCredentials
 	}
 	if user.Password == "" {
 		return *user, errors.New("credentials cannot be null or empty")
@@ -1725,6 +1804,40 @@ func checkUserAndPass(user *User, password, ip, protocol string) (User, error) {
 		err = ErrInvalidCredentials
 	}
 	return *user, err
+}
+
+func checkUserPasscode(user *User, password, protocol string) (string, error) {
+	if user.Filters.TOTPConfig.Enabled {
+		switch protocol {
+		case protocolFTP:
+			if util.IsStringInSlice(protocol, user.Filters.TOTPConfig.Protocols) {
+				// the TOTP passcode has six digits
+				pwdLen := len(password)
+				if pwdLen < 7 {
+					providerLog(logger.LevelDebug, "password len %v is too short to contain a passcode, user %#v, protocol %v",
+						pwdLen, user.Username, protocol)
+					return "", util.NewValidationError("password too short, cannot contain the passcode")
+				}
+				err := user.Filters.TOTPConfig.Secret.TryDecrypt()
+				if err != nil {
+					providerLog(logger.LevelWarn, "unable to decrypt TOTP secret for user %#v, protocol %v, err: %v",
+						user.Username, protocol, err)
+					return "", err
+				}
+				pwd := password[0:(pwdLen - 6)]
+				passcode := password[(pwdLen - 6):]
+				match, err := mfa.ValidateTOTPPasscode(user.Filters.TOTPConfig.ConfigName, passcode,
+					user.Filters.TOTPConfig.Secret.GetPayload())
+				if !match || err != nil {
+					providerLog(logger.LevelWarn, "invalid passcode for user %#v, protocol %v, err: %v",
+						user.Username, protocol, err)
+					return "", util.NewValidationError("invalid passcode")
+				}
+				return pwd, nil
+			}
+		}
+	}
+	return password, nil
 }
 
 func checkUserAndPubKey(user *User, pubKey []byte) (User, string, error) {
@@ -1978,6 +2091,44 @@ func sendKeyboardAuthHTTPReq(url string, request *plugin.KeyboardAuthRequest) (*
 	return &response, err
 }
 
+func doBuiltinKeyboardInteractiveAuth(user *User, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (int, error) {
+	answers, err := client(user.Username, "", []string{"Password: "}, []bool{false})
+	if err != nil {
+		return 0, err
+	}
+	if len(answers) != 1 {
+		return 0, fmt.Errorf("unexpected number of answers: %v", len(answers))
+	}
+	_, err = checkUserAndPass(user, answers[0], ip, protocol)
+	if err != nil {
+		return 0, err
+	}
+	if !user.Filters.TOTPConfig.Enabled || !util.IsStringInSlice(protocolSSH, user.Filters.TOTPConfig.Protocols) {
+		return 1, nil
+	}
+	err = user.Filters.TOTPConfig.Secret.TryDecrypt()
+	if err != nil {
+		providerLog(logger.LevelWarn, "unable to decrypt TOTP secret for user %#v, protocol %v, err: %v",
+			user.Username, protocol, err)
+		return 0, err
+	}
+	answers, err = client(user.Username, "", []string{"Authentication code: "}, []bool{false})
+	if err != nil {
+		return 0, err
+	}
+	if len(answers) != 1 {
+		return 0, fmt.Errorf("unexpected number of answers: %v", len(answers))
+	}
+	match, err := mfa.ValidateTOTPPasscode(user.Filters.TOTPConfig.ConfigName, answers[0],
+		user.Filters.TOTPConfig.Secret.GetPayload())
+	if !match || err != nil {
+		providerLog(logger.LevelWarn, "invalid passcode for user %#v, protocol %v, err: %v",
+			user.Username, protocol, err)
+		return 0, util.NewValidationError("invalid passcode")
+	}
+	return 1, nil
+}
+
 func executeKeyboardInteractivePlugin(user *User, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (int, error) {
 	authResult := 0
 	requestID := xid.New().String()
@@ -2061,7 +2212,8 @@ func executeKeyboardInteractiveHTTPHook(user *User, authHook string, client ssh.
 }
 
 func getKeyboardInteractiveAnswers(client ssh.KeyboardInteractiveChallenge, response *plugin.KeyboardAuthResponse,
-	user *User, ip, protocol string) ([]string, error) {
+	user *User, ip, protocol string,
+) ([]string, error) {
 	questions := response.Questions
 	answers, err := client(user.Username, response.Instruction, questions, response.Echos)
 	if err != nil {
@@ -2086,7 +2238,8 @@ func getKeyboardInteractiveAnswers(client ssh.KeyboardInteractiveChallenge, resp
 }
 
 func handleProgramInteractiveQuestions(client ssh.KeyboardInteractiveChallenge, response *plugin.KeyboardAuthResponse,
-	user *User, stdin io.WriteCloser, ip, protocol string) error {
+	user *User, stdin io.WriteCloser, ip, protocol string,
+) error {
 	answers, err := getKeyboardInteractiveAnswers(client, response, user, ip, protocol)
 	if err != nil {
 		return err
@@ -2169,10 +2322,14 @@ func doKeyboardInteractiveAuth(user *User, authHook string, client ssh.KeyboardI
 	var err error
 	if plugin.Handler.HasAuthScope(plugin.AuthScopeKeyboardInteractive) {
 		authResult, err = executeKeyboardInteractivePlugin(user, client, ip, protocol)
-	} else if strings.HasPrefix(authHook, "http") {
-		authResult, err = executeKeyboardInteractiveHTTPHook(user, authHook, client, ip, protocol)
+	} else if authHook != "" {
+		if strings.HasPrefix(authHook, "http") {
+			authResult, err = executeKeyboardInteractiveHTTPHook(user, authHook, client, ip, protocol)
+		} else {
+			authResult, err = executeKeyboardInteractiveProgram(user, authHook, client, ip, protocol)
+		}
 	} else {
-		authResult, err = executeKeyboardInteractiveProgram(user, authHook, client, ip, protocol)
+		authResult, err = doBuiltinKeyboardInteractiveAuth(user, client, ip, protocol)
 	}
 	if err != nil {
 		return *user, err
@@ -2195,11 +2352,11 @@ func isCheckPasswordHookDefined(protocol string) bool {
 		return true
 	}
 	switch protocol {
-	case "SSH":
+	case protocolSSH:
 		return config.CheckPasswordScope&1 != 0
-	case "FTP":
+	case protocolFTP:
 		return config.CheckPasswordScope&2 != 0
-	case "DAV":
+	case protocolWebDAV:
 		return config.CheckPasswordScope&4 != 0
 	default:
 		return false

@@ -84,7 +84,13 @@
                     <i class="fas fa-key"></i>
                     <span>{{.CredentialsTitle}}</span></a>
             </li>
-
+            {{if .LoggedUser.CanManageMFA}}
+            <li class="nav-item {{if eq .CurrentURL .MFAURL}}active{{end}}">
+                <a class="nav-link" href="{{.MFAURL}}">
+                    <i class="fas fa-user-lock"></i>
+                    <span>{{.MFATitle}}</span></a>
+            </li>
+            {{end}}
             <!-- Divider -->
             <hr class="sidebar-divider d-none d-md-block">
 

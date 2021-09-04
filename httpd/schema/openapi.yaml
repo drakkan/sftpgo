@@ -58,6 +58,13 @@ paths:
       summary: Get a new admin access token
       description: Returns an access token and its expiration
       operationId: get_token
+      parameters:
+        - in: header
+          name: X-SFTPGO-OTP
+          schema:
+            type: string
+          required: false
+          description: 'If you have 2FA configured for the admin attempting to log in you need to set the authentication code using this header parameter'
       responses:
         '200':
           description: successful operation
@@ -106,6 +113,13 @@ paths:
       summary: Get a new user access token
       description: Returns an access token and its expiration
       operationId: get_user_token
+      parameters:
+        - in: header
+          name: X-SFTPGO-OTP
+          schema:
+            type: string
+          required: false
+          description: 'If you have 2FA configured, for the HTTP protocol, for the user attempting to log in you need to set the authentication code using this header parameter'
       responses:
         '200':
           description: successful operation
@@ -220,6 +234,210 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /admin/2fa/recoverycodes:
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - admins
+      summary: Get recovery codes
+      description: 'Returns the recovery codes for the logged in admin. Recovery codes can be used if the admin loses access to their second factor auth device. Recovery codes are returned unencrypted'
+      operationId: get_admin_recovery_codes
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RecoveryCode'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    post:
+      security:
+        - BearerAuth: []
+      tags:
+        - admins
+      summary: Generate recovery codes
+      description: 'Generates new recovery codes for the logged in admin. Generating new recovery codes you automatically invalidate old ones'
+      operationId: generate_admin_recovery_codes
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /admin/totp/configs:
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - admins
+      summary: Get available TOTP configuration
+      description: Returns the available TOTP configurations for the logged in admin
+      operationId: get_admin_totp_configs
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TOTPConfig'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /admin/totp/generate:
+    post:
+      security:
+        - BearerAuth: []
+      tags:
+        - admins
+      summary: Generate a new TOTP secret
+      description: 'Generates a new TOTP secret, including the QR code as png, using the specified configuration for the logged in admin'
+      operationId: generate_admin_totp_secret
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                config_name:
+                  type: string
+                  description: 'name of the configuration to use to generate the secret'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  config_name:
+                    type: string
+                  issuer:
+                    type: string
+                  secret:
+                    type: string
+                  qr_code:
+                    type: string
+                    format: byte
+                    description: 'QR code png encoded as BASE64'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /admin/totp/validate:
+    post:
+      security:
+        - BearerAuth: []
+      tags:
+        - admins
+      summary: Validate a one time authentication code
+      description: 'Checks if the given authentication code can be validated using the specified secret and config name'
+      operationId: validate_admin_totp_secret
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                config_name:
+                  type: string
+                  description: 'name of the configuration to use to validate the passcode'
+                passcode:
+                  type: string
+                  description: 'passcode to validate'
+                secret:
+                  type: string
+                  description: 'secret to use to validate the passcode'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: Passcode successfully validated
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /admin/totp/save:
+    post:
+      security:
+        - BearerAuth: []
+      tags:
+        - admins
+      summary: Save a TOTP config
+      description: 'Saves the specified TOTP config for the logged in admin'
+      operationId: save_admin_totp_config
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminTOTPConfig'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: TOTP configuration saved
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1391,7 +1609,7 @@ paths:
       tags:
         - admins
       summary: Add admin
-      description: Adds a new admin
+      description: 'Adds a new admin. Recovery codes and TOTP configuration cannot be set using this API: each admin must use the specific APIs'
       operationId: add_admin
       requestBody:
         required: true
@@ -1444,7 +1662,7 @@ paths:
       tags:
         - admins
       summary: Find admins by username
-      description: Returns the admin with the given username, if it exists. For security reasons the hashed password is omitted in the response
+      description: 'Returns the admin with the given username, if it exists. For security reasons the hashed password is omitted in the response'
       operationId: get_admin_by_username
       responses:
         '200':
@@ -1469,7 +1687,7 @@ paths:
       tags:
         - admins
       summary: Update admin
-      description: Updates an existing admin. You are not allowed to update the admin impersonated using an API key
+      description: 'Updates an existing admin. Recovery codes and TOTP configuration cannot be set/updated using this API: each admin must use the specific APIs. You are not allowed to update the admin impersonated using an API key'
       operationId: update_admin
       requestBody:
         required: true
@@ -1513,6 +1731,41 @@ paths:
                 $ref: '#/components/schemas/ApiResponse'
               example:
                 message: Admin deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  '/admins/{username}/2fa/disable':
+    parameters:
+      - name: username
+        in: path
+        description: the admin username
+        required: true
+        schema:
+          type: string
+    put:
+      tags:
+        - admins
+      summary: Disable second factor authentication
+      description: 'Disables second factor authentication for the given admin. This API must be used if the admin loses access to their second factor auth device and has no recovery codes'
+      operationId: disable_admin_2fa
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: 2FA disabled
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1582,7 +1835,7 @@ paths:
       tags:
         - users
       summary: Add user
-      description: Adds a new user
+      description: 'Adds a new user.Recovery codes and TOTP configuration cannot be set using this API: each user must use the specific APIs'
       operationId: add_user
       requestBody:
         required: true
@@ -1644,7 +1897,7 @@ paths:
       tags:
         - users
       summary: Update user
-      description: 'Updates an existing user and optionally disconnects it, if connected, to apply the new settings'
+      description: 'Updates an existing user and optionally disconnects it, if connected, to apply the new settings. Recovery codes and TOTP configuration cannot be set/updated using this API: each user must use the specific APIs'
       operationId: update_user
       parameters:
         - in: query
@@ -1700,6 +1953,41 @@ paths:
                 $ref: '#/components/schemas/ApiResponse'
               example:
                 message: User deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  '/users/{username}/2fa/disable':
+    parameters:
+      - name: username
+        in: path
+        description: the username
+        required: true
+        schema:
+          type: string
+    put:
+      tags:
+        - users
+      summary: Disable second factor authentication
+      description: 'Disables second factor authentication for the given user. This API must be used if the user loses access to their second factor auth device and has no recovery codes'
+      operationId: disable_user_2fa
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: 2FA disabled
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1965,6 +2253,210 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/2fa/recoverycodes:
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - users API
+      summary: Get recovery codes
+      description: 'Returns the recovery codes for the logged in user. Recovery codes can be used if the user loses access to their second factor auth device. Recovery codes are returned unencrypted'
+      operationId: get_user_recovery_codes
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RecoveryCode'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    post:
+      security:
+        - BearerAuth: []
+      tags:
+        - users API
+      summary: Generate recovery codes
+      description: 'Generates new recovery codes for the logged in user. Generating new recovery codes you automatically invalidate old ones'
+      operationId: generate_user_recovery_codes
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/totp/configs:
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - users API
+      summary: Get available TOTP configuration
+      description: Returns the available TOTP configurations for the logged in user
+      operationId: get_user_totp_configs
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TOTPConfig'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/totp/generate:
+    post:
+      security:
+        - BearerAuth: []
+      tags:
+        - users API
+      summary: Generate a new TOTP secret
+      description: 'Generates a new TOTP secret, including the QR code as png, using the specified configuration for the logged in user'
+      operationId: generate_user_totp_secret
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                config_name:
+                  type: string
+                  description: 'name of the configuration to use to generate the secret'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  config_name:
+                    type: string
+                  issuer:
+                    type: string
+                  secret:
+                    type: string
+                  qr_code:
+                    type: string
+                    format: byte
+                    description: 'QR code png encoded as BASE64'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/totp/validate:
+    post:
+      security:
+        - BearerAuth: []
+      tags:
+        - users API
+      summary: Validate a one time authentication code
+      description: 'Checks if the given authentication code can be validated using the specified secret and config name'
+      operationId: validate_user_totp_secret
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                config_name:
+                  type: string
+                  description: 'name of the configuration to use to validate the passcode'
+                passcode:
+                  type: string
+                  description: 'passcode to validate'
+                secret:
+                  type: string
+                  description: 'secret to use to validate the passcode'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: Passcode successfully validated
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/totp/save:
+    post:
+      security:
+        - BearerAuth: []
+      tags:
+        - users API
+      summary: Save a TOTP config
+      description: 'Saves the specified TOTP config for the logged in user'
+      operationId: save_user_totp_config
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserTOTPConfig'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: TOTP configuration saved
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2515,16 +3007,29 @@ components:
           * `SSH` - includes both SFTP and SSH commands
           * `FTP` - plain FTP and FTPES/FTPS
           * `DAV` - WebDAV over HTTP/HTTPS
-          * `HTTP` - WebClient
+          * `HTTP` - WebClient/REST API
+    MFAProtocols:
+      type: string
+      enum:
+        - SSH
+        - FTP
+        - HTTP
+      description: |
+        Protocols:
+          * `SSH` - includes both SFTP and SSH commands
+          * `FTP` - plain FTP and FTPES/FTPS
+          * `HTTP` - WebClient/REST API
     WebClientOptions:
       type: string
       enum:
         - publickey-change-disabled
         - write-disabled
+        - mfa-disabled
       description: |
         Options:
           * `publickey-change-disabled` - changing SSH public keys is not allowed
           * `write-disabled` - upload, rename, delete are not allowed even if the user has permissions for these actions
+          * `mfa-disabled` - the user cannot enable multi-factor authentication. This option cannot be set if the user has MFA already enabled
     APIKeyScope:
       type: integer
       enum:
@@ -2534,6 +3039,60 @@ components:
         Options:
           * `1` - admin scope. The API key will be used to impersonate an SFTPGo admin
           * `2` - user scope. The API key will be used to impersonate an SFTPGo user
+    TOTPHMacAlgo:
+      type: string
+      enum:
+        - sha1
+        - sha256
+        - sha512
+      description: 'Supported HMAC algorithms for Time-based one time passwords'
+    UserType:
+      type: string
+      enum:
+        - ''
+        - LDAPUser
+        - OSUser
+      description: This is an hint for authentication plugins. It is ignored when using SFTPGo internal authentication
+    TOTPConfig:
+      type: object
+      properties:
+        name:
+          type: string
+        issuer:
+          type: string
+        algo:
+          $ref: '#/components/schemas/TOTPHMacAlgo'
+    RecoveryCode:
+      type: object
+      properties:
+        secret:
+          $ref: '#/components/schemas/Secret'
+        used:
+          type: boolean
+      description: 'Recovery codes to use if the user loses access to their second factor auth device. Each code can only be used once, you should use these codes to login and disable or reset 2FA for your account'
+    BaseTOTPConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        config_name:
+          type: string
+          description: 'This name must be defined within the "totp" section of the SFTPGo configuration file. You will be unable to save a user/admin referencing a missing config_name'
+        secret:
+          $ref: '#/components/schemas/Secret'
+    AdminTOTPConfig:
+      allOf:
+        - $ref: '#/components/schemas/BaseTOTPConfig'
+    UserTOTPConfig:
+      allOf:
+        - $ref: '#/components/schemas/BaseTOTPConfig'
+        - type: object
+          properties:
+            protocols:
+              type: array
+              items:
+                $ref: '#/components/schemas/MFAProtocols'
+              description: 'TOTP will be required for the specified protocols. SSH protocol (SFTP/SCP/SSH commands) will ask for the TOTP passcode if the client uses keyboard interactive authentication. FTP has no standard way to support two factor authentication, if you enable the FTP support, you have to add the TOTP passcode after the password. For example if your password is "password" and your one time passcode is "123456" you have to use "password123456" as password. WebDAV is not supported since each single request must be authenticated and a passcode cannot be reused.'
     PatternsFilter:
       type: object
       properties:
@@ -2628,6 +3187,14 @@ components:
         allow_api_key_auth:
           type: boolean
           description: 'API key authentication allows to impersonate this user with an API key'
+        user_type:
+          $ref: '#/components/schemas/UserType'
+        totp_config:
+          $ref: '#/components/schemas/UserTOTPConfig'
+        recovery_codes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecoveryCode'
       description: Additional user options
     Secret:
       type: object
@@ -3002,6 +3569,12 @@ components:
         allow_api_key_auth:
           type: boolean
           description: 'API key auth allows to impersonate this administrator with an API key'
+        totp_config:
+          $ref: '#/components/schemas/AdminTOTPConfig'
+        recovery_codes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecoveryCode'
     Admin:
       type: object
       properties:
@@ -3312,6 +3885,15 @@ components:
           type: string
         error:
           type: string
+    MFAStatus:
+      type: object
+      properties:
+        is_active:
+          type: boolean
+        totp_configs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TOTPConfig'
     ServicesStatus:
       type: object
       properties:
@@ -3328,6 +3910,8 @@ components:
           properties:
             is_active:
               type: boolean
+        mfa:
+          $ref: '#/components/schemas/MFAStatus'
     BanStatus:
       type: object
       properties:

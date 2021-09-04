@@ -104,8 +104,9 @@ The configuration file contains the following sections:
   - `trusted_user_ca_keys`, list of public keys paths of certificate authorities that are trusted to sign user certificates for authentication. The paths can be absolute or relative to the configuration directory.
   - `login_banner_file`, path to the login banner file. The contents of the specified file, if any, are sent to the remote user before authentication is allowed. It can be a path relative to the config dir or an absolute one. Leave empty to disable login banner.
   - `enabled_ssh_commands`, list of enabled SSH commands. `*` enables all supported commands. More information can be found [here](./ssh-commands.md).
+  - `keyboard_interactive_authentication`, boolean. This setting specifies whether keyboard interactive authentication is allowed. If no keyboard interactive hook or auth plugin is defined the default is to prompt for the user password and then the one time authentication code, if defined. Default: `false`.
   - `keyboard_interactive_auth_hook`, string. Absolute path to an external program or an HTTP URL to invoke for keyboard interactive authentication. See [Keyboard Interactive Authentication](./keyboard-interactive.md) for more details.
-  - `password_authentication`, boolean. Set to false to disable password authentication. This setting will disable multi-step authentication method using public key + password too. It is useful for public key only configurations if you need to manage old clients that will not attempt to authenticate with public keys if the password login method is advertised. Default: true.
+  - `password_authentication`, boolean. Set to false to disable password authentication. This setting will disable multi-step authentication method using public key + password too. It is useful for public key only configurations if you need to manage old clients that will not attempt to authenticate with public keys if the password login method is advertised. Default: `true`.
   - `folder_prefix`, string. Virtual root folder prefix to include in all file operations (ex: `/files`). The virtual paths used for per-directory permissions, file patterns etc. must not include the folder prefix. The prefix is only applied to SFTP requests (in SFTP server mode), SCP and other SSH commands will be automatically disabled if you configure a prefix.  The prefix is ignored while running as OpenSSH's SFTP subsystem. This setting can help some specific migrations from SFTP servers based on OpenSSH and it is not recommended for general usage. Default: empty.
 - **"ftpd"**, the configuration for the FTP server
   - `bindings`, list of structs. Each struct has the following fields:
@@ -251,6 +252,11 @@ The configuration file contains the following sections:
     - `url`, string. Defines the URI to the KMS service. Default empty.
     - `master_key`, string. Defines the master encryption key as string. If not empty, it takes precedence over `master_key_path`. Default empty.
     - `master_key_path, string. Defines the absolute path to a file containing the master encryption key. Default empty.
+- **mfa**, multi-factor authentication settings
+  - `totp`, list of struct that define settings for time-based one time passwords (RFC 6238). Each struct has the following fields:
+    - `name`, string. Unique configuration name. This name should not be changed if there are users or admins using the configuration. The name is not exposed to the authentication apps. Default: `Default`.
+    - `issuer`, string. Name of the issuing Organization/Company. Default: `SFTPGo`.
+    - `algo`, string. Algorithm to use for HMAC. The supported algorithms are: `sha1`, `sha256`, `sha512`. Currently Google Authenticator app on iPhone seems to only support `sha1`, please check the compatibility with your target apps/device before setting a different algorithm. You can also define multiple configurations, for example one that uses `sha256` or `sha512` and another one that uses `sha1` and instruct your users to use the appropriate configuration for their devices/apps. The algorithm should not be changed if there are users or admins using the configuration. Default: `sha1`.
 - **plugins**, list of external plugins. Each plugin is configured using a struct with the following fields:
   - `type`, string. Defines the plugin type. Supported types: `notifier`, `kms`, `auth`.
   - `notifier_options`, struct. Defines the options for notifier plugins.
@@ -297,6 +303,23 @@ If you want the default host keys generation in a directory different from the c
 then SFTPGo will try to create `id_rsa`, `id_ecdsa` and `id_ed25519`, if they are missing, inside the directory `/etc/sftpgo/keys`.
 
 The configuration can be read from JSON, TOML, YAML, HCL, envfile and Java properties config files. If your `config-file` flag is set to `sftpgo` (default value), you need to create a configuration file called `sftpgo.json` or `sftpgo.yaml` and so on inside `config-dir`.
+
+## Binding to privileged ports
+
+On Linux, if you want to use Internet domain privileged ports (port numbers less than 1024) instead of running the SFTPGo service as root user you can set the `cap_net_bind_service` capability on the `sftpgo` binary. To set the capability you need to be root:
+
+```shell
+root@myhost # setcap cap_net_bind_service=+ep /usr/bin/sftpgo
+```
+
+Check that the capability is added:
+
+```shell
+root@myhost # getcap /usr/bin/sftpgo
+/usr/bin/sftpgo cap_net_bind_service=ep
+```
+
+Now you can use privileged ports such as 21, 22, 443 etc.. without running the SFTPGo service as root user.
 
 ## Environment variables
 

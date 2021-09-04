@@ -24,6 +24,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/ftpd"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/webdavd"
@@ -62,6 +63,16 @@ const (
 	userFilesPath                          = "/api/v2/user/files"
 	userStreamZipPath                      = "/api/v2/user/streamzip"
 	apiKeysPath                            = "/api/v2/apikeys"
+	adminTOTPConfigsPath                   = "/api/v2/admin/totp/configs"
+	adminTOTPGeneratePath                  = "/api/v2/admin/totp/generate"
+	adminTOTPValidatePath                  = "/api/v2/admin/totp/validate"
+	adminTOTPSavePath                      = "/api/v2/admin/totp/save"
+	admin2FARecoveryCodesPath              = "/api/v2/admin/2fa/recoverycodes"
+	userTOTPConfigsPath                    = "/api/v2/user/totp/configs"
+	userTOTPGeneratePath                   = "/api/v2/user/totp/generate"
+	userTOTPValidatePath                   = "/api/v2/user/totp/validate"
+	userTOTPSavePath                       = "/api/v2/user/totp/save"
+	user2FARecoveryCodesPath               = "/api/v2/user/2fa/recoverycodes"
 	healthzPath                            = "/healthz"
 	webRootPathDefault                     = "/"
 	webBasePathDefault                     = "/web"
@@ -69,6 +80,8 @@ const (
 	webBasePathClientDefault               = "/web/client"
 	webAdminSetupPathDefault               = "/web/admin/setup"
 	webLoginPathDefault                    = "/web/admin/login"
+	webAdminTwoFactorPathDefault           = "/web/admin/twofactor"
+	webAdminTwoFactorRecoveryPathDefault   = "/web/admin/twofactor-recovery"
 	webLogoutPathDefault                   = "/web/admin/logout"
 	webUsersPathDefault                    = "/web/admin/users"
 	webUserPathDefault                     = "/web/admin/user"
@@ -85,16 +98,28 @@ const (
 	webQuotaScanPathDefault                = "/web/admin/quotas/scanuser"
 	webChangeAdminPwdPathDefault           = "/web/admin/changepwd"
 	webAdminCredentialsPathDefault         = "/web/admin/credentials"
+	webAdminMFAPathDefault                 = "/web/admin/mfa"
+	webAdminTOTPGeneratePathDefault        = "/web/admin/totp/generate"
+	webAdminTOTPValidatePathDefault        = "/web/admin/totp/validate"
+	webAdminTOTPSavePathDefault            = "/web/admin/totp/save"
+	webAdminRecoveryCodesPathDefault       = "/web/admin/recoverycodes"
 	webChangeAdminAPIKeyAccessPathDefault  = "/web/admin/apikeyaccess"
 	webTemplateUserDefault                 = "/web/admin/template/user"
 	webTemplateFolderDefault               = "/web/admin/template/folder"
 	webDefenderPathDefault                 = "/web/admin/defender"
 	webDefenderHostsPathDefault            = "/web/admin/defender/hosts"
 	webClientLoginPathDefault              = "/web/client/login"
+	webClientTwoFactorPathDefault          = "/web/client/twofactor"
+	webClientTwoFactorRecoveryPathDefault  = "/web/client/twofactor-recovery"
 	webClientFilesPathDefault              = "/web/client/files"
 	webClientDirsPathDefault               = "/web/client/dirs"
 	webClientDownloadZipPathDefault        = "/web/client/downloadzip"
 	webClientCredentialsPathDefault        = "/web/client/credentials"
+	webClientMFAPathDefault                = "/web/client/mfa"
+	webClientTOTPGeneratePathDefault       = "/web/client/totp/generate"
+	webClientTOTPValidatePathDefault       = "/web/client/totp/validate"
+	webClientTOTPSavePathDefault           = "/web/client/totp/save"
+	webClientRecoveryCodesPathDefault      = "/web/client/recoverycodes"
 	webChangeClientPwdPathDefault          = "/web/client/changepwd"
 	webChangeClientKeysPathDefault         = "/web/client/managekeys"
 	webChangeClientAPIKeyAccessPathDefault = "/web/client/apikeyaccess"
@@ -106,13 +131,14 @@ const (
 	maxLoginBodySize = 262144   // 256 KB
 	maxMultipartMem  = 8388608  // 8MB
 	osWindows        = "windows"
+	otpHeaderCode    = "X-SFTPGO-OTP"
 )
 
 var (
 	backupsPath                     string
 	certMgr                         *common.CertManager
-	jwtTokensCleanupTicker          *time.Ticker
-	jwtTokensCleanupDone            chan bool
+	cleanupTicker                   *time.Ticker
+	cleanupDone                     chan bool
 	invalidatedJWTTokens            sync.Map
 	csrfTokenAuth                   *jwtauth.JWTAuth
 	webRootPath                     string
@@ -121,6 +147,8 @@ var (
 	webBaseClientPath               string
 	webAdminSetupPath               string
 	webLoginPath                    string
+	webAdminTwoFactorPath           string
+	webAdminTwoFactorRecoveryPath   string
 	webLogoutPath                   string
 	webUsersPath                    string
 	webUserPath                     string
@@ -136,6 +164,11 @@ var (
 	webScanVFolderPath              string
 	webQuotaScanPath                string
 	webAdminCredentialsPath         string
+	webAdminMFAPath                 string
+	webAdminTOTPGeneratePath        string
+	webAdminTOTPValidatePath        string
+	webAdminTOTPSavePath            string
+	webAdminRecoveryCodesPath       string
 	webChangeAdminAPIKeyAccessPath  string
 	webChangeAdminPwdPath           string
 	webTemplateUser                 string
@@ -143,12 +176,19 @@ var (
 	webDefenderPath                 string
 	webDefenderHostsPath            string
 	webClientLoginPath              string
+	webClientTwoFactorPath          string
+	webClientTwoFactorRecoveryPath  string
 	webClientFilesPath              string
 	webClientDirsPath               string
 	webClientDownloadZipPath        string
 	webClientCredentialsPath        string
 	webChangeClientPwdPath          string
 	webChangeClientKeysPath         string
+	webClientMFAPath                string
+	webClientTOTPGeneratePath       string
+	webClientTOTPValidatePath       string
+	webClientTOTPSavePath           string
+	webClientRecoveryCodesPath      string
 	webChangeClientAPIKeyAccessPath string
 	webClientLogoutPath             string
 	webStaticFilesPath              string
@@ -258,6 +298,7 @@ type ServicesStatus struct {
 	WebDAV       webdavd.ServiceStatus       `json:"webdav"`
 	DataProvider dataprovider.ProviderStatus `json:"data_provider"`
 	Defender     defenderStatus              `json:"defender"`
+	MFA          mfa.ServiceStatus           `json:"mfa"`
 }
 
 // Conf httpd daemon configuration
@@ -404,7 +445,7 @@ func (c *Conf) Initialize(configDir string) error {
 	}
 
 	maxUploadFileSize = c.MaxUploadFileSize
-	startJWTTokensCleanupTicker(tokenDuration)
+	startCleanupTicker(tokenDuration)
 	return <-exitChannel
 }
 
@@ -443,6 +484,7 @@ func getServicesStatus() ServicesStatus {
 		Defender: defenderStatus{
 			IsActive: common.Config.DefenderConfig.Enabled,
 		},
+		MFA: mfa.GetStatus(),
 	}
 	return status
 }
@@ -479,6 +521,8 @@ func updateWebClientURLs(baseURL string) {
 	webBasePath = path.Join(baseURL, webBasePathDefault)
 	webBaseClientPath = path.Join(baseURL, webBasePathClientDefault)
 	webClientLoginPath = path.Join(baseURL, webClientLoginPathDefault)
+	webClientTwoFactorPath = path.Join(baseURL, webClientTwoFactorPathDefault)
+	webClientTwoFactorRecoveryPath = path.Join(baseURL, webClientTwoFactorRecoveryPathDefault)
 	webClientFilesPath = path.Join(baseURL, webClientFilesPathDefault)
 	webClientDirsPath = path.Join(baseURL, webClientDirsPathDefault)
 	webClientDownloadZipPath = path.Join(baseURL, webClientDownloadZipPathDefault)
@@ -487,6 +531,11 @@ func updateWebClientURLs(baseURL string) {
 	webChangeClientKeysPath = path.Join(baseURL, webChangeClientKeysPathDefault)
 	webChangeClientAPIKeyAccessPath = path.Join(baseURL, webChangeClientAPIKeyAccessPathDefault)
 	webClientLogoutPath = path.Join(baseURL, webClientLogoutPathDefault)
+	webClientMFAPath = path.Join(baseURL, webClientMFAPathDefault)
+	webClientTOTPGeneratePath = path.Join(baseURL, webClientTOTPGeneratePathDefault)
+	webClientTOTPValidatePath = path.Join(baseURL, webClientTOTPValidatePathDefault)
+	webClientTOTPSavePath = path.Join(baseURL, webClientTOTPSavePathDefault)
+	webClientRecoveryCodesPath = path.Join(baseURL, webClientRecoveryCodesPathDefault)
 }
 
 func updateWebAdminURLs(baseURL string) {
@@ -498,6 +547,8 @@ func updateWebAdminURLs(baseURL string) {
 	webBaseAdminPath = path.Join(baseURL, webBasePathAdminDefault)
 	webAdminSetupPath = path.Join(baseURL, webAdminSetupPathDefault)
 	webLoginPath = path.Join(baseURL, webLoginPathDefault)
+	webAdminTwoFactorPath = path.Join(baseURL, webAdminTwoFactorPathDefault)
+	webAdminTwoFactorRecoveryPath = path.Join(baseURL, webAdminTwoFactorRecoveryPathDefault)
 	webLogoutPath = path.Join(baseURL, webLogoutPathDefault)
 	webUsersPath = path.Join(baseURL, webUsersPathDefault)
 	webUserPath = path.Join(baseURL, webUserPathDefault)
@@ -514,6 +565,11 @@ func updateWebAdminURLs(baseURL string) {
 	webQuotaScanPath = path.Join(baseURL, webQuotaScanPathDefault)
 	webChangeAdminPwdPath = path.Join(baseURL, webChangeAdminPwdPathDefault)
 	webAdminCredentialsPath = path.Join(baseURL, webAdminCredentialsPathDefault)
+	webAdminMFAPath = path.Join(baseURL, webAdminMFAPathDefault)
+	webAdminTOTPGeneratePath = path.Join(baseURL, webAdminTOTPGeneratePathDefault)
+	webAdminTOTPValidatePath = path.Join(baseURL, webAdminTOTPValidatePathDefault)
+	webAdminTOTPSavePath = path.Join(baseURL, webAdminTOTPSavePathDefault)
+	webAdminRecoveryCodesPath = path.Join(baseURL, webAdminRecoveryCodesPathDefault)
 	webChangeAdminAPIKeyAccessPath = path.Join(baseURL, webChangeAdminAPIKeyAccessPathDefault)
 	webTemplateUser = path.Join(baseURL, webTemplateUserDefault)
 	webTemplateFolder = path.Join(baseURL, webTemplateFolderDefault)
@@ -536,28 +592,28 @@ func GetHTTPRouter() http.Handler {
 }
 
 // the ticker cannot be started/stopped from multiple goroutines
-func startJWTTokensCleanupTicker(duration time.Duration) {
-	stopJWTTokensCleanupTicker()
-	jwtTokensCleanupTicker = time.NewTicker(duration)
-	jwtTokensCleanupDone = make(chan bool)
+func startCleanupTicker(duration time.Duration) {
+	stopCleanupTicker()
+	cleanupTicker = time.NewTicker(duration)
+	cleanupDone = make(chan bool)
 
 	go func() {
 		for {
 			select {
-			case <-jwtTokensCleanupDone:
+			case <-cleanupDone:
 				return
-			case <-jwtTokensCleanupTicker.C:
+			case <-cleanupTicker.C:
 				cleanupExpiredJWTTokens()
 			}
 		}
 	}()
 }
 
-func stopJWTTokensCleanupTicker() {
-	if jwtTokensCleanupTicker != nil {
-		jwtTokensCleanupTicker.Stop()
-		jwtTokensCleanupDone <- true
-		jwtTokensCleanupTicker = nil
+func stopCleanupTicker() {
+	if cleanupTicker != nil {
+		cleanupTicker.Stop()
+		cleanupDone <- true
+		cleanupTicker = nil
 	}
 }
 

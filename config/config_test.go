@@ -18,6 +18,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpclient"
 	"github.com/drakkan/sftpgo/v2/httpd"
 	"github.com/drakkan/sftpgo/v2/kms"
+	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/util"
 )
@@ -337,6 +338,61 @@ func TestSSHCommandsFromEnv(t *testing.T) {
 		assert.Equal(t, "cd", sftpdConf.EnabledSSHCommands[0])
 		assert.Equal(t, "scp", sftpdConf.EnabledSSHCommands[1])
 	}
+}
+
+func TestMFAFromEnv(t *testing.T) {
+	reset()
+
+	os.Setenv("SFTPGO_MFA__TOTP__0__NAME", "main")
+	os.Setenv("SFTPGO_MFA__TOTP__1__NAME", "additional_name")
+	os.Setenv("SFTPGO_MFA__TOTP__1__ISSUER", "additional_issuer")
+	os.Setenv("SFTPGO_MFA__TOTP__1__ALGO", "sha256")
+	t.Cleanup(func() {
+		os.Unsetenv("SFTPGO_MFA__TOTP__0__NAME")
+		os.Unsetenv("SFTPGO_MFA__TOTP__1__NAME")
+		os.Unsetenv("SFTPGO_MFA__TOTP__1__ISSUER")
+		os.Unsetenv("SFTPGO_MFA__TOTP__1__ALGO")
+	})
+
+	configDir := ".."
+	err := config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	mfaConf := config.GetMFAConfig()
+	require.Len(t, mfaConf.TOTP, 2)
+	require.Equal(t, "main", mfaConf.TOTP[0].Name)
+	require.Equal(t, "SFTPGo", mfaConf.TOTP[0].Issuer)
+	require.Equal(t, "sha1", mfaConf.TOTP[0].Algo)
+	require.Equal(t, "additional_name", mfaConf.TOTP[1].Name)
+	require.Equal(t, "additional_issuer", mfaConf.TOTP[1].Issuer)
+	require.Equal(t, "sha256", mfaConf.TOTP[1].Algo)
+}
+
+func TestDisabledMFAConfig(t *testing.T) {
+	reset()
+
+	configDir := ".."
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+
+	err := config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	mfaConf := config.GetMFAConfig()
+	assert.Len(t, mfaConf.TOTP, 1)
+
+	reset()
+
+	c := make(map[string]mfa.Config)
+	c["mfa"] = mfa.Config{}
+	jsonConf, err := json.Marshal(c)
+	assert.NoError(t, err)
+	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, confName)
+	assert.NoError(t, err)
+	mfaConf = config.GetMFAConfig()
+	assert.Len(t, mfaConf.TOTP, 0)
+	err = os.Remove(configFilePath)
+	assert.NoError(t, err)
 }
 
 func TestPluginsFromEnv(t *testing.T) {

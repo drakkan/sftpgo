@@ -18,11 +18,13 @@ import (
 type tokenAudience = string
 
 const (
-	tokenAudienceWebAdmin  tokenAudience = "WebAdmin"
-	tokenAudienceWebClient tokenAudience = "WebClient"
-	tokenAudienceAPI       tokenAudience = "API"
-	tokenAudienceAPIUser   tokenAudience = "APIUser"
-	tokenAudienceCSRF      tokenAudience = "CSRF"
+	tokenAudienceWebAdmin         tokenAudience = "WebAdmin"
+	tokenAudienceWebClient        tokenAudience = "WebClient"
+	tokenAudienceWebAdminPartial  tokenAudience = "WebAdminPartial"
+	tokenAudienceWebClientPartial tokenAudience = "WebClientPartial"
+	tokenAudienceAPI              tokenAudience = "API"
+	tokenAudienceAPIUser          tokenAudience = "APIUser"
+	tokenAudienceCSRF             tokenAudience = "CSRF"
 )
 
 const (
@@ -44,7 +46,15 @@ type jwtTokenClaims struct {
 	Username    string
 	Permissions []string
 	Signature   string
+	Audience    string
 	APIKeyID    string
+}
+
+func (c *jwtTokenClaims) hasUserAudience() bool {
+	if c.Audience == tokenAudienceWebClient || c.Audience == tokenAudienceAPIUser {
+		return true
+	}
+	return false
 }
 
 func (c *jwtTokenClaims) asMap() map[string]interface{} {
@@ -73,6 +83,15 @@ func (c *jwtTokenClaims) Decode(token map[string]interface{}) {
 	switch v := signature.(type) {
 	case string:
 		c.Signature = v
+	}
+
+	audience := token[jwt.AudienceKey]
+
+	switch v := audience.(type) {
+	case []string:
+		if len(v) > 0 {
+			c.Audience = v[0]
+		}
 	}
 
 	if val, ok := token[claimAPIKey]; ok {
@@ -142,7 +161,7 @@ func (c *jwtTokenClaims) createAndSetCookie(w http.ResponseWriter, r *http.Reque
 		return err
 	}
 	var basePath string
-	if audience == tokenAudienceWebAdmin {
+	if audience == tokenAudienceWebAdmin || audience == tokenAudienceWebAdminPartial {
 		basePath = webBaseAdminPath
 	} else {
 		basePath = webBaseClientPath
@@ -207,11 +226,11 @@ func isTokenInvalidated(r *http.Request) bool {
 func invalidateToken(r *http.Request) {
 	tokenString := jwtauth.TokenFromHeader(r)
 	if tokenString != "" {
-		invalidatedJWTTokens.Store(tokenString, time.Now().UTC().Add(tokenDuration))
+		invalidatedJWTTokens.Store(tokenString, time.Now().Add(tokenDuration).UTC())
 	}
 	tokenString = jwtauth.TokenFromCookie(r)
 	if tokenString != "" {
-		invalidatedJWTTokens.Store(tokenString, time.Now().UTC().Add(tokenDuration))
+		invalidatedJWTTokens.Store(tokenString, time.Now().Add(tokenDuration).UTC())
 	}
 }
 

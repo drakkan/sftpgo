@@ -57,7 +57,7 @@ The generated API key is returned in the response body when you create a new API
 API keys are not allowed for the following REST APIs:
 
 - manage API keys itself. You cannot create, update, delete, enumerate API keys if you are logged in with an API key
-- change password or public keys for the associated user
+- change password, public keys or second factor authentication for the associated user
 - update the impersonated admin
 
 Please keep in mind that using an API key not associated with any administrator it is still possible to create a new administrator, with full permissions, and then impersonate it: be careful if you share unassociated API keys with third parties and with the `manage adminis` permission granted, they will basically allow full access, the only restriction is that the impersonated admin cannot be modified.

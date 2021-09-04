@@ -14,6 +14,9 @@ import (
 	passwordvalidator "github.com/wagslane/go-password-validator"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/drakkan/sftpgo/v2/kms"
+	"github.com/drakkan/sftpgo/v2/mfa"
+	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -43,6 +46,36 @@ var (
 		PermAdminManageDefender, PermAdminViewDefender}
 )
 
+// TOTPConfig defines the time-based one time password configuration
+type TOTPConfig struct {
+	Enabled    bool        `json:"enabled,omitempty"`
+	ConfigName string      `json:"config_name,omitempty"`
+	Secret     *kms.Secret `json:"secret,omitempty"`
+}
+
+func (c *TOTPConfig) validate() error {
+	if !c.Enabled {
+		c.ConfigName = ""
+		c.Secret = kms.NewEmptySecret()
+		return nil
+	}
+	if c.ConfigName == "" {
+		return util.NewValidationError("totp: config name is mandatory")
+	}
+	if !util.IsStringInSlice(c.ConfigName, mfa.GetAvailableTOTPConfigNames()) {
+		return util.NewValidationError(fmt.Sprintf("totp: config name %#v not found", c.ConfigName))
+	}
+	if c.Secret.IsEmpty() {
+		return util.NewValidationError("totp: secret is mandatory")
+	}
+	if c.Secret.IsPlain() {
+		if err := c.Secret.Encrypt(); err != nil {
+			return util.NewValidationError(fmt.Sprintf("totp: unable to encrypt secret: %v", err))
+		}
+	}
+	return nil
+}
+
 // AdminFilters defines additional restrictions for SFTPGo admins
 // TODO: rename to AdminOptions in v3
 type AdminFilters struct {
@@ -52,6 +85,12 @@ type AdminFilters struct {
 	AllowList []string `json:"allow_list,omitempty"`
 	// API key auth allows to impersonate this administrator with an API key
 	AllowAPIKeyAuth bool `json:"allow_api_key_auth,omitempty"`
+	// Time-based one time passwords configuration
+	TOTPConfig TOTPConfig `json:"totp_config,omitempty"`
+	// Recovery codes to use if the user loses access to their second factor auth device.
+	// Each code can only be used once, you should use these codes to login and disable or
+	// reset 2FA for your account
+	RecoveryCodes []sdk.RecoveryCode `json:"recovery_codes,omitempty"`
 }
 
 // Admin defines a SFTPGo admin
@@ -74,6 +113,17 @@ type Admin struct {
 	UpdatedAt int64 `json:"updated_at"`
 	// Last login as unix timestamp in milliseconds
 	LastLogin int64 `json:"last_login"`
+}
+
+// CountUnusedRecoveryCodes returns the number of unused recovery codes
+func (a *Admin) CountUnusedRecoveryCodes() int {
+	unused := 0
+	for _, code := range a.Filters.RecoveryCodes {
+		if !code.Used {
+			unused++
+		}
+	}
+	return unused
 }
 
 func (a *Admin) checkPassword() error {
@@ -100,19 +150,26 @@ func (a *Admin) checkPassword() error {
 	return nil
 }
 
-func (a *Admin) validate() error {
-	if a.Username == "" {
-		return util.NewValidationError("username is mandatory")
+func (a *Admin) hasRedactedSecret() bool {
+	return a.Filters.TOTPConfig.Secret.IsRedacted()
+}
+
+func (a *Admin) validateRecoveryCodes() error {
+	for i := 0; i < len(a.Filters.RecoveryCodes); i++ {
+		code := &a.Filters.RecoveryCodes[i]
+		if code.Secret.IsEmpty() {
+			return util.NewValidationError("mfa: recovery code cannot be empty")
+		}
+		if code.Secret.IsPlain() {
+			if err := code.Secret.Encrypt(); err != nil {
+				return util.NewValidationError(fmt.Sprintf("mfa: unable to encrypt recovery code: %v", err))
+			}
+		}
 	}
-	if a.Password == "" {
-		return util.NewValidationError("please set a password")
-	}
-	if !config.SkipNaturalKeysValidation && !usernameRegex.MatchString(a.Username) {
-		return util.NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~", a.Username))
-	}
-	if err := a.checkPassword(); err != nil {
-		return err
-	}
+	return nil
+}
+
+func (a *Admin) validatePermissions() error {
 	a.Permissions = util.RemoveDuplicates(a.Permissions)
 	if len(a.Permissions) == 0 {
 		return util.NewValidationError("please grant some permissions to this admin")
@@ -124,6 +181,35 @@ func (a *Admin) validate() error {
 		if !util.IsStringInSlice(perm, validAdminPerms) {
 			return util.NewValidationError(fmt.Sprintf("invalid permission: %#v", perm))
 		}
+	}
+	return nil
+}
+
+func (a *Admin) validate() error {
+	a.SetEmptySecretsIfNil()
+	if a.Username == "" {
+		return util.NewValidationError("username is mandatory")
+	}
+	if a.Password == "" {
+		return util.NewValidationError("please set a password")
+	}
+	if a.hasRedactedSecret() {
+		return util.NewValidationError("cannot save an admin with a redacted secret")
+	}
+	if err := a.Filters.TOTPConfig.validate(); err != nil {
+		return err
+	}
+	if err := a.validateRecoveryCodes(); err != nil {
+		return err
+	}
+	if !config.SkipNaturalKeysValidation && !usernameRegex.MatchString(a.Username) {
+		return util.NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~", a.Username))
+	}
+	if err := a.checkPassword(); err != nil {
+		return err
+	}
+	if err := a.validatePermissions(); err != nil {
+		return err
 	}
 	if a.Email != "" && !emailRegex.MatchString(a.Email) {
 		return util.NewValidationError(fmt.Sprintf("email %#v is not valid", a.Email))
@@ -202,6 +288,26 @@ func (a *Admin) checkUserAndPass(password, ip string) error {
 // HideConfidentialData hides admin confidential data
 func (a *Admin) HideConfidentialData() {
 	a.Password = ""
+	if a.Filters.TOTPConfig.Secret != nil {
+		a.Filters.TOTPConfig.Secret.Hide()
+	}
+	a.SetNilSecretsIfEmpty()
+}
+
+// SetEmptySecretsIfNil sets the secrets to empty if nil
+func (a *Admin) SetEmptySecretsIfNil() {
+	if a.Filters.TOTPConfig.Secret == nil {
+		a.Filters.TOTPConfig.Secret = kms.NewEmptySecret()
+	}
+}
+
+// SetNilSecretsIfEmpty set the secrets to nil if empty.
+// This is useful before rendering as JSON so the empty fields
+// will not be serialized.
+func (a *Admin) SetNilSecretsIfEmpty() {
+	if a.Filters.TOTPConfig.Secret.IsEmpty() {
+		a.Filters.TOTPConfig.Secret = nil
+	}
 }
 
 // HasPermission returns true if the admin has the specified permission
@@ -239,6 +345,11 @@ func (a *Admin) GetInfoString() string {
 	return result
 }
 
+// CanManageMFA returns true if the admin can add a multi-factor authentication configuration
+func (a *Admin) CanManageMFA() bool {
+	return len(mfa.GetAvailableTOTPConfigs()) > 0
+}
+
 // GetSignature returns a signature for this admin.
 // It could change after an update
 func (a *Admin) GetSignature() string {
@@ -249,12 +360,26 @@ func (a *Admin) GetSignature() string {
 }
 
 func (a *Admin) getACopy() Admin {
+	a.SetEmptySecretsIfNil()
 	permissions := make([]string, len(a.Permissions))
 	copy(permissions, a.Permissions)
 	filters := AdminFilters{}
 	filters.AllowList = make([]string, len(a.Filters.AllowList))
 	filters.AllowAPIKeyAuth = a.Filters.AllowAPIKeyAuth
+	filters.TOTPConfig.Enabled = a.Filters.TOTPConfig.Enabled
+	filters.TOTPConfig.ConfigName = a.Filters.TOTPConfig.ConfigName
+	filters.TOTPConfig.Secret = a.Filters.TOTPConfig.Secret.Clone()
 	copy(filters.AllowList, a.Filters.AllowList)
+	filters.RecoveryCodes = make([]sdk.RecoveryCode, 0)
+	for _, code := range a.Filters.RecoveryCodes {
+		if code.Secret == nil {
+			code.Secret = kms.NewEmptySecret()
+		}
+		filters.RecoveryCodes = append(filters.RecoveryCodes, sdk.RecoveryCode{
+			Secret: code.Secret.Clone(),
+			Used:   code.Used,
+		})
+	}
 
 	return Admin{
 		ID:             a.ID,

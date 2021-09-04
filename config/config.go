@@ -18,6 +18,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpd"
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/telemetry"
@@ -87,6 +88,11 @@ var (
 		EntriesSoftLimit:       100,
 		EntriesHardLimit:       150,
 	}
+	defaultTOTP = mfa.TOTPConfig{
+		Name:   "Default",
+		Issuer: "SFTPGo",
+		Algo:   mfa.TOTPAlgoSHA1,
+	}
 )
 
 type globalConfig struct {
@@ -98,6 +104,7 @@ type globalConfig struct {
 	HTTPDConfig     httpd.Conf            `json:"httpd" mapstructure:"httpd"`
 	HTTPConfig      httpclient.Config     `json:"http" mapstructure:"http"`
 	KMSConfig       kms.Configuration     `json:"kms" mapstructure:"kms"`
+	MFAConfig       mfa.Config            `json:"mfa" mapstructure:"mfa"`
 	TelemetryConfig telemetry.Conf        `json:"telemetry" mapstructure:"telemetry"`
 	PluginsConfig   []plugin.Config       `json:"plugins" mapstructure:"plugins"`
 }
@@ -144,19 +151,20 @@ func Init() {
 			RateLimitersConfig: []common.RateLimiterConfig{defaultRateLimiter},
 		},
 		SFTPD: sftpd.Configuration{
-			Banner:                  defaultSFTPDBanner,
-			Bindings:                []sftpd.Binding{defaultSFTPDBinding},
-			MaxAuthTries:            0,
-			HostKeys:                []string{},
-			KexAlgorithms:           []string{},
-			Ciphers:                 []string{},
-			MACs:                    []string{},
-			TrustedUserCAKeys:       []string{},
-			LoginBannerFile:         "",
-			EnabledSSHCommands:      []string{},
-			KeyboardInteractiveHook: "",
-			PasswordAuthentication:  true,
-			FolderPrefix:            "",
+			Banner:                            defaultSFTPDBanner,
+			Bindings:                          []sftpd.Binding{defaultSFTPDBinding},
+			MaxAuthTries:                      0,
+			HostKeys:                          []string{},
+			KexAlgorithms:                     []string{},
+			Ciphers:                           []string{},
+			MACs:                              []string{},
+			TrustedUserCAKeys:                 []string{},
+			LoginBannerFile:                   "",
+			EnabledSSHCommands:                []string{},
+			KeyboardInteractiveAuthentication: false,
+			KeyboardInteractiveHook:           "",
+			PasswordAuthentication:            true,
+			FolderPrefix:                      "",
 		},
 		FTPD: ftpd.Configuration{
 			Bindings:                 []ftpd.Binding{defaultFTPDBinding},
@@ -284,6 +292,9 @@ func Init() {
 				MasterKeyPath:   "",
 			},
 		},
+		MFAConfig: mfa.Config{
+			TOTP: nil,
+		},
 		TelemetryConfig: telemetry.Conf{
 			BindPort:           10000,
 			BindAddress:        "127.0.0.1",
@@ -393,6 +404,11 @@ func SetTelemetryConfig(config telemetry.Conf) {
 // GetPluginsConfig returns the plugins configuration
 func GetPluginsConfig() []plugin.Config {
 	return globalConf.PluginsConfig
+}
+
+// GetMFAConfig returns multi-factor authentication config
+func GetMFAConfig() mfa.Config {
+	return globalConf.MFAConfig
 }
 
 // HasServicesToStart returns true if the config defines at least a service to start.
@@ -511,6 +527,7 @@ func LoadConfig(configDir, configFile string) error {
 
 func loadBindingsFromEnv() {
 	for idx := 0; idx < 10; idx++ {
+		getTOTPFromEnv(idx)
 		getRateLimitersFromEnv(idx)
 		getPluginsFromEnv(idx)
 		getSFTPDBindindFromEnv(idx)
@@ -519,6 +536,41 @@ func loadBindingsFromEnv() {
 		getHTTPDBindingFromEnv(idx)
 		getHTTPClientCertificatesFromEnv(idx)
 		getHTTPClientHeadersFromEnv(idx)
+	}
+}
+
+func getTOTPFromEnv(idx int) {
+	totpConfig := defaultTOTP
+	if len(globalConf.MFAConfig.TOTP) > idx {
+		totpConfig = globalConf.MFAConfig.TOTP[idx]
+	}
+
+	isSet := false
+
+	name, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_MFA__TOTP__%v__NAME", idx))
+	if ok {
+		totpConfig.Name = name
+		isSet = true
+	}
+
+	issuer, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_MFA__TOTP__%v__ISSUER", idx))
+	if ok {
+		totpConfig.Issuer = issuer
+		isSet = true
+	}
+
+	algo, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_MFA__TOTP__%v__ALGO", idx))
+	if ok {
+		totpConfig.Algo = algo
+		isSet = true
+	}
+
+	if isSet {
+		if len(globalConf.MFAConfig.TOTP) > idx {
+			globalConf.MFAConfig.TOTP[idx] = totpConfig
+		} else {
+			globalConf.MFAConfig.TOTP = append(globalConf.MFAConfig.TOTP, totpConfig)
+		}
 	}
 }
 
@@ -1000,6 +1052,7 @@ func setViperDefaults() {
 	viper.SetDefault("sftpd.trusted_user_ca_keys", globalConf.SFTPD.TrustedUserCAKeys)
 	viper.SetDefault("sftpd.login_banner_file", globalConf.SFTPD.LoginBannerFile)
 	viper.SetDefault("sftpd.enabled_ssh_commands", sftpd.GetDefaultSSHCommands())
+	viper.SetDefault("sftpd.keyboard_interactive_authentication", globalConf.SFTPD.KeyboardInteractiveAuthentication)
 	viper.SetDefault("sftpd.keyboard_interactive_auth_hook", globalConf.SFTPD.KeyboardInteractiveHook)
 	viper.SetDefault("sftpd.password_authentication", globalConf.SFTPD.PasswordAuthentication)
 	viper.SetDefault("sftpd.folder_prefix", globalConf.SFTPD.FolderPrefix)

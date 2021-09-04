@@ -88,6 +88,25 @@
             </div>
         </div>
 
+        <div class="card mb-4 {{ if .Status.MFA.IsActive}}border-left-success{{else}}border-left-info{{end}}">
+            <div class="card-body">
+                <h6 class="card-title font-weight-bold">Multi-factor authentication</h6>
+                <p class="card-text">
+                    Status: {{ if .Status.MFA.IsActive}}"Enabled"{{else}}"Disabled"{{end}}
+                    {{ if .Status.MFA.IsActive}}
+                    <br>
+                    Time-based one time passwords (RFC 6238) configurations:
+                    <br>
+                    <ul>
+                    {{range .Status.MFA.TOTPConfigs}}
+                    <li>Name: "{{.Name}}", issuer: "{{.Issuer}}", HMAC algorithm: "{{.Algo}}"</li>
+                    {{end}}
+                    </ul>
+                    {{end}}
+                </p>
+            </div>
+        </div>
+
         <div class="card mb-2 {{ if .Status.DataProvider.IsActive}}border-left-success{{else}}border-left-warning{{end}}">
             <div class="card-body">
                 <h6 class="card-title font-weight-bold">Data provider</h6>

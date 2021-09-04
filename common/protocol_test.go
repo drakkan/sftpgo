@@ -20,6 +20,8 @@ import (
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pkg/sftp"
+	"github.com/pquerna/otp"
+	"github.com/pquerna/otp/totp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
@@ -33,6 +35,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpdtest"
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -94,9 +97,16 @@ func TestMain(m *testing.M) {
 		logger.ErrorToConsole("error initializing kms: %v", err)
 		os.Exit(1)
 	}
+	mfaConfig := config.GetMFAConfig()
+	err = mfaConfig.Initialize()
+	if err != nil {
+		logger.ErrorToConsole("error initializing MFA: %v", err)
+		os.Exit(1)
+	}
 
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.Bindings[0].Port = 4022
+	sftpdConf.KeyboardInteractiveAuthentication = true
 
 	httpdConf := config.GetHTTPDConfig()
 	httpdConf.Bindings[0].Port = 4080
@@ -2338,6 +2348,69 @@ func TestRenameDir(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestBuiltinKeyboardInteractiveAuthentication(t *testing.T) {
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	authMethods := []ssh.AuthMethod{
+		ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+			return []string{defaultPassword}, nil
+		}),
+	}
+	conn, client, err := getCustomAuthSftpClient(user, authMethods)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+		err = writeSFTPFile(testFileName, 4096, client)
+		assert.NoError(t, err)
+	}
+	// add multi-factor authentication
+	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	assert.NoError(t, err)
+	user.Password = defaultPassword
+	user.Filters.TOTPConfig = sdk.TOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+		Protocols:  []string{common.ProtocolSSH},
+	}
+	err = dataprovider.UpdateUser(&user)
+	assert.NoError(t, err)
+	passcode, err := generateTOTPPasscode(secret, otp.AlgorithmSHA1)
+	assert.NoError(t, err)
+	passwordAsked := false
+	passcodeAsked := false
+	authMethods = []ssh.AuthMethod{
+		ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+			var answers []string
+			if strings.HasPrefix(questions[0], "Password") {
+				answers = append(answers, defaultPassword)
+				passwordAsked = true
+			} else {
+				answers = append(answers, passcode)
+				passcodeAsked = true
+			}
+			return answers, nil
+		}),
+	}
+	conn, client, err = getCustomAuthSftpClient(user, authMethods)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+		err = writeSFTPFile(testFileName, 4096, client)
+		assert.NoError(t, err)
+	}
+	assert.True(t, passwordAsked)
+	assert.True(t, passcodeAsked)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestRenameSymlink(t *testing.T) {
 	u := getTestUser()
 	testDir := "/dir-no-create-links"
@@ -2690,6 +2763,26 @@ func checkBasicSFTP(client *sftp.Client) error {
 	return err
 }
 
+func getCustomAuthSftpClient(user dataprovider.User, authMethods []ssh.AuthMethod) (*ssh.Client, *sftp.Client, error) {
+	var sftpClient *sftp.Client
+	config := &ssh.ClientConfig{
+		User: user.Username,
+		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+			return nil
+		},
+		Auth: authMethods,
+	}
+	conn, err := ssh.Dial("tcp", sftpServerAddr, config)
+	if err != nil {
+		return conn, sftpClient, err
+	}
+	sftpClient, err = sftp.NewClient(conn)
+	if err != nil {
+		conn.Close()
+	}
+	return conn, sftpClient, err
+}
+
 func getSftpClient(user dataprovider.User) (*ssh.Client, *sftp.Client, error) {
 	var sftpClient *sftp.Client
 	config := &ssh.ClientConfig{
@@ -2785,4 +2878,13 @@ func getUploadScriptContent(movedPath string) []byte {
 	content = append(content, []byte("sleep 1\n")...)
 	content = append(content, []byte(fmt.Sprintf("mv ${SFTPGO_ACTION_PATH} %v\n", movedPath))...)
 	return content
+}
+
+func generateTOTPPasscode(secret string, algo otp.Algorithm) (string, error) {
+	return totp.GenerateCodeCustom(secret, time.Now(), totp.ValidateOpts{
+		Period:    30,
+		Skew:      1,
+		Digits:    otp.DigitsSix,
+		Algorithm: algo,
+	})
 }

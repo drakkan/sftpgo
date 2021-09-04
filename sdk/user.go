@@ -3,6 +3,7 @@ package sdk
 import (
 	"strings"
 
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -10,11 +11,14 @@ import (
 const (
 	WebClientPubKeyChangeDisabled = "publickey-change-disabled"
 	WebClientWriteDisabled        = "write-disabled"
+	WebClientMFADisabled          = "mfa-disabled"
 )
 
 var (
 	// WebClientOptions defines the available options for the web client interface/user REST API
-	WebClientOptions = []string{WebClientPubKeyChangeDisabled, WebClientWriteDisabled}
+	WebClientOptions = []string{WebClientPubKeyChangeDisabled, WebClientWriteDisabled, WebClientMFADisabled}
+	// UserTypes defines the supported user type hints for auth plugins
+	UserTypes = []string{string(UserTypeLDAP), string(UserTypeOS)}
 )
 
 // TLSUsername defines the TLS certificate attribute to use as username
@@ -24,6 +28,16 @@ type TLSUsername string
 const (
 	TLSUsernameNone TLSUsername = "None"
 	TLSUsernameCN   TLSUsername = "CommonName"
+)
+
+// UserType defines the supported user types.
+// This is an hint for external auth plugins, is not used in SFTPGo directly
+type UserType string
+
+// User types, auth plugins could use this info to choose the correct authentication backend
+const (
+	UserTypeLDAP UserType = "LDAPUser"
+	UserTypeOS   UserType = "OSUser"
 )
 
 // DirectoryPermissions defines permissions for a directory virtual path
@@ -83,6 +97,27 @@ type HooksFilter struct {
 	CheckPasswordDisabled bool `json:"check_password_disabled"`
 }
 
+// RecoveryCode defines a 2FA recovery code
+type RecoveryCode struct {
+	Secret *kms.Secret `json:"secret"`
+	Used   bool        `json:"used,omitempty"`
+}
+
+// TOTPConfig defines the time-based one time password configuration
+type TOTPConfig struct {
+	Enabled    bool        `json:"enabled,omitempty"`
+	ConfigName string      `json:"config_name,omitempty"`
+	Secret     *kms.Secret `json:"secret,omitempty"`
+	// TOTP will be required for the specified protocols.
+	// SSH protocol (SFTP/SCP/SSH commands) will ask for the TOTP passcode if the client uses keyboard interactive
+	// authentication.
+	// FTP have no standard way to support two factor authentication, if you
+	// enable the support for this protocol you have to add the TOTP passcode after the password.
+	// For example if your password is "password" and your one time passcode is
+	// "123456" you have to use "password123456" as password.
+	Protocols []string `json:"protocols,omitempty"`
+}
+
 // UserFilters defines additional restrictions for a user
 // TODO: rename to UserOptions in v3
 type UserFilters struct {
@@ -122,6 +157,15 @@ type UserFilters struct {
 	WebClient []string `json:"web_client,omitempty"`
 	// API key auth allows to impersonate this user with an API key
 	AllowAPIKeyAuth bool `json:"allow_api_key_auth,omitempty"`
+	// Time-based one time passwords configuration
+	TOTPConfig TOTPConfig `json:"totp_config,omitempty"`
+	// Recovery codes to use if the user loses access to their second factor auth device.
+	// Each code can only be used once, you should use these codes to login and disable or
+	// reset 2FA for your account
+	RecoveryCodes []RecoveryCode `json:"recovery_codes,omitempty"`
+	// UserType is an hint for authentication plugins.
+	// It is ignored when using SFTPGo internal authentication
+	UserType string `json:"user_type,omitempty"`
 }
 
 type BaseUser struct {

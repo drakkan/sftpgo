@@ -104,6 +104,25 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 	renderUser(w, r, user.Username, http.StatusCreated)
 }
 
+func disableUser2FA(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	username := getURLParam(r, "username")
+	user, err := dataprovider.UserExists(username)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	user.Filters.RecoveryCodes = nil
+	user.Filters.TOTPConfig = sdk.TOTPConfig{
+		Enabled: false,
+	}
+	if err := dataprovider.UpdateUser(&user); err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	sendAPIResponse(w, r, nil, "2FA disabled", http.StatusOK)
+}
+
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	var err error
@@ -124,6 +143,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userID := user.ID
+	totpConfig := user.Filters.TOTPConfig
+	recoveryCodes := user.Filters.RecoveryCodes
 	currentPermissions := user.Permissions
 	currentS3AccessSecret := user.FsConfig.S3Config.AccessSecret
 	currentAzAccountKey := user.FsConfig.AzBlobConfig.AccountKey
@@ -147,6 +168,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	user.ID = userID
 	user.Username = username
+	user.Filters.TOTPConfig = totpConfig
+	user.Filters.RecoveryCodes = recoveryCodes
 	user.SetEmptySecretsIfNil()
 	// we use new Permissions if passed otherwise the old ones
 	if len(user.Permissions) == 0 {

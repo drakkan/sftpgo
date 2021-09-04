@@ -389,6 +389,44 @@ func TestInvalidToken(t *testing.T) {
 	setUserPublicKeys(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	generateTOTPSecret(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	saveTOTPConfig(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	getRecoveryCodes(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	generateRecoveryCodes(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	server := httpdServer{}
+	server.initializeRouter()
+	rr = httptest.NewRecorder()
+	server.handleWebClientTwoFactorRecoveryPost(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	server.handleWebClientTwoFactorPost(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	server.handleWebAdminTwoFactorRecoveryPost(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	server.handleWebAdminTwoFactorPost(rr, req)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
 }
 
 func TestUpdateWebAdminInvalidClaims(t *testing.T) {
@@ -506,6 +544,9 @@ func TestCreateTokenError(t *testing.T) {
 	rr = httptest.NewRecorder()
 	server.handleWebAdminLoginPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	req, _ = http.NewRequest(http.MethodPost, webAdminSetupPath, nil)
+	rr = httptest.NewRecorder()
+	server.loginAdmin(rr, req, &admin, false, nil)
 	// req with no POST body
 	req, _ = http.NewRequest(http.MethodGet, webLoginPath+"?a=a%C3%AO%GG", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -554,6 +595,34 @@ func TestCreateTokenError(t *testing.T) {
 	rr = httptest.NewRecorder()
 	handleWebAdminManageAPIKeyPost(rr, req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code, rr.Body.String())
+
+	req, _ = http.NewRequest(http.MethodPost, webAdminTwoFactorPath+"?a=a%C3%AO%GC", bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	server.handleWebAdminTwoFactorPost(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+
+	req, _ = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath+"?a=a%C3%AO%GD", bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	server.handleWebAdminTwoFactorRecoveryPost(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+
+	req, _ = http.NewRequest(http.MethodPost, webClientTwoFactorPath+"?a=a%C3%AO%GC", bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	server.handleWebClientTwoFactorPost(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+
+	req, _ = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath+"?a=a%C3%AO%GD", bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	server.handleWebClientTwoFactorRecoveryPost(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	assert.Contains(t, rr.Body.String(), "invalid URL escape")
 
 	username := "webclientuser"
 	user = dataprovider.User{
@@ -1096,11 +1165,11 @@ func TestJWTTokenCleanup(t *testing.T) {
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %v", token))
 
-	invalidatedJWTTokens.Store(token, time.Now().UTC().Add(-tokenDuration))
+	invalidatedJWTTokens.Store(token, time.Now().Add(-tokenDuration).UTC())
 	require.True(t, isTokenInvalidated(req))
-	startJWTTokensCleanupTicker(100 * time.Millisecond)
+	startCleanupTicker(100 * time.Millisecond)
 	assert.Eventually(t, func() bool { return !isTokenInvalidated(req) }, 1*time.Second, 200*time.Millisecond)
-	stopJWTTokensCleanupTicker()
+	stopCleanupTicker()
 }
 
 func TestProxyHeaders(t *testing.T) {

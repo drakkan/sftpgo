@@ -64,6 +64,25 @@ func addAdmin(w http.ResponseWriter, r *http.Request) {
 	renderAdmin(w, r, admin.Username, http.StatusCreated)
 }
 
+func disableAdmin2FA(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	username := getURLParam(r, "username")
+	admin, err := dataprovider.AdminExists(username)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	admin.Filters.RecoveryCodes = nil
+	admin.Filters.TOTPConfig = dataprovider.TOTPConfig{
+		Enabled: false,
+	}
+	if err := dataprovider.UpdateAdmin(&admin); err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	sendAPIResponse(w, r, nil, "2FA disabled", http.StatusOK)
+}
+
 func updateAdmin(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	username := getURLParam(r, "username")
@@ -74,6 +93,8 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	adminID := admin.ID
+	totpConfig := admin.Filters.TOTPConfig
+	recoveryCodes := admin.Filters.RecoveryCodes
 	err = render.DecodeJSON(r.Body, &admin)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
@@ -102,6 +123,8 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	admin.ID = adminID
 	admin.Username = username
+	admin.Filters.TOTPConfig = totpConfig
+	admin.Filters.RecoveryCodes = recoveryCodes
 	if err := dataprovider.UpdateAdmin(&admin); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

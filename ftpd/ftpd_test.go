@@ -21,6 +21,8 @@ import (
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
 	"github.com/jlaffaye/ftp"
+	"github.com/pquerna/otp"
+	"github.com/pquerna/otp/totp"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,6 +34,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpdtest"
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/vfs"
@@ -303,6 +306,12 @@ func TestMain(m *testing.M) {
 	err = kmsConfig.Initialize()
 	if err != nil {
 		logger.ErrorToConsole("error initializing kms: %v", err)
+		os.Exit(1)
+	}
+	mfaConfig := config.GetMFAConfig()
+	err = mfaConfig.Initialize()
+	if err != nil {
+		logger.ErrorToConsole("error initializing MFA: %v", err)
 		os.Exit(1)
 	}
 
@@ -585,6 +594,50 @@ func TestBasicFTPHandling(t *testing.T) {
 	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 1*time.Second, 50*time.Millisecond)
 	assert.Eventually(t, func() bool { return common.Connections.GetClientConnections() == 0 }, 1000*time.Millisecond,
 		50*time.Millisecond)
+}
+
+func TestMultiFactorAuth(t *testing.T) {
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	assert.NoError(t, err)
+	user.Password = defaultPassword
+	user.Filters.TOTPConfig = sdk.TOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+		Protocols:  []string{common.ProtocolFTP},
+	}
+	err = dataprovider.UpdateUser(&user)
+	assert.NoError(t, err)
+
+	user.Password = defaultPassword
+	_, err = getFTPClient(user, true, nil)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), dataprovider.ErrInvalidCredentials.Error())
+	}
+	passcode, err := generateTOTPPasscode(secret, otp.AlgorithmSHA1)
+	assert.NoError(t, err)
+	user.Password = defaultPassword + passcode
+	client, err := getFTPClient(user, true, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err := client.Quit()
+		assert.NoError(t, err)
+	}
+	// reusing the same passcode should not work
+	_, err = getFTPClient(user, true, nil)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), dataprovider.ErrInvalidCredentials.Error())
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
 }
 
 func TestLoginInvalidCredentials(t *testing.T) {
@@ -3095,4 +3148,13 @@ func writeCerts(certPath, keyPath, caCrtPath, caCRLPath string) error {
 		return err
 	}
 	return nil
+}
+
+func generateTOTPPasscode(secret string, algo otp.Algorithm) (string, error) {
+	return totp.GenerateCodeCustom(secret, time.Now(), totp.ValidateOpts{
+		Period:    30,
+		Skew:      1,
+		Digits:    otp.DigitsSix,
+		Algorithm: algo,
+	})
 }
