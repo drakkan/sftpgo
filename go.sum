@@ -209,14 +209,14 @@ github.com/devigned/tab v0.1.1/go.mod h1:XG9mPq0dFghrYvoBF3xdRrJzSTX1b7IQrvaL9mz
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
 github.com/dimchansky/utfbom v1.1.0/go.mod h1:rO41eb7gLfo8SF1jd9F8HplJm1Fewwi4mQvIirEdv+8=
 github.com/dimchansky/utfbom v1.1.1/go.mod h1:SxdoEBH5qIqFocHMyGOXVAybYJdr71b1Q/j0mACtrfE=
-github.com/drakkan/crypto v0.0.0-20210515063737-edf1d3b63536 h1:3DJdhj83IA3NjlVzA1pJBoZtYnhYHRv04t5b0sRDwjM=
-github.com/drakkan/crypto v0.0.0-20210515063737-edf1d3b63536/go.mod h1:M1JpE4lvRI5LLrE7yTCWfhbsy5rx3oZVjGZad4XMwWc=
+github.com/drakkan/crypto v0.0.0-20210904112610-0ac2a582e240 h1:Qp4ss1w/ImKeKkCPdfsz/vrzs77xsElHQlKxGBdsFWQ=
+github.com/drakkan/crypto v0.0.0-20210904112610-0ac2a582e240/go.mod h1:0hNoheD1tVu/m8WMkw/chBXf5VpwzL5fHQU25k79NKo=
 github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9 h1:LPH1dEblAOO/LoG7yHPMtBLXhQmjaga91/DDjWk9jWA=
 github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9/go.mod h1:2lmrmq866uF2tnje75wQHzmPXhmSWUt7Gyx2vgK1RCU=
 github.com/drakkan/ftpserverlib v0.0.0-20210805132427-425f32d9dc15 h1:J7FZPDILyOMYtShuM5hH3GLTL1cCDtoJ1InsxEyl798=
 github.com/drakkan/ftpserverlib v0.0.0-20210805132427-425f32d9dc15/go.mod h1:+Doq95UijHTIaJcWREhyu9dyQOqyoULbVU3OXgs8wEI=
-github.com/drakkan/net v0.0.0-20210817141953-39359926843c h1:mK9lUujDLUgprG2ORSgea+EYzH6fb8SFzHAzlm4pUCk=
-github.com/drakkan/net v0.0.0-20210817141953-39359926843c/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
+github.com/drakkan/net v0.0.0-20210904112723-31299b6735d2 h1:Wz8U/6E2c2ICN5FKY1v7wiwytXXNXPteboWNUPmqRWs=
+github.com/drakkan/net v0.0.0-20210904112723-31299b6735d2/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
 github.com/drakkan/pipeat v0.0.0-20210805162858-70e57fa8a639 h1:8tfGdb4kg/YCvAbIrsMazgoNtnqdOqQVDKW12uUCuuU=
 github.com/drakkan/pipeat v0.0.0-20210805162858-70e57fa8a639/go.mod h1:kltMsfRMTHSFdMbK66XdS8mfMW77+FZA1fGY1xYMF84=
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
@@ -942,6 +942,7 @@ golang.org/x/sys v0.0.0-20210514084401-e8d321eab015/go.mod h1:oPkhp1MJrh7nUepCBc
 golang.org/x/sys v0.0.0-20210601080250-7ecdf8ef093b/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20210603081109-ebe580a85c40/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20210603125802-9665404d3644/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20210616094352-59db8d763f22/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20210806184541-e5e7981a1069/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
