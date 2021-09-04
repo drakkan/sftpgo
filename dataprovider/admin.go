@@ -305,7 +305,7 @@ func (a *Admin) SetEmptySecretsIfNil() {
 // This is useful before rendering as JSON so the empty fields
 // will not be serialized.
 func (a *Admin) SetNilSecretsIfEmpty() {
-	if a.Filters.TOTPConfig.Secret.IsEmpty() {
+	if a.Filters.TOTPConfig.Secret != nil && a.Filters.TOTPConfig.Secret.IsEmpty() {
 		a.Filters.TOTPConfig.Secret = nil
 	}
 }
