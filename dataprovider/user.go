@@ -719,6 +719,11 @@ func (u *User) CanManageMFA() bool {
 	return len(mfa.GetAvailableTOTPConfigs()) > 0
 }
 
+// CanChangePassword returns true if this user is allowed to change its password
+func (u *User) CanChangePassword() bool {
+	return !util.IsStringInSlice(sdk.WebClientPasswordChangeDisabled, u.Filters.WebClient)
+}
+
 // CanManagePublicKeys returns true if this user is allowed to manage public keys
 // from the web client. Used in web client UI
 func (u *User) CanManagePublicKeys() bool {

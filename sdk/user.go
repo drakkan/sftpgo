@@ -9,14 +9,16 @@ import (
 
 // Web Client/user REST API restrictions
 const (
-	WebClientPubKeyChangeDisabled = "publickey-change-disabled"
-	WebClientWriteDisabled        = "write-disabled"
-	WebClientMFADisabled          = "mfa-disabled"
+	WebClientPubKeyChangeDisabled   = "publickey-change-disabled"
+	WebClientWriteDisabled          = "write-disabled"
+	WebClientMFADisabled            = "mfa-disabled"
+	WebClientPasswordChangeDisabled = "password-change-disabled"
 )
 
 var (
 	// WebClientOptions defines the available options for the web client interface/user REST API
-	WebClientOptions = []string{WebClientPubKeyChangeDisabled, WebClientWriteDisabled, WebClientMFADisabled}
+	WebClientOptions = []string{WebClientPubKeyChangeDisabled, WebClientWriteDisabled, WebClientMFADisabled,
+		WebClientPasswordChangeDisabled}
 	// UserTypes defines the supported user type hints for auth plugins
 	UserTypes = []string{string(UserTypeLDAP), string(UserTypeOS)}
 )

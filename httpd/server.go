@@ -988,7 +988,8 @@ func (s *httpdServer) initializeRouter() {
 		router.Use(jwtAuthenticatorAPIUser)
 
 		router.With(forbidAPIKeyAuthentication).Get(userLogoutPath, s.logout)
-		router.With(forbidAPIKeyAuthentication).Put(userPwdPath, changeUserPassword)
+		router.With(forbidAPIKeyAuthentication, checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).
+			Put(userPwdPath, changeUserPassword)
 		router.With(forbidAPIKeyAuthentication, checkHTTPUserPerm(sdk.WebClientPubKeyChangeDisabled)).
 			Get(userPublicKeysPath, getUserPublicKeys)
 		router.With(forbidAPIKeyAuthentication, checkHTTPUserPerm(sdk.WebClientPubKeyChangeDisabled)).
@@ -1089,7 +1090,8 @@ func (s *httpdServer) initializeRouter() {
 				Delete(webClientDirsPath, deleteUserDir)
 			router.With(s.refreshCookie).Get(webClientDownloadZipPath, handleWebClientDownloadZip)
 			router.With(s.refreshCookie).Get(webClientCredentialsPath, handleClientGetCredentials)
-			router.Post(webChangeClientPwdPath, handleWebClientChangePwdPost)
+			router.With(checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).
+				Post(webChangeClientPwdPath, handleWebClientChangePwdPost)
 			router.Post(webChangeClientAPIKeyAccessPath, handleWebClientManageAPIKeyPost)
 			router.With(checkHTTPUserPerm(sdk.WebClientPubKeyChangeDisabled)).
 				Post(webChangeClientKeysPath, handleWebClientManageKeysPost)

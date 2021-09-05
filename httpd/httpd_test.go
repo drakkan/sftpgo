@@ -5854,6 +5854,27 @@ func TestWebAPIChangeUserPwdMock(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, token)
 
+	// remove the change password permission
+	user.Filters.WebClient = []string{sdk.WebClientPasswordChangeDisabled}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	assert.Len(t, user.Filters.WebClient, 1)
+	assert.Contains(t, user.Filters.WebClient, sdk.WebClientPasswordChangeDisabled)
+
+	token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, altAdminPassword)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, token)
+
+	pwd["current_password"] = altAdminPassword
+	pwd["new_password"] = defaultPassword
+	asJSON, err = json.Marshal(pwd)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, userPwdPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
@@ -7567,6 +7588,24 @@ func TestWebClientChangePwd(t *testing.T) {
 	assert.Error(t, err)
 	_, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword+"1")
 	assert.NoError(t, err)
+
+	// remove the change password permission
+	user.Filters.WebClient = []string{sdk.WebClientPasswordChangeDisabled}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	assert.Len(t, user.Filters.WebClient, 1)
+	assert.Contains(t, user.Filters.WebClient, sdk.WebClientPasswordChangeDisabled)
+
+	webToken, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword+"1")
+	assert.NoError(t, err)
+	form.Set("current_password", defaultPassword+"1")
+	form.Set("new_password1", defaultPassword)
+	form.Set("new_password2", defaultPassword)
+	req, _ = http.NewRequest(http.MethodPost, webChangeClientPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)

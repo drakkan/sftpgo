@@ -3025,11 +3025,13 @@ components:
         - publickey-change-disabled
         - write-disabled
         - mfa-disabled
+        - password-change-disabled
       description: |
         Options:
           * `publickey-change-disabled` - changing SSH public keys is not allowed
           * `write-disabled` - upload, rename, delete are not allowed even if the user has permissions for these actions
-          * `mfa-disabled` - the user cannot enable multi-factor authentication. This option cannot be set if the user has MFA already enabled
+          * `mfa-disabled` - enabling multi-factor authentication is not allowed. This option cannot be set if the user has MFA already enabled
+          * `password-change-disabled` - changing password is not allowed
     APIKeyScope:
       type: integer
       enum:

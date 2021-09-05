@@ -304,19 +304,6 @@ then SFTPGo will try to create `id_rsa`, `id_ecdsa` and `id_ed25519`, if they ar
 
 The configuration can be read from JSON, TOML, YAML, HCL, envfile and Java properties config files. If your `config-file` flag is set to `sftpgo` (default value), you need to create a configuration file called `sftpgo.json` or `sftpgo.yaml` and so on inside `config-dir`.
 
-## Binding to privileged ports
-
-On Linux, if you want to use Internet domain privileged ports (port numbers less than 1024) instead of running the SFTPGo service as root user you can set the `cap_net_bind_service` capability on the `sftpgo` binary. To set the capability you can use the following command:
-
-```shell
-$ sudo setcap cap_net_bind_service=+ep /usr/bin/sftpgo
-# Check that the capability is added:
-$ getcap /usr/bin/sftpgo
-/usr/bin/sftpgo cap_net_bind_service=ep
-```
-
-Now you can use privileged ports such as 21, 22, 443 etc.. without running the SFTPGo service as root user. You have to set the `cap_net_bind_service` capability each time you update the `sftpgo` binary.
-
 ## Environment variables
 
 You can also override all the available configuration options using environment variables. SFTPGo will check for environment variables with a name matching the key uppercased and prefixed with the `SFTPGO_`. You need to use `__` to traverse a struct.
@@ -334,6 +321,26 @@ Up to 2.0.x versions SFTPGo automatically used `sha256-simd` but over the time t
 You can select `sha256-simd` setting the environment variable `SFTPGO_MINIO_SHA256_SIMD` to `1`.
 
  `sha256-simd` is particularly useful if you have an Intel CPU with SHA extensions or an ARM CPU with Cryptography Extensions.
+
+## Binding to privileged ports
+
+On Linux, if you want to use Internet domain privileged ports (port numbers less than 1024) instead of running the SFTPGo service as root user you can set the `cap_net_bind_service` capability on the `sftpgo` binary. To set the capability you can use the following command:
+
+```shell
+$ sudo setcap cap_net_bind_service=+ep /usr/bin/sftpgo
+# Check that the capability is added
+$ getcap /usr/bin/sftpgo
+/usr/bin/sftpgo cap_net_bind_service=ep
+```
+
+Now you can use privileged ports such as 21, 22, 443 etc.. without running the SFTPGo service as root user. You have to set the `cap_net_bind_service` capability each time you update the `sftpgo` binary.
+
+An alternative method is to use `iptables`, for example you run the SFTP service on port `2022` and redirect traffic from port `22` to port `2022`:
+
+```shell
+sudo iptables -t nat -A PREROUTING -d <ip> -p tcp --dport 22 -m addrtype --dst-type LOCAL -j DNAT --to-destination <ip>:2022
+sudo iptables -t nat -A OUTPUT     -d <ip> -p tcp --dport 22 -m addrtype --dst-type LOCAL -j DNAT --to-destination <ip>:2022
+```
 
 ## Telemetry Server
 
