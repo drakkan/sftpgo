@@ -160,6 +160,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
 	user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
 	user.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
+	user.Filters.TOTPConfig = sdk.TOTPConfig{}
+	user.Filters.RecoveryCodes = nil
 	user.VirtualFolders = nil
 	err = render.DecodeJSON(r.Body, &user)
 	if err != nil {

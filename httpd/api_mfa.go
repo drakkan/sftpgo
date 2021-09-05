@@ -207,11 +207,12 @@ func saveUserTOTPConfig(username string, r *http.Request, recoveryCodes []sdk.Re
 		return err
 	}
 	currentTOTPSecret := user.Filters.TOTPConfig.Secret
+	user.Filters.TOTPConfig.Secret = nil
 	err = render.DecodeJSON(r.Body, &user.Filters.TOTPConfig)
 	if err != nil {
 		return util.NewValidationError(fmt.Sprintf("unable to decode JSON body: %v", err))
 	}
-	if user.Filters.TOTPConfig.Secret != nil && !user.Filters.TOTPConfig.Secret.IsPlain() {
+	if user.Filters.TOTPConfig.Secret == nil || !user.Filters.TOTPConfig.Secret.IsPlain() {
 		user.Filters.TOTPConfig.Secret = currentTOTPSecret
 	}
 	if user.CountUnusedRecoveryCodes() < 5 && user.Filters.TOTPConfig.Enabled {
@@ -226,6 +227,7 @@ func saveAdminTOTPConfig(username string, r *http.Request, recoveryCodes []sdk.R
 		return err
 	}
 	currentTOTPSecret := admin.Filters.TOTPConfig.Secret
+	admin.Filters.TOTPConfig.Secret = nil
 	err = render.DecodeJSON(r.Body, &admin.Filters.TOTPConfig)
 	if err != nil {
 		return util.NewValidationError(fmt.Sprintf("unable to decode JSON body: %v", err))
@@ -233,7 +235,7 @@ func saveAdminTOTPConfig(username string, r *http.Request, recoveryCodes []sdk.R
 	if admin.CountUnusedRecoveryCodes() < 5 && admin.Filters.TOTPConfig.Enabled {
 		admin.Filters.RecoveryCodes = recoveryCodes
 	}
-	if admin.Filters.TOTPConfig.Secret != nil && !admin.Filters.TOTPConfig.Secret.IsPlain() {
+	if admin.Filters.TOTPConfig.Secret == nil || !admin.Filters.TOTPConfig.Secret.IsPlain() {
 		admin.Filters.TOTPConfig.Secret = currentTOTPSecret
 	}
 	return dataprovider.UpdateAdmin(&admin)

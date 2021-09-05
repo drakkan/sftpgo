@@ -95,6 +95,8 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 	adminID := admin.ID
 	totpConfig := admin.Filters.TOTPConfig
 	recoveryCodes := admin.Filters.RecoveryCodes
+	admin.Filters.TOTPConfig = dataprovider.TOTPConfig{}
+	admin.Filters.RecoveryCodes = nil
 	err = render.DecodeJSON(r.Body, &admin)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)

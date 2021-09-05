@@ -1339,7 +1339,7 @@ func validateUserVirtualFolders(user *User) error {
 	return nil
 }
 
-func validateUserTOTPConfig(c *sdk.TOTPConfig) error {
+func validateUserTOTPConfig(c *sdk.TOTPConfig, username string) error {
 	if !c.Enabled {
 		c.ConfigName = ""
 		c.Secret = kms.NewEmptySecret()
@@ -1356,6 +1356,7 @@ func validateUserTOTPConfig(c *sdk.TOTPConfig) error {
 		return util.NewValidationError("totp: secret is mandatory")
 	}
 	if c.Secret.IsPlain() {
+		c.Secret.SetAdditionalData(username)
 		if err := c.Secret.Encrypt(); err != nil {
 			return util.NewValidationError(fmt.Sprintf("totp: unable to encrypt secret: %v", err))
 		}
@@ -1379,6 +1380,7 @@ func validateUserRecoveryCodes(user *User) error {
 			return util.NewValidationError("mfa: recovery code cannot be empty")
 		}
 		if code.Secret.IsPlain() {
+			code.Secret.SetAdditionalData(user.Username)
 			if err := code.Secret.Encrypt(); err != nil {
 				return util.NewValidationError(fmt.Sprintf("mfa: unable to encrypt recovery code: %v", err))
 			}
@@ -1675,7 +1677,7 @@ func ValidateUser(user *User) error {
 	if user.hasRedactedSecret() {
 		return util.NewValidationError("cannot save a user with a redacted secret")
 	}
-	if err := validateUserTOTPConfig(&user.Filters.TOTPConfig); err != nil {
+	if err := validateUserTOTPConfig(&user.Filters.TOTPConfig, user.Username); err != nil {
 		return err
 	}
 	if err := validateUserRecoveryCodes(user); err != nil {

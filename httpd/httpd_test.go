@@ -661,6 +661,83 @@ func TestHTTPUserAuthentication(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestPermMFADisabled(t *testing.T) {
+	u := getTestUser()
+	u.Filters.WebClient = []string{sdk.WebClientMFADisabled}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	userTOTPConfig := sdk.TOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+		Protocols:  []string{common.ProtocolSSH},
+	}
+	asJSON, err := json.Marshal(userTOTPConfig)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr) // MFA is disabled for this user
+
+	user.Filters.WebClient = []string{sdk.WebClientWriteDisabled}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// now we cannot disable MFA for this user
+	user.Filters.WebClient = []string{sdk.WebClientMFADisabled}
+	_, resp, err := httpdtest.UpdateUser(user, http.StatusBadRequest, "")
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "multi-factor authentication cannot be disabled for a user with an active configuration")
+
+	saveReq := make(map[string]bool)
+	saveReq["enabled"] = false
+	asJSON, err = json.Marshal(saveReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	user.Filters.RecoveryCodes = []sdk.RecoveryCode{
+		{
+			Secret: kms.NewPlainSecret(shortuuid.New()),
+		},
+	}
+	user, resp, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err, string(resp))
+	assert.Contains(t, user.Filters.WebClient, sdk.WebClientMFADisabled)
+	assert.Len(t, user.Filters.RecoveryCodes, 12)
+
+	req, err = http.NewRequest(http.MethodGet, user2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var recCodes []recoveryCode
+	err = json.Unmarshal(rr.Body.Bytes(), &recCodes)
+	assert.NoError(t, err)
+	assert.Len(t, recCodes, 12)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestLoginUserAPITOTP(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
@@ -4811,11 +4888,19 @@ func TestAdminTOTP(t *testing.T) {
 	assert.NotEmpty(t, admin.Filters.TOTPConfig.Secret.GetPayload())
 	assert.Equal(t, kms.SecretStatusSecretBox, admin.Filters.TOTPConfig.Secret.GetStatus())
 	admin.Filters.TOTPConfig = dataprovider.TOTPConfig{
-		Enabled: false,
+		Enabled:    false,
+		ConfigName: shortuuid.New(),
+		Secret:     kms.NewEmptySecret(),
 	}
-	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
-	assert.NoError(t, err)
+	admin.Filters.RecoveryCodes = []sdk.RecoveryCode{
+		{
+			Secret: kms.NewEmptySecret(),
+		},
+	}
+	admin, resp, err := httpdtest.UpdateAdmin(admin, http.StatusOK)
+	assert.NoError(t, err, string(resp))
 	assert.True(t, admin.Filters.TOTPConfig.Enabled)
+	assert.Len(t, admin.Filters.RecoveryCodes, 12)
 	// if we use token we should get no recovery codes
 	req, err = http.NewRequest(http.MethodGet, admin2FARecoveryCodesPath, nil)
 	assert.NoError(t, err)
@@ -5378,14 +5463,15 @@ func TestMFAErrors(t *testing.T) {
 	setBearerForReq(req, userToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "cannot save a user with a redacted secret")
+	// previous secret will be preserved and we have no secret saved
+	assert.Contains(t, rr.Body.String(), "totp: secret is mandatory")
 
 	req, err = http.NewRequest(http.MethodPost, adminTOTPSavePath, bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
 	setBearerForReq(req, adminToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "cannot save an admin with a redacted secret")
+	assert.Contains(t, rr.Body.String(), "totp: secret is mandatory")
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -5612,16 +5698,18 @@ func TestWebUserTOTP(t *testing.T) {
 	assert.NoError(t, err)
 	totpCfg := user.Filters.TOTPConfig
 	assert.True(t, totpCfg.Enabled)
+	secretPayload := totpCfg.Secret.GetPayload()
 	assert.Equal(t, totpGenResp.ConfigName, totpCfg.ConfigName)
 	assert.Empty(t, totpCfg.Secret.GetKey())
 	assert.Empty(t, totpCfg.Secret.GetAdditionalData())
-	assert.NotEmpty(t, totpCfg.Secret.GetPayload())
+	assert.NotEmpty(t, secretPayload)
 	assert.Equal(t, kms.SecretStatusSecretBox, totpCfg.Secret.GetStatus())
 	assert.Len(t, totpCfg.Protocols, 1)
 	assert.Contains(t, totpCfg.Protocols, common.ProtocolSSH)
 	// update protocols only
 	userTOTPConfig = sdk.TOTPConfig{
 		Protocols: []string{common.ProtocolSSH, common.ProtocolFTP},
+		Secret:    kms.NewEmptySecret(),
 	}
 	asJSON, err = json.Marshal(userTOTPConfig)
 	assert.NoError(t, err)
@@ -5634,6 +5722,7 @@ func TestWebUserTOTP(t *testing.T) {
 	// update the user, TOTP should not be affected
 	user.Filters.TOTPConfig = sdk.TOTPConfig{
 		Enabled: false,
+		Secret:  kms.NewEmptySecret(),
 	}
 	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
@@ -5644,7 +5733,7 @@ func TestWebUserTOTP(t *testing.T) {
 	assert.Equal(t, totpCfg.ConfigName, user.Filters.TOTPConfig.ConfigName)
 	assert.Empty(t, user.Filters.TOTPConfig.Secret.GetKey())
 	assert.Empty(t, user.Filters.TOTPConfig.Secret.GetAdditionalData())
-	assert.Equal(t, totpCfg.Secret.GetPayload(), user.Filters.TOTPConfig.Secret.GetPayload())
+	assert.Equal(t, secretPayload, user.Filters.TOTPConfig.Secret.GetPayload())
 	assert.Equal(t, kms.SecretStatusSecretBox, user.Filters.TOTPConfig.Secret.GetStatus())
 	assert.Len(t, user.Filters.TOTPConfig.Protocols, 2)
 	assert.Contains(t, user.Filters.TOTPConfig.Protocols, common.ProtocolSSH)
@@ -10033,6 +10122,41 @@ func TestWebAdminBasicMock(t *testing.T) {
 	admin, _, err = httpdtest.GetAdminByUsername(altAdminUsername, http.StatusOK)
 	assert.NoError(t, err)
 	assert.True(t, admin.Filters.TOTPConfig.Enabled)
+	secretPayload := admin.Filters.TOTPConfig.Secret.GetPayload()
+	assert.NotEmpty(t, secretPayload)
+
+	adminTOTPConfig = dataprovider.TOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewEmptySecret(),
+	}
+	asJSON, err = json.Marshal(adminTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webAdminTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, altToken)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	admin, _, err = httpdtest.GetAdminByUsername(altAdminUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, admin.Filters.TOTPConfig.Enabled)
+	assert.Equal(t, secretPayload, admin.Filters.TOTPConfig.Secret.GetPayload())
+
+	adminTOTPConfig = dataprovider.TOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     nil,
+	}
+	asJSON, err = json.Marshal(adminTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webAdminTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, altToken)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
 
 	req, _ = http.NewRequest(http.MethodGet, webAdminsPath+"?qlimit=a", nil)
 	setJWTCookieForReq(req, token)

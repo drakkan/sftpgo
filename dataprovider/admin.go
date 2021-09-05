@@ -53,7 +53,7 @@ type TOTPConfig struct {
 	Secret     *kms.Secret `json:"secret,omitempty"`
 }
 
-func (c *TOTPConfig) validate() error {
+func (c *TOTPConfig) validate(username string) error {
 	if !c.Enabled {
 		c.ConfigName = ""
 		c.Secret = kms.NewEmptySecret()
@@ -69,6 +69,7 @@ func (c *TOTPConfig) validate() error {
 		return util.NewValidationError("totp: secret is mandatory")
 	}
 	if c.Secret.IsPlain() {
+		c.Secret.SetAdditionalData(username)
 		if err := c.Secret.Encrypt(); err != nil {
 			return util.NewValidationError(fmt.Sprintf("totp: unable to encrypt secret: %v", err))
 		}
@@ -161,6 +162,7 @@ func (a *Admin) validateRecoveryCodes() error {
 			return util.NewValidationError("mfa: recovery code cannot be empty")
 		}
 		if code.Secret.IsPlain() {
+			code.Secret.SetAdditionalData(a.Username)
 			if err := code.Secret.Encrypt(); err != nil {
 				return util.NewValidationError(fmt.Sprintf("mfa: unable to encrypt recovery code: %v", err))
 			}
@@ -196,7 +198,7 @@ func (a *Admin) validate() error {
 	if a.hasRedactedSecret() {
 		return util.NewValidationError("cannot save an admin with a redacted secret")
 	}
-	if err := a.Filters.TOTPConfig.validate(); err != nil {
+	if err := a.Filters.TOTPConfig.validate(a.Username); err != nil {
 		return err
 	}
 	if err := a.validateRecoveryCodes(); err != nil {

@@ -306,20 +306,16 @@ The configuration can be read from JSON, TOML, YAML, HCL, envfile and Java prope
 
 ## Binding to privileged ports
 
-On Linux, if you want to use Internet domain privileged ports (port numbers less than 1024) instead of running the SFTPGo service as root user you can set the `cap_net_bind_service` capability on the `sftpgo` binary. To set the capability you need to be root:
+On Linux, if you want to use Internet domain privileged ports (port numbers less than 1024) instead of running the SFTPGo service as root user you can set the `cap_net_bind_service` capability on the `sftpgo` binary. To set the capability you can use the following command:
 
 ```shell
-root@myhost # setcap cap_net_bind_service=+ep /usr/bin/sftpgo
-```
-
-Check that the capability is added:
-
-```shell
-root@myhost # getcap /usr/bin/sftpgo
+$ sudo setcap cap_net_bind_service=+ep /usr/bin/sftpgo
+# Check that the capability is added:
+$ getcap /usr/bin/sftpgo
 /usr/bin/sftpgo cap_net_bind_service=ep
 ```
 
-Now you can use privileged ports such as 21, 22, 443 etc.. without running the SFTPGo service as root user.
+Now you can use privileged ports such as 21, 22, 443 etc.. without running the SFTPGo service as root user. You have to set the `cap_net_bind_service` capability each time you update the `sftpgo` binary.
 
 ## Environment variables
 
