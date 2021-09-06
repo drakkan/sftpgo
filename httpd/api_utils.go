@@ -28,6 +28,10 @@ type pwdChange struct {
 	NewPassword     string `json:"new_password"`
 }
 
+type apiKeyAuth struct {
+	AllowAPIKeyAuth bool `json:"allow_api_key_auth"`
+}
+
 func sendAPIResponse(w http.ResponseWriter, r *http.Request, err error, message string, code int) {
 	var errorString string
 	if _, ok := err.(*util.RecordNotFoundError); ok {

@@ -242,6 +242,67 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
+  /admin/apikeyauth:
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - admins
+      summary: Get API key authentication status
+      description: 'Returns the API Key authentication status for the logged in admin'
+      operationId: get_admin_api_key_status
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  allow_api_key_auth:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    put:
+      security:
+        - BearerAuth: []
+      tags:
+        - admins
+      summary: Update API key auth status
+      description: 'Allows to enable/disable the API key authentication for the logged in admin. If enabled, you can impersonate this admin, in REST API, using an API key, otherwise your credentials, including two-factor authentication, if enabled, are required to use the REST API on your behalf'
+      operationId: update_admin_api_key_status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+                type: object
+                properties:
+                  allow_api_key_auth:
+                    type: boolean
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
   /admin/2fa/recoverycodes:
     get:
       security:
@@ -2263,6 +2324,67 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
+  /user/apikeyauth:
+    get:
+      security:
+        - BearerAuth: []
+      tags:
+        - users API
+      summary: Get API key authentication status
+      description: 'Returns the API Key authentication status for the logged in user'
+      operationId: get_user_api_key_status
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  allow_api_key_auth:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    put:
+      security:
+        - BearerAuth: []
+      tags:
+        - users API
+      summary: Update API key auth status
+      description: 'Allows to enable/disable the API key authentication for the logged in user. If enabled, you can impersonate this user, in REST API, using an API key, otherwise your credentials, including two-factor authentication, if enabled, are required to use the REST API on your behalf'
+      operationId: update_user_api_key_status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+                type: object
+                properties:
+                  allow_api_key_auth:
+                    type: boolean
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
   /user/2fa/recoverycodes:
     get:
       security:
@@ -3026,12 +3148,14 @@ components:
         - write-disabled
         - mfa-disabled
         - password-change-disabled
+        - api-key-auth-change-disabled
       description: |
         Options:
           * `publickey-change-disabled` - changing SSH public keys is not allowed
           * `write-disabled` - upload, rename, delete are not allowed even if the user has permissions for these actions
           * `mfa-disabled` - enabling multi-factor authentication is not allowed. This option cannot be set if the user has MFA already enabled
           * `password-change-disabled` - changing password is not allowed
+          * `api-key-auth-change-disabled` - enabling/disabling API key authentication is not allowed
     APIKeyScope:
       type: integer
       enum:

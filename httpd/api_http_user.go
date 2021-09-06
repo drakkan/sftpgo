@@ -349,6 +349,50 @@ func setUserPublicKeys(w http.ResponseWriter, r *http.Request) {
 	sendAPIResponse(w, r, err, "Public keys updated", http.StatusOK)
 }
 
+func getUserAPIKeyAuthStatus(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
+	user, err := dataprovider.UserExists(claims.Username)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	resp := apiKeyAuth{
+		AllowAPIKeyAuth: user.Filters.AllowAPIKeyAuth,
+	}
+	render.JSON(w, r, resp)
+}
+
+func changeUserAPIKeyAuthStatus(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
+	var req apiKeyAuth
+	err = render.DecodeJSON(r.Body, &req)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+	user, err := dataprovider.UserExists(claims.Username)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	user.Filters.AllowAPIKeyAuth = req.AllowAPIKeyAuth
+	if err := dataprovider.UpdateUser(&user); err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	sendAPIResponse(w, r, err, "API key authentication status updated", http.StatusOK)
+}
+
 func changeUserPassword(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 

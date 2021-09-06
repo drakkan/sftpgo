@@ -724,6 +724,11 @@ func (u *User) CanChangePassword() bool {
 	return !util.IsStringInSlice(sdk.WebClientPasswordChangeDisabled, u.Filters.WebClient)
 }
 
+// CanChangeAPIKeyAuth returns true if this user is allowed to enable/disable API key authentication
+func (u *User) CanChangeAPIKeyAuth() bool {
+	return !util.IsStringInSlice(sdk.WebClientAPIKeyAuthChangeDisabled, u.Filters.WebClient)
+}
+
 // CanManagePublicKeys returns true if this user is allowed to manage public keys
 // from the web client. Used in web client UI
 func (u *User) CanManagePublicKeys() bool {

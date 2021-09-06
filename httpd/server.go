@@ -905,6 +905,8 @@ func (s *httpdServer) initializeRouter() {
 		})
 
 		router.With(forbidAPIKeyAuthentication).Get(logoutPath, s.logout)
+		router.With(forbidAPIKeyAuthentication).Get(adminManageAPIKeyPath, getAdminAPIKeyAuthStatus)
+		router.With(forbidAPIKeyAuthentication).Put(adminManageAPIKeyPath, changeAdminAPIKeyAuthStatus)
 		router.With(forbidAPIKeyAuthentication).Put(adminPwdPath, changeAdminPassword)
 		// compatibility layer to remove in v2.2
 		router.With(forbidAPIKeyAuthentication).Put(adminPwdCompatPath, changeAdminPassword)
@@ -994,6 +996,9 @@ func (s *httpdServer) initializeRouter() {
 			Get(userPublicKeysPath, getUserPublicKeys)
 		router.With(forbidAPIKeyAuthentication, checkHTTPUserPerm(sdk.WebClientPubKeyChangeDisabled)).
 			Put(userPublicKeysPath, setUserPublicKeys)
+		router.With(forbidAPIKeyAuthentication).Get(userManageAPIKeyPath, getUserAPIKeyAuthStatus)
+		router.With(forbidAPIKeyAuthentication, checkHTTPUserPerm(sdk.WebClientAPIKeyAuthChangeDisabled)).
+			Put(userManageAPIKeyPath, changeUserAPIKeyAuthStatus)
 		// user TOTP APIs
 		router.With(forbidAPIKeyAuthentication, checkHTTPUserPerm(sdk.WebClientMFADisabled)).
 			Get(userTOTPConfigsPath, getTOTPConfigs)
@@ -1092,7 +1097,8 @@ func (s *httpdServer) initializeRouter() {
 			router.With(s.refreshCookie).Get(webClientCredentialsPath, handleClientGetCredentials)
 			router.With(checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).
 				Post(webChangeClientPwdPath, handleWebClientChangePwdPost)
-			router.Post(webChangeClientAPIKeyAccessPath, handleWebClientManageAPIKeyPost)
+			router.With(checkHTTPUserPerm(sdk.WebClientAPIKeyAuthChangeDisabled)).
+				Post(webChangeClientAPIKeyAccessPath, handleWebClientManageAPIKeyPost)
 			router.With(checkHTTPUserPerm(sdk.WebClientPubKeyChangeDisabled)).
 				Post(webChangeClientKeysPath, handleWebClientManageKeysPost)
 			router.With(checkHTTPUserPerm(sdk.WebClientMFADisabled), s.refreshCookie).
