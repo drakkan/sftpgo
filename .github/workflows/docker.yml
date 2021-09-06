@@ -21,6 +21,7 @@ jobs:
         docker_pkg:
           - debian
           - alpine
+          - distroless
         optional_deps:
           - true
           - false
@@ -65,7 +66,10 @@ jobs:
             VERSION_SLIM="${VERSION}-slim"
             DOCKERFILE=Dockerfile.alpine
           fi
-
+          if [[ $DOCKER_PKG == distroless ]]; then
+            VERSION_SLIM="${VERSION}-distroless-slim"
+            DOCKERFILE=Dockerfile.distroless
+          fi
           DOCKER_IMAGES=("drakkan/sftpgo" "ghcr.io/drakkan/sftpgo")
           TAGS="${DOCKER_IMAGES[0]}:${VERSION}"
           TAGS_SLIM="${DOCKER_IMAGES[0]}:${VERSION_SLIM}"
@@ -83,6 +87,11 @@ jobs:
                 fi
                 TAGS="${TAGS},${DOCKER_IMAGE}:latest"
                 TAGS_SLIM="${TAGS_SLIM},${DOCKER_IMAGE}:slim"
+              elif [[ $DOCKER_PKG == distroless ]]; then
+                if [[ -n $MAJOR && -n $MINOR ]]; then
+                  TAGS_SLIM="${TAGS_SLIM},${DOCKER_IMAGE}:${MINOR}-distroless-slim,${DOCKER_IMAGE}:${MAJOR}-distroless-slim"
+                fi
+                TAGS_SLIM="${TAGS_SLIM},${DOCKER_IMAGE}:slim"
               else
                 if [[ -n $MAJOR && -n $MINOR ]]; then
                   TAGS="${TAGS},${DOCKER_IMAGE}:${MINOR}-alpine,${DOCKER_IMAGE}:${MAJOR}-alpine"
@@ -95,9 +104,14 @@ jobs:
           done
 
           if [[ $OPTIONAL_DEPS == true ]]; then
-            echo ::set-output name=version::${VERSION}
-            echo ::set-output name=tags::${TAGS}
-            echo ::set-output name=full::true
+            if [[ $DOCKER_PKG != distroless ]]; then
+              echo ::set-output name=version::${VERSION}
+              echo ::set-output name=tags::${TAGS}
+              echo ::set-output name=full::true
+            else
+              # skip for distroless no slim
+              echo ::set-output name=skip_build_and_push_step::true
+            fi
           else
             echo ::set-output name=version::${VERSION_SLIM}
             echo ::set-output name=tags::${TAGS_SLIM}
@@ -154,3 +168,5 @@ jobs:
             org.opencontainers.image.created=${{ steps.info.outputs.created }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=${{ fromJson(steps.repo.outputs.result).license.spdx_id }}
+        # skip for distroless no slim
+        if: ${{ steps.info.outputs.skip_build_and_push_step != 'true' }}
