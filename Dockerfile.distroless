@@ -1,4 +1,4 @@
-FROM golang:1.17-buster as builder
+FROM golang:1.17-bullseye as builder
 
 WORKDIR /workspace
 RUN apt-get update && apt-get install --no-install-recommends -y git gcc g++ ca-certificates mime-support \
