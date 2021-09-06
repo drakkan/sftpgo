@@ -67,7 +67,7 @@ jobs:
             DOCKERFILE=Dockerfile.alpine
           fi
           if [[ $DOCKER_PKG == distroless ]]; then
-            VERSION_SLIM="${VERSION}-slim"
+            VERSION_SLIM="${VERSION}-distroless-slim"
             DOCKERFILE=Dockerfile.distroless
           fi
           DOCKER_IMAGES=("drakkan/sftpgo" "ghcr.io/drakkan/sftpgo")
@@ -104,9 +104,11 @@ jobs:
           done
 
           if [[ $OPTIONAL_DEPS == true ]]; then
-            echo ::set-output name=version::${VERSION}
-            echo ::set-output name=tags::${TAGS}
-            echo ::set-output name=full::true
+            if [[ $DOCKER_PKG != distroless ]]; then
+              echo ::set-output name=version::${VERSION}
+              echo ::set-output name=tags::${TAGS}
+              echo ::set-output name=full::true
+            fi
           else
             echo ::set-output name=version::${VERSION_SLIM}
             echo ::set-output name=tags::${TAGS_SLIM}
