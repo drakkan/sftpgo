@@ -108,6 +108,9 @@ jobs:
               echo ::set-output name=version::${VERSION}
               echo ::set-output name=tags::${TAGS}
               echo ::set-output name=full::true
+            else
+              # skip for distroless no slim 
+              echo ::set-output name=skip_distroless::true
             fi
           else
             echo ::set-output name=version::${VERSION_SLIM}
@@ -164,3 +167,5 @@ jobs:
             org.opencontainers.image.created=${{ steps.info.outputs.created }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=${{ fromJson(steps.repo.outputs.result).license.spdx_id }}
+        # skip for distroless no slim    
+        if: ${{ steps.info.outputs.skip_distroless != 'true' }}
