@@ -129,18 +129,6 @@ USER root
 RUN chown -R 1100:1100 /etc/sftpgo && chown 1100:1100 /var/lib/sftpgo /srv/sftpgo
 USER 1100:1100
 ```
-
-In a case of using [distroless](../Dockerfile.distroless) image there are two options are available for setting UID/GID:
-
-1. Runing as root user(default)
-```bash
-docker run --rm --name sftpgo -p 8080:8080 -p 2022:2022 -d "drakkan/sftpgo:tag"
-```
-2. Runing as nonroot user with uid 65532
-```bash
-docker run --rm --name sftpgo -p 8080:8080 -p 2022:2022 --user 65532 -d "drakkan/sftpgo:tag"
-```
-You can also build your own image like in example above.
 ## Image Variants
 
 The `sftpgo` images comes in many flavors, each designed for a specific use case. The `edge` and `edge-alpine`tags are updated after each new commit.
@@ -157,7 +145,7 @@ This variant is highly recommended when final image size being as small as possi
 
 ### `sftpgo:<version>-distroless`
 
-This image is based on the popular [Distroless project](https://github.com/GoogleContainerTools/distroless). For a base image is used [the `distroless/static-debian11` official image](https://console.cloud.google.com/gcr/images/distroless/global/static-debian11@sha256:157bbd69d9af19adf370b0e05af074170a6788e218e8e3bc7c2763897a98890d/details). Distroless based image contains only application and its runtime dependencies.
+This image is based on the popular [Distroless project](https://github.com/GoogleContainerTools/distroless). For a base image is used [the `distroless/static-debian11` official image](https://console.cloud.google.com/gcr/images/distroless/global/static-debian11@sha256:157bbd69d9af19adf370b0e05af074170a6788e218e8e3bc7c2763897a98890d/details). Distroless based image contains only application and its runtime dependencies. Distroless image doen't allow shell access. The default data-provider is `bolt` instead of `sqlite`. 
 ### `sftpgo:<suite>-slim`
 
 These tags provide a slimmer image that does not include the optional `git` and `rsync` dependencies.

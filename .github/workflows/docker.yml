@@ -67,7 +67,6 @@ jobs:
             DOCKERFILE=Dockerfile.alpine
           fi
           if [[ $DOCKER_PKG == distroless ]]; then
-            VERSION="${VERSION}-distroless"
             VERSION_SLIM="${VERSION}-slim"
             DOCKERFILE=Dockerfile.distroless
           fi
@@ -90,10 +89,8 @@ jobs:
                 TAGS_SLIM="${TAGS_SLIM},${DOCKER_IMAGE}:slim"
               elif [[ $DOCKER_PKG == distroless ]]; then
                 if [[ -n $MAJOR && -n $MINOR ]]; then
-                  TAGS="${TAGS},${DOCKER_IMAGE}:${MINOR}-distroless,${DOCKER_IMAGE}:${MAJOR}-distroless"
                   TAGS_SLIM="${TAGS_SLIM},${DOCKER_IMAGE}:${MINOR}-distroless-slim,${DOCKER_IMAGE}:${MAJOR}-distroless-slim"
                 fi
-                TAGS="${TAGS},${DOCKER_IMAGE}:latest"
                 TAGS_SLIM="${TAGS_SLIM},${DOCKER_IMAGE}:slim"
               else
                 if [[ -n $MAJOR && -n $MINOR ]]; then
