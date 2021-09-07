@@ -28,7 +28,7 @@ FROM debian:bullseye-slim
 # Set to "true" to install the optional git and rsync dependencies
 ARG INSTALL_OPTIONAL_PACKAGES=false
 
-RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates mime-support && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates media-types && rm -rf /var/lib/apt/lists/*
 
 RUN if [ "${INSTALL_OPTIONAL_PACKAGES}" = "true" ]; then apt-get update && apt-get install --no-install-recommends -y git rsync && rm -rf /var/lib/apt/lists/*; fi
 
