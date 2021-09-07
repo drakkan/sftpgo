@@ -13,8 +13,8 @@ RUN go mod download
 ARG COMMIT_SHA
 
 # This ARG allows to disable some optional features and it might be useful if you build the image yourself.
-# For example you can disable S3 and GCS support like this:
-# --build-arg FEATURES=nos3,nogcs
+# For this variant we disable SQLite support since it requires CGO and so a C runtime which is not installed
+# in distroless/static-* images
 ARG FEATURES=nosqlite
 
 COPY . .
@@ -48,6 +48,10 @@ ENV SFTPGO_LOG_FILE_PATH=""
 # templates and static paths are inside the container
 ENV SFTPGO_HTTPD__TEMPLATES_PATH=/usr/share/sftpgo/templates
 ENV SFTPGO_HTTPD__STATIC_FILES_PATH=/usr/share/sftpgo/static
+# These env vars are required to avoid the following error when calling user.Current():
+# unable to get the current user: user: Current requires cgo or $USER set in environment
+ENV USER=sftpgo
+ENV HOME=/var/lib/sftpgo
 
 WORKDIR /var/lib/sftpgo
 USER 1000:1000

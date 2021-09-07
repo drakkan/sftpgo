@@ -88,7 +88,7 @@ The logs are available through Docker's container log:
 docker logs some-sftpgo
 ```
 
-**Note:** [distroless](../Dockerfile.distroless) image contains only application and its runtime dependencies. Shell access is not available on this image.
+**Note:** [distroless](../Dockerfile.distroless) image contains only a statically linked sftpgo binary and its minimal runtime dependencies. Shell is not available on this image.
 
 ### Where to Store Data
 
@@ -169,11 +169,11 @@ RUN chown -R 1100:1100 /etc/sftpgo && chown 1100:1100 /var/lib/sftpgo /srv/sftpg
 USER 1100:1100
 ```
 
-**Note:** the above Dockerfile will not work for [distroless](../Dockerfile.distroless) image since the `chown` command is not available there.
+**Note:** the above Dockerfile will not work if you use the [distroless](../Dockerfile.distroless) image as base since the `chown` command is not available there.
 
 ## Image Variants
 
-The `sftpgo` images comes in many flavors, each designed for a specific use case. The `edge` and `edge-alpine`tags are updated after each new commit.
+The `sftpgo` images comes in many flavors, each designed for a specific use case. The `edge`, `edge-slim`, `edge-alpine`, `edge-alpine-slim` and `edge-distroless-slim` tags are updated after each new commit.
 
 ### `sftpgo:<version>`
 
@@ -189,9 +189,10 @@ This variant is highly recommended when final image size being as small as possi
 
 This image is based on the popular [Distroless project](https://github.com/GoogleContainerTools/distroless). We use the latest Debian based distroless image as base.
 
-Distroless image contains only application and its runtime dependencies and so it doesn't allow shell access (no shell is installed).
-SQLite support is disabled since it requires CGO and so a C runtime. We use a statically linked SFTPGo binary here.
-The default data-provider is `bolt`, all the supported data providers expect `sqlite` work.
+Distroless variant contains only a statically linked sftpgo binary and its minimal runtime dependencies and so it doesn't allow shell access (no shell is installed).
+SQLite support is disabled since it requires CGO and so a C runtime which is not installed.
+The default data provider is `bolt`, all the supported data providers expect `sqlite` work.
+We only provide the slim variant and so the optional `git` and `rsync` dependencies are not available.
 
 ### `sftpgo:<suite>-slim`
 
