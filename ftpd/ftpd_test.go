@@ -2275,13 +2275,13 @@ func TestActiveModeDisabled(t *testing.T) {
 	if assert.NoError(t, err) {
 		code, response, err := client.SendCustomCommand("PORT 10,2,0,2,4,31")
 		assert.NoError(t, err)
-		assert.Equal(t, ftp.StatusCommandOK, code)
-		assert.Equal(t, "PORT command successful", response)
+		assert.Equal(t, ftp.StatusBadArguments, code)
+		assert.Equal(t, "Your request does not meet the configured security requirements", response)
 
 		code, response, err = client.SendCustomCommand("EPRT |1|132.235.1.2|6275|")
 		assert.NoError(t, err)
-		assert.Equal(t, ftp.StatusCommandOK, code)
-		assert.Equal(t, "EPRT command successful", response)
+		assert.Equal(t, ftp.StatusBadArguments, code)
+		assert.Equal(t, "Your request does not meet the configured security requirements", response)
 
 		err = client.Quit()
 		assert.NoError(t, err)

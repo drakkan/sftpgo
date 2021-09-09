@@ -1,3 +1,4 @@
+//go:build !nobolt
 // +build !nobolt
 
 package dataprovider

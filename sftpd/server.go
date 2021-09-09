@@ -241,16 +241,14 @@ func (c *Configuration) Initialize(configDir string) error {
 				return
 			}
 
-			if binding.ApplyProxyConfig {
+			if binding.ApplyProxyConfig && common.Config.ProxyProtocol > 0 {
 				proxyListener, err := common.Config.GetProxyListener(listener)
 				if err != nil {
 					logger.Warn(logSender, "", "error enabling proxy listener: %v", err)
 					exitChannel <- err
 					return
 				}
-				if proxyListener != nil {
-					listener = proxyListener
-				}
+				listener = proxyListener
 			}
 
 			exitChannel <- c.serve(listener, serverConfig)

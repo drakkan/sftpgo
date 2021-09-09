@@ -1,3 +1,4 @@
+//go:build !nometrics
 // +build !nometrics
 
 // Package metrics provides Prometheus metrics support

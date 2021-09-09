@@ -1,3 +1,4 @@
+//go:build !nogcpkms
 // +build !nogcpkms
 
 package kms

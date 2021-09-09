@@ -409,9 +409,8 @@ func (c *Configuration) IsAtomicUploadEnabled() bool {
 }
 
 // GetProxyListener returns a wrapper for the given listener that supports the
-// HAProxy Proxy Protocol or nil if the proxy protocol is not configured
+// HAProxy Proxy Protocol
 func (c *Configuration) GetProxyListener(listener net.Listener) (*proxyproto.Listener, error) {
-	var proxyListener *proxyproto.Listener
 	var err error
 	if c.ProxyProtocol > 0 {
 		var policyFunc func(upstream net.Addr) (proxyproto.Policy, error)
@@ -433,12 +432,13 @@ func (c *Configuration) GetProxyListener(listener net.Listener) (*proxyproto.Lis
 				}
 			}
 		}
-		proxyListener = &proxyproto.Listener{
-			Listener: listener,
-			Policy:   policyFunc,
-		}
+		return &proxyproto.Listener{
+			Listener:          listener,
+			Policy:            policyFunc,
+			ReadHeaderTimeout: 5 * time.Second,
+		}, nil
 	}
-	return proxyListener, nil
+	return nil, errors.New("proxy protocol not configured")
 }
 
 // ExecuteStartupHook runs the startup hook if defined

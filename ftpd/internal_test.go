@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/eikenb/pipeat"
+	ftpserver "github.com/fclairamb/ftpserverlib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -250,6 +251,7 @@ xr5cb9VBRBtB9aOKVfuRhpatAfS2Pzm2Htae9lFn7slGPUmu2hkjDw==
 )
 
 type mockFTPClientContext struct {
+	lastDataChannel ftpserver.DataChannel
 }
 
 func (cc mockFTPClientContext) Path() string {
@@ -292,6 +294,10 @@ func (cc mockFTPClientContext) HasTLSForTransfers() bool {
 
 func (cc mockFTPClientContext) GetLastCommand() string {
 	return ""
+}
+
+func (cc mockFTPClientContext) GetLastDataChannel() ftpserver.DataChannel {
+	return cc.lastDataChannel
 }
 
 // MockOsFs mockable OsFs

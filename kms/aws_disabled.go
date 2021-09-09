@@ -1,3 +1,4 @@
+//go:build noawskms
 // +build noawskms
 
 package kms
