@@ -367,7 +367,7 @@ func writeLog(r *http.Request, err error) {
 
 func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err error) {
 	metrics.AddLoginAttempt(loginMethod)
-	if err != nil && err != common.ErrInternalFailure {
+	if err != nil && err != common.ErrInternalFailure && err != common.ErrNoCredentials {
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod, common.ProtocolWebDAV, err.Error())
 		event := common.HostEventLoginFailed
 		if _, ok := err.(*dataprovider.RecordNotFoundError); ok {

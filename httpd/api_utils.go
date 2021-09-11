@@ -363,7 +363,7 @@ func parseRangeRequest(bytesRange string, size int64) (int64, int64, error) {
 
 func updateLoginMetrics(user *dataprovider.User, ip string, err error) {
 	metrics.AddLoginAttempt(dataprovider.LoginMethodPassword)
-	if err != nil && err != common.ErrInternalFailure {
+	if err != nil && err != common.ErrInternalFailure && err != common.ErrNoCredentials {
 		logger.ConnectionFailedLog(user.Username, ip, dataprovider.LoginMethodPassword, common.ProtocolHTTP, err.Error())
 		event := common.HostEventLoginFailed
 		if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
