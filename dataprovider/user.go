@@ -344,17 +344,31 @@ func (u *User) hideConfidentialData() {
 	u.Password = ""
 	switch u.FsConfig.Provider {
 	case vfs.S3FilesystemProvider:
-		u.FsConfig.S3Config.AccessSecret.Hide()
+		if u.FsConfig.S3Config.AccessSecret != nil {
+			u.FsConfig.S3Config.AccessSecret.Hide()
+		}
 	case vfs.GCSFilesystemProvider:
-		u.FsConfig.GCSConfig.Credentials.Hide()
+		if u.FsConfig.GCSConfig.Credentials != nil {
+			u.FsConfig.GCSConfig.Credentials.Hide()
+		}
 	case vfs.AzureBlobFilesystemProvider:
-		u.FsConfig.AzBlobConfig.AccountKey.Hide()
-		u.FsConfig.AzBlobConfig.SASURL.Hide()
+		if u.FsConfig.AzBlobConfig.AccountKey != nil {
+			u.FsConfig.AzBlobConfig.AccountKey.Hide()
+		}
+		if u.FsConfig.AzBlobConfig.SASURL != nil {
+			u.FsConfig.AzBlobConfig.SASURL.Hide()
+		}
 	case vfs.CryptedFilesystemProvider:
-		u.FsConfig.CryptConfig.Passphrase.Hide()
+		if u.FsConfig.CryptConfig.Passphrase != nil {
+			u.FsConfig.CryptConfig.Passphrase.Hide()
+		}
 	case vfs.SFTPFilesystemProvider:
-		u.FsConfig.SFTPConfig.Password.Hide()
-		u.FsConfig.SFTPConfig.PrivateKey.Hide()
+		if u.FsConfig.SFTPConfig.Password != nil {
+			u.FsConfig.SFTPConfig.Password.Hide()
+		}
+		if u.FsConfig.SFTPConfig.PrivateKey != nil {
+			u.FsConfig.SFTPConfig.PrivateKey.Hide()
+		}
 	}
 }
 
