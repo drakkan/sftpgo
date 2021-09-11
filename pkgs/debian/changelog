@@ -1,3 +1,15 @@
+sftpgo (2.1.2-1ppa1) bionic; urgency=medium
+
+  * New upstream release.
+
+ -- Nicola Murino <nicola.murino@gmail.com>  Sat, 11 Sep 2021 13:35:21 +0200
+
+sftpgo (2.1.1-1ppa1) bionic; urgency=medium
+
+  * New upstream release.
+
+ -- Nicola Murino <nicola.murino@gmail.com>  Sat, 11 Sep 2021 07:12:40 +0200
+
 sftpgo (2.1.0-1ppa1) bionic; urgency=medium
 
   * New upstream release.

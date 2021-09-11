@@ -4535,6 +4535,16 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, recCodes, 12)
 
+	admin, _, err = httpdtest.GetAdminByUsername(altAdminUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, admin.Filters.RecoveryCodes, 12)
+	for _, c := range admin.Filters.RecoveryCodes {
+		assert.Empty(t, c.Secret.GetAdditionalData())
+		assert.Empty(t, c.Secret.GetKey())
+		assert.Equal(t, kms.SecretStatusSecretBox, c.Secret.GetStatus())
+		assert.NotEmpty(t, c.Secret.GetPayload())
+	}
+
 	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodGet, webAdminTwoFactorPath, nil)
@@ -5057,6 +5067,16 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	err = json.Unmarshal(rr.Body.Bytes(), &recCodes)
 	assert.NoError(t, err)
 	assert.Len(t, recCodes, 12)
+
+	user, _, err = httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, user.Filters.RecoveryCodes, 12)
+	for _, c := range user.Filters.RecoveryCodes {
+		assert.Empty(t, c.Secret.GetAdditionalData())
+		assert.Empty(t, c.Secret.GetKey())
+		assert.Equal(t, kms.SecretStatusSecretBox, c.Secret.GetStatus())
+		assert.NotEmpty(t, c.Secret.GetPayload())
+	}
 
 	req, err = http.NewRequest(http.MethodGet, webClientTwoFactorPath, nil)
 	assert.NoError(t, err)

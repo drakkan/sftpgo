@@ -104,17 +104,15 @@ func (v *BaseVirtualFolder) IsLocalOrLocalCrypted() bool {
 func (v *BaseVirtualFolder) hideConfidentialData() {
 	switch v.FsConfig.Provider {
 	case sdk.S3FilesystemProvider:
-		v.FsConfig.S3Config.AccessSecret.Hide()
+		v.FsConfig.S3Config.HideConfidentialData()
 	case sdk.GCSFilesystemProvider:
-		v.FsConfig.GCSConfig.Credentials.Hide()
+		v.FsConfig.GCSConfig.HideConfidentialData()
 	case sdk.AzureBlobFilesystemProvider:
-		v.FsConfig.AzBlobConfig.AccountKey.Hide()
-		v.FsConfig.AzBlobConfig.SASURL.Hide()
+		v.FsConfig.AzBlobConfig.HideConfidentialData()
 	case sdk.CryptedFilesystemProvider:
-		v.FsConfig.CryptConfig.Passphrase.Hide()
+		v.FsConfig.CryptConfig.HideConfidentialData()
 	case sdk.SFTPFilesystemProvider:
-		v.FsConfig.SFTPConfig.Password.Hide()
-		v.FsConfig.SFTPConfig.PrivateKey.Hide()
+		v.FsConfig.SFTPConfig.HideConfidentialData()
 	}
 }
 

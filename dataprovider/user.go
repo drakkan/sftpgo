@@ -196,7 +196,14 @@ func (u *User) CheckLoginConditions() error {
 func (u *User) hideConfidentialData() {
 	u.Password = ""
 	u.FsConfig.HideConfidentialData()
-	u.Filters.TOTPConfig.Secret.Hide()
+	if u.Filters.TOTPConfig.Secret != nil {
+		u.Filters.TOTPConfig.Secret.Hide()
+	}
+	for _, code := range u.Filters.RecoveryCodes {
+		if code.Secret != nil {
+			code.Secret.Hide()
+		}
+	}
 }
 
 // GetSubDirPermissions returns permissions for sub directories

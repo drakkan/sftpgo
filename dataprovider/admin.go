@@ -293,6 +293,11 @@ func (a *Admin) HideConfidentialData() {
 	if a.Filters.TOTPConfig.Secret != nil {
 		a.Filters.TOTPConfig.Secret.Hide()
 	}
+	for _, code := range a.Filters.RecoveryCodes {
+		if code.Secret != nil {
+			code.Secret.Hide()
+		}
+	}
 	a.SetNilSecretsIfEmpty()
 }
 

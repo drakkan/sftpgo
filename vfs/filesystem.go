@@ -207,17 +207,15 @@ func (f *Filesystem) HasRedactedSecret() bool {
 func (f *Filesystem) HideConfidentialData() {
 	switch f.Provider {
 	case sdk.S3FilesystemProvider:
-		f.S3Config.AccessSecret.Hide()
+		f.S3Config.HideConfidentialData()
 	case sdk.GCSFilesystemProvider:
-		f.GCSConfig.Credentials.Hide()
+		f.GCSConfig.HideConfidentialData()
 	case sdk.AzureBlobFilesystemProvider:
-		f.AzBlobConfig.AccountKey.Hide()
-		f.AzBlobConfig.SASURL.Hide()
+		f.AzBlobConfig.HideConfidentialData()
 	case sdk.CryptedFilesystemProvider:
-		f.CryptConfig.Passphrase.Hide()
+		f.CryptConfig.HideConfidentialData()
 	case sdk.SFTPFilesystemProvider:
-		f.SFTPConfig.Password.Hide()
-		f.SFTPConfig.PrivateKey.Hide()
+		f.SFTPConfig.HideConfidentialData()
 	}
 }
 

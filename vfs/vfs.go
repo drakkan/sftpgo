@@ -143,6 +143,13 @@ type S3FsConfig struct {
 	sdk.S3FsConfig
 }
 
+// HideConfidentialData hides confidential data
+func (c *S3FsConfig) HideConfidentialData() {
+	if c.AccessSecret != nil {
+		c.AccessSecret.Hide()
+	}
+}
+
 func (c *S3FsConfig) isEqual(other *S3FsConfig) bool {
 	if c.Bucket != other.Bucket {
 		return false
@@ -264,6 +271,13 @@ type GCSFsConfig struct {
 	sdk.GCSFsConfig
 }
 
+// HideConfidentialData hides confidential data
+func (c *GCSFsConfig) HideConfidentialData() {
+	if c.Credentials != nil {
+		c.Credentials.Hide()
+	}
+}
+
 func (c *GCSFsConfig) isEqual(other *GCSFsConfig) bool {
 	if c.Bucket != other.Bucket {
 		return false
@@ -321,6 +335,16 @@ func (c *GCSFsConfig) Validate(credentialsFilePath string) error {
 // AzBlobFsConfig defines the configuration for Azure Blob Storage based filesystem
 type AzBlobFsConfig struct {
 	sdk.AzBlobFsConfig
+}
+
+// HideConfidentialData hides confidential data
+func (c *AzBlobFsConfig) HideConfidentialData() {
+	if c.AccountKey != nil {
+		c.AccountKey.Hide()
+	}
+	if c.SASURL != nil {
+		c.SASURL.Hide()
+	}
 }
 
 func (c *AzBlobFsConfig) isEqual(other *AzBlobFsConfig) bool {
@@ -442,6 +466,13 @@ func (c *AzBlobFsConfig) Validate() error {
 // CryptFsConfig defines the configuration to store local files as encrypted
 type CryptFsConfig struct {
 	sdk.CryptFsConfig
+}
+
+// HideConfidentialData hides confidential data
+func (c *CryptFsConfig) HideConfidentialData() {
+	if c.Passphrase != nil {
+		c.Passphrase.Hide()
+	}
 }
 
 func (c *CryptFsConfig) isEqual(other *CryptFsConfig) bool {

@@ -40,6 +40,16 @@ type SFTPFsConfig struct {
 	forbiddenSelfUsernames []string `json:"-"`
 }
 
+// HideConfidentialData hides confidential data
+func (c *SFTPFsConfig) HideConfidentialData() {
+	if c.Password != nil {
+		c.Password.Hide()
+	}
+	if c.PrivateKey != nil {
+		c.PrivateKey.Hide()
+	}
+}
+
 func (c *SFTPFsConfig) isEqual(other *SFTPFsConfig) bool {
 	if c.Endpoint != other.Endpoint {
 		return false

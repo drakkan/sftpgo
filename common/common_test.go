@@ -754,6 +754,25 @@ func TestParseAllowedIPAndRanges(t *testing.T) {
 	assert.False(t, allow[1](net.ParseIP("172.16.1.1")))
 }
 
+func TestHideConfidentialData(t *testing.T) {
+	for _, provider := range sdk.ListProviders() {
+		u := dataprovider.User{
+			FsConfig: vfs.Filesystem{
+				Provider: provider,
+			},
+		}
+		u.PrepareForRendering()
+		f := vfs.BaseVirtualFolder{
+			FsConfig: vfs.Filesystem{
+				Provider: provider,
+			},
+		}
+		f.PrepareForRendering()
+	}
+	a := dataprovider.Admin{}
+	a.HideConfidentialData()
+}
+
 func BenchmarkBcryptHashing(b *testing.B) {
 	bcryptPassword := "bcryptpassword"
 	for i := 0; i < b.N; i++ {
