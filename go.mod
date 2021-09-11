@@ -7,10 +7,10 @@ require (
 	github.com/Azure/azure-storage-blob-go v0.14.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20210511081203-7d35d68092b8
-	github.com/aws/aws-sdk-go v1.40.39
+	github.com/aws/aws-sdk-go v1.40.41
 	github.com/cockroachdb/cockroach-go/v2 v2.1.1
 	github.com/eikenb/pipeat v0.0.0-20210603033007-44fc3ffce52b
-	github.com/fclairamb/ftpserverlib v0.15.0
+	github.com/fclairamb/ftpserverlib v0.15.1-0.20210910204600-c38788485016
 	github.com/frankban/quicktest v1.13.1 // indirect
 	github.com/go-chi/chi/v5 v5.0.4
 	github.com/go-chi/jwtauth/v5 v5.0.1
@@ -49,16 +49,15 @@ require (
 	gocloud.dev/secrets/hashivault v0.24.0
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/net v0.0.0-20210907225631-ff17edfbf26d
-	golang.org/x/sys v0.0.0-20210908233432-aa78b53d3365
+	golang.org/x/sys v0.0.0-20210910150752-751e447fb3d0
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	google.golang.org/api v0.56.0
-	google.golang.org/genproto v0.0.0-20210909144509-af19c3c38cb7 // indirect
+	google.golang.org/genproto v0.0.0-20210909211513-a8c4777a87af // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
 replace (
 	github.com/eikenb/pipeat => github.com/drakkan/pipeat v0.0.0-20210805162858-70e57fa8a639
-	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20210805132427-425f32d9dc15
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20210908103413-a132997f748f
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20210908102438-2debf45fec0b
