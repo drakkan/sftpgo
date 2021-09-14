@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"path"
 	"strings"
+
+	"github.com/drakkan/sftpgo/metrics"
 )
 
 type fsMetaPostgres struct {
@@ -135,19 +137,24 @@ func (Provider *fsMetaPostgres) formatPath(v string) string {
 
 func (Provider *fsMetaPostgres) Get(ctx context.Context, Key Key) (Meta, error) {
 	if M, err := Provider.loaded.Get(ctx, Key); err == nil {
+		metrics.FSMetaPostgresCache(nil)
 		return M, nil
 	} else if err == ErrCacheMiss || err == ErrCacheInvalid {
-		// TODO: metrics self healing.
+		metrics.FSMetaPostgresCache(err)
 		S3Meta, err := Provider.S3.Get(ctx, Key)
 		if err != nil {
+			metrics.FSMetaPostgresSelfHeal(err)
 			return Meta{
 				Key:          Key,
 				LastModified: Key.StoreTime,
 			}, err
 		}
 		if err := Provider.Put(ctx, S3Meta); err != nil {
+			metrics.FSMetaPostgresSelfHeal(err)
 			return S3Meta, err
 		}
+
+		metrics.FSMetaPostgresSelfHeal(nil)
 		return S3Meta, nil
 	} else {
 		return Meta{
