@@ -27,7 +27,7 @@ const (
 // LogLevel defines log levels.
 type LogLevel uint8
 
-// defines our own log level, just in case we'll change logger in future
+// defines our own log levels, just in case we'll change logger in future
 const (
 	LevelDebug LogLevel = iota
 	LevelInfo

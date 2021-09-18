@@ -71,6 +71,7 @@ func (c *jwtTokenClaims) asMap() map[string]interface{} {
 }
 
 func (c *jwtTokenClaims) Decode(token map[string]interface{}) {
+	c.Permissions = nil
 	username := token[claimUsernameKey]
 
 	switch v := username.(type) {

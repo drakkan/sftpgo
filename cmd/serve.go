@@ -12,7 +12,7 @@ import (
 var (
 	serveCmd = &cobra.Command{
 		Use:   "serve",
-		Short: "Start the SFTP Server",
+		Short: "Start the SFTPGo service",
 		Long: `To start the SFTPGo with the default values for the command line flags simply
 use:
 

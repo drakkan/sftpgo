@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	logSender = "utils"
+	logSender = "util"
 	osWindows = "windows"
 )
 

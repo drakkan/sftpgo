@@ -30,6 +30,8 @@ At least the following permissions are required to be able to run system command
 For `rsync`  we cannot avoid that it creates symlinks so if the `create_symlinks` permission is granted we add the option `--safe-links`, if it is not already set, to the received `rsync` command. This should prevent to create symlinks that point outside the home directory.
 If the user cannot create symlinks we add the option `--munge-links`, if it is not already set, to the received `rsync` command. This should make symlinks unusable (but manually recoverable).
 
+**Note:**: you might consider to use SFTPGo as SFTP backend for [rclone](https://rclone.org/sftp/) instead of `rsync`, this way there are no limitations and `rclone` does not need to be installed on the server side since it uses the SFTP protocol.
+
 SFTPGo supports the following built-in SSH commands:
 
 - `scp`, SFTPGo implements the SCP protocol so we can support it for cloud filesystems too and we can avoid the other system commands limitations. SCP between two remote hosts is supported using the `-3` scp option. Wildcard expansion is not supported.
