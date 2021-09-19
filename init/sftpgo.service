@@ -12,6 +12,7 @@ Environment=SFTPGO_LOG_FILE_PATH=
 EnvironmentFile=-/etc/sftpgo/sftpgo.env
 ExecStart=/usr/bin/sftpgo serve
 ExecReload=/bin/kill -s HUP $MAINPID
+LimitNOFILE=8192
 KillMode=mixed
 PrivateTmp=true
 Restart=always
