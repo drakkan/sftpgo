@@ -530,9 +530,9 @@ func (s *httpdServer) initializeRouter() {
 	s.router = chi.NewRouter()
 
 	s.router.Use(middleware.RequestID)
+	s.router.Use(s.checkConnection)
 	s.router.Use(logger.NewStructuredLogger(logger.GetLogger()))
 	s.router.Use(recoverer)
-	s.router.Use(s.checkConnection)
 	s.router.Use(middleware.GetHead)
 	s.router.Use(middleware.StripSlashes)
 

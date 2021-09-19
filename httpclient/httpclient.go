@@ -190,7 +190,10 @@ func Get(url string) (*http.Response, error) {
 		return nil, err
 	}
 	addHeaders(req, url)
-	return GetHTTPClient().Do(req)
+	client := GetHTTPClient()
+	defer client.CloseIdleConnections()
+
+	return client.Do(req)
 }
 
 // Post issues a POST to the specified URL
@@ -201,7 +204,10 @@ func Post(url string, contentType string, body io.Reader) (*http.Response, error
 	}
 	req.Header.Set("Content-Type", contentType)
 	addHeaders(req, url)
-	return GetHTTPClient().Do(req)
+	client := GetHTTPClient()
+	defer client.CloseIdleConnections()
+
+	return client.Do(req)
 }
 
 // RetryableGet issues a GET to the specified URL using the retryable client
@@ -211,7 +217,10 @@ func RetryableGet(url string) (*http.Response, error) {
 		return nil, err
 	}
 	addHeadersToRetryableReq(req, url)
-	return GetRetraybleHTTPClient().Do(req)
+	client := GetRetraybleHTTPClient()
+	defer client.HTTPClient.CloseIdleConnections()
+
+	return client.Do(req)
 }
 
 // RetryablePost issues a POST to the specified URL using the retryable client
@@ -222,7 +231,10 @@ func RetryablePost(url string, contentType string, body io.Reader) (*http.Respon
 	}
 	req.Header.Set("Content-Type", contentType)
 	addHeadersToRetryableReq(req, url)
-	return GetRetraybleHTTPClient().Do(req)
+	client := GetRetraybleHTTPClient()
+	defer client.HTTPClient.CloseIdleConnections()
+
+	return client.Do(req)
 }
 
 func addHeaders(req *http.Request, url string) {
