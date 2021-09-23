@@ -178,6 +178,8 @@ type BaseUser struct {
 	Status int `json:"status"`
 	// Username
 	Username string `json:"username"`
+	// Email
+	Email string `json:"email,omitempty"`
 	// Account expiration date as unix timestamp in milliseconds. An expired account cannot login.
 	// 0 means no expiration
 	ExpirationDate int64 `json:"expiration_date"`

@@ -577,7 +577,7 @@ func sqlCommonAddUser(user *User, dbHandle *sql.DB) error {
 		}
 		_, err = stmt.ExecContext(ctx, user.Username, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
 			user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate, string(filters),
-			string(fsConfig), user.AdditionalInfo, user.Description, util.GetTimeAsMsSinceEpoch(time.Now()),
+			string(fsConfig), user.AdditionalInfo, user.Description, user.Email, util.GetTimeAsMsSinceEpoch(time.Now()),
 			util.GetTimeAsMsSinceEpoch(time.Now()))
 		if err != nil {
 			return err
@@ -620,7 +620,7 @@ func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
 		}
 		_, err = stmt.ExecContext(ctx, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
 			user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate,
-			string(filters), string(fsConfig), user.AdditionalInfo, user.Description, util.GetTimeAsMsSinceEpoch(time.Now()), user.ID)
+			string(filters), string(fsConfig), user.AdditionalInfo, user.Description, user.Email, util.GetTimeAsMsSinceEpoch(time.Now()), user.ID)
 		if err != nil {
 			return err
 		}
@@ -822,7 +822,7 @@ func getUserFromDbRow(row sqlScanner) (User, error) {
 	err := row.Scan(&user.ID, &user.Username, &password, &publicKey, &user.HomeDir, &user.UID, &user.GID, &user.MaxSessions,
 		&user.QuotaSize, &user.QuotaFiles, &permissions, &user.UsedQuotaSize, &user.UsedQuotaFiles, &user.LastQuotaUpdate,
 		&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig,
-		&additionalInfo, &description, &user.CreatedAt, &user.UpdatedAt)
+		&additionalInfo, &description, &user.Email, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return user, util.NewRecordNotFoundError(err.Error())

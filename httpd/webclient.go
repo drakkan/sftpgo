@@ -337,6 +337,7 @@ func renderClientCredentialsPage(w http.ResponseWriter, r *http.Request, pwdErro
 	}
 	data.PublicKeys = user.PublicKeys
 	data.AllowAPIKeyAuth = user.Filters.AllowAPIKeyAuth
+	data.LoggedUser.Email = user.Email
 	renderClientTemplate(w, templateClientCredentials, data)
 }
 

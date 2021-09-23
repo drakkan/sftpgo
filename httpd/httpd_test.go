@@ -10772,6 +10772,7 @@ func TestWebUserAddMock(t *testing.T) {
 	user.UID = 1000
 	user.AdditionalInfo = "info"
 	user.Description = "user dsc"
+	user.Email = "test@test.com"
 	mappedDir := filepath.Join(os.TempDir(), "mapped")
 	folderName := filepath.Base(mappedDir)
 	f := vfs.BaseVirtualFolder{
@@ -10788,6 +10789,7 @@ func TestWebUserAddMock(t *testing.T) {
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
+	form.Set("emai", user.Email)
 	form.Set("home_dir", user.HomeDir)
 	form.Set("password", user.Password)
 	form.Set("status", strconv.Itoa(user.Status))
@@ -11090,6 +11092,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	user.AdditionalInfo = "new additional info"
 	form := make(url.Values)
 	form.Set("username", user.Username)
+	form.Set("email", user.Email)
 	form.Set("password", "")
 	form.Set("public_keys", testPubKey)
 	form.Set("home_dir", user.HomeDir)

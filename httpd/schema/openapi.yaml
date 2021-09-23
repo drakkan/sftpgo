@@ -3584,6 +3584,10 @@ components:
         username:
           type: string
           description: username is unique
+        email:
+          type: string
+          format: email
+          description: email field for user
         description:
           type: string
           description: 'optional description, for example the user full name'
