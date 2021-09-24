@@ -74,7 +74,7 @@ class SFTPGoApiRequests:
 		else:
 			print(r.text)
 
-	def buildUserObject(self, user_id=0, username='', email='', password='', public_keys=[], home_dir='', uid=0, gid=0,
+	def buildUserObject(self, user_id=0, username='', password='', public_keys=[], home_dir='', uid=0, gid=0,
 					max_sessions=0, quota_size=0, quota_files=0, permissions={}, upload_bandwidth=0, download_bandwidth=0,
 					status=1, expiration_date=0, allowed_ip=[], denied_ip=[], fs_provider='local', s3_bucket='',
 					s3_region='', s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='',
@@ -85,7 +85,7 @@ class SFTPGoApiRequests:
 					az_sas_url='', az_endpoint='', az_upload_part_size=0, az_upload_concurrency=0, az_key_prefix='',
 					az_use_emulator=False, az_access_tier='', additional_info='', crypto_passphrase='', sftp_endpoint='',
 					sftp_username='', sftp_password='', sftp_private_key_path='', sftp_fingerprints=[], sftp_prefix=''):
-		user = {'id':user_id, 'username':username, 'email':email, 'uid':uid, 'gid':gid,
+		user = {'id':user_id, 'username':username, 'uid':uid, 'gid':gid,
 			'max_sessions':max_sessions, 'quota_size':quota_size, 'quota_files':quota_files,
 			'upload_bandwidth':upload_bandwidth, 'download_bandwidth':download_bandwidth,
 			'status':status, 'expiration_date':expiration_date, 'additional_info':additional_info}
@@ -294,7 +294,7 @@ class SFTPGoApiRequests:
 		r = requests.get(urlparse.urljoin(self.userPath, 'user/' + str(user_id)), auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
-	def addUser(self, username='', email='', password='', public_keys='', home_dir='', uid=0, gid=0, max_sessions=0, quota_size=0,
+	def addUser(self, username='', password='', public_keys='', home_dir='', uid=0, gid=0, max_sessions=0, quota_size=0,
 			quota_files=0, perms=[], upload_bandwidth=0, download_bandwidth=0, status=1, expiration_date=0,
 			subdirs_permissions=[], allowed_ip=[], denied_ip=[], fs_provider='local', s3_bucket='', s3_region='',
 			s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='', s3_key_prefix='', gcs_bucket='',
@@ -305,7 +305,7 @@ class SFTPGoApiRequests:
 			az_upload_concurrency=0, az_key_prefix='', az_use_emulator=False, az_access_tier='', additional_info='',
 			crypto_passphrase='', sftp_endpoint='', sftp_username='', sftp_password='', sftp_private_key_path='',
 			sftp_fingerprints=[], sftp_prefix=''):
-		u = self.buildUserObject(0, username, email, password, public_keys, home_dir, uid, gid, max_sessions,
+		u = self.buildUserObject(0, username, password, public_keys, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, self.buildPermissions(perms, subdirs_permissions), upload_bandwidth, download_bandwidth,
 			status, expiration_date, allowed_ip, denied_ip, fs_provider, s3_bucket, s3_region, s3_access_key,
 			s3_access_secret, s3_endpoint, s3_storage_class, s3_key_prefix, gcs_bucket, gcs_key_prefix, gcs_storage_class,
@@ -317,7 +317,7 @@ class SFTPGoApiRequests:
 		r = requests.post(self.userPath, json=u, auth=self.auth, verify=self.verify)
 		self.printResponse(r)
 
-	def updateUser(self, user_id, username='', email='', password='', public_keys='', home_dir='', uid=0, gid=0, max_sessions=0,
+	def updateUser(self, user_id, username='', password='', public_keys='', home_dir='', uid=0, gid=0, max_sessions=0,
 				quota_size=0, quota_files=0, perms=[], upload_bandwidth=0, download_bandwidth=0, status=1,
 				expiration_date=0, subdirs_permissions=[], allowed_ip=[], denied_ip=[], fs_provider='local',
 				s3_bucket='', s3_region='', s3_access_key='', s3_access_secret='', s3_endpoint='', s3_storage_class='',
@@ -328,7 +328,7 @@ class SFTPGoApiRequests:
 				az_endpoint='', az_upload_part_size=0, az_upload_concurrency=0, az_key_prefix='', az_use_emulator=False,
 				az_access_tier='', additional_info='', crypto_passphrase='', sftp_endpoint='', sftp_username='',
 				sftp_password='', sftp_private_key_path='', sftp_fingerprints=[], sftp_prefix=''):
-		u = self.buildUserObject(user_id, username, email, password, public_keys, home_dir, uid, gid, max_sessions,
+		u = self.buildUserObject(user_id, username, password, public_keys, home_dir, uid, gid, max_sessions,
 			quota_size, quota_files, self.buildPermissions(perms, subdirs_permissions), upload_bandwidth, download_bandwidth,
 			status, expiration_date, allowed_ip, denied_ip, fs_provider, s3_bucket, s3_region, s3_access_key,
 			s3_access_secret, s3_endpoint, s3_storage_class, s3_key_prefix, gcs_bucket, gcs_key_prefix, gcs_storage_class,
@@ -836,7 +836,7 @@ if __name__ == '__main__':
 						 args.no_color)
 
 	if args.command == 'add-user':
-		api.addUser(args.username, args.email, args.password, args.public_keys, args.home_dir, args.uid, args.gid, args.max_sessions,
+		api.addUser(args.username, args.password, args.public_keys, args.home_dir, args.uid, args.gid, args.max_sessions,
 				args.quota_size, args.quota_files, args.permissions, args.upload_bandwidth, args.download_bandwidth,
 				args.status, getDatetimeAsMillisSinceEpoch(args.expiration_date), args.subdirs_permissions, args.allowed_ip,
 				args.denied_ip, args.fs, args.s3_bucket, args.s3_region, args.s3_access_key, args.s3_access_secret,
@@ -849,7 +849,7 @@ if __name__ == '__main__':
 				args.az_access_tier, args.additional_info, args.crypto_passphrase, args.sftp_endpoint, args.sftp_username,
 				args.sftp_password, args.sftp_private_key_path, args.sftp_fingerprints, args.sftp_prefix)
 	elif args.command == 'update-user':
-		api.updateUser(args.id, args.username, args.email, args.password, args.public_keys, args.home_dir, args.uid, args.gid,
+		api.updateUser(args.id, args.username, args.password, args.public_keys, args.home_dir, args.uid, args.gid,
 					args.max_sessions, args.quota_size, args.quota_files, args.permissions, args.upload_bandwidth,
 					args.download_bandwidth, args.status, getDatetimeAsMillisSinceEpoch(args.expiration_date),
 					args.subdirs_permissions, args.allowed_ip, args.denied_ip, args.fs, args.s3_bucket, args.s3_region,

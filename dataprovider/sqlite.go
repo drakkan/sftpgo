@@ -35,7 +35,7 @@ CREATE TABLE "{{users}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "user
 "max_sessions" integer NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "permissions" text NOT NULL,
 "used_quota_size" bigint NOT NULL, "used_quota_files" integer NOT NULL, "last_quota_update" bigint NOT NULL,
 "upload_bandwidth" integer NOT NULL, "download_bandwidth" integer NOT NULL, "last_login" bigint NOT NULL, "filters" text NULL,
-"filesystem" text NULL, "additional_info" text NULL, "email" varchar(255) NULL);
+"filesystem" text NULL, "additional_info" text NULL);
 CREATE TABLE "{{folders_mapping}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "virtual_path" varchar(512) NOT NULL,
 "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "folder_id" integer NOT NULL REFERENCES "{{folders}}" ("id")
 ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, "user_id" integer NOT NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
@@ -56,6 +56,7 @@ CREATE INDEX "{{prefix}}api_keys_user_id_idx" ON "api_keys" ("user_id");
 	sqliteV12SQL     = `ALTER TABLE "{{admins}}" ADD COLUMN "created_at" bigint DEFAULT 0 NOT NULL;
 ALTER TABLE "{{admins}}" ADD COLUMN "updated_at" bigint DEFAULT 0 NOT NULL;
 ALTER TABLE "{{admins}}" ADD COLUMN "last_login" bigint DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users}}" ADD COLUMN "email" varchar(255) NULL;
 ALTER TABLE "{{users}}" ADD COLUMN "created_at" bigint DEFAULT 0 NOT NULL;
 ALTER TABLE "{{users}}" ADD COLUMN "updated_at" bigint DEFAULT 0 NOT NULL;
 CREATE INDEX "{{prefix}}users_updated_at_idx" ON "{{users}}" ("updated_at");
@@ -63,6 +64,7 @@ CREATE INDEX "{{prefix}}users_updated_at_idx" ON "{{users}}" ("updated_at");
 	sqliteV12DownSQL = `DROP INDEX "{{prefix}}users_updated_at_idx";
 ALTER TABLE "{{users}}" DROP COLUMN "updated_at";
 ALTER TABLE "{{users}}" DROP COLUMN "created_at";
+ALTER TABLE "{{users}}" DROP COLUMN "email";
 ALTER TABLE "{{admins}}" DROP COLUMN "created_at";
 ALTER TABLE "{{admins}}" DROP COLUMN "updated_at";
 ALTER TABLE "{{admins}}" DROP COLUMN "last_login";

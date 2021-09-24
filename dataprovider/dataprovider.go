@@ -1608,6 +1608,9 @@ func validateBaseParams(user *User) error {
 	if !filepath.IsAbs(user.HomeDir) {
 		return util.NewValidationError(fmt.Sprintf("home_dir must be an absolute path, actual value: %v", user.HomeDir))
 	}
+	if user.Email != "" && !emailRegex.MatchString(user.Email) {
+		return util.NewValidationError(fmt.Sprintf("email %#v is not valid", user.Email))
+	}
 	return nil
 }
 

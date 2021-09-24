@@ -34,7 +34,7 @@ CREATE TABLE "{{users}}" ("id" serial NOT NULL PRIMARY KEY, "username" varchar(2
 "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "permissions" text NOT NULL, "used_quota_size" bigint NOT NULL,
 "used_quota_files" integer NOT NULL, "last_quota_update" bigint NOT NULL, "upload_bandwidth" integer NOT NULL,
 "download_bandwidth" integer NOT NULL, "last_login" bigint NOT NULL, "filters" text NULL, "filesystem" text NULL,
-"additional_info" text NULL, "email" varchar(255) NULL);
+"additional_info" text NULL);
 CREATE TABLE "{{folders_mapping}}" ("id" serial NOT NULL PRIMARY KEY, "virtual_path" varchar(512) NOT NULL,
 "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "folder_id" integer NOT NULL, "user_id" integer NOT NULL);
 ALTER TABLE "{{folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_mapping" UNIQUE ("user_id", "folder_id");
@@ -64,6 +64,7 @@ ALTER TABLE "{{admins}}" ADD COLUMN "updated_at" bigint DEFAULT 0 NOT NULL;
 ALTER TABLE "{{admins}}" ALTER COLUMN "updated_at" DROP DEFAULT;
 ALTER TABLE "{{admins}}" ADD COLUMN "last_login" bigint DEFAULT 0 NOT NULL;
 ALTER TABLE "{{admins}}" ALTER COLUMN "last_login" DROP DEFAULT;
+ALTER TABLE "{{users}}" ADD COLUMN "email" varchar(255) NULL;
 ALTER TABLE "{{users}}" ADD COLUMN "created_at" bigint DEFAULT 0 NOT NULL;
 ALTER TABLE "{{users}}" ALTER COLUMN "created_at" DROP DEFAULT;
 ALTER TABLE "{{users}}" ADD COLUMN "updated_at" bigint DEFAULT 0 NOT NULL;
@@ -72,6 +73,7 @@ CREATE INDEX "{{prefix}}users_updated_at_idx" ON "{{users}}" ("updated_at");
 `
 	pgsqlV12DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "updated_at" CASCADE;
 ALTER TABLE "{{users}}" DROP COLUMN "created_at" CASCADE;
+ALTER TABLE "{{users}}" DROP COLUMN "email" CASCADE;
 ALTER TABLE "{{admins}}" DROP COLUMN "created_at" CASCADE;
 ALTER TABLE "{{admins}}" DROP COLUMN "updated_at" CASCADE;
 ALTER TABLE "{{admins}}" DROP COLUMN "last_login" CASCADE;
