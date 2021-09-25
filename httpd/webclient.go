@@ -253,6 +253,10 @@ func renderCredentialsPage(w http.ResponseWriter, r *http.Request, pwdError stri
 }
 
 func handleClientWebLogin(w http.ResponseWriter, r *http.Request) {
+	if !dataprovider.HasAdmin() {
+		http.Redirect(w, r, webAdminSetupPath, http.StatusFound)
+		return
+	}
 	renderClientLoginPage(w, "")
 }
 

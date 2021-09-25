@@ -5944,6 +5944,11 @@ func TestWebAdminSetupMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webAdminSetupPath, rr.Header().Get("Location"))
+	req, err = http.NewRequest(http.MethodGet, webClientLoginPath, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webAdminSetupPath, rr.Header().Get("Location"))
 
 	csrfToken, err := getCSRFToken(httpBaseURL + webAdminSetupPath)
 	assert.NoError(t, err)
