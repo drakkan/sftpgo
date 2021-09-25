@@ -6,7 +6,7 @@ The stored quota may be incorrect for several reasons, such as an unexpected shu
 
 A quota scan updates the number of files and their total size for the specified user and the virtual folders, if any, included in his quota.
 
-If you want to track quotas, a scheduled quota scan is recommended. You could use this example as a starting point.
+If you want to track quotas, a scheduled quota scan is recommended. You can use this example as a starting point.
 
 The script is written in Python and has the following requirements:
 

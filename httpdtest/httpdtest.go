@@ -45,6 +45,8 @@ const (
 	adminPath             = "/api/v2/admins"
 	adminPwdPath          = "/api/v2/admin/changepwd"
 	apiKeysPath           = "/api/v2/apikeys"
+	retentionBasePath     = "/api/v2/retention/users"
+	retentionChecksPath   = "/api/v2/retention/users/checks"
 )
 
 const (
@@ -527,7 +529,40 @@ func UpdateQuotaUsage(user dataprovider.User, mode string, expectedStatusCode in
 	if err != nil {
 		return body, err
 	}
-	resp, err := sendHTTPRequest(http.MethodPut, url.String(), bytes.NewBuffer(userAsJSON), "", getDefaultToken())
+	resp, err := sendHTTPRequest(http.MethodPut, url.String(), bytes.NewBuffer(userAsJSON), "application/json",
+		getDefaultToken())
+	if err != nil {
+		return body, err
+	}
+	defer resp.Body.Close()
+	body, _ = getResponseBody(resp)
+	return body, checkResponse(resp.StatusCode, expectedStatusCode)
+}
+
+// GetRetentionChecks returns the active retention checks
+func GetRetentionChecks(expectedStatusCode int) ([]common.ActiveRetentionChecks, []byte, error) {
+	var checks []common.ActiveRetentionChecks
+	var body []byte
+	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(retentionChecksPath), nil, "", getDefaultToken())
+	if err != nil {
+		return checks, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &checks)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return checks, body, err
+}
+
+// StartRetentionCheck starts a new retention check
+func StartRetentionCheck(username string, retention []common.FolderRetention, expectedStatusCode int) ([]byte, error) {
+	var body []byte
+	asJSON, _ := json.Marshal(retention)
+	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(retentionBasePath, username, "check"),
+		bytes.NewBuffer(asJSON), "application/json", getDefaultToken())
 	if err != nil {
 		return body, err
 	}

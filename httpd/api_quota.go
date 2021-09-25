@@ -2,6 +2,7 @@ package httpd
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/render"
@@ -191,7 +192,8 @@ func doStartUserQuotaScan(w http.ResponseWriter, r *http.Request, username strin
 		return
 	}
 	if !common.QuotaScans.AddUserQuotaScan(user.Username) {
-		sendAPIResponse(w, r, err, "Another scan is already in progress", http.StatusConflict)
+		sendAPIResponse(w, r, err, fmt.Sprintf("Another scan is already in progress for user %#v", username),
+			http.StatusConflict)
 		return
 	}
 	go doUserQuotaScan(user) //nolint:errcheck
@@ -209,7 +211,8 @@ func doStartFolderQuotaScan(w http.ResponseWriter, r *http.Request, name string)
 		return
 	}
 	if !common.QuotaScans.AddVFolderQuotaScan(folder.Name) {
-		sendAPIResponse(w, r, err, "Another scan is already in progress", http.StatusConflict)
+		sendAPIResponse(w, r, err, fmt.Sprintf("Another scan is already in progress for folder %#v", name),
+			http.StatusConflict)
 		return
 	}
 	go doFolderQuotaScan(folder) //nolint:errcheck

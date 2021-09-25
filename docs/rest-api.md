@@ -1,6 +1,6 @@
 # REST API
 
-SFTPGo exposes REST API to manage, backup, and restore users and folders, and to get real time reports of the active connections with the ability to forcibly close a connection.
+SFTPGo exposes REST API to manage, backup, and restore users and folders, data retention, and to get real time reports of the active connections with the ability to forcibly close a connection.
 
 If quota tracking is enabled in the configuration file, then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP/SCP, or if you change `track_quota` from `2` to `1`, you can rescan the users home dir and update the used quota using the REST API.
 
@@ -35,6 +35,7 @@ You can create other administrator and assign them the following permissions:
 - manage API keys
 - manage system
 - manage admins
+- manage data retention
 
 You can also restrict administrator access based on the source IP address. If you are running SFTPGo behind a reverse proxy you need to allow both the proxy IP address and the real client IP.
 
@@ -61,6 +62,35 @@ API keys are not allowed for the following REST APIs:
 - update the impersonated admin
 
 Please keep in mind that using an API key not associated with any administrator it is still possible to create a new administrator, with full permissions, and then impersonate it: be careful if you share unassociated API keys with third parties and with the `manage adminis` permission granted, they will basically allow full access, the only restriction is that the impersonated admin cannot be modified.
+
+The data retention APIs allow you to define per-folder retention policies for each user. To clarify this concept let's show an example, a data retention check accepts a POST body like this one:
+
+```json
+[
+  {
+    "path": "/folder1",
+    "retention": 72
+  },
+  {
+    "path": "/folder1/subfolder",
+    "retention": 0
+  },
+  {
+    "path": "/folder2",
+    "retention": 24
+  }
+]
+```
+
+In the above example we asked to SFTPGo:
+
+- to delete all the files with modification time older than 72 hours in `/folder1`
+- to exclude `/folder1/subfolder`, no files will be deleted here
+- to delete all the files with modification time older than 24 hours in `/folder2`
+
+You can find an example script that shows how to manage data retention [here](../examples/data-retention). Checks the REST API schema for full details.
+
+:warning: Deleting files is an irreversible action, please make sure you fully understand what you are doing before using this feature, you may have users with overlapping home directories or virtual folders shared between multiple users, it is relatively easy to inadvertently delete files you need.
 
 The OpenAPI 3 schema for the exposed API can be found inside the source tree: [openapi.yaml](../httpd/schema/openapi.yaml "OpenAPI 3 specs"). If you want to render the schema without importing it manually, you can explore it on [Stoplight](https://sftpgo.stoplight.io/docs/sftpgo/openapi.yaml).
 

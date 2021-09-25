@@ -99,6 +99,7 @@ const (
 	userTOTPSavePath                = "/api/v2/user/totp/save"
 	user2FARecoveryCodesPath        = "/api/v2/user/2fa/recoverycodes"
 	userManageAPIKeyPath            = "/api/v2/user/apikeyauth"
+	retentionBasePath               = "/api/v2/retention/users"
 	healthzPath                     = "/healthz"
 	webBasePath                     = "/web"
 	webBasePathAdmin                = "/web/admin"
@@ -1539,6 +1540,84 @@ func TestUserType(t *testing.T) {
 	assert.Equal(t, string(sdk.UserTypeOS), user.Filters.UserType)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestRetentionAPI(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	checks, _, err := httpdtest.GetRetentionChecks(http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, checks, 0)
+
+	localFilePath := filepath.Join(user.HomeDir, "testdir", "testfile")
+	err = os.MkdirAll(filepath.Dir(localFilePath), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(localFilePath, []byte("test data"), os.ModePerm)
+	assert.NoError(t, err)
+
+	folderRetention := []common.FolderRetention{
+		{
+			Path:            "/",
+			Retention:       0,
+			DeleteEmptyDirs: true,
+		},
+	}
+
+	_, err = httpdtest.StartRetentionCheck(altAdminUsername, folderRetention, http.StatusNotFound)
+	assert.NoError(t, err)
+
+	resp, err := httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "Invalid folders to check")
+
+	folderRetention[0].Retention = 24
+	_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
+	assert.NoError(t, err)
+
+	assert.Eventually(t, func() bool {
+		return len(common.RetentionChecks.Get()) == 0
+	}, 1000*time.Millisecond, 50*time.Millisecond)
+
+	assert.FileExists(t, localFilePath)
+
+	err = os.Chtimes(localFilePath, time.Now().Add(-48*time.Hour), time.Now().Add(-48*time.Hour))
+	assert.NoError(t, err)
+
+	_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
+	assert.NoError(t, err)
+
+	assert.Eventually(t, func() bool {
+		return len(common.RetentionChecks.Get()) == 0
+	}, 1000*time.Millisecond, 50*time.Millisecond)
+
+	assert.NoFileExists(t, localFilePath)
+	assert.NoDirExists(t, filepath.Dir(localFilePath))
+
+	check := common.RetentionCheck{
+		Folders: folderRetention,
+	}
+	c := common.RetentionChecks.Add(check, &user)
+	assert.NotNil(t, c)
+
+	_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusConflict)
+	assert.NoError(t, err)
+
+	c.Start()
+	assert.Len(t, common.RetentionChecks.Get(), 0)
+
+	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	req, _ := http.NewRequest(http.MethodPost, retentionBasePath+"/"+user.Username+"/check",
+		bytes.NewBuffer([]byte("invalid json")))
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -9466,6 +9545,11 @@ func TestWebAdminSetupMock(t *testing.T) {
 	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webAdminSetupPath, rr.Header().Get("Location"))
 	req, err = http.NewRequest(http.MethodGet, webLoginPath, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webAdminSetupPath, rr.Header().Get("Location"))
+	req, err = http.NewRequest(http.MethodGet, webClientLoginPath, nil)
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)

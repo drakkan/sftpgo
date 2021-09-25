@@ -100,7 +100,7 @@ func TestCleanupPasscodes(t *testing.T) {
 	assert.Eventually(t, func() bool {
 		_, ok := usedPasscodes.Load("key")
 		return !ok
-	}, 300*time.Millisecond, 100*time.Millisecond)
+	}, 1000*time.Millisecond, 100*time.Millisecond)
 	stopCleanupTicker()
 }
 

@@ -18,7 +18,7 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - SQLite, MySQL, PostgreSQL, CockroachDB, Bolt (key/value store in pure Go) and in-memory data providers are supported.
 - Chroot isolation for local accounts. Cloud-based accounts can be restricted to a certain base path.
 - Per user and per directory virtual permissions, for each exposed path you can allow or deny: directory listing, upload, overwrite, download, delete, rename, create directories, create symlinks, change owner/group/file mode.
-- [REST API](./docs/rest-api.md) for users and folders management, backup, restore and real time reports of the active connections with possibility of forcibly closing a connection.
+- [REST API](./docs/rest-api.md) for users and folders management, data retention, backup, restore and real time reports of the active connections with possibility of forcibly closing a connection.
 - [Web based administration interface](./docs/web-admin.md) to easily manage users, folders and connections.
 - [Web client interface](./docs/web-client.md) so that end users can change their credentials and browse their files.
 - Public key and password authentication. Multiple public keys per user are supported.

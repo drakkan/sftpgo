@@ -535,13 +535,18 @@ func TestQuotaScans(t *testing.T) {
 	username := "username"
 	assert.True(t, QuotaScans.AddUserQuotaScan(username))
 	assert.False(t, QuotaScans.AddUserQuotaScan(username))
-	if assert.Len(t, QuotaScans.GetUsersQuotaScans(), 1) {
-		assert.Equal(t, QuotaScans.GetUsersQuotaScans()[0].Username, username)
+	usersScans := QuotaScans.GetUsersQuotaScans()
+	if assert.Len(t, usersScans, 1) {
+		assert.Equal(t, usersScans[0].Username, username)
+		assert.Equal(t, QuotaScans.UserScans[0].StartTime, usersScans[0].StartTime)
+		QuotaScans.UserScans[0].StartTime = 0
+		assert.NotEqual(t, QuotaScans.UserScans[0].StartTime, usersScans[0].StartTime)
 	}
 
 	assert.True(t, QuotaScans.RemoveUserQuotaScan(username))
 	assert.False(t, QuotaScans.RemoveUserQuotaScan(username))
 	assert.Len(t, QuotaScans.GetUsersQuotaScans(), 0)
+	assert.Len(t, usersScans, 1)
 
 	folderName := "folder"
 	assert.True(t, QuotaScans.AddVFolderQuotaScan(folderName))

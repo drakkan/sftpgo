@@ -11,6 +11,7 @@ tags:
   - name: folders
   - name: users
   - name: users API
+  - name: data retention
 info:
   title: SFTPGo
   description: |
@@ -741,6 +742,76 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /retention/users/checks:
+    get:
+      tags:
+        - data retention
+      summary: Get retention checks
+      description: Returns the active retention checks
+      operationId: get_users_retention_checks
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RetentionCheck'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /retention/users/{username}/check:
+    parameters:
+      - name: username
+        in: path
+        description: the username
+        required: true
+        schema:
+          type: string
+    post:
+      tags:
+        - data retention
+      summary: Start a retention check
+      description: 'Starts a new retention check for the given user. If a retention check for this user is already active a 409 status code is returned'
+      operationId: start_user_retention_check
+      requestBody:
+        required: true
+        description: 'Defines virtual paths to check and their retention time in hours'
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/FolderRetention'
+      responses:
+        '202':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: Check started
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalServerError'
         default:
@@ -3084,6 +3155,7 @@ components:
         - manage_system
         - manage_defender
         - view_defender
+        - retention_checks
       description: |
         Admin permissions:
           * `*` - all permissions are granted
@@ -3096,8 +3168,11 @@ components:
           * `view_status` - view the server status is allowed
           * `manage_admins` - manage other admins is allowed
           * `manage_apikeys` - manage API keys is allowed
+          * `quota_scans` - view and start quota scans is allowed
+          * `manage_system` - backups and restores are allowed
           * `manage_defender` - remove ip from the dynamic blocklist is allowed
           * `view_defender` - list the dynamic blocklist is allowed
+          * `retention_checks` - view and start retention checks is allowed
     LoginMethods:
       type: string
       enum:
@@ -3224,7 +3299,7 @@ components:
       properties:
         path:
           type: string
-          description: 'exposed virtual path, if no other specific filter is defined, the filter apply for sub directories too. For example if filters are defined for the paths "/" and "/sub" then the filters for "/" are applied for any file outside the "/sub" directory'
+          description: 'exposed virtual path, if no other specific filter is defined, the filter applies for sub directories too. For example if filters are defined for the paths "/" and "/sub" then the filters for "/" are applied for any file outside the "/sub" directory'
         allowed_patterns:
           type: array
           items:
@@ -3334,6 +3409,7 @@ components:
             - GCP
             - AWS
             - VaultTransit
+            - AzureKeyVault
             - Redacted
           description: 'Set to "Plain" to add or update an existing secret, set to "Redacted" to preserve the existing value'
         payload:
@@ -3546,7 +3622,7 @@ components:
           description: list of usernames associated with this virtual folder
         filesystem:
           $ref: '#/components/schemas/FilesystemConfig'
-      description: Defines the filesystem for the virtual folder and the used quota limits. The same folder can be shared among multiple users and each user can have different quota limits or a different virtual path.
+      description: 'Defines the filesystem for the virtual folder and the used quota limits. The same folder can be shared among multiple users and each user can have different quota limits or a different virtual path.'
     VirtualFolder:
       allOf:
         - $ref: '#/components/schemas/BaseVirtualFolder'
@@ -3861,12 +3937,43 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Transfer'
+    FolderRetention:
+      type: object
+      properties:
+        path:
+          type: string
+          description: 'exposed virtual directory path, if no other specific retention is defined, the retention applies for sub directories too. For example if retention is defined for the paths "/" and "/sub" then the retention for "/" is applied for any file outside the "/sub" directory'
+          example: '/'
+        retention:
+          type: integer
+          description: retention time in hours. All the files with a modification time older than the defined value will be deleted. 0 means exclude this path
+          example: 24
+        delete_empty_dirs:
+          type: boolean
+          description: if enabled, empty directories will be deleted
+        ignore_user_permissions:
+          type: boolean
+          description: 'if enabled, files will be deleted even if the user does not have the delete permission. The default is "false" which means that files will be skipped if the user does not have permission to delete them. File patterns filters will always be silently ignored'
+    RetentionCheck:
+      type: object
+      properties:
+        username:
+          type: string
+          description: username to which the retention check refers
+        folders:
+          type: array
+          items:
+            $ref: '#/components/schemas/FolderRetention'
+        start_time:
+          type: integer
+          format: int64
+          description: check start time as unix timestamp in milliseconds
     QuotaScan:
       type: object
       properties:
         username:
           type: string
-          description: username with an active scan
+          description: username to which the quota scan refers
         start_time:
           type: integer
           format: int64
@@ -3876,7 +3983,7 @@ components:
       properties:
         name:
           type: string
-          description: folder name with an active scan
+          description: folder name to which the quota scan refers
         start_time:
           type: integer
           format: int64

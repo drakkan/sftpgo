@@ -2325,6 +2325,225 @@ func TestGetQuotaError(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRetentionAPI(t *testing.T) {
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	uploadPath := path.Join(testDir, testFileName)
+
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = client.Mkdir(testDir)
+		assert.NoError(t, err)
+		err = writeSFTPFile(uploadPath, 32, client)
+		assert.NoError(t, err)
+
+		folderRetention := []common.FolderRetention{
+			{
+				Path:            "/",
+				Retention:       24,
+				DeleteEmptyDirs: true,
+			},
+		}
+		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
+		assert.NoError(t, err)
+
+		assert.Eventually(t, func() bool {
+			return len(common.RetentionChecks.Get()) == 0
+		}, 1000*time.Millisecond, 50*time.Millisecond)
+
+		_, err = client.Stat(uploadPath)
+		assert.NoError(t, err)
+
+		err = client.Chtimes(uploadPath, time.Now().Add(-48*time.Hour), time.Now().Add(-48*time.Hour))
+		assert.NoError(t, err)
+
+		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
+		assert.NoError(t, err)
+
+		assert.Eventually(t, func() bool {
+			return len(common.RetentionChecks.Get()) == 0
+		}, 1000*time.Millisecond, 50*time.Millisecond)
+
+		_, err = client.Stat(uploadPath)
+		assert.ErrorIs(t, err, os.ErrNotExist)
+
+		_, err = client.Stat(testDir)
+		assert.ErrorIs(t, err, os.ErrNotExist)
+
+		err = client.Mkdir(testDir)
+		assert.NoError(t, err)
+		err = writeSFTPFile(uploadPath, 32, client)
+		assert.NoError(t, err)
+
+		folderRetention[0].DeleteEmptyDirs = false
+		err = client.Chtimes(uploadPath, time.Now().Add(-48*time.Hour), time.Now().Add(-48*time.Hour))
+		assert.NoError(t, err)
+
+		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
+		assert.NoError(t, err)
+
+		assert.Eventually(t, func() bool {
+			return len(common.RetentionChecks.Get()) == 0
+		}, 1000*time.Millisecond, 50*time.Millisecond)
+
+		_, err = client.Stat(uploadPath)
+		assert.ErrorIs(t, err, os.ErrNotExist)
+
+		_, err = client.Stat(testDir)
+		assert.NoError(t, err)
+
+		err = writeSFTPFile(uploadPath, 32, client)
+		assert.NoError(t, err)
+		err = client.Chtimes(uploadPath, time.Now().Add(-48*time.Hour), time.Now().Add(-48*time.Hour))
+		assert.NoError(t, err)
+	}
+
+	// remove delete permissions to the user
+	user.Permissions["/"+testDir] = []string{dataprovider.PermListItems, dataprovider.PermUpload,
+		dataprovider.PermCreateDirs, dataprovider.PermChtimes}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	conn, client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		innerUploadFilePath := path.Join("/"+testDir, testDir, testFileName)
+		err = client.Mkdir(path.Join(testDir, testDir))
+		assert.NoError(t, err)
+
+		err = writeSFTPFile(innerUploadFilePath, 32, client)
+		assert.NoError(t, err)
+		err = client.Chtimes(innerUploadFilePath, time.Now().Add(-48*time.Hour), time.Now().Add(-48*time.Hour))
+		assert.NoError(t, err)
+
+		folderRetention := []common.FolderRetention{
+			{
+				Path:      "/missing",
+				Retention: 24,
+			},
+			{
+				Path:            "/" + testDir,
+				Retention:       24,
+				DeleteEmptyDirs: true,
+			},
+			{
+				Path:                  path.Dir(innerUploadFilePath),
+				Retention:             0,
+				IgnoreUserPermissions: true,
+			},
+		}
+		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
+		assert.NoError(t, err)
+
+		assert.Eventually(t, func() bool {
+			return len(common.RetentionChecks.Get()) == 0
+		}, 1000*time.Millisecond, 50*time.Millisecond)
+
+		_, err = client.Stat(uploadPath)
+		assert.NoError(t, err)
+		_, err = client.Stat(innerUploadFilePath)
+		assert.NoError(t, err)
+
+		folderRetention[1].IgnoreUserPermissions = true
+		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
+		assert.NoError(t, err)
+
+		assert.Eventually(t, func() bool {
+			return len(common.RetentionChecks.Get()) == 0
+		}, 1000*time.Millisecond, 50*time.Millisecond)
+
+		_, err = client.Stat(uploadPath)
+		assert.ErrorIs(t, err, os.ErrNotExist)
+		_, err = client.Stat(innerUploadFilePath)
+		assert.NoError(t, err)
+
+		folderRetention = []common.FolderRetention{
+
+			{
+				Path:                  "/" + testDir,
+				Retention:             24,
+				DeleteEmptyDirs:       true,
+				IgnoreUserPermissions: true,
+			},
+		}
+
+		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
+		assert.NoError(t, err)
+
+		assert.Eventually(t, func() bool {
+			return len(common.RetentionChecks.Get()) == 0
+		}, 1000*time.Millisecond, 50*time.Millisecond)
+
+		_, err = client.Stat(innerUploadFilePath)
+		assert.ErrorIs(t, err, os.ErrNotExist)
+	}
+	// finally test some errors removing files or folders
+	if runtime.GOOS != osWindows {
+		dirPath := filepath.Join(user.HomeDir, "adir", "sub")
+		err := os.MkdirAll(dirPath, os.ModePerm)
+		assert.NoError(t, err)
+		filePath := filepath.Join(dirPath, "f.dat")
+		err = os.WriteFile(filePath, nil, os.ModePerm)
+		assert.NoError(t, err)
+
+		err = os.Chtimes(filePath, time.Now().Add(-72*time.Hour), time.Now().Add(-72*time.Hour))
+		assert.NoError(t, err)
+
+		err = os.Chmod(dirPath, 0001)
+		assert.NoError(t, err)
+
+		folderRetention := []common.FolderRetention{
+
+			{
+				Path:                  "/adir",
+				Retention:             24,
+				DeleteEmptyDirs:       true,
+				IgnoreUserPermissions: true,
+			},
+		}
+
+		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
+		assert.NoError(t, err)
+
+		assert.Eventually(t, func() bool {
+			return len(common.RetentionChecks.Get()) == 0
+		}, 1000*time.Millisecond, 50*time.Millisecond)
+
+		err = os.Chmod(dirPath, 0555)
+		assert.NoError(t, err)
+
+		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
+		assert.NoError(t, err)
+
+		assert.Eventually(t, func() bool {
+			return len(common.RetentionChecks.Get()) == 0
+		}, 1000*time.Millisecond, 50*time.Millisecond)
+
+		err = os.Chmod(dirPath, os.ModePerm)
+		assert.NoError(t, err)
+
+		_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
+		assert.NoError(t, err)
+
+		assert.Eventually(t, func() bool {
+			return len(common.RetentionChecks.Get()) == 0
+		}, 1000*time.Millisecond, 50*time.Millisecond)
+
+		assert.NoDirExists(t, dirPath)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestRenameDir(t *testing.T) {
 	u := getTestUser()
 	testDir := "/dir-to-rename"

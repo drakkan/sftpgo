@@ -21,16 +21,7 @@ admin_user = "admin"
 admin_password = "password"
 
 
-# set your update conditions here
-def needQuotaUpdate(user):
-	if user["status"] == 0:  # inactive user
-		return False
-	if user["quota_size"] == 0 and user["quota_files"] == 0:  # no quota restrictions
-		return False
-	return True
-
-
-class UpdateQuota:
+class CheckRetention:
 
 	def __init__(self):
 		self.limit = 100
@@ -62,37 +53,45 @@ class UpdateQuota:
 		self.checkAccessToken()
 		return {"Authorization": "Bearer " + self.access_token}
 
-	def waitForQuotaUpdate(self, username):
+	def waitForRentionCheck(self, username):
 		while True:
 			auth_header = self.getAuthHeader()
-			r = requests.get(urlparse.urljoin(base_url, "api/v2/quotas/users/scans"), headers=auth_header, verify=verify_tls_cert,
+			r = requests.get(urlparse.urljoin(base_url, "api/v2/retention/users/checks"), headers=auth_header, verify=verify_tls_cert,
 							timeout=10)
 			if r.status_code != 200:
-				self.printLog("error getting quota scans while waiting for {}: {}".format(username, r.text))
+				self.printLog("error getting retention checks while waiting for {}: {}".format(username, r.text))
 				sys.exit(1)
 
-			scanning = False
-			for scan in r.json():
-				if scan["username"] == username:
-					scanning = True
-			if not scanning:
+			checking = False
+			for check in r.json():
+				if check["username"] == username:
+					checking = True
+			if not checking:
 				break
-			self.printLog("waiting for the quota scan to complete for user {}".format(username))
+			self.printLog("waiting for the retention check to complete for user {}".format(username))
 			time.sleep(2)
 
-		self.printLog("quota update for user {} finished".format(username))
+		self.printLog("retention check for user {} finished".format(username))
 
-	def updateUserQuota(self, username):
-		self.printLog("starting quota update for user {}".format(username))
+	def checkUserRetention(self, username):
+		self.printLog("starting retention check for user {}".format(username))
 		auth_header = self.getAuthHeader()
-		r = requests.post(urlparse.urljoin(base_url, "api/v2/quotas/users/" + username + "/scan"), headers=auth_header,
-						 verify=verify_tls_cert, timeout=10)
+		retention = [
+						{
+							"path": "/",
+							"retention": 168,
+							"delete_empty_dirs": True,
+							"ignore_user_permissions": False
+						}
+					]
+		r = requests.post(urlparse.urljoin(base_url, "api/v2/retention/users/" + username + "/check"), headers=auth_header,
+						 json=retention, verify=verify_tls_cert, timeout=10)
 		if r.status_code != 202:
-			self.printLog("error starting quota scan for user {}: {}".format(username, r.text))
+			self.printLog("error starting retention check for user {}: {}".format(username, r.text))
 			sys.exit(1)
-		self.waitForQuotaUpdate(username)
+		self.waitForRentionCheck(username)
 
-	def updateUsersQuota(self):
+	def checkUsersRetention(self):
 		while True:
 			self.printLog("get users, limit {} offset {}".format(self.limit, self.offset))
 			auth_header = self.getAuthHeader()
@@ -104,10 +103,7 @@ class UpdateQuota:
 				sys.exit(1)
 			users = r.json()
 			for user in users:
-				if needQuotaUpdate(user):
-					self.updateUserQuota(user["username"])
-				else:
-					self.printLog("user {} does not need a quota update".format(user["username"]))
+				self.checkUserRetention(user["username"])
 
 			self.offset += len(users)
 			if len(users) < self.limit:
@@ -115,5 +111,5 @@ class UpdateQuota:
 
 
 if __name__ == '__main__':
-	q = UpdateQuota()
-	q.updateUsersQuota()
+	c = CheckRetention()
+	c.checkUsersRetention()

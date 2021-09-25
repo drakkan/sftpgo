@@ -133,6 +133,10 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, error string)
 
 func (s *httpdServer) handleClientWebLogin(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
+	if !dataprovider.HasAdmin() {
+		http.Redirect(w, r, webAdminSetupPath, http.StatusFound)
+		return
+	}
 	s.renderClientLoginPage(w, "")
 }
 
@@ -970,6 +974,9 @@ func (s *httpdServer) initializeRouter() {
 		router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Put(adminPath+"/{username}", updateAdmin)
 		router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Delete(adminPath+"/{username}", deleteAdmin)
 		router.With(checkPerm(dataprovider.PermAdminManageAdmins)).Put(adminPath+"/{username}/2fa/disable", disableAdmin2FA)
+		router.With(checkPerm(dataprovider.PermAdminRetentionChecks)).Get(retentionChecksPath, getRetentionChecks)
+		router.With(checkPerm(dataprovider.PermAdminRetentionChecks)).Post(retentionBasePath+"/{username}/check",
+			startRetentionCheck)
 		router.With(forbidAPIKeyAuthentication, checkPerm(dataprovider.PermAdminManageAPIKeys)).
 			Get(apiKeysPath, getAPIKeys)
 		router.With(forbidAPIKeyAuthentication, checkPerm(dataprovider.PermAdminManageAPIKeys)).

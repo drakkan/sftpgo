@@ -75,6 +75,8 @@ const (
 	userTOTPSavePath                       = "/api/v2/user/totp/save"
 	user2FARecoveryCodesPath               = "/api/v2/user/2fa/recoverycodes"
 	userManageAPIKeyPath                   = "/api/v2/user/apikeyauth"
+	retentionBasePath                      = "/api/v2/retention/users"
+	retentionChecksPath                    = "/api/v2/retention/users/checks"
 	healthzPath                            = "/healthz"
 	webRootPathDefault                     = "/"
 	webBasePathDefault                     = "/web"

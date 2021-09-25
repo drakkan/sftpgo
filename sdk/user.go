@@ -62,7 +62,7 @@ func (d *DirectoryPermissions) HasPerm(perm string) bool {
 // and they are not aware about these restrictions so they are not allowed
 // inside paths with extensions filters
 type PatternsFilter struct {
-	// Virtual path, if no other specific filter is defined, the filter apply for
+	// Virtual path, if no other specific filter is defined, the filter applies for
 	// sub directories too.
 	// For example if filters are defined for the paths "/" and "/sub" then the
 	// filters for "/" are applied for any file outside the "/sub" directory

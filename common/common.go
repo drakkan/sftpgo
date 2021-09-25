@@ -887,8 +887,8 @@ type ActiveVirtualFolderQuotaScan struct {
 // ActiveScans holds the active quota scans
 type ActiveScans struct {
 	sync.RWMutex
-	UserHomeScans []ActiveQuotaScan
-	FolderScans   []ActiveVirtualFolderQuotaScan
+	UserScans   []ActiveQuotaScan
+	FolderScans []ActiveVirtualFolderQuotaScan
 }
 
 // GetUsersQuotaScans returns the active quota scans for users home directories
@@ -896,8 +896,8 @@ func (s *ActiveScans) GetUsersQuotaScans() []ActiveQuotaScan {
 	s.RLock()
 	defer s.RUnlock()
 
-	scans := make([]ActiveQuotaScan, len(s.UserHomeScans))
-	copy(scans, s.UserHomeScans)
+	scans := make([]ActiveQuotaScan, len(s.UserScans))
+	copy(scans, s.UserScans)
 	return scans
 }
 
@@ -907,12 +907,12 @@ func (s *ActiveScans) AddUserQuotaScan(username string) bool {
 	s.Lock()
 	defer s.Unlock()
 
-	for _, scan := range s.UserHomeScans {
+	for _, scan := range s.UserScans {
 		if scan.Username == username {
 			return false
 		}
 	}
-	s.UserHomeScans = append(s.UserHomeScans, ActiveQuotaScan{
+	s.UserScans = append(s.UserScans, ActiveQuotaScan{
 		Username:  username,
 		StartTime: util.GetTimeAsMsSinceEpoch(time.Now()),
 	})
@@ -925,18 +925,15 @@ func (s *ActiveScans) RemoveUserQuotaScan(username string) bool {
 	s.Lock()
 	defer s.Unlock()
 
-	indexToRemove := -1
-	for i, scan := range s.UserHomeScans {
+	for idx, scan := range s.UserScans {
 		if scan.Username == username {
-			indexToRemove = i
-			break
+			lastIdx := len(s.UserScans) - 1
+			s.UserScans[idx] = s.UserScans[lastIdx]
+			s.UserScans = s.UserScans[:lastIdx]
+			return true
 		}
 	}
-	if indexToRemove >= 0 {
-		s.UserHomeScans[indexToRemove] = s.UserHomeScans[len(s.UserHomeScans)-1]
-		s.UserHomeScans = s.UserHomeScans[:len(s.UserHomeScans)-1]
-		return true
-	}
+
 	return false
 }
 
@@ -973,17 +970,14 @@ func (s *ActiveScans) RemoveVFolderQuotaScan(folderName string) bool {
 	s.Lock()
 	defer s.Unlock()
 
-	indexToRemove := -1
-	for i, scan := range s.FolderScans {
+	for idx, scan := range s.FolderScans {
 		if scan.Name == folderName {
-			indexToRemove = i
-			break
+			lastIdx := len(s.FolderScans) - 1
+			s.FolderScans[idx] = s.FolderScans[lastIdx]
+			s.FolderScans = s.FolderScans[:lastIdx]
+			return true
 		}
 	}
-	if indexToRemove >= 0 {
-		s.FolderScans[indexToRemove] = s.FolderScans[len(s.FolderScans)-1]
-		s.FolderScans = s.FolderScans[:len(s.FolderScans)-1]
-		return true
-	}
+
 	return false
 }
