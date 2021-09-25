@@ -1084,6 +1084,7 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	user = dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Username:          r.Form.Get("username"),
+			Email:             r.Form.Get("email"),
 			Password:          r.Form.Get("password"),
 			PublicKeys:        r.Form["public_keys"],
 			HomeDir:           r.Form.Get("home_dir"),
@@ -1475,6 +1476,8 @@ func handleWebTemplateUserGet(w http.ResponseWriter, r *http.Request) {
 		user, err := dataprovider.UserExists(username)
 		if err == nil {
 			user.SetEmptySecrets()
+			user.Email = ""
+			user.Description = ""
 			renderUserPage(w, r, &user, userPageModeTemplate, "")
 		} else if _, ok := err.(*util.RecordNotFoundError); ok {
 			renderNotFoundPage(w, r, err)

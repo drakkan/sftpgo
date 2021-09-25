@@ -427,7 +427,9 @@ func TestInitialization(t *testing.T) {
 }
 
 func TestBasicUserHandling(t *testing.T) {
-	user, resp, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	u := getTestUser()
+	u.Email = "user@user.com"
+	user, resp, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
 	user.MaxSessions = 10
 	user.QuotaSize = 4096
@@ -437,6 +439,7 @@ func TestBasicUserHandling(t *testing.T) {
 	user.ExpirationDate = util.GetTimeAsMsSinceEpoch(time.Now())
 	user.AdditionalInfo = "some free text"
 	user.Filters.TLSUsername = sdk.TLSUsernameCN
+	user.Email = "user@example.net"
 	user.Filters.WebClient = append(user.Filters.WebClient, sdk.WebClientPubKeyChangeDisabled,
 		sdk.WebClientWriteDisabled)
 	originalUser := user
@@ -446,6 +449,12 @@ func TestBasicUserHandling(t *testing.T) {
 
 	user, _, err = httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
 	assert.NoError(t, err)
+
+	user.Email = "invalid@email"
+	_, body, err := httpdtest.UpdateUser(user, http.StatusBadRequest, "")
+	assert.NoError(t, err)
+	assert.Contains(t, string(body), "Validation error: email")
+
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
@@ -1217,6 +1226,14 @@ func TestAddUserNoPerms(t *testing.T) {
 	u.Permissions["/"] = []string{}
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
+}
+
+func TestAddUserInvalidEmail(t *testing.T) {
+	u := getTestUser()
+	u.Email = "invalid_email"
+	_, body, err := httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(body), "Validation error: email")
 }
 
 func TestAddUserInvalidPerms(t *testing.T) {
@@ -3338,7 +3355,7 @@ func TestSkipNaturalKeysValidation(t *testing.T) {
 	assert.NoError(t, err)
 
 	u := getTestUser()
-	u.Username = "user@example.com"
+	u.Username = "user@user.me"
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	user.AdditionalInfo = "info"
@@ -10856,6 +10873,7 @@ func TestWebUserAddMock(t *testing.T) {
 	user.UID = 1000
 	user.AdditionalInfo = "info"
 	user.Description = "user dsc"
+	user.Email = "test@test.com"
 	mappedDir := filepath.Join(os.TempDir(), "mapped")
 	folderName := filepath.Base(mappedDir)
 	f := vfs.BaseVirtualFolder{
@@ -10872,6 +10890,7 @@ func TestWebUserAddMock(t *testing.T) {
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
+	form.Set("email", user.Email)
 	form.Set("home_dir", user.HomeDir)
 	form.Set("password", user.Password)
 	form.Set("status", strconv.Itoa(user.Status))
@@ -11068,6 +11087,7 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.False(t, newUser.Filters.Hooks.CheckPasswordDisabled)
 	assert.True(t, newUser.Filters.DisableFsChecks)
 	assert.False(t, newUser.Filters.AllowAPIKeyAuth)
+	assert.Equal(t, user.Email, newUser.Email)
 	assert.True(t, util.IsStringInSlice(testPubKey, newUser.PublicKeys))
 	if val, ok := newUser.Permissions["/subdir"]; ok {
 		assert.True(t, util.IsStringInSlice(dataprovider.PermListItems, val))
@@ -11172,8 +11192,10 @@ func TestWebUserUpdateMock(t *testing.T) {
 	user.GID = 1000
 	user.Filters.AllowAPIKeyAuth = true
 	user.AdditionalInfo = "new additional info"
+	user.Email = "user@example.com"
 	form := make(url.Values)
 	form.Set("username", user.Username)
+	form.Set("email", user.Email)
 	form.Set("password", "")
 	form.Set("public_keys", testPubKey)
 	form.Set("home_dir", user.HomeDir)
@@ -11257,6 +11279,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	var updateUser dataprovider.User
 	err = render.DecodeJSON(rr.Body, &updateUser)
 	assert.NoError(t, err)
+	assert.Equal(t, user.Email, updateUser.Email)
 	assert.Equal(t, user.HomeDir, updateUser.HomeDir)
 	assert.Equal(t, user.MaxSessions, updateUser.MaxSessions)
 	assert.Equal(t, user.QuotaFiles, updateUser.QuotaFiles)

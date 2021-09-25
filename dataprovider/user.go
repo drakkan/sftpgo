@@ -1075,6 +1075,7 @@ func (u *User) getACopy() User {
 		BaseUser: sdk.BaseUser{
 			ID:                u.ID,
 			Username:          u.Username,
+			Email:             u.Email,
 			Password:          u.Password,
 			PublicKeys:        pubKeys,
 			HomeDir:           u.HomeDir,

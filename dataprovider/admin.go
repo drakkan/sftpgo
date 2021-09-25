@@ -104,7 +104,7 @@ type Admin struct {
 	// Username
 	Username       string       `json:"username"`
 	Password       string       `json:"password,omitempty"`
-	Email          string       `json:"email"`
+	Email          string       `json:"email,omitempty"`
 	Permissions    []string     `json:"permissions"`
 	Filters        AdminFilters `json:"filters,omitempty"`
 	Description    string       `json:"description,omitempty"`

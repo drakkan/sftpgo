@@ -1595,6 +1595,9 @@ func validateBaseParams(user *User) error {
 	if user.Username == "" {
 		return util.NewValidationError("username is mandatory")
 	}
+	if user.Email != "" && !emailRegex.MatchString(user.Email) {
+		return util.NewValidationError(fmt.Sprintf("email %#v is not valid", user.Email))
+	}
 	if !config.SkipNaturalKeysValidation && !usernameRegex.MatchString(user.Username) {
 		return util.NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
 			user.Username))

@@ -63,6 +63,9 @@ const (
 		"ALTER TABLE `{{admins}}` DROP COLUMN `last_login`;" +
 		"ALTER TABLE `{{users}}` DROP COLUMN `created_at`;" +
 		"ALTER TABLE `{{users}}` DROP COLUMN `updated_at`;"
+
+	mysqlV13SQL     = "ALTER TABLE `{{users}}` ADD COLUMN `email` varchar(255) NULL;"
+	mysqlV13DownSQL = "ALTER TABLE `{{users}}` DROP COLUMN `email`;"
 )
 
 // MySQLProvider auth provider for MySQL/MariaDB database
@@ -307,6 +310,8 @@ func (p *MySQLProvider) migrateDatabase() error {
 		return updateMySQLDatabaseFromV10(p.dbHandle)
 	case version == 11:
 		return updateMySQLDatabaseFromV11(p.dbHandle)
+	case version == 12:
+		return updateMySQLDatabaseFromV12(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -329,6 +334,8 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 13:
+		return downgradeMySQLDatabaseFromV13(p.dbHandle)
 	case 12:
 		return downgradeMySQLDatabaseFromV12(p.dbHandle)
 	case 11:
@@ -346,7 +353,21 @@ func updateMySQLDatabaseFromV10(dbHandle *sql.DB) error {
 }
 
 func updateMySQLDatabaseFromV11(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom11To12(dbHandle)
+	if err := updateMySQLDatabaseFrom11To12(dbHandle); err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV12(dbHandle)
+}
+
+func updateMySQLDatabaseFromV12(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom12To13(dbHandle)
+}
+
+func downgradeMySQLDatabaseFromV13(dbHandle *sql.DB) error {
+	if err := downgradeMySQLDatabaseFrom13To12(dbHandle); err != nil {
+		return err
+	}
+	return downgradeMySQLDatabaseFromV12(dbHandle)
 }
 
 func downgradeMySQLDatabaseFromV12(dbHandle *sql.DB) error {
@@ -358,6 +379,20 @@ func downgradeMySQLDatabaseFromV12(dbHandle *sql.DB) error {
 
 func downgradeMySQLDatabaseFromV11(dbHandle *sql.DB) error {
 	return downgradeMySQLDatabaseFrom11To10(dbHandle)
+}
+
+func updateMySQLDatabaseFrom12To13(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 12 -> 13")
+	providerLog(logger.LevelInfo, "updating database version: 12 -> 13")
+	sql := strings.ReplaceAll(mysqlV13SQL, "{{users}}", sqlTableUsers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 13)
+}
+
+func downgradeMySQLDatabaseFrom13To12(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 13 -> 12")
+	providerLog(logger.LevelInfo, "downgrading database version: 13 -> 12")
+	sql := strings.ReplaceAll(mysqlV13DownSQL, "{{users}}", sqlTableUsers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 12)
 }
 
 func updateMySQLDatabaseFrom11To12(dbHandle *sql.DB) error {

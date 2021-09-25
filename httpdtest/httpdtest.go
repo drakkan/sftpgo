@@ -1161,6 +1161,26 @@ func checkUser(expected *dataprovider.User, actual *dataprovider.User) error {
 			return fmt.Errorf("created_at mismatch %v != %v", expected.CreatedAt, actual.CreatedAt)
 		}
 	}
+
+	if expected.Email != actual.Email {
+		return errors.New("email mismatch")
+	}
+	if err := compareUserPermissions(expected, actual); err != nil {
+		return err
+	}
+	if err := compareUserFilters(expected, actual); err != nil {
+		return err
+	}
+	if err := compareFsConfig(&expected.FsConfig, &actual.FsConfig); err != nil {
+		return err
+	}
+	if err := compareUserVirtualFolders(expected, actual); err != nil {
+		return err
+	}
+	return compareEqualsUserFields(expected, actual)
+}
+
+func compareUserPermissions(expected *dataprovider.User, actual *dataprovider.User) error {
 	if len(expected.Permissions) != len(actual.Permissions) {
 		return errors.New("permissions mismatch")
 	}
@@ -1175,16 +1195,7 @@ func checkUser(expected *dataprovider.User, actual *dataprovider.User) error {
 			return errors.New("permissions directories mismatch")
 		}
 	}
-	if err := compareUserFilters(expected, actual); err != nil {
-		return err
-	}
-	if err := compareFsConfig(&expected.FsConfig, &actual.FsConfig); err != nil {
-		return err
-	}
-	if err := compareUserVirtualFolders(expected, actual); err != nil {
-		return err
-	}
-	return compareEqualsUserFields(expected, actual)
+	return nil
 }
 
 func compareUserVirtualFolders(expected *dataprovider.User, actual *dataprovider.User) error {

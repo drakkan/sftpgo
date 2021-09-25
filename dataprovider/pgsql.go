@@ -76,6 +76,8 @@ ALTER TABLE "{{admins}}" DROP COLUMN "created_at" CASCADE;
 ALTER TABLE "{{admins}}" DROP COLUMN "updated_at" CASCADE;
 ALTER TABLE "{{admins}}" DROP COLUMN "last_login" CASCADE;
 `
+	pgsqlV13SQL     = `ALTER TABLE "{{users}}" ADD COLUMN "email" varchar(255) NULL;`
+	pgsqlV13DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "email" CASCADE;`
 )
 
 // PGSQLProvider auth provider for PostgreSQL database
@@ -326,6 +328,8 @@ func (p *PGSQLProvider) migrateDatabase() error {
 		return updatePGSQLDatabaseFromV10(p.dbHandle)
 	case version == 11:
 		return updatePGSQLDatabaseFromV11(p.dbHandle)
+	case version == 12:
+		return updatePGSQLDatabaseFromV12(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -348,6 +352,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 13:
+		return downgradePGSQLDatabaseFromV13(p.dbHandle)
 	case 12:
 		return downgradePGSQLDatabaseFromV12(p.dbHandle)
 	case 11:
@@ -365,7 +371,21 @@ func updatePGSQLDatabaseFromV10(dbHandle *sql.DB) error {
 }
 
 func updatePGSQLDatabaseFromV11(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom11To12(dbHandle)
+	if err := updatePGSQLDatabaseFrom11To12(dbHandle); err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV12(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV12(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom12To13(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV13(dbHandle *sql.DB) error {
+	if err := downgradePGSQLDatabaseFrom13To12(dbHandle); err != nil {
+		return err
+	}
+	return downgradePGSQLDatabaseFromV12(dbHandle)
 }
 
 func downgradePGSQLDatabaseFromV12(dbHandle *sql.DB) error {
@@ -377,6 +397,20 @@ func downgradePGSQLDatabaseFromV12(dbHandle *sql.DB) error {
 
 func downgradePGSQLDatabaseFromV11(dbHandle *sql.DB) error {
 	return downgradePGSQLDatabaseFrom11To10(dbHandle)
+}
+
+func updatePGSQLDatabaseFrom12To13(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 12 -> 13")
+	providerLog(logger.LevelInfo, "updating database version: 12 -> 13")
+	sql := strings.ReplaceAll(pgsqlV13SQL, "{{users}}", sqlTableUsers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 13)
+}
+
+func downgradePGSQLDatabaseFrom13To12(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 13 -> 12")
+	providerLog(logger.LevelInfo, "downgrading database version: 13 -> 12")
+	sql := strings.ReplaceAll(pgsqlV13DownSQL, "{{users}}", sqlTableUsers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 12)
 }
 
 func updatePGSQLDatabaseFrom11To12(dbHandle *sql.DB) error {

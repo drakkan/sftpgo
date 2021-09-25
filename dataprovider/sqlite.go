@@ -67,6 +67,8 @@ ALTER TABLE "{{admins}}" DROP COLUMN "created_at";
 ALTER TABLE "{{admins}}" DROP COLUMN "updated_at";
 ALTER TABLE "{{admins}}" DROP COLUMN "last_login";
 `
+	sqliteV13SQL     = `ALTER TABLE "{{users}}" ADD COLUMN "email" varchar(255) NULL;`
+	sqliteV13DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "email";`
 )
 
 // SQLiteProvider auth provider for SQLite database
@@ -304,6 +306,8 @@ func (p *SQLiteProvider) migrateDatabase() error {
 		return updateSQLiteDatabaseFromV10(p.dbHandle)
 	case version == 11:
 		return updateSQLiteDatabaseFromV11(p.dbHandle)
+	case version == 12:
+		return updateSQLiteDatabaseFromV12(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -326,6 +330,8 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 13:
+		return downgradeSQLiteDatabaseFromV13(p.dbHandle)
 	case 12:
 		return downgradeSQLiteDatabaseFromV12(p.dbHandle)
 	case 11:
@@ -343,7 +349,21 @@ func updateSQLiteDatabaseFromV10(dbHandle *sql.DB) error {
 }
 
 func updateSQLiteDatabaseFromV11(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom11To12(dbHandle)
+	if err := updateSQLiteDatabaseFrom11To12(dbHandle); err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV12(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV12(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom12To13(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV13(dbHandle *sql.DB) error {
+	if err := downgradeSQLiteDatabaseFrom13To12(dbHandle); err != nil {
+		return err
+	}
+	return downgradeSQLiteDatabaseFromV12(dbHandle)
 }
 
 func downgradeSQLiteDatabaseFromV12(dbHandle *sql.DB) error {
@@ -355,6 +375,20 @@ func downgradeSQLiteDatabaseFromV12(dbHandle *sql.DB) error {
 
 func downgradeSQLiteDatabaseFromV11(dbHandle *sql.DB) error {
 	return downgradeSQLiteDatabaseFrom11To10(dbHandle)
+}
+
+func updateSQLiteDatabaseFrom12To13(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 12 -> 13")
+	providerLog(logger.LevelInfo, "updating database version: 12 -> 13")
+	sql := strings.ReplaceAll(sqliteV13SQL, "{{users}}", sqlTableUsers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 13)
+}
+
+func downgradeSQLiteDatabaseFrom13To12(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 13 -> 12")
+	providerLog(logger.LevelInfo, "downgrading database version: 13 -> 12")
+	sql := strings.ReplaceAll(sqliteV13DownSQL, "{{users}}", sqlTableUsers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 12)
 }
 
 func updateSQLiteDatabaseFrom11To12(dbHandle *sql.DB) error {

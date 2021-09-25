@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 12
+	boltDatabaseVersion = 13
 )
 
 var (
@@ -1155,9 +1155,11 @@ func (p *BoltProvider) migrateDatabase() error {
 		logger.ErrorToConsole("%v", err)
 		return err
 	case version == 10:
-		return updateBoltDatabaseVersion(p.dbHandle, 12)
+		return updateBoltDatabaseVersion(p.dbHandle, 13)
 	case version == 11:
-		return updateBoltDatabaseVersion(p.dbHandle, 12)
+		return updateBoltDatabaseVersion(p.dbHandle, 13)
+	case version == 12:
+		return updateBoltDatabaseVersion(p.dbHandle, 13)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -1179,6 +1181,8 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
+	case 13:
+		return updateBoltDatabaseVersion(p.dbHandle, 10)
 	case 12:
 		return updateBoltDatabaseVersion(p.dbHandle, 10)
 	case 11:
