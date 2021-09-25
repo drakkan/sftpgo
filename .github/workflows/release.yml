@@ -5,7 +5,7 @@ on:
     tags: 'v*'
 
 env:
-  GO_VERSION: 1.16.5
+  GO_VERSION: 1.17.1
 
 jobs:
   prepare-sources-with-deps:
@@ -206,6 +206,12 @@ jobs:
             deb-arch: ppc64el
             rpm-arch: ppc64le
             tar-arch: ppc64le
+          - arch: armv7
+            distro: ubuntu18.04
+            go-arch: arm
+            deb-arch: armhf
+            rpm-arch: arm
+            tar-arch: armv7
 
     steps:
       - uses: actions/checkout@v2
@@ -265,7 +271,12 @@ jobs:
           install: |
             apt-get update -q -y
             apt-get install -q -y curl gcc git xz-utils
-            curl --retry 5 --retry-delay 2 --connect-timeout 10 -o go.tar.gz -L https://golang.org/dl/go${{ steps.get_version.outputs.GO_VERSION }}.linux-${{ matrix.go-arch }}.tar.gz
+            GO_DOWNLOAD_ARCH=${{ matrix.go-arch }}
+            if [ ${{ matrix.arch}} == 'armv7' ]
+            then
+              GO_DOWNLOAD_ARCH=armv6l
+            fi
+            curl --retry 5 --retry-delay 2 --connect-timeout 10 -o go.tar.gz -L https://golang.org/dl/go${{ steps.get_version.outputs.GO_VERSION }}.linux-${GO_DOWNLOAD_ARCH}.tar.gz
             tar -C /usr/local -xzf go.tar.gz
           run: |
             export PATH=$PATH:/usr/local/go/bin
@@ -349,16 +360,23 @@ jobs:
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_ppc64le.tar.xz
 
+      - name: Download armv7 artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_armv7.tar.xz
+
       - name: Build bundle
         shell: bash
         run: |
-          mkdir -p bundle/{arm64,ppc64le}
+          mkdir -p bundle/{arm64,ppc64le,armv7}
           cd bundle
           tar xvf ../sftpgo_${SFTPGO_VERSION}_linux_x86_64.tar.xz
           cd arm64
           tar xvf ../../sftpgo_${SFTPGO_VERSION}_linux_arm64.tar.xz sftpgo
           cd ../ppc64le
           tar xvf ../../sftpgo_${SFTPGO_VERSION}_linux_ppc64le.tar.xz sftpgo
+          cd ../armv7
+          tar xvf ../../sftpgo_${SFTPGO_VERSION}_linux_armv7.tar.xz sftpgo
           cd ..
           tar cJvf sftpgo_${SFTPGO_VERSION}_linux_bundle.tar.xz *
           cd ..
@@ -403,6 +421,11 @@ jobs:
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_ppc64le.tar.xz
 
+      - name: Download armv7 artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_armv7.tar.xz
+
       - name: Download Linux bundle artifact
         uses: actions/download-artifact@v2
         with:
@@ -423,6 +446,11 @@ jobs:
         with:
           name: sftpgo_${{ steps.get_version.outputs.PKG_VERSION }}-1_ppc64el.deb
 
+      - name: Download Deb armv7 artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo_${{ steps.get_version.outputs.PKG_VERSION }}-1_armhf.deb
+
       - name: Download RPM x86_64 artifact
         uses: actions/download-artifact@v2
         with:
@@ -437,6 +465,11 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: sftpgo-${{ steps.get_version.outputs.PKG_VERSION }}-1.ppc64le.rpm
+
+      - name: Download RPM armv7 artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: sftpgo-${{ steps.get_version.outputs.PKG_VERSION }}-1.arm.rpm
 
       - name: Download macOS x86_64 artifact
         uses: actions/download-artifact@v2

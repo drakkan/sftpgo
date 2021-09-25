@@ -228,6 +228,10 @@ jobs:
             distro: ubuntu18.04
             go: latest
             go-arch: ppc64le
+          - arch: armv7
+            distro: ubuntu18.04
+            go: latest
+            go-arch: arm
     steps:
       - uses: actions/checkout@v2
         with:
@@ -274,10 +278,19 @@ jobs:
             else
               GO_VERSION=${{ matrix.go }}
             fi
-            curl --retry 5 --retry-delay 2 --connect-timeout 10 -o go.tar.gz -L https://golang.org/dl/${GO_VERSION}.linux-${{ matrix.go-arch }}.tar.gz
+            GO_DOWNLOAD_ARCH=${{ matrix.go-arch }}
+            if [ ${{ matrix.arch}} == 'armv7' ]
+            then
+              GO_DOWNLOAD_ARCH=armv6l
+            fi
+            curl --retry 5 --retry-delay 2 --connect-timeout 10 -o go.tar.gz -L https://golang.org/dl/${GO_VERSION}.linux-${GO_DOWNLOAD_ARCH}.tar.gz
             tar -C /usr/local -xzf go.tar.gz
           run: |
             export PATH=$PATH:/usr/local/go/bin
+            if [ ${{ matrix.arch}} == 'armv7' ]
+            then
+              export GOARM=7
+            fi
             go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo
             mkdir -p output/{init,bash_completion,zsh_completion}
             cp sftpgo.json output/
