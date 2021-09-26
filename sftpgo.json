@@ -254,5 +254,15 @@
       }
     ]
   },
+  "smtp": {
+    "host": "",
+    "port": 25,
+    "from": "",
+    "user": "",
+    "password": "",
+    "auth_type": 0,
+    "encryption": 0,
+    "domain": ""
+  },
   "plugins": []
 }

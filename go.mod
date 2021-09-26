@@ -29,7 +29,7 @@ require (
 	github.com/klauspost/compress v1.13.6
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
-	github.com/lestrrat-go/jwx v1.2.6
+	github.com/lestrrat-go/jwx v1.2.7
 	github.com/lib/pq v1.10.3
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-isatty v0.0.14 // indirect
@@ -43,7 +43,7 @@ require (
 	github.com/pkg/sftp v1.13.3
 	github.com/pquerna/otp v1.3.0
 	github.com/prometheus/client_golang v1.11.0
-	github.com/prometheus/common v0.30.0 // indirect
+	github.com/prometheus/common v0.31.0 // indirect
 	github.com/rs/cors v1.8.0
 	github.com/rs/xid v1.3.0
 	github.com/rs/zerolog v1.25.0
@@ -55,6 +55,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/studio-b12/gowebdav v0.0.0-20210917133250-a3a86976a1df
 	github.com/wagslane/go-password-validator v0.3.0
+	github.com/xhit/go-simple-mail/v2 v2.10.0
 	github.com/yl2chen/cidranger v1.0.2
 	go.etcd.io/bbolt v1.3.6
 	go.uber.org/automaxprocs v1.4.0

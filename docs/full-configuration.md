@@ -9,11 +9,14 @@ Usage:
   sftpgo [command]
 
 Available Commands:
-  gen          A collection of useful generators
-  help         Help about any command
-  initprovider Initializes and/or updates the configured data provider
-  portable     Serve a single directory
-  serve        Start the SFTP Server
+  gen            A collection of useful generators
+  help           Help about any command
+  initprovider   Initializes and/or updates the configured data provider
+  portable       Serve a single directory
+  revertprovider Revert the configured data provider to a previous version
+  serve          Start the SFTPGo service
+  smtptest       Test the SMTP configuration
+  startsubsys    Use SFTPGo as SFTP file transfer subsystem
 
 Flags:
   -h, --help      help for sftpgo
@@ -257,6 +260,15 @@ The configuration file contains the following sections:
     - `name`, string. Unique configuration name. This name should not be changed if there are users or admins using the configuration. The name is not exposed to the authentication apps. Default: `Default`.
     - `issuer`, string. Name of the issuing Organization/Company. Default: `SFTPGo`.
     - `algo`, string. Algorithm to use for HMAC. The supported algorithms are: `sha1`, `sha256`, `sha512`. Currently Google Authenticator app on iPhone seems to only support `sha1`, please check the compatibility with your target apps/device before setting a different algorithm. You can also define multiple configurations, for example one that uses `sha256` or `sha512` and another one that uses `sha1` and instruct your users to use the appropriate configuration for their devices/apps. The algorithm should not be changed if there are users or admins using the configuration. Default: `sha1`.
+- **smtp**, SMTP configuration enables SFTPGo email sending capabilities
+  - `host`, string. Location of SMTP email server. Leavy empty to disable email sending capabilities. Default: empty.
+  - `port`, integer. Port of SMTP email server.
+  - `from`, string. From address, for example `SFTPGo <sftpgo@example.com>`. Default: empty
+  - `user`, string. SMTP username. Default: empty
+  - `password`, string. SMTP password. Leaving both username and password empty the SMTP authentication will be disabled. Default: empty
+  - `auth_type`, integer. 0 means `Plain`, 1 means `Login`, 2 means `CRAM-MD5`. Default: `0`.
+  - `encryption`, integer. 0 means no encryption, 1 means `TLS`, 2 means `STARTTLS`. Default: `0`.
+  - `domain`, string. Domain to use for `HELO` command, if empty `localhost` will be used. Default: empty.
 - **plugins**, list of external plugins. Each plugin is configured using a struct with the following fields:
   - `type`, string. Defines the plugin type. Supported types: `notifier`, `kms`, `auth`.
   - `notifier_options`, struct. Defines the options for notifier plugins.

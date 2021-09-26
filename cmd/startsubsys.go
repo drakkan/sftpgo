@@ -86,6 +86,12 @@ Command-line flags should be specified in the Subsystem declaration.
 				logger.Error(logSender, connectionID, "unable to initialize plugin system: %v", err)
 				os.Exit(1)
 			}
+			smtpConfig := config.GetSMTPConfig()
+			err = smtpConfig.Initialize()
+			if err != nil {
+				logger.Error(logSender, connectionID, "unable to initialize SMTP configuration: %v", err)
+				os.Exit(1)
+			}
 			dataProviderConf := config.GetProviderConf()
 			if dataProviderConf.Driver == dataprovider.SQLiteDataProviderName || dataProviderConf.Driver == dataprovider.BoltDataProviderName {
 				logger.Debug(logSender, connectionID, "data provider %#v not supported in subsystem mode, using %#v provider",

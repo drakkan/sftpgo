@@ -20,6 +20,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sftpd"
+	"github.com/drakkan/sftpgo/v2/smtp"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -42,6 +43,7 @@ func TestLoadConfigTest(t *testing.T) {
 	assert.NotEqual(t, dataprovider.Config{}, config.GetProviderConf())
 	assert.NotEqual(t, sftpd.Configuration{}, config.GetSFTPDConfig())
 	assert.NotEqual(t, httpclient.Config{}, config.GetHTTPConfig())
+	assert.NotEqual(t, smtp.Config{}, config.GetSMTPConfig())
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
 	err = config.LoadConfig(configDir, confName)
@@ -338,6 +340,24 @@ func TestSSHCommandsFromEnv(t *testing.T) {
 		assert.Equal(t, "cd", sftpdConf.EnabledSSHCommands[0])
 		assert.Equal(t, "scp", sftpdConf.EnabledSSHCommands[1])
 	}
+}
+
+func TestSMTPFromEnv(t *testing.T) {
+	reset()
+
+	os.Setenv("SFTPGO_SMTP__HOST", "smtp.example.com")
+	os.Setenv("SFTPGO_SMTP__PORT", "587")
+	t.Cleanup(func() {
+		os.Unsetenv("SFTPGO_SMTP__HOST")
+		os.Unsetenv("SFTPGO_SMTP__PORT")
+	})
+
+	configDir := ".."
+	err := config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	smtpConfig := config.GetSMTPConfig()
+	assert.Equal(t, "smtp.example.com", smtpConfig.Host)
+	assert.Equal(t, 587, smtpConfig.Port)
 }
 
 func TestMFAFromEnv(t *testing.T) {

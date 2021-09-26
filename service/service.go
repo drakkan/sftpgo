@@ -110,6 +110,13 @@ func (s *Service) Start() error {
 		logger.ErrorToConsole("unable to initialize plugin system: %v", err)
 		os.Exit(1)
 	}
+	smtpConfig := config.GetSMTPConfig()
+	err = smtpConfig.Initialize()
+	if err != nil {
+		logger.Error(logSender, "", "unable to initialize SMTP configuration: %v", err)
+		logger.ErrorToConsole("unable to initialize SMTP configuration: %v", err)
+		os.Exit(1)
+	}
 
 	providerConf := config.GetProviderConf()
 

@@ -21,6 +21,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin"
 	"github.com/drakkan/sftpgo/v2/sftpd"
+	"github.com/drakkan/sftpgo/v2/smtp"
 	"github.com/drakkan/sftpgo/v2/telemetry"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
@@ -107,6 +108,7 @@ type globalConfig struct {
 	MFAConfig       mfa.Config            `json:"mfa" mapstructure:"mfa"`
 	TelemetryConfig telemetry.Conf        `json:"telemetry" mapstructure:"telemetry"`
 	PluginsConfig   []plugin.Config       `json:"plugins" mapstructure:"plugins"`
+	SMTPConfig      smtp.Config           `json:"smtp" mapstructure:"smtp"`
 }
 
 func init() {
@@ -305,6 +307,16 @@ func Init() {
 			TLSCipherSuites:    nil,
 		},
 		PluginsConfig: nil,
+		SMTPConfig: smtp.Config{
+			Host:       "",
+			Port:       25,
+			From:       "",
+			User:       "",
+			Password:   "",
+			AuthType:   0,
+			Encryption: 0,
+			Domain:     "",
+		},
 	}
 
 	viper.SetEnvPrefix(configEnvPrefix)
@@ -411,6 +423,11 @@ func GetMFAConfig() mfa.Config {
 	return globalConf.MFAConfig
 }
 
+// GetSMTPConfig returns the SMTP configuration
+func GetSMTPConfig() smtp.Config {
+	return globalConf.SMTPConfig
+}
+
 // HasServicesToStart returns true if the config defines at least a service to start.
 // Supported services are SFTP, FTP and WebDAV
 func HasServicesToStart() bool {
@@ -426,19 +443,24 @@ func HasServicesToStart() bool {
 	return false
 }
 
+func getRedactedPassword() string {
+	return "[redacted]"
+}
+
 func getRedactedGlobalConf() globalConfig {
 	conf := globalConf
 	conf.Common.Actions.Hook = util.GetRedactedURL(conf.Common.Actions.Hook)
 	conf.Common.StartupHook = util.GetRedactedURL(conf.Common.StartupHook)
 	conf.Common.PostConnectHook = util.GetRedactedURL(conf.Common.PostConnectHook)
 	conf.SFTPD.KeyboardInteractiveHook = util.GetRedactedURL(conf.SFTPD.KeyboardInteractiveHook)
-	conf.HTTPDConfig.SigningPassphrase = "[redacted]"
-	conf.ProviderConf.Password = "[redacted]"
+	conf.HTTPDConfig.SigningPassphrase = getRedactedPassword()
+	conf.ProviderConf.Password = getRedactedPassword()
 	conf.ProviderConf.Actions.Hook = util.GetRedactedURL(conf.ProviderConf.Actions.Hook)
 	conf.ProviderConf.ExternalAuthHook = util.GetRedactedURL(conf.ProviderConf.ExternalAuthHook)
 	conf.ProviderConf.PreLoginHook = util.GetRedactedURL(conf.ProviderConf.PreLoginHook)
 	conf.ProviderConf.PostLoginHook = util.GetRedactedURL(conf.ProviderConf.PostLoginHook)
 	conf.ProviderConf.CheckPasswordHook = util.GetRedactedURL(conf.ProviderConf.CheckPasswordHook)
+	conf.SMTPConfig.Password = getRedactedPassword()
 	return conf
 }
 
@@ -1146,6 +1168,14 @@ func setViperDefaults() {
 	viper.SetDefault("telemetry.certificate_file", globalConf.TelemetryConfig.CertificateFile)
 	viper.SetDefault("telemetry.certificate_key_file", globalConf.TelemetryConfig.CertificateKeyFile)
 	viper.SetDefault("telemetry.tls_cipher_suites", globalConf.TelemetryConfig.TLSCipherSuites)
+	viper.SetDefault("smtp.host", globalConf.SMTPConfig.Host)
+	viper.SetDefault("smtp.port", globalConf.SMTPConfig.Port)
+	viper.SetDefault("smtp.from", globalConf.SMTPConfig.From)
+	viper.SetDefault("smtp.user", globalConf.SMTPConfig.User)
+	viper.SetDefault("smtp.password", globalConf.SMTPConfig.Password)
+	viper.SetDefault("smtp.auth_type", globalConf.SMTPConfig.AuthType)
+	viper.SetDefault("smtp.encryption", globalConf.SMTPConfig.Encryption)
+	viper.SetDefault("smtp.domain", globalConf.SMTPConfig.Domain)
 }
 
 func lookupBoolFromEnv(envName string) (bool, bool) {
