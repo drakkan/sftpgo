@@ -40,7 +40,7 @@ require (
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/otiai10/copy v1.6.0
 	github.com/pires/go-proxyproto v0.6.1
-	github.com/pkg/sftp v1.13.3
+	github.com/pkg/sftp v1.13.4
 	github.com/pquerna/otp v1.3.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.31.0 // indirect
@@ -62,7 +62,7 @@ require (
 	gocloud.dev v0.24.0
 	golang.org/x/crypto v0.0.0-20210915214749-c084706c2272
 	golang.org/x/net v0.0.0-20210924151903-3ad01bbaa167
-	golang.org/x/sys v0.0.0-20210925032602-92d5a993a665
+	golang.org/x/sys v0.0.0-20210927052749-1cf2251ac284
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	google.golang.org/api v0.57.0
 	google.golang.org/genproto v0.0.0-20210924002016-3dee208752a0 // indirect
