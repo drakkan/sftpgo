@@ -45,7 +45,7 @@ jobs:
           go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/version.date=$DATE_TIME" -o sftpgo.exe
 
       - name: Run test cases using SQLite provider
-        run: go test -v -p 1 -timeout 10m ./... -coverprofile=coverage.txt -covermode=atomic
+        run: go test -v -p 1 -timeout 15m ./... -coverprofile=coverage.txt -covermode=atomic
 
       - name: Upload coverage to Codecov
         if: ${{ matrix.upload-coverage }}
@@ -69,7 +69,7 @@ jobs:
           SFTPGO_DATA_PROVIDER__NAME: 'sftpgo_bolt.db'
 
       - name: Run test cases using memory provider
-        run: go test -v -p 1 -timeout 10m ./... -covermode=atomic
+        run: go test -v -p 1 -timeout 15m ./... -covermode=atomic
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: memory
           SFTPGO_DATA_PROVIDER__NAME: ''
@@ -108,7 +108,7 @@ jobs:
           path: output
 
   test-goarch-386:
-    name: Run test cases on 32 bit arch
+    name: Run test cases on 32-bit arch
     runs-on: ubuntu-latest
 
     steps:
@@ -125,7 +125,7 @@ jobs:
           GOARCH: 386
 
       - name: Run test cases
-        run: go test -v -p 1 -timeout 10m ./... -covermode=atomic
+        run: go test -v -p 1 -timeout 15m ./... -covermode=atomic
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: memory
           SFTPGO_DATA_PROVIDER__NAME: ''
@@ -177,7 +177,7 @@ jobs:
 
       - name: Run tests using PostgreSQL provider
         run: |
-          go test -v -p 1 -timeout 10m ./... -covermode=atomic
+          go test -v -p 1 -timeout 15m ./... -covermode=atomic
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: postgresql
           SFTPGO_DATA_PROVIDER__NAME: sftpgo
@@ -188,7 +188,7 @@ jobs:
 
       - name: Run tests using MySQL provider
         run: |
-          go test -v -p 1 -timeout 10m ./... -covermode=atomic
+          go test -v -p 1 -timeout 15m ./... -covermode=atomic
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: mysql
           SFTPGO_DATA_PROVIDER__NAME: sftpgo
@@ -201,7 +201,7 @@ jobs:
         run: |
           docker run --rm --name crdb --health-cmd "curl -I http://127.0.0.1:8080" --health-interval 10s --health-timeout 5s --health-retries 6 -p 26257:26257 -d cockroachdb/cockroach:latest start-single-node --insecure --listen-addr 0.0.0.0:26257
           docker exec crdb cockroach sql --insecure -e 'create database "sftpgo"'
-          go test -v -p 1 -timeout 10m ./... -covermode=atomic
+          go test -v -p 1 -timeout 15m ./... -covermode=atomic
           docker stop crdb
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: cockroachdb

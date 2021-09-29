@@ -30,12 +30,15 @@ const (
 	templateClientLogin             = "login.html"
 	templateClientFiles             = "files.html"
 	templateClientMessage           = "message.html"
-	templateClientCredentials       = "credentials.html"
+	templateClientProfile           = "profile.html"
+	templateClientChangePwd         = "changepassword.html"
 	templateClientTwoFactor         = "twofactor.html"
 	templateClientTwoFactorRecovery = "twofactor-recovery.html"
 	templateClientMFA               = "mfa.html"
 	pageClientFilesTitle            = "My Files"
-	pageClientCredentialsTitle      = "Credentials"
+	pageClientProfileTitle          = "My Profile"
+	pageClientChangePwdTitle        = "Change password"
+	pageClient2FATitle              = "Two-factor auth"
 )
 
 // condResult is the result of an HTTP request precondition check.
@@ -59,19 +62,20 @@ func isZeroTime(t time.Time) bool {
 }
 
 type baseClientPage struct {
-	Title            string
-	CurrentURL       string
-	FilesURL         string
-	CredentialsURL   string
-	StaticURL        string
-	LogoutURL        string
-	MFAURL           string
-	MFATitle         string
-	FilesTitle       string
-	CredentialsTitle string
-	Version          string
-	CSRFToken        string
-	LoggedUser       *dataprovider.User
+	Title        string
+	CurrentURL   string
+	FilesURL     string
+	ProfileURL   string
+	ChangePwdURL string
+	StaticURL    string
+	LogoutURL    string
+	MFAURL       string
+	MFATitle     string
+	FilesTitle   string
+	ProfileTitle string
+	Version      string
+	CSRFToken    string
+	LoggedUser   *dataprovider.User
 }
 
 type dirMapping struct {
@@ -99,16 +103,19 @@ type clientMessagePage struct {
 	Success string
 }
 
-type clientCredentialsPage struct {
+type clientProfilePage struct {
 	baseClientPage
 	PublicKeys      []string
+	CanSubmit       bool
 	AllowAPIKeyAuth bool
-	ChangePwdURL    string
-	ManageKeysURL   string
-	ManageAPIKeyURL string
-	PwdError        string
-	KeyError        string
-	APIKeyError     string
+	Email           string
+	Description     string
+	Error           string
+}
+
+type changeClientPasswordPage struct {
+	baseClientPage
+	Error string
 }
 
 type clientMFAPage struct {
@@ -138,9 +145,13 @@ func loadClientTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateClientDir, templateClientBase),
 		filepath.Join(templatesPath, templateClientDir, templateClientFiles),
 	}
-	credentialsPaths := []string{
+	profilePaths := []string{
 		filepath.Join(templatesPath, templateClientDir, templateClientBase),
-		filepath.Join(templatesPath, templateClientDir, templateClientCredentials),
+		filepath.Join(templatesPath, templateClientDir, templateClientProfile),
+	}
+	changePwdPaths := []string{
+		filepath.Join(templatesPath, templateClientDir, templateClientBase),
+		filepath.Join(templatesPath, templateClientDir, templateClientChangePwd),
 	}
 	loginPath := []string{
 		filepath.Join(templatesPath, templateClientDir, templateClientBaseLogin),
@@ -164,7 +175,8 @@ func loadClientTemplates(templatesPath string) {
 	}
 
 	filesTmpl := util.LoadTemplate(nil, filesPaths...)
-	credentialsTmpl := util.LoadTemplate(nil, credentialsPaths...)
+	profileTmpl := util.LoadTemplate(nil, profilePaths...)
+	changePwdTmpl := util.LoadTemplate(nil, changePwdPaths...)
 	loginTmpl := util.LoadTemplate(nil, loginPath...)
 	messageTmpl := util.LoadTemplate(nil, messagePath...)
 	mfaTmpl := util.LoadTemplate(nil, mfaPath...)
@@ -172,7 +184,8 @@ func loadClientTemplates(templatesPath string) {
 	twoFactorRecoveryTmpl := util.LoadTemplate(nil, twoFactorRecoveryPath...)
 
 	clientTemplates[templateClientFiles] = filesTmpl
-	clientTemplates[templateClientCredentials] = credentialsTmpl
+	clientTemplates[templateClientProfile] = profileTmpl
+	clientTemplates[templateClientChangePwd] = changePwdTmpl
 	clientTemplates[templateClientLogin] = loginTmpl
 	clientTemplates[templateClientMessage] = messageTmpl
 	clientTemplates[templateClientMFA] = mfaTmpl
@@ -188,19 +201,20 @@ func getBaseClientPageData(title, currentURL string, r *http.Request) baseClient
 	v := version.Get()
 
 	return baseClientPage{
-		Title:            title,
-		CurrentURL:       currentURL,
-		FilesURL:         webClientFilesPath,
-		CredentialsURL:   webClientCredentialsPath,
-		StaticURL:        webStaticFilesPath,
-		LogoutURL:        webClientLogoutPath,
-		MFAURL:           webClientMFAPath,
-		MFATitle:         "Two-factor auth",
-		FilesTitle:       pageClientFilesTitle,
-		CredentialsTitle: pageClientCredentialsTitle,
-		Version:          fmt.Sprintf("%v-%v", v.Version, v.CommitHash),
-		CSRFToken:        csrfToken,
-		LoggedUser:       getUserFromToken(r),
+		Title:        title,
+		CurrentURL:   currentURL,
+		FilesURL:     webClientFilesPath,
+		ProfileURL:   webClientProfilePath,
+		ChangePwdURL: webChangeClientPwdPath,
+		StaticURL:    webStaticFilesPath,
+		LogoutURL:    webClientLogoutPath,
+		MFAURL:       webClientMFAPath,
+		MFATitle:     pageClient2FATitle,
+		FilesTitle:   pageClientFilesTitle,
+		ProfileTitle: pageClientProfileTitle,
+		Version:      fmt.Sprintf("%v-%v", v.Version, v.CommitHash),
+		CSRFToken:    csrfToken,
+		LoggedUser:   getUserFromToken(r),
 	}
 }
 
@@ -320,15 +334,10 @@ func renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error stri
 	renderClientTemplate(w, templateClientFiles, data)
 }
 
-func renderClientCredentialsPage(w http.ResponseWriter, r *http.Request, pwdError, keyError, apiKeyError string) {
-	data := clientCredentialsPage{
-		baseClientPage:  getBaseClientPageData(pageClientCredentialsTitle, webClientCredentialsPath, r),
-		ChangePwdURL:    webChangeClientPwdPath,
-		ManageKeysURL:   webChangeClientKeysPath,
-		ManageAPIKeyURL: webChangeClientAPIKeyAccessPath,
-		PwdError:        pwdError,
-		KeyError:        keyError,
-		APIKeyError:     apiKeyError,
+func renderClientProfilePage(w http.ResponseWriter, r *http.Request, error string) {
+	data := clientProfilePage{
+		baseClientPage: getBaseClientPageData(pageClientProfileTitle, webClientProfilePath, r),
+		Error:          error,
 	}
 	user, err := dataprovider.UserExists(data.LoggedUser.Username)
 	if err != nil {
@@ -337,7 +346,19 @@ func renderClientCredentialsPage(w http.ResponseWriter, r *http.Request, pwdErro
 	}
 	data.PublicKeys = user.PublicKeys
 	data.AllowAPIKeyAuth = user.Filters.AllowAPIKeyAuth
-	renderClientTemplate(w, templateClientCredentials, data)
+	data.Email = user.Email
+	data.Description = user.Description
+	data.CanSubmit = user.CanChangeAPIKeyAuth() || user.CanManagePublicKeys() || user.CanChangeInfo()
+	renderClientTemplate(w, templateClientProfile, data)
+}
+
+func renderClientChangePasswordPage(w http.ResponseWriter, r *http.Request, error string) {
+	data := changeClientPasswordPage{
+		baseClientPage: getBaseClientPageData(pageClientChangePwdTitle, webChangeClientPwdPath, r),
+		Error:          error,
+	}
+
+	renderClientTemplate(w, templateClientChangePwd, data)
 }
 
 func handleWebClientLogout(w http.ResponseWriter, r *http.Request) {
@@ -513,16 +534,21 @@ func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleClientGetCredentials(w http.ResponseWriter, r *http.Request) {
+func handleClientGetProfile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	renderClientCredentialsPage(w, r, "", "", "")
+	renderClientProfilePage(w, r, "")
+}
+
+func handleWebClientChangePwd(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	renderClientChangePasswordPage(w, r, "")
 }
 
 func handleWebClientChangePwdPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	err := r.ParseForm()
 	if err != nil {
-		renderClientCredentialsPage(w, r, err.Error(), "", "")
+		renderClientChangePasswordPage(w, r, err.Error())
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
@@ -532,17 +558,17 @@ func handleWebClientChangePwdPost(w http.ResponseWriter, r *http.Request) {
 	err = doChangeUserPassword(r, r.Form.Get("current_password"), r.Form.Get("new_password1"),
 		r.Form.Get("new_password2"))
 	if err != nil {
-		renderClientCredentialsPage(w, r, err.Error(), "", "")
+		renderClientChangePasswordPage(w, r, err.Error())
 		return
 	}
 	handleWebClientLogout(w, r)
 }
 
-func handleWebClientManageKeysPost(w http.ResponseWriter, r *http.Request) {
+func handleWebClientProfilePost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	err := r.ParseForm()
 	if err != nil {
-		renderClientCredentialsPage(w, r, "", err.Error(), "")
+		renderClientProfilePage(w, r, err.Error())
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
@@ -551,53 +577,35 @@ func handleWebClientManageKeysPost(w http.ResponseWriter, r *http.Request) {
 	}
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderClientCredentialsPage(w, r, "", "Invalid token claims", "")
+		renderClientProfilePage(w, r, "Invalid token claims")
 		return
 	}
 	user, err := dataprovider.UserExists(claims.Username)
 	if err != nil {
-		renderClientCredentialsPage(w, r, "", err.Error(), "")
+		renderClientProfilePage(w, r, err.Error())
 		return
 	}
-	user.PublicKeys = r.Form["public_keys"]
+	if !user.CanManagePublicKeys() && !user.CanChangeAPIKeyAuth() && !user.CanChangeInfo() {
+		renderClientForbiddenPage(w, r, "You are not allowed to change anything")
+		return
+	}
+	if user.CanManagePublicKeys() {
+		user.PublicKeys = r.Form["public_keys"]
+	}
+	if user.CanChangeAPIKeyAuth() {
+		user.Filters.AllowAPIKeyAuth = len(r.Form.Get("allow_api_key_auth")) > 0
+	}
+	if user.CanChangeInfo() {
+		user.Email = r.Form.Get("email")
+		user.Description = r.Form.Get("description")
+	}
 	err = dataprovider.UpdateUser(&user)
 	if err != nil {
-		renderClientCredentialsPage(w, r, "", err.Error(), "")
+		renderClientProfilePage(w, r, err.Error())
 		return
 	}
-	renderClientMessagePage(w, r, "Public keys updated", "", http.StatusOK, nil,
-		"Your public keys has been successfully updated")
-}
-
-func handleWebClientManageAPIKeyPost(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	err := r.ParseForm()
-	if err != nil {
-		renderClientCredentialsPage(w, r, "", "", err.Error())
-		return
-	}
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderClientForbiddenPage(w, r, err.Error())
-		return
-	}
-	claims, err := getTokenClaims(r)
-	if err != nil || claims.Username == "" {
-		renderClientCredentialsPage(w, r, "", "", "Invalid token claims")
-		return
-	}
-	user, err := dataprovider.UserExists(claims.Username)
-	if err != nil {
-		renderClientCredentialsPage(w, r, "", "", err.Error())
-		return
-	}
-	user.Filters.AllowAPIKeyAuth = len(r.Form.Get("allow_api_key_auth")) > 0
-	err = dataprovider.UpdateUser(&user)
-	if err != nil {
-		renderClientCredentialsPage(w, r, "", "", err.Error())
-		return
-	}
-	renderClientMessagePage(w, r, "API key authentication updated", "", http.StatusOK, nil,
-		"Your API key access permission has been successfully updated")
+	renderClientMessagePage(w, r, "Profile updated", "", http.StatusOK, nil,
+		"Your profile has been successfully updated")
 }
 
 func handleWebClientMFA(w http.ResponseWriter, r *http.Request) {

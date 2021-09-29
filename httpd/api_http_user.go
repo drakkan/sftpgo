@@ -349,7 +349,7 @@ func setUserPublicKeys(w http.ResponseWriter, r *http.Request) {
 	sendAPIResponse(w, r, err, "Public keys updated", http.StatusOK)
 }
 
-func getUserAPIKeyAuthStatus(w http.ResponseWriter, r *http.Request) {
+func getUserProfile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
@@ -361,20 +361,25 @@ func getUserAPIKeyAuthStatus(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	resp := apiKeyAuth{
-		AllowAPIKeyAuth: user.Filters.AllowAPIKeyAuth,
+	resp := userProfile{
+		baseProfile: baseProfile{
+			Email:           user.Email,
+			Description:     user.Description,
+			AllowAPIKeyAuth: user.Filters.AllowAPIKeyAuth,
+		},
+		PublicKeys: user.PublicKeys,
 	}
 	render.JSON(w, r, resp)
 }
 
-func changeUserAPIKeyAuthStatus(w http.ResponseWriter, r *http.Request) {
+func updateUserProfile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
 	}
-	var req apiKeyAuth
+	var req userProfile
 	err = render.DecodeJSON(r.Body, &req)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
@@ -385,12 +390,25 @@ func changeUserAPIKeyAuthStatus(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	user.Filters.AllowAPIKeyAuth = req.AllowAPIKeyAuth
+	if !user.CanManagePublicKeys() && !user.CanChangeAPIKeyAuth() && !user.CanChangeInfo() {
+		sendAPIResponse(w, r, nil, "You are not allowed to change anything", http.StatusForbidden)
+		return
+	}
+	if user.CanManagePublicKeys() {
+		user.PublicKeys = req.PublicKeys
+	}
+	if user.CanChangeAPIKeyAuth() {
+		user.Filters.AllowAPIKeyAuth = req.AllowAPIKeyAuth
+	}
+	if user.CanChangeInfo() {
+		user.Email = req.Email
+		user.Description = req.Description
+	}
 	if err := dataprovider.UpdateUser(&user); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	sendAPIResponse(w, r, err, "API key authentication status updated", http.StatusOK)
+	sendAPIResponse(w, r, err, "Profile updated", http.StatusOK)
 }
 
 func changeUserPassword(w http.ResponseWriter, r *http.Request) {

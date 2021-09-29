@@ -736,6 +736,11 @@ func (u *User) CanChangeAPIKeyAuth() bool {
 	return !util.IsStringInSlice(sdk.WebClientAPIKeyAuthChangeDisabled, u.Filters.WebClient)
 }
 
+// CanChangeInfo returns true if this user is allowed to change its info such as email and description
+func (u *User) CanChangeInfo() bool {
+	return !util.IsStringInSlice(sdk.WebClientInfoChangeDisabled, u.Filters.WebClient)
+}
+
 // CanManagePublicKeys returns true if this user is allowed to manage public keys
 // from the web client. Used in web client UI
 func (u *User) CanManagePublicKeys() bool {

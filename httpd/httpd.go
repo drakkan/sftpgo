@@ -31,104 +31,101 @@ import (
 )
 
 const (
-	logSender                              = "httpd"
-	tokenPath                              = "/api/v2/token"
-	logoutPath                             = "/api/v2/logout"
-	userTokenPath                          = "/api/v2/user/token"
-	userLogoutPath                         = "/api/v2/user/logout"
-	activeConnectionsPath                  = "/api/v2/connections"
-	quotasBasePath                         = "/api/v2/quotas"
-	quotaScanPath                          = "/api/v2/quota-scans"
-	quotaScanVFolderPath                   = "/api/v2/folder-quota-scans"
-	userPath                               = "/api/v2/users"
-	versionPath                            = "/api/v2/version"
-	folderPath                             = "/api/v2/folders"
-	serverStatusPath                       = "/api/v2/status"
-	dumpDataPath                           = "/api/v2/dumpdata"
-	loadDataPath                           = "/api/v2/loaddata"
-	updateUsedQuotaPath                    = "/api/v2/quota-update"
-	updateFolderUsedQuotaPath              = "/api/v2/folder-quota-update"
-	defenderHosts                          = "/api/v2/defender/hosts"
-	defenderBanTime                        = "/api/v2/defender/bantime"
-	defenderUnban                          = "/api/v2/defender/unban"
-	defenderScore                          = "/api/v2/defender/score"
-	adminPath                              = "/api/v2/admins"
-	adminPwdPath                           = "/api/v2/admin/changepwd"
-	adminPwdCompatPath                     = "/api/v2/changepwd/admin"
-	adminManageAPIKeyPath                  = "/api/v2/admin/apikeyauth"
-	userPwdPath                            = "/api/v2/user/changepwd"
-	userPublicKeysPath                     = "/api/v2/user/publickeys"
-	userFolderPath                         = "/api/v2/user/folder"
-	userDirsPath                           = "/api/v2/user/dirs"
-	userFilePath                           = "/api/v2/user/file"
-	userFilesPath                          = "/api/v2/user/files"
-	userStreamZipPath                      = "/api/v2/user/streamzip"
-	apiKeysPath                            = "/api/v2/apikeys"
-	adminTOTPConfigsPath                   = "/api/v2/admin/totp/configs"
-	adminTOTPGeneratePath                  = "/api/v2/admin/totp/generate"
-	adminTOTPValidatePath                  = "/api/v2/admin/totp/validate"
-	adminTOTPSavePath                      = "/api/v2/admin/totp/save"
-	admin2FARecoveryCodesPath              = "/api/v2/admin/2fa/recoverycodes"
-	userTOTPConfigsPath                    = "/api/v2/user/totp/configs"
-	userTOTPGeneratePath                   = "/api/v2/user/totp/generate"
-	userTOTPValidatePath                   = "/api/v2/user/totp/validate"
-	userTOTPSavePath                       = "/api/v2/user/totp/save"
-	user2FARecoveryCodesPath               = "/api/v2/user/2fa/recoverycodes"
-	userManageAPIKeyPath                   = "/api/v2/user/apikeyauth"
-	retentionBasePath                      = "/api/v2/retention/users"
-	retentionChecksPath                    = "/api/v2/retention/users/checks"
-	healthzPath                            = "/healthz"
-	webRootPathDefault                     = "/"
-	webBasePathDefault                     = "/web"
-	webBasePathAdminDefault                = "/web/admin"
-	webBasePathClientDefault               = "/web/client"
-	webAdminSetupPathDefault               = "/web/admin/setup"
-	webLoginPathDefault                    = "/web/admin/login"
-	webAdminTwoFactorPathDefault           = "/web/admin/twofactor"
-	webAdminTwoFactorRecoveryPathDefault   = "/web/admin/twofactor-recovery"
-	webLogoutPathDefault                   = "/web/admin/logout"
-	webUsersPathDefault                    = "/web/admin/users"
-	webUserPathDefault                     = "/web/admin/user"
-	webConnectionsPathDefault              = "/web/admin/connections"
-	webFoldersPathDefault                  = "/web/admin/folders"
-	webFolderPathDefault                   = "/web/admin/folder"
-	webStatusPathDefault                   = "/web/admin/status"
-	webAdminsPathDefault                   = "/web/admin/managers"
-	webAdminPathDefault                    = "/web/admin/manager"
-	webMaintenancePathDefault              = "/web/admin/maintenance"
-	webBackupPathDefault                   = "/web/admin/backup"
-	webRestorePathDefault                  = "/web/admin/restore"
-	webScanVFolderPathDefault              = "/web/admin/quotas/scanfolder"
-	webQuotaScanPathDefault                = "/web/admin/quotas/scanuser"
-	webChangeAdminPwdPathDefault           = "/web/admin/changepwd"
-	webAdminCredentialsPathDefault         = "/web/admin/credentials"
-	webAdminMFAPathDefault                 = "/web/admin/mfa"
-	webAdminTOTPGeneratePathDefault        = "/web/admin/totp/generate"
-	webAdminTOTPValidatePathDefault        = "/web/admin/totp/validate"
-	webAdminTOTPSavePathDefault            = "/web/admin/totp/save"
-	webAdminRecoveryCodesPathDefault       = "/web/admin/recoverycodes"
-	webChangeAdminAPIKeyAccessPathDefault  = "/web/admin/apikeyaccess"
-	webTemplateUserDefault                 = "/web/admin/template/user"
-	webTemplateFolderDefault               = "/web/admin/template/folder"
-	webDefenderPathDefault                 = "/web/admin/defender"
-	webDefenderHostsPathDefault            = "/web/admin/defender/hosts"
-	webClientLoginPathDefault              = "/web/client/login"
-	webClientTwoFactorPathDefault          = "/web/client/twofactor"
-	webClientTwoFactorRecoveryPathDefault  = "/web/client/twofactor-recovery"
-	webClientFilesPathDefault              = "/web/client/files"
-	webClientDirsPathDefault               = "/web/client/dirs"
-	webClientDownloadZipPathDefault        = "/web/client/downloadzip"
-	webClientCredentialsPathDefault        = "/web/client/credentials"
-	webClientMFAPathDefault                = "/web/client/mfa"
-	webClientTOTPGeneratePathDefault       = "/web/client/totp/generate"
-	webClientTOTPValidatePathDefault       = "/web/client/totp/validate"
-	webClientTOTPSavePathDefault           = "/web/client/totp/save"
-	webClientRecoveryCodesPathDefault      = "/web/client/recoverycodes"
-	webChangeClientPwdPathDefault          = "/web/client/changepwd"
-	webChangeClientKeysPathDefault         = "/web/client/managekeys"
-	webChangeClientAPIKeyAccessPathDefault = "/web/client/apikeyaccess"
-	webClientLogoutPathDefault             = "/web/client/logout"
-	webStaticFilesPathDefault              = "/static"
+	logSender                             = "httpd"
+	tokenPath                             = "/api/v2/token"
+	logoutPath                            = "/api/v2/logout"
+	userTokenPath                         = "/api/v2/user/token"
+	userLogoutPath                        = "/api/v2/user/logout"
+	activeConnectionsPath                 = "/api/v2/connections"
+	quotasBasePath                        = "/api/v2/quotas"
+	quotaScanPath                         = "/api/v2/quota-scans"
+	quotaScanVFolderPath                  = "/api/v2/folder-quota-scans"
+	userPath                              = "/api/v2/users"
+	versionPath                           = "/api/v2/version"
+	folderPath                            = "/api/v2/folders"
+	serverStatusPath                      = "/api/v2/status"
+	dumpDataPath                          = "/api/v2/dumpdata"
+	loadDataPath                          = "/api/v2/loaddata"
+	updateUsedQuotaPath                   = "/api/v2/quota-update"
+	updateFolderUsedQuotaPath             = "/api/v2/folder-quota-update"
+	defenderHosts                         = "/api/v2/defender/hosts"
+	defenderBanTime                       = "/api/v2/defender/bantime"
+	defenderUnban                         = "/api/v2/defender/unban"
+	defenderScore                         = "/api/v2/defender/score"
+	adminPath                             = "/api/v2/admins"
+	adminPwdPath                          = "/api/v2/admin/changepwd"
+	adminPwdCompatPath                    = "/api/v2/changepwd/admin"
+	adminProfilePath                      = "/api/v2/admin/profile"
+	userPwdPath                           = "/api/v2/user/changepwd"
+	userPublicKeysPath                    = "/api/v2/user/publickeys"
+	userFolderPath                        = "/api/v2/user/folder"
+	userDirsPath                          = "/api/v2/user/dirs"
+	userFilePath                          = "/api/v2/user/file"
+	userFilesPath                         = "/api/v2/user/files"
+	userStreamZipPath                     = "/api/v2/user/streamzip"
+	apiKeysPath                           = "/api/v2/apikeys"
+	adminTOTPConfigsPath                  = "/api/v2/admin/totp/configs"
+	adminTOTPGeneratePath                 = "/api/v2/admin/totp/generate"
+	adminTOTPValidatePath                 = "/api/v2/admin/totp/validate"
+	adminTOTPSavePath                     = "/api/v2/admin/totp/save"
+	admin2FARecoveryCodesPath             = "/api/v2/admin/2fa/recoverycodes"
+	userTOTPConfigsPath                   = "/api/v2/user/totp/configs"
+	userTOTPGeneratePath                  = "/api/v2/user/totp/generate"
+	userTOTPValidatePath                  = "/api/v2/user/totp/validate"
+	userTOTPSavePath                      = "/api/v2/user/totp/save"
+	user2FARecoveryCodesPath              = "/api/v2/user/2fa/recoverycodes"
+	userProfilePath                       = "/api/v2/user/profile"
+	retentionBasePath                     = "/api/v2/retention/users"
+	retentionChecksPath                   = "/api/v2/retention/users/checks"
+	healthzPath                           = "/healthz"
+	webRootPathDefault                    = "/"
+	webBasePathDefault                    = "/web"
+	webBasePathAdminDefault               = "/web/admin"
+	webBasePathClientDefault              = "/web/client"
+	webAdminSetupPathDefault              = "/web/admin/setup"
+	webLoginPathDefault                   = "/web/admin/login"
+	webAdminTwoFactorPathDefault          = "/web/admin/twofactor"
+	webAdminTwoFactorRecoveryPathDefault  = "/web/admin/twofactor-recovery"
+	webLogoutPathDefault                  = "/web/admin/logout"
+	webUsersPathDefault                   = "/web/admin/users"
+	webUserPathDefault                    = "/web/admin/user"
+	webConnectionsPathDefault             = "/web/admin/connections"
+	webFoldersPathDefault                 = "/web/admin/folders"
+	webFolderPathDefault                  = "/web/admin/folder"
+	webStatusPathDefault                  = "/web/admin/status"
+	webAdminsPathDefault                  = "/web/admin/managers"
+	webAdminPathDefault                   = "/web/admin/manager"
+	webMaintenancePathDefault             = "/web/admin/maintenance"
+	webBackupPathDefault                  = "/web/admin/backup"
+	webRestorePathDefault                 = "/web/admin/restore"
+	webScanVFolderPathDefault             = "/web/admin/quotas/scanfolder"
+	webQuotaScanPathDefault               = "/web/admin/quotas/scanuser"
+	webChangeAdminPwdPathDefault          = "/web/admin/changepwd"
+	webAdminProfilePathDefault            = "/web/admin/profile"
+	webAdminMFAPathDefault                = "/web/admin/mfa"
+	webAdminTOTPGeneratePathDefault       = "/web/admin/totp/generate"
+	webAdminTOTPValidatePathDefault       = "/web/admin/totp/validate"
+	webAdminTOTPSavePathDefault           = "/web/admin/totp/save"
+	webAdminRecoveryCodesPathDefault      = "/web/admin/recoverycodes"
+	webTemplateUserDefault                = "/web/admin/template/user"
+	webTemplateFolderDefault              = "/web/admin/template/folder"
+	webDefenderPathDefault                = "/web/admin/defender"
+	webDefenderHostsPathDefault           = "/web/admin/defender/hosts"
+	webClientLoginPathDefault             = "/web/client/login"
+	webClientTwoFactorPathDefault         = "/web/client/twofactor"
+	webClientTwoFactorRecoveryPathDefault = "/web/client/twofactor-recovery"
+	webClientFilesPathDefault             = "/web/client/files"
+	webClientDirsPathDefault              = "/web/client/dirs"
+	webClientDownloadZipPathDefault       = "/web/client/downloadzip"
+	webClientProfilePathDefault           = "/web/client/profile"
+	webClientMFAPathDefault               = "/web/client/mfa"
+	webClientTOTPGeneratePathDefault      = "/web/client/totp/generate"
+	webClientTOTPValidatePathDefault      = "/web/client/totp/validate"
+	webClientTOTPSavePathDefault          = "/web/client/totp/save"
+	webClientRecoveryCodesPathDefault     = "/web/client/recoverycodes"
+	webChangeClientPwdPathDefault         = "/web/client/changepwd"
+	webClientLogoutPathDefault            = "/web/client/logout"
+	webStaticFilesPathDefault             = "/static"
 	// MaxRestoreSize defines the max size for the loaddata input file
 	MaxRestoreSize   = 10485760 // 10 MB
 	maxRequestSize   = 1048576  // 1MB
@@ -139,63 +136,60 @@ const (
 )
 
 var (
-	backupsPath                     string
-	certMgr                         *common.CertManager
-	cleanupTicker                   *time.Ticker
-	cleanupDone                     chan bool
-	invalidatedJWTTokens            sync.Map
-	csrfTokenAuth                   *jwtauth.JWTAuth
-	webRootPath                     string
-	webBasePath                     string
-	webBaseAdminPath                string
-	webBaseClientPath               string
-	webAdminSetupPath               string
-	webLoginPath                    string
-	webAdminTwoFactorPath           string
-	webAdminTwoFactorRecoveryPath   string
-	webLogoutPath                   string
-	webUsersPath                    string
-	webUserPath                     string
-	webConnectionsPath              string
-	webFoldersPath                  string
-	webFolderPath                   string
-	webStatusPath                   string
-	webAdminsPath                   string
-	webAdminPath                    string
-	webMaintenancePath              string
-	webBackupPath                   string
-	webRestorePath                  string
-	webScanVFolderPath              string
-	webQuotaScanPath                string
-	webAdminCredentialsPath         string
-	webAdminMFAPath                 string
-	webAdminTOTPGeneratePath        string
-	webAdminTOTPValidatePath        string
-	webAdminTOTPSavePath            string
-	webAdminRecoveryCodesPath       string
-	webChangeAdminAPIKeyAccessPath  string
-	webChangeAdminPwdPath           string
-	webTemplateUser                 string
-	webTemplateFolder               string
-	webDefenderPath                 string
-	webDefenderHostsPath            string
-	webClientLoginPath              string
-	webClientTwoFactorPath          string
-	webClientTwoFactorRecoveryPath  string
-	webClientFilesPath              string
-	webClientDirsPath               string
-	webClientDownloadZipPath        string
-	webClientCredentialsPath        string
-	webChangeClientPwdPath          string
-	webChangeClientKeysPath         string
-	webClientMFAPath                string
-	webClientTOTPGeneratePath       string
-	webClientTOTPValidatePath       string
-	webClientTOTPSavePath           string
-	webClientRecoveryCodesPath      string
-	webChangeClientAPIKeyAccessPath string
-	webClientLogoutPath             string
-	webStaticFilesPath              string
+	backupsPath                    string
+	certMgr                        *common.CertManager
+	cleanupTicker                  *time.Ticker
+	cleanupDone                    chan bool
+	invalidatedJWTTokens           sync.Map
+	csrfTokenAuth                  *jwtauth.JWTAuth
+	webRootPath                    string
+	webBasePath                    string
+	webBaseAdminPath               string
+	webBaseClientPath              string
+	webAdminSetupPath              string
+	webLoginPath                   string
+	webAdminTwoFactorPath          string
+	webAdminTwoFactorRecoveryPath  string
+	webLogoutPath                  string
+	webUsersPath                   string
+	webUserPath                    string
+	webConnectionsPath             string
+	webFoldersPath                 string
+	webFolderPath                  string
+	webStatusPath                  string
+	webAdminsPath                  string
+	webAdminPath                   string
+	webMaintenancePath             string
+	webBackupPath                  string
+	webRestorePath                 string
+	webScanVFolderPath             string
+	webQuotaScanPath               string
+	webAdminProfilePath            string
+	webAdminMFAPath                string
+	webAdminTOTPGeneratePath       string
+	webAdminTOTPValidatePath       string
+	webAdminTOTPSavePath           string
+	webAdminRecoveryCodesPath      string
+	webChangeAdminPwdPath          string
+	webTemplateUser                string
+	webTemplateFolder              string
+	webDefenderPath                string
+	webDefenderHostsPath           string
+	webClientLoginPath             string
+	webClientTwoFactorPath         string
+	webClientTwoFactorRecoveryPath string
+	webClientFilesPath             string
+	webClientDirsPath              string
+	webClientDownloadZipPath       string
+	webClientProfilePath           string
+	webChangeClientPwdPath         string
+	webClientMFAPath               string
+	webClientTOTPGeneratePath      string
+	webClientTOTPValidatePath      string
+	webClientTOTPSavePath          string
+	webClientRecoveryCodesPath     string
+	webClientLogoutPath            string
+	webStaticFilesPath             string
 	// max upload size for http clients, 1GB by default
 	maxUploadFileSize = int64(1048576000)
 )
@@ -530,10 +524,8 @@ func updateWebClientURLs(baseURL string) {
 	webClientFilesPath = path.Join(baseURL, webClientFilesPathDefault)
 	webClientDirsPath = path.Join(baseURL, webClientDirsPathDefault)
 	webClientDownloadZipPath = path.Join(baseURL, webClientDownloadZipPathDefault)
-	webClientCredentialsPath = path.Join(baseURL, webClientCredentialsPathDefault)
+	webClientProfilePath = path.Join(baseURL, webClientProfilePathDefault)
 	webChangeClientPwdPath = path.Join(baseURL, webChangeClientPwdPathDefault)
-	webChangeClientKeysPath = path.Join(baseURL, webChangeClientKeysPathDefault)
-	webChangeClientAPIKeyAccessPath = path.Join(baseURL, webChangeClientAPIKeyAccessPathDefault)
 	webClientLogoutPath = path.Join(baseURL, webClientLogoutPathDefault)
 	webClientMFAPath = path.Join(baseURL, webClientMFAPathDefault)
 	webClientTOTPGeneratePath = path.Join(baseURL, webClientTOTPGeneratePathDefault)
@@ -568,13 +560,12 @@ func updateWebAdminURLs(baseURL string) {
 	webScanVFolderPath = path.Join(baseURL, webScanVFolderPathDefault)
 	webQuotaScanPath = path.Join(baseURL, webQuotaScanPathDefault)
 	webChangeAdminPwdPath = path.Join(baseURL, webChangeAdminPwdPathDefault)
-	webAdminCredentialsPath = path.Join(baseURL, webAdminCredentialsPathDefault)
+	webAdminProfilePath = path.Join(baseURL, webAdminProfilePathDefault)
 	webAdminMFAPath = path.Join(baseURL, webAdminMFAPathDefault)
 	webAdminTOTPGeneratePath = path.Join(baseURL, webAdminTOTPGeneratePathDefault)
 	webAdminTOTPValidatePath = path.Join(baseURL, webAdminTOTPValidatePathDefault)
 	webAdminTOTPSavePath = path.Join(baseURL, webAdminTOTPSavePathDefault)
 	webAdminRecoveryCodesPath = path.Join(baseURL, webAdminRecoveryCodesPathDefault)
-	webChangeAdminAPIKeyAccessPath = path.Join(baseURL, webChangeAdminAPIKeyAccessPathDefault)
 	webTemplateUser = path.Join(baseURL, webTemplateUserDefault)
 	webTemplateFolder = path.Join(baseURL, webTemplateFolderDefault)
 	webDefenderHostsPath = path.Join(baseURL, webDefenderHostsPathDefault)

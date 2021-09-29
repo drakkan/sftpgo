@@ -252,9 +252,9 @@ The configuration file contains the following sections:
     - `url`, string, optional. If not empty, the header will be added only if the request URL starts with the one specified here
 - **kms**, configuration for the Key Management Service, more details can be found [here](./kms.md)
   - `secrets`
-    - `url`, string. Defines the URI to the KMS service. Default empty.
-    - `master_key`, string. Defines the master encryption key as string. If not empty, it takes precedence over `master_key_path`. Default empty.
-    - `master_key_path, string. Defines the absolute path to a file containing the master encryption key. Default empty.
+    - `url`, string. Defines the URI to the KMS service. Default: empty.
+    - `master_key`, string. Defines the master encryption key as string. If not empty, it takes precedence over `master_key_path`. Default: empty.
+    - `master_key_path, string. Defines the absolute path to a file containing the master encryption key. Default: empty.
 - **mfa**, multi-factor authentication settings
   - `totp`, list of struct that define settings for time-based one time passwords (RFC 6238). Each struct has the following fields:
     - `name`, string. Unique configuration name. This name should not be changed if there are users or admins using the configuration. The name is not exposed to the authentication apps. Default: `Default`.

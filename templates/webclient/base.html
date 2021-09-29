@@ -79,10 +79,10 @@
                 </a>
             </li>
 
-            <li class="nav-item {{if eq .CurrentURL .CredentialsURL}}active{{end}}">
-                <a class="nav-link" href="{{.CredentialsURL}}">
-                    <i class="fas fa-key"></i>
-                    <span>{{.CredentialsTitle}}</span></a>
+            <li class="nav-item {{if eq .CurrentURL .ProfileURL}}active{{end}}">
+                <a class="nav-link" href="{{.ProfileURL}}">
+                    <i class="fas fa-user"></i>
+                    <span>{{.ProfileTitle}}</span></a>
             </li>
             {{if .LoggedUser.CanManageMFA}}
             <li class="nav-item {{if eq .CurrentURL .MFAURL}}active{{end}}">
@@ -129,6 +129,13 @@
                             </a>
                             <!-- Dropdown - User Information -->
                             <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in" aria-labelledby="userDropdown">
+                                {{if .LoggedUser.CanChangePassword}}
+                                <a class="dropdown-item" href="{{.ChangePwdURL}}">
+                                    <i class="fas fa-key fa-sm fa-fw mr-2 text-gray-400"></i>
+                                    Change password
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                {{end}}
                                 <a class="dropdown-item" href="#" data-toggle="modal" data-target="#logoutModal">
                                     <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
                                     Logout

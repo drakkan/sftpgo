@@ -92,13 +92,13 @@ const (
 	adminTOTPValidatePath           = "/api/v2/admin/totp/validate"
 	adminTOTPSavePath               = "/api/v2/admin/totp/save"
 	admin2FARecoveryCodesPath       = "/api/v2/admin/2fa/recoverycodes"
-	adminManageAPIKeyPath           = "/api/v2/admin/apikeyauth"
+	adminProfilePath                = "/api/v2/admin/profile"
 	userTOTPConfigsPath             = "/api/v2/user/totp/configs"
 	userTOTPGeneratePath            = "/api/v2/user/totp/generate"
 	userTOTPValidatePath            = "/api/v2/user/totp/validate"
 	userTOTPSavePath                = "/api/v2/user/totp/save"
 	user2FARecoveryCodesPath        = "/api/v2/user/2fa/recoverycodes"
-	userManageAPIKeyPath            = "/api/v2/user/apikeyauth"
+	userProfilePath                 = "/api/v2/user/profile"
 	retentionBasePath               = "/api/v2/retention/users"
 	healthzPath                     = "/healthz"
 	webBasePath                     = "/web"
@@ -117,11 +117,10 @@ const (
 	webMaintenancePath              = "/web/admin/maintenance"
 	webRestorePath                  = "/web/admin/restore"
 	webChangeAdminPwdPath           = "/web/admin/changepwd"
-	webAdminCredentialsPath         = "/web/admin/credentials"
+	webAdminProfilePath             = "/web/admin/profile"
 	webTemplateUser                 = "/web/admin/template/user"
 	webTemplateFolder               = "/web/admin/template/folder"
 	webDefenderPath                 = "/web/admin/defender"
-	webChangeAdminAPIKeyAccessPath  = "/web/admin/apikeyaccess"
 	webAdminTwoFactorPath           = "/web/admin/twofactor"
 	webAdminTwoFactorRecoveryPath   = "/web/admin/twofactor-recovery"
 	webAdminMFAPath                 = "/web/admin/mfa"
@@ -131,10 +130,8 @@ const (
 	webClientFilesPath              = "/web/client/files"
 	webClientDirsPath               = "/web/client/dirs"
 	webClientDownloadZipPath        = "/web/client/downloadzip"
-	webClientCredentialsPath        = "/web/client/credentials"
 	webChangeClientPwdPath          = "/web/client/changepwd"
-	webChangeClientKeysPath         = "/web/client/managekeys"
-	webChangeClientAPIKeyAccessPath = "/web/client/apikeyaccess"
+	webClientProfilePath            = "/web/client/profile"
 	webClientTwoFactorPath          = "/web/client/twofactor"
 	webClientTwoFactorRecoveryPath  = "/web/client/twofactor-recovery"
 	webClientLogoutPath             = "/web/client/logout"
@@ -3408,7 +3405,7 @@ func TestSkipNaturalKeysValidation(t *testing.T) {
 	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
-	req, err := http.NewRequest(http.MethodPost, webChangeClientAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, err := http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
@@ -3438,7 +3435,7 @@ func TestSkipNaturalKeysValidation(t *testing.T) {
 	apiKeyAuthReq["allow_api_key_auth"] = true
 	asJSON, err := json.Marshal(apiKeyAuthReq)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPut, userManageAPIKeyPath, bytes.NewBuffer(asJSON))
+	req, err = http.NewRequest(http.MethodPut, userProfilePath, bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
 	setBearerForReq(req, userAPIToken)
 	rr = executeRequest(req)
@@ -3456,7 +3453,7 @@ func TestSkipNaturalKeysValidation(t *testing.T) {
 	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
-	req, _ = http.NewRequest(http.MethodPost, webChangeAdminAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, _ = http.NewRequest(http.MethodPost, webAdminProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -3467,7 +3464,7 @@ func TestSkipNaturalKeysValidation(t *testing.T) {
 	apiKeyAuthReq["allow_api_key_auth"] = true
 	asJSON, err = json.Marshal(apiKeyAuthReq)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPut, adminManageAPIKeyPath, bytes.NewBuffer(asJSON))
+	req, err = http.NewRequest(http.MethodPut, adminProfilePath, bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
 	setBearerForReq(req, adminAPIToken)
 	rr = executeRequest(req)
@@ -5128,6 +5125,40 @@ func TestChangeAdminPwdInvalidJsonMock(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 }
 
+func TestMFAPermission(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, webClientMFAPath, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webClientMFAPath
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	user.Filters.WebClient = []string{sdk.WebClientMFADisabled}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	webToken, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, webClientMFAPath, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webClientMFAPath
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestWebUserTwoFactorLogin(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -5958,104 +5989,160 @@ func TestWebUserTOTP(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, rr)
 }
 
-func TestWebAPIChangeUserAPIKeyAuth(t *testing.T) {
+func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
 	assert.False(t, user.Filters.AllowAPIKeyAuth)
 	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 	// invalid json
-	req, err := http.NewRequest(http.MethodPut, userManageAPIKeyPath, bytes.NewBuffer([]byte("{")))
+	req, err := http.NewRequest(http.MethodPut, userProfilePath, bytes.NewBuffer([]byte("{")))
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 
-	apiKeyAuthReq := make(map[string]bool)
-	apiKeyAuthReq["allow_api_key_auth"] = true
-	asJSON, err := json.Marshal(apiKeyAuthReq)
+	email := "userapi@example.com"
+	description := "user API description"
+	profileReq := make(map[string]interface{})
+	profileReq["allow_api_key_auth"] = true
+	profileReq["email"] = email
+	profileReq["description"] = description
+	profileReq["public_keys"] = []string{testPubKey, testPubKey1}
+	asJSON, err := json.Marshal(profileReq)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPut, userManageAPIKeyPath, bytes.NewBuffer(asJSON))
-	assert.NoError(t, err)
-	setBearerForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-
-	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
-	assert.NoError(t, err)
-	assert.True(t, user.Filters.AllowAPIKeyAuth)
-
-	apiKeyAuthReq = make(map[string]bool)
-	req, err = http.NewRequest(http.MethodGet, userManageAPIKeyPath, nil)
-	assert.NoError(t, err)
-	setBearerForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	err = json.Unmarshal(rr.Body.Bytes(), &apiKeyAuthReq)
-	assert.NoError(t, err)
-	assert.True(t, apiKeyAuthReq["allow_api_key_auth"])
-
-	apiKeyAuthReq["allow_api_key_auth"] = false
-	asJSON, err = json.Marshal(apiKeyAuthReq)
-	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPut, userManageAPIKeyPath, bytes.NewBuffer(asJSON))
+	req, err = http.NewRequest(http.MethodPut, userProfilePath, bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
-	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
-	assert.NoError(t, err)
-	assert.False(t, user.Filters.AllowAPIKeyAuth)
-
-	apiKeyAuthReq = make(map[string]bool)
-	req, err = http.NewRequest(http.MethodGet, userManageAPIKeyPath, nil)
+	profileReq = make(map[string]interface{})
+	req, err = http.NewRequest(http.MethodGet, userProfilePath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	err = json.Unmarshal(rr.Body.Bytes(), &apiKeyAuthReq)
+	err = json.Unmarshal(rr.Body.Bytes(), &profileReq)
 	assert.NoError(t, err)
-	assert.False(t, apiKeyAuthReq["allow_api_key_auth"])
+	assert.Equal(t, email, profileReq["email"].(string))
+	assert.Equal(t, description, profileReq["description"].(string))
+	assert.True(t, profileReq["allow_api_key_auth"].(bool))
+	assert.Len(t, profileReq["public_keys"].([]interface{}), 2)
+	// set an invalid email
+	profileReq = make(map[string]interface{})
+	profileReq["email"] = "notavalidemail"
+	asJSON, err = json.Marshal(profileReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, userProfilePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Validation error: email")
+	// set an invalid public key
+	profileReq = make(map[string]interface{})
+	profileReq["public_keys"] = []string{"not a public key"}
+	asJSON, err = json.Marshal(profileReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, userProfilePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Validation error: could not parse key")
 
-	// remove the permission
-	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled}
-	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled, sdk.WebClientPubKeyChangeDisabled}
+	user.Email = email
+	user.Description = description
+	user.Filters.AllowAPIKeyAuth = true
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
-	assert.Len(t, user.Filters.WebClient, 1)
-	assert.Contains(t, user.Filters.WebClient, sdk.WebClientAPIKeyAuthChangeDisabled)
+	token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
 
-	newToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	profileReq = make(map[string]interface{})
+	profileReq["allow_api_key_auth"] = false
+	profileReq["email"] = email
+	profileReq["description"] = description + "_mod"
+	profileReq["public_keys"] = []string{testPubKey}
+	asJSON, err = json.Marshal(profileReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, userProfilePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Profile updated")
+	// check that api key auth and public keys were not changed
+	profileReq = make(map[string]interface{})
+	req, err = http.NewRequest(http.MethodGet, userProfilePath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	err = json.Unmarshal(rr.Body.Bytes(), &profileReq)
+	assert.NoError(t, err)
+	assert.Equal(t, email, profileReq["email"].(string))
+	assert.Equal(t, description+"_mod", profileReq["description"].(string))
+	assert.True(t, profileReq["allow_api_key_auth"].(bool))
+	assert.Len(t, profileReq["public_keys"].([]interface{}), 2)
+
+	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled, sdk.WebClientInfoChangeDisabled}
+	user.Description = description + "_mod"
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 
-	apiKeyAuthReq["allow_api_key_auth"] = true
-	asJSON, err = json.Marshal(apiKeyAuthReq)
+	profileReq = make(map[string]interface{})
+	profileReq["allow_api_key_auth"] = false
+	profileReq["email"] = "newemail@apiuser.com"
+	profileReq["description"] = description
+	profileReq["public_keys"] = []string{testPubKey}
+	asJSON, err = json.Marshal(profileReq)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPut, userManageAPIKeyPath, bytes.NewBuffer(asJSON))
+	req, err = http.NewRequest(http.MethodPut, userProfilePath, bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
-	setBearerForReq(req, newToken)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	profileReq = make(map[string]interface{})
+	req, err = http.NewRequest(http.MethodGet, userProfilePath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	err = json.Unmarshal(rr.Body.Bytes(), &profileReq)
+	assert.NoError(t, err)
+	assert.Equal(t, email, profileReq["email"].(string))
+	assert.Equal(t, description+"_mod", profileReq["description"].(string))
+	assert.True(t, profileReq["allow_api_key_auth"].(bool))
+	assert.Len(t, profileReq["public_keys"].([]interface{}), 1)
+	// finally disable all profile permissions
+	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled, sdk.WebClientInfoChangeDisabled,
+		sdk.WebClientPubKeyChangeDisabled}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, userProfilePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	// get will still work
-	req, err = http.NewRequest(http.MethodGet, userManageAPIKeyPath, nil)
-	assert.NoError(t, err)
-	setBearerForReq(req, newToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "You are not allowed to change anything")
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
-	apiKeyAuthReq = make(map[string]bool)
-	req, err = http.NewRequest(http.MethodGet, userManageAPIKeyPath, nil)
+	req, err = http.NewRequest(http.MethodGet, userProfilePath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
-	req, err = http.NewRequest(http.MethodPut, userManageAPIKeyPath, bytes.NewBuffer(asJSON))
+	req, err = http.NewRequest(http.MethodPut, userProfilePath, bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
@@ -6136,7 +6223,7 @@ func TestLoginInvalidPasswordMock(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 }
 
-func TestChangeAdminAPIKeyAuth(t *testing.T) {
+func TestWebAPIChangeAdminProfileMock(t *testing.T) {
 	admin := getTestAdmin()
 	admin.Username = altAdminUsername
 	admin.Password = altAdminPassword
@@ -6147,65 +6234,59 @@ func TestChangeAdminAPIKeyAuth(t *testing.T) {
 	token, err := getJWTAPITokenFromTestServer(altAdminUsername, altAdminPassword)
 	assert.NoError(t, err)
 	// invalid json
-	req, err := http.NewRequest(http.MethodPut, adminManageAPIKeyPath, bytes.NewBuffer([]byte("{")))
+	req, err := http.NewRequest(http.MethodPut, adminProfilePath, bytes.NewBuffer([]byte("{")))
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 
-	apiKeyAuthReq := make(map[string]bool)
-	apiKeyAuthReq["allow_api_key_auth"] = true
-	asJSON, err := json.Marshal(apiKeyAuthReq)
+	email := "adminapi@example.com"
+	description := "admin API description"
+	profileReq := make(map[string]interface{})
+	profileReq["allow_api_key_auth"] = true
+	profileReq["email"] = email
+	profileReq["description"] = description
+	asJSON, err := json.Marshal(profileReq)
 	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPut, adminManageAPIKeyPath, bytes.NewBuffer(asJSON))
-	assert.NoError(t, err)
-	setBearerForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-
-	admin, _, err = httpdtest.GetAdminByUsername(altAdminUsername, http.StatusOK)
-	assert.NoError(t, err)
-	assert.True(t, admin.Filters.AllowAPIKeyAuth)
-
-	apiKeyAuthReq = make(map[string]bool)
-	req, err = http.NewRequest(http.MethodGet, adminManageAPIKeyPath, nil)
+	req, err = http.NewRequest(http.MethodPut, adminProfilePath, bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	err = json.Unmarshal(rr.Body.Bytes(), &apiKeyAuthReq)
-	assert.NoError(t, err)
-	assert.True(t, apiKeyAuthReq["allow_api_key_auth"])
+	assert.Contains(t, rr.Body.String(), "Profile updated")
 
-	apiKeyAuthReq["allow_api_key_auth"] = false
-	asJSON, err = json.Marshal(apiKeyAuthReq)
-	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPut, adminManageAPIKeyPath, bytes.NewBuffer(asJSON))
+	profileReq = make(map[string]interface{})
+	req, err = http.NewRequest(http.MethodGet, adminProfilePath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-
-	apiKeyAuthReq = make(map[string]bool)
-	req, err = http.NewRequest(http.MethodGet, adminManageAPIKeyPath, nil)
+	err = json.Unmarshal(rr.Body.Bytes(), &profileReq)
+	assert.NoError(t, err)
+	assert.Equal(t, email, profileReq["email"].(string))
+	assert.Equal(t, description, profileReq["description"].(string))
+	assert.True(t, profileReq["allow_api_key_auth"].(bool))
+	// set an invalid email
+	profileReq["email"] = "admin_invalid_email"
+	asJSON, err = json.Marshal(profileReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, adminProfilePath, bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	err = json.Unmarshal(rr.Body.Bytes(), &apiKeyAuthReq)
-	assert.NoError(t, err)
-	assert.False(t, apiKeyAuthReq["allow_api_key_auth"])
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Validation error: email")
 
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
 
-	req, err = http.NewRequest(http.MethodGet, adminManageAPIKeyPath, nil)
+	req, err = http.NewRequest(http.MethodGet, adminProfilePath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
-	req, err = http.NewRequest(http.MethodPut, adminManageAPIKeyPath, bytes.NewBuffer(asJSON))
+	req, err = http.NewRequest(http.MethodPut, adminProfilePath, bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
@@ -7473,13 +7554,13 @@ func TestWebAPILoginMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	// API token is not valid for web usage
-	req, _ = http.NewRequest(http.MethodGet, webClientCredentialsPath, nil)
+	req, _ = http.NewRequest(http.MethodGet, webClientProfilePath, nil)
 	setJWTCookieForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
 
-	req, _ = http.NewRequest(http.MethodGet, webClientCredentialsPath, nil)
+	req, _ = http.NewRequest(http.MethodGet, webClientProfilePath, nil)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -7509,13 +7590,13 @@ func TestWebClientLoginMock(t *testing.T) {
 	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
 	// bearer should not work
-	req, _ = http.NewRequest(http.MethodGet, webClientCredentialsPath, nil)
+	req, _ = http.NewRequest(http.MethodGet, webClientProfilePath, nil)
 	setBearerForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
 	// now try to render client pages
-	req, _ = http.NewRequest(http.MethodGet, webClientCredentialsPath, nil)
+	req, _ = http.NewRequest(http.MethodGet, webClientProfilePath, nil)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -7529,7 +7610,7 @@ func TestWebClientLoginMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
-	req, _ = http.NewRequest(http.MethodGet, webClientCredentialsPath, nil)
+	req, _ = http.NewRequest(http.MethodGet, webClientProfilePath, nil)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
@@ -7545,7 +7626,7 @@ func TestWebClientLoginMock(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
-	req, _ = http.NewRequest(http.MethodGet, webClientCredentialsPath, nil)
+	req, _ = http.NewRequest(http.MethodGet, webClientProfilePath, nil)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
@@ -7602,7 +7683,7 @@ func TestWebClientLoginMock(t *testing.T) {
 	form := make(url.Values)
 	form.Set("public_keys", testPubKey)
 	form.Set(csrfFormToken, csrfToken)
-	req, _ = http.NewRequest(http.MethodPost, webChangeClientKeysPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
@@ -7864,15 +7945,22 @@ func TestWebClientChangePwd(t *testing.T) {
 	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
 	assert.NoError(t, err)
 
+	req, err := http.NewRequest(http.MethodGet, webChangeClientPwdPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
 	form := make(url.Values)
 	form.Set("current_password", defaultPassword)
 	form.Set("new_password1", defaultPassword)
 	form.Set("new_password2", defaultPassword)
 	// no csrf token
-	req, _ := http.NewRequest(http.MethodPost, webChangeClientPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, err = http.NewRequest(http.MethodPost, webChangeClientPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, webToken)
-	rr := executeRequest(req)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "unable to verify form token")
 
@@ -7995,64 +8083,6 @@ func TestWebAPIPublicKeys(t *testing.T) {
 	req, err = http.NewRequest(http.MethodGet, userPublicKeysPath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, apiToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusForbidden, rr)
-
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-}
-
-func TestWebClientChangePubKeys(t *testing.T) {
-	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
-	assert.NoError(t, err)
-	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
-	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
-	assert.NoError(t, err)
-	form := make(url.Values)
-	form.Set("public_keys", testPubKey)
-	form.Add("public_keys", testPubKey1)
-	// no csrf token
-	req, _ := http.NewRequest(http.MethodPost, webChangeClientKeysPath, bytes.NewBuffer([]byte(form.Encode())))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	setJWTCookieForReq(req, webToken)
-	rr := executeRequest(req)
-	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "unable to verify form token")
-
-	form.Set(csrfFormToken, csrfToken)
-	req, _ = http.NewRequest(http.MethodPost, webChangeClientKeysPath, bytes.NewBuffer([]byte(form.Encode())))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	setJWTCookieForReq(req, webToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "Your public keys has been successfully updated")
-
-	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
-	assert.NoError(t, err)
-	assert.Len(t, user.PublicKeys, 2)
-
-	form.Set("public_keys", "invalid")
-	req, _ = http.NewRequest(http.MethodPost, webChangeClientKeysPath, bytes.NewBuffer([]byte(form.Encode())))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	setJWTCookieForReq(req, webToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "Validation error: could not parse key")
-
-	user.Filters.WebClient = append(user.Filters.WebClient, sdk.WebClientPubKeyChangeDisabled)
-	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err)
-	webToken, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
-	assert.NoError(t, err)
-	form.Set(csrfFormToken, csrfToken)
-	form.Set("public_keys", testPubKey)
-	req, _ = http.NewRequest(http.MethodPost, webChangeClientKeysPath, bytes.NewBuffer([]byte(form.Encode())))
-	req.RequestURI = webChangeClientKeysPath
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 
@@ -9743,7 +9773,7 @@ func TestWebAdminLoginMock(t *testing.T) {
 }
 
 func TestAdminNoToken(t *testing.T) {
-	req, _ := http.NewRequest(http.MethodGet, webAdminCredentialsPath, nil)
+	req, _ := http.NewRequest(http.MethodGet, webAdminProfilePath, nil)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
@@ -9762,10 +9792,8 @@ func TestAdminNoToken(t *testing.T) {
 	checkResponseCode(t, http.StatusUnauthorized, rr)
 }
 
-func TestWebUserAllowAPIKeyAuth(t *testing.T) {
-	u := getTestUser()
-	u.Filters.AllowAPIKeyAuth = true
-	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+func TestWebUserProfile(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
 
 	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
@@ -9773,10 +9801,17 @@ func TestWebUserAllowAPIKeyAuth(t *testing.T) {
 	token, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 
+	email := "user@user.com"
+	description := "User"
+
 	form := make(url.Values)
 	form.Set("allow_api_key_auth", "1")
+	form.Set("email", email)
+	form.Set("description", description)
+	form.Set("public_keys", testPubKey)
+	form.Add("public_keys", testPubKey1)
 	// no csrf token
-	req, err := http.NewRequest(http.MethodPost, webChangeClientAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, err := http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
@@ -9785,43 +9820,109 @@ func TestWebUserAllowAPIKeyAuth(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "unable to verify form token")
 
 	form.Set(csrfFormToken, csrfToken)
-	req, _ = http.NewRequest(http.MethodPost, webChangeClientAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "API key authentication updated")
+	assert.Contains(t, rr.Body.String(), "Your profile has been successfully updated")
 
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.True(t, user.Filters.AllowAPIKeyAuth)
+	assert.Len(t, user.PublicKeys, 2)
+	assert.Equal(t, email, user.Email)
+	assert.Equal(t, description, user.Description)
 
-	form = make(url.Values)
-	form.Set(csrfFormToken, csrfToken)
-	req, _ = http.NewRequest(http.MethodPost, webChangeClientAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	// set an invalid email
+	form.Set("email", "not an email")
+	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "API key authentication updated")
+	assert.Contains(t, rr.Body.String(), "Validation error: email")
+	// invalid public key
+	form.Set("email", email)
+	form.Set("public_keys", "invalid")
+	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Validation error: could not parse key")
+	// now remove permissions
+	form.Set("public_keys", testPubKey)
+	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	token, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
 
+	form.Set("allow_api_key_auth", "0")
+	form.Set(csrfFormToken, csrfToken)
+	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Your profile has been successfully updated")
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
-	assert.False(t, user.Filters.AllowAPIKeyAuth)
+	assert.True(t, user.Filters.AllowAPIKeyAuth)
+	assert.Len(t, user.PublicKeys, 1)
+	assert.Equal(t, email, user.Email)
+	assert.Equal(t, description, user.Description)
 
-	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled}
-	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled, sdk.WebClientPubKeyChangeDisabled}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
-	assert.False(t, user.CanChangeAPIKeyAuth())
-
-	newToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	token, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
-	form = make(url.Values)
-	form.Set("allow_api_key_auth", "1")
-	form.Set(csrfFormToken, csrfToken)
-	req, _ = http.NewRequest(http.MethodPost, webChangeClientAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	form.Set("public_keys", testPubKey)
+	form.Add("public_keys", testPubKey1)
+	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	setJWTCookieForReq(req, newToken)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Your profile has been successfully updated")
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, user.Filters.AllowAPIKeyAuth)
+	assert.Len(t, user.PublicKeys, 1)
+	assert.Equal(t, email, user.Email)
+	assert.Equal(t, description, user.Description)
+
+	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled, sdk.WebClientInfoChangeDisabled}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	token, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	form.Set("email", "newemail@user.com")
+	form.Set("description", "new description")
+	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Your profile has been successfully updated")
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, user.Filters.AllowAPIKeyAuth)
+	assert.Len(t, user.PublicKeys, 2)
+	assert.Equal(t, email, user.Email)
+	assert.Equal(t, description, user.Description)
+	// finally disable all profile permissions
+	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled, sdk.WebClientInfoChangeDisabled,
+		sdk.WebClientPubKeyChangeDisabled}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	token, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 
@@ -9832,14 +9933,14 @@ func TestWebUserAllowAPIKeyAuth(t *testing.T) {
 
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
-	req, _ = http.NewRequest(http.MethodPost, webChangeClientAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 }
 
-func TestWebAdminAllowAPIKeyAuth(t *testing.T) {
+func TestWebAdminProfile(t *testing.T) {
 	admin := getTestAdmin()
 	admin.Username = altAdminUsername
 	admin.Password = altAdminPassword
@@ -9849,48 +9950,60 @@ func TestWebAdminAllowAPIKeyAuth(t *testing.T) {
 	assert.NoError(t, err)
 	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
 	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodGet, webAdminProfilePath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
 	form := make(url.Values)
 	form.Set("allow_api_key_auth", "1")
+	form.Set("email", "admin@example.com")
+	form.Set("description", "admin desc")
 	// no csrf token
-	req, err := http.NewRequest(http.MethodPost, webChangeAdminAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, err = http.NewRequest(http.MethodPost, webAdminProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
-	rr := executeRequest(req)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "unable to verify form token")
 
 	form.Set(csrfFormToken, csrfToken)
-	req, _ = http.NewRequest(http.MethodPost, webChangeAdminAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, _ = http.NewRequest(http.MethodPost, webAdminProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "API key authentication updated")
+	assert.Contains(t, rr.Body.String(), "Your profile has been successfully updated")
 
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.True(t, admin.Filters.AllowAPIKeyAuth)
+	assert.Equal(t, "admin@example.com", admin.Email)
+	assert.Equal(t, "admin desc", admin.Description)
 
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
-	req, _ = http.NewRequest(http.MethodPost, webChangeAdminAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, _ = http.NewRequest(http.MethodPost, webAdminProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "API key authentication updated")
+	assert.Contains(t, rr.Body.String(), "Your profile has been successfully updated")
 
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.False(t, admin.Filters.AllowAPIKeyAuth)
+	assert.Empty(t, admin.Email)
+	assert.Empty(t, admin.Description)
 
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
 
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
-	req, _ = http.NewRequest(http.MethodPost, webChangeAdminAPIKeyAccessPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, _ = http.NewRequest(http.MethodPost, webAdminProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -9908,7 +10021,7 @@ func TestWebAdminPwdChange(t *testing.T) {
 	assert.NoError(t, err)
 	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
 	assert.NoError(t, err)
-	req, err := http.NewRequest(http.MethodGet, webAdminCredentialsPath, nil)
+	req, err := http.NewRequest(http.MethodGet, webChangeAdminPwdPath, nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)

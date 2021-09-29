@@ -155,7 +155,7 @@ func deleteAdmin(w http.ResponseWriter, r *http.Request) {
 	sendAPIResponse(w, r, err, "Admin deleted", http.StatusOK)
 }
 
-func getAdminAPIKeyAuthStatus(w http.ResponseWriter, r *http.Request) {
+func getAdminProfile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
@@ -167,13 +167,17 @@ func getAdminAPIKeyAuthStatus(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	resp := apiKeyAuth{
-		AllowAPIKeyAuth: admin.Filters.AllowAPIKeyAuth,
+	resp := adminProfile{
+		baseProfile: baseProfile{
+			Email:           admin.Email,
+			Description:     admin.Description,
+			AllowAPIKeyAuth: admin.Filters.AllowAPIKeyAuth,
+		},
 	}
 	render.JSON(w, r, resp)
 }
 
-func changeAdminAPIKeyAuthStatus(w http.ResponseWriter, r *http.Request) {
+func updateAdminProfile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
@@ -185,18 +189,20 @@ func changeAdminAPIKeyAuthStatus(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	var req apiKeyAuth
+	var req adminProfile
 	err = render.DecodeJSON(r.Body, &req)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
+	admin.Email = req.Email
+	admin.Description = req.Description
 	admin.Filters.AllowAPIKeyAuth = req.AllowAPIKeyAuth
 	if err := dataprovider.UpdateAdmin(&admin); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	sendAPIResponse(w, r, err, "API key authentication status updated", http.StatusOK)
+	sendAPIResponse(w, r, err, "Profile updated", http.StatusOK)
 }
 
 func changeAdminPassword(w http.ResponseWriter, r *http.Request) {

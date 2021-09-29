@@ -1,0 +1,50 @@
+{{template "base" .}}
+
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "page_body"}}
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">My profile - {{.LoggedAdmin.Username}}</h6>
+    </div>
+    <div class="card-body">
+        {{if .Error}}
+        <div class="card mb-4 border-left-warning">
+            <div class="card-body text-form-error">{{.Error}}</div>
+        </div>
+        {{end}}
+        <form id="profile_form" action="{{.CurrentURL}}" method="POST">
+            <div class="form-group row">
+                <label for="idEmail" class="col-sm-2 col-form-label">Email</label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control" id="idEmail" name="email" placeholder=""
+                        value="{{.Email}}" maxlength="255">
+                </div>
+            </div>
+
+            <div class="form-group row">
+                <label for="idDescription" class="col-sm-2 col-form-label">Description</label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control" id="idDescription" name="description" placeholder=""
+                        value="{{.Description}}" maxlength="255">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="idAllowAPIKeyAuth" name="allow_api_key_auth"
+                    {{if .AllowAPIKeyAuth}}checked{{end}} aria-describedby="allowAPIKeyAuthHelpBlock">
+                    <label for="idAllowAPIKeyAuth" class="form-check-label">Allow API key authentication</label>
+                    <small id="allowAPIKeyAuthHelpBlock" class="form-text text-muted">
+                        Allow to impersonate yourself, in REST API, with an API key. If this permission is not granted, your credentials are required to use the REST API on your behalf
+                    </small>
+                </div>
+            </div>
+
+            <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
+            <button type="submit" class="btn btn-primary float-right mt-3 px-5 px-3">Submit</button>
+        </form>
+    </div>
+</div>
+{{end}}

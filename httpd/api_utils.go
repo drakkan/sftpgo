@@ -28,8 +28,19 @@ type pwdChange struct {
 	NewPassword     string `json:"new_password"`
 }
 
-type apiKeyAuth struct {
-	AllowAPIKeyAuth bool `json:"allow_api_key_auth"`
+type baseProfile struct {
+	Email           string `json:"email,omitempty"`
+	Description     string `json:"description,omitempty"`
+	AllowAPIKeyAuth bool   `json:"allow_api_key_auth"`
+}
+
+type adminProfile struct {
+	baseProfile
+}
+
+type userProfile struct {
+	baseProfile
+	PublicKeys []string `json:"public_keys,omitempty"`
 }
 
 func sendAPIResponse(w http.ResponseWriter, r *http.Request, err error, message string, code int) {

@@ -14,12 +14,13 @@ const (
 	WebClientMFADisabled              = "mfa-disabled"
 	WebClientPasswordChangeDisabled   = "password-change-disabled"
 	WebClientAPIKeyAuthChangeDisabled = "api-key-auth-change-disabled"
+	WebClientInfoChangeDisabled       = "info-change-disabled"
 )
 
 var (
 	// WebClientOptions defines the available options for the web client interface/user REST API
-	WebClientOptions = []string{WebClientPubKeyChangeDisabled, WebClientWriteDisabled, WebClientMFADisabled,
-		WebClientPasswordChangeDisabled, WebClientAPIKeyAuthChangeDisabled}
+	WebClientOptions = []string{WebClientWriteDisabled, WebClientPasswordChangeDisabled, WebClientPubKeyChangeDisabled,
+		WebClientMFADisabled, WebClientAPIKeyAuthChangeDisabled, WebClientInfoChangeDisabled}
 	// UserTypes defines the supported user type hints for auth plugins
 	UserTypes = []string{string(UserTypeLDAP), string(UserTypeOS)}
 )

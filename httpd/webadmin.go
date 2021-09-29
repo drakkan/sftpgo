@@ -56,7 +56,8 @@ const (
 	templateStatus       = "status.html"
 	templateLogin        = "login.html"
 	templateDefender     = "defender.html"
-	templateCredentials  = "credentials.html"
+	templateProfile      = "profile.html"
+	templateChangePwd    = "changepassword.html"
 	templateMaintenance  = "maintenance.html"
 	templateMFA          = "mfa.html"
 	templateSetup        = "adminsetup.html"
@@ -65,7 +66,8 @@ const (
 	pageConnectionsTitle = "Connections"
 	pageStatusTitle      = "Status"
 	pageFoldersTitle     = "Folders"
-	pageCredentialsTitle = "Manage credentials"
+	pageProfileTitle     = "My profile"
+	pageChangePwdTitle   = "Change password"
 	pageMaintenanceTitle = "Maintenance"
 	pageDefenderTitle    = "Defender"
 	pageSetupTitle       = "Create first admin user"
@@ -91,7 +93,8 @@ type basePage struct {
 	FolderTemplateURL  string
 	DefenderURL        string
 	LogoutURL          string
-	CredentialsURL     string
+	ProfileURL         string
+	ChangePwdURL       string
 	MFAURL             string
 	FolderQuotaScanURL string
 	StatusURL          string
@@ -157,13 +160,17 @@ type adminPage struct {
 	IsAdd bool
 }
 
-type credentialsPage struct {
+type profilePage struct {
 	basePage
 	Error           string
 	AllowAPIKeyAuth bool
-	ChangePwdURL    string
-	ManageAPIKeyURL string
-	APIKeyError     string
+	Email           string
+	Description     string
+}
+
+type changePasswordPage struct {
+	basePage
+	Error string
 }
 
 type mfaPage struct {
@@ -231,9 +238,13 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateAdmin),
 	}
-	credentialsPaths := []string{
+	profilePaths := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
-		filepath.Join(templatesPath, templateAdminDir, templateCredentials),
+		filepath.Join(templatesPath, templateAdminDir, templateProfile),
+	}
+	changePwdPaths := []string{
+		filepath.Join(templatesPath, templateAdminDir, templateBase),
+		filepath.Join(templatesPath, templateAdminDir, templateChangePwd),
 	}
 	connectionsPaths := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
@@ -298,7 +309,8 @@ func loadAdminTemplates(templatesPath string) {
 	folderTmpl := util.LoadTemplate(rootTpl, folderPath...)
 	statusTmpl := util.LoadTemplate(rootTpl, statusPath...)
 	loginTmpl := util.LoadTemplate(rootTpl, loginPath...)
-	credentialsTmpl := util.LoadTemplate(rootTpl, credentialsPaths...)
+	profileTmpl := util.LoadTemplate(rootTpl, profilePaths...)
+	changePwdTmpl := util.LoadTemplate(rootTpl, changePwdPaths...)
 	maintenanceTmpl := util.LoadTemplate(rootTpl, maintenancePath...)
 	defenderTmpl := util.LoadTemplate(rootTpl, defenderPath...)
 	mfaTmpl := util.LoadTemplate(nil, mfaPath...)
@@ -316,7 +328,8 @@ func loadAdminTemplates(templatesPath string) {
 	adminTemplates[templateFolder] = folderTmpl
 	adminTemplates[templateStatus] = statusTmpl
 	adminTemplates[templateLogin] = loginTmpl
-	adminTemplates[templateCredentials] = credentialsTmpl
+	adminTemplates[templateProfile] = profileTmpl
+	adminTemplates[templateChangePwd] = changePwdTmpl
 	adminTemplates[templateMaintenance] = maintenanceTmpl
 	adminTemplates[templateDefender] = defenderTmpl
 	adminTemplates[templateMFA] = mfaTmpl
@@ -343,7 +356,8 @@ func getBasePageData(title, currentURL string, r *http.Request) basePage {
 		FolderTemplateURL:  webTemplateFolder,
 		DefenderURL:        webDefenderPath,
 		LogoutURL:          webLogoutPath,
-		CredentialsURL:     webAdminCredentialsPath,
+		ProfileURL:         webAdminProfilePath,
+		ChangePwdURL:       webChangeAdminPwdPath,
 		MFAURL:             webAdminMFAPath,
 		QuotaScanURL:       webQuotaScanPath,
 		ConnectionsURL:     webConnectionsPath,
@@ -446,13 +460,10 @@ func renderMFAPage(w http.ResponseWriter, r *http.Request) {
 	renderAdminTemplate(w, templateMFA, data)
 }
 
-func renderCredentialsPage(w http.ResponseWriter, r *http.Request, pwdError, apiKeyError string) {
-	data := credentialsPage{
-		basePage:        getBasePageData(pageCredentialsTitle, webAdminCredentialsPath, r),
-		ChangePwdURL:    webChangeAdminPwdPath,
-		ManageAPIKeyURL: webChangeAdminAPIKeyAccessPath,
-		Error:           pwdError,
-		APIKeyError:     apiKeyError,
+func renderProfilePage(w http.ResponseWriter, r *http.Request, error string) {
+	data := profilePage{
+		basePage: getBasePageData(pageProfileTitle, webAdminProfilePath, r),
+		Error:    error,
 	}
 	admin, err := dataprovider.AdminExists(data.LoggedAdmin.Username)
 	if err != nil {
@@ -460,8 +471,19 @@ func renderCredentialsPage(w http.ResponseWriter, r *http.Request, pwdError, api
 		return
 	}
 	data.AllowAPIKeyAuth = admin.Filters.AllowAPIKeyAuth
+	data.Email = admin.Email
+	data.Description = admin.Description
 
-	renderAdminTemplate(w, templateCredentials, data)
+	renderAdminTemplate(w, templateProfile, data)
+}
+
+func renderChangePasswordPage(w http.ResponseWriter, r *http.Request, error string) {
+	data := changePasswordPage{
+		basePage: getBasePageData(pageChangePwdTitle, webChangeAdminPwdPath, r),
+		Error:    error,
+	}
+
+	renderAdminTemplate(w, templateChangePwd, data)
 }
 
 func renderMaintenancePage(w http.ResponseWriter, r *http.Request, error string) {
@@ -1125,16 +1147,21 @@ func handleWebAdminMFA(w http.ResponseWriter, r *http.Request) {
 	renderMFAPage(w, r)
 }
 
-func handleWebAdminCredentials(w http.ResponseWriter, r *http.Request) {
+func handleWebAdminProfile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	renderCredentialsPage(w, r, "", "")
+	renderProfilePage(w, r, "")
+}
+
+func handleWebAdminChangePwd(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	renderChangePasswordPage(w, r, "")
 }
 
 func handleWebAdminChangePwdPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	err := r.ParseForm()
 	if err != nil {
-		renderCredentialsPage(w, r, err.Error(), "")
+		renderChangePasswordPage(w, r, err.Error())
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
@@ -1144,17 +1171,17 @@ func handleWebAdminChangePwdPost(w http.ResponseWriter, r *http.Request) {
 	err = doChangeAdminPassword(r, r.Form.Get("current_password"), r.Form.Get("new_password1"),
 		r.Form.Get("new_password2"))
 	if err != nil {
-		renderCredentialsPage(w, r, err.Error(), "")
+		renderChangePasswordPage(w, r, err.Error())
 		return
 	}
 	handleWebLogout(w, r)
 }
 
-func handleWebAdminManageAPIKeyPost(w http.ResponseWriter, r *http.Request) {
+func handleWebAdminProfilePost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	err := r.ParseForm()
 	if err != nil {
-		renderCredentialsPage(w, r, err.Error(), "")
+		renderProfilePage(w, r, err.Error())
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
@@ -1163,22 +1190,24 @@ func handleWebAdminManageAPIKeyPost(w http.ResponseWriter, r *http.Request) {
 	}
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderCredentialsPage(w, r, "", "Invalid token claims")
+		renderProfilePage(w, r, "Invalid token claims")
 		return
 	}
 	admin, err := dataprovider.AdminExists(claims.Username)
 	if err != nil {
-		renderCredentialsPage(w, r, "", err.Error())
+		renderProfilePage(w, r, err.Error())
 		return
 	}
 	admin.Filters.AllowAPIKeyAuth = len(r.Form.Get("allow_api_key_auth")) > 0
+	admin.Email = r.Form.Get("email")
+	admin.Description = r.Form.Get("description")
 	err = dataprovider.UpdateAdmin(&admin)
 	if err != nil {
-		renderCredentialsPage(w, r, "", err.Error())
+		renderProfilePage(w, r, err.Error())
 		return
 	}
-	renderMessagePage(w, r, "API key authentication updated", "", http.StatusOK, nil,
-		"Your API key access permission has been successfully updated")
+	renderMessagePage(w, r, "Profile updated", "", http.StatusOK, nil,
+		"Your profile has been successfully updated")
 }
 
 func handleWebLogout(w http.ResponseWriter, r *http.Request) {

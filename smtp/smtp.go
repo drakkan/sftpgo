@@ -115,7 +115,6 @@ func (c *Config) getAuthType() mail.AuthType {
 }
 
 // SendEmail tries to send an email using the specified parameters.
-// If the contentType is 0 text/plain is assumed, otherwise text/html
 func SendEmail(to, subject, body string, contentType EmailContentType) error {
 	if smtpServer == nil {
 		return errors.New("smtp: not configured")

@@ -411,22 +411,22 @@ func TestInvalidToken(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
 	rr = httptest.NewRecorder()
-	getUserAPIKeyAuthStatus(rr, req)
+	getUserProfile(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
 	rr = httptest.NewRecorder()
-	changeUserAPIKeyAuthStatus(rr, req)
+	updateUserProfile(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
 	rr = httptest.NewRecorder()
-	getAdminAPIKeyAuthStatus(rr, req)
+	getAdminProfile(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
 	rr = httptest.NewRecorder()
-	changeAdminAPIKeyAuthStatus(rr, req)
+	updateAdminProfile(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
@@ -577,9 +577,8 @@ func TestCreateTokenError(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = httptest.NewRecorder()
 	handleWebAdminChangePwdPost(rr, req)
-	// the claim is invalid so we fail to render the client page since
-	// we have to load the logged admin
-	assert.Equal(t, http.StatusInternalServerError, rr.Code, rr.Body.String())
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	assert.Contains(t, rr.Body.String(), "invalid URL escape")
 
 	req, _ = http.NewRequest(http.MethodGet, webLoginPath+"?a=a%C3%A2%G3", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -596,24 +595,19 @@ func TestCreateTokenError(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = httptest.NewRecorder()
 	handleWebClientChangePwdPost(rr, req)
-	assert.Equal(t, http.StatusInternalServerError, rr.Code, rr.Body.String())
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	assert.Contains(t, rr.Body.String(), "invalid URL escape")
 
-	req, _ = http.NewRequest(http.MethodPost, webChangeClientKeysPath+"?a=a%C3%AO%GB", bytes.NewBuffer([]byte(form.Encode())))
+	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath+"?a=a%C3%AO%GB", bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = httptest.NewRecorder()
-	handleWebClientManageKeysPost(rr, req)
+	handleWebClientProfilePost(rr, req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code, rr.Body.String())
 
-	req, _ = http.NewRequest(http.MethodPost, webChangeClientAPIKeyAccessPath+"?a=a%C3%AO%GA", bytes.NewBuffer([]byte(form.Encode())))
+	req, _ = http.NewRequest(http.MethodPost, webAdminProfilePath+"?a=a%C3%AO%GB", bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = httptest.NewRecorder()
-	handleWebClientManageAPIKeyPost(rr, req)
-	assert.Equal(t, http.StatusInternalServerError, rr.Code, rr.Body.String())
-
-	req, _ = http.NewRequest(http.MethodPost, webChangeAdminAPIKeyAccessPath+"?a=a%C3%AO%GB", bytes.NewBuffer([]byte(form.Encode())))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rr = httptest.NewRecorder()
-	handleWebAdminManageAPIKeyPost(rr, req)
+	handleWebAdminProfilePost(rr, req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code, rr.Body.String())
 
 	req, _ = http.NewRequest(http.MethodPost, webAdminTwoFactorPath+"?a=a%C3%AO%GC", bytes.NewBuffer([]byte(form.Encode())))
@@ -754,8 +748,8 @@ func TestJWTTokenValidation(t *testing.T) {
 	permClientFn := checkHTTPUserPerm(sdk.WebClientPubKeyChangeDisabled)
 	fn = permClientFn(r)
 	rr = httptest.NewRecorder()
-	req, _ = http.NewRequest(http.MethodPost, webChangeClientKeysPath, nil)
-	req.RequestURI = webChangeClientKeysPath
+	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, nil)
+	req.RequestURI = webClientProfilePath
 	ctx = jwtauth.NewContext(req.Context(), token, errTest)
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
@@ -1745,19 +1739,10 @@ func TestInvalidClaims(t *testing.T) {
 	form := make(url.Values)
 	form.Set(csrfFormToken, createCSRFToken())
 	form.Set("public_keys", "")
-	req, _ := http.NewRequest(http.MethodPost, webChangeClientKeysPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, _ := http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
-	handleWebClientManageKeysPost(rr, req)
-	assert.Equal(t, http.StatusInternalServerError, rr.Code)
-
-	form = make(url.Values)
-	form.Set(csrfFormToken, createCSRFToken())
-	form.Set("allow_api_key_auth", "")
-	req, _ = http.NewRequest(http.MethodPost, webChangeClientKeysPath, bytes.NewBuffer([]byte(form.Encode())))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
-	handleWebClientManageAPIKeyPost(rr, req)
+	handleWebClientProfilePost(rr, req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 
 	admin := dataprovider.Admin{
@@ -1774,10 +1759,10 @@ func TestInvalidClaims(t *testing.T) {
 	form = make(url.Values)
 	form.Set(csrfFormToken, createCSRFToken())
 	form.Set("allow_api_key_auth", "")
-	req, _ = http.NewRequest(http.MethodPost, webChangeClientKeysPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, _ = http.NewRequest(http.MethodPost, webAdminProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
-	handleWebAdminManageAPIKeyPost(rr, req)
+	handleWebAdminProfilePost(rr, req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 }
 

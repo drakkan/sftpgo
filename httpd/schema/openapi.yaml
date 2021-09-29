@@ -243,25 +243,22 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
-  /admin/apikeyauth:
+  /admin/profile:
     get:
       security:
         - BearerAuth: []
       tags:
         - admins
-      summary: Get API key authentication status
-      description: 'Returns the API Key authentication status for the logged in admin'
-      operationId: get_admin_api_key_status
+      summary: Get profile
+      description: 'Returns the profile for the logged in admin'
+      operationId: get_admin_profile
       responses:
         '200':
           description: successful operation
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  allow_api_key_auth:
-                    type: boolean
+                $ref: '#/components/schemas/AdminProfile'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -275,18 +272,15 @@ paths:
         - BearerAuth: []
       tags:
         - admins
-      summary: Update API key auth status
-      description: 'Allows to enable/disable the API key authentication for the logged in admin. If enabled, you can impersonate this admin, in REST API, using an API key, otherwise your credentials, including two-factor authentication, if enabled, are required to use the REST API on your behalf'
-      operationId: update_admin_api_key_status
+      summary: Update admin profile
+      description: 'Allows to update the profile for the logged in admin'
+      operationId: update_admin_profile
       requestBody:
         required: true
         content:
           application/json:
             schema:
-                type: object
-                properties:
-                  allow_api_key_auth:
-                    type: boolean
+              $ref: '#/components/schemas/AdminProfile'
       responses:
         '200':
           description: successful operation
@@ -2338,8 +2332,9 @@ paths:
         - BearerAuth: []
       tags:
         - users API
+      deprecated: true
       summary: Get the user's public keys
-      description: Returns the public keys for the logged in user
+      description: 'Returns the public keys for the logged in user. Deprecated please use "/user/profile" instead'
       operationId: get_user_public_keys
       responses:
         '200':
@@ -2365,8 +2360,9 @@ paths:
         - BearerAuth: []
       tags:
         - users API
+      deprecated: true
       summary: Set the user's public keys
-      description: Sets the public keys for the logged in user. Public keys must be in OpenSSH format
+      description: 'Sets the public keys for the logged in user. Public keys must be in OpenSSH format. Deprecated please use "/user/profile" instead'
       operationId: set_user_public_keys
       requestBody:
         required: true
@@ -2395,25 +2391,22 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
-  /user/apikeyauth:
+  /user/profile:
     get:
       security:
         - BearerAuth: []
       tags:
         - users API
-      summary: Get API key authentication status
-      description: 'Returns the API Key authentication status for the logged in user'
-      operationId: get_user_api_key_status
+      summary: Get user profile
+      description: 'Returns the profile for the logged in user'
+      operationId: get_user_profile
       responses:
         '200':
           description: successful operation
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  allow_api_key_auth:
-                    type: boolean
+                $ref: '#/components/schemas/UserProfile'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2427,18 +2420,15 @@ paths:
         - BearerAuth: []
       tags:
         - users API
-      summary: Update API key auth status
-      description: 'Allows to enable/disable the API key authentication for the logged in user. If enabled, you can impersonate this user, in REST API, using an API key, otherwise your credentials, including two-factor authentication, if enabled, are required to use the REST API on your behalf'
-      operationId: update_user_api_key_status
+      summary: Update profile
+      description: 'Allows to update the profile for the logged in user'
+      operationId: update_user_profile
       requestBody:
         required: true
         content:
           application/json:
             schema:
-                type: object
-                properties:
-                  allow_api_key_auth:
-                    type: boolean
+              $ref: '#/components/schemas/UserProfile'
       responses:
         '200':
           description: successful operation
@@ -3224,6 +3214,7 @@ components:
         - mfa-disabled
         - password-change-disabled
         - api-key-auth-change-disabled
+        - info-change-disabled
       description: |
         Options:
           * `publickey-change-disabled` - changing SSH public keys is not allowed
@@ -3231,6 +3222,7 @@ components:
           * `mfa-disabled` - enabling multi-factor authentication is not allowed. This option cannot be set if the user has MFA already enabled
           * `password-change-disabled` - changing password is not allowed
           * `api-key-auth-change-disabled` - enabling/disabling API key authentication is not allowed
+          * `info-change-disabled` - changing info such as email and description is not allowed
     APIKeyScope:
       type: integer
       enum:
@@ -3830,6 +3822,34 @@ components:
           type: integer
           format: int64
           description: Last user login as unix timestamp in milliseconds. It is saved at most once every 10 minutes
+    AdminProfile:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        description:
+          type: string
+        allow_api_key_auth:
+          type: boolean
+          description: 'If enabled, you can impersonate this admin, in REST API, using an API key. If disabled admin credentials are required for impersonation'
+    UserProfile:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        description:
+          type: string
+        allow_api_key_auth:
+          type: boolean
+          description: 'If enabled, you can impersonate this user, in REST API, using an API key. If disabled user credentials are required for impersonation'
+        public_keys:
+          type: array
+          items:
+            type: string
+            example: ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEUWwDwEWhTbF0MqAsp/oXK1HR2cElhM8oo1uVmL3ZeDKDiTm4ljMr92wfTgIGDqIoxmVqgYIkAOAhuykAVWBzc= user@host
+            description: Public keys in OpenSSH format
     APIKey:
       type: object
       properties:
