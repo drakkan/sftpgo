@@ -249,7 +249,7 @@ paths:
         - BearerAuth: []
       tags:
         - admins
-      summary: Get profile
+      summary: Get admin profile
       description: 'Returns the profile for the logged in admin'
       operationId: get_admin_profile
       responses:
@@ -2420,7 +2420,7 @@ paths:
         - BearerAuth: []
       tags:
         - users API
-      summary: Update profile
+      summary: Update user profile
       description: 'Allows to update the profile for the logged in user'
       operationId: update_user_profile
       requestBody:

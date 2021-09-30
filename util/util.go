@@ -361,9 +361,9 @@ func LoadTemplate(base *template.Template, paths ...string) *template.Template {
 	var err error
 
 	if base != nil {
-		t, err = base.ParseFiles(paths...)
+		base, err = base.Clone()
 		if err == nil {
-			t, err = t.Clone()
+			t, err = base.ParseFiles(paths...)
 		}
 	} else {
 		t, err = template.ParseFiles(paths...)

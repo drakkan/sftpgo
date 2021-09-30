@@ -296,27 +296,27 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateSetup),
 	}
 
-	rootTpl := template.New("").Funcs(template.FuncMap{
+	fsBaseTpl := template.New("").Funcs(template.FuncMap{
 		"ListFSProviders": sdk.ListProviders,
 	})
-	usersTmpl := util.LoadTemplate(rootTpl, usersPaths...)
-	userTmpl := util.LoadTemplate(rootTpl, userPaths...)
-	adminsTmpl := util.LoadTemplate(rootTpl, adminsPaths...)
-	adminTmpl := util.LoadTemplate(rootTpl, adminPaths...)
-	connectionsTmpl := util.LoadTemplate(rootTpl, connectionsPaths...)
-	messageTmpl := util.LoadTemplate(rootTpl, messagePath...)
-	foldersTmpl := util.LoadTemplate(rootTpl, foldersPath...)
-	folderTmpl := util.LoadTemplate(rootTpl, folderPath...)
-	statusTmpl := util.LoadTemplate(rootTpl, statusPath...)
-	loginTmpl := util.LoadTemplate(rootTpl, loginPath...)
-	profileTmpl := util.LoadTemplate(rootTpl, profilePaths...)
-	changePwdTmpl := util.LoadTemplate(rootTpl, changePwdPaths...)
-	maintenanceTmpl := util.LoadTemplate(rootTpl, maintenancePath...)
-	defenderTmpl := util.LoadTemplate(rootTpl, defenderPath...)
+	usersTmpl := util.LoadTemplate(nil, usersPaths...)
+	userTmpl := util.LoadTemplate(fsBaseTpl, userPaths...)
+	adminsTmpl := util.LoadTemplate(nil, adminsPaths...)
+	adminTmpl := util.LoadTemplate(nil, adminPaths...)
+	connectionsTmpl := util.LoadTemplate(nil, connectionsPaths...)
+	messageTmpl := util.LoadTemplate(nil, messagePath...)
+	foldersTmpl := util.LoadTemplate(nil, foldersPath...)
+	folderTmpl := util.LoadTemplate(fsBaseTpl, folderPath...)
+	statusTmpl := util.LoadTemplate(nil, statusPath...)
+	loginTmpl := util.LoadTemplate(nil, loginPath...)
+	profileTmpl := util.LoadTemplate(nil, profilePaths...)
+	changePwdTmpl := util.LoadTemplate(nil, changePwdPaths...)
+	maintenanceTmpl := util.LoadTemplate(nil, maintenancePath...)
+	defenderTmpl := util.LoadTemplate(nil, defenderPath...)
 	mfaTmpl := util.LoadTemplate(nil, mfaPath...)
 	twoFactorTmpl := util.LoadTemplate(nil, twoFactorPath...)
 	twoFactorRecoveryTmpl := util.LoadTemplate(nil, twoFactorRecoveryPath...)
-	setupTmpl := util.LoadTemplate(rootTpl, setupPath...)
+	setupTmpl := util.LoadTemplate(nil, setupPath...)
 
 	adminTemplates[templateUsers] = usersTmpl
 	adminTemplates[templateUser] = userTmpl
