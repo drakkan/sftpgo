@@ -409,7 +409,7 @@ func TestUserInvalidParams(t *testing.T) {
 	}
 
 	req.TLS = &tls.ConnectionState{}
-	writeLog(req, nil)
+	writeLog(req, http.StatusOK, nil)
 }
 
 func TestRemoteAddress(t *testing.T) {

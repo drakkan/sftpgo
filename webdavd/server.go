@@ -214,6 +214,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 		w.WriteHeader(http.StatusMultiStatus)
 		w.Write([]byte("")) //nolint:errcheck
+		writeLog(r, http.StatusMultiStatus, nil)
 		return
 	}
 
@@ -341,7 +342,7 @@ func (s *webDavServer) checkRemoteAddress(r *http.Request) string {
 	return ipAddr
 }
 
-func writeLog(r *http.Request, err error) {
+func writeLog(r *http.Request, status int, err error) {
 	scheme := "http"
 	if r.TLS != nil {
 		scheme = "https"
@@ -357,6 +358,15 @@ func writeLog(r *http.Request, err error) {
 	}
 	if reqStart, ok := r.Context().Value(requestStartKey).(time.Time); ok {
 		fields["elapsed_ms"] = time.Since(reqStart).Nanoseconds() / 1000000
+	}
+	if depth := r.Header.Get("Depth"); depth != "" {
+		fields["depth"] = depth
+	}
+	if contentLength := r.Header.Get("Content-Length"); contentLength != "" {
+		fields["content_length"] = contentLength
+	}
+	if status != 0 {
+		fields["resp_status"] = status
 	}
 	logger.GetLogger().Info().
 		Timestamp().
