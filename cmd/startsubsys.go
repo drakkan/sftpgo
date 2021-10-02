@@ -87,7 +87,7 @@ Command-line flags should be specified in the Subsystem declaration.
 				os.Exit(1)
 			}
 			smtpConfig := config.GetSMTPConfig()
-			err = smtpConfig.Initialize()
+			err = smtpConfig.Initialize(configDir)
 			if err != nil {
 				logger.Error(logSender, connectionID, "unable to initialize SMTP configuration: %v", err)
 				os.Exit(1)

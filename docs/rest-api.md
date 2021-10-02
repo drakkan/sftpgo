@@ -88,6 +88,7 @@ In the above example we asked to SFTPGo:
 - to exclude `/folder1/subfolder`, no files will be deleted here
 - to delete all the files with modification time older than 24 hours in `/folder2`
 
+The check results can be, optionally, notified by e-mail.
 You can find an example script that shows how to manage data retention [here](../examples/data-retention). Checks the REST API schema for full details.
 
 :warning: Deleting files is an irreversible action, please make sure you fully understand what you are doing before using this feature, you may have users with overlapping home directories or virtual folders shared between multiple users, it is relatively easy to inadvertently delete files you need.

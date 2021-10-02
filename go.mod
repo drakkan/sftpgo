@@ -34,6 +34,7 @@ require (
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mattn/go-sqlite3 v1.14.8
+	github.com/mhale/smtpd v0.8.0
 	github.com/miekg/dns v1.1.43 // indirect
 	github.com/minio/sio v0.3.0
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
@@ -62,10 +63,10 @@ require (
 	gocloud.dev v0.24.0
 	golang.org/x/crypto v0.0.0-20210915214749-c084706c2272
 	golang.org/x/net v0.0.0-20210929193557-e81a3d93ecf6
-	golang.org/x/sys v0.0.0-20211001092434-39dca1131b70
+	golang.org/x/sys v0.0.0-20211002104244-808efd93c36d
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	google.golang.org/api v0.58.0
-	google.golang.org/genproto v0.0.0-20210930144712-2e2e1008e8a3 // indirect
+	google.golang.org/genproto v0.0.0-20211001223012-bfb93cce50d9 // indirect
 	google.golang.org/grpc v1.41.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0

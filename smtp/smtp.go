@@ -2,13 +2,17 @@
 package smtp
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"html/template"
+	"path/filepath"
 	"time"
 
 	mail "github.com/xhit/go-simple-mail/v2"
 
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 const (
@@ -24,10 +28,21 @@ const (
 	EmailContentTypeTextHTML
 )
 
-var (
-	smtpServer *mail.SMTPServer
-	from       string
+const (
+	templateEmailDir             = "email"
+	templateRetentionCheckResult = "retention-check-report.html"
 )
+
+var (
+	smtpServer     *mail.SMTPServer
+	from           string
+	emailTemplates = make(map[string]*template.Template)
+)
+
+// IsEnabled returns true if an SMTP server is configured
+func IsEnabled() bool {
+	return smtpServer != nil
+}
 
 // Config defines the SMTP configuration to use to send emails
 type Config struct {
@@ -35,7 +50,9 @@ type Config struct {
 	Host string `json:"host" mapstructure:"host"`
 	// Port of SMTP email server
 	Port int `json:"port" mapstructure:"port"`
-	// From address, for example "SFTPGo <sftpgo@example.com>"
+	// From address, for example "SFTPGo <sftpgo@example.com>".
+	// Many SMTP servers reject emails without a `From` header so, if not set,
+	// SFTPGo will try to use the username as fallback, this may or may not be appropriate
 	From string `json:"from" mapstructure:"from"`
 	// SMTP username
 	User string `json:"user" mapstructure:"user"`
@@ -52,10 +69,13 @@ type Config struct {
 	Encryption int `json:"encryption" mapstructure:"encryption"`
 	// Domain to use for HELO command, if empty localhost will be used
 	Domain string `json:"domain" mapstructure:"domain"`
+	// Path to the email templates. This can be an absolute path or a path relative to the config dir.
+	// Templates are searched within a subdirectory named "email" in the specified path
+	TemplatesPath string `json:"templates_path" mapstructure:"templates_path"`
 }
 
 // Initialize initialized and validates the SMTP configuration
-func (c *Config) Initialize() error {
+func (c *Config) Initialize(configDir string) error {
 	smtpServer = nil
 	if c.Host == "" {
 		logger.Debug(logSender, "", "configuration disabled, email capabilities will not be available")
@@ -70,6 +90,14 @@ func (c *Config) Initialize() error {
 	if c.Encryption < 0 || c.Encryption > 2 {
 		return fmt.Errorf("smtp: invalid encryption %v", c.Encryption)
 	}
+	templatesPath := c.TemplatesPath
+	if templatesPath == "" || !util.IsFileInputValid(templatesPath) {
+		return fmt.Errorf("smtp: invalid templates path %#v", templatesPath)
+	}
+	if !filepath.IsAbs(templatesPath) {
+		templatesPath = filepath.Join(configDir, templatesPath)
+	}
+	loadTemplates(filepath.Join(templatesPath, templateEmailDir))
 	from = c.From
 	smtpServer = mail.NewSMTPClient()
 	smtpServer.Host = c.Host
@@ -114,6 +142,21 @@ func (c *Config) getAuthType() mail.AuthType {
 	}
 }
 
+func loadTemplates(templatesPath string) {
+	logger.Debug(logSender, "", "loading templates from %#v", templatesPath)
+	retentionCheckPath := filepath.Join(templatesPath, templateRetentionCheckResult)
+	retentionTmpl := util.LoadTemplate(nil, retentionCheckPath)
+	emailTemplates[templateRetentionCheckResult] = retentionTmpl
+}
+
+// RenderRetentionReportTemplate executes the retention report template
+func RenderRetentionReportTemplate(buf *bytes.Buffer, data interface{}) error {
+	if smtpServer == nil {
+		return errors.New("smtp: not configured")
+	}
+	return emailTemplates[templateRetentionCheckResult].Execute(buf, data)
+}
+
 // SendEmail tries to send an email using the specified parameters.
 func SendEmail(to, subject, body string, contentType EmailContentType) error {
 	if smtpServer == nil {
@@ -127,6 +170,8 @@ func SendEmail(to, subject, body string, contentType EmailContentType) error {
 	email := mail.NewMSG()
 	if from != "" {
 		email.SetFrom(from)
+	} else {
+		email.SetFrom(smtpServer.Username)
 	}
 	email.AddTo(to).SetSubject(subject)
 	switch contentType {

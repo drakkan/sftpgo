@@ -262,7 +262,8 @@
     "password": "",
     "auth_type": 0,
     "encryption": 0,
-    "domain": ""
+    "domain": "",
+    "templates_path": "templates"
   },
   "plugins": []
 }

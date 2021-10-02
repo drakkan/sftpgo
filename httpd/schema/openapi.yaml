@@ -772,6 +772,11 @@ paths:
         required: true
         schema:
           type: string
+      - name: notify
+        in: query
+        description: 'specify how notify results'
+        schema:
+          $ref: '#/components/schemas/RetentionCheckNotification'
     post:
       tags:
         - data retention
@@ -3223,6 +3228,15 @@ components:
           * `password-change-disabled` - changing password is not allowed
           * `api-key-auth-change-disabled` - enabling/disabling API key authentication is not allowed
           * `info-change-disabled` - changing info such as email and description is not allowed
+    RetentionCheckNotification:
+      type: string
+      enum:
+        - None
+        - Email
+      description: |
+        Options:
+          * `None` - no notification, the results are recorded in the logs
+          * `Email` - notify results by email. The admin starting the retention check must have an associated email address and the SMTP server must be configured for this to work
     APIKeyScope:
       type: integer
       enum:
@@ -3991,6 +4005,12 @@ components:
           type: integer
           format: int64
           description: check start time as unix timestamp in milliseconds
+        notification:
+          $ref: '#/components/schemas/RetentionCheckNotification'
+        email:
+          type: string
+          format: email
+          description: 'if the notification method is set to "Email", this is the e-mail address that receives the retention check report. This field is automatically set to the email address associated with the administrator starting the check'
     QuotaScan:
       type: object
       properties:

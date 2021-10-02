@@ -111,7 +111,7 @@ func (s *Service) Start() error {
 		os.Exit(1)
 	}
 	smtpConfig := config.GetSMTPConfig()
-	err = smtpConfig.Initialize()
+	err = smtpConfig.Initialize(s.ConfigDir)
 	if err != nil {
 		logger.Error(logSender, "", "unable to initialize SMTP configuration: %v", err)
 		logger.ErrorToConsole("unable to initialize SMTP configuration: %v", err)

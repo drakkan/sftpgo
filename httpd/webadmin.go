@@ -296,7 +296,7 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateSetup),
 	}
 
-	fsBaseTpl := template.New("").Funcs(template.FuncMap{
+	fsBaseTpl := template.New("fsBaseTemplate").Funcs(template.FuncMap{
 		"ListFSProviders": sdk.ListProviders,
 	})
 	usersTmpl := util.LoadTemplate(nil, usersPaths...)

@@ -1,14 +1,17 @@
 package common
 
 import (
+	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/smtp"
 )
 
 func TestRetentionValidation(t *testing.T) {
@@ -62,6 +65,83 @@ func TestRetentionValidation(t *testing.T) {
 	}
 	err = check.Validate()
 	assert.NoError(t, err)
+	assert.Equal(t, RetentionCheckNotificationNone, check.Notification)
+	assert.Empty(t, check.Email)
+
+	check.Notification = RetentionCheckNotificationEmail
+	err = check.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "you must configure an SMTP server")
+
+	smtpCfg := smtp.Config{
+		Host:          "mail.example.com",
+		Port:          25,
+		TemplatesPath: "templates",
+	}
+	err = smtpCfg.Initialize("..")
+	require.NoError(t, err)
+
+	err = check.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "you must add a valid email address")
+
+	check.Email = "admin@example.com"
+	err = check.Validate()
+	assert.NoError(t, err)
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize("..")
+	require.NoError(t, err)
+}
+
+func TestEmailNotifications(t *testing.T) {
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          2525,
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize("..")
+	require.NoError(t, err)
+
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: "user1",
+		},
+	}
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{dataprovider.PermAny}
+	check := RetentionCheck{
+		Notification: RetentionCheckNotificationEmail,
+		Email:        "notification@example.com",
+		results: []*folderRetentionCheckResult{
+			{
+				Path:         "/",
+				Retention:    24,
+				DeletedFiles: 10,
+				DeletedSize:  32657,
+				Elapsed:      10 * time.Second,
+			},
+		},
+	}
+	conn := NewBaseConnection("", "", "", "", user)
+	conn.ID = fmt.Sprintf("retention_check_%v", user.Username)
+	check.conn = conn
+	err = check.sendNotification(time.Now(), nil)
+	assert.NoError(t, err)
+	err = check.sendNotification(time.Now(), errors.New("test error"))
+	assert.NoError(t, err)
+
+	smtpCfg.Port = 2626
+	err = smtpCfg.Initialize("..")
+	require.NoError(t, err)
+	err = check.sendNotification(time.Now(), nil)
+	assert.Error(t, err)
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize("..")
+	require.NoError(t, err)
+	err = check.sendNotification(time.Now(), nil)
+	assert.Error(t, err)
 }
 
 func TestRetentionPermissionsAndGetFolder(t *testing.T) {

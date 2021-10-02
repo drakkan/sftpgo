@@ -1584,7 +1584,7 @@ func TestRetentionAPI(t *testing.T) {
 
 	resp, err := httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusBadRequest)
 	assert.NoError(t, err)
-	assert.Contains(t, string(resp), "Invalid folders to check")
+	assert.Contains(t, string(resp), "Invalid retention check")
 
 	folderRetention[0].Retention = 24
 	_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusAccepted)
@@ -1621,13 +1621,36 @@ func TestRetentionAPI(t *testing.T) {
 	c.Start()
 	assert.Len(t, common.RetentionChecks.Get(), 0)
 
-	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	admin := getTestAdmin()
+	admin.Username = altAdminUsername
+	admin.Password = altAdminPassword
+	admin, _, err = httpdtest.AddAdmin(admin, http.StatusCreated)
+	assert.NoError(t, err)
+
+	token, err := getJWTAPITokenFromTestServer(altAdminUsername, altAdminPassword)
 	assert.NoError(t, err)
 	req, _ := http.NewRequest(http.MethodPost, retentionBasePath+"/"+user.Username+"/check",
 		bytes.NewBuffer([]byte("invalid json")))
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	asJSON, err := json.Marshal(folderRetention)
+	assert.NoError(t, err)
+	req, _ = http.NewRequest(http.MethodPost, retentionBasePath+"/"+user.Username+"/check?notify=Email",
+		bytes.NewBuffer(asJSON))
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "to notify results via email")
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	req, _ = http.NewRequest(http.MethodPost, retentionBasePath+"/"+user.Username+"/check?notify=Email",
+		bytes.NewBuffer(asJSON))
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)

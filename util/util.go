@@ -354,8 +354,8 @@ func CleanPath(p string) string {
 }
 
 // LoadTemplate parses the given template paths.
-// it behaves like template.Must but it writes a log before exiting
-// you can optionally provide a base template (e.g. to define some custom functions)
+// It behaves like template.Must but it writes a log before exiting.
+// You can optionally provide a base template (e.g. to define some custom functions)
 func LoadTemplate(base *template.Template, paths ...string) *template.Template {
 	var t *template.Template
 	var err error

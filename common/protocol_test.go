@@ -19,14 +19,14 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/mhale/smtpd"
 	"github.com/pkg/sftp"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
-
-	"github.com/rs/zerolog"
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/config"
@@ -45,6 +45,7 @@ const (
 	httpAddr            = "127.0.0.1:9999"
 	httpProxyAddr       = "127.0.0.1:7777"
 	sftpServerAddr      = "127.0.0.1:4022"
+	smtpServerAddr      = "127.0.0.1:2525"
 	defaultUsername     = "test_common_sftp"
 	defaultPassword     = "test_password"
 	defaultSFTPUsername = "test_common_sftpfs_user"
@@ -162,8 +163,18 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
+	go func() {
+		if err := smtpd.ListenAndServe(smtpServerAddr, func(remoteAddr net.Addr, from string, to []string, data []byte) error {
+			return nil
+		}, "SFTPGo test", "localhost"); err != nil {
+			logger.ErrorToConsole("could not start SMTP server: %v", err)
+			os.Exit(1)
+		}
+	}()
+
 	waitTCPListening(httpAddr)
 	waitTCPListening(httpProxyAddr)
+	waitTCPListening(smtpServerAddr)
 
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 	waitTCPListening(httpdConf.Bindings[0].GetAddress())

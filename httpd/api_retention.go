@@ -29,8 +29,22 @@ func startRetentionCheck(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
+	check.Notification = r.URL.Query().Get("notify")
+	if check.Notification == common.RetentionCheckNotificationEmail {
+		claims, err := getTokenClaims(r)
+		if err != nil {
+			sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+			return
+		}
+		admin, err := dataprovider.AdminExists(claims.Username)
+		if err != nil {
+			sendAPIResponse(w, r, err, "", getRespStatus(err))
+			return
+		}
+		check.Email = admin.Email
+	}
 	if err := check.Validate(); err != nil {
-		sendAPIResponse(w, r, err, "Invalid folders to check", http.StatusBadRequest)
+		sendAPIResponse(w, r, err, "Invalid retention check", http.StatusBadRequest)
 		return
 	}
 	c := common.RetentionChecks.Add(check, &user)

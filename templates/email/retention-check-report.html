@@ -1,0 +1,33 @@
+Retention check report for user <b>"{{.Username}}"</b>
+<br><br>
+Status: <strong>{{.Status}}</strong>
+<br>
+Start time: {{.StartTime}}
+<br>
+Total files deleted: {{.TotalFiles}}
+<br>
+Total size deleted: {{call .HumanizeSize .TotalSize}}
+<br>
+Elapsed: {{.Elapsed}}
+<br>
+{{range .Results -}}
+<p>
+    Path: {{.Path}}
+    {{- if .Error}}
+    <br>
+    Error: {{.Error}}
+    {{- end}}
+    {{- if .Info}}
+    <br>
+    Info: {{.Info}}
+    {{- end}}
+    <br>
+    Retention: {{.Retention}} hours
+    <br>
+    Files deleted: {{.DeletedFiles}}
+    <br>
+    Size deleted: {{call $.HumanizeSize .DeletedSize}}
+    <br>
+    Elapsed: {{.Elapsed}}
+</p>
+{{end}}
