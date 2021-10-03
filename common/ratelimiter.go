@@ -3,6 +3,7 @@ package common
 import (
 	"errors"
 	"fmt"
+	"net"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -47,6 +48,8 @@ type RateLimiterConfig struct {
 	// Available protocols are: "SFTP", "FTP", "DAV".
 	// A rate limiter with no protocols defined is disabled
 	Protocols []string `json:"protocols" mapstructure:"protocols"`
+	// AllowList defines a list of IP addresses and IP ranges excluded from rate limiting
+	AllowList []string `json:"allow_list" mapstructure:"mapstructure"`
 	// If the rate limit is exceeded, the defender is enabled, and this is a per-source limiter,
 	// a new defender event will be generated
 	GenerateDefenderEvents bool `json:"generate_defender_events" mapstructure:"generate_defender_events"`
@@ -125,12 +128,23 @@ type rateLimiter struct {
 	globalBucket           *rate.Limiter
 	buckets                sourceBuckets
 	generateDefenderEvents bool
+	allowList              []func(net.IP) bool
 }
 
 // Wait blocks until the limit allows one event to happen
 // or returns an error if the time to wait exceeds the max
 // allowed delay
 func (rl *rateLimiter) Wait(source string) (time.Duration, error) {
+	if len(rl.allowList) > 0 {
+		ip := net.ParseIP(source)
+		if ip != nil {
+			for idx := range rl.allowList {
+				if rl.allowList[idx](ip) {
+					return 0, nil
+				}
+			}
+		}
+	}
 	var res *rate.Reservation
 	if rl.globalBucket != nil {
 		res = rl.globalBucket.Reserve()

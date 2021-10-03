@@ -213,6 +213,14 @@ func TestRateLimitersIntegration(t *testing.T) {
 	err := Initialize(Config)
 	assert.Error(t, err)
 	Config.RateLimitersConfig[0].Period = 1000
+	Config.RateLimitersConfig[0].AllowList = []string{"1.1.1", "1.1.1.2"}
+	err = Initialize(Config)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unable to parse rate limiter allow list")
+	}
+	Config.RateLimitersConfig[0].AllowList = []string{"172.16.24.7"}
+	Config.RateLimitersConfig[1].AllowList = []string{"172.16.0.0/16"}
+
 	err = Initialize(Config)
 	assert.NoError(t, err)
 
@@ -224,6 +232,7 @@ func TestRateLimitersIntegration(t *testing.T) {
 
 	source1 := "127.1.1.1"
 	source2 := "127.1.1.2"
+	source3 := "172.16.24.7" // whitelisted
 
 	_, err = LimitRate(ProtocolSSH, source1)
 	assert.NoError(t, err)
@@ -242,6 +251,10 @@ func TestRateLimitersIntegration(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = LimitRate(ProtocolSSH, source2)
 	assert.NoError(t, err)
+	for i := 0; i < 10; i++ {
+		_, err = LimitRate(ProtocolWebDAV, source3)
+		assert.NoError(t, err)
+	}
 
 	Config = configCopy
 }

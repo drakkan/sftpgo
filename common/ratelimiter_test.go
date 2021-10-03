@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 func TestRateLimiterConfig(t *testing.T) {
@@ -81,6 +83,17 @@ func TestRateLimiter(t *testing.T) {
 	require.Error(t, err)
 	// a different source should work
 	_, err = limiter.Wait(source + "1")
+	require.NoError(t, err)
+
+	allowList := []string{"192.168.1.0/24"}
+	allowFuncs, err := util.ParseAllowedIPAndRanges(allowList)
+	assert.NoError(t, err)
+	limiter.allowList = allowFuncs
+	for i := 0; i < 5; i++ {
+		_, err = limiter.Wait(source)
+		require.NoError(t, err)
+	}
+	_, err = limiter.Wait("not an ip")
 	require.NoError(t, err)
 
 	config.Burst = 0

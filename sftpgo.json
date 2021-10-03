@@ -42,6 +42,7 @@
           "DAV",
           "HTTP"
         ],
+        "allow_list": [],
         "generate_defender_events": false,
         "entries_soft_limit": 100,
         "entries_hard_limit": 150

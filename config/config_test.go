@@ -515,7 +515,9 @@ func TestRateLimitersFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_COMMON__RATE_LIMITERS__0__GENERATE_DEFENDER_EVENTS", "1")
 	os.Setenv("SFTPGO_COMMON__RATE_LIMITERS__0__ENTRIES_SOFT_LIMIT", "50")
 	os.Setenv("SFTPGO_COMMON__RATE_LIMITERS__0__ENTRIES_HARD_LIMIT", "100")
+	os.Setenv("SFTPGO_COMMON__RATE_LIMITERS__0__ALLOW_LIST", ", 172.16.2.4, ")
 	os.Setenv("SFTPGO_COMMON__RATE_LIMITERS__8__AVERAGE", "50")
+	os.Setenv("SFTPGO_COMMON__RATE_LIMITERS__8__ALLOW_LIST", "192.168.1.1, 192.168.2.0/24")
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_COMMON__RATE_LIMITERS__0__AVERAGE")
 		os.Unsetenv("SFTPGO_COMMON__RATE_LIMITERS__0__PERIOD")
@@ -525,7 +527,9 @@ func TestRateLimitersFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_COMMON__RATE_LIMITERS__0__GENERATE_DEFENDER_EVENTS")
 		os.Unsetenv("SFTPGO_COMMON__RATE_LIMITERS__0__ENTRIES_SOFT_LIMIT")
 		os.Unsetenv("SFTPGO_COMMON__RATE_LIMITERS__0__ENTRIES_HARD_LIMIT")
+		os.Unsetenv("SFTPGO_COMMON__RATE_LIMITERS__0__ALLOW_LIST")
 		os.Unsetenv("SFTPGO_COMMON__RATE_LIMITERS__8__AVERAGE")
+		os.Unsetenv("SFTPGO_COMMON__RATE_LIMITERS__8__ALLOW_LIST")
 	})
 
 	configDir := ".."
@@ -544,7 +548,12 @@ func TestRateLimitersFromEnv(t *testing.T) {
 	require.True(t, limiters[0].GenerateDefenderEvents)
 	require.Equal(t, 50, limiters[0].EntriesSoftLimit)
 	require.Equal(t, 100, limiters[0].EntriesHardLimit)
+	require.Len(t, limiters[0].AllowList, 1)
+	require.Equal(t, "172.16.2.4", limiters[0].AllowList[0])
 	require.Equal(t, int64(50), limiters[1].Average)
+	require.Len(t, limiters[1].AllowList, 2)
+	require.Equal(t, "192.168.1.1", limiters[1].AllowList[0])
+	require.Equal(t, "192.168.2.0/24", limiters[1].AllowList[1])
 	// we check the default values here
 	require.Equal(t, int64(1000), limiters[1].Period)
 	require.Equal(t, 1, limiters[1].Burst)

@@ -576,7 +576,8 @@ func GetHTTPLocalAddress(r *http.Request) string {
 	return ""
 }
 
-// ParseAllowedIPAndRanges returns a list of functions that allow to find if a
+// ParseAllowedIPAndRanges returns a list of functions that allow to find if an
+// IP is equal or is contained within the allowed list
 func ParseAllowedIPAndRanges(allowed []string) ([]func(net.IP) bool, error) {
 	res := make([]func(net.IP) bool, len(allowed))
 	for i, allowFrom := range allowed {

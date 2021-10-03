@@ -149,7 +149,12 @@ func Initialize(c Configuration) error {
 			if err := rlCfg.validate(); err != nil {
 				return fmt.Errorf("rate limiters initialization error: %v", err)
 			}
+			allowList, err := util.ParseAllowedIPAndRanges(rlCfg.AllowList)
+			if err != nil {
+				return fmt.Errorf("unable to parse rate limiter allow list %v: %v", rlCfg.AllowList, err)
+			}
 			rateLimiter := rlCfg.getLimiter()
+			rateLimiter.allowList = allowList
 			for _, protocol := range rlCfg.Protocols {
 				rateLimiters[protocol] = append(rateLimiters[protocol], rateLimiter)
 			}

@@ -85,6 +85,7 @@ var (
 		Burst:                  1,
 		Type:                   2,
 		Protocols:              []string{common.ProtocolSSH, common.ProtocolFTP, common.ProtocolWebDAV, common.ProtocolHTTP},
+		AllowList:              []string{},
 		GenerateDefenderEvents: false,
 		EntriesSoftLimit:       100,
 		EntriesHardLimit:       150,
@@ -634,6 +635,12 @@ func getRateLimitersFromEnv(idx int) {
 	protocols, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__PROTOCOLS", idx))
 	if ok {
 		rtlConfig.Protocols = protocols
+		isSet = true
+	}
+
+	allowList, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__ALLOW_LIST", idx))
+	if ok {
+		rtlConfig.AllowList = allowList
 		isSet = true
 	}
 
