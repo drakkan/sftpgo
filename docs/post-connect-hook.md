@@ -4,7 +4,7 @@ This hook is executed as soon as a new connection is established. It notifies th
 
 Please keep in mind that you can easily configure specialized program such as [Fail2ban](http://www.fail2ban.org/) for brute force protection. Executing a hook for each connection can be heavy.
 
-The `post-connect-hook` can be defined as the absolute path of your program or an HTTP URL.
+The `post_connect_hook` can be defined as the absolute path of your program or an HTTP URL.
 
 If the hook defines an external program it can read the following environment variables:
 

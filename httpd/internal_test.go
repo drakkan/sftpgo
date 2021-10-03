@@ -504,7 +504,7 @@ func TestRetentionInvalidTokenClaims(t *testing.T) {
 	}
 	asJSON, err := json.Marshal(folderRetention)
 	assert.NoError(t, err)
-	req, _ := http.NewRequest(http.MethodPost, retentionBasePath+"/"+username+"/check?notify=Email", bytes.NewBuffer(asJSON))
+	req, _ := http.NewRequest(http.MethodPost, retentionBasePath+"/"+username+"/check?notifications=Email", bytes.NewBuffer(asJSON))
 
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("username", username)

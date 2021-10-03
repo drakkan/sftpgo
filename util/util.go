@@ -602,6 +602,9 @@ func ParseAllowedIPAndRanges(allowed []string) ([]func(net.IP) bool, error) {
 
 // GetRedactedURL returns the url redacting the password if any
 func GetRedactedURL(rawurl string) string {
+	if !strings.HasPrefix(rawurl, "http") {
+		return rawurl
+	}
 	u, err := url.Parse(rawurl)
 	if err != nil {
 		return rawurl

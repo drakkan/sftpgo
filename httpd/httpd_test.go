@@ -1637,7 +1637,7 @@ func TestRetentionAPI(t *testing.T) {
 
 	asJSON, err := json.Marshal(folderRetention)
 	assert.NoError(t, err)
-	req, _ = http.NewRequest(http.MethodPost, retentionBasePath+"/"+user.Username+"/check?notify=Email",
+	req, _ = http.NewRequest(http.MethodPost, retentionBasePath+"/"+user.Username+"/check?notifications=Email,",
 		bytes.NewBuffer(asJSON))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
@@ -1646,7 +1646,7 @@ func TestRetentionAPI(t *testing.T) {
 
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
-	req, _ = http.NewRequest(http.MethodPost, retentionBasePath+"/"+user.Username+"/check?notify=Email",
+	req, _ = http.NewRequest(http.MethodPost, retentionBasePath+"/"+user.Username+"/check?notifications=Email",
 		bytes.NewBuffer(asJSON))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)

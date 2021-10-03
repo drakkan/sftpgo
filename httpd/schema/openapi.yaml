@@ -772,11 +772,14 @@ paths:
         required: true
         schema:
           type: string
-      - name: notify
+      - name: notifications
         in: query
-        description: 'specify how notify results'
+        description: 'specify how to notify results'
+        explode: false
         schema:
-          $ref: '#/components/schemas/RetentionCheckNotification'
+          type: array
+          items:
+            $ref: '#/components/schemas/RetentionCheckNotification'
     post:
       tags:
         - data retention
@@ -3231,11 +3234,11 @@ components:
     RetentionCheckNotification:
       type: string
       enum:
-        - None
+        - Hook
         - Email
       description: |
         Options:
-          * `None` - no notification, the results are recorded in the logs
+          * `Hook` - notify result using the defined hook. A "data_retention_hook" must be defined in your configuration file for this to work
           * `Email` - notify results by email. The admin starting the retention check must have an associated email address and the SMTP server must be configured for this to work
     APIKeyScope:
       type: integer
@@ -4005,8 +4008,10 @@ components:
           type: integer
           format: int64
           description: check start time as unix timestamp in milliseconds
-        notification:
-          $ref: '#/components/schemas/RetentionCheckNotification'
+        notifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/RetentionCheckNotification'
         email:
           type: string
           format: email

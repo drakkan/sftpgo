@@ -2,13 +2,21 @@ package common
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
 	"path"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/httpclient"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/smtp"
 	"github.com/drakkan/sftpgo/v2/util"
@@ -18,8 +26,8 @@ import (
 type RetentionCheckNotification = string
 
 const (
-	// no notification, the check results are recorded in the logs
-	RetentionCheckNotificationNone = "None"
+	// notify results using the defined "data_retention_hook"
+	RetentionCheckNotificationHook = "Hook"
 	// notify results by email
 	RetentionCheckNotificationEmail = "Email"
 )
@@ -44,12 +52,14 @@ func (c *ActiveRetentionChecks) Get() []RetentionCheck {
 	for _, check := range c.Checks {
 		foldersCopy := make([]FolderRetention, len(check.Folders))
 		copy(foldersCopy, check.Folders)
+		notificationsCopy := make([]string, len(check.Notifications))
+		copy(notificationsCopy, check.Notifications)
 		checks = append(checks, RetentionCheck{
-			Username:     check.Username,
-			StartTime:    check.StartTime,
-			Notification: check.Notification,
-			Email:        check.Email,
-			Folders:      foldersCopy,
+			Username:      check.Username,
+			StartTime:     check.StartTime,
+			Notifications: notificationsCopy,
+			Email:         check.Email,
+			Folders:       foldersCopy,
 		})
 	}
 	return checks
@@ -130,13 +140,13 @@ func (f *FolderRetention) isValid() error {
 }
 
 type folderRetentionCheckResult struct {
-	Path         string
-	Retention    int
-	DeletedFiles int
-	DeletedSize  int64
-	Elapsed      time.Duration
-	Info         string
-	Error        string
+	Path         string        `json:"path"`
+	Retention    int           `json:"retention"`
+	DeletedFiles int           `json:"deleted_files"`
+	DeletedSize  int64         `json:"deleted_size"`
+	Elapsed      time.Duration `json:"-"`
+	Info         string        `json:"info,omitempty"`
+	Error        string        `json:"error,omitempty"`
 }
 
 // RetentionCheck defines an active retention check
@@ -148,7 +158,7 @@ type RetentionCheck struct {
 	// affected folders
 	Folders []FolderRetention `json:"folders"`
 	// how cleanup results will be notified
-	Notification RetentionCheckNotification `json:"notification"`
+	Notifications []RetentionCheckNotification `json:"notifications,omitempty"`
 	// email to use if the notification method is set to email
 	Email string `json:"email,omitempty"`
 	// Cleanup results
@@ -176,16 +186,22 @@ func (c *RetentionCheck) Validate() error {
 	if nothingToDo {
 		return util.NewValidationError("nothing to delete!")
 	}
-	switch c.Notification {
-	case RetentionCheckNotificationEmail:
-		if !smtp.IsEnabled() {
-			return util.NewValidationError("in order to notify results via email you must configure an SMTP server")
+	for _, notification := range c.Notifications {
+		switch notification {
+		case RetentionCheckNotificationEmail:
+			if !smtp.IsEnabled() {
+				return util.NewValidationError("in order to notify results via email you must configure an SMTP server")
+			}
+			if c.Email == "" {
+				return util.NewValidationError("in order to notify results via email you must add a valid email address to your profile")
+			}
+		case RetentionCheckNotificationHook:
+			if Config.DataRetentionHook == "" {
+				return util.NewValidationError("in order to notify results via hook you must define a data_retention_hook")
+			}
+		default:
+			return util.NewValidationError(fmt.Sprintf("invalid notification %#v", notification))
 		}
-		if c.Email == "" {
-			return util.NewValidationError("in order to notify results via email you must add a valid email address to your profile")
-		}
-	default:
-		c.Notification = RetentionCheckNotificationNone
 	}
 	return nil
 }
@@ -320,49 +336,124 @@ func (c *RetentionCheck) Start() {
 		if folder.Retention > 0 {
 			if err := c.cleanupFolder(folder.Path); err != nil {
 				c.conn.Log(logger.LevelWarn, "retention check failed, unable to cleanup folder %#v", folder.Path)
-				c.sendNotification(startTime, err) //nolint:errcheck
+				c.sendNotifications(time.Since(startTime), err)
 				return
 			}
 		}
 	}
 
 	c.conn.Log(logger.LevelInfo, "retention check completed")
-	c.sendNotification(startTime, nil) //nolint:errcheck
+	c.sendNotifications(time.Since(startTime), nil)
 }
 
-func (c *RetentionCheck) sendNotification(startTime time.Time, err error) error {
-	switch c.Notification {
-	case RetentionCheckNotificationEmail:
-		body := new(bytes.Buffer)
-		data := make(map[string]interface{})
-		data["Results"] = c.results
-		totalDeletedFiles := 0
-		totalDeletedSize := int64(0)
-		for _, result := range c.results {
-			totalDeletedFiles += result.DeletedFiles
-			totalDeletedSize += result.DeletedSize
+func (c *RetentionCheck) sendNotifications(elapsed time.Duration, err error) {
+	for _, notification := range c.Notifications {
+		switch notification {
+		case RetentionCheckNotificationEmail:
+			c.sendEmailNotification(elapsed, err) //nolint:errcheck
+		case RetentionCheckNotificationHook:
+			c.sendHookNotification(elapsed, err) //nolint:errcheck
 		}
-		data["HumanizeSize"] = util.ByteCountIEC
-		data["TotalFiles"] = totalDeletedFiles
-		data["TotalSize"] = totalDeletedSize
-		data["Elapsed"] = time.Since(startTime)
-		data["Username"] = c.conn.User.Username
-		data["StartTime"] = util.GetTimeFromMsecSinceEpoch(c.StartTime)
-		if err == nil {
-			data["Status"] = "Succeeded"
-		} else {
-			data["Status"] = "Failed"
-		}
-		if err := smtp.RenderRetentionReportTemplate(body, data); err != nil {
-			c.conn.Log(logger.LevelWarn, "unable to render retention check template: %v", err)
-			return err
-		}
-		subject := fmt.Sprintf("Retention check completed for user %#v", c.conn.User.Username)
-		if err := smtp.SendEmail(c.Email, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
-			c.conn.Log(logger.LevelWarn, "unable to notify retention check result via email: %v", err)
-			return err
-		}
-		c.conn.Log(logger.LevelInfo, "retention check result successfully notified via email")
 	}
+}
+
+func (c *RetentionCheck) sendEmailNotification(elapsed time.Duration, errCheck error) error {
+	body := new(bytes.Buffer)
+	data := make(map[string]interface{})
+	data["Results"] = c.results
+	totalDeletedFiles := 0
+	totalDeletedSize := int64(0)
+	for _, result := range c.results {
+		totalDeletedFiles += result.DeletedFiles
+		totalDeletedSize += result.DeletedSize
+	}
+	data["HumanizeSize"] = util.ByteCountIEC
+	data["TotalFiles"] = totalDeletedFiles
+	data["TotalSize"] = totalDeletedSize
+	data["Elapsed"] = elapsed
+	data["Username"] = c.conn.User.Username
+	data["StartTime"] = util.GetTimeFromMsecSinceEpoch(c.StartTime)
+	if errCheck == nil {
+		data["Status"] = "Succeeded"
+	} else {
+		data["Status"] = "Failed"
+	}
+	if err := smtp.RenderRetentionReportTemplate(body, data); err != nil {
+		c.conn.Log(logger.LevelWarn, "unable to render retention check template: %v", err)
+		return err
+	}
+	startTime := time.Now()
+	subject := fmt.Sprintf("Retention check completed for user %#v", c.conn.User.Username)
+	if err := smtp.SendEmail(c.Email, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
+		c.conn.Log(logger.LevelWarn, "unable to notify retention check result via email: %v, elapsed: %v", err,
+			time.Since(startTime))
+		return err
+	}
+	c.conn.Log(logger.LevelInfo, "retention check result successfully notified via email, elapsed: %v", time.Since(startTime))
 	return nil
+}
+
+func (c *RetentionCheck) sendHookNotification(elapsed time.Duration, errCheck error) error {
+	data := make(map[string]interface{})
+	totalDeletedFiles := 0
+	totalDeletedSize := int64(0)
+	for _, result := range c.results {
+		totalDeletedFiles += result.DeletedFiles
+		totalDeletedSize += result.DeletedSize
+	}
+	data["username"] = c.conn.User.Username
+	data["start_time"] = c.StartTime
+	data["elapsed"] = elapsed.Milliseconds()
+	if errCheck == nil {
+		data["status"] = 1
+	} else {
+		data["status"] = 0
+	}
+	data["total_deleted_files"] = totalDeletedFiles
+	data["total_deleted_size"] = totalDeletedSize
+	data["details"] = c.results
+	jsonData, _ := json.Marshal(data)
+
+	startTime := time.Now()
+
+	if strings.HasPrefix(Config.DataRetentionHook, "http") {
+		var url *url.URL
+		url, err := url.Parse(Config.DataRetentionHook)
+		if err != nil {
+			c.conn.Log(logger.LevelWarn, "invalid data retention hook %#v: %v", Config.DataRetentionHook, err)
+			return err
+		}
+		respCode := 0
+
+		resp, err := httpclient.RetryablePost(url.String(), "application/json", bytes.NewBuffer(jsonData))
+		if err == nil {
+			respCode = resp.StatusCode
+			resp.Body.Close()
+
+			if respCode != http.StatusOK {
+				err = errUnexpectedHTTResponse
+			}
+		}
+
+		c.conn.Log(logger.LevelDebug, "notified result to URL: %#v, status code: %v, elapsed: %v err: %v",
+			url.Redacted(), respCode, time.Since(startTime), err)
+
+		return err
+	}
+	if !filepath.IsAbs(Config.DataRetentionHook) {
+		err := fmt.Errorf("invalid data retention hook %#v", Config.DataRetentionHook)
+		c.conn.Log(logger.LevelWarn, "%v", err)
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, Config.DataRetentionHook)
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("SFTPGO_DATA_RETENTION_RESULT=%v", string(jsonData)))
+	err := cmd.Run()
+
+	c.conn.Log(logger.LevelDebug, "notified result using command: %v, elapsed: %v err: %v",
+		Config.DataRetentionHook, time.Since(startTime), err)
+	return err
 }

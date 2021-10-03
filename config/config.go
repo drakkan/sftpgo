@@ -134,6 +134,7 @@ func Init() {
 			ProxyProtocol:         0,
 			ProxyAllowed:          []string{},
 			PostConnectHook:       "",
+			DataRetentionHook:     "",
 			MaxTotalConnections:   0,
 			MaxPerHostConnections: 20,
 			DefenderConfig: common.DefenderConfig{
@@ -453,6 +454,7 @@ func getRedactedGlobalConf() globalConfig {
 	conf.Common.Actions.Hook = util.GetRedactedURL(conf.Common.Actions.Hook)
 	conf.Common.StartupHook = util.GetRedactedURL(conf.Common.StartupHook)
 	conf.Common.PostConnectHook = util.GetRedactedURL(conf.Common.PostConnectHook)
+	conf.Common.DataRetentionHook = util.GetRedactedURL(conf.Common.DataRetentionHook)
 	conf.SFTPD.KeyboardInteractiveHook = util.GetRedactedURL(conf.SFTPD.KeyboardInteractiveHook)
 	conf.HTTPDConfig.SigningPassphrase = getRedactedPassword()
 	conf.ProviderConf.Password = getRedactedPassword()
@@ -1052,6 +1054,7 @@ func setViperDefaults() {
 	viper.SetDefault("common.proxy_protocol", globalConf.Common.ProxyProtocol)
 	viper.SetDefault("common.proxy_allowed", globalConf.Common.ProxyAllowed)
 	viper.SetDefault("common.post_connect_hook", globalConf.Common.PostConnectHook)
+	viper.SetDefault("common.data_retention_hook", globalConf.Common.DataRetentionHook)
 	viper.SetDefault("common.max_total_connections", globalConf.Common.MaxTotalConnections)
 	viper.SetDefault("common.max_per_host_connections", globalConf.Common.MaxPerHostConnections)
 	viper.SetDefault("common.defender.enabled", globalConf.Common.DefenderConfig.Enabled)

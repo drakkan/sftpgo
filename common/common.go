@@ -394,6 +394,9 @@ type Configuration struct {
 	// and before he tries to login. It allows you to reject the connection based on the source
 	// ip address. Leave empty do disable.
 	PostConnectHook string `json:"post_connect_hook" mapstructure:"post_connect_hook"`
+	// Absolute path to an external program or an HTTP URL to invoke after a data retention check completes.
+	// Leave empty do disable.
+	DataRetentionHook string `json:"data_retention_hook" mapstructure:"data_retention_hook"`
 	// Maximum number of concurrent client connections. 0 means unlimited
 	MaxTotalConnections int `json:"max_total_connections" mapstructure:"max_total_connections"`
 	// Maximum number of concurrent client connections from the same host (IP). 0 means unlimited

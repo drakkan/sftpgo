@@ -13,6 +13,7 @@
     "proxy_allowed": [],
     "startup_hook": "",
     "post_connect_hook": "",
+    "data_retention_hook": "",
     "max_total_connections": 0,
     "max_per_host_connections": 20,
     "defender": {

@@ -69,6 +69,7 @@ The configuration file contains the following sections:
     - If `proxy_protocol` is set to 2 and we receive a proxy header from an IP that is not in the list then the connection will be rejected
   - `startup_hook`, string. Absolute path to an external program or an HTTP URL to invoke as soon as SFTPGo starts. If you define an HTTP URL it will be invoked using a `GET` request. Please note that SFTPGo services may not yet be available when this hook is run. Leave empty do disable
   - `post_connect_hook`, string. Absolute path to the command to execute or HTTP URL to notify. See [Post connect hook](./post-connect-hook.md) for more details. Leave empty to disable
+  - `data_retention_hook`, string. Absolute path to the command to execute or HTTP URL to notify. See [Data retention hook](./data-retention-hook.md) for more details. Leave empty to disable
   - `max_total_connections`, integer. Maximum number of concurrent client connections. 0 means unlimited. Default: 0.
   - `max_per_host_connections`, integer.  Maximum number of concurrent client connections from the same host (IP). If the defender is enabled, exceeding this limit will generate `score_limit_exceeded` events and thus hosts that repeatedly exceed the max allowed connections can be automatically blocked. 0 means unlimited. Default: 20.
   - `defender`, struct containing the defender configuration. See [Defender](./defender.md) for more details.

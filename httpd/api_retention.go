@@ -3,11 +3,13 @@ package httpd
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/render"
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 func getRetentionChecks(w http.ResponseWriter, r *http.Request) {
@@ -29,19 +31,27 @@ func startRetentionCheck(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	check.Notification = r.URL.Query().Get("notify")
-	if check.Notification == common.RetentionCheckNotificationEmail {
-		claims, err := getTokenClaims(r)
-		if err != nil {
-			sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
-			return
+	for _, val := range strings.Split(r.URL.Query().Get("notifications"), ",") {
+		val = strings.TrimSpace(val)
+		if val != "" {
+			check.Notifications = append(check.Notifications, val)
 		}
-		admin, err := dataprovider.AdminExists(claims.Username)
-		if err != nil {
-			sendAPIResponse(w, r, err, "", getRespStatus(err))
-			return
+	}
+	check.Notifications = util.RemoveDuplicates(check.Notifications)
+	for _, notification := range check.Notifications {
+		if notification == common.RetentionCheckNotificationEmail {
+			claims, err := getTokenClaims(r)
+			if err != nil {
+				sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+				return
+			}
+			admin, err := dataprovider.AdminExists(claims.Username)
+			if err != nil {
+				sendAPIResponse(w, r, err, "", getRespStatus(err))
+				return
+			}
+			check.Email = admin.Email
 		}
-		check.Email = admin.Email
 	}
 	if err := check.Validate(); err != nil {
 		sendAPIResponse(w, r, err, "Invalid retention check", http.StatusBadRequest)
