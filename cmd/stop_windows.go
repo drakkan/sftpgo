@@ -12,7 +12,7 @@ import (
 var (
 	stopCmd = &cobra.Command{
 		Use:   "stop",
-		Short: "Stop SFTPGo Windows Service",
+		Short: "Stop the SFTPGo Windows Service",
 		Run: func(cmd *cobra.Command, args []string) {
 			s := service.WindowsService{
 				Service: service.Service{

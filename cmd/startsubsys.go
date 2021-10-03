@@ -26,7 +26,7 @@ var (
 	baseHomeDir     = ""
 	subsystemCmd    = &cobra.Command{
 		Use:   "startsubsys",
-		Short: "Use SFTPGo as SFTP file transfer subsystem",
+		Short: "Use sftpgo as SFTP file transfer subsystem",
 		Long: `In this mode SFTPGo speaks the server side of SFTP protocol to stdout and
 expects client requests from stdin.
 This mode is not intended to be called directly, but from sshd using the

@@ -78,7 +78,7 @@ var (
 	portableSFTPDBufferSize            int64
 	portableCmd                        = &cobra.Command{
 		Use:   "portable",
-		Short: "Serve a single directory",
+		Short: "Serve a single directory/account",
 		Long: `To serve the current working directory with auto generated credentials simply
 use:
 

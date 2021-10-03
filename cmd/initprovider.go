@@ -16,7 +16,7 @@ import (
 var (
 	initProviderCmd = &cobra.Command{
 		Use:   "initprovider",
-		Short: "Initializes and/or updates the configured data provider",
+		Short: "Initialize and/or updates the configured data provider",
 		Long: `This command reads the data provider connection details from the specified
 configuration file and creates the initial structure or update the existing one,
 as needed.

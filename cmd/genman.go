@@ -16,10 +16,11 @@ var (
 	manDir    string
 	genManCmd = &cobra.Command{
 		Use:   "man",
-		Short: "Generate man pages for SFTPGo CLI",
+		Short: "Generate man pages for sftpgo",
 		Long: `This command automatically generates up-to-date man pages of SFTPGo's
-command-line interface.  By default, it creates the man page files
-in the "man" directory under the current directory.
+command-line interface.
+By default, it creates the man page files in the "man" directory under the
+current directory.
 `,
 		Run: func(cmd *cobra.Command, args []string) {
 			logger.DisableLogger()

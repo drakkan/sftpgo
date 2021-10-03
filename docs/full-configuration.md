@@ -11,12 +11,12 @@ Usage:
 Available Commands:
   gen            A collection of useful generators
   help           Help about any command
-  initprovider   Initializes and/or updates the configured data provider
-  portable       Serve a single directory
+  initprovider   Initialize and/or updates the configured data provider
+  portable       Serve a single directory/account
   revertprovider Revert the configured data provider to a previous version
   serve          Start the SFTPGo service
   smtptest       Test the SMTP configuration
-  startsubsys    Use SFTPGo as SFTP file transfer subsystem
+  startsubsys    Use sftpgo as SFTP file transfer subsystem
 
 Flags:
   -h, --help      help for sftpgo

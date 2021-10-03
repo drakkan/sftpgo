@@ -12,7 +12,7 @@ import (
 var (
 	uninstallCmd = &cobra.Command{
 		Use:   "uninstall",
-		Short: "Uninstall SFTPGo Windows Service",
+		Short: "Uninstall the SFTPGo Windows Service",
 		Run: func(cmd *cobra.Command, args []string) {
 			s := service.WindowsService{
 				Service: service.Service{
