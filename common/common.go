@@ -73,12 +73,13 @@ const (
 
 // Supported protocols
 const (
-	ProtocolSFTP   = "SFTP"
-	ProtocolSCP    = "SCP"
-	ProtocolSSH    = "SSH"
-	ProtocolFTP    = "FTP"
-	ProtocolWebDAV = "DAV"
-	ProtocolHTTP   = "HTTP"
+	ProtocolSFTP          = "SFTP"
+	ProtocolSCP           = "SCP"
+	ProtocolSSH           = "SSH"
+	ProtocolFTP           = "FTP"
+	ProtocolWebDAV        = "DAV"
+	ProtocolHTTP          = "HTTP"
+	ProtocolDataRetention = "DataRetention"
 )
 
 // Upload modes

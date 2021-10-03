@@ -20,7 +20,7 @@ The logs can be divided into the following categories:
   - `username`, string
   - `file_path` string
   - `connection_id` string. Unique connection identifier
-  - `protocol` string. `SFTP`, `SCP`, `SSH`, `FTP`, `HTTP`, `DAV`
+  - `protocol` string. `SFTP`, `SCP`, `SSH`, `FTP`, `HTTP`, `DAV`, `DataRetention`
   - `ftp_mode`, string. `active` or `passive`. Included only for `FTP` protocol
 - **"command logs"**, SFTP/SCP command logs:
   - `sender` string. `Rename`, `Rmdir`, `Mkdir`, `Symlink`, `Remove`, `Chmod`, `Chown`, `Chtimes`, `Truncate`, `SSHCommand`

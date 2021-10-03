@@ -69,7 +69,8 @@ func (c *ActiveRetentionChecks) Add(check RetentionCheck, user *dataprovider.Use
 	// we silently ignore file patterns
 	user.Filters.FilePatterns = nil
 	conn := NewBaseConnection("", "", "", "", *user)
-	conn.ID = fmt.Sprintf("retention_check_%v", user.Username)
+	conn.SetProtocol(ProtocolDataRetention)
+	conn.ID = fmt.Sprintf("data_retention_%v", user.Username)
 	check.Username = user.Username
 	check.StartTime = util.GetTimeAsMsSinceEpoch(time.Now())
 	check.conn = conn

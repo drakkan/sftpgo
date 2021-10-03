@@ -45,7 +45,7 @@ The external program can also read the following environment variables:
 - `SFTPGO_ACTION_BUCKET`, non-empty for S3, GCS and Azure backends
 - `SFTPGO_ACTION_ENDPOINT`, non-empty for S3, SFTP and Azure backend if configured. For Azure this is the endpoint, if configured
 - `SFTPGO_ACTION_STATUS`, integer. Status for `upload`, `download` and `ssh_cmd` actions. 0 means a generic error occurred. 1 means no error, 2 means quota exceeded error
-- `SFTPGO_ACTION_PROTOCOL`, string. Possible values are `SSH`, `SFTP`, `SCP`, `FTP`, `DAV`, `HTTP`
+- `SFTPGO_ACTION_PROTOCOL`, string. Possible values are `SSH`, `SFTP`, `SCP`, `FTP`, `DAV`, `HTTP`, `DataRetention`
 - `SFTPGO_ACTION_OPEN_FLAGS`, integer. File open flags, can be non-zero for `pre-upload` action. If `SFTPGO_ACTION_FILE_SIZE` is greater than zero and `SFTPGO_ACTION_OPEN_FLAGS&512 == 0` the target file will not be truncated
 
 Previous global environment variables aren't cleared when the script is called.
@@ -63,7 +63,7 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 - `bucket`, inlcuded for S3, GCS and Azure backends
 - `endpoint`, included for S3, SFTP and Azure backend if configured. For Azure this is the endpoint, if configured
 - `status`, integer. Status for `upload`, `download` and `ssh_cmd` actions. 0 means a generic error occurred. 1 means no error, 2 means quota exceeded error
-- `protocol`, string. Possible values are `SSH`, `SFTP`, `SCP`, `FTP`, `DAV`, `HTTP`
+- `protocol`, string. Possible values are `SSH`, `SFTP`, `SCP`, `FTP`, `DAV`, `HTTP`, `DataRetention`
 - `open_flags`, integer. File open flags, can be non-zero for `pre-upload` action. If `file_size` is greater than zero and `file_size&512 == 0` the target file will not be truncated
 
 The HTTP hook will use the global configuration for HTTP clients and will respect the retry configurations.
@@ -101,4 +101,4 @@ The structure for SFTPGo users can be found within the [OpenAPI schema](../httpd
 
 ## Pub/Sub services
 
-You can forward SFTPGo events to serveral publish/subscribe systems using the [sftpgo-plugin-pubsub](https://github.com/sftpgo/sftpgo-plugin-pubsub). The notifiers SFTPGo plugins are not suitable for interactive actions such as `pre-*` events. Their scope is to simply forward events to external services. A custom hook is a better choice if you need to react to `pre-*` events.
+You can forward SFTPGo events to several publish/subscribe systems using the [sftpgo-plugin-pubsub](https://github.com/sftpgo/sftpgo-plugin-pubsub). The notifiers SFTPGo plugins are not suitable for interactive actions such as `pre-*` events. Their scope is to simply forward events to external services. A custom hook is a better choice if you need to react to `pre-*` events.

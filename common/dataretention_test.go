@@ -124,7 +124,8 @@ func TestEmailNotifications(t *testing.T) {
 		},
 	}
 	conn := NewBaseConnection("", "", "", "", user)
-	conn.ID = fmt.Sprintf("retention_check_%v", user.Username)
+	conn.SetProtocol(ProtocolDataRetention)
+	conn.ID = fmt.Sprintf("data_retention_%v", user.Username)
 	check.conn = conn
 	err = check.sendNotification(time.Now(), nil)
 	assert.NoError(t, err)
@@ -177,7 +178,8 @@ func TestRetentionPermissionsAndGetFolder(t *testing.T) {
 	}
 
 	conn := NewBaseConnection("", "", "", "", user)
-	conn.ID = fmt.Sprintf("retention_check_%v", user.Username)
+	conn.SetProtocol(ProtocolDataRetention)
+	conn.ID = fmt.Sprintf("data_retention_%v", user.Username)
 	check.conn = conn
 	check.updateUserPermissions()
 	assert.Equal(t, []string{dataprovider.PermListItems, dataprovider.PermDelete}, conn.User.Permissions["/"])
