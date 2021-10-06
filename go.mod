@@ -7,7 +7,7 @@ require (
 	github.com/Azure/azure-storage-blob-go v0.14.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20210511081203-7d35d68092b8
-	github.com/aws/aws-sdk-go v1.40.54
+	github.com/aws/aws-sdk-go v1.40.56
 	github.com/cockroachdb/cockroach-go/v2 v2.2.0
 	github.com/eikenb/pipeat v0.0.0-20210603033007-44fc3ffce52b
 	github.com/fatih/color v1.13.0 // indirect
@@ -62,11 +62,11 @@ require (
 	go.uber.org/automaxprocs v1.4.0
 	gocloud.dev v0.24.0
 	golang.org/x/crypto v0.0.0-20210915214749-c084706c2272
-	golang.org/x/net v0.0.0-20210929193557-e81a3d93ecf6
-	golang.org/x/sys v0.0.0-20211003122950-b1ebd4e1001c
+	golang.org/x/net v0.0.0-20211005215030-d2e5035098b3
+	golang.org/x/sys v0.0.0-20211004093028-2c5d950f24ef
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	google.golang.org/api v0.58.0
-	google.golang.org/genproto v0.0.0-20211001223012-bfb93cce50d9 // indirect
+	google.golang.org/genproto v0.0.0-20211005153810-c76a74d43a8e // indirect
 	google.golang.org/grpc v1.41.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -119,7 +119,7 @@ require (
 	github.com/tklauser/go-sysconf v0.3.9 // indirect
 	github.com/tklauser/numcpus v0.3.0 // indirect
 	go.opencensus.io v0.23.0 // indirect
-	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f // indirect
+	golang.org/x/oauth2 v0.0.0-20211005180243-6b3c2da341f1 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
@@ -132,5 +132,5 @@ replace (
 	github.com/eikenb/pipeat => github.com/drakkan/pipeat v0.0.0-20210805162858-70e57fa8a639
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20210918082254-e7eb8487714b
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20211001183141-f4613cbba1ed
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20211006070706-97d22ae145a6
 )

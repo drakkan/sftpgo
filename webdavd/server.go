@@ -365,6 +365,9 @@ func writeLog(r *http.Request, status int, err error) {
 	if contentLength := r.Header.Get("Content-Length"); contentLength != "" {
 		fields["content_length"] = contentLength
 	}
+	if timeout := r.Header.Get("Timeout"); timeout != "" {
+		fields["timeout"] = timeout
+	}
 	if status != 0 {
 		fields["resp_status"] = status
 	}
