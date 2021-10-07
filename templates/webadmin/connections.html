@@ -134,6 +134,15 @@
             enabled: false
         };
 
+        $.fn.dataTable.ext.buttons.refresh = {
+            text: '<i class="fas fa-sync-alt"></i>',
+            name: 'refresh',
+            titleAttr: "Refresh",
+            action: function (e, dt, node, config) {
+                location.reload();
+            }
+        };
+
         var table = $('#dataTable').DataTable({
             "select": {
                 "style": "single",
@@ -159,6 +168,9 @@
 
         new $.fn.dataTable.FixedHeader( table );
 
+        table.button().add(0, 'refresh');
+        table.button().add(0,'pageLength');
+
         {{if .LoggedAdmin.HasPermission "close_conns"}}
         table.button().add(0,'disconnect');
 
@@ -167,9 +179,7 @@
             table.button('disconnect:name').enable(selectedRows == 1);
         });
         {{end}}
-        table.button().add(0,'pageLength');
         table.buttons().container().appendTo('#dataTable_wrapper .col-md-6:eq(0)');
-
     });
 </script>
 {{end}}
