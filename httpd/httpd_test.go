@@ -128,6 +128,7 @@ const (
 	webBasePathClient               = "/web/client"
 	webClientLoginPath              = "/web/client/login"
 	webClientFilesPath              = "/web/client/files"
+	webClientEditFilePath           = "/web/client/editfile"
 	webClientDirsPath               = "/web/client/dirs"
 	webClientDownloadZipPath        = "/web/client/downloadzip"
 	webChangeClientPwdPath          = "/web/client/changepwd"
@@ -3956,10 +3957,10 @@ func TestDumpdata(t *testing.T) {
 	if runtime.GOOS != osWindows {
 		err = os.Chmod(backupsPath, 0001)
 		assert.NoError(t, err)
-		_, _, err = httpdtest.Dumpdata("bck.json", "", "", http.StatusInternalServerError)
+		_, _, err = httpdtest.Dumpdata("bck.json", "", "", http.StatusForbidden)
 		assert.NoError(t, err)
 		// subdir cannot be created
-		_, _, err = httpdtest.Dumpdata(filepath.Join("subdir", "bck.json"), "", "", http.StatusInternalServerError)
+		_, _, err = httpdtest.Dumpdata(filepath.Join("subdir", "bck.json"), "", "", http.StatusForbidden)
 		assert.NoError(t, err)
 		err = os.Chmod(backupsPath, 0755)
 		assert.NoError(t, err)
@@ -4223,7 +4224,7 @@ func TestLoaddata(t *testing.T) {
 	if runtime.GOOS != osWindows {
 		err = os.Chmod(backupFilePath, 0111)
 		assert.NoError(t, err)
-		_, _, err = httpdtest.Loaddata(backupFilePath, "1", "", http.StatusInternalServerError)
+		_, _, err = httpdtest.Loaddata(backupFilePath, "1", "", http.StatusForbidden)
 		assert.NoError(t, err)
 		err = os.Chmod(backupFilePath, 0644)
 		assert.NoError(t, err)
@@ -8357,6 +8358,87 @@ func TestUserAPIKey(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestWebEditFile(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	testFile1 := "testfile1.txt"
+	testFile2 := "testfile2"
+	file1Size := int64(65536)
+	file2Size := int64(655360)
+	err = createTestFile(filepath.Join(user.GetHomeDir(), testFile1), file1Size)
+	assert.NoError(t, err)
+	err = createTestFile(filepath.Join(user.GetHomeDir(), testFile2), file2Size)
+	assert.NoError(t, err)
+
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, webClientEditFilePath+"?path="+testFile1, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webClientEditFilePath+"?path="+testFile2, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "exceeds the maximum allowed size")
+
+	req, err = http.NewRequest(http.MethodGet, webClientEditFilePath+"?path=missing", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to stat file")
+
+	req, err = http.NewRequest(http.MethodGet, webClientEditFilePath+"?path=%2F", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "does not point to a file")
+
+	user.Filters.DeniedProtocols = []string{common.ProtocolHTTP}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, webClientEditFilePath+"?path="+testFile1, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	user.Filters.DeniedProtocols = []string{common.ProtocolFTP}
+	user.Filters.FilePatterns = []sdk.PatternsFilter{
+		{
+			Path:           "/",
+			DeniedPatterns: []string{"*.txt"},
+		},
+	}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, webClientEditFilePath+"?path="+testFile1, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to get a reader")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, webClientEditFilePath+"?path="+testFile1, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+}
+
 func TestWebGetFiles(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
@@ -9496,12 +9578,12 @@ func TestGetFilesSFTPBackend(t *testing.T) {
 
 func TestClientUserClose(t *testing.T) {
 	u := getTestUser()
-	u.UploadBandwidth = 64
-	u.DownloadBandwidth = 64
+	u.UploadBandwidth = 32
+	u.DownloadBandwidth = 32
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	testFileName := "file.dat"
-	testFileSize := int64(1048576)
+	testFileSize := int64(524288)
 	testFilePath := filepath.Join(user.GetHomeDir(), testFileName)
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
@@ -9521,6 +9603,15 @@ func TestClientUserClose(t *testing.T) {
 		setJWTCookieForReq(req, webToken)
 		rr := executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr)
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		req, _ := http.NewRequest(http.MethodGet, webClientEditFilePath+"?path="+testFileName, nil)
+		setJWTCookieForReq(req, webToken)
+		rr := executeRequest(req)
+		checkResponseCode(t, http.StatusInternalServerError, rr)
+		assert.Contains(t, rr.Body.String(), "Unable to read the file")
 	}()
 	wg.Add(1)
 	go func() {
@@ -9546,7 +9637,7 @@ func TestClientUserClose(t *testing.T) {
 	// wait for the transfers
 	assert.Eventually(t, func() bool {
 		stats := common.Connections.GetStats()
-		if len(stats) == 2 {
+		if len(stats) == 3 {
 			if len(stats[0].Transfers) > 0 && len(stats[1].Transfers) > 0 {
 				return true
 			}

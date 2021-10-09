@@ -2,6 +2,8 @@
 
 SFTPGo provides a basic front-end web interface for your users. It allows end-users to browse and download their files and change their credentials.
 
+The web client user interface also allows you to edit plain text files up to 512KB in size.
+
 The web interface can be globally disabled within the `httpd` configuration via the `enable_web_client` key or on a per-user basis by adding `HTTP` to the denied protocols.
 Public keys management can be disabled, per-user, using a specific permission.
 The web client allows you to download multiple files or folders as a single zip file, any non regular files (for example symlinks) will be silently ignored.

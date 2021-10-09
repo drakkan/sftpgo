@@ -179,7 +179,7 @@
             table.button('disconnect:name').enable(selectedRows == 1);
         });
         {{end}}
-        table.buttons().container().appendTo('#dataTable_wrapper .col-md-6:eq(0)');
+        table.buttons().container().appendTo('.col-md-6:eq(0)', table.table().container());
     });
 </script>
 {{end}}

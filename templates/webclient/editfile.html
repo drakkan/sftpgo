@@ -1,0 +1,171 @@
+{{template "base" .}}
+
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "extra_css"}}
+<link href="{{.StaticURL}}/vendor/codemirror/codemirror.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/codemirror/addon/dialog/dialog.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/codemirror/addon/search/matchesonscrollbar.css" rel="stylesheet">
+<style>
+    .CodeMirror {
+        border: 1px solid #eee;
+        height: 30em;
+        font-size: 13px;
+    }
+    .shortcut {font-family: monospace; color: #666;}
+</style>
+{{end}}
+{{define "additionalnavitems"}}
+<li class="nav-item dropdown no-arrow mx-1">
+    <a class="nav-link dropdown-toggle" href="#" id="editorDropdown" role="button"
+        data-toggle="modal" data-target="#infoModal">
+        <i class="fas fa-info fa-fw"></i>
+    </a>
+</li>
+
+<div class="topbar-divider d-none d-sm-block"></div>
+{{end}}
+
+{{define "page_body"}}
+<div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
+    <div id="errorTxt" class="card-body text-form-error"></div>
+</div>
+<div class="card shadow mb-4">
+    <div class="card-header">
+        <h6 class="d-flex justify-content-between align-items-center">
+            <span class="font-weight-bold text-primary">Edit file "{{.Path}}"</span>
+            <span class="btn-toolbar">
+                <a id="idBack" class="btn btn-secondary mx-1 my-1" href='{{.FilesURL}}?path={{.CurrentDir}}' role="button">Back</a>
+                <a id="idSave" class="btn btn-primary mx-1 my-1" href="#" onclick="saveFile()" role="button">Save</a>
+            </span>
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="col-sm-12">
+            <textarea id="editor" name="editor"></textarea>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "dialog"}}
+<div class="modal fade" id="infoModal" tabindex="-1" role="dialog" aria-labelledby="infoModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="infoModalLabel">
+                    Editor keybindings
+                </h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>
+                    <span class="shortcut">Ctrl-F / Cmd-F</span> => Start searching
+                </p>
+                <p>
+                    <span class="shortcut">Ctrl-G / Cmd-G</span> => Find next
+                </p>
+                <p>
+                    <span class="shortcut">Shift-Ctrl-G / Shift-Cmd-G</span> => Find previous
+                </p>
+                <p>
+                    <span class="shortcut">Shift-Ctrl-F / Cmd-Option-F</span> => Replace
+                </p>
+                <p>
+                    <span class="shortcut">Shift-Ctrl-R / Shift-Cmd-Option-F</span> => Replace all
+                </p>
+                <p>
+                    <span class="shortcut">Alt-G</span> => Jump to line
+                </p>
+                <p>
+                    <span class="shortcut">Alt-F</span> => Persistent search: enter to find next, Shift-Enter to find previous
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" type="button" data-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "extra_js"}}
+<script src="{{.StaticURL}}/vendor/codemirror/codemirror.js"></script>
+<script src="{{.StaticURL}}/vendor/codemirror/meta.js"></script>
+<script src="{{.StaticURL}}/vendor/codemirror/addon/selection/active-line.js"></script>
+<script src="{{.StaticURL}}/vendor/codemirror/addon/dialog/dialog.js"></script>
+<script src="{{.StaticURL}}/vendor/codemirror/addon/search/searchcursor.js"></script>
+<script src="{{.StaticURL}}/vendor/codemirror/addon/search/search.js"></script>
+<script src="{{.StaticURL}}/vendor/codemirror/addon/search/matchesonscrollbar.js"></script>
+<script src="{{.StaticURL}}/vendor/codemirror/addon/search/jump-to-line.js"></script>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var cm = CodeMirror.fromTextArea(document.getElementById("editor"), {
+            lineNumbers: true,
+            styleActiveLine: true,
+            extraKeys: {"Alt-F": "findPersistent"},
+            autofocus: true
+        });
+        var filename = "{{.Path}}";
+        var extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
+        mode = CodeMirror.findModeByExtension(extension);
+        if (mode != null) {
+            cm.setOption("mode", mode.mode);
+        }
+        cm.setValue("{{.Data}}");
+        setInterval(keepAlive, 90000);
+    });
+
+    function keepAlive() {
+        $.ajax({
+            url: '{{.ProfileURL}}',
+            timeout: 15000
+        });
+    }
+
+    function saveFile() {
+        $('#idSave').addClass("disabled");
+        cm =  document.querySelector('.CodeMirror').CodeMirror;
+        var path = '{{.FilesURL}}?path={{.CurrentDir}}';
+        var data = new FormData();
+        var blob = new Blob([cm.getValue()]);
+        data.append("filename", new File([blob], "{{.Name}}"));
+
+        $.ajax({
+                url: path,
+                type: 'POST',
+                data: data,
+                processData: false,
+                contentType: false,
+                headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
+                timeout: 15000,
+                success: function (result) {
+                    window.location.href = '{{.FilesURL}}?path={{.CurrentDir}}';
+                },
+                error: function ($xhr, textStatus, errorThrown) {
+                    $('#idSave').removeClass("disabled");
+                    var txt = "Error saving file";
+                    if ($xhr) {
+                        var json = $xhr.responseJSON;
+                        if (json) {
+                            if (json.message) {
+                                txt = json.message;
+                            }
+                            if (json.error) {
+                                txt += ": " + json.error;
+                            }
+                        }
+                    }
+                    $('#errorTxt').text(txt);
+                    $('#errorMsg').show();
+                    setTimeout(function () {
+                        $('#errorMsg').hide();
+                    }, 5000);
+                }
+            });
+    }
+</script>
+{{end}}

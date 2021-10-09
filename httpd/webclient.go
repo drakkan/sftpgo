@@ -1,14 +1,17 @@
 package httpd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-chi/render"
@@ -35,10 +38,12 @@ const (
 	templateClientTwoFactor         = "twofactor.html"
 	templateClientTwoFactorRecovery = "twofactor-recovery.html"
 	templateClientMFA               = "mfa.html"
+	templateClientEditFile          = "editfile.html"
 	pageClientFilesTitle            = "My Files"
 	pageClientProfileTitle          = "My Profile"
 	pageClientChangePwdTitle        = "Change password"
 	pageClient2FATitle              = "Two-factor auth"
+	pageClientEditFileTitle         = "Edit file"
 )
 
 // condResult is the result of an HTTP request precondition check.
@@ -81,6 +86,14 @@ type baseClientPage struct {
 type dirMapping struct {
 	DirName string
 	Href    string
+}
+
+type editFilePage struct {
+	baseClientPage
+	CurrentDir string
+	Path       string
+	Name       string
+	Data       string
 }
 
 type filesPage struct {
@@ -145,6 +158,10 @@ func loadClientTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateClientDir, templateClientBase),
 		filepath.Join(templatesPath, templateClientDir, templateClientFiles),
 	}
+	editFilePath := []string{
+		filepath.Join(templatesPath, templateClientDir, templateClientBase),
+		filepath.Join(templatesPath, templateClientDir, templateClientEditFile),
+	}
 	profilePaths := []string{
 		filepath.Join(templatesPath, templateClientDir, templateClientBase),
 		filepath.Join(templatesPath, templateClientDir, templateClientProfile),
@@ -182,6 +199,7 @@ func loadClientTemplates(templatesPath string) {
 	mfaTmpl := util.LoadTemplate(nil, mfaPath...)
 	twoFactorTmpl := util.LoadTemplate(nil, twoFactorPath...)
 	twoFactorRecoveryTmpl := util.LoadTemplate(nil, twoFactorRecoveryPath...)
+	editFileTmpl := util.LoadTemplate(nil, editFilePath...)
 
 	clientTemplates[templateClientFiles] = filesTmpl
 	clientTemplates[templateClientProfile] = profileTmpl
@@ -191,6 +209,7 @@ func loadClientTemplates(templatesPath string) {
 	clientTemplates[templateClientMFA] = mfaTmpl
 	clientTemplates[templateClientTwoFactor] = twoFactorTmpl
 	clientTemplates[templateClientTwoFactorRecovery] = twoFactorRecoveryTmpl
+	clientTemplates[templateClientEditFile] = editFileTmpl
 }
 
 func getBaseClientPageData(title, currentURL string, r *http.Request) baseClientPage {
@@ -298,6 +317,18 @@ func renderClientMFAPage(w http.ResponseWriter, r *http.Request) {
 	}
 	data.TOTPConfig = user.Filters.TOTPConfig
 	renderClientTemplate(w, templateClientMFA, data)
+}
+
+func renderEditFilePage(w http.ResponseWriter, r *http.Request, fileName, fileData string) {
+	data := editFilePage{
+		baseClientPage: getBaseClientPageData(pageClientEditFileTitle, webClientEditFilePath, r),
+		Path:           fileName,
+		Name:           path.Base(fileName),
+		CurrentDir:     path.Dir(fileName),
+		Data:           fileData,
+	}
+
+	renderClientTemplate(w, templateClientEditFile, data)
 }
 
 func renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string, user dataprovider.User) {
@@ -456,6 +487,8 @@ func handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {
 	results := make([]map[string]string, 0, len(contents))
 	for _, info := range contents {
 		res := make(map[string]string)
+		res["url"] = getFileObjectURL(name, info.Name())
+		editURL := ""
 		if info.IsDir() {
 			res["type"] = "1"
 			res["size"] = ""
@@ -465,12 +498,15 @@ func handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {
 				res["size"] = ""
 			} else {
 				res["size"] = util.ByteCountIEC(info.Size())
+				if info.Size() < httpdMaxEditFileSize {
+					editURL = strings.Replace(res["url"], webClientFilesPath, webClientEditFilePath, 1)
+				}
 			}
 		}
-		res["type_name"] = fmt.Sprintf("%v_%v", res["type"], info.Name())
+		res["meta"] = fmt.Sprintf("%v_%v", res["type"], info.Name())
 		res["name"] = info.Name()
 		res["last_modified"] = getFileObjectModTime(info.ModTime())
-		res["url"] = getFileObjectURL(name, info.Name())
+		res["edit_url"] = editURL
 		results = append(results, res)
 	}
 
@@ -532,6 +568,71 @@ func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
 			renderFilesPage(w, r, path.Dir(name), err.Error(), user)
 		}
 	}
+}
+
+func handleClientEditFile(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		renderClientForbiddenPage(w, r, "Invalid token claims")
+		return
+	}
+
+	user, err := dataprovider.UserExists(claims.Username)
+	if err != nil {
+		renderClientMessagePage(w, r, "Unable to retrieve your user", "", getRespStatus(err), nil, "")
+		return
+	}
+
+	connID := xid.New().String()
+	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, connID)
+	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
+		renderClientForbiddenPage(w, r, err.Error())
+		return
+	}
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, util.GetHTTPLocalAddress(r),
+			r.RemoteAddr, user),
+		request: r,
+	}
+	common.Connections.Add(connection)
+	defer common.Connections.Remove(connection.GetID())
+
+	name := util.CleanPath(r.URL.Query().Get("path"))
+	info, err := connection.Stat(name, 0)
+	if err != nil {
+		renderClientMessagePage(w, r, fmt.Sprintf("Unable to stat file %#v", name), "",
+			getRespStatus(err), nil, "")
+		return
+	}
+	if info.IsDir() {
+		renderClientMessagePage(w, r, fmt.Sprintf("The path %#v does not point to a file", name), "",
+			http.StatusBadRequest, nil, "")
+		return
+	}
+	if info.Size() > httpdMaxEditFileSize {
+		renderClientMessagePage(w, r, fmt.Sprintf("The file size %v for %#v exceeds the maximum allowed size",
+			util.ByteCountIEC(info.Size()), name), "", http.StatusBadRequest, nil, "")
+		return
+	}
+
+	reader, err := connection.getFileReader(name, 0, r.Method)
+	if err != nil {
+		renderClientMessagePage(w, r, fmt.Sprintf("Unable to get a reader for the file %#v", name), "",
+			getRespStatus(err), nil, "")
+		return
+	}
+	defer reader.Close()
+
+	var b bytes.Buffer
+	_, err = io.Copy(&b, reader)
+	if err != nil {
+		renderClientMessagePage(w, r, fmt.Sprintf("Unable to read the file %#v", name), "", http.StatusInternalServerError,
+			nil, "")
+		return
+	}
+
+	renderEditFilePage(w, r, name, b.String())
 }
 
 func handleClientGetProfile(w http.ResponseWriter, r *http.Request) {

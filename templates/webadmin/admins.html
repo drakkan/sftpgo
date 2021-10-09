@@ -194,7 +194,7 @@
         table.button().add(0,'edit');
         table.button().add(0,'add');
 
-        table.buttons().container().appendTo('#dataTable_wrapper .col-md-6:eq(0)');
+        table.buttons().container().appendTo('.col-md-6:eq(0)', table.table().container());
 
         table.on('select deselect', function () {
             var selectedRows = table.rows({ selected: true }).count();

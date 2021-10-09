@@ -115,6 +115,7 @@ const (
 	webClientTwoFactorPathDefault         = "/web/client/twofactor"
 	webClientTwoFactorRecoveryPathDefault = "/web/client/twofactor-recovery"
 	webClientFilesPathDefault             = "/web/client/files"
+	webClientEditFilePathDefault          = "/web/client/editfile"
 	webClientDirsPathDefault              = "/web/client/dirs"
 	webClientDownloadZipPathDefault       = "/web/client/downloadzip"
 	webClientProfilePathDefault           = "/web/client/profile"
@@ -127,12 +128,13 @@ const (
 	webClientLogoutPathDefault            = "/web/client/logout"
 	webStaticFilesPathDefault             = "/static"
 	// MaxRestoreSize defines the max size for the loaddata input file
-	MaxRestoreSize   = 10485760 // 10 MB
-	maxRequestSize   = 1048576  // 1MB
-	maxLoginBodySize = 262144   // 256 KB
-	maxMultipartMem  = 8388608  // 8MB
-	osWindows        = "windows"
-	otpHeaderCode    = "X-SFTPGO-OTP"
+	MaxRestoreSize       = 10485760 // 10 MB
+	maxRequestSize       = 1048576  // 1MB
+	maxLoginBodySize     = 262144   // 256 KB
+	httpdMaxEditFileSize = 524288   // 512 KB
+	maxMultipartMem      = 8388608  // 8MB
+	osWindows            = "windows"
+	otpHeaderCode        = "X-SFTPGO-OTP"
 )
 
 var (
@@ -179,6 +181,7 @@ var (
 	webClientTwoFactorPath         string
 	webClientTwoFactorRecoveryPath string
 	webClientFilesPath             string
+	webClientEditFilePath          string
 	webClientDirsPath              string
 	webClientDownloadZipPath       string
 	webClientProfilePath           string
@@ -522,6 +525,7 @@ func updateWebClientURLs(baseURL string) {
 	webClientTwoFactorPath = path.Join(baseURL, webClientTwoFactorPathDefault)
 	webClientTwoFactorRecoveryPath = path.Join(baseURL, webClientTwoFactorRecoveryPathDefault)
 	webClientFilesPath = path.Join(baseURL, webClientFilesPathDefault)
+	webClientEditFilePath = path.Join(baseURL, webClientEditFilePathDefault)
 	webClientDirsPath = path.Join(baseURL, webClientDirsPathDefault)
 	webClientDownloadZipPath = path.Join(baseURL, webClientDownloadZipPathDefault)
 	webClientProfilePath = path.Join(baseURL, webClientProfilePathDefault)

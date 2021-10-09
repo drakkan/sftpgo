@@ -71,6 +71,9 @@ func getRespStatus(err error) int {
 	if os.IsNotExist(err) {
 		return http.StatusBadRequest
 	}
+	if os.IsPermission(err) {
+		return http.StatusForbidden
+	}
 	return http.StatusInternalServerError
 }
 
