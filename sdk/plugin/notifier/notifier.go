@@ -33,9 +33,9 @@ var PluginMap = map[string]plugin.Plugin{
 
 // Notifier defines the interface for notifiers plugins
 type Notifier interface {
-	NotifyFsEvent(timestamp time.Time, action, username, fsPath, fsTargetPath, sshCmd, protocol string,
-		fileSize int64, status int) error
-	NotifyUserEvent(timestamp time.Time, action string, user []byte) error
+	NotifyFsEvent(timestamp time.Time, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip,
+		virtualPath, virtualTargetPath string, fileSize int64, status int) error
+	NotifyProviderEvent(timestamp time.Time, action, username, objectType, objectName, ip string, object []byte) error
 }
 
 // Plugin defines the implementation to serve/connect to a notifier plugin

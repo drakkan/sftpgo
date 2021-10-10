@@ -430,6 +430,96 @@ func TestInvalidToken(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
+	rr = httptest.NewRecorder()
+	loadData(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	loadDataFromRequest(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	addUser(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	disableUser2FA(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	updateUser(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	deleteUser(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	handleWebRestore(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
+
+	rr = httptest.NewRecorder()
+	handleWebAddUserPost(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
+
+	rr = httptest.NewRecorder()
+	handleWebUpdateUserPost(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
+
+	rr = httptest.NewRecorder()
+	updateFolder(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	deleteFolder(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	handleWebUpdateFolderPost(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
+
+	rr = httptest.NewRecorder()
+	addAdmin(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	disableAdmin2FA(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	addAPIKey(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	updateAPIKey(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	deleteAPIKey(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	handleWebAddAdminPost(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
+
 	server := httpdServer{}
 	server.initializeRouter()
 	rr = httptest.NewRecorder()
@@ -493,7 +583,7 @@ func TestRetentionInvalidTokenClaims(t *testing.T) {
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	user.Filters.AllowAPIKeyAuth = true
-	err := dataprovider.AddUser(&user)
+	err := dataprovider.AddUser(&user, "", "")
 	assert.NoError(t, err)
 	folderRetention := []common.FolderRetention{
 		{
@@ -516,7 +606,7 @@ func TestRetentionInvalidTokenClaims(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
-	err = dataprovider.DeleteUser(username)
+	err = dataprovider.DeleteUser(username, "", "")
 	assert.NoError(t, err)
 }
 
@@ -691,7 +781,7 @@ func TestCreateTokenError(t *testing.T) {
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	user.Filters.AllowAPIKeyAuth = true
-	err = dataprovider.AddUser(&user)
+	err = dataprovider.AddUser(&user, "", "")
 	assert.NoError(t, err)
 
 	rr = httptest.NewRecorder()
@@ -708,20 +798,20 @@ func TestCreateTokenError(t *testing.T) {
 	err = authenticateUserWithAPIKey(username, "", server.tokenAuth, req)
 	assert.Error(t, err)
 
-	err = dataprovider.DeleteUser(username)
+	err = dataprovider.DeleteUser(username, "", "")
 	assert.NoError(t, err)
 
 	admin.Username += "1"
 	admin.Status = 1
 	admin.Filters.AllowAPIKeyAuth = true
 	admin.Permissions = []string{dataprovider.PermAdminAny}
-	err = dataprovider.AddAdmin(&admin)
+	err = dataprovider.AddAdmin(&admin, "", "")
 	assert.NoError(t, err)
 
 	err = authenticateAdminWithAPIKey(admin.Username, "", server.tokenAuth, req)
 	assert.Error(t, err)
 
-	err = dataprovider.DeleteAdmin(admin.Username)
+	err = dataprovider.DeleteAdmin(admin.Username, "", "")
 	assert.NoError(t, err)
 }
 
@@ -858,7 +948,7 @@ func TestCookieExpiration(t *testing.T) {
 	assert.Empty(t, cookie)
 
 	admin.Status = 0
-	err = dataprovider.AddAdmin(&admin)
+	err = dataprovider.AddAdmin(&admin, "", "")
 	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodGet, tokenPath, nil)
 	ctx = jwtauth.NewContext(req.Context(), token, nil)
@@ -868,7 +958,7 @@ func TestCookieExpiration(t *testing.T) {
 
 	admin.Status = 1
 	admin.Filters.AllowList = []string{"172.16.1.0/24"}
-	err = dataprovider.UpdateAdmin(&admin)
+	err = dataprovider.UpdateAdmin(&admin, "", "")
 	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodGet, tokenPath, nil)
 	ctx = jwtauth.NewContext(req.Context(), token, nil)
@@ -900,7 +990,7 @@ func TestCookieExpiration(t *testing.T) {
 	cookie = rr.Header().Get("Set-Cookie")
 	assert.True(t, strings.HasPrefix(cookie, "jwt="))
 
-	err = dataprovider.DeleteAdmin(admin.Username)
+	err = dataprovider.DeleteAdmin(admin.Username, "", "")
 	assert.NoError(t, err)
 	// now check client cookie expiration
 	username := "client"
@@ -932,7 +1022,7 @@ func TestCookieExpiration(t *testing.T) {
 	cookie = rr.Header().Get("Set-Cookie")
 	assert.Empty(t, cookie)
 	// the password will be hashed and so the signature will change
-	err = dataprovider.AddUser(&user)
+	err = dataprovider.AddUser(&user, "", "")
 	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
 	ctx = jwtauth.NewContext(req.Context(), token, nil)
@@ -943,7 +1033,7 @@ func TestCookieExpiration(t *testing.T) {
 	user, err = dataprovider.UserExists(user.Username)
 	assert.NoError(t, err)
 	user.Filters.AllowedIP = []string{"172.16.4.0/24"}
-	err = dataprovider.UpdateUser(&user)
+	err = dataprovider.UpdateUser(&user, "", "")
 	assert.NoError(t, err)
 
 	user, err = dataprovider.UserExists(user.Username)
@@ -971,7 +1061,7 @@ func TestCookieExpiration(t *testing.T) {
 	cookie = rr.Header().Get("Set-Cookie")
 	assert.NotEmpty(t, cookie)
 
-	err = dataprovider.DeleteUser(user.Username)
+	err = dataprovider.DeleteUser(user.Username, "", "")
 	assert.NoError(t, err)
 }
 
@@ -1239,7 +1329,7 @@ func TestProxyHeaders(t *testing.T) {
 		},
 	}
 
-	err := dataprovider.AddAdmin(&admin)
+	err := dataprovider.AddAdmin(&admin, "", "")
 	assert.NoError(t, err)
 
 	testIP := "10.29.1.9"
@@ -1327,7 +1417,7 @@ func TestProxyHeaders(t *testing.T) {
 	cookie = rr.Header().Get("Set-Cookie")
 	assert.NotContains(t, cookie, "Secure")
 
-	err = dataprovider.DeleteAdmin(username)
+	err = dataprovider.DeleteAdmin(username, "", "")
 	assert.NoError(t, err)
 }
 

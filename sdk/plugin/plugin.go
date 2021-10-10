@@ -166,23 +166,27 @@ func (m *Manager) validateConfigs() error {
 }
 
 // NotifyFsEvent sends the fs event notifications using any defined notifier plugins
-func (m *Manager) NotifyFsEvent(timestamp time.Time, action, username, fsPath, fsTargetPath, sshCmd, protocol string,
-	fileSize int64, err error) {
+func (m *Manager) NotifyFsEvent(timestamp time.Time, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip,
+	virtualPath, virtualTargetPath string, fileSize int64, err error,
+) {
 	m.notifLock.RLock()
 	defer m.notifLock.RUnlock()
 
 	for _, n := range m.notifiers {
-		n.notifyFsAction(timestamp, action, username, fsPath, fsTargetPath, sshCmd, protocol, fileSize, err)
+		n.notifyFsAction(timestamp, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip, virtualPath, virtualTargetPath,
+			fileSize, err)
 	}
 }
 
-// NotifyUserEvent sends the user event notifications using any defined notifier plugins
-func (m *Manager) NotifyUserEvent(timestamp time.Time, action string, user Renderer) {
+// NotifyProviderEvent sends the provider event notifications using any defined notifier plugins
+func (m *Manager) NotifyProviderEvent(timestamp time.Time, action, username, objectType, objectName, ip string,
+	object Renderer,
+) {
 	m.notifLock.RLock()
 	defer m.notifLock.RUnlock()
 
 	for _, n := range m.notifiers {
-		n.notifyUserAction(timestamp, action, user)
+		n.notifyProviderAction(timestamp, action, username, objectType, objectName, ip, object)
 	}
 }
 

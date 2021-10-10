@@ -341,7 +341,7 @@ func setUserPublicKeys(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user.PublicKeys = publicKeys
-	err = dataprovider.UpdateUser(&user)
+	err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -404,7 +404,7 @@ func updateUserProfile(w http.ResponseWriter, r *http.Request) {
 		user.Email = req.Email
 		user.Description = req.Description
 	}
-	if err := dataprovider.UpdateUser(&user); err != nil {
+	if err := dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
@@ -449,5 +449,5 @@ func doChangeUserPassword(r *http.Request, currentPassword, newPassword, confirm
 	}
 	user.Password = newPassword
 
-	return dataprovider.UpdateUser(&user)
+	return dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
 }

@@ -325,7 +325,8 @@ func (c *Connection) downloadFile(fs vfs.Fs, fsPath, ftpPath string, offset int6
 		return nil, c.GetPermissionDeniedError()
 	}
 
-	if err := common.ExecutePreAction(&c.User, common.OperationPreDownload, fsPath, ftpPath, c.GetProtocol(), 0, 0); err != nil {
+	if err := common.ExecutePreAction(&c.User, common.OperationPreDownload, fsPath, ftpPath, c.GetProtocol(), c.GetRemoteIP(),
+		0, 0); err != nil {
 		c.Log(logger.LevelDebug, "download for file %#v denied by pre action: %v", ftpPath, err)
 		return nil, c.GetPermissionDeniedError()
 	}
@@ -387,7 +388,8 @@ func (c *Connection) handleFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath,
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, ftpserver.ErrStorageExceeded
 	}
-	if err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(), 0, 0); err != nil {
+	if err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(),
+		c.GetRemoteIP(), 0, 0); err != nil {
 		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
 		return nil, fmt.Errorf("%w, denied by pre-upload action", ftpserver.ErrFileNameNotAllowed)
 	}
@@ -432,7 +434,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 		c.Log(logger.LevelDebug, "unable to get max write size: %v", err)
 		return nil, err
 	}
-	if err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(), fileSize, flags); err != nil {
+	if err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(), c.GetRemoteIP(), fileSize, flags); err != nil {
 		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
 		return nil, fmt.Errorf("%w, denied by pre-upload action", ftpserver.ErrFileNameNotAllowed)
 	}

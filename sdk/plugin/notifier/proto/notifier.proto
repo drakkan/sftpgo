@@ -16,15 +16,22 @@ message FsEvent {
     int64 file_size =  7;
     string protocol = 8;
     int32 status = 9;
+    string ip = 10;
+    string virtual_path = 11;
+    string virtual_target_path = 12;
 }
 
-message UserEvent {
+message ProviderEvent {
     google.protobuf.Timestamp timestamp = 1;
     string action = 2;
-    bytes user = 3; // SFTPGo user JSON serialized
+    string object_type = 3;
+    string username = 4;
+    string ip = 5;
+    string object_name = 6;
+    bytes object_data = 7; // object JSON serialized
 }
 
 service Notifier {
     rpc SendFsEvent(FsEvent) returns (google.protobuf.Empty);
-    rpc SendUserEvent(UserEvent) returns (google.protobuf.Empty);
+    rpc SendProviderEvent(ProviderEvent) returns (google.protobuf.Empty);
 }

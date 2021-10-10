@@ -1104,13 +1104,13 @@ func (p *MemoryProvider) restoreAPIKeys(dump *BackupData) error {
 		apiKey := apiKey // pin
 		if err == nil {
 			apiKey.ID = k.ID
-			err = UpdateAPIKey(&apiKey)
+			err = UpdateAPIKey(&apiKey, ActionExecutorSystem, "")
 			if err != nil {
 				providerLog(logger.LevelWarn, "error updating API key %#v: %v", apiKey.KeyID, err)
 				return err
 			}
 		} else {
-			err = AddAPIKey(&apiKey)
+			err = AddAPIKey(&apiKey, ActionExecutorSystem, "")
 			if err != nil {
 				providerLog(logger.LevelWarn, "error adding API key %#v: %v", apiKey.KeyID, err)
 				return err
@@ -1126,13 +1126,13 @@ func (p *MemoryProvider) restoreAdmins(dump *BackupData) error {
 		admin := admin // pin
 		if err == nil {
 			admin.ID = a.ID
-			err = UpdateAdmin(&admin)
+			err = UpdateAdmin(&admin, ActionExecutorSystem, "")
 			if err != nil {
 				providerLog(logger.LevelWarn, "error updating admin %#v: %v", admin.Username, err)
 				return err
 			}
 		} else {
-			err = AddAdmin(&admin)
+			err = AddAdmin(&admin, ActionExecutorSystem, "")
 			if err != nil {
 				providerLog(logger.LevelWarn, "error adding admin %#v: %v", admin.Username, err)
 				return err
@@ -1148,7 +1148,7 @@ func (p *MemoryProvider) restoreFolders(dump *BackupData) error {
 		f, err := p.getFolderByName(folder.Name)
 		if err == nil {
 			folder.ID = f.ID
-			err = UpdateFolder(&folder, f.Users)
+			err = UpdateFolder(&folder, f.Users, ActionExecutorSystem, "")
 			if err != nil {
 				providerLog(logger.LevelWarn, "error updating folder %#v: %v", folder.Name, err)
 				return err
@@ -1171,13 +1171,13 @@ func (p *MemoryProvider) restoreUsers(dump *BackupData) error {
 		u, err := p.userExists(user.Username)
 		if err == nil {
 			user.ID = u.ID
-			err = UpdateUser(&user)
+			err = UpdateUser(&user, ActionExecutorSystem, "")
 			if err != nil {
 				providerLog(logger.LevelWarn, "error updating user %#v: %v", user.Username, err)
 				return err
 			}
 		} else {
-			err = AddUser(&user)
+			err = AddUser(&user, ActionExecutorSystem, "")
 			if err != nil {
 				providerLog(logger.LevelWarn, "error adding user %#v: %v", user.Username, err)
 				return err

@@ -610,7 +610,7 @@ func TestMultiFactorAuth(t *testing.T) {
 		Secret:     kms.NewPlainSecret(secret),
 		Protocols:  []string{common.ProtocolFTP},
 	}
-	err = dataprovider.UpdateUser(&user)
+	err = dataprovider.UpdateUser(&user, "", "")
 	assert.NoError(t, err)
 
 	user.Password = defaultPassword
@@ -971,7 +971,7 @@ func TestMaxConnections(t *testing.T) {
 	}, 1000*time.Millisecond, 50*time.Millisecond)
 
 	user := getTestUser()
-	err := dataprovider.AddUser(&user)
+	err := dataprovider.AddUser(&user, "", "")
 	assert.NoError(t, err)
 	user.Password = ""
 	client, err := getFTPClient(user, true, nil)
@@ -983,7 +983,7 @@ func TestMaxConnections(t *testing.T) {
 		err = client.Quit()
 		assert.NoError(t, err)
 	}
-	err = dataprovider.DeleteUser(user.Username)
+	err = dataprovider.DeleteUser(user.Username, "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1001,7 +1001,7 @@ func TestMaxPerHostConnections(t *testing.T) {
 	}, 1000*time.Millisecond, 50*time.Millisecond)
 
 	user := getTestUser()
-	err := dataprovider.AddUser(&user)
+	err := dataprovider.AddUser(&user, "", "")
 	assert.NoError(t, err)
 	user.Password = ""
 	client, err := getFTPClient(user, true, nil)
@@ -1013,7 +1013,7 @@ func TestMaxPerHostConnections(t *testing.T) {
 		err = client.Quit()
 		assert.NoError(t, err)
 	}
-	err = dataprovider.DeleteUser(user.Username)
+	err = dataprovider.DeleteUser(user.Username, "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1070,7 +1070,7 @@ func TestRateLimiter(t *testing.T) {
 		assert.Contains(t, err.Error(), "banned client IP")
 	}
 
-	err = dataprovider.DeleteUser(user.Username)
+	err = dataprovider.DeleteUser(user.Username, "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1112,7 +1112,7 @@ func TestDefender(t *testing.T) {
 		assert.Contains(t, err.Error(), "banned client IP")
 	}
 
-	err = dataprovider.DeleteUser(user.Username)
+	err = dataprovider.DeleteUser(user.Username, "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)

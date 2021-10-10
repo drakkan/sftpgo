@@ -980,7 +980,7 @@ func TestChangeAdminPassword(t *testing.T) {
 	admin, err := dataprovider.AdminExists(defaultTokenAuthUser)
 	assert.NoError(t, err)
 	admin.Password = defaultTokenAuthPass
-	err = dataprovider.UpdateAdmin(&admin)
+	err = dataprovider.UpdateAdmin(&admin, "", "")
 	assert.NoError(t, err)
 }
 
@@ -1506,8 +1506,8 @@ func TestUserRedactedPassword(t *testing.T) {
 	u.FsConfig.S3Config.StorageClass = "Standard"
 	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err, string(resp))
-	assert.Contains(t, string(resp), "invalid access_secret")
-	err = dataprovider.AddUser(&u)
+	assert.Contains(t, string(resp), "cannot save a user with a redacted secret")
+	err = dataprovider.AddUser(&u, "", "")
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "cannot save a user with a redacted secret")
 	}
@@ -1534,7 +1534,7 @@ func TestUserRedactedPassword(t *testing.T) {
 
 	user.Password = defaultPassword
 	user.VirtualFolders = append(user.VirtualFolders, vfolder)
-	err = dataprovider.UpdateUser(&user)
+	err = dataprovider.UpdateUser(&user, "", "")
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "cannot save a user with a redacted secret")
 	}
@@ -3547,7 +3547,7 @@ func TestSaveErrors(t *testing.T) {
 		Protocols:  []string{common.ProtocolSSH, common.ProtocolHTTP},
 	}
 	user.Filters.RecoveryCodes = recoveryCodes
-	err = dataprovider.UpdateUser(&user)
+	err = dataprovider.UpdateUser(&user, "", "")
 	assert.NoError(t, err)
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
@@ -3568,7 +3568,7 @@ func TestSaveErrors(t *testing.T) {
 		Secret:     kms.NewPlainSecret(secret),
 	}
 	admin.Filters.RecoveryCodes = recoveryCodes
-	err = dataprovider.UpdateAdmin(&admin)
+	err = dataprovider.UpdateAdmin(&admin, "", "")
 	assert.NoError(t, err)
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
 	assert.NoError(t, err)
@@ -5694,7 +5694,7 @@ func TestMFAInvalidSecret(t *testing.T) {
 		Used:   false,
 		Secret: kms.NewSecret(kms.SecretStatusSecretBox, "payload", "key", user.Username),
 	})
-	err = dataprovider.UpdateUser(&user)
+	err = dataprovider.UpdateUser(&user, "", "")
 	assert.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodGet, user2FARecoveryCodesPath, nil)
@@ -5766,7 +5766,7 @@ func TestMFAInvalidSecret(t *testing.T) {
 		Used:   false,
 		Secret: kms.NewSecret(kms.SecretStatusSecretBox, "payload", "key", user.Username),
 	})
-	err = dataprovider.UpdateAdmin(&admin)
+	err = dataprovider.UpdateAdmin(&admin, "", "")
 	assert.NoError(t, err)
 
 	csrfToken, err = getCSRFToken(httpBaseURL + webLoginPath)
@@ -6592,7 +6592,7 @@ func TestAdminHandlingWithAPIKeys(t *testing.T) {
 	dbAdmin, err := dataprovider.AdminExists(defaultTokenAuthUser)
 	assert.NoError(t, err)
 	dbAdmin.Filters.AllowAPIKeyAuth = false
-	err = dataprovider.UpdateAdmin(&dbAdmin)
+	err = dataprovider.UpdateAdmin(&dbAdmin, "", "")
 	assert.NoError(t, err)
 	sysAdmin, _, err = httpdtest.GetAdminByUsername(defaultTokenAuthUser, http.StatusOK)
 	assert.NoError(t, err)
@@ -9669,7 +9669,7 @@ func TestWebAdminSetupMock(t *testing.T) {
 	admins, err := dataprovider.GetAdmins(100, 0, dataprovider.OrderASC)
 	assert.NoError(t, err)
 	for _, admin := range admins {
-		err = dataprovider.DeleteAdmin(admin.Username)
+		err = dataprovider.DeleteAdmin(admin.Username, "", "")
 		assert.NoError(t, err)
 	}
 	// close the provider and initializes it without creating the default admin

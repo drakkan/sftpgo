@@ -2,7 +2,6 @@ package httpd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -13,6 +12,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -54,49 +54,19 @@ func renderUser(w http.ResponseWriter, r *http.Request, username string, status 
 
 func addUser(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 	var user dataprovider.User
-	err := render.DecodeJSON(r.Body, &user)
+	err = render.DecodeJSON(r.Body, &user)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	user.SetEmptySecretsIfNil()
-	switch user.FsConfig.Provider {
-	case sdk.S3FilesystemProvider:
-		if user.FsConfig.S3Config.AccessSecret.IsRedacted() {
-			sendAPIResponse(w, r, errors.New("invalid access_secret"), "", http.StatusBadRequest)
-			return
-		}
-	case sdk.GCSFilesystemProvider:
-		if user.FsConfig.GCSConfig.Credentials.IsRedacted() {
-			sendAPIResponse(w, r, errors.New("invalid credentials"), "", http.StatusBadRequest)
-			return
-		}
-	case sdk.AzureBlobFilesystemProvider:
-		if user.FsConfig.AzBlobConfig.AccountKey.IsRedacted() {
-			sendAPIResponse(w, r, errors.New("invalid account_key"), "", http.StatusBadRequest)
-			return
-		}
-		if user.FsConfig.AzBlobConfig.SASURL.IsRedacted() {
-			sendAPIResponse(w, r, errors.New("invalid sas_url"), "", http.StatusBadRequest)
-			return
-		}
-	case sdk.CryptedFilesystemProvider:
-		if user.FsConfig.CryptConfig.Passphrase.IsRedacted() {
-			sendAPIResponse(w, r, errors.New("invalid passphrase"), "", http.StatusBadRequest)
-			return
-		}
-	case sdk.SFTPFilesystemProvider:
-		if user.FsConfig.SFTPConfig.Password.IsRedacted() {
-			sendAPIResponse(w, r, errors.New("invalid SFTP password"), "", http.StatusBadRequest)
-			return
-		}
-		if user.FsConfig.SFTPConfig.PrivateKey.IsRedacted() {
-			sendAPIResponse(w, r, errors.New("invalid SFTP private key"), "", http.StatusBadRequest)
-			return
-		}
-	}
-	err = dataprovider.AddUser(&user)
+	err = dataprovider.AddUser(&user, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -106,6 +76,11 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 
 func disableUser2FA(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 	username := getURLParam(r, "username")
 	user, err := dataprovider.UserExists(username)
 	if err != nil {
@@ -116,7 +91,7 @@ func disableUser2FA(w http.ResponseWriter, r *http.Request) {
 	user.Filters.TOTPConfig = sdk.TOTPConfig{
 		Enabled: false,
 	}
-	if err := dataprovider.UpdateUser(&user); err != nil {
+	if err := dataprovider.UpdateUser(&user, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
@@ -125,7 +100,11 @@ func disableUser2FA(w http.ResponseWriter, r *http.Request) {
 
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	var err error
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 
 	username := getURLParam(r, "username")
 	disconnect := 0
@@ -179,7 +158,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	updateEncryptedSecrets(&user.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl,
 		currentGCSCredentials, currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey)
-	err = dataprovider.UpdateUser(&user)
+	err = dataprovider.UpdateUser(&user, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -192,8 +171,13 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 
 func deleteUser(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 	username := getURLParam(r, "username")
-	err := dataprovider.DeleteUser(username)
+	err = dataprovider.DeleteUser(username, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

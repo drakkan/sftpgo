@@ -177,7 +177,7 @@ func generateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		user.Filters.RecoveryCodes = accountRecoveryCodes
-		if err := dataprovider.UpdateUser(&user); err != nil {
+		if err := dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
 		}
@@ -188,7 +188,7 @@ func generateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		admin.Filters.RecoveryCodes = accountRecoveryCodes
-		if err := dataprovider.UpdateAdmin(&admin); err != nil {
+		if err := dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
 		}
@@ -218,7 +218,7 @@ func saveUserTOTPConfig(username string, r *http.Request, recoveryCodes []sdk.Re
 	if user.CountUnusedRecoveryCodes() < 5 && user.Filters.TOTPConfig.Enabled {
 		user.Filters.RecoveryCodes = recoveryCodes
 	}
-	return dataprovider.UpdateUser(&user)
+	return dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func saveAdminTOTPConfig(username string, r *http.Request, recoveryCodes []sdk.RecoveryCode) error {
@@ -238,5 +238,5 @@ func saveAdminTOTPConfig(username string, r *http.Request, recoveryCodes []sdk.R
 	if admin.Filters.TOTPConfig.Secret == nil || !admin.Filters.TOTPConfig.Secret.IsPlain() {
 		admin.Filters.TOTPConfig.Secret = currentTOTPSecret
 	}
-	return dataprovider.UpdateAdmin(&admin)
+	return dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
 }

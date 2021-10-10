@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/render"
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -43,7 +44,11 @@ func addFolder(w http.ResponseWriter, r *http.Request) {
 
 func updateFolder(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	var err error
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 
 	name := getURLParam(r, "name")
 	folder, err := dataprovider.GetFolderByName(name)
@@ -76,7 +81,7 @@ func updateFolder(w http.ResponseWriter, r *http.Request) {
 	folder.FsConfig.SetEmptySecretsIfNil()
 	updateEncryptedSecrets(&folder.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl, currentGCSCredentials,
 		currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey)
-	err = dataprovider.UpdateFolder(&folder, users)
+	err = dataprovider.UpdateFolder(&folder, users, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -107,8 +112,13 @@ func getFolderByName(w http.ResponseWriter, r *http.Request) {
 
 func deleteFolder(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 	name := getURLParam(r, "name")
-	err := dataprovider.DeleteFolder(name)
+	err = dataprovider.DeleteFolder(name, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

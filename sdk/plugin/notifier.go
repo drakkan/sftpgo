@@ -20,7 +20,8 @@ import (
 // NotifierConfig defines configuration parameters for notifiers plugins
 type NotifierConfig struct {
 	FsEvents          []string `json:"fs_events" mapstructure:"fs_events"`
-	UserEvents        []string `json:"user_events" mapstructure:"user_events"`
+	ProviderEvents    []string `json:"provider_events" mapstructure:"provider_events"`
+	ProviderObjects   []string `json:"provider_objects" mapstructure:"provider_objects"`
 	RetryMaxTime      int      `json:"retry_max_time" mapstructure:"retry_max_time"`
 	RetryQueueMaxSize int      `json:"retry_queue_max_size" mapstructure:"retry_queue_max_size"`
 }
@@ -29,7 +30,7 @@ func (c *NotifierConfig) hasActions() bool {
 	if len(c.FsEvents) > 0 {
 		return true
 	}
-	if len(c.UserEvents) > 0 {
+	if len(c.ProviderEvents) > 0 && len(c.ProviderObjects) > 0 {
 		return true
 	}
 	return false
@@ -37,11 +38,13 @@ func (c *NotifierConfig) hasActions() bool {
 
 type eventsQueue struct {
 	sync.RWMutex
-	fsEvents   []*proto.FsEvent
-	userEvents []*proto.UserEvent
+	fsEvents       []*proto.FsEvent
+	providerEvents []*proto.ProviderEvent
 }
 
-func (q *eventsQueue) addFsEvent(timestamp time.Time, action, username, fsPath, fsTargetPath, sshCmd, protocol string, fileSize int64, status int) {
+func (q *eventsQueue) addFsEvent(timestamp time.Time, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip string,
+	fileSize int64, status int,
+) {
 	q.Lock()
 	defer q.Unlock()
 
@@ -54,18 +57,25 @@ func (q *eventsQueue) addFsEvent(timestamp time.Time, action, username, fsPath, 
 		SshCmd:       sshCmd,
 		FileSize:     fileSize,
 		Protocol:     protocol,
+		Ip:           ip,
 		Status:       int32(status),
 	})
 }
 
-func (q *eventsQueue) addUserEvent(timestamp time.Time, action string, userAsJSON []byte) {
+func (q *eventsQueue) addProviderEvent(timestamp time.Time, action, username, objectType, objectName, ip string,
+	objectAsJSON []byte,
+) {
 	q.Lock()
 	defer q.Unlock()
 
-	q.userEvents = append(q.userEvents, &proto.UserEvent{
-		Timestamp: timestamppb.New(timestamp),
-		Action:    action,
-		User:      userAsJSON,
+	q.providerEvents = append(q.providerEvents, &proto.ProviderEvent{
+		Timestamp:  timestamppb.New(timestamp),
+		Action:     action,
+		ObjectType: objectType,
+		Username:   username,
+		Ip:         ip,
+		ObjectName: objectName,
+		ObjectData: objectAsJSON,
 	})
 }
 
@@ -84,17 +94,17 @@ func (q *eventsQueue) popFsEvent() *proto.FsEvent {
 	return ev
 }
 
-func (q *eventsQueue) popUserEvent() *proto.UserEvent {
+func (q *eventsQueue) popProviderEvent() *proto.ProviderEvent {
 	q.Lock()
 	defer q.Unlock()
 
-	if len(q.userEvents) == 0 {
+	if len(q.providerEvents) == 0 {
 		return nil
 	}
-	truncLen := len(q.userEvents) - 1
-	ev := q.userEvents[truncLen]
-	q.userEvents[truncLen] = nil
-	q.userEvents = q.userEvents[:truncLen]
+	truncLen := len(q.providerEvents) - 1
+	ev := q.providerEvents[truncLen]
+	q.providerEvents[truncLen] = nil
+	q.providerEvents = q.providerEvents[:truncLen]
 
 	return ev
 }
@@ -103,7 +113,7 @@ func (q *eventsQueue) getSize() int {
 	q.RLock()
 	defer q.RUnlock()
 
-	return len(q.userEvents) + len(q.fsEvents)
+	return len(q.providerEvents) + len(q.fsEvents)
 }
 
 type notifierPlugin struct {
@@ -194,7 +204,7 @@ func (p *notifierPlugin) canQueueEvent(timestamp time.Time) bool {
 }
 
 func (p *notifierPlugin) notifyFsAction(timestamp time.Time, action, username, fsPath, fsTargetPath, sshCmd,
-	protocol string, fileSize int64, errAction error) {
+	protocol, ip, virtualPath, virtualTargetPath string, fileSize int64, errAction error) {
 	if !util.IsStringInSlice(action, p.config.NotifierOptions.FsEvents) {
 		return
 	}
@@ -204,40 +214,47 @@ func (p *notifierPlugin) notifyFsAction(timestamp time.Time, action, username, f
 		if errAction != nil {
 			status = 0
 		}
-		p.sendFsEvent(timestamp, action, username, fsPath, fsTargetPath, sshCmd, protocol, fileSize, status)
+		p.sendFsEvent(timestamp, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip, virtualPath, virtualTargetPath,
+			fileSize, status)
 	}()
 }
 
-func (p *notifierPlugin) notifyUserAction(timestamp time.Time, action string, user Renderer) {
-	if !util.IsStringInSlice(action, p.config.NotifierOptions.UserEvents) {
+func (p *notifierPlugin) notifyProviderAction(timestamp time.Time, action, username, objectType, objectName, ip string,
+	object Renderer,
+) {
+	if !util.IsStringInSlice(action, p.config.NotifierOptions.ProviderEvents) ||
+		!util.IsStringInSlice(objectType, p.config.NotifierOptions.ProviderObjects) {
 		return
 	}
 
 	go func() {
-		userAsJSON, err := user.RenderAsJSON(action != "delete")
+		objectAsJSON, err := object.RenderAsJSON(action != "delete")
 		if err != nil {
 			logger.Warn(logSender, "", "unable to render user as json for action %v: %v", action, err)
 			return
 		}
-		p.sendUserEvent(timestamp, action, userAsJSON)
+		p.sendProviderEvent(timestamp, action, username, objectType, objectName, ip, objectAsJSON)
 	}()
 }
 
 func (p *notifierPlugin) sendFsEvent(timestamp time.Time, action, username, fsPath, fsTargetPath, sshCmd,
-	protocol string, fileSize int64, status int) {
-	if err := p.notifier.NotifyFsEvent(timestamp, action, username, fsPath, fsTargetPath, sshCmd, protocol, fileSize, status); err != nil {
+	protocol, ip, virtualPath, virtualTargetPath string, fileSize int64, status int) {
+	if err := p.notifier.NotifyFsEvent(timestamp, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip,
+		virtualPath, virtualTargetPath, fileSize, status); err != nil {
 		logger.Warn(logSender, "", "unable to send fs action notification to plugin %v: %v", p.config.Cmd, err)
 		if p.canQueueEvent(timestamp) {
-			p.queue.addFsEvent(timestamp, action, username, fsPath, fsTargetPath, sshCmd, protocol, fileSize, status)
+			p.queue.addFsEvent(timestamp, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip, fileSize, status)
 		}
 	}
 }
 
-func (p *notifierPlugin) sendUserEvent(timestamp time.Time, action string, userAsJSON []byte) {
-	if err := p.notifier.NotifyUserEvent(timestamp, action, userAsJSON); err != nil {
+func (p *notifierPlugin) sendProviderEvent(timestamp time.Time, action, username, objectType, objectName, ip string,
+	objectAsJSON []byte,
+) {
+	if err := p.notifier.NotifyProviderEvent(timestamp, action, username, objectType, objectName, ip, objectAsJSON); err != nil {
 		logger.Warn(logSender, "", "unable to send user action notification to plugin %v: %v", p.config.Cmd, err)
 		if p.canQueueEvent(timestamp) {
-			p.queue.addUserEvent(timestamp, action, userAsJSON)
+			p.queue.addProviderEvent(timestamp, action, username, objectType, objectName, ip, objectAsJSON)
 		}
 	}
 }
@@ -251,14 +268,15 @@ func (p *notifierPlugin) sendQueuedEvents() {
 	fsEv := p.queue.popFsEvent()
 	for fsEv != nil {
 		go p.sendFsEvent(fsEv.Timestamp.AsTime(), fsEv.Action, fsEv.Username, fsEv.FsPath, fsEv.FsTargetPath,
-			fsEv.SshCmd, fsEv.Protocol, fsEv.FileSize, int(fsEv.Status))
+			fsEv.SshCmd, fsEv.Protocol, fsEv.Ip, fsEv.VirtualPath, fsEv.VirtualTargetPath, fsEv.FileSize, int(fsEv.Status))
 		fsEv = p.queue.popFsEvent()
 	}
 
-	userEv := p.queue.popUserEvent()
-	for userEv != nil {
-		go p.sendUserEvent(userEv.Timestamp.AsTime(), userEv.Action, userEv.User)
-		userEv = p.queue.popUserEvent()
+	providerEv := p.queue.popProviderEvent()
+	for providerEv != nil {
+		go p.sendProviderEvent(providerEv.Timestamp.AsTime(), providerEv.Action, providerEv.Username, providerEv.ObjectType,
+			providerEv.ObjectName, providerEv.Ip, providerEv.ObjectData)
+		providerEv = p.queue.popProviderEvent()
 	}
 	logger.Debug(logSender, "", "queued events sent for notifier %#v, new events size: %v", p.config.Cmd, p.queue.getSize())
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/render"
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 func getAPIKeys(w http.ResponseWriter, r *http.Request) {
@@ -40,8 +41,13 @@ func getAPIKeyByID(w http.ResponseWriter, r *http.Request) {
 
 func addAPIKey(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 	var apiKey dataprovider.APIKey
-	err := render.DecodeJSON(r.Body, &apiKey)
+	err = render.DecodeJSON(r.Body, &apiKey)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
@@ -49,7 +55,7 @@ func addAPIKey(w http.ResponseWriter, r *http.Request) {
 	apiKey.ID = 0
 	apiKey.KeyID = ""
 	apiKey.Key = ""
-	err = dataprovider.AddAPIKey(&apiKey)
+	err = dataprovider.AddAPIKey(&apiKey, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -65,6 +71,11 @@ func addAPIKey(w http.ResponseWriter, r *http.Request) {
 
 func updateAPIKey(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 	keyID := getURLParam(r, "id")
 	apiKey, err := dataprovider.APIKeyExists(keyID)
 	if err != nil {
@@ -79,7 +90,7 @@ func updateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apiKey.KeyID = keyID
-	if err := dataprovider.UpdateAPIKey(&apiKey); err != nil {
+	if err := dataprovider.UpdateAPIKey(&apiKey, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
@@ -89,8 +100,13 @@ func updateAPIKey(w http.ResponseWriter, r *http.Request) {
 func deleteAPIKey(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	keyID := getURLParam(r, "id")
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 
-	err := dataprovider.DeleteAPIKey(keyID)
+	err = dataprovider.DeleteAPIKey(keyID, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

@@ -187,6 +187,9 @@ func (f *Filesystem) HasRedactedSecret() bool {
 		if f.AzBlobConfig.AccountKey.IsRedacted() {
 			return true
 		}
+		if f.AzBlobConfig.SASURL.IsRedacted() {
+			return true
+		}
 	case sdk.CryptedFilesystemProvider:
 		if f.CryptConfig.Passphrase.IsRedacted() {
 			return true

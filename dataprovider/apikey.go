@@ -1,6 +1,7 @@
 package dataprovider
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/lithammer/shortuuid/v3"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -74,6 +76,21 @@ func (k *APIKey) getACopy() APIKey {
 		userID:      k.userID,
 		adminID:     k.adminID,
 	}
+}
+
+// RenderAsJSON implements the renderer interface used within plugins
+func (k *APIKey) RenderAsJSON(reload bool) ([]byte, error) {
+	if reload {
+		apiKey, err := provider.apiKeyExists(k.KeyID)
+		if err != nil {
+			providerLog(logger.LevelWarn, "unable to reload api key before rendering as json: %v", err)
+			return nil, err
+		}
+		apiKey.HideConfidentialData()
+		return json.Marshal(apiKey)
+	}
+	k.HideConfidentialData()
+	return json.Marshal(k)
 }
 
 // HideConfidentialData hides admin confidential data

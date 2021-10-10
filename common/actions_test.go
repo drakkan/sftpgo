@@ -45,38 +45,38 @@ func TestNewActionNotification(t *testing.T) {
 			Endpoint: "sftpendpoint",
 		},
 	}
-	a := newActionNotification(user, operationDownload, "path", "vpath", "target", "", ProtocolSFTP, 123, 0, errors.New("fake error"))
+	a := newActionNotification(user, operationDownload, "path", "vpath", "target", "", "", ProtocolSFTP, "", 123, 0, errors.New("fake error"))
 	assert.Equal(t, user.Username, a.Username)
 	assert.Equal(t, 0, len(a.Bucket))
 	assert.Equal(t, 0, len(a.Endpoint))
 	assert.Equal(t, 0, a.Status)
 
 	user.FsConfig.Provider = sdk.S3FilesystemProvider
-	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", ProtocolSSH, 123, 0, nil)
+	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", "", ProtocolSSH, "", 123, 0, nil)
 	assert.Equal(t, "s3bucket", a.Bucket)
 	assert.Equal(t, "endpoint", a.Endpoint)
 	assert.Equal(t, 1, a.Status)
 
 	user.FsConfig.Provider = sdk.GCSFilesystemProvider
-	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", ProtocolSCP, 123, 0, ErrQuotaExceeded)
+	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", "", ProtocolSCP, "", 123, 0, ErrQuotaExceeded)
 	assert.Equal(t, "gcsbucket", a.Bucket)
 	assert.Equal(t, 0, len(a.Endpoint))
 	assert.Equal(t, 2, a.Status)
 
 	user.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
-	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", ProtocolSCP, 123, 0, nil)
+	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", "", ProtocolSCP, "", 123, 0, nil)
 	assert.Equal(t, "azcontainer", a.Bucket)
 	assert.Equal(t, "azendpoint", a.Endpoint)
 	assert.Equal(t, 1, a.Status)
 
-	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", ProtocolSCP, 123, os.O_APPEND, nil)
+	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", "", ProtocolSCP, "", 123, os.O_APPEND, nil)
 	assert.Equal(t, "azcontainer", a.Bucket)
 	assert.Equal(t, "azendpoint", a.Endpoint)
 	assert.Equal(t, 1, a.Status)
 	assert.Equal(t, os.O_APPEND, a.OpenFlags)
 
 	user.FsConfig.Provider = sdk.SFTPFilesystemProvider
-	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", ProtocolSFTP, 123, 0, nil)
+	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", "", ProtocolSFTP, "", 123, 0, nil)
 	assert.Equal(t, "sftpendpoint", a.Endpoint)
 }
 
@@ -92,7 +92,7 @@ func TestActionHTTP(t *testing.T) {
 			Username: "username",
 		},
 	}
-	a := newActionNotification(user, operationDownload, "path", "vpath", "target", "", ProtocolSFTP, 123, 0, nil)
+	a := newActionNotification(user, operationDownload, "path", "vpath", "target", "", "", ProtocolSFTP, "", 123, 0, nil)
 	err := actionHandler.Handle(a)
 	assert.NoError(t, err)
 
@@ -127,11 +127,11 @@ func TestActionCMD(t *testing.T) {
 			Username: "username",
 		},
 	}
-	a := newActionNotification(user, operationDownload, "path", "vpath", "target", "", ProtocolSFTP, 123, 0, nil)
+	a := newActionNotification(user, operationDownload, "path", "vpath", "target", "", "", ProtocolSFTP, "", 123, 0, nil)
 	err = actionHandler.Handle(a)
 	assert.NoError(t, err)
 
-	ExecuteActionNotification(user, OperationSSHCmd, "path", "vpath", "target", "sha1sum", ProtocolSSH, 0, nil)
+	ExecuteActionNotification(user, OperationSSHCmd, "path", "vpath", "target", "vtarget", "sha1sum", ProtocolSSH, "", 0, nil)
 
 	Config.Actions = actionsCopy
 }
@@ -153,7 +153,7 @@ func TestWrongActions(t *testing.T) {
 		},
 	}
 
-	a := newActionNotification(user, operationUpload, "", "", "", "", ProtocolSFTP, 123, 0, nil)
+	a := newActionNotification(user, operationUpload, "", "", "", "", "", ProtocolSFTP, "", 123, 0, nil)
 	err := actionHandler.Handle(a)
 	assert.Error(t, err, "action with bad command must fail")
 

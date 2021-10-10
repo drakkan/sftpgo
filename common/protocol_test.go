@@ -2138,7 +2138,7 @@ func TestDelayedQuotaUpdater(t *testing.T) {
 	assert.Equal(t, 10, folderGet.UsedQuotaFiles)
 	assert.Equal(t, int64(6000), folderGet.UsedQuotaSize)
 
-	err = dataprovider.DeleteFolder(folder.Name)
+	err = dataprovider.DeleteFolder(folder.Name, "", "")
 	assert.NoError(t, err)
 
 	err = dataprovider.Close()
@@ -2605,7 +2605,7 @@ func TestBuiltinKeyboardInteractiveAuthentication(t *testing.T) {
 		Secret:     kms.NewPlainSecret(secret),
 		Protocols:  []string{common.ProtocolSSH},
 	}
-	err = dataprovider.UpdateUser(&user)
+	err = dataprovider.UpdateUser(&user, "", "")
 	assert.NoError(t, err)
 	passcode, err := generateTOTPPasscode(secret, otp.AlgorithmSHA1)
 	assert.NoError(t, err)

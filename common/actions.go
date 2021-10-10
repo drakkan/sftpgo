@@ -51,8 +51,10 @@ func InitializeActionHandler(handler ActionHandler) {
 }
 
 // ExecutePreAction executes a pre-* action and returns the result
-func ExecutePreAction(user *dataprovider.User, operation, filePath, virtualPath, protocol string, fileSize int64, openFlags int) error {
-	plugin.Handler.NotifyFsEvent(time.Now(), operation, user.Username, filePath, "", "", protocol, fileSize, nil)
+func ExecutePreAction(user *dataprovider.User, operation, filePath, virtualPath, protocol, ip string, fileSize int64,
+	openFlags int,
+) error {
+	plugin.Handler.NotifyFsEvent(time.Now(), operation, user.Username, filePath, "", "", protocol, ip, virtualPath, "", fileSize, nil)
 	if !util.IsStringInSlice(operation, Config.Actions.ExecuteOn) {
 		// for pre-delete we execute the internal handling on error, so we must return errUnconfiguredAction.
 		// Other pre action will deny the operation on error so if we have no configuration we must return
@@ -62,14 +64,19 @@ func ExecutePreAction(user *dataprovider.User, operation, filePath, virtualPath,
 		}
 		return nil
 	}
-	notification := newActionNotification(user, operation, filePath, virtualPath, "", "", protocol, fileSize, openFlags, nil)
+	notification := newActionNotification(user, operation, filePath, virtualPath, "", "", "", protocol, ip, fileSize,
+		openFlags, nil)
 	return actionHandler.Handle(notification)
 }
 
 // ExecuteActionNotification executes the defined hook, if any, for the specified action
-func ExecuteActionNotification(user *dataprovider.User, operation, filePath, virtualPath, target, sshCmd, protocol string, fileSize int64, err error) {
-	plugin.Handler.NotifyFsEvent(time.Now(), operation, user.Username, filePath, target, sshCmd, protocol, fileSize, err)
-	notification := newActionNotification(user, operation, filePath, virtualPath, target, sshCmd, protocol, fileSize, 0, err)
+func ExecuteActionNotification(user *dataprovider.User, operation, filePath, virtualPath, target, virtualTarget, sshCmd,
+	protocol, ip string, fileSize int64, err error,
+) {
+	plugin.Handler.NotifyFsEvent(time.Now(), operation, user.Username, filePath, target, sshCmd, protocol, ip, virtualPath,
+		virtualTarget, fileSize, err)
+	notification := newActionNotification(user, operation, filePath, virtualPath, target, virtualTarget, sshCmd, protocol,
+		ip, fileSize, 0, err)
 
 	if util.IsStringInSlice(operation, Config.Actions.ExecuteSync) {
 		actionHandler.Handle(notification) //nolint:errcheck
@@ -86,23 +93,27 @@ type ActionHandler interface {
 
 // ActionNotification defines a notification for a Protocol Action.
 type ActionNotification struct {
-	Action     string `json:"action"`
-	Username   string `json:"username"`
-	Path       string `json:"path"`
-	TargetPath string `json:"target_path,omitempty"`
-	SSHCmd     string `json:"ssh_cmd,omitempty"`
-	FileSize   int64  `json:"file_size,omitempty"`
-	FsProvider int    `json:"fs_provider"`
-	Bucket     string `json:"bucket,omitempty"`
-	Endpoint   string `json:"endpoint,omitempty"`
-	Status     int    `json:"status"`
-	Protocol   string `json:"protocol"`
-	OpenFlags  int    `json:"open_flags,omitempty"`
+	Action            string `json:"action"`
+	Username          string `json:"username"`
+	Path              string `json:"path"`
+	TargetPath        string `json:"target_path,omitempty"`
+	VirtualPath       string `json:"virtual_path"`
+	VirtualTargetPath string `json:"virtual_target_path,omitempty"`
+	SSHCmd            string `json:"ssh_cmd,omitempty"`
+	FileSize          int64  `json:"file_size,omitempty"`
+	FsProvider        int    `json:"fs_provider"`
+	Bucket            string `json:"bucket,omitempty"`
+	Endpoint          string `json:"endpoint,omitempty"`
+	Status            int    `json:"status"`
+	Protocol          string `json:"protocol"`
+	IP                string `json:"ip"`
+	Timestamp         int64  `json:"timestamp"`
+	OpenFlags         int    `json:"open_flags,omitempty"`
 }
 
 func newActionNotification(
 	user *dataprovider.User,
-	operation, filePath, virtualPath, target, sshCmd, protocol string,
+	operation, filePath, virtualPath, target, virtualTarget, sshCmd, protocol, ip string,
 	fileSize int64,
 	openFlags int,
 	err error,
@@ -134,18 +145,22 @@ func newActionNotification(
 	}
 
 	return &ActionNotification{
-		Action:     operation,
-		Username:   user.Username,
-		Path:       filePath,
-		TargetPath: target,
-		SSHCmd:     sshCmd,
-		FileSize:   fileSize,
-		FsProvider: int(fsConfig.Provider),
-		Bucket:     bucket,
-		Endpoint:   endpoint,
-		Status:     status,
-		Protocol:   protocol,
-		OpenFlags:  openFlags,
+		Action:            operation,
+		Username:          user.Username,
+		Path:              filePath,
+		TargetPath:        target,
+		VirtualPath:       virtualPath,
+		VirtualTargetPath: virtualTarget,
+		SSHCmd:            sshCmd,
+		FileSize:          fileSize,
+		FsProvider:        int(fsConfig.Provider),
+		Bucket:            bucket,
+		Endpoint:          endpoint,
+		Status:            status,
+		Protocol:          protocol,
+		IP:                ip,
+		OpenFlags:         openFlags,
+		Timestamp:         util.GetTimeAsMsSinceEpoch(time.Now()),
 	}
 }
 
@@ -209,14 +224,14 @@ func (h *defaultActionHandler) handleCommand(notification *ActionNotification) e
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, Config.Actions.Hook, notification.Action, notification.Username, notification.Path, notification.TargetPath, notification.SSHCmd)
+	cmd := exec.CommandContext(ctx, Config.Actions.Hook)
 	cmd.Env = append(os.Environ(), notificationAsEnvVars(notification)...)
 
 	startTime := time.Now()
 	err := cmd.Run()
 
-	logger.Debug(notification.Protocol, "", "executed command %#v with arguments: %#v, %#v, %#v, %#v, %#v, elapsed: %v, error: %v",
-		Config.Actions.Hook, notification.Action, notification.Username, notification.Path, notification.TargetPath, notification.SSHCmd, time.Since(startTime), err)
+	logger.Debug(notification.Protocol, "", "executed command %#v, elapsed: %v, error: %v",
+		Config.Actions.Hook, time.Since(startTime), err)
 
 	return err
 }
@@ -227,6 +242,8 @@ func notificationAsEnvVars(notification *ActionNotification) []string {
 		fmt.Sprintf("SFTPGO_ACTION_USERNAME=%v", notification.Username),
 		fmt.Sprintf("SFTPGO_ACTION_PATH=%v", notification.Path),
 		fmt.Sprintf("SFTPGO_ACTION_TARGET=%v", notification.TargetPath),
+		fmt.Sprintf("SFTPGO_ACTION_VIRTUAL_PATH=%v", notification.VirtualPath),
+		fmt.Sprintf("SFTPGO_ACTION_VIRTUAL_TARGET=%v", notification.VirtualTargetPath),
 		fmt.Sprintf("SFTPGO_ACTION_SSH_CMD=%v", notification.SSHCmd),
 		fmt.Sprintf("SFTPGO_ACTION_FILE_SIZE=%v", notification.FileSize),
 		fmt.Sprintf("SFTPGO_ACTION_FS_PROVIDER=%v", notification.FsProvider),
@@ -234,6 +251,8 @@ func notificationAsEnvVars(notification *ActionNotification) []string {
 		fmt.Sprintf("SFTPGO_ACTION_ENDPOINT=%v", notification.Endpoint),
 		fmt.Sprintf("SFTPGO_ACTION_STATUS=%v", notification.Status),
 		fmt.Sprintf("SFTPGO_ACTION_PROTOCOL=%v", notification.Protocol),
+		fmt.Sprintf("SFTPGO_ACTION_IP=%v", notification.IP),
 		fmt.Sprintf("SFTPGO_ACTION_OPEN_FLAGS=%v", notification.OpenFlags),
+		fmt.Sprintf("SFTPGO_ACTION_TIMESTAMP=%v", notification.Timestamp),
 	}
 }

@@ -1201,7 +1201,7 @@ func handleWebAdminProfilePost(w http.ResponseWriter, r *http.Request) {
 	admin.Filters.AllowAPIKeyAuth = len(r.Form.Get("allow_api_key_auth")) > 0
 	admin.Email = r.Form.Get("email")
 	admin.Description = r.Form.Get("description")
-	err = dataprovider.UpdateAdmin(&admin)
+	err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		renderProfilePage(w, r, err.Error())
 		return
@@ -1225,7 +1225,12 @@ func handleWebMaintenance(w http.ResponseWriter, r *http.Request) {
 
 func handleWebRestore(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, MaxRestoreSize)
-	err := r.ParseMultipartForm(MaxRestoreSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
+	err = r.ParseMultipartForm(MaxRestoreSize)
 	if err != nil {
 		renderMaintenancePage(w, r, err.Error())
 		return
@@ -1260,7 +1265,7 @@ func handleWebRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := restoreBackup(backupContent, "", scanQuota, restoreMode); err != nil {
+	if err := restoreBackup(backupContent, "", scanQuota, restoreMode, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
 		renderMaintenancePage(w, r, err.Error())
 		return
 	}
@@ -1327,6 +1332,11 @@ func handleWebUpdateAdminGet(w http.ResponseWriter, r *http.Request) {
 
 func handleWebAddAdminPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
 	admin, err := getAdminFromPostFields(r)
 	if err != nil {
 		renderAddUpdateAdminPage(w, r, &admin, err.Error(), true)
@@ -1336,7 +1346,7 @@ func handleWebAddAdminPost(w http.ResponseWriter, r *http.Request) {
 		renderForbiddenPage(w, r, err.Error())
 		return
 	}
-	err = dataprovider.AddAdmin(&admin)
+	err = dataprovider.AddAdmin(&admin, claims.Username, util.GetIPFromRemoteAddress(r.Method))
 	if err != nil {
 		renderAddUpdateAdminPage(w, r, &admin, err.Error(), true)
 		return
@@ -1388,7 +1398,7 @@ func handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	err = dataprovider.UpdateAdmin(&updatedAdmin)
+	err = dataprovider.UpdateAdmin(&updatedAdmin, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		renderAddUpdateAdminPage(w, r, &admin, err.Error(), false)
 		return
@@ -1595,6 +1605,11 @@ func handleWebUpdateUserGet(w http.ResponseWriter, r *http.Request) {
 
 func handleWebAddUserPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
 	user, err := getUserFromPostFields(r)
 	if err != nil {
 		renderUserPage(w, r, &user, userPageModeAdd, err.Error())
@@ -1604,7 +1619,7 @@ func handleWebAddUserPost(w http.ResponseWriter, r *http.Request) {
 		renderForbiddenPage(w, r, err.Error())
 		return
 	}
-	err = dataprovider.AddUser(&user)
+	err = dataprovider.AddUser(&user, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err == nil {
 		http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
 	} else {
@@ -1614,6 +1629,11 @@ func handleWebAddUserPost(w http.ResponseWriter, r *http.Request) {
 
 func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
 	username := getURLParam(r, "username")
 	user, err := dataprovider.UserExists(username)
 	if _, ok := err.(*util.RecordNotFoundError); ok {
@@ -1644,7 +1664,7 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 		user.FsConfig.AzBlobConfig.SASURL, user.FsConfig.GCSConfig.Credentials, user.FsConfig.CryptConfig.Passphrase,
 		user.FsConfig.SFTPConfig.Password, user.FsConfig.SFTPConfig.PrivateKey)
 
-	err = dataprovider.UpdateUser(&updatedUser)
+	err = dataprovider.UpdateUser(&updatedUser, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err == nil {
 		if len(r.Form.Get("disconnect")) > 0 {
 			disconnectUser(user.Username)
@@ -1724,6 +1744,11 @@ func handleWebUpdateFolderGet(w http.ResponseWriter, r *http.Request) {
 
 func handleWebUpdateFolderPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
 	name := getURLParam(r, "name")
 	folder, err := dataprovider.GetFolderByName(name)
 	if _, ok := err.(*util.RecordNotFoundError); ok {
@@ -1760,7 +1785,7 @@ func handleWebUpdateFolderPost(w http.ResponseWriter, r *http.Request) {
 		folder.FsConfig.AzBlobConfig.SASURL, folder.FsConfig.GCSConfig.Credentials, folder.FsConfig.CryptConfig.Passphrase,
 		folder.FsConfig.SFTPConfig.Password, folder.FsConfig.SFTPConfig.PrivateKey)
 
-	err = dataprovider.UpdateFolder(updatedFolder, folder.Users)
+	err = dataprovider.UpdateFolder(updatedFolder, folder.Users, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())
 		return

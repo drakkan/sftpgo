@@ -97,6 +97,11 @@ func dumpData(w http.ResponseWriter, r *http.Request) {
 
 func loadDataFromRequest(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, MaxRestoreSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 	_, scanQuota, mode, err := getLoaddataOptions(r)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
@@ -111,7 +116,7 @@ func loadDataFromRequest(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if err := restoreBackup(content, "", scanQuota, mode); err != nil {
+	if err := restoreBackup(content, "", scanQuota, mode, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 	}
 	sendAPIResponse(w, r, err, "Data restored", http.StatusOK)
@@ -119,6 +124,11 @@ func loadDataFromRequest(w http.ResponseWriter, r *http.Request) {
 
 func loadData(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 	inputFile, scanQuota, mode, err := getLoaddataOptions(r)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
@@ -144,31 +154,31 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if err := restoreBackup(content, inputFile, scanQuota, mode); err != nil {
+	if err := restoreBackup(content, inputFile, scanQuota, mode, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 	}
 	sendAPIResponse(w, r, err, "Data restored", http.StatusOK)
 }
 
-func restoreBackup(content []byte, inputFile string, scanQuota, mode int) error {
+func restoreBackup(content []byte, inputFile string, scanQuota, mode int, executor, ipAddress string) error {
 	dump, err := dataprovider.ParseDumpData(content)
 	if err != nil {
 		return util.NewValidationError(fmt.Sprintf("Unable to parse backup content: %v", err))
 	}
 
-	if err = RestoreFolders(dump.Folders, inputFile, mode, scanQuota); err != nil {
+	if err = RestoreFolders(dump.Folders, inputFile, mode, scanQuota, executor, ipAddress); err != nil {
 		return err
 	}
 
-	if err = RestoreUsers(dump.Users, inputFile, mode, scanQuota); err != nil {
+	if err = RestoreUsers(dump.Users, inputFile, mode, scanQuota, executor, ipAddress); err != nil {
 		return err
 	}
 
-	if err = RestoreAdmins(dump.Admins, inputFile, mode); err != nil {
+	if err = RestoreAdmins(dump.Admins, inputFile, mode, executor, ipAddress); err != nil {
 		return err
 	}
 
-	if err = RestoreAPIKeys(dump.APIKeys, inputFile, mode); err != nil {
+	if err = RestoreAPIKeys(dump.APIKeys, inputFile, mode, executor, ipAddress); err != nil {
 		return err
 	}
 
@@ -204,7 +214,7 @@ func getLoaddataOptions(r *http.Request) (string, int, int, error) {
 }
 
 // RestoreFolders restores the specified folders
-func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, mode, scanQuota int) error {
+func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, mode, scanQuota int, executor, ipAddress string) error {
 	for _, folder := range folders {
 		folder := folder // pin
 		f, err := dataprovider.GetFolderByName(folder.Name)
@@ -214,7 +224,7 @@ func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, mode, sca
 				continue
 			}
 			folder.ID = f.ID
-			err = dataprovider.UpdateFolder(&folder, f.Users)
+			err = dataprovider.UpdateFolder(&folder, f.Users, executor, ipAddress)
 			logger.Debug(logSender, "", "restoring existing folder: %+v, dump file: %#v, error: %v", folder, inputFile, err)
 		} else {
 			folder.Users = nil
@@ -235,7 +245,7 @@ func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, mode, sca
 }
 
 // RestoreAPIKeys restores the specified API keys
-func RestoreAPIKeys(apiKeys []dataprovider.APIKey, inputFile string, mode int) error {
+func RestoreAPIKeys(apiKeys []dataprovider.APIKey, inputFile string, mode int, executor, ipAddress string) error {
 	for _, apiKey := range apiKeys {
 		apiKey := apiKey // pin
 		if apiKey.Key == "" {
@@ -249,11 +259,11 @@ func RestoreAPIKeys(apiKeys []dataprovider.APIKey, inputFile string, mode int) e
 				continue
 			}
 			apiKey.ID = k.ID
-			err = dataprovider.UpdateAPIKey(&apiKey)
+			err = dataprovider.UpdateAPIKey(&apiKey, executor, ipAddress)
 			apiKey.Key = redactedSecret
 			logger.Debug(logSender, "", "restoring existing API key: %+v, dump file: %#v, error: %v", apiKey, inputFile, err)
 		} else {
-			err = dataprovider.AddAPIKey(&apiKey)
+			err = dataprovider.AddAPIKey(&apiKey, executor, ipAddress)
 			apiKey.Key = redactedSecret
 			logger.Debug(logSender, "", "adding new API key: %+v, dump file: %#v, error: %v", apiKey, inputFile, err)
 		}
@@ -265,7 +275,7 @@ func RestoreAPIKeys(apiKeys []dataprovider.APIKey, inputFile string, mode int) e
 }
 
 // RestoreAdmins restores the specified admins
-func RestoreAdmins(admins []dataprovider.Admin, inputFile string, mode int) error {
+func RestoreAdmins(admins []dataprovider.Admin, inputFile string, mode int, executor, ipAddress string) error {
 	for _, admin := range admins {
 		admin := admin // pin
 		a, err := dataprovider.AdminExists(admin.Username)
@@ -275,11 +285,11 @@ func RestoreAdmins(admins []dataprovider.Admin, inputFile string, mode int) erro
 				continue
 			}
 			admin.ID = a.ID
-			err = dataprovider.UpdateAdmin(&admin)
+			err = dataprovider.UpdateAdmin(&admin, executor, ipAddress)
 			admin.Password = redactedSecret
 			logger.Debug(logSender, "", "restoring existing admin: %+v, dump file: %#v, error: %v", admin, inputFile, err)
 		} else {
-			err = dataprovider.AddAdmin(&admin)
+			err = dataprovider.AddAdmin(&admin, executor, ipAddress)
 			admin.Password = redactedSecret
 			logger.Debug(logSender, "", "adding new admin: %+v, dump file: %#v, error: %v", admin, inputFile, err)
 		}
@@ -292,7 +302,7 @@ func RestoreAdmins(admins []dataprovider.Admin, inputFile string, mode int) erro
 }
 
 // RestoreUsers restores the specified users
-func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota int) error {
+func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota int, executor, ipAddress string) error {
 	for _, user := range users {
 		user := user // pin
 		u, err := dataprovider.UserExists(user.Username)
@@ -302,14 +312,14 @@ func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota i
 				continue
 			}
 			user.ID = u.ID
-			err = dataprovider.UpdateUser(&user)
+			err = dataprovider.UpdateUser(&user, executor, ipAddress)
 			user.Password = redactedSecret
 			logger.Debug(logSender, "", "restoring existing user: %+v, dump file: %#v, error: %v", user, inputFile, err)
 			if mode == 2 && err == nil {
 				disconnectUser(user.Username)
 			}
 		} else {
-			err = dataprovider.AddUser(&user)
+			err = dataprovider.AddUser(&user, executor, ipAddress)
 			user.Password = redactedSecret
 			logger.Debug(logSender, "", "adding new user: %+v, dump file: %#v, error: %v", user, inputFile, err)
 		}

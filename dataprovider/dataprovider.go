@@ -204,10 +204,12 @@ type PasswordValidation struct {
 	Users PasswordValidationRules `json:"users" mapstructure:"users"`
 }
 
-// UserActions defines the action to execute on user create, update, delete.
-type UserActions struct {
+// ObjectsActions defines the action to execute on user create, update, delete for the specified objects
+type ObjectsActions struct {
 	// Valid values are add, update, delete. Empty slice to disable
 	ExecuteOn []string `json:"execute_on" mapstructure:"execute_on"`
+	// Valid values are user, admin, api_key
+	ExecuteFor []string `json:"execute_for" mapstructure:"execute_for"`
 	// Absolute path to an external program or an HTTP URL
 	Hook string `json:"hook" mapstructure:"hook"`
 }
@@ -261,9 +263,10 @@ type Config struct {
 	// a valid absolute path, then the user home dir will be automatically
 	// defined as the path obtained joining the base dir and the username
 	UsersBaseDir string `json:"users_base_dir" mapstructure:"users_base_dir"`
-	// Actions to execute on user add, update, delete.
+	// Actions to execute on objects add, update, delete.
+	// The supported objects are user, admin, api_key.
 	// Update action will not be fired for internal updates such as the last login or the user quota fields.
-	Actions UserActions `json:"actions" mapstructure:"actions"`
+	Actions ObjectsActions `json:"actions" mapstructure:"actions"`
 	// Absolute path to an external program or an HTTP URL to invoke for users authentication.
 	// Leave empty to use builtin authentication.
 	// If the authentication succeed the user will be automatically added/updated inside the defined data provider.
@@ -926,22 +929,34 @@ func GetUsedVirtualFolderQuota(name string) (int, int64, error) {
 }
 
 // AddAPIKey adds a new API key
-func AddAPIKey(apiKey *APIKey) error {
-	return provider.addAPIKey(apiKey)
+func AddAPIKey(apiKey *APIKey, executor, ipAddress string) error {
+	err := provider.addAPIKey(apiKey)
+	if err == nil {
+		executeAction(operationAdd, executor, ipAddress, actionObjectAPIKey, apiKey.KeyID, apiKey)
+	}
+	return err
 }
 
 // UpdateAPIKey updates an existing API key
-func UpdateAPIKey(apiKey *APIKey) error {
-	return provider.updateAPIKey(apiKey)
+func UpdateAPIKey(apiKey *APIKey, executor, ipAddress string) error {
+	err := provider.updateAPIKey(apiKey)
+	if err == nil {
+		executeAction(operationUpdate, executor, ipAddress, actionObjectAPIKey, apiKey.KeyID, apiKey)
+	}
+	return err
 }
 
 // DeleteAPIKey deletes an existing API key
-func DeleteAPIKey(keyID string) error {
+func DeleteAPIKey(keyID string, executor, ipAddress string) error {
 	apiKey, err := provider.apiKeyExists(keyID)
 	if err != nil {
 		return err
 	}
-	return provider.deleteAPIKeys(&apiKey)
+	err = provider.deleteAPIKeys(&apiKey)
+	if err == nil {
+		executeAction(operationDelete, executor, ipAddress, actionObjectAPIKey, apiKey.KeyID, &apiKey)
+	}
+	return err
 }
 
 // APIKeyExists returns the API key with the given ID if it exists
@@ -959,7 +974,7 @@ func HasAdmin() bool {
 }
 
 // AddAdmin adds a new SFTPGo admin
-func AddAdmin(admin *Admin) error {
+func AddAdmin(admin *Admin, executor, ipAddress string) error {
 	admin.Filters.RecoveryCodes = nil
 	admin.Filters.TOTPConfig = TOTPConfig{
 		Enabled: false,
@@ -967,22 +982,31 @@ func AddAdmin(admin *Admin) error {
 	err := provider.addAdmin(admin)
 	if err == nil {
 		atomic.StoreInt32(&isAdminCreated, 1)
+		executeAction(operationAdd, executor, ipAddress, actionObjectAdmin, admin.Username, admin)
 	}
 	return err
 }
 
 // UpdateAdmin updates an existing SFTPGo admin
-func UpdateAdmin(admin *Admin) error {
-	return provider.updateAdmin(admin)
+func UpdateAdmin(admin *Admin, executor, ipAddress string) error {
+	err := provider.updateAdmin(admin)
+	if err == nil {
+		executeAction(operationUpdate, executor, ipAddress, actionObjectAdmin, admin.Username, admin)
+	}
+	return err
 }
 
 // DeleteAdmin deletes an existing SFTPGo admin
-func DeleteAdmin(username string) error {
+func DeleteAdmin(username, executor, ipAddress string) error {
 	admin, err := provider.adminExists(username)
 	if err != nil {
 		return err
 	}
-	return provider.deleteAdmin(&admin)
+	err = provider.deleteAdmin(&admin)
+	if err == nil {
+		executeAction(operationDelete, executor, ipAddress, actionObjectAdmin, admin.Username, &admin)
+	}
+	return err
 }
 
 // AdminExists returns the admin with the given username if it exists
@@ -996,31 +1020,31 @@ func UserExists(username string) (User, error) {
 }
 
 // AddUser adds a new SFTPGo user.
-func AddUser(user *User) error {
+func AddUser(user *User, executor, ipAddress string) error {
 	user.Filters.RecoveryCodes = nil
 	user.Filters.TOTPConfig = sdk.TOTPConfig{
 		Enabled: false,
 	}
 	err := provider.addUser(user)
 	if err == nil {
-		executeAction(operationAdd, user)
+		executeAction(operationAdd, executor, ipAddress, actionObjectUser, user.Username, user)
 	}
 	return err
 }
 
 // UpdateUser updates an existing SFTPGo user.
-func UpdateUser(user *User) error {
+func UpdateUser(user *User, executor, ipAddress string) error {
 	err := provider.updateUser(user)
 	if err == nil {
 		webDAVUsersCache.swap(user)
 		cachedPasswords.Remove(user.Username)
-		executeAction(operationUpdate, user)
+		executeAction(operationUpdate, executor, ipAddress, actionObjectUser, user.Username, user)
 	}
 	return err
 }
 
 // DeleteUser deletes an existing SFTPGo user.
-func DeleteUser(username string) error {
+func DeleteUser(username, executor, ipAddress string) error {
 	user, err := provider.userExists(username)
 	if err != nil {
 		return err
@@ -1030,7 +1054,7 @@ func DeleteUser(username string) error {
 		RemoveCachedWebDAVUser(user.Username)
 		delayedQuotaUpdater.resetUserQuota(username)
 		cachedPasswords.Remove(username)
-		executeAction(operationDelete, &user)
+		executeAction(operationDelete, executor, ipAddress, actionObjectUser, user.Username, &user)
 	}
 	return err
 }
@@ -1063,7 +1087,7 @@ func AddFolder(folder *vfs.BaseVirtualFolder) error {
 }
 
 // UpdateFolder updates the specified virtual folder
-func UpdateFolder(folder *vfs.BaseVirtualFolder, users []string) error {
+func UpdateFolder(folder *vfs.BaseVirtualFolder, users []string, executor, ipAddress string) error {
 	err := provider.updateFolder(folder)
 	if err == nil {
 		for _, user := range users {
@@ -1071,7 +1095,7 @@ func UpdateFolder(folder *vfs.BaseVirtualFolder, users []string) error {
 			u, err := provider.userExists(user)
 			if err == nil {
 				webDAVUsersCache.swap(&u)
-				executeAction(operationUpdate, &u)
+				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, &u)
 			} else {
 				RemoveCachedWebDAVUser(user)
 			}
@@ -1081,7 +1105,7 @@ func UpdateFolder(folder *vfs.BaseVirtualFolder, users []string) error {
 }
 
 // DeleteFolder deletes an existing folder.
-func DeleteFolder(folderName string) error {
+func DeleteFolder(folderName, executor, ipAddress string) error {
 	folder, err := provider.getFolderByName(folderName)
 	if err != nil {
 		return err
@@ -1090,6 +1114,10 @@ func DeleteFolder(folderName string) error {
 	if err == nil {
 		for _, user := range folder.Users {
 			provider.setUpdatedAt(user)
+			u, err := provider.userExists(user)
+			if err == nil {
+				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, &u)
+			}
 			RemoveCachedWebDAVUser(user)
 		}
 		delayedQuotaUpdater.resetFolderQuota(folderName)
@@ -2808,67 +2836,4 @@ func getUserAndJSONForHook(username string) (User, []byte, error) {
 
 func providerLog(level logger.LogLevel, format string, v ...interface{}) {
 	logger.Log(level, logSender, "", format, v...)
-}
-
-func executeNotificationCommand(operation string, commandArgs []string, userAsJSON []byte) error {
-	if !filepath.IsAbs(config.Actions.Hook) {
-		err := fmt.Errorf("invalid notification command %#v", config.Actions.Hook)
-		logger.Warn(logSender, "", "unable to execute notification command: %v", err)
-		return err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, config.Actions.Hook, commandArgs...)
-	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("SFTPGO_USER_ACTION=%v", operation),
-		fmt.Sprintf("SFTPGO_USER=%v", string(userAsJSON)))
-
-	startTime := time.Now()
-	err := cmd.Run()
-	providerLog(logger.LevelDebug, "executed command %#v with arguments: %+v, elapsed: %v, error: %v",
-		config.Actions.Hook, commandArgs, time.Since(startTime), err)
-	return err
-}
-
-func executeAction(operation string, user *User) {
-	plugin.Handler.NotifyUserEvent(time.Now(), operation, user)
-	if !util.IsStringInSlice(operation, config.Actions.ExecuteOn) {
-		return
-	}
-	if config.Actions.Hook == "" {
-		return
-	}
-
-	go func() {
-		user.PrepareForRendering()
-		userAsJSON, err := user.RenderAsJSON(operation != operationDelete)
-		if err != nil {
-			providerLog(logger.LevelWarn, "unable to serialize user as JSON for operation %#v: %v", operation, err)
-			return
-		}
-		if strings.HasPrefix(config.Actions.Hook, "http") {
-			var url *url.URL
-			url, err := url.Parse(config.Actions.Hook)
-			if err != nil {
-				providerLog(logger.LevelWarn, "Invalid http_notification_url %#v for operation %#v: %v", config.Actions.Hook, operation, err)
-				return
-			}
-			q := url.Query()
-			q.Add("action", operation)
-			url.RawQuery = q.Encode()
-			startTime := time.Now()
-			resp, err := httpclient.RetryablePost(url.String(), "application/json", bytes.NewBuffer(userAsJSON))
-			respCode := 0
-			if err == nil {
-				respCode = resp.StatusCode
-				resp.Body.Close()
-			}
-			providerLog(logger.LevelDebug, "notified operation %#v to URL: %v status code: %v, elapsed: %v err: %v",
-				operation, url.Redacted(), respCode, time.Since(startTime), err)
-		} else {
-			executeNotificationCommand(operation, user.getNotificationFieldsAsSlice(operation), userAsJSON) //nolint:errcheck // the error is used in test cases only
-		}
-	}()
 }

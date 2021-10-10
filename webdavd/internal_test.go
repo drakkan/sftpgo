@@ -935,7 +935,7 @@ func TestBasicUsersCache(t *testing.T) {
 	}
 	u.Permissions = make(map[string][]string)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
-	err := dataprovider.AddUser(&u)
+	err := dataprovider.AddUser(&u, "", "")
 	assert.NoError(t, err)
 	user, err := dataprovider.UserExists(u.Username)
 	assert.NoError(t, err)
@@ -1007,7 +1007,7 @@ func TestBasicUsersCache(t *testing.T) {
 		assert.False(t, cachedUser.IsExpired())
 	}
 	// cache is not invalidated after a user modification if the fs does not change
-	err = dataprovider.UpdateUser(&user)
+	err = dataprovider.UpdateUser(&user, "", "")
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.True(t, ok)
@@ -1020,7 +1020,7 @@ func TestBasicUsersCache(t *testing.T) {
 		VirtualPath: "/vdir",
 	})
 
-	err = dataprovider.UpdateUser(&user)
+	err = dataprovider.UpdateUser(&user, "", "")
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.False(t, ok)
@@ -1032,12 +1032,12 @@ func TestBasicUsersCache(t *testing.T) {
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.True(t, ok)
 	// cache is invalidated after user deletion
-	err = dataprovider.DeleteUser(user.Username)
+	err = dataprovider.DeleteUser(user.Username, "", "")
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.False(t, ok)
 
-	err = dataprovider.DeleteFolder(folderName)
+	err = dataprovider.DeleteFolder(folderName, "", "")
 	assert.NoError(t, err)
 
 	err = os.RemoveAll(u.GetHomeDir())
@@ -1066,7 +1066,7 @@ func TestCachedUserWithFolders(t *testing.T) {
 		},
 		VirtualPath: "/vpath",
 	})
-	err := dataprovider.AddUser(&u)
+	err := dataprovider.AddUser(&u, "", "")
 	assert.NoError(t, err)
 	user, err := dataprovider.UserExists(u.Username)
 	assert.NoError(t, err)
@@ -1119,7 +1119,7 @@ func TestCachedUserWithFolders(t *testing.T) {
 	folder, err := dataprovider.GetFolderByName(folderName)
 	assert.NoError(t, err)
 	// updating a used folder should invalidate the cache only if the fs changed
-	err = dataprovider.UpdateFolder(&folder, folder.Users)
+	err = dataprovider.UpdateFolder(&folder, folder.Users, "", "")
 	assert.NoError(t, err)
 
 	_, isCached, _, loginMethod, err = server.authenticate(req, ipAddr)
@@ -1132,7 +1132,7 @@ func TestCachedUserWithFolders(t *testing.T) {
 	}
 	// changing the folder path should invalidate the cache
 	folder.MappedPath = filepath.Join(os.TempDir(), "anotherpath")
-	err = dataprovider.UpdateFolder(&folder, folder.Users)
+	err = dataprovider.UpdateFolder(&folder, folder.Users, "", "")
 	assert.NoError(t, err)
 	_, isCached, _, loginMethod, err = server.authenticate(req, ipAddr)
 	assert.NoError(t, err)
@@ -1143,7 +1143,7 @@ func TestCachedUserWithFolders(t *testing.T) {
 		assert.False(t, cachedUser.IsExpired())
 	}
 
-	err = dataprovider.DeleteFolder(folderName)
+	err = dataprovider.DeleteFolder(folderName, "", "")
 	assert.NoError(t, err)
 	// removing a used folder should invalidate the cache
 	_, isCached, _, loginMethod, err = server.authenticate(req, ipAddr)
@@ -1155,7 +1155,7 @@ func TestCachedUserWithFolders(t *testing.T) {
 		assert.False(t, cachedUser.IsExpired())
 	}
 
-	err = dataprovider.DeleteUser(user.Username)
+	err = dataprovider.DeleteUser(user.Username, "", "")
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.False(t, ok)
@@ -1181,25 +1181,25 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	u.Password = password + "1"
 	u.Permissions = make(map[string][]string)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
-	err := dataprovider.AddUser(&u)
+	err := dataprovider.AddUser(&u, "", "")
 	assert.NoError(t, err)
 	user1, err := dataprovider.UserExists(u.Username)
 	assert.NoError(t, err)
 	u.Username = username + "2"
 	u.Password = password + "2"
-	err = dataprovider.AddUser(&u)
+	err = dataprovider.AddUser(&u, "", "")
 	assert.NoError(t, err)
 	user2, err := dataprovider.UserExists(u.Username)
 	assert.NoError(t, err)
 	u.Username = username + "3"
 	u.Password = password + "3"
-	err = dataprovider.AddUser(&u)
+	err = dataprovider.AddUser(&u, "", "")
 	assert.NoError(t, err)
 	user3, err := dataprovider.UserExists(u.Username)
 	assert.NoError(t, err)
 	u.Username = username + "4"
 	u.Password = password + "4"
-	err = dataprovider.AddUser(&u)
+	err = dataprovider.AddUser(&u, "", "")
 	assert.NoError(t, err)
 	user4, err := dataprovider.UserExists(u.Username)
 	assert.NoError(t, err)
@@ -1332,7 +1332,7 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 
 	// now remove user1 after an update
 	user1.HomeDir += "_mod"
-	err = dataprovider.UpdateUser(&user1)
+	err = dataprovider.UpdateUser(&user1, "", "")
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(user1.Username)
 	assert.False(t, ok)
@@ -1363,13 +1363,13 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	_, ok = dataprovider.GetCachedWebDAVUser(user4.Username)
 	assert.True(t, ok)
 
-	err = dataprovider.DeleteUser(user1.Username)
+	err = dataprovider.DeleteUser(user1.Username, "", "")
 	assert.NoError(t, err)
-	err = dataprovider.DeleteUser(user2.Username)
+	err = dataprovider.DeleteUser(user2.Username, "", "")
 	assert.NoError(t, err)
-	err = dataprovider.DeleteUser(user3.Username)
+	err = dataprovider.DeleteUser(user3.Username, "", "")
 	assert.NoError(t, err)
-	err = dataprovider.DeleteUser(user4.Username)
+	err = dataprovider.DeleteUser(user4.Username, "", "")
 	assert.NoError(t, err)
 
 	err = os.RemoveAll(u.GetHomeDir())
@@ -1391,7 +1391,7 @@ func TestUserCacheIsolation(t *testing.T) {
 	}
 	u.Permissions = make(map[string][]string)
 	u.Permissions["/"] = []string{dataprovider.PermAny}
-	err := dataprovider.AddUser(&u)
+	err := dataprovider.AddUser(&u, "", "")
 	assert.NoError(t, err)
 	user, err := dataprovider.UserExists(u.Username)
 	assert.NoError(t, err)
@@ -1427,7 +1427,7 @@ func TestUserCacheIsolation(t *testing.T) {
 		assert.False(t, cachedUser.User.FsConfig.S3Config.AccessSecret.IsEncrypted())
 	}
 
-	err = dataprovider.DeleteUser(username)
+	err = dataprovider.DeleteUser(username, "", "")
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.False(t, ok)

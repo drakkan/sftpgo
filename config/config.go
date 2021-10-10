@@ -227,9 +227,10 @@ func Init() {
 			TrackQuota:       1,
 			PoolSize:         0,
 			UsersBaseDir:     "",
-			Actions: dataprovider.UserActions{
-				ExecuteOn: []string{},
-				Hook:      "",
+			Actions: dataprovider.ObjectsActions{
+				ExecuteOn:  []string{},
+				ExecuteFor: []string{},
+				Hook:       "",
 			},
 			ExternalAuthHook:   "",
 			ExternalAuthScope:  0,
@@ -671,19 +672,26 @@ func getRateLimitersFromEnv(idx int) {
 	}
 }
 
-func getPluginsFromEnv(idx int) {
-	pluginConfig := plugin.Config{}
-	if len(globalConf.PluginsConfig) > idx {
-		pluginConfig = globalConf.PluginsConfig[idx]
-	}
-
+func getKMSPluginFromEnv(idx int, pluginConfig *plugin.Config) bool {
 	isSet := false
 
-	pluginType, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__TYPE", idx))
+	kmsScheme, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__KMS_OPTIONS__SCHEME", idx))
 	if ok {
-		pluginConfig.Type = pluginType
+		pluginConfig.KMSOptions.Scheme = kmsScheme
 		isSet = true
 	}
+
+	kmsEncStatus, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__KMS_OPTIONS__ENCRYPTED_STATUS", idx))
+	if ok {
+		pluginConfig.KMSOptions.EncryptedStatus = kmsEncStatus
+		isSet = true
+	}
+
+	return isSet
+}
+
+func getNotifierPluginFromEnv(idx int, pluginConfig *plugin.Config) bool {
+	isSet := false
 
 	notifierFsEvents, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__FS_EVENTS", idx))
 	if ok {
@@ -691,9 +699,15 @@ func getPluginsFromEnv(idx int) {
 		isSet = true
 	}
 
-	notifierUserEvents, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__USER_EVENTS", idx))
+	notifierProviderEvents, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__PROVIDER_EVENTS", idx))
 	if ok {
-		pluginConfig.NotifierOptions.UserEvents = notifierUserEvents
+		pluginConfig.NotifierOptions.ProviderEvents = notifierProviderEvents
+		isSet = true
+	}
+
+	notifierProviderObjects, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__PROVIDER_OBJECTS", idx))
+	if ok {
+		pluginConfig.NotifierOptions.ProviderObjects = notifierProviderObjects
 		isSet = true
 	}
 
@@ -709,14 +723,29 @@ func getPluginsFromEnv(idx int) {
 		isSet = true
 	}
 
-	kmsScheme, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__KMS_OPTIONS__SCHEME", idx))
-	if ok {
-		pluginConfig.KMSOptions.Scheme = kmsScheme
+	return isSet
+}
+
+func getPluginsFromEnv(idx int) {
+	pluginConfig := plugin.Config{}
+	if len(globalConf.PluginsConfig) > idx {
+		pluginConfig = globalConf.PluginsConfig[idx]
 	}
 
-	kmsEncStatus, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__KMS_OPTIONS__ENCRYPTED_STATUS", idx))
+	isSet := false
+
+	pluginType, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__TYPE", idx))
 	if ok {
-		pluginConfig.KMSOptions.EncryptedStatus = kmsEncStatus
+		pluginConfig.Type = pluginType
+		isSet = true
+	}
+
+	if getNotifierPluginFromEnv(idx, &pluginConfig) {
+		isSet = true
+	}
+
+	if getKMSPluginFromEnv(idx, &pluginConfig) {
+		isSet = true
 	}
 
 	cmd, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__CMD", idx))
@@ -1130,6 +1159,7 @@ func setViperDefaults() {
 	viper.SetDefault("data_provider.pool_size", globalConf.ProviderConf.PoolSize)
 	viper.SetDefault("data_provider.users_base_dir", globalConf.ProviderConf.UsersBaseDir)
 	viper.SetDefault("data_provider.actions.execute_on", globalConf.ProviderConf.Actions.ExecuteOn)
+	viper.SetDefault("data_provider.actions.execute_for", globalConf.ProviderConf.Actions.ExecuteFor)
 	viper.SetDefault("data_provider.actions.hook", globalConf.ProviderConf.Actions.Hook)
 	viper.SetDefault("data_provider.external_auth_hook", globalConf.ProviderConf.ExternalAuthHook)
 	viper.SetDefault("data_provider.external_auth_scope", globalConf.ProviderConf.ExternalAuthScope)

@@ -160,6 +160,7 @@
     "users_base_dir": "",
     "actions": {
       "execute_on": [],
+      "execute_for": [],
       "hook": ""
     },
     "external_auth_hook": "",

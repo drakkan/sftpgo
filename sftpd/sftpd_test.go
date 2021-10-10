@@ -633,7 +633,7 @@ func TestDefender(t *testing.T) {
 	_, _, err = getSftpClient(user, usePubKey)
 	assert.Error(t, err)
 
-	err = dataprovider.DeleteUser(user.Username)
+	err = dataprovider.DeleteUser(user.Username, "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -3194,7 +3194,7 @@ func TestMaxConnections(t *testing.T) {
 
 	usePubKey := true
 	user := getTestUser(usePubKey)
-	err := dataprovider.AddUser(&user)
+	err := dataprovider.AddUser(&user, "", "")
 	assert.NoError(t, err)
 	user.Password = ""
 	conn, client, err := getSftpClient(user, usePubKey)
@@ -3210,7 +3210,7 @@ func TestMaxConnections(t *testing.T) {
 		err = conn.Close()
 		assert.NoError(t, err)
 	}
-	err = dataprovider.DeleteUser(user.Username)
+	err = dataprovider.DeleteUser(user.Username, "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -3229,7 +3229,7 @@ func TestMaxPerHostConnections(t *testing.T) {
 
 	usePubKey := true
 	user := getTestUser(usePubKey)
-	err := dataprovider.AddUser(&user)
+	err := dataprovider.AddUser(&user, "", "")
 	assert.NoError(t, err)
 	user.Password = ""
 	conn, client, err := getSftpClient(user, usePubKey)
@@ -3245,7 +3245,7 @@ func TestMaxPerHostConnections(t *testing.T) {
 		err = conn.Close()
 		assert.NoError(t, err)
 	}
-	err = dataprovider.DeleteUser(user.Username)
+	err = dataprovider.DeleteUser(user.Username, "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)

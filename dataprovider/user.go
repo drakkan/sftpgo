@@ -249,6 +249,7 @@ func (u *User) PrepareForRendering() {
 	}
 }
 
+// HasRedactedSecret returns true if the user has a redacted secret
 func (u *User) hasRedactedSecret() bool {
 	if u.FsConfig.HasRedactedSecret() {
 		return true
@@ -1106,17 +1107,6 @@ func (u *User) getACopy() User {
 		},
 		VirtualFolders: virtualFolders,
 		FsConfig:       u.FsConfig.GetACopy(),
-	}
-}
-
-func (u *User) getNotificationFieldsAsSlice(action string) []string {
-	return []string{action, u.Username,
-		strconv.FormatInt(u.ID, 10),
-		strconv.FormatInt(int64(u.Status), 10),
-		strconv.FormatInt(u.ExpirationDate, 10),
-		u.HomeDir,
-		strconv.FormatInt(int64(u.UID), 10),
-		strconv.FormatInt(int64(u.GID), 10),
 	}
 }
 

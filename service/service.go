@@ -129,7 +129,7 @@ func (s *Service) Start() error {
 
 	if s.PortableMode == 1 {
 		// create the user for portable mode
-		err = dataprovider.AddUser(&s.PortableUser)
+		err = dataprovider.AddUser(&s.PortableUser, dataprovider.ActionExecutorSystem, "")
 		if err != nil {
 			logger.ErrorToConsole("error adding portable user: %v", err)
 			return err
@@ -300,19 +300,19 @@ func (s *Service) loadInitialData() error {
 }
 
 func (s *Service) restoreDump(dump *dataprovider.BackupData) error {
-	err := httpd.RestoreFolders(dump.Folders, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan)
+	err := httpd.RestoreFolders(dump.Folders, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan, dataprovider.ActionExecutorSystem, "")
 	if err != nil {
 		return fmt.Errorf("unable to restore folders from file %#v: %v", s.LoadDataFrom, err)
 	}
-	err = httpd.RestoreUsers(dump.Users, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan)
+	err = httpd.RestoreUsers(dump.Users, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan, dataprovider.ActionExecutorSystem, "")
 	if err != nil {
 		return fmt.Errorf("unable to restore users from file %#v: %v", s.LoadDataFrom, err)
 	}
-	err = httpd.RestoreAdmins(dump.Admins, s.LoadDataFrom, s.LoadDataMode)
+	err = httpd.RestoreAdmins(dump.Admins, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "")
 	if err != nil {
 		return fmt.Errorf("unable to restore admins from file %#v: %v", s.LoadDataFrom, err)
 	}
-	err = httpd.RestoreAPIKeys(dump.APIKeys, s.LoadDataFrom, s.LoadDataMode)
+	err = httpd.RestoreAPIKeys(dump.APIKeys, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "")
 	if err != nil {
 		return fmt.Errorf("unable to restore API keys from file %#v: %v", s.LoadDataFrom, err)
 	}

@@ -3,6 +3,7 @@ package dataprovider
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -15,6 +16,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/drakkan/sftpgo/v2/kms"
+	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/util"
@@ -286,6 +288,21 @@ func (a *Admin) checkUserAndPass(password, ip string) error {
 		return ErrInvalidCredentials
 	}
 	return nil
+}
+
+// RenderAsJSON implements the renderer interface used within plugins
+func (a *Admin) RenderAsJSON(reload bool) ([]byte, error) {
+	if reload {
+		admin, err := provider.adminExists(a.Username)
+		if err != nil {
+			providerLog(logger.LevelWarn, "unable to reload admin before rendering as json: %v", err)
+			return nil, err
+		}
+		admin.HideConfidentialData()
+		return json.Marshal(admin)
+	}
+	a.HideConfidentialData()
+	return json.Marshal(a)
 }
 
 // HideConfidentialData hides admin confidential data

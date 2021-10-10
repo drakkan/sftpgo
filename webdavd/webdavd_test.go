@@ -672,6 +672,7 @@ func TestLockAfterDelete(t *testing.T) {
 	req, err := http.NewRequest("LOCK", fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName), bytes.NewReader([]byte(lockBody)))
 	assert.NoError(t, err)
 	req.SetBasicAuth(u.Username, u.Password)
+	req.Header.Set("Timeout", "Second-3600")
 	httpClient := httpclient.GetHTTPClient()
 	resp, err := httpClient.Do(req)
 	assert.NoError(t, err)

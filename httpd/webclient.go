@@ -700,7 +700,7 @@ func handleWebClientProfilePost(w http.ResponseWriter, r *http.Request) {
 		user.Email = r.Form.Get("email")
 		user.Description = r.Form.Get("description")
 	}
-	err = dataprovider.UpdateUser(&user)
+	err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		renderClientProfilePage(w, r, err.Error())
 		return
