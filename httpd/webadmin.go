@@ -1058,6 +1058,7 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	if err != nil {
 		return user, err
 	}
+	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 	uid, err := strconv.Atoi(r.Form.Get("uid"))
 	if err != nil {
 		return user, err
@@ -1235,6 +1236,7 @@ func handleWebRestore(w http.ResponseWriter, r *http.Request) {
 		renderMaintenancePage(w, r, err.Error())
 		return
 	}
+	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
 		renderForbiddenPage(w, r, err.Error())
 		return
@@ -1471,6 +1473,7 @@ func handleWebTemplateFolderPost(w http.ResponseWriter, r *http.Request) {
 		renderMessagePage(w, r, "Error parsing folders fields", "", http.StatusBadRequest, err, "")
 		return
 	}
+	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
 		renderForbiddenPage(w, r, err.Error())
@@ -1707,6 +1710,8 @@ func handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
 		renderFolderPage(w, r, folder, folderPageModeAdd, err.Error())
 		return
 	}
+	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
 		renderForbiddenPage(w, r, err.Error())
 		return
@@ -1764,6 +1769,8 @@ func handleWebUpdateFolderPost(w http.ResponseWriter, r *http.Request) {
 		renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())
 		return
 	}
+	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
 		renderForbiddenPage(w, r, err.Error())
 		return

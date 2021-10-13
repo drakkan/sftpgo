@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NFPM_VERSION=2.6.0
+NFPM_VERSION=2.7.0
 NFPM_ARCH=${NFPM_ARCH:-amd64}
 if [ -z ${SFTPGO_VERSION} ]
 then
@@ -111,7 +111,10 @@ overrides:
       postremove: ../scripts/rpm/postremove
 
 rpm:
-  compression: lzma
+  compression: xz
+
+deb:
+  compression: xz
 
 EOF
 
