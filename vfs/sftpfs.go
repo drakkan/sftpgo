@@ -427,6 +427,9 @@ func (*SFTPFs) IsNotExist(err error) bool {
 // IsPermission returns a boolean indicating whether the error is known to
 // report that permission is denied.
 func (*SFTPFs) IsPermission(err error) bool {
+	if _, ok := err.(*pathResolutionError); ok {
+		return true
+	}
 	return os.IsPermission(err)
 }
 
@@ -584,11 +587,11 @@ func (fs *SFTPFs) isSubDir(name string) error {
 	}
 	if len(name) < len(fs.config.Prefix) {
 		err := fmt.Errorf("path %#v is not inside: %#v", name, fs.config.Prefix)
-		return err
+		return &pathResolutionError{err: err.Error()}
 	}
 	if !strings.HasPrefix(name, fs.config.Prefix+"/") {
 		err := fmt.Errorf("path %#v is not inside: %#v", name, fs.config.Prefix)
-		return err
+		return &pathResolutionError{err: err.Error()}
 	}
 	return nil
 }
