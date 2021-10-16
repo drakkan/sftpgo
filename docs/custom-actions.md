@@ -108,3 +108,7 @@ The structure for SFTPGo objects can be found within the [OpenAPI schema](../htt
 ## Pub/Sub services
 
 You can forward SFTPGo events to several publish/subscribe systems using the [sftpgo-plugin-pubsub](https://github.com/sftpgo/sftpgo-plugin-pubsub). The notifiers SFTPGo plugins are not suitable for interactive actions such as `pre-*` events. Their scope is to simply forward events to external services. A custom hook is a better choice if you need to react to `pre-*` events.
+
+## Database services
+
+You can store SFTPGo events in database systems using the [sftpgo-plugin-eventstore](https://github.com/sftpgo/sftpgo-plugin-eventstore).

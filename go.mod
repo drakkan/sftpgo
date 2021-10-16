@@ -62,7 +62,7 @@ require (
 	go.uber.org/automaxprocs v1.4.0
 	gocloud.dev v0.24.0
 	golang.org/x/crypto v0.0.0-20210915214749-c084706c2272
-	golang.org/x/net v0.0.0-20211005215030-d2e5035098b3
+	golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f
 	golang.org/x/sys v0.0.0-20211015200801-69063c4bb744
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	google.golang.org/api v0.58.0
@@ -86,7 +86,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
-	github.com/goccy/go-json v0.7.9 // indirect
+	github.com/goccy/go-json v0.7.10 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
@@ -132,5 +132,5 @@ replace (
 	github.com/eikenb/pipeat => github.com/drakkan/pipeat v0.0.0-20210805162858-70e57fa8a639
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20210918082254-e7eb8487714b
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20211006070706-97d22ae145a6
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20211016145912-4e917b39e717
 )
