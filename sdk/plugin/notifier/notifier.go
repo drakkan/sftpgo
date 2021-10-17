@@ -1,7 +1,7 @@
 // Package notifier defines the implementation for event notifier plugins.
 // Notifier plugins allow to receive notifications for supported filesystem
-// events such as file uploads, downloads etc. and user events such as add,
-// update, delete.
+// events such as file uploads, downloads etc. and provider events such as
+// objects add, update, delete.
 package notifier
 
 import (
@@ -22,7 +22,7 @@ const (
 // Handshake is a common handshake that is shared by plugin and host.
 var Handshake = plugin.HandshakeConfig{
 	ProtocolVersion:  1,
-	MagicCookieKey:   "SFTPGO_NOTIFIER_PLUGIN",
+	MagicCookieKey:   "SFTPGO_PLUGIN_NOTIFIER",
 	MagicCookieValue: "c499b98b-cd59-4df2-92b3-6268817f4d80",
 }
 

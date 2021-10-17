@@ -77,7 +77,7 @@ func (p *kmsPlugin) initialize() error {
 		Managed:      false,
 		Logger: &logger.HCLogAdapter{
 			Logger: hclog.New(&hclog.LoggerOptions{
-				Name:        fmt.Sprintf("%v.%v", logSender, kmsplugin.PluginName),
+				Name:        fmt.Sprintf("%v.%v.%v", logSender, kmsplugin.PluginName, filepath.Base(p.config.Cmd)),
 				Level:       pluginsLogLevel,
 				DisableTime: true,
 			}),

@@ -14,6 +14,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin/auth"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin/eventsearcher"
 	kmsplugin "github.com/drakkan/sftpgo/v2/sdk/plugin/kms"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin/notifier"
 	"github.com/drakkan/sftpgo/v2/util"
@@ -27,6 +28,7 @@ var (
 	// Handler defines the plugins manager
 	Handler         Manager
 	pluginsLogLevel = hclog.Debug
+	errNoSearcher   = errors.New("no events searcher plugin defined")
 )
 
 // Renderer defines the interface for generic objects rendering
@@ -75,14 +77,17 @@ type Manager struct {
 	closed int32
 	done   chan bool
 	// List of configured plugins
-	Configs    []Config `json:"plugins" mapstructure:"plugins"`
-	notifLock  sync.RWMutex
-	notifiers  []*notifierPlugin
-	kmsLock    sync.RWMutex
-	kms        []*kmsPlugin
-	authLock   sync.RWMutex
-	auths      []*authPlugin
-	authScopes int
+	Configs      []Config `json:"plugins" mapstructure:"plugins"`
+	notifLock    sync.RWMutex
+	notifiers    []*notifierPlugin
+	kmsLock      sync.RWMutex
+	kms          []*kmsPlugin
+	authLock     sync.RWMutex
+	auths        []*authPlugin
+	searcherLock sync.RWMutex
+	searcher     *searcherPlugin
+	authScopes   int
+	hasSearcher  bool
 }
 
 // Initialize initializes the configured plugins
@@ -138,6 +143,12 @@ func Initialize(configs []Config, logVerbose bool) error {
 			} else {
 				Handler.authScopes |= config.AuthOptions.Scope
 			}
+		case eventsearcher.PluginName:
+			plugin, err := newSearcherPlugin(config)
+			if err != nil {
+				return err
+			}
+			Handler.searcher = plugin
 		default:
 			return fmt.Errorf("unsupported plugin type: %v", config.Type)
 		}
@@ -149,6 +160,7 @@ func Initialize(configs []Config, logVerbose bool) error {
 func (m *Manager) validateConfigs() error {
 	kmsSchemes := make(map[string]bool)
 	kmsEncryptions := make(map[string]bool)
+	m.hasSearcher = false
 
 	for _, config := range m.Configs {
 		if config.Type == kmsplugin.PluginName {
@@ -160,6 +172,12 @@ func (m *Manager) validateConfigs() error {
 			}
 			kmsSchemes[config.KMSOptions.Scheme] = true
 			kmsEncryptions[config.KMSOptions.EncryptedStatus] = true
+		}
+		if config.Type == eventsearcher.PluginName {
+			if m.hasSearcher {
+				return fmt.Errorf("only one eventsearcher plugin can be defined")
+			}
+			m.hasSearcher = true
 		}
 	}
 	return nil
@@ -188,6 +206,38 @@ func (m *Manager) NotifyProviderEvent(timestamp time.Time, action, username, obj
 	for _, n := range m.notifiers {
 		n.notifyProviderAction(timestamp, action, username, objectType, objectName, ip, object)
 	}
+}
+
+// SearchFsEvents returns the filesystem events matching the specified filter and a continuation token
+// to use for cursor based pagination
+func (m *Manager) SearchFsEvents(startTimestamp, endTimestamp time.Time, action, username, ip, sshCmd, protocol,
+	instanceID, continuationToken string, status, limit int) (string, []byte, error,
+) {
+	if !m.hasSearcher {
+		return "", nil, errNoSearcher
+	}
+	m.searcherLock.RLock()
+	plugin := m.searcher
+	m.searcherLock.RUnlock()
+
+	return plugin.searchear.SearchFsEvents(startTimestamp, endTimestamp, action, username, ip, sshCmd, protocol,
+		instanceID, continuationToken, status, limit)
+}
+
+// SearchProviderEvents returns the provider events matching the specified filter and a continuation token
+// to use for cursor based pagination
+func (m *Manager) SearchProviderEvents(startTimestamp, endTimestamp time.Time, action, username, ip, objectType,
+	objectName, instanceID, continuationToken string, limit int,
+) (string, []byte, error) {
+	if !m.hasSearcher {
+		return "", nil, errNoSearcher
+	}
+	m.searcherLock.RLock()
+	plugin := m.searcher
+	m.searcherLock.RUnlock()
+
+	return plugin.searchear.SearchProviderEvents(startTimestamp, endTimestamp, action, username, ip, objectType, objectName,
+		instanceID, continuationToken, limit)
 }
 
 func (m *Manager) kmsEncrypt(secret kms.BaseSecret, url string, masterKey string, kmsID int) (string, string, int32, error) {
@@ -365,6 +415,15 @@ func (m *Manager) checkCrashedPlugins() {
 		}
 	}
 	m.authLock.RUnlock()
+	if m.hasSearcher {
+		m.searcherLock.RLock()
+		if m.searcher.exited() {
+			defer func(cfg Config) {
+				Handler.restartSearcherPlugin(cfg)
+			}(m.searcher.config)
+		}
+		m.searcherLock.RUnlock()
+	}
 }
 
 func (m *Manager) restartNotifierPlugin(config Config, idx int) {
@@ -417,6 +476,22 @@ func (m *Manager) restartAuthPlugin(config Config, idx int) {
 	m.authLock.Unlock()
 }
 
+func (m *Manager) restartSearcherPlugin(config Config) {
+	if atomic.LoadInt32(&m.closed) == 1 {
+		return
+	}
+	logger.Info(logSender, "", "try to restart crashed searcher plugin %#v", config.Cmd)
+	plugin, err := newSearcherPlugin(config)
+	if err != nil {
+		logger.Warn(logSender, "", "unable to restart searcher plugin %#v, err: %v", config.Cmd, err)
+		return
+	}
+
+	m.searcherLock.Lock()
+	m.searcher = plugin
+	m.searcherLock.Unlock()
+}
+
 // Cleanup releases all the active plugins
 func (m *Manager) Cleanup() {
 	atomic.StoreInt32(&m.closed, 1)
@@ -441,6 +516,13 @@ func (m *Manager) Cleanup() {
 		a.cleanup()
 	}
 	m.authLock.Unlock()
+
+	if m.hasSearcher {
+		m.searcherLock.Lock()
+		logger.Debug(logSender, "", "cleanup searcher plugin %v", m.searcher.config.Cmd)
+		m.searcher.cleanup()
+		m.searcherLock.Unlock()
+	}
 }
 
 func startCheckTicker() {

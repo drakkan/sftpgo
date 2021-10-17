@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -166,7 +167,7 @@ func (p *notifierPlugin) initialize() error {
 		Managed:      false,
 		Logger: &logger.HCLogAdapter{
 			Logger: hclog.New(&hclog.LoggerOptions{
-				Name:        fmt.Sprintf("%v.%v", logSender, notifier.PluginName),
+				Name:        fmt.Sprintf("%v.%v.%v", logSender, notifier.PluginName, filepath.Base(p.config.Cmd)),
 				Level:       pluginsLogLevel,
 				DisableTime: true,
 			}),

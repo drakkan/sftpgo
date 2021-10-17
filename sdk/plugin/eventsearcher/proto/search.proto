@@ -1,0 +1,43 @@
+syntax = "proto3";
+package proto;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "sdk/plugin/eventsearcher/proto";
+
+message FsEventsFilter {
+    google.protobuf.Timestamp start_timestamp = 1;
+    google.protobuf.Timestamp end_timestamp = 2;
+    string action = 3;
+    string username = 4;
+    string ip = 5;
+    string ssh_cmd = 6;
+    string protocol = 7;
+    int32 status = 8;
+    string instance_id = 9;
+    int32 limit = 10;
+    string continuation_token = 11;
+}
+
+message ProviderEventsFilter {
+    google.protobuf.Timestamp start_timestamp = 1;
+    google.protobuf.Timestamp end_timestamp = 2;
+    string action = 3;
+    string username = 4;
+    string ip = 5;
+    string object_type = 6;
+    string object_name = 7;
+    string instance_id = 8;
+    int32 limit = 9;
+    string continuation_token = 10;
+}
+
+message SearchResponse {
+    string continuation_token = 1;
+    bytes response_data = 2; // JSON serialized response to return
+}
+
+service Searcher {
+    rpc SearchFsEvents(FsEventsFilter) returns (SearchResponse);
+    rpc SearchProviderEvents(ProviderEventsFilter) returns (SearchResponse);
+}
