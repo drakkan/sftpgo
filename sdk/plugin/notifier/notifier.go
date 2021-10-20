@@ -6,7 +6,6 @@ package notifier
 
 import (
 	"context"
-	"time"
 
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
@@ -33,9 +32,9 @@ var PluginMap = map[string]plugin.Plugin{
 
 // Notifier defines the interface for notifiers plugins
 type Notifier interface {
-	NotifyFsEvent(timestamp time.Time, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip,
+	NotifyFsEvent(timestamp int64, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip,
 		virtualPath, virtualTargetPath string, fileSize int64, status int) error
-	NotifyProviderEvent(timestamp time.Time, action, username, objectType, objectName, ip string, object []byte) error
+	NotifyProviderEvent(timestamp int64, action, username, objectType, objectName, ip string, object []byte) error
 }
 
 // Plugin defines the implementation to serve/connect to a notifier plugin

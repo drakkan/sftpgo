@@ -54,7 +54,7 @@ func InitializeActionHandler(handler ActionHandler) {
 func ExecutePreAction(user *dataprovider.User, operation, filePath, virtualPath, protocol, ip string, fileSize int64,
 	openFlags int,
 ) error {
-	plugin.Handler.NotifyFsEvent(time.Now(), operation, user.Username, filePath, "", "", protocol, ip, virtualPath, "", fileSize, nil)
+	plugin.Handler.NotifyFsEvent(time.Now().UnixNano(), operation, user.Username, filePath, "", "", protocol, ip, virtualPath, "", fileSize, nil)
 	if !util.IsStringInSlice(operation, Config.Actions.ExecuteOn) {
 		// for pre-delete we execute the internal handling on error, so we must return errUnconfiguredAction.
 		// Other pre action will deny the operation on error so if we have no configuration we must return
@@ -73,7 +73,7 @@ func ExecutePreAction(user *dataprovider.User, operation, filePath, virtualPath,
 func ExecuteActionNotification(user *dataprovider.User, operation, filePath, virtualPath, target, virtualTarget, sshCmd,
 	protocol, ip string, fileSize int64, err error,
 ) {
-	plugin.Handler.NotifyFsEvent(time.Now(), operation, user.Username, filePath, target, sshCmd, protocol, ip, virtualPath,
+	plugin.Handler.NotifyFsEvent(time.Now().UnixNano(), operation, user.Username, filePath, target, sshCmd, protocol, ip, virtualPath,
 		virtualTarget, fileSize, err)
 	notification := newActionNotification(user, operation, filePath, virtualPath, target, virtualTarget, sshCmd, protocol,
 		ip, fileSize, 0, err)
@@ -139,9 +139,9 @@ func newActionNotification(
 	}
 
 	if err == ErrQuotaExceeded {
-		status = 2
+		status = 3
 	} else if err != nil {
-		status = 0
+		status = 2
 	}
 
 	return &ActionNotification{
@@ -160,7 +160,7 @@ func newActionNotification(
 		Protocol:          protocol,
 		IP:                ip,
 		OpenFlags:         openFlags,
-		Timestamp:         util.GetTimeAsMsSinceEpoch(time.Now()),
+		Timestamp:         time.Now().UnixNano(),
 	}
 }
 

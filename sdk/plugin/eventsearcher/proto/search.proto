@@ -1,40 +1,49 @@
 syntax = "proto3";
 package proto;
 
-import "google/protobuf/timestamp.proto";
-
 option go_package = "sdk/plugin/eventsearcher/proto";
 
 message FsEventsFilter {
-    google.protobuf.Timestamp start_timestamp = 1;
-    google.protobuf.Timestamp end_timestamp = 2;
-    string action = 3;
+    int64 start_timestamp = 1;
+    int64 end_timestamp = 2;
+    repeated string actions = 3;
     string username = 4;
     string ip = 5;
     string ssh_cmd = 6;
-    string protocol = 7;
-    int32 status = 8;
-    string instance_id = 9;
+    repeated string protocols = 7;
+    repeated int32 statuses = 8;
+    repeated string instance_ids = 9;
     int32 limit = 10;
-    string continuation_token = 11;
+    repeated string exclude_ids = 11;
+    enum Order {
+        DESC = 0;
+        ASC = 1;
+    }
+    Order order = 12;
 }
 
 message ProviderEventsFilter {
-    google.protobuf.Timestamp start_timestamp = 1;
-    google.protobuf.Timestamp end_timestamp = 2;
-    string action = 3;
+    int64 start_timestamp = 1;
+    int64 end_timestamp = 2;
+    repeated string actions = 3;
     string username = 4;
     string ip = 5;
-    string object_type = 6;
+    repeated string object_types = 6;
     string object_name = 7;
-    string instance_id = 8;
+    repeated string instance_ids = 8;
     int32 limit = 9;
-    string continuation_token = 10;
+    enum Order {
+        DESC = 0;
+        ASC = 1;
+    }
+    Order order = 10;
+    repeated string exclude_ids = 11;
 }
 
 message SearchResponse {
-    string continuation_token = 1;
-    bytes response_data = 2; // JSON serialized response to return
+    bytes data = 1; // JSON serialized response to return
+    repeated string same_ts_at_start = 2;
+    repeated string same_ts_at_end = 3;
 }
 
 service Searcher {

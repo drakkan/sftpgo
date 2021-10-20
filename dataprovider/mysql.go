@@ -105,7 +105,7 @@ func getMySQLConnectionString(redactedPwd bool) string {
 		if redactedPwd {
 			password = "[redacted]"
 		}
-		connectionString = fmt.Sprintf("%v:%v@tcp([%v]:%v)/%v?charset=utf8&interpolateParams=true&timeout=10s&tls=%v&writeTimeout=10s&readTimeout=10s",
+		connectionString = fmt.Sprintf("%v:%v@tcp([%v]:%v)/%v?charset=utf8mb4&interpolateParams=true&timeout=10s&parseTime=true&tls=%v&writeTimeout=10s&readTimeout=10s",
 			config.Username, password, config.Host, config.Port, config.Name, getSSLMode())
 	} else {
 		connectionString = config.ConnectionString

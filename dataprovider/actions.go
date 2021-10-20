@@ -32,7 +32,7 @@ const (
 )
 
 func executeAction(operation, executor, ip, objectType, objectName string, object plugin.Renderer) {
-	plugin.Handler.NotifyProviderEvent(time.Now(), operation, executor, objectType, objectName, ip, object)
+	plugin.Handler.NotifyProviderEvent(time.Now().UnixNano(), operation, executor, objectType, objectName, ip, object)
 	if config.Actions.Hook == "" {
 		return
 	}
@@ -60,7 +60,7 @@ func executeAction(operation, executor, ip, objectType, objectName string, objec
 			q.Add("ip", ip)
 			q.Add("object_type", objectType)
 			q.Add("object_name", objectName)
-			q.Add("timestamp", fmt.Sprintf("%v", util.GetTimeAsMsSinceEpoch(time.Now())))
+			q.Add("timestamp", fmt.Sprintf("%v", time.Now().UnixNano()))
 			url.RawQuery = q.Encode()
 			startTime := time.Now()
 			resp, err := httpclient.RetryablePost(url.String(), "application/json", bytes.NewBuffer(dataAsJSON))

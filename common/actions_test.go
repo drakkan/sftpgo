@@ -49,7 +49,7 @@ func TestNewActionNotification(t *testing.T) {
 	assert.Equal(t, user.Username, a.Username)
 	assert.Equal(t, 0, len(a.Bucket))
 	assert.Equal(t, 0, len(a.Endpoint))
-	assert.Equal(t, 0, a.Status)
+	assert.Equal(t, 2, a.Status)
 
 	user.FsConfig.Provider = sdk.S3FilesystemProvider
 	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", "", ProtocolSSH, "", 123, 0, nil)
@@ -61,7 +61,7 @@ func TestNewActionNotification(t *testing.T) {
 	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", "", ProtocolSCP, "", 123, 0, ErrQuotaExceeded)
 	assert.Equal(t, "gcsbucket", a.Bucket)
 	assert.Equal(t, 0, len(a.Endpoint))
-	assert.Equal(t, 2, a.Status)
+	assert.Equal(t, 3, a.Status)
 
 	user.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
 	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", "", ProtocolSCP, "", 123, 0, nil)

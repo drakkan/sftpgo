@@ -42,11 +42,11 @@ If the `hook` defines a path to an external program, then this program can read 
 - `SFTPGO_ACTION_FS_PROVIDER`, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend, `3` for Azure Blob Storage backend, `4` for local encrypted backend, `5` for SFTP backend
 - `SFTPGO_ACTION_BUCKET`, non-empty for S3, GCS and Azure backends
 - `SFTPGO_ACTION_ENDPOINT`, non-empty for S3, SFTP and Azure backend if configured. For Azure this is the endpoint, if configured
-- `SFTPGO_ACTION_STATUS`, integer. Status for `upload`, `download` and `ssh_cmd` actions. 0 means a generic error occurred. 1 means no error, 2 means quota exceeded error
+- `SFTPGO_ACTION_STATUS`, integer. Status for `upload`, `download` and `ssh_cmd` actions. 1 means no error, 2 means a generic error occurred, 3 means quota exceeded error
 - `SFTPGO_ACTION_PROTOCOL`, string. Possible values are `SSH`, `SFTP`, `SCP`, `FTP`, `DAV`, `HTTP`, `DataRetention`
 - `SFTPGO_ACTION_IP`, the action was executed from this IP address
 - `SFTPGO_ACTION_OPEN_FLAGS`, integer. File open flags, can be non-zero for `pre-upload` action. If `SFTPGO_ACTION_FILE_SIZE` is greater than zero and `SFTPGO_ACTION_OPEN_FLAGS&512 == 0` the target file will not be truncated
-- `SFTPGO_ACTION_TIMESTAMP`, int64. Event timestamp as milliseconds since epoch
+- `SFTPGO_ACTION_TIMESTAMP`, int64. Event timestamp as nanoseconds since epoch
 
 Previous global environment variables aren't cleared when the script is called.
 The program must finish within 30 seconds.
@@ -64,11 +64,11 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 - `fs_provider`, integer, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend, `3` for Azure Blob Storage backend, `4` for local encrypted backend, `5` for SFTP backend
 - `bucket`, string, inlcuded for S3, GCS and Azure backends
 - `endpoint`, string, included for S3, SFTP and Azure backend if configured
-- `status`, integer. Status for `upload`, `download` and `ssh_cmd` actions. 0 means a generic error occurred. 1 means no error, 2 means quota exceeded error
+- `status`, integer. Status for `upload`, `download` and `ssh_cmd` actions. 1 means no error, 2 means a generic error occurred, 3 means quota exceeded error
 - `protocol`, string. Possible values are `SSH`, `SFTP`, `SCP`, `FTP`, `DAV`, `HTTP`, `DataRetention`
 - `ip`, string. The action was executed from this IP address
 - `open_flags`, integer. File open flags, can be non-zero for `pre-upload` action. If `file_size` is greater than zero and `file_size&512 == 0` the target file will not be truncated
-- `timestamp`, int64. Event timestamp as milliseconds since epoch
+- `timestamp`, int64. Event timestamp as nanoseconds since epoch
 
 The HTTP hook will use the global configuration for HTTP clients and will respect the retry configurations.
 
@@ -93,7 +93,7 @@ If the `hook` defines a path to an external program, then this program can read 
 - `SFTPGO_PROVIDER_OBJECT_NAME`, unique identifier for the affected object, for example username or key id
 - `SFTPGO_PROVIDER_USERNAME`, the username that executed the action. There are two special usernames: `__self__` identifies a user/admin that updates itself and `__system__` identifies an action that does not have an explicit executor associated with it, for example users/admins can be added/updated by loading them from initial data
 - `SFTPGO_PROVIDER_IP`, the action was executed from this IP address
-- `SFTPGO_PROVIDER_TIMESTAMP`, event timestamp as milliseconds since epoch
+- `SFTPGO_PROVIDER_TIMESTAMP`, event timestamp as nanoseconds since epoch
 - `SFTPGO_PROVIDER_OBJECT`, object serialized as JSON with sensitive fields removed
 
 Previous global environment variables aren't cleared when the script is called.

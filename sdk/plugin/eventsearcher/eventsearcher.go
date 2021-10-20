@@ -4,7 +4,6 @@ package eventsearcher
 
 import (
 	"context"
-	"time"
 
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
@@ -31,10 +30,10 @@ var PluginMap = map[string]plugin.Plugin{
 
 // Searcher defines the interface for events search plugins
 type Searcher interface {
-	SearchFsEvents(startTimestamp, endTimestamp time.Time, action, username, ip, sshCmd, protocol,
-		instanceID, continuationToken string, status, limit int) (string, []byte, error)
-	SearchProviderEvents(startTimestamp, endTimestamp time.Time, action, username, ip, objectType,
-		objectName, instanceID, continuationToken string, limit int) (string, []byte, error)
+	SearchFsEvents(startTimestamp, endTimestamp int64, username, ip, sshCmd string, actions, protocols,
+		instanceIDs, excludeIDs []string, statuses []int32, limit, order int) ([]byte, []string, []string, error)
+	SearchProviderEvents(startTimestamp, endTimestamp int64, username, ip, objectName string,
+		limit, order int, actions, objectTypes, instanceIDs, excludeIDs []string) ([]byte, []string, []string, error)
 }
 
 // Plugin defines the implementation to serve/connect to a notifier plugin

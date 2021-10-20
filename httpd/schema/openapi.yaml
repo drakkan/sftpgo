@@ -10,12 +10,13 @@ tags:
   - name: quota
   - name: folders
   - name: users
-  - name: users API
   - name: data retention
+  - name: events
+  - name: users API
 info:
   title: SFTPGo
   description: |
-    SFTPGo allows to securely share your files over SFTP and optionally FTP/S and WebDAV too.
+    SFTPGo allows to securely share your files over SFTP and optionally FTP/S and WebDAV as well.
     Several storage backends are supported and they are configurable per user, so you can serve a local directory for a user and an S3 bucket (or part of it) for another one.
     SFTPGo also supports virtual folders, a virtual folder can use any of the supported storage backends. So you can have, for example, an S3 user that exposes a GCS bucket (or part of it) on a specified path and an encrypted local filesystem on another one.
     Virtual folders can be private or shared among multiple users, for shared virtual folders you can define different quota limits for each user.
@@ -1481,6 +1482,251 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /events/fs:
+    get:
+      tags:
+        - events
+      summary: Get filesystem events
+      description: 'Returns an array with one or more filesystem events applying the specified filters. This API is only available if you configure an "eventsearcher" plugin'
+      operationId: get_fs_events
+      parameters:
+        - in: query
+          name: start_timestamp
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+            default: 0
+          required: false
+          description: 'the event timestamp, unix timestamp in nanoseconds, must be greater than or equal to the specified one. 0 or missing means omit this filter'
+        - in: query
+          name: end_timestamp
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+            default: 0
+          required: false
+          description: 'the event timestamp, unix timestamp in nanoseconds, must be less than or equal to the specified one. 0 or missing means omit this filter'
+        - in: query
+          name: actions
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/FsEventAction'
+          description: 'the event action must be included among those specified. Empty or missing means omit this filter. Actions must be specified comma separated'
+          explode: false
+          required: false
+        - in: query
+          name: username
+          schema:
+            type: string
+          description: 'the event username must be the same as the one specified. Empty or missing means omit this filter'
+          required: false
+        - in: query
+          name: ip
+          schema:
+            type: string
+          description: 'the event IP must be the same as the one specified. Empty or missing means omit this filter'
+          required: false
+        - in: query
+          name: ssh_cmd
+          schema:
+            type: string
+          description: 'the event SSH command must be the same as the one specified. Empty or missing means omit this filter'
+          required: false
+        - in: query
+          name: protocols
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/EventProtocols'
+          description: 'the event protocol must be included among those specified. Empty or missing means omit this filter. Values must be specified comma separated'
+          explode: false
+          required: false
+        - in: query
+          name: statuses
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/FsEventStatus'
+          description: 'the event status must be included among those specified. Empty or missing means omit this filter. Values must be specified comma separated'
+          explode: false
+          required: false
+        - in: query
+          name: instance_ids
+          schema:
+            type: array
+            items:
+              type: string
+          description: 'the event instance id must be included among those specified. Empty or missing means omit this filter. Values must be specified comma separated'
+          explode: false
+          required: false
+        - in: query
+          name: exclude_ids
+          schema:
+            type: array
+            items:
+              type: string
+          description: 'the event id must not be included among those specified. This is useful for cursor based pagination. Empty or missing means omit this filter. Values must be specified comma separated'
+          explode: false
+          required: false
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          required: false
+          description: 'The maximum number of items to return. Max value is 500, default is 100'
+        - in: query
+          name: order
+          required: false
+          description: Ordering events by timestamp. Default DESC
+          schema:
+            type: string
+            enum:
+              - ASC
+              - DESC
+            example: DESC
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FsEvent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /events/provider:
+    get:
+      tags:
+        - events
+      summary: Get provider events
+      description: 'Returns an array with one or more provider events applying the specified filters. This API is only available if you configure an "eventsearcher" plugin'
+      operationId: get_provider_events
+      parameters:
+        - in: query
+          name: start_timestamp
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+            default: 0
+          required: false
+          description: 'the event timestamp, unix timestamp in nanoseconds, must be greater than or equal to the specified one. 0 or missing means omit this filter'
+        - in: query
+          name: end_timestamp
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+            default: 0
+          required: false
+          description: 'the event timestamp, unix timestamp in nanoseconds, must be less than or equal to the specified one. 0 or missing means omit this filter'
+        - in: query
+          name: actions
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/ProviderEventAction'
+          description: 'the event action must be included among those specified. Empty or missing means omit this filter. Actions must be specified comma separated'
+          explode: false
+          required: false
+        - in: query
+          name: username
+          schema:
+            type: string
+          description: 'the event username must be the same as the one specified. Empty or missing means omit this filter'
+          required: false
+        - in: query
+          name: ip
+          schema:
+            type: string
+          description: 'the event IP must be the same as the one specified. Empty or missing means omit this filter'
+          required: false
+        - in: query
+          name: object_name
+          schema:
+            type: string
+          description: 'the event object name must be the same as the one specified. Empty or missing means omit this filter'
+          required: false
+        - in: query
+          name: object_types
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/ProviderEventObjectType'
+          description: 'the event object type must be included among those specified. Empty or missing means omit this filter. Values must be specified comma separated'
+          explode: false
+          required: false
+        - in: query
+          name: instance_ids
+          schema:
+            type: array
+            items:
+              type: string
+          description: 'the event instance id must be included among those specified. Empty or missing means omit this filter. Values must be specified comma separated'
+          explode: false
+          required: false
+        - in: query
+          name: exclude_ids
+          schema:
+            type: array
+            items:
+              type: string
+          description: 'the event id must not be included among those specified. This is useful for cursor based pagination. Empty or missing means omit this filter. Values must be specified comma separated'
+          explode: false
+          required: false
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          required: false
+          description: 'The maximum number of items to return. Max value is 500, default is 100'
+        - in: query
+          name: order
+          required: false
+          description: Ordering events by timestamp. Default DESC
+          schema:
+            type: string
+            enum:
+              - ASC
+              - DESC
+            example: DESC
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProviderEvent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/InternalServerError'
         default:
@@ -3214,6 +3460,24 @@ components:
           * `SSH` - includes both SFTP and SSH commands
           * `FTP` - plain FTP and FTPES/FTPS
           * `HTTP` - WebClient/REST API
+    EventProtocols:
+      type: string
+      enum:
+        - SSH
+        - SFTP
+        - SCP
+        - FTP
+        - DAV
+        - HTTP
+        - DataRetention
+      description: |
+        Protocols:
+          * `SSH` - SSH commands
+          * `SFTP` - SFTP protocol
+          * `FTP` - plain FTP and FTPES/FTPS
+          * `DAV` - WebDAV
+          * `HTTP` - WebClient/REST API
+          * `DataRetention` - the event is generated by a data retention check
     WebClientOptions:
       type: string
       enum:
@@ -3263,6 +3527,39 @@ components:
         - LDAPUser
         - OSUser
       description: This is an hint for authentication plugins. It is ignored when using SFTPGo internal authentication
+    FsEventStatus:
+      type: integer
+      enum:
+        - 1
+        - 2
+        - 3
+      description: >
+        Event status:
+          * `1` - no error
+          * `2` - generic error
+          * `3` - quota exceeded error
+    FsEventAction:
+      type: string
+      enum:
+        - download
+        - upload
+        - delete
+        - rename
+        - mkdir
+        - rmdir
+        - ssh_cmd
+    ProviderEventAction:
+      type: string
+      enum:
+        - add
+        - update
+        - delete
+    ProviderEventObjectType:
+      type: string
+      enum:
+        - user
+        - admin
+        - api_key
     TOTPConfig:
       type: object
       properties:
@@ -4254,6 +4551,61 @@ components:
         last_modified:
           type: string
           format: date-time
+    FsEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        timestamp:
+          type: integer
+          format: int64
+          description: 'unix timestamp in nanoseconds'
+        action:
+          $ref: '#/components/schemas/FsEventAction'
+        username:
+          type: string
+        fs_path:
+          type: string
+        fs_target_path:
+          type: string
+        virtual_path:
+          type: string
+        virtual_target_path:
+          type: string
+        ssh_cmd:
+          type: string
+        file_size:
+          type: integer
+          format: int64
+        status:
+          $ref: '#/components/schemas/FsEventStatus'
+        protocol:
+          $ref: '#/components/schemas/EventProtocols'
+        ip:
+          type: string
+        instance_id:
+          type: string
+    ProviderEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        timestamp:
+          type: integer
+          format: int64
+          description: 'unix timestamp in nanoseconds'
+        action:
+          $ref: '#/components/schemas/ProviderEventAction'
+        username:
+          type: string
+        ip:
+          type: string
+        object_type:
+          $ref: '#/components/schemas/ProviderEventObjectType'
+        object_name:
+          type: string
+        instance_id:
+          type: string
     ApiResponse:
       type: object
       properties:

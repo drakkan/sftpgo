@@ -28,7 +28,8 @@ var (
 	// Handler defines the plugins manager
 	Handler         Manager
 	pluginsLogLevel = hclog.Debug
-	errNoSearcher   = errors.New("no events searcher plugin defined")
+	// ErrNoSearcher defines the error to return for events searches if no plugin is configured
+	ErrNoSearcher = errors.New("no events searcher plugin defined")
 )
 
 // Renderer defines the interface for generic objects rendering
@@ -184,7 +185,7 @@ func (m *Manager) validateConfigs() error {
 }
 
 // NotifyFsEvent sends the fs event notifications using any defined notifier plugins
-func (m *Manager) NotifyFsEvent(timestamp time.Time, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip,
+func (m *Manager) NotifyFsEvent(timestamp int64, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip,
 	virtualPath, virtualTargetPath string, fileSize int64, err error,
 ) {
 	m.notifLock.RLock()
@@ -197,7 +198,7 @@ func (m *Manager) NotifyFsEvent(timestamp time.Time, action, username, fsPath, f
 }
 
 // NotifyProviderEvent sends the provider event notifications using any defined notifier plugins
-func (m *Manager) NotifyProviderEvent(timestamp time.Time, action, username, objectType, objectName, ip string,
+func (m *Manager) NotifyProviderEvent(timestamp int64, action, username, objectType, objectName, ip string,
 	object Renderer,
 ) {
 	m.notifLock.RLock()
@@ -210,34 +211,34 @@ func (m *Manager) NotifyProviderEvent(timestamp time.Time, action, username, obj
 
 // SearchFsEvents returns the filesystem events matching the specified filter and a continuation token
 // to use for cursor based pagination
-func (m *Manager) SearchFsEvents(startTimestamp, endTimestamp time.Time, action, username, ip, sshCmd, protocol,
-	instanceID, continuationToken string, status, limit int) (string, []byte, error,
-) {
+func (m *Manager) SearchFsEvents(startTimestamp, endTimestamp int64, username, ip, sshCmd string, actions,
+	protocols, instanceIDs, excludeIDs []string, statuses []int32, limit, order int,
+) ([]byte, []string, []string, error) {
 	if !m.hasSearcher {
-		return "", nil, errNoSearcher
+		return nil, nil, nil, ErrNoSearcher
 	}
 	m.searcherLock.RLock()
 	plugin := m.searcher
 	m.searcherLock.RUnlock()
 
-	return plugin.searchear.SearchFsEvents(startTimestamp, endTimestamp, action, username, ip, sshCmd, protocol,
-		instanceID, continuationToken, status, limit)
+	return plugin.searchear.SearchFsEvents(startTimestamp, endTimestamp, username, ip, sshCmd, actions, protocols,
+		instanceIDs, excludeIDs, statuses, limit, order)
 }
 
 // SearchProviderEvents returns the provider events matching the specified filter and a continuation token
 // to use for cursor based pagination
-func (m *Manager) SearchProviderEvents(startTimestamp, endTimestamp time.Time, action, username, ip, objectType,
-	objectName, instanceID, continuationToken string, limit int,
-) (string, []byte, error) {
+func (m *Manager) SearchProviderEvents(startTimestamp, endTimestamp int64, username, ip, objectName string,
+	limit, order int, actions, objectTypes, instanceIDs, excludeIDs []string,
+) ([]byte, []string, []string, error) {
 	if !m.hasSearcher {
-		return "", nil, errNoSearcher
+		return nil, nil, nil, ErrNoSearcher
 	}
 	m.searcherLock.RLock()
 	plugin := m.searcher
 	m.searcherLock.RUnlock()
 
-	return plugin.searchear.SearchProviderEvents(startTimestamp, endTimestamp, action, username, ip, objectType, objectName,
-		instanceID, continuationToken, limit)
+	return plugin.searchear.SearchProviderEvents(startTimestamp, endTimestamp, username, ip, objectName, limit,
+		order, actions, objectTypes, instanceIDs, excludeIDs)
 }
 
 func (m *Manager) kmsEncrypt(secret kms.BaseSecret, url string, masterKey string, kmsID int) (string, string, int32, error) {

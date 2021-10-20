@@ -1,13 +1,12 @@
 syntax = "proto3";
 package proto;
 
-import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
 
 option go_package = "sdk/plugin/notifier/proto";
 
 message FsEvent {
-    google.protobuf.Timestamp timestamp = 1;
+    int64 timestamp = 1;
     string action = 2;
     string username = 3;
     string fs_path = 4;
@@ -22,7 +21,7 @@ message FsEvent {
 }
 
 message ProviderEvent {
-    google.protobuf.Timestamp timestamp = 1;
+    int64 timestamp = 1;
     string action = 2;
     string object_type = 3;
     string username = 4;
