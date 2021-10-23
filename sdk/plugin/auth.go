@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
-	"path/filepath"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
@@ -117,7 +116,7 @@ func (p *authPlugin) initialize() error {
 		Managed:      false,
 		Logger: &logger.HCLogAdapter{
 			Logger: hclog.New(&hclog.LoggerOptions{
-				Name:        fmt.Sprintf("%v.%v.%v", logSender, auth.PluginName, filepath.Base(p.config.Cmd)),
+				Name:        fmt.Sprintf("%v.%v", logSender, auth.PluginName),
 				Level:       pluginsLogLevel,
 				DisableTime: true,
 			}),

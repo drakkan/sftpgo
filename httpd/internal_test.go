@@ -33,6 +33,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -305,6 +306,8 @@ func TestGetRespStatus(t *testing.T) {
 	err = fmt.Errorf("generic error")
 	respStatus = getRespStatus(err)
 	assert.Equal(t, http.StatusInternalServerError, respStatus)
+	respStatus = getRespStatus(plugin.ErrNoSearcher)
+	assert.Equal(t, http.StatusNotImplemented, respStatus)
 }
 
 func TestMappedStatusCode(t *testing.T) {

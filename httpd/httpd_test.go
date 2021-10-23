@@ -46,6 +46,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
@@ -100,6 +101,8 @@ const (
 	user2FARecoveryCodesPath        = "/api/v2/user/2fa/recoverycodes"
 	userProfilePath                 = "/api/v2/user/profile"
 	retentionBasePath               = "/api/v2/retention/users"
+	fsEventsPath                    = "/api/v2/events/fs"
+	providerEventsPath              = "/api/v2/events/provider"
 	healthzPath                     = "/healthz"
 	webBasePath                     = "/web"
 	webBasePathAdmin                = "/web/admin"
@@ -248,6 +251,21 @@ func TestMain(m *testing.M) {
 		logger.WarnToConsole("error loading configuration: %v", err)
 		os.Exit(1)
 	}
+	wdPath, err := os.Getwd()
+	if err != nil {
+		logger.WarnToConsole("error getting exe path: %v", err)
+		os.Exit(1)
+	}
+	pluginsConfig := []plugin.Config{
+		{
+			Type:     "eventsearcher",
+			Cmd:      filepath.Join(wdPath, "..", "tests", "eventsearcher", "eventsearcher"),
+			AutoMTLS: true,
+		},
+	}
+	if runtime.GOOS == osWindows {
+		pluginsConfig[0].Cmd += ".exe"
+	}
 	providerConf := config.GetProviderConf()
 	credentialsPath = filepath.Join(os.TempDir(), "test_credentials")
 	providerConf.CredentialsPath = credentialsPath
@@ -282,6 +300,11 @@ func TestMain(m *testing.M) {
 	err = mfaConfig.Initialize()
 	if err != nil {
 		logger.ErrorToConsole("error initializing MFA: %v", err)
+		os.Exit(1)
+	}
+	err = plugin.Initialize(pluginsConfig, true)
+	if err != nil {
+		logger.ErrorToConsole("error initializing plugin: %v", err)
 		os.Exit(1)
 	}
 
@@ -5510,6 +5533,73 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	setJWTCookieForReq(req, authenticatedCookie)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
+}
+
+func TestSearchEvents(t *testing.T) {
+	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, fsEventsPath+"?limit=10&order=ASC", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	// the test eventsearcher plugin returns error if start_timestamp < 0
+	req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?start_timestamp=-1&end_timestamp=123456&statuses=1,2", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?limit=a", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodGet, providerEventsPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	// the test eventsearcher plugin returns error if start_timestamp < 0
+	req, err = http.NewRequest(http.MethodGet, providerEventsPath+"?start_timestamp=-1", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	req, err = http.NewRequest(http.MethodGet, providerEventsPath+"?limit=2000", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?start_timestamp=a", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?end_timestamp=a", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?order=ASSC", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?statuses=a,b", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
 }
 
 func TestMFAErrors(t *testing.T) {

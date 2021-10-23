@@ -111,4 +111,4 @@ You can forward SFTPGo events to several publish/subscribe systems using the [sf
 
 ## Database services
 
-You can store SFTPGo events in database systems using the [sftpgo-plugin-eventstore](https://github.com/sftpgo/sftpgo-plugin-eventstore).
+You can store SFTPGo events in database systems using the [sftpgo-plugin-eventstore](https://github.com/sftpgo/sftpgo-plugin-eventstore) and you can search the stored events using the [sftpgo-plugin-eventsearch](https://github.com/sftpgo/sftpgo-plugin-eventsearch).

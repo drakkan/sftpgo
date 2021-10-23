@@ -19,7 +19,7 @@ type GRPCClient struct {
 // SearchFsEvents implements the Searcher interface
 func (c *GRPCClient) SearchFsEvents(startTimestamp, endTimestamp int64, username, ip, sshCmd string, actions,
 	protocols, instanceIDs, excludeIDs []string, statuses []int32, limit, order int,
-) ([]byte, error) {
+) ([]byte, []string, []string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
 	defer cancel()
 
@@ -39,15 +39,15 @@ func (c *GRPCClient) SearchFsEvents(startTimestamp, endTimestamp int64, username
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
-	return resp.Data, nil
+	return resp.Data, resp.SameTsAtStart, resp.SameTsAtEnd, nil
 }
 
 // SearchProviderEvents implements the Searcher interface
 func (c *GRPCClient) SearchProviderEvents(startTimestamp, endTimestamp int64, username, ip, objectName string,
 	limit, order int, actions, objectTypes, instanceIDs, excludeIDs []string,
-) ([]byte, error) {
+) ([]byte, []string, []string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
 	defer cancel()
 
@@ -66,9 +66,9 @@ func (c *GRPCClient) SearchProviderEvents(startTimestamp, endTimestamp int64, us
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
-	return resp.Data, nil
+	return resp.Data, resp.SameTsAtStart, resp.SameTsAtEnd, nil
 }
 
 // GRPCServer defines the gRPC server that GRPCClient talks to.

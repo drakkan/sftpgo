@@ -31,7 +31,11 @@ jobs:
 
       - name: Build for Linux/macOS x86_64
         if: startsWith(matrix.os, 'windows-') != true
-        run: go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo
+        run: |
+          go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo
+          cd tests/eventsearcher
+          go build -trimpath -ldflags "-s -w" -o eventsearcher
+          cd -
 
       - name: Build for macOS arm64
         if: startsWith(matrix.os, 'macos-') == true
@@ -43,6 +47,9 @@ jobs:
           $GIT_COMMIT = (git describe --always --dirty) | Out-String
           $DATE_TIME = ([datetime]::Now.ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ")) | Out-String
           go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/version.date=$DATE_TIME" -o sftpgo.exe
+          cd tests/eventsearcher
+          go build -trimpath -ldflags "-s -w" -o eventsearcher.exe
+          cd ../..
 
       - name: Run test cases using SQLite provider
         run: go test -v -p 1 -timeout 15m ./... -coverprofile=coverage.txt -covermode=atomic
@@ -120,7 +127,10 @@ jobs:
           go-version: 1.17
 
       - name: Build
-        run: go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo
+        run: |
+          cd tests/eventsearcher
+          go build -trimpath -ldflags "-s -w" -o eventsearcher
+          cd -
         env:
           GOARCH: 386
 
@@ -173,7 +183,10 @@ jobs:
           go-version: 1.17
 
       - name: Build
-        run: go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo
+        run: |
+          cd tests/eventsearcher
+          go build -trimpath -ldflags "-s -w" -o eventsearcher
+          cd -
 
       - name: Run tests using PostgreSQL provider
         run: |

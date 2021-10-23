@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os/exec"
-	"path/filepath"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
@@ -58,7 +57,7 @@ func (p *searcherPlugin) initialize() error {
 		Managed:      false,
 		Logger: &logger.HCLogAdapter{
 			Logger: hclog.New(&hclog.LoggerOptions{
-				Name:        fmt.Sprintf("%v.%v.%v", logSender, eventsearcher.PluginName, filepath.Base(p.config.Cmd)),
+				Name:        fmt.Sprintf("%v.%v", logSender, eventsearcher.PluginName),
 				Level:       pluginsLogLevel,
 				DisableTime: true,
 			}),

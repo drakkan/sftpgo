@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -77,6 +76,8 @@ const (
 	userProfilePath                       = "/api/v2/user/profile"
 	retentionBasePath                     = "/api/v2/retention/users"
 	retentionChecksPath                   = "/api/v2/retention/users/checks"
+	fsEventsPath                          = "/api/v2/events/fs"
+	providerEventsPath                    = "/api/v2/events/provider"
 	healthzPath                           = "/healthz"
 	webRootPathDefault                    = "/"
 	webBasePathDefault                    = "/web"
@@ -488,15 +489,6 @@ func getServicesStatus() ServicesStatus {
 		MFA: mfa.GetStatus(),
 	}
 	return status
-}
-
-func getURLParam(r *http.Request, key string) string {
-	v := chi.URLParam(r, key)
-	unescaped, err := url.PathUnescape(v)
-	if err != nil {
-		return v
-	}
-	return unescaped
 }
 
 func fileServer(r chi.Router, path string, root http.FileSystem) {

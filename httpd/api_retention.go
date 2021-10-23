@@ -3,13 +3,11 @@ package httpd
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/render"
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
-	"github.com/drakkan/sftpgo/v2/util"
 )
 
 func getRetentionChecks(w http.ResponseWriter, r *http.Request) {
@@ -26,18 +24,14 @@ func startRetentionCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var check common.RetentionCheck
+
 	err = render.DecodeJSON(r.Body, &check.Folders)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	for _, val := range strings.Split(r.URL.Query().Get("notifications"), ",") {
-		val = strings.TrimSpace(val)
-		if val != "" {
-			check.Notifications = append(check.Notifications, val)
-		}
-	}
-	check.Notifications = util.RemoveDuplicates(check.Notifications)
+
+	check.Notifications = getCommaSeparatedQueryParam(r, "notifications")
 	for _, notification := range check.Notifications {
 		if notification == common.RetentionCheckNotificationEmail {
 			claims, err := getTokenClaims(r)

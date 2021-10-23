@@ -422,6 +422,11 @@ func GetPluginsConfig() []plugin.Config {
 	return globalConf.PluginsConfig
 }
 
+// SetPluginsConfig sets the plugin configuration
+func SetPluginsConfig(config []plugin.Config) {
+	globalConf.PluginsConfig = config
+}
+
 // GetMFAConfig returns multi-factor authentication config
 func GetMFAConfig() mfa.Config {
 	return globalConf.MFAConfig

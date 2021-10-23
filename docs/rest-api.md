@@ -36,6 +36,7 @@ You can create other administrator and assign them the following permissions:
 - manage system
 - manage admins
 - manage data retention
+- view events
 
 You can also restrict administrator access based on the source IP address. If you are running SFTPGo behind a reverse proxy you need to allow both the proxy IP address and the real client IP.
 

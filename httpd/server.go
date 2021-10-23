@@ -977,6 +977,10 @@ func (s *httpdServer) initializeRouter() {
 		router.With(checkPerm(dataprovider.PermAdminRetentionChecks)).Get(retentionChecksPath, getRetentionChecks)
 		router.With(checkPerm(dataprovider.PermAdminRetentionChecks)).Post(retentionBasePath+"/{username}/check",
 			startRetentionCheck)
+		router.With(checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler).
+			Get(fsEventsPath, searchFsEvents)
+		router.With(checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler).
+			Get(providerEventsPath, searchProviderEvents)
 		router.With(forbidAPIKeyAuthentication, checkPerm(dataprovider.PermAdminManageAPIKeys)).
 			Get(apiKeysPath, getAPIKeys)
 		router.With(forbidAPIKeyAuthentication, checkPerm(dataprovider.PermAdminManageAPIKeys)).

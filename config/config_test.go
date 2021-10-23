@@ -19,6 +19,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpd"
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/mfa"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/smtp"
 	"github.com/drakkan/sftpgo/v2/util"
@@ -292,6 +293,15 @@ func TestSetGetConfig(t *testing.T) {
 	config.SetTelemetryConfig(telemetryConf)
 	assert.Equal(t, telemetryConf.BindPort, config.GetTelemetryConfig().BindPort)
 	assert.Equal(t, telemetryConf.BindAddress, config.GetTelemetryConfig().BindAddress)
+	pluginConf := []plugin.Config{
+		{
+			Type: "eventsearcher",
+		},
+	}
+	config.SetPluginsConfig(pluginConf)
+	if assert.Len(t, config.GetPluginsConfig(), 1) {
+		assert.Equal(t, pluginConf[0].Type, config.GetPluginsConfig()[0].Type)
+	}
 }
 
 func TestServiceToStart(t *testing.T) {

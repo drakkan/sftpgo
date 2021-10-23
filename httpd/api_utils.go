@@ -7,12 +7,14 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 	"github.com/klauspost/compress/zip"
 
@@ -20,6 +22,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/metric"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -74,6 +77,9 @@ func getRespStatus(err error) int {
 	if os.IsPermission(err) {
 		return http.StatusForbidden
 	}
+	if errors.Is(err, plugin.ErrNoSearcher) {
+		return http.StatusNotImplemented
+	}
 	return http.StatusInternalServerError
 }
 
@@ -88,6 +94,28 @@ func getMappedStatusCode(err error) int {
 		statusCode = http.StatusInternalServerError
 	}
 	return statusCode
+}
+
+func getURLParam(r *http.Request, key string) string {
+	v := chi.URLParam(r, key)
+	unescaped, err := url.PathUnescape(v)
+	if err != nil {
+		return v
+	}
+	return unescaped
+}
+
+func getCommaSeparatedQueryParam(r *http.Request, key string) []string {
+	var result []string
+
+	for _, val := range strings.Split(r.URL.Query().Get(key), ",") {
+		val = strings.TrimSpace(val)
+		if val != "" {
+			result = append(result, val)
+		}
+	}
+
+	return util.RemoveDuplicates(result)
 }
 
 func handleCloseConnection(w http.ResponseWriter, r *http.Request) {

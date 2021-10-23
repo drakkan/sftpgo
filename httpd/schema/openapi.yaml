@@ -3400,6 +3400,7 @@ components:
         - manage_defender
         - view_defender
         - retention_checks
+        - view_events
       description: |
         Admin permissions:
           * `*` - all permissions are granted
@@ -3417,6 +3418,7 @@ components:
           * `manage_defender` - remove ip from the dynamic blocklist is allowed
           * `view_defender` - list the dynamic blocklist is allowed
           * `retention_checks` - view and start retention checks is allowed
+          * `view_events` - view and search filesystem and provider events is allowed
     LoginMethods:
       type: string
       enum:
