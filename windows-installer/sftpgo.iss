@@ -2,7 +2,7 @@
 #if GetEnv("SFTPGO_ISS_VERSION") != ""
     #define MyAppVersion GetEnv("SFTPGO_ISS_VERSION")
 #else
-    #define MyAppVersion "v0.0.0"
+    #define MyAppVersion GetEnv("SFTPGO_ISS_DEV_VERSION")
 #endif
 #define MyAppURL "https://github.com/drakkan/sftpgo"
 #define MyVersionInfo StringChange(MyAppVersion,"v","")
@@ -23,18 +23,22 @@ AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
+AppCopyright=AGPL-3.0
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 LicenseFile={#MyAppDir}\LICENSE.txt
 OutputDir={#MyOutputDir}
 OutputBaseFilename=sftpgo_windows_x86_64
+SetupIconFile=icon.ico
 SolidCompression=yes
+UninstallDisplayIcon={app}\sftpgo.exe
 WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64
-MinVersion=6.1
+MinVersion=6.1sp1
 VersionInfoVersion={#MyVersionInfo}
+VersionInfoCopyright=AGPL-3.0
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -68,6 +72,6 @@ Filename: "{app}\{#MyAppExeName}"; Parameters: "service install -c ""{commonappd
 Filename: "{app}\{#MyAppExeName}"; Parameters: "service start";  Description: "Start SFTPGo Windows Service"; Flags: runhidden
 
 [UninstallRun]
-Filename: "{app}\{#MyAppExeName}"; Parameters: "service stop"; Flags: runhidden
-Filename: "{app}\{#MyAppExeName}"; Parameters: "service uninstall"; Flags: runhidden
-Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""SFTPGo Service"""; Flags: runhidden
+Filename: "{app}\{#MyAppExeName}"; Parameters: "service stop"; Flags: runhidden; RunOnceId: "Stop SFTPGo service"
+Filename: "{app}\{#MyAppExeName}"; Parameters: "service uninstall"; Flags: runhidden; RunOnceId: "Uninstall SFTPGo service"
+Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""SFTPGo Service"""; Flags: runhidden; RunOnceId: "Remove SFTPGo firewall rule"

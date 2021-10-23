@@ -62,7 +62,7 @@ require (
 	go.uber.org/automaxprocs v1.4.0
 	gocloud.dev v0.24.0
 	golang.org/x/crypto v0.0.0-20210915214749-c084706c2272
-	golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f
+	golang.org/x/net v0.0.0-20211020060615-d418f374d309
 	golang.org/x/sys v0.0.0-20211023085530-d6a326fbbf70
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	google.golang.org/api v0.59.0
@@ -132,5 +132,5 @@ replace (
 	github.com/eikenb/pipeat => github.com/drakkan/pipeat v0.0.0-20210805162858-70e57fa8a639
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20210918082254-e7eb8487714b
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20211016145912-4e917b39e717
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20211023135414-8d45d13382c8
 )

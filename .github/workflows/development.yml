@@ -34,6 +34,7 @@ jobs:
         run: |
           go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo
           cd tests/eventsearcher
+          go mod tidy
           go build -trimpath -ldflags "-s -w" -o eventsearcher
           cd -
 
@@ -46,8 +47,15 @@ jobs:
         run: |
           $GIT_COMMIT = (git describe --always --dirty) | Out-String
           $DATE_TIME = ([datetime]::Now.ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ")) | Out-String
+          $LATEST_TAG = ((git describe --tags $(git rev-list --tags --max-count=1)) | Out-String).Trim()
+          $REV_LIST=$LATEST_TAG+"..HEAD"
+          $COMMITS_FROM_TAG= ((git rev-list $REV_LIST --count) | Out-String).Trim()
+          $FILE_VERSION = $LATEST_TAG.substring(1)  + "." + $COMMITS_FROM_TAG
+          go install github.com/tc-hib/go-winres@latest
+          go-winres simply --arch amd64 --product-version $LATEST_TAG-dev-$GIT_COMMIT --file-version $FILE_VERSION --file-description "SFTPGo server" --product-name SFTPGo --copyright "AGPL-3.0" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
           go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/version.date=$DATE_TIME" -o sftpgo.exe
           cd tests/eventsearcher
+          go mod tidy
           go build -trimpath -ldflags "-s -w" -o eventsearcher.exe
           cd ../..
 
@@ -114,6 +122,32 @@ jobs:
           name: sftpgo-${{ matrix.os }}-go-${{ matrix.go }}
           path: output
 
+      - name: Prepare Windows installer
+        if: startsWith(matrix.os, 'windows-')
+        run: |
+          Remove-Item -LiteralPath "output" -Force -Recurse -ErrorAction Ignore
+          mkdir output
+          copy .\sftpgo.exe .\output
+          copy .\sftpgo.json .\output
+          copy .\sftpgo.db .\output
+          copy .\LICENSE .\output\LICENSE.txt
+          mkdir output\templates
+          xcopy .\templates .\output\templates\ /E
+          mkdir output\static
+          xcopy .\static .\output\static\ /E
+          $LATEST_TAG = ((git describe --tags $(git rev-list --tags --max-count=1)) | Out-String).Trim()
+          $REV_LIST=$LATEST_TAG+"..HEAD"
+          $COMMITS_FROM_TAG= ((git rev-list $REV_LIST --count) | Out-String).Trim()
+          $Env:SFTPGO_ISS_DEV_VERSION = $LATEST_TAG  + "." + $COMMITS_FROM_TAG
+          iscc windows-installer\sftpgo.iss
+
+      - name: Upload Windows installer artifact
+        if: startsWith(matrix.os, 'windows-')
+        uses: actions/upload-artifact@v2
+        with:
+          name: sftpgo_windows_installer_x86_64
+          path: ./sftpgo_windows_x86_64.exe
+
   test-goarch-386:
     name: Run test cases on 32-bit arch
     runs-on: ubuntu-latest
@@ -129,6 +163,7 @@ jobs:
       - name: Build
         run: |
           cd tests/eventsearcher
+          go mod tidy
           go build -trimpath -ldflags "-s -w" -o eventsearcher
           cd -
         env:
@@ -185,6 +220,7 @@ jobs:
       - name: Build
         run: |
           cd tests/eventsearcher
+          go mod tidy
           go build -trimpath -ldflags "-s -w" -o eventsearcher
           cd -
 

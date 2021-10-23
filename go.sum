@@ -215,8 +215,8 @@ github.com/drakkan/crypto v0.0.0-20210918082254-e7eb8487714b h1:MZY6RAQFVhJous68
 github.com/drakkan/crypto v0.0.0-20210918082254-e7eb8487714b/go.mod h1:0hNoheD1tVu/m8WMkw/chBXf5VpwzL5fHQU25k79NKo=
 github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9 h1:LPH1dEblAOO/LoG7yHPMtBLXhQmjaga91/DDjWk9jWA=
 github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9/go.mod h1:2lmrmq866uF2tnje75wQHzmPXhmSWUt7Gyx2vgK1RCU=
-github.com/drakkan/net v0.0.0-20211016145912-4e917b39e717 h1:YShsCetg9md5wI7rCeCQXEl4CHkdv1HAk43MRZoNZWM=
-github.com/drakkan/net v0.0.0-20211016145912-4e917b39e717/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
+github.com/drakkan/net v0.0.0-20211023135414-8d45d13382c8 h1:xjuGl7Do3QtkkIaEOHME5EAG/dSi03ahxuqkmh9tx9A=
+github.com/drakkan/net v0.0.0-20211023135414-8d45d13382c8/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
 github.com/drakkan/pipeat v0.0.0-20210805162858-70e57fa8a639 h1:8tfGdb4kg/YCvAbIrsMazgoNtnqdOqQVDKW12uUCuuU=
 github.com/drakkan/pipeat v0.0.0-20210805162858-70e57fa8a639/go.mod h1:kltMsfRMTHSFdMbK66XdS8mfMW77+FZA1fGY1xYMF84=
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
