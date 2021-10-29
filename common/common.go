@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -122,6 +123,7 @@ var (
 	idleTimeoutTicker     *time.Ticker
 	idleTimeoutTickerDone chan bool
 	supportedProtocols    = []string{ProtocolSFTP, ProtocolSCP, ProtocolSSH, ProtocolFTP, ProtocolWebDAV, ProtocolHTTP}
+	disconnHookProtocols  = []string{ProtocolSFTP, ProtocolSCP, ProtocolSSH, ProtocolFTP}
 	// the map key is the protocol, for each protocol we can have multiple rate limiters
 	rateLimiters map[string][]*rateLimiter
 )
@@ -399,6 +401,9 @@ type Configuration struct {
 	// and before he tries to login. It allows you to reject the connection based on the source
 	// ip address. Leave empty do disable.
 	PostConnectHook string `json:"post_connect_hook" mapstructure:"post_connect_hook"`
+	// Absolute path to an external program or an HTTP URL to invoke after an SSH/FTP connection ends.
+	// Leave empty do disable.
+	PostDisconnectHook string `json:"post_disconnect_hook" mapstructure:"post_disconnect_hook"`
 	// Absolute path to an external program or an HTTP URL to invoke after a data retention check completes.
 	// Leave empty do disable.
 	DataRetentionHook string `json:"data_retention_hook" mapstructure:"data_retention_hook"`
@@ -487,6 +492,62 @@ func (c *Configuration) ExecuteStartupHook() error {
 	err := cmd.Run()
 	logger.Debug(logSender, "", "Startup hook executed, elapsed: %v, error: %v", time.Since(startTime), err)
 	return nil
+}
+
+func (c *Configuration) executePostDisconnectHook(remoteAddr, protocol, username, connID string, connectionTime time.Time) {
+	ipAddr := util.GetIPFromRemoteAddress(remoteAddr)
+	connDuration := int64(time.Since(connectionTime) / time.Millisecond)
+
+	if strings.HasPrefix(c.PostDisconnectHook, "http") {
+		var url *url.URL
+		url, err := url.Parse(c.PostDisconnectHook)
+		if err != nil {
+			logger.Warn(protocol, connID, "Invalid post disconnect hook %#v: %v", c.PostDisconnectHook, err)
+			return
+		}
+		q := url.Query()
+		q.Add("ip", ipAddr)
+		q.Add("protocol", protocol)
+		q.Add("username", username)
+		q.Add("connection_duration", strconv.FormatInt(connDuration, 10))
+		url.RawQuery = q.Encode()
+		startTime := time.Now()
+		resp, err := httpclient.RetryableGet(url.String())
+		respCode := 0
+		if err == nil {
+			respCode = resp.StatusCode
+			resp.Body.Close()
+		}
+		logger.Debug(protocol, connID, "Post disconnect hook response code: %v, elapsed: %v, err: %v",
+			respCode, time.Since(startTime), err)
+		return
+	}
+	if !filepath.IsAbs(c.PostDisconnectHook) {
+		logger.Debug(protocol, connID, "invalid post disconnect hook %#v", c.PostDisconnectHook)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	startTime := time.Now()
+	cmd := exec.CommandContext(ctx, c.PostDisconnectHook)
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("SFTPGO_CONNECTION_IP=%v", ipAddr),
+		fmt.Sprintf("SFTPGO_CONNECTION_USERNAME=%v", username),
+		fmt.Sprintf("SFTPGO_CONNECTION_DURATION=%v", connDuration),
+		fmt.Sprintf("SFTPGO_CONNECTION_PROTOCOL=%v", protocol))
+	err := cmd.Run()
+	logger.Debug(protocol, connID, "Post disconnect hook executed, elapsed: %v error: %v", time.Since(startTime), err)
+}
+
+func (c *Configuration) checkPostDisconnectHook(remoteAddr, protocol, username, connID string, connectionTime time.Time) {
+	if c.PostDisconnectHook == "" {
+		return
+	}
+	if !util.IsStringInSlice(protocol, disconnHookProtocols) {
+		return
+	}
+	go c.executePostDisconnectHook(remoteAddr, protocol, username, connID, connectionTime)
 }
 
 // ExecutePostConnectHook executes the post connect hook if defined
@@ -643,6 +704,8 @@ func (conns *ActiveConnections) Remove(connectionID string) {
 			metric.UpdateActiveConnectionsSize(lastIdx)
 			logger.Debug(conn.GetProtocol(), conn.GetID(), "connection removed, local address %#v, remote address %#v close fs error: %v, num open connections: %v",
 				conn.GetLocalAddress(), conn.GetRemoteAddress(), err, lastIdx)
+			Config.checkPostDisconnectHook(conn.GetRemoteAddress(), conn.GetProtocol(), conn.GetUsername(),
+				conn.GetID(), conn.GetConnectionTime())
 			return
 		}
 	}

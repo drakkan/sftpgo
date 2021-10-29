@@ -628,6 +628,37 @@ func TestStartupHook(t *testing.T) {
 	Config.StartupHook = ""
 }
 
+func TestPostDisconnectHook(t *testing.T) {
+	Config.PostDisconnectHook = "http://127.0.0.1/"
+
+	remoteAddr := "127.0.0.1:80"
+	Config.checkPostDisconnectHook(remoteAddr, ProtocolHTTP, "", "", time.Now())
+	Config.checkPostDisconnectHook(remoteAddr, ProtocolSFTP, "", "", time.Now())
+
+	Config.PostDisconnectHook = "http://bar\x7f.com/"
+	Config.executePostDisconnectHook(remoteAddr, ProtocolSFTP, "", "", time.Now())
+
+	Config.PostDisconnectHook = fmt.Sprintf("http://%v", httpAddr)
+	Config.executePostDisconnectHook(remoteAddr, ProtocolSFTP, "", "", time.Now())
+
+	Config.PostDisconnectHook = "relativePath"
+	Config.executePostDisconnectHook(remoteAddr, ProtocolSFTP, "", "", time.Now())
+
+	if runtime.GOOS == osWindows {
+		Config.PostDisconnectHook = "C:\\a\\bad\\command"
+		Config.executePostDisconnectHook(remoteAddr, ProtocolSFTP, "", "", time.Now())
+	} else {
+		Config.PostDisconnectHook = "/invalid/path"
+		Config.executePostDisconnectHook(remoteAddr, ProtocolSFTP, "", "", time.Now())
+
+		hookCmd, err := exec.LookPath("true")
+		assert.NoError(t, err)
+		Config.PostDisconnectHook = hookCmd
+		Config.executePostDisconnectHook(remoteAddr, ProtocolSFTP, "", "", time.Now())
+	}
+	Config.PostDisconnectHook = ""
+}
+
 func TestPostConnectHook(t *testing.T) {
 	Config.PostConnectHook = ""
 
