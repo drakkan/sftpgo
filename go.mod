@@ -49,7 +49,7 @@ require (
 	github.com/rs/xid v1.3.0
 	github.com/rs/zerolog v1.25.0
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/shirou/gopsutil/v3 v3.21.9
+	github.com/shirou/gopsutil/v3 v3.21.10
 	github.com/spf13/afero v1.6.0
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/viper v1.9.0
@@ -106,6 +106,7 @@ require (
 	github.com/lestrrat-go/httpcc v1.0.0 // indirect
 	github.com/lestrrat-go/iter v1.0.1 // indirect
 	github.com/lestrrat-go/option v1.0.0 // indirect
+	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mattn/go-colorable v0.1.11 // indirect
 	github.com/mattn/go-ieproxy v0.0.1 // indirect
