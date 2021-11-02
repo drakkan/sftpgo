@@ -697,6 +697,18 @@ func getKMSPluginFromEnv(idx int, pluginConfig *plugin.Config) bool {
 	return isSet
 }
 
+func getAuthPluginFromEnv(idx int, pluginConfig *plugin.Config) bool {
+	isSet := false
+
+	authScope, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__AUTH_OPTIONS__SCOPE", idx))
+	if ok {
+		pluginConfig.AuthOptions.Scope = int(authScope)
+		isSet = true
+	}
+
+	return isSet
+}
+
 func getNotifierPluginFromEnv(idx int, pluginConfig *plugin.Config) bool {
 	isSet := false
 
@@ -752,6 +764,10 @@ func getPluginsFromEnv(idx int) {
 	}
 
 	if getKMSPluginFromEnv(idx, &pluginConfig) {
+		isSet = true
+	}
+
+	if getAuthPluginFromEnv(idx, &pluginConfig) {
 		isSet = true
 	}
 

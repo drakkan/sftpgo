@@ -440,6 +440,7 @@ func TestPluginsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_PLUGINS__0__AUTO_MTLS", "1")
 	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__SCHEME", kms.SchemeAWS)
 	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__ENCRYPTED_STATUS", kms.SecretStatusAWS)
+	os.Setenv("SFTPGO_PLUGINS__0__AUTH_OPTIONS__SCOPE", "14")
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_PLUGINS__0__TYPE")
 		os.Unsetenv("SFTPGO_PLUGINS__0__NOTIFIER_OPTIONS__FS_EVENTS")
@@ -453,6 +454,7 @@ func TestPluginsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_PLUGINS__0__AUTO_MTLS")
 		os.Unsetenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__SCHEME")
 		os.Unsetenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__ENCRYPTED_STATUS")
+		os.Unsetenv("SFTPGO_PLUGINS__0__AUTH_OPTIONS__SCOPE")
 	})
 
 	configDir := ".."
@@ -481,6 +483,7 @@ func TestPluginsFromEnv(t *testing.T) {
 	require.True(t, pluginConf.AutoMTLS)
 	require.Equal(t, kms.SchemeAWS, pluginConf.KMSOptions.Scheme)
 	require.Equal(t, kms.SecretStatusAWS, pluginConf.KMSOptions.EncryptedStatus)
+	require.Equal(t, 14, pluginConf.AuthOptions.Scope)
 
 	configAsJSON, err := json.Marshal(pluginsConf)
 	require.NoError(t, err)
@@ -517,6 +520,7 @@ func TestPluginsFromEnv(t *testing.T) {
 	require.False(t, pluginConf.AutoMTLS)
 	require.Equal(t, kms.SchemeVaultTransit, pluginConf.KMSOptions.Scheme)
 	require.Equal(t, kms.SecretStatusVaultTransit, pluginConf.KMSOptions.EncryptedStatus)
+	require.Equal(t, 14, pluginConf.AuthOptions.Scope)
 
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
