@@ -69,8 +69,8 @@ func (s *Service) initLogger() {
 func (s *Service) Start() error {
 	s.initLogger()
 	logger.Info(logSender, "", "starting SFTPGo %v, config dir: %v, config file: %v, log max size: %v log max backups: %v "+
-		"log max age: %v log verbose: %v, log compress: %v, load data from: %#v", version.GetAsString(), s.ConfigDir, s.ConfigFile,
-		s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogVerbose, s.LogCompress, s.LoadDataFrom)
+		"log max age: %v log verbose: %v, log compress: %v, log utc time: %v, load data from: %#v", version.GetAsString(), s.ConfigDir, s.ConfigFile,
+		s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogVerbose, s.LogCompress, s.LogUTCTime, s.LoadDataFrom)
 	// in portable mode we don't read configuration from file
 	if s.PortableMode != 1 {
 		err := config.LoadConfig(s.ConfigDir, s.ConfigFile)

@@ -31,6 +31,7 @@ Please take a look at the usage below to customize the startup options`,
 				LogMaxAge:     logMaxAge,
 				LogCompress:   logCompress,
 				LogVerbose:    logVerbose,
+				LogUTCTime:    logUTCTime,
 				Shutdown:      make(chan bool),
 			}
 			winService := service.WindowsService{
@@ -86,6 +87,9 @@ func getCustomServeFlags() []string {
 	}
 	if logVerbose != defaultLogVerbose {
 		result = append(result, "--"+logVerboseFlag+"=false")
+	}
+	if logUTCTime != defaultLogUTCTime {
+		result = append(result, "--"+logUTCTimeFlag+"=true")
 	}
 	if logCompress != defaultLogCompress {
 		result = append(result, "--"+logCompressFlag+"=true")

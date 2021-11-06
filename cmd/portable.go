@@ -31,6 +31,7 @@ var (
 	portablePassword                   string
 	portableLogFile                    string
 	portableLogVerbose                 bool
+	portableLogUTCTime                 bool
 	portablePublicKeys                 []string
 	portablePermissions                []string
 	portableSSHCommands                []string
@@ -143,6 +144,7 @@ Please take a look at the usage below to customize the serving parameters`,
 				LogMaxAge:     defaultLogMaxAge,
 				LogCompress:   defaultLogCompress,
 				LogVerbose:    portableLogVerbose,
+				LogUTCTime:    portableLogUTCTime,
 				Shutdown:      make(chan bool),
 				PortableMode:  1,
 				PortableUser: dataprovider.User{
@@ -251,6 +253,7 @@ value`)
 value`)
 	portableCmd.Flags().StringVarP(&portableLogFile, logFilePathFlag, "l", "", "Leave empty to disable logging")
 	portableCmd.Flags().BoolVarP(&portableLogVerbose, logVerboseFlag, "v", false, "Enable verbose logs")
+	portableCmd.Flags().BoolVar(&portableLogUTCTime, logUTCTimeFlag, false, "Use UTC time for logging")
 	portableCmd.Flags().StringSliceVarP(&portablePublicKeys, "public-key", "k", []string{}, "")
 	portableCmd.Flags().StringSliceVarP(&portablePermissions, "permissions", "g", []string{"list", "download"},
 		`User's permissions. "*" means any

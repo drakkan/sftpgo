@@ -72,6 +72,7 @@ Flags:
       --gcs-storage-class string
   -h, --help                            help for portable
   -l, --log-file-path string            Leave empty to disable logging
+      --log-utc-time                    Use UTC time for logging
   -v, --log-verbose                     Enable verbose logs
   -p, --password string                 Leave empty to use an auto generated
                                         value
